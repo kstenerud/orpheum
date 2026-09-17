@@ -51,13 +51,21 @@ A throwaway tool — not part of the product — that:
 - **Which audio profiles does each device's *audio path* accept?** Not the device — the path.
   Test HDMI/ARC into a receiver, the TV's own speakers, and Bluetooth, because D22 claims these
   answer differently and that separating the axes is what makes a mid-session change cheap.
+- **Does mid-playback track switching actually work on each client?** Change subtitle language
+  and audio track forty minutes in and watch for a video stall, a seek, or a restart. D23 makes
+  this an invariant; this is where it gets checked against real players.
+- **Do closed captions survive?** Play a 608/708 recording direct, then force a transcode, and
+  see whether the captions are still there.
 
 ## Corpus
 
 Not synthetic, and deliberately unrepresentative in one direction: the real library **plus** the
 old and awkward files, so the tail is visible rather than averaged away. H.264 and HEVC, 8-bit
 and 10-bit, HDR10 and Dolby Vision, MKV/MP4/AVI and a disc rip, TrueHD/DTS-HD/E-AC-3/AAC,
-embedded ASS with attached fonts, embedded PGS, external SRT, a multi-part file.
+embedded ASS with attached fonts, embedded PGS, external SRT, a multi-part file, and — easy to
+forget and specifically called out by [D23](../../decisions/working-notes.md) — **a broadcast
+recording or OTA rip carrying CEA-608/708 closed captions inside the video stream**, which is the
+case that breaks when a transcode starts.
 
 ## Done when
 

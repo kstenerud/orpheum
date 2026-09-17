@@ -282,7 +282,10 @@ serving embedded subs — should simply be the default behaviour, because on-dem
 from a large MKV is exactly the "progress indicator loops forever" complaint. Burning in is
 worse than it looks: it forces a video transcode of content that would otherwise direct-play.
 
-**Status:** Provisional; well-evidenced.
+**Status:** **Extended by [D23](#d23--axis-switching-is-mid-session-by-default-burn-in-is-the-one-thing-that-breaks-it)**
+— scan-time extraction turns out to be the *enabling requirement* for mid-playback track
+switching, not merely a latency optimisation, and closed captions need separate handling
+entirely. Provisional; well-evidenced.
 
 ---
 
@@ -939,3 +942,105 @@ be reviewed against D21's no-grammar rule.
 
 **Status:** Provisional. The axis split and the LGPL/GPL boundary are solid; the demuxed-HLS
 compatibility question is open and measurable.
+
+---
+
+## D23 — Axis switching is mid-session by default; burn-in is the one thing that breaks it
+
+**Decided.** Changing the subtitle track — turning captions on, switching language — and changing
+the audio track are **normal mid-playback operations**, not session restarts. This is promoted to
+an invariant over [D22](#d22--video-audio-and-subtitles-negotiate-as-independent-axes):
+
+> **No operation on one axis may require restarting or re-negotiating another.**
+
+There is exactly one thing that breaks it, and it is named and labelled rather than forbidden:
+subtitle burn-in.
+
+### What makes mid-session switching work
+
+HLS declares every alternate rendition in the master playlist up front, so a client switches by
+fetching different segments — no new session, no server round-trip beyond the fetch. That works
+**only if every track is enumerated and already materialised when playback starts.**
+
+Which means **[D11](#d11--subtitles-are-a-subsystem-not-a-feature)'s scan-time extraction is not
+an optimisation — it is the enabling requirement for this.** If a user turns subtitles on forty
+minutes into a film and the server only then starts demuxing a 60 GB remux to produce them, that
+is precisely the complaint recorded in
+[sentiment.md](../design/research/sentiment.md): "I will just add manually - can't, progress
+indicator loops forever." The workaround an HN user arrived at independently — pre-extract
+everything, disable serving embedded subs — is the correct default, and this decision is why.
+
+Corollary: the subtitle axis is negotiated **once, at session start**. The client declares what it
+can *render*; the manifest carries every matching track; the client then switches freely.
+
+### Burn-in collapses the subtitle axis into the video axis
+
+This is the sharpest available statement of why burn-in is a last resort, and it is stronger than
+D11's original "it forces a video transcode":
+
+If subtitles are burned into the picture, then turning them off, or changing language, requires a
+**different video stream**. The axes are no longer independent, and the invariant above is
+violated.
+
+So burn-in is not a subtitle rendition at all — **it is a video rendition with the subtitle
+selection baked in**, and it must be labelled as such in the manifest so a client can tell the
+user that choosing it locks their subtitle choice for the session. It is offered only when a
+client can render neither text nor bitmap subtitles and the content has no text alternative.
+
+### The axis is logical; the transport differs by format
+
+Worth stating explicitly, because "subtitles are an HLS rendition" is only true for one of the
+four cases. Verified against FFmpeg's `hlsenc.c` and `libavcodec` on 2026-09-17:
+
+| Format | Transport | Notes |
+| --- | --- | --- |
+| **WebVTT** | In-manifest HLS subtitle rendition | FFmpeg's HLS muxer uses the WebVTT muxer for subtitle variant streams. This is the mandatory baseline. |
+| **ASS/SSA** | **Out-of-band sidecar + font attachments**, rendered by the client's libass | HLS has no ASS rendition type. Never silently convert ASS to WebVTT — it discards styling, positioning, karaoke and typesetting, which for anime *is* the subtitle. Offer a converted WebVTT as a separate, clearly degraded entry for clients without libass. |
+| **PGS / VobSub** | Out-of-band bitmap, composited by the client | Burn-in only if the client can do neither. Note Roku cannot render bitmap subtitles at all — the one platform where burn-in is unavoidable, and a reason it ranks poorly in [tech-clients.md](../design/research/tech-clients.md). |
+| **CEA-608/708** | **Not a track at all** — see below | HLS signals these with `EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS`, distinct from `TYPE=SUBTITLES`. |
+
+### Closed captions are a trap, and "turn on CC" is exactly where it springs
+
+CEA-608/708 captions are **carried inside the video elementary stream** as SEI side data, not as a
+separate track. Two consequences that no amount of subtitle-track handling will cover:
+
+1. **Transcoding the video destroys them** unless side data is explicitly carried through
+   (FFmpeg provides `vf_ccrepack` and A53 side-data handling for exactly this). Remuxing preserves
+   them. So a broadcast recording or OTA rip that direct-plays with working captions can lose
+   them the moment a bandwidth transcode kicks in — a bug that appears only under load, on only
+   some content, which is the worst kind.
+2. **They cannot be pre-extracted by demuxing**, because there is nothing to demux. They must be
+   *decoded* out of the video stream (FFmpeg's `ccaption_dec`).
+
+**Decision:** at scan time, detect embedded captions and **extract them into a real subtitle
+track**, so they become an ordinary switchable rendition like everything else. Separately,
+**preserve the in-stream captions on remux, and require the video transcoder plugin to carry
+them through as a conformance condition** — a transcoder that silently drops captions fails its
+tests, not the user's evening.
+
+This decouples "turn on CC" from whether the video happens to be transcoding, which is the whole
+point.
+
+### Track semantics that have to be modelled, not bolted on
+
+Each of these is a live complaint on an incumbent's tracker, and each is a property of the data
+model rather than of the player:
+
+- **Forced subtitles.** The subset shown only for foreign dialogue, flagged in the container
+  (`AV_DISPOSITION_FORCED`). A different user intention from "subtitles on": forced tracks should
+  auto-enable when the audio language matches the user's, and must be a flag on the track rather
+  than a separate concept.
+- **Default and preferred track selection, persisted.** Per user, and ideally per series: setting
+  Japanese audio with English subtitles on episode 1 should carry to episode 2. Jellyfin carries
+  this as `Configurable default language for audio/subtitle` (+18) and `Subtitle default option
+  per user` (+12).
+- **Per-track offset/sync adjustment**, which must survive a track switch. Requested on every
+  client tracker in the survey.
+- **Sidecars added after the scan.** A `.srt` dropped next to the film later must be picked up by
+  the watcher and appear on next play at the latest.
+- **Overlapping and multi-part tracks**, which Jellyfin carries as `Stack subtitles with
+  overlapping timestamps` (+15).
+
+**Status:** Provisional. The closed-caption extraction-plus-passthrough requirement is the part
+most likely to be got wrong quietly, so it belongs in the playback survey's corpus and in the
+transcoder's conformance tests rather than in a checklist somewhere.

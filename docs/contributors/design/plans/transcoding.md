@@ -115,6 +115,13 @@ That is a small interface over a closed vocabulary rather than an open negotiati
 checkable: a transcoder that claims `h264-sdr` and cannot produce it fails a conformance test
 rather than a user's playback.
 
+**Conformance must also cover closed captions.** CEA-608/708 captions live inside the video
+elementary stream as SEI side data, and a transcode destroys them unless the side data is
+explicitly carried through (FFmpeg provides `vf_ccrepack` and A53 side-data handling). A
+transcoder that silently drops captions produces a bug that only appears under load, on only
+some content — so carry-through is a test, not a guideline
+([D23](../../decisions/working-notes.md)).
+
 Other questions the interface must still answer: how the transcoder reads media (shared mount, or the
 core streaming bytes to it — the latter is what makes a genuinely remote transcoder work); how
 capabilities are advertised and re-probed when hardware changes; and how a transcoder dying

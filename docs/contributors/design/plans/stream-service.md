@@ -19,8 +19,10 @@ It provides:
 - ranged direct-play `GET` of the original file;
 - the **rendition-list endpoint**, answering "what can I play this as" with, initially, one
   entry;
-- the subtitle pipeline (D11) — extraction at scan time, format conversion, font attachments
-  served as addressable resources;
+- the subtitle pipeline (D11, [D23](../../decisions/working-notes.md)) — extraction at scan time
+  (which is what makes mid-playback switching possible, not merely fast), format conversion,
+  font attachments served as addressable resources, **closed captions decoded out of the video
+  stream into a real track**, and forced/default/preferred track semantics;
 - trickplay sprite generation and chapter data;
 - playback-progress reporting;
 - **audio transcoding and per-axis remuxing** — copying a video track into fMP4 segments needs a
@@ -50,10 +52,16 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   ([D22](../../decisions/working-notes.md)) — separate HLS renditions via `EXT-X-MEDIA` groups.
   This is what makes audio-only transcoding expressible, keeps mid-playback audio-track switching
   from disturbing the video, and keeps the menu additive rather than multiplicative.
+- **The invariant: no operation on one axis may restart another**
+  ([D23](../../decisions/working-notes.md)). Turning captions on or changing language is a
+  rendition fetch, not a new session. Every track must therefore be enumerated and materialised
+  before playback begins. A burned-in stream is the single labelled exception and is a *video*
+  rendition, flagged so clients can say the subtitle choice is locked.
 
 ## Done when
 
 A client direct-plays everything the playback survey says it should; a client that cannot decode
 TrueHD or DTS-HD still plays the film with its video untouched and its audio transcoded; ASS
-subtitles render correctly with their embedded fonts; resume is correct; and anything that still
-cannot play says why.
+subtitles render correctly with their embedded fonts; **captions and subtitle language can be
+switched forty minutes in without the video stuttering**; resume is correct; and anything that
+still cannot play says why.

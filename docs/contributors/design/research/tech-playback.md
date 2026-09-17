@@ -376,11 +376,45 @@ desync, and subtitles are the most frequently named pain point in HN threads.
 
 **The formats, and what each demands.**
 
-| Format | Nature | Requirement |
+| Format | Nature | Transport and requirement |
 | --- | --- | --- |
-| SRT / WebVTT | Text | Trivial. Convert to WebVTT, serve as an HLS subtitle rendition. |
-| ASS / SSA | Text + a full styling and animation language | Must be rendered by **libass** or it is wrong. Needs the fonts, which are often *attachments inside the MKV*. |
-| PGS (Blu-ray) / VobSub (DVD) | Bitmap | Must be composited, or OCR'd, or burned in. |
+| SRT / WebVTT | Text | Trivial. **In-manifest HLS subtitle rendition** — FFmpeg's HLS muxer uses the WebVTT muxer for these. The mandatory baseline. |
+| ASS / SSA | Text plus a full styling and animation language | **Out-of-band sidecar + font attachments**; rendered by the client's libass. HLS has no ASS rendition type. Fonts are usually *attachments inside the MKV*. Never silently convert to WebVTT — that discards styling, positioning and karaoke, which for anime *is* the subtitle. |
+| PGS (Blu-ray) / VobSub (DVD) | Bitmap | Out-of-band; composited by the client. Burn-in only if it can do neither — and Roku can render no bitmap subtitles at all. |
+| **CEA-608/708** | **Not a track** — SEI side data inside the video stream | HLS signals it as `EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS`, distinct from `TYPE=SUBTITLES`. See below; this is where "turn on CC" goes wrong. |
+
+**The axis is logical; the transport differs by format.** "Subtitles are an HLS rendition" is true
+for exactly one of those four rows, and designing as though it were true for all of them is a
+common way to get ASS and PGS wrong.
+
+### Mid-playback switching is the normal case, and it constrains everything above
+
+Turning captions on and changing subtitle language happen *during* playback, not before it
+([D23](../../decisions/working-notes.md)). HLS supports this natively — every rendition is
+declared in the master playlist and the client just fetches different segments — **but only if
+every track is already enumerated and materialised when playback starts.**
+
+That is what makes scan-time extraction an enabling requirement rather than an optimisation. It
+is also the sharpest statement of why burn-in is a last resort: **burn-in collapses the subtitle
+axis into the video axis.** If the subtitles are in the picture, turning them off or changing
+language needs a different *video* stream, and the independence established in §2d is gone. A
+burned-in stream is therefore a **video** rendition with a subtitle choice baked in, and must be
+labelled so the client can warn the user that picking it locks their choice.
+
+### Closed captions: the case that breaks under load
+
+CEA-608/708 captions ride inside the video elementary stream as SEI side data. So:
+
+- **A video transcode destroys them** unless side data is explicitly carried through (FFmpeg
+  ships `vf_ccrepack` and A53 side-data handling for this). A remux preserves them. A broadcast
+  recording that direct-plays with working captions can therefore lose them the moment a
+  bandwidth transcode starts — a bug that appears only under load, on only some content.
+- **They cannot be pre-extracted by demuxing**, because there is nothing to demux; they must be
+  *decoded* out of the video stream (`ccaption_dec`).
+
+The fix is both halves: extract them to a real subtitle track at scan time so they become an
+ordinary switchable rendition, *and* require the video transcoder to carry the in-stream captions
+through as a conformance condition.
 
 **Consequences for the design.**
 
@@ -398,8 +432,12 @@ desync, and subtitles are the most frequently named pain point in HN threads.
 4. **Never burn in unless there is no alternative**, because burning in forces a video
    transcode of content that would otherwise direct-play. PGS on a client without a bitmap
    renderer is the case that forces it.
-5. **Offset/sync adjustment is a client control**, and must exist. It is requested on every
-   client tracker.
+5. **Offset/sync adjustment is a client control**, and must exist, per track, surviving a track
+   switch. It is requested on every client tracker.
+6. **Track semantics are data-model concerns, not player concerns**: forced tracks
+   (`AV_DISPOSITION_FORCED`) auto-enabled when the audio language matches the user's; default and
+   preferred track choices persisted per user and per series; sidecars added after the scan
+   picked up by the watcher; overlapping tracks stacked rather than fighting.
 
 ## 5. Hardware acceleration
 
@@ -441,5 +479,7 @@ is 8,042 lines mostly because of this matrix.
    GPL boundary falls between the axes, so audio transcoding belongs in the core. (§2d, D22)
 4. **Audio-only renditions are a first-class case**, not a special case of video transcoding.
 5. **Subtitles get a subsystem**: extract on scan, serve fonts, libass on every client, never
-   burn in by default.
+   burn in by default. **Mid-playback track switching is the normal case** and nothing on one
+   axis may restart another — burn-in is the single labelled exception, and closed captions need
+   extract-at-scan *plus* carry-through-on-transcode. (§4, D23)
 6. **Hardware acceleration behind one interface**, with a shipped FFmpeg and honest fallback.
