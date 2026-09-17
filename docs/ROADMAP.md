@@ -77,9 +77,14 @@ likely to disappoint.
 
 ---
 
-## Phase 4 — Transcoding, as a separate optional component
+## Phase 4 — Transcoding, as a plugin we happen to maintain
 
 `transcoding.md`, prioritised by what Phase 0 measured.
+
+Built on the **public** plugin API, with no privileged access to the core
+([D19](contributors/decisions/working-notes.md)). That is not tidiness: it is the only way to
+find out whether the plugin API is any good while we still own both sides of it, and it is what
+makes the next paragraph possible.
 
 **(a) Compatibility transcoding first** — a *library* problem. Old or odd files, converted
 offline by a background job into a stored alternate version that then direct-plays forever. No
@@ -90,15 +95,26 @@ files, a batch job is the entire feature.
 case that genuinely needs live keyframe-aligned segmented transcoding with adaptive bitrate. It
 is coupled to remote access, not to the library, and on a LAN it is almost never needed.
 
-Ships as a **separate component** with the GPL encoder build: smaller default install, smaller
-licence and patent surface for that install, and a packaging boundary that mechanically stops
-encoder logic spreading through the core — which is how `EncodingHelper.cs` reached 8,042 lines.
+**The capability that falls out for free: the machine that encodes need not be the machine that
+serves.** A transcoder that registers rather than links can live on the desktop with the GPU
+while the NAS serves files, and several can register with the core picking by advertised
+capability. Nobody in this field offers this — `rffmpeg` (1,073 stars, **written by a Jellyfin
+founder**) is an out-of-tree wrapper that impersonates the `ffmpeg` binary and SSHes to another
+host, because Jellyfin has nowhere to put it.
+
+Ships with its own GPL encoder build: smaller default install, smaller licence and patent
+surface for that install, and a boundary that mechanically stops encoder logic spreading through
+the core — which is how `EncodingHelper.cs` reached 8,042 lines.
+
+**Build the interface last.** Write the transcoder against a private contract, get it working on
+real hardware, then promote the contract to public. An API designed against an imaginary consumer
+is how plugin systems go bad.
 
 ---
 
 ## Phase 5 — Borrow an ecosystem
 
-`jellyfin-api-shim.md` — an out-of-process adapter speaking Jellyfin's API against our public
+`jellyfin-api-shim.md` — a tier-2 protocol adapter speaking Jellyfin's API against our public
 REST API, so Findroid, Swiftfin, Infuse, Streamyfin and Wolphin work against our server.
 
 It is also where a device-profile evaluator has to live — accepting a profile and answering it
@@ -127,8 +143,8 @@ directions.
 
 ## Phase 7 — Audio, cheaply
 
-An OpenSubsonic API surface (a second out-of-process adapter, per D15) over the existing model,
-plus a music library type.
+An OpenSubsonic API surface — a second tier-2 protocol adapter, the same shape as Phase 5 — over
+the existing model, plus a music library type.
 
 **Server-side work only.** Speaking OpenSubsonic inherits Symfonium, Amperfy, Tempo and Feishin
 for free. There is nothing equivalent for video, which is exactly why video is expensive and
@@ -142,7 +158,8 @@ Audiobookshelf's 1,191 open issues are the evidence.
 ## Explicitly not on this roadmap
 
 Photos (D1), DRM, a device-profile database in the core (D2/D18), an encoding ladder,
-microservices, a Roku client, in-process protocol plugins, live TV and DVR.
+microservices, a Roku client, in-process protocol plugins, an encoder in the core binary (D19),
+live TV and DVR.
 
 ---
 
@@ -162,3 +179,7 @@ microservices, a Roku client, in-process protocol plugins, live TV and DVR.
    encodes; get real advice before anything commercial.
 6. **Scope creep into audiobooks, comics, live TV, photos.** The competitive trackers show
    exactly what this costs. The roadmap's job is to keep saying no.
+7. **Plugin-API speculative generality.** Three tiers is already a taxonomy, and taxonomies
+   invite designing for members that do not exist. Mitigation: every tier must have a real
+   first-party member before it is built, and the transcoder's interface is *extracted* from a
+   working implementation rather than designed ahead of one.

@@ -1,5 +1,6 @@
-> **ABOUTME:** Transcoding as a separable optional component — the compatibility path and the
-> bandwidth path, which are different problems, built in that order and only once measured.
+> **ABOUTME:** Transcoding as a first-party plugin on the public API — the compatibility path
+> and the bandwidth path, which are different problems, built in that order and only once
+> measured, on a machine that need not be the one serving the files.
 
 # Transcoding
 
@@ -8,13 +9,37 @@
 
 ## Position
 
-Transcoding is **not** part of the core server (D16, D17). It ships as a separate optional
-component with the full GPL FFmpeg encoder build. The core demuxes, probes, extracts subtitles
-and makes thumbnails, and needs no encoder to do any of that.
+The transcoder is **a plugin we happen to maintain** ([D19](../../decisions/working-notes.md)) —
+a tier-3 capability service on the public plugin API, with no privileged access to the core that
+a third party could not also have. Not linked in, and not merely "an optional component".
 
-This is a packaging boundary doing architectural work: it keeps the default install small, keeps
-the default install's licence and patent surface small, and mechanically prevents encoder logic
-from spreading through the core — which is how `EncodingHelper.cs` reached 8,042 lines.
+Four things follow, and the third is the one that makes this worth doing rather than just tidy:
+
+1. **It keeps the plugin API honest.** The transcoder is the most demanding extension this
+   project will ever have. If it can be built on the public API, the API is adequate. Jellyfin's
+   plugin API is weak partly because nothing load-bearing was ever built on it.
+2. **The licence and patent boundary gets a mechanism instead of a convention.** The GPL encoder
+   build and the x264/x265 linkage live in something the user installs deliberately (D16), and a
+   third party can ship an alternative without touching us.
+3. **The transcoder does not have to be on the same machine.** See below.
+4. **The degraded path becomes the default path.** "This server cannot transcode" is what an
+   install answers until a transcoder registers, so it is exercised constantly instead of being
+   a rarely-taken branch.
+
+## Remote and distributed transcoding
+
+The capability nobody in this field has, available for free once the transcoder registers rather
+than links. The NAS serves files; the desktop with a GPU encodes. Several transcoders may
+register and the core picks by advertised capability.
+
+**The demand is proven and the missing seam is proven with it:** `rffmpeg` — 1,073 stars, created
+2019, still maintained 2025, **written by a Jellyfin founder** — is an out-of-tree wrapper that
+impersonates the `ffmpeg` binary and SSHes to another host, because Jellyfin offers nowhere to
+put this. Kyoo's `gocoder` is the positive case: a standalone transcoding service already reused
+by two unrelated projects.
+
+This is not extra work. It is what "separate process that registers" already means, provided the
+interface does not assume a shared filesystem *by default*.
 
 ## Two components, not one
 
@@ -56,8 +81,28 @@ None of this is allowed to require changes to the client contract:
 - a job system that can host an encode job;
 - a **transcode reason** field, present in v1, so a client can display *why* — including "this
   server cannot transcode";
-- a capability handshake, so a core without this component says so honestly. That path has to
-  exist anyway for hardware too weak to transcode.
+- a capability handshake, so a core without a registered transcoder says so honestly. That path
+  has to exist anyway for hardware too weak to transcode;
+- **probe results and keyframe data exposed through the public API**, because the transcoder
+  needs them and must not get them by reaching inside the core;
+- **signed segment URLs**, so redirecting a client to a transcoder does not create an open proxy.
+
+## The interface, and how not to design it
+
+**Who owns the rendition list** is the whole problem. The core knows the file, its probe results
+and its keyframe grid; the transcoder knows what it can encode on this hardware. The list the
+client picks from is a *join* of the two, computed per item.
+
+Other questions the interface must answer: how the transcoder reads media (shared mount, or the
+core streaming bytes to it — the latter is what makes a genuinely remote transcoder work); how
+capabilities are advertised and re-probed when hardware changes; and how a transcoder dying
+mid-stream is reported to the client.
+
+**Do not design this API up front.** Build the transcoder against a *private* interface, get it
+working on real hardware, and promote the interface to public only once it has survived that.
+An API designed against one imaginary consumer is how plugin systems go bad; an API extracted
+from one working consumer is how they go good. Until promotion the contract is unstable, which
+is fine — this does not ship in the first releases anyway.
 
 ## Hardware acceleration
 

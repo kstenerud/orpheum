@@ -189,6 +189,24 @@ home server feel slow.
 > bandwidth, in that order, because (c) is the simpler problem and (b) is coupled to remote
 > access. Do not build a Netflix-style ladder generator at any point.
 
+### (d) Somebody else's machine
+
+A model no incumbent offers, and the one that falls out of treating the transcoder as a
+registered service rather than linked-in code ([D19](../../decisions/working-notes.md)): the
+box serving the files need not be the box doing the encoding. A NAS with a weak CPU serves; a
+desktop with a GPU transcodes; the client is redirected to whichever produced the segments.
+
+**The demand is proven, and so is the absence of anywhere to put it.** `rffmpeg` — 1,073 stars,
+created 2019, still maintained in 2025, and **written by a Jellyfin founder** — is an
+out-of-tree Python wrapper that impersonates the `ffmpeg` binary and SSHes to a remote host to
+run it. That hack exists because Jellyfin's architecture has no seam for remote transcoding,
+and a founder writing an impersonation shim outside his own project is strong evidence that
+the seam should have been there.
+
+Kyoo's `gocoder` is the positive case: a standalone transcoding service, already reused by two
+unrelated projects (Meelo, Blee). A transcoder that is a service is reusable; a transcoder that
+is a subsystem is not.
+
 ### Audio is the under-appreciated half
 
 A large fraction of real-world "video transcodes" are actually **audio-only** problems: the

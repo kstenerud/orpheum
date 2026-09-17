@@ -54,15 +54,15 @@ Five choices, each traceable to a specific failure in the research:
 2. **Direct play is the default and always on offer.** Transcoding is the exception, it is
    explicable in the UI, and the user can override the decision in both directions.
    ([D4](../decisions/working-notes.md))
-3. **Subtitles are a subsystem.** Extracted at scan time with their fonts, served as HLS
+4. **Subtitles are a subsystem.** Extracted at scan time with their fonts, served as HLS
    renditions, rendered with libass on every client. This is the most-complained-about part of
    every competitor and the cheapest place to be visibly better.
    ([D11](../decisions/working-notes.md))
-4. **Your files stay yours.** Media read-only by default. The database is a rebuildable index,
+5. **Your files stay yours.** Media read-only by default. The database is a rebuildable index,
    not an authority. Your corrections are written back to sidecars. No telemetry, no account,
    no storefront — as a stated promise. ([D7](../decisions/working-notes.md),
    [D13](../decisions/working-notes.md))
-5. **One excellent TV client beats five mediocre ones.** The project is judged on its TV app.
+6. **One excellent TV client beats five mediocre ones.** The project is judged on its TV app.
    ([D10](../decisions/working-notes.md))
 
 ## Architecture
@@ -83,18 +83,24 @@ Five choices, each traceable to a specific failure in the research:
 │                                                                  │
 │  api/        REST handlers; OpenAPI generated from code          │
 │  library/    scan → identify → enrich, as named phases           │
-│  stream/     manifest builder; direct-play; segment transcoder   │
-│  (encode/    optional separate component — not in the v1 core)     │
+│  stream/     rendition list; direct-play; subtitle + trickplay   │
+│              (no encoder — the transcoder is a plugin, below)     │
 │  subtitle/   extraction, conversion, font attachments (D11)      │
 │  jobs/       typed, persisted, inspectable queue                 │
-│  plugin/     Extism/WASM sandbox for providers + scrapers (D12)  │
+│  plugin/     three tiers: WASM sandbox, protocol adapters,       │
+│              capability services (D12, D15, D19)                 │
 │  store/      sqlc-generated typed SQL (D6)                       │
-└──────────────┬─────────────────────────────┬────────────────────┘
-               │                             │
-        ┌──────┴───────┐             ┌───────┴────────┐
-        │ PostgreSQL   │             │ Media (ro) +   │
-        │ (D5)         │             │ cache/ (purge) │
-        └──────────────┘             └────────────────┘
+└───┬──────────────┬─────────────────────────────┬────────────────┘
+    │              │                             │
+    │       ┌──────┴───────┐             ┌───────┴────────┐
+    │       │ PostgreSQL   │             │ Media (ro) +   │
+    │       │ (D5)         │             │ cache/ (purge) │
+    │       └──────────────┘             └────────────────┘
+    │
+    │  registered plugins — same public API a third party would use
+    ├─ transcoder      (tier 3, first-party, optional, MAY BE REMOTE)
+    ├─ jellyfin-adapter (tier 2, inbound — borrows other people's clients)
+    └─ metadata providers, scrapers, scrobblers  (tier 1, WASM sandbox)
 ```
 
 Notes on the shape:
@@ -106,6 +112,13 @@ Notes on the shape:
   FFmpeg drives it as a process; cgo bindings to libav\* are a build-complexity liability. We
   ship a known-good build rather than accepting the distro's — Jellyfin maintains an entire
   FFmpeg fork, which is evidence of what the alternative costs.
+- **The core needs no encoder.** It demuxes, probes, extracts subtitles and makes thumbnails.
+  Encoding happens in the transcoder plugin, on its own FFmpeg build, possibly on another
+  machine ([D19](../decisions/working-notes.md)).
+- **"Plugin" means three different things**, chosen by shape: a sandboxed WASM extension the
+  core calls into, an inbound protocol adapter that consumes our API, or an outbound capability
+  service the core calls and clients may be redirected to. Each tier exists because a real
+  member needs it.
 - **`cache/` is always safe to delete.** Nothing irreplaceable lives outside the database and
   the media files.
 - **The scanner runs as named phases** (Navidrome's model) with its own structured log channel,
@@ -122,7 +135,7 @@ Notes on the shape:
 | Microservices, Kafka, Elasticsearch, Redis | Household scale. Postgres covers search, fuzzy matching and job wakeups. |
 | A Roku client | BrightScript shares no code with anything and Roku cannot render bitmap subtitles at all. |
 | In-process plugins | [D12](../decisions/working-notes.md). Third-party scrapers are the last code you want unsandboxed. Protocol surfaces get a second tier — out-of-process adapters ([D15](../decisions/working-notes.md)). |
-| Transcoding in the core binary | [D17](../decisions/working-notes.md). A separable optional component keeps the default install small, keeps its licence and patent surface small, and stops encoder logic spreading through the core. |
+| Transcoding in the core binary | [D17](../decisions/working-notes.md), [D19](../decisions/working-notes.md). It is a plugin on the public API: smaller default install, a real licence/patent boundary, and remote transcoding for free. |
 | Audiobooks, comics, live TV/DVR | Each is a different product wearing the same clothes. Audiobookshelf's 1,191 open issues are the evidence. |
 
 ## The open problems

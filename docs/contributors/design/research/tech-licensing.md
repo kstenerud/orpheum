@@ -74,24 +74,35 @@ The practical landscape, stated as observation rather than advice:
 legal advice before anything commercial ever happens. Do not pretend the question does not
 exist, and do not answer it in a README.
 
-## 3. A consequence worth taking: transcoding as a separable component
+## 3. A consequence worth taking: the encoder lives in a plugin
 
 Because the happy path is direct play (D17), the encoder is not on the critical path for most
-playback. That makes a genuinely useful split available:
+playback. That makes a genuinely useful split available, and
+[D19](../../decisions/working-notes.md) makes it structural rather than a packaging convention:
 
-- **Core server: decode/demux/probe only.** Needs FFmpeg for `ffprobe`, keyframe extraction,
-  subtitle extraction and thumbnailing — none of which requires an encoder, and little of which
-  requires the GPL rung.
-- **Transcoding: an optional component** with the full GPL encoder build, shipped separately
-  (a distinct image layer, or a distinct binary) and installed by users who need it.
+- **Core server: demux, probe, extract, thumbnail.** Needs FFmpeg for `ffprobe`, keyframe
+  extraction, subtitle extraction and thumbnailing — **none of which requires an encoder**, and
+  little of which requires the GPL rung.
+- **Transcoder: a first-party plugin** with its own full GPL encoder build, installed
+  deliberately, and possibly not even on the same machine.
 
-This buys three things at once: a smaller default install, a smaller licence surface for the
-default install, and an enforced architectural boundary that stops transcoding logic leaking
-into the core — which is exactly how Jellyfin ended up with an 8,042-line `EncodingHelper.cs`.
+What this buys on the licensing axis specifically:
 
-The cost is a packaging split and a capability-negotiation path ("this server cannot transcode;
-here is what it can do"). That is a small price, and the negotiation path has to exist anyway
-for servers on hardware too weak to transcode.
+- **A smaller licence surface for the default install.** x264/x265 — and therefore the
+  `--enable-gpl` rung — are not in it.
+- **Almost no patent exposure for the default install**, because it never encodes, and encoding
+  is where the exposure concentrates (§2).
+- **Someone else can ship a different one.** A commercially-licensed encoder build, a vendor-SDK
+  build, a hardware appliance — none of it requires our involvement or our licence posture. A
+  user in a jurisdiction where this matters can simply not install a transcoder, and the server
+  still works.
+
+And on the engineering axis: a boundary that mechanically stops encoder logic leaking into the
+core — which is exactly how Jellyfin ended up with an 8,042-line `EncodingHelper.cs`.
+
+The cost is an interface to design and a capability-negotiation path ("this server cannot
+transcode; here is what it can do"). Both are small, and the negotiation path has to exist
+anyway for hardware too weak to transcode.
 
 ## 4. Metadata provider terms under an open-source release
 
@@ -118,7 +129,8 @@ be made pleasant.
 3. **Ship a self-built, pinned FFmpeg and publish the configure line.**
 4. **Codec patents are a real and separate question.** Follow the field's practice, say so
    plainly, get advice before anything commercial.
-5. **Transcoding is a separable optional component**, which shrinks the default install's
-   licence surface and enforces the architectural boundary for free.
+5. **The encoder lives in a plugin, not the core** (D19) — which shrinks the default install's
+   licence *and* patent surface, lets third parties ship alternatives under their own terms, and
+   enforces the architectural boundary for free.
 6. **Prefer AV1/Opus wherever we choose an output codec** — royalty-free by design.
 7. **Provider API keys are always the user's.**

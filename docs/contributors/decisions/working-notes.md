@@ -373,7 +373,8 @@ answers with a redirect to the core's own media URL.
 **Consequences.** The core server's public REST API must be complete enough to build a full
 competing protocol surface on top of it. That is a constraint, and a healthy one.
 
-**Status:** Provisional.
+**Status:** **Refined by [D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three)**
+— two tiers become three, with the transcoder as the first member of the third.
 
 ---
 
@@ -464,6 +465,11 @@ that can host an encode job; a transcode *reason* field the client can display e
 answer is "we can't"; and a capability handshake so a server without the transcoding component
 can say so — which has to exist anyway for hardware too weak to transcode.
 
+**Refined by [D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three):**
+"separable optional component" is weaker than what we actually want. The transcoder is a
+**plugin on the public API**, which makes the separation structural rather than a packaging
+convention, and unlocks remote transcoding as a side effect.
+
 **Rejected:** building the segmented transcoder first (the original Phase 0). It was ordered
 first because it was the riskiest assumption; it is better handled by *measuring* the
 assumption cheaply and deferring the build.
@@ -505,3 +511,90 @@ exist in v1.
 **Status:** Provisional. Schedule it after the native API stabilises; it may reduce the urgency
 of the first-party TV client, and that trade should be re-examined once it exists rather than
 assumed now.
+
+---
+
+## D19 — The transcoder is a plugin we happen to maintain; plugin tiers become three
+
+**Decided.** The transcoder is not "an optional component" in a packaging sense
+([D17](#d17--direct-play-first-transcoding-additive-and-optional)'s weaker formulation). It is a
+**first-party plugin built on the public plugin API**, with no privileged access to the core that
+a third party could not also have.
+
+This refines [D15](#d15--two-plugin-tiers-in-process-wasm-and-out-of-process-adapters) from two
+tiers to three, because a transcoder fits neither existing one:
+
+| Tier | Mechanism | Direction | Members |
+| --- | --- | --- | --- |
+| **1. Sandboxed extensions** | Extism / WebAssembly, explicit host-capability list | Core calls in, request-shaped | Metadata providers, scrapers, scrobblers, lyrics, filename-parser rules |
+| **2. Protocol adapters** | Separate process, own listener, consumes our public REST API | **Inbound** — clients talk to it, it talks to us | Jellyfin-compatible API ([D18](#d18--the-jellyfin-compatible-surface-is-an-adapter-and-it-quarantines-device-profiles)), OpenSubsonic, DLNA |
+| **3. Capability services** | Separate process, registers with the core, may serve bytes to clients directly | **Outbound** — we call it; clients may be redirected to it | **The transcoder.** Later: an ML service, if photos ever happen |
+
+A transcoder is long-lived, stateful and streaming, so tier 1 is wrong — pushing video through
+a WASM boundary is pathological. It is not a protocol surface consuming our API, so tier 2 is
+wrong by direction. Tier 3 is the shape it actually has, and it has confirming prior art:
+Immich's machine-learning service is exactly this, and Kyoo's `gocoder` is a standalone
+transcoding service already reused by two unrelated projects (Meelo, Blee).
+
+### Why this is better than an "optional component"
+
+1. **It keeps the plugin API honest.** The transcoder is the most demanding extension this
+   project will ever have. If it can be built on the public API with no special privileges,
+   the API is proven adequate; if it cannot, we find out while we still own both sides. This is
+   the library-first / first-party-consumer-as-honesty-keeper argument. The counter-example is
+   in the survey: Jellyfin's plugin API is weak partly because nothing load-bearing is built on
+   it, so nothing ever forced it to be good.
+2. **It unlocks remote and distributed transcoding, which nobody in this field has.** If the
+   transcoder registers with the core rather than being linked into it, it does not have to be
+   on the same machine. The NAS serves files; the desktop with a GPU transcodes. Several
+   transcoders can register and the core picks by advertised capability (this one has NVENC,
+   that one has QSV).
+
+   **The demand is proven and the absence of a seam is proven with it:** `rffmpeg` — 1,073
+   stars, created 2019, still maintained in 2025, **written by a Jellyfin founder** — is an
+   out-of-tree Python wrapper that impersonates the `ffmpeg` binary and SSHes to a remote host,
+   because Jellyfin's architecture offers nowhere to put this. A founder resorting to an
+   impersonation hack outside his own project is about as clear as architectural evidence gets.
+3. **It makes the degraded path the default path.** D17 already requires a "this server cannot
+   transcode" answer. With the transcoder as a plugin, that answer is what an install returns
+   until one is registered — so it is exercised constantly rather than being a rarely-taken
+   branch. Untested fallbacks are where bugs live.
+4. **It gives the licence and patent boundary a mechanism rather than a convention.** The GPL
+   encoder build and the x264/x265 linkage live in a component the user installs deliberately
+   (D16). A third party can ship an alternative — a commercially-licensed encoder, a
+   vendor-SDK build, a hardware appliance — without touching us, and a user in a jurisdiction
+   where this matters can simply not install one.
+5. **It does not conflict with [D9](#d9--server-language-go-one-language-on-the-server).** The
+   one-language rule governs *our server code*, and our transcoder will be Go. A defined network
+   protocol is a boundary, not a language choice; a third-party transcoder can be anything.
+
+### The hard part, stated honestly
+
+**Who owns the rendition list?** The core knows the file, its probe results and its keyframe
+grid. The transcoder knows what it can encode on this hardware. The list the client picks from
+is a *join* of those two, computed per item. That join is the whole interface, and getting it
+wrong yields either a leaky abstraction or a transcoder that cannot do its job.
+
+Secondary questions the interface must answer: how the transcoder reads media (shared mount, or
+the core streaming bytes to it — the former is what everyone already does, the latter is what
+makes a truly remote transcoder work); how capabilities are advertised and re-probed when
+hardware changes; how a transcoder failing mid-stream is reported to the client; and how
+segment URLs are signed so a redirect to a transcoder does not become an open proxy.
+
+### Sequencing — the part that keeps this from becoming speculative generality
+
+**Do not design the plugin API up front.** Build the transcoder as a separate process against a
+*private* interface, get it working, and then **promote that interface to public once it has
+survived contact with real hardware.** An API designed against one imaginary consumer is how
+plugin systems become bad; an API extracted from one working consumer is how they become good.
+
+Until promotion, the transcoder is a first-party service with an unstable contract, and that is
+fine — it is not shipped in the first releases anyway (D17).
+
+**Consequences.** The default Docker Compose ships the transcoder alongside Postgres, so the
+install is still one command and the boundary is still real. The core must expose probe results
+and keyframe data through its public API, because the transcoder needs them and must not get
+them by reaching inside. Segment URLs need signing.
+
+**Status:** Provisional. The interface is deliberately not specified here; it is an output of
+building the thing, not an input.
