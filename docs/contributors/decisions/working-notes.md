@@ -1044,3 +1044,138 @@ model rather than of the player:
 **Status:** Provisional. The closed-caption extraction-plus-passthrough requirement is the part
 most likely to be got wrong quietly, so it belongs in the playback survey's corpus and in the
 transcoder's conformance tests rather than in a checklist somewhere.
+
+---
+
+## D24 — Language is a preference axis, and track selections stick to the series
+
+**Decided.** Clients send a prioritised **language preference** alongside their capability lists.
+An **explicit** track choice by the user is remembered as a re-resolvable descriptor and applied
+to the rest of the series until they choose again.
+
+### Language is a preference, not a capability — keep them apart
+
+[D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) and
+[D22](#d22--video-audio-and-subtitles-negotiate-as-independent-axes) negotiate **capability**.
+Language is categorically different and must not be merged into the same list:
+
+| | Capability (codec profiles) | Language |
+| --- | --- | --- |
+| Nature | **Hard constraint** — the client physically cannot decode it | **Soft preference** — the client just wants it |
+| Effect | *Filters* what the server may produce | *Orders* what already exists |
+| On no match | Must not happen; a mandatory baseline guarantees it | Falls back down a chain; never fails |
+| Scoped to | The **device** (and its current audio path) | The **user** |
+
+The last row decides where state lives: capability is per-device and travels in the request;
+language preference is per-user, device-independent, and therefore **server-side state that
+syncs** ([D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)). Setting
+Japanese audio on the TV must be honoured by the tablet.
+
+Pleasingly, the whole negotiation remains ordinary HTTP content negotiation: `Accept` with
+q-values for the menu, **`Accept-Language` with q-values for language**. The boring, established
+mechanism already has a header for this axis.
+
+### Language matching is fiddlier than it looks — verified, not assumed
+
+- **ISO 639-2 has two competing 3-letter codes for the same language**, bibliographic and
+  terminological: `ger`/`deu`, `fre`/`fra`, `chi`/`zho`, `dut`/`nld`, `gre`/`ell`, `ice`/`isl`.
+  Media containers use 639-2 and are inconsistent about which; BCP 47 uses 639-1. This is real
+  enough that FFmpeg ships a **695-entry conversion table** (`libavformat/avlanguage.c`) and an
+  explicit `AVLangCodespace` enum covering `ISO639_2_BIBL`, `ISO639_2_TERM` and `ISO639_1`.
+  **Normalise every track's tag to BCP 47 at scan time, and keep the original** for provenance.
+- **Script subtags are load-bearing**, above all for Chinese: `zh-Hans` and `zh-Hant` are not
+  interchangeable for a reader.
+- **Region subtags matter less but still matter**: `pt-BR` vs `pt-PT`, `es-419` vs `es-ES`. Use
+  RFC 4647 basic filtering — prefix match on subtag boundaries — so a preference for `pt` matches
+  `pt-BR`, but `pt-PT` does not match `pt-BR`.
+- **Untagged and `und` tracks are common.** Resolution order: exact tag → language-only match →
+  `und` → the file's own `DEFAULT` disposition → first track of that type.
+
+### Language alone is not enough: remember (language, kind)
+
+A track tagged `eng` may be the full dialogue, SDH, forced signs-and-songs, a director's
+commentary, or audio description. Remembering "English" and re-applying it next episode is
+therefore wrong often enough to be a bug.
+
+FFmpeg's dispositions give the vocabulary, verified present in `avformat.h`:
+`FORCED`, `HEARING_IMPAIRED`, `VISUAL_IMPAIRED`, `COMMENT`, `DESCRIPTIONS`, `CAPTIONS`, `DUB`,
+`ORIGINAL`, `KARAOKE`, `DEFAULT`.
+
+Real files set these inconsistently or not at all, so the **scanner** must also derive kind from
+the track title — "English (SDH)", "Signs & Songs", "Commentary by the director" — and record
+which source it used. That is scanner work
+([scanner.md](../design/plans/scanner.md)), not player work.
+
+### The rule that makes stickiness correct: remember the criteria, not the selection
+
+**Never remember a track index.** Track 3 in episode 1 is a different language in episode 2. This
+is a real and common bug class in existing systems.
+
+Store a **descriptor** — `{language, kind}`, or the explicit value `off` — and **re-resolve it
+against each new episode's actual tracks**. Three rules follow, each of which is easy to get
+wrong:
+
+1. **Fallback never overwrites the preference.** If episode 5 has no Japanese track and we fall
+   back to English, episode 6 must still try Japanese first. A fallback is not a choice.
+2. **Only an explicit user action updates the sticky preference.** Automatic selection never
+   does, or the preference drifts silently toward whatever the files happen to contain.
+3. **`off` is a choice, distinct from unset.** Turning subtitles off on episode 1 must turn them
+   off on episode 2. The stored state is tri-valued: `off` / unset / `{language, kind}`.
+
+### The resolution chain, most specific first
+
+```
+explicit choice in this session
+  → remembered choice for this series          ← the user's ask
+    → per-library default                      ← "anime: ja audio + en subs"
+      → user's global language preference
+        → the forced-subtitle rule (below)
+          → the file's own DEFAULT disposition
+            → first track of that type
+```
+
+**Per-library defaults earn their place**: an anime library wants Japanese audio with English
+subtitles while a Western TV library wants English audio and no subtitles, and expressing that
+once per library avoids doing it once per series.
+
+**Sticky scope** is the nearest grouping ancestor: the series for an episode; the item itself for
+a film. Collections are the obvious generalisation and are deliberately not built now.
+
+### The forced-subtitle default rule, stated concretely
+
+This is the sensible starting point of the chain and connects to
+[D23](#d23--axis-switching-is-mid-session-by-default-burn-in-is-the-one-thing-that-breaks-it):
+
+- Chosen audio language **≠** the user's primary language → enable **full** subtitles in the
+  primary language.
+- Chosen audio language **=** the user's primary language → enable **forced-only** subtitles
+  (signs and songs) if such a track exists, otherwise none.
+
+It is what people expect, and everything above it in the chain can override it.
+
+### Two consequences for the data model
+
+- **The subtitle axis selection is a set, not a single value.** Usually empty or one, sometimes
+  two — dual subtitles for language learners is a real want (Jellyfin's `Dual Subtitles` carries
+  +33). Allowing a set now is free; retrofitting it is a migration.
+- **These preferences are user data and go in the change journal** (D8), so they reach every
+  device and survive a rebuild ([D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index)
+  — they are ours, not derived from the files, so they mirror to sidecars too).
+
+### Say why, not just what
+
+Per principles §3, the playback response reports what was pre-selected **and the reason**:
+"English subtitles — you chose them for this series", versus "— your account default", versus
+"— the file marks this track default". It costs almost nothing and it removes the entire "why
+did it do that?" class of confusion. No incumbent does this.
+
+### Evidence
+
+Jellyfin's trackers: `Configurable default language for audio/subtitle` (+18), `Subtitle default
+option per user` (+12), `Selectable Audio and Subtitles Tracks Prior to Playback Start, **and
+Context Awareness**` (+18) — that last title is asking for precisely this decision — and `Dual
+Subtitles` (+33).
+
+**Status:** Provisional. The language-normalisation table and kind-inference heuristics need a
+real-world corpus in the scanner's test suite; both are the kind of thing that is only ever
+right against real files.

@@ -52,6 +52,11 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   ([D22](../../decisions/working-notes.md)) — separate HLS renditions via `EXT-X-MEDIA` groups.
   This is what makes audio-only transcoding expressible, keeps mid-playback audio-track switching
   from disturbing the video, and keeps the menu additive rather than multiplicative.
+- **Language is a preference axis, resolved server-side** ([D24](../../decisions/working-notes.md)).
+  The client sends an `Accept-Language`-style prioritised list; the server resolves the chain
+  (explicit → series → library → user → forced-subtitle rule → file default) and **reports what
+  it pre-selected and why**, per principles §3. Capability travels per-request because it is
+  device-scoped; language preference is user state and syncs.
 - **The invariant: no operation on one axis may restart another**
   ([D23](../../decisions/working-notes.md)). Turning captions on or changing language is a
   rendition fetch, not a new session. Every track must therefore be enumerated and materialised

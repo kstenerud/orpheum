@@ -29,6 +29,16 @@ land here rather than being bolted on:
 - **Auth with OIDC/OAuth and LDAP**, in the core. A third-party Jellyfin SSO plugin has 1,458
   stars and Navidrome's two most-requested issues are the same two things. The user/identity
   tables are part of this schema and retrofitting external identity is painful.
+- **Track-selection preferences, scoped and re-resolvable** ([D24](../../decisions/working-notes.md)).
+  Stored as `{language, kind}` descriptors — never track indices, because track 3 in episode 1 is
+  a different language in episode 2 — at user, library and series scope, tri-valued so that `off`
+  is distinguishable from unset, and with the subtitle selection modelled as a **set** rather
+  than a single value so dual subtitles do not later require a migration. These are user data:
+  they go in the change journal and mirror to sidecars.
+- **Normalised language tags on every track.** BCP 47, normalised at scan time from whatever the
+  container carried, with the original kept for provenance. ISO 639-2's bibliographic and
+  terminological codes (`ger`/`deu`, `fre`/`fra`, `chi`/`zho`) are a real source of mismatches —
+  FFmpeg carries a 695-entry table for exactly this.
 
 ## Why it is shaped this way
 

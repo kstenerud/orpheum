@@ -27,6 +27,22 @@ A filesystem watcher for incremental updates, plus a full scan that is safe to i
    Jellyfin. The scanner gets its own structured log channel and a per-run report the user can
    read: what was found, what was skipped, what was ambiguous, and why.
 
+## Track language and kind normalisation
+
+Part of identification, and easy to underestimate ([D24](../../decisions/working-notes.md)):
+
+- **Normalise every track's language tag to BCP 47**, keeping the original. ISO 639-2 carries two
+  competing 3-letter codes per language — `ger`/`deu`, `fre`/`fra`, `chi`/`zho`, `dut`/`nld` —
+  and real containers use both inconsistently. FFmpeg's 695-entry `avlanguage.c` table exists for
+  precisely this and is the reference.
+- **Derive track *kind*, not just language.** `FORCED`, `HEARING_IMPAIRED`, `COMMENT`,
+  `DESCRIPTIONS`, `DUB`, `ORIGINAL` come from container dispositions where present — and real
+  files set them wrongly or not at all, so fall back to parsing the track title ("English (SDH)",
+  "Signs & Songs", "Commentary by the director"). Record which source was used, so a user
+  correction can beat a bad heuristic without being overwritten on rescan.
+- This belongs in the same table-driven, real-corpus test suite as the filename parser. It is
+  only ever right against real files.
+
 ## Also
 
 Manual identification override that survives rescans, provider changes and file moves (D7 —

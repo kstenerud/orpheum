@@ -434,10 +434,21 @@ through as a conformance condition.
    renderer is the case that forces it.
 5. **Offset/sync adjustment is a client control**, and must exist, per track, surviving a track
    switch. It is requested on every client tracker.
-6. **Track semantics are data-model concerns, not player concerns**: forced tracks
-   (`AV_DISPOSITION_FORCED`) auto-enabled when the audio language matches the user's; default and
-   preferred track choices persisted per user and per series; sidecars added after the scan
-   picked up by the watcher; overlapping tracks stacked rather than fighting.
+6. **Track semantics are data-model concerns, not player concerns** — see
+   [D24](../../decisions/working-notes.md) for the full treatment. In short: language is a
+   *preference* axis (soft, user-scoped, falls back) and must not be merged into the *capability*
+   axes (hard, device-scoped, filter); a remembered selection is a re-resolvable
+   `{language, kind}` descriptor, never a track index; forced tracks
+   (`AV_DISPOSITION_FORCED`) auto-enable when the audio language matches the user's; sidecars
+   added after the scan are picked up by the watcher; overlapping tracks stack rather than fight.
+
+   Two verified traps for the scanner. **ISO 639-2 has competing bibliographic and terminological
+   codes for the same language** — `ger`/`deu`, `fre`/`fra`, `chi`/`zho` — and containers are
+   inconsistent about which they use; FFmpeg ships a 695-entry conversion table
+   (`libavformat/avlanguage.c`) and an `AVLangCodespace` enum because of it, so normalise to
+   BCP 47 at scan time. And **a language tag does not identify a track**: `eng` may be full
+   dialogue, SDH, forced signs, commentary or audio description, so kind must be derived from
+   dispositions *and* from the track title when dispositions are missing, which they often are.
 
 ## 5. Hardware acceleration
 
