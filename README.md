@@ -28,10 +28,16 @@ These are product commitments, not aspirations:
   advertises every rendition it can produce — including the untouched original — and the client
   picks, because the client is the only party that can ask its own decoder what it will
   actually accept.
-- **Direct play is the default.** Transcoding is the exception, it says why it happened, and
-  you can override it in either direction.
+- **Direct play is the default** — for most files the server hands over the bytes and gets out
+  of the way. Transcoding is an optional add-on component for the files that need it, not
+  something baked into the core.
 - **Subtitles actually work.** Extracted at scan time with their embedded fonts, rendered with
   libass everywhere.
+
+## Licence
+
+GPLv3 (intended). Provider API keys are always supplied by you, never shipped in the binary —
+better for your privacy, your rate limits, and everyone's licensing.
 
 ## Docs
 

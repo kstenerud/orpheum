@@ -19,6 +19,7 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
 | [tech-backend.md](tech-backend.md) | Language, runtime, framework, job scheduling, API shape. |
 | [tech-storage.md](tech-storage.md) | Database, schema stance, search, migrations, on-disk layout, backup. |
 | [tech-clients.md](tech-clients.md) | Player engines and the platform matrix — where the real cost of this project is. |
+| [tech-licensing.md](tech-licensing.md) | FFmpeg's licence ladder, codec patents, and provider terms under an open-source release. Where the landmines are; not legal advice. |
 | [tech-metadata.md](tech-metadata.md) | TMDB, TheTVDB, MusicBrainz, AcoustID, OpenSubtitles — capability, licensing, and the traps. |
 
 ## Method and its limits

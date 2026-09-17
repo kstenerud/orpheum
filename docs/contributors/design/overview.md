@@ -84,7 +84,7 @@ Five choices, each traceable to a specific failure in the research:
 │  api/        REST handlers; OpenAPI generated from code          │
 │  library/    scan → identify → enrich, as named phases           │
 │  stream/     manifest builder; direct-play; segment transcoder   │
-│  encode/     FFmpeg process supervision; hwaccel behind one iface │
+│  (encode/    optional separate component — not in the v1 core)     │
 │  subtitle/   extraction, conversion, font attachments (D11)      │
 │  jobs/       typed, persisted, inspectable queue                 │
 │  plugin/     Extism/WASM sandbox for providers + scrapers (D12)  │
@@ -121,7 +121,8 @@ Notes on the shape:
 | A Netflix-style encoding ladder | Bandwidth is free on a LAN. |
 | Microservices, Kafka, Elasticsearch, Redis | Household scale. Postgres covers search, fuzzy matching and job wakeups. |
 | A Roku client | BrightScript shares no code with anything and Roku cannot render bitmap subtitles at all. |
-| In-process plugins | [D12](../decisions/working-notes.md). Third-party scrapers are the last code you want unsandboxed. |
+| In-process plugins | [D12](../decisions/working-notes.md). Third-party scrapers are the last code you want unsandboxed. Protocol surfaces get a second tier — out-of-process adapters ([D15](../decisions/working-notes.md)). |
+| Transcoding in the core binary | [D17](../decisions/working-notes.md). A separable optional component keeps the default install small, keeps its licence and patent surface small, and stops encoder logic spreading through the core. |
 | Audiobooks, comics, live TV/DVR | Each is a different product wearing the same clothes. Audiobookshelf's 1,191 open issues are the evidence. |
 
 ## The open problems
@@ -135,12 +136,18 @@ Honest statement of what the research did **not** settle:
 2. **Granular sharing.** Nobody has solved it. Immich's sharing issue has 1,020 reactions under
    a feature freeze; PhotoPrism's has 844 and is seven years old; Jellyfin users symlink subsets
    into fake libraries. Whoever solves it wins something real.
-3. **The client cold-start.** A new server has no clients. A Jellyfin-compatible API shim would
-   make Findroid, Swiftfin, Infuse and Streamyfin work on day one — Navidrome does exactly this
-   in reverse. It is the highest-leverage option available and it constrains our model to what
-   Jellyfin's API can express. Needs its own plan.
+3. **The client cold-start.** A new server has no clients. Settled in shape by
+   [D18](../decisions/working-notes.md): a Jellyfin-compatible **out-of-process adapter** makes
+   Findroid, Swiftfin, Infuse and Streamyfin work without constraining our model — and it
+   quarantines device-profile logic permanently outside the core. What remains open is whether
+   it is good enough to delay the first-party TV client.
 4. **Metadata provider licensing.** TMDB's terms condition commercial use on a written
    agreement; TheTVDB tiers by the licensee's revenue. Must be answered before a public release.
-5. **Whether the transcode core is tractable.** Everything above assumes segment-aligned
-   on-demand transcoding works at real library sizes on real hardware. It is the one assumption
-   that would invalidate the plan, and it is the first thing to prototype.
+5. **The real direct-play rate.** [D17](../decisions/working-notes.md) bets that direct play
+   covers the common case. That rests on a number **nobody has published** — Tautulli exposes it
+   per-server, but no aggregate survey exists. Measuring it is days of work and it re-orders the
+   roadmap in either direction, which is why it is now Phase 0.
+6. **Codec patents.** Separate from copyright licence and not resolved by being open source. The
+   field's uniform practice is to ship H.264/HEVC anyway; direct-play-first reduces a default
+   install's exposure to nearly nothing because it never encodes.
+   ([D16](../decisions/working-notes.md))

@@ -4,29 +4,41 @@
 # Stream service
 
 - **Status:** PLANNED — designed 2026-09-17.
-- **Depends on:** transcode-core-spike.md, library-model.md
+- **Depends on:** library-model.md
 
-## Scope
+## Scope — direct play only
 
-Turns the spike into a service: per-item HLS manifest generation from the library model,
-ranged direct-play, the on-demand segment transcoder with a shared-session registry, the
-subtitle pipeline (D11), trickplay sprite generation, and the hardware-acceleration interface
-with capability probing and logged fallback.
+Per [D17](../../decisions/working-notes.md) this service ships **no encoder**. It provides:
 
-## Constraints carried in
+- ranged direct-play `GET` of the original file;
+- the **rendition-list endpoint**, answering "what can I play this as" with, initially, one
+  entry;
+- the subtitle pipeline (D11) — extraction at scan time, format conversion, font attachments
+  served as addressable resources;
+- trickplay sprite generation and chapter data;
+- playback-progress reporting.
 
-- Direct play is always advertised as a rendition (D4).
-- Audio renditions are independently selectable — transcode audio, pass video through — because
-  a large share of real "video transcodes" are actually a TrueHD/DTS problem.
-- Every accelerator is a driver behind **one** interface. `EncodingHelper.cs` is 8,042 lines
-  because Jellyfin let accelerator branches spread through the argument builder; that is the
-  specific outcome to avoid.
-- The server computes a transcode *reason* and exposes it, because clients must be able to show
-  the user why something is transcoding.
-- The segment cache is size-capped and always safe to delete.
+FFmpeg is present for `ffprobe`, subtitle extraction and thumbnailing. None of that needs an
+encoder, which is what keeps this component off the GPL encoder rung
+([D16](../../decisions/working-notes.md)).
+
+## The seams that keep transcoding additive
+
+These must exist in v1 even though nothing uses them yet. They are the whole reason
+[`transcoding.md`](transcoding.md) can be a later, separate component rather than a rewrite:
+
+- **The rendition list is a list.** Growing it requires no client change, no protocol version
+  and no migration (see [tech-playback.md](../research/tech-playback.md) §2a).
+- **A transcode-reason field**, populated even when the answer is "this server cannot
+  transcode". Clients must be able to explain the failure — principles §3.
+- **A capability handshake**, so a core without the transcoding component says so honestly.
+  This path has to exist anyway for hardware too weak to transcode.
+- **Audio and video renditions are separately addressable** from the start, because a large
+  share of real "video transcodes" are actually a TrueHD/DTS problem, and fixing those needs no
+  video encoder at all.
 
 ## Done when
 
-A client can play every file in the spike corpus, direct-play where possible, switch renditions
-mid-stream, seek without restarting the transcode, and display correct ASS subtitles with
-embedded fonts.
+A client direct-plays everything the playback survey says it should, with correct ASS subtitles
+and their embedded fonts, correct resume, and an honest, displayable reason for anything it
+cannot play.

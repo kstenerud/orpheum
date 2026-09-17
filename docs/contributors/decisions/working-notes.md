@@ -118,7 +118,9 @@ viewers. Known trap: **NVENC ignores `-force_key_frames` and needs `-force_idr 1
 just a TrueHD/DTS problem, and transcoding audio while passing video through is a large cheap
 win. The job system must exist early enough that (c) is an added job type, not a rewrite.
 
-**Status:** Provisional. Path (b) needs a spike against a real library before it is trusted.
+**Status:** **Refined by [D17](#d17--direct-play-first-transcoding-additive-and-optional)** —
+the three paths stand, but v1 ships only (a), and (b)/(c) are re-ordered and re-scoped. Path (b)
+still needs a spike against a real library before it is trusted.
 
 ---
 
@@ -300,7 +302,9 @@ Keys belong to the user because TMDB's terms make commercial use conditional on 
 agreement, TheTVDB tiers by the licensee's revenue, and OpenSubtitles budgets downloads per
 account (20/day free).
 
-**Status:** Provisional. The licensing question needs a real answer before any public release.
+**Status:** **Extended by [D15](#d15--two-plugin-tiers-in-process-wasm-and-out-of-process-adapters)**
+(WASM is one of two plugin tiers). The licensing question is answered for an open-source release
+by [D16](#d16--gplv3-no-nonfree-components-and-provider-keys-belong-to-the-user).
 
 ---
 
@@ -341,3 +345,163 @@ Whoever solves sharing wins something real.
 
 **Status:** Provisional and **unsolved**. No mechanism is chosen yet. This is the hardest
 open product question in the project and it needs its own research round before any design.
+
+---
+
+## D15 — Two plugin tiers: in-process WASM, and out-of-process adapters
+
+**Decided.** Extend [D12](#d12--providers-are-sandboxed-wasm-plugins-no-in-process-plugin-code)
+from one plugin mechanism to two, chosen by what the extension needs to do:
+
+| Tier | Mechanism | For |
+| --- | --- | --- |
+| **In-process, sandboxed** | Extism / WebAssembly with an explicit host-capability list | Small, request-shaped work: metadata providers, scrapers, scrobblers, lyrics, filename-parser rules |
+| **Out-of-process adapter** | A separate process speaking our REST API, owning its own listener | Whole protocol surfaces: the Jellyfin-compatible API, OpenSubsonic, DLNA |
+
+**Why two.** WASM is right for "given this title, return metadata" and wrong for "serve an HTTP
+API and stream gigabytes of video". Streaming large bodies across the WASM boundary is
+pathological, and a protocol surface needs its own auth, its own websockets and its own route
+namespace. Forcing both into one mechanism would either cripple the sandbox or bloat the host
+interface until the sandbox is meaningless.
+
+**Why the adapter tier is out-of-process rather than a compiled-in module.** Zero coupling to
+the core; it can be developed, versioned, shipped and **abandoned** independently; a bug in it
+cannot take the server down; and it is written against exactly the same public API a third party
+would use, which keeps that API honest. Byte-streaming does not need proxying — the adapter
+answers with a redirect to the core's own media URL.
+
+**Consequences.** The core server's public REST API must be complete enough to build a full
+competing protocol surface on top of it. That is a constraint, and a healthy one.
+
+**Status:** Provisional.
+
+---
+
+## D16 — GPLv3, no nonfree components, and provider keys belong to the user
+
+**Decided.** Licence the project **GPLv3**. Build and pin our own FFmpeg with `--enable-gpl`;
+**never** `--enable-nonfree`, and never a patch that reclassifies a nonfree component. Use the
+native AAC encoder plus Opus and `libmp3lame` rather than `libfdk-aac`. Prefer **AV1/Opus**
+wherever we choose an output codec. Provider API keys are always supplied by the user.
+
+**Why.** ([tech-licensing.md](../design/research/tech-licensing.md)) FFmpeg is a licence ladder
+and the build configuration picks the rung: x264 and x265 both require `--enable-gpl`, which
+makes the whole binary GPL. Jellyfin — a GPL-2.0 project — ships a **GPLv3** FFmpeg build with
+`--enable-gpl --enable-version3`, so GPLv3 is where this dependency chain lands regardless;
+choosing GPLv2 would create a one-way incompatibility with our own encoder.
+
+The `libfdk-aac` exclusion is deliberate and specific. FFmpeg's own configure requires
+`--enable-nonfree` for it, which produces a binary FFmpeg says may not be redistributed at all.
+Jellyfin carries a patch literally named `0026-remove-fdk-aac-from-nonfree.patch` to get around
+that. Whether that is legally sound is not ours to rule on — but the existence of the patch is
+evidence that the boundary is real, and the audio-quality difference does not justify standing
+on a contested point in a project meant for other people to redistribute.
+
+**Codec patents are a separate question from copyright licence** and are not resolved here.
+Every distribution and every project in the survey ships H.264/HEVC; the pools have
+historically pursued commercial vendors. Two things follow that are ours to control: **decoding
+carries less exposure than encoding** — which the direct-play-first direction (D17) reduces
+almost to nothing for a default install — and **AV1/Opus are royalty-free by design**, so they
+are the right default wherever we pick an output codec.
+
+Provider keys belong to the user because TMDB conditions *commercial* use on a written
+agreement and shipping our own key would make us the API consumer for every install; because
+TheTVDB tiers by the licensee's revenue; and because OpenSubtitles budgets downloads per
+account. It is also what [D13](#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise)
+implies anyway.
+
+**Rejected:** AGPL (this is software people run at home, not a network service; AGPL's benefit
+does not apply and its friction does), and a permissive licence (nothing stops the exact
+re-close that created Jellyfin, which is this project's whole cautionary tale).
+
+**Status:** Provisional on the licence choice; firm on nonfree components. Get real legal
+advice before anything commercial ever happens, and do not answer the patent question in a
+README.
+
+---
+
+## D17 — Direct play first; transcoding additive and optional
+
+**Decided.** v1 ships **direct play only**. The playback API returns a list of available
+renditions from day one, initially containing just the original. Transcoding is added later as
+extra entries in that list, and ships as a **separable optional component**, not as part of the
+core server.
+
+**Why.**
+
+1. **The manifest shape makes it additive.** Because the client picks from a list
+   ([D2](#d2--playback-negotiation-the-client-decides-from-a-manifest)), growing the list
+   requires no client change, no protocol version and no migration. Under a device-profile
+   design the transcode decision is welded into the protocol from the first release; under ours
+   it is a schedule decision. This is the payoff from D2 that was not obvious when D2 was made.
+2. **The common case is a ranged GET.** A modern library watched on a LAN needs no encoder at
+   all. Both drivers of transcoding are exceptions:
+   **compatibility** (old or odd files — a *library* problem, solvable offline, once per file)
+   and **bandwidth** (remote or weak network — a *network* problem, unrelated to the file, and
+   the only one that genuinely needs live adaptive segmenting).
+3. **The client's engine choice is a bigger lever than the server.** A client shipping libmpv
+   alongside the platform decoder direct-plays close to everything, at zero server CPU. Swiftfin
+   states this as its rationale. This is already [D10](#d10--clients-react-native-shell-native-player-modules-two-engines);
+   D17 makes it load-bearing.
+4. **It shrinks the licence surface of the default install.** A core that only demuxes, probes,
+   extracts subtitles and makes thumbnails needs no encoder — which also means no encoding, and
+   encoding is where the codec-patent exposure concentrates (D16).
+5. **It enforces the boundary for free.** Jellyfin's `EncodingHelper.cs` is 8,042 lines because
+   nothing stopped transcoding logic from spreading through the core. A packaging boundary
+   stops it mechanically.
+
+**The unknown this rests on.** The real direct-play rate across a real library and real clients
+is **not published anywhere** — Tautulli exposes it per-server but no aggregate survey exists.
+This is now the first thing to measure (`plans/playback-survey.md`), because it decides how
+urgent transcoding is and nothing else should be guessed on it.
+
+**Order once measured:** compatibility transcoding first (pre-prepared background job, the
+simpler problem), then bandwidth transcoding (live segmented, coupled to remote access
+[D14](#d14--remote-access-for-non-technical-family-is-a-headline-feature), not to the library).
+
+**What must exist in v1 so this stays additive:** the rendition-list API shape; a job system
+that can host an encode job; a transcode *reason* field the client can display even when the
+answer is "we can't"; and a capability handshake so a server without the transcoding component
+can say so — which has to exist anyway for hardware too weak to transcode.
+
+**Rejected:** building the segmented transcoder first (the original Phase 0). It was ordered
+first because it was the riskiest assumption; it is better handled by *measuring* the
+assumption cheaply and deferring the build.
+
+**Status:** Provisional, pending the playback survey. If the measured direct-play rate is low,
+this decision is wrong and the transcoder returns to Phase 1.
+
+---
+
+## D18 — The Jellyfin-compatible surface is an adapter, and it quarantines device profiles
+
+**Decided.** Build the Jellyfin-compatible API as an **out-of-process adapter**
+([D15](#d15--two-plugin-tiers-in-process-wasm-and-out-of-process-adapters)), in this repository
+but shipped separately and optional. It is explicitly a **bridge, not a foundation**: our own
+clients speak our own API, the adapter is allowed to be lossy, and if it ever starts constraining
+the native API it gets frozen rather than extended.
+
+**Why an adapter and not core.** The concern that it would constrain our model to what
+Jellyfin's API can express is real and is the reason it must not be core. As a separate process
+it constrains nothing: it translates what it can, returns sensible failures for what it cannot,
+and its limitations are visibly *its* limitations.
+
+**The part that makes it better than a bridge.** Jellyfin clients authenticate with Jellyfin's
+auth and negotiate playback with a `DeviceProfile` — the exact design D2 rejects. The adapter is
+therefore where a device-profile evaluator has to live: it accepts a profile and answers it from
+our rendition list, rather than from a capability database. **That puts the 8,000-line problem
+permanently outside the core, in a component we are free to abandon**, while still getting
+Findroid, Swiftfin, Infuse, Streamyfin and Wolphin working against our server. Navidrome does
+the mirror image of this deliberately, serving a Jellyfin-compatible API to borrow Jellyfin's
+music clients.
+
+**Consequences.** Byte-streaming is handled by redirecting to the core's media URLs, not by
+proxying. The adapter needs the core's public API to be complete — a healthy constraint. Under
+D17 the adapter can only offer what the core can produce, so a device profile demanding a
+transcode the core cannot perform gets an honest failure rather than a broken stream; this is a
+correctness improvement over guessing, and it is another reason the transcode-reason field must
+exist in v1.
+
+**Status:** Provisional. Schedule it after the native API stabilises; it may reduce the urgency
+of the first-party TV client, and that trade should be re-examined once it exists rather than
+assumed now.

@@ -4,122 +4,161 @@ The recommended implementation plan, derived from the research in
 [`contributors/design/research/`](contributors/design/research/) and the decisions in
 [`contributors/decisions/working-notes.md`](contributors/decisions/working-notes.md).
 
-Written 2026-09-17, pre-implementation. Phase boundaries are ordering constraints, not dates.
+Written 2026-09-17, revised the same day after the direct-play-first direction
+([D17](contributors/decisions/working-notes.md)). Pre-implementation. Phase boundaries are
+ordering constraints, not dates.
 
 ---
 
-## Phase 0 — Settle the one assumption that could invalidate everything
+## Phase 0 — Measure the number the plan rests on
 
-**[`transcode-core-spike.md`](contributors/design/plans/transcode-core-spike.md)**
+**[`playback-survey.md`](contributors/design/plans/playback-survey.md)**
 
-A standalone Go binary — no database, no API, no UI — that extracts a source's keyframe grid,
-serves an HLS manifest advertising passthrough plus transcoded renditions, and produces
-segments on demand aligned to that grid. Run it against a deliberately pathological real
-library on the actual target hardware.
+A throwaway tool that `ffprobe`s a real library and asks each target client's **own runtime
+probe** — `mediaCapabilities.decodingInfo()`, `MediaCodecList`, libmpv — what it can actually
+decode. Output: the direct-play rate per client, and a ranked list of the specific failure
+reasons.
 
-**Why first.** The entire architecture rests on segment-aligned on-demand transcoding working.
-Kyoo proves it can be done; it does not prove *we* can do it, at our library sizes, on our
-hardware, across our three target players.
+**Why this and not the transcoder.** D17 bets that direct play covers the common case and
+transcoding can be deferred. That rests on a number **nobody has published** — Tautulli exposes
+it per-server, but no aggregate survey exists. Measuring it costs days; building against a
+guess costs months.
 
-**The number that decides the rest of the project:** what fraction of a real library
-direct-plays on each target client with no server work at all. If that number is high, the
-transcoder matters less than assumed and the whole plan simplifies.
+**The three numbers that matter:** the direct-play rate with the platform decoder alone; the
+rate **with libmpv in the client** (the delta is D10's two-engine recommendation quantified, and
+it may be most of the problem); and how much of the remaining tail is **audio-only** — video
+fine, TrueHD/DTS unsupported — which is cheap to fix and needs no video encoder at all.
 
-**Exit:** measured answers written to `research/transcode-spike-results.md`, and either D4
-confirmed or a superseding decision recorded.
+**Exit:** numbers written to `research/playback-survey-results.md`, and D17 confirmed or
+superseded. If the rate is low, the segmented transcoder returns to Phase 1 and this roadmap is
+rewritten.
 
 ---
 
 ## Phase 1 — A server that is correct before it is featureful
 
-`library-model.md` → `scanner.md` → `stream-service.md`
+`library-model.md` → `scanner.md` → `stream-service.md` *(direct play only)*
 
 The schema (`Title → Edition → MediaFile`, provider IDs and field provenance in side tables,
 audit/change-journal tables from commit one), the phased scanner with its own legible log and
-report, and the streaming service promoted out of the spike.
+report, and the playback service.
 
-**What "correct" means here:** a library rebuilt from empty loses nothing; an interrupted scan
-resumes; the scan report answers "why is this file not in my library?" without a debug log;
-every decision the server makes on the user's behalf is inspectable.
+**What ships in the playback service:** ranged direct-play `GET`; the **rendition-list API
+shape**, initially one entry; subtitle extraction at scan time with font attachments; trickplay
+sprites; a **transcode-reason field** that can say "this server cannot transcode"; and a
+capability handshake. Those last two are the seams that keep transcoding additive — they must
+exist now even though nothing uses them yet.
 
-**Deliberately absent in Phase 1:** user management beyond one admin, remote access, sharing,
-plugins, music, transcode pre-preparation.
+**Deliberately absent:** any encoder. Users beyond one admin. Remote access. Sharing. Plugins.
+Music.
 
 ---
 
 ## Phase 2 — Make it visible
 
-`web-client.md`, and then the decision point on `jellyfin-api-shim.md`.
+`web-client.md`
 
 The shared TypeScript SDK is the real deliverable — D2 puts rendition choice on the client, and
-that is only safe if the probe-and-pick logic is written once and shared. The web UI is the
+that is only safe if the probe-and-pick logic is written once and shared. The web UI is its
 first consumer and doubles as the admin surface.
-
-**The decision point.** Before writing a second client, settle whether to serve a
-Jellyfin-compatible API surface. Navidrome does the mirror image of this deliberately, and if a
-shim makes Findroid, Swiftfin, Infuse and Streamyfin work on day one it is worth more than any
-client we could write in the same time — and could move the first-party TV client from Phase 3
-to Phase 4. **Do not start the TV client with this unresolved.**
 
 ---
 
 ## Phase 3 — The client the project is judged on
 
 `tv-client.md` — Android TV, React Native shell over the shared SDK, Kotlin native player module
-with Media3 and libmpv side by side.
+with **Media3 and libmpv side by side**. Under D17 that second engine is not a nicety: it is the
+main thing standing between "direct play only" and "plays your library". The Android phone
+client then comes nearly free.
 
 **Prototype remote-control focus navigation before writing any real screens.** It is what a TV
 app lives or dies on, research cannot settle it, and it is where React Native on TV is most
-likely to disappoint. The Android phone client then comes nearly free.
+likely to disappoint.
 
 ---
 
-## Phase 4 — The hard product problems
+## Phase 4 — Transcoding, as a separate optional component
 
-`remote-access.md` and `sharing-model.md`, both currently `UNSPECIFIED` and both needing a
-research round before they can be designed.
+`transcoding.md`, prioritised by what Phase 0 measured.
 
-These are placed late because they are hard, not because they are unimportant — they are the
-two features that decide whether this replaces Plex for a household or only for one person.
-Remote access has a genuine tension with D13's no-required-account promise, and the research
-must resolve it honestly rather than quietly weakening one side.
+**(a) Compatibility transcoding first** — a *library* problem. Old or odd files, converted
+offline by a background job into a stored alternate version that then direct-plays forever. No
+segment alignment, no keyframe grid, no ABR. If Phase 0 says the tail is a few hundred old
+files, a batch job is the entire feature.
+
+**(b) Bandwidth transcoding second** — a *network* problem, unrelated to the file, and the only
+case that genuinely needs live keyframe-aligned segmented transcoding with adaptive bitrate. It
+is coupled to remote access, not to the library, and on a LAN it is almost never needed.
+
+Ships as a **separate component** with the GPL encoder build: smaller default install, smaller
+licence and patent surface for that install, and a packaging boundary that mechanically stops
+encoder logic spreading through the core — which is how `EncodingHelper.cs` reached 8,042 lines.
 
 ---
 
-## Phase 5 — Audio, cheaply
+## Phase 5 — Borrow an ecosystem
 
-Add an OpenSubsonic API surface over the existing model, and a music library type.
+`jellyfin-api-shim.md` — an out-of-process adapter speaking Jellyfin's API against our public
+REST API, so Findroid, Swiftfin, Infuse, Streamyfin and Wolphin work against our server.
 
-This is a **server-side-only project**. Speaking OpenSubsonic inherits a mature third-party
-client ecosystem — Symfonium, Amperfy, Tempo, Feishin — at zero client cost. There is nothing
-equivalent for video, which is exactly why video is expensive and music is not.
+It is also where a device-profile evaluator has to live — accepting a profile and answering it
+from our rendition list. **That keeps the design we rejected permanently outside the core, in a
+component we are free to abandon.** Bridge, not foundation: our own clients speak our own API,
+and if the adapter starts constraining that API it gets frozen rather than extended.
 
-Not in scope: audiobooks and podcasts. They are a different product wearing the same clothes,
-and Audiobookshelf's 1,191 open issues are the evidence for what happens when that is ignored.
+Schedulable any time after Phase 1 stabilises the API. Placed here because a stable API matters
+more than an early one — but if the Phase 3 TV client slips, moving this earlier is the obvious
+hedge.
+
+---
+
+## Phase 6 — The hard product problems
+
+`remote-access.md` and `sharing-model.md`, both `UNSPECIFIED`, both needing a research round
+before design.
+
+Late because they are hard, not unimportant — they are what decides whether this replaces Plex
+for a *household* or only for one person. Remote access has a genuine tension with D13's
+no-required-account promise, and the research must resolve it honestly rather than quietly
+weakening one side. Note that Phase 4(b) and remote access are the same project seen from two
+directions.
+
+---
+
+## Phase 7 — Audio, cheaply
+
+An OpenSubsonic API surface (a second out-of-process adapter, per D15) over the existing model,
+plus a music library type.
+
+**Server-side work only.** Speaking OpenSubsonic inherits Symfonium, Amperfy, Tempo and Feishin
+for free. There is nothing equivalent for video, which is exactly why video is expensive and
+music is not.
+
+Not in scope: audiobooks and podcasts — a different product wearing the same clothes, and
+Audiobookshelf's 1,191 open issues are the evidence.
 
 ---
 
 ## Explicitly not on this roadmap
 
-Photos (D1 — Immich exists, is AGPL, has 114k stars and moves faster than we could), DRM, a
-device-profile database, an encoding ladder, microservices, a Roku client, in-process plugins,
-live TV and DVR.
+Photos (D1), DRM, a device-profile database in the core (D2/D18), an encoding ladder,
+microservices, a Roku client, in-process protocol plugins, live TV and DVR.
 
 ---
 
 ## The risks, ranked
 
-1. **The transcode core is harder than the research suggests.** Mitigated by Phase 0 existing
-   at all. This is the only risk that invalidates the plan rather than delaying it.
+1. **The direct-play rate is lower than assumed.** Phase 0 exists to find out in days rather
+   than months. This is the only risk that rewrites the roadmap rather than delaying it.
 2. **Client cost swamps everything.** Clients are where every project in this field spends its
-   effort and where Plex's fifteen-year lead is real. The `jellyfin-api-shim` decision is the
-   main lever.
+   effort, and where Plex's fifteen-year lead is real. Phase 5 is the main lever, and bringing
+   it forward is the standing hedge.
 3. **TV focus navigation on React Native disappoints.** Fallback is a native Kotlin
    Compose-for-TV client reusing only the API contract — more work, not a dead end.
-4. **Postgres-only costs installs.** Mitigated by shipping it in the default compose file. If
-   it bites, D5 is the decision most worth revisiting.
-5. **Metadata provider licensing.** TMDB conditions commercial use on a written agreement;
-   TheTVDB tiers by the licensee's revenue. Needs a real answer before any public release, and
-   the answer is probably "the user supplies their own key".
+4. **Postgres-only costs installs.** Mitigated by shipping it in the default compose file. If it
+   bites, D5 is the decision most worth revisiting.
+5. **Codec patents.** Separate from copyright licence and not resolved by being open source.
+   Direct-play-first reduces a default install's exposure to nearly nothing because it never
+   encodes; get real advice before anything commercial.
 6. **Scope creep into audiobooks, comics, live TV, photos.** The competitive trackers show
    exactly what this costs. The roadmap's job is to keep saying no.

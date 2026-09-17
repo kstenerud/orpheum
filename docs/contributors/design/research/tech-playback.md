@@ -89,6 +89,57 @@ once, plus a server-side *hint* (not a mandate) in the manifest.
 licence proxies, platform certification and an entire class of playback failure. This is the
 main reason a small team can compete in this space at all.
 
+## 2a. Why this makes transcoding deferrable
+
+A consequence of §1 that is easy to miss and worth a lot: **once the client picks from a
+manifest, the manifest's contents can grow without any client ever changing.**
+
+The contract is "ask the server what renditions exist for this item; pick one". A server that
+can only offer the untouched original answers that question with a one-entry list. A server
+that later grows an encoder answers it with a longer list. **Same endpoint, same client code,
+no version negotiation, no migration.** Under a device-profile design this is not true — the
+profile *is* the negotiation, so the transcode decision is welded into the protocol from the
+first release.
+
+This is what makes "ship direct play first, add transcoding later" a schedule decision rather
+than an architectural one. The only thing that must exist in v1 is the *shape* of the answer.
+
+## 2b. The two independent drivers of transcoding
+
+The incumbents conflate these; they have different causes, different frequencies, and different
+best solutions.
+
+| | **Compatibility transcode** | **Bandwidth transcode** |
+| --- | --- | --- |
+| Cause | The client cannot decode this codec/profile/container at all | The client decodes it fine but cannot receive it fast enough |
+| Frequency | Falling. Modern libraries are H.264/HEVC in MP4/MKV, which everything plays | Situational — remote streaming, weak Wi-Fi, mobile data |
+| Depends on | The file, and the client's decoder | The network, and nothing about the file |
+| Best solution | A **pre-prepared alternate version** (background job, once per file) | **Live, adaptive** renditions — genuinely needs a ladder and ABR |
+| Needed on a LAN? | Only for old/odd files | Almost never |
+
+The useful conclusions:
+
+- Compatibility transcoding is a **library problem**, solvable offline and once per file. It
+  does not need to be fast, and it should not be on the playback path.
+- Bandwidth transcoding is a **network problem** and is the case that actually requires live
+  on-demand segmented transcoding and adaptive bitrate. It is therefore coupled to remote
+  access, not to the library.
+- Neither is needed for the common case of watching a modern file on the LAN. That case is a
+  ranged `GET`.
+
+## 2c. The cheapest transcoding-avoidance strategy is a better client engine
+
+Before building any encoder, note that **the client's choice of playback engine changes the
+direct-play rate more than anything the server can do.** A client using libmpv or libVLC — which
+carry FFmpeg's full demuxer and decoder set — direct-plays close to everything, including the
+old and odd files. A client restricted to the platform's own decoders (AVPlayer, Media3 alone)
+does not.
+
+Swiftfin states this as its design rationale: built "to maximize direct play with the power of
+VLC". It is why [tech-clients.md](tech-clients.md) recommends shipping two engines per client
+with libmpv as the fallback — that recommendation is not only about format breadth, it is
+**server capacity policy implemented on the client**, and it costs no server CPU at all.
+
 ## 3. Transcoding architecture
 
 Three viable models. They are not exclusive.
@@ -131,8 +182,12 @@ for content that is *known* to be awkward (10-bit HEVC where a client needs H.26
 a client needs AC-3). Storage is cheap; CPU at playback time is not, and it is what makes a
 home server feel slow.
 
-> **Decision input:** build (a) and (b); design the job system so (c) is an added job type, not
-> a rewrite. Do not build a Netflix-style ladder generator.
+> **Decision input (revised — see [D17](../../decisions/working-notes.md)):** build **(a) only**
+> for v1, with the manifest shape that lets (b) and (c) be added later without touching any
+> client (§2a). Measure the real direct-play rate first (`plans/playback-survey.md`) — it is the
+> number that decides how urgent the rest is. Then add **(c)** for compatibility and **(b)** for
+> bandwidth, in that order, because (c) is the simpler problem and (b) is coupled to remote
+> access. Do not build a Netflix-style ladder generator at any point.
 
 ### Audio is the under-appreciated half
 
@@ -203,8 +258,11 @@ is 8,042 lines mostly because of this matrix.
 
 1. **Client-decides, via an HLS manifest.** No `DeviceProfile` database. (D2)
 2. **CMAF/fMP4 segments, HLS manifest, no DRM.** (D3)
-3. **Direct play always offered as a rendition**; on-demand segment transcoding as the
-   fallback; background pre-preparation as a later job type. (D4)
+3. **Direct play is v1; the manifest shape makes transcoding additive, not architectural.**
+   Compatibility transcoding (pre-prepared, offline) and bandwidth transcoding (live, adaptive)
+   are separate problems and are scheduled separately. (D4, refined by D17)
+3a. **The client's engine choice is the first lever on the direct-play rate** — cheaper and more
+   effective than any server-side work. (§2c)
 4. **Audio-only renditions are a first-class case**, not a special case of video transcoding.
 5. **Subtitles get a subsystem**: extract on scan, serve fonts, libass on every client, never
    burn in by default.
