@@ -15,6 +15,21 @@ their own tables, and includes the audit/change-journal tables and sync cursor f
 Generic enough that audio can be added without a rewrite (D1): `Library`, `Item`, `MediaFile`
 rather than `Movie`/`Episode` everywhere.
 
+## Two requirements added late, from the plugin survey
+
+Both come from [D20](../../decisions/working-notes.md), and both are schema-shaped, so they must
+land here rather than being bolted on:
+
+- **A rules engine.** Smart playlists, smart collections, and retention policy. The field shows
+  roughly 7,000 stars of demand across plugins (smartlists, auto-collections, mergeversions,
+  media-cleaner, tmdbboxsets) and companion apps (Kometa, Maintainerr, Janitorr), all of which
+  exist because no server in this space lets a user express a rule about their library. A rule
+  is a stored, re-evaluatable query over item attributes — which constrains how attributes,
+  tags and provider fields are modelled.
+- **Auth with OIDC/OAuth and LDAP**, in the core. A third-party Jellyfin SSO plugin has 1,458
+  stars and Navidrome's two most-requested issues are the same two things. The user/identity
+  tables are part of this schema and retrofitting external identity is painful.
+
 ## Why it is shaped this way
 
 - Jellyfin 12.0's headline change — in 2026 — is turning playlist and collection membership

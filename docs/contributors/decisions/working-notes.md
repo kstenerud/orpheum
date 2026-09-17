@@ -598,3 +598,123 @@ them by reaching inside. Segment URLs need signing.
 
 **Status:** Provisional. The interface is deliberately not specified here; it is an output of
 building the thing, not an input.
+
+---
+
+## D20 — Plugin-architecture constraints, and four things the catalogue says belong in the core
+
+**Decided.** Constraints on the plugin design, derived from surveying what people actually
+extend and work around
+([plugins-and-workarounds.md](../design/research/plugins-and-workarounds.md)). These are
+**seams to leave room for**, not work to start: the plugin API stays private and unstable until
+a first-party consumer has proven it ([D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three)).
+
+### The constraints
+
+1. **The plugin boundary is a declared, versioned interface — never a link against server
+   internals.** Jellyfin plugins are .NET assemblies compiled against the server's types and are
+   "strictly 1 version compatible"; the standing user-facing answer to "I upgraded and my plugin
+   vanished" is *wait for the author*. Intro Skipper serves a **manifest that varies by
+   requesting server version** and branches its git repo per Jellyfin release. That is
+   infrastructure built solely to survive a self-inflicted problem, and it is the ecosystem's
+   largest recurring tax. WASM plus a semver'd host interface makes it impossible by
+   construction; out-of-process tiers make it impossible twice.
+2. **Capability names are part of the contract, and plugins are steps triggered by events.**
+   Both, from the two positive models: Navidrome declares named capabilities (`MetadataAgent`,
+   `Scrobbler`, `Lyrics`, `SonicSimilarity`, `TaskWorker`, …) plus an enumerated host-service
+   list; Immich registers plugin **methods** against **workflow triggers** with a compatibility
+   check, so the UI offers only the plugins that fit an event. "A plugin is a step in a pipeline
+   fired by an event" is a far smaller contract than "a plugin is code with access to the
+   server".
+3. **Host services are a short list a human can read.** Immich's is six functions
+   (`searchAlbums`, `createAlbum`, `addAssetsToAlbum`, `addAssetsToAlbums`, `httpRequest`,
+   `bulkTagAssets`). The security surface must be reviewable at a glance.
+4. **Metadata providers must be the easiest plugin to write, and the interface must not assume
+   TMDB/TVDB shapes.** Providers are the largest category by count and by stars, and the most
+   popular ones are **regional** — MetaShark (2,141), Bangumi (1,134), Douban (664), Danmu (659)
+   are all Chinese-market and together outweigh every official provider combined. Different
+   identity models, different title semantics, different episode ordering. An interface fitted to
+   TMDB will fail the people most motivated to extend it.
+5. **Plugin-to-plugin composition needs a designed answer**, or reflection becomes it — which is
+   literally what happened: three popular Jellyfin plugins depend on `file-transformation`, and
+   its README instructs authors to "use reflection to invoke the plugin" because assemblies land
+   in different .NET load contexts.
+6. **A client extension seam must be designed in.** Jellyfin's plugin API is server-side only,
+   and the result is `jellyfin-plugin-file-transformation` (538 stars): an HTTP middleware that
+   **rewrites the web client's served JavaScript and HTML on the fly** so other plugins can
+   inject UI. It originated as Jellyfin PR #9095, which was not merged. Home sections (514),
+   skins (659) and danmu (659) sit on top of it. A string-rewriter over a minified bundle is a
+   fragile, security-relevant thing to be load-bearing — and it exists because the alternative
+   was nothing. **If we do not design this seam, someone will build that.**
+7. **One first-party catalogue, with signing.** Fragmented per-author manifest URLs produced an
+   aggregator plugin (257 stars). Distribution is part of the design.
+
+### Tier 3's specification arrived on its own
+
+The most-starred plugin in the entire field is **Intro Skipper (2,773)** — Chromaprint audio
+fingerprinting to detect intros and credits. Its requirements, read from its source: raw media
+file access; **a pinned FFmpeg** (its README requires jellyfin-ffmpeg ≥ 7.1.3-1 — the same
+dependency our transcoder has); long-running batch compute over the whole library; **its own
+persistent state with its own schema migrations**; results published into the core's model; and
+a way to put a button in the client UI.
+
+That list is nothing like a metadata provider's, which confirms D19's three tiers were not
+over-taxonomy. It is also almost exactly the transcoder's list, with a completely different
+workload — so **intro/credit detection should be the second tier-3 plugin we write**. Two
+unlike consumers is what validates a tier rather than fitting it to one.
+
+### What the catalogue says belongs in the core, not in a plugin
+
+A popular plugin for a thing every user wants is a bug report against the core. Four of these
+are loud enough to change the roadmap:
+
+- **Auth: OIDC/OAuth and LDAP.** A third-party SSO plugin at **1,458 stars** plus official LDAP
+  at 224, and Navidrome's two most-requested issues are the same two things. **v1 requirement**,
+  not a plugin.
+- **A rules engine** — smart playlists, smart collections, retention policy. Roughly **7,000
+  stars** across plugins (smartlists 363, auto-collections 292, mergeversions 439, media-cleaner
+  260, tmdbboxsets 176) and companion apps (Kometa 3,416, Maintainerr 2,271, Janitorr 752). This
+  is a core data-model feature and it must inform `library-model.md` before the schema is
+  written, not after.
+- **Good search.** A Meilisearch plugin at 329 stars against a core whose `Search results are
+  limited to 24.` issue has been open since 2020. Already [D5](#d5--database-postgresql-only-shipped-in-the-default-compose);
+  this says it is not optional.
+- **Webhooks and an event bus.** A popular official plugin (248) *and* the foundation of
+  Immich's entire plugin model. It is core infrastructure that the plugin system then consumes.
+
+### The finding that outweighs all of the above
+
+**The community's real extension mechanism is a separate program talking to the server's HTTP
+API, not a plugin.** Roughly **80,000 stars** of companion applications — Sonarr 16,293,
+Radarr 14,380, Seerr 12,615, Prowlarr 7,227, Tautulli 6,585, Lidarr 5,660, Bazarr 4,279,
+Kometa 3,416, Maintainerr 2,271, Janitorr 752 — against roughly 20,000 across the whole Jellyfin
+plugin catalogue.
+
+So: **the public HTTP API is the most important extension point in the product by an order of
+magnitude**, and it matters more than the plugin API. This raises the stakes on generating
+OpenAPI from the code and gating the build on it being current
+([D9](#d9--server-language-go-one-language-on-the-server)), and it is independent confirmation of
+tier 2 ([D15](#d15--two-plugin-tiers-in-process-wasm-and-out-of-process-adapters)) and of the
+adapter approach ([D18](#d18--the-jellyfin-compatible-surface-is-an-adapter-and-it-quarantines-device-profiles)).
+
+`rffmpeg` is the exception that proves it: every other companion app could be built because the
+HTTP API had a seam, and remote transcoding could not, so it was built by impersonating the
+`ffmpeg` binary and SSHing elsewhere. **When the API has no seam for something people want, they
+do not give up — they do something worse.**
+
+### The cautionary tale, and why it argues *for* D19
+
+Plex sunset its plugin system in 2018, stating: fewer than **2% of users** used it; the protocol
+was outdated and hard to support; and it no longer fitted the business.
+
+- A plugin system nobody important uses is pure maintenance cost and will eventually be killed.
+  **This is the strongest argument for D19**: with our own transcoder built on the public plugin
+  API, that API can never be in the "<2% usage" position, because the product depends on it.
+- The plugin boundary is a long-term compatibility commitment. Plex's was unsupportable seven
+  years in. Keep ours small and versioned from the start.
+- When a vendor's interests diverge from its users', the extension point is cut first. That is a
+  governance argument for building on our own extension points in the open.
+
+**Status:** Provisional, and deliberately not a specification. The four core-not-plugin items
+are the actionable part now — auth and the rules engine both need to land in
+`library-model.md` and the v1 scope before the schema is written.

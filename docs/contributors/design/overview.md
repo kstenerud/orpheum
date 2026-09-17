@@ -119,6 +119,11 @@ Notes on the shape:
   core calls into, an inbound protocol adapter that consumes our API, or an outbound capability
   service the core calls and clients may be redirected to. Each tier exists because a real
   member needs it.
+- **The public HTTP API matters more than the plugin API**, by roughly an order of magnitude.
+  The community's real extension mechanism in this field is a separate program over HTTP — some
+  80,000 stars of companion apps (Sonarr, Radarr, Seerr, Tautulli, Bazarr, Kometa …) against
+  ~20,000 for the whole Jellyfin plugin catalogue. OpenAPI is generated from the code and the
+  build is gated on it being current. ([D20](../decisions/working-notes.md))
 - **`cache/` is always safe to delete.** Nothing irreplaceable lives outside the database and
   the media files.
 - **The scanner runs as named phases** (Navidrome's model) with its own structured log channel,

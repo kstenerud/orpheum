@@ -49,8 +49,13 @@ sprites; a **transcode-reason field** that can say "this server cannot transcode
 capability handshake. Those last two are the seams that keep transcoding additive — they must
 exist now even though nothing uses them yet.
 
-**Deliberately absent:** any encoder. Users beyond one admin. Remote access. Sharing. Plugins.
-Music.
+**Two things promoted into Phase 1 by the plugin survey** ([D20](contributors/decisions/working-notes.md)),
+because both are schema-shaped and expensive to retrofit: **auth with OIDC/LDAP** (a third-party
+Jellyfin SSO plugin has 1,458 stars — that is a bug report about a core), and **a rules engine**
+for smart collections, smart playlists and retention (~7,000 stars across plugins and companion
+apps exist because no server here lets a user express a rule about their library).
+
+**Deliberately absent:** any encoder. Remote access. Sharing. Plugins. Music.
 
 ---
 
@@ -182,4 +187,11 @@ live TV and DVR.
 7. **Plugin-API speculative generality.** Three tiers is already a taxonomy, and taxonomies
    invite designing for members that do not exist. Mitigation: every tier must have a real
    first-party member before it is built, and the transcoder's interface is *extracted* from a
-   working implementation rather than designed ahead of one.
+   working implementation rather than designed ahead of one. Tier 3's second consumer is already
+   identified — intro/credit detection, whose requirements match the transcoder's almost exactly
+   with a completely different workload ([D20](contributors/decisions/working-notes.md)).
+8. **The plugin ABI becomes a compatibility millstone.** Jellyfin plugins break every release;
+   Plex killed its plugin system after seven years as unsupportable. Mitigation: a declared
+   versioned interface rather than a link against internals, a host-service list short enough to
+   read, and our own transcoder depending on it so it can never be the <2%-usage feature that
+   gets cut.
