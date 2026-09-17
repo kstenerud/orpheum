@@ -833,3 +833,109 @@ that is the review question for any change to this list.
 playback survey (`plans/playback-survey.md`), which will say what real clients actually accept.
 The *shape* — closed enumeration, prioritised client subset, mandatory baseline — is the part
 that matters.
+
+---
+
+## D22 — Video, audio and subtitles negotiate as independent axes
+
+**Decided.** The output menu from
+[D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) is **three
+orthogonal axes**, not one joint vocabulary. A client sends a prioritised list per axis; the
+server intersects each axis separately. Subtitles were already separate
+([D11](#d11--subtitles-are-a-subsystem-not-a-feature)); this makes the split explicit and total.
+
+### HLS already works this way
+
+We are not inventing a mechanism. HLS declares alternate audio and subtitle renditions with
+`EXT-X-MEDIA:TYPE=AUDIO|SUBTITLES` and a `GROUP-ID`, and video variants reference an audio group
+by name. Every player we target — `hls.js`, ExoPlayer/Media3, AVPlayer, libmpv — handles this
+natively. Separating the axes is the *conventional* shape; muxing them is the special case.
+
+### Why it matters
+
+1. **Additive, not multiplicative — and a joint menu would violate D21 on its own terms.**
+   Five video profiles and six audio profiles are eleven names as separate axes and **thirty** as
+   pairs. More importantly, a menu of pairs *is* a grammar: `hevc-hdr10+eac3` is a rule about a
+   combination, and D21's stated failure mode is exactly the menu acquiring combinatorial
+   structure. Orthogonal axes are what keep the enumeration an enumeration.
+2. **The most common real transcode is audio-only.** Video fine, audio TrueHD or DTS-HD and the
+   client cannot decode it. Joint negotiation makes that one indivisible choice and risks
+   re-encoding video that was already perfect — the single loudest complaint about the incumbents
+   ([sentiment.md](../design/research/sentiment.md)). Separate axes let us copy the video and
+   transcode only the audio, which costs roughly one percent as much CPU.
+3. **Multi-track is intrinsic to this domain.** A film commonly carries three to eight audio
+   tracks — languages, commentary, descriptive audio — and users switch between them
+   mid-playback. Under a joint vocabulary, changing language is a different variant and can
+   restart or re-transcode the video. Jellyfin's trackers carry this as `Configurable default
+   language for audio/subtitle` (+18) and `Selectable Audio and Subtitle Tracks Prior to Playback
+   Start` (+18).
+4. **Audio capability is dynamic in a way video capability is not.** The same device answers
+   differently depending on the *audio path* — HDMI/ARC into a receiver that does E-AC-3, the
+   TV's own speakers, or Bluetooth headphones — and that path changes mid-session when someone
+   plugs something in. Video capability is a property of the decoder and does not move. Separate
+   axes make a mid-session audio switch a cheap rendition change rather than a full
+   re-negotiation.
+5. **Music needs only one axis.** When the audio library arrives (Phase 7) it uses the audio axis
+   and nothing else, with no null-video special case to carve out.
+
+### The consequence that changes where code lives
+
+**The licence boundary falls exactly between the axes.** Verified against FFmpeg's own
+`configure` on 2026-09-17:
+
+- `EXTERNAL_LIBRARY_GPL_LIST` contains **no audio encoder whatsoever** — it is `x264`, `x265`,
+  `xvid`, `xavs`, `xavs2`, `davs2` plus non-codec tools (`avisynth`, `frei0r`, `libcdio`,
+  `libdvdnav`, `libdvdread`, `librubberband`, `libvidstab`). Every GPL trigger is a **video**
+  encoder.
+- AAC, AC-3, E-AC-3, FLAC, ALAC and DCA all have **native LGPL encoders inside libavcodec**
+  (`aacenc.c`, `ac3enc.c`, `eac3enc.c`, `flacenc.c`, `alacenc.c`, `dcaenc.c`) — no external
+  library, no GPL rung.
+- `libopus` appears on none of the GPL, version3 or nonfree lists. (`EXTERNAL_LIBRARY_NONFREE_LIST`
+  is `decklink`, `libfdk_aac`, `libmpeghdec` — confirming
+  [D16](#d16--gplv3-no-nonfree-components-and-provider-keys-belong-to-the-user)'s exclusion of
+  `libfdk_aac`.)
+
+**Therefore the entire audio menu is producible from a plain LGPL FFmpeg build**, and:
+
+- **Audio transcoding lives in the core**, not in the transcoder plugin. No `--enable-gpl`, no
+  x264/x265, and none of the video-codec patent exposure that §2 of
+  [tech-licensing.md](../design/research/tech-licensing.md) is careful about.
+- **The transcoder plugin is a *video* transcoder.** That is a smaller, sharper component than
+  "the transcoder", with a clearer boundary.
+- **The core therefore handles the common case and the plugin handles the rare one** — which is a
+  much better split than the one D17 assumed. A default install with no plugin can already fix
+  the TrueHD-on-a-cheap-TV problem, which is most of what real users hit.
+
+This refines [D16](#d16--gplv3-no-nonfree-components-and-provider-keys-belong-to-the-user),
+[D17](#d17--direct-play-first-transcoding-additive-and-optional) and
+[D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three) without
+overturning any of them.
+
+### Mechanics
+
+- **Audio segmentation is easier than video, not harder.** Audio frames are independently
+  decodable, so audio segments can always be cut on the video keyframe grid that
+  [D4](#d4--three-playback-paths-direct-on-demand-segmented-background-prepared) already
+  computes. Known bounded wrinkle: audio frame granularity does not divide arbitrary timestamps
+  evenly (AAC is 1024 samples, ~21.3 ms at 48 kHz), so boundaries drift slightly; this is a
+  standard, solved problem, not a design risk.
+- **Whole-file direct play is unaffected and remains the v1 happy path** (D17). A ranged `GET` of
+  the untouched container satisfies all three axes at once and bypasses HLS entirely.
+- **Per-axis passthrough is a remux, not an encode** — copying a video track into fMP4 segments
+  needs a muxer and no encoder, so it also belongs in the core.
+- **Subtitles are the third axis** and were already modelled that way (D11): separate renditions,
+  fonts as addressable attachments, never burned in by default.
+
+### The risk to measure, not assert
+
+Some older TV platforms are reported to handle **demuxed HLS** (separate audio group) less
+reliably than muxed audio+video. That would be an argument for offering a muxed variant as a
+compatibility fallback — a fourth thing the menu would have to express, which is unwelcome.
+
+**This is not asserted here because it is not verified.** It is added to
+`plans/playback-survey.md` as a question for real devices. If it proves true on a platform we
+care about, the fallback is a muxed variant flagged on the video axis, and that concession must
+be reviewed against D21's no-grammar rule.
+
+**Status:** Provisional. The axis split and the LGPL/GPL boundary are solid; the demuxed-HLS
+compatibility question is open and measurable.

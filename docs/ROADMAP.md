@@ -43,11 +43,13 @@ The schema (`Title → Edition → MediaFile`, provider IDs and field provenance
 audit/change-journal tables from commit one), the phased scanner with its own legible log and
 report, and the playback service.
 
-**What ships in the playback service:** ranged direct-play `GET`; the **rendition-list API
-shape**, initially one entry; subtitle extraction at scan time with font attachments; trickplay
-sprites; a **transcode-reason field** that can say "this server cannot transcode"; and a
-capability handshake. Those last two are the seams that keep transcoding additive — they must
-exist now even though nothing uses them yet.
+**What ships in the playback service:** ranged direct-play `GET`; the **three-axis rendition
+negotiation** (video ‖ audio ‖ subtitles, [D22](contributors/decisions/working-notes.md));
+**audio transcoding and remuxing**, which are LGPL-only and cover the most common real-world
+transcode; subtitle extraction at scan time with font attachments; trickplay sprites; a
+**transcode-reason field** that can say "this server cannot transcode video"; and a capability
+handshake. Those last two are the seams that keep video transcoding additive — they must exist
+now even though nothing uses them yet.
 
 **Two things promoted into Phase 1 by the plugin survey** ([D20](contributors/decisions/working-notes.md)),
 because both are schema-shaped and expensive to retrofit: **auth with OIDC/LDAP** (a third-party
@@ -55,7 +57,7 @@ Jellyfin SSO plugin has 1,458 stars — that is a bug report about a core), and 
 for smart collections, smart playlists and retention (~7,000 stars across plugins and companion
 apps exist because no server here lets a user express a rule about their library).
 
-**Deliberately absent:** any encoder. Remote access. Sharing. Plugins. Music.
+**Deliberately absent:** any *video* encoder. Remote access. Sharing. Plugins. Music.
 
 ---
 
@@ -82,7 +84,7 @@ likely to disappoint.
 
 ---
 
-## Phase 4 — Transcoding, as a plugin we happen to maintain
+## Phase 4 — Video transcoding, as a plugin we happen to maintain
 
 `transcoding.md`, prioritised by what Phase 0 measured.
 
@@ -90,6 +92,9 @@ Built on the **public** plugin API, with no privileged access to the core
 ([D19](contributors/decisions/working-notes.md)). That is not tidiness: it is the only way to
 find out whether the plugin API is any good while we still own both sides of it, and it is what
 makes the next paragraph possible.
+
+Note what Phase 1 already covered: **audio-only transcoding**, which is the most common real
+case. This phase is the *video* remainder.
 
 **(a) Compatibility transcoding first** — a *library* problem. Old or odd files, converted
 offline by a background job into a stored alternate version that then direct-plays forever. No

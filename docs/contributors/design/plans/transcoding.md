@@ -1,15 +1,29 @@
-> **ABOUTME:** Transcoding as a first-party plugin on the public API — the compatibility path
-> and the bandwidth path, which are different problems, built in that order and only once
-> measured, on a machine that need not be the one serving the files.
+> **ABOUTME:** Video transcoding as a first-party plugin on the public API — the compatibility
+> path and the bandwidth path, which are different problems, built in that order and only once
+> measured, on a machine that need not be the one serving the files. Audio transcoding is not
+> here; it lives in the core.
 
-# Transcoding
+# Video transcoding
 
 - **Status:** PLANNED — designed 2026-09-17. Scheduled after the clients, pending measurement.
 - **Depends on:** playback-survey.md, stream-service.md
 
+## Scope: video only
+
+**Audio transcoding is not part of this plan.** It lives in the core, because every GPL trigger
+in FFmpeg is a video encoder and the entire audio menu (AAC, AC-3, E-AC-3, FLAC, ALAC, Opus) is
+producible from a plain LGPL build ([D22](../../decisions/working-notes.md),
+[tech-licensing.md](../research/tech-licensing.md) §3).
+
+That split is better than the one this plan originally assumed: since the most common real-world
+transcode is audio-only — video fine, audio TrueHD or DTS-HD — **the core handles the common case
+and this plugin handles the rare, heavy, licence-encumbered one.** A default install with no
+plugin can already fix the TrueHD-on-a-cheap-TV problem, which is most of what users actually
+hit.
+
 ## Position
 
-The transcoder is **a plugin we happen to maintain** ([D19](../../decisions/working-notes.md)) —
+The video transcoder is **a plugin we happen to maintain** ([D19](../../decisions/working-notes.md)) —
 a tier-3 capability service on the public plugin API, with no privileged access to the core that
 a third party could not also have. Not linked in, and not merely "an optional component".
 
@@ -62,8 +76,8 @@ The client decodes the file fine but cannot receive it fast enough. This is the 
 genuinely requires live, on-demand, keyframe-aligned segmented transcoding with adaptive
 bitrate, and it is the design researched in [tech-playback.md](../research/tech-playback.md) §3:
 
-- produce only **menu profiles** (D21) — never an arbitrary codec string, and always at least
-  the mandatory `h264-sdr` / `aac-stereo` baseline, which is what makes negotiation total;
+- produce only **video menu profiles** (D21) — never an arbitrary codec string, and always at
+  least the mandatory `h264-sdr` baseline, which is what makes negotiation total on that axis;
 - extract the source keyframe grid from packet-level `ffprobe` data, cached and versioned;
 - use it as the segment grid for **every** rendition including passthrough, so variants are
   interchangeable;

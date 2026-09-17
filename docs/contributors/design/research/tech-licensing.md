@@ -80,11 +80,29 @@ Because the happy path is direct play (D17), the encoder is not on the critical 
 playback. That makes a genuinely useful split available, and
 [D19](../../decisions/working-notes.md) makes it structural rather than a packaging convention:
 
-- **Core server: demux, probe, extract, thumbnail.** Needs FFmpeg for `ffprobe`, keyframe
-  extraction, subtitle extraction and thumbnailing — **none of which requires an encoder**, and
-  little of which requires the GPL rung.
-- **Transcoder: a first-party plugin** with its own full GPL encoder build, installed
+- **Core server: demux, probe, extract, thumbnail, remux — and encode audio.** See the boundary
+  below; none of this requires the GPL rung.
+- **Video transcoder: a first-party plugin** with its own full GPL encoder build, installed
   deliberately, and possibly not even on the same machine.
+
+### The boundary is exactly the video/audio split
+
+Verified against FFmpeg's own `configure` in the `jellyfin-ffmpeg` tree on 2026-09-17:
+
+| List | Contents | Contains an audio encoder? |
+| --- | --- | --- |
+| `EXTERNAL_LIBRARY_GPL_LIST` | `x264`, `x265`, `xvid`, `xavs`, `xavs2`, `davs2`, `avisynth`, `frei0r`, `libcdio`, `libdvdnav`, `libdvdread`, `librubberband`, `libvidstab` | **No.** Every codec on it is a video encoder. |
+| `EXTERNAL_LIBRARY_VERSION3_LIST` | `gmp`, `libaribb24`, `liblensfun`, `libopencore_amrnb`, `libopencore_amrwb`, `libvo_amrwbenc`, `mbedtls`, `rkmpp` | Only AMR, which we do not want. |
+| `EXTERNAL_LIBRARY_NONFREE_LIST` | `decklink`, `libfdk_aac`, `libmpeghdec` | `libfdk_aac` — which §1 already excludes. |
+
+And AAC, AC-3, E-AC-3, FLAC, ALAC and DCA all have **native encoders inside libavcodec**
+(`aacenc.c`, `ac3enc.c`, `eac3enc.c`, `flacenc.c`, `alacenc.c`, `dcaenc.c`) — no external library
+at all. `libopus` is on none of the three lists.
+
+**So the entire audio output menu is producible from a plain LGPL FFmpeg build.** Audio
+transcoding carries neither the GPL rung nor the video-codec patent exposure of §2, so it lives in
+the core — and since audio-only is the most common real-world transcode, **the core handles the
+common case and the plugin handles the rare, heavy, encumbered one** ([D22](../../decisions/working-notes.md)).
 
 What this buys on the licensing axis specifically:
 
@@ -129,8 +147,9 @@ be made pleasant.
 3. **Ship a self-built, pinned FFmpeg and publish the configure line.**
 4. **Codec patents are a real and separate question.** Follow the field's practice, say so
    plainly, get advice before anything commercial.
-5. **The encoder lives in a plugin, not the core** (D19) — which shrinks the default install's
-   licence *and* patent surface, lets third parties ship alternatives under their own terms, and
-   enforces the architectural boundary for free.
+5. **The *video* encoder lives in a plugin, not the core** (D19, D22) — which shrinks the default
+   install's licence *and* patent surface, lets third parties ship alternatives under their own
+   terms, and enforces the architectural boundary for free. **Audio encoding stays in the core**,
+   because every GPL trigger in FFmpeg is a video encoder and the whole audio menu is native LGPL.
 6. **Prefer AV1/Opus wherever we choose an output codec** — royalty-free by design.
 7. **Provider API keys are always the user's.**

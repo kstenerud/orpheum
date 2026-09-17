@@ -41,6 +41,16 @@ A throwaway tool — not part of the product — that:
   fix and does not need a video encoder at all.
 - **What does a bandwidth-constrained client actually need?** Measure real bitrates against real
   remote link speeds rather than assuming.
+- **Does every target platform handle demuxed HLS?** [D22](../../decisions/working-notes.md)
+  negotiates video and audio as separate axes, which means separate HLS renditions
+  (`EXT-X-MEDIA:TYPE=AUDIO` + `GROUP-ID`). Older Tizen, webOS and Roku firmware are *reported* to
+  be less reliable with demuxed than with muxed audio+video — unverified, and it is the one
+  assumption D22 rests on. Test it on real devices. If it fails on a platform we care about, the
+  fallback is a muxed variant flagged on the video axis, and that concession has to be reviewed
+  against D21's no-grammar rule.
+- **Which audio profiles does each device's *audio path* accept?** Not the device — the path.
+  Test HDMI/ARC into a receiver, the TV's own speakers, and Bluetooth, because D22 claims these
+  answer differently and that separating the axes is what makes a mid-session change cheap.
 
 ## Corpus
 

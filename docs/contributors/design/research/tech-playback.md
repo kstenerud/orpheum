@@ -200,6 +200,38 @@ devices and ~88% of large-screen devices certified 2021–2025 — but the remai
 pre-2020 TVs and older streaming sticks, which is precisely the long tail a home media server
 exists to serve. It earns its place on the menu; H.264 keeps the floor.
 
+### Three axes, not one vocabulary
+
+Video, audio and subtitles negotiate **independently** ([D22](../../decisions/working-notes.md)).
+HLS already works this way — `EXT-X-MEDIA:TYPE=AUDIO|SUBTITLES` with a `GROUP-ID` that video
+variants reference by name — and every player we target handles it natively, so separation is the
+conventional shape and muxing is the special case.
+
+It matters for five reasons, in descending order of force:
+
+1. **A joint menu would be a grammar.** Five video and six audio profiles are eleven names as
+   axes and **thirty** as pairs — and `hevc-hdr10+eac3` is a rule about a combination, which is
+   precisely the failure mode this section ends with.
+2. **The most common real transcode is audio-only**: video fine, audio TrueHD or DTS-HD. Joint
+   negotiation makes that one indivisible choice and risks re-encoding video that was already
+   perfect. Separate axes copy the video and transcode only the audio, at roughly 1% of the CPU.
+3. **Multi-track is intrinsic.** Three to eight audio tracks per film, switched mid-playback.
+   Under a joint vocabulary, changing language is a different variant and can restart the video.
+4. **Audio capability is dynamic in a way video capability is not.** The same device answers
+   differently for HDMI/ARC into a receiver, the TV's own speakers, or Bluetooth headphones — and
+   that path changes mid-session. Video capability is a property of the decoder and does not move.
+5. **Music needs only the audio axis**, with no null-video special case.
+
+**Audio segmentation is easier than video, not harder**: audio frames are independently
+decodable, so audio segments can always be cut on the video keyframe grid §3 already computes.
+The bounded wrinkle is frame granularity — AAC is 1024 samples, ~21.3 ms at 48 kHz — so
+boundaries drift slightly. Standard, solved.
+
+**The licence boundary falls between the axes**, which is the finding with real consequences —
+see [tech-licensing.md](tech-licensing.md) §3. Every GPL trigger in FFmpeg is a *video* encoder;
+the whole audio menu is native LGPL. So audio transcoding belongs in the core and the plugin is
+a *video* transcoder.
+
 ### Negotiation: the client sends a prioritised list
 
 Because the menu is a short enumeration rather than an open-ended description, the client can
@@ -404,6 +436,9 @@ is 8,042 lines mostly because of this matrix.
 3b. **Outputs are a short, fixed, named menu; inputs are unbounded.** The client sends a
    prioritised subset of the menu and the server intersects. A mandatory `h264-sdr`/`aac-stereo`
    baseline makes negotiation total. The menu must never become a grammar. (§2d, D21)
+3c. **Video, audio and subtitles are independent axes.** Additive rather than multiplicative,
+   audio-only transcoding becomes expressible, mid-playback track switching stays cheap — and the
+   GPL boundary falls between the axes, so audio transcoding belongs in the core. (§2d, D22)
 4. **Audio-only renditions are a first-class case**, not a special case of video transcoding.
 5. **Subtitles get a subsystem**: extract on scan, serve fonts, libass on every client, never
    burn in by default.

@@ -83,8 +83,9 @@ Five choices, each traceable to a specific failure in the research:
 │                                                                  │
 │  api/        REST handlers; OpenAPI generated from code          │
 │  library/    scan → identify → enrich, as named phases           │
-│  stream/     rendition list; direct-play; subtitle + trickplay   │
-│              (no encoder — the transcoder is a plugin, below)     │
+│  stream/     rendition list (video ‖ audio ‖ subs axes);          │
+│              direct-play, remux, AUDIO encode (LGPL only)         │
+│              (no video encoder — that is a plugin, below)         │
 │  subtitle/   extraction, conversion, font attachments (D11)      │
 │  jobs/       typed, persisted, inspectable queue                 │
 │  plugin/     three tiers: WASM sandbox, protocol adapters,       │
@@ -98,7 +99,7 @@ Five choices, each traceable to a specific failure in the research:
     │       └──────────────┘             └────────────────┘
     │
     │  registered plugins — same public API a third party would use
-    ├─ transcoder      (tier 3, first-party, optional, MAY BE REMOTE)
+    ├─ video transcoder (tier 3, first-party, optional, MAY BE REMOTE)
     ├─ jellyfin-adapter (tier 2, inbound — borrows other people's clients)
     └─ metadata providers, scrapers, scrobblers  (tier 1, WASM sandbox)
 ```
@@ -112,9 +113,11 @@ Notes on the shape:
   FFmpeg drives it as a process; cgo bindings to libav\* are a build-complexity liability. We
   ship a known-good build rather than accepting the distro's — Jellyfin maintains an entire
   FFmpeg fork, which is evidence of what the alternative costs.
-- **The core needs no encoder.** It demuxes, probes, extracts subtitles and makes thumbnails.
-  Encoding happens in the transcoder plugin, on its own FFmpeg build, possibly on another
-  machine ([D19](../decisions/working-notes.md)).
+- **The core needs no *video* encoder** — but it does encode audio. Every GPL trigger in FFmpeg
+  is a video encoder, and the whole audio menu (AAC, AC-3, E-AC-3, FLAC, ALAC, Opus) is native
+  LGPL, so audio costs nothing in licence or patent surface. Since the most common real transcode
+  is audio-only, **the core handles the common case and the plugin handles the rare one**
+  ([D19](../decisions/working-notes.md), [D22](../decisions/working-notes.md)).
 - **"Plugin" means three different things**, chosen by shape: a sandboxed WASM extension the
   core calls into, an inbound protocol adapter that consumes our API, or an outbound capability
   service the core calls and clients may be redirected to. Each tier exists because a real
@@ -141,7 +144,7 @@ Notes on the shape:
 | Microservices, Kafka, Elasticsearch, Redis | Household scale. Postgres covers search, fuzzy matching and job wakeups. |
 | A Roku client | BrightScript shares no code with anything and Roku cannot render bitmap subtitles at all. |
 | In-process plugins | [D12](../decisions/working-notes.md). Third-party scrapers are the last code you want unsandboxed. Protocol surfaces get a second tier — out-of-process adapters ([D15](../decisions/working-notes.md)). |
-| Transcoding in the core binary | [D17](../decisions/working-notes.md), [D19](../decisions/working-notes.md). It is a plugin on the public API: smaller default install, a real licence/patent boundary, and remote transcoding for free. |
+| A *video* encoder in the core binary | [D17](../decisions/working-notes.md), [D19](../decisions/working-notes.md), [D22](../decisions/working-notes.md). It is a plugin on the public API: smaller default install, a real licence/patent boundary, and remote transcoding for free. Audio encoding does stay in the core. |
 | Audiobooks, comics, live TV/DVR | Each is a different product wearing the same clothes. Audiobookshelf's 1,191 open issues are the evidence. |
 
 ## The open problems
