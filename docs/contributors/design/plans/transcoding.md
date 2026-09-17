@@ -62,6 +62,8 @@ The client decodes the file fine but cannot receive it fast enough. This is the 
 genuinely requires live, on-demand, keyframe-aligned segmented transcoding with adaptive
 bitrate, and it is the design researched in [tech-playback.md](../research/tech-playback.md) §3:
 
+- produce only **menu profiles** (D21) — never an arbitrary codec string, and always at least
+  the mandatory `h264-sdr` / `aac-stereo` baseline, which is what makes negotiation total;
 - extract the source keyframe grid from packet-level `ffprobe` data, cached and versioned;
 - use it as the segment grid for **every** rendition including passthrough, so variants are
   interchangeable;
@@ -89,11 +91,17 @@ None of this is allowed to require changes to the client contract:
 
 ## The interface, and how not to design it
 
-**Who owns the rendition list** is the whole problem. The core knows the file, its probe results
-and its keyframe grid; the transcoder knows what it can encode on this hardware. The list the
-client picks from is a *join* of the two, computed per item.
+**Who owns the rendition list** was the whole problem, and
+[D21](../../decisions/working-notes.md) mostly solved it. With a closed, named output menu the
+transcoder declares *the set of menu profiles it can produce on this hardware* — a list of ~11
+possible names, narrowed by what the GPU present can actually encode — and the rendition list is
+a set intersection: `client's prioritised list ∩ transcoder's capabilities ∩ {the original}`.
 
-Other questions the interface must answer: how the transcoder reads media (shared mount, or the
+That is a small interface over a closed vocabulary rather than an open negotiation, and it is
+checkable: a transcoder that claims `h264-sdr` and cannot produce it fails a conformance test
+rather than a user's playback.
+
+Other questions the interface must still answer: how the transcoder reads media (shared mount, or the
 core streaming bytes to it — the latter is what makes a genuinely remote transcoder work); how
 capabilities are advertised and re-probed when hardware changes; and how a transcoder dying
 mid-stream is reported to the client.
@@ -112,6 +120,12 @@ accelerator branches outside its own implementation file — principles §5.
 
 Ship a pinned, self-built FFmpeg and publish the configure line (D16). This is where correctness
 actually lives; Jellyfin maintains an entire FFmpeg fork largely for these patches.
+
+**The hwaccel matrix is now the dominant remaining complexity**, and D21 does not reduce it —
+`EncodingHelper.cs` is 8,042 lines mostly because of per-backend filter chains, pixel-format
+upload/download and tone-mapping, not because of output breadth. Note the reinforcing fact from
+D21 though: every hardware encoder supports the same three codecs (H.264/HEVC/AV1; VideoToolbox
+only the first two), so the menu costs nothing and each backend implements the same short list.
 
 ## Done when
 

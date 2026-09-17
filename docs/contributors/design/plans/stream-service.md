@@ -29,6 +29,11 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
 
 - **The rendition list is a list.** Growing it requires no client change, no protocol version
   and no migration (see [tech-playback.md](../research/tech-playback.md) §2a).
+- **The output menu and its negotiation exist in v1** ([D21](../../decisions/working-notes.md)),
+  even though the only producible entry is `original`. The client sends its prioritised subset of
+  the named menu; the server intersects. Getting this shape in early is what lets a transcoder be
+  added later as a pure capability announcement, and it is what lets dumb clients ship a static
+  list instead of implementing runtime probe-and-pick.
 - **A transcode-reason field**, populated even when the answer is "this server cannot
   transcode". Clients must be able to explain the failure — principles §3.
 - **A capability handshake**, so a core without the transcoding component says so honestly.

@@ -73,7 +73,9 @@ same keyframe grid as the transcoded ones (D4). A bad client picks badly, so the
 logic lives in a shared client SDK, and the server may include a *hint*, never a mandate.
 
 **Status:** Provisional; the strongest of these decisions. Overturned only if a major target
-platform turns out to have no usable runtime capability probe.
+platform turns out to have no usable runtime capability probe — a risk since
+**substantially reduced** by [D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list),
+which lets a client with a poor capability API ship a static list instead of probing.
 
 ---
 
@@ -575,6 +577,12 @@ grid. The transcoder knows what it can encode on this hardware. The list the cli
 is a *join* of those two, computed per item. That join is the whole interface, and getting it
 wrong yields either a leaky abstraction or a transcoder that cannot do its job.
 
+**Largely defused by [D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list).**
+With a closed, named output menu the transcoder's capability declaration is just *the set of menu
+names it can produce on this hardware*, and the join becomes a three-way set intersection —
+`client ∩ transcoder ∩ {original}` — rather than an open negotiation. The remaining interface
+questions below still stand.
+
 Secondary questions the interface must answer: how the transcoder reads media (shared mount, or
 the core streaming bytes to it — the former is what everyone already does, the latter is what
 makes a truly remote transcoder work); how capabilities are advertised and re-probed when
@@ -718,3 +726,110 @@ was outdated and hard to support; and it no longer fitted the business.
 **Status:** Provisional, and deliberately not a specification. The four core-not-plugin items
 are the actionable part now — auth and the rules engine both need to land in
 `library-model.md` and the v1 scope before the schema is written.
+
+---
+
+## D21 — A fixed, named output menu, negotiated by a prioritised client list
+
+**Decided.** The server's **output** formats are a short, fixed, project-owned **enumeration of
+named profiles** — not a capability space. A client requests playback by sending a **prioritised
+subset of that menu**; the server returns a manifest containing the intersection of what the
+client asked for and what it can produce, always including the untouched original when it
+matches. Every client must include the baseline and every transcoder must produce it, so the
+intersection can never be empty.
+
+### Why the asymmetry is real
+
+**Inputs are unbounded** — a home library contains everything anyone has ever encoded, and
+handling that is the hard, irreducible part of this project. **Outputs are not**, and it is
+worth being precise about why: the output set is **already chosen for us by silicon**. Every
+hardware encoder that matters supports the same three video codecs and nothing else worth
+having — NVENC, QSV, AMF and VAAPI all do H.264/HEVC/AV1; VideoToolbox does H.264/HEVC.
+
+So a broad output matrix was never available in hardware. Fixing a small menu **costs nothing we
+could otherwise have had**; it only stops us writing software-encoder paths for formats no client
+wants and no GPU accelerates.
+
+### The menu
+
+Named profiles bundling codec + profile + level + bit depth + transfer characteristics, because
+those are not independently selectable in practice and naming the combination is what stops this
+becoming a grammar:
+
+- **Video:** `h264-sdr` *(mandatory baseline)*, `hevc-sdr`, `hevc-hdr10`, `av1-sdr`, `av1-hdr10`
+- **Audio:** `aac-stereo` *(mandatory baseline)*, `aac-multi`, `ac3`, `eac3`, `opus`, `flac`
+- **Container:** always fMP4/CMAF ([D3](#d3--streaming-format-cmaffmp4-segments-hls-manifest-no-drm)), so not a dimension.
+
+**Resolution and bitrate are not menu entries.** They are what ABR varies *within* a chosen
+profile. Conflating the two is part of what makes device profiles unmanageable.
+
+**Dolby Vision and Atmos are deliberately absent** — passthrough-only. Direct-play them where the
+client handles them; fall back to a menu profile otherwise. We never re-encode into them.
+
+**AV1 is an entry, not a baseline.** Hardware decode reaches roughly 80% of consumer devices and
+~88% of large-screen devices certified 2021–2025, but the remaining fifth is pre-2020 TVs and
+older streaming sticks — precisely the long tail a home media server exists to serve.
+
+### Why this is not a device profile in disguise
+
+The most important thing to get right, since
+[D2](#d2--playback-negotiation-the-client-decides-from-a-manifest) exists to reject exactly that
+design. The difference is categorical:
+
+| | `DeviceProfile` | Output menu |
+| --- | --- | --- |
+| Client sends | An open-ended **description** of capabilities: containers, codecs, profiles, levels, bitrates, conditional rules | A **subset of the server's published enumeration**, in preference order |
+| Server does | Evaluates **the media** against **the client's rules** to pick a play method | Intersects **two sets of names** |
+| Grows by | Devices and users inventing new conditions | The project adding an entry, deliberately and under review |
+
+The server never reasons about whether this client can play this file. It computes a set
+intersection over a closed vocabulary. The precedent is boring and established: **HTTP `Accept`
+with q-values**, applied to a media menu.
+
+### The mandatory baseline makes negotiation total
+
+Every client must list `h264-sdr` + `aac-stereo`; every transcoder must produce them. The
+intersection therefore cannot be empty and negotiation cannot fail. This upgrades "a reasonable
+assumption that we'll handle at least one of them" into a guarantee written into the contract,
+which is worth considerably more than the assumption.
+
+### What it fixes elsewhere
+
+1. **Dumb clients stop being a problem.** D2's honest caveat was that the client picks, and a bad
+   client picks badly. A Tizen, webOS or Roku client with a poor capability API no longer needs
+   runtime probe-and-pick — it ships a static compiled-in list and is correct by construction.
+2. **It largely defuses D19's hardest open question.** "Who owns the rendition list" becomes a
+   three-way **set intersection** — `client ∩ transcoder ∩ {original}` — over a closed
+   vocabulary, because the transcoder plugin's capability declaration is now just a set of menu
+   names it can produce on this hardware. That is a far smaller interface than the open
+   negotiation D19 anticipated.
+3. **It makes the Jellyfin adapter easier** ([D18](#d18--the-jellyfin-compatible-surface-is-an-adapter-and-it-quarantines-device-profiles)):
+   mapping an inbound `DeviceProfile` onto our menu is *classification into ~11 buckets*, not an
+   evaluation engine. The quarantined complexity shrinks.
+4. **The manifest never advertises something that will fail**, because it is filtered against the
+   client's own list before it is built.
+
+### What it does not fix — stated so nobody is surprised later
+
+**Most of `EncodingHelper.cs`.** That file is 8,042 lines mainly because of the
+**hardware-acceleration matrix** — per-backend filter chains, pixel-format upload/download,
+tone-mapping paths — not because of output-format breadth. A fixed menu removes a real slice of
+the complexity and removes it permanently, but hwaccel remains the dominant cost and is handled
+separately (one interface per accelerator family, principles §5).
+
+### The failure mode to watch
+
+**The menu must stay an enumeration and must never become a grammar.** The pressure will be
+constant and each instance will sound reasonable: "this TV needs H.264 but capped at Level 4.0";
+"this one does 8-bit HEVC but only at 30fps". Each concession is a *condition*, and conditions
+are what `DeviceProfile` is made of.
+
+The discipline: the menu is owned by the project and versioned. A device needing something not on
+it takes the baseline, or someone adds an entry as a deliberate reviewed change. **If we ever find
+ourselves adding a condition rather than an entry, we have rebuilt the thing D2 rejected** — and
+that is the review question for any change to this list.
+
+**Status:** Provisional. The initial menu contents are a starting point to be checked against the
+playback survey (`plans/playback-survey.md`), which will say what real clients actually accept.
+The *shape* — closed enumeration, prioritised client subset, mandatory baseline — is the part
+that matters.

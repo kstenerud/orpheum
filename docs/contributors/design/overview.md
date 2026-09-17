@@ -134,7 +134,8 @@ Notes on the shape:
 | Not building | Why |
 | --- | --- |
 | DRM | The user owns the files. Skipping it removes key servers, licence proxies and platform certification — the main reason a small team can compete here. |
-| A device-profile database | [D2](../decisions/working-notes.md). It is the incumbents' largest bug source. |
+| A device-profile database | [D2](../decisions/working-notes.md), [D21](../decisions/working-notes.md). It is the incumbents' largest bug source. Our menu is a closed enumeration and must never become a grammar of conditions. |
+| Dolby Vision / Atmos *output* | Passthrough only. We direct-play them where the client copes and fall back to a menu profile otherwise; we never encode into them. |
 | Photos | [D1](../decisions/working-notes.md). Immich exists, is AGPL, and is moving faster than we could. |
 | A Netflix-style encoding ladder | Bandwidth is free on a LAN. |
 | Microservices, Kafka, Elasticsearch, Redis | Household scale. Postgres covers search, fuzzy matching and job wakeups. |
