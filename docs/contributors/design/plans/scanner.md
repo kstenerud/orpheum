@@ -50,14 +50,34 @@ Researched — see [change-detection.md](../research/change-detection.md) and
 limits a large library exhausts, and **fails silently**, which is why "the scanner did not
 notice my new file" and "the scanner rescanned everything at 3 a.m." are the same bug.
 
-So: a per-root strategy with an **explicit capability report** — the server says which strategy
-is active and warns when it is degraded or stale. Native watching where it works; a NAS-side
-index agent (a tier-3 capability service, built later) for network shares; mtime-delta or full
-walking otherwise; and an explicit rescan trigger always.
+So: a per-root strategy with an **explicit capability report**. Refined by
+[D32](../../decisions/working-notes.md), which corrects the ordering — **build the inbound
+endpoint first**, because being told beats every form of watching and Sonarr/Radarr already emit
+import webhooks with paths. For this audience that is the expected path, not a fallback.
 
-**The load-bearing corollary for this plan: periodic walking must be good enough on its own**,
-because most installs will use it. Its throughput is a number in
-[performance-targets.md](performance-targets.md), not a fallback afterthought.
+The ladder: **be told** (webhook/API/CLI) → native watching (local) → SMB `CHANGE_NOTIFY`
+(deferred; no Go client implements it and an OS mount cannot expose it) → **directory-mtime
+pruned walk** → full `stat` walk as the net → content hashing on demand. The NAS index agent
+sits between native watching and the walk for those who will install it.
+
+**The load-bearing corollary stands: periodic walking must be good enough on its own**, because
+most installs will use it. Its throughput is a number in
+[performance-targets.md](performance-targets.md). Three techniques make it achievable, and all
+three belong in this plan:
+
+- **Directory-mtime pruning**, which suits media libraries specifically because they are
+  append-mostly — turning *O(all files)* into *O(changed directories)*. Defeated by `rsync -t`
+  and by in-place edits, hence the periodic full walk behind it.
+- **One round trip per directory, never a `stat` per file.** SMB2 and NFS carry attributes in
+  the listing; `filepath.WalkDir` without a stray `Info()` call is the difference between
+  seconds and minutes on a share.
+- **Adaptive per-directory cadence**, because a downloads folder and a 2004 films folder do not
+  deserve the same interval — plus a config field letting the user declare a library archival.
+
+**Probe at setup and report measured facts**: write a temp file to test whether this share
+updates directory mtimes at all, time a few hundred entries to estimate deep-scan duration, and
+then surface **last successful deep scan and current staleness** — which is the question a
+polling user actually has.
 
 ## Also
 

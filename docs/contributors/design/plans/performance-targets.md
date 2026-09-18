@@ -30,7 +30,10 @@ are worth nothing without a number that fails.
   gated in CI; schedule the rest.
 - **Periodic-walk throughput**, promoted from a fallback to a requirement by
   [D27](../../decisions/working-notes.md): most installs cannot use native filesystem watching,
-  so walking speed *is* the change-detection latency for them.
+  so walking speed *is* the change-detection latency for them. Measure it **over a real SMB
+  mount, not locally** — [D32](../../decisions/working-notes.md) notes the cost is round trips
+  rather than bytes, so a local benchmark will be off by orders of magnitude and will hide the
+  one mistake that matters (a `stat` per file instead of one listing per directory).
 - **Trickplay and thumbnail generation**, which an HN user reports taking *days* for a large
   library on Jellyfin. That is a background job, so the target is throughput and
   interruptibility rather than latency.

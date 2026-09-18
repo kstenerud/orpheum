@@ -1743,3 +1743,99 @@ matrix to serve a deployment shape that does not exist yet.
 deployment; if that ever materialises it arrives with a repository layer in place and a real
 requirement to design against, which beats paying the operational cost now for a workload that
 does not exist.
+
+---
+
+## D32 — Being told beats watching; the no-agent path is a tiered, measured, self-reporting walk
+
+**Decided.** Refines [D27](#d27--change-detection-is-a-strategy-interface-that-reports-which-strategy-it-is-using)
+by correcting its ordering and specifying the path for users who cannot or will not install
+anything on their NAS — which is most of them.
+
+### The correction: build the inbound endpoint first
+
+D27 treated an explicit rescan trigger as a last-resort safety valve. That is backwards.
+**Nothing that polls or watches beats the component that wrote the file telling us it did**, and
+for this audience that component usually exists: the companion-app survey found roughly 80,000
+stars of `*arr` ecosystem, and **Sonarr and Radarr already emit webhooks on "On File Import",
+"On File Upgrade" and "On Import Complete", with paths in the payload.**
+
+So the first thing built is **an inbound endpoint** — `POST` "this path changed", plus a CLI
+command and a UI button on the same path. A few dozen lines, instant, zero running cost, and for
+a large share of real libraries it is the entire feature. Polling becomes the fallback for
+manually-managed content rather than the primary mechanism.
+
+### The ladder
+
+**A** be told (webhook/API/CLI) → **B** native watching (`inotify`/`FSEvents`/`kqueue`, local
+only) → **C** SMB `CHANGE_NOTIFY` (deferred, see below) → **D** directory-mtime pruned walk →
+**E** full `stat` walk as the safety net → **F** content hashing, on demand only.
+
+The NAS index agent (D27) sits between B and D for those who will install it.
+
+### Tier D is the workhorse, and it suits this domain specifically
+
+A directory's mtime moves when an entry is added or removed, not when a file is edited in place.
+For most workloads that makes mtime pruning unreliable; for a **media library it is close to
+ideal, because libraries are append-mostly** — files are added, removed or replaced wholesale
+and essentially never edited. The walk collapses from *O(all files)* to *O(changed
+directories)*.
+
+Caveats, each requiring tier E behind it: `rsync -t` and `mv` can **preserve** mtimes; in-place
+modification is invisible at directory level; and some SMB/NFS configurations do not update
+directory mtimes dependably.
+
+### Optimise round trips, not bytes
+
+Network-walk cost is **one round trip per operation**. At 1 ms RTT, stat-ing every file in a
+100,000-file library is minutes; over Wi-Fi far worse. Therefore:
+
+- **Never `stat` per file.** SMB2 and NFS carry attributes in the directory listing, so a
+  correct walk costs one round trip *per directory*. In Go that means `filepath.WalkDir` and not
+  calling `Info()` where the entry already has what is needed — an easy and expensive mistake.
+- **Slice the walk** so it never blocks for minutes or presents as a stall.
+- **Adaptive per-directory cadence.** Libraries are extremely skewed — a downloads folder
+  changes daily, a 2004 films folder never will. Hot directories get checked often, cold ones
+  fall to a slow cycle. A global interval is either too slow for the hot corner or too expensive
+  for the cold mass.
+- **Let the user declare a library archival or hot.** An explicit statement beats any heuristic
+  and costs one config field.
+
+### Probe at setup, and report the question the user actually has
+
+Make D27's capability report measured rather than descriptive, when a library is added:
+
+1. Write a temp file and check whether the parent directory's mtime moved — **a direct test of
+   whether tier D can be trusted on this share**.
+2. Time a listing of a few hundred entries to derive a per-directory cost and an **estimated
+   deep-scan duration**.
+3. Report protocol, chosen tier, estimated cost and planned cadence.
+
+And extend the reporting requirement: under polling the user's real question is not "which
+strategy" but **"when did you last actually look?"** Surface **last successful deep scan and
+current staleness**, per library.
+
+### SMB `CHANGE_NOTIFY` — deferred, with a trigger
+
+SMB2 has a real change-notification primitive that would give instant, agent-free detection on
+SMB shares. Two blockers, checked 2026-09-18:
+
+- **No Go client implements it.** `CloudSoda/go-smb2` has the command constant and its
+  `STATUS_NOTIFY_ENUM_DIR` error handling but **no request struct, no completion-filter
+  constants and no public API** — a placeholder.
+- **An OS `cifs` mount cannot expose it**, since the kernel does not surface SMB change
+  notifications to userspace.
+
+NFS offers no equivalent worth relying on (none in v3; v4.1 directory delegations are rarely
+enabled).
+
+**The contained design if it is ever warranted:** keep the OS mount for reading media — faster,
+page cache, `sendfile` — and open a **separate minimal SMB session used only for
+`CHANGE_NOTIFY`** on the library roots. That needs connect, authenticate, tree-connect,
+open-directory and change-notify, not a full filesystem client. A real differentiator, since no
+incumbent does it. **Trigger:** tiered polling proving inadequate for SMB users in practice,
+*and* agent adoption being as low as expected.
+
+**Status:** Provisional. The inbound endpoint and tier D are v1; everything else is ordering.
+The `*arr` webhook integration should be documented as a first-class setup step, not buried —
+it is the difference between instant and a poll interval for most of this audience.
