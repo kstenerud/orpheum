@@ -43,7 +43,10 @@ native Kotlin Compose-for-TV client reusing only the API contract.
 
 The decision was **re-examined on 2026-09-18** against Shopify's reversal to Swift and Kotlin
 and upheld, with a falsifiable bail-out so the focus prototype below is a decision point rather
-than a formality. Reverse to native if: the prototype feels wrong on the oldest Fire Stick
+than a formality. **Bailing out does not mean going fully native** —
+[D28](../../decisions/working-notes.md) names the fallbacks: a **hybrid** (keep RN for web and
+phone, native TV only) if the failure is TV-specific, which is the likely case; **KMP plus
+native UI** if React Native fails generally. Reverse if: the prototype feels wrong on the oldest Fire Stick
 (dropped frames on directional navigation, focus traps, latency a native app would not have);
 `react-native-tvos` falls two minor React Native versions behind for a quarter; our own native
 fraction passes roughly half (Streamyfin's is 31%); or Shopify's migration is reported a success

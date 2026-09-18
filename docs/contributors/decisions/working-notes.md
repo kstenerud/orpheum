@@ -1435,3 +1435,69 @@ If the product is unusable without the agent, the agent is a trap.
 **Status:** Provisional. The agent is worth building later and with real demand — note that on
 the author's own hardware both NAS units run Debian/Proxmox, so the server runs *on* the NAS and
 native watching works; this solves other people's problem.
+
+---
+
+## D28 — Keep the exit from React Native cheap, and designate the fallbacks
+
+**Decided.** [D10](#d10--clients-react-native-shell-native-player-modules-two-engines) stands,
+and three rules preserve the ability to leave it. The fallback is **not** "go fully native" —
+it depends on how React Native would fail, and the options are named in advance.
+
+### The fallbacks, by failure mode
+
+| How RN fails | Fallback | Why |
+| --- | --- | --- |
+| **TV only** — the likely case: focus navigation or performance on weak sticks | **Hybrid** — keep RN for web and phone, go native for TV (Compose for TV on Android, SwiftUI on tvOS) | RN's weak spot is exactly and only TV. Isolating the fallback to the platform that failed is far cheaper than a wholesale migration, and a TV UI is a small surface: rows, a grid, a detail page, a player. |
+| **Generally** — the fork stalls or the ecosystem decays | **KMP for shared logic + native UI on every platform** | A proven path with real adoption. Web still needs its own client, unless Kotlin/JS or Kotlin/Wasm supplies its logic layer — possible, less-trodden. |
+| We wanted maximum sharing | Compose Multiplatform | **Rejected: no tvOS target.** It solves the platforms we worry about least. |
+
+**KMP is the designated general-purpose Plan B**, and the earlier dismissal of it in D10
+conflated two different things. **KMP** (share logic, native UI everywhere) is conservative and
+widely adopted — professional-developer usage roughly doubled in a year, 7% → 18%; production
+users include Cash App, Forbes, McDonald's, Quizlet and Block's Bitkey; Google and JetBrains are
+both invested, and Google being the vendor of one of the two mobile platforms is the part that
+matters. **CMP** (share the UI too, via Skia) is a different and newer bet, and is the one that
+fails our requirements.
+
+**One claim qualified, because it is the one that looks most relevant and is not:** Netflix's
+KMP usage is in its **Studio** applications — internal production tooling — not the consumer
+streaming client. It is not evidence for KMP in consumer media playback.
+
+**Flutter is rejected as a fallback**, which is worth stating because it is the more popular
+framework overall: **no official tvOS support** (the request has been open since 2019), and
+Android TV support that Flutter's own umbrella issue describes as having gaps in "tooling, I/O,
+navigation, focus, core design language, documentation, samples, and tests". It is worse than
+React Native for our target set. Note in passing that **webOS is now officially supported** by
+an LG-shipped Flutter SDK, which is the one place Flutter leads — relevant only if the v3
+webOS target is ever built, where **Lightning.js** is the stronger option anyway.
+
+### Why the exit is cheap, and the three rules that keep it that way
+
+**The expensive asset is already framework-independent.** The native player modules — player
+engine, renderer, PiP, media session, libmpv and ExoPlayer integration — are plain Swift and
+Kotlin behind a thin bridge. Streamyfin's 33,097 lines of them are not React Native code.
+Migrating means dropping the wrapper and keeping the implementation. Combined with a generated
+OpenAPI contract ([D9](#d9--server-language-go-one-language-on-the-server)), a closed rendition
+menu ([D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list)) and a
+small probe-and-pick interface
+([D2](#d2--playback-negotiation-the-client-decides-from-a-manifest)), **a framework switch is a
+UI rewrite, not a system rewrite.**
+
+That property is worth preserving deliberately rather than by luck:
+
+1. **Native player modules carry no React Native types at their core.** Engine, renderer, PiP
+   and media-session code are plain Swift/Kotlin; only a thin adapter knows about RN.
+2. **The shared SDK stays framework-agnostic TypeScript** — no React or React Native imports in
+   the API client, negotiation or offline logic. It must be usable from a plain web page, and
+   the device-lab web harness ([device-lab.md](../design/plans/device-lab.md)) is the forcing
+   function that proves it continuously.
+3. **Track the native fraction.** Streamyfin sits at 31%; passing roughly half is one of D10's
+   bail-out triggers and is only observable if measured.
+
+None of these costs anything today. All three stop being available if ignored for a year.
+
+**Status:** Provisional. The hybrid fallback is the most likely to be needed and the least
+examined — if the TV focus prototype disappoints, the next question is whether a native TV
+client can reuse the shared SDK through a bridge or has to reimplement it, and that has not
+been researched.

@@ -19,6 +19,14 @@ D2 puts the rendition choice on the client. That is only safe if the choice is i
 where `navigator.mediaCapabilities.decodingInfo()` and its per-platform equivalents get turned
 into a rendition preference.
 
+## Keep the SDK framework-agnostic
+
+Per [D28](../../decisions/working-notes.md): **no React or React Native imports** in the API
+client, the negotiation logic or the offline state machine. The SDK must be usable from a plain
+web page, which keeps a future framework change a UI rewrite rather than a system rewrite. The
+device-lab web harness ([device-lab.md](device-lab.md)) is the forcing function — it consumes
+the SDK without React Native anywhere near it, continuously.
+
 ## Non-negotiables
 
 Subtitle offset control; manual override of the playback decision; a visible "why is this

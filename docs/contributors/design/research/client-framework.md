@@ -120,20 +120,112 @@ probing, PiP, media session, HDR passthrough and background download are all nat
 Also worth noting: 79 screens. A media client is not "a grid and a player" — the surface that
 benefits from sharing is large.
 
-## 5. Kotlin Multiplatform / Compose Multiplatform — considered, rejected
+## 5. The alternatives, and which is the designated Plan B
 
-The obvious third path, and one a commenter asked Shopify about directly ("is there a shared
-core between iOS and Android, e.g. KMP or Rust?"): share logic in Kotlin, write native UI, or
-share UI via Compose Multiplatform.
+Dropping React Native does **not** imply going fully native. Three families exist, and an
+earlier version of this document conflated the first two, which understated the best of them.
 
-Compose Multiplatform reached **stable on iOS in 2026**, so this is a genuine option now and was
-not a year ago. It is rejected here for two specific reasons:
+### KMP ≠ CMP, and the distinction is the whole point
 
-- **There is no tvOS target, and no coherent cross-platform TV story.** Compose for TV exists on
-  Android; Compose Multiplatform does not extend that to Apple TV. It would solve the platforms
-  we are least worried about and skip the one we are.
-- **It does not help the web client, which we need regardless** — it is also the admin UI. Our
-  shared SDK is TypeScript either way, so KMP would add a *third* language for partial coverage.
+- **KMP (Kotlin Multiplatform)** — share *logic* (networking, models, state, offline), write
+  **native UI on every platform**. Conservative.
+- **CMP (Compose Multiplatform)** — also share the *UI*, rendered via Skia onto a canvas.
+  Newer, more ambitious.
+
+They have very different adoption and very different risk.
+
+### KMP's adoption is real, and this is the Plan B
+
+- Usage among professional developers **roughly doubled in a year, 7% → 18%**.
+- Production users include **Cash App, Forbes** (reported 80%+ of business logic shared),
+  **McDonald's, Quizlet**, and **Block's Bitkey** (reported ~95% shared, with CMP for UI).
+  **Google and JetBrains are both invested** — Google being the vendor of one of the two mobile
+  platforms is the part that matters.
+- Kotlin 2.x retired the historical objections: the memory model, build setup and compiler
+  flakiness.
+
+**One widely-repeated claim needs qualifying**, because it is the one that looks most relevant
+to us and is not: **Netflix's KMP usage is in its *Studio* applications** — internal production
+tooling — not in the consumer streaming client. It is not evidence that KMP is used for
+consumer media playback at scale. Treat "hundreds of millions of daily users" figures as vendor
+framing.
+
+### CMP is not a fit for us, for one hard reason
+
+**No tvOS target.** Compose for TV exists on Android, and Compose Multiplatform does not extend
+it to Apple TV. CMP would solve the platforms we worry about least and skip the one we worry
+about most. Web is also Wasm-alpha-ish. That is disqualifying for this project specifically —
+not a judgement on CMP generally, which is clearly maturing fast.
+
+### Flutter is worse than React Native for our target set
+
+Verified from Flutter's own tracker and LG's developer site:
+
+| Target | Flutter status |
+| --- | --- |
+| **tvOS** | **No official support** — community efforts only; the request issue has been open since 2019 |
+| Android TV | Unofficial. Flutter's own umbrella issue lists gaps in "tooling, I/O, navigation, focus, core design language, documentation, samples, and tests" |
+| **webOS** | **Officially supported** — LG ships a `flutter-webOS` SDK, which is genuinely new and interesting |
+| Phones | Excellent |
+
+Losing tvOS entirely and having Android TV documented by its own maintainers as gap-ridden makes
+Flutter a worse choice than React Native here, despite being the more popular framework overall.
+
+### Lightning.js is a complement, not an alternative
+
+Comcast's WebGL/JavaScript TV framework, used across RDK set-tops and smart TVs, explicitly
+targeting memory-constrained legacy devices. It is **TV-only and canvas-based** — no DOM, no
+mobile story — so it cannot replace a multiplatform stack. It is, however, the strongest option
+if the v3 Tizen/webOS targets are ever built, precisely because it is designed for the weak
+hardware those platforms run.
+
+### So the fallback depends on *how* React Native fails
+
+| Failure mode | Fallback | Cost |
+| --- | --- | --- |
+| **TV only** (the likely one — focus navigation or performance on weak sticks) | **Hybrid**: keep RN for web and phone, native for TV (Compose for TV + SwiftUI) | Two TV UIs — but a TV UI is rows, a grid, a detail page and a player. Risk stays where it lives. |
+| **Generally** (fork stalls, ecosystem decays) | **KMP for shared logic + native UI everywhere** | Real work, but a proven, well-adopted path. Web still needs its own client — unless Kotlin/JS or Kotlin/Wasm is used for its logic layer, which is possible and less-trodden. |
+| We want maximum sharing and can drop Apple TV | CMP | Not acceptable — tvOS is a target. |
+
+The **hybrid** is the underrated answer. React Native's weak spot is exactly and only TV; its
+strong spots are phone and web. Isolating the fallback to the platform that failed is cheaper
+than a wholesale migration, and nothing in the architecture forbids it.
+
+## 5a. The structural point: the expensive asset is already framework-independent
+
+The most reassuring fact about this whole question, and the reason it is less alarming than it
+sounds.
+
+**The native player modules survive any of these migrations.** Streamyfin's 33,097 lines of
+Swift and Kotlin are not React Native code — they are `MPVLayerRenderer`, `PiPController`,
+`MPVNowPlayingManager`, ExoPlayer and libmpv integration, wrapped in a *thin* Expo module
+bridge. Moving to native, or to KMP, means dropping the wrapper and keeping the implementation.
+**The most expensive part of a media client is the part that does not care which UI framework
+sits above it.**
+
+Add to that what the architecture already makes durable: the API contract
+([D9](../../decisions/working-notes.md)'s generated OpenAPI), the closed rendition menu
+([D21](../../decisions/working-notes.md)) and the probe-and-pick logic
+([D2](../../decisions/working-notes.md)) — a small, well-specified interface rather than a
+sprawl.
+
+So a framework switch is **a UI rewrite, not a system rewrite**. Screens and navigation are
+rewritten; the player, the protocol, the negotiation and the server are untouched.
+
+### Keeping the exit cheap costs nothing now
+
+Three rules, adopted as [D28](../../decisions/working-notes.md), that preserve this property
+rather than assuming it:
+
+1. **The native player modules stay free of React Native types at their core.** Player engine,
+   renderer, PiP and media-session code are plain Swift/Kotlin; only a thin adapter layer knows
+   about RN. This is roughly how Streamyfin is already structured — the point is to make it a
+   rule rather than an accident.
+2. **The shared SDK stays framework-agnostic TypeScript** — no React, no React Native imports in
+   the API client, negotiation or offline logic. It should be usable from a plain web page, and
+   the device-lab web harness is the forcing function that proves it.
+3. **Measure the native fraction.** Streamyfin sits at 31%; passing roughly half is one of D10's
+   bail-out triggers, and it is only observable if it is tracked.
 
 ## 6. `react-native-tvos` is healthier than "community fork" suggested
 
