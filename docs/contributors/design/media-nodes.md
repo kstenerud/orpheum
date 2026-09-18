@@ -50,19 +50,35 @@ running in the core, but left the core walking user filesystems and reading dire
 whose names are also attacker-influenced. Now the core's entire input surface is: HTTP requests,
 its own SQLite file, and node reports it validates at the boundary.
 
-## One artifact, two roles
+## One artifact, one process per role
 
 **Non-negotiable, or this undoes [D31](../decisions/working-notes.md)'s single-file
-simplicity.** The node is not a second download. It is the same binary in a different mode:
+simplicity.** The node is not a second download — it is the same binary in a different mode. But
+it *is* a separate **process**, always, even co-located ([D43](../decisions/working-notes.md)):
 
 ```
-mediaserver serve                     # core
-mediaserver node --core=<url>         # spoke
+mediaserver run                 # supervises every role enabled in config
+mediaserver core                # or run exactly one role, foreground
+mediaserver node
+mediaserver transcode
 ```
 
-And in the default single-machine install, **the core supervises a co-located node as a child
-process**, so the user still installs one thing and runs one thing. Distribution is an
-opt-in topology change, not the baseline experience.
+Separate processes rather than goroutines because **Landlock is per-process and monotonic**
+(D26): a scanner wants read on media and write on its exchange directory, a transcoder wants
+read on media, write on a cache and **GPU device access**. One process means applying the union
+of those rulesets, so the riskiest component carries permissions it does not need. Separate
+processes also give per-role resource limits, failure isolation, and a clean expression of "the
+transcoder is not installed" as "it is not running". Three Go processes idle in tens of
+megabytes, so the cost is noise.
+
+Equally important: **the boundary is then enforced by the OS rather than by discipline.**
+[D42](../decisions/working-notes.md) says a node must not hold database credentials or make
+policy; in one address space that is a convention, and across processes it is impossible.
+
+`mediaserver run` keeps the default install to one thing to start and stop. The single-role
+forms exist so anyone with systemd, separate containers or Kubernetes can supervise properly —
+that path must not be second-class. Local roles talk over the **same protocol as remote ones**,
+on a Unix socket, so the common deployment exercises the code the rare one depends on.
 
 ## Why this is simpler than the strategy interface it replaces
 

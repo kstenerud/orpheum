@@ -2665,3 +2665,106 @@ be.
 
 **Status:** Decided, and promoted to a principle
 (`principles/README.md` §9) because it is cross-cutting rather than specific to scanning.
+
+---
+
+## D43 — One binary, one process per role, and a thin optional supervisor
+
+**Decided.** The single binary runs **one role per process**. A machine running a core, a node
+and a transcoder runs three processes, not one process with three goroutines. The binary can
+supervise them itself for convenience, but that supervisor is thin and optional.
+
+### Core and node are separate processes even when co-located
+
+Already implied by [D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do),
+and worth stating why:
+
+- **The boundary should be enforced by the operating system, not by discipline.**
+  [D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides) says nodes are sensors
+  that must not hold database credentials or make policy. In one address space that is a
+  convention a tired afternoon can breach; in separate processes it is impossible.
+- **The local and distributed cases must be one code path.** If co-located means goroutines and
+  remote means processes, there are two implementations and the local one — the common one — is
+  the one that never exercises the real protocol.
+
+### Roles within a machine are also separate, and Landlock is the clincher
+
+The tempting design is one process per machine with roles as goroutines. It is wrong, and the
+reason is concrete rather than aesthetic:
+
+**Landlock is per-process and monotonic** ([D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)) —
+a ruleset can only be tightened, never relaxed, and it applies to the whole process. Different
+roles need genuinely different rulesets:
+
+| Role | Needs |
+| --- | --- |
+| Scanner/probe node | read media roots; write its exchange directory |
+| Transcoder | read media roots; write a cache directory; **access GPU device nodes** (`/dev/dri`, `/dev/nvidia*`) |
+
+Combining them into one process means applying **the union** of those rulesets — a strictly
+weaker sandbox, in which the component doing the riskiest work carries permissions it does not
+need. Splitting the processes is what lets each be confined to exactly its job.
+
+Three lesser reasons in the same direction: **resource isolation** (transcoding is long and
+CPU/GPU-heavy, scanning is bursty and I/O-heavy, and they want different `nice`/cgroup
+treatment); **failure isolation** (a GPU driver hang should not take down the scanner); and
+**optionality** — [D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three)
+makes the transcoder a separately-installed plugin, and "not installed" is cleanly expressed as
+"not running".
+
+The memory objection does not bite: a Go process idles in the tens of megabytes, so three of
+them is noise even on the 8 GB NAS that
+[test-hardware.md](../design/research/test-hardware.md) calls the honest low end.
+
+### Two invocation styles, because two audiences
+
+```
+mediaserver run                 # reads config, supervises every enabled role
+mediaserver core                # exactly one role, foreground
+mediaserver node
+mediaserver transcode
+```
+
+`run` serves the default install: one thing to start, one thing to stop. The single-role forms
+serve anyone who would rather use **systemd units, separate containers, or Kubernetes** — which
+is the right way to do it if you already have a supervisor, and it must not be second-class.
+One config file listing enabled roles; each role reads the sections it needs.
+
+### The supervisor must stay thin — this is a boundary, not a feature
+
+Fork the enabled roles, pipe their stdio into the log stream, restart on unexpected exit with
+backoff, forward signals, exit when told. **Roughly two hundred lines.**
+
+What it explicitly is **not**: a dependency graph, service discovery, socket activation, health
+checking beyond process liveness, or anything resembling an init system. Every one of those
+exists already in systemd, Docker and Kubernetes, and reimplementing them badly is a known way
+to spend a year.
+
+**PID 1 duties, which are a classic bug.** In a container the supervisor *is* PID 1 and must
+**reap zombies** and **forward `SIGTERM`/`SIGINT` to children**. Getting this wrong produces
+containers that accumulate defunct processes and take ten seconds to stop because nothing
+propagated the signal.
+
+### Local IPC uses the remote mechanisms
+
+Co-located roles talk over the **same protocol as the distributed case**, defaulting to a
+**Unix socket** locally rather than TCP. Two benefits: the common deployment exercises the same
+code the rare one depends on, so the distributed path cannot rot unnoticed; and the socket
+file's permissions are the authorisation, which is the same
+"[permissions are the security model](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary)"
+pattern already adopted for the exchange directory.
+
+### The resulting process tree
+
+```
+mediaserver run                    (thin supervisor; PID 1 in a container)
+├── mediaserver core               SQLite, HTTP, decisions
+├── mediaserver node               → forks confined ffprobe/ffmpeg per job
+└── mediaserver transcode          → forks confined ffmpeg per job
+```
+
+FFmpeg remains a **confined child per invocation** (D26), unchanged: the role processes
+supervise it, they do not host it.
+
+**Status:** Provisional. The supervisor's scope is the thing to guard — every feature request
+for it should be answered with "use systemd" until there is evidence otherwise.
