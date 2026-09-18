@@ -46,7 +46,13 @@ and upheld, with a falsifiable bail-out so the focus prototype below is a decisi
 than a formality. **Bailing out does not mean going fully native** —
 [D28](../../decisions/working-notes.md) names the fallbacks: a **hybrid** (keep RN for web and
 phone, native TV only) if the failure is TV-specific, which is the likely case; **KMP plus
-native UI** if React Native fails generally. Reverse if: the prototype feels wrong on the oldest Fire Stick
+native UI** if React Native fails generally.
+
+[D30](../../decisions/working-notes.md) prices the Apple half of that fallback much lower than
+assumed: Swiftfin shares ~80% of its code between iOS and tvOS with only ~3.2% tvOS-specific, so
+going native on Apple buys **both** for roughly the cost of one. And a rule that matters more
+for TV than anywhere else: **tvOS has no WebKit**, so the ship-the-web-UI contingency available
+on Tizen, webOS and Android TV does not exist there. Reverse if: the prototype feels wrong on the oldest Fire Stick
 (dropped frames on directional navigation, focus traps, latency a native app would not have);
 `react-native-tvos` falls two minor React Native versions behind for a quarter; our own native
 fraction passes roughly half (Streamyfin's is 31%); or Shopify's migration is reported a success

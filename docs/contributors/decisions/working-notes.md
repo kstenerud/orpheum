@@ -1575,3 +1575,78 @@ Four things keep the §1 decomposition true, and it is a property of decisions r
 
 **Status:** Provisional. Revisit only if React Native fails generally rather than on TV — at
 which point the KMP-versus-Rust/UniFFI comparison is a real decision with real inputs.
+
+---
+
+## D30 — tvOS is cheap from inside the Apple stack, and never has a web fallback
+
+**Decided.** Two standing rules and a re-pricing, from noticing that tvOS was the consistent
+failure point across every client-technology evaluation in this tree
+([tvos.md](../design/research/tvos.md)).
+
+### Why every cross-platform option failed on the same platform
+
+Three structural reasons, and none is "the vendors haven't got around to it":
+
+1. **There is no web runtime.** tvOS has **no WebKit, no `WKWebView`, no browser** — the classes
+   to fetch a page exist, nothing to render one does. This kills Capacitor, Ionic, Lightning.js,
+   Tizen/webOS-style HTML apps and the Jellyfin-style wrap-the-web-UI shell, in one stroke.
+2. **The Focus Engine needs real UIKit views.** tvOS navigation is a platform-owned traversal
+   over the view hierarchy, not an input-event stream the app interprets. **A canvas renderer
+   presents no focusable views** — Flutter and Compose Multiplatform both paint through Skia
+   into one surface, so the platform's navigation model has nothing to attach to. React Native
+   works precisely because it maps to real UIKit views; `react-native-tvos` carries UIFocus
+   handling in its Fabric component views plus `TVFocusEventHandler`/`TVEventHandler`.
+3. **It is a whole engine port for ~8% of the market.** Flutter's maintainers list "an entirely
+   new embedder in the engine, as well as test harnesses" plus buildroot/Dart/Skia changes, with
+   wireless debugging as a prerequisite **because tvOS has no USB tether** — and label it
+   **P3**. tvOS is about 8% of US primary streaming viewing, tied with Tizen, against Roku ~37%,
+   Fire TV ~17%, Google TV ~14%.
+
+Apple also **deprecated TVMLKit at WWDC 2024** — its own JavaScript/XML framework for TV apps —
+directing developers to SwiftUI. Apple tried the scripted-TV-app path and retired it; no
+blessed non-native route is coming.
+
+### The measurement that re-prices the fallback
+
+From the Swiftfin tree — the Jellyfin Apple client, 4,171 stars:
+
+| Target | Lines | Files | Views |
+| --- | ---: | ---: | ---: |
+| `Shared/` | **59,018** | 604 | 89 |
+| `Swiftfin` (iOS) | 12,361 | 116 | 93 |
+| `Swiftfin tvOS` | **2,382** | **22** | **5** |
+
+**~80% shared between iOS and tvOS; the tvOS-specific portion is ~3.2%.** So:
+
+> **tvOS is expensive to reach from outside the Apple stack, and nearly free from inside it.**
+
+The difficulty is not a property of the platform; it is a property of reaching it from a
+non-Apple toolchain.
+
+### The consequences
+
+1. **[D28](#d28--keep-the-exit-from-react-native-cheap-and-designate-the-fallbacks)'s hybrid
+   fallback is cheaper than it was priced.** Going native on Apple buys **iOS *and* tvOS for
+   roughly the cost of iOS plus 3%**. That makes
+   [D10](#d10--clients-react-native-shell-native-player-modules-two-engines) a safer bet, not a
+   riskier one.
+2. **The question to ask is "do we ever write Swift?", not "which framework reaches tvOS".** If
+   yes, tvOS is nearly free. If no, it is a wall.
+3. **Standing rule: never plan a tvOS story whose contingency is the web client.** The
+   ship-the-web-UI panic button exists on every other platform we target — Tizen and webOS apps
+   *are* web apps, Android TV has WebView — and does not exist here. Any plan that quietly
+   assumes it is already broken.
+4. **Standing test for any future client framework: canvas or platform views?** Canvas
+   renderers will be absent or bad on tvOS; view-mapping frameworks will work. This predicted
+   all six evaluations in this tree and costs nothing to apply.
+5. **Skipping tvOS stays legitimate.** Spotify said in 2016 not to expect an Apple TV app "any
+   time soon" and shipped one in **October 2025** — nine years — with no visible consequence;
+   Immich and Kyoo have no TV client at all. But for *our* audience there is a counter-signal:
+   the most-praised client in [sentiment.md](../design/research/sentiment.md) is **Infuse, which
+   is Apple-only**, and HN threads repeatedly pair it with an Apple TV. The 8% figure probably
+   understates the enthusiast segment this project is aimed at.
+
+**Status:** Provisional. Rules 3 and 4 are the durable part and cost nothing. The re-pricing in
+rule 1 should be re-checked against our own code if the hybrid is ever taken — Swiftfin's 3.2%
+is one project's ratio, not a law.

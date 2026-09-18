@@ -24,6 +24,7 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
 | [tech-backend.md](tech-backend.md) | Language, runtime, framework, job scheduling, API shape. |
 | [tech-storage.md](tech-storage.md) | Database, schema stance, search, migrations, on-disk layout, backup. |
 | [client-framework.md](client-framework.md) | A deliberate re-examination of the React Native decision against 2026 evidence, including Shopify's reversal to native — with corrections to the evidence D10 originally cited, and a falsifiable bail-out criterion. |
+| [tvos.md](tvos.md) | Why tvOS breaks every cross-platform option, what works there, who skips it — and the measurement showing it is ~3% of an Apple client rather than a second app. Backs D30. |
 | [shared-core.md](shared-core.md) | Whether a native client can reuse the TypeScript SDK or must reimplement — decomposes what "the shared SDK" actually contains, and evaluates JS-embedding, gomobile, Rust/UniFFI and KMP. Backs D29. |
 | [tech-clients.md](tech-clients.md) | Player engines and the platform matrix — where the real cost of this project is. |
 | [tech-licensing.md](tech-licensing.md) | FFmpeg's licence ladder, codec patents, and provider terms under an open-source release. Where the landmines are; not legal advice. |

@@ -152,7 +152,9 @@ framing.
 
 ### CMP is not a fit for us, for one hard reason
 
-**No tvOS target.** Compose for TV exists on Android, and Compose Multiplatform does not extend
+**No tvOS target** — and [tvos.md](tvos.md) explains why that is structural rather than a
+backlog item: a Skia-canvas renderer presents no focusable UIKit views, so tvOS's Focus Engine
+has nothing to traverse. Expect the same of any future canvas-based framework. Compose for TV exists on Android, and Compose Multiplatform does not extend
 it to Apple TV. CMP would solve the platforms we worry about least and skip the one we worry
 about most. Web is also Wasm-alpha-ish. That is disqualifying for this project specifically —
 not a judgement on CMP generally, which is clearly maturing fast.
