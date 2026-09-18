@@ -88,6 +88,21 @@ achievable. Everything after that is a long tail where Plex's 15-year head start
 insurmountable, and the correct strategy for that tail is **not to write those clients** —
 see §5.
 
+## 3a. The deployment floor is a product decision, and it is unmade
+
+How old a handset, TV or browser do we support? Both candidate toolchains carry their own
+minimums — Expo and `react-native-tvos` each have iOS and Android API-level floors — so the
+choice constrains the client stack rather than following from it.
+
+It is worth deciding deliberately rather than discovering it when a build refuses to install,
+and it is worth deciding *low*: the audience for this project is disproportionately people
+running hardware that commercial services have abandoned. Netflix dropping older Fire TV devices
+is the shape of the opportunity — a server that still plays to a 2016 stick or a 2015 Apple TV
+is a differentiator, not a compatibility chore.
+
+The available test devices set the practical bounds; see
+[test-hardware.md](test-hardware.md) for how to enumerate them.
+
 ## 4. Non-negotiable client features
 
 Each of these is on this list because its absence is a named complaint in

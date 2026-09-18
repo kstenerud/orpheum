@@ -20,6 +20,7 @@ Written **2026-09-18** against a stated inventory. Feeds
 | TerraMaster F2-422, 8 GB, Debian | **The low-end server target** | QSV (Gemini Lake-class): H.264, HEVC 8-bit; no AV1 |
 | Apple TV with touchpad Siri Remote | **tvOS client, at the conservative floor** | Either A1625 (Apple TV HD, A8, **H.264 only — no HEVC**) or A1842 (4K 1st gen, A10X, HEVC 4K HDR). **Identify it** — the two test very different things. |
 | 5–6 Fire TV Sticks, several generations | **Android-family TV clients, as a capability ladder** | Spans H.264-1080p-only (gen 1) → HEVC 1080p30 8-bit (gen 2) → HEVC 4K HDR (4K) → **AV1 4K60 10-bit** (4K Max, MT8696) |
+| A collection of old phones — iPhones of various vintages; Pixel 3a, a contemporary Motorola, ruggedised Androids, Samsung S23 | **Handset clients across a decade, and the only devices that move between networks** | HEVC decode on iPhone from A9 (2015) and on essentially all modern Android; AV1 decode only on the newest of each (S23-class Android; A17 Pro and later on iPhone) |
 
 **Verify rather than trust this table.** Per-SKU media-engine capability is exactly the kind of
 fact that is wrong from memory. On each box:
@@ -97,6 +98,69 @@ straightforward. What it does **not** give us:
 device is still worth having **eventually**, for platform integration rather than playback — but
 it has moved from "the highest-value purchase in the project" to "nice to have".
 
+## The phone collection tests four things nothing else can
+
+Deliberately-kept old handsets are an unusual asset, and their value here is not mostly about
+codecs — the TVs already give a capability ladder. It is about the things that are **only true
+of a device that moves**.
+
+### 1. The audio path is dynamic, and a phone is where that is routine
+
+[D22](../../decisions/working-notes.md) claims audio capability changes mid-session in a way
+video capability does not — the same device answers differently for HDMI/ARC into a receiver,
+TV speakers, or Bluetooth. On a TV that is an occasional event. On a phone it is constant:
+speaker → wired → Bluetooth → car, several times a day, mid-playback.
+
+**A phone is therefore the best available test of D22's dynamic-audio claim**, and of whether a
+mid-session audio-rendition change is genuinely cheap. Android exposes this through
+`AudioManager` / `AudioDeviceInfo`; iOS through `AVAudioSession` route-change notifications.
+
+### 2. A phone on mobile data is a free, real CGNAT client
+
+[remote-access.md](remote-access.md) ends by saying CGNAT prevalence needs primary measurement
+and that no NAT-traversal stack is chosen. **Mobile carriers deploy carrier-grade NAT
+universally**, and typically symmetric NAT at that — which is exactly the hard case where
+hole-punching fails and a relay is required.
+
+So a handset on cellular, talking to a server at home, is the canonical hard topology, available
+for nothing and without simulating anything. Combined with the Proxmox lab for the *server* side,
+that is a complete remote-access test rig.
+
+### 3. Local-versus-remote switching, which is a real and common bug
+
+Immich carries `Automatic local URL switching frequently fails` at +23 reactions. It is a
+phone-shaped problem by construction: the device is on the LAN, then it is not, and something
+must notice and switch endpoints without interrupting playback. It cannot be tested on a
+machine that never leaves the desk.
+
+### 4. Offline download, and therefore the change journal
+
+[D10](../../decisions/working-notes.md) makes offline download a non-negotiable client feature,
+and [D8](../../decisions/working-notes.md) put an audit-table change journal in the first schema
+specifically so offline clients can reconcile deletes. **Neither has a consumer until a mobile
+client exists**, and both are exactly the kind of design that looks fine until a real device
+with intermittent connectivity and full storage disagrees. Immich's architecture carries audit
+tables for this reason.
+
+Older handsets also make storage pressure and background-download interruption easy to
+reproduce, which is where these features actually fail.
+
+### The constraint to establish first: what is our deployment floor?
+
+Old phones only test what they can run. Both toolchains have minimums — Expo and
+`react-native-tvos` carry their own iOS and Android API-level floors — and some of the
+collection may be below them.
+
+**Enumerate the OS versions before planning around the devices**, because the answer sets a
+product decision nobody has made yet: *how old a handset do we support?* That choice constrains
+the client stack ([D10](../../decisions/working-notes.md)) rather than following from it, and it
+is better made deliberately than discovered when a build refuses to install.
+
+- Android: `adb shell getprop ro.build.version.release` and `ro.build.version.sdk`; codec truth
+  from `adb shell cmd media.codec` or a `MediaCodecList` dump.
+- iOS: the Settings → General → About version, and `VTIsHardwareDecodeSupported()` from a small
+  test app for the codec truth — there is no `adb` equivalent.
+
 ## What this inventory already covers well — better than most projects
 
 - **Three generations of Intel QSV** (Gemini Lake ≈ 2017, Kaby Lake 2017, Alder Lake-N /
@@ -106,6 +170,8 @@ it has moved from "the highest-value purchase in the project" to "nice to have".
 - **NVENC on a real discrete GPU**, plus the CPU headroom to test software encoding honestly.
 - **Apple**: arm64 server build, VideoToolbox, Safari, and the only platform where
   [D3](../../decisions/working-notes.md)'s fMP4 requirement is non-negotiable.
+- **Handset clients across roughly a decade**, covered above — including the only devices in the
+  inventory that change networks and audio routes while playing.
 - **A television capability ladder**, covered above — and the unglamorous ends of it (an
   H.264-only Apple TV, a 1080p-only Fire Stick) are worth more here than a current flagship.
 - **Two Proxmox hosts.** Under-rated: this is a **network topology lab**. The remote-access
@@ -154,7 +220,10 @@ without buying anything.
 
 ## Recommended order
 
-**Buy nothing yet.** The inventory now covers every decision that is currently blocked. The
+**Buy nothing yet**, and the case is now stronger than it was: server hardware across three
+QSV generations plus NVENC and Apple silicon, a television capability ladder from H.264-1080p to
+AV1-4K, handsets across a decade including a real CGNAT client, and an 8 GB Celeron and a Fire
+Stick as the two honest floors. The inventory covers every decision currently blocked. The
 playback survey's format census is a better buying guide than any capability matrix, so let
 Phase 0 report first.
 

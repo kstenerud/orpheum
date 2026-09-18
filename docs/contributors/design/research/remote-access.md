@@ -172,3 +172,10 @@ little, because the hosted tier is the same software.
   Tailscale/Headscale/NetBird shape. Not chosen here.
 - **Prevalence numbers.** No reliable public CGNAT figure was found. If the tiering decision
   turns on it, it needs primary measurement rather than another search.
+
+**On measurability, which is better than expected:** the hard topology is already available
+without simulating anything. **A handset on mobile data is a real CGNAT client** — carriers
+deploy carrier-grade NAT universally and typically symmetric NAT with it, which is precisely the
+case where hole-punching fails and a relay is required. Paired with VMs behind simulated
+double-NAT and IPv6-only on the Proxmox hosts, that is a complete test rig for both ends of
+every row in §2 ([test-hardware.md](test-hardware.md)).

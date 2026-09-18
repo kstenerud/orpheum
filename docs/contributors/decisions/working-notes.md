@@ -205,7 +205,9 @@ offline clients need deletes — an `updatedAt` column cannot express one. We wi
 clients (download-for-travel is a non-negotiable client feature). Retrofitting a change journal
 is a migration over the whole schema.
 
-**Status:** Provisional; low risk, and cheap now versus expensive later.
+**Status:** Provisional; low risk, and cheap now versus expensive later. Note that this design
+has **no consumer until a mobile client exists** — so it is unvalidated until then, and the
+first offline-capable handset build is where it gets tested for real.
 
 ---
 
@@ -960,7 +962,9 @@ be reviewed against D21's no-grammar rule.
 
 **Status:** Provisional. The axis split and the LGPL/GPL boundary are solid; the demuxed-HLS
 compatibility question is open and **now directly measurable** — several generations of Fire TV
-Stick and an old Apple TV are exactly the older-firmware population the concern is about
+Stick and an old Apple TV are exactly the older-firmware population the concern is about. The
+dynamic-audio-path claim is likewise testable, and a **handset is the right device for it**,
+where route changes mid-playback are routine rather than occasional
 ([test-hardware.md](../design/research/test-hardware.md)).
 
 ---
@@ -1281,8 +1285,11 @@ disappears, with a documented and *tested* exit path — the audience for this p
 by exactly this kind of dependency. Signed, scoped, expiring media URLs become load-bearing
 (also required by D19 and D26). Abuse handling must be designed before anything is operated.
 
-**Status:** Provisional and the most consequential open question left. **Whether this project
-wants to operate a hosted service at all is not a technical decision** — it implies a company,
+**Status:** Provisional and the most consequential open question left. The *technical* half is
+unusually cheap to settle: a handset on mobile data is a real symmetric-CGNAT client, and the
+Proxmox hosts cover the server side, so every row of the mechanism table can be measured rather
+than argued. **Whether this project wants to operate a hosted service at all is not a technical
+decision** — it implies a company,
 uptime obligations, liability and an entity that can be pressured. Declining it is coherent;
 the cost is that the headline use case stays unsolved. Tiers 1 and 2 are worth building either
 way, and building them first keeps the option open.
