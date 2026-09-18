@@ -43,6 +43,18 @@ Part of identification, and easy to underestimate ([D24](../../decisions/working
 - This belongs in the same table-driven, real-corpus test suite as the filename parser. It is
   only ever right against real files.
 
+## Open: watching at scale, on the filesystems people actually use
+
+Not designed, and a known trouble spot. `inotify` has per-user watch limits that a large library
+blows through, and it **does not work at all over SMB or NFS** — which is how a large share of
+self-hosters mount their media. ZFS snapshots, rclone mounts and network shares each behave
+differently again. The fallbacks are periodic rescan (expensive) or mtime-walking (cheaper, and
+wrong when a share does not update mtimes).
+
+This needs settling before the watcher is written, because "the scanner did not notice my new
+file" and "the scanner rescanned everything at 3am and pegged the CPU" are both common complaints
+in this field and they have the same root.
+
 ## Also
 
 Manual identification override that survives rescans, provider changes and file moves (D7 —

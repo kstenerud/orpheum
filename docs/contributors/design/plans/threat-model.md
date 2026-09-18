@@ -1,0 +1,35 @@
+> **ABOUTME:** The security model we are actually building to — who the adversary is, what is
+> exposed, and what we promise — which does not yet exist and should before anything listens on
+> a port.
+
+# Threat model
+
+- **Status:** UNSPECIFIED — a real gap; nothing written.
+- **Depends on:** remote-access.md
+
+## Why this is a gap and not a formality
+
+We have documented Jellyfin's security failures in detail — a cluster of unauthenticated
+endpoints, FFmpeg argument injection through `/Videos/{id}/stream` reaching arbitrary file write,
+an unauthenticated `/System/Restart` reachable by spoofing a LAN IP, non-expiring dashboard API
+keys — and its maintainers' position that the server should sit behind a VPN.
+
+We have then designed a product whose **headline feature is letting non-technical family watch
+from their own house** ([D14](../../decisions/working-notes.md)). That is the opposite posture,
+and it means Jellyfin's threat model is not available to us. We have not written our own.
+
+## What the research must settle
+
+- **Who is the adversary?** The internet at large; a malicious guest with a shared link; a
+  household member escalating; a hostile metadata provider or plugin; someone on the LAN.
+- **What is the trust boundary for a media file?** Media is attacker-supplied data fed to
+  FFmpeg, which is a large C codebase with a long CVE history. That is the sharpest edge in the
+  product and it is the *normal* path, not an edge case. Sandboxing the decode/probe path
+  deserves real consideration — and note it interacts with
+  [D19](../../decisions/working-notes.md): the transcoder is already out-of-process.
+- **Credential and token model.** Session lifetime, API key scoping and expiry, and the
+  "Copy Stream URL leaks the session key" failure Jellyfin has open.
+- **What do shared links actually grant**, and can they be revoked? (Couples to
+  `sharing-model.md`.)
+- **What we promise.** [D13](../../decisions/working-notes.md) is a privacy promise; this is the
+  security one, and it should be as specific.

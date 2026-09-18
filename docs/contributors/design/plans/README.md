@@ -43,5 +43,17 @@ to the library). `playback-survey.md` sets its priority.
 reduce the urgency of `tv-client.md` — re-examine that once the adapter exists and its real
 fidelity is known, not before.
 
-`remote-access.md` and `sharing-model.md` are both `UNSPECIFIED` and both need a research round
-before they can be designed. They are the two hardest product questions in the project.
+## The unspecified set
+
+Everything at `UNSPECIFIED` needs a research round before it can be designed. `grep` for the
+status rather than trusting this paragraph, but the ordering between them is:
+
+- **`remote-access.md` and `sharing-model.md` are one research round, not two.** Sharing needs
+  an identity for the other person, and remote access is how that person reaches the server;
+  Plex's resented account system exists because those two questions have one answer. They are
+  the hardest product questions in the project, and `threat-model.md` depends on the outcome.
+- **`rules-engine.md` is the urgent one**, because it is schema-shaping and `library-model.md`
+  is Phase 1. Designing it after the schema means a migration.
+- **`threat-model.md`, `testing-strategy.md`, `performance-targets.md`,
+  `internationalisation.md` and `backup-restore.md`** are gaps in the foundations rather than
+  features. Each is cheap now and expensive later; none blocks Phase 0.
