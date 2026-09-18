@@ -137,10 +137,11 @@ The hard design work, and where the traps are. Format and completeness settled i
   read as an empty one, which is the data-loss path.
 - **A file that enumerated but failed to probe exists.** Present-but-unprobed, `entry`-scoped,
   never a removal.
-- **Errors are aggregated and capped.** A share that vanishes mid-scan can emit an error per
-  file; collapse repeats into one record with a `count`, and after a cap stop enumerating that
-  root, emit a `root`-scoped error and move on. Failing fast on a dead share beats faithfully
-  logging its every file.
+- **Diagnose the boundary, do not count failures** ([D41](../decisions/working-notes.md)). On a
+  read error the scanner **walks up the tree** — stat the parent, then its parent — until
+  something succeeds. The highest failing ancestor *is* the `scope`, so ten thousand failures
+  become one diagnosis plus a handful of `stat` calls. Memoise the failed prefix for the run.
+  Aggregation and a cap remain as a backstop for pathological cases, not as the mechanism.
 - **`skip` is not `error`.** A file excluded by an ignore rule is not a failure, but is also not
   in the inventory — and the right behaviour differs: something the user deliberately excluded
   probably should leave the library, something we failed to read definitely should not. Record
@@ -456,6 +457,36 @@ When installed as a daemon, the only thing in `/etc` is the path to this directo
 - **Never tombstone on silence.** Absence of a pulse is absence of information.
 - Optionally restart a supervised co-located node, and back off polling a node that is not
   advancing.
+
+## The silent failure, which is worse than any error
+
+An unmounted mountpoint on Linux usually reverts to the empty directory beneath it. The path
+exists, it is readable, listing it **succeeds and returns zero entries**, and **no error is
+raised at all.** Every safety mechanism in this document is triggered by errors; this one has
+none, and a scanner would honestly report a *complete* enumeration of an empty root — at which
+point the removal rules permit deleting the entire library.
+
+**This is the most dangerous failure mode in the design.** Two independent defences, both
+required ([D41](../decisions/working-notes.md)):
+
+1. **Verify the mount, not the path.** Record each root's `st_dev` at setup; a mountpoint has a
+   different device id from its parent, so if they have become equal the mount is gone. Checked
+   before enumerating a root and again before applying its removals. Automatic, no user action.
+   A sentinel file is the portable fallback.
+2. **Never believe implausible shrinkage.** If a root has lost a large fraction of the entries
+   it had at the last complete scan, mark the report incomplete and **withhold removals pending
+   confirmation**. This catches the whole no-error class — a wrong path after reconfiguration, a
+   permissions change that empties a listing, a half-finished remount. It must *ask* rather than
+   refuse; a user who genuinely emptied a library should be able to say so.
+
+Related: **a hung mount presents as wedged, not failed.** NFS hard mounts block instead of
+erroring, so filesystem operations need timeouts — and usefully, a scanner blocked on a dead
+mount stops moving its progress numbers while `state` stays `scanning`, which is exactly the
+wedged signature the core already watches for.
+
+And **recovery restores rather than re-adds**: when a mount returns, items marked unavailable
+come back with their identity intact. Re-ingesting them as new would lose watch state, metadata
+corrections and playlist membership — a data-loss event wearing a recovery costume.
 
 ## The traps, named
 

@@ -2497,3 +2497,89 @@ one source.
 **Status:** Provisional. `scope` is the load-bearing field and belongs in the format from the
 first version, for the same reason as the completeness flag itself — without it, an unreadable
 directory is indistinguishable from an empty one.
+
+---
+
+## D41 — Diagnose the failure boundary by walking up; and guard the silent case, which is worse
+
+**Decided.** On a read failure the scanner **walks up the tree to find the smallest broken
+subtree** rather than reporting per-file errors, and separately guards against the mount failure
+that produces **no error at all**.
+
+### Escalate by probing, not by counting
+
+When `/mnt/tv/Series X/S01E01.mkv` fails, the useful question is not "log this" but **"what is
+actually broken?"** So the scanner stats the parent, then its parent, upward, until something
+succeeds. The highest failing ancestor is the boundary, and that boundary is exactly
+[D40](#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope)'s
+`scope`:
+
+- parent readable → `entry` scope; carry on with the siblings.
+- `Series X/` unreadable → `subtree` scope; emit one record and skip the rest of it.
+- `/mnt/tv` unreadable → `root` scope; abandon the root.
+
+Path depth is small, so this converts ten thousand failures into one diagnosis plus a handful
+of `stat` calls. **This supersedes D40's error cap as the primary mechanism** — the cap was a
+blunt instrument that gave up after N failures; escalation finds the actual boundary and is
+both cheaper and more precise. Keep the cap as a backstop for pathological cases only.
+
+**Memoise the failed prefix for the run**, or the walk-up repeats for every subsequent file
+beneath a directory already known to be gone.
+
+### The silent case, which is the real danger
+
+An unmounted mountpoint on Linux usually reverts to **the empty directory underneath it**. So:
+
+- The path exists.
+- It is readable.
+- Listing it **succeeds** and returns **zero entries**.
+- **No error is raised. `scope` never fires. The walk-up finds nothing wrong.**
+
+A naive scanner then reports a *complete* enumeration of a root containing nothing — and every
+removal-safety rule built so far permits the core to delete the entire library, because the
+report is honestly and correctly marked complete.
+
+**This is the most dangerous failure mode in the design**, precisely because every mechanism
+added so far is triggered by errors and this one has none.
+
+Two independent defences, both required:
+
+1. **Verify the mount, not the path.** Record each root's device id (`st_dev`) at setup. A
+   mountpoint has a different device id from its parent directory; if they have become equal,
+   the mount is gone. This is automatic, needs no user action, and is checked before a root is
+   enumerated and again before its removals are applied. A user-placed sentinel file is the
+   portable fallback where device ids are not available.
+
+2. **Never believe implausible shrinkage.** Independently of mounts: if a root has lost a large
+   fraction of the entries it had at the last complete scan, **the report is marked incomplete
+   and removals are withheld pending confirmation.** This catches the whole class of
+   no-error failures — a wrong path after reconfiguration, a permissions change that empties a
+   listing, a half-finished remount, a typo'd config.
+
+   It must **ask**, not refuse: a user who genuinely deleted a library should be able to say so
+   in the UI. Silently refusing is its own bug, just a quieter one.
+
+### A hung mount presents as wedged, not failed
+
+NFS hard mounts block indefinitely rather than returning an error, so filesystem operations need
+timeouts — and a timeout is a `subtree`- or `root`-scoped error, not a hang.
+
+Pleasingly, the existing machinery already covers the gap: a scanner blocked on a dead mount
+stops moving its progress numbers while its state stays `scanning`, which is exactly the
+**wedged** signature from [D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle).
+The core will surface it even if the timeout logic is imperfect. `ESTALE` on NFS escalates the
+same way as a lost mount.
+
+### Recovery restores; it does not re-add
+
+When a mount returns, items previously marked unavailable must be **restored**, not ingested as
+new — which requires the stable identity
+[D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do) and
+[D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary)
+already mandate. Re-adding would lose watch state, user metadata corrections and playlist
+membership, which is a data-loss event wearing a recovery costume.
+
+**Status:** Provisional. The shrinkage threshold needs a real number and should probably scale
+— a root of 20 items losing 10 is noise, a root of 40,000 losing 39,000 is not. Both defences
+belong in the first version; the silent case cannot be retrofitted safely because by the time it
+is noticed the deletions have happened.
