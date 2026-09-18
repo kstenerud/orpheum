@@ -109,6 +109,9 @@ The hard design work, and where the traps are. Format and completeness settled i
   removal only where that region is complete) and *delta* (explicit `added`/`changed`/`removed`,
   because deletions are stated, never inferred — the same lesson as
   [D8](../decisions/working-notes.md)).
+- **Record types: `header`, `entry`, `error`, `skip`, `trailer`** ([D40](../decisions/working-notes.md)).
+  Errors sit **in the stream, in order**, because position says what was and was not covered
+  around the failure.
 - **Per item:** node-local stable id, path, size, mtime, optional content hash, and the probe
   results — so the core never needs to open the file.
 - **Completeness lives in the filename.** The node writes `report-<epoch>.jsonl.partial` and
@@ -124,6 +127,24 @@ The hard design work, and where the traps are. Format and completeness settled i
   unreadable directory must never be treated as deleted.** That is the dead-node trap at finer
   granularity and the likeliest way to lose data in ordinary operation, because permission
   errors are common and undramatic.
+- **The `error` record is how that scoping is expressed**, which makes it load-bearing rather
+  than diagnostic. Each carries a **`scope`** — `entry` (one file; siblings unaffected),
+  `subtree` (a directory could not be listed; nothing beneath it is known), `root` (share down),
+  or `run` — plus a structured `path`, a stable project `code` (`permission_denied`,
+  `not_found`, `io_error`, `timeout`, `unsupported`, `probe_failed`, `cancelled`) rather than a
+  platform errno, an optional raw platform detail for humans, and a human `reason`. Without
+  `scope`, one unreadable file would invalidate its directory — or an unreadable directory would
+  read as an empty one, which is the data-loss path.
+- **A file that enumerated but failed to probe exists.** Present-but-unprobed, `entry`-scoped,
+  never a removal.
+- **Errors are aggregated and capped.** A share that vanishes mid-scan can emit an error per
+  file; collapse repeats into one record with a `count`, and after a cap stop enumerating that
+  root, emit a `root`-scoped error and move on. Failing fast on a dead share beats faithfully
+  logging its every file.
+- **`skip` is not `error`.** A file excluded by an ignore rule is not a failure, but is also not
+  in the inventory — and the right behaviour differs: something the user deliberately excluded
+  probably should leave the library, something we failed to read definitely should not. Record
+  the rule that caused the skip.
 - **A declared protocol version**, with a stated compatibility policy. Version skew between core
   and nodes is the classic failure of every distributed system that did not plan for it.
 - **Retention is trivial with epoch-named files** — keep the last N. Compression is worth it and

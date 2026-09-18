@@ -2410,3 +2410,90 @@ Each line carries its record type, so a reader never has to guess from context.
 **Status:** Provisional. Per-subtree completeness is the load-bearing part and, like the
 completeness flag itself, belongs in the format from the first version — retrofitting it means
 a period in which an unreadable directory silently deletes its contents from the library.
+
+---
+
+## D40 — `error` and `skip` records, and why the error record carries the completeness scope
+
+**Decided.** The JSONL report gains two record types beyond header / entry / trailer:
+**`error`** and **`skip`**. The error record is not merely diagnostic — **it is the mechanism
+that expresses [D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global)'s
+scoped incompleteness**, and therefore the thing standing between a permissions glitch and a
+deleted library.
+
+### Errors belong in the stream, in order
+
+Position carries meaning: an error record sits exactly where the failure happened in the
+enumeration, so a reader — human or core — knows what was and was not covered around it. That
+is strictly better than a side log, and it is why this is a record type rather than a separate
+file.
+
+### `scope` is the field the sketch was missing, and it is the important one
+
+Not every error invalidates the same amount, and treating them alike would either lose data or
+make cancellation useless:
+
+| `scope` | Cause | Effect on removal safety |
+| --- | --- | --- |
+| `entry` | One file could not be `stat`ed or probed | That entry is unknown. **Siblings are unaffected** — the directory listing succeeded, so the region stays complete. |
+| `subtree` | A directory could not be opened or listed | **Everything beneath it is unknown.** No removals anywhere under that path. |
+| `root` | A whole library root is unreachable — share down, mount gone | No removals for that root at all. |
+| `run` | The pass itself failed or was cancelled | Falls back to D38's rule: add-or-update only, except within subtrees positively marked complete. |
+
+Without `scope`, a single unreadable file would have to invalidate its whole directory — or,
+far worse, an unreadable *directory* would be treated as "no files here", which is precisely
+the data-loss path D39 warns about. **This field is what makes per-subtree completeness
+expressible at all.**
+
+Note the probe case specifically: a file that enumerated fine but failed to probe **exists**.
+It is present-but-unprobed, never absent. That is an `entry`-scoped error and must never
+contribute to a removal.
+
+### `code` is a project enum, not an errno
+
+The sketch used `EBADF`. Raw errnos are the wrong contract: they differ across platforms,
+Windows has its own set, Go wrapping makes extraction unreliable, and several relevant failures
+have no errno at all — a parse failure, a timeout, a cancellation.
+
+So: a **stable, closed project vocabulary** — `permission_denied`, `not_found`, `io_error`,
+`timeout`, `unsupported`, `probe_failed`, `cancelled` — which the core keys its logic on, plus
+an **optional raw field** (`syscall`, `errno`, driver text) carrying the platform truth for a
+human diagnosing it. Same closed-enumeration discipline as
+[D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) and the command
+vocabulary in [D38](#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config).
+
+And **`path` is a structured field**, not prose embedded in `reason`. A path inside a sentence
+cannot be aggregated, matched against a root, or acted on.
+
+### Errors must be aggregated and capped
+
+A share that disappears mid-scan can generate an error per file — a hundred thousand records
+that bloat the report and drown everything useful in it. The error channel becoming a
+denial-of-service on its own report is a real operational failure, not a hypothetical.
+
+So: **collapse repeated identical `(code, scope, path-prefix)` errors into one record with a
+`count`**, and impose a cap after which the node stops enumerating that root, emits a
+`root`-scoped error, and moves on. Failing fast on a dead share is better behaviour than
+faithfully logging its every file.
+
+### `skip` is a different thing and must not be conflated
+
+A file excluded by an ignore rule or an extension filter is **not** a failure — but it is also
+**not in the inventory**, and if that is indistinguishable from an error the core will get the
+policy wrong in one direction or the other.
+
+So a separate `skip` record carrying the **rule that caused it**. The distinction matters
+because the correct behaviour differs: a file the user *deliberately excluded* probably should
+leave the library, while a file we *failed to read* definitely should not. Recording them as
+the same thing means choosing one behaviour for both and being wrong half the time.
+
+### Mirror the last error into the status file
+
+The report carries the full ordered set for the core; `last_error` in the status file
+([D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle)) carries the
+most recent one plus a count for the human who is glancing at it. Two audiences, two views,
+one source.
+
+**Status:** Provisional. `scope` is the load-bearing field and belongs in the format from the
+first version, for the same reason as the completeness flag itself — without it, an unreadable
+directory is indistinguishable from an empty one.
