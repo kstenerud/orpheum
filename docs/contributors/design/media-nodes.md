@@ -120,12 +120,117 @@ single-writer discipline, and it hands database credentials to the component tha
 hostile files — the opposite of what [D26](../decisions/working-notes.md) wants. **Nodes talk to
 the core's API and nothing else. The core is the only writer.**
 
+## The status record
+
+Each node maintains a small JSON record — separate from its scan report — saying what it is
+doing, when it last did something, and that it is still breathing. The core reads it to reason
+about the node.
+
+### Liveness and wedgedness are different failures, and a heartbeat only finds one
+
+This is the whole reason the record needs more than a timestamp.
+
+| Failure | Heartbeat | Progress | How it looks |
+| --- | --- | --- | --- |
+| **Healthy, working** | fresh | advancing | fine |
+| **Healthy, idle** | fresh | static | **fine** — nothing to do |
+| **Dead** | stale | static | process gone |
+| **Wedged** | **fresh** | **static** | alive, making no progress |
+
+A naive heartbeat cannot tell wedged from healthy, and cannot tell wedged from idle. So the
+record carries **three independent things**:
+
+- **`state`** — what the node believes it is currently doing (`idle`, `scanning`, `probing`,
+  `extracting`, `transcoding`, `error`). This is what disambiguates *idle* from *wedged*: static
+  progress is correct when idle and a problem when scanning.
+- **A liveness pulse** — updated on a timer regardless of work.
+- **A progress signal** — updated *only* when real work completes, with enough granularity that
+  a sensible staleness threshold exists. A full scan of a large library may legitimately run for
+  an hour, so progress must tick per directory or per item, not per scan.
+
+### Compare counters, not timestamps
+
+Timestamps in the record are **for humans reading it**. The core must not reason about liveness
+by comparing the node's clock to its own: clock skew across machines, NTP corrections and VM
+suspends all break it.
+
+Instead the node includes a **monotonic counter** alongside each timestamp, and the core records
+*its own* observation time when it first sees a given counter value. Staleness is then measured
+entirely on the core's clock, from a value that only ever increases. Clock-independent, and
+immune to a node whose clock jumps.
+
+### Why a file rather than an API
+
+The proposal was a file, and it is the better choice for three reasons beyond convenience:
+
+1. **It survives the process.** An API dies with the node; a file is still there afterwards
+   saying what the node was doing when it stopped. That is exactly what post-mortem needs.
+2. **It distinguishes three failure modes where an API gives one.** File present with a stale
+   counter → the node died. File absent → it never ran, or the path is wrong. Share unreachable
+   → a transport problem. An unanswered HTTP request cannot tell these apart.
+3. **It works over the shared-mount transport** with no port, protocol or credentials,
+   consistent with the rest of §Transport.
+
+And a fourth that is worth as much: **a human can `cat` it.** "Logging around library scanning
+being pretty difficult to interpret" is a direct complaint about Jellyfin in
+[sentiment.md](research/sentiment.md); a legible status file is a cheap answer.
+
+### Shape
+
+Illustrative, not a specification:
+
+```json
+{
+  "protocol": 1,
+  "node_id": "a7f3…",
+  "started_at": "2026-09-18T09:14:02Z",
+  "pulse": { "seq": 48213, "at": "2026-09-18T11:02:31Z" },
+  "state": "scanning",
+  "progress": {
+    "seq": 9042,
+    "at": "2026-09-18T11:02:28Z",
+    "detail": "films/  (3121/48000 entries)"
+  },
+  "roots": [
+    { "path": "/mnt/films", "strategy": "inotify",
+      "last_full_scan": "2026-09-18T04:00:11Z" }
+  ],
+  "last_error": null
+}
+```
+
+`roots[].last_full_scan` is where [D32](../decisions/working-notes.md)'s "when did you last
+actually look?" requirement naturally lives — the node knows, so the node reports it.
+
+### Details that make it work rather than half-work
+
+- **Stable `node_id`, generated once and persisted locally.** A fresh id per restart makes the
+  core see a new node every reboot while the old one goes silent — which walks straight into the
+  dead-node trap below. One file per node id, so nodes sharing a directory never clobber.
+- **Atomic writes**: temp file, `fsync`, rename in the same directory, plus a length or checksum
+  so a reader never trusts a torn file. Readers must handle a torn read gracefully, because SMB
+  client caching can still surprise.
+- **Write on transition *and* on a timer**, and always populate `last_error` on failure — a node
+  that crashes mid-scan should leave behind a record that says what it was doing.
+- **Status is not the report.** Two files with two cadences: status is small and frequent, the
+  scan report is large and occasional. Conflating them makes the cheap thing expensive.
+
+### What the core does with it
+
+- **Surface dead and wedged differently in the UI**, because the remedies differ: dead means
+  start it; wedged means look at `state` and `progress.detail` to see what it is stuck on.
+- **Mark that node's items *unavailable*, never deleted** — see the trap below.
+- **Never tombstone on silence.** Absence of a pulse is absence of information.
+- Optionally restart a supervised co-located node, and back off polling a node that is not
+  advancing.
+
 ## The traps, named
 
 1. **A dead node is not deleted media.** This is the one that can destroy someone's library.
    If a node goes offline its items must **not** vanish; they become *unavailable*, not gone.
-   That means last-seen timestamps, an explicit node state, and tombstoning that only ever
-   happens on a positive report of deletion from a live node — never on silence.
+   Tombstoning happens **only** on a positive report of deletion from a live, progressing node —
+   never on silence, and never on a wedged node, whose reports are by definition not current.
+   The status record (§The status record) is what lets the core tell those apart.
 2. **A node's report is attacker-influenced data.** Paths and probe output derive from hostile
    files. The core validates at the boundary — parse, don't validate — and treats a node as a
    semi-trusted peer rather than part of itself.

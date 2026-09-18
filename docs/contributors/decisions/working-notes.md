@@ -1930,3 +1930,82 @@ touches media, full stop" is reachable without new machinery.
 [D2](#d2--playback-negotiation-the-client-decides-from-a-manifest). The report contract is the
 real design work and is not specified here. Trap 1 deserves a test before the feature is
 believed.
+
+---
+
+## D34 — A node status record that distinguishes dead from wedged from idle
+
+**Decided.** Every media node maintains a small JSON **status record**, separate from its scan
+report, that the core reads to reason about the node's health. Detail in
+[media-nodes.md](../design/media-nodes.md) §The status record. This specifies the liveness half
+of [D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do)'s
+contract, and is what makes its trap 1 enforceable rather than aspirational.
+
+### A heartbeat alone cannot detect the failure that matters
+
+Three states share a fresh heartbeat and only one of them is fine:
+
+| | Pulse | Progress | Verdict |
+| --- | --- | --- | --- |
+| Working | fresh | advancing | fine |
+| **Idle** | fresh | static | **fine — nothing to do** |
+| Dead | stale | static | process gone |
+| **Wedged** | **fresh** | **static** | **alive, achieving nothing** |
+
+So the record carries **three independent things**, not one:
+
+- **`state`** — what the node believes it is doing (`idle`, `scanning`, `probing`,
+  `transcoding`, `error`). This is what separates *idle* from *wedged*: static progress is
+  correct when idle and a fault when scanning.
+- **A liveness pulse**, updated on a timer regardless of work.
+- **A progress signal**, updated *only* on completed work, at a granularity fine enough that a
+  sensible timeout exists — per directory or per item, never per scan, since a large library
+  legitimately takes an hour.
+
+### Compare counters, not timestamps
+
+Timestamps in the record are **for humans**. The core must not compare a node's clock to its
+own — clock skew, NTP corrections and VM suspends all break that. The node emits a **monotonic
+counter** with each signal, and the core stamps *its own* observation time when it first sees a
+new counter value. Staleness is then measured entirely on the core's clock against a
+monotonically increasing value.
+
+### Why a file beats an endpoint here
+
+1. **It survives the process.** An API dies with the node; a file still says what the node was
+   doing when it stopped — which is precisely what post-mortem needs.
+2. **It distinguishes three failure modes where an API gives one.** Stale counter → node died.
+   File absent → never ran, or wrong path. Share unreachable → transport problem. An unanswered
+   request cannot tell these apart.
+3. **It needs no port, protocol or credentials** over the shared-mount transport.
+4. **A human can `cat` it** — a cheap answer to "logging around library scanning is difficult to
+   interpret", which is a direct complaint about Jellyfin in
+   [sentiment.md](../design/research/sentiment.md).
+
+### Requirements that make it work rather than half-work
+
+- **Stable `node_id`, generated once and persisted.** A fresh id per restart makes the core see
+  a new node every reboot while the old one goes silent — straight into the dead-node trap. One
+  file per node id so nodes sharing a directory never clobber.
+- **Atomic writes**: temp, `fsync`, rename in-directory, plus a length or checksum so a reader
+  never trusts a torn file — and readers handle torn reads anyway, because SMB caching surprises.
+- **Write on state transition *and* on a timer**, always populating `last_error`, so a node that
+  dies mid-scan leaves behind what it was doing.
+- **Status is not the report.** Two files, two cadences — small and frequent versus large and
+  occasional. Conflating them makes the cheap thing expensive.
+- `roots[].last_full_scan` lives here, which is where
+  [D32](#d32--being-told-beats-watching-the-no-agent-path-is-a-tiered-measured-self-reporting-walk)'s
+  "when did you last actually look?" reporting requirement naturally belongs — the node knows,
+  so the node reports it.
+
+### What the core does with it
+
+Surface **dead and wedged differently**, because the remedies differ: dead means start it,
+wedged means look at `state` and progress detail to see what it is stuck on. Mark an absent
+node's items **unavailable, never deleted**. **Never tombstone on silence** — absence of a pulse
+is absence of information, not evidence of deletion — and never act on a wedged node's reports,
+which are by definition not current.
+
+**Status:** Provisional. The thresholds (how stale is wedged, per state) need real measurements
+from a large library before they are fixed, and D33's trap 1 deserves a test that kills a node
+mid-scan and asserts nothing is deleted.
