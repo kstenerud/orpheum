@@ -263,7 +263,9 @@ cannot render bitmap subtitles at all.
 Streamyfin running it in production is the mitigating evidence.
 
 **Status:** Provisional. The TV focus-navigation experience is the thing to prototype first —
-it is what a TV app lives or dies on and it is not something research can settle.
+it is what a TV app lives or dies on and it is not something research can settle. It is now
+testable on real hardware, including against the first-generation touchpad Siri Remote, which
+is an honest test rather than a flattering one.
 
 ---
 
@@ -487,7 +489,11 @@ first because it was the riskiest assumption; it is better handled by *measuring
 assumption cheaply and deferring the build.
 
 **Status:** Provisional, pending the playback survey. If the measured direct-play rate is low,
-this decision is wrong and the transcoder returns to Phase 1.
+this decision is wrong and the transcoder returns to Phase 1. **Note how to read that
+measurement:** the rate is per-client and the plan must survive the *worst* client in a
+household, not the mean — an H.264-only Apple TV against a mostly-HEVC library is the
+counter-example, and it sets the video transcoder's priority regardless of what the average
+says.
 
 ---
 
@@ -953,7 +959,9 @@ care about, the fallback is a muxed variant flagged on the video axis, and that 
 be reviewed against D21's no-grammar rule.
 
 **Status:** Provisional. The axis split and the LGPL/GPL boundary are solid; the demuxed-HLS
-compatibility question is open and measurable.
+compatibility question is open and **now directly measurable** — several generations of Fire TV
+Stick and an old Apple TV are exactly the older-firmware population the concern is about
+([test-hardware.md](../design/research/test-hardware.md)).
 
 ---
 

@@ -25,13 +25,20 @@ A throwaway tool — not part of the product — that:
    bit depth/HDR type, audio codecs/channels, subtitle formats, attachments}`.
 2. For each target client environment, evaluates whether that combination is decodable, using
    the client's own runtime probe rather than a table: `mediaCapabilities.decodingInfo()` in a
-   browser page, `MediaCodecList` in a tiny Android app, and libmpv's own reporting on desktop.
+   browser page, `MediaCodecList` in a sideloaded Android app (which runs on Fire TV over ADB),
+   and libmpv's own reporting on desktop. The Apple TV is probed by what `AVPlayer` will
+   actually play.
 3. Reports the direct-play rate per client, and — more usefully — **a ranked list of the
    specific reasons for each failure**.
 
 ## What it must answer
 
-- **What fraction direct-plays**, per client, with the platform decoder alone?
+- **What fraction direct-plays, per client — and what is the rate on the *worst* client in the
+  house?** Report per-client and name the worst; do not average. One H.264-only device means
+  video transcoding matters regardless of what the mean says, and
+  [D17](../../decisions/working-notes.md)'s deferral has to survive that case rather than the
+  flattering one. The available Apple TV is exactly this test if it is the A8 model
+  ([test-hardware.md](../research/test-hardware.md)).
 - **What fraction direct-plays with libmpv in the client?** The delta between these two numbers
   is the value of D10's two-engine recommendation, quantified. It may be most of the problem.
 - **What are the actual failure reasons**, ranked? If the tail is "old DivX/XviD/VC-1" that is a

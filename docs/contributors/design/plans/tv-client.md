@@ -25,6 +25,15 @@ reference implementation.
 research can settle, and it is where React Native on TV is most likely to disappoint. Build a
 throwaway focus-navigation prototype before writing any real screens.
 
+## Fire TV is available for testing, and is not quite Android TV
+
+Fire OS is an Android fork, so the client and `react-native-tvos` work and sideloading over ADB
+is straightforward — which makes the available Fire TV Sticks a real test bed spanning
+H.264-1080p to AV1-4K ([test-hardware.md](../research/test-hardware.md)). What Fire OS does not
+provide is Google Play Services (so no Google Cast), and the Android TV / Google TV home-screen
+channel and recommendation APIs, which Fire TV replaces with its own. Plan the platform-
+integration work against a Google TV device; plan the playback and focus work against these.
+
 ## Risk
 
 `react-native-tvos` is a community fork of React Native, not first-party. Streamyfin running it

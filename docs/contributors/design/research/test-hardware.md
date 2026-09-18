@@ -17,7 +17,9 @@ Written **2026-09-18** against a stated inventory. Feeds
 | staging host, 32 GB, Ubuntu | Old Intel; the QSV floor | QSV (Kaby Lake): H.264 + HEVC encode; no AV1 |
 | NUC13, 64 GB, Proxmox | Modern Intel; VM lab | QSV (Raptor Lake, Xe-LP): H.264 + HEVC; AV1 **decode**; no AV1 encode |
 | TerraMaster F4-424, 32 GB, Proxmox | Realistic NAS; VM lab | QSV (Alder Lake-N): H.264 + HEVC; AV1 decode; no AV1 encode |
-| TerraMaster F2-422, 8 GB, Debian | **The low-end target** | QSV (Gemini Lake-class): H.264, HEVC 8-bit; no AV1 |
+| TerraMaster F2-422, 8 GB, Debian | **The low-end server target** | QSV (Gemini Lake-class): H.264, HEVC 8-bit; no AV1 |
+| Apple TV with touchpad Siri Remote | **tvOS client, at the conservative floor** | Either A1625 (Apple TV HD, A8, **H.264 only — no HEVC**) or A1842 (4K 1st gen, A10X, HEVC 4K HDR). **Identify it** — the two test very different things. |
+| 5–6 Fire TV Sticks, several generations | **Android-family TV clients, as a capability ladder** | Spans H.264-1080p-only (gen 1) → HEVC 1080p30 8-bit (gen 2) → HEVC 4K HDR (4K) → **AV1 4K60 10-bit** (4K Max, MT8696) |
 
 **Verify rather than trust this table.** Per-SKU media-engine capability is exactly the kind of
 fact that is wrong from memory. On each box:
@@ -31,6 +33,70 @@ nvidia-smi         # driver + NVENC session limits
 
 The output of those commands, per machine, is the real matrix and belongs in the repository.
 
+## The television half — better than buying something
+
+The Apple TV and the Fire TV sticks close what was ranked as the project's largest hardware gap,
+and they do it better than a single new device would, because **what makes them valuable is
+that they are old**.
+
+### The Fire TV sticks are a complete capability ladder
+
+Across generations, Fire TV hardware spans almost exactly our output menu
+([D21](../../decisions/working-notes.md)):
+
+| Generation | Video decode |
+| --- | --- |
+| Stick (1st gen) | H.264 only, 1080p max — no HEVC, no VP9 |
+| Stick (2nd gen) | HEVC to 1080p30, Main Profile L4.0, **8-bit only** |
+| Stick 4K (2018) | HEVC 4K, HDR10 / Dolby Vision |
+| **Stick 4K Max** (MT8696) | **AV1 to 4K60, Main L5.1, 8- and 10-bit, HDR10/HDR10+/HLG**, plus HEVC Main10 L5.1 |
+
+Five or six of these across the years very likely covers every rung. That means the menu can be
+validated end to end on real silicon — including `av1-sdr`/`av1-hdr10` **decode**, which no
+other machine in the inventory can do, so AV1 output can be proven with a software encoder long
+before an AV1 encoder is bought.
+
+They are also memory- and CPU-starved, which makes a Fire Stick the **client-side equivalent of
+the F2-422**: the box where a bloated UI falls over. And they are a primary target rather than a
+compromise — cheap streaming sticks are the community's standard answer to bad smart-TV
+platforms.
+
+One more thing worth noticing: Netflix has been dropping support for older Fire TV devices. That
+is our audience's situation exactly — working hardware abandoned by the services — and a server
+that still plays to a 2016 stick is a real differentiator, not just a test case.
+
+### The Apple TV's value depends on which one it is, and both are useful
+
+Check Settings → General → About, or the model number on the base:
+
+- **A1625 — Apple TV HD (4th gen, 2015, A8).** The A8 has **no HEVC hardware decode**: H.264,
+  MPEG-4 and MJPEG only, 1080p. This is the single most useful client in the whole inventory for
+  validating [D21](../../decisions/working-notes.md), because it is a real, current-OS device
+  that can play *only the mandatory baseline*. If the menu and its negotiation are wrong, this
+  device finds out immediately.
+- **A1842 — Apple TV 4K (1st gen, 2017, A10X).** HEVC including 4K HDR and Dolby Vision. Its
+  last major OS was **tvOS 26 (2025)**, so it is now frozen — which makes it a good proxy for
+  the long tail of devices that will never receive another update.
+
+Either way this is the platform where [D3](../../decisions/working-notes.md)'s fMP4 requirement
+is least forgiving, and both carry the first-generation touchpad Siri Remote — genuinely
+unpleasant to navigate with, which makes it an honest test of the focus design rather than a
+flattering one.
+
+### The caveat: Fire OS is not Android TV
+
+Fire OS is an Android fork, so most of the client works and sideloading over ADB is
+straightforward. What it does **not** give us:
+
+- Google Play Services, and therefore the Google Cast sender/receiver integration;
+- the Android TV / Google TV home-screen channels and recommendations APIs (Fire TV has its own,
+  different ones — Streamyfin ships a `tv-recommendations` native module that would not apply);
+- Play Store distribution paths.
+
+`react-native-tvos` itself should be fine, since it is plain Android underneath. So a Google TV
+device is still worth having **eventually**, for platform integration rather than playback — but
+it has moved from "the highest-value purchase in the project" to "nice to have".
+
 ## What this inventory already covers well — better than most projects
 
 - **Three generations of Intel QSV** (Gemini Lake ≈ 2017, Kaby Lake 2017, Alder Lake-N /
@@ -40,6 +106,8 @@ The output of those commands, per machine, is the real matrix and belongs in the
 - **NVENC on a real discrete GPU**, plus the CPU headroom to test software encoding honestly.
 - **Apple**: arm64 server build, VideoToolbox, Safari, and the only platform where
   [D3](../../decisions/working-notes.md)'s fMP4 requirement is non-negotiable.
+- **A television capability ladder**, covered above — and the unglamorous ends of it (an
+  H.264-only Apple TV, a 1080p-only Fire Stick) are worth more here than a current flagship.
 - **Two Proxmox hosts.** Under-rated: this is a **network topology lab**. The remote-access
   research ends by saying CGNAT prevalence needs primary measurement and that no
   NAT-traversal stack is chosen — both are testable here by standing up VMs behind simulated
@@ -53,25 +121,11 @@ The output of those commands, per machine, is the real matrix and belongs in the
 
 ## The gaps, ranked by what they block
 
-### 1. There is not a single television in the inventory — this is the big one
+### 1. Google TV / Android TV proper — platform integration only
 
-[D10](../../decisions/working-notes.md), [D21](../../decisions/working-notes.md),
-[D22](../../decisions/working-notes.md) and [D23](../../decisions/working-notes.md) all rest on
-claims about how real TV clients behave, and **none of them can be checked on a desktop**:
-
-- whether a client with a poor capability API can ship a static profile list and be correct (D21);
-- whether **demuxed HLS** works on older TV firmware — explicitly recorded as *unverified* and
-  as the single assumption D22 rests on;
-- whether mid-playback subtitle and audio switching stalls the video (D23);
-- whether remote-control focus navigation in React Native is acceptable, which
-  [`tv-client.md`](../plans/tv-client.md) says to prototype before writing any screens.
-
-Worse, the project's own conclusion is that **clients are the product** and a great server with
-a mediocre TV app loses. We currently cannot test the thing the project will be judged on.
-
-**An Android TV box or stick is the highest-value purchase in the entire project** — roughly the
-cost of a takeaway, it is the v1 client target, it sideloads without store approval, and it
-unblocks four decisions. Buy this first and it is not close.
+Downgraded from blocking. Fire TV covers the playback and UI half; what is missing is Play
+Services, Google Cast, and the Android TV home-screen channel APIs. Worth buying when the cast
+receiver or home-screen integration is actually being built, not before.
 
 ### 2. No AV1 hardware encoder anywhere
 
@@ -98,21 +152,27 @@ the M4 already covers arm64 *compilation*, just not ARM SBC media paths.
 Blocks the desktop client and Windows-hosted server testing. A Proxmox VM covers most of it
 without buying anything.
 
-### 6. No Apple TV
-
-tvOS is a v2 target ([tech-clients.md](tech-clients.md)), so this can wait — but it is the
-enthusiast's box and Apple is the platform where fMP4/HLS correctness is least forgiving.
-
 ## Recommended order
 
-1. **Android TV device now.** Unblocks D21/D22/D23 verification, the playback survey's client
-   half, and the TV focus-navigation prototype that gates the whole client plan.
-2. **Nothing else until Phase 0 reports.** The playback survey's format census will say which
-   hardware paths actually matter for this library, and that is a better buying guide than a
-   capability matrix.
-3. **Raspberry Pi** before claiming ARM support.
-4. **Apple TV** when the Apple client starts.
-5. **AV1-capable GPU** when AV1 output ships, and not before.
+**Buy nothing yet.** The inventory now covers every decision that is currently blocked. The
+playback survey's format census is a better buying guide than any capability matrix, so let
+Phase 0 report first.
+
+After that, in order: **Google TV device** when Cast or home-screen integration is built;
+**Raspberry Pi** before claiming ARM support; **AV1-capable GPU** when AV1 *output* ships, and
+not before — the 4K Max already lets us prove AV1 decode against a software encoder.
+
+## One measurement-design consequence, from the Apple TV
+
+[D17](../../decisions/working-notes.md) bets that direct play covers the common case and video
+transcoding can be deferred. An A8 Apple TV — H.264 only, against a library that is
+substantially HEVC — is the counter-example living in the house.
+
+It does not overturn D17, because the core still ships direct-play plus audio transcoding. But
+it sharpens what Phase 0 must report: **the direct-play rate is per-client, and the plan has to
+survive the worst client in the household, not the mean.** One old device means video
+transcoding matters, and its priority is set by the *oldest* screen someone actually watches on.
+The survey must therefore report per-client rates and name the worst, not average them.
 
 ## Two things to build with what is already here
 
