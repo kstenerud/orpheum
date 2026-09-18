@@ -1497,7 +1497,81 @@ That property is worth preserving deliberately rather than by luck:
 
 None of these costs anything today. All three stop being available if ignored for a year.
 
-**Status:** Provisional. The hybrid fallback is the most likely to be needed and the least
-examined — if the TV focus prototype disappoints, the next question is whether a native TV
-client can reuse the shared SDK through a bridge or has to reimplement it, and that has not
-been researched.
+**Status:** Provisional. **The open question is now closed by
+[D29](#d29--a-native-client-reimplements-the-cheapest-cross-platform-logic-is-server-side-logic):**
+a native TV client reimplements, and it is cheap because most of "the shared SDK" is generated,
+server-side, or inherently platform-specific — and a TV needs no offline download, which is the
+only genuinely hard shareable piece.
+
+---
+
+## D29 — A native client reimplements; the cheapest cross-platform logic is server-side logic
+
+**Decided.** Closes the question
+[D28](#d28--keep-the-exit-from-react-native-cheap-and-designate-the-fallbacks) left open. If the
+hybrid fallback is taken and the TV client goes native, it **reimplements** — no bridge, no
+shared core, no fourth language. And the reason it is cheap becomes a standing design rule.
+
+### Why: "the shared SDK" is much less than it sounds
+
+Decomposing it ([shared-core.md](../design/research/shared-core.md)) deflates the problem:
+
+| Part | Status |
+| --- | --- |
+| API client | **Generated**, not shared — `openapi-generator` emits Kotlin, KMP and Swift from the same document ([D9](#d9--server-language-go-one-language-on-the-server)). Regenerating is not porting. |
+| Capability probe | **Cannot be shared by nature** — `MediaCodecList`, `decodingInfo()`, VideoToolbox. Nothing is lost. |
+| Rendition negotiation | **Mostly already server-side** — [D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) made it a set intersection over ~11 names, performed by the server. The client's share is tens of lines. |
+| Language preference | **Server-side** ([D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)). |
+| Queue / resume | Shareable, moderate. |
+| **Offline download** | **The one genuinely hard shareable piece.** |
+
+**And the clincher: a TV does not go anywhere, so a TV client needs no offline download.** The
+single piece of logic that would justify an exotic sharing mechanism is a *phone* concern, and
+the hybrid fallback keeps phones on React Native.
+
+This is not luck. D9's generate-the-client rule and D21's closed-enumeration negotiation made
+the reimplementation small, and both were adopted for unrelated reasons.
+
+### The mechanisms, including one verified dead
+
+- **Embedding a JS engine** (Hermes standalone, QuickJS, JavaScriptCore) — **rejected.** It
+  reintroduces the bridge the migration was escaping, ships another runtime, and on iOS
+  JavaScriptCore outside a `WKWebView` cannot JIT. Only justified for a large shared core, which
+  we do not have.
+- **A Go core via `gomobile`** — **verified dead for us**, and it was the conceptually most
+  attractive option because D9 already makes the server Go. From `cmd/gomobile/env.go`:
+  `applePlatforms = []string{"ios", "iossimulator", "macos", "maccatalyst"}`. **No tvOS.** It
+  fails on precisely the platform the fallback exists for. (Otherwise healthier than its
+  reputation: maintained through September 2026, 37 open issues.)
+- **A Rust core via UniFFI** — the strongest option on capability, and the only one that is not
+  a bet on how the client question resolves: Swift (so iOS *and* tvOS), Kotlin and Kotlin
+  Multiplatform, **Wasm for the web**, and **React Native Turbo Modules via Hermes bindings** —
+  so it would serve the current architecture *and* every fallback. Used extensively by Mozilla
+  in Firefox. **Not adopted**, because it is a fourth language against D9's one-language
+  discipline, bought to hedge a failure that may not happen, for an offline state machine not
+  yet written. Speculative generality.
+- **A KMP core** — already D28's general-purpose Plan B. Larger adoption and a first-party
+  vendor; weaker web story. Versus Rust/UniFFI, that trade should be re-run **with the offline
+  module actually written**, not now.
+
+### The durable rule this produces
+
+> **The cheapest cross-platform logic is logic that runs on the server.**
+
+Every piece of logic moved server-side needs porting zero times instead of three. This is
+available to us in a way it is not available to most mobile applications, **because we ship the
+server** — and it is the general form of what D21 and D24 already did by instinct.
+
+Four things keep the §1 decomposition true, and it is a property of decisions rather than a law:
+
+1. **The OpenAPI document stays the source of the API client** — generated, CI-gated, never
+   hand-maintained. A hand-written client accumulating logic is how porting cost appears.
+2. **Negotiation stays a closed enumeration intersected server-side.** D21's no-grammar rule now
+   has a second reason behind it: conditions creeping into the menu grow the client's share and
+   therefore the reimplementation cost.
+3. **Offline logic is quarantined in its own module.** It is the one genuinely portable asset and
+   is only portable if separable.
+4. **Anything that can live on the server does.**
+
+**Status:** Provisional. Revisit only if React Native fails generally rather than on TV — at
+which point the KMP-versus-Rust/UniFFI comparison is a real decision with real inputs.
