@@ -220,11 +220,19 @@ node is not a reliable source of the standard it is judged against** — self-re
 criteria are a smell, and the node most in need of catching is the one least able to report
 accurately.
 
-**The node's contribution is precision about *what it is doing*, not a number.** Prefer
-fine-grained states — `enumerating`, `probing`, `hashing`, `extracting`, `transcoding` — over a
-coarse `scanning`. That gives the core a clean signal to learn against (a coarse state that
-silently switches from fast enumeration to slow probing produces a useless bimodal baseline),
-covers the about-to-go-quiet case without a numeric field, and is more legible to a human.
+**The node's contribution is precision about *what it is doing*, not a number** — reported in
+three tiers ([D38](../decisions/working-notes.md)):
+
+| Field | Nature | Used by |
+| --- | --- | --- |
+| `state` | Small stable enum: `idle`, `scanning`, `transcoding`, `error` | API contract; UI headline |
+| `task` | **Bounded enum** within a state: `enumerating`, `probing`, `hashing`, `extracting` | **the cadence baseline**; UI subtitle |
+| `detail` | Free text: `films/the-unknown.mkv` | humans only; never keyed on |
+
+**The core baselines on the `(state, task)` pair**, and `task` must be a bounded enum for that
+to work. Putting the fine-grained information in free text would reintroduce the bimodal
+baseline problem while looking solved — free text has unbounded cardinality and cannot be a
+key.
 
 ### Escalate gradually; nothing is destructive
 
@@ -256,14 +264,15 @@ Illustrative, not a specification:
 
   "observed_config": 17,
 
-  "state": "probing",
+  "state": "scanning",
+  "task": "probing",
   "state_since": "2026-09-18T10:41:12Z",
   "progress": {
     "epoch": 4,
     "current": 3121,
     "end": 48000,
     "unit": "entries",
-    "detail": "films/"
+    "detail": "films/the-unknown.mkv"
   },
 
   "roots": [
@@ -284,6 +293,34 @@ lives: the node knows, so the node reports it.
 The core needs to ask for things — scan now, change the interval, pause, rescan one root — and
 the same directory carries it: **the core writes `config.json`; the node watches and re-reads
 it on change.**
+
+### Commands are an ordered list
+
+Alongside settings, the config carries an ordered list of commands from a closed vocabulary —
+`cancel`, `scan`, `rescan <root>`, `pause`, `resume` — executed in sequence.
+
+**A list, not a single command**, because `["cancel", "scan"]` is *one intention* and two
+separate writes would race. This is the answer to a real and frequent frustration: files added
+while a scan is running, and no way to restart without waiting it out.
+
+Requirements for cancellation to mean anything:
+
+- **Poll for commands during work, not between phases.** A phase boundary twenty minutes away
+  is not "on a dime". Check at the same granularity as the progress tick.
+- **Stop at a safe point**, mark the report incomplete, return to `idle` with a fresh `epoch` —
+  which is how the core observes that the cancel landed.
+- **`scan` while scanning is a no-op** (at most a rescan-when-done flag), never an implicit
+  restart. That is exactly why the explicit two-element form is needed.
+- **Every command must be safe to re-run**, because crash recovery re-executes anything where
+  `generation` is ahead of `observed_config`.
+- **Scope is background work.** Playback-driven transcoding has a viewer attached and its own
+  lifecycle.
+
+**And the trap, which is the dead-node trap in a different costume:** a cancelled scan has
+enumerated only part of the library. If its partial inventory is treated as authoritative,
+every file it had not reached looks absent and the core deletes most of the library — on the
+strength of a scan the user interrupted themselves. So **a report carries a completeness flag,
+and an incomplete inventory may only add or update, never remove.**
 
 ### Acknowledgement is the part that is easy to leave out
 

@@ -2246,3 +2246,85 @@ observation. Being wrong early is cheap, per the above.
 **Status:** Provisional; simpler than what it replaces. The baseline model needs to be dull —
 something like a rolling percentile of observed intervals per node per state — and explicitly
 not a learned model anyone has to reason about.
+
+---
+
+## D38 — Three-tier state reporting, and an ordered command list in the config
+
+**Decided.** Two refinements to the node contract: split what the node reports about itself into
+**`state` / `task` / `detail`**, and give the config an **ordered list of commands** so that
+"cancel and rescan" is a single atomic intention.
+
+### `state` / `task` / `detail` — and which one the core baselines against
+
+| Field | Nature | Used by |
+| --- | --- | --- |
+| **`state`** | Small, stable, coarse enum: `idle`, `scanning`, `transcoding`, `error` | API contract; UI headline |
+| **`task`** | **Bounded enum** within a state: `enumerating`, `probing`, `hashing`, `extracting` | **The core's cadence baseline**; UI subtitle |
+| **`detail`** | Free text: `films/the-unknown.mkv` | Humans only. **Never** keyed on. |
+
+The important constraint, or [D37](#d37--the-core-judges-liveness-from-observation-not-from-a-node-declared-interval)
+breaks silently: **`task` must be a bounded enum, and the core baselines on the `(state, task)`
+pair, not on `state` alone.** D37's whole argument was that a coarse state which switches
+between fast enumeration and slow probing yields a useless bimodal baseline. Moving the
+fine-grained information into a free-text field would reintroduce exactly that problem while
+looking like it had been solved — free text has unbounded cardinality and cannot be a baseline
+key.
+
+So: three tiers, with the middle one carrying the machine-readable precision.
+
+### An ordered command list, because "cancel and rescan" is one intention
+
+Real and frequent frustration: you add files, a scan is already running, and you must wait for
+it to finish before you can rescan. So the config carries an ordered list —
+`["cancel", "scan"]` — executed in sequence.
+
+**A list rather than a single command is the right call**, because two separate config writes
+would race: the core writes `cancel`, the node cancels and goes idle, and the second write may
+or may not arrive before something else changes state. One list is one atomic intention.
+
+Mechanically it rides on what already exists: the commands are part of the desired state, the
+`generation` counter marks them, and `observed_config` acknowledges that they ran
+([D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary)).
+A closed vocabulary — `cancel`, `scan`, `rescan <root>`, `pause`, `resume` — not arbitrary
+strings.
+
+### The trap: a cancelled scan must never drive deletions
+
+**This is the dead-node trap wearing a different costume, and it is the dangerous part of this
+feature.**
+
+A cancelled scan has enumerated part of the library. If its partial inventory is treated as
+authoritative, every file it had not yet reached looks absent — and the core deletes most of
+someone's library on the strength of a scan the user themselves interrupted.
+
+So: **a scan report carries a completeness flag, and an incomplete inventory can only ever add
+or update, never remove.** Same rule as
+[D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do) trap 1 —
+removal requires positive evidence from a complete, successful pass, never inference from
+absence. This deserves the same test: cancel a scan mid-run and assert nothing is deleted.
+
+### Other things cancellation needs to actually work
+
+- **Poll for commands *during* work, not between phases.** If the node only checks at phase
+  boundaries and a phase takes twenty minutes, "cancel" does not deliver "on a dime". Check at
+  the same granularity as the progress tick.
+- **Stop at a safe point and say so.** Abandon at a directory boundary, leave the report marked
+  incomplete, and return to `idle` with a fresh `epoch` — which is exactly what the core needs
+  to see that the cancel took effect.
+- **`scan` while already scanning is a no-op**, or at most sets a rescan-when-done flag. It
+  does **not** implicitly restart — which is precisely why the explicit `["cancel", "scan"]`
+  form is needed and unambiguous.
+- **Commands must be safe to re-run.** On crash recovery the node sees `generation` ahead of
+  `observed_config` and re-executes. Every command in the vocabulary must tolerate that, which
+  they do — and any future command that cannot must not be added to this channel.
+- **Scope is the node's background work.** Playback-driven transcoding has a viewer attached and
+  its own lifecycle; it is not cancelled by this channel.
+- **Where HTTP exists, prefer it** — same as [D32](#d32--being-told-beats-watching-the-no-agent-path-is-a-tiered-measured-self-reporting-walk).
+  This is the file-transport equivalent, not a competing mechanism. Note also that with the
+  `*arr` webhook path in place, the "I just added files" case largely stops arising; cancel is
+  for manual additions and for impatience, both of which are legitimate.
+
+**Status:** Provisional. The completeness flag is the load-bearing part and should exist in the
+report contract from the first version, because retrofitting it means a period where cancelled
+scans can delete libraries.
