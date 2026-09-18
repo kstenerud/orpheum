@@ -2109,3 +2109,67 @@ When installed as a daemon, the only thing in `/etc` is the path to this directo
 
 **Status:** Provisional. Wedged thresholds still need measurement against a real large library,
 and the report retention policy is unspecified.
+
+---
+
+## D36 — Idle ticks the progress pair; the node declares its own tick contract
+
+**Decided.** Drops the separate pulse field from
+[D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle) /
+[D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary).
+**An idle node ticks the progress pair itself** — enter idle at `current=0, end=1`, then
+`1/2`, `2/3`, and so on. One mechanism, and the core's liveness rule becomes uniform: *did
+either number move?*, with no branch on state.
+
+### Why the simplification is right
+
+Idle was the only state where the pair could not move, and it is also the only state where
+ticking it **tells no lie** — there is no task whose completion the numbers could
+misrepresent. So idle can satisfy the liveness contract using the same field as everything
+else, and the separate pulse was carrying exactly one case.
+
+The UI does not suffer: it already branches on `state` to choose its wording, so it simply does
+not render a bar when `state == idle`.
+
+### But a uniform *rule* is not a uniform *threshold* — and that is the real trap
+
+Removing the pulse removes the state-dependent *mechanism*. It does not remove the
+state-dependent *timing*, and assuming it does would make the core call healthy nodes wedged.
+
+Progress rates differ by orders of magnitude between tasks. An idle node can tick every few
+seconds. A node probing a 60 GB remux over a slow link may legitimately produce no movement for
+minutes — and mid-task it **cannot** bump the numbers to prove liveness without lying about
+completion, which is precisely the honesty that makes idle-ticking acceptable.
+
+So the node **declares its own contract**: a field such as `max_tick_interval_s`, meaning *"I
+guarantee at least one of these numbers moves this often, in my current state."* Short when
+idle, longer during a slow probe, set by the component that actually knows.
+
+The core's rule is then genuinely uniform **and** correct:
+
+> Wedged when neither `current`, `end` nor `epoch` has changed for more than N × the node's
+> declared interval — whatever state it is in.
+
+One rule, one comparison, no per-state tuning in the core, and no lying in the node. That is
+better than either the separate pulse or a fixed global threshold.
+
+### Details that still hold
+
+- **`epoch` covers restarts.** A node that restarts goes from `847/848` back to `0/1` —
+  numbers moving *downward*. The core must read that as movement, and the incremented epoch
+  from D35 is what makes it unambiguous rather than a suspected stall.
+- Monotonic `current` within an epoch, unaffected.
+- Unbounded growth is a non-issue: ticking every few seconds for a year is a rounding error.
+- `state` remains the field that tells the UI and the human *what* the movement means.
+
+### What is lost, honestly
+
+A fixed-interval pulse would have let the core estimate node clock drift or spot process
+pauses. Minor, and `node_clock` is diagnostic-only anyway
+([D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary)),
+so nothing depended on it.
+
+**Status:** Provisional. `max_tick_interval_s` per state, and the multiplier N, both need
+measurement against a real large library over a real share before they are fixed — the failure
+mode of getting them wrong is calling a healthy slow node wedged, which is worse than a late
+detection.

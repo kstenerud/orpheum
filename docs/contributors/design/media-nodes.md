@@ -160,7 +160,7 @@ timestamps are **decorative** — for a human reading the file — and NTP corre
 and a NAS whose clock is four hours out are all irrelevant.
 
 The only requirement this places on the node is that **something always changes** while it
-lives, which is what the pulse below exists for.
+lives — satisfied by the progress pair, including when idle (below).
 
 ### Why a file rather than an API
 
@@ -197,14 +197,33 @@ Four details this needs to be usable rather than merely present:
   indistinguishable from being stuck at zero, and the core will call a fresh scan wedged.
 - Within an epoch, `current` should be monotonic.
 
-### Idle must still tick — the correction that matters
+### Idle ticks the pair itself — no separate pulse
 
-The progress pair is not sufficient on its own. **An idle node changes nothing**, and a dead
-node also changes nothing, so the two are identical to a core that only watches progress.
+An idle node would otherwise change nothing, and so would a dead one. Rather than add a second
+mechanism, **idle simply ticks the pair**: enter idle at `current=0, end=1`, then `1/2`, `2/3`.
 
-Therefore the record keeps a **separate pulse that advances unconditionally**, including when
-idle. Progress answers *"is it achieving anything?"*; the pulse answers *"is it there at all?"*.
-Both are needed, and dropping either collapses two distinguishable states into one.
+This is honest precisely because idle is the one state with no task whose completion the
+numbers could misrepresent. One mechanism, and the core's rule stays uniform — *did either
+number move?* — with no branch on state. ([D36](../decisions/working-notes.md))
+
+### The node declares its own tick interval, because rates differ by orders of magnitude
+
+A uniform *rule* is not a uniform *threshold*, and conflating them would make the core call
+healthy nodes wedged.
+
+An idle node can tick every few seconds. A node probing a 60 GB remux over a slow link may
+legitimately show no movement for minutes — and mid-task it **cannot** bump the numbers to
+prove liveness without lying about completion, which is exactly the honesty that makes
+idle-ticking acceptable in the first place.
+
+So the node publishes **`max_tick_interval_s`**: *"I guarantee at least one of these numbers
+moves this often, in my current state."* Short when idle, longer during a slow probe, set by
+the component that knows. The core's rule is then uniform and correct:
+
+> **Wedged** when neither `current`, `end` nor `epoch` has changed for more than N × the node's
+> declared interval — in any state.
+
+No per-state tuning in the core, and no lying in the node.
 
 ### Shape
 
@@ -217,11 +236,11 @@ Illustrative, not a specification:
   "started_at": "2026-09-18T09:14:02Z",
   "node_clock": "2026-09-18T11:02:31Z",
 
-  "pulse": 48213,
   "observed_config": 17,
 
   "state": "scanning",
   "state_since": "2026-09-18T10:41:12Z",
+  "max_tick_interval_s": 60,
   "progress": {
     "epoch": 4,
     "current": 3121,
