@@ -28,8 +28,11 @@ mattering for Chinese. That was about *track* language. This is about everything
   codepoint; Chinese by pinyin or stroke. This is a database collation decision and therefore a
   schema decision.
 - **Search across scripts** — romaji for Japanese titles, simplified/traditional Chinese
-  equivalence, diacritic folding. Postgres FTS configuration, `unaccent`, `pg_trgm` behaviour on
-  CJK (where trigrams behave differently and may need a different strategy).
+  equivalence, diacritic folding. Under [D31](../../decisions/working-notes.md) this is
+  **SQLite FTS5 tokeniser** territory rather than Postgres text-search configuration, and CJK is
+  where the choice bites: FTS5's default tokenisers do not segment languages without spaces, so
+  this needs `unicode61` tuning, a trigram tokeniser, or an external segmenter. Settle it before
+  the search schema, because the tokeniser is baked into the FTS table.
 - **Metadata in multiple languages at once.** A title has a native name, an English name and a
   transliteration, and different users want different ones. That is a data-model question, not a
   display question.

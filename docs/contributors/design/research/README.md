@@ -22,6 +22,7 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
 | [test-hardware.md](test-hardware.md) | What hardware the test matrix needs, measured against what is available; the gaps and the buying order. |
 | [tech-playback.md](tech-playback.md) | The core problem: transcode-vs-direct-play, HLS/DASH, the device-profile trap, subtitles, hardware acceleration. |
 | [tech-backend.md](tech-backend.md) | Language, runtime, framework, job scheduling, API shape. |
+| [sqlite-reconsidered.md](sqlite-reconsidered.md) | Re-examination of the database choice against the real workload — corrects a misreading of the original evidence and reverses D5. Backs D31. |
 | [tech-storage.md](tech-storage.md) | Database, schema stance, search, migrations, on-disk layout, backup. |
 | [client-framework.md](client-framework.md) | A deliberate re-examination of the React Native decision against 2026 evidence, including Shopify's reversal to native — with corrections to the evidence D10 originally cited, and a falsifiable bail-out criterion. |
 | [tvos.md](tvos.md) | Why tvOS breaks every cross-platform option, what works there, who skips it — and the measurement showing it is ~3% of an Apple client rather than a second app. Backs D30. |

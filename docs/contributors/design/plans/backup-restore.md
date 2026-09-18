@@ -14,8 +14,10 @@ is a rebuildable index, which removes most of the fear. But it is not all of it:
 - **User-authored data is not derivable** — metadata corrections, watch state, playlists,
   language preferences ([D24](../../decisions/working-notes.md)), rules, users and their
   credentials. D7 says it mirrors to sidecars; nobody has designed that.
-- **Postgres is not a file the user can copy** ([D5](../../decisions/working-notes.md)). That is
-  the cost of that decision and it has not been paid yet.
+- ~~**Postgres is not a file the user can copy.**~~ **This cost is gone** —
+  [D31](../../decisions/working-notes.md) moved the database to SQLite, so a backup is copying a
+  file (with the usual care about WAL sidecars and using the online-backup API rather than `cp`
+  on a live database). One of the reasons D31 was taken.
 - **A rebuild is not free.** Re-scanning, re-fetching metadata under provider rate limits, and
   regenerating trickplay for a large library is potentially days of work
   (`performance-targets.md`).

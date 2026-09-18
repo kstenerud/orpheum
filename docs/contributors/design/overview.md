@@ -106,9 +106,10 @@ Five choices, each traceable to a specific failure in the research:
 
 Notes on the shape:
 
-- **One binary, one database, no message broker, no service mesh.** Household scale does not
-  justify any of it, and "boring, established tech" is a stated constraint. Postgres ships in
-  the default compose file so installation stays one command.
+- **One binary, one file, no second service, no message broker.** Household scale does not
+  justify any of it, and "boring, established tech" is a stated constraint. The database is
+  SQLite in WAL mode ([D31](../decisions/working-notes.md)), so installation is a binary and
+  backup is a file copy.
 - **FFmpeg is a subprocess, not a linked library.** Every project in the survey that touches
   FFmpeg drives it as a process; cgo bindings to libav\* are a build-complexity liability. We
   ship a known-good build rather than accepting the distro's — Jellyfin maintains an entire
@@ -141,7 +142,7 @@ Notes on the shape:
 | Dolby Vision / Atmos *output* | Passthrough only. We direct-play them where the client copes and fall back to a menu profile otherwise; we never encode into them. |
 | Photos | [D1](../decisions/working-notes.md). Immich exists, is AGPL, and is moving faster than we could. |
 | A Netflix-style encoding ladder | Bandwidth is free on a LAN. |
-| Microservices, Kafka, Elasticsearch, Redis | Household scale. Postgres covers search, fuzzy matching and job wakeups. |
+| Microservices, Kafka, Elasticsearch, Redis | Household scale. SQLite FTS5 covers search, Go covers fuzzy matching, and job wakeups are a channel in one process ([D31](../decisions/working-notes.md)). |
 | A Roku client | BrightScript shares no code with anything and Roku cannot render bitmap subtitles at all. |
 | FFmpeg in the core process | [D26](../decisions/working-notes.md). Media is attacker-supplied data and FFmpeg will eventually be compromised; all of it runs in a Landlock+seccomp-confined worker, so the core never parses hostile bytes. |
 | In-process plugins | [D12](../decisions/working-notes.md). Third-party scrapers are the last code you want unsandboxed. Protocol surfaces get a second tier — out-of-process adapters ([D15](../decisions/working-notes.md)). |

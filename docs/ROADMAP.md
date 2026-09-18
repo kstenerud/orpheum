@@ -182,8 +182,10 @@ live TV and DVR.
    it forward is the standing hedge.
 3. **TV focus navigation on React Native disappoints.** Fallback is a native Kotlin
    Compose-for-TV client reusing only the API contract — more work, not a dead end.
-4. **Postgres-only costs installs.** Mitigated by shipping it in the default compose file. If it
-   bites, D5 is the decision most worth revisiting.
+4. ~~**Postgres-only costs installs.**~~ **Resolved** — re-examined and reversed to SQLite
+   ([D31](contributors/decisions/working-notes.md)). The residual risk is the opposite one: if a
+   genuinely multi-tenant deployment ever appears, adding Postgres means a second set of
+   `sqlc`-generated queries.
 5. **Codec patents.** Separate from copyright licence and not resolved by being open source.
    Direct-play-first reduces a default install's exposure to nearly nothing because it never
    encodes; get real advice before anything commercial.

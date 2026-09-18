@@ -36,7 +36,15 @@ someone may never finish (PhotoPrism is the proof). Starting on Postgres and lat
 embedded option is additive. And the second-most-requested feature in two of the three
 surveyed audio/photo projects is "please support Postgres" — nobody is asking for the reverse.
 
-### Recommendation
+### Recommendation — **SUPERSEDED 2026-09-18**
+
+> **This section is wrong and is kept for the record.** Re-examined in
+> [sqlite-reconsidered.md](sqlite-reconsidered.md) and reversed by
+> [D31](../../decisions/working-notes.md): the evidence below was partly misread (Audiobookshelf
+> #5349 was an unhandled-error bug, the Jellyfin lock complaints are unattributed, and the
+> SSE4.1 crash was a native-driver issue), the write rate is ~2/sec rather than contended, and
+> four of the five claimed Postgres capabilities exist in SQLite or are moot. **The decision is
+> SQLite with a pure-Go driver.**
 
 **Postgres as the primary and only supported engine for v1.** Ship it in the default Docker
 Compose so the install is still one command. Keep all SQL behind a repository layer so an
@@ -154,12 +162,15 @@ should require an explicit opt-in per library.
 
 ## 7. What this settles
 
-1. **Postgres, shipped in the default compose file.** Repository layer keeps the door open. (D5)
+1. ~~**Postgres, shipped in the default compose file.**~~ **Superseded: SQLite with a pure-Go
+   driver** ([D31](../../decisions/working-notes.md)). The repository layer still keeps the door
+   open in the other direction.
 2. **`sqlc` for typed SQL; no ORM.** (D6)
 3. **Files are the source of truth; the database is a rebuildable index**; user-authored data is
    mirrored to sidecars. (D7)
 4. **Audit/change-journal tables and a delta-sync cursor exist in the first schema.** (D8)
 5. **`Title → Edition → MediaFile` is the core model**, not an afterthought.
 6. **Automatic pre-migration backup; forward-only ordered migrations; detect-and-refuse.**
-7. **Postgres FTS + `pg_trgm`; no separate search service.**
+7. **SQLite FTS5; no separate search service.** Fuzzy filename→title matching moves into the
+   identification component in Go, since SQLite has no `pg_trgm` equivalent (D31).
 8. **Media read-only by default.**

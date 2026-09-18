@@ -152,9 +152,10 @@ throughput).
 **Consequences.** All SQL behind a repository layer, so an embedded engine remains addable.
 The install story must stay one command or this decision costs us users.
 
-**Status:** Provisional, and the one most worth re-examining. If a spike shows the write
-pattern is lighter than expected, SQLite's single-binary deployment is worth real money to
-self-hosters.
+**Status:** **Superseded by [D31](#d31--sqlite-with-a-pure-go-driver-supersedes-d5)**
+(2026-09-18). Re-examined as this status line invited: the concurrency argument does not survive
+the actual write rate, most of the capability arguments evaporate, and the three cited failures
+were respectively an application bug, unattributed, and a driver issue.
 
 ---
 
@@ -1650,3 +1651,95 @@ non-Apple toolchain.
 **Status:** Provisional. Rules 3 and 4 are the durable part and cost nothing. The re-pricing in
 rule 1 should be re-checked against our own code if the hybrid is ever taken — Swiftfin's 3.2%
 is one project's ratio, not a law.
+
+---
+
+## D31 — SQLite with a pure-Go driver; supersedes D5
+
+**Decided.** **Supersedes [D5](#d5--database-postgresql-only-shipped-in-the-default-compose).**
+The database is **SQLite**, in WAL mode, via a **pure-Go driver**. Postgres is not shipped, not
+required, and not supported for now.
+
+D5's own status line named it "the one most worth re-examining", so this follows that note
+rather than reversing on a whim. Full working in
+[sqlite-reconsidered.md](../design/research/sqlite-reconsidered.md).
+
+### D5's evidence was partly misread
+
+- **Audiobookshelf #5349** — a scan hit `SQLITE_BUSY` "and that rejection was **unhandled** —
+  which took down the entire server." An **application bug**, not a SQLite limit. `SQLITE_BUSY`
+  is the documented signal to wait and retry.
+- **Jellyfin's lock complaints** — real pain, but **unattributed**. They arrived with the EF
+  Core migration whose other symptom was transactions held open far too long. I presented
+  contention as SQLite's semantics when it may have been Jellyfin's usage.
+- **"core dump without SSE4.1"** — a **native-library** failure, which is a driver argument and
+  disappears with pure Go (below).
+
+### The numbers do not support the concurrency worry
+
+The metric is writers, not users. Twenty concurrent streams at one progress update per ten
+seconds is about **two writes per second**; SQLite in WAL mode does thousands of batched writes
+per second. Three orders of magnitude of headroom. The worry was contention, and contention is
+a design question — one **Navidrome has already solved in production** with Go, SQLite, a media
+library and a scanner:
+
+- `_busy_timeout=15000&_journal_mode=WAL&_foreign_keys=on&synchronous=normal`, pool sized
+  `max(4, runtime.NumCPU())` because more connections buy no write parallelism;
+- and the sharp edge worth stealing: **`SQLITE_BUSY` and `SQLITE_BUSY_SNAPSHOT` share the
+  message "database is locked", and `busy_timeout` can retry the first and never the second** —
+  a stale snapshot can only be recovered by rolling back and retrying the whole transaction.
+  Inspect the extended result code to tell them apart.
+
+### Most of D5's capability arguments evaporate
+
+SQLite has excellent **FTS5** and has **JSONB**. `LISTEN`/`NOTIFY` is only needed *because*
+Postgres is a separate process — in one binary it is a channel, which argues for SQLite.
+`pgvector` is moot because photos are out of scope ([D1](#d1--scope-video-first-audio-second-photos-probably-never)).
+Only **`pg_trgm`** is a genuine loss, and filename→title fuzzy matching belongs in the
+identification component in Go anyway.
+
+### The driver is not a detail — cgo would break a D9 promise
+
+`mattn/go-sqlite3` is the most used, but **cgo breaks trivial cross-compilation**, which is one
+of [D9](#d9--server-language-go-one-language-on-the-server)'s stated reasons for choosing Go,
+and it reintroduces the native-crash class. So: **pure Go**, choosing between
+`modernc.org/sqlite` (v1.59.0, actively released) and `ncruces/go-sqlite3` **by benchmark on the
+low-end target**, not by reputation.
+
+### What this buys, which D5 under-weighted
+
+One binary and no second service — a large part of the product for self-hosted software.
+**Backup becomes copying a file**, which closes a gap our own
+[backup-restore.md](../design/plans/backup-restore.md) had flagged as an unpaid cost of D5. No
+Postgres major-version upgrade dance, against "upgrades must be boring" being one of the
+strongest findings in [sentiment.md](../design/research/sentiment.md). And RAM back on the 8 GB
+Celeron that [test-hardware.md](../design/research/test-hardware.md) calls the honest low end.
+
+### The multi-process objection dissolves, and pleasingly
+
+[D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three) and
+[D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp) put workers in
+separate processes, possibly on separate machines — two processes writing one SQLite file over a
+share would be a serious mistake. But those workers **must not touch the database**: they take a
+job and return results over the core's API, and the core stays the sole writer. That is exactly
+what D26's threat model wants anyway, since a confined process parsing hostile media should not
+hold database credentials. **The architecture that makes the security story good is what makes
+SQLite viable.**
+
+### Conditions and remaining risks
+
+1. **Refuse to run with the database on a network filesystem.** SQLite locking over NFS/SMB is
+   unsafe; detect at startup and fail with a clear message rather than corrupt quietly.
+2. **Retry-on-`BUSY_SNAPSHOT` lives in the repository layer**, once.
+3. **Single-writer discipline**: serialise writes through one path; batch scanner writes into
+   transactions.
+4. **Adding Postgres later is not free** — `sqlc` emits dialect-specific code — but it is
+   bounded because every query lives in the repository layer regardless.
+
+**Rejected:** supporting both engines. That doubles the generated query surface and the test
+matrix to serve a deployment shape that does not exist yet.
+
+**Status:** Provisional. Postgres remains right for a genuinely multi-tenant or multi-node
+deployment; if that ever materialises it arrives with a repository layer in place and a real
+requirement to design against, which beats paying the operational cost now for a workload that
+does not exist.
