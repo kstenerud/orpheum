@@ -2768,3 +2768,116 @@ supervise it, they do not host it.
 
 **Status:** Provisional. The supervisor's scope is the thing to guard — every feature request
 for it should be answered with "use systemd" until there is evidence otherwise.
+
+---
+
+## D44 — Prefer the platform's supervisor; ship the units; and never exit when you could report
+
+**Decided.** Restart is a **deployment** concern, and the right answer is usually not ours.
+Order of preference, and we **ship** the first two rather than documenting them:
+
+1. **systemd units** (bare-metal Linux) — restart, watchdog, sandboxing and cgroups for free.
+2. **Separate containers** (Compose / Kubernetes) — restart policies and per-container limits.
+3. **Our `run` supervisor** ([D43](#d43--one-binary-one-process-per-role-and-a-thin-optional-supervisor)) —
+   the fallback for everything else: one container holding all roles, Windows, macOS, or plain
+   simplicity.
+
+The supervisor exists because a fallback must exist, not because it is the recommendation.
+
+### What systemd gives us, beyond restarting
+
+- **`Restart=on-failure`** with `RestartSec=`, plus `StartLimitIntervalSec=`/`StartLimitBurst=`
+  (5 starts in 60 s by default) so a crash-looping unit **parks in `failed`** rather than
+  spinning forever. Deliberate and correct — and it means the failure is only visible if
+  something is watching, which the core is
+  ([D37](#d37--the-core-judges-liveness-from-observation-not-from-a-node-declared-interval)).
+- **`Type=notify` + `sd_notify(READY=1)`** for real readiness rather than "the process started".
+- **`WatchdogSec=` + `WATCHDOG=1`** — active liveness, killing and restarting a stuck process
+  that exit-based restart cannot catch. See the nuance below.
+- **Per-unit sandboxing** — `ProtectSystem=strict`, `ReadWritePaths=`, `ProtectHome=`,
+  `NoNewPrivileges=`, `SystemCallFilter=`, `DeviceAllow=`, `PrivateTmp=`,
+  `MemoryDenyWriteExecute=`.
+- **Per-unit cgroups** — `MemoryMax=`, `CPUWeight=`, `IOWeight=`, `Slice=`.
+- **`StateDirectory=` / `CacheDirectory=` / `LogsDirectory=`**, created and owned correctly —
+  which is where the exchange directory
+  ([D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary))
+  should live.
+
+**Two of these validate [D43](#d43--one-binary-one-process-per-role-and-a-thin-optional-supervisor)
+from a second direction:** systemd's sandboxing and resource control are **per unit**, exactly
+as Landlock is per process. Three roles as three units get three different confinement profiles
+and three resource budgets. One unit running all three would take the union — the same argument
+that made D43 split the processes, arriving independently.
+
+It also means **the unit file is the outer sandbox on a systemd host**, with D26's in-process
+Landlock as defence-in-depth and as the only layer elsewhere. So hardened unit files are part
+of the product, not an appendix.
+
+### The watchdog is not our wedged detector — keep the layers separate
+
+Tempting, and wrong to collapse: `WatchdogSec` detects a process that **stops pinging**, which
+is liveness of the *process*, not progress of the *work*. A scanner whose work goroutine is
+stuck while its runtime is healthy will keep pinging happily.
+
+Gating the ping on progress would turn systemd into a wedged-detector with restart authority —
+but that walks straight into D37: a node judging its own health is the least reliable source,
+and a legitimately slow task (probing a 60 GB remux) would earn spurious restarts.
+
+So, two layers that do different jobs:
+
+- **systemd's watchdog**: fast, blunt, catches hard hangs. Ping conservatively — fire unless
+  definitely stuck.
+- **The core's observation** (D37): slower, smarter, catches subtle wedging, graded, and holds
+  **no restart authority**.
+
+They compose rather than overlap, and systemd restarting a unit in two seconds is invisible to
+the core because D37's escalation has hysteresis and "late" does nothing.
+
+### Restart is already safe, by construction
+
+Nothing special is needed, because earlier decisions bought it:
+
+- A scanner killed mid-scan leaves a `.partial` report that can only add or update, never remove
+  ([D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global)).
+- `epoch` increments, so the core reads the reset progress as movement rather than a stall
+  ([D36](#d36--idle-ticks-the-progress-pair-the-node-declares-its-own-tick-contract)).
+- `node_id` persists, so a restarted node is the *same* node and its items are never orphaned
+  ([D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle)).
+
+### The rule: report failure, do not exit
+
+**A node that cannot do its job should stay alive and say so.** A scanner whose share is
+unreachable emits a `root`-scoped error ([D40](#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope),
+[D41](#d41--diagnose-the-failure-boundary-by-walking-up-and-guard-the-silent-case-which-is-worse))
+and keeps running. It does **not** crash.
+
+Four reasons: exiting **destroys the reporting channel**, which is the thing that would have
+explained the problem; repeated exits trip `StartLimitBurst` and park the unit, converting a
+recoverable outage into a manual intervention; the core cannot distinguish "exited because the
+share is down" from "exited because of a bug"; and a live node reporting `root unreachable` is
+strictly more informative than a dead one. This is the natural consequence of
+[D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides) — sensors report.
+
+Exit is reserved for conditions that genuinely cannot be reported: a corrupt local config, a
+failed sandbox setup, an unrecoverable internal state.
+
+### Kill the process group, or you get orphaned FFmpeg
+
+A common and memorable bug in this domain. When a role process dies, its confined FFmpeg
+children must die with it, or they keep a CPU busy forever and nobody knows why.
+
+- systemd's default `KillMode=control-group` kills the whole cgroup — handled.
+- Our supervisor must kill the **process group**, not the process.
+- Belt and braces on Linux: set `Pdeathsig` in the child's `SysProcAttr` so an FFmpeg child is
+  signalled when its parent dies, even if the parent died in a way that skipped cleanup.
+
+### For our own supervisor
+
+Exponential backoff, and — the important part — **never give up silently.** A role that has
+stopped restarting must be visible as a state the core can surface, not a line in a log nobody
+reads. That is the same failure mode `StartLimitBurst` has, and the same remedy.
+
+**Status:** Provisional. The shipped unit files are a deliverable and want hardening review;
+`s6-overlay` is a legitimate alternative to our supervisor inside a single container and is
+worth revisiting if the supervisor starts growing features — which is the signal D43 said to
+watch for.
