@@ -94,8 +94,8 @@ Five choices, each traceable to a specific failure in the research:
 └───┬──────────────┬─────────────────────────────┬────────────────┘
     │              │                             │
     │       ┌──────┴───────┐             ┌───────┴────────┐
-    │       │ PostgreSQL   │             │ Media (ro) +   │
-    │       │ (D5)         │             │ cache/ (purge) │
+    │       │ SQLite (WAL) │             │ Media (ro) +   │
+    │       │ (D31)        │             │ cache/ (purge) │
     │       └──────────────┘             └────────────────┘
     │
     │  registered plugins — same public API a third party would use

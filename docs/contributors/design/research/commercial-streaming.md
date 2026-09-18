@@ -83,7 +83,7 @@ streaming. **This is the biggest reason a small team can compete here at all.**
 | --- | --- | --- |
 | CDN / edge caching (Netflix Open Connect) | Serving continents | One household, one LAN. The "CDN" is a local disk. |
 | Microservice estates | Many teams, independent deploy cadence | One team. A single binary is a feature, not a limitation. |
-| Kafka/Cassandra-scale data infrastructure | Billions of events | Postgres or SQLite handles a household forever. |
+| Kafka/Cassandra-scale data infrastructure | Billions of events | A single SQLite file handles a household forever. |
 | DRM and device certification | Licensing obligations to studios | The user owns the files. |
 | Recommendation ML at scale | Catalogue discovery across millions of titles | A few thousand items the user chose deliberately. |
 | Per-shot encoding optimisation | Bandwidth cost at planetary scale | Bandwidth is free on a LAN. |

@@ -333,8 +333,8 @@ rewrites the web client's served JavaScript. If we do not design this, someone w
 - **A rules engine** for smart collections, smart playlists and retention policy (~7,000 stars
   across plugins and companion apps). This is a core data-model feature and should inform
   `library-model.md`.
-- **Good search** (a Meilisearch plugin is a bug report). Already [D5](../../decisions/working-notes.md)
-  — Postgres FTS plus `pg_trgm`.
+- **Good search** (a Meilisearch plugin is a bug report). Already decided — **SQLite FTS5**
+  ([D31](../../decisions/working-notes.md)), with fuzzy matching in Go.
 - **Version merging** for multiple copies of one title (mergeversions, 439). Already planned as
   `Title → Edition → MediaFile`; this confirms it matters.
 - **Webhooks/events** as a first-class core feature, since it is both a popular official plugin
