@@ -466,18 +466,32 @@ raised at all.** Every safety mechanism in this document is triggered by errors;
 none, and a scanner would honestly report a *complete* enumeration of an empty root — at which
 point the removal rules permit deleting the entire library.
 
-**This is the most dangerous failure mode in the design.** Two independent defences, both
-required ([D41](../decisions/working-notes.md)):
+**This is the most dangerous failure mode in the design.** But note where the fix belongs —
+**the node is a sensor, and the core decides** ([D42](../decisions/working-notes.md)). The
+problem is not "the node must detect a missing mount"; it is:
 
-1. **Verify the mount, not the path.** Record each root's `st_dev` at setup; a mountpoint has a
-   different device id from its parent, so if they have become equal the mount is gone. Checked
-   before enumerating a root and again before applying its removals. Automatic, no user action.
-   A sentinel file is the portable fallback.
-2. **Never believe implausible shrinkage.** If a root has lost a large fraction of the entries
-   it had at the last complete scan, mark the report incomplete and **withhold removals pending
-   confirmation**. This catches the whole no-error class — a wrong path after reconfiguration, a
-   permissions change that empties a listing, a half-finished remount. It must *ask* rather than
-   refuse; a user who genuinely emptied a library should be able to say so.
+> **The node must report "I listed this directory and it was empty" as distinct from "I did not
+> enumerate this directory".**
+
+That distinction is an observation only the node can make. Once it is in the report, the core —
+which knows the root held forty thousand files yesterday — draws the conclusion. The node needs
+no threshold, no history and no confirmation mechanism.
+
+**The node reports:** observed-empty versus not-enumerated per directory; and per root, the
+current `st_dev`, whether the path is a mountpoint, the filesystem type and the read-only flag.
+
+**The core decides**, with two independent defences:
+
+1. **Mount verification.** It compares the reported `st_dev` against what it recorded at setup —
+   a mountpoint has a different device id from its parent, so equality means the mount is gone —
+   before enumerating and again before applying removals.
+2. **Implausible shrinkage.** If a root has lost a large fraction of the entries it held at the
+   last complete scan, removals are **withheld pending confirmation**. This catches the whole
+   no-error class: a wrong path after reconfiguration, a permissions change that empties a
+   listing, a half-finished remount. It must *ask* rather than refuse — someone who genuinely
+   emptied a library should be able to say so.
+
+Both need history and configuration, which is exactly why neither belongs in the node.
 
 Related: **a hung mount presents as wedged, not failed.** NFS hard mounts block instead of
 erroring, so filesystem operations need timeouts — and usefully, a scanner blocked on a dead

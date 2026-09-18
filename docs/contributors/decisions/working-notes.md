@@ -2583,3 +2583,85 @@ membership, which is a data-loss event wearing a recovery costume.
 — a root of 20 items losing 10 is noise, a root of 40,000 losing 39,000 is not. Both defences
 belong in the first version; the silent case cannot be retrofitted safely because by the time it
 is noticed the deletions have happened.
+
+---
+
+## D42 — Nodes are sensors; the core is the only thing that decides
+
+**Decided.** A general principle, and a correction to
+[D41](#d41--diagnose-the-failure-boundary-by-walking-up-and-guard-the-silent-case-which-is-worse):
+
+> **A node reports what it observed. The core decides what it means.**
+
+D41 put the mount check and the implausible-shrinkage guard *in the node* — "mark the report
+incomplete and withhold removals pending confirmation". That is the node making policy, and it
+is wrong in four separate ways.
+
+### Why the node cannot and should not judge
+
+1. **It lacks the information.** The shrinkage guard needs *"what did this root contain at the
+   last complete scan?"* — which is **core state**. For the node to judge, it would have to keep
+   its own history of every root, duplicating the core's inventory and creating a second source
+   of truth about the library. The core already knows. This is the decisive argument.
+2. **It is the component under suspicion.** A node whose mount just vanished is not who you want
+   ruling on what that means — the same reasoning as
+   [D37](#d37--the-core-judges-liveness-from-observation-not-from-a-node-declared-interval),
+   where a node declaring its own health thresholds was rejected because the node most in need
+   of catching is the one least able to report accurately.
+3. **Policy lives where the policy is configurable.** The confirmation prompt, the user's
+   preferences, the override — all in the core. A node withholding removals puts the decision
+   and its override in different processes.
+4. **Only the core can reconcile.** With overlapping roots or several nodes seeing one share, a
+   node judging in isolation could withhold removals another node has good data for.
+
+### The reframing this produces, which is cleaner than D41's version
+
+The silent-mount problem is **not** "the node must detect a missing mount". It is:
+
+> **The node must report "I listed this directory and it was empty" as distinct from "I did not
+> enumerate this directory".**
+
+That distinction is an *observation* only the node can make — and once it is in the report, the
+core, which knows the root held forty thousand files yesterday, draws the conclusion itself.
+The node needs no threshold, no history and no confirmation mechanism.
+
+That is a genuine simplification of the node, which is usually the sign the boundary is now in
+the right place.
+
+### What the node reports — facts only
+
+- **Observed-empty vs not-enumerated**, per directory. The fact above.
+- **Filesystem observations** at each root: current `st_dev`, whether the path is a mountpoint,
+  filesystem type, read-only flag. The node reports the *current* value; **the core** compares
+  it against what it recorded and decides whether a change is alarming.
+- **Errors with `scope`** ([D40](#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope)).
+- **Whether the pass finished**, was cancelled, or died.
+
+### The line between fact and judgement, which needs care
+
+"This subtree errored" and "this scan was cancelled" are **facts the node owns** — factual
+incompleteness, and it stays in the report and in the filename
+([D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global)).
+
+"This shrinkage is implausible" is a **judgement requiring history**, and moves to the core.
+
+The test: *could the node determine this from what it saw during this one pass, with no memory
+of previous passes and no knowledge of the library?* If yes it is a fact; if no it is a
+judgement and belongs in the core.
+
+### It generalises, and it buys testability
+
+Every input to the core is a sensor — media nodes, `*arr` webhooks
+([D32](#d32--being-told-beats-watching-the-no-agent-path-is-a-tiered-measured-self-reporting-walk)),
+plugins, user actions. If judgement is scattered across them, nobody can reason about how the
+library reaches its state.
+
+Concentrating it also means **the core's decision logic can be tested against synthetic reports
+with no filesystem, no nodes and no hardware at all** — a large win for
+[testing-strategy.md](../design/plans/testing-strategy.md), where the standing problem is that
+most of this product's correctness lives somewhere a unit test cannot reach. Removal safety is
+exactly the logic that most deserves exhaustive testing and is now exactly the logic that can
+be.
+
+**Status:** Decided, and promoted to a principle
+(`principles/README.md` §9) because it is cross-cutting rather than specific to scanning.

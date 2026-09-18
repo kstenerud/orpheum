@@ -69,6 +69,27 @@ realistically-sized database, because hour-long hangs are invisible on a small o
 
 **Bites when:** a schema change seems too small to need a migration test.
 
+## §9 — Sensors report; the core decides
+
+Every component that observes the world — a media node, a webhook, a plugin, a probe — reports
+**what it saw**. Interpretation, policy and action live in the core, which is the only place
+that holds history, configuration and the user's preferences.
+
+The test for which side of the line something falls on: *could this component determine it from
+what it observed, with no memory of previous observations and no knowledge of the library?* If
+yes it is a fact and the sensor reports it. If no it is a judgement and belongs in the core.
+
+Three reasons this is not merely tidiness. A sensor that judges needs **history**, which means
+duplicating core state and creating a second source of truth. A sensor is often **the component
+under suspicion** — a node whose mount just vanished is not who should rule on what that means.
+And scattering judgement means **nobody can reason about how the library reached its state**,
+nor test that logic without hardware.
+
+**Bites when:** a component starts withholding, suppressing or correcting its own output
+"helpfully"; or when you find yourself giving a sensor a threshold, a memory, or a copy of
+something the core already knows. ([D42](../decisions/working-notes.md), and the same reasoning
+as [D37](../decisions/working-notes.md).)
+
 ## §8 — Factual accuracy in documentation
 
 Verify claims. Date them. Mark what is unverified as unverified, in place, rather than dropping
