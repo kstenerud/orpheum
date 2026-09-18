@@ -34,8 +34,17 @@ provide is Google Play Services (so no Google Cast), and the Android TV / Google
 channel and recommendation APIs, which Fire TV replaces with its own. Plan the platform-
 integration work against a Google TV device; plan the playback and focus work against these.
 
-## Risk
+## Risk, and the bail-out
 
-`react-native-tvos` is a community fork of React Native, not first-party. Streamyfin running it
-in production is the mitigating evidence. If the fork stalls, the fallback is a native Kotlin
-Compose-for-TV client that reuses only the API contract.
+`react-native-tvos` is a fork of React Native, not first-party — though it tracks upstream
+within weeks and Streamyfin runs it in production
+([client-framework.md](../research/client-framework.md)). If the fork stalls, the fallback is a
+native Kotlin Compose-for-TV client reusing only the API contract.
+
+The decision was **re-examined on 2026-09-18** against Shopify's reversal to Swift and Kotlin
+and upheld, with a falsifiable bail-out so the focus prototype below is a decision point rather
+than a formality. Reverse to native if: the prototype feels wrong on the oldest Fire Stick
+(dropped frames on directional navigation, focus traps, latency a native app would not have);
+`react-native-tvos` falls two minor React Native versions behind for a quarter; our own native
+fraction passes roughly half (Streamyfin's is 31%); or Shopify's migration is reported a success
+with numbers in a year.

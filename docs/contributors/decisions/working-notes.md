@@ -249,10 +249,17 @@ platform** (Swift for Apple, Kotlin for Android, `hls.js` + `jassub` for web). E
 supports **two engines**: the platform-native one by default, libmpv as the "play anything"
 fallback, user-switchable.
 
-**Why.** ([tech-clients.md](../design/research/tech-clients.md)) Both Kyoo and Streamyfin
-independently arrived at this shape; Streamyfin ships `modules/exoplayer-player` and
-`modules/mpv-player` side by side, with `MPVLayerRenderer`, `PiPController` and
-`MPVNowPlayingManager` on Apple. The engines with the best format coverage (mpv, VLC) are not
+**Why.** ([tech-clients.md](../design/research/tech-clients.md);
+**re-examined and corrected in [client-framework.md](../design/research/client-framework.md)**)
+Streamyfin ships `modules/exoplayer-player` and `modules/mpv-player` side by side, with
+`MPVLayerRenderer`, `PiPController` and `MPVNowPlayingManager` on Apple.
+
+**Two corrections to this entry as originally written**, recorded rather than quietly fixed:
+Kyoo was cited as independent validation, but **Kyoo has not shipped a TV client** (its README
+says Android TV is "planned") — so it validates the pattern for phone and web only, and the
+TV evidence is one project, not two. And the Streamyfin star count quoted elsewhere in this
+tree (302) was its companion *plugin* repo; the application has **5,197 stars**, more than
+either native competitor. The engines with the best format coverage (mpv, VLC) are not
 the ones with the best platform integration (AVPlayer, Media3), so a client that wants both
 must ship both. Playback cannot be shared JavaScript — it needs the hardware decoder, surface
 compositing, PiP, media session, HDR passthrough and audio routing.
@@ -261,13 +268,43 @@ compositing, PiP, media session, HDR passthrough and audio routing.
 v3 Tizen/webOS/Kodi. Roku probably never — BrightScript shares no code and its decoder set
 cannot render bitmap subtitles at all.
 
-**Risk recorded:** `react-native-tvos` is a community fork of React Native, not first-party.
-Streamyfin running it in production is the mitigating evidence.
+**Risk recorded:** `react-native-tvos` is a fork of React Native, not first-party. Re-checked
+2026-09-18: releases track upstream within weeks (0.86/0.87), 15 open issues, and the commit log
+is largely upstream React Native core contributors because it is a thin tracking fork. Better
+than "community fork" implied — though a low issue count is also consistent with few users.
 
-**Status:** Provisional. The TV focus-navigation experience is the thing to prototype first —
-it is what a TV app lives or dies on and it is not something research can settle. It is now
-testable on real hardware, including against the first-generation touchpad Siri Remote, which
-is an honest test rather than a flattering one.
+**The strongest counter-signal, recorded in full because it is recent and serious:** Shopify
+announced on 2026-09-10 that it is **moving from React Native back to Swift and Kotlin** (HN:
+1,272 points, 958 comments), explicitly because *"LLMs changed one of the core assumptions
+behind our 2020 decision"*. That reasoning is uncomfortably close to this project's own premise.
+
+It does not overturn D10, for three reasons argued in
+[client-framework.md](../design/research/client-framework.md): it is a **resourcing** argument
+and Shopify has hundreds of engineers where we have one person plus agents; the thread's
+best objection — that parity is a *divergence* cost accruing across edge cases "which current
+agents aren't great at tracking" — **cuts against a small team maintaining parallel native
+codebases**, not for it; and it is an unproven plan eight days old.
+
+Against it stands domain evidence pointing the other way: in the Jellyfin client ecosystem the
+React Native client (Streamyfin, 2024, 5,197 stars) has **more adoption than either native
+client** (Findroid 4,255, Swiftfin 4,171, both 2021), while Findroid is "not optimized for TV
+use yet" and Jellyfin's own native Android TV app's top issue is a playback rewrite open since
+2021. Measured share ratio in Streamyfin's tree: **31% native, 69% TypeScript** across 79
+screens — high for the native fraction, but the "you drop into native anyway" objection is
+still wrong as a blanket claim here.
+
+**Kotlin/Compose Multiplatform considered and rejected** (Compose went stable on iOS in 2026, so
+this is newly a real option): no tvOS target and no coherent cross-platform TV story, and it
+does not help the web client we need regardless — it would solve the platforms we worry about
+least and skip the one we worry about most, while adding a third language.
+
+**Status:** Provisional, **re-examined 2026-09-18 and upheld**. The risk was never performance,
+the fork, or code sharing — it is **TV focus navigation**, and the mitigation is unchanged:
+prototype it before writing any screens, now testable on real hardware including the
+first-generation touchpad Siri Remote. What is added is a falsifiable bail-out: reverse this
+decision if the focus prototype feels wrong on the oldest Fire Stick, if `react-native-tvos`
+falls two minor versions behind upstream for a quarter, if our own native fraction passes
+roughly half, or if Shopify's migration is reported a success with numbers in a year.
 
 ---
 

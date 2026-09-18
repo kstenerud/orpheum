@@ -23,6 +23,7 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
 | [tech-playback.md](tech-playback.md) | The core problem: transcode-vs-direct-play, HLS/DASH, the device-profile trap, subtitles, hardware acceleration. |
 | [tech-backend.md](tech-backend.md) | Language, runtime, framework, job scheduling, API shape. |
 | [tech-storage.md](tech-storage.md) | Database, schema stance, search, migrations, on-disk layout, backup. |
+| [client-framework.md](client-framework.md) | A deliberate re-examination of the React Native decision against 2026 evidence, including Shopify's reversal to native — with corrections to the evidence D10 originally cited, and a falsifiable bail-out criterion. |
 | [tech-clients.md](tech-clients.md) | Player engines and the platform matrix — where the real cost of this project is. |
 | [tech-licensing.md](tech-licensing.md) | FFmpeg's licence ladder, codec patents, and provider terms under an open-source release. Where the landmines are; not legal advice. |
 | [tech-metadata.md](tech-metadata.md) | TMDB, TheTVDB, MusicBrainz, AcoustID, OpenSubtitles — capability, licensing, and the traps. |

@@ -38,8 +38,10 @@ the reference implementation for this recommendation.
 
 **React Native for the UI shell; native modules for the player.**
 
-This is the pattern that both Kyoo and Streamyfin independently arrived at, and it is the only
-one that gets a small team onto phone, tablet, TV and web without writing the app four times:
+This is the pattern Streamyfin ships in production, and that Kyoo uses for phone and web —
+**note that Kyoo has not shipped a TV client**, so the television evidence is Streamyfin alone
+([client-framework.md](client-framework.md)). It is the only approach that gets a small team
+onto phone, tablet, TV and web without writing the app four times:
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -59,10 +61,11 @@ surface/layer compositing, picture-in-picture, background audio, Now Playing / m
 HDR passthrough, and audio-device routing. None of that is expressible in shared JavaScript,
 and every attempt to abstract it produces the worst of both.
 
-**TV specifics.** `react-native-tvos` maintains tvOS and Android TV support (latest release
-tracks React Native 0.85; `@react-native-tvos/config-tv` is the Expo integration). It is a
-community fork, not first-party React Native — a real risk to record. Streamyfin runs it in
-production with an `EXPO_TV=1` build variant and TV-specific native modules
+**TV specifics.** `react-native-tvos` maintains tvOS and Android TV support
+(`@react-native-tvos/config-tv` is the Expo integration). It is a fork, not first-party React
+Native — a risk, though a smaller one than that framing suggests: as of 2026-09-18 it tracks
+upstream 0.86/0.87 within weeks and carries 15 open issues. Streamyfin runs it in production
+with an `EXPO_TV=1` build variant and TV-specific native modules
 (`tv-recommendations`, `tv-search`, `tv-user-profile`, `top-shelf-cache`), which is good
 evidence the path works. **Remote-control focus management is the hard part of a TV UI**, not
 layout, and it is where a web-in-a-webview TV app feels wrong.
