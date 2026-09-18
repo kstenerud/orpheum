@@ -326,7 +326,11 @@ entirely"; "I don't want my adblocker to have to block services running on my lo
 is what ruled it out for me"; "i am prepared to pay them to NEVER EVER change the ui, never
 shove another streaming shit in my face".
 
-**Status:** Decided, and not provisional. This one is a product commitment.
+**Status:** **Amended by [D25](#d25--remote-access-is-tiered-and-the-promise-changes-from-no-accounts-to-we-only-charge-for-another-machine)**
+— the no-telemetry, no-ads, no-storefront, no-upsell half stands unchanged and is not
+provisional. The absolute "no third-party account is ever required" does not survive contact
+with NAT topology and TLS certificates, and is replaced by a falsifiable promise about *what* we
+would ever charge for.
 
 ---
 
@@ -348,8 +352,11 @@ Jellyfin users symlink subsets into separate libraries to fake it; Immich's shar
 **1,020 reactions** under a feature freeze; PhotoPrism's has 844 and is seven years old.
 Whoever solves sharing wins something real.
 
-**Status:** Provisional and **unsolved**. No mechanism is chosen yet. This is the hardest
-open product question in the project and it needs its own research round before any design.
+**Status:** **Researched; see [D25](#d25--remote-access-is-tiered-and-the-promise-changes-from-no-accounts-to-we-only-charge-for-another-machine)**
+and [remote-access.md](../design/research/remote-access.md). The topology is settled (there is no
+discoverability without a signpost) and a tiered shape is proposed. What remains open is a
+product-strategy question rather than a technical one: whether this project wants to operate a
+hosted service at all.
 
 ---
 
@@ -914,6 +921,11 @@ This refines [D16](#d16--gplv3-no-nonfree-components-and-provider-keys-belong-to
 [D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three) without
 overturning any of them.
 
+**Qualified by [D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp):**
+audio encoding stays in the core *distribution* — packaging follows the licence — but it does
+not run in the core *process*. The trust boundary does not follow the licence boundary, and all
+FFmpeg work runs in a confined worker.
+
 ### Mechanics
 
 - **Audio segmentation is easier than video, not harder.** Audio frames are independently
@@ -1179,3 +1191,195 @@ Subtitles` (+33).
 **Status:** Provisional. The language-normalisation table and kind-inference heuristics need a
 real-world corpus in the scanner's test suite; both are the kind of thing that is only ever
 right against real files.
+
+---
+
+## D25 — Remote access is tiered, and the promise changes from "no accounts" to "we only charge for another machine"
+
+**Decided.** Supersedes the absolute form of
+[D13](#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise) and gives
+[D14](#d14--remote-access-for-non-technical-family-is-a-headline-feature) a shape.
+
+**The topology fact is not negotiable.** Two machines behind different NATs cannot find each
+other without a third party — neither knows its own public address as seen from outside and
+neither can be contacted first. Tailscale's own data path makes this explicit: **every**
+connection begins via a DERP relay to exchange endpoints, and only then attempts a direct path
+in parallel. Direct connection is an optimisation over a rendezvous, never a replacement for
+one. ([remote-access.md](../design/research/remote-access.md))
+
+**And the collision starts earlier than remote access — it starts with HTTPS.** A home server
+cannot get a publicly-trusted certificate for itself: no domain, and ACME will not issue for a
+bare IP in any way a normal user can drive. Plex solved this by operating `plex.direct`,
+resolving `1-2-3-4.<hash>.plex.direct` to `1.2.3.4`, and issuing each server a wildcard cert for
+`*.<hash>.plex.direct`. **So a user who never leaves their LAN and never shares with anyone
+still needs a third party to get warning-free HTTPS.** D13 was written thinking about remote
+access; the certificate problem reaches it first.
+
+### Three tiers
+
+| Tier | What it is | Who runs it | Cost |
+| --- | --- | --- | --- |
+| **Local** | LAN access, self-signed or user-supplied certificates, server-local accounts, capability links | The user | Free, forever, no account |
+| **Self-hosted assist** | The user runs their own rendezvous, relay, certificate story and IdP — **our software, their machine, documented** | The user | Free |
+| **Hosted assist** | We run rendezvous, relay, `*.<hash>.<ourdomain>` certificates and a cross-server identity directory | Us | Subscription |
+
+**The middle tier is load-bearing and is not optional.** If a user can self-host the signpost,
+the paid tier is a convenience rather than a gate and the promise below is true. If it is
+theatre, the promise is a lie. It also costs little, because the hosted tier runs the same
+software.
+
+### The restated promise
+
+> **We charge only for things that genuinely require another machine.** Everything that can run
+> on your own hardware does, for free, forever. No feature that works locally will ever be moved
+> behind a payment. No telemetry, no ads, no storefront, no upsell in the UI.
+
+This is better than "no accounts" because it is *falsifiable* and it names the exact category —
+rendezvous, relay, certificates, cross-server identity — where a third party is a law of physics
+rather than a business decision. It is also the precise inversion of the grievance against Plex,
+which took a feature that already worked and paywalled it.
+
+### The economics work, and the reason is the 90%
+
+Signalling is nearly free. Relay carries video and is the expensive part — a two-hour film at
+20 Mbps is about 18 GB — but at commodity European prices (Hetzner: roughly €1/TB beyond a large
+included allowance) that is around **two euro-cents per relayed film**. Hyperscaler egress is
+30–75× that and indie-PaaS egress is disqualifying, so **the provider choice matters more than
+the architecture**. Above all, Tailscale's >90% direct-connection rate means relay is an
+exception path rather than the service. A modest subscription covers this comfortably; the
+binding constraint is abuse, not cost.
+
+### Identity: sharing is the same question
+
+Sharing with someone requires a stable identifier for that person that both ends agree on, and
+that identifier has to live somewhere. **That is why Plex has an account system** — not because
+Plex wanted a login. Every open competitor that skipped the account also skipped sharing:
+Immich's sharing issue has 1,020 reactions under a feature freeze, PhotoPrism's 844 over seven
+years, and Jellyfin users symlink subsets into fake libraries.
+
+Four identity options, not exclusive, and all four are the design: **server-local accounts**
+(always available, no identity across servers), **capability URLs** (unguessable scoped links;
+excellent for one item, poor for ongoing access because they cannot be attributed or revoked per
+person), **bring-your-own OIDC** (identity exists, we operate nothing, needs configuration the
+target user cannot do), and **our optional directory** (maximum convenience, the premium tier,
+and exactly what D13 promised not to require).
+
+**Rejected:** keeping "no third-party account is ever required" as an absolute. It is keepable
+only by abandoning the non-technical-family case, which is the single largest reason people stay
+on Plex. Quietly weakening it later would be worse than restating it now.
+
+**Consequences.** The software must **degrade to tier 1 rather than break** if a hosted service
+disappears, with a documented and *tested* exit path — the audience for this project was burned
+by exactly this kind of dependency. Signed, scoped, expiring media URLs become load-bearing
+(also required by D19 and D26). Abuse handling must be designed before anything is operated.
+
+**Status:** Provisional and the most consequential open question left. **Whether this project
+wants to operate a hosted service at all is not a technical decision** — it implies a company,
+uptime obligations, liability and an entity that can be pressured. Declining it is coherent;
+the cost is that the headline use case stays unsolved. Tiers 1 and 2 are worth building either
+way, and building them first keeps the option open.
+
+---
+
+## D26 — No FFmpeg in the core process; confine it with Landlock + seccomp
+
+**Decided.** **No FFmpeg invocation ever happens in the core server process.** Probe, demux,
+subtitle extraction, thumbnailing and audio encoding all run in a confined **media worker**
+child — the same shape as the video transcoder from
+[D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three), using
+the same interface. The default confinement is **Landlock + seccomp-bpf**.
+
+**Why: assume compromise, not prevention.** Every file in the library is attacker-supplied data
+parsed by a large C codebase. FFmpeg has roughly **494 published CVE records since 2005**, with
+recent years in the mid-20s to high-30s annually, dominated by memory-safety failures across
+demuxers, decoders, protocol handlers and parsers. Two things make 2026 different: **discovery
+is accelerating because LLM-driven analysis is now pointed at it** — published 2026 work
+describes an AI agent finding 21 FFmpeg zero-days, and separate AI-assisted analysis finding
+seven memory-safety flaws traditional tools missed — and **our typical user's library contains
+files from places that are not a shop.** This is the same assumption every browser vendor makes
+about their own media stack, which is why Chrome and Firefox sandbox codecs.
+
+### The finding that changes the architecture
+
+**The trust boundary does not follow the licence boundary.**
+[D22](#d22--video-audio-and-subtitles-negotiate-as-independent-axes) put audio encoding in the
+core because the GPL rung falls between video and audio. But probe, demux, subtitle extraction,
+thumbnailing *and* audio encoding all parse hostile input, and all of them were going to run in
+the core process.
+
+Separate the two concerns:
+
+- **Packaging follows the licence** — audio encoding ships in the core distribution, video
+  encoding as the separately-installed plugin. D16 and D22 unchanged.
+- **Process follows trust** — all FFmpeg work runs in the confined worker.
+
+The core then **never parses attacker-controlled bytes at all**: it handles HTTP, SQL and JSON
+and delegates every encounter with a media file. That is a far stronger claim than "we sandboxed
+the transcoder", it unifies D19's worker interface with the trust boundary, and it costs a
+process boundary we were already building.
+
+### Why Landlock + seccomp rather than containers
+
+The constraint was to pick a stance that does not consume the development budget. Modern Linux
+provides **Landlock** (filesystem and network access control, kernel 5.13+) and **seccomp-bpf**
+(syscall filtering) as *unprivileged, per-process* mechanisms requiring **no root, no namespaces
+and no cgroups** — a process can be confined about as tightly as a container with no container
+runtime installed. Maintained Go bindings exist for both (`landlock-lsm/go-landlock`,
+`elastic/go-seccomp-bpf`).
+
+The policy is small enough to audit: read one input file, write one cache directory, and — for
+probe, subtitle and thumbnail work — **no network at all**. A decoder compromised under that
+confinement can corrupt one cache directory.
+
+Stronger rungs stay **opt-in**: a dedicated user plus systemd hardening (older kernels), a
+container per invocation, a microVM. The strongest rung is already free — D19 lets the
+transcoder run on another machine entirely, which is the "locked-down box that gets wiped"
+option.
+
+**Consequences.** Confinement capability must be **reported, not assumed**: the user can see
+whether their install is confined, because Landlock needs kernel 5.13+ and macOS and Windows
+need different mechanisms. The confinement needs an actual escape test in
+[`testing-strategy.md`](../design/plans/testing-strategy.md) — a sandbox nobody verified is a
+comment. And a **hardened FFmpeg build** that disables decoders nobody needs is free at build
+time; the playback survey's format census tells us which those are.
+
+**Status:** Provisional. The per-platform confinement matrix is the open part.
+
+---
+
+## D27 — Change detection is a strategy interface that reports which strategy it is using
+
+**Decided.** Library change detection is a per-root strategy with an explicit capability report:
+native filesystem watching where it works, a NAS-side index agent where offered, mtime-delta or
+full walking otherwise, and an explicit rescan trigger always.
+
+**Why.** `inotify` does not work over SMB or NFS — how a large share of self-hosters mount media
+— has watch limits a big library exhausts, and **fails silently**, which is the worst property a
+detection mechanism can have. "The scanner did not notice my new file" and "the scanner
+rescanned everything at 3 a.m. and pegged the CPU" are the same bug seen from two sides.
+
+**The reporting half is the important half.** The server says which strategy is active per
+library root and warns when the chosen one is degraded or stale. The field's current failure is
+that watching silently is not happening and nobody knows.
+
+**The NAS index agent** — an agent on the NAS watching locally, maintaining an index file on the
+share, with our server watching one file — is the only approach that genuinely solves the
+network-share case, and it is architecturally free: it is a **tier-3 capability service** under
+D19, the second independent case for that tier after the transcoder, which is good evidence the
+tier is real rather than fitted to one consumer.
+
+Its transport is the elegant part: **no network protocol, no port, no authentication, no
+firewall rule** — both sides already have the share mounted. Its costs are real and recorded:
+consumer NAS platforms are closed and architecturally fragmented so adoption will be a minority;
+a stale or dead agent reproduces the exact silent-failure we are removing, so it must heartbeat
+and the server must surface staleness; and the index needs write-temp-then-atomic-rename plus a
+checksum so a reader never trusts a torn file.
+
+**The load-bearing corollary: periodic walking must be good enough on its own**, because most
+installs will use it. That makes its efficiency a requirement with a number in
+[`performance-targets.md`](../design/plans/performance-targets.md), not a fallback afterthought.
+If the product is unusable without the agent, the agent is a trap.
+
+**Status:** Provisional. The agent is worth building later and with real demand — note that on
+the author's own hardware both NAS units run Debian/Proxmox, so the server runs *on* the NAS and
+native watching works; this solves other people's problem.

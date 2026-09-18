@@ -13,14 +13,22 @@ Start at **[`docs/contributors/design/overview.md`](docs/contributors/design/ove
 
 ## The promise
 
-These are product commitments, not aspirations:
+Product commitments, not aspirations:
 
 - **No telemetry.** Off by default; opt-in only if ever added.
-- **No account.** No third-party service is ever required to watch your own files.
 - **No storefront.** No ads, no upsell, no recommendations for content you don't own.
 - **Your files stay yours.** Media is read-only by default. The database is a rebuildable
   index, never the authority. Your metadata corrections are written back to disk so they
   survive us.
+- **We would only ever charge for things that genuinely require another machine.** Everything
+  that can run on your own hardware does, free, forever — and no feature that works locally
+  will ever be moved behind a payment.
+
+That last one replaces a flat "no accounts ever", which turned out not to survive contact with
+reality: two machines behind different NATs cannot find each other without a third party, and a
+home server cannot get a warning-free HTTPS certificate without one either. Where that is true
+we say so, we let you run the third party yourself, and we never paywall anything that was
+working without it. See [D25](docs/contributors/decisions/working-notes.md).
 
 ## What makes it different
 

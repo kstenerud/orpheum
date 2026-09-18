@@ -143,6 +143,7 @@ Notes on the shape:
 | A Netflix-style encoding ladder | Bandwidth is free on a LAN. |
 | Microservices, Kafka, Elasticsearch, Redis | Household scale. Postgres covers search, fuzzy matching and job wakeups. |
 | A Roku client | BrightScript shares no code with anything and Roku cannot render bitmap subtitles at all. |
+| FFmpeg in the core process | [D26](../decisions/working-notes.md). Media is attacker-supplied data and FFmpeg will eventually be compromised; all of it runs in a Landlock+seccomp-confined worker, so the core never parses hostile bytes. |
 | In-process plugins | [D12](../decisions/working-notes.md). Third-party scrapers are the last code you want unsandboxed. Protocol surfaces get a second tier — out-of-process adapters ([D15](../decisions/working-notes.md)). |
 | A *video* encoder in the core binary | [D17](../decisions/working-notes.md), [D19](../decisions/working-notes.md), [D22](../decisions/working-notes.md). It is a plugin on the public API: smaller default install, a real licence/patent boundary, and remote transcoding for free. Audio encoding does stay in the core. |
 | Audiobooks, comics, live TV/DVR | Each is a different product wearing the same clothes. Audiobookshelf's 1,191 open issues are the evidence. |
@@ -151,13 +152,17 @@ Notes on the shape:
 
 Honest statement of what the research did **not** settle:
 
-1. **Remote access for non-technical family.** Simultaneously Plex's most-resented feature and
-   its moat. The self-hosted field's answer is "set up a VPN", which is not an answer for the
-   audience that matters. No mechanism chosen.
-   ([D14](../decisions/working-notes.md))
-2. **Granular sharing.** Nobody has solved it. Immich's sharing issue has 1,020 reactions under
-   a feature freeze; PhotoPrism's has 844 and is seven years old; Jellyfin users symlink subsets
-   into fake libraries. Whoever solves it wins something real.
+1. **Whether to operate a hosted service at all.** Researched
+   ([remote-access.md](research/remote-access.md), [D25](../decisions/working-notes.md)): the
+   topology is settled — there is no discoverability without a signpost, and the TLS-certificate
+   problem needs one even on the LAN — and a three-tier shape is proposed. What remains is not
+   technical. A hosted tier implies a company, uptime obligations and an entity that can be
+   pressured; declining it is coherent, at the cost of leaving the headline use case unsolved.
+2. **Granular sharing** — which is the same question, because sharing needs a stable identifier
+   for the other person and that has to live somewhere. It is *why* Plex has accounts. Nobody in
+   the open field has solved it: Immich's sharing issue has 1,020 reactions under a feature
+   freeze, PhotoPrism's 844 over seven years, Jellyfin users symlink subsets into fake
+   libraries.
 3. **The client cold-start.** A new server has no clients. Settled in shape by
    [D18](../decisions/working-notes.md): a Jellyfin-compatible **out-of-process adapter** makes
    Findroid, Swiftfin, Infuse and Streamyfin work without constraining our model — and it

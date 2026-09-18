@@ -28,6 +28,9 @@ are worth nothing without a number that fails.
   audience; targets that only hold on a desktop are not targets.
 - **How they are enforced.** A benchmark that nobody runs is documentation. Gate what can be
   gated in CI; schedule the rest.
+- **Periodic-walk throughput**, promoted from a fallback to a requirement by
+  [D27](../../decisions/working-notes.md): most installs cannot use native filesystem watching,
+  so walking speed *is* the change-detection latency for them.
 - **Trickplay and thumbnail generation**, which an HN user reports taking *days* for a large
   library on Jellyfin. That is a background job, so the target is throughput and
   interruptibility rather than latency.

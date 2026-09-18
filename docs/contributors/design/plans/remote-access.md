@@ -3,7 +3,7 @@
 
 # Remote access
 
-- **Status:** UNSPECIFIED — needs a research round before it can be designed.
+- **Status:** UNSPECIFIED — **researched 2026-09-18** ([remote-access.md](../research/remote-access.md), [D25](../../decisions/working-notes.md)); the topology is settled and a tiered shape proposed, but no mechanism is chosen and the hosted-service question is a product decision, not a technical one.
 - **Depends on:** —
 
 ## Why it matters more than its size suggests

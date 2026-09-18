@@ -43,17 +43,21 @@ Part of identification, and easy to underestimate ([D24](../../decisions/working
 - This belongs in the same table-driven, real-corpus test suite as the filename parser. It is
   only ever right against real files.
 
-## Open: watching at scale, on the filesystems people actually use
+## Watching: a strategy interface, not a mechanism
 
-Not designed, and a known trouble spot. `inotify` has per-user watch limits that a large library
-blows through, and it **does not work at all over SMB or NFS** — which is how a large share of
-self-hosters mount their media. ZFS snapshots, rclone mounts and network shares each behave
-differently again. The fallbacks are periodic rescan (expensive) or mtime-walking (cheaper, and
-wrong when a share does not update mtimes).
+Researched — see [change-detection.md](../research/change-detection.md) and
+[D27](../../decisions/working-notes.md). `inotify` does not work over SMB or NFS, has watch
+limits a large library exhausts, and **fails silently**, which is why "the scanner did not
+notice my new file" and "the scanner rescanned everything at 3 a.m." are the same bug.
 
-This needs settling before the watcher is written, because "the scanner did not notice my new
-file" and "the scanner rescanned everything at 3am and pegged the CPU" are both common complaints
-in this field and they have the same root.
+So: a per-root strategy with an **explicit capability report** — the server says which strategy
+is active and warns when it is degraded or stale. Native watching where it works; a NAS-side
+index agent (a tier-3 capability service, built later) for network shares; mtime-delta or full
+walking otherwise; and an explicit rescan trigger always.
+
+**The load-bearing corollary for this plan: periodic walking must be good enough on its own**,
+because most installs will use it. Its throughput is a number in
+[performance-targets.md](performance-targets.md), not a fallback afterthought.
 
 ## Also
 

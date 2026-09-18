@@ -4,7 +4,7 @@
 
 # Threat model
 
-- **Status:** UNSPECIFIED — a real gap; nothing written.
+- **Status:** PLANNED — **researched 2026-09-18** ([threat-model.md](../research/threat-model.md), [D26](../../decisions/working-notes.md)). The containment stance is chosen; the per-platform confinement matrix and the signed-URL design remain open.
 - **Depends on:** remote-access.md
 
 ## Why this is a gap and not a formality

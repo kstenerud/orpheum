@@ -30,6 +30,13 @@ in that class.** The gate has to be tests, and the tests need a corpus.
   thresholds, segment-boundary alignment?
 - **How to test a client's playback** without a human watching. Headless browsers get part of
   web; Android instrumentation gets part of Android; TV and Apple largely do not.
+- **The hardware matrix.** Surveyed in [test-hardware.md](../research/test-hardware.md): the
+  available inventory covers three Intel QSV generations, NVENC, Apple VideoToolbox and — most
+  valuably — an 8 GB Celeron NAS that is the honest low end. The gap that blocks the most
+  decisions is that **there is no television in it**, which is what D21/D22/D23 and the TV
+  focus-navigation prototype all need.
+- **An escape test for the FFmpeg confinement** ([D26](../../decisions/working-notes.md)). A
+  sandbox nobody verified is a comment.
 - **Conformance tests as a plugin-API artefact** — [D19](../../decisions/working-notes.md) and
   [D23](../../decisions/working-notes.md) both already require them (a transcoder that claims a
   profile must produce it; a transcoder must carry closed captions through). That is a test
