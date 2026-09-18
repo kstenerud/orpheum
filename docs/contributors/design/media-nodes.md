@@ -206,24 +206,42 @@ This is honest precisely because idle is the one state with no task whose comple
 numbers could misrepresent. One mechanism, and the core's rule stays uniform — *did either
 number move?* — with no branch on state. ([D36](../decisions/working-notes.md))
 
-### The node declares its own tick interval, because rates differ by orders of magnitude
+### The core judges the cadence, from observation
 
-A uniform *rule* is not a uniform *threshold*, and conflating them would make the core call
-healthy nodes wedged.
+Rates differ by orders of magnitude — an idle node ticks every few seconds, a node probing a
+60 GB remux over a slow link may legitimately show no movement for minutes. So a single global
+threshold would call healthy nodes wedged.
 
-An idle node can tick every few seconds. A node probing a 60 GB remux over a slow link may
-legitimately show no movement for minutes — and mid-task it **cannot** bump the numbers to
-prove liveness without lying about completion, which is exactly the honesty that makes
-idle-ticking acceptable in the first place.
+The answer is **not** for the node to declare an expected interval
+([D37](../decisions/working-notes.md)). The core is better placed: it has *history* for this
+node, in this state, on this deployment, so it holds an empirical baseline of observed
+intervals that adapts where a build-time constant cannot. And more fundamentally, **a wedged
+node is not a reliable source of the standard it is judged against** — self-reported health
+criteria are a smell, and the node most in need of catching is the one least able to report
+accurately.
 
-So the node publishes **`max_tick_interval_s`**: *"I guarantee at least one of these numbers
-moves this often, in my current state."* Short when idle, longer during a slow probe, set by
-the component that knows. The core's rule is then uniform and correct:
+**The node's contribution is precision about *what it is doing*, not a number.** Prefer
+fine-grained states — `enumerating`, `probing`, `hashing`, `extracting`, `transcoding` — over a
+coarse `scanning`. That gives the core a clean signal to learn against (a coarse state that
+silently switches from fast enumeration to slow probing produces a useless bimodal baseline),
+covers the about-to-go-quiet case without a numeric field, and is more legible to a human.
 
-> **Wedged** when neither `current`, `end` nor `epoch` has changed for more than N × the node's
-> declared interval — in any state.
+### Escalate gradually; nothing is destructive
 
-No per-state tuning in the core, and no lying in the node.
+| Level | Trigger | Action |
+| --- | --- | --- |
+| **Healthy** | Moving within the observed baseline | none |
+| **Late** | Past expectation, briefly | **nothing** — most lateness is a big directory or a slow file |
+| **Stalled** | Persistently late, across consecutive observations | surface with `state` and `detail`; stop treating data as fresh |
+| **Presumed dead** | No movement for a long multiple | mark that node's items **unavailable** |
+
+Hysteresis both ways — consecutive observations to escalate, a clean run to recover — so the
+indicator does not flap. The core picks its own polling interval, so "a missed check" is
+core-side and can be short in absolute terms without making escalation twitchy.
+
+**No level is destructive.** Even *presumed dead* only marks items unavailable; tombstoning
+still needs a positive deletion report from a live, progressing node. Which is why precision
+here was never worth chasing: **the cost of guessing wrong is a UI badge, not data loss.**
 
 ### Shape
 
@@ -238,9 +256,8 @@ Illustrative, not a specification:
 
   "observed_config": 17,
 
-  "state": "scanning",
+  "state": "probing",
   "state_since": "2026-09-18T10:41:12Z",
-  "max_tick_interval_s": 60,
   "progress": {
     "epoch": 4,
     "current": 3121,

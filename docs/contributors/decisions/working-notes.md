@@ -2173,3 +2173,76 @@ so nothing depended on it.
 measurement against a real large library over a real share before they are fixed — the failure
 mode of getting them wrong is calling a healthy slow node wedged, which is worse than a late
 detection.
+
+---
+
+## D37 — The core judges liveness from observation, not from a node-declared interval
+
+**Decided.** Drops `max_tick_interval_s` from
+[D36](#d36--idle-ticks-the-progress-pair-the-node-declares-its-own-tick-contract). The node
+reports **facts**; the core does the **judging**, from its own observations, on a graded scale.
+
+### Three reasons, and the third is the one that settles it
+
+1. **The core is better placed to know the cadence.** A declared interval is the node author
+   guessing once, at build time, about an environment they cannot see — this NAS, this link,
+   this library, this hardware. The core has something better: **history**. It has been watching
+   this node, in this state, on this deployment, and can hold an empirical baseline of actual
+   inter-movement intervals. An observed distribution adapts; a constant cannot.
+
+2. **A single missed check is not an event.** D36 stated one threshold, which reads as a cliff.
+   Most lateness is a big directory or a slow file. See the graded model below.
+
+3. **A wedged node is not a reliable source of its own health thresholds.** This is the one that
+   settles it. `max_tick_interval_s` asks the component *being judged* to supply the standard it
+   is judged against — and the whole point of this machinery is detecting a node that has
+   stopped behaving correctly. Self-reported health criteria are a smell, and the node that most
+   needs catching is the one least able to report accurately.
+
+### What the node does instead: be more specific about state
+
+The node's real contribution is not a number, it is precision about **what it is doing**.
+Prefer finer-grained states — `enumerating`, `probing`, `hashing`, `extracting`, `transcoding`
+— over a single coarse `scanning`.
+
+This is strictly better than a declared interval because it solves the same problem *and* two
+others:
+
+- **It gives the core a clean signal to learn against.** A coarse `scanning` that silently
+  switches from fast enumeration to slow per-file probing produces a bimodal, useless baseline.
+  Split states produce clean ones.
+- **It covers the "about to go quiet" case** without a numeric field: `state: "hashing"`,
+  `detail: "bigfile.mkv (61 GB)"` tells the core to widen its expectation *and* tells a human
+  exactly what is happening.
+- **It is legible.** Someone reading the file learns more from `probing` than from a number.
+
+### Graded escalation, with hysteresis, and nothing destructive
+
+| Level | Trigger | Action |
+| --- | --- | --- |
+| **Healthy** | Moving within the observed baseline | none |
+| **Late** | Past expectation, briefly | **Nothing.** Perhaps a subtle UI hint. Most lateness is legitimate. |
+| **Stalled** | Persistently late across consecutive observations | Surface in the UI with `state` and `detail`; stop treating its data as fresh |
+| **Presumed dead** | No movement for a long multiple | Mark that node's items **unavailable** |
+
+- **Hysteresis in both directions.** Require consecutive observations to escalate, and a clean
+  run to recover, so the indicator does not flap.
+- **The core chooses its own polling interval**, so "a missed check" is a core-side concept and
+  can be made small in absolute time without making escalation twitchy.
+- **No level is destructive.** Even *presumed dead* only marks items unavailable — tombstoning
+  still requires a positive deletion report from a live, progressing node
+  ([D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do) trap 1,
+  [D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle)).
+
+That last point is why the precision D36 was chasing was never needed: **the cost of guessing
+wrong is a UI warning, not data loss.** Engineering exactness into a mechanism whose worst
+outcome is a misleading status badge was over-design.
+
+### Cold start
+
+No history on first contact, so the core uses a conservative built-in default and refines it by
+observation. Being wrong early is cheap, per the above.
+
+**Status:** Provisional; simpler than what it replaces. The baseline model needs to be dull —
+something like a rolling percentile of observed intervals per node per state — and explicitly
+not a learned model anyone has to reason about.
