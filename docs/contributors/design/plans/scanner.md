@@ -1,10 +1,21 @@
 > **ABOUTME:** Library scanning — phased, resumable, legible — and the filename parser it
-> depends on.
+> depends on. Runs in a media node, not in the core.
 
 # Scanner
 
-- **Status:** PLANNED — designed 2026-09-17.
+- **Status:** PLANNED — designed 2026-09-17; relocated into the media node by [D33](../../decisions/working-notes.md).
 - **Depends on:** library-model.md
+
+## Where this runs
+
+**Not in the core.** Per [D33](../../decisions/working-notes.md) the scanner is part of a
+**media node** — the same binary in `node` mode, running wherever the files are, alongside
+probing, subtitle extraction and thumbnailing. In the default single-machine install the core
+supervises a co-located node as a child process, so this is invisible to the user.
+
+The consequence for everything below: **the scanner is normally local to its files**, so native
+filesystem watching is the usual case rather than the lucky one, and the network-share problem
+only applies to a node deliberately pointed at a mount.
 
 ## Shape
 

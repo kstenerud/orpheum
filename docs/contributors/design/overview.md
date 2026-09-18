@@ -82,7 +82,7 @@ Five choices, each traceable to a specific failure in the research:
 │ Server — one Go binary (D9)                                      │
 │                                                                  │
 │  api/        REST handlers; OpenAPI generated from code          │
-│  library/    scan → identify → enrich, as named phases           │
+│  library/    ingests node reports → identify → enrich            │
 │  stream/     rendition list (video ‖ audio ‖ subs axes);          │
 │              direct-play, remux, AUDIO encode (LGPL only)         │
 │              (no video encoder — that is a plugin, below)         │
@@ -97,6 +97,12 @@ Five choices, each traceable to a specific failure in the research:
     │       │ SQLite (WAL) │             │ Media (ro) +   │
     │       │ (D31)        │             │ cache/ (purge) │
     │       └──────────────┘             └────────────────┘
+    │
+    │  MEDIA NODES (D33) — same binary, `node` mode, one per machine
+    │  holding files. Scan, probe, extract subtitles, thumbnail, and
+    │  optionally transcode. Never touch the database.
+    ├─ node @ core box (supervised child, the default install)
+    ├─ node @ NAS / seedbox / elsewhere  (opt-in topology)
     │
     │  registered plugins — same public API a third party would use
     ├─ video transcoder (tier 3, first-party, optional, MAY BE REMOTE)
@@ -114,6 +120,9 @@ Notes on the shape:
   FFmpeg drives it as a process; cgo bindings to libav\* are a build-complexity liability. We
   ship a known-good build rather than accepting the distro's — Jellyfin maintains an entire
   FFmpeg fork, which is evidence of what the alternative costs.
+- **The core never touches a media filesystem** ([D33](../decisions/working-notes.md)). Scanning,
+  probing and extraction happen in media nodes; the core's whole input surface is HTTP, its own
+  SQLite file, and node reports it validates at the boundary.
 - **The core needs no *video* encoder** — but it does encode audio. Every GPL trigger in FFmpeg
   is a video encoder, and the whole audio menu (AAC, AC-3, E-AC-3, FLAC, ALAC, Opus) is native
   LGPL, so audio costs nothing in licence or patent surface. Since the most common real transcode

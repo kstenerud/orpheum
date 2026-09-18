@@ -6,6 +6,10 @@
 Start with **[overview.md](overview.md)** for the product-altitude picture: what we are
 building, who it is for, what makes it different, and the architecture that follows.
 
+| Document | What it covers |
+| --- | --- |
+| [media-nodes.md](media-nodes.md) | The hub-and-spoke topology: a core that never touches a media filesystem, and N media nodes that live next to the files and do everything requiring access to them. Consolidates the scanner, the media worker and the transcoder. |
+
 | Directory | What's there |
 | --- | --- |
 | [research/](research/README.md) | The evidence. Competitor surveys, user sentiment, and the technology evaluations. Every non-obvious decision cites one of these. |

@@ -1839,3 +1839,94 @@ incumbent does it. **Trigger:** tiered polling proving inadequate for SMB users 
 **Status:** Provisional. The inbound endpoint and tier D are v1; everything else is ordering.
 The `*arr` webhook integration should be documented as a first-class setup step, not buried —
 it is the difference between instant and a poll interval for most of this audience.
+
+---
+
+## D33 — Hub-and-spoke: a core that never touches media, and N media nodes that do
+
+**Decided.** The core does not scan, probe, or read media files. That work happens in a **media
+node** — the same binary in a different mode — which runs wherever the files are. One core, N
+nodes, whatever transport the topology allows. Design in
+[media-nodes.md](../design/media-nodes.md).
+
+### The consolidation is the reason to do it
+
+The proposal was a standalone scanner binary. Followed through, **the scanner, the media worker
+and the transcoder all want the same three things** — to be next to the files, to have FFmpeg,
+and to be confined without database credentials. They are one component:
+
+> A **media node** does everything that requires access to a media file: discovery, probing,
+> subtitle and font extraction, thumbnails and trickplay, and optionally transcoding.
+
+That merges [D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three)'s
+tier-3 capability service, [D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)'s
+media worker and [D27](#d27--change-detection-is-a-strategy-interface-that-reports-which-strategy-it-is-using)'s
+scanner into one deployable thing.
+
+**It also completes D26 instead of half-satisfying it.** That decision stopped FFmpeg running in
+the core but left the core walking user filesystems, where directory entries are also
+attacker-influenced. The core's entire input surface is now: HTTP requests, its own SQLite file,
+and node reports validated at the boundary.
+
+### One artifact, two roles — non-negotiable
+
+`mediaserver serve` and `mediaserver node --core=<url>`: **the same binary**, and in the default
+single-machine install **the core supervises a co-located node as a child process**. The user
+installs one thing and runs one thing. Distribution is an opt-in topology change, not the
+baseline. Anything else would undo [D31](#d31--sqlite-with-a-pure-go-driver-supersedes-d5)'s
+single-file simplicity, which was a large part of why SQLite won.
+
+### It simplifies D27 rather than adding to it
+
+D27 had the *core* selecting between four change-detection strategies per root, **plus** a
+separate NAS agent — the same job implemented twice, with the distributed path second-class.
+
+Now there is **one scanner implementation**, normally *local to its files*, so it uses
+`inotify`/`FSEvents`/`kqueue` and the network-filesystem watching problem largely evaporates. It
+survives only for users who will not install a node next to the files, and for them the node
+runs on the core box and walks the mount using [D32](#d32--being-told-beats-watching-the-no-agent-path-is-a-tiered-measured-self-reporting-walk)'s
+mtime-pruned strategy. **Same binary, same code, degraded mode.** D27's "NAS agent" stops being
+a distinct concept — it is a node that happens to be on a NAS.
+
+### Transport is pluggable, deliberately
+
+HTTP POST node→core; core polling a node endpoint (for nodes that cannot dial out); **a report
+file on a shared mount** (no port, no protocol, no auth, no firewall rule — the elegant option
+when a share already exists); or a poke via signal file or API, composing with D32's inbound
+endpoint that the `*arr` stack can already drive. The report *content* is one contract; how it
+travels is deployment detail.
+
+### Do not copy Kyoo's coupling
+
+Kyoo already runs its scanner as a separate service — validating the "core doesn't scan" half —
+but that scanner holds a **direct Postgres connection and its own migrations** alongside calling
+the API. That violates D31's single-writer discipline and hands database credentials to the
+component handling hostile files, which is precisely backwards from D26. **Nodes talk to the
+core's API and nothing else; the core is the only writer.**
+
+### The traps, and the one that matters most
+
+1. **A dead node is not deleted media.** The failure mode that destroys someone's library. An
+   offline node's items become **unavailable, never gone**: last-seen timestamps, explicit node
+   state, and tombstoning **only** on a positive deletion report from a live node — never on
+   silence.
+2. **A node's report is attacker-influenced data** (paths and probe output derive from hostile
+   files). Validate at the boundary; treat a node as a semi-trusted peer, not part of the core.
+3. **Overlapping roots** — two nodes seeing the same share must dedupe, not double-count.
+4. **Clock skew** across nodes if mtimes are compared.
+5. **Idempotency and ordering** — a replayed or late report must not corrupt state.
+6. **Version skew.** One artifact, but two running versions in distributed deployments. The
+   protocol version and compatibility policy must be real, not aspirational.
+
+### What it unlocks later at no cost
+
+In a true multi-machine topology the core may have no media access at all, so it cannot serve
+direct play. D19 already built **signed, scoped, expiring URLs with client redirection** for the
+remote transcoder; the same mechanism lets a **node serve its own files** with the core issuing
+the redirect. Not needed for v1 — pointless indirection on one machine — but "the core never
+touches media, full stop" is reachable without new machinery.
+
+**Status:** Provisional, and the most structurally significant decision since
+[D2](#d2--playback-negotiation-the-client-decides-from-a-manifest). The report contract is the
+real design work and is not specified here. Trap 1 deserves a test before the feature is
+believed.
