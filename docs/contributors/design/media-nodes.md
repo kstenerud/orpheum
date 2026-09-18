@@ -148,16 +148,19 @@ record carries **three independent things**:
   a sensible staleness threshold exists. A full scan of a large library may legitimately run for
   an hour, so progress must tick per directory or per item, not per scan.
 
-### Compare counters, not timestamps
+### The core times its own probes; node clocks never enter the comparison
 
-Timestamps in the record are **for humans reading it**. The core must not reason about liveness
-by comparing the node's clock to its own: clock skew across machines, NTP corrections and VM
-suspends all break it.
+Clock skew dissolves without any clock synchronisation, because **the core only needs elapsed
+time, not agreement about what time it is.**
 
-Instead the node includes a **monotonic counter** alongside each timestamp, and the core records
-*its own* observation time when it first sees a given counter value. Staleness is then measured
-entirely on the core's clock, from a value that only ever increases. Clock-independent, and
-immune to a node whose clock jumps.
+The core reads the state file at its own `T1` and `T2`, and compares the two contents. If any
+monotonic field changed, the node was alive somewhere in that window. Staleness is `T2 - T1`
+measured entirely on the core's clock, against values that only increase. The node's own
+timestamps are **decorative** — for a human reading the file — and NTP corrections, VM suspends
+and a NAS whose clock is four hours out are all irrelevant.
+
+The only requirement this places on the node is that **something always changes** while it
+lives, which is what the pulse below exists for.
 
 ### Why a file rather than an API
 
@@ -175,6 +178,34 @@ And a fourth that is worth as much: **a human can `cat` it.** "Logging around li
 being pretty difficult to interpret" is a direct complaint about Jellyfin in
 [sentiment.md](research/sentiment.md); a legible status file is a cheap answer.
 
+### Progress is a moving pair, and either half moving means alive
+
+Progress is **task-defined**: a count of files, of directories, of bytes, of items enriched —
+whatever the current task naturally counts. It is a `current` and an `end`, and **`end` is an
+estimate that is allowed to move**. During a scan the denominator grows as directories are
+discovered, which is itself evidence of life.
+
+So the liveness rule is: **if either number moves, the node is working.** Only when both sit
+still, for long enough, and the state is not `idle`, is the node wedged.
+
+Four details this needs to be usable rather than merely present:
+
+- **A `unit` label**, or the UI cannot render it. "3,121 / 48,000" of *what*.
+- **`end: null` is legal.** Some tasks have no knowable end — watching for events, or a scan
+  that cannot estimate. Then only `current` carries the signal.
+- **An `epoch` that increments when a task restarts.** Otherwise a reset to zero is
+  indistinguishable from being stuck at zero, and the core will call a fresh scan wedged.
+- Within an epoch, `current` should be monotonic.
+
+### Idle must still tick — the correction that matters
+
+The progress pair is not sufficient on its own. **An idle node changes nothing**, and a dead
+node also changes nothing, so the two are identical to a core that only watches progress.
+
+Therefore the record keeps a **separate pulse that advances unconditionally**, including when
+idle. Progress answers *"is it achieving anything?"*; the pulse answers *"is it there at all?"*.
+Both are needed, and dropping either collapses two distinguishable states into one.
+
 ### Shape
 
 Illustrative, not a specification:
@@ -184,13 +215,21 @@ Illustrative, not a specification:
   "protocol": 1,
   "node_id": "a7f3…",
   "started_at": "2026-09-18T09:14:02Z",
-  "pulse": { "seq": 48213, "at": "2026-09-18T11:02:31Z" },
+  "node_clock": "2026-09-18T11:02:31Z",
+
+  "pulse": 48213,
+  "observed_config": 17,
+
   "state": "scanning",
+  "state_since": "2026-09-18T10:41:12Z",
   "progress": {
-    "seq": 9042,
-    "at": "2026-09-18T11:02:28Z",
-    "detail": "films/  (3121/48000 entries)"
+    "epoch": 4,
+    "current": 3121,
+    "end": 48000,
+    "unit": "entries",
+    "detail": "films/"
   },
+
   "roots": [
     { "path": "/mnt/films", "strategy": "inotify",
       "last_full_scan": "2026-09-18T04:00:11Z" }
@@ -199,8 +238,88 @@ Illustrative, not a specification:
 }
 ```
 
-`roots[].last_full_scan` is where [D32](../decisions/working-notes.md)'s "when did you last
-actually look?" requirement naturally lives — the node knows, so the node reports it.
+`node_clock` is **diagnostic only** — useful for telling a user their NAS clock is four hours
+out, and never an input to liveness logic. `roots[].last_full_scan` is where
+[D32](../decisions/working-notes.md)'s "when did you last actually look?" requirement naturally
+lives: the node knows, so the node reports it.
+
+## Bidirectional control, through the same directory
+
+The core needs to ask for things — scan now, change the interval, pause, rescan one root — and
+the same directory carries it: **the core writes `config.json`; the node watches and re-reads
+it on change.**
+
+### Acknowledgement is the part that is easy to leave out
+
+Writing a request tells you nothing about whether it was seen. So the config carries a
+**`generation`** that the core increments on every change, and the node echoes the last applied
+value as **`observed_config`** in its state file.
+
+That is the desired-state / observed-state pattern, and it is what makes the channel reliable
+over a dumb shared directory with no acknowledgement of its own: the core can see that a
+command landed, or that it did not.
+
+### The node must poll the config file as well as watch it
+
+`inotify` is available to the node for files on its *own* disk — but the exchange directory may
+be on the share, which is precisely where watching does not work
+([change-detection.md](research/change-detection.md)). So the node **watches and also polls** on
+a slow interval. It is one small file; the cost is nothing and it removes a silent failure.
+
+### Where HTTP exists, prefer it
+
+This file channel is the zero-configuration fallback. When the node can reach the core (or the
+reverse) over HTTP, that is the better path for the same contract — lower latency, immediate
+acknowledgement — and "scan now" in particular already has a better route through
+[D32](../decisions/working-notes.md)'s inbound endpoint. The file mechanism exists for the
+topologies where none of that is available.
+
+## The exchange directory
+
+```
+<exchange-dir>/<node-id>/
+  config.json      ← core writes,  node reads + watches
+  state.json       ← node writes,  core reads
+  reports/         ← node writes,  core reads   (scan output; large)
+  log/             ← node writes,  core reads   (debug; rotated)
+```
+
+**Namespaced by node id**, because several nodes may share one exchange location and would
+otherwise clobber each other. A duplicate `node_id` — from a copied config — must be detected
+and reported rather than silently interleaved.
+
+**Reports and logs need retention policy from day one.** Both grow without bound otherwise, and
+an exchange directory that fills a share is a memorable way to break someone's NAS.
+
+### The permissions split *is* the security model
+
+This is the strongest part of the design, because it matches the trust model exactly. The node
+is the component that handles hostile media ([D26](../decisions/working-notes.md)), so it is the
+*less* trusted half — and the layout lets a careful user enforce that with filesystem
+permissions alone:
+
+| Path | Core | Node |
+| --- | --- | --- |
+| `config.json` | **write** | read |
+| `state.json`, `reports/`, `log/` | read | **write** |
+| media roots | (none needed, in a distributed topology) | **read-only** |
+
+**And the same table is the node's Landlock ruleset** (D26): write access to exactly its own
+exchange subdirectory, read access to its media roots, nothing else. The directory layout and
+the sandbox policy are the same statement, which is a good sign both are right.
+
+### Degraded modes, stated rather than discovered
+
+- **Core cannot write the exchange directory** → no bidirectional control. The node runs on its
+  own configured defaults and the core reads state only. Legitimate, and the core should say so
+  rather than silently failing to apply settings.
+- **Node cannot write anywhere shared** → the file transport is unavailable; use HTTP, or run
+  the node on the core's machine pointed at a mount (D33's degraded mode).
+- **Read-only exchange directory for both** → the user hand-writes `config.json`, and the core
+  gets no liveness at all. Everything still *works*; nothing is observable. Worth supporting and
+  worth warning about.
+
+When installed as a daemon, the only thing in `/etc` is the path to this directory.
 
 ### Details that make it work rather than half-work
 

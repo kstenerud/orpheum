@@ -2009,3 +2009,103 @@ which are by definition not current.
 **Status:** Provisional. The thresholds (how stale is wedged, per state) need real measurements
 from a large library before they are fixed, and D33's trap 1 deserves a test that kills a node
 mid-scan and asserts nothing is deleted.
+
+---
+
+## D35 — Node exchange directory: progress pair, config generation, and permissions as the trust boundary
+
+**Decided.** Extends [D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle)
+into the full node↔core contract: a task-defined progress pair, a bidirectional control channel
+through the same directory, and a directory layout whose permissions *are* the security model.
+Detail in [media-nodes.md](../design/media-nodes.md).
+
+### Progress is a moving pair; either half moving means alive
+
+Progress is **task-defined** — files, directories, bytes, items enriched — expressed as
+`current` and `end`, where **`end` is an estimate allowed to move**. A scan's denominator grows
+as directories are discovered, and that growth is itself evidence of life. The rule: **if either
+number moves, the node is working.** Wedged is both static, for long enough, while `state` is
+not `idle`.
+
+Four things it needs to be usable rather than merely present:
+
+- **A `unit` label**, or the UI cannot render it.
+- **`end: null` is legal** — some tasks have no knowable end, and then only `current` signals.
+- **An `epoch` that increments on task restart.** Without it, a reset to zero is
+  indistinguishable from being stuck at zero, and a fresh scan gets called wedged.
+- `current` monotonic within an epoch.
+
+### The correction: idle must still tick
+
+The progress pair alone is **not sufficient**. An idle node changes nothing; a dead node also
+changes nothing. Watching only progress collapses the two into one state — which is exactly the
+distinction D34 exists to preserve.
+
+So the record keeps a **pulse that advances unconditionally, including when idle**. Progress
+answers *"is it achieving anything?"*; the pulse answers *"is it there at all?"*. Dropping
+either loses a state.
+
+### Clock skew dissolves, and the formulation is simpler than D34's
+
+D34 specified a monotonic counter compared against the core's observation time. The cleaner
+statement: **the core times its own probes.** It reads the state file at `T1` and `T2` on its
+own clock and compares contents; if any monotonic field changed, the node lived in that window.
+Node timestamps become purely **decorative** — a `node_clock` field is worth keeping for
+diagnostics ("your NAS clock is four hours out") but must **never** be an input to liveness
+logic. This supersedes D34's framing without changing its conclusion.
+
+### Bidirectional control through the same directory
+
+The core writes `config.json`; the node watches and re-reads on change. Scan now, change the
+interval, pause, rescan one root.
+
+- **Acknowledgement is the part easily left out.** The config carries a **`generation`** the
+  core increments on every change; the node echoes the last applied value as
+  **`observed_config`** in its state file. Desired-state / observed-state, which is what makes
+  the channel reliable over a shared directory that offers no acknowledgement of its own.
+- **The node must poll the config file as well as watch it**, because the exchange directory may
+  be on the share — exactly where watching does not work. One small file; the cost is nothing
+  and it removes a silent failure.
+- **Where HTTP exists, prefer it.** The file channel is the zero-configuration fallback; "scan
+  now" in particular already has a better route through
+  [D32](#d32--being-told-beats-watching-the-no-agent-path-is-a-tiered-measured-self-reporting-walk)'s
+  inbound endpoint.
+
+### The exchange directory, and why its permissions are the security model
+
+```
+<exchange-dir>/<node-id>/
+  config.json   ← core writes, node reads + watches
+  state.json    ← node writes, core reads
+  reports/      ← node writes, core reads   (large)
+  log/          ← node writes, core reads   (rotated)
+```
+
+**Namespaced by node id**, since several nodes may share one location; a duplicate `node_id`
+from a copied config must be detected and reported, not silently interleaved. **Reports and logs
+need a retention policy from day one** — an exchange directory that fills a share is a memorable
+way to break someone's NAS.
+
+The permissions split is the strongest part of this, because it matches the trust model exactly.
+The node handles hostile media ([D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)),
+so it is the less-trusted half, and a careful user can enforce that with filesystem permissions
+alone: core writes only `config.json`, node writes only its own outputs, media roots read-only.
+
+**And that same table is the node's Landlock ruleset.** The directory layout and the sandbox
+policy are one statement, which is good evidence both are right.
+
+### Degraded modes, stated rather than discovered
+
+- **Core cannot write the exchange directory** → no bidirectional control; the node runs on its
+  own defaults and the core reads state only. The core must *say so* rather than silently
+  failing to apply settings.
+- **Node cannot write anywhere shared** → use HTTP, or run the node on the core's machine
+  pointed at a mount ([D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do)'s
+  degraded mode).
+- **Read-only for both** → the user hand-writes `config.json` and the core gets no liveness.
+  Everything works; nothing is observable. Supported, and warned about.
+
+When installed as a daemon, the only thing in `/etc` is the path to this directory.
+
+**Status:** Provisional. Wedged thresholds still need measurement against a real large library,
+and the report retention policy is unspecified.
