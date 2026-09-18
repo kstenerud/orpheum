@@ -98,16 +98,36 @@ The report *content* is one contract; how it travels is a deployment detail.
 
 ## The report contract
 
-The hard design work, and where the traps are.
+The hard design work, and where the traps are. Format and completeness settled in
+[D39](../decisions/working-notes.md).
 
-- **Full inventory and incremental delta.** Deltas for speed; periodic full inventory for
-  reconciliation, because deltas drift.
-- **Deletions are explicit, never inferred.** The same lesson as
-  [D8](../decisions/working-notes.md): you cannot derive a deletion from a stream of changes.
+- **JSONL** — header line, entry lines, trailer line. Streams in both directions, appends
+  safely, is greppable, and — the strongest reason — **degrades per line** where a single JSON
+  document is all-or-nothing. This file is produced from attacker-influenced filenames and probe
+  output, so one bad record should cost one entry, not the report.
+- **Two kinds, marked per line.** *Inventory* (a full enumeration of a region; absence implies
+  removal only where that region is complete) and *delta* (explicit `added`/`changed`/`removed`,
+  because deletions are stated, never inferred — the same lesson as
+  [D8](../decisions/working-notes.md)).
 - **Per item:** node-local stable id, path, size, mtime, optional content hash, and the probe
   results — so the core never needs to open the file.
+- **Completeness lives in the filename.** The node writes `report-<epoch>.jsonl.partial` and
+  atomically renames on success, so completeness is an O(1) directory check and the core never
+  parses a file still being written. A trailer is kept for the *summary* — counts, duration,
+  errors, checksum — not as the completeness signal, because the **absence** of a trailer cannot
+  distinguish crashed from cancelled from still-writing. (That ambiguity is at least safe:
+  unknown means incomplete means add-or-update only.)
+- **Completeness is scoped, not global**, and this is what makes cancellation worth having. A
+  scan cancelled after `/mnt/films` finished has complete coverage *of films* — removals there
+  can be applied, and `/mnt/tv` is simply untouched. Conversely a scan that completed but could
+  not read one subtree is complete everywhere except there, and **the files beneath an
+  unreadable directory must never be treated as deleted.** That is the dead-node trap at finer
+  granularity and the likeliest way to lose data in ordinary operation, because permission
+  errors are common and undramatic.
 - **A declared protocol version**, with a stated compatibility policy. Version skew between core
   and nodes is the classic failure of every distributed system that did not plan for it.
+- **Retention is trivial with epoch-named files** — keep the last N. Compression is worth it and
+  does not break appending, since gzip concatenated streams stay valid.
 
 ### Do not copy Kyoo's coupling
 

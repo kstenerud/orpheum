@@ -2328,3 +2328,85 @@ absence. This deserves the same test: cancel a scan mid-run and assert nothing i
 **Status:** Provisional. The completeness flag is the load-bearing part and should exist in the
 report contract from the first version, because retrofitting it means a period where cancelled
 scans can delete libraries.
+
+---
+
+## D39 — Reports are JSONL; completeness is in the filename and is scoped, not global
+
+**Decided.** The scan report is **JSONL** — one JSON object per line, header first, entries,
+trailer last. But the authoritative completeness signal is the **filename**, not the trailer,
+and completeness is **per-subtree rather than per-report**.
+
+### JSONL is right, and the best reason is not the obvious one
+
+The obvious reasons hold: streaming write with no need to hold an inventory in memory,
+streaming read at the other end, append-only so a crash leaves a valid prefix, and a human can
+`grep` it — which matters given how much of this design is about legibility.
+
+The strongest reason is different: **a single JSON document is all-or-nothing to parse, while
+JSONL degrades per line.** This file is produced by the component that handles hostile media
+([D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)), from filenames
+and probe output that are attacker-influenced. One malformed record should cost one entry and
+an error count, not the entire report.
+
+### Completeness belongs in the filename
+
+A trailer says "complete" by its presence — but its **absence** means crashed, cancelled, still
+being written, or read raced the writer, and those are indistinguishable.
+
+That ambiguity is at least *safe*: unknown → treat as incomplete → add-or-update only, never
+remove ([D38](#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config)). The
+fail-safe direction is the correct one. But it is still worse than knowing, and checking
+requires reading to the end of a file that may have a hundred thousand lines.
+
+So: the node writes `report-<epoch>.jsonl.partial` and **atomically renames** to
+`report-<epoch>.jsonl` when the pass finishes. Completeness becomes an **O(1) check on the
+directory listing**, and the core never has to parse a file that is still being written. It may
+still read the `.partial` opportunistically for early adds and progress; it acts on removals
+only for the final name.
+
+**Keep the trailer anyway** — not as the completeness signal, but as the summary: entry count,
+duration, per-root outcome, error count, and a checksum the core can verify. Cheap, and it
+catches a truncated-but-renamed file.
+
+And a **header line first**, carrying protocol version, `node_id`, `epoch`, report kind, and the
+roots covered — so the metadata is available without reading to the end.
+
+### Completeness is scoped, and that makes cancellation genuinely useful
+
+The refinement that matters most here. A report is not simply complete or incomplete: **each
+root, and ideally each subtree, was either fully enumerated or was not.**
+
+- A scan cancelled after `/mnt/films` finished but before `/mnt/tv` started has *complete*
+  coverage of films. **Removals within films can be applied safely**; tv is untouched.
+- A scan that completed but could not read `/mnt/tv/Series X` because of a permissions error is
+  complete everywhere *except* that subtree — and the files beneath it **must not be treated as
+  deleted**. That is the dead-node trap at finer granularity, and it is the likeliest way to
+  lose data in normal operation, because unreadable directories are common and undramatic.
+
+So the report records **per-root (and per-errored-subtree) enumeration status**, and the core
+applies removals only within regions positively marked complete. Without this, a cancelled scan
+contributes nothing and cancellation is much less useful; with it, partial work still counts.
+
+### Two report kinds, marked per line
+
+- **Inventory** — a full enumeration of a region. Absence implies removal, *only* where that
+  region is marked complete.
+- **Delta** — explicit `added` / `changed` / `removed` events, per
+  [D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do)'s rule
+  that deletions are stated, never inferred.
+
+Each line carries its record type, so a reader never has to guess from context.
+
+### Smaller points
+
+- **Compression is worth it and does not break append.** Paths and probe output are highly
+  repetitive; gzip's concatenated-stream property allows append-with-flush, so `.jsonl.gz` stays
+  streamable.
+- **Retention is easy with epoch-named files** — keep the last N — which discharges the
+  obligation [D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary)
+  flagged.
+
+**Status:** Provisional. Per-subtree completeness is the load-bearing part and, like the
+completeness flag itself, belongs in the format from the first version — retrofitting it means
+a period in which an unreadable directory silently deletes its contents from the library.
