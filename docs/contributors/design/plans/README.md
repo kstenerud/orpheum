@@ -27,9 +27,15 @@ shows where each stands.
 
 ## Sequence
 
-`playback-survey.md` comes first. It is days of work and it decides how urgent `transcoding.md`
-is — which re-orders everything else in either direction. Nothing about transcoding should be
-guessed before it lands.
+`playback-survey.md` comes first, using the web harness from `device-lab.md` on a handful of
+representative devices — **not** the full device sweep, which is a separate and later effort.
+Conflating the two would turn a days-long gate into a months-long one.
+
+It is days of work and it decides how urgent `transcoding.md` is, which re-orders everything
+else in either direction. Nothing about transcoding should be guessed before it lands.
+
+`device-lab.md` runs **after** Phase 0 and in parallel with Phase 1, turning that one-off
+measurement into a repeatable sweep and setting the support floor from evidence.
 
 Then `library-model.md` and `scanner.md` in parallel with `stream-service.md` (direct play
 only, per [D17](../../decisions/working-notes.md)). `web-client.md` needs `stream-service.md`;

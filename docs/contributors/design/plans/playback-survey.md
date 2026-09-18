@@ -17,6 +17,17 @@ This replaces the original `transcode-core-spike` as Phase 0. That plan ordered 
 transcoder first because it was the riskiest assumption; measuring the assumption is cheaper
 than building against it.
 
+## Scope guard
+
+The client half of this is measured with **the web harness from
+[`device-lab.md`](device-lab.md), on about five representative devices** — the weakest TV, the
+weakest phone that boots, a modern phone, the Apple TV, one Fire Stick. Not the full
+twenty-device sweep: that is a separate plan, built afterwards, and waiting for it would turn a
+days-long gate into a months-long one.
+
+The web harness needs no sideloading, no signing and no `adb`, which is what keeps this inside
+its budget.
+
 ## What to build
 
 A throwaway tool — not part of the product — that:
@@ -28,6 +39,11 @@ A throwaway tool — not part of the product — that:
    browser page, `MediaCodecList` in a sideloaded Android app (which runs on Fire TV over ADB),
    and libmpv's own reporting on desktop. The Apple TV is probed by what `AVPlayer` will
    actually play.
+
+   **Measure, do not just ask.** `decodingInfo()` reports `smooth` and `powerEfficient`
+   alongside `supported`, and `getVideoPlaybackQuality()` gives real dropped-frame counts. A
+   device that claims support and then stutters is the case that matters, and the gap between
+   claimed and measured is the column [D2](../../decisions/working-notes.md) exists to exploit.
 3. Reports the direct-play rate per client, and — more usefully — **a ranked list of the
    specific reasons for each failure**.
 

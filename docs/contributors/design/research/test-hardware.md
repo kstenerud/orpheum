@@ -145,6 +145,21 @@ tables for this reason.
 Older handsets also make storage pressure and background-download interruption easy to
 reproduce, which is where these features actually fail.
 
+### Twenty devices is a lab, and a lab is a project
+
+With roughly twenty handsets, most unpowered for years, this stops being an inventory and
+becomes an engineering task with its own failure modes — swollen cells, activation locks, dead
+clocks, and **expired root certificates that will break TLS to a modern server and look like a
+network bug**. See [`device-lab.md`](../plans/device-lab.md) for the design, the triage
+procedure and the tiering.
+
+Two things from it are worth stating here because they change how the rest of this document
+should be read. **The full sweep must not gate Phase 0** — the playback survey uses a web
+harness on about five representative devices and stays days-long. And **the harness is a
+self-reporting app, not per-platform external instrumentation**, which means most of the fleet
+needs no install at all: every one of these devices has a browser, and
+`mediaCapabilities.decodingInfo()` plus `getVideoPlaybackQuality()` covers the first pass.
+
 ### The constraint to establish first: what is our deployment floor?
 
 Old phones only test what they can run. Both toolchains have minimums — Expo and
@@ -155,6 +170,13 @@ collection may be below them.
 product decision nobody has made yet: *how old a handset do we support?* That choice constrains
 the client stack ([D10](../../decisions/working-notes.md)) rather than following from it, and it
 is better made deliberately than discovered when a build refuses to install.
+
+There are really **three** floors and they should be reported separately: the **toolchain**
+floor (what Expo / `react-native-tvos` can build for at all), the **UI-performance** floor (the
+oldest device that renders the library at an acceptable frame rate), and the **codec** floor
+(the oldest device that plays the D21 baseline smoothly). The binding one is most likely the
+UI-performance floor — an old phone usually still decodes H.264 fine; what fails is running a
+modern React Native app on it.
 
 - Android: `adb shell getprop ro.build.version.release` and `ro.build.version.sdk`; codec truth
   from `adb shell cmd media.codec` or a `MediaCodecList` dump.

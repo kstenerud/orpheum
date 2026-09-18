@@ -28,8 +28,13 @@ in that class.** The gate has to be tests, and the tests need a corpus.
 - **Golden-output testing for the encoder.** Bit-exactness is not available across FFmpeg
   versions or hardware; what is the assertion instead — probe-level properties, VMAF/SSIM
   thresholds, segment-boundary alignment?
-- **How to test a client's playback** without a human watching. Headless browsers get part of
-  web; Android instrumentation gets part of Android; TV and Apple largely do not.
+- **How to test a client's playback** without a human watching. Largely answered by
+  [`device-lab.md`](device-lab.md): a **self-reporting harness app** that plays a corpus,
+  measures its own dropped frames and time-to-first-frame, and posts results — one protocol
+  across web, Android, Fire TV, iOS and tvOS — rather than per-platform external
+  instrumentation. External tooling (`dumpsys gfxinfo framestats`, `dumpsys media.metrics`,
+  `dumpsys thermalservice`) supplements it on Android. The reference tier of that lab is what
+  runs per-build.
 - **The hardware matrix.** Surveyed in [test-hardware.md](../research/test-hardware.md): the
   available inventory covers three Intel QSV generations, NVENC, Apple VideoToolbox and — most
   valuably — an 8 GB Celeron NAS that is the honest low end. The gap that blocks the most
