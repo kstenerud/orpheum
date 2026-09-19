@@ -166,6 +166,33 @@ which is the cheapest possible validation:
 | *Replace subtitles size settings "normal, large, huge" by a slider with size %* | — | [D90](../../decisions/working-notes.md) — that is 47 CFR §79.103's 50–200% requirement, requested by a user who has never heard of it |
 | *How do I downmix 5.1 to 2 Channel Stereo by default?* | 27 | [D83](../../decisions/working-notes.md) |
 
+### And it corroborates, first-hand, most of the rest of the design
+
+A second sweep of the same API, searching for the failure modes this project has designed
+against. Every row is a Plex thread; post counts are the API's at fetch time. The value here
+is that it is **the same complaint, on the other product** — which turns "Jellyfin has this
+bug" into "this is a property of the problem, and whoever solves it wins".
+
+| Plex thread(s) | Posts | What it confirms |
+| --- | --- | --- |
+| *How to Force Direct Play (with no transcoding at all)?* | **138** | [D4](../../decisions/working-notes.md), [D17](../../decisions/working-notes.md). Jellyfin's equivalent is +49; this is the same demand, larger |
+| *Plex is constantly spinning HDD up and down*, *HDD never turns off while PMS is running*, *Plex wakes up Synology NAS every hour*, *Certain media files accessed every day at the same time — why?* | 22, 5, 10, 9 | [D94](../../decisions/working-notes.md) — **and it corrects us**: the Jellyfin issue we cited says Plex has "nearly no disk activity", and Plex's own users say otherwise. Both do it. It is a property of the workload, not of one implementation |
+| *Every folder in TV library being scanned individually = VERY slow scanning* | **49** | [scanner.md](../plans/scanner.md)'s "one round trip per directory, never a `stat` per file" — that title *is* the failure mode, named by a user |
+| *2026.7 "Continue Watching" always wrong*, *Progress bars in continue watching almost always wrong*, *"Continue Watching" For Wrong Users*, *When switching users, Continue Watching does not refresh*, *Plex Reports Wrong Season/Episode Information on Continue Watching*, *Please please plex fix the remembering episode / position*, *Android: Manually pressing Next Episode carries over playback timestamp from previous episode* | 4, 8, 4, 2, 14, 9, 15 | [D81](../../decisions/working-notes.md). Seven distinct threads, and the per-user and cross-episode ones are exactly the race a single mutable row produces |
+| *Plex multiple movie versions! Please acknowledge:(*, *Multiple version movies: wrong default selection*, *Multiple Movie Versions Issue*, *Windows client always plays 4K HDR version on a standard HD screen*, *Clarification on multiple movie versions and how to title them?* | 7, 3, 8, 1, 7 | [D79](../../decisions/working-notes.md). The field's permanent version bug, on the product that is supposed to be the polished one |
+| *Extras Organized in Subdirectories with multiple movie versions* | 3 | [D97](../../decisions/working-notes.md) — extras × versions, which is precisely the interaction a model with nowhere to put an extra cannot express |
+| *Plex keeps matching the wrong metadata*, *Fix Match keeps using wrong metadata*, *Plex reverting to wrong metadata after using Fix Match* | 4, 3, 5 | [D7](../../decisions/working-notes.md)'s "a manual override that survives re-scans". Note the third title: the override does not survive |
+| *Cast / Chromecast Quality Settings Missing / Not Respecting App Settings*, *External Subtitles Fail to Load on Chromecast When Casting from iOS* | 8, 1 | [D88](../../decisions/working-notes.md) |
+| *Remote Access broken* × many, incl. *plex.direct certificate expired* | — | [D25](../../decisions/working-notes.md)'s TLS-certificate problem, in the wild |
+| Eight separate *hardware transcoding fails* threads across QSV, VAAPI, NVENC and Arc | — | [principles §5](../../principles/README.md) and [transcoding.md](../plans/transcoding.md)'s hwaccel matrix being the dominant remaining complexity |
+
+**One that argues the other way, and is recorded because it does:** *Support for audiobooks* is
+**1,156 posts**, the largest thread encountered anywhere in this research.
+[D1](../../decisions/working-notes.md) declines audiobooks and
+[overview.md](../overview.md) justifies it with Audiobookshelf's 1,191 open issues. That
+justification stands — the cost is real — but the demand is real too and larger than we said.
+Decline it with the number visible rather than by implying nobody wants it.
+
 ## The Jellyfin story: goodwill, and a list of specific failures
 
 Sentiment is warm and heavily qualified. "It's not amazing, it's as good as it is. Which is to

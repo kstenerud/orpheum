@@ -239,7 +239,7 @@ Notes on the shape:
 | **An image decoder in the core process either** | [D99](../decisions/working-notes.md). The same rule, generalised: TMDB is community-editable, so a poster is attacker-supplied — and unlike a film it arrives unprompted during a background refresh. 39 CISA KEV entries touch media, image or font parsing. Derivation happens in the node's jail; the core moves bytes it never decodes. |
 | In-process plugins | [D12](../decisions/working-notes.md). Third-party scrapers are the last code you want unsandboxed. Protocol surfaces get a second tier — out-of-process adapters ([D15](../decisions/working-notes.md)). |
 | A *video* encoder in the core binary | [D17](../decisions/working-notes.md), [D19](../decisions/working-notes.md), [D22](../decisions/working-notes.md). It is a plugin on the public API: smaller default install, a real licence/patent boundary, and remote transcoding for free. Audio encoding does stay in the core. |
-| Audiobooks, comics, live TV/DVR | Each is a different product wearing the same clothes. Audiobookshelf's 1,191 open issues are the evidence. |
+| Audiobooks, comics, live TV/DVR | Each is a different product wearing the same clothes. Audiobookshelf's 1,191 open issues are the evidence for the cost. The demand is real too and we should say so rather than imply otherwise: *Support for audiobooks* on Plex's forum is **1,156 posts**, the largest thread found anywhere in this research. Declined with the number visible. |
 
 ## The open problems
 

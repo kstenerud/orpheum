@@ -124,8 +124,11 @@ records joined to the core's identification log, and it needs both halves.
 ## Spinning disks are a cost the interval was not priced against
 
 Added by [D94](../../decisions/working-notes.md). Jellyfin issue #7689 is *Reduce hard disk
-access during playback*, and the damaging part is the comparison inside it: users report Plex
-has nearly no disk activity where Jellyfin has a lot. For a NAS audience — and
+access during playback*, and the comparison inside it is that Plex has nearly no disk activity
+where Jellyfin has a lot. **That comparison is wrong** — Plex's own forum carries *Plex is
+constantly spinning HDD up and down* (22 posts), *HDD never turns off while PMS is running* and
+*Plex wakes up Synology NAS every hour*. Both do it, which makes it a property of the workload
+rather than of one implementation. For a NAS audience — and
 [test-hardware.md](../research/test-hardware.md) names an 8 GB Celeron NAS as the honest low
 end — spinning drives cost power, noise and wear, and "it keeps my array awake" is the kind of
 complaint that ends in an uninstall.

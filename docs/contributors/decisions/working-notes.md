@@ -6151,8 +6151,15 @@ revocation, device pairing and the sharing hand-off are currently a bullet in
 
 **Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §16.
 
-Jellyfin issue #7689 is *Reduce hard disk access during playback*, and the damaging part is the
-comparison inside it: users report Plex has nearly no disk activity where Jellyfin has a lot.
+Jellyfin issue #7689 is *Reduce hard disk access during playback*, and the comparison inside it
+is that Plex has nearly no disk activity where Jellyfin has a lot.
+
+**That comparison is wrong, and finding out makes the case stronger.** Plex's own forum, read
+2026-09-19: *Plex is constantly spinning HDD up and down. How do I fix this?* (22 posts),
+*HDD never turns off while PMS is running*, *Plex Media Server wakes up Synology NAS every
+hour*, *Certain media files accessed every day at the same time — why?*. **Both products do
+it.** So this is a property of the workload rather than of one implementation, and a design
+that assumes it will not happen to us is assuming its way out of the only evidence available.
 For a NAS audience — and [test-hardware.md](../design/research/test-hardware.md) names an 8 GB
 Celeron NAS as the honest low end — spinning drives cost power, noise and wear, and "it keeps my
 array awake" is the kind of complaint that ends in an uninstall.
