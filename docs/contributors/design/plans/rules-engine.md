@@ -1,10 +1,12 @@
 > **ABOUTME:** A stored, re-evaluatable query over library items — smart playlists, smart
-> collections, retention policy — and the research needed before the schema is written.
+> collections, retention policy. One predicate language, three bindings, and a typed field
+> registry that is part of the schema.
 
 # Rules engine
 
-- **Status:** UNSPECIFIED — promoted into Phase 1 by [D20](../../decisions/working-notes.md); no design yet.
+- **Status:** PLANNED — researched 2026-09-19 ([rules-engine.md](../research/rules-engine.md), [D75](../../decisions/working-notes.md)). Promoted into Phase 1 by [D20](../../decisions/working-notes.md).
 - **Depends on:** —
+- **Blocks:** [library-model.md](library-model.md) — the field registry and the tag storage choice are schema
 
 ## Why it is urgent rather than merely wanted
 
@@ -17,21 +19,108 @@ in this field lets a user express a rule about their library: Kometa (3,416), Ma
 (2,271), Janitorr (752), plus Jellyfin's smartlists (363), auto-collections (292), mergeversions
 (439), media-cleaner (260) and the official tmdbboxsets (176).
 
-## What the research must settle
+## The shape
 
-- **Prior art, starting with the best small example.** Navidrome's `model/criteria` package is
-  ~2,500 lines including tests and covers the whole surface: a JSON rule format, a field
-  registry, an operator set (`is`, `isNot`, `contains`, `startsWith`, `endsWith`, `gt`, `lt`,
-  `before`, `after`, `inTheRange`, `inTheLast`, `notInTheLast`, `any`, `all`), sorting and a
-  walker, compiled to SQL in `persistence/criteria_sql.go`. Then iTunes/Plex smart playlists for
-  the UX vocabulary, and Kometa/Maintainerr for what people actually write.
-- **One engine or three?** Smart playlists, smart collections and retention policy look like the
-  same thing evaluated at different times with different effects. If they are, say so and build
-  one.
-- **Evaluation model.** Materialised on write, on read, or on a schedule? Retention rules
-  *delete things*, so they need a dry run, a preview and an audit trail.
-- **Safety.** A rule engine that can delete files is the most dangerous feature in the product.
-  What is the blast radius, what is reversible, and what requires confirmation
-  (principles §2)?
-- **Does it need to be user-visible SQL?** Almost certainly not, but the fallback for power
-  users matters.
+**One predicate language, three bindings** ([D75](../../decisions/working-notes.md)). Smart
+playlists, smart collections and retention are the same stored query at different times with
+different effects.
+
+| Binding | Effect | Evaluated |
+| --- | --- | --- |
+| Smart playlist | ordered membership | on read, or off the change journal |
+| Smart collection | display grouping | same |
+| Retention | **marks** items — never deletes | on a schedule |
+
+Retention marking rather than deleting is [D7](../../decisions/working-notes.md) applied:
+Maintainerr and Janitorr delete, we produce a state the user reviews and acts on. Same shape as
+[D61](../../decisions/working-notes.md)'s quarantine.
+
+## The two artefacts that are schema
+
+### 1. A closed, typed field registry
+
+A map from field name to semantics — type, nullability, multi-valued, and an **`alias`** for
+backward-compatible renames. Four properties:
+
+- **Injection defence** — a field resolves or the rule is invalid; no user string becomes a SQL
+  identifier.
+- **Typed operators** — the legal operator set is a function of the field's type, so bad rules
+  fail at parse time. Kometa's per-type modifier table is the model.
+- **`alias` is how rules survive schema change**, and there is no other plan that works.
+- **Extensible at runtime** — user tags, and **provider-materialised** fields, because a
+  vocabulary of local columns only is why Kometa exists outside the server.
+
+**One registry, not two.** Navidrome splits semantics and SQL mapping across two maps with the
+same keys — the same drift that cost them a corrective migration in their FTS work. One table,
+or a test asserting identical key sets.
+
+### 2. Multi-valued fields and their count operators
+
+"Has genre X" and "has more than three genres" are different operators. Count operators must
+exist from the start because **they decide how tags are stored** — which is the
+[library-model.md](library-model.md) question this forces.
+
+## Operators
+
+Navidrome's set is the right size:
+
+```
+all/and  any/or                              conjunctions
+is/eq    isNot                               equality
+gt lt    before after  inTheRange            ordering
+contains notContains startsWith endsWith     string
+inTheLast notInTheLast                       relative time
+isMissing isPresent                          nullability
+count_gt count_lt …                          multi-valued
+matches                                      regex — see below
+inRule notInRule                             reference another rule
+```
+
+Plus `sort`, `order`, `limit`, `limitPercent`, `offset` on the rule itself — and note that
+**the limit has its own selection order**, distinct from display order (Apple: *"limited to 2
+hours with songs most recently added"*).
+
+## Things that will bite
+
+**Nullability is declared per field, never inferred.** Coalesce where a LEFT JOIN produces NULL
+— play count and rating have no row for a never-played item, so `playcount < 5` without
+coalescing *excludes everything never played*. And emptiness is per-field: Navidrome treats the
+JSON `[]` as missing for lyrics.
+
+**The compiler has a hard ceiling.** Measured on SQLite 3.46.1: an OR chain fails at **1000
+terms**, a join fails at **65 tables**, and they push opposite ways. Use `EXISTS` rather than
+joins, batch ORed conditions inside them, and **enforce an explicit complexity bound with a
+comprehensible error** rather than emitting SQL the database refuses.
+
+**Rule references are allowed, acyclic, and checked at save.** Apple shipped this and broke it —
+since Big Sur a smart playlist depending on others no longer updates. Detect cycles at save and
+reject with a named path; failing at evaluation means a rule that silently stops working.
+
+**A rule referencing a missing field is kept, marked invalid and surfaced** with the field
+named. A smart collection quietly disappearing after an upgrade is the worst outcome
+([principles §7](../../principles/README.md)).
+
+**Live updating is a property of the rule**, as Apple exposes it. Live rules re-evaluate off the
+change journal ([D8](../../decisions/working-notes.md)), which already says exactly what
+changed, with a debounce.
+
+**Regex is safe here.** SQLite has no built-in `REGEXP` but both pure-Go drivers can register
+one; measured ~5× `LIKE` on 50k rows, which is nothing at this scale. And Go's RE2 makes
+user-supplied patterns non-catastrophic — `(a+)+$` completes in 16 µs and backreferences are
+rejected at compile time — so no ReDoS guard is needed.
+
+## Still open
+
+- **Where the complexity bound goes** — term count, depth, or generated-SQL size. Needs a
+  corpus of Kometa-scale rules.
+- **Provider-supplied fields.** A field needing a network call cannot be in a `WHERE` clause, so
+  providers presumably materialise into columns on refresh. Unspecified.
+- **Tags in a join table or JSON.** Navidrome's JSON choice is what created their batching
+  problem. A `library-model.md` decision.
+
+## Done when
+
+A rule survives a column rename; a rule referencing a deleted field is visible and named rather
+than silently empty; a cycle is rejected at save with the path; a rule too complex to compile
+says so in words; a retention rule has never deleted a file; and the same predicate drives a
+playlist, a collection and a retention list without three implementations.

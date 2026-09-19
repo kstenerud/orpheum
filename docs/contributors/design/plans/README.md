@@ -67,8 +67,10 @@ status rather than trusting this paragraph, but the ordering between them is:
   an identity for the other person, and remote access is how that person reaches the server;
   Plex's resented account system exists because those two questions have one answer. They are
   the hardest product questions in the project, and `threat-model.md` depends on the outcome.
-- **`rules-engine.md` is the urgent one**, because it is schema-shaping and `library-model.md`
-  is Phase 1. Designing it after the schema means a migration.
+- **`rules-engine.md` is done** (2026-09-19, [D75](../../decisions/working-notes.md)) and was
+  the urgent one, because it is schema-shaping and `library-model.md` is Phase 1. It hands the
+  schema two things: a typed field registry with an `alias` column, and a forced decision on
+  whether tags live in a join table or as JSON.
 - **`internationalisation.md` is done** (2026-09-19, [D45](../../decisions/working-notes.md)–[D51](../../decisions/working-notes.md)),
   and it turned out to be schema-shaping too: the metadata translation split, the sort-key
   column and the FTS5 tokeniser choice all have to land before `library-model.md`. Two of its

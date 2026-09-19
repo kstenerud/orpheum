@@ -23,7 +23,13 @@ plugin survey ([D20](../../decisions/working-notes.md)), the track-selection pai
 ([D45](../../decisions/working-notes.md), [D47](../../decisions/working-notes.md),
 [D48](../../decisions/working-notes.md)).
 
-- **A rules engine.** Smart playlists, smart collections, and retention policy. The field shows
+- **A rules engine** ([rules-engine.md](rules-engine.md), now designed —
+  [D75](../../decisions/working-notes.md)). Two things it hands this schema: a **closed, typed
+  field registry** with an `alias` column, which is how saved rules survive a column rename and
+  is the only mechanism that works; and a forced decision on **whether tags live in a join table
+  or as JSON**, because multi-valued count operators ("more than three genres") are compiled
+  differently in each and Navidrome's JSON choice is what drove them into SQLite's
+  expression-depth limit. Smart playlists, smart collections, and retention policy. The field shows
   roughly 7,000 stars of demand across plugins (smartlists, auto-collections, mergeversions,
   media-cleaner, tmdbboxsets) and companion apps (Kometa, Maintainerr, Janitorr), all of which
   exist because no server in this space lets a user express a rule about their library. A rule

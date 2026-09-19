@@ -30,6 +30,7 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
 | [tech-clients.md](tech-clients.md) | Player engines and the platform matrix — where the real cost of this project is. |
 | [tech-licensing.md](tech-licensing.md) | FFmpeg's licence ladder, codec patents, and provider terms under an open-source release. Where the landmines are; not legal advice. |
 | [tech-metadata.md](tech-metadata.md) | TMDB, TheTVDB, MusicBrainz, AcoustID, OpenSubtitles — capability, licensing, and the traps. |
+| [rules-engine.md](rules-engine.md) | Stored queries over the library: Navidrome's criteria package read locally, Apple's and Plex's smart-playlist behaviour, Kometa's vocabulary — and **measured** SQLite limits (OR chains die at 1000 terms, joins at 65 tables) that shape the compiler. Backs D75. |
 | [watch-together.md](watch-together.md) | Synchronised remote playback and voice chat: the five commercial implementations that were withdrawn and why, Jellyfin's sync mechanism read locally, Apple's suspension model, and the echo-cancellation problem that decides the voice design. Backs D62–D64. |
 | [internationalisation.md](internationalisation.md) | UI strings, collation, FTS5 tokenisers, the multi-language metadata model, libass bidi and line breaking, font coverage, and the Unicode traps in Go and in our own node pipeline. Mostly **measured**, not cited. §8 covers how Netflix does it and what transfers; §9 settles the fallback font. Backs D45–D54. |
 

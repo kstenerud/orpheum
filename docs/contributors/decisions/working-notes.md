@@ -5062,3 +5062,132 @@ reviewed. This is the project's existing legibility theme
 ships — in particular whether a 4-character tag collides annoyingly in a 50,000-item library,
 and whether preserving directory *depth* leaks more structure than it is worth. Plan:
 [bug-reports.md](../design/plans/bug-reports.md).
+
+---
+
+## D75 — One predicate language, three bindings; a typed field registry is the schema deliverable
+
+**Decided** (2026-09-19). Research: [rules-engine.md](../design/research/rules-engine.md).
+Answers the question [plans/rules-engine.md](../design/plans/rules-engine.md) posed — *one
+engine or three?* — and produces the two artefacts that are actually schema.
+
+### One predicate language, three bindings
+
+Smart playlists, smart collections and retention policy are **the same stored query evaluated at
+different times with different effects**. So: one predicate language, three bindings, and the
+binding is what differs.
+
+| Binding | Effect | Evaluated |
+| --- | --- | --- |
+| Smart playlist | ordered membership | on read, or on a change-journal trigger |
+| Smart collection | display grouping | same |
+| Retention | **marks** items | on a schedule |
+
+**Retention marks; it never deletes.** Maintainerr and Janitorr delete, and that is precisely
+what [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index) forbids:
+media is read-only and the files are the source of truth. A retention rule produces a *state*
+the user can see, sort and act on — the same shape as
+[D61](#d61--containment-now-detection-later-and-plugin-shaped-four-affordances-to-keep-open)'s
+"quarantine is a library state, never a file operation". Deletion stays a separate, explicit,
+confirmed action on a reviewed list. This is a safety property and a differentiator, and it
+costs nothing.
+
+### The schema deliverable: a closed, typed field registry
+
+Not arbitrary column names. A map from field name to semantics — type, nullability, whether it
+is multi-valued — carrying four properties, the last two of which are easy to miss:
+
+1. **Injection defence.** A field resolves in the registry or the rule is invalid. No user
+   string ever becomes a SQL identifier.
+2. **Typed operators.** The legal operator set is a function of the field's type, so an invalid
+   rule is rejected at parse time. Kometa's per-type modifier table is the right shape;
+   Navidrome's `Numeric`/`Boolean`/`Nullable` flags are the minimum.
+3. **An `alias` field is the schema-evolution mechanism.** Rename a column, register the old
+   name as an alias, and every saved rule keeps working. There is no other plan that works, and
+   it is nearly free if present from the start.
+4. **The registry is extensible at runtime.** Navidrome's `AddTagNames()` pulls user-defined
+   tags into the vocabulary. Ours must also admit **provider-materialised** fields, because
+   Kometa's users want IMDb keywords and TMDB vote counts and a vocabulary of local columns only
+   is *why* Kometa exists outside the server.
+
+**One registry, not two.** Navidrome keeps semantics in `model/criteria/fields.go` and the
+field-to-SQL mapping in `persistence/criteria_sql.go` — two maps with the same keys, which is
+the exact shape of the drift that cost them a corrective migration in their FTS work. One table
+carries both, or a test asserts the key sets are identical.
+
+### Multi-valued fields are a distinct class
+
+"Has genre X" and "has more than three genres" are different operators, and Kometa ships
+`.count_gt`/`.count_gte`/`.count_lt`/`.count_lte` for exactly this. Count operators have to
+exist in the language from the start, because they decide how tags are stored — which is a
+`library-model.md` question this forces.
+
+### Nullability is declared per field, never inferred
+
+Two traps taken directly from Navidrome's SQL layer, both of which encode a semantic decision
+rather than a mechanism:
+
+- **Coalesce where a LEFT JOIN produces NULL.** Play count and rating live in an annotation
+  table with no row for a never-played item, so `playcount < 5` without coalescing **excludes
+  everything never played** — the opposite of what the user means.
+- **Emptiness is per-field.** Their `lyrics` field treats the JSON `[]` as missing. The general
+  rule from their own comment: numeric and boolean missing means NULL; string missing means
+  NULL *or empty string*.
+
+### The compiler has a hard ceiling and must own it
+
+**Measured** on SQLite 3.46.1: an OR chain fails at **1000 terms** (*"Expression tree is too
+large"*), and a join fails at **65 tables** (*"at most 64 tables in a join"*). Both are
+reachable by a Kometa-sized rule, and they push opposite ways — a JOIN per tag condition dies at
+64, an OR chain dies at ~1000.
+
+That explains what looks like style in Navidrome and is not: **`EXISTS` subqueries rather than
+joins**, with ORed conditions batched inside them (their `jsonCondBatchSize = 350`, noting *"the
+EXISTS wrapper consumes ~4 levels… empirically, 496 is the maximum"*) and De Morgan merging for
+the negated case.
+
+So: **use `EXISTS`, batch, and enforce an explicit complexity bound with a comprehensible
+error** — never emit SQL the database will refuse.
+
+### Rule references: allowed, acyclic, checked at save
+
+Rules referencing other rules is a real want (Navidrome has `inPlaylist`) and a real hazard —
+**Apple shipped it and broke it**: since Big Sur a smart playlist depending on other smart
+playlists no longer updates when they change.
+
+Allow it, but detect cycles **at save time** and reject with a named path, and bound the depth.
+Navidrome's `ChildPlaylistIds()` exists to extract exactly these edges; the graph is tiny and
+checking it is cheap. Failing at save is the only acceptable place — failing at evaluation means
+a rule that silently stops working, which is what Apple has.
+
+### A rule that references a missing field fails loudly and is preserved
+
+The worst outcome of a schema change is a user's smart collection quietly disappearing. So a
+rule whose field no longer resolves is **kept, marked invalid, and surfaced with the offending
+field named** — never dropped, never silently emptied. That is
+[principles §7](../principles/README.md), migrations are a safety feature, applied to user data
+that happens to be a query.
+
+### Live updating is a property of the rule
+
+Apple exposes it as a toggle and it is the right model: a rule is live or frozen. Live rules
+re-evaluate off the change journal ([D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema))
+rather than on a timer, because the journal already says exactly what changed. Navidrome's
+`RefreshDelay` is the debounce.
+
+### Regex is safe here, and that is a free win
+
+Users want it — Kometa offers `.regex` on every string-ish type. SQLite has no built-in
+`REGEXP`, but both pure-Go drivers can register one; measured cost is ~5× `LIKE` on 50k rows
+(17.6 ms versus 3.3 ms), which is nothing at household scale.
+
+The usual objection is denial of service, and **it does not apply to us**. Go's `regexp` is RE2:
+the classic `(a+)+$` catastrophic-backtracking pattern completes in **16 µs**, and
+backreferences and lookahead are rejected at compile time. Linear time, guaranteed. So we can
+accept user-supplied regex **without a ReDoS guard**, which almost no other runtime could — an
+unplanned payoff from [D9](#d9--server-language-go-one-language-on-the-server).
+
+**Status:** Provisional. The complexity bound needs calibrating against a real corpus of
+Kometa-scale rules, and whether tags live in a join table or JSON is a
+[library-model.md](../design/plans/library-model.md) question this decision forces but does not
+settle — Navidrome's JSON choice is what created their batching problem.
