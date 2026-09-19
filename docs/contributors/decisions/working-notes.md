@@ -3313,7 +3313,9 @@ rather than one:
 
 1. **The requested font** — an embedded subtitle font, or the client's UI font.
 2. **Noto, per script *and per language*, served on demand** by the server
-   ([D53](#d53--font-coverage-is-not-assumable-the-server-serves-fonts-on-demand)).
+   ([D53](#d53--font-coverage-is-not-assumable-the-server-serves-fonts-on-demand)). Which faces,
+   and how they are cut down, is
+   [D55](#d55--the-served-font-set-is-the-cta-708-style-axis-in-variable-fonts-subset-per-subtitle).
 3. **Unicode Last Resort High-Efficiency, bundled in every client** — 588 KB, never fetched,
    never absent.
 
@@ -3394,3 +3396,100 @@ Resort in release builds, hex boxes in development**, which pairs with
 is *not* in the path on some client we care about (in which case that client takes the 9.15 MB
 format-12 variant), or evidence that users find the framed-script glyph more alarming than
 informative — which is a question for whoever first sees it on a TV.
+
+---
+
+## D55 — The served font set is the CTA-708 style axis, in variable fonts, subset per subtitle
+
+**Decided** (2026-09-19). Adopting the proposal to host a *set* of fallback faces rather than a
+single one, with the set defined by an existing standard and the CJK problem solved by
+subsetting rather than by shipping.
+
+Three parts:
+
+1. **Six upright variable faces** covering the seven real CTA-708 styles for Latin, Greek and
+   Cyrillic. **5.63 MB raw, ≈2.42 MB as woff2**, served once and cached forever.
+2. **Everything else subset per subtitle track at scan time** — ~441 KB for a film's Japanese
+   dialogue instead of 15.7 MB.
+3. **Last Resort HE underneath**, bundled, per
+   [D54](#d54--the-plan-b-font-is-unicode-last-resort-he-bundled-noto-is-served-unifont-is-the-middle-option).
+
+**Why a standard defines the set.** "Enough faces to cover the common subtitle styles" sounds
+like a judgement call, and it is not: **CEA/CTA-708 enumerates exactly eight font tags** —
+undefined, monospaced serif, proportional serif, monospaced sans-serif, proportional
+sans-serif, casual, cursive, small capitals — and the W3C's 608-to-WebVTT mapping gives each a
+concrete CSS stack (Courier, Times New Roman, Helvetica, Arial/Swiss, Dom/Impress,
+Coronet/Marigold, Engravers Gothic). Every one of those faces is proprietary, which is precisely
+why an open-source server has to bring substitutes. Using the standard's axis instead of
+inventing one means the set is defensible, bounded, and already matches what captioning
+decoders and player UIs expose.
+
+Two collapses take it from eight to six, both from the captioning literature and both confirmed
+by measurement. **Small capitals is not a font** — "small caps can be applied to any typeface
+category" — it is the OpenType `smcp` feature, and all three Noto faces report `smcp` present.
+And **all eight styles are optional in decoders**, so casual and cursive can fold into the sans
+face wherever no equivalent exists, which is every non-Latin script.
+
+**Measured** (fonttools, against the real binaries):
+
+| CTA-708 style | OFL substitute | raw | woff2 |
+| --- | --- | --- | --- |
+| proportional sans | `NotoSans[wdth,wght]` | 2001 K | 848 K |
+| proportional serif | `NotoSerif[wdth,wght]` | 1842 K | 765 K |
+| monospaced sans | `NotoSansMono[wdth,wght]` | 1668 K | 704 K |
+| monospaced serif | `CourierPrime-Regular` | 69 K | 24 K |
+| casual | `ComicNeue-Regular` | 55 K | 22 K |
+| cursive | `DancingScript[wght]` | 130 K | 55 K |
+| small capitals | the `smcp` feature | 0 | 0 |
+| **total** | **6 files** | **5.63 MB** | **≈2.42 MB** |
+
+**Variable fonts are the reason this is small.** The Noto faces carry `wght` *and* `wdth` axes,
+so one file replaces nine weights × three widths. Without them this is a combinatorial problem;
+with them it is six files. Real italics would add two files and take it to 10.18 MB / 4.30 MB —
+worth having eventually, not needed first, because **libass synthesises both**:
+`ass_glyph_embolden()` and `ass_glyph_italicize()` in `ass_font.c` apply when the face lacks the
+style. (There is no `NotoSansMono-Italic` at all, and it does not matter for the same reason.)
+
+**Subsetting is the part only we can do.** Google Fonts serves CJK by cutting fonts into ~100
+fixed `unicode-range` slices because a web font server cannot know what text a page will render.
+**We have the subtitle file**, so we can subset to exactly the code points it uses:
+
+```
+20,000 chars of Japanese (about one film's dialogue)  1,202 code points  →  582 K raw / 441 K woff2
+21,000 chars of Chinese                               1,816 code points  →  988 K / 732 K
+168,000 chars of Japanese (generous upper bound)      2,405 code points  → 1220 K / 900 K
+NotoSansCJKjp-Regular, whole                         65,535 glyphs       →  15.70 M / 11.15 M
+```
+
+**36× smaller for a film.** The reason is linguistic, not algorithmic: 168,000 characters of
+running Japanese contain only 2,405 distinct code points, because the Jōyō set is 2,136 kanji
+and real text saturates below it.
+
+**Where it runs: the node, at scan time.** [D11](#d11--subtitles-are-a-subsystem-not-a-feature)
+already extracts subtitles at scan time in the media node, which is where FFmpeg lives. The
+subset font is one more scan-time artifact beside the extracted track, and no font parser ever
+enters the core's request path. **The tool is already in the build** — `hb-subset` is part of
+HarfBuzz (`util/hb-subset.cc`, plus a public C API), and we ship HarfBuzz for libass
+([D50](#d50--build-libass-correctly-and-turn-off-vsfilter-bug-compatibility-for-non-authored-subtitles)).
+No new dependency.
+
+**A security consequence, which happens to cut our way.** Serving fonts means that if we serve
+one **extracted from a media file**, we hand attacker-supplied binary to every client, whose
+FreeType then parses it — and font parsers are a classic CVE surface
+([D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)). Subsetting improves this: the served file is
+re-serialised by our subsetter rather than passed through. That is **not** a sanitiser and must
+not be described as one, but the client does then parse a file our tooling produced. The
+subsetter itself parses the hostile input, so it belongs in the same Landlock+seccomp jail as
+FFmpeg — which is where it already is, because it runs in the node.
+
+**What still needs a human.** The casual and cursive substitutes above are placeholders chosen
+for licence and availability, not for how they look at 40 px on a television from three metres.
+Comic Neue and Dancing Script cover Latin only (303 and 559 code points). Someone should look at
+them on a TV before they ship, and the monospaced-serif slot deserves a second look too —
+Courier Prime is a faithful Courier, and Courier is itself criticised as unsuitable for
+captioning.
+
+**Status:** Provisional. The style→face table is a configuration file, not code, so it is cheap
+to revise. The subsetting numbers are measured and are unlikely to move; the per-track subset
+should be validated against a real anime release with a heavy `.ass` typeset, which is the
+adversarial case.

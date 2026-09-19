@@ -45,6 +45,10 @@ that seriously.
 | 23 | Android's fallback chain has **no last-resort entry**; Apple has shipped one since 1998 | **measured** (AOSP `fonts.xml`) |
 | 24 | Unicode Last Resort HE maps all 1,114,112 code points in **588 KB**, and FreeType supports its cmap format 13 | **measured** |
 | 25 | CJK fallback must be chosen by **language**, not script — Han unification | Apple API + Levien |
+| 26 | CTA-708 already enumerates the subtitle style space: **eight tags, six files** once `smcp` and variable axes are used | spec + **measured** |
+| 27 | Seven CTA-708 styles for Latin+Greek+Cyrillic cost **5.63 MB raw / 2.42 MB woff2** | **measured** |
+| 28 | A film-length Japanese subtitle uses **1,202 distinct code points**; subsetting Noto CJK to them gives **441 KB** instead of 15.7 MB | **measured** |
+| 29 | libass synthesises bold and italic, so italic faces are optional | libass source |
 
 ---
 
@@ -1060,7 +1064,111 @@ their TV is missing a Japanese font — and a framed か answers that where `U+3
 resolution is to take both: Last Resort in release builds, hex boxes in development, which pairs
 with [D52](../../decisions/working-notes.md)'s debug-build transform.
 
-## 10. What this costs, and when
+## 10. Hosting a font set: what to host, and how much it costs
+
+§9 settled the floor. This section settles the tier above it — a **set** of served faces broad
+enough to cover the styles subtitles actually ask for. Every number below was measured with
+`fonttools` against the real binaries.
+
+### The set is already enumerated, by CTA-708
+
+The question "how many faces cover most subtitle styles" has a standardised answer.
+**CEA/CTA-708 defines exactly eight font tags**: undefined, monospaced serif, proportional
+serif, monospaced sans-serif, proportional sans-serif, casual, cursive, and small capitals.
+The W3C's 608-to-WebVTT mapping gives each a concrete CSS stack:
+
+```css
+monospaced serif        font-family: Courier, monospace, serif
+proportional serif      font-family: Times New Roman, serif
+monospaced sans-serif   font-family: Helvetica, monospace, sans-serif
+proportional sans-serif font-family: Arial, Swiss, sans-serif
+casual                  font-family: Dom, Impress, casual
+cursive                 font-family: Coronet, Marigold, cursive
+small capitals          font-family: Engravers Gothic, monospace, sans-serif;
+                        font-variant: small-caps
+```
+
+Every named face there is proprietary, which is exactly why an open-source server has to bring
+its own. Two observations from the captioning literature sharpen the list. Joe Clark's critique
+counts them as "really 6½" and makes the load-bearing point: **small capitals is not a font
+style** — "small caps can be applied to any typeface category, including cursive." And he notes
+that **all eight are optional in decoders**, so nothing breaks if we collapse the exotic ones.
+
+Measured, "6½" is six files, because `smcp` is a feature and not a face.
+
+### Measured: seven styles, Latin + Greek + Cyrillic, all weights
+
+| CTA-708 style | OFL substitute | raw | woff2 | coverage |
+| --- | --- | --- | --- | --- |
+| proportional sans-serif | `NotoSans[wdth,wght]` | 2001 K | 848 K | Latin+Greek+Cyrillic, 3094 cp, **`smcp` present** |
+| proportional serif | `NotoSerif[wdth,wght]` | 1842 K | 765 K | same, `smcp` present |
+| monospaced sans-serif | `NotoSansMono[wdth,wght]` | 1668 K | 704 K | same, `smcp` present |
+| monospaced serif | `CourierPrime-Regular` | 69 K | 24 K | Latin+Greek, 383 cp |
+| casual | `ComicNeue-Regular` | 55 K | 22 K | Latin only, 303 cp |
+| cursive | `DancingScript[wght]` | 130 K | 55 K | Latin only, 559 cp |
+| small capitals | — | 0 | 0 | the `smcp` feature on the sans face |
+| **total, 6 files** | | **5.63 MB** | **≈2.42 MB** | |
+
+Adding real italics for sans and serif takes it to 8 files, **10.18 MB / 4.30 MB woff2**. There
+is no `NotoSansMono-Italic`, and it does not matter, because **libass synthesises both**:
+`ass_font.c` has `ass_glyph_embolden()` (via `FT_Outline_Embolden`) and `ass_glyph_italicize()`,
+applied when the face lacks the style. So real italics are a quality upgrade, not a requirement.
+
+**Variable fonts are what make this tractable.** The three Noto faces carry `wght` *and* `wdth`
+axes, so one file replaces what would otherwise be nine weights × three widths. Without variable
+fonts, "enough faces to cover the common styles" is a combinatorial problem; with them it is six
+files and 2.4 MB.
+
+Casual and cursive are Latin-only in any usable open font, and that is fine — they are
+decoder-optional and have no meaningful CJK or Arabic equivalent. For non-Latin scripts they
+collapse to the sans face.
+
+### The part that is ours alone: subset per subtitle track
+
+This is where being the server changes the answer rather than just the logistics.
+
+Google Fonts serves CJK by cutting each font into ~100 fixed `unicode-range` slices, because a
+web font server has no idea what text the page will render. **We do know.** We have the subtitle
+file. So we can subset to the exact code points that track uses.
+
+Measured against `NotoSansCJKjp-Regular.otf` (15.70 MB whole):
+
+| Input | distinct code points | subset raw | subset woff2 |
+| --- | --- | --- | --- |
+| 20,000 chars of Japanese — about one film's dialogue | **1,202** | **582 K** | **441 K** |
+| 21,000 chars of Chinese | 1,816 | 988 K | 732 K |
+| 168,000 chars of Japanese — a generous upper bound | 2,405 | 1220 K | 900 K |
+| everything | 65,535 | 15.70 M | 11.15 M |
+
+**A film-length Japanese subtitle needs 441 KB, not 15.7 MB — a 36× reduction.** The reason the
+number is so small is a property of the language rather than of the compression: 168,000
+characters of running Japanese contain only 2,405 distinct code points, because the Jōyō set is
+2,136 kanji and real text saturates well below that.
+
+**Do it at scan time, not at request time.** [D11](../../decisions/working-notes.md) already
+extracts subtitles at scan time in the media node, which is where FFmpeg lives; the subset font
+is one more scan-time artifact beside the extracted track. That keeps a font parser out of the
+core's request path entirely.
+
+**And the tool is already in the build.** `hb-subset` is part of HarfBuzz — `util/hb-subset.cc`
+as a CLI, and a public C API (`hb_subset_input_create_or_fail`,
+`hb_subset_input_unicode_set`, `hb_subset_or_fail`) — and we ship HarfBuzz anyway for libass
+([D50](../../decisions/working-notes.md)). No new dependency.
+
+### One security consequence, which cuts in our favour
+
+Serving fonts means that if we ever serve a font **extracted from a media file**, we are
+redistributing attacker-supplied binary to every client, where the client's FreeType parses it.
+Font parsers are a classic CVE surface, and [D26](../../decisions/working-notes.md) already says
+media is attacker-controlled data.
+
+Subsetting helps rather than hurts here: the served file is **re-serialised by our subsetter**
+rather than being the original bytes passed through. That is not a sanitiser and should not be
+described as one, but it does mean the client parses a file our tooling produced. The subsetter
+itself parses the hostile input, so it belongs inside the same Landlock+seccomp jail as FFmpeg —
+which is where it already is, because it runs in the node.
+
+## 11. What this costs, and when
 
 Ordered by *when the decision must be made*, not by size:
 
@@ -1087,7 +1195,7 @@ cleanup on timeout. That is the real cost of a translation platform, and none of
 until there are translators. Design the catalogue format for it now; connect it when somebody
 volunteers.
 
-## 11. What was not settled
+## 12. What was not settled
 
 - **Korean collation.** `x/text/collate` gets it wrong and nobody is fixing it. Options are: live
   with it, ship a small Korean tailoring of our own, or link ICU via cgo for the sort-key

@@ -82,6 +82,15 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   by script**, because Han unification means a script-keyed choice renders Japanese with Chinese
   letterforms; then bundled Unicode Last Resort HE as the floor.
 
+  The served tier is the **CTA-708 style axis** — six upright variable faces covering the seven
+  real caption styles for Latin, Greek and Cyrillic, 5.63 MB raw and ~2.42 MB as woff2, cached
+  once per client. Variable `wght`+`wdth` axes are what keep it to six files rather than a
+  weight × width matrix, and small capitals is the `smcp` feature rather than a face. Everything
+  else is **subset per subtitle track at scan time**: a film's Japanese dialogue uses ~1,200
+  distinct code points, so `hb-subset` — already in the build for libass — turns 15.7 MB of Noto
+  CJK into ~441 KB. The subset is a scan-time artifact beside the extracted track, so no font
+  parser ever enters the core's request path ([D55](../../decisions/working-notes.md)).
+
 ## Done when
 
 A client direct-plays everything the playback survey says it should; a client that cannot decode

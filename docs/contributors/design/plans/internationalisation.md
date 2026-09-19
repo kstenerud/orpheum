@@ -39,6 +39,7 @@ The full evidence is in
 | [D52](../../decisions/working-notes.md) | Pseudo-localisation is the default development build |
 | [D53](../../decisions/working-notes.md) | Font coverage is not assumable; the server serves fonts on demand |
 | [D54](../../decisions/working-notes.md) | Plan-B font: Unicode Last Resort HE bundled (588 KB), Noto served, Unifont optional |
+| [D55](../../decisions/working-notes.md) | The served set is the CTA-708 style axis in variable fonts, subset per subtitle track |
 
 ## Schema consequences
 
@@ -79,6 +80,7 @@ Ordered by *when the decision must be made*, not by size.
 | Font-coverage enumeration across the rig | with the device lab | Cheap, and D53 rests on a guess until it runs |
 | Font-serving endpoint | with the subtitle subsystem | Same mechanism as embedded subtitle fonts |
 | Bundle Last Resort HE in every client | with the first client | 588 KB, and it is the floor everything else sits on |
+| Assemble the CTA-708 face set + `hb-subset` in the node | with the subtitle subsystem | ~2.4 MB served once, ~441 KB per CJK film |
 | Weblate | **not yet** | It needs translators to exist first |
 
 ## The two things to build first, in detail
