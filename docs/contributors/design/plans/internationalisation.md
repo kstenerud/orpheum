@@ -36,6 +36,8 @@ The full evidence is in
 | [D49](../../decisions/working-notes.md) | Unicode discipline at the boundaries, enforced by tests |
 | [D50](../../decisions/working-notes.md) | Build libass correctly; turn off VSFilter bug-compatibility for non-authored subtitles |
 | [D51](../../decisions/working-notes.md) | react-i18next, catalogues served by us, Weblate deferred |
+| [D52](../../decisions/working-notes.md) | Pseudo-localisation is the default development build |
+| [D53](../../decisions/working-notes.md) | Font coverage is not assumable; the server serves fonts on demand |
 
 ## Schema consequences
 
@@ -71,7 +73,10 @@ Ordered by *when the decision must be made*, not by size.
 | `Accept-Language` on the read API | with the API | Standard, and it *is* the fallback chain |
 | react-i18next + server-served catalogues | with the first client | Extraction is miserable to retrofit |
 | libass build flags + feature toggles | with the subtitle subsystem | Changes what we compile |
+| Pseudo-localisation in debug builds | with the first client | Free before there are strings; a retrofit after |
 | One RTL locale in the device lab | with [device-lab.md](device-lab.md) | One locale, one pass |
+| Font-coverage enumeration across the rig | with the device lab | Cheap, and D53 rests on a guess until it runs |
+| Font-serving endpoint | with the subtitle subsystem | Same mechanism as embedded subtitle fonts |
 | Weblate | **not yet** | It needs translators to exist first |
 
 ## The two things to build first, in detail
@@ -103,6 +108,33 @@ for the merge, and unlocks, with cleanup on timeout.
 
 None of that buys anything before there are translators. Design the catalogue format for it now;
 connect it when somebody volunteers.
+
+## What the commercial players do, and what transfers
+
+Researched alongside the rest; the detail is in
+[research/internationalisation.md](../research/internationalisation.md) §8. Three things carried
+over and one did not.
+
+**Carried over.** Netflix serves UI strings from a **runtime service** rather than shipping them
+in builds, explicitly because "a build might need additional approval from a third party like
+Apple" — independent confirmation of D51, arrived at by a company that built a three-region
+microservice to get a property we get for free by being on the same LAN. Their
+**pseudo-localisation** is now D52. Their **Hydra** screenshot pipeline — UI automation posting
+locale × device screenshots to a catalogue, one property-file line per new locale — is the shape
+[device-lab.md](device-lab.md) should take for its locale axis.
+
+**Did not transfer, and it is the important one.** Netflix's primary browse surface is **ranked
+rows**, not an alphabetical grid: personalised ordering largely replaces collation. A personal
+media server's primary surface *is* the A–Z grid, so the hardest problem in this round — that
+every locale wants a different order and Go's implementation gets Korean wrong — is more central
+for us than for them, on a far smaller budget. That asymmetry is why
+[D47](../../decisions/working-notes.md) spends a schema column on it.
+
+**And one honest ceiling.** Netflix mandates IMSC 1.1 for Japanese timed text: vertical writing
+mode, *tate-chū-yoko*, ruby with reserved space, *bouten* emphasis marks. libass has **zero** ruby
+support and only the VSFilter `@font` convention for vertical text, with open bugs. We render
+everything a personal library actually contains; we do not render broadcast-grade Japanese
+typesetting. Stated, not discovered.
 
 ## Open
 

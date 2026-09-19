@@ -3195,3 +3195,109 @@ one RTL locale belongs in the device-lab pass.
 
 **Status:** Provisional. The bundle-vs-serve choice should be revisited if offline use of a
 non-English client turns out to matter more than expected.
+
+---
+
+## D52 — Pseudo-localisation is the default development build
+
+**Decided** (2026-09-19). Debug builds render every UI string through a pseudo-localisation
+transform by default. Turning it *off* is the opt-in.
+
+**Why.** Taken from Netflix, who published both the mechanism and the retrospective. Their
+problem statement: translated text can be **up to 40% longer** than English — worst in German,
+Hebrew, Polish, Finnish and Portuguese — and a UI designed in English assumes English string
+lengths, line heights and glyphs. At 26 languages one layout mistake becomes "26 defects that
+need to be logged, managed, and resolved," when it could have been fixed once before translation
+started.
+
+The transform, from their example:
+
+```
+Find Help Online   →   [ƒîกี้ð Ĥéļþ Öกี้ļîกี้é one two]
+```
+
+Three elements, each catching a different class of defect: the `[` `]` markers reveal
+**clipping**, because a developer who cannot see both brackets is looking at a truncated string;
+extended characters stress **line height and font coverage**; and the padding simulates the
+**40% expansion**. The quiet fourth benefit is the best one — a string that was never
+externalised **does not get transformed**, so it stays plain English and stands out on a screen
+of accented gibberish. That is a free lint for the failure mode that is otherwise invisible
+until a translator asks why a button has no key.
+
+**Three details that make it work, all from their experience rather than the idea:**
+
+- **Opt-out, not opt-in.** Netflix made it "the default development language for all UI
+  developers" in debug builds. Opt-in tooling is tooling nobody runs.
+- **Exclude fields already length-capped upstream** — synopses, titles — or padding produces
+  false positives.
+- **Metadata has to be transformed too.** Titles, cast names and ratings come from elsewhere, and
+  without them "the experience felt incomplete, half pseudo localized, half English." This is
+  exactly the catalogue/metadata split of [D45](#d45--metadata-is-multi-language-in-the-schema-chosen-per-request)
+  and [D46](#d46--no-translated-string-is-ever-stored-in-the-database), and it confirms which
+  half is harder.
+
+**Why this is unusually cheap for us.** Netflix's own retrospective says the engineering "was not
+half of the battle, I would argue it was even less — the real work starts while advocating,
+influencing, educating, and convincing development teams." We have no teams to convince. We get
+the expensive part of the idea at the cheap part's price, and we get it before there is a single
+translated string, which is the only time it is free to adopt.
+
+Their six-week survey found readability suffered, and they proposed replacing `one two three`
+padding with vowel multiplication (`[ƒîîîกี้ð Ĥéééļþ …]`). Start there rather than repeating the
+mistake.
+
+**Status:** Provisional in form, not in principle. The exact transform should be tuned once
+somebody has stared at it for a week; the default-on part is the decision.
+
+---
+
+## D53 — Font coverage is not assumable; the server serves fonts on demand
+
+**Decided** (2026-09-19). Treat script coverage as a client capability that is **reported, not
+assumed**. Ship no large fallback fonts in the client. When a client cannot render a script, the
+server supplies the font over the same addressable-resource mechanism
+[D11](#d11--subtitles-are-a-subsystem-not-a-feature) already uses for embedded subtitle fonts.
+
+**Why.** Measured against the Android 15 Compatibility Definition Document — the document that
+decides what a certified device must contain:
+
+```
+"CJK" 0 · "Chinese" 0 · "Arabic" 0 · "Hebrew" 0 · "Thai" 0   occurrences
+```
+
+It mandates Latin, Greek and Cyrillic (Latin Extended A–D, the Unicode 7.0 currency block), that
+`NotoColorEmoji.ttf` not be removed, and that `sans-serif` be Roboto 2.x **"for the languages
+that Roboto supports."** Nothing more. A device may ship with no CJK, Arabic, Hebrew, Thai or
+Indic font and remain compliant — and on a single-market TV box, which is most of the hardware in
+[test-hardware.md](../design/research/test-hardware.md), that is the likely case rather than the
+edge case.
+
+The symptom is tofu, and the user's reading of it is **"the subtitles are broken"**, not "my TV
+lacks a font". It lands on us either way.
+
+**Why not just bundle one.** Measured:
+
+```
+NotoSansCJKjp-Regular.otf   15.70 MB    one weight
+NotoSansCJKjp-Bold.otf      16.24 MB
+NotoSerifCJK full OTC      ~132 MB
+```
+
+~16 MB per weight per CJK variant, shipped to every user including the overwhelming majority who
+will never see a CJK glyph, on platforms where app size is a real constraint and an update is a
+store review.
+
+**Why serving works.** We are the server the client is already connected to, usually over a LAN.
+The client reports which scripts it can render — the same shape as
+[D2](#d2--playback-negotiation-the-client-decides-from-a-manifest)'s "the client is the only party that
+can ask its own decoder" — and the server sends what is missing, once, cached. The mechanism
+already exists: D11 serves embedded subtitle font attachments as addressable resources, and a
+script-fallback font is that with a different key.
+
+This also closes a gap in [D50](#d50--build-libass-correctly-and-turn-off-vsfilter-bug-compatibility-for-non-authored-subtitles).
+Correct bidi and line breaking are worthless if the glyphs are boxes, and libass will happily
+render tofu with perfect Unicode line breaking between the boxes.
+
+**Status:** Provisional. Needs a real measurement of what the Fire TV sticks and the older Android
+TV devices actually carry — a direct job for the device lab, and cheap: enumerate the system font
+set and the covered scripts on every device in the rig.

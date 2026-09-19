@@ -44,6 +44,14 @@ reproducing on RN 0.77. A forced restart is tolerable on a phone and bad on a TV
 changes their TV's language weekly. One RTL locale belongs in the [device-lab](device-lab.md)
 pass regardless: Jellyfin has the Arabic layout bugs that come from not having one.
 
+**The device may have no font for the script.** The Android CDD mandates Latin, Greek, Cyrillic
+and emoji — and searching it for "CJK", "Chinese", "Arabic", "Hebrew" and "Thai" returns zero
+occurrences each. A compliant TV box can render tofu, and the user will read that as broken
+subtitles. Bundling is the wrong fix at ~16 MB per weight per CJK variant, so the client reports
+the scripts it can render and the server supplies the rest
+([D53](../../decisions/working-notes.md)). Enumerating the fonts on every device in the rig is a
+few seconds each and belongs in the first [device-lab](device-lab.md) pass.
+
 **The server owns sort order.** Hermes does not bundle ICU — it projects the platform's, whose
 *"results may vary between devices running different Android versions"* — so `localeCompare`
 can order the same list differently on an Android 10 phone and an Android 14 TV. The client

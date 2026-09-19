@@ -88,6 +88,32 @@ streaming. **This is the biggest reason a small team can compete here at all.**
 | Recommendation ML at scale | Catalogue discovery across millions of titles | A few thousand items the user chose deliberately. |
 | Per-shot encoding optimisation | Bandwidth cost at planetary scale | Bandwidth is free on a LAN. |
 
+## Localisation: two ideas to take, one asymmetry to notice
+
+Examined separately and in detail in [internationalisation.md](internationalisation.md) §8;
+the summary belongs here because it follows the same transfers/doesn't-transfer split.
+
+**Takes.** Netflix serves UI strings from a **runtime microservice** rather than shipping them
+in builds, for a reason they state outright — "a build might need additional approval from a
+third party like Apple. This causes unnecessary delays, especially in cases where a fix to a
+string needs to be rolled out immediately." They built three AWS regions of infrastructure to
+get a property we get for free by being the server on the other end of the LAN. And their
+**pseudo-localisation** — every debug build renders `Find Help Online` as
+`[ƒîกี้ð Ĥéļþ Öกี้ļîกี้é one two]`, catching clipping, line-height overflow, 40% text expansion
+**and un-externalised strings** in one pass — is the cheapest good idea in this entire survey.
+Both are now decisions ([D51](../../decisions/working-notes.md),
+[D52](../../decisions/working-notes.md)).
+
+**The asymmetry.** Netflix's browse surface is **ranked rows**, not an alphabetical grid, so
+personalised ordering largely replaces collation. Ours is a grid. The hardest i18n problem —
+that Swedish, German, Chinese and Korean each want a different order for the same list — is
+therefore *more* central for us than for them, on a far smaller budget. This is the one place in
+this document where a problem is harder at household scale than at planetary scale.
+
+**And a ceiling worth stating.** Netflix mandates IMSC 1.1 for Japanese timed text — vertical
+writing mode, *tate-chū-yoko*, ruby, *bouten* marks. libass has zero ruby support. We render
+everything a personal library actually contains and not broadcast-grade Japanese typesetting.
+
 ## What the commercial players are *worse* at, and where we win
 
 - **They cannot play your files.** Arbitrary containers, ancient codecs, rips with ten audio

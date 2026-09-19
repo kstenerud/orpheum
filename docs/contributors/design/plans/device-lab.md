@@ -151,6 +151,27 @@ The gap between **claimed** and **measured** is the most valuable column in the 
 it is exactly what a server-side device profile can never know and what
 [D2](../../decisions/working-notes.md) is built on.
 
+## 7a. The locale axis, which is nearly free once the harness exists
+
+Two jobs for the rig that have nothing to do with performance
+([D52](../../decisions/working-notes.md), [D53](../../decisions/working-notes.md)).
+
+**Enumerate the fonts.** On every device in the fleet, list the system font set and the Unicode
+scripts it covers. This is a few seconds per device and it settles a question D53 currently
+guesses at: the Android CDD mandates **no** CJK, Arabic, Hebrew, Thai or Indic font, so a
+compliant TV box may render tofu, and we do not know which of the Fire TV sticks and older
+Android TV devices actually do. The user's reading of tofu is "the subtitles are broken".
+
+**Screenshot the locales.** Netflix's Hydra catalogues every unique screen across devices *and*
+locales by having the existing UI automation post screenshots with metadata; adding a locale is
+one line in a property file. Once §3's self-reporting harness exists, the locale axis costs
+almost nothing and is the only way anyone has found to make RTL and text-expansion bugs visible
+without employing 26 reviewers. Their known gap is worth pre-empting: nothing detects that a
+screen *changed*, so review never becomes incremental.
+
+One RTL locale (Arabic or Hebrew) and one CJK locale belong in the standing set. Jellyfin has
+the Arabic layout bugs that come from not having them.
+
 ## 8. Choosing the floor — three floors, and the binding one is probably not codecs
 
 The stated purpose of the lab is to set the support floor from evidence rather than guesswork.

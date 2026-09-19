@@ -34,6 +34,12 @@ that seriously.
 | 12 | NFC/NFD: a macOS node and a Linux node report **different bytes for the same file** | **measured** |
 | 13 | libass defaults to VSFilter-bug-compatible bidi; JASSUB never turns it off and ships no libunibreak | source |
 | 14 | Hermes has no `Intl.PluralRules` and no `Intl.Segmenter`, and its `Intl` results vary by Android version | Hermes docs |
+| 15 | The Android CDD mandates **no** CJK, Arabic, Hebrew, Thai or Indic font — a compliant device may render tofu | **measured** (0 occurrences in the CDD) |
+| 16 | Bundling a CJK font costs ~16 MB per weight, so fonts should be served, not shipped | **measured** |
+| 17 | Netflix built a three-region microservice to serve UI strings — to avoid App Store review on a typo | Netflix, 2015 |
+| 18 | Netflix runs **pseudo-localisation by default** in every debug build; text expands up to 40% | Netflix, 2018 |
+| 19 | Netflix mandates IMSC 1.1 for Japanese subtitles; **libass has zero ruby support** | partner specs + libass source |
+| 20 | Netflix largely sidesteps collation — its browse surface is ranked rows, not an A–Z grid. Ours is a grid | reasoning |
 
 ---
 
@@ -607,6 +613,47 @@ Three things follow:
   phone and an Android 14 TV can order the same list differently. This is an independent argument
   for §3's conclusion: **the server owns sort order**, the client renders the list it is given.
 
+### You cannot assume a font exists for the script
+
+Measured against the **Android 15 Compatibility Definition Document**, which is the document
+that decides what a certified Android device must contain. Searching it:
+
+```
+"CJK"       0 occurrences
+"Chinese"   0 occurrences
+"Arabic"    0 occurrences
+"Hebrew"    0 occurrences
+"Thai"      0 occurrences
+```
+
+What it *does* mandate is Latin, Greek and Cyrillic coverage including Latin Extended A–D and
+the Unicode 7.0 currency block; that `NotoColorEmoji.ttf` must not be removed; and that the
+`sans-serif` family be Roboto 2.x **"for the languages that Roboto supports."**
+
+So a device can ship with no CJK, Arabic, Hebrew, Thai or Indic font at all and still be a
+compliant Android device. On a cheap TV box built for one market — which is exactly the hardware
+in [test-hardware.md](test-hardware.md) — that is not hypothetical. The symptom is tofu boxes in
+the UI and, worse, in subtitles, where the user's reaction is "the subtitles are broken", not
+"my TV lacks a font".
+
+"Just bundle a font" is not free, and this is the measurement that says so:
+
+```
+NotoSansCJKjp-Regular.otf       15.70 MB   (one weight, Japanese-first pan-CJK)
+NotoSansCJKjp-Bold.otf          16.24 MB
+NotoSerifCJK full OTC           ~132 MB    (release asset, zipped)
+```
+
+Roughly 16 MB per weight per CJK variant. Bundling that into a TV app for every user, most of
+whom will never see a CJK glyph, is the wrong shape.
+
+The right shape falls out of the architecture we already have: **the server serves fonts on
+demand.** [D11](../../decisions/working-notes.md) already serves embedded subtitle font
+attachments as addressable resources, so script-fallback fonts are the same mechanism with a
+different key — the client reports which scripts it can already render, the server supplies what
+is missing, once, cached, over the LAN. Being the server the client is already talking to keeps
+paying.
+
 ### RTL requires an app restart
 
 `I18nManager.forceRTL()` sets a native flag read at startup. Changing it does not re-lay-out the
@@ -694,7 +741,208 @@ field pair, not as an assumption.
 
 ---
 
-## 8. What this costs, and when
+## 8. How the commercial players do it
+
+Asked directly, and worth its own section because the answer is not "the same thing, bigger".
+Netflix has published more engineering detail on this than anyone else in the field; the
+primary sources are the 2015 *Localization Technologies at Netflix* post, the 2018
+*Pseudo Localization @ Netflix* post, and their public partner-facing delivery specifications.
+
+### The strings live in a service, not in the repository
+
+Netflix's **Global String Repository** is a microservice — Java, Cassandra and Elasticsearch,
+deployed across three AWS regions, exposed through the same edge APIs as their other metadata
+and held to the same availability requirements, with a Java client that caches. Strings are
+organised into **bundles** (a container across languages) and **namespaces** (a working area,
+with a default namespace for publishing), so parallel feature branches do not collide the way
+files in git do. A developer edits the English string in a bundle; translation workflows trigger
+automatically; completed translations become available immediately.
+
+Applications choose their integration:
+
+- **runtime** — "allows fast propagation of changes to UIs"
+- **build time** — the repository is used only for translation and the data ships in the build
+
+The stated reason for building any of this is worth quoting, because it is the argument
+[D51](../../decisions/working-notes.md) made from first principles:
+
+> For device UIs, a build might need additional approval from a third party like Apple. This
+> causes unnecessary delays, especially in cases where a fix to a string needs to be rolled out
+> immediately.
+
+Netflix built a three-region distributed service to avoid App Store review latency on a typo.
+We get the same property for free, because unlike them we *are* the server the client is already
+connected to, on the same LAN.
+
+Two further notes. In 2015 they listed "enhancing support for quantity strings (plurals) and
+gender based strings" as **future work** — even Netflix shipped a global string service before
+it handled plurals. And they wrote "we plan on releasing it as open source software." They did
+not: there is no such repository under `github.com/Netflix`, and a search of the org for
+`string`/`i18n`/`localization`/`locale` returns zero results. Part of why every open-source
+project in §1 ends up on Weblate with files in git is that the commercial pattern was never
+published as code.
+
+### Pseudo-localisation, on by default, is the cheapest idea here
+
+This is the one thing in this section I would copy immediately.
+
+The problem Netflix states: translated text can be **up to 40% longer** than English — worst in
+German, Hebrew, Polish, Finnish and Portuguese — and UIs designed in English assume English
+string lengths, line heights and glyphs. With 26 languages, one layout mistake becomes "26
+defects that need to be logged, managed, and resolved," when it could have been fixed once at
+the English design stage. Their real example: *"Don't miss out."* → *"Lassen Sie sich nichts
+entgehen!"*
+
+Their transform, applied by **NFi18n** to every string served out of the Global String
+Repository:
+
+```
+Find Help Online   →   [ƒîกี้ð Ĥéļþ Öกี้ļîกี้é one two]
+```
+
+Three parts, each catching a different defect:
+
+| Element | Catches |
+| --- | --- |
+| `[` … `]` markers | Clipping — if a developer cannot see both brackets, an inflexible element truncated the string |
+| ASCII → extended equivalents | Line-height overflow, missing font/encoding support — **and un-externalised strings, which stay plain English and therefore stand out** |
+| `one two three four…` padding | Expansion, simulating the 40% |
+
+Three details that show this was actually used rather than merely built:
+
+- **It is opt-out, not opt-in.** Pseudo-localisation is "the default development language for all
+  UI developers" in debug builds.
+- **They exclude fields whose length is already capped upstream** — synopsis text, titles —
+  because padding those produces false positives.
+- **The hard part was metadata, not strings.** Titles, synopses, cast names and maturity ratings
+  come from other systems, and without pseudo-localising those too "the experience felt
+  incomplete, half pseudo localized, half English." That is precisely the string-catalogue /
+  metadata split of [D45](../../decisions/working-notes.md) and
+  [D46](../../decisions/working-notes.md), and Netflix confirms which half is harder.
+
+Their own retrospective is the most useful part: *"architecting, and implementing the solution
+would not be half of the battle, I would argue it was even less. The real work starts while
+advocating, influencing, educating, and convincing development teams."* On a survey six weeks
+in, the complaint was readability, and they proposed replacing the `one two three` padding with
+vowel multiplication — `[ƒîîîกี้ð Ĥéééļþ ÖÖกี้ļîîîกี้ééé]`.
+
+For us the organisational half is free — there is no team to convince — so we get the expensive
+part of the idea at the cheap part's price.
+
+### Locale testing is a screenshot pipeline, not a person with a TV
+
+**Hydra** catalogues "every possible unique screen" across devices and locales. It does not
+capture anything itself: existing UI automation runs data-driven tests in parallel across all
+supported locales under Jenkins, screenshots go to S3, and metadata — page name, feature area,
+UI platform, and a *unique screen definition* — goes to a relational database behind a REST API.
+A German localisation specialist filters to the non-member flow in German across PS3, Web and
+Android and reviews it in a fraction of the time.
+
+Adding a locale is **one line in a property file**. Their stated gap: nothing detects that a
+screen has *changed*, so review is not incremental.
+
+This is the shape our [device-lab.md](../plans/device-lab.md) already has, pointed at a second
+axis. If the UI automation exists anyway, locale × device screenshotting is nearly free, and it
+is the only way anyone has found to make RTL and expansion bugs visible without owning 26
+people.
+
+### Subtitles: they mandate a richer format than we can render
+
+This is where the gap between us and them is real rather than cosmetic, and it is worth knowing
+before someone reports it as a bug.
+
+Netflix's partner specifications require **IMSC 1.1** for Japanese timed text and **TTML1** for
+right-to-left languages. The Japanese IMSC 1.1 creation guide calls for:
+
+| Attribute | Purpose |
+| --- | --- |
+| `tts:writingMode="tbrl"` | Vertical text, top-to-bottom right-to-left |
+| `tts:textCombine="all"` | *Tate-chū-yoko* — horizontal double-digit numbers inside vertical text |
+| `tts:rubyPosition`, `tts:rubyAlign`, `tts:rubyReserve` | Ruby (furigana), with reserved space so vertical subtitles do not shift between events |
+| `tts:textEmphasis="filled circle outside"` | *Bouten* emphasis marks |
+| `ebutts:multiRowAlign="start"` | Left justification preserved across wrapped lines |
+
+**ASS cannot express most of this, and libass does not implement it.** Searching the libass
+source for `ruby` returns **zero** matches in `ass_render.c`, `ass_parse.c`, `ass_types.h` and
+`ass_shaper.c`. Vertical text exists only as the VSFilter `@font` convention — a flag on the
+font descriptor — with open bugs against it (libass #695 *"@font vertical writing is displayed
+wrong"*, #600 *"libass mangles positioning of Japanese punctuation when rendering vertically"*).
+
+So [D11](../../decisions/working-notes.md)'s "libass everywhere" has a ceiling: it renders
+everything a personal library actually contains — SRT, ASS, VTT, PGS, CC — correctly once
+[D50](../../decisions/working-notes.md)'s build flags are right, and it cannot render
+broadcast-grade Japanese typesetting. That is the correct trade for a home server and it should
+be stated rather than discovered.
+
+### Metadata: per-territory, and the artwork problem solved at the source
+
+Netflix localises titles, synopses and genre tags per territory, and tests artwork variants
+regionally. The relevant detail is how they handle the problem
+[D45](../../decisions/working-notes.md) identified — that posters have title text baked into the
+pixels. Netflix's partner guidelines ask for the **title treatment** (the logo/title lockup) as a
+**vectorised file — AI, EPS or PDF** — and accept localised title treatments as separate
+deliverables. They compose the artwork per locale because they can compel their suppliers to
+deliver the layers separately.
+
+We cannot. TMDB hands us finished JPEGs with the title already rendered into them, which is why
+per-language artwork has to be a *row* in our schema rather than a composition step. Same
+problem, opposite solution, forced by who we can make demands of.
+
+### What they avoid entirely, which we cannot
+
+The most useful observation is a negative one. **Netflix's primary browse surface is ranked rows,
+not an alphabetical grid** — "Trending Now", "Because you watched", personalised artwork,
+personalised ordering. Alphabetical sort exists but is a secondary affordance inside "Browse by
+Language".
+
+Personalised ranking replaces collation. That means the single hardest problem in §3 — that
+Swedish, German, Chinese and Korean each want a different order for the same list, and Go's
+implementation gets Korean wrong — is a problem Netflix largely does not have to solve on the
+browse screen, because the browse screen is not sorted alphabetically.
+
+A personal media server's primary surface **is** the A–Z library grid. So collation is more
+central for us than for them, on a far smaller budget. That asymmetry is why
+[D47](../../decisions/working-notes.md) spends a column of the schema on it.
+
+### Cultural data comes from CLDR, for everyone
+
+Netflix states plainly that date, time, calendar, timezone, number, currency, phone-number and
+sorting data "are collected and stored in the CLDR (Unicode Common Locale Data Repository)."
+This is the one place where we and Netflix use the identical source — and it sharpens §3's
+finding, because `x/text/collate` is pinned at **CLDR 23 (2013)** while Netflix consumes current
+CLDR through ICU. Same data, thirteen years apart.
+
+### A different model worth knowing about: Mozilla Fluent
+
+Not a media company, but the deepest published thinking on the problem
+[D51](../../decisions/working-notes.md) settled, and it disagrees with the choice we made.
+
+Fluent's central idea is **asymmetric localisation**: a translation may be structurally more
+complex than its source, and *the localiser* adds that complexity without the developer
+anticipating it and without any other language being affected. Polish needs grammatical case and
+four plural forms; English needs one string; in Fluent that asymmetry lives entirely in the
+Polish file.
+
+```fluent
+brand-name = { $case ->
+   *[nominative] Firefox
+    [genitive] Firefoksa
+}
+hello = Witaj w { brand-name(case: "dative") }
+```
+
+Fluent also has message references with arguments (above), compound messages with attributes that
+map onto UI components (`confirm`, `.ok`, `.cancel`), and — the detail that matters operationally
+— **error recovery**: a malformed Fluent resource degrades gracefully, where ICU MessageFormat
+rejects the message and you ship missing UI text.
+
+i18next covers **plurals** per language through CLDR plural categories, which is most of the
+value. It does not give a localiser a way to introduce a *gender* or *case* variant the English
+source does not have. For a media server's UI — mostly nouns, counts and short labels — that is
+an acceptable gap, and the catalogue format is what would have to change if it ever is not. Worth
+recording as the known limit of D51 rather than a reason to reverse it.
+
+## 9. What this costs, and when
 
 Ordered by *when the decision must be made*, not by size:
 
@@ -721,7 +969,7 @@ cleanup on timeout. That is the real cost of a translation platform, and none of
 until there are translators. Design the catalogue format for it now; connect it when somebody
 volunteers.
 
-## 9. What was not settled
+## 10. What was not settled
 
 - **Korean collation.** `x/text/collate` gets it wrong and nobody is fixing it. Options are: live
   with it, ship a small Korean tailoring of our own, or link ICU via cgo for the sort-key
