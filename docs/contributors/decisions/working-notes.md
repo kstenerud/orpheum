@@ -3944,3 +3944,110 @@ so it stays within D42.
 and a real watcher — they belong with the other thresholds in
 [performance-targets.md](../design/plans/performance-targets.md). The **separation** of the two
 triggers is not provisional; it is a correction.
+
+---
+
+## D61 — Containment now, detection later and plugin-shaped; four affordances to keep open
+
+**Decided** (2026-09-19). Proactive threat scanning of media, subtitles, fonts and posters is
+**not for the first release**, and the research says its eventual shape is different from the
+obvious one. What we do now is keep four seams open, all at near-zero cost, and avoid the two
+mistakes that would close them.
+
+### The surface is real and it is not only video
+
+39 entries in CISA's Known Exploited Vulnerabilities catalogue touch media, image or font
+parsing — Apple's Image I/O (CVE-2025-43300, August 2025), Samsung's image codec twice in 2025,
+FreeType twice. So including subtitles, fonts and posters rather than only video is correct. And
+posters are the one binary we fetch **from a third party by default** — TMDB — rather than from
+the user's own disk.
+
+### But every platform that has faced this chose containment over detection
+
+**Apple built BlastDoor** after the 0-click iMessage attacks: it *"isolates, parses, transcodes,
+and validates untrusted data"* with *"sandbox restrictions and memory safe validation of
+output"*, almost no filesystem access and no network. Apple's own description mentions **no
+signature scanning or content detection at all**. **Netflix's** published media tooling (Photon)
+is *conformance* validation against SMPTE ST 2067-2, not threat detection. **Google's** answer is
+fuzzing plus sandboxing — and **FFmpeg, FreeType, HarfBuzz and libass are all in OSS-Fuzz**, so
+our entire parsing stack is already continuously fuzzed by a better-resourced programme than we
+could run.
+
+That last point reframes the investment. **Shipping current builds promptly beats scanning**,
+and it is cheaper. A concrete deliverable falls out of it: the server should know which FFmpeg,
+libass and FreeType it is running and tell the user when they are stale — which is the same
+information [D53](#d53--font-coverage-is-not-assumable-the-server-serves-fonts-on-demand) wants
+about client FreeType versions anyway.
+
+### The scanner is a file parser, which is the thing we are defending against
+
+ClamAV has **158 CVEs**, 29 since 2023, **seven on a single day** (2026-08-07) — XAR, Mach-O,
+PDF, GPT, PESpin and two zip parsers, each "an unauthenticated remote attacker could…" from
+parsing a file. Adding a scanner to defend FFmpeg means adding a component with a *worse*
+parser-CVE record and pointing it at the same bytes.
+
+This does not forbid it. It settles the shape: **any scanner is another hostile-input parser —
+tier-3 plugin, inside the same jail, no additional privilege, never a trusted security
+component.**
+
+### "Look for shellcode" is the part that does not survive
+
+Saying so plainly because it is the most tempting item. Modern exploits often contain **no
+shellcode at all** — ROP and JOP chains are assembled from gadgets already in the process, and
+data-only attacks corrupt state without injecting code; a current FFmpeg exploit is typically a
+malformed header causing a type confusion, with nothing byte-like to match. And **compressed
+video is high-entropy and statistically indistinguishable from packed or encrypted payloads**,
+so the classic entropy tell is a 100% false-positive rate on our actual corpus.
+
+The intent — *notice that this file is trying something* — is right. The mechanism below is
+better.
+
+### The four affordances to keep open now
+
+Each costs approximately nothing today and is expensive to retrofit.
+
+1. **Unknown record kinds must be skipped, not fatal.** This is the load-bearing one. Reports are
+   JSONL and degrade per line ([D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global)),
+   and the protocol is versioned ([D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle)).
+   Make it an explicit rule **now** that the core ignores record kinds it does not recognise,
+   counts them, and does not treat the report as malformed. Then an `anomaly` record can be added
+   later without a protocol break or a node/core upgrade ordering problem.
+2. **The jail must be able to report, not only kill.** seccomp already has the primitives:
+   `SECCOMP_RET_LOG` (allow after logging), `SECCOMP_RET_TRAP` (catchable `SIGSYS`, so a worker
+   can report before dying), `SECCOMP_RET_USER_NOTIF` (notify a supervisor that can decide), and
+   `SECCOMP_FILTER_FLAG_LOG`. Choosing a filter action that can be observed costs nothing now,
+   and it means **our sandbox is already a detector and we are simply not reading it**. A file
+   that makes FFmpeg attempt an unexpected syscall is stronger evidence than any signature will
+   ever be.
+3. **Record per-file resource peaks while probing.** The realistic threat to a home server is
+   **denial of service, not RCE** — ASS render bombs (Jellyfin ships `libassMemoryLimit` and
+   `libassGlyphLimit` for exactly this), decompression bombs in WOFF2/brotli fonts and PNG
+   posters, files that pin a CPU forever. We already have cgroups
+   ([D43](#d43--one-binary-one-process-per-role-and-a-thin-optional-supervisor),
+   [D44](#d44--prefer-the-platforms-supervisor-ship-the-units-and-never-exit-when-you-could-report)), so peak
+   CPU, memory and output size per file is free, and an outlier is visible with no new machinery.
+4. **Quarantine is a library state, never a file operation.** Never move, never delete, never
+   modify — [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index) and
+   [principles §2](../principles/README.md). A suspected file is *marked and not played by
+   default*; the bytes are untouched.
+
+### And the two mistakes to avoid
+
+**The node must never conclude "malicious."** It reports observations — seccomp violation,
+parser crash, declared type ≠ sniffed type, 1.2 GB decompressed from 40 KB — and the core
+decides what they mean, per [D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides)
+and [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret).
+A node that quarantines is a sensor making policy.
+
+**Do not cry wolf.** These are the user's own files, acquired over fifteen years, many encoded by
+broken tools. A server that warns about a 2004 home-video rip has not made anyone safer; it has
+taught them to dismiss warnings, which is a security failure and not a cosmetic one.
+[Principles §3](../principles/README.md) requires explaining the decision, and a warning the user
+cannot act on is not an explanation. Default silent; surface only concrete observations; always
+say what to do. *"This file used 40× the memory of anything else in your library while probing"*
+is actionable. *"Possible shellcode detected"* is not.
+
+**Status:** Provisional and deliberately unscheduled — see
+[content-safety.md](../design/plans/content-safety.md). The four affordances are not
+provisional; they are cheap now and awkward later, and item 1 in particular is a wire-format
+rule that has to exist before the first node ships.

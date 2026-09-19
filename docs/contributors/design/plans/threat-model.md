@@ -6,6 +6,7 @@
 
 - **Status:** PLANNED — **researched 2026-09-18** ([threat-model.md](../research/threat-model.md), [D26](../../decisions/working-notes.md)). The containment stance is chosen; the per-platform confinement matrix and the signed-URL design remain open.
 - **Depends on:** remote-access.md
+- **See also:** [content-safety.md](content-safety.md) — proactive detection, deliberately deferred ([D61](../../decisions/working-notes.md)), with four affordances due now.
 
 ## Why this is a gap and not a formality
 

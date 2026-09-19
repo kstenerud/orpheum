@@ -125,7 +125,11 @@ The hard design work, and where the traps are. Format and completeness settled i
   removal only where that region is complete) and *delta* (explicit `added`/`changed`/`removed`,
   because deletions are stated, never inferred — the same lesson as
   [D8](../decisions/working-notes.md)).
-- **Record types: `header`, `entry`, `error`, `skip`, `trailer`** ([D40](../decisions/working-notes.md)).
+- **Record types: `header`, `entry`, `error`, `skip`, `trailer`** ([D40](../decisions/working-notes.md)),
+  and **the core skips kinds it does not recognise, counts them, and does not treat the report
+  as malformed** ([D61](../decisions/working-notes.md)). That rule has to exist before the first
+  node ships, because it is what lets a record type be added later without a protocol break or
+  a node/core upgrade ordering problem.
   Errors sit **in the stream, in order**, because position says what was and was not covered
   around the failure.
 - **Per item:** node-local stable id, path, size, mtime, optional content hash, and the probe

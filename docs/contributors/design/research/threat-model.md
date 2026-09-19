@@ -125,7 +125,121 @@ studio partners; Jellyfin loads every attachment whose container-declared MIME t
 font, by default. Full evidence in
 [internationalisation.md](internationalisation.md) §10.
 
-## 5. The rest of the model, briefly
+## 5. Proactive scanning: what the platforms chose, and what actually works
+
+Researched **2026-09-19**, prompted by the proposal to scan files in a sandbox for
+irregularities — videos, subtitles, embedded fonts, posters — and warn.
+
+### The surface is real, and it is not only video
+
+39 entries in CISA's Known Exploited Vulnerabilities catalogue touch media, image or font
+parsing. A recent sample, all confirmed exploited:
+
+| CVE | Added | What parsed the file |
+| --- | --- | --- |
+| CVE-2025-43300 | 2025-08-21 | Apple **Image I/O** — out-of-bounds write |
+| CVE-2025-21042 / -21043 | 2025-10, 2025-11 | Samsung `libimagecodec.quram.so` — OOB write, RCE, **twice** |
+| CVE-2025-27363 | 2025-05-06 | **FreeType**, variable-font subglyph parsing |
+| CVE-2020-15999 | 2021-11-03 | **FreeType**, PNG embedded in a font |
+| CVE-2011-3402 | re-added 2025-10 | Windows kernel **TrueType** parser |
+
+So the instinct to include posters and fonts rather than only video is correct. And posters are
+the one binary we fetch **from a third party by default** — TMDB — rather than from the user's
+own disk.
+
+### What the platforms with the most exposure actually did
+
+**Apple built BlastDoor**, after the 0-click iMessage attacks. Apple's own description: it
+*"isolates, parses, transcodes, and validates untrusted data arriving in Messages, IDS and other
+vectors"*, using *"sandbox restrictions and memory safe validation of output"*. Inside the vault
+there is almost no filesystem access and no network access.
+
+Note what is **absent** from Apple's page: any mention of scanning for malicious signatures or
+content detection. The company with the most to lose from 0-click media exploits answered with
+**isolation plus structural validation**, not with looking for badness.
+
+**Netflix's published media tooling is conformance validation.** Photon (Java, actively
+maintained) validates IMF packages against SMPTE ST 2067-2. That is "does this file conform to
+its specification", not "does this file look malicious" — and it works because Netflix can
+reject a non-conforming delivery, which we cannot do to a user's own files.
+
+**Google's answer is fuzzing plus sandboxing**, and it reaches us directly: **FFmpeg, FreeType,
+HarfBuzz and libass are all in OSS-Fuzz**. Our entire parsing stack is already under continuous
+adversarial testing by a better-resourced programme than anything we could run. That reframes
+the cost/benefit sharply — our marginal detection value is small next to **shipping current
+builds promptly**, which is a cheaper and more effective investment.
+
+### The scanner is a file parser, which is the thing we are defending against
+
+This is the finding that most constrains the design. ClamAV — the obvious open-source choice —
+has **158 CVEs**, 29 of them published in 2023 or later. Seven landed on a single day:
+
+```
+2026-08-07  CVE-2026-20348  7.5  XAR file format parser
+2026-08-07  CVE-2026-20347  7.5  Mach-O file format parser
+2026-08-07  CVE-2026-20346  7.5  PDF file format parser
+2026-08-07  CVE-2026-20345  7.5  GPT file format parser
+2026-08-07  CVE-2026-20339  7.5  PESpin file format parser
+2026-08-07  CVE-2026-20338  7.5  zip archive parser
+2026-08-07  CVE-2026-20337  7.5  zip archive parser
+```
+
+Every one is "an unauthenticated remote attacker could…" from parsing a file. Adding a scanner
+to defend FFmpeg means adding a component with a **worse** parser-CVE record than FFmpeg and
+pointing it at the same hostile bytes. That does not forbid it — but it settles the shape: **any
+scanner is another hostile-input parser, runs inside the same jail with no more privilege, and
+is never a trusted security component.**
+
+### "Look for shellcode" is the one part that does not survive contact
+
+Stated plainly, because it is the most tempting and least effective item:
+
+- **Modern exploits frequently contain no shellcode at all.** ROP and JOP chains are built from
+  gadgets already in the victim process; data-only attacks corrupt state without injecting code.
+  A current FFmpeg exploit is typically a malformed header that triggers a type confusion —
+  there is nothing byte-like to match on.
+- **Compressed video is high-entropy and statistically indistinguishable from packed or
+  encrypted payloads.** Entropy heuristics, the classic shellcode tell, are a 100% false-positive
+  rate on our actual corpus.
+- The AV-heuristic approach to this has thirty years of results and they are not encouraging.
+
+The *intent* behind it — "notice that this file is trying something" — is sound. The mechanism
+has better implementations.
+
+### What works, ranked by value over cost
+
+1. **Report sandbox violations instead of only enforcing them.** A file that makes FFmpeg attempt
+   an unexpected syscall is far stronger evidence than any signature, and we already run every
+   parse in a Landlock+seccomp jail (§3). seccomp already has the primitives: `SECCOMP_RET_LOG`
+   (allow after logging), `SECCOMP_RET_TRAP` (catchable `SIGSYS`, so the worker can report before
+   dying), `SECCOMP_RET_USER_NOTIF` (notify a supervisor, which can decide), and
+   `SECCOMP_FILTER_FLAG_LOG`. **Our sandbox is already a detector; we are simply not reading
+   it.**
+2. **Resource-bomb and outlier detection**, which is nearly free given cgroups. The realistic
+   threat to a home media server is **denial of service, not RCE** — ASS render bombs (Jellyfin
+   ships `libassMemoryLimit` and `libassGlyphLimit` for exactly this), decompression bombs in
+   WOFF2/brotli fonts and PNG posters, files that pin a CPU forever. Recording per-file peak CPU,
+   memory and output size during probing makes an outlier visible for no new machinery.
+3. **Declared-versus-actual type mismatch**, nearly free because we already sniff formats rather
+   than trusting the container's MIME type ([D56](../../decisions/working-notes.md)).
+4. **Structural conformance**, the Netflix Photon family: oversized boxes, negative lengths,
+   impossible dimensions, declared-versus-actual stream mismatches.
+5. **Cross-parser disagreement** — two independent parsers, compare. Powerful, expensive.
+6. **Signature scanning** (YARA, ClamAV) last, as a plugin, inside the jail.
+
+### The false-positive problem is the design constraint, not a detail
+
+These are the **user's own files**, acquired over fifteen years, many encoded by broken tools.
+A media server that warns about a 2004 home-video rip has not made the user safer; it has taught
+them to dismiss warnings, which is a security failure rather than a cosmetic one.
+
+[Principles §3](../../principles/README.md) says explain the decision to the user — and a warning
+the user cannot act on is not an explanation. So any detection must default to silent, surface
+only observations it can state concretely, and always say what to **do**. "This file used 40× the
+memory of anything else in your library while probing" is actionable. "Possible shellcode
+detected" is not.
+
+## 6. The rest of the model, briefly
 
 Each of these is a Jellyfin failure we have already documented, restated as a requirement:
 
@@ -149,7 +263,7 @@ Each of these is a Jellyfin failure we have already documented, restated as a re
 - **Media is read-only by default** ([D7](../../decisions/working-notes.md)), which caps the
   blast radius of everything above.
 
-## 6. Open
+## 7. Open
 
 - **Landlock's floor is kernel 5.13**, and network control arrived later still. What happens on
   older kernels, on macOS and on Windows? The answer is probably rung 2 and an honest capability

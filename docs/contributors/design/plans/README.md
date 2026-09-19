@@ -13,6 +13,7 @@ A plan states where it stands in a metadata list under its title:
 | `**Status:**` | Means | Lives in |
 | --- | --- | --- |
 | `UNSPECIFIED` | An idea. No design yet. | here |
+| `DEFERRED` | Researched, and deliberately not being built yet. May carry affordances due now. | here |
 | `PLANNED` | Designed, not built. | here |
 | `IN-PROGRESS` | Partly built. The Status prose says what's left. | here |
 | `IMPLEMENTED` / `ABANDONED` | Done or dropped. | `archive/plans/` (does not exist yet) |
@@ -71,3 +72,9 @@ status rather than trusting this paragraph, but the ordering between them is:
 - **`threat-model.md`, `testing-strategy.md`, `performance-targets.md` and
   `backup-restore.md`** are gaps in the foundations rather than features. Each is cheap now and
   expensive later; none blocks Phase 0.
+- **`content-safety.md` is `DEFERRED`, which is a different thing from unspecified.** The
+  research is done and the conclusion is that containment beats detection
+  ([D61](../../decisions/working-notes.md)); what remains is not a research gap but a decision
+  to build it later. It carries **four affordances due now**, of which one — the node protocol
+  skipping unknown record kinds — is a wire-format rule that must exist before the first node
+  ships.
