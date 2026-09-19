@@ -88,6 +88,12 @@ The correct value depends on a fact only the device knows. That is
 and the core honours it** — three states (full range, light compression, night mode), not a
 float.
 
+**And it is stored, keyed by device** ([D103](../../decisions/working-notes.md)), which needed
+a decision of its own because the naive version rebuilds the device-profile database
+[D21](../../decisions/working-notes.md) exists to prevent. The line: a device *capability* is
+declared per request and never stored; a device *preference* is stored. Night mode on the
+living-room television is a fact about a person in a room, not about hardware.
+
 ## What this does not do
 
 - **It does not rewrite files.** Ever.

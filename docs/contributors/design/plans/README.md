@@ -97,12 +97,20 @@ new plans. The ordering that matters:
   can land whenever; both are prerequisites for
   [performance-targets.md](performance-targets.md) meaning anything outside CI.
 
-Two more came from reading the decisions against **each other** rather than against the
-outside world, and both were contradictions the tree already contained:
+**Six more came from reading the decisions against each other** rather than against the
+outside world, and no new plan came out of them — they are corrections to existing ones:
 [D98](../../decisions/working-notes.md) (D7, D24 and D77 disagree about what a sidecar carries,
-and the mechanism needs a writable path nobody granted it) and
+and the mechanism needs a writable path nobody granted it),
 [D99](../../decisions/working-notes.md) (a TMDB poster is attacker-supplied and the core
-fetches it, which D26's rule was never extended to cover).
+fetches it; D26's rule was never extended past media files),
+[D100](../../decisions/working-notes.md) (a delete on D38's *replay* channel can destroy a
+different file that has since appeared at the path — a contradiction this audit itself
+created), [D101](../../decisions/working-notes.md) (the intro detector needs library knowledge
+the node is forbidden to have, so the core supplies the set and the node supplies the
+measurement), [D102](../../decisions/working-notes.md) (**nine passes** now run over every
+file and nobody had added them up) and [D103](../../decisions/working-notes.md) (a device
+*preference* is stored, a device *capability* never is — the distinction that keeps a device
+scope from becoming a device-profile database).
 
 And one that changed an existing schedule: [D86](../../decisions/working-notes.md) puts
 `transcoding.md` **§(b)** on [remote-access.md](remote-access.md)'s critical path rather than

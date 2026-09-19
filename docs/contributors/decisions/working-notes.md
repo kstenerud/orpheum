@@ -6415,3 +6415,184 @@ bugs rather than memory-corruption ones. That might argue for decoding in the co
 It does not change the answer, because [D9](#d9--server-language-go-one-language-on-the-server)'s single binary means the worker
 is the same code either way and the confinement is nearly free — but the reasoning should be
 re-checked if an image library with a C dependency is ever proposed.
+
+---
+
+## D100 — A destructive command names its target by identity, not by path
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §25.
+Resolves a collision between [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) and [D38](#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config) that was
+created the same day.
+
+[D38](#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config) puts an **ordered command list in the node's config** — `cancel`,
+`scan`, `rescan <root>`, `pause`, `resume`, plus `snapshot` from
+[D60](#d60--snapshotting-and-discarding-are-different-operations-with-different-triggers) — and states a rule about it in as many words:
+
+> *"A node that loses `observed_config` re-executes. Every command in the vocabulary must
+> tolerate that, which they do — and any future command that cannot must not be added to this
+> channel."*
+
+[D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) then made deletion a node command. **`delete <path>` does not
+tolerate re-execution**, and the failure is not the harmless one it looks like. Re-executing a
+delete after the file is gone is fine. Re-executing it after *a different file has appeared at
+the same path* — a re-rip, a rename, a torrent client reusing a name — deletes the wrong film,
+silently, from a channel designed to be replayed.
+
+**So:** a destructive command carries the **identity of what it is destroying**, not only its
+location — size and mtime at minimum, a content hash where one was taken — and the node
+**refuses and reports** rather than proceeding when the target does not match. A refusal here
+is [principles §10](../principles/README.md)'s alarm, not a branch: in a correct system it
+never fires, so every firing is worth looking at.
+
+Two smaller consequences:
+
+- **The confirmation the user sees and the guard the node enforces are the same data.**
+  D89 already requires naming every file and its size before deleting; that list *is* the
+  identity set. Cheap, and it means the thing shown and the thing checked cannot drift.
+- **The general rule is worth stating beyond deletion.** The D38 channel carries *desired
+  state*. A command that is a one-shot event rather than a state — and every destructive
+  command is — either gets an identity guard that makes replay safe, or it does not belong on
+  that channel at all. Anything that cannot have one belongs in the job system.
+
+**Status:** Sound as far as it goes; what is untested is whether size-and-mtime is enough
+identity on the filesystems people actually use. On a share with second-granularity mtimes and
+a re-rip of the same source, it might not be. Hash-on-delete is cheap relative to the
+consequence and may simply be the answer.
+
+---
+
+## D101 — A measurement that spans files is a core-supplied job; the node never chooses the set
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §26.
+
+[D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance) puts intro detection in the node, which is right — it decodes audio
+and [D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp) keeps that out of the core. But the useful detector works by
+finding **the segment repeated across the episodes of a season**, and that runs straight into
+[principles §9](../principles/README.md)'s test:
+
+> *Could this component determine it from what it observed, with no memory of previous
+> observations and no knowledge of the library?*
+
+**No.** "These files are episodes of one season" is library knowledge, produced by
+[identification.md](../design/plans/identification.md) in the **core**, from parses the node is
+forbidden to make ([D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)). A node that groups files by itself is a node
+that has re-implemented the filename parser, which is the exact thing D59 moved out.
+
+**So the work splits along the line §9 already draws.** The core supplies the **set** and the
+node supplies the **measurement**:
+
+| Core | Node |
+| --- | --- |
+| "compare these twelve files" — an explicit list, from the library | "a 91-second segment repeats in all twelve, at these offsets" |
+| decides that makes them intros, at which confidence, and stores them | reports a measurement over the bytes it was given |
+
+That is a **job**, not a config command ([D38](#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config), [D100](#d100--a-destructive-command-names-its-target-by-identity-not-by-path)) —
+it carries a payload, it produces a result, and it is not desired state.
+
+**The rule generalises past intros**, which is why it is a decision rather than a paragraph in
+a plan: perceptual-hash duplicate detection, cross-version segment alignment
+([D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance)), re-encode detection and any future "compare these files to each
+other" pass all have the same shape. **The node never chooses its own comparison set.** If it
+did, every one of those features would need a private copy of the library's grouping logic, and
+they would each be wrong in a different way.
+
+**Status:** Unmeasured — the cost of shipping an explicit file list per job is trivial, but the
+*scheduling* is not obvious: a season is the natural unit for intros and a library is the
+natural unit for duplicate detection, and the second is O(n²) in a way the first is not.
+
+---
+
+## D102 — The node's work is a pipeline of independently deferrable passes
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §27.
+
+[D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do) said the node does "everything requiring access to a media file",
+and at the time that was discovery, probing, subtitle and font extraction, thumbnails and
+trickplay. It has since accumulated:
+
+| Pass | From |
+| --- | --- |
+| enumerate (snapshot and journal) | [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret), [D60](#d60--snapshotting-and-discarding-are-different-operations-with-different-triggers) |
+| probe | [D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do) |
+| content hash, where cheap | [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret) |
+| subtitle extraction | [D11](#d11--subtitles-are-a-subsystem-not-a-feature) |
+| font subsetting per subtitle track | [D55](#d55--the-served-font-set-is-the-cta-708-style-axis-in-variable-fonts-subset-per-subtitle) |
+| thumbnails, trickplay, and now poster derivation | [D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do), [D99](#d99--the-core-does-not-decode-an-image-either-and-community-uploaded-artwork-is-why) |
+| **loudness measurement** | [D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device) |
+| **segment detection** | [D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance), [D101](#d101--a-measurement-that-spans-files-is-a-core-supplied-job-the-node-never-chooses-the-set) |
+| subtitle overlay rendering | [D78](#d78--server-rendered-subtitle-overlays-are-a-third-rendition-and-they-dominate-burn-in) |
+| *(later)* content-safety inspection | [D61](#d61--containment-now-detection-later-and-plugin-shaped-four-affordances-to-keep-open) |
+
+That is nine passes over the same files, several of them full decodes, on hardware whose honest
+low end is an 8 GB Celeron NAS ([test-hardware.md](../design/research/test-hardware.md)). Each
+was added in isolation and each was individually cheap. **Nobody has looked at the total**, and
+the two failure modes are predictable: a first scan that takes a week, and a library that never
+spins down ([D94](#d94--disk-spin-down-is-a-cost-of-the-snapshot-interval-and-archival-means-untouched)).
+
+**So the node's work is a pipeline of named passes, and the pipeline is a first-class object:**
+
+- **Each pass is independently deferrable, per library.** [D94](#d94--disk-spin-down-is-a-cost-of-the-snapshot-interval-and-archival-means-untouched)'s
+  `archival` is the extreme setting of a control that should exist at every gradation — a
+  downloads folder wants everything immediately, a 2004 films folder wants enumeration and
+  little else until something plays.
+- **Each pass is separately reported.** [D38](#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config)'s `task` is already a
+  bounded enum (`enumerating`, `probing`, `hashing`, `extracting`) that the core baselines
+  against, so this is that enum growing rather than a new mechanism — but the *user-facing*
+  question changes from "is it scanning?" to "which passes have finished on this library?",
+  and that is the one [sentiment.md](../design/research/sentiment.md)'s "I can't tell what the
+  scanner did" complaint actually asks.
+- **Each pass is restartable and idempotent**, because a NAS will be switched off mid-pass.
+- **Ordering is by user value, not by convenience.** Enumeration and probe make the library
+  exist; everything after that is enrichment, and a user who can watch a film in five minutes
+  will forgive a trickplay sprite that arrives on Tuesday.
+
+**What this is not:** a pipeline of *stages that draw conclusions*. That is the
+"Navidrome-style scanner phases" shape [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret) removed, and it stays
+removed — these are passes over bytes, all of them reporting observations, with every
+interpretation still in the core.
+
+**Status:** The total cost is exactly the thing [performance-targets.md](../design/plans/performance-targets.md)
+cannot state yet. It is now the most consequential unmeasured number in the project, because
+the first-scan experience is the first thing a user sees and there are nine passes in it.
+
+---
+
+## D103 — A device-scoped *preference* is stored; a device *capability* never is
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §28.
+
+[D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device) makes dynamic-range compression a per-device setting, because the
+right value depends on the room. [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)'s preference table has scopes of
+**user, library and series** — and no device. So there is nowhere to put it.
+
+The obvious fix is dangerous, which is why this needs saying: adding "things the server knows
+about a device" is how you get a device-profile database, and
+[D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) calls that the incumbents' largest bug source.
+
+**The line that keeps both true:**
+
+| | Where it lives | Why |
+| --- | --- | --- |
+| **Capability** — what this device *can decode* | declared per request, **never stored** | it changes with an OS update, a codec pack, a cable; a stored copy is a stale copy, and a table of them is the thing [D2](#d2--playback-negotiation-the-client-decides-from-a-manifest) exists to avoid |
+| **Preference** — what this device's *owner wants here* | stored, keyed by device id | night mode on the living-room TV, subtitles always on in the bedroom; it does not change by itself and losing it annoys people |
+
+A preference is a fact about a **person in a room**. A capability is a fact about **hardware**,
+and hardware lies ([D92](#d92--a-failed-rendition-falls-to-the-next-one-and-the-client-remembers-the-server-still-has-no-device-database)). Conflating them is precisely the mistake; keeping
+them apart makes a device scope safe.
+
+**So `device` joins user, library and series as a scope** on the existing preference table, with
+the same tri-valued unset/on/off discipline. The device id already exists — pairing issues one
+([D93](#d93--device-pairing-is-rfc-8628-shaped)) and bug reports carry it ([D74](#d74--bug-reports-pseudonymise-rather-than-redact-and-fan-in-across-components)).
+
+Two guards:
+
+- **A device scope is never a default for another device.** No inheritance between devices, and
+  no "apply to all my devices" that silently writes eight rows.
+- **The client may still hold its own copy** ([D92](#d92--a-failed-rendition-falls-to-the-next-one-and-the-client-remembers-the-server-still-has-no-device-database)'s local memory), and
+  where the two disagree the stored one wins for preferences and the local one wins for
+  capability — which is the same split as the table above, applied to conflict resolution.
+
+**Status:** Small. The open question is device *lifecycle*: a television replaced after four
+years leaves a row, and a household that reinstalls an app may or may not get the same device
+id. Neither is harmful, both are untidy, and the answer is probably a device list the user can
+prune — which they will want anyway for session revocation ([auth.md](../design/plans/auth.md)).

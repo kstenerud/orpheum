@@ -133,9 +133,18 @@ Notes on the shape:
   FFmpeg drives it as a process; cgo bindings to libav\* are a build-complexity liability. We
   ship a known-good build rather than accepting the distro's — Jellyfin maintains an entire
   FFmpeg fork, which is evidence of what the alternative costs.
-- **The core never touches a media filesystem** ([D33](../decisions/working-notes.md)). Scanning,
-  probing and extraction happen in media nodes; the core's whole input surface is HTTP, its own
-  SQLite file, and node reports it validates at the boundary.
+- **The core never touches a media filesystem** ([D33](../decisions/working-notes.md)), **and
+  never parses a media or image file** ([D26](../decisions/working-notes.md),
+  [D99](../decisions/working-notes.md)). Scanning, probing, extraction and image derivation all
+  happen in media nodes; the core's whole input surface is HTTP, its own SQLite file, and node
+  reports it validates at the boundary. A poster fetched from TMDB is bytes in flight, handed
+  to the jail — TMDB is community-editable, so it is attacker-supplied like anything else.
+- **The node's work is nine passes now, and that is a first-class fact**
+  ([D102](../decisions/working-notes.md)). Enumerate, probe, hash, extract subtitles, subset
+  fonts, thumbnail and trickplay, derive posters, measure loudness, detect segments — each
+  added separately, each individually cheap, and nobody had added them up. They are named,
+  individually deferrable per library, separately reported and restartable, because the
+  alternative on a Celeron NAS is a first scan that takes a week.
 - **The core needs no *video* encoder** — but it does encode audio. Every GPL trigger in FFmpeg
   is a video encoder, and the whole audio menu (AAC, AC-3, E-AC-3, FLAC, ALAC, Opus) is native
   LGPL, so audio costs nothing in licence or patent surface. Since the most common real transcode

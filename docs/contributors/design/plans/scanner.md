@@ -148,6 +148,37 @@ Two rules:
   ([D73](../../decisions/working-notes.md)), so "why is my new file missing" has an answer
   instead of a mystery.
 
+## The node's work is a pipeline, and it now has nine passes
+
+[D102](../../decisions/working-notes.md). [D33](../../decisions/working-notes.md) gave the node
+"everything requiring access to a media file", and at the time that was five things. Counting
+what has accumulated: enumerate · probe · content hash · subtitle extraction · font subsetting
+([D55](../../decisions/working-notes.md)) · thumbnails, trickplay and poster derivation
+([D99](../../decisions/working-notes.md)) · loudness ([D83](../../decisions/working-notes.md)) ·
+segment detection ([D82](../../decisions/working-notes.md)) · overlay rendering
+([D78](../../decisions/working-notes.md)) — and later content-safety inspection
+([D61](../../decisions/working-notes.md)).
+
+Each was added in isolation and each was individually cheap. On an 8 GB Celeron NAS with fifty
+thousand files the total is a first scan that takes a week and an array that never spins down.
+So:
+
+- **Each pass is independently deferrable, per library.** [D94](../../decisions/working-notes.md)'s
+  `archival` is the extreme setting of a control that wants every gradation — a downloads folder
+  wants everything now, a 2004 films folder wants enumeration and little else until something
+  plays.
+- **Each pass is separately reported.** [D38](../../decisions/working-notes.md)'s `task` is
+  already a bounded enum the core baselines against, so this is that enum growing — but the
+  user-facing question changes from *"is it scanning?"* to *"which passes have finished on this
+  library?"*, which is what the legibility complaint above is actually asking for.
+- **Each pass is restartable and idempotent**, because a NAS gets switched off mid-pass.
+- **Ordering is by user value.** Enumeration and probe make the library exist; everything after
+  is enrichment, and a user who can watch a film in five minutes will forgive a trickplay
+  sprite that arrives on Tuesday.
+
+**These are passes over bytes, not stages that draw conclusions** — the shape
+[D59](../../decisions/working-notes.md) removed stays removed.
+
 ## Two more observation passes
 
 Both are node work, both are [D42](../../decisions/working-notes.md) facts rather than
@@ -164,7 +195,10 @@ file open.
   [media-segments.md](media-segments.md)). Chapter marks are already in the probe output and
   cost nothing. Audio-fingerprint and black-frame detection across a season are a real decode
   cost and are a later, plugin-shaped job — the node **reports candidate boundaries**, the core
-  decides what to store.
+  decides what to store. And **the core supplies the set of files to compare**
+  ([D101](../../decisions/working-notes.md)): "these twelve files are one season" is library
+  knowledge the node does not have and must not reconstruct, or it has re-implemented the
+  filename parser [D59](../../decisions/working-notes.md) moved out.
 
 ## Track facts the node records
 

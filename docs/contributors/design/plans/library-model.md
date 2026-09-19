@@ -3,7 +3,7 @@
 
 # Library model
 
-- **Status:** PLANNED — designed 2026-09-17; **reviewed and corrected 2026-09-19** ([library-model-review.md](../research/library-model-review.md), [D79](../../decisions/working-notes.md)); **nine more schema items added by the audit the same day** ([audit-2026-09-19.md](../research/audit-2026-09-19.md), [D81](../../decisions/working-notes.md)–[D84](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D95](../../decisions/working-notes.md)–[D97](../../decisions/working-notes.md)).
+- **Status:** PLANNED — designed 2026-09-17; **reviewed and corrected 2026-09-19** ([library-model-review.md](../research/library-model-review.md), [D79](../../decisions/working-notes.md)); **nine more schema items added by the audit the same day** ([audit-2026-09-19.md](../research/audit-2026-09-19.md), [D81](../../decisions/working-notes.md)–[D84](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D95](../../decisions/working-notes.md)–[D97](../../decisions/working-notes.md)), plus the sidecar split ([D98](../../decisions/working-notes.md)) and a device scope on the preference table ([D103](../../decisions/working-notes.md)).
 - **Depends on:** —
 
 ## Scope
@@ -82,7 +82,9 @@ plugin survey ([D20](../../decisions/working-notes.md)), the track-selection pai
   tables are part of this schema and retrofitting external identity is painful.
 - **Track-selection preferences, scoped and re-resolvable** ([D24](../../decisions/working-notes.md)).
   Stored as `{language, kind}` descriptors — never track indices, because track 3 in episode 1 is
-  a different language in episode 2 — at user, library and series scope, tri-valued so that `off`
+  a different language in episode 2 — at user, library, series **and device** scope
+  ([D103](../../decisions/working-notes.md); a device *preference* is stored, a device
+  *capability* never is), tri-valued so that `off`
   is distinguishable from unset, and with the subtitle selection modelled as a **set** rather
   than a single value so dual subtitles do not later require a migration. These are user data:
   they go in the change journal — but **not** to sidecars, correcting the parenthesis in
@@ -189,7 +191,10 @@ each lands here rather than being bolted on — the same argument
 writable path is opt-in per library and off by default; deletion is two-phase and names every
 file and its size; it happens in the node, never the core; and a retention rule may still only
 *mark*. The tree previously said nothing at all about deleting media, which is how `os.Remove`
-ends up in a handler.
+ends up in a handler. The list of files and sizes in that confirmation **is** the identity
+guard the node enforces ([D100](../../decisions/working-notes.md)):
+[D38](../../decisions/working-notes.md)'s command channel is replayed after a node restart, so
+a delete keyed only on a path can destroy a different file that has since appeared there.
 
 ## Three cross-cuts from the review
 

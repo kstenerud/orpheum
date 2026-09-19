@@ -110,11 +110,20 @@ limited usefulness, and it is usually the *unseen* part that would not have help
 nobody diagnoses stuttering by looking at video frames. Where a component sits in the path of
 another's reports, it **pipes them through** rather than summarising them.
 
+**A sensor may be asked to measure across several inputs; it may never choose them.**
+"Find the segment repeated across this season" is a measurement a node can make and a *set* it
+cannot assemble, because "these twelve files are one season" is a conclusion the core reached
+from parses the node is forbidden to make ([D101](../decisions/working-notes.md)). So the core
+supplies the list and the node supplies the number. A sensor that picks its own comparison set
+has quietly acquired a copy of the library's grouping logic, and it will be wrong differently
+from the original.
+
 **Bites when:** a component starts withholding, suppressing or correcting its own output
-"helpfully"; when you find yourself giving a sensor a threshold, a memory, or a copy of
-something the core already knows; or when confinement gets used as a reason a component cannot
-report. ([D42](../decisions/working-notes.md), [D73](../decisions/working-notes.md), and the
-same reasoning as [D37](../decisions/working-notes.md).)
+"helpfully"; when you find yourself giving a sensor a threshold, a memory, a copy of
+something the core already knows, or the job of deciding which inputs go together; or when
+confinement gets used as a reason a component cannot report. ([D42](../decisions/working-notes.md), [D73](../decisions/working-notes.md),
+[D101](../decisions/working-notes.md), and the same reasoning as
+[D37](../decisions/working-notes.md).)
 
 ## §10 — Give a client only what it may use; a refusal is an alarm, not a branch
 

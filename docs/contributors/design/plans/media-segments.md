@@ -72,6 +72,14 @@ detector and survives re-detection ([principles §3](../../principles/README.md)
 boundaries**; the core decides what to store ([D42](../../decisions/working-notes.md)). It is
 plugin-shaped and should not be first-party at launch beyond the chapter provider.
 
+**And the core supplies the set** ([D101](../../decisions/working-notes.md)). Detector 2 works
+by comparing episodes of a season — which is library knowledge, produced by
+[identification.md](identification.md) in the core from parses the node is forbidden to make
+([D59](../../decisions/working-notes.md)). So it is a **job carrying an explicit file list**,
+not a pass the node schedules for itself: the core says *compare these twelve*, the node says
+*a 91-second segment repeats in all twelve, at these offsets*. Otherwise the node needs its own
+copy of the grouping logic, and that is the filename parser again.
+
 ## Done when
 
 An episode with chapter marks offers a skip button with no configuration; a segment set derived
