@@ -49,7 +49,10 @@ and emoji — and searching it for "CJK", "Chinese", "Arabic", "Hebrew" and "Tha
 occurrences each. A compliant TV box can render tofu, and the user will read that as broken
 subtitles. Bundling is the wrong fix at ~16 MB per weight per CJK variant, so the client reports
 the scripts it can render and the server supplies the rest
-([D53](../../decisions/working-notes.md)). Enumerating the fonts on every device in the rig is a
+([D53](../../decisions/working-notes.md)). The floor under that is **Unicode Last Resort HE**,
+bundled — 588 KB for every code point in Unicode, rendering a framed script indicator rather
+than a box, so the worst case tells the viewer *"you need a Japanese font"* instead of *"this
+app is broken"* ([D54](../../decisions/working-notes.md)). Enumerating the fonts on every device in the rig is a
 few seconds each and belongs in the first [device-lab](device-lab.md) pass.
 
 **The server owns sort order.** Hermes does not bundle ICU — it projects the platform's, whose

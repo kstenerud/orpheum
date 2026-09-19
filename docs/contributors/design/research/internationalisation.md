@@ -40,6 +40,11 @@ that seriously.
 | 18 | Netflix runs **pseudo-localisation by default** in every debug build; text expands up to 40% | Netflix, 2018 |
 | 19 | Netflix mandates IMSC 1.1 for Japanese subtitles; **libass has zero ruby support** | partner specs + libass source |
 | 20 | Netflix largely sidesteps collation — its browse surface is ranked rows, not an A–Z grid. Ours is a grid | reasoning |
+| 21 | No single font can cover Unicode: OpenType caps at 65,535 glyphs; Unifont's BMP file holds 58,911 | **measured** |
+| 22 | Netflix Sans covers Latin, Cyrillic, Greek, Vietnamese — **no CJK, Arabic, Hebrew, Thai, Indic**. Netflix renders tofu too | Dalton Maag |
+| 23 | Android's fallback chain has **no last-resort entry**; Apple has shipped one since 1998 | **measured** (AOSP `fonts.xml`) |
+| 24 | Unicode Last Resort HE maps all 1,114,112 code points in **588 KB**, and FreeType supports its cmap format 13 | **measured** |
+| 25 | CJK fallback must be chosen by **language**, not script — Han unification | Apple API + Levien |
 
 ---
 
@@ -942,7 +947,120 @@ source does not have. For a media server's UI — mostly nouns, counts and short
 an acceptable gap, and the catalogue format is what would have to change if it ever is not. Worth
 recording as the known limit of D51 rather than a reason to reverse it.
 
-## 9. What this costs, and when
+## 9. Font fallback, and whether a "plan B" font exists
+
+§6 established that a device may have no font for a script. This section answers the next
+question: what do you render instead, and is there one font that can always be the answer.
+
+### No. One font cannot cover Unicode, and this is structural
+
+OpenType caps a font at **65,535 glyphs**. Unicode 18 has over 150,000 assigned characters. The
+constraint is visible in the only project that seriously tried — GNU Unifont splits by plane
+precisely because a single file cannot hold the rest. Measured from the binaries:
+
+```
+unifont-18.0.01.otf         5.07 MB   numGlyphs = 58,911   (Plane 0, the BMP)
+unifont_upper-18.0.01.otf   5.68 MB   numGlyphs = 57,729   (Planes 1–15)
+```
+
+58,911 glyphs is not a design choice; it is the ceiling arriving.
+
+So every platform uses a **cascade** — an ordered fallback list — and the interesting question
+is not "which font" but "what goes at the end of the list".
+
+### What the platforms actually do
+
+| Platform | Mechanism | Notes |
+| --- | --- | --- |
+| **Android** | `fonts.xml` — **161 families**, named families first, then a long list keyed by script subtag (`und-Arab`, `und-Deva`, `und-Thai`, …) | Measured from AOSP `main`. **The chain ends at `und-Yezi` with no last-resort entry** — grep for `lastresort`/`notdef` returns nothing. Fall off the end and you get tofu. |
+| **Apple** | `CTFontCopyDefaultCascadeListForLanguages`, which takes a **locale** and returns a prioritised list matching the original font's style, weight and width | Ships `.LastResort` in `/System/Library/Fonts`, and has since Mac OS 8.5 (1998) |
+| **Windows** | `IDWriteFontFallback` (8.1+), queried by string | Avoids loading unused fonts; hard to cache |
+| **Linux** | fontconfig | The weak link — "at least Debian simply doesn't have a correct config", and **browsers hardcode common CJK font names** to work around it |
+
+Two things fall out that matter more than the API differences.
+
+**Font choice for CJK must be by language, not by script.** Han unification gives Japanese,
+Simplified Chinese and Traditional Chinese the same code points with different expected glyph
+forms — "a rough analogy is to use the same code point to encode Latin capital A and Greek
+capital alpha". Apple's cascade API takes a locale for exactly this reason, so it "will order
+the CJK fonts with the preferred language first". A single script-keyed fallback renders
+Japanese text with Chinese letterforms: not tofu, just subtly wrong, and far harder to notice.
+
+**Bundling Noto is what everyone considers and nobody does** — "tens of MB at least", which
+matches §6's measured 15.7 MB for one weight of `NotoSansCJKjp`.
+
+### Even Netflix does not solve this by bundling
+
+**Netflix Sans**, commissioned from Dalton Maag for a company operating in 190 countries, covers
+— per Dalton Maag's own portfolio page — **"Cyrillic, Greek, Latin, Latin (Vietnamese
+Extension)"**. Over 800 languages, and **no CJK, Arabic, Hebrew, Thai or Indic**. Amazon Ember,
+also Dalton Maag, has the same shape of coverage; Amazon distributes it free for Fire TV apps.
+
+So the custom brand typefaces of the two largest streaming services cover exactly the scripts
+the Android CDD already mandates, and everything else falls through to the platform cascade.
+**On a device with no Japanese font, Netflix renders tofu too.** Their remedy is not technical:
+they have commercial relationships with the device manufacturers, and their apps are
+preinstalled on hardware built to carry them.
+
+We do not have that. But we have something they do not: we are a server on the same LAN as the
+client, so we can simply send the font. That is why [D53](../../decisions/working-notes.md)'s
+serve-on-demand answer is not a poor imitation of the commercial practice — for our topology it
+is strictly better than it.
+
+### The three candidates for the end of the chain
+
+Measured from the actual binaries, all under permissive font licences:
+
+| Font | Size | Glyphs | Codepoints mapped | Licence |
+| --- | --- | --- | --- | --- |
+| **Noto** (per script) | 15.7 MB for `NotoSansCJKjp-Regular` alone | — | per script | OFL 1.1 |
+| **GNU Unifont** | 5.07 MB + 5.68 MB | 58,911 + 57,729 | ~116,600 | GPLv2+ w/ Font Embedding Exception **and** OFL 1.1 (dual, since 13.0.04) |
+| **Unicode Last Resort** | 9.15 MB | 5,776 | **1,114,112** | OFL 1.1 |
+| **Unicode Last Resort HE** | **0.56 MB** | 387 | **1,114,112** | OFL 1.1 |
+
+**Noto** is Google's answer and the name is literally "No Tofu". It is the right tier-1 choice —
+real, well-drawn glyphs — but it is ~150 families, not a font, and you must choose per script
+*and* per language.
+
+**GNU Unifont** is the completist option: a 16-pixel-grid design, now shipped as OpenType with
+scalable outlines, whose stated purpose is "to render something meaningful for each Unicode code
+point, rather than a blank box ('tofu')". 10.75 MB buys essentially all of assigned Unicode —
+less than one weight of Noto CJK. It is legible and it is ugly.
+
+**Unicode Last Resort** is the one that is not really a font. Designed by Apple, Michael
+Everson and Unicode, it maps **every one of the 1,114,112 code points** to a glyph that
+identifies the *Unicode block*: a representative character (ක for Sinhala, Ω for Greek, Я for
+Cyrillic) inside a square frame, with the block name and code-point range embedded in the frame
+and visible at large sizes. It distinguishes unassigned code points and the 66 noncharacters
+from merely-unavailable ones. The Unicode Standard's own framing is that it lets users "readily
+identify what type of font needs to be installed."
+
+The **High-Efficiency** variant is the interesting one: **588 KB** for full coverage, achieved
+with a cmap **format 13** (many-to-one range mappings) subtable — the right table for a font
+where thousands of code points share one glyph. Its cost is compatibility: the README warns
+format 13 "may not be supported in some environments, such as most Windows and Adobe apps."
+
+**For us that caveat does not bite,** and this is checkable rather than hopeful. Our entire text
+stack is FreeType — libass links it natively, and JASSUB compiles it to WASM. FreeType's
+`src/sfnt/ttcmap.c` implements `tt_cmap13` and `TT_CONFIG_CMAP_FORMAT_13` is enabled by default
+in `ftoption.h`. JASSUB patches FreeType only to disable pthreads. So the 588 KB variant works
+everywhere we render text.
+
+### The dissent, which is worth taking seriously
+
+Firefox deliberately **refuses** to use Last Resort. Mozilla bug 1416762 — *"Avoid using the
+LastResort font on macOS for glyph fallback — prefer to draw hexboxes for unsupported
+characters"* — was filed and fixed in November 2017, with the rationale that hex boxes give
+"better cross-platform consistency and because these actually convey more information (the exact
+codepoint involved) than the LastResort glyphs."
+
+That is correct for a browser and wrong for us, and the difference is who is reading. A
+developer wants the code point. A person on a sofa wants to know whether the app is broken or
+their TV is missing a Japanese font — and a framed か answers that where `U+304B` does not. The
+resolution is to take both: Last Resort in release builds, hex boxes in development, which pairs
+with [D52](../../decisions/working-notes.md)'s debug-build transform.
+
+## 10. What this costs, and when
 
 Ordered by *when the decision must be made*, not by size:
 
@@ -969,7 +1087,7 @@ cleanup on timeout. That is the real cost of a translation platform, and none of
 until there are translators. Design the catalogue format for it now; connect it when somebody
 volunteers.
 
-## 10. What was not settled
+## 11. What was not settled
 
 - **Korean collation.** `x/text/collate` gets it wrong and nobody is fixing it. Options are: live
   with it, ship a small Korean tailoring of our own, or link ICU via cgo for the sort-key

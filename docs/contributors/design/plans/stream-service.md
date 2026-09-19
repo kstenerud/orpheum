@@ -75,6 +75,13 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   not a configuration flag. `ass_track_set_feature` returns −1 when a feature is unavailable:
   probe once and report, rather than silently rendering wrong.
 
+- **The font chain under the renderer** ([D53](../../decisions/working-notes.md),
+  [D54](../../decisions/working-notes.md)). Correct bidi and Unicode line breaking are worthless
+  if the glyphs are boxes — libass will happily break lines perfectly *between* tofu. So: the
+  subtitle's embedded fonts first; then Noto served on demand, chosen **by language rather than
+  by script**, because Han unification means a script-keyed choice renders Japanese with Chinese
+  letterforms; then bundled Unicode Last Resort HE as the floor.
+
 ## Done when
 
 A client direct-plays everything the playback survey says it should; a client that cannot decode

@@ -38,6 +38,7 @@ The full evidence is in
 | [D51](../../decisions/working-notes.md) | react-i18next, catalogues served by us, Weblate deferred |
 | [D52](../../decisions/working-notes.md) | Pseudo-localisation is the default development build |
 | [D53](../../decisions/working-notes.md) | Font coverage is not assumable; the server serves fonts on demand |
+| [D54](../../decisions/working-notes.md) | Plan-B font: Unicode Last Resort HE bundled (588 KB), Noto served, Unifont optional |
 
 ## Schema consequences
 
@@ -77,6 +78,7 @@ Ordered by *when the decision must be made*, not by size.
 | One RTL locale in the device lab | with [device-lab.md](device-lab.md) | One locale, one pass |
 | Font-coverage enumeration across the rig | with the device lab | Cheap, and D53 rests on a guess until it runs |
 | Font-serving endpoint | with the subtitle subsystem | Same mechanism as embedded subtitle fonts |
+| Bundle Last Resort HE in every client | with the first client | 588 KB, and it is the floor everything else sits on |
 | Weblate | **not yet** | It needs translators to exist first |
 
 ## The two things to build first, in detail
@@ -129,6 +131,14 @@ media server's primary surface *is* the A–Z grid, so the hardest problem in th
 every locale wants a different order and Go's implementation gets Korean wrong — is more central
 for us than for them, on a far smaller budget. That asymmetry is why
 [D47](../../decisions/working-notes.md) spends a schema column on it.
+
+**On fonts, we can do better than they do.** Netflix Sans covers "Cyrillic, Greek, Latin, Latin
+(Vietnamese Extension)" and nothing else; Amazon Ember is the same shape. Both fall through to
+the platform cascade for CJK, Arabic, Hebrew, Thai and Indic — which the Android CDD does not
+guarantee exists. **On a device without a Japanese font, Netflix renders tofu too**; their
+remedy is commercial relationships with device manufacturers, not engineering. Ours is
+topological: we are a server on the same LAN, so we can send the font
+([D53](../../decisions/working-notes.md), [D54](../../decisions/working-notes.md)).
 
 **And one honest ceiling.** Netflix mandates IMSC 1.1 for Japanese timed text: vertical writing
 mode, *tate-chū-yoko*, ruby with reserved space, *bouten* emphasis marks. libass has **zero** ruby
