@@ -189,7 +189,13 @@ Notes on the shape:
 
 Honest statement of what the research did **not** settle:
 
-1. **Whether to operate a hosted service at all.** Narrowed three times now.
+1. **Whether to operate a hosted service at all.** Narrowed three times, and now shaped.
+   [D72](../decisions/working-notes.md) settles *how* it would work if it exists: **no free
+   tier** — a free tier whose marginal cost scales with usage is precisely the trap that forced
+   Plex to claw remote access back from its own users, and here the free path is not crippled
+   but better — and **no data, no accounts**, so a relay box is cattle and leaving takes an
+   afternoon. What remains genuinely open is only whether to run it at all. Narrowed three
+   times now.
    [D71](../decisions/working-notes.md) made the relay **a mode of our own binary that anyone
    can run on a €5 VPS** — which carries ~2,200 film-hours a month at 10 Mbps uncapped, against
    Plex's reported 2 Mbps paid relay cap. So the hosted tier's remaining justification is

@@ -30,6 +30,15 @@ home server cannot get a warning-free HTTPS certificate without one either. Wher
 we say so, we let you run the third party yourself, and we never paywall anything that was
 working without it. See [D25](docs/contributors/decisions/working-notes.md).
 
+Concretely, for the one thing that does need another machine: **the relay is a mode of this same
+binary**, and a €5 VPS running it carries roughly 2,200 film-hours a month at 10 Mbps, uncapped
+— about five times the bitrate of Plex's paid relay. If we ever host one, it runs that identical
+binary and **holds no data**, so leaving takes an afternoon and migrates nothing. There is no
+free hosted tier, because a free tier whose cost scales with usage is the exact trap that made
+Plex claw remote access back from its own users — and because here the free path is not
+crippled, it is better. See [D71](docs/contributors/decisions/working-notes.md) and
+[D72](docs/contributors/decisions/working-notes.md).
+
 ## What makes it different
 
 - **The client decides what to play.** No server-side device-capability database. The server

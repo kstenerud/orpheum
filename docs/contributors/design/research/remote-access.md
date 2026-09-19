@@ -222,6 +222,16 @@ relayed film-hours a month. Households needing relay at all are the minority, an
 will not each stream continuously. **A modest subscription covers this comfortably** — the
 binding constraint is abuse, not cost.
 
+**Settled 2026-09-19 by [D72](../../decisions/working-notes.md):** there is **no free hosted
+tier**, and the abuse point above is the stronger of the two reasons — payment is the abuse
+control, and removing the free tier removes the anonymous-abuse path. The economic reason is
+Plex's: a free tier whose marginal cost scales with usage is a liability that grows with
+success, which is what forced them to claw remote access back in 2025 and cap Relay at a
+reported 2 Mbps for paying users. This is not a paywall, because
+[D71](../../decisions/working-notes.md) makes the relay a mode of our own binary and the
+self-hosted path is *better* than the hosted one would be — five times that bitrate for €5 a
+month. And the relay holds no data and has no accounts, so leaving takes an afternoon.
+
 ## 6. Certificates and identity are the same problem as sharing
 
 [`sharing-model.md`](../plans/sharing-model.md) asks how to give one person access to part of a

@@ -35,6 +35,16 @@ paid — heavy transcoding by construction. A €5 VPS with 20 TB carries roughl
 a month at 10 Mbps, uncapped**: about five times the bitrate of Plex's paid relay, for the price
 of a coffee. The difference is household versus platform economics, not cleverness.
 
+**If we ever host one: no free tier, no data, no accounts**
+([D72](../../decisions/working-notes.md)). Blind and stateless, so a box is cattle and there is
+no backup, restore or migration story; clients authenticate the core, so the relay needs no user
+directory and inherits none of the password-reset, account-recovery or data-protection surface;
+payment identity stays separate from access. Payment is also the abuse control, which
+[the research](../research/remote-access.md) §5 identified as the binding constraint. And the
+hosted tier must stay **trivially exitable** — same open-source binary, no data to migrate —
+which is a structural commitment rather than a promise, and the only honest answer to "what
+stops you becoming Plex".
+
 **And the obvious shortcut is forbidden.** Cloudflare's terms: *"Cloudflare reserves the right to
 disable or limit your access to or use of the CDN … if you use or are suspected of using the CDN
 without such Paid Services to serve video or a disproportionate percentage of pictures, audio

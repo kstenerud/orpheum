@@ -4793,3 +4793,93 @@ speculative per D70. The open question this sharpens rather than answers: if sel
 relay is *this* much better than the commercial offering, the hosted tier's remaining
 justification is convenience for people who will not rent a VPS — which is a real market and a
 much smaller claim than the one we started with.
+
+---
+
+## D72 — The hosted relay has no free tier, holds no data, and has no accounts
+
+**Decided** (2026-09-19). A product decision, the least technical in this log, and it constrains
+the architecture in four specific ways. Position: serve the people who will not rent a VPS,
+charge them, and design so that doing it is boring.
+
+### What "the Plex problem" actually is, stated so we avoid the mechanism and not just the mood
+
+Plex gave remote access away free for years on subsidised bandwidth. A free tier whose
+**marginal cost scales with usage** is a liability that grows with success, so success forced
+the claw-back: remote playback of personal media paywalled in 2025, Relay capped at a reported
+1 Mbps free and 2 Mbps paid, enforcement tightened. They now carry both the cost *and* the
+reputational damage — the worst of both, and it is the churn this entire project is aimed at.
+
+> **The rule: never offer a free tier whose marginal cost scales with usage.**
+
+### So: no free hosted tier, and that is not a paywall
+
+The distinction matters and it is the whole moral position.
+
+Plex's free tier existed because there was **no self-hostable alternative** — withdrawing it
+took something away. Ours is different by construction:
+[D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it) makes the relay **a mode
+of our own binary**, and a €5 VPS running it carries roughly 2,200 film-hours a month at
+10 Mbps uncapped — **about five times the bitrate of Plex's paid relay.**
+
+So the free path is not crippled, it is *better*. We are not withholding a feature; we are
+declining to also do the sysadmin for free. That reads very differently, and it keeps the
+README's promise intact: the thing that requires another machine is the only thing charged for,
+and you can supply the machine yourself.
+
+**And state the allowance; never throttle silently.** Plex's 2 Mbps cap is the specific thing
+that felt like a betrayal — a hidden degradation rather than a stated limit. A published
+allowance with a message when you approach it is honest; an invisible throttle is not.
+
+### Four architectural consequences of "no hassle"
+
+These are what make operating it boring, and each is a design constraint rather than an
+operational preference:
+
+1. **The relay holds no data.** Blind and stateless, per D71. A box is then **cattle**: it dies,
+   another launches, nobody notices. There is no backup story, no restore story, and no
+   migration.
+2. **Being blind removes most support.** You cannot be asked to debug a library you cannot see,
+   or to restore data you never held. The blindness that was a privacy property is also a
+   support-cost property.
+3. **No accounts on the relay.** This is the big one. Clients authenticate the **core**, never
+   the relay, so the relay needs no user directory — which removes password resets, account
+   recovery, session management, and the data-protection surface that comes with holding
+   identities. Payment identity (a billing customer) stays **separate** from access (a keypair
+   the core already has): you buy a token, the token authorises a relay slot, there is no login.
+4. **Payment is the abuse control.** [remote-access.md](../design/research/remote-access.md) §5
+   already concluded *"the binding constraint is abuse, not cost"* for a relay that forwards
+   arbitrary bytes. A card is a real barrier and a traceable one, and removing the free tier
+   removes the anonymous-abuse path entirely. This is an independent reason for no free tier,
+   and it is the stronger one.
+
+### The scale sketch, so "tidy" is not hand-waving
+
+Order of magnitude only. At 10 Mbps a stream is ~4.5 GB/hour, so a 20 TB allowance is ~4,400
+stream-hours a month. If a household streams 60 remote hours a month, one €5 box covers **on
+the order of seventy households** on bytes. The tighter limit is concurrency — 20 simultaneous
+streams is 200 Mbps against a typical 1 Gbps port — but concurrency runs far below subscriber
+count.
+
+The conclusion that matters: **infrastructure is not the constraint, support and trust are.**
+Which is precisely why items 1–4 above are the design, and why the business can be small
+deliberately. A waiting list is acceptable. Regional availability is acceptable. Choosing not to
+grow is a legitimate decision and should not drift.
+
+### The commitment that makes paying us safe
+
+Anyone paying a hosted service should ask what happens when we get greedy or get acquired — the
+Plex trajectory. The answer here is structural rather than a promise:
+
+> **The hosted relay runs the same open-source binary you can run yourself, and it holds no
+> data. Leaving takes an afternoon and migrates nothing.**
+
+That is verifiable, it cannot be quietly revoked, and it is a far stronger commitment than any
+wording in a terms-of-service. It also disciplines us: a hosted tier that must stay
+trivially-exitable can only compete on being *good*, which is the stated goal —
+**a tidy income for a real service, not a captive audience.**
+
+**Status:** Provisional and revisitable, being a product decision rather than a technical one.
+What is *not* provisional is the architecture it implies — blind, stateless, accountless — which
+should hold even if the hosted tier never exists, because every one of those properties also
+makes the self-hosted relay better.
