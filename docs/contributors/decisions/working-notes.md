@@ -4839,9 +4839,10 @@ operational preference:
 1. **The relay holds no data.** Blind and stateless, per D71. A box is then **cattle**: it dies,
    another launches, nobody notices. There is no backup story, no restore story, and no
    migration.
-2. **Being blind removes most support.** You cannot be asked to debug a library you cannot see,
-   or to restore data you never held. The blindness that was a privacy property is also a
-   support-cost property.
+2. **The relay holds no custody, which is different from holding no visibility.** It cannot be
+   asked to restore data it never held. It **can** and **must** still report everything it
+   observes — see [D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque),
+   which corrects an error in the original wording of this item.
 3. **No accounts on the relay.** This is the big one. Clients authenticate the **core**, never
    the relay, so the relay needs no user directory — which removes password resets, account
    recovery, session management, and the data-protection surface that comes with holding
@@ -4883,3 +4884,79 @@ trivially-exitable can only compete on being *good*, which is the stated goal �
 What is *not* provisional is the architecture it implies — blind, stateless, accountless — which
 should hold even if the hosted tier never exists, because every one of those properties also
 makes the self-hosted relay better.
+
+---
+
+## D73 — Each component reports according to its own visibility; blind is not opaque
+
+**Decided** (2026-09-19). Correcting [D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts),
+which claimed *"being blind removes most support."* That conflated two different things and got
+the conclusion backwards.
+
+### The error
+
+Blindness is about **content confidentiality**. It says nothing about **observability**. A relay
+that cannot read the film can still see, and report: bytes forwarded, connection state and its
+transitions, round-trip latency, when the tunnel dropped and how often, which peers connected
+when, errors and their codes.
+
+So the correct statement is not "we can see little, therefore support is hard." It is: **each
+component reports according to its own visibility**, and the relay's visibility is substantial.
+What it lacks is *custody*, not sight.
+
+### And the part it cannot see is the part that would not have helped
+
+This is what makes the trade free rather than merely acceptable. Nobody diagnoses stuttering
+playback by looking at video frames. Every question support actually answers — *why did it
+drop, why is it buffering, which leg is slow, is it the uplink or the hotel wifi* — is answered
+by exactly the operational data a blind relay can see.
+
+**Content confidentiality costs zero diagnostic power.** Blindness is therefore not a trade-off
+to justify; it is free.
+
+### Three vantage points, all landing at the core
+
+The relay is already a role with a status record
+([D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle),
+[D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it)), so the mechanism
+exists. What this decision adds is direction and scope:
+
+| Vantage | Sees | Reports to |
+| --- | --- | --- |
+| **Client** | decode errors, buffering, chosen rendition, playback position | the core — **piped through** the relay, which is already the path |
+| **Relay** | throughput, connection state, RTT per leg, drops, error codes | the core |
+| **Core** | what it sent and when, plus the library and the history | itself |
+
+Three independent views of one session, joined at the core. That is **better** diagnostics than
+a content-reading relay would give, because the extra thing it would see is the useless thing.
+
+**And the direction is the point: the relay reports to the household's core, even when we
+operate the box.** The data stays with the library owner. This is
+[principles §9](../principles/README.md) applied to a machine we happen to run.
+
+### The one thing to build now: a session id
+
+Three vantage points are only joinable if they share a key. **The core issues a session
+identifier; the client and the relay tag their observations with it.** Cheap now, awkward later,
+and without it the three views are three unrelated logs.
+
+In tunnel mode the relay is a pure byte pipe and cannot annotate the stream, so it reports
+**out of band** through its own status record. That is already how every other role works.
+
+### The line that keeps "no telemetry" true while operating a service
+
+Running a hosted relay means monitoring it, and the README promises no telemetry. The two are
+compatible, and the rule is checkable:
+
+- **Session-scoped and identifying observations go to the core**, never to us. Who connected,
+  from where, watching what, how it performed.
+- **Machine health goes to the operator** — CPU, memory, disk, uptime, aggregate throughput,
+  aggregate error rates. About the *box*, not about *anyone*.
+
+Monitoring our own hardware is not telemetry about users. The boundary is that nothing
+session-scoped leaves the relay in our direction; it leaves in the core's direction. If a
+metric cannot be aggregated to the point of being about the machine, it is not ours.
+
+**Status:** Provisional in detail, settled in principle. The specific field list for the relay's
+status record belongs with [remote-access.md](../design/plans/remote-access.md); the session id
+belongs in the first version of the relay protocol.

@@ -39,7 +39,23 @@ of a coffee. The difference is household versus platform economics, not cleverne
 ([D72](../../decisions/working-notes.md)). Blind and stateless, so a box is cattle and there is
 no backup, restore or migration story; clients authenticate the core, so the relay needs no user
 directory and inherits none of the password-reset, account-recovery or data-protection surface;
-payment identity stays separate from access. Payment is also the abuse control, which
+payment identity stays separate from access.
+
+**Blind is not opaque** ([D73](../../decisions/working-notes.md)). The relay reports everything
+it *can* see — throughput, connection state and its transitions, RTT per leg, drops, error
+codes — through its status record, **to the household's core, even when we operate the box**.
+Client telemetry is piped through, since the relay is already the path. So the core joins three
+independent views of one session: the client's, the relay's and its own. That is *better*
+diagnostics than a content-reading relay would give, because the part a blind relay cannot see
+is the part that would not have helped — nobody diagnoses stuttering by looking at video
+frames.
+
+Two requirements follow. **The core issues a session id** and the client and relay tag their
+observations with it, or the three views are three unrelated logs — cheap now, awkward later.
+And the line that keeps the README's "no telemetry" true while operating a service:
+**session-scoped and identifying observations go to the core, never to us; only machine health
+— CPU, disk, uptime, aggregate throughput and error rates — is the operator's.** If a metric
+cannot be aggregated until it is about the box rather than about a person, it is not ours. Payment is also the abuse control, which
 [the research](../research/remote-access.md) §5 identified as the binding constraint. And the
 hosted tier must stay **trivially exitable** — same open-source binary, no data to migrate —
 which is a structural commitment rather than a promise, and the only honest answer to "what

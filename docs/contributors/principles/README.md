@@ -85,10 +85,18 @@ under suspicion** — a node whose mount just vanished is not who should rule on
 And scattering judgement means **nobody can reason about how the library reached its state**,
 nor test that logic without hardware.
 
+**A component reports according to its own visibility, and that bound is a fact rather than an
+excuse.** A confined component sees less, not nothing — a relay that cannot read the film still
+sees throughput, connection state, latency per leg and every drop. Limited visibility is not
+limited usefulness, and it is usually the *unseen* part that would not have helped anyway:
+nobody diagnoses stuttering by looking at video frames. Where a component sits in the path of
+another's reports, it **pipes them through** rather than summarising them.
+
 **Bites when:** a component starts withholding, suppressing or correcting its own output
-"helpfully"; or when you find yourself giving a sensor a threshold, a memory, or a copy of
-something the core already knows. ([D42](../decisions/working-notes.md), and the same reasoning
-as [D37](../decisions/working-notes.md).)
+"helpfully"; when you find yourself giving a sensor a threshold, a memory, or a copy of
+something the core already knows; or when confinement gets used as a reason a component cannot
+report. ([D42](../decisions/working-notes.md), [D73](../decisions/working-notes.md), and the
+same reasoning as [D37](../decisions/working-notes.md).)
 
 ## §10 — Give a client only what it may use; a refusal is an alarm, not a branch
 
