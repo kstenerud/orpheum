@@ -5,8 +5,11 @@ The recommended implementation plan, derived from the research in
 [`contributors/decisions/working-notes.md`](contributors/decisions/working-notes.md).
 
 Written 2026-09-17, revised the same day after the direct-play-first direction
-([D17](contributors/decisions/working-notes.md)). Pre-implementation. Phase boundaries are
-ordering constraints, not dates.
+([D17](contributors/decisions/working-notes.md)), and revised again **2026-09-19** after an
+independent audit ([audit-2026-09-19.md](contributors/design/research/audit-2026-09-19.md),
+[D80](contributors/decisions/working-notes.md)–[D95](contributors/decisions/working-notes.md))
+added six schema items to Phase 1 and moved one thing out of Phase 4. Pre-implementation. Phase
+boundaries are ordering constraints, not dates.
 
 ---
 
@@ -39,9 +42,10 @@ rewritten.
 
 `library-model.md` → `scanner.md` → `stream-service.md` *(direct play only)*
 
-The schema (`Title → Edition → MediaFile`, provider IDs and field provenance in side tables,
-audit/change-journal tables from commit one), the phased scanner with its own legible log and
-report, and the playback service.
+The schema (**`Title → Edition → Version → File`** with Collections orthogonal —
+[D79](contributors/decisions/working-notes.md) corrected this from three levels on 2026-09-19 —
+provider IDs and field provenance in side tables, audit/change-journal tables from commit one),
+the node's snapshot-plus-journal scanner, and the playback service.
 
 **What ships in the playback service:** ranged direct-play `GET`; the **three-axis rendition
 negotiation** (video ‖ audio ‖ subtitles, [D22](contributors/decisions/working-notes.md));
@@ -56,6 +60,41 @@ because both are schema-shaped and expensive to retrofit: **auth with OIDC/LDAP*
 Jellyfin SSO plugin has 1,458 stars — that is a bug report about a core), and **a rules engine**
 for smart collections, smart playlists and retention (~7,000 stars across plugins and companion
 apps exist because no server here lets a user express a rule about their library).
+
+**Six more things the 2026-09-19 audit put in Phase 1**, all for the same reason — they are
+schema, and `library-model.md` is here:
+
+- **Play state as a guarded position plus an event log**
+  ([play-state.md](contributors/design/plans/play-state.md),
+  [D81](contributors/decisions/working-notes.md)). Jellyfin's single mutable row is why two
+  devices rewind each other, and why Tautulli (6,590★) exists as a separate program.
+- **Typed media segments**, at the Version
+  ([media-segments.md](contributors/design/plans/media-segments.md),
+  [D82](contributors/decisions/working-notes.md)). The *detector* was already scheduled as a
+  tier-3 plugin; the table it publishes into was never planned, which is exactly the gap
+  Jellyfin closed in 10.10.
+- **Loudness columns per audio track**
+  ([audio-presentation.md](contributors/design/plans/audio-presentation.md),
+  [D83](contributors/decisions/working-notes.md)) — measured by the node at scan, because we do
+  the downmix and therefore own the quiet dialogue.
+- **Certifications as `(system, code)`**
+  ([parental-controls.md](contributors/design/plans/parental-controls.md),
+  [D84](contributors/decisions/working-notes.md)). A household product with children in it
+  needs this, and flattening national rating systems to an integer fails *open*.
+- **People as entities with provider identity**
+  ([D95](contributors/decisions/working-notes.md)) — never keyed on the display name.
+- **Episode orderings and extras** ([D96](contributors/decisions/working-notes.md),
+  [D97](contributors/decisions/working-notes.md)) — D79's correction repeating twice more. An
+  episode needs a position *per ordering* (aired, DVD, absolute), and an extra is a typed
+  relation rather than a level, because a trailer is neither a cut nor an encoding.
+- **[auth.md](contributors/design/plans/auth.md)**, which had no plan at all. D20 already put
+  OIDC/LDAP here; identity, sessions, tokens and **RFC 8628 device pairing**
+  ([D93](contributors/decisions/working-notes.md)) needed an owner.
+
+And **[api-compatibility.md](contributors/design/plans/api-compatibility.md)**
+([D85](contributors/decisions/working-notes.md)) — not schema, but its CI gate is cheap now and
+its deadline is the first client ship, because our clients go through app stores and
+televisions never update.
 
 **Deliberately absent:** any *video* encoder. Remote access. Sharing. Plugins. Music.
 
@@ -105,6 +144,15 @@ files, a batch job is the entire feature.
 case that genuinely needs live keyframe-aligned segmented transcoding with adaptive bitrate. It
 is coupled to remote access, not to the library, and on a LAN it is almost never needed.
 
+**But it is not really Phase 4.** [D86](contributors/decisions/working-notes.md): remote access
+is the headline feature and the paid tier, and over a degraded remote link there is nothing
+lower to fall back to unless this exists. Direct play has no adaptation at all — the rendition
+is chosen once, at the start. So **(b)'s real deadline is Phase 6's, whichever comes first**,
+and the segment-grid alignment specified above stops being a detail of transcoding and becomes a
+requirement of remote access. The client-side half is free: under
+[D2](contributors/decisions/working-notes.md) the client already picks, and Netflix's own
+SIGCOMM'14 study says the right input is its buffer level rather than a bandwidth estimate.
+
 **The capability that falls out for free: the machine that encodes need not be the machine that
 serves.** A transcoder that registers rather than links can live on the desktop with the GPU
 while the NAS serves files, and several can register with the core picking by advertised
@@ -147,7 +195,14 @@ Late because they are hard, not unimportant — they are what decides whether th
 for a *household* or only for one person. Remote access has a genuine tension with D13's
 no-required-account promise, and the research must resolve it honestly rather than quietly
 weakening one side. Note that Phase 4(b) and remote access are the same project seen from two
-directions.
+directions — and [D86](contributors/decisions/working-notes.md) makes that a dependency rather
+than an observation: **remote access ships broken on a bad link without 4(b)**.
+
+Both were substantially researched on 2026-09-18/19 and are now `PARTLY SPECIFIED` and
+`PLANNED` respectively; the relay mechanism is settled
+([D71](contributors/decisions/working-notes.md)) and a share turned out to be a predicate
+([D76](contributors/decisions/working-notes.md)). What is left here is the product decision,
+not the design.
 
 ---
 
@@ -164,6 +219,30 @@ Not in scope: audiobooks and podcasts — a different product wearing the same c
 Audiobookshelf's 1,191 open issues are the evidence.
 
 ---
+
+## Unscheduled, and deliberately so
+
+Three plans from the audit have no phase because they are independent of the critical path and
+can land whenever there is room. They are listed rather than forgotten:
+
+- **[accessibility.md](contributors/design/plans/accessibility.md)** — mostly already built by
+  [D50](contributors/decisions/working-notes.md) and
+  [D55](contributors/decisions/working-notes.md) without anyone noticing; what remains is making
+  the CEA-708 mapping explicit and declaring what the overlay rendition costs. Belongs with
+  whichever client is being written.
+- **[observability.md](contributors/design/plans/observability.md)** — a `/metrics` endpoint,
+  off by default. It is a prerequisite for
+  [performance-targets.md](contributors/design/plans/performance-targets.md) meaning anything
+  outside CI.
+- **[artwork.md](contributors/design/plans/artwork.md)** — the home page is fifty posters and
+  is an image-serving benchmark. Needed by Phase 2 in practice.
+
+And **[offline-download.md](contributors/design/plans/offline-download.md)** is Phase 3+ as
+client work, with one part due earlier: the offline **manifest** must be able to enumerate its
+own dependencies, because the font pipeline
+([D53](contributors/decisions/working-notes.md)–[D58](contributors/decisions/working-notes.md))
+currently assumes the server is reachable, and a downloaded film with Japanese subtitles renders
+as tofu on a plane.
 
 ## Explicitly not on this roadmap
 
@@ -197,7 +276,14 @@ live TV and DVR.
    working implementation rather than designed ahead of one. Tier 3's second consumer is already
    identified — intro/credit detection, whose requirements match the transcoder's almost exactly
    with a completely different workload ([D20](contributors/decisions/working-notes.md)).
-8. **The plugin ABI becomes a compatibility millstone.** Jellyfin plugins break every release;
+8. **Client/server version skew** ([D85](contributors/decisions/working-notes.md)). Jellyfin
+   12.0 removed `/emby/` and `X-Emby-Authorization` outright and broke third-party clients and
+   every plugin. Our exposure is larger: our clients are first-party, ship through app stores,
+   run on televisions that never update, and — under
+   [D2](contributors/decisions/working-notes.md) — carry decision logic that cannot be fixed
+   from the server. Mitigation is a written contract and a CI diff of the generated OpenAPI
+   document, both cheap and both worthless if added after the first client ships.
+9. **The plugin ABI becomes a compatibility millstone.** Jellyfin plugins break every release;
    Plex killed its plugin system after seven years as unsupportable. Mitigation: a declared
    versioned interface rather than a link against internals, a host-service list short enough to
    read, and our own transcoder depending on it so it can never be the <2%-usage feature that

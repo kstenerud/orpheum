@@ -5,7 +5,7 @@
 
 # Scanner
 
-- **Status:** PLANNED — designed 2026-09-17; relocated into the media node by [D33](../../decisions/working-notes.md); **Shape and identification corrected 2026-09-19 by [D59](../../decisions/working-notes.md)**.
+- **Status:** PLANNED — designed 2026-09-17; relocated into the media node by [D33](../../decisions/working-notes.md); **Shape and identification corrected 2026-09-19 by [D59](../../decisions/working-notes.md)**; spin-down and two extra observation passes added the same day ([D94](../../decisions/working-notes.md), [D83](../../decisions/working-notes.md)).
 - **Depends on:** library-model.md
 - **Feeds:** [identification.md](identification.md)
 
@@ -121,6 +121,51 @@ activities survive as **progress labels**, not as stages that draw conclusions. 
 question — "why is this file not in my library?" — is answered by the node's error and skip
 records joined to the core's identification log, and it needs both halves.
 
+## Spinning disks are a cost the interval was not priced against
+
+Added by [D94](../../decisions/working-notes.md). Jellyfin issue #7689 is *Reduce hard disk
+access during playback*, and the damaging part is the comparison inside it: users report Plex
+has nearly no disk activity where Jellyfin has a lot. For a NAS audience — and
+[test-hardware.md](../research/test-hardware.md) names an 8 GB Celeron NAS as the honest low
+end — spinning drives cost power, noise and wear, and "it keeps my array awake" is the kind of
+complaint that ends in an uninstall.
+
+`snapshot_interval` was justified above against two pressures: a silently-dead watcher wants it
+short, an expensive SMB enumeration wants it long. **There is a third — the interval is how
+often the disks must wake** — and it argues the number should be **per root and derived from
+the setup probe**, not a global constant. An SSD-backed root and a spun-down array want
+different answers.
+
+Two rules:
+
+- **Batch the wake.** All roots on one physical device enumerate together, so one pass spins the
+  array up once. The adaptive per-directory cadence above must not be allowed to become a
+  continuous trickle of small wake-ups — that is strictly worse than one long pass, and it is
+  the failure mode adaptivity naturally produces.
+- **`archival` means untouched.** The config field already exists in this plan; its meaning is
+  now concrete: no walk, no probe, no thumbnailing, no loudness pass. The journal only, if a
+  watcher is available. And the node **reports that it is honouring it**
+  ([D73](../../decisions/working-notes.md)), so "why is my new file missing" has an answer
+  instead of a mystery.
+
+## Two more observation passes
+
+Both are node work, both are [D42](../../decisions/working-notes.md) facts rather than
+judgements, and both are things the node is uniquely placed to do because it already has the
+file open.
+
+- **Loudness** ([D83](../../decisions/working-notes.md),
+  [audio-presentation.md](audio-presentation.md)). Integrated loudness, loudness range and true
+  peak per audio track, via FFmpeg's `ebur128`. It is an extra decode pass, which is free on a
+  desktop and is not free on a Celeron with fifty thousand files — so it is interruptible,
+  resumable and reported like any other progress, and whether it can be deferred per library is
+  a [performance-targets.md](performance-targets.md) question.
+- **Segment candidates** ([D82](../../decisions/working-notes.md),
+  [media-segments.md](media-segments.md)). Chapter marks are already in the probe output and
+  cost nothing. Audio-fingerprint and black-frame detection across a season are a real decode
+  cost and are a later, plugin-shaped job — the node **reports candidate boundaries**, the core
+  decides what to store.
+
 ## Track facts the node records
 
 Observation only; the *derivation* of track kind is in
@@ -178,5 +223,7 @@ polling user actually has.
 
 A pathological real-world library enumerates correctly; an interrupted snapshot resumes without
 the core inferring a deletion; a watcher that silently stops is caught by the next snapshot; a
-node whose probe cache is deleted publishes a byte-identical snapshot; and the node's records
-answer "what did you see, and what could you not read?" without a debug log.
+node whose probe cache is deleted publishes a byte-identical snapshot; a library declared
+archival is not touched at all and says so; a scan of one array spins it up once rather than
+repeatedly; and the node's records answer "what did you see, and what could you not read?"
+without a debug log.

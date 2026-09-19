@@ -24,8 +24,18 @@ Media is mounted read-only by default. The database is a rebuildable index, neve
 (D7). Anything the user authored is mirrored to disk so it survives us. Destructive actions say
 exactly what they will destroy.
 
+**Deleting is the one deliberate relaxation, and it is opt-in.** Users do delete things, and a
+principle that pretends otherwise gets bypassed rather than followed. So: a writable path is
+opt-in **per library** and off by default; deletion is two-phase and the confirmation **names
+every file and its size**; it happens in the node, never the core
+([D33](../decisions/working-notes.md)); and a retention rule may only ever *mark*
+([D75](../decisions/working-notes.md), [D89](../decisions/working-notes.md)). "Destructive
+actions say exactly what they will destroy" is the sentence above; this is its first real
+consumer.
+
 **Bites when:** a feature would be easier if the server could just write to the media tree, or
-if some state existed only in the database.
+if some state existed only in the database — or when "we don't support deleting" quietly
+becomes an `os.Remove` in a handler.
 
 ## §3 — Explain the decision to the user
 

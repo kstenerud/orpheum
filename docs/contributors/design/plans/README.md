@@ -21,6 +21,12 @@ A plan states where it stands in a metadata list under its title:
 `- **Depends on:**` names other live plans, or `—`. It is declared one way: "A depends on B"
 lives in A. The reverse view is a grep (`grep -l 'Depends on:.*B.md' *.md`).
 
+`- **Blocks:**` is the one exception, and it means something narrower: *B cannot be finished
+correctly until A has been decided*, usually because A contributes schema. It lives in A
+because A is where the reader needs the warning. Several of the
+[2026-09-19 audit](../research/audit-2026-09-19.md) plans block `library-model.md` for exactly
+that reason.
+
 ## Finding a plan
 
 `ls` is the complete list. `head -3 <file>` gives a plan's purpose. `grep '^- \*\*Status:\*\*' *.md`
@@ -57,6 +63,43 @@ because it exercises the same sync machinery with none of the NAT traversal
 `jellyfin-api-shim.md` needs a stable `stream-service.md` and is otherwise independent. It may
 reduce the urgency of `tv-client.md` — re-examine that once the adapter exists and its real
 fidelity is known, not before.
+
+## What the 2026-09-19 audit added
+
+An independent audit against industry practice, the large operators and the complaint record
+([audit-2026-09-19.md](../research/audit-2026-09-19.md),
+[D80](../../decisions/working-notes.md)–[D95](../../decisions/working-notes.md)) produced ten
+new plans. The ordering that matters:
+
+- **The schema set is due before `library-model.md`** — which is Phase 1, so this is the urgent
+  group: [play-state.md](play-state.md), [media-segments.md](media-segments.md),
+  [audio-presentation.md](audio-presentation.md), [parental-controls.md](parental-controls.md),
+  plus four things that landed directly in `library-model.md` — People
+  ([D95](../../decisions/working-notes.md)), certifications
+  ([D84](../../decisions/working-notes.md)), **episode orderings**
+  ([D96](../../decisions/working-notes.md)) and **extras**
+  ([D97](../../decisions/working-notes.md)). The last two are
+  [D79](../../decisions/working-notes.md)'s failure repeating: one position where there should
+  be one per ordering, and no level that fits a trailer.
+- **[auth.md](auth.md) is a Phase 1 subsystem that had no plan.** Identity, sessions, tokens
+  and device pairing were spread across three other documents, none of which owned them.
+- **[api-compatibility.md](api-compatibility.md) must land before the first client ships**, not
+  before the first release. Its CI gate is the cheap half and the deadline is the expensive
+  half: our clients go through app stores and televisions never update.
+- **[accessibility.md](accessibility.md)** is mostly already built by
+  [D50](../../decisions/working-notes.md) and [D55](../../decisions/working-notes.md) without
+  anyone noticing; what it needs is the mapping made explicit and the overlay rendition's
+  losses declared.
+- **[offline-download.md](offline-download.md)** is late in client terms and early in *manifest*
+  terms: an offline manifest that cannot enumerate its own dependencies is a migration, and the
+  font pipeline currently assumes connectivity.
+- **[observability.md](observability.md)** and **[artwork.md](artwork.md)** are independent and
+  can land whenever; both are prerequisites for
+  [performance-targets.md](performance-targets.md) meaning anything outside CI.
+
+And one that changed an existing schedule: [D86](../../decisions/working-notes.md) puts
+`transcoding.md` **§(b)** on [remote-access.md](remote-access.md)'s critical path rather than
+at Phase 4, because remote playback over a degraded link has nothing lower to fall back to.
 
 ## The unspecified set
 

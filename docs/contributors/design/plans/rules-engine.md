@@ -4,7 +4,7 @@
 
 # Rules engine
 
-- **Status:** PLANNED — researched 2026-09-19 ([rules-engine.md](../research/rules-engine.md), [D75](../../decisions/working-notes.md)). Promoted into Phase 1 by [D20](../../decisions/working-notes.md).
+- **Status:** PLANNED — researched 2026-09-19 ([rules-engine.md](../research/rules-engine.md), [D75](../../decisions/working-notes.md)). Promoted into Phase 1 by [D20](../../decisions/working-notes.md). Gained a fifth binding 2026-09-19 ([D84](../../decisions/working-notes.md)).
 - **Depends on:** —
 - **Blocks:** [library-model.md](library-model.md) — the field registry and the tag storage choice are schema
 
@@ -21,15 +21,21 @@ in this field lets a user express a rule about their library: Kometa (3,416), Ma
 
 ## The shape
 
-**One predicate language, three bindings** ([D75](../../decisions/working-notes.md)). Smart
-playlists, smart collections and retention are the same stored query at different times with
-different effects.
+**One predicate language, now five bindings** ([D75](../../decisions/working-notes.md),
+[D76](../../decisions/working-notes.md), [D84](../../decisions/working-notes.md)). They are the
+same stored query at different times with different effects.
 
 | Binding | Effect | Evaluated |
 | --- | --- | --- |
 | Smart playlist | ordered membership | on read, or off the change journal |
 | Smart collection | display grouping | same |
 | Retention | **marks** items — never deletes | on a schedule |
+| Share ([D76](../../decisions/working-notes.md)) | grants visibility, **fails closed** | on every access path |
+| Profile restriction ([D84](../../decisions/working-notes.md)) | limits visibility, **fails closed** | on every access path |
+
+The last two were added after the fact and cost nothing, which is the argument for having built
+this first. "Rating at or below 12 in the household's system, and not tagged `horror`" is a
+kids profile; it is also just a rule.
 
 Retention marking rather than deleting is [D7](../../decisions/working-notes.md) applied:
 Maintainerr and Janitorr delete, we produce a state the user reviews and acts on. Same shape as

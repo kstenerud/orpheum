@@ -336,7 +336,8 @@ rewrites the web client's served JavaScript. If we do not design this, someone w
 - **Good search** (a Meilisearch plugin is a bug report). Already decided — **SQLite FTS5**
   ([D31](../../decisions/working-notes.md)), with fuzzy matching in Go.
 - **Version merging** for multiple copies of one title (mergeversions, 439). Already planned as
-  `Title → Edition → MediaFile`; this confirms it matters.
+  `Title → Edition → Version → File` ([D79](../../decisions/working-notes.md), which corrected
+  it from three levels); this confirms it matters.
 - **Webhooks/events** as a first-class core feature, since it is both a popular official plugin
   and the foundation of Immich's whole plugin model.
 

@@ -39,9 +39,16 @@ Draw the conclusion carefully. Whether that patch is *legally sound* is not a qu
 document can answer. What it demonstrates is that **the licence surface here is real enough
 that the biggest project in the field patches around it**, in the open, deliberately.
 
+> **Corrected 2026-09-19 — this section reasons about the *server* and was never tested
+> against the *clients*.** A whole-project GPLv3 cannot be distributed through the Apple App
+> Store, which would have cost the iPhone, iPad and Apple TV clients entirely. See §5 below and
+> [D80](../../decisions/working-notes.md): **GPLv3 for server, node and relay; MPL-2.0 for the
+> clients and the shared SDK.** Everything about FFmpeg's ladder below is unaffected and still
+> correct — it is a statement about the server binary.
+
 **Position for this project:**
 
-- **Licence the project GPLv3.** It is the licence we end up downstream of anyway once x264/x265
+- **Licence the server, node and relay GPLv3** (see §5 for the clients). It is the licence we end up downstream of anyway once x264/x265
   are in the picture, it is what Jellyfin's FFmpeg build already is, and picking GPLv2 would
   create a one-way incompatibility with our own dependency.
 - **Do not enable `--enable-nonfree`, and do not carry a patch that reclassifies a nonfree
@@ -139,9 +146,61 @@ binary.** It is better legally, better for rate limits, better for privacy, and 
 D13's no-account promise implies anyway. The cost is one more first-run step, and that step can
 be made pleasant.
 
-## 5. What this settles
+## 5. The clients cannot be GPL, and the licence is a one-way door
 
-1. **GPLv3 for the project.** It is where the dependency chain lands us.
+Added 2026-09-19 ([D80](../../decisions/working-notes.md),
+[audit-2026-09-19.md](audit-2026-09-19.md) §2). Everything above is about the server binary and
+FFmpeg's ladder. The clients have a completely different constraint and it points the other
+way.
+
+**The history.** VLC was removed from the iOS App Store in **January 2011** after a GPL
+compliance complaint. VideoLAN relicensed libVLC from GPLv2 to **LGPLv2.1** later that year,
+citing "the widely publicized incompatibility of copyleft licensing with various App Store
+agreements". The VLC application returned to the App Store in **July 2013 under MPL-2.0**. The
+relicensing took about two years, because it needed every copyright holder.
+
+**The field has converged**, and the pattern is legible in one table of licence files read from
+the local clones on 2026-09-19:
+
+| Project | Role | Licence |
+| --- | --- | --- |
+| `jellyfin/jellyfin` | server | GPL-2.0 |
+| `jellyfin/Swiftfin` | **iOS + tvOS** | **MPL-2.0** |
+| `streamyfin/streamyfin` | iOS + Android | **MPL-2.0** |
+| `jarnedemeulemeester/findroid` | **Android only** | GPL-3.0 |
+| `jellyfin/jellyfin-androidtv` | Android TV | GPL-2.0 |
+
+The Apple clients are MPL; the Android ones are GPL. Google Play tolerates copyleft; Apple's
+terms have not.
+
+**Why it binds us harder than Jellyfin.** Their Apple clients are third-party and were licensed
+independently from the start. Ours are first-party ([D10](../../decisions/working-notes.md)),
+tvOS is planned ([D30](../../decisions/working-notes.md)), and
+[D67](../../decisions/working-notes.md) promises that tvOS never gates a feature — void if the
+app cannot be distributed at all.
+
+**And MPL is the right licence for the SDK independently of Apple**:
+[D20](../../decisions/working-notes.md) says the shared TypeScript SDK is what third parties
+build clients on, and file-level copyleft keeps our code open without making their client a
+derived work.
+
+**Why not AGPL for the server.** Immich chose it. We do not, because
+[D71](../../decisions/working-notes.md) makes the relay a mode of the same binary that we want
+people to run on their own VPS, and AGPL attaches a publication obligation to that act. The
+cost is that someone may host a modified relay without publishing; the relay holds no data
+([D72](../../decisions/working-notes.md)), so there is nothing there to defend.
+
+This is not legal advice. The App Store position is inferred from a well-documented history and
+from what comparable projects ship through review, not from a lawyer — but it is a **one-way
+door**, so it is decided before the first client commit and stated in `CONTRIBUTING` per
+directory.
+
+## 6. What this settles
+
+1. **GPLv3 for the server, node and relay; MPL-2.0 for the clients and the shared SDK**
+   ([D80](../../decisions/working-notes.md)). The first is where the FFmpeg dependency chain
+   lands us; the second is what the Apple App Store requires, and it must be set before the
+   first client commit.
 2. **No `--enable-nonfree`, no `libfdk-aac`, no reclassification patches.** Native AAC, Opus,
    `libmp3lame`.
 3. **Ship a self-built, pinned FFmpeg and publish the configure line.**

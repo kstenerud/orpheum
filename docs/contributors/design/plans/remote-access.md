@@ -3,7 +3,7 @@
 
 # Remote access
 
-- **Status:** PARTLY SPECIFIED — researched 2026-09-18 ([remote-access.md](../research/remote-access.md), [D25](../../decisions/working-notes.md)); NAT traversal and the relay shape settled 2026-09-19 ([D68](../../decisions/working-notes.md), [D71](../../decisions/working-notes.md)). **The mechanism is now chosen**; the hosted-service question remains a product decision, not a technical one.
+- **Status:** PARTLY SPECIFIED — **adaptation gap identified 2026-09-19** ([D86](../../decisions/working-notes.md)); researched 2026-09-18 ([remote-access.md](../research/remote-access.md), [D25](../../decisions/working-notes.md)); NAT traversal and the relay shape settled 2026-09-19 ([D68](../../decisions/working-notes.md), [D71](../../decisions/working-notes.md)). **The mechanism is now chosen**; the hosted-service question remains a product decision, not a technical one.
 - **Depends on:** —
 
 ## The mechanism: a `relay` role the core dials out to
@@ -66,6 +66,36 @@ disable or limit your access to or use of the CDN … if you use or are suspecte
 without such Paid Services to serve video or a disproportionate percentage of pictures, audio
 files, or other large files."* The documentation must say so, rather than letting people find
 out by being banned. `frp`, `rathole` or a plain VPS are fine.
+
+## The thing that does not work yet, said out loud
+
+**Direct play over a WAN has no adaptation** ([D86](../../decisions/working-notes.md)). The
+rendition is chosen once, at the start; if the link degrades, playback stalls. On a LAN that is
+fine and is the whole point. Over a relay, on a hotel Wi-Fi, it is the common case.
+
+Three consequences, none of them optional:
+
+- **Buffer-driven re-picking** ([stream-service.md](stream-service.md)). The client already
+  picks the rendition ([D2](../../decisions/working-notes.md)) and already knows its own buffer
+  level, so the adaptation signal Netflix's own SIGCOMM'14 study says to use — buffer occupancy,
+  not bandwidth estimation — is already in the right place. What is missing is that it re-picks.
+- **There has to be something lower to pick.** That is [transcoding.md](transcoding.md) §(b),
+  which is scheduled at Phase 4 and is in fact on this document's critical path. An install with
+  no transcoder registered can only offer the original, and must **say so** through the
+  transcode-reason field rather than letting the user discover it in a hotel.
+- **Variants must be segment-aligned** or a downshift is a reposition
+  ([D23](../../decisions/working-notes.md)). The mechanism is already specified in
+  `transcoding.md`; it is a requirement of *this* document.
+
+**Bandwidth limits per grantee** follow from the same place and are unspecified: the relay's
+economics (~2,200 film-hours a month at 10 Mbps on a €5 VPS) assume nobody is streaming a
+30 Mbps remux to five houses. A ceiling per share is a rules-engine-adjacent setting and it is
+the honest alternative to discovering the bill.
+
+**One option worth naming for the technical user:** mTLS / client certificates, requested on
+findroid's tracker (+28). It is not an answer for a family — nothing requiring a certificate
+install ever is — but it costs a paragraph in the documentation and it is strictly better than
+the "just use a VPN" answer we reject elsewhere, for the people who can use it.
 
 ## Why it matters more than its size suggests
 

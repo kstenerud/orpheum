@@ -3,7 +3,7 @@
 
 # Stream service
 
-- **Status:** PLANNED — designed 2026-09-17.
+- **Status:** PLANNED — designed 2026-09-17; **adaptation, audio presentation and the accessibility floor added 2026-09-19** ([D86](../../decisions/working-notes.md), [D83](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md)).
 - **Depends on:** library-model.md
 
 ## Scope — direct play, plus audio
@@ -144,11 +144,74 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   ordinary caching and any future fan-out, long before anyone tried to build either. Ordinary
   CDN practice; free if done now.
 
+## Adaptation: the client re-picks, on its own buffer
+
+Added by [D86](../../decisions/working-notes.md). The design resolved the rendition list **once,
+at the start**, which is correct on a LAN and is a stall on a hotel Wi-Fi — and remote access is
+the headline feature and the paid tier.
+
+**Netflix published the correction to the obvious approach**, on their own production traffic:
+Huang, Johari, McKeown, Trunnell and Watson, *A Buffer-Based Approach to Rate Adaptation*,
+SIGCOMM'14. Choosing the rate from **buffer occupancy alone** — no bandwidth estimation — cut
+the rebuffer rate by **10–20% against their own production algorithm**, with the conclusion:
+*"capacity estimation is unnecessary in steady state; however using simple capacity estimation
+(based on immediate past throughput) is important during the startup phase."*
+
+We still build no encoding ladder. We do this:
+
+- **The client re-runs the negotiation it already runs**, driven by its own buffer level. Under
+  [D2](../../decisions/working-notes.md) the picking logic and the buffer are both already on
+  the client, so the correct adaptation input is in the correct place and there is no
+  server-side bandwidth estimator anywhere.
+- **Segment-grid alignment becomes a requirement of remote access**, not a detail of
+  transcoding. [transcoding.md](transcoding.md) §(b) already specifies using the source keyframe
+  grid as the segment grid for *every* rendition including passthrough, so variants are
+  interchangeable. It was specified with no consumer; this is the consumer, and without it a
+  downshift is a reposition.
+- **[D23](../../decisions/working-notes.md)'s invariant collides and is resolved by the above.**
+  A bandwidth downshift is a video-axis change, in the one situation where a restart is least
+  affordable. Aligned variants make it a switch rather than a restart.
+- **Where adaptation is impossible — no transcoder registered — say so.** The transcode-reason
+  field already exists for this; "this server cannot produce a lower rendition" is the honest
+  answer and it belongs in the remote-access documentation, not in a hotel.
+
+## Audio presentation
+
+[audio-presentation.md](audio-presentation.md) owns this; two consequences land here.
+
+- **Loudness is applied as gain at playback** from the per-track measurement the node made at
+  scan ([D83](../../decisions/working-notes.md)). A passed-through bitstream gets the gain as
+  metadata for the client to apply, never a re-encode for the sake of a volume change.
+- **Dynamic-range compression is a per-device declaration**, not a server setting. AC-3 and
+  E-AC-3 carry `dialnorm`/DRC metadata and FFmpeg applies it by default (`drc_scale = 1`), which
+  is right on a train and wrong in a home cinema. The correct value depends on the room, so the
+  client declares it — [D2](../../decisions/working-notes.md) applied to audio.
+
+## The caption controls are a contract, not a client detail
+
+[D90](../../decisions/working-notes.md), [accessibility.md](accessibility.md). 47 CFR §79.103
+requires user control of caption font (the eight CEA-708 fonts), size 50–200%, text and
+background colour from at least eight, background and window opacity, and five character-edge
+attributes; the EU Accessibility Act has applied since 2025-06-28. Two things follow for the
+manifest:
+
+- **[D55](../../decisions/working-notes.md)'s served font set is already that list.** Make the
+  eight-style mapping explicit and the font endpoint becomes a conformance artefact rather than
+  a coincidence.
+- **The overlay rendition forecloses every one of those controls**, not only size as
+  [D78](../../decisions/working-notes.md) noted. So the manifest never offers the overlay as the
+  *only* form of a caption track where a text form exists, and a client using it reports what it
+  lost, in the same surface that explains a transcode.
+
 ## Done when
 
 A client direct-plays everything the playback survey says it should; a client that cannot decode
 TrueHD or DTS-HD still plays the film with its video untouched and its audio transcoded; ASS
 subtitles render correctly with their embedded fonts; **an Arabic subtitle keeps its punctuation
 on the correct side and a Thai one wraps at word boundaries**; **captions and subtitle language
-can be switched forty minutes in without the video stuttering**; resume is correct; and anything
-that still cannot play says why.
+can be switched forty minutes in without the video stuttering**; **two films from different
+decades play at the same perceived level**; **a caption track always offers a text form where
+one exists**; **our HLS output passes Apple's `mediastreamvalidator`** — every segment starting
+on an IDR, which is also what makes variants interchangeable for
+[D86](../../decisions/working-notes.md); resume is correct; and anything that still cannot play
+says why.

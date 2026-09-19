@@ -5,7 +5,7 @@
 
 # Video transcoding
 
-- **Status:** PLANNED — designed 2026-09-17. Scheduled after the clients, pending measurement.
+- **Status:** PLANNED — designed 2026-09-17. Scheduled after the clients, pending measurement — **except that §(b) is now on remote access's critical path** ([D86](../../decisions/working-notes.md), 2026-09-19), and §(a) gained a second consumer ([D87](../../decisions/working-notes.md)).
 - **Depends on:** playback-survey.md, stream-service.md
 
 ## Scope: video only
@@ -70,6 +70,13 @@ Trigger it from the playback survey's ranked failure list, not from a guess. If 
 and no ABR, and it matches the user's actual situation: a number of old videos that need
 converting once.
 
+**It has a second consumer, which changes its priority**
+([D87](../../decisions/working-notes.md)): a **download rendition**. Two of the most-reacted
+requests on the Jellyfin client trackers are *"Transcode downloads to save storage space"*
+(+32) and *"Allow transcoding of multimedia content"* (+52) — people want the copy on their
+phone to be smaller than the original. Same machinery, different trigger, different retention
+policy, and it is often the only thing a phone user wants from a transcoder at all.
+
 ### (b) Bandwidth transcoding — a network problem
 
 The client decodes the file fine but cannot receive it fast enough. This is the case that
@@ -86,7 +93,20 @@ bitrate, and it is the design researched in [tech-playback.md](../research/tech-
 - share one encoder process between viewers of the same rendition.
 
 **Build this second, and treat it as coupled to remote access (D14), not to the library.** On a
-LAN it is almost never needed. Prefer AV1/Opus for output where client support allows — they are
+LAN it is almost never needed.
+
+**[D86](../../decisions/working-notes.md) sharpens that from "coupled" to "required".** Remote
+access is the headline feature and the paid tier, and on a degraded remote link the only lower
+renditions that exist are the ones this component makes. Without it, remote playback over a
+constrained link is a ranged GET of a 20 Mbps remux and a stall. So "deliberately late" is
+true relative to the library and false relative to remote access — whichever of those ships
+first sets this component's real deadline.
+
+**And the segment-grid requirement has a consumer now.** "Use the source keyframe grid as the
+segment grid for every rendition including passthrough, so variants are interchangeable" was
+specified above with nothing depending on it. Buffer-driven adaptation depends on it: without
+aligned variants a mid-film downshift is a reposition, in the one situation where a restart is
+least affordable ([D23](../../decisions/working-notes.md)). Prefer AV1/Opus for output where client support allows — they are
 royalty-free by design (D16).
 
 **This also owns remote "party viewing"**, which is not a

@@ -157,6 +157,30 @@ Notes on the shape:
   things: codecs, profiles, track counts, dispositions.
 - **`cache/` is always safe to delete.** Nothing irreplaceable lives outside the database and
   the media files.
+- **Play state is a log, not a cell** ([D81](../decisions/working-notes.md)). A guarded position
+  per user and edition, with a monotonic sequence so a stale device cannot rewind a newer one,
+  plus an append-only event log. Jellyfin keeps one mutable row and its tracker carries *"Most
+  movies now appear to be 75% watched"* and *"Media playback randomly starts over again or jumps
+  back — STILL"*; Tautulli (6,590★) exists because the history is nowhere.
+- **We are the ones doing the downmix, so the quiet dialogue is ours**
+  ([D83](../decisions/working-notes.md)). Netflix normalises its catalogue at ingest — -27 LKFS
+  dialog-gated, -2 dBTP. We cannot rewrite files, so the node measures loudness at scan and the
+  core applies gain at playback, which is ReplayGain's answer to the same constraint. Downmix
+  gets one default and a dialogue control rather than Jellyfin's five algorithms, each of which
+  its own documentation apologises for.
+- **Captions have a statutory control set and we already serve it by accident**
+  ([D90](../decisions/working-notes.md)). 47 CFR §79.103 requires the eight CEA-708 fonts,
+  50–200% sizing, eight-colour text and background, three opacities and five edge attributes;
+  [D55](../decisions/working-notes.md) chose exactly that font axis for typographic reasons.
+  The consequence nobody had drawn: the server-rendered overlay forecloses every one of those
+  controls, so it is never the only offer for a caption track.
+- **An episode has a position per ordering, and a trailer is not a cut**
+  ([D96](../decisions/working-notes.md), [D97](../decisions/working-notes.md)). Both are the
+  four-level correction repeating in other organs. Jellyfin's episode carries one
+  `IndexNumber` plus three nullable escape hatches for the specials that do not fit and a bare
+  string `Series.DisplayOrder` compared against magic values two different ways; its extras are
+  full items with an owner pointer, kept out of listings by convention. Aired, DVD and absolute
+  are orderings of one set of episodes; an extra is a typed relation to a shorter work.
 - **Four levels, because three is where everyone else's version bugs come from**
   ([D79](../decisions/working-notes.md)). Title → Edition → Version → File, matching the
   industry's EIDR hierarchy (Abstraction → Edit → Manifestation), with Collections orthogonal
@@ -186,12 +210,13 @@ Notes on the shape:
 
 | Not building | Why |
 | --- | --- |
-| Household verification, device counts, IP entitlement checks | [D76](../decisions/working-notes.md). Netflix needs it because it licenses content per household; we license nothing. "Your phone must occasionally connect to the living-room Wi-Fi" is a requirement imposed on someone's life, and a large part of what our users are leaving. |
+| Household verification, device counts, IP entitlement checks | [D76](../decisions/working-notes.md). Netflix needs it because it licenses content per household; we license nothing. "Your phone must occasionally connect to the living-room Wi-Fi" is a requirement imposed on someone's life, and a large part of what our users are leaving. **Not to be confused with parental controls**, which we *are* building ([D84](../decisions/working-notes.md)): a kids profile is a grantee plus a predicate, a fifth binding of the rules engine. Netflix's apparatus enforces a licence; a maturity ceiling protects a child, and only the first is someone else's business. |
 | DRM | The user owns the files. Skipping it removes key servers, licence proxies and platform certification — the main reason a small team can compete here. |
 | A device-profile database | [D2](../decisions/working-notes.md), [D21](../decisions/working-notes.md). It is the incumbents' largest bug source. Our menu is a closed enumeration and must never become a grammar of conditions. |
 | Dolby Vision / Atmos *output* | Passthrough only. We direct-play them where the client copes and fall back to a menu profile otherwise; we never encode into them. |
 | Photos | [D1](../decisions/working-notes.md). Immich exists, is AGPL, and is moving faster than we could. |
-| A Netflix-style encoding ladder | Bandwidth is free on a LAN. |
+| A Netflix-style encoding ladder | Bandwidth is free on a LAN — but **not over the relay**, which is the paid feature. [D86](../decisions/working-notes.md): no ladder, and the client re-picks on its own buffer level, which is what Netflix's own SIGCOMM'14 study found beats bandwidth estimation by 10–20% on rebuffer rate. The consequence is a schedule change, not an architecture one: bandwidth transcoding moves onto remote access's critical path. |
+| A detector for intro and credit boundaries, at launch | [D82](../decisions/working-notes.md). The **model** is due with the schema — typed segments at the Version, because a timecode indexes an encoding — and the chapter-derived provider is nearly free. Netflix's fingerprint-and-human-review detector is not something we can build, and `intro-skipper` (2,780★ plus 968★ archived) shows it is plugin-shaped anyway. |
 | Microservices, Kafka, Elasticsearch, Redis | Household scale. SQLite FTS5 covers search — two tokenisers, because no single one handles Latin, CJK and Thai ([D48](../decisions/working-notes.md)) — Go covers fuzzy matching, and job wakeups are a channel in one process ([D31](../decisions/working-notes.md)). |
 | A Roku client | BrightScript shares no code with anything and Roku cannot render bitmap subtitles at all. |
 | FFmpeg in the core process | [D26](../decisions/working-notes.md). Media is attacker-supplied data and FFmpeg will eventually be compromised; all of it runs in a Landlock+seccomp-confined worker, so the core never parses hostile bytes. |
@@ -242,11 +267,26 @@ Honest statement of what the research did **not** settle:
    it is good enough to delay the first-party TV client.
 4. **Metadata provider licensing.** TMDB's terms condition commercial use on a written
    agreement; TheTVDB tiers by the licensee's revenue. Must be answered before a public release.
-5. **The real direct-play rate.** [D17](../decisions/working-notes.md) bets that direct play
+   **A second licensing question was closed on 2026-09-19** and is recorded here because it was
+   an unnoticed one-way door: a whole-project GPLv3 would have meant **no Apple client at all**,
+   for a project that says it is judged on its TV app. VLC was pulled from the App Store in
+   January 2011 and returned in July 2013 under MPL-2.0; Swiftfin and Streamyfin are both
+   MPL-2.0 against a GPL Jellyfin server. So: **GPLv3 for the server, node and relay; MPL-2.0
+   for the clients and the shared SDK** ([D80](../decisions/working-notes.md)) — and it has to
+   be set before the first client commit, because relicensing needs every contributor.
+5. **What a client's own probe is worth.** [D2](../decisions/working-notes.md) is right that
+   the client is the only party that can ask its own decoder — and the answer is often wrong,
+   which the large operators absorb with device certification programmes we cannot have.
+   [D92](../decisions/working-notes.md) settles the shape: a fallback ladder the client walks
+   on failure, plus a memory it keeps **about itself**, reported to the core so a household can
+   see the pattern. The server still never builds a device-capability database
+   ([D21](../decisions/working-notes.md)). What is open is how often it happens, which is a
+   Phase 0 number.
+6. **The real direct-play rate.** [D17](../decisions/working-notes.md) bets that direct play
    covers the common case. That rests on a number **nobody has published** — Tautulli exposes it
    per-server, but no aggregate survey exists. Measuring it is days of work and it re-orders the
    roadmap in either direction, which is why it is now Phase 0.
-6. **Codec patents.** Separate from copyright licence and not resolved by being open source. The
+7. **Codec patents.** Separate from copyright licence and not resolved by being open source. The
    field's uniform practice is to ship H.264/HEVC anyway; direct-play-first reduces a default
    install's exposure to nearly nothing because it never encodes.
    ([D16](../decisions/working-notes.md))

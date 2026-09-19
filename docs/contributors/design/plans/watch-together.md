@@ -223,6 +223,21 @@ The consequence for [D64](../../decisions/working-notes.md): the premium tier's 
   derived from a 50 ppm clock assumption; playback-rate error will probably dominate it and may
   be far worse on cheap hardware. Device lab.
 
+## Two things the audit attached to this surface
+
+- **Casting is this, with a group of one** ([D88](../../decisions/working-notes.md)). The
+  six-method per-client surface — join, leave, report position, accept play/pause/seek, report
+  readiness, report buffering — is exactly what one device driving another device's playback
+  needs: group size one, a remote controller, on the LAN, voice off. Saying so prevents the
+  usual outcome, a second parallel remote-control protocol that then diverges. It also makes a
+  Chromecast receiver an ordinary [D2](../../decisions/working-notes.md) client rather than a
+  special case, and AirPlay free wherever the Apple client uses AVPlayer. The claim to verify
+  is that six methods are still enough for a case they were not designed against — if a seventh
+  is needed, better to know before the surface is frozen.
+- **Playback rate is either shared state or explicitly local** — there is no third option
+  ([D90](../../decisions/working-notes.md)). A participant at 1.25× is not drifting, and
+  [D66](../../decisions/working-notes.md)'s reconciler must not spend the film fighting them.
+
 ## Done when
 
 **Phase 1 — two participants.** Two people on different networks watch a film end to end; either

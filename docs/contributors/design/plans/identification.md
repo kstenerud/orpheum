@@ -67,6 +67,10 @@ than in the node. Two requirements:
   correction beats a bad heuristic and is not overwritten on the next pass.
 - **Same table-driven, real-corpus test suite as the filename parser.** It is only ever right
   against real files.
+- **Audio description is a first-class kind, not a flag we happen to read**
+  ([D90](../../decisions/working-notes.md)). It must reach the client contract and the
+  preference axes ([D24](../../decisions/working-notes.md)) so "prefer audio description where
+  available" is a setting, rather than the user remembering a track number.
 
 ## Matching, overrides and duplicates
 
@@ -75,6 +79,12 @@ than in the node. Two requirements:
   index and the user's corrections are not.
 - **Duplicate and re-encode detection** within a library via perceptual hashing; Stash's
   `goimagehash` is the prior art.
+- **People are matched on provider identity, never on the display name**
+  ([D95](../../decisions/working-notes.md)). Jellyfin's *Actors with the same name appear as
+  one person* has been open since 2020-06, and its music twin states the cause in the title:
+  *"artists with the same name are merged while MBIDs are ignored"*. Merging two Person rows
+  that turn out to be one human across two providers is the same unsolved merge problem as
+  elsewhere.
 - Provider matching, its confidence handling, and what happens to an ambiguous match are
   **unspecified** and belong with `library-model.md`'s provenance tables.
 

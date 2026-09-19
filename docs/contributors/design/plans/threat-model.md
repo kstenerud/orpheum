@@ -6,7 +6,7 @@
 
 - **Status:** PLANNED — **researched 2026-09-18** ([threat-model.md](../research/threat-model.md), [D26](../../decisions/working-notes.md)). The containment stance is chosen; the per-platform confinement matrix and the signed-URL design remain open.
 - **Depends on:** remote-access.md
-- **See also:** [content-safety.md](content-safety.md) — proactive detection, deliberately deferred ([D61](../../decisions/working-notes.md)), with four affordances due now.
+- **See also:** [auth.md](auth.md) — identity, sessions and device pairing, split out 2026-09-19 ([D93](../../decisions/working-notes.md)); [content-safety.md](content-safety.md) — proactive detection, deliberately deferred ([D61](../../decisions/working-notes.md)), with four affordances due now.
 
 ## Why this is a gap and not a formality
 
@@ -29,7 +29,13 @@ and it means Jellyfin's threat model is not available to us. We have not written
   deserves real consideration — and note it interacts with
   [D19](../../decisions/working-notes.md): the transcoder is already out-of-process.
 - **Credential and token model.** Session lifetime, API key scoping and expiry, and the
-  "Copy Stream URL leaks the session key" failure Jellyfin has open.
+  "Copy Stream URL leaks the session key" failure Jellyfin has open. The *shape* of signing in
+  now has a home — [auth.md](auth.md), and device pairing is RFC 8628
+  ([D93](../../decisions/working-notes.md)) — but the token model itself is still this
+  document's question.
+- **What a metrics endpoint exposes.** [observability.md](observability.md) adds one
+  ([D91](../../decisions/working-notes.md)): off by default, localhost when on, never a label
+  that can carry a title or a path. It is a new listener and belongs in the surface inventory.
 - **What do shared links actually grant**, and can they be revoked? (Couples to
   `sharing-model.md`.)
 - **What we promise.** [D13](../../decisions/working-notes.md) is a privacy promise; this is the

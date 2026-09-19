@@ -169,7 +169,10 @@ should require an explicit opt-in per library.
 3. **Files are the source of truth; the database is a rebuildable index**; user-authored data is
    mirrored to sidecars. (D7)
 4. **Audit/change-journal tables and a delta-sync cursor exist in the first schema.** (D8)
-5. **`Title → Edition → MediaFile` is the core model**, not an afterthought.
+5. **`Title → Edition → Version → File` is the core model**, not an afterthought. *(Written as
+   three levels on 2026-09-17; corrected to four by [D79](../../decisions/working-notes.md) on
+   2026-09-19 — the missing level is EIDR's Manifestation, and its absence is where the field's
+   multi-version bugs come from.)*
 6. **Automatic pre-migration backup; forward-only ordered migrations; detect-and-refuse.**
 7. **SQLite FTS5; no separate search service.** Fuzzy filename→title matching moves into the
    identification component in Go, since SQLite has no `pg_trgm` equivalent (D31).

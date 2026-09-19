@@ -22,7 +22,14 @@ are worth nothing without a number that fails.
 
 - **Which numbers.** Candidates: time to first frame for direct play and for a transcode; home
   page and library page at 10k / 100k items; search latency; full-scan and incremental-scan
-  throughput; memory ceiling on a 2 GB NAS.
+  throughput; memory ceiling on a 2 GB NAS. **Add the home page's fifty posters**
+  ([artwork.md](artwork.md)) — the most-made request in the product, and an image-serving
+  benchmark rather than a metadata one.
+- **And where they are measured from.** Targets enforced only in CI cannot notice that the
+  library got slower as it grew, which is precisely how Jellyfin shipped a 30–50 second home
+  page. [observability.md](observability.md)'s `/metrics` endpoint
+  ([D91](../../decisions/working-notes.md)) is what makes a target observable in production,
+  and the two documents should agree on names.
 - **At what library sizes**, and where the reference libraries come from.
 - **On what hardware.** A Raspberry Pi and an old Intel NUC are the honest low end for this
   audience; targets that only hold on a desktop are not targets.
@@ -53,3 +60,8 @@ the guesses are in one place and get retired together.
 | Search routing floor — where `LIKE` gives way to trigram | [D48](../../decisions/working-notes.md) | Measured at 1.5 ms worst case on 20k rows; the crossover on a real corpus is unknown |
 | Sort keys per locale — how many locales a household uses | [D47](../../decisions/working-notes.md) | Cheap at one to three, annoying at ten |
 | Playback-position drift per platform — sets the watch-together reconciliation interval | [D66](../../decisions/working-notes.md) | Derived from a 50 ppm clock assumption; playback-rate error probably dominates and is unmeasured |
+| Loudness-measurement cost per file, and whether it is deferrable per library | [D83](../../decisions/working-notes.md) | An extra decode pass, free on a desktop and not free on a Celeron with 50k files |
+| Buffer reservoir and upper threshold for client re-picking | [D86](../../decisions/working-notes.md) | Netflix's were tuned for a CDN and a planetary audience; ours is a 20 Mbps origin one hop away, or a relay leg with very different characteristics |
+| `snapshot_interval` **per root**, derived from the setup probe | [D94](../../decisions/working-notes.md) | It is now also how often a spun-down array must wake, and an SSD root and a sleeping array want opposite answers |
+| Play-event log retention horizon | [D81](../../decisions/working-notes.md) | The first table with an unbounded row count; cheap per row, unknown per year |
+| Artwork: how many derived sizes, in what format, and the cache ceiling | [artwork.md](artwork.md) | A 20k-item library at three sizes in two languages is a real number nobody has computed; AVIF-vs-WebP is a device-lab result |

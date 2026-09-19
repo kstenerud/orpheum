@@ -26,7 +26,10 @@ comment on demand.)
 
 [rules-engine.md](rules-engine.md) already specifies a typed predicate language over a closed
 field registry, so **sharing is a fourth binding of it** ([D76](../../decisions/working-notes.md))
-alongside smart playlists, smart collections and retention. "A library", "a collection",
+alongside smart playlists, smart collections and retention — and
+[parental-controls.md](parental-controls.md) became the fifth on the same argument
+([D84](../../decisions/working-notes.md)), which is the clearest evidence that the shape is
+right. "A library", "a collection",
 "everything except label `private`" and "this one film" are all predicates.
 
 Two of the questions this document used to pose answer themselves:
@@ -92,6 +95,13 @@ know. **Do not merge across servers**; a client aggregating several shows severa
   mean, and the default is consequential here in a way playlist defaults are not.
 - **Whether a grantee sees that the library is filtered.** Honest, and it tells them what to
   ask for.
+- **What a grantee may do besides watch.** Presumably never delete
+  ([D89](../../decisions/working-notes.md)) and never change metadata, but "presumably" is not
+  a design, and the grantee's own play state, preferences and downloads
+  ([D87](../../decisions/working-notes.md)) all need a stated owner.
+- **A bandwidth ceiling per share.** [remote-access.md](remote-access.md)'s economics assume
+  nobody is pushing a 30 Mbps remux to five houses; the ceiling is the honest alternative to
+  discovering the bill.
 
 ## Done when
 

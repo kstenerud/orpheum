@@ -3,7 +3,7 @@
 
 # TV client
 
-- **Status:** PLANNED — designed 2026-09-17.
+- **Status:** PLANNED — designed 2026-09-17; sign-in, accessibility and the Apple licence consequence added 2026-09-19 ([D93](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D80](../../decisions/working-notes.md)).
 - **Depends on:** web-client.md
 
 ## Why Android TV first
@@ -61,6 +61,27 @@ can order the same list differently on an Android 10 phone and an Android 14 TV.
 renders the list it is given ([D47](../../decisions/working-notes.md)). For the same reason,
 plural handling must not depend on `Intl.PluralRules`, which Hermes does not implement.
 
+## Signing in, which is the first thing that happens
+
+Nobody had designed it, and it is the first interaction every user has, on the device with the
+worst text entry ever shipped. [D93](../../decisions/working-notes.md): **RFC 8628**, the OAuth
+2.0 Device Authorization Grant — the TV shows a short code and a URL, the user opens it on a
+phone, the TV polls. It is what the large streaming services use and the shape Jellyfin arrived
+at independently as Quick Connect. See [auth.md](auth.md); the TV's part is a screen, a poller
+and no keyboard.
+
+## Accessibility on a television
+
+[accessibility.md](accessibility.md), [D90](../../decisions/working-notes.md). The caption
+control set — font, size 50–200%, text and background colour, background and window opacity,
+five edge attributes — has to be reachable **during playback in at most two remote presses**,
+because "readily accessible" is the actual requirement and a TV settings tree is where controls
+go to die.
+
+And the screen-reader question is the same question as the focus prototype above: TalkBack
+walks the focus tree. Doing them together costs almost nothing; doing them separately means
+building the focus model twice.
+
 ## Risk, and the bail-out
 
 `react-native-tvos` is a fork of React Native, not first-party — though it tracks upstream
@@ -74,6 +95,12 @@ than a formality. **Bailing out does not mean going fully native** —
 [D28](../../decisions/working-notes.md) names the fallbacks: a **hybrid** (keep RN for web and
 phone, native TV only) if the failure is TV-specific, which is the likely case; **KMP plus
 native UI** if React Native fails generally.
+
+**One constraint on the Apple half that is not technical.** Under
+[D80](../../decisions/working-notes.md) the clients are **MPL-2.0**, not GPLv3, because a GPLv3
+application cannot be distributed through the App Store. That makes
+[D67](../../decisions/working-notes.md)'s "tvOS never gates a feature" achievable; under a
+whole-project GPLv3 there would have been no tvOS app to gate anything.
 
 [D30](../../decisions/working-notes.md) prices the Apple half of that fallback much lower than
 assumed: Swiftfin shares ~80% of its code between iOS and tvOS with only ~3.2% tvOS-specific, so

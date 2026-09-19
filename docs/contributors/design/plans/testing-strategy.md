@@ -42,6 +42,29 @@ in that class.** The gate has to be tests, and the tests need a corpus.
   focus-navigation prototype all need.
 - **An escape test for the FFmpeg confinement** ([D26](../../decisions/working-notes.md)). A
   sandbox nobody verified is a comment.
+- **The assertions the audit added**, listed here so they are not lost between plans:
+  two devices reporting progress cannot rewind each other and the losing report is still in the
+  log ([D81](../../decisions/working-notes.md)); a full rescan destroys no user-authored data —
+  poster, playlist, manual identification, preference — which Jellyfin's *All Library Scan
+  causes playlists to disappear* (50 comments) says is not automatic; two same-named people
+  from two providers stay two people ([D95](../../decisions/working-notes.md)); an item with
+  unknown runtime is not silently marked watched; a metrics label cannot contain a title or a
+  path ([D91](../../decisions/working-notes.md)); and a downloaded film plays with correct
+  non-Latin subtitles **with the network off** ([D87](../../decisions/working-notes.md)) —
+  which is the only way to catch that the font pipeline assumed connectivity.
+- **A breaking-change gate on the generated OpenAPI document**
+  ([D85](../../decisions/working-notes.md)). CI diffs it against the last release and fails an
+  incompatible change with no explicit waiver. This is a test in the sense that matters: it is
+  the thing that would have caught Jellyfin 12.0 removing `/emby/` before users did.
+- **Apple's `mediastreamvalidator` against our own HLS output.** The *HLS Authoring
+  Specification for Apple Devices* requires that video segments start with an IDR and that key
+  frames appear about every two seconds — the same constraint
+  [D86](../../decisions/working-notes.md)'s interchangeable variants need, arrived at from the
+  other direction. Apple ships a validator that checks it. A free conformance test for the
+  Apple client and for AirPlay, and nothing in the tree currently mentions it.
+- **An IPv6-only run.** Jellyfin has two open issues from single-stack installs (*Fresh install
+  unreachable on IPv6 single-stack*, *Metadata fetch timeout — IPv6 connectivity broken*). One
+  matrix row.
 - **Conformance tests as a plugin-API artefact** — [D19](../../decisions/working-notes.md) and
   [D23](../../decisions/working-notes.md) both already require them (a transcoder that claims a
   profile must produce it; a transcoder must carry closed captions through). That is a test

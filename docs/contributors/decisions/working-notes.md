@@ -5555,3 +5555,724 @@ correct, all unaffected by the level change.
 distinct rows in the first schema or whether File carries a nullable `version_id` that is
 almost always 1:1. The four-level *model* is not provisional; how thinly it is implemented on
 day one is negotiable, as long as the multi-part-plus-multi-version case has somewhere to go.
+
+---
+
+## D80 — Licence by artefact: GPLv3 for the server, MPL-2.0 for the clients and the SDK
+
+**Decided** (2026-09-19). Audit:
+[audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §2. This supersedes the single
+project-wide licence in [tech-licensing.md](../design/research/tech-licensing.md), which
+reasoned correctly about the server and was never tested against the clients.
+
+**A whole-project GPLv3 means no Apple client at all.** VLC was pulled from the iOS App Store in
+January 2011 over GPL compliance; VideoLAN relicensed libVLC to LGPLv2.1 later that year,
+explicitly citing "the widely publicized incompatibility of copyleft licensing with various App
+Store agreements"; and the VLC app returned to the App Store in **July 2013 under MPL-2.0**.
+
+The field has already converged, and the pattern is visible in one table of licence files read
+from the local clones:
+
+| Project | Role | Licence |
+| --- | --- | --- |
+| `jellyfin/jellyfin` | server | GPL-2.0 |
+| `jellyfin/Swiftfin` | **iOS + tvOS** client, 4,173★ | **MPL-2.0** |
+| `streamyfin/streamyfin` | iOS + Android client | **MPL-2.0** |
+| `jarnedemeulemeester/findroid` | **Android-only** client, 4,257★ | GPL-3.0 |
+| `jellyfin/jellyfin-androidtv` | Android TV client, 4,562★ | GPL-2.0 |
+
+The Apple clients are MPL; the Android ones are GPL. Google Play tolerates copyleft; Apple's
+terms have not.
+
+**This bites us harder than it bit Jellyfin**, whose Apple clients are third-party and were
+licensed independently from the start. Ours are first-party by design
+([D10](#d10--clients-react-native-shell-native-player-modules-two-engines)), tvOS is planned ([D30](#d30--tvos-is-cheap-from-inside-the-apple-stack-and-never-has-a-web-fallback)), and
+[D67](#d67--tvos-never-gates-a-feature) commits that tvOS never gates a feature — which is void if the app
+cannot be distributed. Under whole-project GPLv3 the project that says *"the project is judged
+on its TV app"* has no Apple TV app.
+
+**So:**
+
+- **Server, media node and relay: GPLv3.** Unchanged, and still where FFmpeg's ladder lands us.
+- **Clients and the shared TypeScript SDK: MPL-2.0.** File-level copyleft, so our code stays
+  open and the application is distributable. It is also the right licence for
+  [D20](#d20--plugin-architecture-constraints-and-four-things-the-catalogue-says-belong-in-the-core)'s claim that the SDK is what third parties build clients on.
+
+**Why not AGPL for the server.** Immich chose AGPL-3.0; we do not, because
+[D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it) makes the relay a mode of the same binary that we actively want
+people to run on their own VPS, and AGPL attaches a publication obligation to that act. The
+cost is that someone may host a modified relay without publishing; since the relay holds no
+data ([D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts)) there is nothing there to defend.
+
+**Rejected:** a single licence for everything (costs the Apple platform); LGPL for the clients
+(weaker than MPL's file-level copyleft for an application rather than a library, and MPL is
+what the field actually shipped through review); relicensing later (VideoLAN's took about two
+years because it needs every contributor's agreement).
+
+**Status:** Must be settled **before the first client commit**, and the CONTRIBUTING file must
+state the per-directory licence from day one. Not legal advice; the App Store position is
+inferred from a well-documented history and from what comparable projects ship, not from a
+lawyer.
+
+---
+
+## D81 — Play state is an append-only event log plus a guarded position, and positions are Edition-relative
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §3.
+
+Jellyfin keeps one row per `(user, item)` — `PlaybackPositionTicks`, `Played`, `PlayCount`,
+`LastPlayedDate`. **No device, no sequence, no history.** Two clients reporting progress are two
+writers to one cell and the last one wins. The tracker is the consequence: *"Most movies now
+appear to be 75% watched in Continue watching"* (44 comments), *"Media playback randomly starts
+over again or jumps back — STILL"* (29), *"Movie favourites are randomly unfavourited"* (33),
+*"'Continue Watching' not displaying on home screen"* (30).
+
+**So, two things rather than one:**
+
+1. **A guarded current position** per `(user, edition)` carrying a **monotonic sequence**, so a
+   stale device cannot rewind a newer one. Last-writer-wins is the bug; ordering is the fix.
+2. **An append-only play-event log** — `started`, `progress`, `paused`, `seeked`, `completed`,
+   `abandoned` — with device, server timestamp and the client's own monotonic clock. This is
+   what makes offline reconciliation possible at all, what answers *"why does this say 75%
+   watched"*, and what removes the reason Tautulli (**6,590★**) exists as a separate program.
+
+**Positions are Edition-relative**, which closes a hole in [D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal). Watch state
+attaches at the Edition, but a Version may be multi-part: "12:30 into part 2" is not an
+Edition-level position. Each File carries its offset within the Version's timeline and the
+stored position is in the Edition's. That is also what makes resume survive the 1080p→4K switch
+D79's fixture requires.
+
+**Reporting cadence follows Plex's**, which is the field's de-facto shape: on every play-state
+change, and otherwise **every ~10 s on LAN/WAN, ~20 s on a metered link**. Cadence is the
+transport; the log is the content.
+
+**Two Jellyfin defaults we deliberately do not copy**, both read from `UserDataManager.cs`:
+
+- `if (!hasRuntime) { data.Played = true; }` — *"If we don't know the runtime we'll just have to
+  assume it was fully played."* A missing fact must never become a destructive assertion about
+  the user's state. Unknown runtime means unknown state.
+- `MinResumeDurationSeconds = 300`, which marks anything under five minutes fully played the
+  moment it is opened and never resumes it.
+
+Their thresholds are otherwise a reasonable starting point — `MinResumePct = 5`,
+`MaxResumePct = 90` — and they are **policy in the core**
+([principles §9](../principles/README.md)), configurable, never compiled into a client.
+
+**Status:** Schema. Due before `library-model.md`. The retention policy for the event log is
+unmeasured — a household at ~2 writes/second is nothing, but the log is the first table with an
+unbounded row count and wants a stated horizon.
+
+---
+
+## D82 — Media segments are typed, attach at the Version, and carry provenance
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §4.
+
+**We planned the plugin and never planned the table it publishes into**, which is precisely the
+mistake Jellyfin corrected in 10.10. [plugins-and-workarounds.md](../design/research/plugins-and-workarounds.md)
+§3 gives Intro Skipper a full section, calls it the best available specification for
+[D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three)'s
+tier 3, and schedules intro/credit detection as the second tier-3 plugin we write. It also
+records — without drawing the conclusion — that the plugin *"contains an EF migrations directory
+of its own"* and that afterwards *"the core absorbed the feature (media segments became
+native)"*. A plugin carrying its own schema is what a missing core model looks like.
+
+The demand is not in doubt: `intro-skipper/intro-skipper` has **2,780★** plus **968★** on the
+archived original it forked from, and Swiftfin carries an open *Skip button for media segments*
+request.
+
+**Netflix's is the reference detector** — audio fingerprinting of recurring theme music,
+shot-boundary and title-card detection, subtitle timing cues, and human review for the hard
+cases. We cannot build that and do not need to: almost all of the value is in the model, and
+the detector is replaceable.
+
+**Jellyfin already built the right model**, in 10.10, and their reason for not reusing chapters
+is the correct one: *"Unlike chapters, which have no type, media segments can contain type
+information, allowing different actions based on the type."* So we keep both — chapters are
+authored container metadata, segments are typed and derived — and copy the type set
+(`Intro`, `Recap`, `Preview`, `Outro`, `Commercial`, plus an escape hatch) and the
+`SegmentProviderId` provenance field.
+
+**Where we differ: segments attach at the Version, not the Item.** A timecode indexes an
+encoding, not a work. A 4K remux and a web-dl of the same episode differ in lead-in; a
+PAL-speedup rip differs throughout. Jellyfin's `MediaSegment.ItemId` points at a `Video`, which
+is [D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)'s conflated Edit/Manifestation/Item, so it cannot express this.
+Deriving a sibling Version's segments by runtime alignment is allowed and is cheaper than a
+second detection pass; it is recorded as a derivation, not as an observation.
+
+**Detection is a job, and a plugin-shaped one.** It reads decoded audio and video, so by
+[D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp) it runs in the node's jail, and by [D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides) it reports
+candidate boundaries while the core decides what to store. A **user override** wins over any
+detector and survives re-detection, per [principles §3](../principles/README.md).
+
+**Status:** Schema (the table) is due with `library-model.md`; the detector is not, and should
+not be first-party at launch. The chapter-derived provider is nearly free and worth shipping
+first, because a large fraction of ripped television already carries chapter marks.
+
+---
+
+## D83 — Loudness is measured at scan and applied as gain; downmix has one default and a dialogue control; DRC is per device
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §5.
+
+Nothing in the design mentioned loudness, downmix or dynamic range — in a project where
+[D22](#d22--video-audio-and-subtitles-negotiate-as-independent-axes) puts **audio encoding in the core**, which means we are the ones doing
+the downmix and the resulting quiet dialogue is ours.
+
+**Netflix fixes it at ingest**: **-27 LKFS ±2 LU, dialog-gated**, true peak ≤ **-2 dBTP**, per
+ITU-R BS.1770. Their whole catalogue is loudness-consistent before a player sees it.
+
+We cannot rewrite files ([principles §2](../principles/README.md)), so we take the answer the
+music world found under the same constraint: **measure once, store the number, apply gain at
+playback.** The node already opens every file; FFmpeg's `ebur128` filter implements EBU R128.
+Per audio track we store integrated loudness, loudness range and true peak as node-observed
+facts, and the core derives a playback gain.
+
+**Stated limitation:** FFmpeg measures *programme* loudness, not Netflix's **dialogue-gated**
+figure — dialogue gating needs Dolby's Dialogue Intelligence, which FFmpeg does not have. Our
+number is comparable within our own library and is not the same quantity. Say so; do not imply
+parity.
+
+**Downmix gets one correct default and one control, not a dropdown of five.** Jellyfin ships
+`None`, `Dave750`, `NightmodeDialogue`, `RFC7845` and `AC-4`, and its own documentation records
+a dialogue complaint against nearly every one — *"too low perceived dialog"*, *"dialogues might
+sound too quiet compared to music"*, *"Too quite sound effects is not ideal for movies"*,
+*"too-quiet center channel"*. Five wrong answers in a dropdown is a problem that has been
+handed to the user. We ship a standard matrix as the default and a **dialogue-boost** control
+that is a user preference of the same kind as subtitle size, riding
+[D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)'s preference table.
+
+**Dynamic range is a property of the room, so it is a per-device preference.** AC-3 and E-AC-3
+carry `dialnorm` and DRC metadata; FFmpeg's decoder applies DRC by default (`drc_scale = 1`),
+which is right on a train and wrong in a home cinema. Kodi carried this as a bug for years and
+Jellyfin has it open (#10148). The correct value depends on a fact only the device knows, which
+is [D2](#d2--playback-negotiation-the-client-decides-from-a-manifest) applied to audio: the client declares it, per device, and the core
+honours it.
+
+**Rejected:** normalising files in place (violates §2); a server-wide "night mode" setting (the
+correct value differs per listener and per room); leaving it to the client (the core performs
+the downmix, so the client cannot fix a mix it never receives).
+
+**Status:** The measurement cost per file is unmeasured and belongs in
+[performance-targets.md](../design/plans/performance-targets.md) — it is an extra decode pass
+at scan time on a machine that is already decoding, but on a Celeron NAS with fifty thousand
+files that is not free. Whether it should be deferrable per library is open.
+
+---
+
+## D84 — Certifications are `(system, code)` with a per-system order; a kids profile is a grantee plus a predicate
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §6.
+
+Parental controls were absent. `jellyfin-androidtv`'s **third-most-reacted issue** is *PIN
+protection for users* (+56), behind only the playback rewrite and SyncPlay.
+
+**Netflix's model separates two levels and the second is the one homegrown versions forget.**
+Per profile: a profile-lock PIN, a maturity ceiling, and explicitly blocked titles. Per
+account: **a PIN required to create a profile** — without which a child simply makes an
+unrestricted profile and every other control is theatre.
+
+**The schema trap: a rating is not a number.** Netflix's own help text — *"Maturity ratings are
+either set by Netflix or by a local standards organization... Different countries use different
+rating systems."* BBFC 15, FSK 16, MPAA R, ACB MA15+ and PEGI 18 are not points on one scale,
+and TMDB returns certifications as a list keyed by country. So a certification is
+**`(system, code)` with an ordering defined per system** — the same per-locale split
+[D45](#d45--metadata-is-multi-language-in-the-schema-chosen-per-request) built for names, and it fails the same way if flattened, except that
+flattening a rating fails **open**.
+
+**The access half is nearly free**: a kids profile is a grantee plus a predicate, which is
+[D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed) again — a fifth binding of [D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)'s rules engine rather
+than a subsystem. It inherits D76's fail-closed rule, which is the right direction here too: an
+unresolvable predicate must show nothing, not everything. And an item with **no** certification
+in the profile's system is *not* below the ceiling; it is unrated, and unrated is a separate,
+explicit choice rather than a silent pass.
+
+**Status:** Schema, due with `library-model.md`. The per-system orderings are a data table we
+must curate — there is no authoritative machine-readable source covering every national system,
+so it starts with the handful the providers actually return and grows.
+
+---
+
+## D85 — The API has a compatibility contract, and it covers three protocols
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §7.
+
+Jellyfin's 12.0 cycle is the cautionary case, and the source on master (13.0.0, read
+2026-09-19) shows they did **two different things** to two legacy surfaces with nothing in the
+process distinguishing them. The `/emby/` and `/mediabrowser/` route prefixes are simply
+**gone** — no occurrence anywhere in `Jellyfin.Api` or `Jellyfin.Server`, so a client calling
+them gets a 404 mid-operation. But `X-Emby-Authorization` was **not** removed: it is read when
+`EnableLegacyAuthorization` is set, a bool declared with no initialiser and therefore off by
+default, recoverable with one setting. The second is a good deprecation; the first is not. Add
+a runtime move to .NET 10 that broke every plugin built for 10.11. We have no policy at all.
+
+**Three things make this worse for us than for them:**
+
+1. **Our clients are first-party and ship through app stores.** A server fix is a `docker pull`;
+   a client fix is a review queue. The server will routinely be newer than the client.
+2. **Televisions do not update.**
+3. **[D2](#d2--playback-negotiation-the-client-decides-from-a-manifest) puts decision logic in the client.** A thin renderer can be fixed
+   from the server; a client that probes its own decoder and picks a rendition cannot be.
+
+And [D18](#d18--the-jellyfin-compatible-surface-is-an-adapter-and-it-quarantines-device-profiles)'s Jellyfin adapter makes us additionally responsible for
+*someone else's* compatibility surface, against clients we do not control.
+
+**The contract:**
+
+- **Additive only.** A response field may be added; an existing field never changes meaning or
+  type. New behaviour arrives as a new field or a new endpoint.
+- **Removal needs a deprecation window** measured in releases, announced in the OpenAPI document
+  and in a `Deprecation`/`Sunset` response header while the endpoint still works.
+- **A removal ships with the switch that undoes it**, for one release cycle — the pattern
+  Jellyfin got right with `EnableLegacyAuthorization` and skipped for the route prefixes. It
+  turns "broken, go read a forum" into "broken, and the release notes name the flag".
+- **The server declares a minimum supported client revision**; the client declares the revision
+  it was built against, in the handshake that already exists for capabilities.
+- **A mismatch produces one legible message** — naming the client, the server, and what to do —
+  at the handshake. Never a 404 in the middle of playback.
+- **CI diffs the generated OpenAPI document against the last release** and fails a breaking
+  change that carries no explicit waiver. The document is already generated from code and the
+  build is already gated on it being current ([D20](#d20--plugin-architecture-constraints-and-four-things-the-catalogue-says-belong-in-the-core)); this adds one comparison.
+
+**It applies to three protocols.** [D61](#d61--containment-now-detection-later-and-plugin-shaped-four-affordances-to-keep-open) already requires the node wire
+format to skip unknown record kinds. Core↔relay and core↔client need the same rule stated, and
+the shared version inventory of D61 and [D74](#d74--bug-reports-pseudonymise-rather-than-redact-and-fan-in-across-components) is where it belongs.
+
+**Status:** Cheap now, and the CI gate is the part that must exist before the first public
+release rather than before the first client. The deprecation window's length is unset until
+there is a release cadence to measure it in.
+
+---
+
+## D86 — Adaptation is the client re-picking on a buffer signal, and it puts bandwidth transcoding on remote access's critical path
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §8.
+
+[overview.md](../design/overview.md) lists "a Netflix-style encoding ladder" as not-building,
+because *"bandwidth is free on a LAN"*. Correct for the LAN — and the headline feature and the
+entire commercial proposition is **remote access**, where bandwidth is a hotel Wi-Fi and the
+design offers a ranged GET of a 20 Mbps remux and nothing else. The rendition list is resolved
+once, at the start. When the link degrades, playback stalls.
+
+**Netflix published the correction to the obvious approach**, on their own production traffic:
+Huang, Johari, McKeown, Trunnell and Watson, *A Buffer-Based Approach to Rate Adaptation*,
+SIGCOMM'14. Choosing the rate from **buffer occupancy alone** — no bandwidth estimation at all —
+cut the rebuffer rate by **10–20% against their own production algorithm**, and their conclusion
+is exact: *"capacity estimation is unnecessary in steady state; however using simple capacity
+estimation (based on immediate past throughput) is important during the startup phase."* BOLA
+is the same family and is the default in dash.js.
+
+**So we still build no encoding ladder, and we do build three things:**
+
+1. **Say it plainly in `remote-access.md`:** direct play over a WAN has no adaptation. A user
+   should not discover that in a hotel.
+2. **The client already picks; let it re-pick, on its buffer.** [D2](#d2--playback-negotiation-the-client-decides-from-a-manifest) put
+   rendition choice on the client, which means the correct adaptation input is already in the
+   right place and is the one Netflix's paper says to use. No server-side bandwidth estimator.
+   This is D2 turning out to be more right than it was argued for.
+3. **Accept the roadmap consequence.** On a constrained remote link the only lower renditions
+   that exist are ones a transcoder makes. `transcoding.md` §(b) is currently Phase 4 and
+   "deliberately late"; it is **on remote access's critical path**, and remote access is the
+   paid tier.
+
+**And an invariant collides, usefully.** [D23](#d23--axis-switching-is-mid-session-by-default-burn-in-is-the-one-thing-that-breaks-it) says no operation on one axis
+may restart another, with video named as the expensive one — but a bandwidth downshift *is* a
+video-axis change, in the one situation where a restart is least affordable. The mechanism that
+fixes it is already specified in `transcoding.md` §(b): the source keyframe grid is the segment
+grid for **every** rendition including passthrough, so variants are interchangeable. It was
+specified without a consumer; this is the consumer. **Segment-grid alignment is therefore a
+requirement of remote access, not a detail of transcoding.**
+
+**Status:** The buffer thresholds are unmeasured and are not Netflix's — their reservoir was
+tuned for a CDN and a global audience, ours has a 20 Mbps origin one hop away or a relay leg
+with very different characteristics. Belongs in
+[performance-targets.md](../design/plans/performance-targets.md).
+
+---
+
+## D87 — A download is a rendition plus a lease, and it is self-contained
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §9.
+
+Offline download is the most-wanted client feature in the field — Swiftfin's *Local Downloads*
+at **+145** is the most-reacted issue on that tracker, and six of findroid's top ten are
+download features. Our design treats it as a **client** state machine
+([D29](#d29--a-native-client-reimplements-the-cheapest-cross-platform-logic-is-server-side-logic)) and says nothing about what the server owes it.
+
+Two of those requests are server-side capability in disguise: *"Transcode downloads to save
+storage space"* (+32) and *"Allow transcoding of multimedia content"* (+52). People want the
+download to be **smaller than the original** — which is the compatibility transcoder used for a
+completely different reason than compatibility, with a different trigger and a different
+retention policy.
+
+**And there is a cross-cut the font work did not notice.** [D53](#d53--font-coverage-is-not-assumable-the-server-serves-fonts-on-demand)–[D58](#d58--dont-hand-out-a-url-the-client-may-not-use-an-authorisation-check-that-fires-is-a-signal)
+build an on-demand font pipeline: Noto served by language, subsets produced at scan time,
+embedded fonts fetched on explicit opt-in. **Every one of those is an HTTP fetch.** On a plane,
+a downloaded film with a Japanese subtitle track renders as tofu. The same is true of the
+extracted subtitle tracks, the artwork, and [D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance)'s segments.
+
+**So: a download is a rendition choice plus a lease.**
+
+- **Self-contained.** The offline manifest enumerates every resource the client must also
+  store — subtitle tracks, the font subset for each, artwork, chapters, segments — and a
+  download is not complete until they are present.
+- **A lease**, so the server knows a prepared rendition is still referenced and must not reap
+  it, and so an abandoned device's storage is eventually reclaimed.
+- **Deletions reconcile through the change journal** ([D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)), which exists for
+  exactly this and still has no consumer.
+- **Play state reconciles through [D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)'s event log**, which is why the log
+  carries the client's own monotonic clock: an offline device's events are ordered relative to
+  each other even when its wall clock is wrong.
+
+**Status:** Client work is Phase 3+; the **manifest shape and the lease** are due earlier,
+because an offline manifest that cannot enumerate its dependencies is a migration. A television
+does not need any of this ([shared-core.md](../design/research/shared-core.md)).
+
+---
+
+## D88 — Casting is remote control of another client, which is Watch Together with a group of one
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §10.
+
+Chromecast appears once in the design, as a "v2 client". The demand is real — Swiftfin
+*iOS — Chromecast* (+43, its second-most-reacted issue), Swiftfin *SharePlay* (+29), *tvOS Deep
+Links* (+26), androidtv *Deep Link Support* (+22).
+
+**We have already designed it without noticing.** [D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods) defines the
+per-client Watch Together surface as **six methods** — join, leave, report position, accept
+play/pause/seek, report readiness, report buffering. Casting is one device driving another
+device's playback: the same six methods, group size one, a remote controller, on the LAN, with
+voice off.
+
+Saying so now costs nothing and prevents the usual outcome, which is a second, parallel,
+subtly different remote-control protocol that then diverges. It also makes a **Chromecast
+receiver** exactly what [D2](#d2--playback-negotiation-the-client-decides-from-a-manifest) already says a client is, and it makes
+**AirPlay** free wherever the Apple client uses AVPlayer.
+
+**Deep links are the other half and are an API commitment**: an item needs a stable, shareable
+URL form before anything publishes one, and changing it later breaks every bookmark and every
+companion app.
+
+**Status:** No new mechanism, so no new risk — but it is a claim that the six-method surface is
+sufficient for a case it was not designed against, and that is only proven by building the Cast
+receiver. If it needs a seventh method, that is worth knowing before the surface is frozen.
+
+---
+
+## D89 — Deletion is opt-in per library, two-phase, and names every file
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §11.
+
+The tree contains no mention of deleting media — not "trash", not "recycle", not "delete". The
+two positions that exist point in opposite directions: [principles §2](../principles/README.md)
+mounts media read-only, and [D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable) makes retention **mark** items rather than
+delete them, deliberately, because Maintainerr and Janitorr delete and people are afraid of
+them.
+
+But "mark and review" has no "act", and users delete things. Unstated, this ends with
+`os.Remove` in a handler and the read-only promise becomes a comment.
+
+**The position:**
+
+- **A writable path is opt-in per library** and off by default. Read-only remains the default
+  mount and the default answer.
+- **Deletion is two-phase**: mark, then a confirmation that **names every file and its size**.
+  [principles §2](../principles/README.md) already says destructive actions must say exactly
+  what they will destroy; this is that rule's first real consumer.
+- **It happens in the node**, never the core, because the core does not touch media filesystems
+  ([D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do)) — so deletion is a node command with a node report, and it is
+  visible in the journal like every other change.
+- **Retention still only marks.** A rule may never delete. The user acts on the marked set.
+
+**Status:** The interaction with a shared grantee is unspecified — presumably a grantee can
+never delete, but "presumably" is not a design. Also unresolved: whether an opt-in writable
+library should use a trash directory rather than unlinking, which costs free-space surprises in
+exchange for an undo.
+
+---
+
+## D90 — Playback presentation is a persisted per-user preference set, and captions have a statutory floor
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §12.
+
+[D78](#d78--server-rendered-subtitle-overlays-are-a-third-rendition-and-they-dominate-burn-in) said text subtitles stay the default because "a bitmap cannot honour a
+user's subtitle-size setting, and subtitle size is accessibility rather than preference". That
+is right and it is one row of a seven-row table that is **law** in our two largest markets.
+
+**47 CFR §79.103 (CVAA, United States)** requires user control of: the **eight CEA-708 fonts**,
+assignable per style; size from **50% to 200%**; text colour overriding the authored colour from
+a palette of at least eight; background colour likewise; background opacity
+(opaque/semi-transparent/transparent); caption **window** colour and opacity, separately; and
+**five character-edge attributes** (none, raised, depressed, uniform, drop-shadow). Since
+**2026-08-17** those settings must also be *"readily accessible"*, not merely present.
+**Directive (EU) 2019/882**, applicable since **2025-06-28**, requires the player to expose
+caption size and font controls and to make audio description reachable.
+
+**Three consequences.**
+
+1. **[D55](#d55--the-served-font-set-is-the-cta-708-style-axis-in-variable-fonts-subset-per-subtitle) is already on the regulatory path and did not know it.** The served
+   font set was chosen as "the CTA-708 style axis, six upright variable faces covering the seven
+   real caption styles" for typographic reasons. That *is* the statutory list. Make the
+   eight-style mapping explicit and it becomes a conformance artefact instead of a coincidence.
+2. **The overlay rendition forecloses every control in that table**, not just size. So it is
+   never the only offer for a caption track, and where it is chosen the client says which
+   controls it lost — [principles §3](../principles/README.md), applied to accessibility.
+3. **Audio description is a first-class track kind**, not a disposition flag we happen to parse.
+   It must appear in the client contract and in the preference axes, not only in
+   [identification.md](../design/plans/identification.md)'s derivation table.
+
+**And the presentation set is wider than captions.** Grouped here because they are one thing —
+per-user settings that ride [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)'s preference table at the same scopes:
+
+- caption font, size, colour, background, window, edge (above);
+- **subtitle and audio sync offset**, a signed millisecond value. This appears on **four**
+  trackers — androidtv *Adding audio / subtitles sync menu* (+31), findroid *Subtitle timing
+  change* (+17), jellyfin-web *Subtitle offset clamped* (+8), streamyfin *Subtitle offset* (+8).
+  It is not niche, and it is a column now or a migration later;
+- **dialogue boost** and the per-device DRC preference ([D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device));
+- playback rate, which is local unless a Watch Together group shares it
+  ([D66](#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips) — a participant at 1.25× is not drifting and the reconciler must
+  not fight them).
+
+**Status:** Conformance is claimed against a reading of the regulations, not against a
+certification. Nobody has tested whether libass can express all five CEA-708 edge attributes —
+if it cannot, that is a gap in the renderer and must be found before the claim is made
+anywhere user-facing.
+
+---
+
+## D91 — A `/metrics` endpoint, off by default and local when on
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §13.
+
+Sorted by reactions, the **second-most-reacted open issue in Jellyfin's server tracker** — ahead
+of every security issue and every feature — is *Improve Prometheus Exporter with JF Metrics*
+(+63, open since 2020-04).
+
+Our two observability surfaces are both incident-shaped: [D74](#d74--bug-reports-pseudonymise-rather-than-redact-and-fan-in-across-components)'s bug report
+is generated after something went wrong, and [D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque)'s status records are
+consumed by the core. Neither answers "is it healthy now", and neither lets
+[performance-targets.md](../design/plans/performance-targets.md) be enforced outside CI — which
+is exactly how Jellyfin shipped a 30–50 second home page, because a benchmark that only runs in
+CI cannot notice that the library got slower as it grew.
+
+This audience already runs Prometheus and Grafana. The endpoint exposes what
+[D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque) already collects — per-role health, job queue depth and age, scan and
+snapshot timings, stream counts, rendition decisions and their reasons, error rates — and
+nothing that names a film, a path or a person, which is the same line
+[D74](#d74--bug-reports-pseudonymise-rather-than-redact-and-fan-in-across-components) draws.
+
+**Off by default, and bound to localhost when enabled unless the user says otherwise.** It is a
+data-exposure surface and [D13](#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise) is a promise rather than a preference.
+
+**Status:** The metric set is a guess until there is a running system. The discipline that
+matters is that a metric naming content is a bug, enforced the same way D74's pseudonymisation
+is.
+
+---
+
+## D92 — A failed rendition falls to the next one, and the client remembers; the server still has no device database
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §14.
+
+[D2](#d2--playback-negotiation-the-client-decides-from-a-manifest) is right that the client is the only party that can ask its own decoder,
+and [playback-survey.md](../design/plans/playback-survey.md) is right to *"measure, do not just
+ask"*. Neither covers the runtime case: the probe said yes, and the decoder failed at minute
+three. That is the most common real-world playback failure and the design has no response to it.
+
+The large operators answer it with device certification programmes and per-device platform
+stacks, which are not available to us. Ours is assembled from parts that already exist:
+
+- **A ladder, not a single pick.** The client already sends a *prioritised* list
+  ([D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list)); on failure it falls to the next entry rather than to an error
+  screen, and says it did.
+- **A client-local memory** of (probe answer → actual failure) for its own hardware. This is not
+  a device-capability database and must not become one: it never leaves the device except as an
+  observation, it is keyed by nothing but that device's own history, and clearing it must be
+  possible and harmless.
+- **Observations fan in.** [D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque) already routes client observations to the
+  core, which is where a household can see that every Fire TV in the house fails the same way —
+  and where [device-lab.md](../design/plans/device-lab.md) gets a production data source it
+  currently lacks.
+
+**[D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) holds unchanged:** the server never builds a device-capability
+database and never guesses on a client's behalf. A memory the client keeps about itself is the
+opposite of a table the server keeps about everyone.
+
+**Status:** Unmeasured — the failure rate this exists to handle is one of the numbers Phase 0
+should produce, and if it is very low the ladder still needs to exist but the memory may not.
+
+---
+
+## D93 — Device pairing is RFC 8628-shaped
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §15.
+
+Signing in on a television is absent from the design. It is the first interaction every user
+has, on the device with the worst text entry ever shipped, and the first one a *shared* user has
+on somebody else's TV.
+
+**The standard is RFC 8628**, the OAuth 2.0 Device Authorization Grant — the TV shows a short
+code and a URL, the user opens it on a phone, the TV polls — and it is what the large streaming
+services use. Jellyfin hand-rolled the same shape as Quick Connect
+(`QuickConnectResult { Secret, Code, DateAdded, DeviceId, DeviceName, AppName, AppVersion }`),
+which is a sound design that is nonetheless bespoke where a standard exists.
+
+[D20](#d20--plugin-architecture-constraints-and-four-things-the-catalogue-says-belong-in-the-core) already puts OIDC in the core for Phase 1, so the device grant is nearly
+free **if the auth design anticipates it** and awkward if it does not: it changes what a session
+is, because the authorising act happens on a different device from the one being authorised. It
+also interacts with sharing — a grantee's television must be pairable without the owner typing a
+password into somebody else's living room — and with [D85](#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols), because the
+pairing endpoint is the first surface a very old client touches and therefore the one that must
+never break.
+
+**A consequence: there is no `auth.md`.** Identity, sessions, token scope and lifetime,
+revocation, device pairing and the sharing hand-off are currently a bullet in
+`library-model.md`, two open questions in `threat-model.md`, and a section in
+`remote-access.md`. That is a Phase 1 subsystem with no plan.
+
+**Status:** Shape only. The token model, its lifetimes and revocation are
+[threat-model.md](../design/plans/threat-model.md)'s open question and remain open.
+
+---
+
+## D94 — Disk spin-down is a cost of the snapshot interval, and `archival` means untouched
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §16.
+
+Jellyfin issue #7689 is *Reduce hard disk access during playback*, and the damaging part is the
+comparison inside it: users report Plex has nearly no disk activity where Jellyfin has a lot.
+For a NAS audience — and [test-hardware.md](../design/research/test-hardware.md) names an 8 GB
+Celeron NAS as the honest low end — spinning drives cost power, noise and wear, and "it keeps my
+array awake" is the kind of complaint that ends in an uninstall.
+
+[D60](#d60--snapshotting-and-discarding-are-different-operations-with-different-triggers) made snapshots temporal for good reasons, and `snapshot_interval` is
+currently justified against two competing pressures: a silently-dead watcher wants it short, an
+expensive SMB enumeration wants it long. **There is a third and it was not written down: the
+interval is how often the disks must wake.**
+
+Two rules follow, both in `scanner.md`:
+
+- **Batch the wake.** All roots on one physical device enumerate together, so one pass spins the
+  array up once. The adaptive per-directory cadence already specified must not be allowed to
+  become a continuous trickle of small wake-ups, which is strictly worse than one long pass.
+- **`archival` means untouched.** The plan already allows a user to declare a library archival.
+  Make the meaning concrete: no walk, no probe, no thumbnailing, no loudness pass — the journal
+  only, if a watcher is available. And the node **reports** that it is honouring it
+  ([D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque)), so "why is my new file missing" has an answer rather than a
+  mystery.
+
+**Status:** Unmeasured. The right `snapshot_interval` for a spun-down array is a different
+number from the right one for an SSD, which argues it should be per-root and derived from the
+setup probe `scanner.md` already performs, rather than a global constant.
+
+---
+
+## D95 — People are entities with provider identity; a name is never a key
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §17.
+
+`library-model.md` has no `Person`. Jellyfin has *Actors with the same name appear as one
+person* (27 comments, open since 2020-06) and its music twin *Music artists with the same name
+are merged while MBIDs are ignored* (29 comments) — whose title states the cause exactly: a
+stable external identifier was available and the code matched on the display string.
+
+The rule is the one [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index) already applies to items. A Person is an entity with
+`{provider, provider_id}` identity in a side table; credits are typed rows — `cast` carrying a
+character name and an order, `crew` carrying a job — and **the display name is never the key**.
+The person's name is also a translatable string ([D45](#d45--metadata-is-multi-language-in-the-schema-chosen-per-request)), because names are
+written differently in different scripts.
+
+**Status:** Schema, due with `library-model.md`. Small, and retrofitting it means re-matching
+every credit in the library. Deduplicating two Person rows that turn out to be the same human
+(one from TMDB, one from TheTVDB) is the same merge problem as elsewhere and is unspecified.
+
+---
+
+## D96 — An episode's position is `(ordering, season, number)`, and a series declares its orderings
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §19.
+
+Episode ordering appeared in the tree three times and all three were about **providers** —
+TheTVDB is good at it, regional providers differ, ordering is a per-field provenance question.
+The **library model** had nowhere to put it.
+
+**This is [D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)'s disease in a different organ**, and Jellyfin's source
+carries the same signature. An episode's position is `IndexNumber` + `ParentIndexNumber` — one
+position. Specials, which do not fit, get three nullable escape hatches and a coalescing chain:
+
+```csharp
+public int? AirsBeforeSeasonNumber  { get; set; }
+public int? AirsAfterSeasonNumber   { get; set; }
+public int? AirsBeforeEpisodeNumber { get; set; }
+public int? AiredSeasonNumber =>
+    AirsAfterSeasonNumber ?? AirsBeforeSeasonNumber ?? ParentIndexNumber;
+```
+
+And which ordering a series uses is `Series.DisplayOrder`, **a bare string**, compared against
+magic values in two places with **two different comparison modes** (`StringComparison.Ordinal`
+in the TMDB client, `OrdinalIgnoreCase` in the library manager). Three nullable side-columns
+plus a magic string is what a missing relation looks like — exactly as four version mechanisms
+were in D79.
+
+**So:** aired, DVD, absolute and a provider's alternate orders are all **orderings of the same
+set of episodes**. A position is `(ordering, season, number)`; an episode has one per ordering
+it appears in; the Collection that is the series declares which orderings exist and which is
+the default; and a special that airs between two episodes is a position in an ordering rather
+than three nullable columns.
+
+**Anime makes this unavoidable rather than academic** — absolute numbering, season splits, and
+providers that disagree with each other.
+[tech-metadata.md](../design/research/tech-metadata.md) already records that generic providers
+are simply *wrong* there.
+
+**And it is not only cosmetic.** [play-state.md](../design/plans/play-state.md) defines Next Up
+as *the earliest unwatched episode after the latest completed one*, which is a statement about
+an ordering. With the ordering explicit, two people in one household can watch the same series
+in different orders, and that costs nothing extra. With one position it is impossible.
+
+**Rejected:** a per-series string (Jellyfin's; magic values and no per-user choice); storing
+only the provider's preferred order and re-fetching to change it (a network call to sort a
+list); computing absolute numbering on the fly (it is wrong whenever a season split disagrees
+with the provider).
+
+**Status:** Schema, due before `library-model.md`. Whether the ordering choice is per series or
+per `(user, series)` is open — per user is strictly more capable and the extra column is
+trivial, so the argument against it is UI, not storage.
+
+---
+
+## D97 — An extra is a typed relation, not an Edition and not a Version
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §20.
+
+Trailers, deleted scenes, featurettes, behind-the-scenes, interviews, bloopers, shorts — and
+**theme songs and backdrop videos**, which is `jellyfin-androidtv`'s *Video Backdrop and Theme
+song playback* (+37). None of them appeared anywhere in the tree.
+
+They break the four-level model if forced into it. A trailer is not an **Edition** — it is not
+a cut of the film. It is not a **Version** — it is not an encoding of the film. It is a
+different, shorter work belonging *to* the film. With nowhere to put it there are two outcomes,
+both bad and both observable in the field: extras become top-level items that pollute the
+library, or they become a side-array of paths.
+
+Jellyfin's vocabulary is right even though its storage is not — `Clip, Trailer,
+BehindTheScenes, DeletedScene, Interview, Scene, Sample, ThemeSong, ThemeVideo, Featurette,
+Short`, with each extra a full `BaseItem` carrying an `OwnerId` and excluded from listings by
+convention rather than by structure.
+
+**So: an extra is a typed relation from a Title or an Edition to a work**, which holds its own
+Versions and Files like anything else, never appears in the main listing, and can never be
+confused with a cut. The type is a closed enumeration and the relation carries an order.
+
+Two things fall out cheaply. **ThemeSong and ThemeVideo being extras** is what makes that +37
+request nearly free — and gives `jellyfin-web`'s open *theme song / theme videos volume
+adjustments* issue an obvious home beside
+[D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)'s gain handling. And an extra is a work, so it gets subtitles,
+loudness, segments and play state by construction rather than by special case.
+
+**Status:** Schema, due before `library-model.md`. What is open is **discovery**: the field
+identifies extras by magic folder and filename conventions (`extras/`, `behind the scenes/`,
+`-trailer`), which is filename parsing and therefore belongs in the **core** over stored
+observations ([D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)), not in the node. Whether a downloaded trailer that is
+not on disk at all (a provider URL) is the same kind of row is also open, and probably not.

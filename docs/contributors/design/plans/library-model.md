@@ -3,7 +3,7 @@
 
 # Library model
 
-- **Status:** PLANNED — designed 2026-09-17; **reviewed and corrected 2026-09-19** ([library-model-review.md](../research/library-model-review.md), [D79](../../decisions/working-notes.md)).
+- **Status:** PLANNED — designed 2026-09-17; **reviewed and corrected 2026-09-19** ([library-model-review.md](../research/library-model-review.md), [D79](../../decisions/working-notes.md)); **nine more schema items added by the audit the same day** ([audit-2026-09-19.md](../research/audit-2026-09-19.md), [D81](../../decisions/working-notes.md)–[D84](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D95](../../decisions/working-notes.md)–[D97](../../decisions/working-notes.md)).
 - **Depends on:** —
 
 ## Scope
@@ -115,6 +115,79 @@ plugin survey ([D20](../../decisions/working-notes.md)), the track-selection pai
   normalisation function must have exactly one implementation — Navidrome shipped a corrective
   migration in July 2026 because a SQL approximation of it drifted from the Go original.
 
+## Nine more schema items, from the audit
+
+Added 2026-09-19 by [audit-2026-09-19.md](../research/audit-2026-09-19.md). Each is schema, so
+each lands here rather than being bolted on — the same argument
+[D75](../../decisions/working-notes.md) and [D79](../../decisions/working-notes.md) made.
+
+- **Favourites and user ratings are in the play-state family, at the Title**
+  ([play-state.md](play-state.md)). Jellyfin keeps them in the same mutable row as the resume
+  position, which is why *"Movie favourites are randomly unfavourited"* (33 comments) sits next
+  to the resume bugs: one race, three symptoms. They are user-authored, so they mirror to
+  sidecars and ride the change journal.
+- **Play state is two structures, not one column**
+  ([D81](../../decisions/working-notes.md), [play-state.md](play-state.md)). A **guarded
+  position** per `(user, edition)` carrying a monotonic sequence, so a stale device cannot
+  rewind a newer one; and an **append-only play-event log** with device, server timestamp and
+  the client's own monotonic clock. Jellyfin keeps one mutable row and its tracker carries
+  *"Most movies now appear to be 75% watched"* (44 comments) and *"Media playback randomly
+  starts over again or jumps back — STILL"* (29). The log is also the only table with an
+  unbounded row count, so it carries a retention horizon from the first migration.
+  **A position is Edition-relative**, so each File records its offset within the Version's
+  timeline — otherwise "12:30 into part 2" has nowhere to live.
+- **Media segments, typed, at the Version** ([D82](../../decisions/working-notes.md),
+  [media-segments.md](media-segments.md)). `(version, type, start, end, provider, confidence)`
+  with a user override. At the **Version** rather than the Item because a timecode indexes an
+  encoding: a 4K remux and a web-dl differ in lead-in, and a PAL-speedup rip differs
+  throughout. Distinct from chapters, which are authored container metadata and have no type.
+- **Loudness per audio track** ([D83](../../decisions/working-notes.md),
+  [audio-presentation.md](audio-presentation.md)). Integrated loudness, loudness range and true
+  peak, measured by the node with `ebur128` and stored as observed facts. Netflix normalises its
+  catalogue at ingest (-27 LKFS dialog-gated); we cannot rewrite files, so we take ReplayGain's
+  answer — measure once, apply gain at playback.
+- **Certifications are `(item, system, code)`** ([D84](../../decisions/working-notes.md),
+  [parental-controls.md](parental-controls.md)), many per item, with an ordering curated **per
+  system**. BBFC 15, FSK 16, MPAA R and ACB MA15+ are not points on one scale and TMDB returns
+  them keyed by country. Flattening to an integer fails **open**, which is the wrong direction
+  for this one field. An item with no certification in the household's system is *unrated*, a
+  third state, not permitted.
+- **People are entities with provider identity** ([D95](../../decisions/working-notes.md)).
+  `Person` with `{provider, provider_id}` in a side table; credits as typed rows — `cast` with
+  a character and an order, `crew` with a job. **The display name is never the key**: Jellyfin
+  has *Actors with the same name appear as one person* open since 2020-06, and its music twin
+  names the cause outright — *"artists with the same name are merged while MBIDs are ignored"*.
+  A person's name is also a translatable string ([D45](../../decisions/working-notes.md)).
+- **Track-presentation preferences gain two axes**
+  ([D90](../../decisions/working-notes.md)): a signed **sync offset** in milliseconds for audio
+  and for subtitles — requested on four separate client trackers — and the caption presentation
+  set (font, size, colour, background, window, edge) that CVAA and the EU Accessibility Act
+  both require. Both ride [D24](../../decisions/working-notes.md)'s existing table at the same
+  scopes.
+- **An episode's position is `(ordering, season, number)`**
+  ([D96](../../decisions/working-notes.md)). Aired, DVD, absolute and a provider's alternate
+  orders are orderings of the same set of episodes, so an episode has one position per ordering
+  and the series Collection declares which exist and which is the default. This is
+  [D79](../../decisions/working-notes.md)'s disease in a different organ, with the same
+  signature in Jellyfin's source: one `IndexNumber`, then three nullable escape hatches
+  (`AirsBeforeSeasonNumber`, `AirsAfterSeasonNumber`, `AirsBeforeEpisodeNumber`) for the
+  specials that do not fit, and a **bare string** `Series.DisplayOrder` compared against magic
+  values with two different comparison modes. Anime makes it unavoidable, and
+  [play-state.md](play-state.md)'s "Next Up" is a statement *about* an ordering.
+- **An extra is a typed relation, not a level** ([D97](../../decisions/working-notes.md)).
+  A trailer is not an Edition (not a cut) and not a Version (not an encoding); it is a shorter
+  work belonging to the film. So: a typed relation from a Title or Edition to a work, closed
+  enumeration, ordered, never in the main listing. It holds its own Versions and Files, so it
+  gets subtitles, loudness, segments and play state by construction. `ThemeSong` and
+  `ThemeVideo` are members, which is what makes androidtv's *Video Backdrop and Theme song
+  playback* (+37) nearly free.
+
+**And one policy that is not a table.** Deletion ([D89](../../decisions/working-notes.md)): a
+writable path is opt-in per library and off by default; deletion is two-phase and names every
+file and its size; it happens in the node, never the core; and a retention rule may still only
+*mark*. The tree previously said nothing at all about deleting media, which is how `os.Remove`
+ends up in a handler.
+
 ## Three cross-cuts from the review
 
 - **Store the node's raw observation, not only the interpretation**
@@ -150,3 +223,19 @@ fixture library round-trips through scan → query → rebuild-from-empty with n
 The fixture includes **one film held as two parts at 1080p and a single file at 4K, in two
 different cuts** — the case that breaks a three-level model — and resume position survives
 switching between the 1080p and the 4K.
+
+Three more fixture assertions, from the audit:
+
+- **Two devices reporting progress for one edition cannot rewind each other**, and the losing
+  report is still in the log ([D81](../../decisions/working-notes.md)).
+- **A full rescan destroys no user-authored data** — not a chosen poster, not a playlist, not a
+  manual identification, not a preference. Jellyfin's *All Library Scan causes playlists to
+  disappear* has 50 comments; we are structurally safe by
+  [D7](../../decisions/working-notes.md), which makes this one assertion rather than a design.
+- **Two people with the same name from two providers stay two people**
+  ([D95](../../decisions/working-notes.md)).
+- **An anime series with a season split lists correctly in both aired and absolute order**, and
+  a special that airs between two episodes sits between them in the ordering that says so
+  ([D96](../../decisions/working-notes.md)).
+- **A film's trailer never appears in the film list** and never looks like a cut
+  ([D97](../../decisions/working-notes.md)).

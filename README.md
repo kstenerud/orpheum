@@ -53,8 +53,16 @@ crippled, it is better. See [D71](docs/contributors/decisions/working-notes.md) 
 
 ## Licence
 
-GPLv3 (intended). Provider API keys are always supplied by you, never shipped in the binary —
-better for your privacy, your rate limits, and everyone's licensing.
+**Server, media node and relay: GPLv3. Clients and the shared SDK: MPL-2.0.** Both intended,
+and the split is deliberate: a GPLv3 application cannot be distributed through the Apple App
+Store — VLC was pulled in January 2011 and came back in July 2013 only after relicensing — so a
+single project-wide GPL would have meant no iPhone, iPad or Apple TV client at all. MPL's
+copyleft is per-file, so the client code stays open and the app ships. Swiftfin and Streamyfin
+made the same choice against a GPL Jellyfin server. See
+[D80](docs/contributors/decisions/working-notes.md).
+
+Provider API keys are always supplied by you, never shipped in the binary — better for your
+privacy, your rate limits, and everyone's licensing.
 
 ## Docs
 

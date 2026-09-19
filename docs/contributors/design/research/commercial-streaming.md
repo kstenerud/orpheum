@@ -124,6 +124,29 @@ everything a personal library actually contains and not broadcast-grade Japanese
   images, and user-corrected metadata are ours alone.
 - **Their offline story is DRM-shaped.** Ours can just be a file copy.
 
+## Three more Netflix practices, found by the 2026-09-19 audit
+
+Recorded here because this is where a reader looks for "what do the big operators do", and
+detailed in [audit-2026-09-19.md](audit-2026-09-19.md) §§4, 5, 8.
+
+- **Rate adaptation from the buffer, not from a bandwidth estimate.** Huang, Johari, McKeown,
+  Trunnell and Watson, *A Buffer-Based Approach to Rate Adaptation*, SIGCOMM'14, run on
+  Netflix's own production traffic: choosing the rate from buffer occupancy alone cut the
+  rebuffer rate **10–20% against their own production algorithm**, and *"capacity estimation is
+  unnecessary in steady state"* — it matters only at startup. **Transfers directly**, and
+  cheaply, because [D2](../../decisions/working-notes.md) already put the picking logic and the
+  buffer on the same side ([D86](../../decisions/working-notes.md)).
+- **Loudness is fixed at ingest**: -27 LKFS ±2 LU dialog-gated, true peak ≤ -2 dBTP, per
+  ITU-R BS.1770. **Does not transfer** — we may not rewrite files — so we take the music
+  world's answer under the same constraint: measure at scan, apply gain at playback
+  ([D83](../../decisions/working-notes.md)). Note the asymmetry worth recording: this is a
+  problem that is *harder* for us than for them, because they own their masters.
+- **Skip Intro is a detector plus human review.** Audio fingerprinting of recurring theme
+  music, shot-boundary and title-card detection, subtitle timing cues, and humans for the hard
+  cases. **The detector does not transfer; the model does** — a typed segment table is the part
+  worth copying, and a season is a small enough closed corpus that fingerprinting is tractable
+  ([D82](../../decisions/working-notes.md)).
+
 ## What this settles
 
 1. **Manifest-first, client-chooses, CMAF/fMP4, no DRM.** Take all four.
