@@ -49,6 +49,11 @@ its real deliverable is the shared SDK. `tv-client.md` needs `web-client.md` onl
 (offline, once per file), bandwidth second (live, and coupled to `remote-access.md` rather than
 to the library). `playback-survey.md` sets its priority.
 
+`watch-together.md` needs `stream-service.md` and the SDK from `web-client.md`, and its
+off-LAN half needs `remote-access.md`. Its LAN half does not, and is worth building first
+because it exercises the same sync machinery with none of the NAT traversal
+([D62](../../decisions/working-notes.md)).
+
 `jellyfin-api-shim.md` needs a stable `stream-service.md` and is otherwise independent. It may
 reduce the urgency of `tv-client.md` — re-examine that once the adapter exists and its real
 fidelity is known, not before.

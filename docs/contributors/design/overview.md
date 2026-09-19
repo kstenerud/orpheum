@@ -64,6 +64,12 @@ Five choices, each traceable to a specific failure in the research:
    [D13](../decisions/working-notes.md))
 6. **One excellent TV client beats five mediocre ones.** The project is judged on its TV app.
    ([D10](../decisions/working-notes.md))
+7. **Watch Together, because everyone else deleted theirs.** Disney+, Amazon, Sling and even
+   Plex withdrew their watch-party features — Plex's note says it *"won't be available for most
+   platforms as they get the new experience"*, which names the cause: it lived in every client.
+   Teleparty has ten million users because the platforms will not do this. We keep the
+   client-specific surface to six methods so a client rewrite cannot quietly kill it.
+   ([D62](../decisions/working-notes.md))
 
 ## Architecture
 
@@ -177,7 +183,11 @@ Notes on the shape:
 
 Honest statement of what the research did **not** settle:
 
-1. **Whether to operate a hosted service at all.** Researched
+1. **Whether to operate a hosted service at all.** [D64](../decisions/working-notes.md) narrowed
+   this without answering it: Watch Together's voice chat needs a **TURN relay** for the ~10% of
+   networks hole-punching cannot traverse, which is unambiguously another machine and cannot be
+   self-hosted by the person who needs it. That is the first candidate that passes the promise
+   in the README without argument. What remains is below, unchanged. Researched
    ([remote-access.md](research/remote-access.md), [D25](../decisions/working-notes.md)): the
    topology is settled — there is no discoverability without a signpost, and the TLS-certificate
    problem needs one even on the LAN — and a three-tier shape is proposed. What remains is not

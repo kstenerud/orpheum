@@ -4051,3 +4051,192 @@ is actionable. *"Possible shellcode detected"* is not.
 [content-safety.md](../design/plans/content-safety.md). The four affordances are not
 provisional; they are cheap now and awkward later, and item 1 in particular is a wire-format
 rule that has to exist before the first node ships.
+
+---
+
+## D62 — Watch Together is a first-class feature, and the per-client surface is six methods
+
+**Decided** (2026-09-19). Build synchronised remote playback with shared controls: anyone in the
+group may play, pause and seek; volume stays local. Research:
+[watch-together.md](../design/research/watch-together.md).
+
+### Why this is a differentiator rather than a nice-to-have
+
+**Almost every commercial implementation has been shut down.** Disney+ GroupWatch removed
+2023-09-18; Amazon Prime Video Watch Party removed 2024-04-02 with no announcement; Sling early
+2024; Netflix never shipped one at all; only Hulu survives. And **Plex removed Watch Together on
+2025-02-25** for every platform except web.
+
+Plex's own wording names the cause, and it is neither licensing nor lack of demand:
+
+> While this feature won't be available for **most platforms as they get the new experience**,
+> you can continue using the feature in our web app…
+
+**It had to be implemented in every client, and it did not survive a client rewrite.**
+
+Demand is not in doubt: **Teleparty**, a browser extension that exists solely because the
+platforms will not do this, has **10,000,000 users**. The incumbents abandoned a wanted feature
+for a reason we can engineer around, which is the best kind of opening.
+
+### The requirement that follows directly from how theirs died
+
+> **The client-specific surface must be small enough to reimplement in an afternoon.**
+
+Everything else — clock-offset estimation, drift policy, group state, suspensions, command
+sequencing, reconnection — lives in the shared TypeScript SDK that
+[web-client.md](../design/plans/web-client.md) already calls the real deliverable. The client
+implements six methods:
+
+```
+currentPosition() → time      seek(time)      play()
+isBuffering() → bool          setRate(r)      pause()
+```
+
+A client that can do those six gets watch-together, and a client rewrite cannot casually drop
+the feature because there is nearly nothing in the client to drop. This is the whole lesson from
+five dead implementations, and it is a constraint on our own roadmap as much as a design note.
+
+### The sync mechanism, taken from Jellyfin because it works
+
+Jellyfin's SyncPlay is 7,635 server-side lines and the mechanism is sound:
+
+- **Clock offset by NTP-style four-timestamp exchange**, keeping a rolling window and using the
+  **minimum-delay sample**, because the least-delayed sample carries the least queuing noise.
+  Greedy polling at 1 s initially, 60 s thereafter.
+- **Two correction strategies with a threshold between them**: nudge `playbackRate` for about a
+  second to absorb roughly 60–3000 ms of drift; seek for anything larger.
+- **A four-state group machine**: `Idle`, `Waiting`, `Paused`, `Playing`, where `Waiting` means
+  paused-until-everyone-is-ready.
+
+Their `TODO` comments are the caveat and we should not discover it again the hard way:
+*"SpeedToSync is failing on Safari"*, *"a hard time keeping up on Android Chrome"*. Rate nudging
+is inconsistent per platform, so `setRate` is **optional** in the six-method contract and
+seek-only is the always-available fallback. Whether rate nudging works on our clients is a
+device-lab measurement, not an assumption.
+
+### Suspensions with reasons, which is Apple's idea and the best one here
+
+A participant temporarily detaches from group coordination, **stating why**; while suspended it
+neither obeys nor issues group commands; several can be active at once; when the last clears it
+rejoins. Apple enumerates `stallRecovery`, `audioSessionInterrupted`, `playingInterstitial`,
+`userActionRequired`, `coordinatedPlaybackNotPossible` and — the important one —
+**`userIsChangingCurrentTime`**.
+
+That last is what makes shared seek control usable at all: **while you are dragging the scrub
+bar you are suspended**, so your intermediate positions do not drag everyone else across the
+timeline. Without it, "anyone can seek" is unusable, and it is not a thing one would think of
+before shipping it badly once.
+
+A reason is also better than a flag for the UI, per [principles §3](../principles/README.md):
+"Karl is buffering" is something a person can wait for.
+
+### Concurrent commands are normal, so the server serialises
+
+"Anyone can control it" means two people pausing simultaneously, or one seeking while the other
+resumes, is ordinary traffic rather than an error. The server is already in the path: each
+command carries the group-state version it was issued against, the server assigns a monotonic
+sequence, and clients reconcile **to the server**, never to each other. Commands are therefore
+ordered and idempotent, which is what stops the both-pause case oscillating.
+
+**Sync does not go over a WebRTC data channel.** `react-native-webrtc` does not support data
+channels on tvOS at all, and it would make synchronisation depend on peer connectivity. It goes
+over our own WebSocket, which is also the serialisation point.
+
+**Status:** Provisional. Two questions are unanswered and both are group-size dependent: whether
+one participant stalling pauses everyone (Jellyfin makes it a flag; obviously yes for two,
+obviously no for eight), and whether the subtitle track is group state or local — one person may
+need subtitles, and "seek to the funny bit" and "turn subtitles on" then behave inconsistently.
+
+---
+
+## D63 — Voice chat is WebRTC, and headphones are the supported configuration
+
+**Decided** (2026-09-19). Voice chat over WebRTC, peer-to-peer where possible, with per-source
+gain so one loud participant does not drown the film. **Headphones are the supported
+configuration and the UI says so.** Speakers are best-effort.
+
+### The hard part is echo cancellation, not the plumbing
+
+The film is playing out loud while the microphone is open. Acoustic echo cancellation works by
+subtracting a **reference signal** — what was sent to the speaker — from what the microphone
+hears, and the AEC only gets a reference for audio it knows about. **Only the official playback
+paths serve as references; custom playback through the Web Audio API does not reliably function
+as one.** On native clients the film is decoded by libmpv, ExoPlayer or AVPlayer and reaches the
+output by a path the WebRTC stack has no reference for at all.
+
+So without headphones, **your microphone sends the film back to the other person**, delayed and
+doubled against their own copy. That is not a tuning problem, and Bluetooth output makes it
+worse because AEC needs the reference and the echo time-aligned while wireless adds variable
+latency.
+
+Saying "use headphones" is not a cop-out; it is what every voice product assumes in practice,
+and with headphones at both ends there is no acoustic path and the entire class of problem
+disappears.
+
+### Ducking conflicts with AEC, and the resolution is a rule
+
+Ducking the film when someone speaks means routing the film's audio through a mixer we control —
+in a browser, the Web Audio API — which is **exactly what stops it being a usable AEC
+reference**. So:
+
+- **Headphones, no acoustic path:** route through Web Audio, duck freely, AEC irrelevant.
+- **Speakers:** leave the film on the native path so AEC keeps its reference; accept manual
+  levels instead of automatic ducking.
+
+Per-source gain is independent of both and is simply a gain node per remote stream.
+
+### On a television, the phone is the voice endpoint
+
+Measured from the `react-native-webrtc` capability matrix: tvOS has audio/video but **no data
+channels**, needs a locally built `WebRTC.framework`, and carries an open tvOS 16 compatibility
+issue. Separately, an Apple TV has no app-accessible microphone and neither do most Android TV
+boxes — and a microphone across the room from the speakers is the worst possible AEC geometry
+even if one existed.
+
+Phone-and-earbuds for voice, television for video. It is the only workable configuration and it
+is already a familiar pattern.
+
+**Status:** Provisional. Push-to-talk is the guaranteed answer for the speakers case and is
+unromantic for the two-people-watching-a-film case this exists for; worth offering, wrong as a
+default. Text chat is deferred — and the honest note is that on a TV it is nearly useless, no
+keyboard and one screen, which is presumably why Disney+ GroupWatch shipped emoji reactions
+instead.
+
+---
+
+## D64 — Watch Together makes the remote-access question concrete, and supplies the premium tier's first honest member
+
+**Decided** (2026-09-19). Watch-together is the use case that forces
+[D25](#d25--remote-access-is-tiered-and-the-promise-changes-from-no-accounts-to-we-only-charge-for-another-machine)'s open product
+question, and it resolves *what the paid tier is for* even though it does not resolve whether we
+operate one.
+
+Three things are needed for the actual scenario — one participant at home, one travelling — and
+they have very different costs:
+
+1. **She must reach the media at all.** Already the project's stated open question
+   ([remote-access.md](../design/research/remote-access.md)). Watch-together adds no new
+   requirement here; it just makes the absence conspicuous.
+2. **A rendezvous for synchronisation.** **Free.** If she is connected to the server, the server
+   *is* the rendezvous, and [D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s
+   sync channel is the connection that already exists. No new infrastructure.
+3. **A path for voice.** Peer-to-peer where NAT allows — remote-access.md's research puts direct
+   connection above 90% with Tailscale-style hole punching — and a **TURN relay** for the
+   remainder.
+
+That third item is the point. A TURN relay is **unambiguously another machine that somebody must
+run**, with bandwidth costs that scale with use, and it cannot be self-hosted by the person who
+needs it, because the whole reason it exists is that their network cannot be reached.
+
+Which makes it the cleanest possible test of the README's promise: *"we only charge for things
+that genuinely require another machine."* Most candidate premium features fail that test on
+inspection. This one passes it without argument, and the ~10% figure means the free path is the
+common path rather than a crippled teaser.
+
+**What this does not settle:** whether we operate a service at all. That still implies a
+company, uptime obligations and an entity that can be pressured, and declining it remains
+coherent — the cost is leaving the headline use case to Tailscale, which is a fine answer for
+this project's likely early audience and a poor one for the household that motivated it.
+
+**Status:** Provisional, and the least technical entry in this log. What it fixes is the *shape*
+of the answer, not the answer.
