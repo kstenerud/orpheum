@@ -85,7 +85,10 @@ plugin survey ([D20](../../decisions/working-notes.md)), the track-selection pai
   a different language in episode 2 — at user, library and series scope, tri-valued so that `off`
   is distinguishable from unset, and with the subtitle selection modelled as a **set** rather
   than a single value so dual subtitles do not later require a migration. These are user data:
-  they go in the change journal and mirror to sidecars.
+  they go in the change journal — but **not** to sidecars, correcting the parenthesis in
+  [D24](../../decisions/working-notes.md). They are per-user and the media tree is shared, so
+  [D98](../../decisions/working-notes.md) applies: a sidecar carries what is true about the
+  work, the database carries what is true about a person.
   **The embedded-font opt-in is one more axis on this same table**
   ([D57](../../decisions/working-notes.md)) — per user, sticky at series scope, tri-valued, and
   deliberately *without* the per-library default the language axes get, because a library
@@ -124,8 +127,8 @@ each lands here rather than being bolted on — the same argument
 - **Favourites and user ratings are in the play-state family, at the Title**
   ([play-state.md](play-state.md)). Jellyfin keeps them in the same mutable row as the resume
   position, which is why *"Movie favourites are randomly unfavourited"* (33 comments) sits next
-  to the resume bugs: one race, three symptoms. They are user-authored, so they mirror to
-  sidecars and ride the change journal.
+  to the resume bugs: one race, three symptoms. They ride the change journal and, like all
+  per-user state, are **database-only** ([D98](../../decisions/working-notes.md)).
 - **Play state is two structures, not one column**
   ([D81](../../decisions/working-notes.md), [play-state.md](play-state.md)). A **guarded
   position** per `(user, edition)` carrying a monotonic sequence, so a stale device cannot

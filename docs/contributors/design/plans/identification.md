@@ -75,8 +75,10 @@ than in the node. Two requirements:
 ## Matching, overrides and duplicates
 
 - **Manual identification override that survives re-scans, provider changes and file moves**
-  ([D7](../../decisions/working-notes.md)) — written back to sidecars, because the database is an
-  index and the user's corrections are not.
+  ([D7](../../decisions/working-notes.md)) — written back to sidecars where a writable path has
+  been granted ([D98](../../decisions/working-notes.md)), because the database is an index and
+  the user's corrections are not. An identification override is a fact about the *work*, which
+  is what makes it sidecar-able where a track preference is not.
 - **Duplicate and re-encode detection** within a library via perceptual hashing; Stash's
   `goimagehash` is the prior art.
 - **People are matched on provider identity, never on the display name**

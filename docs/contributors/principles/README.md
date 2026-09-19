@@ -21,8 +21,16 @@ language, or a framework that owns your application structure.
 ## §2 — The user's files are not ours to touch
 
 Media is mounted read-only by default. The database is a rebuildable index, never the authority
-(D7). Anything the user authored is mirrored to disk so it survives us. Destructive actions say
-exactly what they will destroy.
+(D7). Destructive actions say exactly what they will destroy.
+
+**What the user authored survives us two ways, and they are not interchangeable**
+([D98](../decisions/working-notes.md)). The automatic database backup
+([D77](../decisions/working-notes.md)) is **durability** — it is on by default and needs no
+permission. Sidecars beside the media are **portability**, the part that means "survive *us*",
+and writing one needs a writable path this principle does not grant by default. And the split
+is by subject, not by convenience: **a sidecar carries what is true about the work; the
+database carries what is true about a person**, because the media tree is shared with the
+household and often with a grantee.
 
 **Deleting is the one deliberate relaxation, and it is opt-in.** Users do delete things, and a
 principle that pretends otherwise gets bypassed rather than followed. So: a writable path is

@@ -177,6 +177,14 @@ strong typing with fast mechanical feedback — because a wrong column name is a
 
 ## D7 — The files are the source of truth; the database is a rebuildable index
 
+> **Amended 2026-09-19 by [D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person).**
+> "Mirrored to sidecars" applies only to what is true about the *work*; per-user state is
+> database-only, because the media tree is shared. And the mirror itself needs an **opt-in
+> writable path** that [principles §2](../principles/README.md) does not grant by default —
+> so the durability promise is kept by the automatic backup
+> ([D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore))
+> and the *portability* promise is what the sidecar delivers.
+
 **Decided.** Tags and sidecars on disk are authoritative for anything derived from the media.
 The database is a derived index that can be dropped and rebuilt. The exceptions — user-authored
 metadata corrections and playback state — are ours, and are mirrored to sidecar files so a user
@@ -1222,7 +1230,10 @@ It is what people expect, and everything above it in the chain can override it.
   +33). Allowing a set now is free; retrofitting it is a migration.
 - **These preferences are user data and go in the change journal** (D8), so they reach every
   device and survive a rebuild ([D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index)
-  — they are ours, not derived from the files, so they mirror to sidecars too).
+  — they are ours, not derived from the files). ~~*so they mirror to sidecars too*~~ —
+  **superseded 2026-09-19 by [D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)**:
+  these are per-user and the media tree is shared, so they are database-only and
+  backup-critical. Nothing else in this decision changes.
 
 ### Say why, not just what
 
@@ -6276,3 +6287,131 @@ identifies extras by magic folder and filename conventions (`extras/`, `behind t
 `-trailer`), which is filename parsing and therefore belongs in the **core** over stored
 observations ([D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)), not in the node. Whether a downloaded trailer that is
 not on disk at all (a provider URL) is the same kind of row is also open, and probably not.
+
+---
+
+## D98 — A sidecar carries what is true about the work; the database carries what is true about a person
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §23.
+Resolves a three-way contradiction between [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index), [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series) and
+[D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore) that has been sitting in the tree since the backup round.
+
+### The contradiction
+
+- [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index): *"Anything the user authored is mirrored to disk so it survives us."*
+- [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series): track-selection preferences *"are ours, not derived from the files,
+  so they mirror to sidecars too."*
+- [D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore) and [backup-restore.md](../design/plans/backup-restore.md), correctly:
+  watch state *"must **not** go to sidecars: it is per-user, and writing it beside the media
+  would expose one household member's viewing to anyone with filesystem access. The sidecar
+  mechanism structurally cannot carry it."*
+
+D77's argument is right and it does not stop at watch state. Track preferences are per-user.
+So are favourites, ratings, presentation settings and the play log. The same reasoning excludes
+all of them, and D24 says the opposite.
+
+### The rule
+
+> **A sidecar carries what is true about the work. The database carries what is true about a
+> person.**
+
+| Sidecar-able | Database only, and therefore backup-critical |
+| --- | --- |
+| identification override | watch state, resume position, the play log ([D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)) |
+| metadata corrections | favourites and user ratings |
+| chosen artwork | track-selection and presentation preferences ([D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series), [D90](#d90--playback-presentation-is-a-persisted-per-user-preference-set-and-captions-have-a-statutory-floor)) |
+| tags and labels on the item | users, credentials, shares ([D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed)), rules ([D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)) |
+
+The test is the same one that makes the privacy argument work: **the media tree is shared**.
+It is shared with everyone in the household, often with a grantee, and sometimes with a
+seedbox. Anything written beside a film is visible to all of them. That is fine for "this is
+actually the 1982 cut" and unacceptable for "Karl watched this at 2 a.m."
+
+**This supersedes the parenthesis in [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)** — *"they mirror to sidecars
+too"* — and nothing else in it.
+
+### The second half: writing a sidecar is not free, and the promise is conditional
+
+Nobody noticed that the mechanism collides with two other decisions:
+
+- [principles §2](../principles/README.md) mounts **media read-only by default**;
+- [D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do) says **the core never touches a media filesystem**.
+
+So a sidecar write requires a **writable path, opt-in per library** — the same opt-in
+[D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) needs for deletion, and it should be one setting rather than two —
+and it happens **in the node**, as a node command with a node report, like every other change
+to the media tree.
+
+Which means the README's *"your metadata corrections are written back to disk so they survive
+us"* is **conditional and currently reads as unconditional**. The honest version is that there
+are two durability mechanisms and they do different jobs:
+
+| Mechanism | Protects against | Requires |
+| --- | --- | --- |
+| **Automatic database backup** ([D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore)) | disk failure, a bad migration, moving machines | nothing; on by default |
+| **Sidecars beside the media** | *us* — the project dying, or you leaving for another server | an opt-in writable path |
+
+The first is the durability answer. The second is the **portability** answer, and it is the one
+the word "survive" was doing work for. Say both, and say which is on by default.
+
+**Rejected:** writing per-user state to sidecars behind a warning (the exposure is to anyone
+with filesystem access, which includes people the user cannot un-share with); a hidden
+dot-directory beside the media (same filesystem, same readers, plus it breaks the "any other
+media server can read it" property that was the point); requiring a writable path (it is the
+read-only default that makes [principles §2](../principles/README.md) mean anything).
+
+**Status:** The sidecar format is still undesigned — [backup-restore.md](../design/plans/backup-restore.md)
+already flags that — and this decision narrows *what* goes in it without settling the format.
+NFO is the field's de-facto answer and reading it is already planned; writing it is a
+compatibility question nobody has examined.
+
+---
+
+## D99 — The core does not decode an image either, and community-uploaded artwork is why
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §24.
+
+[D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp) keeps FFmpeg out of the core process because media is
+attacker-supplied data. The rule was written about **media files** and the same argument covers
+a case nobody drew the conclusion for, even though
+[threat-model.md](../design/research/threat-model.md) §5 states the premise outright:
+
+> *"posters are the one binary we fetch **from a third party by default** — TMDB — rather than
+> from the user's own disk."*
+
+And TMDB is **community-editable**. Anyone can upload a poster. So an image arriving from a
+metadata provider is attacker-supplied in the ordinary sense, not the theoretical one — and
+unlike a film, it arrives *unprompted*, during a background refresh, from the internet, on a
+schedule.
+
+The exploitability is not speculative either. `threat-model.md` already counts **39 entries in
+CISA's Known Exploited Vulnerabilities catalogue touching media, image or font parsing**, with
+Apple's Image I/O (CVE-2025-43300) and Samsung's `libimagecodec` (twice) in a five-row sample.
+Add the one that hit everything: **CVE-2023-4863**, the libwebp `BuildHuffmanTable` heap
+overflow, added to KEV on 2023-09-14 and exploited in a 0-click chain — a library that ships
+inside Chrome, Electron, GIMP, LibreOffice, Telegram, 1Password *and FFmpeg*.
+
+**So the rule generalises: the core never parses a media or image file.** Concretely:
+
+- **Derived sizes are produced in the node**, in the same jail as everything else
+  ([artwork.md](../design/plans/artwork.md) already puts them there; this is why).
+- **A provider image fetched by the core is bytes in flight, not a decoded image.** It is
+  handed to the confined worker for validation and derivation and never touched by the core's
+  own process — which is also the shape Apple chose for BlastDoor, already quoted in
+  `threat-model.md` §5: *isolate, parse, transcode, validate*, then let the untrusted thing out
+  only as a safe re-encoding.
+- **Serving bytes is not parsing them.** The core may stream a derived image from `cache/`
+  without ever decoding one, exactly as it streams a film it never opened.
+
+**The pleasing part:** the confined worker already exists for FFmpeg
+([D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)), the node already decodes media, and
+[artwork.md](../design/plans/artwork.md) already put derivation there for performance reasons.
+This decision costs nothing to hold and would cost a rewrite to retrofit — which is what makes
+it worth writing down before somebody reaches for an image library in a handler.
+
+**Status:** Provisional in one respect — a pure-Go image decoder in a `Landlock`+`seccomp`
+worker is a different risk profile from libwebp in C, and Go's `image/*` packages have had DoS
+bugs rather than memory-corruption ones. That might argue for decoding in the core after all.
+It does not change the answer, because [D9](#d9--server-language-go-one-language-on-the-server)'s single binary means the worker
+is the same code either way and the confinement is nearly free — but the reasoning should be
+re-checked if an image library with a C dependency is ever proposed.

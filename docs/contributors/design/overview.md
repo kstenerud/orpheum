@@ -59,7 +59,8 @@ Five choices, each traceable to a specific failure in the research:
    every competitor and the cheapest place to be visibly better.
    ([D11](../decisions/working-notes.md))
 5. **Your files stay yours.** Media read-only by default. The database is a rebuildable index,
-   not an authority. Your corrections are written back to sidecars. No telemetry, no account,
+   not an authority. Your corrections are written back to sidecars where you grant a writable
+   path, and per-user state deliberately is not ([D98](../decisions/working-notes.md)). No telemetry, no account,
    no storefront — as a stated promise. ([D7](../decisions/working-notes.md),
    [D13](../decisions/working-notes.md))
 6. **One excellent TV client beats five mediocre ones.** The project is judged on its TV app.
@@ -220,6 +221,7 @@ Notes on the shape:
 | Microservices, Kafka, Elasticsearch, Redis | Household scale. SQLite FTS5 covers search — two tokenisers, because no single one handles Latin, CJK and Thai ([D48](../decisions/working-notes.md)) — Go covers fuzzy matching, and job wakeups are a channel in one process ([D31](../decisions/working-notes.md)). |
 | A Roku client | BrightScript shares no code with anything and Roku cannot render bitmap subtitles at all. |
 | FFmpeg in the core process | [D26](../decisions/working-notes.md). Media is attacker-supplied data and FFmpeg will eventually be compromised; all of it runs in a Landlock+seccomp-confined worker, so the core never parses hostile bytes. |
+| **An image decoder in the core process either** | [D99](../decisions/working-notes.md). The same rule, generalised: TMDB is community-editable, so a poster is attacker-supplied — and unlike a film it arrives unprompted during a background refresh. 39 CISA KEV entries touch media, image or font parsing. Derivation happens in the node's jail; the core moves bytes it never decodes. |
 | In-process plugins | [D12](../decisions/working-notes.md). Third-party scrapers are the last code you want unsandboxed. Protocol surfaces get a second tier — out-of-process adapters ([D15](../decisions/working-notes.md)). |
 | A *video* encoder in the core binary | [D17](../decisions/working-notes.md), [D19](../decisions/working-notes.md), [D22](../decisions/working-notes.md). It is a plugin on the public API: smaller default install, a real licence/patent boundary, and remote transcoding for free. Audio encoding does stay in the core. |
 | Audiobooks, comics, live TV/DVR | Each is a different product wearing the same clothes. Audiobookshelf's 1,191 open issues are the evidence. |

@@ -23,6 +23,10 @@ and it means Jellyfin's threat model is not available to us. We have not written
 
 - **Who is the adversary?** The internet at large; a malicious guest with a shared link; a
   household member escalating; a hostile metadata provider or plugin; someone on the LAN.
+- **The image path, which D26 did not cover.** A poster fetched from TMDB is
+  community-uploaded, arrives unprompted during a background refresh, and is decoded by
+  something. [D99](../../decisions/working-notes.md) puts that decode in the confined worker
+  with FFmpeg; the per-platform confinement matrix below has to cover it.
 - **What is the trust boundary for a media file?** Media is attacker-supplied data fed to
   FFmpeg, which is a large C codebase with a long CVE history. That is the sharpest edge in the
   product and it is the *normal* path, not an edge case. Sandboxing the decode/probe path

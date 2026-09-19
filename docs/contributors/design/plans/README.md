@@ -97,6 +97,13 @@ new plans. The ordering that matters:
   can land whenever; both are prerequisites for
   [performance-targets.md](performance-targets.md) meaning anything outside CI.
 
+Two more came from reading the decisions against **each other** rather than against the
+outside world, and both were contradictions the tree already contained:
+[D98](../../decisions/working-notes.md) (D7, D24 and D77 disagree about what a sidecar carries,
+and the mechanism needs a writable path nobody granted it) and
+[D99](../../decisions/working-notes.md) (a TMDB poster is attacker-supplied and the core
+fetches it, which D26's rule was never extended to cover).
+
 And one that changed an existing schedule: [D86](../../decisions/working-notes.md) puts
 `transcoding.md` **§(b)** on [remote-access.md](remote-access.md)'s critical path rather than
 at Phase 4, because remote playback over a degraded link has nothing lower to fall back to.

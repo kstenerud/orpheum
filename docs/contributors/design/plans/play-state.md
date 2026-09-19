@@ -52,12 +52,16 @@ reaches a million rows.
 ### And the rest of the per-user item data belongs here too
 
 Favourites and the user's own rating are the same kind of thing — per `(user, item)`,
-user-authored, and therefore mirrored to sidecars and carried in the change journal
-([D7](../../decisions/working-notes.md), [D8](../../decisions/working-notes.md)). They are in
-this plan rather than filed separately because they share the failure: Jellyfin keeps them in
-the **same single mutable row** as the position, which is why *"Movie favourites are randomly
-unfavourited"* (33 comments) sits in the tracker next to the resume bugs. One race, three
-symptoms.
+user-authored, carried in the change journal ([D8](../../decisions/working-notes.md)), and
+**never written to a sidecar** ([D98](../../decisions/working-notes.md)): the media tree is
+shared with the household and often with a grantee, so per-user state beside a film exposes it
+to all of them. They are database-only and therefore backup-critical
+([D77](../../decisions/working-notes.md)).
+
+They are in this plan rather than filed separately because they share the failure: Jellyfin
+keeps them in the **same single mutable row** as the position, which is why *"Movie favourites
+are randomly unfavourited"* (33 comments) sits in the tracker next to the resume bugs. One
+race, three symptoms.
 
 They attach at different levels, and the levels are not the same as the position's:
 

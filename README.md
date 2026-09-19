@@ -18,8 +18,14 @@ Product commitments, not aspirations:
 - **No telemetry.** Off by default; opt-in only if ever added.
 - **No storefront.** No ads, no upsell, no recommendations for content you don't own.
 - **Your files stay yours.** Media is read-only by default. The database is a rebuildable
-  index, never the authority. Your metadata corrections are written back to disk so they
-  survive us.
+  index, never the authority. Your data survives us two ways, and they do different jobs: an
+  **automatic backup** of everything that cannot be re-derived — watch state, preferences,
+  rules, shares — which is on by default and restores anywhere; and, if you grant a writable
+  path, **sidecar files beside your media** carrying your metadata corrections in a format any
+  other media server can read. The first protects you from a dead disk. The second protects you
+  from *us*. Per-user state stays out of the sidecars deliberately — the media tree is shared,
+  and nobody else in the house needs to see what you watched. See
+  [D98](docs/contributors/decisions/working-notes.md).
 - **We would only ever charge for things that genuinely require another machine.** Everything
   that can run on your own hardware does, free, forever — and no feature that works locally
   will ever be moved behind a payment.

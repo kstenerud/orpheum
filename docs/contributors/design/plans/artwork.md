@@ -27,10 +27,13 @@ destroyed by a refresh, which is [principles §2](../../principles/README.md) in
 ## The shape
 
 - **Derived sizes are produced at scan time, in the node.** The node already opens files and
-  already writes thumbnails; a poster at three sizes is the same kind of work. The core never
-  resizes an image on the request path, and never parses an image at all — an image decoder is
-  attacker-supplied-data surface exactly like a media file
-  ([D26](../../decisions/working-notes.md)), and the poster came off the internet.
+  already writes thumbnails; a poster at three sizes is the same kind of work. **The core never
+  parses an image at all** ([D99](../../decisions/working-notes.md)): TMDB is community-editable,
+  so a poster is attacker-supplied in the ordinary sense, and unlike a film it arrives
+  unprompted during a background refresh. A provider image fetched by the core is bytes in
+  flight, handed to the confined worker. Serving a derived image from `cache/` is not parsing
+  it. `threat-model.md` counts 39 CISA KEV entries touching media, image or font parsing;
+  CVE-2023-4863 (libwebp, 0-click, KEV 2023-09-14) is the one that shipped inside everything.
 - **Content-addressed, immutable, cacheable.** The URL contains a hash of the source plus the
   size, so `Cache-Control: immutable` is honest, a changed poster is a new URL, and the cache
   never needs invalidating. This is the same argument
@@ -39,8 +42,10 @@ destroyed by a refresh, which is [principles §2](../../principles/README.md) in
 - **A closed set of sizes**, named like the rendition menu ([D21](../../decisions/working-notes.md))
   rather than an arbitrary `?w=` parameter — which is an open grammar, a cache-fragmentation
   machine and a trivial denial-of-service.
-- **User-chosen artwork is user data.** It goes in the change journal and mirrors to a sidecar,
-  and a metadata refresh can never replace it. That is the Jellyfin bug above, and it is
+- **User-chosen artwork is user data about the *work***, so it is one of the things that *does*
+  belong in a sidecar ([D98](../../decisions/working-notes.md)) — where a writable path has been
+  granted; in the database regardless. It goes in the change journal and a metadata refresh can
+  never replace it. That is the Jellyfin bug above, and it is
   [D7](../../decisions/working-notes.md).
 - **All of it lives in `cache/`** except the user's own choice, which does not. `cache/` is
   always safe to delete ([overview.md](../overview.md)).
