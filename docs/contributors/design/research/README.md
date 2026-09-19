@@ -16,7 +16,7 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
 | [commercial-streaming.md](commercial-streaming.md) | Netflix, Apple, Amazon, YouTube — what the big players do, and which of it transfers to a home server. |
 | [sentiment.md](sentiment.md) | What users actually complain about, with sources and a stated method. Includes what could **not** be gathered and why. |
 | [plugins-and-workarounds.md](plugins-and-workarounds.md) | What people extend and hack around in existing systems — plugin catalogues by stars, the companion-app ecosystem, and the workarounds that exist only because a seam was missing. The requirements list for our extension design. |
-| [remote-access.md](remote-access.md) | NAT topology, the mechanisms and what each costs, the TLS-certificate collision, relay economics, and identity — which is also the hard half of sharing. Backs D25. |
+| [remote-access.md](remote-access.md) | NAT topology, the mechanisms and what each costs, the TLS-certificate collision, relay economics, and identity — which is also the hard half of sharing. §3 (2026-09-19) covers NAT-traversal state of the art: the two cases where a relay is unavoidable, why published relay rates vary 8×, and why our media server is already the relay. Backs D25, D68. |
 | [threat-model.md](threat-model.md) | Adversaries, trust boundaries, and the FFmpeg containment stance. Backs D26. |
 | [change-detection.md](change-detection.md) | How the server learns the library changed, across the filesystems people actually use; evaluates the NAS-side index agent. Backs D27. |
 | [test-hardware.md](test-hardware.md) | What hardware the test matrix needs, measured against what is available; the gaps and the buying order. |

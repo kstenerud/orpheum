@@ -125,14 +125,32 @@ audio/video but no data channels, needs a locally built framework, and carries a
 issue. Where it cannot keep up it does without, and Swiftfin or Infuse via the
 [Jellyfin adapter](jellyfin-api-shim.md) is the fallback for Apple TV users.
 
-## What this forces
+## What this forces: less than it first appeared
 
-Nothing new for synchronisation — if the remote participant can reach the server, the server is
-the rendezvous. But **voice needs a TURN relay for the ~10% of networks hole-punching cannot
-traverse**, and that is unambiguously another machine, which cannot be self-hosted by the person
-who needs it. See [D64](../../decisions/working-notes.md): it does not settle whether we operate
-a service, but it settles what the paid tier would be *for*, and it is the one candidate that
-passes the README's promise without argument.
+Nothing new, as it turns out ([D68](../../decisions/working-notes.md)).
+
+Synchronisation needs no infrastructure: if the remote participant can reach the server, the
+server is the rendezvous. And **voice needs no TURN service either**, because the same thing is
+true of it — by the time voice matters, both parties are already connected to the media server
+by construction, since otherwise there is no film to watch together. So **the server relays the
+voice**, at ~24–64 kbps of Opus against a film already crossing the same uplink, and with almost
+no latency penalty because the relay sits **at one endpoint** rather than in a datacentre
+between them.
+
+**Relay first, upgrade later.** Start on the server relay — instant, always works — and migrate
+to a direct path if hole punching succeeds. This is Tailscale's trick and it is most of why
+their relay rate is under 10% while WebRTC's is 20–25%: ICE must connect within a second or two
+and so gives up and relays, whereas a background upgrade has unlimited time. It also means the
+relayed path must be good rather than a degraded mode, since everyone uses it for the first
+second.
+
+Only two situations make a relay genuinely unavoidable
+([remote-access.md](../research/remote-access.md) §3): **both** ends behind hard/symmetric NAT —
+a single hard NAT is beaten by port prediction in about two seconds, two of them need ~170,000
+probes per side — or UDP blocked outright, where TCP/443 with TLS is the only path.
+
+The consequence for [D64](../../decisions/working-notes.md): the premium tier's justification is
+**remote access itself**, not voice. Voice rides along.
 
 ## Open
 

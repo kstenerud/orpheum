@@ -4240,7 +4240,9 @@ coherent — the cost is leaving the headline use case to Tailscale, which is a 
 this project's likely early audience and a poor one for the household that motivated it.
 
 **Status:** Provisional, and the least technical entry in this log. What it fixes is the *shape*
-of the answer, not the answer.
+of the answer, not the answer. **Corrected by [D68](#d68--turn-is-not-an-independent-requirement-the-media-server-is-already-the-relay)**
+— voice needs no separate relay, because the media server is already mutually reachable. The
+premium tier's justification is remote access itself, not voice.
 
 ---
 
@@ -4429,3 +4431,77 @@ signal.
 
 **Status:** Provisional in scope: this is about *tvOS*, not about Apple. iOS and macOS are
 ordinary first-class targets.
+
+---
+
+## D68 — TURN is not an independent requirement; the media server is already the relay
+
+**Decided** (2026-09-19). Correcting
+[D64](#d64--watch-together-makes-the-remote-access-question-concrete-and-supplies-the-premium-tiers-first-honest-member),
+which claimed a TURN relay was the premium tier's first unarguable member. It is not, because we
+are not solving the general peer-to-peer problem.
+
+### The correction
+
+For Watch Together the two endpoints are two people — but there is a third party both are
+**already connected to by construction**. If she cannot reach the media server there is no film
+to watch together. So by the time voice matters, a mutually reachable rendezvous **already
+exists**, and it can carry the voice.
+
+Three reasons this is not a grudging fallback but the better answer:
+
+- **Bandwidth is nothing.** Opus speech is ~24–64 kbps per stream, against a film already
+  crossing the same uplink.
+- **Latency is nearly nothing**, which is the counter-intuitive part. A conventional TURN sits
+  in a datacentre *between* the peers and adds a genuine detour. Ours sits **at one endpoint** —
+  the server is on the home participant's LAN — so `her → server → him` is essentially
+  `her → him`.
+- **No new service, no new machine, no new failure mode.** It is the connection that is already
+  carrying the film.
+
+So the premium tier's justification is **remote access itself** — the rendezvous, the
+certificates, the relay that makes the server reachable at all — and voice simply rides along.
+That is a cleaner claim, and it *strengthens* the README's promise by removing a second
+justification that does not survive inspection.
+
+### What the research actually established about relays
+
+Worth recording, because "about 10% need a relay" is too coarse to design around
+([remote-access.md](../design/research/remote-access.md) §3).
+
+**Only two situations make a relay unavoidable:**
+
+1. **Both** endpoints behind hard (symmetric, endpoint-dependent-mapping) NAT.
+2. UDP blocked outright at either end — corporate networks, hotels, captive portals — where the
+   only remedy is a relay on **TCP/443 with TLS**.
+
+**One** hard NAT is a solved problem, and the numbers are striking. Port prediction exploits the
+birthday paradox: with 256 open source ports, 174 probes gives 50%, 1,024 gives 98%, 2,048 gives
+99.9% — at 100 packets/second, *"half the time we'll get through in under 2 seconds."* **Two**
+hard NATs require a collision in both directions simultaneously: roughly **170,000 probes per
+side, about 28 minutes**. That is the cliff.
+
+**Published relay rates vary by 8× and the gap is mostly effort, not luck:** Tailscale under
+10%, general WebRTC 20–25%, corporate WebRTC 60–85%. The most transferable reason is that
+**WebRTC has a deadline and Tailscale does not.** ICE must connect in a second or two, so it
+gives up and relays; Tailscale **starts relayed and upgrades to direct in the background**,
+which buys unlimited time to find a path nobody is waiting on.
+
+**So: relay first, upgrade later.** Voice starts on the server relay — instant, always works —
+and migrates to a direct path if hole punching succeeds. The user never learns which one they
+have. This also means the relay path must be correct and pleasant rather than a degraded mode,
+since it is what everyone gets for the first second and what a minority keep.
+
+And the ladder underneath is worth having in the stated order, because each rung is cheap:
+**IPv6 first** (no NAT at all, and it crossed **50% of Google's traffic on 2026-03-28**), then
+UPnP-IGD / NAT-PMP / PCP for an explicit mapping, then STUN and simultaneous send, then port
+prediction for a single hard NAT, then the server relay. Local addresses are tried first
+regardless, because **many NATs do not hairpin** and two peers behind the same router otherwise
+fail in the most confusing possible way.
+
+IPv6's trajectory is itself an argument for restraint: this problem shrinks every year without
+us, so the traversal cleverness should be bounded and the relay path should be good.
+
+**Status:** Provisional in one respect. If watch-together ever grows past a handful of
+participants, relaying N streams through a household uplink stops being free and a selective
+forwarding unit becomes a real design question. At two to four people it is not.

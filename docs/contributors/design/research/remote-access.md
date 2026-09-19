@@ -54,7 +54,133 @@ carriers, and common on newer fixed-line ISPs. IPv6 would dissolve the problem a
 roughly 45–50% of global traffic, which is precisely the wrong number: too much to ignore, far
 too little to depend on.
 
-## 3. The collision is bigger than remote access — it starts with HTTPS
+## 3. When a relay is genuinely the only option
+
+Researched **2026-09-19**, because "about 10% need a relay" is a number to design around and the
+residual deserves naming.
+
+### The taxonomy that matters is two bits, not four cones
+
+The old STUN "full cone / restricted / port-restricted / symmetric" vocabulary is obsolete.
+RFC 4787's model separates **mapping** behaviour from **filtering** behaviour, and for traversal
+purposes only the mapping bit decides anything:
+
+| | Behaviour | Traversable? |
+| --- | --- | --- |
+| **Endpoint-Independent Mapping (EIM)** — "easy NAT" | one public `ip:port` per internal `ip:port`, whatever the destination | **Yes.** STUN tells you the mapping and the peer can aim at it |
+| **Endpoint-Dependent Mapping (EDM)** — "hard NAT", *symmetric* | a different public port per destination | Not directly — the peer cannot know which port will be allocated *to them* |
+
+Tailscale's framing is the useful one: *"the major distinction we care about is Symmetric versus
+anything else."*
+
+### One hard NAT is a solved problem; two is not
+
+This is the crux, and it is quantified. Against a hard NAT you can **guess the port**, because
+you only need any one of your many open source ports to collide with any one of your probes —
+the birthday paradox working for you. Probing random destination ports with 256 open source
+ports:
+
+| Probes | Success |
+| --- | --- |
+| 174 | 50% |
+| 256 | 64% |
+| 1,024 | 98% |
+| 2,048 | 99.9% |
+
+At 100 packets per second, *"half the time we'll get through in under 2 seconds."* So **a single
+hard NAT costs a couple of seconds and is otherwise invisible.**
+
+**Two hard NATs collapse this.** Now a collision must be found in both directions at once, which
+takes roughly **170,000 probes per side — about 28 minutes** for the same 99.9% confidence. That
+is not a connection attempt, it is a weather system. This is the first of exactly two cases
+where a relay is not a fallback but the answer.
+
+### The second case: UDP does not leave the building
+
+Hole punching of any kind needs UDP to traverse. Corporate networks, hotels, conference venues
+and captive portals routinely permit only TCP/443 outbound, sometimes only through an HTTP
+proxy. No amount of cleverness produces a direct path through that, and the only remedy is a
+relay reachable on **TCP/443 with TLS**, because that port is the one nobody blocks.
+
+### So the list is short
+
+**Relay is the only option when:**
+
+1. **both** endpoints are behind hard/symmetric NAT, or
+2. UDP is blocked outright at either end.
+
+Everything else — one hard NAT, restrictive filtering, CGNAT with endpoint-independent mapping,
+double NAT — is traversable with enough effort.
+
+### Why published relay rates vary by 8×, and what it tells us to build
+
+| Source | Relayed |
+| --- | --- |
+| Tailscale | **<10%** |
+| WebRTC, general production | **20–25%** |
+| WebRTC, corporate networks with managed firewalls | **60–85%** |
+
+The population differs — corporate networks are the bad case and Tailscale's users are mostly
+home and mobile — but the larger part of the gap is **effort**, and the difference is
+instructive:
+
+- **Tailscale tries harder.** Port prediction, UPnP-IGD, NAT-PMP and PCP for explicit mappings,
+  IPv6, and continuous background retrying.
+- **And crucially, it has no deadline.** A WebRTC call must connect in a second or two, so ICE
+  gives up and relays. Tailscale **starts relayed and upgrades to direct in the background**, so
+  it can spend thirty seconds hunting a path nobody is waiting on.
+
+That last point is the design, not a detail: **relay-first, upgrade-later removes the time
+pressure that forces most WebRTC relaying.** The user gets an instant connection either way and
+never learns which one they got.
+
+### IPv6 is quietly winning, and it deletes the problem
+
+On **2026-03-28 IPv6 crossed 50% of Google's traffic** for the first time; APNIC, which measures
+differently and reads lower, puts IPv6-capable networks at **43.13%**. France, Germany and India
+are majority-IPv6; the US, Brazil and Japan are near half; China is under 5%.
+
+With IPv6 at both ends there is no NAT, no mapping to predict and no STUN — just a stateful
+firewall, which simultaneous transmission opens. Every year this problem gets smaller on its
+own, which argues for **not over-investing in traversal cleverness** and for making sure IPv6 is
+tried first rather than as an afterthought.
+
+### And the port-mapping protocols are free when they work
+
+UPnP-IGD, NAT-PMP and PCP (RFC 6887) let a host simply *ask* the router for a public port. When
+available it makes the whole problem vanish. You cannot rely on them — frequently disabled by
+policy or absent — but trying costs a few packets, so they belong in the ladder.
+
+One related trap worth knowing: **many otherwise well-behaved NATs do not support hairpinning**,
+so two peers behind the *same* NAT cannot reach each other via the public address. That is a
+LAN-adjacent case and the fix is to try local addresses first, which ICE already does.
+
+### The finding that changes our architecture
+
+All of the above is the general peer-to-peer problem. **Ours is not the general problem**, and
+the difference is worth a great deal.
+
+For Watch Together, the two endpoints are two *people*, but there is a third party both are
+**already connected to by construction**: the media server. If she cannot reach the server there
+is no film to watch together, so by the time voice matters, a mutually reachable rendezvous
+already exists.
+
+So **the media server relays the voice**, and:
+
+- **It costs almost nothing.** Opus speech is roughly 24–64 kbps per stream, against a film
+  already flowing over the same uplink.
+- **It costs almost no latency**, which is the surprising part. A conventional TURN sits in a
+  datacentre somewhere between the peers and adds a real detour. Our relay sits **at one of the
+  endpoints** — the server is on the home participant's LAN — so `her → server → him` is
+  essentially `her → him`.
+- **It needs no new infrastructure or service.**
+
+The conclusion is that **TURN is not an independent requirement for us**; voice relaying is
+subsumed by whatever already makes the server reachable. See
+[D68](../../decisions/working-notes.md), which corrects
+[D64](../../decisions/working-notes.md) on exactly this point.
+
+## 4. The collision is bigger than remote access — it starts with HTTPS
 
 The finding that reframes this. **A home server cannot obtain a publicly-trusted TLS certificate
 for itself**, because it has no domain name and ACME will not issue for a bare IP in any way a
@@ -75,7 +201,7 @@ with the certificate problem first.
 (Note also Plex's own caveat, which becomes ours: names under such a scheme resolve to private
 IPs, which is what DNS-rebinding protection exists to block, so some users have to disable it.)
 
-## 4. What a relay would actually cost
+## 5. What a relay would actually cost
 
 The premium-service idea is only worth discussing if the economics work. They do, by a wide
 margin, and the reason is Tailscale's 90%.
@@ -96,7 +222,7 @@ relayed film-hours a month. Households needing relay at all are the minority, an
 will not each stream continuously. **A modest subscription covers this comfortably** — the
 binding constraint is abuse, not cost.
 
-## 5. Certificates and identity are the same problem as sharing
+## 6. Certificates and identity are the same problem as sharing
 
 [`sharing-model.md`](../plans/sharing-model.md) asks how to give one person access to part of a
 library. Its hard part is **naming the other person** — and that is the same third party again.
@@ -124,7 +250,7 @@ Options for identity without our own account system, in increasing order of what
 **These are not exclusive, and that is the design.** 1 and 2 are always available and need
 nothing from us. 3 is for the technical. 4 is opt-in and is the premium tier.
 
-## 6. The promise has to be restated, not quietly weakened
+## 7. The promise has to be restated, not quietly weakened
 
 D13 currently says "no third-party account is ever required". The research says that is
 keepable **only if we accept that the non-technical-family case is out of reach without one**.
@@ -154,7 +280,7 @@ The middle tier is the load-bearing one ethically: if a user *can* self-host the
 the paid tier is a convenience rather than a gate, and the promise is true. It also costs us
 little, because the hosted tier is the same software.
 
-## 7. What is still open
+## 8. What is still open
 
 - **Is the hosted tier something this project wants to operate at all?** It implies a company,
   liability, uptime obligations, abuse handling, and an entity that can be pressured. A project

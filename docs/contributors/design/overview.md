@@ -183,11 +183,13 @@ Notes on the shape:
 
 Honest statement of what the research did **not** settle:
 
-1. **Whether to operate a hosted service at all.** [D64](../decisions/working-notes.md) narrowed
-   this without answering it: Watch Together's voice chat needs a **TURN relay** for the ~10% of
-   networks hole-punching cannot traverse, which is unambiguously another machine and cannot be
-   self-hosted by the person who needs it. That is the first candidate that passes the promise
-   in the README without argument. What remains is below, unchanged. Researched
+1. **Whether to operate a hosted service at all.** Narrowed, and then narrowed again.
+   [D64](../decisions/working-notes.md) thought Watch Together's voice chat needed a hosted
+   **TURN relay**; [D68](../decisions/working-notes.md) found it does not, because both
+   participants are already connected to the media server by construction and it can relay the
+   voice itself — at one endpoint rather than in a datacentre, so with almost no latency cost.
+   So the justification for a paid tier is **remote access itself** and nothing else, which is a
+   cleaner claim than the one it replaced. What remains is below, unchanged. Researched
    ([remote-access.md](research/remote-access.md), [D25](../decisions/working-notes.md)): the
    topology is settled — there is no discoverability without a signpost, and the TLS-certificate
    problem needs one even on the LAN — and a three-tier shape is proposed. What remains is not
