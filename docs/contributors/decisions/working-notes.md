@@ -3580,5 +3580,77 @@ emitted, with the hinting VM and bitmap tables gone, rather than the original by
 the parsing of hostile input happens in the node, inside the same Landlock+seccomp jail as
 FFmpeg, rather than on someone's television.
 
-**Status:** Provisional in one respect: whether the opt-in should be per-user, per-library or
-per-server is a UX question nobody has answered. The default is not provisional.
+**Status:** Provisional. The scope question it left open — per-user, per-library or per-server —
+is **resolved by [D57](#d57--the-embedded-font-opt-in-is-per-user-sticky-per-series-and-the-client-may-still-refuse)**.
+The default is not provisional.
+
+---
+
+## D57 — The embedded-font opt-in is per-user, sticky per series, and the client may still refuse
+
+**Decided** (2026-09-19). Resolves the scope question left open by
+[D56](#d56--embedded-fonts-are-off-by-default-the-client-must-ask-for-them). The opt-in is
+**per user**, remembered at **series** scope, and it is a *preference* — the client still decides
+whether to honour it on the device in front of it.
+
+**It needs no new machinery.** This is precisely
+[D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)'s
+track-preference model with one more axis, and every rule there transfers unchanged:
+
+- **Sticky scope is the nearest grouping ancestor** — the series for an episode, the item itself
+  for a film. Exactly as D24 defines it.
+- **Only an explicit user action updates the preference.** Nothing automatic may turn embedded
+  fonts on, or the setting drifts toward whatever the files happen to contain — which here is
+  not merely untidy, it is the security property quietly eroding.
+- **Tri-valued: `on` / unset / `off`.** Unset means "ask"; `off` means the user said no and must
+  not be asked again for that series. A user who declines once should not be nagged every
+  episode.
+- **Store a descriptor, re-resolve per file.** Never "use attachment index 3" — attachment
+  indices shift between episodes the same way track indices do, which is the bug class D24
+  exists to prevent.
+
+The resolution chain is D24's, shortened, because there is deliberately **no per-library
+default**:
+
+```
+explicit choice in this session
+  → remembered choice for this series     ← the user's ask
+    → off                                 ← the root default (D56)
+```
+
+**Why no per-library scope, when D24 has one.** A library default is how you would say "anime:
+always load embedded fonts", and that is precisely the blanket grant D56 exists to prevent — it
+converts a deliberate per-series decision into a standing permission over every file that lands
+in a folder, including ones acquired later. Language preferences earn a library default because
+getting them wrong is an annoyance; this one does not, because getting it wrong is a code
+execution path. The asymmetry is the point.
+
+**Why per-user rather than per-server.** The person who accepts the risk should be the person who
+bears it. A server-wide switch means one household member's taste in fansubs decides what runs on
+everyone else's television. It also keeps the blast radius legible: when something does go wrong,
+"who turned this on" has an answer.
+
+This has a consequence worth stating explicitly: **the served font resource must be authorised
+per user**, not merely unguessable. If A opts in and B does not, B's client must not be able to
+fetch the attachment — so the URL carries A's authorisation, not just a hash. That folds into the
+existing signed-and-scoped-URL work rather than adding to it.
+
+**And the client may still refuse, which is the part that matters most.** The preference says
+*"this user wants correct typesetting for this series."* It does not say *"this device should
+parse it."* Those are different claims and
+[D2](#d2--playback-negotiation-the-client-decides-from-a-manifest) already separates them:
+preference is user state, capability is device state, and the device decides.
+
+The gap is large and real. In a browser, JASSUB's FreeType runs inside a WASM sandbox. On Android
+and Apple, libmpv's runs in-process and unconfined, and may be FreeType ≤ 2.13.0 — the range
+CVE-2025-27363 covers. So one user preference produces the right behaviour on both: the browser
+honours it, and an old TV box declines and says why, without the user having to keep two settings
+or understand the difference. The client that declines should say so in the same
+"why is this different?" surface that explains transcoding decisions
+([principles §3](../principles/README.md)) — *"this subtitle's own fonts weren't loaded on this
+device"* — rather than silently rendering substituted metrics and letting the user wonder why the
+signs overlap.
+
+**Status:** Provisional in one detail. A per-device override — "never on this box", or conversely
+"I know, do it anyway" — is probably wanted eventually, and is a strictly additive change to the
+same chain. Not building it now.

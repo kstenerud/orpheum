@@ -101,6 +101,13 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   pass strips the TrueType hinting VM (`fpgm`/`prep`/`cvt `) and the bitmap/colour tables where
   CVE-2020-15999 lived, which measures **14% smaller**, not larger.
 
+  The opt-in is **per user, sticky at series scope**, riding the existing track-preference
+  machinery ([D57](../../decisions/working-notes.md)) — so the served attachment must be
+  authorised *per user*, not merely unguessable. And the preference says the user wants correct
+  typesetting, not that this device should parse it: a browser's WASM-sandboxed FreeType may
+  honour it where an old TV box's in-process FreeType declines, under one setting. A client that
+  declines says so in the same "why is this different?" surface that explains transcoding.
+
 ## Done when
 
 A client direct-plays everything the playback survey says it should; a client that cannot decode

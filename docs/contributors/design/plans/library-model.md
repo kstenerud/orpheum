@@ -38,6 +38,10 @@ plugin survey ([D20](../../decisions/working-notes.md)), the track-selection pai
   is distinguishable from unset, and with the subtitle selection modelled as a **set** rather
   than a single value so dual subtitles do not later require a migration. These are user data:
   they go in the change journal and mirror to sidecars.
+  **The embedded-font opt-in is one more axis on this same table**
+  ([D57](../../decisions/working-notes.md)) — per user, sticky at series scope, tri-valued, and
+  deliberately *without* the per-library default the language axes get, because a library
+  default is a standing grant over every file that later lands in the folder.
 - **Normalised language tags on every track.** BCP 47, normalised at scan time from whatever the
   container carried, with the original kept for provenance. ISO 639-2's bibliographic and
   terminological codes (`ger`/`deu`, `fre`/`fra`, `chi`/`zho`) are a real source of mismatches —
