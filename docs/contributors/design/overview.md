@@ -110,6 +110,12 @@ Five choices, each traceable to a specific failure in the research:
     ├─ node @ core box (supervised child, the default install)
     ├─ node @ NAS / seedbox / elsewhere  (opt-in topology)
     │
+    │  RELAY (D71) — same binary, `relay` mode, on any public host.
+    │  The core dials OUT to it: no port forward, no DDNS, works
+    │  behind CGNAT. Byte pipe by default; terminates nothing.
+    ├─ relay @ your own €5 VPS   (self-hosted assist)
+    ├─ relay @ ours              (hosted assist, optional, paid)
+    │
     │  registered plugins — same public API a third party would use
     ├─ video transcoder (tier 3, first-party, optional, MAY BE REMOTE)
     ├─ jellyfin-adapter (tier 2, inbound — borrows other people's clients)
@@ -183,7 +189,12 @@ Notes on the shape:
 
 Honest statement of what the research did **not** settle:
 
-1. **Whether to operate a hosted service at all.** Narrowed, and then narrowed again.
+1. **Whether to operate a hosted service at all.** Narrowed three times now.
+   [D71](../decisions/working-notes.md) made the relay **a mode of our own binary that anyone
+   can run on a €5 VPS** — which carries ~2,200 film-hours a month at 10 Mbps uncapped, against
+   Plex's reported 2 Mbps paid relay cap. So the hosted tier's remaining justification is
+   convenience for people who will not rent a VPS: a real market, and a far smaller claim than
+   the one this project started with. Narrowed, and then narrowed again.
    [D64](../decisions/working-notes.md) thought Watch Together's voice chat needed a hosted
    **TURN relay**; [D68](../decisions/working-notes.md) found it does not, because both
    participants are already connected to the media server by construction and it can relay the

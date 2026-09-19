@@ -3,8 +3,43 @@
 
 # Remote access
 
-- **Status:** UNSPECIFIED — **researched 2026-09-18** ([remote-access.md](../research/remote-access.md), [D25](../../decisions/working-notes.md)); the topology is settled and a tiered shape proposed, but no mechanism is chosen and the hosted-service question is a product decision, not a technical one.
+- **Status:** PARTLY SPECIFIED — researched 2026-09-18 ([remote-access.md](../research/remote-access.md), [D25](../../decisions/working-notes.md)); NAT traversal and the relay shape settled 2026-09-19 ([D68](../../decisions/working-notes.md), [D71](../../decisions/working-notes.md)). **The mechanism is now chosen**; the hosted-service question remains a product decision, not a technical one.
 - **Depends on:** —
+
+## The mechanism: a `relay` role the core dials out to
+
+Settled by [D71](../../decisions/working-notes.md). A third mode of the same binary, run on any
+publicly reachable host — your VPS, or eventually ours.
+
+**The property that matters is not the relaying, it is the direction.** The core dials *out*, so
+there is **no port forwarding, no dynamic DNS, no UPnP, and it works behind CGNAT** — which is
+the case nothing else solves. Port forwarding is the largest support burden in self-hosted
+anything, so this is plausibly the recommended setup rather than a fallback for hard networks.
+
+Two modes: **tunnel** (a byte pipe; TLS passes through, the relay terminates nothing, reads
+nothing, cannot tamper; bandwidth is `N ×` the stream) and **cache** (the
+[D70](../../decisions/working-notes.md) fan-out; terminates HTTP to see segment URLs while
+payloads stay encrypted end to end, so it caches ciphertext; origin bandwidth `1 ×`). **Build
+tunnel mode**; cache mode stays speculative.
+
+It is a role, so it arrives with a status record, observation-based liveness, hardened units and
+the report-don't-exit rule already specified ([D34](../../decisions/working-notes.md),
+[D37](../../decisions/working-notes.md), [D43](../../decisions/working-notes.md),
+[D44](../../decisions/working-notes.md)). It is **untrusted by construction** — a rented box —
+so clients authenticate the *core*, never the relay. Place it **near the home server**: the
+core↔relay link is persistent and carries everything.
+
+**The economics are the argument.** Plex's own support page now says accessing personal video
+remotely *"is not available for free"*, and its Relay is reported capped at 1 Mbps free / 2 Mbps
+paid — heavy transcoding by construction. A €5 VPS with 20 TB carries roughly **2,200 film-hours
+a month at 10 Mbps, uncapped**: about five times the bitrate of Plex's paid relay, for the price
+of a coffee. The difference is household versus platform economics, not cleverness.
+
+**And the obvious shortcut is forbidden.** Cloudflare's terms: *"Cloudflare reserves the right to
+disable or limit your access to or use of the CDN … if you use or are suspected of using the CDN
+without such Paid Services to serve video or a disproportionate percentage of pictures, audio
+files, or other large files."* The documentation must say so, rather than letting people find
+out by being banned. `frp`, `rathole` or a plain VPS are fine.
 
 ## Why it matters more than its size suggests
 

@@ -4687,3 +4687,109 @@ one you could have rented yourself.
 remote party viewing being wanted and the bandwidth half of
 [transcoding.md](../design/plans/transcoding.md) existing. The **cacheable-segment-URL
 constraint is not speculative** and should be respected from the first HLS endpoint.
+
+---
+
+## D71 — One relay artefact, three jobs, and the core dials out to it
+
+**Decided** (2026-09-19). Generalising the fan-out node of
+[D70](#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible)
+from a party-mode speculation into **a third mode of the same binary**, useful at two
+participants: `relay`, run on any publicly reachable host.
+
+### It is one artefact doing three jobs
+
+Three problems that looked separate turn out to be one deployment:
+
+| Problem | Previously | Now |
+| --- | --- | --- |
+| The partner in a hotel cannot reach the server at all | [D25](#d25--remote-access-is-tiered-and-the-promise-changes-from-no-accounts-to-we-only-charge-for-another-machine)'s hosted-assist tier | the relay |
+| Voice cannot hole-punch | [D68](#d68--turn-is-not-an-independent-requirement-the-media-server-is-already-the-relay): the media server relays | the relay, when the media server is itself unreachable |
+| A party exceeds the household uplink | [D70](#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible): fan-out | the same relay, in cache mode |
+
+D68's reasoning generalises rather than breaks: **the relay is whatever mutually reachable node
+already exists.** Usually that is the media server. When the media server is the thing that
+cannot be reached, it is a box in a datacentre instead.
+
+### The property that matters most is not the relaying
+
+**The core dials *out* to the relay.** Outbound connections always work, so:
+
+- no port forwarding
+- no dynamic DNS
+- no UPnP
+- **works behind CGNAT**, which is the case nothing else solves
+
+Port forwarding is the single largest support burden in self-hosted anything. A dial-out relay
+removes it, and that makes this **more than a fallback for hotels** — it is plausibly the
+recommended setup for anyone who wants remote access and does not want to touch their router.
+
+### Two modes, and the near-term one is trivial
+
+- **Tunnel mode** — a byte pipe. TLS passes *through*; the relay terminates nothing, reads
+  nothing, cannot tamper. Bandwidth is `N ×` the stream. This covers the stated case (two
+  people, one in hotels) and is the one to build.
+- **Cache mode** — the [D70](#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible)
+  fan-out. The relay terminates HTTP so it can see segment *URLs*, while segment *payloads* stay
+  encrypted end to end — so it caches ciphertext and still cannot read the film. Origin
+  bandwidth becomes `1 ×`. Later, and only if party viewing happens.
+
+The layering is the point: tunnel mode is a byte pipe because it can be, and cache mode gives up
+exactly one thing — URL visibility — to buy fan-out.
+
+### It is a role, so it inherits the machinery for free
+
+`relay` sits beside `core` and `node` under
+[D43](#d43--one-binary-one-process-per-role-and-a-thin-optional-supervisor)'s one-binary,
+one-process-per-role rule, which means it arrives with a status record
+([D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle)), observation-based
+liveness ([D37](#d37--the-core-judges-liveness-from-observation-not-from-a-node-declared-interval)),
+platform supervision and hardened units
+([D44](#d44--prefer-the-platforms-supervisor-ship-the-units-and-never-exit-when-you-could-report)),
+and the report-don't-exit rule. No new operational surface.
+
+It is also **untrusted by construction** — a rented box someone else administers — which is why
+tunnel mode terminates nothing and cache mode sees only URLs. Clients authenticate the *core*,
+never the relay.
+
+**Placement guidance:** put the relay **near the home server**, because the core↔relay link is
+persistent and carries everything, while the client↔relay leg is whatever the traveller's
+network happens to be. A relay adjacent to the origin adds almost no latency; one on the far
+side of the world adds all of it.
+
+### The economics are the argument, and the comparison is stark
+
+Plex is the direct prior art and it has gone the other way. Plex's own support page now states
+that *"Accessing personal video content remotely does have certain requirements and **is not
+available for free**"*, and its Relay is reported to be capped at **1 Mbps free / 2 Mbps paid**,
+with enforcement recently tightened. 2 Mbps means heavy transcoding: a degraded experience by
+construction.
+
+A €5 VPS with a 20 TB allowance carries roughly **2,200 film-hours a month at 10 Mbps**,
+uncapped. That is about **five times the bitrate of Plex's paid relay**, unmetered in practice,
+for the price of a coffee.
+
+The gap is not cleverness, it is **household economics versus platform economics**: Plex
+subsidises a free tier across millions of users on commercial egress; a VPS you rent yourself
+subsidises nobody and pays commodity rates. This is the clearest expression yet of the
+README's promise — *"we only charge for things that genuinely require another machine"* — because
+here the other machine is one **you** can rent, and we are not in the path at all.
+
+### And the obvious shortcut is not available
+
+Cloudflare Tunnel is the first thing everyone reaches for, and its terms forbid this in as many
+words:
+
+> "Cloudflare reserves the right to disable or limit your access to or use of the CDN … if you
+> use or are suspected of using the CDN without such Paid Services to serve video or a
+> disproportionate percentage of pictures, audio files, or other large files."
+
+So the documentation must say this plainly rather than letting people discover it by being
+rate-limited or banned. `frp`, `rathole` and a plain VPS are fine; the free CDN tunnel is not.
+
+**Status:** Provisional. Tunnel mode is a small, well-understood component and should be
+scheduled with [remote-access.md](../design/plans/remote-access.md); cache mode stays
+speculative per D70. The open question this sharpens rather than answers: if self-hosting a
+relay is *this* much better than the commercial offering, the hosted tier's remaining
+justification is convenience for people who will not rent a VPS — which is a real market and a
+much smaller claim than the one we started with.

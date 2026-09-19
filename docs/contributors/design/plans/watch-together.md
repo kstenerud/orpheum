@@ -60,6 +60,11 @@ belongs to the transcoding plan, not this one.
 
 Not building: an SFU, active-speaker detection, moderation tooling, roles beyond (2), text chat.
 
+If a participant's networks are routinely hostile — hotels, conference wifi, CGNAT — the answer
+is not more traversal cleverness but the **`relay` role** on a cheap VPS that the core dials out
+to ([D71](../../decisions/working-notes.md)). It fixes reachability, voice and the uplink in one
+deployment, and it is useful at two participants, not just at party scale.
+
 If remote party viewing ever happens, the shape is **fan-out** — the household uploads one
 stream to a distribution node and N participants pull from it, making the home uplink cost
 independent of N ([D70](../../decisions/working-notes.md)). It is speculative and much later,
