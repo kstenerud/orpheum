@@ -5279,3 +5279,93 @@ every predicate then evaluates composed with the share predicate); what the defa
 (*"everything except items labelled private"* is probably what people mean); and whether a
 grantee sees that they are looking at a filtered library, which is honest and also tells them
 what to ask for.
+
+---
+
+## D77 — Back up with `VACUUM INTO`, back up only the irreplaceable, and test the restore
+
+**Decided** (2026-09-19). Research: [backup-restore.md](../design/research/backup-restore.md).
+
+### The obvious method is catastrophically wrong, and silently
+
+A WAL database is three files and recent commits live in the `-wal`. **Measured** immediately
+after committing 20,000 rows: `live.db` was **4,096 bytes** and `live.db-wal` was **333,752**.
+Copying the `.db` alone produced a file that opens cleanly and reports **`no such table`**.
+
+So `cp library.db backups/` yields a valid SQLite file containing nothing, and it fails only at
+restore — the worst possible moment. Any documentation suggesting a file copy is actively
+dangerous and we must not ship one.
+
+### `VACUUM INTO`, because it is plain SQL
+
+Measured alternatives that all work: copying all three files, the backup API,
+`wal_checkpoint(TRUNCATE)` then copy, and `VACUUM INTO`. **`VACUUM INTO` wins on properties
+rather than correctness** — it is ordinary SQL so it needs no driver-specific code, it emits
+**one** file with no sidecars, and it compacts on the way.
+
+And it is free at our scale: measured at **29 ms for a 2.8 MB database with a writer committing
+concurrently**, five rows committed during it, no errors.
+
+Navidrome uses the backup API instead and leaves the caution in the code — *"-1 means that
+sqlite will hold a read lock until the operation finishes. This will lock out other writes."*
+Both pure-Go drivers do expose the API, so [D31](#d31--sqlite-with-a-pure-go-driver-supersedes-d5)
+does not force this; `VACUUM INTO` is simply less machinery.
+
+### Two footguns to copy from Navidrome verbatim
+
+Their comments name both, and the first is the most destructive bug available in this area:
+
+> *"The driver opens with `SQLITE_OPEN_CREATE`, so without this check a typo in the path would
+> create an empty database and 'restore' it over the live one."*
+
+**`os.Stat` the source before restoring.** One line, and without it a mistyped path silently
+replaces the live database with an empty one.
+
+> *"The driver splits the DSN at '?', so such a path would open a different file."*
+
+Reject paths containing `?`.
+
+### The backup is small, which changes what is affordable
+
+[D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index) makes the
+database a rebuildable index, so most of it is not backup material. The library index, probe
+results, thumbnails, trickplay, extracted subtitles, subset fonts, FTS indexes and sort keys are
+all regenerable by a rescan. What is irreplaceable is **watch state, accounts and shares, rules,
+track-selection preferences ([D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)),
+and the change journal and sync cursors ([D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema))**.
+
+That is kilobytes to a few megabytes against gigabytes of cache. So **backup is automatic,
+frequent and on by default**, because it costs nothing — a product decision a project with a
+monolithic database cannot make.
+
+**And the media tree is already a partial second copy**, because D7 writes metadata corrections
+back to sidecars. Restore-from-nothing — rescan, read sidecars — recovers the corrections. That
+is a durability property worth testing as one rather than asserting.
+
+**Watch state is the deliberate exception and the thing that most needs the backup.** It must
+**not** be mirrored to sidecars: it is per-user, and writing it beside the media would expose
+one household member's viewing history to anyone with filesystem access. The sidecar mechanism
+structurally cannot carry it, which is exactly why the database copy matters.
+
+### Restore is the half that does not exist until it is tested
+
+A backup that has never been restored is not a backup. So: **a test that restores into an empty
+instance and asserts equivalence of the irreplaceable set** — not a checksum, which proves only
+that a copy happened.
+
+Two properties fall out of [principles §7](../principles/README.md):
+
+- **A backup carries the schema version it was taken at, and restore refuses a version gap**
+  rather than auto-converting. Detect-and-refuse, as with migrations.
+- **Restore is destructive, so it says what it is about to overwrite** before doing it.
+
+Jellyfin already implements the corresponding idea from the other side — a
+`JellyfinMigrationBackupAttribute` by which **a migration declares that it requires a backup**.
+That is §7 implemented rather than promised, and worth copying.
+
+**Status:** Provisional in its policy numbers. How many backups to keep and for how long is
+unmeasured; whether the disposable `cache/` tree ever deserves an optional archive is a real
+question, because "correct but regenerate 100 GB of trickplay" is a long wait after a restore.
+And a node losing its local state should cost a rescan and nothing else
+([D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)) —
+worth asserting as a test rather than assuming.

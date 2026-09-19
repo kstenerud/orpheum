@@ -3,7 +3,7 @@
 
 # Backup and restore
 
-- **Status:** UNSPECIFIED.
+- **Status:** PLANNED — researched 2026-09-19 ([backup-restore.md](../research/backup-restore.md), [D77](../../decisions/working-notes.md)).
 - **Depends on:** library-model.md
 
 ## The gap
@@ -16,8 +16,7 @@ is a rebuildable index, which removes most of the fear. But it is not all of it:
   credentials. D7 says it mirrors to sidecars; nobody has designed that.
 - ~~**Postgres is not a file the user can copy.**~~ **This cost is gone** —
   [D31](../../decisions/working-notes.md) moved the database to SQLite, so a backup is copying a
-  file (with the usual care about WAL sidecars and using the online-backup API rather than `cp`
-  on a live database). One of the reasons D31 was taken.
+  file — though **not** with `cp`: see below, where a measured file copy of a live WAL database produced a file with no tables in it. One of the reasons D31 was taken.
 - **A rebuild is not free.** Re-scanning, re-fetching metadata under provider rate limits, and
   regenerating trickplay for a large library is potentially days of work
   (`performance-targets.md`).
@@ -25,13 +24,72 @@ is a rebuildable index, which removes most of the fear. But it is not all of it:
 Immich ships a `database-backup.service` and an `integrity.service` in-tree, which is the field's
 best answer and worth reading.
 
-## What the research must settle
+## The method: `VACUUM INTO`
 
-- **What the sidecar format is**, and whether it is enough to rebuild everything a user would
-  mourn. NFO is the Kodi-compatible precedent; it does not cover watch state.
-- **Automatic pre-migration backup** — already required by D5's migration discipline, not yet
-  specified: where it goes, how many are kept, how the user is told.
-- **Restore, tested.** A backup nobody has restored is a hypothesis. This belongs in
-  `testing-strategy.md` as a scheduled test, not a documented procedure.
-- **Partial disaster**: media disappears (unmounted drive), which must not cause the library to
-  delete itself — a real failure mode in this field and the reason Janitorr's users are careful.
+**Never copy the database file.** Measured on SQLite 3.46.1 immediately after committing 20,000
+rows, `live.db` was **4,096 bytes** and `live.db-wal` was **333,752** — the whole content was in
+the write-ahead log. `cp live.db` produced a file that opens cleanly and reports **`no such
+table`**. It fails silently, and only at restore.
+
+Correct methods, all measured working: copy all three files, the backup API,
+`wal_checkpoint(TRUNCATE)` then copy, and **`VACUUM INTO`**. We take the last, on properties
+rather than correctness — it is plain SQL so it needs no driver-specific code, it emits **one**
+file with no sidecars, and it compacts. Measured at **29 ms for 2.8 MB with a writer committing
+concurrently**, no errors.
+
+Two guards, taken verbatim from Navidrome's hard-won comments:
+
+- **`os.Stat` the source before restoring.** Their note: *"the driver opens with
+  `SQLITE_OPEN_CREATE`, so without this check a typo in the path would create an empty database
+  and 'restore' it over the live one."* One line; the most destructive bug available here.
+- **Reject paths containing `?`** — *"the driver splits the DSN at '?', so such a path would
+  open a different file."*
+
+## What is actually backed up
+
+| Regenerable by rescan | Irreplaceable |
+| --- | --- |
+| library index, probe results | watch state and playback positions |
+| thumbnails, trickplay sprites | accounts, shares and their predicates |
+| extracted subtitles, subset fonts | rules — playlists, collections, retention |
+| FTS indexes, sort keys | track-selection preferences ([D24](../../decisions/working-notes.md)) |
+| | change journal and sync cursors ([D8](../../decisions/working-notes.md)) |
+
+Right column: kilobytes to a few megabytes. Left: gigabytes. So **backup is automatic, frequent
+and on by default**, which is a product decision only available because
+[D7](../../decisions/working-notes.md) made the database an index.
+
+**The media tree is already a partial second copy** — D7 mirrors metadata corrections to
+sidecars, so rescan-plus-sidecars recovers them. Test that as a durability property rather than
+asserting it.
+
+**Watch state is the exception and the thing that most needs the backup.** It must *not* go to
+sidecars: it is per-user, and writing it beside the media would expose one household member's
+viewing to anyone with filesystem access. The sidecar mechanism structurally cannot carry it.
+
+## Restore
+
+A backup that has never been restored is not a backup, so the deliverable is **a test that
+restores into an empty instance and asserts equivalence of the irreplaceable set** — not a
+checksum, which only proves a copy happened.
+
+- **A backup carries its schema version, and restore refuses a gap** rather than
+  auto-converting ([principles §7](../../principles/README.md)).
+- **Restore is destructive and says what it will overwrite** before doing it.
+- **Migrations declare that they need a backup.** Jellyfin has exactly this as a
+  `JellyfinMigrationBackupAttribute`, which is §7 implemented rather than promised.
+
+## Still open
+
+- **Retention** — how many backups, how long. Unmeasured.
+- **Whether `cache/` ever deserves an optional archive.** It is disposable by design, but
+  "correct, and now regenerate 100 GB of trickplay" is a long wait.
+- **Node-local state should cost a rescan and nothing else**
+  ([D59](../../decisions/working-notes.md)) — assert it as a test rather than assume it.
+
+## Done when
+
+A fresh install restores a backup and the user's watch state, rules, shares and preferences are
+all present; a restore into the wrong path cannot destroy a live database; a backup from an
+older schema is refused with a comprehensible message rather than converted; and the automatic
+backup has run without anyone configuring it.

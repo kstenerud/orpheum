@@ -79,9 +79,14 @@ status rather than trusting this paragraph, but the ordering between them is:
   column and the FTS5 tokeniser choice all have to land before `library-model.md`. Two of its
   findings are due *now* rather than with the schema — NFC path normalisation is a field in the
   node report contract, and the Unicode-safe regex corpus belongs with the scanner.
-- **`threat-model.md`, `testing-strategy.md`, `performance-targets.md` and
-  `backup-restore.md`** are gaps in the foundations rather than features. Each is cheap now and
-  expensive later; none blocks Phase 0.
+- **`backup-restore.md` is done** (2026-09-19, [D77](../../decisions/working-notes.md)). The
+  headline is a measurement: copying a live WAL database's `.db` file produces a valid SQLite
+  file containing **no tables**, silently, discovered only at restore. `VACUUM INTO` instead.
+- **`testing-strategy.md` and `performance-targets.md`** remain. `performance-targets.md`
+  cannot be finished without hardware — it now carries the list of thresholds other decisions
+  are guessing at, which is what it can usefully hold until Phase 0 runs.
+- **`threat-model.md`** is PLANNED; what is left there is the per-platform confinement matrix
+  and the signed-URL design.
 - **`bug-reports.md`** is small, cheap and unusually load-bearing for a project whose logs are
   full of people's film collections. Its structure is adapted from
   [yoloai](https://github.com/kstenerud/yoloai); the design work is the pseudonymisation and
