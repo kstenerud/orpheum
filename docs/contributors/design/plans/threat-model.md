@@ -23,6 +23,12 @@ and it means Jellyfin's threat model is not available to us. We have not written
 
 - **Who is the adversary?** The internet at large; a malicious guest with a shared link; a
   household member escalating; a hostile metadata provider or plugin; someone on the LAN.
+- **The node channel, in both directions** ([D107](../../decisions/working-notes.md)).
+  [D35](../../decisions/working-notes.md) states the security model for the file transport
+  precisely and says nothing about the HTTP one it prefers. The dangerous direction is
+  core→node: `config.json` carries commands and, since
+  [D89](../../decisions/working-notes.md), deletion. Mutual authentication, enrolment as a
+  deliberate act, and **roots that are local and never remotely settable**.
 - **Adapters and who they act as** ([D105](../../decisions/working-notes.md)). A tier-2
   protocol adapter with a standing privileged token is a confused deputy that defeats every
   predicate in the project. The rule is that it is a login proxy, not a principal; the *token

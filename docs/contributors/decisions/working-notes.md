@@ -6745,3 +6745,69 @@ matters because we have more structure than it does, not less.
 **Status:** Untested, like the whole adapter. The specific thing to check early is whether real
 Jellyfin clients tolerate an item whose alternate versions differ in *runtime* — which ours can,
 across Editions, and which is the first place a flattening assumption will break.
+
+---
+
+## D107 — The node channel is mutually authenticated, and a node's roots are local and never remotely settable
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §32.
+
+[D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary) states the security model for the **file** transport exactly and
+well: *"the permissions split **is** the security model"*, with a table that doubles as the
+node's Landlock ruleset. It then says *"where HTTP exists, prefer it"* — and **says nothing
+about what authenticates either end of the HTTP channel.** The preferred transport has no
+stated security model at all.
+
+The two directions fail differently and the second is worse:
+
+- **A spoofed node** injects observations: files that do not exist, a root that has "lost" forty
+  thousand entries, error records that trip [D41](#d41--diagnose-the-failure-boundary-by-walking-up-and-guard-the-silent-case-which-is-worse)'s shrinkage guard.
+  Unpleasant, and bounded by the fact that [D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides) makes the core the only
+  thing that decides.
+- **A spoofed core** writes `config.json`. That channel carries commands, and since
+  [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) it carries **deletion**. It is the more dangerous direction, and
+  it is the one nobody considered, because the whole node discussion frames the *node* as the
+  less-trusted half.
+
+**So, two rules.**
+
+**1. Mutual authentication, with enrolment as an explicit act.** Over HTTP the node and core
+authenticate each other — a secret established at enrolment, or mTLS. Enrolment is a deliberate
+human step, not a discovery protocol: a node that can be adopted by whatever answers first is a
+node that can be adopted by an attacker on the LAN. This is the same shape as
+[D93](#d93--device-pairing-is-rfc-8628-shaped)'s device pairing and should reuse it rather than invent a second
+enrolment mechanism.
+
+**2. A node's roots are local configuration, and the core cannot add one.** The core may say
+*"rescan root 2"*; it may never say *"also scan `/etc`"*. The command vocabulary already
+references roots by identifier rather than by path
+([media-nodes.md](../design/media-nodes.md)), which is the right shape — this makes it a rule
+rather than an accident.
+
+The reasoning is the one already in the tree, applied one level up: **the directory table is
+the node's Landlock ruleset**, and a Landlock ruleset is declared at startup and cannot be
+widened at runtime. The node's scope should have the same property for the same reason. The
+core commands *within* a scope the node's operator declared locally; it never expands it.
+
+Without this, a spoofed core — or simply a compromised core — turns every node into an
+arbitrary filesystem enumerator reporting back over the network, on hardware whose whole
+purpose is to have access to the user's files.
+
+**Three consequences.**
+
+- **Defence in depth for deletion.** [D100](#d100--a-destructive-command-names-its-target-by-identity-not-by-path) already makes a destructive
+  command name its target by identity; local roots bound *where* it can name anything at all.
+  Neither alone is sufficient and together they are unexciting, which is the goal.
+- **The degraded modes in [D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary) stay correct.** A node whose core cannot
+  reach it runs on its own configuration — which is now the only place its scope was ever
+  defined, so nothing is lost.
+- **Adding a library is a two-sided act**, and the UI has to say so: the operator declares the
+  root on the machine that holds the files, and the core adopts it. That is slightly more
+  friction than "type a path into the web UI", and it is the friction that makes the boundary
+  real. For the default single-machine install, where the core supervises a co-located node,
+  both sides are the same machine and the user sees one step.
+
+**Status:** The enrolment mechanism is shared with [auth.md](../design/plans/auth.md) and
+inherits its open token model. Unresolved: whether a node should also be able to *refuse* a
+root the core knows about — the asymmetry is intentional but "I can see this root and choose
+not to serve it" may be a real operator want.

@@ -478,6 +478,35 @@ permissions alone:
 exchange subdirectory, read access to its media roots, nothing else. The directory layout and
 the sandbox policy are the same statement, which is a good sign both are right.
 
+### The HTTP transport needs the same model stated, and it was not
+
+[D107](../decisions/working-notes.md), 2026-09-19. The table above is the security model for
+the **file** transport, and this document then says *"where HTTP exists, prefer it"* without
+saying what authenticates either end of the preferred one.
+
+The dangerous direction is the one this document's framing hides. The node is consistently
+described as the *less* trusted half — correctly, it handles hostile media — so the attention
+went to what a bad node can inject. But `config.json` flows the other way, it carries commands,
+and since [D89](../decisions/working-notes.md) it carries **deletion**. A spoofed core is worse
+than a spoofed node.
+
+So, over HTTP: **mutual authentication, with enrolment as a deliberate human act** — reusing
+[D93](../decisions/working-notes.md)'s pairing rather than inventing a second mechanism. A node
+that can be adopted by whatever answers first can be adopted by an attacker on the LAN.
+
+And: **a node's roots are local configuration; the core cannot add one.** The command
+vocabulary already names roots by identifier rather than by path, which is the right shape —
+this makes it a rule. The reasoning is the one two paragraphs up, applied one level out: *the
+directory table is the node's Landlock ruleset*, and a Landlock ruleset is declared at startup
+and cannot be widened at runtime. The core commands within a scope the node's operator
+declared; it never expands it. Otherwise a compromised core turns every node into an arbitrary
+filesystem enumerator reporting over the network, on the machine that by design has access to
+everything.
+
+The visible cost is that **adding a library is a two-sided act** — declared on the machine
+holding the files, adopted by the core. On the default single-machine install both sides are
+the same process and the user sees one step.
+
 ### Degraded modes, stated rather than discovered
 
 - **Core cannot write the exchange directory** → no bidirectional control. The node runs on its

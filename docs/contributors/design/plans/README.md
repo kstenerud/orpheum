@@ -117,10 +117,15 @@ identity, and the convenient answer is a confused deputy holding the owner's tok
 [D106](../../decisions/working-notes.md) (play state through an adapter has no sequence number,
 so D81's guard silently does not apply there).
 
-**Two of those fail open** — D104 and D105 — which is the category a keyword sweep is worst at
-finding, because the missing thing is a check rather than a feature. Both were found by asking
-"what is the access path, and who is the principal on it?" of every component in turn, which is
-worth repeating whenever a new surface is added.
+Plus [D107](../../decisions/working-notes.md): [D35](../../decisions/working-notes.md) states
+the file transport's security model precisely and then says "where HTTP exists, prefer it"
+without giving the preferred one any — and the dangerous direction turns out to be core→node,
+because `config.json` carries commands and, since D89, deletion.
+
+**Three of those fail open** — D104, D105 and D107 — which is the category a keyword sweep is
+worst at finding, because the missing thing is a check rather than a feature. All three came
+from asking one question of every component in turn: *what is the access path here, and who is
+the principal on it?* Worth re-running whenever a surface is added.
 
 And one that changed an existing schedule: [D86](../../decisions/working-notes.md) puts
 `transcoding.md` **§(b)** on [remote-access.md](remote-access.md)'s critical path rather than
