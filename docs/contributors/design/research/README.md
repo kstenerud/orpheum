@@ -58,6 +58,12 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
   totals are the API's `total_count` at fetch time.
 - **Community sentiment** comes from Hacker News (Algolia API, full comment trees) and from web
   search summaries of discussion threads.
+- **Vendor forums are often Discourse, and Discourse has a JSON API.** `forums.plex.tv`
+  answers `/top.json?period=yearly`, `/search.json?q=` and `/t/<id>.json` without
+  authentication, which is first-hand user sentiment in structured form. It was not tried in
+  the first round, and when it was (2026-09-19) it **changed a conclusion** — see
+  [sentiment.md](sentiment.md) §Plex's own forum. Check for one before accepting that a
+  community is unreachable.
 - **Reddit could not be read.** Every route was blocked: `reddit.com`/`old.reddit.com`/
   `api.reddit.com` JSON returns 403 to this network, the WebFetch tool refuses the domain, the
   search tool refuses `reddit.com` as an allowed domain, public Redlib front-ends are behind

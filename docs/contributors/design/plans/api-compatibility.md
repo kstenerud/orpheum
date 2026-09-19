@@ -62,6 +62,15 @@ else's* compatibility surface too, against clients we do not control and cannot 
   old client touches ([D93](../../decisions/working-notes.md)); if they break, the client cannot
   even report that it is too old.
 
+## The other half: the user must be able to go back
+
+A compatibility contract keeps an old client *working*. It does not help someone whose client
+already updated and broke. [D108](../../decisions/working-notes.md) is the pair to this
+document: **every client build is published as a directly installable artefact and old
+versions stay up**, so "roll back" is an action rather than a forum thread. On Plex's forum
+this year it is a forum thread, a pinned workaround, and a campaign to petition a television
+manufacturer.
+
 ## The gate
 
 The OpenAPI document is already generated from the code and the build is already gated on it

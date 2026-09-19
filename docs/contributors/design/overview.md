@@ -27,11 +27,17 @@ people who are not going to read documentation; and relatives they used to share
 
 Both incumbents have a specific, durable weakness, and they are different weaknesses:
 
-- **Plex's problem is commercial.** The software is good. In 2025–26 it raised prices sharply,
-  moved previously-free remote streaming behind the paywall platform by platform, and kept
-  pushing its own ad-supported catalogue into a UI people installed to watch their own files.
-  Its users describe waiting for the other shoe to drop. This is not a problem Plex can fix
-  without giving up revenue.
+- **Plex's problem is commercial *and* — read first-hand — self-inflicted.** The software is
+  good. In 2025–26 it raised prices sharply (lifetime to **$749.99** from 2026-07-01), moved
+  previously-free remote streaming behind the paywall platform by platform, and kept pushing
+  its own ad-supported catalogue into a UI people installed to watch their own files. Its users
+  describe waiting for the other shoe to drop.
+  **But on Plex's own forum the loudest topic of the year is not the price** — it is
+  *Vote to roll back to Plex Classic!* at 1,124 likes, against 937 for the lifetime-pass
+  thread, with a second cluster about a client update that broke Fire TV and could not be
+  rolled back. Neither of those needs a business model to fix, which is why
+  [D108](../decisions/working-notes.md) simply promises the opposite: a layout change is
+  opt-in, and every client build stays directly installable.
 - **Jellyfin's problem is technical and structural.** Subtitles have been broken in
   well-documented ways since 2020. The playback-negotiation model produces wrong decisions in
   both directions. The client experience is described by its own users as "hit or miss", and

@@ -30,6 +30,7 @@ route was blocked from this environment:
 | `reddit.com` / `old.reddit.com` / `api.reddit.com` `.json` endpoints | 403; Reddit's bot-block page returned as HTML regardless of user agent |
 | WebFetch tool on a `reddit.com` URL | Refused by the tool |
 | Web search restricted to `reddit.com` | Refused: domain not accessible to the crawler |
+| **`forums.plex.tv`** | **Reachable** (added 2026-09-19) — Discourse, with `/top.json`, `/search.json` and `/t/<id>.json` all answering. First-hand Plex sentiment after all. See the Plex-forum section below. |
 | Public Redlib front-ends (five instances tried) | 429, 403, or an Anubis proof-of-work interstitial |
 | `r.jina.ai` text-extraction proxy | Returned Reddit's own "blocked due to a network policy" page |
 
@@ -87,6 +88,83 @@ buy a "Remote Watch Pass" at $1.99/month. HN users in 2026 report the lifetime p
   but I keep going back."
 
 ---
+
+## Plex's own forum, read first-hand — and it says something different
+
+**Added 2026-09-19.** `forums.plex.tv` runs Discourse and its JSON API answers this network,
+which the original round did not try. It is the first-hand Plex-user source that
+[Reddit](#method-and-what-it-could-not-reach) was supposed to be, and **it partly contradicts
+the section above.**
+
+Top topics by likes, `/top.json?period=yearly`, fetched 2026-09-19:
+
+| Likes | Posts | Topic | Opened |
+| --- | --- | --- | --- |
+| **1,124** | 304 | *Vote to roll back to Plex Classic!* | 2025-09-26 |
+| **937** | 443 | *Elephant in the room. Lifetime Plex Pass* | 2026-05-19 |
+| **502** | 250 | *Playback Error on Samsung TV: "An unexpected playback problem occurred"* | 2026-08-19 |
+| **440** | 128 | *"Discussions" is a nightmare* | 2026-06-10 |
+| **341** | 99 | *Plex, are you going to respond?* | 2025-10-14 |
+| **325** | 106 | *How do I get the old experience back?* | 2026-04-28 |
+| **290** | **506** | *Plex NFO Agent Forum Preview* | 2026-02-06 |
+| **176** | 73 | *Fire TV app — Hopelessly Crippled* | 2026-06-15 |
+
+**The single loudest complaint of the year is not the price. It is a UI redesign users cannot
+revert.** The section above characterises Plex's problem as "commercial, not technical", and
+that was drawn from HN, where the price rise dominates. On Plex's own forum the rollback
+thread outscores the lifetime-pass thread, and the same theme recurs under at least eight more
+titles — *The new Interface is HORRIBLE!*, *"Classic Mode" or "Use Old UI" Option*, *Reload the
+old plex on Roku?*, *I'm so pissed each time i open Plex now*, *Plex UI Design - We Get It!*,
+*What is going on with Plex? This interface is terrible!*, *New UI for Fire Stick 4K June
+2026*, *New TV app feedback*. It is not a commercial complaint at all.
+
+The arc completed in August 2026: Plex's announcement says *"since we launched the new Plex
+experience to preview users last year, we have received consistent feedback from the start
+regarding the navigation… our fall update was the first step… but they weren't enough"* — a
+partial revert after roughly a year. The forum's own read of it, in the thread titled *Why did
+you cave?*: *"it's not enough, and possibly too little too late. They've damaged…"*
+
+**And the second theme is one we have not recorded anywhere: a client update that breaks a
+platform, with no way back.** Verbatim from *Fire TV app — Hopelessly Crippled* and its
+neighbours:
+
+> "I just reverted to the old version and turned off updates. Way to ruin a good thing, Plex."
+
+> "Now my videos keep buffering, videos that played fine before are unwatchable! … Now I have
+> to try to figure a way to revert!"
+
+> "Please tell me how to revert to the previous Plex on Fire TV!"
+
+Enough people needed it that a pinned workaround exists — *Workaround: Roll back the Fire TV
+Plex app to version 10.30.9.4262* (78 likes) — alongside *How do I revert to an older version
+of Plex for FireTV*, *Firetv app is literally unusable*, and a campaign thread asking users to
+petition **Vizio** because the TV vendor is the only party who can un-ship the update.
+
+Two more things worth recording:
+
+- **The lifetime price is confirmed from the announcement**, not inferred from HN: *"Starting
+  July 1, 2026, the price of a new Lifetime Plex Pass will increase to $749.99 USD."* And the
+  fear underneath it is sharper than the price: *"At some point I worry my lifetime license
+  will no longer be valid because of a version change. Plex server 2 or some bullshit. I see it
+  happen with great software that moves to subscriptions frequently."*
+- **NFO/sidecar metadata is a 506-post thread**, the most-replied on the list. Whatever else
+  this audience wants, they want their metadata in files they own — which is
+  [D98](../../decisions/working-notes.md)'s portability half, independently confirmed.
+
+### What the forum confirms that our design already assumed
+
+Searching it for the things this project has decided returns first-hand demand for each,
+which is the cheapest possible validation:
+
+| Thread | Posts | Ours |
+| --- | --- | --- |
+| *Add Watch Together to New Plex Experience* | **350** | [D62](../../decisions/working-notes.md) — they removed it; this is the thread asking for it back |
+| *Let's finally solve the low audio issue please* | **141** | [D83](../../decisions/working-notes.md) — plus *Let me boost the voice channel!* and *Night mode audio option to decrease loud sounds and increase dialog* |
+| *Option for semi-persistent automatic skip intro* | **125** | [D82](../../decisions/working-notes.md) |
+| *Expansion of Allow/Deny lists of tags for parental controls* | — | [D84](../../decisions/working-notes.md) — and it is asking, in effect, for a predicate language |
+| *The Parental Controls Are Now Useless*, *Plex Home Breaks parental controls* | — | [D84](../../decisions/working-notes.md) |
+| *Replace subtitles size settings "normal, large, huge" by a slider with size %* | — | [D90](../../decisions/working-notes.md) — that is 47 CFR §79.103's 50–200% requirement, requested by a user who has never heard of it |
+| *How do I downmix 5.1 to 2 Channel Stereo by default?* | 27 | [D83](../../decisions/working-notes.md) |
 
 ## The Jellyfin story: goodwill, and a list of specific failures
 

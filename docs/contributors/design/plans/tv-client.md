@@ -9,7 +9,14 @@
 ## Why Android TV first
 
 Largest installed base among self-hosters, sideloadable with no store gatekeeping, and cheap
-Android TV sticks are the community's standard answer to bad smart-TV platforms. It also shares
+Android TV sticks are the community's standard answer to bad smart-TV platforms.
+
+**Sideloading is a rollback advantage before it is a distribution one**
+([D108](../../decisions/working-notes.md)). The second-biggest cluster on Plex's forum this
+year is Fire TV users asking how to get last month's app back after an update broke playback,
+with a pinned workaround thread and a campaign to petition Vizio — because on a television the
+vendor is the only party who can un-ship an update. Publishing every build as a versioned APK
+and keeping old ones up costs nothing and removes that entire failure mode. It also shares
 almost everything with the Android phone client, which then comes nearly free.
 
 ## Shape

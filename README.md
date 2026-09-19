@@ -17,6 +17,13 @@ Product commitments, not aspirations:
 
 - **No telemetry.** Off by default; opt-in only if ever added.
 - **No storefront.** No ads, no upsell, no recommendations for content you don't own.
+- **We won't move your furniture.** A layout change is opt-in and the previous one stays
+  reachable for at least a release — and **every client build is published as a directly
+  installable file, with old versions kept up**, so a bad update is something you can back out
+  of rather than something you petition your television's manufacturer about. The loudest
+  topic on Plex's own forum in the past year is *"Vote to roll back to Plex Classic!"* with
+  1,124 likes; the second-loudest thing their Fire TV users needed was instructions for
+  installing last month's app. See [D108](docs/contributors/decisions/working-notes.md).
 - **Your files stay yours.** Media is read-only by default. The database is a rebuildable
   index, never the authority. Your data survives us two ways, and they do different jobs: an
   **automatic backup** of everything that cannot be re-derived — watch state, preferences,

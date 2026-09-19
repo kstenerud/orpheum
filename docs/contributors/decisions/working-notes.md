@@ -6811,3 +6811,71 @@ purpose is to have access to the user's files.
 inherits its open token model. Unresolved: whether a node should also be able to *refuse* a
 root the core knows about — the asymmetry is intentional but "I can see this root and choose
 not to serve it" may be a real operator want.
+
+---
+
+## D108 — The interface is not ours to change out from under people, and an old client stays installable
+
+**Decided** (2026-09-19). Evidence: [sentiment.md](../design/research/sentiment.md) §Plex's own
+forum, read first-hand on 2026-09-19 —
+[audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §33.
+
+**The loudest complaint on Plex's own forum in the last year is not the price.** Sorted by
+likes, *Vote to roll back to Plex Classic!* (**1,124 likes**, 304 posts, 2025-09-26) outscores
+*Elephant in the room. Lifetime Plex Pass* (937 likes). The same theme recurs under at least
+eight more titles, and Plex partially reverted in August 2026 after, in their own words,
+*"consistent feedback from the start"* over roughly a year. The forum's verdict on the revert:
+*"too little too late."*
+
+Our own [sentiment.md](../design/research/sentiment.md) characterised Plex's problem as
+"commercial, not technical", drawn from Hacker News where the price rise dominates. First-hand
+data from Plex's users says otherwise, and it names something we can simply promise.
+
+### Two commitments, both cheap because we are small
+
+**1. A layout change is opt-in, and the previous one stays available for at least one release
+cycle.** Not "we will design carefully" — a mechanism. This is the same discipline
+[D85](#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols) applies to the API: additive by default, removal behind a window,
+and the switch that undoes it shipped alongside. An interface is an API whose consumer is a
+person, and the person has less recourse, because they cannot pin a version.
+
+**2. An old client stays installable.** This is the second theme in the same forum and it is
+not recorded anywhere in our tree:
+
+> *"I just reverted to the old version and turned off updates."*
+> *"Please tell me how to revert to the previous Plex on Fire TV!"*
+> *"videos that played fine before are unwatchable! … Now I have to try to figure a way to
+> revert!"*
+
+Enough people needed it that a pinned *Workaround: Roll back the Fire TV Plex app to version
+10.30.9.4262* thread exists, and a separate thread organises users to petition **Vizio**,
+because the TV vendor is the only party who can un-ship an update.
+
+**An app store is a single point of failure for a client, and we should not pretend otherwise.**
+So: **every client release is published as a directly installable artefact — a versioned APK,
+a signed build — and old versions stay up.** For Android and Android TV that is free and
+[tv-client.md](../design/plans/tv-client.md) already leans on sideloading as a *distribution*
+advantage; this makes it a **rollback** advantage too, which is the more valuable one. Where
+a platform forbids it (Apple), say so plainly rather than discovering it during an incident.
+
+This composes with [D85](#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols) and is the reason that decision matters: a
+compatibility contract lets an old client keep working, and a published artefact lets a user
+*get back to* an old client. Either alone is half the answer.
+
+### What this does not commit us to
+
+Not "never change the UI" — that is a promise nobody keeps and it would be dishonest to make.
+It commits us to **never removing the way something worked without leaving the old way
+reachable for a release**, and to never being in a position where a user's only recourse is to
+petition their television manufacturer.
+
+**Rejected:** a settings-level "classic mode" maintained forever (two UIs is two products, and
+the field's evidence is that the second one rots); relying on app-store version pinning (it
+does not exist for consumers on any TV platform); treating this as a UX-team concern rather
+than a release-engineering one (it is the second that fails).
+
+**Status:** The one-release window is a guess and should be set against a real release cadence.
+The harder unresolved question is what "the previous layout stays available" means for a
+**web** client, where there is no installed artefact and the server serves the UI — plausibly
+the server keeps the previous bundle and a per-user setting selects it, which is cheap in
+storage and not free in testing.
