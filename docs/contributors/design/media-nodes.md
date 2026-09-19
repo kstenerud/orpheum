@@ -156,7 +156,13 @@ The hard design work, and where the traps are. Format and completeness settled i
   same record grammar. Both carry a monotonic sequence and the snapshot names the sequence it
   corresponds to, so the core detects a gap and falls back to the snapshot. **A snapshot is
   always a valid recovery point, so the node never needs to know what the core has read** —
-  which is what keeps compaction a local storage decision rather than a protocol. And because a
+  which is what keeps retention a local storage decision rather than a protocol. **Taking a
+  snapshot and discarding journal are separate operations**
+  ([D60](../decisions/working-notes.md)): snapshots are temporal, because their cadence is the
+  correctness floor; journal is discarded only once superseded *and* older than the retention
+  window; and a byte ceiling exists as a loud backstop against filling the node's disk. Size is
+  the wrong primary trigger because the burst that blows it is the anomalous event, so it would
+  force a full re-enumeration exactly mid-disruption. And because a
   watcher can fail silently ([D27](../decisions/working-notes.md)), the periodic snapshot is not
   only compaction: it is the only thing that can correct for an event nobody delivered.
 - **Completeness lives in the filename.** The node writes `report-<epoch>.jsonl.partial` and

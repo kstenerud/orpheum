@@ -37,3 +37,18 @@ are worth nothing without a number that fails.
 - **Trickplay and thumbnail generation**, which an HN user reports taking *days* for a large
   library on Jellyfin. That is a background job, so the target is throughput and
   interruptibility rather than latency.
+
+## Thresholds other decisions are currently guessing at
+
+Each of these is a number some decision needs and nobody has measured. They are listed here so
+the guesses are in one place and get retired together.
+
+| Threshold | Needed by | Guessing because |
+| --- | --- | --- |
+| `snapshot_interval` — how often a node re-enumerates | [D60](../../decisions/working-notes.md) | It is the correctness floor for a silently-dead watcher, so it wants to be short; a full enumeration over SMB is expensive, so it wants to be long |
+| `journal_retention` — how long superseded journal is kept | [D60](../../decisions/working-notes.md) | Must survive a plausible core outage. Nearly free on a quiet library, so the cost is entirely churn-dependent and needs a real churn profile |
+| `journal_max_bytes` — the disk-exhaustion valve | [D60](../../decisions/working-notes.md) | Depends on what a pathological rename loop actually produces |
+| Wedged-detection bounds — how long without progress is stuck | [D37](../../decisions/working-notes.md) | The core learns a baseline by observation, but the initial tolerance is a guess |
+| Shrinkage guard — how much loss is suspicious | [D41](../../decisions/working-notes.md), [D42](../../decisions/working-notes.md) | Needs a real distribution of legitimate library shrinkage |
+| Search routing floor — where `LIKE` gives way to trigram | [D48](../../decisions/working-notes.md) | Measured at 1.5 ms worst case on 20k rows; the crossover on a real corpus is unknown |
+| Sort keys per locale — how many locales a household uses | [D47](../../decisions/working-notes.md) | Cheap at one to three, annoying at ten |

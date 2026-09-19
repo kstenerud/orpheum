@@ -3755,10 +3755,12 @@ is newer than that, there is a gap, and the core falls back to the snapshot.
 
 **The snapshot is always a valid recovery point, so the node never has to know what the core has
 read.** That is the property that keeps this inside D42: no back-channel, no acknowledgement
-protocol, no node-side model of core state. Compaction is a node-local storage decision — a
-maximum journal length or size, after which a fresh snapshot is written and older pairs may be
-dropped — and the worst consequence of getting the bound wrong is that the core re-reads a
-snapshot.
+protocol, no node-side model of core state. Compaction is a node-local storage decision, and
+the worst consequence of getting the bound wrong is that the core re-reads a snapshot.
+**How that bound is chosen is [D60](#d60--snapshotting-and-discarding-are-different-operations-with-different-triggers)**,
+which corrects this entry's conflation of the two.
+
+
 
 ### The snapshot is not only compaction; it is the only thing that corrects a missed event
 
@@ -3844,3 +3846,101 @@ is unknown and needs measurement against a real library and a real watcher; it j
 threshold guesses in [performance-targets.md](../design/plans/performance-targets.md). This
 **extends rather than supersedes D39**: every property of the report survives, applied to the
 snapshot.
+
+---
+
+## D60 — Snapshotting and discarding are different operations with different triggers
+
+**Decided** (2026-09-19). [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)
+said "a maximum journal length or size, after which a fresh snapshot is written and older pairs
+may be dropped." That sentence conflates two operations that want opposite trigger conditions.
+Separating them:
+
+| Operation | Trigger | Why |
+| --- | --- | --- |
+| **Take a snapshot** | **temporal** — every `snapshot_interval`, plus on request | It is the correction for a silently-failed watcher, so its cadence is a correctness floor, not a housekeeping one |
+| **Discard journal entries** | superseded by a snapshot **and** older than `journal_retention` | Retention is what buys the core time to catch up |
+| **Emergency discard** | `journal_max_bytes` exceeded | A safety valve against disk exhaustion, and **loud** |
+
+A snapshot no longer implies discarding anything. That alone removes most of the hazard.
+
+### Why size is the wrong primary trigger
+
+The obvious reason is the stated one: a large filesystem change can blow a size bound in
+seconds and erase journal the core has not read. A core that is simply **switched off for the
+weekend** — an ordinary thing for a home server — plus a torrent client finishing a season pack
+is enough.
+
+But the sharper reason is about *when* it fires. **The burst that blows a size bound is, almost
+by definition, the anomalous event** — a mass deletion, a re-organisation, a share coming back
+with different contents, a permissions change. Size-triggered compaction therefore forces a
+fresh full enumeration at precisely the worst moment, and replaces an ordered record of what
+happened with a single point-in-time reading taken mid-disruption. It is the backup that runs
+during the incident.
+
+Temporal triggering **decorrelates** the measurement from the events being measured, which is
+the property you want from any instrument.
+
+And the economics run the right way round. **A quiet library produces almost no journal**,
+because a journal line is a changed file. So temporal retention is nearly free in the common
+case and only costs during churn — which is exactly when the history is worth having. A size
+bound is backwards: it is most restrictive precisely when there is most to say.
+
+### Being honest about what this buys
+
+It is **not** correctness of the library. The snapshot is a complete, scoped enumeration
+([D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global)), so a
+core that loses journal still converges — it just re-reads everything. The protections against a
+misleading snapshot live in the core's own history and in
+[D41](#d41--diagnose-the-failure-boundary-by-walking-up-and-guard-the-silent-case-which-is-worse)'s
+observed-empty-versus-not-enumerated distinction, not in the journal.
+
+What it buys is three real things: **diagnosis** — fifty thousand ordered, timestamped events
+distinguish "the user re-organised their library" from "the mount flapped" in a way two
+snapshots six hours apart never will, and that is the question
+[D41](#d41--diagnose-the-failure-boundary-by-walking-up-and-guard-the-silent-case-which-is-worse)
+exists to answer; **cost** — re-reading a 48,000-line snapshot over SMB is not free; and **not
+taking an expensive measurement during an anomaly**.
+
+Overstating it as a data-loss fix would be wrong, and the design is easier to reason about with
+the actual reason written down.
+
+### Pure temporal has its own failure mode, hence the valve
+
+"Retain for seven days" meets a rename loop, a misbehaving sync client, or a filesystem doing
+something pathological, and the node fills its own disk. That is **worse** than a discarded
+journal: a node that cannot write cannot write its status record
+([D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle)) either, so it
+stops looking wedged and starts looking dead.
+
+So `journal_max_bytes` exists as a backstop — and per
+[principles §10](../principles/README.md), a backstop that fires is a signal, not a branch.
+Hitting it means the node emits an `error`-class record saying it discarded history, how much,
+and over what span. The core surfaces that; it does not silently absorb it.
+
+When the valve trips the node **takes a snapshot and keeps as much journal as the budget
+allows**, rather than discarding first. Snapshot-then-trim, never trim-then-snapshot.
+
+### Defaults, and who sets them
+
+`snapshot_interval` is a correctness parameter and wants to be short enough that a silently
+dead watcher is caught within a day. `journal_retention` wants to be long enough to survive a
+plausible core outage — days, not hours — and is nearly free when the library is quiet.
+
+The node must **not** derive these from the core's polling behaviour. That would be the node
+modelling core state, which [D37](#d37--the-core-judges-liveness-from-observation-not-from-a-node-declared-interval) already
+rejected for the cadence question, and a node under stress is not a reliable source for the
+standard it is judged against. They are config fields
+([D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary)),
+with defaults the user can raise.
+
+**`snapshot` joins the command vocabulary.** [D38](#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config)
+already defines an ordered command list — `cancel`, `scan`, `rescan <root>`, `pause`, `resume` —
+so a core that wants a fresh enumeration now can ask, and one that knows it has fallen behind
+can simply not ask. This is a *request for an action*, not the core dictating retention policy,
+so it stays within D42.
+
+**Status:** Provisional in its numbers, which are guesses until measured against a real library
+and a real watcher — they belong with the other thresholds in
+[performance-targets.md](../design/plans/performance-targets.md). The **separation** of the two
+triggers is not provisional; it is a correction.

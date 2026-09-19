@@ -41,9 +41,37 @@ that, there is a gap and the core re-reads the snapshot.
 
 **The snapshot is always a valid recovery point, so the node never needs to know what the core
 has read** — no acknowledgement protocol, no node-side model of core state, nothing that would
-undo [D42](../../decisions/working-notes.md). Compaction is therefore a purely local storage
-choice: a maximum journal length or size, then a fresh snapshot and older pairs may be dropped.
-The bound is a guess until measured; it belongs in
+undo [D42](../../decisions/working-notes.md).
+
+Retention is therefore a purely local storage choice, but **taking a snapshot and discarding
+journal are separate operations with opposite triggers** ([D60](../../decisions/working-notes.md)):
+
+| Operation | Trigger |
+| --- | --- |
+| take a snapshot | **temporal** — every `snapshot_interval`, or on a `snapshot` command |
+| discard journal | superseded by a snapshot **and** older than `journal_retention` |
+| emergency discard | `journal_max_bytes` exceeded — a backstop, and **loud** |
+
+Size is the wrong primary trigger for a reason beyond "the core might be behind", though it
+might well be — a core switched off for the weekend plus a torrent client finishing a season
+pack is enough. The sharper reason is *when* it fires: **the burst that blows a size bound is,
+almost by definition, the anomalous event** — a mass deletion, a re-organisation, a share
+returning with different contents. Size-triggered compaction forces a full re-enumeration at
+the worst possible moment and replaces the ordered record of what happened with one reading
+taken mid-disruption. It is the backup that runs during the incident. Temporal triggering
+decorrelates the measurement from the events being measured.
+
+The economics agree: **a quiet library produces almost no journal**, so temporal retention is
+nearly free in the common case and only costs during churn — which is exactly when the history
+is worth keeping. A size bound is most restrictive precisely when there is most to say.
+
+What this buys is diagnosis, cost and not-measuring-during-an-anomaly — **not** library
+correctness, which the snapshot already guarantees. And pure-temporal has its own failure mode,
+which is why the valve exists: a rename loop fills the node's disk, and a node that cannot write
+cannot write its status record either, so it stops looking wedged and starts looking dead. When
+the valve trips: snapshot first, then trim, and report what was discarded.
+
+The numbers are guesses until measured; they belong in
 [performance-targets.md](performance-targets.md).
 
 ### The snapshot is also the only thing that corrects a missed event
