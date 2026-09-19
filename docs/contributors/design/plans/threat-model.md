@@ -34,3 +34,12 @@ and it means Jellyfin's threat model is not available to us. We have not written
   `sharing-model.md`.)
 - **What we promise.** [D13](../../decisions/working-notes.md) is a privacy promise; this is the
   security one, and it should be as specific.
+
+## One constraint from elsewhere, so the signed-URL design does not collide with it
+
+Signed, scoped and expiring URLs are the right answer for media access, with one shape
+requirement: **sign the session, not each segment** ([D70](../../decisions/working-notes.md)).
+Per-segment per-user signatures give every viewer a unique URL for identical bytes, which
+defeats caching and any future fan-out silently. The manifest is per-user and authorised;
+segment paths stay stable and content-addressed; the token rides where the cache key does not
+look.

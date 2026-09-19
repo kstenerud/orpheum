@@ -111,6 +111,14 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   honour it where an old TV box's in-process FreeType declines, under one setting. A client that
   declines says so in the same "why is this different?" surface that explains transcoding.
 
+- **Segment URLs stay cacheable** ([D70](../../decisions/working-notes.md)). Authorise the
+  **session**, not the segment: the manifest is per-user and authorised, segment paths are
+  stable and content-addressed, and the authorisation rides in a token the cache key ignores.
+  Signing each segment URL per user is the obvious-looking application of the signed-URL work
+  and it would give every viewer a unique URL for identical bytes — silently foreclosing both
+  ordinary caching and any future fan-out, long before anyone tried to build either. Ordinary
+  CDN practice; free if done now.
+
 ## Done when
 
 A client direct-plays everything the playback survey says it should; a client that cannot decode

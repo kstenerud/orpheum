@@ -4599,3 +4599,91 @@ case that prompted the whole thing.
 rather than a measurement; the honest number depends on what bitrate the library actually
 direct-plays at, which is the same unknown [D17](#d17--direct-play-first-transcoding-additive-and-optional)
 and the Phase 0 playback survey are already waiting on.
+
+---
+
+## D70 — Hosted fan-out is the right shape for remote party viewing, and the cheap part is keeping it possible
+
+**Recorded, not scheduled** (2026-09-19). If remote party viewing ever happens, the shape is
+**fan-out**: the household uploads **one** stream to a distribution node and N participants pull
+from it, making the home uplink cost independent of N. Speculative and much later. What matters
+now is that the openings cost almost nothing and one of them is easy to close by accident.
+
+### Why the shape is obviously right
+
+[D69](#d69--group-size-is-a-priority-order-not-a-capability-two-then-four-or-five-then-a-party)
+established that remote party viewing is uplink-bound: `N × 10 Mbps` out of a house with 10–40
+Mbps of upload. Fan-out makes that `1 × 10 Mbps` regardless of N. There is no cleverer answer,
+and it is what every content-distribution system does.
+
+### And it is the cheapest thing on the roadmap to build, because HLS was designed for it
+
+The minimum viable fan-out node is **an HTTP caching reverse proxy**. Segments are immutable,
+addressable and cacheable; clients already pull them over HTTP
+([D2](#d2--playback-negotiation-the-client-decides-from-a-manifest)); one origin fetch serves
+every participant. That is `nginx proxy_cache` in spirit, not a media system.
+
+Better still: **synchronised viewing is the ideal caching workload.** Unsynchronised viewers of
+one film sit at different positions and get poor locality; watch-together guarantees that every
+participant wants the *same segment at the same moment*, so the hit rate approaches 100%. The
+feature that creates the bandwidth problem also creates the conditions that make solving it
+trivial.
+
+### The one opening that is easy to close by accident
+
+**Segment URLs must be cacheable**, which means the cache key must be derivable from the segment
+path alone. Signing every segment URL per user — an obvious-looking application of the
+signed-and-scoped-URL work in [threat-model.md](../design/plans/threat-model.md) — would give
+each participant a unique URL for identical bytes and **defeat fan-out entirely**, silently, and
+long before anyone tried to build it.
+
+So: **authorise the session, not the segment.** The manifest is per-user and authorised; segment
+paths are stable and content-addressed; the authorisation travels in a session token that the
+cache key ignores. This is ordinary CDN practice and it costs nothing to get right now.
+
+That constraint is the entire deliverable of this entry. Everything below is context.
+
+### It must be able to be blind, and that is not DRM
+
+A fan-out node duplicates the film to N recipients. If it can *read* the film, we have built
+something we do not want to operate and users do not want to trust. It can be blind: the
+household encrypts segments once with a key it distributes directly to the participants it
+authorised, and the node forwards opaque bytes.
+
+**This is not DRM and the distinction is load-bearing.** DRM is key escrow, licence servers,
+device attestation and a compliance regime, and
+[the overview](../design/overview.md) rules it out. This is transport confidentiality against
+*the relay operator*, with the key held by the person who owns the file and handed to people
+they chose. No licence server, no attestation, nothing to certify. The user can always decrypt
+their own media; that is the point.
+
+### The honest risk, which is not technical
+
+A 1:1 relay for NAT traversal and a 1:N distribution service are the same bytes and a different
+legal posture. Functionally, 1:N distribution of one person's film to ten others is the shape of
+a pirate streaming service, however legitimate every individual party is. Mere-conduit and
+hosting-provider protections are strongest for neutral 1:1 transmission and weaker for something
+that looks like a distribution platform, and rightsholders notice fan-out.
+
+Being blind helps the conduit argument and simultaneously means the only possible response to a
+complaint is "we cannot see it", which is a mixed position rather than a clean one.
+
+**This, not egress cost, is the reason to be slow here.** For reference the cost is a rounding
+error: a two-hour film at 10 Mbps is ~9 GB, so a party of ten is ~90 GB, which at Hetzner's
+roughly €1/TB beyond a large allowance is **about nine cents** — and at hyperscaler egress
+prices is $7–8, which is the same provider-choice conclusion
+[remote-access.md](../design/research/remote-access.md) §5 already reached.
+
+### So build it as software, and host it only as a convenience
+
+The fan-out node should be **something anyone can run on a €5 VPS**, which is
+[D25](#d25--remote-access-is-tiered-and-the-promise-changes-from-no-accounts-to-we-only-charge-for-another-machine)'s
+self-hosted-assist tier doing its job. That is cheaper for us, keeps the exposure with the
+person who owns the content, and keeps the hosted version honestly optional — *"we only charge
+for things that genuinely require another machine"* reads very differently when the machine is
+one you could have rented yourself.
+
+**Status:** Speculative. Not scheduled, not costed beyond the above, and downstream of both
+remote party viewing being wanted and the bandwidth half of
+[transcoding.md](../design/plans/transcoding.md) existing. The **cacheable-segment-URL
+constraint is not speculative** and should be respected from the first HLS endpoint.

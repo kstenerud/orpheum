@@ -60,6 +60,14 @@ belongs to the transcoding plan, not this one.
 
 Not building: an SFU, active-speaker detection, moderation tooling, roles beyond (2), text chat.
 
+If remote party viewing ever happens, the shape is **fan-out** — the household uploads one
+stream to a distribution node and N participants pull from it, making the home uplink cost
+independent of N ([D70](../../decisions/working-notes.md)). It is speculative and much later,
+and the minimum viable version is an HTTP caching proxy, because synchronised viewing is the
+ideal caching workload: everyone wants the same segment at the same moment. The **one thing
+that must not be closed by accident** is segment-URL cacheability — see
+[stream-service.md](stream-service.md).
+
 ## The constraint that decides whether this survives
 
 Five implementations have been withdrawn: Disney+ GroupWatch (2023-09-18), Amazon Prime Video
