@@ -91,6 +91,16 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   CJK into ~441 KB. The subset is a scan-time artifact beside the extracted track, so no font
   parser ever enters the core's request path ([D55](../../decisions/working-notes.md)).
 
+  **Fonts embedded in the media file are off by default** ([D56](../../decisions/working-notes.md)).
+  The manifest advertises that a track carries them; using them is an explicit client request,
+  remembered per series like any other track preference. Two FreeType bugs are in CISA's
+  exploited-in-the-wild catalogue — one from March 2025, affecting every version ≤ 2.13.0, which
+  is what the old TV boxes carry — and a server that pushes attachments to every client is an
+  amplifier for exactly that. Netflix's own subtitle spec permits one generic font family and no
+  named fonts at all, from suppliers it has contracts with. When a user does opt in, the subset
+  pass strips the TrueType hinting VM (`fpgm`/`prep`/`cvt `) and the bitmap/colour tables where
+  CVE-2020-15999 lived, which measures **14% smaller**, not larger.
+
 ## Done when
 
 A client direct-plays everything the playback survey says it should; a client that cannot decode

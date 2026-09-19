@@ -49,6 +49,10 @@ that seriously.
 | 27 | Seven CTA-708 styles for Latin+Greek+Cyrillic cost **5.63 MB raw / 2.42 MB woff2** | **measured** |
 | 28 | A film-length Japanese subtitle uses **1,202 distinct code points**; subsetting Noto CJK to them gives **441 KB** instead of 15.7 MB | **measured** |
 | 29 | libass synthesises bold and italic, so italic faces are optional | libass source |
+| 30 | **Two FreeType CVEs are in CISA's exploited-in-the-wild catalogue**, one from March 2025 | NVD + CISA KEV |
+| 31 | Netflix's subtitle spec permits **one** generic font family and no named or embedded fonts | Netflix partner spec |
+| 32 | Jellyfin loads embedded fonts by default and its *trusted* fallback set by opt-in — backwards | jellyfin-web source |
+| 33 | Dropping the TrueType hinting VM and bitmap tables makes the subset **14% smaller** | **measured** |
 
 ---
 
@@ -1155,18 +1159,85 @@ as a CLI, and a public C API (`hb_subset_input_create_or_fail`,
 `hb_subset_input_unicode_set`, `hb_subset_or_fail`) — and we ship HarfBuzz anyway for libass
 ([D50](../../decisions/working-notes.md)). No new dependency.
 
-### One security consequence, which cuts in our favour
+### Embedded fonts are the one genuinely dangerous part of this
 
-Serving fonts means that if we ever serve a font **extracted from a media file**, we are
-redistributing attacker-supplied binary to every client, where the client's FreeType parses it.
-Font parsers are a classic CVE surface, and [D26](../../decisions/working-notes.md) already says
-media is attacker-controlled data.
+Serving a font **extracted from a media file** means redistributing attacker-supplied binary to
+every client in the household, where each client's FreeType parses it. This is not a theoretical
+surface.
 
-Subsetting helps rather than hurts here: the served file is **re-serialised by our subsetter**
-rather than being the original bytes passed through. That is not a sanitiser and should not be
-described as one, but it does mean the client parses a file our tooling produced. The subsetter
-itself parses the hostile input, so it belongs inside the same Landlock+seccomp jail as FFmpeg —
-which is where it already is, because it runs in the node.
+**Two FreeType bugs are in CISA's Known Exploited Vulnerabilities catalogue** — confirmed
+exploited in the wild, not merely reported:
+
+| CVE | CVSS | KEV added | What it parses |
+| --- | --- | --- | --- |
+| **CVE-2020-15999** | 9.6 | 2021-11-03 | Heap overflow in `Load_SBit_Png` — **PNG images embedded inside fonts**. CISA: "part of an exploit chain" |
+| **CVE-2025-27363** | 8.1 | 2025-05-06 | Out-of-bounds write parsing **TrueType GX / variable-font subglyph structures**; arbitrary code execution, FreeType ≤ 2.13.0 |
+
+The second is from **March 2025**, so this is a live surface rather than a historical one. And
+FreeType ≤ 2.13.0 is exactly what an old Fire TV stick is likely to be carrying — the same
+devices §6 already flagged for missing fonts. The server is an **amplifier**: one bad file
+reaches every device in the house, including the ones nobody updates.
+
+**What the commercial players do: they do not accept fonts at all.** Netflix's IMSC 1.1 Text
+Profile is unambiguous — `tts:fontFamily` *"Should not be used. If specified, the
+tts:fontFamily should be equal to `proportionalSansSerif`."* One generic family, chosen by the
+player, for a company that has **contracts with the people supplying the content**. If Netflix
+will not accept a named font from a vetted studio partner, accepting an arbitrary binary from a
+torrent by default is hard to justify.
+
+**What the open-source field does is the exact inverse.** `jellyfin-web`'s `renderSsaAss()`
+walks every media attachment and hands each one to libass as a URL:
+
+```js
+const supportedFonts = ['application/vnd.ms-opentype', 'application/x-truetype-font',
+                        'font/otf', 'font/ttf', 'font/woff', 'font/woff2'];
+attachments.forEach(i => {
+    if (supportedFonts.includes(i.MimeType)) availableFonts.push(apiClient.getUrl(i.DeliveryUrl));
+});
+```
+
+Two things to notice. The filter is on `i.MimeType` — **metadata from inside the container**,
+which the attacker writes — and their own comment says its purpose is to skip cover art, not to
+screen anything. And the *fallback* font set, the trusted one, is behind
+`config.EnableFallbackFont`, default off. So Jellyfin's untrusted font source is on by default
+and its trusted one is off by default. That is backwards, and it is the field's norm.
+
+### Hardening, and its measured cost
+
+If embedded fonts are used at all, the subsetting pass from earlier in this section is also the
+place to strip the dangerous parts. `hb-subset` exposes both controls:
+`HB_SUBSET_FLAGS_NO_HINTING` (`--no-hinting`) and `--drop-tables+=…`.
+
+Which tables matter, measured against real fonts:
+
+```
+NotoSans[wdth,wght].ttf        risky tables present: glyf, prep
+CourierPrime-Regular.ttf       risky tables present: cvt , fpgm, glyf, prep
+NotoSansCJKjp-Regular.otf      risky tables present: none  (CFF, no TrueType hinting VM)
+```
+
+`fpgm`/`prep`/`cvt ` are the **TrueType hinting bytecode** — a stack VM interpreted by FreeType,
+and a classic exploitation target. `CBDT`/`CBLC`/`sbix`/`SVG `/`COLR`/`CPAL` are the embedded
+bitmap and colour tables, which is where CVE-2020-15999 lived and which a subtitle font has no
+use for.
+
+The cost of dropping all of it:
+
+```
+CJK subset, as before                            582 K
+CJK subset, --no-hinting                         498 K
+CJK subset, --no-hinting --drop-tables+=CBDT,…   498 K
+```
+
+**Hardening makes the file 14% smaller.** There is no trade-off to weigh here, which is unusual
+enough to be worth stating plainly.
+
+One caveat against overclaiming: re-serialisation is **not** sanitisation. `hb-subset` parses the
+hostile input with HarfBuzz, which has its own bug history, and a determined malicious font aimed
+at the *subsetter* is a live possibility. What it does buy is that the client parses a file our
+tooling emitted, with the hinting VM and bitmap tables gone, rather than the original bytes. The
+subsetter itself must therefore run inside the same Landlock+seccomp jail as FFmpeg
+([D26](../../decisions/working-notes.md)) — which it does, because it runs in the node.
 
 ## 11. What this costs, and when
 

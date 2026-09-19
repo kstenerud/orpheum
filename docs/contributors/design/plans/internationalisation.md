@@ -40,6 +40,7 @@ The full evidence is in
 | [D53](../../decisions/working-notes.md) | Font coverage is not assumable; the server serves fonts on demand |
 | [D54](../../decisions/working-notes.md) | Plan-B font: Unicode Last Resort HE bundled (588 KB), Noto served, Unifont optional |
 | [D55](../../decisions/working-notes.md) | The served set is the CTA-708 style axis in variable fonts, subset per subtitle track |
+| [D56](../../decisions/working-notes.md) | Fonts embedded in media are off by default; the client must ask |
 
 ## Schema consequences
 

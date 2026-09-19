@@ -104,6 +104,27 @@ delegates every encounter with a media file. That is a much stronger statement t
 sandboxed the transcoder", it unifies the worker interface from D19 with the trust boundary, and
 it costs a process boundary we were already going to build.
 
+## 4a. Fonts are a second attacker-supplied parser, on a second machine
+
+Media is attacker-supplied data (§2) and so is anything extracted from it. Fonts deserve their
+own line because the exposure is shaped differently from FFmpeg's: the parser is **FreeType on
+the client**, not FFmpeg on the server, so the containment of §3 does not reach it and the
+server acts as an **amplifier** — one bad file reaches every screen in the house.
+
+Two FreeType bugs are in CISA's Known Exploited Vulnerabilities catalogue: **CVE-2020-15999**
+(CVSS 9.6, heap overflow on PNG images embedded in fonts, part of an exploit chain) and
+**CVE-2025-27363** (CVSS 8.1, out-of-bounds write in TrueType GX/variable subglyph parsing,
+arbitrary code execution, FreeType ≤ 2.13.0 — which describes the old TV boxes). The second is
+from March 2025.
+
+The conclusion is [D56](../../decisions/working-notes.md): embedded fonts are **off by default**
+and the client must ask, because only the client knows whether its FreeType is sandboxed (WASM
+in the browser) or in-process (libmpv on Android and Apple), and only the client knows its
+version. Netflix's subtitle spec allows one generic family and no named fonts, from vetted
+studio partners; Jellyfin loads every attachment whose container-declared MIME type looks like a
+font, by default. Full evidence in
+[internationalisation.md](internationalisation.md) §10.
+
 ## 5. The rest of the model, briefly
 
 Each of these is a Jellyfin failure we have already documented, restated as a requirement:

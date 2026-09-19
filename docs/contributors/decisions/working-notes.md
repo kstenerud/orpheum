@@ -3493,3 +3493,92 @@ captioning.
 to revise. The subsetting numbers are measured and are unlikely to move; the per-track subset
 should be validated against a real anime release with a heavy `.ass` typeset, which is the
 adversarial case.
+
+---
+
+## D56 — Embedded fonts are off by default; the client must ask for them
+
+**Decided** (2026-09-19). A font extracted from a media file is **not** used and **not** served
+unless the client explicitly requests it. The default rendition uses our own served faces
+([D55](#d55--the-served-font-set-is-the-cta-708-style-axis-in-variable-fonts-subset-per-subtitle)).
+The manifest *advertises* that a track carries embedded fonts; acting on that is the client's
+call.
+
+**Why the default matters more than the capability.** Media is attacker-supplied data
+([D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)), and a font is a
+program in the sense that matters: FreeType interprets it. **Two FreeType bugs sit in CISA's
+Known Exploited Vulnerabilities catalogue** — confirmed exploited, not theoretical:
+
+| CVE | CVSS | KEV added | Surface |
+| --- | --- | --- | --- |
+| CVE-2020-15999 | 9.6 | 2021-11-03 | Heap overflow in `Load_SBit_Png` — **PNG embedded inside a font**; CISA notes it as part of an exploit chain |
+| CVE-2025-27363 | 8.1 | 2025-05-06 | Out-of-bounds write in **TrueType GX / variable-font subglyph** parsing; arbitrary code execution, FreeType ≤ 2.13.0 |
+
+The second is from **March 2025**. And ≤ 2.13.0 describes exactly the old Fire TV sticks and
+Android TV boxes that [D53](#d53--font-coverage-is-not-assumable-the-server-serves-fonts-on-demand)
+already identified as the weak devices. The server is an **amplifier**: one bad file reaches
+every screen in the household, including the ones nobody updates and cannot update.
+
+**The commercial players do not accept fonts at all.** Netflix's IMSC 1.1 Text Profile:
+`tts:fontFamily` *"Should not be used. If specified, the tts:fontFamily should be equal to
+`proportionalSansSerif`."* One generic family, resolved by the player — from a company with
+**contracts with the studios supplying the content**. If Netflix will not take a named font from
+a vetted partner, taking an arbitrary binary from a torrent by default needs an argument nobody
+has made.
+
+**The open-source field does the exact inverse**, and it is worth seeing how. `jellyfin-web`'s
+`renderSsaAss()` hands every attachment to libass whose **`MimeType` looks like a font** — and
+`MimeType` is metadata from inside the container, written by whoever made the file. Their own
+comment says the filter exists to skip cover art, not to screen anything. Meanwhile the
+*trusted* fallback font set is behind `config.EnableFallbackFont`, **default off**. Untrusted
+source on by default, trusted source off by default. We are inverting that.
+
+**What we lose, stated honestly.** Heavily typeset `.ass` — fansubbed anime especially — assumes
+its bundled fonts, and ASS positioning is computed against specific font metrics, so substituting
+does not merely change the look: signs can overlap, karaoke can drift, and line breaks move. That
+audience is precisely the one [D11](#d11--subtitles-are-a-subsystem-not-a-feature) says we must
+win. So this is a real cost, and the mitigation is **not** to weaken the default but to make the
+opt-in good: the client shows that a track has embedded fonts, the user turns them on, and the
+choice sticks per series like every other track preference
+([D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)). One
+deliberate action, remembered — not a dialog per episode.
+
+Two further reasons the client is the right decider, both matching
+[D2](#d2--playback-negotiation-the-client-decides-from-a-manifest). **The risk is wildly
+uneven across clients** — JASSUB's FreeType runs inside a WASM sandbox in the browser, while
+libmpv's runs in-process and unconfined on Android and Apple — and only the client knows which
+it is. And only the client knows its own FreeType version.
+
+**When it is opted in, the path is still hardened.** The
+[D55](#d55--the-served-font-set-is-the-cta-708-style-axis-in-variable-fonts-subset-per-subtitle)
+subsetting pass is where the dangerous parts come off, and `hb-subset` has the controls already:
+
+- `HB_SUBSET_FLAGS_NO_HINTING` drops `fpgm`/`prep`/`cvt ` — the **TrueType hinting bytecode**,
+  a stack VM that FreeType interprets and a classic exploitation target.
+- `--drop-tables+=CBDT,CBLC,sbix,SVG,EBDT,EBLC,COLR,CPAL` removes the embedded bitmap and colour
+  tables — **where CVE-2020-15999 lived** — which a subtitle font has no use for.
+
+Measured, and this is the unusual part:
+
+```
+CJK subset, as before                            582 K
+CJK subset, --no-hinting                         498 K
+CJK subset, --no-hinting --drop-tables+=…        498 K
+```
+
+**Hardening makes the output 14% smaller.** No trade-off to weigh, so apply it to every font we
+serve, embedded or not.
+
+Also: **never trust the container's declared MIME type.** Sniff the actual format, cap the
+attachment size, cap the glyph count, and reject anything that is not a font we can parse — in
+the node, before it is ever offered.
+
+**What this does not claim.** Re-serialisation is **not** sanitisation. `hb-subset` parses the
+hostile input with HarfBuzz, which has its own bug history, and a font crafted to attack the
+*subsetter* is a live possibility. What it buys is that the client parses a file our tooling
+emitted, with the hinting VM and bitmap tables gone, rather than the original bytes — and that
+the parsing of hostile input happens in the node, inside the same Landlock+seccomp jail as
+FFmpeg, rather than on someone's television.
+
+**Status:** Provisional in one respect: whether the opt-in should be per-user, per-library or
+per-server is a UX question nobody has answered. The default is not provisional.
