@@ -63,10 +63,23 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   before playback begins. A burned-in stream is the single labelled exception and is a *video*
   rendition, flagged so clients can say the subtitle choice is locked.
 
+- **The subtitle renderer's defaults are wrong for us** ([D50](../../decisions/working-notes.md)).
+  libass ships bug-compatible with VSFilter: with `ASS_FEATURE_WHOLE_TEXT_LAYOUT` off — the
+  default — runs are *"laid out left-to-right, even if they contain right-to-left text"*, which
+  is the same defect as the browser-native WebVTT rendering we chose libass to avoid. So build
+  it with HarfBuzz, a current FriBidi and **libunibreak**, and enable `WHOLE_TEXT_LAYOUT`,
+  `BIDI_BRACKETS` and `WRAP_UNICODE` for everything that is not authored `.ass`/`.ssa`, passing
+  the **track language** — which [D24](../../decisions/working-notes.md) already normalises —
+  because `WRAP_UNICODE` needs it to break lines in Thai, Japanese and Chinese. JASSUB, our web
+  path, ships no libunibreak and never calls `ass_track_set_feature`, so this is a build patch,
+  not a configuration flag. `ass_track_set_feature` returns −1 when a feature is unavailable:
+  probe once and report, rather than silently rendering wrong.
+
 ## Done when
 
 A client direct-plays everything the playback survey says it should; a client that cannot decode
 TrueHD or DTS-HD still plays the film with its video untouched and its audio transcoded; ASS
-subtitles render correctly with their embedded fonts; **captions and subtitle language can be
-switched forty minutes in without the video stuttering**; resume is correct; and anything that
-still cannot play says why.
+subtitles render correctly with their embedded fonts; **an Arabic subtitle keeps its punctuation
+on the correct side and a Thai one wraps at word boundaries**; **captions and subtitle language
+can be switched forty minutes in without the video stuttering**; resume is correct; and anything
+that still cannot play says why.

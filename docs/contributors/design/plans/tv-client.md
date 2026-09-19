@@ -34,6 +34,22 @@ provide is Google Play Services (so no Google Cast), and the Android TV / Google
 channel and recommendation APIs, which Fire TV replaces with its own. Plan the platform-
 integration work against a Google TV device; plan the playback and focus work against these.
 
+## Locale on a TV
+
+Two TV-specific consequences of [D51](../../decisions/working-notes.md).
+
+**Direction follows the OS, and there is no in-app switch.** `I18nManager.forceRTL()` sets a
+native flag read at startup, so changing it does not re-lay-out the running app — still
+reproducing on RN 0.77. A forced restart is tolerable on a phone and bad on a TV, and nobody
+changes their TV's language weekly. One RTL locale belongs in the [device-lab](device-lab.md)
+pass regardless: Jellyfin has the Arabic layout bugs that come from not having one.
+
+**The server owns sort order.** Hermes does not bundle ICU — it projects the platform's, whose
+*"results may vary between devices running different Android versions"* — so `localeCompare`
+can order the same list differently on an Android 10 phone and an Android 14 TV. The client
+renders the list it is given ([D47](../../decisions/working-notes.md)). For the same reason,
+plural handling must not depend on `Intl.PluralRules`, which Hermes does not implement.
+
 ## Risk, and the bail-out
 
 `react-native-tvos` is a fork of React Native, not first-party — though it tracks upstream

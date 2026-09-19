@@ -15,10 +15,13 @@ their own tables, and includes the audit/change-journal tables and sync cursor f
 Generic enough that audio can be added without a rewrite (D1): `Library`, `Item`, `MediaFile`
 rather than `Movie`/`Episode` everywhere.
 
-## Two requirements added late, from the plugin survey
+## Requirements added late
 
-Both come from [D20](../../decisions/working-notes.md), and both are schema-shaped, so they must
-land here rather than being bolted on:
+Each is schema-shaped, so it lands here rather than being bolted on. The first two come from the
+plugin survey ([D20](../../decisions/working-notes.md)), the track-selection pair from
+[D24](../../decisions/working-notes.md), and the last three from the internationalisation round
+([D45](../../decisions/working-notes.md), [D47](../../decisions/working-notes.md),
+[D48](../../decisions/working-notes.md)).
 
 - **A rules engine.** Smart playlists, smart collections, and retention policy. The field shows
   roughly 7,000 stars of demand across plugins (smartlists, auto-collections, mergeversions,
@@ -39,6 +42,26 @@ land here rather than being bolted on:
   container carried, with the original kept for provenance. ISO 639-2's bibliographic and
   terminological codes (`ger`/`deu`, `fre`/`fra`, `chi`/`zho`) are a real source of mismatches —
   FFmpeg carries a 695-entry table for exactly this.
+- **Every metadata-bearing entity splits in two** ([D45](../../decisions/working-notes.md)): a
+  language-invariant row (kind, dates, runtime, ratings, external ids, and **genres as an
+  enumeration** rendered from our own UI catalogue rather than stored as provider text) plus
+  translation rows keyed `(item, language)` carrying name, description, tagline, aliases,
+  free-text tags **and artwork** — posters have title text in the pixels, so poster language is
+  its own axis. The original-language record is distinguished rather than being one translation
+  among many: it always exists, so it is both the guaranteed fallback and the meaning of "sort
+  by original title". Selection happens per request from `Accept-Language`, and because it
+  participates in `ORDER BY` it must be a **total** order or keyset pagination repeats rows.
+- **A sort-key column per (item, locale-in-use)** ([D47](../../decisions/working-notes.md)) — an
+  indexed `BLOB` of CLDR sort-key bytes, ~140 B each, ordered with SQLite's default `BINARY`
+  collation. Not a transliteration of the title, and not a custom SQLite collation, which would
+  need one index per locale anyway and would make the file unopenable by the `sqlite3` CLI.
+- **Two FTS5 indexes plus a normalised-alternates column**
+  ([D48](../../decisions/working-notes.md)): `unicode61 remove_diacritics 2` for Latin word
+  search and bm25 ranking, `trigram` for substring search, because neither alone covers CJK,
+  Thai and atomic letters like ø/æ/ß. Both indexes for 20k titles measure 1.5 MB. **The
+  tokeniser is immutable once the virtual table exists**, so this cannot be deferred, and the
+  normalisation function must have exactly one implementation — Navidrome shipped a corrective
+  migration in July 2026 because a SQL approximation of it drifted from the Go original.
 
 ## Why it is shaped this way
 

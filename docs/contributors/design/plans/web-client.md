@@ -35,6 +35,19 @@ its own module with no screen dependencies. Everything else in the SDK is either
 OpenAPI, resolved server-side, or inherently platform-specific — which is what makes a future
 native client a small reimplementation rather than a port.
 
+## Translation, from the first screen
+
+`react-i18next`, per [D51](../../decisions/working-notes.md) — what both React Native media
+clients in the survey converged on — with `returnEmptyString: false`, because translation
+platforms export untranslated keys as `""` and the default renders them, so a
+partially-translated language shows blank UI instead of English. Catalogues are **served by our
+own server** rather than bundled, so a translation fix reaches every client on next connect
+instead of waiting for a store review; English is bundled as the offline floor.
+
+Extraction is miserable to retrofit, so this starts with the first screen, not after them. Two
+rules that make the rest cheap: no string is concatenated from fragments, and nothing
+user-visible is ever stored server-side in a language ([D46](../../decisions/working-notes.md)).
+
 ## Non-negotiables
 
 Subtitle offset control; manual override of the playback decision; a visible "why is this

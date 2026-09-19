@@ -2881,3 +2881,317 @@ reads. That is the same failure mode `StartLimitBurst` has, and the same remedy.
 `s6-overlay` is a legitimate alternative to our supervisor inside a single container and is
 worth revisiting if the supervisor starts growing features — which is the signal D43 said to
 watch for.
+
+---
+
+## D45 — Metadata is multi-language in the schema, chosen per request
+
+**Decided** (2026-09-19). Split every metadata-bearing entity into a **language-invariant row**
+and a set of **translation rows** keyed `(item, language)`. Choose among them **at query time**
+from the request's `Accept-Language`. Never at ingest.
+
+**Why.** Jellyfin resolves `PreferredMetadataLanguage` through item → parent → library → server
+and uses it at *fetch* time, so the database holds exactly one title. Two people in one
+household cannot have different languages, and there is no fallback chain — only en-US.
+*Language Selection Fallback Heirarchy* (#2521) has been open since **2020-03-05**. This is not
+a bug they have failed to fix; it is what the schema permits.
+
+Kyoo has the shape that works, and three of its details are the actual content of this decision:
+
+- **Artwork belongs in the translation row.** Posters have title text baked into the pixels, so
+  poster language is a separate axis from title language — which is exactly what Jellyfin #10076
+  asks for and cannot have.
+- **Genres are an enumeration; tags are free text.** Genres are a closed set stored as symbols
+  and rendered from our own UI catalogue, so a Chinese user sees 科幻 from our translation file
+  rather than whatever string TMDB returned. Tags cannot be enumerated, so they stay
+  per-language. Cheap, sharp, and it removes a whole class of half-translated UI.
+- **The original-language record is distinguished**, not just another translation. It always
+  exists, which gives a guaranteed fallback anchor and a meaningful "sort by original title".
+
+**`Accept-Language` is the fallback chain.** It is an ordered, weighted preference list with a
+wildcard; it is standard; every client already sends something sane. Six years of Jellyfin
+feature requests are asking for a thing HTTP has always had.
+
+**Two cautions, both load-bearing.**
+
+Language selection participates in `ORDER BY`, so it must be a **total** order — Kyoo's own
+comment says a non-deterministic tie-break makes keyset pagination return the same row on two
+pages. And parse `Accept-Language` with `golang.org/x/text/language` rather than by hand:
+Kyoo's hand-rolled parser sorts the `q=` weights ascending, which appears to select the
+*least*-preferred language, and has no test. `ParseAcceptLanguage` + `NewMatcher` implement full
+BCP 47 lookup including likely-subtags and mutual intelligibility (nb/no, zh-Hans/zh-Hant,
+pt-BR/pt).
+
+`DISTINCT ON` is Postgres-only; under SQLite this is `ROW_NUMBER() OVER (PARTITION BY item_id
+ORDER BY lang_rank, language)`, available since 3.25.
+
+**Status:** Provisional, but schema-shaping and therefore effectively due before
+[library-model.md](../design/plans/library-model.md). Overturned by evidence that per-language
+artwork is not worth its storage at household scale — which nobody has measured.
+
+---
+
+## D46 — No translated string is ever stored in the database
+
+**Decided** (2026-09-19). Store the fact and its parameters; render at display time. One
+catalogue, owned by the client. The server renders text only for delivery that leaves a client
+session, and renders it in the **recipient's** language.
+
+**Why.** Jellyfin maintains two catalogues — 1,947 keys in `jellyfin-web`, 123 in the server —
+which **overlap by twelve keys**, including `HeaderContinueWatching`. Twelve concepts translated
+twice, by two sets of translators, in two Weblate components, displayed in the same UI.
+
+The instructive entry is `ChapterNameValue`: `"Chapter {0}"`, used to generate a name that is
+then *written to the database*. It is frozen in whatever language the scanner was running in. A
+chapter is `{index: 3}`, not `"Chapter 3"`.
+
+Once the rule holds, the server catalogue collapses to the cases that genuinely leave the
+session — notification and activity-log text delivered by email or push — and even those should
+render in the recipient's language, which the server knows.
+
+`golang.org/x/text/message` + `catalog` covers that with CLDR plural rules, for a measured
+**+594 KB** of binary over hello-world.
+
+**Status:** Provisional. Free if adopted now, expensive later. The failure mode to watch for is
+a "convenient" generated display name creeping into a column; a test asserting that no
+user-visible text column is written by the scanner would catch it.
+
+---
+
+## D47 — Sort order is a materialised CLDR sort key, per item per locale
+
+**Decided** (2026-09-19). Generate a `collate.KeyFromString` byte key with
+`golang.org/x/text/collate` for each (item, locale-in-use), store it in an indexed `BLOB`
+column, and let SQLite order on it with the default `BINARY` collation. Not a transliteration,
+and not a custom SQLite collation.
+
+**Why not transliteration.** Jellyfin materialises a sort string by lowercasing, stripping
+hard-coded English stop-words (`the, a, an` — from the start, the *middle* and the end), removing
+diacritics, and then transliterating anything non-ASCII with
+`Any-Latin; Latin-Ascii; Lower; NFD; …`, tunable by the environment variable
+`JELLYFIN_TRANSLITERATOR_ID`. Four separate mistakes: the stop-words are English and
+server-wide; `Any-Latin` renders Japanese kanji as pinyin, so 千と千尋の神隠し does not sort under
+*Sen*; transliteration destroys exactly the distinctions the target locale cares about, folding
+Swedish Å Ä Ö to the front when Swedish puts them after Z; and a global environment variable to
+override the rule is the tell that one server-wide order was never enough.
+
+**Measured, rather than assumed** (Go 1.26.2, x/text v0.42.0). `x/text/collate` gets Swedish,
+German phonebook (ü ≡ ue), Chinese pinyin *and* stroke, and Japanese kana equivalence right;
+`collate.Numeric` orders `Episode 2` before `Episode 10` natively, deleting Jellyfin's
+zero-padding hack. It gets **Korean wrong** — output identical to codepoint order, because
+`// TODO: implement script reordering` is still in the source and
+[golang/go#19087](https://github.com/golang/go/issues/19087) has been open since 2017 with zero
+comments. And `collate/tables.go` declares `UnicodeVersion = "6.2.0"`, `CLDRVersion = "23"` —
+2012 and 2013 — while the rest of `x/text` tracks current Unicode.
+
+That is the honest trade: correct for Latin, Cyrillic, Greek, Chinese, Japanese; wrong for
+Korean; thirteen years behind on data. The alternative, cgo-linked ICU, costs the
+cross-compilation that [D31](#d31--sqlite-with-a-pure-go-driver-supersedes-d5) went out of its way
+to buy.
+
+**Why materialise.** Sort keys are byte-comparable, so they need no collation support from the
+database at all. Measured at 10,000 titles: sorting in Go at query time takes 16.3 ms but
+forfeits `ORDER BY … LIMIT 50` and index paging; key generation is ~1 µs/title and keys average
+**~140 B**, so 1.4 MB per 10k items *per locale*, and SQLite pages against an index in O(log n).
+A household uses one to three locales.
+
+**Why not a custom collation**, which both pure-Go drivers support
+(`modernc.org/sqlite.RegisterCollationUtf8`, `ncruces/go-sqlite3` `CreateCollation`): an index is
+bound to the collation it was created with, so you need one index per locale regardless — the
+materialised design with extra steps — and it makes the database file unopenable by the `sqlite3`
+CLI or any recovery tool, every affected query failing with *no such collation sequence*. A BLOB
+column merely degrades to an opaque column, which is what
+[D13](#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise)'s "rebuildable index" stance wants.
+
+**Status:** Provisional. Korean is a known, accepted defect — see
+[internationalisation.md](../design/research/internationalisation.md) §9 for the three ways out.
+Revisit if the locale count per household turns out to be large.
+
+---
+
+## D48 — Two FTS5 tokenisers, routed by script and length, and exactly one normaliser
+
+**Decided** (2026-09-19). Index every searchable entity **twice**: `unicode61
+remove_diacritics 2` for Latin word search and bm25 ranking, and `trigram` for substring search.
+Route: 1–2 characters → `LIKE`, ≥3 characters → trigram, Latin word queries → unicode61. Feed the
+unicode61 index a **normalised-alternates column** generated in Go. That normalisation function
+has exactly one implementation.
+
+**Why two.** Measured in SQLite 3.46.1, because the documentation does not say this plainly:
+
+| | Latin + diacritics | ø æ œ ß | CJK | Thai | prefix / bm25 |
+| --- | --- | --- | --- | --- | --- |
+| `unicode61 remove_diacritics 2` | ✓ | ✗ | ✗ | ✗ | ✓ |
+| `trigram` | ✗ | substring only | ✓ (≥3 chars) | ✓ | ✗ |
+
+unicode61 tokenises `千と千尋の神隠し` as **one token**, so `千尋` finds nothing, and shreds Thai
+into fragments (`ผ`, `หญ`, `งล`, `ลลา`) that match no word. Trigram handles both but needs three
+characters and cannot do prefix search or rank.
+
+Neither fixes atomic letters. `remove_diacritics` removes **combining marks**; Ø Æ Œ ß Ð Ł are
+single code points with no decomposition, so `"Bjork"` misses `Bjørk` and `"GOGGS"` misses
+`GØGGS` under both tokenisers. No option fixes this — hence the alternates column, which is what
+Navidrome arrived at after shipping the bug.
+
+**So run both**, because the cost is a rounding error. Measured on 20,000 mixed-script titles:
+content 532 KB, unicode61 index 476 KB, trigram index 1,004 KB — **1.5 MB for both**, each
+building in ~30 ms. Query latency: 0.012–0.10 ms for either index; `LIKE` worst case (no match,
+full scan) 1.554 ms against trigram's 0.001 ms, which is the case that matters because it is what
+happens on every keystroke of a type-ahead.
+
+**One normaliser, and why.** Navidrome shipped FTS5 in February 2026 and a corrective migration
+in July: the migration had back-filled `search_normalized` *"with a SQL approximation that cannot
+transliterate atomic letters (Ø, æ, ß, …)"*, so `GØGGS` was unfindable. The Unicode lesson is
+above; the engineering lesson is that the logic existed twice — once in Go, once as a SQL
+`REPLACE` chain — and drifted. A migration that needs normalisation calls the Go function row by
+row.
+
+Four further details taken from Navidrome verbatim: contentless tables (`content=''`) with
+trigger population and a `RebuildFTS`, because the index is derivable and FTS5 corruption is a
+real operational event; **lowercase the user's `AND OR NOT NEAR`**, which are case-sensitive
+operators in FTS5 and otherwise throw a syntax error; **no minimum query length for CJK**,
+because single CJK characters are meaningful words; and `(token OR token*)` rather than bare
+`token*`, which adds no matches but lets bm25 rank literal hits above prefix hits.
+
+**Status:** Provisional but schema-shaping — the tokeniser is baked into the FTS table, so this
+is due before the search schema. The routing thresholds are guesses pending a real corpus.
+
+---
+
+## D49 — Unicode discipline at the boundaries, enforced by tests
+
+**Decided** (2026-09-19). Two boundary rules, each with a test that fails the build.
+
+**1. Normalise paths to NFC at the core's ingest boundary, and keep the raw bytes for I/O.**
+
+[D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do) puts nodes on arbitrary
+machines reporting paths to the core. macOS/APFS returns decomposed filenames; Linux returns the
+bytes on disk. Measured:
+
+```
+macOS-style NFD : "Amélie"  len=8  bytes= 41 6d 65 cc 81 6c 69 65
+Linux-style NFC : "Amélie"  len=7  bytes= 41 6d c3 a9 6c 69 65
+equal? false      equal after NFC(both)? true
+```
+
+Same file. A macOS node and a Linux node reporting the same SMB share therefore report two
+different paths for one file: two rows under `UNIQUE(path)`, or a delete-and-add churn cycle
+every time the reporting node changes. **Both halves of the rule matter** — identity, dedup,
+display and search use the NFC form; *opening* the file uses the original bytes, because APFS
+normalises on lookup and ext4 does not, so an NFC string will not open an NFD file on Linux.
+This is a field pair in the report contract
+([D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global)), not an
+assumption.
+
+**2. No ASCII-only character classes in the naming-regex corpus.**
+
+Jellyfin's episode expressions use `[\w\s]+?` for the series name. In .NET `\w` is Unicode-aware;
+**in Go's RE2 it is not.** Ported verbatim, the expression fails on `進撃の巨人`, `기생충`,
+`Матрица` — and on **`Amélie`**. It is not a CJK problem, it is an everything-but-ASCII problem.
+`\d` likewise misses Arabic-Indic digits, and `\s` misses U+3000 IDEOGRAPHIC SPACE, which is the
+usual separator in Japanese and Chinese filenames, and U+00A0, which Windows renamers emit.
+
+It fails **silently**: the expression does not match, the filename falls through to a worse
+expression, and the result is a misparse rather than an error. So ban `\w \d \s \b [[:alpha:]]`
+in that corpus, require `\p{L} \p{N} \p{M} \p{Z}`, and run the whole corpus against a fixture of
+non-Latin filenames in CI.
+
+**Why a decision and not a note.** Both are free now and near-invisible later — the NFC one is a
+wire-format field, and the regex one is a lint rule. Both are the *parse, don't validate* stance
+of [media-nodes.md](../design/media-nodes.md) applied to text, and the NFC pair is the same shape
+as [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)'s rule for
+track tags: normalise for use, keep the original for provenance.
+
+**Status:** Provisional only in the sense that the fixture corpus does not exist yet. The
+findings are measured, not inferred.
+
+---
+
+## D50 — Build libass correctly and turn off VSFilter bug-compatibility for non-authored subtitles
+
+**Decided** (2026-09-19). Build libass with **HarfBuzz**, a current **FriBidi** and
+**libunibreak**. Enable `ASS_FEATURE_WHOLE_TEXT_LAYOUT` and `ASS_FEATURE_BIDI_BRACKETS` for
+sources that are not authored ASS, and enable `ASS_FEATURE_WRAP_UNICODE` with the **track
+language** set. Leave all three off for authored `.ass`/`.ssa`.
+
+**Why.** [D11](#d11--subtitles-are-a-subsystem-not-a-feature) chose libass everywhere partly
+because browsers render WebVTT without regard to direction — jellyfin-web #4179, *"Right-to-left
+languages subtitles having punctuation in the wrong order"*. libass has the same failure
+available and it is **on by default**. From `ass.h`, with `ASS_FEATURE_WHOLE_TEXT_LAYOUT`
+disabled, *"text is split into VSFilter-compatible segments and text in each segment is processed
+in isolation… The individual runs are then laid out **left-to-right, even if they contain
+right-to-left text**."* That is #4179, reproduced inside the renderer we picked to avoid it.
+
+`ASS_FEATURE_BIDI_BRACKETS` gives Unicode 6.3 bracket pairing and needs a new-enough FriBidi.
+`ASS_FEATURE_WRAP_UNICODE` gives UAX #14 line breaking, needs **libunibreak** at compile time,
+and *"if the track language is set, some additional language-specific tweaks may be applied"* —
+without it there is no correct line breaking for Thai, Japanese or Chinese, which have no spaces
+to break at. This is the payoff for [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)'s BCP 47
+normalisation: we already have the language to pass.
+
+The defaults are right for libass and wrong for us. Fansubbed ASS is authored against VSFilter's
+behaviour, so bug-compatibility is correct there — and only there. SRT, VTT, PGS-converted text
+and CC were never authored against it.
+
+**The uncosted item this exposes.** JASSUB is our web path. Its submodules are `libass, fribidi,
+freetype, harfbuzz, brotli` — **no libunibreak** — and it never calls `ass_track_set_feature`. So
+the browser client as it stands gets segmented bidi, pre-6.3 brackets, and no Unicode line
+breaking. Getting this right means patching JASSUB's build and exposing the toggles: a real line
+item for D11 that was not in its estimate.
+
+`ass_track_set_feature` returns −1 when a feature is unavailable at runtime, which makes it a
+capability probe. Check it once and report the answer rather than silently rendering wrong —
+[principles §9](../principles/README.md), sensors report.
+
+**Status:** Provisional. Needs a rendering comparison on real Arabic, Hebrew, Thai and Japanese
+subtitle files before the flags are fixed; the split between "authored ASS" and "everything else"
+is a guess at where the boundary belongs.
+
+---
+
+## D51 — react-i18next, catalogues served by us, Weblate deferred
+
+**Decided** (2026-09-19). `react-i18next` in the client. Serve catalogues from our own server,
+bundling only English. Choose the catalogue format for a translation platform now; connect one
+when translators exist.
+
+**Why react-i18next.** The only two projects solving our exact client problem converged on it
+independently — Kyoo (`react-i18next` 17 + `i18next-browser-languagedetector` +
+`i18next-http-backend`) and Streamyfin (`react-i18next` 17 + `i18next` 26 + `expo-localization`).
+Two settings come with it, both from Kyoo: `returnEmptyString: false`, because translation
+platforms export untranslated keys as `""` and the default renders them, so a
+partially-translated language shows **blank UI** rather than English; and `load: "currentOnly"`.
+
+Plural handling must **not** depend on `Intl.PluralRules`. Hermes does not bundle ICU — it
+projects the platform's, whose *"results… may vary between devices running different Android
+versions"* — and neither `Intl.PluralRules` nor `Intl.Segmenter` is in its supported list.
+Streamyfin pins `compatibilityJSON: "v4"` explicitly; either pin it or ship
+`@formatjs/intl-pluralrules`. The same platform variance is an independent argument for
+[D47](#d47--sort-order-is-a-materialised-cldr-sort-key-per-item-per-locale): `localeCompare` can
+order the same list differently on an Android 10 phone and an Android 14 TV, so **the server owns
+sort order** and the client renders the list it is given.
+
+**Why serve rather than bundle.** Streamyfin statically imports all 34 catalogues; a translation
+fix then needs an app-store review cycle, which is the mechanism by which translations go stale
+on TV. We are unusual in *being* the server the client is already talking to, so a merged
+translation reaches every client on next connect, over the LAN, for free.
+
+**Why Weblate, and why not yet.** It is the field's convention — 9 of 11 surveyed projects
+(Jellyfin, jellyfin-web, Immich, Kyoo, Swiftfin, Audiobookshelf, PhotoPrism, Stash, Kavita)
+against Crowdin for Streamyfin and POEditor for Navidrome. It is AGPL, self-hostable, and free
+for libre projects. But Immich's integration is the real cost: two GitHub Actions workflows, a
+GitHub App with scoped tokens, and a **required PR check that fails any PR touching
+`i18n/!(en)**.json` without the bot's approval** — humans may edit only the English catalogue;
+every other file is machine-owned. Their release flow locks the component, forces a commit and
+push, finds the single `weblate` PR, approves, merges, polls, and unlocks, with cleanup on
+timeout. None of that buys anything before there are translators.
+
+**RTL.** `I18nManager.forceRTL()` sets a native flag read at startup; changing it does not
+re-lay-out the running app (react-native #16215, #32509, #47583, and #49451 still reproducing on
+0.77). On a TV a restart is worse than on a phone, so follow the OS locale's direction and do not
+offer an in-app direction switch. Jellyfin has the matching layout bugs (jellyfin-web #7297,
+Arabic series detail page), which is what happens when RTL is absent from the test matrix — so
+one RTL locale belongs in the device-lab pass.
+
+**Status:** Provisional. The bundle-vs-serve choice should be revisited if offline use of a
+non-English client turns out to matter more than expected.

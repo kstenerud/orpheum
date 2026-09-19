@@ -130,6 +130,15 @@ The hard design work, and where the traps are. Format and completeness settled i
   around the failure.
 - **Per item:** node-local stable id, path, size, mtime, optional content hash, and the probe
   results — so the core never needs to open the file.
+- **Path is two fields, not one** ([D49](../decisions/working-notes.md)). A node on macOS and a
+  node on Linux report **different bytes for the same file** — `Amélie` is 8 bytes decomposed
+  and 7 composed — which under `UNIQUE(path)` is two library items and under a reconciling
+  scanner is delete-and-add churn every time the reporting node changes. So the record carries
+  an **NFC-normalised** form, which is what identity, dedup, display and search use, and the
+  **raw bytes**, which are what opens the file: APFS normalises on lookup, ext4 does not, so an
+  NFC string will not open a decomposed filename on Linux. Same shape as
+  [D24](../decisions/working-notes.md)'s rule for track tags — normalise for use, keep the
+  original for provenance.
 - **Completeness lives in the filename.** The node writes `report-<epoch>.jsonl.partial` and
   atomically renames on success, so completeness is an O(1) directory check and the core never
   parses a file still being written. A trailer is kept for the *summary* — counts, duration,

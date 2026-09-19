@@ -30,6 +30,7 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
 | [tech-clients.md](tech-clients.md) | Player engines and the platform matrix — where the real cost of this project is. |
 | [tech-licensing.md](tech-licensing.md) | FFmpeg's licence ladder, codec patents, and provider terms under an open-source release. Where the landmines are; not legal advice. |
 | [tech-metadata.md](tech-metadata.md) | TMDB, TheTVDB, MusicBrainz, AcoustID, OpenSubtitles — capability, licensing, and the traps. |
+| [internationalisation.md](internationalisation.md) | UI strings, collation, FTS5 tokenisers, the multi-language metadata model, libass bidi and line breaking, and the Unicode traps in Go and in our own node pipeline. Mostly **measured**, not cited. Backs D45–D51. |
 
 ## Method and its limits
 

@@ -33,6 +33,16 @@ A filesystem watcher for incremental updates, plus a full scan that is safe to i
    Anime needs explicit handling: absolute numbering, version suffixes, fansub brackets.
    Position, from Kyoo: "media not being scanned correctly (even with weird names) is a bug" —
    no mandated folder layout.
+
+   **The corpus is Unicode-safe or it is worthless** ([D49](../../decisions/working-notes.md)).
+   Go's `\w \d \s \b [[:alpha:]]` are ASCII-only, unlike .NET's and Python's, so Jellyfin's
+   episode expressions ported verbatim fail on `狂った一頁` — and on **`Fièvre`**. `\s` also
+   misses U+3000 IDEOGRAPHIC SPACE, the usual separator in Japanese and Chinese filenames, and
+   U+00A0, which Windows renamers emit. The failure is silent: the expression does not match,
+   the name falls through to a worse one, and the result is a misparse rather than an error. So
+   the corpus bans those classes, requires `\p{L} \p{N} \p{M} \p{Z}`, and CI runs every
+   expression against a non-Latin fixture. This is also the most likely reason the top four
+   Jellyfin metadata plugins are Chinese-market.
 2. **Legibility.** "Logging around library scanning being pretty difficult to interpret... which
    for me tends to be the trouble spot in these systems" is a direct user complaint about
    Jellyfin. The scanner gets its own structured log channel and a per-run report the user can

@@ -60,6 +60,11 @@ status rather than trusting this paragraph, but the ordering between them is:
   the hardest product questions in the project, and `threat-model.md` depends on the outcome.
 - **`rules-engine.md` is the urgent one**, because it is schema-shaping and `library-model.md`
   is Phase 1. Designing it after the schema means a migration.
-- **`threat-model.md`, `testing-strategy.md`, `performance-targets.md`,
-  `internationalisation.md` and `backup-restore.md`** are gaps in the foundations rather than
-  features. Each is cheap now and expensive later; none blocks Phase 0.
+- **`internationalisation.md` is done** (2026-09-19, [D45](../../decisions/working-notes.md)–[D51](../../decisions/working-notes.md)),
+  and it turned out to be schema-shaping too: the metadata translation split, the sort-key
+  column and the FTS5 tokeniser choice all have to land before `library-model.md`. Two of its
+  findings are due *now* rather than with the schema — NFC path normalisation is a field in the
+  node report contract, and the Unicode-safe regex corpus belongs with the scanner.
+- **`threat-model.md`, `testing-strategy.md`, `performance-targets.md` and
+  `backup-restore.md`** are gaps in the foundations rather than features. Each is cheap now and
+  expensive later; none blocks Phase 0.

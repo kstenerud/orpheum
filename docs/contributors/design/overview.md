@@ -139,6 +139,14 @@ Notes on the shape:
   build is gated on it being current. ([D20](../decisions/working-notes.md))
 - **`cache/` is always safe to delete.** Nothing irreplaceable lives outside the database and
   the media files.
+- **Metadata is multi-language by schema, not by configuration**
+  ([D45](../decisions/working-notes.md)). Every title has a language-invariant row and a set of
+  translation rows — including per-language artwork, because posters have title text in the
+  pixels — and the request's `Accept-Language` chooses among them. Jellyfin resolves one
+  language per library at *ingest*, so two people in one household cannot each have their own;
+  the request for a fallback chain has been open there since 2020. Sort order is a materialised
+  CLDR sort key per locale ([D47](../decisions/working-notes.md)) rather than a transliteration
+  to ASCII, so Swedish Å Ä Ö sort after Z instead of being folded to the front.
 - **The scanner runs as named phases** (Navidrome's model) with its own structured log channel,
   because "I can't tell what the scanner did" is a real, recurring complaint.
 
@@ -151,7 +159,7 @@ Notes on the shape:
 | Dolby Vision / Atmos *output* | Passthrough only. We direct-play them where the client copes and fall back to a menu profile otherwise; we never encode into them. |
 | Photos | [D1](../decisions/working-notes.md). Immich exists, is AGPL, and is moving faster than we could. |
 | A Netflix-style encoding ladder | Bandwidth is free on a LAN. |
-| Microservices, Kafka, Elasticsearch, Redis | Household scale. SQLite FTS5 covers search, Go covers fuzzy matching, and job wakeups are a channel in one process ([D31](../decisions/working-notes.md)). |
+| Microservices, Kafka, Elasticsearch, Redis | Household scale. SQLite FTS5 covers search — two tokenisers, because no single one handles Latin, CJK and Thai ([D48](../decisions/working-notes.md)) — Go covers fuzzy matching, and job wakeups are a channel in one process ([D31](../decisions/working-notes.md)). |
 | A Roku client | BrightScript shares no code with anything and Roku cannot render bitmap subtitles at all. |
 | FFmpeg in the core process | [D26](../decisions/working-notes.md). Media is attacker-supplied data and FFmpeg will eventually be compromised; all of it runs in a Landlock+seccomp-confined worker, so the core never parses hostile bytes. |
 | In-process plugins | [D12](../decisions/working-notes.md). Third-party scrapers are the last code you want unsandboxed. Protocol surfaces get a second tier — out-of-process adapters ([D15](../decisions/working-notes.md)). |
