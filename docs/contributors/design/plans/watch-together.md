@@ -7,14 +7,58 @@
 - **Status:** PLANNED — researched 2026-09-19 ([watch-together.md](../research/watch-together.md), [D62](../../decisions/working-notes.md)–[D64](../../decisions/working-notes.md)).
 - **Depends on:** [stream-service.md](stream-service.md), [web-client.md](web-client.md) (the SDK), [remote-access.md](remote-access.md) (for the off-LAN case)
 
-## Scope
+## Scope, in priority order
 
 Anyone in a group may **play, pause and seek**. Volume is local. **Voice chat** with per-source
 gain, so one loud participant does not drown the film. Text chat deferred; emoji reactions are
 probably the right shape for a television.
 
-The motivating case is two people in different places, one of them travelling — which means
-this is a *remote* feature first and a LAN feature incidentally.
+The motivating case is two people in different places, one of them travelling — a *remote*
+feature first and a LAN feature incidentally.
+
+**Group size is a priority order, not a capability** ([D69](../../decisions/working-notes.md)):
+
+| Priority | Size | Notes |
+| --- | --- | --- |
+| 1 | **Two** | Where the design is *best*, not merely simplest — see below |
+| 2 | **Four or five** | The honest ceiling for a household uplink |
+| 3 | **LAN party** | Mostly a UI problem: roster, joining, control defaults |
+| — | **Remote party** | **Not on this list.** Gated on adaptive bitrate in [transcoding.md](transcoding.md) |
+
+Two is the best case rather than the degenerate one:
+[D65](../../decisions/working-notes.md)'s echo alignment is *fully* solvable at two — one person
+on headphones, one on speakers, offset `d = L`, echo gone — and only approximable above it,
+because with three or more the pairwise-optimal offsets are over-determined. "Does one stall
+pause everyone?" has an obvious answer at two and none at five. And the server relay is free at
+two, merely cheap at five.
+
+### Where the ceiling actually is
+
+Not the voice. Opus with RTP/SRTP/UDP/IP overhead is ~64 kbps per stream, and because
+per-source gain means the server **forwards rather than mixes**, it is `N(N−1)` outbound:
+
+| N | 2 | 5 | 10 | 20 |
+| --- | --- | --- | --- | --- |
+| Voice out | 0.13 Mbps | 1.3 Mbps | 5.8 Mbps | 24 Mbps |
+
+**The film is the constraint long before that.** A 1080p web-dl direct-plays at 5–10 Mbps and a
+remux at 20–30, against a household upload of 10–40 Mbps on fibre and much less elsewhere. One
+remote viewer on a remux can saturate an uplink. So "party mode" splits in two: a **LAN party**
+costs no uplink at all and is nearly free, while a **remote party** is bounded by physics and
+belongs to the transcoding plan, not this one.
+
+### Openings to leave, none of which is work today
+
+1. **Membership is a list with per-member state**, not a pair.
+2. **Control is a per-participant capability**, defaulting to everyone — so adding a host later
+   is a policy change, not a redesign.
+3. **The client handles a *set* of remote audio streams** with per-source gain, even when the
+   set has one member. Free, since per-source gain was already required.
+4. **Transport is a server-chosen policy** — mesh, relay, or eventually an SFU — not a client
+   assumption.
+5. **The stall policy is a group setting** with a size-dependent default.
+
+Not building: an SFU, active-speaker detection, moderation tooling, roles beyond (2), text chat.
 
 ## The constraint that decides whether this survives
 
@@ -155,7 +199,8 @@ The consequence for [D64](../../decisions/working-notes.md): the premium tier's 
 ## Open
 
 - **Does one participant stalling pause everyone?** Obviously yes for two, obviously no for
-  eight. Jellyfin makes it a flag; we probably want a default that varies by group size.
+  eight. Jellyfin makes it a flag; we probably want a default that varies by group size — which
+  is opening (5) above, so the question can stay open without blocking anything.
 - **Is the subtitle track group state or local?** One person may need subtitles. Local is the
   intuitive answer, but then "seek to the funny bit" and "turn subtitles on" behave
   inconsistently, which is the kind of inconsistency users report as a bug.
@@ -167,7 +212,12 @@ The consequence for [D64](../../decisions/working-notes.md): the premium tier's 
 
 ## Done when
 
-Two people on different networks watch a film end to end; either can pause, resume and seek;
-scrubbing does not drag the other person around; a stall on one side is visible on the other as
-a named reason rather than a freeze; voice is intelligible with per-speaker levels; and a third
-client platform gains the whole feature by implementing six methods.
+**Phase 1 — two participants.** Two people on different networks watch a film end to end; either
+can pause, resume and seek; scrubbing does not drag the other person around; a stall on one side
+is visible on the other as a named reason rather than a freeze; voice is intelligible with
+per-speaker levels and no echo with one side on speakers; and a third client platform gains the
+whole feature by implementing six methods.
+
+**Phase 2 — four or five.** The same, with a roster, and **without the audio path or the
+group-state record changing shape**. If either has to change, opening (1) or (3) was not left
+properly.

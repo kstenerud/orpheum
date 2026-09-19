@@ -4505,3 +4505,97 @@ us, so the traversal cleverness should be bounded and the relay path should be g
 **Status:** Provisional in one respect. If watch-together ever grows past a handful of
 participants, relaying N streams through a household uplink stops being free and a selective
 forwarding unit becomes a real design question. At two to four people it is not.
+
+---
+
+## D69 — Group size is a priority order, not a capability: two, then four or five, then a party
+
+**Decided** (2026-09-19). Build Watch Together for **two participants** first, **four or five**
+second, and **party viewing** third and later. Leave the openings; do not build the machinery.
+
+### Two is not just the first case, it is the case where the design is best
+
+Worth noticing rather than treating two as a degenerate N:
+
+- **[D65](#d65--playback-offset-is-per-participant-and-it-is-an-echo-control)'s echo alignment is
+  *fully* solvable at two and only approximable above it.** With one person on headphones and
+  one on speakers, the offset `d = L` removes the echo completely. With three or more, the
+  pairwise-optimal offsets are over-determined and there is no assignment that satisfies every
+  pair — it degrades to a reference participant and best-effort, which is what everyone else
+  already has.
+- **"Does one stall pause everyone?" has an obvious answer at two** and no obvious answer at
+  five.
+- **[D68](#d68--turn-is-not-an-independent-requirement-the-media-server-is-already-the-relay)'s
+  server relay is free at two** and merely cheap at five.
+
+So the ordering is not a resource compromise; two is where the feature is *best*, and it is the
+case that motivated it.
+
+### Where the real ceiling is, and it is not the voice
+
+Working the numbers, because the intuition points at the wrong thing. Opus speech with RTP,
+SRTP, UDP and IP overhead at 50 packets/second is roughly **64 kbps per stream**. Per-source
+gain is a stated requirement, so the server **forwards rather than mixes** — mixing would
+destroy exactly the control that was asked for — which means `N(N−1)` outbound streams:
+
+| N | Voice out of the home uplink |
+| --- | --- |
+| 2 | 0.13 Mbps |
+| 5 | 1.3 Mbps |
+| 10 | 5.8 Mbps |
+| 20 | 24 Mbps |
+
+Voice only becomes a problem around twenty. **The film is the constraint long before that.** A
+1080p web-dl direct-plays at 5–10 Mbps and a remux at 20–30, against a typical household upload
+of 10–40 Mbps on fibre and far less elsewhere — the existing note in
+[remote-access.md](../design/research/remote-access.md) already puts a two-hour film at 20 Mbps.
+**One** remote viewer on a remux can saturate a home uplink. Four or five remote viewers cannot
+be served at all without reducing the bitrate.
+
+### Which splits "party mode" into two unrelated features
+
+This is the useful consequence, and it changes what the third priority even is:
+
+- **LAN party** — ten people in one house. No NAT, no relay, no uplink involved, bandwidth
+  effectively free. This is almost entirely a **UI** problem: a roster, a way to join, and
+  sensible defaults for who may control what. Genuinely cheap, and reachable soon after 4–5.
+- **Remote party** — ten people in ten houses. Bounded by the household's upload, so it is gated
+  on **adaptive bitrate per viewer**, which is the bandwidth half of
+  [transcoding.md](../design/plans/transcoding.md) that [D17](#d17--direct-play-first-transcoding-additive-and-optional)
+  deliberately deferred. It is not a watch-together feature at all; it is a transcoding feature
+  wearing watch-together's clothes.
+
+So remote party viewing is not third on this list — **it is downstream of a different plan
+entirely**, and saying so prevents it being scheduled as though watch-together work would
+deliver it.
+
+### The openings to leave, all cheap now and awkward later
+
+Each of these is a shape rather than a feature, and none of them is work today:
+
+1. **Membership is a list with per-member state**, not a pair. The moment it is a pair, a roster
+   is a rewrite.
+2. **Control is a per-participant capability, defaulting to everyone.** "Anyone can pause" is the
+   requirement at two and at five; at twenty it becomes chaos and wants a host. If the capability
+   exists from the start and is simply always granted, adding a host is a policy change rather
+   than a redesign.
+3. **The client handles a *set* of remote audio streams with per-source gain**, even when the set
+   has one member. This costs nothing — per-source gain was already required — and it is the
+   difference between adding a third participant and rewriting the audio path.
+4. **Transport is a server-chosen policy, not a client assumption.** Mesh, server relay or
+   eventually a selective forwarding unit should be a decision the client is told about, not one
+   it is built around.
+5. **The stall policy is a group setting** with a default that varies by size, rather than a
+   hardcoded rule.
+
+### What not to build
+
+No selective forwarding unit. No active-speaker detection or top-K forwarding. No moderation
+tooling. No roles beyond the capability flag in (2). No text chat. Each of these is a real
+feature with a real cost and none of them earns its place at two participants — which is the
+case that prompted the whole thing.
+
+**Status:** Provisional in its boundaries. The 4–5 figure is a judgement about household uplinks
+rather than a measurement; the honest number depends on what bitrate the library actually
+direct-plays at, which is the same unknown [D17](#d17--direct-play-first-transcoding-additive-and-optional)
+and the Phase 0 playback survey are already waiting on.

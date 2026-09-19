@@ -89,6 +89,15 @@ bitrate, and it is the design researched in [tech-playback.md](../research/tech-
 LAN it is almost never needed. Prefer AV1/Opus for output where client support allows — they are
 royalty-free by design (D16).
 
+**This also owns remote "party viewing"**, which is not a
+[watch-together](watch-together.md) feature despite looking like one
+([D69](../../decisions/working-notes.md)). Watch-together's cost at scale is voice, and voice is
+trivial — `N(N−1)` Opus streams is 1.3 Mbps at five people and 24 Mbps at twenty. The film is
+the constraint: a 1080p web-dl direct-plays at 5–10 Mbps and a remux at 20–30, so **one** remote
+viewer on a remux can saturate a household uplink. Serving five remote viewers is a bitrate
+problem, which is this component and nothing else. A **LAN** party costs no uplink at all and
+needs none of this.
+
 ## What the core must already provide
 
 None of this is allowed to require changes to the client contract:
