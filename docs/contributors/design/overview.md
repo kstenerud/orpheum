@@ -147,8 +147,15 @@ Notes on the shape:
   the request for a fallback chain has been open there since 2020. Sort order is a materialised
   CLDR sort key per locale ([D47](../decisions/working-notes.md)) rather than a transliteration
   to ASCII, so Swedish Å Ä Ö sort after Z instead of being folded to the front.
-- **The scanner runs as named phases** (Navidrome's model) with its own structured log channel,
-  because "I can't tell what the scanner did" is a real, recurring complaint.
+- **A node publishes a snapshot plus a journal, and interprets nothing**
+  ([D59](../decisions/working-notes.md)). It enumerates its roots, looks inside the files
+  because people misname them, and reports what it saw — filenames verbatim, probe output,
+  what it could not read. Parsing `Show.S01E02.mkv` into a series and episode happens in the
+  **core**, over stored observations, so that improving the parser is a re-interpretation pass
+  that opens no files and needs no node to be switched on. The periodic snapshot is not only
+  compaction: a watcher that fails silently is a watcher whose journal cannot tell you so.
+  Legibility — "I can't tell what the scanner did" is a real, recurring complaint — comes from
+  the node's status record and its error and skip records.
 
 ## What we are deliberately not building
 

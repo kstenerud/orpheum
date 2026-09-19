@@ -1,10 +1,13 @@
-> **ABOUTME:** Library scanning — phased, resumable, legible — and the filename parser it
-> depends on. Runs in a media node, not in the core.
+> **ABOUTME:** What a media node observes and publishes — a snapshot of its roots plus a
+> journal of changes since — and how it detects that something changed. Runs in a media node,
+> not in the core, and deliberately draws no conclusions. What the observations *mean* is
+> [identification.md](identification.md).
 
 # Scanner
 
-- **Status:** PLANNED — designed 2026-09-17; relocated into the media node by [D33](../../decisions/working-notes.md).
+- **Status:** PLANNED — designed 2026-09-17; relocated into the media node by [D33](../../decisions/working-notes.md); **Shape and identification corrected 2026-09-19 by [D59](../../decisions/working-notes.md)**.
 - **Depends on:** library-model.md
+- **Feeds:** [identification.md](identification.md)
 
 ## Where this runs
 
@@ -17,52 +20,95 @@ The consequence for everything below: **the scanner is normally local to its fil
 filesystem watching is the usual case rather than the lucky one, and the network-share problem
 only applies to a node deliberately pointed at a mount.
 
-## Shape
+## Shape: a snapshot plus a journal
 
-Named phases in the Navidrome style rather than one recursive walk: enumerate folders → detect
-missing/moved files → identify and enrich → resolve playlists/collections. Each phase is
-separately testable, separately resumable, and separately logged.
+A node sees the directories and files under its roots and nothing else. No library, no user, no
+history but its own observations, and no idea that the file in front of it is episode 4 of
+anything. So what it publishes is a **temporal view of a subtree** — what is there now, and what
+has changed since ([D59](../../decisions/working-notes.md)).
 
-A filesystem watcher for incremental updates, plus a full scan that is safe to interrupt.
+- **Snapshot** — a complete enumeration of the node's roots at a point in time. This is
+  [D39](../../decisions/working-notes.md)'s report under its honest name, with every property
+  intact: JSONL, header/entries/trailer, completeness signalled by `.partial` → atomic rename,
+  and completeness **scoped per root and per errored subtree**.
+- **Journal** — append-only observations since that snapshot: one line per observed change,
+  same record grammar, same error and skip records with their scopes
+  ([D40](../../decisions/working-notes.md)).
 
-## The two hard parts
+Both carry a **monotonic sequence**, and the snapshot names the sequence it corresponds to. The
+core tracks what it last consumed; if the oldest journal line the node still holds is newer than
+that, there is a gap and the core re-reads the snapshot.
 
-1. **The filename parser is its own component** — a pure function from path to candidate
-   structure, with a large table-driven corpus of real-world names as its test suite. `guessit`
-   is the best prior art and Kyoo uses a *fork* of it, which tells you it needed patching.
-   Anime needs explicit handling: absolute numbering, version suffixes, fansub brackets.
-   Position, from Kyoo: "media not being scanned correctly (even with weird names) is a bug" —
-   no mandated folder layout.
+**The snapshot is always a valid recovery point, so the node never needs to know what the core
+has read** — no acknowledgement protocol, no node-side model of core state, nothing that would
+undo [D42](../../decisions/working-notes.md). Compaction is therefore a purely local storage
+choice: a maximum journal length or size, then a fresh snapshot and older pairs may be dropped.
+The bound is a guess until measured; it belongs in
+[performance-targets.md](performance-targets.md).
 
-   **The corpus is Unicode-safe or it is worthless** ([D49](../../decisions/working-notes.md)).
-   Go's `\w \d \s \b [[:alpha:]]` are ASCII-only, unlike .NET's and Python's, so Jellyfin's
-   episode expressions ported verbatim fail on `狂った一頁` — and on **`Fièvre`**. `\s` also
-   misses U+3000 IDEOGRAPHIC SPACE, the usual separator in Japanese and Chinese filenames, and
-   U+00A0, which Windows renamers emit. The failure is silent: the expression does not match,
-   the name falls through to a worse one, and the result is a misparse rather than an error. So
-   the corpus bans those classes, requires `\p{L} \p{N} \p{M} \p{Z}`, and CI runs every
-   expression against a non-Latin fixture. This is also the most likely reason the top four
-   Jellyfin metadata plugins are Chinese-market.
-2. **Legibility.** "Logging around library scanning being pretty difficult to interpret... which
-   for me tends to be the trouble spot in these systems" is a direct user complaint about
-   Jellyfin. The scanner gets its own structured log channel and a per-run report the user can
-   read: what was found, what was skipped, what was ambiguous, and why.
+### The snapshot is also the only thing that corrects a missed event
 
-## Track language and kind normalisation
+This sets the interval, and it is easy to miss. The journal is exactly as good as the watcher
+feeding it, and [D27](../../decisions/working-notes.md) established that watchers **fail
+silently**. A journal cannot contain the event nobody delivered. A snapshot enumerates, so it
+catches whatever the journal missed.
 
-Part of identification, and easy to underestimate ([D24](../../decisions/working-notes.md)):
+Compaction and correctness happen to want the same mechanism, but it is the correctness
+requirement that sets the floor: **periodic full snapshots are mandatory even with a perfect
+watcher**, because you cannot know the watcher is perfect.
 
-- **Normalise every track's language tag to BCP 47**, keeping the original. ISO 639-2 carries two
-  competing 3-letter codes per language — `ger`/`deu`, `fre`/`fra`, `chi`/`zho`, `dut`/`nld` —
-  and real containers use both inconsistently. FFmpeg's 695-entry `avlanguage.c` table exists for
-  precisely this and is the reference.
-- **Derive track *kind*, not just language.** `FORCED`, `HEARING_IMPAIRED`, `COMMENT`,
-  `DESCRIPTIONS`, `DUB`, `ORIGINAL` come from container dispositions where present — and real
-  files set them wrongly or not at all, so fall back to parsing the track title ("English (SDH)",
-  "Signs & Songs", "Commentary by the director"). Record which source was used, so a user
-  correction can beat a bad heuristic without being overwritten on rescan.
-- This belongs in the same table-driven, real-corpus test suite as the filename parser. It is
-  only ever right against real files.
+### What the node reports, and what it refuses to conclude
+
+| The node reports | The core decides |
+| --- | --- |
+| the filename, verbatim — NFC form and raw bytes ([D49](../../decisions/working-notes.md)) | what the filename *means* |
+| size, mtime, and where cheap, a content hash | whether two files are the same work |
+| probe output: container, streams, codecs, durations, disposition flags, track titles, attachments | which track is "the" audio track |
+| a track's BCP 47 tag **beside** the raw `ger`/`deu` the container carried | how to resolve a conflict between them |
+| `A gone` and `B appeared` | that it was a move |
+| "the extension says `.mkv`, the probe says something else" | whether that is a mislabel, a corruption, or a deliberate swap |
+
+**The extension is a hint about whether probing is worthwhile, never a conclusion about
+content** — people misname things constantly, so the node looks inside. Probing stays here
+because the core never opens a media file ([D26](../../decisions/working-notes.md)).
+
+Two rules worth stating as rules:
+
+- **Report the event you were given; never synthesise linkage.** Do not emit "moved" from a
+  disappearance and an appearance — that needs hash or inode history the core holds. But when
+  `inotify` hands over a `MOVED_FROM`/`MOVED_TO` pair sharing a cookie, the kernel linked them
+  and passing the link along *is* reporting what you saw.
+- **Node-local state may change cost, never content.** A probe cache keyed by path, size and
+  mtime is necessary or every snapshot re-probes fifty thousand files. The boundary that keeps
+  it a cache rather than judgement: **delete it and the node must report exactly the same
+  thing, only slower.**
+
+### Legibility, which the phases were for
+
+"Logging around library scanning being pretty difficult to interpret... which for me tends to
+be the trouble spot in these systems" is a direct Jellyfin complaint and still the target. It is
+met by [D34](../../decisions/working-notes.md)'s status record and
+[D38](../../decisions/working-notes.md)'s `state`/`task` pair rather than by a pipeline: named
+activities survive as **progress labels**, not as stages that draw conclusions. The user-facing
+question — "why is this file not in my library?" — is answered by the node's error and skip
+records joined to the core's identification log, and it needs both halves.
+
+## Track facts the node records
+
+Observation only; the *derivation* of track kind is in
+[identification.md](identification.md) ([D59](../../decisions/working-notes.md)).
+
+- **The raw language tag exactly as the container carried it**, plus its BCP 47 normalisation
+  alongside ([D24](../../decisions/working-notes.md)). ISO 639-2 has two competing 3-letter
+  codes per language — `ger`/`deu`, `fre`/`fra`, `chi`/`zho`, `dut`/`nld` — and real containers
+  use both inconsistently; FFmpeg's 695-entry `avlanguage.c` is the reference. Normalisation is
+  lossless and context-free, so it belongs here; keeping the original is the same
+  normalise-for-use-keep-the-original rule as [D49](../../decisions/working-notes.md)'s paths.
+- **Disposition flags as found** — `FORCED`, `HEARING_IMPAIRED`, `COMMENT`, `DESCRIPTIONS`,
+  `DUB`, `ORIGINAL` — and **the track title string, verbatim**. Real files set the flags wrongly
+  or not at all, so the title is often the only signal; but reading "English (SDH)" or
+  "Signs & Songs" and concluding a *kind* is a heuristic over text, and heuristics improve, so
+  that inference happens in the core where it can be re-run without touching a filesystem.
 
 ## Watching: a strategy interface, not a mechanism
 
@@ -100,13 +146,9 @@ updates directory mtimes at all, time a few hundred entries to estimate deep-sca
 then surface **last successful deep scan and current staleness** — which is the question a
 polling user actually has.
 
-## Also
-
-Manual identification override that survives rescans, provider changes and file moves (D7 —
-written back to sidecars). Duplicate and re-encode detection within a library via perceptual
-hashing (Stash's `goimagehash` is the prior art).
-
 ## Done when
 
-A pathological real-world library scans correctly, an interrupted scan resumes, and the run
-report answers "why is this file not in my library?" without reading a debug log.
+A pathological real-world library enumerates correctly; an interrupted snapshot resumes without
+the core inferring a deletion; a watcher that silently stops is caught by the next snapshot; a
+node whose probe cache is deleted publishes a byte-identical snapshot; and the node's records
+answer "what did you see, and what could you not read?" without a debug log.

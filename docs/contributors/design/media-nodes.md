@@ -130,6 +130,17 @@ The hard design work, and where the traps are. Format and completeness settled i
   around the failure.
 - **Per item:** node-local stable id, path, size, mtime, optional content hash, and the probe
   results — so the core never needs to open the file.
+- **Observation only, never conclusion** ([D59](../decisions/working-notes.md)). The node
+  reports the filename verbatim and does **not** parse it into series/season/episode — that
+  needs library context it lacks, and more importantly a parser improvement must be replayable
+  over the database without touching a filesystem. It does look *inside* the file, because
+  people misname things: the extension is a hint about whether probing is worthwhile, never a
+  conclusion about content, and where probe and extension disagree **both are reported**. Two
+  corollaries: report the event you were given and never synthesise linkage (`A gone` +
+  `B appeared`, not "moved" — unless the kernel handed you the `MOVED_FROM`/`MOVED_TO` cookie
+  pair, in which case the link is something you saw); and **node-local state may change cost,
+  never content** — delete the probe cache and the node must publish an identical snapshot,
+  only slower.
 - **Path is two fields, not one** ([D49](../decisions/working-notes.md)). A node on macOS and a
   node on Linux report **different bytes for the same file** — `Amélie` is 8 bytes decomposed
   and 7 composed — which under `UNIQUE(path)` is two library items and under a reconciling
@@ -139,6 +150,15 @@ The hard design work, and where the traps are. Format and completeness settled i
   NFC string will not open a decomposed filename on Linux. Same shape as
   [D24](../decisions/working-notes.md)'s rule for track tags — normalise for use, keep the
   original for provenance.
+- **The output is a snapshot plus a journal** ([D59](../decisions/working-notes.md)). The
+  snapshot is a complete enumeration of the roots at a point in time — everything below about
+  reports applies to it unchanged — and the journal is append-only observations since, in the
+  same record grammar. Both carry a monotonic sequence and the snapshot names the sequence it
+  corresponds to, so the core detects a gap and falls back to the snapshot. **A snapshot is
+  always a valid recovery point, so the node never needs to know what the core has read** —
+  which is what keeps compaction a local storage decision rather than a protocol. And because a
+  watcher can fail silently ([D27](../decisions/working-notes.md)), the periodic snapshot is not
+  only compaction: it is the only thing that can correct for an event nobody delivered.
 - **Completeness lives in the filename.** The node writes `report-<epoch>.jsonl.partial` and
   atomically renames on success, so completeness is an O(1) directory check and the core never
   parses a file still being written. A trailer is kept for the *summary* — counts, duration,

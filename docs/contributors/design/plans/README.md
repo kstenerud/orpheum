@@ -38,7 +38,10 @@ else in either direction. Nothing about transcoding should be guessed before it 
 measurement into a repeatable sweep and setting the support floor from evidence.
 
 Then `library-model.md` and `scanner.md` in parallel with `stream-service.md` (direct play
-only, per [D17](../../decisions/working-notes.md)). `web-client.md` needs `stream-service.md`;
+only, per [D17](../../decisions/working-notes.md)). `identification.md` was split out of
+`scanner.md` by [D59](../../decisions/working-notes.md) and follows it: the scanner is what a
+node **observes**, identification is what the core **concludes**, and the split exists so a
+parser improvement can be replayed over the database with every node switched off. `web-client.md` needs `stream-service.md`;
 its real deliverable is the shared SDK. `tv-client.md` needs `web-client.md` only for that SDK.
 
 `transcoding.md` is deliberately late and is two components in one file — compatibility first

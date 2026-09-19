@@ -132,7 +132,11 @@ gapless, crossfade, offline sync that works, and a queue model users can reason 
 1. **Audio is the cheapest of the three media types to ship well**, on one condition: speak
    **OpenSubsonic**. That buys a working client ecosystem for free and makes "do we build a
    music client?" a question we can defer indefinitely.
-2. **Scan as named phases**, not one recursive walk (Navidrome).
+2. **Scan as named, separately-reportable activities**, not one opaque recursive walk
+   (Navidrome). Note what does *not* transfer: Navidrome's later phases identify and enrich,
+   which in our architecture is the core's job, not the node's
+   ([D59](../../decisions/working-notes.md)). Navidrome is one process over local files, so it
+   has no reason to draw the line; we do.
 3. **Tags in files, database as cache.** It removes an entire class of migration and
    data-loss failure.
 4. **Plugins are a sandbox problem.** Extism/WASM with an explicit host-capability list is the

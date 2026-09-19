@@ -2411,6 +2411,8 @@ Each line carries its record type, so a reader never has to guess from context.
 completeness flag itself, belongs in the format from the first version — retrofitting it means
 a period in which an unreadable directory silently deletes its contents from the library.
 
+**Extended by [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)** — the report is the *snapshot* half of a snapshot-plus-journal pair. Every property here survives unchanged.
+
 ---
 
 ## D40 — `error` and `skip` records, and why the error record carries the completeness scope
@@ -3716,3 +3718,129 @@ and it is cheaper to build this way than the other way.
 **Status:** Provisional only in how the alarm surfaces — a log line, a counter, or something the
 user sees. Promoted to [principles §10](../principles/README.md), because it decides arguments
 well beyond this one.
+
+---
+
+## D59 — A node publishes a snapshot plus a journal; it observes, it does not interpret
+
+**Decided** (2026-09-19). Correcting [scanner.md](../design/plans/scanner.md), whose Shape
+section still described Navidrome-style pipeline phases — *enumerate → detect missing/moved →
+**identify and enrich** → **resolve playlists/collections*** — written on 2026-09-17, before
+[D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do) moved the
+scanner into the node and before
+[D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides) made nodes sensors. The
+last two of those phases are interpretation, and the document was never re-read after the
+relocation.
+
+### What a node actually has, and therefore what it can say
+
+A node sees the directories and files under its roots, and nothing else. It has no library, no
+user, no history beyond what it has itself observed, and no idea that the file it is looking at
+is episode 4 of anything. So the only thing it can honestly offer is **a temporal view of a
+subtree**: what is there now, and what has changed since.
+
+That is a **snapshot plus a journal**:
+
+- **Snapshot** — a complete enumeration of the node's roots at a point in time. This is
+  [D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global)'s
+  report, renamed for what it actually is, keeping every property it already had: JSONL,
+  header/entries/trailer, completeness in the filename via `.partial` → atomic rename, and
+  completeness **scoped per root and per errored subtree**.
+- **Journal** — append-only observations since that snapshot, one line each, same record
+  grammar, same error and skip records with their scopes ([D40](#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope)).
+
+Both carry a **monotonic sequence number**, and the snapshot records the sequence it corresponds
+to. The core tracks the last sequence it consumed. If the oldest journal line the node still has
+is newer than that, there is a gap, and the core falls back to the snapshot.
+
+**The snapshot is always a valid recovery point, so the node never has to know what the core has
+read.** That is the property that keeps this inside D42: no back-channel, no acknowledgement
+protocol, no node-side model of core state. Compaction is a node-local storage decision — a
+maximum journal length or size, after which a fresh snapshot is written and older pairs may be
+dropped — and the worst consequence of getting the bound wrong is that the core re-reads a
+snapshot.
+
+### The snapshot is not only compaction; it is the only thing that corrects a missed event
+
+Worth stating because it sets the interval. The journal is as good as the watcher that feeds it,
+and [D27](#d27--change-detection-is-a-strategy-interface-that-reports-which-strategy-it-is-using)
+established that watchers **fail silently** — `inotify` does not work over SMB or NFS and has
+watch limits a large library exhausts. A journal cannot show you the event nobody delivered.
+
+A snapshot enumerates, so it catches everything the journal missed. Compaction and correctness
+turn out to want the same mechanism, which is convenient, but the correctness requirement is the
+one that sets the floor: **periodic full snapshots are mandatory even with a perfect watcher**,
+because you cannot know the watcher is perfect.
+
+### The node does not parse filenames
+
+A filename is **reported verbatim** — NFC form plus raw bytes ([D49](#d49--unicode-discipline-at-the-boundaries-enforced-by-tests)) — and never parsed into series, season or episode by the node.
+
+The §9 test says why: the *right* parse depends on the library it lands in, on whether this
+series already exists with a known convention, on whether absolute numbering is in play. The
+node has none of that.
+
+But the decisive reason is practical and has nothing to do with purity. **The parser will get
+better.** If the node parses, then improving the parser means re-scanning every node across
+every filesystem, including the NAS over SMB and the one that is currently offline. If the core
+parses stored raw paths, improving the parser is a re-interpretation pass over the database that
+touches no filesystem at all. That is the same argument as
+[D13](#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise)'s rebuildable index, and it
+is worth a great deal the first time a regex is wrong.
+
+So the filename parser, its Unicode-safe corpus, and the derivation of track *kind* from title
+strings ("English (SDH)", "Signs & Songs") all move to the **core's identification stage**.
+
+### But the node absolutely does look inside the file
+
+This is the other half and it is not a contradiction. The extension is a **hint about whether
+probing is worthwhile**, never a conclusion about content, because people misname things
+constantly. The node probes and reports what is actually there: container, streams, codecs,
+durations, disposition flags, track titles, attachment list.
+
+That is observation and it stays in the node — the core never opens a media file
+([D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)). **When the probe
+disagrees with the extension, report both.** The disagreement is itself a fact, and what it
+means — a mislabelled file, a corrupt one, a deliberate container swap — is the core's call.
+
+Canonicalisation that is lossless and context-free stays in the node, reported **alongside the
+original**: a track's BCP 47 tag beside the raw `ger`/`deu` the container carried
+([D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)), the NFC
+path beside the raw bytes. Anything that is a *heuristic over text* is interpretation and goes
+to the core, by the improve-later argument above.
+
+### Report the event you were given; do not synthesise linkage
+
+A node must not emit "this file moved from A to B" when what it saw was one path disappear and
+another appear. Deciding those are the same file requires hash or inode history the core holds.
+Report `A gone` and `B appeared`; the core decides it was a move.
+
+The converse matters equally: when `inotify` hands over a `MOVED_FROM`/`MOVED_TO` pair sharing a
+cookie, **the kernel linked them and reporting the link is reporting what you saw.** The rule is
+not "never emit a move", it is *never invent a relationship the source did not give you*.
+
+### Node-local state may change cost, never content
+
+The node needs a probe cache keyed by path, size and mtime, or every snapshot re-probes fifty
+thousand files. §9 warns specifically against giving a sensor a memory, so the boundary needs
+stating:
+
+> **Delete the node's local state and it must report exactly the same thing, only slower.**
+
+A cache that can change *what* is reported has stopped being a cache and become judgement. This
+is the test to apply whenever node-local storage is proposed.
+
+### What happens to "phases"
+
+The legibility goal behind them was real — *"logging around library scanning being pretty
+difficult to interpret"* is a direct Jellyfin complaint — but it is already met by
+[D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle)'s status record
+and [D38](#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config)'s
+`state`/`task` pair. Named activities survive as **progress labels**, not as a pipeline whose
+later stages draw conclusions.
+
+**Status:** Provisional. The compaction bound — maximum journal length before a fresh snapshot —
+is unknown and needs measurement against a real library and a real watcher; it joins the other
+threshold guesses in [performance-targets.md](../design/plans/performance-targets.md). This
+**extends rather than supersedes D39**: every property of the report survives, applied to the
+snapshot.
