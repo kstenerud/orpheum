@@ -51,6 +51,10 @@ samples, and — the important part — **the sample with minimum round-trip del
 the least-delayed sample carries the least queuing noise. Polling is greedy at 1 s for the first
 few pings, then drops to 60 s.
 
+**We do not need most of this** ([D66](../../decisions/working-notes.md)). The minimum-delay
+sample is worth keeping; clock *offset estimation* is not, because no shared time base is
+required — see §1.3.
+
 **Drift correction has two strategies**, and the thresholds are stated in the source:
 
 ```js
@@ -87,6 +91,38 @@ Playing → advancing
 
 `Waiting` is the one that matters: a client that stalls drops the group into `Waiting` rather
 than letting it run away, unless `IgnoreBuffering` is set on the playing state.
+
+### 1.3 How much clock accuracy is actually needed
+
+The realistic figure is **50 ppm between two consumer devices' clocks** — a crystal rated
+48,000 Hz runs at 48,000.5 on one device and 47,999.5 on another. So:
+
+```
+50 ppm over 10 minutes  →   30 ms     below Jellyfin's 60 ms "do nothing" threshold
+50 ppm over 20 minutes  →   60 ms     at it
+50 ppm over 3 hours     →  540 ms     well past it
+```
+
+Local timers therefore need reconciling **every ten to twenty minutes, not every second**.
+Jellyfin's 60 s polling is roughly 40× more often than clock drift alone requires.
+
+But clock drift is **not the dominant term**. A stall, a burst of dropped frames, or a seek
+landing on the nearest keyframe rather than the requested position moves a client 100 ms to 2 s
+*instantly*, and no timer accuracy helps. So reconciliation wants to be two mechanisms:
+**periodic**, in minutes, for slow drift; and **event-driven** — on the `isBuffering()`
+transition, a completed seek, a resume — which is when position actually jumps, and which is
+nearly free because those events are already in the client contract.
+
+And no shared clock is needed at all. The client reports "my position was `P` when my monotonic
+clock read `M`"; the server timestamps its own send and receive and knows the client's position
+now to within one round trip. This is the same trick the project already uses for node liveness
+([D34](../../decisions/working-notes.md), [D37](../../decisions/working-notes.md)) — *the core
+knows how much time passed between its own observations and does not care what time anyone else
+thinks it is.*
+
+Using wall clocks would be **actively worse**: a system clock can be stepped by an NTP daemon
+mid-film, producing a spurious jump of arbitrary size. `performance.now()`, `CLOCK_MONOTONIC`,
+`mach_absolute_time` and Go's monotonic `time.Now()` are all immune.
 
 ### Apple's design, which is better in one specific way
 
@@ -136,10 +172,53 @@ mixed with their own copy. That is the failure mode, and it is not a tuning prob
 It gets worse with distance and with wireless output — Bluetooth headphones and soundbars
 introduce variable latency, and AEC needs the reference and the echo to be time-aligned.
 
-**So headphones are the supported configuration, and we should say so rather than pretend.** If
-both participants wear headphones there is no acoustic path at all and the entire class of
-problem disappears. That is also what every voice-chat product in practice assumes. Speakers get
-best-effort: aggressive noise gating, and ducking where we can.
+Headphones remove the problem entirely — no acoustic path, no echo — but they are not always
+possible, so "use headphones" is an incomplete answer. Two more tiers exist, and the middle one
+came from a field experiment rather than from any implementation in this survey.
+
+#### Tier 2: deliberate playback offset
+
+Watching with two independent players and voice over WhatsApp, the echo was made tolerable by
+**delaying one side's playback** so the leaked film audio arriving over the voice channel lined
+up with the local copy. Every implementation surveyed — Jellyfin, SharePlay, Teleparty — targets
+*identical* positions, which turns out to be the configuration that **maximises** this echo.
+
+The derivation. Let A be ahead of B by `d`, one-way voice latency `L`. B hears their own film at
+`p_B(t)` and A's leaked audio captured `L` ago, at `p_A(t−L) = p_B(t) + d − L`:
+
+```
+misalignment at B  =  L − d      → zero when d = +L   (A ahead by L)
+misalignment at A  =  L + d      → zero when d = −L   (A behind by L)
+```
+
+- **Both cannot be zero.** At `d = 0` — what everyone builds — both suffer a full `L`.
+- **Delaying yourself fixes the echo you hear**, at the other's expense, which matches the
+  observed behaviour and confirms the sign.
+- **When only one side leaks it is fully solvable**: if B wears headphones and A does not, only
+  B hears an echo, and `d = +L` removes it. The rule is *the participant whose room audio leaks
+  runs ahead by the one-way voice latency.*
+
+This is perceptually decisive rather than marginal. Below roughly 30 ms the precedence effect
+fuses the two copies into mild coloration; at 150–300 ms, ordinary voice-path latency, it is a
+distinct and very disruptive slapback.
+
+And **we can set it automatically**, because the voice connection already measures round-trip
+time, so `L ≈ RTT/2` is in hand — with a manual nudge for asymmetric routes, which is how it was
+found in the first place.
+
+#### Tier 3: content-referenced echo cancellation
+
+The reason the platform AEC fails is that it has no reference for audio played by libmpv,
+ExoPlayer or AVPlayer. But **we are the player.** We know the film's audio sample for sample,
+because we decoded it, which means we can supply a **better reference than the operating system
+can** — the OS sees only the mixed output, we see the exact source.
+
+Feeding that to a standalone canceller is tractable: `speexdsp` (BSD-licensed, actively
+maintained — last push 2026-09-17) and the extracted `webrtc-audio-processing` (BSD-3-Clause)
+both take an explicit far-end reference. The difficulty is delay alignment against unknown
+output latency, which adaptive cancellers estimate anyway.
+
+Tiers 1 and 2 are nearly free. Tier 3 is real work and separable.
 
 ### Ducking has a direct conflict with the above
 

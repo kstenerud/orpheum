@@ -52,3 +52,4 @@ the guesses are in one place and get retired together.
 | Shrinkage guard — how much loss is suspicious | [D41](../../decisions/working-notes.md), [D42](../../decisions/working-notes.md) | Needs a real distribution of legitimate library shrinkage |
 | Search routing floor — where `LIKE` gives way to trigram | [D48](../../decisions/working-notes.md) | Measured at 1.5 ms worst case on 20k rows; the crossover on a real corpus is unknown |
 | Sort keys per locale — how many locales a household uses | [D47](../../decisions/working-notes.md) | Cheap at one to three, annoying at ten |
+| Playback-position drift per platform — sets the watch-together reconciliation interval | [D66](../../decisions/working-notes.md) | Derived from a 50 ppm clock assumption; playback-rate error probably dominates and is unmeasured |

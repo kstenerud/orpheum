@@ -4196,9 +4196,10 @@ even if one existed.
 Phone-and-earbuds for voice, television for video. It is the only workable configuration and it
 is already a familiar pattern.
 
-**Status:** Provisional. Push-to-talk is the guaranteed answer for the speakers case and is
-unromantic for the two-people-watching-a-film case this exists for; worth offering, wrong as a
-default. Text chat is deferred — and the honest note is that on a TV it is nearly useless, no
+**Status:** Provisional. **Extended by [D65](#d65--playback-offset-is-per-participant-and-it-is-an-echo-control)**,
+which adds two tiers below headphones and makes speakers genuinely workable rather than
+best-effort. Push-to-talk is the guaranteed answer for the speakers case and is unromantic for
+the two-people-watching-a-film case this exists for; worth offering, wrong as a default. Text chat is deferred — and the honest note is that on a TV it is nearly useless, no
 keyboard and one screen, which is presumably why Disney+ GroupWatch shipped emoji reactions
 instead.
 
@@ -4240,3 +4241,191 @@ this project's likely early audience and a poor one for the household that motiv
 
 **Status:** Provisional, and the least technical entry in this log. What it fixes is the *shape*
 of the answer, not the answer.
+
+---
+
+## D65 — Playback offset is per-participant, and it is an echo control
+
+**Decided** (2026-09-19). The group's shared state is a position **plus a per-participant
+offset**. Target position for participant *i* is `P + offset_i`, default zero. This started as a
+field observation and turns out to have a derivation, an optimum, and an automatic
+configuration.
+
+### The observation
+
+Watching with two players and voice over WhatsApp, the echo was fixed by **deliberately delaying
+one side's playback** so the leaked film audio arriving over the voice channel lined up with the
+local copy. No implementation in the survey does this — Jellyfin, SharePlay and Teleparty all
+target identical positions, which is the configuration that **maximises** the echo.
+
+### Why it works, and where the optimum is
+
+Let participant A be ahead of B by `d`, and let one-way voice latency be `L`.
+
+B hears their own film at content position `p_B(t)`, and hears A's leaked room audio captured
+`L` ago, which was at `p_A(t−L) = p_B(t) + d − L`. So:
+
+```
+misalignment at B  =  L − d      → zero when d = +L   (A ahead by L)
+misalignment at A  =  L + d      → zero when d = −L   (A behind by L)
+```
+
+Three consequences, and the third is the useful one:
+
+- **Both cannot be zero.** At `d = 0` — what everyone builds — *both* participants suffer a full
+  `L` of misalignment. Zero offset is not neutral; it is the worst symmetric choice.
+- **Delaying yourself fixes the echo you hear**, at the other person's expense. Which is exactly
+  the observed behaviour and confirms the sign.
+- **When only one side leaks, it is fully solvable.** If B wears headphones and A does not, only
+  B hears an echo, and `d = +L` removes it completely. The rule:
+
+  > **The participant whose room audio leaks runs *ahead* by the one-way voice latency.**
+
+This matters perceptually rather than marginally. Below roughly 30 ms the precedent effect
+fuses the two copies into mild coloration; by 150–300 ms — ordinary voice-path latency — it is a
+distinct and very disruptive slapback. Moving from `L` to near zero is the difference between
+unusable and unnoticeable.
+
+### We can set it automatically, and nobody else can
+
+We already measure round-trip latency on the voice connection, so `L ≈ RTT/2` is in hand. So
+"align our audio" can be a button rather than a fiddle, with a manual nudge for the case where
+the estimate is off — and the manual nudge is worth keeping regardless, because the user found
+this by hand before anyone built it.
+
+### The three-tier answer to echo, which supersedes "just use headphones"
+
+[D63](#d63--voice-chat-is-webrtc-and-headphones-are-the-supported-configuration) was right that
+headphones remove the problem and wrong to stop there, since headphones are not always possible.
+
+| Tier | Mechanism | Cost |
+| --- | --- | --- |
+| 1 | **Headphones** — no acoustic path at all | none |
+| 2 | **Offset alignment** — this decision | a field in the group state |
+| 3 | **Content-referenced AEC** — use the decoded film audio as the echo reference | real work |
+
+Tier 3 deserves stating because it is **uniquely available to us**. D63 observed that the
+platform's AEC cannot cancel the film because it has no reference for audio played by libmpv,
+ExoPlayer or AVPlayer. But *we are the player*. We know exactly what the film's audio is, sample
+for sample, because we decoded it. Feeding that to a standalone echo canceller — `speexdsp`
+(BSD-licensed, actively maintained) or the extracted `webrtc-audio-processing` (BSD-3-Clause) —
+gives a **better reference than the operating system can supply**, because the OS only sees the
+mixed output while we see the exact source. The difficulty is delay alignment against unknown
+output latency, which adaptive cancellers estimate anyway.
+
+Tiers 1 and 2 are nearly free and should ship together. Tier 3 is a later, separable
+improvement.
+
+### Why the data model change has to happen now
+
+`P + offset_i` instead of `P` is a trivial generalisation on day one and an awkward retrofit
+later, because it touches the group state record, the drift-correction target, and every
+"are we in sync?" comparison. It also pays for itself elsewhere: a participant on a
+consistently slower link can be given a standing offset instead of being seeked at constantly.
+
+**Status:** Provisional in its automation only. The mechanism is derived and field-confirmed;
+whether `RTT/2` is a good enough estimate of one-way voice latency in practice is measurable and
+unmeasured, and asymmetric routes will make it wrong sometimes — hence the manual nudge.
+
+---
+
+## D66 — No clock synchronisation: monotonic local time and bounded round-trips
+
+**Decided** (2026-09-19). Clients never synchronise clocks with the server or with each other.
+Each keeps a **monotonic** local time, reports its position against it, and the server bounds
+the uncertainty with a round-trip measurement. This replaces
+[D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s
+description of the offset exchange as "NTP-style".
+
+### The question was whether device timers are good enough on their own
+
+They are, for the interval that matters, and the arithmetic is worth writing down. **50 ppm
+between two consumer devices' clocks is the realistic figure** — a crystal rated 48,000 Hz runs
+at 48,000.5 on one device and 47,999.5 on another. So:
+
+```
+50 ppm over 10 minutes  →   30 ms      below Jellyfin's 60 ms "do nothing" threshold
+50 ppm over 20 minutes  →   60 ms      at the threshold
+50 ppm over 3 hours     →  540 ms      well past it
+```
+
+So the intuition is quantitatively right: **local timers need reconciling every ten to twenty
+minutes, not every second.** Jellyfin polls at 60 s, which for drift alone is roughly 40× more
+often than necessary.
+
+### But clock drift is not the dominant term, which changes the design
+
+A stall, a burst of dropped frames, or a seek landing on the nearest keyframe instead of the
+requested position moves a client by 100 ms to 2 s **instantly**. No amount of timer accuracy
+helps, and no polling interval catches it promptly without being wasteful the rest of the time.
+
+So reconciliation is **two mechanisms, not one**:
+
+- **Periodic**, on a timer measured in minutes, for slow clock and playback-rate drift.
+- **Event-driven**, triggered by the client itself — the `isBuffering()` transition, a completed
+  seek, a resume — which is when position actually jumps.
+
+The event-driven half is the one that matters, and it is nearly free because those events are
+already in the six-method client contract.
+
+### What we never needed was a shared clock
+
+This is the same trick the project already uses for node liveness
+([D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle),
+[D37](#d37--the-core-judges-liveness-from-observation-not-from-a-node-declared-interval)):
+*the core knows how much time passed between its own observations, and does not care what time
+any component thinks it is.*
+
+Applied here: the client reports "my position was `P` when my monotonic clock read `M`". The
+server timestamps its own send and receive, computes the round trip, and knows the client's
+position **now** to within that round trip. Keeping the **minimum-RTT sample** over a short
+window removes most of the queuing noise — that one trick is worth borrowing from Jellyfin and
+is the only NTP-ish idea left.
+
+No clock offset estimation, no absolute time, no dependence on device wall clocks.
+
+**And using wall clocks would be actively worse.** A system clock can be *stepped* — an NTP
+daemon correcting a phone mid-film, a timezone change, a user fixing the clock — producing a
+spurious jump of arbitrary size in the middle of a sync calculation. Monotonic sources
+(`performance.now()` in browsers and React Native, `CLOCK_MONOTONIC` and `mach_absolute_time`
+natively, and Go's `time.Now()` which carries a monotonic reading that `Sub` uses) are immune to
+all of it. So the simpler design is also the more correct one, which is not the usual trade.
+
+**Status:** Provisional in its intervals. The 10–20 minute figure is derived from a 50 ppm
+assumption, not measured on our hardware; the device lab should measure real playback-position
+drift per platform, because playback-rate error will likely dominate crystal error and may be
+much worse on cheap devices. Joins the threshold list in
+[performance-targets.md](../design/plans/performance-targets.md).
+
+---
+
+## D67 — tvOS never gates a feature
+
+**Decided** (2026-09-19). Where tvOS cannot do something, tvOS does without it. No feature is
+cut, delayed or redesigned to keep the Apple TV client at parity.
+
+**Why this needs saying.** [D30](#d30--tvos-is-cheap-from-inside-the-apple-stack-and-never-has-a-web-fallback) established
+that tvOS is a small share of an Apple client's code, and
+[tvos.md](../design/research/tvos.md) catalogued how it breaks nearly every cross-platform
+option — no WebKit, a Focus Engine that needs UIKit views, TVMLKit deprecated. Watch Together
+made the pattern concrete again: `react-native-webrtc` has no data channels on tvOS, needs a
+locally built framework, and carries an open tvOS 16 compatibility issue; and an Apple TV has no
+app-accessible microphone at all.
+
+The temptation at each of those is to design around the weakest platform. Refused. The cost of
+parity is paid by every other client and by every future feature, and it compounds.
+
+**The escape hatch already exists**, which is what makes this safe rather than reckless.
+[D18](#d18--the-jellyfin-compatible-surface-is-an-adapter-and-it-quarantines-device-profiles) ships a
+Jellyfin-compatible adapter, and Swiftfin and Infuse are mature Apple TV clients that speak it.
+So an Apple TV user is not stranded; they get a good third-party client with a reduced feature
+set, which is exactly the outcome this decision accepts.
+
+**The bail-out, stated so it is not a slow drift.** If the list of tvOS exceptions keeps growing,
+**dropping first-party tvOS support entirely** is on the table and is not a failure — it is the
+adapter doing its job. The trigger is qualitative and should be reviewed rather than computed:
+when a tvOS workaround starts changing a design that would otherwise be simpler, that is the
+signal.
+
+**Status:** Provisional in scope: this is about *tvOS*, not about Apple. iOS and macOS are
+ordinary first-class targets.

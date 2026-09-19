@@ -158,3 +158,21 @@ mostly the same views — a different focus model and a handful of TV-specific s
    most-praised client in the sentiment research is **Infuse, which is Apple-only**, and HN
    threads repeatedly pair Apple TV with it. The 8% market figure probably understates this
    segment.
+
+## Position taken, 2026-09-19
+
+[D67](../../decisions/working-notes.md): **tvOS never gates a feature.** Where it cannot do
+something, it does without. The temptation at each obstacle catalogued above is to design around
+the weakest platform, and the cost of that is paid by every other client and every future
+feature.
+
+Watch Together supplied a fresh example: `react-native-webrtc` has no data channels on tvOS,
+needs a locally built framework, and carries an open tvOS 16 issue — and an Apple TV has no
+app-accessible microphone at all.
+
+This is safe rather than reckless because the escape hatch already exists.
+[D18](../../decisions/working-notes.md)'s Jellyfin-compatible adapter means Swiftfin and Infuse
+work against our server today, so an Apple TV user gets a good third-party client with a reduced
+feature set. If the list of exceptions keeps growing, **dropping first-party tvOS support is on
+the table and is the adapter doing its job**. The trigger to watch for: a tvOS workaround
+changing a design that would otherwise be simpler.
