@@ -3653,4 +3653,66 @@ signs overlap.
 
 **Status:** Provisional in one detail. A per-device override — "never on this box", or conversely
 "I know, do it anyway" — is probably wanted eventually, and is a strictly additive change to the
-same chain. Not building it now.
+same chain. Not building it now. **The authorisation framing in this entry is corrected by
+[D58](#d58--dont-hand-out-a-url-the-client-may-not-use-an-authorisation-check-that-fires-is-a-signal)**
+— omission from the manifest is the mechanism; the server-side check is a backstop.
+
+---
+
+## D58 — Don't hand out a URL the client may not use; an authorisation check that fires is a signal
+
+**Decided** (2026-09-19). Correcting the framing in
+[D57](#d57--the-embedded-font-opt-in-is-per-user-sticky-per-series-and-the-client-may-still-refuse).
+
+D57 said the served font "must be authorised per user, not merely unguessable" and that a
+non-opted-in user's client "must not be able to fetch" it. That describes a server that **says
+no a lot**, which is the wrong design. **A client asking for something it is not entitled to is
+a bug**, and a design where that happens routinely cannot tell a bug from an attack.
+
+**The mechanism is omission, not rejection.** A user who has not opted in gets a manifest that
+**does not contain the embedded-font resource at all**. There is no URL to fetch, so there is
+nothing for a correct client to decline to request — the illegal action is unreachable rather
+than forbidden. This is just
+[D2](#d2--playback-negotiation-the-client-decides-from-a-manifest)'s model applied honestly: the
+manifest is the menu, and you do not put a dish on the menu that the customer may not order.
+
+**The server-side check still exists**, because defence in depth, and because a client is not a
+trust boundary. But its role changes completely:
+
+| | Routine control flow | Backstop |
+| --- | --- | --- |
+| Fires when | normal use | never, in a correct system |
+| A rejection means | "working as intended" | **a bug, a stale client, or an attack** |
+| Can you alert on it | no — it is noise | **yes** |
+
+That table is the whole value of the correction. An enforcement check that fires during normal
+operation is not enforcement, it is control flow wearing a security costume; it generates
+exactly the traffic that would hide a real attempt. Move the decision into what the manifest
+contains and the check goes quiet — and a quiet check is one whose every firing is worth
+looking at.
+
+**The general rule, because this is not about fonts.** It applies to signed and scoped media
+URLs, the transcoder plugin's capability grants ([D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three)),
+the Jellyfin adapter, and every API surface where our own client is the caller:
+
+> **Give a client only what it may use, and treat the refusal path as an alarm rather than a
+> branch.**
+
+**One distinction that must not be lost**, or this rule does real damage: it governs
+**authorisation of our own cooperating client**, not **validation of untrusted input**. Node
+reports are expected to arrive malformed sometimes and the core is expected to reject them
+([D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global),
+[D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides)) — that check *should*
+fire, routinely, and alerting on it would be nonsense. Media is attacker-supplied and FFmpeg's
+confinement is expected to be load-bearing
+([D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)). Conflating
+"validation of hostile data" with "authorisation of a first-party client" is how a project ends
+up with no signal in either: the security events drown in the normal ones.
+
+**Practical consequence for D57.** The per-user opt-in state decides **manifest content**, not
+just request handling. That is a small implementation difference and a large operational one,
+and it is cheaper to build this way than the other way.
+
+**Status:** Provisional only in how the alarm surfaces — a log line, a counter, or something the
+user sees. Promoted to [principles §10](../principles/README.md), because it decides arguments
+well beyond this one.

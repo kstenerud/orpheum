@@ -90,6 +90,27 @@ nor test that logic without hardware.
 something the core already knows. ([D42](../decisions/working-notes.md), and the same reasoning
 as [D37](../decisions/working-notes.md).)
 
+## §10 — Give a client only what it may use; a refusal is an alarm, not a branch
+
+If a client is not entitled to a resource, **omit it from the manifest** rather than serving a
+URL and rejecting the request. The illegal action should be unreachable, not merely forbidden.
+
+The server-side check still exists — a client is not a trust boundary — but its job changes. A
+check that fires during normal operation is not enforcement, it is control flow in a security
+costume, and it generates exactly the traffic that would hide a real attempt. A check that never
+fires in a correct system is one whose every firing is worth looking at.
+
+**This governs authorisation of our own cooperating client, and nothing else.** Validation of
+untrusted input is the opposite case and *should* fire routinely: node reports arrive malformed
+([D39](../decisions/working-notes.md), [D42](../decisions/working-notes.md)), and media is
+attacker-supplied and FFmpeg's confinement is expected to be load-bearing
+([D26](../decisions/working-notes.md)). Conflating the two leaves you with no signal in either,
+because the security events drown in the normal ones.
+
+**Bites when:** an entitlement is easier to express as a 403 in the handler than as a branch in
+whatever builds the manifest. ([D58](../decisions/working-notes.md), from
+[D57](../decisions/working-notes.md).)
+
 ## §8 — Factual accuracy in documentation
 
 Verify claims. Date them. Mark what is unverified as unverified, in place, rather than dropping

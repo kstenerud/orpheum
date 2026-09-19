@@ -42,6 +42,7 @@ The full evidence is in
 | [D55](../../decisions/working-notes.md) | The served set is the CTA-708 style axis in variable fonts, subset per subtitle track |
 | [D56](../../decisions/working-notes.md) | Fonts embedded in media are off by default; the client must ask |
 | [D57](../../decisions/working-notes.md) | That opt-in is per-user, sticky per series; the client may still refuse |
+| [D58](../../decisions/working-notes.md) | Omit the resource from the manifest rather than rejecting the request (→ principles §10) |
 
 ## Schema consequences
 
