@@ -13,5 +13,10 @@ why, and the consequences — with a stable `D`-number that other docs cite.
 - One D-number per meaningful decision; trivial choices don't get one. Numbers are never reused
   or renumbered.
 - Superseded decisions are marked `Superseded by Dnn` with a forward link, not deleted.
+- **Partial supersession is marked in place.** Where a later decision overturns one clause of an
+  earlier one, the clause is struck through with the superseding number beside it, and a short
+  blockquote at the top of the decision says what changed — rather than marking the whole entry
+  superseded, which would be false. [D7](working-notes.md) and [D24](working-notes.md) carry
+  the first two examples, both from [D98](working-notes.md).
 - A decision that has not been validated against real hardware or a real library says so, in
   its own **Status** line. Most of the early ones have not been.

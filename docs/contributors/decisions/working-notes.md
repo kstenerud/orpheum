@@ -6299,7 +6299,7 @@ not on disk at all (a provider URL) is the same kind of row is also open, and pr
 
 ## D98 — A sidecar carries what is true about the work; the database carries what is true about a person
 
-**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §23.
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §21.
 Resolves a three-way contradiction between [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index), [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series) and
 [D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore) that has been sitting in the tree since the backup round.
 
@@ -6376,7 +6376,7 @@ compatibility question nobody has examined.
 
 ## D99 — The core does not decode an image either, and community-uploaded artwork is why
 
-**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §24.
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §22.
 
 [D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp) keeps FFmpeg out of the core process because media is
 attacker-supplied data. The rule was written about **media files** and the same argument covers
@@ -6427,7 +6427,7 @@ re-checked if an image library with a C dependency is ever proposed.
 
 ## D100 — A destructive command names its target by identity, not by path
 
-**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §25.
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §23.
 Resolves a collision between [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) and [D38](#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config) that was
 created the same day.
 
@@ -6470,7 +6470,7 @@ consequence and may simply be the answer.
 
 ## D101 — A measurement that spans files is a core-supplied job; the node never chooses the set
 
-**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §26.
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §24.
 
 [D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance) puts intro detection in the node, which is right — it decodes audio
 and [D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp) keeps that out of the core. But the useful detector works by
@@ -6511,7 +6511,7 @@ natural unit for duplicate detection, and the second is O(n²) in a way the firs
 
 ## D102 — The node's work is a pipeline of independently deferrable passes
 
-**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §27.
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §25.
 
 [D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do) said the node does "everything requiring access to a media file",
 and at the time that was discovery, probing, subtitle and font extraction, thumbnails and
@@ -6566,7 +6566,7 @@ the first-scan experience is the first thing a user sees and there are nine pass
 
 ## D103 — A device-scoped *preference* is stored; a device *capability* never is
 
-**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §28.
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §26.
 
 [D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device) makes dynamic-range compression a per-device setting, because the
 right value depends on the room. [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)'s preference table has scopes of
@@ -6608,7 +6608,7 @@ prune — which they will want anyway for session revocation ([auth.md](../desig
 
 ## D104 — A Watch Together invite is a capability URL scoped to one edition; the group is never a grant
 
-**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §29.
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §27.
 
 [watch-together.md](../design/plans/watch-together.md) says *"anyone in a group may play, pause
 and seek"* and never says **who may be in the group**. There is no mention of an invite, a
@@ -6667,7 +6667,7 @@ so — but it is a decision, not an oversight to be discovered at implementation
 
 ## D105 — A protocol adapter acts as the user, never as itself
 
-**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §30.
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §28.
 
 [D15](#d15--two-plugin-tiers-in-process-wasm-and-out-of-process-adapters) gives out-of-process adapters *"its own auth, its own websockets
 and its own route namespace"*, and [jellyfin-api-shim.md](../design/plans/jellyfin-api-shim.md)
@@ -6721,7 +6721,7 @@ exactly the *"granular apikey permissions"* request open on Jellyfin's own track
 
 ## D106 — The adapter synthesises the play-state sequence it cannot receive
 
-**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §31.
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §29.
 
 [D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative) guards the resume position with a **monotonic sequence**, so a stale
 device cannot rewind a newer one. Jellyfin's progress API has no such field, and neither will
@@ -6757,7 +6757,7 @@ across Editions, and which is the first place a flattening assumption will break
 
 ## D107 — The node channel is mutually authenticated, and a node's roots are local and never remotely settable
 
-**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §32.
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §30.
 
 [D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary) states the security model for the **file** transport exactly and
 well: *"the permissions split **is** the security model"*, with a table that doubles as the
@@ -6825,7 +6825,7 @@ not to serve it" may be a real operator want.
 
 **Decided** (2026-09-19). Evidence: [sentiment.md](../design/research/sentiment.md) §Plex's own
 forum, read first-hand on 2026-09-19 —
-[audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §33.
+[audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §31.
 
 **The loudest complaint on Plex's own forum in the last year is not the price.** Sorted by
 likes, *Vote to roll back to Plex Classic!* (**1,124 likes**, 304 posts, 2025-09-26) outscores
