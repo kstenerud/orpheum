@@ -179,6 +179,7 @@ Notes on the shape:
 
 | Not building | Why |
 | --- | --- |
+| Household verification, device counts, IP entitlement checks | [D76](../decisions/working-notes.md). Netflix needs it because it licenses content per household; we license nothing. "Your phone must occasionally connect to the living-room Wi-Fi" is a requirement imposed on someone's life, and a large part of what our users are leaving. |
 | DRM | The user owns the files. Skipping it removes key servers, licence proxies and platform certification — the main reason a small team can compete here. |
 | A device-profile database | [D2](../decisions/working-notes.md), [D21](../decisions/working-notes.md). It is the incumbents' largest bug source. Our menu is a closed enumeration and must never become a grammar of conditions. |
 | Dolby Vision / Atmos *output* | Passthrough only. We direct-play them where the client copes and fall back to a menu profile otherwise; we never encode into them. |
@@ -218,11 +219,15 @@ Honest statement of what the research did **not** settle:
    problem needs one even on the LAN — and a three-tier shape is proposed. What remains is not
    technical. A hosted tier implies a company, uptime obligations and an entity that can be
    pressured; declining it is coherent, at the cost of leaving the headline use case unsolved.
-2. **Granular sharing** — which is the same question, because sharing needs a stable identifier
-   for the other person and that has to live somewhere. It is *why* Plex has accounts. Nobody in
-   the open field has solved it: Immich's sharing issue has 1,020 reactions under a feature
-   freeze, PhotoPrism's 844 over seven years, Jellyfin users symlink subsets into fake
-   libraries.
+2. **Granular sharing** — the *identity* half is the same question as (1), because sharing needs
+   a stable identifier for the other person and that has to live somewhere. It is *why* Plex has
+   accounts. But the **access-control half is now settled**
+   ([D76](../decisions/working-notes.md)): Plex's mechanism is a *filter*, so **a share is a
+   grantee plus a predicate** and it becomes a fourth binding of the rules engine rather than a
+   subsystem. Nobody in the open field has solved this — Immich's sharing issue has 1,020
+   reactions under a feature freeze, PhotoPrism's 844 over seven years, Jellyfin users symlink
+   subsets into fake libraries — and it turns out to be nearly free once the predicate language
+   exists.
 3. **The client cold-start.** A new server has no clients. Settled in shape by
    [D18](../decisions/working-notes.md): a Jellyfin-compatible **out-of-process adapter** makes
    Findroid, Swiftfin, Infuse and Streamyfin work without constraining our model — and it

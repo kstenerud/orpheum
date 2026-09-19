@@ -5191,3 +5191,91 @@ unplanned payoff from [D9](#d9--server-language-go-one-language-on-the-server).
 Kometa-scale rules, and whether tags live in a join table or JSON is a
 [library-model.md](../design/plans/library-model.md) question this decision forces but does not
 settle — Navidrome's JSON choice is what created their batching problem.
+
+---
+
+## D76 — A share is a grantee plus a predicate, and it fails closed
+
+**Decided** (2026-09-19). Research: [sharing-model.md](../design/research/sharing-model.md).
+Granular sharing — the thing
+[the overview](../design/overview.md) lists as open problem #2 and that nobody in the open field
+has solved — turns out to be a **binding of the rules engine**, not a new subsystem.
+
+### The unification
+
+Plex is the only working answer in the field, and its mechanism is a **filter**: restrict a
+shared user by content-rating ceiling and by **label** allow/exclude lists, both applying
+together. Not a list of items, not a directory — a predicate that is re-evaluated. (And it is
+Plex Pass only, which is its own comment on how much people want it.)
+
+[D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)
+just specified a typed predicate language over a closed field registry. So **a share is a
+grantee plus a predicate**, and it is a fourth binding alongside smart playlists, smart
+collections and retention. "A library", "a collection", "everything except label `private`" and
+"this one film" are all predicates.
+
+This answers two of the plan's open questions without any new mechanism:
+
+- **A shared item that moves stays shared** — the predicate re-evaluates and item identity
+  already survives a move ([D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index)).
+- **A deleted item leaves the share**, because it leaves the result set. An item *list* would
+  have needed cleanup; a predicate does not.
+
+### The asymmetry that must be explicit: shares fail closed
+
+D75 says a rule whose field no longer resolves is kept, marked invalid and surfaced. That is
+right for a smart playlist, where "invalid" means the user sees an error instead of a list.
+
+**For a share, invalid must mean grants nothing.** A migration that breaks a predicate must
+never widen access. The same predicate object is doing both jobs and **the safe default is
+opposite in each**, so the binding declares it rather than inheriting it.
+
+### Enforce at every access path, not only at listing
+
+The classic bypass is filtering the library view but not the fetch-by-id endpoint, so a grantee
+sees a narrowed list and can still stream anything whose id they remember from before the share
+tightened.
+
+This needs **both halves**, and it composes with
+[principles §10](../principles/README.md) rather than contradicting it: **omit** from the
+manifest so a correct client never asks, **and deny** at the endpoint, because a shared user is
+a different trust domain from the owner. §10's reading of the denial gets *more* valuable here
+— a grantee's client asking for something outside its share is either a bug or a probe, and
+both are worth surfacing.
+
+### What we will not build, and why we can afford not to
+
+Netflix's household enforcement uses IP address, device IDs and Wi-Fi network — *"the main TV
+defines the official household network, and phones, tablets and laptops must occasionally
+connect to the same Wi-Fi to remain verified"* — with a four-digit code emailed to the account
+owner when you stream from elsewhere, and **$7.99/month per extra member slot** since May 2023.
+It was a commercial success: **19 million new subscribers** in the following months.
+
+**We never verify households, never count devices, never check IP addresses for entitlement.**
+Not as a gesture of leniency: Netflix must do this because it licenses content per household,
+and **we license nothing, because the user owns the files.** The constraint that forces the
+entire apparatus does not exist here, so we can give away for free precisely the thing Netflix
+charges to permit. "Your phone must occasionally connect to the living-room Wi-Fi" is a
+requirement imposed on someone's life, and it is a large part of what our users are leaving.
+
+### Sharing is intent, not enforcement, and we should say so
+
+Anyone who can play a file can re-transmit it; no access-control design changes that, and the
+alternative is DRM, which is ruled out. So **no transitive re-sharing by default** — a grantee
+cannot grant onward — as a guard rail against accident and drift rather than a control against
+a determined person. Plex takes the same position. Stating the limit plainly is better than
+implying a guarantee we cannot keep.
+
+### Playback state lives with the media, keyed by the grantee
+
+The owner's server records that this person watched to 00:42:11, because it is the only party
+that can know. **Do not merge state across servers**: a client aggregating several shows
+several sources, and reconciling "watched" across libraries holding different copies of the
+same film is a correctness problem with no payoff.
+
+**Status:** Provisional. Three things are open and one is consequential: whether a grantee may
+build their own rules over the filtered view (natural, and cheap only if designed in, since
+every predicate then evaluates composed with the share predicate); what the default share is
+(*"everything except items labelled private"* is probably what people mean); and whether a
+grantee sees that they are looking at a filtered library, which is honest and also tells them
+what to ask for.

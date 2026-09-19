@@ -63,7 +63,10 @@ fidelity is known, not before.
 Everything at `UNSPECIFIED` needs a research round before it can be designed. `grep` for the
 status rather than trusting this paragraph, but the ordering between them is:
 
-- **`remote-access.md` and `sharing-model.md` are one research round, not two.** Sharing needs
+- **`sharing-model.md` is done** (2026-09-19, [D76](../../decisions/working-notes.md)) and the
+  answer was cheaper than expected: a share is a grantee plus a predicate, so it is a fourth
+  binding of `rules-engine.md`. Its *identity* half remains the open product question below.
+- **`remote-access.md` and `sharing-model.md` were one research round, not two.** Sharing needs
   an identity for the other person, and remote access is how that person reaches the server;
   Plex's resented account system exists because those two questions have one answer. They are
   the hardest product questions in the project, and `threat-model.md` depends on the outcome.

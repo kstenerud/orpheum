@@ -3,8 +3,8 @@
 
 # Sharing model
 
-- **Status:** UNSPECIFIED — needs design.
-- **Depends on:** library-model.md
+- **Status:** PLANNED — researched 2026-09-19 ([sharing-model.md](../research/sharing-model.md), [D76](../../decisions/working-notes.md)).
+- **Depends on:** [rules-engine.md](rules-engine.md), library-model.md
 
 ## The evidence that it is unsolved
 
@@ -17,12 +17,85 @@
 - Plex: solved it, via the account system everyone resents. That is not a coincidence — the
   account exists *because* sharing needs an identity for the other person.
 
-## What needs deciding
+## The answer: a share is a grantee plus a predicate
 
-What the unit of sharing is (library, collection, item, saved filter); how a shared user is
-identified without a central account (D13); whether shared users get their own playback state
-and where it lives; what happens to a share when the underlying item moves or is deleted; and
-whether shares are transitive.
+Plex is the only working answer in the field and its mechanism is a **filter** — restrict a
+shared user by content-rating ceiling and by **label** allow/exclude, both applying together.
+Not a list, not a directory: a predicate that is re-evaluated. (Plex Pass only, which is its own
+comment on demand.)
 
-This is a data-model question as much as a product one, which is why it depends on
-`library-model.md` — getting the model wrong here means a migration later.
+[rules-engine.md](rules-engine.md) already specifies a typed predicate language over a closed
+field registry, so **sharing is a fourth binding of it** ([D76](../../decisions/working-notes.md))
+alongside smart playlists, smart collections and retention. "A library", "a collection",
+"everything except label `private`" and "this one film" are all predicates.
+
+Two of the questions this document used to pose answer themselves:
+
+- **A shared item that moves stays shared.** The predicate re-evaluates, and item identity
+  already survives a move ([D7](../../decisions/working-notes.md)).
+- **A deleted item leaves the share**, because it leaves the result set. An item list would have
+  needed cleanup.
+
+## The two things to get right
+
+### Shares fail closed
+
+A rule whose field no longer resolves is kept, marked invalid and surfaced —
+[D75](../../decisions/working-notes.md)'s rule, correct for a playlist. **For a share, invalid
+must grant nothing.** A migration must never widen access. The same predicate object does both
+jobs and the safe default is opposite in each, so the binding declares it.
+
+### Enforce at every access path, not only at listing
+
+The classic bypass is filtering the library view but not the fetch-by-id endpoint. Needs **both
+halves**, composing with [principles §10](../../principles/README.md): **omit** from the
+manifest so a correct client never asks, **and deny** at the endpoint, because a grantee is a
+different trust domain from the owner. A grantee's client asking outside its share is a bug or a
+probe, and §10 says both are worth surfacing.
+
+## Identity
+
+Already researched — [remote-access.md](../research/remote-access.md) §6. Four options, not
+mutually exclusive: server-local accounts (always available, no cross-server identity),
+capability URLs (perfect for one film, unattributable for ongoing access), bring-your-own OIDC
+(for the technical), and an optional first-party directory (the premium tier). 1 and 2 need
+nothing from us and ship first.
+
+## What we deliberately do not build
+
+**No household verification, device counting or IP checks.** Netflix uses IP, device IDs and
+Wi-Fi network — *"the main TV defines the official household network, and phones, tablets and
+laptops must occasionally connect to the same Wi-Fi"* — with a code emailed to the account
+owner, and $7.99/month per extra member since May 2023. It was a commercial success: 19 million
+new subscribers after.
+
+We can decline all of it because **Netflix licenses content per household and we license
+nothing** — the user owns the files. The constraint that forces the apparatus does not exist
+here.
+
+## Sharing is intent, not enforcement
+
+Anyone who can play a file can re-transmit it, and the alternative is DRM, which is ruled out.
+So **no transitive re-sharing by default** — a guard rail against accident, not a control
+against a determined person. Say so plainly rather than implying a guarantee.
+
+## Playback state
+
+Lives **with the media, keyed by the grantee** — the owner's server is the only party that can
+know. **Do not merge across servers**; a client aggregating several shows several.
+
+## Still open
+
+- **Whether a grantee may build their own rules** over the filtered view. Natural, and cheap
+  only if designed in, since every predicate then evaluates composed with the share predicate.
+- **The default share.** *"Everything except items labelled private"* is probably what people
+  mean, and the default is consequential here in a way playlist defaults are not.
+- **Whether a grantee sees that the library is filtered.** Honest, and it tells them what to
+  ask for.
+
+## Done when
+
+An owner shares a subset with one person in one action; a new item matching the predicate
+appears in that share without intervention; a broken predicate grants nothing rather than
+everything; a grantee cannot fetch an item outside the share by id, and the attempt is visible;
+and nobody has been asked to connect a phone to a particular Wi-Fi network.
