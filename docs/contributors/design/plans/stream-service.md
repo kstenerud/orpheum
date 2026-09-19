@@ -57,11 +57,36 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   (explicit → series → library → user → forced-subtitle rule → file default) and **reports what
   it pre-selected and why**, per principles §3. Capability travels per-request because it is
   device-scoped; language preference is user state and syncs.
+- **Three subtitle renditions, not two** ([D78](../../decisions/working-notes.md)): text,
+  **server-rendered overlay**, and burn-in. The overlay is libass running in the node, emitting
+  timed bitmaps cropped to the text bounding box and palettised — **measured at 8.7 KB per
+  1080p event at 32 colours (visually lossless), so ~12 MB per film, 0.14% of a 9 GB film.**
+  Bandwidth is not the objection.
+
+  It exists because it moves the attacker-supplied font parse into the node's jail instead of
+  onto a television running an old FreeType, which is strictly stronger than
+  [D56](../../decisions/working-notes.md)'s client-decides model and fills the gap
+  [D57](../../decisions/working-notes.md) left: *correct typesetting, and your device never
+  touches the font.* It also removes the need to serve script fonts for subtitles at all
+  ([D53](../../decisions/working-notes.md)), and makes a new client platform nearly free —
+  drawing a PNG is a few lines where porting libass is a project.
+
+  **Text stays the default**, because a bitmap cannot honour a user's subtitle-size setting
+  without re-rendering, and subtitle size is accessibility rather than preference. Overlay is
+  chosen automatically when embedded fonts are wanted but declined, when the client lacks a
+  font for the script, or when the client has no libass.
+
+  Delivery is **our own track type**: IMSC 1.1 does define an Image Profile, but Apple's HLS
+  supports only the Text Profile (`stpp.TTML.im1t`), and our clients already composite
+  subtitles themselves rather than delegating to the platform.
 - **The invariant: no operation on one axis may restart another**
   ([D23](../../decisions/working-notes.md)). Turning captions on or changing language is a
   rendition fetch, not a new session. Every track must therefore be enumerated and materialised
   before playback begins. A burned-in stream is the single labelled exception and is a *video*
-  rendition, flagged so clients can say the subtitle choice is locked.
+  rendition, flagged so clients can say the subtitle choice is locked. **[D78](../../decisions/working-notes.md)
+  shrinks that exception to animated ASS alone** — karaoke and moving signs, which
+  event-granularity bitmaps cannot express. Every other case burn-in used to serve is now served
+  by the overlay rendition, which stays switchable.
 
 - **The subtitle renderer's defaults are wrong for us** ([D50](../../decisions/working-notes.md)).
   libass ships bug-compatible with VSFilter: with `ASS_FEATURE_WHOLE_TEXT_LAYOUT` off — the

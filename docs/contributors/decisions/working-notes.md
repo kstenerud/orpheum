@@ -5369,3 +5369,90 @@ question, because "correct but regenerate 100 GB of trickplay" is a long wait af
 And a node losing its local state should cost a rescan and nothing else
 ([D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)) —
 worth asserting as a test rather than assuming.
+
+---
+
+## D78 — Server-rendered subtitle overlays are a third rendition, and they dominate burn-in
+
+**Decided** (2026-09-19). Add a **server-rendered overlay** subtitle rendition — libass runs in
+the node, output is timed, cropped, palettised bitmaps — alongside text and burn-in. Text stays
+the default. Research: [subtitle-rendering.md](../design/research/subtitle-rendering.md).
+
+### Bandwidth is not the objection — measured
+
+The instinctive worry is size, and it is misplaced once the bitmap is **cropped to the text
+bounding box** and **palettised**:
+
+```
+PNG RGBA, full 1080p frame        30,258 B/event
+PNG RGBA, cropped                 24,528 B/event
+PNG 32-colour palette, cropped     8,703 B/event   mean error 0.58/255 — visually lossless
+```
+
+At 8.7 KB × 1,500 events that is **12.4 MB per film — 0.14% of a 9 GB film.** On a LAN it is
+free; remotely it is a rounding error. (This is exactly PGS's shape: cropped, palettised
+bitmaps with position metadata. Blu-ray solved it decades ago.)
+
+### What it buys, and the first one is the reason it was raised
+
+**The client never parses an attacker-supplied font.** The hostile parse happens in the node's
+Landlock+seccomp jail ([D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)) —
+the place designed for hostile parses — instead of on a television running FreeType 2.10. That
+is strictly stronger than [D56](#d56--embedded-fonts-are-off-by-default-the-client-must-ask-for-them),
+which had to put the decision in the client's hands because the risk varies by client.
+
+**It fills the gap [D57](#d57--the-embedded-font-opt-in-is-per-user-sticky-per-series-and-the-client-may-still-refuse)
+left open.** D57's honest cost was that a user with an old Fire TV who wants correct fansub
+typesetting must either accept the risk or lose the typesetting. This is a third answer:
+*correct typesetting, and your device never touches the font.*
+
+**It disposes of font coverage for subtitles.** [D53](#d53--font-coverage-is-not-assumable-the-server-serves-fonts-on-demand)
+and [D54](#d54--the-plan-b-font-is-unicode-last-resort-he-bundled-noto-is-served-unifont-is-the-middle-option)
+exist because a client may have no font for a script. If the server renders, the client needs no
+CJK font for subtitles at all — only for UI text.
+
+**A new client platform gets subtitles almost free.** "Draw this image here for this time range"
+is a few lines anywhere; building libass for a platform is a project. Same economy as
+[D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s
+six-method rule, in a different subsystem.
+
+**And it dominates burn-in.** [D23](#d23--axis-switching-is-mid-session-by-default-burn-in-is-the-one-thing-that-breaks-it)
+names burn-in as the one thing that breaks the no-restart invariant, because it is a *video*
+rendition. An overlay is a separate, switchable track with no re-encode, and any client that can
+play video can composite a bitmap. **So D23's exception narrows to animated ASS alone** —
+karaoke and moving signs, which event-granularity bitmaps cannot express.
+
+### What it costs, and why it is not the default
+
+**Scaling and user styling are lost.** A bitmap has a fixed size, colour and position. Subtitle
+size is an accessibility setting, not a preference, and a bitmap cannot honour it without
+re-rendering. We are the server and we know the viewport and the user's settings, so rendering
+per request or precomputing two or three sizes both work — but it is now *state*, where a text
+track was universal. That is the whole reason text stays the default.
+
+**Precomputation and per-user sizing pull against each other.**
+[D11](#d11--subtitles-are-a-subsystem-not-a-feature) already extracts at scan time so
+precomputing fits the pipeline, but per-user sizing forces a live path. libass is fast enough
+that live rendering is plausible; nobody has measured it.
+
+### The standards position, which settles the delivery question
+
+**IMSC 1.1 defines an Image Profile** — timed PNG — so this is standardised rather than
+invented. But **Apple's HLS supports only the Text Profile** (`stpp.TTML.im1t`, WWDC 2017, and
+IMSC must be in fragmented MP4), so image subtitles cannot ride the standard HLS subtitle track
+to AVPlayer.
+
+So: **our own track type, composited by our own client.** No hardship — our clients already
+composite rather than delegating to the platform (JASSUB on web, libass natively), and drawing
+a PNG is strictly simpler than what they do now.
+
+### When it is chosen
+
+Automatically when embedded fonts are wanted but the client declined them (D57); when the client
+lacks a font for the script and cannot or will not fetch one (D53); when the client has no
+libass; or when the user prefers it.
+
+**Status:** Provisional. The live-render cost is unmeasured and decides whether per-user sizing
+is affordable or whether we precompute a small set of sizes. And whether 32-colour palettisation
+survives contact with heavily-styled ASS — gradients, shadows, semi-transparent boxes — is
+untested; the measurement above used ordinary dialogue with an outline.
