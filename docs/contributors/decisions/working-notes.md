@@ -6596,3 +6596,152 @@ Two guards:
 years leaves a row, and a household that reinstalls an app may or may not get the same device
 id. Neither is harmful, both are untidy, and the answer is probably a device list the user can
 prune — which they will want anyway for session revocation ([auth.md](../design/plans/auth.md)).
+
+---
+
+## D104 — A Watch Together invite is a capability URL scoped to one edition; the group is never a grant
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §29.
+
+[watch-together.md](../design/plans/watch-together.md) says *"anyone in a group may play, pause
+and seek"* and never says **who may be in the group**. There is no mention of an invite, a
+join authorisation, or an entitlement check anywhere in the plan or the research. Its
+`Depends on` line names `stream-service`, `web-client` and `remote-access` — and not
+[sharing-model.md](../design/plans/sharing-model.md).
+
+**That fails open, and it fails open in the most natural implementation.** The whole point of
+the feature is watching with someone who is not in your house, so the obvious build is "send
+them a group link". A group link that admits anyone who holds it is an access path that routes
+around [D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed)'s share predicate and [D84](#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate)'s maturity
+ceiling — both of which [D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed) requires to be enforced *at every access
+path, not only at listing*, for exactly this reason.
+
+**So the rule: the group is not a grant.** Every participant resolves the item through their
+**own** entitlement. A user who cannot see the film cannot see the group —
+[principles §10](../principles/README.md), omission rather than rejection: there is no join
+button to decline.
+
+**And the invite has a good answer already sitting in the tree.**
+[remote-access.md](../design/research/remote-access.md) §6 lists four identity mechanisms, of
+which the second is *"capability URLs — perfect for one film, unattributable for ongoing
+access"*. A Watch Together invite is precisely that shape, and the weakness named there is not
+a weakness here:
+
+- **Scoped to one Edition**, not to a library. The invitee gets the film, not the collection.
+- **Time-boxed** to the session, which is what makes "unattributable for ongoing access"
+  irrelevant — there is no ongoing access.
+- **Revocable by ending the group**, and listed while it is live so the owner can see who holds
+  one.
+
+So the feature that most needs an identity story turns out to need the **cheapest** of the four
+([D25](#d25--remote-access-is-tiered-and-the-promise-changes-from-no-accounts-to-we-only-charge-for-another-machine)'s unresolved hosted-directory question is not on its critical path),
+and the motivating use case — a partner travelling, with no account — is answered without
+one.
+
+**Two consequences worth stating.**
+
+- **`watch-together.md` depends on `sharing-model.md`**, which it did not declare. The
+  capability-URL mechanism and the entitlement check are both that document's.
+- **A grantee's participation is bounded by their share, not by the host's.** If the host can
+  see the director's cut and the grantee's predicate only matches the theatrical, they are
+  watching different Editions and the group is incoherent — so the group is keyed on an Edition
+  and a participant who cannot resolve *that* Edition cannot join. Sharper than it sounds: it
+  means the entitlement check happens against the group's item, once, rather than being
+  re-derived per participant per action.
+
+**Status:** The capability URL's own design is [threat-model.md](../design/plans/threat-model.md)'s
+open signed-URL work, so this decision names the shape and inherits that document's gap. Also
+open: whether a participant who loses entitlement mid-film (a share revoked, a rule
+re-evaluated) is ejected or finishes the film. Ejecting mid-sentence is hostile; not ejecting
+means a revocation is not immediate. Probably: finish the session, deny the next one, and say
+so — but it is a decision, not an oversight to be discovered at implementation time.
+
+---
+
+## D105 — A protocol adapter acts as the user, never as itself
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §30.
+
+[D15](#d15--two-plugin-tiers-in-process-wasm-and-out-of-process-adapters) gives out-of-process adapters *"its own auth, its own websockets
+and its own route namespace"*, and [jellyfin-api-shim.md](../design/plans/jellyfin-api-shim.md)
+inherits that without saying what the adapter authenticates **to the core** as. There is only
+one wrong answer and it is the convenient one: a single privileged token, configured once at
+install.
+
+**That is a confused deputy, and it defeats every access control we have.**
+[D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed) requires the share predicate to be enforced *"at every access path,
+not only at listing"*; [D84](#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate) puts the maturity ceiling on the same
+mechanism; [D104](#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant) has just established that a group is not a grant. An
+adapter holding the owner's token hands the whole library to anything that can speak Jellyfin's
+API at it — and because the core sees a legitimate owner request, nothing fires.
+
+**So:**
+
+- **The adapter is a login proxy, not a principal.** A Jellyfin client's credentials are
+  forwarded to the core, the core authenticates, and the adapter holds a token **scoped to that
+  user** for the life of that session. It has no standing credential of its own beyond the
+  right to attempt a login.
+- **Every downstream request carries that user's token.** Entitlement is resolved by the core,
+  once, in the place it is already resolved — so the adapter cannot get it wrong, because it
+  never computes it.
+- **The core knows the request came via an adapter**, and says so in the session record. That
+  is needed for [D74](#d74--bug-reports-pseudonymise-rather-than-redact-and-fan-in-across-components)'s bug reports and
+  [D91](#d91--a-metrics-endpoint-off-by-default-and-local-when-on)'s metrics, and it is needed for
+  [principles §10](../principles/README.md): an adapter is a *cooperating* client for omission
+  purposes but a **less trusted** one for alarm purposes, since its users are running software
+  we did not write.
+- **A redirect to a media URL carries the user's authorisation, not the adapter's.**
+  [D70](#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible) already signs the session rather than the segment; the session
+  being redirected to must be the *end user's* session.
+
+**The rule generalises to every tier-2 surface** — OpenSubsonic in Phase 7, DLNA if it ever
+happens — which is why this is a decision rather than a line in one plan. It also survives the
+adapter being abandoned, which D15 says it might be: an adapter with no standing credential
+leaves nothing behind when it is deleted.
+
+**One consequence worth naming for DLNA specifically:** DLNA has no user concept at all. An
+adapter that cannot identify a user cannot act as one, so it can only ever be configured to act
+as a **specific, explicitly chosen** user with whatever that user can see — never as the owner
+by default, and never silently. That is a limitation to state in the adapter's own
+documentation rather than a hole to leave open.
+
+**Status:** Sound as a rule; the mechanism depends on [auth.md](../design/plans/auth.md)'s
+token model, which is unsettled. The awkward case is a Jellyfin client that expects a
+long-lived API key: the adapter must be able to hold a user-scoped long-lived token, which is
+exactly the *"granular apikey permissions"* request open on Jellyfin's own tracker.
+
+---
+
+## D106 — The adapter synthesises the play-state sequence it cannot receive
+
+**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §31.
+
+[D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative) guards the resume position with a **monotonic sequence**, so a stale
+device cannot rewind a newer one. Jellyfin's progress API has no such field, and neither will
+OpenSubsonic's. So every report arriving through an adapter has no sequence — and the obvious
+implementation, treating "no sequence" as "newest", reinstates last-writer-wins for exactly the
+clients most likely to be running on a second device.
+
+**The adapter mints the sequence**, per `(user, device)`, monotonically increasing for the life
+of that device's session, and the core treats it like any other. That keeps the guard's
+property — a given device's reports are ordered — without inventing an ordering between devices
+that the wire format cannot express.
+
+**And the honest limitation is stated rather than hidden:** two adapter-driven devices playing
+the same edition are ordered only by arrival, because there is no information to do better
+with. That is not a defect of this design; it is the ceiling of the protocol being adapted, and
+it is one of the things [jellyfin-api-shim.md](../design/plans/jellyfin-api-shim.md) means by
+*"the adapter is allowed to be lossy"*. Say it in the adapter's documentation, because the
+symptom — a phone occasionally rewinding a television — is otherwise indistinguishable from the
+bug [D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative) exists to prevent.
+
+**The same document should say how the levels flatten.** Jellyfin's model is
+[D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)'s conflated Edit/Manifestation/Item, so the mapping is forced and
+should be written down once: an **Edition** is a Jellyfin item, a **Version** is one of its
+"alternate versions", and a multi-part **File** set is `AdditionalParts`. That is Jellyfin's own
+vocabulary being used for what it was reaching for, and it is lossless in the direction that
+matters because we have more structure than it does, not less.
+
+**Status:** Untested, like the whole adapter. The specific thing to check early is whether real
+Jellyfin clients tolerate an item whose alternate versions differ in *runtime* — which ours can,
+across Editions, and which is the first place a flattening assumption will break.

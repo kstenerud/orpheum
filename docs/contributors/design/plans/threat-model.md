@@ -23,6 +23,10 @@ and it means Jellyfin's threat model is not available to us. We have not written
 
 - **Who is the adversary?** The internet at large; a malicious guest with a shared link; a
   household member escalating; a hostile metadata provider or plugin; someone on the LAN.
+- **Adapters and who they act as** ([D105](../../decisions/working-notes.md)). A tier-2
+  protocol adapter with a standing privileged token is a confused deputy that defeats every
+  predicate in the project. The rule is that it is a login proxy, not a principal; the *token
+  model* that makes it implementable is this document's open question.
 - **The image path, which D26 did not cover.** A poster fetched from TMDB is
   community-uploaded, arrives unprompted during a background refresh, and is decoded by
   something. [D99](../../decisions/working-notes.md) puts that decode in the confined worker

@@ -3,7 +3,7 @@
 
 # Jellyfin API shim
 
-- **Status:** PLANNED — designed 2026-09-17 as an out-of-process adapter ([D18](../../decisions/working-notes.md)).
+- **Status:** PLANNED — designed 2026-09-17 as an out-of-process adapter ([D18](../../decisions/working-notes.md)); identity and play-state semantics settled 2026-09-19 ([D105](../../decisions/working-notes.md), [D106](../../decisions/working-notes.md)).
 - **Depends on:** stream-service.md
 
 ## The question
@@ -42,6 +42,42 @@ from our rendition list rather than from a capability database.
 **That puts the 8,000-line problem permanently outside the core, in a component we are free to
 abandon**, while still getting Findroid, Swiftfin, Infuse, Streamyfin and Wolphin working. It is
 the best available outcome: the clients without the architecture.
+
+## It acts as the user, never as itself
+
+[D105](../../decisions/working-notes.md). [D15](../../decisions/working-notes.md) gives an
+adapter *"its own auth"*, which leaves open what it authenticates **to the core** as — and the
+convenient answer, one privileged token configured at install, is a confused deputy that hands
+the whole library to anything that can speak Jellyfin's API at it. [D76](../../decisions/working-notes.md)
+requires the share predicate at *every* access path; an owner-token adapter defeats it, and
+because the core sees a legitimate owner request, nothing fires.
+
+So the adapter is a **login proxy, not a principal**: credentials are forwarded to the core,
+the core authenticates, and the adapter holds a token **scoped to that user** for that session.
+Every downstream request carries it, so entitlement is resolved once by the core and the
+adapter cannot get it wrong because it never computes it. A media redirect carries the *end
+user's* session authorisation ([D70](../../decisions/working-notes.md)). And the core records
+that the request arrived via an adapter — needed for
+[bug reports](bug-reports.md), for [metrics](observability.md), and because
+[principles §10](../../principles/README.md) treats an adapter as cooperating for *omission*
+and less trusted for *alarms*: its users run software we did not write.
+
+## Two places the translation is lossy, and both must be documented
+
+- **Play state has no sequence number to carry** ([D106](../../decisions/working-notes.md)).
+  [D81](../../decisions/working-notes.md)'s monotonic guard has no field in Jellyfin's progress
+  API, and treating "no sequence" as "newest" reinstates last-writer-wins for exactly the
+  clients most likely to be a second device. The adapter **mints** the sequence per
+  `(user, device)`. Two adapter-driven devices are then ordered only by arrival — the ceiling
+  of the protocol, not a defect of ours, and it must be said in the adapter's documentation
+  because the symptom (a phone rewinding a television) is otherwise indistinguishable from the
+  bug D81 exists to prevent.
+- **Four levels flatten into Jellyfin's one.** The mapping is forced and is written down once:
+  an **Edition** is a Jellyfin item, a **Version** is one of its "alternate versions", and a
+  multi-part **File** set is `AdditionalParts` — Jellyfin's own vocabulary used for what
+  [D79](../../decisions/working-notes.md) says it was reaching for. The first thing to test is
+  whether real clients tolerate alternate versions with *different runtimes*, which ours can
+  have across Editions.
 
 ## Still true: bridge, not foundation
 

@@ -5,7 +5,7 @@
 # Watch Together
 
 - **Status:** PLANNED — researched 2026-09-19 ([watch-together.md](../research/watch-together.md), [D62](../../decisions/working-notes.md)–[D64](../../decisions/working-notes.md)).
-- **Depends on:** [stream-service.md](stream-service.md), [web-client.md](web-client.md) (the SDK), [remote-access.md](remote-access.md) (for the off-LAN case)
+- **Depends on:** [stream-service.md](stream-service.md), [web-client.md](web-client.md) (the SDK), [remote-access.md](remote-access.md) (for the off-LAN case), [sharing-model.md](sharing-model.md) (who may join — [D104](../../decisions/working-notes.md))
 
 ## Scope, in priority order
 
@@ -73,6 +73,29 @@ ideal caching workload: everyone wants the same segment at the same moment. The 
 that must not be closed by accident** is segment-URL cacheability — see
 [stream-service.md](stream-service.md).
 
+## Who may join, which this plan did not say
+
+[D104](../../decisions/working-notes.md). "Anyone in a group may play, pause and seek" left
+out who may be in the group, and the natural implementation — send them a group link — is an
+access path that routes around [D76](../../decisions/working-notes.md)'s share predicate and
+[D84](../../decisions/working-notes.md)'s maturity ceiling. D76 requires enforcement *at every
+access path, not only at listing*, for exactly this reason.
+
+**The group is not a grant.** Every participant resolves the item through their own
+entitlement; a user who cannot see the film cannot see the group
+([principles §10](../../principles/README.md) — there is no join button to decline).
+
+**The invite is a capability URL scoped to one Edition**, which is mechanism (2) of the four in
+[remote-access.md](../research/remote-access.md) §6 — *"perfect for one film, unattributable
+for ongoing access"*, where the named weakness does not apply because the grant is time-boxed
+to the session and revoked by ending the group. So the feature that most needs an identity
+story needs the cheapest one, and the motivating case — a partner travelling, with no account
+— is answered without waiting on the hosted-directory question.
+
+**The group is keyed on an Edition**, so a participant who cannot resolve *that* Edition cannot
+join. Otherwise a host on the director's cut and a grantee whose predicate matches only the
+theatrical are watching different films.
+
 ## The constraint that decides whether this survives
 
 Five implementations have been withdrawn: Disney+ GroupWatch (2023-09-18), Amazon Prime Video
@@ -115,6 +138,13 @@ Taken from Jellyfin's SyncPlay, which works ([research §1](../research/watch-to
   **event-driven** on buffering, seek completion and resume, which is when position actually
   jumps by 100 ms to 2 s. The event-driven half does the real work and is free, because those
   events are already in the six-method contract.
+- **A user-chosen playback rate and the drift nudge are the same knob**, so they compose rather
+  than compete ([D90](../../decisions/working-notes.md)): the effective rate is the **group
+  rate** times the nudge. A user's 1.25× is therefore group state, not a local setting — a
+  participant playing faster than everyone else is not drifting, and a reconciler that treats
+  it as drift spends the film fighting them. Two corollaries: `setRate` is listed as optional
+  above, so **a group's rate stays 1.0 unless every participant can honour it**; and a client
+  that cannot set a rate can still join a 1.0× group, which is all of them.
 - **Two corrections**: nudge `playbackRate` for ~1 s to absorb roughly 60–3000 ms of drift; seek
   beyond that. Rate nudging is **inconsistent across platforms** — Jellyfin's own source records
   it failing on Safari and struggling on Android Chrome — so it is optional and seek-only is the

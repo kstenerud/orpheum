@@ -99,6 +99,15 @@ know. **Do not merge across servers**; a client aggregating several shows severa
   ([D89](../../decisions/working-notes.md)) and never change metadata, but "presumably" is not
   a design, and the grantee's own play state, preferences and downloads
   ([D87](../../decisions/working-notes.md)) all need a stated owner.
+- **The Jellyfin adapter is a sixth access path** ([D105](../../decisions/working-notes.md)) and
+  it enforces nothing itself: it acts as the user, so the core resolves entitlement once. The
+  rule that makes that safe — an adapter is a login proxy, never a principal — has to hold for
+  every tier-2 surface, including the OpenSubsonic one in Phase 7.
+- **Watch Together is a fifth access path and the invite is mechanism (2)**
+  ([D104](../../decisions/working-notes.md)). A group is not a grant — every participant
+  resolves the item through their own entitlement — and the invite is a capability URL scoped
+  to one Edition and time-boxed to the session. That makes this document a dependency of
+  [watch-together.md](watch-together.md), which it was not.
 - **A bandwidth ceiling per share.** [remote-access.md](remote-access.md)'s economics assume
   nobody is pushing a 30 Mbps remux to five houses; the ceiling is the honest alternative to
   discovering the bill.

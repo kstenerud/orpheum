@@ -110,7 +110,17 @@ the node is forbidden to have, so the core supplies the set and the node supplie
 measurement), [D102](../../decisions/working-notes.md) (**nine passes** now run over every
 file and nobody had added them up) and [D103](../../decisions/working-notes.md) (a device
 *preference* is stored, a device *capability* never is — the distinction that keeps a device
-scope from becoming a device-profile database).
+scope from becoming a device-profile database), [D104](../../decisions/working-notes.md)
+(nobody said who may *join* a Watch Together group, and a group link routes around every share
+predicate), [D105](../../decisions/working-notes.md) (the Jellyfin adapter has no stated
+identity, and the convenient answer is a confused deputy holding the owner's token) and
+[D106](../../decisions/working-notes.md) (play state through an adapter has no sequence number,
+so D81's guard silently does not apply there).
+
+**Two of those fail open** — D104 and D105 — which is the category a keyword sweep is worst at
+finding, because the missing thing is a check rather than a feature. Both were found by asking
+"what is the access path, and who is the principal on it?" of every component in turn, which is
+worth repeating whenever a new surface is added.
 
 And one that changed an existing schedule: [D86](../../decisions/working-notes.md) puts
 `transcoding.md` **§(b)** on [remote-access.md](remote-access.md)'s critical path rather than
