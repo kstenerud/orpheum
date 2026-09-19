@@ -4960,3 +4960,105 @@ metric cannot be aggregated to the point of being about the machine, it is not o
 **Status:** Provisional in detail, settled in principle. The specific field list for the relay's
 status record belongs with [remote-access.md](../design/plans/remote-access.md); the session id
 belongs in the first version of the relay protocol.
+
+---
+
+## D74 — Bug reports pseudonymise rather than redact, and fan in across components
+
+**Decided** (2026-09-19). Ship a diagnostic-report generator whose output pastes into a GitHub
+issue. The structure is taken from yoloai, which has solved this; three things differ enough to
+be the actual design work.
+
+### Taken from yoloai, because it works
+
+- **Two mechanisms.** A **flight recorder** (`--bugreport <type>` on any command: opens the file
+  before the command runs, writes static sections immediately, always finalises — success,
+  error or panic) and a **forensic** subcommand for a problem that already happened.
+- **Two types, and the type is a required argument with no default.** `safe` — redacted,
+  shareable, carries a "review before sharing" notice. `unsafe` — complete, carries a prominent
+  **do not share publicly** banner.
+- **Sanitisation is best-effort and says so**, including the honest instruction not to file
+  credential-related bugs as `safe` reports.
+- **One outer `<details>` wrapper** so a pasted report renders as a single collapsed line whose
+  `<summary>` carries version, timestamp and type — triage without expanding.
+- **64,000-byte threshold** against GitHub's 65,535-byte issue body limit, leaving room for the
+  user's own text. Mode 0600, atomic rename from `.tmp`.
+- **A deliberate-omissions table with reasons**, not a silent filter.
+
+### What differs, and it is the centre of the design
+
+**Our sensitive data is the library itself, and unlike a credential it is what most reports are
+*about*.** A person's film and television collection is intimate — health, religion, sexuality,
+politics — and it cannot be rotated after disclosure. Meanwhile "this file will not play" is the
+modal bug, so the sensitive thing is also the subject.
+
+Redaction therefore fails in both directions: `[REDACTED]` destroys the ability to correlate,
+and leaving titles in leaks the library into a public issue.
+
+> **So pseudonymise rather than redact.** Per report, a random salt; each title, path component
+> and username becomes a short stable tag — `item:a7f3`, `user:2b8d`. Within one report
+> correlation works: the maintainer sees `item:a7f3` fail in three places. Across reports the
+> tags differ, so nobody can be tracked between issues. **The mapping table is written only
+> into the local `unsafe` copy**, so the user can look up `a7f3` and say what it was, privately,
+> if asked.
+
+And the complement, which is where nearly all the diagnostic value lives:
+
+> **Keep the shape, drop the identity.** Container, codecs, profiles, levels, bit depth, channel
+> layouts, track counts, dispositions, language tags, attachment types, duration, size, file
+> extension, directory depth. `hevc / Main10 / L5.1 / 3 audio / 12 subtitle / 1 attachment`
+> diagnoses a playback bug completely and says nothing about which film it is.
+
+The residual case — a *filename-parsing* bug, where the name is the evidence — is served by the
+user sharing **one** filename deliberately, which is minimal disclosure rather than a library
+dump.
+
+### Second difference: the report has to fan in
+
+We are not one process. A session touches the core, one or more nodes, possibly a relay, and a
+client, and [D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque)
+just established that each reports according to its own visibility and all of it lands at the
+core. So the report is a **fan-in keyed by the session id** D73 requires.
+
+Two rules follow from decisions already made:
+
+- **A component that does not answer is listed as absent with a reason**, never silently
+  omitted — the same rule as [D40](#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope)
+  and [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret):
+  unreadable is not empty. *"node `nas`: no response, last seen 4 h ago"* is diagnostic; a
+  missing section is a trap.
+- **The summary is what gets pasted; the bundle is what gets attached.** Four components will
+  not fit in 64,000 bytes. GitHub accepts `.md`, `.txt`, `.log`, `.json` and `.zip` attachments
+  up to 25 MB, so attaching the bundle is better than yoloai's gist fallback — one artefact, in
+  the issue, with the same visibility rules.
+
+### Third difference: the version inventory is load-bearing, not boilerplate
+
+We ship our own FFmpeg, libass and FreeType builds, and several decisions already depend on
+knowing exactly which:
+
+- FreeType version — **CVE-2025-27363 covers ≤ 2.13.0**, and
+  [D56](#d56--embedded-fonts-are-off-by-default-the-client-must-ask-for-them) turns on whether
+  the client is in that range.
+- Which `ASS_Feature`s the build actually supports —
+  [D50](#d50--build-libass-correctly-and-turn-off-vsfilter-bug-compatibility-for-non-authored-subtitles)
+  already has us probing `ass_track_set_feature` for a −1 return, so the answer exists.
+- Which scripts the client has fonts for ([D53](#d53--font-coverage-is-not-assumable-the-server-serves-fonts-on-demand)).
+- FFmpeg version *and configure flags*, because the licence ladder and the available encoders
+  both hang off them.
+
+[D61](#d61--containment-now-detection-later-and-plugin-shaped-four-affordances-to-keep-open)
+wanted a staleness check for exactly these; the bug report is where that inventory surfaces, and
+it should be built once and used by both.
+
+### And legibility is a privacy feature here
+
+The report must be **plain markdown the user can read before posting** — no base64 blobs, no
+binary, nothing opaque. "Review before sharing" is meaningless advice if the thing cannot be
+reviewed. This is the project's existing legibility theme
+([principles §3](../principles/README.md)) doing double duty.
+
+**Status:** Provisional in detail. The pseudonymisation scheme wants a real look before it
+ships — in particular whether a 4-character tag collides annoyingly in a 50,000-item library,
+and whether preserving directory *depth* leaks more structure than it is worth. Plan:
+[bug-reports.md](../design/plans/bug-reports.md).

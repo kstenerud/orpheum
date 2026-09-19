@@ -77,6 +77,11 @@ status rather than trusting this paragraph, but the ordering between them is:
 - **`threat-model.md`, `testing-strategy.md`, `performance-targets.md` and
   `backup-restore.md`** are gaps in the foundations rather than features. Each is cheap now and
   expensive later; none blocks Phase 0.
+- **`bug-reports.md`** is small, cheap and unusually load-bearing for a project whose logs are
+  full of people's film collections. Its structure is adapted from
+  [yoloai](https://github.com/kstenerud/yoloai); the design work is the pseudonymisation and
+  the cross-component fan-in ([D74](../../decisions/working-notes.md)). It shares its version
+  inventory with [D61](../../decisions/working-notes.md)'s staleness check, so build that once.
 - **`content-safety.md` is `DEFERRED`, which is a different thing from unspecified.** The
   research is done and the conclusion is that containment beats detection
   ([D61](../../decisions/working-notes.md)); what remains is not a research gap but a decision

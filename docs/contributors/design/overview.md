@@ -149,6 +149,12 @@ Notes on the shape:
   80,000 stars of companion apps (Sonarr, Radarr, Seerr, Tautulli, Bazarr, Kometa …) against
   ~20,000 for the whole Jellyfin plugin catalogue. OpenAPI is generated from the code and the
   build is gated on it being current. ([D20](../decisions/working-notes.md))
+- **A bug report is a privacy problem wearing a diagnostics costume**
+  ([D74](../decisions/working-notes.md)). Our logs are full of film titles, paths with real
+  names and household usernames, and unlike an API key a library cannot be rotated after
+  disclosure. So the shareable report **pseudonymises rather than redacts** — stable per-report
+  tags keep correlation while dropping identity — and keeps the shape that actually diagnoses
+  things: codecs, profiles, track counts, dispositions.
 - **`cache/` is always safe to delete.** Nothing irreplaceable lives outside the database and
   the media files.
 - **Metadata is multi-language by schema, not by configuration**
