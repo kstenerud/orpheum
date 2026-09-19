@@ -3,17 +3,59 @@
 
 # Library model
 
-- **Status:** PLANNED — designed 2026-09-17.
+- **Status:** PLANNED — designed 2026-09-17; **reviewed and corrected 2026-09-19** ([library-model-review.md](../research/library-model-review.md), [D79](../../decisions/working-notes.md)).
 - **Depends on:** —
 
 ## Scope
 
-The first schema. Gets `Title → Edition → MediaFile` right, models multi-version and multi-part
-items as first-class rather than bolted on, keeps provider IDs and field-level provenance in
-their own tables, and includes the audit/change-journal tables and sync cursor from D8.
+The first schema. Models multi-version and multi-part items as first-class rather than bolted
+on, keeps provider IDs and field-level provenance in their own tables, and includes the
+audit/change-journal tables and sync cursor from D8.
 
 Generic enough that audio can be added without a rewrite (D1): `Library`, `Item`, `MediaFile`
 rather than `Movie`/`Episode` everywhere.
+
+## The levels: four, not three
+
+Corrected by [D79](../../decisions/working-notes.md). **EIDR** — the industry identifier
+registry — models works as **Abstraction → Edit → Manifestation** plus **Collection** as an
+orthogonal container. Ours:
+
+| Level | Holds | EIDR |
+| --- | --- | --- |
+| **Title** | the work; genres, external ids, invariant facts | Abstraction |
+| **Edition** | a **creative cut** — theatrical, director's, extended | Edit |
+| **Version** | a **technical representation** — an encoding, a resolution | Manifestation |
+| **File** | the bytes; a Version may have several (multi-part) | Item |
+| **Collection** | series, season, box set, user collection, smart collection | Collection |
+
+**Why the fourth level is not optional.** *Glass Runner: The Final Cut* held as 1080p in two
+parts **and** as a single 4K file is one Title, one Edition, two Versions, three Files. With
+`Edition → File` there is nowhere to record that the two parts are one viewing and the 4K is
+another — the multi-version and multi-part axes hang off the same parent and cannot be told
+apart. That is precisely the combination named below as the field's permanent bug source.
+
+Jellyfin demonstrates the cost of the absence: `Video.cs` carries **four** overlapping
+mechanisms — `PrimaryVersionId`, `LinkedAlternateVersions`, `LocalAlternateVersions`,
+`AdditionalParts` — two of them bare arrays of *path strings*, so the parts of a multi-part
+film are not rows at all. A `Video` is Edit, Manifestation and Item at once, so every
+distinction becomes a side-array.
+
+**A Collection is either an explicit member list or a predicate**
+([D75](../../decisions/working-notes.md), [D76](../../decisions/working-notes.md)) — which is
+what lets one table serve series, seasons, box sets, hand-made collections and smart
+collections.
+
+### Two levels that must be declared
+
+- **Watch state attaches at the Edition.** Not File or Version, or upgrading 1080p to 4K loses
+  your place. Not Title, because cuts have different runtimes and a resume position across them
+  is meaningless. Whether a watched *flag* rolls up to the Title is a UI question.
+- **Names attach at Title *and* Edition** — "Glass Runner" and "The Final Cut" are both names
+  needing [D45](../../decisions/working-notes.md)'s translation treatment. So the displayed
+  title is a **composition of two translated strings**, which the sort key
+  ([D47](../../decisions/working-notes.md)) and the FTS row
+  ([D48](../../decisions/working-notes.md)) must both account for.
 
 ## Requirements added late
 
@@ -73,13 +115,29 @@ plugin survey ([D20](../../decisions/working-notes.md)), the track-selection pai
   normalisation function must have exactly one implementation — Navidrome shipped a corrective
   migration in July 2026 because a SQL approximation of it drifted from the Go original.
 
+## Three cross-cuts from the review
+
+- **Store the node's raw observation, not only the interpretation**
+  ([D59](../../decisions/working-notes.md), [D79](../../decisions/working-notes.md)). D59's
+  argument for parsing filenames in the core was that a parser improvement must be replayable
+  over the database *with every node switched off* — which is only true if the input is in the
+  database. So the File level keeps the **verbatim filename and the raw probe output**, not
+  just the parse. Provenance says where a value came from; this says keep the input.
+- **The field registry carries a level, and cross-level predicates carry a quantifier.**
+  `genre = horror AND resolution > 1080` mixes Title- and Version-level fields, so the registry
+  records each field's level and the compiler knows the join. And the predicate is **ambiguous
+  without a quantifier** — *any* version over 1080, or *all*? Both are wanted ("films I have in
+  4K" versus "films I have only in 4K"), so it is explicit, like D75's tag count operators.
+- **Mark the backup-critical tables in the schema** ([D77](../../decisions/working-notes.md)),
+  so backup is a query rather than a hand-maintained list that goes stale.
+
 ## Why it is shaped this way
 
 - Jellyfin 12.0's headline change — in 2026 — is turning playlist and collection membership
   into real rows with real foreign keys. Normalise from the start.
 - Multi-version items (1080p and 4K of one film, multiple cuts, multi-part files, disc images)
   are a permanent source of long-running bugs in both Jellyfin and Plex because both bolted
-  them on.
+  them on — and the structural cause is the missing Manifestation level, above.
 - A change journal cannot be retrofitted cheaply, and offline clients need deletes (D8).
 - Identity must survive a file move, a rename, a re-rip and a provider change: UUID primary
   keys, `{provider, provider_id}` in a side table.
@@ -88,3 +146,7 @@ plugin survey ([D20](../../decisions/working-notes.md)), the track-selection pai
 
 Schema and `sqlc` queries exist, migrations run forward from empty, and a documented test
 fixture library round-trips through scan → query → rebuild-from-empty with no user-visible loss.
+
+The fixture includes **one film held as two parts at 1080p and a single file at 4K, in two
+different cuts** — the case that breaks a three-level model — and resume position survives
+switching between the 1080p and the 4K.

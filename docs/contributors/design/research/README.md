@@ -30,6 +30,7 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
 | [tech-clients.md](tech-clients.md) | Player engines and the platform matrix — where the real cost of this project is. |
 | [tech-licensing.md](tech-licensing.md) | FFmpeg's licence ladder, codec patents, and provider terms under an open-source release. Where the landmines are; not legal advice. |
 | [tech-metadata.md](tech-metadata.md) | TMDB, TheTVDB, MusicBrainz, AcoustID, OpenSubtitles — capability, licensing, and the traps. |
+| [library-model-review.md](library-model-review.md) | A review of the library model against EIDR's industry hierarchy and against every schema-touching decision since it was written. Finds it one level short, and short where the field's permanent bugs come from. Backs D79. |
 | [subtitle-rendering.md](subtitle-rendering.md) | Whether to render subtitles server-side as timed image overlays — **measured** at 8.7 KB/event palettised, why it moves the hostile font parse into the jail, and why it dominates burn-in. Backs D78. |
 | [backup-restore.md](backup-restore.md) | What is irreplaceable when the database is a rebuildable index, and the **measured** fact that copying a live WAL database's `.db` file yields a file with no tables in it. Backs D77. |
 | [sharing-model.md](sharing-model.md) | Granular sharing: Plex's label filters (the only working answer, and paywalled), Netflix's household-enforcement apparatus and why we need none of it, and why a share is a predicate. Backs D76. |

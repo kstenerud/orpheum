@@ -54,6 +54,12 @@ backward-compatible renames. Four properties:
 same keys — the same drift that cost them a corrective migration in their FTS work. One table,
 or a test asserting identical key sets.
 
+Two additions from the library-model review ([D79](../../decisions/working-notes.md)): each
+field also records **which level it lives at** (Title, Edition, Version, File), because
+`genre = horror AND resolution > 1080` mixes levels and the compiler must know the join. And a
+cross-level predicate is **ambiguous without a quantifier** — *any* version over 1080, or
+*all*? Both are wanted, so it is explicit rather than defaulted.
+
 ### 2. Multi-valued fields and their count operators
 
 "Has genre X" and "has more than three genres" are different operators. Count operators must

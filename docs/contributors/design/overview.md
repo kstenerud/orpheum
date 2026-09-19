@@ -157,6 +157,13 @@ Notes on the shape:
   things: codecs, profiles, track counts, dispositions.
 - **`cache/` is always safe to delete.** Nothing irreplaceable lives outside the database and
   the media files.
+- **Four levels, because three is where everyone else's version bugs come from**
+  ([D79](../decisions/working-notes.md)). Title → Edition → Version → File, matching the
+  industry's EIDR hierarchy (Abstraction → Edit → Manifestation), with Collections orthogonal
+  and covering series, seasons, box sets and smart collections alike. Jellyfin's `Video` is Edit,
+  Manifestation and Item at once, which is why it needs four overlapping mechanisms —
+  `PrimaryVersionId`, `LinkedAlternateVersions`, `LocalAlternateVersions`, `AdditionalParts` —
+  two of them bare arrays of path strings.
 - **Metadata is multi-language by schema, not by configuration**
   ([D45](../decisions/working-notes.md)). Every title has a language-invariant row and a set of
   translation rows — including per-language artwork, because posters have title text in the

@@ -5456,3 +5456,102 @@ libass; or when the user prefers it.
 is affordable or whether we precompute a small set of sizes. And whether 32-colour palettisation
 survives contact with heavily-styled ASS — gradients, shadows, semi-transparent boxes — is
 untested; the measurement above used ordinary dialogue with an outline.
+
+---
+
+## D79 — Four levels, not three: Title → Edition → Version → File, with Collections orthogonal
+
+**Decided** (2026-09-19). Review:
+[library-model-review.md](../design/research/library-model-review.md). `library-model.md` was
+written 2026-09-17, before roughly thirty decisions that touch the schema. It holds up well in
+most respects and is **one level short** in the one place that matters.
+
+### The missing level
+
+**EIDR** — the industry's identifier registry, used across the studios — models audiovisual
+works as **Abstraction → Edit → Manifestation**, plus **Collection** as an orthogonal
+container. That is FRBR applied to film, and it is what the industry actually registers
+against. Our `Title → Edition → MediaFile` collapses Manifestation and Item into one.
+
+The failure is concrete. *Glass Runner: The Final Cut* held as **1080p in two parts** and **a
+single 4K file** is one Title, one Edition, **two manifestations**, three files. With
+`Edition → MediaFile` there is nowhere to say that the two parts are one viewing and the 4K is
+another: the multi-version axis and the multi-part axis hang off the same parent and cannot be
+distinguished. That is **exactly the combination the plan already names** as a permanent source
+of bugs in Jellyfin and Plex.
+
+And Jellyfin shows what the absence costs. `Video.cs` carries **four overlapping mechanisms** —
+`PrimaryVersionId`, `LinkedAlternateVersions`, `LocalAlternateVersions` and `AdditionalParts` —
+two of them bare arrays of **path strings**, so the parts of a multi-part film are not rows at
+all. The cause is structural: a `Video` is simultaneously the Edit, the Manifestation and the
+Item, so every distinction becomes a side-array. We would be better than that and still short
+of not repeating it.
+
+So: **Title → Edition → Version → File.** Version is a technical representation (an encoding, a
+resolution); File is the bytes, and a Version may have several.
+
+### Collections are orthogonal, and unify five things
+
+EIDR keeps Series, Season and Compilation **outside** the main chain as Collections rather than
+as abstractions with parent pointers. Copying that unifies series, season, box set, hand-made
+user collection **and smart collection** — where the last is a Collection whose membership is a
+predicate rather than a list ([D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable),
+[D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed)).
+
+> **A Collection is either an explicit member list or a predicate.** Everything else about it is
+> the same.
+
+### Watch state attaches at the Edition, and names attach at two levels
+
+Both need declaring, and neither answer is obvious.
+
+**Watch state: Edition.** Not File or Version — upgrading 1080p to 4K must not lose your place,
+and it would. Not Title — the theatrical and director's cuts have different runtimes, so a
+resume position across them is meaningless. Edition is the level at which *the same content* is
+true. (Whether a watched *flag* rolls up to the Title is a UI question, deliberately not a
+schema one; a resume position cannot roll up regardless.)
+
+**Names: Title and Edition both.** "Glass Runner" and "The Final Cut" are both names and both
+need [D45](#d45--metadata-is-multi-language-in-the-schema-chosen-per-request)'s translation
+treatment. So the displayed title is a **composition of two translated strings**, which
+[D47](#d47--sort-order-is-a-materialised-cldr-sort-key-per-item-per-locale)'s sort key and
+[D48](#d48--two-fts5-tokenisers-routed-by-script-and-length-and-exactly-one-normaliser)'s FTS
+row must both account for — both currently assume one name per item.
+
+### Three cross-cuts the review caught
+
+**1. The core must persist the node's raw observation, not only its interpretation.**
+[D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)'s
+decisive argument for parsing in the core was that a parser improvement must be replayable over
+the database **with every node switched off**. That is only true if the input is in the
+database. So the File level stores the verbatim filename and the raw probe output, not merely
+the parse and the normalised tracks. "Field-level provenance" is adjacent but not the same
+claim: provenance says where a value came from; this says keep the input.
+
+**2. The field registry needs a level, and cross-level predicates need a quantifier.** With four
+levels, `genre = horror AND resolution > 1080` mixes a Title-level field with a Version-level
+one, so the registry must record each field's level and the compiler must know the join. And —
+the part that would be found late — **the cross-level predicate is ambiguous**: does
+`resolution > 1080` on a Title mean *any* version exceeds it or *all* of them? Both are wanted
+("films I have in 4K" versus "films I have *only* in 4K"), so the language needs an **explicit
+quantifier**, the same shape as D75's tag count operators. Defaulting silently to `any` would
+generate bugs.
+
+**3. Mark the backup-critical tables in the schema.**
+[D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore)
+divides the database into regenerable and irreplaceable. Annotating that **in the schema**
+makes the backup a query instead of a hand-maintained list that goes stale the first time
+someone adds a table.
+
+### What holds up
+
+Recorded because most of the above is correction: UUID primary keys with
+`{provider, provider_id}` in a side table; the change journal and sync cursor from day one;
+`Library`/`Item`/`MediaFile` naming rather than `Movie`/`Episode`; membership as real rows
+rather than serialised lists; and every late addition from the internationalisation round. All
+correct, all unaffected by the level change.
+
+**Status:** Provisional in one respect — whether **Version** and **File** are genuinely
+distinct rows in the first schema or whether File carries a nullable `version_id` that is
+almost always 1:1. The four-level *model* is not provisional; how thinly it is implemented on
+day one is negotiable, as long as the multi-part-plus-multi-version case has somewhere to go.
