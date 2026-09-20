@@ -7542,10 +7542,33 @@ A participant granted transport control still cannot remove anyone. Those are di
 of authority and conflating them would let a griefer with control rights eject the host.
 
 **And ejection without rotation is a revolving door.** If the intruder still holds a working
-link, booting them means they press join again. So the two are **paired in the interface** —
-"remove this person" rotates the link as part of the same act — while remaining separate
-operations underneath, because removing someone you invited deliberately (a housemate who has
-gone to bed) does not need the link changed and should not inconvenience anyone else.
+link, booting them means they press join again.
+
+So the two are paired **by a prompt, not by coupling** — refined by the project owner the same
+day. Removing someone raises:
+
+> *If you're booting this person due to abuse, would you also like to rotate the join link so
+> they can't come back?*
+
+Three things about that wording are the decision, not the copy:
+
+- **It asks about the reason, not the mechanism.** The owner is mid-incident and should not
+  have to know what a join link is or why rotating one matters. "So they can't come back" is
+  the outcome they care about; "rotate the credential" is our word for how.
+- **It is not a default and not automatic**, because rotating has a cost and it falls on
+  someone invisible: **a legitimate invitee who has the old link and has not joined yet.**
+  Existing participants are undisturbed by a rotation ([D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)'s
+  whole point), so the only person a needless rotation hurts is the one still on their way.
+  That is precisely why it cannot be inferred and has to be asked.
+- **It never acquires a "don't ask again".** The right answer differs per incident — a
+  housemate who has gone to bed and a stranger who found the link are the same button and
+  opposite answers — so this is one of the few prompts where remembering the last choice is a
+  bug.
+
+A batch ejection (several joins from a leaked link) asks once for the batch.
+
+The same rotate action is offered beside the capacity-refusal signal below, and both use the
+same words.
 
 ### The cap is the part that makes a leak survivable
 

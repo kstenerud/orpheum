@@ -95,10 +95,20 @@ So recovering from a leak never disturbs anyone:
 2. **The owner ejects the intruder**, which is possible at all only because memberships have
    identity. **Ejection is owner-only and never delegable** — a participant with transport
    control still cannot remove anyone, or a griefer with control rights could eject the host.
-3. **Ejection and rotation are paired in the interface**, because booting someone who still
-   holds a working link is a revolving door. They stay separate operations underneath:
-   removing a housemate who has gone to bed needs no rotation and should not inconvenience
-   anyone else.
+3. **Ejection and rotation are paired by a prompt, not by coupling**, because booting someone
+   who still holds a working link is a revolving door — but rotating when you did not need to
+   has its own victim. Removing someone raises:
+
+   > *If you're booting this person due to abuse, would you also like to rotate the join link
+   > so they can't come back?*
+
+   It asks about the **reason**, not the mechanism: the owner is mid-incident and should not
+   need to know what a join link is. It is **not a default**, because the cost of a needless
+   rotation falls on someone invisible — a legitimate invitee holding the old link who has not
+   joined yet; everyone already in is undisturbed either way. And it **never gets a "don't ask
+   again"**: a housemate going to bed and a stranger who found the link are the same button
+   with opposite answers, so remembering the last choice would be a bug. A batch ejection asks
+   once.
 4. **The owner sees the roster live**, or cannot know to do any of this.
 
 **And the cap is the control that works before the owner notices.** At session creation the
