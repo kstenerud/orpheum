@@ -71,12 +71,17 @@ Five choices, each traceable to a specific failure in the research:
    [D13](../decisions/working-notes.md))
 6. **One excellent TV client beats five mediocre ones.** The project is judged on its TV app.
    ([D10](../decisions/working-notes.md))
-7. **Watch Together, because everyone else deleted theirs.** Disney+, Amazon, Sling and even
+7. **Watch Together, because everyone else deleted theirs** — and Plex's own forum has a
+   **350-post thread** asking for it back. Disney+, Amazon, Sling and even
    Plex withdrew their watch-party features — Plex's note says it *"won't be available for most
    platforms as they get the new experience"*, which names the cause: it lived in every client.
    Teleparty has ten million users because the platforms will not do this. We keep the
-   client-specific surface to six methods so a client rewrite cannot quietly kill it.
-   ([D62](../decisions/working-notes.md))
+   client-specific surface to six methods so a client rewrite cannot quietly kill it
+   ([D62](../decisions/working-notes.md)) — and **a session link is the invitation**, with no
+   account required at the other end, because that is the whole point
+   ([D117](../decisions/working-notes.md)). The creator owns what plays; whether anyone else
+   may touch the transport is his setting; and a griefer is handled by invalidating the
+   session and re-forming it rather than by making everyone sign up first.
 
 ## Architecture
 
@@ -212,6 +217,15 @@ Notes on the shape:
   the request for a fallback chain has been open there since 2020. Sort order is a materialised
   CLDR sort key per locale ([D47](../decisions/working-notes.md)) rather than a transliteration
   to ASCII, so Swedish Å Ä Ö sort after Z instead of being folded to the front.
+- **A scan is a stream you can steer, not a batch that finishes**
+  ([D118](../decisions/working-notes.md)). Passes are ordered so an item becomes *playable*
+  first — measured at **17 minutes to a browsable 3,500-item library**, against 9.2 single-core
+  days for trickplay alone, because the node's passes turn out to be two populations a
+  thousand-fold apart split by whether a pass decodes video
+  ([D114](../decisions/working-notes.md)). The user can push one title to the front mid-scan
+  and have it playable in seconds, and the core reads the node's report **while it is still
+  being written**, so items appear as they are found. A progress bar is a promise about the
+  future; items appearing is evidence about the present.
 - **A node publishes a snapshot plus a journal, and interprets nothing**
   ([D59](../decisions/working-notes.md)). It enumerates its roots, looks inside the files
   because people misname them, and reports what it saw — filenames verbatim, probe output,

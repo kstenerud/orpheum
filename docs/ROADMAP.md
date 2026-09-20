@@ -5,7 +5,11 @@ The recommended implementation plan, derived from the research in
 [`contributors/decisions/working-notes.md`](contributors/decisions/working-notes.md).
 
 Written 2026-09-17, revised the same day after the direct-play-first direction
-([D17](contributors/decisions/working-notes.md)), and revised again **2026-09-19** after an
+([D17](contributors/decisions/working-notes.md)); revised **2026-09-20** when the last two
+unspecified plans were researched
+([D109](contributors/decisions/working-notes.md)–[D118](contributors/decisions/working-notes.md)),
+which put a measured *"17 minutes to a browsable library"* under Phase 1 and made the
+first-scan ordering a requirement; and revised **2026-09-19** after an
 independent audit ([audit-2026-09-19.md](contributors/design/research/audit-2026-09-19.md),
 [D80](contributors/decisions/working-notes.md)–[D95](contributors/decisions/working-notes.md))
 added six schema items to Phase 1 and moved one thing out of Phase 4. Pre-implementation. Phase
@@ -46,6 +50,14 @@ The schema (**`Title → Edition → Version → File`** with Collections orthog
 [D79](contributors/decisions/working-notes.md) corrected this from three levels on 2026-09-19 —
 provider IDs and field provenance in side tables, audit/change-journal tables from commit one),
 the node's snapshot-plus-journal scanner, and the playback service.
+
+**And the first scan has an ordering requirement now, not just a shape**
+([D118](contributors/decisions/working-notes.md),
+[D114](contributors/decisions/working-notes.md)): passes are ordered so an item becomes
+**playable as early as possible** — measured at **17 minutes to a browsable 3,500-item
+library** against days for the full treatment — the user can prioritise one title mid-scan,
+and the core tails the node's in-progress report so items appear while the scan is still
+running rather than when it ends.
 
 **What ships in the playback service:** ranged direct-play `GET`; the **three-axis rendition
 negotiation** (video ‖ audio ‖ subtitles, [D22](contributors/decisions/working-notes.md));
@@ -188,8 +200,9 @@ hedge.
 
 ## Phase 6 — The hard product problems
 
-`remote-access.md` and `sharing-model.md`, both `UNSPECIFIED`, both needing a research round
-before design.
+`remote-access.md` and `sharing-model.md`. **No longer `UNSPECIFIED`** — both were researched
+2026-09-18/19 and are now `PARTLY SPECIFIED` and `PLANNED`; what remains in the first is a
+product decision rather than a design one.
 
 Late because they are hard, not unimportant — they are what decides whether this replaces Plex
 for a *household* or only for one person. Remote access has a genuine tension with D13's
@@ -233,7 +246,13 @@ can land whenever there is room. They are listed rather than forgotten:
 - **[observability.md](contributors/design/plans/observability.md)** — a `/metrics` endpoint,
   off by default. It is a prerequisite for
   [performance-targets.md](contributors/design/plans/performance-targets.md) meaning anything
-  outside CI.
+  outside CI, and the two must agree on metric names.
+- **[testing-strategy.md](contributors/design/plans/testing-strategy.md)** and
+  **[performance-targets.md](contributors/design/plans/performance-targets.md)** are no longer
+  unspecified (2026-09-20). Neither is a phase: the corpus tiers and the regression gates are
+  built alongside whatever they are gating, starting with Phase 1. The one thing with a
+  deadline is the **OpenAPI breaking-change gate**, which must exist before the first client
+  ships ([D85](contributors/decisions/working-notes.md)).
 - **[artwork.md](contributors/design/plans/artwork.md)** — the home page is fifty posters and
   is an image-serving benchmark. Needed by Phase 2 in practice.
 
