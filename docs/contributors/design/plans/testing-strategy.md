@@ -142,9 +142,14 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   ([D104](../../decisions/working-notes.md));
 - an adapter request carries the end user's authorisation, and a share predicate applies to it
   ([D105](../../decisions/working-notes.md));
-- **a revoked Watch Together participant is gone within one reconciliation interval**, the
-  remaining participants do not notice, and the re-formed session keeps them
-  ([D117](../../decisions/working-notes.md)) — the path nobody exercises until they need it;
+- **rotating a Watch Together join link is invisible to everyone already in the session**, the
+  old link admits nobody, and an ejected participant is gone within one reconciliation
+  interval ([D117](../../decisions/working-notes.md),
+  [D119](../../decisions/working-notes.md)) — the path nobody exercises until they need it.
+  Including the race: **a client mid-join when the link rotates** either completes or is
+  refused, and never lands in a half-joined state;
+- **the simultaneous-client cap is enforced server-side** on admitted memberships, and a
+  refusal at capacity reaches the owner ([D119](../../decisions/working-notes.md));
 - **items appear in the library while the first scan is still running**, and a tailed report
   that ends mid-record costs one entry rather than the batch
   ([D118](../../decisions/working-notes.md));

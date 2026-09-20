@@ -80,8 +80,10 @@ Five choices, each traceable to a specific failure in the research:
    ([D62](../decisions/working-notes.md)) — and **a session link is the invitation**, with no
    account required at the other end, because that is the whole point
    ([D117](../decisions/working-notes.md)). The creator owns what plays; whether anyone else
-   may touch the transport is his setting; and a griefer is handled by invalidating the
-   session and re-forming it rather than by making everyone sign up first.
+   may touch the transport is his setting. A leaked link is survivable rather than prevented
+   ([D119](../decisions/working-notes.md)): a **cap on simultaneous clients** bounds the flood
+   before anyone notices, and because **a link admits while a *membership* persists**, the
+   owner can rotate the link without the people already watching noticing anything at all.
 
 ## Architecture
 

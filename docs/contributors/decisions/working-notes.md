@@ -7358,10 +7358,13 @@ revocable" does not:
 
 1. **Invalidation is immediate and ejects live participants.** A revocation that only stops
    *new* joins leaves the griefer in the room, which defeats the whole mechanism.
-2. **"Invalidate and re-form" is one action, and it carries the remaining participants
-   across.** If recovering from one bad join means re-inviting everyone individually, mid-film,
-   nobody will do it and the control is theoretical. The creator ejects-and-rotates; everyone
-   still in the group stays in it; the old link is dead.
+2. ~~**"Invalidate and re-form" is one action, and it carries the remaining participants
+   across.**~~ **Superseded by
+   [D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)**,
+   which removes the need for it: the session is never invalidated at all. The owner **rotates
+   the join link**, the old one stops admitting and keeps serving everyone already in, and
+   nothing is re-formed. That works because a link admits and a **membership** persists — a
+   distinction this decision conflated.
 3. **The roster is visible to the creator, live.** You cannot decide to revoke if you cannot see
    that there are four people in a two-person session.
 
@@ -7492,3 +7495,92 @@ correct; preempting *within* trickplay — the eight-minute pass — needs the p
 chunk-resumable, which [D102](#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes)
 already requires for a different reason (a NAS gets switched off mid-pass), so it is probably
 free. Unverified.
+
+---
+
+## D119 — A join link admits; membership is what persists. Rotation is seamless, ejection is owner-only, and a cap bounds the leak
+
+**Decided** (2026-09-20), by the project owner. Refines
+[D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays),
+and corrects a conflation in it.
+
+D117 said "the link is the grant" and then reasoned as though the link stayed load-bearing for
+the whole session — which is why it ended up needing *"invalidate and re-form as one action
+that carries the remaining participants across"*, an awkward mechanism to build and an
+alarming one to use mid-film. The sharper model removes the need for it:
+
+> **A join link is a credential for *admission*. What persists afterwards is a
+> **membership**, and a membership is independent of the link that created it.**
+
+Everything else falls out of that.
+
+### Rotation is seamless, because the link was never what was holding the session up
+
+The owner generates a **new join link for the existing group**. The old link **stops admitting
+new clients and keeps serving every client already admitted.** Nobody is interrupted, nobody
+re-joins, nothing is re-formed. The session, its roster, its position and its voice channel
+are untouched.
+
+This is only implementable because membership is a first-class object with its own identity,
+issued at join time — which is also the only thing that makes *per-participant* ejection
+possible at all. You cannot remove one person who is identified solely by a link that four
+people are holding.
+
+### Ejection is owner-only, and it is a fourth permission
+
+[D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays)
+listed three permissions; this is the fourth and it is the one that is **never delegable**:
+
+| | Who |
+| --- | --- |
+| What plays | creator only, always |
+| Transport — play, pause, seek | creator's choice: everyone, or creator only |
+| Move within the series | creator's choice |
+| **Eject a participant, and rotate the link** | **creator only, never configurable** |
+
+A participant granted transport control still cannot remove anyone. Those are different kinds
+of authority and conflating them would let a griefer with control rights eject the host.
+
+**And ejection without rotation is a revolving door.** If the intruder still holds a working
+link, booting them means they press join again. So the two are **paired in the interface** —
+"remove this person" rotates the link as part of the same act — while remaining separate
+operations underneath, because removing someone you invited deliberately (a housemate who has
+gone to bed) does not need the link changed and should not inconvenience anyone else.
+
+### The cap is the part that makes a leak survivable
+
+**At session creation the owner sets a maximum number of simultaneous clients, with a small
+safe default.** This is the control that matters most, because it works *before* the owner
+notices anything:
+
+- **It bounds the flood.** A leaked link admits one griefer, not thirty. The damage window
+  between a leak and the owner reacting has a ceiling.
+- **It is a cost control as well as an abuse control.** Simultaneous clients are what the
+  household uplink and the relay pay for
+  ([D70](#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible),
+  [D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it)) — one remote viewer
+  on a remux can saturate an uplink, so a cap is the same number seen from two directions.
+- **It is a count of admitted memberships, not of links**, and it is enforced server-side.
+
+**The default is small**, because [D69](#d69--group-size-is-a-priority-order-not-a-capability-two-then-four-or-five-then-a-party)
+says the design is best at two and the motivating case is two people. The exact number is a
+product choice; what is not negotiable is that the default is small, it is **visible at
+creation rather than buried**, and raising it is one action for the owner at any time.
+
+### A refused join is a signal, not an error
+
+[principles §10](../principles/README.md) says a check that fires in a correct system is worth
+looking at. **"Join refused: at capacity" is exactly that** — in normal use it never happens,
+because the owner sized the session for the people he invited. Several in a row is the
+signature of a leaked link, and it is the earliest evidence available, arriving before the
+owner has noticed a stranger in the roster.
+
+So refusals are surfaced to the owner live, with a count, and the natural response — *rotate
+the link* — is offered in the same place.
+
+**Status:** The cap's default value is unset here deliberately; it wants the first real party
+session to argue about. Two things are unverified: whether a rotation can be made genuinely
+invisible to existing clients (it should be — nothing in
+[D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s
+six-method surface mentions the link), and how a client that was mid-join during a rotation
+behaves. That second one is the race worth writing a test for rather than discovering.

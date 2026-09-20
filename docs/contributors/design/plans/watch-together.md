@@ -49,7 +49,10 @@ belongs to the transcoding plan, not this one.
 
 ### Openings to leave, none of which is work today
 
-1. **Membership is a list with per-member state**, not a pair.
+1. **Membership is a list with per-member state**, not a pair — and per
+   [D119](../../decisions/working-notes.md) each member's state is a **first-class object with
+   its own identity**, issued at join. That is what makes ejection and seamless link rotation
+   possible; without it a participant is only identifiable by a link several people hold.
 2. ~~**Control is a per-participant capability**, defaulting to everyone~~ — **taken**
    ([D117](../../decisions/working-notes.md)): it is now a creator-set policy with three
    separate permissions, above.
@@ -80,15 +83,36 @@ that must not be closed by accident** is segment-URL cacheability — see
 one admits you — no account, no share predicate evaluated per person, which is the point: the
 motivating case is a partner travelling who does not have an account.
 
-**Revocation is the control.** A griefer who gets a link is handled by invalidating the
-session and re-forming it. That puts three requirements on revocation that "make the link
-revocable" does not:
+**A link admits; a membership persists** ([D119](../../decisions/working-notes.md)). That
+distinction is what makes the rest cheap: a join link is a credential for *admission only*,
+and once someone is in, their membership is an object of its own with its own identity.
 
-1. **Invalidation ejects live participants immediately** — stopping new joins leaves the
-   griefer in the room.
-2. **Invalidate-and-re-form is one action and carries the remaining participants across.** If
-   recovering from one bad join means re-inviting everyone mid-film, nobody will do it.
-3. **The creator sees the roster live**, or cannot know to revoke.
+So recovering from a leak never disturbs anyone:
+
+1. **The owner rotates the join link.** The old one **stops admitting new clients and keeps
+   serving every client already admitted** — no interruption, no re-join, no re-formed
+   session. Position, roster and voice are untouched.
+2. **The owner ejects the intruder**, which is possible at all only because memberships have
+   identity. **Ejection is owner-only and never delegable** — a participant with transport
+   control still cannot remove anyone, or a griefer with control rights could eject the host.
+3. **Ejection and rotation are paired in the interface**, because booting someone who still
+   holds a working link is a revolving door. They stay separate operations underneath:
+   removing a housemate who has gone to bed needs no rotation and should not inconvenience
+   anyone else.
+4. **The owner sees the roster live**, or cannot know to do any of this.
+
+**And the cap is the control that works before the owner notices.** At session creation the
+owner sets a **maximum number of simultaneous clients, with a small safe default** — small
+because [D69](../../decisions/working-notes.md) says the design is best at two and the
+motivating case is two people, visible at creation rather than buried, and raisable in one
+action at any time. It bounds the flood from a leaked link to one griefer rather than thirty,
+and it is simultaneously a **cost** control, because simultaneous clients are exactly what the
+household uplink and the relay pay for.
+
+**A refused join is a signal.** "At capacity" never fires in a correctly-sized session, so
+several in a row is the earliest available evidence that a link has leaked — arriving before
+a stranger shows up in the roster. Surface it to the owner live, with the rotate action next
+to it ([principles §10](../../principles/README.md)).
 
 **The link is scoped**, which is what keeps the blast radius small enough for revocation to be
 a sensible control: it reaches the work the creator chose and nothing else — an Edition, or
@@ -102,6 +126,7 @@ most, for as long as the session lasts.
 | **What plays** — the film or the series | **creator only, always** | not configurable |
 | **Transport** — play, pause, seek | creator's choice: everyone, or creator only | everyone |
 | **Move within the series** — next episode, next film in the series | creator's choice: on or off | follows transport |
+| **Eject a participant, rotate the link, change the cap** | **creator only, never configurable** | — |
 
 The second row was opening (2) below and is now a setting. The third is the interesting one:
 **the creator picks the work, participants may navigate inside it.** "Next episode" is
