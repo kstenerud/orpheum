@@ -90,7 +90,7 @@ watcher**, because you cannot know the watcher is perfect.
 | The node reports | The core decides |
 | --- | --- |
 | the filename, verbatim — NFC form and raw bytes ([D49](../../decisions/working-notes.md)) | what the filename *means* |
-| size, mtime, and where cheap, a content hash | whether two files are the same work |
+| size, mtime, and a **sampling** content hash — head, tail and size, measured at 3.2 ms against 0.49 s for the whole file ([D116](../../decisions/working-notes.md)) | whether two files are the same work |
 | probe output: container, streams, codecs, durations, disposition flags, track titles, attachments | which track is "the" audio track |
 | a track's BCP 47 tag **beside** the raw `ger`/`deu` the container carried | how to resolve a conflict between them |
 | `A gone` and `B appeared` | that it was a move |
@@ -162,9 +162,13 @@ segment detection ([D82](../../decisions/working-notes.md)) · overlay rendering
 ([D78](../../decisions/working-notes.md)) — and later content-safety inspection
 ([D61](../../decisions/working-notes.md)).
 
-Each was added in isolation and each was individually cheap. On an 8 GB Celeron NAS with fifty
-thousand files the total is a first scan that takes a week and an array that never spins down.
-So:
+Each was added in isolation and each was individually cheap. **Measured 2026-09-20**
+([D114](../../decisions/working-notes.md)) the picture is sharper than "nine expensive passes":
+they are **two populations a thousand-fold apart**, split by whether a pass decodes video.
+Probe, remux, keyframe grid, thumbnail, fingerprint and subtitle overlay run at 500–38,000×
+realtime; trickplay and blackdetect at ~14×. Over a 3,500-item reference library that is
+**17 minutes to a browsable library**, about a day and a half for the whole cheap set, and
+**9.2 single-core days for trickplay alone**. So:
 
 - **Each pass is independently deferrable, per library.** [D94](../../decisions/working-notes.md)'s
   `archival` is the extreme setting of a control that wants every gradation — a downloads folder
@@ -177,7 +181,60 @@ So:
 - **Each pass is restartable and idempotent**, because a NAS gets switched off mid-pass.
 - **Ordering is by user value.** Enumeration and probe make the library exist; everything after
   is enrichment, and a user who can watch a film in five minutes will forgive a trickplay
-  sprite that arrives on Tuesday.
+  sprite that arrives on Tuesday — which is the literal measured trade: 17 minutes against 9.2
+  days.
+- **Passes that share a decode may be fused**, and the scheduler has to know which. Measured:
+  running loudness, trickplay and blackdetect as one invocation beats three separate runs by
+  **38% on six cores and 45% on one** — the saving is larger on the machine that needs it more.
+
+### Playability first, and the user can jump the queue
+
+[D118](../../decisions/working-notes.md). The ordering rule is not "cheap passes first", it is
+**an item becomes playable as early as possible**; everything that only adds a feature to
+something that already plays comes after everything that makes something play. For one
+110-minute film, single-core, from the measured rates: **playable in under a second**,
+subtitles and overlays at ~2 s, loudness at ~65 s, **trickplay at ~8 minutes**.
+
+**And the scheduler is a priority queue keyed by `(item, pass)`, not a pipeline**, because the
+user gets to say *"I want to watch this one now"* in the middle of a fifty-thousand-file scan.
+A boost preempts at the next pass boundary.
+
+Two things that are easy to build wrong:
+
+- **The core expresses the request in the node's vocabulary.** A node has no items
+  ([D42](../../decisions/working-notes.md)) — it has paths. So the core translates the title
+  into a set of paths and sends those, which is
+  [D101](../../decisions/working-notes.md)'s rule again.
+- **It joins [D38](../../decisions/working-notes.md)'s command list** as
+  `prioritise <paths>`, and satisfies that decision's re-execution rule trivially: prioritising
+  something already done is a no-op.
+
+The UI says what it can actually deliver — *playable now, scrub previews in eight minutes* is
+true and useful; *Preparing…* is not.
+
+### The core reads the report while it is still being written
+
+[D118](../../decisions/working-notes.md) **changes a rule**:
+[D39](../../decisions/working-notes.md)'s *"the core never parses a file still being written"*
+becomes **"the core may tail a `.partial` report, and everything it reads from one is
+incomplete by definition"**. Results appear in the library as they are produced rather than
+when the scan ends.
+
+Nothing about safety changes, because safety was never the filename — it was *unknown means
+incomplete means add-or-update only*, which already covered a crashed scan and covers a
+partial read identically. The atomic rename keeps its one job: it is the moment **removals may
+be applied**.
+
+Two mechanical details that bite:
+
+- **Consume only up to the last newline.** A tailed JSONL file ends mid-record about half the
+  time; this is precisely the "degrades per line" property the format was chosen for.
+- **Batch the ingest.** Parsing a 50,000-entry snapshot costs 1.8 s and the write ceiling is
+  9,415 commits/s, so tailing must not turn one scan into fifty thousand transactions. Batch on
+  a time or count bound — the user still sees results inside a second.
+
+**This is also what makes the scan legible**, which was the original complaint. A progress bar
+is a promise about the future; items appearing in the library are evidence about the present.
 
 **These are passes over bytes, not stages that draw conclusions** — the shape
 [D59](../../decisions/working-notes.md) removed stays removed.
@@ -262,5 +319,6 @@ A pathological real-world library enumerates correctly; an interrupted snapshot 
 the core inferring a deletion; a watcher that silently stops is caught by the next snapshot; a
 node whose probe cache is deleted publishes a byte-identical snapshot; a library declared
 archival is not touched at all and says so; a scan of one array spins it up once rather than
-repeatedly; and the node's records answer "what did you see, and what could you not read?"
-without a debug log.
+repeatedly; **items appear in the library while the first scan is still running**; **a title
+the user asks for becomes playable within seconds of asking, mid-scan**; and the node's records
+answer "what did you see, and what could you not read?" without a debug log.

@@ -2344,6 +2344,12 @@ scans can delete libraries.
 
 ## D39 — Reports are JSONL; completeness is in the filename and is scoped, not global
 
+> **Amended 2026-09-20 by [D118](#d118--the-scan-is-incremental-prioritised-and-steerable-and-playability-comes-first).**
+> ~~*the core never parses a file still being written*~~ — the core **may tail** a `.partial`
+> report so results appear as they are produced, reading only up to the last newline. The
+> safety rule is unchanged because it was never the filename: *unknown means incomplete means
+> add-or-update only*. The rename still marks the moment removals may be applied.
+
 **Decided.** The scan report is **JSONL** — one JSON object per line, header first, entries,
 trailer last. But the authoritative completeness signal is the **filename**, not the trailer,
 and completeness is **per-subtree rather than per-report**.
@@ -3733,6 +3739,12 @@ well beyond this one.
 ---
 
 ## D59 — A node publishes a snapshot plus a journal; it observes, it does not interpret
+
+> **Amended 2026-09-20 by [D116](#d116--the-content-hash-is-a-sampling-hash-whole-file-hashing-is-opt-in-and-separate).**
+> "Where cheap, a content hash" now has a measurement behind it: the default is a **sampling
+> hash** (head, tail and size — 3.2 ms and 2 MB of reads), not a whole-file hash (0.49 s and
+> 8 GB of reads per film). Whole-file hashing is a separate, opt-in pass for duplicate
+> detection.
 
 **Decided** (2026-09-19). Correcting [scanner.md](../design/plans/scanner.md), whose Shape
 section still described Navidrome-style pipeline phases — *enumerate → detect missing/moved →
@@ -5385,6 +5397,12 @@ worth asserting as a test rather than assuming.
 
 ## D78 — Server-rendered subtitle overlays are a third rendition, and they dominate burn-in
 
+> **Measured 2026-09-20** ([D114](#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video)):
+> the live-render cost this decision left open is **1.16 s per film-equivalent** at event
+> granularity — 1,200 events on a 1920×1080 canvas, 515× realtime. Implemented the naive way,
+> by compositing over the decoded film, it is **18.15 s**. So the rendition is free and the
+> wrong implementation is fifteen times worse; the plan must say which it means.
+
 **Decided** (2026-09-19). Add a **server-rendered overlay** subtitle rendition — libass runs in
 the node, output is timed, cropped, palettised bitmaps — alongside text and burn-in. Text stays
 the default. Research: [subtitle-rendering.md](../design/research/subtitle-rendering.md).
@@ -5711,6 +5729,13 @@ is [D79](#d79--four-levels-not-three-title--edition--version--file-with-collecti
 Deriving a sibling Version's segments by runtime alignment is allowed and is cheaper than a
 second detection pass; it is recorded as a derivation, not as an observation.
 
+> **Detector economics measured 2026-09-20 —
+> [D115](#d115--intro-detection-is-fingerprint-first-and-chromaprint-needs-a-stereo-downmix-or-it-fails-outright).**
+> Audio fingerprinting is **sixty times cheaper** than black-frame detection (802× realtime
+> against 13.5×), because one is an audio pass and the other decodes every frame. So
+> fingerprinting is the primary detector and black-frame the second line. And chromaprint
+> **fails outright** on a 5.1 input: it needs `-ac 2` in front of it.
+
 **Detection is a job, and a plugin-shaped one.** It reads decoded audio and video, so by
 [D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp) it runs in the node's jail, and by [D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides) it reports
 candidate boundaries while the core decides what to store. A **user override** wins over any
@@ -5764,10 +5789,13 @@ honours it.
 correct value differs per listener and per room); leaving it to the client (the core performs
 the downmix, so the client cannot fix a mix it never receives).
 
-**Status:** The measurement cost per file is unmeasured and belongs in
-[performance-targets.md](../design/plans/performance-targets.md) — it is an extra decode pass
-at scan time on a machine that is already decoding, but on a Celeron NAS with fifty thousand
-files that is not free. Whether it should be deferrable per library is open.
+**Status:** **Measured 2026-09-20** and the worry was misplaced. `ebur128` runs at **102×
+realtime** and is *audio-only* — 5.35 s on six cores against 5.89 s on one, so it is one
+core's work and parallelises across files rather than within them. For the reference library
+of 3,167 hours that is **31 hours single-core**, against 9.2 days for trickplay. It is one of
+the cheap passes, not one of the expensive ones
+([D114](#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video)).
+Whether it is deferrable per library remains a policy question rather than a cost one.
 
 ---
 
@@ -6461,10 +6489,13 @@ Two smaller consequences:
   command is — either gets an identity guard that makes replay safe, or it does not belong on
   that channel at all. Anything that cannot have one belongs in the job system.
 
-**Status:** Sound as far as it goes; what is untested is whether size-and-mtime is enough
-identity on the filesystems people actually use. On a share with second-granularity mtimes and
-a re-rip of the same source, it might not be. Hash-on-delete is cheap relative to the
-consequence and may simply be the answer.
+**Status:** **Measured 2026-09-20** — hash-on-delete is the answer, and it is not even a
+trade-off. A sampling hash (head, tail and size) costs **3.2 ms**
+([D116](#d116--the-content-hash-is-a-sampling-hash-whole-file-hashing-is-opt-in-and-separate)),
+so a destructive command carries one and there is nothing to argue about. The residual
+judgement is whether a head/tail hash is enough for a *delete* guard or whether that one path
+deserves the whole-file hash at 0.49 s per file — deletion is rare, so the conservative option
+is affordable.
 
 ---
 
@@ -6558,9 +6589,14 @@ spins down ([D94](#d94--disk-spin-down-is-a-cost-of-the-snapshot-interval-and-ar
 removed — these are passes over bytes, all of them reporting observations, with every
 interpretation still in the core.
 
-**Status:** The total cost is exactly the thing [performance-targets.md](../design/plans/performance-targets.md)
-cannot state yet. It is now the most consequential unmeasured number in the project, because
-the first-scan experience is the first thing a user sees and there are nine passes in it.
+**Status:** **Measured 2026-09-20**, and the shape is better than feared
+([D114](#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video)).
+The nine passes are not nine costs: they are **two populations a thousand-fold apart**,
+separated by whether a pass decodes video. The library is **browsable and playable after 17
+minutes**; the entire cheap set is about a day and a half; **trickplay alone is 9.2 days** and
+is the only unavoidable member of the expensive class. Fusing passes that share a decode is
+worth **38% on six cores and 45% on one**. What remains unmeasured is the same list on real
+NAS hardware, and the client side entirely.
 
 ---
 
@@ -6607,6 +6643,14 @@ prune — which they will want anyway for session revocation ([auth.md](../desig
 ---
 
 ## D104 — A Watch Together invite is a capability URL scoped to one edition; the group is never a grant
+
+> **The entitlement half is superseded by
+> [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays)**
+> (2026-09-20). ~~*Every participant resolves the item through their own entitlement*~~ — the
+> link **is** the grant, and a griefer who obtains one is handled by invalidating the session
+> and re-forming it, not by requiring everyone to hold an account first. The *scope* half of
+> this decision survives and matters more under D117, because it is what bounds the blast
+> radius of a leaked link.
 
 **Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §27.
 
@@ -6886,3 +6930,565 @@ The harder unresolved question is what "the previous layout stays available" mea
 **web** client, where there is no installed artefact and the server serves the UI — plausibly
 the server keeps the previous bundle and a per-user setting selects it, which is cheap in
 storage and not free in testing.
+
+---
+
+## D109 — Five corpus tiers, and nobody has to download media to run the suite
+
+**Decided** (2026-09-20). Research:
+[testing-strategy.md](../design/research/testing-strategy.md) §1, §6, §8.
+
+The plan asked *"how does a contributor without 200 GB of media run the suite?"* **The premise
+was wrong.** Nobody's corpus is 200 GB, and the two ends of the field are three orders of
+magnitude below that guess:
+
+| Project | Real media in its suite |
+| --- | --- |
+| **Jellyfin** — a media server | **none at all**; 3.9 MB of tests, 285 C# files, zero media files |
+| **Navidrome** — a Go media server, our closest analogue | **13 files, 512 KB**, in-tree |
+| **hls.js** — a player | none; **49 stream URLs** |
+| **FFmpeg** — the codec library underneath everything | **2,875 files, 1.29 GiB**, external and opt-in |
+
+And FFmpeg's, measured by `rsync -n --stats` on 2026-09-20, has a **median file of 58.7 KB**
+with **86% under 1 MB**. A media test corpus is thousands of tiny clips, not a library.
+
+### The tiers
+
+- **Tier 0 — no fixtures.** Pure functions, table-driven: filename parsing, track-kind
+  derivation, language normalisation, the predicate compiler, sort keys, pseudonymisation.
+  Jellyfin's largest test project is exactly this — `Jellyfin.Naming.Tests`, 3,938 lines, with
+  **79 `[InlineData]` cases in one file**.
+- **Tier 1 — recorded JSON, and this is the main event.** Jellyfin tests its media layer with
+  **fifteen recorded `ffprobe` outputs totalling 120 KB** and no media at all.
+  **[D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)
+  makes that structural for us rather than incidental**: probe output is our *wire format*, so
+  the core's entire interpretation layer — parsing, grouping, track kinds, segment placement,
+  identification — replays from recorded node reports with no FFmpeg, no filesystem and no
+  media. The thing D59 was for, cashed out.
+- **Tier 2 — generated, by the test run.** Measured: 16 clips across eight codec/container
+  combinations at two resolutions cost **8.9 s and 5.9 MB**. They are not committed — the
+  generator is, because the generator is the specification of what each clip is.
+- **Tier 3 — a small real set, in-tree, chosen for pathology.** Navidrome's 512 KB is the
+  model and its filenames are the design: `._02 Invisible.mp3` (an AppleDouble sidecar a
+  scanner must skip), `test-invalid-frame.mp3`, and `no_replaygain.mp3` beside
+  `zero_replaygain.mp3` — *absent* versus *zero*, which is
+  [D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)'s
+  problem a decade early. Ours is the video equivalent: an AppleDouble file, a truncated
+  container, a `.mkv` that is not Matroska, mismatched `ger`/`deu` codes, a file with no
+  runtime, an ASS with an embedded font, a 5.1 track with no loudness metadata.
+- **Tier 4 — external, opt-in, and announced.** FATE's mechanism exactly:
+  `make fate-rsync SAMPLES=…`, and without it the build prints *"warning: only a subset of the
+  fate tests will be run"* and runs the generated subset. **The degraded mode is announced, not
+  silent** — which is the part to copy, more than the rsync.
+- **Tier 5 — hardware.** [device-lab.md](../design/plans/device-lab.md) already owns it.
+
+**Tiers 0–3 fit in the repository and total a few megabytes**, so the default `go test ./...`
+needs no download, no FFmpeg and no media. That is the answer, and it is better than the
+question assumed.
+
+**Status:** The tier-3 list is a starting set and will grow the way Navidrome's did — one file
+per bug, named after the bug. The thing to watch is tier 3 growing into tier 4 by accident;
+the rule is that a file earns its place by reproducing a failure, not by covering a codec.
+
+---
+
+## D110 — Every threshold gate compares against a frozen baseline, and the assertion is chosen per test
+
+**Decided** (2026-09-20). Research:
+[testing-strategy.md](../design/research/testing-strategy.md) §2, §3.
+
+Two rules, both stolen, both about the same failure: a gate that passes every time while the
+thing it guards gets worse.
+
+**1. Compare against a frozen baseline, never the previous run.** From VMAF practice, where the
+just-noticeable difference is about **6 points** and a delta under ~2 is noise. A sequence of
+96.0 → 95.6 → 95.2 → 94.8 → 94.4 → 94.0 passes every build-to-build tolerance and has lost two
+points in six builds. Any threshold compared against "last time" ratchets; one compared against
+a pinned reference does not.
+
+**This is not a video rule.** It applies identically to
+[performance-targets.md](../design/plans/performance-targets.md)'s latency gates, to database
+size, to scan throughput, and to anything else with a tolerance. It is the single most
+transferable thing in the testing research.
+
+**2. The assertion is chosen per test from a closed set, and the loosest is never the default.**
+FATE's set, from `tests/fate-run.sh`: `diff` and `rawdiff` for text; `framecrc`, `framemd5`,
+`md5` where output *is* bit-exact; `oneoff` for "absolute difference ≤ threshold"; `stddev` for
+audio; `tiny_psnr`, `tiny_ssim`, `audiomatch` as purpose-built comparators; and
+`refcmp-metadata.awk` for float metadata within a fuzz (default 0.1). Plus `CMP_UNIT = 1` as a
+*per-test* tolerance rather than a global one.
+
+The lesson is not "use PSNR". It is that reaching for a fuzzy comparison is a decision recorded
+in the test, and most tests do not need one — decoded output is bit-exact and should be
+asserted that way.
+
+**And quality gates run on seconds of video, not minutes.** Measured: VMAF on a 10-minute 1080p
+file with 6 threads takes **344 s — 1.7× realtime**, the most expensive operation measured
+anywhere in this project. Which agrees with the corpus finding from the other direction:
+everyone's samples are tiny because long ones are unaffordable.
+
+**Status:** Sound. What is unsettled is where the frozen baselines live and how one is
+deliberately re-based — that needs a release process to hang off, and it must be an explicit,
+reviewed act rather than a `--update-golden` flag somebody runs to make CI green.
+
+---
+
+## D111 — `assumptions/` is a test directory
+
+**Decided** (2026-09-20). Research:
+[testing-strategy.md](../design/research/testing-strategy.md) §5.
+
+Stolen from shaka-player, which has a `test/assumptions/` directory whose only job is to pin
+the platform behaviour the code rests on — their one file asserts how `Uint8Array` equality
+works. It looks trivial. It is not: when a platform or library changes an assumption underneath
+you, this fails **there, with a name**, instead of surfacing three layers up as a mysterious
+behaviour change in a feature test.
+
+This project has an unusual number of load-bearing assumptions, and today every one of them is
+a sentence in a document:
+
+| Assumption | From |
+| --- | --- |
+| Go's `\w`, `\s`, `\b`, `[[:alpha:]]` are ASCII-only | [D49](#d49--unicode-discipline-at-the-boundaries-enforced-by-tests) |
+| `x/text/collate` is pinned at Unicode 6.2.0 / CLDR 23 | [D47](#d47--sort-order-is-a-materialised-cldr-sort-key-per-item-per-locale) |
+| an FTS5 tokeniser is immutable once the virtual table exists | [D48](#d48--two-fts5-tokenisers-routed-by-script-and-length-and-exactly-one-normaliser) |
+| SQLite's OR chain fails at 1000 terms; its join at 65 tables | [D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable) |
+| `ass_track_set_feature` returns −1 when a feature is unavailable | [D50](#d50--build-libass-correctly-and-turn-off-vsfilter-bug-compatibility-for-non-authored-subtitles) |
+| FFmpeg's AC-3 decoder applies DRC by default at `drc_scale = 1` | [D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device) |
+| chromaprint refuses a 5.1 input and needs a stereo downmix first | measured, 2026-09-20 |
+| NVENC ignores `-force_key_frames` and needs `-force_idr 1` | [transcoding.md](../design/plans/transcoding.md) |
+| `SQLITE_BUSY` and `SQLITE_BUSY_SNAPSHOT` share a message and only one is retryable | [sqlite-reconsidered.md](../design/research/sqlite-reconsidered.md) |
+| copying a live WAL database's `.db` file yields a file with no tables | [D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore) |
+
+Each is one small test. Together they are the difference between "a dependency upgrade changed
+something" and "a dependency upgrade broke subtitle line-breaking in Thai and we found out
+from a user".
+
+**Status:** Cheap and obviously right; the risk is the directory becoming a dumping ground. The
+entry criterion: an assumption belongs here if it is about **something we do not control** and
+its violation would be **silent**.
+
+---
+
+## D112 — The node probes its confinement and reports it; the escape test asserts what is in force
+
+**Decided** (2026-09-20). Research:
+[testing-strategy.md](../design/research/testing-strategy.md) §7.
+
+[D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp) confines FFmpeg
+with Landlock + seccomp, and the plan asked for "an escape test, because a sandbox nobody
+verified is a comment". Measured in this environment — an ordinary Linux 6.17 container:
+
+```
+landlock_create_ruleset(NULL, 0, LANDLOCK_CREATE_RULESET_VERSION)  →  -1, errno 95 ENOTSUP
+/proc/self/status:  Seccomp: 2   Seccomp_filters: 2
+```
+
+**Landlock is simply unavailable**, and from inside it is impossible to tell whether that is a
+kernel built without it, a boot parameter, or the container runtime's own seccomp profile
+denying the syscall. Docker is the most common way this software will be deployed, and Docker
+is exactly where this happens.
+
+So the requirement is larger than a test:
+
+- **The node probes its confinement at startup and reports the result**
+  ([D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque)) —
+  which mechanisms it asked for, which it got, and which it did not.
+- **The core can say "this node is running FFmpeg unconfined" out loud**, because a user whose
+  threat model depends on [D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)
+  deserves to know it is not in force. Silence here is the failure mode.
+- **The escape test asserts what is actually in force**, not that the right function was
+  called: attempt the forbidden open and the forbidden syscall, and assert the denial —
+  skipping loudly, not silently, where the mechanism is absent.
+- **Absent confinement is a degraded mode, not an error.** Refusing to run in Docker would be
+  worse than running and saying so.
+
+**Status:** This sharpens
+[threat-model.md](../design/plans/threat-model.md)'s open per-platform confinement matrix with
+one concrete row — a stock container — and the row says *no Landlock*. The seccomp half was
+present here (`Seccomp: 2`), so the two mechanisms fail independently and must be reported
+independently.
+
+---
+
+## D113 — A target is a percentile at a stated concurrency, at two library sizes, against a frozen baseline
+
+**Decided** (2026-09-20). Research:
+[performance-targets.md](../design/research/performance-targets.md) §1, §2, §6.
+
+The plan said this "cannot be finished without hardware". Half right: the **client** numbers
+cannot, and the **server** ones can, because the server's workload is a database and a decode
+loop. Both were measured.
+
+### The shape, which matters more than the values
+
+1. **A percentile at a stated concurrency.** Measured on the 100k-title database: the read p50
+   moves from 0.234 ms to 0.766 ms as readers go 1 → 20, while the **p99 moves from 2.81 ms to
+   101.70 ms** — a 36× tail against a 3× median. Every value in that table would satisfy a
+   target stated as an average.
+2. **Two library sizes**, because every failure found was a *scaling* failure invisible at one
+   size.
+3. **Against a frozen baseline** ([D110](#d110--every-threshold-gate-compares-against-a-frozen-baseline-and-the-assertion-is-chosen-per-test)).
+4. **As a multiple of a measured baseline** where the absolute value is hardware-dependent, so
+   the same gate means something on CI and on a NAS.
+5. **Observable in production, not only in CI**
+   ([D91](#d91--a-metrics-endpoint-off-by-default-and-local-when-on)). A gate that only runs in
+   CI cannot notice the library growing, which is the failure this whole document exists for.
+
+### What the measurements found
+
+**Ten of twelve queries are flat from 10,000 to 100,000 titles** — keyset pagination on
+materialised sort keys, the detail page across all four levels, cast lists, trigram search, and
+both cross-level rules-engine predicates with their `ANY`/`ALL` quantifiers. 10× the data, no
+measurable change. [D47](#d47--sort-order-is-a-materialised-cldr-sort-key-per-item-per-locale)
+and [D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)
+hold under measurement.
+
+**The two that scale linearly are both on the home page**, and each cost one line to fix:
+
+| | 100k, before | after | ratio |
+| --- | --- | --- | --- |
+| Recently added (50), no index on `added_at` | 21.79 ms | **0.027 ms** | **807×** |
+| FTS match + `ORDER BY bm25()`, common term | 11.66 ms | **0.017 ms** (unranked) | **686×** |
+
+And the second one generalises into a rule worth knowing: **bm25 ranking is linear in the
+number of matches, not the number of results.** The term matched 6,589 of 100,000 rows and
+SQLite scored all of them to return twenty. Search latency tracks match count, and the target
+must fail when a common term makes it linear.
+
+Both are invisible on a developer's thousand-item library and fatal at a hundred thousand.
+That is Jellyfin 10.11's 30–50 second home page reproduced in miniature, for the price of an
+index.
+
+### Two more numbers worth pinning
+
+**The single-writer ceiling is 9,415 commits/s** (WAL, `synchronous=normal`, unpaced), against
+the ~2 writes/s [sqlite-reconsidered.md](../design/research/sqlite-reconsidered.md) §2 budgets
+— **4,700× headroom**, so [D31](#d31--sqlite-with-a-pure-go-driver-supersedes-d5) is confirmed
+with a figure rather than an argument.
+
+**Read throughput saturates at ~3,000 queries/s and does not improve with more readers** (2,878
+at one reader, 3,022 at twenty), and **readers starve the writer** (483 → 135 writes/s). The
+pool size is a floor, not a throttle — Navidrome's comment, extended: past a small number,
+extra connections buy no read parallelism either.
+
+**Status:** The absolute values are from an i3-1315U with a warm cache and are conservative in
+one respect (the pure-Go driver is the slower one) and optimistic in another (62 GB of RAM, no
+memory pressure). The numbers to set gates from are the **ratios and the scaling behaviour**,
+not the milliseconds. Time to first frame — the most important user-facing number — is still
+unmeasured and needs a running server.
+
+---
+
+## D114 — A pass costs what it costs because of one thing: whether it decodes video
+
+**Decided** (2026-09-20). Research:
+[performance-targets.md](../design/research/performance-targets.md) §3. Refines
+[D102](#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes).
+
+D102 said the node now runs nine passes and nobody had added them up. Adding them up, on a
+10-minute 1080p H.264 + AC-3 file:
+
+| | ×realtime |
+| --- | --- |
+| probe · remux · keyframe grid · thumbnail | 2,000 – 38,000× |
+| chromaprint fingerprint (after stereo downmix) | 802× |
+| subtitle overlay at event granularity | 515× |
+| loudness (`ebur128`) | 102× |
+| **trickplay** | **14.3×** (one core) |
+| **blackdetect** | **13.5×** (one core) |
+| full video decode, for reference | 13.7× (one core) |
+
+**There are two populations and nothing between them.** A pass that decodes every video frame
+costs about one full decode, because it *is* one. A pass that does not costs between
+microseconds and a second. **The gap is a factor of a thousand, and which side a pass falls on
+is the only thing about it that matters for scheduling.**
+
+For the reference household library — 3,500 files, 3,167 hours — single-core:
+
+| | |
+| --- | --- |
+| probe + keyframe grid + thumbnail | **17 minutes** |
+| fingerprint + overlays + loudness | ≈ 36 hours |
+| trickplay | **9.2 days** |
+| blackdetect | 9.8 days |
+
+So **the library is browsable and playable after seventeen minutes**, and the entire cheap set
+is a day and a half. D102's "ordering is by user value" is now quantified: it is the difference
+between usable this afternoon and usable next week.
+
+**Three consequences.**
+
+- **Trickplay is the deferrable pass by default.** It is the only unavoidable member of the
+  expensive class, it is ~60% of the total, and its absence costs a scrub preview rather than a
+  feature.
+- **"Does it decode video?" is the question to ask of any tenth pass**, and the answer is worth
+  a factor of a thousand. Adding one to the expensive class is a two-week decision on a real
+  library, not a feature flag.
+- **Passes that do share a decode should fuse.** Measured: running loudness, trickplay and
+  blackdetect as one invocation with a `split` filter beats three separate runs by **38% on six
+  cores and 45% on one** — the saving is larger on the machine that needs it more, because each
+  separate run re-pays the decode. The scheduler must know which passes share a decode.
+
+**Two corrections to earlier decisions fall out**, both in the reassuring direction:
+
+- **[D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device) worried loudness was "not free on a Celeron".** It is ~1% of
+  the file's runtime and barely faster on six cores than one — audio-only, one core's work,
+  parallel across files. 31 hours for the whole reference library.
+- **[D78](#d78--server-rendered-subtitle-overlays-are-a-third-rendition-and-they-dominate-burn-in)
+  listed live-render cost as unmeasured.** At event granularity — which is what D78 specifies —
+  it is **1.16 s per film-equivalent**, against 18.15 s if implemented by compositing over
+  decoded video. The overlay rendition is free; the naive implementation is fifteen times
+  worse, so the plan should say which one it means.
+
+**Status:** Measured on one file on one machine. The shape of the finding (two populations, a
+thousand-fold gap) will hold anywhere; the absolute rates will not.
+
+---
+
+## D115 — Intro detection is fingerprint-first, and chromaprint needs a stereo downmix or it fails outright
+
+**Decided** (2026-09-20). Research:
+[performance-targets.md](../design/research/performance-targets.md) §3. Amends
+[D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance).
+
+D82 ordered the detectors chapter-derived → audio fingerprint → black-frame and silence, which
+is the natural order if you assume fingerprinting is the heavy one. Measured, it is not:
+
+| | ×realtime |
+| --- | --- |
+| chromaprint fingerprint (audio, after `-ac 2`) | **802×** |
+| blackdetect (video) | **13.5×** (one core) |
+
+**Sixty times cheaper**, for the reason [D114](#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video)
+gives: one is an audio pass and the other decodes every frame. Over the reference library that
+is **4 hours against 9.8 days**.
+
+So the order is **chapter-derived → audio fingerprint → black-frame**, with black-frame
+detection a **second-line pass for the cases fingerprinting misses** — a film with no repeated
+theme, or a season of one — rather than a default. They do different jobs; the cheap one just
+happens to do the common one.
+
+**And a trap that would have been found in production.** Run against the 5.1 track directly,
+chromaprint fails outright:
+
+```
+[af#0:0] Task finished with error: Invalid argument
+[out#0/chromaprint] Nothing was written into output file
+```
+
+It needs `-ac 2` in front of it. With the downmix it produces a 19,300-byte fingerprint for ten
+minutes of audio in 0.75 s. This is exactly the class of thing
+[D111](#d111--assumptions-is-a-test-directory) exists for, and it is now on that list.
+
+**Status:** The *accuracy* of fingerprint-based intro detection is unmeasured here — only its
+cost. Intro Skipper's 2,780★ is the evidence that the approach works; whether our
+implementation matches it is a corpus question, and the corpus is a season of real television
+that [D109](#d109--five-corpus-tiers-and-nobody-has-to-download-media-to-run-the-suite) puts in
+tier 4.
+
+---
+
+## D116 — The content hash is a sampling hash; whole-file hashing is opt-in and separate
+
+**Decided** (2026-09-20). Research:
+[performance-targets.md](../design/research/performance-targets.md) §3.
+
+[D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret) has
+the node report "size, mtime, and where cheap, a content hash", and
+[D100](#d100--a-destructive-command-names-its-target-by-identity-not-by-path) wondered whether
+hash-on-delete was affordable. Measured, on a 425 MB file:
+
+| | rate | time | over the 8 TB reference library |
+| --- | --- | --- | --- |
+| SHA-256, whole file | 860 MB/s | 0.49 s | 2.6 h of CPU — and **8 TB of reads** |
+| CRC-32, whole file | 2,928 MB/s | 0.15 s | 0.8 h of CPU — and 8 TB of reads |
+| **1 MB head + 1 MB tail + size** | — | **0.0032 s** | **11 s, and 7 GB of reads** |
+
+**The CPU cost was never the problem; the reads are.** Whole-file hashing a library means
+reading all of it — roughly **15 hours of pure I/O at a spinning disk's 150 MB/s, with every
+drive awake for all of it**, which is [D94](#d94--disk-spin-down-is-a-cost-of-the-snapshot-interval-and-archival-means-untouched)'s
+problem in its sharpest form.
+
+So: **the default content hash is a sampling hash** — head, tail and size — at **153× less CPU
+and a thousand times fewer bytes**. It answers the question the node actually asks, which is
+*is this the same file I saw before*, not *is any other file identical to this one*.
+
+**Whole-file hashing stays, as a separate, opt-in, explicitly-scheduled pass** for the one
+thing that needs it: duplicate and re-encode detection
+([identification.md](../design/plans/identification.md)). That is a library-wide operation the
+user asks for, not something a scanner does on every pass, and it belongs in
+[D102](#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes)'s deferrable
+set with a warning about what it will cost.
+
+**This also settles [D100](#d100--a-destructive-command-names-its-target-by-identity-not-by-path)'s
+open question.** It asked whether size-and-mtime was enough identity for a delete guard and
+whether "hash-on-delete is cheap relative to the consequence". At **3.2 ms** it is not merely
+cheap, it is free — so a destructive command carries a sampling hash and there is no reason to
+argue about it.
+
+**Status:** A head/tail/size hash has a known blind spot — a file edited only in the middle
+with its size preserved. For change detection that is acceptable (the mtime moves, and the
+periodic snapshot is the net); for a **delete guard** it is the difference between "very
+probably the same file" and "certainly". Whether that matters is a judgement, and the
+conservative option — whole-file hash on the delete path only, at 0.49 s per file — is
+affordable precisely because deletion is rare.
+
+---
+
+## D117 — The session link is the grant, revocation is the control, and the creator owns what plays
+
+**Decided** (2026-09-20), by the project owner, and it **supersedes the entitlement half of
+[D104](#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant)**.
+
+D104 argued that a group link routes around the share predicate, so every participant should
+have to hold entitlement independently. The counter-argument is simpler and it wins: **a
+griefer who gets hold of a link is a revocation problem, not an authorisation problem.** The
+creator invalidates the session and makes a new one. Requiring the other person to have an
+account first is exactly the friction this feature exists to avoid — the motivating case is a
+partner travelling, who does not have one.
+
+### What changes
+
+**The link is the grant.** Holding a valid session link admits you. No per-participant
+entitlement resolution, no account required, no share predicate evaluated per person.
+
+**Revocation is the control**, and that puts three requirements on it that "just make the link
+revocable" does not:
+
+1. **Invalidation is immediate and ejects live participants.** A revocation that only stops
+   *new* joins leaves the griefer in the room, which defeats the whole mechanism.
+2. **"Invalidate and re-form" is one action, and it carries the remaining participants
+   across.** If recovering from one bad join means re-inviting everyone individually, mid-film,
+   nobody will do it and the control is theoretical. The creator ejects-and-rotates; everyone
+   still in the group stays in it; the old link is dead.
+3. **The roster is visible to the creator, live.** You cannot decide to revoke if you cannot see
+   that there are four people in a two-person session.
+
+### What survives from D104
+
+**The scope.** A leaked link must expose *that session's content*, not the library — which is
+also what makes the blast radius of a leak small enough for revocation to be a sensible
+control in the first place. The link is scoped to what the creator chose to play and is
+time-boxed to the session.
+
+### Who controls what
+
+Three separate permissions, because they are three separate risks:
+
+| | Who | Default |
+| --- | --- | --- |
+| **What plays** — the film, or the series | **the creator only, always** | not configurable |
+| **Transport** — play, pause, seek | creator's choice: **everyone**, or **creator only** | everyone |
+| **Move within the series** — next episode, another film in the series | creator's choice: on or off | follows transport |
+
+The middle row was [watch-together.md](../design/plans/watch-together.md)'s opening (2) —
+*"control is a per-participant capability, defaulting to everyone"* — and it is now a
+user-facing setting rather than an affordance held open.
+
+The third row is new and is the interesting one. **The creator picks the work; participants may
+navigate inside it.** "Next episode" is a reasonable thing for the other person to do at 1 a.m.
+when the host has fallen asleep; "put on something else entirely" is not. So the grant has a
+**work scope** — an Edition, or the Collection that is its series
+([D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal))
+— and in-series navigation moves within that scope and cannot leave it. Which also bounds what
+a leaked link reaches: one series, at most.
+
+**Party playlists are the later version of the same idea** — a creator-defined ordered set as
+the work scope instead of a series. Recorded, not scheduled; the reason it is easy later is
+that the scope is already an object rather than a single item.
+
+**Status:** The ejection path is the part most likely to be got wrong, because it is the path
+nobody exercises until they need it. It deserves a test:
+[testing-strategy.md](../design/plans/testing-strategy.md) gains *"a revoked participant is
+gone from the session within one reconciliation interval, and the remaining participants do
+not notice"*.
+
+---
+
+## D118 — The scan is incremental, prioritised, and steerable, and playability comes first
+
+**Decided** (2026-09-20), by the project owner, and it turns
+[D114](#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video)'s
+measurement into a requirement.
+
+Three things, which are one thing: **a scan is not a batch job that finishes, it is a stream
+of results the user can steer.**
+
+### 1. Playability first, by definition rather than by luck
+
+D114 measured that the passes split a thousand-fold by whether they decode video, and that the
+cheap set reaches **a browsable, playable library in 17 minutes** on a 3,500-item reference
+library where the full treatment is days. That is now the **ordering rule**, not an
+observation: passes are ordered so that *an item becomes playable as early as possible*, and
+everything that only adds a feature to an item that already plays comes after everything that
+makes an item play at all.
+
+For one 110-minute film, single-core, from the measured rates:
+
+| | |
+| --- | --- |
+| probe + keyframe grid + thumbnail → **playable** | **< 1 s** |
+| subtitle extraction, font subset, overlay rendition | ~2 s |
+| loudness | ~65 s |
+| trickplay | **~8 minutes** |
+
+**An item is playable in about a second and fully enriched in about eight minutes**, and the
+ordering must make the first number true rather than hiding it inside the last.
+
+### 2. A user can jump the queue for one title
+
+*"I want to watch this one now"*, in the middle of a scan of fifty thousand files. The pass
+scheduler is therefore **a priority queue keyed by (item, pass)**, not a pipeline, and a
+priority boost preempts at the next pass boundary rather than at the end of the scan.
+
+Two consequences worth stating, because they are where this gets built wrong:
+
+- **The core expresses the request in the node's vocabulary.** A node has no items
+  ([D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides)); it has paths. So
+  the core translates "this title" into a set of paths and sends those —
+  [D101](#d101--a-measurement-that-spans-files-is-a-core-supplied-job-the-node-never-chooses-the-set)'s
+  rule again: the core supplies the set, the node does the work.
+- **It joins [D38](#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config)'s
+  command vocabulary** as `prioritise <paths>`, and it satisfies that decision's rule that
+  every command tolerate re-execution: prioritising something already done is a no-op.
+
+And the UI must be honest about what it can deliver quickly: *playable now, scrub previews in
+eight minutes* is a true and useful thing to say. *Preparing…* is not.
+
+### 3. Results appear as they are produced
+
+**This changes a rule.** [D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global)
+says the node writes `report-<epoch>.jsonl.partial`, atomically renames on success, and **"the
+core never parses a file still being written"**. The user requirement is that scan results
+appear as soon as they exist, so that rule becomes:
+
+> **The core may *tail* a `.partial` report, and everything it reads from one is incomplete by
+> definition.**
+
+Nothing about safety changes, because the safety rule was never the filename — it was
+*"unknown means incomplete means add-or-update only"*, which already covers a partial read
+exactly as it covered a crashed scan. The rename keeps its job: it is the moment **removals may
+be applied**, and nothing else.
+
+Two mechanical details, both small and both the sort of thing that bites:
+
+- **Consume only up to the last newline.** A tailed JSONL file ends mid-record about half the
+  time. This is the single reason the format was chosen — *"degrades per line"*
+  ([D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global)) —
+  so it costs a `LastIndexByte`.
+- **Ingest is batched, not per line.** Measured: parsing a 50,000-entry snapshot costs 1.8 s
+  and the write ceiling is 9,415 commits/s
+  ([D113](#d113--a-target-is-a-percentile-at-a-stated-concurrency-at-two-library-sizes-against-a-frozen-baseline)),
+  so tailing must not turn one scan into fifty thousand transactions. Batch on a time or count
+  bound, and the user still sees results within a second.
+
+**And this is what makes the scan legible**, which was the original complaint — *"I can't tell
+what the scanner did"*. A progress bar is a promise about the future; **items appearing in the
+library is evidence about the present.**
+
+**Status:** The preemption granularity is a guess. Preempting at a pass boundary is simple and
+correct; preempting *within* trickplay — the eight-minute pass — needs the pass to be
+chunk-resumable, which [D102](#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes)
+already requires for a different reason (a NAS gets switched off mid-pass), so it is probably
+free. Unverified.

@@ -1,71 +1,159 @@
-> **ABOUTME:** How a media server gets tested — the corpus, the tiers, and what can and cannot
-> run in CI — which matters more here than usual because agents write the code and the gate is
-> what catches them.
+> **ABOUTME:** How this gets tested — five corpus tiers of which four fit in the repository,
+> what each tier asserts, and the gates that fail. Matters more than usual here because agents
+> write the code and the gate is what catches them.
 
 # Testing strategy
 
-- **Status:** UNSPECIFIED — `../../principles/README.md` states the disposition; no strategy exists.
+- **Status:** PLANNED — researched 2026-09-20 ([testing-strategy.md](../research/testing-strategy.md), [D109](../../decisions/working-notes.md)–[D112](../../decisions/working-notes.md)).
 - **Depends on:** —
 
-## Why it needs its own research
+## Why it needs its own plan
 
-Most of this product's correctness lives in places a normal unit test cannot reach: real media
-files, real hardware encoders, real client decoders, real filesystems. The incumbents' trackers
-are full of bugs that could only have been caught with a corpus — HDR tone-mapping regressions,
-"works for four minutes then errors", NVENC ignoring `-force_key_frames`, captions destroyed by
-a transcode, subtitle desync on resume.
+Most of this product's correctness lives where a normal unit test cannot reach: real media,
+real hardware encoders, real client decoders, real filesystems. The incumbents' trackers are
+full of bugs only a corpus could have caught — HDR tone-mapping regressions, "works for four
+minutes then errors", NVENC ignoring `-force_key_frames`, captions destroyed by a transcode,
+subtitle desync on resume.
 
-And the project's stated premise is that strong typing plus strong linting make it easier for
-agents to write quality software. Types and lints catch a class of error; **none of the above is
-in that class.** The gate has to be tests, and the tests need a corpus.
+And the project's premise is that strong typing plus strong linting help agents write quality
+software. They catch a class of error; **none of the above is in that class.** The gate has to
+be tests.
 
-## What the research must settle
+## The corpus: five tiers, four of them in the repository
 
-- **The corpus.** What files, how are they obtained or generated, where do they live, and how
-  does a contributor without 200 GB of media run the suite? Are synthetic files (FFmpeg-generated
-  with known properties) enough for most of it, with a small real set for the rest?
-- **Tiers.** What runs per-commit, what runs nightly, what needs hardware that CI does not have.
-- **Golden-output testing for the encoder.** Bit-exactness is not available across FFmpeg
-  versions or hardware; what is the assertion instead — probe-level properties, VMAF/SSIM
-  thresholds, segment-boundary alignment?
-- **How to test a client's playback** without a human watching. Largely answered by
-  [`device-lab.md`](device-lab.md): a **self-reporting harness app** that plays a corpus,
-  measures its own dropped frames and time-to-first-frame, and posts results — one protocol
-  across web, Android, Fire TV, iOS and tvOS — rather than per-platform external
-  instrumentation. External tooling (`dumpsys gfxinfo framestats`, `dumpsys media.metrics`,
-  `dumpsys thermalservice`) supplements it on Android. The reference tier of that lab is what
-  runs per-build.
-- **The hardware matrix.** Surveyed in [test-hardware.md](../research/test-hardware.md): the
-  available inventory covers three Intel QSV generations, NVENC, Apple VideoToolbox and — most
-  valuably — an 8 GB Celeron NAS that is the honest low end. The gap that blocks the most
-  decisions is that **there is no television in it**, which is what D21/D22/D23 and the TV
-  focus-navigation prototype all need.
-- **An escape test for the FFmpeg confinement** ([D26](../../decisions/working-notes.md)). A
-  sandbox nobody verified is a comment.
-- **The assertions the audit added**, listed here so they are not lost between plans:
-  two devices reporting progress cannot rewind each other and the losing report is still in the
-  log ([D81](../../decisions/working-notes.md)); a full rescan destroys no user-authored data —
-  poster, playlist, manual identification, preference — which Jellyfin's *All Library Scan
-  causes playlists to disappear* (50 comments) says is not automatic; two same-named people
-  from two providers stay two people ([D95](../../decisions/working-notes.md)); an item with
-  unknown runtime is not silently marked watched; a metrics label cannot contain a title or a
-  path ([D91](../../decisions/working-notes.md)); and a downloaded film plays with correct
-  non-Latin subtitles **with the network off** ([D87](../../decisions/working-notes.md)) —
-  which is the only way to catch that the font pipeline assumed connectivity.
-- **A breaking-change gate on the generated OpenAPI document**
-  ([D85](../../decisions/working-notes.md)). CI diffs it against the last release and fails an
-  incompatible change with no explicit waiver. This is a test in the sense that matters: it is
-  the thing that would have caught Jellyfin 12.0 removing `/emby/` before users did.
-- **Apple's `mediastreamvalidator` against our own HLS output.** The *HLS Authoring
-  Specification for Apple Devices* requires that video segments start with an IDR and that key
-  frames appear about every two seconds — the same constraint
-  [D86](../../decisions/working-notes.md)'s interchangeable variants need, arrived at from the
-  other direction. Apple ships a validator that checks it. A free conformance test for the
-  Apple client and for AirPlay, and nothing in the tree currently mentions it.
-- **An IPv6-only run.** Jellyfin has two open issues from single-stack installs (*Fresh install
-  unreachable on IPv6 single-stack*, *Metadata fetch timeout — IPv6 connectivity broken*). One
-  matrix row.
-- **Conformance tests as a plugin-API artefact** — [D19](../../decisions/working-notes.md) and
-  [D23](../../decisions/working-notes.md) both already require them (a transcoder that claims a
-  profile must produce it; a transcoder must carry closed captions through). That is a test
-  suite that ships as part of the contract.
+[D109](../../decisions/working-notes.md). The original question — *"how does a contributor
+without 200 GB of media run the suite?"* — had a false premise. Nobody's corpus is 200 GB:
+Jellyfin's test suite contains **no media files at all**, Navidrome's contains **13 files and
+512 KB**, and FFmpeg's — the codec library underneath everything — is **1.29 GiB with a median
+file of 58.7 KB**.
+
+| Tier | What | Cost | Asserts |
+| --- | --- | --- | --- |
+| **0** | no fixtures; table-driven pure functions | none | parsing, track-kind derivation, language normalisation, predicate compilation, sort keys, pseudonymisation |
+| **1** | **recorded node reports and probe JSON** | kilobytes | the whole core interpretation layer |
+| **2** | clips generated by the test run | **8.9 s, 5.9 MB** | node pipeline, stream service, remux, subtitle extraction |
+| **3** | a small real set, in-tree, chosen for pathology | ~1 MB | the boundary: junk files, corrupt frames, lying extensions |
+| **4** | external, opt-in, **announced when skipped** | rsync | codec diversity, if it is ever needed |
+| **5** | hardware | [device-lab.md](device-lab.md) | clients, decoders, encoders |
+
+**Tier 1 is the main event, and [D59](../../decisions/working-notes.md) is why.** Jellyfin
+tests its media layer with fifteen recorded `ffprobe` outputs totalling 120 KB — for them, an
+internal detail pressed into service. For us probe output is a **wire format**: the node
+reports it, the core interprets it. So filename parsing, grouping into four levels, track-kind
+derivation, segment placement, certification mapping and identification all replay from
+recorded JSON with **no FFmpeg, no filesystem and no media**. That is the property D59 was
+argued for, arriving in the test suite.
+
+**Tier 2 is generated, not committed.** 16 clips across eight codec/container combinations at
+two resolutions cost 8.9 seconds and 5.9 MB to produce. The generator goes in the repository;
+the clips do not, because the generator is the readable specification of what each clip is.
+
+**Tier 3's files are named after bugs.** Navidrome's are the model — `._02 Invisible.mp3` is
+an AppleDouble sidecar a scanner must skip; `test-invalid-frame.mp3` is deliberately corrupt;
+`no_replaygain.mp3` sits beside `zero_replaygain.mp3` to separate *absent* from *zero*. Ours,
+to start: an AppleDouble file, a truncated container, a `.mkv` that is not Matroska,
+`ger`/`deu` disagreeing within one file, a file with no runtime, an ASS with an embedded font,
+a 5.1 track with no loudness metadata. A file earns its place by reproducing a failure, never
+by covering a codec — that is what tier 4 is for.
+
+**Tier 4 copies FATE's mechanism, and the part to copy is the announcement.** Without
+`SAMPLES=` set, FFmpeg's build prints *"warning: only a subset of the fate tests will be run"*
+and runs the generated subset. A degraded test run that says so is worth more than the rsync.
+
+**So `go test ./...` on a clean checkout needs no download, no FFmpeg and no media.**
+
+## What each assertion may be
+
+[D110](../../decisions/working-notes.md). The assertion is chosen per test from a closed set,
+and the loosest is never the default. FATE's set is the model: exact `diff` for text;
+`framecrc`/`framemd5` where output genuinely is bit-exact; a threshold comparison only where
+it is not; purpose-built comparators (`tiny_psnr`, `tiny_ssim`) rather than a general one; and
+a per-test tolerance rather than a global one.
+
+**Every threshold gate compares against a frozen baseline, never the previous run.** Borrowed
+from VMAF practice, where the just-noticeable difference is ~6 points: a sequence of
+96.0 → 95.6 → 95.2 → 94.8 → 94.4 → 94.0 passes every build-to-build tolerance and has lost two
+points in six builds. This is not a video rule — it governs the latency gates in
+[performance-targets.md](performance-targets.md) identically, and re-basing a baseline is an
+explicit reviewed act, not a flag somebody runs to make CI green.
+
+**Quality gates run on seconds of video.** Measured: VMAF on a 10-minute 1080p file with six
+threads takes **344 s, 1.7× realtime** — the most expensive operation measured anywhere in
+this project. Conversely a remux with no re-encode is **2,163× realtime**, so the conformance
+tests that matter most ([D86](../../decisions/working-notes.md)'s segment grid and IDR
+alignment) are free on every commit.
+
+## `assumptions/`
+
+[D111](../../decisions/working-notes.md), stolen from shaka-player. A test directory whose
+only job is to pin the things we do not control and whose violation would be **silent**: Go's
+ASCII-only regex classes, `x/text/collate`'s pinned CLDR version, FTS5 tokeniser immutability,
+SQLite's 1000-term and 65-table limits, `ass_track_set_feature`'s −1 return, FFmpeg's default
+`drc_scale`, chromaprint's refusal of a 5.1 input, NVENC's `-force_key_frames`,
+`SQLITE_BUSY_SNAPSHOT`'s unretryability, and the WAL file-copy trap.
+
+Each is one small test. Together they are the difference between "a dependency upgrade changed
+something" and "a dependency upgrade broke Thai line-breaking and a user told us".
+
+## The gates
+
+- **The confinement is probed and asserted, not assumed** ([D112](../../decisions/working-notes.md)).
+  Measured in a stock Linux 6.17 container: `landlock_create_ruleset` returns `ENOTSUP` while
+  seccomp is active. Docker is how most people will run this. So the node probes at startup,
+  reports what it actually got, the core can say "this node is running FFmpeg unconfined", and
+  the escape test attempts the forbidden open and asserts the denial — skipping **loudly**
+  where the mechanism is absent.
+- **A breaking change to the generated OpenAPI document fails the build**
+  ([D85](../../decisions/working-notes.md)), diffed against the last release, waivable only in
+  the changelog. This is the thing that would have caught Jellyfin 12.0 removing `/emby/`
+  before its users did.
+- **Apple's `mediastreamvalidator` and `hlsreport`** against our own HLS output — they check
+  the specification and the *authoring* specification respectively, and Apple's guidance is to
+  run both. **macOS-only**, so this is a release gate on a Mac, not a per-commit step.
+- **An IPv6-only run.** Jellyfin has two open issues from single-stack installs. One matrix row.
+- **Conformance tests ship as part of the plugin contract**
+  ([D19](../../decisions/working-notes.md), [D23](../../decisions/working-notes.md)): a
+  transcoder claiming a profile must produce it, and must carry closed captions through.
+- **A skip list keyed by platform**, in the hls.js shape (`skip_ua` per stream). A structured
+  record of known-broken combinations beats a commented-out test, and it is where
+  [D92](../../decisions/working-notes.md)'s failure reports land.
+
+## The assertions the audit left here
+
+Each belongs to a decision elsewhere and is listed so it is not lost between plans:
+
+- two devices reporting progress cannot rewind each other, and the losing report is still in
+  the log ([D81](../../decisions/working-notes.md));
+- a full rescan destroys no user-authored data — poster, playlist, manual identification,
+  preference — which Jellyfin's *All Library Scan causes playlists to disappear* (50 comments)
+  says is not automatic;
+- two same-named people from two providers stay two people ([D95](../../decisions/working-notes.md));
+- an item with unknown runtime is **not** silently marked watched ([D81](../../decisions/working-notes.md));
+- a metrics label cannot contain a title or a path ([D91](../../decisions/working-notes.md));
+- a downloaded film plays with correct non-Latin subtitles **with the network off**
+  ([D87](../../decisions/working-notes.md)) — the only way to catch that the font pipeline
+  assumed connectivity;
+- an anime season lists correctly in both aired and absolute order
+  ([D96](../../decisions/working-notes.md));
+- a trailer never appears in the film list ([D97](../../decisions/working-notes.md));
+- a node refuses a delete whose target identity does not match
+  ([D100](../../decisions/working-notes.md));
+- a user who cannot see a film cannot see the Watch Together group for it
+  ([D104](../../decisions/working-notes.md));
+- an adapter request carries the end user's authorisation, and a share predicate applies to it
+  ([D105](../../decisions/working-notes.md));
+- **a revoked Watch Together participant is gone within one reconciliation interval**, the
+  remaining participants do not notice, and the re-formed session keeps them
+  ([D117](../../decisions/working-notes.md)) — the path nobody exercises until they need it;
+- **items appear in the library while the first scan is still running**, and a tailed report
+  that ends mid-record costs one entry rather than the batch
+  ([D118](../../decisions/working-notes.md));
+- **a title the user prioritises mid-scan becomes playable within seconds**, and prioritising
+  one already done is a no-op ([D118](../../decisions/working-notes.md)).
+
+## Done when
+
+`go test ./...` passes on a clean checkout with no media and no FFmpeg; the tiered suite says
+which tiers it skipped and why; a breaking OpenAPI change fails CI; the sandbox escape test
+runs on a machine with Landlock and skips loudly on one without; and the `assumptions/`
+directory has caught at least one dependency upgrade.

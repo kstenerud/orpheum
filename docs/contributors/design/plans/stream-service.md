@@ -63,6 +63,10 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   1080p event at 32 colours (visually lossless), so ~12 MB per film, 0.14% of a 9 GB film.**
   Bandwidth is not the objection.
 
+  **And it is cheap to produce: 1.16 s per film-equivalent** at event granularity, measured
+  2026-09-20 — against 18.15 s if it is implemented by compositing over the decoded film, which
+  is the trap ([D114](../../decisions/working-notes.md)). Render the events, not the movie.
+
   It exists because it moves the attacker-supplied font parse into the node's jail instead of
   onto a television running an old FreeType, which is strictly stronger than
   [D56](../../decisions/working-notes.md)'s client-decides model and fills the gap

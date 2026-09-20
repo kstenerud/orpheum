@@ -131,10 +131,22 @@ And one that changed an existing schedule: [D86](../../decisions/working-notes.m
 `transcoding.md` **§(b)** on [remote-access.md](remote-access.md)'s critical path rather than
 at Phase 4, because remote playback over a degraded link has nothing lower to fall back to.
 
-## The unspecified set
+## The unspecified set is empty
 
-Everything at `UNSPECIFIED` needs a research round before it can be designed. `grep` for the
-status rather than trusting this paragraph, but the ordering between them is:
+**As of 2026-09-20 no plan is `UNSPECIFIED`.** The last two —
+[testing-strategy.md](testing-strategy.md) and [performance-targets.md](performance-targets.md)
+— were researched that day ([D109](../../decisions/working-notes.md)–[D116](../../decisions/working-notes.md)),
+and the second turned out to be only half-blocked: the **client** numbers need hardware, the
+**server** numbers needed a benchmark, and the benchmark found two home-page queries that
+scale linearly and six thresholds other decisions had been guessing at.
+
+`grep '^- \*\*Status:\*\*' *.md` is the authority; what remains is one `DEFERRED`
+([content-safety.md](content-safety.md), deliberately) and one `PARTLY SPECIFIED`
+([remote-access.md](remote-access.md), where what is left is a product decision rather than a
+design one).
+
+The history of how each got there, kept because the ordering arguments are still the useful
+part:
 
 - **`sharing-model.md` is done** (2026-09-19, [D76](../../decisions/working-notes.md)) and the
   answer was cheaper than expected: a share is a grantee plus a predicate, so it is a fourth
@@ -155,9 +167,22 @@ status rather than trusting this paragraph, but the ordering between them is:
 - **`backup-restore.md` is done** (2026-09-19, [D77](../../decisions/working-notes.md)). The
   headline is a measurement: copying a live WAL database's `.db` file produces a valid SQLite
   file containing **no tables**, silently, discovered only at restore. `VACUUM INTO` instead.
-- **`testing-strategy.md` and `performance-targets.md`** remain. `performance-targets.md`
-  cannot be finished without hardware — it now carries the list of thresholds other decisions
-  are guessing at, which is what it can usefully hold until Phase 0 runs.
+- **`testing-strategy.md` is done** (2026-09-20, [D109](../../decisions/working-notes.md)–[D112](../../decisions/working-notes.md)).
+  Its premise was wrong and that was the finding: the question *"how does a contributor
+  without 200 GB of media run the suite?"* assumed a corpus nobody has. Jellyfin's test suite
+  contains **no media files at all**; Navidrome's contains **13 files and 512 KB**; FFmpeg's —
+  the codec library underneath everything — is 1.29 GiB with a **median file of 58.7 KB**.
+  Four of five corpus tiers fit in the repository, and tier 1 (replaying recorded probe JSON)
+  is load-bearing because [D59](../../decisions/working-notes.md) made probe output a wire
+  format rather than an internal detail.
+- **`performance-targets.md` is done for the server half** (2026-09-20,
+  [D113](../../decisions/working-notes.md)–[D116](../../decisions/working-notes.md)). It was
+  only half-blocked on hardware. Measured: ten of twelve queries are flat from 10k to 100k
+  titles and **the two that are not are both on the home page** — one index and one `ORDER BY`
+  worth 807× and 686×. The node's passes turn out to be **two populations a thousand-fold
+  apart**, split by whether a pass decodes video, which makes the library browsable in 17
+  minutes and fully enriched in days. Six thresholds other decisions were guessing at are now
+  numbers.
 - **`threat-model.md`** is PLANNED; what is left there is the per-platform confinement matrix
   and the signed-URL design.
 - **`bug-reports.md`** is small, cheap and unusually load-bearing for a project whose logs are

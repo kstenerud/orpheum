@@ -103,11 +103,14 @@ know. **Do not merge across servers**; a client aggregating several shows severa
   it enforces nothing itself: it acts as the user, so the core resolves entitlement once. The
   rule that makes that safe — an adapter is a login proxy, never a principal — has to hold for
   every tier-2 surface, including the OpenSubsonic one in Phase 7.
-- **Watch Together is a fifth access path and the invite is mechanism (2)**
-  ([D104](../../decisions/working-notes.md)). A group is not a grant — every participant
-  resolves the item through their own entitlement — and the invite is a capability URL scoped
-  to one Edition and time-boxed to the session. That makes this document a dependency of
-  [watch-together.md](watch-together.md), which it was not.
+- **Watch Together is a fifth access path, and it is deliberately *not* predicate-governed**
+  ([D117](../../decisions/working-notes.md), superseding
+  [D104](../../decisions/working-notes.md)'s entitlement half). The session link **is** the
+  grant — no account, no per-person predicate — because the motivating case is someone who has
+  neither. What keeps that safe is scope plus revocation: the link reaches one work or one
+  series and nothing else, and a griefer is ejected by invalidating and re-forming the session.
+  Worth recording here rather than only there, because it is the one access path in the project
+  that does not compose with this document, and that is a choice rather than an oversight.
 - **A bandwidth ceiling per share.** [remote-access.md](remote-access.md)'s economics assume
   nobody is pushing a 30 Mbps remux to five houses; the ceiling is the honest alternative to
   discovering the bill.

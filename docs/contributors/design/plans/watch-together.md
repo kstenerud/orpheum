@@ -50,8 +50,9 @@ belongs to the transcoding plan, not this one.
 ### Openings to leave, none of which is work today
 
 1. **Membership is a list with per-member state**, not a pair.
-2. **Control is a per-participant capability**, defaulting to everyone — so adding a host later
-   is a policy change, not a redesign.
+2. ~~**Control is a per-participant capability**, defaulting to everyone~~ — **taken**
+   ([D117](../../decisions/working-notes.md)): it is now a creator-set policy with three
+   separate permissions, above.
 3. **The client handles a *set* of remote audio streams** with per-source gain, even when the
    set has one member. Free, since per-source gain was already required.
 4. **Transport is a server-chosen policy** — mesh, relay, or eventually an SFU — not a client
@@ -73,28 +74,43 @@ ideal caching workload: everyone wants the same segment at the same moment. The 
 that must not be closed by accident** is segment-URL cacheability — see
 [stream-service.md](stream-service.md).
 
-## Who may join, which this plan did not say
+## Who may join, and who may do what
 
-[D104](../../decisions/working-notes.md). "Anyone in a group may play, pause and seek" left
-out who may be in the group, and the natural implementation — send them a group link — is an
-access path that routes around [D76](../../decisions/working-notes.md)'s share predicate and
-[D84](../../decisions/working-notes.md)'s maturity ceiling. D76 requires enforcement *at every
-access path, not only at listing*, for exactly this reason.
+[D117](../../decisions/working-notes.md). **The session link is the grant.** Holding a valid
+one admits you — no account, no share predicate evaluated per person, which is the point: the
+motivating case is a partner travelling who does not have an account.
 
-**The group is not a grant.** Every participant resolves the item through their own
-entitlement; a user who cannot see the film cannot see the group
-([principles §10](../../principles/README.md) — there is no join button to decline).
+**Revocation is the control.** A griefer who gets a link is handled by invalidating the
+session and re-forming it. That puts three requirements on revocation that "make the link
+revocable" does not:
 
-**The invite is a capability URL scoped to one Edition**, which is mechanism (2) of the four in
-[remote-access.md](../research/remote-access.md) §6 — *"perfect for one film, unattributable
-for ongoing access"*, where the named weakness does not apply because the grant is time-boxed
-to the session and revoked by ending the group. So the feature that most needs an identity
-story needs the cheapest one, and the motivating case — a partner travelling, with no account
-— is answered without waiting on the hosted-directory question.
+1. **Invalidation ejects live participants immediately** — stopping new joins leaves the
+   griefer in the room.
+2. **Invalidate-and-re-form is one action and carries the remaining participants across.** If
+   recovering from one bad join means re-inviting everyone mid-film, nobody will do it.
+3. **The creator sees the roster live**, or cannot know to revoke.
 
-**The group is keyed on an Edition**, so a participant who cannot resolve *that* Edition cannot
-join. Otherwise a host on the director's cut and a grantee whose predicate matches only the
-theatrical are watching different films.
+**The link is scoped**, which is what keeps the blast radius small enough for revocation to be
+a sensible control: it reaches the work the creator chose and nothing else — an Edition, or
+the Collection that is its series ([D79](../../decisions/working-notes.md)). One series, at
+most, for as long as the session lasts.
+
+### Three permissions, because they are three risks
+
+| | Who | Default |
+| --- | --- | --- |
+| **What plays** — the film or the series | **creator only, always** | not configurable |
+| **Transport** — play, pause, seek | creator's choice: everyone, or creator only | everyone |
+| **Move within the series** — next episode, next film in the series | creator's choice: on or off | follows transport |
+
+The second row was opening (2) below and is now a setting. The third is the interesting one:
+**the creator picks the work, participants may navigate inside it.** "Next episode" is
+reasonable at 1 a.m. when the host has fallen asleep; "put on something else" is not. In-series
+navigation moves within the work scope and cannot leave it.
+
+**Party playlists are the later version of the same idea** — a creator-defined ordered set as
+the work scope instead of a series. Cheap later precisely because the scope is already an
+object rather than a single item.
 
 ## The constraint that decides whether this survives
 
@@ -279,3 +295,8 @@ whole feature by implementing six methods.
 **Phase 2 — four or five.** The same, with a roster, and **without the audio path or the
 group-state record changing shape**. If either has to change, opening (1) or (3) was not left
 properly.
+
+**And the revocation path is tested, because it is the path nobody exercises until they need
+it** ([D117](../../decisions/working-notes.md)): a revoked participant is gone within one
+reconciliation interval, the remaining participants do not notice, and the re-formed session
+keeps them.

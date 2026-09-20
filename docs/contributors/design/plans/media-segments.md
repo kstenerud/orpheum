@@ -61,11 +61,18 @@ detector and survives re-detection ([principles §3](../../principles/README.md)
 1. **Chapter-derived.** Nearly free, and a large fraction of ripped television already carries
    chapter marks with names like "Intro" or "Opening Credits". Jellyfin ships exactly this as an
    official plugin. Build it first.
-2. **Audio fingerprint across episodes of a season** — the approach intro-skipper uses and the
-   one that works on files with no chapters. It is the same repeated-signal problem Netflix
+2. **Audio fingerprint across episodes of a season** — the approach intro-skipper uses, the one
+   that works on files with no chapters, and — measured 2026-09-20 — **the cheap one**:
+   chromaprint runs at **802× realtime** where black-frame detection runs at 13.5×, because one
+   is an audio pass and the other decodes every frame
+   ([D115](../../decisions/working-notes.md)). It **fails outright on a 5.1 track** and needs a
+   stereo downmix in front of it, which is the kind of thing found in production if it is not
+   written down. It is the same repeated-signal problem Netflix
    solves with audio fingerprinting plus shot-boundary detection plus human review; we get the
    first third of that cheaply because a season is a small, closed corpus.
-3. **Black-frame and silence detection** for outro boundaries.
+3. **Black-frame and silence detection** for outro boundaries — a **second-line** pass for what
+   fingerprinting misses (a film, or a season with no repeated theme), not a default. It is 9.8
+   single-core days over a reference library against the fingerprint's 4 hours.
 
 **Detection runs in the node**, because it decodes audio and video and by
 [D26](../../decisions/working-notes.md) the core never parses media. It **reports candidate

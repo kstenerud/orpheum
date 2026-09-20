@@ -170,8 +170,11 @@ The hard design work, and where the traps are. Format and completeness settled i
   watcher can fail silently ([D27](../decisions/working-notes.md)), the periodic snapshot is not
   only compaction: it is the only thing that can correct for an event nobody delivered.
 - **Completeness lives in the filename.** The node writes `report-<epoch>.jsonl.partial` and
-  atomically renames on success, so completeness is an O(1) directory check and the core never
-  parses a file still being written. A trailer is kept for the *summary* — counts, duration,
+  atomically renames on success, so completeness is an O(1) directory check. **Amended
+  2026-09-20 ([D118](../decisions/working-notes.md)): the core *may* tail a `.partial` file**,
+  so results reach the library as they are produced rather than when the scan ends — reading
+  only up to the last newline, and treating everything so read as incomplete by definition.
+  The rename keeps its one job, which is the moment removals may be applied. A trailer is kept for the *summary* — counts, duration,
   errors, checksum — not as the completeness signal, because the **absence** of a trailer cannot
   distinguish crashed from cancelled from still-writing. (That ambiguity is at least safe:
   unknown means incomplete means add-or-update only.)
