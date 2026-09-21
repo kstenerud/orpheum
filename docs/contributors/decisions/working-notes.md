@@ -10621,15 +10621,16 @@ the ones already there.
    it back. This is the best ratio in the sweep: a query and a page. It is also the one place
    [D13](#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise) pays a visible dividend
    — the statistics are *yours*, computed locally, and were never sent anywhere.
-2. **Outbound notifications.** Tautulli ships **22 triggers and 28 delivery agents**; Jellyfin
-   has 14 `NotificationType` values in the model and pushes delivery to a 251★ plugin. We have
-   two event sources already — [D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)'s
-   change journal and D81's play log — and **no sink at all**;
-   [observability.md](../design/plans/observability.md) is a `/metrics` endpoint and says
-   outright *"never a per-item notification"*. The four worth having are the operational ones,
-   not the social ones: **buffering, the concurrent-stream ceiling being hit, a new device, and
-   the server unreachable from outside**. A webhook is the whole mechanism; everything else is
-   somebody else's bridge.
+2. > ~~**Outbound notifications.** Tautulli ships 22 triggers and 28 delivery agents … the four
+   > worth having are the operational ones: buffering, the concurrent-stream ceiling being hit,
+   > a new device, and the server unreachable from outside.~~
+   >
+   > **Withdrawn 2026-09-21 by [D151](#d151--withdrawn-notifications-a-media-server-has-nothing-you-are-waiting-for-and-its-ui-is-the-notification)**,
+   > the day after it was written, on the project owner's question *"who would be the consumer
+   > of these, and what is the utility?"* Measured demand is **8 reactions** across the ten
+   > video repositories against subtitles' 479, and **zero** for the new-device trigger. I read
+   > a rich surface as demand and double-counted Tautulli's stars into both this and the
+   > statistics item. **Statistics is unaffected and stands.**
 3. **External critic and audience scores are not in the field registry.** Zero mentions in this
    tree. Maintainerr carries **twelve** rating properties (IMDb, Rotten Tomatoes critic *and*
    audience, TMDb, Trakt, each with a vote count) and most of Kometa's 129 builders rest on
@@ -10843,3 +10844,106 @@ of quiet error that survives many readings.
 **Status:** the withdrawals are documented from primary announcements and archived-repository
 metadata. What is *not* measured is how many users each withdrawal actually affected — Plex
 gave a percentage only for plugins.
+
+---
+
+## D151 — Withdrawn: notifications. A media server has nothing you are waiting for, and its UI is the notification
+
+**Decided** (2026-09-21). **Withdraws item 2 of
+[D149](#d149--eight-gaps-the-source-sweep-found-six-declines-and-the-one-that-is-a-hole-in-the-business-model)
+and deletes `notifications.md`.** From the project owner, one day after it was written:
+
+> *"I'm not sure I understand the appeal. Is this sending notifications to outside systems when
+> things like new content are added? Who would be the consumer of these, and what is the
+> utility? I could imagine maybe sending an update to clients about new content being
+> available, but they could just as easily find out from the 'what's new' section of the
+> UI."*
+
+That is correct, and re-reading my own corpus says so plainly.
+
+### The numbers I had, read properly
+
+| | title hits | reactions |
+| --- | ---: | ---: |
+| Notifications / webhooks, **across the ten video server and client repos** | **5** | **8** |
+| …of which actually about *sending* a notification | **1** — *Feature Request: Notification for added media* | **+3** |
+| …the other four | Android **media-control** notifications in the shade — a different feature I mis-bucketed | 5 |
+| New device / login alert / session security | **0** | **0** |
+| Server down / unreachable / health check | 1, and it is an **IPv6 install bug** | 12 |
+| Home automation / Home Assistant / MQTT | **0** | **0** |
+
+Eight reactions, in the corpus where subtitles score 479. **It is close to the least-wanted
+thing in the whole sweep**, and I listed it second.
+
+### Where the demand actually is, and why that settles it
+
+The 243 reactions notifications draw across all twenty-one repositories are **concentrated
+almost entirely in the request and acquisition tools** — Overseerr *Allow users to subscribe to
+TV episodes or Movie notifications* **+92**, *Custom notification support* **+53**, *Ntfy
+Notifications* +11; Sonarr *Templates for Notifications* +20, *Download Decision Webhook* +7.
+
+That is not a coincidence and it is the general rule the question exposed:
+
+> **A notification is worth sending when the user is waiting on an asynchronous outcome they
+> cannot see.** Sonarr, Radarr and Overseerr all have one — *you asked for a film that does not
+> exist yet, and one day it will.* **A media server has no such outcome.** It serves what is
+> already there, so every state change it could announce is already a row on a screen the user
+> opens anyway.
+
+Which is exactly the objection: *"they could just as easily find out from the 'what's new'
+section."* The correct place for "new content" is
+[D134](#d134--a-pending-item-discloses-nothing-a-rule-shows-its-coverage-and-the-home-page-computes-nothing)'s
+maintained home-page value, which already exists and already costs nothing.
+
+**And note it is the declined feature that has the demand.** Requests are
+[D140](#d140--five-gaps-the-sentiment-corpus-exposed-three-declines-and-one-that-undercuts-a-headline-claim)'s
+companion-app territory — so the notification demand sits downstream of a thing we deliberately
+do not build, and belongs to whoever builds it against
+[D20](#d20--plugin-architecture-constraints-and-four-things-the-catalogue-says-belong-in-the-core)'s
+public API.
+
+### The three triggers I claimed were operational, checked individually
+
+- **Concurrent-stream ceiling hit** — I argued a household cannot tell a policy refusal from an
+  outage. It can: [D92](#d92--a-failed-rendition-falls-to-the-next-one-and-the-client-remembers-the-server-still-has-no-device-database)
+  already requires a refusal to name itself **at the point of refusal, to the person
+  refused**, which is better than a message to the owner an hour later.
+- **New device authenticated** — **zero demand**, and the control is a device list with
+  revocation, which [threat-model.md](../design/plans/threat-model.md) already owns. An alert
+  you read on Tuesday is not a security control.
+- **Buffering** — an aggregate, and [observability.md](../design/plans/observability.md)
+  already exposes it. One stall is not an event worth waking somebody for.
+
+### The one residue, and our own architecture forbids it
+
+**"Is my server reachable from outside?"** is the only question a UI genuinely cannot answer,
+because if the answer is no, the UI is not there to say so. It is real, and it is not a
+notification subsystem — it is an **outside-in health check**, and the interesting part is that
+we cannot ship it as designed:
+
+the only component of ours positioned outside the house is the relay
+([D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it)), and
+[D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts) deliberately
+gives it **no accounts and no data** — so it holds no address to reach the owner at, and giving
+it one would be the first thing to breach that promise. **The single notification worth sending
+is the one D72 forbids.** Recorded in [remote-access.md](../design/plans/remote-access.md) as a
+line item and a genuine tension, not as a plan.
+
+### The method error, because it will recur
+
+I read a **rich surface as demand**. Tautulli's 22 triggers × 28 delivery agents *look* like an
+enormous feature, and a large surface in source means only that somebody built a lot, not that
+anybody wanted it. The sweep's own §1 warns about exactly this and I did not apply it.
+
+**And I double-counted.** I attributed Tautulli's **6,589★** to the statistics gap *and* used
+its trigger list as the evidence for notifications. Tautulli's own README calls it
+*"monitoring, analytics and notifications"* and lists notifications **third of twelve**
+features. The honest artefact for notifications alone is **`jellyfin-plugin-webhook` at 251★**
+— against intro-skipper 2,788, sso 1,458, home-sections 513, mergeversions 442 in the same
+catalogue. Mid-table, not a core gap.
+
+**The statistics finding is unaffected and survives** — it never rested on the trigger list, and
+Jellystat's 2,472★ is an independent artefact for it.
+
+**Status:** withdrawn. `notifications.md` is deleted rather than archived because it was never
+designed — there is nothing to archive, and this entry is the record.

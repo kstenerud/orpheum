@@ -69,10 +69,13 @@ fidelity is known, not before.
 Three plans, all `UNSPECIFIED`, from reading competitors' **source** rather than their issue
 trackers ([D149](../../decisions/working-notes.md),
 [feature-sweep-2026-09-21.md](../research/feature-sweep-2026-09-21.md)):
-[play-statistics.md](play-statistics.md), [notifications.md](notifications.md) and
-[external-lists.md](external-lists.md). None is on the critical path and the first is the
-cheapest thing in the tree relative to its demand, because
-[D81](../../decisions/working-notes.md) already stores everything it needs.
+[play-statistics.md](play-statistics.md), [external-lists.md](external-lists.md) — and
+`notifications.md`, **which lasted a day**. The first is the cheapest thing in the tree
+relative to its demand, because [D81](../../decisions/working-notes.md) already stores
+everything it needs. The third was withdrawn by [D151](../../decisions/working-notes.md) once
+its demand was read properly — **8 reactions**, because a media server has no asynchronous
+outcome a person is waiting on, so its own screens are the notification. Deleted rather than
+archived: it was never designed, so the decision log is the record.
 
 Two more findings from that sweep are **not** new plans and are due earlier than their size
 suggests, both because they are schema: per-role **bandwidth and concurrent-stream ceilings**

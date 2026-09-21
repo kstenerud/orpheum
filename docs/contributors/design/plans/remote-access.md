@@ -109,9 +109,26 @@ path; both assume a bounded amount of traffic and neither says what bounds it. T
 **per-role maximum bitrate and maximum concurrent stream count**, stored on
 [D130](../../decisions/working-notes.md)'s role and enforced at session admission — see
 [auth.md](auth.md). Two consequences here specifically: the refusal must name itself
-([D92](../../decisions/working-notes.md)), and hitting the ceiling is one of the four
-operational triggers in [notifications.md](notifications.md), because a household that cannot
-tell a policy refusal from an outage will report it as an outage.
+([D92](../../decisions/working-notes.md)) — a household that cannot tell a policy refusal from
+an outage will report it as an outage, and the fix for that is the refusal naming itself at the
+point of refusal, not a message to the owner an hour later.
+
+### And the one alert worth sending is the one D72 forbids
+
+[D151](../../decisions/working-notes.md). *"Is my server reachable from outside?"* is the only
+question the interface cannot answer, because when the answer is no the interface is not there
+to give it. Every other state change a media server could announce is already a row on a
+screen — which is why [D151](../../decisions/working-notes.md) withdrew outbound notifications
+entirely.
+
+This one is real, and it is an **outside-in health check** rather than a notification. We
+cannot currently ship it: **the only component of ours outside the house is the relay**
+([D71](../../decisions/working-notes.md)), and
+[D72](../../decisions/working-notes.md) deliberately gives it **no accounts and no data**, so
+it holds no address to reach the owner at — and giving it one is the first thing that would
+breach that promise. Recorded as a genuine tension. The honest interim answer is the one this
+audience already uses: an external uptime check against the relay's public endpoint, which
+needs nothing from us beyond that endpoint existing.
 
 ## Why it matters more than its size suggests
 

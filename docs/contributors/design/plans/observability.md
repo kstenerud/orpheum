@@ -56,15 +56,24 @@ reporting according to its own visibility, and this is that data in a format a d
   against 0.063 ms maintained, so scraping it must not become a home-page regression;
 - database size, WAL size, and busy-retry counts.
 
-## The sink this is not
+## And there is no push half, deliberately
 
-[D149](../../decisions/working-notes.md). Everything above is **pull**: a dashboard scrapes it,
-and the rule that this endpoint emits *"a count and an oldest-age, never a per-item
-notification"* is correct for a metrics endpoint and wrong as a statement about the product.
-There was no **push** anywhere in this tree, for two event sources that already exist. That is
-[notifications.md](notifications.md), and the split is deliberate: this document serves an
-operator with Grafana, that one serves a person who needs to be told their server is
-unreachable.
+[D149](../../decisions/working-notes.md) proposed one and
+[D151](../../decisions/working-notes.md) withdrew it the next day. Everything here is **pull**,
+and the rule above — *"a count and an oldest-age, never a per-item notification"* — turns out
+to be the right rule for the whole product and not only for this endpoint.
+
+The reason is worth keeping where a future reader will hit it: **a notification is worth
+sending when someone is waiting on an asynchronous outcome they cannot see**, which is why
+Sonarr, Radarr and Overseerr all have one and why their notification demand is real. A media
+server serves what is already there, so every state change it could announce is already a row
+on a screen. Measured, notifications drew **8 reactions across the ten video repositories**,
+against 479 for subtitles.
+
+The one question a UI genuinely cannot answer — *is the server reachable from outside?* — is an
+**outside-in health check** rather than a notification, and it belongs to
+[remote-access.md](remote-access.md), where it collides with
+[D72](../../decisions/working-notes.md).
 
 ## What it must never expose
 

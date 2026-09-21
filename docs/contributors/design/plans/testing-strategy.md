@@ -371,11 +371,6 @@ speech fraction, asserted.
   is reached** — and the refusal is distinguishable from a failure
   ([D92](../../decisions/working-notes.md), [auth.md](auth.md)). The regression this catches
   is a relay bill.
-- **A notification body never contains a title its audience may not see.** Same rule as
-  [D134](../../decisions/working-notes.md)'s pending count, with more force, because a webhook
-  cannot be un-sent ([notifications.md](notifications.md)).
-- **A first scan of a large library emits one "new content" notification, not thousands.**
-  The same first-scan hazard [D118](../../decisions/working-notes.md) handles for progress.
 - **An external-score predicate does not silently match unrated items.**
   `imdb_score < 6` over a Title with no score must behave like
   [rules-engine.md](rules-engine.md)'s existing null rule for play count, and the test is the

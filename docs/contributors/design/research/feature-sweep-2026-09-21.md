@@ -131,7 +131,7 @@ The object model exposes things no open competitor has:
   `Mood`, `Style`; `Review`; `Hub`; `ButlerTask` (scheduled maintenance); `GDM` (LAN discovery);
   `PlexSonosClient`; `TwoFactorRequired`; `LyricStream`; `Folder`.
 
-### 2.6 Tautulli — the notification surface nobody's core has
+### 2.6 Tautulli — a large notification surface, which is not the same as demand
 
 **22 triggers:**
 
@@ -145,10 +145,17 @@ on_extup on_pmsupdate on_plexpyupdate on_plexpydbcorrupt on_tokenexpired
 lunasea microsoftteams mqtt ntfy osx plex plexmobileapp prowl pushbullet pushover remoteapp
 scripts slack telegram twitter webhook xbmc zapier`.
 
-Four of those triggers are *operational* rather than social — `on_buffer`, `on_concurrent`,
-`on_newdevice`, `on_extdown` — and they are the ones an owner actually wants. Home-page
-statistic cards: `top_movies top_tv top_music top_users top_platforms top_libraries
+Home-page statistic cards: `top_movies top_tv top_music top_users top_platforms top_libraries
 popular_movies popular_tv popular_music`.
+
+> **Read this section against §1's own warning, which the first draft of this document did
+> not.** A large surface in source means somebody built a lot, not that anybody wanted it —
+> and Tautulli's README calls the product *"monitoring, analytics and notifications"*, listing
+> notifications **third of twelve** features. Its 6,589★ belong to the statistics gap in §4;
+> attributing them to notifications as well was a double-count, and
+> [D151](../../decisions/working-notes.md) withdrew the recommendation that rested on it. The
+> honest artefact for notifications alone is **`jellyfin-plugin-webhook` at 251★**, mid-table
+> in a catalogue where intro-skipper is 2,788 and SSO 1,458.
 
 ### 2.7 Kometa — what people want automated
 
@@ -233,6 +240,7 @@ fills:
 | --- | --- | ---: |
 | **Requests / discovery for household members** | Jellyseerr 12,649 · Overseerr 4,975 *(archived)* · Ombi 4,104 | **21,728** |
 | **Play statistics and watch history** | Tautulli 6,589 · Jellystat 2,472 · Playback Reporting 135 | **9,196** |
+| *(Tautulli is a multi-feature tool — its README lists monitoring and analytics first and notifications third of twelve. Jellystat, which is statistics only, is the clean 2,472★ artefact.)* | | |
 | **Your library as live TV channels** | ErsatzTV 2,956 · xTeVe 2,263 · dizqueTV 1,766 · Threadfin 1,716 · pseudotv 266 | **8,967** |
 | **Subtitle acquisition** | Bazarr 4,284 | 4,284 |
 | **Transcode automation / offload** | Tdarr 4,328 · rffmpeg 1,076 | 5,404 |
@@ -330,10 +338,17 @@ Ranked by *demand ÷ cost*, with cost read against what this tree already has:
    user their own history. [D81](../../decisions/working-notes.md) already makes play state an
    append-only event log — the data is there and nothing reads it back. This is the highest
    ratio in the sweep and it is a query plus a page.
-2. **Outbound notifications.** Tautulli's 22 triggers, 28 agents. We have two event sources
-   already ([D8](../../decisions/working-notes.md)'s change journal,
-   [D81](../../decisions/working-notes.md)'s play log) and no sink. The four that matter are
-   operational: buffering, concurrent-stream limit hit, new device, server unreachable.
+2. > ~~**Outbound notifications.** Tautulli's 22 triggers, 28 agents … the four that matter are
+   > operational: buffering, concurrent-stream limit hit, new device, server unreachable.~~
+   >
+   > **Withdrawn the next day by [D151](../../decisions/working-notes.md).** Measured
+   > properly, notification demand in the ten video repositories is **5 title hits and 8
+   > reactions** — one of which is actually about sending anything (*Notification for added
+   > media*, **+3**); the rest are Android media-control notifications, a different feature.
+   > New-device alerts score **0**, home automation **0**. The 243 reactions the subject draws
+   > across all twenty-one repositories sit almost entirely in **Overseerr, Sonarr and
+   > Radarr** — tools with an **asynchronous outcome the user is waiting on**, which a media
+   > server does not have. Its own screens are the notification.
 3. **Per-user and per-role bandwidth and concurrent-stream limits.** Absent, and not a nicety:
    [D25](../../decisions/working-notes.md)/[D64](../../decisions/working-notes.md)/[D86](../../decisions/working-notes.md)
    put a **paid relay** on the critical path, and a relay with no per-user ceiling is an

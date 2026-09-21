@@ -347,10 +347,6 @@ authority, not this list:
   to show people a history their own server already stores;
   [D81](contributors/decisions/working-notes.md)'s event log holds the data and nothing reads
   it back. A query and a page, and it belongs with Phase 2 or the first client that has room.
-- **[notifications.md](contributors/design/plans/notifications.md)** *(new, 2026-09-21)* — two
-  event sources, no sink. Four operational triggers and one webhook; everything else is
-  somebody else's bridge ([D149](contributors/decisions/working-notes.md)). Pairs with
-  `observability.md`, which is the pull half of the same data.
 - **[external-lists.md](contributors/design/plans/external-lists.md)** *(new, 2026-09-21)* — a
   collection whose membership is authored elsewhere, which is a third kind alongside
   [D79](contributors/decisions/working-notes.md)'s explicit list and
@@ -383,7 +379,11 @@ Added 2026-09-21 by the source sweep ([D149](contributors/decisions/working-note
 core and the plugin now carries 84 open issues against 87 stars; **3D/stereoscopic**;
 **Sonos and multi-room**; **games, sports and music videos as library types**; **poster
 overlays baked into artwork**; and **a content-source plugin tier** — the one Plex killed in
-2018 at *"less than 2 percent of people were using Plugins"*.
+2018 at *"less than 2 percent of people were using Plugins"*. And **outbound notifications**,
+proposed by that sweep and withdrawn a day later
+([D151](contributors/decisions/working-notes.md)): a media server has no asynchronous outcome
+you are waiting on, so every state change it could announce is already a row on a screen —
+measured demand was **8 reactions** against subtitles' 479.
 
 ---
 
