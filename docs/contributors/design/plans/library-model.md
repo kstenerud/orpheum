@@ -225,7 +225,13 @@ each lands here rather than being bolted on — the same argument
 **And one policy that is not a table.** Deletion ([D89](../../decisions/working-notes.md)): a
 writable path is opt-in per library and off by default; deletion is two-phase and names every
 file and its size; it happens in the node, never the core; and a retention rule may still only
-*mark*. The tree previously said nothing at all about deleting media, which is how `os.Remove`
+*mark*. **And it goes to a trash first** ([D143](../../decisions/working-notes.md)) — one per
+library **root**, because `rename(2)` does not cross filesystems and a central trash would turn
+every delete into a copy-and-delete that can fail half way. So the two phases become
+**confirm → trash → empty**, the middle step is a rename, and the trash never empties itself.
+It needs a small amount of schema after all: the manifest recording each item's original path,
+time and actor lives **in the trash directory** so it survives a rebuild-from-empty
+([D7](../../decisions/working-notes.md)), but the core still tracks what it moved. The tree previously said nothing at all about deleting media, which is how `os.Remove`
 ends up in a handler. The list of files and sizes in that confirmation **is** the identity
 guard the node enforces ([D100](../../decisions/working-notes.md)):
 [D38](../../decisions/working-notes.md)'s command channel is replayed after a node restart, so

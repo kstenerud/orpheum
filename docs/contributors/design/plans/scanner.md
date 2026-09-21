@@ -246,6 +246,22 @@ is a promise about the future; items appearing in the library are evidence about
 **These are passes over bytes, not stages that draw conclusions** — the shape
 [D59](../../decisions/working-notes.md) removed stays removed.
 
+## Two things in the tree that are ours, and are skipped
+
+**The trash is excluded from enumeration** ([D143](../../decisions/working-notes.md)), or
+deleted items reappear as new ones on the next pass and the undo becomes a duplicate. It lives
+at the root of each library root so a delete can be a rename rather than a copy.
+
+**And a node's own writes come back as observations, which is a feature rather than a bug**
+([D142](../../decisions/working-notes.md)). Exporting sidecars into a watched tree makes the
+watcher journal thousands of changes. The node **still reports them** — a sensor suppressing
+its own output is what [principles §9](../../principles/README.md) forbids — and **the core
+ignores what it commanded.** The node saw a file change; only the core knows it asked for it.
+
+Prior art for how an exclusion list is expressed: Jellyfin's `IgnorePatterns` already skips
+`sample`, `metadata/`, `ps3_update/` and a long tail of similar noise, and that list is worth
+copying on its own merits.
+
 ## Two more observation passes
 
 Both are node work, both are [D42](../../decisions/working-notes.md) facts rather than

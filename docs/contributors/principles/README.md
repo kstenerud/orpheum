@@ -41,6 +41,18 @@ every file and its size**; it happens in the node, never the core
 actions say exactly what they will destroy" is the sentence above; this is its first real
 consumer.
 
+**And where we do destroy, it is reversible** ([D143](../decisions/working-notes.md)). A
+delete goes to a **trash at the root of each library root** — one per root, because
+`rename(2)` does not cross filesystems and a central one would make every delete a
+copy-and-delete that can fail half way. It never empties itself: automatic expiry would be
+the single place this product destroys something nobody asked it to. So the two phases become
+**confirm → trash → empty**, and the confirmation can be calmer because the act is undoable.
+
+**Running with the media entirely read-only is a supported configuration, not a cautious
+user's workaround.** Someone who never grants a writable path has a complete product, minus
+deleting and minus sidecar export. Say so, because the alternative is people assuming they
+must loosen permissions to get full function.
+
 **Bites when:** a feature would be easier if the server could just write to the media tree, or
 if some state existed only in the database — or when "we don't support deleting" quietly
 becomes an `os.Remove` in a handler.

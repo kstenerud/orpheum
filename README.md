@@ -24,7 +24,10 @@ Product commitments, not aspirations:
   topic on Plex's own forum in the past year is *"Vote to roll back to Plex Classic!"* with
   1,124 likes; the second-loudest thing their Fire TV users needed was instructions for
   installing last month's app. See [D108](docs/contributors/decisions/working-notes.md).
-- **Your files stay yours.** Media is read-only by default. The database is a rebuildable
+- **Your files stay yours.** Media is read-only by default — and **running that way
+  permanently is a supported choice**, not a cautious setting: you get the whole product minus
+  deleting and minus writing sidecars. If you do grant write access, **deleting moves to a
+  trash you can undo from**, and nothing empties it but you. The database is a rebuildable
   index, never the authority. Your data survives us two ways, and they do different jobs: an
   **automatic backup** of everything that cannot be re-derived — watch state, preferences,
   rules, shares — which is on by default and restores anywhere; and, if you grant a writable

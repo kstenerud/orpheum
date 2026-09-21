@@ -282,6 +282,15 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   by default and on any code path. The media tree is shared, so this one fails closed. It
   appears **only** when an export explicitly named one user
   ([D142](../../decisions/working-notes.md)), and then only that user's;
+- **a delete is a rename into the trash and is undoable**, the trash is **excluded from the
+  next scan** so the item does not reappear as new, and **nothing empties it automatically**
+  ([D143](../../decisions/working-notes.md)). The manifest in the trash directory is enough to
+  restore an item **after a rebuild-from-empty**, which is the case that proves it does not
+  depend on the database;
+- **the export's default follows the account count** — one user preselects that user, two or
+  more preselects none ([D143](../../decisions/working-notes.md));
+- **an export stops a scan running on the same root**, and the scan resumes rather than
+  restarts ([D143](../../decisions/working-notes.md), [D102](../../decisions/working-notes.md));
 - **an export onto a read-only root reports rather than fails**, per root and per item, and a
   library spanning a writable disk and a read-only mount exports the half it can
   ([D142](../../decisions/working-notes.md)) — stopping at file 1,400 of 3,500 with one

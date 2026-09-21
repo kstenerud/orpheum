@@ -9910,3 +9910,124 @@ core. The node saw a file change; only the core knows it asked for it.
 pass is restartable and idempotent because a NAS gets switched off mid-pass, and an export is a
 pass in everything but name. Also open: what happens if an export is requested while a scan is
 running on the same root — they are both walking the same tree and one of them is writing.
+
+---
+
+## D143 — A lone user is not a household; an export ends the scan; and anything that deletes gets a trash
+
+**Decided** (2026-09-21), by the project owner. Three refinements —
+the first two to [D142](#d142--export-names-one-user-or-none-writing-to-media-restarts-the-node-and-the-file-transport-has-no-channel-for-it),
+the third extending [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file).
+
+### 1. The export default follows the number of accounts
+
+D142 made **none** the default for whose watch state an export carries. The owner's correction:
+*"'none' should be the default only when there are multiple user accounts. If there's only
+one, then it's a single user who tried our product, didn't like it, and wants to go back to
+Kodi."*
+
+**Right, and it is not an exception to
+[D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person) — it is D98's own scope.** That rule exists
+*"because the media tree is shared with the household and often with a grantee."* **With one
+account there is no household.** The precondition is absent, so the rule does not bite, and
+defaulting to "none" there protects nobody from anybody while quietly throwing away the
+user's history at the exact moment they are leaving.
+
+It is also **checkable rather than guessed**, because
+[D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)
+made a grantee *a user with a role*: one user account genuinely means nobody else can read
+it. (A Watch Together guest is not a user —
+[D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal) —
+and has no filesystem anyway.)
+
+So: **one account → default to that user. More than one → default to none.** The question is
+asked either way; only the pre-selected answer moves.
+
+**One thing the prompt must say in the single-user case**, because it is the part that is easy
+to get wrong: **the disclosure is permanent.** Adding a housemate next year does not retract
+what is already on disk. One sentence, and it costs nothing:
+
+> *These files stay readable if you add other people to this server later.*
+
+### 2. An export ends the running scan, and the reasoning generalises
+
+Closes D142's open question — *what happens if an export is requested while a scan is running
+on the same root* — with the owner's answer: *"an export is a signal for someone exiting, so
+we should stop any existing scan. If we guess wrong, it's one 'rescan' button away in the
+admin panel."*
+
+**Two reasons, and the second is the better one.**
+
+It **removes the contention instead of making it safe**. A scan and an export walking the same
+tree while one of them writes is a race we would otherwise have to design around — ordering,
+locking, or teaching the scanner to ignore paths mid-flight. Stopping the scan deletes the
+problem rather than solving it.
+
+And **stopping costs almost nothing**, because
+[D102](#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes) already makes
+every pass restartable and idempotent and
+[D118](#d118--the-scan-is-incremental-prioritised-and-steerable-and-playability-comes-first)
+makes the scan incremental. A resumed scan picks up; it does not start over.
+
+**The rule worth naming, because it will recur: when two readings of an action are possible,
+take the one whose error is cheaper to reverse.** Reading an export as "this person is
+leaving" costs one button if wrong. Reading it as "just another job" costs a partial export
+and a race. The asymmetry decides it, and no amount of thinking about *which is more likely*
+was needed.
+
+### 3. If we can delete, there is a trash
+
+The owner: *"I personally prefer keeping my library read-only… I don't trust Jellyfin or Plex
+accidentally deleting or corrupting something… I don't know what the average user wants… we
+should take write access very seriously and carefully. If we are going to offer delete or
+write functionality, we should probably have a trash directory so that things can be undone."*
+
+**The read-only posture is already the default and should be named as a supported choice**,
+not a cautious user's workaround: [principles §2](../principles/README.md) mounts media
+read-only, and [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file)
+makes a writable path opt-in **per library**. Someone who never grants one has a fully
+functional product.
+
+**On whether people use delete, the honest answer is that we do not know** — and there is one
+data point rather than none: Jellyfin's `UserPolicy` constructor sets
+`EnableContentDeletion = false` explicitly, so **the field's own default answer is "assume
+not."** Recorded as evidence about defaults, not as evidence about usage.
+
+**But where it is offered, it goes to a trash first**, and five things follow that are easy to
+get wrong:
+
+- **Per library root, never global.** `rename(2)` does not cross filesystems, so a central
+  trash turns every delete into a copy-and-delete: slow, needs the space twice, and can fail
+  half way — the worst possible failure for the one destructive operation in the product. So
+  the trash lives **at the root of each library root**, and a delete is a rename.
+- **It is excluded from scanning**, or deleted items reappear as new ones on the next pass.
+  The same class of bug as [D142](#d142--export-names-one-user-or-none-writing-to-media-restarts-the-node-and-the-file-transport-has-no-channel-for-it)'s
+  write loop, and Jellyfin's `IgnorePatterns` — which already skips `sample`, `metadata/`,
+  `ps3_update/` and friends — is the prior art for how such an exclusion is expressed.
+- **It carries a manifest, not just files.** Undo needs the original path, the timestamp and
+  who asked. That manifest lives **in the trash directory**, so it survives a database rebuild
+  ([D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index)) and is
+  readable by a human with a text editor if we are gone.
+- **It never empties itself.** Automatic expiry would be the one place this product destroys
+  something nobody asked it to destroy, and it contradicts
+  [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file)'s rule that a
+  retention policy may only ever *mark*. Show what is reclaimable, and let the user empty it.
+  A user-set expiry may exist; it is **off by default**.
+- **A read-only library has no trash and therefore no delete.** Consistent rather than
+  awkward — and it is exactly the configuration the owner runs.
+
+**And it makes the dangerous operation reversible, which changes the confirmation.**
+D89's two phases were *confirm*, then *delete*. They become **confirm → trash → (separately,
+deliberately) empty**. The confirmation can be less frightening precisely because the action
+is now undoable, and the irreversible step is a second act on a screen that shows exactly what
+it will destroy.
+
+**One apparent inconsistency, resolved:** D98 rejected *"a dot-directory beside the media"* for
+sidecars, because it breaks the *"any other media server can read it"* property that was the
+whole point of sidecars. **Trash has no such property to break** — it is not for other servers
+to read — so the objection does not transfer, and putting it inside the root is what makes the
+rename atomic.
+
+**Status:** Open — whether the trash is also where a *failed* or *interrupted* write lands, so
+that a half-written sidecar never sits beside the media. Probably yes, and it would make the
+trash the general undo surface for everything the node writes rather than only for deletion.

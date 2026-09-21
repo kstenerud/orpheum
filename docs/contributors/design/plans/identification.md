@@ -149,7 +149,22 @@ Four rules, and the third is the one that gets skipped:
    watch history, which leaves in the [D77](../../decisions/working-notes.md) backup instead.
 
 **Export asks whose watch state to include, or none** ([D142](../../decisions/working-notes.md)),
-with **none as the default**. One user, never several — an NFO holds a single `playcount`, so
+and the default **follows the number of accounts** ([D143](../../decisions/working-notes.md)):
+**one account defaults to that user, more than one defaults to none.** That is not an
+exception to [D98](../../decisions/working-notes.md) but its own scope — the rule exists
+*because the media tree is shared with the household*, and **with one account there is no
+household**. It is checkable rather than guessed, since
+[D130](../../decisions/working-notes.md) makes a grantee a user with a role. The single-user
+prompt says one more thing, because it is permanent: *"these files stay readable if you add
+other people to this server later."*
+
+**An export stops any scan running on that root** ([D143](../../decisions/working-notes.md)).
+It removes the contention rather than designing around it — a scan and an export walking the
+same tree while one writes is a race — and stopping is nearly free, because
+[D102](../../decisions/working-notes.md) makes passes restartable and
+[D118](../../decisions/working-notes.md) makes the scan incremental, so a resumed scan picks
+up rather than starting over. If the inference is wrong it costs one **rescan** button, which
+is the cheaper error. One user, never several — an NFO holds a single `playcount`, so
 "everybody's" is not expressible and offering it would misrepresent the file. And the prompt
 **discloses rather than asks**: *"this writes what Alice has watched into files beside your
 media; everyone in the household, and anyone you share with, can read them"* — the same shape
