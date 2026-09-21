@@ -10226,21 +10226,22 @@ must exist or someone loses data by being clever with the first.
 `14:32:05`. Colons are legal on POSIX and **not on SMB or NTFS**, and this project explicitly
 targets libraries on NAS shares. Sortable, self-describing, and `ls` is the index.
 
-### The write sequence, which has one non-obvious step
+### The write sequence
+
+~~write temp → **hardlink** the old copy into the trash → atomic rename.~~
+**Superseded by [D146](#d146--copy-the-small-file-the-hardlink-was-an-optimisation-for-a-case-we-are-not-building)**:
+the hardlink avoided copying bytes, and the files we retain are **kilobyte sidecars**, so it
+bought a dependency on `link(2)` — unavailable on **exFAT** and variable over **SMB**, both of
+which are squarely in our path — in exchange for saving nothing. **Copy the small file.**
 
 ```
-write   <target>.partial          temp, same directory, same filesystem
-link    <target> → .trash/<event>/<relpath>     hardlink, not rename
-rename  <target>.partial → <target>             atomic
+write   <target>.partial            temp, same directory
+copy    <target> → .trash/<event>/<relpath>
+rename  <target>.partial → <target>   atomic
 ```
 
-**The hardlink is the interesting one.** Rename-then-rename leaves a window where the target
-does not exist; a hardlink means the old content is safe in the trash *and* still at its
-original path until the atomic rename replaces it — **the file is never absent**. Where
-hardlinks are unavailable (FAT, some SMB configurations) fall back to rename-then-rename and
-accept a window of microseconds. Worth an
-[`assumptions/`](../design/plans/testing-strategy.md) test, because "does this filesystem
-support `link(2)`" is exactly the silently-varying fact that directory is for.
+The hardlink returns only if deletion ships and we start retaining multi-gigabyte files, where
+a copy costs time and double the space.
 
 ### One naming tension, recorded rather than resolved
 
@@ -10254,3 +10255,73 @@ re-litigates it as a bug.
 directory adds roughly forty characters, which is nothing against Linux's 4096 and could
 matter against a legacy 260-character limit over SMB on a deeply nested library. An
 `assumptions/` test, not a redesign.
+
+---
+
+## D146 — Copy the small file; the hardlink was an optimisation for a case we are not building
+
+**Decided** (2026-09-21), from the project owner's question *"does NTFS support hard links?"*
+**Supersedes the write sequence in
+[D145](#d145--the-trash-is-one-directory-per-event-with-a-parallel-tree-inside-because-our-unit-of-undo-is-a-bulk-operation).**
+
+### The answer, and why it is not the useful part
+
+**NTFS does support hard links** — `CreateHardLink` since Windows 2000, **files only, never
+directories, same volume only, and a maximum of 1023 links per file** (ReFS raises that to a
+million). So on the filesystem the question named, the answer is yes.
+
+**But NTFS is not the variable that matters**, and asking about it makes that visible:
+
+| Where the media actually lives | `link(2)` |
+| --- | --- |
+| ext4, btrfs, xfs, zfs | yes |
+| NTFS — natively, or via `ntfs-3g`/`ntfs3` | yes, ≤ 1023 per file |
+| **exFAT, FAT32** | **no, by design** — no reference counting |
+| **SMB/CIFS mount** | **depends on the server**, and the Linux client needs working server inode numbers; *"hardlinks will not be recognized on this mount"* is a real reported condition |
+| NFS | yes |
+
+**The two hazards are exFAT and SMB, not NTFS** — and both are squarely in our path. exFAT is
+what large USB drives ship formatted as, which is a very common home media disk. SMB is the
+NAS case, which is [this project's stated topology](../design/media-nodes.md).
+
+### The realisation: we are optimising a case we are not building
+
+**A hardlink exists to avoid copying bytes.** The files we retain today are **sidecars, a few
+kilobytes each**. Copying one costs nothing measurable.
+
+So D145's sequence was engineered for a file size we do not have. **The correct rule is by
+size, and today everything we retain is small:**
+
+- **Small file → copy it into the trash, then rename the temp over the target.** No filesystem
+  dependency, no 1023 limit, no SMB variance, no window where the target is absent, and it
+  works on exFAT. **The entire compatibility problem disappears.**
+- **Large file → hardlink**, because a copy of a 40 GB remux costs time and needs the free
+  space twice. That case only exists if deletion ever ships
+  ([D144](#d144--deletion-is-deferred-not-designed-away-the-policy-is-the-deliverable-and-the-export-already-carries-the-danger)),
+  so **the hardlink question defers with it** — and when it arrives it arrives with a
+  capability probe, because on exFAT there is no hardlink to fall back on and the honest
+  answer there is that the trash costs a copy.
+
+**So today's write sequence is:**
+
+```
+write   <target>.partial            temp, same directory
+copy    <target> → .trash/<event>/<relpath>
+rename  <target>.partial → <target>   atomic
+```
+
+### What this changes about the assumptions test
+
+[D145](#d145--the-trash-is-one-directory-per-event-with-a-parallel-tree-inside-because-our-unit-of-undo-is-a-bulk-operation)
+put *"does this filesystem support `link(2)`"* in
+[`assumptions/`](../design/plans/testing-strategy.md). **It comes out** — nothing depends on it
+any more. The **path-length** test stays, because nesting a library-relative path under an
+event directory is a real cost against a legacy SMB limit regardless of how the bytes get
+there.
+
+**And the general lesson is worth more than the change.** The hardlink was chosen because it
+was the *cleverest* correct answer, not the *simplest* one, and the cleverness bought
+compatibility risk on exactly the filesystems this project targets in exchange for saving a
+copy of five kilobytes. **A question about one filesystem's capabilities was enough to show
+the capability was not needed** — which is the cheapest way this kind of thing ever gets
+caught.

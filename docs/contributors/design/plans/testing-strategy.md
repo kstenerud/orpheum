@@ -96,12 +96,12 @@ One from [D129](../../decisions/working-notes.md): **a client that advertises no
 gets a working response**, gzipped rather than refused — the failure mode being a television
 that silently receives bytes it cannot decode.
 
-Two from the trash design ([D145](../../decisions/working-notes.md)), both the
-silently-varying kind: **does this filesystem support `link(2)`** — the write sequence uses a
-hardlink so the target is never absent, and FAT and some SMB configurations cannot, which
-degrades to a rename with a real if tiny window; and **the path-length ceiling**, because
-nesting a library-relative path under an event directory adds ~40 characters, nothing against
-Linux's 4096 and possibly something against a legacy 260-character limit over SMB.
+One from the trash design ([D145](../../decisions/working-notes.md)): **the path-length
+ceiling**, because nesting a library-relative path under an event directory adds ~40
+characters — nothing against Linux's 4096 and possibly something against a legacy
+260-character limit over SMB. (A `link(2)` probe was going to live here too, until
+[D146](../../decisions/working-notes.md) removed the dependency: the retained files are
+kilobyte sidecars, so they are copied, and exFAT's lack of hardlinks stops mattering.)
 
 Two more from the 2026-09-21 transport round
 ([D127](../../decisions/working-notes.md)), and both are the silent kind: **`nfs(5)`'s

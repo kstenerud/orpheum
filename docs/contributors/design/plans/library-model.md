@@ -254,10 +254,12 @@ appears under several event directories and the chronology is the name. One
 the path already carries *where*.
 
 Three rules that make it work: **retain only when the bytes actually differ**, or every export
-trashes thousands of unchanged files; the write sequence is **temp → hardlink the old copy
-into the trash → atomic rename**, so the file is never absent; and **`cp -a` is a guarantee
-while our own restore trashes the current file first**, because restoring an old version over
-a newer one would destroy something that was never retained.
+trashes thousands of unchanged files; the write sequence is **temp → copy the old file into
+the trash → atomic rename** ([D146](../../decisions/working-notes.md)), because what we retain
+is kilobyte sidecars and a hardlink would buy a dependency on `link(2)` — absent on **exFAT**
+and variable over **SMB**, both of which are in our path — to save copying nothing; and
+**`cp -a` is a guarantee while our own restore trashes the current file first**, because
+restoring an old version over a newer one would destroy something that was never retained.
 
 Independently confirmed by two prior arts — the **freedesktop.org Trash Specification**, which
 is also per-volume and also records original path plus timestamp, and **Syncthing's
