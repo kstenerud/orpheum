@@ -92,6 +92,10 @@ SQLite's 1000-term and 65-table limits, `ass_track_set_feature`'s −1 return, F
 `drc_scale`, chromaprint's refusal of a 5.1 input, NVENC's `-force_key_frames`,
 `SQLITE_BUSY_SNAPSHOT`'s unretryability, and the WAL file-copy trap.
 
+One from [D129](../../decisions/working-notes.md): **a client that advertises no `zstd` still
+gets a working response**, gzipped rather than refused — the failure mode being a television
+that silently receives bytes it cannot decode.
+
 Two more from the 2026-09-21 transport round
 ([D127](../../decisions/working-notes.md)), and both are the silent kind: **`nfs(5)`'s
 attribute-cache defaults** (`acregmax`/`acdirmax` 60 s, doubling towards the maximum), because

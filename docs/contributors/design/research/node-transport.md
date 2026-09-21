@@ -9,7 +9,7 @@ rather than a summary of it), Tdarr's documentation, Immich's and Kyoo's source 
 from the cache, GitHub's and AWS's agent documentation, and `nfs(5)`. Measurements are on the
 usual rig (Intel i3-1315U, 6c/8t, 62 GB, Linux 6.17).
 
-Backs [D125](../../decisions/working-notes.md)–[D128](../../decisions/working-notes.md).
+Backs [D125](../../decisions/working-notes.md)–[D129](../../decisions/working-notes.md).
 
 ## 0. The finding that reframes the question
 
@@ -171,10 +171,46 @@ Three readings:
   HTTP parses the stream as it arrives and the file channel cannot start until the rename.
   **This is [D118](../../decisions/working-notes.md)'s incremental ingest, for free, without
   tailing a `.partial` file.** D118 invented a mechanism that one transport gives away.
-- **Compress at level 1, and only sometimes.** gzip -1 is 5.7× for 262 ms; gzip -6 buys 27% more
-  for twice the CPU. Below ~1 Gbit compression wins, above it the compressor is the bottleneck.
-  In HTTP that is `Accept-Encoding`, negotiated per request and free. On the file channel it is
-  a thing you invent.
+- **Compress, and let the link choose the codec.** In HTTP that is `Accept-Encoding`,
+  negotiated per request and free; on the file channel it is a thing you invent. See §4a for
+  which codec — the answer is not the same on both sides of the core.
+
+### 4a. zstd against gzip, and why the answer differs per channel
+
+[D129](../../decisions/working-notes.md). Same corpus, best of three, 8 cores, via
+`github.com/klauspost/compress` — **pure Go, no cgo**, BSD-3-Clause, with optional amd64/arm64
+assembly and generic fallbacks.
+
+| codec | bytes | ratio | compress | decompress |
+| --- | --- | --- | --- | --- |
+| gzip -1 (stdlib) | 8,829,427 | 5.7× | 193 ms | 129 ms |
+| gzip -6 (stdlib) | 6,513,053 | 7.8× | 456 ms | 97 ms |
+| **zstd fastest** | **7,904,912** | **6.4×** | **122 ms** | **68 ms** |
+| zstd default | 7,513,344 | 6.8× | 145 ms | 91 ms |
+| zstd better | 6,602,112 | 7.7× | 313 ms | 80 ms |
+
+**zstd fastest beats gzip -1 on all three axes simultaneously** — 11% smaller, 1.6× faster in,
+1.9× faster out. No trade is being made. Decompression is the axis that matters most because
+the **core** pays it on every report.
+
+Total wire time (compress + transfer + decompress) for one snapshot:
+
+| link | none | gzip -1 | zstd fastest |
+| --- | --- | --- | --- |
+| 100 Mbit | 4.06 s | 1.02 s | **0.83 s** |
+| 1 Gbit | 0.41 s | 0.39 s | **0.26 s** |
+| loopback / Unix socket | **0.04 s** | 0.33 s | 0.21 s |
+
+**On a socket, compressing is 5× slower than not.** The default install's "link" is a memcpy.
+That is an argument for negotiation rather than a special case to code.
+
+**But `Content-Encoding: zstd` does not transfer to the client channel.** `caniuse`, read
+2026-09-21: 85.17% global, Chrome/Edge 123+, Firefox 126+ — **Safari desktop from 26.0 only,
+iOS Safari fully at 26.3, and Samsung Internet unsupported through v30**. Samsung Internet is
+the Tizen lineage, and [D85](../../decisions/working-notes.md)'s whole premise is that
+televisions never update, so a global percentage computed over phones is the wrong
+denominator. zstd on the node channel, where both ends are our binary; gzip stays the floor
+facing clients.
 
 **The 96× trap.** The first run of this benchmark reported gzip at **96×**, using the synthetic
 snapshot from the 2026-09-20 round — whose 50,000 lines are near-identical, differing only in an

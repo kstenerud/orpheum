@@ -8155,8 +8155,12 @@ a message broker are declined, the first because we must authenticate the channe
 second because it is a second service at household scale
 ([principles §1](../principles/README.md)).
 
-**Status:** Compression is `Accept-Encoding` with **gzip level 1** (measured 5.7×, 262 ms; level
-6 buys 27% more for twice the CPU) and is worth it below about 1 Gbit and not above. Unresolved:
+**Status:** ~~Compression is `Accept-Encoding` with **gzip level 1** (measured 5.7×, 262 ms;
+level 6 buys 27% more for twice the CPU) and is worth it below about 1 Gbit and not above.~~
+**Refined by [D129](#d129--zstd-on-the-node-channel-gzip-on-the-client-channel-and-nothing-on-a-socket)**:
+the negotiation stands, the codec does not — **zstd** on this channel, because both ends are our
+own binary and it beats gzip on size *and* both speeds at once. gzip remains the floor on the
+*client* channel, where old televisions are. Unresolved:
 whether the remote node's command channel is a long poll or a WebSocket — long poll is duller and
 [principles §1](../principles/README.md) prefers it, but sub-second command latency
 may argue otherwise, and neither matters until a remote node exists.
@@ -8227,3 +8231,80 @@ wants to be one hop away; anything it fetches one of, per playback, can be a red
 redirect target stable across a re-derivation) or by `(item, kind, size)`. Also unmeasured: the
 redirect's cost against a direct serve on a home page, which is the number that decides whether
 the split above is drawn in the right place.
+
+---
+
+## D129 — zstd on the node channel, gzip on the client channel, and nothing on a socket
+
+**Decided** (2026-09-21). **Refines [D127](#d127--the-node-dials-out-a-unix-socket-is-the-default-and-the-file-channel-is-the-fallback)'s
+compression clause**, which said gzip level 1. Measured on the same realistic 50,000-entry
+corpus.
+
+The question "is there enough support for zstd?" has two answers because there are two
+channels, and conflating them is how a codec ends up in the wrong one.
+
+### The node channel: yes, and it is not a support question at all
+
+**Both ends are our own binary.** There is no third-party decoder to accommodate, so the only
+question is whether a Go implementation exists that we are willing to depend on.
+`github.com/klauspost/compress` is **pure Go with no cgo** (optional amd64/arm64 assembly with
+generic fallbacks), BSD-3-Clause — compatible with both halves of
+[D80](#d80--licence-by-artefact-gplv3-for-the-server-mpl-20-for-the-clients-and-the-sdk)'s
+licence split — and about as boring as a third-party Go dependency gets
+([principles §1](../principles/README.md)).
+
+Measured, 50.76 MB snapshot, best of three, 8 cores:
+
+| codec | bytes | ratio | compress | decompress |
+| --- | --- | --- | --- | --- |
+| gzip -1 (stdlib) | 8,829,427 | 5.7× | 193 ms | 129 ms |
+| gzip -6 (stdlib) | 6,513,053 | 7.8× | 456 ms | 97 ms |
+| **zstd fastest** | **7,904,912** | **6.4×** | **122 ms** | **68 ms** |
+| zstd default | 7,513,344 | 6.8× | 145 ms | 91 ms |
+| zstd better | 6,602,112 | 7.7× | 313 ms | 80 ms |
+
+**zstd fastest beats gzip -1 on all three axes at once** — 11% smaller, 1.6× faster to
+compress, 1.9× faster to decompress. There is no trade being made, which is unusual enough to
+state plainly. zstd *better* matches gzip -6's ratio at 1.5× the speed.
+
+Decompression is the number that matters most, because the **core** pays it, on every report,
+while [D126](#d126--hostile-bytes-never-reach-the-core-hostile-strings-reach-it-constantly-and-that-is-the-design) has it already parsing 50.8 MB of attacker-influenced
+JSON per scan.
+
+### The client channel: no, and [D85](#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols) is exactly why
+
+`caniuse` for `Content-Encoding: zstd` (read 2026-09-21): **85.17% global**, Chrome/Edge 123+,
+Firefox 126+ — but **Safari desktop only from 26.0**, **iOS Safari fully only at 26.3**, and
+**Samsung Internet not supported at all through v30**.
+
+That last one is disqualifying rather than inconvenient. Samsung Internet is the Tizen lineage,
+and this project's stated position is that **televisions never update**
+([D85](#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols),
+[D108](#d108--the-interface-is-not-ours-to-change-out-from-under-people-and-an-old-client-stays-installable)).
+An old television browser is precisely the population that will not have zstd, permanently. A
+global percentage computed over *phones* is the wrong denominator for us.
+
+**It costs nothing to get right, because `Accept-Encoding` is a negotiation.** Serve zstd to a
+client that asks for it and gzip to everything else. The rule is only: **never make zstd the
+floor**, and never let a client's failure to advertise it become an error rather than a
+fallback.
+
+### And on a Unix socket, compress nothing
+
+| link | none | gzip -1 | zstd fastest |
+| --- | --- | --- | --- |
+| 100 Mbit | 4.06 s | 1.02 s | **0.83 s** |
+| 1 Gbit | 0.41 s | 0.39 s | **0.26 s** |
+| loopback / socket | **0.04 s** | 0.33 s | 0.21 s |
+
+On the default install the "link" is a memcpy and **compression is a pessimisation by 5×**.
+This is not a special case to code: it is what happens naturally if the *link* picks the
+encoding rather than the format picking it, which is what `Accept-Encoding` is for. Hardcoding
+a codec is the mistake in all three rows.
+
+**Status:** Dictionary-trained zstd is deliberately not taken. Node reports are extremely
+self-similar across scans and a trained dictionary would likely beat these numbers
+substantially — but it is a shared artefact that has to be versioned on both ends, which is a
+compatibility surface ([D85](#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols))
+bought for a channel that is already sub-second. Revisit only if a report ever crosses a link
+slow enough to notice.

@@ -61,6 +61,12 @@ else's* compatibility surface too, against clients we do not control and cannot 
 - **The pairing and handshake endpoints are the frozen core.** They are the first surfaces a very
   old client touches ([D93](../../decisions/working-notes.md)); if they break, the client cannot
   even report that it is too old.
+- **A negotiated capability is never a floor** ([D129](../../decisions/working-notes.md)). The
+  first instance is compression: `Content-Encoding: zstd` is at 85% globally and
+  **unsupported by Samsung Internet through v30**, which is the Tizen lineage — so on a channel
+  facing clients, gzip stays the floor and zstd is served only to what asks. The general rule
+  is the one this document exists for: a percentage computed over phones is the wrong
+  denominator for a project whose premise is that televisions never update.
 
 ## The other half: the user must be able to go back
 
