@@ -11039,3 +11039,85 @@ it, and the person who cares is already holding a screen."* Nothing is pushed an
 **Status:** corrects D151's residue; adds one relay behaviour (gap annotation on reconnect) and
 one client requirement (name the failing hop), both recorded in
 [remote-access.md](../design/plans/remote-access.md).
+
+---
+
+## D153 — A ranked feature register, ordered by demand and annotated by retrofit cost, because those are different numbers
+
+**Decided** (2026-09-21). From the project owner, closing the sweep:
+
+> *"Some are essential to a working product, while others can definitely be deferred (possibly
+> indefinitely). **The only thing I care about is that these features are kept in mind while
+> designing the architecture so that it's possible to add them.** Let's keep a ranking of the
+> features according to how essential and impactful they are … I may want to adjust this list
+> or even remove things."*
+
+Two different things were asked for and the second is the load-bearing one. A ranking answers
+*what to build first*. **"Possible to add them" is not a ranking question at all** — it is a
+question about which decisions foreclose which futures, and the answer does not correlate with
+demand. So the register carries **two independent axes**, and the architecture only has to read
+one of them.
+
+### The two axes
+
+- **Rank** — how essential, which is the ranking asked for: 0 no product without it · 1 its
+  absence reads as broken · 2 deferred but owed something now · 3 deferred and free ·
+  4 declined. Called *rank* rather than *tier* because this tree already has plugin tiers
+  ([D15](#d15--two-plugin-tiers-in-process-wasm-and-out-of-process-adapters)) and corpus tiers
+  ([D109](#d109--five-corpus-tiers-and-nobody-has-to-download-media-to-run-the-suite)), and
+  they are unrelated.
+- **Retrofit cost** — **free** (additive) · **seam** (needs an extension point) · **schema**
+  (needs a migration) · **invariant** (needs a rule not to have been assumed) · **protocol**
+  (breaks [D108](#d108--the-interface-is-not-ours-to-change-out-from-under-people-and-an-old-client-stays-installable)).
+
+**They are uncorrelated, and that is the finding.** *Shuffle* has universal adoption and costs
+nothing to add in year three. *An item must not be required to have a File* protects **live
+TV — which we have declined** — and is unrecoverable once assumed. Ranking alone would have
+put effort on the first and nothing on the second, and the second is the one that becomes
+impossible.
+
+### Ten obligations, which is the actual deliverable
+
+The whole register distils to ten things the architecture must keep true, and they are the
+list to read a design against rather than the 86 rows above them:
+
+an item need not have a File · Collection membership is **three** kinds, not two · a rating is
+`(source, kind, score, votes, as_of)` with critic ≠ audience · a content descriptor carries a
+score **and a sign** · the track model is not exactly three axes · the playback role is
+protocol-agnostic rather than Cast-shaped · the client **fetches** its home layout · playback
+rate is shared session state or explicitly local, decided rather than discovered · a PIN never
+authenticates and the session model never assumes one factor · Watch Together costs **six
+methods per client, as a budget**.
+
+Plus one that pays for three rows at once: **[D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)'s
+play-event log is retained, not truncated.**
+
+### A decline records what keeps its door open
+
+The declined table has a fourth column for *what would make this possible again*. That is not
+politeness. **Live TV is declined and still constrains the schema**; DLNA is declined and its
+door is [D15](#d15--two-plugin-tiers-in-process-wasm-and-out-of-process-adapters)'s adapter
+tier, already built for other reasons; poster overlays are declined as *baked images* and
+remain possible as a client render. Without the column, a decline reads as a demolition and
+somebody eventually assumes the opposite is safe.
+
+### Where it lives, and the one rule that stops it rotting
+
+[`docs/FEATURES.md`](../../FEATURES.md), beside `ROADMAP.md`, because it is the owner's
+document rather than a finding. Four documents now answer four questions — **when**
+(`ROADMAP.md`), **how** (`plans/`), **why** (this log), **whether and how much**
+(`FEATURES.md`) — and a fourth index is a real rot risk, so:
+
+**a row links to a decision and never restates it; where they disagree the decision wins.**
+Every row carries a stable `F`-number so one can be struck without renumbering the rest, and
+the tiers are explicitly a preference the owner may change at any time — unlike everything
+else in this tree, that file is not evidence.
+
+**And the general rule is now [principles §12](../principles/README.md) — *defer the work,
+never the seam*** — because the failure it prevents is silent: keeping an invariant open looks
+like doing nothing, costs nothing, and is the only kind of work that becomes impossible.
+
+**Status:** the register is complete as of the 2026-09-21 sweep
+([feature-sweep-2026-09-21.md](../design/research/feature-sweep-2026-09-21.md)) and is expected
+to be edited. The **obligations** are the part that should be treated as binding, and each
+needs to be checked against `library-model.md` before it freezes.

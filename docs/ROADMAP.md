@@ -317,6 +317,19 @@ Audiobookshelf's 1,191 open issues are the evidence.
 
 ---
 
+## What this roadmap is not
+
+It is the **when**. [`FEATURES.md`](FEATURES.md) is the **whether and how much** — every
+feature this project knows about, ranked, with the declined ones kept visible and a column
+saying what would make each possible again ([D153](contributors/decisions/working-notes.md)).
+
+The two are read differently. A phase here is a schedule. That file's **retrofit-cost** column
+is a constraint: it names the handful of things — *an item need not have a File*, *Collection
+membership is three kinds*, *a rating separates critic from audience* — that cost nothing to
+keep true now and cannot be recovered once assumed away
+([principles §12](contributors/principles/README.md)). **Several of them are owed by
+`library-model.md`, which is Phase 1.**
+
 ## Unscheduled, and deliberately so
 
 Some plans have no phase because they are independent of the critical path and can land

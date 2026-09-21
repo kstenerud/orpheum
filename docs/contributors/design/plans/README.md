@@ -27,6 +27,15 @@ because A is where the reader needs the warning. Several of the
 [2026-09-19 audit](../research/audit-2026-09-19.md) plans block `library-model.md` for exactly
 that reason.
 
+## Not every feature has a plan
+
+`ls` is the complete list of **plans**; it is not the complete list of **features**. Things
+that are declined, or deferred with no design yet, live in
+[`FEATURES.md`](../../../FEATURES.md) with a tier and a retrofit cost
+([D153](../../decisions/working-notes.md)). Check there before concluding something was never
+considered — and before freezing schema here, because that file's **rank-2** table is the list
+of what a frozen model would foreclose.
+
 ## Finding a plan
 
 `ls` is the complete list. `head -3 <file>` gives a plan's purpose. `grep '^- \*\*Status:\*\*' *.md`

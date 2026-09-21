@@ -14,3 +14,16 @@ intend to do differently.
 Start at [`contributors/design/overview.md`](contributors/design/overview.md) for the
 product-altitude picture, and
 [`contributors/design/research/`](contributors/design/research/) for the evidence behind it.
+
+Four documents answer four different questions, and it is worth knowing which one you want:
+
+| Question | Document |
+| --- | --- |
+| **whether, and how much** — every feature, ranked, including the declined ones | [`FEATURES.md`](FEATURES.md) |
+| **when** | [`ROADMAP.md`](ROADMAP.md) |
+| **how** | [`contributors/design/plans/`](contributors/design/plans/) |
+| **why** | [`contributors/decisions/working-notes.md`](contributors/decisions/working-notes.md) |
+
+[`FEATURES.md`](FEATURES.md) is the one to read before freezing a schema or closing an
+enumeration: its **retrofit-cost** column, not its ranking, is what says which decisions
+foreclose which futures ([principles §12](contributors/principles/README.md)).

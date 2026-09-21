@@ -8,8 +8,10 @@ and design only — a survey of every serious competitor in this space (source r
 open), what their users complain about, an evaluation of the technology available, and the
 architecture that follows.
 
-Start at **[`docs/contributors/design/overview.md`](docs/contributors/design/overview.md)**, or
-**[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the implementation plan.
+Start at **[`docs/contributors/design/overview.md`](docs/contributors/design/overview.md)**,
+**[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the implementation plan, or
+**[`docs/FEATURES.md`](docs/FEATURES.md)** for every feature we know of, ranked — including
+what we have declined and what would make each one possible again.
 
 ## The promise
 
