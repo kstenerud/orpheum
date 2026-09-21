@@ -27,6 +27,23 @@ days of work, and a twenty-device lab is not. The split:
 
 Building the lab first would be a textbook way to spend three months not shipping.
 
+## 0. Three facts this lab owes the cast design
+
+[D136](../../decisions/working-notes.md). For every television in the rig, and they are
+cheap to collect once a receiver exists:
+
+1. **Does HDMI-CEC reach the receiver at all?** Many televisions implement CEC on one HDMI
+   port only, and some implement it without *Deck Control*, which is the part that carries
+   transport commands.
+2. **Which commands survive?** Deck Control can in principle carry
+   play/pause/stop/rewind/fast-forward; reporting at the 2015 Chromecast launch said only play
+   and pause worked. That figure is eleven years old and **unverified against current
+   firmware** — which is the sort of stale per-device claim this lab exists to replace.
+3. **Can the receiver tell a CEC pause from a sender pause?** This is the one that matters,
+   because it decides whether `userPausedLocally` can be *reported* or only *inferred* — and
+   an inferred one is indistinguishable from a buffering stall, which makes the reconciler
+   fight the user.
+
 ## 1. Cold hardware has its own failure modes
 
 Twenty devices that have not been powered in years are not twenty test devices until proven

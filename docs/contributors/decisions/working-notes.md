@@ -9049,3 +9049,86 @@ should, because the receiver pulls its own bytes, but the *control* path disappe
 phone and "the TV is playing and nothing can stop it" is a bad state. Also unexamined: AirPlay
 and Fire TV have their own queue semantics, and D124 already noted "cast" is three protocols;
 whether Next Up maps onto all three is not known.
+
+---
+
+## D136 — Control belongs to the cast session, not to the sender; and an externally-paused receiver must say so
+
+**Decided** (2026-09-21), from the project owner's question: *"when the TV is being cast to,
+the TV's own controls can't affect playback?"* Resolves the open item in
+[D135](#d135--casting-on-your-own-is-a-device-delegation-not-an-invitation-the-credential-is-the-session-and-the-queue-is-next-up)
+— *whether a cast session survives the sender leaving*.
+
+**They can, partially, and it depends on what "the TV" is.** Three device classes that get
+conflated and behave differently:
+
+| What is receiving | Its own controls | Why |
+| --- | --- | --- |
+| **Chromecast dongle** on any television | **play / pause only**, TV-dependent | HDMI-CEC "Deck Control" — the dongle has no IR receiver |
+| **Chromecast with Google TV** / Google TV Streamer | **everything** | it ships its own remote and is an Android TV device |
+| **Chromecast built-in television** (Sony, Vizio…) | **everything** | the television *is* the receiver |
+
+For the dongle the mechanism is **HDMI-CEC Deck Control**, which can in principle carry
+Play/Pause/Stop/Rewind/Fast-Forward, and in practice was reported at launch to deliver only
+**play and pause**. It also requires the television to implement CEC, sometimes only on one
+HDMI port, *and* to implement Deck Control specifically — many do not.
+
+> **Dated and UNVERIFIED.** The "play and pause only" limitation is from reporting of the
+> March 2015 Chromecast update and has not been re-checked against current firmware. Treat the
+> *shape* as reliable — CEC, partial, television-dependent — and the *specifics* as stale until
+> the [device lab](../design/plans/device-lab.md) measures them, which is exactly the kind of
+> per-device fact it exists for.
+
+### But CEC is not the answer, and the real one costs nothing
+
+**Cast supports multiple senders on one session**, natively: *"one Sender could start a session
+on a Receiver and another Sender could join the same session to control playback, load new
+content, or queue more content"*, by issuing the same `CONNECT`. There is a listener for a media
+session created by a different sender.
+
+So the answer to *"the phone left and nothing can stop it"* is not a remote control — it is
+that **control was never the phone's**:
+
+**The cast session holds the control right, and any authorised device may attach to it.** That
+is [D120](#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people)
+unchanged — *a participant is a person; devices attach to them with roles*, and `control` is
+one of the three. A second phone, a tablet, the web client on a laptop: each attaches to the
+running session and controls it. [D135](#d135--casting-on-your-own-is-a-device-delegation-not-an-invitation-the-credential-is-the-session-and-the-queue-is-next-up)
+already made the cast session the membership; this is what that buys.
+
+**So a sender leaving is not a stuck television.** It is a membership with no `control` device
+attached, and the remedy is to attach one — which any device the user is already signed in on
+can do. No new mechanism, and it is better than the CEC path because it works on every
+television rather than the ones whose manufacturer implemented Deck Control.
+
+### The consequence nobody would notice until it shipped
+
+If the television *can* pause — by CEC, by its own remote, or because someone pressed a button
+on a Google TV — then **playback state changes without our sender having asked for it**, and
+the receiver is the only thing that knows.
+
+**It must report that upward, or the session's idea of what is on screen silently diverges from
+what is on screen.** This is [principles §9](../principles/README.md) exactly: the receiver is
+the sensor, it saw something, it reports it, and the core decides what it means. A receiver
+that swallowed a local pause would leave the group state saying `Playing` over a paused
+picture, which is the sort of bug that gets diagnosed as "sync is broken".
+
+**And it needs no seventh method**, which is worth checking explicitly because
+[D88](#d88--casting-is-remote-control-of-another-client-which-is-watch-together-with-a-group-of-one)
+asked for precisely this verification — *"the claim to verify is that six methods are still
+enough for a case they were not designed against"*. The answer is yes, because the vocabulary
+already exists: an externally-initiated pause is a **suspension with a reason**, alongside
+[watch-together.md](../design/plans/watch-together.md)'s `stallRecovery`,
+`audioSessionInterrupted`, `userActionRequired` and `userIsChangingCurrentTime`. Add
+`userPausedLocally` to that enum and the six-method surface is untouched.
+
+That also settles a subtler thing: **a local pause must not be inferred from a stalled
+position.** It would otherwise look identical to a buffering stall, and the reconciler would
+fight it — the same failure [D90](#d90--playback-presentation-is-a-persisted-per-user-preference-set-and-captions-have-a-statutory-floor)
+identified for a user-chosen playback rate, where a deliberate act read as drift makes the
+system spend the film correcting the user.
+
+**Status:** The device lab owes three facts per television: whether CEC reaches the receiver at
+all, which commands survive, and whether the receiver can distinguish a CEC pause from a
+sender pause. The third is the one that decides whether `userPausedLocally` can be reported
+accurately or only inferred.

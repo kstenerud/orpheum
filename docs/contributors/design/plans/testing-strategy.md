@@ -231,6 +231,13 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   or its title** ([D135](../../decisions/working-notes.md),
   [D134](../../decisions/working-notes.md)) — the queue is metadata rendered on a television,
   so it is a manifest and [principles §10](../../principles/README.md) governs it;
+- **a second device attaches to a running cast session and controls it**, and the first
+  device leaving the network does not strand the television
+  ([D136](../../decisions/working-notes.md)) — control belongs to the session, not the sender;
+- **a receiver paused by something other than us reports it** as a suspension with a reason
+  rather than letting group state drift from the screen
+  ([D136](../../decisions/working-notes.md)), and **it is not inferred from a stalled
+  position**, which would be indistinguishable from a buffering stall;
 - **a cast credential dies on supersession**: casting a second thing to the same receiver
   invalidates the first, and the old URL stops serving
   ([D135](../../decisions/working-notes.md)). Also on stop, on idle, and at an absolute cap —

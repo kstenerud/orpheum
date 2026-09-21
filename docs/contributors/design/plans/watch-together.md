@@ -285,7 +285,10 @@ Taken from Jellyfin's SyncPlay, which works ([research §1](../research/watch-to
 - **Group state**: `Idle`, `Waiting`, `Paused`, `Playing`, where `Waiting` is
   paused-until-everyone-is-ready.
 - **Suspensions with reasons**, Apple's model: a participant detaches temporarily and says why.
-  `stallRecovery`, `audioSessionInterrupted`, `userActionRequired`, and above all
+  `stallRecovery`, `audioSessionInterrupted`, `userActionRequired`, **`userPausedLocally`**
+  ([D136](../../decisions/working-notes.md) — a television paused by its own remote over
+  HDMI-CEC, which the receiver is the only thing that knows about and must report, or the group
+  state says `Playing` over a paused picture), and above all
   **`userIsChangingCurrentTime`** — while you drag the scrub bar you are suspended, so your
   intermediate positions do not drag everyone else across the timeline. Shared seek is unusable
   without it.
@@ -482,6 +485,13 @@ The consequence for [D64](../../decisions/working-notes.md): the premium tier's 
   with no account*, while a cast URL delegates to *a device on behalf of someone already logged
   in*. So it needs no invitation, no roster and no revocation UI — its credential is the cast
   session itself, ending on stop, supersession, idle or an absolute cap.
+
+  **And the verification this decision asked for has come back yes**
+  ([D136](../../decisions/working-notes.md)). The case six methods were not designed against —
+  a television pausing itself over HDMI-CEC, with no sender involved — needs **no seventh
+  method**: it is a suspension with a reason, which the list above already provides for. What
+  it does need is that the receiver *reports* it, because the receiver is the only thing that
+  saw it ([principles §9](../../principles/README.md)).
 - **Playback rate is either shared state or explicitly local** — there is no third option
   ([D90](../../decisions/working-notes.md)). A participant at 1.25× is not drifting, and
   [D66](../../decisions/working-notes.md)'s reconciler must not spend the film fighting them.
