@@ -212,6 +212,16 @@ each lands here rather than being bolted on — the same argument
   per-user **deny** list is permitted alongside because it can only narrow, while anything that
   grants is a role change.
 
+  **And the admin's own tags become load-bearing** ([D132](../../decisions/working-notes.md)).
+  When no provider metadata separates an item, the admin tags it and the rules match on that —
+  which scales to every role at once, where a per-role list of item ids would not. So a user
+  tag is **user-authored data about the work**: it attaches at the **Title**, is keyed on the
+  identity that survives a move, rename, re-rip and provider change
+  ([D7](../../decisions/working-notes.md)), rides the change journal, is sidecar-able
+  ([D98](../../decisions/working-notes.md)), and **a full rescan must not destroy it** — which
+  the fixture list below already asserts, and which now has a second consumer where the failure
+  is a child seeing something.
+
 **And one policy that is not a table.** Deletion ([D89](../../decisions/working-notes.md)): a
 writable path is opt-in per library and off by default; deletion is two-phase and names every
 file and its size; it happens in the node, never the core; and a retention rule may still only

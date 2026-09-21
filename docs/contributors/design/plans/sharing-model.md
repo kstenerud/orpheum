@@ -100,7 +100,10 @@ know. **Do not merge across servers**; a client aggregating several shows severa
 - **The default share.** *"Everything except items labelled private"* is probably what people
   mean, and the default is consequential here in a way playlist defaults are not.
 - **Whether a grantee sees that the library is filtered.** Honest, and it tells them what to
-  ask for.
+  ask for. **Now shared with [D132](../../decisions/working-notes.md)**, which raises the same
+  question for a child — *"three new things are waiting for Dad"* is useful, and is the same
+  disclosure with a friendlier face. One question, one answer, likely a per-role setting;
+  decide it in both places at once or they will diverge.
 - **What a grantee may do besides watch.** Presumably never delete
   ([D89](../../decisions/working-notes.md)) and never change metadata, but "presumably" is not
   a design, and the grantee's own play state, preferences and downloads

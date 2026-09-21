@@ -150,6 +150,14 @@ attacker-supplied and FFmpeg's confinement is expected to be load-bearing
 ([D26](../decisions/working-notes.md)). Conflating the two leaves you with no signal in either,
 because the security events drown in the normal ones.
 
+**And it pays for something unexpected.** Because the manifest is *constructed per principal*
+rather than filtered after the fact, "show me the library as this role sees it" is that same
+construction with a different argument — so an admin can preview a restriction before
+committing it, on the enforcement path rather than a simulation of it
+([D132](../decisions/working-notes.md)). Neither Plex nor Jellyfin has that, and the reason is
+visible in their shape: when entitlement is a check in a handler, there is nothing to run for a
+principal who is not making the request.
+
 **Bites when:** an entitlement is easier to express as a 403 in the handler than as a branch in
 whatever builds the manifest. ([D58](../decisions/working-notes.md), from
 [D57](../decisions/working-notes.md).)

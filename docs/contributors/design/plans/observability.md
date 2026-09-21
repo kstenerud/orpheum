@@ -45,6 +45,11 @@ reporting according to its own visibility, and this is that data in a format a d
   transcode, refused) — which is principles §3's explanation, aggregated;
 - playback failures by reason ([D92](../../decisions/working-notes.md));
 - error rates and validation-rejection counts at each boundary;
+- **items awaiting categorisation, and the age of the oldest**
+  ([D132](../../decisions/working-notes.md)). A restricted role hides anything its rules cannot
+  judge, so this queue is the thing that silently stops a child's library growing if nobody
+  drains it. A count and an oldest-age, never a per-item notification — the first scan would
+  otherwise emit thousands on day one ([D118](../../decisions/working-notes.md));
 - database size, WAL size, and busy-retry counts.
 
 ## What it must never expose

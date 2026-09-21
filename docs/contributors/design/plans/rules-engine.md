@@ -140,6 +140,32 @@ one; measured ~5× `LIKE` on 50k rows, which is nothing at this scale. And Go's 
 user-supplied patterns non-catastrophic — `(a+)+$` completes in 16 µs and backreferences are
 rejected at compile time — so no ReDoS guard is needed.
 
+## Coverage, and proposing a rule from examples
+
+[D132](../../decisions/working-notes.md). Two additions, both of which lean on the field
+registry rather than adding machinery.
+
+**Coverage is a defined property, not a feeling.** An item is **covered** by a rule when every
+field the rule references resolves to a **known** value for it. For the share and
+profile-restriction bindings, an uncovered item is **denied and queued** — there is no
+"show unknown" toggle, because with one the categorisation loop is never forced. This is the
+nullability trap above turned into policy: `unknown` must never coalesce to a value, and in
+these two bindings it must never coalesce to *permitted*.
+
+**Rule suggestion from a selection.** Given a set of items an admin has picked out, rank
+candidate terms by how cleanly each separates that set from the rest of the visible set, and
+report the collateral both ways:
+
+> `genre = Horror` — excludes 12 of your 14, and also removes 3 you did not select
+> `keyword = slasher` — excludes 9 of 14, and removes nothing else
+
+Candidates are drawn **only from registered fields**, which is what keeps this honest: a
+suggestion the compiler could not then evaluate would be a demo, and no user string becomes a
+SQL identifier. When **nothing** separates the selection, the proposal is to create a **user
+tag** and exclude that — the registry is already *"extensible at runtime — user tags"*, so the
+escape hatch is a feature this plan already has rather than a second mechanism
+([principles §4](../../principles/README.md)).
+
 ## Still open
 
 - **Where the complexity bound goes** — term count, depth, or generated-SQL size. Needs a

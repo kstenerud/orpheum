@@ -198,6 +198,20 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
 - **updating a shipped template does not change any existing role** — templates are copied at
   creation, never linked ([D131](../../decisions/working-notes.md)). The failure this catches
   is a routine update silently widening what a child can see;
+- **a newly scanned item with no rating is invisible to every restricted role** until something
+  covers it, and visible to `Household` immediately
+  ([D132](../../decisions/working-notes.md)) — the inverse of Jellyfin's `EnableAllFolders`
+  default, and the assertion that fails if anyone reintroduces a "show unknown" toggle;
+- **browse-as-role returns exactly what that role's own request returns**, item for item, because
+  it is the same code path ([D132](../../decisions/working-notes.md)) — a preview that can
+  diverge from enforcement is worse than none;
+- **browse-as-role exposes no play state, history or favourites** belonging to members of that
+  role ([D132](../../decisions/working-notes.md), [D125](../../decisions/working-notes.md));
+- **an admin tag survives a full rescan, a rename, a re-rip and a provider change**, and the
+  rule that matches on it keeps matching ([D132](../../decisions/working-notes.md),
+  [D7](../../decisions/working-notes.md)) — a classification a rescan drops is worse than none;
+- **one tag reaches every role**: tagging an item `scary` removes it from all three roles
+  excluding `scary`, with no per-role step ([D132](../../decisions/working-notes.md));
 - **the last `Administrator` role cannot be deleted**, and neither can the last admin user
   ([D130](../../decisions/working-notes.md));
 - **a node report that is malformed, enormous, or deeply nested is refused at a stated bound**

@@ -8534,3 +8534,200 @@ guess with a progress bar. Unresolved: whether to carry a curated descriptor sou
 systems TMDB does not populate (Kijkwijzer publishes them; the licensing is unexamined), and
 whether the seven axes need an eighth for the thing households actually ask about most —
 jump scares distinct from sustained dread, which Kijkwijzer folds into `fear`.
+
+---
+
+## D132 — Authoring a role is a preview loop, and an item the rules cannot judge is denied, not shown
+
+**Decided** (2026-09-21), by the project owner. Completes
+[D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)
+and [D131](#d131--a-restriction-is-a-vector-not-a-ceiling-templates-are-seeds-and-they-say-what-they-hid):
+those say what a role *is* and what it can *express*; this says how an admin arrives at one,
+and what happens to everything the rules cannot decide.
+
+### The loop
+
+1. **Browse the library as the role.** Not a report — the actual grid, as that role sees it.
+2. **Select what is still wrong.** Point at the offenders.
+3. **The system proposes rules that would exclude them**, drawn from the metadata those items
+   actually share, each shown with what it would cost.
+4. **Preview the change before committing it**, in both directions.
+5. **Or name the item outright**, with no metadata involved at all.
+
+### 1. Browse as the role, and it is nearly free
+
+**The preview must use the same evaluation path as enforcement**, or it is a simulation that
+will diverge from the thing it simulates — which is the classic form of this bug and is worse
+than no preview, because it is trusted. One predicate compiler, one query, a different
+principal.
+
+It is cheap for a reason already decided:
+[principles §10](../principles/README.md) requires the manifest to be **built per principal**,
+omitting what that principal may not have. "Browse as this role" is that construction with a
+different argument. **The feature is nearly free because §10 was taken seriously earlier.**
+
+**Browsing as a role must not expose that person's data.** The view is policy; the watch
+history, resume positions and favourites are the person's
+([D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)
+gives every user their own). An admin authoring `Kids` needs to see *what is visible*, not
+*what was watched*, and the two must not arrive together. This is the failure mode of the
+field's workaround: neither Plex nor Jellyfin has preview-as-user, and the documented advice is
+to **create a test account and log into it** — which of course exposes everything that account
+holds.
+
+### 2. From a selection, propose the generalisation
+
+The admin picks examples; the system finds the rule. For a selection, rank candidate predicate
+terms by how cleanly each separates the selection from the rest of the visible set, and show
+the collateral:
+
+> `genre = Horror` — excludes **12 of your 14**, and also removes **3 you did not select**
+> `keyword = slasher` — excludes **9 of 14**, and removes **nothing else**
+
+**Candidates come only from [D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)'s registered fields**, which is what
+makes this safe and honest at once: no user string becomes a SQL identifier, and every
+suggestion is expressible in the same language that will enforce it. A proposal the engine
+could not then evaluate would be a demo.
+
+**And when nothing separates them, the proposal is to create a tag.** If no registered field
+distinguishes the selection, the honest suggestion is *"these fourteen have nothing in common
+that I can see — shall I tag them `scary` and exclude that?"* — which is §4, reached from the
+same loop. The suggestion engine's fallback is not "give up", it is "there is no rule yet; make
+one true".
+
+Nobody hand-writes a predicate. That is the point — the admin's input is *examples*, which is
+the thing a person is good at supplying.
+
+### 3. Preview the diff, and emphasise the widening
+
+Before committing, show what **leaves**, what **enters**, and which of those the admin did not
+ask for. **Entering is the dangerous direction** and gets the emphasis: a rule edit that
+accidentally reveals is the failure this whole subsystem exists to prevent, and it is the one a
+satisfied admin will not look for.
+
+Same machinery as [D131](#d131--a-restriction-is-a-vector-not-a-ceiling-templates-are-seeds-and-they-say-what-they-hid)'s *"the template reports what it hid"* — one mechanism, two
+consumers. And it composes with
+[D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)'s rule
+that editing a role changes every member: the confirmation has two halves, **whom** it affects
+and **what** it changes.
+
+### 4. The escape hatch is a tag, not a list of names
+
+**Corrected by the project owner mid-decision**, and the correction is the better design: when
+no existing metadata separates the offenders, the admin **adds his own metadata to the item**
+rather than naming it in the rule. *"That's better than putting bare names in the rules because
+it will immediately scale to all rules for all roles."*
+
+Exactly so, and it is worth spelling out how much it buys:
+
+- **One tag, every role.** Tag a film `scary` once and every role that excludes `scary` picks
+  it up — now and in the future, including roles that do not exist yet. A deny list is the same
+  judgement retyped per role, and it is the per-user-predicate mistake
+  [D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)
+  already corrected, reappearing one level down.
+- **There is no second mechanism.** The predicate language stays the only way to express a
+  restriction ([principles §4](../principles/README.md)), and
+  [D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)
+  already made the field registry *"extensible at runtime — user tags"*. The escape hatch turns
+  out to be a feature we had.
+- **The judgement survives us.** A tag is user-authored data about the **work**, so by
+  [D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)
+  it is sidecar-able where a writable path is granted, it rides
+  [D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)'s change journal,
+  and a full rescan must not destroy it. A deny list buried in a role has none of those
+  properties. **A parent's classification of their own library is exactly the kind of work that
+  should outlive this project.**
+- **And it closes the loop in §5.** An item is queued because the rules cannot judge it; the
+  remedy is to **give the rules something to judge**, not to grant an exception. The
+  categorisation queue and the tagging mechanism are the same mechanism, which is why neither
+  needs a separate UI.
+
+**Two properties that are easy to get wrong.** The tag attaches at the **Title**
+([D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)),
+because *"this film is scary"* is a statement about the work rather than about a cut or an
+encoding — the same level favourites and user ratings attach at. And it is keyed on the item's
+stable identity, which
+[D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index) already
+requires to survive a move, a rename, a re-rip and a provider change: a classification a
+rescan silently drops is worse than none.
+
+**The one safeguard this needs.** A free-text tag field produces `scary`, `Scary` and `scarey`,
+and then a rule silently under-matches — which fails **open**, in the subsystem where that is
+least acceptable. So the admin **picks from existing tags by default and creating a new one is
+a deliberate, distinct act**. The registry's `alias` column
+([D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable))
+already handles the rename case; this handles the duplicate case, and it is a UI affordance
+rather than a schema change.
+
+**What does *not* become a tag: anything true about a person rather than the work.** *"Alice
+had a nightmare about this one"* is not a property of the film and must not be written beside
+it in a shared media tree. That stays the **per-user deny** from
+[D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually),
+which may only narrow. The line is
+[D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)'s,
+reused without modification: **a sidecar carries what is true about the work; the database
+carries what is true about a person.**
+
+### 5. The default inverts: unjudgeable is denied
+
+The owner's requirement: *"anything new that's not covered by a rule must be restricted until
+the admin categorizes it."* Taken literally, and it needs one definition to be implementable:
+
+> An item is **covered** for a role when **every field that role's predicate references
+> resolves to a known value** for that item. If any referenced field is unknown, the item is
+> not covered — and for a restricted role it is **denied, and queued for categorisation**.
+Categorising it means **tagging it** (§4), not approving it: the item leaves the queue because
+the rules can now judge it, and that judgement then applies to every role at once.
+
+**This supersedes the "household's explicit choice" half of
+[D84](#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate) and
+[D131](#d131--a-restriction-is-a-vector-not-a-ceiling-templates-are-seeds-and-they-say-what-they-hid)** for restricted roles. There is no toggle that shows everything
+unknown, and removing it is the point: if the toggle exists, the categorisation loop is never
+forced and the subsystem decays into the thing it replaced. The remedy for an uncategorised
+item is to categorise it.
+
+**The unrestricted `Household` role is unaffected**, because it references no restricted fields
+and therefore covers everything trivially. The rule bites exactly where it should.
+
+**And the reconciliation that keeps this usable, because the naive reading does not:** *rules
+do the bulk and the queue holds the residue.* "Rating at or below 12 in our system" positively
+admits thousands of items in one statement — the admin is not approving three thousand films
+one at a time, they are judging the handful the rules cannot. If the queue is large, that is
+information: the rule set is not expressed over fields the library actually carries.
+
+**This is the exact inverse of the incumbent's default, which is worth stating because it is
+the whole disagreement.** Jellyfin's `UserPolicy()` constructor sets `EnableAllFolders = true`,
+`EnableAllChannels = true`, `EnableAllDevices = true`, `EnableRemoteAccess = true`,
+`EnableContentDownloading = true` and `EnablePublicSharing = true`, and
+`UserEntityExtensions` adds `Permission(EnableAllFolders, true)` to every new user. So a new
+user sees every library, and **a newly added library becomes visible to everyone
+automatically**. Ours: a new item is visible to a restricted role only once something says it
+may be.
+
+### 6. The failure mode this creates, named in advance
+
+**A quarantine nobody drains.** If the queue is invisible or large, the children's library
+quietly stops growing and the household concludes the server is broken. Three things keep it
+alive:
+
+- **It is a state with a count, never a stream of notifications.**
+  [D118](#d118--the-scan-is-incremental-prioritised-and-steerable-and-playability-comes-first)
+  makes items appear during the first scan, so a per-item alert would mean thousands of them on
+  day one. One number, where the admin already looks
+  ([observability.md](../design/plans/observability.md),
+  [D91](#d91--a-metrics-endpoint-off-by-default-and-local-when-on)).
+- **Bulk categorisation is the normal operation**, not a power-user path. Initial setup *is*
+  the bulk case.
+- **A stale queue is a reportable condition**: "14 items have been waiting 30 days" is the
+  signal that a household has stopped maintaining a role, and it should surface before a child
+  notices.
+
+**Status:** Unresolved — whether a restricted user is told that items are pending approval.
+*"Three new things are waiting for Dad"* is useful for a child and is exactly what
+[sharing-model.md](../design/plans/sharing-model.md) already lists as open for a grantee
+(*"whether a grantee sees that the library is filtered — honest, and it tells them what to ask
+for"*). Likely a per-role setting, and it should be decided in one place for both. Also
+unresolved: whether rule suggestion ranks by precision, by coverage, or by a blend — it wants a
+real library and a real admin to tune against, and guessing now would be the same mistake
+[D131](#d131--a-restriction-is-a-vector-not-a-ceiling-templates-are-seeds-and-they-say-what-they-hid)
+avoided by deferring the template set.

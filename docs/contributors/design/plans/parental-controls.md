@@ -110,6 +110,89 @@ carries. Three rules:
   by a toddler's tablet, and an allowlist fails closed by construction. The person least able
   to report a mistake gets the shape that cannot leak.
 
+## Authoring a role is a preview loop
+
+[D132](../../decisions/working-notes.md). Nobody hand-writes a predicate. The admin supplies
+**examples**, which is what a person is good at, and the system finds the rule.
+
+1. **Browse the library as the role** — the actual grid, not a report.
+2. **Select what is still wrong.**
+3. **The system proposes rules** that would exclude them, each with its cost.
+4. **Preview the change**, in both directions, before committing.
+5. **Or tag the item**, when no existing metadata separates it.
+
+**The preview is nearly free, and it must share the enforcement path.** A preview on its own
+code path is worse than none, because it is trusted and it will diverge. It is cheap because
+[principles §10](../../principles/README.md) already requires the manifest to be built **per
+principal** — "browse as this role" is that construction with a different argument.
+
+**It must not show that person's data.** An admin authoring `Kids` needs to see *what is
+visible*, not *what was watched*. Neither Plex nor Jellyfin has preview-as-user at all; the
+documented advice is to create a test account and log into it, which exposes everything that
+account holds.
+
+**Proposals come only from registered fields** ([D75](../../decisions/working-notes.md)), so no
+user string becomes a SQL identifier and every suggestion is expressible in the language that
+will enforce it:
+
+> `genre = Horror` — excludes **12 of your 14**, and also removes **3 you did not select**
+> `keyword = slasher` — excludes **9 of 14**, and removes **nothing else**
+
+**Preview emphasises what *enters*.** A rule edit that accidentally reveals is the failure this
+subsystem exists to prevent, and it is the one a satisfied admin will not look for. Composed
+with [D130](../../decisions/working-notes.md)'s rule that editing a role changes every member,
+the confirmation has two halves: **whom** it affects and **what** it changes.
+
+### The escape hatch is a tag, not a list of names
+
+When nothing separates the offenders, the admin **adds metadata to the item** rather than
+naming it in a rule — *"better than putting bare names in the rules because it will
+immediately scale to all rules for all roles"*. Tag a film `scary` once and every role that
+excludes `scary` picks it up, including roles that do not exist yet.
+
+It costs no new machinery: [D75](../../decisions/working-notes.md)'s registry is already
+*"extensible at runtime — user tags"*. And it is **user-authored data about the work**, so by
+[D98](../../decisions/working-notes.md) it is sidecar-able, rides the change journal, and must
+survive a rescan — **a parent's classification of their own library should outlive this
+project.**
+
+One safeguard: a free-text field produces `scary`, `Scary` and `scarey`, and then a rule
+silently under-matches, which fails **open**. So the admin **picks from existing tags by
+default**, and creating a new one is a deliberate, distinct act.
+
+**What does not become a tag is anything true about a person.** *"Alice had a nightmare about
+this one"* is not a property of the film and must not be written beside it in a shared media
+tree; that stays the per-user deny from [D130](../../decisions/working-notes.md), which may
+only narrow. The line is [D98](../../decisions/working-notes.md)'s, unmodified.
+
+### Anything the rules cannot judge is hidden, not shown
+
+> An item is **covered** for a role when every field that role's predicate references resolves
+> to a **known** value for it. If any referenced field is unknown, the item is not covered —
+> and for a restricted role it is **denied and queued**.
+
+This removes the "show unrated items?" toggle for restricted roles, and removing it is the
+point: with the toggle, the categorisation loop is never forced and the subsystem decays into
+the thing it replaced. **The remedy for an uncategorised item is to tag it**, and that
+judgement then applies to every role at once.
+
+**Rules do the bulk; the queue holds the residue.** *"Rating at or below 12 in our system"*
+admits thousands in one statement — nobody approves three thousand films one at a time. A
+large queue is itself information: the rules are not expressed over fields this library
+carries.
+
+**This is the exact inverse of the incumbent's default.** Jellyfin's `UserPolicy()` constructor
+sets `EnableAllFolders`, `EnableAllChannels`, `EnableAllDevices`, `EnableRemoteAccess`,
+`EnableContentDownloading` and `EnablePublicSharing` all `true` — so a new user sees every
+library, and **a newly added library becomes visible to everyone automatically**.
+
+**The failure mode to design against is a quarantine nobody drains.** If the queue is invisible
+or large, the children's library quietly stops growing and the household blames the server. So
+it is **a count, never a stream of notifications** ([D118](../../decisions/working-notes.md)
+makes items appear throughout the first scan; per-item alerts would mean thousands on day one),
+bulk categorisation is the normal path rather than a power-user one, and **a stale queue is
+reportable**: *"14 items have been waiting 30 days"* should surface before a child notices.
+
 ## A certification is `(system, code)`, not a number
 
 Netflix's own help text: *"Maturity ratings are either set by Netflix or by a local standards
