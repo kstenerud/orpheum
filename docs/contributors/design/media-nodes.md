@@ -500,10 +500,19 @@ topologies where none of that is available.
 ```
 <exchange-dir>/<node-id>/
   config.json      ← core writes,  node reads + watches
+  payload/         ← core writes,  node reads   (bulk core→node; D142)
   state.json       ← node writes,  core reads
   reports/         ← node writes,  core reads   (scan output; large)
   log/             ← node writes,  core reads   (debug; rotated)
 ```
+
+**`payload/` was added by [D142](../decisions/working-notes.md)** and the reason is worth
+keeping, because the omission was deliberate and correct until it was not. This directory was
+asymmetric by design: small desired-state downward, bulk upward. **Sidecar export inverts the
+flow** — the core becomes the producer of thousands of small documents the node must write —
+and pushing those through `config.json` would abuse a desired-state file. Mirroring the
+directory keeps the permission split, the retention obligation and the node-id namespacing
+identical. Over HTTP or a Unix socket this is a request body and needs nothing.
 
 **Namespaced by node id**, because several nodes may share one exchange location and would
 otherwise clobber each other. A duplicate `node_id` — from a copied config — must be detected
@@ -523,7 +532,7 @@ permissions alone:
 | --- | --- | --- |
 | `config.json` | **write** | read |
 | `state.json`, `reports/`, `log/` | read | **write** |
-| media roots | (none needed, in a distributed topology) | **read-only** |
+| media roots | (none needed, in a distributed topology) | **read-only**, unless a library was granted a writable path |
 
 **And the same table is the node's Landlock ruleset** (D26): write access to exactly its own
 exchange subdirectory, read access to its media roots, nothing else. The directory layout and
@@ -653,6 +662,14 @@ corrections and playlist membership — a data-loss event wearing a recovery cos
 5. **Idempotency and ordering.** A report replayed or delivered late must not corrupt state.
 6. **Two things to upgrade** in distributed deployments, even though it is one artifact. The
    compatibility policy has to be real.
+7. **A node's own writes come back as observations**
+   ([D142](../decisions/working-notes.md)). When the node writes sidecars into a tree it is
+   watching, its watcher sees every one of them and journals them — a scan storm immediately
+   after an export, which will be reported as a bug. **The node still reports them**: a sensor
+   that suppresses its own output is what [principles §9](../principles/README.md) forbids,
+   and *"I did this"* is a memory a node should not keep. **The core knows what it commanded
+   and does not treat those paths as new information.** §9's own test, applied literally — the
+   node saw a file change; only the core knows it asked for it.
 
 ## What this permits later, for free
 

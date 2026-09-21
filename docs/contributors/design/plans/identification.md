@@ -148,6 +148,31 @@ Four rules, and the third is the one that gets skipped:
    is **deliberately lossy**: someone leaving for Kodi takes their corrections and not their
    watch history, which leaves in the [D77](../../decisions/working-notes.md) backup instead.
 
+**Export asks whose watch state to include, or none** ([D142](../../decisions/working-notes.md)),
+with **none as the default**. One user, never several — an NFO holds a single `playcount`, so
+"everybody's" is not expressible and offering it would misrepresent the file. And the prompt
+**discloses rather than asks**: *"this writes what Alice has watched into files beside your
+media; everyone in the household, and anyone you share with, can read them"* — the same shape
+as [D119](../../decisions/working-notes.md)'s ejection prompt, naming the consequence rather
+than the mechanism.
+
+**Three things make the write side harder than the read side**
+([D142](../../decisions/working-notes.md)):
+
+- **Granting a writable path needs a node restart.** The permission table in
+  [media-nodes.md](../media-nodes.md) *is* the node's Landlock ruleset
+  ([D35](../../decisions/working-notes.md)), and a ruleset is declared at startup and cannot
+  be widened at runtime ([D107](../../decisions/working-notes.md)). Say so when the path is
+  granted, or the user grants it, presses export, and gets a permission error from a component
+  that was never going to comply.
+- **Read-only is normal and is probed, not discovered.** By our default, by the mount, by the
+  NAS, by the filesystem or by POSIX — the user cannot be expected to know which. The node
+  reports writability **per root** at startup, so the core knows before it offers the button,
+  and **partial success is the ordinary outcome**: a library spanning a writable disk and a
+  read-only archive mount exports half, reported per root and per item.
+- **Over the file transport there was nowhere to put the content.** The exchange directory had
+  no bulk core→node path; `payload/` was added for this.
+
 **Reading needs no permission; writing needs the opt-in writable path**
 ([principles §2](../../principles/README.md),
 [D89](../../decisions/working-notes.md)'s per-library grant), happens in the node

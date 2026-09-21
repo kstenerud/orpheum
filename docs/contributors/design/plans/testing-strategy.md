@@ -279,7 +279,17 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   a round trip through our server never deletes what another tool wrote.
 - **No per-user state reaches a sidecar** ([D98](../../decisions/working-notes.md),
   [D141](../../decisions/working-notes.md)) — no `playcount`, no `lastplayed`, no `watched`,
-  by default and on any code path. The media tree is shared, so this one fails closed.
+  by default and on any code path. The media tree is shared, so this one fails closed. It
+  appears **only** when an export explicitly named one user
+  ([D142](../../decisions/working-notes.md)), and then only that user's;
+- **an export onto a read-only root reports rather than fails**, per root and per item, and a
+  library spanning a writable disk and a read-only mount exports the half it can
+  ([D142](../../decisions/working-notes.md)) — stopping at file 1,400 of 3,500 with one
+  boolean is the behaviour to fail;
+- **a node's own sidecar writes do not produce a scan storm.** The node reports them, because
+  [principles §9](../../principles/README.md) forbids a sensor suppressing its own output;
+  **the core ignores what it commanded** ([D142](../../decisions/working-notes.md)). The
+  regression this catches looks exactly like "the scanner went mad after I exported";
 
 ## The two UI gates, which exist to settle an argument
 

@@ -273,6 +273,7 @@ because *"a shared directory offers no acknowledgement of its own"*. That is one
 | --- | --- | --- |
 | Acknowledgement | status code | **D35's `generation`/`observed_config` pair** |
 | Incremental delivery | chunked encoding | **not possible** (or D118's `.partial` tailing) |
+| **Bulk core→node transfer** | a request body | **nothing** — added as `payload/` by [D142](../../decisions/working-notes.md) when sidecar export needed it |
 | Compression negotiation | `Accept-Encoding` | invent it |
 | Authentication | TLS / mTLS / bearer | filesystem permissions, if any |
 | Resume a partial upload | `Range` | invent it |

@@ -9772,3 +9772,141 @@ want genuinely self-contained archival trees, which is a real want and is the op
 irreplaceable-only rule above. Also undesigned: the layout variants (`<filename>.nfo` beside
 the file, `movie.nfo` in the folder, `tvshow.nfo` at series level) and which we emit — read
 should accept all of them, write should pick one and say which.
+
+---
+
+## D142 — Export names one user or none; writing to media restarts the node, and the file transport has no channel for it
+
+**Decided** (2026-09-21), by the project owner, refining
+[D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters): *"we could ask
+them when exporting which user they want to base it on (or no user, and accept losing all
+user-specific data)"*, and *"exporting this info could get tricky, depending on what kind of
+transport we have to the node responsible for the particular files. We'd also need to handle
+permissions and read-only filesystems."*
+
+Both right. The first improves D141; the second exposes a hole in the node contract.
+
+### 1. Whose watch state, asked once, at export
+
+D141 said per-user state never reaches a sidecar, with an explicit export *"defensible"* as an
+afterthought. **Make it the flow instead**: the export asks **which user to base it on, or
+none**, and **none is the default**, because the safe answer should also be the cheap one.
+
+**One user, never several.** The format has no user dimension — an NFO carries a single
+`playcount`, a single `lastplayed`. *"Export everybody's"* is not expressible, and offering it
+would be a lie about what the file can hold. Naming one user is the only honest shape.
+
+**And the prompt discloses rather than merely asks.** *"Export Alice's watch history?"* is the
+wrong question; the right one names the consequence:
+
+> *This writes what Alice has watched into files beside your media. Everyone in the household
+> — and anyone you share the library with — can read them.*
+
+That is [D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)'s
+reasoning surfacing as a UI moment, and it is the same shape as
+[D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)'s
+ejection prompt: **ask about the consequence, not the mechanism.** A user who picks "none" and
+migrates to Kodi loses their history to that tree and keeps it in the
+[D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore) backup,
+which is the split working as designed.
+
+**Who may do it at all is a role capability** ([D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)) — it writes into the media tree and it
+discloses one person's viewing to the household.
+
+### 2. Writing to media widens the node's ruleset, so it needs a restart
+
+[media-nodes.md](../design/media-nodes.md)'s permission table says media roots are
+**read-only** to the node. [D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary)
+says that table **is** the node's Landlock ruleset. And
+[D107](#d107--the-node-channel-is-mutually-authenticated-and-a-nodes-roots-are-local-and-never-remotely-settable)
+says *"a Landlock ruleset is declared at startup and cannot be widened at runtime."*
+
+**Therefore granting a library a writable path does not take effect until the node restarts.**
+Not a flaw — it is the property doing its job, and the alternative is a node that can be talked
+into write access while running. But it **must be in the interface**: *"this takes effect when
+the node restarts"*, stated at the moment of granting. The failure to avoid is a user who
+grants the path, presses export, and gets a permission error from a component that was never
+going to be able to comply.
+
+**And this is the second consumer of machinery that already exists.**
+[D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) built the opt-in
+writable path per library, two-phase confirmation, and the rule that it happens in the node —
+for deletion. Export is the same shape: a permissioned write into the user's tree, named in
+advance. **Reuse D89's flow rather than inventing a second one**, including the confirmation
+that says how many files will be written and where.
+
+### 3. Read-only is the normal case and must be probed, never discovered
+
+Media may be read-only by our own default ([principles §2](../principles/README.md)), by the
+mount options, by the NAS's own export configuration, by the filesystem, or by ordinary POSIX
+permissions — and the user cannot be expected to know which.
+
+So the node **probes writability per root at startup and reports it**
+([principles §9](../principles/README.md), [D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque)), and
+the core knows before it offers the button.
+[D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary)
+already requires *"degraded modes, stated rather than discovered"*; this is that rule with a
+new subject.
+
+**Partial success is the normal outcome, not the error case.** A library spanning two roots
+where one is a read-only archive mount will export half. That is fine and must be **reported
+per root and per item** — the failure to design against is an export that stops at file 1,400
+of 3,500 and reports a single boolean.
+
+### 4. The file transport has no bulk core→node channel, and now something needs one
+
+The exchange directory is asymmetric, and it was asymmetric for a good reason:
+
+| | direction | size |
+| --- | --- | --- |
+| `config.json` | core → node | small, desired state |
+| `state.json`, `reports/`, `log/` | node → core | **large** |
+
+**There is no core→node bulk path.** That was correct while core→node carried only commands.
+**Export inverts the flow**: the core becomes the producer of thousands of small documents that
+the node must write to disk, and pushing them through `config.json` would be an abuse of a
+desired-state file.
+
+Two ways out. **Declare export unsupported on the file transport** — which fails precisely the
+case that transport exists for, a NAS reached over a share, where the media and the `.nfo`
+files actually live. Or **mirror the directory**, which is cheap and symmetric:
+
+```
+<exchange-dir>/<node-id>/
+  config.json      ← core writes, node reads + watches
+  payload/         ← core writes, node reads          (bulk; new)
+  state.json       ← node writes, core reads
+  reports/         ← node writes, core reads   (large)
+  log/             ← node writes, core reads
+```
+
+**Mirror it.** Same permission split, same retention obligation, same "namespaced by node id"
+rule, and it keeps D35's core insight — *the permissions split is the security model* — intact
+rather than bolting content onto the command channel.
+
+Note what this is: **[D127](#d127--the-node-dials-out-a-unix-socket-is-the-default-and-the-file-channel-is-the-fallback)'s
+finding for the third time.** That decision listed acknowledgement and incremental delivery as
+things the file channel makes you rebuild; **bulk transfer in the core→node direction is the
+third**, and it was invisible until a feature needed it. Over HTTP or a Unix socket this is a
+request body and costs nothing.
+
+### 5. The write loop, which is the bug this will actually produce
+
+The node writes several thousand sidecars **into a tree it is watching**. Its watcher sees
+several thousand changes, journals them, and the core ingests them as observations. Not
+infinite, but it is a scan storm immediately after an export, and it will be reported as a bug.
+
+**The resolution keeps [principles §9](../principles/README.md) intact rather than bending it.**
+The node **still reports the writes** — a sensor that suppresses its own output is exactly what
+§9 forbids, and *"I did this"* is a memory a node should not need to keep. **The core knows
+what it commanded and does not treat those paths as new information.**
+
+That is §9's own test, applied literally: *could the node determine this from what it observed,
+with no memory of previous observations?* No — so it is a judgement, and it belongs in the
+core. The node saw a file change; only the core knows it asked for it.
+
+**Status:** Undecided — whether an export is resumable. It should be, by
+[D102](#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes)'s rule that every
+pass is restartable and idempotent because a NAS gets switched off mid-pass, and an export is a
+pass in everything but name. Also open: what happens if an export is requested while a scan is
+running on the same root — they are both walking the same tree and one of them is writing.
