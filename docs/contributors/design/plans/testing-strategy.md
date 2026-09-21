@@ -259,6 +259,19 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
 - **a title the user prioritises mid-scan becomes playable within seconds**, and prioritising
   one already done is a no-op ([D118](../../decisions/working-notes.md)).
 
+## Two assertions from the gap sweep
+
+[D140](../../decisions/working-notes.md):
+
+- **A library with `.nfo` sidecars imports their contents as user overrides on first scan**,
+  and a subsequent metadata refresh does not overwrite them
+  ([D7](../../decisions/working-notes.md)). This is the migration case, and the failure is
+  silent — a user whose corrections vanished will not file a bug, they will leave. Tier 3
+  gains a fixture: a film with a Kodi-dialect `.nfo` whose title disagrees with both the
+  filename and the provider.
+- **A watchlist entry survives a rescan, a rename and a provider change**, like every other
+  piece of user-authored state.
+
 ## The two UI gates, which exist to settle an argument
 
 [D138](../../decisions/working-notes.md), [D139](../../decisions/working-notes.md).

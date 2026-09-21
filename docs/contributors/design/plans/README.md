@@ -131,9 +131,20 @@ And one that changed an existing schedule: [D86](../../decisions/working-notes.m
 `transcoding.md` **§(b)** on [remote-access.md](remote-access.md)'s critical path rather than
 at Phase 4, because remote playback over a degraded link has nothing lower to fall back to.
 
-## The unspecified set is empty
+## The unspecified set
 
-**As of 2026-09-20 no plan is `UNSPECIFIED`.** The last two —
+**It was empty on 2026-09-20 and is not any more.**
+[subtitle-acquisition.md](subtitle-acquisition.md) was added `UNSPECIFIED` on 2026-09-21 by
+[D140](../../decisions/working-notes.md), which found that
+[D11](../../decisions/working-notes.md) makes subtitles the project's headline claim and
+nothing in the tree answers *"this file has none"* — the gap **Bazarr** exists to fill. The
+provider constraint is already researched (OpenSubtitles at 5/20/1000 downloads per day, and
+*"must be the user's account"*); everything else is open. That is the convention working as
+intended: an un-fleshed idea is a file with a status, not a bullet in this README.
+
+The history below is still accurate for the round it describes.
+
+**As of 2026-09-20 no plan was `UNSPECIFIED`.** The last two —
 [testing-strategy.md](testing-strategy.md) and [performance-targets.md](performance-targets.md)
 — were researched that day ([D109](../../decisions/working-notes.md)–[D116](../../decisions/working-notes.md)),
 and the second turned out to be only half-blocked: the **client** numbers need hardware, the

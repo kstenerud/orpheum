@@ -9524,3 +9524,134 @@ and focus latency actually *are* on Netflix, Apple TV and Roku. Roku rates highe
 sample (3.88, navigation at 3%) and is the obvious benchmark to measure against rather than
 admire. That belongs in [device-lab.md](../design/plans/device-lab.md), which already has the
 hardware.
+
+---
+
+## D140 — Five gaps the sentiment corpus exposed, three declines, and one that undercuts a headline claim
+
+**Decided** (2026-09-21). A deliberate sweep of the raw findings behind
+[D138](#d138--the-ui-is-judged-on-click-depth-and-focus-latency-theming-is-a-seam-we-ship-or-one-they-force)
+and [D139](#d139--their-worst-complaint-is-one-we-cannot-have-their-redesign-backlash-is-one-we-can-and-reversibility-is-the-only-cure-anyone-has)
+for **features** rather than sentiment — every reacted issue across four Jellyfin repositories,
+the Plex forum's yearly top fifty, and 2,205 App Store reviews — with each candidate grepped
+against this tree. Looking for big gaps only.
+
+**Most of it was already covered**, which is the useful baseline: deep links
+([D88](#d88--casting-is-remote-control-of-another-client-which-is-watch-together-with-a-group-of-one)),
+theme songs and backdrops ([D97](#d97--an-extra-is-a-typed-relation-not-an-edition-and-not-a-version)),
+PIN protection ([D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)),
+SyncPlay, offline downloads ([D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained)),
+Chromecast ([D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)–[D137](#d137--the-cast-receiver-ships-no-subtitle-renderer-casts-own-is-the-statutory-one-and-the-cost-is-on-the-server)),
+forcing direct play or transcode in both directions
+([D4](#d4--three-playback-paths-direct-on-demand-segmented-background-prepared)), dual subtitles
+(the schema already models the selection as a **set**), audio/subtitle sync offset
+([D90](#d90--playback-presentation-is-a-persisted-per-user-preference-set-and-captions-have-a-statutory-floor)),
+manual playlists and collections ([D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)'s
+*"explicit member list or a predicate"*), skip buttons
+([D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance)), and a `.srt`
+dropped beside a film after the scan ([D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)).
+
+**Five things were not.**
+
+### 1. We do not read the sidecars already in the user's library — and this one is urgent
+
+[D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)'s
+status line says *"NFO is the field's de-facto answer and **reading it is already planned**"*.
+**It is not. No plan owns it.** `identification.md` covers *writing* overrides back;
+`library-model.md` covers what is sidecar-*able*. Nothing covers **importing what is already
+there**.
+
+That is not a missing nicety, it is a **migration defect aimed at our own promise**. The user
+this project is for arrives from Kodi, Emby or Jellyfin with **years of corrections sitting in
+`.nfo` files beside their media** — and
+[D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index) promises that
+a user's corrections survive. A first scan that ignores them **destroys on import exactly what
+the project promises to protect**, silently, at the moment of highest goodwill.
+
+The demand is measured: *Plex NFO Agent Forum Preview* is **291 likes and 510 posts — the
+most-replied thread on their forum this year**, already noted in
+[sentiment.md](../design/research/sentiment.md) without anybody drawing this conclusion from it.
+
+**So: reading NFO on import is [identification.md](../design/plans/identification.md)'s, it is
+Phase 1, and it is a first-run concern rather than a feature.** Writing it stays the open
+compatibility question D98 left.
+
+### 2. Nothing answers "this film has no subtitles" — and that undercuts the headline
+
+[D11](#d11--subtitles-are-a-subsystem-not-a-feature) makes subtitles **the** differentiator:
+*"the single largest defect area in the field"*, *"the cheapest place to be visibly better"*.
+Every subsequent decision — extraction at scan, font subsetting, libass correctness, the
+overlay rendition, the statutory control set — handles **subtitles that exist**.
+
+**Nothing in the tree handles a file that has none**, which is an ordinary situation and the
+reason **Bazarr** exists. The requests are there: androidtv *On-Demand Subtitle Search* (+13),
+*Downloadable Subtitles Like Plex in Jellyfin TV App* (+12).
+
+The awkward part is that we have already researched the *constraint* and never the feature:
+[tech-licensing.md](../design/research/tech-licensing.md) records OpenSubtitles at **5
+downloads/day anonymous, 20/day with a free account, 1000/day VIP**, and *"must be the user's
+account"*. So the hardest fact is known and unowned.
+
+**A claim to be the best subtitle experience in the field, with no answer for the empty case,
+is a claim with a hole in the middle of it.** New plan,
+[subtitle-acquisition.md](../design/plans/subtitle-acquisition.md), `UNSPECIFIED` — it is
+genuinely plan-sized (providers, per-user credentials, rate budgets, hash matching, and
+verifying that a downloaded track is actually in sync), and per
+[plans/README](../design/plans/README.md) an un-fleshed idea is a file, not a bullet.
+
+### 3. There is no watchlist
+
+Zero occurrences in the tree. We have **favourite** (Title-level,
+[play-state.md](../design/plans/play-state.md)), **Continue Watching**, **Next Up**,
+collections and playlists — and nothing for *"I intend to watch this"*, which is a different
+verb from *"I love this"* and the one a household uses most.
+
+It is also the **top navigation complaint against Apple TV** in the App Store sample:
+*"Finding your wish list or watchlist is a chore… you have to scroll through at least three
+pages of the homepage just to find it"*, and *"I add it to the list, but I don't know where
+this list is."*
+
+Cheap: a per-user Title relation in the play-state family, riding the same change journal and
+the same database-only rule ([D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)). It lands in
+[play-state.md](../design/plans/play-state.md) with favourites and ratings.
+
+### 4. The metadata model is thorough and nobody can edit it
+
+Provenance per field, manual identification overrides that survive rescans, user-chosen
+artwork, sidecar write-back — and **no document says where a person actually does any of
+this**. It is a UI gap behind a well-specified model, which is exactly the kind that survives
+review.
+
+Plex's *Metadata Editing on Mobile* sits at 66 likes. The surface belongs to
+[web-client.md](../design/plans/web-client.md) (it is admin-shaped), and the rule it must
+honour already exists: an edit is user-authored data about the work, so it goes to the change
+journal and is never overwritten by a refresh.
+
+### 5. No external-player handoff
+
+*"Add option to play via external player directly from movie/episode screen"*, +28 on
+androidtv. Small, cheap, and it is **the honest answer to
+[D17](#d17--direct-play-first-transcoding-additive-and-optional)'s tail**: when we cannot play
+a file and no transcoder is registered, hand it to something that can rather than showing a
+failure. It is also a pressure valve — the alternative is the force-transcode arms race the
+same tracker is full of.
+
+### Three declines, stated so they are decisions rather than oversights
+
+- **Request flows** (Overseerr/Jellyseerr-shaped). Companion-app territory, and
+  [D20](#d20--plugin-architecture-constraints-and-four-things-the-catalogue-says-belong-in-the-core) already says the public
+  API is the seam that makes them possible. Not ours to build; ours to be good enough to build
+  against.
+- **Voice assistants.** Plex dropping its Alexa skill drew 66 likes, so the want is real and
+  small. Declined for now, and note the cast path
+  ([D137](#d137--the-cast-receiver-ships-no-subtitle-renderer-casts-own-is-the-statutory-one-and-the-cost-is-on-the-server))
+  already gives away the useful half, since Cast carries voice-originated load requests with a
+  reserved `credentialsType`.
+- **A separate desktop application.** *Are the Desktop Apps Dead?* is 186 likes on Plex's
+  forum, which is a question we should answer before it is asked: **the web client is the
+  desktop client**, and saying so is better than leaving a hole people read as neglect.
+
+**Status:** Only the first two are urgent. NFO import is Phase 1 because the first scan is when
+it matters and a later fix cannot recover what a user gave up on. Subtitle acquisition is
+Phase 2-or-later work whose *plan* is due earlier, because per-user provider credentials touch
+[auth.md](../design/plans/auth.md) and a per-user rate budget is schema.

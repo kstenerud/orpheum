@@ -83,6 +83,27 @@ commands and **even the Default Media Receiver queues audio and video** (only im
 unsupported); `QueueBase.fetchItems` loads a **window** of a queue on demand, which matters
 because the media namespace caps a message at **64 KB** and a full season does not fit.
 
+## The metadata editing surface, which nothing owned
+
+[D140](../../decisions/working-notes.md). The metadata *model* is unusually thorough —
+field-level provenance, manual identification overrides that survive rescans
+([D7](../../decisions/working-notes.md)), user-chosen artwork, sidecar write-back
+([D98](../../decisions/working-notes.md)) — and **no document said where a person actually does
+any of it.** A UI gap behind a well-specified model, which is the kind that survives review.
+
+It belongs here because it is admin-shaped and this client is the admin surface. The rules it
+must honour already exist: an edit is **user-authored data about the work**, so it rides the
+change journal, outranks any provider, and **is never overwritten by a refresh** — the failure
+Jellyfin's *Some custom primary images/art seem to have automatically reverted* records.
+Plex's *Metadata Editing on Mobile* sits at 66 likes, so the phone wants it too, later.
+
+## And this is the desktop client
+
+*Are the Desktop Apps Dead?* is 186 likes on Plex's forum
+([D140](../../decisions/working-notes.md)) — a question worth answering before it is asked.
+**There is no separate desktop application; this is it.** Saying so is better than leaving a
+hole that reads as neglect.
+
 ## Theming is a seam we ship, or one they force
 
 [D138](../../decisions/working-notes.md). Roughly **5,840 GitHub stars** sit on projects whose

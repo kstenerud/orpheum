@@ -93,6 +93,18 @@ more native clients: it is a **cast receiver**, which is the web player in a dif
 **Fire OS has no Google Cast**, as below — so "cast" is a family of receivers behind one
 role (Google Cast, AirPlay, ours) rather than one protocol.
 
+## Handing off to an external player
+
+[D140](../../decisions/working-notes.md). *"Add option to play via external player directly
+from movie/episode screen"* is +28 on `jellyfin-androidtv`, and it is **the honest answer to
+[D17](../../decisions/working-notes.md)'s tail**: when we cannot play a file and no transcoder
+is registered, hand it to something that can rather than showing a failure. Cheap — an intent
+with a URL — and it is a pressure valve: the alternative is the force-transcode arms race the
+same tracker is full of.
+
+It composes with the transcode-reason field rather than replacing it. The client still says
+*why* it could not play the file; the handoff is what it offers next.
+
 ## Signing in, which is the first thing that happens
 
 Nobody had designed it, and it is the first interaction every user has, on the device with the

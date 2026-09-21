@@ -72,6 +72,31 @@ than in the node. Two requirements:
   preference axes ([D24](../../decisions/working-notes.md)) so "prefer audio description where
   available" is a setting, rather than the user remembering a track number.
 
+## Reading the sidecars that are already there
+
+[D140](../../decisions/working-notes.md). **This was assumed to be planned and was owned by
+nobody.** [D98](../../decisions/working-notes.md)'s status says *"NFO is the field's de-facto
+answer and reading it is already planned"* — this document covers *writing* overrides back and
+never covered importing what exists.
+
+**It is a migration defect pointed at our own promise.** The user this project is for arrives
+from Kodi, Emby or Jellyfin with **years of corrections sitting in `.nfo` files beside their
+media**, and [D7](../../decisions/working-notes.md) promises a user's corrections survive. A
+first scan that ignores them destroys exactly what we promise to protect, silently, at the
+moment of highest goodwill. The demand is measured: *Plex NFO Agent Forum Preview* is **291
+likes and 510 posts, the most-replied thread on their forum this year**.
+
+So: **on import, an existing sidecar is read as a user-authored override** — the same
+precedence as a correction made here, above any provider, and recorded with its source so the
+user can see where a field came from. It is **Phase 1**, because first-run is when it matters
+and a later fix cannot recover a user who already gave up.
+
+Two details that will bite. The node reports the sidecar's **existence and bytes** like any
+other file ([D42](../../decisions/working-notes.md) — it draws no conclusions); parsing is
+core work over stored observations, like everything else here. And **NFO is a family, not a
+format** — Kodi's, Emby's and various scrapers' dialects differ, so this wants the same
+table-driven real-corpus test suite as the filename parser, for the same reason.
+
 ## Matching, overrides and duplicates
 
 - **Manual identification override that survives re-scans, provider changes and file moves**

@@ -72,6 +72,15 @@ keeps them in the **same single mutable row** as the position, which is why *"Mo
 are randomly unfavourited"* (33 comments) sits in the tracker next to the resume bugs. One
 race, three symptoms.
 
+**And a watchlist is the one that was missing** ([D140](../../decisions/working-notes.md)).
+*"I intend to watch this"* is a different verb from *"I love this"*, and the tree had
+favourites, Continue Watching and Next Up but nothing for it. It is also the top navigation
+complaint against Apple TV in a 2,205-review App Store sample — *"Finding your wish list or
+watchlist is a chore… you have to scroll through at least three pages of the homepage just to
+find it"*, and *"I add it to the list, but I don't know where this list is."* Cheap here and
+awkward later: a per-user Title relation in this family, on the change journal, database-only
+like the rest.
+
 They attach at different levels, and the levels are not the same as the position's:
 
 | Datum | Level | Why |
@@ -80,6 +89,7 @@ They attach at different levels, and the levels are not the same as the position
 | played / play count | **Edition** | a cut is what you either finished or did not |
 | favourite | **Title** | you favourite the film, not the director's cut of it |
 | user rating | **Title** | same |
+| **watchlist** | **Title** | you intend to watch the work, not a cut of it ([D140](../../decisions/working-notes.md)) |
 
 ## Who has play state, and who does not
 

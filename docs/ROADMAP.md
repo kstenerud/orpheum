@@ -117,6 +117,15 @@ schema, and `library-model.md` is here:
   never checked against a real library is a guess with a progress bar.
 - **People as entities with provider identity**
   ([D95](contributors/decisions/working-notes.md)) — never keyed on the display name.
+- **Read the `.nfo` sidecars that are already in the library**
+  ([D140](contributors/decisions/working-notes.md),
+  [identification.md](contributors/design/plans/identification.md)). Phase 1 because **first
+  run is when it matters**: the user this project is for arrives from Kodi, Emby or Jellyfin
+  with years of corrections beside their media, and
+  [D7](contributors/decisions/working-notes.md) promises corrections survive. A first scan
+  that ignores them destroys exactly what we promise to protect, at the moment of highest
+  goodwill, and a later fix cannot recover someone who already gave up. *Plex NFO Agent Forum
+  Preview* is 291 likes and **510 posts — the most-replied thread on their forum this year**.
 - **A `role` table, and one `role_id` per user**
   ([D130](contributors/decisions/working-notes.md)). A role is a named policy object — a closed
   capability set plus one rules-engine predicate — so "Kids" is defined once and children are
