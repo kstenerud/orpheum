@@ -25,6 +25,15 @@ writers to one cell:
 And the absence of history is a whole separate product: **Tautulli, 6,590★**, exists to give
 Plex users the watch history and statistics the server does not keep.
 
+**And it is not an open-source failing** ([D139](../../decisions/working-notes.md)). From 2,205
+App Store reviews of the commercial services, Disney+: *"No automatic episode tracker. Every
+other streaming service that is out there will keep track of what episode you're on… Except
+Disney+. Every day, I have to scroll through MULTIPLE episodes to find where I left off."*
+Paramount+: *"if I fall asleep watching and want to go back to an episode, when you scroll
+down, it defaults to the series very last episode."* Companies that can afford to get this
+right do not. **Treat play state as a headline feature rather than plumbing** — it is the
+thing a household touches every single day.
+
 ## Two structures, not one
 
 ### 1. A guarded position

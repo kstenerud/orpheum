@@ -39,9 +39,16 @@ the encoder put there. **Segments** are typed, derived, and carry provenance:
 | `intro` | offer skip |
 | `recap` | offer skip |
 | `preview` | offer skip |
-| `outro` / `credits` | offer skip, and trigger next-episode |
+| `outro` / `credits` | offer skip, **and place the next-episode prompt** |
 | `commercial` | skip automatically |
 | `unknown` | display only |
+
+**And the `outro` boundary fixes a complaint at the other end of the episode**
+([D139](../../decisions/working-notes.md)). Hulu, from the App Store corpus: *"Before the show
+ends the interface minimizes the show and you try to see the last 20 seconds and you can't."*
+That is a next-episode prompt fired on a **fixed timer** rather than on where the programme
+actually ends. With a typed `outro` we place it on content — so a segment model bought for
+skip-intro turns out to answer the opposite complaint too, and the two share one table.
 
 ## Where they attach: the Version
 

@@ -197,7 +197,103 @@ comments), *Subtitles disappear when fullscreen*, *Subtitle offset text field is
 slider min/max*, *Inconsistent size of subtitles*, *Subtitles dark background box*. The player
 surface is where the web client's reputation is made and lost.
 
-## 6. What this says for us
+## 6. The commercial services, measured with the same instrument
+
+**2,205 App Store reviews**, 245 most-recent per app, coded the same way. The absolute star
+averages are weak evidence — a subscription service's rating conflates catalogue and price with
+interface — but **the theme mix is reliable**, and it separates the two worlds cleanly.
+(HBO Max returned no reviews for the id used and is absent from the sample.)
+
+| App | n | mean★ | 1★ | #1 theme | #2 theme |
+| --- | --- | --- | --- | --- | --- |
+| Roku | 245 | **3.88** | 19% | navigation 3% | playback bugs 2% |
+| Netflix | 245 | **3.75** | 22% | price 14% | ads 7% |
+| Apple TV | 245 | 3.05 | 35% | price 6% | navigation 5% |
+| Paramount+ | 245 | 2.63 | 47% | playback bugs 19% | ads 13% |
+| Prime Video | 245 | 2.56 | 42% | **ads 26%** | redesign 4% |
+| Peacock | 245 | 2.44 | 51% | **ads 26%** | price 13% |
+| Disney+ | 245 | 2.17 | 54% | **ads 34%** | playback bugs 11% |
+| **Plex** | 245 | **2.04** | 58% | **redesign 20%** | playback bugs 13% |
+| Hulu | 245 | 1.49 | 70% | **ads 36%** | playback bugs 16% |
+
+**Two facts stand out.**
+
+**The commercial services' dominant complaint is advertising** — 36%, 34%, 26%, 26% of reviews
+— and that is a **business-model failure we structurally cannot have**
+([D13](../../decisions/working-notes.md)). Netflix is the exception because most of its base is
+not on the ad tier, and its top complaint is price instead.
+
+**Plex is the only app in the sample whose leading complaint is the redesign**, at 20% — and
+it sits **below every commercial service except Hulu**. An independent instrument, a different
+population, and the same conclusion as §0.
+
+### What they get wrong that we could also get wrong
+
+The commercial complaints that are *not* about money are worth reading closely, because they
+are all reachable from where we stand:
+
+- **Resume is broken at companies with enormous budgets.** Disney+: *"No automatic episode
+  tracker. Every other streaming service that is out there will keep track of what episode
+  you're on… Except Disney+. Every day, I have to scroll through MULTIPLE episodes to find
+  where I left off."* Paramount+: *"if I fall asleep watching and want to go back to an
+  episode, when you scroll down, it defaults to the series very last episode."* This is
+  [D81](../../decisions/working-notes.md)'s subject, failing at scale, daily, visibly.
+- **The watchlist is buried.** Apple TV: *"Finding your wish list or watchlist is a chore…
+  you have to scroll through at least three pages of the homepage just to find it."*
+- **Each redesign buries things one level deeper.** Prime Video: *"You've moved the in-store
+  code button several times recently. Each time, you bury it deeper in the app… not three
+  swipes and three taps deep!"*
+- **The store outranks the library.** Apple TV: *"Essentially an entertainment store… It acts
+  more like an App Store than what your typical streaming apps offer."* Prime Video's homepage
+  mixes Prime-included, rentals and third-party channels *"often without clear labeling"*.
+  **This is the same complaint Plex users make about Discover** — and it is the one failure a
+  product with nothing to sell cannot commit.
+- **The end-of-episode overlay steals the ending.** Hulu: *"Before the show ends the interface
+  minimizes the show and you try to see the last 20 seconds and you can't."*
+- **Pause needs two presses.** Paramount+: *"You have to double click to pause or play."*
+
+### And Netflix's redesign got the identical backlash
+
+Netflix's 2025 TV redesign — its first major layout change in **12 years** — drew the same
+complaints in the same words: *"borderline unusable"*, larger artwork that means **more
+scrolling to see the same amount of content**, and **genre browsing buried deeper**. That is
+Plex's complaint set, at the company with the largest UX research budget in the industry.
+
+**But Netflix reports that in testing more users preferred the new design than the old.** That
+is the uncomfortable fact in this whole round and it has to be carried: **vocal backlash and
+measured preference can point in opposite directions.**
+
+The reconciliation is not "ignore the loud users". It is that the two groups are answering
+different questions — *"which layout do you prefer?"* against *"what happened to my thing?"*.
+Every service in this sample takes the change away irreversibly, so the second question has
+no good answer anywhere. **The anger is about lost agency more than about pixels**, which is
+why the remedy is reversibility rather than conservatism.
+
+### Separating "angry at change" from "angry at worse"
+
+Backlash follows *every* redesign, so its existence proves nothing. Four ways to tell them
+apart, best first ([D139](../../decisions/working-notes.md) §3a):
+
+1. **Keep the old layout and let usage decide.** Change-anger decays as people relearn;
+   degradation does not. *"What share is still on the old layout after 30 days"* is a number
+   that needs no survey — and **nobody in this sample can run that test**, because they all
+   removed the old answer.
+2. **Instrument the task, not the opinion.** Clicks-to-play and focus latency are falsifiable
+   where *"I hate it"* is not. A change that holds both is a change; one that worsens either
+   is a regression regardless of its reception.
+3. **Read the complaint's shape.** Degradation reports **name a task and reproduce** —
+   *"the subtitle menu is only like 100 pixels and off to the side"*. Change-anger is
+   affective and unlocated. **This corpus is overwhelmingly the first kind**, which is why §1
+   concludes what it does rather than dismissing it as novelty.
+4. **Fresh preference minus incumbent satisfaction is the transition cost.** Netflix's
+   divergence is not a paradox — their test asked people with no incumbency, the field
+   contains people who lost something. The gap *is* the change-anger, isolated.
+
+**And "users resist all change" is true and is not a defence.** It predicts that backlash will
+exist, never what it contains. Used against a specific, reproducible, task-naming complaint it
+has stopped being an observation.
+
+## 7. What this says for us
 
 1. **Interface regressions outrank price.** 51% of the likes, against 938 for the price thread.
    [D108](../../decisions/working-notes.md) was right and is under-weighted rather than over.

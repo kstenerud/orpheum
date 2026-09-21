@@ -50,6 +50,17 @@ cheap to collect once a receiver exists:
    the cast path needs a muxed fallback — the same question
    [playback-survey.md](playback-survey.md) already asks of Tizen and webOS, so ask it once.
 
+## 0a. Benchmark the incumbents, don't admire them
+
+[D139](../../decisions/working-notes.md). The lab has the hardware to measure **click depth**
+and **focus latency** on Netflix, Apple TV, Roku and Prime Video as well as on ours, and
+without those numbers [D138](../../decisions/working-notes.md)'s targets are opinions.
+
+**Roku is the benchmark**: highest-rated in a 2,205-review App Store sample at **3.88★** with
+navigation complaints at **3%**, against Plex's 2.04★. Measure what it actually does — presses
+from home to playing a chosen title, and milliseconds from D-pad press to the selection
+moving — and set our target from that rather than from a feeling.
+
 ## 1. Cold hardware has its own failure modes
 
 Twenty devices that have not been powered in years are not twenty test devices until proven

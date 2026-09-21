@@ -54,6 +54,13 @@ Both incumbents have a specific, durable weakness, and they are different weakne
 **The opening is the gap between them:** Plex's polish without Plex's business model, built on
 an architecture that doesn't inherit Jellyfin's 2008-era assumptions.
 
+**And a warning about what that opening is not** ([D139](../decisions/working-notes.md)).
+Measured across 2,205 App Store reviews of the commercial services, their leading complaint is
+**advertising** — 36% of Hulu's reviews, 34% of Disney+'s. That is a failure we cannot commit,
+which means **we are not competing against their weaknesses**: the thing that makes them hated
+is unavailable to us, so we get compared on navigation, resume and reliability, where they are
+strong and well funded. "No ads" is a floor, not a lead.
+
 ## What we do differently
 
 Six choices, each traceable to a specific failure in the research:

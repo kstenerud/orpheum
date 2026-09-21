@@ -259,6 +259,20 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
 - **a title the user prioritises mid-scan becomes playable within seconds**, and prioritising
   one already done is a no-op ([D118](../../decisions/working-notes.md)).
 
+## The two UI gates, which exist to settle an argument
+
+[D138](../../decisions/working-notes.md), [D139](../../decisions/working-notes.md).
+**Clicks from home to playing a chosen title**, and **D-pad-press to selection moving**, both
+frozen-baseline gates like every other threshold here
+([D110](../../decisions/working-notes.md)).
+
+Their purpose is not only speed. Every redesign draws backlash, so its existence proves
+nothing, and these two numbers are what **separate "angry at change" from "angry at worse"
+automatically, before anyone posts anything**: a layout change that holds both is a change; one
+that worsens either is a regression whatever its reception. Without them the argument is
+unfalsifiable in both directions — which is how a real regression gets dismissed as novelty,
+and how a good change gets reverted.
+
 ## Done when
 
 `go test ./...` passes on a clean checkout with no media and no FFmpeg; the tiered suite says

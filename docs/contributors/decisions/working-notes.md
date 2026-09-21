@@ -9369,3 +9369,158 @@ answer wants one real theme author, and guessing it now repeats the mistake
 [D131](#d131--a-restriction-is-a-vector-not-a-ceiling-templates-are-seeds-and-they-say-what-they-hid)
 avoided by deferring the template set. Also unmeasured: what click depth and focus latency
 actually are on the incumbents, which would turn §1's targets from principles into numbers.
+
+---
+
+## D139 — Their worst complaint is one we cannot have; their redesign backlash is one we can, and reversibility is the only cure anyone has
+
+**Decided** (2026-09-21). Research: [ui-sentiment.md](../design/research/ui-sentiment.md) §6,
+from **2,205 App Store reviews** — 245 most-recent each for Netflix, Prime Video, Disney+,
+Hulu, Apple TV, Roku, Peacock, Paramount+ and Plex, coded identically. The standing rule that
+the large commercial operators get their own pass
+([research/README.md](../design/research/README.md) §Method) applied to the interface.
+
+| App | mean★ | 1★ | leading complaint |
+| --- | --- | --- | --- |
+| Roku | 3.88 | 19% | navigation 3% |
+| Netflix | 3.75 | 22% | price 14% |
+| Apple TV | 3.05 | 35% | price 6% |
+| Paramount+ | 2.63 | 47% | playback bugs 19% |
+| Prime Video | 2.56 | 42% | **ads 26%** |
+| Peacock | 2.44 | 51% | **ads 26%** |
+| Disney+ | 2.17 | 54% | **ads 34%** |
+| **Plex** | **2.04** | 58% | **redesign 20%** |
+| Hulu | 1.49 | 70% | **ads 36%** |
+
+**Star averages are weak evidence** — a subscription app's rating mixes catalogue and price
+with interface — **and the theme mix is not.**
+
+### 1. We cannot have the industry's worst complaint, and we get no credit for it
+
+Advertising leads four of the nine and reaches **36% of Hulu's reviews**. It is a
+business-model failure, and [D13](#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise)
+already forecloses it structurally rather than as a preference.
+
+**The consequence is the useful part: we are not competing against their weaknesses.** The
+thing that makes them hated is unavailable to us, so **we will be compared on everything else**
+— navigation, resume, playback reliability — where they are strong and well-funded. Any plan
+that leans on "we have no ads" as a differentiator is leaning on a floor, not a lead.
+
+### 2. Plex is the only app whose leading complaint is its own redesign
+
+At **20%**, and it rates **below every commercial service except Hulu**. An independent
+instrument, a different population, and the same conclusion as
+[D138](#d138--the-ui-is-judged-on-click-depth-and-focus-latency-theming-is-a-seam-we-ship-or-one-they-force)'s
+forum analysis. Two sources that do not share a population agreeing this precisely is the
+strongest form this project's sentiment evidence has taken.
+
+### 3. Netflix got the identical backlash, and reports the opposite in testing
+
+Netflix's 2025 TV redesign — **its first major layout change in 12 years** — drew Plex's
+complaint set almost word for word: *"borderline unusable"*, larger artwork meaning **more
+scrolling to see the same content**, **genre browsing buried deeper**. At the company with the
+largest UX research budget in this field.
+
+**And Netflix reports that in testing more users preferred the new design than the old.**
+
+That has to be carried rather than filed away, because it contradicts the comfortable reading.
+**Vocal backlash and measured preference can point in opposite directions**, so "users hated
+our redesign" is not by itself evidence the redesign was wrong, and a project that treats
+forum volume as a design oracle will be wrong in a different direction.
+
+**The reconciliation, and it is what [D108](#d108--the-interface-is-not-ours-to-change-out-from-under-people-and-an-old-client-stays-installable) was already reaching for:** the two groups
+answer different questions — *"which layout do you prefer?"* versus *"what happened to my
+thing?"* — and **every service in this sample removes the old answer irreversibly**, so the
+second question has no good answer anywhere in the industry.
+
+**The anger is about lost agency more than about pixels.** Which means the remedy is not
+conservatism — never redesigning is its own failure, and Netflix's testing says so. **The
+remedy is reversibility**, and that is a capability rather than a taste: the old layout stays
+reachable, the change is opt-in, and every client build stays installable. D108 is therefore
+not a promise about restraint; it is a promise about **exits**, and it is the only cure anyone
+in this sample offers.
+
+### 3a. Telling "angry at change" apart from "angry at worse", which is the whole problem
+
+Raised by the project owner: *"there tends to be backlash any time you redesign the UI of
+something, so we need to somehow differentiate between those angry at change vs those angry at
+something actually getting worse."* Exactly the right question, and treating the two as one is
+how both mistakes get made — shipping a regression because "they always complain", and
+freezing a bad layout because "they complained".
+
+**Four discriminators, in order of how much they are worth.**
+
+**1. Reversibility is not only a kindness — it is the instrument.** If the old layout is still
+reachable, **usage is the referendum**, and it needs no survey: change-anger decays as people
+relearn and they drift to the new one; degradation does not, and a stable population stays put.
+*"What fraction is still on the old layout after 30 days"* is a number, it is attributable to
+a cohort, and it arrives without asking anyone their opinion. **Nobody in this sample can run
+that test**, because every one of them removed the old answer. So
+[D108](#d108--the-interface-is-not-ours-to-change-out-from-under-people-and-an-old-client-stays-installable)
+turns out to buy a measurement as well as a promise, which is the strongest argument for it
+yet — and it is only available to a project that keeps the exit open **before** it needs it.
+
+**2. Instrument the task, not the opinion.** *"I hate it"* is unfalsifiable; **clicks from home
+to playing a chosen title** and **D-pad-press-to-selection latency** are not. If a redesign
+moves the first from three to eight, that is not taste, and no amount of preference testing
+redeems it. This is precisely why
+[D138](#d138--the-ui-is-judged-on-click-depth-and-focus-latency-theming-is-a-seam-we-ship-or-one-they-force)
+made those two targets rather than principles: **a regression gate is what separates the two
+kinds of anger automatically**, before anyone posts anything. A layout change that holds both
+numbers is a change; one that worsens either is a regression, whatever its reception.
+
+**3. The complaint's shape tells you which it is.** Degradation reports **name a task and are
+reproducible** — *"the subtitle menu is only like 100 pixels and off to the side"*, *"one click
+instead of 30"*, *"no on-screen controls"*. Change-anger is **affective and unlocated** —
+*"it's garbage", "I hate it"*. The Plex corpus contains overwhelmingly the first kind, which
+is why [D138](#d138--the-ui-is-judged-on-click-depth-and-focus-latency-theming-is-a-seam-we-ship-or-one-they-force)
+concluded what it did rather than dismissing it as novelty. Our feedback surface should
+therefore **ask what the person was trying to do**, not how they feel about it — which
+[bug-reports.md](../design/plans/bug-reports.md) is already shaped for.
+
+**4. The gap between fresh preference and incumbent satisfaction is the transition cost, and
+it is measurable.** Netflix's divergence is not a paradox: **their testing asked people with no
+incumbency which layout they preferred; the field contains people who lost a familiar one.**
+The difference between those two figures *is* the change-anger, separated out. A project that
+measures only the first ships regressions; one that measures only the second never changes
+anything.
+
+**And one corollary worth stating, because it is where good intentions go wrong.** *"Users
+resist all change"* is true and is **not a defence**. It predicts the *existence* of backlash,
+never its *content*. The moment it is used to explain away a specific, reproducible,
+task-naming complaint, it has stopped being an observation and become an excuse — which is,
+read charitably, exactly what happened to everyone in the table above.
+
+### 4. Four failures at well-funded companies that are reachable from here
+
+Not business-model failures. Ordinary ones, at Disney, Apple and Amazon:
+
+- **Resume is broken at scale.** Disney+: *"No automatic episode tracker … Every day, I have
+  to scroll through MULTIPLE episodes to find where I left off."* Paramount+: *"when you scroll
+  down, it defaults to the series very last episode."*
+  [D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)'s
+  subject, failing daily and visibly, at companies that can afford not to. **Treat play state
+  as a headline feature, not plumbing.**
+- **Each redesign buries things one level deeper.** Prime Video: *"You've moved the in-store
+  code button several times recently. Each time, you bury it deeper in the app."* Depth is a
+  ratchet unless something measures it — which is why
+  [D138](#d138--the-ui-is-judged-on-click-depth-and-focus-latency-theming-is-a-seam-we-ship-or-one-they-force)
+  made click depth a target rather than a principle.
+- **The store outranks the library.** Apple TV: *"Essentially an entertainment store … It acts
+  more like an App Store."* Prime Video mixes included, rental and third-party *"often without
+  clear labeling"*. **Identical to what Plex users say about Discover** — so it is a failure
+  of two different business models arriving at the same place, and the only structural defence
+  is having nothing to sell.
+- **The end-of-episode overlay steals the ending.** Hulu: *"Before the show ends the interface
+  minimizes the show and you try to see the last 20 seconds and you can't."* **We have the
+  means to do this properly**: [media-segments.md](../design/plans/media-segments.md)'s typed
+  `outro`/`credits` boundary ([D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance))
+  says where the programme actually ends, so the next-episode prompt is placed on content
+  rather than on a fixed timer. A segment model bought for skip-intro turns out to fix the
+  complaint at the *other* end of the episode.
+
+**Status:** Unmeasured, and it is the number that would make §3 actionable: what click depth
+and focus latency actually *are* on Netflix, Apple TV and Roku. Roku rates highest in this
+sample (3.88, navigation at 3%) and is the obvious benchmark to measure against rather than
+admire. That belongs in [device-lab.md](../design/plans/device-lab.md), which already has the
+hardware.
