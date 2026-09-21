@@ -498,6 +498,34 @@ The consequence for [D64](../../decisions/working-notes.md): the premium tier's 
   ([D90](../../decisions/working-notes.md)). A participant at 1.25× is not drifting, and
   [D66](../../decisions/working-notes.md)'s reconciler must not spend the film fighting them.
 
+## The largest player withdrew this feature, and what that costs us
+
+[D150](../../decisions/working-notes.md), 2026-09-21. **On 25 February 2025 Plex ended support
+for Watch Together** on its rebuilt apps, keeping it in the web app only, because the apps
+were *"rebuilt from the ground up to boost our development speed."*
+
+That has to be read precisely, because it is a **maintenance-cost** verdict and not a demand
+verdict, and three facts cut the other way:
+
+- Demand is the **second-highest thing in the entire 932-issue sweep corpus** — 10 issues,
+  **127 reactions**, led by *Add support for Jellyfin SyncPlay* at **+65**.
+- The press coverage of Plex's removal pointed readers at **Jellyfin's SyncPlay** as the
+  replacement. The demand relocated; it did not evaporate.
+- Plex's own reason is that the feature **did not survive a client rewrite**.
+
+**So the finding is a cost warning aimed exactly where this plan is weakest.** This document
+specifies **six methods per client** ([D62](../../decisions/working-notes.md)), and
+[D28](../../decisions/working-notes.md) explicitly contemplates the React Native exit — which
+is the same kind of rewrite that killed it at Plex. Two consequences:
+
+- **The six-method surface is a hard budget, not a description of the current design.** If a
+  client's Watch Together support cannot be carried through a rewrite inside those six
+  methods, the design is wrong — and that is testable now, by writing them down and checking
+  a second client against the list rather than against the first client.
+- **[D67](../../decisions/working-notes.md)'s "tvOS never gates a feature" gains a sibling: a
+  rewrite never drops one.** Anything called first-class has to be cheap enough per client to
+  survive being rebuilt, or it is first-class only until the next rewrite.
+
 ## Done when
 
 **Phase 1 — two participants.** Two people on different networks watch a film end to end;

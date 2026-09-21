@@ -64,6 +64,21 @@ because it exercises the same sync machinery with none of the NAT traversal
 reduce the urgency of `tv-client.md` — re-examine that once the adapter exists and its real
 fidelity is known, not before.
 
+## What the 2026-09-21 source sweep added
+
+Three plans, all `UNSPECIFIED`, from reading competitors' **source** rather than their issue
+trackers ([D149](../../decisions/working-notes.md),
+[feature-sweep-2026-09-21.md](../research/feature-sweep-2026-09-21.md)):
+[play-statistics.md](play-statistics.md), [notifications.md](notifications.md) and
+[external-lists.md](external-lists.md). None is on the critical path and the first is the
+cheapest thing in the tree relative to its demand, because
+[D81](../../decisions/working-notes.md) already stores everything it needs.
+
+Two more findings from that sweep are **not** new plans and are due earlier than their size
+suggests, both because they are schema: per-role **bandwidth and concurrent-stream ceilings**
+in [auth.md](auth.md), which gate the paid relay, and **external critic/audience scores** in
+[library-model.md](library-model.md) and [rules-engine.md](rules-engine.md).
+
 ## What the 2026-09-19 audit added
 
 An independent audit against industry practice, the large operators and the complaint record

@@ -56,6 +56,16 @@ reporting according to its own visibility, and this is that data in a format a d
   against 0.063 ms maintained, so scraping it must not become a home-page regression;
 - database size, WAL size, and busy-retry counts.
 
+## The sink this is not
+
+[D149](../../decisions/working-notes.md). Everything above is **pull**: a dashboard scrapes it,
+and the rule that this endpoint emits *"a count and an oldest-age, never a per-item
+notification"* is correct for a metrics endpoint and wrong as a statement about the product.
+There was no **push** anywhere in this tree, for two event sources that already exist. That is
+[notifications.md](notifications.md), and the split is deliberate: this document serves an
+operator with Grafana, that one serves a person who needs to be told their server is
+unreachable.
+
 ## What it must never expose
 
 **Nothing that names a film, a path, a person or a household member.** That is the same line

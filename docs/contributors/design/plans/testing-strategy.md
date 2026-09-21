@@ -359,6 +359,30 @@ a third-party model, a model upgrade changes every score in the library, and the
 invisible — subtitles quietly stop verifying, or quietly start. One short clip with a known
 speech fraction, asserted.
 
+## Assertions from the 2026-09-21 source sweep
+
+[D149](../../decisions/working-notes.md), [D150](../../decisions/working-notes.md).
+
+- **No code path accepts a PIN as an authentication factor.** Fails closed, and it is the
+  exact bug Jellyfin shipped and then removed for being *"a big security risk especially for
+  administrator accounts"*. A PIN may only gate a profile switch on a session that is already
+  authenticated ([threat-model.md](threat-model.md)).
+- **A stream is refused, with a reason, when the role's bitrate or concurrent-stream ceiling
+  is reached** — and the refusal is distinguishable from a failure
+  ([D92](../../decisions/working-notes.md), [auth.md](auth.md)). The regression this catches
+  is a relay bill.
+- **A notification body never contains a title its audience may not see.** Same rule as
+  [D134](../../decisions/working-notes.md)'s pending count, with more force, because a webhook
+  cannot be un-sent ([notifications.md](notifications.md)).
+- **A first scan of a large library emits one "new content" notification, not thousands.**
+  The same first-scan hazard [D118](../../decisions/working-notes.md) handles for progress.
+- **An external-score predicate does not silently match unrated items.**
+  `imdb_score < 6` over a Title with no score must behave like
+  [rules-engine.md](rules-engine.md)'s existing null rule for play count, and the test is the
+  never-scored item.
+- **A statistics page shows a user only their own history unless the role grants otherwise**
+  ([play-statistics.md](play-statistics.md)).
+
 ## The two UI gates, which exist to settle an argument
 
 [D138](../../decisions/working-notes.md), [D139](../../decisions/working-notes.md).

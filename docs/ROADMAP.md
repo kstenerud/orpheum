@@ -341,6 +341,30 @@ authority, not this list:
 - **[artwork.md](contributors/design/plans/artwork.md)** — the home page is fifty posters and
   is an image-serving benchmark. Needed by Phase 2 in practice.
 
+- **[play-statistics.md](contributors/design/plans/play-statistics.md)** *(new, 2026-09-21)* —
+  the best demand-to-cost ratio the source sweep found
+  ([D149](contributors/decisions/working-notes.md)). **9,196★** of companion applications exist
+  to show people a history their own server already stores;
+  [D81](contributors/decisions/working-notes.md)'s event log holds the data and nothing reads
+  it back. A query and a page, and it belongs with Phase 2 or the first client that has room.
+- **[notifications.md](contributors/design/plans/notifications.md)** *(new, 2026-09-21)* — two
+  event sources, no sink. Four operational triggers and one webhook; everything else is
+  somebody else's bridge ([D149](contributors/decisions/working-notes.md)). Pairs with
+  `observability.md`, which is the pull half of the same data.
+- **[external-lists.md](contributors/design/plans/external-lists.md)** *(new, 2026-09-21)* — a
+  collection whose membership is authored elsewhere, which is a third kind alongside
+  [D79](contributors/decisions/working-notes.md)'s explicit list and
+  [D75](contributors/decisions/working-notes.md)'s predicate. Kometa is 3,414★ and builds from
+  22 external services.
+
+**Two things from the same sweep are not new plans and are due earlier than they look.**
+**Per-role bandwidth and concurrent-stream ceilings** ([auth.md](contributors/design/plans/auth.md))
+are schema and they gate the **paid relay** — a relay without them is an unbounded bill, so they
+are due with Phase 1's role object, not with Phase 6. And **external critic/audience scores**
+([library-model.md](contributors/design/plans/library-model.md),
+[rules-engine.md](contributors/design/plans/rules-engine.md)) are Title-level schema with a
+critic/audience split and a vote count, so they land before the model freezes.
+
 And **[offline-download.md](contributors/design/plans/offline-download.md)** is Phase 3+ as
 client work, with one part due earlier: the offline **manifest** must be able to enumerate its
 own dependencies, because the font pipeline
@@ -353,6 +377,13 @@ as tofu on a plane.
 Photos (D1), DRM, a device-profile database in the core (D2/D18), an encoding ladder,
 microservices, a Roku client, in-process protocol plugins, an encoder in the core binary (D19),
 live TV and DVR.
+
+Added 2026-09-21 by the source sweep ([D149](contributors/decisions/working-notes.md),
+[D150](contributors/decisions/working-notes.md)): **DLNA/UPnP** — Jellyfin moved it out of its
+core and the plugin now carries 84 open issues against 87 stars; **3D/stereoscopic**;
+**Sonos and multi-room**; **games, sports and music videos as library types**; **poster
+overlays baked into artwork**; and **a content-source plugin tier** — the one Plex killed in
+2018 at *"less than 2 percent of people were using Plugins"*.
 
 ---
 

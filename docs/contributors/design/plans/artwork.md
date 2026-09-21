@@ -59,6 +59,25 @@ destroyed by a refresh, which is [principles §2](../../principles/README.md) in
   URL. Both halves keep the property that matters — deleting either costs time and nothing
   else.
 
+## The type enumeration, which this plan never stated
+
+[D149](../../decisions/working-notes.md), 2026-09-21. Everything above is about **sizes,
+languages, caching and provenance**, and nowhere does this plan say **which kinds of image
+exist**. Kodi has a `GetAvailableArtTypes` call; Plex models Art, Poster, Logo, Theme and
+SquareArt as separate classes. The ones televisions actually consume are **poster, backdrop,
+logo (clearlogo) and banner**; disc art and clearart are Kodi-lineage and cheap to carry
+because the NFO/sidecar conventions ([D141](../../decisions/working-notes.md)) already name
+them. It is a closed enumeration, which makes it the same kind of object as
+[D21](../../decisions/working-notes.md)'s size list.
+
+**And badges are a client render, never a rewritten file.** Kometa's most visible feature is
+**24 overlay families** — resolution, audio codec, ratings, content-rating flags, and
+`mediastinger` for a post-credits scene — and it implements them by **writing them into the
+poster**. That is destructive to an image we do not own
+([principles §2](../../principles/README.md)) and it makes the artwork cache
+content-unaddressable. If we ever want badges they are drawn over an untouched image by the
+client, from fields it already has.
+
 ## Open
 
 - **Format.** AVIF is smaller and is not universally decodable on the televisions we target;

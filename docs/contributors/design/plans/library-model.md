@@ -293,7 +293,29 @@ a delete keyed only on a path can destroy a different file that has since appear
   with it stored, the full offset-and-framerate search is **3–8 ms**
   ([principles §11](../../principles/README.md) — maintained, not computed).
 
-## Three cross-cuts from the review
+### And three from the 2026-09-21 source sweep
+
+[D149](../../decisions/working-notes.md).
+
+- **External critic and audience scores are missing from the schema.** This document has
+  favourites and **user** ratings in the play-state family and no external score anywhere —
+  and neither does any other document in the tree. Maintainerr carries **twelve** such
+  properties and most of Kometa's 129 collection builders rest on them. So: at the **Title**,
+  `(source, kind, score, vote_count, as_of)` — `source` ∈ IMDb, Rotten Tomatoes, TMDb, Trakt…,
+  `kind` distinguishing **critic from audience**, which Rotten Tomatoes reports separately and
+  which a single column would destroy. The vote count is what makes the score usable, and
+  `as_of` is what makes a refresh honest. They are provider data, so they carry provenance
+  like everything else and a user override wins.
+- **A home row is an object, and it has an audience.** Plex's `ManagedHub` promotes a
+  collection to the home screen with `homeVisibility ∈ {none, all, admin, shared}`. We model
+  row *order* as user state ([D138](../../decisions/working-notes.md)) and have nowhere to say
+  *which rows exist for which role*. That is a small table — a row is a Collection plus a
+  role scope plus an order — and it is schema, so it is due here rather than in the client.
+- **Artwork has a type.** [artwork.md](artwork.md) specifies sizes, languages and caching and
+  never enumerates poster / backdrop / logo / banner / disc. Closed enumeration, at the level
+  the image belongs to.
+
+## Three cross-cuts from the review## Three cross-cuts from the review
 
 - **Store the node's raw observation, not only the interpretation**
   ([D59](../../decisions/working-notes.md), [D79](../../decisions/working-notes.md)). D59's

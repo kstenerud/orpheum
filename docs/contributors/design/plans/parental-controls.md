@@ -291,6 +291,29 @@ It inherits D76's two rules, both correct here:
   client never asks ([principles §10](../../principles/README.md)), *and* deny by id, because a
   restricted profile is a different trust domain from the account owner.
 
+## Two additions from the 2026-09-21 source sweep
+
+[D149](../../decisions/working-notes.md), [D150](../../decisions/working-notes.md).
+
+- **The PIN, resolved.** This plan already notes that *PIN protection for users* is
+  `jellyfin-androidtv`'s third-most-reacted issue (+56) — and it is in fact the highest-scoring
+  single issue across the whole 932-issue sweep. Jellyfin **removed** its own PIN in 10.9 as
+  *"a big security risk especially for administrator accounts"*, and it was right to: theirs
+  was a short password that could log an administrator in. The resolution is that these are
+  two different objects. **A PIN gates a switch between profiles on a device that is already
+  authenticated** — the living-room case of a child tapping a parent's tile — and is never a
+  credential. Full rule in [auth.md](auth.md).
+- **Common Sense Media is a better parental layer than ours, and it is licensed.** Plex
+  exposes `parentalAdvisoryTopics` — per-topic label, a five-point rating, and a **`positive`
+  flag so a topic can be a reason *to* watch** — alongside `parentsNeedToKnow`,
+  `talkingPoints` and an `ageRatings` list carrying `ageGroup` and a crowd star rating, behind
+  Plex Pass. That is editorial per-title guidance where [D131](../../decisions/working-notes.md)
+  has national-system descriptors, and the shape is worth copying even where the data is not
+  available: **a per-topic score with a sign** is strictly more expressive than a descriptor
+  that is merely present, and it is what would let a template say *"strong language, but the
+  violence is cartoonish"*. The data itself is licensed, which puts it where
+  [D16](../../decisions/working-notes.md) puts every provider: the user's key, or nothing.
+
 ## What it is not
 
 Not content filtering, not scene skipping, not scanning. It is a visibility predicate and a PIN.

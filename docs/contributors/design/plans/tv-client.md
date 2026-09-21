@@ -48,6 +48,14 @@ list view is a first-class layout, not a later option**: `List view` (+30) and
 `show titles in poster view` (+28) are both open requests on `jellyfin-androidtv`, and
 retrofitting a second layout costs more than allowing for two.
 
+**And the row *set* belongs to the owner, where the row *order* belongs to the user**
+([D149](../../decisions/working-notes.md), 2026-09-21). Plex models it as `ManagedHub` with a
+`homeVisibility` of none/all/admin/shared; the Jellyfin plugin that adds server-defined home
+sections is 513★. The design lives in [web-client.md](web-client.md) and the table in
+`library-model.md`, but it lands here first, because the television is where a curated row for
+a role actually matters — *"this collection is a row on the kids' home screen"* is a
+living-room request, not a browser one.
+
 ## Fire TV is available for testing, and is not quite Android TV
 
 Fire OS is an Android fork, so the client and `react-native-tvos` work and sideloading over ADB

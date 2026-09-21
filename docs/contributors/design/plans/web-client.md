@@ -161,6 +161,38 @@ later needs every contributor's agreement.
   and the EU Accessibility Act requires; it is also, item for item, what `jellyfin-web`'s open
   subtitle issues ask for.
 
+## Curated home rows, and the behaviours that are simply missing
+
+[D149](../../decisions/working-notes.md), from the 2026-09-21 source sweep.
+
+**The home screen is a curated object, not just an ordered one.** Plex models this as
+`ManagedHub`: an admin promotes a collection to a home row with
+`homeVisibility ∈ {none, all, admin, shared}`, plus `promotedToOwnHome` and
+`promotedToSharedHome`. The Jellyfin plugin that adds server-defined home sections is 513★.
+We have per-user row **order** ([D138](../../decisions/working-notes.md)) and no way for an
+owner to say *"this collection is a row on the kids' home screen."* Every piece already
+exists — [D130](../../decisions/working-notes.md)'s roles say who the audience is,
+[D75](../../decisions/working-notes.md)'s predicates say what is in the row, and
+[D134](../../decisions/working-notes.md)'s maintained-value rule is what makes an extra row
+affordable instead of another 43.6 ms query on the launch screen.
+
+**And six behaviours are absent from this tree entirely or named once.** Listed because
+together they are the difference between "complete" and "obviously unfinished":
+
+| Missing | Evidence | Note |
+| --- | --- | --- |
+| **Shuffle / random play** | **zero mentions anywhere in the tree** | trivial; every competitor has it |
+| **Folder browsing** | +17 *Folder View mode for browsing*; Jellyfin's `EnableFolderView` | the escape hatch when identification is wrong |
+| **Playback speed** | streamyfin +10 | **not free**: shared state or explicitly local in Watch Together ([D66](../../decisions/working-notes.md)), no third option |
+| **Sleep timer** | +23 | produces `abandoned`, not `completed`, in the play log ([D81](../../decisions/working-notes.md)) |
+| **Picture-in-picture / background audio** | 20 reactions | platform surface, per client |
+| **Bulk edit / multi-select** | 3 reactions | the admin's time, not the viewer's |
+
+Manual re-identify is the seventh and it already has a home in
+[identification.md](identification.md) — recorded here because it is the escape hatch for
+every identification bug we will ever ship, and the sweep found it named five times and
+designed nowhere.
+
 ## Non-negotiables
 
 Subtitle offset control **that persists**; manual override of the playback decision; a visible

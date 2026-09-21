@@ -90,6 +90,25 @@ and it means Jellyfin's threat model is not available to us. We have not written
 - **What we promise.** [D13](../../decisions/working-notes.md) is a privacy promise; this is the
   security one, and it should be as specific.
 
+## One prohibition, from a feature the incumbent removed
+
+[D150](../../decisions/working-notes.md), 2026-09-21. Jellyfin removed its `EasyPassword`
+(PIN) in 10.9 as *"a big security risk especially for administrator accounts"* — and *PIN
+protection for users* is simultaneously the **highest-scoring single feature request** in a
+932-issue sweep of this field. Both facts are correct, because two different things wear the
+same name.
+
+**The rule: a PIN may gate a switch to a more-privileged profile on a device that is already
+authenticated. It may never authenticate a session, issue or refresh a token, or admit an
+administrator.** A four-digit secret has about 13 bits and no rate-limit story that survives a
+LAN attacker; as a *selector* between identities already admitted on a trusted device it is
+carrying no security weight at all, which is exactly why it is fine there.
+
+This is a **fails-closed** assertion, not a guideline: no code path accepts a PIN as an
+authentication factor ([testing-strategy.md](testing-strategy.md)), and the object it gates
+is [D120](../../decisions/working-notes.md)'s person-plus-device rather than
+[auth.md](auth.md)'s credential.
+
 ## The cast credential, where entropy is not the control
 
 [D135](../../decisions/working-notes.md). A cast URL lets a television fetch its own bytes, and

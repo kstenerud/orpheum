@@ -153,6 +153,27 @@ so both are [rules-engine.md](rules-engine.md) queries rather than bespoke SQL, 
 makes "why is this here?" answerable and "remove this from my list" possible without marking
 something watched — a request with its own Jellyfin discussion.
 
+## What reads this log back
+
+[D149](../../decisions/working-notes.md), [D150](../../decisions/working-notes.md), 2026-09-21.
+
+**Nothing did, and that is the largest cheap win the source sweep found.** The append-only
+event log above was chosen for correctness; it happens to answer every question the **9,196★**
+of companion statistics applications exist to answer — Tautulli 6,589, Jellystat 2,472,
+Jellyfin's Playback Reporting 135. The surface is now [play-statistics.md](play-statistics.md);
+the only thing this document owes it is the **retention horizon**, which is already flagged
+open here and which a statistics feature is what makes worth deciding.
+
+**And one honest note about the watchlist.** It entered this plan from
+[D140](../../decisions/working-notes.md)'s sweep. Its measured demand is **one issue and three
+reactions**, the lowest of anything in this tree we have committed to build — and **Plex
+removed the same feature** (*Watch Later*) in 2018, saying it was *"costly to maintain and hard
+to justify when only a handful of folks used it."* It stays, for a reason that is not demand:
+as a **stored predicate over items** it is one row in a table
+[D75](../../decisions/working-notes.md) needs anyway, and
+[external-lists.md](external-lists.md) needs the same storage. **What it must never become is a
+surface with its own screens and sync semantics** — that is the part Plex paid to remove.
+
 ## Done when
 
 Two devices playing one film cannot rewind each other's position; a five-minute short resumes;

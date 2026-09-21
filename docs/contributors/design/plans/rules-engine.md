@@ -175,6 +175,27 @@ tag** and exclude that — the registry is already *"extensible at runtime — u
 escape hatch is a feature this plan already has rather than a second mechanism
 ([principles §4](../../principles/README.md)).
 
+## Two things the 2026-09-21 source sweep added
+
+[D149](../../decisions/working-notes.md).
+
+- **External critic and audience scores are registry fields, and they are missing.** There is
+  no IMDb, Rotten Tomatoes, TMDb or Trakt score anywhere in this tree — `library-model.md` has
+  *user* ratings and nothing external. Maintainerr carries **twelve** such properties (critic
+  and audience separately, each with a vote count) and most of Kometa's 129 builders rest on
+  them. They are typed registry entries like any other, at the Title level, and they inherit
+  the **null problem this document already solved** for play count: an unrated film has no row,
+  so `imdb_score < 6` must not silently mean "and also every film nobody scored". A vote count
+  is the second field that makes the first usable — `rt_critic < 40` over three reviews is
+  noise.
+- **Retention wants a surface, and the surface is the product.** **3,301★** across Maintainerr,
+  janitorr and media-cleaner. This document's retention binding already *marks*; what those
+  tools actually sell is the **grace period** — gather the candidates into a collection
+  everybody can see, leave them there while people catch up, and only then act. The
+  visible-collection half needs no deletion at all, which is why it does not collide with
+  [D144](../../decisions/working-notes.md): it is this engine's existing binding with a page
+  on it.
+
 ## Still open
 
 - **Where the complexity bound goes** — term count, depth, or generated-SQL size. Needs a

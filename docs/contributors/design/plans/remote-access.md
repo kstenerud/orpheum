@@ -97,6 +97,22 @@ findroid's tracker (+28). It is not an answer for a family — nothing requiring
 install ever is — but it costs a paragraph in the documentation and it is strictly better than
 the "just use a VPN" answer we reject elsewhere, for the people who can use it.
 
+## The ceiling that has to exist before anyone is billed
+
+[D149](../../decisions/working-notes.md), 2026-09-21. **A relay with no per-user ceiling is an
+unbounded bill**, and until the 2026-09-21 source sweep nothing in this tree carried one — the
+whole subject was three incidental mentions.
+
+[D72](../../decisions/working-notes.md) prices the relay and
+[D86](../../decisions/working-notes.md) puts bandwidth transcoding on this document's critical
+path; both assume a bounded amount of traffic and neither says what bounds it. The bound is a
+**per-role maximum bitrate and maximum concurrent stream count**, stored on
+[D130](../../decisions/working-notes.md)'s role and enforced at session admission — see
+[auth.md](auth.md). Two consequences here specifically: the refusal must name itself
+([D92](../../decisions/working-notes.md)), and hitting the ceiling is one of the four
+operational triggers in [notifications.md](notifications.md), because a household that cannot
+tell a policy refusal from an outage will report it as an outage.
+
 ## Why it matters more than its size suggests
 
 It is simultaneously the thing Plex users most resent — a cloud account mediating access to a

@@ -115,6 +115,33 @@ by nothing else — deliberately, because the motivating case is someone with no
 bounded by a cap, ejection and rotation rather than by a predicate
 ([D119](../../decisions/working-notes.md)). See [watch-together.md](watch-together.md).
 
+## Two attributes the role needs that nothing else names
+
+From the 2026-09-21 source sweep ([D149](../../decisions/working-notes.md),
+[D150](../../decisions/working-notes.md)).
+
+- **A bandwidth and concurrent-stream ceiling is a role attribute.** Jellyfin has
+  `RemoteClientBitrateLimit`; Plex has per-user limits; nothing in this tree had either. It
+  belongs on [D130](../../decisions/working-notes.md)'s role object rather than in the stream
+  service, because *"how much of the shared pipe may this person take"* is a policy attribute
+  exactly like the ones already there — and because
+  [remote-access.md](remote-access.md)'s **paid relay** makes it a cost control rather than a
+  courtesy. Two numbers: a maximum bitrate and a maximum simultaneous stream count, both
+  nullable meaning unlimited, both enforced at session admission so a refusal is a stated
+  reason ([D92](../../decisions/working-notes.md)) and not a stall.
+- **A PIN may switch profiles; it may never authenticate.** *PIN protection for users* is the
+  **highest-scoring single issue in the whole 932-issue sweep corpus (+56)**, and Jellyfin
+  **removed** its PIN in 10.9 as *"a big security risk especially for administrator
+  accounts"*. Both are right, because they are different things. What people want is a
+  **profile selector on a television that is already authenticated** — a switch between
+  identities already admitted on an already-trusted device, which is
+  [D120](../../decisions/working-notes.md)'s person-plus-device. What Jellyfin removed was a
+  four-digit *password* that could obtain an administrator session. So: **a PIN may gate a
+  switch to a more-privileged profile on an authenticated device, and may never be a
+  credential that authenticates a session, issues a token, or admits an administrator.**
+  [threat-model.md](threat-model.md) carries the prohibition and
+  [testing-strategy.md](testing-strategy.md) asserts it.
+
 ## Still open
 
 Everything [threat-model.md](threat-model.md) lists: session lifetime, API key scoping and

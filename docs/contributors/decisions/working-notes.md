@@ -10571,3 +10571,275 @@ second, on the core, with the node asleep.
 **Status:** measured on two films. Unmeasured: the pass on NAS-class hardware, silero's cost
 on ARM, and whether the centre-channel advantage survives on stereo-only sources, where there
 is no `FC` to take.
+
+---
+
+## D149 — Eight gaps the source sweep found, six declines, and the one that is a hole in the business model
+
+**Decided** (2026-09-21). Research:
+[feature-sweep-2026-09-21.md](../design/research/feature-sweep-2026-09-21.md). From the project
+owner: *"look at the source code of every competitor and associated product we can find to get
+a list of functions and features we don't yet have in our design."*
+
+[D140](#d140--five-gaps-the-sentiment-corpus-exposed-three-declines-and-one-that-undercuts-a-headline-claim)
+swept the **complaint record**. This swept the **shipped surface** — 60 Jellyfin controllers and
+their configuration schemas, Emby at the 2018 fork point, Kodi's JSON-RPC and settings tree,
+Plex's object model via `python-plexapi`, Tautulli's triggers, Kometa's builders, Maintainerr's
+rule vocabulary, 36 official plugins — then added two axes the first sweep did not have:
+**what people install a second program to get**, and **what somebody built and withdrew**.
+
+**Most of the tree survived the sweep**, which is the useful baseline: chapters are already
+distinguished from segments, playlists and collections, favourites and user ratings, watchlist,
+offline download, deep links, theme songs, pairing, duplicates and versions, and the
+declines already on the record. What follows is what did not.
+
+### The one that is not a feature gap but a business-model hole
+
+**There is no per-user or per-role bandwidth or concurrent-stream limit anywhere in this
+tree** — three incidental mentions, no design. Jellyfin has `RemoteClientBitrateLimit`; Plex
+has per-user limits; a *Transcode Killer* plugin exists because the field's caps are not enough.
+
+That is a nicety for a LAN server and it is **not** a nicety for us:
+[D25](#d25--remote-access-is-tiered-and-the-promise-changes-from-no-accounts-to-we-only-charge-for-another-machine),
+[D64](#d64--watch-together-makes-the-remote-access-question-concrete-and-supplies-the-premium-tiers-first-honest-member)
+and [D86](#d86--adaptation-is-the-client-re-picking-on-a-buffer-signal-and-it-puts-bandwidth-transcoding-on-remote-accesss-critical-path)
+put a **paid relay** on the critical path, and
+[D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts) prices it.
+**A relay with no ceiling is an unbounded bill**, and the ceiling has to exist in the schema
+before anything meters against it. It belongs with [auth.md](../design/plans/auth.md)'s role
+object ([D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)),
+because "how much of the shared pipe may this person take" is a policy attribute exactly like
+the ones already there.
+
+### Seven more gaps, ranked by demand over cost
+
+1. **Show the play statistics we already store.** **9,196★** of companion applications —
+   Tautulli 6,589, Jellystat 2,472, Playback Reporting 135 — exist because no server in this
+   field shows a user their own history.
+   [D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)
+   already makes play state an **append-only event log**, so we hold the data and nothing reads
+   it back. This is the best ratio in the sweep: a query and a page. It is also the one place
+   [D13](#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise) pays a visible dividend
+   — the statistics are *yours*, computed locally, and were never sent anywhere.
+2. **Outbound notifications.** Tautulli ships **22 triggers and 28 delivery agents**; Jellyfin
+   has 14 `NotificationType` values in the model and pushes delivery to a 251★ plugin. We have
+   two event sources already — [D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)'s
+   change journal and D81's play log — and **no sink at all**;
+   [observability.md](../design/plans/observability.md) is a `/metrics` endpoint and says
+   outright *"never a per-item notification"*. The four worth having are the operational ones,
+   not the social ones: **buffering, the concurrent-stream ceiling being hit, a new device, and
+   the server unreachable from outside**. A webhook is the whole mechanism; everything else is
+   somebody else's bridge.
+3. **External critic and audience scores are not in the field registry.** Zero mentions in this
+   tree. Maintainerr carries **twelve** rating properties (IMDb, Rotten Tomatoes critic *and*
+   audience, TMDb, Trakt, each with a vote count) and most of Kometa's 129 builders rest on
+   them. `library-model.md:129` has *user* ratings and nothing external. **This is schema**, so
+   it is due before [library-model.md](../design/plans/library-model.md) freezes, and it lands
+   in [rules-engine.md](../design/plans/rules-engine.md)'s typed registry
+   ([D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable))
+   with the same null-handling problem D75 already solved for play count.
+4. **External list import.** Kometa is **3,414★** and assembles its builders from **22 external
+   services**. [D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)
+   already says a Collection is *"an explicit member list or a predicate"*, so the model is
+   there — what is missing is the loop that fetches a list, reconciles it against the library,
+   refreshes it, and reports the members we do not have. Note this is **extensional** where
+   D75 is intensional: a third axis alongside the explicit list and the predicate, because the
+   membership is authored somewhere else.
+5. **Admin-curated home rows, per role.** Plex models this as **`ManagedHub`** with
+   `homeVisibility ∈ {none, all, admin, shared}`, `promotedToOwnHome`, `promotedToSharedHome`;
+   the Jellyfin plugin is 513★. We have per-user row **order**
+   ([D138](#d138--the-ui-is-judged-on-click-depth-and-focus-latency-theming-is-a-seam-we-ship-or-one-they-force))
+   and no way for an owner to say *"this collection is a row on the kids' home screen."* Every
+   part already exists —
+   [D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)'s
+   roles, D75's predicates, and
+   [D134](#d134--a-pending-item-discloses-nothing-a-rule-shows-its-coverage-and-the-home-page-computes-nothing)'s
+   rule that a home-page value is maintained rather than computed, which is what makes a
+   curated row affordable in the first place.
+6. **Retention as a presented decision.** **3,301★** — Maintainerr 2,287, janitorr 753,
+   media-cleaner 261. This looks like it collides with
+   [D144](#d144--deletion-is-deferred-not-designed-away-the-policy-is-the-deliverable-and-the-export-already-carries-the-danger)
+   and does not, because **Maintainerr's actual product is the grace period**: it gathers
+   candidates into a *visible collection*, leaves them there while everyone catches up, and only
+   then acts. The visible-collection half needs no deletion, is D75's retention binding with a
+   surface on it, and is the part that does the work.
+7. **The small client behaviours that are simply absent.** **Shuffle and random play score zero
+   mentions in the entire tree**; so do folder browsing and poster overlays. Playback speed,
+   sleep timer, picture-in-picture, bulk edit and manual re-identify are named once or twice
+   and never designed. Individually trivial, collectively the difference between "complete" and
+   "obviously unfinished" — and two of them are not free: **playback speed is shared state or
+   explicitly local in Watch Together** (a participant at 1.25× is not drifting, and
+   [D66](#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips)'s
+   reconciler must not fight them), and **manual re-identify is the escape hatch for every
+   identification bug we will ever ship**.
+
+### Six declines, on the record
+
+Silence reads as neglect, so these are stated rather than omitted. They join the table in
+[overview.md](../design/overview.md).
+
+| Declined | Why, with the number |
+| --- | --- |
+| **DLNA / UPnP** | Demand is 11 reactions. **Jellyfin moved it out of the core in 10.9** and the resulting plugin has **87★ against 84 open issues** — nearly as many open bugs as stars, which is the clearest "walking away" signal in the dataset. Cast ([D135](#d135--casting-on-your-own-is-a-device-delegation-not-an-invitation-the-credential-is-the-session-and-the-queue-is-next-up)) covers the useful half. |
+| **3D / stereoscopic** | One issue, 23 reactions, and it needs a whole rendition axis. |
+| **Sonos / multi-room audio** | Plex has it; nobody asks us for it; audio is already second ([D1](#d1--scope-video-first-audio-second-photos-probably-never)). |
+| **Games, sports, music videos as a library type** | Emby shipped Games and Jellyfin did not carry it; Plex built an arcade and killed it (§D150). |
+| **Multi-server federation** | Zero mentions here, three reactions there. |
+| **Poster overlays baked into artwork** | Kometa's 24 overlay families are its most visible feature and it implements them by **rewriting the poster**, which is destructive to a file we do not own ([principles §2](../principles/README.md)). If we ever want badges they are a *client render* over an untouched image. |
+
+### Two more worth naming without deciding
+
+- **Common Sense Media.** Plex exposes `parentalAdvisoryTopics` (per-topic rating, with a
+  `positive` flag so a topic can be a reason *to* watch), `parentsNeedToKnow` and
+  `talkingPoints`, behind Plex Pass. It is a genuinely better parental layer than
+  [D131](#d131--a-restriction-is-a-vector-not-a-ceiling-templates-are-seeds-and-they-say-what-they-hid)'s
+  national-system descriptors, and it is licensed data — which puts it exactly where
+  [D16](#d16--gplv3-no-nonfree-components-and-provider-keys-belong-to-the-user) puts every other
+  provider: the user's key, or nothing.
+- **Artwork has no type enumeration.** [artwork.md](../design/plans/artwork.md) covers sizes,
+  languages, caching and provenance and never says *which kinds of image exist*. Kodi has
+  `GetAvailableArtTypes`; Plex has Art, Poster, Logo, Theme, SquareArt. Clearlogo and banner
+  are the ones televisions actually use.
+
+**Status:** the gap list is evidence-backed; the *ordering* is a judgement and should be
+re-read against the roadmap rather than treated as a schedule.
+
+---
+
+## D150 — Read the withdrawals, not just the requests: five features the field built and took away
+
+**Decided** (2026-09-21). Research:
+[feature-sweep-2026-09-21.md](../design/research/feature-sweep-2026-09-21.md) §5. From the
+project owner's question: *"…and if anyone abandoned them."*
+
+Every previous sweep in this project measured **wanting**. This one measured **regret**, and it
+is a better signal, because a withdrawal is a company paying a reputational cost to stop
+carrying something. Five of them land on decisions we have already made.
+
+### 1. Plex killed its plugin system at under 2% usage — and we have three plugin tiers
+
+September 2018: *"Less than 2 percent of people were using Plugins."* The technology needed a
+complete rebuild and Plex judged it unjustifiable.
+
+**We have bet heavily here** —
+[D12](#d12--providers-are-sandboxed-wasm-plugins-no-in-process-plugin-code),
+[D15](#d15--two-plugin-tiers-in-process-wasm-and-out-of-process-adapters),
+[D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three) and
+[D20](#d20--plugin-architecture-constraints-and-four-things-the-catalogue-says-belong-in-the-core).
+The distinction that survives the finding is real but narrow, and it must be stated rather than
+assumed: **Plex's plugins were content channels** — Pandora, CNN, Vimeo — a *content-source*
+tier, competing with the streaming apps already on the television. **Ours are metadata
+providers and protocol adapters**, and the evidence that *those* are used is on the other side
+of the ledger: Jellyfin's third-party catalogue reaches 4,492★ for a single metadata plugin
+([plugins-and-workarounds.md](../design/research/plugins-and-workarounds.md)).
+
+Two things change anyway:
+
+- **A content-source plugin tier is now explicitly declined**, with Plex's 2% attached. That is
+  the tier that died, and it is the one nobody should propose without this number.
+- **[D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three)'s
+  rule — the plugin API stays private and unstable until a first-party consumer has proven it —
+  is upgraded from prudence to the lesson of the largest player's most expensive retraction.**
+
+### 2. Plex withdrew Watch Together in February 2025 — and we call it a first-class feature
+
+This is the uncomfortable one and it gets no softening.
+[D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)
+makes Watch Together first-class and
+[D64](#d64--watch-together-makes-the-remote-access-question-concrete-and-supplies-the-premium-tiers-first-honest-member)
+makes it the paid tier's first honest member. **On 25 February 2025 Plex ended support for
+Watch Together on its new apps**, keeping it in the web app only, because the apps were
+*"rebuilt from the ground up to boost our development speed"*.
+
+Read precisely, it is a **maintenance-cost** verdict, not a demand verdict, and three facts cut
+the other way:
+
+- **Demand is the second-highest thing in the whole issue corpus** — 10 issues, **127
+  reactions**, led by *Add support for Jellyfin SyncPlay* at +65.
+- The coverage of Plex's removal pointed readers at **Jellyfin's SyncPlay as the replacement**,
+  which is the demand relocating rather than evaporating.
+- Plex's own stated reason is that it did not survive a **client rewrite**.
+
+**So the finding is a cost warning aimed exactly where we are weakest.** Watch Together is
+per-client work ([D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)
+names six methods per client), and
+[D28](#d28--keep-the-exit-from-react-native-cheap-and-designate-the-fallbacks) contemplates
+precisely the client rewrite that killed it at Plex. Two consequences:
+
+- **The six-method surface is now a hard budget, not a description.** If a client's Watch
+  Together support cannot be carried through a rewrite in those six methods, the design is
+  wrong — because that is the exact failure that just happened to the largest player.
+- **[D67](#d67--tvos-never-gates-a-feature)'s "tvOS never gates a feature" gains a sibling: a
+  rewrite never drops one.** Whatever is first-class must be cheap enough per client to survive
+  being rebuilt.
+
+### 3. Plex killed Watch Later for lack of use — and our watchlist is the same feature
+
+*"Costly to maintain and hard to justify when only a handful of folks used it."* Our watchlist
+went into [play-state.md](../design/plans/play-state.md) from
+[D140](#d140--five-gaps-the-sentiment-corpus-exposed-three-declines-and-one-that-undercuts-a-headline-claim)'s
+sweep. Its demand in this corpus is **one issue and three reactions** — the lowest score of
+anything we have actually committed to build.
+
+**It stays, and it stays for a reason that is not demand:** as a *row* it is a bookmark nobody
+uses, but as a **stored predicate over items** it is one row in a table D75 already needs, and
+[D149](#d149--eight-gaps-the-source-sweep-found-six-declines-and-the-one-that-is-a-hole-in-the-business-model)'s
+external list import needs the same storage. It is nearly free *because* it is not a feature.
+**What it must never become is a surface with its own screens and sync semantics** — that is
+what Plex paid to remove. Recorded so nobody later reads its presence as evidence it was
+wanted.
+
+### 4. Jellyfin removed the PIN — and the PIN is the loudest single request in the corpus
+
+*PIN protection for users* is **+56 on `jellyfin-androidtv`, the highest single-issue score in
+the whole 932-issue corpus**. Jellyfin **removed** its PIN (`EasyPassword`) in 10.9 as *"a big
+security risk especially for administrator accounts."*
+
+Both are right, and the resolution is in the distinction they collapsed:
+
+- **A PIN is not an authentication factor.** Jellyfin's was a *short password* that could log
+  an administrator in, and four digits guarding a server is indefensible.
+- **What people are asking for is a profile selector** — the living-room problem of a child
+  picking their parent's tile on a shared, already-trusted television. That is a *switch
+  between already-admitted identities on an already-authenticated device*, which is the
+  same object as [D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)'s
+  role and [D120](#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people)'s
+  person-plus-device.
+
+**So: a PIN may gate a switch to a more-privileged profile on a device that is already
+authenticated, and may never be a credential that authenticates a session, obtains a token, or
+admits an administrator.** [parental-controls.md](../design/plans/parental-controls.md) carries
+it, [threat-model.md](../design/plans/threat-model.md) carries the prohibition, and the
+assertion is that no code path accepts a PIN as an authentication factor.
+
+### 5. The companion that fills your gap is not a plan — it gets archived
+
+Three of the field's most-installed companions are **archived**: `sct/overseerr` at 4,975★,
+`9p4/jellyfin-plugin-sso` at **1,458★**, and `ConfusedPolarBear/Intro-Skipper` at 968★. The
+live-TV-from-library idea has been rebuilt **three times** (pseudotv → dizqueTV → ErsatzTV) and
+the M3U proxy twice (xTeVe → Threadfin).
+
+Two conclusions, pointing in opposite directions and both true:
+
+- **"A plugin exists" is not an answer to a gap.** The single most-starred authentication
+  plugin in this field is unmaintained, which is the strongest available argument for
+  SSO/OIDC/LDAP being in the core — where the roadmap already has it, now with a reason
+  attached.
+- **But the fork worked.** Jellyseerr is **2.5× Overseerr**; intro-skipper is 2.9× its archived
+  predecessor. What made that possible was a **stable public API to build against**, which is
+  [D20](#d20--plugin-architecture-constraints-and-four-things-the-catalogue-says-belong-in-the-core)'s
+  seam and [D108](#d108--the-interface-is-not-ours-to-change-out-from-under-people-and-an-old-client-stays-installable)'s
+  promise. Our obligation to the ecosystem is not to build the companions; it is to be the
+  thing a dead companion's successor can be rebuilt against.
+
+### And the reason this axis is worth keeping
+
+**Emby's public repository has not moved since 2018-09-19.** Eight years of a product's
+development are invisible from source, and we have been reading it as though it were current.
+Every claim in this tree derived from the Emby repository is a claim about the fork point — a
+statement of what Jellyfin inherited, not of what Emby is. Stated here because it is the kind
+of quiet error that survives many readings.
+
+**Status:** the withdrawals are documented from primary announcements and archived-repository
+metadata. What is *not* measured is how many users each withdrawal actually affected — Plex
+gave a percentage only for plugins.
