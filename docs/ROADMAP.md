@@ -105,10 +105,16 @@ schema, and `library-model.md` is here:
   ([audio-presentation.md](contributors/design/plans/audio-presentation.md),
   [D83](contributors/decisions/working-notes.md)) — measured by the node at scan, because we do
   the downmix and therefore own the quiet dialogue.
-- **Certifications as `(system, code)`**
+- **Certifications as `(system, code)`, plus a content-descriptor vector**
   ([parental-controls.md](contributors/design/plans/parental-controls.md),
-  [D84](contributors/decisions/working-notes.md)). A household product with children in it
-  needs this, and flattening national rating systems to an integer fails *open*.
+  [D84](contributors/decisions/working-notes.md),
+  [D131](contributors/decisions/working-notes.md)). A household product with children in it
+  needs this, and flattening national rating systems to an integer fails *open*. The vector is
+  the same argument one level up: a tween blocked from *Sex and the City* and a teenager
+  blocked from *The Blair Witch Project* do not sort onto one scale. Seven axes, tri-valued so
+  unknown is distinct from none, each with provenance. **Schema only** — the template set that
+  makes this usable is deliberately later, because a template whose blocked-item count was
+  never checked against a real library is a guess with a progress bar.
 - **People as entities with provider identity**
   ([D95](contributors/decisions/working-notes.md)) — never keyed on the display name.
 - **A `role` table, and one `role_id` per user**

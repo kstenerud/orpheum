@@ -185,6 +185,19 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
 - **a role with `host_watch_together` off cannot mint a session link**, by any route including
   the API directly ([D130](../../decisions/working-notes.md)) — a child who can invite
   strangers defeats the visibility predicate entirely;
+- **`TV-14-S` and `TV-14-V` resolve to different descriptor vectors**, so a role blocking sex
+  and a role blocking violence hide different items ([D131](../../decisions/working-notes.md)).
+  This is the assertion that fails on the incumbent's model, and the one the whole multi-axis
+  design exists for;
+- **an item rated in three national systems resolves to the most restrictive**, deterministically
+  and identically across runs ([D131](../../decisions/working-notes.md)) — never "the first
+  match in map-iteration order";
+- **a missing descriptor is `unknown`, not `none`**, per axis, and the household's unknown rule
+  decides what happens ([D131](../../decisions/working-notes.md),
+  [D84](../../decisions/working-notes.md));
+- **updating a shipped template does not change any existing role** — templates are copied at
+  creation, never linked ([D131](../../decisions/working-notes.md)). The failure this catches
+  is a routine update silently widening what a child can see;
 - **the last `Administrator` role cannot be deleted**, and neither can the last admin user
   ([D130](../../decisions/working-notes.md));
 - **a node report that is malformed, enormous, or deeply nested is refused at a stated bound**

@@ -153,7 +153,14 @@ each lands here rather than being bolted on — the same argument
   answer — measure once, apply gain at playback.
 - **Certifications are `(item, system, code)`** ([D84](../../decisions/working-notes.md),
   [parental-controls.md](parental-controls.md)), many per item, with an ordering curated **per
-  system**. BBFC 15, FSK 16, MPAA R and ACB MA15+ are not points on one scale and TMDB returns
+  system** — **plus a content-descriptor vector and its provenance**
+  ([D131](../../decisions/working-notes.md)). Seven axes, Kijkwijzer's — violence, fear, sex,
+  discrimination, drugs, language, dangerous acts — each tri-valued so **unknown is distinct
+  from none**, and each carrying *which source judged it*, because a descriptor parsed from a
+  `TV-14-SV` string and one inferred from the `horror` genre are not the same quality of fact.
+  A single number cannot express "block *Sex and the City* for the tween and *Blair Witch* for
+  the teenager", and Jellyfin's `us.json` collapses all fifteen `TV-14-*` descriptor
+  combinations to one value, which is that failure shipped. BBFC 15, FSK 16, MPAA R and ACB MA15+ are not points on one scale and TMDB returns
   them keyed by country. Flattening to an integer fails **open**, which is the wrong direction
   for this one field. An item with no certification in the household's system is *unrated*, a
   third state, not permitted.

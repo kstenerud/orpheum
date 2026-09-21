@@ -35,6 +35,81 @@ lands harder:
 
 Read "profile" below as "user with a predicate".
 
+## A restriction is a vector, not a ceiling
+
+[D131](../../decisions/working-notes.md). Four real household requirements, and **only one of
+them is a number**:
+
+| Who | Must not see | Axis |
+| --- | --- | --- |
+| Toddler with a rugged tablet | anything but cartoons | **an allowlist**, not a ceiling |
+| Tween | *Sex and the City* | **sex** |
+| Early teenager | *The Blair Witch Project* | **fear / violence** |
+| Relatives | the household's private material | **a tag**, no age at all |
+
+A maturity slider ranks the tween's film against the teenager's, and the household's answer
+does not sort. So a role's restriction speaks about four things: an **age ceiling per system**,
+**per-axis ceilings**, **genre/keyword/tag predicates**, and **explicit allow and deny lists**.
+
+**The axes are Kijkwijzer's seven** — violence, fear, sex, discrimination,
+drugs/alcohol/smoking, coarse language, dangerous imitable acts — because it is the
+best-specified system of its kind, PEGI derives from it, and its classifier scores each axis
+independently *and then takes the maximum*. **The single number was always a lossy projection
+of a vector somebody already computed.**
+
+**The relatives case needs none of the rating machinery**, which is worth noticing: *"not
+tagged `private`"* is a pure tag predicate, so it is the only one of the four that will work
+perfectly — and the one with the strongest privacy claim, because "private" in a family media
+server means home video of the children.
+
+### The incumbent has this data and discards it
+
+US TV ratings carry the axes in the string — **D**ialogue, **L**anguage, **S**ex,
+**V**iolence. From Jellyfin's own `Ratings/us.json`:
+
+```json
+["TV-14-D","TV-14-L","TV-14-S","TV-14-V","TV-14-DL", … ,"TV-14-DLSV"]
+   → { "score": 14, "subScore": 1 }
+```
+
+**All fifteen combinations collapse to one value**, so `TV-14-S` and `TV-14-V` are
+indistinguishable after parsing — the tween and the teenager get the same answer from a string
+that contained the distinction. And their cross-system fallback ends in
+`foreach (var dictionary in _allParentalRatings.Values)`: the first match from any of 45
+national systems, **in dictionary iteration order**. Ours evaluates every system the item
+carries and takes the **most restrictive** — deterministic, and fails closed.
+
+### What is obtainable, and where the design is honestly weak
+
+TMDB's `release_dates` carries certifications per country and a `descriptors` array that is
+**untyped in the schema and empty in their own documented example**. US TV strings give the
+axes free. Everything else is genre, keyword and our own tags.
+
+So: **use descriptors where they exist, fall back to genre where they do not, and record which
+of the two judged each item**, so the household can see where the judgement is weak.
+**Unknown is a third state per axis** — "no violence descriptor" means unknown, never none —
+which is [D84](../../decisions/working-notes.md)'s unrated rule applied one level down.
+
+## Templates, so the admin does not start from nothing
+
+[D131](../../decisions/working-notes.md). A small shipped set — `Young child`, `Pre-teen`,
+`Teenager`, `Guest` — compiled against whatever systems the household's metadata actually
+carries. Three rules:
+
+- **A template is a seed, copied into the role and then owned by the household — never a live
+  link.** A template refresh that silently widens what a child may see is the worst failure
+  available here and would arrive through a routine update. Same reasoning as
+  [D7](../../decisions/working-notes.md)'s refusal to let a refresh overwrite a correction.
+- **It reports what it hid**: *"hides 412 of your 3,500 items; 190 carry no rating in your
+  system and are currently hidden; 47 were judged by genre because no descriptor was
+  available."* This is not foolproof and everyone knows it — the product's job is to make the
+  approximation **legible** rather than to repeat the warning
+  ([principles §3](../../principles/README.md)).
+- **The youngest gets a different predicate *shape*, not a lower number.** `Young child` seeds
+  an **allowlist** — "these six shows" — because "everything rated U" is not what anyone means
+  by a toddler's tablet, and an allowlist fails closed by construction. The person least able
+  to report a mistake gets the shape that cannot leak.
+
 ## A certification is `(system, code)`, not a number
 
 Netflix's own help text: *"Maturity ratings are either set by Netflix or by a local standards

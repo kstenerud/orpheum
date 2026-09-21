@@ -8420,3 +8420,117 @@ carry an **access schedule** (Jellyfin's `AccessSchedules` — "no television af
 household want and is a fourth part, not a capability); and whether the built-in `Household`
 role is editable or merely undeletable — editing it is how someone locks themselves out of their
 own library.
+
+---
+
+## D131 — A restriction is a vector, not a ceiling; templates are seeds and they say what they hid
+
+**Decided** (2026-09-21), by the project owner. Extends
+[D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)
+with what a role's predicate must be able to *say*. Research:
+[content-rating-systems.md](../design/research/content-rating-systems.md).
+
+The four requirements: a **toddler** who watches cartoons on a rugged tablet; a **tween** who
+should not watch *Sex and the City*; an **early teenager** who should not watch *The Blair
+Witch Project*; **relatives** who should not see the household's private material.
+
+**Only one of those is a number, and no ordering satisfies two of them.** A maturity slider
+ranks *Sex and the City* against *Blair Witch*; the household blocks the first for one child
+and the second for another, and neither film is "more mature". This is
+[D84](#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate)'s
+argument raised one level: flattening national systems to an integer fails open, and flattening
+*content concerns* to one axis fails the same way, on top of it.
+
+### The axes, taken from the system that specifies them best
+
+**Kijkwijzer** — the Dutch system PEGI was built from — separates an age level from **seven
+content descriptors**: violence, fear, sex, discrimination, drugs/alcohol/smoking, coarse
+language, dangerous imitable acts. We adopt those seven as our internal vocabulary, because
+they are already the most carefully specified set and because their classifier computes each
+axis independently and *then* takes the maximum — **the single number is a lossy projection of
+a vector somebody already calculated**.
+
+So a role's restriction may speak about:
+
+1. **An age ceiling per system** ([D84](#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate)'s `(system, code)`), evaluated across **every** system the item
+   carries and resolved to the **most restrictive**. Deterministic, and fails closed.
+2. **Per-axis ceilings** over the seven, so "no sex above level 2" and "no fear above level 1"
+   are independent statements.
+3. **Genre, keyword and tag predicates** — [D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)'s existing language, which is where
+   `horror` catches *Blair Witch* when no descriptor exists.
+4. **Explicit allow and deny lists.**
+
+**The relatives case needs none of this**, and that is worth noticing: *"not tagged private"* is
+a pure tag predicate, it needs no rating data, and it is therefore the only one of the four
+that will work perfectly. It is also the one with the strongest privacy claim, since "our more
+private stuff" in a family media server means home video of the children.
+
+### The evidence that this is the incumbent's actual bug
+
+US TV ratings already carry the axes in the certification string — **D**ialogue, **L**anguage,
+**S**ex, **V**iolence. Jellyfin ships them and throws them away. Verbatim from
+`Emby.Server.Implementations/Localization/Ratings/us.json`:
+
+```json
+["TV-14-D","TV-14-L","TV-14-S","TV-14-V","TV-14-DL", … ,"TV-14-DLSV"]
+   → { "score": 14, "subScore": 1 }
+```
+
+**All fifteen combinations collapse to one value.** `TV-14-S` and `TV-14-V` become
+indistinguishable — the tween and the teenager get the same answer, from a string that
+contained the distinction. Their `subScore` is a boolean wearing an integer: *has descriptors*,
+or *does not*.
+
+And their cross-system fallback ends in
+`foreach (var dictionary in _allParentalRatings.Values)` — **the first match from any of 45
+national systems, in dictionary iteration order**. A parental control whose answer depends on
+hash ordering, and whose wrong answers show a child something.
+
+### What is actually obtainable, said plainly
+
+| Source | Age | Descriptors |
+| --- | --- | --- |
+| TMDB `release_dates` | **yes**, per country | a `descriptors` array exists in the schema, **untyped and empty in their own example** |
+| US TV rating strings | yes | **yes, free** — parse `-DLSV` off a certification we already hold |
+| Genres, keywords, our tags | — | a proxy, and the honest fallback |
+
+**So the ceiling is obtainable and the axes mostly are not.** The design uses descriptors where
+they exist, falls back to genre and keyword where they do not, and **records which of the two
+it used**, so the household can see where the judgement is weak.
+
+**Unknown is a third state, per axis.** D84 already requires it for a missing certification; it
+now applies to each descriptor. *No violence descriptor* means **unknown**, never **none**, and
+what happens to unknown is the household's explicit choice rather than a fall-through.
+
+### Templates: seeds, not subscriptions
+
+Ship a small starting set — `Young child`, `Pre-teen`, `Teenager`, `Guest` — each expressed in
+the axes above and compiled against whatever rating systems the household's metadata actually
+carries.
+
+Three rules, and the first is the one that matters:
+
+- **A template is copied into the role and then owned by the household.** It is never a live
+  link. A template refresh that silently widens what a child may see is the worst failure
+  available here, and it would arrive through a routine update — the same reasoning as
+  [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index)'s refusal to
+  let a refresh overwrite a user's correction.
+- **The template reports what it hid.** *"Hides 412 of your 3,500 items; 190 carry no rating in
+  your system and are currently hidden; 47 were judged by genre because no descriptor was
+  available."* That converts "not foolproof" from a disclaimer into an inspectable fact
+  ([principles §3](../principles/README.md)). **The owner already knows it is approximate; the
+  product has to make the approximation legible rather than repeat the warning.**
+- **The youngest gets a different *shape*, not a lower number.** `Young child` seeds an
+  **allowlist** — "these six shows" — not a ceiling, because "everything rated U" is not what
+  anyone means by a toddler's tablet, and an allowlist fails closed by construction. The person
+  least able to report a mistake gets the predicate shape that cannot leak.
+
+**Status:** Phase 1 only insofar as it is schema — the per-axis columns and the
+"which source judged this" provenance field join
+[library-model.md](../design/plans/library-model.md)'s certification table. The template set
+itself is **not** Phase 1 and should not be built until there is a real library to test it
+against; a template whose blocked-item count was never checked against a real collection is a
+guess with a progress bar. Unresolved: whether to carry a curated descriptor source for the
+systems TMDB does not populate (Kijkwijzer publishes them; the licensing is unexamined), and
+whether the seven axes need an eighth for the thing households actually ask about most —
+jump scares distinct from sustained dread, which Kijkwijzer folds into `fear`.

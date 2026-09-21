@@ -73,6 +73,18 @@ field also records **which level it lives at** (Title, Edition, Version, File), 
 cross-level predicate is **ambiguous without a quantifier** — *any* version over 1080, or
 *all*? Both are wanted, so it is explicit rather than defaulted.
 
+### 1a. The registry carries the content axes, and unknown is not false
+
+[D131](../../decisions/working-notes.md). Seven descriptor axes — violence, fear, sex,
+discrimination, drugs, language, dangerous acts — are ordinary registered fields, which is what
+lets a role say *"no sex above 2 and no fear above 1"* without new machinery. Two registry
+properties they lean on hard, both already specified above: each is **tri-valued**, so
+`unknown` never coalesces to `none` (the nullability trap below, in the one binding where
+getting it wrong shows a child something); and each carries a **provenance** companion field,
+because a descriptor parsed from a `TV-14-SV` certification and one inferred from a genre are
+different qualities of fact and a household deciding how much to trust a template needs to see
+which it got.
+
 ### 2. Multi-valued fields and their count operators
 
 "Has genre X" and "has more than three genres" are different operators. Count operators must
