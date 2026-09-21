@@ -322,6 +322,43 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   **the core ignores what it commanded** ([D142](../../decisions/working-notes.md)). The
   regression this catches looks exactly like "the scanner went mad after I exported";
 
+## The subtitle-verification assertions
+
+[D147](../../decisions/working-notes.md), [D148](../../decisions/working-notes.md). These are
+the ones that keep a headline claim honest, and the first is the one that matters most:
+
+- **An unverified subtitle track is never presented as a verified one.** Every surface that
+  offers a track — the picker, the fetch result, the API — distinguishes *scored above
+  threshold*, *scored below*, and *never scored*. This fails closed: the default for a track
+  with no measurement is "not verified", not "presumably fine". Without this the feature is
+  the button everyone already dislikes, with extra machinery behind it.
+- **A deliberately desynced subtitle is corrected to within the same tolerance as one that was
+  never desynced.** Tier 3 gains a fixture film with a correct cue set and derived copies
+  carrying a constant offset, a 25/23.976 ratio, and both. This is a property test, not a
+  golden value: *corruption must not degrade the result*, which is the measured behaviour
+  (0.130 s worst-cue on Tears of Steel, identical across every injected corruption) and the
+  thing that makes ranking-after-correction valid.
+- **A subtitle for the wrong film is rejected.** The negative control is a second film's
+  subtitles against the first film's speech map. Measured separation was 3.4–3.6×; the gate
+  is that nothing from the wrong film clears the acceptance threshold.
+- **A user-set offset survives re-verification and outranks the computed one.** A human who
+  nudged and kept watching is ground truth, and the regression this catches is a background
+  re-score silently undoing it.
+- **The parser survives the real corpus.** Fixtures taken from actual releases: a `.srt` that
+  is an HTML page, `- >` in place of `-->`, cue text on the timestamp line, UTF-16 with a BOM,
+  and a legacy single-byte encoding. **7 of 65 files in two *official* distributions needed
+  tolerant parsing**, so this is the ordinary case, not the adversarial one — and a strict
+  parser's zero-cue result reaches the user as "the download failed"
+  ([threat-model.md](threat-model.md)).
+- **The speech map is derived, and a rebuild reproduces it.** Deleting it and rescanning
+  yields the same map and the same scores; a restore that omits it loses nothing
+  ([backup-restore.md](backup-restore.md)).
+
+And one for `assumptions/`, of the silent kind: **the VAD's output is pinned**. The detector is
+a third-party model, a model upgrade changes every score in the library, and the failure is
+invisible — subtitles quietly stop verifying, or quietly start. One short clip with a known
+speech fraction, asserted.
+
 ## The two UI gates, which exist to settle an argument
 
 [D138](../../decisions/working-notes.md), [D139](../../decisions/working-notes.md).

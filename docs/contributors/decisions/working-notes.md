@@ -335,7 +335,14 @@ worse than it looks: it forces a video transcode of content that would otherwise
 **Status:** **Extended by [D23](#d23--axis-switching-is-mid-session-by-default-burn-in-is-the-one-thing-that-breaks-it)**
 — scan-time extraction turns out to be the *enabling requirement* for mid-playback track
 switching, not merely a latency optimisation, and closed captions need separate handling
-entirely. Provisional; well-evidenced.
+entirely. **Extended again 2026-09-21 by
+[D147](#d147--a-subtitle-is-chosen-by-measurement-not-by-filename-and-the-correction-runs-before-the-choice)
+and [D148](#d148--the-speech-map-is-a-scan-artefact-and-the-reference-is-a-subtitle-track-before-it-is-audio)**
+— this decision governs subtitles that *exist*; the empty case and, more importantly, whether
+any subtitle we have is actually in sync with the audio are measured there. Note that the
+defect D11 cites as the field's worst, *subtitle desync on resume*, is a different bug from the
+one D147 addresses: this one is ours to cause, that one is the file's. **Both are now
+detectable.** Provisional; well-evidenced.
 
 ---
 
@@ -6564,6 +6571,7 @@ trickplay. It has since accumulated:
 | **segment detection** | [D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance), [D101](#d101--a-measurement-that-spans-files-is-a-core-supplied-job-the-node-never-chooses-the-set) |
 | subtitle overlay rendering | [D78](#d78--server-rendered-subtitle-overlays-are-a-third-rendition-and-they-dominate-burn-in) |
 | *(later)* content-safety inspection | [D61](#d61--containment-now-detection-later-and-plugin-shaped-four-affordances-to-keep-open) |
+| **speech map** *(added 2026-09-21)* | [D148](#d148--the-speech-map-is-a-scan-artefact-and-the-reference-is-a-subtitle-track-before-it-is-audio) |
 
 That is nine passes over the same files, several of them full decodes, on hardware whose honest
 low end is an 8 GB Celeron NAS ([test-hardware.md](../design/research/test-hardware.md)). Each
@@ -6592,6 +6600,14 @@ spins down ([D94](#d94--disk-spin-down-is-a-cost-of-the-snapshot-interval-and-ar
 "Navidrome-style scanner phases" shape [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret) removed, and it stays
 removed — these are passes over bytes, all of them reporting observations, with every
 interpretation still in the core.
+
+> **Amended 2026-09-21 by [D148](#d148--the-speech-map-is-a-scan-artefact-and-the-reference-is-a-subtitle-track-before-it-is-audio).**
+> A **tenth pass** — the speech map that subtitle verification aligns against. It is in the
+> cheap class (it never decodes video), it **fuses with the audio decode**
+> [D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)
+> and [D115](#d115--intro-detection-is-fingerprint-first-and-chromaprint-needs-a-stereo-downmix-or-it-fails-outright)
+> already perform, and its artefact is **1–3 kB per film**. The count moves to ten; the
+> two-population shape below does not change.
 
 **Status:** **Measured 2026-09-20**, and the shape is better than feared
 ([D114](#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video)).
@@ -7323,6 +7339,16 @@ problem in its sharpest form.
 So: **the default content hash is a sampling hash** — head, tail and size — at **153× less CPU
 and a thousand times fewer bytes**. It answers the question the node actually asks, which is
 *is this the same file I saw before*, not *is any other file identical to this one*.
+
+> **Note added 2026-09-21** ([D147](#d147--a-subtitle-is-chosen-by-measurement-not-by-filename-and-the-correction-runs-before-the-choice)).
+> The 1 MB head / 1 MB tail window turns out to pay for something it was not chosen for.
+> **OpenSubtitles' `moviehash` is the file size plus a sum of little-endian `int64`s over the
+> first and last 64 KiB; TheSubDB's is an MD5 of the same two 64 KiB blocks** — both a
+> **strict subset of the bytes this pass already reads**. So the subtitle providers' file
+> identifiers are extra arithmetic on an existing read rather than a second pass, which was
+> recorded in [subtitle-acquisition.md](../design/plans/subtitle-acquisition.md) as an open
+> cost question. They are provider identifiers, not our identity: this hash answers *is this
+> the same file I saw before*, theirs answers *has anyone else seen this exact file*.
 
 **Whole-file hashing stays, as a separate, opt-in, explicitly-scheduled pass** for the one
 thing that needs it: duplicate and re-encode detection
@@ -9603,6 +9629,13 @@ genuinely plan-sized (providers, per-user credentials, rate budgets, hash matchi
 verifying that a downloaded track is actually in sync), and per
 [plans/README](../design/plans/README.md) an un-fleshed idea is a file, not a bullet.
 
+> **Resolved 2026-09-21 by [D147](#d147--a-subtitle-is-chosen-by-measurement-not-by-filename-and-the-correction-runs-before-the-choice)
+> and [D148](#d148--the-speech-map-is-a-scan-artefact-and-the-reference-is-a-subtitle-track-before-it-is-audio).**
+> The crux this gap named — *"verifying that a downloaded track is actually in sync"* — turned
+> out to be the whole feature rather than a detail of it, and it is measurable: a normalised
+> score separated 64 correct candidates from 64 wrong ones at a fixed threshold, with no
+> errors. The plan is `PLANNED`.
+
 ### 3. There is no watchlist
 
 Zero occurrences in the tree. We have **favourite** (Title-level,
@@ -10325,3 +10358,216 @@ compatibility risk on exactly the filesystems this project targets in exchange f
 copy of five kilobytes. **A question about one filesystem's capabilities was enough to show
 the capability was not needed** — which is the cheapest way this kind of thing ever gets
 caught.
+
+---
+
+## D147 — A subtitle is chosen by measurement, not by filename, and the correction runs before the choice
+
+**Decided** (2026-09-21). Research: [subtitle-sync.md](../design/research/subtitle-sync.md).
+**Closes the crux question left open by**
+[subtitle-acquisition.md](../design/plans/subtitle-acquisition.md), which
+[D140](#d140--five-gaps-the-sentiment-corpus-exposed-three-declines-and-one-that-undercuts-a-headline-claim)
+opened as the gap that *"undercuts a headline claim"*.
+
+The project owner described the experience precisely: a list of candidates *"with some names
+more similar to your exact filename than others (not that a normal user would know what the
+original filename actually was)"*, about half failing to download, and the survivors *"either
+out of sync right off the bat, or drifts over time, or maybe — just maybe — it actually
+works."*
+
+### The cause is a ranking function that does not measure the thing
+
+Bazarr's vendored `subliminal` scores a candidate on `hash`, `title`, `year`, `source`,
+`edition`, `release_group`, `audio_codec`, `resolution`, `video_codec`, `hearing_impaired`,
+`streaming_service`. **Every term but `hash` is parsed out of the uploader's filename, and no
+term measures sync.** When the hash matches, the answer is right and cheap; when it does not —
+any re-encode, any differently-sized rip — the list is ordered by *filename resemblance*, and
+the user is asked to do the search by hand against a **5–20 downloads/day** budget
+([tech-licensing.md](../design/research/tech-licensing.md)).
+
+**And the fix is already in the box, switched off.** Bazarr vendors the whole of `ffsubsync`
+(MIT) at `libs/ffsubsync/`, and then ships `subsync.use_subsync = False`,
+`subsync.no_fix_framerate = True` — the drift fix disabled separately from the offset fix —
+and gates the whole thing on the *metadata* score being poor. Sync is wired in as **a repair
+for a suspicious-looking match**, never as a check on every download, and **its result is
+never fed back into which candidate to keep**.
+
+There is a real reason nobody ranks by it, and `ffsubsync` states it in its own source:
+*"The score's sign is meaningful even though its magnitude is not."* A raw convolution peak
+compares two alignments of one pair; it cannot compare two candidates.
+
+### So: a normalised score, computed on every candidate, after correction
+
+- **The score is a normalised binary correlation** (a φ coefficient) between the subtitle-on
+  indicator and a speech map, at 10 ms bins — bounded, comparable across candidates and across
+  films, which is the property the field lacks and the only reason ranking is impossible today.
+- **It is maximised over the correction, not over the raw file.** Offset in ±60 s and the
+  discrete framerate set (`24/23.976`, `25/23.976`, `25/24`, and inverses) are searched before
+  the score is taken. Measured on Tears of Steel: **inject a constant offset, a PAL framerate
+  ratio, or both, and the worst cue in the corrected file lands 0.130 s from its true place —
+  the same figure as a file that was never corrupted at all.** Correction is lossless.
+- **Therefore desync is not a selection criterion.** This is the inversion. Once correction
+  runs first, "is it in sync" has no discriminating power left, and the only question is
+  **does this subtitle belong to this film** — which separates cleanly: over **128 candidate
+  evaluations across two films, with half the correct candidates deliberately desynced, a
+  fixed threshold of r ≥ 0.25 accepted 64/64 right-film candidates and 0/64 wrong-film
+  candidates**, with a 3.4–3.6× margin. The top-scoring candidate for one of the two targets
+  was a file that had been desynced by −10.9 s with a 0.959 ratio, and that is the right
+  answer, not a flaw in the ranking.
+- **A low score is an answer.** When the detector cannot separate, it scores everything low
+  rather than scoring something wrongly high — measured on Sintel under a weak detector, where
+  every candidate landed near 0.15. **The correct output there is "I could not verify this",
+  not a silent guess.** That distinction is the whole difference between this and the button
+  everyone already hates.
+
+### What the user sees instead of the list
+
+- **Nothing, in the ordinary case.** The fetch is a background job: candidates are scored,
+  the best is corrected and written, and the subtitle is simply *there*. There is no list to
+  pick from because picking was never a human judgement — it was a measurement the software
+  declined to take.
+- **When nothing clears the threshold**, say exactly that — *"no subtitle for this could be
+  verified against the audio"* — and offer the unverified best as an explicit choice, labelled.
+  Never present an unverified track as though it were checked.
+- **The measured offset is shown, not hidden**, and D90's manual offset control
+  ([D90](#d90--playback-presentation-is-a-persisted-per-user-preference-set-and-captions-have-a-statutory-floor))
+  stays: it is the correction for the residual and for the piecewise case below.
+- **A user nudge is ground truth.** If someone moves the offset and keeps watching, that value
+  is persisted onto the track for everyone, and it is worth more than our score.
+
+### What this does not solve
+
+- **A structural break** — an ad-break-segmented broadcast rip, a different cut — is not an
+  offset and not a ratio, and a single linear correction cannot fix it. `alass` and
+  `ffsubsync --split-penalty` both implement piecewise alignment for this. **Out of scope for
+  the first version**; the honest behaviour is that the score is mediocre, the track is
+  labelled unverified, and the user gets the offset control. Recorded as an open item.
+- **Download failure.** Half the complaint is transport, not sync: Bazarr maintains a typed
+  back-off table with **3–6 hour** penalties for `DownloadLimitExceeded`. Nobody builds that
+  for a rare event. The answer is
+  [D148](#d148--the-speech-map-is-a-scan-artefact-and-the-reference-is-a-subtitle-track-before-it-is-audio)'s
+  budget accounting plus surfacing the *reason* — "your daily quota is spent", not "failed".
+
+### Consequences
+
+- **`subtitle-acquisition.md` moves from UNSPECIFIED to SPECIFIED**, and its stated crux —
+  *"is a downloaded track actually in sync? … is undecided and is the crux"* — is answered
+  with a measurement rather than a fallback to the user's offset control.
+- **A subtitle track carries provenance and a score.** `origin` (embedded, sidecar, fetched),
+  `provider`, `verified_score`, `applied_offset`, `applied_ratio`, and whether a human
+  overrode it. A track that was never verified must be distinguishable from one that scored
+  0.6, everywhere it is offered.
+- **The same measurement applies to subtitles we did not fetch.** An embedded track or a
+  sidecar the user already had can be out of sync too, and scoring it costs the same 8 ms.
+  **This is the part the incumbents cannot do at all**, because they have nothing to score
+  against — see [D148](#d148--the-speech-map-is-a-scan-artefact-and-the-reference-is-a-subtitle-track-before-it-is-audio).
+- **The provider hashes are free, which was an open cost question.** OpenSubtitles'
+  `moviehash` and TheSubDB's hash are both computed over the **first and last 64 KiB plus the
+  size** — a strict subset of the 1 MB head/tail window
+  [D116](#d116--the-content-hash-is-a-sampling-hash-whole-file-hashing-is-opt-in-and-separate)'s
+  sampling hash already reads. The node emits them from the same pass. That matters because a
+  hash match is the one thing the field's ranking already gets right, and it is the cheapest
+  way to skip the measurement entirely.
+- **`ffsubsync` and `alass` are prior art we should read, not reimplement blindly.** Both are
+  permissively licensed and both are better than a first attempt at the pieces they cover; the
+  normalised score and the "score every candidate" policy are the parts that are ours.
+
+**Status:** measured. What is unmeasured is the piecewise case and a real provider pool — our
+negative controls are a second film, which is a clean separation but an easier one than two
+different cuts of the *same* film.
+
+---
+
+## D148 — The speech map is a scan artefact, and the reference is a subtitle track before it is audio
+
+**Decided** (2026-09-21). Research: [subtitle-sync.md](../design/research/subtitle-sync.md).
+Implements the measurement [D147](#d147--a-subtitle-is-chosen-by-measurement-not-by-filename-and-the-correction-runs-before-the-choice)
+requires. Adds a pass to
+[D102](#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes).
+
+[D147](#d147--a-subtitle-is-chosen-by-measurement-not-by-filename-and-the-correction-runs-before-the-choice)
+needs a speech reference at the moment a subtitle is fetched, which may be months after the
+scan and on a node that is asleep. Recomputing it per candidate would put a decode on an
+interactive path. **It is not a computation; it is an artefact** —
+[principles §11](../principles/README.md), a value on a hot path is maintained, not computed.
+
+### Three references, in order, and the first one is free
+
+| Reference | Separation measured | Cost |
+| --- | --- | --- |
+| **An existing correct subtitle track** in the file | **0.65** | none — no decode at all |
+| **The centre channel** (`FC`) of the audio | 0.31 – 0.39 | one audio-only decode |
+| The stereo downmix | 0.22 – 0.23 | same |
+
+**A subtitle track beats the audio by a factor of two and costs nothing**, because dialogue
+timings are dialogue timings whatever language they are in. Anything with embedded subtitles —
+most of a real library — never needs the audio path at all.
+[D11](#d11--subtitles-are-a-subsystem-not-a-feature) already extracts embedded tracks at scan,
+so this reference exists the moment the pass that makes it does.
+(`ffsubsync` reaches the same conclusion: its default detector is named `subs_then_webrtc`.)
+
+**When audio is needed, take the centre channel.** Dialogue is mixed to `FC` on every 5.1
+master, `-af "pan=mono|c0=FC"` costs nothing at decode, and it improved separation on both
+films and both detectors.
+
+### The detector has to be a real one
+
+**A plain energy VAD is not a detector.** On Sintel it marked 42% of the film as speech and
+every alignment ran to the rail. The proof is the control: Blender publishes a
+**dialogue-free** music-and-effects master of the same film, and the energy detector reports
+essentially the same speech fraction on it as on the full mix. It was measuring the orchestra.
+
+**`webrtcvad` — the field's default — reports 31.5% speech on that dialogue-free track**, and
+on Sintel its separation is **0.002**, which is none. It works on the easy half of the content.
+**`silero` reports `0.000`**, and separation 0.309. At **233–387× realtime** on one CPU core it
+is affordable, and it is the difference between the feature working and not.
+
+### The pass, and what it costs
+
+A **tenth pass** for [D102](#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes),
+in the cheap class of [D114](#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video)
+because it never touches the video stream, and fusable with the existing audio decode that
+[D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)'s
+loudness and [D115](#d115--intro-detection-is-fingerprint-first-and-chromaprint-needs-a-stereo-downmix-or-it-fails-outright)'s
+fingerprint already perform — D102's 38%/45% fusion saving applies directly.
+
+| | Per 2-hour film | Whole reference library |
+| --- | --- | --- |
+| decode to mono 16 kHz (2,065× realtime) | 3.5 s | |
+| silero pass (233–387× realtime) | ~29 s | **≈14 h on one core, ≈2.5 h on six** |
+| *(compare)* trickplay | | **9.2 days** |
+
+*(The library figure is sized the same way [D114](#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video)
+sized loudness: 31 hours at 102× realtime puts ≈3,160 hours of content in the reference
+library, and decode plus detector compose to ≈223× realtime.)*
+
+**And the artefact is trivially small.** Run-length encoded at 10 ms bins: **1.1–3.2 kB per
+film, ≈7 MB for the whole reference library** — against trickplay's 5.7 GB and overlays'
+42 GB.
+It is the cheapest thing in the pipeline by three orders of magnitude.
+
+With the map stored, **the full search — seven framerate ratios × ±60 s of offset at 10 ms
+resolution, 84,007 evaluations — is 3–8 ms.** Scoring ten candidates is under a tenth of a
+second, on the core, with the node asleep.
+
+### Consequences
+
+- **The map lives with the Version**, beside the other scan artefacts, and is invalidated by
+  the same signal that invalidates them. It is **derived**, so
+  [backup-restore.md](../design/plans/backup-restore.md) need not carry it.
+- **Verification is available for subtitles we did not fetch.** Every embedded track and every
+  user sidecar can be scored for 8 ms. A library-wide *"these 14 subtitle tracks do not match
+  their audio"* report is a query, not a job — and no incumbent can produce it.
+- **Deferrable like every other pass** ([D102](#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes)):
+  a library that never fetches subtitles and has embedded tracks everywhere can skip it, and
+  a first fetch can trigger it for one file on demand.
+- **The parser is an adversarial-input parser.** **7 of 65 subtitle files in the two
+  *official* Blender releases needed tolerant parsing** — one is an HTML page saved as
+  `.srt`, several use `- >` instead of `-->`, several put the cue text on the timestamp line.
+  A strict parser returns zero cues and the user sees "it failed". This is
+  [threat-model.md](../design/plans/threat-model.md)'s hostile-data rule with a very ordinary
+  subject.
+
+**Status:** measured on two films. Unmeasured: the pass on NAS-class hardware, silero's cost
+on ARM, and whether the centre-channel advantage survives on stereo-only sources, where there
+is no `FC` to take.

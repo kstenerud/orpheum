@@ -105,6 +105,8 @@ exists. Every one is **p99 at 5 concurrent sessions** unless stated.
 | Time to first frame, direct play | **unset** | needs a server and a client |
 | **Focus latency** — D-pad press to selection moving ([D138](../../decisions/working-notes.md)) | **unset**, worst device in the house | needs [device-lab.md](device-lab.md); the complaint it answers is *"lags by an entire second"* |
 | **Click depth** — home to playing a chosen title ([D138](../../decisions/working-notes.md)) | **unset** | a count, not a latency; the complaint is *"one click instead of 30"* |
+| **Subtitle candidate scoring** ([D147](../../decisions/working-notes.md)) | **< 100 ms** for ten candidates | **Measured**: 3–8 ms each for the full ±60 s × 7-ratio search, given a stored speech map |
+| **Speech-map pass**, per 2-hour film ([D148](../../decisions/working-notes.md)) | **< 2 min** | **Measured**: ~32 s — 2,065× realtime to decode, 233–387× for the detector |
 
 The gap between target and baseline is deliberate and large: these are **regression gates**,
 not performance goals. A number ten to a thousand times the measured baseline fails only when
@@ -131,6 +133,8 @@ Each is a number some decision needed. **Six are now measured.**
 | Buffer reservoir for client re-picking | [D86](../../decisions/working-notes.md) | Open; needs a network |
 | Play-event log retention horizon | [D81](../../decisions/working-notes.md) | Open; the write ceiling is 9,415 commits/s, so the constraint is disk, not throughput |
 | Artwork sizes, format, cache ceiling | [artwork.md](artwork.md) | Open; needs the pipeline |
+| Subtitle-verification acceptance threshold | [D147](../../decisions/working-notes.md) | **Measured**: `r ≥ 0.25` gave 64/64 accepted right-film and 0/64 wrong-film over two films. Needs re-basing against a real provider pool, where the negatives are other cuts of the *same* film rather than a different film |
+| Speech-map storage, per library | [D148](../../decisions/working-notes.md) | **Measured**: 1–3 kB per film RLE; **1.2–3.2 MB per 1,000 films**, against trickplay's 5.7 GB |
 
 ## The walk, and the mistake that is invisible locally
 

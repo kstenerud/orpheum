@@ -196,7 +196,7 @@ memory.
 is a **maintained value**, updated when the rare event that changes it happens, and read as a
 lookup. Computing it per request is the default that keeps being wrong.
 
-This is a principle rather than a note because it has now been rediscovered three times
+This is a principle rather than a note because it has now been rediscovered four times
 independently, each time by a different route:
 
 | Value | Computed | Maintained | Found by |
@@ -204,9 +204,19 @@ independently, each time by a different route:
 | Recently added | 21.79 ms | 0.027 ms — **807×** | the 2026-09-20 benchmark |
 | FTS `bm25` ranking | 11.66 ms | 0.017 ms — **686×** | the same benchmark |
 | Pending-items count | 43.6 ms, or **no completion at all** without an index | 0.063 ms — **692×** | a *feature request*, 2026-09-21 |
+| Subtitle-sync check | an audio decode, **~32 s** — and a sleeping node to wake | **3–8 ms** from a stored **1–3 kB** map | a *user complaint*, 2026-09-21 |
 
-Two of those were audit findings and the third arrived attached to a new feature, which is what
-makes it a hazard rather than a bug list: **every new surface on that screen rediscovers it.**
+Two of those were audit findings, the third arrived attached to a new feature and the fourth
+attached to a complaint about somebody else's product, which is what makes it a hazard rather
+than a bug list: **every new surface rediscovers it.**
+
+**And the fourth row widens the principle past the home page**, which is where the first three
+found it. The speech map ([D148](../decisions/working-notes.md)) is not on any screen; the
+hot path is *a user waiting for a subtitle*. The shape is identical — a value that is
+expensive to derive, cheap to keep, and invalidated by a known rare event — so read "hot path"
+as **anything a person is waiting on**, not as "the home page". The storage argument is the
+same one every time, and it is never close: **1–3 kB per film, 3 MB for a thousand-film
+library**, against re-deriving it on demand.
 
 **The invalidation is not the hard part, which is why this can be absolute.** These values
 change only on rare, known events — a scan completing, a rule or role changing, a tag edit, a

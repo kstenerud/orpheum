@@ -272,6 +272,27 @@ guard the node enforces ([D100](../../decisions/working-notes.md)):
 [D38](../../decisions/working-notes.md)'s command channel is replayed after a node restart, so
 a delete keyed only on a path can destroy a different file that has since appeared there.
 
+### And two more from the subtitle work, 2026-09-21
+
+- **A subtitle track carries provenance and a verification result**
+  ([D147](../../decisions/working-notes.md)). `origin` (embedded / sidecar / fetched),
+  `provider`, `verified_score`, `applied_offset_ms`, `applied_ratio`, and whether a human
+  overrode it. Two of those are load-bearing rather than diagnostic: **a track that was never
+  verified must be distinguishable from one that scored 0.6 everywhere it is offered**, because
+  the whole point is not to present an unchecked guess as a checked one; and a **user-set
+  offset outranks our measurement**, so it has to be a different column from the one we
+  computed rather than an overwrite of it. Note this applies to tracks we did **not** fetch —
+  an embedded track can be out of sync too, and scoring it costs 8 ms.
+- **The speech map is an artefact at the Version**
+  ([D148](../../decisions/working-notes.md)). A 10 ms voice-activity bitmap, run-length
+  encoded — **measured at 143–331 bytes for a 12–15 minute film, 1–3 kB for a 2-hour one, and
+  1.2–3.2 MB for a thousand-film library**, against trickplay's 5.7 GB. It sits with the other
+  scan artefacts, is invalidated by the same signal, and is **derived**, so
+  [backup-restore.md](backup-restore.md) does not carry it. It exists so that verifying a
+  subtitle months after the scan does not require waking a node and decoding a film:
+  with it stored, the full offset-and-framerate search is **3–8 ms**
+  ([principles §11](../../principles/README.md) — maintained, not computed).
+
 ## Three cross-cuts from the review
 
 - **Store the node's raw observation, not only the interpretation**

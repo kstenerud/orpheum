@@ -78,7 +78,12 @@ running rather than when it ends.
 **What ships in the playback service:** ranged direct-play `GET`; the **three-axis rendition
 negotiation** (video ‖ audio ‖ subtitles, [D22](contributors/decisions/working-notes.md));
 **audio transcoding and remuxing**, which are LGPL-only and cover the most common real-world
-transcode; subtitle extraction at scan time with font attachments; trickplay sprites; a
+transcode; subtitle extraction at scan time with font attachments; **the speech map, and with
+it subtitle verification** ([D147](contributors/decisions/working-notes.md),
+[D148](contributors/decisions/working-notes.md)) — a tenth scan pass costing ~32 s a film and
+1–3 kB of storage, which is what lets us say a subtitle *matches the audio* rather than
+*matches the filename*, and which applies to tracks the user already had as much as to
+fetched ones; trickplay sprites; a
 **transcode-reason field** that can say "this server cannot transcode video"; and a capability
 handshake. Those last two are the seams that keep video transcoding additive — they must exist
 now even though nothing uses them yet.

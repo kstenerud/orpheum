@@ -151,7 +151,7 @@ Two rules:
   ([D73](../../decisions/working-notes.md)), so "why is my new file missing" has an answer
   instead of a mystery.
 
-## The node's work is a pipeline, and it now has nine passes
+## The node's work is a pipeline, and it now has ten passes
 
 [D102](../../decisions/working-notes.md). [D33](../../decisions/working-notes.md) gave the node
 "everything requiring access to a media file", and at the time that was five things. Counting
@@ -159,7 +159,8 @@ what has accumulated: enumerate · probe · content hash · subtitle extraction 
 ([D55](../../decisions/working-notes.md)) · thumbnails, trickplay and poster derivation
 ([D99](../../decisions/working-notes.md)) · loudness ([D83](../../decisions/working-notes.md)) ·
 segment detection ([D82](../../decisions/working-notes.md)) · overlay rendering
-([D78](../../decisions/working-notes.md)) — and later content-safety inspection
+([D78](../../decisions/working-notes.md)) · **speech map**
+([D148](../../decisions/working-notes.md)) — and later content-safety inspection
 ([D61](../../decisions/working-notes.md)).
 
 Each was added in isolation and each was individually cheap. **Measured 2026-09-20**
@@ -186,6 +187,14 @@ realtime; trickplay and blackdetect at ~14×. Over a 3,500-item reference librar
 - **Passes that share a decode may be fused**, and the scheduler has to know which. Measured:
   running loudness, trickplay and blackdetect as one invocation beats three separate runs by
   **38% on six cores and 45% on one** — the saving is larger on the machine that needs it more.
+  The tenth pass is the clearest case yet: the **speech map**
+  ([D148](../../decisions/working-notes.md)) wants the same audio decode that loudness
+  ([D83](../../decisions/working-notes.md)) and the fingerprint
+  ([D115](../../decisions/working-notes.md)) already perform, differing only in that it wants
+  the **centre channel** rather than a downmix — dialogue is mixed to `FC`, and taking it
+  instead improved subtitle-verification separation by 40–70% at no extra cost. Decode is
+  **2,065× realtime**; the detector on top of it is ~250×, so the whole pass is about **25 s
+  for a 2-hour film** and stays firmly in the cheap population.
 
 ### Playability first, and the user can jump the queue
 

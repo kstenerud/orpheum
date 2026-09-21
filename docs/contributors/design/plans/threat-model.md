@@ -66,6 +66,17 @@ and it means Jellyfin's threat model is not available to us. We have not written
   silent misparse rather than a crash. **The report parser is the unbudgeted part**: hostile
   JSON on the hot path needs stated bounds on record size, count and nesting depth, and has
   none.
+  **And one hostile parser arrives from an unglamorous direction**
+  ([D148](../../decisions/working-notes.md)): a **downloaded subtitle file**, which is
+  anonymous third-party text the user asked us to fetch and then render. The interesting part
+  is that it does not need an attacker to be malformed. **7 of 65 subtitle files in two
+  *official* Blender releases needed tolerant parsing** — one is an HTML page saved as `.srt`,
+  several write `- >` instead of `-->`, several put the cue text on the timestamp line — so
+  the ordinary corpus already exercises the tolerant path, and an anonymous upload pool is
+  strictly worse. Two consequences: the parser is a **parse-don't-validate boundary** like the
+  report parser, with bounds on cue count and file size; and a strict parser's *zero cues* is
+  a result the user sees as *"the download failed"*, which is half of the complaint the
+  feature exists to fix ([subtitle-acquisition.md](subtitle-acquisition.md)).
 - **Credential and token model.** Session lifetime, API key scoping and expiry, and the
   "Copy Stream URL leaks the session key" failure Jellyfin has open. The *shape* of signing in
   now has a home — [auth.md](auth.md), and device pairing is RFC 8628

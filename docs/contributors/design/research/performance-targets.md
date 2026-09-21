@@ -204,7 +204,9 @@ For a reference household library — **500 films at 110 min and 3,000 episodes 
 | blackdetect | **9.8 days** |
 
 **The pipeline is not nine expensive passes. It is one expensive pass, one optional expensive
-pass, and seven cheap ones.** Everything except trickplay and blackdetect totals about a day
+pass, and seven cheap ones.** *(A tenth pass, the speech map, was added 2026-09-21 by
+[D148](../../decisions/working-notes.md). It joins the cheap group — audio-only, ~32 s per
+2-hour film, and fusable with the loudness decode — so the shape here is unchanged.)* Everything except trickplay and blackdetect totals about a day
 and a half of single-core work on a 3,500-item library; those two are nineteen days between
 them.
 

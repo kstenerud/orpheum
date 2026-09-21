@@ -172,11 +172,12 @@ Notes on the shape:
   happen in media nodes; the core's whole input surface is HTTP, its own SQLite file, and node
   reports it validates at the boundary. A poster fetched from TMDB is bytes in flight, handed
   to the jail — TMDB is community-editable, so it is attacker-supplied like anything else.
-- **The node's work is nine passes now, and that is a first-class fact**
+- **The node's work is ten passes now, and that is a first-class fact**
   ([D102](../decisions/working-notes.md)). Enumerate · probe · content hash · extract
   subtitles · subset fonts · thumbnails, trickplay and poster derivation · measure loudness ·
-  detect segments · render subtitle overlays — each added separately, each individually cheap,
-  and nobody had added them up. (The same nine, in the same decomposition, in
+  detect segments · render subtitle overlays · build the speech map
+  ([D148](../decisions/working-notes.md)) — each added separately, each individually cheap,
+  and nobody had added them up. (The same ten, in the same decomposition, in
   [scanner.md](plans/scanner.md).) They are named, individually deferrable per library,
   separately reported and restartable, because the alternative on a Celeron NAS is a first
   scan that takes a week.
