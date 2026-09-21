@@ -49,7 +49,7 @@ an architecture that doesn't inherit Jellyfin's 2008-era assumptions.
 
 ## What we do differently
 
-Five choices, each traceable to a specific failure in the research:
+Six choices, each traceable to a specific failure in the research:
 
 1. **The client decides what to play, from a manifest.** No server-side device-capability
    database. The server advertises every rendition it can produce, including the untouched
@@ -60,18 +60,18 @@ Five choices, each traceable to a specific failure in the research:
 2. **Direct play is the default and always on offer.** Transcoding is the exception, it is
    explicable in the UI, and the user can override the decision in both directions.
    ([D4](../decisions/working-notes.md))
-4. **Subtitles are a subsystem.** Extracted at scan time with their fonts, served as HLS
+3. **Subtitles are a subsystem.** Extracted at scan time with their fonts, served as HLS
    renditions, rendered with libass on every client. This is the most-complained-about part of
    every competitor and the cheapest place to be visibly better.
    ([D11](../decisions/working-notes.md))
-5. **Your files stay yours.** Media read-only by default. The database is a rebuildable index,
+4. **Your files stay yours.** Media read-only by default. The database is a rebuildable index,
    not an authority. Your corrections are written back to sidecars where you grant a writable
    path, and per-user state deliberately is not ([D98](../decisions/working-notes.md)). No telemetry, no account,
    no storefront — as a stated promise. ([D7](../decisions/working-notes.md),
    [D13](../decisions/working-notes.md))
-6. **One excellent TV client beats five mediocre ones.** The project is judged on its TV app.
+5. **One excellent TV client beats five mediocre ones.** The project is judged on its TV app.
    ([D10](../decisions/working-notes.md))
-7. **Watch Together, because everyone else deleted theirs** — and Plex's own forum has a
+6. **Watch Together, because everyone else deleted theirs** — and Plex's own forum has a
    **350-post thread** asking for it back. Disney+, Amazon, Sling and even
    Plex withdrew their watch-party features — Plex's note says it *"won't be available for most
    platforms as they get the new experience"*, which names the cause: it lived in every client.
@@ -159,11 +159,13 @@ Notes on the shape:
   reports it validates at the boundary. A poster fetched from TMDB is bytes in flight, handed
   to the jail — TMDB is community-editable, so it is attacker-supplied like anything else.
 - **The node's work is nine passes now, and that is a first-class fact**
-  ([D102](../decisions/working-notes.md)). Enumerate, probe, hash, extract subtitles, subset
-  fonts, thumbnail and trickplay, derive posters, measure loudness, detect segments — each
-  added separately, each individually cheap, and nobody had added them up. They are named,
-  individually deferrable per library, separately reported and restartable, because the
-  alternative on a Celeron NAS is a first scan that takes a week.
+  ([D102](../decisions/working-notes.md)). Enumerate · probe · content hash · extract
+  subtitles · subset fonts · thumbnails, trickplay and poster derivation · measure loudness ·
+  detect segments · render subtitle overlays — each added separately, each individually cheap,
+  and nobody had added them up. (The same nine, in the same decomposition, in
+  [scanner.md](plans/scanner.md).) They are named, individually deferrable per library,
+  separately reported and restartable, because the alternative on a Celeron NAS is a first
+  scan that takes a week.
 - **The core needs no *video* encoder** — but it does encode audio. Every GPL trigger in FFmpeg
   is a video encoder, and the whole audio menu (AAC, AC-3, E-AC-3, FLAC, ALAC, Opus) is native
   LGPL, so audio costs nothing in licence or patent surface. Since the most common real transcode

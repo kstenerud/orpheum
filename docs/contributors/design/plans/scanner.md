@@ -5,7 +5,7 @@
 
 # Scanner
 
-- **Status:** PLANNED — designed 2026-09-17; relocated into the media node by [D33](../../decisions/working-notes.md); **Shape and identification corrected 2026-09-19 by [D59](../../decisions/working-notes.md)**; spin-down and two extra observation passes added the same day ([D94](../../decisions/working-notes.md), [D83](../../decisions/working-notes.md)).
+- **Status:** PLANNED — designed 2026-09-17; relocated into the media node by [D33](../../decisions/working-notes.md); **shape and identification corrected 2026-09-19 by [D59](../../decisions/working-notes.md)**; spin-down and two extra observation passes added the same day ([D94](../../decisions/working-notes.md), [D83](../../decisions/working-notes.md), [D102](../../decisions/working-notes.md)); **the pipeline measured and made steerable 2026-09-20** ([D114](../../decisions/working-notes.md), [D116](../../decisions/working-notes.md), [D118](../../decisions/working-notes.md)).
 - **Depends on:** library-model.md
 - **Feeds:** [identification.md](identification.md)
 

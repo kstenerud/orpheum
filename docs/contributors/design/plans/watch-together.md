@@ -4,8 +4,8 @@
 
 # Watch Together
 
-- **Status:** PLANNED — researched 2026-09-19 ([watch-together.md](../research/watch-together.md), [D62](../../decisions/working-notes.md)–[D64](../../decisions/working-notes.md)).
-- **Depends on:** [stream-service.md](stream-service.md), [web-client.md](web-client.md) (the SDK), [remote-access.md](remote-access.md) (for the off-LAN case), [sharing-model.md](sharing-model.md) (who may join — [D104](../../decisions/working-notes.md))
+- **Status:** PLANNED — researched 2026-09-19 ([watch-together.md](../research/watch-together.md), [D62](../../decisions/working-notes.md)–[D69](../../decisions/working-notes.md)); **membership, abilities and the cast path settled 2026-09-20/21 by the project owner** ([D117](../../decisions/working-notes.md)–[D124](../../decisions/working-notes.md)).
+- **Depends on:** [stream-service.md](stream-service.md), [web-client.md](web-client.md) (the SDK, and the cast receiver — [D124](../../decisions/working-notes.md)), [remote-access.md](remote-access.md) (for the off-LAN case). **Not** [sharing-model.md](sharing-model.md): [D117](../../decisions/working-notes.md) made the session link the grant, so this is the one access path that is deliberately not predicate-governed.
 
 ## Scope, in priority order
 
@@ -101,8 +101,9 @@ belongs to the transcoding plan, not this one.
    its own identity**, issued at join. That is what makes ejection and seamless link rotation
    possible; without it a participant is only identifiable by a link several people hold.
 2. ~~**Control is a per-participant capability**, defaulting to everyone~~ — **taken**
-   ([D117](../../decisions/working-notes.md)): it is now a creator-set policy with three
-   separate permissions, above.
+   ([D121](../../decisions/working-notes.md)): it is now a creator-set policy, chosen at
+   session creation, over a **closed table of abilities** rather than one flag — see the
+   abilities table below.
 3. **The client handles a *set* of remote audio streams** with per-source gain, even when the
    set has one member. Free, since per-source gain was already required — and it is what makes
    the voice companion below cost nothing extra.
@@ -162,22 +163,28 @@ So recovering from a leak never disturbs anyone:
 4. **The owner sees the roster live**, or cannot know to do any of this.
 
 **And the cap is the control that works before the owner notices.** At session creation the
-owner sets a **maximum number of simultaneous clients, with a small safe default** — small
-because [D69](../../decisions/working-notes.md) says the design is best at two and the
-motivating case is two people, visible at creation rather than buried, and raisable in one
-action at any time. It bounds the flood from a leaked link to one griefer rather than thirty,
-and it is simultaneously a **cost** control, because simultaneous clients are exactly what the
-household uplink and the relay pay for.
+owner sets a **maximum number of simultaneous participants, with a small safe default** —
+**participants, meaning people, not connected clients** ([D120](../../decisions/working-notes.md)
+corrects this decision's original wording; two people with voice companions are four clients
+and must not trip a cap of two). Small, because [D69](../../decisions/working-notes.md) says
+the design is best at two and the motivating case is two people; visible at creation rather
+than buried, and raisable in one action at any time. It bounds the flood from a leaked link to
+one griefer rather than thirty, and it is simultaneously a **cost** control — though the thing
+the uplink and the relay actually pay for is *streams*, which is why the cap is the bound and
+the per-guest health meter is the feedback.
 
 **A refused join is a signal.** "At capacity" never fires in a correctly-sized session, so
 several in a row is the earliest available evidence that a link has leaked — arriving before
 a stranger shows up in the roster. Surface it to the owner live, with the rotate action next
 to it ([principles §10](../../principles/README.md)).
 
-**The link is scoped**, which is what keeps the blast radius small enough for revocation to be
-a sensible control: it reaches the work the creator chose and nothing else — an Edition, or
-the Collection that is its series ([D79](../../decisions/working-notes.md)). One series, at
-most, for as long as the session lasts.
+**And what the link reaches is the session, not a library**
+([D122](../../decisions/working-notes.md)). That is what keeps the blast radius small enough
+for revocation to be a sensible control, and it is a **stronger** bound than scoping the
+session to one work — which is what this plan used to say, and which stopped being true when
+the host gained the right to change what plays mid-session. A link holder gets the current
+playback: no browse view, no item addressable by id, nothing enumerable. The bound does not
+depend on knowing the scope in advance.
 
 ### Abilities: a closed table, each one `group` or `host only`
 
@@ -470,7 +477,9 @@ methods.
 group-state record changing shape**. If either has to change, opening (1) or (3) was not left
 properly.
 
-**And the revocation path is tested, because it is the path nobody exercises until they need
-it** ([D117](../../decisions/working-notes.md)): a revoked participant is gone within one
-reconciliation interval, the remaining participants do not notice, and the re-formed session
-keeps them.
+**And the recovery path is tested, because it is the path nobody exercises until they need
+it** ([D117](../../decisions/working-notes.md), [D119](../../decisions/working-notes.md)): an
+ejected participant is gone within one reconciliation interval; **rotating the join link is
+invisible to everyone already in the session** and the old link admits nobody; and a client
+mid-join when the link rotates either completes or is refused, never landing half-joined.
+Nothing is re-formed — that was D117's conflation, and D119 removed the need for it.

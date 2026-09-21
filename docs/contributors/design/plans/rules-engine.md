@@ -4,7 +4,7 @@
 
 # Rules engine
 
-- **Status:** PLANNED — researched 2026-09-19 ([rules-engine.md](../research/rules-engine.md), [D75](../../decisions/working-notes.md)). Promoted into Phase 1 by [D20](../../decisions/working-notes.md). Gained a fifth binding 2026-09-19 ([D84](../../decisions/working-notes.md)).
+- **Status:** PLANNED — researched 2026-09-19 ([rules-engine.md](../research/rules-engine.md), [D75](../../decisions/working-notes.md)). Promoted into Phase 1 by [D20](../../decisions/working-notes.md). Gained a fourth and then a fifth binding the same day — sharing ([D76](../../decisions/working-notes.md)) and profile restriction ([D84](../../decisions/working-notes.md)).
 - **Depends on:** —
 - **Blocks:** [library-model.md](library-model.md) — the field registry and the tag storage choice are schema
 

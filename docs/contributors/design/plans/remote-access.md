@@ -108,15 +108,23 @@ is great for me, but not feasible for family".
 The self-hosted field's uniform answer is "set up a VPN". That is not an answer for the
 audience this project is for.
 
-## What the research round must cover
+## What the research round covered, and how it came out
 
-The mechanisms and their tradeoffs: UPnP/NAT-PMP port mapping and why it is unreliable; NAT
-traversal and hole punching; WireGuard-based meshes and what they demand of the *remote* user;
-relay through a rendezvous server and what that implies for a no-account promise; the CGNAT
-case; certificates and names for a server with no domain; and how each degrades when it fails.
+Done — [research/remote-access.md](../research/remote-access.md), 2026-09-18, extended
+2026-09-19. Kept here because the *answers* are what the rest of this plan rests on:
+UPnP/NAT-PMP port mapping and why it is unreliable; NAT traversal and hole punching (§3: a
+single hard NAT is beaten by port prediction in about two seconds, two of them need ~170,000
+probes per side); WireGuard-based meshes and what they demand of the *remote* user; relay
+through a rendezvous server; the CGNAT case; and certificates and names for a server with no
+domain, which turns out to need a signpost even on the LAN.
 
-The constraint that makes it hard: **D13 promises no required third-party account**, and most
-of the mechanisms that work well for non-technical users involve a third party somewhere. The
-research must find out whether an *optional*, self-hostable rendezvous is enough, or whether
-the promise and the feature are in genuine tension — and if they are, say so plainly rather
-than quietly weakening one.
+The constraint that made it hard: **[D13](../../decisions/working-notes.md) promises no
+required third-party account**, and most mechanisms that work for non-technical users involve
+a third party somewhere. **It resolved without weakening either side**, which was not
+guaranteed: the dial-out relay is a mode of our own binary
+([D71](../../decisions/working-notes.md)), so the third party is *optional and self-hostable*
+by construction, and the README's promise was restated honestly as *"we would only ever charge
+for things that genuinely require another machine"* rather than as a flat "no accounts ever"
+([D25](../../decisions/working-notes.md)). What is still open is above and in
+[overview.md](../overview.md) §Open problems: whether to operate a hosted one at all, which is
+a product decision.

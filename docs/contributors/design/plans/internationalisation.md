@@ -5,7 +5,7 @@
 
 # Internationalisation
 
-- **Status:** PLANNED — researched 2026-09-19; backed by [D45](../../decisions/working-notes.md)–[D51](../../decisions/working-notes.md).
+- **Status:** PLANNED — researched 2026-09-19; backed by [D45](../../decisions/working-notes.md)–[D58](../../decisions/working-notes.md) (the research doc itself backs D45–D54; the font chain, D55–D58, is the round's tail and lives in [stream-service.md](stream-service.md)).
 - **Depends on:** library-model.md (schema), scanner.md (regex corpus, path normalisation)
 
 ## Why it is on the list at all

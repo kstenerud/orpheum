@@ -61,7 +61,22 @@ mediaserver run                 # supervises every role enabled in config
 mediaserver core                # or run exactly one role, foreground
 mediaserver node
 mediaserver transcode
+mediaserver relay               # added 2026-09-19 by D71 — see below
 ```
+
+**There is a fourth role, and it arrived after this document was written.**
+[D71](../decisions/working-notes.md) makes the **relay** a mode of this same binary, run on any
+publicly reachable host, which the core **dials out to** — no port forwarding, no dynamic DNS,
+works behind CGNAT. It is a role in exactly the sense this section means: its own process, its
+own confinement, its own status record, observation-based liveness and the report-don't-exit
+rule, all inherited rather than re-specified ([D34](../decisions/working-notes.md),
+[D37](../decisions/working-notes.md), [D43](../decisions/working-notes.md),
+[D44](../decisions/working-notes.md)). Two things distinguish it from a node and both matter
+here: it never touches a media filesystem, and it is **untrusted by construction** — a rented
+box — so clients authenticate the *core*, never the relay. It is **blind but not opaque**
+([D73](../decisions/working-notes.md)): it reports throughput, connection state, RTT per leg
+and every drop, to the household's core, even when we operate the box. See
+[remote-access.md](plans/remote-access.md).
 
 Separate processes rather than goroutines because **Landlock is per-process and monotonic**
 (D26): a scanner wants read on media and write on its exchange directory, a transcoder wants

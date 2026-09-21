@@ -5,15 +5,17 @@ The recommended implementation plan, derived from the research in
 [`contributors/decisions/working-notes.md`](contributors/decisions/working-notes.md).
 
 Written 2026-09-17, revised the same day after the direct-play-first direction
-([D17](contributors/decisions/working-notes.md)); revised **2026-09-20** when the last two
-unspecified plans were researched
+([D17](contributors/decisions/working-notes.md)). Revised **2026-09-19** after an independent
+audit ([audit-2026-09-19.md](contributors/design/research/audit-2026-09-19.md),
+[D80](contributors/decisions/working-notes.md)–[D108](contributors/decisions/working-notes.md)),
+which added six schema items to Phase 1 and moved one thing out of Phase 4. Revised
+**2026-09-20** when the last two unspecified plans were researched
 ([D109](contributors/decisions/working-notes.md)–[D118](contributors/decisions/working-notes.md)),
 which put a measured *"17 minutes to a browsable library"* under Phase 1 and made the
-first-scan ordering a requirement; and revised **2026-09-19** after an
-independent audit ([audit-2026-09-19.md](contributors/design/research/audit-2026-09-19.md),
-[D80](contributors/decisions/working-notes.md)–[D95](contributors/decisions/working-notes.md))
-added six schema items to Phase 1 and moved one thing out of Phase 4. Pre-implementation. Phase
-boundaries are ordering constraints, not dates.
+first-scan ordering a requirement. Revised **2026-09-21** when Watch Together was settled by
+the project owner ([D117](contributors/decisions/working-notes.md)–[D124](contributors/decisions/working-notes.md))
+and finally acquired a phase. Pre-implementation. Phase boundaries are ordering constraints,
+not dates.
 
 ---
 
@@ -44,7 +46,21 @@ rewritten.
 
 ## Phase 1 — A server that is correct before it is featureful
 
-`library-model.md` → `scanner.md` → `stream-service.md` *(direct play only)*
+`library-model.md` → `scanner.md` → `identification.md` → `stream-service.md`
+*(direct play only)*, with `internationalisation.md` and `rules-engine.md` landing **before**
+the schema rather than after it.
+
+Two of those are easy to miss because they are not obviously Phase 1.
+**[identification.md](contributors/design/plans/identification.md)** was split out of the
+scanner by [D59](contributors/decisions/working-notes.md) — the node **observes**, the core
+**concludes** — and the split is what makes a parser improvement a re-interpretation pass over
+the database with every node switched off. And
+**[internationalisation.md](contributors/design/plans/internationalisation.md)** is
+schema-shaping in three places ([D45](contributors/decisions/working-notes.md),
+[D47](contributors/decisions/working-notes.md),
+[D48](contributors/decisions/working-notes.md)): the translation split, the materialised CLDR
+sort-key column, and the FTS5 tokeniser — **which is immutable once the virtual table exists**,
+so it cannot be deferred. Getting either wrong means the first migration is an i18n migration.
 
 The schema (**`Title → Edition → Version → File`** with Collections orthogonal —
 [D79](contributors/decisions/working-notes.md) corrected this from three levels on 2026-09-19 —
@@ -119,6 +135,13 @@ televisions never update.
 The shared TypeScript SDK is the real deliverable — D2 puts rendition choice on the client, and
 that is only safe if the probe-and-pick logic is written once and shared. The web UI is its
 first consumer and doubles as the admin surface.
+
+**Two things become buildable here rather than later**, and both are cheap because they are
+this client in a different shell. A **cast receiver** is a web app
+([D124](contributors/decisions/working-notes.md)) and is the answer for a Watch Together
+guest's television, so the build order is **web client → cast receiver**, well before our own
+TV client is finished. And **Watch Together's LAN half** needs nothing from Phase 6 — see
+below.
 
 ---
 
@@ -211,11 +234,46 @@ weakening one side. Note that Phase 4(b) and remote access are the same project 
 directions — and [D86](contributors/decisions/working-notes.md) makes that a dependency rather
 than an observation: **remote access ships broken on a bad link without 4(b)**.
 
-Both were substantially researched on 2026-09-18/19 and are now `PARTLY SPECIFIED` and
-`PLANNED` respectively; the relay mechanism is settled
-([D71](contributors/decisions/working-notes.md)) and a share turned out to be a predicate
+The mechanism is settled — the relay is a mode of our own binary that the core dials out to
+([D71](contributors/decisions/working-notes.md)), and a share turned out to be a grantee plus
+a predicate, a fourth binding of the rules engine
 ([D76](contributors/decisions/working-notes.md)). What is left here is the product decision,
 not the design.
+
+---
+
+## Phase 6b — Watch Together
+
+`watch-together.md` — which had no place on this roadmap at all until 2026-09-21, despite
+being one of the six things [overview.md](contributors/design/overview.md) names as what we do
+differently, and carrying eight decisions. It is here rather than in a phase of its own
+because **it splits along the same seam Phase 6 does**:
+
+- **The LAN half is buildable as soon as Phase 2 lands.** It needs `stream-service.md` and the
+  SDK, and nothing else. It exercises the whole sync machinery — clock offsets, suspensions,
+  command serialisation, the six-method client surface — with none of the NAT traversal
+  ([D62](contributors/decisions/working-notes.md)). Build it there and the hard part is done.
+- **The remote half is Phase 6**, because the motivating case is someone in another house and
+  that is `remote-access.md`. Voice needs no TURN service of its own
+  ([D68](contributors/decisions/working-notes.md)) — both parties are already connected to the
+  media server by construction, so the server relays it.
+
+The design constraint is the schedule risk, and it is hard: **the client-specific surface is
+six methods** ([D62](contributors/decisions/working-notes.md)). Five commercial
+implementations were withdrawn and Plex's own note gives the cause — theirs lived in every
+client. If a seventh method starts to look necessary, stop.
+
+What the owner settled in 2026-09-20/21, all of it schedule-relevant because it is session
+state rather than client work: the **session link is the grant** and revocation is the control
+([D117](contributors/decisions/working-notes.md)); a **link admits, a membership persists**, so
+rotation is seamless and ejection is owner-only, with a **cap on participants** as the control
+that works before anyone notices ([D119](contributors/decisions/working-notes.md)); a
+participant is a **person** with devices attached by role, which is what makes a phone a voice
+companion rather than a second guest ([D120](contributors/decisions/working-notes.md)); the
+session is the object and what plays is **mutable state on it**
+([D122](contributors/decisions/working-notes.md)); and the `playback` role may be a **cast
+receiver**, which is the best path for a guest and is Phase 2 work
+([D124](contributors/decisions/working-notes.md)).
 
 ---
 
@@ -235,8 +293,9 @@ Audiobookshelf's 1,191 open issues are the evidence.
 
 ## Unscheduled, and deliberately so
 
-Three plans from the audit have no phase because they are independent of the critical path and
-can land whenever there is room. They are listed rather than forgotten:
+Some plans have no phase because they are independent of the critical path and can land
+whenever there is room. Listed rather than forgotten — `ls contributors/design/plans/` is the
+authority, not this list:
 
 - **[accessibility.md](contributors/design/plans/accessibility.md)** — mostly already built by
   [D50](contributors/decisions/working-notes.md) and
@@ -296,8 +355,13 @@ live TV and DVR.
    identified — intro/credit detection, whose requirements match the transcoder's almost exactly
    with a completely different workload ([D20](contributors/decisions/working-notes.md)).
 8. **Client/server version skew** ([D85](contributors/decisions/working-notes.md)). Jellyfin
-   12.0 removed `/emby/` and `X-Emby-Authorization` outright and broke third-party clients and
-   every plugin. Our exposure is larger: our clients are first-party, ship through app stores,
+   12.0 did **two different things** to two legacy surfaces, and the difference is the whole
+   lesson: the `/emby/` and `/mediabrowser/` route prefixes are simply **gone** — a 404
+   mid-operation — while `X-Emby-Authorization` was put **behind `EnableLegacyAuthorization`**,
+   a flag that defaults off and is recoverable with one setting. Read on their master at
+   13.0.0, 2026-09-19; the write-ups say it was removed and the source says otherwise. One is
+   a break and one is a deprecation, and nothing in their process distinguishes them. Our
+   exposure is larger: our clients are first-party, ship through app stores,
    run on televisions that never update, and — under
    [D2](contributors/decisions/working-notes.md) — carry decision logic that cannot be fixed
    from the server. Mitigation is a written contract and a CI diff of the generated OpenAPI

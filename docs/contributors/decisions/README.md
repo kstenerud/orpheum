@@ -18,5 +18,12 @@ why, and the consequences — with a stable `D`-number that other docs cite.
   blockquote at the top of the decision says what changed — rather than marking the whole entry
   superseded, which would be false. [D7](working-notes.md) and [D24](working-notes.md) carry
   the first two examples, both from [D98](working-notes.md).
+- **A supersession is not finished until every citation is chased.** Marking the log is the
+  cheap half; the expensive half is `grep -rn 'Dnn' docs/` and reading each hit, because a
+  plan that cites the superseded clause goes on asserting it as current and nothing in the
+  log's strikethrough reaches it. The 2026-09-21 coherence pass found four such survivors of
+  [D104](working-notes.md)'s superseded entitlement half — including one in
+  `testing-strategy.md` that had become an assertion of the **opposite** of the design, which
+  is worse than a missing test because it would have failed a correct implementation.
 - A decision that has not been validated against real hardware or a real library says so, in
   its own **Status** line. Most of the early ones have not been.

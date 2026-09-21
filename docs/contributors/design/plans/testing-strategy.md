@@ -138,8 +138,12 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
 - a trailer never appears in the film list ([D97](../../decisions/working-notes.md));
 - a node refuses a delete whose target identity does not match
   ([D100](../../decisions/working-notes.md));
-- a user who cannot see a film cannot see the Watch Together group for it
-  ([D104](../../decisions/working-notes.md));
+- ~~a user who cannot see a film cannot see the Watch Together group for it
+  ([D104](../../decisions/working-notes.md))~~ — **removed**: D104's entitlement half was
+  superseded by [D117](../../decisions/working-notes.md), which makes the session link the
+  grant. The assertion that replaces it is the rotation and cap pair below, and it tests the
+  *opposite* property: **a link holder who has no account still joins**, and reaches the
+  current playback and nothing else ([D122](../../decisions/working-notes.md));
 - an adapter request carries the end user's authorisation, and a share predicate applies to it
   ([D105](../../decisions/working-notes.md));
 - **rotating a Watch Together join link is invisible to everyone already in the session**, the

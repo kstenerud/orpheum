@@ -107,10 +107,14 @@ know. **Do not merge across servers**; a client aggregating several shows severa
   ([D117](../../decisions/working-notes.md), superseding
   [D104](../../decisions/working-notes.md)'s entitlement half). The session link **is** the
   grant — no account, no per-person predicate — because the motivating case is someone who has
-  neither. What keeps that safe is scope plus revocation: the link reaches one work or one
-  series and nothing else, and a griefer is ejected by invalidating and re-forming the session.
-  Worth recording here rather than only there, because it is the one access path in the project
-  that does not compose with this document, and that is a choice rather than an oversight.
+  neither. What keeps that safe is **scope plus revocation**, and both have since been
+  sharpened: the link reaches *the current playback*, not a library and nothing addressable by
+  id ([D122](../../decisions/working-notes.md)); a **cap on participants** bounds a leak before
+  anyone notices; and the owner **rotates the join link** — the old one stops admitting and
+  keeps serving everyone already in — rather than tearing the session down
+  ([D119](../../decisions/working-notes.md)). Worth recording here rather than only there,
+  because it is the one access path in the project that does not compose with this document,
+  and that is a choice rather than an oversight.
 - **A bandwidth ceiling per share.** [remote-access.md](remote-access.md)'s economics assume
   nobody is pushing a 30 Mbps remux to five houses; the ceiling is the honest alternative to
   discovering the bill.
