@@ -186,12 +186,39 @@ sets `EnableAllFolders`, `EnableAllChannels`, `EnableAllDevices`, `EnableRemoteA
 `EnableContentDownloading` and `EnablePublicSharing` all `true` — so a new user sees every
 library, and **a newly added library becomes visible to everyone automatically**.
 
-**The failure mode to design against is a quarantine nobody drains.** If the queue is invisible
-or large, the children's library quietly stops growing and the household blames the server. So
-it is **a count, never a stream of notifications** ([D118](../../decisions/working-notes.md)
-makes items appear throughout the first scan; per-item alerts would mean thousands on day one),
-bulk categorisation is the normal path rather than a power-user one, and **a stale queue is
-reportable**: *"14 items have been waiting 30 days"* should surface before a child notices.
+### The queue drains because the blocked person feels it
+
+**The failure mode to design against is a quarantine nobody drains.** A dashboard metric
+reaches the admin who is already looking, which is the wrong person —
+[D133](../../decisions/working-notes.md) puts an alert on the **launch screen every user
+sees**, because the one with the incentive is the one being blocked:
+
+| Role | Message | Action |
+| --- | --- | --- |
+| Unrestricted / admin | *"28 items need rating"* | rate them; housekeeping |
+| Restricted | *"28 items are waiting to be rated"* | **ask** |
+
+**Give the ask a button.** *"Daaaaad! Rate the movie so I can watch it!"* is the mechanism
+working; a button makes it arrive as a list rather than a shout, batches a week into one
+request, and works when the two are not in the same house — which is the grantee case.
+
+**The alert counts items pending categorisation and never items a rule deliberately excluded.**
+That distinction is the whole disclosure question. *"28 waiting to be rated"* is a queue state;
+*"28 hidden from you"* is a filter disclosure. For a child they are nearly the same; **for a
+grantee they are not**, because the deliberately-excluded set is the household's private
+material, and announcing its existence invites the conversation the exclusion existed to
+prevent.
+
+**Suppressed during a root's first scan**, where everything is uncategorised and the alert
+would read *"3,500 items are waiting"* — noise that trains the household to ignore the surface
+permanently. Bulk categorisation is a setup step, not an alert.
+
+**And the count is a maintained counter, not a query.** Measured at 100,000 titles with 7.7%
+uncovered: the anti-join with no supporting index **did not complete in 30 s**; with a covering
+index it is **43.6 ms**, which already misses the 50 ms home-page target at a single reader
+before [D113](../../decisions/working-notes.md)'s "p99 at 5 concurrent" is applied; a
+maintained counter is **0.063 ms**, or **692×**. A stale queue stays reportable —
+*"14 items have been waiting 30 days"* should surface before a child notices.
 
 ## A certification is `(system, code)`, not a number
 

@@ -8731,3 +8731,102 @@ unresolved: whether rule suggestion ranks by precision, by coverage, or by a ble
 real library and a real admin to tune against, and guessing now would be the same mistake
 [D131](#d131--a-restriction-is-a-vector-not-a-ceiling-templates-are-seeds-and-they-say-what-they-hid)
 avoided by deferring the template set.
+
+---
+
+## D133 — The pending-items alert, which is how the queue actually drains
+
+**Decided** (2026-09-21), by the project owner. Resolves the open question in
+[D132](#d132--authoring-a-role-is-a-preview-loop-and-an-item-the-rules-cannot-judge-is-denied-not-shown)
+— *whether a restricted user is told that items are pending approval* — and settles the
+disclosure half of [sharing-model.md](../design/plans/sharing-model.md)'s equivalent question.
+
+**Yes, and the reasoning is better than the one I had.** D132 named *"a quarantine nobody
+drains"* as the failure mode and answered it with a metric. A metric reaches the admin who is
+already looking at a dashboard, which is the wrong person: the one with the incentive is the
+one being blocked. The owner's version, verbatim:
+
+> *"It makes sense for restricted users because then they say 'daaaaad! Rate the movie so I can
+> watch it!!!'"*
+
+**That is the drain mechanism, and it is self-sustaining in a way a dashboard is not.** A queue
+whose growth is felt by somebody gets emptied.
+
+### Two audiences, two messages
+
+| Role | Message | Action |
+| --- | --- | --- |
+| Unrestricted / admin | *"28 items need rating"* | rate them — they can already watch them, so this is housekeeping |
+| Restricted | *"28 items are waiting to be rated"* | **ask** |
+
+**Give the ask a button.** The shouting is the mechanism working; a button makes it arrive as a
+list rather than as a shout, batches a week of them into one request, and works when the child
+and the admin are not in the same house — which is the grantee case. Same shape as
+[D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)'s
+ejection prompt: the interface anticipates the real-world action instead of leaving it to the
+room.
+
+### The line that makes this safe to show anyone
+
+**The alert counts items pending categorisation. It never counts items a rule deliberately
+excluded.**
+
+That distinction is the whole of the disclosure question, and collapsing it would be the bug:
+
+- *"28 items are waiting to be rated"* is a **queue state**. It says the household has work to
+  do. Harmless, useful, and it is what makes the nag work.
+- *"28 items are hidden from you"* is a **filter disclosure**. It tells the viewer that a
+  deliberate exclusion exists and invites them to ask about it.
+
+For a child the two are nearly the same and both are fine. **For a grantee they are not**: the
+deliberately-excluded set is the household's private material — home video of the children
+([D131](#d131--a-restriction-is-a-vector-not-a-ceiling-templates-are-seeds-and-they-say-what-they-hid)) — and announcing its existence to a relative invites exactly the
+conversation the exclusion existed to avoid. So the count is over *pending* only, for everyone,
+with no per-role exception needed to make it safe.
+
+[sharing-model.md](../design/plans/sharing-model.md)'s *"whether a grantee sees that the
+library is filtered"* stays open, but it is now a **separate and much smaller question**,
+because the useful half has been answered without touching it.
+
+### It is suppressed during the first scan
+
+During initial setup every item is uncategorised, so the alert would read *"3,500 items are
+waiting"* — which is noise, not a nag, and it trains the household to ignore the surface
+permanently. [D118](#d118--the-scan-is-incremental-prioritised-and-steerable-and-playability-comes-first)
+makes items appear throughout the first scan, so this is not an edge case, it is day one.
+
+So: **the alert is suppressed while a root's first scan is in progress**, and initial bulk
+categorisation is a setup step rather than an alert. After that, 28 is a real number about a
+real week.
+
+### Measured: it is a home-page number, and the obvious version misses the budget
+
+The alert renders on the screen every user sees at launch, so it lands under
+[D113](#d113--a-target-is-a-percentile-at-a-stated-concurrency-at-two-library-sizes-against-a-frozen-baseline)'s
+home-page budget. Measured on the 100,000-title database, 7,692 titles uncovered (7.7%):
+
+| Implementation | p50 | max |
+| --- | --- | --- |
+| Anti-join, no supporting index — plan is `SCAN` | **did not complete in 30 s** | — |
+| Anti-join + covering index on `(system, title_id)` | **43.6 ms** | 57.6 ms |
+| **Maintained counter + partial index** | **0.063 ms** | 0.064 ms |
+
+**The indexed query already misses the 50 ms library-page target at a single reader**, before
+D113's *"p99 at 5 concurrent sessions"* is applied — and this is one role, where a household
+has several and an admin's view wants all of them.
+
+So **the count is a maintained counter, not a query**: updated when an item is ingested and
+when its metadata changes, one per role, which is single-digit work per change because roles
+are single-digit in number. **692× faster than the indexed query**, and the difference between
+a feature and a regression.
+
+**This is the third time.** D113 found two home-page queries that scale linearly — recently-added
+at **807×** and FTS `bm25` ranking at **686×**. This is a *new* one, arriving with a new
+feature rather than found in an audit, which reframes that finding: **it is not a list of two
+bugs, it is a hazard that every new home-page surface rediscovers.** Any number rendered on
+that screen is a maintained value until measured otherwise.
+
+**Status:** Unresolved — whether the ask button carries a message from the requester, which is
+obviously wanted and is also an unauthenticated-ish text channel from a restricted user to an
+admin, so it inherits [bug-reports.md](../design/plans/bug-reports.md)'s question about what a
+low-trust principal may put in front of a high-trust one.

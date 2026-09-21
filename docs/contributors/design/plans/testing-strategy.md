@@ -212,6 +212,15 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   [D7](../../decisions/working-notes.md)) — a classification a rescan drops is worse than none;
 - **one tag reaches every role**: tagging an item `scary` removes it from all three roles
   excluding `scary`, with no per-role step ([D132](../../decisions/working-notes.md));
+- **the pending-items alert counts only uncategorised items, never rule-excluded ones**
+  ([D133](../../decisions/working-notes.md)) — a grantee must not be able to infer the size of
+  the household's private set from a counter, which is the one way this surface could leak;
+- **the alert is suppressed during a root's first scan**, and appears afterwards
+  ([D133](../../decisions/working-notes.md));
+- **the pending count is read from a maintained counter, not computed** — asserted as a
+  latency gate, because the query form measured 43.6 ms against 0.063 ms and would pass every
+  correctness test while failing the home page ([D133](../../decisions/working-notes.md),
+  [D113](../../decisions/working-notes.md));
 - **the last `Administrator` role cannot be deleted**, and neither can the last admin user
   ([D130](../../decisions/working-notes.md));
 - **a node report that is malformed, enormous, or deeply nested is refused at a stated bound**

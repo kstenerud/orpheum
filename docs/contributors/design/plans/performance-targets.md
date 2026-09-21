@@ -56,6 +56,17 @@ than an aspiration.
 **bm25 ranking is linear in the number of matches, not results** — 6,589 matches scored to
 return 20. Search latency tracks match count, and the target must fail when it does.
 
+**And then a third one arrived with a new feature** ([D133](../../decisions/working-notes.md),
+2026-09-21), which reframes this section. The pending-items alert renders on the launch screen,
+and at 100,000 titles with 7.7% uncovered the anti-join **did not complete in 30 s** without a
+supporting index, ran at **43.6 ms** with a covering one — already missing the 50 ms budget at
+a *single* reader — and **0.063 ms** as a maintained counter. **692×.**
+
+So the finding here is not "two home-page queries scale linearly". It is that **every new
+surface on that screen rediscovers the hazard**, and this one was not found by an audit — it
+arrived attached to a feature request. The standing rule that follows: **a number rendered on
+the home page is a maintained value until measured otherwise.**
+
 **The node's passes split into two populations a thousand-fold apart**
 ([D114](../../decisions/working-notes.md)), decided entirely by whether a pass decodes video.
 Probe, remux, keyframe grid, thumbnail, fingerprint and subtitle overlay are 500–38,000×
@@ -80,6 +91,7 @@ exists. Every one is **p99 at 5 concurrent sessions** unless stated.
 | **Prioritised title → playable** ([D118](../../decisions/working-notes.md)) | **< 10 s from the request, mid-scan** | < 1 s of work, single-core |
 | Prioritised title → fully enriched except trickplay | < 5 min | ~67 s single-core |
 | Home page of 50 posters | **unset** | needs [artwork.md](artwork.md) |
+| Pending-items alert, per role ([D133](../../decisions/working-notes.md)) | **< 5 ms**, on the home page | **Measured**: 0.063 ms maintained; 43.6 ms as a query, which fails |
 | Time to first frame, direct play | **unset** | needs a server and a client |
 
 The gap between target and baseline is deliberate and large: these are **regression gates**,
