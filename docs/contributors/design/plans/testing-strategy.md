@@ -282,11 +282,15 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   by default and on any code path. The media tree is shared, so this one fails closed. It
   appears **only** when an export explicitly named one user
   ([D142](../../decisions/working-notes.md)), and then only that user's;
-- **a delete is a rename into the trash and is undoable**, the trash is **excluded from the
-  next scan** so the item does not reappear as new, and **nothing empties it automatically**
-  ([D143](../../decisions/working-notes.md)). The manifest in the trash directory is enough to
-  restore an item **after a rebuild-from-empty**, which is the case that proves it does not
-  depend on the database;
+- **no code path removes a file beneath a media root** ([D144](../../decisions/working-notes.md)).
+  Deletion is deferred and the policy is an *enforced absence*, so this is the assertion that
+  keeps it true — cheaper to maintain than the feature was to build, and it is
+  [D89](../../decisions/working-notes.md)'s actual purpose preserved: *"unstated, this ends
+  with `os.Remove` in a handler"*;
+- **a sidecar write is atomic and keeps what it replaced** — a crash mid-write leaves the
+  original intact, and overwriting an existing `.nfo` retains the previous version beside it
+  ([D144](../../decisions/working-notes.md)). We can destroy user data by *writing*, so this
+  gate does not wait for deletion;
 - **the export's default follows the account count** — one user preselects that user, two or
   more preselects none ([D143](../../decisions/working-notes.md));
 - **an export stops a scan running on the same root**, and the scan resumes rather than

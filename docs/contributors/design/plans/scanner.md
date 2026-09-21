@@ -248,9 +248,12 @@ is a promise about the future; items appearing in the library are evidence about
 
 ## Two things in the tree that are ours, and are skipped
 
-**The trash is excluded from enumeration** ([D143](../../decisions/working-notes.md)), or
-deleted items reappear as new ones on the next pass and the undo becomes a duplicate. It lives
-at the root of each library root so a delete can be a rename rather than a copy.
+**Retained replacements are excluded from enumeration.** When a sidecar write replaces an
+existing file the previous version is kept beside it
+([D144](../../decisions/working-notes.md)), and the scan must skip those or they come back as
+library items. The same exclusion covers the full trash directory if deletion is ever built
+([D143](../../decisions/working-notes.md)) — which is deferred, so today this is one pattern
+rather than a directory.
 
 **And a node's own writes come back as observations, which is a feature rather than a bug**
 ([D142](../../decisions/working-notes.md)). Exporting sidecars into a watched tree makes the

@@ -10031,3 +10031,113 @@ rename atomic.
 **Status:** Open — whether the trash is also where a *failed* or *interrupted* write lands, so
 that a half-written sidecar never sits beside the media. Probably yes, and it would make the
 trash the general undo surface for everything the node writes rather than only for deletion.
+
+---
+
+## D144 — Deletion is deferred, not designed away; the policy is the deliverable and the export already carries the danger
+
+**Decided** (2026-09-21), by the project owner: *"if deletion is disabled by default in the
+incumbents, then maybe it's not such an important feature. Maybe we just leave the possibility
+and only add it if people ask?"* **Defers the build half of
+[D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) and most of
+[D143](#d143--a-lone-user-is-not-a-household-an-export-ends-the-scan-and-anything-that-deletes-gets-a-trash) §3.**
+
+### The evidence is much stronger than the Jellyfin default
+
+Measured across the three corpora gathered for
+[D138](#d138--the-ui-is-judged-on-click-depth-and-focus-latency-theming-is-a-seam-we-ship-or-one-they-force)
+and [D139](#d139--their-worst-complaint-is-one-we-cannot-have-their-redesign-backlash-is-one-we-can-and-reversibility-is-the-only-cure-anyone-has):
+
+| Corpus | Mentions of deleting media |
+| --- | --- |
+| Top-reacted open issues, four Jellyfin repositories | **0 of 120** |
+| Plex forum, yearly top 50 topics | **0 of 50** |
+| App Store reviews, nine apps | **16 of 2,205 (0.7%)** — and see below |
+
+**The sixteen do not say what they look like they say.** Read individually: three are about
+removing an item from **Continue Watching**; four are about a service **deleting the user's
+own downloads** — the opposite complaint; two are Netflix removing titles from its catalogue.
+
+**Exactly one concerns deleting media at all**, and it is not a request for the feature:
+
+> *"Deleted files still show — I delete videos but they remain on view."* (Plex)
+
+That is a complaint that the server **failed to notice a deletion made outside it** — the
+inverse of wanting a delete button, and something we already handle: tombstone only on a
+positive report from a live node, never on silence, with
+[D41](#d41--diagnose-the-failure-boundary-by-walking-up-and-guard-the-silent-case-which-is-worse)'s
+shrinkage guard behind it.
+
+### And D89 was never a demand finding, which is the part that makes deferring clean
+
+D89 came from the audit's §11 — *"No deletion story at all. Zero occurrences in the tree."* Its
+own justification is about **policy**, not product:
+
+> *"Unstated, this ends with `os.Remove` in a handler and the read-only promise becomes a
+> comment."*
+
+**D89 asked "what is our policy?", not "should we build this?"** — and **"we don't" is a
+complete answer to the question it asked.** So this defers D89's *build* and keeps D89's
+*point*, which was always the more valuable half.
+
+**The policy becomes an enforced absence**, and that is cheaper to maintain than the feature is
+to build: **no code path removes a file beneath a media root**, asserted by a test rather than
+by intention. [D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)'s
+retention binding keeps *marking*; the user acts outside the product.
+
+**Which is arguably where it belonged.** Radarr and Sonarr already delete and replace files —
+that is their job, and they do upgrade-and-replace properly.
+[D20](#d20--plugin-architecture-constraints-and-four-things-the-catalogue-says-belong-in-the-core)
+says the public HTTP API matters more than the plugin API precisely because the community's
+real extension mechanism is a separate program. **Deleting media is acquisition-layer work, and
+we are the thing it drives.**
+
+### But deferring deletion does not defer the danger
+
+This is the part worth saying out loud, because it is easy to conclude the opposite.
+**[D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters)'s sidecar
+export already writes into the media tree.** So:
+
+- **the per-library writable path gets built anyway** — export needs it, and with it the
+  node-restart consequence [D143](#d143--a-lone-user-is-not-a-household-an-export-ends-the-scan-and-anything-that-deletes-gets-a-trash) recorded;
+- **we can already destroy user data.** Overwriting an existing `.nfo` can lose somebody's
+  hand-edited file — through a crash mid-write, or through a bug in the
+  preserve-unknown-elements rule. *"We never delete"* does not make the media tree safe once
+  we write to it at all.
+
+**So one piece of the trash survives the deferral, and it is justified by export rather than by
+deletion:**
+
+- **Write atomically** — temp file plus rename, which is
+  [D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global)'s own
+  `.partial` pattern reused, so a crash leaves the original intact.
+- **Retain the file we replaced**, once, beside it. That is the trash in embryo and it costs a
+  rename.
+
+### What stays recorded, and why that is the point
+
+**[D143](#d143--a-lone-user-is-not-a-household-an-export-ends-the-scan-and-anything-that-deletes-gets-a-trash) §3's
+trash design is not withdrawn — it becomes the precondition.** If deletion is ever asked for,
+shipping it *without* a trash is the mistake, and the reasoning that makes the trash
+non-obvious is already written down: per library **root** because `rename(2)` does not cross
+filesystems; excluded from scanning or items reappear; a manifest inside the trash so undo
+survives a rebuild-from-empty; and it never empties itself.
+
+**This is the design working as intended rather than wasted effort.** The decision log's job is
+to make the *next* decision cheap, and a deferred feature whose hard parts are already solved
+is in a better state than one nobody has thought about — which is exactly what D89 found when
+it discovered "delete" appeared nowhere in the tree.
+
+### Two deletion-adjacent wants that are real, and are already covered
+
+Worth naming so they are not mistaken for the deferred thing:
+
+- **Noticing deletions made outside us** — the single genuine signal in 2,205 reviews.
+  Covered.
+- **Removing an item from Continue Watching** — three mentions, and
+  [play-state.md](../design/plans/play-state.md) already requires *"remove this from my list
+  possible without marking something watched"*.
+
+**Status:** The trigger for revisiting is **a real request**, not another audit. And if it
+comes, the first question is whether the asker wants to delete a file or to stop seeing an item
+— because the corpus says those get conflated, and only one of them needs a writable path.

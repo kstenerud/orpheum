@@ -222,16 +222,26 @@ each lands here rather than being bolted on — the same argument
   the fixture list below already asserts, and which now has a second consumer where the failure
   is a child seeing something.
 
-**And one policy that is not a table.** Deletion ([D89](../../decisions/working-notes.md)): a
-writable path is opt-in per library and off by default; deletion is two-phase and names every
-file and its size; it happens in the node, never the core; and a retention rule may still only
-*mark*. **And it goes to a trash first** ([D143](../../decisions/working-notes.md)) — one per
-library **root**, because `rename(2)` does not cross filesystems and a central trash would turn
-every delete into a copy-and-delete that can fail half way. So the two phases become
-**confirm → trash → empty**, the middle step is a rename, and the trash never empties itself.
-It needs a small amount of schema after all: the manifest recording each item's original path,
-time and actor lives **in the trash directory** so it survives a rebuild-from-empty
-([D7](../../decisions/working-notes.md)), but the core still tracks what it moved. The tree previously said nothing at all about deleting media, which is how `os.Remove`
+**And one policy that is not a table — and the policy is now "we don't."** Deletion is
+**deferred** ([D144](../../decisions/working-notes.md)). It appears **0 times in 120
+top-reacted Jellyfin issues and 0 times in Plex's yearly top 50**, and the single relevant
+mention among 2,205 App Store reviews is a complaint that a server *failed to notice* a
+deletion made outside it. [D89](../../decisions/working-notes.md) came from an audit's
+"zero occurrences in the tree", not from demand: it asked *what is our policy*, and **"we
+don't" answers that question**.
+
+So there is no schema here, and instead **an enforced absence**: no code path removes a file
+beneath a media root, asserted by a test.
+[D75](../../decisions/working-notes.md)'s retention binding keeps *marking*; acting on the mark
+happens in the acquisition layer, which already does upgrade-and-replace properly.
+
+**What does not defer is overwrite safety**, because
+[D141](../../decisions/working-notes.md)'s sidecar export writes into the media tree regardless:
+writes are **atomic** (temp plus rename, [D39](../../decisions/working-notes.md)'s own
+`.partial` pattern) and **the replaced file is retained once, beside it**. That is the trash in
+embryo, justified by a feature we are building rather than one we are not.
+[D143](../../decisions/working-notes.md) §3's full trash design stays recorded as **the
+precondition** if deletion is ever asked for. The tree previously said nothing at all about deleting media, which is how `os.Remove`
 ends up in a handler. The list of files and sizes in that confirmation **is** the identity
 guard the node enforces ([D100](../../decisions/working-notes.md)):
 [D38](../../decisions/working-notes.md)'s command channel is replayed after a node restart, so

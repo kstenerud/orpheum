@@ -32,14 +32,22 @@ is by subject, not by convenience: **a sidecar carries what is true about the wo
 database carries what is true about a person**, because the media tree is shared with the
 household and often with a grantee.
 
-**Deleting is the one deliberate relaxation, and it is opt-in.** Users do delete things, and a
-principle that pretends otherwise gets bypassed rather than followed. So: a writable path is
-opt-in **per library** and off by default; deletion is two-phase and the confirmation **names
-every file and its size**; it happens in the node, never the core
-([D33](../decisions/working-notes.md)); and a retention rule may only ever *mark*
-([D75](../decisions/working-notes.md), [D89](../decisions/working-notes.md)). "Destructive
-actions say exactly what they will destroy" is the sentence above; this is its first real
-consumer.
+**Deleting media is deferred, and that is now the stated policy**
+([D144](../decisions/working-notes.md)). It appears **0 times in 120 top-reacted Jellyfin
+issues and 0 times in Plex's yearly top 50**; [D89](../decisions/working-notes.md) came from an
+audit noticing the tree said nothing, not from anyone asking. Its real purpose — *"unstated,
+this ends with `os.Remove` in a handler and the read-only promise becomes a comment"* — is
+kept as **an enforced absence**: no code path removes a file beneath a media root, asserted by
+a test. A retention rule may still only ever *mark*
+([D75](../decisions/working-notes.md)). **Running entirely read-only is a supported
+configuration**, not a cautious user's workaround.
+
+**But we do write to the media tree, so this principle still has a real consumer.**
+[D141](../decisions/working-notes.md)'s sidecar export needs an **opt-in writable path per
+library**, off by default; it happens in the node, never the core
+([D33](../decisions/working-notes.md)); writes are **atomic**, and **the file it replaces is
+retained**. "Destructive actions say exactly what they will destroy" applies to an overwrite
+as much as to a delete.
 
 **And where we do destroy, it is reversible** ([D143](../decisions/working-notes.md)). A
 delete goes to a **trash at the root of each library root** — one per root, because
