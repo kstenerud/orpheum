@@ -9132,3 +9132,101 @@ system spend the film correcting the user.
 all, which commands survive, and whether the receiver can distinguish a CEC pause from a
 sender pause. The third is the one that decides whether `userPausedLocally` can be reported
 accurately or only inferred.
+
+---
+
+## D137 — The cast receiver ships no subtitle renderer; Cast's own is the statutory one, and the cost is on the server
+
+**Decided** (2026-09-21). Research: [cast-protocol.md](../design/research/cast-protocol.md).
+**Simplifies [D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)** and corrects its justification for a custom receiver.
+
+The owner asked whether we are overcomplicating, and specifically about subtitles and audio
+tracks. **Both halves were right, in opposite directions.**
+
+### Stop building seven things the protocol already has
+
+| We specified | Cast provides |
+| --- | --- |
+| a receiver-side codec probe ([D2](#d2--playback-negotiation-the-client-decides-from-a-manifest)) | **`CastReceiverContext.canDisplayType()`** |
+| caption presentation controls ([D90](#d90--playback-presentation-is-a-persisted-per-user-preference-set-and-captions-have-a-statutory-floor)) | **`TextTrackStyle`** |
+| separate audio/subtitle switching ([D22](#d22--video-audio-and-subtitles-negotiate-as-independent-axes)) | `activeTrackIds`, `EDIT_TRACKS_INFO` |
+| a queue with next/previous ([D135](#d135--casting-on-your-own-is-a-device-delegation-not-an-invitation-the-credential-is-the-session-and-the-queue-is-next-up)) | `QUEUE_NEXT`/`QUEUE_PREV`, even on the Default receiver |
+| paging a long queue | `QueueBase.fetchItems`, windowed |
+| a credential for the receiver | `LoadRequestData.credentials` |
+| multi-device control ([D136](#d136--control-belongs-to-the-cast-session-not-to-the-sender-and-an-externally-paused-receiver-must-say-so)) | multiple senders per session |
+
+**On the control surface we were overcomplicating.** Every row above is a documented API.
+
+### The one that matters: Cast's caption styling *is* the statutory set
+
+`TextTrackStyle` carries `fontFamily`, `fontGenericFamily`, `fontScale`, `fontStyle`,
+`foregroundColor`, `backgroundColor`, `edgeType`, `edgeColor`, `windowType`, `windowColor` —
+and Google's documentation says outright that *"the window concept is defined in CEA-608 and
+CEA-708"*.
+
+**That is every row of 47 CFR §79.103**, which [accessibility.md](../design/plans/accessibility.md)
+carries as our floor: the eight fonts, 50–200% sizing, eight-colour text and background,
+background and window opacity separately, five edge attributes.
+
+**So the cast receiver ships no subtitle renderer.** Serve WebVTT, set `TextTrackStyle`, stop.
+Shipping jassub there would mean reimplementing — worse, and at our own cost — the reference
+implementation of the model the regulation was written around.
+[D90](#d90--playback-presentation-is-a-persisted-per-user-preference-set-and-captions-have-a-statutory-floor)
+noticed that [D55](#d55--the-served-font-set-is-the-cta-708-style-axis-in-variable-fonts-subset-per-subtitle)'s
+font set *"is already that list"* by accident; this is the same coincidence arriving from the
+platform side.
+
+### And the custom receiver's justification changes
+
+D124 said the Cast developer account and its $5 are forced *"because the default one can't
+render our subtitles"*. **More precisely: it is forced by Watch Together's six methods and by
+bitmap overlays.** Plain text subtitles work on the **Default Media Receiver** — so an MP4 of
+H.264 + AAC with WebVTT casts with **no custom receiver at all**, which is a real degraded mode
+rather than nothing, in the spirit of
+[D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three)'s
+*"the degraded path becomes the default path"*.
+
+### The other direction: Cast refuses more than we assumed, and the server pays
+
+- **No Matroska.** Containers are MP2T, MP3, MP4, OGG, WAV, WebM. MKV is the dominant container
+  in the library this project exists for, so **casting is remux-by-default** — inverting
+  [D4](#d4--three-playback-paths-direct-on-demand-segmented-background-prepared)'s
+  expectation for this one client. Architecturally free
+  ([D22](#d22--video-audio-and-subtitles-negotiate-as-independent-axes)'s
+  remux is LGPL and encoder-less) and it makes the remuxer a first-release dependency rather
+  than an eventual one.
+- **No SRT, no ASS/SSA, no PGS** — only TTML, WebVTT and CEA-608/708. SRT converts, which
+  stream-service already does. **ASS and PGS take [D78](#d78--server-rendered-subtitle-overlays-are-a-third-rendition-and-they-dominate-burn-in)'s server-rendered overlay**, composited as an image
+  layer over the video, which in a web app is an element rather than a project. D78 was argued
+  for moving a hostile font parse off an old television's FreeType; it turns out to be *the*
+  answer for a platform that will never support ASS. **A decision earning its keep on a client
+  that did not exist when it was written.**
+- **DTS and TrueHD: no. AC-3 and E-AC-3: passthrough.** The passthrough case validates
+  [D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)
+  exactly — a passed-through bitstream takes the gain as metadata, never a re-encode for a
+  volume change. DTS is the ordinary audio transcode D22 already owns, and it is the commonest
+  real transcode anyway.
+- **The old dongles are H.264/VP8 only** — HEVC arrives with the Ultra. A 10-bit HEVC file to a
+  third-generation dongle needs a **video** transcode, which is Phase 4. **So casting inherits
+  the transcoding schedule**, and until then the honest answer is the transcode-reason field
+  rather than a stall.
+
+### Net, and why it is the right trade
+
+**The receiver gets simpler** than D124 implied: no libass, no caption styling, no codec
+database, no bespoke track switching. It is the web player *minus* its subtitle renderer, plus
+an image layer.
+
+**The server gets heavier**: remux almost always, audio transcode often, video transcode
+sometimes. All of it already specified and mostly already scheduled. That is the trade worth
+taking — the expensive work stays on the machine we control instead of in a client we ship
+through a store and cannot update.
+
+**Status:** One unresolved risk, and it collides with D22. `HlsVideoSegmentFormat` defines both
+`FMP4` and `MPEG2_TS` and `#EXT-X-MEDIA` is documented as supported, but there are reports that
+**HLS with CMAF/fMP4 fails on some CAF receivers, which take only HLS-TS**. UNVERIFIED and
+device-dependent; it belongs in [device-lab.md](../design/plans/device-lab.md) beside the CEC
+questions, and it is the same shape as the demuxed-HLS risk
+[playback-survey.md](../design/plans/playback-survey.md) already carries for Tizen and webOS.
+If it holds, the cast path needs a muxed fallback and D21's no-grammar rule has to be
+re-examined against it.

@@ -39,6 +39,20 @@ time:
 > text field is clamped to slider min/max*, *Inconsistent size of subtitles*, *Subtitles dark
 > background box*.
 
+## And on the cast path the platform already implements it
+
+[D137](../../decisions/working-notes.md). Cast's `TextTrackStyle` carries `fontFamily`,
+`fontGenericFamily`, `fontScale`, `fontStyle`, `foregroundColor`, `backgroundColor`,
+`edgeType`, `edgeColor`, `windowType` and `windowColor`, and Google's documentation states
+that *"the window concept is defined in CEA-608 and CEA-708"*. **Every row of the table above
+is covered** — the eight fonts, the sizing, both colours, both opacities, the separate window,
+and the edge attributes.
+
+So the cast receiver serves WebVTT and sets `TextTrackStyle`, and **ships no subtitle renderer
+of its own**. Reimplementing this on a platform that already contains the reference
+implementation of the model the regulation was written around would be worse and would cost
+us money.
+
 ## We are already most of the way there, by accident
 
 [D55](../../decisions/working-notes.md) chose the served font set as "the CTA-708 style axis —

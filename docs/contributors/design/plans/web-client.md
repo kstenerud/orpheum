@@ -56,11 +56,24 @@ guest**, because we choose what our own users install and not what their friends
 makes it a closer neighbour of this plan than of [tv-client.md](tv-client.md), and the build
 order is **web client → cast receiver**, well before our own television client is finished.
 
-Two things it must inherit from here rather than reinvent: the SDK's **probe-and-pick**, because
-a receiver has a narrower decoder set than the phone driving it and the *receiver* must be the
-one choosing ([D2](../../decisions/working-notes.md)); and jassub, because the Default Media
-Receiver cannot render our subtitles, which is what forces a custom receiver and its $5
-developer account.
+**It inherits the SDK's probe-and-pick** — a receiver has a narrower decoder set than the phone
+driving it and the *receiver* must be the one choosing
+([D2](../../decisions/working-notes.md)) — and on Cast that is a documented API,
+`CastReceiverContext.canDisplayType()`, rather than something to build.
+
+**It does not inherit jassub** ([D137](../../decisions/working-notes.md), correcting an earlier
+reading). Cast's own `TextTrackStyle` carries `fontFamily`, `fontScale`, `foregroundColor`,
+`backgroundColor`, `edgeType`, `windowType` and the rest, and Google's documentation states
+that *"the window concept is defined in CEA-608 and CEA-708"* — **it is every row of the
+statutory caption set in [accessibility.md](accessibility.md)**, implemented by the platform.
+Serving WebVTT and setting `TextTrackStyle` is better than shipping libass there, and cheaper.
+What the receiver *does* need is an **image layer** for
+[D78](../../decisions/working-notes.md)'s server-rendered overlay, which is how ASS and PGS
+reach a platform that supports neither — an element over a `<video>`, not a project.
+
+So the custom receiver is forced by **Watch Together's six methods and by bitmap overlays**,
+not by subtitles in general: an MP4 of H.264 + AAC with WebVTT casts on the **Default Media
+Receiver** with nothing of ours involved, which is a real degraded mode.
 
 **And it has two consumers, not one.** Besides the Watch Together guest, it serves **ordinary
 casting to your own television** ([D135](../../decisions/working-notes.md)) — which is the

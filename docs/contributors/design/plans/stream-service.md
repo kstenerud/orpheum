@@ -148,6 +148,41 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   ordinary caching and any future fan-out, long before anyone tried to build either. Ordinary
   CDN practice; free if done now.
 
+## The cast path is remux-by-default, and it is a first-release dependency
+
+[D137](../../decisions/working-notes.md). Cast's supported containers are **MP2T, MP3, MP4,
+OGG, WAV and WebM** — **there is no Matroska**, and WebM is a subset an ordinary `.mkv` of
+H.264 + AC-3 does not satisfy. MKV is the dominant container in the libraries this project is
+for, so **casting inverts [D4](../../decisions/working-notes.md)'s expectation**: the common
+case is a remux, not a direct play.
+
+Architecturally that costs nothing — [D22](../../decisions/working-notes.md)'s per-axis remux
+is LGPL and needs no encoder — but it changes the schedule: **the remuxer has to be solid in
+the first release** rather than eventually, because the cast path leans on it constantly.
+
+Three more consequences land here:
+
+- **Subtitles.** Cast accepts TTML, WebVTT and CEA-608/708, and **nothing else** — no SRT, no
+  ASS, no PGS. SRT converts, which this service already does. **ASS and PGS take
+  [D78](../../decisions/working-notes.md)'s overlay rendition**, which was argued for moving a
+  hostile font parse off an old television and turns out to be the only route onto a platform
+  that will never support ASS.
+- **Audio.** **AC-3 and E-AC-3 pass through**, which is exactly
+  [D83](../../decisions/working-notes.md)'s rule — a passed-through bitstream takes the gain as
+  metadata, never a re-encode for a volume change. **DTS and TrueHD do not**, so they take the
+  ordinary audio transcode, which is the commonest real transcode anyway.
+- **Video.** Chromecast 1st–3rd generation decode **H.264 and VP8 only**; HEVC arrives with the
+  Ultra. So a 10-bit HEVC file to an older dongle needs a *video* transcode
+  ([transcoding.md](transcoding.md) §(a), Phase 4) and until then the honest answer is the
+  transcode-reason field rather than a stall.
+
+**And one unresolved risk that collides with [D22](../../decisions/working-notes.md).**
+`HlsVideoSegmentFormat` defines `FMP4` as well as `MPEG2_TS` and `#EXT-X-MEDIA` is documented,
+but there are reports that **HLS with CMAF/fMP4 fails on some CAF receivers, which accept only
+HLS-TS** — UNVERIFIED and device-dependent. It is the same shape as the demuxed-HLS risk
+[playback-survey.md](playback-survey.md) already carries for Tizen and webOS, and it belongs
+in the same measurement.
+
 ## Adaptation: the client re-picks, on its own buffer
 
 Added by [D86](../../decisions/working-notes.md). The design resolved the rendition list **once,

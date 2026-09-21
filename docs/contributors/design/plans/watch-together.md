@@ -385,7 +385,9 @@ narrower decoder set than the phone driving it, so a phone negotiating on its be
 device-capability database with one row, arriving by the back door —
 [D2](../../decisions/working-notes.md) exactly. The receiver is our web app; it probes itself,
 and Cast's advertised capabilities are a hint rather than an answer
-([D92](../../decisions/working-notes.md)).
+([D92](../../decisions/working-notes.md)). On Cast that probe is a documented API,
+**`CastReceiverContext.canDisplayType()`** ([D137](../../decisions/working-notes.md)) — this is
+the platform where D2 is easiest, not hardest.
 
 **What it costs:** a sync hop — `currentPosition()` now carries Cast's status latency inside
 it, against a 60–3000 ms budget ([D66](../../decisions/working-notes.md)) — which is

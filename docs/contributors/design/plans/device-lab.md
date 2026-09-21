@@ -43,6 +43,12 @@ cheap to collect once a receiver exists:
    because it decides whether `userPausedLocally` can be *reported* or only *inferred* — and
    an inferred one is indistinguishable from a buffering stall, which makes the reconciler
    fight the user.
+4. **Does HLS with CMAF/fMP4 load, or only HLS-TS?**
+   ([D137](../../decisions/working-notes.md).) `HlsVideoSegmentFormat` defines both and
+   `#EXT-X-MEDIA` is documented, but there are reports of fMP4 failing on some CAF receivers.
+   If true it collides with [D22](../../decisions/working-notes.md)'s separate-axis output and
+   the cast path needs a muxed fallback — the same question
+   [playback-survey.md](playback-survey.md) already asks of Tizen and webOS, so ask it once.
 
 ## 1. Cold hardware has its own failure modes
 
