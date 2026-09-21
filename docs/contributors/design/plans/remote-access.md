@@ -113,22 +113,34 @@ path; both assume a bounded amount of traffic and neither says what bounds it. T
 an outage will report it as an outage, and the fix for that is the refusal naming itself at the
 point of refusal, not a message to the owner an hour later.
 
-### And the one alert worth sending is the one D72 forbids
+### "Am I reachable?" is three questions, and each observer is already in place
 
-[D151](../../decisions/working-notes.md). *"Is my server reachable from outside?"* is the only
-question the interface cannot answer, because when the answer is no the interface is not there
-to give it. Every other state change a media server could announce is already a row on a
-screen — which is why [D151](../../decisions/working-notes.md) withdrew outbound notifications
-entirely.
+[D152](../../decisions/working-notes.md). This looked like a hole —
+[D151](../../decisions/working-notes.md) recorded it as a tension with
+[D72](../../decisions/working-notes.md) — and it is not one. It is
+[D73](../../decisions/working-notes.md)'s three vantage points applied to a question nobody
+recognised as the one they answer:
 
-This one is real, and it is an **outside-in health check** rather than a notification. We
-cannot currently ship it: **the only component of ours outside the house is the relay**
-([D71](../../decisions/working-notes.md)), and
-[D72](../../decisions/working-notes.md) deliberately gives it **no accounts and no data**, so
-it holds no address to reach the owner at — and giving it one is the first thing that would
-breach that promise. Recorded as a genuine tension. The honest interim answer is the one this
-audience already uses: an external uptime check against the relay's public endpoint, which
-needs nothing from us beyond that endpoint existing.
+| Question | Observer | Why it needs nothing new |
+| --- | --- | --- |
+| Is the core connected to the relay? | **the core** | it holds the dial-out ([D71](../../decisions/working-notes.md)), so a drop is a local fact; [D37](../../decisions/working-notes.md) already judges liveness from observation |
+| Is the relay healthy and serving? | **the relay** | it reports connection state, RTT per leg, drops and error codes to the core ([D73](../../decisions/working-notes.md), [D34](../../decisions/working-notes.md)) |
+| Does the whole path work? | **a client** | it is the only thing that traverses client → relay → core → node |
+
+**So nothing is pushed and nobody is alerted**, and the two small things this does require are
+both worth having on their own:
+
+- **The client names the failing hop, not "cannot connect".** No network / relay unreachable /
+  relay up but core not dialled in / core up but media node asleep — four sentences, four
+  different remedies, and **three of them end the support conversation** because only one is
+  the user's to fix. [principles §3](../../principles/README.md) and
+  [D92](../../decisions/working-notes.md)'s *a refusal names itself*, extended: a connection
+  failure names its hop too.
+- **On reconnect, the relay hands the core what it saw during the gap** — the count of
+  connection attempts and the window, never who. [D72](../../decisions/working-notes.md) is
+  untouched, and it is [D40](../../decisions/working-notes.md)'s rule that a failure record
+  carries the scope of what was missed: a gap with no observations is ambiguous between
+  *nothing happened* and *I was not there*, and an annotated one is not.
 
 ## Why it matters more than its size suggests
 

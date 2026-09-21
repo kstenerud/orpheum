@@ -70,10 +70,13 @@ server serves what is already there, so every state change it could announce is 
 on a screen. Measured, notifications drew **8 reactions across the ten video repositories**,
 against 479 for subtitles.
 
-The one question a UI genuinely cannot answer — *is the server reachable from outside?* — is an
-**outside-in health check** rather than a notification, and it belongs to
-[remote-access.md](remote-access.md), where it collides with
-[D72](../../decisions/working-notes.md).
+The apparent exception — *is the server reachable from outside?* — turned out not to be one
+([D152](../../decisions/working-notes.md)). It decomposes into three questions whose observers
+already exist: the **core** holds the dial-out so it knows, the **relay** reports its own view
+like every role here, and only a **client** traverses the whole path. That is
+[D73](../../decisions/working-notes.md)'s table, and it lives in
+[remote-access.md](remote-access.md). **So there is no push half at all**, not even a narrow
+one.
 
 ## What it must never expose
 

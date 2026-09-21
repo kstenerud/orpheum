@@ -10916,18 +10916,21 @@ public API.
 
 ### The one residue, and our own architecture forbids it
 
-**"Is my server reachable from outside?"** is the only question a UI genuinely cannot answer,
-because if the answer is no, the UI is not there to say so. It is real, and it is not a
-notification subsystem — it is an **outside-in health check**, and the interesting part is that
-we cannot ship it as designed:
-
-the only component of ours positioned outside the house is the relay
-([D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it)), and
-[D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts) deliberately
-gives it **no accounts and no data** — so it holds no address to reach the owner at, and giving
-it one would be the first thing to breach that promise. **The single notification worth sending
-is the one D72 forbids.** Recorded in [remote-access.md](../design/plans/remote-access.md) as a
-line item and a genuine tension, not as a plan.
+> ~~**"Is my server reachable from outside?"** is the only question a UI genuinely cannot
+> answer … the only component of ours positioned outside the house is the relay, and D72
+> deliberately gives it no accounts and no data, so it holds no address to reach the owner at.
+> **The single notification worth sending is the one D72 forbids.**~~
+>
+> **Wrong, and corrected the same day by
+> [D152](#d152--reachability-is-three-questions-with-three-observers-and-all-three-are-already-in-place).**
+> There is no blind spot: **the core holds the dial-out**
+> ([D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it)), so a dropped relay
+> connection is a *local* fact needing no messenger; the relay reports its own view to the core
+> like every other role ([D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque));
+> and only a client traverses the whole path, so the end-to-end check is a client action. I
+> repeated the exact conflation D73 exists to correct — *no account to notify* is not *nothing
+> to say* — one decision after citing D73 elsewhere. **The exception is withdrawn too**, which
+> makes this decision's withdrawal complete rather than hedged.
 
 ### The method error, because it will recur
 
@@ -10947,3 +10950,92 @@ Jellystat's 2,472★ is an independent artefact for it.
 
 **Status:** withdrawn. `notifications.md` is deleted rather than archived because it was never
 designed — there is nothing to archive, and this entry is the record.
+
+---
+
+## D152 — Reachability is three questions with three observers, and all three are already in place
+
+**Decided** (2026-09-21). **Corrects the residue
+[D151](#d151--withdrawn-notifications-a-media-server-has-nothing-you-are-waiting-for-and-its-ui-is-the-notification)
+left behind**, which claimed a blind spot that does not exist. From the project owner:
+
+> *"If we want to know if we're reachable, the relay will know. If the connection between the
+> relay and the core doesn't work, the core can find out easily. If we want to test the whole
+> pipeline, the client app can do it."*
+
+All three are right, and together they dissolve the problem rather than solve it.
+
+### The error in D151
+
+D151 kept one residue — *"is my server reachable from outside"* — and called it a genuine
+tension with [D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts),
+on the grounds that the only component outside the house is the relay and the relay holds no
+address to reach the owner at.
+
+**That is the same category error
+[D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque) was
+written to correct**, made one decision after citing D73 elsewhere. D73 opens by saying of
+D72: *"That conflated two different things and got the conclusion backwards"* — blindness is
+about **custody**, not **sight**. D151 conflated a second pair the same way: the relay having
+**no account to notify** is not the relay having **nothing to say**. It reports to the core,
+as every role does.
+
+And the framing was wrong before that even mattered, because **nobody needs to be told**.
+
+### Three questions, and each already has an observer in the right place
+
+| Question | Who knows, and how | Already decided by |
+| --- | --- | --- |
+| **Is the core connected to the relay?** | **the core** — it holds the dial-out socket, so a drop is a *local* fact needing no messenger | [D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it), and [D37](#d37--the-core-judges-liveness-from-observation-not-from-a-node-declared-interval)'s rule that liveness is judged from observation |
+| **Is the relay itself healthy and serving?** | **the relay** — throughput, connection state, RTT per leg, drops, error codes — reported to the core over the channel it already has | [D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque), [D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle) |
+| **Does the whole path work end to end?** | **a client** — the only thing that traverses client → relay → core → node → bytes | [D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque)'s client vantage, piped through the relay |
+
+That is D73's own table, which already existed, applied to a question I failed to recognise as
+the one it answers. **There is no blind spot and no tension with D72.** The information already
+flows the right way; the only thing missing was noticing.
+
+### What follows: the useful output is the hop, not the alarm
+
+The person who discovers an outage is **someone holding a client, trying to watch something**.
+They do not need an alert — they are already looking. What they need is **which hop failed**,
+because each one has a different remedy and only one of them is theirs:
+
+| What the client can distinguish | What the user should do |
+| --- | --- |
+| no network at all | fix your wifi |
+| relay unreachable | nothing — it is ours, and saying so stops a support request |
+| relay up, core not dialled in | the server at home is off or has lost its uplink |
+| core up, media node unreachable | the NAS is asleep or gone ([D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle)'s dead-versus-wedged, surfaced) |
+
+This is [principles §3](../principles/README.md) and
+[D92](#d92--a-failed-rendition-falls-to-the-next-one-and-the-client-remembers-the-server-still-has-no-device-database)'s
+*a refusal names itself*, extended one step: **a connection failure names its hop too.** "Can't
+connect" is the message every competitor ships and it is the one that generates the support
+request; four sentences instead of one is the entire fix, and three of them end the
+conversation.
+
+### The one thing to build, and it is small
+
+**On reconnect, the relay hands the core what it saw during the gap** — the count of connection
+attempts and the window they fell in. Not who: counts and times, so
+[D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts) is untouched
+and there is still nothing to subpoena.
+
+That turns *"was I unreachable last Tuesday?"* from a guess into a row in the core's own log,
+and it is the shape
+[D40](#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope)
+already established: **the record of a failure carries the scope of what was missed.** A gap
+with no observations is ambiguous between "nothing happened" and "I was not there"; a gap
+annotated on reconnect is not.
+
+### And this is why D151's withdrawal was right rather than merely defensible
+
+D151 withdrew notifications and kept one exception, which is the shape a bad decision usually
+takes. **The exception is gone too**, and for a better reason than the original: not *"the
+demand is small"* but *"the observation already exists, at the component best placed to make
+it, and the person who cares is already holding a screen."* Nothing is pushed anywhere,
+`observability.md` needs no push half, and the relay stays accountless.
+
+**Status:** corrects D151's residue; adds one relay behaviour (gap annotation on reconnect) and
+one client requirement (name the failing hop), both recorded in
+[remote-access.md](../design/plans/remote-access.md).

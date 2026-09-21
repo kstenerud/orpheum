@@ -377,6 +377,13 @@ speech fraction, asserted.
   never-scored item.
 - **A statistics page shows a user only their own history unless the role grants otherwise**
   ([play-statistics.md](play-statistics.md)).
+- **A client names the failing hop** ([D152](../../decisions/working-notes.md)). Four
+  fixtures — no network, relay unreachable, relay up with the core not dialled in, core up
+  with the media node asleep — and four distinguishable messages. *"Cannot connect"* for any
+  of them is the failure, because it is the message that generates the support request.
+- **The relay's gap annotation carries counts and a window, never an identity**
+  ([D72](../../decisions/working-notes.md), [D152](../../decisions/working-notes.md)). Fails
+  closed, and it sits with the other privacy assertions rather than the connectivity ones.
 
 ## The two UI gates, which exist to settle an argument
 
