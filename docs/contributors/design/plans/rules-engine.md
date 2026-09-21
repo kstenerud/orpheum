@@ -33,6 +33,13 @@ same stored query at different times with different effects.
 | Share ([D76](../../decisions/working-notes.md)) | grants visibility, **fails closed** | on every access path |
 | Profile restriction ([D84](../../decisions/working-notes.md)) | limits visibility, **fails closed** | on every access path |
 
+**The last two bind to a *role*, not to a user** ([D130](../../decisions/working-notes.md)).
+Both were originally "a grantee plus a predicate"; a role is a named object carrying one
+predicate and a closed capability set, and a user is assigned to exactly one. So the two
+collapse into one binding evaluated once per role rather than once per person — *"Kids"* is
+defined in one place and three children point at it. A share with one grantee is a role with
+one member.
+
 The last two were added after the fact and cost nothing, which is the argument for having built
 this first. "Rating at or below 12 in the household's system, and not tagged `horror`" is a
 kids profile; it is also just a rule.

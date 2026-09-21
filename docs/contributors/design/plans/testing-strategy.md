@@ -176,6 +176,17 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   catches is a guest quietly becoming a principal, which is a griefer who survived rotation;
 - **a non-admin cannot create a user**, and an admin's own play state is separate from every
   other user's ([D125](../../decisions/working-notes.md));
+- **editing one role changes every member of it** — raise the `Kids` ceiling once and all three
+  children see the new set, with no per-user step ([D130](../../decisions/working-notes.md)).
+  The inverse is the regression that matters: **no policy is reachable that exists in one
+  child's account and not the others'**;
+- **a per-user exception can only narrow.** A deny entry removes an item; there is no per-user
+  mechanism that grants one ([D130](../../decisions/working-notes.md));
+- **a role with `host_watch_together` off cannot mint a session link**, by any route including
+  the API directly ([D130](../../decisions/working-notes.md)) — a child who can invite
+  strangers defeats the visibility predicate entirely;
+- **the last `Administrator` role cannot be deleted**, and neither can the last admin user
+  ([D130](../../decisions/working-notes.md));
 - **a node report that is malformed, enormous, or deeply nested is refused at a stated bound**
   rather than parsed ([D126](../../decisions/working-notes.md)) — the core parses 50.8 MB of
   attacker-influenced JSON per scan and the bounds do not exist yet;

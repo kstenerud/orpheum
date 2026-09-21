@@ -111,6 +111,12 @@ schema, and `library-model.md` is here:
   needs this, and flattening national rating systems to an integer fails *open*.
 - **People as entities with provider identity**
   ([D95](contributors/decisions/working-notes.md)) — never keyed on the display name.
+- **A `role` table, and one `role_id` per user**
+  ([D130](contributors/decisions/working-notes.md)). A role is a named policy object — a closed
+  capability set plus one rules-engine predicate — so "Kids" is defined once and children are
+  assigned to it. Schema, and therefore here. Jellyfin's `UserPolicy.cs` is the warning: **44
+  settable fields per user and no grouping**, which is what happens when there is no way to say
+  "these people are the same".
 - **Episode orderings and extras** ([D96](contributors/decisions/working-notes.md),
   [D97](contributors/decisions/working-notes.md)) — D79's correction repeating twice more. An
   episode needs a position *per ordering* (aired, DVD, absolute), and an extra is a typed

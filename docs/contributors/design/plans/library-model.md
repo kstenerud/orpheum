@@ -3,7 +3,7 @@
 
 # Library model
 
-- **Status:** PLANNED — designed 2026-09-17; **reviewed and corrected 2026-09-19** ([library-model-review.md](../research/library-model-review.md), [D79](../../decisions/working-notes.md)); **nine more schema items added by the audit the same day** ([audit-2026-09-19.md](../research/audit-2026-09-19.md), [D81](../../decisions/working-notes.md)–[D84](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D95](../../decisions/working-notes.md)–[D97](../../decisions/working-notes.md)), plus the sidecar split ([D98](../../decisions/working-notes.md)) and a device scope on the preference table ([D103](../../decisions/working-notes.md)).
+- **Status:** PLANNED — designed 2026-09-17; **reviewed and corrected 2026-09-19** ([library-model-review.md](../research/library-model-review.md), [D79](../../decisions/working-notes.md)); **nine more schema items added by the audit the same day** ([audit-2026-09-19.md](../research/audit-2026-09-19.md), [D81](../../decisions/working-notes.md)–[D84](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D95](../../decisions/working-notes.md)–[D97](../../decisions/working-notes.md)), plus the sidecar split ([D98](../../decisions/working-notes.md)), a device scope on the preference table ([D103](../../decisions/working-notes.md)), and **the `role` table** ([D130](../../decisions/working-notes.md), 2026-09-21).
 - **Depends on:** —
 
 ## Scope
@@ -186,6 +186,24 @@ each lands here rather than being bolted on — the same argument
   gets subtitles, loudness, segments and play state by construction. `ThemeSong` and
   `ThemeVideo` are members, which is what makes androidtv's *Video Backdrop and Theme song
   playback* (+37) nearly free.
+
+### And one more table, from 2026-09-21
+
+- **A `role` is a named policy object, and a user has exactly one**
+  ([D130](../../decisions/working-notes.md)). `role(id, name, capabilities, predicate,
+  defaults)` plus a `role_id` on the user — the predicate stored in
+  [rules-engine.md](rules-engine.md)'s serialised form over its field registry, the
+  capabilities a closed enum. It is schema and it is Phase 1, because the alternative is what
+  Jellyfin has: `UserPolicy.cs` carries **44 settable fields per user and no grouping at all**,
+  and their own forum records the consequence — *"no option exists to create groups to assign
+  permissions more efficiently"*. **The 44 fields exist because there are no roles**: with no
+  way to say "these people are the same", every distinction anyone needed became another
+  checkbox on every account. So this table is what keeps the capability column short.
+
+  Two consequences for the schema rather than the UI: the rules engine's **share and profile
+  bindings now attach to a role**, not a user, so one evaluation serves every member; and a
+  per-user **deny** list is permitted alongside because it can only narrow, while anything that
+  grants is a role change.
 
 **And one policy that is not a table.** Deletion ([D89](../../decisions/working-notes.md)): a
 writable path is opt-in per library and off by default; deletion is two-phase and names every

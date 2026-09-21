@@ -60,10 +60,26 @@ is a third state and whether to show it is an explicit choice, not a fall-throug
 
 ## The access half is a predicate
 
-A kids profile is **a grantee plus a predicate** — [D76](../../decisions/working-notes.md)
-again, and therefore a **fifth binding** of [rules-engine.md](rules-engine.md) alongside smart
-playlists, smart collections, retention and sharing. "Rating at or below X in system Y, and not
-tagged `horror`" is a rule.
+A kids profile is **a role** — a named policy object carrying one predicate and a closed
+capability set ([D130](../../decisions/working-notes.md)) — and therefore a **fifth binding**
+of [rules-engine.md](rules-engine.md) alongside smart playlists, smart collections, retention
+and sharing. "Rating at or below X in system Y, and not tagged `horror`" is a rule.
+
+**The role is the whole ergonomic point, and it is not a detail.** A predicate attached to each
+*child* means three children are three copies of one policy; raise the ceiling in two places
+and forget the third and the failure is **open**, silently, in the one subsystem where that is
+unacceptable. So: **define `Kids` once, assign three children to it.** Jellyfin is the warning
+— `UserPolicy.cs` has 44 per-user fields and no grouping, and their forum records exactly this
+complaint.
+
+**And a kids role has `host_watch_together` off.** A Watch Together link admits anyone holding
+it ([D117](../../decisions/working-notes.md), [D125](../../decisions/working-notes.md)); that
+is a reasonable thing for an adult to choose and not a thing a nine-year-old should be able to
+mint. A parental-control design that gates *what a child watches* and not *whom a child can
+invite into the library* has covered the easier half.
+
+If one child needs different rules, that is a **different role**, not an override — the one
+per-user exception is a **deny** list, because it can only ever narrow.
 
 It inherits D76's two rules, both correct here:
 

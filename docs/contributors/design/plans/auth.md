@@ -70,17 +70,43 @@ Netflix separates them because one paying account fronts several viewers under o
 license nothing ([D76](../../decisions/working-notes.md)), so the thing that forces the split
 does not exist here.
 
-| | |
-| --- | --- |
-| **Roles** | `admin` and `user`. Two, closed, not a permission lattice. |
-| **An admin is also a user** | Same row, same play state, same preferences — administration is a capability the row carries, not a second account to switch into. |
-| **`admin` grants** | Library configuration, node enrolment, user creation, deletion policy, the metrics endpoint. The things that change the *server*. |
-| **Every user gets** | Their own play state, history, favourites, ratings, preferences, downloads and rules. Independent, always, including the admin's. |
-| **A user sees** | Whatever their predicate allows ([D76](../../decisions/working-notes.md), [D84](../../decisions/working-notes.md)). |
+**A role is a named policy object and a user is assigned to one**
+([D130](../../decisions/working-notes.md), correcting D125's two-closed-roles). A predicate
+attached to a *user* means three children are three copies of one policy, and copies drift —
+the household raises the ceiling in two places and forgets the third, which fails **open**.
 
-**A grantee is a user with a predicate, and so is a child.** Three things the tree modelled
-separately — household member, shared-with relative, kids profile — are one row and one rule
-each. That makes the rules engine's fifth binding the *only* access mechanism there is.
+| Part of a role | What | Vocabulary |
+| --- | --- | --- |
+| **Capabilities** | a closed set of verbs — `administer`, `delete_media`, `download`, `host_watch_together`, `edit_metadata`, `remote_access` | the enum, and it stays short |
+| **Visibility** | **one** predicate | [D75](../../decisions/working-notes.md)'s language over its field registry |
+| **Defaults** | preference seeds for a new member | [D24](../../decisions/working-notes.md)'s axes |
+
+- **A user has exactly one role.** Two would mean combining two predicates, and neither `AND`
+  nor `OR` is a defensible default — one silently narrows, the other silently widens and breaks
+  [D76](../../decisions/working-notes.md)'s fail-closed rule.
+- **Two built-ins, undeletable**: `Administrator` and `Household`. A server whose last admin
+  role was deleted is unrecoverable.
+- **Everything else the household makes**: `Kids`, `Teens`, `Guests`. Define once, assign three
+  children, done — which is the whole requirement, and it is one join column.
+- **An admin is also a user.** Same row, same play state, same preferences. Administration is a
+  capability the role carries, not a second account to switch into.
+- **Every user gets their own** play state, history, favourites, ratings, preferences,
+  downloads and rules. Independent, always, including the admin's.
+
+**A share is a role with one member**, which unifies [D76](../../decisions/working-notes.md)
+and [D84](../../decisions/working-notes.md): both were *"a grantee plus a predicate"* and both
+become *"a role's predicate"*, evaluated once for every member. The UI need not say "role" for
+a one-off share.
+
+**`host_watch_together` is the capability worth noticing.** A guest is authenticated by
+possession of a URL and nothing else; that is acceptable when an adult chose to share it, and
+is a child handing strangers a route into the library otherwise. The hole
+[D125](../../decisions/working-notes.md) accepts deliberately is only safe if **who may open
+it** is itself a permission.
+
+**Per-user exceptions narrow and never widen.** If a child needs different rules that is a
+different role — which is why roles must be cheap to make. The one exception is a per-user
+**deny** list, because it cannot grant anything.
 
 **A Watch Together guest is not a principal at all.** No user row, no password, no recovery,
 and **nothing persists past the session** ([D125](../../decisions/working-notes.md),

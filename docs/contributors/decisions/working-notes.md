@@ -8308,3 +8308,115 @@ substantially — but it is a shared artefact that has to be versioned on both e
 compatibility surface ([D85](#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols))
 bought for a channel that is already sub-second. Revisit only if a report ever crosses a link
 slow enough to notice.
+
+---
+
+## D130 — A role is a named policy object; users are assigned to one, never configured individually
+
+**Decided** (2026-09-21), by the project owner. **Corrects
+[D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)**,
+which said two closed roles and *"a grantee is a user with a predicate, and so is a child"*.
+
+The owner's objection is operational and it is right: *"I don't want to be manually setting up
+the restrictions on each kid's account. I want one place, 'kids', and then assign each kid to
+that."* **A predicate attached to a user means three children are three copies of one policy**,
+and copies drift — the household raises the rating ceiling in two places and forgets the third,
+which fails *open*, silently, in the one subsystem where that matters
+([D84](#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate)).
+
+### The argument that decides the shape, from the incumbent
+
+`MediaBrowser.Model/Users/UserPolicy.cs` on Jellyfin master carries **44 settable fields** —
+`MaxParentalRating`, `BlockedTags`, `AllowedTags`, `EnabledFolders`, `BlockUnratedItems`,
+`EnableContentDeletion`, `EnableContentDeletionFromFolders`, `AccessSchedules`,
+`EnableRemoteAccess`, `SyncPlayAccess` and thirty-odd more — **per user, with no grouping
+whatsoever.** Their own forum: *"no option exists to create groups to assign permissions more
+efficiently"*, and "add user group support" is a standing request on their feature tracker.
+
+The causation runs the way that matters to us: **44 fields exist *because* there are no roles.**
+With no way to say "these people are the same", every distinction anyone ever needed became
+another checkbox on every account. So a role is not only an ergonomic win — **it is what keeps
+the capability list short**, and the capability list is the thing that otherwise grows without
+limit.
+
+### The model
+
+A **Role** is a named row carrying three things:
+
+| Part | What | Vocabulary |
+| --- | --- | --- |
+| **Capabilities** | a closed set of verbs | the enum below |
+| **Visibility** | one predicate | [D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)'s language over its field registry |
+| **Defaults** | preference seeds for a new member | [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)'s axes |
+
+**A user has exactly one role.** Not a set: two roles means combining two predicates, and
+neither `AND` nor `OR` is a defensible default — one silently narrows and the other silently
+widens, and the widening one breaks
+[D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed)'s fail-closed rule.
+Household scale does not need the expressiveness, and a lattice is the thing
+[D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)
+was right to refuse. **One role, and roles are cheap to make.**
+
+**Two built-in roles, undeletable**: `Administrator` and `Household` (everything except
+administration). Undeletable because a server whose last admin role was removed is
+unrecoverable — the same reasoning as D125's open question about the last admin *user*, one
+level up.
+
+**Everything else the household creates**: `Kids`, `Teens`, `Guests`, `The in-laws`. Defining
+"Kids" once and assigning three children to it is the whole request, and it is one join column.
+
+### The capability set, and the rule that keeps it short
+
+Starting set, closed, each with a decision already behind it:
+
+| Capability | Gates | From |
+| --- | --- | --- |
+| `administer` | library config, node enrolment, **user and role creation**, deletion policy, `/metrics` | [D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal), [D91](#d91--a-metrics-endpoint-off-by-default-and-local-when-on) |
+| `delete_media` | the two-phase delete, where a library permits it at all | [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) |
+| `download` | offline renditions and their leases | [D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained) |
+| `host_watch_together` | **creating a session, which mints a link that admits strangers** | [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays) |
+| `edit_metadata` | corrections, and sidecar writes where a path is granted | [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index), [D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person) |
+| `remote_access` | reaching the server from outside the house | [D14](#d14--remote-access-for-non-technical-family-is-a-headline-feature), [D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it) |
+
+**`host_watch_together` is the one worth noticing.** D125 established that a Watch Together
+guest is authenticated by possession of a URL and nothing else — which is fine when an adult
+chose to share it, and is a child handing strangers a route into the household's library
+otherwise. The hole D125 accepted deliberately is only acceptable if **who may open it** is
+itself a permission. A `Kids` role has this off.
+
+**The rule that stops this becoming 44 fields: a capability is added only when a real feature
+would otherwise have no gate**, never speculatively — the same rule
+[D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three) applies
+to plugin tiers. The six above each have one.
+
+### What this replaces, and what it unifies
+
+- **The rules engine's bindings bind to a role, not a user.** D76's share and D84's profile
+  restriction were both *"a grantee plus a predicate"*; they become *"a role's predicate"*, and
+  one evaluation serves every member. That is a simplification of both.
+- **A share is a role with one member.** Sharing the same view with three relatives stops being
+  three predicates. The UI need not say "role" for a one-off — *"share with…"* may create or
+  reuse one invisibly — but there is one mechanism underneath.
+- **Editing a role changes everybody in it**, which is the point and is also the danger. The
+  confirmation **names the count and the members**: *"this widens what 3 users can see —
+  Alice, Bob, Carol"*. That is [principles §2](../principles/README.md)'s "destructive actions
+  say exactly what they will destroy", generalised to "policy changes say exactly whom they
+  affect", and [§3](../principles/README.md)'s explain-the-decision.
+
+### Per-user exceptions: one direction only
+
+The temptation is an override per user, and it reintroduces exactly the drift this decision
+removes. **If a child needs different rules, that is a different role** — which is why roles
+must be cheap.
+
+**The single exception is a per-user deny list**, because it can only ever *narrow*: "Alice
+does not see this one film" needs no new role and cannot widen anything. Anything that would
+grant is a role change. The asymmetry is deliberate and is the same fail-closed rule as D76.
+
+**Status:** Schema, and therefore **Phase 1**
+([library-model.md](../design/plans/library-model.md)): a `role` table, a `role_id` on the user,
+and the predicate stored in the rules engine's serialised form. Unresolved: whether a role may
+carry an **access schedule** (Jellyfin's `AccessSchedules` — "no television after 9pm" is a real
+household want and is a fourth part, not a capability); and whether the built-in `Household`
+role is editable or merely undeletable — editing it is how someone locks themselves out of their
+own library.

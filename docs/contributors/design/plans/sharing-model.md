@@ -32,6 +32,12 @@ alongside smart playlists, smart collections and retention — and
 right. "A library", "a collection",
 "everything except label `private`" and "this one film" are all predicates.
 
+**And the predicate hangs off a role, not off a person**
+([D130](../../decisions/working-notes.md)). **A share is a role with one member** — which
+matters as soon as there are two: sharing the same view with three relatives should be one
+policy and three assignments, not three predicates that drift apart. The UI need not say
+"role" for a one-off share; the mechanism underneath is one.
+
 Two of the questions this document used to pose answer themselves:
 
 - **A shared item that moves stays shared.** The predicate re-evaluates, and item identity
