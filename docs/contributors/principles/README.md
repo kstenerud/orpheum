@@ -118,6 +118,14 @@ supplies the list and the node supplies the number. A sensor that picks its own 
 has quietly acquired a copy of the library's grouping logic, and it will be wrong differently
 from the original.
 
+**The largest operator in this field arrived at the same split.** A Netflix Open Connect
+Appliance — hardware inside a network Netflix does not control — does exactly two things:
+*"report their status … and what files they have stored on disk"*, and *"serve content via
+HTTP/HTTPS when it is requested by a client device"*. Steering, fill behaviour, storage layout
+and telemetry interpretation are all in the control plane. That is this principle at planetary
+scale, and it is independent evidence rather than a borrowed idea
+([node-transport.md](../design/research/node-transport.md) §1).
+
 **Bites when:** a component starts withholding, suppressing or correcting its own output
 "helpfully"; when you find yourself giving a sensor a threshold, a memory, a copy of
 something the core already knows, or the job of deciding which inputs go together; or when

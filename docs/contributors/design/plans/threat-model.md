@@ -29,6 +29,16 @@ and it means Jellyfin's threat model is not available to us. We have not written
   core→node: `config.json` carries commands and, since
   [D89](../../decisions/working-notes.md), deletion. Mutual authentication, enrolment as a
   deliberate act, and **roots that are local and never remotely settable**.
+
+  **[D127](../../decisions/working-notes.md) removes most of this surface rather than guarding
+  it.** If the node always dials out — the shape GitHub's runners, AWS's SSM agent and Tdarr's
+  node all converged on — then core→node **stops existing as a network path**: a node with no
+  inbound surface cannot be written to, only answered. What remains to guard is the one
+  transport where that is impossible. On a **file exchange directory** there is no transport to
+  authenticate, and D35's *"the permissions split is the security model"* assumes an operator
+  careful enough to lock down a share that a typical home NAS leaves writable to the whole LAN.
+  So there the command file is **signed**, and the node verifies before obeying. See
+  [node-transport.md](../research/node-transport.md) §5b.
 - **Adapters and who they act as** ([D105](../../decisions/working-notes.md)). A tier-2
   protocol adapter with a standing privileged token is a confused deputy that defeats every
   predicate in the project. The rule is that it is a login proxy, not a principal; the *token
@@ -42,6 +52,20 @@ and it means Jellyfin's threat model is not available to us. We have not written
   product and it is the *normal* path, not an edge case. Sandboxing the decode/probe path
   deserves real consideration — and note it interacts with
   [D19](../../decisions/working-notes.md): the transcoder is already out-of-process.
+
+  **State the boundary precisely, because the convenient summary is false**
+  ([D126](../../decisions/working-notes.md)). "Hostile data goes to the nodes, never the core"
+  is the right instinct and not literally true. **The core never *parses* a media or image
+  file** — but it *fetches* the poster ([D99](../../decisions/working-notes.md)), so hostile
+  bytes transit its memory undecoded; and it parses **filenames, track titles, probe output and
+  50.8 MB of node report per scan**, by design, because
+  [D59](../../decisions/working-notes.md) exists to make that work replayable with every node
+  switched off. What makes that safe is different machinery — Go, RE2
+  ([D75](../../decisions/working-notes.md)), parse-don't-validate at the boundary, and
+  [D49](../../decisions/working-notes.md)'s Unicode discipline, since the failure here is a
+  silent misparse rather than a crash. **The report parser is the unbudgeted part**: hostile
+  JSON on the hot path needs stated bounds on record size, count and nesting depth, and has
+  none.
 - **Credential and token model.** Session lifetime, API key scoping and expiry, and the
   "Copy Stream URL leaks the session key" failure Jellyfin has open. The *shape* of signing in
   now has a home — [auth.md](auth.md), and device pairing is RFC 8628

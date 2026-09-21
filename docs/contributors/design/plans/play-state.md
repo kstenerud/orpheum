@@ -72,6 +72,20 @@ They attach at different levels, and the levels are not the same as the position
 | favourite | **Title** | you favourite the film, not the director's cut of it |
 | user rating | **Title** | same |
 
+## Who has play state, and who does not
+
+Every **user** does, including the admin, and independently
+([D125](../../decisions/working-notes.md)) — the role model has two roles and no separate
+`Profile`, so `(user, edition)` is the only key there is.
+
+A **Watch Together guest does not.** They are not a principal: no user row, nothing persisted
+past the session ([D125](../../decisions/working-notes.md),
+[D117](../../decisions/working-notes.md)). During a session **the host's position advances**,
+because it is the host's library and the host's choice of what plays
+([D122](../../decisions/working-notes.md)). This needs stating because the opposite is the
+natural implementation — a membership looks enough like a user to get a row — and a guest who
+acquires a durable identity is a griefer who survived rotation.
+
 ## Reporting cadence
 
 Plex's is the field's de-facto shape and there is no reason to differ: on every play-state

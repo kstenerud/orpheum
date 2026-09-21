@@ -111,21 +111,54 @@ the same code.
 
 The D27 "NAS agent" stops being a distinct thing. It is just a node that happens to be on a NAS.
 
-## Transport is deliberately pluggable
+## Transport: three, ranked by how many installs use them
 
-"Whatever transport sits in between" is the right instinct, because the topologies differ
-wildly. All of these are valid and the node should support more than one:
+The report *content* is one contract; how it travels is a deployment detail — but not an
+arbitrary one. Surveyed and measured 2026-09-21
+([node-transport.md](research/node-transport.md), [D127](../decisions/working-notes.md)):
 
-- **HTTP POST, node → core.** The default when the node can reach the core.
-- **Core polls the node's HTTP endpoint.** For nodes behind a firewall that cannot dial out.
-- **A report file on a shared mount.** The original index-file idea: no port, no protocol, no
-  authentication, no firewall rule, because both sides already have the share. Still the
-  elegant option when a share exists.
-- **A poke.** A signal file, a `SIGHUP`, or an API call that means "look now" — composing with
-  [D32](../decisions/working-notes.md)'s inbound-notification endpoint, which the `*arr` stack
-  can already drive.
+1. **A Unix domain socket — the default install.** One machine, the core supervising a
+   co-located node. No network, no TLS, no enrolment, no ports, and the socket's permissions
+   are the security model in exactly the sense [D35](../decisions/working-notes.md) meant, with
+   peer credentials on top. This is the primary path, not an aside, which is what makes the
+   common deployment exercise the protocol the rare one depends on.
+2. **HTTP, with the node dialling out — a remote node.** Every comparable system converged
+   here: GitHub's self-hosted runners long-poll on a 50-second timeout, AWS's SSM agent speaks
+   outbound 443 to a message gateway, and **Tdarr's node** — this exact problem in this exact
+   domain — holds a persistent outbound connection with *"no inbound Node port required"*.
 
-The report *content* is one contract; how it travels is a deployment detail.
+   **The reason to copy it is security, not firewalls.** [D107](../decisions/working-notes.md)
+   found the dangerous direction is core→node, because `config.json` carries commands and,
+   since [D89](../decisions/working-notes.md), deletion. If the node always initiates, **that
+   direction stops existing as a network path**. Commands arrive as the *response to a poll the
+   node made*; D35's `generation`/`observed_config` pair survives unchanged and rides the
+   request and response.
+3. **A report file on a shared mount — the fallback.** The original index-file idea: no port,
+   no protocol, no firewall rule, because both sides already have the share, and on a NAS with
+   a share already mounted that is genuinely zero friction. Kept for that. Its two costs are in
+   [node-transport.md](research/node-transport.md) §5 and neither is optional reading: the
+   **NFS client attribute cache** (`acdirmax` 60 s by default, doubling while nothing changes)
+   means a rename is atomic on the server and *not immediately visible to the core* — and
+   polling does not fix it, because the poller reads the cache; and the **command file must be
+   signed**, because there is no transport here to authenticate and a typical home share is
+   writable by the whole LAN.
+
+**A poke** composes with any of them: a signal file, a `SIGHUP`, or
+[D32](../decisions/working-notes.md)'s inbound-notification endpoint, which the `*arr` stack
+already drives.
+
+**Dropped:** *"core polls the node's HTTP endpoint, for nodes behind a firewall that cannot
+dial out"*. The justification was backwards — a node that cannot dial out is **less** reachable
+inbound, not more — and every mode costs. SSH (`rffmpeg`'s answer) and a message broker are
+declined: the first because the channel needs authenticating anyway, the second because it is a
+second service at household scale ([principles §1](../principles/README.md)).
+
+**What the measurements say.** Throughput does not discriminate — a 50,000-entry snapshot is
+50.8 MB and every transport moves it in 536–551 ms. Two things do. **Latency to the first
+usable record differs by ~5,000×** (0.1 ms streaming over HTTP against 551 ms waiting for a
+rename), which is [D118](../decisions/working-notes.md)'s incremental ingest for free. And the
+file channel makes you rebuild acknowledgement, compression negotiation, resume, backpressure
+and error reporting — D35 already hand-built the first of those.
 
 ## The report contract
 
@@ -631,3 +664,20 @@ directly to the client**, with the core issuing the redirect.
 
 Not required for v1 — on one machine it is pointless indirection — but it means "the core never
 touches media, full stop" is reachable without new machinery.
+
+**And it is required sooner than "later", because the artefacts need it**
+([D128](../decisions/working-notes.md)). The node *produces* trickplay sprites, subtitle
+overlay bitmaps, posters and font subsets; the core *serves* them from `cache/`; nothing said
+how they cross. Over the reference library that is **42 GB of overlay bitmaps and 5.7 GB of
+trickplay** against **51 MB** for a snapshot report — three orders of magnitude between the
+channel that was discussed and the channel that matters. So:
+
+| | Where it lives | Why |
+| --- | --- | --- |
+| Large, cold, streamed — overlays, trickplay | **the node**, redirected to | 48 GB is not worth moving, and each is fetched at most once per viewing |
+| Small, hot, many-per-page — posters, thumbnails | **the core's `cache/`**, uploaded at production | a home page is fifty posters, and fifty redirects is a worse page |
+
+The rule is **requests per page**, not size alone. This is also Netflix's answer: an Open
+Connect Appliance does exactly two things — report its status *and what files it holds*, and
+serve content over HTTP when a client asks — with the control plane steering clients **via
+URL**. Bytes never transit the control plane.

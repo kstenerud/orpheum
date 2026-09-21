@@ -49,6 +49,15 @@ destroyed by a refresh, which is [principles §2](../../principles/README.md) in
   [D7](../../decisions/working-notes.md).
 - **All of it lives in `cache/`** except the user's own choice, which does not. `cache/` is
   always safe to delete ([overview.md](../overview.md)).
+- **And `cache/` is two caches, one per side** ([D128](../../decisions/working-notes.md)). The
+  node produces these images and the core serves them, and nothing said how they cross — which
+  is invisible in the default install, where both are the same machine, and is **48 GB** in a
+  remote-node topology once trickplay and subtitle overlays are counted. The split is by
+  **requests per page**: posters and thumbnails are uploaded to the core, because a home page
+  is fifty of them and fifty redirects is a worse page; overlays and trickplay stay on the node
+  and the core redirects, the way Netflix's control plane steers a client to an appliance by
+  URL. Both halves keep the property that matters — deleting either costs time and nothing
+  else.
 
 ## Open
 

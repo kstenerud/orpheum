@@ -187,7 +187,17 @@ Notes on the shape:
   tags keep correlation while dropping identity — and keeps the shape that actually diagnoses
   things: codecs, profiles, track counts, dispositions.
 - **`cache/` is always safe to delete.** Nothing irreplaceable lives outside the database and
-  the media files.
+  the media files. It is **two caches, one per side** ([D128](../decisions/working-notes.md)):
+  the node makes the derived artefacts and the core serves them, and over a reference library
+  that is **42 GB of subtitle overlays and 5.7 GB of trickplay** against 51 MB for a scan
+  report. Small and hot goes to the core, large and cold stays on the node and is redirected
+  to — which is what Netflix's control plane does, steering a client to an appliance by URL.
+- **The node dials out; the core never dials in** ([D127](../decisions/working-notes.md)). A
+  Unix socket in the default install, an outbound HTTP connection from a remote node, and the
+  file exchange directory as the fallback it was always described as. The reason is not the
+  firewall: [D107](../decisions/working-notes.md) found the dangerous direction is core→node,
+  because that channel carries commands and deletion, and a node that only ever initiates has
+  no inbound surface to spoof.
 - **Play state is a log, not a cell** ([D81](../decisions/working-notes.md)). A guarded position
   per user and edition, with a monotonic sequence so a stale device cannot rewind a newer one,
   plus an append-only event log. Jellyfin keeps one mutable row and its tracker carries *"Most

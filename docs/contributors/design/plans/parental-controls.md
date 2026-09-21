@@ -22,7 +22,18 @@ Two levels, and the second is the one homegrown implementations miss:
 - **Per account:** **a PIN required to create a profile.** Without it a child makes an
   unrestricted profile and every other control is theatre.
 
-Copy both. The second costs one setting and closes the only bypass that matters.
+Copy both — **but not their vocabulary** ([D125](../../decisions/working-notes.md)). We have no
+`Profile` separate from a `User`: Netflix needs one because a profile is created from inside a
+shared paying account, and we license nothing. So the two rules land differently and the second
+lands harder:
+
+- the profile-lock PIN becomes a **user-level** credential — the thing that stops a child
+  picking the parent's row on the television;
+- *"a PIN required to create a profile"* becomes **only an admin creates a user**, which is
+  strictly stronger and costs nothing, because here there is no self-service creation act to
+  gate.
+
+Read "profile" below as "user with a predicate".
 
 ## A certification is `(system, code)`, not a number
 
@@ -69,8 +80,8 @@ Not content filtering, not scene skipping, not scanning. It is a visibility pred
 
 ## Done when
 
-A child's profile shows only what the predicate allows; the same items are unreachable by id;
-a new film appears in or out of that profile according to its certification without
-intervention; an item with no certification in the household's system is handled by a stated
-rule rather than by accident; a child cannot create a profile; and the owner can see exactly
-why a title is hidden.
+A child's user shows only what the predicate allows; the same items are unreachable by id;
+a new film appears in or out of it according to its certification without intervention; an item
+with no certification in the household's system is handled by a stated rule rather than by
+accident; **a non-admin cannot create a user** ([D125](../../decisions/working-notes.md)); and
+the owner can see exactly why a title is hidden.

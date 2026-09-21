@@ -92,6 +92,14 @@ SQLite's 1000-term and 65-table limits, `ass_track_set_feature`'s −1 return, F
 `drc_scale`, chromaprint's refusal of a 5.1 input, NVENC's `-force_key_frames`,
 `SQLITE_BUSY_SNAPSHOT`'s unretryability, and the WAL file-copy trap.
 
+Two more from the 2026-09-21 transport round
+([D127](../../decisions/working-notes.md)), and both are the silent kind: **`nfs(5)`'s
+attribute-cache defaults** (`acregmax`/`acdirmax` 60 s, doubling towards the maximum), because
+a change there quietly re-times every claim about the file channel; and **SMB's rename
+semantics**, since some server/client combinations reject a rename onto an existing target or
+do not make it atomic. We rename onto a new name, which mostly avoids it — "mostly" is what an
+assumption test is for.
+
 Each is one small test. Together they are the difference between "a dependency upgrade changed
 something" and "a dependency upgrade broke Thai line-breaking and a user told us".
 
@@ -158,6 +166,15 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   [D120](../../decisions/working-notes.md)) — and a refusal at capacity reaches the owner;
 - **a second device attaches to an existing membership** rather than creating a new one, and
   the roster shows one participant ([D120](../../decisions/working-notes.md));
+- **a Watch Together guest leaves no trace**: after the session ends there is no user row, no
+  play state, no preference and no resume position attributable to them, and the **host's**
+  position is the one that moved ([D125](../../decisions/working-notes.md)). The failure this
+  catches is a guest quietly becoming a principal, which is a griefer who survived rotation;
+- **a non-admin cannot create a user**, and an admin's own play state is separate from every
+  other user's ([D125](../../decisions/working-notes.md));
+- **a node report that is malformed, enormous, or deeply nested is refused at a stated bound**
+  rather than parsed ([D126](../../decisions/working-notes.md)) — the core parses 50.8 MB of
+  attacker-influenced JSON per scan and the bounds do not exist yet;
 - **the host changes what is playing mid-session** and every participant's player survives the
   transition rather than being torn down and re-created
   ([D122](../../decisions/working-notes.md)); a video ending leaves the session in `Idle`;

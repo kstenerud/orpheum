@@ -227,6 +227,13 @@ be applied**.
 
 Two mechanical details that bite:
 
+- **This is a local-filesystem feature** ([D127](../../decisions/working-notes.md)). Over NFS
+  the core's view of a growing file's length is served from the client attribute cache —
+  `acregmax` defaults to **60 s** and *doubles towards the maximum while nothing appears to
+  change* — so "items appear as they are found" becomes "items appear in sixty-second lumps",
+  and the atomic rename itself can be invisible to the core for as long again. The transport
+  that gives this away for nothing is HTTP, where the core parses the body as it arrives:
+  measured, **first record at 0.1 ms** against 551 ms waiting for a rename.
 - **Consume only up to the last newline.** A tailed JSONL file ends mid-record about half the
   time; this is precisely the "degrades per line" property the format was chosen for.
 - **Batch the ingest.** Parsing a 50,000-entry snapshot costs 1.8 s and the write ceiling is

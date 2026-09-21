@@ -119,6 +119,13 @@ measurement, and measuring it properly needs a real SMB mount. It stays on the l
 
 ## Still open
 
+**The artefact channel, which is the payload** ([D128](../../decisions/working-notes.md)). A
+50,000-entry node report is **50.8 MB** and moves in ~550 ms on any transport; the *derived
+artefacts* over the reference library are **42 GB of subtitle overlays and 5.7 GB of trickplay**
+(measured 30,040 B per minute of video). Unmeasured: the cost of a redirect against a direct
+serve on a home page, which is the number deciding where D128 draws the line between "stays on
+the node" and "uploaded to the core".
+
 Time to first frame — the most important user-facing number and untouched by any of this.
 Walk throughput over real SMB. Memory ceiling on a 2 GB machine (unmeasurable on a rig with
 62 GB). Artwork. Hardware transcoding ([test-hardware.md](../research/test-hardware.md)).

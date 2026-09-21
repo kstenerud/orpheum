@@ -63,13 +63,40 @@ created by one principal on behalf of another.
 - **Omission, not rejection** ([principles §10](../../principles/README.md)) for our own
   cooperating clients; routine validation for everything untrusted.
 
+## The principals: two roles, and one non-principal
+
+[D125](../../decisions/working-notes.md). **There is no `Profile` separate from a `User`.**
+Netflix separates them because one paying account fronts several viewers under one licence; we
+license nothing ([D76](../../decisions/working-notes.md)), so the thing that forces the split
+does not exist here.
+
+| | |
+| --- | --- |
+| **Roles** | `admin` and `user`. Two, closed, not a permission lattice. |
+| **An admin is also a user** | Same row, same play state, same preferences — administration is a capability the row carries, not a second account to switch into. |
+| **`admin` grants** | Library configuration, node enrolment, user creation, deletion policy, the metrics endpoint. The things that change the *server*. |
+| **Every user gets** | Their own play state, history, favourites, ratings, preferences, downloads and rules. Independent, always, including the admin's. |
+| **A user sees** | Whatever their predicate allows ([D76](../../decisions/working-notes.md), [D84](../../decisions/working-notes.md)). |
+
+**A grantee is a user with a predicate, and so is a child.** Three things the tree modelled
+separately — household member, shared-with relative, kids profile — are one row and one rule
+each. That makes the rules engine's fifth binding the *only* access mechanism there is.
+
+**A Watch Together guest is not a principal at all.** No user row, no password, no recovery,
+and **nothing persists past the session** ([D125](../../decisions/working-notes.md),
+[D117](../../decisions/working-notes.md)). They are authenticated by possession of the URL and
+by nothing else — deliberately, because the motivating case is someone with no account — and
+bounded by a cap, ejection and rotation rather than by a predicate
+([D119](../../decisions/working-notes.md)). See [watch-together.md](watch-together.md).
+
 ## Still open
 
 Everything [threat-model.md](threat-model.md) lists: session lifetime, API key scoping and
-expiry, revocation, and what a shared link actually grants. Also unresolved: whether a
-household's users are one flat set or whether "profiles" (a television with four people on the
-sofa) is a distinct concept from "accounts" — [parental-controls.md](parental-controls.md)
-assumes profiles exist, and Netflix's model separates them deliberately.
+expiry, revocation, and what a shared link actually grants. This document now settles the
+**principals**; their credentials are still that document's question. Two smaller ones from
+[D125](../../decisions/working-notes.md): whether a second admin must exist before the first
+can be removed (it should — a household with no admin is unrecoverable), and whether `admin` is
+revocable by another admin.
 
 ## Done when
 

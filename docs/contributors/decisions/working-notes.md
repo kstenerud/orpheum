@@ -7960,3 +7960,270 @@ The two compose without a seam, which is the evidence that D88 named the right a
 first-class path or documented fallback. Build order should be **web client → cast receiver**,
 since the receiver is mostly the web player in a different shell, and the guest-side benefit
 arrives long before our own television client is finished.
+
+---
+
+## D125 — Access is role-based with two roles; a Watch Together guest is not a principal
+
+**Decided** (2026-09-21), by the project owner. Closes the open question in
+[auth.md](../design/plans/auth.md): *"whether a household's users are one flat set or whether
+'profiles' … is a distinct concept from 'accounts'"*.
+
+**One concept, not two. There is no `Profile` separate from a `User`.** Netflix separates them
+because one paying account fronts several viewers under one licence; we license nothing
+([D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed)), so the thing that forced the split does
+not exist here.
+
+### The model
+
+| | |
+| --- | --- |
+| **Roles** | `admin` and `user`. Two, closed, not a permission lattice. |
+| **An admin is also a user** | Same row, same play state, same preferences. Administration is a capability the row carries, not a second account to switch into. |
+| **What `admin` grants** | Library configuration, node enrolment, user creation, deletion policy, the metrics endpoint — the things that change the *server*. |
+| **What every user gets** | Their own play state, history, favourites, ratings, preferences, downloads and rules. Independent, always, including the admin's. |
+| **What a user sees** | Whatever their predicate allows ([D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed), [D84](#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate)). |
+
+**A grantee is a user with a predicate, and so is a child.** The three things the tree modelled
+separately — a household member, a shared-with relative, a kids profile — are one row and one
+rule each. [D84](#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate) already said a kids profile is *"a grantee plus a predicate"*;
+this is that observation taken all the way, and it means the fifth binding of the rules engine
+is also the only access mechanism there is.
+
+Two corrections fall out of it, both in [parental-controls.md](../design/plans/parental-controls.md),
+which was written in Netflix's vocabulary:
+
+- *"A PIN required to create a profile"* becomes **only an admin creates a user**, which is
+  strictly stronger and costs nothing. Netflix needs the PIN because a profile is created from
+  inside a shared account; here there is no such act.
+- *"A profile-lock PIN"* stays, and it is now a **user-level** credential rather than a
+  sub-account one — the thing that stops a child picking the parent's row on the television.
+
+### A Watch Together guest is not a user, and nothing about them persists
+
+[D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays) made the link the grant, and the consequence has to be said plainly
+because it is the one place the access model has a hole by design: **a guest is authenticated
+by possession of the URL and by nothing else.** That is deliberate, it is the point of the
+feature, and the mitigations are the ones already decided — a cap, ejection, and rotation
+([D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)).
+
+What follows, and is new:
+
+- **No user row is created.** A membership ([D120](#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people))
+  lives as long as the session and is then gone. No account, no password, no recovery, no
+  lingering grant — which is also why a leaked link is survivable: there is nothing to clean up
+  but the session.
+- **A guest accrues no play state, history or statistics.** They are not a `(user, edition)`
+  key ([D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)) because there is no user. **The host's position advances**,
+  because it is the host's library, the host's session and the host's choice of what plays
+  ([D122](#d122--the-session-is-the-object-what-plays-is-mutable-state-on-it-and-a-guest-sees-the-stream-rather-than-the-library)).
+- **A guest is therefore outside every predicate**, which is the honest restatement of
+  [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays) superseding [D104](#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant)'s
+  entitlement half. It is bounded not by a rule but by what a session exposes: the current
+  playback, nothing addressable, nothing enumerable.
+
+**The test that matters** is that the two paths do not leak into each other: a guest must never
+acquire a durable identity by accident — no row written on join, no preference persisted, no
+resume position recorded — because a guest who becomes a user is a griefer who survived
+rotation.
+
+**Status:** The token model is still [threat-model.md](../design/plans/threat-model.md)'s open
+question; this settles the *principals*, not their credentials. Unresolved: whether a second
+admin is required before the first can be removed (it should be — a household with no admin is
+unrecoverable), and whether `admin` should be revocable by another admin.
+
+---
+
+## D126 — Hostile *bytes* never reach the core; hostile *strings* reach it constantly, and that is the design
+
+**Decided** (2026-09-21). Prompted by the project owner's summary — *"hostile data is ingested
+to the nodes, never directly to the core"* — which is the right instinct and is **not literally
+true**. Recorded because the literal version is the kind of claim that becomes load-bearing and
+then becomes false quietly.
+
+Three classes, and only the first is kept out:
+
+| Class | Example | Reaches the core? | Parsed by the core? |
+| --- | --- | --- | --- |
+| **Media and image bytes** | the film, a TMDB poster | poster: **yes, in flight** | **never** |
+| **Derived strings and structures** | filenames, track titles, probe output, node reports | **yes, all of it** | **yes, by design** |
+| **Provider responses** | TMDB/TheTVDB JSON | yes | yes |
+
+**Class 1 is the one the rule is about.** [D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)
+keeps FFmpeg out of the core and [D99](#d99--the-core-does-not-decode-an-image-either-and-community-uploaded-artwork-is-why)
+extends it to images — but note D99's actual shape: **the core fetches the poster.** Hostile
+bytes pass *through* the core's memory and are handed to the confined worker undecoded. The
+rule is *never parses*, not *never touches*, and Immich ships exactly this
+([node-transport.md](../design/research/node-transport.md) §2).
+
+**Class 2 is not an exception; it is the entire point of [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret).**
+The core parses filenames, reads track titles typed by strangers, and interprets probe output —
+and it does so precisely *because* that work must be replayable over the database with every
+node switched off. Moving it to the node to "keep hostile data out" would undo D59 and buy
+nothing, because these are not bytes fed to a decoder.
+
+What makes class 2 safe is different machinery and it already exists:
+
+- **Go, not C.** No heap overflow in a filename parser.
+- **RE2** ([D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)) — no catastrophic backtracking, measured at 16 µs for `(a+)+$`.
+- **Parse, don't validate, at the boundary** ([media-nodes.md](../design/media-nodes.md) trap 2),
+  with malformed reports expected rather than exceptional
+  ([D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global), [D40](#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope)) — the routine-validation case
+  [principles §10](../principles/README.md) explicitly separates from
+  entitlement checks.
+- **Unicode discipline** ([D49](#d49--unicode-discipline-at-the-boundaries-enforced-by-tests)),
+  because the failure mode here is a silent misparse rather than a crash.
+
+**So the correct sentence, and the one to use:** *the core never parses a media or image file;
+everything else a hostile file can influence reaches the core as text and is handled as text.*
+
+**Status:** One consequence is unbudgeted. A node report is attacker-influenced JSON and the
+core parses **50.8 MB of it per scan** (measured, [node-transport.md](../design/research/node-transport.md)).
+That is a parser on the hot path with hostile input — memory-safe, but a denial-of-service
+surface if a node is spoofed or compromised. Bounds on record size, record count and nesting
+depth belong in the wire format, and are not yet stated.
+
+---
+
+## D127 — The node dials out; a Unix socket is the default and the file channel is the fallback
+
+**Decided** (2026-09-21). Research: [node-transport.md](../design/research/node-transport.md).
+Answers the project owner's *"we haven't looked seriously at the full range of possibilities for
+node↔core comms, or what actually makes sense for the effort."*
+
+Three transports, ranked by how many installs use them:
+
+**1. A Unix domain socket, for the default install.** One machine, the core supervising a
+co-located node ([D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do)). No
+network, no TLS, no enrolment, no ports — and the socket's file permissions are the security
+model in exactly the sense [D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary)
+meant, with peer credentials available on top.
+[media-nodes.md](../design/media-nodes.md) already says local roles should speak the same
+protocol as remote ones over a Unix socket; this promotes that from an aside to the primary
+path, which means **the common deployment exercises the protocol the rare one depends on**.
+
+**2. HTTP, with the node dialling out, for a remote node.** The whole industry converged here —
+GitHub's runners long-poll on a 50-second timeout, AWS's SSM agent speaks outbound 443 to a
+message gateway, and **Tdarr's node**, which is this exact problem in this exact domain, holds a
+persistent outbound connection with *"no inbound Node port required"*.
+
+**The reason to copy it is not the firewall, it is [D107](#d107--the-node-channel-is-mutually-authenticated-and-a-nodes-roots-are-local-and-never-remotely-settable).** D107 found that the
+dangerous direction is core→node, because `config.json` carries commands and, since
+[D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file), deletion. **If the node
+always initiates, that direction stops existing as a network path.** A spoofed core cannot write
+to a node with no inbound surface; it can only try to answer a connection the node opened and
+authenticated. The NAT argument and the security argument point the same way, which is rare
+enough to be worth taking.
+
+Commands therefore arrive **as the response to a poll the node made**, not as a write the core
+performed. D35's desired-state/observed-state pair survives unchanged and becomes cheaper: the
+`generation` counter rides the poll response and `observed_config` rides the next request.
+
+**3. The file exchange directory, as the fallback it was always called.** Kept, because it is
+the only transport that crosses a network filesystem with no port, no certificate and no
+configuration, and on a NAS with a share already mounted that is real. Two costs are now
+written down rather than discovered:
+
+- **The client attribute cache.** `nfs(5)` defaults are `acregmax`/`acdirmax` **60 s**, doubling
+  towards the maximum while nothing changes. A rename is atomic on the server and **not
+  immediately visible to another client**. D35 knew watching fails on a share and prescribed
+  polling; **polling does not fix this**, because the poller reads the cache. The practical
+  consequence: **[D118](#d118--the-scan-is-incremental-prioritised-and-steerable-and-playability-comes-first)'s
+  incremental ingest is a local-filesystem feature** — over NFS, items appear in 60-second lumps.
+- **The command file must be signed.** D35's *"the permissions split is the security model"* is
+  correct and assumes a careful operator. A typical home NAS share is writable by everything on
+  the LAN, so on this transport **D107's dangerous direction is open by default** and there is no
+  transport to authenticate. The signature moves the check into the payload, which is the only
+  place it can live here.
+
+**And what the measurements say about effort.** Throughput does not discriminate: a 50,000-entry
+snapshot is 50.8 MB and every transport moves it in 536–551 ms. Two things do:
+
+- **Latency to the first usable record differs by ~5,000×** — 0.1 ms streaming over HTTP against
+  551 ms waiting for a rename — because HTTP parses the body as it arrives. **That is D118's
+  incremental ingest for free, and D118 invented a `.partial`-tailing mechanism to get on the
+  file channel what one transport hands over.**
+- **The file channel makes you rebuild acknowledgement, compression negotiation, resume,
+  backpressure and error reporting**, all of which HTTP has. D35 already hand-built the first
+  one. That is the effort question answered: the fallback is not cheaper, it is cheaper *to
+  start* and more expensive to finish.
+
+**Two removals.** *"Core polls the node's HTTP endpoint, for nodes behind a firewall that cannot
+dial out"* ([media-nodes.md](../design/media-nodes.md)) goes: the justification is backwards —
+a node that cannot dial out is less reachable inbound, not more — and every mode costs. SSH and
+a message broker are declined, the first because we must authenticate the channel anyway and the
+second because it is a second service at household scale
+([principles §1](../principles/README.md)).
+
+**Status:** Compression is `Accept-Encoding` with **gzip level 1** (measured 5.7×, 262 ms; level
+6 buys 27% more for twice the CPU) and is worth it below about 1 Gbit and not above. Unresolved:
+whether the remote node's command channel is a long poll or a WebSocket — long poll is duller and
+[principles §1](../principles/README.md) prefers it, but sub-second command latency
+may argue otherwise, and neither matters until a remote node exists.
+
+---
+
+## D128 — The artefact channel is the real payload, and the node keeps what it makes
+
+**Decided** (2026-09-21). Found by [node-transport.md](../design/research/node-transport.md) §0
+while measuring something else, which is the usual way.
+
+**The tree specifies both ends and not the middle.** [artwork.md](../design/plans/artwork.md)
+says derived images are *"produced at scan time, in the node"* and that *"all of it lives in
+`cache/`"*; [overview.md](../design/overview.md) draws `cache/` beside the **core** and has the
+core serving from it. Nothing says how the bytes get from one to the other. In the default
+install they are the same machine and the gap is invisible — which is how it survived the
+2026-09-19 audit and three rounds since.
+
+**It is not a small gap.** Over the reference library (3,500 items, 3,167 h):
+
+| Artefact | Volume | Source |
+| --- | --- | --- |
+| Subtitle overlay bitmaps | **42 GB** | 12 MB/film ([D78](#d78--server-rendered-subtitle-overlays-are-a-third-rendition-and-they-dominate-burn-in)) × 3,500 |
+| Trickplay sprites | **5.7 GB** | measured 30,040 B per minute of video |
+| Posters at three sizes | ~1.0 GB | [artwork.md](../design/plans/artwork.md) |
+| **One snapshot report** | **0.051 GB** | measured |
+
+Three orders of magnitude between the thing the transport discussion was about and the thing it
+should have been about.
+
+**The answer is Netflix's, and half of it is already in the tree.** An Open Connect Appliance
+does exactly two things: *"report their status … and what files they have stored on disk"*, and
+*"serve content via HTTP/HTTPS when it is requested by a client device"* — with the control
+plane steering clients **via URL**. Bytes never transit the control plane.
+[media-nodes.md](../design/media-nodes.md) already contains ours, filed under *"what this
+permits later, for free"*: [D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three)'s
+signed, scoped, expiring URLs let a node serve its own files with the core issuing the redirect.
+**That stops being a later nicety and becomes the artefact channel.**
+
+**So: the node keeps what it makes, and the core redirects — with one split.**
+
+| | Where it lives | Why |
+| --- | --- | --- |
+| **Large, cold, streamed** — overlay bitmaps, trickplay sprites | **the node**, redirected to | 48 GB is not worth moving, and each is fetched at most once per viewing |
+| **Small, hot, many-per-page** — posters, thumbnails | **the core's `cache/`**, uploaded at production | a home page is fifty posters and fifty redirects is a worse page ([artwork.md](../design/plans/artwork.md)) |
+
+The rule is not size alone: it is **requests per page**. Anything the client fetches in bulk
+wants to be one hop away; anything it fetches one of, per playback, can be a redirect.
+
+**Four consequences.**
+
+- **`cache/` is two caches**, one per side, and both keep the property that made it safe:
+  deleting either costs time and nothing else ([overview.md](../design/overview.md)).
+- **A node that is offline costs trickplay and overlays, not the film** — but only if the core
+  serves the film, which in the default topology it does. In a topology where the node serves
+  the media too, an offline node is an unavailable item, which
+  [media-nodes.md](../design/media-nodes.md) trap 1 already governs: unavailable, never deleted.
+- **This is why segment URLs had to stay cacheable** ([D70](#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible)).
+  The same signing rule now covers artefacts: sign the session, not the sprite, or a household
+  with two viewers has two URLs for identical bytes.
+- **It bounds what [performance-targets.md](../design/plans/performance-targets.md) must
+  measure.** "Home page of 50 posters" is currently `unset` pending
+  [artwork.md](../design/plans/artwork.md); it now also depends on which side of this split a
+  poster is on, and the answer above is what makes the target measurable at all.
+
+**Status:** Unresolved — whether the node's artefact store is addressed by content hash (which
+[artwork.md](../design/plans/artwork.md) already wants for immutability, and which would make the
+redirect target stable across a re-derivation) or by `(item, kind, size)`. Also unmeasured: the
+redirect's cost against a direct serve on a home page, which is the number that decides whether
+the split above is drawn in the right place.

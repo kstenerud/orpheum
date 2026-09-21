@@ -138,6 +138,15 @@ motivating case is a partner travelling who does not have an account.
 distinction is what makes the rest cheap: a join link is a credential for *admission only*,
 and once someone is in, their membership is an object of its own with its own identity.
 
+**"Persists" means for the session and not one second longer**
+([D125](../../decisions/working-notes.md)). A guest is **not a principal**: no user row, no
+password, no recovery, no predicate, and **no play state, history or statistics** — during a
+session it is *the host's* position that advances, because it is the host's library and the
+host's choice of what plays ([D122](../../decisions/working-notes.md)). This is worth stating
+because the opposite is the natural implementation — a membership looks enough like a user to
+get a row — and **a guest who acquires a durable identity is a griefer who survived
+rotation**.
+
 So recovering from a leak never disturbs anyone:
 
 1. **The owner rotates the join link.** The old one **stops admitting new clients and keeps
