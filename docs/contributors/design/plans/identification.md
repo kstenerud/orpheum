@@ -91,11 +91,35 @@ precedence as a correction made here, above any provider, and recorded with its 
 user can see where a field came from. It is **Phase 1**, because first-run is when it matters
 and a later fix cannot recover a user who already gave up.
 
-Two details that will bite. The node reports the sidecar's **existence and bytes** like any
-other file ([D42](../../decisions/working-notes.md) — it draws no conclusions); parsing is
-core work over stored observations, like everything else here. And **NFO is a family, not a
-format** — Kodi's, Emby's and various scrapers' dialects differ, so this wants the same
-table-driven real-corpus test suite as the filename parser, for the same reason.
+**What is actually in one.** Read locally from Jellyfin's `MediaBrowser.XbmcMetadata`, which
+is the de-facto reference implementation: parsers for movie, episode, season and series, over
+a field set including `title`, `originaltitle`, `sorttitle`, `plot`, `premiered`, `runtime`,
+`mpaa`, `genre`, `country`, `actor`, `director`, `credits`, `ratings`, provider ids, and
+artwork paths. Most of it is ordinary metadata we would fetch anyway.
+
+**The valuable part is the two lock fields.** `lockdata` and `lockedfields` are the format's
+way of recording *"a human set this; do not overwrite it on refresh"* — Jellyfin maps
+`lockdata` straight onto `item.IsLocked`. **That is a user's correction, explicitly marked as
+one, in a file they already have.** It is the difference between importing metadata and
+importing somebody's work, and it is why this is a
+[D7](../../decisions/working-notes.md) concern rather than a convenience.
+
+Three details that will bite.
+
+- **The node reports the sidecar's existence and bytes like any other file**
+  ([D42](../../decisions/working-notes.md) — it draws no conclusions); parsing is core work
+  over stored observations, like everything else here.
+- **NFO is a family, not a format.** Kodi's, Emby's and various scrapers' dialects differ, so
+  this wants the same table-driven real-corpus test suite as the filename parser.
+- **An NFO can contain per-user state with no user attached**, and we have to decide what to
+  do with it. Jellyfin's `NfoUserDataSaver` hooks its user-data events and writes `playcount`,
+  `lastplayed` and watched state **into the shared file beside the media** — which is exactly
+  what [D98](../../decisions/working-notes.md) forbids us from doing, for the reason D98
+  gives: the media tree is shared with the household and often with a grantee. So on import we
+  will meet a `playcount` belonging to nobody in particular. **The default should be to ignore
+  those fields** — a watch history cannot be attributed safely, and guessing it belongs to the
+  importing user would hand one household member another's viewing. Offering it as an explicit
+  *"import watch history as mine"* choice is defensible; doing it silently is not.
 
 ## Matching, overrides and duplicates
 
