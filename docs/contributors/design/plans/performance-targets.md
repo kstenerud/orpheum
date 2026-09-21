@@ -64,8 +64,18 @@ a *single* reader — and **0.063 ms** as a maintained counter. **692×.**
 
 So the finding here is not "two home-page queries scale linearly". It is that **every new
 surface on that screen rediscovers the hazard**, and this one was not found by an audit — it
-arrived attached to a feature request. The standing rule that follows: **a number rendered on
-the home page is a maintained value until measured otherwise.**
+arrived attached to a feature request.
+
+**That is now [principles §11](../../principles/README.md)** — *the home page computes
+nothing*: anything on the launch screen is a maintained value, updated on the rare event that
+changes it and read as a lookup. The invalidation is not the hard part and that is why the
+rule can be absolute: these values change only on a scan completing, a rule or role changing,
+a tag edit or a metadata refresh, and [D8](../../decisions/working-notes.md)'s change journal
+already says exactly what changed. Event-driven invalidation on machinery that exists.
+
+The fourth instance was **prevented rather than discovered**: `rules-engine.md`'s per-rule
+coverage count ([D134](../../decisions/working-notes.md)) was specified as a maintained value
+before anyone wrote the query.
 
 **The node's passes split into two populations a thousand-fold apart**
 ([D114](../../decisions/working-notes.md)), decided entirely by whether a pass decodes video.

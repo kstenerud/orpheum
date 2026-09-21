@@ -198,16 +198,33 @@ sees**, because the one with the incentive is the one being blocked:
 | Unrestricted / admin | *"28 items need rating"* | rate them; housekeeping |
 | Restricted | *"28 items are waiting to be rated"* | **ask** |
 
-**Give the ask a button.** *"Daaaaad! Rate the movie so I can watch it!"* is the mechanism
-working; a button makes it arrive as a list rather than a shout, batches a week into one
-request, and works when the two are not in the same house — which is the grantee case.
+**No ask button** ([D134](../../decisions/working-notes.md)). *"Daaaaad! Rate the movie so I
+can watch it!"* **is** the mechanism, and it already works — families have communication
+mediums and we are not going to beat WhatsApp. Not building it also removes the question of
+what a restricted user may put in a message to an admin.
 
 **The alert counts items pending categorisation and never items a rule deliberately excluded.**
-That distinction is the whole disclosure question. *"28 waiting to be rated"* is a queue state;
-*"28 hidden from you"* is a filter disclosure. For a child they are nearly the same; **for a
-grantee they are not**, because the deliberately-excluded set is the household's private
-material, and announcing its existence invites the conversation the exclusion existed to
-prevent.
+*"28 waiting to be rated"* is a queue state; *"28 hidden from you"* is a filter disclosure. For
+a child they are nearly the same; **for a grantee they are not**, because the
+deliberately-excluded set is the household's private material and announcing its existence
+invites the conversation the exclusion existed to prevent.
+
+**And the count must never become a list** ([D134](../../decisions/working-notes.md)). The
+privacy argument is the obvious one; the real argument is worse:
+
+> **An unrated item is one we cannot vouch for, and that includes its title.**
+
+A title is derived from a filename, or from a provider match on a filename
+([identification.md](identification.md)). For an item nobody has classified the title is
+**itself unvetted** — it may be mislabelled, and it may be explicit in the name alone.
+Rendering it on a child's home screen shows them the thing the rating would have blocked,
+**through the surface built to protect them**.
+
+So: the alert is **a number and nothing else**; a pending item is **absent from that role's
+manifest entirely** — not listed, not searchable, not in Recently Added, no artwork, no title,
+not addressable by id ([principles §10](../../principles/README.md)); and there is no "show me
+what's waiting" affordance, because there is nothing safe to show. The admin's queue does show
+titles, which is fine — the admin can already see those items.
 
 **Suppressed during a root's first scan**, where everything is uncategorised and the alert
 would read *"3,500 items are waiting"* — noise that trains the household to ignore the surface

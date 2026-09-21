@@ -220,7 +220,13 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
 - **the pending count is read from a maintained counter, not computed** — asserted as a
   latency gate, because the query form measured 43.6 ms against 0.063 ms and would pass every
   correctness test while failing the home page ([D133](../../decisions/working-notes.md),
-  [D113](../../decisions/working-notes.md));
+  [D113](../../decisions/working-notes.md), [principles §11](../../principles/README.md));
+- **a pending item is absent from a restricted role's manifest entirely** — no title, no
+  artwork, not searchable, not in Recently Added, and **not fetchable by id**
+  ([D134](../../decisions/working-notes.md)). The title of an unclassified item is itself
+  unvetted, so this is the assertion that stops the protective surface becoming the leak;
+- **the pending alert renders a scalar**, and no endpoint exists that expands it into a list
+  for a restricted role ([D134](../../decisions/working-notes.md));
 - **the last `Administrator` role cannot be deleted**, and neither can the last admin user
   ([D130](../../decisions/working-notes.md));
 - **a node report that is malformed, enormous, or deeply nested is refused at a stated bound**

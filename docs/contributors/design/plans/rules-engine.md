@@ -152,6 +152,15 @@ profile-restriction bindings, an uncovered item is **denied and queued** — the
 nullability trap above turned into policy: `unknown` must never coalesce to a value, and in
 these two bindings it must never coalesce to *permitted*.
 
+**Every rule shows its current coverage count** ([D134](../../decisions/working-notes.md)).
+Cheap, and it answers the two questions an author actually has: *is this rule doing anything?*
+and *is it doing far too much?* A rule matching 0 items is usually a typo or a field this
+library does not carry; one matching 3,400 of 3,500 is usually not what anyone meant. It pairs
+with the preview below without duplicating it — **the preview shows the delta of a change,
+the coverage count shows the standing state**. Per
+[principles §11](../../principles/README.md) it is a maintained value, invalidated off
+[D8](../../decisions/working-notes.md)'s change journal like the live rules already are.
+
 **Rule suggestion from a selection.** Given a set of items an admin has picked out, rank
 candidate terms by how cleanly each separates that set from the rest of the visible set, and
 report the collateral both ways:

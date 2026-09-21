@@ -169,3 +169,36 @@ it or laundering it into confident prose. Never state a count that a gate does n
 
 **Bites when:** you are about to write a number, a star count, or "X is faster than Y" from
 memory.
+
+## §11 — A value on a hot path is maintained, not computed
+
+**The home page computes nothing.** Anything rendered on the screen every user sees at launch
+is a **maintained value**, updated when the rare event that changes it happens, and read as a
+lookup. Computing it per request is the default that keeps being wrong.
+
+This is a principle rather than a note because it has now been rediscovered three times
+independently, each time by a different route:
+
+| Value | Computed | Maintained | Found by |
+| --- | --- | --- | --- |
+| Recently added | 21.79 ms | 0.027 ms — **807×** | the 2026-09-20 benchmark |
+| FTS `bm25` ranking | 11.66 ms | 0.017 ms — **686×** | the same benchmark |
+| Pending-items count | 43.6 ms, or **no completion at all** without an index | 0.063 ms — **692×** | a *feature request*, 2026-09-21 |
+
+Two of those were audit findings and the third arrived attached to a new feature, which is what
+makes it a hazard rather than a bug list: **every new surface on that screen rediscovers it.**
+
+**The invalidation is not the hard part, which is why this can be absolute.** These values
+change only on rare, known events — a scan completing, a rule or role changing, a tag edit, a
+metadata refresh — and [D8](../decisions/working-notes.md)'s change journal already says
+exactly what changed, with `rules-engine.md` already consuming it on a debounce. Event-driven
+invalidation on a mechanism that exists, not a TTL and not new machinery.
+
+**The boundary worth knowing:** per-*library* values are cheap to maintain because there is one
+of each; per-*user* values are not automatically so, because there may be many. Continue
+Watching measured flat and needs nothing today ([D113](../decisions/working-notes.md)); the
+rule bites where it would not.
+
+**Bites when:** you add a count, a badge or a "new since" marker to a screen, and the query
+looks harmless at the size of your test library. ([D113](../decisions/working-notes.md),
+[D133](../decisions/working-notes.md), [D134](../decisions/working-notes.md).)

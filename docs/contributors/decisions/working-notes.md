@@ -8759,12 +8759,10 @@ whose growth is felt by somebody gets emptied.
 | Unrestricted / admin | *"28 items need rating"* | rate them — they can already watch them, so this is housekeeping |
 | Restricted | *"28 items are waiting to be rated"* | **ask** |
 
-**Give the ask a button.** The shouting is the mechanism working; a button makes it arrive as a
-list rather than as a shout, batches a week of them into one request, and works when the child
-and the admin are not in the same house — which is the grantee case. Same shape as
-[D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)'s
-ejection prompt: the interface anticipates the real-world action instead of leaving it to the
-room.
+~~**Give the ask a button.**~~ **Withdrawn by the project owner** — see
+[D134](#d134--a-pending-item-discloses-nothing-a-rule-shows-its-coverage-and-the-home-page-computes-nothing):
+*"families already have their communication mediums and we don't need to add another."* The
+shouting **is** the mechanism, and it already works.
 
 ### The line that makes this safe to show anyone
 
@@ -8826,7 +8824,104 @@ feature rather than found in an audit, which reframes that finding: **it is not 
 bugs, it is a hazard that every new home-page surface rediscovers.** Any number rendered on
 that screen is a maintained value until measured otherwise.
 
-**Status:** Unresolved — whether the ask button carries a message from the requester, which is
-obviously wanted and is also an unauthenticated-ish text channel from a restricted user to an
-admin, so it inherits [bug-reports.md](../design/plans/bug-reports.md)'s question about what a
-low-trust principal may put in front of a high-trust one.
+**Status:** ~~Unresolved — whether the ask button carries a message from the requester…~~
+**Moot**: [D134](#d134--a-pending-item-discloses-nothing-a-rule-shows-its-coverage-and-the-home-page-computes-nothing)
+removed the button, and with it the text channel from a low-trust principal to a high-trust one
+that would have inherited [bug-reports.md](../design/plans/bug-reports.md)'s question. The
+feature that was not built is the security question that does not need answering.
+
+---
+
+## D134 — A pending item discloses nothing, a rule shows its coverage, and the home page computes nothing
+
+**Decided** (2026-09-21), by the project owner. Three corrections to
+[D133](#d133--the-pending-items-alert-which-is-how-the-queue-actually-drains) and
+[D132](#d132--authoring-a-role-is-a-preview-loop-and-an-item-the-rules-cannot-judge-is-denied-not-shown),
+and one generalisation that becomes [principles §11](../principles/README.md).
+
+### 1. No ask button
+
+*"Families already have their communication mediums and we don't need to add another."*
+
+Correct, and it is the cheaper answer to the problem D133 was solving: **the shouting already
+works.** Building a request channel would add a surface, a notification path, and a
+moderation-shaped question — and it competes with WhatsApp, which the household is already
+using and which we will not beat.
+
+The bonus is that **the security question disappears with the feature.** D133 left open what a
+restricted user may put in a message to an admin, inheriting
+[bug-reports.md](../design/plans/bug-reports.md)'s trust question. There is now no message.
+
+### 2. A pending item discloses nothing at all — and the reason is stronger than privacy
+
+D133 said the alert counts pending items and not rule-excluded ones. That is necessary and it
+is **not sufficient**: the count must also not become a *list*.
+
+**"28 items are waiting to be rated" must never become "Shrek 2, Wing and 26 others are
+waiting."**
+
+The obvious argument is that it leaks the library's contents to a child or a grantee. The real
+argument is worse, and it is the one to write down:
+
+> **An unrated item is one we cannot vouch for, and that includes its title.**
+
+A title is derived from a filename or from a provider match on a filename
+([identification.md](../design/plans/identification.md)). For an item nobody has classified,
+the title is **itself unvetted** — the file may be mislabelled, may be something the household
+would never allow, and may be explicit in the name alone. Rendering it on a child's home screen
+is a route to showing them precisely the thing a rating would have blocked, **through the
+surface built to protect them.**
+
+So, operationally — and this is [principles §10](../principles/README.md), omission rather
+than rejection, applied to a scalar:
+
+- the alert renders **a number and nothing else**;
+- a pending item is **absent from that role's manifest entirely** — not listed, not searchable,
+  not in Recently Added, no artwork, no title, and **not addressable by id**;
+- there is no "show me what's waiting" affordance for a restricted role, because there is
+  nothing safe to show.
+
+The admin's categorisation queue does show titles, and that is fine: the admin is unrestricted
+and can already see every one of those items.
+
+### 3. A rule shows how many titles it currently covers
+
+On the rules page, each rule carries its **current coverage count**. Cheap, and it answers the
+two questions an author actually has: *is this rule doing anything?* and *is it doing far too
+much?* A rule matching 0 items is usually a typo or a field the library does not carry; a rule
+matching 3,400 of 3,500 is usually not what anyone meant.
+
+It pairs with [D132](#d132--authoring-a-role-is-a-preview-loop-and-an-item-the-rules-cannot-judge-is-denied-not-shown)'s preview without duplicating it: **the preview shows the delta of a
+change, this shows the standing state.** Together they answer "what will this do?" and "what is
+this doing?", which are different questions and are both asked.
+
+### 4. The generalisation: the home page computes nothing
+
+*"The home page generally shouldn't be spawning potentially expensive queries that can easily
+be cached — things that only change on rare events like scans or rule changes."*
+
+This is the rule the last three findings were instances of, and stating it as a rule is worth
+more than the three fixes:
+
+| Home-page value | Naive | Maintained | Found by |
+| --- | --- | --- | --- |
+| Recently added | 21.79 ms | 0.027 ms — **807×** | [D113](#d113--a-target-is-a-percentile-at-a-stated-concurrency-at-two-library-sizes-against-a-frozen-baseline) audit |
+| FTS `bm25` ranking | 11.66 ms | 0.017 ms — **686×** | D113 audit |
+| Pending-items count | 43.6 ms (or no completion) | 0.063 ms — **692×** | [D133](#d133--the-pending-items-alert-which-is-how-the-queue-actually-drains), attached to a *feature* |
+| Rule coverage count | — | — | this decision, **before** it was built |
+
+**The fourth row is the point.** Three of these were discovered; the fourth was prevented,
+because the rule now exists.
+
+**And the invalidation story is already built.** These values change only on rare, known events
+— a scan completing, a rule or role changing, a tag edit, a metadata refresh — and
+[D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)'s change journal
+*already says exactly what changed*. [rules-engine.md](../design/plans/rules-engine.md) already
+re-evaluates live rules off it with a debounce. So this is **event-driven invalidation on a
+mechanism that exists**, not a TTL cache and not new machinery — which is what makes the rule
+cheap enough to be absolute rather than aspirational.
+
+**Status:** The one case this rule has to be careful about is a value that is *per user* rather
+than per library — Continue Watching is maintained per user and there may be many users,
+so "maintain it" is a different cost there. It was measured flat (0.055 ms) so it does not need
+this today; the rule's boundary is where it would.
