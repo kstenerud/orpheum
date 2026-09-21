@@ -236,11 +236,34 @@ beneath a media root, asserted by a test.
 happens in the acquisition layer, which already does upgrade-and-replace properly.
 
 **What does not defer is overwrite safety**, because
-[D141](../../decisions/working-notes.md)'s sidecar export writes into the media tree regardless:
-writes are **atomic** (temp plus rename, [D39](../../decisions/working-notes.md)'s own
-`.partial` pattern) and **the replaced file is retained once, beside it**. That is the trash in
-embryo, justified by a feature we are building rather than one we are not.
-[D143](../../decisions/working-notes.md) §3's full trash design stays recorded as **the
+[D141](../../decisions/working-notes.md)'s sidecar export writes into the media tree
+regardless — and that gives the trash its first real consumer
+([D145](../../decisions/working-notes.md)):
+
+```
+<library root>/.trash/2026-09-21T143205Z-export/
+  manifest.json
+  films/Glass Runner (1982)/Glass Runner (1982).nfo
+```
+
+**One directory per event, with the library's own structure mirrored inside**, so restoring an
+entire export is `cp -a` rather than 3,400 individual moves — the unit of undo matching the
+unit of action. Repeated replacement needs no versioning scheme: the same relative path
+appears under several event directories and the chronology is the name. One
+`manifest.json` per event carries when, who, which operation, and per-file size and hash;
+the path already carries *where*.
+
+Three rules that make it work: **retain only when the bytes actually differ**, or every export
+trashes thousands of unchanged files; the write sequence is **temp → hardlink the old copy
+into the trash → atomic rename**, so the file is never absent; and **`cp -a` is a guarantee
+while our own restore trashes the current file first**, because restoring an old version over
+a newer one would destroy something that was never retained.
+
+Independently confirmed by two prior arts — the **freedesktop.org Trash Specification**, which
+is also per-volume and also records original path plus timestamp, and **Syncthing's
+`.stversions`**, which versions *replaced* files exactly as we do. Both are built for one file
+at a time, which is why we depart from them.
+[D143](../../decisions/working-notes.md) §3's wider trash design stays recorded as **the
 precondition** if deletion is ever asked for. The tree previously said nothing at all about deleting media, which is how `os.Remove`
 ends up in a handler. The list of files and sizes in that confirmation **is** the identity
 guard the node enforces ([D100](../../decisions/working-notes.md)):

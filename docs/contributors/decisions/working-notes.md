@@ -10141,3 +10141,116 @@ Worth naming so they are not mistaken for the deferred thing:
 **Status:** The trigger for revisiting is **a real request**, not another audit. And if it
 comes, the first question is whether the asker wants to delete a file or to stop seeing an item
 — because the corpus says those get conflated, and only one of them needs a writable path.
+
+---
+
+## D145 — The trash is one directory per event with a parallel tree inside, because our unit of undo is a bulk operation
+
+**Decided** (2026-09-21), by the project owner, sketching: *"top-level directories named after
+delete events, with a parallel directory structure to make recovery a simple `cp -a`… We'd of
+course consider bulk operations like export to be a single delete event."*
+
+**The sketch is right, and it is better than both prior arts for our workload.** Adopted with
+four changes.
+
+### It has been invented twice, which is reassuring and also instructive
+
+**The freedesktop.org Trash Specification v1.0** stores `$trash/files` alongside `$trash/info`,
+with a `.trashinfo` per item carrying **`Path`** (the original location) and **`DeletionDate`**
+(RFC 3339). And it is **per volume** — `$topdir/.Trash/$uid`, or `$topdir/.Trash-$uid` when the
+shared one fails its sticky-bit and not-a-symlink checks.
+
+**That independently confirms [D143](#d143--a-lone-user-is-not-a-household-an-export-ends-the-scan-and-anything-that-deletes-gets-a-trash)'s
+per-root rule from an external standard**, for our reason: a trash that is not on the same
+volume cannot be reached by a rename.
+
+**Syncthing's `.stversions`** is the closer analogue, because it versions files that were
+**replaced**, which is exactly our case. Three strategies — *trashcan* (one copy, overwritten),
+*simple* (N timestamped versions), *staggered* (age-based expiry) — and recovery is documented
+as *"manually retrieving them from this directory"*, which is the owner's `cp -a` instinct
+confirmed as the industry answer.
+
+**But both are designed for one file at a time.** fd.o's trash is a file manager deleting a
+document; Syncthing's is a sync client trickling changes. **Ours is 3,400 sidecars in one
+export**, and that is the case neither was built for:
+
+- restoring an export under fd.o's scheme means reading 3,400 `.trashinfo` files and moving
+  3,400 items individually;
+- under the owner's scheme it is **one command**:
+  `cp -a .trash/2026-09-21T143205Z-export/. /media/films/`
+- and **repeated replacement needs no versioning scheme at all** — the same relative path
+  appears in several event directories, and the chronology is the directory name. Syncthing
+  needs *simple* vs *staggered* precisely because it has nowhere else to put the ordering.
+
+**The unit of undo should match the unit of action, and ours is a bulk operation.** That is the
+whole argument, and it is why we depart from two working precedents.
+
+### The shape
+
+```
+<library root>/.trash/
+  2026-09-21T143205Z-export/
+    manifest.json
+    films/Glass Runner (1982)/Glass Runner (1982).nfo
+    tv/Show/Season 01/Show - S01E01.nfo
+    …
+```
+
+Hidden, because other media scanners generally skip dotfiles and we would rather **not have
+somebody else's Jellyfin index our retained copies**. The path inside the event directory is
+the path relative to the library root, so the parallel structure is exact and `cp -a` lands
+where it came from. Excluded from our own enumeration
+([D144](#d144--deletion-is-deferred-not-designed-away-the-policy-is-the-deliverable-and-the-export-already-carries-the-danger)).
+
+### Four changes to the sketch
+
+**1. One manifest per event, not a sidecar per file.** The parallel structure already records
+*where*; a per-file JSON would double the inode count to restate the path. So `manifest.json`
+at the event root carries what the path cannot: **when, which user, which operation, how many
+files, and per-file size and hash.** The hash is what lets a restore notice that the current
+file has changed since — fd.o has no equivalent because it never restores over a live file.
+
+**2. Retain only when the bytes actually differ.** Without this, every export of a
+3,500-item library trashes 3,400 sidecars, and two exports leave 6,800 retained files. Compare
+the rendered sidecar against what is on disk; **identical means do not write and do not
+retain**. Free, and it turns the trash from a growth problem into a change log.
+
+**3. `cp -a` is the guarantee, not the recommended path.** Restoring an *old* version over a
+*newer* current file silently destroys the newer one — and the newer one was never trashed,
+because nothing replaced it. So: **we guarantee `cp -a` works**, because surviving us is the
+point ([D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters)); and
+**our own restore trashes the current file first**, as a new event. Both true, and the second
+must exist or someone loses data by being clever with the first.
+
+**4. No colons in the directory name.** `2026-09-21T143205Z-export` rather than RFC 3339's
+`14:32:05`. Colons are legal on POSIX and **not on SMB or NTFS**, and this project explicitly
+targets libraries on NAS shares. Sortable, self-describing, and `ls` is the index.
+
+### The write sequence, which has one non-obvious step
+
+```
+write   <target>.partial          temp, same directory, same filesystem
+link    <target> → .trash/<event>/<relpath>     hardlink, not rename
+rename  <target>.partial → <target>             atomic
+```
+
+**The hardlink is the interesting one.** Rename-then-rename leaves a window where the target
+does not exist; a hardlink means the old content is safe in the trash *and* still at its
+original path until the atomic rename replaces it — **the file is never absent**. Where
+hardlinks are unavailable (FAT, some SMB configurations) fall back to rename-then-rename and
+accept a window of microseconds. Worth an
+[`assumptions/`](../design/plans/testing-strategy.md) test, because "does this filesystem
+support `link(2)`" is exactly the silently-varying fact that directory is for.
+
+### One naming tension, recorded rather than resolved
+
+With deletion deferred, **nothing in `.trash` was deleted** — it is all replaced files, and
+calling it a trash is slightly wrong today and exactly right if deletion ever ships. The
+manifest's `operation` field (`replaced`, and later `deleted`) carries the distinction, and
+one mechanism serving both is worth more than an accurate name. Flagged so nobody
+re-litigates it as a bug.
+
+**Status:** Unmeasured — path depth. Nesting the original relative path under an event
+directory adds roughly forty characters, which is nothing against Linux's 4096 and could
+matter against a legacy 260-character limit over SMB on a deeply nested library. An
+`assumptions/` test, not a redesign.

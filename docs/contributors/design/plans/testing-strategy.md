@@ -96,6 +96,13 @@ One from [D129](../../decisions/working-notes.md): **a client that advertises no
 gets a working response**, gzipped rather than refused — the failure mode being a television
 that silently receives bytes it cannot decode.
 
+Two from the trash design ([D145](../../decisions/working-notes.md)), both the
+silently-varying kind: **does this filesystem support `link(2)`** — the write sequence uses a
+hardlink so the target is never absent, and FAT and some SMB configurations cannot, which
+degrades to a rename with a real if tiny window; and **the path-length ceiling**, because
+nesting a library-relative path under an event directory adds ~40 characters, nothing against
+Linux's 4096 and possibly something against a legacy 260-character limit over SMB.
+
 Two more from the 2026-09-21 transport round
 ([D127](../../decisions/working-notes.md)), and both are the silent kind: **`nfs(5)`'s
 attribute-cache defaults** (`acregmax`/`acdirmax` 60 s, doubling towards the maximum), because
@@ -288,9 +295,20 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   [D89](../../decisions/working-notes.md)'s actual purpose preserved: *"unstated, this ends
   with `os.Remove` in a handler"*;
 - **a sidecar write is atomic and keeps what it replaced** — a crash mid-write leaves the
-  original intact, and overwriting an existing `.nfo` retains the previous version beside it
+  original intact, and overwriting an existing `.nfo` retains the previous version
   ([D144](../../decisions/working-notes.md)). We can destroy user data by *writing*, so this
   gate does not wait for deletion;
+- **an entire export is restorable with `cp -a` and nothing of ours**
+  ([D145](../../decisions/working-notes.md)) — the event directory mirrors the library's
+  structure, so the test copies it back with a shell command and asserts the tree matches
+  what was there before. This is the *survive-us* property, and a test that used our own
+  restore code would not prove it;
+- **an unchanged sidecar is neither rewritten nor retained** — exporting twice over an
+  unchanged library produces **one** event directory, not two
+  ([D145](../../decisions/working-notes.md)). Without this the trash grows by thousands of
+  identical files per export;
+- **our own restore trashes the current file first**, as a new event, so restoring an older
+  version never destroys a newer one ([D145](../../decisions/working-notes.md));
 - **the export's default follows the account count** — one user preselects that user, two or
   more preselects none ([D143](../../decisions/working-notes.md));
 - **an export stops a scan running on the same root**, and the scan resumes rather than

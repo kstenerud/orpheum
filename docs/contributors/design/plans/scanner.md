@@ -248,12 +248,13 @@ is a promise about the future; items appearing in the library are evidence about
 
 ## Two things in the tree that are ours, and are skipped
 
-**Retained replacements are excluded from enumeration.** When a sidecar write replaces an
-existing file the previous version is kept beside it
-([D144](../../decisions/working-notes.md)), and the scan must skip those or they come back as
-library items. The same exclusion covers the full trash directory if deletion is ever built
-([D143](../../decisions/working-notes.md)) — which is deferred, so today this is one pattern
-rather than a directory.
+**`.trash/` at a library root is excluded from enumeration** — it holds the previous versions
+of files a sidecar export replaced ([D144](../../decisions/working-notes.md),
+[D145](../../decisions/working-notes.md)), organised one directory per event with the
+library's structure mirrored inside, and without the exclusion every retained copy comes back
+as a library item. It is hidden partly for the same reason applied to *other* software: most
+scanners skip dotfiles, so somebody else's Jellyfin will not index our retained copies
+either.
 
 **And a node's own writes come back as observations, which is a feature rather than a bug**
 ([D142](../../decisions/working-notes.md)). Exporting sidecars into a watched tree makes the
