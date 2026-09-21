@@ -271,6 +271,15 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   filename and the provider.
 - **A watchlist entry survives a rescan, a rename and a provider change**, like every other
   piece of user-authored state.
+- **The NFO round trip** ([D141](../../decisions/working-notes.md)), which is the only test
+  that proves the portability promise the README makes: import a Kodi library, correct
+  something, export, and **Kodi reads the correction back and does not re-scrape over it** —
+  i.e. `lockdata`/`lockedfields` were written, not just the value. And a sidecar containing
+  elements we do not model survives read-edit-write **byte-comparably in those elements**, so
+  a round trip through our server never deletes what another tool wrote.
+- **No per-user state reaches a sidecar** ([D98](../../decisions/working-notes.md),
+  [D141](../../decisions/working-notes.md)) — no `playcount`, no `lastplayed`, no `watched`,
+  by default and on any code path. The media tree is shared, so this one fails closed.
 
 ## The two UI gates, which exist to settle an argument
 

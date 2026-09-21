@@ -28,11 +28,14 @@ Product commitments, not aspirations:
   index, never the authority. Your data survives us two ways, and they do different jobs: an
   **automatic backup** of everything that cannot be re-derived — watch state, preferences,
   rules, shares — which is on by default and restores anywhere; and, if you grant a writable
-  path, **sidecar files beside your media** carrying your metadata corrections in a format any
+  path, **sidecar files beside your media** carrying your metadata corrections in **NFO**, the format any
   other media server can read. The first protects you from a dead disk. The second protects you
   from *us*. Per-user state stays out of the sidecars deliberately — the media tree is shared,
-  and nobody else in the house needs to see what you watched. See
-  [D98](docs/contributors/decisions/working-notes.md).
+  and nobody else in the house needs to see what you watched. **We read the `.nfo` files you
+  already have, and we write them back** — so arriving from Kodi keeps the corrections you
+  already made, and leaving for Kodi keeps the ones you made here. See
+  [D98](docs/contributors/decisions/working-notes.md) and
+  [D141](docs/contributors/decisions/working-notes.md).
 - **We would only ever charge for things that genuinely require another machine.** Everything
   that can run on your own hardware does, free, forever — and no feature that works locally
   will ever be moved behind a payment.

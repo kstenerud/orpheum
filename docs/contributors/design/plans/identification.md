@@ -121,6 +121,40 @@ Three details that will bite.
   importing user would hand one household member another's viewing. Offering it as an explicit
   *"import watch history as mine"* choice is defensible; doing it silently is not.
 
+## And we write them back, because that is what the promise says
+
+[D141](../../decisions/working-notes.md). The README already commits to *"sidecar files beside
+your media carrying your metadata corrections **in a format any other media server can
+read**"*, and [principles §2](../../principles/README.md) calls sidecars *"portability, the
+part that means 'survive us'"*. **A portable format only we can read is a contradiction**, so
+reading NFO settles the writing question too — the writer is the parser's inverse.
+
+Four rules, and the third is the one that gets skipped:
+
+1. **Write what is not re-derivable** — the user's corrections plus the provider identifiers
+   needed to re-find the work, **not the whole scrape**.
+   [D77](../../decisions/working-notes.md)'s backup rule in a different medium, and
+   [D7](../../decisions/working-notes.md) already says the rest is rebuildable by definition.
+2. **Preserve elements we do not model, verbatim.** A read-edit-write cycle must not delete
+   what tinyMediaManager or a scraper nobody here has heard of put there. Same instruction as
+   [D61](../../decisions/working-notes.md)'s unknown record kinds and
+   [D85](../../decisions/working-notes.md)'s unknown fields — third consumer, so treat it as
+   the rule it is.
+3. **Write `lockdata`/`lockedfields`, or the export is pointless.** Unlocked corrections are
+   overwritten by Kodi's first scrape, and the sidecars we carefully wrote become the thing
+   that loses the user's work. **A correction must survive as a correction, not as a value.**
+4. **Never per-user state.** [D98](../../decisions/working-notes.md) forbids it and the format
+   invites it — Jellyfin writes `playcount` and `lastplayed` into the shared file. So our NFO
+   is **deliberately lossy**: someone leaving for Kodi takes their corrections and not their
+   watch history, which leaves in the [D77](../../decisions/working-notes.md) backup instead.
+
+**Reading needs no permission; writing needs the opt-in writable path**
+([principles §2](../../principles/README.md),
+[D89](../../decisions/working-notes.md)'s per-library grant), happens in the node
+([D33](../../decisions/working-notes.md)), and is triggered **on change, never on a schedule** —
+rewriting thousands of files periodically is churn in someone's media tree, which
+[D94](../../decisions/working-notes.md) already prices.
+
 ## Matching, overrides and duplicates
 
 - **Manual identification override that survives re-scans, provider changes and file moves**
@@ -145,3 +179,8 @@ A pathological real-world library identifies correctly; a parser improvement can
 existing library **with every node switched off**; a user's manual override survives a
 re-interpretation pass, a provider change and a file move; and the log answers "why is this file
 not in my library, and why did you call it *that*?" without a debug build.
+
+**And the round trip, which is the only test that proves the portability promise**
+([D141](../../decisions/working-notes.md)): import a Kodi library, correct something, export,
+and **Kodi reads the correction back and does not re-scrape over it**. Plus a file containing
+elements we do not model survives read-edit-write with those elements byte-comparable.

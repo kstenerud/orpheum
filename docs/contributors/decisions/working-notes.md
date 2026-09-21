@@ -6395,10 +6395,14 @@ dot-directory beside the media (same filesystem, same readers, plus it breaks th
 media server can read it" property that was the point); requiring a writable path (it is the
 read-only default that makes [principles §2](../principles/README.md) mean anything).
 
-**Status:** The sidecar format is still undesigned — [backup-restore.md](../design/plans/backup-restore.md)
-already flags that — and this decision narrows *what* goes in it without settling the format.
-NFO is the field's de-facto answer and reading it is already planned; writing it is a
-compatibility question nobody has examined.
+**Status:** ~~The sidecar format is still undesigned … NFO is the field's de-facto answer and
+**reading it is already planned**; writing it is a compatibility question nobody has
+examined.~~ **Both halves resolved 2026-09-21.** Reading was *not* planned — no document owned
+it, which [D140](#d140--five-gaps-the-sentiment-corpus-exposed-three-declines-and-one-that-undercuts-a-headline-claim)
+caught and put in [identification.md](../design/plans/identification.md) as Phase 1. And the
+format question is settled by that: [D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters)
+writes NFO as well, because the README already promises *"a format any other media server can
+read"* and a portable format only we read is a contradiction.
 
 ---
 
@@ -9655,3 +9659,116 @@ same tracker is full of.
 it matters and a later fix cannot recover what a user gave up on. Subtitle acquisition is
 Phase 2-or-later work whose *plan* is due earlier, because per-user provider credentials touch
 [auth.md](../design/plans/auth.md) and a per-user rate budget is schema.
+
+---
+
+## D141 — We write NFO too, and the lock markers are the part that matters
+
+**Decided** (2026-09-21), by the project owner: *"we may also have to support exporting to
+those nfo files as well if someone decides they'd rather go back to Kodi."* **Answers the half
+[D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)
+deferred** — it settled *what* goes in a sidecar and left the format as *"a compatibility
+question nobody has examined"*.
+
+### It is not a new feature; it is a promise coming due
+
+The README already says it, publicly:
+
+> *"if you grant a writable path, **sidecar files beside your media** carrying your metadata
+> corrections **in a format any other media server can read** … The second protects you from
+> **us**."*
+
+[Principles §2](../principles/README.md) says the same thing in the same words — sidecars are
+*"**portability**, the part that means 'survive us'"*. **A portable format only we can read is
+a contradiction**, so the commitment was always to somebody else's format; D98 simply had no
+reason to pick one yet.
+
+[D140](#d140--five-gaps-the-sentiment-corpus-exposed-three-declines-and-one-that-undercuts-a-headline-claim)
+picked it. Once we read NFO, writing NFO stops being a decision and becomes the inverse of a
+parser we already need. **Exit symmetry is the point of the feature, not a courtesy attached
+to it**, and it is the same structural commitment
+[D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts) makes about the relay:
+leaving takes an afternoon and migrates nothing, because there is nothing to migrate.
+
+### Write what is not re-derivable
+
+Kodi's NFO files carry a full scrape. Ours should not, and the rule is one we already use:
+**[D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore) backs
+up only the irreplaceable, and this is that rule in a different medium.**
+
+So a written sidecar carries **the user's corrections plus the provider identifiers needed to
+re-find the work** — and not the plot summary TMDB will hand anyone who asks.
+[D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index) already says
+the rest is a rebuildable index *by definition*; writing it into someone's media tree asserts
+provider data as fact, makes every file larger, and goes stale.
+
+### The lock markers are the part that makes it work
+
+`lockdata` and `lockedfields` are how the format records *"a human set this; do not overwrite
+it on refresh"* — Jellyfin maps `lockdata` onto `item.IsLocked`.
+
+**Without them the export is pointless.** A user who leaves for Kodi with unlocked NFO files
+gets their corrections overwritten by Kodi's first scrape, and the sidecars we so carefully
+wrote become the thing that quietly loses their work. **The correction has to survive as a
+correction, not as a value.** This is the single detail most likely to be skipped by someone
+implementing "write NFO" from the field list, and it is the whole of the feature.
+
+### Preserve what we do not understand
+
+We read, the user edits, we write back. **Anything in that file we have no model for must
+survive verbatim** — elements written by tinyMediaManager, MediaElch, Kodi's own extensions or
+a scraper nobody here has heard of. **A round trip through our server must not delete data
+another tool wrote.**
+
+Note this is the **third** appearance of one rule:
+[D61](#d61--containment-now-detection-later-and-plugin-shaped-four-affordances-to-keep-open) has the
+node protocol skipping unknown record kinds;
+[D85](#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols) has a client
+ignoring fields it does not know; this is the same instruction pointed at a file on disk.
+Three consumers is enough to call it what it is — **unknown content is preserved, never
+dropped** — and it belongs in the sidecar format from the first line of the writer, because
+retrofitting it means the damage is already done to real libraries.
+
+### Our NFO is deliberately lossy, and we say so
+
+[D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)'s
+split cuts across this format. NFO can carry `playcount`, `lastplayed`, `watched` and
+`userrating` — Jellyfin's `NfoUserDataSaver` writes exactly those into the shared file beside
+the media — and **we will not**, because the media tree is shared with the household and often
+with a grantee.
+
+So somebody leaving for Kodi takes their **corrections** and not their **watch history**. That
+is a stated limitation following from a principle rather than an omission, and the two-ways-out
+design already covers the other half: watch state leaves in the
+[D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore) backup,
+which is the *durability* half of the same split. An explicit, named
+*"export my watch state into the sidecars"* is defensible as a deliberate act by one user about
+themselves; doing it by default is not.
+
+### When, and under what permission
+
+- **On change, never on a schedule.** Three and a half thousand files rewritten periodically
+  is disk churn in the user's media tree, and
+  [D94](#d94--disk-spin-down-is-a-cost-of-the-snapshot-interval-and-archival-means-untouched)
+  already prices what waking an array costs.
+- **It needs the opt-in writable path**, which
+  [principles §2](../principles/README.md) does not grant by default and
+  [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) made per-library.
+  Reading requires nothing; writing requires permission. That asymmetry is correct and should
+  be visible in the UI rather than discovered.
+- **It happens in the node** ([D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do)), like
+  every other write near the media, and the core never touches the filesystem.
+
+### Done when
+
+**The test is a round trip, and it is the only one that proves the promise.** Import a Kodi
+library, correct something, export, and **Kodi reads the correction back and does not
+re-scrape over it**. Plus the internal case: rebuild-from-empty followed by sidecar import
+reproduces every correction. And a file containing elements we do not model survives a
+read-edit-write cycle byte-comparably in those elements.
+
+**Status:** Unresolved — whether to offer *"write the full scrape"* as an option for people who
+want genuinely self-contained archival trees, which is a real want and is the opposite of the
+irreplaceable-only rule above. Also undesigned: the layout variants (`<filename>.nfo` beside
+the file, `movie.nfo` in the folder, `tvshow.nfo` at series level) and which we emit — read
+should accept all of them, write should pick one and say which.

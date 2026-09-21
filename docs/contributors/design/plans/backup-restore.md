@@ -79,6 +79,16 @@ checksum, which only proves a copy happened.
 - **Migrations declare that they need a backup.** Jellyfin has exactly this as a
   `JellyfinMigrationBackupAttribute`, which is §7 implemented rather than promised.
 
+## The sidecar format question is answered
+
+This plan flagged that the sidecar format was undesigned. It is **NFO**
+([D141](../../decisions/working-notes.md)) — the README promises *"a format any other media
+server can read"* and that settles it. Relevant here because the two mechanisms are
+complementary and the split is now concrete: **corrections about the work leave in the
+sidecars, and everything about a person leaves in this backup**
+([D98](../../decisions/working-notes.md)). Somebody migrating to Kodi takes the first and not
+the second, which is a stated limitation rather than a gap.
+
 ## Still open
 
 - **Retention** — how many backups, how long. Unmeasured.
