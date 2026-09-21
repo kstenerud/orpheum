@@ -329,6 +329,51 @@ the television holds `playback`. It needs no player, no rendition negotiation an
 participation. A voice-only client implements **none** of the six methods, which is a
 confirmation that the surface is the right size rather than a strain on it.
 
+**And the `playback` device need not be our television client**
+([D124](../../decisions/working-notes.md)):
+
+| | `playback` | `voice` | `control` |
+| --- | --- | --- | --- |
+| Our TV client + phone | Android TV app | phone | phone |
+| **Cast** | **cast receiver (a web app)** | phone | phone |
+| Phone alone | phone | phone | phone |
+
+**For a guest this is the best path, and it is the strongest argument in the feature.** We
+choose what our own users install; we do not choose what their friends own, and the motivating
+case is somebody else's household. A cast receiver is *"cheap because it is a web app"*
+([tech-clients.md](../research/tech-clients.md)) and it is mostly the Phase 2 web player in a
+different shell — so a guest with any Cast-capable television joins without us shipping a
+client for their platform.
+
+**The receiver holds the membership, not the phone.** Cast's sender hands the receiver a URL
+and commands; **the receiver fetches the media itself**. So the receiver speaks the six methods
+directly and the phone holds `voice` and `control` — which means a pocketed, sleeping phone
+drops *voice*, not playback. That is the correct failure, and it is why this arrangement beats
+the phone holding the stream.
+
+**The receiver probes and picks; the sender must not pick for it.** A cast receiver has a
+narrower decoder set than the phone driving it, so a phone negotiating on its behalf is a
+device-capability database with one row, arriving by the back door —
+[D2](../../decisions/working-notes.md) exactly. The receiver is our web app; it probes itself,
+and Cast's advertised capabilities are a hint rather than an answer
+([D92](../../decisions/working-notes.md)).
+
+**What it costs:** a sync hop — `currentPosition()` now carries Cast's status latency inside
+it, against a 60–3000 ms budget ([D66](../../decisions/working-notes.md)) — which is
+**unmeasured and decides whether this is a first-class path or a documented fallback**. Also
+three protocols rather than one (Google Cast, AirPlay, ours; **Fire TV has no Cast**), a Cast
+developer account and $5 for a custom receiver, and a session credential that now lives on a
+third-party device — acceptable because the link was already the grant and rotation is already
+the answer ([D117](../../decisions/working-notes.md),
+[D119](../../decisions/working-notes.md)).
+
+**The phone is not a fan-out point.** It has no bytes to fan out — the receiver pulls — and
+making it one would mean a caching proxy holding the session credential on the least reliable
+device in the chain. Several viewers in one guest household each join as participants up to
+the cap, and fan-out happens at the relay, where
+[D70](../../decisions/working-notes.md) and [D71](../../decisions/working-notes.md) already
+put it.
+
 **A second device attaches with [D93](../../decisions/working-notes.md)'s code flow**: the
 first shows a short code, the second enters it and joins the *same membership* rather than
 creating a new one. Same mechanism as signing in on a television, pointed at a session — which

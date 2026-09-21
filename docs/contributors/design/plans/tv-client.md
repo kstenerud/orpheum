@@ -68,6 +68,15 @@ can order the same list differently on an Android 10 phone and an Android 14 TV.
 renders the list it is given ([D47](../../decisions/working-notes.md)). For the same reason,
 plural handling must not depend on `Intl.PluralRules`, which Hermes does not implement.
 
+## The long tail is a cast receiver, not more TV clients
+
+[D124](../../decisions/working-notes.md). This plan covers the television **our user** owns.
+For a Watch Together guest's television we have no such luxury, and the answer is not to write
+more native clients: it is a **cast receiver**, which is the web player in a different shell
+([web-client.md](web-client.md)) and reaches any Cast-capable set. Note the hole in that —
+**Fire OS has no Google Cast**, as below — so "cast" is a family of receivers behind one
+role (Google Cast, AirPlay, ours) rather than one protocol.
+
 ## Signing in, which is the first thing that happens
 
 Nobody had designed it, and it is the first interaction every user has, on the device with the

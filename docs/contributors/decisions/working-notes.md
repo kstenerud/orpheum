@@ -7853,3 +7853,110 @@ already put on remote access's critical path — this is a second consumer arriv
 conclusion. Until it exists, a guest whose link cannot carry the original is out of luck, and
 the honest thing is to say so in the join screen rather than let them discover it at minute
 four.
+
+---
+
+## D124 — The playback role may be a cast receiver, and for a guest that is the best path; the phone controls, it does not relay
+
+**Decided** (2026-09-21), from the project owner's proposal to invert the companion model — the
+phone as the client, casting to the television.
+
+**It is not an alternative to [D120](#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people); it is D120 with a different playback device.** That decision
+already says a person attaches devices with roles and that the session does not care about a
+person's local topology. It assumed the `playback` device was our own television client. It
+need not be:
+
+| | `playback` | `voice` | `control` |
+| --- | --- | --- | --- |
+| Our TV client + phone | Android TV app | phone | phone |
+| **Cast** | **cast receiver (a web app)** | **phone** | **phone** |
+| Phone alone | phone | phone | phone |
+
+Same model, same roster, same six methods
+([D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)).
+A new **implementation** of one role, not a new shape.
+
+### The real argument is the guest, and it is a strong one
+
+We choose what our own users install. **We do not choose what their friends own.** The
+motivating case for this whole feature is someone else's household, and
+[tech-clients.md](../design/research/tech-clients.md) is honest that covering the television
+long tail is where a fifteen-year head start lives.
+
+A cast receiver is *"cheap because it is a web app"* — and we are already building that web
+app in Phase 2. So a guest with any Cast-capable television participates without us shipping a
+client for their platform. That is a larger win than the voice-companion arrangement it
+started as.
+
+### What Cast actually does, which decides two things at once
+
+**The sender does not relay bytes.** It hands the receiver a URL and commands; the **receiver
+fetches the media itself**. Two consequences point in opposite directions and both matter.
+
+**In favour, and this is the part the proposal did not claim:** the phone can sleep. If the
+phone held the stream, a pocketed handset would stall the film. Because the receiver pulls, the
+right assignment is that **the receiver holds the `playback` membership and speaks the six
+methods directly**, while the phone holds `voice` and `control`. A sleeping phone then drops
+*voice* — annoying, recoverable, and the correct failure — rather than dropping playback for
+everyone. That is a better arrangement than either the original companion model or the
+proposal as stated.
+
+**Against: the fan-out does not work.** *"The phone is the fan-out point to other devices in
+the guest's home"* would need the phone to serve bytes, and Cast gives it none to serve. To do
+it the phone would have to become a caching HTTP proxy holding the session credential, on the
+least reliable and most power-constrained device in the chain. **Declined**, and the better
+answer already exists: each viewer in that household joins as a participant up to the cap
+([D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)),
+and fan-out happens at the relay where
+[D70](#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible)
+and [D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it) already put it —
+one stream into the house, fanned out by a component built to do that.
+
+### The receiver probes and picks. The sender must not pick for it
+
+This is the trap, and it is [D2](#d2--playback-negotiation-the-client-decides-from-a-manifest)'s
+entire subject. A cast receiver has a **narrower decoder set than the phone driving it**, so
+if the phone negotiates the rendition, the phone is guessing on behalf of hardware it is not —
+which is a device-capability database with one row, arriving through the back door.
+
+**The receiver is our web app. It probes itself and picks**, exactly as any other client does;
+the phone tells it *what to play*, never *in what form*. Cast's own SDK exposes receiver
+capabilities and they should be treated as a hint, not an answer
+([D92](#d92--a-failed-rendition-falls-to-the-next-one-and-the-client-remembers-the-server-still-has-no-device-database)
+applies unchanged: the probe lies, the ladder is the response).
+
+### Costs, stated
+
+- **A sync hop.** `currentPosition()` now returns the receiver's position with Cast's status
+  latency inside it. Our budget is 60–3000 ms
+  ([D66](#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips)) and Cast
+  status is not high-frequency, so this eats a real fraction of it. **Unmeasured, and it is the
+  number that decides whether this is a first-class path or a fallback.**
+- **"Cast" is three protocols, not one.** Google Cast, AirPlay, and our own. Fire TV has **no
+  Google Cast** ([tv-client.md](../design/plans/tv-client.md) already notes the missing Play
+  Services), and Apple devices want AirPlay. So this is a family of receiver implementations
+  behind one role, which is [principles §5](../principles/README.md)'s shape and should be
+  built that way from the first one.
+- **A Google dependency and $5.** A custom receiver needs a Cast developer account
+  ([tech-clients.md](../design/research/tech-clients.md)); the Default Media Receiver needs no
+  registration and cannot do our subtitles. That is an account *we* hold, not one a user holds,
+  so [D13](#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise) is untouched — but it
+  is a dependency worth naming rather than discovering.
+- **The session credential reaches a third-party device.** The guest's Cast hardware fetches
+  from the host's server, so it holds a session token. Consistent with
+  [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays)
+  — the link is already the grant and revocation is already the control — and it composes with
+  [D70](#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible)'s
+  "authorise the session, not the segment". Worth stating because it is a wider exposure than a
+  first-party client, and rotation is what answers it.
+
+### And it confirms [D88](#d88--casting-is-remote-control-of-another-client-which-is-watch-together-with-a-group-of-one)
+
+D88 said casting *is* Watch Together with a group of one. This is the same claim from the other
+end: a group of several, where one participant's playback device happens to be a cast receiver.
+The two compose without a seam, which is the evidence that D88 named the right abstraction.
+
+**Status:** The sync-hop measurement is the open question and it gates how this is presented —
+first-class path or documented fallback. Build order should be **web client → cast receiver**,
+since the receiver is mostly the web player in a different shell, and the guest-side benefit
+arrives long before our own television client is finished.

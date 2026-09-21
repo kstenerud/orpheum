@@ -48,6 +48,20 @@ Extraction is miserable to retrofit, so this starts with the first screen, not a
 rules that make the rest cheap: no string is concatenated from fragments, and nothing
 user-visible is ever stored server-side in a language ([D46](../../decisions/working-notes.md)).
 
+## The cast receiver is this client in a different shell
+
+[D124](../../decisions/working-notes.md). A Google Cast receiver is a web app, so it is mostly
+this player with a different input surface — and it is **the best path for a Watch Together
+guest**, because we choose what our own users install and not what their friends own. That
+makes it a closer neighbour of this plan than of [tv-client.md](tv-client.md), and the build
+order is **web client → cast receiver**, well before our own television client is finished.
+
+Two things it must inherit from here rather than reinvent: the SDK's **probe-and-pick**, because
+a receiver has a narrower decoder set than the phone driving it and the *receiver* must be the
+one choosing ([D2](../../decisions/working-notes.md)); and jassub, because the Default Media
+Receiver cannot render our subtitles, which is what forces a custom receiver and its $5
+developer account.
+
 ## The SDK is MPL-2.0, and the server is not
 
 [D80](../../decisions/working-notes.md). The clients and this SDK are **MPL-2.0**; the server,
