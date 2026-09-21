@@ -6644,6 +6644,12 @@ prune — which they will want anyway for session revocation ([auth.md](../desig
 
 ## D104 — A Watch Together invite is a capability URL scoped to one edition; the group is never a grant
 
+> **"Keyed on an Edition" is retired by
+> [D122](#d122--the-session-is-the-object-what-plays-is-mutable-state-on-it-and-a-guest-sees-the-stream-rather-than-the-library)**
+> (2026-09-21). The session is the object and what plays is mutable state on it; the bound on
+> a leaked link is that a guest sees **the current stream, not the library**, which is a
+> stronger guarantee than scoping to an item and does not depend on enumerating the scope.
+>
 > **The entitlement half is superseded by
 > [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays)**
 > (2026-09-20). ~~*Every participant resolves the item through their own entitlement*~~ — the
@@ -7370,10 +7376,13 @@ revocable" does not:
 
 ### What survives from D104
 
-**The scope.** A leaked link must expose *that session's content*, not the library — which is
-also what makes the blast radius of a leak small enough for revocation to be a sensible
-control in the first place. The link is scoped to what the creator chose to play and is
-time-boxed to the session.
+**The scope** — intent right, mechanism wrong, restated by
+[D122](#d122--the-session-is-the-object-what-plays-is-mutable-state-on-it-and-a-guest-sees-the-stream-rather-than-the-library).
+A leaked link must expose *that session's content, not the library*, and that is what keeps
+the blast radius small enough for revocation to be a sensible control. But what delivers it is
+**not** scoping the link to what the creator chose — the host may change what plays at any
+time — it is that a guest is handed **the current playback and no browse surface at all**.
+Time-boxed to the session, as before.
 
 ### Who controls what
 
@@ -7389,17 +7398,15 @@ The middle row was [watch-together.md](../design/plans/watch-together.md)'s open
 *"control is a per-participant capability, defaulting to everyone"* — and it is now a
 user-facing setting rather than an affordance held open.
 
-The third row is new and is the interesting one. **The creator picks the work; participants may
-navigate inside it.** "Next episode" is a reasonable thing for the other person to do at 1 a.m.
-when the host has fallen asleep; "put on something else entirely" is not. So the grant has a
-**work scope** — an Edition, or the Collection that is its series
-([D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal))
-— and in-series navigation moves within that scope and cannot leave it. Which also bounds what
-a leaked link reaches: one series, at most.
+~~The third row is new and is the interesting one…~~ **Flattened by
+[D121](#d121--an-ability-is-a-row-in-a-closed-table-with-a-two-valued-grant-chosen-at-session-creation)**:
+each ability is simply `group` or `host only`, chosen at session creation. In-series
+navigation is not a special case with its own scope object — it becomes the **play set** row,
+arriving later with the play-set feature.
 
-**Party playlists are the later version of the same idea** — a creator-defined ordered set as
-the work scope instead of a series. Recorded, not scheduled; the reason it is easy later is
-that the scope is already an object rather than a single item.
+**Play sets are the later version** — the host selects a set of videos (a season, a trilogy)
+and grants the group the ability to move within it. Cheap later because the scope is an
+object and the permission is a row.
 
 **Status:** The ejection path is the part most likely to be got wrong, because it is the path
 nobody exercises until they need it. It deserves a test:
@@ -7584,6 +7591,10 @@ notices anything:
   [D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it)) — one remote viewer
   on a remux can saturate an uplink, so a cap is the same number seen from two directions.
 - **It is a count of admitted memberships, not of links**, and it is enforced server-side.
+  **And memberships are *people*, not clients**
+  ([D120](#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people)):
+  two people with voice-companion phones are four clients, so a cap phrased in clients would
+  refuse the second person's phone. The interface says people.
 
 **The default is small**, because [D69](#d69--group-size-is-a-priority-order-not-a-capability-two-then-four-or-five-then-a-party)
 says the design is best at two and the motivating case is two people. The exact number is a
@@ -7607,3 +7618,238 @@ invisible to existing clients (it should be — nothing in
 [D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s
 six-method surface mentions the link), and how a client that was mid-join during a rotation
 behaves. That second one is the race worth writing a test for rather than discovering.
+
+---
+
+## D120 — A participant is a person; devices attach to them with roles, and the cap counts people
+
+**Decided** (2026-09-21), by the project owner. Extends
+[D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak).
+
+The research already concluded that *"on a television the phone is the voice endpoint — an
+Apple TV has no app-accessible microphone, and a microphone across the room from the speakers
+is the worst possible AEC geometry"*, and called phone-plus-earbuds *"the only workable
+configuration"*. It never said how that is **modelled**, and the implicit model — one
+participant is one client — cannot express it.
+
+So: **a participant is a person. A person attaches one or more devices, each with a role.**
+
+| Role | Does | Implements |
+| --- | --- | --- |
+| `playback` | plays the video, reports position, accepts transport | [D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s six methods |
+| `voice` | microphone and per-source mix, nothing else | none of the six |
+| `control` | a remote: sees the roster, issues transport | none of the six |
+
+**"Voice companion" is a mode, not a feature** — a phone that attaches with the `voice` role
+only, while the television holds `playback`. It needs no player, no rendition negotiation and
+no sync participation, which is why it costs almost nothing: *a voice-only client implements
+none of the six methods*, so [D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s
+surface is untouched. That is a confirmation of D62 rather than a change to it.
+
+**Attaching a second device reuses [D93](#d93--device-pairing-is-rfc-8628-shaped).** The first
+device shows a short code; the second enters it and joins the *same membership* rather than
+creating a new one. That is the device-authorisation flow already chosen for signing in on a
+television, pointed at a session instead of an account — and it is why "same URL login,
+multiple devices per person" does not need an account at either end.
+
+### The cap counts people, and [D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak) said "clients"
+
+A correction, and it would have bitten immediately: two people watching together with voice
+companions are **four clients**. A cap phrased as "maximum simultaneous clients" and defaulted
+small would refuse the second person's phone. **The cap is a maximum number of
+*participants*** — memberships, people — and the interface says people. Device attachments are
+bounded separately and generously, because a person with a TV, a phone and a tablet is
+ordinary and none of it is an abuse signal.
+
+D119's internals were already right (*"a count of admitted memberships, not of links"*); its
+user-facing phrasing was not.
+
+### Voice plus film audio on the phone, video on the television: no
+
+Tempting, and it is a different problem wearing the same clothes. Splitting audio and video
+across two devices is **lip sync**, and lip sync has a budget three orders of magnitude tighter
+than anything in this feature:
+
+| | |
+| --- | --- |
+| ITU-R BT.1359 **detectability** | audio leading by **45 ms**, or lagging by **125 ms** |
+| ITU-R BT.1359-1 end-to-end tolerance | +90 ms to −185 ms |
+| EBU R37, production | **+40 ms to −60 ms** |
+| **our sync budget** ([D66](#d66--no-clock-synchronisation-monotonic-local-time-and-bounded-round-trips)) | rate-nudge absorbs **60–3000 ms**; periodic reconciliation in **minutes** |
+
+Our *finest correction unit* is already at the detectability threshold, and our reconciliation
+cadence is not in the same universe. Watch Together synchronises two people in two houses to
+within a second; lip sync needs two devices in one room to within a frame. The mechanisms are
+not related and reusing one for the other would produce a feature that is subtly wrong all the
+time.
+
+**The want underneath it is private listening** — headphones while the television is silent —
+and the ecosystem's answer is Bluetooth headphones paired to the television, which already
+works and is not ours to improve. Out of scope, stated with the number so nobody re-proposes
+it without one.
+
+**Status:** The device-attachment model is new surface and the roster UI is where it will feel
+clumsy if it is wrong — "Karl (TV + phone)" is one row, not two, and getting that wrong makes
+a two-person session look like a crowd.
+
+---
+
+## D121 — An ability is a row in a closed table with a two-valued grant, chosen at session creation
+
+**Decided** (2026-09-21), by the project owner. Simplifies
+[D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays)'s
+permission prose.
+
+D117 described three permissions in prose, with one of them defaulting by reference to another
+("in-series navigation follows transport"). That is more structure than the problem has. The
+model is flatter:
+
+> **Each ability is `group` or `host only`. The host picks at session creation. That is all.**
+
+| Ability | Grant | Default |
+| --- | --- | --- |
+| Transport — play, pause, seek | `group` \| `host only` | `group` |
+| Choose what plays | **`host only`, not a setting** | — |
+| Eject, rotate the link, change the cap | **`host only`, never configurable** ([D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)) | — |
+| *Change playback within a play set* | `group` \| `host only` | *later* |
+
+Two rows are deliberately not settings. **Choosing what plays** is the host's library and the
+host's alone. **Ejection** is never delegable, because a participant granted transport who can
+also eject can eject the host.
+
+**Keeping it a table rather than a pair of booleans is the whole of "leave the possibility
+open".** Finer-grained control almost certainly is not needed — the request says so and it is
+probably right — but a closed enumeration of abilities costs nothing now and means a later row
+is a row, not a redesign. The play-set row below is the first one already foreseen.
+
+**Play sets, later** ([D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays)
+recorded these as "party playlists"). The host selects a set of videos — a season, a trilogy —
+and grants the group the ability to move within it. Binge-watching without handing over the
+library. It is cheap later precisely because the scope is an object and the permission is a
+row.
+
+**Status:** Sound and smaller than what it replaces. The one thing to watch is grants becoming
+*mutable mid-session*, which sounds harmless and is how a two-value setting turns into an
+access-control system: for now they are fixed at creation, and if that proves annoying the
+change is "the host may change a grant", not "grants may be per-participant".
+
+---
+
+## D122 — The session is the object; what plays is mutable state on it, and a guest sees the stream rather than the library
+
+**Decided** (2026-09-21), by the project owner. **Retires "the group is keyed on an Edition"**
+from [D104](#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant)
+and [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays).
+
+That phrasing was wrong and it was wrong for a traceable reason. D104 was trying to bound the
+blast radius of a leaked link, and reached for *scope* as the bound: if the link only reaches
+one Edition, a leak is small. Then [D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)
+supplied better bounds — a cap, and seamless rotation — and the scope argument stopped earning
+its complexity. It survived anyway, as a phrase, and it does not describe the feature.
+
+> **The session is an ephemeral object. "What is playing" is mutable state on it, and the host
+> may change it to anything in his library at any time — mid-video included.**
+>
+> **A video ending does not end the session.** The group returns to
+> [D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s
+> `Idle` state and waits, which is what that state was always for.
+
+### The bound that actually holds
+
+Losing scope-keying loses nothing, because the real bound was never the item — it is the
+**surface**:
+
+> **A guest gets the session's current playback. Not a library, not a browse view, not an
+> item they can address by id.**
+
+Whatever the host puts on, the guest sees; anything else in the library is not merely
+forbidden, it is **unreachable, because it is not in the guest's world at all**. That is
+[principles §10](../principles/README.md) in its strongest form — omission rather than
+rejection — and it is a better guarantee than scope-keying was, because it does not depend on
+enumerating what the scope contains.
+
+So the leaked-link story is complete without it: the cap bounds how many strangers arrive, the
+roster shows them, ejection removes them, rotation stops more coming, and **what a stranger
+could see while present is one stream that the host chose and can change.**
+
+**Status:** This is a simplification — a concept removed, not added. The one thing it obliges
+is that "change what is playing" is a **first-class group command** with the same serialisation
+and version discipline as play/pause/seek
+([D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)),
+rather than a teardown and re-create. A change of video is a transition in the group state
+machine, and every participant's player is expected to survive one.
+
+---
+
+## D123 — Bandwidth is per-participant; the group shares a position, not a stream
+
+**Decided** (2026-09-21). Question raised by the project owner:
+what happens when one guest's link cannot carry the stream.
+
+Four options were on the table — transcode per guest, degrade everyone to the lowest common
+denominator, let the unlucky guest suffer, or surface per-guest health and let the group apply
+pressure. **The first is already the architecture and costs nothing extra here**, which
+removes the dilemma.
+
+### It is already solved, by two decisions that were not made for this
+
+[D2](#d2--playback-negotiation-the-client-decides-from-a-manifest) puts rendition choice on the
+client and [D86](#d86--adaptation-is-the-client-re-picking-on-a-buffer-signal-and-it-puts-bandwidth-transcoding-on-remote-accesss-critical-path)
+makes the client re-pick on its own buffer. Applied to a group:
+
+> **Each participant streams at whatever rendition their own link supports. The group shares a
+> *position*, not a *stream*.**
+
+Nothing in [D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s
+six methods mentions bitrate. One guest at 2 Mbps and another at 20 Mbps are at the same
+timestamp in different renditions, and neither is aware of the other's choice.
+
+**So no lowest-common-denominator.** Degrading everyone to the worst link punishes four people
+for one person's hotel wifi, and it is the option that *feels* fair and is not.
+
+**And the N-guests-N-transcodes worry does not materialise**, because two existing decisions
+cap it: the output menu is a **closed enumeration** of about eleven named profiles
+([D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list)), and the
+transcoder **shares one encoder process between viewers of the same rendition**
+([transcoding.md](../design/plans/transcoding.md)). Cost is bounded by the size of the menu,
+not by the number of guests — five guests collapse onto at most two or three renditions, and
+usually one.
+
+### What genuinely is shared, and therefore genuinely is a group problem
+
+**Stalls.** A participant who keeps buffering affects everyone *if and only if* the group's
+stall policy says to wait for them —
+[watch-together.md](../design/plans/watch-together.md) already has that as *"a group setting
+with a size-dependent default"*, and Jellyfin exposes the same thing as `IgnoreBuffering`.
+
+**So the stall policy is the actual control, and it is kinder than the alternatives.**
+"Continue without them" lets a struggling guest fall behind and resynchronise instead of
+holding four people at a spinner. Ejection is the last resort, not the first.
+
+### Per-guest health, because the policy is unusable without it
+
+The request's fourth option — a health meter per guest — is right, and it is nearly free:
+[D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque) already
+routes every client's observations to the core, and
+[D91](#d91--a-metrics-endpoint-off-by-default-and-local-when-on) already collects them. Showing
+each participant's buffer health and stall count in the roster is a rendering of data that
+exists.
+
+It does three jobs at once: it tells the host **why** playback keeps pausing, which is
+[principles §3](../principles/README.md) applied to a group; it makes the stall policy a
+comprehensible choice rather than a mystery toggle; and it converts "someone is ruining this"
+into a named, visible fact.
+
+**On the social mechanic** — *"whoever is dragging the group down gets asked to leave"* — the
+mechanism is right and the phrasing should not become the design. Ejection is
+**host-only** ([D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak));
+what the health meter adds is that the host's decision is *informed*, and that the struggling
+guest can see their own meter and bow out first, which is the outcome everyone actually wants.
+
+**Status:** Rests on a transcoder that does not exist yet
+([transcoding.md](../design/plans/transcoding.md) §(b)), which
+[D86](#d86--adaptation-is-the-client-re-picking-on-a-buffer-signal-and-it-puts-bandwidth-transcoding-on-remote-accesss-critical-path)
+already put on remote access's critical path — this is a second consumer arriving at the same
+conclusion. Until it exists, a guest whose link cannot carry the original is out of luck, and
+the honest thing is to say so in the join screen rather than let them discover it at minute
+four.

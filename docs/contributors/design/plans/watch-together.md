@@ -9,9 +9,18 @@
 
 ## Scope, in priority order
 
-Anyone in a group may **play, pause and seek**. Volume is local. **Voice chat** with per-source
-gain, so one loud participant does not drown the film. Text chat deferred; emoji reactions are
-probably the right shape for a television.
+The host creates a session and puts something on. Guests join by link. **Volume is local.**
+**Voice chat** with per-source gain, so one loud participant does not drown the film. Text chat
+deferred; emoji reactions are probably the right shape for a television.
+
+**The session is the object, and what plays is mutable state on it**
+([D122](../../decisions/working-notes.md)). The host may change the video to anything in his
+library at any time, mid-video included, and **a video ending does not end the session** — the
+group returns to `Idle` and waits, which is what that state was always for.
+
+**What a guest gets is the current playback. Not a library, not a browse view, not an item
+they can address by id.** That is the bound on a leaked link, and it is stronger than scoping
+the session to one work because it does not depend on enumerating the scope.
 
 The motivating case is two people in different places, one of them travelling — a *remote*
 feature first and a LAN feature incidentally.
@@ -31,6 +40,44 @@ on headphones, one on speakers, offset `d = L`, echo gone — and only approxima
 because with three or more the pairwise-optimal offsets are over-determined. "Does one stall
 pause everyone?" has an obvious answer at two and none at five. And the server relay is free at
 two, merely cheap at five.
+
+### Unequal links: the group shares a position, not a stream
+
+[D123](../../decisions/working-notes.md). One guest on hotel wifi and another on fibre is the
+normal case, and it is already answered by decisions taken for other reasons:
+[D2](../../decisions/working-notes.md) puts rendition choice on the client and
+[D86](../../decisions/working-notes.md) makes the client re-pick on its own buffer. So **each
+participant streams at whatever rendition their own link supports**, at the same timestamp,
+unaware of anyone else's choice. Nothing in the six methods mentions bitrate.
+
+**No lowest-common-denominator.** Degrading everyone to the worst link punishes four people
+for one person's hotel, and it is the option that feels fair and is not.
+
+**And N guests do not mean N transcodes.** The output menu is a closed enumeration of about
+eleven named profiles ([D21](../../decisions/working-notes.md)) and the transcoder shares one
+encoder process between viewers of the same rendition
+([transcoding.md](transcoding.md)) — cost is bounded by the menu, not by the roster. Five
+guests collapse onto two or three renditions, usually one.
+
+**What *is* shared is stalls**, and that is what the group stall policy below is for.
+"Continue without them" lets a struggling guest fall behind and resynchronise rather than
+holding four people at a spinner; it is kinder than ejection and it is the first resort, not
+the last.
+
+**Per-guest health is in the roster**, because the stall policy is unusable without it — and
+it is nearly free, since [D73](../../decisions/working-notes.md) already routes every client's
+observations to the core and [D91](../../decisions/working-notes.md) already collects them.
+Buffer health and stall count per participant does three jobs: it tells the host *why*
+playback keeps pausing ([principles §3](../../principles/README.md) applied to a group), it
+makes the stall policy a comprehensible choice rather than a mystery toggle, and it lets the
+struggling guest see their own meter and bow out before anyone has to ask. Ejection stays
+host-only ([D119](../../decisions/working-notes.md)); what the meter adds is that the decision
+is informed.
+
+**Until the transcoder exists** ([transcoding.md](transcoding.md) §(b), which
+[D86](../../decisions/working-notes.md) already put on remote access's critical path) a guest
+whose link cannot carry the original is out of luck — and the honest thing is to say so on the
+join screen rather than let them find out at minute four.
 
 ### Where the ceiling actually is
 
@@ -57,10 +104,13 @@ belongs to the transcoding plan, not this one.
    ([D117](../../decisions/working-notes.md)): it is now a creator-set policy with three
    separate permissions, above.
 3. **The client handles a *set* of remote audio streams** with per-source gain, even when the
-   set has one member. Free, since per-source gain was already required.
+   set has one member. Free, since per-source gain was already required — and it is what makes
+   the voice companion below cost nothing extra.
 4. **Transport is a server-chosen policy** — mesh, relay, or eventually an SFU — not a client
    assumption.
-5. **The stall policy is a group setting** with a size-dependent default.
+5. **The stall policy is a group setting** with a size-dependent default — and per
+   [D123](../../decisions/working-notes.md) it is the real control for unequal links, with the
+   per-guest health meter as the surface that makes it choosable.
 
 Not building: an SFU, active-speaker detection, moderation tooling, roles beyond (2), text chat.
 
@@ -129,23 +179,28 @@ a sensible control: it reaches the work the creator chose and nothing else — a
 the Collection that is its series ([D79](../../decisions/working-notes.md)). One series, at
 most, for as long as the session lasts.
 
-### Three permissions, because they are three risks
+### Abilities: a closed table, each one `group` or `host only`
 
-| | Who | Default |
+[D121](../../decisions/working-notes.md). The host picks at session creation. That is all
+there is to it.
+
+| Ability | Grant | Default |
 | --- | --- | --- |
-| **What plays** — the film or the series | **creator only, always** | not configurable |
-| **Transport** — play, pause, seek | creator's choice: everyone, or creator only | everyone |
-| **Move within the series** — next episode, next film in the series | creator's choice: on or off | follows transport |
-| **Eject a participant, rotate the link, change the cap** | **creator only, never configurable** | — |
+| Transport — play, pause, seek | `group` \| `host only` | `group` |
+| Choose what plays | **`host only`, not a setting** | — |
+| Eject, rotate the link, change the cap | **`host only`, never configurable** | — |
+| *Change playback within a play set* | `group` \| `host only` | *later* |
 
-The second row was opening (2) below and is now a setting. The third is the interesting one:
-**the creator picks the work, participants may navigate inside it.** "Next episode" is
-reasonable at 1 a.m. when the host has fallen asleep; "put on something else" is not. In-series
-navigation moves within the work scope and cannot leave it.
+Two rows are deliberately not settings. **What plays** is the host's library and the host's
+alone. **Ejection** is never delegable, or a participant granted transport could eject the
+host.
 
-**Party playlists are the later version of the same idea** — a creator-defined ordered set as
-the work scope instead of a series. Cheap later precisely because the scope is already an
-object rather than a single item.
+**Keeping this a table rather than two booleans is the whole of "leave the door open".** Finer
+grain almost certainly is not needed; a closed enumeration costs nothing now and makes a later
+ability a row rather than a redesign.
+
+**Play sets, later.** The host selects a set of videos — a season, a trilogy — and grants the
+group the ability to move within it. Binge-watching without handing over the library.
 
 ## The constraint that decides whether this survives
 
@@ -254,9 +309,44 @@ mixed output.
 Per-source gain is independent of both — one gain node per remote stream — and is the explicitly
 requested control.
 
+### Voice companion: a participant is a person, and devices attach to them
+
 **On a television the phone is the voice endpoint.** An Apple TV has no app-accessible
 microphone, and a microphone across the room from the speakers is the worst possible AEC
 geometry regardless. Phone-and-earbuds for voice, TV for video.
+
+[D120](../../decisions/working-notes.md) makes that a model rather than an observation. **A
+participant is a person; a person attaches one or more devices, each with a role:**
+
+| Role | Does | Implements |
+| --- | --- | --- |
+| `playback` | plays the video, reports position, accepts transport | the six methods |
+| `voice` | microphone and per-source mix, nothing else | none of them |
+| `control` | a remote: roster and transport, no playback | none of them |
+
+**"Voice companion" is that, and nothing more** — a phone attached with the `voice` role while
+the television holds `playback`. It needs no player, no rendition negotiation and no sync
+participation. A voice-only client implements **none** of the six methods, which is a
+confirmation that the surface is the right size rather than a strain on it.
+
+**A second device attaches with [D93](../../decisions/working-notes.md)'s code flow**: the
+first shows a short code, the second enters it and joins the *same membership* rather than
+creating a new one. Same mechanism as signing in on a television, pointed at a session — which
+is why "one link, several devices per person" needs no account at either end.
+
+**And the cap counts people, not clients.** Two people with voice companions are four clients;
+a cap phrased in clients would refuse the second person's phone
+([D120](../../decisions/working-notes.md) corrects
+[D119](../../decisions/working-notes.md)'s wording).
+
+**Film audio on the phone with video on the television is out of scope**, and the number says
+why. Splitting audio and video across two devices is **lip sync**: ITU-R BT.1359 puts
+detectability at audio leading by **45 ms** or lagging by **125 ms**, and EBU R37's production
+window is **+40 / −60 ms**. Our sync budget ([D66](../../decisions/working-notes.md)) nudges
+out **60–3000 ms** and reconciles periodically **in minutes** — our finest correction is
+already at the detectability threshold. These are not the same problem and reusing one
+mechanism for the other yields something subtly wrong all the time. The want underneath is
+private listening, and the answer is Bluetooth headphones paired to the television.
 
 **tvOS does not gate any of this** ([D67](../../decisions/working-notes.md)). It has WebRTC
 audio/video but no data channels, needs a locally built framework, and carries an open tvOS 16
@@ -321,11 +411,15 @@ The consequence for [D64](../../decisions/working-notes.md): the premium tier's 
 
 ## Done when
 
-**Phase 1 — two participants.** Two people on different networks watch a film end to end; either
-can pause, resume and seek; scrubbing does not drag the other person around; a stall on one side
-is visible on the other as a named reason rather than a freeze; voice is intelligible with
-per-speaker levels and no echo with one side on speakers; and a third client platform gains the
-whole feature by implementing six methods.
+**Phase 1 — two participants.** Two people on different networks watch a film end to end;
+either can pause, resume and seek **if the host granted `group` transport**, and only the host
+can otherwise; scrubbing does not drag the other person around; a stall on one side is visible
+on the other as a named reason rather than a freeze; voice is intelligible with per-speaker
+levels and no echo with one side on speakers; **one of them runs voice on a phone while a
+television plays the video, and the roster shows one person rather than two**; **the host
+changes the film mid-session and nobody's player is torn down**; a film ending leaves the
+session alive; and a third client platform gains the whole feature by implementing six
+methods.
 
 **Phase 2 — four or five.** The same, with a roster, and **without the audio path or the
 group-state record changing shape**. If either has to change, opening (1) or (3) was not left

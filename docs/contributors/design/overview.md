@@ -79,11 +79,17 @@ Five choices, each traceable to a specific failure in the research:
    client-specific surface to six methods so a client rewrite cannot quietly kill it
    ([D62](../decisions/working-notes.md)) — and **a session link is the invitation**, with no
    account required at the other end, because that is the whole point
-   ([D117](../decisions/working-notes.md)). The creator owns what plays; whether anyone else
-   may touch the transport is his setting. A leaked link is survivable rather than prevented
-   ([D119](../decisions/working-notes.md)): a **cap on simultaneous clients** bounds the flood
-   before anyone notices, and because **a link admits while a *membership* persists**, the
-   owner can rotate the link without the people already watching noticing anything at all.
+   ([D117](../decisions/working-notes.md)). The host owns what plays and may change it to
+   anything in his library mid-session; whether anyone else may touch the transport is one
+   setting ([D121](../decisions/working-notes.md),
+   [D122](../decisions/working-notes.md)). A leaked link is survivable rather than prevented
+   ([D119](../decisions/working-notes.md)): a **cap on participants** bounds the flood before
+   anyone notices, and because **a link admits while a *membership* persists**, the host can
+   rotate the link without the people already watching noticing anything. A **voice companion**
+   — a phone doing microphone duty while the television plays — is a second device on the same
+   membership rather than a second person ([D120](../decisions/working-notes.md)), and unequal
+   links need no group compromise because the group shares a *position*, not a stream
+   ([D123](../decisions/working-notes.md)).
 
 ## Architecture
 

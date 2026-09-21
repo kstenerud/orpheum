@@ -148,8 +148,17 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   [D119](../../decisions/working-notes.md)) — the path nobody exercises until they need it.
   Including the race: **a client mid-join when the link rotates** either completes or is
   refused, and never lands in a half-joined state;
-- **the simultaneous-client cap is enforced server-side** on admitted memberships, and a
-  refusal at capacity reaches the owner ([D119](../../decisions/working-notes.md));
+- **the simultaneous-participant cap is enforced server-side** on admitted memberships and
+  counts **people, not clients** — two people with voice companions are four connections and
+  must not trip a cap of two ([D119](../../decisions/working-notes.md),
+  [D120](../../decisions/working-notes.md)) — and a refusal at capacity reaches the owner;
+- **a second device attaches to an existing membership** rather than creating a new one, and
+  the roster shows one participant ([D120](../../decisions/working-notes.md));
+- **the host changes what is playing mid-session** and every participant's player survives the
+  transition rather than being torn down and re-created
+  ([D122](../../decisions/working-notes.md)); a video ending leaves the session in `Idle`;
+- **two participants on very different links play the same timestamp at different bitrates**,
+  and neither is degraded to the other's rendition ([D123](../../decisions/working-notes.md));
 - **items appear in the library while the first scan is still running**, and a tailed report
   that ends mid-record costs one entry rather than the batch
   ([D118](../../decisions/working-notes.md));
