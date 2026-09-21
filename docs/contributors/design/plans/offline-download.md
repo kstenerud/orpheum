@@ -72,6 +72,16 @@ and getting its shape right early is what stops this being a migration:
 A television. [shared-core.md](../research/shared-core.md) already says so, and it is the reason
 the offline module is quarantined rather than spread through the clients.
 
+## What the lease actually enforces
+
+[D154](../../decisions/working-notes.md). Worth one honest paragraph, because the alternative
+is implying something we do not do. **There is no DRM** ([D3](../../decisions/working-notes.md)),
+so **nothing enforces a lease on bytes already sitting on a device.** The grant governs
+**acquisition, renewal and re-download** — which is real, and is what makes revoking a
+departed housemate's access mean something — and playback of an already-downloaded file is a
+client-side courtesy. Say that in the product. A lease presented as enforcement that is not
+enforcement is the kind of claim that gets discovered and quoted.
+
 ## Done when
 
 A phone downloads a film, goes into aeroplane mode, and plays it with correct subtitles in a

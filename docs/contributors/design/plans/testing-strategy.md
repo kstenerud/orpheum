@@ -377,6 +377,20 @@ speech fraction, asserted.
   never-scored item.
 - **A statistics page shows a user only their own history unless the role grants otherwise**
   ([play-statistics.md](play-statistics.md)).
+- **No endpoint accepts a credential from a URL** ([D154](../../decisions/working-notes.md)).
+  Mechanical and route-by-route: no query parameter and no path segment is ever read as a
+  token. This is the single assertion that keeps *"Copy Stream URL leaks the session key"*
+  from happening here, and it fails closed.
+- **No grant is stored in plaintext**, and no secret reaches a log, a metric label or a bug
+  report ([bug-reports.md](bug-reports.md)) — the last one matters because a URL in a report
+  is how a credential escapes a system that was otherwise careful.
+- **Every grant kind has a scope**, asserted over the enum, so adding a kind without one
+  fails the suite rather than shipping Jellyfin's unscoped `ApiKey`.
+- **A revoked grant stops working on the next request**, including mid-stream — revocation is
+  the control ([D117](../../decisions/working-notes.md)), so latency here is the property.
+- **The media cookie cannot reach the API**, and the API refuses a cookie outright. The two
+  paths are separate or CSRF becomes real ([D154](../../decisions/working-notes.md)).
+- **The last administrator cannot be removed or demoted** ([D154](../../decisions/working-notes.md)).
 - **A client names the failing hop** ([D152](../../decisions/working-notes.md)). Four
   fixtures — no network, relay unreachable, relay up with the core not dialled in, core up
   with the media node asleep — and four distinguishable messages. *"Cannot connect"* for any

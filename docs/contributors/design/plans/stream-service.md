@@ -242,6 +242,25 @@ manifest:
   *only* form of a caption track where a text form exists, and a client using it reports what it
   lost, in the same surface that explains a transcode.
 
+## How a byte request is authenticated
+
+[D154](../../decisions/working-notes.md), 2026-09-21. This is the surface where the field's
+worst credential bug lives, so it is stated here rather than left to `auth.md`.
+
+**No credential appears in a stream URL.** Jellyfin reads `?ApiKey=`/`?api_key=`
+(`AuthorizationContext.cs:105,110`) and its token never expires and has no scope, which is why
+*Copy Stream URL* hands out an admin-equivalent credential. Here:
+
+- **Native clients** (ExoPlayer, AVPlayer, libmpv, hls.js) send an `Authorization` header.
+- **Browsers** — where `<video>` with native HLS and `<img>` cannot set one — send a
+  `Secure; HttpOnly; SameSite` cookie **scoped to the byte paths only**. It is never valid on
+  the API, so a forged cross-site `GET` can fetch media the user could already fetch and
+  nothing else.
+- **The Cast receiver is our own web app** ([D124](../../decisions/working-notes.md)), so it
+  uses `LoadRequestData.credentials` and a request filter.
+- **A URL the user deliberately exports** — *"play via external player"*, **+63** — gets a
+  `link` grant: one item, one rendition, minutes. The vulnerability becomes the feature.
+
 ## Done when
 
 A client direct-plays everything the playback survey says it should; a client that cannot decode

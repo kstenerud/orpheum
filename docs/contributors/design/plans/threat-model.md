@@ -77,11 +77,16 @@ and it means Jellyfin's threat model is not available to us. We have not written
   report parser, with bounds on cue count and file size; and a strict parser's *zero cues* is
   a result the user sees as *"the download failed"*, which is half of the complaint the
   feature exists to fix ([subtitle-acquisition.md](subtitle-acquisition.md)).
-- **Credential and token model.** Session lifetime, API key scoping and expiry, and the
-  "Copy Stream URL leaks the session key" failure Jellyfin has open. The *shape* of signing in
-  now has a home — [auth.md](auth.md), and device pairing is RFC 8628
-  ([D93](../../decisions/working-notes.md)) — but the token model itself is still this
-  document's question.
+- ~~**Credential and token model.**~~ **Answered 2026-09-21 by
+  [D154](../../decisions/working-notes.md)** ([token-model.md](../research/token-model.md)) —
+  this document's oldest open question, and the one five decisions said they were waiting on.
+  **One opaque, hashed, revocable grant row** with a closed `kind` enum and a closed scope
+  vocabulary; **no credential ever appears in a URL** — bytes take a path-scoped cookie, the
+  API takes a header, and a URL meant to be exported gets a narrow `link` grant minted on
+  purpose. That closes *"Copy Stream URL leaks the session key"* by construction: Jellyfin
+  reads `?ApiKey=`/`?api_key=` and stores a never-expiring, unscoped, admin-equivalent token
+  in plaintext; we read neither and store none. Sessions expire on **idle**, not absolutely;
+  refresh tokens do not exist because revocation costs 4.2 µs.
 - **What a metrics endpoint exposes.** [observability.md](observability.md) adds one
   ([D91](../../decisions/working-notes.md)): off by default, localhost when on, never a label
   that can carry a title or a path. It is a new listener and belongs in the surface inventory.

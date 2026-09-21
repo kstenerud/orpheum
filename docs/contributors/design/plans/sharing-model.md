@@ -93,6 +93,19 @@ against a determined person. Say so plainly rather than implying a guarantee.
 Lives **with the media, keyed by the grantee** — the owner's server is the only party that can
 know. **Do not merge across servers**; a client aggregating several shows several.
 
+## What a shared link grants
+
+[D154](../../decisions/working-notes.md), answering half of what was open below. A share is
+**a role with one member**, so a shared *account* carries an ordinary `session` grant with
+that role's predicate — nothing special. A Watch Together **join link** is different and
+deliberately so: a `join` grant with **no subject at all**, because
+[D125](../../decisions/working-notes.md) makes a guest a non-principal. It is scoped to one
+session and revoked by rotation, ejection or the cap
+([D119](../../decisions/working-notes.md)).
+
+What that settles is *"can it be revoked"* — yes, in one row update, and that is the control
+rather than expiry. What it does not settle is the entitlement questions below.
+
 ## Still open
 
 - **Whether a grantee may build their own rules** over the filtered view. Natural, and cheap

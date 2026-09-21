@@ -6177,8 +6177,10 @@ revocation, device pairing and the sharing hand-off are currently a bullet in
 `library-model.md`, two open questions in `threat-model.md`, and a section in
 `remote-access.md`. That is a Phase 1 subsystem with no plan.
 
-**Status:** Shape only. The token model, its lifetimes and revocation are
-[threat-model.md](../design/plans/threat-model.md)'s open question and remain open.
+**Status:** **Complete as of [D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url).**
+The device-authorization flow terminates in a `session` grant bound to that `device_id`, which
+is what makes *"sign this television out"* a single row update. Lifetimes and revocation are
+settled there: idle expiry, revocable at any moment, no refresh token.
 
 ---
 
@@ -6726,8 +6728,10 @@ one.
   means the entitlement check happens against the group's item, once, rather than being
   re-derived per participant per action.
 
-**Status:** The capability URL's own design is [threat-model.md](../design/plans/threat-model.md)'s
-open signed-URL work, so this decision names the shape and inherits that document's gap. Also
+**Status:** The capability URL's own design is settled by
+[D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url):
+it is a `join` grant — **no subject, because a guest is not a principal** — scoped to one
+session, revoked by rotation, ejection or the cap. Also
 open: whether a participant who loses entitlement mid-film (a share revoked, a rule
 re-evaluated) is ejected or finishes the film. Ejecting mid-sentence is hostile; not ejecting
 means a revocation is not immediate. Probably: finish the session, deny the next one, and say
@@ -6782,10 +6786,14 @@ as a **specific, explicitly chosen** user with whatever that user can see — ne
 by default, and never silently. That is a limitation to state in the adapter's own
 documentation rather than a hole to leave open.
 
-**Status:** Sound as a rule; the mechanism depends on [auth.md](../design/plans/auth.md)'s
-token model, which is unsettled. The awkward case is a Jellyfin client that expects a
-long-lived API key: the adapter must be able to hold a user-scoped long-lived token, which is
-exactly the *"granular apikey permissions"* request open on Jellyfin's own tracker.
+**Status:** Sound as a rule, and the mechanism is settled by
+[D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url):
+an `adapter` grant scoped to one user, revocable on its own. **The awkward case resolves
+without weakening anything.** A Jellyfin client expects a non-expiring `X-Emby-Token` and we
+do not want to issue one — so we do not: **the adapter owns the Jellyfin-shaped credential on
+its own side** and holds an ordinary revocable grant against the core. Their model's weakness
+stays inside the adapter, independently revocable, which is what *"acts as the user, never as
+itself"* is for.
 
 ---
 
@@ -6884,8 +6892,10 @@ purpose is to have access to the user's files.
   real. For the default single-machine install, where the core supervises a co-located node,
   both sides are the same machine and the user sees one step.
 
-**Status:** The enrolment mechanism is shared with [auth.md](../design/plans/auth.md) and
-inherits its open token model. Unresolved: whether a node should also be able to *refuse* a
+**Status:** The enrolment mechanism is shared with [auth.md](../design/plans/auth.md), and
+[D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url)
+makes it a `node` grant in the same table, scoped to the node protocol and nothing else — so
+what remains is only **mTLS versus a shared enrolment secret**. Unresolved: whether a node should also be able to *refuse* a
 root the core knows about — the asymmetry is intentional but "I can see this root and choose
 not to serve it" may be a real operator want.
 
@@ -8057,8 +8067,12 @@ acquire a durable identity by accident — no row written on join, no preference
 resume position recorded — because a guest who becomes a user is a griefer who survived
 rotation.
 
-**Status:** The token model is still [threat-model.md](../design/plans/threat-model.md)'s open
-question; this settles the *principals*, not their credentials. Unresolved: whether a second
+**Status:** The credentials are settled by
+[D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url) —
+and a guest's non-principal status is exactly why its `join` grant has no subject. **The admin
+question below is also answered there: the last holder of `administer` cannot be removed or
+demoted, and recovery is a filesystem-minted single-use grant.** For the record as asked:
+whether a second
 admin is required before the first can be removed (it should be — a household with no admin is
 unrecoverable), and whether `admin` should be revocable by another admin.
 
@@ -11121,3 +11135,165 @@ like doing nothing, costs nothing, and is the only kind of work that becomes imp
 ([feature-sweep-2026-09-21.md](../design/research/feature-sweep-2026-09-21.md)) and is expected
 to be edited. The **obligations** are the part that should be treated as binding, and each
 needs to be checked against `library-model.md` before it freezes.
+
+---
+
+## D154 — One grant table, opaque and revocable; the session credential never appears in a URL
+
+**Decided** (2026-09-21). Research: [token-model.md](../design/research/token-model.md).
+**Closes [threat-model.md](../design/plans/threat-model.md)'s oldest open question**, carried
+since 2026-09-18, which [D93](#d93--device-pairing-is-rfc-8628-shaped),
+[D104](#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant),
+[D105](#d105--a-protocol-adapter-acts-as-the-user-never-as-itself),
+[D107](#d107--the-node-channel-is-mutually-authenticated-and-a-nodes-roots-are-local-and-never-remotely-settable)
+and [D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)
+all say they inherit, and which [auth.md](../design/plans/auth.md) says it settles the
+principals but not their credentials. **`auth.md` is Phase 1**, so this was the most blocking
+unanswered question in the tree.
+
+### 1. One primitive, not ten
+
+Ten things need a credential — an interactive session, a paired television, a stream URL, a
+cast receiver, a Watch Together join link, a download lease, an API key for the `*arr` stack,
+a protocol adapter, a media node, a relay. The temptation is ten mechanisms.
+
+**They are one row.** What differs is scope, lifetime and who may revoke — *policy* — not
+cryptography.
+
+```
+grant(hash, kind, subject, scope, issued_at, expires_at, last_seen, revoked_at, label, device_id)
+```
+
+- **Opaque and random**: 256 bits from a CSPRNG. Not a JWT, not signed, carrying nothing.
+- **Hashed at rest** — SHA-256, and we look up *by the hash*, never storing or comparing the
+  secret. **Jellyfin stores its tokens in plaintext**, so a single database read compromises
+  every session in the household; ours yields nothing usable. A slow KDF (bcrypt, argon2) is
+  the wrong tool and worth saying so: those defend a *low-entropy, guessable* secret, and there
+  is nothing to guess in 256 random bits.
+- **`kind` is a closed enum** and `scope` is drawn from a closed vocabulary — reusing
+  [D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)'s
+  capability enum, plus a resource reference where the kind needs one. This is
+  [D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list)'s rule again:
+  **a fixed named set, never a grammar of conditions.** Jellyfin's `ApiKey` row is
+  `(Id, DateCreated, DateLastActivity, Name, AccessToken)` — **no scope column exists**, which
+  is why an API key there is admin-equivalent by construction.
+
+**Measured, and it decides the shape** ([token-model.md](../design/research/token-model.md)):
+an opaque token verifies in **4.23 µs** at 100,000 rows on the slower pure-Go driver, against
+an authenticated request rate of about **5/second**. A signed token verifies in 0.57 µs *if
+it is never revoked*, **4.61 µs if it is** — and **Ed25519 costs 32.6 µs**, making the
+"so a relay can verify locally" argument the most expensive option on the list.
+[D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays)
+and [D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)
+already make **revocation the control**, so the signed token's only advantage was never
+available to us. **Opaque wins on its merits, not by default.**
+
+**And it protects [D108](#d108--the-interface-is-not-ours-to-change-out-from-under-people-and-an-old-client-stays-installable).**
+A JWT's claims become a de-facto public contract the moment one client parses them. An opaque
+string cannot be parsed, so its internals stay ours to change forever.
+
+### 2. The rule that closes the Jellyfin bug: no credential in a URL
+
+**The session credential never appears in a URL — not as a query parameter, not in a path, not
+on any endpoint, ever.** Jellyfin accepts `?ApiKey=` and `?api_key=`
+(`AuthorizationContext.cs:105,110`), which is precisely how *Copy Stream URL* hands out a
+permanent admin-equivalent credential.
+
+It turns out almost nothing forces a URL-borne credential:
+
+| Surface | Carries the credential how |
+| --- | --- |
+| API calls, hls.js, ExoPlayer, AVPlayer, libmpv | an **`Authorization` header** |
+| `<video>` with native HLS on Safari/iOS, `<img>` posters | a **cookie** — `Secure`, `HttpOnly`, `SameSite`, and **scoped to the media paths only** |
+| Our Cast receiver — it is our own web app ([D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)) | **`LoadRequestData.credentials`** plus a request filter |
+| A URL the user deliberately exports to VLC or mpv | **a `link` grant, minted on purpose** |
+
+**The cookie/header split is the load-bearing detail.** The cookie is valid *only* on the byte
+paths — `/stream`, `/image` — and never on the API, which takes the header and nothing else.
+So the CSRF question answers itself: the only thing a forged cross-site request can do with
+the cookie is fetch media the user was already entitled to fetch, by `GET`, changing nothing.
+**Bytes take a cookie; the API takes a header.**
+
+And the one irreducible case is **not a leak, it is a feature**: *"play via external player"*
+is a **+63** request ([tv-client.md](../design/plans/tv-client.md), F59). A URL you meant to
+export gets a grant minted for the purpose — one item, one rendition, minutes — so the thing
+that is a vulnerability in Jellyfin is a supported action here.
+
+### 3. The kinds, their scope and their lifetime
+
+The rule across all of them: **the broader the scope, the more deliberate the act that creates
+it; the narrower the scope, the shorter it lives.** No kind is both broad and casually minted.
+
+| `kind` | Subject | Scope | Lifetime | Revoked by |
+| --- | --- | --- | --- | --- |
+| `session` | a user + a device | the user's role, entire | **no absolute expiry; idle expiry on `last_seen`** | the user, any admin, or signing the device out |
+| `link` | a user | **one item, one rendition** | minutes | expiry, or revoking the parent session |
+| `cast` | a user + a receiver | one cast session's queue | the cast session ([D135](#d135--casting-on-your-own-is-a-device-delegation-not-an-invitation-the-credential-is-the-session-and-the-queue-is-next-up)) | the sender, or session end |
+| `join` | **nobody — a guest is not a principal** ([D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)) | one Watch Together session | the session | rotation, ejection, cap ([D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)) |
+| `api_key` | a user | **an explicit capability subset** | none by default, optional expiry | the user or an admin |
+| `adapter` | an adapter + a user | that user's role ([D105](#d105--a-protocol-adapter-acts-as-the-user-never-as-itself)) | idle expiry | removing the adapter, or the user |
+| `node` | a machine | the node protocol only | long; enrolment is a deliberate act ([D107](#d107--the-node-channel-is-mutually-authenticated-and-a-nodes-roots-are-local-and-never-remotely-settable)) | un-enrolling the node |
+| `relay` | a machine | **forward bytes for sessions the core named** | long | un-enrolling the relay |
+
+**On session lifetime specifically**, because it is where products annoy people: an **idle
+expiry, not an absolute one.** A television in the living room that signs itself out every
+thirty days is the behaviour users describe as broken; `last_seen` plus a long idle window
+gives the security benefit — an abandoned device stops working — without the one that costs
+goodwill. It is revocable at any moment, which is the actual control.
+
+**Refresh tokens do not exist here**, and the reason is worth recording so nobody adds them:
+they exist to renew *unrevocable* access tokens silently. Ours are revocable and cost 4.2 µs
+to check. Remove the reason, remove the mechanism — and with it a second credential class, a
+rotation protocol and a race.
+
+### 4. Three consequences for decisions that were waiting
+
+- **[D93](#d93--device-pairing-is-rfc-8628-shaped) is complete.** RFC 8628 was *"shape only"*;
+  the device-authorization flow now terminates in a `session` grant bound to that `device_id`,
+  which is what makes *"sign this television out"* a single row update.
+- **[D105](#d105--a-protocol-adapter-acts-as-the-user-never-as-itself)'s awkward case
+  resolves without weakening anything.** A Jellyfin client expects a non-expiring
+  `X-Emby-Token`; we do not want to issue one. **We do not have to**: the adapter owns the
+  Jellyfin-shaped credential *on its own side* and holds an ordinary revocable `adapter` grant
+  against the core. Their model's weakness stays inside the adapter, where it is
+  independently revocable, which is exactly what *"acts as the user, never as itself"* is for.
+- **[D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained)'s lease needs
+  an honest sentence.** There is no DRM ([D3](#d3--streaming-format-cmaffmp4-segments-hls-manifest-no-drm)),
+  so **nothing enforces a lease on a file already on a device.** The grant governs
+  *acquisition, renewal and re-download* — which is real and worth having — and playback of
+  bytes already downloaded is a client-side courtesy. Say so in the product rather than
+  implying otherwise.
+
+### 5. The last admin, and recovery
+
+[auth.md](../design/plans/auth.md)'s two smaller open questions, answered together:
+**`administer` is revocable by another admin, and the last holder of it is not removable or
+demotable** — a household with no administrator is unrecoverable, and the check belongs next
+to the role assignment rather than in the UI.
+
+**And the recovery path is the filesystem**, which is
+[D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary)'s
+*"the permissions split is the security model"* applied to people: a one-shot `session` grant
+with `administer`, minted by a command on the server host, written to a file only the server
+user can read, single-use and expiring in minutes. Anyone who can run that already owns the
+machine, so it grants nothing they did not have — which is the property that makes a recovery
+path safe rather than a back door.
+
+### 6. What this must never become
+
+- **No credential in a URL.** The assertion is mechanical: no endpoint reads a token from a
+  query string or a path segment, and a test asserts it for every route.
+- **No unscoped grant kind.** Every kind names its scope in the table above; adding one
+  without a scope is the Jellyfin `ApiKey` bug.
+- **No plaintext storage**, and no logging of a secret — including in
+  [bug-reports.md](../design/plans/bug-reports.md)'s fan-in, where a URL could otherwise carry
+  one into a report.
+- **The relay never mints and never reads.** [D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts)
+  holds: the grant is opaque bytes it forwards, and its own `relay` grant permits forwarding
+  and nothing else.
+
+**Status:** settles the model. Unsettled and deliberately so: the **idle-expiry window** is a
+number wanting a real household rather than a guess, and **whether a `node` grant is mTLS or a
+shared enrolment secret** is [D107](#d107--the-node-channel-is-mutually-authenticated-and-a-nodes-roots-are-local-and-never-remotely-settable)'s
+open choice, which this decision constrains only by requiring that the node's credential be a
+row here like every other.

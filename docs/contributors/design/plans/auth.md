@@ -142,14 +142,50 @@ From the 2026-09-21 source sweep ([D149](../../decisions/working-notes.md),
   [threat-model.md](threat-model.md) carries the prohibition and
   [testing-strategy.md](testing-strategy.md) asserts it.
 
+## The credential: one grant row, opaque and revocable
+
+[D154](../../decisions/working-notes.md), 2026-09-21, on the measurements in
+[token-model.md](../research/token-model.md). This document settles the **principals**; that
+decision settles their **credentials**, and the two together close
+[threat-model.md](threat-model.md)'s oldest question.
+
+```
+grant(hash, kind, subject, scope, issued_at, expires_at, last_seen, revoked_at, label, device_id)
+```
+
+**Opaque 256-bit random, stored as a SHA-256 hash, never as the secret.** Not a JWT — measured,
+an opaque token verifies in **4.23 µs** at 100,000 rows against an authenticated request rate
+of about **5/second**, while a *revocable* signed token costs **4.61 µs** and Ed25519 costs
+**32.6 µs**. Revocation is already the control ([D117](../../decisions/working-notes.md),
+[D119](../../decisions/working-notes.md)), so the signed token's only advantage was never
+available. It also keeps the format ours: a JWT's claims become a public contract the moment a
+client parses them ([D108](../../decisions/working-notes.md)).
+
+Eight kinds — `session`, `link`, `cast`, `join`, `api_key`, `adapter`, `node`, `relay` — each
+with its scope and lifetime in D154's table. Two rules govern all of them: **the broader the
+scope, the more deliberate the act that mints it**, and **no credential ever appears in a
+URL.** Bytes carry a path-scoped `Secure; HttpOnly; SameSite` cookie; the API carries an
+`Authorization` header and refuses anything else. A URL a user deliberately exports to VLC gets
+a `link` grant — one item, one rendition, minutes — which turns Jellyfin's *Copy Stream URL*
+vulnerability into this project's *"play via external player"* feature (**+63**).
+
+**Sessions expire on idle, not absolutely.** A television that signs itself out every thirty
+days is the behaviour users call broken; `last_seen` plus a long idle window retires abandoned
+devices without that cost, and revocation remains the real control. **There are no refresh
+tokens** — they exist to renew *unrevocable* tokens, and ours are revocable.
+
+**The last administrator cannot be removed or demoted**, and `administer` is otherwise
+revocable by another admin. Recovery is the filesystem
+([D35](../../decisions/working-notes.md)'s rule applied to people): a single-use,
+minutes-long admin grant minted by a command on the server host into a file only the server
+user can read. Anyone able to run it already owns the machine.
+
 ## Still open
 
-Everything [threat-model.md](threat-model.md) lists: session lifetime, API key scoping and
-expiry, revocation, and what a shared link actually grants. This document now settles the
-**principals**; their credentials are still that document's question. Two smaller ones from
-[D125](../../decisions/working-notes.md): whether a second admin must exist before the first
-can be removed (it should — a household with no admin is unrecoverable), and whether `admin` is
-revocable by another admin.
+The **idle-expiry window** is a number wanting a real household rather than a guess, and
+whether a `node` grant is **mTLS or a shared enrolment secret** remains
+[D107](../../decisions/working-notes.md)'s choice — constrained only by D154's requirement
+that it be a row in the same table.
 
 ## Done when
 
