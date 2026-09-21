@@ -32,6 +32,22 @@ reference implementation.
 research can settle, and it is where React Native on TV is most likely to disappoint. Build a
 throwaway focus-navigation prototype before writing any real screens.
 
+**And now there is a number for it to produce** ([D138](../../decisions/working-notes.md)).
+Measured from Plex's own forum, where **51% of the year's top-50 likes are interface
+complaints**, the two things users actually judge a TV client on are **click depth** and
+**focus latency** — *"one click instead of 30"* to get between library and collections, and
+*"scrolling between titles and the 'selection' lags by an entire second"* on a 4K Fire Stick.
+**Nobody in that corpus says it is ugly.** So the prototype's deliverable is the **delay
+between a D-pad press and the selection moving, on the worst device in the house**, not a
+feeling about whether it seems smooth.
+
+Two consequences for the screens that follow. **The home screen's row order belongs to the
+user** — removing a re-orderable sidebar is one of the specifically named angers
+(*"I could arrange the order. Your categories are not arrangeable"*). And **a dense, titled
+list view is a first-class layout, not a later option**: `List view` (+30) and
+`show titles in poster view` (+28) are both open requests on `jellyfin-androidtv`, and
+retrofitting a second layout costs more than allowing for two.
+
 ## Fire TV is available for testing, and is not quite Android TV
 
 Fire OS is an Android fork, so the client and `react-native-tvos` work and sideloading over ADB

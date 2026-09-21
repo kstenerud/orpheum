@@ -9230,3 +9230,142 @@ questions, and it is the same shape as the demuxed-HLS risk
 [playback-survey.md](../design/plans/playback-survey.md) already carries for Tizen and webOS.
 If it holds, the cast path needs a muxed fallback and D21's no-grammar rule has to be
 re-examined against it.
+
+---
+
+## D138 — The UI is judged on click depth and focus latency; theming is a seam we ship or one they force
+
+**Decided** (2026-09-21). Research: [ui-sentiment.md](../design/research/ui-sentiment.md), from
+Plex's forum API, four Jellyfin trackers by reaction count, and GitHub repository search.
+
+**Interface complaints are the majority of the conversation in this field, and they out-argue
+money.** Of the 9,013 likes across the fifty most-liked Plex forum topics of the past year,
+**4,557 — 51% — are about the interface**, against **938** for the lifetime-price thread. This
+does not adjust [D108](#d108--the-interface-is-not-ours-to-change-out-from-under-people-and-an-old-client-stays-installable); it says D108 was under-weighted.
+
+### 1. Nobody says it is ugly
+
+Coded across ten threads, complaint density runs **remote/focus behaviour 45 > rollback
+requests 29 > lost features 25 ≈ missing customisation 25 > click depth 23 > sluggishness 12**,
+and **information density does not appear as an aesthetic complaint at all** — it appears as
+navigation. Verbatim:
+
+- *"…without having to hit up 1,000 times to get back to the menu or to be able to switch
+  between library and collections with one click instead of 30."*
+- *"30+ years of UI layout has categories on the left. The categories are still a drop down,
+  now a nested drop down."*
+- *"Scrolling between titles and the 'selection' lags by an entire second."* (4K Fire Stick)
+- *"Can't find subtitles anymore since the menu pops up is only like 100 pixels and off to the
+  side."*
+
+**So the two numbers this project's clients are judged on are click depth to a chosen title and
+focus latency on a television.** Not typography, not motion, not colour. Both are measurable,
+so both get targets: they belong in
+[performance-targets.md](../design/plans/performance-targets.md) beside time-to-first-frame,
+and focus latency belongs in [device-lab.md](../design/plans/device-lab.md) because it is a
+per-device number that a developer's laptop will never reproduce.
+
+This sharpens [tv-client.md](../design/plans/tv-client.md)'s existing instruction to prototype
+focus navigation before writing screens: the thing to measure in that prototype is **the delay
+between a D-pad press and the selection moving**, on the worst device in the house.
+
+### 2. The user arranges their own home
+
+*"I prefer my own library folders/names on the sidebar as before. I could arrange the order.
+Your categories are not arrangeable as the sidebar previously."*
+
+**Row order on the home screen is user state, not a layout constant.** It rides
+[D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)'s preference
+machinery like any other per-user setting, and per
+[principles §11](../principles/README.md) the rows themselves are maintained values. This is
+cheap now and is a migration later, which is the only reason it needs deciding today.
+
+### 3. A settings scope is a UI decision
+
+The *"Discussions"* objection (441 likes) was not really about the feature. It was:
+
+> *"This should not be a client side setting, buried in some submenu forcing you to find it to
+> disable. It should be available via … your account settings."*
+
+A preference conceptually about **a person** was implemented on **a device**, so opting out had
+to be repeated per client and was hidden. That is exactly the distinction
+[D103](#d103--a-device-scoped-preference-is-stored-a-device-capability-never-is) draws, and it
+turns out to have a user-visible failure mode as well as an architectural one. **Recorded as a
+rule: a preference's scope is chosen from what the preference is *about*, never from where it
+happens to be convenient to store it** — and where the two disagree, the user experiences it as
+the setting being hidden.
+
+### 4. Theming: ship the seam, because it exists either way
+
+Roughly **5,840 GitHub stars** sit on projects whose only purpose is changing how Jellyfin
+looks — `ElegantFin` 2,163, `JellySkin` 1,026, `Ultrachromic` 994, `finimalism` 460,
+`Jellyfin-Media-Bar` 207, and others. **The strongest single signal is
+`jellyfin-plugin-skin-manager` at 660★: a plugin whose only job is installing other people's
+CSS.** When a community builds a package manager for workarounds, the missing thing is a seam,
+not polish.
+
+Two details worth carrying:
+
+- **`Jellyfin-Media-Bar` is a feature request written in CSS** — a hero row the product does
+  not have. Themes are where unmet UI demand goes to be visible.
+- **`ElegantFin` is *"inspired from Jellyseerr"*** — the *request* tool is the design people
+  want their media server to look like.
+
+**So we ship a theming seam deliberately.** The alternative is not "no theming", it is
+unsupported CSS injection against an unversioned DOM, which breaks every release — which is
+[D85](#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols)'s compatibility
+problem pointed at markup instead of JSON. A small, declared surface — tokens for colour,
+density and poster shape — is cheaper to honour than an accidental one, and it can be versioned.
+
+**What it is not:** a plugin API for the UI, and not arbitrary script. Themes are data
+([D12](#d12--providers-are-sandboxed-wasm-plugins-no-in-process-plugin-code)'s reasoning applies —
+third-party code in the client's origin is the last thing to allow unsandboxed).
+
+### 5. The mod to fear is a client replacement, and it tells us what earns one
+
+**PM4K / PlexMod for Kodi**: **5,312 likes, 6,494 posts, 203,921 views, running since
+2019-10-25** — **4.7× the likes of the "roll back to Plex Classic" thread**, and the largest
+thing on Plex's forum. It is not a skin. It is Plex's backend driven entirely through Kodi's
+interface.
+
+Its own list is headed **"Features (vs. official)"** and opens: **"Maintained. Very stable."**
+Then *"Directplay anything"*, *"DirectStream support for every codec, not just AVC/MP3"*,
+passthrough audio control, and *"correctly identify and display video/audio streams (Atmos, DV,
+etc.)"*.
+
+**Item for item that is [D2](#d2--playback-negotiation-the-client-decides-from-a-manifest),
+[D4](#d4--three-playback-paths-direct-on-demand-segmented-background-prepared) and
+[D17](#d17--direct-play-first-transcoding-additive-and-optional).** The most
+successful community project in this field exists to deliver the thesis this project is built
+on. That is the strongest external validation the design has received — and it is also a
+warning, because the first two words are *maintained* and *stable*, which are not architecture.
+
+### 6. Plexamp is the control group
+
+The same company's music client is loved — *"the UI is probably the best music player I have
+ever used"* — and two of its release threads sit warmly inside a top-50 otherwise full of
+anger. Reviewers name the difference as **focus**: a dedicated player against a general
+entertainment platform.
+
+One company, one codebase family, two outcomes, separated by whether the app tries to be one
+thing. That is [D10](#d10--clients-react-native-shell-native-player-modules-two-engines) with a
+same-company control, and it supports [D1](#d1--scope-video-first-audio-second-photos-probably-never)'s
+scope discipline from evidence rather than from principle.
+
+### 7. Two concrete asks to design in now
+
+- **A dense, titled list view** — `List view` (+30) and `show titles in poster view` (+28) on
+  jellyfin-androidtv. A poster wall is every product's default and a measurable number of
+  people want rows of text. It is the information-density complaint arriving as a feature
+  request instead of as anger, and retrofitting a second layout is worse than allowing for two.
+- **Track selection before playback starts** (+18), plus in-player **audio/subtitle sync
+  adjustment** (+32) and **dual subtitles** (+33). The first is a manifest question, not a UI
+  one: the tracks must be enumerable before a session exists, which
+  [D23](#d23--axis-switching-is-mid-session-by-default-burn-in-is-the-one-thing-that-breaks-it) already requires for a different
+  reason.
+
+**Status:** Unresolved — what the theming surface actually contains. Tokens only, or slots? The
+answer wants one real theme author, and guessing it now repeats the mistake
+[D131](#d131--a-restriction-is-a-vector-not-a-ceiling-templates-are-seeds-and-they-say-what-they-hid)
+avoided by deferring the template set. Also unmeasured: what click depth and focus latency
+actually are on the incumbents, which would turn §1's targets from principles into numbers.

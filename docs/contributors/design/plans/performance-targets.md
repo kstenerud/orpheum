@@ -103,6 +103,8 @@ exists. Every one is **p99 at 5 concurrent sessions** unless stated.
 | Home page of 50 posters | **unset** | needs [artwork.md](artwork.md) |
 | Pending-items alert, per role ([D133](../../decisions/working-notes.md)) | **< 5 ms**, on the home page | **Measured**: 0.063 ms maintained; 43.6 ms as a query, which fails |
 | Time to first frame, direct play | **unset** | needs a server and a client |
+| **Focus latency** — D-pad press to selection moving ([D138](../../decisions/working-notes.md)) | **unset**, worst device in the house | needs [device-lab.md](device-lab.md); the complaint it answers is *"lags by an entire second"* |
+| **Click depth** — home to playing a chosen title ([D138](../../decisions/working-notes.md)) | **unset** | a count, not a latency; the complaint is *"one click instead of 30"* |
 
 The gap between target and baseline is deliberate and large: these are **regression gates**,
 not performance goals. A number ten to a thousand times the measured baseline fails only when

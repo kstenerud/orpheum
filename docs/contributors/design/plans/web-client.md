@@ -83,6 +83,31 @@ commands and **even the Default Media Receiver queues audio and video** (only im
 unsupported); `QueueBase.fetchItems` loads a **window** of a queue on demand, which matters
 because the media namespace caps a message at **64 KB** and a full season does not fit.
 
+## Theming is a seam we ship, or one they force
+
+[D138](../../decisions/working-notes.md). Roughly **5,840 GitHub stars** sit on projects whose
+only purpose is changing how Jellyfin looks — `ElegantFin` (2,163), `JellySkin` (1,026),
+`Ultrachromic` (994), `finimalism` (460), `Jellyfin-Media-Bar` (207) and more. The strongest
+signal is **`jellyfin-plugin-skin-manager` at 660★: a plugin whose only job is installing other
+people's CSS.** When a community builds a package manager for workarounds, the missing thing is
+a seam.
+
+Two of those are worth reading closely. **`Jellyfin-Media-Bar` is a feature request written in
+CSS** — a hero row the product does not have; themes are where unmet UI demand becomes visible.
+And **`ElegantFin` is *"inspired from Jellyseerr"***, so the *request* tool is the design people
+want their media server to look like.
+
+So we ship one deliberately. The alternative is not "no theming" — it is unsupported CSS
+injection against an unversioned DOM, which breaks every release and is
+[D85](../../decisions/working-notes.md)'s compatibility problem pointed at markup. **A small
+declared surface — tokens for colour, density and poster shape — is cheaper to honour than an
+accidental one, and it can be versioned.**
+
+**What it is not:** a UI plugin API, and not arbitrary script. Themes are **data**; third-party
+code in the client's origin is the last thing to allow unsandboxed
+([D12](../../decisions/working-notes.md)). What the surface actually contains is open, and
+wants one real theme author before it is guessed at.
+
 ## The SDK is MPL-2.0, and the server is not
 
 [D80](../../decisions/working-notes.md). The clients and this SDK are **MPL-2.0**; the server,

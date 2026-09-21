@@ -33,11 +33,18 @@ Both incumbents have a specific, durable weakness, and they are different weakne
   its own ad-supported catalogue into a UI people installed to watch their own files. Its users
   describe waiting for the other shoe to drop.
   **But on Plex's own forum the loudest topic of the year is not the price** — it is
-  *Vote to roll back to Plex Classic!* at 1,124 likes, against 937 for the lifetime-pass
+  *Vote to roll back to Plex Classic!* at 1,124 likes, against 938 for the lifetime-pass
   thread, with a second cluster about a client update that broke Fire TV and could not be
   rolled back. Neither of those needs a business model to fix, which is why
   [D108](../decisions/working-notes.md) simply promises the opposite: a layout change is
   opt-in, and every client build stays directly installable.
+  **Measured across the whole top fifty, interface complaints are 51% of the likes**
+  ([D138](../decisions/working-notes.md)) — and they are not about looks. They are about
+  *"one click instead of 30"* and a selection that *"lags by an entire second"*. The loudest
+  thing in the field is **a community replacement client**: PM4K/PlexMod for Kodi, **5,312
+  likes and 6,494 posts**, whose feature list opens *"Maintained. Very stable."* and continues
+  into direct play, codec breadth and correct stream identification — which is this project's
+  thesis, written by someone else, as a mod.
 - **Jellyfin's problem is technical and structural.** Subtitles have been broken in
   well-documented ways since 2020. The playback-negotiation model produces wrong decisions in
   both directions. The client experience is described by its own users as "hit or miss", and
