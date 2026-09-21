@@ -62,6 +62,14 @@ one choosing ([D2](../../decisions/working-notes.md)); and jassub, because the D
 Receiver cannot render our subtitles, which is what forces a custom receiver and its $5
 developer account.
 
+**And it has two consumers, not one.** Besides the Watch Together guest, it serves **ordinary
+casting to your own television** ([D135](../../decisions/working-notes.md)) — which is the
+commoner case and the one that justifies the work on its own. Useful facts for that build,
+verified against Google's documentation: `QUEUE_NEXT` and `QUEUE_PREV` are standard media
+commands and **even the Default Media Receiver queues audio and video** (only image queues are
+unsupported); `QueueBase.fetchItems` loads a **window** of a queue on demand, which matters
+because the media namespace caps a message at **64 KB** and a full season does not fit.
+
 ## The SDK is MPL-2.0, and the server is not
 
 [D80](../../decisions/working-notes.md). The clients and this SDK are **MPL-2.0**; the server,

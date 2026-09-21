@@ -121,6 +121,14 @@ both lists at the same time."* State the definitions and make them inspectable:
   ordering, which is why that decision is a prerequisite rather than a neighbour. With it, two
   people in one household can watch the same series in different orders.
 
+**Next Up is also the cast queue** ([D135](../../decisions/working-notes.md)). Casting to your
+own television wants "and then the rest of the series", and that is this definition extended
+past one item — no new concept, and it inherits the property that two people in one household
+can cast the same series in different orders. Two constraints come with it, because a cast
+queue is a manifest rendered on a screen: it contains only what the casting user's **role**
+permits ([D130](../../decisions/working-notes.md)), and **a pending, unrated item is absent
+from it including its title** ([D134](../../decisions/working-notes.md)).
+
 An edition appears in exactly one of them. Both are ordinary predicates over the play tables,
 so both are [rules-engine.md](rules-engine.md) queries rather than bespoke SQL, which is what
 makes "why is this here?" answerable and "remove this from my list" possible without marking

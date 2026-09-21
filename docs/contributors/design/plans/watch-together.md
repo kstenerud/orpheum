@@ -215,8 +215,18 @@ host.
 grain almost certainly is not needed; a closed enumeration costs nothing now and makes a later
 ability a row rather than a redesign.
 
-**Play sets, later.** The host selects a set of videos — a season, a trilogy — and grants the
-group the ability to move within it. Binge-watching without handing over the library.
+**Play sets — and they arrive earlier than this plan assumed.** The host selects a set of
+videos — a season, a trilogy — and grants the group the ability to move within it.
+Binge-watching without handing over the library.
+
+This was deferred here and is **needed now by solo casting**
+([D135](../../decisions/working-notes.md)), where a cast queue is simply
+[play-state.md](play-state.md)'s **Next Up** extended past one item over
+[D96](../../decisions/working-notes.md)'s ordering-in-use. So the concept ships for casting and
+this plan inherits it. That is the **second** time a Watch Together "later" turned out to be a
+casting "now" — the first was [D124](../../decisions/working-notes.md)'s receiver — which is
+worth noticing as a pattern rather than a coincidence: casting is the same surface with the
+hard parts removed, so it reaches things first.
 
 ## The constraint that decides whether this survives
 
@@ -466,6 +476,12 @@ The consequence for [D64](../../decisions/working-notes.md): the premium tier's 
   special case, and AirPlay free wherever the Apple client uses AVPlayer. The claim to verify
   is that six methods are still enough for a case they were not designed against — if a seventh
   is needed, better to know before the surface is frozen.
+
+  **Solo casting is specified in [D135](../../decisions/working-notes.md)**, and the difference
+  from this plan is the principal rather than the protocol: a session link admits *a person
+  with no account*, while a cast URL delegates to *a device on behalf of someone already logged
+  in*. So it needs no invitation, no roster and no revocation UI — its credential is the cast
+  session itself, ending on stop, supersession, idle or an absolute cap.
 - **Playback rate is either shared state or explicitly local** — there is no third option
   ([D90](../../decisions/working-notes.md)). A participant at 1.25× is not drifting, and
   [D66](../../decisions/working-notes.md)'s reconciler must not spend the film fighting them.

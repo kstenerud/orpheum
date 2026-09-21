@@ -79,6 +79,27 @@ and it means Jellyfin's threat model is not available to us. We have not written
 - **What we promise.** [D13](../../decisions/working-notes.md) is a privacy promise; this is the
   security one, and it should be as specific.
 
+## The cast credential, where entropy is not the control
+
+[D135](../../decisions/working-notes.md). A cast URL lets a television fetch its own bytes, and
+the instinct is to make it unguessable. Necessary, and **not the threat on this surface**:
+
+- **Cast's sender channel is unauthenticated.** The `deviceauth` handshake verifies that the
+  *receiver* is a genuine Chromecast; nothing authenticates the sender, and any device on the
+  LAN may connect on port 8009 and speak the protocol.
+- **`MEDIA_STATUS` carries `contentId` and `contentUrl`.**
+
+So the nearest adversary does not guess the URL — **they read it off the television.** A
+CSPRNG token still earns its place against off-LAN guessing and against a URL surfacing in a
+log or a screenshot, but the controls that carry the weight are **scope** and **expiry**:
+whoever lifts it gets the thing currently playing on a screen they can already see, and
+nothing else — no library, nothing addressable by id, nothing enumerable. And the credential
+is the **cast session**, expiring on stop, on supersession by the next cast to that receiver,
+on idle, or at an absolute cap.
+
+Worth stating as the general lesson, because it will recur: **on a LAN surface, secrecy of a
+URL is a weaker control than the smallness of what it grants.**
+
 ## One constraint from elsewhere, so the signed-URL design does not collide with it
 
 Signed, scoped and expiring URLs are the right answer for media access, with one shape

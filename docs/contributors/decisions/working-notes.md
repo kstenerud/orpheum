@@ -8925,3 +8925,127 @@ cheap enough to be absolute rather than aspirational.
 than per library — Continue Watching is maintained per user and there may be many users,
 so "maintain it" is a different cost there. It was measured flat (0.055 ms) so it does not need
 this today; the rule's boundary is where it would.
+
+---
+
+## D135 — Casting on your own is a device delegation, not an invitation; the credential is the session, and the queue is Next Up
+
+**Decided** (2026-09-21), by the project owner. Fills the gap between
+[D88](#d88--casting-is-remote-control-of-another-client-which-is-watch-together-with-a-group-of-one)
+(*casting is Watch Together with a group of one*) and
+[D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)
+(*the playback role may be a cast receiver*), neither of which covered the ordinary case:
+**casting to your own television with no session and nobody else involved.**
+
+### The principal is different, and that answers most of it
+
+The owner's instinct — *"basically the same URL approach as watch together, but for your cast
+target only"* — is right about the mechanism and worth separating from the model:
+
+| | Watch Together link | Cast URL |
+| --- | --- | --- |
+| Admits | **a person who has no account** | **nothing** — a device, on behalf of a logged-in user |
+| Why it exists | there is no other way to identify them | the receiver pulls its own bytes ([D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)) and needs a credential to do it |
+| Security rests on | entropy plus revocation, because nothing else exists | **scope and expiry** — the human is already authenticated |
+
+So this is not a sharing grant. It is a **delegation to one device for one playback session**,
+and it should be scoped like one: it grants *stream this session's media*, never *browse this
+library*.
+
+### On entropy: necessary, and not the threat
+
+The owner asked for enough entropy that attackers cannot guess the URL. Yes — a CSPRNG token,
+and it belongs in the same place as every other signed-URL question
+([threat-model.md](../design/plans/threat-model.md)). **But guessing is not the attack this
+surface has**, and the reason is specific:
+
+- **Cast's sender channel is unauthenticated.** The device-authentication handshake on
+  `urn:x-cast:com.google.cast.tp.deviceauth` verifies that the *receiver* is a genuine
+  Chromecast; **nothing authenticates the sender.** Any device on the LAN may connect to
+  port 8009 and speak the protocol.
+- **`MEDIA_STATUS` carries `contentId` and `contentUrl`.**
+
+**Therefore an attacker on your network does not guess the URL — they read it off the
+television.** Entropy defends against off-LAN guessing and against a URL turning up in a log or
+a screenshot, both real; it does nothing about the nearest adversary.
+
+Which sets the actual requirement, and it is a bound rather than a secret: **whoever lifts that
+URL gets the thing currently playing on a screen they can see, and nothing else.** Not the
+library, not addressable by id, not enumerable — which is
+[D122](#d122--the-session-is-the-object-what-plays-is-mutable-state-on-it-and-a-guest-sees-the-stream-rather-than-the-library)'s
+bound arriving a second time, for a second reason. It also means
+[D70](#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible)
+still holds: sign the **session**, not the segment, so segment paths stay cacheable.
+
+### Expiry binds to the session, not to the video
+
+*"The URL would expire after the video ends?"* — nearly, and the exact version matters because
+the near-miss is broken in two ways: with a queue the video ends **N times**, and a television
+can sit on a paused end-card for a week.
+
+**The credential is the cast session**, which is
+[D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)'s
+distinction mapped exactly: *a link admits, a membership persists* — **the cast session is the
+membership.** It ends on the first of:
+
+- the receiver reporting the session stopped or finished;
+- **supersession** — a new cast to that receiver, which is the owner's *"expire after the user
+  casts something else to that TV"* and is free, because a Cast `LOAD` replaces what is there;
+- an idle timeout, for the paused end-card;
+- an absolute cap, for the television nobody turned off.
+
+### Next and previous: yes, and the Default Media Receiver already does it
+
+Verified against Google's documentation:
+
+- **`QUEUE_NEXT` and `QUEUE_PREV` are defined media commands** in
+  `urn:x-cast:com.google.cast.media`.
+- **The Default Media Receiver supports a queue of audio or video streams** — only *image*
+  queues are unsupported. So skip-to-next is not a custom-receiver feature.
+- **`QueueBase.fetchItems` does lazy, windowed loading**, called by the receiver when it needs
+  more items. That matters, because the media namespace caps a message at **64 KB**: a
+  twenty-four-episode season with artwork and metadata does not ship in one `QUEUE_LOAD`, and
+  it does not have to.
+
+### The playlist already exists — it is Next Up
+
+*"Auto-choose the current series as the playlist"* needs no new concept. A series is a
+**Collection** ([D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)); *what comes next* is
+[play-state.md](../design/plans/play-state.md)'s **Next Up**, defined over
+[D96](#d96--an-episodes-position-is-ordering-season-number-and-a-series-declares-its-orderings)'s
+ordering-in-use. The cast queue is Next Up, extended past one item. Two people in one household
+casting the same series in different orders already works, because D96 made the ordering
+explicit.
+
+**And this is where [D122](#d122--the-session-is-the-object-what-plays-is-mutable-state-on-it-and-a-guest-sees-the-stream-rather-than-the-library)'s deferred play sets arrive.** D122 put
+*"the host selects a set of videos… binge-watching without handing over the library"* in a
+future update for Watch Together. Casting needs it **now**, so the concept ships here and Watch
+Together inherits it. The deferral had the consumers backwards, which is worth noticing
+because it is the second time a Watch Together "later" turned out to be a casting "now"
+(the first was [D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)'s receiver).
+
+### The queue is a manifest, and §10 governs it
+
+Easy to miss, and it reaches a surface nobody had considered: **the queue is sent to the
+receiver and rendered on a television**, so it is a manifest under
+[principles §10](../principles/README.md).
+
+- It contains only what the **casting user's role** permits
+  ([D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)) —
+  a child casting a series must not be handed the episodes their role hides.
+- **A pending, unrated item must not appear in it — including its title**
+  ([D134](#d134--a-pending-item-discloses-nothing-a-rule-shows-its-coverage-and-the-home-page-computes-nothing)).
+  The queue carries metadata that goes on the screen, and the title of an unclassified item is
+  itself unvetted. This is the pending-disclosure rule reaching the one surface that was not
+  considered when it was written.
+
+And **the receiver still probes and picks its own rendition**
+([D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay),
+[D2](#d2--playback-negotiation-the-client-decides-from-a-manifest)). The sender says what
+to play and never in what form.
+
+**Status:** Unresolved — whether a cast session survives the sender leaving the network. It
+should, because the receiver pulls its own bytes, but the *control* path disappears with the
+phone and "the TV is playing and nothing can stop it" is a bad state. Also unexamined: AirPlay
+and Fire TV have their own queue semantics, and D124 already noted "cast" is three protocols;
+whether Next Up maps onto all three is not known.

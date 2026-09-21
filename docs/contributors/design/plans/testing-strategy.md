@@ -227,6 +227,15 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   unvetted, so this is the assertion that stops the protective surface becoming the leak;
 - **the pending alert renders a scalar**, and no endpoint exists that expands it into a list
   for a restricted role ([D134](../../decisions/working-notes.md));
+- **a cast queue contains only what the casting user's role permits**, and **no pending item
+  or its title** ([D135](../../decisions/working-notes.md),
+  [D134](../../decisions/working-notes.md)) — the queue is metadata rendered on a television,
+  so it is a manifest and [principles §10](../../principles/README.md) governs it;
+- **a cast credential dies on supersession**: casting a second thing to the same receiver
+  invalidates the first, and the old URL stops serving
+  ([D135](../../decisions/working-notes.md)). Also on stop, on idle, and at an absolute cap —
+  "expires when the video ends" is the wrong binding and must not pass, because a queue ends
+  many times;
 - **the last `Administrator` role cannot be deleted**, and neither can the last admin user
   ([D130](../../decisions/working-notes.md));
 - **a node report that is malformed, enormous, or deeply nested is refused at a stated bound**
