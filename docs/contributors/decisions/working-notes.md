@@ -8981,12 +8981,19 @@ be cached — things that only change on rare events like scans or rule changes.
 This is the rule the last three findings were instances of, and stating it as a rule is worth
 more than the three fixes:
 
-| Home-page value | Naive | Maintained | Found by |
+| Home-page value | Naive | Kept | Found by |
 | --- | --- | --- | --- |
 | Recently added | 21.79 ms | 0.027 ms — **807×** | [D113](#d113--a-target-is-a-percentile-at-a-stated-concurrency-at-two-library-sizes-against-a-frozen-baseline) audit |
 | FTS `bm25` ranking | 11.66 ms | 0.017 ms — **686×** | D113 audit |
 | Pending-items count | 43.6 ms (or no completion) | 0.063 ms — **692×** | [D133](#d133--the-pending-items-alert-which-is-how-the-queue-actually-drains), attached to a *feature* |
 | Rule coverage count | — | — | this decision, **before** it was built |
+
+> **Mechanism clarified 2026-09-22 by [D161](#d161--cache-and-invalidate-do-not-incrementally-maintain-a-missed-invalidation-is-stale-a-missed-update-is-wrong).**
+> Read *"maintained"* here as **cached and invalidated**, not incrementally updated. The
+> quoted instruction above already said **"can easily be cached"**, and turning that into
+> "maintained" in [principles §11](../principles/README.md) the same day imported a different
+> and worse mechanism: an incremental counter is the only form that can go **silently wrong**,
+> and the pending count moves on six distinct events.
 
 **The fourth row is the point.** Three of these were discovered; the fourth was prevented,
 because the rule now exists.
@@ -12144,3 +12151,69 @@ The Next Up generalisation is a deletion in [play-state.md](../design/plans/play
 > (0.01 ms), because Continue Watching showing *"247 of 963"* is precisely the shape
 > [principles §11](../principles/README.md) exists for. Harness:
 > `/yoloai/cache/bench/collections/`.
+
+---
+
+## D161 — Cache and invalidate; do not incrementally maintain. A missed invalidation is stale, a missed update is wrong
+
+**Decided** (2026-09-22). **Sharpens [principles §11](../principles/README.md)** and the
+mechanism in [D134](#d134--a-pending-item-discloses-nothing-a-rule-shows-its-coverage-and-the-home-page-computes-nothing).
+From the project owner:
+
+> *"even if it were a performance issue, it costs little to cache the render of the data,
+> contingent upon a scan changing the landscape."*
+
+§11 has said *"maintained, not computed"* since 2026-09-21, and **"maintained" quietly implied
+the wrong implementation** — including against the instruction it was derived from, which said
+*"queries that can easily be **cached**"*. The word was right the first time and I changed it. Maintaining a value means updating it incrementally as things
+happen; caching it means computing it lazily and throwing it away when something relevant
+changes. They perform identically on read and differ completely when they break.
+
+### The asymmetry that decides it
+
+| | Cost of a miss | Cost of a bug |
+| --- | --- | --- |
+| **Cache + invalidate** | one recompute — **43.6 ms**, once | a **stale** number until the next event, or a needless recompute |
+| **Incremental maintenance** | — | a **wrong** number, permanently, with nothing to notice it |
+
+Incremental maintenance requires enumerating *every* path that can change the value. The
+pending-items count alone moves on a scan, a rule edit, a role edit, a tag edit, a
+re-identification and a removal. **Miss one and a child's library silently stops growing** —
+which is the exact failure [D132](#d132--authoring-a-role-is-a-preview-loop-and-an-item-the-rules-cannot-judge-is-denied-not-shown)
+and [D134](#d134--a-pending-item-discloses-nothing-a-rule-shows-its-coverage-and-the-home-page-computes-nothing)
+exist to prevent, reintroduced by the optimisation meant to serve them.
+
+**Caching cannot drift.** The worst a wrong invalidation rule produces is a value that is
+briefly old or an occasional 43 ms. And the invalidation signal already exists:
+[D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)'s change journal
+says exactly what changed, which is the owner's *"contingent upon a scan changing the
+landscape"*.
+
+### So "maintained" splits into three mechanisms, and only one of them was ever intended
+
+| Mechanism | When | Examples |
+| --- | --- | --- |
+| **Cached result** — compute lazily, keep, drop on a known event | **the default** | recently added, the pending count, a collection's sequence and progress |
+| **Derived column** — computed at write time beside the row | when the query takes a *parameter*, so there is no single result to cache | FTS `bm25` rank, [D47](#d47--sort-order-is-a-materialised-cldr-sort-key-per-item-per-locale)'s sort keys |
+| **Stored artefact** — bytes derived from bytes | the source is a file | the speech map, trickplay, artwork |
+
+**Incremental counters are not on the list.** They are the one shape that can be silently
+wrong, and nothing in this project needs them: every invalidating event here is *rare* — a
+scan, a rule change, a metadata refresh, somebody finishing an episode — against reads that
+are constant. That ratio is what makes recompute-on-miss free.
+
+### And it makes the collection measurement a non-question
+
+[D160](#d160--there-is-no-series-concept-a-sequence-is-what-a-collection-produces-and-next-up-is-a-query-over-any-of-them)'s
+Star Wren case measured **14.8 ms computed** at 976 members against **0.01 ms** from a stored
+row. Under a cache that is not a design decision at all: the first read after a scan pays
+15 ms, every other read is a lookup, and **no code has to know how a scan changes a
+sequence** — only that it might have.
+
+The key spaces are small enough to make this uninteresting, which is the point: a collection's
+sequence keys on `(collection, ordering)`, its progress on `(user, collection)`, the pending
+count on `(role)`. A household has tens of users and hundreds of collections, not millions.
+
+**Status:** mechanism guidance, no schema. §11 is revised; D134's *"maintained counter"*
+should be read as *"cached result"* throughout. Unmeasured and deliberately so: the cache's
+own storage, because at these key spaces it is not a number worth producing.
