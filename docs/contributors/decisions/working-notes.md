@@ -5749,9 +5749,18 @@ Their thresholds are otherwise a reasonable starting point — `MinResumePct = 5
 `MaxResumePct = 90` — and they are **policy in the core**
 ([principles §9](../principles/README.md)), configurable, never compiled into a client.
 
-**Status:** Schema. Due before `library-model.md`. The retention policy for the event log is
+**Status:** Schema. Due before `library-model.md`. ~~The retention policy for the event log is
 unmeasured — a household at ~2 writes/second is nothing, but the log is the first table with an
-unbounded row count and wants a stated horizon.
+unbounded row count and wants a stated horizon.~~ **Answered 2026-09-22 by
+[D165](#d165--a-heartbeat-is-not-an-event-the-log-records-state-changes-and-watched-spans-there-is-no-retention-horizon-and-an-offline-device-must-not-be-able-to-rewind-you):
+there is no horizon, and `progress` should never have been in the event list above.** A
+heartbeat is a restatement of the position, not something that happened; a run of them with no
+intervening state change is one **watched span**. Measured, that is **29× fewer rows and 37×
+less disk** — 13.4 MB for five years of a four-person household against 470 MB — so the log is
+kept in full. D165 also closes a gap this decision opened: the guarded sequence is correct
+online and **inverts offline**, letting a tablet that syncs on Wednesday overwrite Tuesday's
+television session with Monday's position, which is the *"jumps back — STILL"* tracker item
+quoted above.
 
 ---
 
@@ -12728,3 +12737,149 @@ D75 deferred, now made; §5 removes a planned mechanism; §6 is a registry flag 
 Unmeasured, and deliberately: a corpus of real Kometa-scale rules, because the ceiling turned
 out to be a property of the database rather than of the corpus, and measuring the corpus would
 not move the number.
+
+---
+
+## D165 — A heartbeat is not an event: the log records state changes and watched spans, there is no retention horizon, and an offline device must not be able to rewind you
+
+**Decided** (2026-09-22). Closes
+[D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)'s
+stated open item, resolves a contradiction between it and
+[FEATURES.md](../../FEATURES.md), repairs two places the document still contradicts
+[D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does), and
+closes a gap that puts the exact bug D81 exists to prevent back on the offline path. Measured
+at `/yoloai/cache/bench/playlog/`.
+
+### 1. The open item, and the contradiction it was in
+
+D81: *"the log is the first table with an unbounded row count and wants a stated horizon."*
+FEATURES.md, from the sweep: *"D81's play-event log **must be retained rather than
+truncated**, because F39, F43 and most of F41's reconciliation read it."*
+
+Both are right about their own concern and they cannot both be satisfied — **unless the log is
+not actually big**, which is a measurement nobody had taken.
+
+### 2. Taken: D81 as written costs 92.6 MB a year in heartbeats
+
+A household of four, three hours each a day, over a 3,500-item library — **7,331 viewings a
+year**:
+
+| Representation | Rows, 1 yr | On disk | Rows, 5 yr | On disk |
+| --- | --- | --- | --- | --- |
+| **D81 as written** — `progress` every 10 s | **1,592,258** | **92.6 MB** | 7,967,990 | **470.1 MB** |
+| **state changes + watched spans** | **54,543** | **2.5 MB** | 279,453 | **13.4 MB** |
+| | **29× fewer** | **37× smaller** | 28.5× | 35× |
+
+D81's instinct was right: half a gigabyte of heartbeats on a NAS is a real problem, and it
+arrives in five quiet years. **But the horizon is the wrong instrument**, because the rows it
+would delete are the ones carrying no information.
+
+### 3. The fix is structural: `progress` is not a log event
+
+D81 lists `progress` among `started · paused · seeked · completed · abandoned`. **It does not
+belong there.** A heartbeat every 10 s is not something that *happened*; it is a restatement
+of where you are, and the model already has a place for that — the guarded position row, which
+is mutable by design. Three objects, each with one job:
+
+| | Job | Written |
+| --- | --- | --- |
+| **the guarded position** | where you are now | every ~10 s, in place |
+| **a state-change event** | `started`, `paused`, `seeked`, `completed`, `abandoned` | when one happens |
+| **a watched span** | `(user, file, device, pos_from→pos_to, t_from→t_to)` | **appended when a state change closes it** |
+
+A run of heartbeats with no intervening state change **is** one span, so collapsing them loses
+nothing: *how much did I watch, when, and on what* is a span, exactly. This is
+[D148](#d148--the-speech-map-is-a-scan-artefact-and-the-reference-is-a-subtitle-track-before-it-is-audio)'s speech-map
+run-length encoding applied to a different stream of samples, for the same reason.
+
+**And the log stays append-only**, which is the obvious objection and it does not land: spans
+are *appended* on close, and the only thing mutated is the position row that was always
+mutable. The open span simply *is* the position row.
+
+**Every question gets faster, by a lot**, because the aggregate no longer counts heartbeats:
+
+| Play-statistics query | D81 as written | spans | |
+| --- | --- | --- | --- |
+| watch time last 30 days, per user | 86.0 ms | **1.2 ms** | 69× |
+| most-watched titles, all time | 236.7 ms | **4.7 ms** | 50× |
+| one user's last 50 viewings | 2.8 ms | **84 µs** | 33× |
+| how much of this file did they see | 139 µs | **12 µs** | 12× |
+| busiest device, per month | 788.3 ms | **6.5 ms** | **122×** |
+
+At five years the worst case is **4.42 s against 42.7 ms** — the difference between a page that
+works and one nobody ships.
+
+### 4. So: no retention horizon. Keep everything
+
+**13.4 MB for five years of a four-person household.** A horizon would be a migration, a
+deletion path, a setting, and a class of *"where did my 2019 statistics go"* complaint, bought
+to save single-digit megabytes. FEATURES.md's obligation is satisfied outright rather than
+traded against, and `play-statistics.md`'s *"watch time in 2019"* question simply works.
+
+One line survives from the old concern: a span table is still the largest table, so it is the
+one that gets a **row count on the observability page**. Visible, not capped.
+
+### 5. The gap: an offline device can rewind you, and that is the 29-comment bug
+
+D81's guard is a **monotonic sequence** on the position row, and it is correct online because
+the server issues it. Offline it inverts:
+
+> Monday, on a plane: the tablet reaches **40:00**. Tuesday, at home: the television reaches
+> **25:00**. Wednesday the tablet reconnects and its events arrive.
+
+If the guard is assigned when events *arrive*, Monday's 40:00 lands after Tuesday's 25:00 and
+wins. That is *"Media playback randomly starts over again or jumps back — **STILL**"* (29
+comments), which is the tracker item D81 quotes — **reintroduced on the path D81 said the log
+existed to make possible.** Both plans assert *"progress made offline merges without losing
+either side"* in a *Done when*, and neither says how.
+
+**The missing half of the mechanism is already half-specified.** D81 has events carry *"the
+client's own monotonic clock"*, which orders a device's events against each other. To order
+them against *another device's* you need absolute time, and the wall clock is exactly what
+cannot be trusted. So:
+
+- **Anchor the monotonic run at sync.** The device reports its current monotonic value with
+  the batch; the server knows the true time of that instant, so every event converts:
+  `true_t(e) = now_server − (mono_sync − mono_e)`. **Exact back to the last monotonic
+  discontinuity, however wrong the device's calendar is.** One extra field on a sync request,
+  not a new mechanism.
+- **The position is the latest anchored event's. Recency, not maximum.** Furthest-position is
+  the tempting rule and it is wrong: deliberately restarting a film would keep throwing you
+  back to the end.
+- **When a run cannot be anchored** — the device rebooted between watching and syncing — the
+  events are ingested with their time marked **uncertain and they do not move the position**.
+  They still count toward statistics. This fails toward *"your position did not move"*, which
+  is one action to fix, rather than *"your position jumped back"*, which is the 29-comment
+  bug.
+- **And nothing is merged.** Two sessions on one file are two spans; the log holds both, and
+  the most recent one is where you are. There is no arithmetic that could be wrong — the same
+  discipline as [D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn),
+  arrived at from the other direction.
+
+**A span with no closing event is left open and marked unterminated**, closed at the last known
+position by the next sync or a timeout. A client that crashes is an ordinary case, not an
+error.
+
+### 6. Two places play-state.md still contradicts D157
+
+Found while reading, both from before D157 landed and both stale in the same document that
+states the correct rule twenty lines earlier:
+
+- A table giving **resume position → Edition** and **played/play count → Edition**, with *"a
+  1080p→4K switch must not lose it"* as the reason — the precise claim
+  [D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)
+  refuted and [D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)
+  withdrew. Position is at the **File**; completion rolls up freely because it involves no
+  timeline.
+- **Continue Watching described as a list of "editions"**. Positions are per File, so the
+  question *what is a row* needed answering rather than inheriting: **a row is a work, showing
+  the most recent position among its files, and it names the file when there is more than one
+  candidate.** Not a merge and not an offer — the most recent viewing, labelled. The other
+  file's position is still in the log and still on the item's own page.
+
+**Status:** §3 is schema and changes a table before it exists rather than after; §4 removes a
+planned mechanism; §5 is a field on the sync request plus a stated resolution rule, and is a
+correctness fix on
+[offline-download.md](../design/plans/offline-download.md)'s central promise; §6 is repair.
+Unmeasured: the write cost of the position row at ~2 writes/second household-wide, which is
+the one number this changes on the hot path and is almost certainly nothing.
