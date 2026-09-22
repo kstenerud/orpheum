@@ -158,8 +158,10 @@ and *is it doing far too much?* A rule matching 0 items is usually a typo or a f
 library does not carry; one matching 3,400 of 3,500 is usually not what anyone meant. It pairs
 with the preview below without duplicating it — **the preview shows the delta of a change,
 the coverage count shows the standing state**. Per
-[principles §11](../../principles/README.md) it is a maintained value, invalidated off
-[D8](../../decisions/working-notes.md)'s change journal like the live rules already are.
+[principles §11](../../principles/README.md) it is a **cached** value, invalidated off
+[D8](../../decisions/working-notes.md)'s change journal like the live rules already are — a
+cached result, not an incrementally maintained counter
+([D161](../../decisions/working-notes.md)).
 
 **Rule suggestion from a selection.** Given a set of items an admin has picked out, rank
 candidate terms by how cleanly each separates that set from the rest of the visible set, and
@@ -196,14 +198,78 @@ escape hatch is a feature this plan already has rather than a second mechanism
   [D144](../../decisions/working-notes.md): it is this engine's existing binding with a page
   on it.
 
-## Still open
+## Three families of binding, not one list
 
-- **Where the complexity bound goes** — term count, depth, or generated-SQL size. Needs a
-  corpus of Kometa-scale rules.
-- **Provider-supplied fields.** A field needing a network call cannot be in a `WHERE` clause, so
-  providers presumably materialise into columns on refresh. Unspecified.
-- **Tags in a join table or JSON.** Navidrome's JSON choice is what created their batching
-  problem. A `library-model.md` decision.
+[D164](../../decisions/working-notes.md), 2026-09-22. The five bindings above are not five of
+the same thing, and the difference decides three questions below:
+
+| | Binding | Written by | Errors are |
+| --- | --- | --- | --- |
+| **Authored** | smart playlist, smart collection, retention | a person | the author's problem |
+| **Restricting** | share, profile restriction | a person | **a security failure** |
+| **Structural** | the library listing (`filing = listed`), Continue Watching, Next Up, the admin inventory view | us | **ours**, on every page |
+
+The third family was never designed for — it accreted, which is the sign the abstraction was
+right. But *"a saved query evaluated occasionally"* and *"the `WHERE` clause of every page"*
+are not one artefact.
+
+### A restricting rule that cannot compile denies everything, loudly
+
+**The rule above — *kept, marked invalid, surfaced* — is fail-open here.** A predicate that
+*limits* visibility, not evaluated, limits nothing: rename a column, forget the alias, and the
+`Kids` restriction silently evaporates. So validity is **per family**: an invalid authored rule
+stays inert and surfaced; an invalid restricting rule **matches nothing** and its users see an
+empty library naming the broken field. An alarming failure beats a silent one.
+
+**And it should never get that far.** A migration that removes or renames a field referenced by
+a restricting rule, with no alias registered, **fails the migration**
+([principles §7](../../principles/README.md)). The `alias` mechanism exists for exactly this;
+this makes forgetting it impossible rather than merely regrettable.
+
+## The complexity budget is one number, and composition spends it
+
+Measured on SQLite **3.53.4** ([D164](../../decisions/working-notes.md),
+[research](../research/rules-engine.md)):
+
+| Construct | Maximum | Error |
+| --- | --- | --- |
+| **`EXISTS` nesting depth** | **29** | *Expression tree is too large (maximum depth 1000)* |
+| ANDed `EXISTS` terms | 932 | same |
+| OR-chain terms | 997 | same |
+| **`IN` list length** | **no failure below 2,097,152** | — |
+| tables in a join | 63 | *at most 64 tables in a join* |
+
+Three constructs, **one error**: they all spend from a single expression-tree depth budget of
+1000. So:
+
+- **`IN (…)` rather than an OR chain, always** — a factor of two thousand for identical
+  semantics.
+- **Rule references are bounded at a nesting depth well under 29**, which is the number D75
+  asked for and did not have.
+- **The budget is enforced on the composed statement**, with structural and restricting
+  bindings taking their share first and the authored rule getting the remainder — and the
+  error **names which contributor overran**, or the author of a small rule is told their rule
+  is too big.
+- **The negation form is chosen by whether the query is bounded.** Standalone, `NOT IN` beats
+  `NOT EXISTS` (656 µs vs 1.61 ms); inside a page with `ORDER BY … LIMIT 60` it loses by 2.4×,
+  because the limit lets the index stop early. Mechanical to apply, and worth more than any
+  caching considered here.
+
+## Settled: tags, provider fields, and a cache not worth building
+
+- **Tags live in a normalised `tag` + `item_tag`, with a `tag_count` derived column.** Measured
+  against JSON at the reference library: single tag **50×** faster, 3-tag AND **30×**, NOT tag
+  **11×**. JSON wins only `count(tags) > n` — and a `tag_count` column wins that outright at
+  **66 µs**, 42× the JSON it lost to. Navidrome's JSON choice is what created their batching
+  problem and it loses everywhere else too.
+- **Provider fields are materialised columns carrying an `as_of`**, flagged as such in the
+  registry. No network call is reachable from a predicate, so no rule evaluation depends on a
+  third party being up. A never-refreshed value is **unknown**, which the coverage rule above
+  already denies in the two restricting bindings.
+- **Caching a role's visible set is not worth building.** It bought **7%** (1.227 → 1.142 ms);
+  rewriting the negation bought **2.4×** (→ 506 µs). The well-shaped live query beats the
+  cached one outright, so this is a table, an invalidation path and a staleness class not
+  taken on.
 
 ## Done when
 
