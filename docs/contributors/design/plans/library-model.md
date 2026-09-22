@@ -89,7 +89,12 @@ plugin survey ([D20](../../decisions/working-notes.md)), the track-selection pai
   is the only mechanism that works; and a forced decision on **whether tags live in a join table
   or as JSON**, because multi-valued count operators ("more than three genres") are compiled
   differently in each and Navidrome's JSON choice is what drove them into SQLite's
-  expression-depth limit. Smart playlists, smart collections, and retention policy. The field shows
+  expression-depth limit. **Settled 2026-09-22 by
+  [D164](../../decisions/working-notes.md): a normalised `tag` + `item_tag`, plus a
+  `tag_count` derived column.** Measured at the 3,500-item reference library, the join table
+  is 50× faster on a single tag, 30× on a 3-tag AND and 11× on a negation; JSON wins only the
+  count operator, and a `tag_count` column wins that outright at **66 µs**, 42× the JSON it
+  lost to. Smart playlists, smart collections, and retention policy. The field shows
   roughly 7,000 stars of demand across plugins (smartlists, auto-collections, mergeversions,
   media-cleaner, tmdbboxsets) and companion apps (Kometa, Maintainerr, Janitorr), all of which
   exist because no server in this space lets a user express a rule about their library. A rule

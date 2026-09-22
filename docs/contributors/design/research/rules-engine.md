@@ -181,14 +181,67 @@ Linear time, guaranteed, and backreferences and lookahead are rejected at compil
 can offer user-supplied regex in rules without a ReDoS guard**, which almost no other runtime
 could. An unplanned payoff from [D9](../../decisions/working-notes.md).
 
-## 5. Open
+## 5. Measured 2026-09-22, and the three open items closed
 
-- **Where does the complexity bound go** — a term count, a depth limit, or a generated-SQL size
-  check? Needs a real corpus of Kometa-scale rules to calibrate.
-- **Provider-supplied fields.** Kometa's users want them and our plugin tiers could supply them,
-  but a field that requires a network call cannot be in a `WHERE` clause. Probably: providers
-  *materialise* fields into the database on refresh, and the registry treats them like any other
-  column. Unspecified.
-- **Whether tags live in a join table or JSON.** Navidrome uses JSON with `EXISTS`; that choice
-  is what forced the batching in §2. A join table has different limits. Undecided, and it is a
-  `library-model.md` question.
+[D164](../../decisions/working-notes.md). Harness at `/yoloai/cache/bench/rules3/`, SQLite
+**3.53.4** via `modernc.org/sqlite`. Two sizes: a **3,500-item library at 25 tags each
+(86,751 tag rows)** — scanner.md's reference library — and a **10,000 × 100 (986,709 rows)**
+headroom point. All timings are the query only: each is wrapped in `count(*)` so the driver's
+row marshalling is not folded in, which cost a first run its validity.
+
+### Tags: a join table, plus a derived count column
+
+| Query | `tag` + `item_tag` | JSON `json_each` | JSON / join |
+| --- | --- | --- | --- |
+| single tag | **159 µs** | 7.96 ms | **50×** |
+| 3-tag AND | **280 µs** | 8.37 ms | **30×** |
+| NOT tag | **656 µs** | 7.22 ms | **11×** |
+| `count(tags) > 20` | 4.72 ms | **2.75 ms** | 0.6× |
+| `count(tags) > 20`, **`tag_count` column** | **66 µs** | — | **42× vs JSON** |
+
+Ratios hold at the headroom point (40×, 43×, 24×), and the derived column stays flat at
+**101 µs against 986,709 tag rows**. JSON wins exactly one shape and loses it to one column.
+**Settled: join table.**
+
+### The ceilings are one budget, not three
+
+| Construct | Maximum | Error at the next value |
+| --- | --- | --- |
+| **`EXISTS` nesting depth** | **29** | *Expression tree is too large (maximum depth 1000)* |
+| ANDed `EXISTS` terms | 932 | same |
+| OR-chain terms | 997 | same |
+| **`IN` list length** | **no failure below 2,097,152** | — |
+| tables in a join | 63 | *at most 64 tables in a join* |
+
+§2's figures on 3.46.1 (1000-term OR, 65-table join) reproduce. What is new: the three
+expression constructs raise **one** error, so there is a **single expression-tree depth budget
+of 1000** that every construct — and every *composed binding* — spends from; `IN` lists are
+effectively exempt at 2,097,152; and nesting costs ~34 units a level, which is where the
+**29** comes from and is the number the rule-reference depth limit needed.
+
+So the answer to "term count, depth, or SQL size" is **depth, as one pool, enforced on the
+composed statement** — and no corpus was needed, because the ceiling is a property of the
+database rather than of anyone's rules.
+
+### The page query, and a cache not worth building
+
+| Composed page — listing AND role AND collection, `ORDER BY`, `LIMIT 60` | reference | headroom |
+| --- | --- | --- |
+| live, `NOT IN` form | 1.227 ms | 6.775 ms |
+| role's visible set cached and joined | 1.142 ms | 5.428 ms |
+| **live, `NOT EXISTS` form** | **506 µs** | **1.015 ms** |
+
+Caching bought **7%**; rewriting the negation bought **2.4×**, and the well-shaped live query
+is twice as fast as the cached one. The cache was not built.
+
+**And the form that wins standalone loses composed.** Standalone `NOT IN` is 656 µs against
+`NOT EXISTS` at 1.61 ms; inside the page the order reverses, because `LIMIT 60` over
+`(filing, added_at DESC)` lets SQLite stop early rather than materialise the excluded set. The
+compiler picks by whether the query is bounded.
+
+### Provider-supplied fields
+
+Closed by reasoning rather than measurement: a provider field **materialises into a column
+with an `as_of`** and is flagged in the registry, so no network call is reachable from a
+`WHERE` clause and no evaluation depends on a third party being up. A never-refreshed value is
+`unknown`, which the coverage rule denies in the restricting bindings.

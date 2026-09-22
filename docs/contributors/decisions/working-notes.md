@@ -5233,10 +5233,20 @@ backreferences and lookahead are rejected at compile time. Linear time, guarante
 accept user-supplied regex **without a ReDoS guard**, which almost no other runtime could — an
 unplanned payoff from [D9](#d9--server-language-go-one-language-on-the-server).
 
-**Status:** Provisional. The complexity bound needs calibrating against a real corpus of
-Kometa-scale rules, and whether tags live in a join table or JSON is a
+**Status:** **Closed 2026-09-22 by [D164](#d164--the-predicate-language-stopped-being-a-feature-and-became-the-query-layer-a-restricting-rule-must-fail-closed-and-the-complexity-budget-is-one-number).**
+~~Provisional. The complexity bound needs calibrating against a real corpus of Kometa-scale
+rules, and whether tags live in a join table or JSON is a
 [library-model.md](../design/plans/library-model.md) question this decision forces but does not
-settle — Navidrome's JSON choice is what created their batching problem.
+settle — Navidrome's JSON choice is what created their batching problem.~~ No corpus was
+needed: the ceiling is a property of the database, and all three constructs spend from **one
+expression-tree depth budget of 1000**. Tags are a **join table plus a `tag_count` derived
+column** — measured 11–50× faster than JSON on every shape, including the one JSON won.
+
+**And one thing here is wrong in a specific place.** *"A rule whose field no longer resolves
+is kept, marked invalid, and surfaced — never dropped, never silently emptied"* is right for a
+smart collection and **fail-open** for a share or a profile restriction: a predicate that
+*limits* visibility, not evaluated, limits nothing. Validity is now handled **per binding**,
+and a migration that invalidates a restricting rule fails rather than completes.
 
 ---
 
@@ -12555,3 +12565,166 @@ Unmeasured: the row count of a `filing != listed` query on a library with a larg
 subtree, which is the only place this could be slow and is a
 [D161](#d161--cache-and-invalidate-do-not-incrementally-maintain-a-missed-invalidation-is-stale-a-missed-update-is-wrong)
 cache if it is.
+
+---
+
+## D164 — The predicate language stopped being a feature and became the query layer; a restricting rule must fail closed, and the complexity budget is one number
+
+**Decided** (2026-09-22). Closes the three items
+[plans/rules-engine.md](../design/plans/rules-engine.md) left open and one security gap that
+only exists because two correct decisions were composed. Measured at
+`/yoloai/cache/bench/rules3/` on SQLite **3.53.4** via `modernc.org/sqlite`, over a
+**3,500-item library with 25 tags each — 86,751 tag rows** — with a **10,000 × 100 (986,709
+rows)** headroom point.
+
+### 1. The shape: three authored bindings, and the rest of the product
+
+[D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)
+said three bindings; the plan says five. Counting what actually compiles a predicate today:
+
+| | Binding | Written by | Evaluated |
+| --- | --- | --- | --- |
+| **Authored** | smart playlist | a person | on read / journal |
+| | smart collection | a person | same |
+| | retention | a person | on a schedule |
+| **Restricting** | share ([D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed)) | a person | **every access path** |
+| | profile restriction ([D84](#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate)) | a person | **every access path** |
+| **Structural** | the library listing — `filing = listed` ([D163](#d163--every-observed-file-carries-a-filing-with-a-reason-and-what-did-the-scanner-pass-on-is-the-library-browser-with-the-filter-off)) | us | every page |
+| | Continue Watching, Next Up ([play-state.md](../design/plans/play-state.md)) | us | every page |
+| | the admin inventory view ([D163](#d163--every-observed-file-carries-a-filing-with-a-reason-and-what-did-the-scanner-pass-on-is-the-library-browser-with-the-filter-off)) | us | on demand |
+
+**D75 designed for the first family and the other two arrived by accretion.** That is not a
+criticism of D75 — it is the sign that the abstraction was right — but it changes three things
+it decided, because *"a user's saved query, evaluated occasionally, whose errors are the user's
+problem"* and *"the WHERE clause of every page, whose errors are ours"* are not the same
+artefact.
+
+### 2. The bug: D75's invalid-rule rule is fail-**open** for the two bindings that must fail closed
+
+D75, correctly for an authored rule:
+
+> *a rule whose field no longer resolves is **kept, marked invalid, and surfaced** with the
+> offending field named — never dropped, never silently emptied.*
+
+D76 and D84, also correctly:
+
+> share and profile restriction **fail closed**.
+
+**Compose them and a child's restriction evaporates.** Rename a column, forget the alias, and
+the `Kids` predicate no longer resolves. It is *kept and marked invalid*, so it is not
+evaluated — and a predicate that *limits* visibility, not evaluated, **limits nothing**.
+"Never silently emptied" is the safe direction for a selecting rule and the unsafe direction
+for a restricting one. Surfacing does not save it: surfacing is to an admin who may not be
+looking, while the child is looking tonight.
+
+This is not the item-level case
+[D132](#d132--authoring-a-role-is-a-preview-loop-and-an-item-the-rules-cannot-judge-is-denied-not-shown)
+already solved — *"an uncovered item is denied and queued"* is about a **value** being unknown.
+This is the **rule itself** failing to resolve, and nothing covers it.
+
+**So, two changes:**
+
+- **Validity is per binding.** An invalid **authored** rule is inert, kept and surfaced —
+  D75 unchanged. An invalid **restricting** rule **matches nothing, denies everything, and is
+  loud**: the role's users see an empty library with a message naming the field, which is
+  alarming, correct, and fixed in a minute. An alarming failure beats a silent one.
+- **Better: it never gets that far.** A migration that removes or renames a field referenced by
+  a *restricting* rule, with no alias registered, **fails the migration**
+  ([principles §7](../principles/README.md) — migrations are a safety feature). D75's `alias`
+  mechanism exists precisely to make this a non-event; this makes forgetting it impossible
+  rather than merely regrettable.
+
+### 3. The complexity bound is not term count or SQL size. It is one shared depth budget
+
+D75 left this open — *"term count, depth, or generated-SQL size; needs a corpus"*. It needs no
+corpus, because the database answers it directly. Measured:
+
+| Construct | Maximum | Error at the next value |
+| --- | --- | --- |
+| **`EXISTS` nesting depth** | **29** | *Expression tree is too large (maximum depth 1000)* |
+| ANDed `EXISTS` terms | **932** | same |
+| OR-chain terms | **997** | same |
+| **`IN` list length** | **no failure below 2,097,152** | — |
+| tables in a join | **63** | *at most 64 tables in a join* |
+
+Three different constructs, **one error**: every one spends from the same
+**expression-tree depth budget of 1000**. So the bound is **depth, tracked as a single pool**,
+and the compiler prices each construct against it. Three consequences:
+
+- **Prefer `IN (…)` to an OR chain, always.** 2,097,152 against 997 is not a tuning
+  preference, it is a factor of two thousand for identical semantics. The generated SQL should
+  contain an OR chain only where the terms differ in *field*, not in value.
+- **Rule references get a real number.** D75 allowed rules referencing rules and said "bound
+  the depth" without one. Nesting costs ~34 depth units a level, so **29 is the ceiling** and
+  the practical limit is lower, because —
+- **Composition spends from the same pool.** A page is `listing AND role AND share AND the
+  user's collection`. Four rules individually within budget can exceed it together, so the
+  budget is enforced **on the composed statement**, apportioned with the **structural and
+  restricting bindings taking their share first** and the authored rule receiving the
+  remainder. The error must then name *which* contributor overran, because the author of a
+  perfectly small rule is otherwise told their rule is too complex.
+
+### 4. Tags live in a join table, with a derived count column
+
+D75 forced this question onto `library-model.md` and did not settle it, noting *"Navidrome's
+JSON choice is what created their batching problem"*. Measured, at the reference library:
+
+| Query | Join table | JSON (`json_each`) | JSON / join |
+| --- | --- | --- | --- |
+| single tag | **159 µs** | 7.96 ms | **50×** |
+| 3-tag AND | **280 µs** | 8.37 ms | **30×** |
+| NOT tag | **656 µs** | 7.22 ms | **11×** |
+| `count(tags) > 20` | 4.72 ms | **2.75 ms** | 0.6× |
+
+JSON wins exactly one shape, and it wins it because the join-table version asks a correlated
+`count(*)` per row. **A `tag_count` derived column settles it: 66 µs** — 42× faster than the
+JSON it lost to and 71× faster than the correlated count. That is
+[D161](#d161--cache-and-invalidate-do-not-incrementally-maintain-a-missed-invalidation-is-stale-a-missed-update-is-wrong)'s
+**derived column** mechanism, the second of its three, used exactly as described.
+
+So: **normalised `tag` + `item_tag`, plus a `tag_count` column on the item.** The ratios hold
+at the headroom point (40×, 43×, 24×) and the derived column stays flat at **101 µs against a
+986,709-row tag table**.
+
+### 5. A negative result worth more than the design it replaces
+
+The obvious worry about §1 is cost: a restricting predicate ANDed into every page. The obvious
+fix is D161 — cache each role's visible set and join against it. **Measured, it is not worth
+doing.**
+
+| Composed page (listing AND role AND collection, `ORDER BY`, `LIMIT 60`) | reference | headroom |
+| --- | --- | --- |
+| live, `NOT IN` form | 1.227 ms | 6.775 ms |
+| role set cached per D161, `NOT IN` form | 1.142 ms | 5.428 ms |
+| **live, `NOT EXISTS` form** | **506 µs** | **1.015 ms** |
+
+The cache bought **7%**. Rewriting the negation as `NOT EXISTS` bought **2.4×** — and the
+well-shaped live query is **twice as fast as the cached one**. Caching a result set here would
+have been a table, an invalidation path and a class of staleness bug, bought with a 85 µs
+saving that better SQL returns several times over.
+
+**And the shape that wins standalone is not the shape that wins composed.** Standalone,
+`NOT IN` beats `NOT EXISTS` (656 µs vs 1.61 ms); inside the page, `NOT EXISTS` wins by 2.4×,
+because `LIMIT 60` over the `(filing, added_at DESC)` index lets SQLite stop early and evaluate
+the negation on a few hundred rows, while `NOT IN` materialises the whole excluded set first.
+**The compiler chooses the negation form by whether the query is bounded**, which is a rule it
+can apply mechanically.
+
+### 6. Provider-supplied fields are materialised columns with an `as_of`
+
+The third open item — *"a field needing a network call cannot be in a `WHERE` clause"*. It
+cannot, and it does not have to: a provider field is **materialised on refresh**, carries an
+**`as_of`**, and is a registry entry flagged as such so the UI can say how old it is. That is
+[D149](#d149--eight-gaps-the-source-sweep-found-six-declines-and-the-one-that-is-a-hole-in-the-business-model)'s
+rating tuple `(source, kind, score, votes, as_of)` generalised, and it composes with everything
+above: a never-refreshed provider value is **unknown**, and D132's coverage rule already denies
+an uncovered item in the two restricting bindings. **No network call is ever reachable from a
+predicate** — which is also what stops a rule evaluation from depending on a third party being
+up.
+
+**Status:** §2 is a **correctness and security fix** and is Phase 1 with the rest of the
+engine; §3 is compiler behaviour and a constant; §4 is the `library-model.md` schema decision
+D75 deferred, now made; §5 removes a planned mechanism; §6 is a registry flag and a column.
+Unmeasured, and deliberately: a corpus of real Kometa-scale rules, because the ceiling turned
+out to be a property of the database rather than of the corpus, and measuring the corpus would
+not move the number.
