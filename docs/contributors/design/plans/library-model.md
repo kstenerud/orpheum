@@ -332,10 +332,20 @@ summary of them.
   [play-state.md](play-state.md)'s refusal to mark an item with unknown runtime as watched —
   and a synthetic row is the structural form of the same mistake. EIDR gets this right by
   construction: `isManifestationOf` may point straight at an Abstraction.
-  - **Watch state follows**: at the Edition when there is one, at the Title when there is not.
-    Promoting a Version to a real Edition moves it, which is a migration to test.
-  - **Two Versions under one Title with no Edition are not known to be the same viewing.**
-    Correct, and better than guessing.
+  - **Watch state is stored on the Version and resolved over the Edition**
+    ([D156](../../decisions/working-notes.md)) — never on the Title, which cannot hold one
+    because cuts have different runtimes. So naming a cut later **moves no position row at
+    all**; it only changes which positions resume treats as interchangeable.
+  - **Two Versions under one Title with no Edition are not known to be the same viewing**, and
+    are presented as **separate playable entries** distinguished by runtime, resolution and
+    the verbatim filename — never as a quality menu, and never as a row called *"Unknown
+    Edition"*.
+  - **The speech map answers the grouping question.** Measured
+    ([D156](../../decisions/working-notes.md)): two Versions of the *same* cut score
+    **r = 1.000** against each other and nothing else comes close — a removed scene lands at
+    0.36–0.71, an added voice-over at 0.19–0.41, a different film at 0.10. So the scanner may
+    **propose** a merge at 1.0 and must never propose a *name*: the machine groups, the human
+    names.
 - **The extras vocabulary is EIDR's**, not ours ([D97](../../decisions/working-notes.md)):
   `isClipOf`, `isPromotionFor`, `isSupplementTo`, `isAlternateContentFor`, `isCompositeOf`,
   `isPackagingOf`. D97 independently chose EIDR's *shape* — a typed relation rather than a

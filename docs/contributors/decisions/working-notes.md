@@ -5553,7 +5553,16 @@ Both need declaring, and neither answer is obvious.
 
 **Watch state: Edition.** Not File or Version — upgrading 1080p to 4K must not lose your place,
 and it would. Not Title — the theatrical and director's cuts have different runtimes, so a
-resume position across them is meaningless. Edition is the level at which *the same content* is
+resume position across them is meaningless.
+
+> **Refined 2026-09-22 by [D156](#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one).**
+> The requirement is right and the *storage* location was not. A position is **stored on the
+> Version** and **resolved over the Edition's Versions**, most recent winning — which delivers
+> the 1080p→4K case identically, and additionally survives the ordinary situation where the
+> Edition is not yet known ([D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional)).
+> Storing at the Version is [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)'s
+> rule applied here: the position is an observation; *"these are one viewing"* is an
+> interpretation, and interpretations belong at read time. Edition is the level at which *the same content* is
 true. (Whether a watched *flag* rolls up to the Title is a UI question, deliberately not a
 schema one; a resume position cannot roll up regardless.)
 
@@ -11397,9 +11406,13 @@ everywhere in this tree except in the one place where the structure itself is un
 A synthetic row is the structural form of the same mistake.
 
 Consequences, all small:
-- **Watch state stays at the Edition** and gains the obvious companion: when the Edition is
-  unknown, state attaches to the Title. Promoting an unknown-edition Version to a real Edition
-  moves it, and that is a real migration to test rather than one to discover.
+- ~~**Watch state stays at the Edition** … when the Edition is unknown, state attaches to the
+  Title.~~ **Wrong, and corrected the same week by
+  [D156](#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one).**
+  Four unidentified cuts of one film would put four positions on one Title row, and D79 had
+  already said a Title cannot hold a position. **A position is stored on the Version and
+  resolved over the Edition's Versions when an Edition exists** — which also means naming a
+  cut later moves nothing at all.
 - **Two Versions under the same Title with no Edition are not known to be the same viewing**,
   which is correct and is the honest answer rather than a guess.
 - The UI never shows *"Unknown Edition"* as though it were a cut.
@@ -11433,3 +11446,146 @@ player needs the sequence its user expects.*
 alignment is a naming choice with no migration. Read from the XSDs at `schema.eidr.org`, cached
 at `/yoloai/cache/http/eidr/`; the 2018 nomenclature proposal is known only through EIDR's own
 summary of it, since the document itself is no longer served.
+
+---
+
+## D156 — A position is stored at the Version and resolved at the Edition; the Title never holds one
+
+**Decided** (2026-09-22). **Corrects
+[D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional)
+§3 and the watch-state half of
+[D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal).**
+Found by the project owner's worked example:
+
+> *"if I have Glass Runner San Diego sneak preview, american theatrical release, international
+> theatrical release, and director's cut but we didn't manage to figure out which cuts they
+> were at ingestion, then they would all show up in the UI as an unknown cut, and if later the
+> user specifies which as which, it doesn't affect existing view data, right?"*
+
+**Four Editionless Versions under one Title breaks D155**, and the example is chosen well
+enough to break it twice.
+
+### The bug: four positions, one row
+
+D155 said *"watch state attaches to the Edition when there is one and to the Title when there
+is not."* That survives one unidentified Version and collapses on four: **all four positions
+land on the same Title row and overwrite each other.** Watch forty minutes of the theatrical,
+then ten of the director's cut, and the first is gone.
+
+Worse, **D79 already said why that cannot work** — *"Not Title — the theatrical and director's
+cuts have different runtimes, so a resume position across them is meaningless"* — and D155
+contradicted it one paragraph after citing it. The Editionless case is not an exception to that
+rule; it is the rule's own example, with the labels missing.
+
+### The fix: store where you observed, resolve where you have evidence
+
+**A position is stored on the Version.** Resume resolves at **the coarsest level there is
+evidence is the same content**:
+
+| What is known | Resume resolves over |
+| --- | --- |
+| the Version's Edition is known | **all Versions of that Edition** — most recent position wins |
+| no Edition | **that Version alone** |
+| — | **never the Title** |
+
+This preserves D79's actual requirement — *"upgrading 1080p to 4K must not lose your place"* —
+because two encodings of one cut share an Edition and therefore share a resume. It costs
+nothing, because when the Edition *is* known, Edition-relative and Version-relative timelines
+are the same timeline; that is what an Edition means.
+
+**And it is [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)'s
+cross-cut, which D79 itself states and I failed to apply**: *store the observation, not the
+interpretation.* A position is an observation about a Version. "These two Versions are one
+viewing" is an interpretation, and interpretations belong at read time where they can be
+revised.
+
+### So: does labelling disturb existing view data? No — there is nothing to move
+
+That is the answer to the second half of the question, and the fix makes it structural rather
+than careful. **Naming a cut writes one column — `edition_id` on the Version. No position row
+is touched.** What changes is only which positions are considered interchangeable when resume
+next resolves.
+
+- **Label all four differently** — the case in the question — and **nothing happens at all**.
+  Each Version already had its own position and keeps it. Four cuts, four resumes, before and
+  after.
+- **Label two the same** (the 1080p and the 4K of one cut, each already watched) and resume
+  now has two candidates: **the most recent wins, and neither is deleted.** The other remains
+  that Version's own position, and [D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)'s
+  event log holds the history regardless.
+- **Mislabel, then correct it** — again nothing moves.
+
+A design where the answer is *"we migrate it carefully"* is a design with a migration to get
+wrong. This one has no migration.
+
+### The UI half: four unknown cuts are four items, not one with a quality menu
+
+The other half of the question — *"they would all show up as an unknown cut"* — is right about
+the facts and points at a presentation bug.
+
+**Versions sharing an Edition are interchangeable encodings** and belong behind one entry with
+a quality menu. **Versions with no Edition are not known to be interchangeable**, so rendering
+them as a quality menu tells the user that four different films are four bitrates of one. They
+are **separate playable entries under the Title**, distinguished by what was actually observed
+— runtime, resolution, container, and the verbatim filename
+[D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)
+already requires us to keep.
+
+**Never a row called "Unknown Edition".** That names a cut that does not exist and implies the
+four are one thing. The absence of a label is shown as an absence — with, per
+[D133](#d133--the-pending-items-alert-which-is-how-the-queue-actually-drains)'s pattern, a
+maintained count for the admin: *"4 versions of Glass Runner have unidentified cuts."*
+
+### Why the obvious heuristic is unsafe, using the example given
+
+Runtime looks like it should separate these. It does not, and *this particular film* is the
+counter-example:
+
+| Cut | Runtime |
+| --- | --- |
+| Workprint | 113 min |
+| **San Diego Sneak Preview** | **115 min** |
+| **US theatrical (Domestic)** | **116 min** *(some references say 117)* |
+| **International theatrical** | **117 min** |
+| **Director's Cut** | **116 min** |
+| Final Cut | 117 min |
+
+**The US theatrical and the Director's Cut are the same length** and are the two most different
+films in the set — voice-over against none, studio ending against none, no unicorn against
+unicorn. The International cut and the Final Cut collide too. And the reference sources
+**disagree with each other** about which runtime belongs to which cut. Runtime is not an
+identifier; it is a hint that fails exactly where it is needed.
+
+### What *can* group them, and it is already on disk
+
+[D148](#d148--the-speech-map-is-a-scan-artefact-and-the-reference-is-a-subtitle-track-before-it-is-audio)'s
+**speech map** — 1–3 kB per Version, built for subtitle verification — answers the grouping
+question directly, because a cut that adds a voice-over or removes a scene changes *where
+people are speaking*. Measured, scoring synthetic variants against a real map with the same
+normalised correlation the subtitle verifier uses:
+
+| Candidate | r (ToS) | r (Sintel) |
+| --- | ---: | ---: |
+| **same cut, re-encoded** | **1.000** | **1.000** |
+| same cut, one 60 s scene removed | 0.593 | 0.708 |
+| same cut, three scenes removed | 0.363 | 0.700 |
+| voice-over added to 30% of pauses | 0.413 | 0.191 |
+| voice-over added to 60% of pauses | 0.281 | 0.193 |
+| **a different film** (control) | **0.100** | **0.115** |
+
+**The identical cut scores exactly 1.000 and nothing else comes close** — so *"these two
+Versions are the same cut"* is answerable with certainty, which is the whole grouping question.
+Everything that is a different cut lands in a broad 0.19–0.71 band: enough to say **"not the
+same"**, and **nowhere near enough to say which cut it is.**
+
+That is the right division of labour and it should be stated as a rule: **the machine groups,
+the human names.** The scanner may *propose* that two Editionless Versions be merged under one
+Edition when their speech maps match at 1.0 — [D132](#d132--authoring-a-role-is-a-preview-loop-and-an-item-the-rules-cannot-judge-is-denied-not-shown)'s
+preview loop, showing what would change — and must never propose a *name* for a cut, because
+nothing it can measure carries one.
+
+**Status:** schema, and therefore Phase 1 with the rest of
+[library-model.md](../design/plans/library-model.md). The 1.000 threshold is measured on
+synthetic variants of two real films; what is unmeasured is **two genuinely different masters
+of the same cut** — a remaster with different room tone could plausibly score below 1.0, and
+the merge proposal should be tested against that before it is trusted.

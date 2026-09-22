@@ -392,9 +392,13 @@ speech fraction, asserted.
   paths are separate or CSRF becomes real ([D154](../../decisions/working-notes.md)).
 - **The last administrator cannot be removed or demoted** ([D154](../../decisions/working-notes.md)).
 - **A Version with no Edition is a first-class row, not a synthetic one**
-  ([D155](../../decisions/working-notes.md)), and **promoting it to a real Edition keeps its
-  files, play state and user-authored data**. The fixture is the ordinary case: a rip with no
-  edition marker, identified later.
+  ([D155](../../decisions/working-notes.md)), and **naming its Edition later writes one column
+  and moves no position row** ([D156](../../decisions/working-notes.md)). The fixture is the
+  owner's own case: **four unidentified cuts of one film, each watched to a different point**,
+  then labelled — and all four positions must survive unchanged. Labelling two of them as the
+  same Edition must resolve to the more recent position and destroy neither.
+- **A Title never holds a playback position**, asserted structurally rather than by behaviour
+  ([D156](../../decisions/working-notes.md)).
 - **A client names the failing hop** ([D152](../../decisions/working-notes.md)). Four
   fixtures — no network, relay unreachable, relay up with the core not dialled in, core up
   with the media node asleep — and four distinguishable messages. *"Cannot connect"* for any

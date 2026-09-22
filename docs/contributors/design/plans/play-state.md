@@ -91,22 +91,39 @@ They attach at different levels, and the levels are not the same as the position
 | user rating | **Title** | same |
 | **watchlist** | **Title** | you intend to watch the work, not a cut of it ([D140](../../decisions/working-notes.md)) |
 
-## Where a position attaches when the edition is unknown
+## Stored at the Version, resolved at the Edition
 
-[D155](../../decisions/working-notes.md), 2026-09-22. A position is **Edition-relative** — but
-[library-model.md](library-model.md) now allows a Version with **no** Edition, because most
-files do not say which cut they are. So the rule needs its companion: **the position attaches
-to the Edition when there is one and to the Title when there is not**, and *promoting* a
-Version to a real Edition moves the position with it.
+[D156](../../decisions/working-notes.md), 2026-09-22, correcting
+[D155](../../decisions/working-notes.md). **A position is stored on the Version**, and resume
+resolves it at the coarsest level there is evidence is the same content:
+
+| What is known | Resume resolves over |
+| --- | --- |
+| the Edition is known | **all Versions of that Edition**, most recent position winning |
+| no Edition | **that Version alone** |
+| — | **never the Title** |
+
+[D79](../../decisions/working-notes.md)'s requirement is unchanged and still met — upgrading
+1080p to 4K does not lose your place, because two encodings of one cut share an Edition. What
+changes is where the row lives, and that is
+[D59](../../decisions/working-notes.md)'s rule applied here: **a position is an observation
+about a Version; "these two are one viewing" is an interpretation**, and interpretations
+belong at read time where they can be revised.
+
+**The payoff is that naming a cut later moves nothing.** A library holding four unidentified
+cuts of *Glass Runner* has four Versions, each with its own position. Labelling them writes
+`edition_id` and touches no position row. Label two of them as the *same* Edition and resume
+simply takes the most recent of the two — neither is destroyed, and the event log holds both
+regardless. **There is no migration to get wrong**, which is a better property than a
+migration performed carefully.
 
 Two consequences worth stating rather than discovering:
 
-- **Two Versions under one Title with no Edition do not share a position.** They are not known
-  to be the same viewing, and inventing that they are is how a director's cut resumes forty
-  minutes into a theatrical one.
-- **The promotion is a migration**, not a write — it is the same replay
-  [identification.md](identification.md) is built for, and it is asserted in
-  [testing-strategy.md](testing-strategy.md).
+- **Two Editionless Versions under one Title do not share a position.** They are not known to
+  be the same viewing, and assuming otherwise is how a director's cut resumes forty minutes
+  into a theatrical one.
+- **A Title never holds a position.** D79 said so; D155 briefly forgot it. Four unidentified
+  cuts would have put four positions on one row.
 
 ## Who has play state, and who does not
 
