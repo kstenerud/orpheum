@@ -212,6 +212,33 @@ each lands here rather than being bolted on — the same argument
   gets subtitles, loudness, segments and play state by construction. `ThemeSong` and
   `ThemeVideo` are members, which is what makes androidtv's *Video Backdrop and Theme song
   playback* (+37) nearly free.
+- **What makes something an extra is containment, and a name only types it**
+  ([D162](../../decisions/working-notes.md)). Jellyfin carries **34 rules over 12 types** —
+  15 directory names, 3 filenames, 18 suffixes — matched wherever a file appears. We admit
+  two evidences and both require being *inside a title's own folder*: a subdirectory in the
+  closed vocabulary, or a file whose stem is the title's name plus a vocabulary suffix. The
+  asymmetry is the argument: an extra shown as a film is clutter, a **film classified as an
+  extra vanishes silently**. Nothing at a library root is ever an extra — which is why a
+  library of short films works, and why Jellyfin needs the `parent is not UserRootFolder`
+  carve-out that we do not. An unmatched type is `Unknown` and the relation still holds:
+  *filed, not named*, as for an unknown cut.
+- **`Sample` is not one of the types.** It is release debris, it is skipped and reported as
+  skipped ([scanner.md](scanner.md)), and Jellyfin's own source is incoherent about it —
+  `IgnorePatterns` drops `x.sample.mkv` while `VideoExtraRules` turns `x-sample.mkv` into a
+  library item. Eleven types.
+- **The scanner attaches an extra to a Title; only a person attaches one to an Edition.**
+  `Wings (1986)/deleted scenes/` sits above both cuts and the layout cannot say which owns
+  it — the machine groups, the human names ([D158](../../decisions/working-notes.md)). A
+  relation the scanner inferred is an index; one a person asserted, or a type they corrected,
+  is true about the work and **mirrors to a sidecar**
+  ([D98](../../decisions/working-notes.md)).
+- **An extra is not always a video.** `ThemeSong` is audio, and trickplay, poster derivation,
+  segment detection and the speech map are meaningless on a 90-second `.mp3`, so the pass set
+  gates on the item's **media kind** and not only on the library
+  ([D102](../../decisions/working-notes.md)).
+- **And a provider's trailer URL is not an extra at all** — no Version, no File, no hash,
+  nothing for a rebuild to recover, because it was never in the files. It is metadata about
+  the work, and following it is opening a link rather than playback.
 
 ### And one more table, from 2026-09-21
 

@@ -80,7 +80,7 @@ Absent, the product reads as unfinished to anyone arriving from Plex or Jellyfin
 | F16 ★ | Roles and parental controls, authored as a preview loop | [D130](contributors/decisions/working-notes.md)–[D134](contributors/decisions/working-notes.md) | schema |
 | F17 ★ | Collections, explicit and predicate — **and every one produces a sequence**, so Next Up and binge affordances work over a franchise or a composed pair of series exactly as over a season ([D160](contributors/decisions/working-notes.md)). No incumbent does this: they all have series machinery plus a static poster grid | [D75](contributors/decisions/working-notes.md), [D79](contributors/decisions/working-notes.md), [D159](contributors/decisions/working-notes.md), [D160](contributors/decisions/working-notes.md) | schema |
 | F18 | Episode orderings: aired, DVD, absolute | [D96](contributors/decisions/working-notes.md) | schema |
-| F19 | Extras, trailers, theme songs and backdrops | [D97](contributors/decisions/working-notes.md) | schema |
+| F19 | Extras, trailers, theme songs and backdrops | [D97](contributors/decisions/working-notes.md), [D162](contributors/decisions/working-notes.md) | schema |
 | F20 | Multiple versions and editions of one work | [D79](contributors/decisions/working-notes.md) | schema |
 | F21 | Casting to a television | [D135](contributors/decisions/working-notes.md)–[D137](contributors/decisions/working-notes.md) | — |
 | F22 | Offline download | [D87](contributors/decisions/working-notes.md), [offline-download.md](contributors/design/plans/offline-download.md) | seam |
@@ -175,6 +175,7 @@ is there so that changing your mind is cheap.
 | F84 | A device-profile database | [D2](contributors/decisions/working-notes.md), [D21](contributors/decisions/working-notes.md) — the field's largest bug source | the closed output menu must never become a grammar of conditions |
 | F85 | A Netflix-style encoding ladder | [D86](contributors/decisions/working-notes.md) | — |
 | F86 | A video encoder in the core binary | [D19](contributors/decisions/working-notes.md) | it is a plugin on the public API |
+| F87 | A provider's trailer played from its URL | [D162](contributors/decisions/working-notes.md) — a work-shaped row with no Version, no File and nothing for a rebuild to recover, plus a third-party fetch during playback | the provider record may carry the **link** as metadata; following it is opening a link, not playback |
 
 ---
 

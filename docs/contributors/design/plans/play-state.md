@@ -230,6 +230,13 @@ queue is a manifest rendered on a screen: it contains only what the casting user
 permits ([D130](../../decisions/working-notes.md)), and **a pending, unrated item is absent
 from it including its title** ([D134](../../decisions/working-notes.md)).
 
+**Extras are in neither** ([D162](../../decisions/working-notes.md)). A trailer you paused is
+not something you are partway through, and watching one never marks the film watched — an
+extra is a different work, so completion rolls up over *its* Versions and not the film's. The
+position is still kept, because positions are per-File and cost nothing, so a 50-minute
+making-of resumes when you open it. Extras likewise do not count toward a Collection's
+sequence or progress ([D160](../../decisions/working-notes.md)).
+
 An edition appears in exactly one of them. Both are ordinary predicates over the play tables,
 so both are [rules-engine.md](rules-engine.md) queries rather than bespoke SQL, which is what
 makes "why is this here?" answerable and "remove this from my list" possible without marking

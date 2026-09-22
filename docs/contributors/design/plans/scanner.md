@@ -275,6 +275,14 @@ Prior art for how an exclusion list is expressed: Jellyfin's `IgnorePatterns` al
 `sample`, `metadata/`, `ps3_update/` and a long tail of similar noise, and that list is worth
 copying on its own merits.
 
+**A third thing is skipped, and it is a release sample**
+([D162](../../decisions/working-notes.md)). A `-sample.mkv` is a 30-second torrent fragment,
+not an extra of the work, and treating it as one means hashing it, probing it, generating
+trickplay for it and showing it. Jellyfin does both at once — `IgnorePatterns` drops
+`x.sample.mkv` while `VideoExtraRules` carries five `ExtraType.Sample` rules that turn
+`x-sample.mkv` into a library item, so a hyphen decides. Here it is one rule and, like
+`.trash/`, it is **reported as skipped** rather than silently dropped.
+
 ## Two more observation passes
 
 Both are node work, both are [D42](../../decisions/working-notes.md) facts rather than
