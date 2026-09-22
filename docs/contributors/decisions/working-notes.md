@@ -6360,11 +6360,18 @@ adjustments* issue an obvious home beside
 [D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)'s gain handling. And an extra is a work, so it gets subtitles,
 loudness, segments and play state by construction rather than by special case.
 
-**Status:** Schema, due before `library-model.md`. What is open is **discovery**: the field
-identifies extras by magic folder and filename conventions (`extras/`, `behind the scenes/`,
-`-trailer`), which is filename parsing and therefore belongs in the **core** over stored
-observations ([D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)), not in the node. Whether a downloaded trailer that is
-not on disk at all (a provider URL) is the same kind of row is also open, and probably not.
+**Status:** **Closed 2026-09-22 by [D162](#d162--containment-makes-an-extra-a-name-only-types-it-a-providers-trailer-url-is-not-one).**
+The shape above is untouched; what was open is now settled. ~~What is open is **discovery**:
+the field identifies extras by magic folder and filename conventions (`extras/`,
+`behind the scenes/`, `-trailer`), which is filename parsing and therefore belongs in the
+**core** over stored observations ([D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)), not in the node. Whether a downloaded
+trailer that is not on disk at all (a provider URL) is the same kind of row is also open, and
+probably not.~~ Discovery is **containment**, not filename parsing — a name may only *type*
+what containment already found, because misclassifying a film as an extra makes it vanish;
+the provider URL is **not a row at all**. D162 also settles four things D97 did not raise:
+`Sample` is debris rather than a type, only a person may attach an extra to an Edition, an
+asserted relation is sidecar-able while an inferred one is index, and the pass set follows the
+extra's media kind.
 
 ---
 
@@ -12217,3 +12224,130 @@ count on `(role)`. A household has tens of users and hundreds of collections, no
 **Status:** mechanism guidance, no schema. §11 is revised; D134's *"maintained counter"*
 should be read as *"cached result"* throughout. Unmeasured and deliberately so: the cache's
 own storage, because at these key spaces it is not a number worth producing.
+
+---
+
+## D162 — Containment makes an extra, a name only types it; a provider's trailer URL is not one
+
+**Decided** (2026-09-22). Closes the two items
+[D97](#d97--an-extra-is-a-typed-relation-not-an-edition-and-not-a-version) left open —
+discovery, and the not-on-disk trailer — and adds four the three days since D97 have exposed.
+Read from `Emby.Naming/Common/NamingOptions.cs`, `CoreResolutionIgnoreRule.cs`,
+`IgnorePatterns.cs` and `MovieResolver.cs` at `/yoloai/cache/repos/jellyfin/`.
+
+D97's shape was right and is untouched: **an extra is a typed relation from a Title or an
+Edition to a work.** What follows is who may assert one, on what evidence, and what happens
+when the evidence is wrong.
+
+### 1. The evidence is containment. A name may only *type* what containment already found
+
+Jellyfin carries **34 extra rules across 12 types** — **15 directory names**, **3 filenames**
+and **18 filename suffixes** — and applies them wherever a file turns up. That is the wrong
+shape, because the two ways of being wrong are not symmetric:
+
+| Mistake | Consequence |
+| --- | --- |
+| an extra listed as a film | **visible clutter**, one action to file |
+| a film classified as an extra | **it vanishes from the library**, and nothing says so |
+
+The second is [D132](#d132--authoring-a-role-is-a-preview-loop-and-an-item-the-rules-cannot-judge-is-denied-not-shown)'s
+failure class exactly: an item silently absent, with no surface that says it was removed. So
+the rule is the narrow one.
+
+**Two admissible evidences, both requiring containment in a title's own folder:**
+
+1. a subdirectory whose name is in the closed vocabulary — `trailers`, `featurettes`,
+   `deleted scenes`, `behind the scenes`, `interviews`, `scenes`, `shorts`, `clips`,
+   `backdrops`, `theme-music`, `extras`, `extra`, `other`;
+2. a file whose stem is the title's own name plus a vocabulary suffix —
+   `Glass Runner (1982)-trailer.mkv` — which is the Plex and Kodi convention and has to work.
+
+**Nothing at a library root is ever an extra.** A library *of* short films has a `shorts/`
+folder that means the opposite of the vocabulary. Jellyfin needs an explicit carve-out for
+this — `CoreResolutionIgnoreRule` reads *"Don't ignore top level folders"* and tests
+`parent is not UserRootFolder` — and with containment as the rule the carve-out is not needed,
+because the condition was never met.
+
+A suffix or a bare filename **never creates** an extra; inside a folder that already is one,
+it picks the type. Absent a match, the type is `Unknown` — the relation still holds, which is
+the same shape as [D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional)'s
+unnamed cut: *filed, not named.*
+
+### 2. `Sample` is not a type. It is debris, and it is skipped
+
+Jellyfin's own source contradicts itself here: `IgnorePatterns` skips `sample.mkv`,
+`*.sample.mkv` and `sample/`, while `VideoExtraRules` carries **five** `ExtraType.Sample`
+rules. So `x.sample.mkv` disappears and `x-sample.mkv` becomes a library item — same 30-second
+torrent fragment, opposite outcomes, decided by a hyphen.
+
+A sample is not an extra of the work. It is a fragment of the release, it is nobody's
+intention, and treating it as an extra means hashing it, probing it, generating trickplay for
+it and showing it. It belongs in [scanner.md](../design/plans/scanner.md)'s skip list beside
+`.trash/`, where it is **reported as skipped** rather than silently dropped. Eleven types, not
+twelve.
+
+### 3. The scanner may attach an extra to a Title. Only a person may attach one to an Edition
+
+D97 allows the relation to point at either, and said nothing about who may say which. Disk
+layout cannot tell you: `Wings (1986)/deleted scenes/` sits above the theatrical cut and the
+special edition both, and the scenes belong to one of them.
+
+So the inference stops at the Title, and an Edition attachment is a human act — the same
+division [D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)
+drew for merging: **the machine groups, the human names.** It also inherits D155's property
+that naming a cut later moves nothing: the extra was never on the Edition to begin with.
+
+### 4. An inferred relation is an index; an asserted one is a sidecar
+
+[D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)'s
+test decides this and D97 never applied it. *Is it true about the work or about a person?*
+
+- A relation the scanner inferred from the tree is **rebuildable from the tree** — database
+  only, like any other index ([D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index)).
+- A relation, a type correction or an Edition attachment a **person** made is true about the
+  work and is not recoverable from anything. It **mirrors to a sidecar**, exactly like an
+  identification override.
+
+### 5. An extra is not always a video, and the pass set follows the item
+
+`ThemeSong` is audio — `MediaType.Audio` on 2 of Jellyfin's 34 rules — and the ten-pass
+pipeline ([D102](#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes),
+[D114](#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video))
+assumes video throughout: trickplay, poster derivation, segment detection and the speech map
+are meaningless on a 90-second `.mp3`. The passes are already independently deferrable *per
+library*; this makes the gate **per item, on its media kind**, which costs a column and a
+predicate. Extras also sit at the bottom of D102's user-value ordering, where a 90-second
+featurette belongs.
+
+### 6. Three exclusions, each a one-line predicate and each a field bug if unsaid
+
+- **Extras never enter Continue Watching or Next Up.** A trailer you paused is not something
+  you are partway through. The *position* is still kept — positions are per-File under
+  [D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)
+  and cost nothing — so a 50-minute making-of resumes when you open it.
+- **Extras never count toward a Collection's sequence or progress**
+  ([D160](#d160--there-is-no-series-concept-a-sequence-is-what-a-collection-produces-and-next-up-is-a-query-over-any-of-them)).
+- **Watching an extra never marks the Title watched.** Completion rolls up over the *work's*
+  own Versions, and an extra is a different work.
+
+### 7. A provider's trailer URL is not an extra, and it is not a row
+
+D97 guessed *"probably not"*. Settling it: **no**, and for a reason stronger than taste.
+
+Every property the relation buys — subtitles, loudness, segments, play state, identity under
+[D116](#d116--the-content-hash-is-a-sampling-hash-whole-file-hashing-is-opt-in-and-separate) — is defined over
+**bytes a node observed**. A URL has none of them, so the row would be a work-shaped hole: no
+Version, no File, no hash, nothing to scan, and nothing for
+[D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index)'s rebuild to
+recover it from, because it was never in the files.
+[D99](#d99--the-core-does-not-decode-an-image-either-and-community-uploaded-artwork-is-why)
+is not the precedent it looks like: a provider poster becomes **bytes we hold**, not a live
+link to a third party during playback.
+
+So a provider's trailer link is **metadata about the work** — a field, of the same kind as a
+poster URL before it is fetched — and following it is opening a link, not playback. The door
+stays open in [FEATURES.md](../../FEATURES.md) rather than in the schema.
+
+**Status:** closes D97. §1–§4 are schema and stay in Phase 1 with it; §5 is a column and a
+predicate; §6 is three predicates; §7 is a decline. Unmeasured: the per-file overhead of a
+disc rip with fifteen extras, which multiplies item count without meaningfully adding runtime.
