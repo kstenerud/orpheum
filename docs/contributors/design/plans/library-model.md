@@ -140,8 +140,9 @@ each lands here rather than being bolted on — the same argument
   *"Most movies now appear to be 75% watched"* (44 comments) and *"Media playback randomly
   starts over again or jumps back — STILL"* (29). The log is also the only table with an
   unbounded row count, so it carries a retention horizon from the first migration.
-  **A position is Edition-relative**, so each File records its offset within the Version's
-  timeline — otherwise "12:30 into part 2" has nowhere to live.
+  **A position is File-relative** ([D157](../../decisions/working-notes.md)); each File records
+  its offset within the Version's ordering for *display* only, and nothing above the File
+  holds a position.
 - **Media segments, typed, at the Version** ([D82](../../decisions/working-notes.md),
   [media-segments.md](media-segments.md)). `(version, type, start, end, provider, confidence)`
   with a user override. At the **Version** rather than the Item because a timecode indexes an
@@ -332,10 +333,12 @@ summary of them.
   [play-state.md](play-state.md)'s refusal to mark an item with unknown runtime as watched —
   and a synthetic row is the structural form of the same mistake. EIDR gets this right by
   construction: `isManifestationOf` may point straight at an Abstraction.
-  - **Watch state is stored on the Version and resolved over the Edition**
-    ([D156](../../decisions/working-notes.md)) — never on the Title, which cannot hold one
-    because cuts have different runtimes. So naming a cut later **moves no position row at
-    all**; it only changes which positions resume treats as interchangeable.
+  - **The playback position is stored on the File** ([D157](../../decisions/working-notes.md),
+    superseding D156) — the only object here with an unambiguous timeline, since a baked-in
+    studio ident or a PAL transfer's 4.27% speedup makes two Versions of one cut disagree.
+    **Completion rolls up** to Version, Edition and Title, because it has no timeline. So
+    naming a cut later **moves no state at all**, and getting the Edition wrong costs a
+    misleading group rather than somebody's place in a film.
   - **Two Versions under one Title with no Edition are not known to be the same viewing**, and
     are presented as **separate playable entries** distinguished by runtime, resolution and
     the verbatim filename — never as a quality menu, and never as a row called *"Unknown

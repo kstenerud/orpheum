@@ -392,13 +392,20 @@ speech fraction, asserted.
   paths are separate or CSRF becomes real ([D154](../../decisions/working-notes.md)).
 - **The last administrator cannot be removed or demoted** ([D154](../../decisions/working-notes.md)).
 - **A Version with no Edition is a first-class row, not a synthetic one**
-  ([D155](../../decisions/working-notes.md)), and **naming its Edition later writes one column
-  and moves no position row** ([D156](../../decisions/working-notes.md)). The fixture is the
-  owner's own case: **four unidentified cuts of one film, each watched to a different point**,
-  then labelled — and all four positions must survive unchanged. Labelling two of them as the
-  same Edition must resolve to the more recent position and destroy neither.
-- **A Title never holds a playback position**, asserted structurally rather than by behaviour
-  ([D156](../../decisions/working-notes.md)).
+  ([D155](../../decisions/working-notes.md)), and **naming its Edition later moves no state at
+  all** ([D157](../../decisions/working-notes.md)). The fixture is the owner's own case: four
+  unidentified cuts of one film, each watched to a different point, then labelled — including
+  labelling two of them as the *same* Edition. Every position must be byte-identical
+  afterwards.
+- **Only a File holds a playback position** ([D157](../../decisions/working-notes.md)),
+  asserted structurally: no Title, Edition or Version row has a position column. This is
+  [principles §13](../../principles/README.md)'s gate, and it is the one that failed twice
+  before it was written.
+- **Completion rolls up and a position does not.** Finishing one Version marks the Edition and
+  Title watched; it must not seed a position anywhere
+  ([D157](../../decisions/working-notes.md)).
+- **A multi-part resume returns to the right part.** `12:30 into part 2` survives a restart,
+  and the whole-film progress shown in the UI is derived on read rather than stored.
 - **A client names the failing hop** ([D152](../../decisions/working-notes.md)). Four
   fixtures — no network, relay unreachable, relay up with the core not dialled in, core up
   with the media node asleep — and four distinguishable messages. *"Cannot connect"* for any

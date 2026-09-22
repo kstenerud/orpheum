@@ -38,14 +38,20 @@ thing a household touches every single day.
 
 ### 1. A guarded position
 
-One row per `(user, edition)` carrying the position **and a monotonic sequence**. A report whose
-sequence is older than the stored one is recorded in the log and does not move the position.
-Last-writer-wins is the bug; ordering is the fix.
+One row per **`(user, file)`** carrying the position **and a monotonic sequence**. A report
+whose sequence is older than the stored one is recorded in the log and does not move the
+position. Last-writer-wins is the bug; ordering is the fix.
 
-**The position is Edition-relative.** A Version may be multi-part, so each File carries its
-offset within the Version's timeline and the stored position is in the Edition's — which is
-also what makes resume survive the 1080p→4K switch [D79](../../decisions/working-notes.md)'s
-fixture requires.
+**The position is File-relative** ([D157](../../decisions/working-notes.md), superseding
+[D156](../../decisions/working-notes.md) and the Edition-relative rule in
+[D81](../../decisions/working-notes.md)). **A File is the only object in the model with an
+unambiguous timeline** — a Title has none, an Edition is an editorial fact rather than a
+duration, and a Version has one only by concatenating its parts. It is also what the player
+actually observed ([principles §13](../../principles/README.md)).
+
+Multi-part gets *simpler*: `12:30 into part 2` **is** the position, and the part arithmetic
+happens on read for display. So does the hot path — progress writes are every ~10 s and now
+need no arithmetic at all.
 
 ### 2. An append-only event log
 
@@ -91,39 +97,40 @@ They attach at different levels, and the levels are not the same as the position
 | user rating | **Title** | same |
 | **watchlist** | **Title** | you intend to watch the work, not a cut of it ([D140](../../decisions/working-notes.md)) |
 
-## Stored at the Version, resolved at the Edition
+## The position never rolls up; completion always does
 
-[D156](../../decisions/working-notes.md), 2026-09-22, correcting
-[D155](../../decisions/working-notes.md). **A position is stored on the Version**, and resume
-resolves it at the coarsest level there is evidence is the same content:
+[D157](../../decisions/working-notes.md), 2026-09-22.
 
-| What is known | Resume resolves over |
-| --- | --- |
-| the Edition is known | **all Versions of that Edition**, most recent position winning |
-| no Edition | **that Version alone** |
-| — | **never the Title** |
+| | Attaches to | Rolls up? |
+| --- | --- | --- |
+| **playback position** | the **File** | **never** — it is a fact about one timeline |
+| **completion** (`watched`) | the File, observed | **freely** to Version, Edition and Title — it is a fact about the *work*, so no timeline is involved and nothing can be wrong |
 
-[D79](../../decisions/working-notes.md)'s requirement is unchanged and still met — upgrading
-1080p to 4K does not lose your place, because two encodings of one cut share an Edition. What
-changes is where the row lives, and that is
-[D59](../../decisions/working-notes.md)'s rule applied here: **a position is an observation
-about a Version; "these two are one viewing" is an interpretation**, and interpretations
-belong at read time where they can be revised.
+That split keeps the part of cross-version state people notice — *"have I seen this?"* — and
+drops the part that cannot be made correct.
 
-**The payoff is that naming a cut later moves nothing.** A library holding four unidentified
-cuts of *Glass Runner* has four Versions, each with its own position. Labelling them writes
-`edition_id` and touches no position row. Label two of them as the *same* Edition and resume
-simply takes the most recent of the two — neither is destroyed, and the event log holds both
-regardless. **There is no migration to get wrong**, which is a better property than a
-migration performed carefully.
+**Why "correct" is the word.** Two Versions of one cut do not reliably share a timeline. A
+DVD rip carries a studio ident the Blu-ray does not; a PAL transfer runs **4.27% faster**
+([D147](../../decisions/working-notes.md)'s own number), so a 116-minute cut is 111:15 and the
+error is a **rate**:
 
-Two consequences worth stating rather than discovering:
+| NTSC copy | same moment, PAL copy | drift |
+| --- | --- | --- |
+| 10:00 | 9:35 | 25 s |
+| 40:00 | 38:22 | **98 s** |
+| 100:00 | 95:54 | **246 s** |
 
-- **Two Editionless Versions under one Title do not share a position.** They are not known to
-  be the same viewing, and assuming otherwise is how a director's cut resumes forty minutes
-  into a theatrical one.
-- **A Title never holds a position.** D79 said so; D155 briefly forgot it. Four unidentified
-  cuts would have put four positions on one row.
+No offset fixes that, and neither file is wrong.
+
+**Where continuation is wanted, offer it.** *"You're 40 minutes into the 1080p version"*
+shown beside the 4K, as a labelled choice — [principles §3](../../principles/README.md). We
+do not know whether someone with a new screen wants to resume or to start again and actually
+see it, and it is not ours to decide.
+
+**And this is what makes an uncertain Edition harmless.** A library holding four unidentified
+cuts of *Glass Runner* has four Files, each with its own position, before and after anyone
+labels anything. Getting the Edition wrong costs a misleading group in the UI and nothing
+else; relabelling writes one column and moves no state.
 
 ## Who has play state, and who does not
 

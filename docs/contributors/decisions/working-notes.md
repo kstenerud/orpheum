@@ -5555,14 +5555,17 @@ Both need declaring, and neither answer is obvious.
 and it would. Not Title — the theatrical and director's cuts have different runtimes, so a
 resume position across them is meaningless.
 
-> **Refined 2026-09-22 by [D156](#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one).**
-> The requirement is right and the *storage* location was not. A position is **stored on the
-> Version** and **resolved over the Edition's Versions**, most recent winning — which delivers
-> the 1080p→4K case identically, and additionally survives the ordinary situation where the
-> Edition is not yet known ([D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional)).
-> Storing at the Version is [D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)'s
-> rule applied here: the position is an observation; *"these are one viewing"* is an
-> interpretation, and interpretations belong at read time. Edition is the level at which *the same content* is
+> **Overturned 2026-09-22 by [D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does),
+> after two failed attempts to patch it ([D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional),
+> [D156](#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one)).**
+> The fixture that motivated this paragraph — *"upgrading 1080p to 4K must not lose your
+> place"* — assumes two Versions of one Edition share a timeline. **They routinely do not**: a
+> baked-in studio ident offsets one, and **PAL speedup scales it by 4.27%**, which is 98
+> seconds of drift at forty minutes and four minutes at a hundred — a rate, so no offset fixes
+> it. **The position belongs to the File**, the only object here with an unambiguous timeline.
+> **Completion still rolls up** to Edition and Title, because it has no timeline and therefore
+> cannot be wrong; the position never does, and cross-version continuation becomes an explicit
+> offer rather than an assumption. Edition is the level at which *the same content* is
 true. (Whether a watched *flag* rolls up to the Title is a UI question, deliberately not a
 schema one; a resume position cannot roll up regardless.)
 
@@ -5691,11 +5694,18 @@ over again or jumps back — STILL"* (29), *"Movie favourites are randomly unfav
    what makes offline reconciliation possible at all, what answers *"why does this say 75%
    watched"*, and what removes the reason Tautulli (**6,590★**) exists as a separate program.
 
-**Positions are Edition-relative**, which closes a hole in [D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal). Watch state
-attaches at the Edition, but a Version may be multi-part: "12:30 into part 2" is not an
-Edition-level position. Each File carries its offset within the Version's timeline and the
-stored position is in the Edition's. That is also what makes resume survive the 1080p→4K switch
-D79's fixture requires.
+~~**Positions are Edition-relative**, which closes a hole in D79 … each File carries its offset
+within the Version's timeline and the stored position is in the Edition's.~~
+
+> **Overturned 2026-09-22 by [D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does).**
+> **The position is stored on the File** and the guarded row is `(user, file)`. This paragraph
+> invented Edition-relative positions *because* of multi-part — *"12:30 into part 2 is not an
+> Edition-level position"* — and at the File **that simply is the position**, with the part
+> arithmetic moved to display, where it is done on read and cannot corrupt anything. It is
+> also cheaper on the hot path: progress writes are every ~10 s and now need no arithmetic at
+> all. The 1080p→4K fixture is dropped deliberately: two Versions of one cut do not reliably
+> share a timeline (PAL speedup is 4.27%), so continuation becomes an explicit offer.
+> **Completion still rolls up.**
 
 **Reporting cadence follows Plex's**, which is the field's de-facto shape: on every play-state
 change, and otherwise **every ~10 s on LAN/WAN, ~20 s on a metered link**. Cadence is the
@@ -11451,6 +11461,13 @@ summary of it, since the document itself is no longer served.
 
 ## D156 — A position is stored at the Version and resolved at the Edition; the Title never holds one
 
+> **Superseded 2026-09-22 by [D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does).**
+> The diagnosis below is right and the fix did not go far enough. Resolving a position *over an
+> Edition's Versions* still assumes they share a timeline — and **PAL speedup alone makes them
+> differ by 4.27%, which is 98 seconds at the forty-minute mark**. The position belongs to the
+> **File**; completion rolls up and the position never does. §"the machine groups, the human
+> names" and the speech-map measurements below stand, demoted from load-bearing to advisory.
+
 **Decided** (2026-09-22). **Corrects
 [D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional)
 §3 and the watch-state half of
@@ -11589,3 +11606,147 @@ nothing it can measure carries one.
 synthetic variants of two real films; what is unmeasured is **two genuinely different masters
 of the same cut** — a remaster with different room tone could plausibly score below 1.0, and
 the merge proposal should be tested against that before it is trusted.
+
+---
+
+## D157 — A position belongs to the File. Completion rolls up; the position never does
+
+**Decided** (2026-09-22). **Supersedes
+[D156](#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one),
+and overturns the watch-state half of
+[D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)
+and [D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative).**
+From the project owner:
+
+> *"I wonder if maybe we're trying to do too much here? … what if an edition was ripped from a
+> DVD and included some extra studio intro in the now flat video? Also, if there's a 1080 and
+> 4k version of the same cut, can we assume that the person really wants to just continue
+> watching from the place they left off on the 1080 one…? Maybe we just tie view position to
+> the file?"*
+
+Yes. Three objections, and the middle one is fatal to the design as it stood.
+
+### 1. "Same Edition" does not imply "same timeline", and this tree already proves it
+
+D79's founding fixture was *"upgrading 1080p to 4K must not lose your place"*, which assumes
+two Versions of one Edition share a timeline. **In a library of rips they routinely do not.**
+The baked-in studio ident is one instance and the mild one. The severe one is **PAL speedup**,
+and we know the number cold because
+[D147](#d147--a-subtitle-is-chosen-by-measurement-not-by-filename-and-the-correction-runs-before-the-choice)'s
+entire subtitle design is built on it: **25/23.976 = 4.27%**.
+
+A 116-minute cut on a PAL transfer runs **111 minutes 15 seconds**, and the error is a *rate*,
+not an offset:
+
+| Position on the NTSC copy | Same moment on the PAL copy | Drift |
+| --- | --- | --- |
+| 10:00 | 9:35 | 25 s |
+| 40:00 | 38:22 | **98 s** |
+| 70:00 | 67:08 | 172 s |
+| 100:00 | 95:54 | **246 s** |
+
+**No offset transfers a position across that pair**, and there is nothing wrong with either
+file — both are honest copies of the same cut. Add the studio ident, telecine pulldown, a
+different part split and a stray black frame, and the premise is simply false for the
+libraries this product exists to serve.
+
+**And the refutation was already in the tree, in the adjacent bullet.**
+[D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance) puts media
+segments at the Version and [library-model.md](../design/plans/library-model.md) gives the
+reason in the line directly below the one about positions: *"a timecode indexes an encoding:
+a 4K remux and a web-dl differ in lead-in, and a **PAL-speedup rip differs throughout**."*
+Segments were placed correctly for exactly the reason positions were placed wrongly, two
+lines apart, and nobody noticed. **That is what
+[principles §13](../principles/README.md) is for** — the rule is easy to state and easy to
+violate while quoting it.
+
+### 2. The scenario it buys is rare, and it is the user's call anyway
+
+Even where the timelines *do* match, the question is a good one: having watched forty minutes
+in 1080p and then acquired a 4K copy for a new screen, does anyone want to resume at 40:00 —
+or to start again and actually see it? **We do not know, and it is not ours to decide.**
+[principles §3](../principles/README.md) says explain the decision to the user; silently
+seeking forty minutes into a film somebody bought a television for is the opposite.
+
+And the case is *rare*: acquiring a better copy **during** a viewing is an uncommon event in a
+narrow window. We were paying a schema-wide unsound assumption for it.
+
+### 3. So: the position is stored on the File, and nothing else holds one
+
+**A File is the only object in the model with an unambiguous timeline.** A Title has none. An
+Edition has none — it is a *cut*, an editorial fact, not a duration. A Version has one only by
+concatenating its parts. A File has exactly one, always, by construction.
+
+It is also **the observation**
+([D59](#d59--a-node-publishes-a-snapshot-plus-a-journal-it-observes-it-does-not-interpret)):
+the player knows precisely one thing — *which file, and what timestamp*. Everything above that
+is a conclusion, and conclusions must not own the user's data.
+
+Three things get *simpler*, not just safer:
+
+- **Multi-part stops needing arithmetic.** [D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)
+  invented Edition-relative positions *because* of multi-part — *"12:30 into part 2 is not an
+  Edition-level position"*. At the File, **"12:30 into part 2" simply is the position.** The
+  part arithmetic moves to *display*, where it is done once, on read, and can be wrong without
+  corrupting anything.
+- **It is cheaper on the path that is hot.** Progress writes are every ~10 s
+  ([D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative),
+  measured at ~2/s for a household); resumes are rare. A File position needs **no arithmetic
+  at write time**.
+- **The guarded row becomes `(user, file)`**, which is what the client was reporting all along.
+
+### 4. What we keep: completion rolls up, because it has no timeline
+
+This is the split D79 half-noticed and then did not act on — it said *"whether a watched flag
+rolls up is a UI question; a resume position cannot roll up regardless"*, and then attached
+both to the Edition.
+
+- **A position is a fact about a timeline** → the File. Never rolls up.
+- **Completion is a fact about the work** → rolls up freely. Finish the 1080p and the 4K shows
+  as watched, the Edition shows as watched, the Title shows as watched. **No timeline is
+  involved, so nothing can be wrong.**
+
+That keeps the part of cross-version state people actually notice — *"have I seen this?"* —
+and drops the part that cannot be made correct.
+
+**And where continuation is genuinely wanted, offer it.** *"You're 40 minutes into the 1080p
+version"* next to the 4K, as an explicit labelled choice. Cheap, honest, and it puts the
+unsound assumption in front of the person who can judge it instead of burying it in a join.
+
+### 5. The payoff, and it is the answer to the first objection
+
+*"Teasing out editions is already hard enough."* It is — and with positions at the File,
+**it stops mattering.** The Edition becomes a **labelling and grouping concept with no runtime
+semantics**:
+
+| If we get the Edition wrong | Before | Now |
+| --- | --- | --- |
+| Two cuts merged under one Edition | **positions collide and overwrite** | a misleading group in the UI |
+| One cut split across two Editions | resume lost on switch | a duplicate entry |
+| Relabelling it later | a migration carrying state | **one column, no state moves** |
+
+**A hard inference stops propagating its difficulty into data the user cannot afford to
+lose.** That is the right response to a problem we cannot fully solve: not to solve it harder,
+but to remove what depends on it.
+
+[D156](#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one)'s
+**speech-map grouping survives and is demoted** — it is still the honest way to propose *"these
+two Versions are the same cut"* (measured at r = 1.000, and nothing else close), but it now
+suggests a label rather than deciding where somebody's place in a film is kept. That is the
+right job for a measurement with a threshold.
+
+### What this gives up, stated plainly
+
+Automatic resume across two encodings of one cut. It is replaced by an explicit offer, and
+that is the whole cost.
+
+**And [principles §13](../principles/README.md) generalises it**, because this is the second
+time in three days the same mistake shipped — [D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional)
+put a position on the Title, [D156](#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one)
+moved it to an inferred Edition, and both were caught by someone describing an ordinary
+library rather than by review.
+
+**Status:** schema, Phase 1. Supersedes D156 and amends D79, D81 and
+[play-state.md](../design/plans/play-state.md). Unmeasured and not worth measuring first: how
+often two Versions of one Edition genuinely share a timeline — the point is that we no longer
+need to know.
