@@ -32,18 +32,22 @@ watch time over a period, and a per-user history with what, when, for how long a
    disclosure channel [D134](../../decisions/working-notes.md) closed everywhere else.
 2. **Nothing on a landing surface is computed.** [principles §11](../../principles/README.md)
    and [D134](../../decisions/working-notes.md): "most watched this month" over an event log is
-   exactly the shape that measured **43.6 ms against 0.063 ms maintained**. A dedicated
+   exactly the shape that measured **43.6 ms against 0.063 ms** from a stored row. A dedicated
    statistics *page* may compute — a person who navigated there is waiting on purpose — and
-   anything that appears without being asked for is maintained.
+   anything that appears without being asked for is a **cached result**, invalidated off the
+   change journal, not an incrementally maintained counter
+   ([D161](../../decisions/working-notes.md)).
 3. **This is where [D13](../../decisions/working-notes.md) visibly pays.** The statistics are
    computed locally from a log that was never sent anywhere. That is worth saying in the
    product, once, on this page.
 
 ## The questions nobody has answered
 
-- **Retention.** [D81](../../decisions/working-notes.md) already flags the play-event horizon
-  as open; a statistics feature is the thing that makes a long horizon worth keeping, and
-  "watch time in 2019" is the demand that decides it.
+- ~~**Retention.**~~ **Answered 2026-09-22 by [D165](../../decisions/working-notes.md):
+  there is no horizon.** Once a heartbeat stops being a log row and a run of them becomes one
+  watched span, five years of a four-person household is **13.4 MB and 279,453 rows**, and
+  every query here gets 28–122× cheaper — *busiest device per month* falls from **4.42 s to
+  42.7 ms**. "Watch time in 2019" simply works.
 - **Does an export carry it?** [D142](../../decisions/working-notes.md) says an NFO export
   names one user or none; a statistics export is a different question with the same shape.
 - **Is there a public-to-the-household view at all**, or only per-user plus owner?

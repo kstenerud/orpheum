@@ -53,16 +53,44 @@ Multi-part gets *simpler*: `12:30 into part 2` **is** the position, and the part
 happens on read for display. So does the hot path — progress writes are every ~10 s and now
 need no arithmetic at all.
 
-### 2. An append-only event log
+### 2. An append-only log of state changes and watched spans
 
-`started`, `progress`, `paused`, `seeked`, `completed`, `abandoned` — each with the user, the
-edition, the version actually played, the device, the server timestamp **and the client's own
-monotonic clock**. That last field is what makes an offline device's events orderable relative
-to each other when its wall clock is wrong ([D87](../../decisions/working-notes.md)).
+[D165](../../decisions/working-notes.md), 2026-09-22. **A heartbeat is not an event.** Three
+objects, each with one job:
 
-It is the only table in the schema with an unbounded row count, so it carries a stated
-retention horizon from the first migration rather than acquiring one after someone's log
-reaches a million rows.
+| | Job | Written |
+| --- | --- | --- |
+| the guarded position, above | where you are now | every ~10 s, in place |
+| a **state-change event** — `started`, `paused`, `seeked`, `completed`, `abandoned` | what happened | when one happens |
+| a **watched span** — `(user, file, device, pos_from→pos_to, t_from→t_to)` | what was actually seen | **appended when a state change closes it** |
+
+Each carries the user, the file, the version actually played, the device, the server timestamp
+**and the client's own monotonic clock** — the last being what makes an offline device's events
+orderable ([D87](../../decisions/working-notes.md), and §*Offline* below).
+
+**`progress` was in this list and should not have been.** A heartbeat every 10 s is not
+something that happened; it is a restatement of the position, and the position row already
+holds that. A run of heartbeats with no intervening state change **is** one span, so collapsing
+them loses nothing — *how much did I watch, when, on what* is a span exactly. Same trick as
+[D148](../../decisions/working-notes.md)'s run-length-encoded speech map, on a different
+stream of samples.
+
+**It stays append-only**: spans are *appended* on close, and the only mutated thing is the
+position row that was always mutable. The open span simply is the position row. A span with no
+closing event is left **open and marked unterminated**, closed at the last known position by
+the next sync or a timeout — a client that crashes is an ordinary case.
+
+**And there is no retention horizon.** Measured over a household of four watching three hours
+a day each: D81's heartbeat log is **1,592,258 rows and 92.6 MB in one year**, 470 MB in five;
+spans are **54,543 rows and 2.5 MB**, 13.4 MB in five — **29× fewer rows, 37× less disk, no
+information lost**. A horizon would be a migration, a deletion path, a setting and a class of
+*"where did my 2019 statistics go"*, bought to save single-digit megabytes. Keep everything.
+The span table is still the largest, so it gets a row count on the
+[observability](observability.md) page: visible, not capped.
+
+Every aggregate gets cheaper by the same factor — *busiest device per month* is **788 ms
+against 6.5 ms** at one year and **4.42 s against 42.7 ms** at five, which is
+[play-statistics.md](play-statistics.md) working or not working.
 
 ### And the rest of the per-user item data belongs here too
 
@@ -91,11 +119,17 @@ They attach at different levels, and the levels are not the same as the position
 
 | Datum | Level | Why |
 | --- | --- | --- |
-| resume position | **Edition** | [D79](../../decisions/working-notes.md); a 1080p→4K switch must not lose it |
-| played / play count | **Edition** | a cut is what you either finished or did not |
+| resume position | **File** | [D157](../../decisions/working-notes.md); a File is the only object with an unambiguous timeline |
+| played / play count | **File**, rolling up freely | completion involves no timeline, so nothing can be wrong |
 | favourite | **Title** | you favourite the film, not the director's cut of it |
 | user rating | **Title** | same |
 | **watchlist** | **Title** | you intend to watch the work, not a cut of it ([D140](../../decisions/working-notes.md)) |
+
+*(This table read **Edition** for the first two rows until
+[D165](../../decisions/working-notes.md) caught it — a leftover from
+[D79](../../decisions/working-notes.md), justified by "a 1080p→4K switch must not lose it",
+which is the precise claim [D157](../../decisions/working-notes.md) refuted and
+[D158](../../decisions/working-notes.md) withdrew, twenty lines above in this same document.)*
 
 ## Next Up is a query over an ordering, and switching orderings moves nothing
 
@@ -214,8 +248,14 @@ They are two different questions and Jellyfin's users cannot tell them apart —
 *"the difference between the two lists is so minute that users often have the same episodes on
 both lists at the same time."* State the definitions and make them inspectable:
 
-- **Continue Watching** — editions with a position between the two thresholds, ordered by most
-  recent activity. It answers *"what did I stop in the middle of?"*
+- **Continue Watching** — **a row is a work**, showing the most recent position among its
+  files that sits between the two thresholds, ordered by most recent activity, and **naming the
+  file when there is more than one candidate** ([D165](../../decisions/working-notes.md)).
+  Positions are per File since [D157](../../decisions/working-notes.md), so *what is a row*
+  needed answering rather than inheriting. It is not a merge and not an offer
+  ([D158](../../decisions/working-notes.md)) — the most recent viewing, labelled; the other
+  file's position stays in the log and on the item's own page. It answers *"what did I stop in
+  the middle of?"*
 - **Next Up** — for a series with no in-progress episode, the earliest unwatched episode after
   the latest completed one **in the ordering in use**. It answers *"what comes next?"* — and
   "earliest" is meaningless without [D96](../../decisions/working-notes.md)'s explicit
@@ -237,7 +277,37 @@ position is still kept, because positions are per-File and cost nothing, so a 50
 making-of resumes when you open it. Extras likewise do not count toward a Collection's
 sequence or progress ([D160](../../decisions/working-notes.md)).
 
-An edition appears in exactly one of them. Both are ordinary predicates over the play tables,
+A work appears in exactly one of them.
+
+### Offline: an offline device must not be able to rewind you
+
+[D165](../../decisions/working-notes.md). The guard above is correct online because the server
+issues the sequence. Offline it inverts:
+
+> Monday, on a plane, the tablet reaches **40:00**. Tuesday, at home, the television reaches
+> **25:00**. Wednesday the tablet reconnects.
+
+Assign the guard when events *arrive* and Monday's 40:00 lands after Tuesday's 25:00 and wins
+— which is *"Media playback randomly starts over again or jumps back — STILL"*, the tracker
+item at the top of this document, reintroduced on the path the log exists to make possible.
+Both this plan and [offline-download.md](offline-download.md) promise *"progress made offline
+merges without losing either side"* in a *Done when*, and neither said how.
+
+- **Anchor the monotonic run at sync.** The device sends its current monotonic value with the
+  batch; the server knows the true time of that instant, so every event converts —
+  `true_t(e) = now_server − (mono_sync − mono_e)` — **exactly, back to the last monotonic
+  discontinuity, however wrong the device's calendar is.** One field on a sync request; the
+  clock it reads was already specified.
+- **The position is the latest anchored event's — recency, not maximum.** Furthest-position is
+  the tempting rule and it is wrong: deliberately restarting a film would keep throwing you to
+  the end.
+- **An unanchorable run** — the device rebooted between watching and syncing — is ingested with
+  its time marked **uncertain and does not move the position**, while still counting toward
+  statistics. That fails toward *"your position did not move"*, one action to fix, rather than
+  *"your position jumped back"*.
+- **Nothing is merged.** Two sessions on one file are two spans; the log holds both and the
+  most recent is where you are. No arithmetic, so nothing to be wrong about
+  ([D158](../../decisions/working-notes.md) from the other direction). Both are ordinary predicates over the play tables,
 so both are [rules-engine.md](rules-engine.md) queries rather than bespoke SQL, which is what
 makes "why is this here?" answerable and "remove this from my list" possible without marking
 something watched — a request with its own Jellyfin discussion.

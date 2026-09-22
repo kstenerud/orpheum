@@ -202,4 +202,8 @@ checklist to read a design against; each links to the row that needs it.
 
 And one that is not a feature obligation but pays for several of them: **[D81](contributors/decisions/working-notes.md)'s
 play-event log must be retained rather than truncated**, because F39, F43 and most of F41's
-reconciliation read it. (F39)
+reconciliation read it. (F39) — **and it is free rather than a trade**
+([D165](contributors/decisions/working-notes.md)): once a heartbeat stops being a log row and a
+run of them becomes one watched span, five years of a four-person household is **13.4 MB**
+against the 470 MB the original shape would have cost. D81 wanted a retention horizon and this
+obligation forbade one; neither had to give.
