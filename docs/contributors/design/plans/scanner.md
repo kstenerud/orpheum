@@ -283,6 +283,63 @@ trickplay for it and showing it. Jellyfin does both at once — `IgnorePatterns`
 `x-sample.mkv` into a library item, so a hyphen decides. Here it is one rule and, like
 `.trash/`, it is **reported as skipped** rather than silently dropped.
 
+## Every observed file carries a filing, and a skip is a record rather than a branch
+
+[D163](../../decisions/working-notes.md), 2026-09-22.
+
+[D40](../../decisions/working-notes.md) gave the report a `skip` record *carrying the rule that
+caused it* and an `error` record carrying a closed `code` and a `scope`. **Nothing consumed
+them.** The core now stores, for every file the node enumerated, exactly one **`filing`** with
+its reason:
+
+| `filing` | Meaning | Reason carries | Set by |
+| --- | --- | --- | --- |
+| `listed` | in the library | — | core |
+| `extra` | an extra of another work ([D162](../../decisions/working-notes.md)) | owning work, type, which evidence matched | core |
+| `skipped` | an ignore rule or extension filter fired | **the rule**, verbatim | node |
+| `errored` | enumerated but unreadable or unprobeable | `code`, `scope`, and the raw platform text | node |
+| `unidentified` | probed, no provider match | what was tried | core |
+
+The library listing is `filing = listed`; the admin view is the same browser with that clause
+removed ([web-client.md](web-client.md)). The value is **complete by construction** — a file
+the node enumerated cannot lack one — so a reason invented later is visible with no new UI.
+
+The contrast is the point. Jellyfin's exclusion is a LINQ filter —
+`files.Where(i => !IgnoreFile(i, parent))`, with `IgnoreFile` an `Any()` that discards which
+rule fired — and `MovieResolver` drops an extras directory with a bare `continue;`. **No
+component is ever in a position to mention the file again**, which is why the field's answer to
+"where did my file go?" is reading a log.
+
+### What the node owes this
+
+- **A read-only peek**: enumerate a path on demand, changing no rule and writing no library
+  rows, so an admin can look inside a skipped subtree *before* deciding. An ordinary entry in
+  [D38](../../decisions/working-notes.md)'s command vocabulary, **bounded to paths under a
+  configured library root** — unbounded, it is a filesystem-read primitive wearing an admin
+  button ([threat-model.md](threat-model.md)).
+- **Probe on demand** when an unfiled item is opened for playback — the existing
+  jump-the-queue path with a different trigger.
+- **Two new fields for the unreadable case** ([D163](../../decisions/working-notes.md) §8): the
+  `error` record's raw field carries **owner, group and mode**, and the **header carries the
+  node's effective uid and gid**. That is the difference between `permission_denied` and
+  *"owned by `root:root`, mode `0600`, and this node runs as uid 998"* — the same fact with the
+  answer in it, for the single most common way a copied-in file silently fails to appear.
+- **A library root is checked for readability when it is configured.** One `stat` and one
+  `open`, while the person is still looking at the screen.
+
+### And a scan that could not read something did not succeed
+
+The trailer record already carries the counts. Reporting *"scan complete"* over a non-zero
+error count is the specific lie behind *"it never showed up no matter how many times I
+rescanned"*: the summary says **"complete — 3 files could not be read"** and links to them. The
+rows are durable and carry **first seen** and **last seen**, so *"failed on 6 consecutive scans
+since Tuesday"* distinguishes a share that blipped from a file that will never be read — and a
+repeated rescan becomes informative instead of futile.
+
+An errored file **exists**. [D40](../../decisions/working-notes.md) already forbids it from
+contributing to a removal; this is where that stops being an internal courtesy and becomes
+something a person can see.
+
 ## Two more observation passes
 
 Both are node work, both are [D42](../../decisions/working-notes.md) facts rather than
