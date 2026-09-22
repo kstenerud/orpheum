@@ -5507,7 +5507,17 @@ most respects and is **one level short** in the one place that matters.
 **EIDR** — the industry's identifier registry, used across the studios — models audiovisual
 works as **Abstraction → Edit → Manifestation**, plus **Collection** as an orthogonal
 container. That is FRBR applied to film, and it is what the industry actually registers
-against. Our `Title → Edition → MediaFile` collapses Manifestation and Item into one.
+against.
+
+> **Amended 2026-09-22 by [D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional).**
+> Read against EIDR's published XSDs, that sentence describes EIDR's **2018 nomenclature
+> proposal**, not its schema: `StructuralType` is `Abstraction | Performance | Digital |
+> Physical | Restricted`, and *Edit*, *Manifestation* and *Collection* are not record types.
+> **The substance holds** — `isEditOf` and `isManifestationOf` are real members of a closed
+> relationship enum — but EIDR expresses the chain as **typed edges over a flat record set**,
+> not as levels. D155 explains why copying the edge list would be wrong for a local file index
+> and right for a registry, and takes the one thing from it that we were missing: **a Version's
+> parent may be a Title directly when the Edition is unknown.** Our `Title → Edition → MediaFile` collapses Manifestation and Item into one.
 
 The failure is concrete. *Glass Runner: The Final Cut* held as **1080p in two parts** and **a
 single 4K file** is one Title, one Edition, **two manifestations**, three files. With
@@ -11297,3 +11307,129 @@ number wanting a real household rather than a guess, and **whether a `node` gran
 shared enrolment secret** is [D107](#d107--the-node-channel-is-mutually-authenticated-and-a-nodes-roots-are-local-and-never-remotely-settable)'s
 open choice, which this decision constrains only by requiring that the node's credential be a
 row here like every other.
+
+---
+
+## D155 — EIDR checked against its own schema: the levels are right, the citation was a proposal, and Edition must be optional
+
+**Decided** (2026-09-22). **Corrects the EIDR account in
+[D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)
+and [library-model-review.md](../design/research/library-model-review.md), and changes one
+thing in the model.** From the project owner: *"if EIDR does it that way, we're going to run
+into fewer problems if we do that too?"*
+
+The premise is right and worth acting on, so I read **EIDR's published XSDs**
+(`schema.eidr.org` — `eidr-base.xsd`, `doiavs.xsd`, `common.xsd`) rather than the secondary
+summary the earlier review used. Three findings, one of which changes the schema.
+
+### 1. What we cited was a proposal, not the model
+
+[D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)
+says EIDR *"models audiovisual works as Abstraction → Edit → Manifestation, plus Collection as
+an orthogonal container"*, presented as *"a tree of four record types"*. **There is no such
+tree in the schema.** From the XSDs:
+
+| Field | Type | Values |
+| --- | --- | --- |
+| `StructuralType` | `doiavs:creationStructuralType` | **`Abstraction` `Performance` `Digital` `Physical` `Restricted`** |
+| `ReferentType` | `eidr:referentType` | **`Series` `Podcast` `Season` `TV` `Movie` `Short` `Web` `Compilation` `Interactive Material` `Supplemental`** |
+
+**"Edit", "Manifestation" and "Collection" are not record types.** They come from EIDR's own
+**2018 nomenclature proposal**, which would add a `RecordType` element mapping `Edit ←
+Performance`, `Manifestation ← Digital + Physical`, and `Collection ← Series, Season,
+Compilation`. Our earlier review read that proposal as the shipped model.
+
+**The substance survives**, which is why this is a correction and not a reversal: `isEditOf`
+and `isManifestationOf` are **real, first-class members of a closed relationship enum** in the
+shipped schema. The chain is genuinely there; it is expressed as edges rather than as levels.
+
+### 2. The real shape is a flat record set with eleven typed edges — and we should not copy it
+
+```xml
+<xs:complexType name="relationshipInfoType">
+  <!-- a relationship is described with
+       "<Relationship type="eidr:isSeasonOf">assetDOI</Relationship>" -->
+  <xs:extension base="eidr:assetDOIType">
+    <xs:attribute name="type" type="eidr:relationshipType" use="required"/>
+```
+
+A relationship is literally **`(type, target DOI)`**, with `type` drawn from eleven values —
+`isSeasonOf` `isEpisodeOf` `isEditOf` `isManifestationOf` `isClipOf` `isCompositeOf`
+`isCompilationOf` `isPackagingOf` `isPromotionFor` `isSupplementTo` `isAlternateContentFor` —
+and **the schema constrains nothing about what the target is.** EIDR is a typed edge list over
+a flat record set, not a hierarchy.
+
+**Adopting that shape would be a mistake here, for a reason that is about us and not about
+EIDR.** EIDR is a **registry** where any party may register any record independently, so it
+*cannot* assume a parent exists or that one organisation owns the chain. We are a **local
+index of files on a disk**, where a File always has a parent we can see. A fixed tree buys
+foreign keys, cascade semantics, cheap joins, and a query planner that knows the shape — and
+[D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)'s
+field registry **requires a level per field**
+([D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)
+cross-cut 2), which a flat graph makes meaningless. *Same problem, different institution,
+different right answer.*
+
+### 3. The change: Edition is optional, because EIDR lets a Manifestation hang off an Abstraction
+
+This is the finding worth having. Because EIDR's edges are unconstrained, **`isManifestationOf`
+may point straight at an Abstraction** — a manifestation whose *edit is unknown*.
+
+**Our tree cannot express that.** Every Version hangs off an Edition, so a file identified as
+*Glass Runner* whose cut we cannot determine — **which is the ordinary case**, since most rips
+carry no edition marker in the filename — needs a synthetic *"unknown edition"* row. Then
+identification improves ([identification.md](../design/plans/identification.md) is built to be
+replayable for exactly that reason) and we have to **merge** a real Edition into a fake one,
+carrying watch state across, which
+[D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)
+puts at the Edition. That is the same class of bug D79 was written to remove, one level up.
+
+**So: a Version's parent is an Edition, or — when the edition is unknown — the Title
+directly.** One nullable foreign key.
+
+**And we already had the principle and failed to apply it here.**
+[D131](#d131--a-restriction-is-a-vector-not-a-ceiling-templates-are-seeds-and-they-say-what-they-hid)
+makes every content descriptor **tri-valued** because *"no violence descriptor" means unknown,
+never none*; [D132](#d132--authoring-a-role-is-a-preview-loop-and-an-item-the-rules-cannot-judge-is-denied-not-shown)
+refuses to judge an item whose fields are unknown; [play-state.md](../design/plans/play-state.md)
+refuses to mark an item watched when its runtime is unknown. **Unknown is a first-class state
+everywhere in this tree except in the one place where the structure itself is unknown.**
+A synthetic row is the structural form of the same mistake.
+
+Consequences, all small:
+- **Watch state stays at the Edition** and gains the obvious companion: when the Edition is
+  unknown, state attaches to the Title. Promoting an unknown-edition Version to a real Edition
+  moves it, and that is a real migration to test rather than one to discover.
+- **Two Versions under the same Title with no Edition are not known to be the same viewing**,
+  which is correct and is the honest answer rather than a guess.
+- The UI never shows *"Unknown Edition"* as though it were a cut.
+
+### 4. Two alignments worth taking, free
+
+- **Use EIDR's relationship names for [D97](#d97--an-extra-is-a-typed-relation-not-an-edition-and-not-a-version)'s
+  typed extras** rather than inventing a vocabulary: `isClipOf`, `isPromotionFor`,
+  `isSupplementTo`, `isAlternateContentFor`, `isCompositeOf`, `isPackagingOf`. D97 already
+  chose the *shape* EIDR uses — a typed relation rather than a level, arrived at
+  independently — so taking the names costs nothing and buys interop if anyone ever maps us
+  to a registry.
+- **`isEditOf` chains in EIDR** — an Edit of an Edit, e.g. the broadcast-censored version of
+  the extended cut. Noted, not adopted: it is one more nullable parent and the case is rare.
+  Recorded so the option is visible rather than rediscovered.
+
+### 5. And one place where following EIDR would be a regression
+
+`episodeInfoType` carries a single `Parent` and a single `SequenceInfo` (`minOccurs="0"`, so
+`maxOccurs` defaults to **1**). **EIDR can express exactly one episode ordering.**
+[D96](#d96--an-episodes-position-is-ordering-season-number-and-a-series-declares-its-orderings)
+gives us `(ordering, season, number)` with several orderings per episode — aired, DVD,
+absolute — because anime makes it unavoidable.
+
+**We are deliberately ahead of EIDR here**, and this is recorded so that a later reading of
+"align with EIDR" does not undo it. *An identifier registry needs one canonical sequence; a
+player needs the sequence its user expects.*
+
+**Status:** the model change (optional Edition) is schema and therefore **Phase 1**, due before
+[library-model.md](../design/plans/library-model.md) freezes. The relationship-vocabulary
+alignment is a naming choice with no migration. Read from the XSDs at `schema.eidr.org`, cached
+at `/yoloai/cache/http/eidr/`; the 2018 nomenclature proposal is known only through EIDR's own
+summary of it, since the document itself is no longer served.

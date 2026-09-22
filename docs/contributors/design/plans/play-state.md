@@ -91,6 +91,23 @@ They attach at different levels, and the levels are not the same as the position
 | user rating | **Title** | same |
 | **watchlist** | **Title** | you intend to watch the work, not a cut of it ([D140](../../decisions/working-notes.md)) |
 
+## Where a position attaches when the edition is unknown
+
+[D155](../../decisions/working-notes.md), 2026-09-22. A position is **Edition-relative** — but
+[library-model.md](library-model.md) now allows a Version with **no** Edition, because most
+files do not say which cut they are. So the rule needs its companion: **the position attaches
+to the Edition when there is one and to the Title when there is not**, and *promoting* a
+Version to a real Edition moves the position with it.
+
+Two consequences worth stating rather than discovering:
+
+- **Two Versions under one Title with no Edition do not share a position.** They are not known
+  to be the same viewing, and inventing that they are is how a director's cut resumes forty
+  minutes into a theatrical one.
+- **The promotion is a migration**, not a write — it is the same replay
+  [identification.md](identification.md) is built for, and it is asserted in
+  [testing-strategy.md](testing-strategy.md).
+
 ## Who has play state, and who does not
 
 Every **user** does, including the admin, and independently

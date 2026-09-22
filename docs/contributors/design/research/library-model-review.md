@@ -10,8 +10,20 @@ decisions that touch the schema. This checks it against both.
 ## 1. The industry has a four-level answer and we have three
 
 **EIDR** — the Entertainment Identifier Registry, used across the studios and by Netflix — is
-the canonical identifier scheme for audiovisual works, and its object model is a tree of four
-record types:
+the canonical identifier scheme for audiovisual works.
+
+> **Corrected 2026-09-22 ([D155](../../decisions/working-notes.md)).** The table below is
+> EIDR's **2018 nomenclature proposal**, which this review read as the shipped model. The
+> schema at `schema.eidr.org` has `StructuralType ∈ {Abstraction, Performance, Digital,
+> Physical, Restricted}` and `ReferentType ∈ {Series, Podcast, Season, TV, Movie, Short, Web,
+> Compilation, Interactive Material, Supplemental}`; *Edit*, *Manifestation* and *Collection*
+> are **not** record types. What is real — and what makes the table below still the right
+> guide — is the **closed relationship enum**: `isSeasonOf isEpisodeOf isEditOf
+> isManifestationOf isClipOf isCompositeOf isCompilationOf isPackagingOf isPromotionFor
+> isSupplementTo isAlternateContentFor`. The levels are conventions expressed as edges. The
+> one consequence that changes our schema is in D155 §3.
+
+Read as that proposal describes it, the object model is four record types:
 
 | EIDR level | Meaning | Example |
 | --- | --- | --- |

@@ -26,6 +26,7 @@ orthogonal container. Ours:
 | **Title** | the work; genres, external ids, invariant facts | Abstraction |
 | **Edition** | a **creative cut** — theatrical, director's, extended | Edit |
 | **Version** | a **technical representation** — an encoding, a resolution | Manifestation |
+| ↳ | **A Version's parent is an Edition, or the Title directly when the edition is unknown** ([D155](../../decisions/working-notes.md)) | `isManifestationOf` may target an Abstraction |
 | **File** | the bytes; a Version may have several (multi-part) | Item |
 | **Collection** | series, season, box set, user collection, smart collection | Collection |
 
@@ -315,7 +316,37 @@ a delete keyed only on a path can destroy a different file that has since appear
   never enumerates poster / backdrop / logo / banner / disc. Closed enumeration, at the level
   the image belongs to.
 
-## Three cross-cuts from the review## Three cross-cuts from the review
+### And three from the EIDR re-check, 2026-09-22
+
+[D155](../../decisions/working-notes.md), read from EIDR's published XSDs rather than a
+summary of them.
+
+- **Edition is optional, and that is the schema change.** A Version's parent is an Edition
+  **or the Title**. Most rips carry no edition marker, so *"Glass Runner, cut unknown"* is the
+  ordinary case, not the exotic one — and forcing it through a synthetic *"Unknown Edition"*
+  row means that when [identification.md](identification.md) later learns the cut, we must
+  **merge a real Edition into a fake one and carry watch state across**. This tree already
+  treats unknown as a first-class state everywhere else —
+  [D131](../../decisions/working-notes.md)'s tri-valued descriptors,
+  [D132](../../decisions/working-notes.md)'s refusal to judge an unknown item,
+  [play-state.md](play-state.md)'s refusal to mark an item with unknown runtime as watched —
+  and a synthetic row is the structural form of the same mistake. EIDR gets this right by
+  construction: `isManifestationOf` may point straight at an Abstraction.
+  - **Watch state follows**: at the Edition when there is one, at the Title when there is not.
+    Promoting a Version to a real Edition moves it, which is a migration to test.
+  - **Two Versions under one Title with no Edition are not known to be the same viewing.**
+    Correct, and better than guessing.
+- **The extras vocabulary is EIDR's**, not ours ([D97](../../decisions/working-notes.md)):
+  `isClipOf`, `isPromotionFor`, `isSupplementTo`, `isAlternateContentFor`, `isCompositeOf`,
+  `isPackagingOf`. D97 independently chose EIDR's *shape* — a typed relation rather than a
+  level — so the names are free.
+- **Episode orderings stay ahead of EIDR.** `episodeInfoType` carries one `Parent` and one
+  `SequenceInfo`, so **EIDR expresses exactly one ordering**;
+  [D96](../../decisions/working-notes.md) keeps several per episode because anime requires it.
+  Recorded here so that "align with EIDR" is never read as a reason to undo it — a registry
+  needs one canonical sequence, a player needs the one its user expects.
+
+## Three cross-cuts from the review
 
 - **Store the node's raw observation, not only the interpretation**
   ([D59](../../decisions/working-notes.md), [D79](../../decisions/working-notes.md)). D59's

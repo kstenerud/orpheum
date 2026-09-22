@@ -213,6 +213,20 @@ rewriting thousands of files periodically is churn in someone's media tree, whic
 - Provider matching, its confidence handling, and what happens to an ambiguous match are
   **unspecified** and belong with `library-model.md`'s provenance tables.
 
+## When the edition is unknown
+
+[D155](../../decisions/working-notes.md), 2026-09-22. Most files do not say which cut they
+are, so **"identified as this Title, edition unknown" is the ordinary outcome**, not a
+failure. The model now represents it directly — a Version may hang off the Title with no
+Edition ([library-model.md](library-model.md)) — which matters *here* because this document
+exists to be **replayable**: a parser improvement that later determines the cut must be able
+to **attach** an Edition to an existing Version, not merge two rows and reconcile watch state
+between them.
+
+So the assertion this plan owes: **a Version promoted from no-Edition to a real Edition keeps
+its files, its play state and its user-authored data**, and the promotion is an ordinary
+replay rather than a special case.
+
 ## Done when
 
 A pathological real-world library identifies correctly; a parser improvement can be applied to an
