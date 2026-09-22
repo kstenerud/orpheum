@@ -6320,9 +6320,14 @@ only the provider's preferred order and re-fetching to change it (a network call
 list); computing absolute numbering on the fly (it is wrong whenever a season split disagrees
 with the provider).
 
-**Status:** Schema, due before `library-model.md`. Whether the ordering choice is per series or
-per `(user, series)` is open — per user is strictly more capable and the extra column is
-trivial, so the argument against it is UI, not storage.
+**Status:** Schema, due before `library-model.md`. ~~Whether the ordering choice is per series
+or per `(user, series)` is open.~~ **Closed 2026-09-22 by
+[D159](#d159--d96-holds-under-the-new-lens-and-reaches-three-things-it-did-not-the-ordering-choice-is-a-preference-an-ordering-may-be-authored-and-a-multi-episode-file-is-a-boundary):
+neither — it is a [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)
+preference at series scope**, so there is no extra column anywhere. The series declares which
+orderings *exist* (a fact from providers); the user chooses which they *use*. D159 also adds
+**user-authored orderings** and settles the multi-episode file, which this decision did not
+reach.
 
 ---
 
@@ -11873,3 +11878,138 @@ form — the user's *arrangement* of their files is no more ours to correct than
 [testing-strategy.md](../design/plans/testing-strategy.md) gain the negative case — **no
 surface offers a position from one file against another** — because a withdrawn feature with
 no test is a feature somebody re-adds.
+
+---
+
+## D159 — D96 holds under the new lens, and reaches three things it did not: the ordering choice is a preference, an ordering may be authored, and a multi-episode file is a boundary
+
+**Decided** (2026-09-22). Read at the project owner's suggestion that
+[D96](#d96--an-episodes-position-is-ordering-season-number-and-a-series-declares-its-orderings)
+*"feels like it touches on similar ideas"* to
+[D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)
+and [D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn).
+It does, and the first finding is that **D96 already got the part the last four decisions kept
+getting wrong.**
+
+### Why D96 survives, and what that shows
+
+An episode carrying `(aired, S01E05)` **and** `(dvd, S01E03)` looks like the correspondence
+[D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)
+forbids. It is not. Those are **two labels on one entity**, not a claim that a *moment* in one
+file maps to a moment in another — and under
+[D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does) the
+position lives on the File, so **switching ordering moves nothing**: Next Up is a query, not a
+stored value.
+
+**D96 put the structure in a relation and left the user's state alone**, which is precisely
+what [principles §13](../principles/README.md) was extracted from D155–D158 to say. Worth
+recording as the counter-example: the same author got this right in September and then got the
+film version of it wrong three times running. The difference is that D96 was reasoning about
+*coordinates* and D79 was reasoning about *containers*, and a container invites you to hang
+things off it.
+
+### 1. The open question closes on a table that already exists
+
+D96's status: *"Whether the ordering choice is per series or per `(user, series)` is open — per
+user is strictly more capable and the extra column is trivial, so the argument against it is
+UI, not storage."*
+
+**Neither — it is a preference**, and [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)
+already provides the table with **user, library and series** scopes. So:
+
+| | Who owns it | Where it lives |
+| --- | --- | --- |
+| **which orderings exist** for this series | the providers — a fact about the work | one row per ordering, on the series |
+| **which ordering I watch in** | the user | a [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series) preference at series scope |
+
+That is the D157 split a third time: **the fact is stored where it was observed, the choice
+belongs to the person, and neither owns the other.** It also answers D96's own objection —
+there is no extra column *anywhere*, so the UI argument is the only one left, and two people
+watching one anime in different orders costs nothing.
+
+### 2. An ordering may be authored by a person, and a refresh never overwrites it
+
+[D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)
+made a **user-created Edition** first-class. The television analogue is a **user-created
+ordering**, and D96 does not contemplate one — it lists *"aired, DVD, absolute and a
+provider's alternate orders"*, all provider-sourced.
+
+But **an ordering is an ordering whether TheTVDB supplied it or a person did.** Same table,
+different provenance, and [D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters)'s
+lock markers already say a refresh must not overwrite a human's answer. A household that
+places a special between two episodes, or defines its own run through a series, has authored
+one.
+
+**And one distinction has to hold**, because the best-known example crosses it:
+
+- An **ordering** is a coordinate system over **one series' episodes** — aired, DVD, absolute,
+  or a person's.
+- A watch order **spanning works** is an **ordered Collection**. The *Machete order* for Star
+  Wars — **IV, V, II, III, VI**, omitting Episode I so that the prequels play as a flashback
+  after the Vader reveal — is six films, not one series' episodes.
+
+[D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)
+says *"a Collection is either an explicit member list or a predicate"* and **never says the
+list is ordered.** It must be, and the Machete order shows why the ordering must also be
+**partial**: it omits a member. D96 already got that right for episodes — *"an episode has one
+position per ordering **it appears in**"* — and the Collection needs the same sentence.
+
+### 3. A multi-episode file is a boundary, not a row — and it is missing entirely
+
+**`multi-episode` appears nowhere in this tree.** Zero occurrences across 86 documents. It is
+ordinary: anime and older television rips ship `S01E01-E02.mkv` constantly.
+
+It is [D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)
+inverted, and the answer falls out of the same rule:
+
+| | Shape | Position |
+| --- | --- | --- |
+| **multi-part** | one work across N files | on the File; parts **concatenated** for display |
+| **multi-episode** | **N works in one file** | **one position; the episode boundary is a timecode inside that file** |
+
+A timecode inside one file is not a correspondence between files, so
+[D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)
+is untouched — and it is exactly what
+[D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance) already
+models. **Add `episode_boundary` to the segment type enum**: a seventh type in a table that has
+six, with the same provenance and the same user override.
+
+Then **"have I finished the first episode?" is derived** from the position against the
+boundary and never stored — [principles §13](../principles/README.md) — with the payoff that
+follows: **if the boundary is wrong the position is still right**, and fixing the boundary
+fixes the derived completion immediately. Nothing moves.
+
+Two things fall out for free:
+
+- **The detector already exists.** A mid-file episode boundary sits right after an `outro`,
+  which [media-segments.md](../design/plans/media-segments.md) already detects and already
+  uses to place the next-episode prompt.
+- **"Next episode" becomes a seek, not a load** — no re-open, no re-buffer, and the
+  next-episode prompt works mid-file where every incumbent shows one episode and stops.
+
+### 4. And the thing not to build, in the same spirit
+
+**Do not infer which ordering someone is watching in.** Watching S01E05 then S01E03 might be
+DVD order, or might be somebody skipping about. Offering to switch their ordering on the
+strength of it is the *"making assumptions and trying to fix"* shape
+[D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)
+just removed. **An ordering is chosen, never detected.** It is one setting, visible, on the
+series.
+
+### What must be asserted
+
+- **Switching ordering moves no stored state**; Next Up recomputes and every position is
+  byte-identical afterwards.
+- **A user-authored ordering survives a full rescan and a provider refresh**, name included.
+- **A multi-episode file holds one position**, and per-episode completion is derived from the
+  boundary rather than stored.
+- **Two files claiming the same episode keep separate positions**, and nothing bridges them —
+  [D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)
+  restated for television, because the film wording will not be found by someone reading the
+  series code.
+
+**Status:** schema, Phase 1 — the ordered-and-partial Collection and the `episode_boundary`
+segment type both land in [library-model.md](../design/plans/library-model.md). The preference
+resolution adds nothing. Unmeasured: how often multi-episode files actually occur in a real
+library, which decides whether boundary detection is worth scheduling early or is a later
+pass.

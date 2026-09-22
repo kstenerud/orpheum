@@ -406,6 +406,16 @@ speech fraction, asserted.
   ([D157](../../decisions/working-notes.md)).
 - **A multi-part resume returns to the right part.** `12:30 into part 2` survives a restart,
   and the whole-film progress shown in the UI is derived on read rather than stored.
+- **Switching a series' ordering moves no stored state** ([D159](../../decisions/working-notes.md)):
+  every position is byte-identical afterwards and only Next Up changes.
+- **A user-authored ordering survives a full rescan and a provider refresh**, name included
+  ([D159](../../decisions/working-notes.md)).
+- **A multi-episode file holds one position**, and per-episode completion is derived from the
+  `episode_boundary` segment rather than stored — so a wrong boundary misreports completion
+  and loses no position ([D159](../../decisions/working-notes.md)).
+- **An explicit Collection's order is preserved and may omit members** — the fixture is the
+  Machete order, IV V II III VI with Episode I absent
+  ([D159](../../decisions/working-notes.md)).
 - **No surface offers a position from one file against another**
   ([D158](../../decisions/working-notes.md)). A negative assertion, because a withdrawn
   feature with no test is a feature somebody re-adds — and this one was re-added once already

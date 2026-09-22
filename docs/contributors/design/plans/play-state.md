@@ -97,6 +97,27 @@ They attach at different levels, and the levels are not the same as the position
 | user rating | **Title** | same |
 | **watchlist** | **Title** | you intend to watch the work, not a cut of it ([D140](../../decisions/working-notes.md)) |
 
+## Next Up is a query over an ordering, and switching orderings moves nothing
+
+[D159](../../decisions/working-notes.md). *Next Up* is *the earliest unwatched episode after
+the latest completed one* — **a statement about an ordering**
+([D96](../../decisions/working-notes.md)), and therefore **derived, never stored**. Switching
+from aired to DVD order recomputes it and leaves **every position byte-identical**, which is
+[principles §13](../../principles/README.md) working as intended rather than as an act of
+care.
+
+Two consequences:
+
+- **The ordering is a preference at series scope** ([D24](../../decisions/working-notes.md)),
+  so two people in one household get different Next Up for the same series.
+- **Inside a multi-episode file, "next episode" is a seek**, not a load — the boundary is an
+  `episode_boundary` segment ([media-segments.md](media-segments.md)), so the prompt fires
+  mid-file where every incumbent shows one episode and stops.
+
+**And the ordering is never inferred from behaviour.** Watching S01E05 then S01E03 might be
+DVD order or might be somebody skipping about; offering to switch on the strength of it is the
+shape [D158](../../decisions/working-notes.md) removed. It is one visible setting.
+
 ## The position never rolls up; completion always does
 
 [D157](../../decisions/working-notes.md), 2026-09-22.
