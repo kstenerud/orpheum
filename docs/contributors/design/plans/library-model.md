@@ -45,7 +45,11 @@ distinction becomes a side-array.
 **A Collection is either an explicit member list or a predicate**
 ([D75](../../decisions/working-notes.md), [D76](../../decisions/working-notes.md)) — which is
 what lets one table serve series, seasons, box sets, hand-made collections and smart
-collections.
+collections. **An explicit member list is ordered, and the order may be partial**
+([D159](../../decisions/working-notes.md)): the *Machete order* for Metropolis is
+**IV, V, II, III, VI** and deliberately **omits Episode I**, so a position is a property of
+membership and not every member need have one. Unordered is the degenerate case, not the
+default.
 
 ### Two levels that must be declared
 
@@ -316,6 +320,22 @@ a delete keyed only on a path can destroy a different file that has since appear
 - **Artwork has a type.** [artwork.md](artwork.md) specifies sizes, languages and caching and
   never enumerates poster / backdrop / logo / banner / disc. Closed enumeration, at the level
   the image belongs to.
+
+### Episode orderings, from the 2026-09-22 re-read of D96
+
+[D159](../../decisions/working-notes.md).
+
+- **The ordering choice is a [D24](../../decisions/working-notes.md) preference at series
+  scope, not a column.** The series declares which orderings **exist** — a fact from
+  providers, one row each. The user chooses which they **use**. Two people watching one anime
+  in different orders costs nothing and adds no column.
+- **An ordering may be user-authored**, and a rescan or provider refresh never overwrites it
+  ([D141](../../decisions/working-notes.md)'s lock markers). Same table as a provider's,
+  different provenance.
+- **A multi-episode file holds one position and an `episode_boundary` segment.** *N* works in
+  one file is the inverse of multi-part, and the boundary is a timecode inside that file, so
+  per-episode completion is **derived** rather than stored
+  ([media-segments.md](media-segments.md)).
 
 ### And three from the EIDR re-check, 2026-09-22
 

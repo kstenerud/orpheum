@@ -42,6 +42,19 @@ the encoder put there. **Segments** are typed, derived, and carry provenance:
 | `outro` / `credits` | offer skip, **and place the next-episode prompt** |
 | `commercial` | skip automatically |
 | `unknown` | display only |
+| `episode_boundary` | **where one episode ends and the next begins inside a single file** ([D159](../../decisions/working-notes.md)) — makes "next episode" a *seek* rather than a load, and per-episode completion derivable |
+
+**`episode_boundary` is the seventh type and it closes a gap nothing in the tree covered**
+([D159](../../decisions/working-notes.md)). Anime and older television rips ship
+`S01E01-E02.mkv` constantly, and *multi-episode* appeared in **zero** of this project's 86
+documents. The resolution is the inverse of multi-part: where multi-part is one work across
+several files, a multi-episode file is several works in one, so it holds **one position**
+([D157](../../decisions/working-notes.md)) and the split between episodes is **a timecode
+inside that file** — which is what this table already is. Per-episode completion is then
+**derived** from the position against the boundary and never stored, so a wrong boundary
+costs nothing and fixing it fixes the display immediately
+([principles §13](../../principles/README.md)). The detector is already here: a mid-file
+boundary sits directly after an `outro`.
 
 **And the `outro` boundary fixes a complaint at the other end of the episode**
 ([D139](../../decisions/working-notes.md)). Hulu, from the App Store corpus: *"Before the show
