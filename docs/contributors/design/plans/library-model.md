@@ -48,14 +48,27 @@ what lets one table serve series, seasons, box sets, hand-made collections and s
 collections. **An explicit member list is ordered, and the order may be partial**
 ([D159](../../decisions/working-notes.md)): the *Machete order* for Metropolis is
 **IV, V, II, III, VI** and deliberately **omits Episode I**, so a position is a property of
-membership and not every member need have one. Unordered is the degenerate case, not the
-default.
+membership and not every member need have one. **A predicate's sequence is a sort**, which
+completes the sentence — `franchise = Friday the 13th` ordered by release date picks up part
+12 the day it is ripped, where a hand-authored list would not.
+
+**Every Collection therefore produces a sequence, and that is the only thing anything
+downstream consumes** ([D160](../../decisions/working-notes.md)). A series is the Collection
+whose members are one work's episodes; a franchise binge is the Collection whose members are
+films; **a member may itself be a Collection**, which is what *"Three's Company plus Three's a
+Crowd"* is — one thing made of two series, flattened depth-first at read time and staying
+correct as new episodes arrive. A Collection may not contain itself transitively; that check
+is at write time. **There is no separate "series" concept**, and Next Up is a query over a
+sequence rather than over episodes.
 
 ### Two levels that must be declared
 
-- **Watch state attaches at the Edition.** Not File or Version, or upgrading 1080p to 4K loses
-  your place. Not Title, because cuts have different runtimes and a resume position across them
-  is meaningless. Whether a watched *flag* rolls up to the Title is a UI question.
+- **The playback position attaches at the File; completion rolls up**
+  ([D157](../../decisions/working-notes.md), superseding this paragraph's original claim of
+  the Edition). A File is the only object here with an unambiguous timeline — a baked-in
+  studio ident or a PAL transfer's 4.27% speedup makes two Versions of one cut disagree — and
+  it is what the player observed ([principles §13](../../principles/README.md)). Completion
+  has no timeline, so it rolls up freely to Version, Edition and Title.
 - **Names attach at Title *and* Edition** — "Glass Runner" and "The Final Cut" are both names
   needing [D45](../../decisions/working-notes.md)'s translation treatment. So the displayed
   title is a **composition of two translated strings**, which the sort key

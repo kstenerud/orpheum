@@ -12013,3 +12013,114 @@ segment type both land in [library-model.md](../design/plans/library-model.md). 
 resolution adds nothing. Unmeasured: how often multi-episode files actually occur in a real
 library, which decides whether boundary detection is worth scheduling early or is a later
 pass.
+
+---
+
+## D160 — There is no "series" concept: a sequence is what a Collection produces, and Next Up is a query over any of them
+
+**Decided** (2026-09-22). **Generalises
+[D159](#d159--d96-holds-under-the-new-lens-and-reaches-three-things-it-did-not-the-ordering-choice-is-a-preference-an-ordering-may-be-authored-and-a-multi-episode-file-is-a-boundary)'s
+ordered Collection from a Metropolis curiosity into the ordinary case.** From the project
+owner:
+
+> *"It feels like we should have some kind of 'series'-like ordering for movies as well, and
+> not just for the same movie series (Friday the 13th 1,2,3,4,5…) but also a mix (think wings
+> and unknown franchise) … And even for tv series, someone might want to lump together
+> Three's a Houseful and Three's a Crowd. Or Gruelstone with Lockfast."*
+
+Right, and it is wider still: **the distinction between "a series" and "an ordered collection"
+does not survive contact with those examples, and removing it deletes code rather than adding
+any.**
+
+### The four examples, and what each demands
+
+| Example | Members | What it needs |
+| --- | --- | --- |
+| *Friday the 13th* 1–5… | Titles | an ordered sequence of films |
+| *Wing* + *Unknown* + the crossovers | Titles from **several franchises** | a sequence whose membership no provider will supply |
+| *Three's Company* → *Three's a Crowd* | **two series** | a Collection **containing Collections** |
+| *Gruelstone* → *Lockfast* | two series | the same |
+
+The third and fourth are the load-bearing ones. *"Lump together Three's Company and Three's a
+Crowd"* is not a list of episodes — it is **one thing made of two series**, and it has to stay
+correct as new episodes are ripped. A flattened list of episodes authored once would not.
+
+### So: one concept, and the series stops being special
+
+> **A Collection produces a sequence. Next Up, progress and the binge affordances are queries
+> over a sequence. Nothing asks whether the members are episodes or films.**
+
+[play-state.md](../design/plans/play-state.md) currently defines Next Up as *"the earliest
+unwatched **episode** after the latest completed one"*. **Delete the word "episode".** That is
+the whole change to the query, and it is what makes a superfan's eleven-film run behave like a
+season — not because we added a feature, but because we stopped having two.
+
+Four things make it true, and three of them are already there:
+
+1. **Members may be Titles or other Collections.** Required by *Three's Company + Three's a
+   Crowd*. Flatten depth-first at read time; a nested Collection contributes its own ordered
+   members. **The nesting composes for free**: [D159](#d159--d96-holds-under-the-new-lens-and-reaches-three-things-it-did-not-the-ordering-choice-is-a-preference-an-ordering-may-be-authored-and-a-multi-episode-file-is-a-boundary)
+   made the ordering choice a [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)
+   preference at **series scope**, so somebody who watches *Three's Company* in DVD order gets
+   DVD order inside the composed run too, without the composition knowing anything about it.
+2. **A Collection may not contain itself, transitively.** One check at write time. Dull, and
+   omitted it becomes an infinite flatten in a page render.
+3. **Explicit means an authored order; a predicate means a sort.** This completes
+   [D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)'s
+   *"explicit member list or a predicate"*, which never said what a predicate's sequence is.
+   **And the predicate is the better answer to the owner's first example**: `franchise =
+   Friday the 13th` sorted by release date **picks up part 12 the day it is ripped**, where a
+   hand-ordered list silently would not. Hand-authoring is for the orders a rule cannot
+   express — Machete, or a contested Wing/Unknown chronology.
+4. **Progress is already free.** Completion rolls up
+   ([D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)),
+   so *"3 of 11"* across a composed run is a count, and the run appears in Continue Watching
+   for the same reason a series does.
+
+### The apparent contradiction about seasons, resolved
+
+[library-model.md](../design/plans/library-model.md) lists **season** as a Collection, and
+[D96](#d96--an-episodes-position-is-ordering-season-number-and-a-series-declares-its-orderings)
+makes `season` a component of the coordinate. That reads as redundancy and is not:
+
+- **The season-as-Collection** is the browsable object — it has a name, artwork and a page.
+- **The `season` in `(ordering, season, number)`** is a coordinate **within an ordering**, and
+  it has to be, because *an episode's season can differ between orderings*: absolute numbering
+  flattens season splits away entirely, and a DVD order can move an episode across a boundary.
+
+One is a thing you look at; the other is where an episode sits in a particular reading. Both
+are needed.
+
+### What not to build, by the now-usual rule
+
+- **Do not infer a franchise.** A provider collection (TMDB's `belongs_to_collection`) is a
+  fine *source*, on exactly [D159](#d159--d96-holds-under-the-new-lens-and-reaches-three-things-it-did-not-the-ordering-choice-is-a-preference-an-ordering-may-be-authored-and-a-multi-episode-file-is-a-boundary)'s
+  terms: a provider may supply one, a user may author one, they are the same row with
+  different provenance, and **a refresh never overwrites the user's**
+  ([D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters)).
+- **Do not guess a cross-franchise order.** Where *Wing vs. Unknown* sits relative to
+  *Alien³* is contested fan territory and not a fact. **Release date is the default sort
+  because it is an observation**; anything else is authored.
+- **Do not detect a binge.** Watching three *Friday the 13th* films in a row does not earn an
+  offer to create a collection. Same shape as
+  [D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn).
+
+### Why this is a deletion
+
+Every incumbent has two systems: a series with seasons, episodes, Next Up and continue-watching,
+and a *collection* that is a static grid of posters with none of it. That split is why nobody
+can binge a franchise, and it exists because the series machinery was built first and the
+collection was bolted beside it.
+
+**We have not built either yet**, so the cost of having one is negative: one members table with
+a position, one flatten, one Next Up query. A series is simply the Collection whose members are
+the episodes of one work — which is what
+[D79](#d79--four-levels-not-three-title--edition--version--file-with-collections-orthogonal)
+said in September and what everything since has quietly treated as a special case anyway.
+
+**Status:** schema, Phase 1 — self-referencing membership with a position, and the cycle check.
+The Next Up generalisation is a deletion in [play-state.md](../design/plans/play-state.md).
+Unmeasured: how deep nesting actually goes in practice, which decides whether the flatten wants
+a maintained materialisation ([principles §11](../principles/README.md)) or is cheap enough on
+read — a composed run of two sitcoms is ~180 rows, so probably the latter, but a *"every Star
+Trek in chronological order"* collection is thousands and that is the case to measure.

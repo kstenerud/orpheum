@@ -416,6 +416,17 @@ speech fraction, asserted.
 - **An explicit Collection's order is preserved and may omit members** — the fixture is the
   Machete order, IV V II III VI with Episode I absent
   ([D159](../../decisions/working-notes.md)).
+- **Next Up works over a Collection whose members are films**, and over one whose members are
+  **other Collections** ([D160](../../decisions/working-notes.md)). Fixtures: a franchise run,
+  and *Gruelstone → Lockfast*, where finishing the last episode of the first series must
+  yield the first episode of the second.
+- **A nested Collection uses the viewer's own ordering preference for the inner series**
+  ([D24](../../decisions/working-notes.md), [D159](../../decisions/working-notes.md)) — the
+  composition must not flatten to a provider default.
+- **A predicate Collection's sequence is a sort, and a newly-added member appears in it**
+  without anyone editing a list ([D160](../../decisions/working-notes.md)).
+- **A Collection cannot contain itself**, directly or transitively; the write is refused
+  ([D160](../../decisions/working-notes.md)).
 - **No surface offers a position from one file against another**
   ([D158](../../decisions/working-notes.md)). A negative assertion, because a withdrawn
   feature with no test is a feature somebody re-adds — and this one was re-added once already
