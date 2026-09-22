@@ -12120,7 +12120,27 @@ said in September and what everything since has quietly treated as a special cas
 
 **Status:** schema, Phase 1 — self-referencing membership with a position, and the cycle check.
 The Next Up generalisation is a deletion in [play-state.md](../design/plans/play-state.md).
-Unmeasured: how deep nesting actually goes in practice, which decides whether the flatten wants
-a maintained materialisation ([principles §11](../principles/README.md)) or is cheap enough on
-read — a composed run of two sitcoms is ~180 rows, so probably the latter, but a *"every Star
-Trek in chronological order"* collection is thousands and that is the case to measure.
+
+> **Measured 2026-09-22**, and **the worry was aimed at the wrong thing.** The largest
+> realistic collection is *every Star Wren in order* — **963 episodes across 52 seasons and 13
+> series, plus 13 films**, so ~976 members and not the "thousands" written above.
+>
+> | at 976 members | computed | maintained |
+> | --- | ---: | ---: |
+> | flatten the sequence (recursive CTE) | **1.2–1.7 ms** | — |
+> | Next Up | **14.8 ms** | **0.23 ms** |
+> | progress (*n* of *N*) | 12.3 ms | — |
+> | progress + Next Up as one row | — | **0.01 ms** |
+> | materialise the sequence | — | 2.3 ms, once, on change |
+>
+> **Nesting is free**: the nested shape (66 collections, depth 4) and the flat one (1
+> collection) flatten in the same time, so *"how deep does nesting go"* was never the
+> variable. **The cost is the completion join**, and it is super-linear — 14.8 ms at 976
+> members becomes 124 ms at 2,900.
+>
+> So the boundary is exactly where [D134](#d134--a-pending-item-discloses-nothing-a-rule-shows-its-coverage-and-the-home-page-computes-nothing)
+> already put it, and nothing new is needed: **a collection's own page computes** (15 ms,
+> inside `performance-targets.md`'s 50 ms), and **the home page reads a maintained row**
+> (0.01 ms), because Continue Watching showing *"247 of 963"* is precisely the shape
+> [principles §11](../principles/README.md) exists for. Harness:
+> `/yoloai/cache/bench/collections/`.
