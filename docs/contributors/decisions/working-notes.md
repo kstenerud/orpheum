@@ -11709,9 +11709,13 @@ both to the Edition.
 That keeps the part of cross-version state people actually notice — *"have I seen this?"* —
 and drops the part that cannot be made correct.
 
-**And where continuation is genuinely wanted, offer it.** *"You're 40 minutes into the 1080p
-version"* next to the 4K, as an explicit labelled choice. Cheap, honest, and it puts the
-unsound assumption in front of the person who can judge it instead of burying it in a join.
+~~**And where continuation is genuinely wanted, offer it.** *"You're 40 minutes into the 1080p
+version"* next to the 4K, as an explicit labelled choice.~~ **Withdrawn the same day by
+[D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)**:
+the hint is wrong in ordinary cases — it quotes a number that is 98 seconds out on a PAL pair,
+it points at a **broken rip** as the place you left off, and on a hand-edited cut it invents a
+correspondence only the user could know. Each file shows **its own** progress and the user
+scrolls, which is one drag and always correct.
 
 ### 5. The payoff, and it is the answer to the first objection
 
@@ -11737,8 +11741,10 @@ right job for a measurement with a threshold.
 
 ### What this gives up, stated plainly
 
-Automatic resume across two encodings of one cut. It is replaced by an explicit offer, and
-that is the whole cost.
+Automatic resume across two encodings of one cut, and — after
+[D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)
+— any hint about it either. Each file shows its own progress; the user looks and scrolls.
+That is the whole cost.
 
 **And [principles §13](../principles/README.md) generalises it**, because this is the second
 time in three days the same mistake shipped — [D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional)
@@ -11750,3 +11756,120 @@ library rather than by review.
 [play-state.md](../design/plans/play-state.md). Unmeasured and not worth measuring first: how
 often two Versions of one Edition genuinely share a timeline — the point is that we no longer
 need to know.
+
+---
+
+## D158 — We group files for browsing and never relate their timelines; the continuation offer is withdrawn
+
+**Decided** (2026-09-22). **Withdraws the cross-version continuation offer added by
+[D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)**,
+and states the general rule the last three corrections have been circling. From the project
+owner:
+
+> *"I think even putting the machinery to offer continuation is too much. It's no big deal for
+> the user to look at where the 1080p version sits in playback and then scroll to the same
+> position in the 4k edition. We also have issues with bad rips … Making assumptions and
+> trying to fix is the wrong shape."*
+
+### The trade, stated honestly, goes the other way
+
+| | The user scrolls | We offer a hint |
+| --- | --- | --- |
+| Effort | one drag, once, rarely | a query, a UI element, a number |
+| Correct? | **always** — they can see the picture | **often**, and confidently wrong in ordinary cases |
+
+D157 kept the offer because it looked nearly free. It is not nearly free, because **a hint
+that is sometimes wrong costs more than no hint** — the user must now evaluate it, and the
+cases where it misleads are exactly the cases where they are already confused.
+
+**Three ordinary situations, and two of them are the owner's:**
+
+- **The PAL or studio-ident pair.** The hint says *"40 minutes into the 1080p"*; on the other
+  file that moment is at 38:22. We hand over a number we already know is wrong by up to four
+  minutes ([D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)).
+- **The bad rip.** *"The user gets 61 minutes in and suddenly the rip is broken, so the user
+  tries ripping with a different app."* The offer now points at a **broken file** as the place
+  you left off. The one thing the user is certain about — that file is rubbish — is the one
+  thing our hint does not know.
+- **The self-made cut.** *"I have the Wings extended edition but I HATE the early LV-426
+  scenes … so I manually deleted them."* Two files whose timelines differ by an amount **only
+  the user knows**, on a cut that exists in no database anywhere. Any correspondence we offer
+  is invented.
+
+**So it is withdrawn entirely**, and nothing replaces it. What remains is not a feature: each
+file **shows its own progress**, which is simply not hiding the state we already hold, and is
+what makes the owner's remedy — look, then scroll — possible.
+
+### The rule, and a test for it
+
+> **We group files for browsing. We never relate their timelines.**
+
+The test is mechanical: **if a feature needs to know that a moment in file A corresponds to a
+moment in file B, it is out of scope.** Grouping for presentation is cheap and its failures
+are cosmetic; correspondence is expensive and its failures move or misstate the user's data.
+
+**Multi-part is the only crossing, and it is not an inference.** The parts of one Version are
+*declared* by that Version's ordering and their timelines are **concatenated, not
+corresponded** — there is no claim that 12:30 in part 2 means anything in part 1. The rule
+holds.
+
+### Two things the examples say we owe
+
+**1. A user-authored Edition is first-class, and identification never overwrites it.**
+A hand-edited *Wings* is a cut matching no release, no runtime and no provider record. The
+user may create an Edition and name it, that name is **their data**, and a rescan or a
+metadata refresh must not correct it. The machinery exists and was written for exactly this
+shape — [D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters)'s lock
+markers, [D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)'s
+sidecar/database split, and [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index)'s
+rule that a full rescan must not destroy user-authored data. It simply had not been said about
+**Editions**, and this is where it would have been discovered.
+
+**2. A changed content hash is a new timeline, so the position does not carry.**
+[D116](#d116--the-content-hash-is-a-sampling-hash-whole-file-hashing-is-opt-in-and-separate)'s
+sampling hash answers *"is this the same file I saw before"*. Edit the file in place and the
+answer is no — **and the position is discarded rather than carried, because the place it named
+no longer exists.** That is the correct behaviour and it needs stating, because carrying it
+forward would silently point somewhere wrong. The remedy is the owner's own: scroll.
+
+### What the examples confirm is already right
+
+Worth recording, because the same examples that killed a feature validate three others:
+
+- **Subtitle verification survives a cut that exists nowhere.**
+  [D147](#d147--a-subtitle-is-chosen-by-measurement-not-by-filename-and-the-correction-runs-before-the-choice)
+  aligns against **the file's own audio**, so the hand-edited *Wings* still gets correct
+  subtitles from its embedded track — and a *downloaded* one is **correctly refused**, scoring
+  low because its timings genuinely do not match a cut the uploader never saw. Both outcomes
+  are right, and no filename- or metadata-driven approach can produce either.
+- **Speech map, media segments and loudness are all per-Version**
+  ([D148](#d148--the-speech-map-is-a-scan-artefact-and-the-reference-is-a-subtitle-track-before-it-is-audio),
+  [D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance),
+  [D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)),
+  so every derived value describes **the file the user has**, not the film the database thinks
+  it is.
+- **Nothing is keyed on the Edition**
+  ([D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)),
+  so being unable to identify a home-made cut costs exactly nothing.
+
+### The pattern worth naming
+
+**Three corrections in three days on one subject, each one subtraction.**
+[D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional)
+moved a position to the Title,
+[D156](#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one)
+to an inferred Edition,
+[D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)
+to the File while keeping a hint, and this one removes the hint. Every round the design got
+*smaller* and more correct, and every round the error was found by someone describing an
+ordinary library rather than by review.
+
+**The bias is worth stating so it can be watched for: faced with an inference we could not
+make reliably, the instinct was repeatedly to make it cleverer rather than to make it
+load-bearing for less.** [principles §2](../principles/README.md) now carries the general
+form — the user's *arrangement* of their files is no more ours to correct than the bytes are.
+
+**Status:** removes a feature; no schema change. The assertions in
+[testing-strategy.md](../design/plans/testing-strategy.md) gain the negative case — **no
+surface offers a position from one file against another** — because a withdrawn feature with
+no test is a feature somebody re-adds.

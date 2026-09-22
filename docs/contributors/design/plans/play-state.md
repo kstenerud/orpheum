@@ -122,15 +122,28 @@ error is a **rate**:
 
 No offset fixes that, and neither file is wrong.
 
-**Where continuation is wanted, offer it.** *"You're 40 minutes into the 1080p version"*
-shown beside the 4K, as a labelled choice — [principles §3](../../principles/README.md). We
-do not know whether someone with a new screen wants to resume or to start again and actually
-see it, and it is not ours to decide.
+**And we do not offer to bridge it** ([D158](../../decisions/working-notes.md)). Each file
+shows **its own** progress; the user looks at one and scrolls in the other, which is one drag
+and always correct. A hint would be wrong in three ordinary cases — it quotes a number 98
+seconds out on a PAL pair, it points at a **broken rip** as the place you left off, and on a
+hand-edited cut it invents a correspondence only the user knows.
+
+**The general rule this is an instance of** ([principles §2](../../principles/README.md)):
+*we group files for browsing and never relate their timelines.* If a feature needs a moment in
+one file to correspond to a moment in another, it is out of scope. Multi-part is not an
+exception — the parts of one Version are **concatenated**, declared by that Version's own
+ordering, and nothing claims a correspondence between them.
 
 **And this is what makes an uncertain Edition harmless.** A library holding four unidentified
 cuts of *Glass Runner* has four Files, each with its own position, before and after anyone
 labels anything. Getting the Edition wrong costs a misleading group in the UI and nothing
 else; relabelling writes one column and moves no state.
+
+**A changed file is a new timeline.** [D116](../../decisions/working-notes.md)'s sampling hash
+answers *"is this the same file I saw before"* — so re-ripping a broken copy, or hand-editing
+a cut, produces a file whose position starts at zero. The old one is **discarded rather than
+carried**, because the moment it named no longer exists. Carrying it forward would point
+somewhere wrong and look authoritative doing it.
 
 ## Who has play state, and who does not
 

@@ -42,6 +42,16 @@ a test. A retention rule may still only ever *mark*
 ([D75](../decisions/working-notes.md)). **Running entirely read-only is a supported
 configuration**, not a cautious user's workaround.
 
+**And the user's *arrangement* of their files is no more ours to correct than the bytes are**
+([D158](../decisions/working-notes.md)). Someone who re-rips a film because the first attempt
+broke at 61 minutes, or who hand-deletes the opening scenes of *Wings* because they give the
+film away, has made a decision. Our job is to index what is there, not to work out what they
+meant and offer to reconcile it. **The concrete rule: we group files for browsing and never
+relate their timelines** — if a feature needs to know that a moment in one file corresponds to
+a moment in another, it is out of scope. A user-created Edition is their data and a rescan
+never overwrites it, exactly as [D141](../decisions/working-notes.md)'s lock markers already
+require for any other correction.
+
 **But we do write to the media tree, so this principle still has a real consumer.**
 [D141](../decisions/working-notes.md)'s sidecar export needs an **opt-in writable path per
 library**, off by default; it happens in the node, never the core

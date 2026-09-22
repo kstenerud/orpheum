@@ -225,7 +225,18 @@ between them.
 
 So the assertion this plan owes: **a Version promoted from no-Edition to a real Edition keeps
 its files, its play state and its user-authored data**, and the promotion is an ordinary
-replay rather than a special case.
+replay rather than a special case. Since
+[D157](../../decisions/working-notes.md) that is nearly free — the position lives on the File
+and no promotion touches it — which is the point: **this document's hardest inference no
+longer owns anything the user would miss.**
+
+**And some cuts are not identifiable in principle.** A user who hand-edits a film to remove
+scenes they dislike has produced a cut that exists in no database, matches no runtime and
+will never be identified. The correct behaviour is not to try harder: it is to leave the
+Version without an Edition, let them name one if they want, and **never re-identify over that
+name** ([D158](../../decisions/working-notes.md),
+[D141](../../decisions/working-notes.md)'s lock markers). Replayability cuts both ways — a
+parser that improves must not improve over a human's answer.
 
 ## Done when
 

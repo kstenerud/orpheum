@@ -339,6 +339,13 @@ summary of them.
     **Completion rolls up** to Version, Edition and Title, because it has no timeline. So
     naming a cut later **moves no state at all**, and getting the Edition wrong costs a
     misleading group rather than somebody's place in a film.
+  - **An Edition may be created and named by the user, and a rescan never overwrites it**
+    ([D158](../../decisions/working-notes.md)). Someone who hand-deletes the opening scenes of
+    *Wings* has made a cut that matches no release, no runtime and no provider record — it is
+    theirs, and it is user-authored data under the same rule as any other correction
+    ([D7](../../decisions/working-notes.md), [D141](../../decisions/working-notes.md)'s lock
+    markers). Provider-derived and user-created Editions are the same row with different
+    provenance.
   - **Two Versions under one Title with no Edition are not known to be the same viewing**, and
     are presented as **separate playable entries** distinguished by runtime, resolution and
     the verbatim filename — never as a quality menu, and never as a row called *"Unknown

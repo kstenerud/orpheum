@@ -406,6 +406,16 @@ speech fraction, asserted.
   ([D157](../../decisions/working-notes.md)).
 - **A multi-part resume returns to the right part.** `12:30 into part 2` survives a restart,
   and the whole-film progress shown in the UI is derived on read rather than stored.
+- **No surface offers a position from one file against another**
+  ([D158](../../decisions/working-notes.md)). A negative assertion, because a withdrawn
+  feature with no test is a feature somebody re-adds — and this one was re-added once already
+  within a day of being removed.
+- **A file whose content hash changed starts at zero**, and the previous position is not
+  carried onto it ([D116](../../decisions/working-notes.md),
+  [D158](../../decisions/working-notes.md)). Fixture: the owner's re-rip, and a hand-edited
+  cut.
+- **A user-created Edition survives a full rescan and a metadata refresh**, name included
+  ([D141](../../decisions/working-notes.md), [D158](../../decisions/working-notes.md)).
 - **A client names the failing hop** ([D152](../../decisions/working-notes.md)). Four
   fixtures — no network, relay unreachable, relay up with the core not dialled in, core up
   with the media node asleep — and four distinguishable messages. *"Cannot connect"* for any
