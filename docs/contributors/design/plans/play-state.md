@@ -99,12 +99,19 @@ They attach at different levels, and the levels are not the same as the position
 
 ## Next Up is a query over an ordering, and switching orderings moves nothing
 
-[D159](../../decisions/working-notes.md). *Next Up* is *the earliest unwatched episode after
-the latest completed one* — **a statement about an ordering**
-([D96](../../decisions/working-notes.md)), and therefore **derived, never stored**. Switching
-from aired to DVD order recomputes it and leaves **every position byte-identical**, which is
+[D159](../../decisions/working-notes.md), [D160](../../decisions/working-notes.md). *Next Up*
+is *the earliest unwatched **member** after the latest completed one* — **a statement about a
+sequence**, and therefore **derived, never stored**. Switching from aired to DVD order
+recomputes it and leaves **every position byte-identical**, which is
 [principles §13](../../principles/README.md) working as intended rather than as an act of
 care.
+
+**The word is "member", not "episode", and that is the whole generalisation**
+([D160](../../decisions/working-notes.md)). A sequence is what *any* Collection produces, so
+the same query drives a season, an eleven-film franchise run, and a composed
+*Gruelstone → Lockfast*. Every incumbent has two systems here — a series with Next Up and
+continue-watching, and a collection that is a static grid of posters — which is why nobody can
+binge a franchise. We have one.
 
 Two consequences:
 

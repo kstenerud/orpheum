@@ -78,7 +78,7 @@ Absent, the product reads as unfinished to anyone arriving from Plex or Jellyfin
 | F14 | Compatibility transcoding, as a plugin | [D19](contributors/decisions/working-notes.md), [transcoding.md](contributors/design/plans/transcoding.md) | seam |
 | F15 ★ | Remote access for non-technical family | [D14](contributors/decisions/working-notes.md), [D25](contributors/decisions/working-notes.md), [D71](contributors/decisions/working-notes.md) | — |
 | F16 ★ | Roles and parental controls, authored as a preview loop | [D130](contributors/decisions/working-notes.md)–[D134](contributors/decisions/working-notes.md) | schema |
-| F17 | Collections, explicit and predicate | [D75](contributors/decisions/working-notes.md), [D79](contributors/decisions/working-notes.md) | schema |
+| F17 ★ | Collections, explicit and predicate — **and every one produces a sequence**, so Next Up and binge affordances work over a franchise or a composed pair of series exactly as over a season ([D160](contributors/decisions/working-notes.md)). No incumbent does this: they all have series machinery plus a static poster grid | [D75](contributors/decisions/working-notes.md), [D79](contributors/decisions/working-notes.md), [D159](contributors/decisions/working-notes.md), [D160](contributors/decisions/working-notes.md) | schema |
 | F18 | Episode orderings: aired, DVD, absolute | [D96](contributors/decisions/working-notes.md) | schema |
 | F19 | Extras, trailers, theme songs and backdrops | [D97](contributors/decisions/working-notes.md) | schema |
 | F20 | Multiple versions and editions of one work | [D79](contributors/decisions/working-notes.md) | schema |
