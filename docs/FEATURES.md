@@ -88,6 +88,7 @@ Absent, the product reads as unfinished to anyone arriving from Plex or Jellyfin
 | F24 | Loudness measurement and gain | [D83](contributors/decisions/working-notes.md) | — |
 | F25 | Trickplay and thumbnails | [D102](contributors/decisions/working-notes.md), [D114](contributors/decisions/working-notes.md) | — |
 | F26 | Manual identify and per-field metadata override | [identification.md](contributors/design/plans/identification.md), [D98](contributors/decisions/working-notes.md) | schema |
+| F88 ★ | **"What the scanner saw"** — every observed file carries a `filing` with a reason, so the admin can browse what was skipped, errored, filed as an extra or left unidentified, look inside a subtree that was never walked, play it, and say what it is. No incumbent can do this: their skip is a LINQ filter and there is nothing to query ([D163](contributors/decisions/working-notes.md)) | [D40](contributors/decisions/working-notes.md), [D163](contributors/decisions/working-notes.md) | schema |
 | F27 ★ | Subtitle acquisition, verified against the audio before it is offered | [D147](contributors/decisions/working-notes.md), [D148](contributors/decisions/working-notes.md) | schema |
 | F28 | Caption presentation controls (statutory floor) | [D90](contributors/decisions/working-notes.md), [accessibility.md](contributors/design/plans/accessibility.md) | schema |
 | F29 ★ | NFO read, write and export — leaving is supported | [D141](contributors/decisions/working-notes.md)–[D143](contributors/decisions/working-notes.md) | — |
@@ -181,20 +182,23 @@ is there so that changing your mind is cheap.
 
 ## The obligations, collected
 
-Everything above distils to **ten things the architecture has to keep true**. This is the
+Everything above distils to **eleven things the architecture has to keep true**. This is the
 checklist to read a design against; each links to the row that needs it.
 
 1. **An item must not be required to have a File.** (F70, F76)
-2. **Collection membership is three kinds, not two** — explicit, predicate, and authored
+2. **The playback path must be addressable by a *File*, not only by a library item.** You
+   cannot say what something is without watching ten seconds of it, and an unfiled file has no
+   Title. Free today, a rewrite once every endpoint takes an item id. (F88)
+3. **Collection membership is three kinds, not two** — explicit, predicate, and authored
    elsewhere. (F41)
-3. **A rating is `(source, kind, score, votes, as_of)`, and critic ≠ audience.** (F40)
-4. **A content descriptor carries a score and a sign, not just presence.** (F44)
-5. **The track model is not exactly three axes.** (F45)
-6. **The playback role is protocol-agnostic, not Cast-shaped.** (F49)
-7. **The client fetches its home layout; it does not compile it in.** (F42)
-8. **Playback rate is shared session state or explicitly local — decided, not discovered.** (F46)
-9. **A PIN never authenticates; the session model never assumes one factor.** (F47, F48)
-10. **Watch Together costs six methods per client, as a budget.** (F52)
+4. **A rating is `(source, kind, score, votes, as_of)`, and critic ≠ audience.** (F40)
+5. **A content descriptor carries a score and a sign, not just presence.** (F44)
+6. **The track model is not exactly three axes.** (F45)
+7. **The playback role is protocol-agnostic, not Cast-shaped.** (F49)
+8. **The client fetches its home layout; it does not compile it in.** (F42)
+9. **Playback rate is shared session state or explicitly local — decided, not discovered.** (F46)
+10. **A PIN never authenticates; the session model never assumes one factor.** (F47, F48)
+11. **Watch Together costs six methods per client, as a budget.** (F52)
 
 And one that is not a feature obligation but pays for several of them: **[D81](contributors/decisions/working-notes.md)'s
 play-event log must be retained rather than truncated**, because F39, F43 and most of F41's

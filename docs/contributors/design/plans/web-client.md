@@ -193,6 +193,64 @@ Manual re-identify is the seventh and it already has a home in
 every identification bug we will ever ship, and the sweep found it named five times and
 designed nowhere.
 
+## "What the scanner saw" — the admin view over every observed file
+
+[D163](../../decisions/working-notes.md), 2026-09-22, asked for by the project owner:
+
+> *"Make an admin UI where I can browse everything the scanner passed on, and tell the system
+> what it actually is."*
+
+**It is not a second screen.** [scanner.md](scanner.md) gives every observed file a `filing`
+with a reason; the library listing is `filing = listed`, this view is `filing != listed`, and
+"show me everything" is no predicate at all — which answers *"this should also extend to the
+top level scanned items"* by removing a clause. Same grid, same search, same detail pane, one
+extra column. [D132](../../decisions/working-notes.md) already made this argument on the other
+axis — *one predicate compiler, one query, a different principal* — because a view that does
+not share the real path diverges from it and is worse than none.
+
+**The two axes stay apart.** This filter answers *what did the scanner do with this file*;
+"browse as this role" answers *may this person see it*. A library fact and a policy fact.
+
+### It groups by reason, because the complaint is never one file
+
+An extras directory is twenty files, and a tool that only offers twenty rows is abandoned at
+file three. The **group is the unit of action**:
+
+> `**/sample.???` skipped **47 files** in *Films* — *unskip all · stop applying this rule here · confirm*
+
+Five actions, closed: **make it a work** (into identification.md's ordinary identify flow) ·
+**file it as an extra of X**, with a type · **keep ignoring it** · **stop applying this rule
+here** · **retry**, which exists only for `errored`, because a failure is not a decision and
+the share that was down may be up.
+
+### You can look before deciding, and play before naming
+
+- **Browse into a subtree that was never walked** — the node's read-only peek, bounded to
+  paths under a library root.
+- **Play an unfiled file.** You cannot say what something is without watching ten seconds of
+  it, so the **playback path must be addressable by a File**, not only by a library item.
+  That is an **invariant to keep true now**: free today, a rewrite once every endpoint takes
+  an item id. Opening one probes it on demand.
+
+### And the unreadable ones come to you
+
+An ignored file is a decision you can go looking for. **An unreadable file is a failure, and
+the user does not know there is anything to look for** — the owner's *"copied a file in, it
+never showed up, turned out to be owned by root, no way to see that"*. So it is not only
+findable here: the scan summary says **"complete — 3 files could not be read"** rather than
+"complete", and the reason names the fix — *"owned by `root:root`, mode `0600`, and this node
+runs as uid 998"* — rather than `permission_denied`.
+
+### Where a correction goes
+
+[D98](../../decisions/working-notes.md)'s test, three answers: *"this is the 1982 theatrical
+cut"* is about the work → **sidecar**; *"this is not media, keep ignoring it"* is about the
+file → **mirrored to disk**, gitignore-style per directory, so it survives a rebuild and
+somebody else's scanner honours it too; *"this rule should not apply here"* is
+**configuration** → database, and backup-critical.
+
+The capability is on the role ([D130](../../decisions/working-notes.md)).
+
 ## Non-negotiables
 
 Subtitle offset control **that persists**; manual override of the playback decision; a visible

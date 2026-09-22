@@ -2524,6 +2524,22 @@ one source.
 first version, for the same reason as the completeness flag itself — without it, an unreadable
 directory is indistinguishable from an empty one.
 
+**Extended 2026-09-22 by [D163](#d163--every-observed-file-carries-a-filing-with-a-reason-and-what-did-the-scanner-pass-on-is-the-library-browser-with-the-filter-off).**
+Both record types were specified here and then consumed by nothing — no surface in the tree
+reads a `skip` or an `error` into anything a person can open, which is the defect D163 exists
+to close. Two fields are added on that decision's evidence, and both are one field on a record
+that already exists:
+
+- the **`error` record's optional raw field carries owner, group and mode** for a
+  `permission_denied`;
+- the **`header` record carries the node's effective uid and gid**.
+
+Together they turn *"permission denied"* — which is where every incumbent stops — into
+*"owned by `root:root`, mode `0600`, and this node runs as uid 998"*, which is the same fact
+with the answer in it. The project owner's report is the evidence: a file copied in as root
+that never appeared, debugged by repeated rescans, because the only thing on offer was
+absence.
+
 ---
 
 ## D41 — Diagnose the failure boundary by walking up; and guard the silent case, which is worse
@@ -12351,3 +12367,191 @@ stays open in [FEATURES.md](../../FEATURES.md) rather than in the schema.
 **Status:** closes D97. §1–§4 are schema and stay in Phase 1 with it; §5 is a column and a
 predicate; §6 is three predicates; §7 is a decline. Unmeasured: the per-file overhead of a
 disc rip with fifteen extras, which multiplies item count without meaningfully adding runtime.
+
+---
+
+## D163 — Every observed file carries a filing with a reason, and "what did the scanner pass on?" is the library browser with the filter off
+
+**Decided** (2026-09-22), prompted by the project owner:
+
+> *"I've had many issues where the Plex scanner messed up and an extras subdir remained
+> forever hidden from the UI. Make an admin UI where I can browse everything the scanner
+> passed on, and tell the system what it actually is."*
+
+[D162](#d162--containment-makes-an-extra-a-name-only-types-it-a-providers-trailer-url-is-not-one)
+argued three days' worth of caution about *classifying* a film as an extra because it would
+vanish. It never said where you go to see what vanished. This is that surface, and it is
+larger than extras: **it is every reason a file the node can see is not in the library.**
+
+### 1. The field's bug is not the misclassification. It is that the skip is a branch
+
+Read from `/yoloai/cache/repos/jellyfin/`:
+
+```csharp
+// LibraryManager.cs:1006
+public bool IgnoreFile(FileSystemMetadata file, BaseItem? parent)
+    => EntityResolutionIgnoreRules.Any(r => r.ShouldIgnore(file, parent));
+
+// LibraryManager.cs:1044
+var fileList = files.Where(i => !IgnoreFile(i, parent)).ToList();
+```
+
+A **LINQ filter**. The excluded files are dropped from an enumerable; nothing is written,
+nothing is queryable, and `Any()` discards *which rule fired*. `MovieResolver.cs:427` does the
+same thing to an extras directory with a bare `continue;`.
+
+**You cannot build "show me what was skipped" over a `continue` statement.** That is why every
+incumbent's answer to "where did my file go?" is reading a log, and why the owner's extras
+directory stayed hidden forever: no component was ever in a position to mention it. The defect
+is architectural and it is upstream of every individual scanner bug.
+
+### 2. We are already most of the way there, and nothing consumes it
+
+[D40](#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope)
+gave the node's report a **`skip` record "carrying the rule that caused it"** and an **`error`
+record carrying a closed `code` and a `scope`**. The reasons are already on the wire, already
+structured, already per-path — and **no document in this tree reads them into anything a
+person can open.** This decision is mostly plumbing that was specified and then not connected.
+
+### 3. The shape: a filing is a stored value, and the library view is a predicate over it
+
+**Every file the node enumerated gets exactly one `filing`**, from a closed set, with a reason:
+
+| `filing` | Meaning | Reason carries | Set by |
+| --- | --- | --- | --- |
+| `listed` | in the library | — | core |
+| `extra` | filed as an extra of another work ([D97](#d97--an-extra-is-a-typed-relation-not-an-edition-and-not-a-version), [D162](#d162--containment-makes-an-extra-a-name-only-types-it-a-providers-trailer-url-is-not-one)) | the owning work, the type, and which evidence matched | core |
+| `skipped` | an ignore rule or extension filter fired | **the rule**, verbatim (D40) | node |
+| `errored` | enumerated but unreadable or unprobeable | D40's `code` and `scope`, plus the raw platform text | node |
+| `unidentified` | probed, no provider match | what was tried | core |
+
+The default library listing is `filing = listed`. **"Show me everything the scanner passed
+on" is `filing != listed`**, and "show me everything" is no predicate at all — which is the
+owner's *"this should also extend to the top level scanned items"*, answered by removing a
+clause rather than by building a second screen.
+
+**This is complete by construction.** A file the node enumerated cannot fail to have a filing,
+so a reason invented in 2027 appears in this view with no UI work — which is what *"skipped for
+whatever reason"* actually requires. A bespoke "skipped items" page would cover the classes
+somebody remembered on the day, and the owner's Plex directory is precisely a class somebody
+did not remember.
+
+**And it is the same browser.**
+[D132](#d132--authoring-a-role-is-a-preview-loop-and-an-item-the-rules-cannot-judge-is-denied-not-shown)
+already settled this argument for a different axis — *"one predicate compiler, one query, a
+different principal"* — because a preview that does not share the enforcement path diverges
+from it and is worse than none. Same here: one browser, one query, a different filter. The
+grid, the sort, the search and the detail pane are the ones that already exist.
+
+**Two axes, kept apart.** A `filing` is a fact about the *file in the library*; whether a given
+person may see a listed item is a *policy* question answered by their role and D132's pending
+state. The admin view turns off the first filter; "browse as this role" turns off the second.
+Conflating them would put one household member's policy into a library-wide value, which is
+[D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)'s
+line in a new place.
+
+### 4. You have to be able to look inside a subtree we never walked
+
+A skipped *directory* is the owner's actual case, and nothing is enumerated beneath it — so
+there is nothing to browse. The view must therefore be able to ask the node to
+**enumerate a skipped path on demand, changing no rule and writing no library rows**: a
+read-only peek, an ordinary entry in
+[D38](#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config)'s command
+vocabulary. Deciding before looking is the thing the field forces on you.
+
+**Bounded to paths under a configured library root**, or it is an arbitrary-filesystem-read
+primitive exposed over the API wearing an admin button ([threat-model.md](../design/plans/threat-model.md)).
+Browsing the disk to *add* a root is a different feature and must not be reached through this
+one.
+
+### 5. Playing it is how you tell what it is, so playback must address a File
+
+You cannot say what something is without watching ten seconds of it, and an unfiled file has
+no Title, no Edition and possibly no probe. So:
+
+- **the playback path must be addressable by File**, not only by a library item — an
+  **invariant to keep true now**, since it is free today and a rewrite once every endpoint
+  takes an item id;
+- **opening one probes it on demand**, which is [D102](#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes)'s
+  *"the user can jump the queue"* with a different trigger, not new machinery.
+
+### 6. Fix the rule, not the item — because the complaint is never one file
+
+An extras directory is twenty files. Triaging twenty rows one at a time is not a fix, and a
+tool that offers only that will be abandoned at file three. So the view **groups by reason**,
+and the group is the unit of action:
+
+> `**/sample.???` skipped **47 files** in *Films* — *unskip all · stop applying this rule here · confirm*
+
+Five actions, closed: **make it a work** (into the ordinary identify flow) · **file it as an
+extra of X**, with a type · **keep ignoring it** · **stop applying this rule here** ·
+**retry**, which exists only for `errored`, because a failure is not a decision and the share
+that was down may be up.
+
+### 7. Where a correction lives — D98's test, three answers
+
+- *"This is the 1982 theatrical cut"* — about the **work** → **sidecar**, which
+  [identification.md](../design/plans/identification.md) already says.
+- *"This is not media; keep ignoring it"* — about the **file**, not about a person → **mirrored
+  to disk** so it survives a rebuild and so somebody else's scanner honours it too
+  ([D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index)). Jellyfin's
+  `DotIgnoreIgnoreRule` reads a gitignore-style `.ignore` per directory and is the right prior
+  art for the format.
+- *"This rule should not apply in this library"* — **configuration** → database, and therefore
+  backup-critical ([D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore)).
+
+### 8. Unreadable is the *loud* case, and the reason has to name the fix
+
+The owner's second case is a different animal from the extras directory:
+
+> *"So many times I've copied over a media file, only for it to not show up in Jellyfin no
+> matter how many times I rescan or restart. Later I discover it's because the file is owned
+> by root. But I had no easy way to see that the program had skipped it, or why. Meanwhile I'm
+> pulling my hair out trying to debug."*
+
+An ignored file is a decision, and going to look for it is reasonable. **An unreadable file is
+a failure, and the user does not know there is anything to look for** — which is why the loop
+is *rescan, restart, rescan*. Four consequences, each cheap:
+
+- **A scan that could not read something did not succeed.** The summary must say
+  *"complete — 3 files could not be read"* and link to them.
+  [D40](#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope)'s
+  trailer record already carries the counts; reporting a clean scan over a non-zero error count
+  is the specific lie that produces the hair-pulling.
+- **The reason must name the fix, not the errno.** `permission_denied` is where the field stops
+  and it is not an answer. The answer is *"owned by `root:root`, mode `0600` — and this node
+  runs as uid 998 (`mediasvc`)"*, which diagnoses itself. That needs **two additions**: D40's
+  optional raw field carries **owner, group and mode**, and the report **header** carries the
+  node's **effective uid and gid**. One field each, on records that already exist, and the gap
+  they close is the entire distance between *denied* and **denied to whom**.
+- **An error is durable and counted, not a log line.** The row carries **first seen** and
+  **last seen**, so *"failed on 6 consecutive scans since Tuesday"* is on screen — which
+  separates a share that blipped from a file that will never be read, and makes the user's
+  repeated rescan *informative* instead of futile.
+- **A library root is checked for readability when it is configured**, not first discovered at
+  3 a.m. two scans later. It is one `stat` and an `open`, and it catches the most common setup
+  mistake at the moment the person is still looking at the screen.
+
+And the rule that must not bend: an unreadable file **exists**. D40 already forbids it from
+contributing to a removal — *"present-but-unprobed, never absent"* — and the inventory view is
+where that distinction finally becomes visible to a person rather than merely honoured by the
+core.
+
+### 9. The honest limit, stated so it is not discovered
+
+A file under **no library root** was never observed and cannot appear here; that is
+configuration, and the root list is itself on screen. Everything else is covered: an unreadable
+subtree appears as an `errored` row with D40's `subtree` scope rather than as silence — which is
+the whole reason that field exists — and a tree changed since the last walk is covered by
+showing **when each library last completed one**
+([observability.md](../design/plans/observability.md)).
+
+**Status:** `filing` and its reason are **schema**, and Phase 1, because retrofitting a value
+onto every file after the fact means a full re-scan to populate it. The peek command is node
+work; the surface is [web-client.md](../design/plans/web-client.md); the grouped query is a
+[rules-engine.md](../design/plans/rules-engine.md) predicate like any other. The capability is
+on the role ([D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)).
+Unmeasured: the row count of a `filing != listed` query on a library with a large ignored
+subtree, which is the only place this could be slow and is a
+[D161](#d161--cache-and-invalidate-do-not-incrementally-maintain-a-missed-invalidation-is-stale-a-missed-update-is-wrong)
+cache if it is.
