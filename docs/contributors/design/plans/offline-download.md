@@ -60,7 +60,14 @@ and getting its shape right early is what stops this being a migration:
 ## Reconciliation
 
 - **Deletions** reconcile through [D8](../../decisions/working-notes.md)'s change journal, which
-  exists for exactly this and has had no consumer until now.
+  exists for exactly this and has had no consumer until now — **or, just as validly, through a
+  full state fetch, which expresses deletion by absence**
+  ([D166](../../decisions/working-notes.md)). The server answers whichever is cheaper; the
+  client must handle both, so the fallback is exercised rather than reserved.
+- **And the sync cache is never what makes a download playable.** A download is self-contained
+  with a lease for exactly this reason — it is the one case where there is no server to ask, so
+  it carries everything instead of trusting a cache. If the two ever merge, D166's central
+  property is silently lost.
 - **Play state** reconciles through [play-state.md](play-state.md)'s event log, which is why
   the log carries the client's own monotonic clock: an offline device's events are ordered
   relative to each other even when its wall clock is wrong.

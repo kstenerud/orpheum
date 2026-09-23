@@ -214,9 +214,18 @@ offline clients need deletes — an `updatedAt` column cannot express one. We wi
 clients (download-for-travel is a non-negotiable client feature). Retrofitting a change journal
 is a migration over the whole schema.
 
-**Status:** Provisional; low risk, and cheap now versus expensive later. Note that this design
-has **no consumer until a mobile client exists** — so it is unvalidated until then, and the
-first offline-capable handset build is where it gets tested for real.
+**Status:** **Reshaped 2026-09-23 by [D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path).**
+The table survives; the framing does not. ~~Provisional; low risk, and cheap now versus
+expensive later.~~ **Both urgency arguments above turn out to be wrong**, and they are left
+standing so the correction is visible: *"an `updatedAt` column cannot express a delete"* is
+true only of a design with no fallback — a full-state fetch expresses deletion by absence —
+and what cannot be retrofitted is not a journal but **a design that assumed the journal was
+authoritative**. Measured, the entire browsable state of the reference library is **215 KB
+gzipped, 0.2 s on a 10 Mbit link**, so the server may always answer with state and a journal
+only pays below ~2,600 changed items. So: **one journal table rather than a paired audit table
+per syncable table**, the journal is permitted to be lossy, and "your cursor is too old" is not
+an error but an ordinary reply. Note that this design still has **no consumer until a mobile
+client exists** — but it can no longer break one.
 
 ---
 
@@ -12883,3 +12892,136 @@ correctness fix on
 [offline-download.md](../design/plans/offline-download.md)'s central promise; §6 is repair.
 Unmeasured: the write cost of the position row at ~2 writes/second household-wide, which is
 the one number this changes on the hot path and is almost certainly nothing.
+
+---
+
+## D166 — The journal is an accelerator, never a dependency: the server may always answer with state, and that is the ordinary path rather than the error path
+
+**Decided** (2026-09-23), by the project owner, redirecting the framing this log had:
+
+> *"A journal is indeed helpful to cheaply keep the client in sync with the server, but it's
+> not something that breaks the client if it's unavailable (or at least it shouldn't). Caching
+> is one of the hardest things to do in computer science, and network comms makes it even
+> worse. We're going to have to assume that caching will break somewhere for a really dumb
+> reason that we didn't consider. That's just Murphy's law. We should also keep in mind that
+> the kind of data it's syncing isn't that big, and that there may be a point where it's
+> better to just ingest the current state rather than grab a huge journal to walk through.
+> Furthermore, we don't necessarily need the entirety of the datascape in sync before we allow
+> user interaction. I'd rather keep this section simple, with easy escape hatches."*
+
+[D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema) has been
+`Provisional` since the first week, no plan consumes it, and its own status concedes it is
+*"unvalidated until a mobile client exists"*. The previous survey of it listed four open
+questions and one hole. **Three of the four dissolve under this framing and the hole dissolves
+with them** — which is the sign the framing is right rather than merely nicer.
+
+### 1. The empirical claim, checked
+
+"The kind of data it's syncing isn't that big" is the load-bearing assumption, so it was
+measured (`/yoloai/cache/bench/sync/`). Everything a client needs to *browse* — id, kind,
+title, sort key, year, artwork reference, parent, sequence, duration, and this user's position
+and watched flag:
+
+| | reference library (3,510 rows) | large household (20,000 rows) |
+| --- | --- | --- |
+| full state, raw JSON | 847 KB | 4.8 MB |
+| **full state, gzipped** | **215 KB** | **1.2 MB** |
+| on a 10 Mbit link | **0.2 s** | 1.0 s |
+| on a 1 Mbit link | 1.8 s | 10.1 s |
+| client decodes it in | 8 ms | 42 ms |
+| client writes it to local SQLite in | 16 ms | 97 ms |
+| first screen of 60 from the local copy | 109 µs | 151 µs |
+
+**215 KB is one HTTP response.** The whole state of the reference library costs less than a
+single poster image. So the fallback is not an emergency path that has to be justified — it is
+cheap enough to be *the* path, with the journal as an optimisation on top.
+
+### 2. The crossover is real, and the journal's useful band is narrow
+
+A journal entry is **79 B raw, 23 B gzipped**. Walking a journal is only cheaper than taking
+the state while:
+
+| | reference library | large household |
+| --- | --- | --- |
+| entries alone, gzipped | 9,736 | 55,562 |
+| **entries with the changed rows attached** — the honest comparison | **~2,600** | **~14,700** |
+
+So the journal wins exactly where it should: **the ordinary case of a handful of changes since
+this morning.** Past a couple of thousand changed items it is strictly worse than saying "take
+everything", and the server knows both numbers and can simply compare them.
+
+### 3. So: one response type, two shapes, and the server chooses
+
+**There is no "your cursor is too old" error.** A client presents a cursor; the server replies
+with *either* a delta *or* the full state, and which one is a **cost decision, not a failure**.
+Consequences, all simplifying:
+
+- **The resync path is exercised constantly** rather than being emergency code that has never
+  run. That is the direct answer to Murphy: the escape hatch cannot rot, because it is load
+  every day.
+- **The journal is allowed to be lossy.** This is the largest simplification and it follows
+  only from the fallback being free. A journal that must be authoritative needs durability,
+  ordering guarantees, retention policy and a compaction bound. One that may be incomplete can
+  be capped at a fixed size, truncated under pressure, dropped on restart, held in memory, or
+  **not written at all** — and every one of those is answered by returning state instead.
+- **One journal table, not N paired audit tables.** Immich's shape was copied on day one
+  without asking whether it is ours. `(seq, entity_kind, entity_id, op, at)` is enough,
+  because the client's response to any entry is to re-fetch the row — the journal says *what
+  changed*, never *what it changed to*.
+
+### 4. The visibility hole dissolves, and costs one line
+
+The gap flagged the day before: **a role predicate changing makes items invisible with no row
+having changed**, so a journal of row changes leaves a child's client showing what a parent
+just excluded. That needed a mechanism when the journal was authoritative. It needs a sentence
+now:
+
+> **Anything that changes what a principal may see invalidates that principal's cursor.**
+
+Their next request returns state, filtered for them by
+[principles §10](../principles/README.md)'s per-principal construction, which already exists.
+No visibility journal, no new table, no per-item recomputation — and
+[D164](#d164--the-predicate-language-stopped-being-a-feature-and-became-the-query-layer-a-restricting-rule-must-fail-closed-and-the-complexity-budget-is-one-number)
+already makes "the restricting predicate changed" a single observable event.
+
+### 5. The local copy is a cache with a completeness marker, not a database
+
+*"We don't necessarily need the entirety of the datascape in sync before we allow user
+interaction."* So the client's rule is:
+
+- **Anything the local copy cannot answer, the server can.** The local copy is an accelerator;
+  nothing lives only in it. A screen renders from the server while the copy is still filling.
+- **No "syncing, please wait".** The 10.1 s case above — 20,000 items over a 1 Mbit link — is
+  precisely where this matters, and it is the only case where it does.
+- **Therefore every cache failure is a performance event, never a correctness one**, which is
+  the property that makes all of the above safe to be casual about.
+
+### 6. And D8's urgency argument evaporates — honestly recorded
+
+D8 was decided in the first week on the strength of *"retrofitting a change journal is a
+migration over the whole schema"* and *"an `updatedAt` column cannot express a delete"*.
+
+**Neither survives.** A full-state fetch expresses deletion perfectly — by absence — so the
+delete argument only applies to a design that has no fallback. And what cannot be retrofitted
+is not a journal; it is **a design that assumed the journal was authoritative**. One journal
+table is additive and can be added in year three.
+
+The journal stays, because 23 B against 215 KB is a real saving on the common case and it
+costs one table. **But it stays as an optimisation we chose, not as a foundation we could not
+defer** — and the difference is the whole of this decision.
+
+### 7. The one genuine exception, stated so the two never merge
+
+**An offline download is not this mechanism**
+([D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained)). A download is
+self-contained with a lease precisely because it must work with no server to ask. That is the
+single case where the client cannot fall back, and it is handled by *carrying everything it
+needs*, not by trusting a sync cache. **The sync cache must never become load-bearing for
+offline**, or this decision's central property is quietly lost.
+
+**Status:** Replaces D8's shape while keeping its table. Schema impact is now **one journal
+table** rather than a paired audit table per syncable table, and the "which tables are
+syncable" question is no longer load-bearing — an unjournalled table is simply one where the
+client always takes state. Unmeasured: the state payload with artwork included, which is a
+different and much larger question that [artwork.md](../design/plans/artwork.md) owns; every
+figure above is metadata only, and artwork is fetched by reference.

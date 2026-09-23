@@ -454,7 +454,12 @@ summary of them.
 - Multi-version items (1080p and 4K of one film, multiple cuts, multi-part files, disc images)
   are a permanent source of long-running bugs in both Jellyfin and Plex because both bolted
   them on — and the structural cause is the missing Manifestation level, above.
-- A change journal cannot be retrofitted cheaply, and offline clients need deletes (D8).
+- A change journal is cheap to have and **must never be depended on**
+  ([D166](../../decisions/working-notes.md)): the whole browsable state is 215 KB gzipped, so
+  the server may always answer with state and the journal is an optimisation below ~2,600
+  changed items. One journal table, permitted to be lossy — not a paired audit table per
+  syncable table. (D8 argued the opposite and was wrong on both counts; the correction is
+  recorded there.)
 - Identity must survive a file move, a rename, a re-rip and a provider change: UUID primary
   keys, `{provider, provider_id}` in a side table.
 
