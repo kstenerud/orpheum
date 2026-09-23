@@ -13564,7 +13564,7 @@ titles whose metadata is incomplete and offer to refresh them; it never refetche
   as [rules-engine.md](../design/plans/rules-engine.md)'s coverage rule already treats them.
 - **Show each score on its own scale.** 79% stays 79%, not 7.9; the mark tells the reader how to
   read it. (The owner's "tomato 7.9" is exactly the conversion to avoid.)
-- **A score with too few votes counts as absent.** IMDb 9.6 from 11 votes is noise, and a
+- ~~**A score with too few votes counts as absent.**~~ *Withdrawn by D172: shown with its count.* IMDb 9.6 from 11 votes is noise, and a
   fallback that skips it is better than one that shows it. The threshold is per source, stored
   with the list.
 
@@ -13574,4 +13574,79 @@ plugin's business ([D12](#d12--providers-are-sandboxed-wasm-plugins-no-in-proces
 not a built-in.
 
 **Status:** Decided. Schema already in `library-model.md`; the list is library configuration;
-the tile and detail rendering belong to the clients.
+the tile and detail rendering belong to the clients. **Revised by [D172](#d172--a-low-vote-count-is-shown-not-hidden-an-ambiguous-match-is-never-guessed-and-selecting-it-asks-rather-than-plays)** (2026-09-23): the vote
+threshold no longer hides a score — the count is shown beside it, and a low count means
+"refresh on detail view"; the popcorn is out of scope.
+
+---
+
+## D172 — A low vote count is shown, not hidden; an ambiguous match is never guessed, and selecting it asks rather than plays
+
+**Decided** (2026-09-23), by the project owner, revising
+[D171](#d171--external-scores-are-a-ranked-list-the-first-source-with-a-score-is-the-one-shown-named-and-the-detail-screen-may-show-several)
+and settling ambiguous matches:
+
+> *"We won't worry about hard to fetch metadata. That can be a feature or plugin added later.
+> I only care about the easy data for now.*
+>
+> *We should allow scores with too few votes, but show the number of votes: IMDB logo + 9.6
+> (11), which later settles down to IMDB logo + 8.1 (914). For cases where there are too few
+> samples for a stable result, it would make sense to fetch on detail page view.*
+>
+> *Ambiguity: … I have a number of items in my library that show up as the wrong thing, and
+> it's worse than not finding it at all. What we can also do is put a big question mark over
+> the entry in the video selection screen (posters), or some kind of indicator when they are in
+> detailed listing mode. Selecting an ambiguous entry brings up the selector for them to confirm
+> what it is rather than trying to enter/play it."*
+
+### 1. Scope: easy data only
+
+Built-in sources are the ones with a public API and a usable free tier — **TMDB, and OMDb for
+IMDb, Rotten Tomatoes' critic score and Metacritic**. Anything that needs scraping (Rotten
+Tomatoes' audience score among them) is a later feature or a plugin
+([D12](#d12--providers-are-sandboxed-wasm-plugins-no-in-process-plugin-code)). D171's
+"honest limit" becomes simply out of scope.
+
+### 2. Scores: the vote count is shown, not used as a filter
+
+- **D171's vote threshold is withdrawn.** A score is shown whatever its vote count, **with the
+  count beside it**: *IMDb 9.6 (11)*, later *IMDb 8.1 (914)*. The reader judges; the server does
+  not hide.
+- **An unsettled score is refetched when its detail page is opened.** Below a per-source vote
+  count the score is still moving, so opening the detail page refreshes that title's scores.
+  This is the one refetch not requested by name, and it stays inside
+  [D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)'s
+  intent: one title, triggered by a person looking at it, never a sweep. **Recommended:** at
+  most once a day per title (by `as_of`), so a browsing session does not become a loop of calls.
+- The vote-count threshold therefore survives with a different job: not "hide this" but "this
+  is still worth refreshing on view".
+
+### 3. Ambiguous matches: never guessed
+
+A wrong match is worse than no match — it shows the wrong poster, synopsis and rating for a film
+the user owns, and nothing says it is a guess. So:
+
+1. **A provider ID in hand skips the search** — from an NFO, or in the name (`{tmdb-480631}`).
+2. **A clear winner is accepted**: one result whose title and year both match the parse.
+3. **Anything else is not guessed.** The title is listed on local data, marked **ambiguous**,
+   and **the search results are kept**, so the choice costs no further call.
+4. **The mark is visible where the title is**: a large question mark over the poster in the
+   grid, an indicator in list view, and a library filter — *"12 titles need a choice"* — beside
+   the thin-metadata count ([D171](#d171--external-scores-are-a-ranked-list-the-first-source-with-a-score-is-the-one-shown-named-and-the-detail-screen-may-show-several)).
+5. **Selecting an ambiguous title opens the chooser**, not the title. The candidates are shown
+   with poster, year and runtime beside the file's own duration; confirming one files it and
+   makes the choice permanent (D170). "None of these" opens the same search-another-source
+   screen as any correction.
+
+**Recommended, for people who may not edit metadata:** they see the question mark and can play
+the title normally — the file is theirs to watch; only the identification is uncertain. And
+under a restricting rule an ambiguous title has **no rating**, which
+[rules-engine.md](../design/plans/rules-engine.md)'s coverage rule already denies, so a child
+never sees an unidentified film on the strength of a guess.
+
+**Cheap because of earlier decisions:** watch state lives on the File
+([D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)),
+so confirming or changing a match moves nothing a user would miss.
+
+**Status:** Decided. Identification behaviour in `identification.md`; the grid, list and chooser
+belong to the clients.
