@@ -202,6 +202,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D194](working-notes.md#d194--secrets-our-users-passwords-are-hashed-third-party-secrets-are-sealed-with-a-key-that-never-enters-the-database-and-nothing-reads-a-secret-back-out) Secrets: our users' passwords are hashed, third-party secrets are sealed with a key that never enters the database, and nothing reads a secret back out
 - [D195](working-notes.md#d195--orpheum-is-the-provisional-name) "Orpheum" is the provisional name
 - [D196](working-notes.md#d196--the-standards-are-written-every-rule-names-its-enforcement-and-the-gates-run-by-themselves-before-the-first-line-of-feature-code) The standards are written, every rule names its enforcement, and the gates run by themselves before the first line of feature code
+- [D197](working-notes.md#d197--a-development-loop-with-opinionated-printed-settings-and-makefile-targets-for-the-common-debugging-jobs) A development loop with opinionated, printed settings, and Makefile targets for the common debugging jobs
 
 ## Archived
 

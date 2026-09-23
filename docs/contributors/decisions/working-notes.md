@@ -15602,3 +15602,73 @@ Research: [yoloai-lessons.md](../design/research/yoloai-lessons.md), and the aud
 
 **Status:** Decided. [cut-a.md](../design/plans/cut-a.md) marks M0 done except for CI's first
 run. The next prompt starts M1.
+
+---
+
+## D197 — A development loop with opinionated, printed settings, and Makefile targets for the common debugging jobs
+
+**Decided** (2026-09-23), by the project owner: *"For the makefile, I want targets for common
+debugging tasks, including spinning up the app with some opinionated config."*
+
+### 1. What `make dev` does
+
+It is one command that leaves a working app on the screen:
+- **It fetches the pinned FFmpeg**, jellyfin-ffmpeg 8.1.2-5 (D193 §6), verifying its SHA-256.
+- **It generates a synthetic dev library** in 17 s and about 20 MB. There is one file per Cut A
+  playback path and per scanner filing, with NFO files so no TMDB key is needed. Nothing in it
+  is copyrighted
+  ([D187](#d187--users-are-responsible-for-what-they-play-we-never-supply-locate-unlock-or-promote-it--and-the-store-and-legal-constraints-that-follow)).
+- **It builds with `-tags dev -race`**, seeds an empty database with Cut A's two users, and runs
+  the server alongside Vite's hot-reloading dev server, which proxies to it.
+- **It rebuilds the server whenever Go code or the dev config changes.**
+
+It was run here: it builds, reports that the server is not implemented yet, keeps watching and
+rebuilds on a change. Vite serves the app, and `/api` is proxied to the server.
+
+### 2. The opinions, and why each one is visible
+
+The owner's rule is that a default must be safe to be wrong and visible
+([D183](#d183--an-override-is-an-override-wherever-its-value-came-from-a-librarys-source-is-asked-not-defaulted-a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts)).
+So every dev choice lives in two committed files, `dev/orpheum.dev.toml` and `dev/seed.toml`,
+and the loop prints them in a banner at start:
+
+- **Loopback, plain HTTP.** Browsers treat localhost as a secure context, so the microphone
+  works. `make dev-lan` opens the loop to the LAN for a phone or a TV, without the microphone.
+- **Debug logs as text.** pprof and `/metrics` are on, on loopback only (D91 keeps them off in
+  production).
+- **Confinement is reported, not required**, so the loop runs on a machine without Landlock and
+  says so. Production defaults to `require`.
+- **The race detector is on** (`DEV_RACE=0` turns it off).
+- **Users `owner`/`owner` and `partner`/`partner`.** These passwords are public. They are
+  therefore creatable only by `orpheum dev`, which exists **only in `-tags dev` builds**, and a
+  test guards that.
+- **Libraries** take their metadata from NFO, watch for changes, and are never written to.
+  Nothing reaches the network by itself.
+
+### 3. The debugging targets
+
+| Target | What it does |
+| --- | --- |
+| `dev`, `dev-server`, `dev-web`, `dev-lan` | run the whole app, the server alone, Vite alone, or the server open to the LAN |
+| `dev-config`, `dev-media`, `dev-seed` | print the effective config; generate the library (`FORCE=1` regenerates); seed again |
+| `dev-reset`, `dev-clean` | drop the database and caches but keep the media; drop everything |
+| `dev-logs`, `dev-db`, `dev-doctor` | follow the log; open the database in an SQL shell; run the doctor |
+| `dev-debug`, `pprof`, `pprof-heap` | delve headless on `:2345` for an IDE to attach; CPU and heap profiles in the browser |
+| `probe FILE=…` | what the node would record about a file |
+| `test-one PKG=… RUN=…`, `test-web-watch`, `cover` | focused, uncached, race-checked Go tests; web tests in watch mode; a coverage report |
+| `ffmpeg`, `tools-dlv` | the pinned FFmpeg; the pinned delve 1.27.2 |
+
+**No new dependency.** The loop, the watcher and the generator are standard-library Python. The
+Vite proxy reads its target through Vite's own `loadEnv`, not `@types/node`. `make check` now
+also lints, vets and tests the dev build.
+
+### 4. What it asks of the server
+
+[cut-a.md](../design/plans/cut-a.md) §2a lists the contract:
+- `orpheum run --config`, with the dev file's keys;
+- `orpheum dev seed`: users and settings in M1, libraries in M2;
+- `/debug/pprof` and `/metrics` behind their config keys.
+
+**Status:** Decided. The Makefile, `scripts/dev.py`, `scripts/dev_media.py`,
+`scripts/fetch_ffmpeg.py` and `dev/` land together, and cut-a gains §2a. This is a gate change
+the owner asked for, so it carries `Gate-Changed:`.
