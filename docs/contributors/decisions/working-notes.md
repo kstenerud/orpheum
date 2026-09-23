@@ -7483,6 +7483,11 @@ probably the same file" and "certainly". Whether that matters is a judgement, an
 conservative option — whole-file hash on the delete path only, at 0.49 s per file — is
 affordable precisely because deletion is rare.
 
+**Amended 2026-09-23 by [D179](#d179--a-files-identity-is-a-hash-of-its-media-payload-not-its-bytes-a-rebuild-restores-the-identity-rows-and-runs-an-ordinary-scan-duplicates-are-surfaced):** head and tail are anchored on the **media payload**,
+not the file. Measured: every in-place mkvpropedit tag edit changed the whole-file head, and
+three of five changed the size and the tail as well — so the hash as written sent a film's
+history to a tombstone whenever someone fixed a track title.
+
 ---
 
 ## D117 — The session link is the grant, revocation is the control, and the creator owns what plays
@@ -14048,3 +14053,104 @@ library direct-plays in Chrome, Safari and a Chromecast, and what the remainder 
 audio, or video.
 
 **Status:** Decided. ROADMAP gains a "Cut A" section ahead of the phases; FEATURES marks the cut.
+
+---
+
+## D179 — A file's identity is a hash of its media payload, not its bytes; a rebuild restores the identity rows and runs an ordinary scan; duplicates are surfaced
+
+**Decided** (2026-09-23), by the project owner, in the data-architecture critique.
+
+### 1. What the critique found
+
+The database is a rebuildable index ([D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index)),
+and the backup deliberately omits the library index as regenerable
+([backup-restore.md](../design/plans/backup-restore.md)). But everything the backup *does* keep
+— watch state, spans, preferences, tags, shares — references library rows by id. **Rebuild the
+index and those ids are reissued, and the restored history points at nothing, or at the wrong
+film.** The index is rebuildable; its keys are not.
+
+I proposed integer keys plus a public UUID. The owner asked what the UUID accomplishes, and the
+answer is **nothing**: an id means "this row is that file" only through the evidence that binds
+them, and whatever restores the evidence can restore the integer id itself. A UUID earns its
+place when several parties mint ids without coordinating, and nothing here does — devices never
+mint library rows, sidecars carry provider ids
+([D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters)), and a
+rebroadcaster references ours ([D177](#d177--a-rebroadcaster-is-a-user-whose-core-treats-our-server-as-a-node-and-his-household-plays-on-derived-grants-that-only-his-core-can-mint)). **Withdrawn; library-model.md's "UUID primary
+keys" is replaced by integer keys that are never reissued ([D173](#d173--a-replaced-file-is-a-deletion-and-an-addition-what-is-in-a-files-timeline-dies-with-the-file-and-what-is-about-the-work-survives-at-the-title)).**
+
+What survives: **anything outside the database that refers to a file carries its evidence, not
+only its id** — a registered download records the source's identity hash, so it can reattach
+even after a rebuild with no backup.
+
+### 2. A rebuild is an ordinary scan
+
+The core must already decide *"is this the same file as before?"* every day — scanner.md says
+the core concludes a move from a disappearance and an appearance, and never said how. That
+missing rule is the whole of the rebuild problem, so one procedure does both:
+
+1. **Restore the identity rows** — every File's id, identity hash, payload length, mtime and
+   last path, tombstones included — all marked **unconfirmed**. They are backed up although the
+   rest of the index is not; about a megabyte for the reference library.
+2. **Run a normal scan.** Each observation is matched against identities by the rules below.
+
+No separate restore path: the rebuild is the ordinary path from an unusual starting state —
+[principles §14](../principles/README.md) applied to identity.
+
+| Observed against an identity | Conclusion |
+| --- | --- |
+| same identity hash and path | **same file** |
+| same identity hash, different path | **same file, moved or renamed** — history follows it |
+| same path, different identity hash | **a different file at that path** — new row, the old one tombstoned (D173) |
+| two observations match one identity | **duplicates** — the one at the recorded path keeps the identity; **both are surfaced in the admin area** |
+| matches nothing | **new file** |
+
+**Titles, Editions and Versions bind through their Files and provider ids**, Files first
+because their evidence is strongest: a Version matches when its Files do, a Title through its
+provider id and the user's corrections, a user-created Edition through its Versions.
+
+**Drift and unreachable nodes:** an identity nobody reports on **stays unconfirmed** — history
+attached, shown unavailable, never tombstoned on silence
+([D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle),
+[D167](#d167--absence-is-never-a-reason-to-destroy-a-download-whose-server-copy-is-gone-is-orphaned-not-deleted-and-entitlement-is-the-only-thing-the-lease-may-remove)). It becomes a tombstone only when a live node completes a scan of its root
+and the file is not there. A rebuilt database starts partial and converges.
+
+### 3. Hash the payload, not the file — measured
+
+The owner: *"We could hash from the end of the header."* Tested against the most common
+in-place editor, **mkvpropedit** (MKVToolNix 102.0), on a 94 MB mkvmerge-authored file:
+
+| Edit | Size | Where it wrote | D116 head+tail hash | **Payload hash** |
+| --- | --- | --- | --- | --- |
+| set title | same | header, into the Void | **changed** | same |
+| set a 6 KB title | +6 KB | **moved Info to the end of the file** | **changed** (both ends) | same |
+| add 300 global tags | +19 KB | Tags at the end | **changed** (both ends) | same |
+| add a 300 KB attachment | +300 KB | appended at the end | **changed** (both ends) | same |
+| rename and relabel a track | same | header | **changed** | same |
+| `ffmpeg -c copy` remux | +37 KB | **everything** — 52 clusters where there were 70 | changed | **changed** |
+
+**Every in-place tag edit broke [D116](#d116--the-content-hash-is-a-sampling-hash-whole-file-hashing-is-opt-in-and-separate)'s
+hash**, and three of five also changed the size and the tail, because mkvpropedit relocates an
+element that outgrows its slot to the end of the file rather than shifting 94 MB. The grey case
+I had described was not grey: under D116 as written, **fixing a track title sends a film's
+history to a tombstone.** mkvpropedit never touched a Cluster.
+
+So **the identity hash is anchored on the media payload**: in Matroska, the first megabyte
+from the first Cluster, the last megabyte before the last Cluster ends, and the payload length;
+located from the SeekHead, so the cost is a few small reads and no walk over the clusters. In
+MP4 the payload is `mdat`, which tag editors leave alone while rewriting `moov` — *not yet
+measured*. Containers without a separable header (MPEG-TS, raw streams) keep D116's
+head/tail/size.
+
+**A remux is a new file**, as [D173](#d173--a-replaced-file-is-a-deletion-and-an-addition-what-is-in-a-files-timeline-dies-with-the-file-and-what-is-about-the-work-survives-at-the-title) already says of anything re-produced: the
+payload is re-laid-out, and whether its timeline still lines up is exactly what we declined to
+assume.
+
+### 4. Duplicates are surfaced
+
+Two observations with one identity hash are the same content in two places. That is shown in
+the admin area — a filter beside *"needs a choice"* ([D172](#d172--a-low-vote-count-is-shown-not-hidden-an-ambiguous-match-is-never-guessed-and-selecting-it-asks-rather-than-plays)) in the file view (F58,
+F88) — naming both paths. Nothing is merged or hidden automatically.
+
+**Status:** Decided. Schema: identity rows are backup-critical. Node: reports the payload
+hash. Measurements: `/yoloai/cache/bench/hash/` (not in the repo). **D116 amended; the change
+journal is removed from backup's irreplaceable set ([D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path)).**

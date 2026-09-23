@@ -90,7 +90,7 @@ watcher**, because you cannot know the watcher is perfect.
 | The node reports | The core decides |
 | --- | --- |
 | the filename, verbatim — NFC form and raw bytes ([D49](../../decisions/working-notes.md)) | what the filename *means* |
-| size, mtime, and a **sampling** content hash — head, tail and size, measured at 3.2 ms against 0.49 s for the whole file ([D116](../../decisions/working-notes.md)) | whether two files are the same work |
+| size, mtime, and a **sampling** content hash — head, tail and size, measured at 3.2 ms against 0.49 s for the whole file ([D116](../../decisions/working-notes.md)), **anchored on the media payload** (Matroska Clusters, MP4 `mdat`) so an in-place tag edit does not change it ([D179](../../decisions/working-notes.md)) | whether two files are the same work |
 | probe output: container, streams, codecs, durations, disposition flags, track titles, attachments | which track is "the" audio track |
 | a track's BCP 47 tag **beside** the raw `ger`/`deu` the container carried | how to resolve a conflict between them |
 | `A gone` and `B appeared` | that it was a move |
@@ -102,6 +102,11 @@ because the core never opens a media file ([D26](../../decisions/working-notes.m
 
 Two rules worth stating as rules:
 
+- **The core matches observations to identities by one rule, used by daily scans and by a
+  rebuild alike** ([D179](../../decisions/working-notes.md)): same payload hash and path is
+  the same file; same hash elsewhere is a move; same path with a different hash is a new file
+  and the old one a tombstone; two observations of one hash are **duplicates, surfaced in the
+  admin area**; an identity nobody reports on stays unconfirmed.
 - **Report the event you were given; never synthesise linkage.** Do not emit "moved" from a
   disappearance and an appearance — that needs hash or inode history the core holds. But when
   `inotify` hands over a `MOVED_FROM`/`MOVED_TO` pair sharing a cookie, the kernel linked them

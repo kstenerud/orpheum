@@ -53,7 +53,8 @@ Two guards, taken verbatim from Navidrome's hard-won comments:
 | thumbnails, trickplay sprites | accounts, shares and their predicates |
 | extracted subtitles, subset fonts | rules — playlists, collections, retention |
 | FTS indexes, sort keys | track-selection preferences ([D24](../../decisions/working-notes.md)) |
-| | change journal and sync cursors ([D8](../../decisions/working-notes.md)) |
+| | ~~change journal and sync cursors~~ — a lossy accelerator ([D166](../../decisions/working-notes.md)) |
+| | **identity rows**: every File's id, payload hash, length, mtime and last path; every Title's id and provider ids — **the index is rebuildable, its keys are not** ([D179](../../decisions/working-notes.md)) |
 
 Right column: kilobytes to a few megabytes. Left: gigabytes. So **backup is automatic, frequent
 and on by default**, which is a product decision only available because

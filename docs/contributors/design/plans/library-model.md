@@ -480,8 +480,11 @@ summary of them.
   changed items. One journal table, permitted to be lossy — not a paired audit table per
   syncable table. (D8 argued the opposite and was wrong on both counts; the correction is
   recorded there.)
-- Identity must survive a file move, a rename, a re-rip and a provider change: UUID primary
-  keys, `{provider, provider_id}` in a side table.
+- Identity must survive a file move, a rename, a re-rip and a provider change:
+  ~~UUID primary keys~~ **integer keys never reissued**, `{provider, provider_id}` in a side
+  table. **The keys are backed up although the index is not**, and a rebuild is an ordinary
+  scan matching observations against them by **payload hash**
+  ([D179](../../decisions/working-notes.md)).
 
 ## Done when
 
