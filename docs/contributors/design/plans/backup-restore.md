@@ -74,8 +74,10 @@ A backup that has never been restored is not a backup, so the deliverable is **a
 restores into an empty instance and asserts equivalence of the irreplaceable set** — not a
 checksum, which only proves a copy happened.
 
-- **A backup carries its schema version, and restore refuses a gap** rather than
-  auto-converting ([principles §7](../../principles/README.md)).
+- **A backup carries its schema version.** ~~Restore refuses a gap rather than
+  auto-converting.~~ **An older backup restores and is then migrated by the ordinary runner; a
+  newer one is refused unless it declared itself compatible** ([D181](../../decisions/working-notes.md),
+  [migrations.md](migrations.md)).
 - **Restore is destructive and says what it will overwrite** before doing it.
 - **Migrations declare that they need a backup.** Jellyfin has exactly this as a
   `JellyfinMigrationBackupAttribute`, which is §7 implemented rather than promised.

@@ -110,6 +110,7 @@ new plans. The ordering that matters:
   be one per ordering, and no level that fits a trailer.
 - **[auth.md](auth.md) is a Phase 1 subsystem that had no plan.** Identity, sessions, tokens
   and device pairing were spread across three other documents, none of which owned them.
+- **[migrations.md](migrations.md) must land before Cut A stores anyone's data** ([D181](../../decisions/working-notes.md)): two integers, our own small runner, a pre-migration snapshot kept after success, a newer database refused with the way back named, and derived data re-derived rather than transformed.
 - **[api-compatibility.md](api-compatibility.md) must land before the first client ships**, not
   before the first release. Its CI gate is the cheap half and the deadline is the expensive
   half: our clients go through app stores and televisions never update.
