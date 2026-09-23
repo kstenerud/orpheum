@@ -14700,3 +14700,65 @@ position; subtitles are presentation, and presentation was never shared.
 **Status:** Decided. Plans amended as listed; [schema.md](../design/plans/schema.md) gains
 `play_span.unattended` and a `progress_hide` table, both Cut A because Continue Watching is. The
 television path waits on her setup; the voice-on-phone checks join the device lab.
+
+---
+
+## D189 — Focus adds to the focused item and takes nothing from it or its neighbours
+
+**Decided** (2026-09-23), by the project owner: *"One thing I find incredibly annoying in tile
+view selector UIs is when the selected item darkens or otherwise becomes harder to see the item
+being selected. Another annoyance is enlarging to the point where it obscures neighbors."*
+
+**Both are the same mistake: the focus effect costs legibility.** The focused tile is the one
+being read ("is this the one I want?"), and its neighbours are the ones being read next ("where
+do I go from here?"). An effect that darkens the first or covers the second makes focus harder
+to use at exactly the moment it is being used. Apple's tvOS guidance points the same way
+([ui-competitors.md](../design/research/ui-competitors.md) working notes, HIG *Focus and
+selection*): a focused item stands out *"through elevation to the foreground, illumination, and
+animation"*, and the designer must *"make sure the larger item doesn't crowd the surrounding
+interface."*
+
+### The rule
+
+1. **Focus only adds.** It adds a ring, a lift (shadow or elevation) and at most a modest scale.
+   It **never darkens, dims, desaturates, blurs or overlays the focused item**, and never
+   covers its artwork or title with a gradient, a scrim or a button row. Anything shown on
+   focus (a progress bar, a title that does not fit) goes **outside** the artwork or in a
+   detail line below the row.
+2. **The ring is visible on any artwork**: two colours, a light outer and a dark inner ring
+   (WCAG technique C40). A single colour vanishes against a poster of the same colour, and
+   scale alone is too subtle to find from across a room.
+3. **Growth stays inside the gutter.** A focused tile may grow on each side by at most half
+   the gutter, minus the ring width. Half, because during the move the tile losing focus is
+   still shrinking while the new one grows. With 200 px posters and a 24 px gutter that is a
+   scale of about 1.09. The layout sets the gutter from the scale, not the other way round.
+   Vertically the same budget applies against the row header, the tile's own title and the
+   row below.
+4. **Neighbours are not dimmed either.** Android TV's row presenters dim unselected rows by
+   default, which is the same cost moved onto the tiles you read next. Contrast between the
+   focused tile and the rest comes from the ring and the lift, not from making the rest worse.
+5. **The focused tile is always entirely on screen.** Rows scroll to keep it inside the safe
+   area, and nothing (the player's controls, a toast, the on-screen keyboard) covers it. This
+   is WCAG 2.2's *Focus Not Obscured* (2.4.11/2.4.12), which protects the focused item. Rule 3
+   is its mirror for the neighbours.
+6. **Pressed and selected states follow the same rule.** A press may briefly brighten or shrink
+   by the same small amount; a selected (checked) item gets a mark, not a darker tile.
+
+### Why it is cheap to enforce
+
+These are geometry and pixel facts, so they are tested, not reviewed
+([testing-strategy.md](../design/plans/testing-strategy.md)). For every tile component, in every
+layout density:
+- the focused tile's bounding box, ring included, intersects no neighbour's box and no row
+  header or title
+- the mean luminance and contrast of the focused tile's artwork are not lower than when
+  unfocused
+
+A theme ([D138](#d138--the-ui-is-judged-on-click-depth-and-focus-latency-theming-is-a-seam-we-ship-or-one-they-force)
+§4) can restyle the ring and the lift. It **cannot** override rules 1, 3 and 5, because the
+test runs against themes too.
+
+**Status:** Decided. Applies to the web client's grids and the TV client's rows alike; amended
+into [tv-client.md](../design/plans/tv-client.md),
+[web-client.md](../design/plans/web-client.md),
+[accessibility.md](../design/plans/accessibility.md) and testing-strategy.md.

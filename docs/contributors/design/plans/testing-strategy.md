@@ -131,6 +131,10 @@ something" and "a dependency upgrade broke Thai line-breaking and a user told us
   ([D85](../../decisions/working-notes.md)), diffed against the last release, waivable only in
   the changelog. This is the thing that would have caught Jellyfin 12.0 removing `/emby/`
   before its users did.
+- **Focus geometry and legibility, per tile component, per density, per theme**
+  ([D189](../../decisions/working-notes.md)): the focused tile with its ring intersects no
+  neighbour, row header or title, and its artwork's mean luminance and contrast do not drop
+  when it gains focus.
 - **Each server release runs the previous client release's end-to-end suite**
   ([D188](../../decisions/working-notes.md)). Jellyfin 10.11 broke Swiftfin and Dolby Vision on
   LG, and a schema diff alone would not have caught either.

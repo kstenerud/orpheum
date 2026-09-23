@@ -194,6 +194,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D186](working-notes.md#d186--music-would-cost-one-reshape-and-it-is-made-now-things-that-are-not-titles-share-an-item-plus-four-cheap-renames) Music would cost one reshape, and it is made now: things that are not titles share an item; plus four cheap renames
 - [D187](working-notes.md#d187--users-are-responsible-for-what-they-play-we-never-supply-locate-unlock-or-promote-it--and-the-store-and-legal-constraints-that-follow) Users are responsible for what they play; we never supply, locate, unlock or promote it — and the store and legal constraints that follow
 - [D188](working-notes.md#d188--the-interface-is-designed-against-the-fields-recorded-failures-accessibility-shapes-the-design-but-does-not-gate-cut-a-her-television-plays-and-her-phone-talks) The interface is designed against the field's recorded failures; accessibility shapes the design but does not gate Cut A; her television plays and her phone talks
+- [D189](working-notes.md#d189--focus-adds-to-the-focused-item-and-takes-nothing-from-it-or-its-neighbours) Focus adds to the focused item and takes nothing from it or its neighbours
 
 ## Archived
 

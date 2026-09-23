@@ -97,6 +97,9 @@ structure rather than scheduled:
 - no state is shown only by colour
 - text scales without breaking the layout, and reduced motion is honoured
 
+Focus is always visible, never obscured, and never costs the focused item or its neighbours
+legibility ([D189](../../decisions/working-notes.md); WCAG 2.2 2.4.11 and technique C40).
+
 **Cut A is not held for it.** Shortfalls found while two people use it are recorded, not
 blocking. Whether this gates a release anyone else installs is decided before that release.
 
