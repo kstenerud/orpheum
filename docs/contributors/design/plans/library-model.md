@@ -457,7 +457,15 @@ summary of them.
   because [D165](../../decisions/working-notes.md) keeps the play log for ever and a device
   returning from a trip syncs spans that reference it. Free to keep true now; a data-loss
   migration to recover later, which is [principles §12](../../principles/README.md)'s
-  **invariant** row exactly.
+  **invariant** row exactly. **Mechanics** ([D173](../../decisions/working-notes.md)): `ON DELETE RESTRICT` on every
+  reference from history or authored data; `AUTOINCREMENT` on referenced tables so an ID is
+  never reissued; partial unique indexes over live rows; live-only views as the default read;
+  `merged_into` instead of deleting a merged Title; purge removes a tombstone *with* its
+  references, never alone.
+- **A replaced file is a deletion and an addition** ([D173](../../decisions/working-notes.md)). Anything expressed in seconds
+  of a file — position, spans, sync offsets, segments, chapters — stays with its tombstone;
+  anything about the work — watched, rating, tags, identification — survives at the Title. The
+  new file joins no Edition until the user puts it there.
 
 ## Why it is shaped this way
 
