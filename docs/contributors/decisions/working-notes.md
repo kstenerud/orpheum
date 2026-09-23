@@ -13133,3 +13133,127 @@ before any client exists. The tombstone invariant is **schema** and is due with
 `library-model.md`. No measurement needed: every quantity here is a policy choice, and the one
 empirical question — how long a lease should be — is the same unmeasured household number as
 [auth.md](../design/plans/auth.md)'s idle-expiry window and should be decided with it.
+
+---
+
+## D168 — Entitlement is resolved at the point of use, never pushed: revocation needs no message, and the notification is a latency optimisation that may always be lost
+
+**Decided** (2026-09-23), answering the project owner's question — *how do we manage
+entitlement, and by what mechanism do we inform clients that it has ended?*
+
+**The short answer is that we do not inform them, and that is the design rather than a
+shortcut.**
+
+### 1. Three different things are being called entitlement
+
+| Question | Governed by | Ends when |
+| --- | --- | --- |
+| **Am I still a principal?** | the grant row ([D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url)) | `revoked_at` is set, or idle expiry passes |
+| **May I still see *this*?** | the role or share predicate ([D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually), [D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed), [D164](#d164--the-predicate-language-stopped-being-a-feature-and-became-the-query-layer-a-restricting-rule-must-fail-closed-and-the-complexity-budget-is-one-number)) | the predicate changes, or the item does |
+| **May I keep bytes I already hold?** | the lease ([D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained)) | the lease is not renewed |
+
+They are usually conflated, and conflating them is how systems end up pushing a *"you are
+revoked"* message and then trusting it.
+
+### 2. The mechanism: nothing is ever pre-authorised
+
+**Every request resolves entitlement at the point of use, against current state.** A client is
+never holding a decision — it is holding *content it was already given*. So:
+
+> **Revocation takes effect on the very next request, with no message sent to anybody.**
+
+A grant revoked at 14:00 fails at 14:00:00.1. A role predicate narrowed at 14:00 stops
+returning those items at 14:00. Nothing is in flight, nothing must arrive, nothing can be
+missed.
+
+### 3. Affordable, measured — and the one place it could have cost something is free
+
+The objection to checking every request is cost, so it was measured
+(`/yoloai/cache/bench/entitle/`, 3,500-item library, 200 live grants):
+
+| | |
+| --- | --- |
+| grant is live — hash lookup, `revoked_at` and expiry checked | **3.26 µs** |
+| may this principal see **this one item** — the role predicate | **3.78 µs** |
+| **both, as one byte request does them** | **6.64 µs** (150,602/s) |
+| revoke every grant one user holds | **145 µs**, one `UPDATE` |
+
+A 6-second segment means one check per 6 seconds per stream:
+
+| Concurrent streams | Cost |
+| --- | --- |
+| 1 | 0.00011% of one core |
+| 20 | 0.0022% |
+| **100** | **0.011%** |
+
+**There is no performance argument for caching an authorisation decision.** There never was;
+nobody had checked.
+
+### 4. And D164 already made this true, by declining an optimisation
+
+D164 measured caching a role's visible set and **declined it** — 7% against 2.4× from better
+SQL. That read as a performance non-event. It is actually the security property: **because no
+materialised entitlement exists on the server, there is nothing stale to invalidate.** Had the
+cache been taken, this decision would have needed an invalidation protocol, and revocation
+would have had a window.
+
+### 5. So what *is* the notification for? Latency, and it may always be lost
+
+A connected client sitting on a library grid does not re-request for minutes. Telling it
+*"your entitlement changed, re-sync"* closes that window. That message is exactly
+[principles §14](../principles/README.md)'s shape and
+[D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path)'s:
+**an invalidation hint, never the mechanism.** Therefore:
+
+- **No delivery guarantee, no ordering, no acknowledgement, no retry.** If it is lost, §2
+  catches it on the next request. This is why it is cheap.
+- **It carries no detail.** *"Your access changed"* — never *"you may no longer see Wing"*,
+  because naming what was withdrawn **tells a child that Wing exists**, which is precisely the
+  disclosure [D134](#d134--a-pending-item-discloses-nothing-a-rule-shows-its-coverage-and-the-home-page-computes-nothing)
+  closed everywhere else.
+- **It is the same event that invalidates the sync cursor** (D166 §4), so it is one signal with
+  two consumers rather than a new channel.
+
+### 6. Disconnected: time is the only mechanism, and we say so
+
+You cannot inform a client that is not listening. For a device offline on a plane there is
+**no mechanism but expiry**, and the honest statement is that revocation latency is bounded by
+a *duration*, not by a network:
+
+- the **session's idle expiry** ([D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url)),
+- and the **download lease** ([D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained), [D167](#d167--absence-is-never-a-reason-to-destroy-a-download-whose-server-copy-is-gone-is-orphaned-not-deleted-and-entitlement-is-the-only-thing-the-lease-may-remove)).
+
+Those two numbers **are** the revocation guarantee, and they should be stated in the product in
+those terms. Anything stronger would require enforcing against bytes on hardware we do not
+control, which is [D3](#d3--streaming-format-cmaffmp4-segments-hls-manifest-no-drm)'s declined
+DRM wearing a different hat.
+
+### 7. A stream in flight — and a misreading of D70 to head off
+
+[stream-service.md](../design/plans/stream-service.md) says *"authorise the **session**, not
+the segment"* ([D70](#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible)).
+**That is a statement about cache keys, not about skipping checks** — it exists so identical
+bytes keep one URL instead of one per viewer. The grant still rides on every segment request
+(the path-scoped cookie) and is still checked at the 6.64 µs above.
+
+**So a revoked viewer stops within one segment**, mid-film, which is the correct behaviour and
+costs 0.011% of a core at a hundred streams.
+
+### 8. Three places the rule is deliberately different, named so they are not "fixed"
+
+- **Watch Together** ([D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays)):
+  the session link **is** the grant and is deliberately *not* predicate-governed. Revocation
+  there means **ending the session**, not narrowing a predicate.
+- **A cast receiver** ([D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)–[D137](#d137--the-cast-receiver-ships-no-subtitle-renderer-casts-own-is-the-statutory-one-and-the-cost-is-on-the-server))
+  holds its own grant, so revoking the controlling user must revoke the receiver's with it —
+  otherwise the television keeps playing for a person who has been removed.
+- **A protocol adapter** ([D105](#d105--a-protocol-adapter-acts-as-the-user-never-as-itself))
+  acts *as the user* and holds no standing privilege, so it inherits all of this for free. That
+  is the whole reason for the rule.
+
+**Status:** No new mechanism and no new table — this is a statement of where the check happens,
+plus one detail-free invalidation message sharing D166's event. The cast-receiver revocation
+coupling in §8 is the only implementation item. Unmeasured, and the same number as three other
+open questions: **how long the idle window and the lease should be**, which is the household
+figure [auth.md](../design/plans/auth.md) already flags and should be decided once for all of
+them.

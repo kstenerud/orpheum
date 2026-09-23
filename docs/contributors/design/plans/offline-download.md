@@ -110,7 +110,11 @@ cheap, exercised-daily fallback a **mass deletion trigger on every client**.
   from ours than that.
 - **Entitlement gone → the lease is not renewed and the client removes it on expiry.** That is
   the mechanism below, and revocation is therefore **eventual, bounded by the lease period** —
-  which is the honest description and the only one available without DRM.
+  which is the honest description and the only one available without DRM. Online, entitlement
+  needs no message at all: it is resolved per request at **6.64 µs**, so revocation lands on
+  the next one ([D168](../../decisions/working-notes.md)). **The lease is what covers the
+  device nobody can reach**, and its duration is therefore the revocation guarantee for
+  downloads, stated in those terms.
 - **The server distinguishes them, because the client cannot.** The reconciliation reply says
   *"no longer available"* or *"no longer entitled"*. Silence says neither.
 - **An orphaned download cannot be repaired.** Partial when the source went means partial

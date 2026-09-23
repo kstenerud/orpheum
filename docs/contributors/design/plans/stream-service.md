@@ -148,6 +148,13 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   ordinary caching and any future fan-out, long before anyone tried to build either. Ordinary
   CDN practice; free if done now.
 
+  **This is about cache keys, not about skipping checks**
+  ([D168](../../decisions/working-notes.md)) — an easy and dangerous misreading. The grant
+  still rides every segment request on the path-scoped cookie and is still verified, at a
+  measured **6.64 µs** for grant liveness plus the per-item role predicate. A revoked viewer
+  therefore stops **within one segment**, and a hundred concurrent streams checking every
+  segment costs **0.011% of one core**.
+
 ## The cast path is remux-by-default, and it is a first-release dependency
 
 [D137](../../decisions/working-notes.md). Cast's supported containers are **MP2T, MP3, MP4,
