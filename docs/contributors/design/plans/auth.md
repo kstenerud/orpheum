@@ -180,6 +180,56 @@ revocable by another admin. Recovery is the filesystem
 minutes-long admin grant minted by a command on the server host into a file only the server
 user can read. Anyone able to run it already owns the machine.
 
+## How entitlement ends, and why nothing is told
+
+[D168](../../decisions/working-notes.md), 2026-09-23. Three things get called entitlement and
+they end differently:
+
+| Question | Governed by | Ends when |
+| --- | --- | --- |
+| am I still a principal? | the grant row | `revoked_at` is set, or idle expiry passes |
+| may I still see *this*? | the role or share predicate ([D164](../../decisions/working-notes.md)) | the predicate changes, or the item does |
+| may I keep bytes I already hold? | the lease ([D167](../../decisions/working-notes.md)) | the lease is not renewed |
+
+**The mechanism is that nothing is ever pre-authorised.** Every request resolves entitlement
+at the point of use against current state, so a client never holds a decision — only content
+it was already given. **Revocation therefore takes effect on the very next request, with no
+message sent to anybody.** Nothing is in flight; nothing can be missed.
+
+Measured, because the objection is always cost (3,500 items, 200 live grants):
+
+| | |
+| --- | --- |
+| grant is live — hash lookup, `revoked_at` and expiry checked | **3.26 µs** |
+| may this principal see this one item — the role predicate | **3.78 µs** |
+| **both, as one byte request does them** | **6.64 µs** |
+| revoke every grant one user holds | **145 µs**, one `UPDATE` |
+| **100 concurrent streams, one check per 6 s segment** | **0.011% of one core** |
+
+There is no performance argument for caching an authorisation decision, and
+[D164](../../decisions/working-notes.md) already declined to cache the role's visible set —
+which read as a performance non-event and is in fact the security property: **no materialised
+entitlement means nothing stale to invalidate.**
+
+**The notification is a latency optimisation and may always be lost.** A client sitting on a
+grid does not re-request for minutes, so *"your access changed, re-sync"* closes that window —
+as an invalidation hint in [principles §14](../../principles/README.md)'s sense, with **no
+delivery guarantee, ordering, acknowledgement or retry**, because the next request catches it
+anyway. It carries **no detail**: naming what was withdrawn tells a child the item exists,
+which is the disclosure [D134](../../decisions/working-notes.md) closed everywhere else. It is
+the same event that invalidates the sync cursor ([D166](../../decisions/working-notes.md)).
+
+**Offline, time is the only mechanism.** You cannot inform a client that is not listening, so
+for a device on a plane revocation latency is bounded by the **session idle window** and the
+**download lease** — and those two numbers *are* the guarantee, stated in the product in those
+terms. Anything stronger would mean enforcing against bytes on hardware we do not control,
+which is [D3](../../decisions/working-notes.md)'s declined DRM in a different hat.
+
+**And one misreading to head off:** [stream-service.md](stream-service.md)'s *"authorise the
+session, not the segment"* is about **cache keys**, not about skipping checks — it keeps
+identical bytes on one URL. The grant still rides every segment request and is still checked,
+so a revoked viewer stops **within one segment**, mid-film.
+
 ## Still open
 
 The **idle-expiry window** is a number wanting a real household rather than a guess, and
