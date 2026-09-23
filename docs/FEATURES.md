@@ -87,7 +87,7 @@ Absent, the product reads as unfinished to anyone arriving from Plex or Jellyfin
 | F23 | Intro and credit segments, typed and provenanced | [D82](contributors/decisions/working-notes.md), [D115](contributors/decisions/working-notes.md) | schema |
 | F24 | Loudness measurement and gain | [D83](contributors/decisions/working-notes.md) | — |
 | F25 | Trickplay and thumbnails | [D102](contributors/decisions/working-notes.md), [D114](contributors/decisions/working-notes.md) | — |
-| F26 | Manual identify and per-field metadata override | [identification.md](contributors/design/plans/identification.md), [D98](contributors/decisions/working-notes.md), [D170](contributors/decisions/working-notes.md) | schema |
+| F26 | Manual identify and per-field metadata override — including the chooser for an ambiguous match and the one-click refresh of thin metadata ([D172](contributors/decisions/working-notes.md)) | [identification.md](contributors/design/plans/identification.md), [D98](contributors/decisions/working-notes.md), [D170](contributors/decisions/working-notes.md) | schema |
 | F88 ★ | **"What the scanner saw"** — every observed file carries a `filing` with a reason, so the admin can browse what was skipped, errored, filed as an extra or left unidentified, look inside a subtree that was never walked, play it, and say what it is. No incumbent can do this: their skip is a LINQ filter and there is nothing to query ([D163](contributors/decisions/working-notes.md)) | [D40](contributors/decisions/working-notes.md), [D163](contributors/decisions/working-notes.md) | schema |
 | F27 ★ | Subtitle acquisition, verified against the audio before it is offered | [D147](contributors/decisions/working-notes.md), [D148](contributors/decisions/working-notes.md) | schema |
 | F28 | Caption presentation controls (statutory floor) | [D90](contributors/decisions/working-notes.md), [accessibility.md](contributors/design/plans/accessibility.md) | schema |
@@ -97,9 +97,11 @@ Absent, the product reads as unfinished to anyone arriving from Plex or Jellyfin
 | F32 | Client-side adaptation on a buffer signal | [D86](contributors/decisions/working-notes.md) | protocol |
 | F33 | Language and track preferences, sticky per series | [D24](contributors/decisions/working-notes.md), [D45](contributors/decisions/working-notes.md) | schema |
 | F34 | A TV client | [tv-client.md](contributors/design/plans/tv-client.md) | — |
-| F35 ★ | Watch Together | [D62](contributors/decisions/working-notes.md)–[D72](contributors/decisions/working-notes.md) | see F52 |
+| F35 ★ | Watch Together — **two people, remote, with voice, is the priority**: directly after the web client ([D175](contributors/decisions/working-notes.md)) | [D62](contributors/decisions/working-notes.md)–[D72](contributors/decisions/working-notes.md) | see F52 |
 | F36 ★ | Scan legibility: named, deferrable, separately reported passes | [D102](contributors/decisions/working-notes.md), [D118](contributors/decisions/working-notes.md) | — |
 | F37 ★ | Honest refusals — every no names its reason | [D92](contributors/decisions/working-notes.md), [D152](contributors/decisions/working-notes.md), [principles §3](contributors/principles/README.md) | — |
+| F89 | **Now playing** — every live session: who, what, device, where (LAN/remote/relay), direct or transcode with its reason, bitrate against the ceiling, client buffer health; stop with a message, lower a ceiling. Admin sees all, others their own ([D176](contributors/decisions/working-notes.md)) | [D176](contributors/decisions/working-notes.md) | — |
+| F90 | **Invite someone outside the house** — an account plus a role, redeemed from an invite link, seeing nothing of the household, with a finite download lease and a ceiling. What "sharing" means here ([D174](contributors/decisions/working-notes.md)) | [sharing-model.md](contributors/design/plans/sharing-model.md), [D76](contributors/decisions/working-notes.md), [D174](contributors/decisions/working-notes.md) | — |
 | F38 | Jellyfin-compatible adapter | [D18](contributors/decisions/working-notes.md), [jellyfin-api-shim.md](contributors/design/plans/jellyfin-api-shim.md) | seam |
 
 ---
@@ -111,21 +113,22 @@ scheduled; everything here is expensive to retrofit if the obligation is missed.
 
 | # | Feature | Demand | Retrofit | **What must be true now** |
 | --- | --- | --- | --- | --- |
-| F39 | **Play statistics and watch history** | **9,196★** | schema | [D81](contributors/decisions/working-notes.md)'s play-event log must be **retained**, not truncated. The retention horizon is the decision; the surface is additive. [play-statistics.md](contributors/design/plans/play-statistics.md) |
-| F40 | **External critic/audience scores** (IMDb, RT, TMDb, Trakt) | basis of most of Kometa's 129 builders | **schema** | A Title-level `(source, kind, score, vote_count, as_of)` table, with **critic and audience separate**. A single `rating` column destroys it. Due before [library-model.md](contributors/design/plans/library-model.md) freezes |
+| F39 | **Play statistics and watch history** | **9,196★** | schema | [D81](contributors/decisions/working-notes.md)'s play-event log must be **retained**, not truncated — **settled: no horizon, 13.4 MB over five years** ([D165](contributors/decisions/working-notes.md)). The surface is additive. [play-statistics.md](contributors/design/plans/play-statistics.md) |
+| F40 | **External critic/audience scores** — built in: TMDB, and OMDb for IMDb, RT critic and Metacritic; shown by a ranked list with vote counts ([D171](contributors/decisions/working-notes.md), [D172](contributors/decisions/working-notes.md)) | basis of most of Kometa's 129 builders | **schema** | A Title-level `(source, kind, score, vote_count, as_of)` table, with **critic and audience separate**. A single `rating` column destroys it. Due before [library-model.md](contributors/design/plans/library-model.md) freezes |
 | F41 | **External list import** (IMDb/Trakt/Letterboxd → a Collection) | Kometa **3,414★**, 22 services | **invariant** | Collection membership must not be modelled as *explicit XOR predicate*. There is a **third kind** — authored elsewhere, refreshed on a schedule. [external-lists.md](contributors/design/plans/external-lists.md) |
 | F42 | **Admin-curated home rows, per role** | 513★ | schema + invariant | The client must **fetch its home layout from the server**, not compile it in. Row *order* is already user state ([D138](contributors/decisions/working-notes.md)); the row *set* needs a table |
 | F43 | **Retention surface** — candidates in a visible collection with a grace period | **3,301★** | free | [D75](contributors/decisions/working-notes.md)'s retention binding already marks. Needs no deletion ([D144](contributors/decisions/working-notes.md)) |
 | F44 | **Scored, signed content descriptors** (Common Sense-shaped) | Plex Pass only | **schema** | [D131](contributors/decisions/working-notes.md)'s descriptor vector must carry a **score and a sign**, not mere presence — *"strong language, but cartoonish violence"* is unrepresentable otherwise. The data is licensed ([D16](contributors/decisions/working-notes.md)); the shape is not |
 | F45 | **Lyrics** | Jellyfin ships a whole fetcher subsystem | invariant | The track model must not hard-code exactly three axes. A lyric is timed text that is not a subtitle |
-| F46 | **Playback speed** | +25 | **invariant** | Rate is **either** part of Watch Together's shared session state **or** explicitly local ([D66](contributors/decisions/working-notes.md)). There is no third option, and deciding late means a reconciler that fights the user |
+| F46 | **Playback speed** — *obligation met by [D90](contributors/decisions/working-notes.md): local unless a Watch Together group shares it* | +25 | **invariant** | Rate is **either** part of Watch Together's shared session state **or** explicitly local ([D66](contributors/decisions/working-notes.md)). There is no third option, and deciding late means a reconciler that fights the user |
 | F47 | **Two-factor / passkeys** | 0 measured, and an expectation anyway | seam | The session model must not assume a single factor. Nothing else |
 | F48 | **A PIN that selects a profile** | **+56 — the loudest single request found** | invariant | A PIN gates a switch on an **already-authenticated device** and may never authenticate. Jellyfin removed theirs for getting this wrong ([D150](contributors/decisions/working-notes.md), [D152](contributors/decisions/working-notes.md)) |
 | F49 | **AirPlay and other receivers** | +11 | invariant | The playback-role abstraction ([D124](contributors/decisions/working-notes.md), [D135](contributors/decisions/working-notes.md)) must stay **protocol-agnostic**. If it hard-codes Cast, every other receiver is a rewrite |
-| F50 | **Deletion** | 0/120, 0/50, 16/2,205 | free | Precondition already met: the trash is designed and the export uses it ([D144](contributors/decisions/working-notes.md), [D145](contributors/decisions/working-notes.md)). Policy is an *enforced absence* |
+| F50 | **Deletion** — *designed: [D89](contributors/decisions/working-notes.md); tombstones [D167](contributors/decisions/working-notes.md), [D173](contributors/decisions/working-notes.md)* | 0/120, 0/50, 16/2,205 | free | Precondition already met: the trash is designed and the export uses it ([D144](contributors/decisions/working-notes.md), [D145](contributors/decisions/working-notes.md)). Policy is an *enforced absence* |
 | F51 | **Artwork type enumeration** (poster/backdrop/logo/banner/disc) | Kodi and Plex both model it | schema | A closed enumeration on the image, at the level it belongs to. Cheap now, a migration later |
 | F52 | **Watch Together surviving a client rewrite** | #2 in the corpus | **invariant** | [D62](contributors/decisions/working-notes.md)'s **six methods per client is a hard budget**, not a description. Plex withdrew the feature in Feb 2025 because it did not survive one ([D150](contributors/decisions/working-notes.md)) |
 | F53 | **Relay gap annotation** — what it saw while the core was away | — | free | Counts and a window, never identities ([D72](contributors/decisions/working-notes.md), [D152](contributors/decisions/working-notes.md)) |
+| F91 | **Rebroadcast grant** — a grantee's own server offers my library to his household as a source, with his overlay of tags and rules; one hop, never transitive ([D174](contributors/decisions/working-notes.md)) | owner's design | schema + invariant | A grantee may be a **server**, not only a person; a Version's file may be reached **through another server**; every item carries its **source**, which is what non-transitivity checks |
 | F54 | **Content-safety inspection** | — | seam | [D61](contributors/decisions/working-notes.md) keeps four affordances open; containment now, detection later |
 
 ## Rank 3 — Deferred and free
@@ -137,7 +140,7 @@ Pure client work or strictly additive. Ignore until there is room; nothing is ow
 | F55 | Shuffle and random play | **zero mentions in this tree**, universal elsewhere |
 | F56 | Sleep timer | +32 |
 | F57 | Picture-in-picture and background audio | +20 |
-| F58 | Folder / raw-directory browsing | +19 — the escape hatch when identification is wrong |
+| F58 | Folder / raw-directory browsing — **the escape hatch of last resort**: each file shows what it is attached to and how (inferred, sidecar, person) ([D176](contributors/decisions/working-notes.md)) | +19 |
 | F59 | External player handoff | +63 ([tv-client.md](contributors/design/plans/tv-client.md)) |
 | F60 | Bulk edit and multi-select | +3 |
 | F61 | Chapters in the player UI | modelled already ([media-segments.md](contributors/design/plans/media-segments.md)) |
@@ -147,6 +150,14 @@ Pure client work or strictly additive. Ignore until there is room; nothing is ow
 | F65 | Favourites surface | +42 |
 | F66 | Missing-episode display | Jellyfin has `DisplayMissingEpisodes` |
 | F67 | Watchlist as a surface | **+3 — and Plex removed it for lack of use** ([D150](contributors/decisions/working-notes.md)). Storage yes, screens no |
+
+---
+
+## Undecided
+
+| # | Feature | What decides it |
+| --- | --- | --- |
+| F92 | **Music** (ROADMAP Phase 7, OpenSubsonic) | Competitor and sentiment research, commercial players first. The owner's case to judge it by: *"my music collection playing through the TV"* ([D176](contributors/decisions/working-notes.md)) |
 
 ---
 
@@ -166,7 +177,7 @@ is there so that changing your mind is cheap.
 | F74 | 3D / stereoscopic | one issue, 23 reactions | it would be a fourth rendition axis; [D22](contributors/decisions/working-notes.md) is written for three |
 | F75 | Sonos / multi-room | no demand here | nothing |
 | F76 | Games, sports, music videos as library types | Emby shipped Games, Jellyfin dropped it; Plex closed its arcade | see F70 |
-| F77 | Multi-server federation | 3 reactions | nothing |
+| F77 | Multi-server federation | 3 reactions | **narrowed, not closed:** one-hop server-to-server grants are F91 |
 | F78 | Poster overlays baked into artwork | destructive to files we do not own ([principles §2](contributors/principles/README.md)) | badges as a **client render** over an untouched image |
 | F79 | A content-source plugin tier | **Plex killed it at "less than 2 percent" usage** ([D150](contributors/decisions/working-notes.md)) | the metadata-provider and adapter tiers are different products and stay |
 | F80 | Voice assistants | 66 likes | Cast already carries voice-originated load requests |
@@ -182,7 +193,7 @@ is there so that changing your mind is cheap.
 
 ## The obligations, collected
 
-Everything above distils to **twelve things the architecture has to keep true**. This is the
+Everything above distils to **fourteen things the architecture has to keep true**. This is the
 checklist to read a design against; each links to the row that needs it.
 
 1. **An item must not be required to have a File.** (F70, F76)
@@ -199,9 +210,11 @@ checklist to read a design against; each links to the row that needs it.
 7. **The track model is not exactly three axes.** (F45)
 8. **The playback role is protocol-agnostic, not Cast-shaped.** (F49)
 9. **The client fetches its home layout; it does not compile it in.** (F42)
-10. **Playback rate is shared session state or explicitly local — decided, not discovered.** (F46)
+10. ~~**Playback rate is shared session state or explicitly local — decided, not discovered.**~~ **Met** by D90: local unless a group shares it. (F46)
 11. **A PIN never authenticates; the session model never assumes one factor.** (F47, F48)
 12. **Watch Together costs six methods per client, as a budget.** (F52)
+13. **A grantee may be a server, and a file may be reached through one.** (F91)
+14. **Every item carries its source**, so "was this given to me?" is a column. (F91)
 
 And one that is not a feature obligation but pays for several of them: **[D81](contributors/decisions/working-notes.md)'s
 play-event log must be retained rather than truncated**, because F39, F43 and most of F41's

@@ -62,6 +62,20 @@ manifest so a correct client never asks, **and deny** at the endpoint, because a
 different trust domain from the owner. A grantee's client asking outside its share is a bug or a
 probe, and §10 says both are worth surfacing.
 
+## What "sharing" is here, and the rebroadcast grant
+
+[D174](../../decisions/working-notes.md), 2026-09-23. **Sharing is inviting someone from outside the house**: an account,
+a role, an invite link, and an outsider flag that hides the household from them. Nothing a
+household member does not already have, minus visibility, plus a finite download lease and a
+ceiling.
+
+**Deferred: the rebroadcast grant.** The grantee is *a server*, whose owner offers the library
+to his own household as a source, prepopulated with our metadata, with his own overlay of tags
+and rules for his children. One hop, never transitive. His household's play state lives on his
+server — this section's *"playback state lives with the media"* applies to a person, not to
+a rebroadcast. What it owes now: a grantee may be a server; a file may be reached through one;
+every item carries its source.
+
 ## Identity
 
 Already researched — [remote-access.md](../research/remote-access.md) §6. Four options, not

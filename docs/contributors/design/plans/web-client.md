@@ -97,6 +97,21 @@ change journal, outranks any provider, and **is never overwritten by a refresh**
 Jellyfin's *Some custom primary images/art seem to have automatically reverted* records.
 Plex's *Metadata Editing on Mobile* sits at 66 likes, so the phone wants it too, later.
 
+## Now playing
+
+[D176](../../decisions/working-notes.md), 2026-09-23. Every live session. **The admin sees all; everyone else sees their
+own.** Per stream: who, what, which device, where (LAN, remote, relay), direct play or
+transcode **with the stated reason**, bitrate against the ceiling, and **client-reported buffer
+health** — the field that answers "why is it buffering". Actions: **stop with a message** to the
+viewer, and **lower that stream's ceiling** on the spot. Live only — history is
+[play-statistics.md](play-statistics.md)'s.
+
+## And it is the phone client, for now
+
+[D176](../../decisions/working-notes.md): web first until the UI flows are settled, then native clients built from them.
+So this client is **good on a phone from its first release** — touch targets, small screens,
+iPhone Safari's media constraints — rather than a desktop page that happens to load there.
+
 ## And this is the desktop client
 
 *Are the Desktop Apps Dead?* is 186 likes on Plex's forum
