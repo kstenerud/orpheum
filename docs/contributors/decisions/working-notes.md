@@ -14506,3 +14506,57 @@ costs nothing). The same test as D182's config keys, applied to everything.
 **Status:** Decided. Plans amended: scanner (change detection asked), audio-presentation (device
 question), sharing-model (default share asked), backup-restore (visible at setup), web-client (the
 library-creation questions).
+
+---
+
+## D185 — The Cut A schema is written down as SQL that runs; the database is backed up whole; the watched-badge cache is measured out
+
+**Decided** (2026-09-23), completing the data-architecture critique the project owner asked for.
+The sketch: [schema.md](../design/plans/schema.md) — every Cut A table with its key, its class
+(authored, identity, observed, fetched, cache), what references it and the decision behind it.
+Its SQL blocks are loaded verbatim by a benchmark (`/yoloai/cache/bench/schema/`) on SQLite
+3.53.4, so the sketch cannot silently stop being valid SQL.
+
+### 1. What writing it down settled
+
+- **The whole `library.db` is backed up**, revising
+  [D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore)'s
+  *"back up only the irreplaceable"* for the database file. D77's split made sense against
+  gigabytes of thumbnails; the database itself is **32–46 MB and 130–180 ms** by `VACUUM INTO`.
+  Backing it up whole carries [D179](#d179--a-files-identity-is-a-hash-of-its-media-payload-not-its-bytes-a-rebuild-restores-the-identity-rows-and-runs-an-ordinary-scan-duplicates-are-surfaced)'s identity rows without a special case and makes a
+  restore a restore rather than a rebuild. **Fetched responses and working queues move to a
+  separate `cache.db`**, never backed up and deletable at any time.
+- **Every observation is a `file` row** with its filing ([D163](#d163--every-observed-file-carries-a-filing-with-a-reason-and-what-did-the-scanner-pass-on-is-the-library-browser-with-the-filter-off)), and a sixth filing,
+  **`attached`**, for a subtitle or NFO beside a video.
+- **A fetched subtitle lives in the database**, not the media tree: it cost a daily download, the
+  library may be read-only, and in the database the ordinary backup carries it.
+- **No series table and no season table**: a series is a Collection of episodes, a season is a
+  number within an ordering plus optional text ([D160](#d160--there-is-no-series-concept-a-sequence-is-what-a-collection-produces-and-next-up-is-a-query-over-any-of-them)).
+- **A sync offset is a preference at `file` scope**, because it is in seconds of one file
+  ([D173](#d173--a-replaced-file-is-a-deletion-and-an-addition-what-is-in-a-files-timeline-dies-with-the-file-and-what-is-about-the-work-survives-at-the-title)).
+- **`invite` is a ninth grant kind** ([D174](#d174--sharing-is-an-account-from-outside-the-house-a-household-behind-a-grantee-is-a-rebroadcast-grant-deferred-and-it-makes-another-server-a-source)), and `"grant".parent` carries
+  [D177](#d177--a-rebroadcaster-is-a-user-whose-core-treats-our-server-as-a-node-and-his-household-plays-on-derived-grants-that-only-his-core-can-mint)'s derived grants.
+- **The library row carries the three creation questions** ([D184](#d184--the-defaults-audit-four-become-questions-seven-must-be-made-visible-the-rest-pass)); the device row
+  carries the first-playback sound question, NULL until asked.
+- **Cut A reads cast and crew from the cached provider response**; people and credits arrive as
+  tables with the feature that needs them.
+
+### 2. The watched-badge cache, measured out
+
+Reference scale — 3,500 titles, 10,000 files, 209,781 spans, 126,004 events, four users — for a
+50-poster keyset page with watched badges rolled up File → Version → Title: **0.36 ms with a
+`title_watch` cache, 0.84 ms computed live** (p95 1.49 ms), against a **50 ms** budget. Not
+built — the verdict [D164](#d164--the-predicate-language-stopped-being-a-feature-and-became-the-query-layer-a-restricting-rule-must-fail-closed-and-the-complexity-budget-is-one-number) reached for the role cache. The measurement's real finding
+is the other row: **the same rollup shaped as an `EXISTS` the planner turned into a scan took
+7.2 ms**, ten times worse than the cache saves. Query shape is the risk, and it belongs in query
+review.
+
+### 3. Stale text corrected
+
+library-model.md's *"guarded position per `(user, edition)`"*, its retention horizon, its
+fixture *"resume position survives switching between the 1080p and the 4K"* — which would have
+tested the rule [D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)
+and [D173](#d173--a-replaced-file-is-a-deletion-and-an-addition-what-is-in-a-files-timeline-dies-with-the-file-and-what-is-about-the-work-survives-at-the-title) reject — its *"two devices… one edition"*, and its score sources.
+
+**Status:** Sketch. It becomes the first migration when Cut A's implementation starts, and
+changes after that go through [migrations.md](../design/plans/migrations.md).
