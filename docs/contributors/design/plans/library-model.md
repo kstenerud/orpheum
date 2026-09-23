@@ -361,7 +361,8 @@ a delete keyed only on a path can destroy a different file that has since appear
   it is the one place several sources are fetched per title, and OMDb's free key allows 1,000
   calls a day ([D170](../../decisions/working-notes.md)). **Shown by a ranked list** ([D171](../../decisions/working-notes.md)):
   a tile shows the first source with a score, named; the detail screen may show several; each on
-  its own scale; a sort or rule names one source and kind, never the fallback.
+  its own scale **with its vote count** — *IMDb 9.6 (11)* ([D172](../../decisions/working-notes.md)); a sort or rule names one
+  source and kind, never the fallback.
 - **A home row is an object, and it has an audience.** Plex's `ManagedHub` promotes a
   collection to the home screen with `homeVisibility ∈ {none, all, admin, shared}`. We model
   row *order* as user state ([D138](../../decisions/working-notes.md)) and have nowhere to say

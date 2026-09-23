@@ -210,9 +210,12 @@ rewriting thousands of files periodically is churn in someone's media tree, whic
   *"artists with the same name are merged while MBIDs are ignored"*. Merging two Person rows
   that turn out to be one human across two providers is the same unsolved merge problem as
   elsewhere.
-- Provider matching and its confidence handling are **unspecified**. An ambiguous match now
-  has a landing place ([D170](../../decisions/working-notes.md)): it is filed on local data, marked, and fixed through the
-  same screen as any other correction.
+- **An ambiguous match is never guessed** ([D172](../../decisions/working-notes.md)). A provider ID in hand (NFO, or
+  `{tmdb-…}` in the name) skips the search; a single result matching title and year is
+  accepted; anything else is listed on local data, **marked ambiguous, with the search results
+  kept**. The clients show a question mark over the poster and a library filter; **selecting
+  it opens the chooser rather than the title**, and confirming is permanent. A wrong match is
+  worse than none.
 
 ## Where metadata comes from, and when it is fetched
 
