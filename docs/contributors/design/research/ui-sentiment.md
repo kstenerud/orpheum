@@ -35,6 +35,10 @@ requests, lost controls, and one unwanted social feature.
 For comparison, the price thread — *Elephant in the room. Lifetime Plex Pass* — is 938.
 **The interface out-argues the money.**
 
+> **Corrected 2026-09-23** ([ui-competitors.md](ui-competitors.md) §0): this sample's one-year
+> window missed the four largest "new experience" threads, created just before it — about
+> **20,400 likes** between them, the largest 6,482. The conclusion holds and is understated.
+
 ## 1. What they hate, specifically — and it is not aesthetics
 
 Nobody in this corpus says "it's ugly". Coded across ten threads, the complaint density runs:
