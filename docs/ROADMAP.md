@@ -171,6 +171,29 @@ below.
 
 ---
 
+## Phase 2b — Watch Together for two, remote, with voice
+
+**Moved here 2026-09-23 by the project owner** ([D175](contributors/decisions/working-notes.md)):
+two people in different houses is the case that matters first, and it is the design's best case
+rather than a stretch. In order, after the web client:
+
+1. **Watch Together's LAN half** — the sync machinery, six methods, voice.
+2. **Reachability.** A port-forward plus TLS if the owner's ISP allows it; if it is behind
+   carrier-grade NAT, check IPv6, and failing that **the relay ([D71](contributors/decisions/working-notes.md))
+   moves here from Phase 6**. For the remote person it is always just an invite link.
+3. **Invite someone outside the house** ([D174](contributors/decisions/working-notes.md)) — an
+   account, a role, a link.
+4. **Prepared versions** — Phase 4(a)'s batch transcoder, moved forward: a film chosen in
+   advance gets a ~8 Mbps Version and then direct-plays. Live ABR (4b) stays late.
+5. **Remote Watch Together for two**, with voice from the start; headphones on at least one side
+   make every configuration a solved case ([D63](contributors/decisions/working-notes.md),
+   [D65](contributors/decisions/working-notes.md)).
+
+**The web client is the phone client until native ones exist**
+([D176](contributors/decisions/working-notes.md)), so it has to be good on a phone from the start.
+
+---
+
 ## Phase 3 — The client the project is judged on
 
 `tv-client.md` — Android TV, React Native shell over the shared SDK, Kotlin native player module
@@ -268,7 +291,10 @@ not the design.
 
 ---
 
-## Phase 6b — Watch Together
+## Phase 6b — Watch Together, beyond two
+
+*Two people remote moved to Phase 2b ([D175](contributors/decisions/working-notes.md)); what is
+left here is the party of four or five, which is gated on live adaptive bitrate.*
 
 `watch-together.md` — which had no place on this roadmap at all until 2026-09-21, despite
 being one of the six things [overview.md](contributors/design/overview.md) names as what we do

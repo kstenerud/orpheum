@@ -13739,3 +13739,178 @@ well under a megabyte of tombstones in a decade.
 
 **Status:** Decided. Schema, due with `library-model.md`; the Continue Watching consequence in
 `play-state.md`.
+
+---
+
+## D174 — Sharing is an account from outside the house; a household behind a grantee is a "rebroadcast" grant, deferred, and it makes another server a source
+
+**Decided** (2026-09-23), by the project owner, in the feature-register audit. The question was
+what *sharing with another household* adds over adding accounts, and the answer in this design
+is: very little, because [sharing-model.md](../design/plans/sharing-model.md) already made
+*"a share is a role with one member"*
+([D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed), [D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)). Plex needs a distinct
+feature because a friend sees your library **inside their own server's app**, which needs a
+central identity and federation — both declined ([D13](#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise), F77).
+
+### 1. Now: invite someone outside the house
+
+An account, a role, and two differences from a household member:
+
+| | Household member | Invited from outside |
+| --- | --- | --- |
+| arrives by | the owner creating them | an **invite link**, redeemed on their own device |
+| sees of the household | members, activity, shared state | **nothing** — no user list, no one else's activity |
+| downloads | indefinite lease | finite, set on the invite ([D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent)) |
+| bandwidth and streams | role default | a ceiling that matters (F31) |
+| edit, delete | per role | never |
+
+The register's "sharing" becomes this row. It is small and almost entirely designed already.
+
+### 2. Later: a rebroadcast grant
+
+The owner's shape for the friend who has a household of his own:
+
+> *"With a 'rebroadcast' grant, he can allow any member of his household to view my libraries as
+> if it were his own, and also have an overlay database that allows him to override my tags for
+> his own kids, or add his own. My library becomes just another source from his perspective,
+> albeit prepopulated with metadata. Note that rebroadcast is not transitive. He can't share my
+> libraries with others in this way; only his own. This isn't a feature that's needed soon."*
+
+That is **server-to-server**: the grantee is his server, not a person, and his household are his
+users under his roles. It reverses F77's decline in a narrow form — one hop, one grant, no
+directory. The pieces map onto things already in the tree:
+
+- **My library is a source to his server** — structurally a remote node whose observations
+  arrive with assertions already attached. My identifications reach him the way a sidecar
+  reaches a scan ([D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters)):
+  as asserted values his side may override.
+- **His overlay** is his own database: tags, corrections, roles and rules for his children,
+  none of which ever reaches mine.
+- **His household's play state lives on his server** — his users are his. My server sees one
+  grantee's streams, counted against that grant's ceilings. This revises
+  sharing-model.md's *"playback state lives with the media, keyed by the grantee"* for this
+  case only.
+- **Non-transitive by construction:** an item whose source is another server cannot be offered
+  onward by a rebroadcast grant. As everywhere in sharing, this is intent, not enforcement —
+  anyone who can play a file can re-transmit it.
+
+### 3. What it owes the architecture now
+
+Deferred, so only the doors:
+
+1. **A grantee may be a server, not only a person.** The grant table
+   ([D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url))
+   must not assume a subject is a user.
+2. **A Version's file need not be local.** Obligation #1 (*an item need not have a File*) already
+   covers most of it; add that a file may be reached through another server.
+3. **Every item carries its source**, so "was this given to me?" is a column, not an inference —
+   which is what non-transitivity is checked against.
+
+**Open for when it is built:** whether his household's streams come from my server directly,
+with a token his server mints within my grant, or through his server — which doubles his
+bandwidth. Measure before choosing.
+
+**Status:** §1 decided and registered; §2 deferred (rank 2 for its obligations).
+
+---
+
+## D175 — Watch Together for two, remote, moves to directly after the web client; voice is there from the start
+
+**Decided** (2026-09-23), by the project owner: *"I want Watch Together to have high priority
+because my gf is going to be remote for a long time. The rest don't need high priority if it
+doesn't help."*
+
+This is the design's best case, not a stretch: [watch-together.md](../design/plans/watch-together.md)
+already ranks **two** as priority 1, because echo is fully solvable there
+([D65](#d65--playback-offset-is-per-participant-and-it-is-an-echo-control)), a stall has an obvious answer, and the relay is free. What moves is the
+schedule, and three dependencies with it.
+
+### 1. Voice is day one
+
+> *"Either she's going to be playing the movie on her phone while talking to me, or she'll have it
+> playing on a TV and talking through her phone, and then the echo problem creeps in. I can
+> adapt on my side by playing through a laptop."*
+
+The design already covers both configurations ([D63](#d63--voice-chat-is-webrtc-and-headphones-are-the-supported-configuration), [D65](#d65--playback-offset-is-per-participant-and-it-is-an-echo-control)):
+
+| Her setup | His setup | Echo | Handled by |
+| --- | --- | --- | --- |
+| film and voice on her phone, earbuds | laptop, any | none | tier 1 |
+| film on her phone's speaker | laptop, headphones | her phone's platform AEC — if the film plays on the official media path it is a reference | tier 1, and to verify on her actual phone |
+| **film on the TV, voice on her phone** | **laptop, headphones** | only her side leaks | **tier 2: she runs ahead by the one-way latency, her leak arrives aligned with his copy, and it fuses** |
+| film on the TV, voice on her phone | laptop **speakers** | both sides leak | tier 3 (content-referenced AEC) — so he wears headphones |
+
+**Headphones on his side turn every configuration of hers into a solved case.** That is the
+supported setup, and tier 3 stays later. Voice uses [D68](#d68--turn-is-not-an-independent-requirement-the-media-server-is-already-the-relay)'s
+server relay, which at two is free.
+
+### 2. Reachability: port-forward if the ISP allows it, the relay if not
+
+She is non-technical, but **reachability is the server's problem, not hers**: from her side it is
+always an invite link (D174 §1). What differs is the owner's side:
+
+- **If the ISP allows a port-forward** — plus TLS — it is the whole answer for now, and costs
+  nothing to build beyond certificates.
+- **If it does not** — usually carrier-grade NAT, recognisable when the router's WAN address is
+  in `100.64.0.0/10` or differs from what an external "what is my IP" reports — then
+  [D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it)'s relay moves forward with Watch Together. **IPv6 is the check before that**:
+  many CGNAT providers hand out global IPv6, and if both ends have it, direct connection works.
+
+**The owner tests the ISP first; the answer decides whether the relay is on the critical path.**
+
+### 3. Bandwidth: a prepared version, not live transcoding
+
+watch-together.md gates a remote party on adaptive bitrate (Phase 4b). For two people watching a
+film **they chose in advance**, the batch compatibility transcoder (Phase 4a) is enough: prepare
+a ~8 Mbps 1080p Version ahead of time, and it direct-plays like any other. Live ABR stays late;
+**4a moves forward** with Watch Together. A film not prepared still plays if her link carries the
+original.
+
+### 4. The resulting order
+
+Web client (phone-good, D176) → Watch Together LAN half → **reachability** (port-forward, or
+the relay) → **invite from outside** (D174) → **prepared versions** (4a) → **remote Watch
+Together for two, with voice**. Everything else in cuts B–D keeps its place.
+
+**Open:** what devices she has. It decides the path to her TV: from an Android phone the web
+client can cast ([D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)); from an iPhone, Safari cannot use the Cast SDK and the route is
+AirPlay to an Apple TV, or the TV watching the film on its own browser.
+
+**Status:** Decided; ROADMAP reordered.
+
+---
+
+## D176 — Register audit: phones are the web client for now, the file browser is the last resort, "now playing" is added, music awaits research
+
+**Decided** (2026-09-23), by the project owner, reviewing the register
+([D153](#d153--a-ranked-feature-register-ordered-by-demand-and-annotated-by-retrofit-cost-because-those-are-different-numbers)) against D160–D173.
+
+- **Phones: web first.** *"We focus on web clients first until we get most of the UI sorted out,
+  then we go into specific target clients well-armed with UI flows."* Consequence: **the web
+  client must be good on a phone from the start** — touch, small screens, iPhone Safari's
+  constraints — because it *is* the phone client until native ones exist. iOS has no native
+  plan and does not need one yet.
+- **F58, folder browsing, is the escape hatch of last resort** — an admin view of the tree
+  where every file shows **what it is attached to and how**: its filing and reason, its place
+  (Title → Edition → Version, or the work it is an extra of), and whether that came from
+  inference, an asserted sidecar, or a person. F88 is the same data seen as a library; F58 is
+  it seen as folders.
+- **Now playing (new, F89, rank 1).** Admin sees every session; everyone else sees their own.
+  Per stream: who, what, which device, where (LAN, remote, relay), direct play or transcode
+  **with the stated reason**, bitrate against the ceiling, and **client-reported buffer
+  health** — the field that answers "why is it buffering". Actions: **stop with a message**,
+  and lower a stream's ceiling on the spot. Live only; history is play statistics' job.
+- **Music: undecided, pending research** — competitor and sentiment research to the usual
+  standard, commercial players first. The owner's concrete wish, *"my music collection playing
+  through the TV"*, is recorded as the case to judge it by.
+- **Stale rows corrected:** F39 (no retention horizon, D165), F40 (ranked display and easy
+  sources, D171/D172), F46 and obligation #10 (met by D90: rate is local unless a group shares
+  it), F26 (now includes the ambiguous-match chooser and the thin-metadata refresh), F50
+  (designed by D89; tombstones by D167/D173).
+- **Two tensions recorded:** F41's scheduled refresh is permitted under
+  [D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user) because **subscribing to a list is the user's standing request** — one call
+  per list, schedule visible on it. And F15's rank hides a chain: remote access over a bad link
+  needs F31, F32 and bandwidth transcoding ([D86](#d86--adaptation-is-the-client-re-picking-on-a-buffer-signal-and-it-puts-bandwidth-transcoding-on-remote-accesss-critical-path)).
+
+**Status:** Decided. Register and roadmap updated. The release-cut restructure proposed in the
+same audit is **not** decided.

@@ -34,6 +34,11 @@ feature first and a LAN feature incidentally.
 | 3 | **LAN party** | Mostly a UI problem: roster, joining, control defaults |
 | — | **Remote party** | **Not on this list.** Gated on adaptive bitrate in [transcoding.md](transcoding.md) |
 
+**Two, remote, is scheduled first** ([D175](../../decisions/working-notes.md)): a film chosen in advance gets a prepared
+~8 Mbps Version from the batch transcoder, so it does not wait for live ABR. Voice ships with it.
+The supported configuration is headphones on at least one side, which makes every setup of the
+other side a tier-1 or tier-2 case.
+
 Two is the best case rather than the degenerate one:
 [D65](../../decisions/working-notes.md)'s echo alignment is *fully* solvable at two — one person
 on headphones, one on speakers, offset `d = L`, echo gone — and only approximable above it,
