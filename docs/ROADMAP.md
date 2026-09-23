@@ -40,6 +40,10 @@ rule, and everything the cut leaves out keeps its place after it.
   a sideloaded prototype, or else the laptop.
 - **Running it:** backup and restore, now playing.
 
+**Built privately, then public betas** ([D192](contributors/decisions/working-notes.md)). Cut A is the internal stage: a
+private repository, the owner and their partner testing. The public packaging channels, the
+release feed and the published cast receiver are beta-stage work.
+
 **Out for now:** roles and parental controls, collections-as-sequences, offline, segment
 detection, loudness measurement, trickplay, subtitle verification, NFO write, the TV client,
 ceilings and adaptation, the Jellyfin adapter, OIDC/LDAP, rules authoring, play statistics,
