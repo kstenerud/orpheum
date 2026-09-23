@@ -63,6 +63,47 @@ sideloaded prototype and the laptop, find out:
    `navigator.audioSession` keeps call audio off the earpiece without them (WebKit #230902).
 5. **Her uplink** and Wi-Fi at the television, against the ~8 Mbps prepared rendition.
 
+## 0c. The lab, from the shelf
+
+[D190](../../decisions/working-notes.md) §6, from the owner's inventory as verified in
+[device-testing.md](../research/device-testing.md) §6. The roster is regenerated from probe
+output once the owner's full enumeration arrives.
+
+| Host | Role |
+| --- | --- |
+| **devnas** — F2-422, J3455, 8 GB | the low-end **server floor**: QSV decodes HEVC 10-bit, encodes HEVC 8-bit only, no AV1 |
+| **nas** — F4-424, N95, Proxmox | VMs: CI runner, distro install matrix |
+| **nuc13** — NUC 13 Pro, 64 GB, Proxmox | VMs: **the remote-household simulator**, a Windows VM when wanted |
+| **gpuhost** — RTX 3090 24 GB, Mint 22.3 | NVENC conformance; the 12-session limit |
+| **MacBook Air M4** | Safari; `mediastreamvalidator`/`hlsreport`; Apple builds; the Chrome sender for Cast |
+| **stagehost** | the owner's desktop — **not a lab host**; its browsers are clients |
+
+**Network.**
+- **Zyxel XGS1250-12:** an isolated lab VLAN and a separate management VLAN; port mirroring
+  feeds packet capture.
+- **GL-MT6000:** a lab SSID on the lab VLAN.
+- **The remote household** is a Proxmox VM with two VLANs, NAT between them, `tc netem` on both
+  and a `100.64.0.0/10` WAN address. It runs three profiles: a good home link, a congested one
+  and a lossy mobile one.
+- **GL-MT3000:** the physical equivalent when the radio matters.
+- **GL-SFT1200:** plain NAT at most.
+- A phone on mobile data remains the real carrier-grade-NAT client.
+
+**Clients, reference tier:**
+- Apple TV HD, tvOS 26.6 frozen: the strictest client, with H.264 and HEVC SDR at 1080p30 only
+- Fire TV Stick 4K Max 2nd gen: the modern ceiling
+- one Fire OS 7 stick: the 1080p HDR rung, no AV1
+- Fire TV Stick 4K 1st gen, Fire OS 6: the oldest Android base present
+- Samsung S23 with Chrome
+- a current iPhone with Safari
+- the oldest iPhone on iOS 26/27
+
+**Sweep tier:** everything else. **Archive:** iPhones below the iOS floor, kept as frozen
+old-Safari clients. **Vega OS sticks:** web only.
+
+**Gap: no Cast device.** Cut A's cast receiver needs one. Buy a current Google TV device after
+her setup is known, the same model if she has one.
+
 ## 0a. Benchmark the incumbents, don't admire them
 
 [D139](../../decisions/working-notes.md). The lab has the hardware to measure **click depth**
@@ -132,6 +173,42 @@ Two consequences make this clearly right:
 that decodes HEVC natively may refuse it in its browser. So the web harness **under-reports**,
 and is a fast first pass rather than the answer. Native harnesses follow for the devices whose
 web results look worse than their hardware should allow.
+
+### What a result must meet
+
+[D190](../../decisions/working-notes.md) §1. Starting values, each frozen as a baseline once measured here
+([D110](../../decisions/working-notes.md)):
+
+| Check | Starting criterion | From |
+| --- | --- | --- |
+| Direct play starts on the lab LAN | ≤ 8 s | Roku |
+| Playback progresses, any path | within 15 s | dash.js |
+| Dropped frames | ≤ 1% and ≤ 10 consecutive; on failure re-run the mandatory baseline to tell *device* from *our choice* | Media3 |
+| A seek lands | within 0.5 s of target | dash.js |
+| Pause takes effect | within 3 s | dash.js |
+| Remote key to focus moved | ≤ 250 ms | Roku |
+| Subtitle rendering | per-platform screenshot golden, similarity threshold per test | Shaka |
+
+**An empty result is invalid.** "0 of 0 frames dropped" means nothing played. Each probe carries
+a **negative control**, a stream this device cannot play, and its passes count only after that
+control has been seen to fail.
+
+### How the lab runs
+
+From Shaka's, the BBC's and yoloAI's practice ([D190](../../decisions/working-notes.md) §6):
+- **Scheduling:**
+  - the device roster lives in the repository, with a written reason for every disabled device
+  - a nightly run, plus on demand; runs from a change happen only after review
+  - one job per device at a time
+- **Retries:** up to three, each one recorded, so the flake rate is a number.
+- **Pre-flight:** the device is reachable, has disk, and is running **the build under test**.
+- **Recovery ladder:** relaunch, then reboot (`adb`, `pyatv`), then power-cycle (`uhubctl` or a
+  switched plug).
+- **Failure reading:**
+  - failure signatures are matched against a device-idiosyncrasies register
+  - each failed run is diffed against the last good one
+- **What only a person can check** goes into a verification queue: setup, checks, the expected
+  result, and ✅/❌ recorded inline.
 
 ### Native harnesses, in cost order
 
@@ -238,6 +315,22 @@ Deciding deliberately matters because the choice **constrains the client stack r
 following from it** ([tech-clients.md](../research/tech-clients.md) §3a). And the argument is to
 set it low: this audience disproportionately runs hardware that commercial services have
 abandoned.
+
+## 9. Watch Together and voice
+
+[D190](../../decisions/working-notes.md) §5. Nobody publishes how they test this, so it is designed here.
+
+- **Sync.** Two clients play a clip with a burned-in frame counter and a flash-and-beep every
+  ten seconds.
+  - **Automated:** the lab server timestamps each client's position reports on arrival and
+    computes the drift, bounded by the LAN round trip.
+  - **Ground truth:** a verification-queue item, a phone filming both screens and comparing the
+    frame counters. It calibrates the automated number and is re-run when the sync code
+    changes.
+- **Voice.** Playwright with Chrome's fake-media flags feeds a `.wav` as each microphone.
+  `getStats` asserts arrival, jitter and loss. A beep's round trip measures the mouth-to-ear
+  latency [D65](../../decisions/working-notes.md)'s offset uses.
+- **Both run through the remote-household simulator** under its three netem profiles.
 
 ## Done when
 

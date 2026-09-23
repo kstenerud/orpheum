@@ -506,7 +506,9 @@ this decision is wrong and the transcoder returns to Phase 1. **Note how to read
 measurement:** the rate is per-client and the plan must survive the *worst* client in a
 household, not the mean — an H.264-only Apple TV against a mostly-HEVC library is the
 counter-example, and it sets the video transcoder's priority regardless of what the average
-says.
+says. *(Corrected 2026-09-23: the lab's 2015 Apple TV HD decodes HEVC SDR at 1080p30, so the
+example is a library of 4K, HDR or 60 fps HEVC rather than any HEVC; the argument is unchanged.
+[device-testing.md](../design/research/device-testing.md) §6.)*
 
 ---
 
@@ -7074,7 +7076,11 @@ So the requirement is larger than a test:
   deserves to know it is not in force. Silence here is the failure mode.
 - **The escape test asserts what is actually in force**, not that the right function was
   called: attempt the forbidden open and the forbidden syscall, and assert the denial —
-  skipping loudly, not silently, where the mechanism is absent.
+  ~~skipping loudly, not silently, where the mechanism is absent~~. **Refined by [D190](#d190--the-testing-strategy-devices-report-on-themselves-against-numbers-a-missing-capability-fails-every-check-first-shows-it-can-fail-and-the-lab-is-built-from-what-is-on-the-shelf):**
+  on a host that should have the mechanism the test **fails** rather than skips, and a skip is
+  allowed only where the CI step names the mechanism as uncontrolled. The test must also
+  **first show that the forbidden open succeeds without our confinement**, because inside
+  Docker a denial may be Docker's seccomp and not our Landlock.
 - **Absent confinement is a degraded mode, not an error.** Refusing to run in Docker would be
   worse than running and saying so.
 
@@ -14762,3 +14768,210 @@ test runs against themes too.
 into [tv-client.md](../design/plans/tv-client.md),
 [web-client.md](../design/plans/web-client.md),
 [accessibility.md](../design/plans/accessibility.md) and testing-strategy.md.
+
+---
+
+## D190 — The testing strategy: devices report on themselves against numbers, a missing capability fails, every check first shows it can fail, and the lab is built from what is on the shelf
+
+**Decided** (2026-09-23), on the owner's request for a testing strategy built on competitors'
+practice, yoloAI's, and the home hardware. Research:
+[device-testing.md](../design/research/device-testing.md). It refines
+[D112](#d112--the-node-probes-its-confinement-and-reports-it-the-escape-test-asserts-what-is-in-force),
+extends [D109](#d109--five-corpus-tiers-and-nobody-has-to-download-media-to-run-the-suite)–[D111](#d111--assumptions-is-a-test-directory)
+and [device-lab.md](../design/plans/device-lab.md), and replaces none of them.
+
+### 1. The device reports; the lab judges against numbers
+
+Every mature project that tests playback at scale makes the player report its own state rather
+than driving its UI: Shaka, Netflix, YouTube, the BBC.
+[device-lab.md](../design/plans/device-lab.md) §3 already chose that. What was missing is
+**numbers to fail against**, and other people have fixed them. They are the starting values; each
+becomes a frozen baseline under
+[D110](#d110--every-threshold-gate-compares-against-a-frozen-baseline-and-the-assertion-is-chosen-per-test)
+once measured here:
+
+| Check | Starting criterion | From |
+| --- | --- | --- |
+| Playback starts, direct play on the lab LAN | ≤ 8 s | Roku certification |
+| Playback progresses, any path | within 15 s | dash.js |
+| Dropped frames | **≤ 1% of total and ≤ 10 consecutive**; on failure re-run the mandatory baseline rendition, and report *device* or *our choice* accordingly | Media3 |
+| A seek lands | within 0.5 s of its target | dash.js |
+| Pause takes effect | within 3 s | dash.js |
+| Remote key to focus moved | ≤ 250 ms (the D-pad gate's first ceiling) | Roku certification |
+| Subtitle rendering | per-platform screenshot golden, image similarity with a per-test threshold | Shaka |
+
+**A result with nothing in it is invalid, not good.** "0 dropped of 0 frames" means nothing
+played; a probe must be seen to fail on a stream the device certainly cannot play before its
+passes count.
+
+### 2. A missing capability fails; only a named list may be absent
+
+yoloAI's hardest-won rule. One of its test tiers skipped itself for months, and two of its
+security tests had never run, because a missing prerequisite meant *skip*. So:
+
+- A test whose prerequisite **could exist on this host and does not, fails.**
+- Each CI step or lab job may name what is legitimately absent
+  (`VP_TEST_UNCONTROLLED=nvenc,vaapi,landlock,cast`), and the run prints that list.
+- A test that **cannot** run on this platform at all (tvOS on a Linux runner) is not scheduled
+  there, and the run lists it as **uncovered**. Uncovered is shown, never silent.
+- A gate check fails when code reads a `VP_TEST_*` variable that nothing (Makefile, CI, lab
+  runner) sets.
+
+[D112](#d112--the-node-probes-its-confinement-and-reports-it-the-escape-test-asserts-what-is-in-force)'s
+"skip loudly" becomes **fail**, except where the step names Landlock as uncontrolled.
+
+### 3. Every check first shows it can fail
+
+A yoloAI run reported *"7 PASS / 0 FAIL"* and concluded the exact inverse of the truth, because
+the sandbox lacked the capability under test. The rule: **before trusting a pass, observe the
+same check fail on a case where failure is certain.**
+- **The escape test** opens the forbidden path *without* our confinement and sees it succeed,
+  then with it and sees the denial, and attributes the denial to our layer. Inside Docker, a
+  denial may be Docker's seccomp.
+- **Each device probe** carries a negative control, a stream that device cannot play.
+- **Each gate script** has tests that make it fail, as `check_docs.py` does.
+- **Each benchmark** stamps the harness version and lists what it did *not* try.
+
+### 4. Taken from yoloAI, as each piece of code arrives
+
+- **A fake `ffmpeg` fixture.** It asserts the arguments we pass (`-force_idr 1` reaching NVENC),
+  the environment the worker receives, and that errors carry the tail of stderr.
+- **Architecture claims as named tests** (`TestArch_…`), cited from the prose, with a gate that
+  every cited test exists and every such test is cited. The first five:
+  - the core never executes FFmpeg ([D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp))
+  - nothing deletes under a media root except the trash writer ([D145](#d145--the-trash-is-one-directory-per-event-with-a-parallel-tree-inside-because-our-unit-of-undo-is-a-bulk-operation))
+  - the playback decision never branches on client identity, only on declared capability ([D2](#d2--playback-negotiation-the-client-decides-from-a-manifest), [D103](#d103--a-device-scoped-preference-is-stored-a-device-capability-never-is))
+  - the node imports nothing from the core
+  - only the store package imports SQLite
+- **Revert-and-require-red.** For each changed source file, the old version is restored in a
+  throwaway worktree and some test must fail. A fix only a device can confirm carries a
+  `Verified-By:` trailer naming a **verification-queue** item. A check confirms the item exists
+  and is ticked, because yoloAI's unchecked trailer has been used zero times.
+- **One conformance suite per contract, run against every implementation.** Each implementation
+  declares what it cannot do, with a reason, as an explicit skip. The contracts are:
+  - the client surface ([D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s
+    six methods), across web, cast receiver and TV clients
+  - the encoder ([D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three)),
+    across software, QSV, VAAPI and NVENC on the Proxmox hosts and the 3090
+- **`make check`:**
+  - builds the lab- and integration-tagged tests
+  - cross-compiles for linux/amd64, linux/arm64 and darwin
+  - pins tool versions, including FFmpeg's, and fails on a missing one
+  - runs tests in a hermetic environment (time zone, locale, git config)
+  - no gate is pull-request-only
+  - govulncheck, with suppressions that fail once a fix ships
+  - setup output is logged, never discarded
+- **A Stop hook that runs the checks and blocks an agent's turn on failure**, and an
+  `agent-failures.md` with a "Caught by" field, both from the first code commit. This project
+  is agent-written, as yoloAI is.
+
+**Not taken:**
+- the rest of yoloAI's repo-hygiene suite (`check_docs.py` has the parts that matter here)
+- frozen harness versions as separate files
+- per-OS linting and a Docker-provider matrix
+- transcript-parsing provenance hooks
+- coverage targets
+- a single release test needing every host at once
+
+### 5. Watch Together and voice get tests nobody else wrote
+
+Nobody publishes how they test watch-party sync, so it is designed here:
+- **Sync:** two clients play a test clip with a burned-in frame counter and a flash-and-beep
+  every ten seconds.
+  - **Automated:** the lab server timestamps each client's position reports on arrival over a
+    sub-millisecond LAN and computes the drift, within the RTT's bound.
+  - **Ground truth:** a verification-queue item where a phone films both screens and the frame
+    counters are compared. It calibrates the automated number and is re-run when the sync code
+    changes.
+- **Voice:** Playwright with Chrome's fake-media flags feeds a `.wav` as each microphone.
+  `getStats` asserts audio arrives, with jitter and loss within bounds. A beep's round trip gives
+  the mouth-to-ear latency that
+  [D65](#d65--playback-offset-is-per-participant-and-it-is-an-echo-control)'s offset needs.
+- **Both run across the simulated remote household** (§6), under netem profiles for a good
+  home link, a congested one and a lossy mobile one. A real phone on mobile data remains the
+  real carrier-grade-NAT client.
+
+### 6. The lab, from the shelf
+
+**Hosts.**
+- **devnas (F2-422, J3455, 8 GB):** the low-end server floor. It must run the server, and its
+  QSV decodes HEVC 10-bit but encodes HEVC 8-bit only and does no AV1.
+- **nas (F4-424, N95) and nuc13 (NUC 13 Pro), both Proxmox:** they host the VMs:
+  - the CI runner
+  - the **remote-household simulator**: two VLANs, NAT between them, `tc netem` on both, and a
+    `100.64.0.0/10` WAN address
+  - distro VMs for the install matrix
+  - a Windows VM when it is wanted
+- **gpuhost:** NVENC encoder conformance and the 12-session limit.
+- **MacBook:** Safari, Apple's HLS validators, Apple builds, and the Chrome sender for Cast.
+- **stagehost is the owner's desktop and is not a lab host.** Its browsers are clients like any other.
+
+**Network.**
+- The Zyxel carries an **isolated lab VLAN** and a separate management VLAN.
+- The MT6000 maps a lab SSID onto the lab VLAN.
+- Port mirroring feeds packet capture.
+- The MT3000 is the physical remote-household router when the radio matters, at the cost of its
+  repeater role.
+- The SFT1200 (vendor OpenWrt 18.06, no SQM) is a plain NAT box at most.
+
+**Clients, reference tier** (always connected):
+
+| Device | Why it is in the reference tier |
+| --- | --- |
+| Apple TV HD (tvOS 26.6, frozen) | the strictest client: H.264 and HEVC SDR at 1080p30 only; a device that will never update |
+| Fire TV Stick 4K Max 2nd gen (Fire OS 8) | the modern ceiling: AV1, HEVC 4K60 10-bit, Dolby Vision |
+| one Fire OS 7 stick (Lite, 3rd gen or HD) | the 1080p HDR rung with no AV1, the most common tier |
+| Fire TV Stick 4K 1st gen (2018, Fire OS 6) | the oldest Android base present |
+| Samsung S23, Chrome | modern Android and the Cast sender on a phone |
+| a current iPhone, Safari | ManagedMediaSource, no element fullscreen, the voice path |
+| the oldest iPhone on iOS 26/27 (iPhone 11 or SE 2nd gen) | the iOS floor |
+
+- **Sweep tier** (rotated): the other sticks, phones and browsers.
+- **Archive tier:** iPhones below the iOS floor, kept as frozen old-Safari clients in case the
+  web client's floor is set lower.
+- **Vega OS sticks, if any:** web only, since `adb` is not documented there.
+
+**Operating habits** (Shaka, the BBC, yoloAI):
+- a device roster in the repository, with a written reason for every disabled device
+- a nightly run, plus on demand; runs from a change only after review
+- one job per device at a time
+- up to three retries, **each one recorded**, so the flake rate is a number
+- a pre-flight: reachable, enough disk, running the build under test
+- a recovery ladder: relaunch, then reboot (`adb`, `pyatv`), then power-cycle (`uhubctl` or a
+  switched plug)
+- failure signatures matched against a device-idiosyncrasies register
+- each failed run diffed against the last good one
+
+**One gap Cut A cannot close without buying something: no Cast device.** Cut A includes the
+cast receiver
+([D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)),
+and it is path 2 for her television
+([D188](#d188--the-interface-is-designed-against-the-fields-recorded-failures-accessibility-shapes-the-design-but-does-not-gate-cut-a-her-television-plays-and-her-phone-talks)).
+test-hardware.md's rule was to buy a Google TV device when Cast is built, and Cast is now being
+built. **Recommended: one Google TV Streamer** (or whatever Google currently sells), after her
+setup is known, so that if she has one, the lab has the same model.
+
+### 7. What Cut A needs from all this
+
+**Needed:**
+- the web client in Chrome and Firefox on Linux, Safari on the MacBook, Safari on the current
+  and the oldest iPhone, and Chrome on the S23
+- the Cast device
+- the remote-household VM with its netem profiles
+- the sync and voice tests of §5
+- the §1 criteria on those clients
+- the gates of §2–§4 as the first code lands
+
+**Not needed yet:** the reference television tier beyond whatever path her setup chooses.
+
+**Status:** Decided. Plans amended: [device-lab.md](../design/plans/device-lab.md) (§0c the lab,
+the criteria, the habits, sync and voice) and
+[testing-strategy.md](../design/plans/testing-strategy.md) (the gates). **To confirm on the
+devices:**
+- the staging host's model and its 64 GB
+- the F2-422's CPU
+- whether netem installs on the MT6000's kernel
+- the 3090's session limit on the installed driver
+- the S23's AV1 decode
+- which Fire TV sticks run Vega OS
+- whether a capture card sees HDCP-protected output
