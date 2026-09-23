@@ -47,6 +47,14 @@ Two guards, taken verbatim from Navidrome's hard-won comments:
 
 ## What is actually backed up
 
+> **Simplified by [D185](../../decisions/working-notes.md):** the table below still says what is
+> *irreplaceable*, but the backup no longer splits the database by it. **`library.db` is backed up
+> whole** — at the reference scale 32–46 MB and 130–180 ms by `VACUUM INTO` — which carries the
+> identity rows ([D179](../../decisions/working-notes.md)) and the index for free and makes a
+> restore a restore rather than a rebuild. What is left out is what is large and disposable:
+> `cache/` on disk and the separate `cache.db` of fetched responses and queues
+> ([schema.md](schema.md)).
+
 | Regenerable by rescan | Irreplaceable |
 | --- | --- |
 | library index, probe results | watch state and playback positions |

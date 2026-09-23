@@ -3,6 +3,9 @@
 
 # Library model
 
+> **The tables themselves are listed in [schema.md](schema.md)** — the Cut A sketch, as SQL that
+> runs ([D185](../../decisions/working-notes.md)). This document is the *why*.
+
 - **Status:** PLANNED — designed 2026-09-17; **reviewed and corrected 2026-09-19** ([library-model-review.md](../research/library-model-review.md), [D79](../../decisions/working-notes.md)); **nine more schema items added by the audit the same day** ([audit-2026-09-19.md](../research/audit-2026-09-19.md), [D81](../../decisions/working-notes.md)–[D84](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D95](../../decisions/working-notes.md)–[D97](../../decisions/working-notes.md)), plus the sidecar split ([D98](../../decisions/working-notes.md)), a device scope on the preference table ([D103](../../decisions/working-notes.md)), and **the `role` table** ([D130](../../decisions/working-notes.md), 2026-09-21).
 - **Depends on:** —
 
@@ -157,12 +160,13 @@ each lands here rather than being bolted on — the same argument
   per-user state, are **database-only** ([D98](../../decisions/working-notes.md)).
 - **Play state is two structures, not one column**
   ([D81](../../decisions/working-notes.md), [play-state.md](play-state.md)). A **guarded
-  position** per `(user, edition)` carrying a monotonic sequence, so a stale device cannot
+  position** per ~~`(user, edition)`~~ **`(user, file)`** ([D157](../../decisions/working-notes.md)) carrying a monotonic sequence, so a stale device cannot
   rewind a newer one; and an **append-only play-event log** with device, server timestamp and
   the client's own monotonic clock. Jellyfin keeps one mutable row and its tracker carries
   *"Most movies now appear to be 75% watched"* (44 comments) and *"Media playback randomly
   starts over again or jumps back — STILL"* (29). The log is also the only table with an
-  unbounded row count, so it carries a retention horizon from the first migration.
+  unbounded row count, ~~so it carries a retention horizon from the first migration~~ — **and
+  keeps everything: spans, not heartbeats, make five years 13.4 MB** ([D165](../../decisions/working-notes.md)).
   **A position is File-relative** ([D157](../../decisions/working-notes.md)); each File records
   its offset within the Version's ordering for *display* only, and nothing above the File
   holds a position.
@@ -353,7 +357,7 @@ a delete keyed only on a path can destroy a different file that has since appear
   favourites and **user** ratings in the play-state family and no external score anywhere —
   and neither does any other document in the tree. Maintainerr carries **twelve** such
   properties and most of Kometa's 129 collection builders rest on them. So: at the **Title**,
-  `(source, kind, score, vote_count, as_of)` — `source` ∈ IMDb, Rotten Tomatoes, TMDb, Trakt…,
+  `(source, kind, score, vote_count, as_of)` — `source` ∈ TMDB and OMDb's IMDb, Rotten Tomatoes and Metacritic ([D172](../../decisions/working-notes.md): easy data only),
   `kind` distinguishing **critic from audience**, which Rotten Tomatoes reports separately and
   which a single column would destroy. The vote count is what makes the score usable, and
   `as_of` is what makes a refresh honest. They are provider data, so they carry provenance
@@ -492,12 +496,15 @@ Schema and `sqlc` queries exist, migrations run forward from empty, and a docume
 fixture library round-trips through scan → query → rebuild-from-empty with no user-visible loss.
 
 The fixture includes **one film held as two parts at 1080p and a single file at 4K, in two
-different cuts** — the case that breaks a three-level model — and resume position survives
-switching between the 1080p and the 4K.
+different cuts** — the case that breaks a three-level model — ~~and resume position survives
+switching between the 1080p and the 4K~~ **and each file keeps its own resume position, while
+completing either marks the film watched** ([D157](../../decisions/working-notes.md),
+[D158](../../decisions/working-notes.md), [D173](../../decisions/working-notes.md): two files'
+timelines are never related).
 
 Three more fixture assertions, from the audit:
 
-- **Two devices reporting progress for one edition cannot rewind each other**, and the losing
+- **Two devices reporting progress for one file cannot rewind each other**, and the losing
   report is still in the log ([D81](../../decisions/working-notes.md)).
 - **A full rescan destroys no user-authored data** — not a chosen poster, not a playlist, not a
   manual identification, not a preference. Jellyfin's *All Library Scan causes playlists to
