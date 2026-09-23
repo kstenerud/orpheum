@@ -86,7 +86,7 @@ because the media namespace caps a message at **64 KB** and a full season does n
 ## The metadata editing surface, which nothing owned
 
 [D140](../../decisions/working-notes.md). The metadata *model* is unusually thorough —
-field-level provenance, manual identification overrides that survive rescans
+a selected source per title with permanent manual fields ([D170](../../decisions/working-notes.md)), manual identification overrides that survive rescans
 ([D7](../../decisions/working-notes.md)), user-chosen artwork, sidecar write-back
 ([D98](../../decisions/working-notes.md)) — and **no document said where a person actually does
 any of it.** A UI gap behind a well-specified model, which is the kind that survives review.
