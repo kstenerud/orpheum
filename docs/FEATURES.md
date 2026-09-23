@@ -197,6 +197,9 @@ is there so that changing your mind is cheap.
 | F84 | A device-profile database | [D2](contributors/decisions/working-notes.md), [D21](contributors/decisions/working-notes.md) — the field's largest bug source | the closed output menu must never become a grammar of conditions |
 | F85 | A Netflix-style encoding ladder | [D86](contributors/decisions/working-notes.md) | — |
 | F86 | A video encoder in the core binary | [D19](contributors/decisions/working-notes.md) | it is a plugin on the public API |
+| F93 | **Decrypting protected discs or streams** (DVD CSS, AACS, streaming DRM), bundled or linked | [D187](contributors/decisions/working-notes.md) — §1201 liability that lawful uses do not cure | nothing; door shut. An encrypted disc is refused with its reason |
+| F94 | **Built-in content sources** — indexers, trackers, debrid, IPTV playlists, source add-on catalogues, request→download wiring | [D187](contributors/decisions/working-notes.md) — *Filmspeler*, Popcorn Time; the features app stores remove | generic webhooks and the plugin API; third-party repositories added by hand |
+| F95 | **Venue, kiosk or public-display mode; payments between users** | [D187](contributors/decisions/working-notes.md) — a public performance in every venue; paid access is resale | nothing |
 | F87 | A provider's trailer played from its URL | [D162](contributors/decisions/working-notes.md) — a work-shaped row with no Version, no File and nothing for a rebuild to recover, plus a third-party fetch during playback | the provider record may carry the **link** as metadata; following it is opening a link, not playback |
 
 ---

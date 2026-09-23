@@ -6,6 +6,20 @@
 - **Status:** PLANNED — designed 2026-09-17; sign-in, accessibility and the Apple licence consequence added 2026-09-19 ([D93](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D80](../../decisions/working-notes.md)).
 - **Depends on:** web-client.md
 
+
+## Stores, and what gets a media client pulled
+
+[D187](../../decisions/working-notes.md), [research/app-stores.md](../research/app-stores.md). **No store bans a client for
+your own server; they remove content-source features and reject on operations.** So: no add-on
+catalogue, IPTV import or torrenting in any build; a **permanent reviewer demo server** of
+public-domain or Creative Commons content, reachable worldwide over HTTPS with a stable login;
+listings whose first line is *requires your own server* and whose screenshots come only from that
+demo library; an app that **opens with no server reachable, says why, and resumes after
+reconnecting** — the failure that held Jellyfin's Samsung app for two years; an **organisation**
+Play account and package-signing registration before Google's developer verification (from 30
+September 2026); the same APK for Fire OS and a WebView build for Vega OS, which cannot sideload;
+and the signed APK, F-Droid and `adb` paths [D108](../../decisions/working-notes.md) promised,
+because any store may pull us for a while.
 ## Why Android TV first
 
 Largest installed base among self-hosters, sideloadable with no store gatekeeping, and cheap
