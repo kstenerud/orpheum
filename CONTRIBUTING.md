@@ -32,6 +32,19 @@ make check     # the gate; must pass before every commit
 
 `make help` lists every target.
 
+## Developing
+
+```
+make dev          # the app on http://127.0.0.1:5173, rebuilt on every change
+```
+
+The first run fetches the pinned FFmpeg and generates a small synthetic library, then prints
+every setting it chose: users `owner`/`owner` and `partner`/`partner`, debug logs, pprof, the
+race detector. The choices live in `dev/orpheum.dev.toml` and `dev/seed.toml`; all state lives in
+`.dev/`, which `make dev-reset` and `make dev-clean` throw away. The debugging targets —
+`dev-db`, `dev-logs`, `dev-debug`, `pprof`, `probe`, `test-one`, `cover` and more — are in
+`make help` and [D197](docs/contributors/decisions/working-notes.md).
+
 ## Making a change
 
 - Read [`AGENTS.md`](AGENTS.md). Its rules apply to humans too, and the commit-msg and

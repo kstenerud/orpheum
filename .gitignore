@@ -1,6 +1,7 @@
 # build and tool output
 /bin/
 /.tools/
+/.dev/
 /dist/
 *.test
 *.out

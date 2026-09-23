@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# What `orpheum dev seed` puts into an empty dev database, so the app opens on a working
+# library with Cut A's two people already in it. Dev builds only (-tags dev): these passwords
+# are public, and a release binary has no command that could create them.
+
+# The two users Cut A is for (D178): the owner at home, and one person remote.
+[[user]]
+name = "owner"
+password = "owner"
+role = "admin"
+
+[[user]]
+name = "partner"
+password = "partner"
+role = "user"
+outsider = true          # D174: invited from outside the house
+
+# The three questions asked when a library is created (D184), answered for debugging:
+# metadata from the NFO files the generator writes, so no TMDB key is needed; the watcher on,
+# so dropping a file into .dev/media shows up at once; and the media never written to.
+[[library]]
+name = "Dev films"
+kind = "movies"
+root = "{root}/.dev/media/movies"
+metadata_source = "nfo"
+change_detection = "watch"
+writable = false
+
+[[library]]
+name = "Dev shows"
+kind = "shows"
+root = "{root}/.dev/media/shows"
+metadata_source = "nfo"
+change_detection = "watch"
+writable = false
+
+# Server settings (the `setting` table), chosen so nothing reaches the network by itself.
+[settings]
+update_check = false
+subtitles_on_by_default = true
+dialogue_boost_default = false
+
+# Secrets are not seeded. To try TMDB or OpenSubtitles in dev, export ORPHEUM_DEV_TMDB_KEY or
+# ORPHEUM_DEV_OPENSUBTITLES_* before `make dev`; the seed seals whichever are set (D194).

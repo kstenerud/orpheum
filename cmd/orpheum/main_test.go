@@ -62,3 +62,14 @@ func TestRun_UsageErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestRun_DevSubcommandExistsOnlyInDevBuilds(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	run([]string{"dev"}, &stdout, &stderr)
+	unknown := strings.Contains(stderr.String(), "unknown subcommand")
+	if unknown == isDevBuild {
+		t.Errorf("isDevBuild = %v but stderr = %q: the dev subcommand must exist exactly in dev builds",
+			isDevBuild, stderr.String())
+	}
+}

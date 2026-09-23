@@ -95,6 +95,44 @@ background, never as a to-do list.
   house too. The cast receiver is served from `https://media.<domain>/cast/` and registered,
   unpublished, to the remote person's device ([D192](../../decisions/working-notes.md)).
 
+## 2a. The development loop
+
+`make dev` runs the app for debugging, with opinionated settings that it prints and that live in
+committed files, not in code ([D197](../../decisions/working-notes.md)). `make help` lists the
+other debugging targets (`dev-server`, `dev-lan`, `dev-reset`, `dev-db`, `dev-logs`,
+`dev-debug`, `pprof`, `probe`, `test-one`, `cover`). **What the server must implement for the
+loop to work:**
+
+- **`orpheum run --config <file>`**, reading TOML with exactly the keys in
+  [`dev/orpheum.dev.toml`](../../../../dev/orpheum.dev.toml). Paths arrive absolute (the loop
+  renders them).
+  - `[server]`: `listen`, `data_dir`, `cache_dir`
+  - `[node]`: `roots`, `ffmpeg_dir`, and `confinement`. `confinement` is `"require"` or
+    `"report"`, and a production install defaults to `"require"`.
+  - `[log]`: `level`, `format` (`text` or `json`)
+  - `[debug]`: `pprof` and `metrics`, both off unless set, served on the listen address only
+    when it is loopback
+
+  This is the D182 §3 file: only what must exist before the database opens. Unknown keys are
+  reported and ignored, never fatal ([packaging-history.md](../research/packaging-history.md)
+  lesson 11).
+- **`orpheum dev seed --config <file> --seed <file>`, in `-tags dev` builds only** (M1 for the
+  users and settings, M2 for the libraries). It applies [`dev/seed.toml`](../../../../dev/seed.toml):
+  - the two users with their public dev passwords;
+  - the two libraries, with D184's three questions answered;
+  - the server settings;
+  - `ORPHEUM_DEV_TMDB_KEY` and `ORPHEUM_DEV_OPENSUBTITLES_USERNAME`/`_PASSWORD`/`_API_KEY`,
+    sealed (D194) when set.
+
+  A release binary has no `dev` subcommand; `TestRun_DevSubcommandExistsOnlyInDevBuilds`
+  guards that.
+- **The dev library** (`make dev-media`, [`scripts/dev_media.py`](../../../../scripts/dev_media.py))
+  is the M2–M5 manual test bed. It holds one synthetic file per Cut A path: direct play, remux,
+  TrueHD, HEVC, two versions and a trailer, a three-episode series, an AppleDouble file, a text
+  file named `.mkv`, and an unidentifiable file. Their NFO files make identification work with
+  no TMDB key. The centre channel is a pulsing tone, so the dialogue boost can be heard and
+  measured.
+
 ## 3. Repository layout
 
 One private GitHub repository ([D192](../../decisions/working-notes.md)), one Go module, one npm
@@ -336,7 +374,7 @@ must first be seen to fail ([D190](../../decisions/working-notes.md)).
 | | Contents | Accepted when |
 | --- | --- | --- |
 | **M0 — skeleton and gates** *(done 2026-09-23, [D196](../../decisions/working-notes.md); CI runs on the first push)* | the layout of §3, the licence files, `make check`, CI on the private repo, the Stop and pre-edit hooks, the dependency allowlist, the first `TestArch_` tests; the standards round's output ([D192](../../decisions/working-notes.md) §3) | CI is green on an empty server. Each of these turns it red: a SQLite import outside `store`; an `exec.Command` in core; an import of `internal/node` from core; editing a lint config through the agent. |
-| **M1 — schema, migrations, backup** | [schema.md](schema.md) as migration 0001 through the D181 runner and sqlc; the `setting` registry; sealed secrets and `secret.key`; argon2id passwords; `VACUUM INTO` backup; `orpheum restore`; the setup code and the first admin | A fresh schema equals the golden. Killing the process mid-migration and restarting resumes. A database whose `compatible_version` is newer is refused, and the refusal names the snapshot. A backup restored into an empty data directory reproduces every authored table. A file without the `application_id` is refused. `/health` says `migrating` before the migration starts. **A canary secret appears in no API response, log, `doctor` output, bug report or backup except as ciphertext.** A restore without `secret.key` marks secrets *needs re-entering* and loses nothing else. argon2id takes ≤ 500 ms on devnas. |
+| **M1 — schema, migrations, backup** | the config file and `orpheum dev seed` for users and settings (§2a); [schema.md](schema.md) as migration 0001 through the D181 runner and sqlc; the `setting` registry; sealed secrets and `secret.key`; argon2id passwords; `VACUUM INTO` backup; `orpheum restore`; the setup code and the first admin | A fresh schema equals the golden. Killing the process mid-migration and restarting resumes. A database whose `compatible_version` is newer is refused, and the refusal names the snapshot. A backup restored into an empty data directory reproduces every authored table. A file without the `application_id` is refused. `/health` says `migrating` before the migration starts. **A canary secret appears in no API response, log, `doctor` output, bug report or backup except as ciphertext.** A restore without `secret.key` marks secrets *needs re-entering* and loses nothing else. argon2id takes ≤ 500 ms on devnas. |
 | **M2 — scan and identify** | node child and both sockets; enumerate, probe, payload hash; JSONL reports and ingest; the filename parser; the job queue with fetches; TMDB; NFO read; the ambiguous chooser; overrides; the scanner view; artwork; browse and search | On the tier-1 corpus plus a 200-file fixture tree, every file has a filing and a reason. D179's table holds as tests: a `mkvpropedit` title edit keeps identity, and an `ffmpeg -c copy` remux gets a new one. No ambiguous title is auto-matched. An override survives re-derivation. With the media root at mode 000 to the core's user, the core still works: it never opens a media path. |
 | **M3 — play in a browser** | the playback decision; direct play relayed; **prepare** with both profiles; subtitles via JASSUB and the offset; the dialogue boost; play state, Continue Watching with hide and undo; accounts; the web client usable on a phone; the job view; confinement and its report | An MKV with H.264, TrueHD and ASS plays in Chrome, Firefox and iPhone Safari within 8 s of pressing play, with the reason on screen. The boost measurably raises the centre channel's share of the stereo output. Two devices reporting out of order never rewind the position. `mediastreamvalidator` passes on a prepared rendition. The escape test is green on devnas. |
 | **M4 — two people, one remote** | the HTTPS name; reachability; invites; Watch Together over §5.1; voice through embedded TURN; recording for signed-in members; now playing | On D190's remote-household VM under its netem profiles, two Playwright clients stay within the drift bound for 30 minutes. Fake-microphone voice arrives within the jitter and loss bounds. An invite works once. Revocation ends access at the next request. No credential appears in any URL in a HAR capture. A signed-in guest's history advances; an anonymous one's does not. |

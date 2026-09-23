@@ -29,7 +29,7 @@ type subcommand struct {
 
 // plannedSubcommands lists every subcommand cut-a §3 names, in the order the usage shows them.
 func plannedSubcommands() []subcommand {
-	return []subcommand{
+	planned := []subcommand{
 		{name: "run", summary: "start the core, which supervises the node as a child process"},
 		{name: "core", summary: "run the core alone"},
 		{name: "node", summary: "run a media node alone"},
@@ -39,6 +39,13 @@ func plannedSubcommands() []subcommand {
 		{name: "doctor", summary: "report what is wrong and how to fix it"},
 		{name: "setup-code", summary: "print the one-time code that creates the first admin"},
 	}
+	if isDevBuild {
+		planned = append(planned, subcommand{
+			name:    "dev",
+			summary: "development only: seed the dev database from dev/seed.toml (make dev)",
+		})
+	}
+	return planned
 }
 
 func main() {
