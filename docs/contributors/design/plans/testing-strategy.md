@@ -7,6 +7,11 @@
 - **Status:** PLANNED — researched 2026-09-20 ([testing-strategy.md](../research/testing-strategy.md), [D109](../../decisions/working-notes.md)–[D112](../../decisions/working-notes.md)).
 - **Depends on:** —
 
+
+**Fixtures never contain commercial content** ([D187](../../decisions/working-notes.md)). Media in the corpus is generated,
+public-domain or Creative Commons (Blender's open films, the Internet Archive's public-domain
+collection); filename-parser cases exercise real naming *patterns* with synthetic titles. youtube-dl's
+2020 takedown cited test cases naming label videos.
 ## Why it needs its own plan
 
 Most of this product's correctness lives where a normal unit test cannot reach: real media,

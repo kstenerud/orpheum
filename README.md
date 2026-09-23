@@ -13,6 +13,13 @@ Start at **[`docs/contributors/design/overview.md`](docs/contributors/design/ove
 **[`docs/FEATURES.md`](docs/FEATURES.md)** for every feature we know of, ranked — including
 what we have declined and what would make each one possible again.
 
+## What it is for
+
+A player for media you have the right to use. It does not provide, locate or download content,
+and it does not remove copy protection. You are responsible for complying with copyright law where
+you live, including when you share access with others. *(Draft wording, pending legal review — see
+[D187](docs/contributors/decisions/working-notes.md).)*
+
 ## The promise
 
 Product commitments, not aspirations:

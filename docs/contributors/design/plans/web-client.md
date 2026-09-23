@@ -97,6 +97,15 @@ change journal, outranks any provider, and **is never overwritten by a refresh**
 Jellyfin's *Some custom primary images/art seem to have automatically reverted* records.
 Plex's *Metadata Editing on Mobile* sits at 66 likes, so the phone wants it too, later.
 
+## Gatekeepers a web client has too
+
+[D187](../../decisions/working-notes.md), [research/app-stores.md](../research/app-stores.md). **Served by the server, same
+origin** — no LAN-access prompt, no mixed content. And because Google Safe Browsing has flagged
+self-hosted Jellyfin and Emby instances as *"Deceptive site"* — many identical login pages on
+unrelated domains look like phishing — **no project-branded share or meta tags on a user's
+instance, an admin-customisable login page, `noindex` by default**, and our demo on a domain
+separate from the project site. Demo content is public-domain or Creative Commons.
+
 ## Creating a library asks three things
 
 [D184](../../decisions/working-notes.md), [principles §15](../../principles/README.md). Each question states its effect, and

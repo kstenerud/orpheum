@@ -77,6 +77,16 @@ within his scope, minutes long, unable to mint further, counted against his ceil
 when he is revoked. His household's play state lives on his server. What it owes now: a grant
 may have a parent; a node need not be a local daemon; every item carries its source.
 
+## The law, and what the sharing page shows
+
+[D187](../../decisions/working-notes.md), [research/legal.md](../research/legal.md). Household remote access is private;
+**a few invited people are probably private** — the relationship decides, not a number. So the
+sharing page shows the owner **how many people outside the household can play the library** — a
+display, never an enforced threshold. A **rebroadcast grant** is accepted with terms (personal,
+non-commercial, never in a public place, never resold), shows **how many people** it serves, and
+stays **non-transitive** — which is legally valuable, not just tidy. No venue mode, no payments
+between users, no open sign-up.
+
 ## Identity
 
 Already researched — [remote-access.md](../research/remote-access.md) §6. Four options, not

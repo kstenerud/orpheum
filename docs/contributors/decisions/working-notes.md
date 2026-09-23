@@ -1870,7 +1870,8 @@ incumbent does it. **Trigger:** tiered polling proving inadequate for SMB users 
 
 **Status:** Provisional. The inbound endpoint and tier D are v1; everything else is ordering.
 The `*arr` webhook integration should be documented as a first-class setup step, not buried —
-it is the difference between instant and a poll interval for most of this audience.
+it is the difference between instant and a poll interval for most of this audience. *(Emphasis revised by [D187](#d187--users-are-responsible-for-what-they-play-we-never-supply-locate-unlock-or-promote-it--and-the-store-and-legal-constraints-that-follow): the webhook is documented as generic — "any tool that
+writes files can tell us" — naming the *arr tools neutrally among others.)*
 
 ---
 
@@ -4727,6 +4728,8 @@ that looks like a distribution platform, and rightsholders notice fan-out.
 
 Being blind helps the conduit argument and simultaneously means the only possible response to a
 complaint is "we cannot see it", which is a mixed position rather than a clean one.
+
+*(Answered in part by [D187](#d187--users-are-responsible-for-what-they-play-we-never-supply-locate-unlock-or-promote-it--and-the-store-and-legal-constraints-that-follow) §5: a conduit still needs a published repeat-infringer policy, a copyright contact and short published retention — and a flat price.)*
 
 **This, not egress cost, is the reason to be slow here.** For reference the cost is a rounding
 error: a two-hour film at 10 Mbps is ~9 GB, so a party of ten is ~90 GB, which at Hetzner's
@@ -14629,3 +14632,123 @@ fewer. At **500,000 tracks** our schema is **480 MB**; every browse query measur
 1 ms; a backup is ~460 MB and 1.4–3.4 s, so retention count becomes a real setting.
 
 **Status:** Decided. schema.md revised and re-validated; the video benchmark re-run on it.
+
+---
+
+## D187 — Users are responsible for what they play; we never supply, locate, unlock or promote it — and the store and legal constraints that follow
+
+**Decided** (2026-09-23), at the project owner's request:
+
+> *"I don't want to be legally exposed as the author of this software if users are using it for
+> piracy. We don't need to actively block them, but all features we add should be viewed through
+> the lens of users being responsible for their own actions, and us not actively promoting piracy.
+> This could also touch on rebroadcast, and how those rights work when dealing with private
+> individuals (as opposed to a bar franchise using our software to rebroadcast to all their
+> bars)… We should also look into client software on various platforms, and whether they have had
+> gatekeeper issues."*
+
+Research: [legal.md](../design/research/legal.md) and
+[app-stores.md](../design/research/app-stores.md). **Not legal advice**; legal.md §6 lists what to
+ask a lawyer before anything hosted ships.
+
+### 1. The position the law supports
+
+**A player for your own files is safe; what makes a tool's author liable is what the author says
+and bundles.** *Cox v. Sony* (March 2026, 9–0) requires **intent** — inducement, or a product
+"tailored to" infringement — and holds that mere knowledge is not enough. *Filmspeler* made a
+media player infringing because it shipped **pre-installed add-ons pointing at pirate streams**
+and was advertised for them. No core repository of Kodi, Jellyfin, the *arr tools or Navidrome
+appears in GitHub's DMCA archive; takedowns hit the layers that supplied sources. **And blocking is
+not required**: failing to filter is not evidence on its own, and monitoring would *create* the
+knowledge liability rests on. So the owner's instinct — don't police users, don't promote — is also
+the legally stronger position. It becomes **[principles §16](../principles/README.md)**.
+
+### 2. What we never do
+
+| Never | Because |
+| --- | --- |
+| **circumvent copy protection** — no decryption of DVD/Blu-ray/streaming DRM, no bundled or linked `libdvdcss`/`libaacs`, no instructions | §1201 is the one liability that lawful uses do not cure (*Corley* enjoined even linking); the German youtube-dl hosting case is final. An encrypted disc is **refused with its reason** ([principles §3](../principles/README.md)); unencrypted disc structures play |
+| **supply or locate content** — no bundled or pre-configured indexers, trackers, debrid, IPTV playlists, add-on catalogues of sources, or "request → download" wiring | *Filmspeler*, Popcorn Time, TVAddons; and it is exactly what app stores remove (Kodi on Amazon, Stremio, 36 IPTV players) |
+| **promote it** — no piracy-flavoured wording, comparisons to pirate apps, VPN/debrid/seedbox affiliate links, "fully loaded" anything | *Grokster*'s evidence was marketing; *Amstrad*'s warning counted for it |
+| **show commercial content in what we publish** — screenshots, demos, store listings, test fixtures | Popcorn Time's notice cited screenshots; youtube-dl's cited test cases naming label videos; Play's policy names movie posters |
+| **build for venues or resale** — no venue, kiosk or public-display mode, no payments between users, no public or open sign-up, no directory of servers | a bar is a public performance in every bar; paid access to someone's server is *"almost unequivocally piracy"* (Jellyfin's words) |
+
+### 3. What we keep, and why it is fine
+
+- **Integrations are generic.** A webhook saying "a file arrived" is dual-use, like Kodi's attitude
+  to torrent clients; so the *arr stack remains welcome as a *sender*. **Documentation names it
+  neutrally, among other tools that write files**, which amends
+  [D32](#d32--being-told-beats-watching-the-no-agent-path-is-a-tiered-measured-self-reporting-walk)'s *"documented as a first-class
+  setup step"* only in emphasis, not substance. Subtitle and metadata providers are fetched per
+  title on a person's request with their own key ([D12](#d12--providers-are-sandboxed-wasm-plugins-no-in-process-plugin-code), [D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)).
+- **Sharing is designed for a household and a few named people** — invite-only accounts
+  ([D174](#d174--sharing-is-an-account-from-outside-the-house-a-household-behind-a-grantee-is-a-rebroadcast-grant-deferred-and-it-makes-another-server-a-source)), caps ([D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak)), ceilings — which is the "family and its social
+  acquaintances" the US statute describes and the "personal relationship" German law asks for.
+- **Plugins**: nothing pre-installed that supplies content; third-party repositories are added by
+  hand; any official catalogue has written rules and removes on notice (and would need a DMCA
+  agent — legal.md §4).
+- **"Missing" is never an action.** Missing episodes (F66) and external lists (F41) may show what
+  you do not have; nothing offers to get it — the README's *"no storefront"* already says so.
+
+### 4. Sharing, rebroadcast and the bar
+
+- **Household remote access is private** (*Fox v. Dish*). **A few invited people and Watch
+  Together are probably private** — the relationship decides, not a number, and a screen in a
+  public place is public there.
+- **The owner sees how many people outside the household can play the library** — a display on
+  the sharing page, **never an enforced threshold**, because no source gives a legal number.
+- **The rebroadcast grant ([D177](#d177--a-rebroadcaster-is-a-user-whose-core-treats-our-server-as-a-node-and-his-household-plays-on-derived-grants-that-only-his-core-can-mint)) raises the stakes**: a second household the owner
+  cannot see. So the grantee **accepts terms when the grant is made** (personal, non-commercial,
+  never in a public place, never resold), the owner sees **how many people** each grant serves,
+  and **non-transitivity stays a hard rule** — it is legally valuable, not just tidy.
+- **A bar franchise is a public performance in every bar**, which no feature of ours makes lawful
+  and none is built for. What we can say, we say in the docs and in the relay's terms.
+
+### 5. The hosted relay is the real exposure
+
+[D71](#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it) already flagged that 1:N
+fan-out "is the shape of a pirate streaming service". Before it ships: a **pure conduit**,
+end-to-end encrypted and content-blind; **terms** (personal, non-commercial, no public places or
+businesses, no charging for access); a **copyright contact**, a **published repeat-infringer
+policy** (a precondition of every US safe harbour, conduit included), **DMCA agent** registration
+where anything is hosted, the **DSA** contact points; **short published log retention**; a
+per-account bandwidth ceiling.
+
+**One tension with [D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts),
+for the owner:** D72 charges for the relay. The research recommends pricing **flat and near cost,
+never tied to bandwidth or volume**, because revenue that grows with use is the "direct financial
+benefit" of vicarious liability and triggers *GS Media*'s profit presumption. A flat subscription
+reconciles them; a per-GB price would not. **To confirm, and to put to a lawyer.**
+
+### 6. Stores and platforms
+
+**No store bans a client for your own server; they remove content-source features, and they reject
+on operations.** So, from [app-stores.md](../design/research/app-stores.md): the web client served
+**same-origin** by the server; against Safe Browsing's "Deceptive site" flags, **no project-branded
+share tags on users' instances, an admin-customisable login page, no search indexing by default,
+demos on a separate domain**; a **permanent reviewer demo server** of public-domain or Creative
+Commons content; listings that say *requires your own server* first and show only the demo library;
+clients that **open with no server reachable**, say why, and resume after reconnecting (Samsung's
+blocking failure for Jellyfin); an **organisation** Play account and package-signing registration
+before Google's verification (30 September 2026 in four countries, 2027 globally); and the escape
+hatches [D108](#d108--the-interface-is-not-ours-to-change-out-from-under-people-and-an-old-client-stays-installable) already promised
+— signed APKs, F-Droid, `adb` — because sideloading is narrowing everywhere and any store may pull
+us for a while. Clients are MPL-2.0 ([D80](#d80--licence-by-artefact-gplv3-for-the-server-mpl-20-for-the-clients-and-the-sdk)), so the licence that cost VLC the App Store does not reach us.
+
+### 7. The notice
+
+A short notice in the README, the documentation and the first-run screen — *Amstrad*'s warning
+counted for it. Draft, **for a lawyer to finish**:
+
+> *[Project] is a player for media you have the right to use. It does not provide, locate or
+> download content, and it does not remove copy protection. You are responsible for complying with
+> copyright law where you live, including when you share access with others.*
+
+Community rules before launch, Kodi- and Jellyfin-style: no discussion of or links to pirated
+content, no support for installs using pirate-source plugins, no selling or trading of server
+access; filenames scrubbed from shared logs ([bug-reports.md](../design/plans/bug-reports.md)); a
+moderation log. And **register the project's name as a trademark** once it has one — it is what
+let Kodi act against "fully loaded" boxes.
+
+**Status:** Decided as policy. Legal review owed before the relay, any terms of service, and the
+final notice (legal.md §6).
