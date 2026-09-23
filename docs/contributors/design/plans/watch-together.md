@@ -434,6 +434,47 @@ audio/video but no data channels, needs a locally built framework, and carries a
 issue. Where it cannot keep up it does without, and Swiftfin or Infuse via the
 [Jellyfin adapter](jellyfin-api-shim.md) is the fallback for Apple TV users.
 
+## What each person sees and does
+
+[D188](../../decisions/working-notes.md), from [ui-competitors.md](../research/ui-competitors.md) §4.
+
+- **The invite link lands in the session**, in a lobby with one **Join** button. That tap is
+  also the user gesture the browser's autoplay policy needs, so a remote play is never
+  refused later. Links that open a store page or a website are the most specific complaint
+  in Teleparty's and Kosmi's reviews.
+- **Every change is a named event**: *"Karl paused at 41:12"*, *"Karl jumped from 12:03 to
+  41:12"*, *"Karl is buffering…"*, *"Karl left — paused"* (Syncplay's wording). Jellyfin ships
+  a *"{0} is buffering"* string that nothing uses, so its partner sees an unexplained spinner.
+- **A seek can be undone**, by either person, for a few seconds after it (Syncplay).
+- **Subtitles, audio track and film volume are per person.** Only position and play/pause
+  are group state.
+- **Two volume controls: the film and the partner.** One shared level makes the voice
+  *"overtake the video sound"* (Hearo reviews). This is the per-source gain above, placed as
+  two sliders on the player.
+- **A drop is a state, not an ending.** The group shows *"Karl reconnecting…"*, holds the same
+  identity across a Wi-Fi to cellular switch, and resumes both players at the same point. The
+  **Rejoin** button stays on the lobby page.
+- **The session outlives the film.** The next episode, or a different film, is a change of
+  what plays ([D122](../../decisions/working-notes.md)), never a new invite; Plex made people
+  re-invite for every episode.
+- **No sync tuning is exposed.** Jellyfin's millisecond settings are the tell of an algorithm
+  that was not finished.
+
+### Her television: the TV plays, her phone talks
+
+Apple's model, chosen by the owner ([D188](../../decisions/working-notes.md) §3), on the
+[D120](../../decisions/working-notes.md) roles: the television holds `playback`, her phone
+holds `voice` and `control`. The playback device is reached by the first of these that works on
+her real setup:
+1. the television's own browser, paired by code
+2. our cast receiver launched from Chrome on her MacBook (the Cast web sender does not run in
+   iPhone Safari)
+3. a prototype Android TV app, sideloaded
+4. otherwise the laptop plays
+
+**Earbuds on her phone** are the recommendation. They remove the echo path from the television
+to her microphone, and they avoid iOS Safari's earpiece routing during a call (WebKit #230902).
+
 ## What this forces: less than it first appeared
 
 Nothing new, as it turns out ([D68](../../decisions/working-notes.md)).
@@ -467,9 +508,10 @@ voice. Voice rides along.
 - **Does one participant stalling pause everyone?** Obviously yes for two, obviously no for
   eight. Jellyfin makes it a flag; we probably want a default that varies by group size — which
   is opening (5) above, so the question can stay open without blocking anything.
-- **Is the subtitle track group state or local?** One person may need subtitles. Local is the
-  intuitive answer, but then "seek to the funny bit" and "turn subtitles on" behave
-  inconsistently, which is the kind of inconsistency users report as a bug.
+- ~~**Is the subtitle track group state or local?**~~ **Closed by
+  [D188](../../decisions/working-notes.md): local.** Subtitles, audio track and the film's volume are
+  per person, as in SharePlay and Discord. A seek is shared position; subtitles are
+  presentation, and presentation was never shared.
 - **Text chat**, and whether emoji reactions are the TV-shaped answer.
 - **Whether `setRate` works anywhere we care about.** A device-lab question.
 - **Real playback-position drift per platform.** The 10–20 minute reconciliation interval is

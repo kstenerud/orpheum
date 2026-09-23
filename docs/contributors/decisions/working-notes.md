@@ -14588,3 +14588,115 @@ let Kodi act against "fully loaded" boxes.
 
 **Status:** Decided as policy. Legal review owed before the relay, any terms of service, and the
 final notice (legal.md §6).
+
+---
+
+## D188 — The interface is designed against the field's recorded failures; accessibility shapes the design but does not gate Cut A; her television plays and her phone talks
+
+**Decided** (2026-09-23), by the project owner, on
+[ui-competitors.md](../design/research/ui-competitors.md). Owner, on accessibility: *"We'll try
+to get accessibility right, but I won't mind if it's not perfect before I start using the app.
+We just need to make sure our design works for it."* On the television: *"I want to have
+Apple's model for tv playback. If it can be done with a browser alone that would be ideal, but
+I'm not against a prototype app. If it turns out to be too much trouble we can fall back to
+laptop play."*
+
+### 1. What the research confirmed, and what it added
+
+Most of the field's largest traps are already closed:
+- **direct play decided by the client**: [D2](#d2--playback-negotiation-the-client-decides-from-a-manifest), [D17](#d17--direct-play-first-transcoding-additive-and-optional)
+- **track choices that stick per series**: [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)
+- **corrections that are permanent**: [D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user), [D183](#d183--an-override-is-an-override-wherever-its-value-came-from-a-librarys-source-is-asked-not-defaulted-a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts)
+- **a view of what the scanner understood instead of rename rules**: [D163](#d163--every-observed-file-carries-a-filing-with-a-reason-and-what-did-the-scanner-pass-on-is-the-library-browser-with-the-filter-off)
+- **a home the user arranges**: [D138](#d138--the-ui-is-judged-on-click-depth-and-focus-latency-theming-is-a-seam-we-ship-or-one-they-force)
+- **an old layout that stays available**: [D108](#d108--the-interface-is-not-ours-to-change-out-from-under-people-and-an-old-client-stays-installable)
+- **restrictions on every access path**: [D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed)
+
+The research adds these, each placed in the plan that owns it:
+
+| Adopted | Evidence | Lands in |
+| --- | --- | --- |
+| **Continue Watching opens the home screen, by recency; selecting an item plays at once with no resume prompt, and "start over" is in the player** | Netflix's homepage paper; Roku certification; Apple HIG | [play-state.md](../design/plans/play-state.md) |
+| **Any item can be hidden from Continue Watching, with undo, on every client; hiding is not "watched"** | Jellyfin's second most-wanted request (1,722); Netflix 2022, Disney+ 2025 | play-state.md |
+| **Unattended playback is detected and is not viewing**: "still watching?" after three episodes and 90 minutes without input; plays after that point mark nothing watched | Netflix's TV rule | play-state.md |
+| **Track menus name the track**: language, SDH, forced, commentary | Plex *show track names*, 417 votes | [web-client.md](../design/plans/web-client.md), [tv-client.md](../design/plans/tv-client.md) |
+| **Left and right on a remote always seek from the current position**, 10 s steps, thumbnails over 15 minutes | Samsung focus bug; Plex skip length, 453; Apple, Roku | tv-client.md |
+| **No pagination, no search cap, titles on posters by default, a list view** | 1,176 votes; caps of 24 and 30 | web-client.md |
+| **Every effective setting shows where it came from** — person, library, series or device override | Emby *Server vs Device*; jellyfin-web #5456; 258 votes | web-client.md |
+| **The transcode reason is on screen**, in the player's info panel and the admin's sessions view | Plex's largest admin topic, 3,069 likes | web-client.md (already a non-negotiable; now placed) |
+| **Every error names the item, the cause and one next action** | 39% of Jellyfin's top troubleshooting threads get "send logs" early | web-client.md |
+| **The web player's conventions and traps**: keyboard, subtitle layer, iPhone, autoplay, network drop, Media Session | ui-competitors.md §4 | web-client.md |
+| **Watch Together**: named events, undo for a seek, subtitles and audio per person, film and partner volume separate, a reconnecting state | Syncplay; SharePlay; Hearo, Discord | [watch-together.md](../design/plans/watch-together.md) |
+| **Each server release is tested against the previous client release** | Jellyfin 10.11 broke shipped clients | [testing-strategy.md](../design/plans/testing-strategy.md) |
+
+**Declined: autoplaying previews and heroes.** Every service that shipped them ended up adding an
+off switch, and a personal library has nothing to promote. If one is ever proposed, it arrives
+with a single switch that every client obeys (Roku's rule since 2024).
+
+### 2. Accessibility: the design must work for it; Cut A is not gated on it
+
+The research's conclusion — *every project triages by votes, and a population that cannot use
+the product does not vote* — is right, and it argues for building accessibility into the
+design rather than scheduling it. It does not require holding back a release two people will
+use. So the line falls here:
+
+- **Design requirements, from the first screen:**
+  - every focusable element has an **accessible name derived from what it is** (a card's name is
+    its item's title, never a badge's count; Plex's Fire TV reader says *"1… 241… 36"*)
+  - everything reachable by pointer is reachable by keyboard and by remote, and focus is always
+    visible
+  - no state is shown only by colour
+  - text scales without breaking the layout, and reduced-motion is honoured
+  - the caption controls of [accessibility.md](../design/plans/accessibility.md) are reachable
+    during playback
+- **Not a gate on Cut A.** Shortfalls found during Cut A are recorded, not blocking. Whether
+  accessibility gates a release anyone else installs is decided before that release.
+
+This is cheap because the structure is the same work: the TV client's focus model is what a
+screen reader walks ([tv-client.md](../design/plans/tv-client.md)), and a web client built from
+semantic elements is most of the way there.
+
+### 3. Her television: Apple's model, paths tried in order
+
+**The television plays the film; her phone carries the voice and the remote.** Apple's SharePlay
+design, and what the top post (157 likes) in Plex's withdrawal thread asked for. It needs no new
+model:
+- [D120](#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people)
+  already attaches devices to a person with roles: `playback`, `voice`, `control`
+- [D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)
+  already lets the `playback` device be a cast receiver
+
+What is new is **how the playback device gets there**, tried in this order:
+
+| # | Path | Needs | Known risk |
+| --- | --- | --- | --- |
+| 1 | **The television's own browser** opens the web client in a playback mode, signed in by a code shown on the TV ([D93](#d93--device-pairing-is-rfc-8628-shaped)) | nothing installed | TV browsers' codec and HLS support; remote focus in a web page; a Google TV device has no browser by default |
+| 2 | **Our cast receiver**, launched once from Chrome on her MacBook; it then holds `playback` and talks to the server itself, while her phone holds `voice` and `control` through the web page | Cast registration ($5), HTTPS | **the Cast web sender runs only in Chrome, so her iPhone cannot launch it**; the laptop does it once per session |
+| 3 | **A prototype Android TV app**, sideloaded ([tv-client.md](../design/plans/tv-client.md)) | a Google TV or Android TV device; `adb` or a limited-distribution developer account (up to 20 devices) | the prototype is the start of Phase 3, early |
+| 4 | **Fallback: the laptop plays** and her phone or laptop talks | nothing | not the living room |
+
+**Which one is decided by her actual setup**, which the owner will learn in about two weeks.
+"A Samsung television with Google TV" is ambiguous: Samsung's own sets run Tizen, whose browser
+is path 1, while a Google TV streamer plugged into a Samsung is paths 2 and 3. The questions for
+that conversation are in [device-lab.md](../design/plans/device-lab.md).
+
+**Two voice consequences follow from putting the film on television speakers**:
+- **Echo.** Her phone's microphone hears the TV, so the owner hears the film echoed back.
+  Earbuds on her phone remove the path the owner would hear. Without them, this is
+  [D65](#d65--playback-offset-is-per-participant-and-it-is-an-echo-control)'s tier 2, the offset
+  alignment already planned.
+- **iOS Safari with the microphone open** has sent call audio to the earpiece at low volume since
+  iOS 15 (WebKit #230902). Earbuds also avoid this. Whether `navigator.audioSession` fixes it
+  without earbuds is UNVERIFIED and goes on the device-lab list.
+
+### 4. Closes one open question in watch-together.md
+
+*Is the subtitle track group state or local?* **Local — per person**, along with the audio track
+and the film's volume. SharePlay and Discord both do this, and the case that motivates the
+feature needs it: one of the two needs subtitles. The inconsistency the plan worried about
+(*"seek to the funny bit"* versus *"turn subtitles on"*) does not arise. A seek is shared
+position; subtitles are presentation, and presentation was never shared.
+
+**Status:** Decided. Plans amended as listed; [schema.md](../design/plans/schema.md) gains
+`play_span.unattended` and a `progress_hide` table, both Cut A because Continue Watching is. The
+television path waits on her setup; the voice-on-phone checks join the device lab.

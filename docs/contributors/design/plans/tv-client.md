@@ -137,6 +137,23 @@ phone, the TV polls. It is what the large streaming services use and the shape J
 at independently as Quick Connect. See [auth.md](auth.md); the TV's part is a screen, a poller
 and no keyboard.
 
+## The remote's contract
+
+[D188](../../decisions/working-notes.md). On a television the remote *is* the interface, and the field's
+player complaints are about it treating the remote as a pointer:
+
+- **Left and right always seek from the current position**, from any on-screen state,
+  whatever has focus. Samsung users report focus jumping to Pause after one press, and seeks
+  that snap to fixed marks.
+- **10-second steps** (Apple moved from 15 to 10, *"easier to track how far you've jumped"*),
+  **scrub thumbnails for anything over 15 minutes** (Roku's certification rule), and the
+  controls hide quickly.
+- **Track menus are visible buttons on the control bar**, one level deep, each track named.
+  Apple removed its swipe-down panel in tvOS 15 because buttons *"improved the
+  discoverability"*.
+- **Long-press on a Continue Watching item offers "hide"**, with undo
+  ([play-state.md](play-state.md)).
+
 ## Accessibility on a television
 
 [accessibility.md](accessibility.md), [D90](../../decisions/working-notes.md). The caption
@@ -146,7 +163,9 @@ because "readily accessible" is the actual requirement and a TV settings tree is
 go to die.
 
 And the screen-reader question is the same question as the focus prototype above: TalkBack
-walks the focus tree. Doing them together costs almost nothing; doing them separately means
+walks the focus tree. **Every focusable card's accessible name is its item's title**, never
+its badges: Plex's Fire TV reader announces unwatched counts, *"1… 241… 36"*, instead of
+the shows. Doing them together costs almost nothing; doing them separately means
 building the focus model twice.
 
 ## Risk, and the bail-out

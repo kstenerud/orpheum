@@ -279,6 +279,26 @@ sequence or progress ([D160](../../decisions/working-notes.md)).
 
 A work appears in exactly one of them.
 
+### How the surfaces behave ([D188](../../decisions/working-notes.md))
+
+- **Continue Watching opens the home screen** by default, ordered by recency. The user may
+  reorder rows ([D138](../../decisions/working-notes.md)); this is only the starting order.
+  Netflix's own homepage paper says the row *"has high stopping power"*, and a library with
+  nothing to sell has no reason to push it down.
+- **Selecting an item plays it immediately.** No resume prompt, no profile picker and no detail
+  page in between (Apple: *"Avoid asking people if they want to resume playback"*; Roku's
+  certification requires it). **"Start over" is a control in the player**, one press away.
+- **Any item can be hidden from Continue Watching or Next Up, with undo, on every client** —
+  long-press on a television. **Hiding is not watching**: it writes a per-user hide, not a
+  completion, and it lifts itself when the item next has activity. It is Jellyfin's
+  second most-wanted request (1,722 votes); Netflix added it in 2022 and Disney+ in 2025.
+- **Unattended playback is not viewing.** After **three consecutive episodes and 90 minutes
+  with no input** (Netflix's TV rule), the client asks *"still watching?"* and pauses at the
+  next episode boundary if nobody answers. Spans played after the last input in that run are
+  logged as `unattended`: they never mark anything watched and never move Next Up. The
+  position still moves, because it is where the file physically is, so reopening the film
+  resumes there. The thresholds are policy, next to the others above.
+
 **A replaced file takes its position with it** ([D173](../../decisions/working-notes.md)). An upgrade is a deletion and an
 addition, and a re-rip may have four minutes of trailers at the front, so a half-watched film
 whose file was replaced leaves Continue Watching and the new file starts at zero. Watched

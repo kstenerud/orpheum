@@ -496,7 +496,8 @@ CREATE TABLE play_span (                                   -- class A (D165)
   pos_to_ms   INTEGER NOT NULL,
   t_from      INTEGER NOT NULL,
   t_to        INTEGER NOT NULL,
-  unterminated INTEGER NOT NULL DEFAULT 0 CHECK (unterminated IN (0,1))
+  unterminated INTEGER NOT NULL DEFAULT 0 CHECK (unterminated IN (0,1)),
+  unattended  INTEGER NOT NULL DEFAULT 0 CHECK (unattended IN (0,1))  -- after "still watching?" went unanswered (D188): never completes anything
 );
 CREATE INDEX play_span_user ON play_span(user_id, t_from);
 CREATE INDEX play_span_file ON play_span(file_id);
@@ -508,6 +509,11 @@ CREATE TABLE user_rating (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, rating INTEGER NOT NULL,
   at INTEGER NOT NULL, PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 CREATE TABLE watchlist (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
+  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
+-- Hidden from Continue Watching / Next Up (D188). Not a completion; it lapses by itself when
+-- the item has activity after `at`, so there is nothing to clear.
+CREATE TABLE progress_hide (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, at INTEGER NOT NULL,
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 

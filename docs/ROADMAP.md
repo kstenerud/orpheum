@@ -35,7 +35,9 @@ rule, and everything the cut leaves out keeps its place after it.
 - **Quiet dialogue:** [D83](contributors/decisions/working-notes.md)'s dialogue boost in the downmix, with the device declaring
   stereo speakers. Not the loudness measurement pass.
 - **Together:** local accounts, invite from outside, Watch Together for two with voice,
-  reachability, prepared versions, the cast receiver.
+  reachability, prepared versions, the cast receiver. **Her television plays and her phone
+  talks** ([D188](contributors/decisions/working-notes.md)), by the first path her setup allows: its browser, our cast receiver,
+  a sideloaded prototype, or else the laptop.
 - **Running it:** backup and restore, now playing.
 
 **Out for now:** roles and parental controls, collections-as-sequences, offline, segment

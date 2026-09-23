@@ -287,8 +287,59 @@ somebody else's scanner honours it too; *"this rule should not apply here"* is
 
 The capability is on the role ([D130](../../decisions/working-notes.md)).
 
+## The player, from what other web players got wrong
+
+[D188](../../decisions/working-notes.md), from [ui-competitors.md](../research/ui-competitors.md) §4.
+
+- **Keyboard: YouTube's map**, the de facto standard.
+  - **Keys:** Space and `k` play/pause; `j` and `l` jump 10 s; the arrows step 5 s and change
+    volume; `f` fullscreen; `m` mute; `c` captions; `0`–`9` jump to a tenth of the film; `,`
+    and `.` step a frame; `?` shows the list.
+  - **Bind on `KeyboardEvent.code`**, not `.key`, so the map works on non-Latin layouts
+    (jellyfin-web #7397).
+  - **Ignore any key held with Ctrl, Alt or Cmd.**
+  - **Space never re-activates the last focused button** (jellyfin-web #4857, open since
+    2023).
+- **Subtitles have their own layer, which moves up when the controls appear.** This is the
+  largest complaint class in jellyfin-web: subtitles under the controls, gone when they fade
+  in fullscreen, missing in picture-in-picture. Native WebVTT where the renderer allows it,
+  so picture-in-picture keeps them.
+- **One panel for audio and subtitles**, the likely languages first and the rest under
+  "Other", **each track named**: language, SDH, forced, commentary. Plex's *show track names*
+  request has 417 votes, because those tracks otherwise look identical.
+- **A network drop is a countdown, not an error page**: keep playing what is buffered, retry
+  on a visible timer, resume at the same position.
+- **Media Session** for lock screen, media keys and headset buttons, including
+  `togglemicrophone` and `hangup` for Watch Together's voice.
+- **iPhone: inline landscape plus picture-in-picture, not fullscreen.** iPhone Safari has no
+  element fullscreen; its fullscreen is the system player, which hides our controls, our
+  Watch Together notices, the voice controls and any subtitles we draw.
+- **Autoplay: a play the user did not tap may be refused**, and Jellyfin hangs silently when
+  it is (#4901). So a remote "play" that is refused shows **"Tap to resume"**, never a stalled
+  splash screen.
+
+## Browsing, settings and errors
+
+- **No pagination and no cap on search.** Lists are virtualised. Jellyfin's *remove
+  pagination* request has 1,176 votes; its search returns at most 24 results and Emby's 30.
+- **Titles on posters by default, and a list view.** A poster wall without titles is the
+  default everywhere, and people ask for the opposite (+28, +19, +30).
+- **Filters and sorts persist per view and always show a reset.**
+- **Every effective setting shows where its value came from**: *you*, *this library*, *this
+  series* or *this device only*. The scope chain exists ([D24](../../decisions/working-notes.md),
+  [schema.md](schema.md)'s `preference`); making it visible is what the Emby and Jellyfin
+  *"saved for the browser, not for the user"* complaints ask for.
+- **Every error names the item, the cause and one next action**, in the words the
+  [D152](../../decisions/working-notes.md) hop model already gives it. *"Send logs"* is the
+  early reply in 39% of Jellyfin's top troubleshooting threads. Each one is an error that
+  told nobody anything.
+- **Accessible from the structure up** ([accessibility.md](accessibility.md)): semantic
+  elements, every card named by its item's title, everything reachable by keyboard, visible
+  focus.
+
 ## Non-negotiables
 
 Subtitle offset control **that persists**; manual override of the playback decision; a visible
-"why is this transcoding?" — and "why is this subtitle an image, and what did that cost?";
+"why is this transcoding?" — in the player's info panel and in the admin's sessions view,
+not only in a log (Plex's largest admin topic, 3,069 likes, is transcoding nobody could see) — and "why is this subtitle an image, and what did that cost?";
 trickplay scrub previews; resume correct to the second.
