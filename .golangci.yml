@@ -1,0 +1,690 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The Go lint gate. docs/contributors/standards/go.md explains every rule here and is the place
+# to read *why*; this file is the mechanism. Agents may not edit it (the pre-edit hook blocks
+# it): a finding is fixed in the code, or the owner changes this file.
+#
+# Conventions inside this file:
+#   - Every forbidigo message starts with a [tag]. Path exceptions in `exclusions.rules` match on
+#     that tag, so an exception can never silence a different rule by accident.
+#   - Architecture rules are depguard (direct imports, per file). Transitive claims are the
+#     TestArch_ tests in internal/archtest, because depguard cannot see through an import.
+#   - The complexity linters (cyclop, gocognit, funlen, nestif) are never suppressed and never
+#     raised. TestArch_NoForbiddenSuppressions fails on a //nolint naming them.
+
+version: "2"
+
+run:
+  go: "1.26"
+  timeout: 5m
+  tests: true
+  relative-path-mode: gitroot
+
+linters:
+  default: none
+  enable:
+    # Correctness and bugs
+    - asasalint
+    - bidichk
+    - bodyclose
+    - contextcheck
+    - containedctx
+    - copyloopvar
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - errorlint
+    - exhaustive
+    - fatcontext
+    - forcetypeassert
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - gosec
+    - govet
+    - ineffassign
+    - makezero
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - noctx
+    - reassign
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - unqueryvet
+    - unused
+    - wastedassign
+    - wrapcheck
+    # Architecture and "one way to do it"
+    - depguard
+    - forbidigo
+    - gochecknoglobals
+    - gochecknoinits
+    - gomoddirectives
+    - goheader
+    # Complexity
+    - cyclop
+    - dupl
+    - funlen
+    - gocognit
+    - nestif
+    - revive
+    # Readability and naming
+    - asciicheck
+    - dogsled
+    - dupword
+    - errname
+    - gocritic
+    - goconst
+    - godot
+    - godox
+    - goprintffuncname
+    - inamedparam
+    - interfacebloat
+    - intrange
+    - lll
+    - mirror
+    - misspell
+    - modernize
+    - nakedret
+    - predeclared
+    - recvcheck
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - varnamelen
+    # Wire and logs
+    - musttag
+    - sloglint
+    - tagliatelle
+    # Suppressions and tests
+    - nolintlint
+    - testableexamples
+    - thelper
+    - tparallel
+    - usetesting
+
+  settings:
+    # ---------------------------------------------------------------- complexity (never raised)
+    cyclop:
+      max-complexity: 15
+    gocognit:
+      min-complexity: 20
+    funlen:
+      lines: 70
+      statements: 45
+      ignore-comments: true
+    nestif:
+      min-complexity: 5
+    dupl:
+      threshold: 100
+    lll:
+      line-length: 120
+      tab-width: 4
+    nakedret:
+      max-func-lines: 0
+    interfacebloat:
+      max: 6
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+      ignore-string-values: ["^%"]
+
+    # ---------------------------------------------------------------- errors
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+    wrapcheck:
+      # Scoped to the boundary packages by an exclusion below: an error that enters from
+      # outside the module is wrapped with context where it enters, once.
+      extra-ignore-sigs:
+        - .Wrap(
+        - .Wrapf(
+
+    # ---------------------------------------------------------------- switches over closed sets
+    exhaustive:
+      check: [switch, map]
+      default-signifies-exhaustive: false
+      explicit-exhaustive-switch: false
+      explicit-exhaustive-map: false
+
+    # ---------------------------------------------------------------- suppressions
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+
+    # ---------------------------------------------------------------- licence header
+    goheader:
+      template: "SPDX-License-Identifier: GPL-3.0-or-later"
+
+    # ---------------------------------------------------------------- naming and readability
+    varnamelen:
+      max-distance: 6
+      min-name-length: 3
+      check-receiver: true
+      check-return: true
+      check-type-param: true
+      ignore-type-assert-ok: true
+      ignore-map-index-ok: true
+      ignore-chan-recv-ok: true
+      ignore-names: [err, id, ok, tc]
+      ignore-decls:
+        - t *testing.T
+        - b *testing.B
+        - f *testing.F
+        - tb testing.TB
+        - ctx context.Context
+        - w http.ResponseWriter
+        - r *http.Request
+        - i int
+    godot:
+      scope: declarations
+      capital: true
+    godox:
+      keywords: [TODO, FIXME, XXX, HACK]
+    misspell:
+      locale: UK
+      mode: restricted # comments and strings only; identifiers from the standard library stay as they are
+    predeclared:
+      qualified-name: true
+    inamedparam:
+      skip-single-param: false
+    gocritic:
+      enabled-tags: [diagnostic, style]
+      disabled-checks:
+        - whyNoLint # nolintlint enforces the explanation
+        - unnamedResult # nonamedreturns is not enabled; either form is allowed
+    revive:
+      severity: error
+      enable-default-rules: false
+      rules:
+        - name: exported
+          arguments: [checkPrivateReceivers, sayRepetitiveInsteadOfStutters]
+        - name: package-comments
+        - name: var-naming
+          arguments: [[], [], [{skipPackageNameChecks: false, extraBadPackageNames: [helper, helpers, shared, lib, base, stuff]}]]
+        - name: receiver-naming
+        - name: indent-error-flow
+        - name: error-naming
+        - name: error-strings
+        - name: error-return
+        - name: errorf
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: increment-decrement
+        - name: range
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: use-any
+        - name: early-return
+        - name: deep-exit
+        - name: import-shadowing
+        - name: bool-literal-in-expr
+        - name: constant-logical-expr
+        - name: datarace
+        - name: defer
+        - name: empty-block
+        - name: modifies-value-receiver
+        - name: identical-branches
+        - name: unconditional-recursion
+        - name: waitgroup-by-value
+        - name: struct-tag
+        - name: string-of-int
+        - name: atomic
+        - name: redundant-import-alias
+        - name: useless-break
+        - name: confusing-results
+        - name: unhandled-error
+          arguments: ["fmt.Fprint", "fmt.Fprintf", "fmt.Fprintln", "strings.Builder.WriteString", "strings.Builder.WriteByte", "strings.Builder.WriteRune", "bytes.Buffer.WriteString"]
+        - name: file-length-limit
+          arguments: [{max: 800, skipComments: true, skipBlankLines: true}]
+        - name: max-control-nesting
+          arguments: [4]
+        - name: argument-limit
+          arguments: [6]
+        - name: function-result-limit
+          arguments: [3]
+
+    staticcheck:
+      checks: ["all"]
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # memory layout is not a readability concern at this scale
+      settings:
+        shadow:
+          strict: false
+
+    # ---------------------------------------------------------------- wire and logs
+    tagliatelle:
+      case:
+        rules:
+          json: camel
+        use-field-name: false
+        overrides:
+          # `go list -json` is the go command's format; its keys are PascalCase.
+          - pkg: internal/archtest
+            rules:
+              json: pascal
+    musttag:
+      functions: []
+    sloglint:
+      no-mixed-args: true
+      kv-only: false
+      attr-only: false
+      no-global: all
+      context: scope
+      static-msg: true
+      key-naming-case: camel
+      forbidden-keys: [error]
+      args-on-sep-lines: false
+
+    gosec:
+      excludes: []
+    usetesting:
+      os-create-temp: true
+      os-mkdir-temp: true
+      os-setenv: true
+      os-temp-dir: true
+      os-chdir: true
+      context-background: true
+      context-todo: true
+
+    # ---------------------------------------------------------------- architecture: imports
+    depguard:
+      rules:
+        # D33/D26/D99/D193 §1: the core never runs FFmpeg, never parses media, never decodes an
+        # image, and never imports the node. Transitive form: TestArch_CoreNeverImportsNode,
+        # TestArch_CoreNeverExecs.
+        core-boundary:
+          list-mode: lax
+          files: ["**/internal/core/**"]
+          deny:
+            - pkg: "os/exec"
+              desc: "[core-boundary] the core never runs a process; media work is a node job (D26, D193 §1)"
+            - pkg: "github.com/kstenerud/orpheum/internal/node/"
+              desc: "[core-boundary] the core talks to the node only through internal/nodeproto over its socket (D33)"
+            - pkg: "github.com/kstenerud/orpheum/internal/node$"
+              desc: "[core-boundary] the core talks to the node only through internal/nodeproto over its socket (D33)"
+            - pkg: "image"
+              desc: "[core-boundary] the core does not decode an image (D99); artwork is decoded by the node"
+            - pkg: "golang.org/x/image"
+              desc: "[core-boundary] the core does not decode an image (D99)"
+            - pkg: "github.com/disintegration/imaging"
+              desc: "[core-boundary] the core does not decode an image (D99)"
+            - pkg: "github.com/davidbyttow/govips"
+              desc: "[core-boundary] the core does not decode an image (D99)"
+            - pkg: "github.com/h2non/bimg"
+              desc: "[core-boundary] the core does not decode an image (D99)"
+            - pkg: "github.com/abema/go-mp4"
+              desc: "[core-boundary] the core never parses media; probing is a node job (D126)"
+            - pkg: "github.com/Eyevinn/mp4ff"
+              desc: "[core-boundary] the core never parses media; probing is a node job (D126)"
+            - pkg: "github.com/remko/go-mkvparse"
+              desc: "[core-boundary] the core never parses media; probing is a node job (D126)"
+            - pkg: "github.com/at-wat/ebml-go"
+              desc: "[core-boundary] the core never parses media; probing is a node job (D126)"
+            - pkg: "github.com/asticode/go-astisub"
+              desc: "[core-boundary] the core never parses subtitle files; extraction is a node job (D126)"
+            - pkg: "github.com/dhowden/tag"
+              desc: "[core-boundary] the core never parses media; probing is a node job (D126)"
+            - pkg: "github.com/u2takey/ffmpeg-go"
+              desc: "[core-boundary] FFmpeg runs only through internal/node/execx (D26)"
+
+        # D33/D31: the node imports nothing from the core and never touches the database.
+        # Transitive form: TestArch_NodeNeverImportsCore.
+        node-boundary:
+          list-mode: lax
+          files: ["**/internal/node/**"]
+          deny:
+            - pkg: "github.com/kstenerud/orpheum/internal/core"
+              desc: "[node-boundary] the node imports nothing from the core; share wire types through internal/nodeproto (D33)"
+            - pkg: "github.com/kstenerud/orpheum/internal/store"
+              desc: "[node-boundary] the node never touches the database; it reports and the core writes (D31, D42)"
+
+        # cut-a §3: nodeproto is wire types with no logic. Fuller form: TestArch_NodeprotoHasNoLogic.
+        nodeproto-is-types:
+          list-mode: lax
+          files: ["**/internal/nodeproto/**"]
+          deny:
+            - pkg: "github.com/kstenerud/orpheum/internal/core"
+              desc: "[nodeproto] wire types import nothing internal except internal/platform"
+            - pkg: "github.com/kstenerud/orpheum/internal/node"
+              desc: "[nodeproto] wire types import nothing internal except internal/platform"
+            - pkg: "github.com/kstenerud/orpheum/internal/store"
+              desc: "[nodeproto] wire types import nothing internal except internal/platform"
+
+        # The store sits below the core: it knows tables, not features.
+        store-is-below-core:
+          list-mode: lax
+          files: ["**/internal/store/**"]
+          deny:
+            - pkg: "github.com/kstenerud/orpheum/internal/core"
+              desc: "[store] the store knows tables, not features; the core calls the store, never the reverse"
+            - pkg: "github.com/kstenerud/orpheum/internal/node"
+              desc: "[store] the node never touches the database (D31)"
+
+        # The sanctioned wrappers are leaves.
+        platform-is-a-leaf:
+          list-mode: lax
+          files: ["**/internal/platform/**"]
+          deny:
+            - pkg: "github.com/kstenerud/orpheum/internal/core"
+              desc: "[platform] platform packages are leaves; they import nothing above them"
+            - pkg: "github.com/kstenerud/orpheum/internal/node"
+              desc: "[platform] platform packages are leaves; they import nothing above them"
+            - pkg: "github.com/kstenerud/orpheum/internal/store"
+              desc: "[platform] platform packages are leaves; they import nothing above them"
+            - pkg: "github.com/kstenerud/orpheum/internal/nodeproto"
+              desc: "[platform] platform packages are leaves; they import nothing above them"
+
+        # D2/D103: the playback decision sees declared capabilities, never the request.
+        decide-sees-capabilities:
+          list-mode: lax
+          files: ["**/internal/core/decide/**"]
+          deny:
+            - pkg: "net/http"
+              desc: "[decide] the decision takes a Capabilities value and cannot see the request or its User-Agent (D2, D103)"
+            - pkg: "github.com/kstenerud/orpheum/internal/core/api"
+              desc: "[decide] the decision takes a Capabilities value and cannot see the request (D2, D103)"
+
+        # D6/D31/D193 §6: one Open(), in the store. Transitive-safe direct form:
+        # TestArch_OnlyStoreImportsDatabaseSQL.
+        sql-only-in-store:
+          list-mode: lax
+          files: ["$all", "!**/internal/store/**"]
+          deny:
+            - pkg: "database/sql"
+              desc: "[sql-only-in-store] only internal/store opens the database; call its generated queries (D6, D31)"
+            - pkg: "modernc.org/sqlite"
+              desc: "[sql-only-in-store] the SQLite driver is imported by internal/store alone (D31)"
+            - pkg: "github.com/ncruces/go-sqlite3"
+              desc: "[sql-only-in-store] the SQLite driver is imported by internal/store alone (D31)"
+            - pkg: "github.com/mattn/go-sqlite3"
+              desc: "[sql-only-in-store] cgo SQLite is not used at all; the driver is pure Go (D31)"
+            - pkg: "zombiezen.com/go/sqlite"
+              desc: "[sql-only-in-store] the SQLite driver is imported by internal/store alone (D31)"
+            - pkg: "crawshaw.io/sqlite"
+              desc: "[sql-only-in-store] the SQLite driver is imported by internal/store alone (D31)"
+            - pkg: "github.com/glebarez"
+              desc: "[sql-only-in-store] the SQLite driver is imported by internal/store alone (D31)"
+
+        # D26/cut-a §7: every process start goes through execx. The architecture tests may run
+        # `go list`, and only from their _test.go files. Direct form: TestArch_OnlyExecxImportsOsExec.
+        exec-only-in-execx:
+          list-mode: lax
+          files: ["$all", "!**/internal/node/execx/**", "!**/internal/archtest/*_test.go"]
+          deny:
+            - pkg: "os/exec"
+              desc: "[exec-only-in-execx] start processes through internal/node/execx, which confines them (D26, cut-a §7)"
+
+        # principles §4, one way to do it. Each entry names the sanctioned replacement.
+        one-way-to-do-it:
+          list-mode: lax
+          files: ["$all"]
+          deny:
+            - pkg: "log$"
+              desc: "[one-way] use a *slog.Logger built by internal/platform/slogx"
+            - pkg: "gorm.io"
+              desc: "[one-way] no ORM: write SQL in internal/store/queries and let sqlc generate the code (D6)"
+            - pkg: "github.com/jinzhu/gorm"
+              desc: "[one-way] no ORM: sqlc (D6)"
+            - pkg: "entgo.io"
+              desc: "[one-way] no ORM: sqlc (D6)"
+            - pkg: "github.com/uptrace/bun"
+              desc: "[one-way] no ORM: sqlc (D6)"
+            - pkg: "github.com/jmoiron/sqlx"
+              desc: "[one-way] use the sqlc-generated queries in internal/store/sqlcgen (D6)"
+            - pkg: "github.com/Masterminds/squirrel"
+              desc: "[one-way] static queries are sqlc; search uses the one hand-written filter builder in internal/store (D193 §4)"
+            - pkg: "github.com/doug-martin/goqu"
+              desc: "[one-way] static queries are sqlc; search uses the one hand-written filter builder (D193 §4)"
+            - pkg: "github.com/sirupsen/logrus"
+              desc: "[one-way] use log/slog through internal/platform/slogx"
+            - pkg: "go.uber.org/zap"
+              desc: "[one-way] use log/slog through internal/platform/slogx"
+            - pkg: "github.com/rs/zerolog"
+              desc: "[one-way] use log/slog through internal/platform/slogx"
+            - pkg: "github.com/stretchr/testify"
+              desc: "[one-way] use the standard testing package with plain if-checks and t.Errorf; see standards/go.md §Testing"
+            - pkg: "github.com/golang/mock"
+              desc: "[one-way] no mock frameworks: write a small fake that implements the interface"
+            - pkg: "go.uber.org/mock"
+              desc: "[one-way] no mock frameworks: write a small fake that implements the interface"
+            - pkg: "github.com/vektra/mockery"
+              desc: "[one-way] no mock frameworks: write a small fake that implements the interface"
+            - pkg: "github.com/spf13/viper"
+              desc: "[one-way] configuration is read once in cmd/orpheum and passed down as typed values; runtime settings live in the database (D183)"
+            - pkg: "github.com/kelseyhightower/envconfig"
+              desc: "[one-way] environment is read once in cmd/orpheum and passed down as typed values"
+            - pkg: "github.com/pkg/errors"
+              desc: "[one-way] use fmt.Errorf with %w, errors.Is and errors.As"
+            - pkg: "github.com/cockroachdb/errors"
+              desc: "[one-way] use fmt.Errorf with %w, errors.Is and errors.As"
+            - pkg: "github.com/gorilla/mux"
+              desc: "[one-way] routes are huma operations on the standard net/http ServeMux (D193 §6)"
+            - pkg: "github.com/go-chi/chi"
+              desc: "[one-way] routes are huma operations on the standard net/http ServeMux (D193 §6)"
+            - pkg: "github.com/gin-gonic/gin"
+              desc: "[one-way] routes are huma operations on the standard net/http ServeMux (D193 §6)"
+            - pkg: "github.com/labstack/echo"
+              desc: "[one-way] routes are huma operations on the standard net/http ServeMux (D193 §6)"
+            - pkg: "github.com/gofiber/fiber"
+              desc: "[one-way] routes are huma operations on the standard net/http ServeMux (D193 §6)"
+            - pkg: "github.com/julienschmidt/httprouter"
+              desc: "[one-way] routes are huma operations on the standard net/http ServeMux (D193 §6)"
+            - pkg: "github.com/swaggo"
+              desc: "[one-way] the OpenAPI document is generated from huma operations, never from annotations (D85)"
+            - pkg: "go.uber.org/fx"
+              desc: "[one-way] no DI framework: construct dependencies in cmd/orpheum and pass them to constructors"
+            - pkg: "go.uber.org/dig"
+              desc: "[one-way] no DI framework: construct dependencies in cmd/orpheum and pass them to constructors"
+            - pkg: "github.com/google/wire"
+              desc: "[one-way] no DI framework: construct dependencies in cmd/orpheum and pass them to constructors"
+            - pkg: "github.com/spf13/cobra"
+              desc: "[one-way] cmd/orpheum parses its subcommands with the standard flag package"
+            - pkg: "github.com/urfave/cli"
+              desc: "[one-way] cmd/orpheum parses its subcommands with the standard flag package"
+            - pkg: "github.com/golang-migrate/migrate"
+              desc: "[one-way] migrations run through our own runner in internal/store (D181)"
+            - pkg: "github.com/pressly/goose"
+              desc: "[one-way] migrations run through our own runner in internal/store (D181)"
+            - pkg: "github.com/benbjohnson/clock"
+              desc: "[one-way] use internal/platform/clock"
+            - pkg: "github.com/jonboulle/clockwork"
+              desc: "[one-way] use internal/platform/clock"
+
+    # ---------------------------------------------------------------- architecture: calls
+    forbidigo:
+      analyze-types: true
+      exclude-godoc-examples: false
+      forbid:
+        # Time comes from a clock.Clock so tests control it.
+        - pattern: '^time\.(Now|Since|Until)$'
+          pkg: '^time$'
+          msg: "[clock] take a clock.Clock (internal/platform/clock) and call its Now; tests pass clock.NewFake"
+
+        # Ambient process state is read once, in cmd/orpheum, and passed down.
+        - pattern: '^os\.(Getenv|LookupEnv|Environ|ExpandEnv|Setenv|Unsetenv|Clearenv|Args|Exit|Stdin|Stdout|Stderr|Getwd|Chdir|UserHomeDir|UserConfigDir|UserCacheDir|Hostname)$'
+          pkg: '^os$'
+          msg: "[ambient] only cmd/orpheum reads the environment, argv, stdio or the working directory, or exits; pass typed values down"
+        - pattern: '^syscall\.(Getenv|Setenv|Unsetenv|Environ|Clearenv)$'
+          pkg: '^syscall$'
+          msg: "[ambient] only cmd/orpheum reads the environment; pass typed values down"
+        - pattern: '^slog\.(Default|SetDefault)$'
+          pkg: '^log/slog$'
+          msg: "[ambient] take a *slog.Logger as a parameter; only cmd/orpheum builds one (internal/platform/slogx)"
+
+        # A context is created at the top (cmd/orpheum) or by a test (t.Context), and passed down.
+        - pattern: '^context\.(Background|TODO)$'
+          pkg: '^context$'
+          msg: "[context] take a context.Context parameter; only cmd/orpheum creates a root context, and tests use t.Context()"
+
+        # Output to a terminal belongs to cmd/orpheum.
+        - pattern: '^fmt\.(Print|Printf|Println|Scan|Scanf|Scanln)$'
+          pkg: '^fmt$'
+          msg: "[print] library code does not print; return values or log through the injected *slog.Logger"
+        - pattern: '^(print|println)$'
+          msg: "[print] library code does not print; return values or log through the injected *slog.Logger"
+
+        # Process starts go through execx (cut-a §7). The re-exec shim's execve lives in
+        # execx or confine.
+        - pattern: '^exec\.Command(Context)?$'
+          pkg: '^os/exec$'
+          msg: "[exec] start processes through internal/node/execx, which confines them (D26, cut-a §7)"
+        - pattern: '^(os\.StartProcess|syscall\.(Exec|ForkExec|StartProcess)|unix\.(Exec|ForkExec))$'
+          msg: "[execve] only internal/node/execx and internal/node/confine start or replace a process (D26)"
+
+        # Nothing deletes, renames or truncates outside the sanctioned packages (principles §2,
+        # D144, D145). Media roots are read-only by construction; this closes the other routes.
+        - pattern: '^os\.(Remove|RemoveAll|Rename|Truncate)$'
+          pkg: '^os$'
+          msg: "[delete] only internal/node/trash and internal/core/datadir remove, rename or truncate files (principles §2, D144)"
+        - pattern: '^os\.(Root|File)\.(Remove|RemoveAll|Rename|Truncate)$'
+          pkg: '^os$'
+          msg: "[delete] only internal/node/trash and internal/core/datadir remove, rename or truncate files (principles §2, D144)"
+        - pattern: '^(syscall|unix)\.(Unlink|Unlinkat|Rmdir|Rename|Renameat|Renameat2|Truncate|Ftruncate)$'
+          msg: "[delete] only internal/node/trash and internal/core/datadir remove, rename or truncate files (principles §2, D144)"
+
+        # A media root is opened once, read-only, by confine.MediaRoot.
+        - pattern: '^os\.(OpenRoot|OpenInRoot)$'
+          pkg: '^os$'
+          msg: "[media-root] open a media root through internal/node/confine's read-only MediaRoot; datadir opens its own directories"
+
+        # The core touches the filesystem only in datadir (cut-a §3). Excluded outside core.
+        - pattern: '^os\.(Open|OpenFile|Create|CreateTemp|MkdirTemp|ReadFile|WriteFile|ReadDir|Mkdir|MkdirAll|Stat|Lstat|DirFS|Chmod|Chown|Symlink|Link|Readlink)$'
+          pkg: '^os$'
+          msg: "[core-fs] the core touches the filesystem only through internal/core/datadir; it never opens a media path (D193 §1)"
+        - pattern: '^filepath\.(Walk|WalkDir|Glob)$'
+          pkg: '^path/filepath$'
+          msg: "[core-fs] the core touches the filesystem only through internal/core/datadir; it never walks a media root (D193 §1)"
+
+        # Library code returns errors (principles §5 of yoloAI; standards/go.md §Errors).
+        - pattern: '^panic$'
+          msg: "[panic] return an error; panic is allowed only in cmd/orpheum and tests"
+
+        # D194 §5: a secret is revealed only by the client that sends it to its owner's service.
+        - pattern: '^secrets\.Value\.Reveal$'
+          pkg: '^github\.com/kstenerud/orpheum/internal/core/secrets$'
+          msg: "[reveal] only provider clients may call secrets.Value.Reveal; pass the Value, not its contents (D194 §5)"
+        # D194 §3: only the secrets package queries the sealed-secret table.
+        - pattern: '^sqlcgen\.Queries\.\w*SealedSecret\w*$'
+          pkg: '^github\.com/kstenerud/orpheum/internal/store/sqlcgen$'
+          msg: "[sealed-secret] only internal/core/secrets reads or writes the secret table (D194 §3)"
+
+        # D190 §2: a missing prerequisite fails. Skipping goes through the testutil helper that
+        # implements the presence policy (standards/testing.md).
+        - pattern: '^testing\.\w+\.Skip(f|Now)?$'
+          pkg: '^testing$'
+          msg: "[skip] a missing prerequisite fails (D190 §2); use the internal/testutil helper that applies ORPHEUM_TEST_UNCONTROLLED"
+
+        # D2/D103: behaviour never branches on client identity.
+        - pattern: '^http\.Request\.UserAgent$'
+          pkg: '^net/http$'
+          msg: "[client-identity] never branch on the User-Agent; decide from declared capabilities (D2, D103). Logging may record it via slogx"
+
+  exclusions:
+    generated: strict
+    warn-unused: false # most path exceptions name packages that do not exist yet
+    presets: []
+    paths:
+      - internal/store/sqlcgen
+      - web
+    rules:
+      # ---- forbidigo: each tag's sanctioned home
+      - path: ^internal/platform/clock/
+        linters: [forbidigo]
+        text: '\[clock\]'
+      - path: ^cmd/
+        linters: [forbidigo]
+        text: '\[(ambient|print|panic|context)\]'
+      - path: ^internal/testutil/
+        linters: [forbidigo]
+        text: '\[(ambient|skip)\]'
+      - path: _test\.go$
+        linters: [forbidigo]
+        text: '\[panic\]'
+      - path: ^internal/node/execx/
+        linters: [forbidigo]
+        text: '\[(exec|execve)\]'
+      - path: ^internal/node/confine/
+        linters: [forbidigo]
+        text: '\[(execve|media-root)\]'
+      - path: ^internal/archtest/.*_test\.go$
+        linters: [forbidigo]
+        text: '\[exec\]'
+      - path: ^internal/(node/trash|core/datadir)/
+        linters: [forbidigo]
+        text: '\[delete\]'
+      - path: ^internal/core/datadir/
+        linters: [forbidigo]
+        text: '\[(media-root|core-fs)\]'
+      - path-except: ^internal/core/
+        linters: [forbidigo]
+        text: '\[core-fs\]'
+      - path: ^internal/core/.*_test\.go$
+        linters: [forbidigo]
+        text: '\[core-fs\]'
+      # Provider clients: TMDB lives under identify; TURN derives credentials from its secret.
+      # The OpenSubtitles and DNS-01 clients are added here, by the owner, when they land.
+      - path: ^internal/core/(secrets|identify|turn)/
+        linters: [forbidigo]
+        text: '\[reveal\]'
+      - path: ^internal/(core/secrets|store)/
+        linters: [forbidigo]
+        text: '\[sealed-secret\]'
+      - path: ^internal/platform/slogx/
+        linters: [forbidigo]
+        text: '\[client-identity\]'
+
+      # ---- wrapcheck applies only where errors enter from outside the module
+      - path-except: ^internal/(store|core/(datadir|identify|turn|api)|node/(execx|confine|scan|probe|bytes))/
+        linters: [wrapcheck]
+
+      # ---- tests: repetition is clearer than abstraction in table cases
+      - path: _test\.go$
+        linters: [dupl, funlen, goconst, gochecknoglobals]
+      # ---- tests read fixture paths they built themselves (t.TempDir, testdata, go list)
+      - path: _test\.go$
+        linters: [gosec]
+        text: G304
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
+  settings:
+    gofumpt:
+      module-path: github.com/kstenerud/orpheum
+      extra:
+        group-params: true
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/kstenerud/orpheum)
+      custom-order: true
+  exclusions:
+    generated: strict
+    paths:
+      - internal/store/sqlcgen
+      - web
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: false
+
+output:
+  sort-order: [file, linter]

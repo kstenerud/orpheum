@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# CI runs exactly what a developer runs: `make check` on every push and pull request, and the
+# branch gates (`make check-pr`) on a pull request. No job exists only in CI — a gate that cannot
+# be run locally is one people learn about too late (yoloAI DF226).
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install pinned tools
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q shellcheck
+          make tools
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: make check
+        run: make check
+      # Every branch that is not main runs the branch gates on every push, not only once a pull
+      # request exists: yoloAI once had a release branch reach 63 commits with no CI (DF226).
+      - name: Branch gates (pull request)
+        if: github.event_name == 'pull_request'
+        run: make check-pr BASE=origin/${{ github.base_ref }}
+      - name: Branch gates (branch push)
+        if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+        run: make check-pr BASE=origin/main

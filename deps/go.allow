@@ -1,0 +1,3 @@
+# Go modules this project may depend on (direct or indirect). Adding one is an owner action:
+# propose it, with a reason and the decision or standard that chose it. `make check` fails if
+# go.mod names a module that is not listed here. Format: <module path>  # <reason> (<D-ID or standard>)

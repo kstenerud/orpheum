@@ -1,0 +1,20 @@
+{
+  "name": "@orpheum/web",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MPL-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "dependencies": {
+    "@orpheum/player": "0.0.0",
+    "@orpheum/sdk": "0.0.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  }
+}
