@@ -13,8 +13,9 @@
 
 The first schema. Models multi-version and multi-part items as first-class rather than bolted
 on, keeps provider IDs and field provenance — which source a title follows, which fields are
-manual ([D170](../../decisions/working-notes.md)) — out of the value columns, and includes the
-audit/change-journal tables and sync cursor from D8.
+manual ([D170](../../decisions/working-notes.md)) — out of the value columns, and includes one
+change-journal table that clients may use and must never depend on
+([D166](../../decisions/working-notes.md)).
 
 Generic enough that audio can be added without a rewrite (D1): `Library`, `Item`, `MediaFile`
 rather than `Movie`/`Episode` everywhere.
@@ -482,8 +483,7 @@ summary of them.
   ([D166](../../decisions/working-notes.md)): the whole browsable state is 215 KB gzipped, so
   the server may always answer with state and the journal is an optimisation below ~2,600
   changed items. One journal table, permitted to be lossy — not a paired audit table per
-  syncable table. (D8 argued the opposite and was wrong on both counts; the correction is
-  recorded there.)
+  syncable table.
 - Identity must survive a file move, a rename, a re-rip and a provider change:
   ~~UUID primary keys~~ **integer keys never reissued**, `{provider, provider_id}` in a side
   table. **The keys are backed up although the index is not**, and a rebuild is an ordinary

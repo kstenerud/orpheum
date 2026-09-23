@@ -136,7 +136,7 @@ machine that never leaves the desk.
 ### 4. Offline download, and therefore the change journal
 
 [D10](../../decisions/working-notes.md) makes offline download a non-negotiable client feature,
-and [D8](../../decisions/working-notes.md) put an audit-table change journal in the first schema
+and [D8](../../decisions/working-notes-archive.md) put an audit-table change journal in the first schema
 specifically so offline clients can reconcile deletes. **Neither has a consumer until a mobile
 client exists**, and both are exactly the kind of design that looks fine until a real device
 with intermittent connectivity and full storage disagrees. Immich's architecture carries audit

@@ -171,8 +171,9 @@ The hard design work, and where the traps are. Format and completeness settled i
   output, so one bad record should cost one entry, not the report.
 - **Two kinds, marked per line.** *Inventory* (a full enumeration of a region; absence implies
   removal only where that region is complete) and *delta* (explicit `added`/`changed`/`removed`,
-  because deletions are stated, never inferred — the same lesson as
-  [D8](../decisions/working-notes.md)).
+  because deletions are stated, never inferred from a region that was not complete — absence
+  means removal only in a complete inventory, the rule [D166](../decisions/working-notes.md)
+  applies to clients).
 - **Record types: `header`, `entry`, `error`, `skip`, `trailer`** ([D40](../decisions/working-notes.md)),
   and **the core skips kinds it does not recognise, counts them, and does not treat the report
   as malformed** ([D61](../decisions/working-notes.md)). That rule has to exist before the first

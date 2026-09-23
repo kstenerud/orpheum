@@ -7,6 +7,9 @@ All entries dated **2026-09-17** unless stated. Every decision below is **provis
 are made from research, not from a running system. Each carries a **Status** line saying what
 would validate or overturn it.
 
+A gap in the numbering is an entry in which nothing is current any more; it is in
+[working-notes-archive.md](working-notes-archive.md), with a note naming what replaced it.
+
 ---
 
 ## D1 — Scope: video first, audio second, photos probably never
@@ -126,39 +129,6 @@ still needs a spike against a real library before it is trusted.
 
 ---
 
-## D5 — Database: PostgreSQL only, shipped in the default compose
-
-**Decided.** PostgreSQL. Not SQLite. Ship it in the default Docker Compose so installation is
-still one command.
-
-**Why.** ([tech-storage.md](../design/research/tech-storage.md) §1) SQLite's single writer lock
-collides directly with this workload — a library scan writing thousands of rows while
-transcodes and progress updates also write. This is not theoretical: Audiobookshelf #5349 (an
-unhandled `SQLITE_BUSY` during a scan took the whole server down), Jellyfin #11589 (`database
-is locked` after 10.9), and Jellyfin's `"Database Locked" on LXC containers using ZFS` group
-(228 comments — note that SQLite's locking is sensitive to the filesystem, and self-hosters run
-ZFS, btrfs and NFS).
-
-The asymmetry decides it: adding Postgres later is a project nobody finishes — PhotoPrism's
-Postgres request has **189 reactions and is eight years old**; Audiobookshelf's has 66. Nobody
-is asking for the reverse. Postgres also supplies FTS, `pg_trgm` fuzzy matching for the
-scanner, JSONB, `LISTEN`/`NOTIFY` for job wakeups without a broker, and `pgvector` if ever
-needed — each otherwise a separate dependency.
-
-**Rejected:** SQLite (chosen by Navidrome, Stash and Kavita and working fine for them — the
-tiebreaker is the scan-while-streaming write pattern and the ZFS/NFS deployment reality, not
-throughput).
-
-**Consequences.** All SQL behind a repository layer, so an embedded engine remains addable.
-The install story must stay one command or this decision costs us users.
-
-**Status:** **Superseded by [D31](#d31--sqlite-with-a-pure-go-driver-supersedes-d5)**
-(2026-09-18). Re-examined as this status line invited: the concurrency argument does not survive
-the actual write rate, most of the capability arguments evaporate, and the three cited failures
-were respectively an application bug, unattributed, and a driver issue.
-
----
-
 ## D6 — Data access: `sqlc`, no ORM
 
 **Decided.** Write SQL; generate typed Go with `sqlc`. A small hand-written dynamic-filter
@@ -200,32 +170,6 @@ tree is an explicit per-library opt-in. (A Jellyfin complaint on HN is that the 
 deletion "will be removed from Jellyfin" when it in fact deletes the file.)
 
 **Status:** Provisional; low risk.
-
----
-
-## D8 — A change journal and delta-sync cursor exist in the first schema
-
-**Decided.** Every syncable table gets a paired audit table recording deletions (UUIDv7 primary
-key, indexed timestamp), and the API serves a cursor-based "what changed since X" endpoint
-including deletes, from day one.
-
-**Why.** Immich's `*_audit` tables plus `sync.service` are exactly this, and they exist because
-offline clients need deletes — an `updatedAt` column cannot express one. We will have offline
-clients (download-for-travel is a non-negotiable client feature). Retrofitting a change journal
-is a migration over the whole schema.
-
-**Status:** **Reshaped 2026-09-23 by [D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path).**
-The table survives; the framing does not. ~~Provisional; low risk, and cheap now versus
-expensive later.~~ **Both urgency arguments above turn out to be wrong**, and they are left
-standing so the correction is visible: *"an `updatedAt` column cannot express a delete"* is
-true only of a design with no fallback — a full-state fetch expresses deletion by absence —
-and what cannot be retrofitted is not a journal but **a design that assumed the journal was
-authoritative**. Measured, the entire browsable state of the reference library is **215 KB
-gzipped, 0.2 s on a 10 Mbit link**, so the server may always answer with state and a journal
-only pays below ~2,600 changed items. So: **one journal table rather than a paired audit table
-per syncable table**, the journal is permitted to be lossy, and "your cursor is too old" is not
-an error but an ordinary reply. Note that this design still has **no consumer until a mobile
-client exists** — but it can no longer break one.
 
 ---
 
@@ -770,8 +714,8 @@ are loud enough to change the roadmap:
   is a core data-model feature and it must inform `library-model.md` before the schema is
   written, not after.
 - **Good search.** A Meilisearch plugin at 329 stars against a core whose `Search results are
-  limited to 24.` issue has been open since 2020. Already [D5](#d5--database-postgresql-only-shipped-in-the-default-compose);
-  this says it is not optional.
+  limited to 24.` issue has been open since 2020. Already [D5](working-notes-archive.md#d5--database-postgresql-only-shipped-in-the-default-compose)
+  *(now [D48](#d48--two-fts5-tokenisers-routed-by-script-and-length-and-exactly-one-normaliser), SQLite FTS5)*; this says it is not optional.
 - **Webhooks and an event bus.** A popular official plugin (248) *and* the foundation of
   Immich's entire plugin model. It is core infrastructure that the plugin system then consumes.
 
@@ -1159,7 +1103,7 @@ Language is categorically different and must not be merged into the same list:
 
 The last row decides where state lives: capability is per-device and travels in the request;
 language preference is per-user, device-independent, and therefore **server-side state that
-syncs** ([D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)). Setting
+syncs** ([D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path)). Setting
 Japanese audio on the TV must be honoured by the tablet.
 
 Pleasingly, the whole negotiation remains ordinary HTTP content negotiation: `Accept` with
@@ -1249,7 +1193,7 @@ It is what people expect, and everything above it in the chain can override it.
 - **The subtitle axis selection is a set, not a single value.** Usually empty or one, sometimes
   two — dual subtitles for language learners is a real want (Jellyfin's `Dual Subtitles` carries
   +33). Allowing a set now is free; retrofitting it is a migration.
-- **These preferences are user data and go in the change journal** (D8), so they reach every
+- **These preferences are user data and go in the change journal** (D166), so they reach every
   device and survive a rebuild ([D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index)
   — they are ours, not derived from the files). ~~*so they mirror to sidecars too*~~ —
   **superseded 2026-09-19 by [D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)**:
@@ -1688,7 +1632,7 @@ is one project's ratio, not a law.
 
 ## D31 — SQLite with a pure-Go driver; supersedes D5
 
-**Decided.** **Supersedes [D5](#d5--database-postgresql-only-shipped-in-the-default-compose).**
+**Decided.** **Supersedes [D5](working-notes-archive.md#d5--database-postgresql-only-shipped-in-the-default-compose).**
 The database is **SQLite**, in WAL mode, via a **pure-Go driver**. Postgres is not shipped, not
 required, and not supported for now.
 
@@ -4266,47 +4210,6 @@ instead.
 
 ---
 
-## D64 — Watch Together makes the remote-access question concrete, and supplies the premium tier's first honest member
-
-**Decided** (2026-09-19). Watch-together is the use case that forces
-[D25](#d25--remote-access-is-tiered-and-the-promise-changes-from-no-accounts-to-we-only-charge-for-another-machine)'s open product
-question, and it resolves *what the paid tier is for* even though it does not resolve whether we
-operate one.
-
-Three things are needed for the actual scenario — one participant at home, one travelling — and
-they have very different costs:
-
-1. **She must reach the media at all.** Already the project's stated open question
-   ([remote-access.md](../design/research/remote-access.md)). Watch-together adds no new
-   requirement here; it just makes the absence conspicuous.
-2. **A rendezvous for synchronisation.** **Free.** If she is connected to the server, the server
-   *is* the rendezvous, and [D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)'s
-   sync channel is the connection that already exists. No new infrastructure.
-3. **A path for voice.** Peer-to-peer where NAT allows — remote-access.md's research puts direct
-   connection above 90% with Tailscale-style hole punching — and a **TURN relay** for the
-   remainder.
-
-That third item is the point. A TURN relay is **unambiguously another machine that somebody must
-run**, with bandwidth costs that scale with use, and it cannot be self-hosted by the person who
-needs it, because the whole reason it exists is that their network cannot be reached.
-
-Which makes it the cleanest possible test of the README's promise: *"we only charge for things
-that genuinely require another machine."* Most candidate premium features fail that test on
-inspection. This one passes it without argument, and the ~10% figure means the free path is the
-common path rather than a crippled teaser.
-
-**What this does not settle:** whether we operate a service at all. That still implies a
-company, uptime obligations and an entity that can be pressured, and declining it remains
-coherent — the cost is leaving the headline use case to Tailscale, which is a fine answer for
-this project's likely early audience and a poor one for the household that motivated it.
-
-**Status:** Provisional, and the least technical entry in this log. What it fixes is the *shape*
-of the answer, not the answer. **Corrected by [D68](#d68--turn-is-not-an-independent-requirement-the-media-server-is-already-the-relay)**
-— voice needs no separate relay, because the media server is already mutually reachable. The
-premium tier's justification is remote access itself, not voice.
-
----
-
 ## D65 — Playback offset is per-participant, and it is an echo control
 
 **Decided** (2026-09-19). The group's shared state is a position **plus a per-participant
@@ -4498,7 +4401,7 @@ ordinary first-class targets.
 ## D68 — TURN is not an independent requirement; the media server is already the relay
 
 **Decided** (2026-09-19). Correcting
-[D64](#d64--watch-together-makes-the-remote-access-question-concrete-and-supplies-the-premium-tiers-first-honest-member),
+[D64](working-notes-archive.md#d64--watch-together-makes-the-remote-access-question-concrete-and-supplies-the-premium-tiers-first-honest-member),
 which claimed a TURN relay was the premium tier's first unarguable member. It is not, because we
 are not solving the general peer-to-peer problem.
 
@@ -5234,7 +5137,7 @@ that happens to be a query.
 ### Live updating is a property of the rule
 
 Apple exposes it as a toggle and it is the right model: a rule is live or frozen. Live rules
-re-evaluate off the change journal ([D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema))
+re-evaluate off the change journal ([D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path))
 rather than on a timer, because the journal already says exactly what changed. Navidrome's
 `RefreshDelay` is the debounce.
 
@@ -5405,7 +5308,10 @@ database a rebuildable index, so most of it is not backup material. The library 
 results, thumbnails, trickplay, extracted subtitles, subset fonts, FTS indexes and sort keys are
 all regenerable by a rescan. What is irreplaceable is **watch state, accounts and shares, rules,
 track-selection preferences ([D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)),
-and the change journal and sync cursors ([D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema))**.
+~~and the change journal and sync cursors ([D8](working-notes-archive.md#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema))~~**.
+*(The journal is not irreplaceable: [D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path) made it an accelerator that may be lost, and
+[D179](#d179--a-files-identity-is-a-hash-of-its-media-payload-not-its-bytes-a-rebuild-restores-the-identity-rows-and-runs-an-ordinary-scan-duplicates-are-surfaced) took it out of the backup set. [D185](#d185--the-cut-a-schema-is-written-down-as-sql-that-runs-the-database-is-backed-up-whole-the-watched-badge-cache-is-measured-out) then backs up the whole database rather than a
+selection, since it is small; file identity rows are what a restore cannot rebuild.)*
 
 That is kilobytes to a few megabytes against gigabytes of cache. So **backup is automatic,
 frequent and on by default**, because it costs nothing — a product decision a project with a
@@ -6050,8 +5956,9 @@ extracted subtitle tracks, the artwork, and [D82](#d82--media-segments-are-typed
   costs a re-transcode — and the device's own storage is not ours to reclaim. What is left is
   a **registration, indefinite by default**, with an expiry only where a share makes the
   relationship conditional.
-- **Deletions reconcile through the change journal** ([D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)), which exists for
-  exactly this and still has no consumer.
+- **Deletions reconcile through the change journal** ([D8](working-notes-archive.md#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)), which exists for
+  exactly this and still has no consumer. *(Reshaped by [D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path): a full state fetch expresses
+  deletion by absence and is the ordinary path; the journal is only faster.)*
 - **Play state reconciles through [D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)'s event log**, which is why the log
   carries the client's own monotonic clock: an offline device's events are ordered relative to
   each other even when its wall clock is wrong.
@@ -6770,81 +6677,6 @@ prune — which they will want anyway for session revocation ([auth.md](../desig
 
 ---
 
-## D104 — A Watch Together invite is a capability URL scoped to one edition; the group is never a grant
-
-> **"Keyed on an Edition" is retired by
-> [D122](#d122--the-session-is-the-object-what-plays-is-mutable-state-on-it-and-a-guest-sees-the-stream-rather-than-the-library)**
-> (2026-09-21). The session is the object and what plays is mutable state on it; the bound on
-> a leaked link is that a guest sees **the current stream, not the library**, which is a
-> stronger guarantee than scoping to an item and does not depend on enumerating the scope.
->
-> **The entitlement half is superseded by
-> [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays)**
-> (2026-09-20). ~~*Every participant resolves the item through their own entitlement*~~ — the
-> link **is** the grant, and a griefer who obtains one is handled by invalidating the session
-> and re-forming it, not by requiring everyone to hold an account first. The *scope* half of
-> this decision survives and matters more under D117, because it is what bounds the blast
-> radius of a leaked link.
-
-**Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §27.
-
-[watch-together.md](../design/plans/watch-together.md) says *"anyone in a group may play, pause
-and seek"* and never says **who may be in the group**. There is no mention of an invite, a
-join authorisation, or an entitlement check anywhere in the plan or the research. Its
-`Depends on` line names `stream-service`, `web-client` and `remote-access` — and not
-[sharing-model.md](../design/plans/sharing-model.md).
-
-**That fails open, and it fails open in the most natural implementation.** The whole point of
-the feature is watching with someone who is not in your house, so the obvious build is "send
-them a group link". A group link that admits anyone who holds it is an access path that routes
-around [D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed)'s share predicate and [D84](#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate)'s maturity
-ceiling — both of which [D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed) requires to be enforced *at every access
-path, not only at listing*, for exactly this reason.
-
-**So the rule: the group is not a grant.** Every participant resolves the item through their
-**own** entitlement. A user who cannot see the film cannot see the group —
-[principles §10](../principles/README.md), omission rather than rejection: there is no join
-button to decline.
-
-**And the invite has a good answer already sitting in the tree.**
-[remote-access.md](../design/research/remote-access.md) §6 lists four identity mechanisms, of
-which the second is *"capability URLs — perfect for one film, unattributable for ongoing
-access"*. A Watch Together invite is precisely that shape, and the weakness named there is not
-a weakness here:
-
-- **Scoped to one Edition**, not to a library. The invitee gets the film, not the collection.
-- **Time-boxed** to the session, which is what makes "unattributable for ongoing access"
-  irrelevant — there is no ongoing access.
-- **Revocable by ending the group**, and listed while it is live so the owner can see who holds
-  one.
-
-So the feature that most needs an identity story turns out to need the **cheapest** of the four
-([D25](#d25--remote-access-is-tiered-and-the-promise-changes-from-no-accounts-to-we-only-charge-for-another-machine)'s unresolved hosted-directory question is not on its critical path),
-and the motivating use case — a partner travelling, with no account — is answered without
-one.
-
-**Two consequences worth stating.**
-
-- **`watch-together.md` depends on `sharing-model.md`**, which it did not declare. The
-  capability-URL mechanism and the entitlement check are both that document's.
-- **A grantee's participation is bounded by their share, not by the host's.** If the host can
-  see the director's cut and the grantee's predicate only matches the theatrical, they are
-  watching different Editions and the group is incoherent — so the group is keyed on an Edition
-  and a participant who cannot resolve *that* Edition cannot join. Sharper than it sounds: it
-  means the entitlement check happens against the group's item, once, rather than being
-  re-derived per participant per action.
-
-**Status:** The capability URL's own design is settled by
-[D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url):
-it is a `join` grant — **no subject, because a guest is not a principal** — scoped to one
-session, revoked by rotation, ejection or the cap. Also
-open: whether a participant who loses entitlement mid-film (a share revoked, a rule
-re-evaluated) is ejected or finishes the film. Ejecting mid-sentence is hostile; not ejecting
-means a revocation is not immediate. Probably: finish the session, deny the next one, and say
-so — but it is a decision, not an oversight to be discovered at implementation time.
-
----
-
 ## D105 — A protocol adapter acts as the user, never as itself
 
 **Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §28.
@@ -6858,7 +6690,8 @@ install.
 **That is a confused deputy, and it defeats every access control we have.**
 [D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed) requires the share predicate to be enforced *"at every access path,
 not only at listing"*; [D84](#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate) puts the maturity ceiling on the same
-mechanism; [D104](#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant) has just established that a group is not a grant. An
+mechanism; [D104](working-notes-archive.md#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant) has just established that a group is not a grant *(reversed since by [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays): the
+link is the grant; this entry's argument does not depend on it)*. An
 adapter holding the owner's token hands the whole library to anything that can speak Jellyfin's
 API at it — and because the core sees a legitimate owner request, nothing fires.
 
@@ -7496,7 +7329,7 @@ history to a tombstone whenever someone fixed a track title. **Extended by [D186
 ## D117 — The session link is the grant, revocation is the control, and the creator owns what plays
 
 **Decided** (2026-09-20), by the project owner, and it **supersedes the entitlement half of
-[D104](#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant)**.
+[D104](working-notes-archive.md#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant)**.
 
 D104 argued that a group link routes around the share predicate, so every participant should
 have to hold entitlement independently. The counter-argument is simpler and it wins: **a
@@ -7889,7 +7722,7 @@ change is "the host may change a grant", not "grants may be per-participant".
 ## D122 — The session is the object; what plays is mutable state on it, and a guest sees the stream rather than the library
 
 **Decided** (2026-09-21), by the project owner. **Retires "the group is keyed on an Edition"**
-from [D104](#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant)
+from [D104](working-notes-archive.md#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant)
 and [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays).
 
 That phrasing was wrong and it was wrong for a traceable reason. D104 was trying to bound the
@@ -8169,7 +8002,7 @@ What follows, and is new:
   because it is the host's library, the host's session and the host's choice of what plays
   ([D122](#d122--the-session-is-the-object-what-plays-is-mutable-state-on-it-and-a-guest-sees-the-stream-rather-than-the-library)).
 - **A guest is therefore outside every predicate**, which is the honest restatement of
-  [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays) superseding [D104](#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant)'s
+  [D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays) superseding [D104](working-notes-archive.md#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant)'s
   entitlement half. It is bounded not by a rule but by what a session exposes: the current
   playback, nothing addressable, nothing enumerable.
 
@@ -8788,7 +8621,7 @@ Exactly so, and it is worth spelling out how much it buys:
 - **The judgement survives us.** A tag is user-authored data about the **work**, so by
   [D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person)
   it is sidecar-able where a writable path is granted, it rides
-  [D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)'s change journal,
+  [D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path)'s change journal,
   and a full rescan must not destroy it. A deny list buried in a role has none of those
   properties. **A parent's classification of their own library is exactly the kind of work that
   should outlive this project.**
@@ -9077,7 +8910,7 @@ because the rule now exists.
 
 **And the invalidation story is already built.** These values change only on rare, known events
 — a scan completing, a rule or role changing, a tag edit, a metadata refresh — and
-[D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)'s change journal
+[D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path)'s change journal
 *already says exactly what changed*. [rules-engine.md](../design/plans/rules-engine.md) already
 re-evaluates live rules off it with a debounce. So this is **event-driven invalidation on a
 mechanism that exists**, not a TTL cache and not new machinery — which is what makes the rule
@@ -10733,7 +10566,7 @@ has per-user limits; a *Transcode Killer* plugin exists because the field's caps
 
 That is a nicety for a LAN server and it is **not** a nicety for us:
 [D25](#d25--remote-access-is-tiered-and-the-promise-changes-from-no-accounts-to-we-only-charge-for-another-machine),
-[D64](#d64--watch-together-makes-the-remote-access-question-concrete-and-supplies-the-premium-tiers-first-honest-member)
+[D64](working-notes-archive.md#d64--watch-together-makes-the-remote-access-question-concrete-and-supplies-the-premium-tiers-first-honest-member) *(its relay argument withdrawn by [D68](#d68--turn-is-not-an-independent-requirement-the-media-server-is-already-the-relay))*
 and [D86](#d86--adaptation-is-the-client-re-picking-on-a-buffer-signal-and-it-puts-bandwidth-transcoding-on-remote-accesss-critical-path)
 put a **paid relay** on the critical path, and
 [D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts) prices it.
@@ -10879,8 +10712,8 @@ Two things change anyway:
 This is the uncomfortable one and it gets no softening.
 [D62](#d62--watch-together-is-a-first-class-feature-and-the-per-client-surface-is-six-methods)
 makes Watch Together first-class and
-[D64](#d64--watch-together-makes-the-remote-access-question-concrete-and-supplies-the-premium-tiers-first-honest-member)
-makes it the paid tier's first honest member. **On 25 February 2025 Plex ended support for
+[D64](working-notes-archive.md#d64--watch-together-makes-the-remote-access-question-concrete-and-supplies-the-premium-tiers-first-honest-member)
+made it the paid tier's first honest member *(withdrawn by [D68](#d68--turn-is-not-an-independent-requirement-the-media-server-is-already-the-relay))*. **On 25 February 2025 Plex ended support for
 Watch Together on its new apps**, keeping it in the web app only, because the apps were
 *"rebuilt from the ground up to boost our development speed"*.
 
@@ -11261,7 +11094,7 @@ needs to be checked against `library-model.md` before it freezes.
 **Decided** (2026-09-21). Research: [token-model.md](../design/research/token-model.md).
 **Closes [threat-model.md](../design/plans/threat-model.md)'s oldest open question**, carried
 since 2026-09-18, which [D93](#d93--device-pairing-is-rfc-8628-shaped),
-[D104](#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant),
+[D104](working-notes-archive.md#d104--a-watch-together-invite-is-a-capability-url-scoped-to-one-edition-the-group-is-never-a-grant),
 [D105](#d105--a-protocol-adapter-acts-as-the-user-never-as-itself),
 [D107](#d107--the-node-channel-is-mutually-authenticated-and-a-nodes-roots-are-local-and-never-remotely-settable)
 and [D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)
@@ -12262,7 +12095,7 @@ exist to prevent, reintroduced by the optimisation meant to serve them.
 
 **Caching cannot drift.** The worst a wrong invalidation rule produces is a value that is
 briefly old or an occasional 43 ms. And the invalidation signal already exists:
-[D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)'s change journal
+[D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path)'s change journal
 says exactly what changed, which is the owner's *"contingent upon a scan changing the
 landscape"*.
 
@@ -12935,7 +12768,7 @@ the one number this changes on the hot path and is almost certainly nothing.
 > Furthermore, we don't necessarily need the entirety of the datascape in sync before we allow
 > user interaction. I'd rather keep this section simple, with easy escape hatches."*
 
-[D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema) has been
+[D8](working-notes-archive.md#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema) has been
 `Provisional` since the first week, no plan consumes it, and its own status concedes it is
 *"unvalidated until a mobile client exists"*. The previous survey of it listed four open
 questions and one hole. **Three of the four dissolve under this framing and the hole dissolves

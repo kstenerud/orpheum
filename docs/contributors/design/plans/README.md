@@ -139,9 +139,10 @@ the node is forbidden to have, so the core supplies the set and the node supplie
 measurement), [D102](../../decisions/working-notes.md) (**nine passes** now run over every
 file and nobody had added them up) and [D103](../../decisions/working-notes.md) (a device
 *preference* is stored, a device *capability* never is — the distinction that keeps a device
-scope from becoming a device-profile database), [D104](../../decisions/working-notes.md)
-(nobody said who may *join* a Watch Together group, and a group link routes around every share
-predicate), [D105](../../decisions/working-notes.md) (the Jellyfin adapter has no stated
+scope from becoming a device-profile database), [D117](../../decisions/working-notes.md)
+(nobody said who may *join* a Watch Together group, and a group link routed around every share
+predicate; the answer ended up being that the link **is** the grant, scoped to the current
+stream), [D105](../../decisions/working-notes.md) (the Jellyfin adapter has no stated
 identity, and the convenient answer is a confused deputy holding the owner's token) and
 [D106](../../decisions/working-notes.md) (play state through an adapter has no sequence number,
 so D81's guard silently does not apply there).
@@ -151,7 +152,7 @@ the file transport's security model precisely and then says "where HTTP exists, 
 without giving the preferred one any — and the dangerous direction turns out to be core→node,
 because `config.json` carries commands and, since D89, deletion.
 
-**Three of those fail open** — D104, D105 and D107 — which is the category a keyword sweep is
+**Three of those fail open** — the Watch Together join, D105 and D107 — which is the category a keyword sweep is
 worst at finding, because the missing thing is a check rather than a feature. All three came
 from asking one question of every component in turn: *what is the access path here, and who is
 the principal on it?* Worth re-running whenever a surface is added.

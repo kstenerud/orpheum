@@ -21,7 +21,7 @@ substantially.
 | **Rendition negotiation** | **Mostly already server-side** | [D21](../../decisions/working-notes.md) made this a set intersection over ~11 named profiles, and **the server performs the intersection**. The client's share is "turn probe results into a prioritised list of names" — tens of lines. |
 | **Language-preference resolution** | **Server-side** | [D24](../../decisions/working-notes.md)'s chain resolves on the server; the client displays the outcome. |
 | **Playback queue / resume** | Yes, moderately | Real logic, moderate size. |
-| **Offline download state machine** | **Yes — and this is the genuinely hard one** | Stateful, fiddly, interacts with [D8](../../decisions/working-notes.md)'s change journal. The one part worth real effort to share. |
+| **Offline download state machine** | **Yes — and this is the genuinely hard one** | Stateful, fiddly, interacts with [D8](../../decisions/working-notes-archive.md)'s change journal. The one part worth real effort to share. |
 
 **Two conclusions follow, and the second is the clincher.**
 

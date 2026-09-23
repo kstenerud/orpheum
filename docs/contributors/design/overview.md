@@ -316,8 +316,7 @@ Honest statement of what the research did **not** settle:
    Plex's reported 2 Mbps paid relay cap. So the hosted tier's remaining justification is
    convenience for people who will not rent a VPS: a real market, and a far smaller claim than
    the one this project started with. Narrowed, and then narrowed again.
-   [D64](../decisions/working-notes.md) thought Watch Together's voice chat needed a hosted
-   **TURN relay**; [D68](../decisions/working-notes.md) found it does not, because both
+   Watch Together's voice chat was once thought to need a hosted **TURN relay**; [D68](../decisions/working-notes.md) found it does not, because both
    participants are already connected to the media server by construction and it can relay the
    voice itself — at one endpoint rather than in a datacentre, so with almost no latency cost.
    So the justification for a paid tier is **remote access itself** and nothing else, which is a
