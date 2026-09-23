@@ -167,7 +167,7 @@ Pure client work or strictly additive. Ignore until there is room; nothing is ow
 
 | # | Feature | What decides it |
 | --- | --- | --- |
-| F92 | **Music** (ROADMAP Phase 7, OpenSubsonic) | Competitor and sentiment research, commercial players first. The owner's case to judge it by: *"my music collection playing through the TV"* ([D176](contributors/decisions/working-notes.md)) |
+| F92 | **Music** (ROADMAP Phase 7, OpenSubsonic) | Competitor and sentiment research, commercial players first. The owner's case to judge it by: *"my music collection playing through the TV"* ([D176](contributors/decisions/working-notes.md)). **Schema cost explored** ([D186](contributors/decisions/working-notes.md), [music.md](contributors/design/research/music.md)): one reshape, made now; the rest additive |
 
 ---
 

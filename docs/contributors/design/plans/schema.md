@@ -139,7 +139,7 @@ beside it is neither listed nor an extra. D163 said a new reason would be visibl
 this is the first.
 
 ```sql
-CREATE TABLE track (                                       -- class O
+CREATE TABLE stream (                                      -- class O; not "track" (D186)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   file_id     INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT, -- where the bytes are
   media_file  INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT, -- the video it serves
@@ -153,7 +153,7 @@ CREATE TABLE track (                                       -- class O
   channels    INTEGER,
   UNIQUE (file_id, stream_index)
 );
-CREATE INDEX track_media ON track(media_file, kind);
+CREATE INDEX stream_media ON stream(media_file, kind);
 
 CREATE TABLE fetched_subtitle (                            -- class A: quota-limited, kept
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -172,12 +172,43 @@ A fetched subtitle is **stored in the database, not the media tree**: it cost on
 20 daily downloads, the library may be read-only ([principles §2](../../principles/README.md)),
 and in the database the ordinary backup carries it with no second file class.
 
+## Items: what text, artwork, tags, overrides and favourites attach to
+
+Titles are not the only things with a name, a poster, a sort position, tags, a person's
+corrections or a star: **a series, a box set, an album and an artist have all of them**. So they
+share one id space ([D186](../../decisions/working-notes.md)), and every table below that describes
+"a thing" references `item`, not `title`.
+
+```sql
+CREATE TABLE item (                                        -- class I
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind        TEXT NOT NULL CHECK (kind IN ('title','collection','person')),
+  library_id  INTEGER REFERENCES library(id) ON DELETE RESTRICT,
+  origin      TEXT,                      -- NULL = this server; else who gave it (D174)
+  merged_into INTEGER REFERENCES item(id) ON DELETE RESTRICT,  -- D173
+  created_at  INTEGER NOT NULL,
+  removed_at  INTEGER
+);
+CREATE INDEX item_library ON item(library_id, kind) WHERE removed_at IS NULL;
+CREATE VIEW live_item AS SELECT * FROM item WHERE removed_at IS NULL;
+
+CREATE TABLE item_provider_id (                            -- class I; several per provider (ISRCs)
+  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
+  provider    TEXT NOT NULL,
+  provider_id TEXT NOT NULL,
+  PRIMARY KEY (item_id, provider, provider_id)
+) WITHOUT ROWID;
+CREATE INDEX item_provider_lookup ON item_provider_id(provider, provider_id);
+```
+
+`person` is reserved in the vocabulary and has no table in Cut A — people, credits and artists
+arrive together as additive tables.
+
 ## The work: Title → Edition → Version → File
 
 ```sql
-CREATE TABLE title (                                       -- class I (id, provider ids) + O/F
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  library_id     INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
+CREATE TABLE title (                                       -- class O/F; identity is the item's
+  id             INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
   kind           TEXT NOT NULL CHECK (kind IN ('movie','episode','extra')),
   media_kind     TEXT NOT NULL DEFAULT 'video' CHECK (media_kind IN ('video','audio')),
   year           INTEGER,
@@ -187,22 +218,9 @@ CREATE TABLE title (                                       -- class I (id, provi
   source         TEXT CHECK (source IN ('nfo','tmdb','tvdb','none')),
   source_id      TEXT,
   ident          TEXT NOT NULL CHECK (ident IN
-                   ('identified','ambiguous','unidentified','confirmed')),   -- D172
-  origin         TEXT,                   -- NULL = this server; else who gave it (D174)
-  merged_into    INTEGER REFERENCES title(id) ON DELETE RESTRICT,  -- D173
-  created_at     INTEGER NOT NULL,
-  removed_at     INTEGER
+                   ('identified','ambiguous','unidentified','confirmed'))    -- D172
 );
-CREATE INDEX title_library ON title(library_id, kind) WHERE removed_at IS NULL;
-CREATE INDEX title_ambiguous ON title(library_id) WHERE ident = 'ambiguous';
-
-CREATE TABLE title_provider_id (                           -- class I
-  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
-  provider    TEXT NOT NULL,
-  provider_id TEXT NOT NULL,
-  PRIMARY KEY (title_id, provider)
-);
-CREATE INDEX title_provider_lookup ON title_provider_id(provider, provider_id);
+CREATE INDEX title_ambiguous ON title(id) WHERE ident = 'ambiguous';
 
 CREATE TABLE edition (                                     -- class A when a person made it
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -241,16 +259,16 @@ its source File ([D180](../../decisions/working-notes.md)).
 ## Text, sort and search
 
 ```sql
-CREATE TABLE title_text (                                  -- class O/F, resolved (D45)
-  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
+CREATE TABLE item_text (                                   -- class O/F, resolved (D45)
+  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   lang        TEXT NOT NULL,
   is_original INTEGER NOT NULL DEFAULT 0 CHECK (is_original IN (0,1)),
   name        TEXT NOT NULL,
   overview    TEXT,
   tagline     TEXT,
-  PRIMARY KEY (title_id, lang)
+  PRIMARY KEY (item_id, lang)
 );
-CREATE UNIQUE INDEX title_text_original ON title_text(title_id) WHERE is_original = 1;
+CREATE UNIQUE INDEX item_text_original ON item_text(item_id) WHERE is_original = 1;
 
 CREATE TABLE edition_text (                                -- class A or O
   edition_id  INTEGER NOT NULL REFERENCES edition(id) ON DELETE RESTRICT,
@@ -260,41 +278,45 @@ CREATE TABLE edition_text (                                -- class A or O
 );
 
 CREATE TABLE sort_key (                                    -- class C (D47)
-  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE CASCADE,
+  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE CASCADE,
   locale      TEXT NOT NULL,
+  listing     TEXT NOT NULL,             -- the list it sorts in: 'movie', 'series', 'album'…
   key         BLOB NOT NULL,             -- CLDR sort-key bytes, BINARY order
-  PRIMARY KEY (locale, key, title_id)
+  PRIMARY KEY (locale, listing, key, item_id)
 ) WITHOUT ROWID;
 
-CREATE VIRTUAL TABLE title_fts USING fts5(                 -- class C (D48)
-  name, overview, content='title_text', content_rowid='rowid',
+CREATE VIRTUAL TABLE item_fts USING fts5(                 -- class C (D48)
+  name, overview, content='item_text', content_rowid='rowid',
   tokenize='unicode61 remove_diacritics 2'
 );
-CREATE VIRTUAL TABLE title_fts_tri USING fts5(
-  name, content='title_text', content_rowid='rowid', tokenize='trigram'
+CREATE VIRTUAL TABLE item_fts_tri USING fts5(
+  name, content='item_text', content_rowid='rowid', tokenize='trigram'
 );
 ```
 
 `sort_key` and the FTS tables are caches and may `CASCADE`; nothing authored references them.
-Triggers keeping the FTS in step with `title_text` are omitted from the sketch.
+Triggers keeping the FTS in step with `item_text` are omitted from the sketch. **`listing` is in
+the sort key's primary key because it has to be**: measured at 500,000 music tracks, a grid page
+over one shared key walked every song and artist to find 50 albums — **9.4 ms**, against **0.35 ms**
+with the listing first ([D186](../../decisions/working-notes.md)).
 
 ## What a person set: overrides, artwork, tags
 
 ```sql
 CREATE TABLE field_override (                              -- class A (D183)
-  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
+  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   field       TEXT NOT NULL,             -- a field-registry name
   lang        TEXT NOT NULL DEFAULT '',  -- '' for language-invariant fields
   value       TEXT NOT NULL,             -- a frozen copy
   origin      TEXT NOT NULL,             -- 'typed', 'nfo', 'tmdb', 'tvdb' — display only
   set_by      INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
-  PRIMARY KEY (title_id, field, lang)
+  PRIMARY KEY (item_id, field, lang)
 );
 
 CREATE TABLE artwork (                                     -- class O/F; A when chosen
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
+  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   kind        TEXT NOT NULL CHECK (kind IN ('poster','backdrop','logo','banner','thumb','disc')),
   lang        TEXT,
   source      TEXT NOT NULL,             -- 'nfo', 'tmdb', 'embedded', 'user'
@@ -303,21 +325,21 @@ CREATE TABLE artwork (                                     -- class O/F; A when 
   chosen      INTEGER NOT NULL DEFAULT 0 CHECK (chosen IN (0,1)),  -- a person picked it
   removed_at  INTEGER
 );
-CREATE UNIQUE INDEX artwork_chosen ON artwork(title_id, kind) WHERE chosen = 1;
-CREATE INDEX artwork_title ON artwork(title_id, kind);
+CREATE UNIQUE INDEX artwork_chosen ON artwork(item_id, kind) WHERE chosen = 1;
+CREATE INDEX artwork_item ON artwork(item_id, kind);
 
 CREATE TABLE tag (                                         -- class A (D164)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   name        TEXT NOT NULL UNIQUE
 );
-CREATE TABLE title_tag (
-  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
+CREATE TABLE item_tag (
+  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   tag_id      INTEGER NOT NULL REFERENCES tag(id) ON DELETE RESTRICT,
-  PRIMARY KEY (tag_id, title_id)
+  PRIMARY KEY (tag_id, item_id)
 ) WITHOUT ROWID;
 ```
 
-The columns in `title` and `title_text` are **the resolved values** — override, else the
+The columns in `title` and `item_text` are **the resolved values** — override, else the
 title's source, else local fallbacks ([D183](../../decisions/working-notes.md)) — and are
 rewritten whenever a layer changes. They are what everything reads.
 
@@ -325,21 +347,11 @@ rewritten whenever a layer changes. They are what everything reads.
 
 ```sql
 CREATE TABLE collection (                                  -- class A or O
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  library_id  INTEGER REFERENCES library(id) ON DELETE RESTRICT,
+  id          INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
   kind        TEXT NOT NULL CHECK (kind IN ('series','box_set','user')),
   membership  TEXT NOT NULL CHECK (membership IN ('explicit','predicate','external')),
   predicate   TEXT,                      -- D75's serialised form, for 'predicate'
-  created_by  TEXT NOT NULL CHECK (created_by IN ('scanner','provider','user')),
-  created_at  INTEGER NOT NULL,
-  removed_at  INTEGER
-);
-CREATE TABLE collection_text (
-  collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
-  lang        TEXT NOT NULL,
-  name        TEXT NOT NULL,
-  overview    TEXT,
-  PRIMARY KEY (collection_id, lang)
+  created_by  TEXT NOT NULL CHECK (created_by IN ('scanner','provider','user'))
 );
 CREATE TABLE collection_member (                           -- D159, D160
   collection_id     INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
@@ -352,33 +364,36 @@ CREATE TABLE collection_member (                           -- D159, D160
 );
 
 CREATE TABLE ordering (                                    -- D96, D159
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  series_id   INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
-  name        TEXT NOT NULL,             -- 'aired', 'dvd', 'absolute', or a person's
-  provider    TEXT,                      -- NULL when user-authored
-  UNIQUE (series_id, name)
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
+  name          TEXT NOT NULL,           -- 'aired', 'dvd', 'absolute', a person's; 'release' for an album
+  provider      TEXT,                    -- NULL when user-authored
+  UNIQUE (collection_id, name)
 );
-CREATE TABLE episode_position (
+CREATE TABLE position (                                    -- season/episode, or disc/track
   ordering_id INTEGER NOT NULL REFERENCES ordering(id) ON DELETE RESTRICT,
   title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
-  season      INTEGER,
-  number      INTEGER,
+  grp         INTEGER,                   -- season, or disc
+  number      INTEGER,                   -- episode, or track
   sort        REAL NOT NULL,             -- a total order within the ordering
   PRIMARY KEY (ordering_id, title_id)
 );
-CREATE INDEX episode_sort ON episode_position(ordering_id, sort);
-CREATE TABLE season_text (
-  series_id   INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
-  season      INTEGER NOT NULL,
+CREATE INDEX position_sort ON position(ordering_id, sort);
+CREATE INDEX position_title ON position(title_id);
+CREATE TABLE group_text (                                  -- a season's name, a disc's subtitle
+  collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
+  grp         INTEGER NOT NULL,
   lang        TEXT NOT NULL,
   name        TEXT,
   overview    TEXT,
-  PRIMARY KEY (series_id, season, lang)
+  PRIMARY KEY (collection_id, grp, lang)
 );
 ```
 
 **There is no series table and no season table.** A series is a Collection whose members are
-episodes; a season is a number within an ordering, with optional text
+episodes; a season is a group number within an ordering, with optional text — and the same
+tables hold an album's discs and tracks, which is why they are named `position` and `grp` rather
+than `episode_position` and `season` ([D186](../../decisions/working-notes.md))
 ([D160](../../decisions/working-notes.md)). `kind` omits `season` and `smart` from
 library-model.md's list for that reason: a season is not a Collection here, and "smart" is
 `membership = 'predicate'`.
@@ -410,8 +425,8 @@ CREATE UNIQUE INDEX user_live_name ON user(name) WHERE removed_at IS NULL;
 
 CREATE TABLE user_deny (                                   -- class A: narrows only
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
-  PRIMARY KEY (user_id, title_id)
+  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
+  PRIMARY KEY (user_id, item_id)
 ) WITHOUT ROWID;
 
 CREATE TABLE device (                                      -- class A
@@ -487,14 +502,14 @@ CREATE INDEX play_span_user ON play_span(user_id, t_from);
 CREATE INDEX play_span_file ON play_span(file_id);
 
 CREATE TABLE favourite (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  title_id INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT, at INTEGER NOT NULL,
-  PRIMARY KEY (user_id, title_id)) WITHOUT ROWID;
+  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 CREATE TABLE user_rating (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  title_id INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT, rating INTEGER NOT NULL,
-  at INTEGER NOT NULL, PRIMARY KEY (user_id, title_id)) WITHOUT ROWID;
+  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, rating INTEGER NOT NULL,
+  at INTEGER NOT NULL, PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 CREATE TABLE watchlist (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  title_id INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT, at INTEGER NOT NULL,
-  PRIMARY KEY (user_id, title_id)) WITHOUT ROWID;
+  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 
 CREATE TABLE preference (                                  -- class A (D24, D57, D90, D103)
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
@@ -586,8 +601,9 @@ ambiguous title's choice screen searches once more.
 
 Each arrives with its feature as a new table or column, precluding nothing
 ([D180](../../decisions/working-notes.md)): people and credits (Cut A reads cast from
-`provider_response`), certifications and the descriptor vector, external scores, media segments,
-loudness columns on `track`, the speech map and subtitle verification columns, trickplay, home
+`provider_response`) — **as `person` items with a credit table keyed on `item`**, so a film's
+cast, an album's artist and a track's featured artist are one table ([D186](../../decisions/working-notes.md)); certifications and the descriptor vector, external scores, media segments,
+loudness columns on `stream`, the speech map and subtitle verification columns, trickplay, home
 rows, the rules field registry, retention marks, download registrations, the change journal
 ([D166](../../decisions/working-notes.md)), and Watch Together's persisted state if it ever needs
 any (sessions live in memory and end with the process — [D119](../../decisions/working-notes.md)'s
@@ -601,9 +617,9 @@ any (sessions live in memory and end with the process — [D119](../../decisions
 | 2. playback addressable by File | every observation is a `file` row |
 | 3. referenced rows tombstoned | `removed_at` + `ON DELETE RESTRICT` + `live_*` |
 | 4. collection membership is three kinds | `collection.membership` |
-| 7. the track model is not three axes | `track.kind` is a closed set that widens by rebuild |
+| 7. the track model is not three axes | `stream.kind` is a closed set that widens by rebuild |
 | 13. a grant may have a parent | `"grant".parent` |
-| 14. every item carries its source | `title.origin` |
+| 14. every item carries its source | `item.origin` |
 
 Obligations 5, 6 and 8–12 are satisfied by additive tables or by client behaviour and are
 unaffected by this sketch.

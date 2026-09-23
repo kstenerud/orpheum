@@ -93,7 +93,8 @@ exists. Every one is **p99 at 5 concurrent sessions** unless stated.
 | --- | --- | --- |
 | Library page, any depth | < 50 ms | 0.084 ms single-reader at 100k |
 | Detail page, all four levels | < 50 ms | 0.050 ms |
-| **Poster grid, 50 films, watched badges rolled up File → Title** ([D185](../../decisions/working-notes.md)) | < 50 ms | **Measured**: **0.84 ms** computed live (p95 1.49 ms); a cache would save 0.5 ms and is not built. Badly shaped, **7.2 ms** — the shape is the risk |
+| **Poster grid, 50 films, watched badges rolled up File → Title** ([D185](../../decisions/working-notes.md)) | < 50 ms | **Measured**: **0.84 ms** computed live (p95 1.49 ms); **0.91 ms** through the shared `item` table ([D186](../../decisions/working-notes.md)); a cache would save 0.5 ms and is not built. Badly shaped, **7.2 ms** — the shape is the risk |
+| Album grid at **500,000 tracks** ([D186](../../decisions/working-notes.md)) | < 50 ms | **Measured**: 0.35 ms with the listing first in the sort key; **9.4 ms** without |
 | Continue Watching | < 50 ms | 0.055 ms |
 | Search, worst-case common term | < 200 ms | 16.1 ms ranked at 100k |
 | Rules-engine predicate, cross-level | < 250 ms | 3.7 ms |
