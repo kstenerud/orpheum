@@ -15494,3 +15494,111 @@ Research: [name-orpheum.md](../design/research/name-orpheum.md).
     nothing we publish should play on that resemblance.
 
 **Status:** Decided, provisional.
+
+---
+
+## D196 — The standards are written, every rule names its enforcement, and the gates run by themselves before the first line of feature code
+
+**Decided** (2026-09-23), by the project owner: *"build the standards documents before we start
+coding. All code should follow the standards from the moment the LLM starts writing code. We
+should have mechanical checks of the code and tests that gets triggered automatically, like we
+do in yoloai. I want everything ready up to the point where I can start the agent writing the
+actual code on the next prompt."* It carries out
+[D192](#d192--built-in-a-private-repository-tested-at-home-released-through-public-betas-standards-follow-the-final-stack)
+§3 and is milestone M0 of [cut-a.md](../design/plans/cut-a.md).
+Research: [yoloai-lessons.md](../design/research/yoloai-lessons.md), and the audit's §7.
+
+### 1. What exists
+
+- **Standards** in [`standards/`](../standards/README.md): `go.md`, `sql.md`, `typescript.md`,
+  `testing.md`, `python.md`, `shell.md`, `makefile.md` and `markdown.md`. **Every rule names the
+  compiler flag, lint rule, test, gate script or hook that enforces it, or says *review-only*.**
+  yoloAI measured that prose rules were followed unreliably and mechanical gates were not.
+- **Principles §17–§21**, adopted from yoloAI, each earned by a specimen:
+  - §17: a rule nothing runs is a hope;
+  - §18: a check never seen failing proves nothing;
+  - §19: a defect is a sample;
+  - §20: a gate changes on purpose;
+  - §21: an owner's correction is written down, in
+    [`agent-failures.md`](../agent-failures.md).
+- **The skeleton:**
+  - `cmd/orpheum` and one `doc.go` per package of cut-a §3, each with **Invariants** (naming
+    their enforcement), **Read before changing** and **Where to change**;
+  - the sanctioned clock and logger;
+  - the web workspace: `sdk`, `player`, `web` and `cast-receiver`, each with the same three
+    headings in its README.
+
+  There is no feature code.
+- **`make check` is the one gate.** On the skeleton it passes in about 9 s. It runs:
+  - **docs:** links, anchors, decision IDs and the index;
+  - **the gate scripts' own tests**, and shellcheck;
+  - **SPDX headers** that match their directory, and a file-size limit (warn at 400 lines, fail
+    at 800);
+  - **the dependency allowlists;**
+  - **claims:**
+    - every cited `TestArch_` test exists and every one is cited;
+    - every `D<n>` in code is a live decision;
+    - every `ORPHEUM_TEST_` variable read is set by a job;
+  - **Go:**
+    - `gofumpt`/`gci`;
+    - golangci-lint with depguard and forbidigo encoding the architecture;
+    - `go vet` for Linux and macOS;
+    - the tests, including eight `TestArch_` tests, each shown failing against a synthetic
+      violation;
+    - `go mod tidy`, and the speculative-API lint;
+  - **generated code** regenerated and diffed;
+  - **web:** `tsc`, strict ESLint with no warnings allowed, Prettier, dependency-cruiser,
+    Vitest.
+
+  **Seen failing end to end** on a core `os/exec` import, an `any`, a missing SPDX header and an
+  invented decision ID.
+- **Branch gates** (`make check-pr`):
+  - **revert-and-require-red**, adapted from yoloAI. A `Verified-By:` trailer must name a
+    ticked [`VQ<n>`](../verification-queue.md) (D190);
+  - **test weakening:** a deleted test, a new skip, fewer assertions or a changed golden needs a
+    `Test-Weakened:` trailer, and **a changed gate file needs the owner's `Gate-Changed:`
+    trailer**;
+  - **commit lint.**
+- **Automatic triggers:**
+  - **Claude Code hooks:**
+    - the **Stop hook** runs `make check` at the end of any turn that changed a file, and blocks
+      the turn on failure;
+    - **pre-edit** refuses changes to gates, generated code and committed migrations;
+    - **pre-bash** refuses dependency additions, `--no-verify` and force-pushes;
+  - **git hooks**, installed by `make setup`, for pre-commit and the commit message;
+  - **CI**, which runs `make check` on every push and the branch gates on every branch and pull
+    request.
+
+### 2. Choices made while building it, for the owner to know
+
+- **SPDX identifier `GPL-3.0-or-later`** for the server tree; D80 said "GPLv3" without saying
+  "only" or "or later". *Or later* is the common choice (the FSF's recommendation); changing it
+  is a one-line sed until the first outside contribution.
+- **npm workspaces, not pnpm.** npm ships with Node, so the build needs one tool fewer.
+  cut-a.md is updated to match.
+- **TypeScript is held at 6.0**, because typescript-eslint does not yet support 7.
+  **`eslint-plugin-jsx-a11y-x`** replaces the unmaintained `jsx-a11y`.
+- **Styling is plain CSS files with custom properties**, not CSS Modules, because themes (D138)
+  need stable class names. **Named exports only; no `enum`.**
+- **Go tests use the standard library only.** testify is banned outright, and go-cmp is used
+  only once the owner allowlists it.
+- **Spelling in code comments is British**, matching the docs (misspell's UK locale).
+- **The store has one write connection and a read-only pool** ([sql.md](../standards/sql.md)).
+- **`internal/node/bytes` is `internal/node/byteserver`**, so it does not shadow the standard
+  `bytes` package.
+- **The gate hooks refuse rather than ask.** Claude Code does not document that an *ask*
+  prompts when a session bypasses permissions, which is how agents run in yoloAI sandboxes. A
+  refusal always holds. Sessions for gate or dependency work start with
+  `ORPHEUM_ALLOW_GATE_EDIT=1` or `ORPHEUM_ALLOW_DEPS=1`. The shell guard is a speed bump: it was
+  shown bypassable by a Python one-liner while it was being built. The wall is the branch
+  gate's `Gate-Changed:` trailer.
+
+### 3. What M0 still lacks
+
+- **CI has not run**, because the repository is not on GitHub yet. It will run on the first
+  push to the private repository.
+- **Tools on a new machine:** `make tools` installs the pinned golangci-lint, and
+  `make tools-sqlc` installs sqlc, which needs cgo, before M1's first query.
+
+**Status:** Decided. [cut-a.md](../design/plans/cut-a.md) marks M0 done except for CI's first
+run. The next prompt starts M1.

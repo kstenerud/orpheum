@@ -1,0 +1,16 @@
+# build and tool output
+/bin/
+/.tools/
+/dist/
+*.test
+*.out
+coverage.*
+# web
+node_modules/
+web/**/dist/
+web/**/.vite/
+# local state
+/.claude/.cache/
+/.claude/settings.local.json
+__pycache__/
+*.pyc

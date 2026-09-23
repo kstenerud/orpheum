@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": ".tsbuild/tooling",
+    "tsBuildInfoFile": ".tsbuild/tooling.tsbuildinfo"
+  },
+  "include": ["vitest.config.ts"]
+}

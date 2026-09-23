@@ -1,0 +1,23 @@
+# npm packages the web workspace may depend on directly (dependencies and devDependencies of
+# every package.json under web/). Adding one is an owner action: propose it, with a reason and
+# the decision or standard that chose it. `make check` fails if a package.json names a package
+# not listed here. Format: <package name>  # <reason> (<D-ID or standard>)
+react  # the web client's UI library (D193 §6; standards/typescript.md)
+react-dom  # React's DOM renderer for the web client (D193 §6; standards/typescript.md)
+typescript  # the language and `tsc -b`; held at 6.0 because typescript-eslint does not support 7 yet (D193 §6; standards/typescript.md)
+vite  # build and dev server for both apps (D193 §6)
+@vitejs/plugin-react  # React fast refresh and JSX transform for Vite (D193 §6)
+vitest  # the test runner; shares Vite's transform (standards/typescript.md)
+eslint  # the lint gate (standards/typescript.md)
+@eslint/js  # ESLint's core recommended rules (standards/typescript.md)
+typescript-eslint  # strictTypeChecked: no any, no assertions, no floating promises (standards/typescript.md)
+eslint-plugin-react-hooks  # React's own rules of hooks and effects (standards/typescript.md)
+@eslint-react/eslint-plugin  # missing keys, index keys, nested components, leaked listeners (standards/typescript.md)
+eslint-plugin-jsx-a11y-x  # accessibility lint; maintained jsx-a11y fork that supports ESLint 10 (D188; standards/typescript.md)
+@eslint-community/eslint-plugin-eslint-comments  # every lint suppression gives a reason (standards/typescript.md)
+eslint-plugin-unicorn  # two rules only: no cryptic abbreviations, kebab-case filenames (standards/typescript.md)
+globals  # browser and node global names for ESLint (standards/typescript.md)
+prettier  # the formatter (standards/typescript.md)
+dependency-cruiser  # module and package boundary rules (standards/typescript.md)
+@types/react  # React's type definitions (D193 §6)
+@types/react-dom  # React DOM's type definitions (D193 §6)

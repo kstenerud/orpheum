@@ -13,6 +13,7 @@ Docs for building and changing this project.
 | See what exists already and how it fails | [`design/research/`](design/research/README.md) |
 | Know *why* a technology was picked | [`decisions/index.md`](decisions/index.md) |
 | Find unbuilt work | [`design/plans/`](design/plans/README.md) |
+| Start building | [`AGENTS.md`](../../AGENTS.md), then [`design/plans/cut-a.md`](design/plans/cut-a.md) |
 | Know the coding rules | [`standards/`](standards/README.md) |
 | Know the engineering disposition | [`principles/`](principles/README.md) |
 
@@ -40,7 +41,9 @@ project uses as its template.
 - Filenames are lowercase kebab-case and name the subject, not its status.
 - A plan declares where it stands in a bolded metadata list under its title
   (`- **Status:**`, `- **Depends on:**`), not in its ABOUTME.
-- **Run `python3 scripts/check_docs.py` before committing.** It fails on a broken link or
+- **Run `make check` before committing** (the Claude Code Stop hook and the pre-commit hook run
+  it for you; `make check-docs` alone for a docs-only change). The docs part is
+  `python3 scripts/check_docs.py`. It fails on a broken link or
   anchor, a decision link that lands on the wrong entry, a gap or duplicate in the D-numbers,
   and a plan, principle or register citing an archived decision. Anchors are GitHub-slugged;
   don't hand-derive one, let the checker tell you. Its tests: `python3 -m unittest discover -s

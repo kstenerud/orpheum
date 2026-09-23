@@ -201,6 +201,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D193](working-notes.md#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes) The audit's proposals are accepted: the node does all media work, "prepare" is the one path besides direct play, the machinery is cut, and Cut A's design freezes
 - [D194](working-notes.md#d194--secrets-our-users-passwords-are-hashed-third-party-secrets-are-sealed-with-a-key-that-never-enters-the-database-and-nothing-reads-a-secret-back-out) Secrets: our users' passwords are hashed, third-party secrets are sealed with a key that never enters the database, and nothing reads a secret back out
 - [D195](working-notes.md#d195--orpheum-is-the-provisional-name) "Orpheum" is the provisional name
+- [D196](working-notes.md#d196--the-standards-are-written-every-rule-names-its-enforcement-and-the-gates-run-by-themselves-before-the-first-line-of-feature-code) The standards are written, every rule names its enforcement, and the gates run by themselves before the first line of feature code
 
 ## Archived
 

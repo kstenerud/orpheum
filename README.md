@@ -1,12 +1,14 @@
-# (unnamed media server)
+# Orpheum
+
+*(Provisional name — [D195](docs/contributors/decisions/working-notes.md).)*
 
 A personal media server for **video**, on your hardware, without a company between you and your
 files.
 
-**Status: pre-implementation.** There is no code. This repository currently contains research
-and design only — a survey of every serious competitor in this space (source read locally where
-open), what their users complain about, an evaluation of the technology available, and the
-architecture that follows.
+**Status: ready to build.** The repository holds the research, the design, the build contract
+for the first release ([`cut-a.md`](docs/contributors/design/plans/cut-a.md)), the standards, and
+the code skeleton with every gate in place. Feature code starts at milestone M1. To build, read
+[`AGENTS.md`](AGENTS.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md), then run `make check`.
 
 Start at **[`docs/contributors/design/overview.md`](docs/contributors/design/overview.md)**,
 **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the implementation plan, or

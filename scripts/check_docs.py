@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: Documentation integrity gate: links and anchors resolve, every decision is defined
 # ABOUTME: once, a decision link lands on its decision, and live docs never cite an archived one.
 """Check the Markdown tree's links and decision citations. Exit 1 on any failure.

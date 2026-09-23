@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+// Command orpheum is the Orpheum media server: one binary whose subcommand chooses the role
+// (run, core, node) or the operation (migrate, backup, restore, doctor, setup-code). The
+// systemd unit runs `orpheum run`, which starts the core, and the core supervises the node as a
+// child process.
+//
+// This is the composition root. It is the only package that reads argv, the environment or the
+// process's standard streams, and the only one that exits; it builds the logger, the clock and
+// every dependency, and passes typed values down.
+//
+// # Invariants
+//
+//   - Only this package reads the environment, argv or stdio, or calls os.Exit. Enforced by the
+//     forbidigo rule tagged [ambient].
+//   - Only this package prints. Enforced by the forbidigo rule tagged [print].
+//   - A planned subcommand that is not built yet exits 2 and says so; it never exits 0.
+//     Enforced by TestRun_PlannedSubcommandsAreNotImplementedYet in main_test.go.
+//
+// # Read before changing
+//
+//   - D43: one binary, one process per role, and a thin optional supervisor.
+//   - D44: prefer the platform's supervisor, and never exit when you could report.
+//   - D181: migrate is also a command, so an operator can run it without starting the server.
+//   - D195: the binary is named orpheum; environment variables take an ORPHEUM_ prefix.
+//   - docs/contributors/design/plans/cut-a.md §2 and §3.
+//
+// # Where to change
+//
+//   - main.go: the subcommand table and dispatch. A subcommand's work lives in the package it
+//     names (internal/store for migrate, internal/core/backup for backup and restore); main
+//     only parses flags and wires dependencies.
+package main

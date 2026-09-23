@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# sqlc turns internal/store/queries/*.sql into typed Go in internal/store/sqlcgen, against the
+# schema the migrations build. `make generate` runs `sqlc generate` then `sqlc vet`; the output is
+# committed and `make check` fails if it is stale or hand-edited. Rules: standards/sql.md.
+version: "2"
+sql:
+  - engine: sqlite
+    schema: internal/store/migrations
+    queries: internal/store/queries
+    rules:
+      - no-unbounded-write
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/store/sqlcgen
+        # The SQLite engine generates for database/sql; the pure-Go driver registers with it
+        # (D31). pgx is PostgreSQL-only.
+        sql_package: database/sql
+        # Generated rows are store types, never wire types: the API maps them to its own
+        # camelCase structs, so nothing generated is marshalled.
+        emit_json_tags: false
+        emit_db_tags: false
+        # A nullable column is *T, not sql.NullT, so callers see absence as nil.
+        emit_pointers_for_null_types: true
+        # A :many query with no rows returns an empty slice, never nil.
+        emit_empty_slices: true
+        # One Queries type with methods; callers depend on the small interfaces they declare.
+        emit_interface: false
+        emit_prepared_queries: false
+        emit_exact_table_names: false
+        emit_result_struct_pointers: false
+        emit_params_struct_pointers: false
+        omit_unused_structs: true
+        # Every parameter list becomes a Params struct once it has two or more parameters, so
+        # a call site names each value.
+        query_parameter_limit: 1
+# `sqlc vet` sees each query after sqlc has expanded `*` into a column list, so a SELECT * rule
+# here could never fire; TestArch_QueriesNameEveryColumn reads the .sql files instead.
+rules:
+  - name: no-unbounded-write
+    message: "an UPDATE or DELETE without WHERE rewrites the whole table; say which rows (standards/sql.md)"
+    rule: >-
+      query.sql.matches("(?is)^(\\s|--[^\\n]*\\n)*(update|delete)\\b")
+      && !query.sql.matches("(?is)\\bwhere\\b")

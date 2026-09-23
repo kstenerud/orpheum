@@ -1,0 +1,42 @@
+{
+  "name": "orpheum-web",
+  "private": true,
+  "license": "MPL-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run deps:check && npm run test",
+    "typecheck": "tsc -b",
+    "lint": "eslint --max-warnings 0 .",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "deps:check": "depcruise --config .dependency-cruiser.cjs packages apps",
+    "test": "vitest run",
+    "build": "npm run build --workspace apps/web --workspace apps/cast-receiver"
+  },
+  "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
+    "@eslint-react/eslint-plugin": "5.20.6",
+    "@eslint/js": "10.0.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "dependency-cruiser": "18.4.0",
+    "eslint": "10.11.0",
+    "eslint-plugin-jsx-a11y-x": "0.2.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-unicorn": "76.0.0",
+    "globals": "17.12.0",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1",
+    "vite": "8.3.0",
+    "vitest": "5.0.1"
+  }
+}

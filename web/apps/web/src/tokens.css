@@ -1,0 +1,36 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/*
+ * Design tokens: every colour, size and focus effect is a custom property here, so a theme
+ * restyles by overriding properties, never by overriding component rules (D138 §4).
+ *
+ * Focus only adds (D189): a two-colour ring (light outside, dark inside, WCAG C40), a lift and
+ * at most a modest scale. Nothing here may darken, dim or cover the focused element.
+ */
+
+:root {
+  --color-text: #1b1b1f;
+  --color-background: #fafafa;
+  --font-body: system-ui, sans-serif;
+  --font-size-title: 1.5rem;
+  --space-page: 1rem;
+
+  --focus-ring-outer-color: #ffffff;
+  --focus-ring-inner-color: #0b0b0f;
+  --focus-ring-width: 3px;
+}
+
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-inner-color);
+  outline-offset: 0;
+  box-shadow: 0 0 0 calc(var(--focus-ring-width) * 2) var(--focus-ring-outer-color);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}

@@ -91,6 +91,9 @@ One server language. One formatter. One linter config. One router. One way to wr
 The value is not aesthetic: the fewer ways there are to express a thing, the more of the
 codebase looks like the rest of it, and the better both reviewers and agents perform.
 
+The same holds inside the codebase: a second home-grown mechanism for one job is the commoner
+case, and [§19](#19--a-defect-is-a-sample-look-for-its-siblings-before-fixing-it) is its rule.
+
 **Bites when:** a new dependency introduces a second idiom for something we already do.
 
 ## §5 — Combinatorial complexity gets an interface, not a branch
@@ -423,3 +426,116 @@ sources, circumvention and promotion**, not interoperability.
 **Bites when:** a feature request says "it would be convenient if it could also fetch…", an example
 uses a real film because it was to hand, or a README sentence explains where people "usually" get
 their files.
+
+## §17 — A rule that nothing runs is a hope
+
+**Put each rule at the leftmost place that can hold it: the type system, then a generator, then
+a lint rule, then a test, then a hook — and prose last, naming the mechanism that enforces it.**
+Prose is read; it is not applied. A rule only holds when breaking it makes something fail.
+
+The evidence is unusually direct. yoloAI measured its own guidance: its factual-accuracy
+principle *"fired zero times in six"*, and its log of agent failures concludes *"Execution
+catches my errors. Reading does not."* Three of its specimens broke a rule that was written in
+the very file being edited (A9, A28, A30). This tree has its own: §13 exists because
+[D59](../decisions/working-notes.md)'s *"store the observation"* was broken twice in three days
+by the author who had cited it ([D155](../decisions/working-notes.md),
+[D156](../decisions/working-notes.md)).
+
+**Documentation is where this bites hardest, because nothing executes it.** A yoloAI design doc
+said, in bold, "no exceptions". It was false, and the owner and an agent both built on it. So a
+load-bearing claim about what the code does — one where, if the sentence were false, a reader
+would build the wrong thing — is backed by a test named `TestArch_<Claim>` and cites it by name,
+and a gate checks that every cited test exists and every such test is cited
+([D190](../decisions/working-notes.md)). *"This is a judgement, not a claim"* is the right answer
+for most sentences; only checkable facts about the code need a test.
+
+Where a rule cannot be mechanical, say so: every rule in `../standards/` names its mechanism or
+says it is review-only, so nobody mistakes a hope for a gate.
+
+**Bites when:** you write "must", "never" or "always" in a doc, a comment or `AGENTS.md`, and
+nothing would fail if the code did the opposite — or you answer a repeated mistake by rewording
+the rule.
+
+## §18 — A check you have never seen fail proves nothing
+
+"Denied", "not found", "0 dropped", "skipped" and "passed" are the cheapest results there are:
+almost any broken setup produces them. **So before trusting a pass, see the same check fail on a
+case where failure is certain** ([D190](../decisions/working-notes.md)). Three forms of it keep
+recurring:
+
+- **A missing prerequisite fails; it does not skip.** A yoloAI test tier was gated on an
+  environment variable nothing set, and skipped itself for months on the only platform that
+  could run it; building the gate that caught it found two security tests that had never run.
+  Only a CI step's or lab job's named `ORPHEUM_TEST_UNCONTROLLED` list may be absent, and a test
+  that cannot run on a platform is listed as uncovered, never silently passed.
+- **A negative result needs a positive sibling, and empty is invalid.** A yoloAI run reported
+  *"7 PASS / 0 FAIL"* and concluded the inverse of the truth, because the sandbox lacked the
+  capability under test. Its guard for a security invariant passed on a shell parse error
+  (A22). Our escape test first opens the forbidden path unconfined and sees it succeed
+  ([D112](../decisions/working-notes.md)).
+- **A fixture is built the way the real caller builds it.** Six yoloAI tests certified a function
+  no backend could reach, because the fake had a combination of capabilities no real backend has
+  (A15); another fix passed every test and did nothing, because the tests supplied a dependency
+  the real caller lacks (A27). Red-on-revert shows a test is wired to the code, never that the
+  code is wired to the program. The conformance suite is the check no fake can satisfy.
+
+**Bites when:** a test passes on a refusal, an absence, a zero or a skip; a fixture hands the code
+something its real caller would not have; or a gate has no test that makes it fail.
+
+## §19 — A defect is a sample: look for its siblings before fixing it
+
+**Before fixing a defect, search for its shape** — the same kind of fault on a sibling path,
+another implementation, the other half of a pair. If it recurs, the design is generating it and
+the instance is a symptom. If a sibling path already solves it, converge on that one and delete
+the divergence, rather than adding a second mechanism for one job.
+
+yoloAI found four defects in one workstream with one shape — a capability implemented on some
+backends and not their siblings — and one backend was already immune because it did the job
+differently. The durable fix was one conformance case every backend must pass, not four patches
+(DF150–DF158). Its rule that a failed subprocess's error carries the tool's stderr was *"re-broken
+by every new backend path"* that did not copy an existing one, until it became a single helper.
+And a proposed fix for one finding would have rebuilt another by hand (A4).
+
+**Naming the pattern is mandatory; acting on it is a decision.** A finding that says "this is the
+fourth of its kind" is a complete response when rewriting the design mid-fix is not justified.
+§5 is this principle applied in advance to the families we already know will multiply.
+
+**Bites when:** you find yourself writing "a mechanism on one path and not its sibling", or a fix
+introduces a helper whose name is close to one that already exists.
+
+## §20 — A gate changes on purpose, never to land a change
+
+The lint configuration, a complexity threshold, a frozen baseline, a golden file, a tolerance and
+a test's assertion change **only as the subject of their own change, reviewed by the owner** —
+never as the step that turns the current change green. A suppression states why the finding does
+not apply here; "the linter complained" is not a reason. Complexity findings are never
+suppressed: the answer is a named function.
+
+Loosening the gate is the cheapest route to green, and agents take the cheapest route:
+ImpossibleBench (arXiv 2510.20270) documents agents that *"delete failing tests rather than fix
+the underlying bug"*. In yoloAI a lint fix
+narrowed a test to satisfy a security linter, and on macOS the test silently stopped testing
+anything (A19); elsewhere "extract a function" drifted into "silence the linter" until a gate
+banned complexity suppressions. [D110](../decisions/working-notes.md) already says re-basing a
+baseline is a reviewed act, not a flag somebody runs; this extends it to every gate. The mechanism
+is a pre-edit hook that refuses an agent's edit to a gate file and says what to do instead
+([cut-a.md](../design/plans/cut-a.md) §8, M0).
+
+**Bites when:** the quickest way to a green check is editing `.golangci.yml`, adding a `//nolint`
+or an `eslint-disable`, re-recording a baseline or golden, widening a tolerance, or weakening the
+assertion itself.
+
+## §21 — An owner's correction is a specimen, and it is written down
+
+When the owner contradicts a claim, or asks a question whose honest answer turns out to be "I was
+wrong", **record it in [`agent-failures.md`](../agent-failures.md) before moving on**: what
+happened, what caught it, and whether a gate now exists. The trigger is the correction, which is
+an event anyone can see — not a feeling of uncertainty, which a confident mistake never produces.
+
+"Be more careful" is the one conclusion known not to work. yoloAI's log found that almost every
+specimen was caught by the owner rather than by the agent or a gate, and the gates it later built
+against the agent's own habits exist only because someone wrote the specimen down. The **Caught
+by** field is the one that says what to build next.
+
+**Bites when:** the owner asks "what did you run?" or "why does that need X?", and the answer
+changes what you told them.

@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/*
+ * The app shell's styles. Class names are prefixed with the component's file name so a theme
+ * can target them by a stable name (docs/contributors/standards/typescript.md, "Styling").
+ */
+
+.app-shell {
+  min-height: 100vh;
+  margin: 0;
+  padding: var(--space-page);
+  color: var(--color-text);
+  background: var(--color-background);
+  font-family: var(--font-body);
+}
+
+.app-shell__title {
+  margin: 0;
+  font-size: var(--font-size-title);
+}

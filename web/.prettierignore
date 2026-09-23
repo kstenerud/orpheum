@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MPL-2.0
+node_modules/
+dist/
+.tsbuild/
+coverage/
+package-lock.json
+LICENSE
+*.md
+packages/sdk/src/gen/

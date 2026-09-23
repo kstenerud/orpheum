@@ -97,7 +97,7 @@ background, never as a to-do list.
 
 ## 3. Repository layout
 
-One private GitHub repository ([D192](../../decisions/working-notes.md)), one Go module, one pnpm
+One private GitHub repository ([D192](../../decisions/working-notes.md)), one Go module, one npm
 workspace. Every directory boundary is also a licence boundary or a trust boundary, because
 linters can see paths and nothing else.
 
@@ -111,7 +111,7 @@ internal/core/      # GPL. May not import os/exec, internal/node, or any media/i
   auth/  secrets/  library/  identify/  decide/  playback/  together/  turn/  jobs/  backup/  settings/
   datadir/          # the only core package that touches the filesystem
 internal/node/      # GPL. Imports nothing from core
-  scan/  probe/  hash/  prepare/  bytes/  execx/ (the only exec.Command)  confine/
+  scan/  probe/  hash/  prepare/  byteserver/  execx/ (the only exec.Command)  confine/
 internal/nodeproto/ # wire types between core and node; no logic
 internal/store/     # the only importer of database/sql and the driver
   migrations/  queries/  sqlcgen/ (generated, committed)
@@ -335,7 +335,7 @@ must first be seen to fail ([D190](../../decisions/working-notes.md)).
 
 | | Contents | Accepted when |
 | --- | --- | --- |
-| **M0 — skeleton and gates** | the layout of §3, the licence files, `make check`, CI on the private repo, the Stop and pre-edit hooks, the dependency allowlist, the first `TestArch_` tests; the standards round's output ([D192](../../decisions/working-notes.md) §3) | CI is green on an empty server. Each of these turns it red: a SQLite import outside `store`; an `exec.Command` in core; an import of `internal/node` from core; editing a lint config through the agent. |
+| **M0 — skeleton and gates** *(done 2026-09-23, [D196](../../decisions/working-notes.md); CI runs on the first push)* | the layout of §3, the licence files, `make check`, CI on the private repo, the Stop and pre-edit hooks, the dependency allowlist, the first `TestArch_` tests; the standards round's output ([D192](../../decisions/working-notes.md) §3) | CI is green on an empty server. Each of these turns it red: a SQLite import outside `store`; an `exec.Command` in core; an import of `internal/node` from core; editing a lint config through the agent. |
 | **M1 — schema, migrations, backup** | [schema.md](schema.md) as migration 0001 through the D181 runner and sqlc; the `setting` registry; sealed secrets and `secret.key`; argon2id passwords; `VACUUM INTO` backup; `orpheum restore`; the setup code and the first admin | A fresh schema equals the golden. Killing the process mid-migration and restarting resumes. A database whose `compatible_version` is newer is refused, and the refusal names the snapshot. A backup restored into an empty data directory reproduces every authored table. A file without the `application_id` is refused. `/health` says `migrating` before the migration starts. **A canary secret appears in no API response, log, `doctor` output, bug report or backup except as ciphertext.** A restore without `secret.key` marks secrets *needs re-entering* and loses nothing else. argon2id takes ≤ 500 ms on devnas. |
 | **M2 — scan and identify** | node child and both sockets; enumerate, probe, payload hash; JSONL reports and ingest; the filename parser; the job queue with fetches; TMDB; NFO read; the ambiguous chooser; overrides; the scanner view; artwork; browse and search | On the tier-1 corpus plus a 200-file fixture tree, every file has a filing and a reason. D179's table holds as tests: a `mkvpropedit` title edit keeps identity, and an `ffmpeg -c copy` remux gets a new one. No ambiguous title is auto-matched. An override survives re-derivation. With the media root at mode 000 to the core's user, the core still works: it never opens a media path. |
 | **M3 — play in a browser** | the playback decision; direct play relayed; **prepare** with both profiles; subtitles via JASSUB and the offset; the dialogue boost; play state, Continue Watching with hide and undo; accounts; the web client usable on a phone; the job view; confinement and its report | An MKV with H.264, TrueHD and ASS plays in Chrome, Firefox and iPhone Safari within 8 s of pressing play, with the reason on screen. The boost measurably raises the centre channel's share of the stereo output. Two devices reporting out of order never rewind the position. `mediastreamvalidator` passes on a prepared rendition. The escape test is green on devnas. |
