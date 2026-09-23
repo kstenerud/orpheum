@@ -14729,8 +14729,11 @@ share tags on users' instances, an admin-customisable login page, no search inde
 demos on a separate domain**; a **permanent reviewer demo server** of public-domain or Creative
 Commons content; listings that say *requires your own server* first and show only the demo library;
 clients that **open with no server reachable**, say why, and resume after reconnecting (Samsung's
-blocking failure for Jellyfin); an **organisation** Play account and package-signing registration
-before Google's verification (30 September 2026 in four countries, 2027 globally); and the escape
+blocking failure for Jellyfin); an **organisation** Play account (it avoids the 12-tester, 14-day closed test new personal
+accounts need) and package names and signing keys **registered under** Google's developer
+verification — which applies to every developer whenever they registered, from 30 September 2026
+in four countries and globally in 2027; there is no grandfathering to get ahead of, and an
+organisation account needs a legal entity and a D-U-N-S number; and the escape
 hatches [D108](#d108--the-interface-is-not-ours-to-change-out-from-under-people-and-an-old-client-stays-installable) already promised
 — signed APKs, F-Droid, `adb` — because sideloading is narrowing everywhere and any store may pull
 us for a while. Clients are MPL-2.0 ([D80](#d80--licence-by-artefact-gplv3-for-the-server-mpl-20-for-the-clients-and-the-sdk)), so the licence that cost VLC the App Store does not reach us.
