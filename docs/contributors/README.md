@@ -40,6 +40,11 @@ project uses as its template.
 - Filenames are lowercase kebab-case and name the subject, not its status.
 - A plan declares where it stands in a bolded metadata list under its title
   (`- **Status:**`, `- **Depends on:**`), not in its ABOUTME.
+- **Run `python3 scripts/check_docs.py` before committing.** It fails on a broken link or
+  anchor, a decision link that lands on the wrong entry, a gap or duplicate in the D-numbers,
+  and a plan, principle or register citing an archived decision. Anchors are GitHub-slugged;
+  don't hand-derive one, let the checker tell you. Its tests: `python3 -m unittest discover -s
+  scripts/tests`.
 - **Factual accuracy matters.** Star counts, feature claims, and performance numbers must be
   verified and dated. Marketing language and unverifiable numbers do not go in. Where a claim
   could not be verified, it is marked **UNVERIFIED** in place rather than dropped or laundered.
