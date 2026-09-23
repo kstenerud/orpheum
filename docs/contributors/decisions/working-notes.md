@@ -14426,11 +14426,12 @@ The owner's concern generalises, and it belongs in the principles as
 **[§15](../principles/README.md)**: a default is a decision made on someone's behalf without
 asking, so **it must be safe to be wrong, and visible where it acts.** Where either fails, ask.
 
-The field's example is Plex's *"Empty trash automatically after every scan"*, on by default: when
-a network share drops, a scan sees an empty folder and the library's entries — with their
-matches, collections and watch state — are emptied out, and the user learns the setting existed
-afterwards. It was safe only while the share never dropped, and it was visible only in a settings
-page nobody reads before the loss. D34 and D167's *"absence is never evidence"* is this project's
+The field's example is Plex's *"Empty trash automatically after every scan"*: when a network share
+drops, a scan flags its files as deleted and the trash is emptied, taking the entries' metadata
+with it. It is safe only while the share never drops, and its effect is stated nowhere near the
+switch. *(Plexopedia documents the failure; whether the option was ever on by default is not
+verified here — Plex's support page refused the fetch.)* Home Assistant's backup-before-update,
+**off by default** since 2025.2, is a verified default of the hiding kind. D34 and D167's *"absence is never evidence"* is this project's
 answer to that failure; §15 is the rule behind it.
 
 **Consequence for [D182](#d182--metadata-is-a-stack-of-layers-with-one-fetched-layer-re-derivation-reads-only-stored-input-a-new-config-requirement-is-a-default-a-derivation-or-a-question) §3** (a config file needing something new): step 1, *"a

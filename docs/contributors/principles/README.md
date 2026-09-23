@@ -385,9 +385,13 @@ adding a device, the first remote sign-in), state the effect in the question, an
 wherever it acts afterwards. Asking once is cheaper than a support thread, and far cheaper than a
 loss.
 
-**The field's example:** Plex's *"Empty trash automatically after every scan"*, on by default.
-Harmless while the network share never drops; when it drops, a scan sees an empty folder and the
-library's entries are emptied, and the setting is discovered afterwards. [D34](../decisions/working-notes.md)
+**The field's examples.** Home Assistant's backup-before-update is **off by default** since
+2025.2 — the release notes' own mitigation is to show *"the last time you made a backup"* beside
+the switch, which is the visibility half of this rule arriving after the fact. And Plex's
+*"Empty trash automatically after every scan"*: harmless while a network share never drops; when
+it drops, a scan flags every file on it as deleted and the trash is emptied, taking the entries'
+metadata with it — a consequential behaviour a person turns on without the question stating that
+effect. *(Whether it was ever on by default is not verified here.)* [D34](../decisions/working-notes.md)
 and [D167](../decisions/working-notes.md) — *absence is never evidence* — are this principle's
 first application; [D183](../decisions/working-notes.md) states it.
 
