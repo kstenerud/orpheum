@@ -14206,3 +14206,78 @@ own decision.*
 D89 is its precondition, not its design.
 
 **Status:** §1–§2 decided; §3 pending research.
+
+---
+
+## D181 — The migration policy: two integers, our own small runner, a snapshot that outlives success, refuse what we cannot read, and re-derive rather than transform
+
+**Decided** (2026-09-23), for the project owner's requirement in
+[D180](#d180--a-prepared-renditions-play-state-is-its-sources-additive-schema-comes-with-its-feature-mistakes-are-assumed-so-migration-needs-a-policy) §3. Research: [migrations.md](../design/research/migrations.md) — Chromium,
+Firefox, Android Room and Apple Core Data from source; Jellyfin, Plex, Home Assistant, Navidrome,
+Sonarr/Radarr, Immich, Gitea and Grafana from source and their trackers; SQLite measured at the
+reference scale. Plan: [migrations.md](../design/plans/migrations.md).
+
+### 1. What the research changed
+
+- **The mechanics are free at our scale; correctness is the whole risk.** The worst operation
+  measured — a 12-step rebuild of 279,453 spans with indexes, views and a foreign-key check — is
+  **1.0 s**; a `VACUUM INTO` snapshot of the 46 MB reference database is **177 ms**. So a snapshot
+  before every migration costs nothing, and no migration needs to run online.
+- **The ledger is the riskiest code, not the schema.** Jellyfin 10.11's largest incident (#15027,
+  121 comments) was translating one migration ledger into another. Ours is **two integers** —
+  `user_version` and a `compatible_version` — and never changes format.
+- **Something will kill us mid-migration**: Docker healthchecks did it to Jellyfin *"30+ times"*.
+  Each step commits on its own and resumes; the health endpoint reports *migrating*, not
+  *unhealthy*; `migrate` is also a command.
+- **The snapshot must outlive a successful migration.** Jellyfin deleted its pre-migration backup
+  on success — exactly when users wanted to go back. Ours is kept, one per from-version, pruned
+  with the other backups.
+- **Downgrade is designed at upgrade time.** Nobody runs down-migrations in the field. Chromium's
+  `compatible_version` — history at v70 still readable by v16 — lets an older release keep working
+  whenever the newer one only added; otherwise the older release **refuses and names the snapshot**
+  (Gitea, Home Assistant), and never runs anyway (Sonarr: *"Error parsing column 45"*).
+- **Re-derive rather than transform.** Our database is mostly an index
+  ([D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index),
+  [D179](#d179--a-files-identity-is-a-hash-of-its-media-payload-not-its-bytes-a-rebuild-restores-the-identity-rows-and-runs-an-ordinary-scan-duplicates-are-surfaced)), so a migration of derived data is *drop and rescan* — Navidrome does it in
+  23 of ~95 migrations. Careful migration is reserved for the irreplaceable set and the identity
+  rows. **No migration touches the filesystem or the network**, the class behind Navidrome #3763,
+  #3787 and Jellyfin #14602.
+- **A migration error is never called corruption, and nothing is moved aside automatically.**
+  Home Assistant #92650 moved a healthy database aside and started empty.
+
+### 2. The choices, briefly
+
+| Question | Answer | Declined |
+| --- | --- | --- |
+| Bookkeeping | `user_version` in the step's transaction, `compatible_version` row, `application_id` | a tool's ledger table |
+| Runner | ours, ~150 lines, owning the checks a SQL file cannot fail on | goose (version written outside a no-transaction step), golang-migrate (cannot run our rebuilds), Atlas (free edition mangles views, triggers, FTS5) |
+| Step format | SQL files sqlc reads; Go only for data transforms that change no schema | Go-defined schema changes sqlc cannot see |
+| Transaction | one per step, resume on interruption | one for the whole chain |
+| Downgrade | `compatible_version`, then refuse naming the snapshot | down-migrations; Plex's stored rollback SQL; rewinding the version |
+| Oldest upgrade-from | **every step kept, forever** | a floor, until a measured reason |
+| Destructive fallback | none for irreplaceable data | Room's `fallbackToDestructiveMigration` |
+| Patch releases | no schema steps | Jellyfin 10.11.7's security fix held behind a failing migration |
+| Testing | a golden per released version, schema equality with a fresh install, interruption, refusal, restore, a reference-scale budget of 10 s a step | "model has no pending changes" (Jellyfin's only test) |
+
+### 3. Beyond the database
+
+The owner asked what data lives outside it, and the answer widened the policy. **Anything
+changeable at runtime lives in the database**; files hold only what must exist before it opens.
+Authored files carry a version, are read in every past version, and are **never rewritten by us
+unasked**. Formats read by another version — node and core, a phone offline for months — carry a
+version per message, readers ignore unknown fields, and the core and a node tolerate one minor
+release of skew and **refuse outside it with a reason**. Disposable data (`cache/`, consumed
+reports, logs) is **versioned by discard**. Backups restore and then migrate like any older
+database.
+
+### 4. What it amends
+
+- **[Principles §7](../principles/README.md)**, *"detect-and-refuse across a version gap rather
+  than auto-converting"*, is sharpened: an **older** database is always converted — every step is
+  kept — and a **newer** one is refused unless it declared itself compatible.
+- **[backup-restore.md](../design/plans/backup-restore.md)**'s *"restore refuses a gap"* becomes:
+  an older backup restores and migrates; a newer one is refused by the same rule.
+- **[api-compatibility.md](../design/plans/api-compatibility.md)** is unchanged; it is this
+  policy's third class.
+
+**Status:** Decided. Due before Cut A stores anyone's data.
