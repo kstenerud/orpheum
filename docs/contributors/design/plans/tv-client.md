@@ -16,8 +16,9 @@ public-domain or Creative Commons content, reachable worldwide over HTTPS with a
 listings whose first line is *requires your own server* and whose screenshots come only from that
 demo library; an app that **opens with no server reachable, says why, and resumes after
 reconnecting** — the failure that held Jellyfin's Samsung app for two years; an **organisation**
-Play account and package-signing registration before Google's developer verification (from 30
-September 2026); the same APK for Fire OS and a WebView build for Vega OS, which cannot sideload;
+Play account and package names and signing keys registered under Google's developer verification
+(enforced from 30 September 2026 in four countries, globally in 2027 — for every developer; nothing
+is grandfathered); the same APK for Fire OS and a WebView build for Vega OS, which cannot sideload;
 and the signed APK, F-Droid and `adb` paths [D108](../../decisions/working-notes.md) promised,
 because any store may pull us for a while.
 ## Why Android TV first
