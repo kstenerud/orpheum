@@ -79,6 +79,52 @@ and getting its shape right early is what stops this being a migration:
 A television. [shared-core.md](../research/shared-core.md) already says so, and it is the reason
 the offline module is quarantined rather than spread through the clients.
 
+## When the server copy goes away
+
+[D167](../../decisions/working-notes.md), 2026-09-23. **"Deleted on the server" is four
+different events and only one of them is about permission:**
+
+| What actually happened | What the user wants |
+| --- | --- |
+| the owner deliberately deleted the media ([D89](../../decisions/working-notes.md)) | keep my copy; it may be the only one left |
+| the file vanished from disk — a drive died, a folder moved | **keep my copy**, urgently |
+| a node is offline, a mount is down | keep my copy; nothing happened |
+| a mis-scan or a permission change ([D163](../../decisions/working-notes.md)) | keep my copy; *we* were wrong |
+| **entitlement was revoked** | remove it, and that is the point |
+
+So the rule is the strong one, and it is
+[D34](../../decisions/working-notes.md)'s *"never tombstone on silence"* at the other end of
+the wire:
+
+> **Absence is never evidence. Only a positive statement is.** Nothing on a device is destroyed
+> because something was missing from a response.
+
+This matters more since [D166](../../decisions/working-notes.md): a full state fetch expresses
+deletion by *absence*, and absence cannot tell **deleted** from **unavailable** from **not
+yours any more** from **we mis-scanned**. "Absent ⇒ delete my downloads" would make D166's
+cheap, exercised-daily fallback a **mass deletion trigger on every client**.
+
+- **Availability gone → the download is `orphaned`**: still there, still playable, and labelled
+  *"no longer in the library — this may be the only copy."* The user decides.
+  [principles §2](../../principles/README.md) governs our own filesystem; a phone is further
+  from ours than that.
+- **Entitlement gone → the lease is not renewed and the client removes it on expiry.** That is
+  the mechanism below, and revocation is therefore **eventual, bounded by the lease period** —
+  which is the honest description and the only one available without DRM.
+- **The server distinguishes them, because the client cannot.** The reconciliation reply says
+  *"no longer available"* or *"no longer entitled"*. Silence says neither.
+- **An orphaned download cannot be repaired.** Partial when the source went means partial
+  forever: say so, offer to remove it, and **stop retrying** — a client retrying a fetch that
+  can never succeed is a battery bug wearing a progress bar.
+- **It may be the last copy, and both ends say so.** D89's confirmation already names every
+  file and its size; it gains *"and 2 devices hold a downloaded copy"*.
+- **Play state from a removed item still lands.** A phone back from a trip syncs spans for a
+  file the server no longer has, and [D165](../../decisions/working-notes.md) keeps the log
+  forever — so **no row a user's history references is ever hard-deleted**; it is tombstoned.
+
+Storage is the user's call: *"3 orphaned downloads, 12 GB"* is a screen with a delete button,
+and that is the whole reclamation policy for bytes we do not own.
+
 ## What the lease actually enforces
 
 [D154](../../decisions/working-notes.md). Worth one honest paragraph, because the alternative
@@ -92,7 +138,13 @@ enforcement is the kind of claim that gets discovered and quoted.
 ## Done when
 
 A phone downloads a film, goes into aeroplane mode, and plays it with correct subtitles in a
-non-Latin script; progress made offline merges without losing either side; an item deleted on
-the server disappears from the device on next contact; a download can be a smaller rendition
+non-Latin script; progress made offline merges without losing either side; **a node going
+offline for an afternoon costs a travelling user none of their downloads**, while an item they
+are no longer entitled to goes away when its lease lapses; a download can be a smaller rendition
 than the original; and a prepared rendition nothing references is eventually reclaimed and says
 so.
+
+*(That third clause read "an item deleted on the server disappears from the device on next
+contact" until [D167](../../decisions/working-notes.md) — which contradicted the paragraph
+above it, conflated availability with entitlement, and would have deleted a traveller's films
+because a drive was being replaced at home.)*
