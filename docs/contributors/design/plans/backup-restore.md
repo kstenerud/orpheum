@@ -58,7 +58,9 @@ Two guards, taken verbatim from Navidrome's hard-won comments:
 
 Right column: kilobytes to a few megabytes. Left: gigabytes. So **backup is automatic, frequent
 and on by default**, which is a product decision only available because
-[D7](../../decisions/working-notes.md) made the database an index.
+[D7](../../decisions/working-notes.md) made the database an index. **It is shown at setup and
+on the backup page** ([D184](../../decisions/working-notes.md)): where the backups go, how many are kept, and that **a
+backup on the same disk does not survive that disk** — with the option to move it.
 
 **The media tree is already a partial second copy** — D7 mirrors metadata corrections to
 sidecars, so rescan-plus-sidecars recovers them. Test that as a durability property rather than

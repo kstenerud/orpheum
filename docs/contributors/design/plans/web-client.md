@@ -97,6 +97,18 @@ change journal, outranks any provider, and **is never overwritten by a refresh**
 Jellyfin's *Some custom primary images/art seem to have automatically reverted* records.
 Plex's *Metadata Editing on Mobile* sits at 66 likes, so the phone wants it too, later.
 
+## Creating a library asks three things
+
+[D184](../../decisions/working-notes.md), [principles §15](../../principles/README.md). Each question states its effect, and
+the answer is shown on the library's page afterwards:
+
+1. **Where metadata comes from** — NFO files where present and TMDB for the rest · TMDB only · NFO
+   files only, never fetch ([D183](../../decisions/working-notes.md)). Artwork follows the same answer.
+2. **How changes are noticed** — watch · check every N hours · only when I ask, with what that
+   means for sleeping disks ([D94](../../decisions/working-notes.md)).
+3. **Whether we may write into the folder** — read-only unless granted; if read-only, the page
+   says which features that disables.
+
 ## Now playing
 
 [D176](../../decisions/working-notes.md), 2026-09-23. Every live session. **The admin sees all; everyone else sees their

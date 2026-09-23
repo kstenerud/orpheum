@@ -14441,3 +14441,68 @@ marks it *default*, and startup logs each defaulted key once.
 
 **Status:** Decided. [identification.md](../design/plans/identification.md) and D182 amended.
 **An audit of the existing defaults against §15 is owed** — the log says "by default" 42 times.
+
+---
+
+## D184 — The defaults audit: four become questions, seven must be made visible, the rest pass
+
+**Decided** (2026-09-23), at the project owner's request, auditing the log and plans against
+[principles §15](../principles/README.md) ([D183](#d183--an-override-is-an-override-wherever-its-value-came-from-a-librarys-source-is-asked-not-defaulted-a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts)): *a default must be safe to be
+wrong and visible where it acts; otherwise, ask.*
+
+### Method and scope
+
+Every mention of "default" in the log (216 lines) and the user-facing plans was read in context.
+§15 is about **decisions made on the user's behalf about their data, exposure, cost or
+experience**. Engineering choices a user never observes — direct play before transcoding, the
+platform engine before libmpv, AV1/Opus as output codecs, a Unix socket as the node transport,
+the sampling hash, `BINARY` collation, zstd levels, test tooling, the pseudo-localised
+development build — are out of scope and pass without comment.
+
+### 1. Four become questions
+
+| Default today | Why it fails §15 | Becomes |
+| --- | --- | --- |
+| a library's metadata source, and with it **fetching posters from TMDB** ([D61](#d61--containment-now-detection-later-and-plugin-shaped-four-affordances-to-keep-open), [D99](#d99--the-core-does-not-decode-an-image-either-and-community-uploaded-artwork-is-why), [D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)) | fetches from a third party; wrong source shows wrong data | **asked at library creation** — already decided by D183; artwork follows the same answer |
+| **how often a library is checked for changes** — `snapshot_interval` ([D94](#d94--disk-spin-down-is-a-cost-of-the-snapshot-interval-and-archival-means-untouched)) | wakes the disks on a schedule the owner never chose — power, wear, noise; D94 itself calls the right value unmeasured | **asked at library creation**: *watch for changes · check every N hours · only when I ask (archival)*, with the disk consequence stated |
+| **how a device plays sound** — downmix, DRC, and whether dialogue boost can act ([D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device), [D178](#d178--the-first-release-is-for-two-people-the-owner-at-home-and-one-person-remote-watching-together-with-subtitles)) | the owner's own complaint is this failure: quiet dialogue from a mix nobody chose for TV speakers | **asked on a device's first playback**: *TV speakers · soundbar or receiver · headphones*, changeable in the player |
+| **what an invited person can see** — the default share ([D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed), open) — and their ceilings ([D174](#d174--sharing-is-an-account-from-outside-the-house-a-household-behind-a-grantee-is-a-rebroadcast-grant-deferred-and-it-makes-another-server-a-source)) | exposure | **asked when the invite is made**, with the answer shown on the person's page; the lease is already set there (D169) |
+
+**Library creation now asks three things, each with its effect stated:** where metadata comes
+from, how changes are noticed, and whether we may write into the folder (read-only unless granted,
+[principles §2](../principles/README.md)). Three questions once per library is the price of no
+surprises for its lifetime.
+
+### 2. Seven pass only if they are visible where they act
+
+| Default | Safe because | Must be shown |
+| --- | --- | --- |
+| media **read-only** ([D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index), [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file)) | wrong costs a feature, never data | on the library page, and wherever a feature it disables would be offered: *"read-only — NFO export and deletion are unavailable here"* |
+| **backups on**, in the data directory ([D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore)) | off would be the dangerous direction (Home Assistant's) | at setup and on the backup page: where, how many kept, and that **a backup on the same disk does not survive that disk** — with the option to move it |
+| **downloads kept indefinitely** on household devices ([D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent)) | the owner's decision | on the role's page |
+| Watch Together **transport for everyone**, stall policy by size, a small cap ([D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays), [D119](#d119--a-join-link-admits-membership-is-what-persists-rotation-is-seamless-ejection-is-owner-only-and-a-cap-bounds-the-leak), [D121](#d121--an-ability-is-a-row-in-a-closed-table-with-a-two-valued-grant-chosen-at-session-creation)) | wrong costs an interrupted film | pre-selected **on the session-creation screen**, not hidden |
+| **trickplay deferred** in the scan ([D114](#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video)) | wrong costs waiting | in scan status (F36) |
+| **embedded fonts off** ([D56](#d56--embedded-fonts-are-off-by-default-the-client-must-ask-for-them)) | wrong costs a font | already shown: the client marks a track with embedded fonts ([D57](#d57--the-embedded-font-opt-in-is-per-user-sticky-per-series-and-the-client-may-still-refuse)) |
+| **track selection** falling through to the file's own flag ([D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)) | wrong costs a menu tap | already shown: *"— the file marks this track default"* — **the model for every other row** |
+
+### 3. The rest pass: they fail safe and cost nothing to be wrong
+
+No telemetry ([D13](#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise)); `/metrics` off and local ([D91](#d91--a-metrics-endpoint-off-by-default-and-local-when-on)); deletion off
+([D144](#d144--deletion-is-deferred-not-designed-away-the-policy-is-the-deliverable-and-the-export-already-carries-the-danger));
+the trash never empties itself (D143); an API key has no capabilities until given some
+([D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url));
+an unjudgeable item is denied to a restricted role
+([D132](#d132--authoring-a-role-is-a-preview-loop-and-an-item-the-rules-cannot-judge-is-denied-not-shown)); no transitive re-sharing (D76); an adapter never
+acts as the owner (D105); no score source fetched until opted into (D171). Every one of these errs
+towards *less* — less exposure, less fetching, less destruction — which is what "safe to be
+wrong" means.
+
+### 4. A standing rule
+
+A new setting is written down with **which of the three it is** — a question (and when it is
+asked), a visible default (and where it is shown), or a fail-safe default (and why being wrong
+costs nothing). The same test as D182's config keys, applied to everything.
+
+**Status:** Decided. Plans amended: scanner (change detection asked), audio-presentation (device
+question), sharing-model (default share asked), backup-restore (visible at setup), web-client (the
+library-creation questions).
