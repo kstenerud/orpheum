@@ -125,8 +125,9 @@ rather than expiry. What it does not settle is the entitlement questions below.
 
 - **Whether a grantee may build their own rules** over the filtered view. Natural, and cheap
   only if designed in, since every predicate then evaluates composed with the share predicate.
-- **The default share.** *"Everything except items labelled private"* is probably what people
-  mean, and the default is consequential here in a way playlist defaults are not.
+- ~~**The default share.**~~ **Answered by [D184](../../decisions/working-notes.md): there is none.** What an invited person
+  can see, and their ceilings, are **asked when the invite is made** and shown on their page —
+  exposure is never a default ([principles §15](../../principles/README.md)).
 - **Whether a grantee sees that the library is filtered.** Honest, and it tells them what to
   ask for. **Now shared with [D132](../../decisions/working-notes.md)**, which raises the same
   question for a child — *"three new things are waiting for Dad"* is useful, and is the same

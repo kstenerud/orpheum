@@ -150,6 +150,10 @@ Two rules:
   array up once. The adaptive per-directory cadence above must not be allowed to become a
   continuous trickle of small wake-ups — that is strictly worse than one long pass, and it is
   the failure mode adaptivity naturally produces.
+- **How a library notices changes is asked when it is created** ([D184](../../decisions/working-notes.md),
+  [principles §15](../../principles/README.md)): *watch for changes · check every N hours · only
+  when I ask (archival)*, with the consequence for sleeping disks stated in the question. The
+  interval is never a silent default, because it decides how often the owner's disks wake.
 - **`archival` means untouched.** The config field already exists in this plan; its meaning is
   now concrete: no walk, no probe, no thumbnailing, no loudness pass. The journal only, if a
   watcher is available. And the node **reports that it is honouring it**

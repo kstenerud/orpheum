@@ -88,6 +88,12 @@ The correct value depends on a fact only the device knows. That is
 and the core honours it** — three states (full range, light compression, night mode), not a
 float.
 
+**The device is asked, not defaulted** ([D184](../../decisions/working-notes.md)): on its first playback, *how does this
+device play sound — TV speakers, a soundbar or receiver, or headphones?* The answer sets whether
+we send a downmixed stereo mix (and so whether dialogue boost can act, [D178](../../decisions/working-notes.md)) and the DRC
+state, and it is changeable from the player. Quiet dialogue from a mix nobody chose is the failure
+this exists to prevent.
+
 **And it is stored, keyed by device** ([D103](../../decisions/working-notes.md)), which needed
 a decision of its own because the naive version rebuilds the device-profile database
 [D21](../../decisions/working-notes.md) exists to prevent. The line: a device *capability* is
