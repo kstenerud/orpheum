@@ -6103,10 +6103,18 @@ But "mark and review" has no "act", and users delete things. Unstated, this ends
   visible in the journal like every other change.
 - **Retention still only marks.** A rule may never delete. The user acts on the marked set.
 
+**Extended 2026-09-23 by [D167](#d167--absence-is-never-a-reason-to-destroy-a-download-whose-server-copy-is-gone-is-orphaned-not-deleted-and-entitlement-is-the-only-thing-the-lease-may-remove).**
+The confirmation that *names every file and its size* also names **how many devices hold a
+downloaded copy**, because after this deletion one of them may be the only copy left and the
+moment to say so is before, not after. And the row is **tombstoned, never hard-deleted**: a
+device returning from a trip syncs play spans that reference it, and
+[D165](#d165--a-heartbeat-is-not-an-event-the-log-records-state-changes-and-watched-spans-there-is-no-retention-horizon-and-an-offline-device-must-not-be-able-to-rewind-you)
+keeps the log for ever.
+
 **Status:** The interaction with a shared grantee is unspecified — presumably a grantee can
 never delete, but "presumably" is not a design. Also unresolved: whether an opt-in writable
 library should use a trash directory rather than unlinking, which costs free-space surprises in
-exchange for an undo.
+exchange for an undo. *(Partly answered since, by [D144](#d144--deletion-is-deferred-not-designed-away-the-policy-is-the-deliverable-and-the-export-already-carries-the-danger) and [D145](#d145--the-trash-is-one-directory-per-event-with-a-parallel-tree-inside-because-our-unit-of-undo-is-a-bulk-operation).)*
 
 ---
 
@@ -13025,3 +13033,103 @@ syncable" question is no longer load-bearing — an unjournalled table is simply
 client always takes state. Unmeasured: the state payload with artwork included, which is a
 different and much larger question that [artwork.md](../design/plans/artwork.md) owns; every
 figure above is metadata only, and artwork is fetched by reference.
+
+---
+
+## D167 — Absence is never a reason to destroy: a download whose server copy is gone is orphaned, not deleted, and entitlement is the only thing the lease may remove
+
+**Decided** (2026-09-23), prompted by the project owner asking what happens when a video
+downloaded to a device is deleted on the server.
+
+[offline-download.md](../design/plans/offline-download.md)'s *Done when* answers it in eight
+words — *"an item deleted on the server disappears from the device on next contact"* — and
+that rule is wrong, contradicts the paragraph immediately above it, and would have become a
+mass-deletion trigger the moment
+[D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path)
+landed.
+
+### 1. "Deleted on the server" is four different events
+
+| What actually happened | What the user wants |
+| --- | --- |
+| the owner deliberately deleted the media ([D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file)) | keep my copy; it may be the only one left |
+| the file vanished from disk — a drive died, somebody moved a folder | **keep my copy**, urgently |
+| **a node is offline**, a mount is down, a share is unreachable | keep my copy; nothing happened |
+| a mis-scan, a permission change, a path outside a library root ([D163](#d163--every-observed-file-carries-a-filing-with-a-reason-and-what-did-the-scanner-pass-on-is-the-library-browser-with-the-filter-off)) | keep my copy; *we* were wrong |
+| **entitlement was revoked** — a housemate left, a role changed | remove it, and that is the point |
+
+**Four of the five want the opposite of the stated rule**, and only the last is about
+permission at all. The tree already holds this distinction one layer down and states it
+plainly for nodes:
+
+> Mark an absent node's items **unavailable, never deleted**. **Never tombstone on silence** —
+> absence of a pulse is absence of information, not evidence of deletion.
+> ([D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle))
+
+**This is that rule at the other end of the wire**, and it was not carried across.
+
+### 2. The failure it produces is catastrophic and lands at the worst moment
+
+A node goes down for maintenance on Friday. The phone checks in on Saturday, sees the item
+gone, and deletes the holiday films. The user discovers this **on the plane**, where the
+recovery path — re-download — is the one thing that cannot work.
+
+A destructive action, on a device we do not own, triggered by an *inference*, at the precise
+moment it is unrecoverable. Every clause of that is something this project has decided against
+somewhere else.
+
+### 3. And D166 made it far worse, one day later
+
+D166 lets the server answer any sync request with **full state instead of a delta**, and a
+full state expresses deletion by *absence*. But absence cannot distinguish **deleted** from
+**unavailable** from **no longer visible to you** from **we mis-scanned** — so "absent ⇒ delete
+my downloads" turns D166's ordinary, cheap, exercised-every-day fallback into a **mass deletion
+trigger on every client**. Two decisions a day apart, each sound, composing into data loss.
+
+So the rule has to be the strong form:
+
+> **Absence is never evidence. Only a positive statement is.** Nothing on a device is destroyed
+> because something was missing from a response.
+
+### 4. Availability and entitlement are separate, and only one of them removes anything
+
+- **Availability gone → the download is `orphaned`.** It stays on the device, it stays
+  playable, and the client says so: *"no longer in the library — this may be the only copy."*
+  The user decides. [principles §2](../principles/README.md) says the user's files are not ours
+  to touch, and a download on someone's phone is **further** from ours than a library file is.
+- **Entitlement gone → the lease is not renewed, and the client removes it on expiry.** This
+  is the mechanism [D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained)
+  already has, and it is the honest one: revocation is **eventual, bounded by the lease
+  period**, because [D3](#d3--streaming-format-cmaffmp4-segments-hls-manifest-no-drm) declines
+  DRM and **we cannot un-give bytes**. The plan says this already — *"nothing enforces a lease
+  on bytes already sitting on a device… playback of an already-downloaded file is a client-side
+  courtesy"* — which is exactly why the *Done when* two paragraphs later cannot be right.
+
+**The server must tell them apart, because the client cannot.** The reconciliation reply
+distinguishes *"this item is no longer available"* from *"you are no longer entitled to it"* —
+a small protocol point with the whole behaviour hanging off it. Silence is neither.
+
+### 5. Three things that fall out, all cheap
+
+- **The download may be the last copy, and both ends should say so.** D89's two-phase
+  confirmation already *"names every file and its size"*; it gains **"and 2 devices hold a
+  downloaded copy"**. Nobody in the field does this, and it is the sentence that prevents the
+  regret.
+- **Play state from a deleted item must still land.** A phone returning from a trip syncs
+  spans for a file the server no longer has, and
+  [D165](#d165--a-heartbeat-is-not-an-event-the-log-records-state-changes-and-watched-spans-there-is-no-retention-horizon-and-an-offline-device-must-not-be-able-to-rewind-you)
+  keeps the log forever. So this is the first concrete consumer of the invariant the data
+  survey named: **no row a user's history or authored data references is ever hard-deleted —
+  it is tombstoned.** Decided here rather than left open.
+- **An orphaned download cannot be repaired.** If it was partial when the source went, it
+  stays partial: say so, offer to remove it, and stop retrying. A client silently retrying a
+  fetch that can never succeed is a battery bug wearing a progress bar.
+
+**Storage is the user's call, not ours.** *"3 orphaned downloads, 12 GB"* is a screen with a
+delete button on it, which is the whole of the reclamation policy for bytes we do not own.
+
+**Status:** Corrects a *Done when* and adds one distinction to the reconciliation reply, both
+before any client exists. The tombstone invariant is **schema** and is due with
+`library-model.md`. No measurement needed: every quantity here is a policy choice, and the one
+empirical question — how long a lease should be — is the same unmeasured household number as
+[auth.md](../design/plans/auth.md)'s idle-expiry window and should be decided with it.

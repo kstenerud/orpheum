@@ -446,6 +446,12 @@ summary of them.
   4K" versus "films I have only in 4K"), so it is explicit, like D75's tag count operators.
 - **Mark the backup-critical tables in the schema** ([D77](../../decisions/working-notes.md)),
   so backup is a query rather than a hand-maintained list that goes stale.
+- **No row a user's history or authored data references is ever hard-deleted**
+  ([D167](../../decisions/working-notes.md)). A File whose media is gone is **tombstoned**,
+  because [D165](../../decisions/working-notes.md) keeps the play log for ever and a device
+  returning from a trip syncs spans that reference it. Free to keep true now; a data-loss
+  migration to recover later, which is [principles §12](../../principles/README.md)'s
+  **invariant** row exactly.
 
 ## Why it is shaped this way
 
