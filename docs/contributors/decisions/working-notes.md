@@ -102,6 +102,8 @@ compete here at all.
 
 ## D4 — Three playback paths: direct, on-demand segmented, background-prepared
 
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): for Cut A the third path, *background-prepared*, does the second's job: one FFmpeg job per title writes a growing HLS rendition, and playback starts at its first segments. On-demand segmented transcoding waits for a latency measurement.
+
 **Decided.** (a) Direct play — a ranged GET of the original — is the default and is always
 offered as a rendition. (b) On-demand, segment-addressed transcoding is the fallback, built on
 the Kyoo model. (c) Background pre-preparation of a single compatibility rendition is a later
@@ -206,6 +208,8 @@ which case Rust's correctness starts to outweigh its build times.
 
 ## D10 — Clients: React Native shell, native player modules, two engines
 
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): the **web** client and cast receiver are plain React + TypeScript + Vite over a React-free SDK, not the React Native shell; the TV framework is chosen by a paired prototype (Compose for TV against react-native-tvos) when TV work starts.
+
 **Decided.** A shared React Native/TypeScript UI shell with a **native player module per
 platform** (Swift for Apple, Kotlin for Android, `hls.js` + `jassub` for web). Each client
 supports **two engines**: the platform-native one by default, libmpv as the "play anything"
@@ -301,6 +305,8 @@ detectable.** Provisional; well-evidenced.
 
 ## D12 — Providers are sandboxed WASM plugins; no in-process plugin code
 
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): the WASM tier is **deferred** until a third-party provider is asked for; TMDB and OpenSubtitles are Go packages behind the provider interface meanwhile.
+
 **Decided.** Metadata providers, scrapers and scrobblers run as **Extism/WebAssembly plugins**
 with an explicit host-capability list, out of the server's address space. ~~Field-level provider
 ranking with recorded provenance.~~ Provider API keys belong to the user.
@@ -376,6 +382,8 @@ hosted service at all.
 ---
 
 ## D15 — Two plugin tiers: in-process WASM, and out-of-process adapters
+
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): tier 1 (WASM) is deferred; tier 2 is unchanged.
 
 **Decided.** Extend [D12](#d12--providers-are-sandboxed-wasm-plugins-no-in-process-plugin-code)
 from one plugin mechanism to two, chosen by what the extension needs to do:
@@ -548,6 +556,8 @@ assumed now.
 ---
 
 ## D19 — The transcoder is a plugin we happen to maintain; plugin tiers become three
+
+> **Superseded in part by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): **tier 3 is retired.** The encoder is a node capability, so the machine that encodes need not be the machine that serves without any plugin API. The plugin-API reasoning below is kept as history.
 
 **Decided.** The transcoder is not "an optional component" in a packaging sense
 ([D17](#d17--direct-play-first-transcoding-additive-and-optional)'s weaker formulation). It is a
@@ -1314,6 +1324,8 @@ way, and building them first keeps the option open.
 
 ## D26 — No FFmpeg in the core process; confine it with Landlock + seccomp
 
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): confinement is **per FFmpeg invocation** and ranked: argument hardening always, read-only mounts, a seccomp **denylist**, then Landlock where the kernel has it. The custom hardened FFmpeg build is deferred; a pinned jellyfin-ffmpeg portable build is bundled and hash-checked.
+
 **Decided.** **No FFmpeg invocation ever happens in the core server process.** Probe, demux,
 subtitle extraction, thumbnailing and audio encoding all run in a confined **media worker**
 child — the same shape as the video transcoder from
@@ -1633,6 +1645,8 @@ is one project's ratio, not a law.
 ---
 
 ## D31 — SQLite with a pure-Go driver; supersedes D5
+
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): the driver sits behind one `Open()`, uses the pure-Go `_pragma=` syntax (Navidrome's DSN is cgo `mattn` syntax), and **reads its pragmas back at startup**, refusing to run if they are wrong.
 
 **Decided.** **Supersedes [D5](working-notes-archive.md#d5--database-postgresql-only-shipped-in-the-default-compose).**
 The database is **SQLite**, in WAL mode, via a **pure-Go driver**. Postgres is not shipped, not
@@ -2672,6 +2686,8 @@ be.
 ---
 
 ## D43 — One binary, one process per role, and a thin optional supervisor
+
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): FFmpeg is confined per invocation by a re-exec shim, not by confining a long-lived role process.
 
 **Decided.** The single binary runs **one role per process**. A machine running a core, a node
 and a transcoder runs three processes, not one process with three goroutines. The binary can
@@ -4402,6 +4418,8 @@ ordinary first-class targets.
 
 ## D68 — TURN is not an independent requirement; the media server is already the relay
 
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): built as browser WebRTC to a TURN server **embedded in our binary** (`pion/turn`); the upgrade ladder below and content-referenced echo cancellation are deleted — standard ICE picks the path.
+
 **Decided** (2026-09-19). Correcting
 [D64](working-notes-archive.md#d64--watch-together-makes-the-remote-access-question-concrete-and-supplies-the-premium-tiers-first-honest-member),
 which claimed a TURN relay was the premium tier's first unarguable member. It is not, because we
@@ -4659,6 +4677,8 @@ constraint is not speculative** and should be respected from the first HLS endpo
 ---
 
 ## D71 — One relay artefact, three jobs, and the core dials out to it
+
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): our own relay role is **deferred**; Cut A uses a port-forward, then IPv6, then a standard tunnel (rathole, frp, WireGuard) to a VPS.
 
 **Decided** (2026-09-19). Generalising the fan-out node of
 [D70](#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible)
@@ -5254,7 +5274,9 @@ same film is a correctness problem with no payoff.
 **Status:** Provisional. Three things are open and one is consequential: whether a grantee may
 build their own rules over the filtered view (natural, and cheap only if designed in, since
 every predicate then evaluates composed with the share predicate); what the default share is
-(*"everything except items labelled private"* is probably what people mean); and whether a
+(*"everything except items labelled private"* is probably what people mean) *(Settled by
+[D184](#d184--the-defaults-audit-four-become-questions-seven-must-be-made-visible-the-rest-pass) §1: there is no default share; what an invited person can see is **asked when the
+invite is made**, and shown on the person's page)*; and whether a
 grantee sees that they are looking at a filtered library, which is honest and also tells them
 what to ask for.
 
@@ -7418,6 +7440,8 @@ not notice"*.
 
 ## D118 — The scan is incremental, prioritised, and steerable, and playability comes first
 
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): the first-scan scheduler is a FIFO with "play this now" moved to the front; per-(item, pass) priorities, `.partial` tailing and pass fusion wait.
+
 **Decided** (2026-09-20), by the project owner, and it turns
 [D114](#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video)'s
 measurement into a requirement.
@@ -8091,6 +8115,8 @@ depth belong in the wire format, and are not yet stated.
 
 ## D127 — The node dials out; a Unix socket is the default and the file channel is the fallback
 
+> **Superseded in part by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): **the file channel is deleted.** One transport — HTTP+JSONL over a Unix socket, dial-out TCP later — and liveness is an HTTP status endpoint plus the report stream.
+
 **Decided** (2026-09-21). Research: [node-transport.md](../design/research/node-transport.md).
 Answers the project owner's *"we haven't looked seriously at the full range of possibilities for
 node↔core comms, or what actually makes sense for the effort."*
@@ -8172,6 +8198,8 @@ may argue otherwise, and neither matters until a remote node exists.
 ---
 
 ## D128 — The artefact channel is the real payload, and the node keeps what it makes
+
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): the node serves every byte; "the core serves the film" means the core authenticates and **relays** it from the node.
 
 **Decided** (2026-09-21). Found by [node-transport.md](../design/research/node-transport.md) §0
 while measuring something else, which is the usual way.
@@ -12463,6 +12491,8 @@ cache if it is.
 
 ## D164 — The predicate language stopped being a feature and became the query layer; a restricting rule must fail closed, and the complexity budget is one number
 
+> **Refined by [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)** (2026-09-23): the compiler is **deferred** to the first authored or restricting rule. Cut A's pages are fixed sqlc queries plus one hand-written filter builder for search, which the compiler replaces rather than joins.
+
 **Decided** (2026-09-22). Closes the three items
 [plans/rules-engine.md](../design/plans/rules-engine.md) left open and one security gap that
 only exists because two correct decisions were composed. Measured at
@@ -13770,7 +13800,8 @@ AirPlay to an Apple TV, or the TV watching the film on its own browser.
   needs F31, F32 and bandwidth transcoding ([D86](#d86--adaptation-is-the-client-re-picking-on-a-buffer-signal-and-it-puts-bandwidth-transcoding-on-remote-accesss-critical-path)).
 
 **Status:** Decided. Register and roadmap updated. The release-cut restructure proposed in the
-same audit is **not** decided.
+same audit is **not** decided. *(Settled the same day by [D178](#d178--the-first-release-is-for-two-people-the-owner-at-home-and-one-person-remote-watching-together-with-subtitles): the first cut is
+defined by its two users.)*
 
 ---
 
@@ -13857,6 +13888,10 @@ and is ordered later. **The schema still lands whole**: every table on the regis
 obligations list exists from the first release even if nothing fills it yet — the retrofit
 argument ([principles §12](../principles/README.md)) is about tables, not features, and it is
 unchanged.
+
+> **Narrowed by [D180](#d180--a-prepared-renditions-play-state-is-its-sources-additive-schema-comes-with-its-feature-mistakes-are-assumed-so-migration-needs-a-policy) §2** (2026-09-23): additive schema arrives with its feature; what
+> lands in Cut A is only what a later schema could not add without reshaping — keys and
+> identity, the four levels, position on File, tombstones and the rest of D180's list.
 
 ### 2. What is in it
 
@@ -14057,7 +14092,8 @@ own decision.*
 ([D144](#d144--deletion-is-deferred-not-designed-away-the-policy-is-the-deliverable-and-the-export-already-carries-the-danger));
 D89 is its precondition, not its design.
 
-**Status:** §1–§2 decided; §3 pending research.
+**Status:** §1–§2 decided; §3 pending research. *(Settled by [D181](#d181--the-migration-policy-two-integers-our-own-small-runner-a-snapshot-that-outlives-success-refuse-what-we-cannot-read-and-re-derive-rather-than-transform), which is §3's
+migration policy.)*
 
 ---
 
@@ -15087,3 +15123,220 @@ That is one research round, and its output is `standards/` plus any principles a
 
 **Status:** Decided. The standards round is scheduled after P7.
 [ROADMAP.md](../../ROADMAP.md) notes the stages.
+
+---
+
+## D193 — The audit's proposals are accepted: the node does all media work, "prepare" is the one path besides direct play, the machinery is cut, and Cut A's design freezes
+
+**Decided** (2026-09-23), by the project owner, answering
+[audit-2026-09-23.md](../design/research/audit-2026-09-23.md) §9: *"P1: yes. P2: yes. P3: yes.
+P4: yes. P5: I have a bunch of domains already that I can use. P7: yes. P8: devnas doesn't have
+direct access to the media files (they're on nas). But for testing I could copy a corpus
+across. P9: yes."* P6 was answered differently in
+[D191](#d191--watch-together-behaves-as-if-nobody-has-an-account-a-signed-in-participants-viewing-is-also-recorded-as-their-own).
+
+### 1. The node does every media read and every FFmpeg run (P1)
+
+The core never opens a media file. **For direct play, the core authenticates the request and
+reverse-proxies the byte range to the node** over its Unix socket. **For every other
+playback**, the node runs FFmpeg and writes into its own cache, and the core proxies that the
+same way. This settles the audit's §1.1:
+- [D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do) is now
+  literally true;
+- "the core serves the film" in
+  [D128](#d128--the-artefact-channel-is-the-real-payload-and-the-node-keeps-what-it-makes)
+  means "the core relays it";
+- the overview's "the core encodes audio" was wrong.
+
+A remote node later is the same proxy over TCP, or a redirect.
+
+### 2. "Prepare" is Cut A's only playback path besides direct play (P2)
+
+**What it is.** One node job per (File, profile) runs **one FFmpeg command**. It produces an HLS
+rendition, in fMP4 segments, in the node's cache: video copied or encoded, audio converted,
+text subtitles extracted. The playlist is written as an `EVENT` playlist that grows while the
+job runs, so **playback starts once the first segments exist**, not when the job ends. It is
+[D4](#d4--three-playback-paths-direct-on-demand-segmented-background-prepared)'s third path,
+"background-prepared", now doing the second path's job for Cut A. The rendition is a cache
+([D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent)),
+and its play state is recorded against the source File
+([D180](#d180--a-prepared-renditions-play-state-is-its-sources-additive-schema-comes-with-its-feature-mistakes-are-assumed-so-migration-needs-a-policy)).
+
+**How it is invoked.** Three ways, all ending in the same job:
+
+1. **Pressing play.** The client sends its prioritised menu list
+   ([D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list)), and the
+   core resolves it per axis
+   ([D22](#d22--video-audio-and-subtitles-negotiate-as-independent-axes)):
+   - **The original is acceptable on every axis:** direct play.
+   - **A matching prepared rendition exists:** its playlist.
+   - **Neither:** the core queues a prepare job at the front of the node's queue and answers
+     at once with the playlist URL and a reason for the transcode. The client shows
+     *"Preparing — ready in a few seconds"* until the first segment exists.
+2. **"Get this ready."** A button on a title, and automatically when a Watch Together session is
+   created for a title, for each participant whose link or device needs a smaller copy. This is
+   D175's "prepared in advance", now simply the same job started earlier.
+3. **The admin view.** Lists the queue and each job's progress and reason, and can cancel a job.
+
+**The profiles in Cut A**, each a combination from D21's menu:
+
+| Profile | Video | Audio | Used when |
+| --- | --- | --- | --- |
+| `remux` | copied | `aac-stereo`, plus `aac-stereo` with dialogue boost | the video plays but the container or the audio does not (MKV, TrueHD, DTS) — the common case |
+| `h264-8m` | `h264-sdr` at ~8 Mbps, hardware encoder where present | the same two | the video codec does not play, or the link is remote and slow |
+
+Both carry the text subtitle tracks, extracted as ASS for libass (JASSUB) and as WebVTT for the
+cast receiver. Bitmap subtitles (PGS) are the audit's narrowed D78 question, and not in the first
+build.
+
+**Dialogue boost in Cut A is on or off.** D83 wanted a continuous control. A prepared rendition
+is a shared cache, however, so it offers two stereo downmixes as two audio renditions: the
+standard matrix, and one with the centre channel raised. The client picks by the user's
+preference, and switching between them mid-film needs no new job. Finer steps can come later as
+further renditions.
+
+**Timing.** Measured remux runs thousands of times faster than real time, so in practice it is
+bound by disk and network:
+- **a remux is complete within a minute or two**, and a seek past the prepared point waits for
+  seconds at most;
+- **an encode runs at a few times real time** on Quick Sync, so a seek ahead of it waits. That
+  is why remote viewing prepares in advance.
+
+Live segment-addressed transcoding stays unbuilt until a measurement says first-play latency
+hurts.
+
+**Scheduling.** Nodes run at most one encode at a time, which matters on an N95. Remux jobs are
+limited by the disk. A job that fails records the FFmpeg exit and its stderr tail as its reason,
+shown to the user (principles §3). A crash restarts the job from zero, which is cheap because
+the output is a cache.
+
+### 3. The encoder is a node capability; two plugin tiers wait (P3)
+
+A node advertises what it can produce: `remux`, `aac`, `h264_qsv`, `h264_nvenc`, `x264`. The
+core sends a job to a node that can do it. The desktop's RTX 3090 becomes a second node later,
+with no plugin API at all. **Plugin tier 3
+([D19](#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three))
+is retired** into the node. **Tier 1 (WASM, [D12](#d12--providers-are-sandboxed-wasm-plugins-no-in-process-plugin-code))
+is deferred** until a third-party provider is asked for. TMDB and OpenSubtitles are Go packages
+behind the provider interface, which is the future host-function list. Tier 2 (protocol adapters,
+[D15](#d15--two-plugin-tiers-in-process-wasm-and-out-of-process-adapters)) needs nothing from us
+but a stable API, and is unchanged.
+
+### 4. The mechanism cut (P4)
+
+Adopted as the audit's §2 table. In short:
+- **The node:**
+  - **One node transport:** HTTP+JSONL over a Unix socket, with dial-out TCP later. The file
+    exchange channel and its signing, attribute-cache and torn-read handling are **deleted**.
+  - **Node liveness** is an HTTP status endpoint plus the report stream.
+  - **The first-scan scheduler** is a FIFO with "play this now" at the front.
+- **FFmpeg:**
+  - **FFmpeg is confined per invocation**, through a re-exec shim. The confinement is ranked:
+    1. argument hardening, always;
+    2. read-only mounts;
+    3. a seccomp **denylist**;
+    4. Landlock, where the kernel has it.
+  - **The custom FFmpeg build is deferred.**
+- **No predicate compiler until the first authored or restricting rule.** Cut A's pages are
+  fixed sqlc queries, plus one small hand-written filter builder for search. The compiler
+  replaces that builder when it arrives. It never sits beside it.
+- **Voice** is browser WebRTC through a TURN server embedded in our binary (`pion/turn`), with
+  signalling on the session WebSocket. The upgrade ladder and content-referenced echo cancellation
+  are **deleted**.
+- **Reachability:** no own relay role in Cut A. The order is a port-forward, then IPv6, then a
+  standard tunnel (rathole, frp or WireGuard) to a VPS.
+- **Subtitles:** stock JASSUB, with the custom libass build and the served variable-font set
+  deferred until a user's language needs them. D78's overlay is narrowed to a later question.
+- **Role ceilings and lease columns are dropped** from `schema.md`, because additive schema
+  arrives with its feature (D180).
+
+### 5. One public name (P5)
+
+The owner already holds domains, so choosing one is a practical step that needs no decision.
+Cut A serves everything under one name, `media.<domain>`:
+- the web client;
+- the cast receiver, unpublished and registered to her device (D192);
+- the TURN service's TLS port.
+
+The certificate comes from Let's Encrypt through a **DNS-01 challenge**, so it works with no
+inbound port open. Inside the house, split-horizon DNS or the router's hairpin makes the same
+name reach the same machine.
+
+### 6. The stack (P7)
+
+As the audit's §5:
+- **Web and cast receiver:** plain React + TypeScript + Vite, in a pnpm workspace with the SDK
+  as a React-free package.
+- **The TV framework** is decided by building the same four screens in Compose for TV and in
+  react-native-tvos when TV work starts.
+- **Server libraries:** huma v2 for the API and its OpenAPI; `openapi-typescript` +
+  `openapi-fetch` for the client; `oasdiff` for D85's gate; a pure-Go SQLite driver behind one
+  `Open()` whose pragmas are read back at startup.
+- **FFmpeg:** a pinned jellyfin-ffmpeg portable build, bundled and checked by hash, never
+  downloaded at runtime.
+
+This is the technology set whose standards [D192](#d192--built-in-a-private-repository-tested-at-home-released-through-public-betas-standards-follow-the-final-stack)
+§3 schedules next.
+
+### 7. Where it runs (P8)
+
+Measured by the owner (`/sys/kernel/security/lsm`):
+
+| Host | OS | Landlock | Media |
+| --- | --- | --- | --- |
+| **nas** (F4-424, N95, Quick Sync) | Proxmox | **off** | **the library is here** |
+| nuc13 | Proxmox | off | — |
+| **devnas** (F2-422, J3455, Quick Sync) | Debian trixie | **on** | none |
+| gpuhost | Mint | on | — |
+
+- **Development runs on devnas, with a corpus copied across.** It has Landlock and Quick Sync, it
+  is the low-end reference host of D190, and a copied corpus is also what the tests want.
+- **The Cut A deployment belongs on nas, beside the library.** A node reads files, and a node
+  that reads them over the network brings back NFS change detection and its attribute caches,
+  which this design has kept away from Cut A. The
+  recommended form is a Debian LXC container on nas with:
+  - **Landlock turned on in nas's kernel:** add
+    `lsm=lockdown,capability,landlock,yama,apparmor,ima,evm` to the kernel command line and
+    reboot. An LXC shares the host kernel, so it inherits Landlock.
+  - the media bind-mounted **read-only**;
+  - `/dev/dri` passed through for Quick Sync.
+
+  Until the owner makes that change, a node on nas runs and reports itself *unconfined*
+  ([D112](#d112--the-node-probes-its-confinement-and-reports-it-the-escape-test-asserts-what-is-in-force)),
+  which is the degraded mode that decision designed for.
+
+### 8. The build contract, then a freeze (P9)
+
+[plans/cut-a.md](../design/plans/cut-a.md) is written. It holds:
+- the process topology and byte path;
+- the repository layout;
+- the API endpoints;
+- the node and Watch Together message sets;
+- the error enumeration and the job queue;
+- milestones M0–M5 with acceptance tests.
+
+**From then on, Cut A's design is frozen:** a new decision is made only when code or a
+measurement forces one. Research into what comes after Cut A may continue, but it does not
+reopen Cut A.
+
+### 9. What it changes, marked in place
+
+- **Refined:**
+  - D4: prepare is Cut A's second path.
+  - D10: the web client is plain React; the TV framework is decided later.
+  - D12 and D15: tier 1 is deferred.
+  - D26: confinement is re-ranked, and the custom build deferred.
+  - D31: pragmas are read back at startup.
+  - D43: confinement is per invocation.
+  - D68: TURN is embedded, and the ladder deleted.
+  - D71: our own relay role is deferred.
+  - D118: the scheduler is simplified.
+  - D128: the core relays.
+  - D164: the compiler is deferred.
+- **Superseded in part:**
+  - D19: tier 3 is retired.
+  - D127: the file channel is deleted.
+- **Everything else stands.**
+
+**Status:** Decided. The contradiction sweep of the audit's §3, the schema fixes of §3.1 and
+`plans/cut-a.md` follow in the same change.

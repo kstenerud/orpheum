@@ -3,51 +3,74 @@
 
 # Stream service
 
-- **Status:** PLANNED — designed 2026-09-17; **adaptation, audio presentation and the accessibility floor added 2026-09-19** ([D86](../../decisions/working-notes.md), [D83](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md)).
+- **Status:** PLANNED — designed 2026-09-17; **adaptation, audio presentation and the accessibility floor added 2026-09-19** ([D86](../../decisions/working-notes.md), [D83](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md)). **Scoped to Cut A 2026-09-23** ([D178](../../decisions/working-notes.md), [D193](../../decisions/working-notes.md)): direct play relayed from the node, and **prepare** with the profiles `remux` and `h264-8m`; every FFmpeg run is the node's. [cut-a.md](cut-a.md) §5–§6 holds Cut A's endpoints and the prepare mechanism; the rest of this plan (overlay rendition, custom libass build, served font set, adaptation) follows Cut A.
 - **Depends on:** library-model.md
 
-## Scope — direct play, plus audio
+## Scope — direct play, plus prepare
 
-Per [D17](../../decisions/working-notes.md) this service ships **no video encoder**. Per
-[D22](../../decisions/working-notes.md) it *does* ship audio encoding, because every GPL trigger
-in FFmpeg is a video encoder and the whole audio menu is native LGPL — so audio costs us nothing
-in licence or patent surface, and it covers the most common real transcode (video fine, audio
-TrueHD or DTS-HD).
+**Which process does what** ([D193](../../decisions/working-notes.md) §1). The core never opens
+a media file and never runs FFmpeg ([D26](../../decisions/working-notes.md)). It resolves the
+client's request, authenticates it, and **relays** bytes from the node over the node's Unix
+socket — the original's byte range for direct play, and the prepared rendition's playlist and
+segments otherwise. Everything below that touches media is the node's.
+
+**Prepare** ([D193](../../decisions/working-notes.md) §2) is Cut A's one path besides direct
+play: one node job per (File, profile) runs one FFmpeg command and writes an fMP4 HLS rendition
+into the node's cache as a growing `EVENT` playlist, so playback starts once the first segments
+exist. Cut A has two profiles:
+
+- **`remux`** — video copied; audio converted to `aac-stereo`, plus a second `aac-stereo` with
+  the dialogue boost. The common case: MKV, TrueHD, DTS.
+- **`h264-8m`** — video encoded to `h264-sdr` at ~8 Mbps by the node's encoder (Quick Sync,
+  NVENC or x264, a node capability) with the same two audio renditions; used when the video
+  codec does not play or the link is remote and slow.
+
+~~Per [D17](../../decisions/working-notes.md) this service ships **no video encoder**.~~ The
+encoder is not this service's: it is a capability the node advertises. Every GPL trigger in
+FFmpeg is still a video encoder and the whole audio menu is native LGPL
+([D22](../../decisions/working-notes.md)); a node without an encoder can still serve `remux`,
+which covers the most common real transcode (video fine, audio TrueHD or DTS-HD).
 
 It provides:
 
-- ranged direct-play `GET` of the original file;
-- the **rendition-list endpoint**, answering "what can I play this as" with, initially, one
-  entry;
-- the subtitle pipeline (D11, [D23](../../decisions/working-notes.md)) — extraction at scan time
+- ranged direct-play `GET` of the original file, relayed from the node;
+- the **rendition-list endpoint**, answering "what can I play this as": the original, and the
+  prepared renditions that exist or can be started, each with a reason;
+- the prepare job queue — started by pressing play, by "get this ready", or when a Watch
+  Together session is created — and its view in the admin area;
+- the subtitle pipeline (D11, [D23](../../decisions/working-notes.md)) — in Cut A, text tracks
+  extracted by node jobs as ASS for JASSUB and WebVTT for the cast receiver; later, extraction at scan time
   (which is what makes mid-playback switching possible, not merely fast), format conversion,
   font attachments served as addressable resources, **closed captions decoded out of the video
   stream into a real track**, and forced/default/preferred track semantics;
-- trickplay sprite generation and chapter data;
+- trickplay sprite generation (after Cut A) and chapter data;
 - playback-progress reporting;
-- **audio transcoding and per-axis remuxing** — copying a video track into fMP4 segments needs a
-  muxer and no encoder, so it belongs here too.
+- **audio transcoding and remuxing**, through prepare.
 
-FFmpeg is present for `ffprobe`, subtitle extraction, thumbnailing, remuxing and audio encoding.
-None of that needs `--enable-gpl`, which is what keeps this component on the LGPL rung
-([D16](../../decisions/working-notes.md), [D22](../../decisions/working-notes.md)).
+FFmpeg — a pinned jellyfin-ffmpeg portable build, bundled and checked by hash (D193 §6) — runs
+only in the node, **each invocation confined on its own** ([D43](../../decisions/working-notes.md),
+D193 §4), for `ffprobe`, subtitle extraction, thumbnailing and prepare. The core stays on the
+LGPL rung by linking none of it ([D16](../../decisions/working-notes.md)).
 
 ## The seams that keep transcoding additive
 
-These must exist in v1 even though nothing uses them yet. They are the whole reason
-[`transcoding.md`](transcoding.md) can be a later, separate component rather than a rewrite:
+These must exist in v1. They are the whole reason the rest of
+[`transcoding.md`](transcoding.md) — live bandwidth transcoding — can be a later, separate
+component rather than a rewrite:
 
 - **The rendition list is a list.** Growing it requires no client change, no protocol version
   and no migration (see [tech-playback.md](../research/tech-playback.md) §2a).
-- **The output menu and its negotiation exist in v1** ([D21](../../decisions/working-notes.md)),
-  even though the only producible entry is `original`. The client sends its prioritised subset of
+- **The output menu and its negotiation exist in v1** ([D21](../../decisions/working-notes.md)).
+  ~~even though the only producible entry is `original`~~ In Cut A the producible entries are
+  `original` and the two prepare profiles. The client sends its prioritised subset of
   the named menu; the server intersects. Getting this shape in early is what lets a transcoder be
   added later as a pure capability announcement, and it is what lets dumb clients ship a static
   list instead of implementing runtime probe-and-pick.
 - **A transcode-reason field**, populated even when the answer is "this server cannot
   transcode". Clients must be able to explain the failure — principles §3.
-- **A capability handshake**, so a core without the transcoding component says so honestly.
-  This path has to exist anyway for hardware too weak to transcode.
+- **A capability handshake**, so a node without an encoder says so honestly — it advertises
+  `remux` and `aac` but no `h264_*`/`x264` (D193 §3). This path has to exist anyway for
+  hardware too weak to transcode.
 - **Video, audio and subtitles are separate negotiation axes** from the start
   ([D22](../../decisions/working-notes.md)) — separate HLS renditions via `EXT-X-MEDIA` groups.
   This is what makes audio-only transcoding expressible, keeps mid-playback audio-track switching
@@ -57,7 +80,8 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   (explicit → series → library → user → forced-subtitle rule → file default) and **reports what
   it pre-selected and why**, per principles §3. Capability travels per-request because it is
   device-scoped; language preference is user state and syncs.
-- **Three subtitle renditions, not two** ([D78](../../decisions/working-notes.md)): text,
+- **Three subtitle renditions, not two** ([D78](../../decisions/working-notes.md); *narrowed by
+  D193 §4 to a later question — Cut A has text tracks only, with stock JASSUB*): text,
   **server-rendered overlay**, and burn-in. The overlay is libass running in the node, emitting
   timed bitmaps cropped to the text bounding box and palettised — **measured at 8.7 KB per
   1080p event at 32 colours (visually lossless), so ~12 MB per film, 0.14% of a 9 GB film.**
@@ -92,7 +116,8 @@ These must exist in v1 even though nothing uses them yet. They are the whole rea
   event-granularity bitmaps cannot express. Every other case burn-in used to serve is now served
   by the overlay rendition, which stays switchable.
 
-- **The subtitle renderer's defaults are wrong for us** ([D50](../../decisions/working-notes.md)).
+- **The subtitle renderer's defaults are wrong for us** ([D50](../../decisions/working-notes.md);
+  *the custom build below is deferred by D193 §4 until a user's language needs it*).
   libass ships bug-compatible with VSFilter: with `ASS_FEATURE_WHOLE_TEXT_LAYOUT` off — the
   default — runs are *"laid out left-to-right, even if they contain right-to-left text"*, which
   is the same defect as the browser-native WebVTT rendering we chose libass to avoid. So build
@@ -163,14 +188,20 @@ H.264 + AC-3 does not satisfy. MKV is the dominant container in the libraries th
 for, so **casting inverts [D4](../../decisions/working-notes.md)'s expectation**: the common
 case is a remux, not a direct play.
 
-Architecturally that costs nothing — [D22](../../decisions/working-notes.md)'s per-axis remux
-is LGPL and needs no encoder — but it changes the schedule: **the remuxer has to be solid in
-the first release** rather than eventually, because the cast path leans on it constantly.
+~~Architecturally that costs nothing — [D22](../../decisions/working-notes.md)'s per-axis remux
+is LGPL and needs no encoder~~ — **it is not free**: a restartable, seekable, segment-addressed
+remux is most of D4's on-demand machine without the encoder (audit §1.2). So Cut A does it as
+**prepare's `remux` profile** ([D193](../../decisions/working-notes.md) §2), which runs thousands
+of times faster than real time and is bound by disk and network; **live segment-addressed remux
+is deferred** until a measurement says first-play latency hurts. The schedule consequence
+stands: **the remux has to be solid in the first release**, because the cast path leans on it
+constantly.
 
 Three more consequences land here:
 
 - **Subtitles.** Cast accepts TTML, WebVTT and CEA-608/708, and **nothing else** — no SRT, no
-  ASS, no PGS. SRT converts, which this service already does. **ASS and PGS take
+  ASS, no PGS. SRT converts, which this service already does; in Cut A, ASS is converted to
+  WebVTT for the receiver too, and PGS waits (D193 §4). **Later, ASS and PGS take
   [D78](../../decisions/working-notes.md)'s overlay rendition**, which was argued for moving a
   hostile font parse off an old television and turns out to be the only route onto a platform
   that will never support ASS.
@@ -179,9 +210,9 @@ Three more consequences land here:
   metadata, never a re-encode for a volume change. **DTS and TrueHD do not**, so they take the
   ordinary audio transcode, which is the commonest real transcode anyway.
 - **Video.** Chromecast 1st–3rd generation decode **H.264 and VP8 only**; HEVC arrives with the
-  Ultra. So a 10-bit HEVC file to an older dongle needs a *video* transcode
-  ([transcoding.md](transcoding.md) §(a), Phase 4) and until then the honest answer is the
-  transcode-reason field rather than a stall.
+  Ultra. So a 10-bit HEVC file to an older dongle needs a *video* transcode — in Cut A,
+  prepare's `h264-8m` profile ([transcoding.md](transcoding.md) §(a)); on a node with no
+  encoder, the honest answer is the transcode-reason field rather than a stall.
 
 **And one unresolved risk that collides with [D22](../../decisions/working-notes.md).**
 `HlsVideoSegmentFormat` defines `FMP4` as well as `MPEG2_TS` and `#EXT-X-MEDIA` is documented,
@@ -217,7 +248,7 @@ We still build no encoding ladder. We do this:
 - **[D23](../../decisions/working-notes.md)'s invariant collides and is resolved by the above.**
   A bandwidth downshift is a video-axis change, in the one situation where a restart is least
   affordable. Aligned variants make it a switch rather than a restart.
-- **Where adaptation is impossible — no transcoder registered — say so.** The transcode-reason
+- **Where adaptation is impossible — no node with an encoder — say so.** The transcode-reason
   field already exists for this; "this server cannot produce a lower rendition" is the honest
   answer and it belongs in the remote-access documentation, not in a hotel.
 
@@ -226,7 +257,8 @@ We still build no encoding ladder. We do this:
 [audio-presentation.md](audio-presentation.md) owns this; two consequences land here.
 
 - **Loudness is applied as gain at playback** from the per-track measurement the node made at
-  scan ([D83](../../decisions/working-notes.md)). A passed-through bitstream gets the gain as
+  scan ([D83](../../decisions/working-notes.md)) — after Cut A, which has the dialogue boost but
+  not the measurement pass ([D178](../../decisions/working-notes.md) §3). A passed-through bitstream gets the gain as
   metadata for the client to apply, never a re-encode for the sake of a volume change.
 - **Dynamic-range compression is a per-device declaration**, not a server setting. AC-3 and
   E-AC-3 carry `dialnorm`/DRC metadata and FFmpeg applies it by default (`drc_scale = 1`), which

@@ -5,7 +5,7 @@
 
 # Scanner
 
-- **Status:** PLANNED — designed 2026-09-17; relocated into the media node by [D33](../../decisions/working-notes.md); **shape and identification corrected 2026-09-19 by [D59](../../decisions/working-notes.md)**; spin-down and two extra observation passes added the same day ([D94](../../decisions/working-notes.md), [D83](../../decisions/working-notes.md), [D102](../../decisions/working-notes.md)); **the pipeline measured and made steerable 2026-09-20** ([D114](../../decisions/working-notes.md), [D116](../../decisions/working-notes.md), [D118](../../decisions/working-notes.md)).
+- **Status:** PLANNED — designed 2026-09-17; relocated into the media node by [D33](../../decisions/working-notes.md); **shape and identification corrected 2026-09-19 by [D59](../../decisions/working-notes.md)**; spin-down and two extra observation passes added the same day ([D94](../../decisions/working-notes.md), [D83](../../decisions/working-notes.md), [D102](../../decisions/working-notes.md)); **the pipeline measured and made steerable 2026-09-20** ([D114](../../decisions/working-notes.md), [D116](../../decisions/working-notes.md), [D118](../../decisions/working-notes.md)); **the identity hash moved onto the media payload 2026-09-23** ([D179](../../decisions/working-notes.md)); **the scheduler simplified to a FIFO with "play this now", the file channel deleted, and scan-time extraction priced in disk reads, 2026-09-23** ([D193](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md)).
 - **Depends on:** library-model.md
 - **Feeds:** [identification.md](identification.md)
 
@@ -90,7 +90,7 @@ watcher**, because you cannot know the watcher is perfect.
 | The node reports | The core decides |
 | --- | --- |
 | the filename, verbatim — NFC form and raw bytes ([D49](../../decisions/working-notes.md)) | what the filename *means* |
-| size, mtime, and a **sampling** content hash — head, tail and size, measured at 3.2 ms against 0.49 s for the whole file ([D116](../../decisions/working-notes.md)), **anchored on the media payload** (Matroska Clusters, MP4 `mdat`) so an in-place tag edit does not change it ([D179](../../decisions/working-notes.md)) | whether two files are the same work |
+| size, mtime, and ~~a **sampling** content hash — head, tail and size ([D116](../../decisions/working-notes.md))~~ an **identity hash of the media payload** — the first and last megabyte of the payload (Matroska Clusters, MP4 `mdat`) and the payload length — so an in-place tag edit does not change it ([D179](../../decisions/working-notes.md), which replaced D116's head-and-tail hash after every mkvpropedit edit tested broke it). It stays a sampling hash, so D116's cost of milliseconds against half a second for the whole file still holds | whether two files are the same work |
 | probe output: container, streams, codecs, durations, disposition flags, track titles, attachments | which track is "the" audio track |
 | a track's BCP 47 tag **beside** the raw `ger`/`deu` the container carried | how to resolve a conflict between them |
 | `A gone` and `B appeared` | that it was a move |
@@ -193,7 +193,8 @@ realtime; trickplay and blackdetect at ~14×. Over a 3,500-item reference librar
   is enrichment, and a user who can watch a film in five minutes will forgive a trickplay
   sprite that arrives on Tuesday — which is the literal measured trade: 17 minutes against 9.2
   days.
-- **Passes that share a decode may be fused**, and the scheduler has to know which. Measured:
+- **Passes that share a decode may be fused**, and the scheduler has to know which — later;
+  Cut A's FIFO runs them separately ([D193](../../decisions/working-notes.md) §4). Measured:
   running loudness, trickplay and blackdetect as one invocation beats three separate runs by
   **38% on six cores and 45% on one** — the saving is larger on the machine that needs it more.
   The tenth pass is the clearest case yet: the **speech map**
@@ -213,9 +214,21 @@ something that already plays comes after everything that makes something play. F
 110-minute film, single-core, from the measured rates: **playable in under a second**,
 subtitles and overlays at ~2 s, loudness at ~65 s, **trickplay at ~8 minutes**.
 
-**And the scheduler is a priority queue keyed by `(item, pass)`, not a pipeline**, because the
-user gets to say *"I want to watch this one now"* in the middle of a fifty-thousand-file scan.
-A boost preempts at the next pass boundary.
+**Those rates are CPU rates from one local file, and extraction is bound by I/O**
+([audit-2026-09-23.md](../research/audit-2026-09-23.md) §1.6). Subtitle extraction and remux
+read the whole file, so a 10 GB film over a gigabit link takes **about 90 s, not ~2 s**, and
+"subtitles at scan time for the whole library" is days of disk reads, not minutes. In Cut A a
+title's text subtitles come out of its prepare job
+([D193](../../decisions/working-notes.md) §2), and Cut A's node runs beside the library on nas
+rather than over the network (D193 §7). Whether whole-library extraction at scan time is worth
+its reads is measured on the owner's library, not assumed.
+
+**And the user can move one item to the front.** ~~The scheduler is a priority queue keyed by
+`(item, pass)`, not a pipeline; a boost preempts at the next pass boundary.~~ **The first-scan
+scheduler is a FIFO, and *"I want to watch this one now"* moves that item to the front**
+([D193](../../decisions/working-notes.md) §4, simplifying D118), which is all the user needs in
+the middle of a fifty-thousand-file scan. The `(item, pass)` priority queue and pass fusion
+wait until a measurement shows the FIFO is not enough.
 
 Two things that are easy to build wrong:
 
@@ -234,28 +247,31 @@ true and useful; *Preparing…* is not.
 
 [D118](../../decisions/working-notes.md) **changes a rule**:
 [D39](../../decisions/working-notes.md)'s *"the core never parses a file still being written"*
-becomes **"the core may tail a `.partial` report, and everything it reads from one is
-incomplete by definition"**. Results appear in the library as they are produced rather than
-when the scan ends.
+becomes **"the core may read a report before it is complete, and everything it reads from one
+is incomplete by definition"**. Results appear in the library as they are produced rather than
+when the scan ends. **With the file channel deleted
+([D193](../../decisions/working-notes.md) §4, superseding part of
+[D127](../../decisions/working-notes.md)), the one node transport is HTTP+JSONL over a Unix
+socket, so this is simply the core parsing the response body as it arrives** — no `.partial`
+file is tailed by the core.
 
 Nothing about safety changes, because safety was never the filename — it was *unknown means
 incomplete means add-or-update only*, which already covered a crashed scan and covers a
-partial read identically. The atomic rename keeps its one job: it is the moment **removals may
-be applied**.
+partial read identically. ~~The atomic rename~~ **The trailer record** keeps its one job: it is
+the moment **removals may be applied**.
 
 Two mechanical details that bite:
 
-- **This is a local-filesystem feature** ([D127](../../decisions/working-notes.md)). Over NFS
-  the core's view of a growing file's length is served from the client attribute cache —
-  `acregmax` defaults to **60 s** and *doubles towards the maximum while nothing appears to
-  change* — so "items appear as they are found" becomes "items appear in sixty-second lumps",
-  and the atomic rename itself can be invisible to the core for as long again. The transport
-  that gives this away for nothing is HTTP, where the core parses the body as it arrives:
-  measured, **first record at 0.1 ms** against 551 ms waiting for a rename.
-- **Consume only up to the last newline.** A tailed JSONL file ends mid-record about half the
-  time; this is precisely the "degrades per line" property the format was chosen for.
+- ~~**This is a local-filesystem feature** ([D127](../../decisions/working-notes.md)). Over NFS
+  the core's view of a growing file's length is served from the client attribute cache, so
+  items appear in sixty-second lumps.~~ **HTTP gives this away for nothing**: the core parses
+  the body as it arrives, measured at **first record in 0.1 ms** against 551 ms waiting for a
+  rename. The NFS attribute-cache problem left with the file channel
+  ([D193](../../decisions/working-notes.md) §4).
+- **Consume only up to the last newline.** A JSONL stream read mid-flight ends mid-record
+  about half the time; this is precisely the "degrades per line" property the format was chosen for.
 - **Batch the ingest.** Parsing a 50,000-entry snapshot costs 1.8 s and the write ceiling is
-  9,415 commits/s, so tailing must not turn one scan into fifty thousand transactions. Batch on
+  9,415 commits/s, so incremental reading must not turn one scan into fifty thousand transactions. Batch on
   a time or count bound — the user still sees results inside a second.
 
 **This is also what makes the scan legible**, which was the original complaint. A progress bar

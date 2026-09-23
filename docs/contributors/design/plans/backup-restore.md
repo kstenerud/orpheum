@@ -3,7 +3,7 @@
 
 # Backup and restore
 
-- **Status:** PLANNED — researched 2026-09-19 ([backup-restore.md](../research/backup-restore.md), [D77](../../decisions/working-notes.md)).
+- **Status:** PLANNED — researched 2026-09-19 ([backup-restore.md](../research/backup-restore.md), [D77](../../decisions/working-notes.md)); **the database is backed up whole** ([D185](../../decisions/working-notes.md)); **an older backup is migrated, not refused** ([D181](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md), F12).
 - **Depends on:** library-model.md
 
 ## The gap
@@ -114,5 +114,9 @@ the second, which is a stated limitation rather than a gap.
 
 A fresh install restores a backup and the user's watch state, rules, shares and preferences are
 all present; a restore into the wrong path cannot destroy a live database; a backup from an
-older schema is refused with a comprehensible message rather than converted; and the automatic
-backup has run without anyone configuring it.
+older schema ~~is refused with a comprehensible message rather than converted~~ **restores and is
+migrated by the ordinary runner, and one from a newer schema is refused with a comprehensible
+message naming the way back** ([D181](../../decisions/working-notes.md)); **the whole
+`library.db` is in the backup, so a restore is a restore rather than a rebuild**
+([D185](../../decisions/working-notes.md)); and the automatic backup has run, with where it goes
+and how many are kept shown at setup ([D184](../../decisions/working-notes.md)).

@@ -4,7 +4,7 @@
 
 # Identification
 
-- **Status:** PLANNED — split out of [scanner.md](scanner.md) on 2026-09-19 by [D59](../../decisions/working-notes.md); the content is not new, its home is.
+- **Status:** PLANNED — split out of [scanner.md](scanner.md) on 2026-09-19 by [D59](../../decisions/working-notes.md); the content is not new, its home is. **A library's source is asked, never defaulted, and there are no per-field source bindings** ([D183](../../decisions/working-notes.md), [D184](../../decisions/working-notes.md)); **in Cut A, providers are Go packages behind the provider interface, not WASM plugins, 2026-09-23** ([D193](../../decisions/working-notes.md) §3).
 - **Depends on:** [scanner.md](scanner.md), library-model.md
 
 ## Why this is a separate document from the scanner
@@ -232,21 +232,33 @@ rewriting thousands of files periodically is churn in someone's media tree, whic
 
 [D170](../../decisions/working-notes.md), 2026-09-23, by the project owner. **A title follows one source, fetched once.**
 
-- A library has a **default source**. A scan reads the free local sources (filename parse,
-  embedded tags, NFO) and fetches the default source **once per newly identified title** —
+- A library has ~~a **default source**~~ **one source, asked when the library is created and
+  never defaulted** — *NFO files where present, TMDB for the rest · TMDB only · NFO files only*
+  ([D183](../../decisions/working-notes.md), [D184](../../decisions/working-notes.md)) — and
+  shown on the library's settings page. A scan reads the free local sources (filename parse,
+  embedded tags, NFO) and fetches the library's source **once per newly identified title** —
   including a new episode of a series already here, which is a first fetch, not a refresh.
 - The fetch is a **queue behind the scan**, not part of it: a title is listed on local data as
   soon as it is filed. The queue honours `429` and `Retry-After` and a per-provider budget.
   Rate limiting delays metadata, never the library.
 - **Per title**, the user may choose another source; the server fetches that one title from it
-  and shows the result. **Per field**, the user may type a value, and **a manual value is
-  permanent** — it is the lock. Choosing a source for that field is how it is removed.
+  and shows the result. **Per field**, the user may type a value or pick one from another
+  source, and that **override is permanent** — it is the lock, a frozen copy with its origin
+  noted for display. ~~Choosing a source for that field is how it is removed.~~ **Removing the
+  override is how it is removed**; there are no per-field source bindings
+  ([D183](../../decisions/working-notes.md)).
 - **Every refetch is requested by the user** — per title or per library — refetches the
   selected source, and never touches a manual field. There is no TTL-driven refresh.
-- Stored: the value as a column; the **selected source and provider ID** per title; **which
-  fields are manual**. The last two are what [D141](../../decisions/working-notes.md) writes to NFO. The provider's raw
+- Stored: the value as a column; the **selected source and provider ID** per title; **the
+  overrides**, as `(title, field, value, origin, set_at)`. The last two are what [D141](../../decisions/working-notes.md) writes to NFO. The provider's raw
   response is kept as a cache (principles §14), so a parser change or switching back to an
   already-fetched source costs no call.
+
+- **How a provider is called in Cut A.** TMDB and OpenSubtitles are **Go packages behind the
+  provider interface**, which is the future host-function list; the WASM tier
+  ([D12](../../decisions/working-notes.md)) is deferred until a third-party provider is asked
+  for ([D193](../../decisions/working-notes.md) §3). The TMDB key lives in the database's
+  `setting` table ([schema.md](schema.md)).
 
 Why not keep every provider's value and resolve between them: it needs every source fetched for
 every title at scan time. OMDb's free key allows **1,000 requests a day** — 3.5 days for the

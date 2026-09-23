@@ -13,6 +13,8 @@ A plan states where it stands in a metadata list under its title:
 | `**Status:**` | Means | Lives in |
 | --- | --- | --- |
 | `UNSPECIFIED` | An idea. No design yet. | here |
+| `SKETCH` | An outline with its open questions named; not yet designed enough to build from. | here |
+| `PARTLY SPECIFIED` | Designed in part; the Status prose names what is still open. | here |
 | `DEFERRED` | Researched, and deliberately not being built yet. May carry affordances due now. | here |
 | `PLANNED` | Designed, not built. | here |
 | `IN-PROGRESS` | Partly built. The Status prose says what's left. | here |
@@ -43,6 +45,16 @@ shows where each stands.
 
 ## Sequence
 
+**Start here to build: [cut-a.md](cut-a.md).** Cut A — the owner at home and one person remote,
+watching together with subtitles ([D178](../../decisions/working-notes.md)) — is the first
+release, and `cut-a.md` is its build contract: the topology and byte path, the repository
+layout, the endpoints and message sets, the error and job models, and milestones M0–M5. **Cut
+A's design is frozen** ([D193](../../decisions/working-notes.md) §8); the other plans are the
+reasons behind it, and where one of them promotes something the cut leaves out, the cut wins.
+Watch Together for two, remote, with voice, reachability, invites and prepared versions are
+Phase 2b ([D175](../../decisions/working-notes.md)), directly after the web client. The
+ordering below is otherwise what follows the cut.
+
 `playback-survey.md` comes first, using the web harness from `device-lab.md` on a handful of
 representative devices — **not** the full device sweep, which is a separate and later effort.
 Conflating the two would turn a days-long gate into a months-long one.
@@ -53,19 +65,22 @@ else in either direction. Nothing about transcoding should be guessed before it 
 `device-lab.md` runs **after** Phase 0 and in parallel with Phase 1, turning that one-off
 measurement into a repeatable sweep and setting the support floor from evidence.
 
-Then `library-model.md` and `scanner.md` in parallel with `stream-service.md` (direct play
-only, per [D17](../../decisions/working-notes.md)). `identification.md` was split out of
+Then `library-model.md` and `scanner.md` in parallel with `stream-service.md` (~~direct play
+only, per [D17](../../decisions/working-notes.md)~~ direct play and **prepare**, the node's one
+FFmpeg job per File and profile, per [D193](../../decisions/working-notes.md)). `identification.md` was split out of
 `scanner.md` by [D59](../../decisions/working-notes.md) and follows it: the scanner is what a
 node **observes**, identification is what the core **concludes**, and the split exists so a
 parser improvement can be replayed over the database with every node switched off. `web-client.md` needs `stream-service.md`;
 its real deliverable is the shared SDK. `tv-client.md` needs `web-client.md` only for that SDK.
 
-`transcoding.md` is deliberately late and is two components in one file — compatibility first
-(offline, once per file), bandwidth second (live, and coupled to `remote-access.md` rather than
-to the library). `playback-survey.md` sets its priority.
+`transcoding.md` is two components in one file — compatibility first (offline, once per file),
+bandwidth second (live, and coupled to `remote-access.md` rather than to the library). Cut A
+already needs the first in its prepare form, with a video encoder as a node capability
+([D193](../../decisions/working-notes.md)); the live half is deliberately late.
+`playback-survey.md` sets its priority.
 
 `watch-together.md` needs `stream-service.md` and the SDK from `web-client.md`, and its
-off-LAN half needs `remote-access.md`. Its LAN half does not, and is worth building first
+off-LAN half needs `remote-access.md` — both in Phase 2b, for two people. Its LAN half does not, and is worth building first
 because it exercises the same sync machinery with none of the NAT traversal
 ([D62](../../decisions/working-notes.md)).
 
@@ -88,7 +103,9 @@ archived: it was never designed, so the decision log is the record.
 
 Two more findings from that sweep are **not** new plans and are due earlier than their size
 suggests, both because they are schema: per-role **bandwidth and concurrent-stream ceilings**
-in [auth.md](auth.md), which gate the paid relay, and **external critic/audience scores** in
+in [auth.md](auth.md), which gate the paid relay (their columns are dropped from the first
+schema and arrive with the feature — [D180](../../decisions/working-notes.md),
+[D193](../../decisions/working-notes.md)), and **external critic/audience scores** in
 [library-model.md](library-model.md) and [rules-engine.md](rules-engine.md).
 
 ## What the 2026-09-19 audit added
@@ -150,7 +167,8 @@ so D81's guard silently does not apply there).
 Plus [D107](../../decisions/working-notes.md): [D35](../../decisions/working-notes.md) states
 the file transport's security model precisely and then says "where HTTP exists, prefer it"
 without giving the preferred one any — and the dangerous direction turns out to be core→node,
-because `config.json` carries commands and, since D89, deletion.
+because `config.json` carries commands and, since D89, deletion. *(The file transport itself
+was deleted by [D193](../../decisions/working-notes.md) §4: one transport, HTTP+JSONL.)*
 
 **Three of those fail open** — the Watch Together join, D105 and D107 — which is the category a keyword sweep is
 worst at finding, because the missing thing is a check rather than a feature. All three came
@@ -163,14 +181,17 @@ at Phase 4, because remote playback over a degraded link has nothing lower to fa
 
 ## The unspecified set
 
-**It was empty on 2026-09-20 and is not any more.**
+**It was empty on 2026-09-20 and is not any more:** [play-statistics.md](play-statistics.md)
+and [external-lists.md](external-lists.md) are `UNSPECIFIED`, from the source sweep above.
 [subtitle-acquisition.md](subtitle-acquisition.md) was added `UNSPECIFIED` on 2026-09-21 by
 [D140](../../decisions/working-notes.md), which found that
 [D11](../../decisions/working-notes.md) makes subtitles the project's headline claim and
 nothing in the tree answers *"this file has none"* — the gap **Bazarr** exists to fill. The
 provider constraint is already researched (OpenSubtitles at 5/20/1000 downloads per day, and
-*"must be the user's account"*); everything else is open. That is the convention working as
-intended: an un-fleshed idea is a file with a status, not a bullet in this README.
+*"must be the user's account"*). It was specified the same day by
+[D147](../../decisions/working-notes.md) and [D148](../../decisions/working-notes.md) and is
+now `PLANNED`; Cut A takes its on-request form without verification. That is the convention
+working as intended: an un-fleshed idea is a file with a status, not a bullet in this README.
 
 The history below is still accurate for the round it describes.
 
@@ -181,10 +202,10 @@ and the second turned out to be only half-blocked: the **client** numbers need h
 **server** numbers needed a benchmark, and the benchmark found two home-page queries that
 scale linearly and six thresholds other decisions had been guessing at.
 
-`grep '^- \*\*Status:\*\*' *.md` is the authority; what remains is one `DEFERRED`
-([content-safety.md](content-safety.md), deliberately) and one `PARTLY SPECIFIED`
-([remote-access.md](remote-access.md), where what is left is a product decision rather than a
-design one).
+`grep '^- \*\*Status:\*\*' *.md` is the authority; besides the two `UNSPECIFIED` plans above,
+what remains is one `DEFERRED` ([content-safety.md](content-safety.md), deliberately) and one
+`PARTLY SPECIFIED` ([remote-access.md](remote-access.md), where what is left is a product
+decision rather than a design one).
 
 The history of how each got there, kept because the ordering arguments are still the useful
 part:

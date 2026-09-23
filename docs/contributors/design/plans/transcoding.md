@@ -1,50 +1,56 @@
-> **ABOUTME:** Video transcoding as a first-party plugin on the public API — the compatibility
-> path and the bandwidth path, which are different problems, built in that order and only once
-> measured, on a machine that need not be the one serving the files. Audio transcoding is not
-> here; it lives in the core.
+> **ABOUTME:** Video transcoding as a media-node capability — the compatibility path and the
+> bandwidth path, which are different problems, built in that order and only once measured, on
+> a machine that need not be the one serving the files. Audio transcoding runs in the same node
+> job, not in the core.
 
 # Video transcoding
 
-- **Status:** PLANNED — designed 2026-09-17. Scheduled after the clients, pending measurement — **except that §(b) is now on remote access's critical path** ([D86](../../decisions/working-notes.md), 2026-09-19), and §(a) gained a second consumer ([D87](../../decisions/working-notes.md)).
+- **Status:** PLANNED — designed 2026-09-17. Scheduled after the clients, pending measurement — **except that §(b) is now on remote access's critical path** ([D86](../../decisions/working-notes.md), 2026-09-19), and §(a) gained a second consumer ([D87](../../decisions/working-notes.md)). **Reshaped for Cut A 2026-09-23** ([D193](../../decisions/working-notes.md)): the encoder is a **node capability**, not a tier-3 plugin (retired, §3); §(a) arrives first as Cut A's **prepare** job, which needs a video encoder for the `h264-8m` profile (Quick Sync, NVENC or x264, from a pinned jellyfin-ffmpeg); §(b), live bandwidth transcoding, is still later. [cut-a.md](cut-a.md) §6 is the mechanism.
 - **Depends on:** playback-survey.md, stream-service.md
 
-## Scope: video only
+## Scope: video, and where audio went
 
-**Audio transcoding is not part of this plan.** It lives in the core, because every GPL trigger
-in FFmpeg is a video encoder and the entire audio menu (AAC, AC-3, E-AC-3, FLAC, ALAC, Opus) is
-producible from a plain LGPL build ([D22](../../decisions/working-notes.md),
+**Audio transcoding is not part of this plan**, but ~~it lives in the core~~ it does not live in
+the core either: the core never runs FFmpeg ([D26](../../decisions/working-notes.md),
+[D193](../../decisions/working-notes.md) §1). It runs in the node's **prepare** job — one FFmpeg
+command per (File, profile) that copies or encodes the video, converts the audio (with a
+dialogue-boost variant) and writes a growing HLS `EVENT` playlist
+([stream-service.md](stream-service.md)). Every GPL trigger in FFmpeg is still a video encoder
+and the entire audio menu (AAC, AC-3, E-AC-3, FLAC, ALAC, Opus) is producible from a plain LGPL
+build ([D22](../../decisions/working-notes.md),
 [tech-licensing.md](../research/tech-licensing.md) §3).
 
-That split is better than the one this plan originally assumed: since the most common real-world
-transcode is audio-only — video fine, audio TrueHD or DTS-HD — **the core handles the common case
-and this plugin handles the rare, heavy, licence-encumbered one.** A default install with no
-plugin can already fix the TrueHD-on-a-cheap-TV problem, which is most of what users actually
-hit.
+The split that survives: since the most common real-world transcode is audio-only — video fine,
+audio TrueHD or DTS-HD — **prepare's `remux` profile handles the common case on any node, and a
+node's video encoder handles the rare, heavy, licence-encumbered one.** A node with no encoder
+can already fix the TrueHD-on-a-cheap-TV problem, which is most of what users actually hit.
 
 ## Position
 
-The video transcoder is **a plugin we happen to maintain** ([D19](../../decisions/working-notes.md)) —
-a tier-3 capability service on the public plugin API, with no privileged access to the core that
-a third party could not also have. Not linked in, and not merely "an optional component".
+~~The video transcoder is **a plugin we happen to maintain** ([D19](../../decisions/working-notes.md)) —
+a tier-3 capability service on the public plugin API.~~ **Plugin tier 3 is retired**
+([D193](../../decisions/working-notes.md) §3). The encoder is a **capability a media node
+advertises** — `remux`, `aac`, `h264_qsv`, `h264_nvenc`, `x264` — and the core sends a job to a
+node that can do it. D19's argument (rffmpeg; the machine that encodes need not be the one that
+serves) was written before the node model existed, and the node model already satisfies it.
 
-Four things follow, and the third is the one that makes this worth doing rather than just tidy:
+Four things followed from the plugin framing; read them through the node:
 
-1. **It keeps the plugin API honest.** The transcoder is the most demanding extension this
-   project will ever have. If it can be built on the public API, the API is adequate. Jellyfin's
-   plugin API is weak partly because nothing load-bearing was ever built on it.
-2. **The licence and patent boundary gets a mechanism instead of a convention.** The GPL encoder
-   build and the x264/x265 linkage live in something the user installs deliberately (D16), and a
-   third party can ship an alternative without touching us.
+1. ~~**It keeps the plugin API honest.**~~ Withdrawn with tier 3: there is no public
+   transcoder API to keep honest. The node's job protocol is internal.
+2. **The licence and patent boundary gets a mechanism instead of a convention.** The encoders
+   live in the node's FFmpeg subprocess — a pinned jellyfin-ffmpeg build — never linked into the
+   core (D16).
 3. **The transcoder does not have to be on the same machine.** See below.
-4. **The degraded path becomes the default path.** "This server cannot transcode" is what an
-   install answers until a transcoder registers, so it is exercised constantly instead of being
-   a rarely-taken branch.
+4. **The degraded path is exercised.** "This server cannot transcode video" is what an install
+   answers when no node advertises an encoder, so the reason field is tested rather than being a
+   rarely-taken branch.
 
 ## Remote and distributed transcoding
 
-The capability nobody in this field has, available for free once the transcoder registers rather
-than links. The NAS serves files; the desktop with a GPU encodes. Several transcoders may
-register and the core picks by advertised capability.
+The capability nobody in this field has, available for free because the encoder is a node
+capability. The NAS serves files; the desktop with a GPU (the owner's RTX 3090) becomes a second
+node and encodes. Several nodes may advertise encoders and the core picks by capability.
 
 **The demand is proven and the missing seam is proven with it:** `rffmpeg` — 1,073 stars, created
 2019, still maintained 2025, **written by a Jellyfin founder** — is an out-of-tree wrapper that
@@ -52,21 +58,27 @@ impersonates the `ffmpeg` binary and SSHes to another host, because Jellyfin off
 put this. Kyoo's `gocoder` is the positive case: a standalone transcoding service already reused
 by two unrelated projects.
 
-This is not extra work. It is what "separate process that registers" already means, provided the
-interface does not assume a shared filesystem *by default*.
+This is not extra work. It is what a node already is, provided the job protocol does not
+assume a shared filesystem *by default*.
 
 ## Two components, not one
 
 ### (a) Compatibility transcoding — a library problem
 
-The client cannot decode the file at all. Solve it **offline, once per file**, as a background
-job producing a stored alternate version that then direct-plays forever. It does not need to be
-fast and it must not be on the playback path.
+The client cannot decode the file at all. Solve it **once per file**, as a node job producing
+a rendition that is then reused. ~~It does not need to be fast and it must not be on the
+playback path.~~ **In Cut A this is prepare** ([D193](../../decisions/working-notes.md) §2): the
+`h264-8m` profile, started by pressing play, by "get this ready", or when a Watch Together
+session is created. It writes a growing `EVENT` playlist, so playback starts once the first
+segments exist, and an encode runs at a few times real time on Quick Sync — so remote viewing
+prepares in advance. The result is a cache, not a stored Version
+([D169](../../decisions/working-notes.md)), and its play state is the source File's
+([D180](../../decisions/working-notes.md)).
 
 Trigger it from the playback survey's ranked failure list, not from a guess. If the tail is
 "a few hundred old DivX files", a one-off batch job is the entire feature.
 
-**Build this first.** It is the simpler problem, it needs no segment alignment, no keyframe grid
+**Build this first** — Cut A does. It is the simpler problem, it needs no segment alignment, no keyframe grid
 and no ABR, and it matches the user's actual situation: a number of old videos that need
 converting once.
 
@@ -93,7 +105,10 @@ bitrate, and it is the design researched in [tech-playback.md](../research/tech-
 - share one encoder process between viewers of the same rendition.
 
 **Build this second, and treat it as coupled to remote access (D14), not to the library.** On a
-LAN it is almost never needed.
+LAN it is almost never needed. **Not in Cut A** ([D178](../../decisions/working-notes.md) §4):
+Cut A's remote viewer gets prepare's fixed ~8 Mbps rendition instead, and live
+segment-addressed transcoding waits for a measurement that says first-play latency hurts
+(D193 §2).
 
 **[D86](../../decisions/working-notes.md) sharpens that from "coupled" to "required".** Remote
 access is the headline feature and the paid tier, and on a degraded remote link the only lower
@@ -126,19 +141,20 @@ None of this is allowed to require changes to the client contract:
 - a job system that can host an encode job;
 - a **transcode reason** field, present in v1, so a client can display *why* — including "this
   server cannot transcode";
-- a capability handshake, so a core without a registered transcoder says so honestly. That path
-  has to exist anyway for hardware too weak to transcode;
-- **probe results and keyframe data exposed through the public API**, because the transcoder
-  needs them and must not get them by reaching inside the core;
-- **signed segment URLs**, so redirecting a client to a transcoder does not create an open proxy.
+- a capability handshake, so a node without an encoder says so honestly. That path has to
+  exist anyway for hardware too weak to transcode;
+- ~~**probe results and keyframe data exposed through the public API**~~ — moot: the node that
+  encodes is the node that probed;
+- **signed segment URLs**, so redirecting a client to a remote node later does not create an
+  open proxy. In Cut A the core relays instead of redirecting.
 
 ## The interface, and how not to design it
 
 **Who owns the rendition list** was the whole problem, and
 [D21](../../decisions/working-notes.md) mostly solved it. With a closed, named output menu the
-transcoder declares *the set of menu profiles it can produce on this hardware* — a list of ~11
+node declares *the set of menu profiles it can produce on this hardware* — a list of ~11
 possible names, narrowed by what the GPU present can actually encode — and the rendition list is
-a set intersection: `client's prioritised list ∩ transcoder's capabilities ∩ {the original}`.
+a set intersection: `client's prioritised list ∩ the nodes' capabilities ∩ {the original}`.
 
 That is a small interface over a closed vocabulary rather than an open negotiation, and it is
 checkable: a transcoder that claims `h264-sdr` and cannot produce it fails a conformance test
@@ -151,16 +167,16 @@ transcoder that silently drops captions produces a bug that only appears under l
 some content — so carry-through is a test, not a guideline
 ([D23](../../decisions/working-notes.md)).
 
-Other questions the interface must still answer: how the transcoder reads media (shared mount, or the
-core streaming bytes to it — the latter is what makes a genuinely remote transcoder work); how
-capabilities are advertised and re-probed when hardware changes; and how a transcoder dying
-mid-stream is reported to the client.
+Other questions the node protocol must still answer: how a node that does not hold the file
+reads it (a shared mount, or bytes streamed to it — the latter is what makes a genuinely remote
+encoding node work); how capabilities are re-probed when hardware changes; and how a job dying
+mid-stream is reported to the client (in Cut A: the FFmpeg exit and its stderr tail become the
+job's reason, and a crash restarts the job from zero, because the output is a cache).
 
-**Do not design this API up front.** Build the transcoder against a *private* interface, get it
-working on real hardware, and promote the interface to public only once it has survived that.
-An API designed against one imaginary consumer is how plugin systems go bad; an API extracted
-from one working consumer is how they go good. Until promotion the contract is unstable, which
-is fine — this does not ship in the first releases anyway.
+~~**Do not design this API up front.** Build the transcoder against a *private* interface, get
+it working on real hardware, and promote the interface to public only once it has survived
+that.~~ There is no public interface to promote (D193 §3); the node job protocol is internal
+and specified in [cut-a.md](cut-a.md) §4.
 
 ## Hardware acceleration
 
@@ -168,8 +184,11 @@ Every accelerator (VAAPI, QSV, NVENC/NVDEC, VideoToolbox, AMF, V4L2) is a driver
 interface, with a startup capability probe and an explicit, logged fallback to software. No
 accelerator branches outside its own implementation file — principles §5.
 
-Ship a pinned, self-built FFmpeg and publish the configure line (D16). This is where correctness
-actually lives; Jellyfin maintains an entire FFmpeg fork largely for these patches.
+Ship a pinned FFmpeg and publish the configure line (D16). ~~self-built~~ **Cut A bundles a
+pinned jellyfin-ffmpeg portable build, checked by hash and never downloaded at runtime**
+([D193](../../decisions/working-notes.md) §6); our own hardened build is deferred (§4). This is
+where correctness actually lives; Jellyfin maintains an entire FFmpeg fork largely for these
+patches, and using theirs inherits them.
 
 **The hwaccel matrix is now the dominant remaining complexity**, and D21 does not reduce it —
 `EncodingHelper.cs` is 8,042 lines mostly because of per-backend filter chains, pixel-format

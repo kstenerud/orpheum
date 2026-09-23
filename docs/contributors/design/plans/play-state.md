@@ -4,7 +4,7 @@
 
 # Play state
 
-- **Status:** PLANNED — designed 2026-09-19 ([D81](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §3).
+- **Status:** PLANNED — designed 2026-09-19 ([D81](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §3); the position moved to the File ([D157](../../decisions/working-notes.md)); **a signed-in Watch Together participant's viewing is recorded as their own, 2026-09-23** ([D191](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md)): play state and Continue Watching; a prepared rendition's play state is its source File's ([D180](../../decisions/working-notes.md)).
 - **Depends on:** library-model.md
 - **Blocks:** [library-model.md](library-model.md) — the position guard and the event log are schema
 
@@ -211,15 +211,27 @@ somewhere wrong and look authoritative doing it.
 
 Every **user** does, including the admin, and independently
 ([D125](../../decisions/working-notes.md)) — the role model has two roles and no separate
-`Profile`, so `(user, edition)` is the only key there is.
+`Profile`, so ~~`(user, edition)`~~ **`(user, file)`** is the only key there is for a position
+([D157](../../decisions/working-notes.md)); completion rolls up from the File to the Edition and
+Title.
 
-A **Watch Together guest does not.** They are not a principal: no user row, nothing persisted
-past the session ([D125](../../decisions/working-notes.md),
+A **Watch Together guest who is not signed in does not.** They are not a principal: no user
+row, nothing persisted past the session ([D125](../../decisions/working-notes.md),
 [D117](../../decisions/working-notes.md)). During a session **the host's position advances**,
 because it is the host's library and the host's choice of what plays
 ([D122](../../decisions/working-notes.md)). This needs stating because the opposite is the
 natural implementation — a membership looks enough like a user to get a row — and a guest who
 acquires a durable identity is a griefer who survived rotation.
+
+**A participant who is signed in has their viewing recorded as their own**
+([D191](../../decisions/working-notes.md)): the same positions and spans on the File that
+played that solo viewing makes, and nobody else's. This is an addition the session makes when
+it can, not something it depends on; the session itself behaves as if nobody has an account. A
+device attached to that person's membership records for them when either device is signed in
+([D120](../../decisions/working-notes.md)), so her television's viewing lands on her account
+even though the television only joined the session. This is Cut A's case: the remote person has
+an invited account, so when the two of them watch together, each signed-in person's own play
+state advances.
 
 ## Reporting cadence
 

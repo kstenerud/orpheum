@@ -4,8 +4,8 @@
 
 # Watch Together
 
-- **Status:** PLANNED — researched 2026-09-19 ([watch-together.md](../research/watch-together.md), [D62](../../decisions/working-notes.md)–[D69](../../decisions/working-notes.md)); **membership, abilities and the cast path settled 2026-09-20/21 by the project owner** ([D117](../../decisions/working-notes.md)–[D124](../../decisions/working-notes.md)).
-- **Depends on:** [stream-service.md](stream-service.md), [web-client.md](web-client.md) (the SDK, and the cast receiver — [D124](../../decisions/working-notes.md)), [remote-access.md](remote-access.md) (for the off-LAN case). **Not** [sharing-model.md](sharing-model.md): [D117](../../decisions/working-notes.md) made the session link the grant, so this is the one access path that is deliberately not predicate-governed.
+- **Status:** PLANNED — researched 2026-09-19 ([watch-together.md](../research/watch-together.md), [D62](../../decisions/working-notes.md)–[D69](../../decisions/working-notes.md)); **membership, abilities and the cast path settled 2026-09-20/21 by the project owner** ([D117](../../decisions/working-notes.md)–[D124](../../decisions/working-notes.md)). **Two, remote, is in Cut A** ([D175](../../decisions/working-notes.md), [D178](../../decisions/working-notes.md)); **2026-09-23: the session behaves as if nobody has an account, and a signed-in participant's viewing is recorded as their own** ([D191](../../decisions/working-notes.md)); **voice is browser WebRTC through a TURN server embedded in our binary, with no upgrade ladder and no content-referenced echo cancellation, and our own relay role is deferred** ([D193](../../decisions/working-notes.md) §4).
+- **Depends on:** [stream-service.md](stream-service.md), [web-client.md](web-client.md) (the SDK, and the cast receiver — [D124](../../decisions/working-notes.md)), [remote-access.md](remote-access.md) (for the off-LAN case, and the one public HTTPS name that serves the web client, the cast receiver and the TURN port — [D193](../../decisions/working-notes.md) §5). **Not** [sharing-model.md](sharing-model.md): [D117](../../decisions/working-notes.md) made the session link the grant, so this is the one access path that is deliberately not predicate-governed.
 
 ## Scope, in priority order
 
@@ -35,7 +35,10 @@ feature first and a LAN feature incidentally.
 | — | **Remote party** | **Not on this list.** Gated on adaptive bitrate in [transcoding.md](transcoding.md) |
 
 **Two, remote, is scheduled first** ([D175](../../decisions/working-notes.md)): a film chosen in advance gets a prepared
-~8 Mbps Version from the batch transcoder, so it does not wait for live ABR. Voice ships with it.
+~8 Mbps Version from the batch transcoder, so it does not wait for live ABR. That is the node's
+prepare job with the `h264-8m` profile, started automatically when a session is created for a
+title, for each participant whose link or device needs the smaller copy
+([D193](../../decisions/working-notes.md) §2). Voice ships with it.
 The supported configuration is headphones on at least one side, which makes every setup of the
 other side a tier-1 or tier-2 case.
 
@@ -123,7 +126,10 @@ Not building: an SFU, active-speaker detection, moderation tooling, roles beyond
 If a participant's networks are routinely hostile — hotels, conference wifi, CGNAT — the answer
 is not more traversal cleverness but the **`relay` role** on a cheap VPS that the core dials out
 to ([D71](../../decisions/working-notes.md)). It fixes reachability, voice and the uplink in one
-deployment, and it is useful at two participants, not just at party scale.
+deployment, and it is useful at two participants, not just at party scale. **Not in Cut A**
+([D193](../../decisions/working-notes.md) §4): there the order is a port-forward, then IPv6,
+then a standard tunnel to a VPS ([remote-access.md](remote-access.md)), and the binary's own
+`relay` mode arrives when strangers need it.
 
 If remote party viewing ever happens, the shape is **fan-out** — the household uploads one
 stream to a distribution node and N participants pull from it, making the home uplink cost
@@ -145,7 +151,8 @@ and once someone is in, their membership is an object of its own with its own id
 
 **"Persists" means for the session and not one second longer**
 ([D125](../../decisions/working-notes.md)). A guest is **not a principal**: no user row, no
-password, no recovery, no predicate, and **no play state, history or statistics** — during a
+password, no recovery, no predicate, and — **unless they are signed in** (below,
+[D191](../../decisions/working-notes.md)) — **no play state, history or statistics**; during a
 session it is *the host's* position that advances, because it is the host's library and the
 host's choice of what plays ([D122](../../decisions/working-notes.md)). This is worth stating
 because the opposite is the natural implementation — a membership looks enough like a user to
@@ -312,11 +319,18 @@ Taken from Jellyfin's SyncPlay, which works ([research §1](../research/watch-to
   command carries the group-state version it was issued against, the server assigns a monotonic
   sequence, and clients reconcile to the server rather than to each other.
 - **Sync never rides a WebRTC data channel** — unsupported on tvOS, and it would make
-  synchronisation depend on peer connectivity.
+  synchronisation depend on peer connectivity. **It rides the session WebSocket**, the client's
+  connection to the server, which also carries voice signalling
+  ([D193](../../decisions/working-notes.md) §4).
 
 ## Voice
 
-WebRTC, peer-to-peer where NAT allows, TURN relay otherwise.
+~~WebRTC, peer-to-peer where NAT allows, TURN relay otherwise.~~ **Browser WebRTC through a TURN
+server embedded in our binary** (`pion/turn`), on the server's one public HTTPS name, with
+signalling on the session WebSocket ([D68](../../decisions/working-notes.md), refined by
+[D193](../../decisions/working-notes.md) §4). **Standard ICE picks the path**: direct where it
+connects, relayed through our server otherwise, and the relayed path is ordinary rather than
+degraded, because the server sits at one endpoint (below). There is no upgrade ladder.
 
 The film plays out loud while the microphone is open, and the platform's AEC can only cancel
 audio it has a reference for — which excludes anything played by libmpv, ExoPlayer or AVPlayer,
@@ -329,17 +343,19 @@ back to the other person, delayed and doubled against their own copy.
 | --- | --- | --- | --- |
 | 1 | **Headphones** — no acoustic path | none | always |
 | 2 | **Offset alignment** — the leaking participant runs *ahead* by the one-way voice latency, so their leaked audio arrives aligned with the listener's copy | a field in the group state | with tier 1 |
-| 3 | **Content-referenced AEC** — feed the decoded film audio to `speexdsp` or `webrtc-audio-processing` as the echo reference | real work | later |
+| 3 | ~~**Content-referenced AEC** — feed the decoded film audio to `speexdsp` or `webrtc-audio-processing` as the echo reference~~ | real work | ~~later~~ **deleted** ([D193](../../decisions/working-notes.md) §4) |
 
 Tier 2 is the field-discovered one and is worth understanding: at zero offset — what every
 other implementation targets — **both** participants suffer the full one-way latency of
 misalignment, which at 150–300 ms is a distinct slapback. Below ~30 ms the precedence effect
 fuses the copies into mild coloration. When only one side leaks it is *fully* solvable; when
-both do it is a transfer, so tier 3 is the real answer there.
+both do it is a transfer, ~~so tier 3 is the real answer there~~ **so headphones on at least
+one side remain the supported configuration ([D63](../../decisions/working-notes.md)); tier 3
+was deleted by [D193](../../decisions/working-notes.md) §4.**
 
-Tier 3 is available to us and not to the OS: **we are the player**, so we know the film's audio
-sample for sample, which is a better echo reference than the operating system's view of the
-mixed output.
+~~Tier 3 is available to us and not to the OS: **we are the player**, so we know the film's
+audio sample for sample, which is a better echo reference than the operating system's view of
+the mixed output.~~
 
 **Ducking conflicts with the platform AEC**, so it is conditional:
 
@@ -421,7 +437,10 @@ put it.
 **A second device attaches with [D93](../../decisions/working-notes.md)'s code flow**: the
 first shows a short code, the second enters it and joins the *same membership* rather than
 creating a new one. Same mechanism as signing in on a television, pointed at a session — which
-is why "one link, several devices per person" needs no account at either end.
+is why "one link, several devices per person" needs no account at either end. **In Cut A this
+session code is the only code flow**: signing a television in to the server (D93's pairing,
+F30) is not in Cut A, because her television joins the session as a device of her membership
+([D191](../../decisions/working-notes.md)).
 
 **And the cap counts people, not clients.** Two people with voice companions are four clients;
 a cap phrased in clients would refuse the second person's phone
@@ -474,8 +493,11 @@ Apple's model, chosen by the owner ([D188](../../decisions/working-notes.md) §3
 [D120](../../decisions/working-notes.md) roles: the television holds `playback`, her phone
 holds `voice` and `control`. The playback device is reached by the first of these that works on
 her real setup:
-1. the television's own browser, paired by code
-2. our cast receiver launched from Chrome on her MacBook (the Cast web sender does not run in
+1. the television's own browser, ~~paired by code~~ **joined to the session as a device of her
+   membership, by the link or a short code shown by her phone** — no sign-in of its own
+   ([D191](../../decisions/working-notes.md))
+2. our cast receiver — unpublished, registered to her device and served from the owner's own
+   HTTPS name ([D192](../../decisions/working-notes.md)) — launched from Chrome on her MacBook (the Cast web sender does not run in
    iPhone Safari)
 3. a prototype Android TV app, sideloaded
 4. otherwise the laptop plays
@@ -488,19 +510,19 @@ to her microphone, and they avoid iOS Safari's earpiece routing during a call (W
 Nothing new, as it turns out ([D68](../../decisions/working-notes.md)).
 
 Synchronisation needs no infrastructure: if the remote participant can reach the server, the
-server is the rendezvous. And **voice needs no TURN service either**, because the same thing is
-true of it — by the time voice matters, both parties are already connected to the media server
+server is the rendezvous. And **voice needs no *separate* TURN service either** — the TURN
+server is embedded in our binary ([D193](../../decisions/working-notes.md) §4) — because the
+same thing is true of it — by the time voice matters, both parties are already connected to the media server
 by construction, since otherwise there is no film to watch together. So **the server relays the
 voice**, at ~24–64 kbps of Opus against a film already crossing the same uplink, and with almost
 no latency penalty because the relay sits **at one endpoint** rather than in a datacentre
 between them.
 
-**Relay first, upgrade later.** Start on the server relay — instant, always works — and migrate
-to a direct path if hole punching succeeds. This is Tailscale's trick and it is most of why
-their relay rate is under 10% while WebRTC's is 20–25%: ICE must connect within a second or two
-and so gives up and relays, whereas a background upgrade has unlimited time. It also means the
-relayed path must be good rather than a degraded mode, since everyone uses it for the first
-second.
+~~**Relay first, upgrade later.** Start on the server relay and migrate to a direct path if hole
+punching succeeds, Tailscale's trick.~~ **Deleted by [D193](../../decisions/working-notes.md)
+§4:** browsers do not upgrade a relayed connection without an ICE restart, so the ladder was
+never free. Standard ICE picks the path once, and **the relayed path must be good rather than a
+degraded mode**, since the server-relayed path is an ordinary outcome, not a failure.
 
 Only two situations make a relay genuinely unavoidable
 ([remote-access.md](../research/remote-access.md) §3): **both** ends behind hard/symmetric NAT —
@@ -584,7 +606,7 @@ is the same kind of rewrite that killed it at Plex. Two consequences:
 
 ## Done when
 
-**Phase 1 — two participants.** Two people on different networks watch a film end to end;
+**Phase 1 — two participants** (Cut A). Two people on different networks watch a film end to end;
 either can pause, resume and seek **if the host granted `group` transport**, and only the host
 can otherwise; scrubbing does not drag the other person around; a stall on one side is visible
 on the other as a named reason rather than a freeze; voice is intelligible with per-speaker
