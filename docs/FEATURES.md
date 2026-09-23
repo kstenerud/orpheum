@@ -128,7 +128,7 @@ scheduled; everything here is expensive to retrofit if the obligation is missed.
 | F51 | **Artwork type enumeration** (poster/backdrop/logo/banner/disc) | Kodi and Plex both model it | schema | A closed enumeration on the image, at the level it belongs to. Cheap now, a migration later |
 | F52 | **Watch Together surviving a client rewrite** | #2 in the corpus | **invariant** | [D62](contributors/decisions/working-notes.md)'s **six methods per client is a hard budget**, not a description. Plex withdrew the feature in Feb 2025 because it did not survive one ([D150](contributors/decisions/working-notes.md)) |
 | F53 | **Relay gap annotation** — what it saw while the core was away | — | free | Counts and a window, never identities ([D72](contributors/decisions/working-notes.md), [D152](contributors/decisions/working-notes.md)) |
-| F91 | **Rebroadcast grant** — a grantee's own server offers my library to his household as a source, with his overlay of tags and rules; one hop, never transitive ([D174](contributors/decisions/working-notes.md)) | owner's design | schema + invariant | A grantee may be a **server**, not only a person; a Version's file may be reached **through another server**; every item carries its **source**, which is what non-transitivity checks |
+| F91 | **Rebroadcast grant** — a user with `rebroadcast` plugs his account into his own core, which treats our server as a node; his household plays on derived grants only his core can mint; his overlay of tags and rules stays on his side; never transitive ([D174](contributors/decisions/working-notes.md), [D177](contributors/decisions/working-notes.md)) | owner's design | schema + invariant | A grant may have a **parent** (narrower, short, cannot mint, dies with it); a **node need not be a local daemon**; a file may be reached through another server; every item carries its **source** |
 | F54 | **Content-safety inspection** | — | seam | [D61](contributors/decisions/working-notes.md) keeps four affordances open; containment now, detection later |
 
 ## Rank 3 — Deferred and free
@@ -213,7 +213,7 @@ checklist to read a design against; each links to the row that needs it.
 10. ~~**Playback rate is shared session state or explicitly local — decided, not discovered.**~~ **Met** by D90: local unless a group shares it. (F46)
 11. **A PIN never authenticates; the session model never assumes one factor.** (F47, F48)
 12. **Watch Together costs six methods per client, as a budget.** (F52)
-13. **A grantee may be a server, and a file may be reached through one.** (F91)
+13. **A grant may have a parent, and a node may be another core acting as a user.** (F91)
 14. **Every item carries its source**, so "was this given to me?" is a column. (F91)
 
 And one that is not a feature obligation but pays for several of them: **[D81](contributors/decisions/working-notes.md)'s
