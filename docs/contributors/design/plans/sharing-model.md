@@ -152,8 +152,7 @@ rather than expiry. What it does not settle is the entitlement questions below.
   rule that makes that safe — an adapter is a login proxy, never a principal — has to hold for
   every tier-2 surface, including the OpenSubsonic one in Phase 7.
 - **Watch Together is a fifth access path, and it is deliberately *not* predicate-governed**
-  ([D117](../../decisions/working-notes.md), superseding
-  [D104](../../decisions/working-notes.md)'s entitlement half). The session link **is** the
+  ([D117](../../decisions/working-notes.md)). The session link **is** the
   grant — no account, no per-person predicate — because the motivating case is someone who has
   neither. What keeps that safe is **scope plus revocation**, and both have since been
   sharpened: the link reaches *the current playback*, not a library and nothing addressable by

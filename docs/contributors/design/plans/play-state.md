@@ -95,7 +95,7 @@ against 6.5 ms** at one year and **4.42 s against 42.7 ms** at five, which is
 ### And the rest of the per-user item data belongs here too
 
 Favourites and the user's own rating are the same kind of thing — per `(user, item)`,
-user-authored, carried in the change journal ([D8](../../decisions/working-notes.md)), and
+user-authored, carried in the change journal ([D166](../../decisions/working-notes.md)), and
 **never written to a sidecar** ([D98](../../decisions/working-notes.md)): the media tree is
 shared with the household and often with a grantee, so per-user state beside a film exposes it
 to all of them. They are database-only and therefore backup-critical

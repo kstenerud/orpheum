@@ -458,8 +458,9 @@ Only two situations make a relay genuinely unavoidable
 a single hard NAT is beaten by port prediction in about two seconds, two of them need ~170,000
 probes per side — or UDP blocked outright, where TCP/443 with TLS is the only path.
 
-The consequence for [D64](../../decisions/working-notes.md): the premium tier's justification is
-**remote access itself**, not voice. Voice rides along.
+The consequence for a paid relay ([D72](../../decisions/working-notes.md), pricing open in
+[D187](../../decisions/working-notes.md)): its justification is **remote access itself**, not
+voice. Voice rides along.
 
 ## Open
 

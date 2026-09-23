@@ -4,7 +4,7 @@
 
 # SQLite Reconsidered
 
-Researched **2026-09-18**. [D5](../../decisions/working-notes.md)'s own status line said it was
+Researched **2026-09-18**. [D5](../../decisions/working-notes-archive.md)'s own status line said it was
 "the one most worth re-examining", so this is following that note rather than reversing on a
 whim.
 

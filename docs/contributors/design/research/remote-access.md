@@ -178,7 +178,7 @@ So **the media server relays the voice**, and:
 The conclusion is that **TURN is not an independent requirement for us**; voice relaying is
 subsumed by whatever already makes the server reachable. See
 [D68](../../decisions/working-notes.md), which corrects
-[D64](../../decisions/working-notes.md) on exactly this point.
+[D64](../../decisions/working-notes-archive.md) on exactly this point.
 
 ## 4. The collision is bigger than remote access — it starts with HTTPS
 

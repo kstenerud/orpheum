@@ -132,7 +132,7 @@ named. A smart collection quietly disappearing after an upgrade is the worst out
 ([principles §7](../../principles/README.md)).
 
 **Live updating is a property of the rule**, as Apple exposes it. Live rules re-evaluate off the
-change journal ([D8](../../decisions/working-notes.md)), which already says exactly what
+change journal ([D166](../../decisions/working-notes.md)), which already says exactly what
 changed, with a debounce.
 
 **Regex is safe here.** SQLite has no built-in `REGEXP` but both pure-Go drivers can register
@@ -159,7 +159,7 @@ library does not carry; one matching 3,400 of 3,500 is usually not what anyone m
 with the preview below without duplicating it — **the preview shows the delta of a change,
 the coverage count shows the standing state**. Per
 [principles §11](../../principles/README.md) it is a **cached** value, invalidated off
-[D8](../../decisions/working-notes.md)'s change journal like the live rules already are — a
+[D166](../../decisions/working-notes.md)'s change journal like the live rules already are — a
 cached result, not an incrementally maintained counter
 ([D161](../../decisions/working-notes.md)).
 

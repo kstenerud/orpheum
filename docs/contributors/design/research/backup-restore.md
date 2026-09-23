@@ -80,7 +80,7 @@ media server stores is not backup material:
 | thumbnails, trickplay sprites | user accounts, shares and their predicates |
 | extracted subtitles, subset fonts | rules — playlists, collections, retention |
 | FTS indexes, sort keys | track-selection preferences ([D24](../../decisions/working-notes.md)) |
-| | the change journal and sync cursors ([D8](../../decisions/working-notes.md)) |
+| | the change journal and sync cursors ([D8](../../decisions/working-notes-archive.md)) |
 | | metadata corrections — *and see below* |
 
 The right column is **kilobytes to a few megabytes**; the left is gigabytes. Which means

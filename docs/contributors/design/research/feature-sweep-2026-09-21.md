@@ -350,7 +350,7 @@ Ranked by *demand ÷ cost*, with cost read against what this tree already has:
    > Radarr** — tools with an **asynchronous outcome the user is waiting on**, which a media
    > server does not have. Its own screens are the notification.
 3. **Per-user and per-role bandwidth and concurrent-stream limits.** Absent, and not a nicety:
-   [D25](../../decisions/working-notes.md)/[D64](../../decisions/working-notes.md)/[D86](../../decisions/working-notes.md)
+   [D25](../../decisions/working-notes.md)/[D64](../../decisions/working-notes-archive.md)/[D86](../../decisions/working-notes.md)
    put a **paid relay** on the critical path, and a relay with no per-user ceiling is an
    unbounded bill.
 4. **External critic and audience scores as registry fields.** Zero mentions here; twelve

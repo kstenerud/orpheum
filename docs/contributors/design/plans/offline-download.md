@@ -88,9 +88,8 @@ and getting its shape right early is what stops this being a migration:
 
 ## Reconciliation
 
-- **Deletions** reconcile through [D8](../../decisions/working-notes.md)'s change journal, which
-  exists for exactly this and has had no consumer until now — **or, just as validly, through a
-  full state fetch, which expresses deletion by absence**
+- **Deletions** reconcile through the change journal, which has had no consumer until now —
+  **or, just as validly, through a full state fetch, which expresses deletion by absence**
   ([D166](../../decisions/working-notes.md)). The server answers whichever is cheaper; the
   client must handle both, so the fallback is exercised rather than reserved.
 - **And the sync cache is never what makes a download playable.** A download is self-contained

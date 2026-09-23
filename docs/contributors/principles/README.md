@@ -218,7 +218,7 @@ leaves a value briefly **stale**, while a missed *update path* leaves it **wrong
 with nothing to notice**. Incremental maintenance means enumerating every path that can move
 the number — for the pending count that is a scan, a rule edit, a role edit, a tag edit, a
 re-identification and a removal — and missing one silently stops a child's library growing.
-The invalidation signal already exists: [D8](../decisions/working-notes.md)'s change journal
+The invalidation signal already exists: [D166](../decisions/working-notes.md)'s change journal
 says what changed.
 
 This is a principle rather than a note because it has now been rediscovered four times
@@ -246,7 +246,7 @@ library**, against re-deriving it on demand.
 
 **The invalidation is not the hard part, which is why this can be absolute.** These values
 change only on rare, known events — a scan completing, a rule or role changing, a tag edit, a
-metadata refresh — and [D8](../decisions/working-notes.md)'s change journal already says
+metadata refresh — and [D166](../decisions/working-notes.md)'s change journal already says
 exactly what changed, with `rules-engine.md` already consuming it on a debounce. Event-driven
 invalidation on a mechanism that exists, not a TTL and not new machinery.
 

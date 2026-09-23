@@ -70,7 +70,7 @@ arrived attached to a feature request.
 nothing*: anything on the launch screen is a maintained value, updated on the rare event that
 changes it and read as a lookup. The invalidation is not the hard part and that is why the
 rule can be absolute: these values change only on a scan completing, a rule or role changing,
-a tag edit or a metadata refresh, and [D8](../../decisions/working-notes.md)'s change journal
+a tag edit or a metadata refresh, and [D166](../../decisions/working-notes.md)'s change journal
 already says exactly what changed. Event-driven invalidation on machinery that exists.
 
 The fourth instance was **prevented rather than discovered**: `rules-engine.md`'s per-rule
