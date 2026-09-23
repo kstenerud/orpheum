@@ -7,7 +7,8 @@
 - **Status:** PLANNED — the first migration of [Cut A](cut-a.md)'s M1. Revised 2026-09-23 by
   the second audit ([audit-2026-09-23.md](../research/audit-2026-09-23.md) §3.1, [D193](../../decisions/working-notes.md)): a
   `setting` table, per-column classes on mixed tables, `provider_response` moved into
-  `library.db`, node state, one `job` queue, FTS triggers, and the ceiling columns dropped.
+  `library.db`, node state, one `job` queue, FTS triggers, and the ceiling columns dropped;
+  then the sealed `secret` table ([D194](../../decisions/working-notes.md)).
   First sketched 2026-09-23 from the data-architecture critique
   ([D179](../../decisions/working-notes.md)–[D185](../../decisions/working-notes.md); this sketch is D185). The SQL
   blocks below are loaded verbatim by the benchmark in
@@ -531,6 +532,28 @@ play-state thresholds, backup retention, the update-check answer. A key's type, 
 where its default is shown come from one registry in code ([D183](../../decisions/working-notes.md)),
 so **a row exists only when someone set a value**, and "where did this value come from?" is
 answered by its presence. Per-item preferences stay in their own table.
+
+```sql
+CREATE TABLE secret (                                      -- class A, sealed (D194)
+  scope       TEXT NOT NULL CHECK (scope IN ('server','user')),
+  user_id     INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL for 'server'
+  name        TEXT NOT NULL,             -- 'tmdb_api_key', 'opensubtitles_password', 'turn_secret'…
+  key_id      INTEGER NOT NULL,          -- which secret.key sealed it (rotation)
+  nonce       BLOB NOT NULL,             -- 24 bytes, XChaCha20-Poly1305
+  sealed      BLOB NOT NULL,             -- ciphertext; the associated data is (scope, user_id, name)
+  hint        TEXT,                      -- last four characters of an API key; NULL for a password
+  set_by      INTEGER REFERENCES user(id) ON DELETE RESTRICT,
+  set_at      INTEGER NOT NULL,
+  CHECK ((scope = 'server') = (user_id IS NULL))
+);
+CREATE UNIQUE INDEX secret_name ON secret(scope, ifnull(user_id, 0), name);
+```
+
+**Secrets are not settings** ([D194](../../decisions/working-notes.md)). A third-party credential is sealed with a key kept in
+`secret.key` beside the configuration file, never in this database, so a backup of `library.db`
+carries only ciphertext. A restore without the key marks each row *needs re-entering* and loses
+nothing else. Only the `secrets` package queries this table. A user's own password is not here:
+it is an argon2id PHC string in `user.password_hash`.
 
 ## Play state and the rest of a person's data
 
