@@ -7486,7 +7486,7 @@ affordable precisely because deletion is rare.
 **Amended 2026-09-23 by [D179](#d179--a-files-identity-is-a-hash-of-its-media-payload-not-its-bytes-a-rebuild-restores-the-identity-rows-and-runs-an-ordinary-scan-duplicates-are-surfaced):** head and tail are anchored on the **media payload**,
 not the file. Measured: every in-place mkvpropedit tag edit changed the whole-file head, and
 three of five changed the size and the tail as well — so the hash as written sent a film's
-history to a tombstone whenever someone fixed a track title.
+history to a tombstone whenever someone fixed a track title. **Extended by [D186](#d186--music-would-cost-one-reshape-and-it-is-made-now-things-that-are-not-titles-share-an-item-plus-four-cheap-renames)** to FLAC and MP3: every retag changed the whole-file head, the payload anchor none.
 
 ---
 
@@ -14560,3 +14560,72 @@ and [D173](#d173--a-replaced-file-is-a-deletion-and-an-addition-what-is-in-a-fil
 
 **Status:** Sketch. It becomes the first migration when Cut A's implementation starts, and
 changes after that go through [migrations.md](../design/plans/migrations.md).
+
+---
+
+## D186 — Music would cost one reshape, and it is made now: things that are not titles share an item; plus four cheap renames
+
+**Decided** (2026-09-23), at the project owner's request: *"Let's do an exploration of [audio] to
+see what changes it would require to our schema. I'm fine with it requiring a migration later,
+but I'd like to have a good idea of what we'd be in for (and whether there are cheap changes we
+can make now)."* Research: [music.md](../design/research/music.md). **Music itself stays
+undecided** (F92); this settles only what adding it would cost.
+
+### 1. The one reshape, and it was already a video bug
+
+Every table describing *a thing* — `artwork`, `favourite`, `user_rating`, `watchlist`,
+`field_override`, tags, `sort_key`, the FTS index, provider ids, `user_deny` — was keyed on
+`title`. Music exposes it at once: an album and an artist need all of them. **But so does a TV
+series**, and a box set: Cut A had nowhere to put a series poster, no way to sort or search series
+by name, to star one, to correct its name, or to deny a whole series to a user. Both research
+agents and the benchmark found this independently.
+
+**So a shared `item` table** — `title`, `collection` and a reserved `person` take their ids
+from it, and every satellite table references `item`
+([schema.md](../design/plans/schema.md)). Cost to video, measured on the reference library: the
+poster grid goes from **0.84 ms to 0.91 ms**. Cost later, had it waited: a rebuild of every
+satellite table and every query that touches them.
+
+### 2. Four cheap changes
+
+1. **`track` → `stream`.** In every music API "track" is the song on an album; our table is a
+   container's audio, video and subtitle streams. The rules field registry would otherwise hold
+   both meanings.
+2. **Orderings are generic**: `ordering.collection_id`, `position(grp, number)`, `group_text` —
+   season and episode for a series, disc and track for an album, the same tables.
+3. **The sort key carries its listing** — measured: at 500,000 tracks one shared key made an
+   album page walk every song and artist, **9.4 ms**; listing-first, **0.35 ms**.
+4. **Several provider ids per provider** — a recording can have several ISRCs.
+
+And one reservation: music credits must not name their column `role`, which here means a user's
+permissions ([D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)).
+
+### 3. What we would be in for later — additive
+
+People and credits (ordered, typed, credited-as, join phrase; groups as well as people), an album
+side table, observed genre and mood joins beside the authored `tag`, `work` for classical,
+playlist entries that may repeat a song, ReplayGain columns (nullable — Navidrome learned that 0.0
+is a value), lyrics, and two `CHECK` lists widened. **The decisions that matter most to music
+users are already this project's**: artists as entities rather than strings, per-user state that
+survives rescans and retags ([D173](#d173--a-replaced-file-is-a-deletion-and-an-addition-what-is-in-a-files-timeline-dies-with-the-file-and-what-is-about-the-work-survives-at-the-title), [D179](#d179--a-files-identity-is-a-hash-of-its-media-payload-not-its-bytes-a-rebuild-restores-the-identity-rows-and-runs-an-ordinary-scan-duplicates-are-surfaced)), tags first with the user choosing
+the rule ([D183](#d183--an-override-is-an-override-wherever-its-value-came-from-a-librarys-source-is-asked-not-defaulted-a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts), [D184](#d184--the-defaults-audit-four-become-questions-seven-must-be-made-visible-the-rest-pass)). One question is new and belongs to §15 when music is
+built: **what defines an album** is asked, not defaulted — MusicBrainz id when present, else a
+stated tuple, or the folder — and an album's user state follows its member files when the rule
+changes, so a regrouping never loses stars (Navidrome's 0.55 release notes: *"Artist favourites
+and artist ratings will be lost after the upgrade"*).
+
+### 4. Retagging must not change identity — measured
+
+Music is retagged in bulk (Picard, beets). With mutagen on FLAC and MP3, **every retag changed the
+whole-file head and four of six changed the size; the payload-anchored hash was unchanged in all
+six.** [D179](#d179--a-files-identity-is-a-hash-of-its-media-payload-not-its-bytes-a-rebuild-restores-the-identity-rows-and-runs-an-ordinary-scan-duplicates-are-surfaced)'s anchor therefore covers FLAC (after the metadata blocks) and MP3
+(between ID3v2 and ID3v1) as well as Matroska; Ogg must hash packet data, because a comment that
+outgrows its pages renumbers every page after it.
+
+### 5. Scale
+
+Navidrome's telemetry across 154,673 installs: 84% have 20,000 tracks or fewer, 97.7% 100,000 or
+fewer. At **500,000 tracks** our schema is **480 MB**; every browse query measured stays under
+1 ms; a backup is ~460 MB and 1.4–3.4 s, so retention count becomes a real setting.
+
+**Status:** Decided. schema.md revised and re-validated; the video benchmark re-run on it.
