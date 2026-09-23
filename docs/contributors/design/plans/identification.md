@@ -86,9 +86,17 @@ first scan that ignores them destroys exactly what we promise to protect, silent
 moment of highest goodwill. The demand is measured: *Plex NFO Agent Forum Preview* is **291
 likes and 510 posts, the most-replied thread on their forum this year**.
 
-So: **on import, an existing sidecar is read as a user-authored override** — the same
-precedence as a correction made here, above any provider, and recorded with its source so the
-user can see where a field came from. It is **Phase 1**, because first-run is when it matters
+So: ~~**on import, an existing sidecar is read as a user-authored override**~~ — refined by
+[D182](../../decisions/working-notes.md): **the NFO's locked fields are user overrides; the rest of it is the title's
+source**, the default one wherever an NFO exists. A Kodi NFO is usually a full scrape, and
+treating every field as permanent would freeze it forever. Recorded with its source so the user
+can see where a field came from.
+
+**Metadata is a stack** ([D182](../../decisions/working-notes.md)): per field, a **user override** (typed, or an NFO
+locked field) over **the title's one source** (its NFO *or* one provider — alternatives, never
+stacked) over **local fallbacks** (embedded tags, then the filename parse). The column is a cache
+of that resolution. If the NFO changes on disk after the user edited the same field here, the
+later change wins and the conflict is shown. It is **Phase 1**, because first-run is when it matters
 and a later fix cannot recover a user who already gave up.
 
 **What is actually in one.** Read locally from Jellyfin's `MediaBrowser.XbmcMetadata`, which
