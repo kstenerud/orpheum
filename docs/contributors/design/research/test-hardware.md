@@ -8,6 +8,21 @@ Written **2026-09-18** against a stated inventory. Feeds
 [`testing-strategy.md`](../plans/testing-strategy.md) and
 [`playback-survey.md`](../plans/playback-survey.md).
 
+> **Corrected 2026-09-23** against the owner's exact inventory and primary sources
+> ([device-testing.md](device-testing.md) §6). The table below is kept as written; where it
+> disagrees, §6 is right:
+> - **The Apple TV is the Apple TV HD (A1625)**, which decodes **HEVC SDR 1080p30** as well as
+>   H.264, so it is not the H.264-only client described here. It is frozen at tvOS 26.6.
+> - **The F2-422 is Apollo Lake** (J3455), not Gemini Lake.
+> - **The staging host reportedly has 64 GB**, more than any staging host documents, so identify it.
+> - **The Ryzen box runs Mint, with a 24 GB RTX 3090.**
+> - **The Fire TV ladder starts at 2018**, has a 1080p HDR rung, and its newest sticks may run
+>   Vega OS.
+> - **AV1 decode is available on five machines**, not on none.
+>
+> The lab built from the corrected inventory is in
+> [device-lab.md](../plans/device-lab.md) §0c.
+
 ## Available inventory
 
 | Machine | Role it plays | Expected media engine |

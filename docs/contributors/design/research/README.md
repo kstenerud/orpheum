@@ -20,6 +20,7 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
 | [threat-model.md](threat-model.md) | Adversaries, trust boundaries, and the FFmpeg containment stance. Backs D26. |
 | [change-detection.md](change-detection.md) | How the server learns the library changed, across the filesystems people actually use; evaluates the NAS-side index agent. Backs D27. |
 | [test-hardware.md](test-hardware.md) | What hardware the test matrix needs, measured against what is available; the gaps and the buying order. |
+| [device-testing.md](device-testing.md) | How Shaka, Media3, dash.js, Jellyfin, Immich, Netflix, YouTube, BBC and Roku test playback on devices; numeric pass criteria; what yoloAI's test machinery offers; the lab's hardware verified, with corrections to test-hardware.md. |
 | [tech-playback.md](tech-playback.md) | The core problem: transcode-vs-direct-play, HLS/DASH, the device-profile trap, subtitles, hardware acceleration. |
 | [tech-backend.md](tech-backend.md) | Language, runtime, framework, job scheduling, API shape. |
 | [sqlite-reconsidered.md](sqlite-reconsidered.md) | Re-examination of the database choice against the real workload — corrects a misreading of the original evidence and reverses D5. Backs D31. |
