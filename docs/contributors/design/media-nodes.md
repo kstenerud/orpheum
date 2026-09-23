@@ -67,11 +67,11 @@ simplicity.** The node is not a second download — it is the same binary in a d
 it *is* a separate **process**, always, even co-located ([D43](../decisions/working-notes.md)):
 
 ```
-mediaserver run                 # supervises every role enabled in config
-mediaserver core                # or run exactly one role, foreground
-mediaserver node
-mediaserver transcode           # withdrawn by D193 §3 — the encoder is a node capability
-mediaserver relay               # added 2026-09-19 by D71 — deferred past Cut A by D193 §4
+orpheum run                 # supervises every role enabled in config
+orpheum core                # or run exactly one role, foreground
+orpheum node
+orpheum transcode           # withdrawn by D193 §3 — the encoder is a node capability
+orpheum relay               # added 2026-09-19 by D71 — deferred past Cut A by D193 §4
 ```
 
 **~~The `transcode` role~~ is withdrawn** ([D193](../decisions/working-notes.md) §3). A node
@@ -109,7 +109,7 @@ Equally important: **the boundary is then enforced by the OS rather than by disc
 [D42](../decisions/working-notes.md) says a node must not hold database credentials or make
 policy; in one address space that is a convention, and across processes it is impossible.
 
-`mediaserver run` keeps the default install to one thing to start and stop. The single-role
+`orpheum run` keeps the default install to one thing to start and stop. The single-role
 forms exist so anyone with systemd, separate containers or Kubernetes can supervise properly —
 that path must not be second-class. Local roles talk over the **same protocol as remote ones**,
 on a Unix socket, so the common deployment exercises the code the rare one depends on.

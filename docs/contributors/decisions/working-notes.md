@@ -15409,11 +15409,11 @@ configuration, ciphertext in the database.
 
 ### 4. Backups and restores
 
-- **A database backup does not contain the key.** `VACUUM INTO`, `vp backup` and D181's
+- **A database backup does not contain the key.** `VACUUM INTO`, `orpheum backup` and D181's
   migration snapshots all carry ciphertext only.
 - **A backup of the whole state directory contains the key.** That is a copy of the machine,
   and restoring it is moving the machine.
-- **Moving to a new machine:** `vp backup --include-key` writes the key beside the database
+- **Moving to a new machine:** `orpheum backup --include-key` writes the key beside the database
   file, and the command's output says what that means.
 - **Restoring without the key is not an error.** It is Grafana's commonest migration trap made
   visible:
@@ -15423,7 +15423,7 @@ configuration, ciphertext in the database.
     fetching asks the user to sign in again).
 
   Nothing else is lost. The same applies when `secret.key` is deleted or replaced.
-- **Rotating the key:** `vp secrets rotate` writes a new key, re-seals every row in one
+- **Rotating the key:** `orpheum secrets rotate` writes a new key, re-seals every row in one
   transaction, and only then removes the old key. The key id in each row makes a half-finished
   rotation recoverable.
 
@@ -15459,3 +15459,38 @@ configuration, ciphertext in the database.
 **Status:** Decided. [schema.md](../design/plans/schema.md) gains the `secret` table;
 [auth.md](../design/plans/auth.md)'s open item is closed; [cut-a.md](../design/plans/cut-a.md)
 gains the secret endpoints, and M1 gains the argon2id measurement and the canary test.
+
+---
+
+## D195 — "Orpheum" is the provisional name
+
+**Decided** (2026-09-23), by the project owner: *"save it as the current provisional name."*
+Research: [name-orpheum.md](../design/research/name-orpheum.md).
+
+- **The name is Orpheum**, and publicly **"Orpheum Media Server"**. It is provisional until a
+  professional trademark clearance, which is due before any store listing or the paid relay.
+  The screen found no live ORPHEUM mark for software, streaming or SaaS. Nearby marks exist for
+  loudspeakers (probably Bose Professional), for audio-visual devices in Germany, and for
+  theatres.
+- **The name is used in these places:**
+  - the binary is `orpheum`, the Go module `github.com/kstenerud/orpheum`;
+  - the service user and directories are `/var/lib/orpheum`, `/var/cache/orpheum` and
+    `/run/orpheum`;
+  - environment and test variables take an `ORPHEUM_` prefix.
+- **The placeholders `vp` and `mediaserver` in the live documents are renamed**, and so is D194
+  (written the same day with `vp`). Older decisions and research keep whatever they said; they
+  are history.
+- **Renaming later is mechanical and cheap until the first public release.** It means one module
+  path, one binary name and a sweep. After release, the costly part is the Android package ID,
+  which can never change after the first Play upload. So the package ID is chosen at the first
+  public beta, not now.
+- **Steps for the owner when convenient:**
+  - register `orpheum.dev` and `orpheum.tv`, which appeared free;
+  - claim a GitHub organisation such as `orpheum-media`, and the npm name.
+- **The name has two neighbours to stay clear of:**
+  - theatre imagery;
+  - the "Orpheus" music piracy tracker and download tool, which its close spelling invites.
+    Given [D187](#d187--users-are-responsible-for-what-they-play-we-never-supply-locate-unlock-or-promote-it--and-the-store-and-legal-constraints-that-follow),
+    nothing we publish should play on that resemblance.
+
+**Status:** Decided, provisional.

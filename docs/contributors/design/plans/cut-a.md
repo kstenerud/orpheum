@@ -54,8 +54,8 @@ background, never as a to-do list.
                         ▼                   ▼
           port-forward 443 (+ TURN)  │  or IPv6  │  or a standard tunnel to a VPS
                         │
-┌───────────────────────▼──────────────────────────────────────────────────┐
-│ vp run   — one Go binary, one systemd unit, in a Debian LXC on nas       │
+┌───────────────────────▼───────────────────────────────────────────────────┐
+│ orpheum run — one Go binary, one systemd unit, in a Debian LXC on nas     │
 │                                                                           │
 │  core   HTTPS listener · REST API · Watch Together hub (WebSocket)        │
 │         · embedded TURN (pion/turn) · sessions/grants · identification    │
@@ -68,17 +68,17 @@ background, never as a to-do list.
 │         · probe, payload hash, subtitle extraction · prepare jobs         │
 │         · every FFmpeg run confined per invocation (§7)                   │
 └───────────────────────────────────────────────────────────────────────────┘
-   /media (ro)      /var/lib/vp (library.db — backed up)      /var/cache/vp (cache.db, prepared/, art/)
+   /media (ro)      /var/lib/orpheum (library.db — backed up)      /var/cache/orpheum (cache.db, prepared/, art/)
 ```
 
-- **One binary, two processes.** `vp run` starts the core, and the core supervises the node as
+- **One binary, two processes.** `orpheum run` starts the core, and the core supervises the node as
   a child ([D43](../../decisions/working-notes.md), [D44](../../decisions/working-notes.md)).
-  The systemd unit runs `vp run`.
+  The systemd unit runs `orpheum run`.
 - **Two sockets, each in one direction, and each for one purpose:**
-  - **The node connects to the core** on `/run/vp/core.sock`. Over it the node posts reports and
+  - **The node connects to the core** on `/run/orpheum/core.sock`. Over it the node posts reports and
     long-polls for commands, so commands always travel on a connection the node opened
     ([D107](../../decisions/working-notes.md)).
-  - **The core reads bytes from the node** on `/run/vp/node.sock`. This socket serves `GET`
+  - **The core reads bytes from the node** on `/run/orpheum/node.sock`. This socket serves `GET`
     only: file ranges and prepared-output files, no commands.
   - **Both sockets are mode 0600, owned by the service user.** The permissions are the
     authentication; there is no enrolment credential in Cut A (schema.md, `node`).
@@ -105,7 +105,7 @@ linters can see paths and nothing else.
 LICENSE (GPL-3.0) · CONTRIBUTING.md · AGENTS.md (≤150 lines) · CLAUDE.md (imports AGENTS.md)
 Makefile            # make check (fast gate) · make test-all · make generate
 go.mod              # tool directives pin sqlc, golangci-lint, huma's generator
-cmd/vp/             # main: flags → run | core | node | migrate | backup | restore | doctor | setup-code
+cmd/orpheum/        # main: flags → run | core | node | migrate | backup | restore | doctor | setup-code
 internal/core/      # GPL. May not import os/exec, internal/node, or any media/image package
   api/              # huma handlers; the OpenAPI document is generated from here
   auth/  secrets/  library/  identify/  decide/  playback/  together/  turn/  jobs/  backup/  settings/
@@ -135,7 +135,7 @@ Every message is versioned JSON; reports are JSONL. Reports follow
 [scanner.md](scanner.md) and [D39](../../decisions/working-notes.md)–[D42](../../decisions/working-notes.md),
 with the file channel deleted.
 
-**Node → core** (`/run/vp/core.sock`):
+**Node → core** (`/run/orpheum/core.sock`):
 
 | Request | Body |
 | --- | --- |
@@ -152,7 +152,7 @@ with the file channel deleted.
 **A command names its target by path *and* payload hash**, and the node refuses it if they no
 longer match ([D100](../../decisions/working-notes.md)).
 
-**Core reads from the node** (`/run/vp/node.sock`, `GET` only):
+**Core reads from the node** (`/run/orpheum/node.sock`, `GET` only):
 - `GET /bytes/v1/file?path=…&hash=…`, honouring `Range`;
 - `GET /bytes/v1/prepared/<job_id>/<name>`.
 
@@ -182,7 +182,7 @@ single-playback token that the core maps to a grant.
 | Watch Together | `POST /together` (host: item, abilities → session and link); `POST /together/join` (link → membership credential); `GET /together/ws` (WebSocket, §5.1); `GET /together/{id}/ice` (short-lived TURN credentials); `POST /together/{id}/rotate`, `POST /together/{id}/eject/{member}` (host) |
 | Running it | `GET /now-playing`, `POST /now-playing/{id}/stop` (with a message); `GET /jobs`, `POST /jobs/{id}/cancel`; `GET /backups`, `POST /backups`; `GET /doctor`; `GET /health` (unauthenticated: `starting`, `migrating`, `ready`, or `degraded` with reasons) |
 
-Restore is a command-line operation with the server stopped (`vp restore`), never an endpoint.
+Restore is a command-line operation with the server stopped (`orpheum restore`), never an endpoint.
 
 ### 5.1 The Watch Together messages
 
@@ -301,7 +301,7 @@ ffmpeg -nostdin -hide_banner -protocol_whitelist file -i <source>
   than as HLS renditions in Cut A.
 - **The boost matrix** is one fixed matrix whose centre gain is set in M3 by listening test on a
   television, and recorded as an `assumptions/` test.
-- **Where the output lives:** `/var/cache/vp/prepared/<file_id>/<profile>/`.
+- **Where the output lives:** `/var/cache/orpheum/prepared/<file_id>/<profile>/`.
 - **The `prepared_rendition` row** is written when the job starts and marked complete when it
   ends. Play state records against the source file
   ([D180](../../decisions/working-notes.md)).
@@ -310,7 +310,7 @@ ffmpeg -nostdin -hide_banner -protocol_whitelist file -i <source>
 
 ## 7. Confinement
 
-Every FFmpeg or ffprobe run goes through `node/execx`, which re-executes `vp` as a shim. The
+Every FFmpeg or ffprobe run goes through `node/execx`, which re-executes `orpheum` as a shim. The
 shim:
 1. applies the seccomp **denylist**: no inet sockets for probe and extract; no `ptrace`,
    `mount`, `bpf`, `keyctl`, `unshare` or `setns`;
@@ -336,7 +336,7 @@ must first be seen to fail ([D190](../../decisions/working-notes.md)).
 | | Contents | Accepted when |
 | --- | --- | --- |
 | **M0 — skeleton and gates** | the layout of §3, the licence files, `make check`, CI on the private repo, the Stop and pre-edit hooks, the dependency allowlist, the first `TestArch_` tests; the standards round's output ([D192](../../decisions/working-notes.md) §3) | CI is green on an empty server. Each of these turns it red: a SQLite import outside `store`; an `exec.Command` in core; an import of `internal/node` from core; editing a lint config through the agent. |
-| **M1 — schema, migrations, backup** | [schema.md](schema.md) as migration 0001 through the D181 runner and sqlc; the `setting` registry; sealed secrets and `secret.key`; argon2id passwords; `VACUUM INTO` backup; `vp restore`; the setup code and the first admin | A fresh schema equals the golden. Killing the process mid-migration and restarting resumes. A database whose `compatible_version` is newer is refused, and the refusal names the snapshot. A backup restored into an empty data directory reproduces every authored table. A file without the `application_id` is refused. `/health` says `migrating` before the migration starts. **A canary secret appears in no API response, log, `doctor` output, bug report or backup except as ciphertext.** A restore without `secret.key` marks secrets *needs re-entering* and loses nothing else. argon2id takes ≤ 500 ms on devnas. |
+| **M1 — schema, migrations, backup** | [schema.md](schema.md) as migration 0001 through the D181 runner and sqlc; the `setting` registry; sealed secrets and `secret.key`; argon2id passwords; `VACUUM INTO` backup; `orpheum restore`; the setup code and the first admin | A fresh schema equals the golden. Killing the process mid-migration and restarting resumes. A database whose `compatible_version` is newer is refused, and the refusal names the snapshot. A backup restored into an empty data directory reproduces every authored table. A file without the `application_id` is refused. `/health` says `migrating` before the migration starts. **A canary secret appears in no API response, log, `doctor` output, bug report or backup except as ciphertext.** A restore without `secret.key` marks secrets *needs re-entering* and loses nothing else. argon2id takes ≤ 500 ms on devnas. |
 | **M2 — scan and identify** | node child and both sockets; enumerate, probe, payload hash; JSONL reports and ingest; the filename parser; the job queue with fetches; TMDB; NFO read; the ambiguous chooser; overrides; the scanner view; artwork; browse and search | On the tier-1 corpus plus a 200-file fixture tree, every file has a filing and a reason. D179's table holds as tests: a `mkvpropedit` title edit keeps identity, and an `ffmpeg -c copy` remux gets a new one. No ambiguous title is auto-matched. An override survives re-derivation. With the media root at mode 000 to the core's user, the core still works: it never opens a media path. |
 | **M3 — play in a browser** | the playback decision; direct play relayed; **prepare** with both profiles; subtitles via JASSUB and the offset; the dialogue boost; play state, Continue Watching with hide and undo; accounts; the web client usable on a phone; the job view; confinement and its report | An MKV with H.264, TrueHD and ASS plays in Chrome, Firefox and iPhone Safari within 8 s of pressing play, with the reason on screen. The boost measurably raises the centre channel's share of the stereo output. Two devices reporting out of order never rewind the position. `mediastreamvalidator` passes on a prepared rendition. The escape test is green on devnas. |
 | **M4 — two people, one remote** | the HTTPS name; reachability; invites; Watch Together over §5.1; voice through embedded TURN; recording for signed-in members; now playing | On D190's remote-household VM under its netem profiles, two Playwright clients stay within the drift bound for 30 minutes. Fake-microphone voice arrives within the jitter and loss bounds. An invite works once. Revocation ends access at the next request. No credential appears in any URL in a HAR capture. A signed-in guest's history advances; an anonymous one's does not. |
