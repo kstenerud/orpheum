@@ -221,8 +221,12 @@ the same event that invalidates the sync cursor ([D166](../../decisions/working-
 
 **Offline, time is the only mechanism.** You cannot inform a client that is not listening, so
 for a device on a plane revocation latency is bounded by the **session idle window** and the
-**download lease** — and those two numbers *are* the guarantee, stated in the product in those
-terms. Anything stronger would mean enforcing against bytes on hardware we do not control,
+**download lease**. And since a lease is indefinite by default
+([D169](../../decisions/working-notes.md)), the guarantee has to be stated precisely rather
+than reassuringly: *for your own devices there is no offline revocation guarantee, and there
+should not be one; for a grantee there is, and it is exactly the lease the owner set on the
+share.* An **idled-out session does not orphan a download** — a phone in a drawer for three
+months signs in again with its films untouched. Anything stronger would mean enforcing against bytes on hardware we do not control,
 which is [D3](../../decisions/working-notes.md)'s declined DRM in a different hat.
 
 **And one misreading to head off:** [stream-service.md](stream-service.md)'s *"authorise the

@@ -33,9 +33,38 @@ original**. That is the compatibility transcoder ([transcoding.md](transcoding.m
 for a completely different reason, with a different trigger and a different retention policy —
 and on a phone it is usually the *only* thing anyone wants.
 
-**A lease**, because a prepared rendition that nothing references is garbage and a prepared
-rendition that something references must not be reaped. The lease is per device, has an
-expiry, and is renewed when the device checks in.
+**A lease**, which is **indefinite by default** and is mostly a **registration**
+([D169](../../decisions/working-notes.md)). D87 gave it two jobs under one name and they want
+different lifetimes:
+
+| Job | Who it serves | Needs an expiry? |
+| --- | --- | --- |
+| keep the server's prepared rendition from being reaped | the server's disk | **no** |
+| reach a device nobody can contact | revocation | **only where there is something to revoke** |
+
+**The server's prepared rendition is a cache.** Once the bytes are on the device, the server's
+copy exists only to make a re-download cheap, so it is governed by disk pressure and may be
+evicted whenever — losing it costs a re-transcode, which is
+[principles §14](../../principles/README.md) exactly. No reference count, no reaping policy. A
+direct-copy download leaves no artefact and never needed one.
+
+**So an expiry is a property of the relationship, not of the download:**
+
+| Whose device | Lease | Why |
+| --- | --- | --- |
+| the owner's own, on their own library | **indefinite** | there is nothing to revoke |
+| a household member under a role | **indefinite by default** | narrowing a child's rules is not usually *"confiscate the phone"*; if it is, the owner says so |
+| a **grantee** ([D76](../../decisions/working-notes.md)) | **finite, set with the share** | a share can end, and this is the only thing that reaches them offline |
+| a Watch Together guest | **none — no download** | a guest is not a principal ([D125](../../decisions/working-notes.md)) |
+
+What the indefinite lease still does is say **which devices hold what** — for D89's *"2 devices
+hold a downloaded copy"* and so the owner can **forget a device** that was lost, sold or wiped,
+which is the same act as signing it out. A stale registration is untidy, not dangerous, so a
+person clears it rather than a timer.
+
+**And an idled-out session must not orphan a download.** A phone in a drawer for three months
+signs in again with its films untouched; tying playback to a session timer would produce the
+plane-mode failure [D167](../../decisions/working-notes.md) exists to prevent.
 
 ## And it is self-contained, which the font design did not anticipate
 
@@ -105,16 +134,19 @@ yours any more** from **we mis-scanned**. "Absent ⇒ delete my downloads" would
 cheap, exercised-daily fallback a **mass deletion trigger on every client**.
 
 - **Availability gone → the download is `orphaned`**: still there, still playable, and labelled
-  *"no longer in the library — this may be the only copy."* The user decides.
+  *"no longer in the library — this may be the only copy."* The user decides. With indefinite
+  leases this is **ordinary operation rather than an edge case**
+  ([D169](../../decisions/working-notes.md)) — a download routinely outlives the server's copy
+  — so the label reads as a neutral fact, never as a warning.
   [principles §2](../../principles/README.md) governs our own filesystem; a phone is further
   from ours than that.
-- **Entitlement gone → the lease is not renewed and the client removes it on expiry.** That is
-  the mechanism below, and revocation is therefore **eventual, bounded by the lease period** —
-  which is the honest description and the only one available without DRM. Online, entitlement
-  needs no message at all: it is resolved per request at **6.64 µs**, so revocation lands on
-  the next one ([D168](../../decisions/working-notes.md)). **The lease is what covers the
-  device nobody can reach**, and its duration is therefore the revocation guarantee for
-  downloads, stated in those terms.
+- **Entitlement gone → the lease is not renewed and the client removes it on expiry** — where
+  there is an expiry at all, which is shares ([D169](../../decisions/working-notes.md)).
+  Online, entitlement needs no message: it is resolved per request at **6.64 µs**, so
+  revocation lands on the next one ([D168](../../decisions/working-notes.md)). **The lease is
+  what covers the device nobody can reach**, so the honest statement is the precise one:
+  *for your own devices there is no offline revocation guarantee, and there should not be one;
+  for a grantee there is, and it is exactly the lease the owner set on the share.*
 - **The server distinguishes them, because the client cannot.** The reconciliation reply says
   *"no longer available"* or *"no longer entitled"*. Silence says neither.
 - **An orphaned download cannot be repaired.** Partial when the source went means partial

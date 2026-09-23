@@ -6037,6 +6037,11 @@ extracted subtitle tracks, the artwork, and [D82](#d82--media-segments-are-typed
   download is not complete until they are present.
 - **A lease**, so the server knows a prepared rendition is still referenced and must not reap
   it, and so an abandoned device's storage is eventually reclaimed.
+  **Both halves revised 2026-09-23 by [D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent):**
+  the prepared rendition is a **cache** governed by disk pressure, not a referent — losing it
+  costs a re-transcode — and the device's own storage is not ours to reclaim. What is left is
+  a **registration, indefinite by default**, with an expiry only where a share makes the
+  relationship conditional.
 - **Deletions reconcile through the change journal** ([D8](#d8--a-change-journal-and-delta-sync-cursor-exist-in-the-first-schema)), which exists for
   exactly this and still has no consumer.
 - **Play state reconciles through [D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)'s event log**, which is why the log
@@ -13133,6 +13138,9 @@ before any client exists. The tombstone invariant is **schema** and is due with
 `library-model.md`. No measurement needed: every quantity here is a policy choice, and the one
 empirical question — how long a lease should be — is the same unmeasured household number as
 [auth.md](../design/plans/auth.md)'s idle-expiry window and should be decided with it.
+*(Narrowed the same day by [D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent):
+a lease is indefinite by default, so the question is only **how long a share's lease** should
+be.)*
 
 ---
 
@@ -13224,7 +13232,13 @@ a *duration*, not by a network:
 - and the **download lease** ([D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained), [D167](#d167--absence-is-never-a-reason-to-destroy-a-download-whose-server-copy-is-gone-is-orphaned-not-deleted-and-entitlement-is-the-only-thing-the-lease-may-remove)).
 
 Those two numbers **are** the revocation guarantee, and they should be stated in the product in
-those terms. Anything stronger would require enforcing against bytes on hardware we do not
+those terms. **Sharpened the same day by [D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent)**,
+because a lease is indefinite by default: *for your own devices there is no offline revocation
+guarantee, and there should not be one; for a grantee there is, and it is exactly the lease the
+owner set on the share.* An **idled-out session must not orphan a download** — tying playback
+to a session timer produces the plane-mode failure
+[D167](#d167--absence-is-never-a-reason-to-destroy-a-download-whose-server-copy-is-gone-is-orphaned-not-deleted-and-entitlement-is-the-only-thing-the-lease-may-remove)
+exists to prevent. Anything stronger would require enforcing against bytes on hardware we do not
 control, which is [D3](#d3--streaming-format-cmaffmp4-segments-hls-manifest-no-drm)'s declined
 DRM wearing a different hat.
 
@@ -13256,4 +13270,108 @@ plus one detail-free invalidation message sharing D166's event. The cast-receive
 coupling in §8 is the only implementation item. Unmeasured, and the same number as three other
 open questions: **how long the idle window and the lease should be**, which is the household
 figure [auth.md](../design/plans/auth.md) already flags and should be decided once for all of
-them.
+them. *(Halved by [D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent):
+the lease is indefinite unless a share says otherwise, so only the idle window and a share's
+lease remain.)*
+
+---
+
+## D169 — A lease is indefinite by default; expiry is a property of a conditional relationship, and the server's prepared rendition is a cache rather than a referent
+
+**Decided** (2026-09-23), by the project owner, correcting the default this log had been
+assuming:
+
+> *"My guess is that most of the time the lease duration will be infinite. There would have to
+> be a specific reason why it's only allowed for a short time."*
+
+That is right, and following it exposes that
+[D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained)'s lease was doing
+**two unrelated jobs under one name** — which is why an expiry looked obligatory.
+
+### 1. The two jobs, separated
+
+| Job D87 gave the lease | Who it serves | Does it need an expiry? |
+| --- | --- | --- |
+| *"a prepared rendition that nothing references must not be reaped"* | **the server's disk** | **no** — see §2 |
+| a backstop that reaches a device nobody can contact | **revocation** | **only where there is something to revoke** |
+
+They were bundled because both sounded like reference counting. They are not the same
+mechanism and they do not want the same lifetime.
+
+### 2. The server's prepared rendition is a cache, so it needs no referent at all
+
+A download that is a **transcode** leaves a derived artefact on the server. D87 made the lease
+the thing that keeps it alive. But once the bytes are on the device, **the server's copy has
+no job except making a re-download cheap** — and that is a cache, governed by disk pressure,
+evicted whenever the server likes.
+
+[principles §14](../principles/README.md) is the whole argument: losing it must be a
+*performance* event, and it is — a re-download re-transcodes. **No lease, no reference count,
+no reaping policy.** A direct-copy download leaves no artefact at all and never needed one.
+
+That removes the job that made expiry look structural.
+
+### 3. What remains is enforcement, and enforcement is a property of the *relationship*
+
+[D168](#d168--entitlement-is-resolved-at-the-point-of-use-never-pushed-revocation-needs-no-message-and-the-notification-is-a-latency-optimisation-that-may-always-be-lost)
+settled that entitlement online needs no message and costs **6.64 µs** at the point of use. So
+a lease's only remaining job is the device nobody can reach — and **that job only exists where
+somebody might need to take access away.**
+
+| Whose device | Lease | Why |
+| --- | --- | --- |
+| **the owner's own, on their own library** | **indefinite** | there is nothing to revoke; it is their media on their hardware |
+| a household member under a role | **indefinite by default** | narrowing a child's rules is not usually *"confiscate what is on the phone"*; if it is, the owner says so explicitly |
+| **a grantee** ([D76](#d76--a-share-is-a-grantee-plus-a-predicate-and-it-fails-closed)) | **finite, set with the share** | a share can end, and this is the only mechanism that reaches them offline |
+| a Watch Together guest | **none — no download** | a guest is not a principal ([D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)), so there is nothing to hold one |
+
+**So the rule is:** *indefinite unless someone deliberately attached an expiry to a share*, and
+the expiry is authored where the share is, not where the download is. A finite lease is a
+statement about a person, not about a file.
+
+### 4. Which makes the honest guarantee more honest, not less
+
+D168 said the idle window and the lease *are* the revocation guarantee. With this default that
+sentence has to be said properly:
+
+> **For your own devices there is no offline revocation guarantee, and there should not be
+> one.** For a grantee there is, and its duration is exactly the lease the owner set on the
+> share.
+
+Claiming otherwise would mean pretending to enforce against bytes on hardware we do not
+control, which [D3](#d3--streaming-format-cmaffmp4-segments-hls-manifest-no-drm) declines.
+
+### 5. What the indefinite lease still is: a registration
+
+Dropping the expiry does not drop the row. The server still needs to know **which devices hold
+what**, for reasons that have nothing to do with enforcement:
+
+- [D167](#d167--absence-is-never-a-reason-to-destroy-a-download-whose-server-copy-is-gone-is-orphaned-not-deleted-and-entitlement-is-the-only-thing-the-lease-may-remove)'s
+  delete confirmation says *"2 devices hold a downloaded copy"*;
+- the owner can see what is out there and **forget a device** — a phone that was lost, sold or
+  wiped — which is the same act as signing it out
+  ([D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url)) and needs no timer to
+  discover.
+
+**A stale registration is untidy, not dangerous**, so it is cleaned by a person noticing rather
+than by an expiry firing. That is the correct trade for a value whose only failure mode is a
+list with an old phone on it.
+
+### 6. Two consequences worth stating
+
+- **An idled-out session must not orphan a download.** D154 expires sessions on idle; a phone
+  in a drawer for three months signs in again and its films are untouched. Playback of an
+  already-downloaded file is a client-side courtesy either way, and tying it to a session
+  timer would produce exactly the plane-mode failure
+  [D167](#d167--absence-is-never-a-reason-to-destroy-a-download-whose-server-copy-is-gone-is-orphaned-not-deleted-and-entitlement-is-the-only-thing-the-lease-may-remove)
+  exists to prevent.
+- **Orphaned downloads become the ordinary case, not the edge case.** With indefinite leases a
+  download routinely outlives the server's copy of the file, so D167's *orphaned* state is
+  normal operation and its labelling has to read like it — *"no longer in the library"* as a
+  neutral fact, never as a warning.
+
+**Status:** Simplifies rather than adds — removes a reaping policy, removes a default expiry,
+and moves the one remaining expiry onto the share where its owner can see it. No measurement:
+every quantity here is a policy choice, and the number D168 flagged as wanted — *how long a
+lease should be* — turns out to be **wanted only for shares**, which is a much smaller and more
+answerable question than the household-wide one it was filed under.
