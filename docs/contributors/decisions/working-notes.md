@@ -13130,7 +13130,7 @@ a small protocol point with the whole behaviour hanging off it. Silence is neith
   [D165](#d165--a-heartbeat-is-not-an-event-the-log-records-state-changes-and-watched-spans-there-is-no-retention-horizon-and-an-offline-device-must-not-be-able-to-rewind-you)
   keeps the log forever. So this is the first concrete consumer of the invariant the data
   survey named: **no row a user's history or authored data references is ever hard-deleted —
-  it is tombstoned.** Decided here rather than left open.
+  it is tombstoned.** Decided here rather than left open. *(Mechanics specified by [D173](#d173--a-replaced-file-is-a-deletion-and-an-addition-what-is-in-a-files-timeline-dies-with-the-file-and-what-is-about-the-work-survives-at-the-title).)*
 - **An orphaned download cannot be repaired.** If it was partial when the source went, it
   stays partial: say so, offer to remove it, and stop retrying. A client silently retrying a
   fetch that can never succeed is a battery bug wearing a progress bar.
@@ -13650,3 +13650,92 @@ so confirming or changing a match moves nothing a user would miss.
 
 **Status:** Decided. Identification behaviour in `identification.md`; the grid, list and chooser
 belong to the clients.
+
+---
+
+## D173 — A replaced file is a deletion and an addition; what is in a file's timeline dies with the file, and what is about the work survives at the Title
+
+**Decided** (2026-09-23), by the project owner, rejecting a proposal to carry a resume position
+across a Radarr-style upgrade:
+
+> *"A 1080 file replaced with a 4k one is two things: the 1080 cut has been deleted; the 4k cut
+> has been added. Even if it claims to be the same cut, we can't guarantee that everything will
+> still line up.*
+>
+> *Also, if the user has Groundhog Day from one rip, deletes it, and gets the 'same' film from
+> another source, we can't be sure that everything will still match up. What if the new rip,
+> while still the same 'cut', had previews inserted?"*
+
+**Extends [D167](#d167--absence-is-never-a-reason-to-destroy-a-download-whose-server-copy-is-gone-is-orphaned-not-deleted-and-entitlement-is-the-only-thing-the-lease-may-remove)'s
+tombstone invariant with its mechanics, and applies
+[D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)
+to replacement.** D158 already says we never relate two files' timelines; an upgrade is two
+files that happen not to coexist, and not coexisting does not make them relatable. Four minutes
+of trailers at the front of a re-rip shifts every timestamp by four minutes, and "same cut" in
+a filename or a provider ID is an assertion about the story, not about the byte timeline.
+
+### 1. The split
+
+| Bound to the **file's timeline** — dies with the File (tombstoned with it) | About the **work** — survives at the Title |
+| --- | --- |
+| resume position ([D157](#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does)) | watched / completion |
+| watched spans (kept as history, never re-pointed) | rating, favourite, tags |
+| subtitle and audio sync offsets | the identification choice (D170) |
+| media segments — intro, credits ([D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance)) | extra relations between Titles |
+| chapters, trickplay, a subtitle verified against this file | a user-authored Edition *and its name* — but see §3 |
+
+The test is one question: **is it expressed in seconds of this file?** If so it belongs to the
+file and cannot be moved. That is D157's split — the position is on the File, completion rolls
+up — recognised as a general rule rather than a fact about positions.
+
+### 2. Consequences
+
+- **An upgrade is observed as a delete and an add**, including when Sonarr's or Radarr's
+  "On File Upgrade" webhook names both paths. The webhook is a hint to scan now, not a claim of
+  identity.
+- **A half-watched film whose file was replaced leaves Continue Watching.** Its position
+  belongs to a file that no longer exists, and resuming a different file at that time is the
+  guess this decision declines. The new file starts at zero; the old position stays in the log.
+  *(Recommended; the alternative — keep the row with "the file you were watching was removed" —
+  is noise for the common upgrade case.)*
+- **Watched survives, because it is about the work.** "I have seen Groundhog Day" is true of
+  every rip.
+
+### 3. Correction to what I told the owner
+
+When explaining tombstones I said re-adding a film would bring back *"its watched mark, your
+edition name and your extra links"*. Two of three. The Edition and its name survive on the
+Title, but **the new file does not join it automatically** — that would be asserting it is the
+same cut, which is §1's error. It arrives with no Edition
+([D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional)),
+and the user may place it in their named Edition with one action.
+
+### 4. The tombstone's mechanics, which D167 named but did not specify
+
+1. **Enforced by the schema, not by care.** Every foreign key from history or authored data is
+   `ON DELETE RESTRICT`, so a hard delete of a referenced row fails loudly — a
+   [principles §10](../principles/README.md) alarm. It depends on `_foreign_keys=on`, which
+   [D31](#d31--sqlite-with-a-pure-go-driver-supersedes-d5) already sets; SQLite ignores
+   foreign keys on any connection that does not.
+2. **Identifiers are never reused.** SQLite without `AUTOINCREMENT` issues the largest current
+   rowid plus one, so deleting the newest row hands its number to the next file — and every
+   span still pointing at it silently describes a different film. Tombstoning prevents this by
+   keeping the row; `AUTOINCREMENT` on referenced tables makes it true even if something does
+   delete.
+3. **Uniqueness ignores the dead.** "One live File per path" is a partial unique index
+   (`WHERE removed_at IS NULL`), or a re-rip at the same path collides with its own tombstone.
+4. **Live is the default view.** Queries read views that exclude tombstones, so nobody has to
+   remember to — the failure of tombstoning is dead films in the browser.
+5. **A merge redirects rather than deletes.** When two Titles prove to be one (a corrected
+   match, [D172](#d172--a-low-vote-count-is-shown-not-hidden-an-ambiguous-match-is-never-guessed-and-selecting-it-asks-rather-than-plays)),
+   the loser records `merged_into`, and references resolve through it.
+6. **Removing history on purpose is allowed.** The invariant protects what history points *at*,
+   not history itself: a user deleting an entry from their own history deletes their spans;
+   deleting a user purges theirs; and an explicit admin **purge** removes a tombstone together
+   with everything that references it, behind a confirmation — never one without the other.
+
+**Cost:** a File row is a few hundred bytes; a library replacing 1,000 files a year accumulates
+well under a megabyte of tombstones in a decade.
+
+**Status:** Decided. Schema, due with `library-model.md`; the Continue Watching consequence in
+`play-state.md`.

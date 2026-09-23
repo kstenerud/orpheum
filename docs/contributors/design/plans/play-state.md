@@ -279,6 +279,11 @@ sequence or progress ([D160](../../decisions/working-notes.md)).
 
 A work appears in exactly one of them.
 
+**A replaced file takes its position with it** ([D173](../../decisions/working-notes.md)). An upgrade is a deletion and an
+addition, and a re-rip may have four minutes of trailers at the front, so a half-watched film
+whose file was replaced leaves Continue Watching and the new file starts at zero. Watched
+survives: it is about the work.
+
 ### Offline: an offline device must not be able to rewind you
 
 [D165](../../decisions/working-notes.md). The guard above is correct online because the server
