@@ -50,6 +50,19 @@ cheap to collect once a receiver exists:
    the cast path needs a muxed fallback — the same question
    [playback-survey.md](playback-survey.md) already asks of Tizen and webOS, so ask it once.
 
+## 0b. Her setup, which decides the television path
+
+[D188](../../decisions/working-notes.md). Before choosing between the TV's own browser, our cast receiver, a
+sideloaded prototype and the laptop, find out:
+
+1. **What the television is**: a Samsung set running Tizen, or a Google TV device (Chromecast
+   with Google TV, Google TV Streamer) plugged into a Samsung. Model and year.
+2. **Its browser, if any**, and whether it plays our fMP4 HLS and Opus/AAC with WebVTT.
+3. **Whether it accepts a Cast session from Chrome on her MacBook.**
+4. **Her phone's voice path**: iOS version, whether she has earbuds, and whether
+   `navigator.audioSession` keeps call audio off the earpiece without them (WebKit #230902).
+5. **Her uplink** and Wi-Fi at the television, against the ~8 Mbps prepared rendition.
+
 ## 0a. Benchmark the incumbents, don't admire them
 
 [D139](../../decisions/working-notes.md). The lab has the hardware to measure **click depth**

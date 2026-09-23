@@ -131,6 +131,9 @@ something" and "a dependency upgrade broke Thai line-breaking and a user told us
   ([D85](../../decisions/working-notes.md)), diffed against the last release, waivable only in
   the changelog. This is the thing that would have caught Jellyfin 12.0 removing `/emby/`
   before its users did.
+- **Each server release runs the previous client release's end-to-end suite**
+  ([D188](../../decisions/working-notes.md)). Jellyfin 10.11 broke Swiftfin and Dolby Vision on
+  LG, and a schema diff alone would not have caught either.
 - **Apple's `mediastreamvalidator` and `hlsreport`** against our own HLS output — they check
   the specification and the *authoring* specification respectively, and Apple's guidance is to
   run both. **macOS-only**, so this is a release gate on a Mac, not a per-commit step.

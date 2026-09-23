@@ -86,6 +86,20 @@ in the preference axes ([D24](../../decisions/working-notes.md)), so that "prefe
 description where available" is a setting rather than a per-file act of remembering which track
 number it was.
 
+## A design requirement, not a Cut A gate
+
+[D188](../../decisions/working-notes.md). Every one of these projects triages by votes, and a population that
+cannot use the product does not vote, so accessibility never wins a ranking
+([ui-competitors.md](../research/ui-competitors.md) §3). It is therefore built into the
+structure rather than scheduled:
+- accessible names derived from what an element is
+- keyboard and remote reach everything the pointer does, and focus is always visible
+- no state is shown only by colour
+- text scales without breaking the layout, and reduced motion is honoured
+
+**Cut A is not held for it.** Shortfalls found while two people use it are recorded, not
+blocking. Whether this gates a release anyone else installs is decided before that release.
+
 ## Screen readers
 
 Unaddressed anywhere and not researched here. The requirement is stated so it is not forgotten:
