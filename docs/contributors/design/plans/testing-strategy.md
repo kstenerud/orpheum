@@ -146,7 +146,9 @@ something" and "a dependency upgrade broke Thai line-breaking and a user told us
   the escape test attempts the forbidden open and asserts the denial. ~~Skipping **loudly**
   where the mechanism is absent.~~ **It fails where the mechanism is absent, unless the step
   names Landlock as uncontrolled, and it first shows the open succeeding unconfined**, because
-  inside Docker a denial may be Docker's seccomp ([D190](../../decisions/working-notes.md)).
+  a denial may otherwise be the container's mounts or file permissions
+  ([D190](../../decisions/working-notes.md); [D112](../../decisions/working-notes.md)'s
+  correction: Docker's seccomp permits Landlock, and the errno names the cause).
 - **A breaking change to the generated OpenAPI document fails the build**
   ([D85](../../decisions/working-notes.md)), diffed against the last release, waivable only in
   the changelog. This is the thing that would have caught Jellyfin 12.0 removing `/emby/`
@@ -516,5 +518,6 @@ and how a good change gets reverted.
 
 `go test ./...` passes on a clean checkout with no media and no FFmpeg; the tiered suite says
 which tiers it skipped and why; a breaking OpenAPI change fails CI; the sandbox escape test
-runs on a machine with Landlock and skips loudly on one without; and the `assumptions/`
+runs on a machine with Landlock and **fails** on one without, unless that job names Landlock
+in its `VP_TEST_UNCONTROLLED` list ([D190](../../decisions/working-notes.md#d190--the-testing-strategy-devices-report-on-themselves-against-numbers-a-missing-capability-fails-every-check-first-shows-it-can-fail-and-the-lab-is-built-from-what-is-on-the-shelf)); and the `assumptions/`
 directory has caught at least one dependency upgrade.

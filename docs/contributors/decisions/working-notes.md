@@ -7066,6 +7066,15 @@ kernel built without it, a boot parameter, or the container runtime's own seccom
 denying the syscall. Docker is the most common way this software will be deployed, and Docker
 is exactly where this happens.
 
+> **Corrected 2026-09-23** ([audit-2026-09-23.md](../design/research/audit-2026-09-23.md) §4). *Impossible to tell* was wrong: the errno says which.
+> `EOPNOTSUPP` (95, the value above) is *"supported by the kernel but disabled at boot time"*;
+> `ENOSYS` is a kernel built without it; `EPERM` is a seccomp filter denying the call. Docker's
+> default profile has **allowed** the three Landlock syscalls since Docker 23 (moby #43199), so
+> Docker was not the cause here — the host is a Proxmox VE kernel, whose `CONFIG_LSM` leaves
+> Landlock out. The probe therefore reports the errno **translated into a cause and a remedy**
+> (enable `lsm=landlock,…` at boot; upgrade the container runtime; the kernel is too old).
+> Synology's DSM kernels (4.4, 5.10) predate Landlock (5.13) and will always report `ENOSYS`.
+
 So the requirement is larger than a test:
 
 - **The node probes its confinement at startup and reports the result**
@@ -7079,8 +7088,9 @@ So the requirement is larger than a test:
   ~~skipping loudly, not silently, where the mechanism is absent~~. **Refined by [D190](#d190--the-testing-strategy-devices-report-on-themselves-against-numbers-a-missing-capability-fails-every-check-first-shows-it-can-fail-and-the-lab-is-built-from-what-is-on-the-shelf):**
   on a host that should have the mechanism the test **fails** rather than skips, and a skip is
   allowed only where the CI step names the mechanism as uncontrolled. The test must also
-  **first show that the forbidden open succeeds without our confinement**, because inside
-  Docker a denial may be Docker's seccomp and not our Landlock.
+  **first show that the forbidden open succeeds without our confinement**, because a denial
+  may come from the container's mounts or file permissions rather than our Landlock (not
+  Docker's seccomp, which permits Landlock — corrected 2026-09-23 above).
 - **Absent confinement is a degraded mode, not an error.** Refusing to run in Docker would be
   worse than running and saying so.
 
@@ -14826,8 +14836,8 @@ A yoloAI run reported *"7 PASS / 0 FAIL"* and concluded the exact inverse of the
 the sandbox lacked the capability under test. The rule: **before trusting a pass, observe the
 same check fail on a case where failure is certain.**
 - **The escape test** opens the forbidden path *without* our confinement and sees it succeed,
-  then with it and sees the denial, and attributes the denial to our layer. Inside Docker, a
-  denial may be Docker's seccomp.
+  then with it and sees the denial, and attributes the denial to our layer. A denial may
+  otherwise be the container's mounts or file permissions (D112's correction of 2026-09-23).
 - **Each device probe** carries a negative control, a stream that device cannot play.
 - **Each gate script** has tests that make it fail, as `check_docs.py` does.
 - **Each benchmark** stamps the harness version and lists what it did *not* try.
