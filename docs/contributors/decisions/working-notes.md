@@ -15340,3 +15340,122 @@ reopen Cut A.
 
 **Status:** Decided. The contradiction sweep of the audit's §3, the schema fixes of §3.1 and
 `plans/cut-a.md` follow in the same change.
+
+---
+
+## D194 — Secrets: our users' passwords are hashed, third-party secrets are sealed with a key that never enters the database, and nothing reads a secret back out
+
+**Decided** (2026-09-23), by the project owner (*"Settle the API keys and passwords now"*),
+closing the question [auth.md](../design/plans/auth.md) left open after
+[D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes).
+
+### 1. What the secrets are
+
+| Secret | Whose | Can we verify it instead of storing it? | Treatment |
+| --- | --- | --- | --- |
+| **A user's password for this server** | each user | **yes** | hashed (§2) |
+| Session, invite, join and cast credentials | — | yes | already hashed ([D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url)) |
+| **TMDB API key** | the server's admin ([D16](#d16--gplv3-no-nonfree-components-and-provider-keys-belong-to-the-user)) | no: we present it | sealed (§3) |
+| **OpenSubtitles API key, username and password** | each user | no: we log in with them | sealed |
+| **DNS provider token** for the certificate's DNS-01 challenge | the server | no | sealed |
+| **TURN shared secret** | the server; we generate it | no: short-lived TURN credentials are derived from it | sealed; rotating it is free |
+| TLS private key and ACME account key | the server | no | files in the state directory, mode 0600, never in the database. They are re-issuable, so losing them costs a new certificate |
+
+**The rule is to store a verifier wherever we can, and a sealed secret only where we must
+present the secret to someone else.**
+
+### 2. Our users' passwords: argon2id
+
+- **argon2id** from `golang.org/x/crypto/argon2`, with **RFC 9106's second recommended
+  parameters**: 64 MiB, t = 3, p = 4. The hash is stored as a PHC string, so the parameters
+  travel with it and can change later.
+- **Measured:** 41 ms on an i3-1315U (`/yoloai/cache/bench/argon/`). The J3455 in devnas is
+  several times slower, so M1 measures it there with a ceiling of **500 ms**; above that, the
+  memory cost comes down to OWASP's 46 MiB, t = 1.
+- **A login under older parameters is re-hashed** on success.
+- **Failed logins are rate-limited** per account and per address, because 64 MiB per attempt is
+  also a memory-exhaustion lever.
+- **No password recovery by email.** There is no mail server and no account elsewhere (D13). An
+  admin sets a temporary password that the user must change at first sign-in.
+
+### 3. Third-party secrets: sealed, in a table of their own
+
+- **The key.** On first start the server generates a 256-bit key and writes it to
+  **`secret.key`** beside the configuration file, mode 0600. It is **never** written into the
+  database.
+- **The table.** Sealed secrets live in a **`secret`** table, separate from `setting`
+  ([schema.md](../design/plans/schema.md)). Each row holds:
+  - the XChaCha20-Poly1305 ciphertext (`golang.org/x/crypto/chacha20poly1305`);
+  - its nonce and the id of the key that sealed it;
+  - a **hint** (the last four characters of an API key; nothing for a password);
+  - who set it, and when.
+- **The associated data is the row's identity** (scope, user, name). A ciphertext copied into
+  another row, or into another user's row, fails to open.
+- **Why a table of its own.** Anything that dumps settings (a bug report, `doctor`, an admin
+  export, a support copy of `setting`) then cannot carry a secret by accident. Only the
+  `secrets` package may query this table, and the linter enforces that.
+
+**What this protects, and what it does not.** It protects a database or backup file that leaves
+the machine on its own, the realistic leaks:
+- a backup synced to cloud storage;
+- a database attached to a bug report;
+- a copy handed to someone for help.
+
+In each case the file holds ciphertext. **It does not protect against root on the server**,
+because the server must decrypt a secret to use it, and nothing short of a hardware key store
+changes that. Say so in the documentation rather than implying otherwise. The pattern is the one
+Grafana (`secret_key`), Nextcloud (`secret`) and Gitea (`SECRET_KEY`) use: a key in the
+configuration, ciphertext in the database.
+
+### 4. Backups and restores
+
+- **A database backup does not contain the key.** `VACUUM INTO`, `vp backup` and D181's
+  migration snapshots all carry ciphertext only.
+- **A backup of the whole state directory contains the key.** That is a copy of the machine,
+  and restoring it is moving the machine.
+- **Moving to a new machine:** `vp backup --include-key` writes the key beside the database
+  file, and the command's output says what that means.
+- **Restoring without the key is not an error.** It is Grafana's commonest migration trap made
+  visible:
+  - everything restores;
+  - every sealed secret shows **"needs re-entering"** on the settings page and in `doctor`;
+  - the features that need a secret say which one is missing (TMDB fetches pause, subtitle
+    fetching asks the user to sign in again).
+
+  Nothing else is lost. The same applies when `secret.key` is deleted or replaced.
+- **Rotating the key:** `vp secrets rotate` writes a new key, re-seals every row in one
+  transaction, and only then removes the old key. The key id in each row makes a half-finished
+  rotation recoverable.
+
+### 5. Nothing reads a secret back out
+
+- **Write-only over the API.** `PUT` sets a secret and `DELETE` clears it. `GET` returns
+  `{set, hint, set_by, set_at, needs_reentry}`, never the value. A user's own OpenSubtitles
+  password is write-only to that user too. An admin can clear another user's secret but cannot
+  read it.
+- **A type that will not print.** In Go a secret is a `secrets.Value`. Its `String`,
+  `GoString`, `Format`, `MarshalJSON`, `MarshalText` and `LogValue` all emit `[redacted]`. The
+  only accessor is `Reveal()`, and the linter permits it only in the provider clients that send
+  the secret to its owner's service. This is the mechanical form of
+  [D74](#d74--bug-reports-pseudonymise-rather-than-redact-and-fan-in-across-components)'s rule
+  that bug reports carry no secrets.
+- **The canary test.** M1 sets every secret to a known canary string, then drives the API,
+  `doctor`, a bug report, a backup and the logs, and asserts that the canary appears in none of
+  them except as ciphertext. It must first be seen to fail against a deliberately leaking
+  handler ([D190](#d190--the-testing-strategy-devices-report-on-themselves-against-numbers-a-missing-capability-fails-every-check-first-shows-it-can-fail-and-the-lab-is-built-from-what-is-on-the-shelf)).
+
+### 6. Not chosen
+
+- **Plaintext, as Home Assistant's `.storage` and many self-hosted projects keep it.** Cheaper,
+  but it turns every leaked backup into a leaked OpenSubtitles account.
+- **Environment variables or systemd credentials as the store.** Useful on some hosts, absent in
+  others, and a second way to set a value (principles §4). The setup wizard and settings page
+  are the one way.
+- **Envelope encryption with per-row data keys** (Grafana 9+). It exists to put the master key
+  in a cloud KMS, which a household server has no use for.
+- **Encrypting the whole database** (SQLCipher). That means cgo, it defeats `VACUUM INTO` as a
+  readable backup, and the key still has to sit on the same machine.
+
+**Status:** Decided. [schema.md](../design/plans/schema.md) gains the `secret` table;
+[auth.md](../design/plans/auth.md)'s open item is closed; [cut-a.md](../design/plans/cut-a.md)
+gains the secret endpoints, and M1 gains the argon2id measurement and the canary test.

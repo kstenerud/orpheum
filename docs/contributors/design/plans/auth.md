@@ -32,9 +32,10 @@ so is retrofitting anything else on this page. **Both are out of Cut A**
   television alone. In a Watch Together session her television joins by the session link or a
   short code from her phone, as a device of her membership, and needs no sign-in of its own
   ([D191](../../decisions/working-notes.md)).
-- **Settings and provider credentials live in the database.** Whatever changes at runtime —
-  the TMDB key, each user's OpenSubtitles credentials
-  ([subtitle-acquisition.md](subtitle-acquisition.md)) — is a row in the `setting` table
+- **Settings and provider credentials live in the database.** Whatever changes at runtime is a
+  row in the `setting` table, except that a credential — the TMDB key, each user's
+  OpenSubtitles login ([subtitle-acquisition.md](subtitle-acquisition.md)) — is a sealed row in
+  the `secret` table ([D194](../../decisions/working-notes.md)). Both live
   ([schema.md](schema.md), [D181](../../decisions/working-notes.md)), per user where the
   provider's terms are per user ([D13](../../decisions/working-notes.md)). Because the backup
   carries the whole database ([D185](../../decisions/working-notes.md)), it carries these too.
@@ -267,9 +268,15 @@ whether a `node` grant is **mTLS or a shared enrolment secret** remains
 [D107](../../decisions/working-notes.md)'s choice — constrained only by D154's requirement
 that it be a row in the same table.
 
-**How provider credentials in the `setting` table are protected at rest** is not decided. The
-whole-database backup carries them ([D185](../../decisions/working-notes.md)), so the answer
-covers the backup file too.
+~~**How provider credentials in the `setting` table are protected at rest** is not decided.~~
+**Settled by [D194](../../decisions/working-notes.md):**
+- **Our users' passwords** are argon2id hashes with RFC 9106's parameters, re-hashed on login
+  when the parameters change.
+- **Third-party secrets** (the TMDB key, OpenSubtitles logins, the DNS token, the TURN secret)
+  are sealed in their own `secret` table with a key kept in `secret.key`, outside the database.
+  A database backup therefore carries only ciphertext.
+- **Secrets are write-only over the API**, and a Go type refuses to print them.
+- **Restoring without the key** asks for the secrets again and loses nothing else.
 
 ## Done when
 
