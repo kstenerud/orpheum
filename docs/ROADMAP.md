@@ -19,6 +19,35 @@ not dates.
 
 ---
 
+## Now: Cut A — two people, one of them remote
+
+**Decided 2026-09-23** ([D178](contributors/decisions/working-notes.md)). The first release is for the owner at home and one person
+remote, watching together with subtitles. **A feature is in it only if one of them needs it;
+the schema lands whole regardless.** The phases below remain the build order *within* that
+rule, and everything the cut leaves out keeps its place after it.
+
+- **Library:** scan, identify, ambiguous-match chooser and manual fixes, versions, extras, NFO
+  read, *what the scanner saw*.
+- **Playback in a browser:** direct play, negotiation, **remux to fMP4 and audio transcoding**
+  (mandatory — browsers and Chromecast refuse MKV and most of TrueHD, DTS and AC-3).
+- **Subtitles:** embedded and sidecar with libass, a sync offset control, **acquisition on
+  request**, on by default as a preference.
+- **Quiet dialogue:** [D83](contributors/decisions/working-notes.md)'s dialogue boost in the downmix, with the device declaring
+  stereo speakers. Not the loudness measurement pass.
+- **Together:** local accounts, invite from outside, Watch Together for two with voice,
+  reachability, prepared versions, the cast receiver.
+- **Running it:** backup and restore, now playing.
+
+**Out for now:** roles and parental controls, collections-as-sequences, offline, segment
+detection, loudness measurement, trickplay, subtitle verification, NFO write, the TV client,
+ceilings and adaptation, the Jellyfin adapter, OIDC/LDAP, rules authoring, play statistics,
+live bandwidth transcoding.
+
+**Phase 0 narrows:** what fraction of the owner's library direct-plays in Chrome, Safari and a
+Chromecast, and what the rest needs.
+
+---
+
 ## Phase 0 — Measure the number the plan rests on
 
 **[`playback-survey.md`](contributors/design/plans/playback-survey.md)**

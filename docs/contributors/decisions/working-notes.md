@@ -13983,3 +13983,68 @@ casting to the television** through our cast receiver
 with **voice on the iPhone**. Safari on iOS and macOS cannot cast, so the iPhone is the voice
 device, not the sender. The film on the MacBook alone, voice and all, is the simplest fallback.
 The native Android TV client (Phase 3) later runs on that television directly.
+
+---
+
+## D178 — The first release is for two people: the owner at home and one person remote, watching together with subtitles
+
+**Decided** (2026-09-23), by the project owner, settling D176's open restructure: *"I only care
+about me and my gf for now. I'll need subtitles because so many movies have terrible audio when
+played through my TV (too loud background with too quiet voice)."*
+
+### 1. The rule
+
+**The first cut is defined by its two users**, and a feature is in it only if one of them needs
+it. Everything else keeps its rank in [FEATURES.md](../../FEATURES.md) and its place in the phases,
+and is ordered later. **The schema still lands whole**: every table on the register's
+obligations list exists from the first release even if nothing fills it yet — the retrofit
+argument ([principles §12](../principles/README.md)) is about tables, not features, and it is
+unchanged.
+
+### 2. What is in it
+
+| Need | Features |
+| --- | --- |
+| a library that is right | scan (F1), identify with the ambiguous-match chooser and manual fixes (F2, F26, D170–D172), the four levels and versions (F3, F20), extras (F19), NFO read, **what the scanner saw** (F88) |
+| playing it in a browser | direct play (F4), negotiation (F9), **remux to fMP4 and audio transcoding** — mandatory rather than optional, because browsers and Chromecast refuse MKV and most of TrueHD, DTS and AC-3 |
+| finding and resuming | browse and search (F5), play state and Continue Watching (F7), artwork (F10) |
+| **subtitles** | embedded and sidecar tracks with fonts and libass rendering (F8); **a sync offset control** (D90); **acquisition on request** for a title that has none (F27's fetch half — per title, by a person, which is also the only thing OpenSubtitles' 20 downloads a day permits); a preference to have them on by default (the minimal part of F33) |
+| **quiet dialogue** | [D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)'s **dialogue boost**, see §3 |
+| two users | local accounts and sessions (F6), invite from outside (F90) |
+| watching together | Watch Together for two with voice (F35, D175), reachability (port-forward or the relay), prepared ~8 Mbps versions (Phase 4a), the cast receiver for her television (F21, D177) |
+| keeping it running | backup and restore (F12), now playing (F89) |
+| the architecture | media nodes (F13), the web client good on a phone (F11, D176) |
+
+### 3. The dialogue problem is a downmix problem, and the fix is already designed
+
+*"Too loud background with too quiet voice"* on television speakers is almost always a **5.1 mix
+folded down to stereo**. Dialogue lives in the centre channel; a standard downmix attenuates it
+and sums the surrounds and effects on top. Jellyfin ships five downmix algorithms and its own
+documentation records a quiet-dialogue complaint against nearly every one.
+[D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device) already chose one default matrix plus a **dialogue-boost** control — centre
+gain in the downmix — as a per-user preference. It belongs in this cut, and it is cheap:
+
+- **It needs the downmix, not the loudness scan.** Loudness normalisation needs a 31-hour
+  measurement pass over the library; the dialogue boost needs only the audio transcode path this
+  cut already requires. The measurement pass stays later.
+- **It only works if we do the downmix.** If the television receives 5.1 and folds it down
+  itself, our boost never runs. So the device declares *"my output is stereo speakers"* (the
+  same per-device declaration D83 uses for dynamic range) and the server sends a boosted stereo
+  mix to it.
+- **Subtitles and boost are complements:** subtitles for the films where boost is not enough.
+
+### 4. What is out, for now
+
+Roles and parental controls (F16) — two adults; the `role` table still exists. Collections as
+sequences (F17), orderings beyond aired (F18 — schema only), offline download (F22), segment
+detection (F23), **loudness measurement** (F24's pass), trickplay (F25 — a 9.2-day pass),
+**subtitle verification** (F27's speech map — a 31-hour pass; the offset control covers the
+failures by hand meanwhile), NFO write (F29), TV pairing and the native TV client (F30, F34),
+ceilings and adaptation (F31, F32), the Jellyfin adapter (F38), OIDC/LDAP, the rules engine's
+authoring surfaces, play statistics (F39), and live bandwidth transcoding.
+
+**Phase 0 narrows accordingly:** the survey question is now what fraction of the owner's
+library direct-plays in Chrome, Safari and a Chromecast, and what the remainder needs — remux,
+audio, or video.
+
+**Status:** Decided. ROADMAP gains a "Cut A" section ahead of the phases; FEATURES marks the cut.

@@ -47,6 +47,16 @@ Change a rank, strike a row, add one — it is yours. Two rules keep it from rot
    *what keeps it possible* — the declined table has that column precisely so that a decline
    is reversible.
 
+## Cut A — what ships first
+
+**[D178](contributors/decisions/working-notes.md):** the first release is for two people — the owner at home and one person remote,
+watching together with subtitles. Ranks say how much we care; the cut says what comes first.
+**The obligations below are owed regardless of cut.**
+
+In Cut A: F1–F13, F19, F20, F26, F88, F89, F90; F35 for two with voice; F21's cast receiver; F27's
+fetch-on-request half; the minimal part of F33 (subtitles on by default); D83's dialogue boost
+from F24. Everything else follows it. [ROADMAP.md](ROADMAP.md) has the detail.
+
 ---
 
 ## Rank 0 — Essential
