@@ -8013,7 +8013,7 @@ What follows, and is new:
   lives as long as the session and is then gone. No account, no password, no recovery, no
   lingering grant — which is also why a leaked link is survivable: there is nothing to clean up
   but the session.
-- **A guest accrues no play state, history or statistics.** They are not a `(user, edition)`
+- **A guest accrues no play state, history or statistics.** *(Refined by [D191](#d191--watch-together-behaves-as-if-nobody-has-an-account-a-signed-in-participants-viewing-is-also-recorded-as-their-own): a guest who is **not signed in**. A signed-in participant's viewing is also recorded against their own account.)* They are not a `(user, edition)`
   key ([D81](#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative)) because there is no user. **The host's position advances**,
   because it is the host's library, the host's session and the host's choice of what plays
   ([D122](#d122--the-session-is-the-object-what-plays-is-mutable-state-on-it-and-a-guest-sees-the-stream-rather-than-the-library)).
@@ -14686,7 +14686,7 @@ What is new is **how the playback device gets there**, tried in this order:
 
 | # | Path | Needs | Known risk |
 | --- | --- | --- | --- |
-| 1 | **The television's own browser** opens the web client in a playback mode, signed in by a code shown on the TV ([D93](#d93--device-pairing-is-rfc-8628-shaped)) | nothing installed | TV browsers' codec and HLS support; remote focus in a web page; a Google TV device has no browser by default |
+| 1 | **The television's own browser** opens the web client in a playback mode, ~~signed in by a code shown on the TV ([D93](#d93--device-pairing-is-rfc-8628-shaped))~~ **joining the session as a device of her membership, by link or short code** ([D191](#d191--watch-together-behaves-as-if-nobody-has-an-account-a-signed-in-participants-viewing-is-also-recorded-as-their-own)) | nothing installed | TV browsers' codec and HLS support; remote focus in a web page; a Google TV device has no browser by default |
 | 2 | **Our cast receiver**, launched once from Chrome on her MacBook; it then holds `playback` and talks to the server itself, while her phone holds `voice` and `control` through the web page | Cast registration ($5), HTTPS | **the Cast web sender runs only in Chrome, so her iPhone cannot launch it**; the laptop does it once per session |
 | 3 | **A prototype Android TV app**, sideloaded ([tv-client.md](../design/plans/tv-client.md)) | a Google TV or Android TV device; `adb` or a limited-distribution developer account (up to 20 devices) | the prototype is the start of Phase 3, early |
 | 4 | **Fallback: the laptop plays** and her phone or laptop talks | nothing | not the living room |
@@ -14985,3 +14985,105 @@ devices:**
 - the S23's AV1 decode
 - which Fire TV sticks run Vega OS
 - whether a capture card sees HDCP-protected output
+
+---
+
+## D191 — Watch Together behaves as if nobody has an account; a signed-in participant's viewing is also recorded as their own
+
+**Decided** (2026-09-23), by the project owner, answering the audit's P6
+([audit-2026-09-23.md](../design/research/audit-2026-09-23.md) §1.4): *"For watch together, we
+record user playback data if they have an account, but it's just an extra thing we do if the
+user is logged in. The main functionality behaves like 'no account'."*
+
+### 1. The rule
+
+**The session never depends on an account.** Joining, syncing, voice, the transport and every
+role work for a participant who holds only the link, exactly as
+[D117](#d117--the-session-link-is-the-grant-revocation-is-the-control-and-the-creator-owns-what-plays)–[D122](#d122--the-session-is-the-object-what-plays-is-mutable-state-on-it-and-a-guest-sees-the-stream-rather-than-the-library)
+designed. **Being signed in adds one thing: your viewing is recorded against your own account**,
+as positions and spans on the File that played, the same records solo viewing makes. The
+host's viewing is recorded as before.
+
+So the audit's question — *whose play state advances when the two of them watch together?* —
+has the obvious answer: **each signed-in person's own, and nobody else's.** An anonymous
+participant still accrues nothing, which keeps
+[D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)'s
+reason intact: a link-holder never acquires a durable identity from the session.
+
+### 2. What it changes
+
+- **[D125](#d125--access-is-role-based-with-two-roles-a-watch-together-guest-is-not-a-principal)
+  is refined in place.** *"A guest accrues no play state"* now reads *"a guest who is not
+  signed in"*. The session still grants a signed-in participant nothing beyond the stream. If
+  she can browse the library, that comes from her account, not from the session.
+- **A device attached to a signed-in person records for that person.**
+  [D120](#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people)
+  already makes a participant a person with devices attached by role. Her television (playback
+  role) and her phone (voice) are one membership, so the TV's viewing is recorded under her
+  account when **either** device is signed in. The TV itself need not be.
+- **Her television joins the session, not the server.**
+  [D188](#d188--the-interface-is-designed-against-the-fields-recorded-failures-accessibility-shapes-the-design-but-does-not-gate-cut-a-her-television-plays-and-her-phone-talks)'s
+  path 1 had the TV browser *"signed in by a code"* (D93). Under this rule it only needs to
+  **join the session as a device of her membership**, by the session link or a short code shown
+  by her phone. Device pairing (F30) therefore stays out of Cut A, which resolves the audit's
+  contradiction between D178 §4 and D188. Pairing returns when she wants to watch on that
+  television alone.
+- **The audit's proposal is withdrawn.** P6 proposed admitting only signed-in users. The link
+  stays, and so do rotation, the cap and ejection, the parts of D119 that protect an anonymous
+  session.
+
+**Status:** Decided. D125 and D188 refined in place;
+[watch-together.md](../design/plans/watch-together.md) amended.
+
+---
+
+## D192 — Built in a private repository, tested at home, released through public betas; standards follow the final stack
+
+**Decided** (2026-09-23), by the project owner: *"The initial development time will be me (and
+sometimes my gf) testing internally. I'll have a repo on github, but it will be private until
+I'm satisfied that it's ready for public release. We'll do a series of betas like we do for
+yoloai, until I'm satisfied that we've got a solid base."*
+
+### 1. Three stages
+
+| Stage | Who | What it means |
+| --- | --- | --- |
+| **Internal** | the owner and their partner | A private GitHub repository. Cut A ([D178](#d178--the-first-release-is-for-two-people-the-owner-at-home-and-one-person-remote-watching-together-with-subtitles)) is this stage's target. Nothing is published. |
+| **Public betas** | anyone | The repository goes public. `0.x` releases, yoloAI's model: every breaking change is written in a `BREAKING-CHANGES` file, and the next version escalates the moment something breaking lands. |
+| **Stable** | anyone | When the owner says the base is solid. The compatibility contract ([D85](#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols)) and the migration policy's promises to strangers ([D181](#d181--the-migration-policy-two-integers-our-own-small-runner-a-snapshot-that-outlives-success-refuse-what-we-cannot-read-and-re-derive-rather-than-transform)) are binding from the first public beta, because a stranger's database is the thing that cannot be rebuilt. |
+
+### 2. What the internal stage changes
+
+- **Packaging is only what the lab needs.** The binary plus systemd units, or the `.deb`, on
+  the host that runs Cut A. The audit's public channels ([audit-2026-09-23.md](../design/research/audit-2026-09-23.md)
+  §6) — the image, the signed repository, NAS catalogues, the release feed — are **beta-stage
+  work**. Their pipeline is built before the first public beta, not before Cut A.
+- **The Cast receiver stays unpublished**, and her device is registered by serial number. A
+  private repository cannot use free GitHub Pages hosting, so the receiver is served from the
+  owner's own server under its public HTTPS name (audit §1.3). That is simpler anyway, and it
+  has to exist for the microphone.
+- **Nothing ties the internal stage to GitHub's public services.** No public release URLs and
+  no public issue tracker. The Android APK, if a prototype is needed (D188 path 3), is installed
+  from the owner's server or over `adb`.
+- **The licence files ([D80](#d80--licence-by-artefact-gplv3-for-the-server-mpl-20-for-the-clients-and-the-sdk))
+  go in at the first commit anyway.** They cost nothing, and a private repository that later
+  goes public must not need a relicensing pass.
+
+### 3. Standards follow the final stack
+
+Once the technology set is settled (the audit's P7), **write the per-technology standards**,
+modelled on yoloAI's `standards/`. Their four aims, in the owner's words:
+- **Human readability.**
+- **Low complexity, enforced by tooling**, as yoloAI enforces it.
+- **Understandable without chasing definitions:** names that say what a thing is. yoloAI does
+  this too.
+- **Linting that catches LLM errors early.**
+
+**At the same time:**
+- review yoloAI's principles for any that transfer;
+- study how yoloAI has used Go, the problems it hit, and how it solved them.
+
+That is one research round, and its output is `standards/` plus any principles adopted.
+
+**Status:** Decided. The standards round is scheduled after P7.
+[ROADMAP.md](../../ROADMAP.md) notes the stages.

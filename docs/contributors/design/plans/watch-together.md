@@ -152,6 +152,14 @@ because the opposite is the natural implementation — a membership looks enough
 get a row — and **a guest who acquires a durable identity is a griefer who survived
 rotation**.
 
+**Signing in adds recording and nothing else** ([D191](../../decisions/working-notes.md#d191--watch-together-behaves-as-if-nobody-has-an-account-a-signed-in-participants-viewing-is-also-recorded-as-their-own)). The session behaves as though
+nobody has an account. A participant who *is* signed in — on any of their devices — also has
+their viewing recorded against their own account, exactly as solo viewing would record it; the
+host's is recorded as always. So when the owner and their partner watch together, **each of their
+histories advances**, and a link-holder who is not signed in still accrues nothing. Her
+television joins as a device of her membership by the link or a short code; it needs no
+sign-in of its own.
+
 So recovering from a leak never disturbs anyone:
 
 1. **The owner rotates the join link.** The old one **stops admitting new clients and keeps
