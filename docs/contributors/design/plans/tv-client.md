@@ -154,6 +154,15 @@ player complaints are about it treating the remote as a pointer:
 - **Long-press on a Continue Watching item offers "hide"**, with undo
   ([play-state.md](play-state.md)).
 
+## Focus never costs legibility
+
+[D189](../../decisions/working-notes.md). Focus **adds** a two-colour ring, a lift and at most a small scale.
+It never darkens, dims or overlays the focused tile, and never covers its title. The scale is
+bounded by the gutter, so a focused tile never covers a neighbour, a row header or a title, and
+unfocused rows are not dimmed (Leanback's default is to dim them). Apple: *"make sure the larger
+item doesn't crowd the surrounding interface."* The focus prototype above is where the gutter
+and scale are fixed, on the real televisions.
+
 ## Accessibility on a television
 
 [accessibility.md](accessibility.md), [D90](../../decisions/working-notes.md). The caption
