@@ -13519,7 +13519,7 @@ Individual fixes are what manual fields are for.
   landing place: it is filed on local data, marked, and fixed through this same screen.
 
 **Status:** Decided. Schema and queue due with `library-model.md` and `identification.md`; the
-screen is [web-client.md](../design/plans/web-client.md)'s metadata editing surface. **External scores and the thin-metadata refresh answered by
+screen is [web-client.md](../design/plans/web-client.md)'s metadata editing surface. **Layered by [D182](#d182--metadata-is-a-stack-of-layers-with-one-fetched-layer-re-derivation-reads-only-stored-input-a-new-config-requirement-is-a-default-a-derivation-or-a-question)**: user overrides over one source (an NFO *or* one provider) over local fallbacks. **External scores and the thin-metadata refresh answered by
 [D171](#d171--external-scores-are-a-ranked-list-the-first-source-with-a-score-is-the-one-shown-named-and-the-detail-screen-may-show-several)** (2026-09-23).
 
 ---
@@ -14280,4 +14280,94 @@ database.
 - **[api-compatibility.md](../design/plans/api-compatibility.md)** is unchanged; it is this
   policy's third class.
 
-**Status:** Decided. Due before Cut A stores anyone's data.
+**Status:** Decided. Due before Cut A stores anyone's data. **Refined by [D182](#d182--metadata-is-a-stack-of-layers-with-one-fetched-layer-re-derivation-reads-only-stored-input-a-new-config-requirement-is-a-default-a-derivation-or-a-question)**: re-derivation reads stored input only; fetched data is migrated, never refetched; config keys are a default, a derivation, a question, or a refusal with a remedy.
+
+---
+
+## D182 — Metadata is a stack of layers with one fetched layer; re-derivation reads only stored input; a new config requirement is a default, a derivation, or a question
+
+**Decided** (2026-09-23), by the project owner, reviewing [D181](#d181--the-migration-policy-two-integers-our-own-small-runner-a-snapshot-that-outlives-success-refuse-what-we-cannot-read-and-re-derive-rather-than-transform):
+
+> *"For re-deriving data, we need to be careful because we allow user-overriding of data, and
+> also any derived data not derived from the files themselves could drift over time.*
+>
+> *When we allow user-overrides of metadata, it's actually an overlay on top of another source
+> (NFO file, IMDB, etc). Would we end up with a situation where we have IMDB as a base 'layer',
+> with some fields overridden by the NFO, and others by the user?*
+>
+> *What if we discover that an initial config file (created by the user) needs more info than we
+> had in an older version?"*
+
+### 1. Yes: metadata is a stack, and only one layer is ever fetched
+
+Per field, the value shown is the highest layer that has one:
+
+| Layer | Holds | Scope | Where it lives | Changes when |
+| --- | --- | --- | --- | --- |
+| **1. User override** | a value a person typed, or an NFO field marked `lockedfields` | per field | database, mirrored to the NFO ([D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters)) | only the person changes it |
+| **2. The title's source** | **one** of: the NFO beside the file, or one provider | per title | the NFO file itself, or the provider's cached response | the NFO changes on disk, or the user refreshes ([D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)) |
+| **3. Local fallbacks** | embedded container tags, then the filename parse | per field | stored observations | a rescan or a parser improvement |
+
+So the owner's example is exactly the shape: TMDB as the base, some fields from the NFO, some from
+the user — **except that the NFO and a provider are not stacked on each other.** They are
+alternatives for layer 2, which is what keeps D170's promise: **one fetched source per title, and
+nothing merged across providers.**
+
+- **An NFO beside the file is the title's default source**; without one, the library's default
+  provider is. Choosing *"use TMDB for this title"* on the D170 screen switches layer 2 without
+  touching layer 1.
+- **This refines [identification.md](../design/plans/identification.md)'s import rule**, which
+  read a whole NFO as a user override. A Kodi NFO is usually a **full scrape** — plot, cast,
+  ratings — and treating every field as permanent would freeze it forever. Only the fields a
+  person **locked** are layer 1; the rest is a source.
+- **Fields missing from the source fall through to layer 3** — a title with no provider match
+  still has the filename's year.
+- **The layers are stored, and the column is a cache of the resolution**
+  ([principles §14](../principles/README.md)) — the column the rules engine and the poster grid
+  read.
+
+**One conflict needs a rule, because we both read and write the NFO.** We write a user's override
+into the NFO; later another tool, or the user in a text editor, changes that field on disk. Both
+are a person. **The later change wins, and the conflict is shown** — *"the NFO changed on disk
+after you edited this"* — never resolved silently.
+
+### 2. Re-derivation reads stored input, never the world
+
+D181 said derived data is dropped and re-derived rather than transformed. The owner's correction:
+some "derived" data was not derived from the files, and refetching it gets a **different** answer
+— the provider changed, rate limits bite, and D170 forbids refetching unasked. So the classes are
+three, not two:
+
+| Data | A migration may |
+| --- | --- |
+| derived from **stored input** — raw probe output, verbatim filenames, cached provider responses, NFO files | **drop and re-derive** it |
+| **fetched** from a third party, with no stored response | **migrate it in place**; never refetch |
+| **authored** — layer 1, choices, corrections | migrate it in place, and **re-derivation never touches it**, because it sits above whatever is re-derived |
+
+**Drift is honest, not avoided.** A parser improvement re-derives layer 3 and may change what an
+item shows; that is the point of D59's replayability. It cannot change anything a person set,
+because layer 1 is above it, and it cannot change a title's identification that a person
+confirmed ([D172](#d172--a-low-vote-count-is-shown-not-hidden-an-ambiguous-match-is-never-guessed-and-selecting-it-asks-rather-than-plays)), because a confirmation is layer 1 too.
+
+### 3. A config file that needs something new
+
+*"Never rewritten unasked"* holds, and a new version needing more than an old file says is handled
+in this order:
+
+1. **A default.** Every new key has one where a default is safe — which is almost always, because
+   the file holds only what must exist before the database opens (D181).
+2. **A derivation from what is there.** If an old key is split or renamed, the new value is
+   derived from the old one **in memory**, with a warning naming the new key. The file is not
+   touched.
+3. **A question.** If neither is safe, and the value does not have to exist before the database
+   opens, **it is not a file key at all**: the server starts and asks for it in the admin UI, and
+   it is stored in the database.
+4. **A refusal with a remedy.** Only if the value must exist before the database opens and cannot
+   be defaulted: the server refuses to start, names the key, shows an example, and offers
+   `config upgrade`, which writes the new file **when run** and keeps the old one beside it.
+   Running it is the asking.
+
+**Rule for anyone adding a key:** it states which of the four it is. The fourth needs a reason.
+
+**Status:** Decided. identification.md's import rule refined; migrations.md's classes split;
+[D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)'s "which fields are manual" is layer 1 of this stack.

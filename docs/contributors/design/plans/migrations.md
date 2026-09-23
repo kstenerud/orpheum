@@ -21,7 +21,8 @@ those loses data.**
 | Class | Examples | Policy |
 | --- | --- | --- |
 | **Irreplaceable, in the database** | watch state, spans, preferences, tags, roles, grants, identity rows ([D179](../../decisions/working-notes.md)) | **migrated**, carefully — everything below |
-| **Derived, in the database** | the library index, probe results, sort keys, FTS, filings | **dropped and re-derived** by rescan or re-interpretation ([D59](../../decisions/working-notes.md)), never transformed in place |
+| **Derived from stored input** | the library index, sort keys, FTS, filings — anything computed from raw probe output, verbatim filenames, cached provider responses or NFO files | **dropped and re-derived** from that input ([D59](../../decisions/working-notes.md)), never transformed in place |
+| **Fetched, with no stored response** | provider values whose raw response is gone | **migrated in place; never refetched** by a migration — a refetch drifts, floods, and is the user's act ([D170](../../decisions/working-notes.md), [D182](../../decisions/working-notes.md)) |
 | **Authored files, read before the database opens** | startup config, a node's roots ([D107](../../decisions/working-notes.md)) | versioned; old versions read forever; **never rewritten by us without being asked** |
 | **Our files, read later** | trash manifests ([D145](../../decisions/working-notes.md)), backups, sidecars | versioned; every past version readable forever |
 | **Formats read by another version** | node ↔ core exchange, offline span uploads, the API ([D85](../../decisions/working-notes.md)) | versioned per message; tolerant readers; a stated skew window |
@@ -159,6 +160,11 @@ only for a measured reason, and then it is a named constant with its reason besi
 
 ## Files
 
+- **A new version needing more than an old file says** ([D182](../../decisions/working-notes.md)):
+  a **default**; else a **derivation** from the old keys, in memory, with a warning; else it is
+  **not a file key** — the server starts and asks in the admin UI; else, only for a value needed
+  before the database opens, a **refusal naming the key** and a `config upgrade` command that
+  writes the new file when run, keeping the old one. Anyone adding a key says which of the four.
 - **Every authored file carries a `version`**, and every past version is readable. Deprecated
   keys are accepted with a warning naming the replacement.
 - **We never rewrite a file a person wrote** unless they changed a setting through our UI, and then
