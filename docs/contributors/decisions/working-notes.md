@@ -13810,7 +13810,7 @@ Deferred, so only the doors:
 with a token his server mints within my grant, or through his server — which doubles his
 bandwidth. Measure before choosing.
 
-**Status:** §1 decided and registered; §2 deferred (rank 2 for its obligations).
+**Status:** §1 decided and registered; §2 deferred (rank 2 for its obligations). **§2–§3 corrected by [D177](#d177--a-rebroadcaster-is-a-user-whose-core-treats-our-server-as-a-node-and-his-household-plays-on-derived-grants-that-only-his-core-can-mint)**: the grantee is a user, his core treats our server as a node, and his household plays on derived grants.
 
 ---
 
@@ -13876,7 +13876,7 @@ Together for two, with voice**. Everything else in cuts B–D keeps its place.
 client can cast ([D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)); from an iPhone, Safari cannot use the Cast SDK and the route is
 AirPlay to an Apple TV, or the TV watching the film on its own browser.
 
-**Status:** Decided; ROADMAP reordered.
+**Status:** Decided; ROADMAP reordered. Her devices and the path to her television: [D177](#d177--a-rebroadcaster-is-a-user-whose-core-treats-our-server-as-a-node-and-his-household-plays-on-derived-grants-that-only-his-core-can-mint).
 
 ---
 
@@ -13914,3 +13914,72 @@ AirPlay to an Apple TV, or the TV watching the film on its own browser.
 
 **Status:** Decided. Register and roadmap updated. The release-cut restructure proposed in the
 same audit is **not** decided.
+
+---
+
+## D177 — A rebroadcaster is a user whose core treats our server as a node, and his household plays on derived grants that only his core can mint
+
+**Decided** (2026-09-23), by the project owner, **correcting [D174](#d174--sharing-is-an-account-from-outside-the-house-a-household-behind-a-grantee-is-a-rebroadcast-grant-deferred-and-it-makes-another-server-a-source) §2–§3**, which had
+made the grantee a server:
+
+> *"A grantee is a user, like any other. When he's granted rebroadcast rights, he can plug his
+> account on my server into his core, so my core or relay becomes just another node as far as
+> his side is concerned … We would then need a way for him to grant playback rights on MY
+> server to HIS household accounts, in a way that doesn't allow other third party users to also
+> playback."*
+
+### 1. What changes
+
+- **No new kind of principal.** He is an ordinary user with one more capability on his role,
+  `rebroadcast`. His core signs in *as him* — the same rule every adapter already obeys
+  ([D105](#d105--a-protocol-adapter-acts-as-the-user-never-as-itself): an adapter acts as the
+  user, never as itself).
+- **To his core, our server is a node** — one that answers observations and serves media, with
+  our metadata attached as assertions his side may override. The node's contract must not
+  assume a local filesystem daemon; that is the door this keeps open.
+- **D174's obligation *"a grantee may be a server"* is withdrawn**, replaced by §2's.
+
+### 2. Derived grants: how his household plays without anyone else being able to
+
+The grant table ([D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url))
+gains one column, `parent`. A user holding `rebroadcast` may mint a **derived grant** under
+his own:
+
+| Property | Rule | Why |
+| --- | --- | --- |
+| scope | **within the parent's** — his predicate, never wider | his household sees at most what he does |
+| lifetime | **short** — one playback session, minutes to start | a copied link is worth little |
+| label | an opaque tag from his side naming the household member | so *now playing* (F89) can say "Ben (via Mark)" without us knowing Ben |
+| may mint | **never** — a derived grant has no `rebroadcast` | non-transitive by construction |
+| counted against | **the parent's** stream and bandwidth ceilings | his household is one grantee to us |
+| revoked by | him, or us; **revoking him revokes all of it** | one `UPDATE`, and entitlement is checked at use ([D168](#d168--entitlement-is-resolved-at-the-point-of-use-never-pushed-revocation-needs-no-message-and-the-notification-is-a-latency-optimisation-that-may-always-be-lost)) |
+
+**Only his core can mint**, because minting needs his credential and his core holds it. So the
+set of people who can play is exactly the set of users on his server who his rules allow — which
+is what "his household" means operationally. A third party would need to be a user on his
+server. We cannot stop him adding a friend to his server; that is the same *intent, not
+enforcement* line sharing already draws, and the parent's ceilings bound what it costs.
+
+**Cost of the check:** entitlement already costs 6.64 µs per request; the parent's liveness is
+one more hash lookup (≈3 µs), and depth is always one because a derived grant cannot mint.
+
+### 3. Obligations, revised
+
+- ~~A grantee may be a server~~ → **a grant may have a parent**: narrower, shorter-lived,
+  never able to mint, dead when the parent is.
+- **A node need not be a local filesystem daemon** — it may be another core, acting as a user.
+- Unchanged: a file may be reached through another server; every item carries its source.
+
+**Open for when it is built:** whether his household's bytes come from us directly on a derived
+grant, or through his core. Through his core costs him nothing extra when they are at home — his
+core fetches once and serves his LAN — and doubles his upload only when one of them is away.
+
+**Status:** Decided in shape, deferred in schedule (F91).
+
+**Also recorded here — the remote viewer's devices** ([D175](#d175--watch-together-for-two-remote-moves-to-directly-after-the-web-client-voice-is-there-from-the-start)'s open item): a MacBook Air,
+an iPhone and a Samsung television with Google TV. The best first path is **Chrome on the MacBook
+casting to the television** through our cast receiver
+([D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)),
+with **voice on the iPhone**. Safari on iOS and macOS cannot cast, so the iPhone is the voice
+device, not the sender. The film on the MacBook alone, voice and all, is the simplest fallback.
+The native Android TV client (Phase 3) later runs on that television directly.

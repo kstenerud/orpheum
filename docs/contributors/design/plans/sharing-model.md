@@ -69,12 +69,13 @@ a role, an invite link, and an outsider flag that hides the household from them.
 household member does not already have, minus visibility, plus a finite download lease and a
 ceiling.
 
-**Deferred: the rebroadcast grant.** The grantee is *a server*, whose owner offers the library
-to his own household as a source, prepopulated with our metadata, with his own overlay of tags
-and rules for his children. One hop, never transitive. His household's play state lives on his
-server — this section's *"playback state lives with the media"* applies to a person, not to
-a rebroadcast. What it owes now: a grantee may be a server; a file may be reached through one;
-every item carries its source.
+**Deferred: the rebroadcast grant** ([D177](../../decisions/working-notes.md)). The grantee is
+an ordinary user with a `rebroadcast` capability. **His core signs in as him and treats our
+server as a node**, our metadata arriving as assertions he may override with his own tags and
+rules for his children. **His household plays on derived grants** that only his core can mint:
+within his scope, minutes long, unable to mint further, counted against his ceilings, and dead
+when he is revoked. His household's play state lives on his server. What it owes now: a grant
+may have a parent; a node need not be a local daemon; every item carries its source.
 
 ## Identity
 
