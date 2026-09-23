@@ -106,6 +106,16 @@ class Gates(unittest.TestCase):
         errs = self.run_tree({LIVE: entry(1) + entry(3), ARCH: entry(2)})
         self.assertTrue(any("no '> **Archived" in e for e in errs), errs)
 
+    def test_stale_index_fails_and_fresh_one_passes(self):
+        files = self.base()
+        files[cd.INDEX] = cd.render_index(files[LIVE], files[ARCH])
+        self.assertEqual(self.run_tree(files), [])
+        files[LIVE] += entry(4, "four", "Supersedes [D3](#d3--three).\n\n")
+        self.assertTrue(any("out of date" in e for e in self.run_tree(files)))
+        index = cd.render_index(files[LIVE], files[ARCH])
+        self.assertIn("revisited by D4", index)
+        self.assertIn("*see D3*", index)
+
 
 if __name__ == "__main__":
     unittest.main()

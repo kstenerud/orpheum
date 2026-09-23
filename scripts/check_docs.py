@@ -3,7 +3,8 @@
 # ABOUTME: once, a decision link lands on its decision, and live docs never cite an archived one.
 """Check the Markdown tree's links and decision citations. Exit 1 on any failure.
 
-Run from anywhere: ``python3 scripts/check_docs.py``. Tests: ``python3 -m unittest
+Run from anywhere: ``python3 scripts/check_docs.py``; ``--write-index`` first regenerates
+``decisions/index.md``, which the check otherwise fails on when it is stale. Tests: ``python3 -m unittest
 discover scripts/tests``.
 
 Five checks, each for a failure that has already happened here or in yoloAI, whose
@@ -40,6 +41,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DECISIONS = "docs/contributors/decisions/"
 LIVE_LOG = DECISIONS + "working-notes.md"
 ARCHIVE_LOG = DECISIONS + "working-notes-archive.md"
+INDEX = DECISIONS + "index.md"
 # Dated records: allowed to cite what was current when they were written.
 HISTORY_PREFIXES = (DECISIONS, "docs/contributors/design/research/")
 
@@ -147,9 +149,82 @@ def archive_notes(archive: str) -> dict[int, str]:
     return notes
 
 
+REVISE_VERB = (
+    r"(?:supersed\w*|drops?|amend\w*|refine\w*|correct\w*|closes?|closed|replac\w*|reshap\w*"
+    r"|overturn\w*|retire\w*|withdr\w*|extend\w*|defers?|revis\w*|revers\w*|narrow\w*"
+    r"|simplif\w*|layered)"
+)
+
+
+def entries(log: str) -> dict[int, str]:
+    return {
+        int(re.match(r"## D(\d+)", c).group(1)): c
+        for c in re.split(r"(?m)^(?=## D\d+ — )", log)[1:]
+    }
+
+
+def revisits(ents: dict[int, str]) -> dict[int, set[int]]:
+    """Later decisions that appear to revisit each one. A heuristic, and labelled as one: an
+    entry's own Status line, blockquotes and strike marks naming a later number, plus a later
+    entry saying it supersedes, amends, refines (and so on) an earlier one. It over-reports
+    rather than under-reports, because a missed amendment is the expensive error."""
+    rev: dict[int, set[int]] = {n: set() for n in ents}
+    for n, chunk in ents.items():
+        lines = chunk.split("\n")
+        m = re.search(r"(?ms)^\*\*Status:?\*\*(.*?)(?=\n\n|\Z)", chunk)
+        own = [m.group(1) if m else ""]
+        own += [" ".join(lines[i:i + 3]) for i, l in enumerate(lines) if l.startswith(">") or "~~" in l]
+        rev[n] |= {int(x) for x in re.findall(r"\bD(\d+)\b", " ".join(own)) if int(x) > n}
+        flat = " ".join(chunk.split())
+        for pat in (
+            REVISE_VERB + r"[^.;]{0,60}?\[?D(\d+)\b",
+            r"\[?D(\d+)\b(?:\]\([^)]*\))?(?:'s)?[^.;]{0,40}?\b(?:is|was|are|now)\s+(?:now\s+)?" + REVISE_VERB,
+            r"\bD(\d+)\W{0,3}" + REVISE_VERB,
+        ):
+            for t in re.findall(pat, flat, re.I):
+                if int(t) < n and int(t) in rev:
+                    rev[int(t)].add(n)
+    return rev
+
+
+def render_index(live: str, archive: str) -> str:
+    live_ents, arch_ents = entries(live), entries(archive)
+    rev = revisits(live_ents)
+    succ = archive_notes(archive)
+    out = [
+        "> **ABOUTME:** Generated index of the decision log — one line per decision, with the later",
+        "> entries that appear to revisit it. Rebuild with `python3 scripts/check_docs.py --write-index`.",
+        "",
+        "# Decision index",
+        "",
+        "Generated from [working-notes.md](working-notes.md) and",
+        "[working-notes-archive.md](working-notes-archive.md); do not edit by hand. **Revisited by** is",
+        "found by pattern, not judgement: it over-reports, so read the entries it names before relying",
+        "on a decision, and treat an empty one as *probably* untouched.",
+        "",
+        "## Live",
+        "",
+    ]
+    for n in sorted(live_ents):
+        heading = live_ents[n].split("\n", 1)[0][3:]
+        title = heading.split(" — ", 1)[1]
+        line = f"- [D{n}](working-notes.md#{slug(heading)}) {title}"
+        if rev[n]:
+            line += " — *revisited by " + ", ".join(f"D{x}" for x in sorted(rev[n])) + "*"
+        out.append(line)
+    out += ["", "## Archived", ""]
+    for n in sorted(arch_ents):
+        heading = arch_ents[n].split("\n", 1)[0][3:]
+        title = heading.split(" — ", 1)[1]
+        out.append(f"- [D{n}](working-notes-archive.md#{slug(heading)}) {title} — *see {succ.get(n)}*")
+    return "\n".join(out) + "\n"
+
+
 def check(files: list[str], texts: dict[str, str]) -> list[str]:
     errors: list[str] = []
     anchor_cache: dict[str, set[str]] = {}
+    if INDEX in texts and texts[INDEX] != render_index(texts.get(LIVE_LOG, ""), texts.get(ARCHIVE_LOG, "")):
+        errors.append(f"{INDEX} is out of date with the log; run: python3 scripts/check_docs.py --write-index")
 
     def anchors_of(rel: str) -> set[str] | None:
         if rel not in anchor_cache:
@@ -239,6 +314,10 @@ def check(files: list[str], texts: dict[str, str]) -> list[str]:
 
 
 def main() -> int:
+    if "--write-index" in sys.argv[1:]:
+        live = (ROOT / LIVE_LOG).read_text(encoding="utf-8")
+        arch = (ROOT / ARCHIVE_LOG).read_text(encoding="utf-8") if (ROOT / ARCHIVE_LOG).exists() else ""
+        (ROOT / INDEX).write_text(render_index(live, arch), encoding="utf-8")
     files = tracked_markdown()
     if not files:
         print("check_docs: no Markdown files found — the gate is checking nothing", file=sys.stderr)

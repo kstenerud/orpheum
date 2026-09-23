@@ -11,7 +11,7 @@ Docs for building and changing this project.
 | --- | --- |
 | Understand what we are building and why | [`design/overview.md`](design/overview.md) |
 | See what exists already and how it fails | [`design/research/`](design/research/README.md) |
-| Know *why* a technology was picked | [`decisions/working-notes.md`](decisions/working-notes.md) |
+| Know *why* a technology was picked | [`decisions/index.md`](decisions/index.md) |
 | Find unbuilt work | [`design/plans/`](design/plans/README.md) |
 | Know the coding rules | [`standards/`](standards/README.md) |
 | Know the engineering disposition | [`principles/`](principles/README.md) |

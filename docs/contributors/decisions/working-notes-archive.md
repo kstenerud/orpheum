@@ -7,7 +7,7 @@
 Entries keep their original numbers, headings and text, so a citation still resolves. Each opens
 with a note naming what replaced it. **Only the live log, this archive and `design/research/` may
 cite an archived decision**; everything else cites the successor, and `scripts/check_docs.py`
-enforces that. Rules for when an entry moves are in [README.md](README.md).
+enforces that. Rules for when an entry moves are in [conventions.md](conventions.md).
 
 ---
 
