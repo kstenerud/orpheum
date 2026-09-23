@@ -23,7 +23,7 @@ not dates.
 
 **Decided 2026-09-23** ([D178](contributors/decisions/working-notes.md)). The first release is for the owner at home and one person
 remote, watching together with subtitles. **A feature is in it only if one of them needs it;
-the schema lands whole regardless.** The phases below remain the build order *within* that
+the schema that would preclude a later feature lands regardless; additive tables arrive with their features** ([D180](contributors/decisions/working-notes.md)). The phases below remain the build order *within* that
 rule, and everything the cut leaves out keeps its place after it.
 
 - **Library:** scan, identify, ambiguous-match chooser and manual fixes, versions, extras, NFO

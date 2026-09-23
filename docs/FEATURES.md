@@ -51,7 +51,7 @@ Change a rank, strike a row, add one — it is yours. Two rules keep it from rot
 
 **[D178](contributors/decisions/working-notes.md):** the first release is for two people — the owner at home and one person remote,
 watching together with subtitles. Ranks say how much we care; the cut says what comes first.
-**The obligations below are owed regardless of cut.**
+**The obligations below are owed regardless of cut** — and only those that would *preclude* a feature if missed; additive tables arrive with their features ([D180](contributors/decisions/working-notes.md)).
 
 In Cut A: F1–F13, F19, F20, F26, F88, F89, F90; F35 for two with voice; F21's cast receiver; F27's
 fetch-on-request half; the minimal part of F33 (subtitles on by default); D83's dialogue boost
@@ -134,7 +134,7 @@ scheduled; everything here is expensive to retrofit if the obligation is missed.
 | F47 | **Two-factor / passkeys** | 0 measured, and an expectation anyway | seam | The session model must not assume a single factor. Nothing else |
 | F48 | **A PIN that selects a profile** | **+56 — the loudest single request found** | invariant | A PIN gates a switch on an **already-authenticated device** and may never authenticate. Jellyfin removed theirs for getting this wrong ([D150](contributors/decisions/working-notes.md), [D152](contributors/decisions/working-notes.md)) |
 | F49 | **AirPlay and other receivers** | +11 | invariant | The playback-role abstraction ([D124](contributors/decisions/working-notes.md), [D135](contributors/decisions/working-notes.md)) must stay **protocol-agnostic**. If it hard-codes Cast, every other receiver is a rewrite |
-| F50 | **Deletion** — *designed: [D89](contributors/decisions/working-notes.md); tombstones [D167](contributors/decisions/working-notes.md), [D173](contributors/decisions/working-notes.md)* | 0/120, 0/50, 16/2,205 | free | Precondition already met: the trash is designed and the export uses it ([D144](contributors/decisions/working-notes.md), [D145](contributors/decisions/working-notes.md)). Policy is an *enforced absence* |
+| F50 | **Deletion** — *deferred ([D144](contributors/decisions/working-notes.md)); D89 is the precondition; tombstones for files deleted outside us: [D167](contributors/decisions/working-notes.md), [D173](contributors/decisions/working-notes.md)* | 0/120, 0/50, 16/2,205 | free | Precondition already met: the trash is designed and the export uses it ([D144](contributors/decisions/working-notes.md), [D145](contributors/decisions/working-notes.md)). Policy is an *enforced absence* |
 | F51 | **Artwork type enumeration** (poster/backdrop/logo/banner/disc) | Kodi and Plex both model it | schema | A closed enumeration on the image, at the level it belongs to. Cheap now, a migration later |
 | F52 | **Watch Together surviving a client rewrite** | #2 in the corpus | **invariant** | [D62](contributors/decisions/working-notes.md)'s **six methods per client is a hard budget**, not a description. Plex withdrew the feature in Feb 2025 because it did not survive one ([D150](contributors/decisions/working-notes.md)) |
 | F53 | **Relay gap annotation** — what it saw while the core was away | — | free | Counts and a window, never identities ([D72](contributors/decisions/working-notes.md), [D152](contributors/decisions/working-notes.md)) |

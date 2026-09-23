@@ -14154,3 +14154,55 @@ F88) — naming both paths. Nothing is merged or hidden automatically.
 **Status:** Decided. Schema: identity rows are backup-critical. Node: reports the payload
 hash. Measurements: `/yoloai/cache/bench/hash/` (not in the repo). **D116 amended; the change
 journal is removed from backup's irreplaceable set ([D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path)).**
+
+---
+
+## D180 — A prepared rendition's play state is its source's; additive schema comes with its feature; mistakes are assumed, so migration needs a policy
+
+**Decided** (2026-09-23), by the project owner, answering the critique's two remaining points:
+
+> *"Prepared versions: we can just track the source. Retrofit: I'm fine with adding things
+> later. The purpose of the exercise was to make sure an earlier schema doesn't preclude adding
+> a feature later. However, we must assume that mistakes will be made and we will have to
+> migrate. So we need a migration policy, and I want it well-researched."*
+
+### 1. A prepared rendition records against its source File
+
+A server-prepared rendition ([D175](#d175--watch-together-for-two-remote-moves-to-directly-after-the-web-client-voice-is-there-from-the-start)) is produced from one File without cutting, so its
+timeline **is** the source's, by construction — the one case
+[D158](#d158--we-group-files-for-browsing-and-never-relate-their-timelines-the-continuation-offer-is-withdrawn)'s *"never relate two timelines"* does not reach, because we made it. Positions
+and spans are recorded against the **source** File, so watching the 8 Mbps copy remotely and
+resuming the original at home is one viewing. The rendition itself is a cache
+([D169](#d169--a-lease-is-indefinite-by-default-expiry-is-a-property-of-a-conditional-relationship-and-the-servers-prepared-rendition-is-a-cache-rather-than-a-referent)): it has no play state, no identity row worth backing up, and losing it costs a
+re-transcode.
+
+### 2. The register's purpose is "does not preclude", not "exists now"
+
+The retrofit exercise was never "build every table early"; it was **"make sure an earlier schema
+does not preclude a later feature."** So:
+
+- **Additive schema arrives with its feature.** A new table or column is cheap in SQLite and
+  precludes nothing — loudness, segments, the speech map, certifications, descriptors, scores,
+  home rows, artwork type, the rules field registry.
+- **What Cut A must get right is what would preclude**: keys and identity
+  ([D179](#d179--a-files-identity-is-a-hash-of-its-media-payload-not-its-bytes-a-rebuild-restores-the-identity-rows-and-runs-an-ordinary-scan-duplicates-are-surfaced)), the four levels with optional Edition, position on File, tombstones,
+  the translation split, series as Collections with per-ordering positions, extras as a
+  relation, tags as a join table, the span shape, grant parents, item source, "an item need not
+  have a File", filing on every observation.
+- **[D178](#d178--the-first-release-is-for-two-people-the-owner-at-home-and-one-person-remote-watching-together-with-subtitles)'s "the schema lands whole" is narrowed to that list.** The register's
+  `schema` retrofit label is read the same way: *owed now* only where adding it later would
+  mean reshaping what exists.
+
+### 3. But mistakes are assumed
+
+Getting the preclusion list right reduces migrations; it does not eliminate them. **Some
+decision in Cut A will be wrong, and a real user's database will have to be reshaped.** So a
+migration policy is required before the first release that stores anyone's data — researched to
+the usual standard, commercial players first. *Research in progress; the policy follows as its
+own decision.*
+
+**Also corrected here:** D176 annotated F50 as *"designed: D89"*. Deletion is **deferred**
+([D144](#d144--deletion-is-deferred-not-designed-away-the-policy-is-the-deliverable-and-the-export-already-carries-the-danger));
+D89 is its precondition, not its design.
+
+**Status:** §1–§2 decided; §3 pending research.
