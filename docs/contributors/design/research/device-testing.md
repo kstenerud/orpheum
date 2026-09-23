@@ -98,7 +98,9 @@ mostly scar tissue, and each piece names the failure that caused it. Ranked by v
    - The specimen: a run reported *"7 PASS / 0 FAIL"* and concluded the exact inverse of the
      truth, because the sandbox lacked the capability under test.
    - **Our planned escape test ([D112](../../decisions/working-notes.md)) has this defect.** A
-     denied open inside Docker may be Docker's seccomp, not our Landlock.
+     denied open inside Docker may be Docker's seccomp, not our Landlock. *(Corrected
+     2026-09-23, [audit-2026-09-23.md](audit-2026-09-23.md) §4: Docker 23+ permits Landlock;
+     the denial to rule out is the container's mounts or permissions. The defect stands.)*
    - **Our device lab has it too.** "0 dropped of 0 frames" reads as smooth.
 3. **A fake-binary fixture for the tool we shell out to** (`runtime/apple/build_test.go`). It
    checks the arguments we pass, the environment the worker receives, and that errors carry the
