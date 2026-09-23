@@ -9,7 +9,8 @@
 ## Scope
 
 The first schema. Models multi-version and multi-part items as first-class rather than bolted
-on, keeps provider IDs and field-level provenance in their own tables, and includes the
+on, keeps provider IDs and field provenance — which source a title follows, which fields are
+manual ([D170](../../decisions/working-notes.md)) — out of the value columns, and includes the
 audit/change-journal tables and sync cursor from D8.
 
 Generic enough that audio can be added without a rewrite (D1): `Library`, `Item`, `MediaFile`
@@ -356,7 +357,9 @@ a delete keyed only on a path can destroy a different file that has since appear
   `kind` distinguishing **critic from audience**, which Rotten Tomatoes reports separately and
   which a single column would destroy. The vote count is what makes the score usable, and
   `as_of` is what makes a refresh honest. They are provider data, so they carry provenance
-  like everything else and a user override wins.
+  like everything else and a user override wins. **Each score source is opt-in per library** —
+  it is the one place several sources are fetched per title, and OMDb's free key allows 1,000
+  calls a day ([D170](../../decisions/working-notes.md)).
 - **A home row is an object, and it has an audience.** Plex's `ManagedHub` promotes a
   collection to the home screen with `homeVisibility ∈ {none, all, admin, shared}`. We model
   row *order* as user state ([D138](../../decisions/working-notes.md)) and have nowhere to say

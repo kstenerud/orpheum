@@ -30,7 +30,7 @@ destroyed by a refresh, which is [principles §2](../../principles/README.md) in
   already writes thumbnails; a poster at three sizes is the same kind of work. **The core never
   parses an image at all** ([D99](../../decisions/working-notes.md)): TMDB is community-editable,
   so a poster is attacker-supplied in the ordinary sense, and unlike a film it arrives
-  unprompted during a background refresh. A provider image fetched by the core is bytes in
+  unprompted during a scan's fetch. A provider image fetched by the core is bytes in
   flight, handed to the confined worker. Serving a derived image from `cache/` is not parsing
   it. `threat-model.md` counts 39 CISA KEV entries touching media, image or font parsing;
   CVE-2023-4863 (libwebp, 0-click, KEV 2023-09-14) is the one that shipped inside everything.

@@ -210,8 +210,33 @@ rewriting thousands of files periodically is churn in someone's media tree, whic
   *"artists with the same name are merged while MBIDs are ignored"*. Merging two Person rows
   that turn out to be one human across two providers is the same unsolved merge problem as
   elsewhere.
-- Provider matching, its confidence handling, and what happens to an ambiguous match are
-  **unspecified** and belong with `library-model.md`'s provenance tables.
+- Provider matching and its confidence handling are **unspecified**. An ambiguous match now
+  has a landing place ([D170](../../decisions/working-notes.md)): it is filed on local data, marked, and fixed through the
+  same screen as any other correction.
+
+## Where metadata comes from, and when it is fetched
+
+[D170](../../decisions/working-notes.md), 2026-09-23, by the project owner. **A title follows one source, fetched once.**
+
+- A library has a **default source**. A scan reads the free local sources (filename parse,
+  embedded tags, NFO) and fetches the default source **once per newly identified title** —
+  including a new episode of a series already here, which is a first fetch, not a refresh.
+- The fetch is a **queue behind the scan**, not part of it: a title is listed on local data as
+  soon as it is filed. The queue honours `429` and `Retry-After` and a per-provider budget.
+  Rate limiting delays metadata, never the library.
+- **Per title**, the user may choose another source; the server fetches that one title from it
+  and shows the result. **Per field**, the user may type a value, and **a manual value is
+  permanent** — it is the lock. Choosing a source for that field is how it is removed.
+- **Every refetch is requested by the user** — per title or per library — refetches the
+  selected source, and never touches a manual field. There is no TTL-driven refresh.
+- Stored: the value as a column; the **selected source and provider ID** per title; **which
+  fields are manual**. The last two are what [D141](../../decisions/working-notes.md) writes to NFO. The provider's raw
+  response is kept as a cache (principles §14), so a parser change or switching back to an
+  already-fetched source costs no call.
+
+Why not keep every provider's value and resolve between them: it needs every source fetched for
+every title at scan time. OMDb's free key allows **1,000 requests a day** — 3.5 days for the
+reference library's 3,500 films, against about 90 s from TMDB.
 
 ## When the edition is unknown
 

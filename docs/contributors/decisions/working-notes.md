@@ -358,8 +358,13 @@ detectable.** Provisional; well-evidenced.
 ## D12 — Providers are sandboxed WASM plugins; no in-process plugin code
 
 **Decided.** Metadata providers, scrapers and scrobblers run as **Extism/WebAssembly plugins**
-with an explicit host-capability list, out of the server's address space. Field-level provider
-ranking with recorded provenance. Provider API keys belong to the user.
+with an explicit host-capability list, out of the server's address space. ~~Field-level provider
+ranking with recorded provenance.~~ Provider API keys belong to the user.
+
+**Amended by [D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)
+(2026-09-23):** no per-field merge across providers. A title follows one source, fetched once;
+manual fields are permanent; every refetch is requested by the user. The TTL in
+tech-metadata.md's *"cache everything, with a TTL"* goes with it.
 
 **Why.** ([tech-metadata.md](../design/research/tech-metadata.md)) Navidrome demonstrates the
 model — plugins in Go, Rust, Python or TypeScript, sandboxed, with host services for HTTP,
@@ -13375,3 +13380,138 @@ and moves the one remaining expiry onto the share where its owner can see it. No
 every quantity here is a policy choice, and the number D168 flagged as wanted — *how long a
 lease should be* — turns out to be **wanted only for shares**, which is a much smaller and more
 answerable question than the household-wide one it was filed under.
+
+---
+
+## D170 — One source per title, fetched once: a user's correction is permanent, and every refetch is an act of the user
+
+**Decided** (2026-09-23), by the project owner, after this log had been drifting towards
+keeping every provider's value for every field and resolving between them:
+
+> *"What I actually worry about is flooding data providers at scan time. If you're scanning a
+> fresh library or a library that changed significantly, and grabbing 10 sources for the name
+> on every title, that's going to cause problems if/when rate limiting bites for the user.*
+>
+> *A user being unhappy with the metadata is the exception, not the norm. When a user is
+> unhappy, they select the video they don't like, and we provide options for them to fix it,
+> be it checking a different source from the default, or just manually adding their own.*
+>
+> *When a user adds their own, they're unlikely to want it to ever be changed. If they want to
+> go back to sourced metadata, they use the same UI flow to choose that. We keep track of which
+> source they want so that we can update fixed data, but even that would be a manual 'rescan
+> metadata' event, triggered explicitly by the user."*
+
+**Closes** the question the data-architecture survey left open: *is a metadata field a column,
+or a resolution over a set of sourced values?* **It is a column.** Provenance is two small
+facts beside it, not a table of competing claims.
+
+### 1. Why the claims model was wrong
+
+The case for keeping every source's value — "reset to automatic" and "disable a provider"
+become local recomputations — was real, but **every one of its advantages assumed the
+alternatives were already on hand**, and the only way to have them on hand is to fetch them.
+For every title, at scan time, from every source. That is the flood.
+
+The limits make it concrete (published figures, 2026-09):
+
+| Provider | Limit | Reference library, 3,500 films, one call per title |
+| --- | --- | --- |
+| TMDB | about 40–50 requests/s per IP; 429 beyond | **about 90 s** |
+| OMDb (free key; IMDb, Rotten Tomatoes, Metacritic scores) | **1,000 requests/day** | **3.5 days** |
+| OpenSubtitles | 20 downloads/day (D12) | — |
+
+**One extra source turns a first scan measured in minutes into one measured in days**, and it
+does so on the user's key ([D12](#d12--providers-are-sandboxed-wasm-plugins-no-in-process-plugin-code)),
+so the ban lands on them. The claims model optimises the exception — somebody unhappy with a
+title — by charging the ordinary case for it on every title.
+
+### 2. The model
+
+- **A library has a default source.** A scan reads the local sources, which cost nothing —
+  the filename parse, embedded tags, an NFO sidecar — and fetches the default source **once
+  per newly identified title**.
+- **The fetch is a queue, not part of the scan.** A title is listed as soon as it is filed, on
+  local data; its provider metadata fills in behind it. The queue honours `429` and
+  `Retry-After`, keeps a per-provider budget, and shows its progress in the same place
+  [D163](#d163--every-observed-file-carries-a-filing-with-a-reason-and-what-did-the-scanner-pass-on-is-the-library-browser-with-the-filter-off)'s
+  scan status does. Rate limiting delays metadata; it never delays the library.
+- **Per title, the user may choose a different source.** They open the title, pick a source,
+  the server fetches *that one title* from it and shows what it found, and they accept it or
+  not. One title, one call, on request.
+- **Per field, the user may type their own value, and it is permanent.** Nothing changes a
+  manual value except the user, through the same screen. There is no "lock" to set separately:
+  a manual value is a lock.
+- **Going back is the same screen.** Choosing a source for a field that has a manual value is
+  how the manual value is removed.
+- **A refetch happens only when the user asks.** Per title, or in bulk ("refresh metadata for
+  this library"), through the same queue. It refetches the **selected** source and never
+  touches a manual field. There is no TTL-driven background refresh.
+
+**A newly added file is a first fetch, not a refresh.** A new episode of a series already in
+the library is fetched when it is filed, like any new title. This matters because the obvious
+misreading of "no automatic refresh" is "new episodes never get metadata".
+
+### 3. What is stored
+
+| Fact | Level | Authored by | Where it survives |
+| --- | --- | --- | --- |
+| the value of each field | column | whoever last set it | the database — derivable from the rest |
+| **which source this title follows**, and its provider ID there | per title | the default, or the user | database, backup, **sidecar** |
+| **which fields are manual** | per field | the user | database, backup, **sidecar** |
+| the provider's raw response | cache | — | nowhere that matters |
+
+The two middle rows are exactly what
+[D141](#d141--we-write-nfo-too-and-the-lock-markers-are-the-part-that-matters) already writes: *"the
+user's corrections plus the provider identifiers needed to re-find the work"*, with the manual
+fields as `lockedfields`. **This decision is what D141's lock markers were a picture of.**
+
+The raw response is kept because it is the input
+([library-model-review.md](../design/research/library-model-review.md)'s *keep the input*): a
+parser change that reads a new field out of it needs no refetch, and switching back to a
+source already fetched is free. It is a cache under
+[principles §14](../principles/README.md): losing it costs one fetch, on the user's request.
+
+**The source choice is per title and the manual value is per field**, deliberately. A source
+choice takes the whole record from one provider, because a title whose name came from one
+database and whose cast came from another is the kind of result nobody can explain later.
+Individual fixes are what manual fields are for.
+
+### 4. What this retires
+
+- **[D12](#d12--providers-are-sandboxed-wasm-plugins-no-in-process-plugin-code)'s *"field-level
+  provider ranking"*** and [tech-metadata.md](../design/research/tech-metadata.md)'s *"ranked
+  and merged per field"*. There is no automatic merge across providers. What survives of the
+  intent — "a provider change doesn't silently rewrite a user's library" — is now true by
+  construction, because nothing refetches without being asked and nothing overwrites a manual
+  field when it does.
+- **The TTL in D12's *"cache everything, with a TTL and an explicit refresh"*.** The explicit
+  refresh stays; the TTL goes.
+- **Episode orderings are unaffected.**
+  [D96](#d96--an-episodes-position-is-ordering-season-number-and-a-series-declares-its-orderings)
+  already made the ordering a declared choice at the series, which is this decision's "which
+  source" at series level rather than a per-field merge.
+- **Artwork follows the same rule** — a default source, the user's choice permanent — and
+  [artwork.md](../design/plans/artwork.md) already says so; only its phrase *"a background
+  refresh"* was wrong.
+- **Rebuild-from-empty** ([backup-restore.md](../design/plans/backup-restore.md)) costs one call per
+  title to the selected source — the same as a first scan — because the source choices come
+  back from the backup or the sidecars.
+
+### 5. Open, and what I would do
+
+- **External scores are the flood by definition.** `library-model.md`'s critic and audience
+  scores come from several sources and go stale — OMDb alone is the 3.5 days above. **Each
+  score source should be opt-in per library**, queued at low priority, never blocking anything
+  else, and refreshed only on request like everything else, with `as_of` showing its age. A
+  rule over a score that has not been fetched already treats it as unknown
+  ([rules-engine.md](../design/plans/rules-engine.md)).
+- **Thin metadata from an early fetch stays thin.** A title fetched the day it was released
+  often has no overview and episodes named "TBA", and with no automatic refresh it stays like
+  that. Within this decision the server may *notice* — "14 titles have incomplete metadata" —
+  and offer a one-click refresh. It must not refetch unasked. **To confirm with the project
+  owner.**
+- **An ambiguous match** (identification.md lists it as unspecified) now has an obvious
+  landing place: it is filed on local data, marked, and fixed through this same screen.
+
+**Status:** Decided. Schema and queue due with `library-model.md` and `identification.md`; the
+screen is [web-client.md](../design/plans/web-client.md)'s metadata editing surface.

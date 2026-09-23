@@ -87,7 +87,7 @@ Absent, the product reads as unfinished to anyone arriving from Plex or Jellyfin
 | F23 | Intro and credit segments, typed and provenanced | [D82](contributors/decisions/working-notes.md), [D115](contributors/decisions/working-notes.md) | schema |
 | F24 | Loudness measurement and gain | [D83](contributors/decisions/working-notes.md) | — |
 | F25 | Trickplay and thumbnails | [D102](contributors/decisions/working-notes.md), [D114](contributors/decisions/working-notes.md) | — |
-| F26 | Manual identify and per-field metadata override | [identification.md](contributors/design/plans/identification.md), [D98](contributors/decisions/working-notes.md) | schema |
+| F26 | Manual identify and per-field metadata override | [identification.md](contributors/design/plans/identification.md), [D98](contributors/decisions/working-notes.md), [D170](contributors/decisions/working-notes.md) | schema |
 | F88 ★ | **"What the scanner saw"** — every observed file carries a `filing` with a reason, so the admin can browse what was skipped, errored, filed as an extra or left unidentified, look inside a subtree that was never walked, play it, and say what it is. No incumbent can do this: their skip is a LINQ filter and there is nothing to query ([D163](contributors/decisions/working-notes.md)) | [D40](contributors/decisions/working-notes.md), [D163](contributors/decisions/working-notes.md) | schema |
 | F27 ★ | Subtitle acquisition, verified against the audio before it is offered | [D147](contributors/decisions/working-notes.md), [D148](contributors/decisions/working-notes.md) | schema |
 | F28 | Caption presentation controls (statutory floor) | [D90](contributors/decisions/working-notes.md), [accessibility.md](contributors/design/plans/accessibility.md) | schema |
