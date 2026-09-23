@@ -13514,4 +13514,64 @@ Individual fixes are what manual fields are for.
   landing place: it is filed on local data, marked, and fixed through this same screen.
 
 **Status:** Decided. Schema and queue due with `library-model.md` and `identification.md`; the
-screen is [web-client.md](../design/plans/web-client.md)'s metadata editing surface.
+screen is [web-client.md](../design/plans/web-client.md)'s metadata editing surface. **External scores and the thin-metadata refresh answered by
+[D171](#d171--external-scores-are-a-ranked-list-the-first-source-with-a-score-is-the-one-shown-named-and-the-detail-screen-may-show-several)** (2026-09-23).
+
+---
+
+## D171 — External scores are a ranked list: the first source with a score is the one shown, named, and the detail screen may show several
+
+**Decided** (2026-09-23), by the project owner, answering the first open item of
+[D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user):
+
+> *"Give them a prioritized list. Whichever prioritized source has a score is the one we show
+> (with an indicator of which source it's using). We may even want to allow multiple rating
+> sources that get displayed on the detail screen for a video (IMDB logo + 7.5, tomato logo +
+> 7.9, popcorn logo + 7.1)."*
+
+And the second: **the one-click refresh for thin metadata is confirmed.** The server may count
+titles whose metadata is incomplete and offer to refresh them; it never refetches unasked.
+
+### 1. The shape
+
+- **A library has an ordered list of score sources.** Wherever one score is shown — a poster
+  tile, a list row — it is **the first source in the list that has a score for that title**,
+  with that source's mark beside it. A score is never shown without saying whose it is.
+- **The detail screen may show several**, each with its mark, in list order.
+- Stored as `library-model.md` already has it: `(source, kind, score, vote_count, as_of)` at the
+  Title. Critic and audience are separate rows — the tomato and the popcorn are two `kind`s of
+  one source.
+
+### 2. How it stays inside D170
+
+- **Sources that come free are free.** TMDB's vote average arrives with the TMDB fetch; one
+  OMDb call returns IMDb, Rotten Tomatoes' critic score and Metacritic together. Fetching is per
+  *call*, not per score.
+- **Only the list's first reachable source is fetched at scan time**, and only if the library
+  opted into it (D170 §5). The rest are fetched **when someone opens the detail screen** — one
+  title, a few calls, on a user's act, then kept. A library of 3,500 titles never fetches the
+  third-ranked source for films nobody looked at.
+- **Fallback is a display rule, not a fetch rule.** If IMDb has no score for a title, the tile
+  shows the next source *already stored*; it does not go asking.
+
+### 3. Three things the list must not do (recommendations)
+
+- **Never mix scales in a sort or a rule.** A fallback list puts IMDb's 7.5 (a mean of votes out
+  of 10) next to the Tomatometer's 79% (the share of critics who were positive) — different
+  quantities, not different units. Displaying them side by side with their marks is honest;
+  **sorting "by score" across them is not**. So a sort or a rule names **one source and kind**;
+  the ranked list is for display only. Titles without that source's score sort last as unknown,
+  as [rules-engine.md](../design/plans/rules-engine.md)'s coverage rule already treats them.
+- **Show each score on its own scale.** 79% stays 79%, not 7.9; the mark tells the reader how to
+  read it. (The owner's "tomato 7.9" is exactly the conversion to avoid.)
+- **A score with too few votes counts as absent.** IMDb 9.6 from 11 votes is noise, and a
+  fallback that skips it is better than one that shows it. The threshold is per source, stored
+  with the list.
+
+**Honest limit:** Rotten Tomatoes' audience score (the popcorn) is not in OMDb and Rotten
+Tomatoes has no public API. It is available only through a provider that scrapes, which is a
+plugin's business ([D12](#d12--providers-are-sandboxed-wasm-plugins-no-in-process-plugin-code)),
+not a built-in.
+
+**Status:** Decided. Schema already in `library-model.md`; the list is library configuration;
+the tile and detail rendering belong to the clients.
