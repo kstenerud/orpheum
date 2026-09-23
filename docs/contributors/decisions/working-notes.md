@@ -14370,4 +14370,73 @@ in this order:
 **Rule for anyone adding a key:** it states which of the four it is. The fourth needs a reason.
 
 **Status:** Decided. identification.md's import rule refined; migrations.md's classes split;
-[D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)'s "which fields are manual" is layer 1 of this stack.
+[D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)'s "which fields are manual" is layer 1 of this stack. **Simplified by [D183](#d183--an-override-is-an-override-wherever-its-value-came-from-a-librarys-source-is-asked-not-defaulted-a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts)**:
+an override is an override whatever it was picked from (a frozen copy with its origin noted);
+"an NFO is the default source" becomes a question at library creation; §3's step 1 applies only
+to defaults that are safe to be wrong.
+
+---
+
+## D183 — An override is an override wherever its value came from; a library's source is asked, not defaulted; a default must be safe to be wrong and visible where it acts
+
+**Decided** (2026-09-23), by the project owner, simplifying [D182](#d182--metadata-is-a-stack-of-layers-with-one-fetched-layer-re-derivation-reads-only-stored-input-a-new-config-requirement-is-a-default-a-derivation-or-a-question):
+
+> *"We could just treat any override as 'user override', regardless of where the user overrode
+> from (the NFO, IMDB, TVDB, etc). Then the user can pick and choose where he gets his info from.
+> This won't handle updates in online sources, but I'm not sure if that's such a big idea that we
+> need to explode our data structures to support it.*
+>
+> *I worry about defaults. I've been bitten too many times with defaults that hide behavior the
+> user didn't want."*
+
+### 1. Two layers the user controls, one they do not
+
+| Layer | Holds | Stored as |
+| --- | --- | --- |
+| **Override** | any value a person chose for a field — typed, **or picked from** the NFO, TMDB, TheTVDB or any other source the fix screen can show | `(title, field, value, origin, set_at)` — `origin` says where it was picked from, for display only |
+| **The title's source** | the NFO *or* one provider | as D170 |
+| **Local fallbacks** | embedded tags, the filename | stored observations |
+
+**An override is a frozen copy.** Picking TheTVDB's episode title for one field copies it; if
+TheTVDB later corrects it, the override does not follow. The owner accepts that, and it is what
+keeps the structure one table: **no per-field source bindings, no multi-provider claims.** A
+person who wants the new value picks it again. An NFO's locked fields import as overrides with
+`origin = nfo`.
+
+**What this removes from D182:** nothing structural was built yet, so it removes a *concept* —
+"per-field source" — before anyone implements it. The pick-and-choose the owner wants comes from
+the fix screen fetching one alternative source for one title on request (D170), which already
+existed.
+
+### 2. A library's source is asked when the library is created
+
+D182 made *"an NFO beside the file is the title's default source"* — precisely the kind of rule
+the owner means: invisible, consequential, and discovered only when a title shows the wrong plot.
+So it is **a question at library creation**, with the effect stated:
+
+> *Where should this library's metadata come from?* — **NFO files where present, TMDB for the
+> rest** · **TMDB only, ignore NFO files** · **NFO files only, never fetch**
+
+and the answer is shown on the library's settings page and, per field, on every title's fix
+screen ("from NFO", "from TMDB", "you set this — picked from TheTVDB").
+
+### 3. The rule for defaults
+
+The owner's concern generalises, and it belongs in the principles as
+**[§15](../principles/README.md)**: a default is a decision made on someone's behalf without
+asking, so **it must be safe to be wrong, and visible where it acts.** Where either fails, ask.
+
+The field's example is Plex's *"Empty trash automatically after every scan"*, on by default: when
+a network share drops, a scan sees an empty folder and the library's entries — with their
+matches, collections and watch state — are emptied out, and the user learns the setting existed
+afterwards. It was safe only while the share never dropped, and it was visible only in a settings
+page nobody reads before the loss. D34 and D167's *"absence is never evidence"* is this project's
+answer to that failure; §15 is the rule behind it.
+
+**Consequence for [D182](#d182--metadata-is-a-stack-of-layers-with-one-fetched-layer-re-derivation-reads-only-stored-input-a-new-config-requirement-is-a-default-a-derivation-or-a-question) §3** (a config file needing something new): step 1, *"a
+default"*, now applies only when the default is **safe to be wrong**; otherwise the value is asked
+(step 3) or refused with a remedy (step 4). And a defaulted value is **visible**: the settings page
+marks it *default*, and startup logs each defaulted key once.
+
+**Status:** Decided. [identification.md](../design/plans/identification.md) and D182 amended.
+**An audit of the existing defaults against §15 is owed** — the log says "by default" 42 times.

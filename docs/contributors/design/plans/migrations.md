@@ -161,7 +161,7 @@ only for a measured reason, and then it is a named constant with its reason besi
 ## Files
 
 - **A new version needing more than an old file says** ([D182](../../decisions/working-notes.md)):
-  a **default**; else a **derivation** from the old keys, in memory, with a warning; else it is
+  a **default**, only if it is safe to be wrong and shown as *default* ([principles §15](../../principles/README.md)); else a **derivation** from the old keys, in memory, with a warning; else it is
   **not a file key** — the server starts and asks in the admin UI; else, only for a value needed
   before the database opens, a **refusal naming the key** and a `config upgrade` command that
   writes the new file when run, keeping the old one. Anyone adding a key says which of the four.
