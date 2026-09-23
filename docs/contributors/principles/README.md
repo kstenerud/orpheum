@@ -365,3 +365,31 @@ one mechanism: *a missed invalidation is stale, a missed update is wrong.*
 
 **Bites when:** a client cannot start without a sync, an error path exists only for "cache
 unavailable", or the answer to "what if this is stale?" is a guarantee rather than a fallback.
+
+## §15 — A default must be safe to be wrong and visible where it acts; otherwise, ask
+
+A default is a decision made on someone's behalf without asking them. That is fine when being
+wrong costs nothing and the person can see it happening. It is a trap when it does something
+consequential they never chose and only find out about afterwards.
+
+So two tests, and a default must pass both:
+
+- **Safe to be wrong.** If the default turns out not to be what this person wanted, does anything
+  get lost, exposed, deleted, overwritten, fetched, or spent? If yes, it is not a default; it is a
+  question.
+- **Visible where it acts.** The effect is labelled at the point the person meets it — "from NFO",
+  "default", "not fetched" — not only on a settings page they have no reason to open.
+
+Where a choice is consequential, **ask at the moment it first matters** (creating a library,
+adding a device, the first remote sign-in), state the effect in the question, and show the answer
+wherever it acts afterwards. Asking once is cheaper than a support thread, and far cheaper than a
+loss.
+
+**The field's example:** Plex's *"Empty trash automatically after every scan"*, on by default.
+Harmless while the network share never drops; when it drops, a scan sees an empty folder and the
+library's entries are emptied, and the setting is discovered afterwards. [D34](../decisions/working-notes.md)
+and [D167](../decisions/working-notes.md) — *absence is never evidence* — are this principle's
+first application; [D183](../decisions/working-notes.md) states it.
+
+**Bites when:** a setting's default is chosen because it is "what most people want", without
+asking what it does to the people who wanted something else.
