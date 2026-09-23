@@ -121,12 +121,32 @@ something" and "a dependency upgrade broke Thai line-breaking and a user told us
 
 ## The gates
 
+**Three rules above the list** ([D190](../../decisions/working-notes.md), from yoloAI):
+
+1. **A missing capability fails.**
+   - A test whose prerequisite could exist on this host and does not **fails**.
+   - Only a CI step's or lab job's named list may be absent
+     (`VP_TEST_UNCONTROLLED=nvenc,vaapi,landlock,cast`), and the run prints it.
+   - A test impossible on this platform is not scheduled there and is listed as **uncovered**.
+   - A check fails on any `VP_TEST_*` variable the code reads that nothing sets.
+2. **Every check first shows it can fail**, on a case where failure is certain: an escape test
+   whose forbidden open succeeds unconfined; a device probe with a negative control; gate
+   scripts with tests that make them fail; benchmarks that stamp their harness version and list
+   what they did not try.
+3. **Every changed source file must be able to turn a test red.** The old version is restored in
+   a throwaway worktree and some test must fail. A fix only a device can confirm names its
+   verification-queue item in a `Verified-By:` trailer, and a check confirms the item exists
+   and is ticked.
+
+
 - **The confinement is probed and asserted, not assumed** ([D112](../../decisions/working-notes.md)).
   Measured in a stock Linux 6.17 container: `landlock_create_ruleset` returns `ENOTSUP` while
   seccomp is active. Docker is how most people will run this. So the node probes at startup,
   reports what it actually got, the core can say "this node is running FFmpeg unconfined", and
-  the escape test attempts the forbidden open and asserts the denial — skipping **loudly**
-  where the mechanism is absent.
+  the escape test attempts the forbidden open and asserts the denial. ~~Skipping **loudly**
+  where the mechanism is absent.~~ **It fails where the mechanism is absent, unless the step
+  names Landlock as uncontrolled, and it first shows the open succeeding unconfined**, because
+  inside Docker a denial may be Docker's seccomp ([D190](../../decisions/working-notes.md)).
 - **A breaking change to the generated OpenAPI document fails the build**
   ([D85](../../decisions/working-notes.md)), diffed against the last release, waivable only in
   the changelog. This is the thing that would have caught Jellyfin 12.0 removing `/emby/`
@@ -141,6 +161,28 @@ something" and "a dependency upgrade broke Thai line-breaking and a user told us
 - **Apple's `mediastreamvalidator` and `hlsreport`** against our own HLS output — they check
   the specification and the *authoring* specification respectively, and Apple's guidance is to
   run both. **macOS-only**, so this is a release gate on a Mac, not a per-commit step.
+- **Architecture claims are named tests** (`TestArch_…`), cited from the prose, and a gate
+  checks both directions ([D190](../../decisions/working-notes.md)). The first five:
+  - the core never executes FFmpeg
+  - nothing deletes under a media root except the trash writer
+  - the playback decision never branches on client identity
+  - the node imports nothing from the core
+  - only the store package imports SQLite
+- **A fake `ffmpeg` fixture** asserts the arguments, the worker's environment, and that errors
+  carry stderr's tail.
+- **One conformance suite per contract, run against every implementation**, each declaring
+  what it cannot do as an explicit, reasoned skip:
+  - the six client methods: web, cast receiver, TV
+  - the encoder: software, QSV, VAAPI, NVENC
+- **`make check`:**
+  - builds the tagged lab and integration tests
+  - cross-compiles for linux/amd64, linux/arm64 and darwin
+  - pins tool versions, FFmpeg included
+  - runs tests in a hermetic environment
+  - govulncheck, with suppressions that fail once the fix ships
+  - no pull-request-only gates
+- **A Stop hook runs the checks and blocks an agent's turn on failure**, and
+  `agent-failures.md` records each claim the owner had to correct, with what caught it.
 - **An IPv6-only run.** Jellyfin has two open issues from single-stack installs. One matrix row.
 - **Conformance tests ship as part of the plugin contract**
   ([D19](../../decisions/working-notes.md), [D23](../../decisions/working-notes.md)): a

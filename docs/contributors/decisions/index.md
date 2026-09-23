@@ -114,10 +114,10 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D106](working-notes.md#d106--the-adapter-synthesises-the-play-state-sequence-it-cannot-receive) The adapter synthesises the play-state sequence it cannot receive
 - [D107](working-notes.md#d107--the-node-channel-is-mutually-authenticated-and-a-nodes-roots-are-local-and-never-remotely-settable) The node channel is mutually authenticated, and a node's roots are local and never remotely settable — *revisited by D154*
 - [D108](working-notes.md#d108--the-interface-is-not-ours-to-change-out-from-under-people-and-an-old-client-stays-installable) The interface is not ours to change out from under people, and an old client stays installable
-- [D109](working-notes.md#d109--five-corpus-tiers-and-nobody-has-to-download-media-to-run-the-suite) Five corpus tiers, and nobody has to download media to run the suite
+- [D109](working-notes.md#d109--five-corpus-tiers-and-nobody-has-to-download-media-to-run-the-suite) Five corpus tiers, and nobody has to download media to run the suite — *revisited by D190*
 - [D110](working-notes.md#d110--every-threshold-gate-compares-against-a-frozen-baseline-and-the-assertion-is-chosen-per-test) Every threshold gate compares against a frozen baseline, and the assertion is chosen per test
 - [D111](working-notes.md#d111--assumptions-is-a-test-directory) `assumptions/` is a test directory
-- [D112](working-notes.md#d112--the-node-probes-its-confinement-and-reports-it-the-escape-test-asserts-what-is-in-force) The node probes its confinement and reports it; the escape test asserts what is in force
+- [D112](working-notes.md#d112--the-node-probes-its-confinement-and-reports-it-the-escape-test-asserts-what-is-in-force) The node probes its confinement and reports it; the escape test asserts what is in force — *revisited by D190*
 - [D113](working-notes.md#d113--a-target-is-a-percentile-at-a-stated-concurrency-at-two-library-sizes-against-a-frozen-baseline) A target is a percentile at a stated concurrency, at two library sizes, against a frozen baseline
 - [D114](working-notes.md#d114--a-pass-costs-what-it-costs-because-of-one-thing-whether-it-decodes-video) A pass costs what it costs because of one thing: whether it decodes video — *revisited by D148, D162, D184*
 - [D115](working-notes.md#d115--intro-detection-is-fingerprint-first-and-chromaprint-needs-a-stereo-downmix-or-it-fails-outright) Intro detection is fingerprint-first, and chromaprint needs a stereo downmix or it fails outright
@@ -195,6 +195,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D187](working-notes.md#d187--users-are-responsible-for-what-they-play-we-never-supply-locate-unlock-or-promote-it--and-the-store-and-legal-constraints-that-follow) Users are responsible for what they play; we never supply, locate, unlock or promote it — and the store and legal constraints that follow
 - [D188](working-notes.md#d188--the-interface-is-designed-against-the-fields-recorded-failures-accessibility-shapes-the-design-but-does-not-gate-cut-a-her-television-plays-and-her-phone-talks) The interface is designed against the field's recorded failures; accessibility shapes the design but does not gate Cut A; her television plays and her phone talks
 - [D189](working-notes.md#d189--focus-adds-to-the-focused-item-and-takes-nothing-from-it-or-its-neighbours) Focus adds to the focused item and takes nothing from it or its neighbours
+- [D190](working-notes.md#d190--the-testing-strategy-devices-report-on-themselves-against-numbers-a-missing-capability-fails-every-check-first-shows-it-can-fail-and-the-lab-is-built-from-what-is-on-the-shelf) The testing strategy: devices report on themselves against numbers, a missing capability fails, every check first shows it can fail, and the lab is built from what is on the shelf
 
 ## Archived
 
