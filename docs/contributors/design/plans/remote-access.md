@@ -3,10 +3,40 @@
 
 # Remote access
 
-- **Status:** PARTLY SPECIFIED — **adaptation gap identified 2026-09-19** ([D86](../../decisions/working-notes.md)); researched 2026-09-18 ([remote-access.md](../research/remote-access.md), [D25](../../decisions/working-notes.md)); NAT traversal and the relay shape settled 2026-09-19 ([D68](../../decisions/working-notes.md), [D71](../../decisions/working-notes.md)). **The mechanism is now chosen**; the hosted-service question remains a product decision, not a technical one.
-- **Depends on:** —
+- **Status:** PARTLY SPECIFIED — **adaptation gap identified 2026-09-19** ([D86](../../decisions/working-notes.md)); researched 2026-09-18 ([remote-access.md](../research/remote-access.md), [D25](../../decisions/working-notes.md)); NAT traversal and the relay shape settled 2026-09-19 ([D68](../../decisions/working-notes.md), [D71](../../decisions/working-notes.md)). **The mechanism is now chosen**; the hosted-service question remains a product decision, not a technical one. **2026-09-23, for Cut A** ([D178](../../decisions/working-notes.md), [D193](../../decisions/working-notes.md) §4–§5): one public HTTPS name with a DNS-01 certificate, reached by a port-forward, IPv6 or a standard tunnel; **our own `relay` role is deferred.**
+- **Depends on:** a domain the owner already holds ([D193](../../decisions/working-notes.md) §5); [threat-model.md](threat-model.md) for the listeners it exposes.
+
+## In Cut A: one name, and the plainest path that reaches it
+
+[D193](../../decisions/working-notes.md) §4–§5, answering the audit's finding that Cut A needs a
+publicly trusted HTTPS name and nothing planned one
+([audit-2026-09-23.md](../research/audit-2026-09-23.md) §1.3). The microphone needs a secure
+context (`getUserMedia`), and so does a password crossing the internet.
+
+- **One public name, `media.<domain>`**, on a domain the owner already holds. It serves the web
+  client, the cast receiver (unpublished and registered to her device —
+  [D192](../../decisions/working-notes.md)) and the embedded TURN server's TLS port
+  ([watch-together.md](watch-together.md)).
+- **The certificate comes from Let's Encrypt by a DNS-01 challenge**, so it is issued and renewed
+  with no inbound port open.
+- **The same name inside the house**, through split-horizon DNS or the router's hairpin NAT, so
+  the owner's devices at home and hers away use one URL and one certificate.
+- **Reachability, in this order:**
+  1. a **port-forward** on the owner's router;
+  2. **IPv6**, where both ends have it;
+  3. a **standard tunnel** — rathole, frp or WireGuard — to a cheap VPS, which
+     [D71](../../decisions/working-notes.md) itself calls fine.
+- **No `relay` role of our own in Cut A.** The design below — dial-out, blind, reporting to the
+  core — arrives when strangers need it. Until then the three-observer diagnosis below has two
+  observers, the core and the client.
+
+Which step Cut A lands on depends on two facts about the owner's line that are not yet measured:
+whether it is behind carrier-grade NAT, and whether it has IPv6 (audit §1.6).
 
 ## The mechanism: a `relay` role the core dials out to
+
+*Deferred past Cut A ([D193](../../decisions/working-notes.md) §4, refining
+[D71](../../decisions/working-notes.md)); the design stands for when it is built.*
 
 Settled by [D71](../../decisions/working-notes.md). A third mode of the same binary, run on any
 publicly reachable host — your VPS, or eventually ours.

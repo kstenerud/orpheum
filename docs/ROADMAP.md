@@ -14,8 +14,12 @@ which added six schema items to Phase 1 and moved one thing out of Phase 4. Revi
 which put a measured *"17 minutes to a browsable library"* under Phase 1 and made the
 first-scan ordering a requirement. Revised **2026-09-21** when Watch Together was settled by
 the project owner ([D117](contributors/decisions/working-notes.md)–[D124](contributors/decisions/working-notes.md))
-and finally acquired a phase. Pre-implementation. Phase boundaries are ordering constraints,
-not dates.
+and finally acquired a phase. Revised **2026-09-23** after a second audit
+([audit-2026-09-23.md](contributors/design/research/audit-2026-09-23.md),
+[D191](contributors/decisions/working-notes.md)–[D193](contributors/decisions/working-notes.md)),
+which moved every media read and FFmpeg run into the node, made **prepare** Cut A's one path
+besides direct play, and froze Cut A's design. Pre-implementation. Phase boundaries are ordering
+constraints, not dates.
 
 ---
 
@@ -23,40 +27,64 @@ not dates.
 
 **Decided 2026-09-23** ([D178](contributors/decisions/working-notes.md)). The first release is for the owner at home and one person
 remote, watching together with subtitles. **A feature is in it only if one of them needs it;
-the schema that would preclude a later feature lands regardless; additive tables arrive with their features** ([D180](contributors/decisions/working-notes.md)). The phases below remain the build order *within* that
-rule, and everything the cut leaves out keeps its place after it.
+the schema that would preclude a later feature lands regardless; additive tables arrive with their features** ([D180](contributors/decisions/working-notes.md)). The phases below are the order *after* the cut
+— Phase 0 and the parts of Phases 1–2b that the cut includes are its own work — and everything
+the cut leaves out keeps its place there. **Where a phase's text below promotes
+something this section leaves out, this section wins.**
+
+**Cut A's design is frozen** ([D193](contributors/decisions/working-notes.md) §8).
+**[plans/cut-a.md](contributors/design/plans/cut-a.md) is the build contract** — topology, byte
+path, repository layout, endpoints, message sets, errors, the job queue and milestones M0–M5 —
+and a new decision is made only when code or a measurement forces one.
 
 - **Library:** scan, identify, ambiguous-match chooser and manual fixes, versions, extras, NFO
   read, *what the scanner saw*.
 - **Playback in a browser:** direct play, negotiation, **remux to fMP4 and audio transcoding**
-  (mandatory — browsers and Chromecast refuse MKV and most of TrueHD, DTS and AC-3).
+  (mandatory — browsers and Chromecast refuse MKV and most of TrueHD, DTS and AC-3), all through
+  **prepare** ([D193](contributors/decisions/working-notes.md)): one node FFmpeg job per File and
+  profile (`remux`, `h264-8m`) writing a growing HLS `EVENT` playlist, so playback starts once the
+  first segments exist. The node does every media read and FFmpeg run; the core authenticates
+  and relays.
+- **Finding and resuming:** browse and search, play state and Continue Watching, artwork.
 - **Subtitles:** embedded and sidecar with libass, a sync offset control, **acquisition on
   request**, on by default as a preference.
 - **Quiet dialogue:** [D83](contributors/decisions/working-notes.md)'s dialogue boost in the downmix, with the device declaring
   stereo speakers. Not the loudness measurement pass.
-- **Together:** local accounts, invite from outside, Watch Together for two with voice,
-  reachability, prepared versions, the cast receiver. **Her television plays and her phone
+- **Together:** local accounts, invite from outside, Watch Together for two with voice (browser
+  WebRTC through a TURN server embedded in our binary), reachability (a port-forward, then IPv6,
+  then a standard tunnel to a VPS, under one public HTTPS name from DNS-01), prepared versions
+  (prepare's `h264-8m`), the cast receiver. The session behaves as if nobody has an account; a
+  signed-in participant's viewing is also recorded as their own
+  ([D191](contributors/decisions/working-notes.md)). **Her television plays and her phone
   talks** ([D188](contributors/decisions/working-notes.md)), by the first path her setup allows: its browser, our cast receiver,
-  a sideloaded prototype, or else the laptop.
+  a sideloaded prototype, or else the laptop — joining the session as a device of her
+  membership, not paired to the server (D191).
 - **Running it:** backup and restore, now playing.
+- **The architecture:** media nodes, and the web client good on a phone — plain React +
+  TypeScript + Vite, with a pinned jellyfin-ffmpeg on the node (D193 §6).
 
 **Built privately, then public betas** ([D192](contributors/decisions/working-notes.md)). Cut A is the internal stage: a
 private repository, the owner and their partner testing. The public packaging channels, the
 release feed and the published cast receiver are beta-stage work.
 
 **Out for now:** roles and parental controls, collections-as-sequences, offline, segment
-detection, loudness measurement, trickplay, subtitle verification, NFO write, the TV client,
-ceilings and adaptation, the Jellyfin adapter, OIDC/LDAP, rules authoring, play statistics,
-live bandwidth transcoding.
+detection, loudness measurement, trickplay, subtitle verification, NFO write, TV pairing and
+the native TV client, ceilings and adaptation, the Jellyfin adapter, OIDC/LDAP, rules authoring
+and the predicate compiler, play statistics, live bandwidth transcoding and live
+segment-addressed remux, our own relay role, the WASM plugin tier (D193).
 
 **Phase 0 narrows:** what fraction of the owner's library direct-plays in Chrome, Safari and a
-Chromecast, and what the rest needs.
+Chromecast, and what the rest needs — remux, audio, or video. The lab owns no Chromecast yet
+([D190](contributors/decisions/working-notes.md) §6), so one has to be bought first.
 
 ---
 
 ## Phase 0 — Measure the number the plan rests on
 
 **[`playback-survey.md`](contributors/design/plans/playback-survey.md)**
+
+*Narrowed for Cut A ([D178](contributors/decisions/working-notes.md) §4): Chrome, Safari and a
+Chromecast only. The `MediaCodecList` and libmpv numbers below wait for the TV client.*
 
 A throwaway tool that `ffprobe`s a real library and asks each target client's **own runtime
 probe** — `mediaCapabilities.decodingInfo()`, `MediaCodecList`, libmpv — what it can actually
@@ -81,9 +109,15 @@ rewritten.
 
 ## Phase 1 — A server that is correct before it is featureful
 
+*Read through Cut A. Of what this phase lists, the speech map and verification, trickplay,
+OIDC/LDAP, the rules engine and its predicate compiler, roles, certifications, typed segments,
+loudness columns and device pairing come **after** the cut ([D178](contributors/decisions/working-notes.md) §4,
+[D193](contributors/decisions/working-notes.md)); their additive tables arrive with their
+features ([D180](contributors/decisions/working-notes.md)).*
+
 `library-model.md` → `scanner.md` → `identification.md` → `stream-service.md`
-*(direct play only)*, with `internationalisation.md` and `rules-engine.md` landing **before**
-the schema rather than after it.
+~~*(direct play only)*~~ *(direct play and prepare, D193)*, with `internationalisation.md`
+~~and `rules-engine.md`~~ landing **before** the schema rather than after it.
 
 Two of those are easy to miss because they are not obviously Phase 1.
 **[identification.md](contributors/design/plans/identification.md)** was split out of the
@@ -99,7 +133,8 @@ so it cannot be deferred. Getting either wrong means the first migration is an i
 
 The schema (**`Title → Edition → Version → File`** with Collections orthogonal —
 [D79](contributors/decisions/working-notes.md) corrected this from three levels on 2026-09-19 —
-provider IDs and field provenance in side tables, audit/change-journal tables from commit one),
+provider IDs in side tables, overrides carrying their origin ([D183](contributors/decisions/working-notes.md)),
+~~audit/change-journal tables from commit one~~ the change journal arriving with its feature, D180),
 the node's snapshot-plus-journal scanner, and the playback service.
 
 **And the first scan has an ordering requirement now, not just a shape**
@@ -110,20 +145,22 @@ library** against days for the full treatment — the user can prioritise one ti
 and the core tails the node's in-progress report so items appear while the scan is still
 running rather than when it ends.
 
-**What ships in the playback service:** ranged direct-play `GET`; the **three-axis rendition
-negotiation** (video ‖ audio ‖ subtitles, [D22](contributors/decisions/working-notes.md));
-**audio transcoding and remuxing**, which are LGPL-only and cover the most common real-world
-transcode; subtitle extraction at scan time with font attachments; **the speech map, and with
-it subtitle verification** ([D147](contributors/decisions/working-notes.md),
+**What ships in the playback service:** ranged direct-play `GET`, relayed by the core from the
+node; the **three-axis rendition negotiation** (video ‖ audio ‖ subtitles,
+[D22](contributors/decisions/working-notes.md)); **audio transcoding and remuxing** — and in
+Cut A a `h264-8m` video encode — all in the node's prepare job
+([D193](contributors/decisions/working-notes.md)); text subtitle extraction with font
+attachments; a **transcode-reason field** that can say "this server cannot transcode video"; and
+a capability handshake, which in Cut A is how a node advertises `remux`, `aac` and its encoder
+(D193 §3). Those last two are the seams that keep further video transcoding additive.
+*After Cut A:* **the speech map, and with it subtitle verification**
+([D147](contributors/decisions/working-notes.md),
 [D148](contributors/decisions/working-notes.md)) — a tenth scan pass costing ~32 s a film and
 1–3 kB of storage, which is what lets us say a subtitle *matches the audio* rather than
 *matches the filename*, and which applies to tracks the user already had as much as to
-fetched ones; trickplay sprites; a
-**transcode-reason field** that can say "this server cannot transcode video"; and a capability
-handshake. Those last two are the seams that keep video transcoding additive — they must exist
-now even though nothing uses them yet.
+fetched ones; and trickplay sprites.
 
-**Two things promoted into Phase 1 by the plugin survey** ([D20](contributors/decisions/working-notes.md)),
+**Two things promoted into Phase 1 by the plugin survey** ([D20](contributors/decisions/working-notes.md)) — both now after Cut A,
 because both are schema-shaped and expensive to retrofit: **auth with OIDC/LDAP** (a third-party
 Jellyfin SSO plugin has 1,458 stars — that is a bug report about a core), and **a rules engine**
 for smart collections, smart playlists and retention (~7,000 stars across plugins and companion
@@ -139,7 +176,7 @@ schema, and `library-model.md` is here:
 - **Typed media segments**, at the Version
   ([media-segments.md](contributors/design/plans/media-segments.md),
   [D82](contributors/decisions/working-notes.md)). The *detector* was already scheduled as a
-  tier-3 plugin; the table it publishes into was never planned, which is exactly the gap
+  ~~tier-3 plugin~~ node capability (D193 §3); the table it publishes into was never planned, which is exactly the gap
   Jellyfin closed in 10.10.
 - **Loudness columns per audio track**
   ([audio-presentation.md](contributors/design/plans/audio-presentation.md),
@@ -178,14 +215,18 @@ schema, and `library-model.md` is here:
   relation rather than a level, because a trailer is neither a cut nor an encoding.
 - **[auth.md](contributors/design/plans/auth.md)**, which had no plan at all. D20 already put
   OIDC/LDAP here; identity, sessions, tokens and **RFC 8628 device pairing**
-  ([D93](contributors/decisions/working-notes.md)) needed an owner.
+  ([D93](contributors/decisions/working-notes.md)) needed an owner. Cut A takes local accounts,
+  sessions and invites; pairing waits until her television is used alone
+  ([D191](contributors/decisions/working-notes.md)).
 
 And **[api-compatibility.md](contributors/design/plans/api-compatibility.md)**
 ([D85](contributors/decisions/working-notes.md)) — not schema, but its CI gate is cheap now and
 its deadline is the first client ship, because our clients go through app stores and
 televisions never update.
 
-**Deliberately absent:** any *video* encoder. Remote access. Sharing. Plugins. Music.
+**Deliberately absent:** ~~any *video* encoder. Remote access. Sharing.~~ Cut A brings a video
+encoder (prepare's `h264-8m`), reachability and invites (D178, D193). Still absent: sharing
+beyond an invite, plugins, music.
 
 ---
 
@@ -214,12 +255,18 @@ rather than a stretch. In order, after the web client:
 
 1. **Watch Together's LAN half** — the sync machinery, six methods, voice.
 2. **Reachability.** A port-forward plus TLS if the owner's ISP allows it; if it is behind
-   carrier-grade NAT, check IPv6, and failing that **the relay ([D71](contributors/decisions/working-notes.md))
-   moves here from Phase 6**. For the remote person it is always just an invite link.
+   carrier-grade NAT, check IPv6, and failing that ~~**the relay ([D71](contributors/decisions/working-notes.md))
+   moves here from Phase 6**~~ a standard tunnel (rathole, frp or WireGuard) to a VPS; our own
+   relay role stays deferred ([D193](contributors/decisions/working-notes.md) §4). One public
+   HTTPS name, certified by DNS-01, serves the web client, the cast receiver and TURN (§5). For
+   the remote person it is always just an invite link.
 3. **Invite someone outside the house** ([D174](contributors/decisions/working-notes.md)) — an
    account, a role, a link.
-4. **Prepared versions** — Phase 4(a)'s batch transcoder, moved forward: a film chosen in
-   advance gets a ~8 Mbps Version and then direct-plays. Live ABR (4b) stays late.
+4. **Prepared versions** — ~~Phase 4(a)'s batch transcoder, moved forward: a film chosen in
+   advance gets a ~8 Mbps Version and then direct-plays~~ prepare's `h264-8m` profile started
+   in advance: "get this ready", or automatically when a session is created (D193 §2). The
+   result is a cache, not a Version ([D169](contributors/decisions/working-notes.md)). Live ABR
+   (4b) stays late.
 5. **Remote Watch Together for two**, with voice from the start; headphones on at least one side
    make every configuration a solved case ([D63](contributors/decisions/working-notes.md),
    [D65](contributors/decisions/working-notes.md)).
@@ -231,28 +278,29 @@ rather than a stretch. In order, after the web client:
 
 ## Phase 3 — The client the project is judged on
 
-`tv-client.md` — Android TV, React Native shell over the shared SDK, Kotlin native player module
-with **Media3 and libmpv side by side**. Under D17 that second engine is not a nicety: it is the
+`tv-client.md` — Android TV over the shared SDK, Kotlin native player module with **Media3 and
+libmpv side by side**. The UI framework is decided by building the same four screens in Compose
+for TV and in react-native-tvos when TV work starts ([D193](contributors/decisions/working-notes.md) §6). Under D17 that second engine is not a nicety: it is the
 main thing standing between "direct play only" and "plays your library". The Android phone
 client then comes nearly free.
 
 **Prototype remote-control focus navigation before writing any real screens.** It is what a TV
-app lives or dies on, research cannot settle it, and it is where React Native on TV is most
-likely to disappoint.
+app lives or dies on, research cannot settle it, and it is what the paired prototype decides.
 
 ---
 
-## Phase 4 — Video transcoding, as a plugin we happen to maintain
+## Phase 4 — Video transcoding, as a node capability
 
 `transcoding.md`, prioritised by what Phase 0 measured.
 
-Built on the **public** plugin API, with no privileged access to the core
-([D19](contributors/decisions/working-notes.md)). That is not tidiness: it is the only way to
-find out whether the plugin API is any good while we still own both sides of it, and it is what
-makes the next paragraph possible.
+~~Built on the **public** plugin API, with no privileged access to the core
+([D19](contributors/decisions/working-notes.md)).~~ **Plugin tier 3 is retired**
+([D193](contributors/decisions/working-notes.md) §3): the encoder is a capability a media node
+advertises (`h264_qsv`, `h264_nvenc`, `x264`), and the core sends a job to a node that can do
+it. That keeps D19's point — no privileged encoder logic in the core — without a plugin API.
 
-Note what Phase 1 already covered: **audio-only transcoding**, which is the most common real
-case. This phase is the *video* remainder.
+Note what Cut A already covers: **prepare**, with `remux` and `h264-8m` — audio transcoding, the
+common case, and a single video profile. This phase is the *video* remainder.
 
 **(a) Compatibility transcoding first** — a *library* problem. Old or odd files, converted
 offline by a background job into a stored alternate version that then direct-plays forever. No
@@ -273,19 +321,19 @@ requirement of remote access. The client-side half is free: under
 SIGCOMM'14 study says the right input is its buffer level rather than a bandwidth estimate.
 
 **The capability that falls out for free: the machine that encodes need not be the machine that
-serves.** A transcoder that registers rather than links can live on the desktop with the GPU
-while the NAS serves files, and several can register with the core picking by advertised
-capability. Nobody in this field offers this — `rffmpeg` (1,073 stars, **written by a Jellyfin
+serves.** A second node can live on the desktop with the GPU while the NAS serves files, and
+the core picks by advertised capability. Nobody in this field offers this — `rffmpeg` (1,073 stars, **written by a Jellyfin
 founder**) is an out-of-tree wrapper that impersonates the `ffmpeg` binary and SSHes to another
 host, because Jellyfin has nowhere to put it.
 
-Ships with its own GPL encoder build: smaller default install, smaller licence and patent
-surface for that install, and a boundary that mechanically stops encoder logic spreading through
-the core — which is how `EncodingHelper.cs` reached 8,042 lines.
+The node process is the boundary that mechanically stops encoder logic spreading through the
+core — which is how `EncodingHelper.cs` reached 8,042 lines. The FFmpeg is a pinned
+jellyfin-ffmpeg portable build; ~~its own GPL encoder build~~ our own hardened build is deferred
+(D193 §4, §6).
 
-**Build the interface last.** Write the transcoder against a private contract, get it working on
-real hardware, then promote the contract to public. An API designed against an imaginary consumer
-is how plugin systems go bad.
+~~**Build the interface last.** Write the transcoder against a private contract, get it working
+on real hardware, then promote the contract to public.~~ There is no public transcoder interface
+to build: the node's job protocol is internal (D193 §3).
 
 ---
 
@@ -319,7 +367,8 @@ directions — and [D86](contributors/decisions/working-notes.md) makes that a d
 than an observation: **remote access ships broken on a bad link without 4(b)**.
 
 The mechanism is settled — the relay is a mode of our own binary that the core dials out to
-([D71](contributors/decisions/working-notes.md)), and a share turned out to be a grantee plus
+([D71](contributors/decisions/working-notes.md); deferred past Cut A, which uses a standard
+tunnel, [D193](contributors/decisions/working-notes.md)), and a share turned out to be a grantee plus
 a predicate, a fourth binding of the rules engine
 ([D76](contributors/decisions/working-notes.md)). What is left here is the product decision,
 not the design.
@@ -337,13 +386,15 @@ differently, and carrying eight decisions. It is here rather than in a phase of 
 because **it splits along the same seam Phase 6 does**:
 
 - **The LAN half is buildable as soon as Phase 2 lands.** It needs `stream-service.md` and the
-  SDK, and nothing else. It exercises the whole sync machinery — clock offsets, suspensions,
+  SDK, and nothing else. It exercises the whole sync machinery — position reports over bounded
+  round-trips (no clock synchronisation, [D66](contributors/decisions/working-notes.md)), suspensions,
   command serialisation, the six-method client surface — with none of the NAT traversal
   ([D62](contributors/decisions/working-notes.md)). Build it there and the hard part is done.
-- **The remote half is Phase 6**, because the motivating case is someone in another house and
-  that is `remote-access.md`. Voice needs no TURN service of its own
-  ([D68](contributors/decisions/working-notes.md)) — both parties are already connected to the
-  media server by construction, so the server relays it.
+- **The remote half is ~~Phase 6~~ Phase 2b** ([D175](contributors/decisions/working-notes.md)),
+  because the motivating case is someone in another house. Voice needs no TURN service of anyone
+  else's ([D68](contributors/decisions/working-notes.md)) — both parties are already connected to
+  the media server by construction, so the server relays it, through a TURN server embedded in
+  our binary ([D193](contributors/decisions/working-notes.md)).
 
 The design constraint is the schedule risk, and it is hard: **the client-specific surface is
 six methods** ([D62](contributors/decisions/working-notes.md)). Five commercial
@@ -413,7 +464,7 @@ authority, not this list:
   deadline is the **OpenAPI breaking-change gate**, which must exist before the first client
   ships ([D85](contributors/decisions/working-notes.md)).
 - **[artwork.md](contributors/design/plans/artwork.md)** — the home page is fifty posters and
-  is an image-serving benchmark. Needed by Phase 2 in practice.
+  is an image-serving benchmark. In Cut A ([D178](contributors/decisions/working-notes.md)).
 
 - **[play-statistics.md](contributors/design/plans/play-statistics.md)** *(new, 2026-09-21)* —
   the best demand-to-cost ratio the source sweep found
@@ -429,8 +480,10 @@ authority, not this list:
 
 **Two things from the same sweep are not new plans and are due earlier than they look.**
 **Per-role bandwidth and concurrent-stream ceilings** ([auth.md](contributors/design/plans/auth.md))
-are schema and they gate the **paid relay** — a relay without them is an unbounded bill, so they
-are due with Phase 1's role object, not with Phase 6. And **external critic/audience scores**
+are schema and they gate the **paid relay** — a relay without them is an unbounded bill. ~~so they
+are due with Phase 1's role object, not with Phase 6~~ Their columns are dropped from the first
+schema and arrive with ceilings, before any relay we run ([D180](contributors/decisions/working-notes.md),
+[D193](contributors/decisions/working-notes.md) §4). And **external critic/audience scores**
 ([library-model.md](contributors/design/plans/library-model.md),
 [rules-engine.md](contributors/design/plans/rules-engine.md)) are Title-level schema with a
 critic/audience split and a vote count, so they land before the model freezes.
@@ -464,22 +517,29 @@ measured demand was **8 reactions** against subtitles' 479.
 ## The risks, ranked
 
 1. **The direct-play rate is lower than assumed.** Phase 0 exists to find out in days rather
-   than months. This is the only risk that rewrites the roadmap rather than delaying it.
+   than months. Prepare ([D193](contributors/decisions/working-notes.md)) now absorbs much of the
+   tail — remux, audio, and one video profile — so a low rate costs node time and first-play
+   latency more than it rewrites the roadmap; live segment-addressed transcoding returns only if
+   that latency is measured to hurt.
 2. **Client cost swamps everything.** Clients are where every project in this field spends its
    effort, and where Plex's fifteen-year lead is real. Phase 5 is the main lever, and bringing
    it forward is the standing hedge.
-3. **TV focus navigation on React Native disappoints.** Fallback is a native Kotlin
-   Compose-for-TV client reusing only the API contract — more work, not a dead end.
+3. **TV focus navigation disappoints.** No longer a bet on React Native: the framework is
+   chosen by building the same four screens in Compose for TV and react-native-tvos
+   ([D193](contributors/decisions/working-notes.md) §6).
 4. ~~**Postgres-only costs installs.**~~ **Resolved** — re-examined and reversed to SQLite
    ([D31](contributors/decisions/working-notes.md)). The residual risk is the opposite one: if a
    genuinely multi-tenant deployment ever appears, adding Postgres means a second set of
    `sqlc`-generated queries.
 5. **Codec patents.** Separate from copyright licence and not resolved by being open source.
-   Direct-play-first reduces a default install's exposure to nearly nothing because it never
-   encodes; get real advice before anything commercial.
+   Direct-play-first reduces a default install's exposure, though Cut A's `h264-8m` profile
+   does encode H.264 — through the hardware encoder where present; get real advice before
+   anything commercial.
 6. **Scope creep into audiobooks, comics, live TV, photos.** The competitive trackers show
    exactly what this costs. The roadmap's job is to keep saying no.
-7. **Plugin-API speculative generality.** Three tiers is already a taxonomy, and taxonomies
+7. **Plugin-API speculative generality.** *Largely retired by
+   [D193](contributors/decisions/working-notes.md) §3: tier 3 dissolved into the node and tier 1
+   is deferred until a third-party provider is asked for.* Three tiers is already a taxonomy, and taxonomies
    invite designing for members that do not exist. Mitigation: every tier must have a real
    first-party member before it is built, and the transcoder's interface is *extracted* from a
    working implementation rather than designed ahead of one. Tier 3's second consumer is already
@@ -500,5 +560,5 @@ measured demand was **8 reactions** against subtitles' 479.
 9. **The plugin ABI becomes a compatibility millstone.** Jellyfin plugins break every release;
    Plex killed its plugin system after seven years as unsupportable. Mitigation: a declared
    versioned interface rather than a link against internals, a host-service list short enough to
-   read, and our own transcoder depending on it so it can never be the <2%-usage feature that
-   gets cut.
+   read, and ~~our own transcoder depending on it~~ (the transcoder is now a node capability,
+   D193) a real first-party member before any tier is built.

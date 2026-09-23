@@ -55,7 +55,12 @@ watching together with subtitles. Ranks say how much we care; the cut says what 
 
 In Cut A: F1–F13, F19, F20, F26, F88, F89, F90; F35 for two with voice; F21's cast receiver; F27's
 fetch-on-request half; the minimal part of F33 (subtitles on by default); D83's dialogue boost
-from F24. Everything else follows it. [ROADMAP.md](ROADMAP.md) has the detail.
+from F24; F14's first form, **prepare** with the `remux` and `h264-8m` profiles
+([D193](contributors/decisions/working-notes.md)); F15's reachability for one remote person.
+Not F30: her television joins a session as a device of her membership, so pairing waits
+([D191](contributors/decisions/working-notes.md)). Everything else follows it.
+[ROADMAP.md](ROADMAP.md) has the detail; [plans/cut-a.md](contributors/design/plans/cut-a.md) is
+the build contract, and Cut A's design is frozen (D193 §8).
 
 ---
 
@@ -77,7 +82,7 @@ There is no product without these.
 | F10 | Artwork: derive, size, serve, cache | [artwork.md](contributors/design/plans/artwork.md) | — |
 | F11 | A web client | [web-client.md](contributors/design/plans/web-client.md) | — |
 | F12 | Backup and a tested restore | [D77](contributors/decisions/working-notes.md) | — |
-| F13 ★ | Media nodes: the core never touches a media file | [D26](contributors/decisions/working-notes.md), [D33](contributors/decisions/working-notes.md), [D99](contributors/decisions/working-notes.md) | — |
+| F13 ★ | Media nodes: the core never touches a media file — the node does every media read and FFmpeg run, and the core relays ([D193](contributors/decisions/working-notes.md)) | [D26](contributors/decisions/working-notes.md), [D33](contributors/decisions/working-notes.md), [D99](contributors/decisions/working-notes.md) | — |
 
 ## Rank 1 — Expected
 
@@ -85,7 +90,7 @@ Absent, the product reads as unfinished to anyone arriving from Plex or Jellyfin
 
 | # | Feature | Where | Retrofit |
 | --- | --- | --- | --- |
-| F14 | Compatibility transcoding, as a plugin | [D19](contributors/decisions/working-notes.md), [transcoding.md](contributors/design/plans/transcoding.md) | seam |
+| F14 | Compatibility transcoding, ~~as a plugin~~ **as a node capability** ([D193](contributors/decisions/working-notes.md)); Cut A's prepare job is its first form | [D19](contributors/decisions/working-notes.md), [transcoding.md](contributors/design/plans/transcoding.md) | seam |
 | F15 ★ | Remote access for non-technical family | [D14](contributors/decisions/working-notes.md), [D25](contributors/decisions/working-notes.md), [D71](contributors/decisions/working-notes.md) | — |
 | F16 ★ | Roles and parental controls, authored as a preview loop | [D130](contributors/decisions/working-notes.md)–[D134](contributors/decisions/working-notes.md) | schema |
 | F17 ★ | Collections, explicit and predicate — **and every one produces a sequence**, so Next Up and binge affordances work over a franchise or a composed pair of series exactly as over a season ([D160](contributors/decisions/working-notes.md)). No incumbent does this: they all have series machinery plus a static poster grid | [D75](contributors/decisions/working-notes.md), [D79](contributors/decisions/working-notes.md), [D159](contributors/decisions/working-notes.md), [D160](contributors/decisions/working-notes.md) | schema |
@@ -102,16 +107,16 @@ Absent, the product reads as unfinished to anyone arriving from Plex or Jellyfin
 | F27 ★ | Subtitle acquisition, verified against the audio before it is offered | [D147](contributors/decisions/working-notes.md), [D148](contributors/decisions/working-notes.md) | schema |
 | F28 | Caption presentation controls (statutory floor) | [D90](contributors/decisions/working-notes.md), [accessibility.md](contributors/design/plans/accessibility.md) | schema |
 | F29 ★ | NFO read, write and export — leaving is supported | [D141](contributors/decisions/working-notes.md)–[D143](contributors/decisions/working-notes.md) | — |
-| F30 | Device pairing / signing in on a television | [D93](contributors/decisions/working-notes.md) | — |
-| F31 | **Bandwidth and concurrent-stream ceilings, per role** | [D149](contributors/decisions/working-notes.md), [auth.md](contributors/design/plans/auth.md) | **schema — Phase 1; the paid relay has no ceiling without it** |
+| F30 | Device pairing / signing in on a television — **not in Cut A** ([D191](contributors/decisions/working-notes.md)) | [D93](contributors/decisions/working-notes.md) | — |
+| F31 | **Bandwidth and concurrent-stream ceilings, per role** | [D149](contributors/decisions/working-notes.md), [auth.md](contributors/design/plans/auth.md) | **schema** — ~~Phase 1~~ additive, arriving with the feature and before any relay we run ([D180](contributors/decisions/working-notes.md), [D193](contributors/decisions/working-notes.md)); the paid relay has no ceiling without it |
 | F32 | Client-side adaptation on a buffer signal | [D86](contributors/decisions/working-notes.md) | protocol |
 | F33 | Language and track preferences, sticky per series | [D24](contributors/decisions/working-notes.md), [D45](contributors/decisions/working-notes.md) | schema |
 | F34 | A TV client | [tv-client.md](contributors/design/plans/tv-client.md) | — |
 | F35 ★ | Watch Together — **two people, remote, with voice, is the priority**: directly after the web client ([D175](contributors/decisions/working-notes.md)) | [D62](contributors/decisions/working-notes.md)–[D72](contributors/decisions/working-notes.md) | see F52 |
 | F36 ★ | Scan legibility: named, deferrable, separately reported passes | [D102](contributors/decisions/working-notes.md), [D118](contributors/decisions/working-notes.md) | — |
 | F37 ★ | Honest refusals — every no names its reason | [D92](contributors/decisions/working-notes.md), [D152](contributors/decisions/working-notes.md), [principles §3](contributors/principles/README.md) | — |
-| F89 | **Now playing** — every live session: who, what, device, where (LAN/remote/relay), direct or transcode with its reason, bitrate against the ceiling, client buffer health; stop with a message, lower a ceiling. Admin sees all, others their own ([D176](contributors/decisions/working-notes.md)) | [D176](contributors/decisions/working-notes.md) | — |
-| F90 | **Invite someone outside the house** — an account plus a role, redeemed from an invite link, seeing nothing of the household, with a finite download lease and a ceiling. What "sharing" means here ([D174](contributors/decisions/working-notes.md)) | [sharing-model.md](contributors/design/plans/sharing-model.md), [D76](contributors/decisions/working-notes.md), [D174](contributors/decisions/working-notes.md) | — |
+| F89 | **Now playing** — every live session: who, what, device, where (LAN/remote/relay), direct or transcode with its reason, bitrate, client buffer health; stop with a message. Admin sees all, others their own ([D176](contributors/decisions/working-notes.md)). *Bitrate against the ceiling and lowering a ceiling arrive with F31, after Cut A* | [D176](contributors/decisions/working-notes.md) | — |
+| F90 | **Invite someone outside the house** — an account plus a role, redeemed from an invite link, seeing nothing of the household. *A finite download lease and a ceiling arrive with F22 and F31, after Cut A.* What "sharing" means here ([D174](contributors/decisions/working-notes.md)) | [sharing-model.md](contributors/design/plans/sharing-model.md), [D76](contributors/decisions/working-notes.md), [D174](contributors/decisions/working-notes.md) | — |
 | F38 | Jellyfin-compatible adapter | [D18](contributors/decisions/working-notes.md), [jellyfin-api-shim.md](contributors/design/plans/jellyfin-api-shim.md) | seam |
 
 ---
@@ -196,7 +201,7 @@ is there so that changing your mind is cheap.
 | F83 | DRM | [D3](contributors/decisions/working-notes.md) | nothing; door shut |
 | F84 | A device-profile database | [D2](contributors/decisions/working-notes.md), [D21](contributors/decisions/working-notes.md) — the field's largest bug source | the closed output menu must never become a grammar of conditions |
 | F85 | A Netflix-style encoding ladder | [D86](contributors/decisions/working-notes.md) | — |
-| F86 | A video encoder in the core binary | [D19](contributors/decisions/working-notes.md) | it is a plugin on the public API |
+| F86 | A video encoder in the core binary | [D19](contributors/decisions/working-notes.md), [D193](contributors/decisions/working-notes.md) | ~~it is a plugin on the public API~~ it is a media-node capability |
 | F93 | **Decrypting protected discs or streams** (DVD CSS, AACS, streaming DRM), bundled or linked | [D187](contributors/decisions/working-notes.md) — §1201 liability that lawful uses do not cure | nothing; door shut. An encrypted disc is refused with its reason |
 | F94 | **Built-in content sources** — indexers, trackers, debrid, IPTV playlists, source add-on catalogues, request→download wiring | [D187](contributors/decisions/working-notes.md) — *Filmspeler*, Popcorn Time; the features app stores remove | generic webhooks and the plugin API; third-party repositories added by hand |
 | F95 | **Venue, kiosk or public-display mode; payments between users** | [D187](contributors/decisions/working-notes.md) — a public performance in every venue; paid access is resale | nothing |

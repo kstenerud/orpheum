@@ -6,7 +6,7 @@
 > **The tables themselves are listed in [schema.md](schema.md)** — the Cut A sketch, as SQL that
 > runs ([D185](../../decisions/working-notes.md)). This document is the *why*.
 
-- **Status:** PLANNED — designed 2026-09-17; **reviewed and corrected 2026-09-19** ([library-model-review.md](../research/library-model-review.md), [D79](../../decisions/working-notes.md)); **nine more schema items added by the audit the same day** ([audit-2026-09-19.md](../research/audit-2026-09-19.md), [D81](../../decisions/working-notes.md)–[D84](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D95](../../decisions/working-notes.md)–[D97](../../decisions/working-notes.md)), plus the sidecar split ([D98](../../decisions/working-notes.md)), a device scope on the preference table ([D103](../../decisions/working-notes.md)), and **the `role` table** ([D130](../../decisions/working-notes.md), 2026-09-21).
+- **Status:** PLANNED — designed 2026-09-17; **reviewed and corrected 2026-09-19** ([library-model-review.md](../research/library-model-review.md), [D79](../../decisions/working-notes.md)); **nine more schema items added by the audit the same day** ([audit-2026-09-19.md](../research/audit-2026-09-19.md), [D81](../../decisions/working-notes.md)–[D84](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D95](../../decisions/working-notes.md)–[D97](../../decisions/working-notes.md)), plus the sidecar split ([D98](../../decisions/working-notes.md)), a device scope on the preference table ([D103](../../decisions/working-notes.md)), and **the `role` table** ([D130](../../decisions/working-notes.md), 2026-09-21); **the database backed up whole** ([D185](../../decisions/working-notes.md), 2026-09-23).
 - **Depends on:** —
 
 ## Scope
@@ -455,8 +455,11 @@ summary of them.
   records each field's level and the compiler knows the join. And the predicate is **ambiguous
   without a quantifier** — *any* version over 1080, or *all*? Both are wanted ("films I have in
   4K" versus "films I have only in 4K"), so it is explicit, like D75's tag count operators.
-- **Mark the backup-critical tables in the schema** ([D77](../../decisions/working-notes.md)),
-  so backup is a query rather than a hand-maintained list that goes stale.
+- ~~**Mark the backup-critical tables in the schema** ([D77](../../decisions/working-notes.md)),
+  so backup is a query rather than a hand-maintained list that goes stale.~~ **The whole
+  `library.db` is backed up** ([D185](../../decisions/working-notes.md)), so there is no list to
+  go stale; each table's class in [schema.md](schema.md) still says what is irreplaceable and
+  what a migration may re-derive.
 - **No row a user's history or authored data references is ever hard-deleted**
   ([D167](../../decisions/working-notes.md)). A File whose media is gone is **tombstoned**,
   because [D165](../../decisions/working-notes.md) keeps the play log for ever and a device
@@ -486,9 +489,10 @@ summary of them.
   syncable table.
 - Identity must survive a file move, a rename, a re-rip and a provider change:
   ~~UUID primary keys~~ **integer keys never reissued**, `{provider, provider_id}` in a side
-  table. **The keys are backed up although the index is not**, and a rebuild is an ordinary
-  scan matching observations against them by **payload hash**
-  ([D179](../../decisions/working-notes.md)).
+  table. ~~**The keys are backed up although the index is not**~~ **The whole database is backed
+  up, keys and index together** ([D185](../../decisions/working-notes.md)), so a restore is a
+  restore. A rebuild without a backup is an ordinary scan matching observations against the
+  identity rows by **payload hash** ([D179](../../decisions/working-notes.md)).
 
 ## Done when
 

@@ -4,14 +4,16 @@
 
 # Audio presentation
 
-- **Status:** PLANNED — designed 2026-09-19 ([D83](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §5).
+- **Status:** PLANNED — designed 2026-09-19 ([D83](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §5). **The dialogue boost is in Cut A; loudness measurement is not** ([D178](../../decisions/working-notes.md) §3–§4). **2026-09-23: the node, not the core, does the downmix, and Cut A's boost is on or off — two audio renditions in each prepared rendition** ([D193](../../decisions/working-notes.md) §1–§2).
 - **Depends on:** library-model.md, scanner.md
 - **Blocks:** [library-model.md](library-model.md) — the per-track loudness columns are schema
 
 ## Why this is ours and not the client's
 
-[D22](../../decisions/working-notes.md) puts **audio encoding in the core**, because every GPL
-trigger in FFmpeg is a video encoder and the whole audio menu is native LGPL. That was decided
+[D22](../../decisions/working-notes.md) puts ~~**audio encoding in the core**~~ **audio encoding
+on the server**, because every GPL trigger in FFmpeg is a video encoder and the whole audio menu
+is native LGPL. **The core does not downmix: the node runs every FFmpeg invocation**, and the
+core relays what it produces ([D193](../../decisions/working-notes.md) §1). That was decided
 on licensing grounds and it has a consequence nobody followed up: **when a 5.1 track is
 downmixed to stereo for a television's speakers, we are the ones doing the downmix.** The
 quiet dialogue that results is ours.
@@ -25,7 +27,7 @@ every downmix matrix attenuates it to avoid clipping the sum.
 | Problem | Mechanism | Where it belongs |
 | --- | --- | --- |
 | This film is quieter than the last one | **Loudness normalisation** — measure, store, apply gain | scan time + playback |
-| Dialogue is buried under the music | **Downmix matrix** and a dialogue control | the downmix, in the core |
+| Dialogue is buried under the music | **Downmix matrix** and a dialogue control | the downmix, in the node ([D193](../../decisions/working-notes.md) §1) |
 | Explosions are too loud at 11pm | **Dynamic range compression** (`dialnorm`/DRC metadata) | a per-device preference |
 
 Treating them as one thing is what produces a "volume boost" setting that helps nobody.
@@ -47,6 +49,9 @@ Per audio track, stored as node-observed facts: **integrated loudness**, **loudn
 figure — dialogue gating needs Dolby's Dialogue Intelligence, which FFmpeg does not have. Our
 number is comparable within our own library and **is not the same quantity**. Do not imply
 parity anywhere user-facing.
+
+**Not in Cut A** ([D178](../../decisions/working-notes.md) §4): the boost needs only the
+downmix, and the measurement pass stays later.
 
 **Cost is the open question.** It is an extra decode pass at scan time, on a machine that is
 already decoding — but on a Celeron NAS with fifty thousand files that is not free. Whether it
@@ -74,6 +79,19 @@ is a user preference of the same kind as subtitle size and rides
 Which matrix is the default is a listening decision against real content, not a documentation
 decision; the constraint is that it is one, it is named, and changing it is one setting rather
 than a taxonomy.
+
+### In Cut A: on or off, as two prepared audio renditions
+
+[D193](../../decisions/working-notes.md) §2. D83 wanted a continuous control, but a prepared
+rendition is a shared cache ([D169](../../decisions/working-notes.md)), so each one made by the
+node's prepare job — `remux` and `h264-8m` alike — carries **two stereo downmixes as two audio
+renditions**: the standard matrix, and the same with the centre channel raised. The client
+picks by the user's preference, and **switching between them mid-film needs no new job**.
+Finer steps can come later as further renditions.
+
+It still only works if we do the downmix ([D178](../../decisions/working-notes.md) §3): a device
+that declares stereo speakers (§3 below) is sent a prepared rendition's stereo track rather than
+the 5.1 original.
 
 ## 3. Dynamic range is a property of the room
 
@@ -111,7 +129,11 @@ living-room television is a fact about a person in a room, not about hardware.
 
 ## Done when
 
-Two films from different decades play at the same perceived level without touching the remote;
+**Cut A:** on a television's own speakers, a 5.1 film plays through a prepared rendition whose
+dialogue-boosted track is chosen by the user's preference, and turning the boost off or on
+mid-film switches track without a new job.
+
+**Later:** two films from different decades play at the same perceived level without touching the remote;
 dialogue is intelligible on a television's own speakers with no configuration; a home-cinema
 user can turn dynamic-range compression off for that device only; nothing was written to a
 media file; and the server can say, per track, what it measured and what gain it applied.

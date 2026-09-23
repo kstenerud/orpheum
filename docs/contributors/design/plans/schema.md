@@ -4,7 +4,11 @@
 
 # Schema (Cut A)
 
-- **Status:** SKETCH — 2026-09-23, from the data-architecture critique
+- **Status:** PLANNED — the first migration of [Cut A](cut-a.md)'s M1. Revised 2026-09-23 by
+  the second audit ([audit-2026-09-23.md](../research/audit-2026-09-23.md) §3.1, [D193](../../decisions/working-notes.md)): a
+  `setting` table, per-column classes on mixed tables, `provider_response` moved into
+  `library.db`, node state, one `job` queue, FTS triggers, and the ceiling columns dropped.
+  First sketched 2026-09-23 from the data-architecture critique
   ([D179](../../decisions/working-notes.md)–[D185](../../decisions/working-notes.md); this sketch is D185). The SQL
   blocks below are loaded verbatim by the benchmark in
   `/yoloai/cache/bench/schema/` (SQLite 3.53.4 via modernc), so they are valid as written.
@@ -36,8 +40,10 @@ where that kind of hole is visible.
   Widening one is a table rebuild (about a second, [D181](../../decisions/working-notes.md)).
 - **Two database files.** `library.db` holds everything below except the last section and is
   backed up **whole** — at the reference scale that is 46 MB and 177 ms by `VACUUM INTO`, so
-  splitting it by table bought nothing. `cache.db` holds fetched responses and working queues,
-  is never backed up, and may be deleted at any time ([principles §14](../../principles/README.md)).
+  splitting it by table bought nothing. `cache.db` holds match candidates, the job queue and the
+  index of prepared renditions, is never backed up, and may be deleted at any time
+  ([principles §14](../../principles/README.md)). **Fetched provider responses are in
+  `library.db`**, because re-deriving a title reads them and D170 forbids refetching them.
 
 **Class**, used in every table below, is what [D181](../../decisions/working-notes.md) and
 [D182](../../decisions/working-notes.md) need to know to migrate it:
@@ -49,6 +55,11 @@ where that kind of hole is visible.
 | **O** observed | derived from stored input (probe output, filenames, NFO, cached responses) | drop and re-derive |
 | **F** fetched | provider values with no stored response | migrate in place; never refetch |
 | **C** cache | anything rebuildable from the above | drop |
+
+**A table that mixes classes names them per column** (`file`, `title`). A migration then
+re-derives only its **O** columns and carries every **A**, **I** and **F** column in place — a
+person's choice or a fetched fact is never lost because it shares a row with something
+derivable.
 
 ## Bookkeeping
 
@@ -65,11 +76,14 @@ CREATE TABLE schema_meta (
 ## Libraries and nodes
 
 ```sql
-CREATE TABLE node (                                        -- class I
+CREATE TABLE node (                                        -- class I + O (the last three)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   name        TEXT NOT NULL,
   enrolled_at INTEGER NOT NULL,
-  removed_at  INTEGER
+  removed_at  INTEGER,
+  report_seq  INTEGER NOT NULL DEFAULT 0,  -- last journal sequence the core ingested (D59)
+  status      TEXT,                        -- the node's last status record, JSON
+  status_at   INTEGER                      -- when it arrived; liveness is judged from this
 );
 
 CREATE TABLE library (                                     -- class A
@@ -95,6 +109,23 @@ CREATE TABLE library_root (                                -- class O: as the no
 
 A node's roots are set on the node and never remotely ([D107](../../decisions/working-notes.md));
 the core records what the node says it serves.
+
+```sql
+CREATE TABLE root_scan (                                   -- class O
+  node_id      INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
+  path         TEXT NOT NULL,
+  completed_at INTEGER NOT NULL,         -- the last scan of this root that finished
+  PRIMARY KEY (node_id, path)
+);
+```
+
+**A file is tombstoned only by a completed scan of its root** ([D179](../../decisions/working-notes.md)),
+and this is where "completed" is recorded, in the same transaction as the tombstones. After a
+rebuild it is empty, so nothing is tombstoned until a scan completes — the safe direction.
+
+**The Cut A node has no enrolment credential.** It is the core's child on a Unix socket whose
+permissions are the boundary ([D193](../../decisions/working-notes.md)); a remote node's credential arrives with remote nodes, as a
+`grant` of kind `node`.
 
 ## Files: every observation, its identity and its filing
 
@@ -207,18 +238,19 @@ arrive together as additive tables.
 ## The work: Title → Edition → Version → File
 
 ```sql
-CREATE TABLE title (                                       -- class O/F; identity is the item's
+CREATE TABLE title (                                       -- mixed: see the columns
   id             INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
   kind           TEXT NOT NULL CHECK (kind IN ('movie','episode','extra')),
   media_kind     TEXT NOT NULL DEFAULT 'video' CHECK (media_kind IN ('video','audio')),
-  year           INTEGER,
-  runtime_ms     INTEGER,
-  original_lang  TEXT,
-  -- D170/D183: the one source this title follows, and its id there
-  source         TEXT CHECK (source IN ('nfo','tmdb','tvdb','none')),
-  source_id      TEXT,
+  year           INTEGER,                                    -- O: resolved
+  runtime_ms     INTEGER,                                    -- O: resolved
+  original_lang  TEXT,                                       -- O: resolved
+  -- D170/D183: the one source this title follows, and its id there. F, or A once a person
+  -- chose it: a match is a fetch, and a migration never redoes one.
+  source         TEXT CHECK (source IN ('nfo','tmdb','tvdb','none')),       -- F/A
+  source_id      TEXT,                                                      -- F/A
   ident          TEXT NOT NULL CHECK (ident IN
-                   ('identified','ambiguous','unidentified','confirmed'))    -- D172
+                   ('identified','ambiguous','unidentified','confirmed'))    -- F/A (D172)
 );
 CREATE INDEX title_ambiguous ON title(id) WHERE ident = 'ambiguous';
 
@@ -294,8 +326,26 @@ CREATE VIRTUAL TABLE item_fts_tri USING fts5(
 );
 ```
 
+```sql
+CREATE TRIGGER item_text_ai AFTER INSERT ON item_text BEGIN
+  INSERT INTO item_fts(rowid, name, overview) VALUES (new.rowid, new.name, new.overview);
+  INSERT INTO item_fts_tri(rowid, name) VALUES (new.rowid, new.name);
+END;
+CREATE TRIGGER item_text_ad AFTER DELETE ON item_text BEGIN
+  INSERT INTO item_fts(item_fts, rowid, name, overview) VALUES ('delete', old.rowid, old.name, old.overview);
+  INSERT INTO item_fts_tri(item_fts_tri, rowid, name) VALUES ('delete', old.rowid, old.name);
+END;
+CREATE TRIGGER item_text_au AFTER UPDATE ON item_text BEGIN
+  INSERT INTO item_fts(item_fts, rowid, name, overview) VALUES ('delete', old.rowid, old.name, old.overview);
+  INSERT INTO item_fts_tri(item_fts_tri, rowid, name) VALUES ('delete', old.rowid, old.name);
+  INSERT INTO item_fts(rowid, name, overview) VALUES (new.rowid, new.name, new.overview);
+  INSERT INTO item_fts_tri(rowid, name) VALUES (new.rowid, new.name);
+END;
+```
+
 `sort_key` and the FTS tables are caches and may `CASCADE`; nothing authored references them.
-Triggers keeping the FTS in step with `item_text` are omitted from the sketch. **`listing` is in
+The triggers are the external-content pattern from SQLite's FTS5 documentation; a migration that
+rebuilds `item_text` rebuilds the index with `INSERT INTO item_fts(item_fts) VALUES ('rebuild')`. **`listing` is in
 the sort key's primary key because it has to be**: measured at 500,000 music tracks, a grid page
 over one shared key walked every song and artist to find 50 albums — **9.4 ms**, against **0.35 ms**
 with the listing first ([D186](../../decisions/working-notes.md)).
@@ -406,11 +456,10 @@ CREATE TABLE role (                                        -- class A (D130)
   name          TEXT NOT NULL UNIQUE,
   builtin       INTEGER NOT NULL DEFAULT 0 CHECK (builtin IN (0,1)),
   capabilities  TEXT NOT NULL,           -- a set from the closed enum, e.g. 'administer,download'
-  predicate     TEXT,                    -- NULL = sees everything; invalid = sees nothing (D164)
-  max_bitrate_kbps INTEGER,              -- F31; NULL = no ceiling
-  max_streams   INTEGER,
-  download_lease_days INTEGER            -- NULL = indefinite (D169); shown on the role's page
+  predicate     TEXT                     -- NULL = sees everything; invalid = sees nothing (D164)
 );
+-- Ceilings (F31) and the download lease (D169) arrive with their features as columns here
+-- (D180); they were sketched and dropped by the second audit (D193).
 
 CREATE TABLE user (                                        -- class A
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -459,8 +508,29 @@ CREATE INDEX grant_subject ON "grant"(subject) WHERE revoked_at IS NULL;
 ```
 
 `invite` is a ninth grant kind, added for [D174](../../decisions/working-notes.md): single use,
-and redeeming it creates the outsider's user with the role, ceilings and lease **asked when the
-invite was made** ([D184](../../decisions/working-notes.md)).
+and redeeming it creates the outsider's user with the role **asked when the invite was made**
+([D184](../../decisions/working-notes.md)); ceilings and a lease join that question when they
+exist.
+
+```sql
+CREATE TABLE setting (                                     -- class A
+  scope       TEXT NOT NULL CHECK (scope IN ('server','user')),
+  user_id     INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL for 'server'
+  key         TEXT NOT NULL,             -- a name from the settings registry in code
+  value       TEXT NOT NULL,             -- JSON
+  set_by      INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL: the setup wizard
+  set_at      INTEGER NOT NULL,
+  CHECK ((scope = 'server') = (user_id IS NULL))
+);
+CREATE UNIQUE INDEX setting_key ON setting(scope, ifnull(user_id, 0), key);
+```
+
+**Everything changeable at runtime lives here** ([D181](../../decisions/working-notes.md),
+[D182](../../decisions/working-notes.md) §3): the TMDB key, each user's OpenSubtitles login,
+play-state thresholds, backup retention, the update-check answer. A key's type, default and
+where its default is shown come from one registry in code ([D183](../../decisions/working-notes.md)),
+so **a row exists only when someone set a value**, and "where did this value come from?" is
+answered by its presence. Per-item preferences stay in their own table.
 
 ## Play state and the rest of a person's data
 
@@ -561,25 +631,45 @@ the measurement did show is that **query shape matters ten times more than cachi
 correlated in-progress check must be a `LIMIT 1` scalar subquery driven by `version_title`, not an
 `EXISTS` the planner turns into a scan. That is a rule for the query review, not for the schema.
 
-## `cache.db` — never backed up
+## Fetched responses — in `library.db`
 
 ```sql
-CREATE TABLE provider_response (                           -- class C: the stored input (D170)
-  title_id    INTEGER NOT NULL,
+CREATE TABLE provider_response (                           -- class F: the stored input (D170)
+  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
   fetched_at  INTEGER NOT NULL,
   body        BLOB NOT NULL,             -- compressed; cast and crew are read from here in Cut A
   PRIMARY KEY (title_id, provider)
 );
-CREATE TABLE fetch_queue (                                 -- rate-limited work (D170)
+```
+
+**Moved here from `cache.db` by the second audit.** The resolved columns of `title` and
+`item_text` re-derive from these bodies, and D170 forbids refetching them, so losing them was
+never "only a cache" — deleting `cache.db` would have forced exactly the refetch the design rules
+out. At a few kilobytes compressed per title this adds tens of megabytes to the backup at the
+reference scale, and removes a failure mode.
+
+## `cache.db` — never backed up
+
+```sql
+CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  title_id    INTEGER NOT NULL,
-  provider    TEXT NOT NULL,
-  reason      TEXT NOT NULL,             -- 'first', 'user', 'thin', 'score_on_view'
-  not_before  INTEGER NOT NULL,
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch','prepare','scan','backup')),
+  subject     INTEGER,                   -- title_id, file_id, library_id — per kind
+  args        TEXT NOT NULL DEFAULT '{}',  -- JSON: provider, profile, reason
+  priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
+  state       TEXT NOT NULL DEFAULT 'queued'
+                CHECK (state IN ('queued','running','done','failed','cancelled')),
+  node_id     INTEGER,                   -- where it runs, for node work
+  not_before  INTEGER NOT NULL,          -- rate limits and retry back-off (D170)
   attempts    INTEGER NOT NULL DEFAULT 0,
-  last_error  TEXT
+  progress    REAL,                      -- 0..1 when known
+  reason      TEXT,                      -- why it exists, shown to the user
+  last_error  TEXT,                      -- FFmpeg's exit and stderr tail, the provider's reply
+  created_at  INTEGER NOT NULL,
+  finished_at INTEGER
 );
+CREATE INDEX job_next ON job(state, priority DESC, not_before) WHERE state = 'queued';
 CREATE TABLE match_candidate (                             -- D172: kept so choosing costs nothing
   title_id    INTEGER NOT NULL,
   rank        INTEGER NOT NULL,
@@ -599,9 +689,14 @@ CREATE TABLE prepared_rendition (                          -- D175, D180
 ```
 
 No foreign keys cross into `library.db` — SQLite cannot enforce them across files, and nothing
-here is referenced by anything authored. **Losing `cache.db` costs refetches the user asks for,
-re-queued work and re-transcodes; it loses nothing** — and a lost `match_candidate` means an
-ambiguous title's choice screen searches once more.
+here is referenced by anything authored. **Losing `cache.db` costs re-queued work and
+re-transcodes; it loses nothing** — a lost `match_candidate` means an ambiguous title's choice
+screen searches once more, which is a search the user asked for, and running jobs restart from
+zero because their output is a cache.
+
+**One queue, not one per kind** (principles §4). Metadata fetches, prepare jobs, scans and
+backups differ in what runs them and in `args`, not in how they wait, retry, report progress or
+get cancelled; `fetch_queue` was the first of what would have become four.
 
 ## Not in Cut A, and additive
 

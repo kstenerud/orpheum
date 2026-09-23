@@ -80,7 +80,8 @@ Six choices, each traceable to a specific failure in the research:
    ([D11](../decisions/working-notes.md))
 4. **Your files stay yours.** Media read-only by default. The database is a rebuildable index,
    not an authority. Your corrections are written back to sidecars where you grant a writable
-   path, and per-user state deliberately is not ([D98](../decisions/working-notes.md)). No telemetry, no account,
+   path — a later feature, not Cut A's (F29, [D178](../decisions/working-notes.md)) — and
+   per-user state deliberately is not ([D98](../decisions/working-notes.md)). No telemetry, no account,
    no storefront — as a stated promise. ([D7](../decisions/working-notes.md),
    [D13](../decisions/working-notes.md))
 5. **One excellent TV client beats five mediocre ones.** The project is judged on its TV app.
@@ -93,9 +94,10 @@ Six choices, each traceable to a specific failure in the research:
    client-specific surface to six methods so a client rewrite cannot quietly kill it
    ([D62](../decisions/working-notes.md)) — and **a session link is the invitation**, with no
    account required at the other end, because that is the whole point
-   ([D117](../decisions/working-notes.md)). The host owns what plays and may change it to
-   anything in his library mid-session; whether anyone else may touch the transport is one
-   setting ([D121](../decisions/working-notes.md),
+   ([D117](../decisions/working-notes.md)); a participant who happens to be signed in also has
+   their viewing recorded as their own ([D191](../decisions/working-notes.md)). The host owns
+   what plays and may change it to anything in their library mid-session; whether anyone else
+   may touch the transport is one setting ([D121](../decisions/working-notes.md),
    [D122](../decisions/working-notes.md)). A leaked link is survivable rather than prevented
    ([D119](../decisions/working-notes.md)): a **cap on participants** bounds the flood before
    anyone notices, and because **a link admits while a *membership* persists**, the host can
@@ -108,52 +110,52 @@ Six choices, each traceable to a specific failure in the research:
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ Clients                                                          │
-│  React Native / TypeScript UI shell  ── generated from OpenAPI   │
-│    ├ web        : hls.js + jassub (libass/WASM)                  │
-│    ├ Android/TV : Media3  ‖ libmpv   (native module, Kotlin)     │
-│    └ Apple      : AVPlayer ‖ libmpv  (native module, Swift)      │
-│  Each probes its own decoder and picks a rendition. (D2)         │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │  HTTPS: REST + OpenAPI, HLS manifests,
-                               │  CMAF/fMP4 segments, ranged GETs
-┌──────────────────────────────┴──────────────────────────────────┐
-│ Server — one Go binary (D9)                                      │
+┌──────────────────────────────────────────────────────────────────┐
+│ Clients — TypeScript SDK generated from OpenAPI, React-free      │
+│   ├ web + cast : React + TypeScript + Vite; hls.js + JASSUB      │
+│   ├ Android/TV : Media3 ‖ libmpv; the UI framework is chosen by  │
+│   │              a prototype when TV work starts (D193)          │
+│   └ Apple      : AVPlayer ‖ libmpv  (later)                      │
+│ Each probes its own decoder and picks a rendition. (D2)          │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │  HTTPS under one public name (DNS-01):
+                               │  REST + OpenAPI, HLS playlists,
+                               │  fMP4 segments, ranged GETs
+┌──────────────────────────────┴───────────────────────────────────┐
+│ Server — one Go binary (D9); never opens a media file (D193)     │
 │                                                                  │
-│  api/        REST handlers; OpenAPI generated from code          │
-│  library/    ingests node reports → identify → enrich            │
-│  stream/     rendition list (video ‖ audio ‖ subs axes);          │
-│              direct-play, remux, AUDIO encode (LGPL only)         │
-│              (no video encoder — that is a plugin, below)         │
-│  subtitle/   extraction, conversion, font attachments (D11)      │
-│  jobs/       typed, persisted, inspectable queue                 │
-│  plugin/     three tiers: WASM sandbox, protocol adapters,       │
-│              capability services (D12, D15, D19)                 │
-│  store/      sqlc-generated typed SQL (D6)                       │
-└───┬──────────────┬─────────────────────────────┬────────────────┘
-    │              │                             │
-    │       ┌──────┴───────┐             ┌───────┴────────┐
-    │       │ SQLite (WAL) │             │ Media (ro) +   │
-    │       │ (D31)        │             │ cache/ (purge) │
-    │       └──────────────┘             └────────────────┘
+│ api/        REST handlers; OpenAPI generated from code           │
+│ library/    ingests node reports → identify → enrich             │
+│ stream/     rendition list (video ‖ audio ‖ subs axes); picks    │
+│             direct play or a prepared rendition, authenticates,  │
+│             and relays the node's bytes — no FFmpeg here (D26)   │
+│ jobs/       typed, persisted, inspectable queue: prepare,        │
+│             fetch, scan                                          │
+│ voice/      TURN embedded (pion/turn) for Watch Together (D68)   │
+│ store/      sqlc-generated typed SQL (D6)                        │
+└───┬──────────────┬───────────────────────────────────────────────┘
+    │              │
+    │       ┌──────┴───────┐
+    │       │ SQLite (WAL) │
+    │       │ (D31)        │
+    │       └──────────────┘
     │
     │  MEDIA NODES (D33) — same binary, `node` mode, one per machine
-    │  holding files. Scan, probe, extract subtitles, thumbnail, and
-    │  optionally transcode. Never touch the database.
-    ├─ node @ core box (supervised child, the default install)
-    ├─ node @ NAS / seedbox / elsewhere  (opt-in topology)
+    │  holding files; media (ro) + cache/ (purge). Every media read and
+    │  every FFmpeg run: scan, probe, extract subtitles, thumbnail, and
+    │  PREPARE — remux, audio, and video encode where the node has an
+    │  encoder (a capability it advertises). Each FFmpeg run is
+    │  confined on its own (D43, D193). Never touch the database.
+    ├─ node @ core box (supervised child over a Unix socket; the default)
+    ├─ node @ NAS / GPU box / elsewhere  (later: dial-out TCP)
     │
-    │  RELAY (D71) — same binary, `relay` mode, on any public host.
-    │  The core dials OUT to it: no port forward, no DDNS, works
-    │  behind CGNAT. Byte pipe by default; terminates nothing.
-    ├─ relay @ your own €5 VPS   (self-hosted assist)
-    ├─ relay @ ours              (hosted assist, optional, paid)
-    │
-    │  registered plugins — same public API a third party would use
-    ├─ video transcoder (tier 3, first-party, optional, MAY BE REMOTE)
+    │  plugins
     ├─ jellyfin-adapter (tier 2, inbound — borrows other people's clients)
-    └─ metadata providers, scrapers, scrobblers  (tier 1, WASM sandbox)
+    └─ metadata providers (tier 1, WASM — deferred; until a third party
+       asks, TMDB and OpenSubtitles are Go packages behind the interface)
+
+    RELAY (D71) — a `relay` mode of the same binary, deferred past Cut A:
+    reachability is a port-forward, then IPv6, then a standard tunnel.
 ```
 
 Notes on the shape:
@@ -161,16 +163,22 @@ Notes on the shape:
 - **One binary, one file, no second service, no message broker.** Household scale does not
   justify any of it, and "boring, established tech" is a stated constraint. The database is
   SQLite in WAL mode ([D31](../decisions/working-notes.md)), so installation is a binary and
-  backup is a file copy.
+  backup is one SQL statement, `VACUUM INTO` — ~~a file copy~~, which on a live WAL database
+  can produce an empty one ([D77](../decisions/working-notes.md)).
 - **FFmpeg is a subprocess, not a linked library.** Every project in the survey that touches
   FFmpeg drives it as a process; cgo bindings to libav\* are a build-complexity liability. We
-  ship a known-good build rather than accepting the distro's — Jellyfin maintains an entire
-  FFmpeg fork, which is evidence of what the alternative costs.
+  ship a known-good build rather than accepting the distro's — a pinned jellyfin-ffmpeg
+  portable build, bundled and checked by hash ([D193](../decisions/working-notes.md)). Jellyfin
+  maintains an entire FFmpeg fork, which is evidence of what owning our own would cost, so our
+  own hardened build is deferred.
 - **The core never touches a media filesystem** ([D33](../decisions/working-notes.md)), **and
   never parses a media or image file** ([D26](../decisions/working-notes.md),
   [D99](../decisions/working-notes.md)). Scanning, probing, extraction and image derivation all
-  happen in media nodes; the core's whole input surface is HTTP, its own SQLite file, and node
-  reports it validates at the boundary. A poster fetched from TMDB is bytes in flight, handed
+  happen in media nodes, and so does every FFmpeg run, playback included: for direct play the
+  core authenticates the request and relays the node's byte range, and for anything else it
+  relays what the node's prepare job wrote ([D193](../decisions/working-notes.md)). The core's
+  whole input surface is HTTP, its own SQLite file, and node reports it validates at the
+  boundary. A poster fetched from TMDB is bytes in flight, handed
   to the jail — TMDB is community-editable, so it is attacker-supplied like anything else.
 - **The node's work is ten passes now, and that is a first-class fact**
   ([D102](../decisions/working-notes.md)). Enumerate · probe · content hash · extract
@@ -181,15 +189,21 @@ Notes on the shape:
   [scanner.md](plans/scanner.md).) They are named, individually deferrable per library,
   separately reported and restartable, because the alternative on a Celeron NAS is a first
   scan that takes a week.
-- **The core needs no *video* encoder** — but it does encode audio. Every GPL trigger in FFmpeg
-  is a video encoder, and the whole audio menu (AAC, AC-3, E-AC-3, FLAC, ALAC, Opus) is native
-  LGPL, so audio costs nothing in licence or patent surface. Since the most common real transcode
-  is audio-only, **the core handles the common case and the plugin handles the rare one**
-  ([D19](../decisions/working-notes.md), [D22](../decisions/working-notes.md)).
-- **"Plugin" means three different things**, chosen by shape: a sandboxed WASM extension the
-  core calls into, an inbound protocol adapter that consumes our API, or an outbound capability
-  service the core calls and clients may be redirected to. Each tier exists because a real
-  member needs it.
+- **The core encodes nothing; "prepare" is the one path besides direct play**
+  ([D193](../decisions/working-notes.md)). ~~The core needs no video encoder — but it does
+  encode audio.~~ One node job per File and profile runs one FFmpeg command that writes an HLS
+  rendition into the node's cache — video copied (`remux`) or encoded (`h264-8m`), audio
+  converted with a dialogue-boost variant, text subtitles extracted — as a growing `EVENT`
+  playlist, so playback starts once the first segments exist. The encoder is a **node
+  capability** the node advertises (`aac`, `h264_qsv`, `h264_nvenc`, `x264`), so a GPU machine
+  becomes a second node rather than a plugin. Every GPL trigger in FFmpeg is still a video
+  encoder, and the whole audio menu is native LGPL
+  ([D19](../decisions/working-notes.md), [D22](../decisions/working-notes.md)). Live
+  segment-addressed transcoding waits for a measurement that says first-play latency hurts.
+- **"Plugin" means two things for now**, chosen by shape: an inbound protocol adapter that
+  consumes our API (tier 2), and — deferred until a third-party provider is asked for — a
+  sandboxed WASM extension the core calls into (tier 1). The third tier, an outbound capability
+  service, is retired into the node ([D193](../decisions/working-notes.md)).
 - **The public HTTP API matters more than the plugin API**, by roughly an order of magnitude.
   The community's real extension mechanism in this field is a separate program over HTTP — some
   80,000 stars of companion apps (Sonarr, Radarr, Seerr, Tautulli, Bazarr, Kometa …) against
@@ -203,13 +217,16 @@ Notes on the shape:
   things: codecs, profiles, track counts, dispositions.
 - **`cache/` is always safe to delete.** Nothing irreplaceable lives outside the database and
   the media files. It is **two caches, one per side** ([D128](../decisions/working-notes.md)):
-  the node makes the derived artefacts and the core serves them, and over a reference library
+  the node makes the derived artefacts and the core serves them — relays them, for anything the
+  node keeps ([D193](../decisions/working-notes.md)) — and over a reference library
   that is **42 GB of subtitle overlays and 5.7 GB of trickplay** against 51 MB for a scan
-  report. Small and hot goes to the core, large and cold stays on the node and is redirected
-  to — which is what Netflix's control plane does, steering a client to an appliance by URL.
+  report. Small and hot goes to the core, large and cold stays on the node and is relayed —
+  or, from a remote node later, redirected to, which is what Netflix's control plane does,
+  steering a client to an appliance by URL.
 - **The node dials out; the core never dials in** ([D127](../decisions/working-notes.md)). A
-  Unix socket in the default install, an outbound HTTP connection from a remote node, and the
-  file exchange directory as the fallback it was always described as. The reason is not the
+  Unix socket in the default install and an outbound HTTP connection from a remote node later:
+  one transport, HTTP+JSONL. ~~The file exchange directory as the fallback~~ is deleted
+  ([D193](../decisions/working-notes.md)). The reason is not the
   firewall: [D107](../decisions/working-notes.md) found the dangerous direction is core→node,
   because that channel carries commands and deletion, and a node that only ever initiates has
   no inbound surface to spoof.
@@ -220,8 +237,8 @@ Notes on the shape:
   back — STILL"*; Tautulli (6,590★) exists because the history is nowhere.
 - **We are the ones doing the downmix, so the quiet dialogue is ours**
   ([D83](../decisions/working-notes.md)). Netflix normalises its catalogue at ingest — -27 LKFS
-  dialog-gated, -2 dBTP. We cannot rewrite files, so the node measures loudness at scan and the
-  core applies gain at playback, which is ReplayGain's answer to the same constraint. Downmix
+  dialog-gated, -2 dBTP. We cannot rewrite files, so the node measures loudness at scan and gain
+  is applied at playback, which is ReplayGain's answer to the same constraint. Downmix
   gets one default and a dialogue control rather than Jellyfin's five algorithms, each of which
   its own documentation apologises for.
 - **Captions have a statutory control set and we already serve it by accident**
@@ -253,7 +270,8 @@ Notes on the shape:
   CLDR sort key per locale ([D47](../decisions/working-notes.md)) rather than a transliteration
   to ASCII, so Swedish Å Ä Ö sort after Z instead of being folded to the front.
 - **A scan is a stream you can steer, not a batch that finishes**
-  ([D118](../decisions/working-notes.md)). Passes are ordered so an item becomes *playable*
+  ([D118](../decisions/working-notes.md); in Cut A a FIFO with "play this now" at the front,
+  [D193](../decisions/working-notes.md)). Passes are ordered so an item becomes *playable*
   first — measured at **17 minutes to a browsable 3,500-item library**, against 9.2 single-core
   days for trickplay alone, because the node's passes turn out to be two populations a
   thousand-fold apart split by whether a pass decodes video
@@ -269,7 +287,7 @@ Notes on the shape:
   that opens no files and needs no node to be switched on. The periodic snapshot is not only
   compaction: a watcher that fails silently is a watcher whose journal cannot tell you so.
   Legibility — "I can't tell what the scanner did" is a real, recurring complaint — comes from
-  the node's status record and its error and skip records.
+  the node's status endpoint and report stream and its error and skip records.
 
 ## What we are deliberately not building
 
@@ -284,10 +302,10 @@ Notes on the shape:
 | A detector for intro and credit boundaries, at launch | [D82](../decisions/working-notes.md). The **model** is due with the schema — typed segments at the Version, because a timecode indexes an encoding — and the chapter-derived provider is nearly free. Netflix's fingerprint-and-human-review detector is not something we can build, and `intro-skipper` (2,780★ plus 968★ archived) shows it is plugin-shaped anyway. |
 | Microservices, Kafka, Elasticsearch, Redis | Household scale. SQLite FTS5 covers search — two tokenisers, because no single one handles Latin, CJK and Thai ([D48](../decisions/working-notes.md)) — Go covers fuzzy matching, and job wakeups are a channel in one process ([D31](../decisions/working-notes.md)). |
 | A Roku client | BrightScript shares no code with anything and Roku cannot render bitmap subtitles at all. |
-| FFmpeg in the core process | [D26](../decisions/working-notes.md). Media is attacker-supplied data and FFmpeg will eventually be compromised; all of it runs in a Landlock+seccomp-confined worker, so the core never parses hostile bytes. |
+| FFmpeg in the core process | [D26](../decisions/working-notes.md). Media is attacker-supplied data and FFmpeg will eventually be compromised; all of it runs in the media node, **each invocation confined on its own** by a re-exec shim — argument hardening, read-only mounts, a seccomp denylist, and Landlock where the kernel has it ([D43](../decisions/working-notes.md), [D193](../decisions/working-notes.md)) — so the core never parses hostile bytes. |
 | **An image decoder in the core process either** | [D99](../decisions/working-notes.md). The same rule, generalised: TMDB is community-editable, so a poster is attacker-supplied — and unlike a film it arrives unprompted during a background refresh. 39 CISA KEV entries touch media, image or font parsing. Derivation happens in the node's jail; the core moves bytes it never decodes. |
 | In-process plugins | [D12](../decisions/working-notes.md). Third-party scrapers are the last code you want unsandboxed. Protocol surfaces get a second tier — out-of-process adapters ([D15](../decisions/working-notes.md)). |
-| A *video* encoder in the core binary | [D17](../decisions/working-notes.md), [D19](../decisions/working-notes.md), [D22](../decisions/working-notes.md). It is a plugin on the public API: smaller default install, a real licence/patent boundary, and remote transcoding for free. Audio encoding does stay in the core. |
+| Any encoder in the core | [D17](../decisions/working-notes.md), [D19](../decisions/working-notes.md), [D22](../decisions/working-notes.md). ~~It is a plugin on the public API~~ It is a **node capability** ([D193](../decisions/working-notes.md)): the node that holds the file, or a GPU node later, runs the encode, which still gives remote transcoding without a plugin API. Audio encoding runs in the node's prepare job too. |
 | **Deleting media**, for now | [D144](../decisions/working-notes.md). Measured: **0 of 120** top-reacted Jellyfin issues and **0 of 50** Plex forum topics mention it, and the one relevant remark in 2,205 App Store reviews is that a server *failed to notice* a deletion made elsewhere. [D89](../decisions/working-notes.md) came from an audit, not from demand. The policy is an **enforced absence** — no code path removes a file under a media root — and the acquisition layer (Radarr, Sonarr) already owns upgrade-and-replace. [D143](../decisions/working-notes.md)'s trash design stays recorded as the precondition if it is ever asked for. |
 | **Request flows** (Overseerr/Jellyseerr-shaped) | [D140](../decisions/working-notes.md). Companion-app territory, and [D20](../decisions/working-notes.md) already makes the public HTTP API the seam that makes them possible. Not ours to build; ours to be good enough to build against. |
 | **Voice assistants** | [D140](../decisions/working-notes.md). Plex dropping its Alexa skill drew 66 likes, so the want is real and small. Declined — and the cast path already gives away the useful half, since Cast carries voice-originated load requests. |
@@ -312,13 +330,16 @@ Honest statement of what the research did **not** settle:
    afternoon. What remains genuinely open is only whether to run it at all. Narrowed three
    times now.
    [D71](../decisions/working-notes.md) made the relay **a mode of our own binary that anyone
-   can run on a €5 VPS** — which carries ~2,200 film-hours a month at 10 Mbps uncapped, against
+   can run on a €5 VPS** (deferred past Cut A, which uses a port-forward, IPv6 or a standard
+   tunnel — [D193](../decisions/working-notes.md)) — which carries ~2,200 film-hours a month at 10 Mbps uncapped, against
    Plex's reported 2 Mbps paid relay cap. So the hosted tier's remaining justification is
    convenience for people who will not rent a VPS: a real market, and a far smaller claim than
    the one this project started with. Narrowed, and then narrowed again.
    Watch Together's voice chat was once thought to need a hosted **TURN relay**; [D68](../decisions/working-notes.md) found it does not, because both
    participants are already connected to the media server by construction and it can relay the
    voice itself — at one endpoint rather than in a datacentre, so with almost no latency cost.
+   It does so as a standard TURN server embedded in our binary (`pion/turn`), with browser
+   WebRTC picking the path and no upgrade ladder ([D193](../decisions/working-notes.md)).
    So the justification for a paid tier is **remote access itself** and nothing else, which is a
    cleaner claim than the one it replaced. What remains is below, unchanged. Researched
    ([remote-access.md](research/remote-access.md), [D25](../decisions/working-notes.md)): the

@@ -3,14 +3,22 @@
 
 # Web client
 
-- **Status:** PLANNED — designed 2026-09-17; licence, adaptation, presentation and failure handling added 2026-09-19 ([D80](../../decisions/working-notes.md), [D86](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D92](../../decisions/working-notes.md)).
+- **Status:** PLANNED — designed 2026-09-17; licence, adaptation, presentation and failure handling added 2026-09-19 ([D80](../../decisions/working-notes.md), [D86](../../decisions/working-notes.md), [D90](../../decisions/working-notes.md), [D92](../../decisions/working-notes.md)). **In Cut A** ([D178](../../decisions/working-notes.md), good on a phone); **2026-09-23: plain React + TypeScript + Vite over a React-free SDK, and the cast receiver a second Vite app served from the owner's own HTTPS name** ([D193](../../decisions/working-notes.md) §6, [D192](../../decisions/working-notes.md)).
 - **Depends on:** stream-service.md
 
 ## Scope
 
 The shared SDK first (generated from the server's OpenAPI document, plus the hand-written
 probe-and-pick logic that implements D2 once for everyone), then the web UI on top of it:
-library browsing, search, playback with `hls.js` + `jassub`, and the admin surface.
+library browsing, search, playback with `hls.js` + `jassub` (stock JASSUB in Cut A —
+[D193](../../decisions/working-notes.md) §4), and the admin surface.
+
+**The stack** ([D193](../../decisions/working-notes.md) §6, refining
+[D10](../../decisions/working-notes.md)): **plain React + TypeScript + Vite**, in a pnpm
+workspace whose packages are the SDK (React-free), the web client and the cast receiver. The
+API types come from the server's OpenAPI document through `openapi-typescript` and
+`openapi-fetch`. React Native is not in the web client; the television's framework is decided
+separately, when TV work starts.
 
 ## Why the SDK is the deliverable
 
@@ -25,7 +33,9 @@ Per [D28](../../decisions/working-notes.md): **no React or React Native imports*
 client, the negotiation logic or the offline state machine. The SDK must be usable from a plain
 web page, which keeps a future framework change a UI rewrite rather than a system rewrite. The
 device-lab web harness ([device-lab.md](device-lab.md)) is the forcing function — it consumes
-the SDK without React Native anywhere near it, continuously.
+the SDK without React Native anywhere near it, continuously. With the web client itself on plain
+React ([D193](../../decisions/working-notes.md) §6), the SDK is its own workspace package and
+imports no React either.
 
 ## Quarantine the offline module
 
@@ -56,6 +66,13 @@ guest**, because we choose what our own users install and not what their friends
 makes it a closer neighbour of this plan than of [tv-client.md](tv-client.md), and the build
 order is **web client → cast receiver**, well before our own television client is finished.
 
+**It is a second Vite app in the same workspace**, over the same SDK
+([D193](../../decisions/working-notes.md) §6). During the internal stage it stays
+**unpublished**, registered to her device by serial number, and **served from the owner's own
+server under its one public HTTPS name** ([D192](../../decisions/working-notes.md),
+[remote-access.md](remote-access.md)) — a private repository cannot use free GitHub Pages
+hosting, and that name has to exist anyway for the microphone.
+
 **It inherits the SDK's probe-and-pick** — a receiver has a narrower decoder set than the phone
 driving it and the *receiver* must be the one choosing
 ([D2](../../decisions/working-notes.md)) — and on Cast that is a documented API,
@@ -69,7 +86,10 @@ statutory caption set in [accessibility.md](accessibility.md)**, implemented by 
 Serving WebVTT and setting `TextTrackStyle` is better than shipping libass there, and cheaper.
 What the receiver *does* need is an **image layer** for
 [D78](../../decisions/working-notes.md)'s server-rendered overlay, which is how ASS and PGS
-reach a platform that supports neither — an element over a `<video>`, not a project.
+reach a platform that supports neither — an element over a `<video>`, not a project. **Not in
+Cut A:** D78's overlay is narrowed to a later question, PGS is not in the first build, and a
+prepared rendition carries its text subtitles as ASS for JASSUB and as WebVTT for the receiver
+([D193](../../decisions/working-notes.md) §2).
 
 So the custom receiver is forced by **Watch Together's six methods and by bitmap overlays**,
 not by subtitles in general: an MP4 of H.264 + AAC with WebVTT casts on the **Default Media
@@ -124,7 +144,8 @@ the answer is shown on the library's page afterwards:
 own.** Per stream: who, what, which device, where (LAN, remote, relay), direct play or
 transcode **with the stated reason**, bitrate against the ceiling, and **client-reported buffer
 health** — the field that answers "why is it buffering". Actions: **stop with a message** to the
-viewer, and **lower that stream's ceiling** on the spot. Live only — history is
+viewer, and **lower that stream's ceiling** on the spot (ceilings are not in Cut A —
+[D178](../../decisions/working-notes.md) §4). Live only — history is
 [play-statistics.md](play-statistics.md)'s.
 
 ## And it is the phone client, for now
@@ -188,7 +209,8 @@ later needs every contributor's agreement.
   list, say so, and remember the (probe answer → failure) pairing **on the device**. It never
   leaves except as an observation, and clearing it must be harmless.
 - **Presentation state** ([D90](../../decisions/working-notes.md)): caption font, size, colour,
-  background, window and edge; the signed audio and subtitle sync offsets; dialogue boost; the
+  background, window and edge; the signed audio and subtitle sync offsets; dialogue boost (on
+  or off in Cut A — [audio-presentation.md](audio-presentation.md)); the
   per-device dynamic-range declaration. All of it persists server-side at
   [D24](../../decisions/working-notes.md)'s scopes, so it follows the user rather than the
   browser.

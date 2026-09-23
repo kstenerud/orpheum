@@ -4,7 +4,15 @@
 
 # Media Nodes
 
-- **Status:** designed 2026-09-18, adopted as [D33](../decisions/working-notes.md).
+- **Status:** designed 2026-09-18, adopted as [D33](../decisions/working-notes.md). **Refined
+  2026-09-23 by [D193](../decisions/working-notes.md)** (§1, §3, §4): the node does every media
+  read and every FFmpeg run, and the core relays its bytes; the encoder is a node capability, not
+  a separate role or plugin; FFmpeg is confined **per invocation**; there is **one transport**,
+  HTTP+JSONL over a Unix socket (dial-out TCP later) — the file exchange channel, its signed
+  command file and the file status record are **deleted** ([D127](../decisions/working-notes.md)
+  superseded in part); liveness is an HTTP status endpoint plus the report stream. Sections
+  below that describe the deleted mechanisms are marked and kept as history.
+  [plans/cut-a.md](plans/cut-a.md) §2 and §4 are Cut A's form.
 
 ## The shape
 
@@ -15,9 +23,9 @@
                     │  never walks a filesystem    │
                     │  never parses a media file   │
                     └───▲─────────▲─────────▲──────┘
-      reports / jobs    │         │         │     (HTTP, or a file on a
-      over whatever     │         │         │      shared mount, or a poke)
-      transport fits    │         │         │
+      reports / jobs    │         │         │     (HTTP+JSONL: a Unix socket
+      and media bytes   │         │         │      locally, dial-out TCP later;
+      relayed (D193)    │         │         │      D193)
               ┌─────────┴──┐ ┌────┴─────┐ ┌─┴──────────┐
               │ node @ NAS │ │ node @   │ │ node @ core│
               │  (inotify) │ │ seedbox  │ │  box       │
@@ -41,8 +49,10 @@ media worker want to be the same process**, because they want the same three thi
 
 So the spoke is not "a scanner". It is a **media node**: the component that does *everything
 requiring access to a media file* — discovery, probing, subtitle and font extraction,
-thumbnails and trickplay, and optionally transcoding. Three previously separate concepts become
-one deployable thing.
+thumbnails and trickplay, and **prepare** — remux, audio conversion, and video encoding where
+the node advertises an encoder ([D193](../decisions/working-notes.md) §2–§3). It also serves
+the bytes the core relays to clients, for direct play and prepared renditions alike (D193 §1).
+Three previously separate concepts become one deployable thing.
 
 This also **completes [D26](../decisions/working-notes.md) rather than half-satisfying it.**
 That decision said the core must never parse attacker-controlled bytes. It stopped FFmpeg
@@ -60,11 +70,16 @@ it *is* a separate **process**, always, even co-located ([D43](../decisions/work
 mediaserver run                 # supervises every role enabled in config
 mediaserver core                # or run exactly one role, foreground
 mediaserver node
-mediaserver transcode
-mediaserver relay               # added 2026-09-19 by D71 — see below
+mediaserver transcode           # withdrawn by D193 §3 — the encoder is a node capability
+mediaserver relay               # added 2026-09-19 by D71 — deferred past Cut A by D193 §4
 ```
 
-**There is a fourth role, and it arrived after this document was written.**
+**~~The `transcode` role~~ is withdrawn** ([D193](../decisions/working-notes.md) §3). A node
+advertises what it can produce — `remux`, `aac`, `h264_qsv`, `h264_nvenc`, `x264` — and the
+core sends a job to a node that can do it. A GPU machine is a second node, not a third role.
+
+**There is a further role, and it arrived after this document was written.** *(Deferred past
+Cut A, which is reached by a port-forward, IPv6 or a standard tunnel — D193 §4.)*
 [D71](../decisions/working-notes.md) makes the **relay** a mode of this same binary, run on any
 publicly reachable host, which the core **dials out to** — no port forwarding, no dynamic DNS,
 works behind CGNAT. It is a role in exactly the sense this section means: its own process, its
@@ -79,12 +94,16 @@ and every drop, to the household's core, even when we operate the box. See
 [remote-access.md](plans/remote-access.md).
 
 Separate processes rather than goroutines because **Landlock is per-process and monotonic**
-(D26): a scanner wants read on media and write on its exchange directory, a transcoder wants
-read on media, write on a cache and **GPU device access**. One process means applying the union
-of those rulesets, so the riskiest component carries permissions it does not need. Separate
-processes also give per-role resource limits, failure isolation, and a clean expression of "the
-transcoder is not installed" as "it is not running". Three Go processes idle in tens of
-megabytes, so the cost is noise.
+(D26): a scanner wants read on media, an encode wants read on media, write on a cache and **GPU
+device access**. One process means applying the union of those rulesets, so the riskiest
+component carries permissions it does not need. **[D193](../decisions/working-notes.md) §4
+takes that argument one step further: confine each FFmpeg invocation**, not each role. A
+re-exec shim applies, in order, argument hardening, read-only mounts, a seccomp denylist and
+Landlock where the kernel has it — read access to the one source file, write access to the one
+output directory — and then execs FFmpeg. That is stronger than per-role confinement and needs
+no long-lived confined process ([D43](../decisions/working-notes.md) refined). Separate core
+and node processes still give resource limits, failure isolation and the D42 boundary below;
+two Go processes idle in tens of megabytes, so the cost is noise.
 
 Equally important: **the boundary is then enforced by the OS rather than by discipline.**
 [D42](../decisions/working-notes.md) says a node must not hold database credentials or make
@@ -111,7 +130,14 @@ the same code.
 
 The D27 "NAS agent" stops being a distinct thing. It is just a node that happens to be on a NAS.
 
-## Transport: three, ranked by how many installs use them
+## Transport: ~~three, ranked by how many installs use them~~ one, over two carriers
+
+**[D193](../decisions/working-notes.md) §4 keeps one transport**: HTTP+JSONL, over a Unix
+socket in the default install and dial-out TCP for a remote node later. The file channel
+(item 3 below) is **deleted**, with its signing, attribute-cache and torn-read handling; D127
+itself called it *"cheaper to start and more expensive to finish"*. The report grammar and
+[D59](../decisions/working-notes.md)/[D40](../decisions/working-notes.md)/[D41](../decisions/working-notes.md)
+are unchanged.
 
 The report *content* is one contract; how it travels is a deployment detail — but not an
 arbitrary one. Surveyed and measured 2026-09-21
@@ -133,7 +159,7 @@ arbitrary one. Surveyed and measured 2026-09-21
    direction stops existing as a network path**. Commands arrive as the *response to a poll the
    node made*; D35's `generation`/`observed_config` pair survives unchanged and rides the
    request and response.
-3. **A report file on a shared mount — the fallback.** The original index-file idea: no port,
+3. ~~**A report file on a shared mount — the fallback.**~~ **Deleted by D193 §4.** The original index-file idea: no port,
    no protocol, no firewall rule, because both sides already have the share, and on a NAS with
    a share already mounted that is genuinely zero friction. Kept for that. Its two costs are in
    [node-transport.md](research/node-transport.md) §5 and neither is optional reading: the
@@ -271,6 +297,14 @@ the core's API and nothing else. The core is the only writer.**
 
 ## The status record
 
+**Simplified by [D193](../decisions/working-notes.md) §4:** node liveness is an **HTTP status
+endpoint plus the report stream** — a node that is reporting is alive, and the endpoint says
+what it is doing (`state`, `task`, `detail`, the last error). The status **file**, the reasons
+for a file below, the progress pair's tick contract and the idle tick are withdrawn with the
+file channel; the distinctions this section draws — idle versus wedged versus dead, core-side
+timing, non-destructive escalation — still hold, and are what the endpoint and the stream are
+read for.
+
 Each node maintains a small JSON record — separate from its scan report — saying what it is
 doing, when it last did something, and that it is still breathing. The core reads it to reason
 about the node.
@@ -311,7 +345,7 @@ and a NAS whose clock is four hours out are all irrelevant.
 The only requirement this places on the node is that **something always changes** while it
 lives — satisfied by the progress pair, including when idle (below).
 
-### Why a file rather than an API
+### ~~Why a file rather than an API~~ (withdrawn, D193 §4)
 
 The proposal was a file, and it is the better choice for three reasons beyond convenience:
 
@@ -437,7 +471,13 @@ out, and never an input to liveness logic. `roots[].last_full_scan` is where
 [D32](../decisions/working-notes.md)'s "when did you last actually look?" requirement naturally
 lives: the node knows, so the node reports it.
 
-## Bidirectional control, through the same directory
+## Bidirectional control, ~~through the same directory~~ as the response to the node's poll
+
+*Since [D193](../decisions/working-notes.md) §4 there is no directory: commands travel as the
+response to a long-poll the node made ([D107](../decisions/working-notes.md),
+[D127](../decisions/working-notes.md)), and `generation`/`observed_config` ride the request and
+response. The command list, cancellation rules and acknowledgement below are unchanged; the
+file-watching subsections are history.*
 
 The core needs to ask for things — scan now, change the interval, pause, rescan one root — and
 the same directory carries it: **the core writes `config.json`; the node watches and re-reads
@@ -496,7 +536,14 @@ acknowledgement — and "scan now" in particular already has a better route thro
 [D32](../decisions/working-notes.md)'s inbound endpoint. The file mechanism exists for the
 topologies where none of that is available.
 
-## The exchange directory
+## The exchange directory — deleted
+
+**Deleted by [D193](../decisions/working-notes.md) §4**, with the file transport. Kept as
+history, not normative. What survives from it: a **stable `node_id`** generated once and
+persisted locally; **status is not the report**; and D107's rules below — a node's roots are
+local configuration the core cannot add to, and a remote node's enrolment is a deliberate human
+act. The node's Landlock ruleset is now per FFmpeg invocation (§One artifact, one process per
+role), not a directory table.
 
 ```
 <exchange-dir>/<node-id>/
@@ -674,28 +721,30 @@ corrections and playlist membership — a data-loss event wearing a recovery cos
 
 ## What this permits later, for free
 
-In a true multi-machine topology the core may have **no access to the media at all** — so it
-cannot serve direct play either. The architecture already answers this:
-[D19](../decisions/working-notes.md) built **signed, scoped, expiring URLs and client
-redirection** for the remote transcoder. The same mechanism lets a **node serve its own files
-directly to the client**, with the core issuing the redirect.
-
-Not required for v1 — on one machine it is pointless indirection — but it means "the core never
-touches media, full stop" is reachable without new machinery.
+~~In a true multi-machine topology the core may have **no access to the media at all** — so it
+cannot serve direct play either.~~ **The core has no access to the media in any topology**
+([D193](../decisions/working-notes.md) §1): for direct play it authenticates the request and
+**reverse-proxies the byte range from the node** over the node's socket, and it relays prepared
+renditions the same way. "The core never touches media, full stop" is therefore true from Cut A
+on. A remote node later is the same proxy over TCP — or, where the relay hop costs too much,
+**a redirect** to the node serving its own files, using the **signed, scoped, expiring URLs**
+[D19](../decisions/working-notes.md) designed for the remote transcoder.
 
 **And it is required sooner than "later", because the artefacts need it**
 ([D128](../decisions/working-notes.md)). The node *produces* trickplay sprites, subtitle
-overlay bitmaps, posters and font subsets; the core *serves* them from `cache/`; nothing said
-how they cross. Over the reference library that is **42 GB of overlay bitmaps and 5.7 GB of
+overlay bitmaps, posters and font subsets; the core *serves* them from `cache/` — or, for what
+the node keeps, relays them (D128 refined by D193 §1); nothing said how they cross. Over the reference library that is **42 GB of overlay bitmaps and 5.7 GB of
 trickplay** against **51 MB** for a snapshot report — three orders of magnitude between the
 channel that was discussed and the channel that matters. So:
 
 | | Where it lives | Why |
 | --- | --- | --- |
-| Large, cold, streamed — overlays, trickplay | **the node**, redirected to | 48 GB is not worth moving, and each is fetched at most once per viewing |
+| Large, cold, streamed — overlays, trickplay, prepared renditions | **the node**, relayed by the core (redirected to, from a remote node later) | 48 GB is not worth moving, and each is fetched at most once per viewing |
 | Small, hot, many-per-page — posters, thumbnails | **the core's `cache/`**, uploaded at production | a home page is fifty posters, and fifty redirects is a worse page |
 
 The rule is **requests per page**, not size alone. This is also Netflix's answer: an Open
 Connect Appliance does exactly two things — report its status *and what files it holds*, and
 serve content over HTTP when a client asks — with the control plane steering clients **via
-URL**. Bytes never transit the control plane.
+URL**. Bytes never transit the control plane. *(Ours do in Cut A: on one machine the relay hop
+through the core is a socket copy, and it keeps authentication in one place. The redirect is the
+remote-node form — [D193](../decisions/working-notes.md) §1.)*

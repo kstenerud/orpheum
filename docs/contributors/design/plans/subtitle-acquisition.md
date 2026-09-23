@@ -4,8 +4,8 @@
 
 # Subtitle acquisition
 
-- **Status:** PLANNED — gap identified 2026-09-21 ([D140](../../decisions/working-notes.md)), specified the same day by [D147](../../decisions/working-notes.md) and [D148](../../decisions/working-notes.md) on the measurements in [subtitle-sync.md](../research/subtitle-sync.md). Provider constraints researched in [tech-licensing.md](../research/tech-licensing.md) and [tech-metadata.md](../research/tech-metadata.md).
-- **Depends on:** [auth.md](auth.md) (per-user provider credentials), [identification.md](identification.md) (what the file *is*), [library-model.md](library-model.md) (where a fetched track lives, and the speech map), [scanner.md](scanner.md) (the pass that produces it)
+- **Status:** PLANNED — gap identified 2026-09-21 ([D140](../../decisions/working-notes.md)), specified the same day by [D147](../../decisions/working-notes.md) and [D148](../../decisions/working-notes.md) on the measurements in [subtitle-sync.md](../research/subtitle-sync.md). Provider constraints researched in [tech-licensing.md](../research/tech-licensing.md) and [tech-metadata.md](../research/tech-metadata.md). **Cut A has no verification** ([D178](../../decisions/working-notes.md) §4), so Cut A's form is acquisition on request with an unverified candidate list and the manual offset control (below); OpenSubtitles is a Go package behind the provider interface, not a WASM plugin ([D193](../../decisions/working-notes.md) §3).
+- **Depends on:** [schema.md](schema.md) (per-user provider credentials, in the `setting` table), [identification.md](identification.md) (what the file *is*), [library-model.md](library-model.md) (where a fetched track lives, and the speech map), [scanner.md](scanner.md) (the pass that produces it)
 
 ## Why this exists
 
@@ -25,6 +25,29 @@ owner's description of it is the specification for what not to build:
 > *"You have no idea which ones work, try them one-at-a-time until one of them actually
 > successfully downloads (about half of them fail to download), then it's either out of sync
 > right off the bat, or drifts over time, or maybe — just maybe — it actually works."*
+
+## In Cut A: on request, labelled unverified, corrected by hand
+
+[D178](../../decisions/working-notes.md) puts **acquisition on request** in Cut A — per title, by
+a person, which is also all OpenSubtitles' 20 downloads a day permits — and puts **subtitle
+verification out**, because the speech map is a 31-hour pass over the library. Everything below
+that depends on a score therefore waits, and Cut A uses the plan's own fallback:
+
+- **A person asks**, from the title, for subtitles in a language. Nothing is fetched otherwise.
+- **The candidates are listed, each labelled *unverified*.** The list is ordered by what the
+  provider can tell us without measuring: a `moviehash` match (§3a) first, then the
+  identification match. The label is on every row, because without a score nothing may look
+  verified ([D147](../../decisions/working-notes.md)'s rule still holds in its negative form).
+- **The person picks one**, it is written where §7 says, and it plays.
+- **[D90](../../decisions/working-notes.md)'s offset control is the correction**, and a nudge the
+  person keeps watching through is persisted onto the track (§3).
+- **The budget is shown before the fetch** and exhaustion is reported as a quota, exactly as §4.
+- **The provider is a Go package** behind the provider interface
+  ([D193](../../decisions/working-notes.md) §3), and each user's OpenSubtitles credentials live
+  in the database's `setting` table ([schema.md](schema.md)).
+
+The automatic path of §2–§3 and the library-wide check of §5 arrive with the speech map, and
+then this list becomes the *"nothing cleared the threshold"* case rather than the ordinary one.
 
 ## The shape
 
@@ -71,7 +94,8 @@ full mix — and `webrtcvad`, the field's default, is barely better on scored co
 ### 3. What the user sees
 
 - **In the ordinary case, nothing.** It is a background job; the subtitle is simply there. The
-  list of guesses does not exist, because picking was never a human judgement.
+  list of guesses does not exist, because picking was never a human judgement. *(Not in Cut A,
+  which has no speech map; see above.)*
 - **When nothing clears the threshold**, say so in those words — *"no subtitle for this could be
   verified against the audio"* — and offer the best unverified candidate as an explicit,
   labelled choice. Unverified must never look like verified.
@@ -101,7 +125,10 @@ same window**, so they are extra arithmetic on bytes the node has already read �
 read, no extra pass, no extra I/O**, on a pass measured at 3.2 ms per file and 7 GB across the
 whole reference library.
 
-So the node emits them alongside the content hash, and they cost nothing. Note they are
+So the node emits them alongside the content hash, and they cost nothing. *([D179](../../decisions/working-notes.md)
+has since anchored the identity hash on the media payload rather than the file's ends, so the
+file's last 64 KiB is no longer certain to be in the window already read — at most one small
+extra read, still no extra pass.)* Note they are
 **provider identifiers, not our identity** — [D116](../../decisions/working-notes.md)'s hash
 answers *is this the same file I saw before*, and these answer *has anyone else seen this exact
 file*; they are different questions that happen to share a read.
@@ -111,8 +138,10 @@ file*; they are different questions that happen to share a read.
 [tech-licensing.md](../research/tech-licensing.md): OpenSubtitles is **5 downloads/day
 anonymous, 20/day with a free account, 1000/day VIP**. Consequences:
 
-- **Credentials are per user, not per server** — an `auth.md` concern before a subtitle one,
-  and the same rule as [D13](../../decisions/working-notes.md)'s provider keys.
+- **Credentials are per user, not per server** — the same rule as
+  [D13](../../decisions/working-notes.md)'s provider keys. They live in the database's `setting`
+  table ([schema.md](schema.md)), which holds what changes at runtime
+  ([D181](../../decisions/working-notes.md)), and [auth.md](auth.md) says how they are protected.
 - **Counting downloads per user per day is a table.** The remaining budget is visible *before*
   a fetch, and exhausting it refuses cleanly.
 - **Report the reason, not the symptom.** "Your daily quota is spent, 0 of 20 left, resets at
@@ -174,7 +203,11 @@ and the **policy** of scoring every candidate before offering any.
 
 ## Done when
 
-A film with no subtitles gains a **verified** one in the user's language without the user
+**Cut A:** a person asks for subtitles for a film that has none, sees candidates each labelled
+unverified, picks one, and corrects it with the offset control, which is kept; the quota is
+visible before the fetch.
+
+**Later, with verification:** a film with no subtitles gains a **verified** one in the user's language without the user
 choosing from a list; an unverifiable one is refused in those words rather than served
 silently; a user's provider quota is visible before it is spent and its exhaustion is reported
 as a quota rather than a failure; a subtitle that was already in the library can be checked by

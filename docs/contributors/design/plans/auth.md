@@ -3,7 +3,7 @@
 
 # Authentication and identity
 
-- **Status:** PLANNED — pairing shape decided 2026-09-19 ([D93](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §15); the token model remains [threat-model.md](threat-model.md)'s open question.
+- **Status:** PLANNED — pairing shape decided 2026-09-19 ([D93](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §15); ~~the token model remains [threat-model.md](threat-model.md)'s open question~~ **the token model settled by [D154](../../decisions/working-notes.md)** (one grant table, opaque and revocable). **In Cut A** ([D178](../../decisions/working-notes.md)): local accounts, sessions and the invite from outside; **no OIDC/LDAP, and no television pairing** — her television joins a Watch Together session as a device of her membership instead ([D191](../../decisions/working-notes.md), 2026-09-23).
 - **Depends on:** —
 - **Blocks:** [library-model.md](library-model.md) — the user and identity tables are schema
 
@@ -17,7 +17,27 @@ and a section in [remote-access.md](remote-access.md). None of those owns it.
 [D20](../../decisions/working-notes.md) already promoted **OIDC/OAuth and LDAP into the core**
 for Phase 1, on the evidence that a third-party Jellyfin SSO plugin has 1,458★ and Navidrome's
 two most-requested issues are the same two things. Retrofitting external identity is painful;
-so is retrofitting anything else on this page.
+so is retrofitting anything else on this page. **Both are out of Cut A**
+([D178](../../decisions/working-notes.md) §4), which has two users and local accounts.
+
+## What Cut A needs from this page
+
+[D178](../../decisions/working-notes.md) (F6, F90) and [D191](../../decisions/working-notes.md):
+
+- **Server-local accounts and sessions**, on D154's grant table below.
+- **The invite from outside**: the remote person gets an invited account
+  ([D174](../../decisions/working-notes.md)), and what it may see is asked when the invite is
+  made ([D184](../../decisions/working-notes.md)), never defaulted.
+- **No television pairing.** RFC 8628 below (D93, F30) waits until she wants to watch on that
+  television alone. In a Watch Together session her television joins by the session link or a
+  short code from her phone, as a device of her membership, and needs no sign-in of its own
+  ([D191](../../decisions/working-notes.md)).
+- **Settings and provider credentials live in the database.** Whatever changes at runtime —
+  the TMDB key, each user's OpenSubtitles credentials
+  ([subtitle-acquisition.md](subtitle-acquisition.md)) — is a row in the `setting` table
+  ([schema.md](schema.md), [D181](../../decisions/working-notes.md)), per user where the
+  provider's terms are per user ([D13](../../decisions/working-notes.md)). Because the backup
+  carries the whole database ([D185](../../decisions/working-notes.md)), it carries these too.
 
 ## Four identity sources, in the order they ship
 
@@ -30,6 +50,9 @@ From [remote-access.md](../research/remote-access.md) §6, unchanged:
    product question ([overview.md](../overview.md) §Open problems).
 
 ## Signing in on a television
+
+*Not in Cut A ([D191](../../decisions/working-notes.md)); designed now because its endpoints
+are part of the frozen API core below.*
 
 **The standard is RFC 8628**, the OAuth 2.0 Device Authorization Grant: the TV shows a short
 code and a verification URL, the user opens it on a phone, the TV polls until it is approved or
@@ -114,6 +137,9 @@ and **nothing persists past the session** ([D125](../../decisions/working-notes.
 by nothing else — deliberately, because the motivating case is someone with no account — and
 bounded by a cap, ejection and rotation rather than by a predicate
 ([D119](../../decisions/working-notes.md)). See [watch-together.md](watch-together.md).
+**A participant who is signed in is still a user**, and their viewing in the session is recorded
+against their own account; the session itself grants them nothing beyond the stream
+([D191](../../decisions/working-notes.md)).
 
 ## Two attributes the role needs that nothing else names
 
@@ -241,9 +267,17 @@ whether a `node` grant is **mTLS or a shared enrolment secret** remains
 [D107](../../decisions/working-notes.md)'s choice — constrained only by D154's requirement
 that it be a row in the same table.
 
+**How provider credentials in the `setting` table are protected at rest** is not decided. The
+whole-database backup carries them ([D185](../../decisions/working-notes.md)), so the answer
+covers the backup file too.
+
 ## Done when
 
-A television is signed in without anyone typing a password with a remote; a grantee pairs their
+**Cut A:** the owner invites the remote person, who signs in from outside the house over HTTPS
+with a local account; a session can be listed and revoked by device; her OpenSubtitles
+credentials are hers and stored as a setting; and no credential appears in a URL anywhere.
+
+**Later:** a television is signed in without anyone typing a password with a remote; a grantee pairs their
 own device without the owner present; a session can be listed and revoked by device; an old
 client that cannot speak the current API still reaches the handshake and is told why; and no
 credential appears in a URL anywhere.

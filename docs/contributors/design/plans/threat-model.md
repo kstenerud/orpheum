@@ -4,7 +4,7 @@
 
 # Threat model
 
-- **Status:** PLANNED — **researched 2026-09-18** ([threat-model.md](../research/threat-model.md), [D26](../../decisions/working-notes.md)). The containment stance is chosen; the per-platform confinement matrix and the signed-URL design remain open.
+- **Status:** PLANNED — **researched 2026-09-18** ([threat-model.md](../research/threat-model.md), [D26](../../decisions/working-notes.md)). The containment stance is chosen; ~~the per-platform confinement matrix and the signed-URL design remain open~~ **the credential model closed by [D154](../../decisions/working-notes.md)** (no credential in a URL); **2026-09-23: FFmpeg is confined per invocation, the node's file channel is deleted, and Cut A adds an embedded TURN listener on one public HTTPS name** ([D193](../../decisions/working-notes.md) §4–§5). The confinement matrix per platform is what remains open.
 - **Depends on:** remote-access.md
 - **See also:** [auth.md](auth.md) — identity, sessions and device pairing, split out 2026-09-19 ([D93](../../decisions/working-notes.md)); [content-safety.md](content-safety.md) — proactive detection, deliberately deferred ([D61](../../decisions/working-notes.md)), with four affordances due now.
 
@@ -34,19 +34,24 @@ and it means Jellyfin's threat model is not available to us. We have not written
   it.** If the node always dials out — the shape GitHub's runners, AWS's SSM agent and Tdarr's
   node all converged on — then core→node **stops existing as a network path**: a node with no
   inbound surface cannot be written to, only answered. What remains to guard is the one
-  transport where that is impossible. On a **file exchange directory** there is no transport to
-  authenticate, and D35's *"the permissions split is the security model"* assumes an operator
-  careful enough to lock down a share that a typical home NAS leaves writable to the whole LAN.
-  So there the command file is **signed**, and the node verifies before obeying. See
-  [node-transport.md](../research/node-transport.md) §5b.
+  transport where that is impossible. ~~On a **file exchange directory** there is no transport
+  to authenticate, so there the command file is **signed**, and the node verifies before
+  obeying.~~ **The file exchange channel and its signing are deleted**
+  ([D193](../../decisions/working-notes.md) §4): the one node transport is HTTP+JSONL over a
+  Unix socket, with dial-out TCP later.
 - **Adapters and who they act as** ([D105](../../decisions/working-notes.md)). A tier-2
   protocol adapter with a standing privileged token is a confused deputy that defeats every
   predicate in the project. The rule is that it is a login proxy, not a principal; the *token
-  model* that makes it implementable is this document's open question.
+  model* that makes it implementable ~~is this document's open question~~ **is
+  [D154](../../decisions/working-notes.md)'s grant table**, where `adapter` is one of the kinds.
 - **The image path, which D26 did not cover.** A poster fetched from TMDB is
   community-uploaded, arrives unprompted during a background refresh, and is decoded by
   something. [D99](../../decisions/working-notes.md) puts that decode in the confined worker
-  with FFmpeg; the per-platform confinement matrix below has to cover it.
+  with FFmpeg; the per-platform confinement matrix below has to cover it. **Confinement is now
+  per FFmpeg invocation** ([D193](../../decisions/working-notes.md) §4, refining
+  [D43](../../decisions/working-notes.md)): a re-exec shim applies, in rank order, argument
+  hardening, read-only mounts, a seccomp denylist and Landlock where the kernel has it, and a
+  node reports itself *unconfined* where it cannot ([D112](../../decisions/working-notes.md)).
 - **What is the trust boundary for a media file?** Media is attacker-supplied data fed to
   FFmpeg, which is a large C codebase with a long CVE history. That is the sharpest edge in the
   product and it is the *normal* path, not an edge case. Sandboxing the decode/probe path
@@ -87,6 +92,11 @@ and it means Jellyfin's threat model is not available to us. We have not written
   reads `?ApiKey=`/`?api_key=` and stores a never-expiring, unscoped, admin-equivalent token
   in plaintext; we read neither and store none. Sessions expire on **idle**, not absolutely;
   refresh tokens do not exist because revocation costs 4.2 µs.
+- **The TURN listener** ([D193](../../decisions/working-notes.md) §4–§5). Cut A's voice runs
+  through a TURN server embedded in our binary, on its TLS port under the one public HTTPS name.
+  It is a new internet-facing listener and belongs in the surface inventory; an open relay is
+  TURN's classic misconfiguration, so what it will relay for, and with what credential, is for
+  this document to state.
 - **What a metrics endpoint exposes.** [observability.md](observability.md) adds one
   ([D91](../../decisions/working-notes.md)): off by default, localhost when on, never a label
   that can carry a title or a path. It is a new listener and belongs in the surface inventory.

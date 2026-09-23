@@ -3,8 +3,14 @@
 
 # Playback survey
 
-- **Status:** PLANNED — designed 2026-09-17. Gates the transcoding schedule.
-- **Depends on:** —
+- **Status:** PLANNED — designed 2026-09-17. Gates the transcoding schedule. **Narrowed for Cut
+  A** by [D178](../../decisions/working-notes.md) §4 to three clients — Chrome, Safari and a
+  Chromecast — and one question: what fraction of the owner's library direct-plays, and whether
+  the rest needs remux, audio, or video. Since [D193](../../decisions/working-notes.md) its
+  answer sizes the load on the node's **prepare** job rather than deciding whether a transcoder
+  exists. The wider survey below follows Cut A.
+- **Depends on:** — (the lab needs a Chromecast, which it does not yet own:
+  [D190](../../decisions/working-notes.md) §6, [device-lab.md](device-lab.md))
 
 ## Why this, and why first
 
@@ -17,7 +23,26 @@ This replaces the original `transcode-core-spike` as Phase 0. That plan ordered 
 transcoder first because it was the riskiest assumption; measuring the assumption is cheaper
 than building against it.
 
-## Scope guard
+## Cut A's survey
+
+**Three clients:** Chrome and Safari (the MacBook, and Safari on the iPhone), and a Chromecast
+(a current Google TV device, bought for the lab before this runs — D190 §6). For each file in the
+owner's library, the tool puts it in exactly one bucket per client:
+
+| Bucket | Means | Cut A's answer |
+| --- | --- | --- |
+| **direct** | the original plays as it is | direct play, relayed from the node |
+| **remux** | the codecs play but the container does not (MKV) | prepare, `remux` profile |
+| **audio** | the video plays but the audio does not (TrueHD, DTS, often AC-3) | prepare, `remux` profile (audio converted) |
+| **video** | the video codec, profile or bit depth does not play | prepare, `h264-8m` profile — an encode |
+
+Chromecast's answer is taken from the cast receiver's own checks on the device
+(`canDisplayType`, `MediaSource.isTypeSupported`), not from a table. Report the three clients
+separately, and the size of the **video** bucket above all: it is the only one that costs an
+encode on the N95. The per-client questions below, the other devices and the libmpv delta
+wait until after Cut A.
+
+## Scope guard (the wider survey, after Cut A)
 
 The client half of this is measured with **the web harness from
 [`device-lab.md`](device-lab.md), on about five representative devices** — the weakest TV, the
@@ -92,6 +117,11 @@ case that breaks when a transcode starts.
 
 ## Done when
 
-Numbers are written into `../research/playback-survey-results.md`, and D17 is either confirmed
-or superseded. If the direct-play rate is high, transcoding moves to Phase 4 as planned. If it
-is low, the segmented transcoder returns to Phase 1 and the roadmap is rewritten.
+**For Cut A:** the four buckets per client are written into
+`../research/playback-survey-results.md`, with the ranked reasons for the **remux**, **audio**
+and **video** buckets.
+
+**For the wider survey:** D17 is confirmed or superseded. ~~If it is low, the segmented
+transcoder returns to Phase 1 and the roadmap is rewritten.~~ A low rate now costs prepare
+time rather than a new mechanism: live segment-addressed transcoding is built only if
+first-play latency is measured to hurt (D193 §2).
