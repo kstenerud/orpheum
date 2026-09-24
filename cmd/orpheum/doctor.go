@@ -12,12 +12,10 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 )
-
-// backupAgeWarning is when doctor starts to mention the newest backup's age.
-const backupAgeWarning = 7 * 24 * time.Hour
 
 // verdict is one doctor finding's weight.
 type verdict string
@@ -68,8 +66,9 @@ func diagnose(ctx context.Context, config Config, now time.Time) []finding {
 	findings := []finding{checkWritable(directories, config.Server.DataDir)}
 	key, keyFinding := checkKey(directories)
 	findings = append(findings, keyFinding)
-	findings = append(findings, checkDatabase(ctx, directories, key)...)
-	findings = append(findings, checkBackups(directories, now),
+	databaseFindings, backupAgeWarning := checkDatabase(ctx, directories, key)
+	findings = append(findings, databaseFindings...)
+	findings = append(findings, checkBackups(directories, now, backupAgeWarning),
 		finding{verdictOK, "media node: not checked yet; the node arrives in M2", ""})
 	return findings
 }
@@ -101,17 +100,21 @@ func checkKey(directories *datadir.Directories) (*secrets.Key, finding) {
 	return &key, finding{verdictOK, "secret.key is present", ""}
 }
 
-func checkDatabase(ctx context.Context, directories *datadir.Directories, key *secrets.Key) []finding {
+// checkDatabase checks library.db and returns, from its settings, the age at which a backup is
+// old; nil when the settings cannot be read.
+func checkDatabase(ctx context.Context, directories *datadir.Directories, key *secrets.Key) (
+	[]finding, *time.Duration,
+) {
 	exists, err := directories.LibraryDatabaseExists()
 	if err != nil {
-		return []finding{{verdictFailure, "library.db", err.Error()}}
+		return []finding{{verdictFailure, "library.db", err.Error()}}, nil
 	}
 	if !exists {
-		return []finding{{verdictWarning, "there is no library.db yet", "start the server with `orpheum run`"}}
+		return []finding{{verdictWarning, "there is no library.db yet", "start the server with `orpheum run`"}}, nil
 	}
 	database, err := store.Open(ctx, directories.LibraryDatabase())
 	if err != nil {
-		return []finding{{verdictFailure, "library.db does not open", err.Error()}}
+		return []finding{{verdictFailure, "library.db does not open", err.Error()}}, nil
 	}
 	defer func() { _ = database.Close() }() //nolint:errcheck // doctor reports; a close error changes no finding
 	findings := []finding{checkSchema(ctx, database)}
@@ -127,10 +130,19 @@ func checkDatabase(ctx context.Context, directories *datadir.Directories, key *s
 	default:
 		findings = append(findings, finding{verdictOK, fmt.Sprintf("setup is complete; %d users", count), ""})
 	}
+	settingsService := settings.NewService(database, clock.System{})
 	if key != nil {
-		findings = append(findings, checkSecrets(ctx, database, *key))
+		findings = append(findings, checkSecrets(ctx, database, *key, settingsService))
 	}
-	return findings
+	hours, err := settingsService.Int(ctx, settings.BackupAgeWarningH)
+	if err != nil {
+		findings = append(findings, finding{
+			verdictWarning, "the settings cannot be read: " + err.Error(),
+			"start the server once; it writes every setting's starting value",
+		})
+		return findings, nil
+	}
+	return findings, new(time.Duration(hours) * time.Hour)
 }
 
 func checkSchema(ctx context.Context, database *store.Database) finding {
@@ -156,8 +168,10 @@ func checkSchema(ctx context.Context, database *store.Database) finding {
 		"one (%d)", state.Version, binary), "restore the pre-migrate snapshot in the backup directory, or upgrade"}
 }
 
-func checkSecrets(ctx context.Context, database *store.Database, key secrets.Key) finding {
-	needing, err := secrets.NewStore(database, key, clock.System{}, rand.Reader).NeedingReentry(ctx)
+func checkSecrets(
+	ctx context.Context, database *store.Database, key secrets.Key, settingsService *settings.Service,
+) finding {
+	needing, err := secrets.NewStore(database, key, clock.System{}, rand.Reader, settingsService).NeedingReentry(ctx)
 	if err != nil {
 		return finding{verdictFailure, "sealed secrets cannot be listed", err.Error()}
 	}
@@ -178,7 +192,7 @@ func checkSecrets(ctx context.Context, database *store.Database, key secrets.Key
 	}
 }
 
-func checkBackups(directories *datadir.Directories, now time.Time) finding {
+func checkBackups(directories *datadir.Directories, now time.Time, ageWarning *time.Duration) finding {
 	files, err := directories.ListBackups()
 	if err != nil {
 		return finding{verdictFailure, "the backup directory cannot be read", err.Error()}
@@ -186,7 +200,11 @@ func checkBackups(directories *datadir.Directories, now time.Time) finding {
 	for _, file := range files {
 		if strings.HasPrefix(file.Name, "backup-") && strings.HasSuffix(file.Name, ".sqlite") {
 			age := now.Sub(file.ModifiedAt).Round(time.Hour)
-			if age > backupAgeWarning {
+			if ageWarning == nil {
+				return finding{verdictOK, fmt.Sprintf("the newest backup, %s, is %s old; not judged without the "+
+					"backup_age_warning_h setting", file.Name, age), ""}
+			}
+			if age > *ageWarning {
 				return finding{
 					verdictWarning, fmt.Sprintf("the newest backup, %s, is %s old", file.Name, age),
 					"run `orpheum backup`",

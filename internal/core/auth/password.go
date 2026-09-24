@@ -23,12 +23,6 @@ type Parameters struct {
 	KeyBytes    uint32
 }
 
-// DefaultParameters are RFC 9106's second recommended option: 64 MiB, three passes, four lanes
-// (D194 §2). M1 measures them on devnas against a 500 ms ceiling (verification queue).
-func DefaultParameters() Parameters {
-	return Parameters{MemoryKiB: 64 * 1024, Iterations: 3, Parallelism: 4, SaltBytes: 16, KeyBytes: 32}
-}
-
 // ErrMalformedHash is returned for a stored hash that is not an argon2id PHC string.
 var ErrMalformedHash = errors.New("not an argon2id PHC string")
 

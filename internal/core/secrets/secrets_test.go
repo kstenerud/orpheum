@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -98,6 +100,7 @@ func TestKeyFile_RoundTripsAndRefusesAnotherFormat(t *testing.T) {
 
 type fixture struct {
 	database *store.Database
+	settings *settings.Service
 	secrets  *Store
 	key      Key
 	userID   int64
@@ -112,9 +115,11 @@ func newFixture(t *testing.T) fixture {
 		t.Fatal(err)
 	}
 	now := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
+	seeded := settingstest.Seeded(t, database)
 	return fixture{
 		database: database,
-		secrets:  NewStore(database, key, now, rand.Reader),
+		settings: seeded,
+		secrets:  NewStore(database, key, now, rand.Reader, seeded),
 		key:      key,
 		userID:   storetest.InsertUser(t, database, "owner", "admin"),
 		otherID:  storetest.InsertUser(t, database, "partner", "user"),
@@ -202,7 +207,7 @@ func TestStore_AnotherKeyMarksSecretsNeedingReentry(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := clocktest.NewFake(time.Date(2026, time.September, 25, 0, 0, 0, 0, time.UTC))
-	afterRestore := NewStore(fixture.database, restoredWithoutKey, now, rand.Reader)
+	afterRestore := NewStore(fixture.database, restoredWithoutKey, now, rand.Reader, fixture.settings)
 	if status := serverStatus(t, afterRestore, TMDBAPIKey); !status.IsSet || !status.NeedsReentry {
 		t.Errorf("under a new key: %+v, want set and needing re-entry", status)
 	}
@@ -248,6 +253,17 @@ func TestStore_ShowsAHintOnlyForAnAPIKey(t *testing.T) {
 	}
 	if hint := findStatus(t, statuses, OpenSubtitlesAPIKey).Hint; hint != "WXYZ" {
 		t.Errorf("API key hint = %q, want its last four characters", hint)
+	}
+	settingstest.Set(t, fixture.settings, settings.SecretHintLength, "2")
+	if err = fixture.secrets.Set(ctx, OpenSubtitlesAPIKey, &fixture.userID, NewValue(apiKey), nil); err != nil {
+		t.Fatal(err)
+	}
+	statuses, err = fixture.secrets.Statuses(ctx, &fixture.userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hint := findStatus(t, statuses, OpenSubtitlesAPIKey).Hint; hint != "YZ" {
+		t.Errorf("with secret_hint_length 2, the hint = %q, want the last two characters", hint)
 	}
 	if hint := findStatus(t, statuses, OpenSubtitlesPassword).Hint; hint != "" {
 		t.Errorf("password hint = %q, want none", hint)

@@ -67,7 +67,9 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 		record(call(t, http.MethodPut, server.baseURL+path+string(definition.Name), signedIn.Token,
 			map[string]any{"value": []string{value}}))
 	}
-	paths := []string{"/health", "/me", "/settings", "/me/settings", "/secrets", "/me/secrets", "/openapi.json"}
+	paths := []string{
+		"/health", "/me", "/settings", "/me/settings", "/config", "/secrets", "/me/secrets", "/openapi.json",
+	}
 	for _, path := range paths {
 		record(call(t, http.MethodGet, server.baseURL+path, signedIn.Token, nil))
 	}

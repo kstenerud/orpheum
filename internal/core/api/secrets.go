@@ -47,7 +47,7 @@ type PutSecretInput struct {
 }
 
 func (server *Server) registerSecrets() {
-	tags := []string{"Settings"}
+	tags := []string{tagSettings}
 	for _, scope := range []struct {
 		path, suffix, who string
 		signIn            func(context.Context, string) (*Dependencies, auth.Principal, error)

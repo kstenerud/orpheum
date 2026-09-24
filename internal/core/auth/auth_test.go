@@ -10,31 +10,34 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// cheapParameters keep the unit tests fast; the production costs are measured by the benchmark.
-func cheapParameters() Parameters {
-	return Parameters{MemoryKiB: 64, Iterations: 1, Parallelism: 1, SaltBytes: 16, KeyBytes: 32}
+// rfc9106Second is RFC 9106's second recommended option, the argon2id costs a new server starts
+// with (D194 §2); the unit tests run under the cheap costs settingstest sets.
+func rfc9106Second() Parameters {
+	return Parameters{MemoryKiB: 64 * 1024, Iterations: 3, Parallelism: 4, SaltBytes: saltBytes, KeyBytes: keyBytes}
 }
 
 type fixture struct {
 	database *store.Database
+	settings *settings.Service
 	clock    *clocktest.Fake
 	service  *Service
 }
 
-func newFixture(t *testing.T, parameters Parameters) fixture {
+func newFixture(t *testing.T) fixture {
 	t.Helper()
 	database := storetest.Open(t)
 	now := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
-	service, err := NewService(database, now, rand.Reader, parameters)
-	if err != nil {
-		t.Fatal(err)
+	seeded := settingstest.Seeded(t, database)
+	return fixture{
+		database: database, settings: seeded, clock: now, service: NewService(database, now, rand.Reader, seeded),
 	}
-	return fixture{database: database, clock: now, service: service}
 }
 
 func (fixture fixture) createUser(t *testing.T, name, password string, role Role) int64 {
@@ -48,7 +51,7 @@ func (fixture fixture) createUser(t *testing.T, name, password string, role Role
 
 func TestHashPassword_IsAPHCStringThatVerifies(t *testing.T) {
 	t.Parallel()
-	hash, err := HashPassword("correct horse", DefaultParameters(), rand.Reader)
+	hash, err := HashPassword("correct horse", rfc9106Second(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +60,7 @@ func TestHashPassword_IsAPHCStringThatVerifies(t *testing.T) {
 		t.Errorf("hash %q is not an argon2id PHC string with RFC 9106's second parameters", hash)
 	}
 	matches, used, err := VerifyPassword("correct horse", hash)
-	if err != nil || !matches || !sameCosts(used, DefaultParameters()) {
+	if err != nil || !matches || !sameCosts(used, rfc9106Second()) {
 		t.Errorf("VerifyPassword(right) = %v, %+v, %v", matches, used, err)
 	}
 	if matches, _, err := VerifyPassword("wrong horse", hash); err != nil || matches {
@@ -72,7 +75,7 @@ func TestHashPassword_IsAPHCStringThatVerifies(t *testing.T) {
 
 func TestCreateUser_StoresOnlyTheHash(t *testing.T) {
 	t.Parallel()
-	fixture := newFixture(t, cheapParameters())
+	fixture := newFixture(t)
 	fixture.createUser(t, "owner", "CANARY-password", RoleAdmin)
 	user, err := fixture.database.Read().GetLiveUserByName(t.Context(), "owner")
 	if err != nil {
@@ -90,7 +93,7 @@ func TestCreateUser_StoresOnlyTheHash(t *testing.T) {
 
 func TestSignIn_IssuesASessionUntilSignedOut(t *testing.T) {
 	t.Parallel()
-	fixture := newFixture(t, cheapParameters())
+	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "owner", "right", RoleAdmin)
 	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1")
@@ -119,7 +122,7 @@ func TestSignIn_IssuesASessionUntilSignedOut(t *testing.T) {
 
 func TestSignIn_SaysNothingAboutWhichPartWasWrong(t *testing.T) {
 	t.Parallel()
-	fixture := newFixture(t, cheapParameters())
+	fixture := newFixture(t)
 	fixture.createUser(t, "partner", "right", RoleUser)
 	for _, attempt := range [][2]string{{"partner", "wrong"}, {"nobody", "right"}} {
 		_, err := fixture.service.SignIn(t.Context(), attempt[0], attempt[1], "192.0.2.1")
@@ -129,12 +132,15 @@ func TestSignIn_SaysNothingAboutWhichPartWasWrong(t *testing.T) {
 	}
 }
 
-func TestSignIn_RateLimitsRepeatedFailures(t *testing.T) {
+func TestSignIn_RateLimitsRepeatedFailuresBySetting(t *testing.T) {
 	t.Parallel()
-	fixture := newFixture(t, cheapParameters())
+	fixture := newFixture(t)
 	ctx := t.Context()
+	const limit, window = 3, time.Minute
+	settingstest.Set(t, fixture.settings, settings.SignInFailureLimit, "3")
+	settingstest.Set(t, fixture.settings, settings.SignInFailureWindowS, "60")
 	fixture.createUser(t, "partner", "right", RoleUser)
-	for range failureLimit {
+	for range limit {
 		_, err := fixture.service.SignIn(ctx, "partner", "wrong", "198.51.100.7")
 		if !errors.Is(err, ErrBadCredentials) {
 			t.Fatalf("a failed sign-in: %v", err)
@@ -142,12 +148,12 @@ func TestSignIn_RateLimitsRepeatedFailures(t *testing.T) {
 	}
 	if _, err := fixture.service.SignIn(ctx, "partner", "right", "203.0.113.9"); !errors.Is(err, ErrRateLimited) {
 		t.Errorf("the right password after %d failures, from another address: %v, want ErrRateLimited",
-			failureLimit, err)
+			limit, err)
 	}
 	if _, err := fixture.service.SignIn(ctx, "someone", "right", "198.51.100.7"); !errors.Is(err, ErrRateLimited) {
 		t.Errorf("another account from the failing address: %v, want ErrRateLimited", err)
 	}
-	fixture.clock.Advance(failureWindow + time.Second)
+	fixture.clock.Advance(window + time.Second)
 	if _, err := fixture.service.SignIn(ctx, "partner", "right", "198.51.100.7"); err != nil {
 		t.Errorf("after the window: %v, want the sign-in to succeed", err)
 	}
@@ -155,16 +161,10 @@ func TestSignIn_RateLimitsRepeatedFailures(t *testing.T) {
 
 func TestSignIn_RehashesAPasswordMadeUnderOlderCosts(t *testing.T) {
 	t.Parallel()
-	older := cheapParameters()
-	fixture := newFixture(t, older)
+	fixture := newFixture(t)
 	fixture.createUser(t, "owner", "right", RoleAdmin)
-	newer := older
-	newer.Iterations = 2
-	upgraded, err := NewService(fixture.database, fixture.clock, rand.Reader, newer)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = upgraded.SignIn(t.Context(), "owner", "right", "192.0.2.1"); err != nil {
+	settingstest.Set(t, fixture.settings, settings.Argon2Iterations, "2")
+	if _, err := fixture.service.SignIn(t.Context(), "owner", "right", "192.0.2.1"); err != nil {
 		t.Fatal(err)
 	}
 	user, err := fixture.database.Read().GetLiveUserByName(t.Context(), "owner")
@@ -173,6 +173,40 @@ func TestSignIn_RehashesAPasswordMadeUnderOlderCosts(t *testing.T) {
 	}
 	if _, used, err := VerifyPassword("right", string(user.PasswordHash)); err != nil || used.Iterations != 2 {
 		t.Errorf("after signing in under newer costs, the hash uses %+v (%v); want t=2", used, err)
+	}
+}
+
+func TestAuthenticate_EndsASessionUnusedForTheIdleExpiry(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	settingstest.Set(t, fixture.settings, settings.SessionIdleExpiryH, "1")
+	settingstest.Set(t, fixture.settings, settings.SessionLastSeenResolutionS, "60")
+	fixture.createUser(t, "owner", "right", RoleAdmin)
+	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 3 {
+		fixture.clock.Advance(50 * time.Minute)
+		if _, err = fixture.service.Authenticate(ctx, token); err != nil {
+			t.Fatalf("a session used every 50 minutes, under a 1 hour idle expiry: %v", err)
+		}
+	}
+	fixture.clock.Advance(61 * time.Minute)
+	if _, err = fixture.service.Authenticate(ctx, token); !errors.Is(err, ErrNotAuthenticated) {
+		t.Errorf("a session unused for 61 minutes: %v, want ErrNotAuthenticated", err)
+	}
+}
+
+func TestSignIn_FailsWhenASettingIsMissingRatherThanFallingBack(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	fixture.createUser(t, "owner", "right", RoleAdmin)
+	storetest.ExecRaw(t, fixture.database.Path(), "DELETE FROM setting WHERE key = 'argon2_iterations'")
+	_, err := fixture.service.SignIn(t.Context(), "owner", "right", "192.0.2.1")
+	if !errors.Is(err, settings.ErrNotSeeded) {
+		t.Errorf("signing in with argon2_iterations missing: %v, want ErrNotSeeded, not a value from code", err)
 	}
 }
 
@@ -200,7 +234,7 @@ func (codes *memorySetupCodes) Remove() error {
 
 func TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce(t *testing.T) {
 	t.Parallel()
-	fixture := newFixture(t, cheapParameters())
+	fixture := newFixture(t)
 	ctx := t.Context()
 	codes := &memorySetupCodes{}
 	code, err := fixture.service.EnsureSetupCode(ctx, codes)
@@ -248,7 +282,7 @@ func TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce(t *testing.T) {
 // a 500 ms ceiling on devnas; the verification queue records that run.
 func BenchmarkHashPassword_DefaultParameters(b *testing.B) {
 	for b.Loop() {
-		if _, err := HashPassword("correct horse battery staple", DefaultParameters(), rand.Reader); err != nil {
+		if _, err := HashPassword("correct horse battery staple", rfc9106Second(), rand.Reader); err != nil {
 			b.Fatal(err)
 		}
 	}

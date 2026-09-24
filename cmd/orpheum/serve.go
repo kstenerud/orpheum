@@ -32,7 +32,6 @@ const shutdownGrace = 10 * time.Second
 // loop (migrations.md, When a step fails).
 func serve(ctx context.Context, config Config, listener net.Listener, logger *slog.Logger) (err error) {
 	server := api.NewServer(logger)
-	mountDebug(server.Mux(), config, logger)
 	httpServer := &http.Server{Handler: server.Handler(), ReadHeaderTimeout: 10 * time.Second}
 	var serving sync.WaitGroup
 	serving.Go(func() {
@@ -98,6 +97,9 @@ func start(ctx context.Context, config Config, server *api.Server, logger *slog.
 	if err != nil {
 		return opened, errors.Join(err, database.Close())
 	}
+	if err = mountDebug(ctx, server.Mux(), config, dependencies.Settings, logger); err != nil {
+		return opened, errors.Join(err, database.Close())
+	}
 	server.Ready(dependencies)
 	return opened, nil
 }
@@ -131,20 +133,25 @@ func reportMigration(report func(api.Status, string, ...string), logger *slog.Lo
 	}
 }
 
-// buildDependencies loads the secret key, builds the services and makes sure a server with no
-// users has a setup code, which it logs.
+// buildDependencies writes any setting that has no row yet, loads the secret key, builds the
+// services and makes sure a server with no users has a setup code, which it logs.
 func buildDependencies(
 	ctx context.Context, directories *datadir.Directories, database *store.Database, logger *slog.Logger,
 ) (api.Dependencies, error) {
 	now := clock.System{}
+	settingsService := settings.NewService(database, now)
+	written, err := settingsService.Seed(ctx)
+	if err != nil {
+		return api.Dependencies{}, err
+	}
+	if len(written) > 0 {
+		logger.InfoContext(ctx, "wrote the starting value of settings that had none", "keys", written)
+	}
 	key, err := loadOrCreateKey(directories, logger)
 	if err != nil {
 		return api.Dependencies{}, err
 	}
-	authService, err := auth.NewService(database, now, rand.Reader, auth.DefaultParameters())
-	if err != nil {
-		return api.Dependencies{}, err
-	}
+	authService := auth.NewService(database, now, rand.Reader, settingsService)
 	codes := stateSetupCodes{directories: directories}
 	code, err := authService.EnsureSetupCode(ctx, codes)
 	if err != nil {
@@ -155,8 +162,8 @@ func buildDependencies(
 			"at POST /api/v1/setup; `orpheum setup-code` prints it again", "setupCode", code)
 	}
 	return api.Dependencies{
-		Auth: authService, Settings: settings.NewService(database, now),
-		Secrets: secrets.NewStore(database, key, now, rand.Reader), SetupCodes: codes,
+		Auth: authService, Settings: settingsService,
+		Secrets: secrets.NewStore(database, key, now, rand.Reader, settingsService), SetupCodes: codes,
 	}, nil
 }
 
@@ -203,23 +210,35 @@ func (codes stateSetupCodes) Remove() error {
 	return codes.directories.RemoveStateFile(auth.SetupCodeFileName)
 }
 
-// mountDebug serves pprof on the API's mux when asked, and only on a loopback listener
-// (cut-a §2a). Metrics are accepted and not built yet; the log says so.
-func mountDebug(mux *http.ServeMux, config Config, logger *slog.Logger) {
+// mountDebug serves pprof on the API's mux when the debug_pprof setting says so, and only on a
+// loopback listener (cut-a §2a, D91). It reads the settings once, at start. Metrics are a setting
+// too and not built yet; the log says so.
+func mountDebug(
+	ctx context.Context, mux *http.ServeMux, config Config, settingsService *settings.Service, logger *slog.Logger,
+) error {
+	pprofOn, err := settingsService.Bool(ctx, settings.DebugPProf)
+	if err != nil {
+		return err
+	}
+	metricsOn, err := settingsService.Bool(ctx, settings.DebugMetrics)
+	if err != nil {
+		return err
+	}
 	loopback := isLoopback(config.Server.Listen)
-	if config.Debug.PProf && loopback {
+	if pprofOn && loopback {
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
 		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		logger.Info("pprof is on", "path", "/debug/pprof/")
+		logger.InfoContext(ctx, "pprof is on", "path", "/debug/pprof/")
 	}
-	if (config.Debug.PProf || config.Debug.Metrics) && !loopback {
-		logger.Warn("debug endpoints are served only on a loopback listen address; they are off",
+	if (pprofOn || metricsOn) && !loopback {
+		logger.WarnContext(ctx, "debug endpoints are served only on a loopback listen address; they are off",
 			"listen", config.Server.Listen)
 	}
-	if config.Debug.Metrics && loopback {
-		logger.Warn("debug.metrics is set, but /metrics is not built yet; nothing is served there")
+	if metricsOn && loopback {
+		logger.WarnContext(ctx, "debug_metrics is set, but /metrics is not built yet; nothing is served there")
 	}
+	return nil
 }

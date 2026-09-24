@@ -39,7 +39,8 @@
 //   - main.go: the subcommand table and dispatch. A subcommand's work lives in the package it
 //     names (internal/store for migrate, internal/core/backup for backup and restore); main
 //     only parses flags and wires dependencies.
-//   - config.go: the config file (cut-a §2a). serve.go: orpheum run. operations.go: migrate,
-//     backup, restore, setup-code and openapi. doctor.go: doctor. dev_seed.go: orpheum dev seed,
+//   - config.go: the config file (cut-a §2a), every key required (D200). serve.go: orpheum run,
+//     which seeds every missing setting at start. operations.go: migrate, backup, restore,
+//     setup-code, seed-settings and openapi. doctor.go: doctor. dev_seed.go: orpheum dev seed,
 //     in dev builds only.
 package main

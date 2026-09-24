@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/crypto/chacha20poly1305"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -74,9 +75,6 @@ func Lookup(name Name) (Definition, bool) {
 	return Definition{}, false
 }
 
-// hintLength is how many trailing characters of an API key its hint shows.
-const hintLength = 4
-
 var (
 	// ErrUnknownSecret is returned for a name that is not in Registry.
 	ErrUnknownSecret = errors.New("no such secret")
@@ -101,6 +99,11 @@ type Status struct {
 	NeedsReentry bool
 }
 
+// Settings is where the store reads the hint length (D200).
+type Settings interface {
+	Int(ctx context.Context, key settings.Key) (int64, error)
+}
+
 // Store seals, opens and reports sealed secrets. It is the only reader or writer of the secret
 // table (forbidigo [sealed-secret]).
 type Store struct {
@@ -108,11 +111,12 @@ type Store struct {
 	key      Key
 	clock    clock.Clock
 	random   io.Reader
+	settings Settings
 }
 
 // NewStore returns a Store that seals new secrets with key.
-func NewStore(database *store.Database, key Key, now clock.Clock, random io.Reader) *Store {
-	return &Store{database: database, key: key, clock: now, random: random}
+func NewStore(database *store.Database, key Key, now clock.Clock, random io.Reader, config Settings) *Store {
+	return &Store{database: database, key: key, clock: now, random: random, settings: config}
 }
 
 // Set seals value and stores it for owner (nil for a server secret), replacing any old value.
@@ -135,7 +139,11 @@ func (secrets *Store) Set(ctx context.Context, name Name, owner *int64, value Va
 	sealed := cipher.Seal(nil, nonce, []byte(value.Reveal()), associatedData(definition.Scope, owner, name))
 	var hint *string
 	if definition.HasHint {
-		hint = hintOf(value.Reveal())
+		length, lengthErr := secrets.settings.Int(ctx, settings.SecretHintLength)
+		if lengthErr != nil {
+			return lengthErr
+		}
+		hint = hintOf(value.Reveal(), length)
 	}
 	return secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertSealedSecret(ctx, sqlcgen.UpsertSealedSecretParams{
@@ -271,13 +279,13 @@ func associatedData(scope Scope, owner *int64, name Name) []byte {
 	return []byte(string(scope) + "\x00" + user + "\x00" + string(name))
 }
 
-// hintOf is the last four characters of an API key, or nothing when the key is too short for
-// four characters to leave most of it hidden.
-func hintOf(text string) *string {
-	if utf8.RuneCountInString(text) < 3*hintLength {
+// hintOf is the last length characters of an API key, or nothing when the key is too short for
+// them to leave most of it hidden, or length is zero.
+func hintOf(text string, length int64) *string {
+	if length <= 0 || int64(utf8.RuneCountInString(text)) < 3*length {
 		return nil
 	}
 	runes := []rune(text)
-	hint := string(runes[len(runes)-hintLength:])
+	hint := string(runes[int64(len(runes))-length:])
 	return &hint
 }

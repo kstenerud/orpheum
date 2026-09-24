@@ -21,6 +21,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 func TestMain(m *testing.M) {
@@ -92,9 +93,10 @@ func testConfig(t *testing.T) (Config, string) {
 		Log:  LogConfig{Level: "debug", Format: "json"},
 	}
 	path := filepath.Join(root, "orpheum.toml")
-	text := fmt.Sprintf("[server]\nlisten = %q\ndata_dir = %q\ncache_dir = %q\n\n[node]\nconfinement = \"report\"\n\n"+
+	text := fmt.Sprintf("[server]\nlisten = %q\ndata_dir = %q\ncache_dir = %q\n\n"+
+		"[node]\nroots = []\nffmpeg_dir = %q\nconfinement = \"report\"\n\n"+
 		"[log]\nlevel = \"debug\"\nformat = \"json\"\n",
-		config.Server.Listen, config.Server.DataDir, config.Server.CacheDir)
+		config.Server.Listen, config.Server.DataDir, config.Server.CacheDir, filepath.Join(root, "ffmpeg"))
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -259,5 +261,25 @@ func TestServe_ReportsAFailedStartInsteadOfExiting(t *testing.T) {
 	}
 	if err := server.stop(); err == nil {
 		t.Error("serve returned nil after a failed start; the exit status must say it failed")
+	}
+}
+
+func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	server := startServing(t, config, newCapturedLog("ready"), "ready")
+	pprofURL := strings.TrimSuffix(server.baseURL, api.Prefix) + "/debug/pprof/"
+	if off := call(t, http.MethodGet, pprofURL, "", nil); off.status != http.StatusNotFound {
+		t.Errorf("with debug_pprof at its starting value, /debug/pprof/ = %d, want 404", off.status)
+	}
+	if err := server.stop(); err != nil {
+		t.Fatal(err)
+	}
+	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
+		"UPDATE setting SET value = 'true' WHERE scope = 'server' AND key = 'debug_pprof'")
+	restarted := startServing(t, config, newCapturedLog("ready"), "ready")
+	pprofURL = strings.TrimSuffix(restarted.baseURL, api.Prefix) + "/debug/pprof/"
+	if on := call(t, http.MethodGet, pprofURL, "", nil); on.status != http.StatusOK {
+		t.Errorf("with debug_pprof on and a loopback listener, /debug/pprof/ = %d, want 200", on.status)
 	}
 }

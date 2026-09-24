@@ -19,7 +19,7 @@
 //   - A sign-in under older costs re-hashes the password. Enforced by
 //     TestSignIn_RehashesAPasswordMadeUnderOlderCosts.
 //   - Failed sign-ins are limited per account and per address, and a failure does not say which
-//     part was wrong. Enforced by TestSignIn_RateLimitsRepeatedFailures and
+//     part was wrong. Enforced by TestSignIn_RateLimitsRepeatedFailuresBySetting and
 //     TestSignIn_SaysNothingAboutWhichPartWasWrong.
 //   - A session is stored only as its token's SHA-256 and ends when revoked. Enforced by
 //     TestSignIn_IssuesASessionUntilSignedOut.
@@ -27,6 +27,11 @@
 //     TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce.
 //   - argon2id takes at most 500 ms on devnas: BenchmarkHashPassword_DefaultParameters, run there
 //     (verification queue VQ1).
+//   - Its opinions — argon2id's costs, the failure limit and window, idle expiry — are settings
+//     read when used, and a missing one is an error, not a value from code (D200). Enforced by
+//     TestSignIn_FailsWhenASettingIsMissingRatherThanFallingBack.
+//   - A session unused for the idle expiry ends. Enforced by
+//     TestAuthenticate_EndsASessionUnusedForTheIdleExpiry.
 //
 // # Read before changing
 //
@@ -38,7 +43,8 @@
 //
 // # Where to change
 //
-//   - password.go: argon2id and its parameters. limiter.go: the failure limit (provisional numbers).
+//   - password.go: argon2id and PHC strings. policy.go: the settings auth reads. limiter.go: the
+//     failure counts.
 //   - auth.go: users, sign-in, sessions on the grant table. setup.go: the setup code and the first
 //     admin. The invite flow of cut-a §5 (Setup and auth) arrives with M4.
 package auth
