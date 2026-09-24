@@ -20,6 +20,10 @@
   later features are listed at the end, not sketched
   ([D180](../../decisions/working-notes.md)).
 
+> **IMPLEMENTED — see `internal/store/migrations/0001_initial.sql`** (M1): every table above
+> the `cache.db` section, verbatim, plus the two built-in roles. `cache.db` arrives in M2
+> ([D198](../../decisions/working-notes.md)).
+
 ## Why this document exists
 
 The schema was prose spread across fifteen documents, and no single place listed the tables.
@@ -550,7 +554,7 @@ CREATE UNIQUE INDEX secret_name ON secret(scope, ifnull(user_id, 0), name);
 ```
 
 **Secrets are not settings** ([D194](../../decisions/working-notes.md)). A third-party credential is sealed with a key kept in
-`secret.key` beside the configuration file, never in this database, so a backup of `library.db`
+`secret.key` in the state directory ([D198](../../decisions/working-notes.md)), never in this database, so a backup of `library.db`
 carries only ciphertext. A restore without the key marks each row *needs re-entering* and loses
 nothing else. Only the `secrets` package queries this table. A user's own password is not here:
 it is an argon2id PHC string in `user.password_hash`.
@@ -673,6 +677,10 @@ out. At a few kilobytes compressed per title this adds tens of megabytes to the 
 reference scale, and removes a failure mode.
 
 ## `cache.db` — never backed up
+
+> **Not built in M1** ([D198](../../decisions/working-notes.md)): migration 0001 is `library.db`
+> alone, and these tables, with how `cache.db` is versioned and how sqlc reads them, arrive with
+> the job queue in M2.
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
