@@ -73,8 +73,9 @@ Sync, `/dev/dri`, a pinned FFmpeg, a browser ([D190](../decisions/working-notes.
   (yoloAI DF94).
 
 **Enforced by:** `scripts/check_claims.py` (`make check-claims`) fails on an `ORPHEUM_TEST_*`
-read that nothing sets; the skip ban of §4 keeps the helper the only door. The helper itself is
-*(planned)*.
+read that nothing sets; the skip ban of §4 keeps the helper the only door. The helper is
+`testutil.Require`, tested by `TestRequire_AnAbsentCapabilityFailsUnlessTheJobListsIt`; the
+Makefile's Go test targets print the list.
 
 ## 4. No skip outside the one helper
 

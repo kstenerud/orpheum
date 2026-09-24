@@ -14,6 +14,10 @@ MAKEFLAGS += --no-print-directory
 # Only test targets get it: git itself may need the machine's config (safe.directory).
 HERMETIC := TZ=UTC LC_ALL=C.UTF-8 GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 
+# The capabilities a job may run without (testing.md 3): set per CI step or lab job, never in a
+# profile. Every Go test run prints it, so a test that skipped for want of one is never silent.
+UNCONTROLLED := echo "ORPHEUM_TEST_UNCONTROLLED=$${ORPHEUM_TEST_UNCONTROLLED:-(none: a missing capability fails)}"
+
 # Pinned tool versions. Changing one is an owner action (the pre-edit hook asks), because a
 # linter upgrade changes what the gate means.
 GOLANGCI_LINT_VERSION := 2.13.2
@@ -96,6 +100,7 @@ go-vet: ## go vet for the shipped platform, for macOS, and for the dev build (-t
 
 .PHONY: go-test
 go-test: ## Unit and architecture tests, for release and dev builds
+	@$(UNCONTROLLED)
 	@$(HERMETIC) go test ./...
 	@$(HERMETIC) go test -tags dev ./cmd/...
 
@@ -146,6 +151,7 @@ lint-commits: ## Commit subjects, bodies and attribution trailers
 
 .PHONY: test-all
 test-all: check ## The gate, then the race detector and uncached tests
+	@$(UNCONTROLLED)
 	@$(HERMETIC) go test -race -count=1 ./...
 
 # ---------------------------------------------------------------------------------------------
@@ -262,6 +268,7 @@ probe: ## Show what the node would record about FILE: streams, format and chapte
 
 .PHONY: test-one
 test-one: ## Run Go tests verbosely, uncached, with the race detector: PKG=./internal/core/... RUN=Regex
+	@$(UNCONTROLLED)
 	@$(HERMETIC) go test -race -count=1 -v -run '$(RUN)' $(PKG)
 
 .PHONY: test-web-watch
