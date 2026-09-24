@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: Source hygiene gate run by `make check`: every source file carries the SPDX
 # ABOUTME: licence identifier its directory requires (D80), and no hand-written file
-# ABOUTME: outgrows what an agent reads whole (warn at 400 lines, fail at 800).
+# ABOUTME: outgrows what an agent reads whole (warn at 400 lines, fail at 800), and sqlc's
+# ABOUTME: query files stay ASCII.
 """Check licence headers and file sizes across the tracked source tree.
 
-Two rules, both about what a reader — human or agent — can rely on without asking:
+Three rules, all about what a reader — human or agent — can rely on without asking:
 
 * **The directory is the licence** (D80). Everything under `web/` is MPL-2.0; everything
   else is GPL-3.0-or-later. Each source file states its licence in an
@@ -16,6 +17,9 @@ Two rules, both about what a reader — human or agent — can rely on without a
   read in pieces is where an agent sizes a fix from the part it happened to see. Files over
   400 lines are reported, files over 800 fail, and an exception needs a line in
   `scripts/filesize.allow` with its reason. Generated code is exempt: nobody edits it.
+* **Query files are ASCII.** sqlc 1.31 miscounts a multibyte character in
+  `internal/store/queries/*.sql` and rejects the whole file with "edited query syntax is
+  invalid", far from the cause (audit-2026-09-24 section 4.3).
 
 Files are taken from `git ls-files` (tracked plus untracked-but-not-ignored), so the gate
 sees exactly what a commit would contain and never walks `node_modules`.
@@ -24,6 +28,7 @@ sees exactly what a commit would contain and never walks `node_modules`.
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -47,6 +52,8 @@ EXEMPT_PREFIXES = (
     "docs/",
 )
 EXEMPT_PARTS = ("/testdata/", "/node_modules/", "/dist/")
+
+ASCII_ONLY = re.compile(r"^internal/store/queries/[^/]+\.sql$")
 
 HEADER_WINDOW = 5
 WARN_LINES = 400
@@ -88,6 +95,21 @@ def check_header(path: str, text: str) -> Problem | None:
     return Problem(
         path, f"no `SPDX-License-Identifier: {want}` in its first {HEADER_WINDOW} lines (D80)"
     )
+
+
+def check_ascii(path: str, text: str) -> Problem | None:
+    """A query file with a non-ASCII character, named by its first line and column."""
+    if not ASCII_ONLY.match(path):
+        return None
+    for number, line in enumerate(text.splitlines(), 1):
+        for column, char in enumerate(line, 1):
+            if ord(char) > 0x7F:
+                return Problem(
+                    path,
+                    f"line {number} column {column} has {char!r}: query files are ASCII, because "
+                    "sqlc miscounts a multibyte character and rejects the file far from it",
+                )
+    return None
 
 
 def load_size_allowlist(text: str) -> dict[str, str]:
@@ -145,9 +167,9 @@ def check(root: Path, paths: list[str]) -> tuple[list[Problem], list[str]]:
         text = full.read_text(errors="replace")
         if is_generated(text):
             continue
-        header = check_header(path, text)
-        if header:
-            problems.append(header)
+        for problem in (check_header(path, text), check_ascii(path, text)):
+            if problem:
+                problems.append(problem)
         failure, warning = check_size(path, text, allowed)
         if failure:
             problems.append(failure)

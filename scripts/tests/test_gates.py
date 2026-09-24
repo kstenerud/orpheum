@@ -60,6 +60,12 @@ class SourceHeaders(unittest.TestCase):
         self.assertFalse(cs.is_source("docs/contributors/README.md"))
         self.assertTrue(cs.is_source("Makefile"))
 
+    def test_query_files_must_be_ascii(self):
+        bad = cs.check_ascii("internal/store/queries/user.sql", "-- ok\n-- see \u00a7 4\n")
+        self.assertIn("line 2 column 8", bad.message)
+        self.assertIsNone(cs.check_ascii("internal/store/queries/user.sql", "-- see section 4\n"))
+        self.assertIsNone(cs.check_ascii("internal/core/x.go", "// \u00a7 4\n"))
+
     def test_whole_tree(self):
         root = git_repo({
             "ok.go": "// SPDX-License-Identifier: GPL-3.0-or-later\npackage ok\n",
