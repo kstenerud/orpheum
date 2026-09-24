@@ -16080,3 +16080,39 @@ first hello with a name it has not seen and matches by name after that; the sock
 are the authentication ([D107](#d107--the-node-channel-is-mutually-authenticated-and-a-nodes-roots-are-local-and-never-remotely-settable)).
 
 **Status:** Decided.
+
+## D208 — The scenario walk's answers: re-identify on rename unless confirmed, a Title follows its files between libraries, withhold removals past half and twenty, and a returning payload revives its tombstone
+
+**Decided** (2026-09-24), by the project owner, answering the four questions of
+[scenarios.md](../design/plans/scenarios.md)'s first walk, which the owner asked for: *"We
+haven't done user story scenarios yet to test our model."*
+
+1. **A renamed or moved file is re-identified from its new path, unless a person confirmed its
+   match** (Q1; S1, S14). An automatic identification is derived from the path, so it is
+   re-derived when the path changes, and fixing `Metropolis (1959)` to `Metropolis (1995)` lands the file on
+   the right film. A confirmed match never moves ([D172](#d172--a-low-vote-count-is-shown-not-hidden-an-ambiguous-match-is-never-guessed-and-selecting-it-asks-rather-than-plays)).
+2. **A Title follows its files between libraries** (Q2; S6, S19). When a newly identified Title
+   has the provider id of a Title in another library that has no live files left, that Title —
+   with its history — moves to the new library instead of a second one being made. Two libraries
+   that both hold live files of one film (symlinked twins) keep a Title each.
+3. **Removals are withheld, and the admin asked, when a scan would remove more than half of a
+   root's files and more than twenty of them, or all of them, or when the root's device id or
+   mount has changed** (Q3; S7). [D41](#d41--diagnose-the-failure-boundary-by-walking-up-and-guard-the-silent-case-which-is-worse)
+   left the threshold open. Both numbers are settings with starting values (50% and 20).
+4. **A payload that reappears in the library of a tombstoned file with that payload revives the
+   tombstone**, with its history, position and subtitles, wherever it now is (Q4; S10). It is
+   D41's "recovery restores; it does not re-add", applied to a file as well as a mount, and it
+   makes D173's tombstone a reversible fact rather than an ending
+   ([D173](#d173--a-replaced-file-is-a-deletion-and-an-addition-what-is-in-a-files-timeline-dies-with-the-file-and-what-is-about-the-work-survives-at-the-title)).
+
+**Also recorded, from the same walk:** the node reports each root's device id, whether it is a
+mount point and whether it is read-only at the start of every scan, and the core keeps each
+root's last outcome, so a file on a root that could not be scanned shows as unavailable
+([D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides),
+[D179](#d179--a-files-identity-is-a-hash-of-its-media-payload-not-its-bytes-a-rebuild-restores-the-identity-rows-and-runs-an-ordinary-scan-duplicates-are-surfaced)).
+The per-directory "listed, empty" fact D42 lists is not reported yet: the core's comparison of a
+root's counts against its last complete scan catches the same cases, and the fact returns when
+the watcher needs it.
+
+**Status:** Decided. Items 3 and 4 and the root facts are built with the ingest; items 1 and 2
+with identification.

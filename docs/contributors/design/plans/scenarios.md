@@ -253,7 +253,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 | --- | --- | --- |
 | **G1** | D41/D42's silent-case defences: the node reports each root's device id and mount facts and "listed, empty"; the core compares, withholds removals on implausible shrinkage and asks | S7, S8 |
 | **G2** | A root that could not be scanned makes its files show as unavailable (D179) | S8 |
-| **Q1** | A file moved or renamed within its root keeps its row. Is it re-identified from its new name, or does it keep its Title unless a person changes it? | S1, S14 |
-| **Q2** | A film moved between libraries, or seen through two libraries, becomes a new Title in the second. Should Titles bind across libraries by provider id, so watched state follows? | S6, S19 |
-| **Q3** | D41's shrinkage threshold: what counts as implausible? | S7 |
-| **Q4** | A payload that reappears at a tombstoned file's path: revive the tombstone with its history, or a new file? | S10 |
+| **Q1** | Answered by D208 §1: re-identified from its new path unless a person confirmed the match | S1, S14 |
+| **Q2** | Answered by D208 §2: a Title with no live files follows its files to the new library | S6, S19 |
+| **Q3** | Answered by D208 §3: withhold past half and twenty, or all, or a changed device or mount | S7 |
+| **Q4** | Answered by D208 §4: a returning payload revives its tombstone | S10 |
