@@ -106,10 +106,14 @@ loop to work:**
 - **`orpheum run --config <file>`**, reading TOML with exactly the keys in
   [`dev/orpheum.dev.toml`](../../../../dev/orpheum.dev.toml), **every one required**
   ([D200](../../decisions/working-notes.md)). Paths arrive absolute (the loop renders them).
-  - `[server]`: `listen`, `data_dir`, `cache_dir`
+  - `[server]`: `listen`, `data_dir`, `cache_dir`, `read_header_timeout_s`, `shutdown_grace_s`
+  - `[database]`: `readers_minimum`, `migrate_space_factor` (D201)
   - `[node]`: `roots`, `ffmpeg_dir`, and `confinement`. `confinement` is `"require"` or
     `"report"`; a production install writes `"require"`.
   - `[log]`: `level`, `format` (`text` or `json`)
+
+  `orpheum seed-settings` adds every missing key that has a starting value, and reports keys
+  nothing reads (D201).
 
   This is the D182 §3 file: only what must exist before the database opens. Unknown keys are
   reported and ignored, never fatal ([packaging-history.md](../research/packaging-history.md)
