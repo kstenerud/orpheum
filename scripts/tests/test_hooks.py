@@ -37,6 +37,7 @@ class PreEdit(unittest.TestCase):
         self.assertEqual(self.edit("web/tsconfig.base.json"), "deny")
         self.assertEqual(self.edit("internal/archtest/arch_test.go"), "deny")
         self.assertEqual(self.edit("internal/store/sqlcgen/models.go"), "deny")
+        self.assertEqual(self.edit("internal/store/cachegen/models.go"), "deny")
         self.assertEqual(self.edit("internal/core/api/handler.go"), "")
         self.assertEqual(self.edit("docs/contributors/README.md"), "")
 

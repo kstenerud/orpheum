@@ -22,10 +22,12 @@
 //     internal/platform, and declares no functions outside methods.
 //   - TestArch_EveryPackageHasDocGo: every package under internal/ and cmd/ has a doc.go whose
 //     comment has the headings Invariants, Read before changing and Where to change. Generated
-//     packages (internal/store/sqlcgen) are exempt; their owner's doc.go covers them.
+//     packages (internal/store/sqlcgen, internal/store/cachegen) are exempt; their owner's doc.go
+//     covers them.
 //   - TestArch_NoGenericPackageNames: no package is named util, common, helpers or the like.
 //   - TestArch_NoForbiddenSuppressions: no //nolint names a complexity linter or depguard.
-//   - TestArch_QueriesNameEveryColumn: no query in internal/store/queries selects or returns *.
+//   - TestArch_QueriesNameEveryColumn: no query in internal/store/queries or
+//     internal/store/cache/queries selects or returns *.
 //
 // # Read before changing
 //
