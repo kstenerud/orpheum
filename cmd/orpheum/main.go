@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/identify/tmdb"
 )
 
 // version is the release this binary was built from. The Makefile sets it with
@@ -123,7 +124,8 @@ func commandRun(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(fmt.Errorf("listen on %s: %w", config.Server.Listen, err))
 	}
-	if err = serve(ctx, config, configReport, listener, selfStarter(config, call.stderr), logger); err != nil {
+	outside := wiring{startNode: selfStarter(config, call.stderr), tmdbBase: tmdb.BaseURL}
+	if err = serve(ctx, config, configReport, listener, outside, logger); err != nil {
 		return exitFailure
 	}
 	return exitSuccess

@@ -28,6 +28,8 @@ type world struct {
 	database  *store.Database
 	ingester  *library.Ingester
 	pass      *Pass
+	provider  *fakeProvider
+	matcher   *Matcher
 	clock     *clocktest.Fake
 	nodeID    int64
 	libraryID int64
@@ -39,10 +41,13 @@ func newWorld(t *testing.T, kind, source string) *world {
 	database := storetest.Open(t)
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	logger := slog.New(slog.DiscardHandler)
+	provider := newFakeProvider()
+	providers := Providers{"tmdb": provider}
 	created := &world{
-		t: t, database: database, clock: now,
+		t: t, database: database, clock: now, provider: provider,
 		ingester: library.NewIngester(database, now, settingstest.Seeded(t, database), logger),
-		pass:     NewPass(database, now, logger),
+		pass:     NewPass(database, now, logger, providers),
+		matcher:  NewMatcher(database, storetest.OpenCache(t), providers, now, logger),
 	}
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error

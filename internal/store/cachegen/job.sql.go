@@ -10,34 +10,28 @@ import (
 )
 
 const deferJob = `-- name: DeferJob :exec
-UPDATE job SET state = 'queued', not_before = ?1, last_error = ?2
-WHERE id = ?3
+UPDATE job SET state = 'queued', not_before = ?1, last_error = ?2,
+               attempts = ?3
+WHERE id = ?4
 `
 
 type DeferJobParams struct {
 	NotBefore int64
 	LastError *string
+	Attempts  int64
 	ID        int64
 }
 
-// Back to the queue until not_before: a rate limit, or a retry's back-off (D170).
+// Back to the queue until not_before: a rate limit, or a retry's back-off (D170). A wait that is
+// not the job's fault gives back the attempt StartJob counted.
 func (q *Queries) DeferJob(ctx context.Context, arg DeferJobParams) error {
-	_, err := q.db.ExecContext(ctx, deferJob, arg.NotBefore, arg.LastError, arg.ID)
+	_, err := q.db.ExecContext(ctx, deferJob,
+		arg.NotBefore,
+		arg.LastError,
+		arg.Attempts,
+		arg.ID,
+	)
 	return err
-}
-
-const earliestQueuedJob = `-- name: EarliestQueuedJob :one
-SELECT CAST(min(not_before) AS INTEGER) AS due
-FROM job
-WHERE state = 'queued' AND kind = ?1
-`
-
-// When the next queued job of a kind becomes due, so a runner can sleep until then.
-func (q *Queries) EarliestQueuedJob(ctx context.Context, kind string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, earliestQueuedJob, kind)
-	var due int64
-	err := row.Scan(&due)
-	return due, err
 }
 
 const findOpenJob = `-- name: FindOpenJob :one
@@ -118,6 +112,26 @@ func (q *Queries) GetJob(ctx context.Context, id int64) (Job, error) {
 		&i.FinishedAt,
 	)
 	return i, err
+}
+
+const hasJob = `-- name: HasJob :one
+SELECT EXISTS (
+  SELECT 1 FROM job WHERE kind = ?1 AND subject IS ?2
+) AS found
+`
+
+type HasJobParams struct {
+	Kind    string
+	Subject *int64
+}
+
+// Whether any job of this kind was ever queued for this subject: a first fetch happens once
+// (D170), and a later one is a person's request.
+func (q *Queries) HasJob(ctx context.Context, arg HasJobParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasJob, arg.Kind, arg.Subject)
+	var found bool
+	err := row.Scan(&found)
+	return found, err
 }
 
 const insertJob = `-- name: InsertJob :one

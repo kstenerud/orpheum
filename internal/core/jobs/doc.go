@@ -17,6 +17,14 @@
 //   - Every switch over a job kind or state names every value. Enforced by exhaustive.
 //   - Time comes from a clock.Clock, so scheduling is testable. Enforced by the forbidigo rule
 //     tagged [clock].
+//   - A subject has at most one open job of a kind. TestEnqueue_QueuesASubjectOnceWhileItIsOpen.
+//   - The highest priority runs first. TestRunDue_RunsTheHighestPriorityFirst.
+//   - A failure retries with doubling back-off up to the retry limit, then fails.
+//     TestRunDue_RetriesAFailureWithDoublingBackoffThenFails.
+//   - A provider's Retry-After, or a missing key, holds the kind without costing attempts (D170).
+//     TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind,
+//     TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts.
+//   - After a crash, running jobs return to queued. TestRequeueRunning_ReturnsWhatACrashLeftRunning.
 //
 // # Read before changing
 //
@@ -28,5 +36,7 @@
 //
 // # Where to change
 //
-//   - The scheduler and its slots; the runners per kind; the job view's queries.
+//   - queue.go: queuing, and the answers a handler gives. runner.go: running one kind, one job at
+//     a time, and recording each outcome. The prepare, scan and backup runners, their slots, and
+//     the job view come with their features.
 package jobs

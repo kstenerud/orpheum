@@ -26,6 +26,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
+// noTMDB is where tests that fake no TMDB send it: a closed port on loopback, so a call that
+// escapes fails on this machine and never reaches the network (standards/testing.md).
+const noTMDB = "http://127.0.0.1:9"
+
 func TestMain(m *testing.M) {
 	api.UseErrorShape()
 	m.Run()
@@ -140,7 +144,9 @@ func startServing(t *testing.T, config Config, captured capturedLog, awaited str
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- serve(ctx, config, ConfigReport{}, listener, nil, captured.logger) }()
+	go func() {
+		done <- serve(ctx, config, ConfigReport{}, listener, wiring{tmdbBase: noTMDB}, captured.logger)
+	}()
 	select {
 	case <-captured.signals[awaited]:
 	case err := <-done:

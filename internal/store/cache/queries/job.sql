@@ -7,6 +7,13 @@ VALUES (sqlc.arg(kind), sqlc.arg(subject), sqlc.arg(args), sqlc.arg(priority), s
         sqlc.arg(reason), sqlc.arg(created_at))
 RETURNING id;
 
+-- name: HasJob :one
+-- Whether any job of this kind was ever queued for this subject: a first fetch happens once
+-- (D170), and a later one is a person's request.
+SELECT EXISTS (
+  SELECT 1 FROM job WHERE kind = sqlc.arg(kind) AND subject IS sqlc.arg(subject)
+) AS found;
+
 -- name: FindOpenJob :one
 -- A queued or running job of this kind for this subject, so a subject is queued once.
 SELECT id, state
@@ -23,12 +30,6 @@ WHERE state = 'queued' AND kind = sqlc.arg(kind) AND not_before <= sqlc.arg(now)
 ORDER BY priority DESC, not_before, id
 LIMIT 1;
 
--- name: EarliestQueuedJob :one
--- When the next queued job of a kind becomes due, so a runner can sleep until then.
-SELECT CAST(min(not_before) AS INTEGER) AS due
-FROM job
-WHERE state = 'queued' AND kind = sqlc.arg(kind);
-
 -- name: StartJob :execrows
 UPDATE job SET state = 'running', attempts = attempts + 1
 WHERE id = sqlc.arg(id) AND state = 'queued';
@@ -39,8 +40,10 @@ UPDATE job SET state = sqlc.arg(state), progress = sqlc.arg(progress), last_erro
 WHERE id = sqlc.arg(id);
 
 -- name: DeferJob :exec
--- Back to the queue until not_before: a rate limit, or a retry's back-off (D170).
-UPDATE job SET state = 'queued', not_before = sqlc.arg(not_before), last_error = sqlc.arg(last_error)
+-- Back to the queue until not_before: a rate limit, or a retry's back-off (D170). A wait that is
+-- not the job's fault gives back the attempt StartJob counted.
+UPDATE job SET state = 'queued', not_before = sqlc.arg(not_before), last_error = sqlc.arg(last_error),
+               attempts = sqlc.arg(attempts)
 WHERE id = sqlc.arg(id);
 
 -- name: RequeueRunningJobs :execrows

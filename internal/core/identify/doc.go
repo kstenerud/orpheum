@@ -32,6 +32,18 @@
 //     its match (D208 §1). TestPass_ARenamedFileIsIdentifiedAgainUnlessConfirmed.
 //   - A title with no live files left follows them to another library, found by provider id
 //     (D208 §2). TestPass_ATitleFollowsItsFilesToAnotherLibrary.
+//   - A match is never guessed: a provider id in hand skips the search, a single result matching
+//     the name and year is accepted, and anything else is ambiguous with its results kept (D172).
+//     TestMatch_AProviderIDInHandSkipsTheSearch, TestMatch_AnAmbiguousSearchIsNeverGuessed,
+//     TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStoredResponse.
+//   - A pass re-derives a matched title from its stored response and never calls a provider;
+//     a title its provider found nothing for is not searched again (D170, D182).
+//     TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStoredResponse,
+//     TestMatch_NothingFoundIsRecordedAndNotSearchedAgain.
+//   - An override survives a match and every re-derivation (D183).
+//     TestMatch_AnOverrideSurvivesTheMatchAndReDerivation.
+//   - One work found as two titles in a library becomes one, the other a tombstone pointing at it
+//     (D173). TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst.
 //
 // # Read before changing
 //
@@ -46,6 +58,8 @@
 //
 //   - filename.go: the filename parser, and its corpus in filename_test.go; nfo.go: the NFO
 //     reader.
-//   - pass.go, titles.go, episodes.go, extras.go: the identification pass.
-//   - The TMDB client (a subpackage when it grows); candidate ranking; overrides from people.
+//   - pass.go, titles.go, episodes.go, extras.go: the identification pass; evidence.go: what a
+//     stored match says to it.
+//   - provider.go: the provider interface. match.go: the matcher and the fetch job's handler.
+//   - tmdb/: the TMDB client. Still to come: the chooser's API and overrides from people.
 package identify
