@@ -60,11 +60,22 @@ UPDATE file SET
   last_seen = sqlc.arg(seen)
 WHERE id = sqlc.arg(id);
 
--- name: ListUnseenLiveFiles :many
-SELECT id, path
+-- name: ListLiveFilesOfLibrary :many
+SELECT id, path, last_seen
 FROM file
-WHERE node_id = ? AND library_id = ? AND removed_at IS NULL AND last_seen < ?
+WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY id;
+
+-- name: GetLatestTombstoneByHash :one
+-- The file a returning payload revives (D208): the latest removed in the library.
+SELECT id
+FROM file
+WHERE library_id = ? AND payload_hash = ? AND removed_at IS NOT NULL
+ORDER BY removed_at DESC, id DESC
+LIMIT 1;
+
+-- name: ReviveFile :exec
+UPDATE file SET removed_at = NULL WHERE id = ?;
 
 -- name: TombstoneFile :exec
 UPDATE file SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id);

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -55,8 +56,8 @@ func newHarness(t *testing.T) *harness {
 		t.Fatal(err)
 	}
 	return &harness{
-		t: t, database: database, ingester: NewIngester(database, now, slog.New(slog.DiscardHandler)),
-		clock: now, nodeID: nodeID,
+		t: t, database: database, clock: now, nodeID: nodeID,
+		ingester: NewIngester(database, now, settingstest.Seeded(t, database), slog.New(slog.DiscardHandler)),
 	}
 }
 
@@ -99,8 +100,14 @@ func failed(path string, scope nodeproto.ErrorScope) nodeproto.Record {
 // scan sends one scan of root: begin, the records, and complete unless the scan is cut off.
 func (world *harness) scan(records []nodeproto.Record, completes bool) {
 	world.t.Helper()
+	world.scanOn(nodeproto.ScanBegin{Root: root, Device: 7, MountPoint: true}, records, completes)
+}
+
+// scanOn is scan with the root's filesystem facts as the node reports them.
+func (world *harness) scanOn(facts nodeproto.ScanBegin, records []nodeproto.Record, completes bool) {
+	world.t.Helper()
 	world.clock.Advance(time.Minute)
-	begin := nodeproto.Record{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: root}}
+	begin := nodeproto.Record{Type: nodeproto.RecordScanBegin, ScanBegin: &facts}
 	all := append([]nodeproto.Record{begin}, records...)
 	if completes {
 		complete := &nodeproto.ScanComplete{Root: root}
@@ -314,4 +321,8 @@ func TestIngest_AFileInAnotherRootIsNeverTakenForAMove(t *testing.T) {
 	if episode, found := live[shows+"/Episode.mkv"]; !found || episode.ID == film.ID {
 		t.Errorf("the episode is %+v, want a row of its own", episode)
 	}
+}
+
+func rootStateParams(nodeID int64) sqlcgen.GetRootStateParams {
+	return sqlcgen.GetRootStateParams{NodeID: nodeID, Path: root}
 }

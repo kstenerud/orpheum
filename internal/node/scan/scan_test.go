@@ -158,6 +158,11 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 	if begin.UID != 1000 || begin.GID != 1000 {
 		t.Errorf("scan_begin = %+v, want the node's ids", begin)
 	}
+	// A test's temporary directory is never a mount point, and it is on some device: the facts
+	// the core compares to catch an unmounted disk (D208).
+	if begin.Device == 0 || begin.MountPoint {
+		t.Errorf("scan_begin = %+v, want the root's device and that it is not a mount point", begin)
+	}
 	observed := records[2].Observed
 	if observed.Size != int64(len("alien")) || observed.Identity.Scheme == "" || observed.Identity.Hash == "" ||
 		len(observed.Probe.Format.Names) == 0 {

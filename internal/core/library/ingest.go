@@ -15,6 +15,7 @@ import (
 
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -37,6 +38,7 @@ const notIdentifiedYet = "not identified yet"
 type Ingester struct {
 	database *store.Database
 	clock    clock.Clock
+	settings Settings
 	logger   *slog.Logger
 
 	mutex sync.Mutex
@@ -47,11 +49,18 @@ type Ingester struct {
 // not been able to conclude yet, and the regions it could not read.
 type scanState struct {
 	root      string
+	facts     rootFacts
 	libraryID int64 // 0 when no library covers the root: its records are not stored
 	startedAt int64
 	pending   []pendingMove
 	unread    []string // paths under which nothing may be removed
 	unreadAll bool     // the root itself could not be read, or the scan stopped
+}
+
+// rootFacts are the root's filesystem facts as its scan began (D42, D208).
+type rootFacts struct {
+	Device     uint64
+	MountPoint bool
 }
 
 // pendingMove is a new path whose payload hash matches a file this scan has not seen yet. It
@@ -61,9 +70,16 @@ type pendingMove struct {
 	from int64
 }
 
+// Settings is what the ingest reads from the settings.
+type Settings interface {
+	Int(ctx context.Context, key settings.Key) (int64, error)
+}
+
 // NewIngester returns the ingest.
-func NewIngester(database *store.Database, now clock.Clock, logger *slog.Logger) *Ingester {
-	return &Ingester{database: database, clock: now, logger: logger, scans: map[int64]*scanState{}}
+func NewIngester(database *store.Database, now clock.Clock, settingsService Settings, logger *slog.Logger) *Ingester {
+	return &Ingester{
+		database: database, clock: now, settings: settingsService, logger: logger, scans: map[int64]*scanState{},
+	}
 }
 
 // Records stores one batch of a node's report in one transaction.
@@ -140,7 +156,10 @@ func (work *batch) begin(ctx context.Context, begin *nodeproto.ScanBegin) error 
 	if err != nil {
 		return err
 	}
-	work.ingester.scans[work.nodeID] = &scanState{root: begin.Root, libraryID: libraryID, startedAt: work.now}
+	work.ingester.scans[work.nodeID] = &scanState{
+		root: begin.Root, libraryID: libraryID, startedAt: work.now,
+		facts: rootFacts{Device: begin.Device, MountPoint: begin.MountPoint},
+	}
 	return nil
 }
 

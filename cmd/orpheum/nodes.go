@@ -54,7 +54,7 @@ func runNodeChannel(
 	if err != nil {
 		return nil, err
 	}
-	sink := reportSink{ingester: library.NewIngester(database, clock.System{}, logger), logger: logger}
+	sink := reportSink{ingester: library.NewIngester(database, clock.System{}, settingsService, logger), logger: logger}
 	service := nodes.NewService(database, clock.System{}, settingsService, sink, logger, commandPollHold)
 	server := &http.Server{Handler: service.Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
 	var running sync.WaitGroup

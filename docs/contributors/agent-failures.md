@@ -61,8 +61,8 @@ rests on, so the claim can be checked against them; a total goes stale with the 
   reading the decision the code cited (D40) and not the ones around it.
 - **Caught by:** the owner's request for user-story scenarios; walking "a USB disk is unplugged"
   through the design found D41's section on the silent case.
-- **Gate:** the scenario tier (plans/scenarios.md): the unplugged-disk scenario becomes a test
-  that fails if a clean scan of an emptied root removes anything. General lesson: before building
+- **Gate:** `TestScenario_S7_S8_AnUnpluggedDiskRemovesNothingAndItsReturnRestoresEverything`
+  fails if a clean scan of an emptied root removes anything (plans/scenarios.md, S7). General lesson: before building
   a mechanism, grep the decision log for every decision that names it, not only the one cited.
 
 ### A2 — Two rules that contradicted each other, built side by side without a word (2026-09-24)

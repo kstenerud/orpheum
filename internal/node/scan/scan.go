@@ -80,13 +80,21 @@ func (scanner *Scanner) Scan(ctx context.Context, root *confine.MediaRoot, emit 
 		visited: map[string]bool{},
 		errors:  newErrorLog(emit, scanner.options.MaxErrors),
 	}
+	facts, factsErr := root.Facts()
 	err := emit(nodeproto.Record{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{
 		Root: root.Path(), UID: scanner.options.UID, GID: scanner.options.GID,
+		Device: facts.Device, MountPoint: facts.MountPoint, ReadOnly: facts.ReadOnly,
 	}})
 	if err != nil {
 		return err
 	}
-	err = walk.directory(location{media: root, rel: ".", reported: "."})
+	if factsErr != nil {
+		// Without the facts the core cannot tell an unmounted disk from an empty one, so the
+		// root is not enumerated: a root error withholds every removal (D40, D41).
+		walk.errors.record(".", nodeproto.ScopeRoot, factsErr, nil)
+	} else {
+		err = walk.directory(location{media: root, rel: ".", reported: "."})
+	}
 	if flushErr := walk.errors.flush(); err == nil {
 		err = flushErr
 	}
