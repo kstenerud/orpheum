@@ -11,12 +11,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -37,7 +40,7 @@ type seedUser struct {
 	Outsider bool   `toml:"outsider"`
 }
 
-// seedLibrary is read so the file parses whole; libraries are seeded from M2, with the scanner.
+// seedLibrary is a library the seed creates, on the config's node, with D184's questions answered.
 type seedLibrary struct {
 	Name            string `toml:"name"`
 	Kind            string `toml:"kind"`
@@ -139,9 +142,39 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if err != nil {
 		return err
 	}
-	if len(seed.Libraries) > 0 {
-		fmt.Fprintf(report, "seed: %d libraries are in the seed; they are created from M2, with the scanner\n",
-			len(seed.Libraries))
+	return seedLibraries(ctx, database, config.Node.Name, seed.Libraries, report)
+}
+
+// seedLibraries creates each library that does not exist yet, on the node the config names,
+// which it enrols if the node has not said hello. A root is recorded as the node reports it:
+// with symlinks resolved.
+func seedLibraries(
+	ctx context.Context, database *store.Database, nodeName string, libraries []seedLibrary, report *strings.Builder,
+) error {
+	if len(libraries) == 0 {
+		return nil
+	}
+	nodeID, err := nodes.Enrol(ctx, database, clock.System{}, nodeName)
+	if err != nil {
+		return err
+	}
+	for _, seeded := range libraries {
+		root := seeded.Root
+		if resolved, resolveErr := filepath.EvalSymlinks(root); resolveErr == nil {
+			root = resolved
+		}
+		_, err = library.Create(ctx, database, clock.System{}, library.NewLibrary{
+			Name: seeded.Name, Kind: seeded.Kind, MetadataSource: seeded.MetadataSource,
+			ChangeDetection: seeded.ChangeDetection, Writable: seeded.Writable, NodeID: nodeID, Roots: []string{root},
+		})
+		switch {
+		case errors.Is(err, library.ErrExists):
+			fmt.Fprintf(report, "seed: library %q exists; left as it is\n", seeded.Name)
+		case err != nil:
+			return fmt.Errorf("seed library %q: %w", seeded.Name, err)
+		default:
+			fmt.Fprintf(report, "seed: library %q covers %s on node %q\n", seeded.Name, root, nodeName)
+		}
 	}
 	return nil
 }

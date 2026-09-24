@@ -10,7 +10,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -51,6 +55,7 @@ func TestRun_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 	config.Node.Roots = []string{media}
 	config.Node.FFmpegDir = fake.Directory
 	config.Node.VideoExtensions = []string{"mkv"}
+	nodeID := createLibrary(t, config, media)
 
 	captured := newCapturedLog("ready", "a node finished a scan")
 	var start nodes.Starter = func(ctx context.Context) (nodes.Process, error) {
@@ -71,13 +76,13 @@ func TestRun_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 	go func() { done <- serve(ctx, config, ConfigReport{}, listener, start, captured.logger) }()
 	select {
 	case <-captured.signals["a node finished a scan"]:
-	case err := <-done:
+	case early := <-done:
 		cancel()
-		t.Fatalf("serve returned before the scan finished: %v\n%s", err, captured)
+		t.Fatalf("serve returned before the scan finished: %v\n%s", early, captured)
 	}
 	cancel()
-	if err := <-done; err != nil {
-		t.Errorf("serve returned %v", err)
+	if stopped := <-done; stopped != nil {
+		t.Errorf("serve returned %v", stopped)
 	}
 
 	log := captured.String()
@@ -92,6 +97,62 @@ func TestRun_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 			t.Errorf("the log lacks %s:\n%s", want, log)
 		}
 	}
+	database := openDatabase(t, config)
+	files, err := database.Read().ListLiveFilesByNode(t.Context(), nodeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filings := map[string]string{}
+	for _, file := range files {
+		filings[strings.TrimPrefix(file.Path, media+"/")] = file.Filing
+	}
+	film, notes := filings["Film (2020)/Film (2020).mkv"], filings["notes.txt"]
+	if film != "unidentified" || notes != "skipped" || len(filings) != 2 {
+		t.Errorf("library.db holds %v; want the film unidentified and the notes skipped", filings)
+	}
+}
+
+// createLibrary makes the database serve will open, with a library covering root on the
+// config's node, and returns the node's id.
+func createLibrary(t *testing.T, config Config, root string) int64 {
+	t.Helper()
+	database := openDatabase(t, config)
+	if err := database.Migrate(t.Context(), config.migrateOptions(t.TempDir(), nil)); err != nil {
+		t.Fatal(err)
+	}
+	nodeID, enrolErr := nodes.Enrol(t.Context(), database, clock.System{}, config.Node.Name)
+	if enrolErr != nil {
+		t.Fatal(enrolErr)
+	}
+	resolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = library.Create(t.Context(), database, clock.System{}, library.NewLibrary{
+		Name: "Films", Kind: "movies", MetadataSource: "nfo", ChangeDetection: "manual",
+		NodeID: nodeID, Roots: []string{resolved},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return nodeID
+}
+
+func openDatabase(t *testing.T, config Config) *store.Database {
+	t.Helper()
+	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	database, err := store.Open(t.Context(), directories.LibraryDatabase(), config.openOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() }) //nolint:errcheck // closing twice is harmless here
+	return database
 }
 
 func TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired(t *testing.T) {
