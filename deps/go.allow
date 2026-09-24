@@ -7,6 +7,7 @@ modernc.org/sqlite  # pure-Go SQLite driver, no cgo; ncruces stays the benchmark
 golang.org/x/crypto  # argon2id passwords and XChaCha20-Poly1305 sealed secrets (D194)
 github.com/danielgtaylor/huma/v2  # the API and its generated OpenAPI on net/http (D193 §6)
 github.com/BurntSushi/toml  # parses the config file and dev/seed.toml; no dependencies of its own (D197)
+golang.org/x/text  # NFC filenames at the core's ingest (D49) and BCP 47 language tags from the probe (D206)
 
 # Indirect: modernc.org/sqlite's closure
 modernc.org/libc  # indirect, modernc.org/sqlite

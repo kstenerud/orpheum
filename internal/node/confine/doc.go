@@ -10,6 +10,8 @@
 //
 //   - Only this package opens a media root, and MediaRoot exposes no method that writes, renames
 //     or removes. Enforced by the forbidigo rules tagged [media-root] and [delete].
+//   - MediaRoot reads through os.Root, so nothing it opens is outside the root; following a
+//     link into another root is the scanner's decision, made with Resolve and Contains (D206).
 //   - Imports nothing from internal/core. Enforced by the depguard rule node-boundary and
 //     TestArch_NodeNeverImportsCore.
 //
@@ -24,5 +26,6 @@
 //
 // # Where to change
 //
-//   - The seccomp denylist; the Landlock ruleset; the confinement report; MediaRoot.
+//   - mediaroot.go: MediaRoot. The seccomp denylist, the Landlock ruleset and the confinement
+//     report come in M3.
 package confine

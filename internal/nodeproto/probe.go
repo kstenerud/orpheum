@@ -31,6 +31,9 @@ type ProbeStream struct {
 	Profile string `json:"profile"`
 	// Language is the tag exactly as the container carried it ("ger", "deu", "en").
 	Language string `json:"language"`
+	// LanguageTag is Language in BCP 47 form ("de" for both "ger" and "deu"), or empty when the
+	// container carried none, "und", or a code no standard knows (scanner.md, D206).
+	LanguageTag string `json:"languageTag"`
 	// Title is the track title, verbatim: often the only signal of a track's kind.
 	Title string `json:"title"`
 	// Disposition lists the flags ffprobe reported as set, sorted: "default", "forced",
