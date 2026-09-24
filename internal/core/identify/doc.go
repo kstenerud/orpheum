@@ -42,6 +42,13 @@
 //     TestMatch_NothingFoundIsRecordedAndNotSearchedAgain.
 //   - An override survives a match and every re-derivation (D183).
 //     TestMatch_AnOverrideSurvivesTheMatchAndReDerivation.
+//   - A person's choice of match is confirmed, over any NFO and every later pass, and replaces
+//     the ids an earlier match recorded; an ambiguous title whose kept results cache.db lost is
+//     searched once more (D172). TestChooser_AChosenMatchIsPermanent,
+//     TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne,
+//     TestChooser_SearchesAgainWhenTheCacheLostTheCandidates.
+//   - A person's override holds until it is removed, then the field follows its source (D183).
+//     TestChooser_AnOverrideHoldsUntilItIsRemoved.
 //   - One work found as two titles in a library becomes one, the other a tombstone pointing at it
 //     (D173). TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst.
 //
@@ -61,5 +68,5 @@
 //   - pass.go, titles.go, episodes.go, extras.go: the identification pass; evidence.go: what a
 //     stored match says to it.
 //   - provider.go: the provider interface. match.go: the matcher and the fetch job's handler.
-//   - tmdb/: the TMDB client. Still to come: the chooser's API and overrides from people.
+//   - chooser.go: what a person does — list, choose, override. tmdb/: the TMDB client.
 package identify

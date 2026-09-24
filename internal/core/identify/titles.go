@@ -166,13 +166,11 @@ func best(specs []titleSpec) titleSpec {
 	return specs[0]
 }
 
-// resolveWithMatch resolves a title from its best evidence, or, when no NFO speaks for it, from
-// what its stored match says.
+// resolveWithMatch resolves a title from its best evidence, or from what its stored match says
+// when no NFO speaks for it or a person chose the match.
 func (work *run) resolveWithMatch(ctx context.Context, titleID int64, spec titleSpec) (resolved, error) {
-	if spec.source == "" {
-		if err := work.matchEvidence(ctx, titleID, &spec); err != nil {
-			return resolved{}, err
-		}
+	if err := work.matchEvidence(ctx, titleID, &spec); err != nil {
+		return resolved{}, err
 	}
 	return work.resolve(ctx, titleID, spec)
 }

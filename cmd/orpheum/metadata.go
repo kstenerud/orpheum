@@ -17,16 +17,18 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
-// metadata is the fetch side of identification: the providers, the job queue and its runner.
+// metadata is the fetch side of identification: the pass, the job queue, the matcher that runs
+// its fetch jobs, and the chooser a person uses.
 type metadata struct {
-	providers identify.Providers
-	queue     *jobs.Queue
-	stop      func()
+	pass    *identify.Pass
+	queue   *jobs.Queue
+	matcher *identify.Matcher
+	chooser *identify.Chooser
 }
 
-// startMetadata builds the providers and the queue, returns the jobs a crash left running to it,
-// and runs the fetch jobs until stop.
-func startMetadata(ctx context.Context, opened started, tmdbBase string, logger *slog.Logger) (metadata, error) {
+// newMetadata builds the providers, the pass and the queue, and returns the jobs a crash left
+// running to the queue.
+func newMetadata(ctx context.Context, opened started, tmdbBase string, logger *slog.Logger) (metadata, error) {
 	timeout, err := opened.settings.Int(ctx, settings.ProviderTimeoutS)
 	if err != nil {
 		return metadata{}, err
@@ -44,8 +46,17 @@ func startMetadata(ctx context.Context, opened started, tmdbBase string, logger 
 	if requeued > 0 {
 		logger.InfoContext(ctx, "returned jobs a stop left running to the queue", "jobs", requeued)
 	}
+	pass := identify.NewPass(opened.database, clock.System{}, logger, providers)
 	matcher := identify.NewMatcher(opened.database, opened.cache, providers, clock.System{}, logger)
-	runner := queue.NewRunner(jobs.KindFetch, matcher.Handle)
+	return metadata{
+		pass: pass, queue: queue, matcher: matcher,
+		chooser: identify.NewChooser(matcher, pass),
+	}, nil
+}
+
+// run works the fetch jobs until the returned stop is called.
+func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop func()) {
+	runner := fetching.queue.NewRunner(jobs.KindFetch, fetching.matcher.Handle)
 	running, cancel := context.WithCancel(ctx)
 	var done sync.WaitGroup
 	ticker := time.NewTicker(time.Second)
@@ -55,7 +66,7 @@ func startMetadata(ctx context.Context, opened started, tmdbBase string, logger 
 			logger.ErrorContext(ctx, "the fetch queue stopped", "err", err)
 		}
 	})
-	return metadata{providers: providers, queue: queue, stop: func() { cancel(); done.Wait() }}, nil
+	return func() { cancel(); done.Wait() }
 }
 
 // queueMatches queues the first fetch of each film a pass left awaiting its match: once per

@@ -30,6 +30,7 @@ type world struct {
 	pass      *Pass
 	provider  *fakeProvider
 	matcher   *Matcher
+	chooser   *Chooser
 	clock     *clocktest.Fake
 	nodeID    int64
 	libraryID int64
@@ -68,6 +69,7 @@ func newWorld(t *testing.T, kind, source string) *world {
 	if err != nil {
 		t.Fatal(err)
 	}
+	created.chooser = NewChooser(created.matcher, created.pass)
 	return created
 }
 

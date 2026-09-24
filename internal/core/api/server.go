@@ -15,6 +15,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
@@ -44,6 +45,8 @@ type Dependencies struct {
 	Settings   *settings.Service
 	Secrets    *secrets.Store
 	SetupCodes auth.SetupCodes
+	// Identify is what a person does about identification: the chooser and overrides.
+	Identify *identify.Chooser
 	// ConfigFile is the config file's keys as the server runs with them, for /config to show.
 	ConfigFile []ConfigFileKey
 }
@@ -84,6 +87,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerSetupAndAuth()
 	server.registerSettings()
 	server.registerSecrets()
+	server.registerIdentification()
 	return server
 }
 

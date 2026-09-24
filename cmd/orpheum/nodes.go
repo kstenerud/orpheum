@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
-	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -46,7 +45,7 @@ func selfStarter(config Config, output io.Writer) nodes.Starter {
 // supervises the node child. The returned stop ends both: the child first, so its requests end,
 // then the socket's server.
 func runNodeChannel(
-	ctx context.Context, config Config, opened started, fetching metadata, start nodes.Starter, logger *slog.Logger,
+	ctx context.Context, config Config, opened started, start nodes.Starter, logger *slog.Logger,
 ) (stop func() error, err error) {
 	database, settingsService := opened.database, opened.settings
 	listener, err := datadir.ListenUnix(config.Server.SocketDir, coreSocket)
@@ -54,7 +53,7 @@ func runNodeChannel(
 		return nil, err
 	}
 	ingester := library.NewIngester(database, clock.System{}, settingsService, logger)
-	pass := identify.NewPass(database, clock.System{}, logger, fetching.providers)
+	pass, fetching := opened.metadata.pass, opened.metadata
 	ingester.AfterScan(func(ctx context.Context, libraryID int64) {
 		report, err := pass.Library(ctx, libraryID)
 		if err != nil {
