@@ -9,6 +9,42 @@ import (
 	"context"
 )
 
+const deleteItemProviderIDsOf = `-- name: DeleteItemProviderIDsOf :exec
+DELETE FROM item_provider_id
+WHERE item_id = ?1 AND provider = ?2
+`
+
+type DeleteItemProviderIDsOfParams struct {
+	ItemID   int64
+	Provider string
+}
+
+// A person's choice replaces the ids an earlier match recorded at that provider.
+func (q *Queries) DeleteItemProviderIDsOf(ctx context.Context, arg DeleteItemProviderIDsOfParams) error {
+	_, err := q.db.ExecContext(ctx, deleteItemProviderIDsOf, arg.ItemID, arg.Provider)
+	return err
+}
+
+const deleteOverride = `-- name: DeleteOverride :execrows
+DELETE FROM field_override
+WHERE item_id = ?1 AND field = ?2 AND lang = ''
+`
+
+type DeleteOverrideParams struct {
+	ItemID int64
+	Field  string
+}
+
+// Removing an override is how a field returns to its source (D183). A person's correction is not
+// a tombstoned row (standards/sql.md section 6): its absence is the state.
+func (q *Queries) DeleteOverride(ctx context.Context, arg DeleteOverrideParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteOverride, arg.ItemID, arg.Field)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getProviderResponse = `-- name: GetProviderResponse :one
 SELECT body
 FROM provider_response
@@ -178,6 +214,60 @@ func (q *Queries) ListTitlesAwaitingMatch(ctx context.Context, libraryID *int64)
 	return items, nil
 }
 
+const listTitlesByIdent = `-- name: ListTitlesByIdent :many
+SELECT title.id, title.kind, title.year, title.ident, title.source, title.source_id, item.library_id,
+  item_text.name
+FROM title
+JOIN item ON item.id = title.id
+LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+WHERE title.ident = ?1 AND item.removed_at IS NULL
+ORDER BY item_text.name, title.id
+`
+
+type ListTitlesByIdentRow struct {
+	ID        int64
+	Kind      string
+	Year      *int64
+	Ident     string
+	Source    *string
+	SourceID  *string
+	LibraryID *int64
+	Name      *string
+}
+
+// The titles in one state of identification, for the chooser's list (cut-a section 5).
+func (q *Queries) ListTitlesByIdent(ctx context.Context, ident string) ([]ListTitlesByIdentRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesByIdent, ident)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTitlesByIdentRow{}
+	for rows.Next() {
+		var i ListTitlesByIdentRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Year,
+			&i.Ident,
+			&i.Source,
+			&i.SourceID,
+			&i.LibraryID,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const mergeItem = `-- name: MergeItem :exec
 UPDATE item SET merged_into = ?1, removed_at = ?2
 WHERE id = ?3
@@ -232,6 +322,33 @@ func (q *Queries) SetTitleMatch(ctx context.Context, arg SetTitleMatchParams) er
 		arg.SourceID,
 		arg.Ident,
 		arg.ID,
+	)
+	return err
+}
+
+const upsertOverride = `-- name: UpsertOverride :exec
+INSERT INTO field_override (item_id, field, lang, value, origin, set_by, set_at)
+VALUES (?1, ?2, '', ?3, 'typed', ?4, ?5)
+ON CONFLICT (item_id, field, lang) DO UPDATE SET
+  value = excluded.value, origin = excluded.origin, set_by = excluded.set_by, set_at = excluded.set_at
+`
+
+type UpsertOverrideParams struct {
+	ItemID int64
+	Field  string
+	Value  string
+	SetBy  *int64
+	SetAt  int64
+}
+
+// A person's value for a field: the lock, kept over every source (D183).
+func (q *Queries) UpsertOverride(ctx context.Context, arg UpsertOverrideParams) error {
+	_, err := q.db.ExecContext(ctx, upsertOverride,
+		arg.ItemID,
+		arg.Field,
+		arg.Value,
+		arg.SetBy,
+		arg.SetAt,
 	)
 	return err
 }

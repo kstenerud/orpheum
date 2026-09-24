@@ -69,7 +69,7 @@ func (matcher *Matcher) Match(ctx context.Context, titleID int64) (Outcome, erro
 		return "", err
 	}
 	if id != "" {
-		return OutcomeMatched, matcher.accept(ctx, provider, title, id)
+		return OutcomeMatched, matcher.accept(ctx, provider, title, id, identIdentified)
 	}
 	query := Query{Kind: title.Kind, Name: derefText(title.Name), Year: int(deref(title.Year))}
 	candidates, err := provider.Search(ctx, query)
@@ -77,7 +77,7 @@ func (matcher *Matcher) Match(ctx context.Context, titleID int64) (Outcome, erro
 		return "", fmt.Errorf("search %s for %q: %w", provider.Name(), query.Name, err)
 	}
 	if chosen, single := singleMatch(query, candidates); single {
-		return OutcomeMatched, matcher.accept(ctx, provider, title, chosen.ID)
+		return OutcomeMatched, matcher.accept(ctx, provider, title, chosen.ID, identIdentified)
 	}
 	if len(candidates) == 0 {
 		return OutcomeNoMatch, matcher.noMatch(ctx, title)
@@ -159,10 +159,11 @@ func foldName(name string) string {
 	return builder.String()
 }
 
-// accept fetches the work, stores the response and re-derives the title from it. A title that
-// turns out to be one already in the library joins it.
+// accept fetches the work, stores the response and re-derives the title from it, identified by
+// the matcher or confirmed by a person. A title that turns out to be one already in the library
+// joins it.
 func (matcher *Matcher) accept(
-	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, id string,
+	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, id, ident string,
 ) error {
 	body, err := provider.Fetch(ctx, title.Kind, id)
 	if err != nil {
@@ -177,7 +178,8 @@ func (matcher *Matcher) accept(
 		return err
 	}
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return matcher.record(ctx, queries, provider.Name(), title, metadata.ID, stored)
+		found := match{provider: provider.Name(), id: metadata.ID, ident: ident}
+		return matcher.record(ctx, queries, found, title, stored)
 	})
 	if err != nil {
 		return fmt.Errorf("record title %d's match: %w", title.ID, err)
@@ -185,12 +187,27 @@ func (matcher *Matcher) accept(
 	return nil
 }
 
+// match is what a title was matched to, and by whom: identified by the matcher, confirmed by a
+// person.
+type match struct {
+	provider string
+	id       string
+	ident    string
+}
+
 // record stores a match's response and re-derives the title from it, as a pass would.
 func (matcher *Matcher) record(
-	ctx context.Context, queries *sqlcgen.Queries, provider string, title sqlcgen.GetTitleForMatchRow, id string,
-	stored []byte,
+	ctx context.Context, queries *sqlcgen.Queries, found match, title sqlcgen.GetTitleForMatchRow, stored []byte,
 ) error {
+	provider, id := found.provider, found.id
 	now := matcher.clock.Now().UnixMilli()
+	if found.ident == identConfirmed {
+		forget := sqlcgen.DeleteItemProviderIDsOfParams{ItemID: title.ID, Provider: provider}
+		err := queries.DeleteItemProviderIDsOf(ctx, forget)
+		if err != nil {
+			return fmt.Errorf("forget title %d's earlier %s match: %w", title.ID, provider, err)
+		}
+	}
 	titleID, err := joinExisting(ctx, queries, provider, id, title, now)
 	if err != nil {
 		return err
@@ -202,7 +219,7 @@ func (matcher *Matcher) record(
 		return fmt.Errorf("store the response: %w", err)
 	}
 	err = queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
-		Source: &provider, SourceID: &id, Ident: identIdentified, ID: titleID,
+		Source: &provider, SourceID: &id, Ident: found.ident, ID: titleID,
 	})
 	if err != nil {
 		return fmt.Errorf("record the match: %w", err)
@@ -252,26 +269,10 @@ func joinExisting(
 func (matcher *Matcher) ambiguous(
 	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, candidates []Candidate,
 ) error {
-	err := matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		if err := queries.DeleteMatchCandidates(ctx, title.ID); err != nil {
-			return fmt.Errorf("clear title %d's candidates: %w", title.ID, err)
-		}
-		for rank, candidate := range candidates {
-			err := queries.InsertMatchCandidate(ctx, cachegen.InsertMatchCandidateParams{
-				TitleID: title.ID, Rank: int64(rank), Provider: provider.Name(), ProviderID: candidate.ID,
-				Name: optional(candidate.Name), Year: optionalInt(int64(candidate.Year)),
-				PosterRef: optional(candidate.PosterRef),
-			})
-			if err != nil {
-				return fmt.Errorf("keep a candidate for title %d: %w", title.ID, err)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("keep title %d's candidates: %w", title.ID, err)
+	if err := matcher.keep(ctx, provider, title.ID, candidates); err != nil {
+		return err
 	}
-	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		markErr := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{Ident: identAmbiguous, ID: title.ID})
 		if markErr != nil {
 			return fmt.Errorf("mark title %d ambiguous: %w", title.ID, markErr)
@@ -298,6 +299,30 @@ func (matcher *Matcher) noMatch(ctx context.Context, title sqlcgen.GetTitleForMa
 	})
 	if err != nil {
 		return fmt.Errorf("record that nothing matched title %d: %w", title.ID, err)
+	}
+	return nil
+}
+
+// keep replaces a title's kept search results in cache.db.
+func (matcher *Matcher) keep(ctx context.Context, provider Provider, titleID int64, candidates []Candidate) error {
+	err := matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		if err := queries.DeleteMatchCandidates(ctx, titleID); err != nil {
+			return fmt.Errorf("clear title %d's candidates: %w", titleID, err)
+		}
+		for rank, candidate := range candidates {
+			err := queries.InsertMatchCandidate(ctx, cachegen.InsertMatchCandidateParams{
+				TitleID: titleID, Rank: int64(rank), Provider: provider.Name(), ProviderID: candidate.ID,
+				Name: optional(candidate.Name), Year: optionalInt(int64(candidate.Year)),
+				PosterRef: optional(candidate.PosterRef),
+			})
+			if err != nil {
+				return fmt.Errorf("keep a candidate for title %d: %w", titleID, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("keep title %d's candidates: %w", titleID, err)
 	}
 	return nil
 }

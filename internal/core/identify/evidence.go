@@ -18,9 +18,10 @@ import (
 // identAmbiguous is a title whose search found candidates and no single match (D172).
 const identAmbiguous = "ambiguous"
 
-// matchEvidence gives a spec with no NFO behind it what its title's match says: the stored
-// response it was matched to, its ambiguity, or that its provider found nothing. A pass reads
-// these and never calls the provider (D170, D182).
+// matchEvidence gives a spec what its title's match says: the stored response a person chose,
+// over any NFO; and, for a spec with no NFO behind it, the stored response it was matched to, its
+// ambiguity, or that its provider found nothing. A pass reads these and never calls the provider
+// (D170, D172, D182).
 func (work *run) matchEvidence(ctx context.Context, titleID int64, spec *titleSpec) error {
 	match, err := store.One(work.queries.GetTitleForMatch(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
@@ -28,6 +29,14 @@ func (work *run) matchEvidence(ctx context.Context, titleID int64, spec *titleSp
 	}
 	if err != nil {
 		return fmt.Errorf("read title %d's match: %w", titleID, err)
+	}
+	chosen := match.Ident == identConfirmed && match.Source != nil && *match.Source != sourceNFO &&
+		*match.Source != sourceNone
+	if chosen {
+		return work.fromResponse(ctx, titleID, *match.Source, spec)
+	}
+	if spec.source != "" {
+		return nil
 	}
 	switch {
 	case match.Ident == identAmbiguous:

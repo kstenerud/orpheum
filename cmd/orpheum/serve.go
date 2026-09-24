@@ -48,7 +48,7 @@ func serve(
 	}()
 	logger.InfoContext(ctx, "listening", "address", listener.Addr().String())
 
-	opened, err := start(ctx, config, configReport, server, logger)
+	opened, err := start(ctx, config, configReport, server, outside.tmdbBase, logger)
 	if err != nil {
 		server.SetStatus(api.StatusDegraded, "the server could not start", err.Error())
 		logger.ErrorContext(ctx, "the server could not start; it stays up to report why at /api/v1/health",
@@ -57,15 +57,9 @@ func serve(
 		return err
 	}
 	defer func() { err = errors.Join(err, opened.release()) }()
-	fetching, err := startMetadata(ctx, opened, outside.tmdbBase, logger)
-	if err != nil {
-		server.SetStatus(api.StatusDegraded, "the fetch queue could not start", err.Error())
-		logger.ErrorContext(ctx, "the fetch queue could not start; the server stays up to report why", "err", err)
-		<-ctx.Done()
-		return err
-	}
-	defer fetching.stop()
-	stopNodes, err := runNodeChannel(ctx, config, opened, fetching, outside.startNode, logger)
+	stopFetching := opened.metadata.run(ctx, logger)
+	defer stopFetching()
+	stopNodes, err := runNodeChannel(ctx, config, opened, outside.startNode, logger)
 	if err != nil {
 		server.SetStatus(api.StatusDegraded, "the node channel could not start", err.Error())
 		logger.ErrorContext(ctx, "the node channel could not start; the server stays up to report why", "err", err)
@@ -93,6 +87,7 @@ type started struct {
 	cache    *store.Cache
 	settings *settings.Service
 	secrets  *secrets.Store
+	metadata metadata
 }
 
 func (opened started) release() error {
@@ -102,7 +97,8 @@ func (opened started) release() error {
 // start opens the state directory and the database, migrates, and hands the API its
 // dependencies.
 func start(
-	ctx context.Context, config Config, configReport ConfigReport, server *api.Server, logger *slog.Logger,
+	ctx context.Context, config Config, configReport ConfigReport, server *api.Server, tmdbBase string,
+	logger *slog.Logger,
 ) (opened started, err error) {
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
@@ -133,11 +129,15 @@ func start(
 	if err == nil {
 		err = mountDebug(ctx, server.Mux(), config, dependencies.Settings, logger)
 	}
+	if err == nil {
+		opened.settings, opened.secrets = dependencies.Settings, dependencies.Secrets
+		opened.metadata, err = newMetadata(ctx, opened, tmdbBase, logger)
+	}
 	if err != nil {
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
 	}
+	dependencies.Identify = opened.metadata.chooser
 	server.Ready(dependencies)
-	opened.settings, opened.secrets = dependencies.Settings, dependencies.Secrets
 	return opened, nil
 }
 

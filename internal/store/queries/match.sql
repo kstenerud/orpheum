@@ -63,3 +63,31 @@ WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND tit
     WHERE version.title_id = title.id AND file.removed_at IS NULL
   )
 ORDER BY title.id;
+
+-- name: ListTitlesByIdent :many
+-- The titles in one state of identification, for the chooser's list (cut-a section 5).
+SELECT title.id, title.kind, title.year, title.ident, title.source, title.source_id, item.library_id,
+  item_text.name
+FROM title
+JOIN item ON item.id = title.id
+LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+WHERE title.ident = sqlc.arg(ident) AND item.removed_at IS NULL
+ORDER BY item_text.name, title.id;
+
+-- name: DeleteItemProviderIDsOf :exec
+-- A person's choice replaces the ids an earlier match recorded at that provider.
+DELETE FROM item_provider_id
+WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider);
+
+-- name: UpsertOverride :exec
+-- A person's value for a field: the lock, kept over every source (D183).
+INSERT INTO field_override (item_id, field, lang, value, origin, set_by, set_at)
+VALUES (sqlc.arg(item_id), sqlc.arg(field), '', sqlc.arg(value), 'typed', sqlc.arg(set_by), sqlc.arg(set_at))
+ON CONFLICT (item_id, field, lang) DO UPDATE SET
+  value = excluded.value, origin = excluded.origin, set_by = excluded.set_by, set_at = excluded.set_at;
+
+-- name: DeleteOverride :execrows
+-- Removing an override is how a field returns to its source (D183). A person's correction is not
+-- a tombstoned row (standards/sql.md section 6): its absence is the state.
+DELETE FROM field_override
+WHERE item_id = sqlc.arg(item_id) AND field = sqlc.arg(field) AND lang = '';

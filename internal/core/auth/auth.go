@@ -40,6 +40,10 @@ func ParseRole(name string) (Role, error) {
 // capabilityAdminister is the capability that makes a principal an administrator (D130).
 const capabilityAdminister = "administer"
 
+// capabilityEditMetadata lets a role fix identification and metadata (the role table's
+// capabilities; the built-in admin role carries it).
+const capabilityEditMetadata = "edit_metadata"
+
 // Grant kinds and scopes this package mints (schema.md, grant; D154 §3).
 const (
 	grantKindSession  = "session"
@@ -70,6 +74,12 @@ type Principal struct {
 // IsAdmin reports whether the principal's role carries the administer capability.
 func (principal Principal) IsAdmin() bool {
 	return slices.Contains(principal.Capabilities, capabilityAdminister)
+}
+
+// CanEditMetadata reports whether the principal's role may fix identification and metadata:
+// choose a match, override a field.
+func (principal Principal) CanEditMetadata() bool {
+	return slices.Contains(principal.Capabilities, capabilityEditMetadata)
 }
 
 // Service signs people in and out and says who a credential belongs to. Its opinions — argon2id's

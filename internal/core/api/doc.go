@@ -33,6 +33,12 @@
 //     TestConfig_ShowsEverySettingAndTheFileAndResets, TestConfig_ListsAndDeletesOnlyUnusedRows,
 //     TestConfig_FiltersToWhatDiffersFromTheStartingValue
 //     and TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing.
+//   - Any signed-in user sees which titles are ambiguous; only a role with edit_metadata sees
+//     candidates, chooses a match or sets an override. Enforced by
+//     TestIdentification_OnlyARoleThatEditsMetadataMayChange.
+//   - A chosen match is confirmed, and an override is set and removed, through the identify
+//     package (D172, D183). Enforced by TestIdentification_APersonChoosesAnAmbiguousTitlesMatch and
+//     TestIdentification_OverridesAreSetAndRemoved.
 //
 // # Read before changing
 //
@@ -41,12 +47,13 @@
 //   - D58: never hand out a URL the client may not use.
 //   - D193 §1: the core relays media bytes from the node; it never opens a media file.
 //   - D194 §5: secrets are write-only over the API.
+//   - D172: an ambiguous match is never guessed; choosing is permanent.
 //   - docs/contributors/design/plans/cut-a.md §5: every endpoint, and the error model.
 //
 // # Where to change
 //
 //   - One file per endpoint group of cut-a §5: session.go (setup and auth), settings.go,
-//     secrets.go, health.go; later groups add theirs. server.go holds the readiness gate and the
+//     secrets.go, health.go, identification.go; later groups add theirs. server.go holds the readiness gate and the
 //     authentication helpers. M1 builds setup, sessions, settings and secrets (D198).
 //   - api/openapi.json is generated with `orpheum openapi`; regenerate it after any change here.
 //   - The error enumeration lives here and is the only source the SDK's is generated from.
