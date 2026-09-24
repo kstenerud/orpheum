@@ -14,42 +14,27 @@ type SeedReport struct {
 	// Written are the settings that had no row and now have their starting value.
 	Written []Key
 	// Updated are settings nobody changed whose starting value this release changed: they now
-	// have the new one. A setting a person set is never updated (D200).
+	// have the new one. A setting a person set is never updated (D201).
 	Updated []Key
-	// Unknown are rows no setting in the registry reads: a typo, or a key a release removed.
-	// They are reported, never deleted; removing them is the person's choice.
-	Unknown []UnknownSetting
-}
-
-// UnknownSetting is a setting row the registry does not declare.
-type UnknownSetting struct {
-	Scope  Scope
-	UserID *int64
-	Key    string
-}
-
-func (unknown UnknownSetting) String() string {
-	if unknown.UserID != nil {
-		return fmt.Sprintf("%s (user %d)", unknown.Key, *unknown.UserID)
-	}
-	return unknown.Key
+	// Unused are rows no setting reads. They are reported, never deleted (D202).
+	Unused []UnusedSetting
 }
 
 // Seed writes the starting value of every server setting that has no row: all of them on a new
 // server, on an upgrade the keys the new release introduced, and any row that was removed. A row
 // nobody changed follows its starting value, so a release that changes one — to fix a bad
 // choice — moves it; a row a person set, even to the starting value, is never touched. It also
-// reports the rows nothing reads. The server seeds at every start; a person can also seed with
-// `orpheum seed-settings` or POST /config/seed.
+// reports the rows nothing reads. The server seeds at every start, before anything reads a setting
+// (D201, D202).
 func (service *Service) Seed(ctx context.Context) (SeedReport, error) {
-	report := SeedReport{Written: []Key{}, Updated: []Key{}, Unknown: []UnknownSetting{}}
+	report := SeedReport{Written: []Key{}, Updated: []Key{}, Unused: []UnusedSetting{}}
 	now := service.clock.Now().UnixMilli()
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		rows, err := queries.ListSettingKeys(ctx)
 		if err != nil {
 			return fmt.Errorf("list setting keys: %w", err)
 		}
-		report.Unknown = unknownIn(rows)
+		report.Unused = unusedIn(rows)
 		present := map[string]bool{}
 		for _, row := range rows {
 			if row.Scope == string(ScopeServer) {
@@ -96,23 +81,4 @@ func seedOne(
 		report.Updated = append(report.Updated, definition.Key)
 	}
 	return nil
-}
-
-// Unknown lists the setting rows no setting in the registry reads, without writing anything.
-func (service *Service) Unknown(ctx context.Context) ([]UnknownSetting, error) {
-	rows, err := service.database.Read().ListSettingKeys(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list setting keys: %w", err)
-	}
-	return unknownIn(rows), nil
-}
-
-func unknownIn(rows []sqlcgen.ListSettingKeysRow) []UnknownSetting {
-	unknown := []UnknownSetting{}
-	for _, row := range rows {
-		if _, known := Lookup(Key(row.Key)); !known {
-			unknown = append(unknown, UnknownSetting{Scope: Scope(row.Scope), UserID: row.UserID, Key: row.Key})
-		}
-	}
-	return unknown
 }

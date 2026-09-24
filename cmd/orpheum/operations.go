@@ -16,7 +16,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
-	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -35,16 +34,8 @@ func (call invocation) fail(err error) int {
 	return write(call.stderr, "orpheum: "+err.Error()+"\n", exitFailure)
 }
 
-// failAfter writes what was done so far to stdout, then the failure to stderr.
-func (call invocation) failAfter(done string, err error) int {
-	if write(call.stdout, done, exitSuccess) != exitSuccess {
-		return exitWriteFailure
-	}
-	return call.fail(err)
-}
-
 // configFlags parses a subcommand's flags, which always include --config.
-func (call invocation) configFlags(name string, extra func(*flag.FlagSet)) (Config, error) {
+func (call invocation) configFlags(name string, extra func(*flag.FlagSet)) (Config, ConfigReport, error) {
 	flags := flag.NewFlagSet("orpheum "+name, flag.ContinueOnError)
 	flags.SetOutput(call.stderr)
 	configPath := flags.String("config", "", "the config file (required)")
@@ -52,20 +43,20 @@ func (call invocation) configFlags(name string, extra func(*flag.FlagSet)) (Conf
 		extra(flags)
 	}
 	if err := flags.Parse(call.arguments); err != nil {
-		return Config{}, err
+		return Config{}, ConfigReport{}, err
 	}
 	if *configPath == "" {
-		return Config{}, errors.New("--config is required")
+		return Config{}, ConfigReport{}, errors.New("--config is required")
 	}
-	config, unknown, err := loadConfig(*configPath)
-	var report strings.Builder
-	for _, key := range unknown {
-		fmt.Fprintf(&report, "orpheum: config key %s is not recognised and is ignored\n", key)
+	return loadConfig(*configPath)
+}
+
+// noteConfig writes the config file's report to stderr, for commands with no log.
+func (call invocation) noteConfig(report ConfigReport) {
+	notes := report.Notes()
+	if len(notes) > 0 {
+		write(call.stderr, strings.Join(notes, "\n")+"\n", exitSuccess)
 	}
-	if write(call.stderr, report.String(), exitSuccess) != exitSuccess {
-		return config, errors.Join(err, errors.New("write to stderr failed"))
-	}
-	return config, err
 }
 
 // logger builds the process's logger from the config (D73; standards/go.md §10).
@@ -101,10 +92,11 @@ func openExisting(ctx context.Context, config Config) (*datadir.Directories, *st
 
 // commandMigrate migrates the database without starting the server (D181).
 func commandMigrate(ctx context.Context, call invocation) int {
-	config, err := call.configFlags("migrate", nil)
+	config, configReport, err := call.configFlags("migrate", nil)
 	if err != nil {
 		return call.fail(err)
 	}
+	call.noteConfig(configReport)
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
 		return call.fail(err)
@@ -128,13 +120,14 @@ func commandMigrate(ctx context.Context, call invocation) int {
 // commandBackup writes a backup with VACUUM INTO; --include-key writes secret.key beside it.
 func commandBackup(ctx context.Context, call invocation) int {
 	var includeKey bool
-	config, err := call.configFlags("backup", func(flags *flag.FlagSet) {
+	config, configReport, err := call.configFlags("backup", func(flags *flag.FlagSet) {
 		flags.BoolVar(&includeKey, "include-key", false,
 			"also write secret.key beside the backup, for moving to a new machine")
 	})
 	if err != nil {
 		return call.fail(err)
 	}
+	call.noteConfig(configReport)
 	directories, database, err := openExisting(ctx, config)
 	if err != nil {
 		return call.fail(err)
@@ -156,7 +149,7 @@ func commandBackup(ctx context.Context, call invocation) int {
 func commandRestore(ctx context.Context, call invocation) int {
 	var source, keyPath string
 	var confirmed bool
-	config, err := call.configFlags("restore", func(flags *flag.FlagSet) {
+	config, configReport, err := call.configFlags("restore", func(flags *flag.FlagSet) {
 		flags.StringVar(&source, "from", "", "the backup file to restore (required)")
 		flags.StringVar(&keyPath, "key", "", "a secret.key to install with it, from `backup --include-key`")
 		flags.BoolVar(&confirmed, "yes", false, "restore; without it, only say what would happen")
@@ -164,6 +157,7 @@ func commandRestore(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(err)
 	}
+	call.noteConfig(configReport)
 	if source == "" {
 		return call.fail(errors.New("--from is required"))
 	}
@@ -197,10 +191,11 @@ func commandRestore(ctx context.Context, call invocation) int {
 
 // commandSetupCode prints the one-time setup code, for a server whose log has scrolled away.
 func commandSetupCode(ctx context.Context, call invocation) int {
-	config, err := call.configFlags("setup-code", nil)
+	config, configReport, err := call.configFlags("setup-code", nil)
 	if err != nil {
 		return call.fail(err)
 	}
+	call.noteConfig(configReport)
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
 		return call.fail(err)
@@ -221,94 +216,6 @@ func commandSetupCode(ctx context.Context, call invocation) int {
 		return write(call.stdout, "setup is complete: an admin exists; sign in instead\n", exitFailure)
 	}
 	return call.fail(errors.New("there is no setup code yet; start the server and it writes one"))
-}
-
-// commandSeedSettings fills every gap in the configuration and changes nothing else: first the
-// config file, where it adds every missing key that has a starting value, then the database,
-// where it writes the starting value of every setting with no row. It reports what it wrote,
-// what only a person can fill, and what it found that nothing reads, which it leaves alone (D200).
-// It works with the server stopped, when a missing value keeps the server from starting.
-func commandSeedSettings(ctx context.Context, call invocation) int {
-	flags := flag.NewFlagSet("orpheum seed-settings", flag.ContinueOnError)
-	flags.SetOutput(call.stderr)
-	configPath := flags.String("config", "", "the config file (required)")
-	if err := flags.Parse(call.arguments); err != nil {
-		return call.fail(err)
-	}
-	if *configPath == "" {
-		return call.fail(errors.New("--config is required"))
-	}
-	var report strings.Builder
-	fileReport, err := seedConfigFile(*configPath, clock.System{}.Now())
-	describeConfigSeed(&report, *configPath, fileReport)
-	if err != nil {
-		return call.failAfter(report.String(), err)
-	}
-	config, _, err := loadConfig(*configPath)
-	if err != nil {
-		return call.failAfter(report.String(), err)
-	}
-	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
-	if err != nil {
-		return call.failAfter(report.String(), err)
-	}
-	exists, err := directories.LibraryDatabaseExists()
-	if err != nil {
-		return call.failAfter(report.String(), err)
-	}
-	if !exists {
-		report.WriteString("settings: there is no database yet; the server writes every setting at its first start\n")
-		return write(call.stdout, report.String(), exitSuccess)
-	}
-	_, database, err := openExisting(ctx, config)
-	if err != nil {
-		return call.failAfter(report.String(), err)
-	}
-	seeded, err := settings.NewService(database, clock.System{}).Seed(ctx)
-	if err = errors.Join(err, database.Close()); err != nil {
-		return call.failAfter(report.String(), err)
-	}
-	describeSettingsSeed(&report, seeded)
-	return write(call.stdout, report.String(), exitSuccess)
-}
-
-func describeConfigSeed(report *strings.Builder, path string, seeded configSeedReport) {
-	for _, key := range seeded.Written {
-		fmt.Fprintf(report, "config: wrote %s = %s, its starting value (%s)\n", key.path(), key.start, key.describe)
-	}
-	if seeded.Backup != "" {
-		fmt.Fprintf(report, "config: the file as it was is kept in %s\n", seeded.Backup)
-	}
-	for _, key := range seeded.NeedsHand {
-		fmt.Fprintf(report, "config: %s is missing and has no starting value: it is %s; add it to %s by hand\n",
-			key.path(), key.describe, path)
-	}
-	if len(seeded.Written) == 0 && len(seeded.NeedsHand) == 0 {
-		report.WriteString("config: every key is there; nothing was written\n")
-	}
-	for _, key := range seeded.Unknown {
-		fmt.Fprintf(report, "config: %s is in the file, but nothing reads it: a typo, or a key a release removed. "+
-			"It is left alone\n", key)
-	}
-}
-
-func describeSettingsSeed(report *strings.Builder, seeded settings.SeedReport) {
-	for _, key := range seeded.Written {
-		definition, _ := settings.Lookup(key)
-		fmt.Fprintf(report, "settings: wrote %s = %s, its starting value\n", key, definition.Start)
-	}
-	for _, key := range seeded.Updated {
-		definition, _ := settings.Lookup(key)
-		fmt.Fprintf(report, "settings: moved %s to %s, the starting value this release gives it; nobody had set it\n",
-			key, definition.Start)
-	}
-	if len(seeded.Written) == 0 && len(seeded.Updated) == 0 {
-		report.WriteString("settings: every setting already has a value; nothing was written\n")
-	}
-	for _, unknown := range seeded.Unknown {
-		fmt.Fprintf(report, "settings: %s is in the database, but nothing reads it: a typo, or a key a release "+
-			"removed. It is left alone\n", unknown)
-	}
 }
 
 // commandOpenAPI prints the API's OpenAPI document, which `make generate` commits (D85).

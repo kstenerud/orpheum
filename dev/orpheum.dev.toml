@@ -2,8 +2,8 @@
 # The development configuration: opinionated, local, and loud. `make dev-config` renders it to
 # .dev/orpheum.toml, filling in {root} (the repository) and {ffmpeg_dir} (the pinned FFmpeg from
 # `make ffmpeg`), and prints the result. The file holds only what must exist before the
-# database opens, and every key is required (D182 §3, D200); everything else is a setting in the
-# database, and the dev values of those come from dev/seed.toml.
+# database opens (D182 §3, D200); a key the file lacks runs on its starting value and doctor lists
+# it (D202). Everything else is a setting in the database, and dev's values come from dev/seed.toml.
 #
 # Every value here is a choice for debugging, not a production default:
 #   - listen on loopback only, plain HTTP. Browsers treat localhost as a secure context, so the

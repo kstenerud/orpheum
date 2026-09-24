@@ -3,9 +3,11 @@
 package settings
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +20,13 @@ func newService(t *testing.T) (*Service, int64) {
 	t.Helper()
 	database := storetest.Open(t)
 	now := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
-	return NewService(database, now), storetest.InsertUser(t, database, "owner", "admin")
+	return NewService(database, now, testLogger(t)), storetest.InsertUser(t, database, "owner", "admin")
+}
+
+// testLogger writes into the test's own output; logs holds what a test needs to read back.
+func testLogger(t *testing.T) *slog.Logger {
+	t.Helper()
+	return slog.New(slog.NewTextHandler(t.Output(), nil))
 }
 
 func seeded(t *testing.T) (*Service, int64) {
@@ -82,14 +90,8 @@ func TestSeed_WritesEveryStartingValueAndNeverOverwrites(t *testing.T) {
 	t.Parallel()
 	service, owner := newService(t)
 	ctx := t.Context()
-	if _, err := service.Int(ctx, SignInFailureLimit); !errors.Is(err, ErrNotSeeded) {
-		t.Errorf("before seeding, reading a setting: %v, want ErrNotSeeded and no fallback", err)
-	}
-	if _, err := service.List(ctx, nil, false); !errors.Is(err, ErrNotSeeded) {
-		t.Errorf("before seeding, List: %v, want ErrNotSeeded", err)
-	}
 	report, err := service.Seed(ctx)
-	if err != nil || len(report.Written) != len(Registry()) || len(report.Unknown) != 0 {
+	if err != nil || len(report.Written) != len(Registry()) || len(report.Unused) != 0 {
 		t.Fatalf("the first seed = %+v, %v; want every setting written and nothing unknown", report, err)
 	}
 	entries, err := service.List(ctx, nil, false)
@@ -238,36 +240,36 @@ func TestReset_WritesTheStartingValueBack(t *testing.T) {
 	}
 }
 
-func TestSeed_RefillsARemovedSettingAndTheErrorSaysHowToFixIt(t *testing.T) {
+func TestRead_HealsARemovedSettingAndSaysSo(t *testing.T) {
 	t.Parallel()
-	service, _ := seeded(t)
+	database := storetest.Open(t)
+	var logged bytes.Buffer
+	service := NewService(database, clocktest.NewFake(time.Date(2026, time.September, 24, 0, 0, 0, 0, time.UTC)),
+		slog.New(slog.NewTextHandler(&logged, nil)))
 	ctx := t.Context()
-	storetest.ExecRaw(t, service.database.Path(), "DELETE FROM setting WHERE key = 'signin_failure_limit'")
-	_, err := service.Int(ctx, SignInFailureLimit)
-	missing, isMissing := errors.AsType[*NotSeededError](err)
-	if !isMissing || !errors.Is(err, ErrNotSeeded) {
-		t.Fatalf("reading a removed setting: %v, want a NotSeededError", err)
+	if _, err := service.Seed(ctx); err != nil {
+		t.Fatal(err)
 	}
-	wants := []string{"signin_failure_limit", "starting value is 5", "orpheum seed-settings", "PUT /api/v1/config"}
-	for _, want := range wants {
-		if !strings.Contains(missing.Error(), want) {
-			t.Errorf("the error does not say %q: %s", want, missing.Error())
-		}
+	storetest.ExecRaw(t, database.Path(),
+		"DELETE FROM setting WHERE key IN ('signin_failure_limit', 'backup_age_warning_h')")
+	if limit, err := service.Int(ctx, SignInFailureLimit); err != nil || limit != 5 {
+		t.Errorf("reading a removed setting = %d, %v; want its starting value, written back", limit, err)
 	}
-	if _, err = service.List(ctx, nil, false); !errors.Is(err, ErrNotSeeded) ||
-		!strings.Contains(err.Error(), "starting value is 5") {
-		t.Errorf("List with a removed setting: %v, want the same guidance", err)
+	if _, err := service.List(ctx, nil, false); err != nil {
+		t.Errorf("List with a removed setting: %v, want it healed", err)
 	}
 	report, err := service.Seed(ctx)
-	if err != nil || len(report.Written) != 1 || report.Written[0] != SignInFailureLimit {
-		t.Fatalf("seeding after a removal wrote %v, %v; want just the removed setting", report.Written, err)
+	if err != nil || len(report.Written) != 0 {
+		t.Errorf("after the reads healed them, Seed wrote %v, %v; want nothing: the rows are back", report.Written, err)
 	}
-	if limit, err := service.Int(ctx, SignInFailureLimit); err != nil || limit != 5 {
-		t.Errorf("after seeding, the limit = %d, %v; want its starting value back", limit, err)
+	for _, key := range []string{"key=signin_failure_limit", "key=backup_age_warning_h"} {
+		if !strings.Contains(logged.String(), key) {
+			t.Errorf("the heal of %s was not logged:\n%s", key, logged.String())
+		}
 	}
 }
 
-func TestSeed_ReportsRowsNothingReadsAndLeavesThemAlone(t *testing.T) {
+func TestUnused_ListsRowsNothingReadsAndDeletesOnlyThem(t *testing.T) {
 	t.Parallel()
 	service, owner := seeded(t)
 	ctx := t.Context()
@@ -276,20 +278,49 @@ func TestSeed_ReportsRowsNothingReadsAndLeavesThemAlone(t *testing.T) {
 		fmt.Sprintf("INSERT INTO setting (scope, user_id, key, value, set_at) VALUES ('user', %d, 'old_key', '1', 1)",
 			owner))
 	report, err := service.Seed(ctx)
+	if err != nil || len(report.Unused) != 2 {
+		t.Fatalf("Seed reported unused %v, %v; want both rows, left alone", report.Unused, err)
+	}
+	unused, err := service.Unused(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var found []string
-	for _, unknown := range report.Unknown {
-		found = append(found, unknown.String())
+	for _, row := range unused {
+		found = append(found, row.String()+"="+row.Value)
+		if row.Retired != nil {
+			t.Errorf("%s reads as retired, but no release retired it", row.Key)
+		}
 	}
-	want := []string{"signin_falure_limit", fmt.Sprintf("old_key (user %d)", owner)}
-	if strings.Join(found, "|") != strings.Join(want, "|") {
-		t.Errorf("Seed reported unknown rows %v, want %v", found, want)
+	if want := fmt.Sprintf("signin_falure_limit=3|old_key (user %d)=1", owner); strings.Join(found, "|") != want {
+		t.Errorf("Unused = %v, want %s", found, want)
 	}
-	unknown, err := service.Unknown(ctx)
-	if err != nil || len(unknown) != 2 {
-		t.Errorf("Unknown = %v, %v; want the same two rows, still there", unknown, err)
+	if err = service.DeleteUnused(ctx, "signin_failure_limit", nil); !errors.Is(err, ErrInUse) {
+		t.Errorf("deleting a setting in use: %v, want ErrInUse", err)
+	}
+	if err = service.DeleteUnused(ctx, "signin_falure_limit", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err = service.DeleteUnused(ctx, "old_key", &owner); err != nil {
+		t.Fatal(err)
+	}
+	if unused, err = service.Unused(ctx); err != nil || len(unused) != 0 {
+		t.Errorf("after deleting both, Unused = %v, %v; want none", unused, err)
+	}
+	if limit, err := service.Int(ctx, SignInFailureLimit); err != nil || limit != 5 {
+		t.Errorf("deleting the typo touched the real setting: %d, %v", limit, err)
+	}
+}
+
+func TestRetiredKeys_AreNotInUseAndSayWhen(t *testing.T) {
+	t.Parallel()
+	for _, retired := range RetiredKeys() {
+		if _, inUse := Lookup(Key(retired.Key)); inUse {
+			t.Errorf("%s is both retired and in the registry", retired.Key)
+		}
+		if retired.Release == "" || retired.Why == "" {
+			t.Errorf("retired key %s does not say when or why", retired.Key)
+		}
 	}
 }
 

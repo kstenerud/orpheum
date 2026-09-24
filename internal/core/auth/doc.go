@@ -28,8 +28,8 @@
 //   - argon2id takes at most 500 ms on devnas: BenchmarkHashPassword_DefaultParameters, run there
 //     (verification queue VQ1).
 //   - Its opinions — argon2id's costs, the failure limit and window, idle expiry — are settings
-//     read when used, and a missing one is an error, not a value from code (D200). Enforced by
-//     TestSignIn_FailsWhenASettingIsMissingRatherThanFallingBack.
+//     read when used; a missing one is healed with its starting value, written to the database, not
+//     held in code (D200, D202). Enforced by TestSignIn_HealsAMissingSettingWithItsStartingValue.
 //   - A session unused for the idle expiry ends. Enforced by
 //     TestAuthenticate_EndsASessionUnusedForTheIdleExpiry.
 //

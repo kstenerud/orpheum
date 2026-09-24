@@ -26,7 +26,9 @@ import (
 // even open, and says "migrating" while it migrates. A migration that fails leaves the server up
 // and degraded, naming the step, the error and the snapshot, rather than exiting into a restart
 // loop (migrations.md, When a step fails).
-func serve(ctx context.Context, config Config, listener net.Listener, logger *slog.Logger) (err error) {
+func serve(
+	ctx context.Context, config Config, configReport ConfigReport, listener net.Listener, logger *slog.Logger,
+) (err error) {
 	server := api.NewServer(logger)
 	httpServer := &http.Server{Handler: server.Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
 	var serving sync.WaitGroup
@@ -43,7 +45,7 @@ func serve(ctx context.Context, config Config, listener net.Listener, logger *sl
 	}()
 	logger.InfoContext(ctx, "listening", "address", listener.Addr().String())
 
-	started, err := start(ctx, config, server, logger)
+	started, err := start(ctx, config, configReport, server, logger)
 	if err != nil {
 		server.SetStatus(api.StatusDegraded, "the server could not start", err.Error())
 		logger.ErrorContext(ctx, "the server could not start; it stays up to report why at /api/v1/health",
@@ -70,7 +72,9 @@ func (opened started) release() error {
 
 // start opens the state directory and the database, migrates, and hands the API its
 // dependencies.
-func start(ctx context.Context, config Config, server *api.Server, logger *slog.Logger) (opened started, err error) {
+func start(
+	ctx context.Context, config Config, configReport ConfigReport, server *api.Server, logger *slog.Logger,
+) (opened started, err error) {
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
 		return opened, err
@@ -90,6 +94,9 @@ func start(ctx context.Context, config Config, server *api.Server, logger *slog.
 	}
 	opened.database = database
 	dependencies, err := buildDependencies(ctx, directories, database, logger)
+	if err == nil {
+		dependencies.ConfigFile, err = configFileKeys(config, configReport)
+	}
 	if err != nil {
 		return opened, errors.Join(err, database.Close())
 	}
@@ -132,7 +139,7 @@ func buildDependencies(
 	ctx context.Context, directories *datadir.Directories, database *store.Database, logger *slog.Logger,
 ) (api.Dependencies, error) {
 	now := clock.System{}
-	settingsService := settings.NewService(database, now)
+	settingsService := settings.NewService(database, now, logger)
 	report, err := settingsService.Seed(ctx)
 	if err != nil {
 		return api.Dependencies{}, err
@@ -144,9 +151,9 @@ func buildDependencies(
 		logger.InfoContext(ctx, "this release changed the starting value of settings nobody had set; they follow it",
 			"keys", report.Updated)
 	}
-	for _, unknown := range report.Unknown {
-		logger.WarnContext(ctx, "a setting row that nothing reads, perhaps a typo; left alone",
-			"key", unknown.String())
+	for _, unused := range report.Unused {
+		logger.WarnContext(ctx, "a setting row this release does not read; left alone, and doctor lists it",
+			"key", unused.String())
 	}
 	key, err := loadOrCreateKey(directories, logger)
 	if err != nil {

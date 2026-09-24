@@ -1,6 +1,65 @@
 {
   "components": {
     "schemas": {
+      "ConfigFileKey": {
+        "additionalProperties": false,
+        "properties": {
+          "describe": {
+            "type": "string"
+          },
+          "isFromFile": {
+            "description": "False when the file lacks it: it runs on its starting value",
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "start": {
+            "description": "The starting value; null when the key has none",
+            "type": [
+              "",
+              "null"
+            ]
+          },
+          "value": {}
+        },
+        "required": [
+          "key",
+          "value",
+          "start",
+          "isFromFile",
+          "describe"
+        ],
+        "type": "object"
+      },
+      "ConfigOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigFileKey"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "settings": {
+            "items": {
+              "$ref": "#/components/schemas/SettingBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "settings",
+          "file"
+        ],
+        "type": "object"
+      },
       "Error": {
         "additionalProperties": false,
         "properties": {
@@ -152,46 +211,6 @@
         ],
         "type": "object"
       },
-      "SeedOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "unknown": {
-            "description": "Rows no setting reads, such as a typo; reported, never deleted",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "updated": {
-            "description": "Unmodified settings moved to a starting value this release changed",
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "written": {
-            "items": {
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "written",
-          "updated",
-          "unknown"
-        ],
-        "type": "object"
-      },
       "SessionOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -337,6 +356,57 @@
         ],
         "type": "object"
       },
+      "UnusedBody": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "retiredIn": {
+            "description": "The release that stopped reading it; empty for a typo",
+            "type": "string"
+          },
+          "retiredWhy": {
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "server",
+              "user"
+            ],
+            "type": "string"
+          },
+          "userId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "value": {}
+        },
+        "required": [
+          "key",
+          "scope",
+          "value"
+        ],
+        "type": "object"
+      },
+      "UnusedOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "unused": {
+            "items": {
+              "$ref": "#/components/schemas/UnusedBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "unused"
+        ],
+        "type": "object"
+      },
       "UserBody": {
         "additionalProperties": false,
         "properties": {
@@ -393,12 +463,12 @@
             }
           },
           {
-            "description": "Only the settings whose value differs from the value a new server starts with",
+            "description": "Only the settings a person set, even to their starting value",
             "explode": false,
             "in": "query",
             "name": "modified",
             "schema": {
-              "description": "Only the settings whose value differs from the value a new server starts with",
+              "description": "Only the settings a person set, even to their starting value",
               "type": "boolean"
             }
           }
@@ -408,7 +478,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SettingsOutputBody"
+                  "$ref": "#/components/schemas/ConfigOutputBody"
                 }
               }
             },
@@ -425,7 +495,7 @@
             "description": "Error"
           }
         },
-        "summary": "Every server setting, with its starting value and whether it was changed; ?modified=true lists only the changed ones (admin)",
+        "summary": "Every server setting beside its starting value, and the config file's keys (read-only); ?modified=true lists only the settings a person set (admin)",
         "tags": [
           "Settings"
         ]
@@ -481,9 +551,9 @@
         ]
       }
     },
-    "/config/seed": {
-      "post": {
-        "operationId": "seedConfig",
+    "/config/unused": {
+      "get": {
+        "operationId": "getUnusedConfig",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -500,7 +570,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SeedOutputBody"
+                  "$ref": "#/components/schemas/UnusedOutputBody"
                 }
               }
             },
@@ -517,7 +587,61 @@
             "description": "Error"
           }
         },
-        "summary": "Write the starting value of every server setting that has none; changes nothing else (admin)",
+        "summary": "Setting rows this release does not read: retired keys, or typos (admin)",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/config/unused/{key}": {
+      "delete": {
+        "operationId": "deleteUnusedConfig",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The user whose row it is; 0 or absent for a server row",
+            "explode": false,
+            "in": "query",
+            "name": "user",
+            "schema": {
+              "description": "The user whose row it is; 0 or absent for a server row",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Delete a setting row this release does not read; a setting in use is set to default instead (admin)",
         "tags": [
           "Settings"
         ]

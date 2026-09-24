@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -36,11 +37,12 @@ type finding struct {
 // commandDoctor reports what is wrong and how to fix it. It names secrets, never their values
 // (D194 §5), and exits 1 if anything failed.
 func commandDoctor(ctx context.Context, call invocation) int {
-	config, err := call.configFlags("doctor", nil)
+	config, configReport, err := call.configFlags("doctor", nil)
 	if err != nil {
 		return call.fail(err)
 	}
-	findings := diagnose(ctx, config, clock.System{}.Now())
+	logger := slog.New(slog.NewTextHandler(call.stderr, nil))
+	findings := append(configFindings(configReport), diagnose(ctx, config, logger, clock.System{}.Now())...)
 	status := exitSuccess
 	for _, found := range findings {
 		line := fmt.Sprintf("%-4s  %s", found.verdict, found.what)
@@ -57,8 +59,31 @@ func commandDoctor(ctx context.Context, call invocation) int {
 	return status
 }
 
+// configFindings lists what the config file lacks and what it has that nothing reads (D202).
+func configFindings(report ConfigReport) []finding {
+	findings := []finding{}
+	for _, key := range report.FromStart {
+		findings = append(findings, finding{
+			verdictWarning,
+			fmt.Sprintf("config: %s is not in the file; the server runs on its starting value, %s",
+				key.path(), key.start),
+			"add it to the file to make the value a choice rather than a starting value",
+		})
+	}
+	for _, key := range report.Unknown {
+		findings = append(findings, finding{
+			verdictWarning, "config: " + key + " is in the file, but nothing reads it",
+			"a typo, or a key a release removed; delete it if it is not a typo",
+		})
+	}
+	if len(findings) == 0 {
+		findings = append(findings, finding{verdictOK, "config: every key is in the file, and nothing else", ""})
+	}
+	return findings
+}
+
 // diagnose runs every check that needs only the state directory.
-func diagnose(ctx context.Context, config Config, now time.Time) []finding {
+func diagnose(ctx context.Context, config Config, logger *slog.Logger, now time.Time) []finding {
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
 		return []finding{{verdictFailure, "state directory " + config.Server.DataDir, err.Error()}}
@@ -66,7 +91,7 @@ func diagnose(ctx context.Context, config Config, now time.Time) []finding {
 	findings := []finding{checkWritable(directories, config.Server.DataDir)}
 	key, keyFinding := checkKey(directories)
 	findings = append(findings, keyFinding)
-	databaseFindings, backupAgeWarning := checkDatabase(ctx, directories, key, config.openOptions())
+	databaseFindings, backupAgeWarning := checkDatabase(ctx, directories, key, config.openOptions(), logger)
 	findings = append(findings, databaseFindings...)
 	findings = append(findings, checkBackups(directories, now, backupAgeWarning),
 		finding{verdictOK, "media node: not checked yet; the node arrives in M2", ""})
@@ -104,6 +129,7 @@ func checkKey(directories *datadir.Directories) (*secrets.Key, finding) {
 // old; nil when the settings cannot be read.
 func checkDatabase(
 	ctx context.Context, directories *datadir.Directories, key *secrets.Key, options store.OpenOptions,
+	logger *slog.Logger,
 ) (
 	[]finding, *time.Duration,
 ) {
@@ -132,16 +158,11 @@ func checkDatabase(
 	default:
 		findings = append(findings, finding{verdictOK, fmt.Sprintf("setup is complete; %d users", count), ""})
 	}
-	settingsService := settings.NewService(database, clock.System{})
+	settingsService := settings.NewService(database, clock.System{}, logger)
 	if key != nil {
 		findings = append(findings, checkSecrets(ctx, database, *key, settingsService))
 	}
-	if unknown, unknownErr := settingsService.Unknown(ctx); unknownErr == nil {
-		for _, row := range unknown {
-			findings = append(findings, finding{verdictWarning, "setting " + row.String() +
-				" is in the database, but nothing reads it", "a typo, or a key a release removed; it is left alone"})
-		}
-	}
+	findings = append(findings, unusedFindings(ctx, settingsService)...)
 	hours, err := settingsService.Int(ctx, settings.BackupAgeWarningH)
 	if err != nil {
 		findings = append(findings, finding{
@@ -225,4 +246,24 @@ func checkBackups(directories *datadir.Directories, now time.Time, ageWarning *t
 		verdictWarning, "there is no backup yet in " + directories.BackupDirectory(),
 		"run `orpheum backup`; a backup on the same disk does not survive that disk",
 	}
+}
+
+// unusedFindings lists the setting rows this release does not read, and says why each is unused.
+func unusedFindings(ctx context.Context, settingsService *settings.Service) []finding {
+	unused, err := settingsService.Unused(ctx)
+	if err != nil {
+		return []finding{{verdictFailure, "the setting rows cannot be listed", err.Error()}}
+	}
+	findings := []finding{}
+	for _, row := range unused {
+		why := "no release has used this key: probably a typo"
+		if row.Retired != nil {
+			why = fmt.Sprintf("retired in %s: %s", row.Retired.Release, row.Retired.Why)
+		}
+		findings = append(findings, finding{
+			verdictWarning, "setting " + row.String() + " is unused; " + why,
+			"delete it with DELETE /api/v1/config/unused/" + row.Key + " if it is not needed",
+		})
+	}
+	return findings
 }

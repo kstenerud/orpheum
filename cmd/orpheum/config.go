@@ -3,16 +3,19 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 )
@@ -64,8 +67,8 @@ const (
 	tableLog      = "log"
 )
 
-// configKey is one key of the file. A key with a starting value can be written by
-// `orpheum seed-settings`; one without is specific to the machine and must be set by hand.
+// configKey is one key of the file. A key with a starting value runs on it when the file lacks it
+// (D202); one without is specific to the machine, and the server refuses to start without it.
 type configKey struct {
 	table    string
 	name     string
@@ -104,30 +107,68 @@ func configKeys() []configKey {
 	}
 }
 
-// loadConfig reads and checks the config file. Keys it does not know are returned, to be
-// reported and ignored, never fatal (packaging-history.md lesson 11).
-func loadConfig(path string) (Config, []string, error) {
-	config, metadata, err := decodeConfig(path)
-	if err != nil {
-		return Config{}, nil, err
-	}
-	unknown := unknownKeys(metadata)
-	if err = requireEveryKey(metadata); err != nil {
-		return Config{}, unknown, fmt.Errorf("config %s: %w", path, err)
-	}
-	if err = config.check(); err != nil {
-		return Config{}, unknown, fmt.Errorf("config %s: %w", path, err)
-	}
-	return config, unknown, nil
+// ConfigReport is what loading the file found besides its values: the keys it lacks, which run on
+// their starting values, and the keys nothing reads. The doctor lists both; run logs them (D202).
+type ConfigReport struct {
+	FromStart []configKey
+	Unknown   []string
 }
 
-func decodeConfig(path string) (Config, toml.MetaData, error) {
-	var config Config
-	metadata, err := toml.DecodeFile(path, &config)
+// loadConfig reads and checks the config file. A missing key that has a starting value runs on it,
+// in memory — the file is never rewritten — and is reported; a missing key with none is refused,
+// because it is specific to this machine (D202). Keys nothing reads are reported and ignored,
+// never fatal (packaging-history.md lesson 11).
+func loadConfig(path string) (Config, ConfigReport, error) {
+	var report ConfigReport
+	text, err := os.ReadFile(path) //nolint:gosec // G304: the operator names the config file
 	if err != nil {
-		return Config{}, metadata, fmt.Errorf("config %s: %w", path, err)
+		return Config{}, report, fmt.Errorf("read the config file: %w", err)
 	}
-	return config, metadata, nil
+	metadata, err := toml.Decode(string(text), &Config{})
+	if err != nil {
+		return Config{}, report, fmt.Errorf("config %s: %w", path, err)
+	}
+	report.Unknown = unknownKeys(metadata)
+	var byHand []error
+	for _, key := range missingKeys(metadata) {
+		if key.start == "" {
+			byHand = append(byHand, fmt.Errorf("%s is required and has no starting value: it is %s; add it to "+
+				"the file", key.path(), key.describe))
+			continue
+		}
+		report.FromStart = append(report.FromStart, key)
+	}
+	if len(byHand) > 0 {
+		return Config{}, report, fmt.Errorf("config %s: %w", path, errors.Join(byHand...))
+	}
+	full := string(text)
+	if len(report.FromStart) > 0 {
+		if full, err = withStartingValues(full, report.FromStart); err != nil {
+			return Config{}, report, fmt.Errorf("config %s: %w", path, err)
+		}
+	}
+	var config Config
+	if _, err = toml.Decode(full, &config); err != nil {
+		return Config{}, report, fmt.Errorf("config %s: %w", path, err)
+	}
+	if err = config.check(); err != nil {
+		return Config{}, report, fmt.Errorf("config %s: %w", path, err)
+	}
+	return config, report, nil
+}
+
+// Notes renders the report as lines, one per key.
+func (report ConfigReport) Notes() []string {
+	var notes []string
+	for _, key := range report.FromStart {
+		notes = append(notes, fmt.Sprintf("config: %s is not in the file; using its starting value, %s (%s)",
+			key.path(), key.start, key.describe))
+	}
+	for _, key := range report.Unknown {
+		notes = append(notes, fmt.Sprintf("config: %s is in the file, but nothing reads it: a typo, or a key a "+
+			"release removed. It is ignored", key))
+	}
+	return notes
 }
 
 // unknownKeys lists the keys the file has and nothing reads: a typo, or a key a release removed.
@@ -153,23 +194,6 @@ func missingKeys(metadata toml.MetaData) []configKey {
 		}
 	}
 	return missing
-}
-
-// requireEveryKey refuses a file without every key. Nothing has a default in code (D200); the
-// refusal names each missing key, its starting value if it has one, and how to add it.
-func requireEveryKey(metadata toml.MetaData) error {
-	var problems []error
-	for _, key := range missingKeys(metadata) {
-		if key.start == "" {
-			problems = append(problems, fmt.Errorf("%s is required and has no starting value: it is %s; add it "+
-				"by hand", key.path(), key.describe))
-			continue
-		}
-		problems = append(problems, fmt.Errorf("%s is required; its starting value is %s (%s). Add it, or run "+
-			"`orpheum seed-settings --config <file>` to add every missing key that has a starting value",
-			key.path(), key.start, key.describe))
-	}
-	return errors.Join(problems...)
 }
 
 // check refuses, naming the key, a value the server cannot start without or cannot use.
@@ -247,4 +271,35 @@ func isLoopback(listen string) bool {
 	}
 	address := net.ParseIP(host)
 	return address != nil && address.IsLoopback()
+}
+
+// configFileKeys renders every key as the server runs with it, for /config to show read-only.
+func configFileKeys(config Config, report ConfigReport) ([]api.ConfigFileKey, error) {
+	encoded, err := toml.Marshal(config)
+	if err != nil {
+		return nil, fmt.Errorf("render the config: %w", err)
+	}
+	var tables map[string]map[string]any
+	if _, err = toml.Decode(string(encoded), &tables); err != nil {
+		return nil, fmt.Errorf("render the config: %w", err)
+	}
+	fromStart := map[string]bool{}
+	for _, key := range report.FromStart {
+		fromStart[key.path()] = true
+	}
+	keys := []api.ConfigFileKey{}
+	for _, key := range configKeys() {
+		value, err := json.Marshal(tables[key.table][key.name])
+		if err != nil {
+			return nil, fmt.Errorf("render %s: %w", key.path(), err)
+		}
+		start := json.RawMessage("null")
+		if key.start != "" {
+			start = json.RawMessage(key.start)
+		}
+		keys = append(keys, api.ConfigFileKey{
+			Key: key.path(), Value: value, Start: start, IsFromFile: !fromStart[key.path()], Describe: key.describe,
+		})
+	}
+	return keys, nil
 }

@@ -109,9 +109,9 @@ format = "json"
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	config, unknown, err := loadConfig(path)
-	if err != nil || len(unknown) != 0 {
-		t.Fatalf("the test config does not load cleanly: %v, unknown keys %v", err, unknown)
+	config, report, err := loadConfig(path)
+	if err != nil || len(report.Notes()) != 0 {
+		t.Fatalf("the test config does not load cleanly: %v, %v", err, report.Notes())
 	}
 	return config, path
 }
@@ -131,7 +131,7 @@ func startServing(t *testing.T, config Config, captured capturedLog, awaited str
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- serve(ctx, config, listener, captured.logger) }()
+	go func() { done <- serve(ctx, config, ConfigReport{}, listener, captured.logger) }()
 	select {
 	case <-captured.signals[awaited]:
 	case err := <-done:
@@ -325,8 +325,8 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
 	}
-	again := runCommand(t, "seed-settings", "--config", path)
-	if !strings.Contains(again.stdout, "settings: every setting already has a value") {
-		t.Errorf("after the start swept, seeding again found work to do:\n%s", again.stdout)
+	doctor := runCommand(t, "doctor", "--config", path)
+	if strings.Contains(doctor.stdout, "is unused") || strings.Contains(doctor.stderr, "had no row") {
+		t.Errorf("after the start swept, doctor found work to do:\n%s%s", doctor.stdout, doctor.stderr)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -134,7 +135,8 @@ func TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse(t *t
 	if _, err = store.One(restored.Read().GetLiveUserByName(t.Context(), "owner")); err != nil {
 		t.Errorf("the restored database lost the owner: %v", err)
 	}
-	restoredSettings := settings.NewService(restored, clocktest.NewFake(testTime))
+	restoredSettings := settings.NewService(restored, clocktest.NewFake(testTime),
+		slog.New(slog.NewTextHandler(t.Output(), nil)))
 	entries, err := restoredSettings.List(t.Context(), nil, false)
 	if err != nil {
 		t.Fatal(err)
@@ -182,7 +184,8 @@ func TestRestore_WithTheIncludedKeyOpensSecrets(t *testing.T) {
 	// Open authenticates the ciphertext against the key and the row, so opening is the proof.
 	restoredDatabase := openAt(t, target)
 	_, err = secrets.NewStore(restoredDatabase, parsed, clocktest.NewFake(testTime), rand.Reader,
-		settings.NewService(restoredDatabase, clocktest.NewFake(testTime))).
+		settings.NewService(restoredDatabase, clocktest.NewFake(testTime),
+			slog.New(slog.NewTextHandler(t.Output(), nil)))).
 		Open(t.Context(), secrets.TMDBAPIKey, nil)
 	if err != nil {
 		t.Errorf("with the key restored, the secret does not open: %v", err)
