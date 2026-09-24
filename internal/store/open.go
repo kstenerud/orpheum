@@ -1,0 +1,181 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package store
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"runtime"
+	"strings"
+
+	// The pure-Go SQLite driver registers itself as "sqlite" (D31).
+	_ "modernc.org/sqlite"
+
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+)
+
+// ApplicationID marks a SQLite file as ours: 'VPMS' (schema.md, Bookkeeping). A file without it
+// is refused, never migrated.
+const ApplicationID = 1447646258
+
+// busyTimeoutMs is how long a connection waits for SQLite's lock before failing: checkpoints,
+// VACUUM INTO, and `orpheum migrate` or `backup` run beside a live server (standards/sql.md §8).
+const busyTimeoutMs = 15000
+
+// minimumReaders is the smallest reader pool; a larger machine gets one reader per CPU.
+const minimumReaders = 4
+
+// The pragmas every connection gets, in the pure-Go driver's DSN form, so the pool applies them
+// to each connection it opens rather than to whichever one ran an Exec (standards/sql.md §7).
+const (
+	connectionPragmas = "_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)" +
+		"&_pragma=busy_timeout(15000)"
+	writerOptions = "&_txlock=immediate"
+	readerOptions = "&_pragma=query_only(1)"
+)
+
+// synchronousNormal is PRAGMA synchronous's value for NORMAL.
+const synchronousNormal = 1
+
+// ErrNotOurs is returned for a database file that is not empty and lacks our application_id.
+var ErrNotOurs = errors.New("not an Orpheum database: the file lacks Orpheum's application_id")
+
+// ErrNotFound is returned by One when a query that returns one row found none.
+var ErrNotFound = errors.New("not found")
+
+// Database is one SQLite file with exactly one write connection and a pool of read-only
+// connections (standards/sql.md §8). Reads use Read; every write goes through Write.
+type Database struct {
+	path    string
+	writer  *sql.DB
+	readers *sql.DB
+}
+
+// Open opens the database at path, creating an empty file if there is none, and refuses to
+// return it unless every pragma reads back as set and the file is ours or empty. An empty file
+// becomes ours when Migrate runs its first step.
+func Open(ctx context.Context, path string) (*Database, error) {
+	if strings.Contains(path, "?") {
+		// The driver splits the DSN at '?', so such a path would open a different file
+		// (backup-restore.md, from Navidrome).
+		return nil, fmt.Errorf("open database %q: a path may not contain '?'", path)
+	}
+	writer, err := sql.Open("sqlite", path+"?"+connectionPragmas+writerOptions)
+	if err != nil {
+		return nil, fmt.Errorf("open database %q for writing: %w", path, err)
+	}
+	writer.SetMaxOpenConns(1)
+	readers, err := sql.Open("sqlite", path+"?"+connectionPragmas+readerOptions)
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("open database %q for reading: %w", path, err), writer.Close())
+	}
+	readers.SetMaxOpenConns(max(minimumReaders, runtime.NumCPU()))
+	database := &Database{path: path, writer: writer, readers: readers}
+	if err := database.verify(ctx); err != nil {
+		return nil, errors.Join(err, database.Close())
+	}
+	return database, nil
+}
+
+// Path is the database file's path.
+func (database *Database) Path() string {
+	return database.path
+}
+
+// Close closes both connection pools.
+func (database *Database) Close() error {
+	return errors.Join(database.readers.Close(), database.writer.Close())
+}
+
+// Read returns the generated queries over the read-only pool. SQLite itself refuses a write
+// through it (query_only).
+func (database *Database) Read() *sqlcgen.Queries {
+	return sqlcgen.New(database.readers)
+}
+
+// Write runs change in one write transaction, which begins IMMEDIATE on the single writer and
+// commits only if change returns nil.
+func (database *Database) Write(ctx context.Context, change func(queries *sqlcgen.Queries) error) error {
+	transaction, err := database.writer.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin write transaction: %w", err)
+	}
+	if err := change(sqlcgen.New(transaction)); err != nil {
+		return errors.Join(err, transaction.Rollback())
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("commit write transaction: %w", err)
+	}
+	return nil
+}
+
+// One turns a generated query's "no rows" into ErrNotFound, so callers outside the store can
+// test for absence without importing database/sql.
+func One[Row any](row Row, err error) (Row, error) {
+	if errors.Is(err, sql.ErrNoRows) {
+		return row, ErrNotFound
+	}
+	return row, err
+}
+
+// verify reads back every pragma on both pools and checks the application_id.
+func (database *Database) verify(ctx context.Context) error {
+	for _, pool := range []*sql.DB{database.writer, database.readers} {
+		if err := verifyPragmas(ctx, pool); err != nil {
+			return fmt.Errorf("database %q: %w", database.path, err)
+		}
+	}
+	isEmpty, applicationID, err := database.identity(ctx)
+	if err != nil {
+		return err
+	}
+	if applicationID != ApplicationID && !isEmpty {
+		return fmt.Errorf("database %q: %w (found %d)", database.path, ErrNotOurs, applicationID)
+	}
+	return nil
+}
+
+// verifyPragmas refuses a connection whose pragmas are not the ones the DSN asked for.
+func verifyPragmas(ctx context.Context, pool *sql.DB) error {
+	var journalMode string
+	var synchronous, foreignKeys, busyTimeout int
+	checks := []struct {
+		pragma string
+		value  any
+	}{
+		{"PRAGMA journal_mode", &journalMode},
+		{"PRAGMA synchronous", &synchronous},
+		{"PRAGMA foreign_keys", &foreignKeys},
+		{"PRAGMA busy_timeout", &busyTimeout},
+	}
+	for _, check := range checks {
+		if err := pool.QueryRowContext(ctx, check.pragma).Scan(check.value); err != nil {
+			return fmt.Errorf("read %s: %w", check.pragma, err)
+		}
+	}
+	switch {
+	case journalMode != "wal":
+		return fmt.Errorf("journal_mode is %q, want wal", journalMode)
+	case synchronous != synchronousNormal:
+		return fmt.Errorf("synchronous is %d, want %d (NORMAL)", synchronous, synchronousNormal)
+	case foreignKeys != 1:
+		return fmt.Errorf("foreign_keys is %d, want 1", foreignKeys)
+	case busyTimeout != busyTimeoutMs:
+		return fmt.Errorf("busy_timeout is %d, want %d", busyTimeout, busyTimeoutMs)
+	}
+	return nil
+}
+
+// identity reports whether the file has no schema at all, and its application_id.
+func (database *Database) identity(ctx context.Context) (isEmpty bool, applicationID int64, err error) {
+	var objects int64
+	if err := database.readers.QueryRowContext(ctx, "SELECT count(*) FROM sqlite_schema").Scan(&objects); err != nil {
+		return false, 0, fmt.Errorf("database %q: count schema objects: %w", database.path, err)
+	}
+	if err := database.readers.QueryRowContext(ctx, "PRAGMA application_id").Scan(&applicationID); err != nil {
+		return false, 0, fmt.Errorf("database %q: read application_id: %w", database.path, err)
+	}
+	return objects == 0, applicationID, nil
+}

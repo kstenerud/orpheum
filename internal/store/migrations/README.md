@@ -3,7 +3,7 @@
 
 # Migrations
 
-Empty until M1, whose first step is [schema.md](../../../docs/contributors/design/plans/schema.md)
+The first step is [schema.md](../../../docs/contributors/design/plans/schema.md)
 as `0001_initial.sql`. The rules are in
 [standards/sql.md](../../../docs/contributors/standards/sql.md) §Migrations; in short:
 
