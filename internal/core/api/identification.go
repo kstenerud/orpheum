@@ -15,33 +15,33 @@ import (
 
 const tagIdentification = "Identification"
 
-// TitleBody is one title in a list.
-type TitleBody struct {
+// ItemBody is one title or series in a list.
+type ItemBody struct {
 	ID        int64  `json:"id"`
 	LibraryID int64  `json:"libraryId"`
-	Kind      string `enum:"movie,episode,extra" json:"kind"`
+	Kind      string `enum:"movie,episode,extra,series" json:"kind"`
 	Name      string `json:"name"`
 	Year      int64  `json:"year,omitempty"`
 	Ident     string `enum:"identified,ambiguous,unidentified,confirmed" json:"ident"`
-	Source    string `doc:"The source the title follows: nfo, tmdb, or none" json:"source,omitempty"`
-	SourceID  string `doc:"The title's id at its source" json:"sourceId,omitempty"`
+	Source    string `doc:"Where its own values come from: nfo, tmdb, or none" json:"source,omitempty"`
+	SourceID  string `doc:"Its id at its provider" json:"sourceId,omitempty"`
 }
 
-// TitlesInput asks for the titles in one state of identification.
-type TitlesInput struct {
+// ItemsInput asks for the titles and series in one state of identification.
+type ItemsInput struct {
 	AuthorizationHeader
 	Ident string `enum:"identified,ambiguous,unidentified,confirmed" query:"ident" required:"true"`
 }
 
-// TitlesOutput lists titles.
-type TitlesOutput struct {
+// ItemsOutput lists titles and series.
+type ItemsOutput struct {
 	Body struct {
-		Titles []TitleBody `json:"titles"`
+		Items []ItemBody `json:"items"`
 	}
 }
 
-// TitleInput names one title.
-type TitleInput struct {
+// ItemInput names one title or series.
+type ItemInput struct {
 	AuthorizationHeader
 	ID int64 `path:"id"`
 }
@@ -55,7 +55,7 @@ type CandidateBody struct {
 	PosterRef    string `doc:"The provider's path for the poster" json:"posterRef,omitempty"`
 }
 
-// CandidatesOutput is a title's candidates, best first.
+// CandidatesOutput is a film's or series' candidates, best first.
 type CandidatesOutput struct {
 	Body struct {
 		Provider   string          `json:"provider,omitempty"`
@@ -93,17 +93,17 @@ type PutOverrideInput struct {
 func (server *Server) registerIdentification() {
 	tags := []string{tagIdentification}
 	huma.Register(server.api, huma.Operation{
-		OperationID: "getTitles", Method: http.MethodGet, Path: "/titles",
-		Summary: "The titles in one state of identification", Tags: tags,
-	}, server.getTitles)
+		OperationID: "getItems", Method: http.MethodGet, Path: "/items",
+		Summary: "The titles and series in one state of identification", Tags: tags,
+	}, server.getItems)
 	huma.Register(server.api, huma.Operation{
-		OperationID: "getTitleCandidates", Method: http.MethodGet, Path: "/titles/{id}/candidates",
-		Summary: "An ambiguous title's search results, to choose from (edit_metadata)", Tags: tags,
+		OperationID: "getItemCandidates", Method: http.MethodGet, Path: "/items/{id}/candidates",
+		Summary: "An ambiguous film's or series' search results, to choose from (edit_metadata)", Tags: tags,
 	}, server.getCandidates)
 	huma.Register(server.api, huma.Operation{
-		OperationID: "postTitleMatch", Method: http.MethodPost, Path: "/titles/{id}/match",
+		OperationID: "postItemMatch", Method: http.MethodPost, Path: "/items/{id}/match",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
-		Summary: "Choose a title's match; permanent (edit_metadata)",
+		Summary: "Choose a film's or series' match; permanent (edit_metadata)",
 	}, server.postMatch)
 	huma.Register(server.api, huma.Operation{
 		OperationID: "putOverride", Method: http.MethodPut, Path: "/items/{id}/overrides/{field}",
@@ -117,27 +117,27 @@ func (server *Server) registerIdentification() {
 	}, server.deleteOverride)
 }
 
-func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*TitlesOutput, error) {
+func (server *Server) getItems(ctx context.Context, input *ItemsInput) (*ItemsOutput, error) {
 	dependencies, _, err := server.signedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	titles, err := dependencies.Identify.Titles(ctx, input.Ident)
+	items, err := dependencies.Identify.Items(ctx, input.Ident)
 	if err != nil {
-		return nil, server.internal(ctx, "list titles", err)
+		return nil, server.internal(ctx, "list items", err)
 	}
-	output := &TitlesOutput{}
-	output.Body.Titles = make([]TitleBody, 0, len(titles))
-	for _, title := range titles {
-		output.Body.Titles = append(output.Body.Titles, TitleBody{
-			ID: title.ID, LibraryID: title.LibraryID, Kind: title.Kind, Name: title.Name, Year: title.Year,
-			Ident: title.Ident, Source: title.Source, SourceID: title.SourceID,
+	output := &ItemsOutput{}
+	output.Body.Items = make([]ItemBody, 0, len(items))
+	for _, item := range items {
+		output.Body.Items = append(output.Body.Items, ItemBody{
+			ID: item.ID, LibraryID: item.LibraryID, Kind: item.Kind, Name: item.Name, Year: item.Year,
+			Ident: item.Ident, Source: item.Source, SourceID: item.SourceID,
 		})
 	}
 	return output, nil
 }
 
-func (server *Server) getCandidates(ctx context.Context, input *TitleInput) (*CandidatesOutput, error) {
+func (server *Server) getCandidates(ctx context.Context, input *ItemInput) (*CandidatesOutput, error) {
 	dependencies, _, err := server.metadataEditor(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -205,12 +205,12 @@ func (server *Server) identifyError(ctx context.Context, doing string, err error
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, identify.ErrNoTitle):
-		return newError(http.StatusNotFound, CodeNotFound, "no such title")
+	case errors.Is(err, identify.ErrNoItem):
+		return newError(http.StatusNotFound, CodeNotFound, "no such title or series")
 	case errors.Is(err, identify.ErrNoOverride):
 		return newError(http.StatusNotFound, CodeNotFound, "the field has no override")
 	case errors.Is(err, identify.ErrUnknownProvider), errors.Is(err, identify.ErrUnknownField),
-		errors.Is(err, identify.ErrBadValue):
+		errors.Is(err, identify.ErrBadValue), errors.Is(err, identify.ErrNotChoosable):
 		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, err.Error())
 	case errors.Is(err, identify.ErrNoMatch):
 		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, "the provider has no such work")

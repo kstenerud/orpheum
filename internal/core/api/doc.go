@@ -33,7 +33,7 @@
 //     TestConfig_ShowsEverySettingAndTheFileAndResets, TestConfig_ListsAndDeletesOnlyUnusedRows,
 //     TestConfig_FiltersToWhatDiffersFromTheStartingValue
 //     and TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing.
-//   - Any signed-in user sees which titles are ambiguous; only a role with edit_metadata sees
+//   - Any signed-in user sees which titles and series are ambiguous; only a role with edit_metadata sees
 //     candidates, chooses a match or sets an override. Enforced by
 //     TestIdentification_OnlyARoleThatEditsMetadataMayChange.
 //   - A chosen match is confirmed, and an override is set and removed, through the identify

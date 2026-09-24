@@ -135,7 +135,7 @@ func scanOnce(t *testing.T, metadataSource, awaited string) scanResult {
 
 func TestRun_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
 	t.Parallel()
-	scanned := scanOnce(t, "tmdb", "queued titles for matching")
+	scanned := scanOnce(t, "tmdb", "queued fetches")
 	config := scanned.config
 	if log := scanned.log.String(); !strings.Contains(log, `"awaitingMatch":1`) {
 		t.Errorf("the log does not say one film awaits its match:\n%s", log)

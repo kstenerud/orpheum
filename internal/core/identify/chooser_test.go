@@ -28,9 +28,9 @@ func ambiguousTheGeneral(t *testing.T) (*world, int64) {
 func TestChooser_ListsTheAmbiguousTitlesAndTheirCandidates(t *testing.T) {
 	t.Parallel()
 	lib, titleID := ambiguousTheGeneral(t)
-	titles, err := lib.chooser.Titles(t.Context(), identAmbiguous)
+	titles, err := lib.chooser.Items(t.Context(), identAmbiguous)
 	if err != nil || len(titles) != 1 || titles[0].ID != titleID || titles[0].Name != "The General" {
-		t.Fatalf("Titles(ambiguous) = %+v, %v", titles, err)
+		t.Fatalf("Items(ambiguous) = %+v, %v", titles, err)
 	}
 	candidates, provider, err := lib.chooser.Candidates(t.Context(), titleID)
 	if err != nil || provider != "tmdb" || len(candidates) != 2 || candidates[1].Year != 2002 {
@@ -139,7 +139,7 @@ func TestChooser_RefusesWhatItCannotDo(t *testing.T) {
 		err  error
 		want error
 	}{
-		{"no title", lib.chooser.Choose(ctx, 999, "tmdb", "2"), ErrNoTitle},
+		{"no title", lib.chooser.Choose(ctx, 999, "tmdb", "2"), ErrNoItem},
 		{"no provider", lib.chooser.Choose(ctx, titleID, "omdb", "2"), ErrUnknownProvider},
 		{"no field", lib.chooser.SetOverride(ctx, titleID, "rating", "5", 1), ErrUnknownField},
 		{"a year that is no year", lib.chooser.SetOverride(ctx, titleID, fieldYear, "soon", 1), ErrBadValue},

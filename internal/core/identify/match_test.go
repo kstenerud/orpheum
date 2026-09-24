@@ -21,12 +21,35 @@ type fakeProvider struct {
 	films    map[string]Metadata
 	searches map[string][]Candidate
 	imdb     map[string]string
+	seasons  map[string][]Episode // by "series/season"
 	fail     error
 	calls    []string
 }
 
 func newFakeProvider() *fakeProvider {
-	return &fakeProvider{films: map[string]Metadata{}, searches: map[string][]Candidate{}, imdb: map[string]string{}}
+	return &fakeProvider{
+		films: map[string]Metadata{}, searches: map[string][]Candidate{}, imdb: map[string]string{},
+		seasons: map[string][]Episode{},
+	}
+}
+
+func (fake *fakeProvider) FetchSeason(_ context.Context, seriesID string, season int) ([]byte, error) {
+	key := fmt.Sprintf("%s/%d", seriesID, season)
+	fake.calls = append(fake.calls, "season "+key)
+	if fake.fail != nil {
+		return nil, fake.fail
+	}
+	episodes, found := fake.seasons[key]
+	if !found {
+		return nil, ErrNoMatch
+	}
+	return json.Marshal(episodes) //nolint:wrapcheck,musttag // a test fake stores Episodes as Go names them
+}
+
+func (*fakeProvider) ParseSeason(body []byte) ([]Episode, error) {
+	var episodes []Episode
+	err := json.Unmarshal(body, &episodes) //nolint:musttag // as the fake stored it
+	return episodes, err                   //nolint:wrapcheck // a test fake
 }
 
 func searchKey(name string, year int) string { return fmt.Sprintf("%s|%d", name, year) }

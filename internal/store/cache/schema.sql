@@ -4,7 +4,7 @@
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
 -- prepared_rendition arrives with prepare in M3; the version rises then.
--- cache schema version 1
+-- cache schema version 2
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,10 +26,10 @@ CREATE TABLE job (                                         -- the one work queue
 CREATE INDEX job_next ON job(state, priority DESC, not_before) WHERE state = 'queued';
 
 CREATE TABLE match_candidate (                             -- D172: kept so choosing costs nothing
-  title_id    INTEGER NOT NULL,
+  item_id     INTEGER NOT NULL,          -- a film, or a series (D209)
   rank        INTEGER NOT NULL,
   provider    TEXT NOT NULL,
   provider_id TEXT NOT NULL,
   name        TEXT, year INTEGER, runtime_ms INTEGER, poster_ref TEXT,
-  PRIMARY KEY (title_id, rank)
+  PRIMARY KEY (item_id, rank)
 );

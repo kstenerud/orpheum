@@ -219,7 +219,9 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 
 ### S20 — A new season arrives
 
-- **Status:** **holds on paper** (a first fetch per new title, D170); identification builds it.
+- **Status:** **holds** for a TMDB library (`TestSeries_ANewEpisodeFetchesItsSeasonAgain`): the
+  series is matched once, each season's listing is fetched once, and a new episode missing from a
+  listing fetched before it arrived fetches that listing again (D209 §3).
 
 ### S21 — A name only macOS writes
 

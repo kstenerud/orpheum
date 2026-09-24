@@ -538,7 +538,7 @@ func (q *Queries) ListOverrides(ctx context.Context, itemID int64) ([]ListOverri
 }
 
 const listTitlesByProviderID = `-- name: ListTitlesByProviderID :many
-SELECT title.id, item.library_id, title.ident
+SELECT title.id, item.library_id, title.ident, title.kind
 FROM item_provider_id
 JOIN title ON title.id = item_provider_id.item_id
 JOIN item ON item.id = title.id
@@ -555,6 +555,7 @@ type ListTitlesByProviderIDRow struct {
 	ID        int64
 	LibraryID *int64
 	Ident     string
+	Kind      string
 }
 
 func (q *Queries) ListTitlesByProviderID(ctx context.Context, arg ListTitlesByProviderIDParams) ([]ListTitlesByProviderIDRow, error) {
@@ -566,7 +567,12 @@ func (q *Queries) ListTitlesByProviderID(ctx context.Context, arg ListTitlesByPr
 	items := []ListTitlesByProviderIDRow{}
 	for rows.Next() {
 		var i ListTitlesByProviderIDRow
-		if err := rows.Scan(&i.ID, &i.LibraryID, &i.Ident); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.LibraryID,
+			&i.Ident,
+			&i.Kind,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

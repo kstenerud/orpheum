@@ -3,6 +3,7 @@
 package identify
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -16,11 +17,13 @@ import (
 
 // Refusals a person's request can meet.
 var (
-	// ErrNoTitle is a title that does not exist or was removed.
-	ErrNoTitle = errors.New("no such title")
+	// ErrNoItem is a film, episode or series that does not exist or was removed.
+	ErrNoItem = errors.New("no such title or series")
+	// ErrNotChoosable is an episode: its series is what is matched (D209).
+	ErrNotChoosable = errors.New("an episode takes its match from its series; choose the series'")
 	// ErrUnknownProvider is a provider this server has no client for.
 	ErrUnknownProvider = errors.New("no such provider")
-	// ErrUnknownField is a field that cannot be overridden.
+	// ErrUnknownField is a field that cannot be overridden on this item.
 	ErrUnknownField = errors.New("no such field")
 	// ErrBadValue is an override value the field cannot hold.
 	ErrBadValue = errors.New("the value does not fit the field")
@@ -28,18 +31,20 @@ var (
 	ErrNoOverride = errors.New("the field has no override")
 )
 
-// Idents are the states of identification a title list can ask for.
+// Idents are the states of identification a list can ask for.
 func Idents() []string {
 	return []string{identIdentified, identAmbiguous, identUnidentified, identConfirmed}
 }
 
-// Fields are the fields a person can override on a title (D183).
+// Fields are the fields a person can override on a title (D183); a series has fewer.
 func Fields() []string {
 	return []string{fieldName, fieldOverview, fieldTagline, fieldYear, fieldRuntime}
 }
 
-// Chooser is what a person does about identification: see the titles in a state, see an
-// ambiguous title's candidates, choose its match, and override a field (D172, D183).
+func seriesFields() []string { return []string{fieldName, fieldOverview, fieldYear} }
+
+// Chooser is what a person does about identification: see the titles and series in a state,
+// see an ambiguous one's candidates, choose its match, and override a field (D172, D183, D209).
 type Chooser struct {
 	matcher *Matcher
 	pass    *Pass
@@ -50,11 +55,11 @@ func NewChooser(matcher *Matcher, pass *Pass) *Chooser {
 	return &Chooser{matcher: matcher, pass: pass}
 }
 
-// TitleSummary is one title in a list.
-type TitleSummary struct {
+// ItemSummary is one title or series in a list.
+type ItemSummary struct {
 	ID        int64
 	LibraryID int64
-	Kind      string
+	Kind      string // a title's kind, or "series"
 	Name      string
 	Year      int64
 	Ident     string
@@ -62,32 +67,89 @@ type TitleSummary struct {
 	SourceID  string
 }
 
-// Titles lists the titles in one state of identification.
-func (chooser *Chooser) Titles(ctx context.Context, ident string) ([]TitleSummary, error) {
-	rows, err := chooser.matcher.database.Read().ListTitlesByIdent(ctx, ident)
+// Items lists the titles and series in one state of identification, by name.
+func (chooser *Chooser) Items(ctx context.Context, ident string) ([]ItemSummary, error) {
+	queries := chooser.matcher.database.Read()
+	titles, err := queries.ListTitlesByIdent(ctx, ident)
 	if err != nil {
 		return nil, fmt.Errorf("list %s titles: %w", ident, err)
 	}
-	titles := make([]TitleSummary, 0, len(rows))
-	for _, row := range rows {
-		titles = append(titles, TitleSummary{
+	series, err := queries.ListSeriesByIdent(ctx, &ident)
+	if err != nil {
+		return nil, fmt.Errorf("list %s series: %w", ident, err)
+	}
+	items := make([]ItemSummary, 0, len(titles)+len(series))
+	for _, row := range titles {
+		items = append(items, ItemSummary{
 			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: row.Kind, Name: derefText(row.Name),
 			Year: deref(row.Year), Ident: row.Ident, Source: derefText(row.Source), SourceID: derefText(row.SourceID),
 		})
 	}
-	return titles, nil
+	for _, row := range series {
+		items = append(items, ItemSummary{
+			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: KindSeries, Name: derefText(row.Name),
+			Year: deref(row.Year), Ident: derefText(row.Ident), Source: derefText(row.Source),
+			SourceID: derefText(row.SourceID),
+		})
+	}
+	slices.SortStableFunc(items, func(a, b ItemSummary) int {
+		return cmp.Or(cmp.Compare(a.Name, b.Name), cmp.Compare(a.ID, b.ID))
+	})
+	return items, nil
 }
 
-// Candidates are a title's kept search results, best first. When cache.db lost them, an
-// ambiguous title is searched once more (schema.md, cache.db).
-func (chooser *Chooser) Candidates(ctx context.Context, titleID int64) ([]Candidate, string, error) {
-	title, err := chooser.title(ctx, titleID)
+// target is the title or series a request names.
+type target struct {
+	title    sqlcgen.GetTitleForMatchRow
+	series   sqlcgen.GetSeriesForMatchRow
+	isSeries bool
+}
+
+func (item target) id() int64 {
+	if item.isSeries {
+		return item.series.ID
+	}
+	return item.title.ID
+}
+
+func (item target) query() Query {
+	if item.isSeries {
+		return Query{Kind: KindSeries, Name: derefText(item.series.Name), Year: int(deref(item.series.Year))}
+	}
+	return Query{Kind: item.title.Kind, Name: derefText(item.title.Name), Year: int(deref(item.title.Year))}
+}
+
+func (item target) ident() string {
+	if item.isSeries {
+		return derefText(item.series.Ident)
+	}
+	return item.title.Ident
+}
+
+func (item target) metadataSource() string {
+	if item.isSeries {
+		return item.series.MetadataSource
+	}
+	return item.title.MetadataSource
+}
+
+func (item target) libraryID() *int64 {
+	if item.isSeries {
+		return item.series.LibraryID
+	}
+	return item.title.LibraryID
+}
+
+// Candidates are a film's or series' kept search results, best first. When cache.db lost them,
+// an ambiguous one is searched once more (schema.md, cache.db).
+func (chooser *Chooser) Candidates(ctx context.Context, itemID int64) ([]Candidate, string, error) {
+	item, err := chooser.target(ctx, itemID)
 	if err != nil {
 		return nil, "", err
 	}
-	kept, err := chooser.matcher.cache.Read().ListMatchCandidates(ctx, titleID)
+	kept, err := chooser.matcher.cache.Read().ListMatchCandidates(ctx, itemID)
 	if err != nil {
-		return nil, "", fmt.Errorf("read title %d's candidates: %w", titleID, err)
+		return nil, "", fmt.Errorf("read item %d's candidates: %w", itemID, err)
 	}
 	provider := ""
 	candidates := make([]Candidate, 0, len(kept))
@@ -98,63 +160,68 @@ func (chooser *Chooser) Candidates(ctx context.Context, titleID int64) ([]Candid
 			PosterRef: derefText(row.PosterRef),
 		})
 	}
-	if len(candidates) > 0 || title.Ident != identAmbiguous {
+	if len(candidates) > 0 || item.ident() != identAmbiguous {
 		return candidates, provider, nil
 	}
-	return chooser.searchAgain(ctx, title)
+	return chooser.searchAgain(ctx, item)
 }
 
-func (chooser *Chooser) searchAgain(
-	ctx context.Context, title sqlcgen.GetTitleForMatchRow,
-) ([]Candidate, string, error) {
-	provider, known := chooser.matcher.providers[providerOf(title.MetadataSource)]
+func (chooser *Chooser) searchAgain(ctx context.Context, item target) ([]Candidate, string, error) {
+	provider, known := chooser.matcher.providers[providerOf(item.metadataSource())]
 	if !known {
-		return []Candidate{}, "", nil // an NFO library's title has no provider to ask
+		return []Candidate{}, "", nil // an NFO library's item has no provider to ask
 	}
-	query := Query{Kind: title.Kind, Name: derefText(title.Name), Year: int(deref(title.Year))}
+	query := item.query()
 	candidates, err := provider.Search(ctx, query)
 	if err != nil {
 		return nil, "", fmt.Errorf("search %s for %q: %w", provider.Name(), query.Name, err)
 	}
-	if err := chooser.matcher.keep(ctx, provider, title.ID, candidates); err != nil {
+	if err := chooser.matcher.keep(ctx, provider, item.id(), candidates); err != nil {
 		return nil, "", err
 	}
 	return candidates, provider.Name(), nil
 }
 
-// Choose matches a title to a work a person chose: fetched, stored and permanent, over any NFO
-// and every later pass (D172). The candidates are no longer needed.
-func (chooser *Chooser) Choose(ctx context.Context, titleID int64, providerName, providerID string) error {
-	title, err := chooser.title(ctx, titleID)
+// Choose matches a film or series to a work a person chose: fetched, stored and permanent, over
+// any NFO and every later pass (D172, D209). The candidates are no longer needed.
+func (chooser *Chooser) Choose(ctx context.Context, itemID int64, providerName, providerID string) error {
+	item, err := chooser.target(ctx, itemID)
 	if err != nil {
 		return err
+	}
+	if !item.isSeries && item.title.Kind == kindEpisode {
+		return fmt.Errorf("title %d: %w", itemID, ErrNotChoosable)
 	}
 	provider, known := chooser.matcher.providers[providerName]
 	if !known {
 		return fmt.Errorf("%q: %w", providerName, ErrUnknownProvider)
 	}
-	err = chooser.matcher.accept(ctx, provider, title, providerID, identConfirmed)
+	if item.isSeries {
+		err = chooser.matcher.acceptSeries(ctx, provider, item.series, providerID, identConfirmed)
+	} else {
+		err = chooser.matcher.accept(ctx, provider, item.title, providerID, identConfirmed)
+	}
 	if err != nil {
 		return err
 	}
 	err = chooser.matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		return queries.DeleteMatchCandidates(ctx, titleID)
+		return queries.DeleteMatchCandidates(ctx, itemID)
 	})
 	if err != nil {
-		return fmt.Errorf("drop title %d's candidates: %w", titleID, err)
+		return fmt.Errorf("drop item %d's candidates: %w", itemID, err)
 	}
 	return nil
 }
 
-// SetOverride sets a field on a title to a person's value, which every source and pass keeps
-// (D183), and re-derives the title's library.
+// SetOverride sets a field on a title or series to a person's value, which every source and
+// pass keeps (D183), and re-derives its library.
 func (chooser *Chooser) SetOverride(ctx context.Context, titleID int64, field, value string, setBy int64) error {
-	if err := checkOverride(field, value); err != nil {
-		return err
-	}
-	title, err := chooser.title(ctx, titleID)
+	title, err := chooser.target(ctx, titleID)
 	if err != nil {
 		return err
+	}
+	if checkErr := checkOverride(title, field, value); checkErr != nil {
+		return checkErr
 	}
 	err = chooser.matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertOverride(ctx, sqlcgen.UpsertOverrideParams{
@@ -169,12 +236,12 @@ func (chooser *Chooser) SetOverride(ctx context.Context, titleID int64, field, v
 
 // ClearOverride removes a field's override, so the field follows its source again (D183).
 func (chooser *Chooser) ClearOverride(ctx context.Context, titleID int64, field string) error {
-	if !slices.Contains(Fields(), field) {
-		return fmt.Errorf("%q: %w", field, ErrUnknownField)
-	}
-	title, err := chooser.title(ctx, titleID)
+	title, err := chooser.target(ctx, titleID)
 	if err != nil {
 		return err
+	}
+	if !slices.Contains(fieldsOf(title), field) {
+		return fmt.Errorf("%q: %w", field, ErrUnknownField)
 	}
 	var removed int64
 	err = chooser.matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -191,7 +258,17 @@ func (chooser *Chooser) ClearOverride(ctx context.Context, titleID int64, field 
 	return chooser.rederive(ctx, title)
 }
 
-func checkOverride(field, value string) error {
+func fieldsOf(item target) []string {
+	if item.isSeries {
+		return seriesFields()
+	}
+	return Fields()
+}
+
+func checkOverride(item target, field, value string) error {
+	if !slices.Contains(fieldsOf(item), field) {
+		return fmt.Errorf("%q: %w", field, ErrUnknownField)
+	}
 	switch field {
 	case fieldYear, fieldRuntime:
 		if number, err := strconv.ParseInt(value, 10, 64); err != nil || number <= 0 {
@@ -208,24 +285,40 @@ func checkOverride(field, value string) error {
 	return nil
 }
 
-// rederive runs the pass over the title's library, which is how a title's values are resolved.
-func (chooser *Chooser) rederive(ctx context.Context, title sqlcgen.GetTitleForMatchRow) error {
-	if title.LibraryID == nil {
+// rederive runs the pass over the item's library, which is how its values are resolved.
+func (chooser *Chooser) rederive(ctx context.Context, item target) error {
+	libraryID := item.libraryID()
+	if libraryID == nil {
 		return nil
 	}
-	if _, err := chooser.pass.Library(ctx, *title.LibraryID); err != nil {
+	if _, err := chooser.pass.Library(ctx, *libraryID); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (chooser *Chooser) title(ctx context.Context, titleID int64) (sqlcgen.GetTitleForMatchRow, error) {
-	title, err := store.One(chooser.matcher.database.Read().GetTitleForMatch(ctx, titleID))
+// target reads the title or series an id names.
+func (chooser *Chooser) target(ctx context.Context, itemID int64) (target, error) {
+	queries := chooser.matcher.database.Read()
+	kind, err := store.One(queries.GetItemKind(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
-		return title, fmt.Errorf("title %d: %w", titleID, ErrNoTitle)
+		return target{}, fmt.Errorf("item %d: %w", itemID, ErrNoItem)
 	}
 	if err != nil {
-		return title, fmt.Errorf("read title %d: %w", titleID, err)
+		return target{}, fmt.Errorf("read item %d: %w", itemID, err)
 	}
-	return title, nil
+	var item target
+	if kind == itemCollection {
+		item.isSeries = true
+		item.series, err = store.One(queries.GetSeriesForMatch(ctx, itemID))
+	} else {
+		item.title, err = store.One(queries.GetTitleForMatch(ctx, itemID))
+	}
+	if errors.Is(err, store.ErrNotFound) {
+		return target{}, fmt.Errorf("item %d: %w", itemID, ErrNoItem)
+	}
+	if err != nil {
+		return target{}, fmt.Errorf("read item %d: %w", itemID, err)
+	}
+	return item, nil
 }

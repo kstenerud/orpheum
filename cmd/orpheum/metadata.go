@@ -47,7 +47,7 @@ func newMetadata(ctx context.Context, opened started, tmdbBase string, logger *s
 		logger.InfoContext(ctx, "returned jobs a stop left running to the queue", "jobs", requeued)
 	}
 	pass := identify.NewPass(opened.database, clock.System{}, logger, providers)
-	matcher := identify.NewMatcher(opened.database, opened.cache, providers, clock.System{}, logger)
+	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return metadata{
 		pass: pass, queue: queue, matcher: matcher,
 		chooser: identify.NewChooser(matcher, pass),
@@ -69,25 +69,38 @@ func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop fun
 	return func() { cancel(); done.Wait() }
 }
 
-// queueMatches queues the first fetch of each film a pass left awaiting its match: once per
-// title (D170); a later one is a person's request.
-func queueMatches(ctx context.Context, queue *jobs.Queue, titles []int64, logger *slog.Logger) {
+// queueMatches queues what a pass left owing: the first match of each film and series, once
+// per item (D170); and a matched series' season listings, whenever a new episode needs one
+// (D209 §3). A later match is a person's request.
+func queueMatches(ctx context.Context, queue *jobs.Queue, report identify.Report, logger *slog.Logger) {
 	queued := 0
-	for _, titleID := range titles {
-		ever, err := queue.EverQueued(ctx, jobs.KindFetch, titleID)
+	for _, itemID := range report.AwaitingMatch {
+		ever, err := queue.EverQueued(ctx, jobs.KindFetch, itemID)
 		if err == nil && !ever {
 			_, err = queue.Enqueue(ctx, jobs.New{
-				Kind: jobs.KindFetch, Subject: titleID, Reason: "the first match for a newly identified title",
+				Kind: jobs.KindFetch, Subject: itemID, Reason: "the first match for a newly identified title or series",
 			})
 			queued++
 		}
 		if err != nil {
-			logger.ErrorContext(ctx, "could not queue a title's match", "titleId", titleID, "err", err)
+			logger.ErrorContext(ctx, "could not queue a match", "itemId", itemID, "err", err)
 			return
 		}
 	}
+	for _, seriesID := range report.AwaitingListings {
+		added, err := queue.Enqueue(ctx, jobs.New{
+			Kind: jobs.KindFetch, Subject: seriesID, Reason: "a season listing a new episode needs",
+		})
+		if err != nil {
+			logger.ErrorContext(ctx, "could not queue a season listing", "seriesId", seriesID, "err", err)
+			return
+		}
+		if added {
+			queued++
+		}
+	}
 	if queued > 0 {
-		logger.InfoContext(ctx, "queued titles for matching", "titles", queued)
+		logger.InfoContext(ctx, "queued fetches", "jobs", queued)
 	}
 }
 

@@ -16150,4 +16150,15 @@ found the gap.
 3. **A new episode of a matched series is a first fetch** (D170): the listing it is missing from
    is fetched again; nothing else is.
 
-**Status:** Decided. The schema and API it needs are proposed to the owner before they are built.
+**Status:** Decided, and built after the owner approved the schema and API it needs: migration
+0007 gives a series the match state a title has and keys `provider_response` on `item` with a
+`part` (a season listing is a part); the chooser endpoints moved from `/titles` to `/items`
+(plan-deviations P16).
+
+**Open, raised by the owner the same day:** *"How do we handle the situation where two sources
+disagree on episode ordering?"* Two sources' orders are two orderings of one set of episodes
+([D96](#d96--an-episodes-position-is-ordering-season-number-and-a-series-declares-its-orderings)),
+not a conflict. What nothing records is **which ordering the files are numbered in**. What is
+built assumes aired: an episode's S/E is looked up in its series' aired season listing, so a
+series whose files follow DVD or absolute order would take the wrong names, flagged only where
+a number is missing from the listing. A proposal follows.
