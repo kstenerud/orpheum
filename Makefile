@@ -106,7 +106,7 @@ go-speculative: ## Fail on declarations whose only callers are tests
 .PHONY: check-generated
 check-generated: ## Fail if committed generated code differs from what its source generates
 	@if ls internal/store/queries/*.sql >/dev/null 2>&1; then \
-	  $(MAKE) generate && git diff --exit-code -- internal/store/sqlcgen || \
+	  $(MAKE) generate && git diff --exit-code -- internal/store/sqlcgen api/openapi.json || \
 	  { echo "generated code is stale or hand-edited: run make generate and commit the result"; exit 1; }; fi
 
 .PHONY: check-web
@@ -156,11 +156,12 @@ build: web-deps ## Build the server binary into bin/ and the web apps into their
 	@go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o bin/orpheum ./cmd/orpheum
 
 .PHONY: generate
-generate: ## Regenerate committed generated code (sqlc; the OpenAPI document and TS types once the API exists)
+generate: ## Regenerate committed generated code (sqlc and the OpenAPI document; the TS types once the SDK exists)
 	@if ls internal/store/queries/*.sql >/dev/null 2>&1; then \
 	  command -v sqlc >/dev/null || { echo "sqlc is not installed; run: make tools-sqlc"; exit 1; }; \
 	  sqlc generate && sqlc vet; \
 	else echo "generate: no queries yet (internal/store/queries/*.sql); nothing to do"; fi
+	@go run ./cmd/orpheum openapi > api/openapi.json.new && mv api/openapi.json.new api/openapi.json
 
 .PHONY: fmt
 fmt: ## Format Go and web sources in place

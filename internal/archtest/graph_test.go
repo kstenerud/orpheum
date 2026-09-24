@@ -59,6 +59,32 @@ func loadModulePackages(t *testing.T) []listedPackage {
 	return packages
 }
 
+// loadCoreImportGraph lists every package the core depends on, the standard library and
+// third-party modules included, as a map from import path to its direct imports, so a rule can
+// follow the route a dependency takes rather than only see that it is there.
+func loadCoreImportGraph(t *testing.T) map[string][]string {
+	t.Helper()
+	command := exec.CommandContext(t.Context(), "go", "list", "-deps", "-json", corePath+"/...")
+	var stderr bytes.Buffer
+	command.Stderr = &stderr
+	output, err := command.Output()
+	if err != nil {
+		t.Fatalf("go list -deps failed: %v\n%s", err, stderr.String())
+	}
+	packages, err := decodePackages(output)
+	if err != nil {
+		t.Fatalf("decode go list output: %v", err)
+	}
+	graph := map[string][]string{}
+	for _, listed := range packages {
+		graph[listed.ImportPath] = listed.Imports
+	}
+	if len(graph) == 0 {
+		t.Fatal("go list -deps returned no packages; the rule would pass vacuously")
+	}
+	return graph
+}
+
 // decodePackages reads the stream of JSON objects `go list -json` prints.
 func decodePackages(output []byte) ([]listedPackage, error) {
 	decoder := json.NewDecoder(bytes.NewReader(output))
