@@ -7,3 +7,8 @@ package main
 // isDevBuild is true only in binaries built with -tags dev (`make dev`), which alone offer the
 // `dev` subcommand: it seeds known users and passwords, so a release must not contain it.
 const isDevBuild = true
+
+// devCommand is the dev subcommand, compiled only into -tags dev builds.
+func devCommand() command {
+	return commandDev
+}
