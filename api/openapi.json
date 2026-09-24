@@ -152,6 +152,24 @@
         ],
         "type": "object"
       },
+      "SeedOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "written": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "written"
+        ],
+        "type": "object"
+      },
       "SessionOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -171,7 +189,14 @@
       "SettingBody": {
         "additionalProperties": false,
         "properties": {
-          "isDefault": {
+          "describe": {
+            "type": "string"
+          },
+          "isExposed": {
+            "description": "Shown on the settings page; every setting is in /config",
+            "type": "boolean"
+          },
+          "isModified": {
             "type": "boolean"
           },
           "key": {
@@ -185,6 +210,14 @@
             ],
             "type": "string"
           },
+          "maximum": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "minimum": {
+            "format": "int64",
+            "type": "integer"
+          },
           "question": {
             "type": "string"
           },
@@ -195,6 +228,13 @@
           "setBy": {
             "format": "int64",
             "type": "integer"
+          },
+          "start": {
+            "description": "The value a new server starts with",
+            "type": [
+              "",
+              "null"
+            ]
           },
           "value": {
             "type": [
@@ -207,7 +247,11 @@
           "key",
           "kind",
           "value",
-          "isDefault"
+          "start",
+          "isModified",
+          "describe",
+          "isExposed",
+          "setAt"
         ],
         "type": "object"
       },
@@ -313,6 +357,200 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/config": {
+      "get": {
+        "operationId": "getConfig",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only the settings whose value differs from the value a new server starts with",
+            "explode": false,
+            "in": "query",
+            "name": "modified",
+            "schema": {
+              "description": "Only the settings whose value differs from the value a new server starts with",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Every server setting, with its starting value and whether it was changed; ?modified=true lists only the changed ones (admin)",
+        "tags": [
+          "Settings"
+        ]
+      },
+      "put": {
+        "operationId": "putConfig",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutSettingsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Change any server settings, all or none (admin)",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/config/seed": {
+      "post": {
+        "operationId": "seedConfig",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeedOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Write the starting value of every server setting that has none; changes nothing else (admin)",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
+    "/config/{key}/reset": {
+      "post": {
+        "operationId": "resetConfig",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Put a server setting back to the value a new server starts with (admin)",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "description": "Unauthenticated. Starting and migrating answer 200 so a container manager does not kill a busy server; degraded answers 503 with its reasons.",
@@ -861,7 +1099,7 @@
             "description": "Error"
           }
         },
-        "summary": "The server's settings (admin)",
+        "summary": "The server settings the settings page shows (admin)",
         "tags": [
           "Settings"
         ]
@@ -911,7 +1149,7 @@
             "description": "Error"
           }
         },
-        "summary": "Change server settings, all or none (admin)",
+        "summary": "Change server settings the settings page shows, all or none (admin)",
         "tags": [
           "Settings"
         ]

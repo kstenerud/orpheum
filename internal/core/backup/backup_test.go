@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -73,12 +74,12 @@ func (server server) populate(t *testing.T) {
 	ctx := t.Context()
 	storetest.InsertUser(t, server.database, "owner", "admin")
 	now := clocktest.NewFake(testTime)
-	err := settings.NewService(server.database, now).Set(ctx, nil,
-		map[string]json.RawMessage{"update_check": json.RawMessage("false")}, nil)
+	seeded := settingstest.Seeded(t, server.database)
+	err := seeded.Set(ctx, nil, map[string]json.RawMessage{"update_check": json.RawMessage("false")}, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = secrets.NewStore(server.database, server.key, now, rand.Reader).
+	err = secrets.NewStore(server.database, server.key, now, rand.Reader, seeded).
 		Set(ctx, secrets.TMDBAPIKey, nil, secrets.NewValue(canary), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -133,7 +134,8 @@ func TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse(t *t
 	if _, err = store.One(restored.Read().GetLiveUserByName(t.Context(), "owner")); err != nil {
 		t.Errorf("the restored database lost the owner: %v", err)
 	}
-	entries, err := settings.NewService(restored, clocktest.NewFake(testTime)).List(t.Context(), nil)
+	restoredSettings := settings.NewService(restored, clocktest.NewFake(testTime))
+	entries, err := restoredSettings.List(t.Context(), nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +148,7 @@ func TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	needing, err := secrets.NewStore(restored, newKey, clocktest.NewFake(testTime), rand.Reader).
+	needing, err := secrets.NewStore(restored, newKey, clocktest.NewFake(testTime), rand.Reader, restoredSettings).
 		NeedingReentry(t.Context())
 	if err != nil || len(needing) != 1 || needing[0].Name != secrets.TMDBAPIKey {
 		t.Errorf("after a restore without the key, needing re-entry = %+v, %v; want the TMDB key", needing, err)
@@ -178,7 +180,9 @@ func TestRestore_WithTheIncludedKeyOpensSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Open authenticates the ciphertext against the key and the row, so opening is the proof.
-	_, err = secrets.NewStore(openAt(t, target), parsed, clocktest.NewFake(testTime), rand.Reader).
+	restoredDatabase := openAt(t, target)
+	_, err = secrets.NewStore(restoredDatabase, parsed, clocktest.NewFake(testTime), rand.Reader,
+		settings.NewService(restoredDatabase, clocktest.NewFake(testTime))).
 		Open(t.Context(), secrets.TMDBAPIKey, nil)
 	if err != nil {
 		t.Errorf("with the key restored, the secret does not open: %v", err)

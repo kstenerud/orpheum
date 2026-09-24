@@ -30,7 +30,7 @@ func TestLoadConfig_ReadsTheDevFileAndReportsUnknownKeys(t *testing.T) {
 		t.Fatalf("the dev config does not load: %v", err)
 	}
 	if config.Server.DataDir != "/srv/orpheum/.dev/state" || config.Node.Confinement != "report" ||
-		!config.Debug.PProf || config.Log.Format != "text" {
+		config.Log.Format != "text" {
 		t.Errorf("the dev config read as %+v", config)
 	}
 	if len(unknown) != 1 || unknown[0] != "server.extra.surprise" {
@@ -38,32 +38,43 @@ func TestLoadConfig_ReadsTheDevFileAndReportsUnknownKeys(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_DefaultsAreTheSafeOnes(t *testing.T) {
+func TestLoadConfig_RequiresEveryKeyAndHasNoDefaults(t *testing.T) {
 	t.Parallel()
-	config, _, err := loadConfig(writeConfig(t,
-		"[server]\nlisten = \"127.0.0.1:8432\"\ndata_dir = \"/srv/state\"\ncache_dir = \"/srv/cache\"\n"))
-	if err != nil {
-		t.Fatal(err)
+	if _, _, err := loadConfig(writeConfig(t, valid)); err != nil {
+		t.Fatalf("a complete config: %v", err)
 	}
-	if config.Node.Confinement != "require" || config.Log.Level != "info" || config.Log.Format != "json" ||
-		config.Debug.PProf || config.Debug.Metrics {
-		t.Errorf("defaults = %+v; want confinement required, info, json, and no debug endpoints", config)
+	for _, key := range requiredKeys() {
+		table, name := key[0], key[1]
+		var kept []string
+		section := ""
+		for line := range strings.SplitSeq(valid, "\n") {
+			if strings.HasPrefix(line, "[") {
+				section = strings.Trim(line, "[]")
+			}
+			if section == table && strings.HasPrefix(line, name+" ") {
+				continue
+			}
+			kept = append(kept, line)
+		}
+		_, _, err := loadConfig(writeConfig(t, strings.Join(kept, "\n")))
+		if want := table + "." + name + " is required"; err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("without %s.%s: error = %v, want %q", table, name, err, want)
+		}
 	}
 }
 
 func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct{ text, names string }{
-		"no listen": {"[server]\ndata_dir = \"/a\"\ncache_dir = \"/b\"\n", "server.listen"},
-		"relative state": {
-			"[server]\nlisten = \":1\"\ndata_dir = \"state\"\ncache_dir = \"/b\"\n", "server.data_dir",
-		},
+		"relative state": {strings.Replace(valid, `data_dir = "/a"`, `data_dir = "state"`, 1), "server.data_dir"},
 		"bad listen": {
-			"[server]\nlisten = \"nowhere\"\ndata_dir = \"/a\"\ncache_dir = \"/b\"\n", "server.listen",
+			strings.Replace(valid, `listen = "127.0.0.1:8432"`, `listen = "nowhere"`, 1), "server.listen",
 		},
-		"bad confinement":  {valid + "[node]\nconfinement = \"maybe\"\n", "node.confinement"},
-		"bad log level":    {valid + "[log]\nlevel = \"loud\"\n", "log.level"},
-		"bad log format":   {valid + "[log]\nformat = \"xml\"\n", "log format"},
+		"bad confinement": {
+			strings.Replace(valid, `confinement = "require"`, `confinement = "maybe"`, 1), "node.confinement",
+		},
+		"bad log level":    {strings.Replace(valid, `level = "info"`, `level = "loud"`, 1), "log.level"},
+		"bad log format":   {strings.Replace(valid, `format = "json"`, `format = "xml"`, 1), "log format"},
 		"not TOML at all":  {"server = [", "config"},
 		"a wrong key type": {"[server]\nlisten = 8432\n", "listen"},
 	}
@@ -74,7 +85,20 @@ func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
 	}
 }
 
-const valid = "[server]\nlisten = \"127.0.0.1:8432\"\ndata_dir = \"/a\"\ncache_dir = \"/b\"\n"
+const valid = `[server]
+listen = "127.0.0.1:8432"
+data_dir = "/a"
+cache_dir = "/b"
+
+[node]
+roots = ["/media"]
+ffmpeg_dir = "/opt/ffmpeg"
+confinement = "require"
+
+[log]
+level = "info"
+format = "json"
+`
 
 func TestIsLoopback(t *testing.T) {
 	t.Parallel()

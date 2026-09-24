@@ -16,7 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
-	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -51,11 +51,12 @@ func (codes *memorySetupCodes) Remove() error {
 }
 
 type testHarness struct {
-	server  *Server
-	http    *httptest.Server
-	logs    *bytes.Buffer
-	service *auth.Service
-	codes   *memorySetupCodes
+	server   *Server
+	http     *httptest.Server
+	logs     *bytes.Buffer
+	service  *auth.Service
+	codes    *memorySetupCodes
+	database string
 }
 
 // newHarness serves an API whose dependencies are ready, over a real migrated database.
@@ -63,11 +64,8 @@ func newHarness(t *testing.T) testHarness {
 	t.Helper()
 	database := storetest.Open(t)
 	now := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
-	service, err := auth.NewService(database, now, rand.Reader,
-		auth.Parameters{MemoryKiB: 64, Iterations: 1, Parallelism: 1, SaltBytes: 16, KeyBytes: 32})
-	if err != nil {
-		t.Fatal(err)
-	}
+	seeded := settingstest.Seeded(t, database)
+	service := auth.NewService(database, now, rand.Reader, seeded)
 	key, err := secrets.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -76,12 +74,14 @@ func newHarness(t *testing.T) testHarness {
 	server := NewServer(slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	codes := &memorySetupCodes{}
 	server.Ready(Dependencies{
-		Auth: service, Settings: settings.NewService(database, now),
-		Secrets: secrets.NewStore(database, key, now, rand.Reader), SetupCodes: codes,
+		Auth: service, Settings: seeded,
+		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
 	})
 	served := httptest.NewServer(server.Handler())
 	t.Cleanup(served.Close)
-	return testHarness{server: server, http: served, logs: logs, service: service, codes: codes}
+	return testHarness{
+		server: server, http: served, logs: logs, service: service, codes: codes, database: database.Path(),
+	}
 }
 
 type response struct {
@@ -249,9 +249,16 @@ func TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing(t *test
 	wantError(t, harness.do(t, http.MethodPut, "/settings", admin,
 		map[string]any{"values": map[string]any{"update_check": "yes"}}),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantError(t, harness.do(t, http.MethodPut, "/settings", admin,
+		map[string]any{"values": map[string]any{"signin_failure_limit": 3}}),
+		http.StatusUnprocessableEntity, CodeInvalidRequest)
+	page := harness.do(t, http.MethodGet, "/settings", admin, nil)
+	if strings.Contains(page.body, "signin_failure_limit") || !strings.Contains(page.body, "update_check") {
+		t.Errorf("GET /settings shows a setting it should not, or misses one it should: %s", page.body)
+	}
 	changed := harness.do(t, http.MethodPut, "/settings", admin,
 		map[string]any{"values": map[string]any{"update_check": false}})
-	const wantChanged = `"key":"update_check","kind":"bool","value":false`
+	const wantChanged = `"key":"update_check","kind":"bool","value":false,"start":null,"isModified":true`
 	if changed.status != http.StatusOK || !strings.Contains(changed.body, wantChanged) {
 		t.Errorf("PUT /settings = %d %s", changed.status, changed.body)
 	}
@@ -297,5 +304,90 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 	}
 	if strings.Contains(harness.logs.String(), "CANARY") {
 		t.Errorf("the log shows the secret:\n%s", harness.logs.String())
+	}
+}
+
+func TestConfig_ShowsEverySettingAndSeedsAndResets(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	if _, err := harness.service.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	user := harness.signIn(t, "partner", "partner-password")
+	for _, request := range [][2]string{
+		{http.MethodGet, "/config"},
+		{http.MethodPost, "/config/seed"},
+		{http.MethodPost, "/config/signin_failure_limit/reset"},
+	} {
+		wantError(t, harness.do(t, request[0], request[1], user, nil), http.StatusForbidden, CodeForbidden)
+	}
+
+	listed := harness.do(t, http.MethodGet, "/config", admin, nil)
+	const limit = `"key":"signin_failure_limit","kind":"integer","value":5,"start":5,"isModified":false,` +
+		`"minimum":1,"maximum":1000`
+	if listed.status != http.StatusOK || !strings.Contains(listed.body, limit) ||
+		!strings.Contains(listed.body, `"key":"update_check"`) {
+		t.Errorf("GET /config = %d %s", listed.status, listed.body)
+	}
+	changed := harness.do(t, http.MethodPut, "/config", admin,
+		map[string]any{"values": map[string]any{"signin_failure_limit": 7}})
+	if !strings.Contains(changed.body, `"key":"signin_failure_limit","kind":"integer","value":7,"start":5,`+
+		`"isModified":true`) {
+		t.Errorf("PUT /config = %d %s", changed.status, changed.body)
+	}
+	wantError(t, harness.do(t, http.MethodPut, "/config", admin,
+		map[string]any{"values": map[string]any{"signin_failure_limit": 0}}),
+		http.StatusUnprocessableEntity, CodeInvalidRequest)
+
+	reset := harness.do(t, http.MethodPost, "/config/signin_failure_limit/reset", admin, nil)
+	if reset.status != http.StatusOK || !strings.Contains(reset.body, `"value":5`) {
+		t.Errorf("POST /config/signin_failure_limit/reset = %d %s", reset.status, reset.body)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/config/no_such_setting/reset", admin, nil),
+		http.StatusNotFound, CodeNotFound)
+
+	storetest.ExecRaw(t, harness.database, "DELETE FROM setting WHERE key = 'secret_hint_length'")
+	broken := harness.do(t, http.MethodGet, "/config", admin, nil)
+	wantError(t, broken, http.StatusInternalServerError, CodeInternal)
+	const guidance = "secret_hint_length has no value; its starting value is 4"
+	if !strings.Contains(broken.body, guidance) || !strings.Contains(broken.body, "config/seed") {
+		t.Errorf("the error does not say which setting is missing, what it starts as, and how to fix it: %s",
+			broken.body)
+	}
+	seeded := harness.do(t, http.MethodPost, "/config/seed", admin, nil)
+	if seeded.status != http.StatusOK || !strings.Contains(seeded.body, `"written":["secret_hint_length"]`) {
+		t.Errorf("POST /config/seed = %d %s, want just the removed setting written", seeded.status, seeded.body)
+	}
+	again := harness.do(t, http.MethodPost, "/config/seed", admin, nil)
+	if !strings.Contains(again.body, `"written":[]`) {
+		t.Errorf("seeding again = %s, want nothing written", again.body)
+	}
+}
+
+func TestConfig_FiltersToWhatDiffersFromTheStartingValue(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.do(t, http.MethodPut, "/config", admin, map[string]any{"values": map[string]any{"signin_failure_limit": 7}})
+	all := harness.do(t, http.MethodGet, "/config", admin, nil)
+	changed := harness.do(t, http.MethodGet, "/config?modified=true", admin, nil)
+	var listed struct {
+		Settings []SettingBody `json:"settings"`
+	}
+	if err := json.Unmarshal([]byte(changed.body), &listed); err != nil || changed.status != http.StatusOK {
+		t.Fatalf("GET /config?modified=true = %d %s", changed.status, changed.body)
+	}
+	found := false
+	for _, setting := range listed.Settings {
+		if !setting.IsModified {
+			t.Errorf("the filtered list holds %s, which is at its starting value", setting.Key)
+		}
+		found = found || setting.Key == "signin_failure_limit"
+	}
+	if !found || strings.Contains(changed.body, `"key":"update_check"`) ||
+		!strings.Contains(all.body, `"key":"update_check"`) {
+		t.Errorf("the filter kept an unchanged setting or dropped the changed one:\n%s", changed.body)
 	}
 }

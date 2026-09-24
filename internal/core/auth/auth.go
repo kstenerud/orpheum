@@ -45,9 +45,6 @@ const (
 	grantKindSession  = "session"
 	grantScopeSession = "role" // a session carries the user's role, entire (D154 §3)
 	tokenBytes        = 32
-	// The resolution of a session's last_seen: once a minute is enough for idle expiry, and a
-	// write per request is not.
-	lastSeenResolution = time.Minute
 )
 
 var (
@@ -75,27 +72,21 @@ func (principal Principal) IsAdmin() bool {
 	return slices.Contains(principal.Capabilities, capabilityAdminister)
 }
 
-// Service signs people in and out and says who a credential belongs to.
+// Service signs people in and out and says who a credential belongs to. Its opinions — argon2id's
+// costs, the failure limit, session idle expiry — are settings, read when they are used (D200).
 type Service struct {
-	database   *store.Database
-	clock      clock.Clock
-	random     io.Reader
-	parameters Parameters
-	limiter    *failureLimiter
-	// dummyHash is verified when a name is unknown, so an unknown name costs what a known one does.
-	dummyHash string
+	database *store.Database
+	clock    clock.Clock
+	random   io.Reader
+	settings Settings
+	limiter  *failureLimiter
 }
 
-// NewService returns a Service that hashes new passwords under parameters.
-func NewService(database *store.Database, now clock.Clock, random io.Reader, parameters Parameters) (*Service, error) {
-	dummyHash, err := HashPassword("unknown user", parameters, random)
-	if err != nil {
-		return nil, err
-	}
+// NewService returns a Service.
+func NewService(database *store.Database, now clock.Clock, random io.Reader, config Settings) *Service {
 	return &Service{
-		database: database, clock: now, random: random, parameters: parameters,
-		limiter: newFailureLimiter(now), dummyHash: dummyHash,
-	}, nil
+		database: database, clock: now, random: random, settings: config, limiter: newFailureLimiter(now),
+	}
 }
 
 // NewUser describes a user to create.
@@ -132,7 +123,11 @@ func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries
 	if err != nil {
 		return 0, fmt.Errorf("find role %q: %w", user.Role, err)
 	}
-	hash, err := HashPassword(user.Password, service.parameters, service.random)
+	parameters, err := service.parameters(ctx)
+	if err != nil {
+		return 0, err
+	}
+	hash, err := HashPassword(user.Password, parameters, service.random)
 	if err != nil {
 		return 0, err
 	}
@@ -162,35 +157,44 @@ func (service *Service) CountUsers(ctx context.Context) (int64, error) {
 // SignIn checks a name and password and issues a session. The address is the client's network
 // address, for the per-address failure limit. A hash made under older parameters is re-hashed.
 func (service *Service) SignIn(ctx context.Context, name, password, address string) (token string, err error) {
+	limit, window, err := service.failurePolicy(ctx)
+	if err != nil {
+		return "", err
+	}
 	accountKey, addressKey := "account:"+strings.ToLower(strings.TrimSpace(name)), "address:"+address
-	if service.limiter.isLimited(accountKey, addressKey) {
+	if service.limiter.isLimited(limit, window, accountKey, addressKey) {
 		return "", ErrRateLimited
+	}
+	parameters, err := service.parameters(ctx)
+	if err != nil {
+		return "", err
 	}
 	user, err := store.One(service.database.Read().GetLiveUserByName(ctx, strings.TrimSpace(name)))
 	if errors.Is(err, store.ErrNotFound) {
-		_, _, verifyErr := VerifyPassword(password, service.dummyHash)
-		service.limiter.fail(accountKey, addressKey)
-		return "", errors.Join(ErrBadCredentials, verifyErr)
+		// An unknown name costs what a known one does, so timing does not tell them apart.
+		_, hashErr := HashPassword(password, parameters, service.random)
+		service.limiter.fail(window, accountKey, addressKey)
+		return "", errors.Join(ErrBadCredentials, hashErr)
 	}
 	if err != nil {
 		return "", fmt.Errorf("look up user: %w", err)
 	}
 	matches, used, err := VerifyPassword(password, string(user.PasswordHash))
 	if err != nil || !matches {
-		service.limiter.fail(accountKey, addressKey)
+		service.limiter.fail(window, accountKey, addressKey)
 		return "", errors.Join(ErrBadCredentials, err)
 	}
 	service.limiter.forget(accountKey)
-	if !sameCosts(used, service.parameters) {
-		if rehashErr := service.rehash(ctx, user.ID, password); rehashErr != nil {
+	if !sameCosts(used, parameters) {
+		if rehashErr := service.rehash(ctx, user.ID, password, parameters); rehashErr != nil {
 			return "", rehashErr
 		}
 	}
 	return service.issueSession(ctx, user.ID)
 }
 
-func (service *Service) rehash(ctx context.Context, userID int64, password string) error {
-	hash, err := HashPassword(password, service.parameters, service.random)
+func (service *Service) rehash(ctx context.Context, userID int64, password string, parameters Parameters) error {
+	hash, err := HashPassword(password, parameters, service.random)
 	if err != nil {
 		return err
 	}
@@ -237,6 +241,18 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if err != nil {
 		return Principal{}, fmt.Errorf("look up the session: %w", err)
 	}
+	idleExpiry, lastSeenResolution, err := service.sessionPolicy(ctx)
+	if err != nil {
+		return Principal{}, err
+	}
+	// Sessions end on idle, not absolutely (D154 §3). issued_at stands in for a session never used.
+	lastUse := grant.IssuedAt
+	if grant.LastSeen != nil {
+		lastUse = *grant.LastSeen
+	}
+	if now.Sub(time.UnixMilli(lastUse)) > idleExpiry {
+		return Principal{}, ErrNotAuthenticated
+	}
 	user, err := store.One(service.database.Read().GetLiveUserByID(ctx, *grant.Subject))
 	if errors.Is(err, store.ErrNotFound) {
 		return Principal{}, ErrNotAuthenticated
@@ -244,7 +260,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if err != nil {
 		return Principal{}, fmt.Errorf("look up the session's user: %w", err)
 	}
-	if grant.LastSeen == nil || now.Sub(time.UnixMilli(*grant.LastSeen)) >= lastSeenResolution {
+	if now.Sub(time.UnixMilli(lastUse)) >= lastSeenResolution {
 		err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 			return queries.UpdateGrantLastSeen(ctx, sqlcgen.UpdateGrantLastSeenParams{
 				Hash: hash, LastSeen: new(now.UnixMilli()),

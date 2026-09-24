@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -215,6 +216,33 @@ func commandSetupCode(ctx context.Context, call invocation) int {
 		return write(call.stdout, "setup is complete: an admin exists; sign in instead\n", exitFailure)
 	}
 	return call.fail(errors.New("there is no setup code yet; start the server and it writes one"))
+}
+
+// commandSeedSettings writes the starting value of every setting that has none — after an upgrade,
+// or after a row was removed by hand — and changes nothing else. It works with the server
+// stopped, when the server cannot start because of the missing value.
+func commandSeedSettings(ctx context.Context, call invocation) int {
+	config, err := call.configFlags("seed-settings", nil)
+	if err != nil {
+		return call.fail(err)
+	}
+	_, database, err := openExisting(ctx, config)
+	if err != nil {
+		return call.fail(err)
+	}
+	written, err := settings.NewService(database, clock.System{}).Seed(ctx)
+	if err = errors.Join(err, database.Close()); err != nil {
+		return call.fail(err)
+	}
+	if len(written) == 0 {
+		return write(call.stdout, "every setting already has a value; nothing was written\n", exitSuccess)
+	}
+	var report strings.Builder
+	for _, key := range written {
+		definition, _ := settings.Lookup(key)
+		fmt.Fprintf(&report, "wrote %s = %s, its starting value\n", key, definition.Start)
+	}
+	return write(call.stdout, report.String(), exitSuccess)
 }
 
 // commandOpenAPI prints the API's OpenAPI document, which `make generate` commits (D85).

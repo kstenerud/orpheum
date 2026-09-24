@@ -116,19 +116,24 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if err != nil {
 		return err
 	}
+	// Every setting gets its starting value first: hashing a password reads argon2id's costs.
+	settingsService := settings.NewService(database, clock.System{})
+	if _, err = settingsService.Seed(ctx); err != nil {
+		return err
+	}
 	key, err := loadOrCreateKey(directories, logger)
 	if err != nil {
 		return err
 	}
-	firstAdmin, err := seedUsers(ctx, database, seed.Users, report)
+	firstAdmin, err := seedUsers(ctx, database, settingsService, seed.Users, report)
 	if err != nil {
 		return err
 	}
-	err = seedSettings(ctx, database, seed.Settings)
+	err = seedSettings(ctx, settingsService, seed.Settings)
 	if err != nil {
 		return err
 	}
-	sealed := secrets.NewStore(database, key, clock.System{}, rand.Reader)
+	sealed := secrets.NewStore(database, key, clock.System{}, rand.Reader, settingsService)
 	err = seedSecrets(ctx, call.lookupEnv, sealed, firstAdmin, report)
 	if err != nil {
 		return err
@@ -141,12 +146,10 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 }
 
 func seedUsers(
-	ctx context.Context, database *store.Database, users []seedUser, report *strings.Builder,
+	ctx context.Context, database *store.Database, settingsService *settings.Service, users []seedUser,
+	report *strings.Builder,
 ) (*int64, error) {
-	service, err := auth.NewService(database, clock.System{}, rand.Reader, auth.DefaultParameters())
-	if err != nil {
-		return nil, err
-	}
+	service := auth.NewService(database, clock.System{}, rand.Reader, settingsService)
 	var firstAdmin *int64
 	for _, user := range users {
 		id, role, seedErr := seedUserOnce(ctx, service, database, user, report)
@@ -186,7 +189,9 @@ func seedUserOnce(
 	return existing.ID, auth.Role(existing.RoleName), nil
 }
 
-func seedSettings(ctx context.Context, database *store.Database, values map[string]any) error {
+// seedSettings sets the seed's values through the raw path, as /config does: the dev seed may set
+// any setting, shown on the settings page or not.
+func seedSettings(ctx context.Context, settingsService *settings.Service, values map[string]any) error {
 	encoded := map[string]json.RawMessage{}
 	for key, value := range values {
 		text, err := json.Marshal(value)
@@ -195,7 +200,7 @@ func seedSettings(ctx context.Context, database *store.Database, values map[stri
 		}
 		encoded[key] = text
 	}
-	return settings.NewService(database, clock.System{}).Set(ctx, nil, encoded, nil)
+	return settingsService.Set(ctx, nil, encoded, nil, false)
 }
 
 func seedSecrets(

@@ -50,6 +50,10 @@ func plannedSubcommands() []subcommand {
 		{name: "restore", summary: "restore a backup, with the server stopped", run: commandRestore},
 		{name: "doctor", summary: "report what is wrong and how to fix it", run: commandDoctor},
 		{name: "setup-code", summary: "print the one-time code that creates the first admin", run: commandSetupCode},
+		{
+			name: "seed-settings", summary: "write the starting value of any setting that has none",
+			run: commandSeedSettings,
+		},
 		{name: "openapi", summary: "print the API's OpenAPI document", run: commandOpenAPI},
 	}
 	if isDevBuild {

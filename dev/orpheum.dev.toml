@@ -2,13 +2,13 @@
 # The development configuration: opinionated, local, and loud. `make dev-config` renders it to
 # .dev/orpheum.toml, filling in {root} (the repository) and {ffmpeg_dir} (the pinned FFmpeg from
 # `make ffmpeg`), and prints the result. The file holds only what must exist before the
-# database opens (D182 §3); everything else comes from dev/seed.toml.
+# database opens, and every key is required (D182 §3, D200); everything else is a setting in the
+# database, and the dev values of those come from dev/seed.toml.
 #
 # Every value here is a choice for debugging, not a production default:
 #   - listen on loopback only, plain HTTP. Browsers treat localhost as a secure context, so the
 #     microphone works here; a phone on the LAN needs the real HTTPS name (cut-a §2).
 #   - debug logs as text, not JSON, because a person reads them.
-#   - pprof and /metrics on, bound to loopback (D91 says off by default; dev says on).
 #   - confinement reported but not required, so the loop runs on a machine without Landlock
 #     and says so (D112).
 #   - media read-only, from the generated dev library (make dev-media).
@@ -26,7 +26,3 @@ confinement = "report"   # "require" refuses to start unconfined; "report" runs 
 [log]
 level = "debug"
 format = "text"
-
-[debug]
-pprof = true             # /debug/pprof on the listen address, loopback only
-metrics = true           # /metrics (D91)

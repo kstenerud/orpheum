@@ -58,6 +58,11 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 	if !strings.Contains(settings.body, `"key":"update_check","kind":"bool","value":false`) {
 		t.Errorf("the seeded setting is not in force: %s", settings.body)
 	}
+	raw := call(t, http.MethodGet, server.baseURL+"/config", token, nil)
+	if !strings.Contains(raw.body, `"key":"debug_pprof","kind":"bool","value":true,"start":false,"isModified":true`) ||
+		strings.Contains(settings.body, "debug_pprof") {
+		t.Errorf("the seed did not turn debug_pprof on through /config, or the settings page shows it:\n%s", raw.body)
+	}
 	serverSecrets := call(t, http.MethodGet, server.baseURL+"/secrets", token, nil)
 	mySecrets := call(t, http.MethodGet, server.baseURL+"/me/secrets", token, nil)
 	const tmdbSet = `"name":"tmdb_api_key","description":"the TMDB API key metadata is fetched with","isSet":true`

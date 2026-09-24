@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // startedOnce runs the server until it is ready and stops it, leaving a state directory with a
@@ -115,5 +117,25 @@ func TestOpenAPI_PrintsTheDocument(t *testing.T) {
 	if document.status != exitSuccess || !strings.Contains(document.stdout, `"url": "/api/v1"`) ||
 		!strings.Contains(document.stdout, `"/health"`) {
 		t.Errorf("openapi = status %d, %.200s", document.status, document.stdout)
+	}
+}
+
+func TestSeedSettings_RefillsARemovedSettingAndDoctorSaysWhatIsMissing(t *testing.T) {
+	t.Parallel()
+	config, path := startedOnce(t)
+	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
+		"DELETE FROM setting WHERE key = 'backup_age_warning_h'")
+	doctor := runCommand(t, "doctor", "--config", path)
+	if !strings.Contains(doctor.stdout, "backup_age_warning_h has no value; its starting value is 168") ||
+		!strings.Contains(doctor.stdout, "orpheum seed-settings") {
+		t.Errorf("doctor with a setting removed does not name it, its starting value and the fix:\n%s", doctor.stdout)
+	}
+	seeded := runCommand(t, "seed-settings", "--config", path)
+	if seeded.status != exitSuccess || seeded.stdout != "wrote backup_age_warning_h = 168, its starting value\n" {
+		t.Errorf("seed-settings = %+v, want just the removed setting written", seeded)
+	}
+	again := runCommand(t, "seed-settings", "--config", path)
+	if again.status != exitSuccess || !strings.Contains(again.stdout, "nothing was written") {
+		t.Errorf("seed-settings again = %+v, want nothing written", again)
 	}
 }

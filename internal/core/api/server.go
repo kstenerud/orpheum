@@ -171,9 +171,13 @@ func (server *Server) signedInAdmin(ctx context.Context, authorization string) (
 }
 
 // internal logs an unexpected error and returns the generic internal error, so nothing about it
-// reaches the client.
+// reaches the client. The one exception is a setting with no value: its name, starting value and
+// the way to fix it are no one's secret, and an admin needs them to repair the server (D200).
 func (server *Server) internal(ctx context.Context, doing string, err error) error {
 	server.logger.ErrorContext(ctx, "request failed", "doing", doing, "err", err)
+	if missing, isMissing := errors.AsType[*settings.NotSeededError](err); isMissing {
+		return newError(http.StatusInternalServerError, CodeInternal, missing.Error())
+	}
 	return newError(http.StatusInternalServerError, CodeInternal, "internal error")
 }
 

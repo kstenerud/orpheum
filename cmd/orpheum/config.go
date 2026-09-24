@@ -15,14 +15,14 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
 
-// Config is the file read before the database opens: only what must exist by then (D182 §3).
-// Everything changeable at runtime is a setting in the database. Its keys are exactly those of
-// dev/orpheum.dev.toml (cut-a §2a).
+// Config is the file read before the database opens: only what must exist by then, or must not
+// be changeable by someone holding only an admin account (D182 §3, D200). Every key is required
+// and none has a default in code; everything else is a setting in the database. Its keys are
+// exactly those of dev/orpheum.dev.toml (cut-a §2a).
 type Config struct {
 	Server ServerConfig `toml:"server"`
 	Node   NodeConfig   `toml:"node"`
 	Log    LogConfig    `toml:"log"`
-	Debug  DebugConfig  `toml:"debug"`
 }
 
 // ServerConfig is where the server listens and keeps its state.
@@ -45,20 +45,6 @@ type LogConfig struct {
 	Format string `toml:"format"`
 }
 
-// DebugConfig turns on profiling and metrics, served on the listen address only when it is
-// loopback (cut-a §2a; D91 keeps both off by default).
-type DebugConfig struct {
-	PProf   bool `toml:"pprof"`
-	Metrics bool `toml:"metrics"`
-}
-
-// The defaults a missing key takes. Each is safe to be wrong and is printed at start (D183).
-const (
-	defaultLogLevel    = "info"
-	defaultLogFormat   = "json"
-	defaultConfinement = "require" // a production install refuses to run unconfined (cut-a §2a)
-)
-
 // loadConfig reads and checks the config file. Keys it does not know are returned, to be
 // reported and ignored, never fatal (packaging-history.md lesson 11).
 func loadConfig(path string) (Config, []string, error) {
@@ -76,36 +62,50 @@ func loadConfig(path string) (Config, []string, error) {
 		}
 		unknown = append(unknown, key.String())
 	}
-	config.applyDefaults()
+	if err = requireEveryKey(metadata); err != nil {
+		return Config{}, unknown, fmt.Errorf("config %s: %w", path, err)
+	}
 	if err = config.check(); err != nil {
 		return Config{}, unknown, fmt.Errorf("config %s: %w", path, err)
 	}
 	return config, unknown, nil
 }
 
-func (config *Config) applyDefaults() {
-	if config.Log.Level == "" {
-		config.Log.Level = defaultLogLevel
+// The file's tables.
+const (
+	tableServer = "server"
+	tableNode   = "node"
+	tableLog    = "log"
+)
+
+// requiredKeys is every key of the file. None has a default in code (D200); a missing one is
+// refused by name.
+func requiredKeys() [][]string {
+	return [][]string{
+		{tableServer, "listen"},
+		{tableServer, "data_dir"},
+		{tableServer, "cache_dir"},
+		{tableNode, "roots"},
+		{tableNode, "ffmpeg_dir"},
+		{tableNode, "confinement"},
+		{tableLog, "level"},
+		{tableLog, "format"},
 	}
-	if config.Log.Format == "" {
-		config.Log.Format = defaultLogFormat
+}
+
+func requireEveryKey(metadata toml.MetaData) error {
+	var missing []error
+	for _, key := range requiredKeys() {
+		if !metadata.IsDefined(key...) {
+			missing = append(missing, fmt.Errorf("%s is required", strings.Join(key, ".")))
+		}
 	}
-	if config.Node.Confinement == "" {
-		config.Node.Confinement = defaultConfinement
-	}
+	return errors.Join(missing...)
 }
 
 // check refuses, naming the key, a value the server cannot start without or cannot use.
 func (config *Config) check() error {
 	var problems []error
-	for key, value := range map[string]string{
-		"server.listen": config.Server.Listen, "server.data_dir": config.Server.DataDir,
-		"server.cache_dir": config.Server.CacheDir,
-	} {
-		if value == "" {
-			problems = append(problems, fmt.Errorf("%s is required", key))
-		}
-	}
 	for key, value := range map[string]string{
 		"server.data_dir": config.Server.DataDir, "server.cache_dir": config.Server.CacheDir,
 	} {

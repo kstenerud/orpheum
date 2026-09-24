@@ -9,6 +9,48 @@ import (
 	"context"
 )
 
+const getServerSetting = `-- name: GetServerSetting :one
+SELECT key, value, set_by, set_at
+FROM setting
+WHERE scope = 'server' AND key = ?
+`
+
+type GetServerSettingRow struct {
+	Key   string
+	Value string
+	SetBy *int64
+	SetAt int64
+}
+
+func (q *Queries) GetServerSetting(ctx context.Context, key string) (GetServerSettingRow, error) {
+	row := q.db.QueryRowContext(ctx, getServerSetting, key)
+	var i GetServerSettingRow
+	err := row.Scan(
+		&i.Key,
+		&i.Value,
+		&i.SetBy,
+		&i.SetAt,
+	)
+	return i, err
+}
+
+const insertServerSettingIfMissing = `-- name: InsertServerSettingIfMissing :exec
+INSERT INTO setting (scope, user_id, key, value, set_by, set_at)
+VALUES ('server', NULL, ?1, ?2, NULL, ?3)
+ON CONFLICT (scope, ifnull(user_id, 0), key) DO NOTHING
+`
+
+type InsertServerSettingIfMissingParams struct {
+	Key   string
+	Value string
+	SetAt int64
+}
+
+func (q *Queries) InsertServerSettingIfMissing(ctx context.Context, arg InsertServerSettingIfMissingParams) error {
+	_, err := q.db.ExecContext(ctx, insertServerSettingIfMissing, arg.Key, arg.Value, arg.SetAt)
+	return err
+}
+
 const listServerSettings = `-- name: ListServerSettings :many
 
 SELECT key, value, set_by, set_at
@@ -25,8 +67,8 @@ type ListServerSettingsRow struct {
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Runtime settings (schema.md, setting; D181, D183). A row exists only when someone set a
-// value; the registry in internal/core/settings supplies every default.
+// Runtime settings (schema.md, setting; D181, D200). Every key the registry in
+// internal/core/settings declares has a row, written with its starting value on first start.
 func (q *Queries) ListServerSettings(ctx context.Context) ([]ListServerSettingsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listServerSettings)
 	if err != nil {
