@@ -28,13 +28,17 @@ const busyTimeoutMs = 15000
 // to each connection it opens rather than to whichever one ran an Exec (standards/sql.md §7).
 const (
 	connectionPragmas = "_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)" +
-		"&_pragma=busy_timeout(15000)"
+		"&_pragma=busy_timeout(15000)&_pragma=temp_store(MEMORY)"
 	writerOptions = "&_txlock=immediate"
 	readerOptions = "&_pragma=query_only(1)"
 )
 
 // synchronousNormal is PRAGMA synchronous's value for NORMAL.
 const synchronousNormal = 1
+
+// tempStoreMemory is PRAGMA temp_store's value for MEMORY. SQLite's temporary files would
+// otherwise go wherever TMPDIR points, which is configuration nobody gave us (D204).
+const tempStoreMemory = 2
 
 // ErrNotOurs is returned for a database file that is not empty and lacks our application_id.
 var ErrNotOurs = errors.New("not an Orpheum database: the file lacks Orpheum's application_id")
@@ -148,7 +152,7 @@ func (database *Database) verify(ctx context.Context) error {
 // verifyPragmas refuses a connection whose pragmas are not the ones the DSN asked for.
 func verifyPragmas(ctx context.Context, pool *sql.DB) error {
 	var journalMode string
-	var synchronous, foreignKeys, busyTimeout int
+	var synchronous, foreignKeys, busyTimeout, tempStore int
 	checks := []struct {
 		pragma string
 		value  any
@@ -157,6 +161,7 @@ func verifyPragmas(ctx context.Context, pool *sql.DB) error {
 		{"PRAGMA synchronous", &synchronous},
 		{"PRAGMA foreign_keys", &foreignKeys},
 		{"PRAGMA busy_timeout", &busyTimeout},
+		{"PRAGMA temp_store", &tempStore},
 	}
 	for _, check := range checks {
 		if err := pool.QueryRowContext(ctx, check.pragma).Scan(check.value); err != nil {
@@ -172,6 +177,8 @@ func verifyPragmas(ctx context.Context, pool *sql.DB) error {
 		return fmt.Errorf("foreign_keys is %d, want 1", foreignKeys)
 	case busyTimeout != busyTimeoutMs:
 		return fmt.Errorf("busy_timeout is %d, want %d", busyTimeout, busyTimeoutMs)
+	case tempStore != tempStoreMemory:
+		return fmt.Errorf("temp_store is %d, want %d (MEMORY)", tempStore, tempStoreMemory)
 	}
 	return nil
 }

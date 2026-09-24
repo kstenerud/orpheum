@@ -268,6 +268,15 @@ describe in a phrase, and give it that phrase as its name.
   down (yoloAI's "no ambient configuration"). Variables take the `ORPHEUM_` prefix (D195).
   **Enforced by:** `[ambient]`; revive `deep-exit`. Test variables are read only by
   `internal/testutil` ([testing.md](testing.md) §3).
+- **Nothing configures the shipped binary but its config file, its flags and its database**
+  ([D204](../decisions/working-notes.md)). A release build hands its subcommands an empty
+  environment; only a dev build reads `ORPHEUM_DEV_*`. The standard library's own environment
+  reads are closed: outbound HTTP goes through `internal/platform/outbound` (no proxy from
+  `HTTP_PROXY`), `time.Local` is UTC, SQLite keeps temporary data in memory, and `os.TempDir`
+  and `filepath.Abs` are not used outside `cmd/orpheum`. **Enforced by:**
+  `TestEnvironment_IsEmptyInARelease`, `TestUseUTC_TimesAreUTCWhateverTZSays`,
+  `TestNewClient_TakesNoProxyFromTheEnvironment`, `TestVerifyPragmas_RefusesAConnectionWithoutThem`;
+  forbidigo `[outbound]` and `[ambient]` *(planned: the owner's patch)*.
 - **Configuration has one way in, and nothing defaults in code.** An opinionated value is a
   setting in the registry, seeded as a row with its starting value, or a config-file key with one
   (D200–D202, [plans/settings.md](../design/plans/settings.md)); a file or flag holds only what

@@ -6,11 +6,22 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
 // noEnvironment is an empty environment.
 func noEnvironment(string) (string, bool) {
 	return "", false
+}
+
+// Not parallel: it sets time.Local, and Go runs every parallel test after the sequential ones.
+func TestUseUTC_TimesAreUTCWhateverTZSays(t *testing.T) { //nolint:paralleltest // see above
+	useUTC()
+	if location := (clock.System{}).Now().Location(); location != time.UTC {
+		t.Errorf("the system clock is in %v, want UTC (D204)", location)
+	}
 }
 
 func TestRun_PlannedSubcommandsAreNotImplementedYet(t *testing.T) {
