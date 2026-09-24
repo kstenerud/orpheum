@@ -1,3 +1,20 @@
 # Go modules this project may depend on (direct or indirect). Adding one is an owner action:
 # propose it, with a reason and the decision or standard that chose it. `make check` fails if
 # go.mod names a module that is not listed here. Format: <module path>  # <reason> (<D-ID or standard>)
+
+# Direct
+modernc.org/sqlite  # pure-Go SQLite driver, no cgo; ncruces stays the benchmark alternative (D193, sql.md §7)
+golang.org/x/crypto  # argon2id passwords and XChaCha20-Poly1305 sealed secrets (D194)
+github.com/danielgtaylor/huma/v2  # the API and its generated OpenAPI on net/http (D193 §6)
+github.com/BurntSushi/toml  # parses the config file and dev/seed.toml; no dependencies of its own (D197)
+
+# Indirect: modernc.org/sqlite's closure
+modernc.org/libc  # indirect, modernc.org/sqlite
+modernc.org/mathutil  # indirect, modernc.org/sqlite
+modernc.org/memory  # indirect, modernc.org/sqlite
+github.com/dustin/go-humanize  # indirect, modernc.org/sqlite
+github.com/google/uuid  # indirect, modernc.org/sqlite
+github.com/mattn/go-isatty  # indirect, modernc.org/sqlite
+github.com/ncruces/go-strftime  # indirect, modernc.org/sqlite
+github.com/remyoudompheng/bigfft  # indirect, modernc.org/sqlite
+golang.org/x/sys  # indirect, modernc.org/sqlite and golang.org/x/crypto
