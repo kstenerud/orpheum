@@ -1,5 +1,7 @@
 # build and tool output
 /bin/
+# `go build ./cmd/orpheum` in the root writes the binary here
+/orpheum
 /.tools/
 /.dev/
 /dist/
