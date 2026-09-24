@@ -38,7 +38,13 @@
 //     TestMigrate_KeepsTheSnapshotAfterSuccess.
 //   - A committed step is never edited, renamed or deleted. Enforced by the pre-edit hook and
 //     TestSteps_MatchTheCommittedChecksums.
-//   - Only library.db is built in M1; cache.db arrives with the job queue in M2 (D198).
+//   - cache.db is built from one schema file, cache/schema.sql, and versioned by discard: a file
+//     from another version is reported as outdated for the caller to delete, never migrated.
+//     Enforced by TestOpenCache_ReportsAnotherVersionAsOutdated.
+//   - cache.db carries its own application_id, so library.db is never taken for a cache and
+//     discarded. Enforced by TestOpenCache_RefusesLibraryDB.
+//   - Cache queries are generated into cachegen, apart from sqlcgen, so a library query cannot
+//     name a cache table (M2-1). Enforced by sqlc.yaml's two entries.
 //   - Every data-transforming step has a test on its rows: step 0002 in
 //     TestMigrate_Step0002MarksTheSettingsAPersonSetAsModified.
 //   - Open and the runner take their choices (the reader pool minimum, the free-space factor) from
@@ -61,6 +67,8 @@
 //     migrations/SHA256SUMS (sha256sum's format) and its golden, generated with
 //     go test ./internal/store -run Golden -update and committed on its own.
 //   - queries/: one .sql file per concern; run make generate.
+//   - cache/schema.sql and cache/queries/: cache.db. Raise the version line on any schema change.
+//   - cache.go: OpenCache, and cache.db's Read and Write.
 //   - open.go: Open, the pragmas and their read-back, Read, Write and One.
 //   - steps.go and migrate.go: the embedded steps and the runner (D181).
 //   - backup.go: VACUUM INTO, and reading a backup without changing it.

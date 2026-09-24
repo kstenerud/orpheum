@@ -175,3 +175,26 @@ func TestListBackups_ListsNewestFirst(t *testing.T) {
 		t.Errorf("ListBackups = %+v, want the newer first", files)
 	}
 }
+
+func TestDiscardCacheDatabase_RemovesTheFileAndItsJournalsOnly(t *testing.T) {
+	t.Parallel()
+	directories := prepareTemporary(t)
+	names := []string{"cache.db", "cache.db-wal", "cache.db-shm", "art"}
+	for _, name := range names {
+		if err := os.WriteFile(filepath.Join(directories.cache, name), []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := directories.DiscardCacheDatabase(); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range names {
+		_, err := os.Stat(filepath.Join(directories.cache, name))
+		if kept := err == nil; kept != (name == "art") {
+			t.Errorf("%s kept = %v", name, kept)
+		}
+	}
+	if err := directories.DiscardCacheDatabase(); err != nil {
+		t.Errorf("discarding again, with nothing there: %v", err)
+	}
+}

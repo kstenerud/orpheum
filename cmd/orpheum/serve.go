@@ -75,11 +75,12 @@ func serve(
 type started struct {
 	lock     *datadir.Lock
 	database *store.Database
+	cache    *store.Cache
 	settings *settings.Service
 }
 
 func (opened started) release() error {
-	return errors.Join(opened.database.Close(), opened.lock.Release())
+	return errors.Join(opened.cache.Close(), opened.database.Close(), opened.lock.Release())
 }
 
 // start opens the state directory and the database, migrates, and hands the API its
@@ -105,15 +106,19 @@ func start(
 		return opened, err
 	}
 	opened.database = database
+	opened.cache, err = openCache(ctx, config, directories, logger)
+	if err != nil {
+		return opened, errors.Join(err, database.Close())
+	}
 	dependencies, err := buildDependencies(ctx, directories, database, logger)
 	if err == nil {
 		dependencies.ConfigFile, err = configFileKeys(config, configReport)
 	}
-	if err != nil {
-		return opened, errors.Join(err, database.Close())
+	if err == nil {
+		err = mountDebug(ctx, server.Mux(), config, dependencies.Settings, logger)
 	}
-	if err = mountDebug(ctx, server.Mux(), config, dependencies.Settings, logger); err != nil {
-		return opened, errors.Join(err, database.Close())
+	if err != nil {
+		return opened, errors.Join(err, opened.cache.Close(), database.Close())
 	}
 	server.Ready(dependencies)
 	opened.settings = dependencies.Settings
@@ -134,6 +139,22 @@ func openAndMigrate(
 		return nil, errors.Join(err, database.Close())
 	}
 	return database, nil
+}
+
+// openCache opens cache.db, and discards and rebuilds one from another schema version: it is
+// versioned by discard, and losing it loses nothing (schema.md, cache.db).
+func openCache(
+	ctx context.Context, config Config, directories *datadir.Directories, logger *slog.Logger,
+) (*store.Cache, error) {
+	cache, err := store.OpenCache(ctx, directories.CacheDatabase(), config.openOptions())
+	if !errors.Is(err, store.ErrCacheOutdated) {
+		return cache, err
+	}
+	logger.InfoContext(ctx, "discarding cache.db: it was built by another version", "why", err.Error())
+	if err := directories.DiscardCacheDatabase(); err != nil {
+		return nil, err
+	}
+	return store.OpenCache(ctx, directories.CacheDatabase(), config.openOptions())
 }
 
 // reportMigration returns the runner's BeforeStep: /health says "migrating: step 3 of 7" before

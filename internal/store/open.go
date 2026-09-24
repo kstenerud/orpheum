@@ -65,6 +65,11 @@ type OpenOptions struct {
 // return it unless every pragma reads back as set and the file is ours or empty. An empty file
 // becomes ours when Migrate runs its first step.
 func Open(ctx context.Context, path string, options OpenOptions) (*Database, error) {
+	return open(ctx, path, options, ApplicationID)
+}
+
+// open opens a database file that must carry applicationID or be empty.
+func open(ctx context.Context, path string, options OpenOptions, applicationID int64) (*Database, error) {
 	if options.MinimumReaders < 1 {
 		return nil, fmt.Errorf("open database %q: the reader pool minimum is %d; it must be at least 1",
 			path, options.MinimumReaders)
@@ -85,7 +90,7 @@ func Open(ctx context.Context, path string, options OpenOptions) (*Database, err
 	}
 	readers.SetMaxOpenConns(max(options.MinimumReaders, runtime.NumCPU()))
 	database := &Database{path: path, writer: writer, readers: readers}
-	if err := database.verify(ctx); err != nil {
+	if err := database.verify(ctx, applicationID); err != nil {
 		return nil, errors.Join(err, database.Close())
 	}
 	return database, nil
@@ -110,11 +115,16 @@ func (database *Database) Read() *sqlcgen.Queries {
 // Write runs change in one write transaction, which begins IMMEDIATE on the single writer and
 // commits only if change returns nil.
 func (database *Database) Write(ctx context.Context, change func(queries *sqlcgen.Queries) error) error {
+	return database.transact(ctx, func(transaction *sql.Tx) error { return change(sqlcgen.New(transaction)) })
+}
+
+// transact runs change in one IMMEDIATE transaction on the single writer.
+func (database *Database) transact(ctx context.Context, change func(transaction *sql.Tx) error) error {
 	transaction, err := database.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin write transaction: %w", err)
 	}
-	if err := change(sqlcgen.New(transaction)); err != nil {
+	if err := change(transaction); err != nil {
 		return errors.Join(err, transaction.Rollback())
 	}
 	if err := transaction.Commit(); err != nil {
@@ -133,7 +143,7 @@ func One[Row any](row Row, err error) (Row, error) {
 }
 
 // verify reads back every pragma on both pools and checks the application_id.
-func (database *Database) verify(ctx context.Context) error {
+func (database *Database) verify(ctx context.Context, want int64) error {
 	for _, pool := range []*sql.DB{database.writer, database.readers} {
 		if err := verifyPragmas(ctx, pool); err != nil {
 			return fmt.Errorf("database %q: %w", database.path, err)
@@ -143,7 +153,7 @@ func (database *Database) verify(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if applicationID != ApplicationID && !isEmpty {
+	if applicationID != want && !isEmpty {
 		return fmt.Errorf("database %q: %w (found %d)", database.path, ErrNotOurs, applicationID)
 	}
 	return nil
