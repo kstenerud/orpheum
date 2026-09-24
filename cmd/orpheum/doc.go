@@ -43,8 +43,8 @@
 //     names (internal/store for migrate, internal/core/backup for backup and restore); main
 //     only parses flags and wires dependencies.
 //   - config.go: the config file (cut-a §2a), every key required, each with a starting value or
-//     none (D200, D201). configseed.go: filling its missing keys for seed-settings. serve.go:
+//     none (D200, D201). configfill.go: running a missing key on its starting value (D202). serve.go:
 //     orpheum run, which seeds the settings at start. operations.go: migrate, backup, restore,
-//     setup-code, seed-settings and openapi. doctor.go: doctor. dev_seed.go: orpheum dev seed,
+//     setup-code and openapi. doctor.go: doctor, the one list of what to fix. dev_seed.go: orpheum dev seed,
 //     in dev builds only.
 package main

@@ -120,57 +120,43 @@ func TestOpenAPI_PrintsTheDocument(t *testing.T) {
 	}
 }
 
-func TestSeedSettings_RefillsARemovedSettingAndDoctorSaysWhatIsMissing(t *testing.T) {
+func TestDoctor_ListsWhatShouldBeFixedAndChangesNothingAPersonChose(t *testing.T) {
 	t.Parallel()
 	config, path := startedOnce(t)
-	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
-		"DELETE FROM setting WHERE key = 'backup_age_warning_h'")
-	doctor := runCommand(t, "doctor", "--config", path)
-	if !strings.Contains(doctor.stdout, "backup_age_warning_h has no value; its starting value is 168") ||
-		!strings.Contains(doctor.stdout, "orpheum seed-settings") {
-		t.Errorf("doctor with a setting removed does not name it, its starting value and the fix:\n%s", doctor.stdout)
-	}
-	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
+	database := filepath.Join(config.Server.DataDir, "library.db")
+	storetest.ExecRaw(t, database,
 		"INSERT INTO setting (scope, key, value, set_at) VALUES ('server', 'backup_age_warn_h', '24', 1)")
-	seeded := runCommand(t, "seed-settings", "--config", path)
+	text := strings.Replace(string(readFile(t, path)), "shutdown_grace_s = 10\n", "shutdwn_grace_s = 5\n", 1)
+	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	doctor := runCommand(t, "doctor", "--config", path)
 	for _, want := range []string{
-		"config: every key is there; nothing was written",
-		"settings: wrote backup_age_warning_h = 168, its starting value",
-		"settings: backup_age_warn_h is in the database, but nothing reads it",
+		"config: server.shutdown_grace_s is not in the file; the server runs on its starting value, 10",
+		"config: server.shutdwn_grace_s is in the file, but nothing reads it",
+		"setting backup_age_warn_h is unused; no release has used this key: probably a typo",
+		"DELETE /api/v1/config/unused/backup_age_warn_h",
 	} {
-		if seeded.status != exitSuccess || !strings.Contains(seeded.stdout, want) {
-			t.Errorf("seed-settings = %+v, want it to say %q", seeded, want)
+		if !strings.Contains(doctor.stdout, want) {
+			t.Errorf("doctor does not say %q:\n%s", want, doctor.stdout)
 		}
 	}
-	again := runCommand(t, "seed-settings", "--config", path)
-	if again.status != exitSuccess || !strings.Contains(again.stdout, "settings: every setting already has a value") ||
-		!strings.Contains(again.stdout, "backup_age_warn_h is in the database") {
-		t.Errorf("seed-settings again = %+v, want nothing written and the unknown row still reported", again)
-	}
-	doctorAfter := runCommand(t, "doctor", "--config", path)
-	if !strings.Contains(doctorAfter.stdout, "setting backup_age_warn_h is in the database, but nothing reads it") {
-		t.Errorf("doctor does not report the unknown setting row:\n%s", doctorAfter.stdout)
+	if got := string(readFile(t, path)); got != text {
+		t.Errorf("doctor changed the config file:\n%s", got)
 	}
 }
 
-func TestSeedSettings_FillsTheConfigFileWhenTheServerCannotStart(t *testing.T) {
+func TestLoadConfig_RefusesOnlyWhatHasNoStartingValue(t *testing.T) {
 	t.Parallel()
-	config, path := startedOnce(t)
-	text := strings.Replace(string(readFile(t, path)), "shutdown_grace_s = 10\n", "", 1)
+	config, path := testConfig(t)
+	text := strings.Replace(string(readFile(t, path)), "data_dir = ", "# data_dir = ", 1)
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	refused := runCommand(t, "doctor", "--config", path)
 	if refused.status == exitSuccess || !strings.Contains(refused.stderr,
-		"server.shutdown_grace_s is required; its starting value is 10") {
-		t.Errorf("with a key removed, doctor = %+v; want a refusal naming the key and its starting value", refused)
-	}
-	seeded := runCommand(t, "seed-settings", "--config", path)
-	if seeded.status != exitSuccess || !strings.Contains(seeded.stdout, "config: wrote server.shutdown_grace_s = 10") {
-		t.Errorf("seed-settings = %+v, want the missing key written", seeded)
-	}
-	if _, _, err := loadConfig(path); err != nil {
-		t.Errorf("after seeding, the config does not load: %v", err)
+		"server.data_dir is required and has no starting value") {
+		t.Errorf("with data_dir removed, doctor = %+v; want a refusal: it has no starting value", refused)
 	}
 	if config.Server.DataDir == "" {
 		t.Fatal("the test config has no data directory")

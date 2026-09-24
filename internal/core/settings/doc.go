@@ -24,10 +24,11 @@
 //     mark; an unmodified row follows a changed starting value (D201). Enforced by
 //     TestSet_MarksModifiedEvenAtTheStartingValueAndResetClearsIt and
 //     TestSeed_MovesOnlyUnmodifiedSettingsToAChangedStartingValue.
-//   - Rows nothing reads are reported and left alone. Enforced by
-//     TestSeed_ReportsRowsNothingReadsAndLeavesThemAlone.
-//   - A missing row is an error naming the key, its starting value and the fix; there is no
-//     fallback. Enforced by TestSeed_RefillsARemovedSettingAndTheErrorSaysHowToFixIt.
+//   - Rows nothing reads are listed, and only they can be deleted, only by a person; a retired key
+//     says when and why (D202). Enforced by TestUnused_ListsRowsNothingReadsAndDeletesOnlyThem and
+//     TestRetiredKeys_AreNotInUseAndSayWhen.
+//   - A missing row is healed: its starting value is written to the database and the heal logged,
+//     never held only in memory (D202). Enforced by TestRead_HealsARemovedSettingAndSaysSo.
 //   - A change is checked against the registry's kind and bounds, and against what the settings
 //     page shows, and applied all or none. Enforced by TestSet_RefusesAndChangesNothing.
 //   - Reset writes the starting value back. Enforced by
@@ -38,6 +39,7 @@
 //
 //   - D200: every opinion is a setting row seeded with its starting value; nothing defaults in code.
 //   - D201: modified is a person's mark; unmodified rows follow a changed starting value.
+//   - D202: missing rows heal; unused rows are listed and deleted by a person, never automatically.
 //   - D183: an opinion must be visible where it acts (amended by D200).
 //   - D184: the defaults audit; update_check is asked, not assumed.
 //   - D194 §3: why secrets have their own table.
@@ -47,6 +49,7 @@
 //
 //   - registry.go: every key, its type, bounds, starting value and whether the settings page shows
 //     it. A new opinion is a key here; it is seeded on the next start.
-//   - settings.go: Seed, List, Int and Bool, Set and Reset. The endpoints (/settings and /config)
+//   - settings.go: List, Int and Bool (which heal a missing row), Set and Reset. seed.go: the sweep
+//     at every start. unused.go: unused rows, retired keys and deleting. The endpoints (/settings and /config)
 //     are in internal/core/api. settingstest seeds for other packages' tests.
 package settings

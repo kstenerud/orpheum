@@ -71,12 +71,13 @@ func commandDev(ctx context.Context, call invocation) int {
 	}
 	call.arguments = call.arguments[1:]
 	var seedPath string
-	config, err := call.configFlags("dev seed", func(flags *flag.FlagSet) {
+	config, configReport, err := call.configFlags("dev seed", func(flags *flag.FlagSet) {
 		flags.StringVar(&seedPath, "seed", "", "the seed file, dev/seed.toml rendered (required)")
 	})
 	if err != nil {
 		return call.fail(err)
 	}
+	call.noteConfig(configReport)
 	var seed seedFile
 	metadata, err := toml.DecodeFile(seedPath, &seed)
 	if err != nil {
@@ -117,8 +118,8 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 		return err
 	}
 	// Every setting gets its starting value first: hashing a password reads argon2id's costs.
-	settingsService := settings.NewService(database, clock.System{})
-	if _, err = settingsService.Seed(ctx); err != nil { // the report is the server's to log at start
+	settingsService := settings.NewService(database, clock.System{}, logger)
+	if _, err = settingsService.Seed(ctx); err != nil { // the server logs what the seed found at start
 		return err
 	}
 	key, err := loadOrCreateKey(directories, logger)

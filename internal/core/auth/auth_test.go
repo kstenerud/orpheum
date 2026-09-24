@@ -199,14 +199,16 @@ func TestAuthenticate_EndsASessionUnusedForTheIdleExpiry(t *testing.T) {
 	}
 }
 
-func TestSignIn_FailsWhenASettingIsMissingRatherThanFallingBack(t *testing.T) {
+func TestSignIn_HealsAMissingSettingWithItsStartingValue(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	fixture.createUser(t, "owner", "right", RoleAdmin)
-	storetest.ExecRaw(t, fixture.database.Path(), "DELETE FROM setting WHERE key = 'argon2_iterations'")
-	_, err := fixture.service.SignIn(t.Context(), "owner", "right", "192.0.2.1")
-	if !errors.Is(err, settings.ErrNotSeeded) {
-		t.Errorf("signing in with argon2_iterations missing: %v, want ErrNotSeeded, not a value from code", err)
+	storetest.ExecRaw(t, fixture.database.Path(), "DELETE FROM setting WHERE key = 'signin_failure_limit'")
+	if _, err := fixture.service.SignIn(t.Context(), "owner", "right", "192.0.2.1"); err != nil {
+		t.Fatalf("signing in with signin_failure_limit removed: %v, want the row healed and the sign-in to work", err)
+	}
+	if limit, err := fixture.settings.Int(t.Context(), settings.SignInFailureLimit); err != nil || limit != 5 {
+		t.Errorf("the removed setting = %d, %v; want its starting value back in the database", limit, err)
 	}
 }
 

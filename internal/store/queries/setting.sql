@@ -40,9 +40,14 @@ VALUES ('server', NULL, sqlc.arg(key), sqlc.arg(value), NULL, sqlc.arg(set_at))
 ON CONFLICT (scope, ifnull(user_id, 0), key) DO NOTHING;
 
 -- name: ListSettingKeys :many
-SELECT scope, user_id, key
+SELECT scope, user_id, key, value
 FROM setting
 ORDER BY scope, user_id, key;
+
+-- name: DeleteSetting :exec
+-- Only for a row no setting reads: a known setting is reset, never deleted (D202).
+DELETE FROM setting
+WHERE scope = sqlc.arg(scope) AND user_id IS sqlc.arg(user_id) AND key = sqlc.arg(key);
 
 -- name: UpdateUnmodifiedServerSetting :execrows
 -- Moves a setting nobody changed to a release's new starting value; a changed one is left alone.

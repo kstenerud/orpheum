@@ -50,10 +50,6 @@ func plannedSubcommands() []subcommand {
 		{name: "restore", summary: "restore a backup, with the server stopped", run: commandRestore},
 		{name: "doctor", summary: "report what is wrong and how to fix it", run: commandDoctor},
 		{name: "setup-code", summary: "print the one-time code that creates the first admin", run: commandSetupCode},
-		{
-			name: "seed-settings", summary: "write the starting value of any setting that has none",
-			run: commandSeedSettings,
-		},
 		{name: "openapi", summary: "print the API's OpenAPI document", run: commandOpenAPI},
 	}
 	if isDevBuild {
@@ -104,7 +100,7 @@ func run(
 
 // commandRun starts the server with the config file.
 func commandRun(ctx context.Context, call invocation) int {
-	config, err := call.configFlags("run", nil)
+	config, configReport, err := call.configFlags("run", nil)
 	if err != nil {
 		return call.fail(err)
 	}
@@ -112,11 +108,14 @@ func commandRun(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(err)
 	}
+	for _, note := range configReport.Notes() {
+		logger.WarnContext(ctx, "the config file needs attention; doctor lists it too", "note", note)
+	}
 	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", config.Server.Listen)
 	if err != nil {
 		return call.fail(fmt.Errorf("listen on %s: %w", config.Server.Listen, err))
 	}
-	if err = serve(ctx, config, listener, logger); err != nil {
+	if err = serve(ctx, config, configReport, listener, logger); err != nil {
 		return exitFailure
 	}
 	return exitSuccess

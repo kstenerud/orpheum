@@ -76,6 +76,10 @@ func newHarness(t *testing.T) testHarness {
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
 		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
+		ConfigFile: []ConfigFileKey{{
+			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), Start: json.RawMessage("10"),
+			IsFromFile: false, Describe: "seconds in-flight requests get to finish",
+		}},
 	})
 	served := httptest.NewServer(server.Handler())
 	t.Cleanup(served.Close)
@@ -307,7 +311,7 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 	}
 }
 
-func TestConfig_ShowsEverySettingAndSeedsAndResets(t *testing.T) {
+func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
@@ -318,8 +322,9 @@ func TestConfig_ShowsEverySettingAndSeedsAndResets(t *testing.T) {
 	user := harness.signIn(t, "partner", "partner-password")
 	for _, request := range [][2]string{
 		{http.MethodGet, "/config"},
-		{http.MethodPost, "/config/seed"},
+		{http.MethodGet, "/config/unused"},
 		{http.MethodPost, "/config/signin_failure_limit/reset"},
+		{http.MethodDelete, "/config/unused/x"},
 	} {
 		wantError(t, harness.do(t, request[0], request[1], user, nil), http.StatusForbidden, CodeForbidden)
 	}
@@ -327,8 +332,8 @@ func TestConfig_ShowsEverySettingAndSeedsAndResets(t *testing.T) {
 	listed := harness.do(t, http.MethodGet, "/config", admin, nil)
 	const limit = `"key":"signin_failure_limit","kind":"integer","value":5,"start":5,"isModified":false,` +
 		`"minimum":1,"maximum":1000`
-	if listed.status != http.StatusOK || !strings.Contains(listed.body, limit) ||
-		!strings.Contains(listed.body, `"key":"update_check"`) {
+	const file = `"file":[{"key":"server.shutdown_grace_s","value":10,"start":10,"isFromFile":false`
+	if listed.status != http.StatusOK || !strings.Contains(listed.body, limit) || !strings.Contains(listed.body, file) {
 		t.Errorf("GET /config = %d %s", listed.status, listed.body)
 	}
 	changed := harness.do(t, http.MethodPut, "/config", admin,
@@ -340,30 +345,42 @@ func TestConfig_ShowsEverySettingAndSeedsAndResets(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPut, "/config", admin,
 		map[string]any{"values": map[string]any{"signin_failure_limit": 0}}),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
-
 	reset := harness.do(t, http.MethodPost, "/config/signin_failure_limit/reset", admin, nil)
-	if reset.status != http.StatusOK || !strings.Contains(reset.body, `"value":5`) {
+	if reset.status != http.StatusOK || !strings.Contains(reset.body, `"value":5,"start":5,"isModified":false`) {
 		t.Errorf("POST /config/signin_failure_limit/reset = %d %s", reset.status, reset.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/config/no_such_setting/reset", admin, nil),
 		http.StatusNotFound, CodeNotFound)
 
 	storetest.ExecRaw(t, harness.database, "DELETE FROM setting WHERE key = 'secret_hint_length'")
-	broken := harness.do(t, http.MethodGet, "/config", admin, nil)
-	wantError(t, broken, http.StatusInternalServerError, CodeInternal)
-	const guidance = "secret_hint_length has no value; its starting value is 4"
-	if !strings.Contains(broken.body, guidance) || !strings.Contains(broken.body, "config/seed") {
-		t.Errorf("the error does not say which setting is missing, what it starts as, and how to fix it: %s",
-			broken.body)
+	healed := harness.do(t, http.MethodGet, "/config", admin, nil)
+	const hint = `"key":"secret_hint_length","kind":"integer","value":4`
+	if healed.status != http.StatusOK || !strings.Contains(healed.body, hint) {
+		t.Errorf("GET /config with a removed row = %d %s, want it healed with its starting value", healed.status,
+			healed.body)
 	}
-	seeded := harness.do(t, http.MethodPost, "/config/seed", admin, nil)
-	if seeded.status != http.StatusOK ||
-		!strings.Contains(seeded.body, `"written":["secret_hint_length"],"updated":[],"unknown":[]`) {
-		t.Errorf("POST /config/seed = %d %s, want just the removed setting written", seeded.status, seeded.body)
+}
+
+func TestConfig_ListsAndDeletesOnlyUnusedRows(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	storetest.ExecRaw(t, harness.database,
+		"INSERT INTO setting (scope, key, value, set_at) VALUES ('server', 'signin_falure_limit', '3', 1)")
+	unused := harness.do(t, http.MethodGet, "/config/unused", admin, nil)
+	if unused.status != http.StatusOK ||
+		!strings.Contains(unused.body, `"unused":[{"key":"signin_falure_limit","scope":"server","value":3}]`) {
+		t.Errorf("GET /config/unused = %d %s", unused.status, unused.body)
 	}
-	again := harness.do(t, http.MethodPost, "/config/seed", admin, nil)
-	if !strings.Contains(again.body, `"written":[]`) {
-		t.Errorf("seeding again = %s, want nothing written", again.body)
+	wantError(t, harness.do(t, http.MethodDelete, "/config/unused/signin_failure_limit", admin, nil),
+		http.StatusConflict, CodeConflict)
+	if deleted := harness.do(t, http.MethodDelete, "/config/unused/signin_falure_limit", admin, nil); deleted.status !=
+		http.StatusNoContent {
+		t.Errorf("DELETE /config/unused/signin_falure_limit = %d %s", deleted.status, deleted.body)
+	}
+	after := harness.do(t, http.MethodGet, "/config/unused", admin, nil)
+	if !strings.Contains(after.body, `"unused":[]`) {
+		t.Errorf("after the delete, GET /config/unused = %s", after.body)
 	}
 }
 

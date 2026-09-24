@@ -9,6 +9,23 @@ import (
 	"context"
 )
 
+const deleteSetting = `-- name: DeleteSetting :exec
+DELETE FROM setting
+WHERE scope = ?1 AND user_id IS ?2 AND key = ?3
+`
+
+type DeleteSettingParams struct {
+	Scope  string
+	UserID *int64
+	Key    string
+}
+
+// Only for a row no setting reads: a known setting is reset, never deleted (D202).
+func (q *Queries) DeleteSetting(ctx context.Context, arg DeleteSettingParams) error {
+	_, err := q.db.ExecContext(ctx, deleteSetting, arg.Scope, arg.UserID, arg.Key)
+	return err
+}
+
 const getServerSetting = `-- name: GetServerSetting :one
 SELECT key, value, set_by, set_at, is_modified
 FROM setting
@@ -102,7 +119,7 @@ func (q *Queries) ListServerSettings(ctx context.Context) ([]ListServerSettingsR
 }
 
 const listSettingKeys = `-- name: ListSettingKeys :many
-SELECT scope, user_id, key
+SELECT scope, user_id, key, value
 FROM setting
 ORDER BY scope, user_id, key
 `
@@ -111,6 +128,7 @@ type ListSettingKeysRow struct {
 	Scope  string
 	UserID *int64
 	Key    string
+	Value  string
 }
 
 func (q *Queries) ListSettingKeys(ctx context.Context) ([]ListSettingKeysRow, error) {
@@ -122,7 +140,12 @@ func (q *Queries) ListSettingKeys(ctx context.Context) ([]ListSettingKeysRow, er
 	items := []ListSettingKeysRow{}
 	for rows.Next() {
 		var i ListSettingKeysRow
-		if err := rows.Scan(&i.Scope, &i.UserID, &i.Key); err != nil {
+		if err := rows.Scan(
+			&i.Scope,
+			&i.UserID,
+			&i.Key,
+			&i.Value,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

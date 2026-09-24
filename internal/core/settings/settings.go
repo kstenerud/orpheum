@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -24,34 +25,9 @@ var (
 	// ErrNotExposed is returned when the settings page is asked to change a setting it does not
 	// show; /config changes every setting.
 	ErrNotExposed = errors.New("the setting is not on the settings page; change it through /config")
-	// ErrNotSeeded is matched by every NotSeededError: a setting with no row. There is no
-	// fallback in code (D200).
-	ErrNotSeeded = errors.New("the setting has no value")
 	// ErrUnanswered is returned when a question nobody has answered is read as a value.
 	ErrUnanswered = errors.New("the setting is a question nobody has answered yet")
 )
-
-// NotSeededError is a setting with no row: never seeded, or its row was removed. It says what the
-// starting value is, so a person can set just that one, and how to write every missing one.
-type NotSeededError struct {
-	Key   Key
-	Start json.RawMessage
-}
-
-func (missing *NotSeededError) Error() string {
-	return fmt.Sprintf("setting %s has no value; its starting value is %s. Set just this one with PUT "+
-		"/api/v1/config, or write every missing setting with `orpheum seed-settings` or POST /api/v1/config/seed; "+
-		"the server also writes them at start", missing.Key, missing.Start)
-}
-
-// Is makes errors.Is(err, ErrNotSeeded) match.
-func (missing *NotSeededError) Is(target error) bool {
-	return target == ErrNotSeeded
-}
-
-func notSeeded(definition Definition) error {
-	return &NotSeededError{Key: definition.Key, Start: definition.Start}
-}
 
 // Entry is a setting as a settings page or /config shows it: the value in force, and whether a
 // person set it. A setting set to the value it starts with is still modified: it no longer
@@ -68,11 +44,29 @@ type Entry struct {
 type Service struct {
 	database *store.Database
 	clock    clock.Clock
+	logger   *slog.Logger
 }
 
 // NewService returns a settings Service.
-func NewService(database *store.Database, now clock.Clock) *Service {
-	return &Service{database: database, clock: now}
+func NewService(database *store.Database, now clock.Clock, logger *slog.Logger) *Service {
+	return &Service{database: database, clock: now, logger: logger.With("component", "settings")}
+}
+
+// heal writes the starting value of a setting whose row is missing — removed while the server
+// runs, since every start writes all of them — and says so (D202). A missing row is never an
+// error and never a value that exists only in memory.
+func (service *Service) heal(ctx context.Context, definition Definition) error {
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		return queries.InsertServerSettingIfMissing(ctx, sqlcgen.InsertServerSettingIfMissingParams{
+			Key: string(definition.Key), Value: compact(definition.Start), SetAt: service.clock.Now().UnixMilli(),
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("write the starting value of %s: %w", definition.Key, err)
+	}
+	service.logger.WarnContext(ctx, "a setting had no row, so its starting value was written",
+		"key", definition.Key, "value", string(definition.Start))
+	return nil
 }
 
 // List returns every setting of a scope with its value in force: owner is the user for the user
@@ -89,7 +83,10 @@ func (service *Service) List(ctx context.Context, owner *int64, exposedOnly bool
 		}
 		row, isSeeded := stored[string(definition.Key)]
 		if !isSeeded {
-			return nil, notSeeded(definition)
+			if healErr := service.heal(ctx, definition); healErr != nil {
+				return nil, healErr
+			}
+			row = storedSetting{Value: compact(definition.Start), SetAt: service.clock.Now().UnixMilli()}
 		}
 		entries = append(entries, Entry{
 			Definition: definition, Value: json.RawMessage(row.Value),
@@ -157,9 +154,11 @@ func (service *Service) read(ctx context.Context, key Key, kind Kind, target any
 	}
 	row, err := store.One(service.database.Read().GetServerSetting(ctx, string(key)))
 	if errors.Is(err, store.ErrNotFound) {
-		return notSeeded(definition)
-	}
-	if err != nil {
+		if healErr := service.heal(ctx, definition); healErr != nil {
+			return healErr
+		}
+		row.Value = compact(definition.Start)
+	} else if err != nil {
 		return fmt.Errorf("read %s: %w", key, err)
 	}
 	if row.Value == "null" {

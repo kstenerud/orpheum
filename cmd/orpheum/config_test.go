@@ -25,7 +25,7 @@ func TestLoadConfig_ReadsTheDevFileAndReportsUnknownKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	rendered := strings.NewReplacer("{root}", "/srv/orpheum", "{ffmpeg_dir}", "/opt/ffmpeg").Replace(string(template))
-	config, unknown, err := loadConfig(writeConfig(t, rendered+"\n[server.extra]\nsurprise = 1\n"))
+	config, report, err := loadConfig(writeConfig(t, rendered+"\n[server.extra]\nsurprise = 1\n"))
 	if err != nil {
 		t.Fatalf("the dev config does not load: %v", err)
 	}
@@ -33,27 +33,39 @@ func TestLoadConfig_ReadsTheDevFileAndReportsUnknownKeys(t *testing.T) {
 		config.Log.Format != "text" {
 		t.Errorf("the dev config read as %+v", config)
 	}
-	if len(unknown) != 1 || unknown[0] != "server.extra.surprise" {
-		t.Errorf("unknown keys = %v, want the one reported, not fatal", unknown)
+	if len(report.Unknown) != 1 || report.Unknown[0] != "server.extra.surprise" || len(report.FromStart) != 0 {
+		t.Errorf("report = %+v, want the one unknown key reported, not fatal", report)
 	}
 }
 
-func TestLoadConfig_RequiresEveryKeyAndSaysWhatItStartsAs(t *testing.T) {
+func TestLoadConfig_RunsAMissingKeyOnItsStartingValueOrRefusesOneWithNone(t *testing.T) {
 	t.Parallel()
-	if _, _, err := loadConfig(writeConfig(t, valid)); err != nil {
-		t.Fatalf("a complete config: %v", err)
+	complete, report, err := loadConfig(writeConfig(t, valid))
+	if err != nil || len(report.FromStart) != 0 {
+		t.Fatalf("a complete config: %+v, %v", report, err)
 	}
 	for _, key := range configKeys() {
-		_, _, err := loadConfig(writeConfig(t, withoutKey(valid, key)))
-		want := key.path() + " is required"
-		if key.start != "" {
-			want += "; its starting value is " + key.start
-		} else {
-			want += " and has no starting value"
+		path := writeConfig(t, withoutKey(valid, key))
+		loaded, report, err := loadConfig(path)
+		if key.start == "" {
+			want := key.path() + " is required and has no starting value"
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Errorf("without %s: error = %v, want %q", key.path(), err, want)
+			}
+			continue
 		}
-		if err == nil || !strings.Contains(err.Error(), want) {
-			t.Errorf("without %s: error = %v, want %q", key.path(), err, want)
+		if err != nil || len(report.FromStart) != 1 || report.FromStart[0].path() != key.path() {
+			t.Errorf("without %s: %+v, %v; want it loaded on its starting value and reported", key.path(), report, err)
 		}
+		if got := string(readFile(t, path)); strings.Contains(got, fromStartMarker) {
+			t.Errorf("loading without %s rewrote the file", key.path())
+		}
+		if key.path() == "log.level" && loaded.Log.Level != "info" {
+			t.Errorf("without log.level, the level is %q, want its starting value", loaded.Log.Level)
+		}
+	}
+	if complete.Database.ReadersMinimum != 4 {
+		t.Errorf("the complete config read readers_minimum as %d", complete.Database.ReadersMinimum)
 	}
 }
 

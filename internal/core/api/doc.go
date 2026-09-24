@@ -30,7 +30,8 @@
 //   - Secrets are write-only. Enforced by TestSecrets_AreWriteOnly.
 //   - /config shows every setting beside its starting value, filters to the changed ones, seeds
 //     and resets; /settings shows only what the settings page exposes (D200). Enforced by
-//     TestConfig_ShowsEverySettingAndSeedsAndResets, TestConfig_FiltersToWhatDiffersFromTheStartingValue
+//     TestConfig_ShowsEverySettingAndTheFileAndResets, TestConfig_ListsAndDeletesOnlyUnusedRows,
+//     TestConfig_FiltersToWhatDiffersFromTheStartingValue
 //     and TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing.
 //
 // # Read before changing
