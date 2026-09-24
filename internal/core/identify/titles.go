@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -25,7 +26,8 @@ type titleSpec struct {
 	tagline   string
 	ids       map[string]string
 	locked    []string
-	source    string // "nfo", "none", or "" while a provider match is pending
+	source    string // "nfo", "none", a provider's name, or "" while a provider match is pending
+	sourceID  string // the title's id at its source, when its ids do not say (an episode's)
 	ident     string // identified or unidentified
 	reason    string // why a file is unidentified
 }
@@ -57,16 +59,16 @@ func episodeKey(seriesID int64, season, episode int) string {
 	return fmt.Sprintf("episode|%d|%d|%d", seriesID, season, episode)
 }
 
-// titleFor finds the title a spec names, or makes it. A provider id finds it first: in this
+// titleFor finds the title a spec names, or makes it. A provider id finds a film first: in this
 // library, or in another where it has no live files left, when the title follows its files here
-// (D208 §2). Otherwise its kind, name and year do.
+// (D208 §2). Otherwise its key does: an episode's series and place, a film's name and year.
 func (work *run) titleFor(ctx context.Context, spec titleSpec) (int64, error) {
-	for _, provider := range []string{"tmdb", "imdb", "tvdb"} {
+	for _, provider := range []string{sourceTMDB, sourceIMDb, sourceTVDB} {
 		id := spec.ids[provider]
-		if id == "" {
-			continue
+		if id == "" || spec.kind == kindEpisode {
+			continue // an episode is its series' (D209)
 		}
-		found, err := work.titleByProviderID(ctx, provider, id)
+		found, err := work.titleByProviderID(ctx, spec.kind, provider, id)
 		if err != nil || found != 0 {
 			return found, err
 		}
@@ -93,13 +95,16 @@ func (work *run) titleFor(ctx context.Context, spec titleSpec) (int64, error) {
 	return id, nil
 }
 
-func (work *run) titleByProviderID(ctx context.Context, provider, providerID string) (int64, error) {
+// titleByProviderID finds a title of a kind by a provider's id: a provider numbers its films and
+// its episodes separately, so an id alone may name both.
+func (work *run) titleByProviderID(ctx context.Context, kind, provider, providerID string) (int64, error) {
 	rows, err := work.queries.ListTitlesByProviderID(ctx, sqlcgen.ListTitlesByProviderIDParams{
 		Provider: provider, ProviderID: providerID,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("look up %s %s: %w", provider, providerID, err)
 	}
+	rows = slices.DeleteFunc(rows, func(row sqlcgen.ListTitlesByProviderIDRow) bool { return row.Kind != kind })
 	for _, row := range rows {
 		if row.LibraryID != nil && *row.LibraryID == work.library.ID {
 			return row.ID, nil
@@ -220,6 +225,9 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 		if spec.source == sourceNFO {
 			id = spec.ids["tmdb"]
 		}
+		if spec.sourceID != "" {
+			id = spec.sourceID
+		}
 		if id != "" {
 			sourceID = &id
 		}
@@ -232,7 +240,7 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 		return resolved{}, fmt.Errorf("resolve title %d: %w", titleID, err)
 	}
 	err = work.queries.UpsertOriginalText(ctx, sqlcgen.UpsertOriginalTextParams{
-		ItemID: titleID, Lang: "und", Name: values[fieldName], Overview: optional(values[fieldOverview]),
+		ItemID: titleID, Lang: langUnknown, Name: values[fieldName], Overview: optional(values[fieldOverview]),
 		Tagline: optional(values[fieldTagline]),
 	})
 	if err != nil {

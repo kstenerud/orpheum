@@ -22,7 +22,7 @@ type Job struct {
 }
 
 type MatchCandidate struct {
-	TitleID    int64
+	ItemID     int64
 	Rank       int64
 	Provider   string
 	ProviderID string

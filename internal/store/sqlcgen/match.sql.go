@@ -48,16 +48,18 @@ func (q *Queries) DeleteOverride(ctx context.Context, arg DeleteOverrideParams) 
 const getProviderResponse = `-- name: GetProviderResponse :one
 SELECT body
 FROM provider_response
-WHERE title_id = ?1 AND provider = ?2
+WHERE item_id = ?1 AND provider = ?2 AND part = ?3
 `
 
 type GetProviderResponseParams struct {
-	TitleID  int64
+	ItemID   int64
 	Provider string
+	Part     string
 }
 
+// An item's stored response: part ” is the item itself, 'season/N' a series' season listing.
 func (q *Queries) GetProviderResponse(ctx context.Context, arg GetProviderResponseParams) ([]byte, error) {
-	row := q.db.QueryRowContext(ctx, getProviderResponse, arg.TitleID, arg.Provider)
+	row := q.db.QueryRowContext(ctx, getProviderResponse, arg.ItemID, arg.Provider, arg.Part)
 	var body []byte
 	err := row.Scan(&body)
 	return body, err
@@ -354,22 +356,24 @@ func (q *Queries) UpsertOverride(ctx context.Context, arg UpsertOverrideParams) 
 }
 
 const upsertProviderResponse = `-- name: UpsertProviderResponse :exec
-INSERT INTO provider_response (title_id, provider, fetched_at, body)
-VALUES (?1, ?2, ?3, ?4)
-ON CONFLICT (title_id, provider) DO UPDATE SET fetched_at = excluded.fetched_at, body = excluded.body
+INSERT INTO provider_response (item_id, provider, part, fetched_at, body)
+VALUES (?1, ?2, ?3, ?4, ?5)
+ON CONFLICT (item_id, provider, part) DO UPDATE SET fetched_at = excluded.fetched_at, body = excluded.body
 `
 
 type UpsertProviderResponseParams struct {
-	TitleID   int64
+	ItemID    int64
 	Provider  string
+	Part      string
 	FetchedAt int64
 	Body      []byte
 }
 
 func (q *Queries) UpsertProviderResponse(ctx context.Context, arg UpsertProviderResponseParams) error {
 	_, err := q.db.ExecContext(ctx, upsertProviderResponse,
-		arg.TitleID,
+		arg.ItemID,
 		arg.Provider,
+		arg.Part,
 		arg.FetchedAt,
 		arg.Body,
 	)

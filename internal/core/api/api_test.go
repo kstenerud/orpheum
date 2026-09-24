@@ -79,12 +79,12 @@ func newHarness(t *testing.T) testHarness {
 	codes := &memorySetupCodes{}
 	provider, cache := newFakeProvider(), storetest.OpenCache(t)
 	providers := identify.Providers{"tmdb": provider}
-	matcher := identify.NewMatcher(database, cache, providers, now, slog.New(slog.DiscardHandler))
+	pass := identify.NewPass(database, now, slog.New(slog.DiscardHandler), providers)
+	matcher := identify.NewMatcher(database, cache, pass, now, slog.New(slog.DiscardHandler))
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
 		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
-		Identify: identify.NewChooser(matcher,
-			identify.NewPass(database, now, slog.New(slog.DiscardHandler), providers)),
+		Identify: identify.NewChooser(matcher, pass),
 		ConfigFile: []ConfigFileKey{{
 			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), Start: json.RawMessage("10"),
 			IsFromFile: false, Describe: "seconds in-flight requests get to finish",

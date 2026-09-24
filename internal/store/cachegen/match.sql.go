@@ -12,24 +12,24 @@ import (
 const deleteMatchCandidates = `-- name: DeleteMatchCandidates :exec
 
 DELETE FROM match_candidate
-WHERE title_id = ?1
+WHERE item_id = ?1
 `
 
 // SPDX-License-Identifier: GPL-3.0-or-later
-// An ambiguous title's search results, kept so choosing costs nothing (D172).
-func (q *Queries) DeleteMatchCandidates(ctx context.Context, titleID int64) error {
-	_, err := q.db.ExecContext(ctx, deleteMatchCandidates, titleID)
+// An ambiguous film's or series' search results, kept so choosing costs nothing (D172).
+func (q *Queries) DeleteMatchCandidates(ctx context.Context, itemID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteMatchCandidates, itemID)
 	return err
 }
 
 const insertMatchCandidate = `-- name: InsertMatchCandidate :exec
-INSERT INTO match_candidate (title_id, rank, provider, provider_id, name, year, runtime_ms, poster_ref)
+INSERT INTO match_candidate (item_id, rank, provider, provider_id, name, year, runtime_ms, poster_ref)
 VALUES (?1, ?2, ?3, ?4, ?5,
         ?6, ?7, ?8)
 `
 
 type InsertMatchCandidateParams struct {
-	TitleID    int64
+	ItemID     int64
 	Rank       int64
 	Provider   string
 	ProviderID string
@@ -41,7 +41,7 @@ type InsertMatchCandidateParams struct {
 
 func (q *Queries) InsertMatchCandidate(ctx context.Context, arg InsertMatchCandidateParams) error {
 	_, err := q.db.ExecContext(ctx, insertMatchCandidate,
-		arg.TitleID,
+		arg.ItemID,
 		arg.Rank,
 		arg.Provider,
 		arg.ProviderID,
@@ -54,14 +54,14 @@ func (q *Queries) InsertMatchCandidate(ctx context.Context, arg InsertMatchCandi
 }
 
 const listMatchCandidates = `-- name: ListMatchCandidates :many
-SELECT title_id, rank, provider, provider_id, name, year, runtime_ms, poster_ref
+SELECT item_id, rank, provider, provider_id, name, year, runtime_ms, poster_ref
 FROM match_candidate
-WHERE title_id = ?1
+WHERE item_id = ?1
 ORDER BY rank
 `
 
-func (q *Queries) ListMatchCandidates(ctx context.Context, titleID int64) ([]MatchCandidate, error) {
-	rows, err := q.db.QueryContext(ctx, listMatchCandidates, titleID)
+func (q *Queries) ListMatchCandidates(ctx context.Context, itemID int64) ([]MatchCandidate, error) {
+	rows, err := q.db.QueryContext(ctx, listMatchCandidates, itemID)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (q *Queries) ListMatchCandidates(ctx context.Context, titleID int64) ([]Mat
 	for rows.Next() {
 		var i MatchCandidate
 		if err := rows.Scan(
-			&i.TitleID,
+			&i.ItemID,
 			&i.Rank,
 			&i.Provider,
 			&i.ProviderID,

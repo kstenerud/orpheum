@@ -19,22 +19,27 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// Matcher matches one title to its library's provider: the fetch job's work (D170). A provider
-// id in hand skips the search; a single result matching the name and year is accepted; anything
-// else is ambiguous, with the results kept for the chooser. It never guesses (D172).
+// Matcher matches a film or a series to its library's provider: the fetch job's work (D170,
+// D209). A provider id in hand skips the search; a single result matching the name and year is
+// accepted; anything else is ambiguous, with the results kept for the chooser. It never guesses
+// (D172). A series' episodes then take their values from its season listings, which it fetches.
 type Matcher struct {
 	database  *store.Database
 	cache     *store.Cache
+	pass      *Pass
 	providers Providers
 	clock     clock.Clock
 	logger    *slog.Logger
 }
 
-// NewMatcher returns the matcher.
+// NewMatcher returns the matcher. It reaches the providers through the pass, which re-derives a
+// series' episodes once it is matched.
 func NewMatcher(
-	database *store.Database, cache *store.Cache, providers Providers, now clock.Clock, logger *slog.Logger,
+	database *store.Database, cache *store.Cache, pass *Pass, now clock.Clock, logger *slog.Logger,
 ) *Matcher {
-	return &Matcher{database: database, cache: cache, providers: providers, clock: now, logger: logger}
+	return &Matcher{
+		database: database, cache: cache, pass: pass, providers: pass.providers, clock: now, logger: logger,
+	}
 }
 
 // Outcome is what a match did.
@@ -45,11 +50,26 @@ const (
 	OutcomeMatched     Outcome = "matched"
 	OutcomeAmbiguous   Outcome = "ambiguous"
 	OutcomeNoMatch     Outcome = "no match"
+	OutcomeListed      Outcome = "season listings fetched"
 	OutcomeNothingToDo Outcome = "nothing to do"
 )
 
-// Match matches a title. Provider errors return as they came, for the queue to wait or retry.
-func (matcher *Matcher) Match(ctx context.Context, titleID int64) (Outcome, error) {
+// Match matches a film or a series. Provider errors return as they came, for the queue to wait
+// or retry.
+func (matcher *Matcher) Match(ctx context.Context, itemID int64) (Outcome, error) {
+	kind, err := store.One(matcher.database.Read().GetItemKind(ctx, itemID))
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		return OutcomeNothingToDo, nil // gone since it was queued
+	case err != nil:
+		return "", fmt.Errorf("read item %d: %w", itemID, err)
+	case kind == itemCollection:
+		return matcher.matchSeries(ctx, itemID)
+	}
+	return matcher.matchTitle(ctx, itemID)
+}
+
+func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome, error) {
 	title, err := store.One(matcher.database.Read().GetTitleForMatch(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return OutcomeNothingToDo, nil // gone since it was queued
@@ -64,7 +84,7 @@ func (matcher *Matcher) Match(ctx context.Context, titleID int64) (Outcome, erro
 	if !known {
 		return "", fmt.Errorf("library source %s: no provider client", title.MetadataSource)
 	}
-	id, err := matcher.idInHand(ctx, provider, title)
+	id, err := matcher.idInHand(ctx, provider, title.Kind, title.ID)
 	if err != nil {
 		return "", err
 	}
@@ -76,7 +96,7 @@ func (matcher *Matcher) Match(ctx context.Context, titleID int64) (Outcome, erro
 	if err != nil {
 		return "", fmt.Errorf("search %s for %q: %w", provider.Name(), query.Name, err)
 	}
-	if chosen, single := singleMatch(query, candidates); single {
+	if chosen, single := singleMatch(query, candidates, true); single {
 		return OutcomeMatched, matcher.accept(ctx, provider, title, chosen.ID, identIdentified)
 	}
 	if len(candidates) == 0 {
@@ -89,14 +109,12 @@ func providerOf(metadataSource string) string {
 	return strings.TrimPrefix(metadataSource, "nfo_then_")
 }
 
-// idInHand is the provider's id for a title from its NFO or its path, if it has one: the
-// provider's own, or one found from an IMDb id.
-func (matcher *Matcher) idInHand(
-	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow,
-) (string, error) {
-	ids, err := matcher.database.Read().ListItemProviderIDs(ctx, title.ID)
+// idInHand is the provider's id for a film or series from its NFO or its path, if it has one:
+// the provider's own, or one found from an IMDb or TVDB id.
+func (matcher *Matcher) idInHand(ctx context.Context, provider Provider, kind string, itemID int64) (string, error) {
+	ids, err := matcher.database.Read().ListItemProviderIDs(ctx, itemID)
 	if err != nil {
-		return "", fmt.Errorf("read title %d's ids: %w", title.ID, err)
+		return "", fmt.Errorf("read item %d's ids: %w", itemID, err)
 	}
 	byProvider := map[string]string{}
 	for _, row := range ids {
@@ -105,31 +123,35 @@ func (matcher *Matcher) idInHand(
 	if id := byProvider[provider.Name()]; id != "" {
 		return id, nil
 	}
-	imdb := byProvider["imdb"]
-	if imdb == "" {
-		return "", nil
+	for _, source := range []string{sourceIMDb, sourceTVDB} {
+		other := byProvider[source]
+		if other == "" || (source == sourceTVDB && kind != KindSeries) {
+			continue
+		}
+		id, err := provider.Find(ctx, kind, source, other)
+		if errors.Is(err, ErrNoMatch) {
+			continue // search instead
+		}
+		if err != nil {
+			return "", fmt.Errorf("find %s %s at %s: %w", source, other, provider.Name(), err)
+		}
+		return id, nil
 	}
-	id, err := provider.Find(ctx, title.Kind, "imdb", imdb)
-	if errors.Is(err, ErrNoMatch) {
-		return "", nil // search instead
-	}
-	if err != nil {
-		return "", fmt.Errorf("find imdb %s at %s: %w", imdb, provider.Name(), err)
-	}
-	return id, nil
+	return "", nil
 }
 
-// singleMatch is the one candidate whose name and year are the query's (D172). With no year in
-// hand nothing matches: a wrong match is worse than none.
-func singleMatch(query Query, candidates []Candidate) (Candidate, bool) {
-	if query.Year == 0 {
+// singleMatch is the one candidate whose name and year are the query's (D172). A film with no
+// year in hand matches nothing: a wrong match is worse than none. A series' year is checked
+// where its folder or tvshow.nfo gives one (D209).
+func singleMatch(query Query, candidates []Candidate, yearRequired bool) (Candidate, bool) {
+	if query.Year == 0 && yearRequired {
 		return Candidate{}, false
 	}
 	var found []Candidate
 	want := foldName(query.Name)
 	for _, candidate := range candidates {
 		named := foldName(candidate.Name) == want || foldName(candidate.OriginalName) == want
-		if named && candidate.Year == query.Year {
+		if named && (query.Year == 0 || candidate.Year == query.Year) {
 			found = append(found, candidate)
 		}
 	}
@@ -213,7 +235,7 @@ func (matcher *Matcher) record(
 		return err
 	}
 	err = queries.UpsertProviderResponse(ctx, sqlcgen.UpsertProviderResponseParams{
-		TitleID: titleID, Provider: provider, FetchedAt: now, Body: stored,
+		ItemID: titleID, Provider: provider, Part: "", FetchedAt: now, Body: stored,
 	})
 	if err != nil {
 		return fmt.Errorf("store the response: %w", err)
@@ -303,26 +325,26 @@ func (matcher *Matcher) noMatch(ctx context.Context, title sqlcgen.GetTitleForMa
 	return nil
 }
 
-// keep replaces a title's kept search results in cache.db.
-func (matcher *Matcher) keep(ctx context.Context, provider Provider, titleID int64, candidates []Candidate) error {
+// keep replaces a film's or series' kept search results in cache.db.
+func (matcher *Matcher) keep(ctx context.Context, provider Provider, itemID int64, candidates []Candidate) error {
 	err := matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		if err := queries.DeleteMatchCandidates(ctx, titleID); err != nil {
-			return fmt.Errorf("clear title %d's candidates: %w", titleID, err)
+		if err := queries.DeleteMatchCandidates(ctx, itemID); err != nil {
+			return fmt.Errorf("clear item %d's candidates: %w", itemID, err)
 		}
 		for rank, candidate := range candidates {
 			err := queries.InsertMatchCandidate(ctx, cachegen.InsertMatchCandidateParams{
-				TitleID: titleID, Rank: int64(rank), Provider: provider.Name(), ProviderID: candidate.ID,
+				ItemID: itemID, Rank: int64(rank), Provider: provider.Name(), ProviderID: candidate.ID,
 				Name: optional(candidate.Name), Year: optionalInt(int64(candidate.Year)),
 				PosterRef: optional(candidate.PosterRef),
 			})
 			if err != nil {
-				return fmt.Errorf("keep a candidate for title %d: %w", titleID, err)
+				return fmt.Errorf("keep a candidate for item %d: %w", itemID, err)
 			}
 		}
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("keep title %d's candidates: %w", titleID, err)
+		return fmt.Errorf("keep item %d's candidates: %w", itemID, err)
 	}
 	return nil
 }

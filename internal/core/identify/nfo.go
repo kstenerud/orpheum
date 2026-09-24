@@ -127,15 +127,15 @@ func providerIDsOf(document nfoDocument) map[string]string {
 		}
 	}
 	for provider, value := range map[string]string{
-		"tmdb": document.TMDBID, "imdb": document.IMDBID, "tvdb": document.TVDBID,
+		sourceTMDB: document.TMDBID, sourceIMDb: document.IMDBID, sourceTVDB: document.TVDBID,
 	} {
 		if _, found := ids[provider]; !found && clean(value) != "" {
 			ids[provider] = clean(value)
 		}
 	}
 	// Kodi's bare <id> is IMDb's when it looks like one.
-	if id := clean(document.ID); strings.HasPrefix(id, "tt") && ids["imdb"] == "" {
-		ids["imdb"] = id
+	if id := clean(document.ID); strings.HasPrefix(id, "tt") && ids[sourceIMDb] == "" {
+		ids[sourceIMDb] = id
 	}
 	return ids
 }

@@ -406,7 +406,13 @@ CREATE TABLE collection (                                  -- class A or O
   kind        TEXT NOT NULL CHECK (kind IN ('series','box_set','user')),
   membership  TEXT NOT NULL CHECK (membership IN ('explicit','predicate','external')),
   predicate   TEXT,                      -- D75's serialised form, for 'predicate'
-  created_by  TEXT NOT NULL CHECK (created_by IN ('scanner','provider','user'))
+  created_by  TEXT NOT NULL CHECK (created_by IN ('scanner','provider','user')),
+  -- D209, migration 0007: a series is what is identified for shows, so it carries what a title
+  -- does. NULL for box sets and a person's collections.
+  year        INTEGER,                                                       -- O: resolved
+  source      TEXT CHECK (source IN ('nfo','tmdb','tvdb','none')),         -- F/A: its own values
+  source_id   TEXT,                                                          -- F/A: its match
+  ident       TEXT CHECK (ident IN ('identified','ambiguous','unidentified','confirmed'))  -- F/A
 );
 CREATE TABLE collection_member (                           -- D159, D160
   collection_id     INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
@@ -665,13 +671,20 @@ correlated in-progress check must be a `LIMIT 1` scalar subquery driven by `vers
 
 ```sql
 CREATE TABLE provider_response (                           -- class F: the stored input (D170)
-  title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
+  item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
+  part        TEXT NOT NULL DEFAULT '',  -- '' the item itself; 'season/N' a series' season listing
   fetched_at  INTEGER NOT NULL,
   body        BLOB NOT NULL,             -- compressed; cast and crew are read from here in Cut A
-  PRIMARY KEY (title_id, provider)
+  PRIMARY KEY (item_id, provider, part)
 );
 ```
+
+**Keyed on `item` since migration 0007** ([D209](../../decisions/working-notes.md)): a series
+is matched, not its episodes, and its own response and its season listings are stored against
+it. An episode has no response of its own; it takes its values from its season's listing. Before
+0007 the table was keyed on `title_id`, which left a series nowhere to keep its match — the one
+table that did not follow D186.
 
 **Moved here from `cache.db` by the second audit.** The resolved columns of `title` and
 `item_text` re-derive from these bodies, and D170 forbids refetching them, so losing them was
@@ -705,12 +718,12 @@ CREATE TABLE job (                                         -- the one work queue
 );
 CREATE INDEX job_next ON job(state, priority DESC, not_before) WHERE state = 'queued';
 CREATE TABLE match_candidate (                             -- D172: kept so choosing costs nothing
-  title_id    INTEGER NOT NULL,
+  item_id     INTEGER NOT NULL,          -- a film, or a series (D209)
   rank        INTEGER NOT NULL,
   provider    TEXT NOT NULL,
   provider_id TEXT NOT NULL,
   name        TEXT, year INTEGER, runtime_ms INTEGER, poster_ref TEXT,
-  PRIMARY KEY (title_id, rank)
+  PRIMARY KEY (item_id, rank)
 );
 CREATE TABLE prepared_rendition (                          -- D175, D180
   id          INTEGER PRIMARY KEY AUTOINCREMENT,

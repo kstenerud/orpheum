@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -33,8 +35,12 @@ type Providers map[string]Provider
 type Report struct {
 	Listed       int
 	Unidentified int
-	// AwaitingMatch are the films no source has answered for yet: the fetch queue's work (D170).
+	// AwaitingMatch are the films and series no source has answered for yet: the fetch queue's
+	// first fetches (D170, D209).
 	AwaitingMatch []int64
+	// AwaitingListings are matched series with a season listing to fetch: missing, or older
+	// than a new episode it does not list (D209 §3).
+	AwaitingListings []int64
 }
 
 // NewPass returns the identification pass.
@@ -51,6 +57,8 @@ func (pass *Pass) Library(ctx context.Context, libraryID int64) (Report, error) 
 			titles: map[string]int64{}, series: map[string]int64{}, nfoByVideo: map[int64]NFO{},
 			showNFOs: map[string]NFO{}, folderNFOs: map[string][]namedNFO{}, folderTitle: map[string]int64{},
 			evidence: map[int64][]titleSpec{}, fileTitle: map[int64]int64{},
+			seriesSeen: map[int64]seriesSpec{}, seriesRows: map[int64]sqlcgen.GetSeriesForMatchRow{},
+			listings: map[string][]Episode{},
 		}
 		if err := work.load(ctx, libraryID); err != nil {
 			return err
@@ -58,14 +66,7 @@ func (pass *Pass) Library(ctx context.Context, libraryID int64) (Report, error) 
 		if err := work.identify(ctx); err != nil {
 			return err
 		}
-		awaiting, err := queries.ListTitlesAwaitingMatch(ctx, &libraryID)
-		if err != nil {
-			return fmt.Errorf("list the films awaiting a match: %w", err)
-		}
-		if work.library.MetadataSource != sourceNFO {
-			report.AwaitingMatch = awaiting
-		}
-		return nil
+		return work.awaiting(ctx, libraryID)
 	})
 	if err != nil {
 		return Report{}, fmt.Errorf("identify library %d: %w", libraryID, err)
@@ -91,6 +92,26 @@ type run struct {
 	folderTitle map[string]int64 // a film's folder, for its extras
 	evidence    map[int64][]titleSpec
 	fileTitle   map[int64]int64
+	seriesSeen  map[int64]seriesSpec // what this pass's files say about each series
+	seriesRows  map[int64]sqlcgen.GetSeriesForMatchRow
+	listings    map[string][]Episode // parsed season listings, by "series/season"
+}
+
+// awaiting lists what the fetch queue owes the library: films and series never answered for.
+func (work *run) awaiting(ctx context.Context, libraryID int64) error {
+	if work.library.MetadataSource == sourceNFO {
+		return nil
+	}
+	films, err := work.queries.ListTitlesAwaitingMatch(ctx, &libraryID)
+	if err != nil {
+		return fmt.Errorf("list the films awaiting a match: %w", err)
+	}
+	series, err := work.queries.ListSeriesAwaitingMatch(ctx, &libraryID)
+	if err != nil {
+		return fmt.Errorf("list the series awaiting a match: %w", err)
+	}
+	work.report.AwaitingMatch = slices.Concat(films, series)
+	return nil
 }
 
 // load reads the library, its roots, its files, and the titles and series it already has.
@@ -163,6 +184,9 @@ func (work *run) loadTitles(ctx context.Context, libraryID int64) error {
 
 // identify files every video: films and episodes first, so an extra can find its film.
 func (work *run) identify(ctx context.Context) error {
+	if err := work.knowSeriesByFolder(ctx); err != nil {
+		return err
+	}
 	var extras []pendingExtra
 	for _, file := range work.files {
 		if !isVideo(file) {
@@ -185,7 +209,43 @@ func (work *run) identify(ctx context.Context) error {
 			return err
 		}
 	}
-	return work.resolveAndFile(ctx)
+	if err := work.resolveAndFile(ctx); err != nil {
+		return err
+	}
+	for _, seriesID := range slices.Sorted(maps.Keys(work.seriesSeen)) {
+		if err := work.resolveSeries(ctx, seriesID, work.seriesSeen[seriesID]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// knowSeriesByFolder lets the name an episode's folders give find the series its neighbours are
+// already in, before any file is filed: a series renamed by its match (D209) keeps a new episode
+// that sorts before its old ones.
+func (work *run) knowSeriesByFolder(ctx context.Context) error {
+	for _, file := range work.files {
+		rel, ok := work.relative(file)
+		if !isVideo(file) || !ok {
+			continue
+		}
+		parsed := ParsePath(rel)
+		if parsed.Kind != kindEpisode {
+			continue
+		}
+		key := strings.ToLower(parsed.Name)
+		if _, known := work.series[key]; known {
+			continue
+		}
+		seriesID, err := work.currentSeries(ctx, file)
+		if err != nil {
+			return err
+		}
+		if seriesID != 0 {
+			work.series[key] = seriesID
+		}
+	}
+	return nil
 }
 
 func isVideo(file sqlcgen.ListIdentifyFilesRow) bool {
@@ -266,13 +326,14 @@ func (work *run) nfoFor(file sqlcgen.ListIdentifyFilesRow) (NFO, bool) {
 // unidentifiedUnlessNFO sets a spec with no NFO behind it: unidentified, and in a library that
 // fetches from a provider, waiting for the match (D170).
 func (work *run) unidentifiedUnlessNFO(spec *titleSpec) {
-	if spec.source == sourceNFO {
-		return
+	if spec.source != "" {
+		return // its NFO, or its series' listing, speaks for it
 	}
 	spec.ident = identUnidentified
-	if work.library.MetadataSource == sourceNFO {
+	switch {
+	case work.library.MetadataSource == sourceNFO:
 		spec.source, spec.reason = sourceNone, "no NFO file"
-	} else {
+	case spec.reason == "":
 		spec.reason = "not matched yet"
 	}
 }

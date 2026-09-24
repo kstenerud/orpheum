@@ -18,14 +18,15 @@ WHERE item_id = sqlc.arg(item_id)
 ORDER BY provider, provider_id;
 
 -- name: UpsertProviderResponse :exec
-INSERT INTO provider_response (title_id, provider, fetched_at, body)
-VALUES (sqlc.arg(title_id), sqlc.arg(provider), sqlc.arg(fetched_at), sqlc.arg(body))
-ON CONFLICT (title_id, provider) DO UPDATE SET fetched_at = excluded.fetched_at, body = excluded.body;
+INSERT INTO provider_response (item_id, provider, part, fetched_at, body)
+VALUES (sqlc.arg(item_id), sqlc.arg(provider), sqlc.arg(part), sqlc.arg(fetched_at), sqlc.arg(body))
+ON CONFLICT (item_id, provider, part) DO UPDATE SET fetched_at = excluded.fetched_at, body = excluded.body;
 
 -- name: GetProviderResponse :one
+-- An item's stored response: part '' is the item itself, 'season/N' a series' season listing.
 SELECT body
 FROM provider_response
-WHERE title_id = sqlc.arg(title_id) AND provider = sqlc.arg(provider);
+WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part = sqlc.arg(part);
 
 -- name: SetTitleMatch :exec
 -- The outcome of a match: the source and its id, or ambiguous, or 'none' when the provider has

@@ -63,7 +63,7 @@ func runNodeChannel(
 		}
 		logger.InfoContext(ctx, "identified a library", "libraryId", libraryID, "listed", report.Listed,
 			"unidentified", report.Unidentified, "awaitingMatch", len(report.AwaitingMatch))
-		queueMatches(ctx, fetching.queue, report.AwaitingMatch, logger)
+		queueMatches(ctx, fetching.queue, report, logger)
 	})
 	sink := reportSink{ingester: ingester, logger: logger}
 	service := nodes.NewService(database, clock.System{}, settingsService, sink, logger, commandPollHold)

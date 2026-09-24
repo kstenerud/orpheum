@@ -13,21 +13,53 @@ import (
 // list (identification.md, How a provider is called in Cut A). A response is fetched once and
 // stored; Parse re-derives a title from the stored bytes without a call (D170, D182).
 type Provider interface {
+	Works
+	Seasons
+}
+
+// Works is what a provider says about films and series: search, find, fetch and read.
+type Works interface {
 	// Name is the provider's name as title.source and item_provider_id store it: "tmdb".
 	Name() string
 	// Search lists the works a name and year may be, best first.
 	Search(ctx context.Context, query Query) ([]Candidate, error)
 	// Find turns another provider's id ("imdb", "tt0123456") into this provider's.
 	Find(ctx context.Context, kind, source, id string) (string, error)
-	// Fetch returns a work's full response, as stored.
+	// Fetch returns a work's full response, as stored: a film's, or a series' own.
 	Fetch(ctx context.Context, kind, id string) ([]byte, error)
 	// Parse reads a stored response.
 	Parse(kind string, body []byte) (Metadata, error)
 }
 
+// Seasons is how a provider lists a series' episodes, a season at a time (D209).
+type Seasons interface {
+	// FetchSeason returns a series' listing of one season's episodes, as stored (D209).
+	FetchSeason(ctx context.Context, seriesID string, season int) ([]byte, error)
+	// ParseSeason reads a stored season listing.
+	ParseSeason(body []byte) ([]Episode, error)
+}
+
+// The kinds of work a provider is asked about: a title's kind, or a series.
+const (
+	KindMovie  = "movie"
+	KindSeries = "series"
+)
+
+// Episode is one episode in a season listing: what an episode takes from its series' source
+// (D209).
+type Episode struct {
+	ID        string
+	Season    int
+	Number    int
+	Name      string
+	Overview  string
+	Year      int
+	RuntimeMs int64
+}
+
 // Query is what a search asks for.
 type Query struct {
-	Kind string // movie
+	Kind string // KindMovie or KindSeries
 	Name string
 	Year int // zero when unknown
 }

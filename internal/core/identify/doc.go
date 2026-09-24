@@ -49,6 +49,16 @@
 //     TestChooser_SearchesAgainWhenTheCacheLostTheCandidates.
 //   - A person's override holds until it is removed, then the field follows its source (D183).
 //     TestChooser_AnOverrideHoldsUntilItIsRemoved.
+//   - For shows, the series is what is matched, ambiguous and chosen; an episode is never
+//     searched, and takes its values from its series' season listing, one fetch a season; a new
+//     episode missing from a listing fetched before it arrived fetches that listing again (D209).
+//     TestSeries_AMatchedSeriesNamesItsEpisodesFromOneSeasonListing,
+//     TestSeries_ANewEpisodeFetchesItsSeasonAgain, TestSeries_AnAmbiguousSeriesIsChosenByAPerson,
+//     TestSeries_AYearOrAnIDSettlesTheSearch.
+//   - A series renamed by its match keeps the new episodes its folders name.
+//     TestSeries_AnEpisodeAddedAfterTheSeriesWasRenamedJoinsIt.
+//   - A provider's episode ids never find a film, nor its film ids an episode.
+//     Enforced by titleByProviderID's kind filter; review.
 //   - One work found as two titles in a library becomes one, the other a tombstone pointing at it
 //     (D173). TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst.
 //
@@ -58,6 +68,7 @@
 //   - D172: an ambiguous match is never guessed.
 //   - D182: metadata is a stack of layers; re-derivation reads only stored input.
 //   - D183: an override is an override wherever its value came from.
+//   - D209: for shows, the series is what is identified.
 //   - D141: NFO lock markers.
 //   - docs/contributors/design/plans/identification.md.
 //
@@ -67,6 +78,7 @@
 //     reader.
 //   - pass.go, titles.go, episodes.go, extras.go: the identification pass; evidence.go: what a
 //     stored match says to it.
-//   - provider.go: the provider interface. match.go: the matcher and the fetch job's handler.
+//   - provider.go: the provider interface. match.go: the matcher and the fetch job's handler;
+//     match_series.go: a series' match and its season listings. series.go: a series in the pass.
 //   - chooser.go: what a person does — list, choose, override. tmdb/: the TMDB client.
 package identify

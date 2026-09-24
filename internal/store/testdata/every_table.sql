@@ -58,7 +58,8 @@ INSERT INTO artwork (id, item_id, kind, lang, source, source_ref, content_hash, 
 INSERT INTO tag (id, name) VALUES (1, 'favourite of the house');
 INSERT INTO item_tag (item_id, tag_id) VALUES (1, 1);
 
-INSERT INTO collection (id, kind, membership, created_by) VALUES (3, 'series', 'explicit', 'scanner');
+INSERT INTO collection (id, kind, membership, created_by, source, source_id, ident)
+  VALUES (3, 'series', 'explicit', 'scanner', 'tmdb', '7615', 'identified');
 INSERT INTO collection_member (collection_id, member_title, position) VALUES (3, 1, 1.0);
 INSERT INTO ordering (id, collection_id, name, provider) VALUES (1, 3, 'aired', 'tmdb');
 INSERT INTO position (ordering_id, title_id, grp, number, sort) VALUES (1, 1, 1, 1, 1.0);
@@ -88,5 +89,7 @@ INSERT INTO progress_hide (user_id, item_id, at) VALUES (1, 1, 1790000000000);
 INSERT INTO preference (user_id, scope, scope_id, axis, value, set_at)
   VALUES (2, 'file', 1, 'subtitle_offset_ms', '-250', 1790000000000);
 INSERT INTO subtitle_quota (user_id, provider, day, used) VALUES (2, 'opensubtitles', '2026-09-24', 3);
-INSERT INTO provider_response (title_id, provider, fetched_at, body)
-  VALUES (1, 'tmdb', 1790000000000, X'1F8B0800');
+INSERT INTO provider_response (item_id, provider, part, fetched_at, body)
+  VALUES (1, 'tmdb', '', 1790000000000, X'1F8B0800');
+INSERT INTO provider_response (item_id, provider, part, fetched_at, body)
+  VALUES (3, 'tmdb', 'season/2', 1790000000000, X'1F8B0800');

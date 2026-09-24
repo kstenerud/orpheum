@@ -176,6 +176,78 @@
         ],
         "type": "object"
       },
+      "ItemBody": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "ident": {
+            "enum": [
+              "identified",
+              "ambiguous",
+              "unidentified",
+              "confirmed"
+            ],
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "movie",
+              "episode",
+              "extra",
+              "series"
+            ],
+            "type": "string"
+          },
+          "libraryId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "description": "Where its own values come from: nfo, tmdb, or none",
+            "type": "string"
+          },
+          "sourceId": {
+            "description": "Its id at its provider",
+            "type": "string"
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "libraryId",
+          "kind",
+          "name",
+          "ident"
+        ],
+        "type": "object"
+      },
+      "ItemsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
       "MatchInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -434,77 +506,6 @@
         "required": [
           "name",
           "password"
-        ],
-        "type": "object"
-      },
-      "TitleBody": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "ident": {
-            "enum": [
-              "identified",
-              "ambiguous",
-              "unidentified",
-              "confirmed"
-            ],
-            "type": "string"
-          },
-          "kind": {
-            "enum": [
-              "movie",
-              "episode",
-              "extra"
-            ],
-            "type": "string"
-          },
-          "libraryId": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "name": {
-            "type": "string"
-          },
-          "source": {
-            "description": "The source the title follows: nfo, tmdb, or none",
-            "type": "string"
-          },
-          "sourceId": {
-            "description": "The title's id at its source",
-            "type": "string"
-          },
-          "year": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "libraryId",
-          "kind",
-          "name",
-          "ident"
-        ],
-        "type": "object"
-      },
-      "TitlesOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "titles": {
-            "items": {
-              "$ref": "#/components/schemas/TitleBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "titles"
         ],
         "type": "object"
       },
@@ -878,6 +879,168 @@
         "summary": "Whether the server is starting, migrating, ready or degraded",
         "tags": [
           "Running it"
+        ]
+      }
+    },
+    "/items": {
+      "get": {
+        "operationId": "getItems",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "ident",
+            "required": true,
+            "schema": {
+              "enum": [
+                "identified",
+                "ambiguous",
+                "unidentified",
+                "confirmed"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The titles and series in one state of identification",
+        "tags": [
+          "Identification"
+        ]
+      }
+    },
+    "/items/{id}/candidates": {
+      "get": {
+        "operationId": "getItemCandidates",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidatesOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "An ambiguous film's or series' search results, to choose from (edit_metadata)",
+        "tags": [
+          "Identification"
+        ]
+      }
+    },
+    "/items/{id}/match": {
+      "post": {
+        "operationId": "postItemMatch",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Choose a film's or series' match; permanent (edit_metadata)",
+        "tags": [
+          "Identification"
         ]
       }
     },
@@ -1617,168 +1780,6 @@
         "summary": "Create the first admin with the one-time setup code from the log",
         "tags": [
           "Setup and auth"
-        ]
-      }
-    },
-    "/titles": {
-      "get": {
-        "operationId": "getTitles",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "explode": false,
-            "in": "query",
-            "name": "ident",
-            "required": true,
-            "schema": {
-              "enum": [
-                "identified",
-                "ambiguous",
-                "unidentified",
-                "confirmed"
-              ],
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TitlesOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "The titles in one state of identification",
-        "tags": [
-          "Identification"
-        ]
-      }
-    },
-    "/titles/{id}/candidates": {
-      "get": {
-        "operationId": "getTitleCandidates",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CandidatesOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "An ambiguous title's search results, to choose from (edit_metadata)",
-        "tags": [
-          "Identification"
-        ]
-      }
-    },
-    "/titles/{id}/match": {
-      "post": {
-        "operationId": "postTitleMatch",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "format": "int64",
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MatchInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Choose a title's match; permanent (edit_metadata)",
-        "tags": [
-          "Identification"
         ]
       }
     }

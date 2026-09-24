@@ -23,6 +23,9 @@ const identAmbiguous = "ambiguous"
 // ambiguity, or that its provider found nothing. A pass reads these and never calls the provider
 // (D170, D172, D182).
 func (work *run) matchEvidence(ctx context.Context, titleID int64, spec *titleSpec) error {
+	if spec.kind == kindEpisode {
+		return nil // an episode's evidence is its series' listing, read where it is filed (D209)
+	}
 	match, err := store.One(work.queries.GetTitleForMatch(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
@@ -57,7 +60,7 @@ func (work *run) fromResponse(ctx context.Context, titleID int64, providerName s
 		return fmt.Errorf("title %d follows %s, which this server has no client for", titleID, providerName)
 	}
 	stored, err := work.queries.GetProviderResponse(ctx, sqlcgen.GetProviderResponseParams{
-		TitleID: titleID, Provider: providerName,
+		ItemID: titleID, Provider: providerName, Part: "",
 	})
 	if err != nil {
 		return fmt.Errorf("read title %d's %s response: %w", titleID, providerName, err)

@@ -48,8 +48,8 @@ func newWorld(t *testing.T, kind, source string) *world {
 		t: t, database: database, clock: now, provider: provider,
 		ingester: library.NewIngester(database, now, settingstest.Seeded(t, database), logger),
 		pass:     NewPass(database, now, logger, providers),
-		matcher:  NewMatcher(database, storetest.OpenCache(t), providers, now, logger),
 	}
+	created.matcher = NewMatcher(database, storetest.OpenCache(t), created.pass, now, logger)
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
 		created.nodeID, err = queries.InsertNode(t.Context(), sqlcgen.InsertNodeParams{Name: "local", EnrolledAt: 1})

@@ -22,7 +22,7 @@ WHERE item.library_id = ? AND item.removed_at IS NULL
 ORDER BY title.id;
 
 -- name: ListTitlesByProviderID :many
-SELECT title.id, item.library_id, title.ident
+SELECT title.id, item.library_id, title.ident, title.kind
 FROM item_provider_id
 JOIN title ON title.id = item_provider_id.item_id
 JOIN item ON item.id = title.id

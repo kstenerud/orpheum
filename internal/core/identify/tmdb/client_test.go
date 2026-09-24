@@ -182,3 +182,63 @@ func TestGet_AFailedConnectionDoesNotPrintTheKey(t *testing.T) {
 		t.Errorf("error %v; want a failure that does not show the key", err)
 	}
 }
+
+// orbitoramaAtTMDB is a fake TMDB that knows one series and one season of it.
+func orbitoramaAtTMDB(t *testing.T) (*Client, *[]*http.Request) {
+	t.Helper()
+	server, seen := fake(t, map[string]string{
+		"/search/tv": `{"results":[{"id":7615,"name":"Orbitorama","original_name":"Orbitorama",
+			"first_air_date":"1999-03-28","poster_path":"/f.jpg"}]}`,
+		"/find/73871": `{"movie_results":[],"tv_results":[{"id":7615}]}`,
+		"/tv/7615": `{"id":7615,"name":"Orbitorama","original_name":"Orbitorama","original_language":"en",
+			"overview":"The adventures of a delivery boy.","first_air_date":"1999-03-28","episode_run_time":[22],
+			"external_ids":{"imdb_id":"tt0900460","tvdb_id":78871}}`,
+		"/tv/7615/season/2": `{"season_number":2,"episodes":[
+			{"id":1101,"season_number":2,"episode_number":10,"name":"A Comet of My Own",
+			 "overview":"The Professor names his successor.","air_date":"2000-04-09","runtime":22}]}`,
+	})
+	return newClient(t, server.URL, "k"), seen
+}
+
+func TestSeries_SearchAndFind(t *testing.T) {
+	t.Parallel()
+	client, seen := orbitoramaAtTMDB(t)
+	query := identify.Query{Kind: identify.KindSeries, Name: "Orbitorama", Year: 1999}
+	candidates, err := client.Search(t.Context(), query)
+	if err != nil || len(candidates) != 1 || candidates[0].Name != "Orbitorama" || candidates[0].Year != 1999 {
+		t.Errorf("Search = %+v, %v", candidates, err)
+	}
+	if got := (*seen)[0].URL.Query().Get("first_air_date_year"); got != "1999" {
+		t.Errorf("a series search asked first_air_date_year=%q", got)
+	}
+	if id, err := client.Find(t.Context(), identify.KindSeries, "tvdb", "78871"); err != nil || id != "615" {
+		t.Errorf("Find by TVDB id = %q, %v", id, err)
+	}
+}
+
+func TestSeries_FetchParseAndItsSeasons(t *testing.T) {
+	t.Parallel()
+	client, _ := orbitoramaAtTMDB(t)
+	body, err := client.Fetch(t.Context(), identify.KindSeries, "615")
+	if err != nil {
+		t.Fatal(err)
+	}
+	series, err := client.Parse(identify.KindSeries, body)
+	wantIDs := map[string]string{"tmdb": "7615", "imdb": "tt0900460", "tvdb": "78871"}
+	if err != nil || series.Name != "Orbitorama" || series.Year != 1999 || series.RuntimeMs != 0 ||
+		!maps.Equal(series.IDs, wantIDs) {
+		t.Errorf("Parse = %+v, %v", series, err)
+	}
+	listing, err := client.FetchSeason(t.Context(), "615", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	episodes, err := client.ParseSeason(listing)
+	want := identify.Episode{
+		ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own", Overview: "The Professor names his successor.",
+		Year: 2000, RuntimeMs: 22 * 60_000,
+	}
+	if err != nil || len(episodes) != 1 || episodes[0] != want {
+		t.Errorf("ParseSeason = %+v, %v", episodes, err)
+	}
+}
