@@ -24,6 +24,10 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BASE ?= origin/main
 PYTHON := python3
 
+# Tools that `go install` puts in GOPATH/bin (sqlc, golangci-lint, dlv) are found by every
+# target whatever the machine's profile says; a fresh container's PATH often lacks it.
+export PATH := $(shell go env GOPATH)/bin:$(PATH)
+
 .PHONY: help
 help: ## List the targets
 	@grep -E '^[a-z][a-z-]*:.*## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "} {printf "  %-22s %s\n", $$1, $$2}'

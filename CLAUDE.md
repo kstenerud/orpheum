@@ -19,11 +19,13 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   and to committed migrations, and says what to do instead. The list is
   `scripts/gate_paths.py`.
 - **Before a shell command**, `.claude/hooks/pre_bash.py` refuses commands that add a
-  dependency, `--no-verify`, force-pushes, and obvious shell writes to gate files.
+  dependency, `--no-verify` or repointing `core.hooksPath`, force-pushes, and shell writes whose
+  target — a redirect, `tee`, `cp`/`mv`'s destination, `sed -i`, `rm` — is a gate file in this
+  project. Mentioning a gate, reading one, or writing a scratch copy outside the project is fine.
 
 A refusal is information: it names the sanctioned route. Take that route. Don't look for a way
-around the hook. The shell guard is a speed bump, not a wall: a command can write a file without
-the words it looks for. The wall is the branch gate, which fails any change to a gate file that
+around the hook. The shell guard is a speed bump, not a wall: a script can write a file without
+naming it on the command line. The wall is the branch gate, which fails any change to a gate file that
 lacks the owner's `Gate-Changed:` trailer.
 
 **For the owner:** a session started with `ORPHEUM_ALLOW_GATE_EDIT=1` may edit gates, and one

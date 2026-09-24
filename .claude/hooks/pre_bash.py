@@ -1,20 +1,228 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
 # ABOUTME: PreToolUse hook for shell commands: refuses adding dependencies, skipping git
-# ABOUTME: hooks, force-pushing, and obvious shell writes to gate files. A speed bump, not a
-# ABOUTME: wall: a determined command can write a file without these words. The wall is the
-# ABOUTME: branch gate's Gate-Changed trailer (check_test_weakening.py) and review.
+# ABOUTME: hooks, force-pushing, and shell writes whose target is a gate file in this project.
+# ABOUTME: A speed bump, not a wall: a script can write a file without naming it on the
+# ABOUTME: command line. The wall is the branch gate's Gate-Changed trailer and review.
+"""Decide from what a command does, not from the words it contains.
+
+A write is refused when one of its *targets* — a redirect, `tee`'s files, `cp`/`mv`'s
+destination, `sed -i`'s files, `rm`'s operands — resolves to a gate path inside this project.
+A command that merely mentions `Makefile`, greps for `go get`, or writes to a scratch copy of
+the repository is not a write to a gate, and is let through (audit-2026-09-24 §4.1).
+"""
+
 from __future__ import annotations
 
+import os
 import re
 import shlex
+from pathlib import Path
 
 import hooklib
-from gate_paths import GATE_PATTERNS
+from gate_paths import is_gate, relative
 
 ADD_DEPENDENCY = re.compile(r"\bgo\s+get\b|\b(?:pnpm|yarn)\s+add\b|\bpip3?\s+install\b")
 NPM_INSTALL = frozenset({"i", "install", "add", "isntall"})
 NPM_VALUE_FLAGS = frozenset({"--prefix", "-w", "--workspace", "-C", "--registry"})
+NO_VERIFY = re.compile(r"--no-verify\b")
+FORCE_PUSH = re.compile(r"\bgit\s+push\b.*(?:\s--force\b|\s-f\b|\s--force-with-lease\b)")
+HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?\n\s*\2\s*(?:\n|$)", re.S)
+QUOTED = re.compile(r"'[^']*'|\"(?:[^\"\\]|\\.)*\"")
+VARIABLE = re.compile(r"\$(?:\{(\w+)\}|(\w+))")
+ASSIGNMENT = re.compile(r"^(\w+)=(.*)$", re.S)
+
+# Commands whose every operand is written: removed, truncated, touched or re-moded.
+WRITES_OPERANDS = frozenset(
+    {"tee", "rm", "rmdir", "unlink", "shred", "truncate", "touch", "chmod", "chown", "chgrp"}
+)
+# Commands whose last operand, or `-t DIR`, is the destination.
+WRITES_DESTINATION = frozenset({"cp", "mv", "install", "ln", "rsync"})
+# Commands that edit their file operands in place when given `-i`.
+EDITS_IN_PLACE = frozenset({"sed", "perl"})
+# Words that run the command after them.
+PREFIXES = frozenset({"sudo", "env", "nohup", "time", "command", "exec", "nice"})
+SEPARATORS = frozenset({";", "&&", "||", "|", "&", "(", ")", ";;", "|&"})
+
+
+def shell_text(command: str) -> str:
+    """The command with heredoc bodies and quoted strings blanked.
+
+    A commit message is text, not a command: its `--no-verify` or `go get` is not one.
+    """
+    return QUOTED.sub(" ", HEREDOC.sub(" ", command))
+
+
+def tokens(command: str) -> list[str]:
+    """Shell words and operators, heredoc bodies removed, newlines as `;`."""
+    text = HEREDOC.sub(" ", command).replace("\n", " ; ")
+    lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        return list(lexer)
+    except ValueError:  # an unbalanced quote: fall back to words
+        return text.split()
+
+
+def simple_commands(words: list[str]) -> list[tuple[list[str], list[str]]]:
+    """Split into (arguments, redirect targets) per simple command."""
+    commands: list[tuple[list[str], list[str]]] = []
+    args: list[str] = []
+    targets: list[str] = []
+    i = 0
+    while i < len(words):
+        word = words[i]
+        if word in SEPARATORS or (set(word) <= set(";&|()") and word):
+            commands.append((args, targets))
+            args, targets = [], []
+        elif set(word) <= set("<>&|") and word:
+            following = words[i + 1] if i + 1 < len(words) else ""
+            if ">" in word and not (word.endswith("&") and following.isdigit()):
+                targets.append(following)
+            i += 1  # the operand of the redirect is not an argument
+        elif word.isdigit() and i + 1 < len(words) and set(words[i + 1]) <= set("<>&|"):
+            pass  # the file-descriptor number of `2>`
+        else:
+            args.append(word)
+        i += 1
+    commands.append((args, targets))
+    return [(a, t) for a, t in commands if a or t]
+
+
+def operands(args: list[str], value_flags: frozenset[str] = frozenset()) -> list[str]:
+    out: list[str] = []
+    skip = False
+    for arg in args:
+        if skip:
+            skip = False
+        elif arg in value_flags:
+            skip = True
+        elif not arg.startswith("-") or arg == "-":
+            out.append(arg)
+    return out
+
+
+def in_place_files(args: list[str]) -> list[str]:
+    """`sed -i`/`perl -pi` operands; the script given with -e is not a file."""
+    flags = [a for a in args if a.startswith("-") and not a.startswith("--")]
+    in_place = any("i" in f[1:].split(".")[0] for f in flags) or any(
+        a.startswith("--in-place") for a in args
+    )
+    return operands(args, frozenset({"-e", "-f", "--expression", "--file"})) if in_place else []
+
+
+def write_targets(args: list[str]) -> list[str]:
+    name = os.path.basename(args[0])
+    rest = args[1:]
+    if name in WRITES_OPERANDS:
+        return operands(rest)
+    if name in WRITES_DESTINATION:
+        for i, arg in enumerate(rest):
+            if arg == "-t" and i + 1 < len(rest):
+                return [rest[i + 1]]
+            if arg.startswith("--target-directory="):
+                return [arg.split("=", 1)[1]]
+        found = operands(rest)
+        return found[-1:] if len(found) >= 2 else []
+    if name in EDITS_IN_PLACE:
+        return in_place_files(rest)
+    if name == "dd":
+        return [a[3:] for a in rest if a.startswith("of=")]
+    return []
+
+
+def repoints_hooks(args: list[str]) -> bool:
+    """`git -c core.hooksPath=…` or setting it with `git config`; reading it is fine."""
+    if os.path.basename(args[0]) != "git":
+        return False
+    lowered = [a.lower() for a in args]
+    if any(a.startswith("core.hookspath=") for a in lowered):
+        return True
+    if "config" not in lowered or "core.hookspath" not in lowered:
+        return False
+    after = lowered[lowered.index("core.hookspath") + 1:]
+    changes = {"set", "unset", "--unset", "--unset-all", "--replace-all", "--add"}
+    return bool(changes & set(lowered)) or any(not a.startswith("-") for a in after)
+
+
+class Resolver:
+    """Resolves a word to a path, following the command's own `cd` and `NAME=value`."""
+
+    def __init__(self, cwd: Path) -> None:
+        self.cwd = cwd
+        self.names: dict[str, str] = {}
+
+    def expand(self, word: str) -> str | None:
+        """The word with variables replaced; None when one is unknown."""
+        unknown = False
+
+        def value(match: re.Match[str]) -> str:
+            nonlocal unknown
+            name = match.group(1) or match.group(2)
+            found = self.names.get(name, os.environ.get(name))
+            if found is None:
+                unknown = True
+                return ""
+            return found
+
+        expanded = os.path.expanduser(VARIABLE.sub(value, word))
+        return None if unknown or "$(" in expanded or "`" in expanded else expanded
+
+    def path(self, word: str) -> Path | None:
+        expanded = self.expand(word)
+        if expanded is None:
+            # A path built from something we cannot see: judge the part we can, as if it
+            # were written from the project root.
+            tail = VARIABLE.sub("", word).lstrip("/")
+            return hooklib.ROOT / tail if tail else None
+        return self.cwd / expanded
+
+    def observe(self, args: list[str]) -> None:
+        if all(ASSIGNMENT.match(a) for a in args):
+            for a in args:
+                name, raw = ASSIGNMENT.match(a).groups()  # type: ignore[union-attr]
+                self.names[name] = self.expand(raw) or ""
+        elif args[0] == "cd" and len(args) > 1 and args[1] != "-":
+            target = self.path(args[1])
+            if target is not None:
+                self.cwd = target
+        elif args[0] == "cd":
+            self.cwd = Path.home()
+
+
+def strip_prefixes(args: list[str]) -> list[str]:
+    while args and (args[0] in PREFIXES or ASSIGNMENT.match(args[0])):
+        args = args[1:]
+    return args
+
+
+def gate_writes(command: str, cwd: Path) -> list[str]:
+    """Gate paths, relative to the project, that the command writes."""
+    resolver = Resolver(cwd)
+    hits: list[str] = []
+    for args, redirects in simple_commands(tokens(command)):
+        targets = list(redirects)
+        if args:
+            resolver.observe(args)
+            runs = strip_prefixes(args)
+            if runs:
+                targets += write_targets(runs)
+        for target in targets:
+            path = resolver.path(target) if target else None
+            rel = relative(str(path), hooklib.ROOT) if path else None
+            if rel and (is_gate(rel) or is_gate(f"{rel}/x")):  # the file, or a gate directory
+                hits.append(rel)
+    return hits
+
+
+def skips_hooks(command: str) -> bool:
+    if NO_VERIFY.search(shell_text(command)):
+        return True
+    for args, _ in simple_commands(tokens(command)):
+        runs = strip_prefixes(args)
+        if runs and repoints_hooks(runs):
+            return True
+    return False
 
 
 def npm_adds_package(command: str) -> bool:
@@ -22,16 +230,13 @@ def npm_adds_package(command: str) -> bool:
 
     `npm install` with no name only installs what the lockfile already records.
     """
-    for segment in re.split(r"[;&|]+", command):
-        try:
-            tokens = shlex.split(segment)
-        except ValueError:
-            tokens = segment.split()
-        if not tokens or tokens[0] != "npm":
+    for args, _ in simple_commands(tokens(command)):
+        args = strip_prefixes(args)
+        if not args or args[0] != "npm":
             continue
         seen_install = False
         skip_value = False
-        for token in tokens[1:]:
+        for token in args[1:]:
             if skip_value:
                 skip_value = False
                 continue
@@ -47,25 +252,6 @@ def npm_adds_package(command: str) -> bool:
                 break  # some other subcommand: run, ci, test
             return True
     return False
-SKIP_HOOKS = re.compile(r"--no-verify\b|\bcore\.hooksPath\b")
-FORCE_PUSH = re.compile(r"\bgit\s+push\b.*(?:\s--force\b|\s-f\b|\s--force-with-lease\b)")
-SHELL_WRITE = re.compile(r"(?:>>?|\btee\b|\bsed\s+-i|\bmv\b|\bcp\b|\brm\b|\btruncate\b|\bchmod\b)")
-DEV_NULL = re.compile(r"\d?>>?\s*/dev/null|\d?>&\d")
-HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?\n\s*\2\s*(?:\n|$)", re.S)
-QUOTED = re.compile(r"'[^']*'|\"(?:[^\"\\]|\\.)*\"")
-
-
-def shell_text(command: str) -> str:
-    """The command with heredoc bodies, quoted strings and /dev/null redirects blanked.
-
-    A commit message is text, not a write: its `<noreply@anthropic.com>` is not a redirect,
-    and its mention of `scripts/` is not a target.
-    """
-    return DEV_NULL.sub(" ", QUOTED.sub(" ", HEREDOC.sub(" ", command)))
-GATE_WORDS = re.compile(
-    r"(?:^|[\s'\"/])(?:Makefile|\.golangci\.ya?ml|sqlc\.ya?ml|scripts/|\.claude/|\.githooks/|"
-    r"\.github/|deps/|internal/archtest/|eslint\.config|\.dependency-cruiser|tsconfig)"
-)
 
 
 def main() -> None:
@@ -73,29 +259,27 @@ def main() -> None:
     command = str((event.get("tool_input") or {}).get("command") or "")
     if not command:
         return
-    adds = ADD_DEPENDENCY.search(command) or npm_adds_package(command)
+    cwd = Path(str(event.get("cwd") or hooklib.ROOT))
+    adds = ADD_DEPENDENCY.search(shell_text(command)) or npm_adds_package(command)
     if adds and not hooklib.owner_allows("ORPHEUM_ALLOW_DEPS"):
         hooklib.deny(
             "Adding a dependency is the owner's decision (AGENTS.md rule 3). Propose it: the "
             "name, the job it does, and why the standard library or an allowed package cannot. "
             "`npm ci` and `go mod download` are fine."
         )
-    elif SKIP_HOOKS.search(command):
+    elif skips_hooks(command):
         hooklib.deny("Git hooks are part of the gate; don't bypass or repoint them.")
-    elif FORCE_PUSH.search(command):
+    elif FORCE_PUSH.search(shell_text(command)):
         hooklib.deny("No force-pushes. Add a commit that fixes the problem instead.")
-    elif (
-        SHELL_WRITE.search(shell_text(command))
-        and GATE_WORDS.search(shell_text(command))
-        and not hooklib.owner_allows("ORPHEUM_ALLOW_GATE_EDIT")
-    ):
-        hooklib.deny(
-            "This command looks like it writes to a gate file (see scripts/gate_paths.py). "
-            "Gates are the owner's to change; tell the owner what to change and why."
-        )
+    elif not hooklib.owner_allows("ORPHEUM_ALLOW_GATE_EDIT"):
+        hits = gate_writes(command, cwd)
+        if hits:
+            hooklib.deny(
+                f"This command writes {', '.join(sorted(set(hits)))}, which is a gate "
+                "(scripts/gate_paths.py). Gates are the owner's to change; tell the owner what "
+                "to change and why."
+            )
 
-
-assert GATE_PATTERNS  # the list GATE_WORDS approximates for shell text
 
 if __name__ == "__main__":
     main()

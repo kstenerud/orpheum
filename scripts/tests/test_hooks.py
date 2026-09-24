@@ -66,12 +66,40 @@ class PreBash(unittest.TestCase):
         self.assertEqual(self.bash("git push --force origin main"), "deny")
         self.assertEqual(self.bash("git push origin work/scan"), "")
 
-    def test_obvious_shell_writes_to_gates_are_refused(self):
-        self.assertEqual(self.bash("sed -i 's/15/40/' .golangci.yml"), "deny")
-        self.assertEqual(self.bash("echo x >> Makefile"), "deny")
-        self.assertEqual(self.bash("cat Makefile"), "")
-        self.assertEqual(self.bash("ls scripts/ 2>/dev/null"), "")
-        self.assertEqual(self.bash("echo x > scripts/check_docs.py"), "deny")
+    def test_shell_writes_to_gates_are_refused(self):
+        for cmd in ("sed -i 's/15/40/' .golangci.yml", "echo x >> Makefile",
+                    "echo x > scripts/check_docs.py", "cp /tmp/x.py scripts/check_docs.py",
+                    "mv new.yml .golangci.yml", "rm scripts/__pycache__/*.pyc",
+                    "cat a | tee -a deps/go.allow", "chmod -x .githooks/pre-commit",
+                    "cd internal && echo x > archtest/rules_test.go",
+                    "perl -pi -e 's/a/b/' sqlc.yaml", "echo x >| Makefile",
+                    "cp -t scripts/ x.py", "go build ./... 2>&1 > Makefile",
+                    "echo x > $UNKNOWN_ROOT/Makefile"):
+            self.assertEqual(self.bash(cmd), "deny", cmd)
+        self.assertEqual(self.bash("echo x >> Makefile", ORPHEUM_ALLOW_GATE_EDIT="1"), "")
+
+    def test_reading_or_mentioning_a_gate_is_not_writing_one(self):
+        """The specimens audit-2026-09-24 section 4.1 records, and their relatives."""
+        scratch = "/tmp/scratchpad"
+        for cmd in ("cat Makefile", "ls scripts/ 2>/dev/null", "git config core.hooksPath",
+                    "git config --get core.hooksPath",
+                    'grep -rn "go get" docs/ | head',
+                    f"grep -rn Clock internal/archtest > {scratch}/arch.txt 2>&1",
+                    f"cd {scratch}/sq && cat > sqlc.yaml",
+                    f"echo '- [x](x.md)' >> {Path.home()}/.claude/projects/p/memory/MEMORY.md",
+                    f"python3 scripts/check_docs.py > {scratch}/docs.log 2>&1",
+                    "git diff -- Makefile scripts/ > /yoloai/files/gates.patch",
+                    f"S={scratch}; rm -rf $S/gp && git clone -q . $S/gp && cd $S/gp && wc -l Makefile",
+                    "python3 - <<'EOF'\nprint('go get and --no-verify are words here')\nEOF",
+                    "go test ./... 2>&1 | tee /tmp/test.log",
+                    "sed -n 1,20p Makefile", "sed 's/a/b/' scripts/x.py > /tmp/x.py",
+                    "cp scripts/check_docs.py /tmp/", "make check 2>&1 | tail -3"):
+            self.assertEqual(self.bash(cmd), "", cmd)
+
+    def test_hooks_path_may_be_read_but_not_repointed(self):
+        for cmd in ("git config core.hooksPath /dev/null", "git config --unset core.hooksPath",
+                    "git -c core.hooksPath=/dev/null commit -m x", "git config set core.hooksPath x"):
+            self.assertEqual(self.bash(cmd), "deny", cmd)
 
     def test_commit_messages_are_text_not_writes(self):
         heredoc = ("git commit -q -F - <<'EOF'\nbuild: gates in scripts/ and the Makefile\n\n"
@@ -80,6 +108,7 @@ class PreBash(unittest.TestCase):
         self.assertEqual(self.bash(heredoc), "")
         quoted = 'git commit -m "fix: tidy scripts/ output > noise"'
         self.assertEqual(self.bash(quoted), "")
+        self.assertEqual(self.bash('git commit -m "docs: never use go get or --no-verify"'), "")
 
 
 class GatePaths(unittest.TestCase):
