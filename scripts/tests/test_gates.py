@@ -14,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import check_claims as cc  # noqa: E402
 import check_deps as cdeps  # noqa: E402
+import check_generated as cg  # noqa: E402
 import check_revert_red as rr  # noqa: E402
 import check_source as cs  # noqa: E402
 import check_test_weakening as tw  # noqa: E402
@@ -159,6 +160,32 @@ class TestWeakening(unittest.TestCase):
         before = "func TestA(t *testing.T) { t.Fatal(\"x\") }\n"
         after = before + "func TestB(t *testing.T) { t.Fatal(\"y\") }\n"
         self.assertEqual(tw.compare("x_test.go", before, after), [])
+
+
+class Generated(unittest.TestCase):
+    def test_snapshot_reads_directories_and_single_files(self):
+        root = Path(tempfile.mkdtemp(prefix="gen-test-"))
+        (root / "gen").mkdir()
+        (root / "gen" / "a.go").write_text("a")
+        (root / "doc.json").write_text("{}")
+        self.assertEqual(cg.snapshot(root, ("gen", "doc.json", "missing")),
+                         {"gen/a.go": b"a", "doc.json": b"{}"})
+
+    def test_correct_output_passes_whether_or_not_it_is_staged(self):
+        same = {"internal/store/sqlcgen/db.go": b"package sqlcgen\n"}
+        self.assertEqual(cg.differences(same, dict(same)), [])
+
+    def test_a_hand_edit_a_new_file_and_a_dropped_file_fail(self):
+        before = {"a.go": b"edited by hand\n", "gone.go": b"x"}
+        after = {"a.go": b"generated\n", "new.go": b"y"}
+        found = cg.differences(before, after)
+        self.assertEqual([f for f, _ in found], [
+            "a.go:1: differs from what its source generates",
+            "gone.go:1: there before, but the generator no longer writes it; delete it",
+            "new.go:1: generated, but not there before; commit it",
+        ])
+        self.assertIn("-edited by hand", found[0][1])
+        self.assertIn("+generated", found[0][1])
 
 
 class RevertRed(unittest.TestCase):

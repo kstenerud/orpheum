@@ -105,9 +105,7 @@ go-speculative: ## Fail on declarations whose only callers are tests
 
 .PHONY: check-generated
 check-generated: ## Fail if committed generated code differs from what its source generates
-	@if ls internal/store/queries/*.sql >/dev/null 2>&1; then \
-	  $(MAKE) generate && git diff --exit-code -- internal/store/sqlcgen api/openapi.json || \
-	  { echo "generated code is stale or hand-edited: run make generate and commit the result"; exit 1; }; fi
+	@$(PYTHON) scripts/check_generated.py
 
 .PHONY: check-web
 check-web: web-deps ## Typecheck, lint, format, dependency rules and tests for web/
