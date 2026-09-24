@@ -1,0 +1,225 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package main
+
+import (
+	"context"
+	"crypto/rand"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net"
+	"net/http"
+	"net/http/pprof"
+	"sync"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/store"
+)
+
+// shutdownGrace is how long in-flight requests get to finish when the server stops.
+const shutdownGrace = 10 * time.Second
+
+// serve runs the core on listener until ctx ends. The API answers /health before the database is
+// even open, and says "migrating" while it migrates. A migration that fails leaves the server up
+// and degraded, naming the step, the error and the snapshot, rather than exiting into a restart
+// loop (migrations.md, When a step fails).
+func serve(ctx context.Context, config Config, listener net.Listener, logger *slog.Logger) (err error) {
+	server := api.NewServer(logger)
+	mountDebug(server.Mux(), config, logger)
+	httpServer := &http.Server{Handler: server.Handler(), ReadHeaderTimeout: 10 * time.Second}
+	var serving sync.WaitGroup
+	serving.Go(func() {
+		if serveErr := httpServer.Serve(listener); !errors.Is(serveErr, http.ErrServerClosed) {
+			logger.ErrorContext(ctx, "the HTTP server stopped", "err", serveErr)
+		}
+	})
+	defer func() {
+		shutdownContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
+		defer cancel()
+		err = errors.Join(err, httpServer.Shutdown(shutdownContext))
+		serving.Wait()
+	}()
+	logger.InfoContext(ctx, "listening", "address", listener.Addr().String())
+
+	started, err := start(ctx, config, server, logger)
+	if err != nil {
+		server.SetStatus(api.StatusDegraded, "the server could not start", err.Error())
+		logger.ErrorContext(ctx, "the server could not start; it stays up to report why at /api/v1/health",
+			"err", err)
+		<-ctx.Done()
+		return err
+	}
+	defer func() { err = errors.Join(err, started.release()) }()
+	logger.InfoContext(ctx, "ready")
+	<-ctx.Done()
+	logger.InfoContext(ctx, "stopping")
+	return nil
+}
+
+// started is what start opened and serve must close.
+type started struct {
+	lock     *datadir.Lock
+	database *store.Database
+}
+
+func (opened started) release() error {
+	return errors.Join(opened.database.Close(), opened.lock.Release())
+}
+
+// start opens the state directory and the database, migrates, and hands the API its
+// dependencies.
+func start(ctx context.Context, config Config, server *api.Server, logger *slog.Logger) (opened started, err error) {
+	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
+	if err != nil {
+		return opened, err
+	}
+	opened.lock, err = directories.LockState()
+	if err != nil {
+		return opened, err
+	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, opened.lock.Release())
+		}
+	}()
+	database, err := openAndMigrate(ctx, directories, server.SetStatus, logger)
+	if err != nil {
+		return opened, err
+	}
+	opened.database = database
+	dependencies, err := buildDependencies(ctx, directories, database, logger)
+	if err != nil {
+		return opened, errors.Join(err, database.Close())
+	}
+	server.Ready(dependencies)
+	return opened, nil
+}
+
+// openAndMigrate opens library.db and migrates it, reporting each step before it starts.
+func openAndMigrate(
+	ctx context.Context, directories *datadir.Directories, report func(api.Status, string, ...string),
+	logger *slog.Logger,
+) (*store.Database, error) {
+	database, err := store.Open(ctx, directories.LibraryDatabase())
+	if err != nil {
+		return nil, err
+	}
+	err = database.Migrate(ctx, store.MigrateOptions{
+		SnapshotDirectory: directories.BackupDirectory(),
+		BeforeStep:        reportMigration(report, logger),
+	})
+	if err != nil {
+		return nil, errors.Join(err, database.Close())
+	}
+	return database, nil
+}
+
+// reportMigration returns the runner's BeforeStep: /health says "migrating: step 3 of 7" before
+// each step starts (migrations.md, While migrating: never look dead).
+func reportMigration(report func(api.Status, string, ...string), logger *slog.Logger) func(step, total int) {
+	return func(step, total int) {
+		detail := fmt.Sprintf("step %d of %d", step, total)
+		report(api.StatusMigrating, detail)
+		logger.Info("migrating", "step", step, "of", total)
+	}
+}
+
+// buildDependencies loads the secret key, builds the services and makes sure a server with no
+// users has a setup code, which it logs.
+func buildDependencies(
+	ctx context.Context, directories *datadir.Directories, database *store.Database, logger *slog.Logger,
+) (api.Dependencies, error) {
+	now := clock.System{}
+	key, err := loadOrCreateKey(directories, logger)
+	if err != nil {
+		return api.Dependencies{}, err
+	}
+	authService, err := auth.NewService(database, now, rand.Reader, auth.DefaultParameters())
+	if err != nil {
+		return api.Dependencies{}, err
+	}
+	codes := stateSetupCodes{directories: directories}
+	code, err := authService.EnsureSetupCode(ctx, codes)
+	if err != nil {
+		return api.Dependencies{}, err
+	}
+	if code != "" {
+		logger.WarnContext(ctx, "no one can sign in yet: create the first admin with this one-time setup code, "+
+			"at POST /api/v1/setup; `orpheum setup-code` prints it again", "setupCode", code)
+	}
+	return api.Dependencies{
+		Auth: authService, Settings: settings.NewService(database, now),
+		Secrets: secrets.NewStore(database, key, now, rand.Reader), SetupCodes: codes,
+	}, nil
+}
+
+// loadOrCreateKey reads secret.key, or writes a new one on first start. A key replaced or lost
+// leaves every sealed secret "needs re-entering" and nothing else lost (D194 §4).
+func loadOrCreateKey(directories *datadir.Directories, logger *slog.Logger) (secrets.Key, error) {
+	contents, err := directories.ReadStateFile(secrets.KeyFileName)
+	if err == nil {
+		return secrets.ParseKeyFile(contents)
+	}
+	if !errors.Is(err, datadir.ErrNotFound) {
+		return secrets.Key{}, err
+	}
+	key, err := secrets.GenerateKey(rand.Reader)
+	if err != nil {
+		return secrets.Key{}, err
+	}
+	err = directories.WriteStateFile(secrets.KeyFileName, key.EncodeKeyFile())
+	if err != nil {
+		return secrets.Key{}, err
+	}
+	logger.Info("wrote a new secret.key; back it up with `orpheum backup --include-key` to move machines")
+	return key, nil
+}
+
+// stateSetupCodes keeps the setup code in the state directory, mode 0600.
+type stateSetupCodes struct {
+	directories *datadir.Directories
+}
+
+func (codes stateSetupCodes) Read() (string, error) {
+	contents, err := codes.directories.ReadStateFile(auth.SetupCodeFileName)
+	if errors.Is(err, datadir.ErrNotFound) {
+		return "", auth.ErrNoSetupCode
+	}
+	return string(contents), err
+}
+
+func (codes stateSetupCodes) Write(code string) error {
+	return codes.directories.WriteStateFile(auth.SetupCodeFileName, []byte(code))
+}
+
+func (codes stateSetupCodes) Remove() error {
+	return codes.directories.RemoveStateFile(auth.SetupCodeFileName)
+}
+
+// mountDebug serves pprof on the API's mux when asked, and only on a loopback listener
+// (cut-a §2a). Metrics are accepted and not built yet; the log says so.
+func mountDebug(mux *http.ServeMux, config Config, logger *slog.Logger) {
+	loopback := isLoopback(config.Server.Listen)
+	if config.Debug.PProf && loopback {
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		logger.Info("pprof is on", "path", "/debug/pprof/")
+	}
+	if (config.Debug.PProf || config.Debug.Metrics) && !loopback {
+		logger.Warn("debug endpoints are served only on a loopback listen address; they are off",
+			"listen", config.Server.Listen)
+	}
+	if config.Debug.Metrics && loopback {
+		logger.Warn("debug.metrics is set, but /metrics is not built yet; nothing is served there")
+	}
+}

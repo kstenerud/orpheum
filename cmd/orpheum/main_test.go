@@ -8,13 +8,23 @@ import (
 	"testing"
 )
 
+// noEnvironment is an empty environment.
+func noEnvironment(string) (string, bool) {
+	return "", false
+}
+
 func TestRun_PlannedSubcommandsAreNotImplementedYet(t *testing.T) {
 	t.Parallel()
+	unbuilt := 0
 	for _, planned := range plannedSubcommands() {
+		if planned.run != nil {
+			continue
+		}
+		unbuilt++
 		t.Run(planned.name, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
-			status := run([]string{planned.name}, &stdout, &stderr)
+			status := run(t.Context(), []string{planned.name}, noEnvironment, &stdout, &stderr)
 			if status != exitUsageError {
 				t.Errorf("exit status = %d, want %d", status, exitUsageError)
 			}
@@ -23,12 +33,33 @@ func TestRun_PlannedSubcommandsAreNotImplementedYet(t *testing.T) {
 			}
 		})
 	}
+	if unbuilt == 0 {
+		t.Log("every planned subcommand is built; this test has nothing left to check and can go")
+	}
+}
+
+func TestRun_BuiltSubcommandsNeedTheirConfig(t *testing.T) {
+	t.Parallel()
+	for _, planned := range plannedSubcommands() {
+		if planned.run == nil || planned.name == "openapi" || planned.name == "dev" {
+			continue
+		}
+		t.Run(planned.name, func(t *testing.T) {
+			t.Parallel()
+			var stdout, stderr bytes.Buffer
+			status := run(t.Context(), []string{planned.name}, noEnvironment, &stdout, &stderr)
+			if status == exitSuccess || !strings.Contains(stderr.String(), "--config is required") {
+				t.Errorf("without --config: status %d, stderr %q; want a failure naming --config",
+					status, stderr.String())
+			}
+		})
+	}
 }
 
 func TestRun_Version(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
-	status := run([]string{"version"}, &stdout, &stderr)
+	status := run(t.Context(), []string{"version"}, noEnvironment, &stdout, &stderr)
 	if status != exitSuccess {
 		t.Errorf("exit status = %d, want %d", status, exitSuccess)
 	}
@@ -50,7 +81,7 @@ func TestRun_UsageErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
-			status := run(tc.arguments, &stdout, &stderr)
+			status := run(t.Context(), tc.arguments, noEnvironment, &stdout, &stderr)
 			if status != exitUsageError {
 				t.Errorf("exit status = %d, want %d", status, exitUsageError)
 			}
@@ -66,7 +97,7 @@ func TestRun_UsageErrors(t *testing.T) {
 func TestRun_DevSubcommandExistsOnlyInDevBuilds(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
-	run([]string{"dev"}, &stdout, &stderr)
+	run(t.Context(), []string{"dev"}, noEnvironment, &stdout, &stderr)
 	unknown := strings.Contains(stderr.String(), "unknown subcommand")
 	if unknown == isDevBuild {
 		t.Errorf("isDevBuild = %v but stderr = %q: the dev subcommand must exist exactly in dev builds",

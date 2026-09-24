@@ -3,10 +3,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+
+	"github.com/kstenerud/orpheum/internal/core/api"
 )
 
 // version is the release this binary was built from. The Makefile sets it with
@@ -17,44 +23,58 @@ var version = "dev"
 // cannot mistake either for success.
 const (
 	exitSuccess      = 0
+	exitFailure      = 1
 	exitWriteFailure = 1
 	exitUsageError   = 2
 )
 
-// subcommand is one planned role or operation of the binary (cut-a §3).
+// command runs one subcommand and returns its exit status.
+type command func(ctx context.Context, call invocation) int
+
+// subcommand is one planned role or operation of the binary (cut-a §3). A nil run is planned
+// and not built yet.
 type subcommand struct {
 	name    string
 	summary string
+	run     command
 }
 
 // plannedSubcommands lists every subcommand cut-a §3 names, in the order the usage shows them.
 func plannedSubcommands() []subcommand {
 	planned := []subcommand{
-		{name: "run", summary: "start the core, which supervises the node as a child process"},
+		{name: "run", summary: "start the core, which supervises the node as a child process", run: commandRun},
 		{name: "core", summary: "run the core alone"},
 		{name: "node", summary: "run a media node alone"},
-		{name: "migrate", summary: "migrate the database without starting the server"},
-		{name: "backup", summary: "write a backup of the database"},
-		{name: "restore", summary: "restore a backup, with the server stopped"},
-		{name: "doctor", summary: "report what is wrong and how to fix it"},
-		{name: "setup-code", summary: "print the one-time code that creates the first admin"},
+		{name: "migrate", summary: "migrate the database without starting the server", run: commandMigrate},
+		{name: "backup", summary: "write a backup of the database", run: commandBackup},
+		{name: "restore", summary: "restore a backup, with the server stopped", run: commandRestore},
+		{name: "doctor", summary: "report what is wrong and how to fix it", run: commandDoctor},
+		{name: "setup-code", summary: "print the one-time code that creates the first admin", run: commandSetupCode},
+		{name: "openapi", summary: "print the API's OpenAPI document", run: commandOpenAPI},
 	}
 	if isDevBuild {
 		planned = append(planned, subcommand{
 			name:    "dev",
 			summary: "development only: seed the dev database from dev/seed.toml (make dev)",
+			run:     devCommand(),
 		})
 	}
 	return planned
 }
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	api.UseErrorShape()
+	status := run(ctx, os.Args[1:], os.LookupEnv, os.Stdout, os.Stderr)
+	stop()
+	os.Exit(status)
 }
 
-// run executes one invocation and returns its exit status. It takes its streams as
-// parameters so the test can observe them.
-func run(arguments []string, stdout, stderr io.Writer) int {
+// run executes one invocation and returns its exit status. It takes the environment and its
+// streams as parameters so the test can observe them.
+func run(
+	ctx context.Context, arguments []string, lookupEnv func(string) (string, bool), stdout, stderr io.Writer,
+) int {
 	if len(arguments) == 0 {
 		return write(stderr, usage(), exitUsageError)
 	}
@@ -66,11 +86,36 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		return write(stdout, usage(), exitSuccess)
 	}
 	for _, planned := range plannedSubcommands() {
-		if planned.name == name {
+		if planned.name != name {
+			continue
+		}
+		if planned.run == nil {
 			return write(stderr, fmt.Sprintf("orpheum %s: not implemented yet\n", name), exitUsageError)
 		}
+		call := invocation{arguments: arguments[1:], lookupEnv: lookupEnv, stdout: stdout, stderr: stderr}
+		return planned.run(ctx, call)
 	}
 	return write(stderr, fmt.Sprintf("orpheum: unknown subcommand %q\n\n", name)+usage(), exitUsageError)
+}
+
+// commandRun starts the server with the config file.
+func commandRun(ctx context.Context, call invocation) int {
+	config, err := call.configFlags("run", nil)
+	if err != nil {
+		return call.fail(err)
+	}
+	logger, err := call.logger(config)
+	if err != nil {
+		return call.fail(err)
+	}
+	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", config.Server.Listen)
+	if err != nil {
+		return call.fail(fmt.Errorf("listen on %s: %w", config.Server.Listen, err))
+	}
+	if err = serve(ctx, config, listener, logger); err != nil {
+		return exitFailure
+	}
+	return exitSuccess
 }
 
 // write sends text to output and returns status, or exitWriteFailure if the write failed: a

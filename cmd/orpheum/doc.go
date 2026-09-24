@@ -16,6 +16,15 @@
 //   - Only this package prints. Enforced by the forbidigo rule tagged [print].
 //   - A planned subcommand that is not built yet exits 2 and says so; it never exits 0.
 //     Enforced by TestRun_PlannedSubcommandsAreNotImplementedYet in main_test.go.
+//   - The dev subcommand, which seeds public passwords, exists only in -tags dev builds. Enforced
+//     by TestRun_DevSubcommandExistsOnlyInDevBuilds.
+//   - run answers /health before migrating, says "migrating" before each step, and stays up to
+//     report a failed start rather than exiting. Enforced by
+//     TestServe_HealthSaysMigratingBeforeTheMigrationStarts and
+//     TestServe_ReportsAFailedStartInsteadOfExiting.
+//   - A secret appears in no API response, log, doctor output, backup or database file except as
+//     ciphertext (D194 §5). Enforced by TestCanary_ASecretAppearsNowhereButAsCiphertext, seen to
+//     fail against a planted leak.
 //
 // # Read before changing
 //
@@ -30,4 +39,7 @@
 //   - main.go: the subcommand table and dispatch. A subcommand's work lives in the package it
 //     names (internal/store for migrate, internal/core/backup for backup and restore); main
 //     only parses flags and wires dependencies.
+//   - config.go: the config file (cut-a §2a). serve.go: orpheum run. operations.go: migrate,
+//     backup, restore, setup-code and openapi. doctor.go: doctor. dev_seed.go: orpheum dev seed,
+//     in dev builds only.
 package main
