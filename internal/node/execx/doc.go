@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package execx is the only place a process starts. It runs the bundled ffmpeg and ffprobe, and
+// Package execx is the only place a shipping process starts. It runs the bundled ffmpeg and ffprobe, and
 // nothing else, with hardened arguments, an empty environment, the root directory as its
 // working directory and stdin closed, in a process group that is killed whole when the run is
 // cancelled. A failure carries the exit status and the tail of the tool's stderr. From M3 every
@@ -9,9 +9,9 @@
 //
 // # Invariants
 //
-//   - It is the only package that imports os/exec or calls exec.Command. Enforced by the depguard
-//     rule exec-only-in-execx, the forbidigo rule tagged [exec], and
-//     TestArch_OnlyExecxImportsOsExec.
+//   - It is the only shipping package that imports os/exec or calls exec.Command; the test-only
+//     internal/testutil is the other. Enforced by the depguard rule exec-only-in-execx, the
+//     forbidigo rule tagged [exec], and TestArch_OnlyExecxImportsOsExec.
 //   - Imports nothing from internal/core. Enforced by the depguard rule node-boundary and
 //     TestArch_NodeNeverImportsCore.
 //   - Errors from the process are wrapped where they enter. Enforced by wrapcheck, which is scoped

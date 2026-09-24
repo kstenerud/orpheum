@@ -210,6 +210,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D202](working-notes.md#d202--missing-values-heal-themselves-and-say-so-unused-settings-are-listed-and-deleted-only-by-a-person-doctor-not-a-seed-command-is-where-to-find-what-needs-fixing) Missing values heal themselves and say so; unused settings are listed and deleted only by a person; doctor, not a seed command, is where to find what needs fixing
 - [D203](working-notes.md#d203--the-audit-between-m1-and-m2-what-m2-builds-first-how-cachedb-is-versioned-and-two-standing-practices-an-audit-between-milestones-and-a-plan-deviation-log) The audit between M1 and M2: what M2 builds first, how cache.db is versioned, and two standing practices, an audit between milestones and a plan-deviation log
 - [D204](working-notes.md#d204--no-ambient-configuration-the-shipped-binary-is-configured-by-its-config-file-its-flags-and-its-database-and-by-nothing-it-inherits) No ambient configuration: the shipped binary is configured by its config file, its flags and its database, and by nothing it inherits
+- [D205](working-notes.md#d205--x86_64-is-where-cut-a-is-verified-arm64-is-kept-open-and-nothing-may-assume-amd64) x86_64 is where Cut A is verified; arm64 is kept open, and nothing may assume amd64
 
 ## Archived
 

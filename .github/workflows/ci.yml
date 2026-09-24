@@ -37,12 +37,16 @@ jobs:
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: make check
         run: make check
-      # The integration tier runs the pinned FFmpeg; the download is verified by hash and cached
-      # under the pin, so a changed pin fetches afresh.
+      # The integration tier runs the pinned FFmpeg and MKVToolNix; each download is verified by
+      # hash and cached under its pin, so a changed pin fetches afresh.
       - uses: actions/cache@v4
         with:
           path: .tools/ffmpeg
           key: ffmpeg-${{ runner.os }}-${{ hashFiles('scripts/fetch_ffmpeg.py') }}
+      - uses: actions/cache@v4
+        with:
+          path: .tools/mkvtoolnix
+          key: mkvtoolnix-${{ runner.os }}-${{ hashFiles('scripts/fetch_mkvtoolnix.py') }}
       - name: Integration tier
         run: make test-integration
       # Every branch that is not main runs the branch gates on every push, not only once a pull

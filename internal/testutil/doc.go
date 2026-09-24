@@ -2,8 +2,9 @@
 
 // Package testutil is where a test declares what it needs from the machine. Require fails the
 // test when a capability is absent, and skips it only when the job that runs it has named that
-// capability in ORPHEUM_TEST_UNCONTROLLED; FFmpegDirectory finds the pinned FFmpeg that way. It
-// also installs the fake ffmpeg and ffprobe (testing.md §11). It is imported only by tests.
+// capability in ORPHEUM_TEST_UNCONTROLLED; FFmpegDirectory and RequireMKVToolNix find the
+// pinned tools that way. It installs the fake ffmpeg and ffprobe (testing.md §11), and runs the
+// MKVToolNix that tests edit Matroska files with, which the node never runs.
 //
 // # Invariants
 //
@@ -13,6 +14,9 @@
 //     here and nowhere else (.golangci.yml).
 //   - ORPHEUM_TEST_UNCONTROLLED is read here and nowhere else in Go code, and the Makefile
 //     prints it on every Go test run. check-claims fails a test variable nothing sets.
+//   - Only tests import this package, so nothing here — skipping, test variables, starting
+//     MKVToolNix — reaches a binary. Enforced by TestArch_TestutilIsImportedOnlyByTests; that
+//     is why the depguard rule exec-only-in-execx and forbidigo's [exec] exempt it.
 //
 // # Read before changing
 //
@@ -23,6 +27,7 @@
 //
 //   - require.go: the policy. A capability that needs finding (a pinned binary, a device)
 //     gets its own helper here that finds it and calls Require, as ffmpeg.go does.
+//   - mkvtoolnix.go: the pinned MKVToolNix (scripts/fetch_mkvtoolnix.py; linux/amd64 only).
 //   - ffmpeg.go and testdata/fake-ffmpeg.sh: the pinned FFmpeg and the fake. The fake is linked,
 //     never copied: writing an executable while a parallel test forks makes running it fail
 //     with "text file busy".
