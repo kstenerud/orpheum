@@ -145,7 +145,7 @@ func TestMigrate_ResumesAfterAnInterruption(t *testing.T) {
 	steps := syntheticSteps(t, firstStep, secondStep, thirdStep)
 
 	uninterrupted := openTemporary(t)
-	if err := uninterrupted.migrate(t.Context(), steps, MigrateOptions{SnapshotDirectory: t.TempDir()}); err != nil {
+	if err := uninterrupted.migrate(t.Context(), steps, testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatalf("uninterrupted migrate: %v", err)
 	}
 
@@ -154,6 +154,7 @@ func TestMigrate_ResumesAfterAnInterruption(t *testing.T) {
 	ctx, kill := context.WithCancel(t.Context())
 	err := interrupted.migrate(ctx, steps, MigrateOptions{
 		SnapshotDirectory: snapshots,
+		SpaceFactor:       3,
 		BeforeStep: func(step, _ int) {
 			if step == 3 {
 				kill()
@@ -175,6 +176,7 @@ func TestMigrate_ResumesAfterAnInterruption(t *testing.T) {
 	var resumedAt []int
 	err = interrupted.migrate(t.Context(), steps, MigrateOptions{
 		SnapshotDirectory: snapshots,
+		SpaceFactor:       3,
 		BeforeStep:        func(step, total int) { resumedAt = append(resumedAt, step, total) },
 	})
 	if err != nil {
@@ -192,7 +194,7 @@ func TestMigrate_RollsBackAStepThatFailsHalfway(t *testing.T) {
 	t.Parallel()
 	steps := syntheticSteps(t, firstStep, "CREATE TABLE half (id INTEGER);\nINSERT INTO no_such_table VALUES (1);")
 	database := openTemporary(t)
-	err := database.migrate(t.Context(), steps, MigrateOptions{SnapshotDirectory: t.TempDir()})
+	err := database.migrate(t.Context(), steps, testMigrateOptions(t.TempDir()))
 	stepError, isStepError := errors.AsType[*StepError](err)
 	if !isStepError || !strings.Contains(stepError.Error(), "no_such_table") {
 		t.Fatalf("migrate error = %v, want a StepError naming the failing statement", err)
@@ -237,12 +239,12 @@ func TestMigrate_RefusesAStepThatBreaksWhatSQLCannotCheck(t *testing.T) {
 			t.Parallel()
 			database := openTemporary(t)
 			good := syntheticSteps(t, firstStep, secondStep, thirdStep)
-			if err := database.migrate(t.Context(), good, MigrateOptions{SnapshotDirectory: t.TempDir()}); err != nil {
+			if err := database.migrate(t.Context(), good, testMigrateOptions(t.TempDir())); err != nil {
 				t.Fatalf("the good steps: %v", err)
 			}
 			execRaw(t, database, "PRAGMA legacy_alter_table = ON")
 			bad := syntheticSteps(t, firstStep, secondStep, thirdStep, tc.step)
-			err := database.migrate(t.Context(), bad, MigrateOptions{SnapshotDirectory: t.TempDir()})
+			err := database.migrate(t.Context(), bad, testMigrateOptions(t.TempDir()))
 			stepError, isStepError := errors.AsType[*StepError](err)
 			if !isStepError || !strings.Contains(stepError.Error(), tc.wants) {
 				t.Errorf("migrate error = %v, want a StepError saying %q", err, tc.wants)
@@ -263,14 +265,14 @@ func TestMigrate_RefusesANewerDatabaseAndNamesTheSnapshot(t *testing.T) {
 
 	// A newer release that only added: it left the file usable by us, so we run.
 	execRaw(t, database, fmt.Sprintf("PRAGMA user_version = %d", version+1))
-	err = database.Migrate(t.Context(), MigrateOptions{SnapshotDirectory: snapshots})
+	err = database.Migrate(t.Context(), MigrateOptions{SnapshotDirectory: snapshots, SpaceFactor: 3})
 	if err != nil {
 		t.Fatalf("a newer but compatible database: %v, want it to run", err)
 	}
 
 	// A newer release that reshaped: refused, with the way back named.
 	execRaw(t, database, fmt.Sprintf("UPDATE schema_meta SET compatible_version = %d WHERE id = 1", version+1))
-	err = database.Migrate(t.Context(), MigrateOptions{SnapshotDirectory: snapshots})
+	err = database.Migrate(t.Context(), MigrateOptions{SnapshotDirectory: snapshots, SpaceFactor: 3})
 	refusal, isRefusal := errors.AsType[*NewerDatabaseError](err)
 	if !isRefusal {
 		t.Fatalf("migrate error = %v, want a NewerDatabaseError", err)
@@ -286,7 +288,7 @@ func TestMigrate_KeepsTheSnapshotAfterSuccess(t *testing.T) {
 	t.Parallel()
 	database := openTemporary(t)
 	snapshots := t.TempDir()
-	options := MigrateOptions{SnapshotDirectory: snapshots}
+	options := MigrateOptions{SnapshotDirectory: snapshots, SpaceFactor: 3}
 	if err := database.migrate(t.Context(), syntheticSteps(t, firstStep), options); err != nil {
 		t.Fatal(err)
 	}
@@ -377,5 +379,28 @@ func TestSteps_MatchTheCommittedChecksums(t *testing.T) {
 	}
 	for name := range want {
 		t.Errorf("migrations/SHA256SUMS lists %s, which is gone: a merged step is never deleted or renamed", name)
+	}
+}
+
+func TestMigrate_Step0002MarksTheSettingsAPersonSetAsModified(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)",
+		"INSERT INTO setting (scope, key, value, set_by, set_at) VALUES ('server', 'by_a_person', '1', 1, 1)",
+		"INSERT INTO setting (scope, key, value, set_by, set_at) VALUES ('server', 'by_the_seed', '1', NULL, 1)")
+	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	rows := queryRows(t, database, "SELECT key, is_modified FROM setting ORDER BY key", 2)
+	if fmt.Sprint(rows) != "[[by_a_person 1] [by_the_seed 0]]" {
+		t.Errorf("after step 0002, the settings are %v; want the one a person set marked modified", rows)
 	}
 }

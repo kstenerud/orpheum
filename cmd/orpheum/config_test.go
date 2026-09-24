@@ -38,29 +38,39 @@ func TestLoadConfig_ReadsTheDevFileAndReportsUnknownKeys(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_RequiresEveryKeyAndHasNoDefaults(t *testing.T) {
+func TestLoadConfig_RequiresEveryKeyAndSaysWhatItStartsAs(t *testing.T) {
 	t.Parallel()
 	if _, _, err := loadConfig(writeConfig(t, valid)); err != nil {
 		t.Fatalf("a complete config: %v", err)
 	}
-	for _, key := range requiredKeys() {
-		table, name := key[0], key[1]
-		var kept []string
-		section := ""
-		for line := range strings.SplitSeq(valid, "\n") {
-			if strings.HasPrefix(line, "[") {
-				section = strings.Trim(line, "[]")
-			}
-			if section == table && strings.HasPrefix(line, name+" ") {
-				continue
-			}
-			kept = append(kept, line)
+	for _, key := range configKeys() {
+		_, _, err := loadConfig(writeConfig(t, withoutKey(valid, key)))
+		want := key.path() + " is required"
+		if key.start != "" {
+			want += "; its starting value is " + key.start
+		} else {
+			want += " and has no starting value"
 		}
-		_, _, err := loadConfig(writeConfig(t, strings.Join(kept, "\n")))
-		if want := table + "." + name + " is required"; err == nil || !strings.Contains(err.Error(), want) {
-			t.Errorf("without %s.%s: error = %v, want %q", table, name, err, want)
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("without %s: error = %v, want %q", key.path(), err, want)
 		}
 	}
+}
+
+// withoutKey removes one key's line from a config's text.
+func withoutKey(text string, key configKey) string {
+	var kept []string
+	section := ""
+	for line := range strings.SplitSeq(text, "\n") {
+		if strings.HasPrefix(line, "[") {
+			section = strings.Trim(line, "[]")
+		}
+		if section == key.table && strings.HasPrefix(line, key.name+" ") {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.Join(kept, "\n")
 }
 
 func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
@@ -89,6 +99,12 @@ const valid = `[server]
 listen = "127.0.0.1:8432"
 data_dir = "/a"
 cache_dir = "/b"
+read_header_timeout_s = 10
+shutdown_grace_s = 10
+
+[database]
+readers_minimum = 4
+migrate_space_factor = 3
 
 [node]
 roots = ["/media"]

@@ -22,6 +22,9 @@
 //     report a failed start rather than exiting. Enforced by
 //     TestServe_HealthSaysMigratingBeforeTheMigrationStarts and
 //     TestServe_ReportsAFailedStartInsteadOfExiting.
+//   - Bootstrap sweeps the settings — writing missing rows, moving unmodified ones to a changed
+//     starting value — before anything reads one or the server reports ready (D201). Enforced by
+//     TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady.
 //   - A secret appears in no API response, log, doctor output, backup or database file except as
 //     ciphertext (D194 §5). Enforced by TestCanary_ASecretAppearsNowhereButAsCiphertext, seen to
 //     fail against a planted leak.
@@ -39,8 +42,9 @@
 //   - main.go: the subcommand table and dispatch. A subcommand's work lives in the package it
 //     names (internal/store for migrate, internal/core/backup for backup and restore); main
 //     only parses flags and wires dependencies.
-//   - config.go: the config file (cut-a §2a), every key required (D200). serve.go: orpheum run,
-//     which seeds every missing setting at start. operations.go: migrate, backup, restore,
+//   - config.go: the config file (cut-a §2a), every key required, each with a starting value or
+//     none (D200, D201). configseed.go: filling its missing keys for seed-settings. serve.go:
+//     orpheum run, which seeds the settings at start. operations.go: migrate, backup, restore,
 //     setup-code, seed-settings and openapi. doctor.go: doctor. dev_seed.go: orpheum dev seed,
 //     in dev builds only.
 package main

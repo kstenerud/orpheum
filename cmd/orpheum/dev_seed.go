@@ -103,12 +103,12 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if err != nil {
 		return err
 	}
-	database, err := store.Open(ctx, directories.LibraryDatabase())
+	database, err := store.Open(ctx, directories.LibraryDatabase(), config.openOptions())
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Join(err, database.Close()) }()
-	err = database.Migrate(ctx, store.MigrateOptions{SnapshotDirectory: directories.BackupDirectory()})
+	err = database.Migrate(ctx, config.migrateOptions(directories.BackupDirectory(), nil))
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	}
 	// Every setting gets its starting value first: hashing a password reads argon2id's costs.
 	settingsService := settings.NewService(database, clock.System{})
-	if _, err = settingsService.Seed(ctx); err != nil {
+	if _, err = settingsService.Seed(ctx); err != nil { // the report is the server's to log at start
 		return err
 	}
 	key, err := loadOrCreateKey(directories, logger)

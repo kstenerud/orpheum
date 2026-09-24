@@ -66,7 +66,7 @@ func TestBackup_ARestoredCopyReproducesEveryTable(t *testing.T) {
 	if err := CopyBackup(t.Context(), backup, restoredPath); err != nil {
 		t.Fatalf("CopyBackup: %v", err)
 	}
-	restored, err := Open(t.Context(), restoredPath)
+	restored, err := Open(t.Context(), restoredPath, testOpenOptions())
 	if err != nil {
 		t.Fatalf("open the restored copy: %v", err)
 	}

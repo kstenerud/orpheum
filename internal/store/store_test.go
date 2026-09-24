@@ -12,10 +12,21 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
+// testOpenOptions are the store options these tests use; in production they come from the
+// config file.
+func testOpenOptions() OpenOptions {
+	return OpenOptions{MinimumReaders: 4}
+}
+
+// testMigrateOptions are the runner options these tests use, snapshotting into directory.
+func testMigrateOptions(directory string) MigrateOptions {
+	return MigrateOptions{SnapshotDirectory: directory, SpaceFactor: 3}
+}
+
 // openTemporary opens a new database in the test's temporary directory.
 func openTemporary(t *testing.T) *Database {
 	t.Helper()
-	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "library.db"))
+	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "library.db"), testOpenOptions())
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -31,7 +42,7 @@ func openTemporary(t *testing.T) *Database {
 func openMigrated(t *testing.T) *Database {
 	t.Helper()
 	database := openTemporary(t)
-	if err := database.Migrate(t.Context(), MigrateOptions{SnapshotDirectory: t.TempDir()}); err != nil {
+	if err := database.Migrate(t.Context(), testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
 	return database
@@ -64,18 +75,18 @@ func TestOpen_RefusesAFileThatIsNotOurs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = Open(t.Context(), path)
+	_, err = Open(t.Context(), path, testOpenOptions())
 	if !errors.Is(err, ErrNotOurs) {
 		t.Errorf("Open(foreign file) error = %v, want ErrNotOurs", err)
 	}
 
 	// Positive siblings: an empty file and one of ours both open.
 	empty := openTemporary(t)
-	err = empty.Migrate(t.Context(), MigrateOptions{})
+	err = empty.Migrate(t.Context(), MigrateOptions{SpaceFactor: 3})
 	if err != nil {
 		t.Fatalf("Migrate a new file: %v", err)
 	}
-	reopened, err := Open(t.Context(), empty.Path())
+	reopened, err := Open(t.Context(), empty.Path(), testOpenOptions())
 	if err != nil {
 		t.Fatalf("reopen our own file: %v", err)
 	}
@@ -86,7 +97,7 @@ func TestOpen_RefusesAFileThatIsNotOurs(t *testing.T) {
 
 func TestOpen_RefusesAPathWithAQuestionMark(t *testing.T) {
 	t.Parallel()
-	_, err := Open(t.Context(), filepath.Join(t.TempDir(), "library.db?mode=memory"))
+	_, err := Open(t.Context(), filepath.Join(t.TempDir(), "library.db?mode=memory"), testOpenOptions())
 	if err == nil || !strings.Contains(err.Error(), "may not contain '?'") {
 		t.Errorf("Open error = %v, want the '?' refusal", err)
 	}
@@ -178,5 +189,21 @@ func TestOne_TurnsNoRowsIntoErrNotFound(t *testing.T) {
 	role, err := One(database.Read().GetRoleByName(t.Context(), "admin"))
 	if err != nil || role.Name != "admin" {
 		t.Errorf("One(admin role) = %v, %v; want the built-in admin role", role, err)
+	}
+}
+
+func TestOpen_RefusesOptionsNobodyChose(t *testing.T) {
+	t.Parallel()
+	_, err := Open(t.Context(), filepath.Join(t.TempDir(), "library.db"), OpenOptions{})
+	if err == nil || !strings.Contains(err.Error(), "reader pool minimum is 0") {
+		t.Errorf("Open with no reader minimum = %v, want a refusal, not a value from code", err)
+	}
+	database := openMigrated(t)
+	if err = database.requireSpaceToMigrate(t.Context(), t.TempDir(), 0); err == nil ||
+		!strings.Contains(err.Error(), "space factor is 0") {
+		t.Errorf("a space factor of 0 = %v, want a refusal", err)
+	}
+	if err = database.requireSpaceToMigrate(t.Context(), t.TempDir(), 3); err != nil {
+		t.Errorf("a space factor of 3 with room to spare = %v, want nil", err)
 	}
 }

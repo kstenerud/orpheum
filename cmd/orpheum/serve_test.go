@@ -85,20 +85,33 @@ func (captured capturedLog) String() string {
 func testConfig(t *testing.T) (Config, string) {
 	t.Helper()
 	root := t.TempDir()
-	config := Config{
-		Server: ServerConfig{
-			Listen: "127.0.0.1:0", DataDir: filepath.Join(root, "state"), CacheDir: filepath.Join(root, "cache"),
-		},
-		Node: NodeConfig{Confinement: "report"},
-		Log:  LogConfig{Level: "debug", Format: "json"},
-	}
 	path := filepath.Join(root, "orpheum.toml")
-	text := fmt.Sprintf("[server]\nlisten = %q\ndata_dir = %q\ncache_dir = %q\n\n"+
-		"[node]\nroots = []\nffmpeg_dir = %q\nconfinement = \"report\"\n\n"+
-		"[log]\nlevel = \"debug\"\nformat = \"json\"\n",
-		config.Server.Listen, config.Server.DataDir, config.Server.CacheDir, filepath.Join(root, "ffmpeg"))
+	text := fmt.Sprintf(`[server]
+listen = "127.0.0.1:0"
+data_dir = %q
+cache_dir = %q
+read_header_timeout_s = 10
+shutdown_grace_s = 10
+
+[database]
+readers_minimum = 4
+migrate_space_factor = 3
+
+[node]
+roots = []
+ffmpeg_dir = %q
+confinement = "report"
+
+[log]
+level = "debug"
+format = "json"
+`, filepath.Join(root, "state"), filepath.Join(root, "cache"), filepath.Join(root, "ffmpeg"))
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
+	}
+	config, unknown, err := loadConfig(path)
+	if err != nil || len(unknown) != 0 {
+		t.Fatalf("the test config does not load cleanly: %v, unknown keys %v", err, unknown)
 	}
 	return config, path
 }
@@ -188,7 +201,7 @@ func TestServe_HealthSaysMigratingBeforeTheMigrationStarts(t *testing.T) {
 	server := api.NewServer(slog.New(slog.DiscardHandler))
 	served := httptest.NewServer(server.Handler())
 	t.Cleanup(served.Close)
-	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "library.db"))
+	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "library.db"), storetest.OpenOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,6 +214,7 @@ func TestServe_HealthSaysMigratingBeforeTheMigrationStarts(t *testing.T) {
 	var seen []string
 	err = database.Migrate(t.Context(), store.MigrateOptions{
 		SnapshotDirectory: t.TempDir(),
+		SpaceFactor:       3,
 		BeforeStep: func(step, total int) {
 			report(step, total)
 			health := call(t, http.MethodGet, served.URL+api.Prefix+"/health", "", nil)
@@ -208,7 +222,8 @@ func TestServe_HealthSaysMigratingBeforeTheMigrationStarts(t *testing.T) {
 			if stateErr != nil {
 				t.Error(stateErr)
 			}
-			seen = append(seen, fmt.Sprintf("%d %s at schema %d", health.status, health.body, state.Version))
+			seen = append(seen, fmt.Sprintf("%d %s step %d at schema %d",
+				health.status, health.body, step, state.Version))
 		},
 	})
 	if err != nil {
@@ -217,11 +232,13 @@ func TestServe_HealthSaysMigratingBeforeTheMigrationStarts(t *testing.T) {
 	if len(seen) == 0 {
 		t.Fatal("no step ran; the test saw nothing")
 	}
-	for _, observed := range seen {
+	for index, observed := range seen {
+		step := index + 1
 		if !strings.HasPrefix(observed, "200 ") || !strings.Contains(observed, `"status":"migrating"`) ||
-			!strings.Contains(observed, "step 1 of") || !strings.HasSuffix(observed, "at schema 0") {
-			t.Errorf("before the first step, /health = %s; want 200, migrating, step 1, and the schema untouched",
-				observed)
+			!strings.Contains(observed, fmt.Sprintf(`"detail":"step %d of`, step)) ||
+			!strings.HasSuffix(observed, fmt.Sprintf("at schema %d", step-1)) {
+			t.Errorf("before step %d, /health = %s; want 200, migrating, that step, and the schema not yet at it",
+				step, observed)
 		}
 	}
 }
@@ -276,10 +293,40 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 		t.Fatal(err)
 	}
 	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
-		"UPDATE setting SET value = 'true' WHERE scope = 'server' AND key = 'debug_pprof'")
+		"UPDATE setting SET value = 'true', is_modified = 1 WHERE scope = 'server' AND key = 'debug_pprof'")
 	restarted := startServing(t, config, newCapturedLog("ready"), "ready")
 	pprofURL = strings.TrimSuffix(restarted.baseURL, api.Prefix) + "/debug/pprof/"
 	if on := call(t, http.MethodGet, pprofURL, "", nil); on.status != http.StatusOK {
 		t.Errorf("with debug_pprof on and a loopback listener, /debug/pprof/ = %d, want 200", on.status)
+	}
+}
+
+func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *testing.T) {
+	t.Parallel()
+	config, path := testConfig(t)
+	first := startServing(t, config, newCapturedLog("ready"), "ready")
+	if err := first.stop(); err != nil {
+		t.Fatal(err)
+	}
+	// As a database looks after an upgrade that changed two starting values: one row nobody
+	// touched still holds the old value; the other was set by a person.
+	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
+		"UPDATE setting SET value = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
+		"UPDATE setting SET value = '6', is_modified = 1 WHERE key = 'secret_hint_length'")
+	captured := newCapturedLog("ready")
+	server := startServing(t, config, captured, "ready")
+	logged := captured.String()
+	sweep := strings.Index(logged, "this release changed the starting value of settings nobody had set")
+	ready := strings.Index(logged, `"msg":"ready"`)
+	if sweep < 0 || ready < 0 || sweep > ready || !strings.Contains(logged[sweep:ready], "signin_failure_limit") ||
+		strings.Contains(logged[sweep:ready], "secret_hint_length") {
+		t.Errorf("the sweep was not logged before ready, or touched the setting a person set:\n%s", logged)
+	}
+	if err := server.stop(); err != nil {
+		t.Fatal(err)
+	}
+	again := runCommand(t, "seed-settings", "--config", path)
+	if !strings.Contains(again.stdout, "settings: every setting already has a value") {
+		t.Errorf("after the start swept, seeding again found work to do:\n%s", again.stdout)
 	}
 }

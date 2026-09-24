@@ -18,19 +18,26 @@
 //     settings response with every secret set.
 //   - Every starting value is a valid value of its setting, or null for a question. Enforced by
 //     TestRegistry_EveryStartingValueIsAValidValueOrAQuestion.
-//   - Seeding writes every missing row and never overwrites one. Enforced by
+//   - Seeding writes every missing row and never overwrites one a person set. Enforced by
 //     TestSeed_WritesEveryStartingValueAndNeverOverwrites.
+//   - A manual set marks a setting modified, even at its starting value; set-to-default clears the
+//     mark; an unmodified row follows a changed starting value (D201). Enforced by
+//     TestSet_MarksModifiedEvenAtTheStartingValueAndResetClearsIt and
+//     TestSeed_MovesOnlyUnmodifiedSettingsToAChangedStartingValue.
+//   - Rows nothing reads are reported and left alone. Enforced by
+//     TestSeed_ReportsRowsNothingReadsAndLeavesThemAlone.
 //   - A missing row is an error naming the key, its starting value and the fix; there is no
 //     fallback. Enforced by TestSeed_RefillsARemovedSettingAndTheErrorSaysHowToFixIt.
 //   - A change is checked against the registry's kind and bounds, and against what the settings
 //     page shows, and applied all or none. Enforced by TestSet_RefusesAndChangesNothing.
-//   - Modified means different from the starting value; reset writes it back. Enforced by
+//   - Reset writes the starting value back. Enforced by
 //     TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage and
 //     TestReset_WritesTheStartingValueBack.
 //
 // # Read before changing
 //
 //   - D200: every opinion is a setting row seeded with its starting value; nothing defaults in code.
+//   - D201: modified is a person's mark; unmodified rows follow a changed starting value.
 //   - D183: an opinion must be visible where it acts (amended by D200).
 //   - D184: the defaults audit; update_check is asked, not assumed.
 //   - D194 §3: why secrets have their own table.

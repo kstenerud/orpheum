@@ -12,12 +12,22 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
+// OpenOptions are the store options tests use: in production they come from the config file.
+func OpenOptions() store.OpenOptions {
+	return store.OpenOptions{MinimumReaders: 4}
+}
+
+// MigrateOptions are the runner options tests use, snapshotting into directory.
+func MigrateOptions(directory string) store.MigrateOptions {
+	return store.MigrateOptions{SnapshotDirectory: directory, SpaceFactor: 3}
+}
+
 // Open returns a new database in a temporary directory, migrated to the current schema and
 // closed when the test ends.
 func Open(tb testing.TB) *store.Database {
 	tb.Helper()
 	directory := tb.TempDir()
-	database, err := store.Open(tb.Context(), filepath.Join(directory, "library.db"))
+	database, err := store.Open(tb.Context(), filepath.Join(directory, "library.db"), OpenOptions())
 	if err != nil {
 		tb.Fatalf("open a test database: %v", err)
 	}
@@ -26,7 +36,7 @@ func Open(tb testing.TB) *store.Database {
 			tb.Errorf("close the test database: %v", err)
 		}
 	})
-	if err := database.Migrate(tb.Context(), store.MigrateOptions{SnapshotDirectory: directory}); err != nil {
+	if err := database.Migrate(tb.Context(), MigrateOptions(directory)); err != nil {
 		tb.Fatalf("migrate the test database: %v", err)
 	}
 	return database

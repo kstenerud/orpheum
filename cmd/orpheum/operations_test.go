@@ -130,12 +130,49 @@ func TestSeedSettings_RefillsARemovedSettingAndDoctorSaysWhatIsMissing(t *testin
 		!strings.Contains(doctor.stdout, "orpheum seed-settings") {
 		t.Errorf("doctor with a setting removed does not name it, its starting value and the fix:\n%s", doctor.stdout)
 	}
+	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
+		"INSERT INTO setting (scope, key, value, set_at) VALUES ('server', 'backup_age_warn_h', '24', 1)")
 	seeded := runCommand(t, "seed-settings", "--config", path)
-	if seeded.status != exitSuccess || seeded.stdout != "wrote backup_age_warning_h = 168, its starting value\n" {
-		t.Errorf("seed-settings = %+v, want just the removed setting written", seeded)
+	for _, want := range []string{
+		"config: every key is there; nothing was written",
+		"settings: wrote backup_age_warning_h = 168, its starting value",
+		"settings: backup_age_warn_h is in the database, but nothing reads it",
+	} {
+		if seeded.status != exitSuccess || !strings.Contains(seeded.stdout, want) {
+			t.Errorf("seed-settings = %+v, want it to say %q", seeded, want)
+		}
 	}
 	again := runCommand(t, "seed-settings", "--config", path)
-	if again.status != exitSuccess || !strings.Contains(again.stdout, "nothing was written") {
-		t.Errorf("seed-settings again = %+v, want nothing written", again)
+	if again.status != exitSuccess || !strings.Contains(again.stdout, "settings: every setting already has a value") ||
+		!strings.Contains(again.stdout, "backup_age_warn_h is in the database") {
+		t.Errorf("seed-settings again = %+v, want nothing written and the unknown row still reported", again)
+	}
+	doctorAfter := runCommand(t, "doctor", "--config", path)
+	if !strings.Contains(doctorAfter.stdout, "setting backup_age_warn_h is in the database, but nothing reads it") {
+		t.Errorf("doctor does not report the unknown setting row:\n%s", doctorAfter.stdout)
+	}
+}
+
+func TestSeedSettings_FillsTheConfigFileWhenTheServerCannotStart(t *testing.T) {
+	t.Parallel()
+	config, path := startedOnce(t)
+	text := strings.Replace(string(readFile(t, path)), "shutdown_grace_s = 10\n", "", 1)
+	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	refused := runCommand(t, "doctor", "--config", path)
+	if refused.status == exitSuccess || !strings.Contains(refused.stderr,
+		"server.shutdown_grace_s is required; its starting value is 10") {
+		t.Errorf("with a key removed, doctor = %+v; want a refusal naming the key and its starting value", refused)
+	}
+	seeded := runCommand(t, "seed-settings", "--config", path)
+	if seeded.status != exitSuccess || !strings.Contains(seeded.stdout, "config: wrote server.shutdown_grace_s = 10") {
+		t.Errorf("seed-settings = %+v, want the missing key written", seeded)
+	}
+	if _, _, err := loadConfig(path); err != nil {
+		t.Errorf("after seeding, the config does not load: %v", err)
+	}
+	if config.Server.DataDir == "" {
+		t.Fatal("the test config has no data directory")
 	}
 }

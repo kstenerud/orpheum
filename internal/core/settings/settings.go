@@ -53,8 +53,9 @@ func notSeeded(definition Definition) error {
 	return &NotSeededError{Key: definition.Key, Start: definition.Start}
 }
 
-// Entry is a setting as a settings page or /config shows it: the value in force, and whether it
-// differs from the value a new server starts with.
+// Entry is a setting as a settings page or /config shows it: the value in force, and whether a
+// person set it. A setting set to the value it starts with is still modified: it no longer
+// follows its starting value when a release changes it (D200).
 type Entry struct {
 	Definition Definition
 	Value      json.RawMessage
@@ -72,40 +73,6 @@ type Service struct {
 // NewService returns a settings Service.
 func NewService(database *store.Database, now clock.Clock) *Service {
 	return &Service{database: database, clock: now}
-}
-
-// Seed writes the starting value of every server setting that has no row: all of them on a new
-// server, on an upgrade the keys the new release introduced, and any row that was removed. A row
-// that exists is never changed, so a person's choice survives. It returns the keys it wrote. The
-// server seeds at every start; a person can also seed with `orpheum seed-settings` or
-// POST /config/seed.
-func (service *Service) Seed(ctx context.Context) ([]Key, error) {
-	written := []Key{}
-	now := service.clock.Now().UnixMilli()
-	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		before, err := queries.ListServerSettings(ctx)
-		if err != nil {
-			return fmt.Errorf("list server settings: %w", err)
-		}
-		present := map[string]bool{}
-		for _, row := range before {
-			present[row.Key] = true
-		}
-		for _, definition := range Registry() {
-			if definition.Scope != ScopeServer || present[string(definition.Key)] {
-				continue
-			}
-			err := queries.InsertServerSettingIfMissing(ctx, sqlcgen.InsertServerSettingIfMissingParams{
-				Key: string(definition.Key), Value: compact(definition.Start), SetAt: now,
-			})
-			if err != nil {
-				return fmt.Errorf("seed %s: %w", definition.Key, err)
-			}
-			written = append(written, definition.Key)
-		}
-		return nil
-	})
-	return written, err
 }
 
 // List returns every setting of a scope with its value in force: owner is the user for the user
@@ -126,16 +93,17 @@ func (service *Service) List(ctx context.Context, owner *int64, exposedOnly bool
 		}
 		entries = append(entries, Entry{
 			Definition: definition, Value: json.RawMessage(row.Value),
-			IsModified: row.Value != compact(definition.Start), SetBy: row.SetBy, SetAt: row.SetAt,
+			IsModified: row.IsModified, SetBy: row.SetBy, SetAt: row.SetAt,
 		})
 	}
 	return entries, nil
 }
 
 type storedSetting struct {
-	Value string
-	SetBy *int64
-	SetAt int64
+	Value      string
+	SetBy      *int64
+	SetAt      int64
+	IsModified bool
 }
 
 func (service *Service) stored(ctx context.Context, owner *int64) (Scope, map[string]storedSetting, error) {
@@ -146,7 +114,9 @@ func (service *Service) stored(ctx context.Context, owner *int64) (Scope, map[st
 			return ScopeServer, nil, fmt.Errorf("list server settings: %w", err)
 		}
 		for _, row := range rows {
-			stored[row.Key] = storedSetting{Value: row.Value, SetBy: row.SetBy, SetAt: row.SetAt}
+			stored[row.Key] = storedSetting{
+				Value: row.Value, SetBy: row.SetBy, SetAt: row.SetAt, IsModified: row.IsModified == 1,
+			}
 		}
 		return ScopeServer, stored, nil
 	}
@@ -155,7 +125,9 @@ func (service *Service) stored(ctx context.Context, owner *int64) (Scope, map[st
 		return ScopeUser, nil, fmt.Errorf("list user settings: %w", err)
 	}
 	for _, row := range rows {
-		stored[row.Key] = storedSetting{Value: row.Value, SetBy: row.SetBy, SetAt: row.SetAt}
+		stored[row.Key] = storedSetting{
+			Value: row.Value, SetBy: row.SetBy, SetAt: row.SetAt, IsModified: row.IsModified == 1,
+		}
 	}
 	return ScopeUser, stored, nil
 }
@@ -218,7 +190,7 @@ func (service *Service) Set(
 	now := service.clock.Now().UnixMilli()
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		for key, value := range values {
-			change := change{owner: owner, key: key, value: compact(value), setBy: setBy, setAt: now}
+			change := change{owner: owner, key: key, value: compact(value), setBy: setBy, setAt: now, isModified: true}
 			if err := upsert(ctx, queries, change); err != nil {
 				return fmt.Errorf("set %s: %w", key, err)
 			}
@@ -227,7 +199,8 @@ func (service *Service) Set(
 	})
 }
 
-// Reset writes a server setting's starting value back, as about:config's reset does.
+// Reset writes a server setting's starting value back and clears its modified mark, so it follows
+// its starting value again when a release changes it: "set to default".
 func (service *Service) Reset(ctx context.Context, key Key, setBy *int64) error {
 	definition, known := Lookup(key)
 	if !known {
@@ -246,21 +219,27 @@ func (service *Service) Reset(ctx context.Context, key Key, setBy *int64) error 
 
 // change is one setting being written.
 type change struct {
-	owner *int64
-	key   string
-	value string
-	setBy *int64
-	setAt int64
+	owner      *int64
+	key        string
+	value      string
+	setBy      *int64
+	setAt      int64
+	isModified bool
 }
 
 func upsert(ctx context.Context, queries *sqlcgen.Queries, change change) error {
+	var modified int64
+	if change.isModified {
+		modified = 1
+	}
 	if change.owner == nil {
 		return queries.UpsertServerSetting(ctx, sqlcgen.UpsertServerSettingParams{
-			Key: change.key, Value: change.value, SetBy: change.setBy, SetAt: change.setAt,
+			Key: change.key, Value: change.value, SetBy: change.setBy, SetAt: change.setAt, IsModified: modified,
 		})
 	}
 	return queries.UpsertUserSetting(ctx, sqlcgen.UpsertUserSettingParams{
 		UserID: change.owner, Key: change.key, Value: change.value, SetBy: change.setBy, SetAt: change.setAt,
+		IsModified: modified,
 	})
 }
 
