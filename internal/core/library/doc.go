@@ -33,6 +33,8 @@
 //   - A disk missing from a mount point inside a root — found by comparing the mount boundaries a
 //     scan crossed with the last complete scan's — removes nothing under it (D208, as corrected).
 //     TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt.
+//   - A sidecar is filed as attached to the video it belongs to, and an NFO's bytes are stored as
+//     identification's input (D182). TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo.
 //   - A payload that returns revives its tombstone, with its history (D208 §4).
 //     TestScenario_S10_AFilmPutBackRevivesItsTombstone.
 //
@@ -47,6 +49,6 @@
 //
 // # Where to change
 //
-//   - ingest.go, observe.go, complete.go: the report ingest; streams.go: the stream rows a probe
+//   - ingest.go, observe.go, complete.go, sidecar.go: the report ingest; streams.go: the stream rows a probe
 //     derives; create.go: libraries. Browse and search come with identification.
 package library

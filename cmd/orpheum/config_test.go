@@ -125,6 +125,7 @@ roots = ["/media"]
 ffmpeg_dir = "/opt/ffmpeg"
 confinement = "require"
 video_extensions = ["mkv", "mp4"]
+subtitle_extensions = ["srt"]
 max_errors_per_root = 1000
 probe_timeout_s = 60
 status_interval_s = 10

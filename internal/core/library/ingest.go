@@ -127,6 +127,10 @@ func (work *batch) record(ctx context.Context, record nodeproto.Record) error {
 		if scan := work.scan(); scan != nil {
 			return work.complete(ctx, scan, record.ScanComplete)
 		}
+	case nodeproto.RecordSidecar:
+		if scan := work.scan(); scan != nil {
+			return work.sidecar(ctx, scan, record.Sidecar)
+		}
 	case nodeproto.RecordMount:
 		if scan := work.scan(); scan != nil {
 			mountPath, _ := nodePath(scan.root, record.Mount.Path)

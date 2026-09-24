@@ -44,7 +44,7 @@ only in the program.
 - **It holds only what must be known before `library.db` opens**, or must not be changeable by
   someone holding only an admin account: the listen address, the two directories and the socket
   directory, the HTTP timeouts, the store's reader minimum and migration space factor, the node's
-  name, roots, FFmpeg path, confinement, video extensions, error limit, probe timeout and status
+  name, roots, FFmpeg path, confinement, video and subtitle extensions, error limit, probe timeout and status
   interval (the node has no database), and the log level and format. Everything else is a
   setting.
 - **Every key has a starting value, or is marked as having none** because it is specific to the

@@ -15,6 +15,7 @@ const (
 	RecordError        RecordType = "error"
 	RecordScanComplete RecordType = "scan_complete"
 	RecordMount        RecordType = "mount"
+	RecordSidecar      RecordType = "sidecar"
 )
 
 // Record is one line of a JSONL report. Type says which one field is set; Seq is the node's
@@ -29,6 +30,30 @@ type Record struct {
 	ScanComplete *ScanComplete `json:"scanComplete,omitempty"`
 	Status       *Status       `json:"status,omitempty"`
 	Mount        *Mount        `json:"mount,omitempty"`
+	Sidecar      *Sidecar      `json:"sidecar,omitempty"`
+}
+
+// SidecarKind is what a sidecar file is for.
+type SidecarKind string
+
+// The sidecar kinds.
+const (
+	// SidecarNFO is Kodi's metadata file. Its bytes travel in the record: identification reads
+	// them in the core, which never opens a file (identification.md, Reading the sidecars).
+	SidecarNFO SidecarKind = "nfo"
+	// SidecarSubtitle is a text subtitle file beside its video. Its bytes are read when played.
+	SidecarSubtitle SidecarKind = "subtitle"
+)
+
+// Sidecar is a file beside the media that is not media: metadata or subtitles. The core files it
+// as attached to its video (schema.md, attached).
+type Sidecar struct {
+	Path    Path        `json:"path"`
+	Kind    SidecarKind `json:"kind"`
+	Size    int64       `json:"size"`
+	MtimeMs int64       `json:"mtimeMs"`
+	// Body is the file's bytes, for an NFO only, and bounded: a larger NFO is an error record.
+	Body []byte `json:"body,omitempty"`
 }
 
 // Mount is a directory below the root that is on another device than its parent: a mount
@@ -165,6 +190,7 @@ type ErrorRaw struct {
 type ScanComplete struct {
 	Root     string `json:"root"`
 	Observed int    `json:"observed"`
+	Sidecars int    `json:"sidecars"`
 	Skipped  int    `json:"skipped"`
 	Errors   int    `json:"errors"`
 	// Stopped is true when the node stopped enumerating the root after too many errors.

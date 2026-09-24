@@ -91,7 +91,7 @@ func TestRun_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 		`"msg":"a node said hello"`,
 		`"ffmpeg":"{\"format\"`,
 		`"msg":"a node finished a scan"`,
-		`"observed":1,"skipped":1,"errors":0`,
+		`"observed":1,"sidecars":0,"skipped":1,"errors":0`,
 	} {
 		if !strings.Contains(log, want) {
 			t.Errorf("the log lacks %s:\n%s", want, log)

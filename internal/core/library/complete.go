@@ -64,6 +64,9 @@ func (work *batch) complete(ctx context.Context, scan *scanState, complete *node
 	if mountsErr := work.recordMounts(ctx, scan, missing); mountsErr != nil {
 		return mountsErr
 	}
+	if attachErr := work.attachSidecars(ctx, scan); attachErr != nil {
+		return attachErr
+	}
 	err = work.queries.UpsertRootScan(ctx, sqlcgen.UpsertRootScanParams{
 		NodeID: work.nodeID, Path: scan.root, CompletedAt: work.now,
 	})

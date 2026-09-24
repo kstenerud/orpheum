@@ -326,3 +326,66 @@ func TestIngest_AFileInAnotherRootIsNeverTakenForAMove(t *testing.T) {
 func rootStateParams(nodeID int64) sqlcgen.GetRootStateParams {
 	return sqlcgen.GetRootStateParams{NodeID: nodeID, Path: root}
 }
+
+func sidecar(path string, kind nodeproto.SidecarKind, body string) nodeproto.Record {
+	record := &nodeproto.Sidecar{Path: nodeproto.Path{Text: path}, Kind: kind, Size: int64(len(body)), MtimeMs: 1}
+	if kind == nodeproto.SidecarNFO {
+		record.Body = []byte(body)
+	}
+	return nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: record}
+}
+
+func TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	world.scan([]nodeproto.Record{
+		// Sidecars before their videos, as byte order often sends them.
+		sidecar("Metropolis (1995)/Metropolis (1995) - 720p.en.srt", nodeproto.SidecarSubtitle, "1\n"),
+		sidecar("Metropolis (1995)/Metropolis (1995).nfo", nodeproto.SidecarNFO, "<movie><title>Metropolis</title></movie>"),
+		observed("Metropolis (1995)/Metropolis (1995) - 720p.mkv", "heat 720"),
+		observed("Metropolis (1995)/Metropolis (1995).mkv", "heat 1080"),
+		observed("Nosferatu (1998)/nosferatu.mkv", "ronin"),
+		sidecar("Nosferatu (1998)/movie.nfo", nodeproto.SidecarNFO, "<movie/>"),
+		sidecar("Show/tvshow.nfo", nodeproto.SidecarNFO, "<tvshow/>"),
+	}, true)
+	rows, err := world.database.Read().ListLiveFilesForAttaching(t.Context(), sqlcgen.ListLiveFilesForAttachingParams{
+		NodeID: world.nodeID, LibraryID: world.live()[root+"/Metropolis (1995)/Metropolis (1995).mkv"].LibraryID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := map[string]sqlcgen.ListLiveFilesForAttachingRow{}
+	for _, row := range rows {
+		byPath[strings.TrimPrefix(row.Path, root+"/")] = row
+	}
+	owner := func(sidecarPath string) string {
+		attached := byPath[sidecarPath].AttachedTo
+		if attached == nil {
+			return ""
+		}
+		for name, row := range byPath {
+			if row.ID == *attached {
+				return name
+			}
+		}
+		return "?"
+	}
+	want := map[string]string{
+		"Metropolis (1995)/Metropolis (1995) - 720p.en.srt": "Metropolis (1995)/Metropolis (1995) - 720p.mkv",
+		"Metropolis (1995)/Metropolis (1995).nfo":           "Metropolis (1995)/Metropolis (1995).mkv",
+		"Nosferatu (1998)/movie.nfo":                "Nosferatu (1998)/nosferatu.mkv",
+		"Show/tvshow.nfo":                       "",
+	}
+	body, err := world.database.Read().GetSidecarBody(t.Context(), byPath["Metropolis (1995)/Metropolis (1995).nfo"].ID)
+	if err != nil || string(body) != "<movie><title>Metropolis</title></movie>" {
+		t.Errorf("the NFO's stored bytes are %q, %v; identification reads them (D182)", body, err)
+	}
+	for sidecarPath, video := range want {
+		if byPath[sidecarPath].Filing != filingAttached {
+			t.Errorf("%s is filed %q, want attached", sidecarPath, byPath[sidecarPath].Filing)
+		}
+		if got := owner(sidecarPath); got != video {
+			t.Errorf("%s is attached to %q, want %q", sidecarPath, got, video)
+		}
+	}
+}
