@@ -57,6 +57,11 @@ class DevLoop(unittest.TestCase):
         self.assertIn('ffmpeg_dir = "/f"', text)
         self.assertEqual(dev.listen_address(text), "0.0.0.0:9000")
 
+    def test_vite_binds_the_host_dev_listen_gives(self):
+        self.assertEqual(dev.web_host(None), "127.0.0.1")
+        self.assertEqual(dev.web_host("0.0.0.0:8432"), "0.0.0.0")
+        self.assertEqual(dev.web_host("[::]:8432"), "::")
+
     def test_the_real_templates_leave_no_placeholder(self):
         for name in ("orpheum.dev.toml", "seed.toml"):
             text = dev.render_config((dev.ROOT / "dev" / name).read_text(), Path("/r"), Path("/f"), None)

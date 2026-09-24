@@ -17,6 +17,8 @@ export default defineConfig(({ mode }) => {
       target: "es2023",
     },
     server: {
+      // `make dev DEV_LISTEN=0.0.0.0:8432` opens Vite to the LAN, reached by this name.
+      allowedHosts: ["orpheum-dev.lan"],
       proxy: {
         "/api": { target: devServer, ws: true },
         "/media": { target: devServer },
