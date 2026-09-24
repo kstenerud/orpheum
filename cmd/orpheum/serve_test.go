@@ -94,20 +94,26 @@ data_dir = %q
 cache_dir = %q
 read_header_timeout_s = 10
 shutdown_grace_s = 10
+socket_dir = %q
 
 [database]
 readers_minimum = 4
 migrate_space_factor = 3
 
 [node]
+name = "local"
 roots = []
 ffmpeg_dir = %q
 confinement = "report"
+video_extensions = ["mkv"]
+max_errors_per_root = 1000
+probe_timeout_s = 60
+status_interval_s = 10
 
 [log]
 level = "debug"
 format = "json"
-`, filepath.Join(root, "state"), filepath.Join(root, "cache"), filepath.Join(root, "ffmpeg"))
+`, filepath.Join(root, "state"), filepath.Join(root, "cache"), filepath.Join(root, "r"), filepath.Join(root, "ffmpeg"))
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +139,7 @@ func startServing(t *testing.T, config Config, captured capturedLog, awaited str
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- serve(ctx, config, ConfigReport{}, listener, captured.logger) }()
+	go func() { done <- serve(ctx, config, ConfigReport{}, listener, nil, captured.logger) }()
 	select {
 	case <-captured.signals[awaited]:
 	case err := <-done:

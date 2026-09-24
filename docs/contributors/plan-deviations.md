@@ -40,6 +40,22 @@ counted:
 
 ## Log
 
+### P15 — Building the node exposed four things the frozen plan never decided (M2, 2026-09-24) · plan-gap
+
+- **Planned:** cut-a §2–§4 and §7 described the node, its protocol and its confinement.
+- **What happened:** building it needed four decisions the plan did not contain: how a symlink
+  in a media root is treated; which library normalises filenames and language tags; how `run`
+  starts its child when only `execx` may start a process and `execx` ran only FFmpeg; and which
+  packages hold the node's loop and the core's side of it (D206, D207). Each was asked, not
+  assumed. A fifth — the AppleDouble skip rule — was in the testing plan and the dev library
+  but not in scanner.md, and the scanner missed it until the dev loop showed it erroring.
+- **Why the plan missed it:** the plan described messages and behaviour; process topology and
+  filesystem edge cases only appear against real code, and a rule stated in one plan was not
+  cross-referenced into the plan the scanner was built from.
+- **Cost:** two decision rounds with the owner; one skip rule added after the fact.
+- **Process lesson:** before building a component, collect every rule about it from all the
+  plans, not just its own; and ask "what starts this, and what may it touch?" for each process.
+
 ### P14 — The standard library reads configuration the plan never listed (M2, 2026-09-24) · plan-gap
 
 - **Planned:** "only `cmd/orpheum` reads the environment" (go.md §12), enforced by banning

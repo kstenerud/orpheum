@@ -106,6 +106,8 @@ func summary(records []nodeproto.Record) []string {
 			lines = append(lines, "error "+failure.Path.Text+" "+string(failure.Scope)+" "+string(failure.Code))
 		case nodeproto.RecordScanComplete:
 			lines = append(lines, "scan_complete")
+		case nodeproto.RecordStatus:
+			lines = append(lines, "status")
 		}
 	}
 	return lines
@@ -121,6 +123,7 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 		"Movies/Metropolis (1995)/Metropolis.mkv":          "heat",
 		"Movies/Metropolis (1995)/Sample/clip.mkv":   "debris",
 		"Movies/Metropolis (1995)/x.sample.mkv":      "debris",
+		"Movies/Metropolis (1995)/._Metropolis.mkv":        "\x00\x05\x16\x07",
 		".trash/2026-09-01/old.mkv":            "old",
 		"Shows/.trash/kept.mkv":                "only the root's .trash is ours",
 	})
@@ -135,6 +138,7 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 		"observed Movies/Wing (1979)/Wing (1979).mkv",
 		"skip Movies/Wing (1979)/Wing (1979).nfo extension",
 		"skip Movies/Wing (1979)/sample.mkv sample",
+		"skip Movies/Metropolis (1995)/._Metropolis.mkv appledouble",
 		"observed Movies/Metropolis (1995)/Metropolis.mkv",
 		"skip Movies/Metropolis (1995)/Sample sample",
 		"skip Movies/Metropolis (1995)/metropolis-SAMPLE.mp4 sample",
@@ -147,7 +151,7 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 		t.Errorf("report:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 	complete := records[len(records)-1].ScanComplete
-	if complete.Observed != 3 || complete.Skipped != 7 || complete.Errors != 0 || complete.Stopped {
+	if complete.Observed != 3 || complete.Skipped != 8 || complete.Errors != 0 || complete.Stopped {
 		t.Errorf("scan_complete = %+v", complete)
 	}
 	begin := records[0].ScanBegin

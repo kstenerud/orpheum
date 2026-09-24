@@ -113,15 +113,21 @@ data_dir = "/a"
 cache_dir = "/b"
 read_header_timeout_s = 10
 shutdown_grace_s = 10
+socket_dir = "/run/orpheum"
 
 [database]
 readers_minimum = 4
 migrate_space_factor = 3
 
 [node]
+name = "local"
 roots = ["/media"]
 ffmpeg_dir = "/opt/ffmpeg"
 confinement = "require"
+video_extensions = ["mkv", "mp4"]
+max_errors_per_root = 1000
+probe_timeout_s = 60
+status_interval_s = 10
 
 [log]
 level = "info"

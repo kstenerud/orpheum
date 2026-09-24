@@ -29,6 +29,9 @@ type Config struct {
 	Database DatabaseConfig `toml:"database"`
 	Node     NodeConfig     `toml:"node"`
 	Log      LogConfig      `toml:"log"`
+
+	// path is the file's absolute path, which the node child is started with.
+	path string
 }
 
 // ServerConfig is where the server listens and keeps its state, and its HTTP timeouts.
@@ -38,6 +41,7 @@ type ServerConfig struct {
 	CacheDir           string `toml:"cache_dir"`
 	ReadHeaderTimeoutS int64  `toml:"read_header_timeout_s"`
 	ShutdownGraceS     int64  `toml:"shutdown_grace_s"`
+	SocketDir          string `toml:"socket_dir"`
 }
 
 // DatabaseConfig is what the store needs before the database opens.
@@ -46,11 +50,16 @@ type DatabaseConfig struct {
 	MigrateSpaceFactor int `toml:"migrate_space_factor"`
 }
 
-// NodeConfig is the media node's; M2 starts the node, and M1 reads and checks it.
+// NodeConfig is the media node's.
 type NodeConfig struct {
-	Roots       []string `toml:"roots"`
-	FFmpegDir   string   `toml:"ffmpeg_dir"`
-	Confinement string   `toml:"confinement"`
+	Name             string   `toml:"name"`
+	Roots            []string `toml:"roots"`
+	FFmpegDir        string   `toml:"ffmpeg_dir"`
+	Confinement      string   `toml:"confinement"`
+	VideoExtensions  []string `toml:"video_extensions"`
+	MaxErrorsPerRoot int      `toml:"max_errors_per_root"`
+	ProbeTimeoutS    int64    `toml:"probe_timeout_s"`
+	StatusIntervalS  int64    `toml:"status_interval_s"`
 }
 
 // LogConfig is how the server logs.
@@ -89,6 +98,10 @@ func configKeys() []configKey {
 		{tableServer, "read_header_timeout_s", "10", "seconds a client has to send its request headers"},
 		{tableServer, "shutdown_grace_s", "10", "seconds in-flight requests get to finish when the server stops"},
 		{
+			tableServer, "socket_dir", `"/run/orpheum"`,
+			"where the core's and the node's sockets live; systemd's RuntimeDirectory makes /run/orpheum",
+		},
+		{
 			tableDatabase, "readers_minimum", "4",
 			"the smallest pool of read connections; a machine with more CPUs gets one per CPU",
 		},
@@ -96,16 +109,35 @@ func configKeys() []configKey {
 			tableDatabase, "migrate_space_factor", "3",
 			"free space needed before migrating, in multiples of the database: the snapshot plus a rebuild",
 		},
+		{tableNode, "name", `"local"`, "the name the core knows this node by (D207)"},
 		{tableNode, "roots", "", "the media directories this node serves; set on the node, never remotely (D107)"},
 		{tableNode, "ffmpeg_dir", "", "where the pinned FFmpeg is on this machine"},
 		{
 			tableNode, "confinement", `"require"`,
 			`"require" refuses to run FFmpeg unconfined; "report" runs and says so`,
 		},
+		{
+			tableNode, "video_extensions", videoExtensions,
+			"extensions, lower case without the dot, of files the node probes; anything else is skipped",
+		},
+		{
+			tableNode, "max_errors_per_root", "1000",
+			"errors one root may produce in a scan before the node stops enumerating it (D40)",
+		},
+		{tableNode, "probe_timeout_s", "60", "seconds ffprobe gets for one file before it is stopped"},
+		{
+			tableNode, "status_interval_s", "10",
+			"seconds between the node's status records; keep it well under the core's node_silent_after_s",
+		},
 		{tableLog, "level", `"info"`, "debug, info, warn or error"},
 		{tableLog, "format", `"json"`, "json for the service's journal, text for a person's terminal"},
 	}
 }
+
+// videoExtensions is the starting list of video extensions: what real libraries hold. The
+// extension is only a hint about whether probing is worthwhile (scanner.md).
+const videoExtensions = `["mkv", "mp4", "m4v", "avi", "mov", "wmv", "ts", "m2ts", "mts", "webm", "mpg", "mpeg", ` +
+	`"vob", "flv", "ogv", "3gp"]`
 
 // ConfigReport is what loading the file found besides its values: the keys it lacks, which run on
 // their starting values, and the keys nothing reads. The doctor lists both; run logs them (D202).
@@ -152,6 +184,9 @@ func loadConfig(path string) (Config, ConfigReport, error) {
 		return Config{}, report, fmt.Errorf("config %s: %w", path, err)
 	}
 	if err = config.check(); err != nil {
+		return Config{}, report, fmt.Errorf("config %s: %w", path, err)
+	}
+	if config.path, err = filepath.Abs(path); err != nil {
 		return Config{}, report, fmt.Errorf("config %s: %w", path, err)
 	}
 	return config, report, nil
@@ -201,6 +236,7 @@ func (config *Config) check() error {
 	var problems []error
 	for key, value := range map[string]string{
 		"server.data_dir": config.Server.DataDir, "server.cache_dir": config.Server.CacheDir,
+		"server.socket_dir": config.Server.SocketDir,
 	} {
 		if !filepath.IsAbs(value) {
 			problems = append(problems, fmt.Errorf("%s must be an absolute path, not %q", key, value))
@@ -214,10 +250,16 @@ func (config *Config) check() error {
 		"server.shutdown_grace_s":       config.Server.ShutdownGraceS,
 		"database.readers_minimum":      int64(config.Database.ReadersMinimum),
 		"database.migrate_space_factor": int64(config.Database.MigrateSpaceFactor),
+		"node.max_errors_per_root":      int64(config.Node.MaxErrorsPerRoot),
+		"node.probe_timeout_s":          config.Node.ProbeTimeoutS,
+		"node.status_interval_s":        config.Node.StatusIntervalS,
 	} {
 		if value < 1 {
 			problems = append(problems, fmt.Errorf("%s is %d; it must be at least 1", key, value))
 		}
+	}
+	if config.Node.Name == "" {
+		problems = append(problems, errors.New("node.name is empty; the core knows a node by its name"))
 	}
 	if config.Node.Confinement != "require" && config.Node.Confinement != "report" {
 		problems = append(problems, fmt.Errorf("node.confinement %q: want \"require\" or \"report\"",

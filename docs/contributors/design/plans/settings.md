@@ -42,9 +42,11 @@ only in the program.
 ## The config file
 
 - **It holds only what must be known before `library.db` opens**, or must not be changeable by
-  someone holding only an admin account: the listen address and the two directories, the HTTP
-  timeouts, the store's reader minimum and migration space factor, the node's roots, FFmpeg path
-  and confinement, and the log level and format. Everything else is a setting.
+  someone holding only an admin account: the listen address, the two directories and the socket
+  directory, the HTTP timeouts, the store's reader minimum and migration space factor, the node's
+  name, roots, FFmpeg path, confinement, video extensions, error limit, probe timeout and status
+  interval (the node has no database), and the log level and format. Everything else is a
+  setting.
 - **Every key has a starting value, or is marked as having none** because it is specific to the
   machine (the listen address, the directories, the media roots, the FFmpeg path).
 - **A key the file lacks runs on its starting value**, in memory, with a warning at start; the
