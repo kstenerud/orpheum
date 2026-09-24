@@ -40,6 +40,23 @@ counted:
 
 ## Log
 
+### P16 — Identification was designed per title, and a series is not a title (M2, 2026-09-24) · plan-gap
+
+- **Planned:** D170 and D172 describe matching, fetching and choosing for a *title*; the schema
+  gives `title` its source, id and ident and keys `provider_response` on `title_id`; cut-a §5's
+  chooser is `/titles/...`. The library model makes a series a Collection (D160, D186).
+- **What happened:** building TMDB matching for shows found that providers identify the show,
+  not the episode, and nothing gave the series a source, a match, an ambiguity or a stored
+  response. The owner decided the series is what is identified (D209); the schema and the
+  chooser's paths change to fit.
+- **Why the plan missed it:** identification was designed on films, and TV was assumed to be
+  "the same, per episode". The two designs met only in code: the library model's shape
+  (series as Collection) and the identification model's unit (title) were each right alone.
+- **Cost:** one decision; a migration and an API change, proposed before building.
+- **Process lesson:** when one design names a unit ("per title") and another design decomposes
+  the domain differently, walk one concrete case through both — here, one TV episode from file
+  to metadata — before freezing either.
+
 ### P15 — Building the node exposed four things the frozen plan never decided (M2, 2026-09-24) · plan-gap
 
 - **Planned:** cut-a §2–§4 and §7 described the node, its protocol and its confinement.

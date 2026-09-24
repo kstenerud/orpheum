@@ -16123,3 +16123,31 @@ boundary marked missing until the disk returns or the admin says it is gone.
 
 **Status:** Decided, and built: items 3 and 4 and the root facts with the ingest, items 1 and 2
 with the identification pass.
+
+## D209 — For shows, the series is what is identified; its episodes follow it by season and number
+
+**Decided** (2026-09-24), by the project owner: *"yes, the series is the thing identified"*.
+
+Identification was written per title: a title follows one source
+([D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)),
+and an ambiguous match is never guessed
+([D172](#d172--a-low-vote-count-is-shown-not-hidden-an-ambiguous-match-is-never-guessed-and-selecting-it-asks-rather-than-plays)).
+That fits a film, which a provider can search for by name. It does not fit an episode: no
+provider searches for "Episode 3"; it identifies the show, and an episode is then season 1,
+episode 3 *of that show*. The library model made a series a Collection of its episodes
+([D160](#d160--there-is-no-series-concept-a-sequence-is-what-a-collection-produces-and-next-up-is-a-query-over-any-of-them),
+[D186](#d186--music-would-cost-one-reshape-and-it-is-made-now-things-that-are-not-titles-share-an-item-plus-four-cheap-renames))
+but never gave that Collection a place in identification. Building TMDB matching for shows
+found the gap.
+
+1. **A series is matched, and may be ambiguous and chosen by a person**, exactly as D170 and
+   D172 say of a title: one source, fetched once; a single result matching the name (and the
+   year, where the folder or tvshow.nfo gives one) is accepted; anything else is ambiguous, with
+   the results kept; a person's choice is permanent.
+2. **An episode is not searched.** Once its series is matched, it takes its values from the
+   series' source at its (season, number) in the aired ordering. An episode the source does not
+   list stays on local data, unidentified, saying so.
+3. **A new episode of a matched series is a first fetch** (D170): the listing it is missing from
+   is fetched again; nothing else is.
+
+**Status:** Decided. The schema and API it needs are proposed to the owner before they are built.
