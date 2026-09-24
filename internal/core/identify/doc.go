@@ -18,6 +18,9 @@
 //     rule tagged [reveal] (this package is on its path allowlist).
 //   - Errors from the provider are wrapped where they enter. Enforced by wrapcheck, which is
 //     scoped to this package.
+//   - The filename parser is a pure function of a path, tested against a corpus that includes
+//     non-Latin names, and no expression uses an ASCII-only class (D49).
+//     TestParsePath_ACorpusOfNames, TestParsePath_NoExpressionUsesAnASCIIOnlyClass.
 //
 // # Read before changing
 //
@@ -30,6 +33,6 @@
 //
 // # Where to change
 //
-//   - The filename parser; the NFO reader; the TMDB client (a subpackage when it grows); candidate
-//     ranking; overrides.
+//   - filename.go: the filename parser, and its corpus in filename_test.go.
+//   - The NFO reader; the TMDB client (a subpackage when it grows); candidate ranking; overrides.
 package identify
