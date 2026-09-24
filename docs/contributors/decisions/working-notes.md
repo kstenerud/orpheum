@@ -15743,6 +15743,9 @@ failed for every core package that uses the store.
 
 ## D200 — Every opinionated value is a setting row, seeded with its starting value; nothing has a default in code; the config file holds only what must exist before the database opens, and all of it is required
 
+> **Amended by [D202](#d202--missing-values-heal-themselves-and-say-so-unused-settings-are-listed-and-deleted-only-by-a-person-doctor-not-a-seed-command-is-where-to-find-what-needs-fixing):** a missing value heals — a setting row is rewritten with
+> its starting value, a config key runs on its starting value — rather than refusing.
+
 > **Refined by [D201](#d201--a-setting-a-person-set-stays-theirs-and-every-other-one-follows-its-starting-value-the-last-pre-database-values-are-config-keys-seeding-fills-both-places-and-reports-what-nothing-reads-new-goldens-have-standing-approval):** *modified* is a stored mark a manual set makes and
 > "set to default" clears, and unmodified rows follow a changed starting value; the pre-database
 > values below are config keys, not constants; seeding also fills the config file and reports
@@ -15801,6 +15804,9 @@ to reason about."*
 
 ## D201 — A setting a person set stays theirs, and every other one follows its starting value; the last pre-database values are config keys; seeding fills both places and reports what nothing reads; new goldens have standing approval
 
+> **Amended by [D202](#d202--missing-values-heal-themselves-and-say-so-unused-settings-are-listed-and-deleted-only-by-a-person-doctor-not-a-seed-command-is-where-to-find-what-needs-fixing):** there is no seed command; missing values heal themselves,
+> and doctor lists what needs fixing. §3 is struck.
+
 **Decided** (2026-09-24), by the project owner, refining [D200](#d200--every-opinionated-value-is-a-setting-row-seeded-with-its-starting-value-nothing-has-a-default-in-code-the-config-file-holds-only-what-must-exist-before-the-database-opens-and-all-of-it-is-required)
 the same day.
 
@@ -15829,17 +15835,60 @@ Instead:
 
 ### 3. Seeding
 
-- **`orpheum seed-settings` fills the config file first**: it adds every missing key that has a
+~~- **`orpheum seed-settings` fills the config file first**: it adds every missing key that has a
   starting value, in its own table, keeping comments and order, after keeping a copy of the file
   as it was; and it names the missing keys only a person can fill. Then it seeds the database.
 - **Keys nothing reads are listed, never deleted** — a typo, or a key a release removed — in the
   config file and in the database, by `seed-settings`, `POST /config/seed`, the start-up log and
-  `doctor`. Deleting them is the person's choice.
+  `doctor`. Deleting them is the person's choice.~~ Replaced by [D202](#d202--missing-values-heal-themselves-and-say-so-unused-settings-are-listed-and-deleted-only-by-a-person-doctor-not-a-seed-command-is-where-to-find-what-needs-fixing).
 
 ### 4. Goldens for new migrations
 
 **Standing approval**: for each new migration the agent generates its golden with `-update` and
 commits it on its own, with `Gate-Changed:` citing this decision. Changing an existing golden
 still needs the owner.
+
+**Status:** Decided.
+
+---
+
+## D202 — Missing values heal themselves and say so; unused settings are listed and deleted only by a person; doctor, not a seed command, is where to find what needs fixing
+
+**Decided** (2026-09-24), by the project owner, resolving a contradiction in [D200](#d200--every-opinionated-value-is-a-setting-row-seeded-with-its-starting-value-nothing-has-a-default-in-code-the-config-file-holds-only-what-must-exist-before-the-database-opens-and-all-of-it-is-required)
+and [D201](#d201--a-setting-a-person-set-stays-theirs-and-every-other-one-follows-its-starting-value-the-last-pre-database-values-are-config-keys-seeding-fills-both-places-and-reports-what-nothing-reads-new-goldens-have-standing-approval):
+the server was to balk at a missing value, yet it seeds missing values so that a later release can
+add one. *"I think it's probably fine to just auto-seed any missing values. It's technically hidden
+behavior they didn't explicitly sign up for, but the settings page shows them what everything is."*
+
+### 1. Missing values
+
+- **A setting row that goes missing while the server runs heals**: reading it writes its starting
+  value to the database and logs a warning. Every start already writes every missing row. The
+  value is always a row, never held in memory, so the settings page shows it.
+- **A config-file key that has a starting value runs on it when the file lacks it**, in memory; the
+  file is never rewritten unasked (migrations.md, Files). The server logs a warning naming it, and
+  doctor and `/config` show it read-only as "starting value, not in the file". A key with no
+  starting value — the listen address, the directories, the media roots, the FFmpeg path — still
+  refuses start, because there is nothing sensible to run on.
+
+### 2. Unused settings: listed, never removed automatically
+
+- **Never auto-removed.** A downgrade can run an older release on the same database
+  ([D181](#d181--the-migration-policy-two-integers-our-own-small-runner-a-snapshot-that-outlives-success-refuse-what-we-cannot-read-and-re-derive-rather-than-transform)'s
+  `compatible_version`), and it would find its setting gone and reseed it, losing the person's
+  choice; and deleting a typo deletes the evidence of what was meant.
+- **Listed and deletable by a person**: `GET /config/unused`, and `DELETE /config/unused/{key}`,
+  which refuses a key this release reads — that one is set to default, not deleted. The start-up log
+  and doctor list them too.
+- **The registry keeps the retired keys**, each with the release that retired it and why, so an
+  unused row says "retired in v1.3: replaced by X" or, when no release ever used it, "probably a
+  typo".
+
+### 3. No seed command
+
+`orpheum seed-settings` and `POST /config/seed` are removed: every start sweeps the database, and
+missing config keys heal as above. **doctor is the one list of what should be fixed**: config keys
+running on their starting values, config keys nothing reads, unused setting rows, and a missing key
+with no starting value.
 
 **Status:** Decided.

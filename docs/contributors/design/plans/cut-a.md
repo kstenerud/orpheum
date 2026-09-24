@@ -104,16 +104,16 @@ other debugging targets (`dev-server`, `dev-lan`, `dev-reset`, `dev-db`, `dev-lo
 loop to work:**
 
 - **`orpheum run --config <file>`**, reading TOML with exactly the keys in
-  [`dev/orpheum.dev.toml`](../../../../dev/orpheum.dev.toml), **every one required**
-  ([D200](../../decisions/working-notes.md)). Paths arrive absolute (the loop renders them).
+  [`dev/orpheum.dev.toml`](../../../../dev/orpheum.dev.toml); nothing defaults in code
+  ([D200](../../decisions/working-notes.md), [D202](../../decisions/working-notes.md)). Paths arrive absolute (the loop renders them).
   - `[server]`: `listen`, `data_dir`, `cache_dir`, `read_header_timeout_s`, `shutdown_grace_s`
   - `[database]`: `readers_minimum`, `migrate_space_factor` (D201)
   - `[node]`: `roots`, `ffmpeg_dir`, and `confinement`. `confinement` is `"require"` or
     `"report"`; a production install writes `"require"`.
   - `[log]`: `level`, `format` (`text` or `json`)
 
-  `orpheum seed-settings` adds every missing key that has a starting value, and reports keys
-  nothing reads (D201).
+  A missing key with a starting value runs on it, and doctor lists it; one with none refuses
+  start (D202).
 
   This is the D182 §3 file: only what must exist before the database opens. Unknown keys are
   reported and ignored, never fatal ([packaging-history.md](../research/packaging-history.md)
@@ -146,7 +146,7 @@ linters can see paths and nothing else.
 LICENSE (GPL-3.0) · CONTRIBUTING.md · AGENTS.md (≤150 lines) · CLAUDE.md (imports AGENTS.md)
 Makefile            # make check (fast gate) · make test-all · make generate
 go.mod              # tool directives pin sqlc, golangci-lint, huma's generator
-cmd/orpheum/        # main: flags → run | core | node | migrate | backup | restore | doctor | setup-code | seed-settings
+cmd/orpheum/        # main: flags → run | core | node | migrate | backup | restore | doctor | setup-code
 internal/core/      # GPL. May not import os/exec, internal/node, or any media/image package
   api/              # huma handlers; the OpenAPI document is generated from here
   auth/  secrets/  library/  identify/  decide/  playback/  together/  turn/  jobs/  backup/  settings/
@@ -213,7 +213,7 @@ single-playback token that the core maps to a grant.
 | Group | Endpoints |
 | --- | --- |
 | Setup and auth | `POST /setup` (one-time setup code from the log → first admin); `POST /session`, `DELETE /session`; `GET /me`; `POST /invites` (admin: role, asked); `POST /invites/{code}/redeem` |
-| Settings | `GET/PUT /settings` (server scope, admin; what the settings page shows); `GET/PUT /config` (`?modified=true`), `POST /config/seed`, `POST /config/{key}/reset` (every server setting beside its starting value, admin; D200); `GET/PUT /me/settings`; `GET /secrets`, `PUT /secrets/{name}`, `DELETE /secrets/{name}` (server scope for admins, `/me/secrets/…` for a user's own; write-only: `GET` shows `set`, `hint` and `needs_reentry`, never a value — [D194](../../decisions/working-notes.md)); `PUT /devices/{id}` (name, `audio_output`, asked on first playback — D184) |
+| Settings | `GET/PUT /settings` (server scope, admin; what the settings page shows); `GET/PUT /config` (`?modified=true`; with the config file's keys, read-only), `POST /config/{key}/reset`, `GET /config/unused`, `DELETE /config/unused/{key}` (every server setting beside its starting value, admin; D200, D202); `GET/PUT /me/settings`; `GET /secrets`, `PUT /secrets/{name}`, `DELETE /secrets/{name}` (server scope for admins, `/me/secrets/…` for a user's own; write-only: `GET` shows `set`, `hint` and `needs_reentry`, never a value — [D194](../../decisions/working-notes.md)); `PUT /devices/{id}` (name, `audio_output`, asked on first playback — D184) |
 | Libraries | `POST /libraries` (the three questions, D184); `GET /libraries`; `POST /libraries/{id}/scan`; `GET /files?filing=&library=&cursor=` (what the scanner saw, D163) |
 | Identification | `GET /titles?ident=ambiguous`; `GET /titles/{id}/candidates`; `POST /titles/{id}/match`; `PUT /items/{id}/overrides/{field}`; `DELETE /items/{id}/overrides/{field}` |
 | Browse | `GET /home` (Continue Watching, Next Up, recently added); `GET /titles?kind=&sort=&cursor=`; `GET /collections/{id}` (a series); `GET /items/{id}` (detail with editions, versions, files, streams, extras); `GET /search?q=`; `GET /art/{hash}/{size}` |
