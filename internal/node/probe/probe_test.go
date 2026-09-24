@@ -173,6 +173,26 @@ func TestParse_BoundsWhatAHostileFileCanMakeTheNodeReport(t *testing.T) {
 	}
 }
 
+func TestParse_ALanguageTagIsNormalisedBesideTheRawOne(t *testing.T) {
+	t.Parallel()
+	cases := map[string]string{
+		"ger": "de", "deu": "de", "fre": "fr", "chi": "zh", "dut": "nl", "eng": "en", "pt-BR": "pt-BR",
+		"und": "", "": "", "xx": "", "zxx": "zxx",
+	}
+	for raw, want := range cases {
+		output := fmt.Appendf(nil, `{"streams":[{"index":0,"codec_type":"audio","tags":{"language":%q}}]}`, raw)
+		record, err := Parse(output)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stream := record.Streams[0]
+		if stream.Language != raw || stream.LanguageTag != want {
+			t.Errorf("%q: language %q, tag %q; want the raw tag kept and %q beside it",
+				raw, stream.Language, stream.LanguageTag, want)
+		}
+	}
+}
+
 func TestParse_NonsenseNumbersAreZero(t *testing.T) {
 	t.Parallel()
 	record, err := Parse([]byte(`{"format":{"duration":"N/A","bit_rate":"-5"},

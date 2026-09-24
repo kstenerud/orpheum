@@ -12,6 +12,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"golang.org/x/text/language"
+
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -113,6 +115,7 @@ func (stream rawStream) record() nodeproto.ProbeStream {
 		Codec:       bounded(stream.CodecName),
 		Profile:     bounded(stream.Profile),
 		Language:    tag(stream.Tags, "language"),
+		LanguageTag: languageTag(tag(stream.Tags, "language")),
 		Title:       tag(stream.Tags, "title"),
 		Disposition: setFlags(stream.Disposition),
 		DurationMs:  streamDuration(stream),
@@ -156,6 +159,16 @@ func tag(tags map[string]string, key string) string {
 		}
 	}
 	return ""
+}
+
+// languageTag normalises a container's language tag to BCP 47: ISO 639-2's bibliographic and
+// terminological codes ("ger", "deu") both become "de". Unknown or undetermined is empty.
+func languageTag(raw string) string {
+	parsed, err := language.Parse(raw)
+	if err != nil || parsed == language.Und {
+		return ""
+	}
+	return parsed.String()
 }
 
 // setFlags lists the disposition flags that are set, sorted.
