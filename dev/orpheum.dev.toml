@@ -31,6 +31,7 @@ roots = ["{root}/.dev/media/movies", "{root}/.dev/media/shows"]   # one per libr
 ffmpeg_dir = "{ffmpeg_dir}"
 confinement = "report"   # "require" refuses to start unconfined; "report" runs and says so
 video_extensions = ["mkv", "mp4", "m4v", "avi", "mov", "wmv", "ts", "m2ts", "mts", "webm", "mpg", "mpeg", "vob", "flv", "ogv", "3gp"]
+subtitle_extensions = ["srt", "ass", "ssa", "vtt"]
 max_errors_per_root = 1000
 probe_timeout_s = 60
 status_interval_s = 10

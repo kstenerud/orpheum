@@ -107,3 +107,31 @@ SELECT stream_index, kind, codec, lang_raw, lang, title_raw, disposition, channe
 FROM stream
 WHERE file_id = ?
 ORDER BY stream_index;
+
+-- name: InsertSidecarFile :one
+INSERT INTO file (
+  library_id, node_id, path, path_raw, size, mtime, filing, filing_reason, sidecar_body, first_seen, last_seen
+) VALUES (
+  sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(path_raw), sqlc.arg(size),
+  sqlc.arg(mtime), 'attached', sqlc.arg(kind), sqlc.arg(body), sqlc.arg(seen), sqlc.arg(seen)
+)
+RETURNING id;
+
+-- name: UpdateSidecarFile :exec
+UPDATE file SET
+  library_id = sqlc.arg(library_id), path_raw = sqlc.arg(path_raw), size = sqlc.arg(size),
+  mtime = sqlc.arg(mtime), filing = 'attached', filing_reason = sqlc.arg(kind),
+  error_detail = NULL, sidecar_body = sqlc.arg(body), last_seen = sqlc.arg(seen)
+WHERE id = sqlc.arg(id);
+
+-- name: ListLiveFilesForAttaching :many
+SELECT id, path, filing, payload_hash, attached_to
+FROM file
+WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
+ORDER BY path;
+
+-- name: SetFileAttachedTo :exec
+UPDATE file SET attached_to = sqlc.arg(attached_to) WHERE id = sqlc.arg(id);
+
+-- name: GetSidecarBody :one
+SELECT sidecar_body FROM file WHERE id = ?;

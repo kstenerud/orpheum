@@ -52,14 +52,15 @@ type DatabaseConfig struct {
 
 // NodeConfig is the media node's.
 type NodeConfig struct {
-	Name             string   `toml:"name"`
-	Roots            []string `toml:"roots"`
-	FFmpegDir        string   `toml:"ffmpeg_dir"`
-	Confinement      string   `toml:"confinement"`
-	VideoExtensions  []string `toml:"video_extensions"`
-	MaxErrorsPerRoot int      `toml:"max_errors_per_root"`
-	ProbeTimeoutS    int64    `toml:"probe_timeout_s"`
-	StatusIntervalS  int64    `toml:"status_interval_s"`
+	Name               string   `toml:"name"`
+	Roots              []string `toml:"roots"`
+	FFmpegDir          string   `toml:"ffmpeg_dir"`
+	Confinement        string   `toml:"confinement"`
+	VideoExtensions    []string `toml:"video_extensions"`
+	SubtitleExtensions []string `toml:"subtitle_extensions"`
+	MaxErrorsPerRoot   int      `toml:"max_errors_per_root"`
+	ProbeTimeoutS      int64    `toml:"probe_timeout_s"`
+	StatusIntervalS    int64    `toml:"status_interval_s"`
 }
 
 // LogConfig is how the server logs.
@@ -119,6 +120,10 @@ func configKeys() []configKey {
 		{
 			tableNode, "video_extensions", videoExtensions,
 			"extensions, lower case without the dot, of files the node probes; anything else is skipped",
+		},
+		{
+			tableNode, "subtitle_extensions", `["srt", "ass", "ssa", "vtt"]`,
+			"extensions of text subtitle files, reported as sidecars of their video; .nfo always is one",
 		},
 		{
 			tableNode, "max_errors_per_root", "1000",

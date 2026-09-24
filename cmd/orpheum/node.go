@@ -74,10 +74,11 @@ func runNode(ctx context.Context, config Config, logger *slog.Logger) error {
 	}
 	prober := probe.NewProber(runner, time.Duration(config.Node.ProbeTimeoutS)*time.Second)
 	scanner := scan.NewScanner(roots, prober, scan.Options{
-		VideoExtensions: config.Node.VideoExtensions,
-		MaxErrors:       config.Node.MaxErrorsPerRoot,
-		UID:             hello.UID,
-		GID:             hello.GID,
+		VideoExtensions:    config.Node.VideoExtensions,
+		SubtitleExtensions: config.Node.SubtitleExtensions,
+		MaxErrors:          config.Node.MaxErrorsPerRoot,
+		UID:                hello.UID,
+		GID:                hello.GID,
 	})
 	ticker := time.NewTicker(time.Duration(config.Node.StatusIntervalS) * time.Second)
 	defer ticker.Stop()

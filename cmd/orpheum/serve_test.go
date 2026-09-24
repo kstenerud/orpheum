@@ -106,6 +106,7 @@ roots = []
 ffmpeg_dir = %q
 confinement = "report"
 video_extensions = ["mkv"]
+subtitle_extensions = ["srt"]
 max_errors_per_root = 1000
 probe_timeout_s = 60
 status_interval_s = 10

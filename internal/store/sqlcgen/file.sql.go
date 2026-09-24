@@ -87,6 +87,17 @@ func (q *Queries) GetLiveFileByPath(ctx context.Context, arg GetLiveFileByPathPa
 	return i, err
 }
 
+const getSidecarBody = `-- name: GetSidecarBody :one
+SELECT sidecar_body FROM file WHERE id = ?
+`
+
+func (q *Queries) GetSidecarBody(ctx context.Context, id int64) ([]byte, error) {
+	row := q.db.QueryRowContext(ctx, getSidecarBody, id)
+	var sidecar_body []byte
+	err := row.Scan(&sidecar_body)
+	return sidecar_body, err
+}
+
 const insertFile = `-- name: InsertFile :one
 INSERT INTO file (
   library_id, node_id, path, path_raw, size, mtime, payload_hash, payload_len,
@@ -129,6 +140,45 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 		arg.FilingReason,
 		arg.ErrorDetail,
 		arg.Probe,
+		arg.Seen,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertSidecarFile = `-- name: InsertSidecarFile :one
+INSERT INTO file (
+  library_id, node_id, path, path_raw, size, mtime, filing, filing_reason, sidecar_body, first_seen, last_seen
+) VALUES (
+  ?1, ?2, ?3, ?4, ?5,
+  ?6, 'attached', ?7, ?8, ?9, ?9
+)
+RETURNING id
+`
+
+type InsertSidecarFileParams struct {
+	LibraryID int64
+	NodeID    int64
+	Path      string
+	PathRaw   []byte
+	Size      *int64
+	Mtime     *int64
+	Kind      *string
+	Body      []byte
+	Seen      int64
+}
+
+func (q *Queries) InsertSidecarFile(ctx context.Context, arg InsertSidecarFileParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, insertSidecarFile,
+		arg.LibraryID,
+		arg.NodeID,
+		arg.Path,
+		arg.PathRaw,
+		arg.Size,
+		arg.Mtime,
+		arg.Kind,
+		arg.Body,
 		arg.Seen,
 	)
 	var id int64
@@ -271,6 +321,55 @@ func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]List
 	return items, nil
 }
 
+const listLiveFilesForAttaching = `-- name: ListLiveFilesForAttaching :many
+SELECT id, path, filing, payload_hash, attached_to
+FROM file
+WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
+ORDER BY path
+`
+
+type ListLiveFilesForAttachingParams struct {
+	NodeID    int64
+	LibraryID int64
+}
+
+type ListLiveFilesForAttachingRow struct {
+	ID          int64
+	Path        string
+	Filing      string
+	PayloadHash []byte
+	AttachedTo  *int64
+}
+
+func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFilesForAttachingParams) ([]ListLiveFilesForAttachingRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveFilesForAttaching, arg.NodeID, arg.LibraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLiveFilesForAttachingRow{}
+	for rows.Next() {
+		var i ListLiveFilesForAttachingRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Path,
+			&i.Filing,
+			&i.PayloadHash,
+			&i.AttachedTo,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLiveFilesOfLibrary = `-- name: ListLiveFilesOfLibrary :many
 SELECT id, path, last_seen
 FROM file
@@ -371,6 +470,20 @@ func (q *Queries) ReviveFile(ctx context.Context, id int64) error {
 	return err
 }
 
+const setFileAttachedTo = `-- name: SetFileAttachedTo :exec
+UPDATE file SET attached_to = ?1 WHERE id = ?2
+`
+
+type SetFileAttachedToParams struct {
+	AttachedTo *int64
+	ID         int64
+}
+
+func (q *Queries) SetFileAttachedTo(ctx context.Context, arg SetFileAttachedToParams) error {
+	_, err := q.db.ExecContext(ctx, setFileAttachedTo, arg.AttachedTo, arg.ID)
+	return err
+}
+
 const tombstoneFile = `-- name: TombstoneFile :exec
 UPDATE file SET removed_at = ?1 WHERE id = ?2
 `
@@ -460,6 +573,39 @@ func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFile
 		arg.PayloadLen,
 		arg.UnidentifiedReason,
 		arg.Probe,
+		arg.Seen,
+		arg.ID,
+	)
+	return err
+}
+
+const updateSidecarFile = `-- name: UpdateSidecarFile :exec
+UPDATE file SET
+  library_id = ?1, path_raw = ?2, size = ?3,
+  mtime = ?4, filing = 'attached', filing_reason = ?5,
+  error_detail = NULL, sidecar_body = ?6, last_seen = ?7
+WHERE id = ?8
+`
+
+type UpdateSidecarFileParams struct {
+	LibraryID int64
+	PathRaw   []byte
+	Size      *int64
+	Mtime     *int64
+	Kind      *string
+	Body      []byte
+	Seen      int64
+	ID        int64
+}
+
+func (q *Queries) UpdateSidecarFile(ctx context.Context, arg UpdateSidecarFileParams) error {
+	_, err := q.db.ExecContext(ctx, updateSidecarFile,
+		arg.LibraryID,
+		arg.PathRaw,
+		arg.Size,
+		arg.Mtime,
+		arg.Kind,
+		arg.Body,
 		arg.Seen,
 		arg.ID,
 	)

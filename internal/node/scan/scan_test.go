@@ -69,7 +69,9 @@ func openRoot(t *testing.T, path string) *confine.MediaRoot {
 	return media
 }
 
-var options = Options{VideoExtensions: []string{"mkv", "mp4"}, MaxErrors: 100, UID: 1000, GID: 1000}
+var options = Options{
+	VideoExtensions: []string{"mkv", "mp4"}, SubtitleExtensions: []string{"srt"}, MaxErrors: 100, UID: 1000, GID: 1000,
+}
 
 // scanAll scans root and returns every record, failing the test if the scan fails.
 func scanAll(t *testing.T, scanner *Scanner, root *confine.MediaRoot) []nodeproto.Record {
@@ -110,6 +112,8 @@ func summary(records []nodeproto.Record) []string {
 			lines = append(lines, "status")
 		case nodeproto.RecordMount:
 			lines = append(lines, "mount "+record.Mount.Path.Text)
+		case nodeproto.RecordSidecar:
+			lines = append(lines, "sidecar "+record.Sidecar.Path.Text+" "+string(record.Sidecar.Kind))
 		}
 	}
 	return lines
@@ -118,16 +122,17 @@ func summary(records []nodeproto.Record) []string {
 func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 	t.Parallel()
 	root := tree(t, map[string]string{
-		"Movies/Wing (1979)/Wing (1979).mkv": "alien",
-		"Movies/Wing (1979)/Wing (1979).nfo": "<movie/>",
-		"Movies/Wing (1979)/sample.mkv":       "debris",
-		"Movies/Metropolis (1995)/metropolis-SAMPLE.mp4":   "debris",
-		"Movies/Metropolis (1995)/Metropolis.mkv":          "heat",
-		"Movies/Metropolis (1995)/Sample/clip.mkv":   "debris",
-		"Movies/Metropolis (1995)/x.sample.mkv":      "debris",
-		"Movies/Metropolis (1995)/._Metropolis.mkv":        "\x00\x05\x16\x07",
-		".trash/2026-09-01/old.mkv":            "old",
-		"Shows/.trash/kept.mkv":                "only the root's .trash is ours",
+		"Movies/Wing (1979)/Wing (1979).mkv":    "alien",
+		"Movies/Wing (1979)/Wing (1979).nfo":    "<movie/>",
+		"Movies/Wing (1979)/Wing (1979).en.srt": "1\n00:00:01,000 --> 00:00:02,000\nHello\n",
+		"Movies/Wing (1979)/sample.mkv":          "debris",
+		"Movies/Metropolis (1995)/metropolis-SAMPLE.mp4":      "debris",
+		"Movies/Metropolis (1995)/Metropolis.mkv":             "heat",
+		"Movies/Metropolis (1995)/Sample/clip.mkv":      "debris",
+		"Movies/Metropolis (1995)/x.sample.mkv":         "debris",
+		"Movies/Metropolis (1995)/._Metropolis.mkv":           "\x00\x05\x16\x07",
+		".trash/2026-09-01/old.mkv":               "old",
+		"Shows/.trash/kept.mkv":                   "only the root's .trash is ours",
 	})
 	if err := syscall.Mkfifo(filepath.Join(root, "Movies", "pipe.mkv"), 0o600); err != nil {
 		t.Fatal(err)
@@ -137,8 +142,9 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 	want := []string{
 		"scan_begin",
 		"skip .trash trash",
+		"sidecar Movies/Wing (1979)/Wing (1979).en.srt subtitle",
 		"observed Movies/Wing (1979)/Wing (1979).mkv",
-		"skip Movies/Wing (1979)/Wing (1979).nfo extension",
+		"sidecar Movies/Wing (1979)/Wing (1979).nfo nfo",
 		"skip Movies/Wing (1979)/sample.mkv sample",
 		"skip Movies/Metropolis (1995)/._Metropolis.mkv appledouble",
 		"observed Movies/Metropolis (1995)/Metropolis.mkv",
@@ -152,8 +158,20 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 	if got := summary(records); !slices.Equal(got, want) {
 		t.Errorf("report:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
+	checkCountsAndFacts(t, records)
+	checkSidecarBodies(t, records)
+	observed := records[3].Observed
+	if observed.Size != int64(len("alien")) || observed.Identity.Scheme == "" || observed.Identity.Hash == "" ||
+		len(observed.Probe.Format.Names) == 0 {
+		t.Errorf("observed = %+v", observed)
+	}
+}
+
+func checkCountsAndFacts(t *testing.T, records []nodeproto.Record) {
+	t.Helper()
 	complete := records[len(records)-1].ScanComplete
-	if complete.Observed != 3 || complete.Skipped != 8 || complete.Errors != 0 || complete.Stopped {
+	if complete.Observed != 3 || complete.Sidecars != 2 || complete.Skipped != 7 || complete.Errors != 0 ||
+		complete.Stopped {
 		t.Errorf("scan_complete = %+v", complete)
 	}
 	begin := records[0].ScanBegin
@@ -165,10 +183,32 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 	if begin.Device == 0 || begin.MountPoint {
 		t.Errorf("scan_begin = %+v, want the root's device and that it is not a mount point", begin)
 	}
-	observed := records[2].Observed
-	if observed.Size != int64(len("alien")) || observed.Identity.Scheme == "" || observed.Identity.Hash == "" ||
-		len(observed.Probe.Format.Names) == 0 {
-		t.Errorf("observed = %+v", observed)
+}
+
+func checkSidecarBodies(t *testing.T, records []nodeproto.Record) {
+	t.Helper()
+	for _, record := range records {
+		if sidecar := record.Sidecar; sidecar != nil {
+			wantBody := sidecar.Kind == nodeproto.SidecarNFO
+			if (string(sidecar.Body) == "<movie/>") != wantBody {
+				t.Errorf("sidecar %s carries %q; an NFO carries its bytes, a subtitle does not",
+					sidecar.Path.Text, sidecar.Body)
+			}
+		}
+	}
+}
+
+func TestScan_RefusesAnNFOPastTheBound(t *testing.T) {
+	t.Parallel()
+	root := tree(t, map[string]string{"Film/film.nfo": strings.Repeat("x", maxNFOBytes+1)})
+	media := openRoot(t, root)
+	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
+	want := []string{"scan_begin", "error Film/film.nfo entry io_error", "scan_complete"}
+	if got := summary(records); !slices.Equal(got, want) {
+		t.Errorf("report %q, want %q", got, want)
+	}
+	if detail := records[1].Error.Raw.Text; !strings.Contains(detail, "larger than the node sends") {
+		t.Errorf("the error says %q, want the bound named", detail)
 	}
 }
 

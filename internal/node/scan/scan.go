@@ -5,7 +5,9 @@ package scan
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"path"
 	"strings"
@@ -27,8 +29,11 @@ type Emit func(record nodeproto.Record) error
 // Options are the scanner's settings, from the node's config file.
 type Options struct {
 	// VideoExtensions are the extensions, lower case and without the dot, of files worth
-	// probing. Anything else is skipped with the rule "extension".
+	// probing. Anything that is neither a video nor a sidecar is skipped with the rule
+	// "extension".
 	VideoExtensions []string
+	// SubtitleExtensions are the extensions of text subtitle files, reported as sidecars.
+	SubtitleExtensions []string
 	// MaxErrors is how many errors one root may produce before the scanner stops enumerating
 	// it and reports the root as unreadable (D40: a dead share must not flood the report).
 	MaxErrors int
@@ -42,17 +47,32 @@ type Scanner struct {
 	roots      []*confine.MediaRoot
 	prober     Prober
 	extensions map[string]bool
+	subtitles  map[string]bool
 	options    Options
 }
+
+// maxNFOBytes bounds the NFO a sidecar record carries. Real ones are a few kilobytes; a larger
+// one is refused with an error record rather than sent.
+const maxNFOBytes = 1 << 20
+
+// errNFOTooLarge is an NFO past maxNFOBytes.
+var errNFOTooLarge = errors.New("an NFO file larger than the node sends")
 
 // NewScanner returns a scanner over roots, every configured media root: a symlink is followed
 // only into one of them (D206).
 func NewScanner(roots []*confine.MediaRoot, prober Prober, options Options) *Scanner {
-	extensions := make(map[string]bool, len(options.VideoExtensions))
-	for _, extension := range options.VideoExtensions {
-		extensions[strings.ToLower(extension)] = true
+	return &Scanner{
+		roots: roots, prober: prober, extensions: lowerSet(options.VideoExtensions),
+		subtitles: lowerSet(options.SubtitleExtensions), options: options,
 	}
-	return &Scanner{roots: roots, prober: prober, extensions: extensions, options: options}
+}
+
+func lowerSet(values []string) map[string]bool {
+	set := make(map[string]bool, len(values))
+	for _, value := range values {
+		set[strings.ToLower(value)] = true
+	}
+	return set
 }
 
 // location is where an entry is read from — a media root and a path inside it — and the path
@@ -115,6 +135,7 @@ func (scanner *Scanner) Scan(ctx context.Context, root *confine.MediaRoot, emit 
 	return emit(nodeproto.Record{Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{
 		Root:     root.Path(),
 		Observed: walk.observed,
+		Sidecars: walk.sidecars,
 		Skipped:  walk.skipped,
 		Errors:   walk.errors.total,
 		Stopped:  walk.errors.stopped,
@@ -129,6 +150,7 @@ type walk struct {
 	visited  map[string]bool
 	errors   *errorLog
 	observed int
+	sidecars int
 	skipped  int
 }
 
@@ -238,7 +260,12 @@ func (walk *walk) file(place location, info fs.FileInfo) error {
 		return walk.skip(place, nodeproto.SkipAppleDouble)
 	}
 	extension := strings.ToLower(strings.TrimPrefix(path.Ext(name), "."))
-	if !walk.scanner.extensions[extension] {
+	switch {
+	case extension == "nfo":
+		return walk.sidecar(place, info, nodeproto.SidecarNFO)
+	case walk.scanner.subtitles[extension]:
+		return walk.sidecar(place, info, nodeproto.SidecarSubtitle)
+	case !walk.scanner.extensions[extension]:
 		return walk.skip(place, nodeproto.SkipExtension)
 	}
 	if isSampleFile(name) {
@@ -287,6 +314,43 @@ func (walk *walk) identity(place location, size int64) (nodeproto.Identity, erro
 func (walk *walk) fail(reported string, scope nodeproto.ErrorScope, cause error, info fs.FileInfo) error {
 	walk.errors.record(reported, scope, cause, info)
 	return walk.errors.err
+}
+
+// sidecar reports a metadata or subtitle file, with an NFO's bytes.
+func (walk *walk) sidecar(place location, info fs.FileInfo, kind nodeproto.SidecarKind) error {
+	record := &nodeproto.Sidecar{
+		Path: reportedPath(place.reported), Kind: kind, Size: info.Size(), MtimeMs: info.ModTime().UnixMilli(),
+	}
+	if kind == nodeproto.SidecarNFO {
+		body, err := walk.readNFO(place, info.Size())
+		if err != nil {
+			return walk.fail(place.reported, nodeproto.ScopeEntry, err, info)
+		}
+		record.Body = body
+	}
+	walk.sidecars++
+	return walk.send(nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: record})
+}
+
+func (walk *walk) readNFO(place location, size int64) ([]byte, error) {
+	if size > maxNFOBytes {
+		return nil, fmt.Errorf("%w: %d bytes, at most %d", errNFOTooLarge, size, maxNFOBytes)
+	}
+	file, err := place.media.Open(place.rel)
+	if err != nil {
+		return nil, fmt.Errorf("open the NFO: %w", err)
+	}
+	body, readErr := io.ReadAll(io.LimitReader(file, maxNFOBytes+1))
+	closeErr := file.Close()
+	switch {
+	case readErr != nil:
+		return nil, fmt.Errorf("read the NFO: %w", readErr)
+	case closeErr != nil:
+		return nil, fmt.Errorf("close the NFO: %w", closeErr)
+	case len(body) > maxNFOBytes:
+		return nil, fmt.Errorf("%w: it grew past %d bytes while read", errNFOTooLarge, maxNFOBytes)
+	}
+	return body, nil
 }
 
 // send emits a record after any error still pending, so every record keeps its place in the
