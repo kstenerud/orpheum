@@ -343,3 +343,35 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 		t.Errorf("after the start swept, doctor found work to do:\n%s%s", doctor.stdout, doctor.stderr)
 	}
 }
+
+func TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	first := startServing(t, config, newCapturedLog("ready"), "ready")
+	if err := first.stop(); err != nil {
+		t.Fatal(err)
+	}
+	cachePath := filepath.Join(config.Server.CacheDir, "cache.db")
+	storetest.ExecRaw(t, cachePath, "PRAGMA user_version = 999",
+		"INSERT INTO job (kind, not_before, created_at) VALUES ('fetch', 0, 0)")
+	captured := newCapturedLog("ready")
+	server := startServing(t, config, captured, "ready")
+	if err := server.stop(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(captured.String(), "discarding cache.db") {
+		t.Errorf("no word of discarding the old cache:\n%s", captured)
+	}
+	cache, err := store.OpenCache(t.Context(), cachePath, storetest.OpenOptions())
+	if err != nil {
+		t.Fatalf("the rebuilt cache does not open: %v", err)
+	}
+	defer func() {
+		if err := cache.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if jobs, err := cache.Read().ListJobs(t.Context(), 10); err != nil || len(jobs) != 0 {
+		t.Errorf("the rebuilt cache holds %d jobs (%v); the old file's job should be gone", len(jobs), err)
+	}
+}

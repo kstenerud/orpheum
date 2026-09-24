@@ -16,6 +16,7 @@ import (
 // The files and directories this package owns under the state directory.
 const (
 	libraryDatabase = "library.db"
+	cacheDatabase   = "cache.db"
 	backupDirectory = "backups"
 	directoryMode   = 0o700
 	fileMode        = 0o600
@@ -54,6 +55,28 @@ func Prepare(stateDirectory, cacheDirectory string) (*Directories, error) {
 // LibraryDatabase is the path of library.db.
 func (directories *Directories) LibraryDatabase() string {
 	return filepath.Join(directories.state, libraryDatabase)
+}
+
+// CacheDatabase is the path of cache.db.
+func (directories *Directories) CacheDatabase() string {
+	return filepath.Join(directories.cache, cacheDatabase)
+}
+
+// DiscardCacheDatabase removes cache.db and its WAL and shared-memory files, which is how a
+// cache from another schema version is replaced (migrations.md, versioned by discard). Files
+// already gone are not an error.
+func (directories *Directories) DiscardCacheDatabase() (err error) {
+	root, err := os.OpenRoot(directories.cache)
+	if err != nil {
+		return fmt.Errorf("open the cache directory: %w", err)
+	}
+	defer func() { err = errors.Join(err, wrapIf("close the cache directory", root.Close())) }()
+	for _, name := range []string{cacheDatabase + "-wal", cacheDatabase + "-shm", cacheDatabase} {
+		if removeErr := root.Remove(name); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			return fmt.Errorf("remove %s: %w", filepath.Join(directories.cache, name), removeErr)
+		}
+	}
+	return nil
 }
 
 // BackupDirectory is where backups and pre-migration snapshots are written.
