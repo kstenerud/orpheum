@@ -155,6 +155,26 @@
       "SeedOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "unknown": {
+            "description": "Rows no setting reads, such as a typo; reported, never deleted",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "updated": {
+            "description": "Unmodified settings moved to a starting value this release changed",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "written": {
             "items": {
               "type": "string"
@@ -166,7 +186,9 @@
           }
         },
         "required": [
-          "written"
+          "written",
+          "updated",
+          "unknown"
         ],
         "type": "object"
       },
@@ -545,7 +567,7 @@
             "description": "Error"
           }
         },
-        "summary": "Put a server setting back to the value a new server starts with (admin)",
+        "summary": "Set a server setting to default: its starting value, no longer marked modified, so it follows its starting value when a release changes it (admin)",
         "tags": [
           "Settings"
         ]
