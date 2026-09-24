@@ -15979,7 +15979,7 @@ one.
 
 **Status:** Decided.
 
-## D205 — x86_64 is where Cut A is verified; arm64 is kept open, and nothing may assume amd64
+## D205 — x86_64 is where Cut A is verified; arm64 is kept open, riscv64 is watched, and nothing may assume amd64
 
 **Decided** (2026-09-24), by the project owner, on pinning MKVToolNix for x86_64 Linux only:
 *"I'm fine with x86 now, but we need to keep arm open for the future."*
@@ -15998,4 +15998,24 @@ one.
 
 The pinned FFmpeg is already pinned for `linux/arm64` and `darwin/arm64`.
 
-**Status:** Decided. Enforcement proposed: `make check` also vets `GOOS=linux GOARCH=arm64`.
+### riscv64 is watched
+
+The owner, the same day: *"We should also keep an eye on risc-v, with the expectation that
+support in all of the parts we rely on will probably come slowly."* riscv64 is **watched**: not
+a target, but its status is recorded and our own code must not be what blocks it. Checked
+2026-09-24:
+
+| Part | riscv64 today | What would change it |
+| --- | --- | --- |
+| Go toolchain, our code, the pure-Go SQLite driver | **builds and vets** (`GOOS=linux GOARCH=riscv64`) | — |
+| The pinned FFmpeg (jellyfin-ffmpeg 8.1.2-5) | **no build**: portable builds are linux64, linuxarm64, mac and Windows only | a riscv64 release from jellyfin-ffmpeg, or pinning a source or distribution build by hash. This is the blocker: the node cannot work without FFmpeg |
+| MKVToolNix (tests only) | **no build** | as for arm64 above |
+| Hardware encoders | none expected | the node reports what it has |
+| Landlock and seccomp (M3) | supported by the Linux kernel on riscv64 | the denylist by syscall name covers it |
+| CI | no riscv64 runner | emulation (QEMU) or a lab board, when there is a reason |
+
+**Revisit** at each between-milestone audit: re-check the FFmpeg and MKVToolNix rows, and
+whether any new dependency lacks riscv64.
+
+**Status:** Decided. `make check` vets `GOOS=linux GOARCH=arm64`; vetting riscv64 too is
+proposed.
