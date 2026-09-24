@@ -67,6 +67,13 @@ def listen_address(config: str) -> str:
     return "127.0.0.1:8432"
 
 
+def web_host(listen: str | None) -> str:
+    """The address Vite binds: the host part of `listen`, so DEV_LISTEN opens both to the LAN."""
+    if not listen:
+        return "127.0.0.1"
+    return listen.rsplit(":", 1)[0].strip("[]")
+
+
 def snapshot(root: Path) -> dict[str, float]:
     """Modification times of everything whose change means rebuilding the server."""
     times: dict[str, float] = {}
@@ -166,7 +173,7 @@ def loop(with_web: bool, race: bool, listen: str | None) -> int:
     if with_web:
         env = {**os.environ, "ORPHEUM_DEV_SERVER": f"http://{listen_address(CONFIG.read_text())}"}
         web = start(["npm", "--prefix", "web", "--workspace", "@orpheum/web", "run", "dev", "--",
-                     "--host", "127.0.0.1", "--port", "5173", "--strictPort"], "[web]", env=env)
+                     "--host", web_host(listen), "--port", "5173", "--strictPort"], "[web]", env=env)
     server = None
     reported = False
     seen = snapshot(ROOT)
