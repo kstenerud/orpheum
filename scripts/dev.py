@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import os
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -74,12 +75,22 @@ def web_host(listen: str | None) -> str:
     return listen.rsplit(":", 1)[0].strip("[]")
 
 
-def web_url(listen: str | None) -> str:
-    """Where to open the web client: a wildcard bind is reached from the LAN by the name Vite
-    accepts (web/apps/web/vite.config.ts allowedHosts)."""
+def lan_ip() -> str:
+    """This machine's address on the LAN: the source address of its default route. Connecting a
+    UDP socket sends nothing; it only picks the route."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))
+            return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+
+
+def web_url(listen: str | None, lan: str) -> str:
+    """Where to open the web client; a wildcard bind is reached at `lan`, the LAN address."""
     host = web_host(listen)
     if host in ("0.0.0.0", "::"):
-        host = "orpheum-dev.lan"
+        host = lan
     elif ":" in host:
         host = f"[{host}]"
     return f"http://{host}:5173"
@@ -163,7 +174,7 @@ def banner(ffmpeg_dir: Path, with_web: bool, race: bool, listen: str | None) -> 
     lines = [
         "Orpheum dev loop — every setting below is a debugging choice, not a default",
         f"  server       http://{address}   (pprof at /debug/pprof, metrics at /metrics)",
-        f"  web (Vite)   {web_url(listen)}   hot reload; proxies /api and /media to the server"
+        f"  web (Vite)   {web_url(listen, lan_ip())}   hot reload; proxies /api and /media to the server"
         if with_web else "  web          served by the server (built into the binary)",
         "  users        owner / owner (admin)      partner / partner (outsider)",
         f"  config       {CONFIG}   (from dev/orpheum.dev.toml)",
