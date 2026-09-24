@@ -16021,3 +16021,33 @@ whether any new dependency lacks riscv64.
 code and the gates — no build tags, no vet line, no pins — until every part it relies on
 supports it; the owner: *"Leave riscv out of our code until we know we have full support."*
 Until then it lives only in this table.
+
+## D206 — A symlink is followed only into a media root; golang.org/x/text normalises filenames and language tags
+
+**Decided** (2026-09-24), by the project owner, answering two points the plan left open when the
+scanner was built. (The question put to the owner said the node would normalise filenames; D49
+puts that at the core's ingest boundary, and this entry follows D49.)
+
+### 1. Symlinks inside a media root
+
+The scanner follows a symlink **only when its target resolves inside a configured media root**.
+Otherwise it reports a `skip` record with the rule `symlink_outside_roots`, naming the link. A
+followed directory is walked once, however many links reach it, so a loop ends.
+
+Why: ffprobe opens a file by its path, so a link to `/etc/shadow` in a media root would be read
+by the node and its probe sent to the core. Following nowhere breaks the common practice of
+building a library from symlinks into another (sharing-model.md); following everywhere turns
+a media root into a read of anything the service user can see.
+
+### 2. golang.org/x/text
+
+Allowed, for two jobs:
+
+- **Filenames** ([D49](#d49--unicode-discipline-at-the-boundaries-enforced-by-tests)): the node reports each path's bytes exactly as the
+  filesystem gave them, and the core normalises to NFC at its ingest boundary with
+  `unicode/norm`, keeping those bytes for opening the file.
+- **Language tags** (scanner.md, Track facts): each track's raw tag (`ger`, `deu`) beside its
+  BCP 47 form (`de`), with `language`, which knows ISO 639-2's bibliographic and terminological
+  codes. The alternative was hand-maintaining FFmpeg's 695-entry table.
+
+**Status:** Decided. `deps/go.allow` gains `golang.org/x/text`.

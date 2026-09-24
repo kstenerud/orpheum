@@ -211,6 +211,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D203](working-notes.md#d203--the-audit-between-m1-and-m2-what-m2-builds-first-how-cachedb-is-versioned-and-two-standing-practices-an-audit-between-milestones-and-a-plan-deviation-log) The audit between M1 and M2: what M2 builds first, how cache.db is versioned, and two standing practices, an audit between milestones and a plan-deviation log
 - [D204](working-notes.md#d204--no-ambient-configuration-the-shipped-binary-is-configured-by-its-config-file-its-flags-and-its-database-and-by-nothing-it-inherits) No ambient configuration: the shipped binary is configured by its config file, its flags and its database, and by nothing it inherits
 - [D205](working-notes.md#d205--x86_64-is-where-cut-a-is-verified-arm64-is-kept-open-riscv64-is-watched-and-nothing-may-assume-amd64) x86_64 is where Cut A is verified; arm64 is kept open, riscv64 is watched, and nothing may assume amd64
+- [D206](working-notes.md#d206--a-symlink-is-followed-only-into-a-media-root-golangorgxtext-normalises-filenames-and-language-tags) A symlink is followed only into a media root; golang.org/x/text normalises filenames and language tags
 
 ## Archived
 
