@@ -33,6 +33,7 @@ func (work *batch) complete(ctx context.Context, scan *scanState, complete *node
 	if err := work.concludeMoves(ctx, scan); err != nil {
 		return err
 	}
+	work.ended = append(work.ended, scan.libraryID)
 	if complete.Stopped || scan.unreadAll {
 		work.ingester.logger.WarnContext(ctx, "a scan could not read its whole root; nothing was removed",
 			"nodeId", work.nodeID, "root", scan.root, "errors", complete.Errors)

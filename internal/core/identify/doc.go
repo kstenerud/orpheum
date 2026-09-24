@@ -21,6 +21,17 @@
 //   - The filename parser is a pure function of a path, tested against a corpus that includes
 //     non-Latin names, and no expression uses an ASCII-only class (D49).
 //     TestParsePath_ACorpusOfNames, TestParsePath_NoExpressionUsesAnASCIIOnlyClass.
+//   - An NFO's locked fields become overrides and the rest is the title's source; its watch
+//     counts are not read (D182, D183). TestParseNFO_AKodiMovieWithItsCorrectionsLocked.
+//   - The pass reads only stored observations and reaches the same titles when run again (D182).
+//     TestPass_RunningAgainChangesNothing.
+//   - Films, versions, extras by containment and episodes in their series' aired order come from
+//     the paths and NFO files (D155, D162, D96). TestPass_TheDevLibrarysFilms,
+//     TestPass_ASeriesFromItsFoldersAndItsTvshowNFO.
+//   - A renamed or moved file is identified again from its new path, unless a person confirmed
+//     its match (D208 §1). TestPass_ARenamedFileIsIdentifiedAgainUnlessConfirmed.
+//   - A title with no live files left follows them to another library, found by provider id
+//     (D208 §2). TestPass_ATitleFollowsItsFilesToAnotherLibrary.
 //
 // # Read before changing
 //
@@ -33,6 +44,8 @@
 //
 // # Where to change
 //
-//   - filename.go: the filename parser, and its corpus in filename_test.go.
-//   - The NFO reader; the TMDB client (a subpackage when it grows); candidate ranking; overrides.
+//   - filename.go: the filename parser, and its corpus in filename_test.go; nfo.go: the NFO
+//     reader.
+//   - pass.go, titles.go, episodes.go, extras.go: the identification pass.
+//   - The TMDB client (a subpackage when it grows); candidate ranking; overrides from people.
 package identify

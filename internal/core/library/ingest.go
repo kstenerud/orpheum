@@ -41,8 +41,15 @@ type Ingester struct {
 	settings Settings
 	logger   *slog.Logger
 
-	mutex sync.Mutex
-	scans map[int64]*scanState // by node: a node scans one root at a time
+	mutex     sync.Mutex
+	scans     map[int64]*scanState // by node: a node scans one root at a time
+	afterScan func(ctx context.Context, libraryID int64)
+}
+
+// AfterScan sets what runs once a scan's end is committed, with the scanned library's id:
+// identification, which reads what the scan stored.
+func (ingester *Ingester) AfterScan(run func(ctx context.Context, libraryID int64)) {
+	ingester.afterScan = run
 }
 
 // scanState is one scan in progress: which root and library, when it began, the moves it has
@@ -88,15 +95,26 @@ func (ingester *Ingester) Records(ctx context.Context, nodeID int64, records []n
 	ingester.mutex.Lock()
 	defer ingester.mutex.Unlock()
 	now := ingester.clock.Now().UnixMilli()
-	return ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	var ended []int64
+	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		batch := &batch{ingester: ingester, queries: queries, nodeID: nodeID, now: now}
 		for _, record := range records {
 			if err := batch.record(ctx, record); err != nil {
 				return fmt.Errorf("record %d (%s): %w", record.Seq, record.Type, err)
 			}
 		}
+		ended = batch.ended
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	if ingester.afterScan != nil {
+		for _, libraryID := range ended {
+			ingester.afterScan(ctx, libraryID)
+		}
+	}
+	return nil
 }
 
 // batch is one transaction's worth of records from one node.
@@ -105,6 +123,7 @@ type batch struct {
 	queries  *sqlcgen.Queries
 	nodeID   int64
 	now      int64
+	ended    []int64 // libraries whose scan ended in this batch
 }
 
 func (work *batch) record(ctx context.Context, record nodeproto.Record) error {

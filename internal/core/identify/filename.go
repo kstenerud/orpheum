@@ -63,8 +63,8 @@ func isReleaseTag(word string) bool {
 // extraSuffixes type an extra by its file name's last dash-separated part (D162).
 func extraSuffixes() []string {
 	return []string{
-		"trailer", "teaser", "clip", "featurette", "behindthescenes", "deleted", "deletedscene",
-		"interview", "short", "scene", "sample", "theme", "other",
+		extraTrailer, "teaser", extraClip, extraFeaturette, "behindthescenes", "deleted", "deletedscene",
+		extraInterview, extraShort, extraScene, "sample", "theme", "other",
 	}
 }
 
@@ -82,7 +82,7 @@ func ParsePath(relative string) Parsed {
 	stem, parsed.ExtraSuffix = cutExtraSuffix(stem)
 
 	if marker, found := findEpisode(stem); found {
-		parsed.Kind = "episode"
+		parsed.Kind = kindEpisode
 		parsed.Season, parsed.Episode, parsed.EpisodeEnd = marker.season, marker.episode, marker.end
 		// The folders name a series more reliably than the words before "S02E05", which may be
 		// the episode's own name or "Folge" ("episode"); the file name is the fallback.
@@ -92,7 +92,7 @@ func ParsePath(relative string) Parsed {
 		}
 		return parsed
 	}
-	parsed.Kind = "movie"
+	parsed.Kind = kindMovie
 	parsed.Name, parsed.Year = cleanTitle(stem)
 	if parsed.Year == 0 || parsed.Name == "" {
 		// "Metropolis (1995)/movie.mkv", "Metropolis (1995)/metropolis-1080p.mkv": the folder names the work.
