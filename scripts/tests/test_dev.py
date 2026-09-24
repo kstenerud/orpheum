@@ -62,6 +62,13 @@ class DevLoop(unittest.TestCase):
         self.assertEqual(dev.web_host("0.0.0.0:8432"), "0.0.0.0")
         self.assertEqual(dev.web_host("[::]:8432"), "::")
 
+    def test_the_banner_names_the_address_to_open_from_the_lan(self):
+        self.assertEqual(dev.web_url(None), "http://127.0.0.1:5173")
+        self.assertEqual(dev.web_url("0.0.0.0:8432"), "http://orpheum-dev.lan:5173")
+        self.assertEqual(dev.web_url("[::]:8432"), "http://orpheum-dev.lan:5173")
+        self.assertEqual(dev.web_url("192.168.1.20:8432"), "http://192.168.1.20:5173")
+        self.assertEqual(dev.web_url("[fd00::2]:8432"), "http://[fd00::2]:5173")
+
     def test_the_real_templates_leave_no_placeholder(self):
         for name in ("orpheum.dev.toml", "seed.toml"):
             text = dev.render_config((dev.ROOT / "dev" / name).read_text(), Path("/r"), Path("/f"), None)

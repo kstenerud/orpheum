@@ -74,6 +74,17 @@ def web_host(listen: str | None) -> str:
     return listen.rsplit(":", 1)[0].strip("[]")
 
 
+def web_url(listen: str | None) -> str:
+    """Where to open the web client: a wildcard bind is reached from the LAN by the name Vite
+    accepts (web/apps/web/vite.config.ts allowedHosts)."""
+    host = web_host(listen)
+    if host in ("0.0.0.0", "::"):
+        host = "orpheum-dev.lan"
+    elif ":" in host:
+        host = f"[{host}]"
+    return f"http://{host}:5173"
+
+
 def snapshot(root: Path) -> dict[str, float]:
     """Modification times of everything whose change means rebuilding the server."""
     times: dict[str, float] = {}
@@ -147,12 +158,12 @@ def seed_if_empty() -> None:
                    cwd=ROOT, check=False)
 
 
-def banner(ffmpeg_dir: Path, with_web: bool, race: bool) -> None:
+def banner(ffmpeg_dir: Path, with_web: bool, race: bool, listen: str | None) -> None:
     address = listen_address(CONFIG.read_text())
     lines = [
         "Orpheum dev loop — every setting below is a debugging choice, not a default",
         f"  server       http://{address}   (pprof at /debug/pprof, metrics at /metrics)",
-        "  web (Vite)   http://127.0.0.1:5173   hot reload; proxies /api and /media to the server"
+        f"  web (Vite)   {web_url(listen)}   hot reload; proxies /api and /media to the server"
         if with_web else "  web          served by the server (built into the binary)",
         "  users        owner / owner (admin)      partner / partner (outsider)",
         f"  config       {CONFIG}   (from dev/orpheum.dev.toml)",
@@ -168,7 +179,7 @@ def banner(ffmpeg_dir: Path, with_web: bool, race: bool) -> None:
 
 def loop(with_web: bool, race: bool, listen: str | None) -> int:
     ffmpeg_dir = prepare(listen)
-    banner(ffmpeg_dir, with_web, race)
+    banner(ffmpeg_dir, with_web, race, listen)
     web = None
     if with_web:
         env = {**os.environ, "ORPHEUM_DEV_SERVER": f"http://{listen_address(CONFIG.read_text())}"}
