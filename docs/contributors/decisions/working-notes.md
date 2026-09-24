@@ -14174,6 +14174,9 @@ database.
 
 ## D182 — Metadata is a stack of layers with one fetched layer; re-derivation reads only stored input; a new config requirement is a default, a derivation, or a question
 
+> **Amended by [D200](#d200--every-opinionated-value-is-a-setting-row-seeded-with-its-starting-value-nothing-has-a-default-in-code-the-config-file-holds-only-what-must-exist-before-the-database-opens-and-all-of-it-is-required):** a config file key is never defaulted in code; every key is
+> required.
+
 **Decided** (2026-09-23), by the project owner, reviewing [D181](#d181--the-migration-policy-two-integers-our-own-small-runner-a-snapshot-that-outlives-success-refuse-what-we-cannot-read-and-re-derive-rather-than-transform):
 
 > *"For re-deriving data, we need to be careful because we allow user-overriding of data, and
@@ -14267,6 +14270,9 @@ to defaults that are safe to be wrong.
 
 ## D183 — An override is an override wherever its value came from; a library's source is asked, not defaulted; a default must be safe to be wrong and visible where it acts
 
+> **Amended by [D200](#d200--every-opinionated-value-is-a-setting-row-seeded-with-its-starting-value-nothing-has-a-default-in-code-the-config-file-holds-only-what-must-exist-before-the-database-opens-and-all-of-it-is-required):** settings have no defaults in code. Every opinion is a
+> row, seeded with its starting value and shown beside it; §3's *default* marking is replaced.
+
 **Decided** (2026-09-23), by the project owner, simplifying [D182](#d182--metadata-is-a-stack-of-layers-with-one-fetched-layer-re-derivation-reads-only-stored-input-a-new-config-requirement-is-a-default-a-derivation-or-a-question):
 
 > *"We could just treat any override as 'user override', regardless of where the user overrode
@@ -14324,8 +14330,9 @@ answer to that failure; §15 is the rule behind it.
 
 **Consequence for [D182](#d182--metadata-is-a-stack-of-layers-with-one-fetched-layer-re-derivation-reads-only-stored-input-a-new-config-requirement-is-a-default-a-derivation-or-a-question) §3** (a config file needing something new): step 1, *"a
 default"*, now applies only when the default is **safe to be wrong**; otherwise the value is asked
-(step 3) or refused with a remedy (step 4). And a defaulted value is **visible**: the settings page
-marks it *default*, and startup logs each defaulted key once.
+(step 3) or refused with a remedy (step 4). ~~And a defaulted value is **visible**: the settings page
+marks it *default*, and startup logs each defaulted key once.~~ [D200](#d200--every-opinionated-value-is-a-setting-row-seeded-with-its-starting-value-nothing-has-a-default-in-code-the-config-file-holds-only-what-must-exist-before-the-database-opens-and-all-of-it-is-required): there are no defaults in code; every
+opinion is a setting row seeded with its starting value, shown beside it.
 
 **Status:** Decided. [identification.md](../design/plans/identification.md) and D182 amended.
 **An audit of the existing defaults against §15 is owed** — the log says "by default" 42 times.
@@ -15611,6 +15618,9 @@ run. The next prompt starts M1.
 
 ## D197 — A development loop with opinionated, printed settings, and Makefile targets for the common debugging jobs
 
+> **Amended by [D200](#d200--every-opinionated-value-is-a-setting-row-seeded-with-its-starting-value-nothing-has-a-default-in-code-the-config-file-holds-only-what-must-exist-before-the-database-opens-and-all-of-it-is-required):** `/debug/pprof` and `/metrics` are the `debug_pprof` and
+> `debug_metrics` settings, not config keys.
+
 **Decided** (2026-09-23), by the project owner: *"For the makefile, I want targets for common
 debugging tasks, including spinning up the app with some opinionated config."*
 
@@ -15726,5 +15736,58 @@ failed for every core package that uses the store.
   ten modules to the allowlist, and the driver benchmark on devnas
   ([standards/sql.md](../standards/sql.md) §7) has not run. Checking direct imports only would
   duplicate depguard and stop catching a real indirect exec.
+
+**Status:** Decided.
+
+---
+
+## D200 — Every opinionated value is a setting row, seeded with its starting value; nothing has a default in code; the config file holds only what must exist before the database opens, and all of it is required
+
+**Decided** (2026-09-24), by the project owner, reviewing the numbers M1 had compiled in: *"things
+that take opinionated values should in general be configurable … stored in the database config
+table, not necessarily directly accessible via the UI … in a similar spirit to how Firefox has
+about:config"*, and *"I want to avoid default behaviors in code because they make things harder
+to reason about."*
+
+### 1. Settings
+
+- **Every opinion the server acts on is a setting**: the failed sign-in limit and window, session
+  idle expiry, how often a session's use is written, argon2id's costs, the API key hint length,
+  doctor's backup-age warning, and the debug endpoints, beside the three M1 already had.
+- **The registry in code says each key's type, bounds and starting value, and whether the
+  settings page shows it.** On every start the server writes the starting value of any key that
+  has no row — every key on a new server, and on an upgrade the keys the release introduced —
+  and never changes a row that exists. The running server reads only rows.
+- **A missing row is an error, never a fallback.** It names the key and its starting value and
+  says how to fix it: set that one through `/config`, or write every missing one with
+  `orpheum seed-settings` or `POST /config/seed`, which only fill gaps.
+- **A question** — `update_check` (D184) — starts as JSON null and reads as unanswered.
+- **The raw view is `/config`** (admin): every setting with its value, its starting value and
+  whether it differs, with `?modified=true` for only the changed ones; `PUT` changes any setting,
+  and `POST /config/{key}/reset` writes the starting value back. `/settings` shows and changes only
+  what the settings page exposes. The page for the full list shows each value beside its starting
+  value, and filters to the changed ones, when the web client is built.
+- **Values needed before the database opens cannot be settings**: the HTTP read-header timeout,
+  the free-space margin before migrating and the reader-pool minimum stay constants for now, as
+  does the shutdown grace a failed start also needs. Format and safety properties — pragmas, file
+  modes, token length, the setup code's shape — stay constants because they are not opinions.
+
+### 2. The config file
+
+- **Every key is required**, and a missing one is refused by name. The dev loop and the installer
+  write all of them.
+- **What stays** is only what must be known before `library.db` opens, or must not be changeable
+  by someone holding only an admin account: `server.listen`, `data_dir` and `cache_dir`;
+  `node.roots` (D107), `ffmpeg_dir` and `confinement`; `log.level` and `log.format`.
+- **`[debug]` leaves the file** for the `debug_pprof` and `debug_metrics` settings.
+
+### 3. What it amends
+
+- **[D183](#d183--an-override-is-an-override-wherever-its-value-came-from-a-librarys-source-is-asked-not-defaulted-a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts)**: *"a row exists only when someone set a value"* is replaced. What D183
+  wanted — an opinion visible where it acts — is kept more strongly: every opinion is a row, and
+  its starting value is shown beside it.
+- **[D182](#d182--metadata-is-a-stack-of-layers-with-one-fetched-layer-re-derivation-reads-only-stored-input-a-new-config-requirement-is-a-default-a-derivation-or-a-question) §3**: a config file key is never defaulted; a new one is a derivation, a question
+  asked in the UI (and so a setting), or a refusal naming the key.
+- **[D197](#d197--a-development-loop-with-opinionated-printed-settings-and-makefile-targets-for-the-common-debugging-jobs) §4**: pprof and metrics are settings, not config keys; `dev/seed.toml` turns them on.
 
 **Status:** Decided.
