@@ -18,8 +18,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -180,7 +182,11 @@ func call(t *testing.T, method, url, token string, body any) reply {
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
-	answer, err := http.DefaultClient.Do(request)
+	client, err := outbound.NewClient(30 * time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer, err := client.Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}

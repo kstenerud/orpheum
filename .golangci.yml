@@ -516,15 +516,26 @@ linters:
           msg: "[clock] take a clock.Clock (internal/platform/clock) and call its Now; tests pass clock.NewFake"
 
         # Ambient process state is read once, in cmd/orpheum, and passed down.
-        - pattern: '^os\.(Getenv|LookupEnv|Environ|ExpandEnv|Setenv|Unsetenv|Clearenv|Args|Exit|Stdin|Stdout|Stderr|Getwd|Chdir|UserHomeDir|UserConfigDir|UserCacheDir|Hostname)$'
+        - pattern: '^os\.(Getenv|LookupEnv|Environ|ExpandEnv|Setenv|Unsetenv|Clearenv|Args|Exit|Stdin|Stdout|Stderr|Getwd|Chdir|UserHomeDir|UserConfigDir|UserCacheDir|Hostname|TempDir)$'
           pkg: '^os$'
-          msg: "[ambient] only cmd/orpheum reads the environment, argv, stdio or the working directory, or exits; pass typed values down"
+          msg: "[ambient] only cmd/orpheum reads the environment, argv, stdio or the working directory, or exits; pass typed values down (D204). A temporary file goes in a directory the config names"
+        - pattern: '^filepath\.Abs$'
+          pkg: '^path/filepath$'
+          msg: "[ambient] filepath.Abs reads the working directory; config paths are absolute already (D204)"
+        - pattern: '^time\.Local$'
+          pkg: '^time$'
+          msg: "[ambient] the server's times are UTC; cmd/orpheum sets time.Local once, and clients format for their viewer (D204)"
         - pattern: '^syscall\.(Getenv|Setenv|Unsetenv|Environ|Clearenv)$'
           pkg: '^syscall$'
           msg: "[ambient] only cmd/orpheum reads the environment; pass typed values down"
         - pattern: '^slog\.(Default|SetDefault)$'
           pkg: '^log/slog$'
           msg: "[ambient] take a *slog.Logger as a parameter; only cmd/orpheum builds one (internal/platform/slogx)"
+
+        # D204: outbound HTTP takes no proxy from HTTP_PROXY; one client constructor builds it.
+        - pattern: '^http\.(DefaultClient|DefaultTransport|Get|Head|Post|PostForm|ProxyFromEnvironment)$'
+          pkg: '^net/http$'
+          msg: "[outbound] build the client with internal/platform/outbound.NewClient; Go's defaults read HTTP_PROXY (D204)"
 
         # A context is created at the top (cmd/orpheum) or by a test (t.Context), and passed down.
         - pattern: '^context\.(Background|TODO)$'
@@ -612,6 +623,9 @@ linters:
       - path: ^internal/testutil/
         linters: [forbidigo]
         text: '\[(ambient|skip)\]'
+      - path: ^internal/platform/outbound/
+        linters: [forbidigo]
+        text: '\[outbound\]'
       - path: _test\.go$
         linters: [forbidigo]
         text: '\[panic\]'

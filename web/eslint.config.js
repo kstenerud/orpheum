@@ -89,6 +89,12 @@ const noEnum = {
   message:
     "Use a union of string literals; enums emit runtime code and number enums accept any number.",
 };
+// D204: the built client reads no environment; what it needs comes from the server.
+const noImportMetaEnv = {
+  selector: 'MemberExpression[object.type="MetaProperty"][property.name="env"]',
+  message:
+    "The web client reads no environment (D204); take the value from the server through @orpheum/sdk.",
+};
 // Until react-i18next lands (D51), user-visible text may not be written inline in JSX.
 const noInlineUserText = {
   selector: String.raw`JSXText[value=/\p{L}/u]`,
@@ -239,7 +245,7 @@ export default tseslint.config(
             "Talk to the server through @orpheum/sdk; fetch is allowed only in packages/sdk.",
         })),
       ],
-      "no-restricted-syntax": ["error", noDefaultExport, noEnum],
+      "no-restricted-syntax": ["error", noDefaultExport, noEnum, noImportMetaEnv],
       "no-console": "error",
       "no-alert": "error",
       eqeqeq: ["error", "always"],
@@ -267,6 +273,7 @@ export default tseslint.config(
         "error",
         noDefaultExport,
         noEnum,
+        noImportMetaEnv,
         noInlineUserText,
         noInlineAccessibleText,
       ],
@@ -335,6 +342,7 @@ export default tseslint.config(
         "error",
         noDefaultExport,
         noEnum,
+        noImportMetaEnv,
         {
           selector: String.raw`CallExpression[callee.object.name="vi"][callee.property.name=/^(mock|doMock)$/] > Literal.arguments:first-child[value=/^(\.|@orpheum\/)/]`,
           message: "Pass a hand-written fake as a parameter; never vi.mock our own modules.",
