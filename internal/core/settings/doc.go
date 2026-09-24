@@ -13,8 +13,12 @@
 //     forbidigo rule tagged [core-fs].
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
-//   - No setting holds a secret. Review-only; the canary test (D194) checks that no settings dump
-//     carries one.
+//   - No setting holds a secret. Enforced by the canary test in cmd/orpheum, which reads every
+//     settings response with every secret set.
+//   - Every setting has a default or a question, exactly one, and its default passes its own
+//     check. Enforced by TestRegistry_EverySettingHasADefaultOrAQuestion.
+//   - A change is checked against the registry and applied all or none. Enforced by
+//     TestSet_RefusesAnUnknownKeyTheWrongScopeOrKindAndChangesNothing.
 //
 // # Read before changing
 //
@@ -26,5 +30,6 @@
 //
 // # Where to change
 //
-//   - The registry of settings and their defaults; GET/PUT /settings and /me/settings logic.
+//   - settings.go: the registry (M1 declares the three keys dev/seed.toml sets; each later setting
+//     arrives with its feature), List and Set. The endpoints are in internal/core/api.
 package settings

@@ -14,8 +14,19 @@
 //     forbidigo rule tagged [core-fs].
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
-//   - A password is stored only as an argon2id PHC string. Review-only until M1's tests land; the
-//     canary test (D194) then checks nothing stores or logs it.
+//   - A password is stored only as an argon2id PHC string, with RFC 9106's second parameters.
+//     Enforced by TestHashPassword_IsAPHCStringThatVerifies and TestCreateUser_StoresOnlyTheHash.
+//   - A sign-in under older costs re-hashes the password. Enforced by
+//     TestSignIn_RehashesAPasswordMadeUnderOlderCosts.
+//   - Failed sign-ins are limited per account and per address, and a failure does not say which
+//     part was wrong. Enforced by TestSignIn_RateLimitsRepeatedFailures and
+//     TestSignIn_SaysNothingAboutWhichPartWasWrong.
+//   - A session is stored only as its token's SHA-256 and ends when revoked. Enforced by
+//     TestSignIn_IssuesASessionUntilSignedOut.
+//   - Only the setup code creates the first admin, and only once. Enforced by
+//     TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce.
+//   - argon2id takes at most 500 ms on devnas: BenchmarkHashPassword_DefaultParameters, run there
+//     (verification queue VQ1).
 //
 // # Read before changing
 //
@@ -27,6 +38,7 @@
 //
 // # Where to change
 //
-//   - Password hashing and its parameters; the grant table's issue, verify and revoke; the invite
-//     flow of cut-a §5 (Setup and auth).
+//   - password.go: argon2id and its parameters. limiter.go: the failure limit (provisional numbers).
+//   - auth.go: users, sign-in, sessions on the grant table. setup.go: the setup code and the first
+//     admin. The invite flow of cut-a §5 (Setup and auth) arrives with M4.
 package auth
