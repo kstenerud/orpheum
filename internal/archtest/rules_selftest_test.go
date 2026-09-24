@@ -32,6 +32,41 @@ func TestFindTransitiveDependencies_CatchesAnIndirectPath(t *testing.T) {
 	}
 }
 
+func TestFindCoreRoutesToExec_ExemptsOnlyTheNamedEdge(t *testing.T) {
+	t.Parallel()
+	exempt := map[string]string{"modernc.org/libc": "a reason"}
+	throughTheDriver := map[string][]string{
+		corePath + "/auth":    {storePath},
+		storePath:             {"modernc.org/sqlite"},
+		"modernc.org/sqlite":  {"modernc.org/libc"},
+		"modernc.org/libc":    {"os/exec", "os"},
+		nodePath + "/execx":   {"os/exec"},
+		corePath + "/library": {"fmt"},
+	}
+	if got := findCoreRoutesToExec(throughTheDriver, exempt); len(got) != 0 {
+		t.Errorf("core reaching os/exec only through the exempt edge: got %v, want none", got)
+	}
+	if got := findCoreRoutesToExec(throughTheDriver, nil); len(got) != 1 ||
+		!strings.Contains(got[0].detail, "modernc.org/libc -> os/exec") {
+		t.Errorf("without the exemption: got %v, want the route through libc", got)
+	}
+	anotherRoute := map[string][]string{
+		corePath + "/auth":       {storePath, "example.com/shells"},
+		storePath:                {"modernc.org/libc"},
+		"modernc.org/libc":       {"os/exec"},
+		"example.com/shells":     {"example.com/shells/run"},
+		"example.com/shells/run": {"os/exec"},
+	}
+	got := findCoreRoutesToExec(anotherRoute, exempt)
+	if len(got) != 1 || !strings.Contains(got[0].detail, "example.com/shells/run -> os/exec") {
+		t.Errorf("a second route beside the exempt one: got %v, want it named", got)
+	}
+	direct := map[string][]string{corePath + "/jobs": {"os/exec"}, "modernc.org/libc": {"os/exec"}}
+	if got := findCoreRoutesToExec(direct, exempt); len(got) != 1 {
+		t.Errorf("core importing os/exec itself: got %v, want it caught", got)
+	}
+}
+
 func TestFindDirectImporters_JudgesProductionAndTestImportsSeparately(t *testing.T) {
 	t.Parallel()
 	rule := importRule{

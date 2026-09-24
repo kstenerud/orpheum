@@ -73,6 +73,61 @@ func findTransitiveDependencies(packages []listedPackage, fromRoot, targetRoot s
 	return violations
 }
 
+// execExemptions are the only packages through which the core may reach os/exec, each with the
+// reason (D199). The check drops just that edge: any other route to os/exec still fails.
+var execExemptions = map[string]string{
+	"modernc.org/libc": "the pure-Go SQLite driver's C runtime implements system() and popen() with " +
+		"os/exec; SQLite never calls them",
+}
+
+// findCoreRoutesToExec returns, for every core package, one import route to os/exec that does
+// not pass through an exempt importer's edge to it.
+func findCoreRoutesToExec(graph map[string][]string, exempt map[string]string) []violation {
+	const target = "os/exec"
+	var violations []violation
+	for importPath := range graph {
+		if !isUnder(importPath, corePath) {
+			continue
+		}
+		if route := routeTo(graph, importPath, target, exempt); route != nil {
+			violations = append(violations, violation{
+				where:  importPath,
+				detail: "reaches " + target + " through " + strings.Join(route, " -> "),
+			})
+		}
+	}
+	slices.SortFunc(violations, func(first, second violation) int { return strings.Compare(first.where, second.where) })
+	return violations
+}
+
+// routeTo finds an import route from start to target, breadth first, skipping exempt edges.
+func routeTo(graph map[string][]string, start, target string, exempt map[string]string) []string {
+	previous := map[string]string{start: ""}
+	queue := []string{start}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		for _, imported := range graph[current] {
+			if _, seen := previous[imported]; seen {
+				continue
+			}
+			if _, isExempt := exempt[current]; isExempt && imported == target {
+				continue
+			}
+			previous[imported] = current
+			if imported == target {
+				var route []string
+				for step := target; step != ""; step = previous[step] {
+					route = append([]string{step}, route...)
+				}
+				return route
+			}
+			queue = append(queue, imported)
+		}
+	}
+	return nil
+}
+
 // importRule says which packages may import a set of forbidden packages directly.
 type importRule struct {
 	forbidden            []string
@@ -146,6 +201,10 @@ func findFreeFunctions(files []sourceFile) []violation {
 	}
 	return violations
 }
+
+// generatedPackages hold only a generator's output, where no hand-written doc.go may live (the
+// pre-edit hook refuses it); the package that owns the generator documents them instead.
+var generatedPackages = []string{storePath + "/sqlcgen"}
 
 // requiredDocHeadings are the doc.go headings every package carries, in this order.
 var requiredDocHeadings = []string{"Invariants", "Read before changing", "Where to change"}
@@ -264,7 +323,7 @@ func TestArch_CoreNeverExecs(t *testing.T) {
 	t.Parallel()
 	packages := loadModulePackages(t)
 	requirePackagesUnder(t, packages, corePath)
-	reportViolations(t, findTransitiveDependencies(packages, corePath, "os/exec"))
+	reportViolations(t, findCoreRoutesToExec(loadCoreImportGraph(t), execExemptions))
 }
 
 func TestArch_NodeNeverImportsCore(t *testing.T) {
@@ -314,6 +373,9 @@ func TestArch_EveryPackageHasDocGo(t *testing.T) {
 	t.Parallel()
 	packages := loadModulePackages(t)
 	for _, listed := range packages {
+		if slices.Contains(generatedPackages, listed.ImportPath) {
+			continue
+		}
 		source, found := readDocFile(t, listed)
 		reportViolations(t, checkDocFile(listed.ImportPath, source, found))
 	}

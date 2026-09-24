@@ -10,7 +10,8 @@
 //
 //   - TestArch_CoreNeverImportsNode: no internal/core package depends, even transitively, on
 //     internal/node.
-//   - TestArch_CoreNeverExecs: no internal/core package depends, even transitively, on os/exec.
+//   - TestArch_CoreNeverExecs: no internal/core package depends, even transitively, on os/exec,
+//     except through the one exempt edge of D199 (modernc.org/libc, the SQLite driver's C runtime).
 //   - TestArch_NodeNeverImportsCore: no internal/node package depends, even transitively, on
 //     internal/core.
 //   - TestArch_OnlyStoreImportsDatabaseSQL: only internal/store imports database/sql or a SQLite
@@ -20,7 +21,8 @@
 //   - TestArch_NodeprotoHasNoLogic: internal/nodeproto imports nothing from the module except
 //     internal/platform, and declares no functions outside methods.
 //   - TestArch_EveryPackageHasDocGo: every package under internal/ and cmd/ has a doc.go whose
-//     comment has the headings Invariants, Read before changing and Where to change.
+//     comment has the headings Invariants, Read before changing and Where to change. Generated
+//     packages (internal/store/sqlcgen) are exempt; their owner's doc.go covers them.
 //   - TestArch_NoGenericPackageNames: no package is named util, common, helpers or the like.
 //   - TestArch_NoForbiddenSuppressions: no //nolint names a complexity linter or depguard.
 //   - TestArch_QueriesNameEveryColumn: no query in internal/store/queries selects or returns *.
