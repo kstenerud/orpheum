@@ -16051,3 +16051,32 @@ Allowed, for two jobs:
   codes. The alternative was hand-maintaining FFmpeg's 695-entry table.
 
 **Status:** Decided. `deps/go.allow` gains `golang.org/x/text`.
+
+## D207 — execx starts the node child; the node's loop is internal/node/agent and the core's side internal/core/nodes; a node is known by its configured name
+
+**Decided** (2026-09-24), by the project owner, answering three points cut-a left open when the
+node process was built.
+
+### 1. execx starts the node child
+
+cut-a §2 has `orpheum run` start the node as a child, and only `execx` may start a process. So
+`execx` runs one more program besides `ffmpeg` and `ffprobe`: **orpheum's own binary in `node`
+mode**, long-lived, with an empty environment ([D204](#d204--no-ambient-configuration-the-shipped-binary-is-configured-by-its-config-file-its-flags-and-its-database-and-by-nothing-it-inherits)), in its own process group. The core's
+supervisor receives it through an interface that `cmd/orpheum` wires in, so the core still never
+reaches `os/exec` (`TestArch_CoreNeverExecs`). M3's confinement shim, also a re-execution of
+orpheum, will live beside it.
+
+### 2. Two packages cut-a §3 did not list
+
+- **`internal/node/agent`** — the node's loop: dial the core's socket, say hello, long-poll for
+  commands, run them, and stream the report.
+- **`internal/core/nodes`** — the core's side: the node channel's handlers, the command queue,
+  liveness, and supervising the child.
+
+### 3. A node is known by its configured name
+
+The `[node]` table gains `name`, starting value `local`. The core enrols a `node` row on the
+first hello with a name it has not seen and matches by name after that; the socket's permissions
+are the authentication ([D107](#d107--the-node-channel-is-mutually-authenticated-and-a-nodes-roots-are-local-and-never-remotely-settable)).
+
+**Status:** Decided.
