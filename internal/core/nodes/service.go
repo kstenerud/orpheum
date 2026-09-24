@@ -94,7 +94,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		http.Error(writer, "a hello names its node", http.StatusBadRequest)
 		return
 	}
-	node, err := service.enrol(ctx, hello.Name)
+	node, err := enrol(ctx, service.database, service.clock, hello.Name)
 	if err != nil {
 		service.fail(ctx, writer, "enrol the node", err)
 		return
@@ -116,10 +116,19 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	writeJSON(writer, nodeproto.HelloReply{NodeID: node.ID, ReportSeq: node.ReportSeq})
 }
 
-// enrol returns the live node with name, creating it on the first hello.
-func (service *Service) enrol(ctx context.Context, name string) (sqlcgen.GetLiveNodeByNameRow, error) {
+// Enrol returns the id of the live node called name, creating its row if there is none (D207):
+// the first hello does this, and so does a dev seed that names a library's node before the
+// node has spoken.
+func Enrol(ctx context.Context, database *store.Database, now clock.Clock, name string) (int64, error) {
+	node, err := enrol(ctx, database, now, name)
+	return node.ID, err
+}
+
+func enrol(
+	ctx context.Context, database *store.Database, now clock.Clock, name string,
+) (sqlcgen.GetLiveNodeByNameRow, error) {
 	var node sqlcgen.GetLiveNodeByNameRow
-	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		found, err := store.One(queries.GetLiveNodeByName(ctx, name))
 		if err == nil {
 			node = found
@@ -128,7 +137,7 @@ func (service *Service) enrol(ctx context.Context, name string) (sqlcgen.GetLive
 		if !errors.Is(err, store.ErrNotFound) {
 			return err
 		}
-		enrolledAt := service.clock.Now().UnixMilli()
+		enrolledAt := now.Now().UnixMilli()
 		id, err := queries.InsertNode(ctx, sqlcgen.InsertNodeParams{Name: name, EnrolledAt: enrolledAt})
 		if err != nil {
 			return fmt.Errorf("enrol node %q: %w", name, err)

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/node/execx"
@@ -53,8 +54,8 @@ func runNodeChannel(
 	if err != nil {
 		return nil, err
 	}
-	service := nodes.NewService(database, clock.System{}, settingsService, logSink{logger: logger}, logger,
-		commandPollHold)
+	sink := reportSink{ingester: library.NewIngester(database, clock.System{}, logger), logger: logger}
+	service := nodes.NewService(database, clock.System{}, settingsService, sink, logger, commandPollHold)
 	server := &http.Server{Handler: service.Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
 	var running sync.WaitGroup
 	running.Go(func() {
@@ -86,12 +87,16 @@ func runNodeChannel(
 	}, nil
 }
 
-// logSink logs what a node reports. The ingest that stores it in library.db replaces it.
-type logSink struct {
-	logger *slog.Logger
+// reportSink stores what a node reports in library.db, then logs the scan's milestones.
+type reportSink struct {
+	ingester *library.Ingester
+	logger   *slog.Logger
 }
 
-func (sink logSink) Records(ctx context.Context, nodeID int64, records []nodeproto.Record) error {
+func (sink reportSink) Records(ctx context.Context, nodeID int64, records []nodeproto.Record) error {
+	if err := sink.ingester.Records(ctx, nodeID, records); err != nil {
+		return err
+	}
 	counts := map[nodeproto.RecordType]int{}
 	for _, record := range records {
 		counts[record.Type]++

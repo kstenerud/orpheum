@@ -45,7 +45,7 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 	}
 	for _, want := range []string{
 		"user owner (admin)", "user partner (user)", "sealed tmdb_api_key",
-		"sealed opensubtitles_password", "created from M2",
+		"sealed opensubtitles_password", `library "Dev films" covers`, `library "Dev shows" covers`,
 	} {
 		if !strings.Contains(output, want) {
 			t.Errorf("the seed's report does not say %q:\n%s", want, output)
@@ -79,9 +79,16 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 		t.Fatal(err)
 	}
 
-	status, output = seed()
-	if status != exitSuccess || !strings.Contains(output, "user owner exists") {
-		t.Errorf("seeding again = %d, want it to leave existing users alone:\n%s", status, output)
+	checkSeedsAgain(t, seed)
+}
+
+// checkSeedsAgain runs the seed a second time: what exists is left as it is.
+func checkSeedsAgain(t *testing.T, seed func() (int, string)) {
+	t.Helper()
+	status, output := seed()
+	if status != exitSuccess || !strings.Contains(output, "user owner exists") ||
+		!strings.Contains(output, `library "Dev films" exists; left as it is`) {
+		t.Errorf("seeding again = %d, want it to leave existing users and libraries alone:\n%s", status, output)
 	}
 }
 

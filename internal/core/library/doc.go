@@ -16,6 +16,16 @@
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
 //   - Never opens a media path; it knows files only from node reports. Enforced by the forbidigo
 //     rule tagged [core-fs]; M2's test runs the core with the media root unreadable to it.
+//   - Every path a scan enumerated has a row with its filing and reason (D163).
+//     TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason.
+//   - A file is matched by its payload hash: seen again, moved (its row follows it), replaced
+//     (the old row tombstoned, D173) or new (D179). TestIngest_D179MatchesAFileByItsPayloadWhereverItIs.
+//   - A copy is a duplicate, and the recorded path keeps the identity (D179).
+//     TestIngest_ACopyIsADuplicateAndTheRecordedPathKeepsTheIdentity.
+//   - Only a completed scan tombstones, never inside a region it could not read, and it records
+//     the root as scanned in the same transaction (D39, D40, schema.md root_scan).
+//     TestIngest_OnlyACompletedScanRemovesAndNeverWhereItCouldNotRead.
+//   - Paths are stored in NFC beside their bytes (D49). TestIngest_APathIsStoredInNFCBesideItsBytes.
 //
 // # Read before changing
 //
@@ -28,6 +38,6 @@
 //
 // # Where to change
 //
-//   - Report ingest (the JSONL records of cut-a §4); filing; browse and search pages over the
-//     store's live_* views.
+//   - ingest.go, observe.go, complete.go: the report ingest; streams.go: the stream rows a probe
+//     derives; create.go: libraries. Browse and search come with identification.
 package library
