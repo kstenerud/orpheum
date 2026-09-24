@@ -23,3 +23,17 @@ VALUES (sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(outcome), sqlc.arg(at), sqlc
 ON CONFLICT (node_id, path) DO UPDATE SET
   outcome = excluded.outcome, outcome_at = excluded.outcome_at,
   withheld_since = excluded.withheld_since, withheld_reason = excluded.withheld_reason;
+
+-- name: ListRootMounts :many
+SELECT path, device, present
+FROM root_mount
+WHERE node_id = ? AND root = ?
+ORDER BY path;
+
+-- name: RecordRootMountPresent :exec
+INSERT INTO root_mount (node_id, root, path, device, present)
+VALUES (sqlc.arg(node_id), sqlc.arg(root), sqlc.arg(path), sqlc.arg(device), 1)
+ON CONFLICT (node_id, path) DO UPDATE SET root = excluded.root, device = excluded.device, present = 1;
+
+-- name: RecordRootMountMissing :exec
+UPDATE root_mount SET present = 0 WHERE node_id = ? AND path = ?;

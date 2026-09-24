@@ -108,6 +108,8 @@ func summary(records []nodeproto.Record) []string {
 			lines = append(lines, "scan_complete")
 		case nodeproto.RecordStatus:
 			lines = append(lines, "status")
+		case nodeproto.RecordMount:
+			lines = append(lines, "mount "+record.Mount.Path.Text)
 		}
 	}
 	return lines

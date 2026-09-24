@@ -44,6 +44,47 @@ func (q *Queries) GetRootState(ctx context.Context, arg GetRootStateParams) (Get
 	return i, err
 }
 
+const listRootMounts = `-- name: ListRootMounts :many
+SELECT path, device, present
+FROM root_mount
+WHERE node_id = ? AND root = ?
+ORDER BY path
+`
+
+type ListRootMountsParams struct {
+	NodeID int64
+	Root   string
+}
+
+type ListRootMountsRow struct {
+	Path    string
+	Device  int64
+	Present int64
+}
+
+func (q *Queries) ListRootMounts(ctx context.Context, arg ListRootMountsParams) ([]ListRootMountsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRootMounts, arg.NodeID, arg.Root)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRootMountsRow{}
+	for rows.Next() {
+		var i ListRootMountsRow
+		if err := rows.Scan(&i.Path, &i.Device, &i.Present); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recordRootComplete = `-- name: RecordRootComplete :exec
 INSERT INTO root_state (node_id, path, device, mount_point, outcome, outcome_at)
 VALUES (?1, ?2, ?3, ?4, 'complete', ?5)
@@ -68,6 +109,43 @@ func (q *Queries) RecordRootComplete(ctx context.Context, arg RecordRootComplete
 		arg.Device,
 		arg.MountPoint,
 		arg.At,
+	)
+	return err
+}
+
+const recordRootMountMissing = `-- name: RecordRootMountMissing :exec
+UPDATE root_mount SET present = 0 WHERE node_id = ? AND path = ?
+`
+
+type RecordRootMountMissingParams struct {
+	NodeID int64
+	Path   string
+}
+
+func (q *Queries) RecordRootMountMissing(ctx context.Context, arg RecordRootMountMissingParams) error {
+	_, err := q.db.ExecContext(ctx, recordRootMountMissing, arg.NodeID, arg.Path)
+	return err
+}
+
+const recordRootMountPresent = `-- name: RecordRootMountPresent :exec
+INSERT INTO root_mount (node_id, root, path, device, present)
+VALUES (?1, ?2, ?3, ?4, 1)
+ON CONFLICT (node_id, path) DO UPDATE SET root = excluded.root, device = excluded.device, present = 1
+`
+
+type RecordRootMountPresentParams struct {
+	NodeID int64
+	Root   string
+	Path   string
+	Device int64
+}
+
+func (q *Queries) RecordRootMountPresent(ctx context.Context, arg RecordRootMountPresentParams) error {
+	_, err := q.db.ExecContext(ctx, recordRootMountPresent,
+		arg.NodeID,
+		arg.Root,
+		arg.Path,
+		arg.Device,
 	)
 	return err
 }

@@ -53,8 +53,9 @@ type scanState struct {
 	libraryID int64 // 0 when no library covers the root: its records are not stored
 	startedAt int64
 	pending   []pendingMove
-	unread    []string // paths under which nothing may be removed
-	unreadAll bool     // the root itself could not be read, or the scan stopped
+	mounts    map[string]uint64 // mount boundaries this scan crossed, by path, with their device
+	unread    []string          // paths under which nothing may be removed
+	unreadAll bool              // the root itself could not be read, or the scan stopped
 }
 
 // rootFacts are the root's filesystem facts as its scan began (D42, D208).
@@ -126,6 +127,11 @@ func (work *batch) record(ctx context.Context, record nodeproto.Record) error {
 		if scan := work.scan(); scan != nil {
 			return work.complete(ctx, scan, record.ScanComplete)
 		}
+	case nodeproto.RecordMount:
+		if scan := work.scan(); scan != nil {
+			mountPath, _ := nodePath(scan.root, record.Mount.Path)
+			scan.mounts[mountPath] = record.Mount.Device
+		}
 	case nodeproto.RecordStatus:
 	}
 	return nil
@@ -158,7 +164,8 @@ func (work *batch) begin(ctx context.Context, begin *nodeproto.ScanBegin) error 
 	}
 	work.ingester.scans[work.nodeID] = &scanState{
 		root: begin.Root, libraryID: libraryID, startedAt: work.now,
-		facts: rootFacts{Device: begin.Device, MountPoint: begin.MountPoint},
+		facts:  rootFacts{Device: begin.Device, MountPoint: begin.MountPoint},
+		mounts: map[string]uint64{},
 	}
 	return nil
 }

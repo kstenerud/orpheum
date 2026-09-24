@@ -4,6 +4,7 @@ package confine
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -47,9 +48,18 @@ func deviceOf(path string) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("stat %s: %w", path, err)
 	}
-	system, ok := info.Sys().(*syscall.Stat_t)
+	device, ok := DeviceOf(info)
 	if !ok {
 		return 0, fmt.Errorf("stat %s: no device id on this platform", path)
 	}
-	return uint64(system.Dev), nil //nolint:unconvert // uint64 on Linux, int32 on macOS
+	return device, nil
+}
+
+// DeviceOf is the device id of the filesystem an entry is on, when the platform reports one.
+func DeviceOf(info fs.FileInfo) (uint64, bool) {
+	system, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, false
+	}
+	return uint64(system.Dev), true //nolint:unconvert // uint64 on Linux, int32 on macOS
 }

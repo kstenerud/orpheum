@@ -107,6 +107,19 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   withheld and recorded in `root_state` with its reason. The admin's confirmation, which applies
   a withheld removal, comes with the scanner view.
 
+### S7b — A disk unplugged inside a root, with /mnt as the root
+
+- **Story:** the owner's root is `/mnt`, with disks mounted at `/mnt/disk1` and `/mnt/disk2`.
+  `disk1` is unplugged; meanwhile a film on `disk2` is deleted.
+- **Expected:** `disk1`'s films stay, unavailable; the deleted film goes.
+- **Design:** the root's own facts do not change, and `/mnt/disk1` lists as an empty directory. The
+  node reports each mount boundary it crosses and the core compares them with the last complete
+  scan's (D208, as corrected; D42).
+- **Status:** **holds** (`TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt`,
+  `TestScenario_S7b_ADifferentDiskAtAMountPointHidesTheOldOnesFiles`,
+  `TestScenario_S7b_AnEmptiedDirectoryThatWasNeverAMountIsRemovedAsUsual`). Asked by the owner
+  after the first walk, which had missed it.
+
 ### S8 — The same disk plugged back in a week later
 
 - **Story:** the disk comes back and a scan runs.

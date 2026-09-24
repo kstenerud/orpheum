@@ -112,7 +112,7 @@ func (sink reportSink) Records(ctx context.Context, nodeID int64, records []node
 			sink.logger.WarnContext(ctx, "a node could not read something", "nodeId", nodeID,
 				"path", failure.Path.Text, "scope", failure.Scope, "code", failure.Code, "count", failure.Count,
 				"detail", failure.Raw.Text)
-		case nodeproto.RecordObserved, nodeproto.RecordSkip, nodeproto.RecordStatus:
+		case nodeproto.RecordObserved, nodeproto.RecordSkip, nodeproto.RecordStatus, nodeproto.RecordMount:
 		}
 	}
 	sink.logger.DebugContext(ctx, "a node reported", "nodeId", nodeID, "records", len(records),

@@ -61,10 +61,14 @@ type location struct {
 	media    *confine.MediaRoot
 	rel      string
 	reported string
+	device   uint64 // the directory's device, for spotting a mount boundary below it
 }
 
 func (place location) child(name string) location {
-	return location{media: place.media, rel: path.Join(place.rel, name), reported: path.Join(place.reported, name)}
+	return location{
+		media: place.media, rel: path.Join(place.rel, name), reported: path.Join(place.reported, name),
+		device: place.device,
+	}
 }
 
 func (place location) absolute() string { return path.Join(place.media.Path(), place.rel) }
@@ -93,7 +97,7 @@ func (scanner *Scanner) Scan(ctx context.Context, root *confine.MediaRoot, emit 
 		// root is not enumerated: a root error withholds every removal (D40, D41).
 		walk.errors.record(".", nodeproto.ScopeRoot, factsErr, nil)
 	} else {
-		err = walk.directory(location{media: root, rel: ".", reported: "."})
+		err = walk.directory(location{media: root, rel: ".", reported: ".", device: facts.Device})
 	}
 	if flushErr := walk.errors.flush(); err == nil {
 		err = flushErr
@@ -174,12 +178,27 @@ func (walk *walk) entry(parent location, name string) error {
 		if isSampleDirectory(name) {
 			return walk.skip(place, nodeproto.SkipSample)
 		}
-		return walk.directory(place)
+		return walk.enter(place, info)
 	case mode.IsRegular():
 		return walk.file(place, info)
 	default:
 		return walk.skip(place, nodeproto.SkipNotRegular)
 	}
+}
+
+// enter walks a directory, first reporting it as a mount boundary when it is on another device
+// than its parent (D42, D208).
+func (walk *walk) enter(place location, info fs.FileInfo) error {
+	if device, known := confine.DeviceOf(info); known && device != place.device {
+		place.device = device
+		err := walk.send(nodeproto.Record{Type: nodeproto.RecordMount, Mount: &nodeproto.Mount{
+			Path: reportedPath(place.reported), Device: device,
+		}})
+		if err != nil {
+			return err
+		}
+	}
+	return walk.directory(place)
 }
 
 // symlink follows a link whose target lies inside a media root, and skips one that leaves them
@@ -195,14 +214,14 @@ func (walk *walk) symlink(place location) error {
 		if !inside {
 			continue
 		}
-		target := location{media: media, rel: rel, reported: place.reported}
+		target := location{media: media, rel: rel, reported: place.reported, device: place.device}
 		info, err := media.Lstat(rel)
 		if err != nil {
 			return walk.fail(place.reported, nodeproto.ScopeEntry, err, nil)
 		}
 		switch {
 		case info.IsDir():
-			return walk.directory(target)
+			return walk.enter(target, info)
 		case info.Mode().IsRegular():
 			return walk.file(target, info)
 		default:
