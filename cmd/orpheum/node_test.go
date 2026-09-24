@@ -92,6 +92,7 @@ func TestRun_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 		`"ffmpeg":"{\"format\"`,
 		`"msg":"a node finished a scan"`,
 		`"observed":1,"sidecars":0,"skipped":1,"errors":0`,
+		`"msg":"identified a library"`,
 	} {
 		if !strings.Contains(log, want) {
 			t.Errorf("the log lacks %s:\n%s", want, log)
@@ -108,7 +109,8 @@ func TestRun_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 	}
 	film, notes := filings["Film (2020)/Film (2020).mkv"], filings["notes.txt"]
 	if film != "unidentified" || notes != "skipped" || len(filings) != 2 {
-		t.Errorf("library.db holds %v; want the film unidentified and the notes skipped", filings)
+		t.Errorf("library.db holds %v; want the film unidentified (no NFO, and the library reads NFO only) "+
+			"and the notes skipped", filings)
 	}
 }
 

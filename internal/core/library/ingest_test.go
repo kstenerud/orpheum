@@ -3,6 +3,7 @@
 package library
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"log/slog"
@@ -387,5 +388,20 @@ func TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo(t *testing.T) {
 		if got := owner(sidecarPath); got != video {
 			t.Errorf("%s is attached to %q, want %q", sidecarPath, got, video)
 		}
+	}
+}
+
+func TestIngest_AfterAScanEndsItsLibraryIsHandedOn(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	var handed []int64
+	world.ingester.AfterScan(func(_ context.Context, libraryID int64) { handed = append(handed, libraryID) })
+	world.scan([]nodeproto.Record{observed("a.mkv", "a")}, false)
+	if len(handed) != 0 {
+		t.Errorf("a scan that never ended handed on %v", handed)
+	}
+	world.scan([]nodeproto.Record{observed("a.mkv", "a")}, true)
+	if len(handed) != 1 || handed[0] != world.live()[root+"/a.mkv"].LibraryID {
+		t.Errorf("handed on %v, want the scanned library once", handed)
 	}
 }

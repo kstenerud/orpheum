@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -54,7 +55,19 @@ func runNodeChannel(
 	if err != nil {
 		return nil, err
 	}
-	sink := reportSink{ingester: library.NewIngester(database, clock.System{}, settingsService, logger), logger: logger}
+	ingester := library.NewIngester(database, clock.System{}, settingsService, logger)
+	pass := identify.NewPass(database, clock.System{}, logger)
+	ingester.AfterScan(func(ctx context.Context, libraryID int64) {
+		report, err := pass.Library(ctx, libraryID)
+		if err != nil {
+			logger.ErrorContext(ctx, "identification failed; the scan is stored and the next one tries again",
+				"libraryId", libraryID, "err", err)
+			return
+		}
+		logger.InfoContext(ctx, "identified a library", "libraryId", libraryID, "listed", report.Listed,
+			"unidentified", report.Unidentified)
+	})
+	sink := reportSink{ingester: ingester, logger: logger}
 	service := nodes.NewService(database, clock.System{}, settingsService, sink, logger, commandPollHold)
 	server := &http.Server{Handler: service.Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
 	var running sync.WaitGroup

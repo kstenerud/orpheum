@@ -43,9 +43,9 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Story:** the owner renames `Metropolis (1959).mkv` to `Metropolis (1995).mkv` in the same folder.
 - **Expected:** the same film, not a new one: its row, play state and any correction follow it.
 - **Design:** a new path with a payload last seen under this root is a move (D179).
-- **Status:** file level **holds** (`TestIngest_D179MatchesAFileByItsPayloadWhereverItIs`). Title
-  level is **Q1**: the rename changes the filename identification parsed. Does a moved file get
-  re-identified from its new name?
+- **Status:** **holds**: the file's row follows it
+  (`TestIngest_D179MatchesAFileByItsPayloadWhereverItIs`), and it is identified again from its new
+  name (`TestPass_ARenamedFileIsIdentifiedAgainUnlessConfirmed`, D208 §1).
 
 ### S2 — Fixing track titles with mkvpropedit
 
@@ -87,9 +87,9 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   not looked at (fixed 2026-09-24, `TestIngest_AFileInAnotherRootIsNeverTakenForAMove`); the old
   row is tombstoned when its own root's next scan completes. A Title belongs to a library
   (`item.library_id`).
-- **Status:** **Q2**. As designed, the film arrives in *Kids* as a new Title, and its watched
-  state stays on the *Films* Title, which now has no files. D179 says Titles bind "through their
-  Files and provider ids", but not across libraries.
+- **Status:** **holds** for a film with a provider id: its Title, with no live files left in
+  *Films*, moves to *Kids* (`TestPass_ATitleFollowsItsFilesToAnotherLibrary`, D208 §2). A film
+  with no provider id arrives as a new Title.
 
 ### S7 — A USB disk unplugged, leaving an empty mount point
 
@@ -175,7 +175,8 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   rename the file.
 - **Expected:** the right *Heat*, still.
 - **Design:** a confirmed match is permanent (D172); the file's row follows the rename (D179).
-- **Status:** **holds on paper**, if the answer to Q1 keeps a moved file's identification.
+- **Status:** **holds** (`TestPass_ARenamedFileIsIdentifiedAgainUnlessConfirmed`: a confirmed
+  match does not move).
 
 ### S15 — Arriving from Kodi with years of NFO files
 
@@ -183,8 +184,10 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Expected:** the locked fields come through as corrections; the rest of each NFO is the
   source where the library was told to use NFO; nobody's `playcount` is imported.
 - **Design:** identification.md, Reading the sidecars (D140, D182, D183).
-- **Status:** **holds on paper**; identification builds it. Today the node skips `.nfo` as an
-  extension and does not send its bytes: the NFO slice must report sidecars.
+- **Status:** **holds** for NFO read (`TestParseNFO_AKodiMovieWithItsCorrectionsLocked`,
+  `TestPass_TheDevLibrarysFilms`): the node sends NFO bytes as sidecars, locked fields become
+  overrides, watch counts are ignored. A conflict with a later edit here is shown once overrides
+  have their API.
 
 ### S16 — An NFO edited in Kodi after a correction here
 

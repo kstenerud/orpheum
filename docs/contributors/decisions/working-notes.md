@@ -16121,5 +16121,5 @@ scan's boundaries (`root_mount`). A later scan that does not find one where it w
 another device, reads nothing under it as removed: the subtree is unread, its files kept, and the
 boundary marked missing until the disk returns or the admin says it is gone.
 
-**Status:** Decided. Items 3 and 4 and the root facts are built with the ingest; items 1 and 2
-with identification.
+**Status:** Decided, and built: items 3 and 4 and the root facts with the ingest, items 1 and 2
+with the identification pass.

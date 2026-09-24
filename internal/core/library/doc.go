@@ -36,6 +36,8 @@
 //   - A sidecar is filed as attached to the video it belongs to, and an NFO's bytes are stored as
 //     identification's input (D182). TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo.
 //   - A payload that returns revives its tombstone, with its history (D208 §4).
+//   - Once a scan's end is committed its library is handed on, to identification.
+//     TestIngest_AfterAScanEndsItsLibraryIsHandedOn.
 //     TestScenario_S10_AFilmPutBackRevivesItsTombstone.
 //
 // # Read before changing
