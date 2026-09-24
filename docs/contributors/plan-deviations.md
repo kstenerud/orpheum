@@ -40,6 +40,22 @@ counted:
 
 ## Log
 
+### P14 — The standard library reads configuration the plan never listed (M2, 2026-09-24) · plan-gap
+
+- **Planned:** "only `cmd/orpheum` reads the environment" (go.md §12), enforced by banning
+  `os.Getenv` and its siblings outside `cmd/`.
+- **What happened:** the owner asked for no ambient configuration at the product level (D204).
+  Checking showed the ban covered our calls but not the standard library's: Go's default HTTP
+  transport reads `HTTP_PROXY`, `time.Now` formats in `TZ`'s zone, SQLite and `os.TempDir`
+  follow `TMPDIR`, and every release build still handed `os.LookupEnv` to its subcommands.
+- **Why the plan missed it:** the rule was written against the calls in our code, not against
+  what the process can be steered by.
+- **Cost:** a decision, four small code changes and a lint patch, before M2's first outbound
+  request.
+- **Process lesson:** state a containment rule as the list of inputs the program may have, then
+  hunt for every input it actually has, library defaults included; banning calls finds only
+  your own.
+
 ### P13 — sqlc fails on a multibyte character in a query comment (M1, 2026-09-24) · tool-behaviour
 
 - **Planned:** sqlc compiles `internal/store/queries/*.sql`; nothing constrained their text.

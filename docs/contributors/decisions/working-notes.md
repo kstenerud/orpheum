@@ -15935,3 +15935,46 @@ ASCII, and the Makefile puts `$(go env GOPATH)/bin` on PATH. No mutation testing
   into how my general process for projects can be improved."*
 
 **Status:** Decided.
+
+## D204 — No ambient configuration: the shipped binary is configured by its config file, its flags and its database, and by nothing it inherits
+
+**Decided** (2026-09-24), by the project owner: *"we should adopt a no ambient config policy
+similar to what yoloai does. I'm fine with some specific configuration env vars for development,
+but otherwise config must be explicit and contained."* The code-level half already held (only
+`cmd/orpheum` reads the environment, go.md §12); this extends it to the product and closes the
+places where the standard library reads the environment on our behalf.
+
+### 1. What configures the shipped binary
+
+Exactly three things: the `--config` file, which is required, has no default location and holds
+only absolute paths; the subcommand's flags; and `library.db`'s settings
+([D200](#d200--every-opinionated-value-is-a-setting-row-seeded-with-its-starting-value-nothing-has-a-default-in-code-the-config-file-holds-only-what-must-exist-before-the-database-opens-and-all-of-it-is-required)–[D202](#d202--missing-values-heal-themselves-and-say-so-unused-settings-are-listed-and-deleted-only-by-a-person-doctor-not-a-seed-command-is-where-to-find-what-needs-fixing)).
+A release build hands its subcommands an empty environment; only a `-tags dev` build passes the
+real one on.
+
+### 2. What the standard library would otherwise read
+
+| Variable | Would steer | Instead |
+| --- | --- | --- |
+| `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` | every outbound request through Go's default transport | `internal/platform/outbound.NewClient` takes no proxy; the defaults and `ProxyFromEnvironment` are banned. A proxy, if ever needed, becomes a config key. |
+| `TZ` | every formatted time, logs and doctor included | `cmd/orpheum` sets `time.Local` to UTC at start; clients format for their viewer. `time.Local` is banned elsewhere. |
+| `TMPDIR` | `os.TempDir`, and SQLite's temporary files | `temp_store = MEMORY` on every connection; `os.TempDir` is banned. A temporary file goes in a directory the config names. |
+| the working directory | `filepath.Abs` | banned outside `cmd/orpheum`; config paths are absolute already |
+
+### 3. What may still be read, and by whom
+
+- **Development:** `ORPHEUM_DEV_*` (the dev seed's secrets, the Vite dev server's address and
+  allowed hosts) and the Make variables `DEV_LISTEN` and `DEV_RACE`. Vite reads the process
+  environment only, never `.env` files, and refuses to serve without `ORPHEUM_DEV_SERVER` rather
+  than guessing an address. The built web client reads no environment: `import.meta.env` is
+  banned in its source.
+- **Tests:** `ORPHEUM_TEST_*`, set per CI step or lab job (testing.md §3).
+- **Not ours, left alone:** the Go runtime's own variables (`GOMAXPROCS`, `GOMEMLIMIT`,
+  `GODEBUG`, `GOTRACEBACK`) and the operating system's trust store, including `SSL_CERT_FILE`.
+- **Children** get an explicit environment from `internal/node/execx`, never the inherited one
+  (go.md §13).
+
+**Accepted cost:** the server cannot be put behind an HTTP proxy until a config key exists for
+one.
+
+**Status:** Decided.

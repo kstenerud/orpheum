@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 )
@@ -63,11 +64,18 @@ func plannedSubcommands() []subcommand {
 }
 
 func main() {
+	useUTC()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	api.UseErrorShape()
-	status := run(ctx, os.Args[1:], os.LookupEnv, os.Stdout, os.Stderr)
+	status := run(ctx, os.Args[1:], environment(), os.Stdout, os.Stderr)
 	stop()
 	os.Exit(status)
+}
+
+// useUTC makes every time the server formats UTC, whatever TZ says: the server's times are
+// configuration-free, and a client formats them for its viewer (D204).
+func useUTC() {
+	time.Local = time.UTC
 }
 
 // run executes one invocation and returns its exit status. It takes the environment and its

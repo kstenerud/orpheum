@@ -119,6 +119,20 @@ func TestVerifyPragmas_RefusesAConnectionWithoutThem(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "journal_mode") {
 		t.Errorf("verifyPragmas(no pragmas) = %v, want a journal_mode refusal", err)
 	}
+	pragmas := strings.ReplaceAll(connectionPragmas, "&_pragma=temp_store(MEMORY)", "")
+	withoutTempStore, err := sql.Open("sqlite", path+"?"+pragmas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if closeErr := withoutTempStore.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	}()
+	err = verifyPragmas(t.Context(), withoutTempStore)
+	if err == nil || !strings.Contains(err.Error(), "temp_store") {
+		t.Errorf("verifyPragmas(no temp_store) = %v, want a temp_store refusal", err)
+	}
 
 	database := openTemporary(t)
 	for name, pool := range map[string]*sql.DB{"writer": database.writer, "readers": database.readers} {

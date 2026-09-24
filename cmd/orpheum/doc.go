@@ -13,6 +13,10 @@
 //
 //   - Only this package reads the environment, argv or stdio, or calls os.Exit. Enforced by the
 //     forbidigo rule tagged [ambient].
+//   - A release build reads no environment: its subcommands get an empty one, and only a dev
+//     build passes ORPHEUM_DEV_* on (D204). Enforced by TestEnvironment_IsEmptyInARelease.
+//   - Every time the server formats is UTC, whatever TZ says (D204). Enforced by
+//     TestUseUTC_TimesAreUTCWhateverTZSays.
 //   - Only this package prints. Enforced by the forbidigo rule tagged [print].
 //   - A planned subcommand that is not built yet exits 2 and says so; it never exits 0.
 //     Enforced by TestRun_PlannedSubcommandsAreNotImplementedYet in main_test.go.
