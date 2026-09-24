@@ -34,7 +34,7 @@ Names match [schema.md](../design/plans/schema.md), and sqlc turns them into Go 
 | View | `live_<table>` for the rows not tombstoned | `live_title` |
 | Trigger | `<table>_<ai/ad/au>` (after insert, delete, update) | `item_text_ai` |
 
-**Enforced by:** review against schema.md; the golden-schema test *(M1)* makes any rename a
+**Enforced by:** review against schema.md; `TestMigrate_FreshSchemaEqualsTheGolden` makes any rename a
 visible, reviewed diff. A `CHECK` vocabulary is enforced by SQLite itself, and its Go type by
 exhaustive ([go.md](go.md) §6).
 
@@ -82,7 +82,7 @@ chooses, and why:
   hook; golangci-lint skips `internal/store/sqlcgen`.
 - **No `interface{}` in generated code.** SQLite's inferred types are sqlc's weak spot
   (audit §5); a column sqlc cannot type gets an explicit override in `sqlc.yaml`, and a test
-  fails on `interface{}` or `any` in `sqlcgen` *(M1)*.
+  fails on `interface{}` or `any` in `sqlcgen` (`TestGeneratedQueries_HaveNoUntypedValues`).
 - **SQLite features sqlc cannot parse** (FTS5 `MATCH` edge cases, 3.53's new `ALTER` forms) are
   not used in queries until sqlc parses them. Search, which needs FTS5, is the filter builder of
   §4.
@@ -115,11 +115,11 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
   a new step. There are no down migrations: the `VACUUM INTO` snapshot taken before migrating is
   the way back. **Enforced by:** the pre-edit hook blocks edits to existing steps; a test
   compares each step with a committed checksum list, so an edit fails even outside the agent
-  *(M1)*.
+  (`TestSteps_MatchTheCommittedChecksums`).
 - **A step holds DDL and data statements only.** The runner owns `PRAGMA user_version`,
   `application_id` and `foreign_keys`, the `BEGIN IMMEDIATE`, and the checks a SQL file cannot
   make of itself (`foreign_key_check`, `sqlite_sequence` never decreasing, every view
-  compiling). **Enforced by:** the runner *(M1)*.
+  compiling). **Enforced by:** the runner, and `TestMigrate_RefusesAStepThatBreaksWhatSQLCannotCheck`.
 - **A step never calls generated query code or current Go constants**, never touches the
   filesystem or network, and never parses paths; a step that would need to instead invalidates
   derived data and schedules a rescan. Go code appears only for a data transform SQL cannot
@@ -129,7 +129,9 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
   SELECT` is not used. **Review-only.**
 - **Every released version has a golden fixture; every golden migrates to a schema equal to a
   fresh install's; killing the runner after any step and restarting ends identical; a step
-  takes under 10 s at the reference scale.** **Enforced by:** the migration tests *(M1)*.
+  takes under 10 s at the reference scale.** **Enforced by:** the migration tests in
+  `internal/store`; the 10 s budget is **review-only** until M2 builds the reference-scale
+  database (audit 2026-09-24, §3.2).
 
 ## 6. Tombstones and deletes
 
@@ -151,7 +153,9 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
 - **They are read back at startup, and the server refuses to run if any is wrong**:
   `journal_mode`, `synchronous`, `foreign_keys`, `busy_timeout`, and `application_id`. A file
   without our `application_id` is refused, not migrated; a database on a network filesystem is
-  refused with a message (D31). **Enforced by:** `Open()`'s checks and their tests *(M1)*.
+  refused with a message (D31). **Enforced by:** `Open()`'s checks and their tests
+  (`TestVerifyPragmas_RefusesAConnectionWithoutThem`, `TestOpen_RefusesAFileThatIsNotOurs`); the
+  network-filesystem refusal is `datadir`'s (`TestCheckFilesystemType_RefusesNetworkFilesystems`).
 - The choice between modernc and ncruces is made by benchmark on devnas and does not block M1
   (audit §5); both take this DSN form.
 
@@ -175,7 +179,7 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
 - **The API makes the split hard to miss**: the store hands out read queries from the pool and
   runs writes only through `store.Write(ctx, func(queries *sqlcgen.Queries) error)`, which owns
   `BEGIN`, `COMMIT` and `ROLLBACK`. **Enforced by:** `query_only` (SQLite refuses the write)
-  and the store's tests *(M1)*; `database/sql` is unimportable elsewhere, so nothing else can
+  and `TestRead_RefusesAWrite`, `TestWrite_RollsBackWhenTheChangeFails`; `database/sql` is unimportable elsewhere, so nothing else can
   open a transaction.
 
 ## 9. Transactions
@@ -219,4 +223,4 @@ page budget ([performance-targets.md](../design/plans/performance-targets.md)).
 
 - **A backup is `VACUUM INTO`**, run by the store for `internal/core/backup` (D77). It contains
   ciphertext only; `secret.key` is never written into the database or its backups (D194 §4).
-  **Enforced by:** the M1 canary and restore tests *(M1)*.
+  **Enforced by:** `TestCanary_ASecretAppearsNowhereButAsCiphertext` and the restore tests.

@@ -104,4 +104,4 @@ Plain markdown the user can actually read before posting — no base64, no binar
 A user with a playback problem runs one command, gets one file, can read every line of it, and
 pastes it into an issue that a maintainer can triage without asking for anything else — and
 nothing in it names a film, a person or a house. The `unsafe` variant of the same report answers
-the follow-up question.
+the follow-up question. The secrets canary test (D194 §5) covers the report.

@@ -398,6 +398,13 @@ effect. *(Whether it was ever on by default is not verified here.)* [D34](../dec
 and [D167](../decisions/working-notes.md) — *absence is never evidence* — are this principle's
 first application; [D183](../decisions/working-notes.md) states it.
 
+**How this project keeps a default visible.** Since [D200](../decisions/working-notes.md) nothing
+has a default in code: every opinion is a setting row seeded with its **starting value**, or a
+config key with one, and both are shown beside their starting value, marked when a person chose
+them, and listed by `doctor` when they run on a starting value
+([plans/settings.md](../design/plans/settings.md)). A starting value must still pass both tests
+above; a consequential one is a question, which starts unanswered.
+
 **Bites when:** a setting's default is chosen because it is "what most people want", without
 asking what it does to the people who wanted something else.
 

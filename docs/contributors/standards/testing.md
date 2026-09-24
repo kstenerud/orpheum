@@ -238,7 +238,8 @@ outside `execx`, and `TestArch_OnlyExecxImportsOsExec` checks the imports. The f
   environment; it does not steer it with `t.Setenv` or by changing directory, which also rules
   out `t.Parallel`. Time comes from the fake clock, so no test sleeps to synchronise.
 - **Setup output is logged, never discarded.** Long setup writes to the test's log (a
-  `testutil` writer over `t.Log`), not to `io.Discard`, so a stall reads as a stall (yoloAI DF97).
+  writer over the test's own output — `t.Output()`, since Go 1.25), not to `io.Discard`, so a
+  stall reads as a stall (yoloAI DF97).
 - **The environment is hermetic**: every test target exports `TZ=UTC`, `LC_ALL=C.UTF-8`,
   `GIT_CONFIG_GLOBAL=/dev/null` and `GIT_CONFIG_NOSYSTEM=1`, so the local run is the stricter one.
 - **A flaky test is fixed or deleted.** It is not retried in CI. Device runs are the exception,
@@ -247,8 +248,8 @@ outside `execx`, and `TestArch_OnlyExecxImportsOsExec` checks the imports. The f
 **Enforced by:** forbidigo's `[clock]` rule bans `time.Now`, `time.Since` and `time.Until`
 outside `internal/platform/clock`, and its `[ambient]` rule bans environment, working-directory
 and stdio reads outside `cmd/orpheum`; `usetesting` flags `os.MkdirTemp`, `os.Setenv` and
-`context.Background` in tests. The hermetic exports are *(planned)*: the Makefile does not set
-them yet. The network rule, sleeps and `io.Discard` are **review-only**; running the unit tier
+`context.Background` in tests. The hermetic exports are the Makefile's `HERMETIC`, set on every
+test target. The network rule, sleeps and `io.Discard` are **review-only**; running the unit tier
 in an empty network namespace is the mechanical form if the network rule is ever broken.
 
 ## 13. Go specifics that touch tests

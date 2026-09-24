@@ -15892,3 +15892,46 @@ running on their starting values, config keys nothing reads, unused setting rows
 with no starting value.
 
 **Status:** Decided.
+
+## D203 — The audit between M1 and M2: what M2 builds first, how cache.db is versioned, and two standing practices, an audit between milestones and a plan-deviation log
+
+**Decided** (2026-09-24), by the project owner, approving every recommendation of
+[audit-2026-09-24.md](../design/research/audit-2026-09-24.md) §7. The audit's reasoning is there;
+this entry records what was decided.
+
+### 1. For M2
+
+- **`cache.db` is versioned by discard.** Its schema is one file, `internal/store/cache/schema.sql`,
+  with a version number; when the file on disk has another number it is deleted and recreated
+  (migrations.md). `sqlc.yaml` gains a second entry generating a separate package, so a library
+  query cannot name a cache table. The owner changes `sqlc.yaml`.
+- **The SDK uses `openapi-typescript` and `openapi-fetch`** (cut-a §5); the owner adds them to the
+  npm allowlist.
+- **MKVToolNix is pinned as FFmpeg is**: a make target fetches a pinned release by checksum, and
+  the test that needs `mkvpropedit` declares it as a prerequisite.
+- **The "media root at mode 000" acceptance runs the core against a replaying node**, since a real
+  node runs under the core's own user (cut-a §2). A second service user would be a design change.
+- **Tier 1's recordings come from generated media only** — the dev library and the fixture tree,
+  never the owner's library ([D187](#d187--users-are-responsible-for-what-they-play-we-never-supply-locate-unlock-or-promote-it--and-the-store-and-legal-constraints-that-follow): no commercial content in fixtures).
+- **M2 builds `internal/testutil` and `ORPHEUM_TEST_UNCONTROLLED` first**, and a reference-scale
+  database generator once the tables it fills exist; until then migrations.md's 10 s step budget
+  is checked in review.
+
+### 2. Gates and documents
+
+The documentation fixes of audit §2 and the `err` idiom of §4.2 are made. Three gate changes are
+the owner's to apply: the shell guard decides from write targets, query files are refused if not
+ASCII, and the Makefile puts `$(go env GOPATH)/bin` on PATH. No mutation testing now (§4.4).
+
+### 3. Two standing practices
+
+- **An audit between every two milestones**, before the next one's first code: the finished
+  milestone against its acceptance list, documents that no longer say what is true, mechanisms
+  still missing, gates that fought correct work, and what the next milestone needs decided. It is
+  written to `design/research/audit-<date>.md` and ends with a table of decisions for the owner.
+- **A plan-deviation log**, [plan-deviations.md](../plan-deviations.md): each place where what
+  happened differed from what was planned, with why the plan missed it and a lesson for planning
+  any project. Each audit adds to it. *"Over time as I build more projects, it'll help give insight
+  into how my general process for projects can be improved."*
+
+**Status:** Decided.

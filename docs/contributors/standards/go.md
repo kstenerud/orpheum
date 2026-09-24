@@ -189,6 +189,11 @@ describe in a phrase, and give it that phrase as its name.
   `errorf`; errorlint (`%w`, not `%v`, for an error).
 - **Inspect with `errors.Is` and `errors.As`**, never `==` or a type assertion on an error.
   **Enforced by:** errorlint.
+- **The `err` idiom both linters accept.** Inside a function that already has an `err` (a named
+  result, or an earlier `x, err :=`), write `err = f()` then `if err != nil`, or give the new
+  error its own name (`if healErr := f(); healErr != nil`). `if err := f()` fails govet's
+  `shadow`; `if err = f(); err != nil` fails gocritic's `sloppyReassign`. **Enforced by:** both
+  linters.
 - **Every error is handled or returned.** No bare call that drops one, no `_ =` or `_, _ =` on
   one, and no `return nil` after checking `err != nil`. **Enforced by:** errcheck
   (`check-blank`, `check-type-assertions`), nilerr, nilnesserr, revive `unhandled-error`.
@@ -263,9 +268,12 @@ describe in a phrase, and give it that phrase as its name.
   down (yoloAI's "no ambient configuration"). Variables take the `ORPHEUM_` prefix (D195).
   **Enforced by:** `[ambient]`; revive `deep-exit`. Test variables are read only by
   `internal/testutil` ([testing.md](testing.md) §3).
-- **Configuration has one way in.** A runtime setting lives in the database and is changed in
-  the UI (D183); a file or flag holds only what must exist before the database opens. A default
-  must be safe to be wrong and visible (principles §15). **Review-only.**
+- **Configuration has one way in, and nothing defaults in code.** An opinionated value is a
+  setting in the registry, seeded as a row with its starting value, or a config-file key with one
+  (D200–D202, [plans/settings.md](../design/plans/settings.md)); a file or flag holds only what
+  must exist before the database opens. A new constant that is really an opinion is a finding.
+  **Enforced by:** review; a missing setting row heals and says so
+  (`TestRead_HealsARemovedSettingAndSaysSo`).
 
 ## 13. Processes
 
@@ -327,7 +335,8 @@ D194 is the design. In Go:
 - **A third-party secret is a `secrets.Value`** from the moment it is read. Its `String`,
   `GoString`, `Format`, `MarshalJSON`, `MarshalText` and `LogValue` emit `[redacted]`, so
   printing, logging or serialising one cannot leak it. **Enforced by:** the type *(M1)*, and the
-  canary test that drives the API, logs, `doctor`, bug reports and backups *(M1)*.
+  canary test that drives the API, logs, `doctor`, backups and the database file
+  (`TestCanary_ASecretAppearsNowhereButAsCiphertext`), and bug reports once they exist.
 - **`Value.Reveal()` is called only by the provider client that sends the secret to its owner's
   service** (TMDB under `identify`, TURN credential derivation in `turn`; the OpenSubtitles and
   DNS-01 clients join the list when they land). Pass the `Value`, never the string. **Enforced
