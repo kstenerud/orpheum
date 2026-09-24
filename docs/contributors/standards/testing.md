@@ -195,8 +195,10 @@ exists, and every `TestArch_` test is cited.
 - **A unit test needs no FFmpeg, no media, no network and no daemon.** `go test ./...` passes on a
   clean checkout with nothing installed but Go ([D109](../decisions/working-notes.md)).
 - A test that needs more carries `//go:build integration` (or `lab`), and is still **compiled**
-  by `make check`, so a deleted helper cannot hide in a file the default build skips *(planned:
-  `go-vet` builds without tags today)*.
+  and linted by `make check` (`go vet -tags integration`, `golangci-lint --build-tags
+  integration`), so a deleted helper cannot hide in a file the default build skips.
+  `make test-integration` runs the tier against the pinned FFmpeg, and CI runs it after
+  `make check`.
 - `make check` aims to finish in about **90 seconds**, because every agent turn that touched code
   waits on it. A unit test that takes more than about a second belongs in a tag or needs a
   smaller input.
@@ -208,23 +210,27 @@ exists, and every `TestArch_` test is cited.
 
 The node runs FFmpeg only through `internal/node/execx`, which takes the binary's path as a
 parameter. Unit tests point it at a **fake `ffmpeg`/`ffprobe`**: a POSIX shell script kept as a
-file under `internal/testutil/testdata/` (so shellcheck covers it), installed into `t.TempDir()`
-by a `testutil` helper ([D190](../decisions/working-notes.md) §4). The fake:
+file under `internal/testutil/testdata/` (so shellcheck covers it), linked into `t.TempDir()` by
+`testutil.InstallFakeFFmpeg` ([D190](../decisions/working-notes.md) §4). Linked, never copied:
+writing an executable while a parallel test forks lets the child inherit the open file, and
+running it then fails with "text file busy". The fake:
 
-- **asserts the argument list** the node built — `-force_idr 1` reaching NVENC, absolute input
-  and output paths, the segment pattern — and exits non-zero with a message naming the missing
-  argument;
-- **asserts the environment** it received is the explicit, minimal one the sandbox builds, not
-  the test process's own;
+- **records the argument list** the node built, which the test asserts through
+  `FakeFFmpeg.Calls` — `-force_idr 1` reaching NVENC, absolute input and output paths, the
+  segment pattern — with Go's failure messages rather than a shell script's;
+- **records the environment** it received, which the test asserts is the explicit, minimal one
+  execx builds, not the test process's own;
 - **writes a known line to stderr and exits with a chosen status**, so the test can assert that
-  the error the node returns carries the tail of stderr.
+  the error the node returns carries the tail of stderr;
+- **can hold**: start a grandchild that keeps stdout open and wait, so a test can cancel a run
+  and see the whole process group die.
 
 Real FFmpeg appears only in the `integration` tier and in `assumptions/`
 ([D111](../decisions/working-notes.md)), at the pinned version, and its absence fails (§3).
 
 **Enforced by:** forbidigo's `[exec]` rule bans `exec.Command` and `exec.CommandContext`
-outside `execx`, and `TestArch_OnlyExecxImportsOsExec` checks the imports. The fake itself is
-*(planned)*.
+outside `execx`, and `TestArch_OnlyExecxImportsOsExec` checks the imports. execx's own tests
+run against the fake (`internal/node/execx/execx_test.go`).
 
 ## 12. Tests touch no network and no real media
 
