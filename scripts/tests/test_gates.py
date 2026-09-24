@@ -168,6 +168,16 @@ class RevertRed(unittest.TestCase):
         self.assertEqual(rr.scope_for("web/apps/web/src/App.tsx"), ["npm", "--prefix", "web", "run", "test"])
         self.assertIsNone(rr.scope_for("docs/x.md"))
 
+    def test_files_only_other_builds_compile_are_run_against_those_builds(self):
+        dev = rr.other_builds("cmd/orpheum/dev_seed.go")
+        self.assertEqual([a.command for a in dev], [["go", "test", "-tags", "dev", "./..."]])
+        darwin = rr.other_builds("internal/store/space_darwin.go")
+        self.assertEqual(darwin[-1].command, ["go", "vet", "./..."])
+        self.assertEqual(darwin[-1].env, {"GOOS": "darwin"})
+        self.assertTrue(darwin[-1].compile_only)
+        self.assertEqual(len(rr.other_builds("internal/store/space_linux.go")), 1)
+        self.assertEqual(rr.other_builds("web/apps/web/src/App.tsx"), [])
+
     def test_verified_by_needs_a_ticked_queue_item(self):
         root = Path(tempfile.mkdtemp())
         queue = root / rr.VQ_FILE

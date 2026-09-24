@@ -58,6 +58,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import os
 import re
 import shutil
 import subprocess
@@ -76,6 +77,11 @@ SUBJECT_RE = re.compile(r"^(?P<type>[a-z]+)(?:\([^)]*\))?(?P<bang>!)?:")
 
 GO_SOURCE = re.compile(r"\.go$")
 GO_TEST = re.compile(r"_test\.go$")
+# `make check` also tests the dev build and vets for macOS, so a file only those compile — a
+# `//go:build dev` file, a `_darwin.go` shim — is reverted against them too, rather than
+# reported as noticed by nothing.
+GO_EXTRA_TAGS = "dev"
+GO_OS_SUFFIX = re.compile(r"_(darwin|windows|freebsd|openbsd|netbsd)(?:_[a-z0-9]+)?\.go$")
 PY_SOURCE = re.compile(r"\.py$")
 
 # A Python file is a test because of WHERE it lives, not what it is called. Every
@@ -329,6 +335,30 @@ def wide_scope(path: str) -> list[str] | None:
     return None
 
 
+@dataclass(frozen=True)
+class Attempt:
+    """One run that may notice a reverted file. `compile_only` runs cannot fail an assertion,
+    so any failure of theirs is a build failure."""
+
+    command: list[str]
+    label: str
+    env: dict[str, str] | None = None
+    compile_only: bool = False
+
+
+def other_builds(path: str) -> list[Attempt]:
+    """The runs beyond the default suite that `make check` also makes, for a file only they
+    compile: the dev-tagged suite, and a compile for the operating system a file is named for."""
+    if not GO_SOURCE.search(path):
+        return []
+    attempts = [Attempt(["go", "test", "-tags", GO_EXTRA_TAGS, "./..."], f", found by the -tags {GO_EXTRA_TAGS} suite")]
+    other_os = GO_OS_SUFFIX.search(path)
+    if other_os:
+        goos = other_os.group(1)
+        attempts.append(Attempt(["go", "vet", "./..."], f", found by compiling for {goos}", {"GOOS": goos}, True))
+    return attempts
+
+
 def is_build_failure(output: str) -> bool:
     """Whether a failing run failed to compile rather than to assert.
 
@@ -365,20 +395,23 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
             if restored.returncode != 0:
                 return Outcome(change.path, "UNCHECKED", "could not check out the base version")
 
-        attempts = [(scope, "")]
+        attempts = [Attempt(scope, "")]
         wide = wide_scope(change.path)
         if wide is not None and wide != scope:
-            attempts.append((wide, ", found by the whole suite"))
-        for cmd, label in attempts:
+            attempts.append(Attempt(wide, ", found by the whole suite"))
+        attempts.extend(other_builds(change.path))
+        for attempt in attempts:
+            env = {**os.environ, **attempt.env} if attempt.env else None
             done = subprocess.run(
-                cmd, cwd=tree, capture_output=True, text=True, timeout=timeout, check=False
+                attempt.command, cwd=tree, capture_output=True, text=True, timeout=timeout,
+                check=False, env=env,
             )
             if done.returncode == 0:
                 continue
             combined = done.stdout + done.stderr
-            if is_build_failure(combined):
-                return Outcome(change.path, "RED_BUILD", f"reverting it breaks the build{label}")
-            return Outcome(change.path, "RED_TEST", f"a test fails when it is reverted{label}")
+            if attempt.compile_only or is_build_failure(combined):
+                return Outcome(change.path, "RED_BUILD", f"reverting it breaks the build{attempt.label}")
+            return Outcome(change.path, "RED_TEST", f"a test fails when it is reverted{attempt.label}")
         return Outcome(change.path, "GREEN", "every test still passes with this change reverted")
     finally:
         _git("checkout", head, "--", change.path, cwd=tree)
