@@ -16017,5 +16017,7 @@ a target, but its status is recorded and our own code must not be what blocks it
 **Revisit** at each between-milestone audit: re-check the FFmpeg and MKVToolNix rows, and
 whether any new dependency lacks riscv64.
 
-**Status:** Decided. `make check` vets `GOOS=linux GOARCH=arm64`; vetting riscv64 too is
-proposed.
+**Status:** Decided. `make check` vets `GOOS=linux GOARCH=arm64`. riscv64 stays out of the
+code and the gates — no build tags, no vet line, no pins — until every part it relies on
+supports it; the owner: *"Leave riscv out of our code until we know we have full support."*
+Until then it lives only in this table.
