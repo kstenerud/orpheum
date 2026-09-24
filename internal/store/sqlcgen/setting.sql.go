@@ -10,16 +10,17 @@ import (
 )
 
 const getServerSetting = `-- name: GetServerSetting :one
-SELECT key, value, set_by, set_at
+SELECT key, value, set_by, set_at, is_modified
 FROM setting
 WHERE scope = 'server' AND key = ?
 `
 
 type GetServerSettingRow struct {
-	Key   string
-	Value string
-	SetBy *int64
-	SetAt int64
+	Key        string
+	Value      string
+	SetBy      *int64
+	SetAt      int64
+	IsModified int64
 }
 
 func (q *Queries) GetServerSetting(ctx context.Context, key string) (GetServerSettingRow, error) {
@@ -30,6 +31,7 @@ func (q *Queries) GetServerSetting(ctx context.Context, key string) (GetServerSe
 		&i.Value,
 		&i.SetBy,
 		&i.SetAt,
+		&i.IsModified,
 	)
 	return i, err
 }
@@ -53,17 +55,18 @@ func (q *Queries) InsertServerSettingIfMissing(ctx context.Context, arg InsertSe
 
 const listServerSettings = `-- name: ListServerSettings :many
 
-SELECT key, value, set_by, set_at
+SELECT key, value, set_by, set_at, is_modified
 FROM setting
 WHERE scope = 'server'
 ORDER BY key
 `
 
 type ListServerSettingsRow struct {
-	Key   string
-	Value string
-	SetBy *int64
-	SetAt int64
+	Key        string
+	Value      string
+	SetBy      *int64
+	SetAt      int64
+	IsModified int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -83,6 +86,7 @@ func (q *Queries) ListServerSettings(ctx context.Context) ([]ListServerSettingsR
 			&i.Value,
 			&i.SetBy,
 			&i.SetAt,
+			&i.IsModified,
 		); err != nil {
 			return nil, err
 		}
@@ -97,18 +101,54 @@ func (q *Queries) ListServerSettings(ctx context.Context) ([]ListServerSettingsR
 	return items, nil
 }
 
+const listSettingKeys = `-- name: ListSettingKeys :many
+SELECT scope, user_id, key
+FROM setting
+ORDER BY scope, user_id, key
+`
+
+type ListSettingKeysRow struct {
+	Scope  string
+	UserID *int64
+	Key    string
+}
+
+func (q *Queries) ListSettingKeys(ctx context.Context) ([]ListSettingKeysRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSettingKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSettingKeysRow{}
+	for rows.Next() {
+		var i ListSettingKeysRow
+		if err := rows.Scan(&i.Scope, &i.UserID, &i.Key); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUserSettings = `-- name: ListUserSettings :many
-SELECT key, value, set_by, set_at
+SELECT key, value, set_by, set_at, is_modified
 FROM setting
 WHERE scope = 'user' AND user_id = ?
 ORDER BY key
 `
 
 type ListUserSettingsRow struct {
-	Key   string
-	Value string
-	SetBy *int64
-	SetAt int64
+	Key        string
+	Value      string
+	SetBy      *int64
+	SetAt      int64
+	IsModified int64
 }
 
 func (q *Queries) ListUserSettings(ctx context.Context, userID *int64) ([]ListUserSettingsRow, error) {
@@ -125,6 +165,7 @@ func (q *Queries) ListUserSettings(ctx context.Context, userID *int64) ([]ListUs
 			&i.Value,
 			&i.SetBy,
 			&i.SetAt,
+			&i.IsModified,
 		); err != nil {
 			return nil, err
 		}
@@ -139,18 +180,40 @@ func (q *Queries) ListUserSettings(ctx context.Context, userID *int64) ([]ListUs
 	return items, nil
 }
 
+const updateUnmodifiedServerSetting = `-- name: UpdateUnmodifiedServerSetting :execrows
+UPDATE setting SET value = ?1, set_at = ?2
+WHERE scope = 'server' AND key = ?3 AND is_modified = 0 AND value != ?1
+`
+
+type UpdateUnmodifiedServerSettingParams struct {
+	Value string
+	SetAt int64
+	Key   string
+}
+
+// Moves a setting nobody changed to a release's new starting value; a changed one is left alone.
+func (q *Queries) UpdateUnmodifiedServerSetting(ctx context.Context, arg UpdateUnmodifiedServerSettingParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateUnmodifiedServerSetting, arg.Value, arg.SetAt, arg.Key)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const upsertServerSetting = `-- name: UpsertServerSetting :exec
-INSERT INTO setting (scope, user_id, key, value, set_by, set_at)
-VALUES ('server', NULL, ?1, ?2, ?3, ?4)
+INSERT INTO setting (scope, user_id, key, value, set_by, set_at, is_modified)
+VALUES ('server', NULL, ?1, ?2, ?3, ?4, ?5)
 ON CONFLICT (scope, ifnull(user_id, 0), key)
-DO UPDATE SET value = excluded.value, set_by = excluded.set_by, set_at = excluded.set_at
+DO UPDATE SET value = excluded.value, set_by = excluded.set_by, set_at = excluded.set_at,
+              is_modified = excluded.is_modified
 `
 
 type UpsertServerSettingParams struct {
-	Key   string
-	Value string
-	SetBy *int64
-	SetAt int64
+	Key        string
+	Value      string
+	SetBy      *int64
+	SetAt      int64
+	IsModified int64
 }
 
 func (q *Queries) UpsertServerSetting(ctx context.Context, arg UpsertServerSettingParams) error {
@@ -159,23 +222,27 @@ func (q *Queries) UpsertServerSetting(ctx context.Context, arg UpsertServerSetti
 		arg.Value,
 		arg.SetBy,
 		arg.SetAt,
+		arg.IsModified,
 	)
 	return err
 }
 
 const upsertUserSetting = `-- name: UpsertUserSetting :exec
-INSERT INTO setting (scope, user_id, key, value, set_by, set_at)
-VALUES ('user', ?1, ?2, ?3, ?4, ?5)
+INSERT INTO setting (scope, user_id, key, value, set_by, set_at, is_modified)
+VALUES ('user', ?1, ?2, ?3, ?4, ?5,
+        ?6)
 ON CONFLICT (scope, ifnull(user_id, 0), key)
-DO UPDATE SET value = excluded.value, set_by = excluded.set_by, set_at = excluded.set_at
+DO UPDATE SET value = excluded.value, set_by = excluded.set_by, set_at = excluded.set_at,
+              is_modified = excluded.is_modified
 `
 
 type UpsertUserSettingParams struct {
-	UserID *int64
-	Key    string
-	Value  string
-	SetBy  *int64
-	SetAt  int64
+	UserID     *int64
+	Key        string
+	Value      string
+	SetBy      *int64
+	SetAt      int64
+	IsModified int64
 }
 
 func (q *Queries) UpsertUserSetting(ctx context.Context, arg UpsertUserSettingParams) error {
@@ -185,6 +252,7 @@ func (q *Queries) UpsertUserSetting(ctx context.Context, arg UpsertUserSettingPa
 		arg.Value,
 		arg.SetBy,
 		arg.SetAt,
+		arg.IsModified,
 	)
 	return err
 }
