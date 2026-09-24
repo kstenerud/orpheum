@@ -56,10 +56,22 @@ class DevMedia(unittest.TestCase):
 
     def test_clip_arguments_embed_subtitles_and_cut_by_duration(self):
         clip = next(i for i in dev_media.plan() if isinstance(i, dev_media.Clip) and i.embed_ass)
-        args = dev_media.ffmpeg_args(Path("/f/ffmpeg"), clip, Path("/o.mkv"), 30, Path("/s.ass"))
+        args = dev_media.ffmpeg_args(Path("/f/ffmpeg"), clip, Path("/o.mkv"), 30, Path("/s.ass"), 0)
         self.assertIn("2:s", args)
         self.assertEqual(args[args.index("-t") + 1], "30")
         self.assertNotIn("-shortest", args)  # it cut films at the last subtitle
+
+    def test_no_two_clips_are_made_alike(self):
+        # Identical settings made identical files, which the scanner rightly took for one file in
+        # two places (D179).
+        clips = [(index, item) for index, item in enumerate(dev_media.plan())
+                 if isinstance(item, dev_media.Clip)]
+        sources = set()
+        for index, clip in clips:
+            args = dev_media.ffmpeg_args(Path("/f"), clip, Path("/o"), 30, Path("/s"), index)
+            sources.add((args[args.index("-i") + 1], args[args.index("-i", args.index("-i") + 1) + 1],
+                         tuple(clip.video), tuple(clip.audio)))
+        self.assertEqual(len(sources), len(clips), sources)
 
 
 class DevLoop(unittest.TestCase):

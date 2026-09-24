@@ -144,9 +144,18 @@ def plan() -> list[Clip | TextFile]:
     return items
 
 
-def ffmpeg_args(ffmpeg: Path, clip: Clip, out: Path, seconds: int, ass: Path) -> list[str]:
+def hue_of(index: int) -> int:
+    """A different hue shift for each clip, so no two clips carry the same payload.
+
+    Without it, clips with the same settings are byte-identical, and the scanner rightly sees
+    them as one file in two places (D179): a duplicate the library was never meant to have.
+    """
+    return (index * 23) % 360
+
+
+def ffmpeg_args(ffmpeg: Path, clip: Clip, out: Path, seconds: int, ass: Path, index: int) -> list[str]:
     args = [str(ffmpeg), "-hide_banner", "-loglevel", "error", "-y",
-            "-f", "lavfi", "-i", f"testsrc=size={clip.size}:rate=24:duration={seconds}",
+            "-f", "lavfi", "-i", f"testsrc=size={clip.size}:rate=24:duration={seconds},hue=h={hue_of(index)}",
             "-f", "lavfi", "-i", f"{clip.audio_source}:duration={seconds}"
             if clip.audio_source.startswith("sine") else f"{clip.audio_source}:d={seconds}"]
     maps = ["-map", "0:v", "-map", "1:a"]
@@ -162,7 +171,7 @@ def build(ffmpeg_dir: Path, dest: Path, seconds: int, force: bool) -> None:
     ass = dest / ".orpheum-dev-subtitle.ass"
     dest.mkdir(parents=True, exist_ok=True)
     ass.write_text(ASS)
-    for item in plan():
+    for index, item in enumerate(plan()):
         out = dest / item.path
         if out.exists() and not force:
             continue
@@ -171,7 +180,7 @@ def build(ffmpeg_dir: Path, dest: Path, seconds: int, force: bool) -> None:
             out.write_text(item.text)
             continue
         print(f"  generating {item.path}", file=sys.stderr)
-        done = subprocess.run(ffmpeg_args(ffmpeg, item, out, seconds, ass),
+        done = subprocess.run(ffmpeg_args(ffmpeg, item, out, seconds, ass, index),
                               capture_output=True, text=True, check=False)
         if done.returncode != 0:
             out.unlink(missing_ok=True)
