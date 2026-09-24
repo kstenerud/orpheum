@@ -6,8 +6,9 @@ package nodeproto
 // logic on it.
 type RecordType string
 
-// The record types a scan emits. Job and status records come with the node process.
+// The record types. Job records come with prepare (M3).
 const (
+	RecordStatus       RecordType = "status"
 	RecordScanBegin    RecordType = "scan_begin"
 	RecordObserved     RecordType = "observed"
 	RecordSkip         RecordType = "skip"
@@ -25,6 +26,15 @@ type Record struct {
 	Skip         *Skip         `json:"skip,omitempty"`
 	Error        *Error        `json:"error,omitempty"`
 	ScanComplete *ScanComplete `json:"scanComplete,omitempty"`
+	Status       *Status       `json:"status,omitempty"`
+}
+
+// Status is the node saying it is alive and what it is doing. The core marks a node silent when
+// none arrives for a while (cut-a §4, liveness); silence is only ever read as silence (D34).
+type Status struct {
+	ClockMs int64 `json:"clockMs"`
+	// Doing is what the node is busy with: "idle", or "scanning <root>".
+	Doing string `json:"doing"`
 }
 
 // ScanBegin opens a scan of one media root. It carries the node's effective uid and gid, so a
@@ -72,6 +82,9 @@ const (
 	// SkipSample is a release sample: sample.mkv, x.sample.mkv, x-sample.mkv, a sample/ directory
 	// (D162).
 	SkipSample SkipRule = "sample"
+	// SkipAppleDouble is a macOS AppleDouble sidecar, "._<name>": metadata another machine left,
+	// never media (testing-strategy.md).
+	SkipAppleDouble SkipRule = "appledouble"
 	// SkipExtension is a file whose extension is not a video extension the node probes.
 	SkipExtension SkipRule = "extension"
 	// SkipSymlinkOutsideRoots is a symlink whose target is outside every media root (D206).

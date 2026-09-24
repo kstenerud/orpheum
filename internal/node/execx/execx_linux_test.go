@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,11 +50,7 @@ func TestRun_CancellingKillsTheWholeProcessGroup(t *testing.T) {
 	// Run returns once the grandchild's stdout closes, which is when it dies; if only the tool
 	// were killed, Run would return after waitDelay with the grandchild still asleep.
 	pid := fake.Grandchild(t)
-	stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
-	if err == nil && processState(string(stat)) != "Z" {
-		t.Errorf("the grandchild %d is still running (state %s): cancelling did not kill the process group",
-			pid, processState(string(stat)))
-	}
+	assertGone(t, pid)
 }
 
 // processState is the state letter in /proc/<pid>/stat, after the parenthesised command name.

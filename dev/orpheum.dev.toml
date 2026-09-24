@@ -19,15 +19,21 @@ data_dir = "{root}/.dev/state"
 cache_dir = "{root}/.dev/cache"
 read_header_timeout_s = 10
 shutdown_grace_s = 10
+socket_dir = "{root}/.dev/run"   # /run/orpheum in production, made by systemd
 
 [database]
 readers_minimum = 4
 migrate_space_factor = 3
 
 [node]
+name = "local"
 roots = ["{root}/.dev/media"]
 ffmpeg_dir = "{ffmpeg_dir}"
 confinement = "report"   # "require" refuses to start unconfined; "report" runs and says so
+video_extensions = ["mkv", "mp4", "m4v", "avi", "mov", "wmv", "ts", "m2ts", "mts", "webm", "mpg", "mpeg", "vob", "flv", "ogv", "3gp"]
+max_errors_per_root = 1000
+probe_timeout_s = 60
+status_interval_s = 10
 
 [log]
 level = "debug"

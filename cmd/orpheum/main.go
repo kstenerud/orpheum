@@ -45,7 +45,7 @@ func plannedSubcommands() []subcommand {
 	planned := []subcommand{
 		{name: "run", summary: "start the core, which supervises the node as a child process", run: commandRun},
 		{name: "core", summary: "run the core alone"},
-		{name: "node", summary: "run a media node alone"},
+		{name: "node", summary: "run a media node: the child `run` starts, or a node alone", run: commandNode},
 		{name: "migrate", summary: "migrate the database without starting the server", run: commandMigrate},
 		{name: "backup", summary: "write a backup of the database", run: commandBackup},
 		{name: "restore", summary: "restore a backup, with the server stopped", run: commandRestore},
@@ -123,7 +123,7 @@ func commandRun(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(fmt.Errorf("listen on %s: %w", config.Server.Listen, err))
 	}
-	if err = serve(ctx, config, configReport, listener, logger); err != nil {
+	if err = serve(ctx, config, configReport, listener, selfStarter(config, call.stderr), logger); err != nil {
 		return exitFailure
 	}
 	return exitSuccess

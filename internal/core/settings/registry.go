@@ -27,6 +27,10 @@ const (
 	BackupAgeWarningH          Key = "backup_age_warning_h"
 	DebugPProf                 Key = "debug_pprof"
 	DebugMetrics               Key = "debug_metrics"
+	NodeSilentAfterS           Key = "node_silent_after_s"
+	NodeRestartAfterS          Key = "node_restart_after_s"
+	NodeRestartDelayS          Key = "node_restart_delay_s"
+	ScanOnNodeHello            Key = "scan_on_node_hello"
 )
 
 // Scope is whose a setting is.
@@ -108,6 +112,16 @@ func Registry() []Definition {
 		{
 			Key: DebugMetrics, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("false"),
 			Describe: "serve /metrics, on a loopback listen address only (D91); not built yet",
+		},
+		integer(NodeSilentAfterS, "30", 1, 24*3600,
+			"seconds without a record from a node before the core shows it as silent (cut-a §4)"),
+		integer(NodeRestartAfterS, "120", 1, 24*3600,
+			"seconds of silence before the core restarts the node it supervises (cut-a §4)"),
+		integer(NodeRestartDelayS, "5", 1, 3600,
+			"seconds the core waits before starting its node again after it exited, so a crash cannot spin"),
+		{
+			Key: ScanOnNodeHello, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("true"),
+			Describe: "whether the core asks a node to scan every root it names each time it says hello",
 		},
 	}
 }

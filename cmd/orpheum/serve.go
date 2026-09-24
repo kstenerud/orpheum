@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -25,9 +26,11 @@ import (
 // serve runs the core on listener until ctx ends. The API answers /health before the database is
 // even open, and says "migrating" while it migrates. A migration that fails leaves the server up
 // and degraded, naming the step, the error and the snapshot, rather than exiting into a restart
-// loop (migrations.md, When a step fails).
+// loop (migrations.md, When a step fails). Once the database is ready it serves the node channel,
+// and supervises the node child when startNode is set.
 func serve(
-	ctx context.Context, config Config, configReport ConfigReport, listener net.Listener, logger *slog.Logger,
+	ctx context.Context, config Config, configReport ConfigReport, listener net.Listener, startNode nodes.Starter,
+	logger *slog.Logger,
 ) (err error) {
 	server := api.NewServer(logger)
 	httpServer := &http.Server{Handler: server.Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
@@ -54,6 +57,14 @@ func serve(
 		return err
 	}
 	defer func() { err = errors.Join(err, started.release()) }()
+	stopNodes, err := runNodeChannel(ctx, config, started.database, started.settings, startNode, logger)
+	if err != nil {
+		server.SetStatus(api.StatusDegraded, "the node channel could not start", err.Error())
+		logger.ErrorContext(ctx, "the node channel could not start; the server stays up to report why", "err", err)
+		<-ctx.Done()
+		return err
+	}
+	defer func() { err = errors.Join(err, stopNodes()) }()
 	logger.InfoContext(ctx, "ready")
 	<-ctx.Done()
 	logger.InfoContext(ctx, "stopping")
@@ -64,6 +75,7 @@ func serve(
 type started struct {
 	lock     *datadir.Lock
 	database *store.Database
+	settings *settings.Service
 }
 
 func (opened started) release() error {
@@ -104,6 +116,7 @@ func start(
 		return opened, errors.Join(err, database.Close())
 	}
 	server.Ready(dependencies)
+	opened.settings = dependencies.Settings
 	return opened, nil
 }
 

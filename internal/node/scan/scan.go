@@ -207,6 +207,9 @@ func (walk *walk) symlink(place location) error {
 // file probes and hashes a video file, or skips anything else.
 func (walk *walk) file(place location, info fs.FileInfo) error {
 	name := path.Base(place.reported)
+	if strings.HasPrefix(name, "._") {
+		return walk.skip(place, nodeproto.SkipAppleDouble)
+	}
 	extension := strings.ToLower(strings.TrimPrefix(path.Ext(name), "."))
 	if !walk.scanner.extensions[extension] {
 		return walk.skip(place, nodeproto.SkipExtension)
