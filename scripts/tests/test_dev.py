@@ -10,6 +10,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import dev  # noqa: E402
 import dev_media  # noqa: E402
 import fetch_ffmpeg  # noqa: E402
+import fetch_mkvtoolnix  # noqa: E402
+
+
+class FetchMkvtoolnix(unittest.TestCase):
+    def test_the_pin_is_a_sha256_for_the_one_platform_with_a_portable_build(self):
+        self.assertEqual(set(fetch_mkvtoolnix.PINS), {"linux/amd64"})
+        for digest in fetch_mkvtoolnix.PINS.values():
+            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+
+    def test_an_unpinned_platform_gets_nothing_rather_than_a_guess(self):
+        root = Path(tempfile.mkdtemp())
+        self.assertIsNone(fetch_mkvtoolnix.install("darwin/arm64", root))
+        self.assertFalse((root / ".tools").exists())
 
 
 class FetchFfmpeg(unittest.TestCase):

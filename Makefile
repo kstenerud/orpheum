@@ -156,9 +156,10 @@ test-all: check ## The gate, then the race detector and uncached tests
 	@$(HERMETIC) go test -race -count=1 ./...
 
 .PHONY: test-integration
-test-integration: ## The integration tier: tests that run the pinned FFmpeg (fetched as make ffmpeg does)
+test-integration: ## The integration tier: tests that run the pinned FFmpeg and MKVToolNix (fetched as make ffmpeg and make mkvtoolnix do)
 	@$(UNCONTROLLED)
-	@$(HERMETIC) ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" go test -tags integration -count=1 ./...
+	@$(HERMETIC) ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" ORPHEUM_TEST_MKVTOOLNIX_DIR="$(MKVTOOLNIX_DIR)" \
+		go test -tags integration -count=1 ./...
 
 # ---------------------------------------------------------------------------------------------
 # Building and generating
@@ -192,6 +193,7 @@ DEV_DIR := .dev
 DEV_CONFIG := $(DEV_DIR)/orpheum.toml
 DEV_LISTEN ?=
 FFMPEG_DIR = $(shell $(PYTHON) scripts/fetch_ffmpeg.py)
+MKVTOOLNIX_DIR = $(shell $(PYTHON) scripts/fetch_mkvtoolnix.py)
 PKG ?= ./...
 RUN ?= .
 FILE ?=
@@ -200,6 +202,10 @@ DELVE_VERSION := 1.27.2
 .PHONY: ffmpeg
 ffmpeg: ## Fetch the pinned FFmpeg (jellyfin-ffmpeg) into .tools/ and verify its hash
 	@echo "ffmpeg: $(FFMPEG_DIR)"
+
+.PHONY: mkvtoolnix
+mkvtoolnix: ## Fetch the pinned MKVToolNix, which the integration tier edits files with, into .tools/
+	@echo "mkvtoolnix: $(MKVTOOLNIX_DIR)"
 
 .PHONY: dev
 dev: web-deps ## Run the app: server + Vite (hot reload), seeded users and library, rebuilds on change

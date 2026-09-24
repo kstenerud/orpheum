@@ -92,6 +92,26 @@ func TestFindDirectImporters_JudgesProductionAndTestImportsSeparately(t *testing
 	}
 }
 
+func TestFindDirectImporters_TestutilIsForTestsOnly(t *testing.T) {
+	t.Parallel()
+	rule := importRule{
+		forbidden:            []string{testutilPath},
+		allowedImporters:     []string{testutilPath},
+		allowedTestImporters: []string{modulePath},
+	}
+	shipping := []listedPackage{{ImportPath: nodePath + "/probe", Imports: []string{testutilPath}}}
+	if got := findDirectImporters(shipping, rule); len(got) != 1 {
+		t.Errorf("a shipping package importing testutil: got %d violations, want 1", len(got))
+	}
+	tests := []listedPackage{
+		{ImportPath: nodePath + "/probe", TestImports: []string{testutilPath}},
+		{ImportPath: corePath + "/api", XTestImports: []string{testutilPath}},
+	}
+	if got := findDirectImporters(tests, rule); len(got) != 0 {
+		t.Errorf("tests importing testutil: got %v, want none", got)
+	}
+}
+
 func TestFindDirectImporters_CatchesADriverOutsideTheStore(t *testing.T) {
 	t.Parallel()
 	rule := importRule{

@@ -24,6 +24,7 @@ const (
 	execxPath     = modulePath + "/internal/node/execx"
 	platformPath  = modulePath + "/internal/platform"
 	archtestPath  = modulePath + "/internal/archtest"
+	testutilPath  = modulePath + "/internal/testutil"
 )
 
 // sqlPackages are database/sql and every SQLite driver; only the store may import them.
@@ -344,14 +345,31 @@ func TestArch_OnlyStoreImportsDatabaseSQL(t *testing.T) {
 	}))
 }
 
+// TestArch_OnlyExecxImportsOsExec checks that, of the code that ships, only execx starts a
+// process. The test-only package internal/testutil may too, to run the MKVToolNix the tests edit
+// files with; that it never ships is TestArch_TestutilIsImportedOnlyByTests.
 func TestArch_OnlyExecxImportsOsExec(t *testing.T) {
 	t.Parallel()
 	packages := loadModulePackages(t)
 	requirePackagesUnder(t, packages, execxPath)
 	reportViolations(t, findDirectImporters(packages, importRule{
 		forbidden:            []string{"os/exec"},
-		allowedImporters:     []string{execxPath},
+		allowedImporters:     []string{execxPath, testutilPath},
 		allowedTestImporters: []string{execxPath, archtestPath},
+	}))
+}
+
+// TestArch_TestutilIsImportedOnlyByTests checks that no package that ships imports
+// internal/testutil, so what it may do — skip a test, read test variables, run MKVToolNix —
+// never reaches a binary.
+func TestArch_TestutilIsImportedOnlyByTests(t *testing.T) {
+	t.Parallel()
+	packages := loadModulePackages(t)
+	requirePackagesUnder(t, packages, testutilPath)
+	reportViolations(t, findDirectImporters(packages, importRule{
+		forbidden:            []string{testutilPath},
+		allowedImporters:     []string{testutilPath},
+		allowedTestImporters: []string{modulePath},
 	}))
 }
 

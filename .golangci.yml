@@ -429,7 +429,9 @@ linters:
         # `go list`, and only from their _test.go files. Direct form: TestArch_OnlyExecxImportsOsExec.
         exec-only-in-execx:
           list-mode: lax
-          files: ["$all", "!**/internal/node/execx/**", "!**/internal/archtest/*_test.go"]
+          # internal/testutil runs the MKVToolNix tests edit files with; only tests may import it
+          # (TestArch_TestutilIsImportedOnlyByTests).
+          files: ["$all", "!**/internal/node/execx/**", "!**/internal/archtest/*_test.go", "!**/internal/testutil/**"]
           deny:
             - pkg: "os/exec"
               desc: "[exec-only-in-execx] start processes through internal/node/execx, which confines them (D26, cut-a §7)"
@@ -627,7 +629,7 @@ linters:
         text: '\[(ambient|print|panic|context)\]'
       - path: ^internal/testutil/
         linters: [forbidigo]
-        text: '\[(ambient|skip)\]'
+        text: '\[(ambient|skip|exec)\]'
       - path: ^internal/platform/outbound/
         linters: [forbidigo]
         text: '\[outbound\]'
