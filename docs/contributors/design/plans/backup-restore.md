@@ -80,6 +80,10 @@ viewing to anyone with filesystem access. The sidecar mechanism structurally can
 
 ## Restore
 
+> **IMPLEMENTED — see `internal/core/backup`** (M1): `orpheum backup` (with `--include-key`) and
+> `orpheum restore`, which says what it will overwrite, keeps it, and runs only with the server
+> stopped. Scheduled backups and retention arrive with the job queue (M2).
+
 A backup that has never been restored is not a backup, so the deliverable is **a test that
 restores into an empty instance and asserts equivalence of the irreplaceable set** — not a
 checksum, which only proves a copy happened.

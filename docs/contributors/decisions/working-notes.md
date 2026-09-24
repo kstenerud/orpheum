@@ -15345,6 +15345,9 @@ reopen Cut A.
 
 ## D194 — Secrets: our users' passwords are hashed, third-party secrets are sealed with a key that never enters the database, and nothing reads a secret back out
 
+> **Amended by [D198](#d198--m1s-four-open-points-secretkey-lives-in-the-state-directory-cachedb-waits-for-m2-the-agent-makes-a-golden-the-owner-approves-and-m1s-api-is-setup-sessions-settings-and-secrets):** `secret.key` lives in the state directory, which is what §4
+> already described; §3's "beside the configuration file" is struck.
+
 **Decided** (2026-09-23), by the project owner (*"Settle the API keys and passwords now"*),
 closing the question [auth.md](../design/plans/auth.md) left open after
 [D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes).
@@ -15381,7 +15384,8 @@ present the secret to someone else.**
 ### 3. Third-party secrets: sealed, in a table of their own
 
 - **The key.** On first start the server generates a 256-bit key and writes it to
-  **`secret.key`** beside the configuration file, mode 0600. It is **never** written into the
+  **`secret.key`** ~~beside the configuration file~~ in the state directory ([D198](#d198--m1s-four-open-points-secretkey-lives-in-the-state-directory-cachedb-waits-for-m2-the-agent-makes-a-golden-the-owner-approves-and-m1s-api-is-setup-sessions-settings-and-secrets)), mode
+  0600. It is **never** written into the
   database.
 - **The table.** Sealed secrets live in a **`secret`** table, separate from `setting`
   ([schema.md](../design/plans/schema.md)). Each row holds:
@@ -15672,3 +15676,55 @@ also lints, vets and tests the dev build.
 **Status:** Decided. The Makefile, `scripts/dev.py`, `scripts/dev_media.py`,
 `scripts/fetch_ffmpeg.py` and `dev/` land together, and cut-a gains §2a. This is a gate change
 the owner asked for, so it carries `Gate-Changed:`.
+
+---
+
+## D198 — M1's four open points: `secret.key` lives in the state directory, `cache.db` waits for M2, the agent makes a golden the owner approves, and M1's API is setup, sessions, settings and secrets
+
+**Decided** (2026-09-24), by the project owner, answering the questions the agent raised when M1
+began ([cut-a.md](../design/plans/cut-a.md) §8). Each is where the plan was silent or said two
+things.
+
+1. **`secret.key` is `<data_dir>/secret.key`, mode 0600.**
+   [D194](#d194--secrets-our-users-passwords-are-hashed-third-party-secrets-are-sealed-with-a-key-that-never-enters-the-database-and-nothing-reads-a-secret-back-out)
+   said both "beside the configuration file" (§3) and "a backup of the whole state directory
+   contains the key" (§4), and `internal/core/datadir` listed the key under the state directory.
+   The state directory is the answer: it is what §4 describes, and the core touches files only
+   in its state and cache directories. D194 §3 and [schema.md](../design/plans/schema.md) are
+   corrected in place.
+2. **`cache.db` is deferred to M2.** [schema.md](../design/plans/schema.md) puts `job`,
+   `match_candidate` and `prepared_rendition` in a second file, but sqlc reads one migrations
+   directory as the whole schema, and nothing in M1 uses those tables. Migration 0001 is
+   `library.db` alone; `cache.db`'s layout, its "versioned by discard" rule and `sqlc.yaml`'s
+   schema list are decided together when the job queue arrives.
+3. **The agent makes the first schema golden; the owner approves it.** Goldens under
+   `testdata/golden/` are the owner's
+   ([standards/testing.md](../standards/testing.md) §8). The agent generates it with the test's
+   `-update` flag and commits it alone, carrying `Gate-Changed:` that cites this decision.
+4. **M1's API is setup, sessions, settings and secrets.** huma serves `/health`, `POST /setup`,
+   `POST` and `DELETE /session`, `GET /me`, `GET`/`PUT /settings` and `/me/settings`, and the
+   write-only `/secrets` and `/me/secrets` endpoints, so the canary test drives a real API. The
+   OpenAPI document is generated and committed; the `make generate` and `check-generated` lines
+   that regenerate and diff it are the owner's to add, because the Makefile is a gate.
+
+**Status:** Decided.
+
+---
+
+## D199 — The core may reach `os/exec` through the SQLite driver's C runtime, and through nothing else
+
+**Decided** (2026-09-24), by the project owner, when M1 found that `TestArch_CoreNeverExecs`
+failed for every core package that uses the store.
+
+- **What was found.** `modernc.org/libc`, the C runtime under the pure-Go SQLite driver
+  ([D31](#d31--sqlite-with-a-pure-go-driver-supersedes-d5)), imports `os/exec` to implement C's `system()` and `popen()`. SQLite never calls them. No
+  code of ours runs a process, but the transitive check cannot see that.
+- **The decision.** The check exempts that one edge, `modernc.org/libc` → `os/exec`, with the
+  reason beside it, and walks the real import graph so any other route to `os/exec` still fails
+  and is named. The change is to the test only.
+- **Not chosen.** Switching to `ncruces/go-sqlite3`, which reaches no `os/exec`, would add about
+  ten modules to the allowlist, and the driver benchmark on devnas
+  ([standards/sql.md](../standards/sql.md) §7) has not run. Checking direct imports only would
+  duplicate depguard and stop catching a real indirect exec.
+
+**Status:** Decided.
