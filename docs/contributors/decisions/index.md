@@ -212,6 +212,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D204](working-notes.md#d204--no-ambient-configuration-the-shipped-binary-is-configured-by-its-config-file-its-flags-and-its-database-and-by-nothing-it-inherits) No ambient configuration: the shipped binary is configured by its config file, its flags and its database, and by nothing it inherits
 - [D205](working-notes.md#d205--x86_64-is-where-cut-a-is-verified-arm64-is-kept-open-riscv64-is-watched-and-nothing-may-assume-amd64) x86_64 is where Cut A is verified; arm64 is kept open, riscv64 is watched, and nothing may assume amd64
 - [D206](working-notes.md#d206--a-symlink-is-followed-only-into-a-media-root-golangorgxtext-normalises-filenames-and-language-tags) A symlink is followed only into a media root; golang.org/x/text normalises filenames and language tags
+- [D207](working-notes.md#d207--execx-starts-the-node-child-the-nodes-loop-is-internalnodeagent-and-the-cores-side-internalcorenodes-a-node-is-known-by-its-configured-name) execx starts the node child; the node's loop is internal/node/agent and the core's side internal/core/nodes; a node is known by its configured name
 
 ## Archived
 
