@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A3 — Removal logic built without reading the decisions that make removal safe (2026-09-24)
+
+- **What happened:** the scanner and the ingest (an earlier commit, 2563802) were built from D39
+  and D40 — completeness, scopes, tombstones only after a complete scan — and presented as
+  removal-safe. D41 and D42, the next two decisions, say the most dangerous case has **no error
+  at all**: an unmounted disk leaves an empty directory that lists cleanly, so a complete scan of
+  it tombstones the whole library. They require the node to report each root's device id and
+  mount facts and to tell "listed and empty" from "not enumerated", and the core to withhold
+  removals on implausible shrinkage and ask. None of it was built. The false belief came from
+  reading the decision the code cited (D40) and not the ones around it.
+- **Caught by:** the owner's request for user-story scenarios; walking "a USB disk is unplugged"
+  through the design found D41's section on the silent case.
+- **Gate:** the scenario tier (plans/scenarios.md): the unplugged-disk scenario becomes a test
+  that fails if a clean scan of an emptied root removes anything. General lesson: before building
+  a mechanism, grep the decision log for every decision that names it, not only the one cited.
+
 ### A2 — Two rules that contradicted each other, built side by side without a word (2026-09-24)
 
 - **What happened:** D200 said a missing setting is an error, never a fallback, and in the same
