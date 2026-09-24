@@ -49,4 +49,29 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
-*No entries yet.*
+### A2 — Two rules that contradicted each other, built side by side without a word (2026-09-24)
+
+- **What happened:** D200 said a missing setting is an error, never a fallback, and in the same
+  change the server seeded every missing setting at start, so a later release could add one. The
+  agent built both, plus `orpheum seed-settings` to paper over the gap, and presented them as one
+  coherent model. The owner saw that "balk at a missing value" and "seed any missing value"
+  cannot both be the rule (D202). The false belief came from building each requirement as it
+  arrived, and checking each against its own tests, never against the others.
+- **Caught by:** the owner, reading the summary.
+- **Gate:** none can catch a contradiction between requirements. The between-milestone audit is
+  the check, and a decision entry should now list the earlier rules it touches and say how each
+  still holds.
+
+### A1 — "Modified" computed from the value, so a choice looked like no choice (2026-09-24)
+
+- **What happened:** the settings model marked a setting *modified* when its value differed from
+  its starting value (D200). A person who set a value equal to the default became
+  indistinguishable from nobody, so a release that changed the default would have overwritten a
+  deliberate choice. The owner's question — *"does that still get set if the user modified the
+  value back to its default?"* — had the honest answer "no". The belief came from about:config,
+  whose computed "modified" the agent copied without asking what upgrades need of it.
+- **Caught by:** the owner's question.
+- **Gate:** `TestSet_MarksModifiedEvenAtTheStartingValueAndResetClearsIt` and
+  `TestSeed_MovesOnlyUnmodifiedSettingsToAChangedStartingValue` now pin the corrected behaviour
+  (D201). Nothing general: the lesson is to test a state model against the transitions a later
+  release makes, not only the ones today's code makes.
