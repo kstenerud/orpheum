@@ -42,7 +42,7 @@ CODE_DECISION = re.compile(r"(?<![\w/#.-])D(\d{1,4})(?![\w-])")
 TEST_VAR = re.compile(r"\bORPHEUM_TEST_[A-Z0-9_]+\b")
 
 CODE_SUFFIXES = (".go", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".py", ".sh")
-GENERATED_PARTS = ("internal/store/sqlcgen/", "web/packages/sdk/src/gen/")
+GENERATED_PARTS = ("internal/store/sqlcgen/", "internal/store/cachegen/", "web/packages/sdk/src/gen/")
 # Where a test variable may be set: job definitions, not the code that reads it.
 SETTERS = ("Makefile", ".github/workflows/", "scripts/")
 

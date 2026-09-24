@@ -40,6 +40,7 @@ GATE_PATTERNS = (
 )
 GENERATED_PATTERNS = (
     r"^internal/store/sqlcgen/",
+    r"^internal/store/cachegen/",
     r"^web/packages/sdk/src/gen/",
     r"^api/openapi\.json$",
     r"(^|/)package-lock\.json$",

@@ -47,13 +47,14 @@ SOURCE_NAMES = frozenset({"Makefile"})
 # Paths never checked: generated output, vendored text, fixtures that must stay verbatim.
 EXEMPT_PREFIXES = (
     "internal/store/sqlcgen/",
+    "internal/store/cachegen/",
     "web/packages/sdk/src/gen/",
     "testdata/",
     "docs/",
 )
 EXEMPT_PARTS = ("/testdata/", "/node_modules/", "/dist/")
 
-ASCII_ONLY = re.compile(r"^internal/store/queries/[^/]+\.sql$")
+ASCII_ONLY = re.compile(r"^internal/store/(cache/)?(queries/[^/]+|schema)\.sql$")
 
 HEADER_WINDOW = 5
 WARN_LINES = 400

@@ -172,7 +172,7 @@ build: web-deps ## Build the server binary into bin/ and the web apps into their
 	@go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o bin/orpheum ./cmd/orpheum
 
 .PHONY: generate
-generate: ## Regenerate committed generated code (sqlc and the OpenAPI document; the TS types once the SDK exists)
+generate: ## Regenerate committed generated code (sqlc for library.db and cache.db, and the OpenAPI document; the TS types once the SDK exists)
 	@if ls internal/store/queries/*.sql >/dev/null 2>&1; then \
 	  command -v sqlc >/dev/null || { echo "sqlc is not installed; run: make tools-sqlc"; exit 1; }; \
 	  sqlc generate && sqlc vet; \

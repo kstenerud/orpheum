@@ -65,6 +65,8 @@ class SourceHeaders(unittest.TestCase):
         self.assertIn("line 2 column 8", bad.message)
         self.assertIsNone(cs.check_ascii("internal/store/queries/user.sql", "-- see section 4\n"))
         self.assertIsNone(cs.check_ascii("internal/core/x.go", "// \u00a7 4\n"))
+        for cache in ("internal/store/cache/queries/job.sql", "internal/store/cache/schema.sql"):
+            self.assertIsNotNone(cs.check_ascii(cache, "-- see \u00a7 4\n"), cache)
 
     def test_whole_tree(self):
         root = git_repo({

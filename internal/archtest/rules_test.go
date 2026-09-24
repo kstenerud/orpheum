@@ -205,7 +205,7 @@ func findFreeFunctions(files []sourceFile) []violation {
 
 // generatedPackages hold only a generator's output, where no hand-written doc.go may live (the
 // pre-edit hook refuses it); the package that owns the generator documents them instead.
-var generatedPackages = []string{storePath + "/sqlcgen"}
+var generatedPackages = []string{storePath + "/sqlcgen", storePath + "/cachegen"}
 
 // requiredDocHeadings are the doc.go headings every package carries, in this order.
 var requiredDocHeadings = []string{"Invariants", "Read before changing", "Where to change"}
@@ -445,5 +445,7 @@ func TestArch_QueriesNameEveryColumn(t *testing.T) {
 	if storeDirectory == "" {
 		t.Fatalf("go list did not find %s", storePath)
 	}
-	reportViolations(t, findStarSelections(readQueryFiles(t, filepath.Join(storeDirectory, "queries"))))
+	files := readQueryFiles(t, filepath.Join(storeDirectory, "queries"))
+	files = append(files, readQueryFiles(t, filepath.Join(storeDirectory, "cache", "queries"))...)
+	reportViolations(t, findStarSelections(files))
 }

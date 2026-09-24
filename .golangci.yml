@@ -618,6 +618,7 @@ linters:
     presets: []
     paths:
       - internal/store/sqlcgen
+      - internal/store/cachegen
       - web
     rules:
       # ---- forbidigo: each tag's sanctioned home
@@ -700,6 +701,7 @@ formatters:
     generated: strict
     paths:
       - internal/store/sqlcgen
+      - internal/store/cachegen
       - web
 
 issues:
