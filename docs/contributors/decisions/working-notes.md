@@ -15743,6 +15743,11 @@ failed for every core package that uses the store.
 
 ## D200 — Every opinionated value is a setting row, seeded with its starting value; nothing has a default in code; the config file holds only what must exist before the database opens, and all of it is required
 
+> **Refined by [D201](#d201--a-setting-a-person-set-stays-theirs-and-every-other-one-follows-its-starting-value-the-last-pre-database-values-are-config-keys-seeding-fills-both-places-and-reports-what-nothing-reads-new-goldens-have-standing-approval):** *modified* is a stored mark a manual set makes and
+> "set to default" clears, and unmodified rows follow a changed starting value; the pre-database
+> values below are config keys, not constants; seeding also fills the config file and reports
+> keys nothing reads.
+
 **Decided** (2026-09-24), by the project owner, reviewing the numbers M1 had compiled in: *"things
 that take opinionated values should in general be configurable … stored in the database config
 table, not necessarily directly accessible via the UI … in a similar spirit to how Firefox has
@@ -15767,9 +15772,9 @@ to reason about."*
   and `POST /config/{key}/reset` writes the starting value back. `/settings` shows and changes only
   what the settings page exposes. The page for the full list shows each value beside its starting
   value, and filters to the changed ones, when the web client is built.
-- **Values needed before the database opens cannot be settings**: the HTTP read-header timeout,
+- **Values needed before the database opens cannot be settings**: ~~the HTTP read-header timeout,
   the free-space margin before migrating and the reader-pool minimum stay constants for now, as
-  does the shutdown grace a failed start also needs. Format and safety properties — pragmas, file
+  does the shutdown grace a failed start also needs~~ they are required config keys ([D201](#d201--a-setting-a-person-set-stays-theirs-and-every-other-one-follows-its-starting-value-the-last-pre-database-values-are-config-keys-seeding-fills-both-places-and-reports-what-nothing-reads-new-goldens-have-standing-approval)). Format and safety properties — pragmas, file
   modes, token length, the setup code's shape — stay constants because they are not opinions.
 
 ### 2. The config file
@@ -15789,5 +15794,52 @@ to reason about."*
 - **[D182](#d182--metadata-is-a-stack-of-layers-with-one-fetched-layer-re-derivation-reads-only-stored-input-a-new-config-requirement-is-a-default-a-derivation-or-a-question) §3**: a config file key is never defaulted; a new one is a derivation, a question
   asked in the UI (and so a setting), or a refusal naming the key.
 - **[D197](#d197--a-development-loop-with-opinionated-printed-settings-and-makefile-targets-for-the-common-debugging-jobs) §4**: pprof and metrics are settings, not config keys; `dev/seed.toml` turns them on.
+
+**Status:** Decided.
+
+---
+
+## D201 — A setting a person set stays theirs, and every other one follows its starting value; the last pre-database values are config keys; seeding fills both places and reports what nothing reads; new goldens have standing approval
+
+**Decided** (2026-09-24), by the project owner, refining [D200](#d200--every-opinionated-value-is-a-setting-row-seeded-with-its-starting-value-nothing-has-a-default-in-code-the-config-file-holds-only-what-must-exist-before-the-database-opens-and-all-of-it-is-required)
+the same day.
+
+### 1. Modified means a person set it
+
+D200 computed *modified* as "differs from the starting value", so setting a value back to its
+default made it unmodified, and a later release could not tell a choice from an untouched row.
+Instead:
+
+- **Any manual set marks a setting modified**, even to the value it starts with (migration 0002,
+  `setting.is_modified`).
+- **"Set to default"** (`POST /config/{key}/reset`) writes the starting value and clears the mark.
+- **When a release changes a starting value** — to fix a bad choice — every unmodified row moves
+  to the new one at the next start, and the start-up log, `seed-settings` and `POST /config/seed`
+  say which. A modified row is never touched.
+- **This is the database side only.** The config file is small enough to manage by hand.
+
+### 2. The config file
+
+- **The values needed before the database opens are required config keys**, with starting values:
+  `server.read_header_timeout_s` and `server.shutdown_grace_s` (10), and a new `[database]` table
+  with `readers_minimum` (4) and `migrate_space_factor` (3). Nothing about them is left in code.
+- **Every config key has a starting value, or is marked as having none** because it is specific to
+  the machine (the listen address, the directories, the media roots, the FFmpeg path). A missing
+  key's refusal gives its starting value, or says why it has none.
+
+### 3. Seeding
+
+- **`orpheum seed-settings` fills the config file first**: it adds every missing key that has a
+  starting value, in its own table, keeping comments and order, after keeping a copy of the file
+  as it was; and it names the missing keys only a person can fill. Then it seeds the database.
+- **Keys nothing reads are listed, never deleted** — a typo, or a key a release removed — in the
+  config file and in the database, by `seed-settings`, `POST /config/seed`, the start-up log and
+  `doctor`. Deleting them is the person's choice.
+
+### 4. Goldens for new migrations
+
+**Standing approval**: for each new migration the agent generates its golden with `-update` and
+commits it on its own, with `Gate-Changed:` citing this decision. Changing an existing golden
+still needs the owner.
 
 **Status:** Decided.

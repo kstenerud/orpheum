@@ -535,9 +535,10 @@ CREATE UNIQUE INDEX setting_key ON setting(scope, ifnull(user_id, 0), key);
 play-state thresholds, backup retention, the update-check answer. A key's type, bounds, starting
 value and whether the settings page shows it come from one registry in code. **Every key has a
 row** ([D200](../../decisions/working-notes.md)): the server writes each missing key's starting
-value at start and never overwrites one, reads only rows, and treats a missing row as an error
-that names the key and its starting value. Whether a value was changed is whether it differs from
-its starting value. Per-item preferences stay in their own table.
+value at start, reads only rows, and treats a missing row as an error that names the key and its
+starting value. Migration 0002 adds `is_modified INTEGER NOT NULL DEFAULT 0` ([D201](../../decisions/working-notes.md)):
+a person's set marks it, "set to default" clears it, and an unmarked row follows its starting value
+when a release changes it. Per-item preferences stay in their own table.
 
 ```sql
 CREATE TABLE secret (                                      -- class A, sealed (D194)
