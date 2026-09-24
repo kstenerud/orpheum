@@ -17,6 +17,12 @@
 listen = "127.0.0.1:8432"
 data_dir = "{root}/.dev/state"
 cache_dir = "{root}/.dev/cache"
+read_header_timeout_s = 10
+shutdown_grace_s = 10
+
+[database]
+readers_minimum = 4
+migrate_space_factor = 3
 
 [node]
 roots = ["{root}/.dev/media"]

@@ -57,10 +57,13 @@ type ConfigKeyInput struct {
 	Key string `path:"key"`
 }
 
-// SeedOutput names the settings a seed wrote: those that had no value.
+// SeedOutput names the settings a seed wrote, those that had no value, and the rows it found that
+// no setting reads, which it leaves alone (D200).
 type SeedOutput struct {
 	Body struct {
 		Written []string `json:"written"`
+		Updated []string `doc:"Unmodified settings moved to a starting value this release changed" json:"updated"`
+		Unknown []string `doc:"Rows no setting reads, such as a typo; reported, never deleted" json:"unknown"`
 	}
 }
 
@@ -138,7 +141,9 @@ func (server *Server) registerConfig() {
 	}, server.seedConfig)
 	huma.Register(server.api, huma.Operation{
 		OperationID: "resetConfig", Method: http.MethodPost, Path: "/config/{key}/reset",
-		Summary: "Put a server setting back to the value a new server starts with (admin)", Tags: tags,
+		Summary: "Set a server setting to default: its starting value, no longer marked modified, so it " +
+			"follows its starting value when a release changes it (admin)",
+		Tags: tags,
 	}, server.resetConfig)
 }
 
@@ -174,14 +179,20 @@ func (server *Server) seedConfig(ctx context.Context, input *AuthorizationHeader
 	if err != nil {
 		return nil, err
 	}
-	written, err := dependencies.Settings.Seed(ctx)
+	report, err := dependencies.Settings.Seed(ctx)
 	if err != nil {
 		return nil, server.internal(ctx, "seed the settings", err)
 	}
 	output := &SeedOutput{}
-	output.Body.Written = []string{}
-	for _, key := range written {
+	output.Body.Written, output.Body.Updated, output.Body.Unknown = []string{}, []string{}, []string{}
+	for _, key := range report.Written {
 		output.Body.Written = append(output.Body.Written, string(key))
+	}
+	for _, key := range report.Updated {
+		output.Body.Updated = append(output.Body.Updated, string(key))
+	}
+	for _, unknown := range report.Unknown {
+		output.Body.Unknown = append(output.Body.Unknown, unknown.String())
 	}
 	return output, nil
 }

@@ -26,6 +26,9 @@ type MigrateOptions struct {
 	// BeforeStep, if set, is called before each pending step with its position and the number
 	// pending, so /health can say "migrating: step 3 of 7" before the step starts.
 	BeforeStep func(step, total int)
+	// SpaceFactor is the free space the preflight needs, as a multiple of the database's size:
+	// the snapshot plus a rebuild's worst case. It comes from the config file (D200).
+	SpaceFactor int
 }
 
 // NewerDatabaseError refuses a database that a newer release upgraded past what this binary can
@@ -104,7 +107,7 @@ func (database *Database) migrate(ctx context.Context, steps []Step, options Mig
 	if len(pending) == 0 {
 		return nil
 	}
-	snapshot, err := database.snapshotBeforeMigrating(ctx, state.Version, options.SnapshotDirectory)
+	snapshot, err := database.snapshotBeforeMigrating(ctx, state.Version, options)
 	if err != nil {
 		return err
 	}
@@ -154,11 +157,12 @@ func snapshotName(fromVersion int) string {
 // a restart loop cannot fill the disk, and returns its path. A file with no schema has nothing
 // to keep, so it gets none.
 func (database *Database) snapshotBeforeMigrating(
-	ctx context.Context, fromVersion int, directory string,
+	ctx context.Context, fromVersion int, options MigrateOptions,
 ) (string, error) {
 	if fromVersion == 0 {
 		return "", nil
 	}
+	directory := options.SnapshotDirectory
 	if directory == "" {
 		return "", errors.New("migrate: no snapshot directory to write the pre-migration snapshot into")
 	}
@@ -170,7 +174,7 @@ func (database *Database) snapshotBeforeMigrating(
 	case !errors.Is(err, os.ErrNotExist):
 		return "", fmt.Errorf("check for snapshot %s: %w", path, err)
 	}
-	err = database.requireSpaceToMigrate(ctx, directory)
+	err = database.requireSpaceToMigrate(ctx, directory, options.SpaceFactor)
 	if err != nil {
 		return "", err
 	}
@@ -182,13 +186,17 @@ func (database *Database) snapshotBeforeMigrating(
 }
 
 // requireSpaceToMigrate refuses, with the numbers, when the snapshot plus a rebuild's worst case
-// would not fit. Twice the whole database bounds twice its largest table.
-func (database *Database) requireSpaceToMigrate(ctx context.Context, directory string) error {
+// would not fit: factor times the database, where a factor of 3 is the snapshot plus twice the
+// whole database, which bounds twice its largest table.
+func (database *Database) requireSpaceToMigrate(ctx context.Context, directory string, factor int) error {
+	if factor < 1 {
+		return fmt.Errorf("the migration space factor is %d; it must be at least 1", factor)
+	}
 	size, err := database.sizeBytes(ctx)
 	if err != nil {
 		return err
 	}
-	needed := 3 * size
+	needed := uint64(factor) * size
 	for _, where := range []string{directory, filepath.Dir(database.path)} {
 		available, measureErr := availableBytes(where)
 		if measureErr != nil {
@@ -196,8 +204,8 @@ func (database *Database) requireSpaceToMigrate(ctx context.Context, directory s
 		}
 		if available < needed {
 			return fmt.Errorf("not enough free space to migrate safely: %s has %d bytes free, and the snapshot plus "+
-				"a rebuild may need %d (three times the %d-byte database); nothing was changed",
-				where, available, needed, size)
+				"a rebuild may need %d (%d times the %d-byte database); nothing was changed",
+				where, available, needed, factor, size)
 		}
 	}
 	return nil

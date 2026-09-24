@@ -39,6 +39,11 @@
 //   - A committed step is never edited, renamed or deleted. Enforced by the pre-edit hook and
 //     TestSteps_MatchTheCommittedChecksums.
 //   - Only library.db is built in M1; cache.db arrives with the job queue in M2 (D198).
+//   - Every data-transforming step has a test on its rows: step 0002 in
+//     TestMigrate_Step0002MarksTheSettingsAPersonSetAsModified.
+//   - Open and the runner take their choices (the reader pool minimum, the free-space factor) from
+//     the caller and refuse zero, never a value from here (D201). Enforced by
+//     TestOpen_RefusesOptionsNobodyChose.
 //
 // # Read before changing
 //

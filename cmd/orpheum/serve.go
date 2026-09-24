@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"sync"
-	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
@@ -23,16 +22,13 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 )
 
-// shutdownGrace is how long in-flight requests get to finish when the server stops.
-const shutdownGrace = 10 * time.Second
-
 // serve runs the core on listener until ctx ends. The API answers /health before the database is
 // even open, and says "migrating" while it migrates. A migration that fails leaves the server up
 // and degraded, naming the step, the error and the snapshot, rather than exiting into a restart
 // loop (migrations.md, When a step fails).
 func serve(ctx context.Context, config Config, listener net.Listener, logger *slog.Logger) (err error) {
 	server := api.NewServer(logger)
-	httpServer := &http.Server{Handler: server.Handler(), ReadHeaderTimeout: 10 * time.Second}
+	httpServer := &http.Server{Handler: server.Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
 	var serving sync.WaitGroup
 	serving.Go(func() {
 		if serveErr := httpServer.Serve(listener); !errors.Is(serveErr, http.ErrServerClosed) {
@@ -40,7 +36,7 @@ func serve(ctx context.Context, config Config, listener net.Listener, logger *sl
 		}
 	})
 	defer func() {
-		shutdownContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
+		shutdownContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.shutdownGrace())
 		defer cancel()
 		err = errors.Join(err, httpServer.Shutdown(shutdownContext))
 		serving.Wait()
@@ -88,7 +84,7 @@ func start(ctx context.Context, config Config, server *api.Server, logger *slog.
 			err = errors.Join(err, opened.lock.Release())
 		}
 	}()
-	database, err := openAndMigrate(ctx, directories, server.SetStatus, logger)
+	database, err := openAndMigrate(ctx, config, directories, server.SetStatus, logger)
 	if err != nil {
 		return opened, err
 	}
@@ -106,17 +102,14 @@ func start(ctx context.Context, config Config, server *api.Server, logger *slog.
 
 // openAndMigrate opens library.db and migrates it, reporting each step before it starts.
 func openAndMigrate(
-	ctx context.Context, directories *datadir.Directories, report func(api.Status, string, ...string),
-	logger *slog.Logger,
+	ctx context.Context, config Config, directories *datadir.Directories,
+	report func(api.Status, string, ...string), logger *slog.Logger,
 ) (*store.Database, error) {
-	database, err := store.Open(ctx, directories.LibraryDatabase())
+	database, err := store.Open(ctx, directories.LibraryDatabase(), config.openOptions())
 	if err != nil {
 		return nil, err
 	}
-	err = database.Migrate(ctx, store.MigrateOptions{
-		SnapshotDirectory: directories.BackupDirectory(),
-		BeforeStep:        reportMigration(report, logger),
-	})
+	err = database.Migrate(ctx, config.migrateOptions(directories.BackupDirectory(), reportMigration(report, logger)))
 	if err != nil {
 		return nil, errors.Join(err, database.Close())
 	}
@@ -140,12 +133,20 @@ func buildDependencies(
 ) (api.Dependencies, error) {
 	now := clock.System{}
 	settingsService := settings.NewService(database, now)
-	written, err := settingsService.Seed(ctx)
+	report, err := settingsService.Seed(ctx)
 	if err != nil {
 		return api.Dependencies{}, err
 	}
-	if len(written) > 0 {
-		logger.InfoContext(ctx, "wrote the starting value of settings that had none", "keys", written)
+	if len(report.Written) > 0 {
+		logger.InfoContext(ctx, "wrote the starting value of settings that had none", "keys", report.Written)
+	}
+	if len(report.Updated) > 0 {
+		logger.InfoContext(ctx, "this release changed the starting value of settings nobody had set; they follow it",
+			"keys", report.Updated)
+	}
+	for _, unknown := range report.Unknown {
+		logger.WarnContext(ctx, "a setting row that nothing reads, perhaps a typo; left alone",
+			"key", unknown.String())
 	}
 	key, err := loadOrCreateKey(directories, logger)
 	if err != nil {

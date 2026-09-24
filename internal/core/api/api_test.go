@@ -357,7 +357,8 @@ func TestConfig_ShowsEverySettingAndSeedsAndResets(t *testing.T) {
 			broken.body)
 	}
 	seeded := harness.do(t, http.MethodPost, "/config/seed", admin, nil)
-	if seeded.status != http.StatusOK || !strings.Contains(seeded.body, `"written":["secret_hint_length"]`) {
+	if seeded.status != http.StatusOK ||
+		!strings.Contains(seeded.body, `"written":["secret_hint_length"],"updated":[],"unknown":[]`) {
 		t.Errorf("POST /config/seed = %d %s, want just the removed setting written", seeded.status, seeded.body)
 	}
 	again := harness.do(t, http.MethodPost, "/config/seed", admin, nil)

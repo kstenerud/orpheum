@@ -9,27 +9,38 @@ import (
 	"net"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
+	"github.com/kstenerud/orpheum/internal/store"
 )
 
 // Config is the file read before the database opens: only what must exist by then, or must not
 // be changeable by someone holding only an admin account (D182 §3, D200). Every key is required
 // and none has a default in code; everything else is a setting in the database. Its keys are
-// exactly those of dev/orpheum.dev.toml (cut-a §2a).
+// exactly those of dev/orpheum.dev.toml (cut-a §2a) and configKeys.
 type Config struct {
-	Server ServerConfig `toml:"server"`
-	Node   NodeConfig   `toml:"node"`
-	Log    LogConfig    `toml:"log"`
+	Server   ServerConfig   `toml:"server"`
+	Database DatabaseConfig `toml:"database"`
+	Node     NodeConfig     `toml:"node"`
+	Log      LogConfig      `toml:"log"`
 }
 
-// ServerConfig is where the server listens and keeps its state.
+// ServerConfig is where the server listens and keeps its state, and its HTTP timeouts.
 type ServerConfig struct {
-	Listen   string `toml:"listen"`
-	DataDir  string `toml:"data_dir"`
-	CacheDir string `toml:"cache_dir"`
+	Listen             string `toml:"listen"`
+	DataDir            string `toml:"data_dir"`
+	CacheDir           string `toml:"cache_dir"`
+	ReadHeaderTimeoutS int64  `toml:"read_header_timeout_s"`
+	ShutdownGraceS     int64  `toml:"shutdown_grace_s"`
+}
+
+// DatabaseConfig is what the store needs before the database opens.
+type DatabaseConfig struct {
+	ReadersMinimum     int `toml:"readers_minimum"`
+	MigrateSpaceFactor int `toml:"migrate_space_factor"`
 }
 
 // NodeConfig is the media node's; M2 starts the node, and M1 reads and checks it.
@@ -45,23 +56,62 @@ type LogConfig struct {
 	Format string `toml:"format"`
 }
 
+// The file's tables.
+const (
+	tableServer   = "server"
+	tableDatabase = "database"
+	tableNode     = "node"
+	tableLog      = "log"
+)
+
+// configKey is one key of the file. A key with a starting value can be written by
+// `orpheum seed-settings`; one without is specific to the machine and must be set by hand.
+type configKey struct {
+	table    string
+	name     string
+	start    string // the starting value as TOML; "" when there is none
+	describe string
+}
+
+func (key configKey) path() string {
+	return key.table + "." + key.name
+}
+
+// configKeys is every key of the file, in the order the file is written.
+func configKeys() []configKey {
+	return []configKey{
+		{tableServer, "listen", "", "the address and port to serve on, which only this machine's owner can choose"},
+		{tableServer, "data_dir", "", "where library.db, secret.key and backups live on this machine"},
+		{tableServer, "cache_dir", "", "where cache.db and prepared renditions live on this machine"},
+		{tableServer, "read_header_timeout_s", "10", "seconds a client has to send its request headers"},
+		{tableServer, "shutdown_grace_s", "10", "seconds in-flight requests get to finish when the server stops"},
+		{
+			tableDatabase, "readers_minimum", "4",
+			"the smallest pool of read connections; a machine with more CPUs gets one per CPU",
+		},
+		{
+			tableDatabase, "migrate_space_factor", "3",
+			"free space needed before migrating, in multiples of the database: the snapshot plus a rebuild",
+		},
+		{tableNode, "roots", "", "the media directories this node serves; set on the node, never remotely (D107)"},
+		{tableNode, "ffmpeg_dir", "", "where the pinned FFmpeg is on this machine"},
+		{
+			tableNode, "confinement", `"require"`,
+			`"require" refuses to run FFmpeg unconfined; "report" runs and says so`,
+		},
+		{tableLog, "level", `"info"`, "debug, info, warn or error"},
+		{tableLog, "format", `"json"`, "json for the service's journal, text for a person's terminal"},
+	}
+}
+
 // loadConfig reads and checks the config file. Keys it does not know are returned, to be
 // reported and ignored, never fatal (packaging-history.md lesson 11).
 func loadConfig(path string) (Config, []string, error) {
-	var config Config
-	metadata, err := toml.DecodeFile(path, &config)
+	config, metadata, err := decodeConfig(path)
 	if err != nil {
-		return Config{}, nil, fmt.Errorf("config %s: %w", path, err)
+		return Config{}, nil, err
 	}
-	undecoded := metadata.Undecoded()
-	var unknown []string
-	for index, key := range undecoded {
-		// An unknown table is listed before its keys; report the keys, which say more.
-		if index+1 < len(undecoded) && strings.HasPrefix(undecoded[index+1].String(), key.String()+".") {
-			continue
-		}
-		unknown = append(unknown, key.String())
-	}
+	unknown := unknownKeys(metadata)
 	if err = requireEveryKey(metadata); err != nil {
 		return Config{}, unknown, fmt.Errorf("config %s: %w", path, err)
 	}
@@ -71,36 +121,55 @@ func loadConfig(path string) (Config, []string, error) {
 	return config, unknown, nil
 }
 
-// The file's tables.
-const (
-	tableServer = "server"
-	tableNode   = "node"
-	tableLog    = "log"
-)
-
-// requiredKeys is every key of the file. None has a default in code (D200); a missing one is
-// refused by name.
-func requiredKeys() [][]string {
-	return [][]string{
-		{tableServer, "listen"},
-		{tableServer, "data_dir"},
-		{tableServer, "cache_dir"},
-		{tableNode, "roots"},
-		{tableNode, "ffmpeg_dir"},
-		{tableNode, "confinement"},
-		{tableLog, "level"},
-		{tableLog, "format"},
+func decodeConfig(path string) (Config, toml.MetaData, error) {
+	var config Config
+	metadata, err := toml.DecodeFile(path, &config)
+	if err != nil {
+		return Config{}, metadata, fmt.Errorf("config %s: %w", path, err)
 	}
+	return config, metadata, nil
 }
 
-func requireEveryKey(metadata toml.MetaData) error {
-	var missing []error
-	for _, key := range requiredKeys() {
-		if !metadata.IsDefined(key...) {
-			missing = append(missing, fmt.Errorf("%s is required", strings.Join(key, ".")))
+// unknownKeys lists the keys the file has and nothing reads: a typo, or a key a release removed.
+func unknownKeys(metadata toml.MetaData) []string {
+	undecoded := metadata.Undecoded()
+	var unknown []string
+	for index, key := range undecoded {
+		// An unknown table is listed before its keys; report the keys, which say more.
+		if index+1 < len(undecoded) && strings.HasPrefix(undecoded[index+1].String(), key.String()+".") {
+			continue
+		}
+		unknown = append(unknown, key.String())
+	}
+	return unknown
+}
+
+// missingKeys lists the keys the file lacks.
+func missingKeys(metadata toml.MetaData) []configKey {
+	var missing []configKey
+	for _, key := range configKeys() {
+		if !metadata.IsDefined(key.table, key.name) {
+			missing = append(missing, key)
 		}
 	}
-	return errors.Join(missing...)
+	return missing
+}
+
+// requireEveryKey refuses a file without every key. Nothing has a default in code (D200); the
+// refusal names each missing key, its starting value if it has one, and how to add it.
+func requireEveryKey(metadata toml.MetaData) error {
+	var problems []error
+	for _, key := range missingKeys(metadata) {
+		if key.start == "" {
+			problems = append(problems, fmt.Errorf("%s is required and has no starting value: it is %s; add it "+
+				"by hand", key.path(), key.describe))
+			continue
+		}
+		problems = append(problems, fmt.Errorf("%s is required; its starting value is %s (%s). Add it, or run "+
+			"`orpheum seed-settings --config <file>` to add every missing key that has a starting value",
+			key.path(), key.start, key.describe))
+	}
+	return errors.Join(problems...)
 }
 
 // check refuses, naming the key, a value the server cannot start without or cannot use.
@@ -109,12 +178,22 @@ func (config *Config) check() error {
 	for key, value := range map[string]string{
 		"server.data_dir": config.Server.DataDir, "server.cache_dir": config.Server.CacheDir,
 	} {
-		if value != "" && !filepath.IsAbs(value) {
+		if !filepath.IsAbs(value) {
 			problems = append(problems, fmt.Errorf("%s must be an absolute path, not %q", key, value))
 		}
 	}
-	if _, _, err := net.SplitHostPort(config.Server.Listen); config.Server.Listen != "" && err != nil {
+	if _, _, err := net.SplitHostPort(config.Server.Listen); err != nil {
 		problems = append(problems, fmt.Errorf("server.listen %q: want host:port", config.Server.Listen))
+	}
+	for key, value := range map[string]int64{
+		"server.read_header_timeout_s":  config.Server.ReadHeaderTimeoutS,
+		"server.shutdown_grace_s":       config.Server.ShutdownGraceS,
+		"database.readers_minimum":      int64(config.Database.ReadersMinimum),
+		"database.migrate_space_factor": int64(config.Database.MigrateSpaceFactor),
+	} {
+		if value < 1 {
+			problems = append(problems, fmt.Errorf("%s is %d; it must be at least 1", key, value))
+		}
 	}
 	if config.Node.Confinement != "require" && config.Node.Confinement != "report" {
 		problems = append(problems, fmt.Errorf("node.confinement %q: want \"require\" or \"report\"",
@@ -127,6 +206,26 @@ func (config *Config) check() error {
 		problems = append(problems, err)
 	}
 	return errors.Join(problems...)
+}
+
+// openOptions are the store's choices from the file.
+func (config *Config) openOptions() store.OpenOptions {
+	return store.OpenOptions{MinimumReaders: config.Database.ReadersMinimum}
+}
+
+// migrateOptions are the runner's choices from the file.
+func (config *Config) migrateOptions(snapshotDirectory string, beforeStep func(step, total int)) store.MigrateOptions {
+	return store.MigrateOptions{
+		SnapshotDirectory: snapshotDirectory, BeforeStep: beforeStep, SpaceFactor: config.Database.MigrateSpaceFactor,
+	}
+}
+
+func (config *Config) readHeaderTimeout() time.Duration {
+	return time.Duration(config.Server.ReadHeaderTimeoutS) * time.Second
+}
+
+func (config *Config) shutdownGrace() time.Duration {
+	return time.Duration(config.Server.ShutdownGraceS) * time.Second
 }
 
 func parseLevel(name string) (slog.Level, error) {

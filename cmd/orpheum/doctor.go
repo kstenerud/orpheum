@@ -66,7 +66,7 @@ func diagnose(ctx context.Context, config Config, now time.Time) []finding {
 	findings := []finding{checkWritable(directories, config.Server.DataDir)}
 	key, keyFinding := checkKey(directories)
 	findings = append(findings, keyFinding)
-	databaseFindings, backupAgeWarning := checkDatabase(ctx, directories, key)
+	databaseFindings, backupAgeWarning := checkDatabase(ctx, directories, key, config.openOptions())
 	findings = append(findings, databaseFindings...)
 	findings = append(findings, checkBackups(directories, now, backupAgeWarning),
 		finding{verdictOK, "media node: not checked yet; the node arrives in M2", ""})
@@ -102,7 +102,9 @@ func checkKey(directories *datadir.Directories) (*secrets.Key, finding) {
 
 // checkDatabase checks library.db and returns, from its settings, the age at which a backup is
 // old; nil when the settings cannot be read.
-func checkDatabase(ctx context.Context, directories *datadir.Directories, key *secrets.Key) (
+func checkDatabase(
+	ctx context.Context, directories *datadir.Directories, key *secrets.Key, options store.OpenOptions,
+) (
 	[]finding, *time.Duration,
 ) {
 	exists, err := directories.LibraryDatabaseExists()
@@ -112,7 +114,7 @@ func checkDatabase(ctx context.Context, directories *datadir.Directories, key *s
 	if !exists {
 		return []finding{{verdictWarning, "there is no library.db yet", "start the server with `orpheum run`"}}, nil
 	}
-	database, err := store.Open(ctx, directories.LibraryDatabase())
+	database, err := store.Open(ctx, directories.LibraryDatabase(), options)
 	if err != nil {
 		return []finding{{verdictFailure, "library.db does not open", err.Error()}}, nil
 	}
@@ -133,6 +135,12 @@ func checkDatabase(ctx context.Context, directories *datadir.Directories, key *s
 	settingsService := settings.NewService(database, clock.System{})
 	if key != nil {
 		findings = append(findings, checkSecrets(ctx, database, *key, settingsService))
+	}
+	if unknown, unknownErr := settingsService.Unknown(ctx); unknownErr == nil {
+		for _, row := range unknown {
+			findings = append(findings, finding{verdictWarning, "setting " + row.String() +
+				" is in the database, but nothing reads it", "a typo, or a key a release removed; it is left alone"})
+		}
 	}
 	hours, err := settingsService.Int(ctx, settings.BackupAgeWarningH)
 	if err != nil {

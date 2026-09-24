@@ -128,14 +128,16 @@ func MakePlan(ctx context.Context, directories *datadir.Directories, source stri
 // Restore carries out a plan, with the server stopped: it takes the state directory's lock, keeps
 // the database it replaces, writes a fresh copy of the backup, moves it into place and installs
 // the key if one was given. An older backup is migrated by the ordinary runner on the next start.
-func Restore(ctx context.Context, directories *datadir.Directories, plan Plan, key []byte) (err error) {
+func Restore(
+	ctx context.Context, directories *datadir.Directories, plan Plan, key []byte, options store.OpenOptions,
+) (err error) {
 	lock, err := directories.LockState()
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Join(err, lock.Release()) }()
 	if plan.ReplacesOne {
-		err = keepCurrent(ctx, directories.LibraryDatabase(), plan.Snapshot)
+		err = keepCurrent(ctx, directories.LibraryDatabase(), plan.Snapshot, options)
 		if err != nil {
 			return err
 		}
@@ -166,8 +168,8 @@ func Restore(ctx context.Context, directories *datadir.Directories, plan Plan, k
 }
 
 // keepCurrent copies the database about to be replaced into snapshot.
-func keepCurrent(ctx context.Context, current, snapshot string) (err error) {
-	database, err := store.Open(ctx, current)
+func keepCurrent(ctx context.Context, current, snapshot string, options store.OpenOptions) (err error) {
+	database, err := store.Open(ctx, current, options)
 	if err != nil {
 		return fmt.Errorf("open the database being replaced, to keep a copy: %w", err)
 	}

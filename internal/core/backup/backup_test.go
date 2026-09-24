@@ -52,7 +52,7 @@ func newServer(t *testing.T) server {
 
 func openAt(t *testing.T, directories *datadir.Directories) *store.Database {
 	t.Helper()
-	database, err := store.Open(t.Context(), directories.LibraryDatabase())
+	database, err := store.Open(t.Context(), directories.LibraryDatabase(), storetest.OpenOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func openAt(t *testing.T, directories *datadir.Directories) *store.Database {
 			t.Error(closeErr)
 		}
 	})
-	err = database.Migrate(t.Context(), store.MigrateOptions{SnapshotDirectory: directories.BackupDirectory()})
+	err = database.Migrate(t.Context(), storetest.MigrateOptions(directories.BackupDirectory()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func restore(t *testing.T, directories *datadir.Directories, source string, key 
 	if err != nil {
 		t.Fatalf("MakePlan: %v", err)
 	}
-	if err = Restore(t.Context(), directories, plan, key); err != nil {
+	if err = Restore(t.Context(), directories, plan, key, storetest.OpenOptions()); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
 	return plan
@@ -208,7 +208,7 @@ func TestRestore_KeepsTheDatabaseItReplaces(t *testing.T) {
 	if !plan.ReplacesOne || !strings.Contains(plan.Describe(), plan.Snapshot) {
 		t.Errorf("the plan did not say what it replaces and where it keeps it:\n%s", plan.Describe())
 	}
-	kept, err := store.Open(t.Context(), plan.Snapshot)
+	kept, err := store.Open(t.Context(), plan.Snapshot, storetest.OpenOptions())
 	if err != nil {
 		t.Fatalf("the kept copy: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestRestore_RefusesWhileTheServerRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = Restore(t.Context(), target, plan, nil); !errors.Is(err, datadir.ErrInUse) {
+	if err = Restore(t.Context(), target, plan, nil, storetest.OpenOptions()); !errors.Is(err, datadir.ErrInUse) {
 		t.Errorf("a restore while the server runs: %v, want ErrInUse", err)
 	}
 	if exists, existsErr := target.LibraryDatabaseExists(); existsErr != nil || exists {

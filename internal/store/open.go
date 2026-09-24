@@ -24,9 +24,6 @@ const ApplicationID = 1447646258
 // VACUUM INTO, and `orpheum migrate` or `backup` run beside a live server (standards/sql.md §8).
 const busyTimeoutMs = 15000
 
-// minimumReaders is the smallest reader pool; a larger machine gets one reader per CPU.
-const minimumReaders = 4
-
 // The pragmas every connection gets, in the pure-Go driver's DSN form, so the pool applies them
 // to each connection it opens rather than to whichever one ran an Exec (standards/sql.md §7).
 const (
@@ -53,10 +50,21 @@ type Database struct {
 	readers *sql.DB
 }
 
+// OpenOptions are the choices Open needs from the config file: they are known before the
+// database opens, so they cannot be settings (D200). None has a default here.
+type OpenOptions struct {
+	// MinimumReaders is the smallest reader pool; a machine with more CPUs gets one per CPU.
+	MinimumReaders int
+}
+
 // Open opens the database at path, creating an empty file if there is none, and refuses to
 // return it unless every pragma reads back as set and the file is ours or empty. An empty file
 // becomes ours when Migrate runs its first step.
-func Open(ctx context.Context, path string) (*Database, error) {
+func Open(ctx context.Context, path string, options OpenOptions) (*Database, error) {
+	if options.MinimumReaders < 1 {
+		return nil, fmt.Errorf("open database %q: the reader pool minimum is %d; it must be at least 1",
+			path, options.MinimumReaders)
+	}
 	if strings.Contains(path, "?") {
 		// The driver splits the DSN at '?', so such a path would open a different file
 		// (backup-restore.md, from Navidrome).
@@ -71,7 +79,7 @@ func Open(ctx context.Context, path string) (*Database, error) {
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("open database %q for reading: %w", path, err), writer.Close())
 	}
-	readers.SetMaxOpenConns(max(minimumReaders, runtime.NumCPU()))
+	readers.SetMaxOpenConns(max(options.MinimumReaders, runtime.NumCPU()))
 	database := &Database{path: path, writer: writer, readers: readers}
 	if err := database.verify(ctx); err != nil {
 		return nil, errors.Join(err, database.Close())
