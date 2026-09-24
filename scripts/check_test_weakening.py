@@ -17,7 +17,9 @@ see a test that got weaker in the same branch. This gate lists the weakening its
 * a Go `func Test…` or a TS `it(`/`test(` that existed at the base and no longer does;
 * a new `t.Skip`/`t.SkipNow`/`.skip(`/`.todo(`/`.only(` line;
 * a test file whose assertion count went down (`t.Error*`, `t.Fatal*`, `expect(`);
-* any change under a `testdata/` golden or baseline directory (D110: owner-edited only).
+* any change to, or deletion of, a file under a `testdata/` golden or baseline directory
+  (D110: owner-edited only). Adding a new golden weakens nothing and is not listed; as a gate
+  path it still needs `Gate-Changed:`.
 
 Each item fails the gate unless some commit in the range carries a
 `Test-Weakened: <why>` trailer. The trailer is a claim on the record that review can weigh,
@@ -75,6 +77,15 @@ def compare(path: str, before: str, after: str) -> list[Weakening]:
     return found
 
 
+def golden_weakening(status: str, path: str) -> Weakening | None:
+    """A golden or baseline that was changed, deleted or renamed may now ask less. A new one
+    adds a check and weakens nothing; it is still a gate path, so the owner's `Gate-Changed:`
+    trailer is still required for it."""
+    if status == "A":
+        return None
+    return Weakening(path, "a golden or baseline changed (D110: owner-edited only)")
+
+
 def weakenings(base: str, head: str) -> list[Weakening]:
     found: list[Weakening] = []
     for line in git("diff", "--name-status", f"{base}...{head}").splitlines():
@@ -83,7 +94,9 @@ def weakenings(base: str, head: str) -> list[Weakening]:
             continue
         status, path = parts[0][:1], parts[1]
         if GOLDEN.search(path):
-            found.append(Weakening(path, "a golden or baseline changed (D110: owner-edited only)"))
+            weakened = golden_weakening(status, path)
+            if weakened is not None:
+                found.append(weakened)
             continue
         if not TEST_FILE.search(path) or status == "A":
             continue

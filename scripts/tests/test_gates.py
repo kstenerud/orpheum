@@ -147,6 +147,14 @@ class TestWeakening(unittest.TestCase):
         self.assertIn("test 'pauses' was removed", whats)
         self.assertIn("1 new skip/only/todo", whats)
 
+    def test_a_new_golden_is_not_weakening_but_a_changed_one_is(self):
+        golden = "internal/store/testdata/golden/schema-v0002.sql"
+        self.assertIsNone(tw.golden_weakening("A", golden))
+        for status in ("M", "D", "R"):
+            weakened = tw.golden_weakening(status, golden)
+            self.assertIsNotNone(weakened, status)
+            self.assertEqual(weakened.path, golden)
+
     def test_a_stronger_test_is_not_weakening(self):
         before = "func TestA(t *testing.T) { t.Fatal(\"x\") }\n"
         after = before + "func TestB(t *testing.T) { t.Fatal(\"y\") }\n"
