@@ -26,6 +26,12 @@
 //     the root as scanned in the same transaction (D39, D40, schema.md root_scan).
 //     TestIngest_OnlyACompletedScanRemovesAndNeverWhereItCouldNotRead.
 //   - Paths are stored in NFC beside their bytes (D49). TestIngest_APathIsStoredInNFCBesideItsBytes.
+//   - A clean scan of an unplugged disk's empty mount point removes nothing: a changed device or
+//     mount, or a removal of all of a root's files or more than half and more than twenty, waits
+//     for the admin (D41, D208 §3). TestScenario_S7_S8_AnUnpluggedDiskRemovesNothingAndItsReturnRestoresEverything,
+//     TestScenario_S7_RemovalsPastTheThresholdWaitAndFewerGoAhead.
+//   - A payload that returns revives its tombstone, with its history (D208 §4).
+//     TestScenario_S10_AFilmPutBackRevivesItsTombstone.
 //
 // # Read before changing
 //

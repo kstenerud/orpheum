@@ -31,6 +31,8 @@ const (
 	NodeRestartAfterS          Key = "node_restart_after_s"
 	NodeRestartDelayS          Key = "node_restart_delay_s"
 	ScanOnNodeHello            Key = "scan_on_node_hello"
+	RemovalWithholdPercent     Key = "removal_withhold_percent"
+	RemovalWithholdMinFiles    Key = "removal_withhold_min_files"
 )
 
 // Scope is whose a setting is.
@@ -123,6 +125,10 @@ func Registry() []Definition {
 			Key: ScanOnNodeHello, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("true"),
 			Describe: "whether the core asks a node to scan every root it names each time it says hello",
 		},
+		integer(RemovalWithholdPercent, "50", 1, 100,
+			"a scan that would remove more than this percentage of a root's files waits for the admin (D208)"),
+		integer(RemovalWithholdMinFiles, "20", 0, math.MaxInt32,
+			"...and more than this many of them; a scan that would remove all of them always waits (D208)"),
 	}
 }
 

@@ -101,17 +101,19 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   reports each root's device id and mount facts and tells "listed, empty" from "not
   enumerated"; the core compares the device id against what it recorded and withholds removals
   on implausible shrinkage, **asking** rather than refusing (D41, D42).
-- **Status:** **gap G1** — not built: today this scan tombstones the whole library. The shrinkage
-  threshold is **Q3**.
+- **Status:** **holds** (`TestScenario_S7_S8_AnUnpluggedDiskRemovesNothingAndItsReturnRestoresEverything`,
+  `TestScenario_S7_RemovalsPastTheThresholdWaitAndFewerGoAhead`): the node reports the root's
+  device and mount facts; a changed device or mount, or a removal past D208 §3's threshold, is
+  withheld and recorded in `root_state` with its reason. The admin's confirmation, which applies
+  a withheld removal, comes with the scanner view.
 
 ### S8 — The same disk plugged back in a week later
 
 - **Story:** the disk comes back and a scan runs.
 - **Expected:** every film as it was, with its history.
 - **Design:** "recovery restores; it does not re-add" (D41).
-- **Status:** **holds** once G1 is built, because nothing was tombstoned. While it was away, the
-  films should show as unavailable (D179: "shown unavailable"): **gap G2**, since nothing records
-  that a root is unreachable.
+- **Status:** **holds** (the same test). While it was away, `root_state` recorded the root's
+  outcome; showing its films as unavailable (D179) is the scanner view's and browse's.
 
 ### S9 — A disk whose mount point is gone too
 
@@ -129,7 +131,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   the ingest looks only at live rows, so it makes a new row, and the history stays on the
   tombstone. D41 says a returning mount is restored, not re-added; it does not say what happens to
   a returning file.
-- **Status:** **Q4**.
+- **Status:** **holds** (`TestScenario_S10_AFilmPutBackRevivesItsTombstone`, D208 §4).
 
 ### S11 — A copy of a film in a second folder
 
@@ -251,8 +253,8 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 
 | | What | Scenarios |
 | --- | --- | --- |
-| **G1** | D41/D42's silent-case defences: the node reports each root's device id and mount facts and "listed, empty"; the core compares, withholds removals on implausible shrinkage and asks | S7, S8 |
-| **G2** | A root that could not be scanned makes its files show as unavailable (D179) | S8 |
+| **G1** | Built: the node reports each root's device id and mount facts; the core withholds removals past D208 §3 and records why. The admin's confirmation comes with the scanner view | S7, S8 |
+| **G2** | Recorded: `root_state` keeps each root's last outcome; the scanner view and browse show a root's files as unavailable | S8 |
 | **Q1** | Answered by D208 §1: re-identified from its new path unless a person confirmed the match | S1, S14 |
 | **Q2** | Answered by D208 §2: a Title with no live files follows its files to the new library | S6, S19 |
 | **Q3** | Answered by D208 §3: withhold past half and twenty, or all, or a changed device or mount | S7 |

@@ -63,8 +63,30 @@ func (work *batch) observed(ctx context.Context, scan *scanState, observed *node
 			scan.pending = append(scan.pending, pendingMove{seen: seen, from: elsewhere[unseen].ID})
 			return nil
 		}
+		if len(elsewhere) > 0 {
+			return work.insert(ctx, scan, seen) // a duplicate of a live file
+		}
 	}
-	return work.insert(ctx, scan, seen)
+	return work.reviveOrInsert(ctx, scan, seen)
+}
+
+// reviveOrInsert brings back the latest tombstone in the library with this payload, with its
+// history, wherever the payload now is — a film deleted by mistake and copied back, a disk that
+// returned after its files were removed — or else adds a new file (D208 §4, D41).
+func (work *batch) reviveOrInsert(ctx context.Context, scan *scanState, seen observation) error {
+	tombstone, err := store.One(work.queries.GetLatestTombstoneByHash(ctx, sqlcgen.GetLatestTombstoneByHashParams{
+		LibraryID: scan.libraryID, PayloadHash: seen.hash,
+	}))
+	if errors.Is(err, store.ErrNotFound) {
+		return work.insert(ctx, scan, seen)
+	}
+	if err != nil {
+		return err
+	}
+	if err := work.queries.ReviveFile(ctx, tombstone); err != nil {
+		return fmt.Errorf("revive file %d at %s: %w", tombstone, seen.path, err)
+	}
+	return work.update(ctx, scan, tombstone, seen)
 }
 
 // observation is an observed record resolved to the file table's terms.

@@ -43,6 +43,12 @@ type ScanBegin struct {
 	Root string `json:"root"`
 	UID  int    `json:"uid"`
 	GID  int    `json:"gid"`
+	// Device, MountPoint and ReadOnly are the root's filesystem facts as the scan starts (D42).
+	// The core compares them with the last complete scan's: an unplugged disk leaves the empty
+	// directory under its mount point, whose listing succeeds (D41, D208).
+	Device     uint64 `json:"device"`
+	MountPoint bool   `json:"mountPoint"`
+	ReadOnly   bool   `json:"readOnly"`
 }
 
 // Path is a path relative to its media root, as the filesystem gave it (D49). Text holds it
