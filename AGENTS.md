@@ -68,7 +68,9 @@ A branch also passes `make check-pr` (revert-red, test weakening, commit lint) b
     `Co-Authored-By: <exact model> <noreply@anthropic.com>`. *commit-msg hook;
     `make lint-commits`.*
 14. **Multi-commit work goes on a `work/<topic>` branch**, merged to `main` when done and then
-    deleted. A migration's branch is `release-vX.Y.Z` (standards: sql.md). *Review.*
+    deleted. A migration's branch is `release-vX.Y.Z` (standards: sql.md). In a yoloAI sandbox,
+    commit on the checked-out branch instead: the owner takes the commits out with
+    `yoloai apply`, and branches do not travel. *Review.*
 15. **When the owner corrects a claim you made, record it** in
     [`docs/contributors/agent-failures.md`](docs/contributors/agent-failures.md) before moving
     on. It is the input from which the next gate is built. *Review.*
