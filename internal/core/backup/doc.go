@@ -15,7 +15,14 @@
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
 //   - A restore refuses a file without the application_id and one whose compatible_version is
-//     newer. Review-only until M1's tests land.
+//     newer. Enforced by TestMakePlan_RefusesAForeignOrNewerBackup.
+//   - A restore says what it will overwrite, keeps it, and runs only with the server stopped.
+//     Enforced by TestRestore_KeepsTheDatabaseItReplaces and TestRestore_RefusesWhileTheServerRuns.
+//   - A backup holds ciphertext only; restoring without the key marks secrets as needing
+//     re-entry and loses nothing else. Enforced by
+//     TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse and
+//     TestRestore_WithTheIncludedKeyOpensSecrets; every table's copy, by the store's
+//     TestBackup_ARestoredCopyReproducesEveryTable.
 //
 // # Read before changing
 //
@@ -27,5 +34,6 @@
 //
 // # Where to change
 //
-//   - Backup scheduling and pruning; the restore command's checks.
+//   - backup.go: Write (orpheum backup, --include-key), MakePlan and Restore (orpheum restore).
+//     Scheduled backups and pruning arrive with the job queue (M2).
 package backup

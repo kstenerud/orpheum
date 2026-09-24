@@ -20,6 +20,14 @@
 //   - Every JSON field on the wire is camelCase and every marshalled struct has explicit tags.
 //     Enforced by tagliatelle (json: camel) and musttag.
 //   - Never branches on the User-Agent. Enforced by the forbidigo rule tagged [client-identity].
+//   - Every error, huma's own included, leaves as {"error": {...}} with a code from the
+//     enumeration, and never echoes a submitted value. Enforced by the tests' wantError and
+//     TestSecrets_AreWriteOnly.
+//   - A credential is read from the Authorization header only, never the URL. Enforced by
+//     TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut.
+//   - /health answers before the database is ready, and the rest answers "migrating" until then.
+//     Enforced by TestHealth_AnswersBeforeTheDatabaseIsReady.
+//   - Secrets are write-only. Enforced by TestSecrets_AreWriteOnly.
 //
 // # Read before changing
 //
@@ -32,7 +40,9 @@
 //
 // # Where to change
 //
-//   - One file per endpoint group of cut-a §5 (setup and auth, settings, libraries,
-//     identification, browse, play state, playback, subtitles, Watch Together, running it).
+//   - One file per endpoint group of cut-a §5: session.go (setup and auth), settings.go,
+//     secrets.go, health.go; later groups add theirs. server.go holds the readiness gate and the
+//     authentication helpers. M1 builds setup, sessions, settings and secrets (D198).
+//   - api/openapi.json is generated with `orpheum openapi`; regenerate it after any change here.
 //   - The error enumeration lives here and is the only source the SDK's is generated from.
 package api

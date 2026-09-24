@@ -21,6 +21,13 @@
 //     whose path exceptions name the permitted packages.
 //   - Only this package reads or writes the secret table. Enforced by the forbidigo rule tagged
 //     [sealed-secret] (the generated queries are named *SealedSecret*, standards/sql.md).
+//   - Nothing that prints, logs or serialises a Value shows it. Enforced by
+//     TestValue_NeverShowsItsContents; across the whole server, by the canary test
+//     TestCanary_ASecretAppearsNowhereButAsCiphertext in cmd/orpheum.
+//   - A sealed value opens only in its own row: scope, user and name are its associated data.
+//     Enforced by TestStore_ASealedValueCopiedToAnotherRowDoesNotOpen.
+//   - A row sealed under another key reads as "needs re-entering", not as an error, and nothing
+//     else is lost. Enforced by TestStore_AnotherKeyMarksSecretsNeedingReentry.
 //
 // # Read before changing
 //
@@ -32,6 +39,8 @@
 //
 // # Where to change
 //
-//   - Value and its redacting methods; seal and open; key rotation (orpheum secrets rotate); the
-//     "needs re-entering" state after a restore without the key.
+//   - value.go: Value and its redacting methods.
+//   - key.go: the key and secret.key's format (the file lives in the state directory, D198).
+//   - store.go: the registry of secrets, seal and open, and the "needs re-entering" state after a
+//     restore without the key. Key rotation (orpheum secrets rotate) is not built yet.
 package secrets
