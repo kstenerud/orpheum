@@ -16110,9 +16110,16 @@ mount point and whether it is read-only at the start of every scan, and the core
 root's last outcome, so a file on a root that could not be scanned shows as unavailable
 ([D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides),
 [D179](#d179--a-files-identity-is-a-hash-of-its-media-payload-not-its-bytes-a-rebuild-restores-the-identity-rows-and-runs-an-ordinary-scan-duplicates-are-surfaced)).
-The per-directory "listed, empty" fact D42 lists is not reported yet: the core's comparison of a
+~~The per-directory "listed, empty" fact D42 lists is not reported yet: the core's comparison of a
 root's counts against its last complete scan catches the same cases, and the fact returns when
-the watcher needs it.
+the watcher needs it.~~ **Corrected the same day, by the owner's question** *"What if someone
+uses /mnt as a root"*: counts do not catch it. With disks mounted inside a root, unplugging one
+changes nothing about the root and leaves an empty directory that lists cleanly, so a small disk,
+or one of several, would have its files removed. So the node reports every **mount boundary** its
+walk crosses — a directory on another device than its parent — and the core keeps a complete
+scan's boundaries (`root_mount`). A later scan that does not find one where it was, or finds it on
+another device, reads nothing under it as removed: the subtree is unread, its files kept, and the
+boundary marked missing until the disk returns or the admin says it is gone.
 
 **Status:** Decided. Items 3 and 4 and the root facts are built with the ingest; items 1 and 2
 with identification.

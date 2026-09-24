@@ -117,3 +117,84 @@ func TestScenario_S10_AFilmPutBackRevivesItsTombstone(t *testing.T) {
 		t.Errorf("the film came back as file %d, want %d with its history (D208 §4)", back.ID, heat)
 	}
 }
+
+func mount(path string, device uint64) nodeproto.Record {
+	return nodeproto.Record{Type: nodeproto.RecordMount, Mount: &nodeproto.Mount{
+		Path: nodeproto.Path{Text: path}, Device: device,
+	}}
+}
+
+// under is records with path prefixed by directory.
+func inDirectory(directory string, records []nodeproto.Record) []nodeproto.Record {
+	for index := range records {
+		if observed := records[index].Observed; observed != nil {
+			observed.Path.Text = directory + "/" + observed.Path.Text
+		}
+	}
+	return records
+}
+
+// S7b: the root is /mnt-like, with disks mounted inside it. The root itself never changes when
+// one of them is unplugged — its mount point lists as an empty directory — so the boundary is
+// what tells the core that subtree is missing, not emptied (D208). Changes on the other disk
+// still apply.
+func TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	both := func(disk1, disk2 []nodeproto.Record, disk1Mounted bool) []nodeproto.Record {
+		var records []nodeproto.Record
+		if disk1Mounted {
+			records = append(records, mount("disk1", 21))
+		}
+		records = append(records, inDirectory("disk1", disk1)...)
+		records = append(records, mount("disk2", 22))
+		return append(records, inDirectory("disk2", disk2)...)
+	}
+	world.scan(both(films(2), films(30), true), true)
+	before := world.live()
+
+	// disk1 unplugged: an empty directory, no boundary. On disk2 one film was deleted.
+	world.scan(both(nil, films(29), false), true)
+	live := world.live()
+	for _, name := range []string{"disk1/Film00.mkv", "disk1/Film01.mkv"} {
+		if _, found := live[root+"/"+name]; !found {
+			t.Errorf("%s was removed while its disk was unplugged", name)
+		}
+	}
+	if _, found := live[root+"/disk2/Film29.mkv"]; found {
+		t.Error("the film deleted from the other disk was not removed")
+	}
+
+	world.scan(both(films(2), films(29), true), true)
+	for _, name := range []string{"disk1/Film00.mkv", "disk1/Film01.mkv"} {
+		if got := world.live()[root+"/"+name]; got.ID != before[root+"/"+name].ID {
+			t.Errorf("%s came back as file %d, want %d", name, got.ID, before[root+"/"+name].ID)
+		}
+	}
+}
+
+// S7b: another disk at the same mount point is not the disk that was there.
+func TestScenario_S7b_ADifferentDiskAtAMountPointHidesTheOldOnesFiles(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	// Ten other films on the root, so the removal is small enough to go ahead on its own: only
+	// the boundary can keep the old disk's films.
+	world.scan(append(append([]nodeproto.Record{mount("disk1", 21)}, inDirectory("disk1", films(2))...),
+		inDirectory("local", films(10))...), true)
+	world.scan(append([]nodeproto.Record{mount("disk1", 99)}, inDirectory("local", films(10))...), true)
+	if got := len(world.live()); got != 12 {
+		t.Errorf("%d live files, want all 12 kept: device 99 is not the disk that held two of them", got)
+	}
+}
+
+// The negative sibling: a directory that was never a mount point and is now empty is just
+// emptied, and its files go.
+func TestScenario_S7b_AnEmptiedDirectoryThatWasNeverAMountIsRemovedAsUsual(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	world.scan(append(inDirectory("Old", films(2)), films(10)...), true)
+	world.scan(films(10), true)
+	if got := len(world.live()); got != 10 {
+		t.Errorf("%d live files, want the 2 under Old/ removed", got)
+	}
+}

@@ -14,6 +14,7 @@ const (
 	RecordSkip         RecordType = "skip"
 	RecordError        RecordType = "error"
 	RecordScanComplete RecordType = "scan_complete"
+	RecordMount        RecordType = "mount"
 )
 
 // Record is one line of a JSONL report. Type says which one field is set; Seq is the node's
@@ -27,6 +28,15 @@ type Record struct {
 	Error        *Error        `json:"error,omitempty"`
 	ScanComplete *ScanComplete `json:"scanComplete,omitempty"`
 	Status       *Status       `json:"status,omitempty"`
+	Mount        *Mount        `json:"mount,omitempty"`
+}
+
+// Mount is a directory below the root that is on another device than its parent: a mount
+// boundary the walk crossed (D42). The core compares a scan's boundaries with the last complete
+// scan's, so a disk unplugged from a mount point inside a root removes nothing under it (D208).
+type Mount struct {
+	Path   Path   `json:"path"`
+	Device uint64 `json:"device"`
 }
 
 // Status is the node saying it is alive and what it is doing. The core marks a node silent when

@@ -25,6 +25,11 @@
 //     TestScan_StopsARootThatKeepsFailing.
 //   - A cancelled scan ends with a run-scoped error and never with scan_complete, so the core
 //     applies no removals from it (D39). TestScan_ACancelledScanNeverSaysComplete.
+//   - scan_begin carries the root's device and mount facts, and every directory on another device
+//     than its parent is reported as a mount record (D42, D208). The facts:
+//     TestScan_ReportsEveryEntryWithAFilingInByteOrder. A mount record needs a mount, which a test
+//     cannot make without privileges: the core's handling of both is tested with scripted
+//     records (internal/core/library's TestScenario_S7b_*).
 //
 // # Read before changing
 //

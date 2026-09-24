@@ -8,6 +8,7 @@ INSERT INTO library (id, name, kind, metadata_source, change_detection, check_ev
   VALUES (1, 'Films', 'movies', 'nfo_then_tmdb', 'interval', 6, 0, 1790000000000);
 INSERT INTO library_root (library_id, node_id, path) VALUES (1, 1, '/media/films');
 INSERT INTO root_scan (node_id, path, completed_at) VALUES (1, '/media/films', 1790000002000);
+INSERT INTO root_mount (node_id, root, path, device, present) VALUES (1, '/media/films', '/media/films/disk2', 2050, 1);
 INSERT INTO root_state (node_id, path, device, mount_point, outcome, outcome_at) VALUES (1, '/media/films', 2049, 1, 'complete', 1790000002000);
 
 INSERT INTO user (id, name, role_id, password_hash, outsider, created_at)

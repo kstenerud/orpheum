@@ -30,6 +30,9 @@
 //     mount, or a removal of all of a root's files or more than half and more than twenty, waits
 //     for the admin (D41, D208 §3). TestScenario_S7_S8_AnUnpluggedDiskRemovesNothingAndItsReturnRestoresEverything,
 //     TestScenario_S7_RemovalsPastTheThresholdWaitAndFewerGoAhead.
+//   - A disk missing from a mount point inside a root — found by comparing the mount boundaries a
+//     scan crossed with the last complete scan's — removes nothing under it (D208, as corrected).
+//     TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt.
 //   - A payload that returns revives its tombstone, with its history (D208 §4).
 //     TestScenario_S10_AFilmPutBackRevivesItsTombstone.
 //

@@ -38,6 +38,10 @@ func (work *batch) complete(ctx context.Context, scan *scanState, complete *node
 			"nodeId", work.nodeID, "root", scan.root, "errors", complete.Errors)
 		return work.recordNotComplete(ctx, scan, outcomeUnreadable, "")
 	}
+	missing, err := work.missingMounts(ctx, scan)
+	if err != nil {
+		return err
+	}
 	unseen, total, err := work.unseenUnder(ctx, scan)
 	if err != nil {
 		return err
@@ -57,6 +61,9 @@ func (work *batch) complete(ctx context.Context, scan *scanState, complete *node
 			return fmt.Errorf("tombstone file %d: %w", gone, tombstoneErr)
 		}
 	}
+	if mountsErr := work.recordMounts(ctx, scan, missing); mountsErr != nil {
+		return mountsErr
+	}
 	err = work.queries.UpsertRootScan(ctx, sqlcgen.UpsertRootScanParams{
 		NodeID: work.nodeID, Path: scan.root, CompletedAt: work.now,
 	})
@@ -69,6 +76,54 @@ func (work *batch) complete(ctx context.Context, scan *scanState, complete *node
 	})
 	if err != nil {
 		return fmt.Errorf("record %s's facts: %w", scan.root, err)
+	}
+	return nil
+}
+
+// missingMounts compares the mount boundaries this scan crossed with those the root's last
+// complete scan recorded. A boundary not seen where it was, or seen on another device, is a disk
+// that is not there — an unplugged disk under /mnt lists as an empty directory — so nothing
+// under it may be removed: it joins the regions the scan could not read (D208).
+func (work *batch) missingMounts(ctx context.Context, scan *scanState) (map[string]bool, error) {
+	known, err := work.queries.ListRootMounts(ctx, sqlcgen.ListRootMountsParams{NodeID: work.nodeID, Root: scan.root})
+	if err != nil {
+		return nil, fmt.Errorf("list the mounts under %s: %w", scan.root, err)
+	}
+	missing := map[string]bool{}
+	for _, mount := range known {
+		device, seen := scan.mounts[mount.Path]
+		if seen && int64(device) == mount.Device { //nolint:gosec // a device id fits
+			continue
+		}
+		missing[mount.Path] = true
+		scan.unread = append(scan.unread, mount.Path)
+		work.ingester.logger.WarnContext(ctx, "a disk mounted inside a root is not there; nothing under it was removed",
+			"nodeId", work.nodeID, "root", scan.root, "mount", mount.Path)
+	}
+	return missing, nil
+}
+
+// recordMounts keeps a complete scan's mount boundaries as the known-good ones, and marks those
+// it did not find as missing, keeping the device they were on.
+func (work *batch) recordMounts(ctx context.Context, scan *scanState, missing map[string]bool) error {
+	for mountPath := range missing {
+		err := work.queries.RecordRootMountMissing(ctx, sqlcgen.RecordRootMountMissingParams{
+			NodeID: work.nodeID, Path: mountPath,
+		})
+		if err != nil {
+			return fmt.Errorf("record %s as missing: %w", mountPath, err)
+		}
+	}
+	for mountPath, device := range scan.mounts {
+		if missing[mountPath] {
+			continue // on another device than it was: not the disk we knew
+		}
+		err := work.queries.RecordRootMountPresent(ctx, sqlcgen.RecordRootMountPresentParams{
+			NodeID: work.nodeID, Root: scan.root, Path: mountPath, Device: int64(device), //nolint:gosec // fits
+		})
+		if err != nil {
+			return fmt.Errorf("record the mount %s: %w", mountPath, err)
+		}
 	}
 	return nil
 }
