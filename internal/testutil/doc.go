@@ -2,7 +2,8 @@
 
 // Package testutil is where a test declares what it needs from the machine. Require fails the
 // test when a capability is absent, and skips it only when the job that runs it has named that
-// capability in ORPHEUM_TEST_UNCONTROLLED. It is imported only by tests.
+// capability in ORPHEUM_TEST_UNCONTROLLED; FFmpegDirectory finds the pinned FFmpeg that way. It
+// also installs the fake ffmpeg and ffprobe (testing.md §11). It is imported only by tests.
 //
 // # Invariants
 //
@@ -21,5 +22,8 @@
 // # Where to change
 //
 //   - require.go: the policy. A capability that needs finding (a pinned binary, a device)
-//     gets its own helper here that finds it and calls Require.
+//     gets its own helper here that finds it and calls Require, as ffmpeg.go does.
+//   - ffmpeg.go and testdata/fake-ffmpeg.sh: the pinned FFmpeg and the fake. The fake is linked,
+//     never copied: writing an executable while a parallel test forks makes running it fail
+//     with "text file busy".
 package testutil

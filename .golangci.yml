@@ -277,6 +277,11 @@ linters:
           - pkg: internal/archtest
             rules:
               json: pascal
+          # ffprobe's JSON is ffprobe's format; its keys are snake_case. The node parses it into
+          # nodeproto.Probe, whose keys are camelCase like every wire type (D126).
+          - pkg: internal/node/probe
+            rules:
+              json: snake
     musttag:
       functions: []
     sloglint:
