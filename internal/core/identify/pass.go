@@ -20,20 +20,26 @@ import (
 // what the database holds — paths, probes, NFO bytes — so it opens no file, and it can run again
 // at any time and reach the same answer (D182).
 type Pass struct {
-	database *store.Database
-	clock    clock.Clock
-	logger   *slog.Logger
+	database  *store.Database
+	clock     clock.Clock
+	logger    *slog.Logger
+	providers Providers
 }
+
+// Providers are the metadata providers, by name. The pass only parses their stored responses.
+type Providers map[string]Provider
 
 // Report is what one pass filed.
 type Report struct {
 	Listed       int
 	Unidentified int
+	// AwaitingMatch are the films no source has answered for yet: the fetch queue's work (D170).
+	AwaitingMatch []int64
 }
 
 // NewPass returns the identification pass.
-func NewPass(database *store.Database, now clock.Clock, logger *slog.Logger) *Pass {
-	return &Pass{database: database, clock: now, logger: logger}
+func NewPass(database *store.Database, now clock.Clock, logger *slog.Logger, providers Providers) *Pass {
+	return &Pass{database: database, clock: now, logger: logger, providers: providers}
 }
 
 // Library identifies every video in a library, in one transaction.
@@ -41,7 +47,7 @@ func (pass *Pass) Library(ctx context.Context, libraryID int64) (Report, error) 
 	var report Report
 	err := pass.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		work := &run{
-			queries: queries, now: pass.clock.Now().UnixMilli(), report: &report,
+			queries: queries, now: pass.clock.Now().UnixMilli(), report: &report, providers: pass.providers,
 			titles: map[string]int64{}, series: map[string]int64{}, nfoByVideo: map[int64]NFO{},
 			showNFOs: map[string]NFO{}, folderNFOs: map[string][]namedNFO{}, folderTitle: map[string]int64{},
 			evidence: map[int64][]titleSpec{}, fileTitle: map[int64]int64{},
@@ -49,7 +55,17 @@ func (pass *Pass) Library(ctx context.Context, libraryID int64) (Report, error) 
 		if err := work.load(ctx, libraryID); err != nil {
 			return err
 		}
-		return work.identify(ctx)
+		if err := work.identify(ctx); err != nil {
+			return err
+		}
+		awaiting, err := queries.ListTitlesAwaitingMatch(ctx, &libraryID)
+		if err != nil {
+			return fmt.Errorf("list the films awaiting a match: %w", err)
+		}
+		if work.library.MetadataSource != sourceNFO {
+			report.AwaitingMatch = awaiting
+		}
+		return nil
 	})
 	if err != nil {
 		return Report{}, fmt.Errorf("identify library %d: %w", libraryID, err)
@@ -59,12 +75,13 @@ func (pass *Pass) Library(ctx context.Context, libraryID int64) (Report, error) 
 
 // run is one pass over one library.
 type run struct {
-	queries *sqlcgen.Queries
-	now     int64
-	report  *Report
-	library sqlcgen.GetLibraryForIdentifyRow
-	roots   []sqlcgen.ListLibraryRootsRow
-	files   []sqlcgen.ListIdentifyFilesRow
+	queries   *sqlcgen.Queries
+	now       int64
+	report    *Report
+	providers Providers
+	library   sqlcgen.GetLibraryForIdentifyRow
+	roots     []sqlcgen.ListLibraryRootsRow
+	files     []sqlcgen.ListIdentifyFilesRow
 
 	nfoByVideo  map[int64]NFO // an NFO attached to its video
 	folderNFOs  map[string][]namedNFO

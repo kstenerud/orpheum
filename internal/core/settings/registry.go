@@ -33,6 +33,9 @@ const (
 	ScanOnNodeHello            Key = "scan_on_node_hello"
 	RemovalWithholdPercent     Key = "removal_withhold_percent"
 	RemovalWithholdMinFiles    Key = "removal_withhold_min_files"
+	JobRetryLimit              Key = "job_retry_limit"
+	JobRetryBackoffS           Key = "job_retry_backoff_s"
+	ProviderTimeoutS           Key = "provider_timeout_s"
 )
 
 // Scope is whose a setting is.
@@ -129,6 +132,12 @@ func Registry() []Definition {
 			"a scan that would remove more than this percentage of a root's files waits for the admin (D208)"),
 		integer(RemovalWithholdMinFiles, "20", 0, math.MaxInt32,
 			"...and more than this many of them; a scan that would remove all of them always waits (D208)"),
+		integer(JobRetryLimit, "5", 1, 100,
+			"how many times a background job that failed is tried before it is marked failed"),
+		integer(JobRetryBackoffS, "30", 1, 86400,
+			"seconds before a failed job's first retry; each later retry waits twice as long"),
+		integer(ProviderTimeoutS, "20", 1, 600,
+			"seconds a call to a metadata provider such as TMDB may take; read when the server starts"),
 	}
 }
 

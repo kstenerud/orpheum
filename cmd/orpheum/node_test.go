@@ -36,55 +36,8 @@ func (node *inProcessNode) Kill() error {
 
 func TestRun_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 	t.Parallel()
-	config, _ := testConfig(t)
-	media := t.TempDir()
-	for name, contents := range map[string]string{"Film (2020)/Film (2020).mkv": "film", "notes.txt": "notes"} {
-		path := filepath.Join(media, name)
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	// One reply serves both runs the node makes: `ffprobe -version`, whose first line becomes
-	// the hello's FFmpeg version, and the probe of the film, which parses.
-	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{
-		Stdout: `{"format":{"format_name":"matroska","duration":"1.000"},"streams":[]}`,
-	})
-	config.Node.Roots = []string{media}
-	config.Node.FFmpegDir = fake.Directory
-	config.Node.VideoExtensions = []string{"mkv"}
-	nodeID := createLibrary(t, config, media)
-
-	captured := newCapturedLog("ready", "a node finished a scan")
-	var start nodes.Starter = func(ctx context.Context) (nodes.Process, error) {
-		ctx, cancel := context.WithCancel(ctx)
-		node := &inProcessNode{done: make(chan struct{}), cancel: cancel}
-		go func() {
-			defer close(node.done)
-			node.err = runNode(ctx, config, captured.logger)
-		}()
-		return node, nil
-	}
-	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithCancel(t.Context())
-	done := make(chan error, 1)
-	go func() { done <- serve(ctx, config, ConfigReport{}, listener, start, captured.logger) }()
-	select {
-	case <-captured.signals["a node finished a scan"]:
-	case early := <-done:
-		cancel()
-		t.Fatalf("serve returned before the scan finished: %v\n%s", early, captured)
-	}
-	cancel()
-	if stopped := <-done; stopped != nil {
-		t.Errorf("serve returned %v", stopped)
-	}
-
+	scanned := scanOnce(t, "nfo", "a node finished a scan")
+	config, captured, nodeID, media := scanned.config, scanned.log, scanned.nodeID, scanned.media
 	log := captured.String()
 	for _, want := range []string{
 		`"msg":"started the node"`,
@@ -114,9 +67,96 @@ func TestRun_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 	}
 }
 
+// scanResult is what scanOnce ran.
+type scanResult struct {
+	config Config
+	log    capturedLog
+	nodeID int64
+	media  string
+}
+
+// scanOnce serves a library over a media root holding one film and a text file, runs the node
+// in-process until the log says awaited, and stops.
+func scanOnce(t *testing.T, metadataSource, awaited string) scanResult {
+	t.Helper()
+	config, _ := testConfig(t)
+	media := t.TempDir()
+	for name, contents := range map[string]string{"Film (2020)/Film (2020).mkv": "film", "notes.txt": "notes"} {
+		path := filepath.Join(media, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// One reply serves both runs the node makes: `ffprobe -version`, whose first line becomes
+	// the hello's FFmpeg version, and the probe of the film, which parses.
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{
+		Stdout: `{"format":{"format_name":"matroska","duration":"1.000"},"streams":[]}`,
+	})
+	config.Node.Roots = []string{media}
+	config.Node.FFmpegDir = fake.Directory
+	config.Node.VideoExtensions = []string{"mkv"}
+	nodeID := createLibrary(t, config, media, metadataSource)
+
+	captured := newCapturedLog("ready", awaited)
+	var start nodes.Starter = func(ctx context.Context) (nodes.Process, error) {
+		ctx, cancel := context.WithCancel(ctx)
+		node := &inProcessNode{done: make(chan struct{}), cancel: cancel}
+		go func() {
+			defer close(node.done)
+			node.err = runNode(ctx, config, captured.logger)
+		}()
+		return node, nil
+	}
+	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() {
+		outside := wiring{startNode: start, tmdbBase: noTMDB}
+		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
+	}()
+	select {
+	case <-captured.signals[awaited]:
+	case early := <-done:
+		cancel()
+		t.Fatalf("serve returned before logging %q: %v\n%s", awaited, early, captured)
+	}
+	cancel()
+	if stopped := <-done; stopped != nil {
+		t.Errorf("serve returned %v", stopped)
+	}
+	return scanResult{config: config, log: captured, nodeID: nodeID, media: media}
+}
+
+func TestRun_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
+	t.Parallel()
+	scanned := scanOnce(t, "tmdb", "queued titles for matching")
+	config := scanned.config
+	if log := scanned.log.String(); !strings.Contains(log, `"awaitingMatch":1`) {
+		t.Errorf("the log does not say one film awaits its match:\n%s", log)
+	}
+	cache, err := store.OpenCache(t.Context(), filepath.Join(config.Server.CacheDir, "cache.db"), config.openOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = cache.Close() }() //nolint:errcheck // read only
+	jobs, err := cache.Read().ListJobs(t.Context(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(jobs) != 1 || jobs[0].Kind != "fetch" || jobs[0].State == "failed" {
+		t.Errorf("cache.db holds %+v; want one fetch job, waiting (no TMDB key is set)", jobs)
+	}
+}
+
 // createLibrary makes the database serve will open, with a library covering root on the
 // config's node, and returns the node's id.
-func createLibrary(t *testing.T, config Config, root string) int64 {
+func createLibrary(t *testing.T, config Config, root, metadataSource string) int64 {
 	t.Helper()
 	database := openDatabase(t, config)
 	if err := database.Migrate(t.Context(), config.migrateOptions(t.TempDir(), nil)); err != nil {
@@ -131,7 +171,7 @@ func createLibrary(t *testing.T, config Config, root string) int64 {
 		t.Fatal(err)
 	}
 	_, err = library.Create(t.Context(), database, clock.System{}, library.NewLibrary{
-		Name: "Films", Kind: "movies", MetadataSource: "nfo", ChangeDetection: "manual",
+		Name: "Films", Kind: "movies", MetadataSource: metadataSource, ChangeDetection: "manual",
 		NodeID: nodeID, Roots: []string{resolved},
 	})
 	if err != nil {

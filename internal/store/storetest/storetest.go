@@ -42,6 +42,21 @@ func Open(tb testing.TB) *store.Database {
 	return database
 }
 
+// OpenCache returns a new cache.db in a temporary directory, closed when the test ends.
+func OpenCache(tb testing.TB) *store.Cache {
+	tb.Helper()
+	cache, err := store.OpenCache(tb.Context(), filepath.Join(tb.TempDir(), "cache.db"), OpenOptions())
+	if err != nil {
+		tb.Fatalf("open a test cache: %v", err)
+	}
+	tb.Cleanup(func() {
+		if err := cache.Close(); err != nil {
+			tb.Errorf("close the test cache: %v", err)
+		}
+	})
+	return cache
+}
+
 // InsertUser adds a live user with the named built-in role and no password, and returns its id.
 func InsertUser(tb testing.TB, database *store.Database, name, role string) int64 {
 	tb.Helper()

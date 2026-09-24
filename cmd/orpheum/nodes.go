@@ -16,11 +16,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
-	"github.com/kstenerud/orpheum/internal/store"
 )
 
 // commandPollHold is how long a node's long-poll for commands is held when there is nothing to
@@ -48,15 +46,15 @@ func selfStarter(config Config, output io.Writer) nodes.Starter {
 // supervises the node child. The returned stop ends both: the child first, so its requests end,
 // then the socket's server.
 func runNodeChannel(
-	ctx context.Context, config Config, database *store.Database, settingsService *settings.Service,
-	start nodes.Starter, logger *slog.Logger,
+	ctx context.Context, config Config, opened started, fetching metadata, start nodes.Starter, logger *slog.Logger,
 ) (stop func() error, err error) {
+	database, settingsService := opened.database, opened.settings
 	listener, err := datadir.ListenUnix(config.Server.SocketDir, coreSocket)
 	if err != nil {
 		return nil, err
 	}
 	ingester := library.NewIngester(database, clock.System{}, settingsService, logger)
-	pass := identify.NewPass(database, clock.System{}, logger)
+	pass := identify.NewPass(database, clock.System{}, logger, fetching.providers)
 	ingester.AfterScan(func(ctx context.Context, libraryID int64) {
 		report, err := pass.Library(ctx, libraryID)
 		if err != nil {
@@ -65,7 +63,8 @@ func runNodeChannel(
 			return
 		}
 		logger.InfoContext(ctx, "identified a library", "libraryId", libraryID, "listed", report.Listed,
-			"unidentified", report.Unidentified)
+			"unidentified", report.Unidentified, "awaitingMatch", len(report.AwaitingMatch))
+		queueMatches(ctx, fetching.queue, report.AwaitingMatch, logger)
 	})
 	sink := reportSink{ingester: ingester, logger: logger}
 	service := nodes.NewService(database, clock.System{}, settingsService, sink, logger, commandPollHold)

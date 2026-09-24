@@ -126,14 +126,13 @@ func (work *run) titleByProviderID(ctx context.Context, provider, providerID str
 // resolveAndFile writes each title's resolved values — override, else the best evidence of any
 // of its files, NFO before local data (D183) — and files each video by its title.
 func (work *run) resolveAndFile(ctx context.Context) error {
-	idents := map[int64]string{}
+	idents, reasons := map[int64]string{}, map[int64]string{}
 	for titleID, specs := range work.evidence {
-		spec := best(specs)
-		ident, err := work.resolve(ctx, titleID, spec)
+		result, err := work.resolveWithMatch(ctx, titleID, best(specs))
 		if err != nil {
 			return err
 		}
-		idents[titleID] = ident
+		idents[titleID], reasons[titleID] = result.ident, result.reason
 	}
 	for _, file := range work.files {
 		titleID, placed := work.fileTitle[file.ID]
@@ -142,7 +141,7 @@ func (work *run) resolveAndFile(ctx context.Context) error {
 		}
 		filing, reason := filingListed, ""
 		if ident := idents[titleID]; ident == identUnidentified {
-			filing, reason = filingUnidentified, best(work.evidence[titleID]).reason
+			filing, reason = filingUnidentified, reasons[titleID]
 			work.report.Unidentified++
 		} else {
 			work.report.Listed++
@@ -167,15 +166,32 @@ func best(specs []titleSpec) titleSpec {
 	return specs[0]
 }
 
+// resolveWithMatch resolves a title from its best evidence, or, when no NFO speaks for it, from
+// what its stored match says.
+func (work *run) resolveWithMatch(ctx context.Context, titleID int64, spec titleSpec) (resolved, error) {
+	if spec.source == "" {
+		if err := work.matchEvidence(ctx, titleID, &spec); err != nil {
+			return resolved{}, err
+		}
+	}
+	return work.resolve(ctx, titleID, spec)
+}
+
+// resolved is a title's identification after resolving, and why when it is unidentified.
+type resolved struct {
+	ident  string
+	reason string
+}
+
 // resolve writes a title's provider ids, its NFO's locked fields as overrides, and its resolved
-// values, and returns its ident.
-func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (string, error) {
+// values, and returns its ident and, when it is unidentified, why.
+func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (resolved, error) {
 	for provider, id := range spec.ids {
 		err := work.queries.InsertItemProviderID(ctx, sqlcgen.InsertItemProviderIDParams{
 			ItemID: titleID, Provider: provider, ProviderID: id,
 		})
 		if err != nil {
-			return "", fmt.Errorf("record %s %s: %w", provider, id, err)
+			return resolved{}, fmt.Errorf("record %s %s: %w", provider, id, err)
 		}
 	}
 	values := map[string]string{
@@ -187,12 +203,12 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (st
 			ItemID: titleID, Field: field, Value: values[field], Origin: "nfo", SetAt: work.now,
 		})
 		if err != nil {
-			return "", fmt.Errorf("record the locked %s: %w", field, err)
+			return resolved{}, fmt.Errorf("record the locked %s: %w", field, err)
 		}
 	}
 	overrides, err := work.queries.ListOverrides(ctx, titleID)
 	if err != nil {
-		return "", fmt.Errorf("read the overrides of title %d: %w", titleID, err)
+		return resolved{}, fmt.Errorf("read the overrides of title %d: %w", titleID, err)
 	}
 	for _, override := range overrides {
 		values[override.Field] = override.Value
@@ -202,7 +218,11 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (st
 	var source, sourceID *string
 	if spec.source != "" {
 		source = &spec.source
-		if id := spec.ids["tmdb"]; spec.source == sourceNFO && id != "" {
+		id := spec.ids[spec.source]
+		if spec.source == sourceNFO {
+			id = spec.ids["tmdb"]
+		}
+		if id != "" {
 			sourceID = &id
 		}
 	}
@@ -211,20 +231,20 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (st
 		Ident: spec.ident, ID: titleID,
 	})
 	if err != nil {
-		return "", fmt.Errorf("resolve title %d: %w", titleID, err)
+		return resolved{}, fmt.Errorf("resolve title %d: %w", titleID, err)
 	}
 	err = work.queries.UpsertOriginalText(ctx, sqlcgen.UpsertOriginalTextParams{
 		ItemID: titleID, Lang: "und", Name: values[fieldName], Overview: optional(values[fieldOverview]),
 		Tagline: optional(values[fieldTagline]),
 	})
 	if err != nil {
-		return "", fmt.Errorf("name title %d: %w", titleID, err)
+		return resolved{}, fmt.Errorf("name title %d: %w", titleID, err)
 	}
 	current, err := store.One(work.queries.GetTitleIdent(ctx, titleID))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		return "", fmt.Errorf("read title %d's identification: %w", titleID, err)
+		return resolved{}, fmt.Errorf("read title %d's identification: %w", titleID, err)
 	}
-	return current, nil
+	return resolved{ident: current, reason: spec.reason}, nil
 }
 
 func optional(text string) *string {

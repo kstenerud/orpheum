@@ -26,10 +26,10 @@ import (
 // serve runs the core on listener until ctx ends. The API answers /health before the database is
 // even open, and says "migrating" while it migrates. A migration that fails leaves the server up
 // and degraded, naming the step, the error and the snapshot, rather than exiting into a restart
-// loop (migrations.md, When a step fails). Once the database is ready it serves the node channel,
-// and supervises the node child when startNode is set.
+// loop (migrations.md, When a step fails). Once the database is ready it runs the fetch queue,
+// serves the node channel, and supervises the node child when the wiring can start one.
 func serve(
-	ctx context.Context, config Config, configReport ConfigReport, listener net.Listener, startNode nodes.Starter,
+	ctx context.Context, config Config, configReport ConfigReport, listener net.Listener, outside wiring,
 	logger *slog.Logger,
 ) (err error) {
 	server := api.NewServer(logger)
@@ -48,7 +48,7 @@ func serve(
 	}()
 	logger.InfoContext(ctx, "listening", "address", listener.Addr().String())
 
-	started, err := start(ctx, config, configReport, server, logger)
+	opened, err := start(ctx, config, configReport, server, logger)
 	if err != nil {
 		server.SetStatus(api.StatusDegraded, "the server could not start", err.Error())
 		logger.ErrorContext(ctx, "the server could not start; it stays up to report why at /api/v1/health",
@@ -56,8 +56,16 @@ func serve(
 		<-ctx.Done()
 		return err
 	}
-	defer func() { err = errors.Join(err, started.release()) }()
-	stopNodes, err := runNodeChannel(ctx, config, started.database, started.settings, startNode, logger)
+	defer func() { err = errors.Join(err, opened.release()) }()
+	fetching, err := startMetadata(ctx, opened, outside.tmdbBase, logger)
+	if err != nil {
+		server.SetStatus(api.StatusDegraded, "the fetch queue could not start", err.Error())
+		logger.ErrorContext(ctx, "the fetch queue could not start; the server stays up to report why", "err", err)
+		<-ctx.Done()
+		return err
+	}
+	defer fetching.stop()
+	stopNodes, err := runNodeChannel(ctx, config, opened, fetching, outside.startNode, logger)
 	if err != nil {
 		server.SetStatus(api.StatusDegraded, "the node channel could not start", err.Error())
 		logger.ErrorContext(ctx, "the node channel could not start; the server stays up to report why", "err", err)
@@ -71,12 +79,20 @@ func serve(
 	return nil
 }
 
+// wiring is what serve is given from outside: how to start the node child (nil in tests that
+// run none), and where TMDB answers (tmdb.BaseURL, or a test's fake).
+type wiring struct {
+	startNode nodes.Starter
+	tmdbBase  string
+}
+
 // started is what start opened and serve must close.
 type started struct {
 	lock     *datadir.Lock
 	database *store.Database
 	cache    *store.Cache
 	settings *settings.Service
+	secrets  *secrets.Store
 }
 
 func (opened started) release() error {
@@ -121,7 +137,7 @@ func start(
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
 	}
 	server.Ready(dependencies)
-	opened.settings = dependencies.Settings
+	opened.settings, opened.secrets = dependencies.Settings, dependencies.Secrets
 	return opened, nil
 }
 
