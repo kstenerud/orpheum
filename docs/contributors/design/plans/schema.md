@@ -532,10 +532,12 @@ CREATE UNIQUE INDEX setting_key ON setting(scope, ifnull(user_id, 0), key);
 
 **Everything changeable at runtime lives here** ([D181](../../decisions/working-notes.md),
 [D182](../../decisions/working-notes.md) §3): the TMDB key, each user's OpenSubtitles login,
-play-state thresholds, backup retention, the update-check answer. A key's type, default and
-where its default is shown come from one registry in code ([D183](../../decisions/working-notes.md)),
-so **a row exists only when someone set a value**, and "where did this value come from?" is
-answered by its presence. Per-item preferences stay in their own table.
+play-state thresholds, backup retention, the update-check answer. A key's type, bounds, starting
+value and whether the settings page shows it come from one registry in code. **Every key has a
+row** ([D200](../../decisions/working-notes.md)): the server writes each missing key's starting
+value at start and never overwrites one, reads only rows, and treats a missing row as an error
+that names the key and its starting value. Whether a value was changed is whether it differs from
+its starting value. Per-item preferences stay in their own table.
 
 ```sql
 CREATE TABLE secret (                                      -- class A, sealed (D194)
