@@ -171,7 +171,7 @@ provides when it exists), `no-alert`, `eqeqeq`, `no-param-reassign`, `prefer-con
 
 **The built web client reads no environment** ([D204](../decisions/working-notes.md)): what it
 needs comes from the server through the SDK. `import.meta.env` is banned in `src/`
-*(planned: ESLint, the owner's patch)*. Vite's config reads only `ORPHEUM_DEV_*` from the process
+by ESLint's `no-restricted-syntax`. Vite's config reads only `ORPHEUM_DEV_*` from the process
 environment, never a `.env` file (`envDir: false`), and refuses to serve without
 `ORPHEUM_DEV_SERVER` (`src/dev-server.test.ts`).
 
