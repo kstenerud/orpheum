@@ -63,12 +63,14 @@ module.exports = {
       severity: "error",
       comment:
         "A workspace package is imported by its name (@orpheum/sdk), which resolves through its " +
-        "exports field; a relative path into another package's src/ bypasses its public entry.",
+        "exports field; a relative path into another package's src/ bypasses its public entry. " +
+        "An import by name is also typed local once resolved, so it is told apart as aliased-workspace.",
       from: { path: "^(packages|apps)/([^/]+)/" },
       to: {
         path: "^(packages|apps)/",
         pathNot: "^$1/$2/",
         dependencyTypes: ["local"],
+        dependencyTypesNot: ["aliased-workspace"],
       },
     },
     {
