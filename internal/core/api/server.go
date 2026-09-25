@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
@@ -47,6 +48,8 @@ type Dependencies struct {
 	SetupCodes auth.SetupCodes
 	// Identify is what a person does about identification: the chooser and overrides.
 	Identify *identify.Chooser
+	// Libraries is what an admin does with libraries: create, list, scan, and the scanner view.
+	Libraries *library.Admin
 	// ConfigFile is the config file's keys as the server runs with them, for /config to show.
 	ConfigFile []ConfigFileKey
 }
@@ -88,6 +91,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerSettings()
 	server.registerSecrets()
 	server.registerIdentification()
+	server.registerLibraries()
 	return server
 }
 

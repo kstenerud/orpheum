@@ -9,6 +9,76 @@ import (
 	"context"
 )
 
+const countLibraryFilings = `-- name: CountLibraryFilings :many
+SELECT filing, count(*) AS files
+FROM file
+WHERE library_id = ?1 AND removed_at IS NULL
+GROUP BY filing
+ORDER BY filing
+`
+
+type CountLibraryFilingsRow struct {
+	Filing string
+	Files  int64
+}
+
+// How many live files a library has in each filing: the scanner view's summary (D163).
+func (q *Queries) CountLibraryFilings(ctx context.Context, libraryID int64) ([]CountLibraryFilingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, countLibraryFilings, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountLibraryFilingsRow{}
+	for rows.Next() {
+		var i CountLibraryFilingsRow
+		if err := rows.Scan(&i.Filing, &i.Files); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLibrary = `-- name: GetLibrary :one
+SELECT id, name, kind, metadata_source, change_detection, check_every_h, writable, created_at
+FROM library
+WHERE id = ?1 AND removed_at IS NULL
+`
+
+type GetLibraryRow struct {
+	ID              int64
+	Name            string
+	Kind            string
+	MetadataSource  string
+	ChangeDetection string
+	CheckEveryH     *int64
+	Writable        int64
+	CreatedAt       int64
+}
+
+func (q *Queries) GetLibrary(ctx context.Context, id int64) (GetLibraryRow, error) {
+	row := q.db.QueryRowContext(ctx, getLibrary, id)
+	var i GetLibraryRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Kind,
+		&i.MetadataSource,
+		&i.ChangeDetection,
+		&i.CheckEveryH,
+		&i.Writable,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getLiveLibraryByName = `-- name: GetLiveLibraryByName :one
 SELECT id, name, kind
 FROM library
@@ -81,4 +151,174 @@ type InsertLibraryRootParams struct {
 func (q *Queries) InsertLibraryRoot(ctx context.Context, arg InsertLibraryRootParams) error {
 	_, err := q.db.ExecContext(ctx, insertLibraryRoot, arg.LibraryID, arg.NodeID, arg.Path)
 	return err
+}
+
+const listFilesPage = `-- name: ListFilesPage :many
+SELECT id, library_id, path, filing, filing_reason, error_detail, size, first_seen, last_seen
+FROM file
+WHERE removed_at IS NULL AND id > ?1
+  AND (library_id = ?2 OR ?2 IS NULL)
+  AND (filing = ?3 OR ?3 IS NULL)
+ORDER BY id
+LIMIT ?4
+`
+
+type ListFilesPageParams struct {
+	AfterID   int64
+	LibraryID *int64
+	Filing    *string
+	MaxRows   int64
+}
+
+type ListFilesPageRow struct {
+	ID           int64
+	LibraryID    int64
+	Path         string
+	Filing       string
+	FilingReason *string
+	ErrorDetail  *string
+	Size         *int64
+	FirstSeen    int64
+	LastSeen     int64
+}
+
+// What the scanner saw (D163): live files by id after a cursor, optionally of one library and
+// one filing.
+func (q *Queries) ListFilesPage(ctx context.Context, arg ListFilesPageParams) ([]ListFilesPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesPage,
+		arg.AfterID,
+		arg.LibraryID,
+		arg.Filing,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFilesPageRow{}
+	for rows.Next() {
+		var i ListFilesPageRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.LibraryID,
+			&i.Path,
+			&i.Filing,
+			&i.FilingReason,
+			&i.ErrorDetail,
+			&i.Size,
+			&i.FirstSeen,
+			&i.LastSeen,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibraries = `-- name: ListLibraries :many
+SELECT id, name, kind, metadata_source, change_detection, check_every_h, writable, created_at
+FROM library
+WHERE removed_at IS NULL
+ORDER BY name, id
+`
+
+type ListLibrariesRow struct {
+	ID              int64
+	Name            string
+	Kind            string
+	MetadataSource  string
+	ChangeDetection string
+	CheckEveryH     *int64
+	Writable        int64
+	CreatedAt       int64
+}
+
+func (q *Queries) ListLibraries(ctx context.Context) ([]ListLibrariesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLibrariesRow{}
+	for rows.Next() {
+		var i ListLibrariesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Kind,
+			&i.MetadataSource,
+			&i.ChangeDetection,
+			&i.CheckEveryH,
+			&i.Writable,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibraryRootStates = `-- name: ListLibraryRootStates :many
+SELECT library_root.path, library_root.node_id, node.name AS node_name, root_state.outcome,
+  root_state.outcome_at, root_state.withheld_reason
+FROM library_root
+JOIN node ON node.id = library_root.node_id
+LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.path = library_root.path
+WHERE library_root.library_id = ?1
+ORDER BY library_root.path
+`
+
+type ListLibraryRootStatesRow struct {
+	Path           string
+	NodeID         int64
+	NodeName       string
+	Outcome        *string
+	OutcomeAt      *int64
+	WithheldReason *string
+}
+
+// A library's roots with their node and the last scan's outcome: whether the files are
+// available, and a withheld scan's reason (D208).
+func (q *Queries) ListLibraryRootStates(ctx context.Context, libraryID int64) ([]ListLibraryRootStatesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryRootStates, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLibraryRootStatesRow{}
+	for rows.Next() {
+		var i ListLibraryRootStatesRow
+		if err := rows.Scan(
+			&i.Path,
+			&i.NodeID,
+			&i.NodeName,
+			&i.Outcome,
+			&i.OutcomeAt,
+			&i.WithheldReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

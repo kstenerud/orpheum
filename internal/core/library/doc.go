@@ -38,6 +38,8 @@
 //   - A payload that returns revives its tombstone, with its history (D208 §4).
 //   - Once a scan's end is committed its library is handed on, to identification.
 //     TestIngest_AfterAScanEndsItsLibraryIsHandedOn.
+//   - A library covers only roots its node configured, as the node's hello named them (D107);
+//     creating one scans it. TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt.
 //     TestScenario_S10_AFilmPutBackRevivesItsTombstone.
 //
 // # Read before changing
@@ -52,5 +54,6 @@
 // # Where to change
 //
 //   - ingest.go, observe.go, complete.go, sidecar.go: the report ingest; streams.go: the stream rows a probe
-//     derives; create.go: libraries. Browse and search come with identification.
+//     derives; create.go: libraries; admin.go: what an admin does with them (create over a node's
+//     roots, list, scan, the scanner view). Browse and search come later in M2.
 package library

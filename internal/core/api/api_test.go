@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -56,6 +57,7 @@ type testHarness struct {
 	server   *Server
 	provider *fakeProvider
 	cache    *store.Cache
+	nodes    *fakeNodes
 	http     *httptest.Server
 	logs     *bytes.Buffer
 	service  *auth.Service
@@ -77,14 +79,14 @@ func newHarness(t *testing.T) testHarness {
 	logs := &bytes.Buffer{}
 	server := NewServer(slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	codes := &memorySetupCodes{}
-	provider, cache := newFakeProvider(), storetest.OpenCache(t)
+	provider, cache, nodes := newFakeProvider(), storetest.OpenCache(t), &fakeNodes{}
 	providers := identify.Providers{"tmdb": provider}
 	pass := identify.NewPass(database, now, slog.New(slog.DiscardHandler), providers)
 	matcher := identify.NewMatcher(database, cache, pass, now, slog.New(slog.DiscardHandler))
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
 		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
-		Identify: identify.NewChooser(matcher, pass),
+		Identify: identify.NewChooser(matcher, pass), Libraries: library.NewAdmin(database, now, nodes),
 		ConfigFile: []ConfigFileKey{{
 			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), Start: json.RawMessage("10"),
 			IsFromFile: false, Describe: "seconds in-flight requests get to finish",
@@ -94,7 +96,7 @@ func newHarness(t *testing.T) testHarness {
 	t.Cleanup(served.Close)
 	return testHarness{
 		server: server, http: served, logs: logs, service: service, codes: codes, database: database.Path(),
-		provider: provider, cache: cache,
+		provider: provider, cache: cache, nodes: nodes,
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -88,6 +89,7 @@ type started struct {
 	settings *settings.Service
 	secrets  *secrets.Store
 	metadata metadata
+	nodes    *nodes.Service
 }
 
 func (opened started) release() error {
@@ -133,10 +135,14 @@ func start(
 		opened.settings, opened.secrets = dependencies.Settings, dependencies.Secrets
 		opened.metadata, err = newMetadata(ctx, opened, tmdbBase, logger)
 	}
+	if err == nil {
+		opened.nodes = newNodeService(opened, logger)
+	}
 	if err != nil {
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
 	}
 	dependencies.Identify = opened.metadata.chooser
+	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes)
 	server.Ready(dependencies)
 	return opened, nil
 }

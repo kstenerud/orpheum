@@ -36,6 +36,10 @@
 //   - Any signed-in user sees which titles and series are ambiguous; only a role with edit_metadata sees
 //     candidates, chooses a match or sets an override. Enforced by
 //     TestIdentification_OnlyARoleThatEditsMetadataMayChange.
+//   - An admin creates a library only over roots its node configured, lists roots and filings,
+//     asks for scans and pages the scanner's view; a user sees only the libraries. Enforced by
+//     TestLibraries_AnAdminCreatesOneOverTheNodesRoots,
+//     TestLibraries_AUserSeesTheLibrariesButNotTheirMachinery and TestFiles_PagesWhatTheScannerSaw.
 //   - A chosen match is confirmed, and an override is set and removed, through the identify
 //     package (D172, D183). Enforced by TestIdentification_APersonChoosesAnAmbiguousTitlesMatch and
 //     TestIdentification_OverridesAreSetAndRemoved.
@@ -53,7 +57,8 @@
 // # Where to change
 //
 //   - One file per endpoint group of cut-a §5: session.go (setup and auth), settings.go,
-//     secrets.go, health.go, identification.go; later groups add theirs. server.go holds the readiness gate and the
+//     secrets.go, health.go, identification.go, libraries.go; later groups add theirs. server.go
+//     holds the readiness gate and the
 //     authentication helpers. M1 builds setup, sessions, settings and secrets (D198).
 //   - api/openapi.json is generated with `orpheum openapi`; regenerate it after any change here.
 //   - The error enumeration lives here and is the only source the SDK's is generated from.

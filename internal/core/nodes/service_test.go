@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -332,5 +333,19 @@ func TestReport_ARecordReachesTheIngestWhileTheReportIsStillOpen(t *testing.T) {
 	}
 	if response := <-done; response.status != http.StatusNoContent {
 		t.Errorf("the report answered %d %s", response.status, response.body)
+	}
+}
+
+func TestRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	if _, _, connected := harness.service.Roots("local"); connected {
+		t.Error("a node that never said hello has roots")
+	}
+	harness.hello(t, nodeproto.Hello{Name: "local", Roots: []string{"/media/films", "/media/shows"}})
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", Roots: []string{"/media/films"}})
+	nodeID, roots, connected := harness.service.Roots("local")
+	if !connected || nodeID != reply.NodeID || !slices.Equal(roots, []string{"/media/films"}) {
+		t.Errorf("Roots = %d, %v, %v; want the last hello's", nodeID, roots, connected)
 	}
 }
