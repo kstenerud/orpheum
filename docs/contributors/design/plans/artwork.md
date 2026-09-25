@@ -7,7 +7,8 @@
   Built: the node's re-encode (`internal/node/artwork`); the core fetching TMDB's images,
   sending them to the node and storing its answer; and serving `/art/{hash}/{size}.{format}`,
   with JPEG and sizes made on request; and the ceiling, its eviction and its high-water warning in
-  `GET /doctor` (`internal/core/artwork`).
+  `GET /doctor` (`internal/core/artwork`); images beside the media, read by the node (D215).
+  Art embedded in video files waits until after Cut A.
 - **Depends on:** library-model.md, scanner.md
 
 ## Why it needs a plan

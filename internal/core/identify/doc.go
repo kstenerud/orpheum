@@ -78,6 +78,12 @@
 //   - The images a matched item's source names and its artwork does not hold are reported
 //     owing, by every pass and by the match itself, to whatever follows the pass (D212).
 //     TestPass_ReportsTheImagesAMatchNamesUntilTheyAreHeld.
+//   - Images beside the media are matched to their film, series or episode by Kodi's and
+//     Jellyfin's names and owed in every library at once; where the library reads NFO files the
+//     provider's image of a kind beside the media is not fetched, and in a TMDB-only library it
+//     is, to replace it (D215). TestPass_ImagesBesideTheMediaAreOwedByTheirConventionalNames,
+//     TestPass_TheProvidersImageOfAKindBesideTheMediaIsNotFetched,
+//     TestPass_ATMDBOnlyLibraryStillFetchesTheProvidersImageToReplaceTheOneBesideTheMedia.
 //   - A refresh fetches the source an item follows again — a series with each season it keeps,
 //     an episode through its series — takes the provider's values under a person's overrides, and
 //     keeps our copy of an item the provider dropped (D213 §2, §4).

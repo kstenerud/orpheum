@@ -104,6 +104,7 @@ func (pass *Pass) Library(ctx context.Context, libraryID int64) (Report, error) 
 			titles: map[string]int64{}, series: map[string]int64{}, nfoByVideo: map[int64]NFO{},
 			showNFOs: map[string]NFO{}, folderNFOs: map[string][]namedNFO{}, folderTitle: map[string]int64{},
 			evidence: map[int64][]titleSpec{}, fileTitle: map[int64]int64{}, extraOf: map[int64]string{},
+			localArt: map[int64][]ArtRef{}, seriesFolders: map[string]int64{},
 			seriesSeen: map[int64]seriesSpec{}, seriesRows: map[int64]sqlcgen.GetSeriesForMatchRow{},
 			listings: map[string][]Episode{},
 		}
@@ -138,18 +139,20 @@ type run struct {
 	roots     []sqlcgen.ListLibraryRootsRow
 	files     []sqlcgen.ListIdentifyFilesRow
 
-	nfoByVideo  map[int64]NFO // an NFO attached to its video
-	folderNFOs  map[string][]namedNFO
-	showNFOs    map[string]NFO   // a tvshow.nfo, by its folder
-	titles      map[string]int64 // by key
-	series      map[string]int64 // by name, lower case
-	folderTitle map[string]int64 // a film's folder, for its extras
-	evidence    map[int64][]titleSpec
-	fileTitle   map[int64]int64
-	extraOf     map[int64]string     // an extra's file, and why it is one (D163)
-	seriesSeen  map[int64]seriesSpec // what this pass's files say about each series
-	seriesRows  map[int64]sqlcgen.GetSeriesForMatchRow
-	listings    map[string][]Episode // parsed season listings, by "series/season"
+	nfoByVideo    map[int64]NFO // an NFO attached to its video
+	folderNFOs    map[string][]namedNFO
+	showNFOs      map[string]NFO   // a tvshow.nfo, by its folder
+	titles        map[string]int64 // by key
+	series        map[string]int64 // by name, lower case
+	folderTitle   map[string]int64 // a film's folder, for its extras
+	evidence      map[int64][]titleSpec
+	fileTitle     map[int64]int64
+	extraOf       map[int64]string     // an extra's file, and why it is one (D163)
+	localArt      map[int64][]ArtRef   // the images beside each item (D215)
+	seriesFolders map[string]int64     // the folder a series' images sit in
+	seriesSeen    map[int64]seriesSpec // what this pass's files say about each series
+	seriesRows    map[int64]sqlcgen.GetSeriesForMatchRow
+	listings      map[string][]Episode // parsed season listings, by "series/season"
 }
 
 // awaiting lists what the fetch queue owes the library: films and series never answered for.
@@ -196,11 +199,17 @@ func (work *run) identify(ctx context.Context) error {
 			return err
 		}
 	}
+	work.mapLocalArtwork()
 	if err := work.resolveAndFile(ctx); err != nil {
 		return err
 	}
 	for _, seriesID := range slices.Sorted(maps.Keys(work.seriesSeen)) {
 		if err := work.resolveSeries(ctx, seriesID, work.seriesSeen[seriesID]); err != nil {
+			return err
+		}
+	}
+	for _, itemID := range slices.Sorted(maps.Keys(work.localArt)) {
+		if err := work.oweArtwork(ctx, itemID, SourceLocal, work.localArt[itemID]); err != nil {
 			return err
 		}
 	}
@@ -236,7 +245,8 @@ func (work *run) knowSeriesByFolder(ctx context.Context) error {
 }
 
 func isVideo(file sqlcgen.ListIdentifyFilesRow) bool {
-	return file.PayloadHash != nil && file.Filing != "skipped" && file.Filing != "errored" && file.Filing != "attached"
+	return file.PayloadHash != nil && file.Filing != "skipped" && file.Filing != "errored" &&
+		file.Filing != filingAttached
 }
 
 // relative is a file's path below the library root that holds it.

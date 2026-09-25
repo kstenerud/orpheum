@@ -65,6 +65,26 @@ func (q *Queries) GetArtworkSource(ctx context.Context, contentHash []byte) (Get
 	return i, err
 }
 
+const getFileForArtwork = `-- name: GetFileForArtwork :one
+SELECT node_id, path, path_key
+FROM file
+WHERE id = ?1 AND removed_at IS NULL
+`
+
+type GetFileForArtworkRow struct {
+	NodeID  int64
+	Path    string
+	PathKey []byte
+}
+
+// An image beside the media: the node that holds it, and its path, for the node to read.
+func (q *Queries) GetFileForArtwork(ctx context.Context, id int64) (GetFileForArtworkRow, error) {
+	row := q.db.QueryRowContext(ctx, getFileForArtwork, id)
+	var i GetFileForArtworkRow
+	err := row.Scan(&i.NodeID, &i.Path, &i.PathKey)
+	return i, err
+}
+
 const insertArtwork = `-- name: InsertArtwork :one
 INSERT INTO artwork (item_id, kind, source, source_ref, content_hash)
 VALUES (?1, ?2, ?3, ?4, ?5)
@@ -184,11 +204,14 @@ func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLive
 }
 
 const listShownArtwork = `-- name: ListShownArtwork :many
-SELECT item_id, content_hash
+SELECT artwork.item_id, artwork.content_hash
 FROM artwork
-WHERE item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT))) AND kind = ?2
-  AND removed_at IS NULL AND content_hash IS NOT NULL
-ORDER BY item_id, chosen DESC, id DESC
+JOIN item ON item.id = artwork.item_id
+LEFT JOIN library ON library.id = item.library_id
+WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+  AND artwork.kind = ?2 AND artwork.removed_at IS NULL AND artwork.content_hash IS NOT NULL
+ORDER BY artwork.item_id, artwork.chosen DESC,
+  (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC
 `
 
 type ListShownArtworkParams struct {
@@ -202,7 +225,8 @@ type ListShownArtworkRow struct {
 }
 
 // The images a page of items shows, of one kind; the ids are a JSON array. Per item, a person's
-// choice first, then the newest stored; the caller keeps the first row of each item.
+// choice first; then the source the item's library prefers, an image beside the media unless the
+// library takes TMDB only, D215; then the newest stored. The caller keeps each item's first row.
 func (q *Queries) ListShownArtwork(ctx context.Context, arg ListShownArtworkParams) ([]ListShownArtworkRow, error) {
 	rows, err := q.db.QueryContext(ctx, listShownArtwork, arg.ItemIds, arg.Kind)
 	if err != nil {

@@ -265,6 +265,8 @@ func (walk *walk) file(place location, info fs.FileInfo) error {
 		return walk.sidecar(place, info, nodeproto.SidecarNFO)
 	case walk.scanner.subtitles[extension]:
 		return walk.sidecar(place, info, nodeproto.SidecarSubtitle)
+	case isImage(extension):
+		return walk.sidecar(place, info, nodeproto.SidecarImage)
 	case !walk.scanner.extensions[extension]:
 		return walk.skip(place, nodeproto.SkipExtension)
 	}
@@ -376,6 +378,15 @@ func reportedPath(reported string) nodeproto.Path {
 		return nodeproto.Path{Text: reported}
 	}
 	return nodeproto.Path{Text: strings.ToValidUTF8(reported, "�"), Raw: []byte(reported)}
+}
+
+// isImage is an image extension a poster or backdrop beside the media is saved with (D215).
+func isImage(extension string) bool {
+	switch extension {
+	case "jpg", "jpeg", "png", "webp", "tbn":
+		return true
+	}
+	return false
 }
 
 // isSampleDirectory is a directory named sample, in any case (D162).

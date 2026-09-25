@@ -5,10 +5,13 @@ package agent
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -255,5 +258,44 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 		}
 	case <-t.Context().Done():
 		t.Fatal("no artwork answer reached the core")
+	}
+}
+
+func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := running(t, socket)
+	if err := os.WriteFile(filepath.Join(root.Path(), "poster.jpg"), []byte("xyz"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "secret.jpg")
+	if err := os.WriteFile(outside, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	answer := func(job int64, named string) nodeproto.ArtworkResult {
+		t.Helper()
+		core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
+			Job: job, Path: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
+			Sizes: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+		}}
+		select {
+		case result := <-core.artwork:
+			return result
+		case <-t.Context().Done():
+			t.Fatal("no artwork answer reached the core")
+			return nodeproto.ArtworkResult{}
+		}
+	}
+	sum := sha256.Sum256([]byte("xyz"))
+	if beside := answer(1, filepath.Join(root.Path(), "poster.jpg")); beside.Refused != "" ||
+		string(beside.Images[0].Bytes) != "zyx" || beside.SourceHash != hex.EncodeToString(sum[:]) {
+		t.Errorf("an image under the root: %+v; want it read, re-encoded and hashed", beside)
+	}
+	for job, named := range map[int64]string{
+		2: outside, 3: filepath.Join(root.Path(), "..", filepath.Base(filepath.Dir(outside)), "secret.jpg"),
+	} {
+		if refused := answer(job, named); refused.Refused == "" || len(refused.Images) != 0 {
+			t.Errorf("%s: %+v; a path outside the node's roots is refused", named, refused)
+		}
 	}
 }

@@ -4,7 +4,10 @@ package artwork
 
 import (
 	"bytes"
+	"cmp"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,6 +41,7 @@ type Queue interface {
 // Nodes is the node channel: the node to send work to, and its command queue.
 type Nodes interface {
 	Connected() (int64, bool)
+	IsConnected(nodeID int64) bool
 	Enqueue(nodeID int64, command nodeproto.Command)
 }
 
@@ -146,7 +150,7 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.Permanent(err))
 	}
 	fetcher, known := service.parts.Fetchers[args.Source]
-	if !known {
+	if !known && args.Source != identify.SourceLocal {
 		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.Permanent(fmt.Errorf("no fetcher for %q", args.Source)))
 	}
 	for _, ref := range args.Refs {
@@ -180,18 +184,67 @@ func (service *Service) one(ctx context.Context, fetcher Fetcher, image wanted) 
 	if err != nil || held {
 		return err
 	}
-	source, err := service.fetch(ctx, fetcher, image.source, image.ref.Ref)
-	if errors.Is(err, ErrNoImage) {
-		return service.missing(ctx, fetcher, image, err)
+	command := nodeproto.Artwork{Shape: shape, Sizes: fetchedSizes(shape)}
+	var nodeID int64
+	hash := ""
+	if image.source == identify.SourceLocal {
+		nodeID, command.Path, err = service.localFile(ctx, image.ref.Ref)
+		if errors.Is(err, ErrNoImage) {
+			return service.refused(ctx, image, err.Error())
+		}
+	} else {
+		var source Unsanitised
+		source, err = service.fetch(ctx, fetcher, image.source, image.ref.Ref)
+		if errors.Is(err, ErrNoImage) {
+			return service.missing(ctx, fetcher, image, err)
+		}
+		if err == nil {
+			command.Source, hash = source.bytes, source.hash()
+			nodeID, err = service.anyNode()
+		}
 	}
 	if err != nil {
 		return err
 	}
-	result, err := service.reEncode(ctx, source, shape, fetchedSizes(shape))
+	result, err := service.reEncode(ctx, nodeID, command)
 	if err != nil {
 		return err
 	}
-	return service.keep(ctx, image, source, result)
+	return service.keep(ctx, image, cmp.Or(hash, result.SourceHash), result)
+}
+
+// localFile is the node that holds an image beside the media and its path there. A file gone
+// since it was owed is ErrNoImage; its node not connected, a wait that costs no attempt.
+func (service *Service) localFile(ctx context.Context, ref string) (int64, *nodeproto.Path, error) {
+	fileID, parsed := identify.LocalFile(ref)
+	if !parsed {
+		return 0, nil, fmt.Errorf("%q: %w", ref, ErrNoImage)
+	}
+	file, err := store.One(service.parts.Database.Read().GetFileForArtwork(ctx, fileID))
+	if errors.Is(err, store.ErrNotFound) {
+		return 0, nil, fmt.Errorf("file %d is gone: %w", fileID, ErrNoImage)
+	}
+	if err != nil {
+		return 0, nil, fmt.Errorf("read file %d: %w", fileID, err)
+	}
+	if !service.parts.Nodes.IsConnected(file.NodeID) {
+		return 0, nil, &jobs.RetryAtError{
+			At:  service.parts.Clock.Now().Add(noNodeWait),
+			Err: fmt.Errorf("node %d, which holds it, is not connected", file.NodeID),
+		}
+	}
+	return file.NodeID, &nodeproto.Path{Text: file.Path, Raw: file.PathKey}, nil
+}
+
+// anyNode is a connected node to re-encode a download; none is a wait that costs no attempt.
+func (service *Service) anyNode() (int64, error) {
+	nodeID, connected := service.parts.Nodes.Connected()
+	if !connected {
+		return 0, &jobs.RetryAtError{
+			At: service.parts.Clock.Now().Add(noNodeWait), Err: errors.New("no node is connected to re-encode it"),
+		}
+	}
+	return nodeID, nil
 }
 
 // held reports whether the item's artwork already has this image, stored or refused: a job
@@ -209,14 +262,8 @@ func (service *Service) held(ctx context.Context, image wanted) (bool, error) {
 
 // reEncode sends a source to the node and waits for its answer.
 func (service *Service) reEncode(
-	ctx context.Context, source Unsanitised, shape nodeproto.Shape, sizes []nodeproto.ArtSizeName,
+	ctx context.Context, nodeID int64, command nodeproto.Artwork,
 ) (nodeproto.ArtworkResult, error) {
-	nodeID, connected := service.parts.Nodes.Connected()
-	if !connected {
-		return nodeproto.ArtworkResult{}, &jobs.RetryAtError{
-			At: service.parts.Clock.Now().Add(noNodeWait), Err: errors.New("no node is connected to re-encode it"),
-		}
-	}
 	pixels, err := service.parts.Settings.Int(ctx, settings.ArtworkMaxSourcePixels)
 	if err != nil {
 		return nodeproto.ArtworkResult{}, fmt.Errorf("read artwork_max_source_pixels: %w", err)
@@ -227,10 +274,8 @@ func (service *Service) reEncode(
 	}
 	request, answer := service.await()
 	defer service.forget(request)
-	service.parts.Nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
-		Job: request, Source: source.bytes, Shape: shape, Sizes: sizes,
-		MaxPixels: pixels, Quality: int(quality),
-	}})
+	command.Job, command.MaxPixels, command.Quality = request, pixels, int(quality)
+	service.parts.Nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandArtwork, Artwork: &command})
 	timer := time.NewTimer(service.parts.Wait)
 	defer timer.Stop()
 	select {
@@ -275,15 +320,16 @@ func (service *Service) Answered(ctx context.Context, nodeID int64, result nodep
 
 // keep stores what the node made, then records it as the item's image of its kind; a refusal is
 // recorded with no hash.
-func (service *Service) keep(
-	ctx context.Context, image wanted, source Unsanitised, result nodeproto.ArtworkResult,
-) error {
+func (service *Service) keep(ctx context.Context, image wanted, hash string, result nodeproto.ArtworkResult) error {
 	shape, _ := shapeOf(image.ref.Kind) // checked before fetching
 	images, why := checked(result, shape)
+	raw, err := hex.DecodeString(hash)
+	if why == "" && (err != nil || len(raw) != sha256.Size) {
+		why = "the node named no source hash"
+	}
 	if why != "" {
 		return service.refused(ctx, image, why)
 	}
-	hash := source.hash()
 	for _, made := range images {
 		if err := service.writeArt(ctx, hash, string(made.Size)+webpFormat, made.Bytes); err != nil {
 			return err
@@ -292,7 +338,7 @@ func (service *Service) keep(
 	if err := service.cannotMake(ctx, hash, tooLarge(shape, result.Images)); err != nil {
 		return err
 	}
-	return service.record(ctx, image, source.hash32())
+	return service.record(ctx, image, raw)
 }
 
 // checked is what of the node's answer may be stored: sizes asked for, in WebP. It says why

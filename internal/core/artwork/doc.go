@@ -29,6 +29,10 @@
 //   - An evicted size is cut again by the node from the image's base, our own WebP, without
 //     fetching; only a size larger than the base, or an image with nothing held, is fetched
 //     again. TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching.
+//   - An image beside the media is read and re-encoded by the node that holds it, sent its path
+//     and never its bytes, and stored under the hash that node read; a person's choice shows
+//     first, then the source the library prefers (D215).
+//     TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders.
 //   - A missing image is looked into once: its record is refreshed after the CDN stops answering
 //     from its cached 404, and a second miss gives it up (D213 §1).
 //     TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp.

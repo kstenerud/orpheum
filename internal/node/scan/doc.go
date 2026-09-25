@@ -8,6 +8,8 @@
 //
 //   - Imports nothing from internal/core and never touches the database. Enforced by the depguard
 //     rule node-boundary and, transitively, TestArch_NodeNeverImportsCore.
+//   - An image beside the media is reported as a sidecar without its bytes (D215).
+//     TestScan_ReportsAnImageBesideTheMediaWithoutItsBytes.
 //   - Starts no process except through internal/node/execx. Enforced by the depguard rule exec-
 //     only-in-execx, the forbidigo rules tagged [exec] and [execve], and
 //     TestArch_OnlyExecxImportsOsExec.
