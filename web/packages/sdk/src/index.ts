@@ -11,6 +11,8 @@
 export { apiPrefix, artUrl, createApi } from "./client.ts";
 export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
+export { browserMenu, menuFrom } from "./menu.ts";
+export type { MediaProbe, Menu } from "./menu.ts";
 
 /** The npm name of this package, exported so the workspace wiring has something to resolve. */
 export const sdkPackageName = "@orpheum/sdk";

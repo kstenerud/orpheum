@@ -3,7 +3,7 @@
 import "./tokens.css";
 import "./i18n.ts";
 
-import { createApi } from "@orpheum/sdk";
+import { browserMenu, createApi } from "@orpheum/sdk";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -29,6 +29,7 @@ const services = {
   api: createApi({ token: session.token }),
   session,
   navigation: createNavigation(window),
+  menu: browserMenu,
 };
 
 createRoot(rootElement).render(
