@@ -143,6 +143,7 @@ func start(
 	}
 	dependencies.Identify = opened.metadata.chooser
 	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes)
+	dependencies.Browse = library.NewBrowser(database, opened.settings)
 	server.Ready(dependencies)
 	return opened, nil
 }

@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -26,6 +28,12 @@ type Pass struct {
 	clock     clock.Clock
 	logger    *slog.Logger
 	providers Providers
+	settings  Settings
+}
+
+// Settings are what the pass reads from the settings: the locale it sorts in.
+type Settings interface {
+	String(ctx context.Context, key settings.Key) (string, error)
 }
 
 // Providers are the metadata providers, by name. The pass only parses their stored responses.
@@ -44,27 +52,47 @@ type Report struct {
 }
 
 // NewPass returns the identification pass.
-func NewPass(database *store.Database, now clock.Clock, logger *slog.Logger, providers Providers) *Pass {
-	return &Pass{database: database, clock: now, logger: logger, providers: providers}
+func NewPass(
+	database *store.Database, now clock.Clock, logger *slog.Logger, providers Providers, config Settings,
+) *Pass {
+	return &Pass{database: database, clock: now, logger: logger, providers: providers, settings: config}
+}
+
+// sorter is the sort-key maker for the locale the settings name now (D47).
+func (pass *Pass) sorter(ctx context.Context) (*textindex.Sorter, error) {
+	locale, err := pass.settings.String(ctx, settings.SortLocale)
+	if err != nil {
+		return nil, fmt.Errorf("read sort_locale: %w", err)
+	}
+	sorter, err := textindex.NewSorter(locale)
+	if err != nil {
+		return nil, fmt.Errorf("sort in %q: %w", locale, err)
+	}
+	return sorter, nil
 }
 
 // Library identifies every video in a library, in one transaction.
 func (pass *Pass) Library(ctx context.Context, libraryID int64) (Report, error) {
 	var report Report
-	err := pass.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	sorter, err := pass.sorter(ctx)
+	if err != nil {
+		return Report{}, err
+	}
+	err = pass.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		work := &run{
 			queries: queries, now: pass.clock.Now().UnixMilli(), report: &report, providers: pass.providers,
+			sorter: sorter,
 			titles: map[string]int64{}, series: map[string]int64{}, nfoByVideo: map[int64]NFO{},
 			showNFOs: map[string]NFO{}, folderNFOs: map[string][]namedNFO{}, folderTitle: map[string]int64{},
 			evidence: map[int64][]titleSpec{}, fileTitle: map[int64]int64{},
 			seriesSeen: map[int64]seriesSpec{}, seriesRows: map[int64]sqlcgen.GetSeriesForMatchRow{},
 			listings: map[string][]Episode{},
 		}
-		if err := work.load(ctx, libraryID); err != nil {
-			return err
+		if loadErr := work.load(ctx, libraryID); loadErr != nil {
+			return loadErr
 		}
-		if err := work.identify(ctx); err != nil {
-			return err
+		if identifyErr := work.identify(ctx); identifyErr != nil {
+			return identifyErr
 		}
 		return work.awaiting(ctx, libraryID)
 	})
@@ -80,6 +108,7 @@ type run struct {
 	now       int64
 	report    *Report
 	providers Providers
+	sorter    *textindex.Sorter
 	library   sqlcgen.GetLibraryForIdentifyRow
 	roots     []sqlcgen.ListLibraryRootsRow
 	files     []sqlcgen.ListIdentifyFilesRow

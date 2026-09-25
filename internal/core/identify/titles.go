@@ -239,9 +239,8 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 	if err != nil {
 		return resolved{}, fmt.Errorf("resolve title %d: %w", titleID, err)
 	}
-	err = work.queries.UpsertOriginalText(ctx, sqlcgen.UpsertOriginalTextParams{
-		ItemID: titleID, Lang: langUnknown, Name: values[fieldName], Overview: optional(values[fieldOverview]),
-		Tagline: optional(values[fieldTagline]),
+	err = work.writeText(ctx, titleID, itemText{
+		listing: spec.kind, name: values[fieldName], overview: values[fieldOverview], tagline: values[fieldTagline],
 	})
 	if err != nil {
 		return resolved{}, fmt.Errorf("name title %d: %w", titleID, err)

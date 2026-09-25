@@ -73,6 +73,8 @@
 //   - queries/: one .sql file per concern; run make generate.
 //   - cache/schema.sql and cache/queries/: cache.db. Raise the version line on any schema change.
 //   - cache.go: OpenCache, and cache.db's Read and Write.
+//   - search.go: search's three statements, hand-written because sqlc cannot parse FTS5's MATCH;
+//     static SQL with parameters only.
 //   - open.go: Open, the pragmas and their read-back, Read, Write and One.
 //   - steps.go and migrate.go: the embedded steps and the runner (D181); step_record.go: the
 //     applied steps' checksums.

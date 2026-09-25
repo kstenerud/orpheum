@@ -13,6 +13,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -199,9 +200,14 @@ func (matcher *Matcher) accept(
 	if err != nil {
 		return err
 	}
+	// Read before the write: a setting read may write its starting value, and there is one writer.
+	sorter, err := matcher.pass.sorter(ctx)
+	if err != nil {
+		return err
+	}
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		found := match{provider: provider.Name(), id: metadata.ID, ident: ident}
-		return matcher.record(ctx, queries, found, title, stored)
+		return matcher.record(ctx, queries, found, title, stored, sorter)
 	})
 	if err != nil {
 		return fmt.Errorf("record title %d's match: %w", title.ID, err)
@@ -220,6 +226,7 @@ type match struct {
 // record stores a match's response and re-derives the title from it, as a pass would.
 func (matcher *Matcher) record(
 	ctx context.Context, queries *sqlcgen.Queries, found match, title sqlcgen.GetTitleForMatchRow, stored []byte,
+	sorter *textindex.Sorter,
 ) error {
 	provider, id := found.provider, found.id
 	now := matcher.clock.Now().UnixMilli()
@@ -246,7 +253,7 @@ func (matcher *Matcher) record(
 	if err != nil {
 		return fmt.Errorf("record the match: %w", err)
 	}
-	work := &run{queries: queries, now: now, providers: matcher.providers}
+	work := &run{queries: queries, now: now, providers: matcher.providers, sorter: sorter}
 	result, err := work.resolveWithMatch(ctx, titleID, titleSpec{kind: title.Kind})
 	if err != nil {
 		return err

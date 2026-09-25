@@ -46,7 +46,7 @@ func newMetadata(ctx context.Context, opened started, tmdbBase string, logger *s
 	if requeued > 0 {
 		logger.InfoContext(ctx, "returned jobs a stop left running to the queue", "jobs", requeued)
 	}
-	pass := identify.NewPass(opened.database, clock.System{}, logger, providers)
+	pass := identify.NewPass(opened.database, clock.System{}, logger, providers, opened.settings)
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return metadata{
 		pass: pass, queue: queue, matcher: matcher,

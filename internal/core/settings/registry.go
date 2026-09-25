@@ -5,6 +5,7 @@ package settings
 import (
 	"encoding/json"
 	"math"
+	"regexp"
 )
 
 // Key names a setting. The set is closed: every key is declared in Registry.
@@ -36,6 +37,7 @@ const (
 	JobRetryLimit              Key = "job_retry_limit"
 	JobRetryBackoffS           Key = "job_retry_backoff_s"
 	ProviderTimeoutS           Key = "provider_timeout_s"
+	SortLocale                 Key = "sort_locale"
 )
 
 // Scope is whose a setting is.
@@ -61,12 +63,14 @@ const (
 // whether the settings page shows it. The starting value is written into the database on first
 // start and read from there ever after (D200); a question starts as JSON null and is asked.
 type Definition struct {
-	Key      Key
-	Scope    Scope
-	Kind     Kind
-	Start    json.RawMessage
-	Minimum  int64 // integers only
-	Maximum  int64 // integers only
+	Key     Key
+	Scope   Scope
+	Kind    Kind
+	Start   json.RawMessage
+	Minimum int64 // integers only
+	Maximum int64 // integers only
+	// Pattern, for a string, is what every value must match; nil takes any string.
+	Pattern  *regexp.Regexp
 	Question string
 	Exposed  bool
 	Describe string
@@ -138,6 +142,13 @@ func Registry() []Definition {
 			"seconds before a failed job's first retry; each later retry waits twice as long"),
 		integer(ProviderTimeoutS, "20", 1, 600,
 			"seconds a call to a metadata provider such as TMDB may take; read when the server starts"),
+		{
+			Key: SortLocale, Scope: ScopeServer, Kind: KindString, Start: json.RawMessage(`"en"`),
+			Pattern: regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$`),
+			Exposed: true,
+			Describe: "the language whose alphabetical order the libraries are listed in (BCP 47: en, sv, de...); " +
+				"a scan applies a change",
+		},
 	}
 }
 
