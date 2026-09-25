@@ -52,7 +52,7 @@ counted:
 - **Why the plan missed it:** identification was designed on films, and TV was assumed to be
   "the same, per episode". The two designs met only in code: the library model's shape
   (series as Collection) and the identification model's unit (title) were each right alone.
-- **Cost:** one decision; a migration and an API change, proposed before building.
+- **Cost:** two decisions (D209, and D210 for the files' episode ordering the same gap exposed, deferred past Cut A); a migration and an API change, proposed before building.
 - **Process lesson:** when one design names a unit ("per title") and another design decomposes
   the domain differently, walk one concrete case through both — here, one TV episode from file
   to metadata — before freezing either.
