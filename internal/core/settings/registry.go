@@ -144,10 +144,9 @@ func Registry() []Definition {
 			"seconds a call to a metadata provider such as TMDB may take; read when the server starts"),
 		{
 			Key: SortLocale, Scope: ScopeServer, Kind: KindString, Start: json.RawMessage(`"en"`),
-			Pattern: regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$`),
-			Exposed: true,
-			Describe: "the language whose alphabetical order the libraries are listed in (BCP 47: en, sv, de...); " +
-				"a scan applies a change",
+			Pattern:  regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$`),
+			Exposed:  true,
+			Describe: "the language whose alphabetical order the libraries are listed in (BCP 47: en, sv, de...)",
 		},
 	}
 }

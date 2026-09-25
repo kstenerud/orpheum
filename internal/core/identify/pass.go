@@ -99,6 +99,11 @@ func (pass *Pass) Library(ctx context.Context, libraryID int64) (Report, error) 
 	if err != nil {
 		return Report{}, fmt.Errorf("identify library %d: %w", libraryID, err)
 	}
+	// The locale may have changed after this pass read it: any name it keyed in the old one is
+	// keyed again in the new.
+	if _, err := pass.RefreshSortKeys(ctx); err != nil {
+		return Report{}, err
+	}
 	return report, nil
 }
 

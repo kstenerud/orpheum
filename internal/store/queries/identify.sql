@@ -167,3 +167,30 @@ JOIN title ON title.id = version.title_id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 WHERE file.library_id = ? AND file.removed_at IS NULL
 ORDER BY file.path;
+
+-- name: CountItemsMissingSortKey :one
+-- Live named items with no sort key in a locale: after the locale changed, or a pass that began
+-- before it did (D47).
+SELECT count(*)
+FROM item_text
+JOIN item ON item.id = item_text.item_id
+WHERE item_text.is_original = 1 AND item.removed_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM sort_key WHERE sort_key.item_id = item_text.item_id AND sort_key.locale = sqlc.arg(locale)
+  );
+
+-- name: ListItemsToSort :many
+-- Every live named title and series, with the list it sorts in.
+SELECT item_text.item_id, item_text.name, coalesce(title.kind, collection.kind) AS listing
+FROM item_text
+JOIN item ON item.id = item_text.item_id
+LEFT JOIN title ON title.id = item_text.item_id
+LEFT JOIN collection ON collection.id = item_text.item_id
+WHERE item_text.is_original = 1 AND item.removed_at IS NULL
+  AND (title.id IS NOT NULL OR collection.kind = 'series')
+ORDER BY item_text.item_id;
+
+-- name: DeleteSortKeysOfOtherLocales :exec
+-- Keys for a locale no longer in use (sort_key is a cache, class C).
+DELETE FROM sort_key
+WHERE locale != sqlc.arg(locale);

@@ -341,3 +341,33 @@ func TestPass_NamesAreSortedAndFoundInEveryScript(t *testing.T) {
 		}
 	}
 }
+
+func TestRefreshSortKeys_ALocaleChangeTakesEffectWithoutAScan(t *testing.T) {
+	t.Parallel()
+	lib := newWorld(t, "movies", "nfo")
+	lib.scan(video("Destiny (1998).mkv"), video("Ödet (2010).mkv"), video("Apa (2000).mkv"))
+	browser := library.NewBrowser(lib.database, lib.settings)
+	names := func() []string {
+		t.Helper()
+		byName := library.ListQuery{List: library.ListFilms, Sort: library.SortName, Limit: 10}
+		listed, err := browser.List(t.Context(), byName)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var order []string
+		for _, entry := range listed.Entries {
+			order = append(order, entry.Name)
+		}
+		return order
+	}
+	settingstest.Set(t, lib.settings, settings.SortLocale, `"sv"`)
+	if written, err := lib.pass.RefreshSortKeys(t.Context()); err != nil || written != 3 {
+		t.Fatalf("RefreshSortKeys = %d, %v; want every film keyed again", written, err)
+	}
+	if got := names(); !slices.Equal(got, []string{"Apa", "Destiny", "Ödet"}) {
+		t.Errorf("in Swedish, with no scan since the change: %v", got)
+	}
+	if written, err := lib.pass.RefreshSortKeys(t.Context()); err != nil || written != 0 {
+		t.Errorf("a second refresh wrote %d (%v); nothing was missing", written, err)
+	}
+}

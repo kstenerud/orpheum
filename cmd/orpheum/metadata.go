@@ -47,6 +47,9 @@ func newMetadata(ctx context.Context, opened started, tmdbBase string, logger *s
 		logger.InfoContext(ctx, "returned jobs a stop left running to the queue", "jobs", requeued)
 	}
 	pass := identify.NewPass(opened.database, clock.System{}, logger, providers, opened.settings)
+	if err := followSortLocale(ctx, pass, opened.settings, logger); err != nil {
+		return metadata{}, err
+	}
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return metadata{
 		pass: pass, queue: queue, matcher: matcher,
@@ -67,6 +70,27 @@ func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop fun
 		}
 	})
 	return func() { cancel(); done.Wait() }
+}
+
+// followSortLocale keeps every sort key in the sort_locale setting's locale: now, for a change
+// made while the server was stopped or a release's new starting value, and whenever a person
+// changes it (D47; agent-failures A4).
+func followSortLocale(ctx context.Context, pass *identify.Pass, config *settings.Service, logger *slog.Logger) error {
+	written, err := pass.RefreshSortKeys(ctx)
+	if err != nil {
+		return err
+	}
+	if written > 0 {
+		logger.InfoContext(ctx, "sorted every title and series in the sort locale", "items", written)
+	}
+	config.OnChange(settings.SortLocale, func(ctx context.Context) error {
+		written, err := pass.RefreshSortKeys(ctx)
+		if err == nil {
+			logger.InfoContext(ctx, "the sort locale changed; sorted every title and series again", "items", written)
+		}
+		return err
+	})
+	return nil
 }
 
 // queueMatches queues what a pass left owing: the first match of each film and series, once

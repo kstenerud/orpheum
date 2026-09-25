@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -45,6 +46,40 @@ type Service struct {
 	database *store.Database
 	clock    clock.Clock
 	logger   *slog.Logger
+
+	mutex    sync.Mutex
+	watchers map[Key][]func(context.Context) error // guarded by mutex
+}
+
+// OnChange runs react after a person sets or resets a server setting, once the change is
+// committed: for what is derived from a setting and must follow it at once, not at some later
+// event (agent-failures A4). A reaction that fails is logged; the setting stays changed.
+func (service *Service) OnChange(key Key, react func(context.Context) error) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	if service.watchers == nil {
+		service.watchers = map[Key][]func(context.Context) error{}
+	}
+	service.watchers[key] = append(service.watchers[key], react)
+}
+
+// changed runs the reactions to server settings that were written.
+func (service *Service) changed(ctx context.Context, keys []Key) {
+	service.mutex.Lock()
+	var reactions []func(context.Context) error
+	var reacting []Key
+	for _, key := range keys {
+		for _, react := range service.watchers[key] {
+			reactions, reacting = append(reactions, react), append(reacting, key)
+		}
+	}
+	service.mutex.Unlock()
+	for index, react := range reactions {
+		if err := react(ctx); err != nil {
+			service.logger.ErrorContext(ctx, "a setting changed, and what follows from it could not follow",
+				"key", string(reacting[index]), "err", err)
+		}
+	}
 }
 
 // NewService returns a settings Service.
@@ -194,7 +229,7 @@ func (service *Service) Set(
 		}
 	}
 	now := service.clock.Now().UnixMilli()
-	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		for key, value := range values {
 			change := change{owner: owner, key: key, value: compact(value), setBy: setBy, setAt: now, isModified: true}
 			if err := upsert(ctx, queries, change); err != nil {
@@ -203,6 +238,15 @@ func (service *Service) Set(
 		}
 		return nil
 	})
+	if err != nil || scope != ScopeServer {
+		return err
+	}
+	keys := make([]Key, 0, len(values))
+	for key := range values {
+		keys = append(keys, Key(key))
+	}
+	service.changed(ctx, keys)
+	return nil
 }
 
 // Reset writes a server setting's starting value back and clears its modified mark, so it follows
@@ -216,11 +260,16 @@ func (service *Service) Reset(ctx context.Context, key Key, setBy *int64) error 
 		return fmt.Errorf("%s: %w", key, ErrWrongScope)
 	}
 	now := service.clock.Now().UnixMilli()
-	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return upsert(ctx, queries, change{
 			key: string(key), value: compact(definition.Start), setBy: setBy, setAt: now,
 		})
 	})
+	if err != nil {
+		return err
+	}
+	service.changed(ctx, []Key{key})
+	return nil
 }
 
 // change is one setting being written.
