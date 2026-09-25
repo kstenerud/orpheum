@@ -16189,7 +16189,9 @@ viewed in."*
    built then. It is an addition — a series setting and reading a provider's episode groups — and
    needs no rework of what exists.
 
-**Open, to settle when it is built:** whether a person's viewing order defaults to the series'
-on-disk order or to aired.
+5. **A person's viewing order follows the series' on-disk order until they choose another**
+   (the owner, the same day: *"viewing order would default to the same as on-disk order until
+   the user specifies otherwise"*). It follows it: a person who has not chosen sees the new
+   order when an admin changes the on-disk one.
 
 **Status:** Decided; not built (after Cut A, unless a show in the owner's library needs it first).
