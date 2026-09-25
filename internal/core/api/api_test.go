@@ -100,7 +100,7 @@ func newHarness(t *testing.T) testHarness {
 		Browse: library.NewBrowser(database, seeded),
 		Artwork: artwork.NewService(artwork.Parts{
 			Database: database, Queue: jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler)),
-			Store: art, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
+			Store: art, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
 		}),
 		ConfigFile: []ConfigFileKey{{
 			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), Start: json.RawMessage("10"),

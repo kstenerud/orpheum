@@ -5,6 +5,7 @@ package datadir
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -97,6 +98,48 @@ func (directories *Directories) RemoveArt(hash, name string) (err error) {
 	}
 	defer func() { err = errors.Join(err, wrapIf("close the artwork directory", image.Close())) }()
 	return ignoreMissing(wrapIf("remove art "+hash+"/"+name, image.Remove(name)))
+}
+
+// ArtFile is one stored file of one image, and its size.
+type ArtFile struct {
+	Hash string
+	Name string
+	Size int64
+}
+
+// ListArt lists every stored image file with its size: read once when the server starts, so
+// the artwork ceiling keeps a running total rather than walking the tree again (D212 §6). A name
+// the store does not make is skipped.
+func (directories *Directories) ListArt() (files []ArtFile, err error) {
+	cache, err := os.OpenRoot(directories.cache)
+	if err != nil {
+		return nil, fmt.Errorf("open the cache directory: %w", err)
+	}
+	defer func() { _ = cache.Close() }() //nolint:errcheck // read-only
+	images, err := fs.ReadDir(cache.FS(), artDirectory)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("list the artwork: %w", err)
+	}
+	for _, image := range images {
+		if !image.IsDir() || !artHash.MatchString(image.Name()) {
+			continue
+		}
+		sizes, err := fs.ReadDir(cache.FS(), artDirectory+"/"+image.Name())
+		if err != nil {
+			return nil, fmt.Errorf("list art %s: %w", image.Name(), err)
+		}
+		for _, size := range sizes {
+			info, infoErr := size.Info()
+			if infoErr != nil || !info.Mode().IsRegular() || !artFile.MatchString(size.Name()) {
+				continue
+			}
+			files = append(files, ArtFile{Hash: image.Name(), Name: size.Name(), Size: info.Size()})
+		}
+	}
+	return files, nil
 }
 
 // openArt opens one image's directory under the cache's art directory, creating both when

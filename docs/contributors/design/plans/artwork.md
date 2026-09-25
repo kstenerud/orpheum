@@ -6,7 +6,8 @@
 - **Status:** BEING BUILT (M2) — designed 2026-09-19 ([audit-2026-09-19.md](../research/audit-2026-09-19.md) §18).
   Built: the node's re-encode (`internal/node/artwork`); the core fetching TMDB's images,
   sending them to the node and storing its answer; and serving `/art/{hash}/{size}.{format}`,
-  with JPEG and sizes made on request (`internal/core/artwork`). To come: the ceiling.
+  with JPEG and sizes made on request; and the ceiling, its eviction and its high-water warning in
+  `GET /doctor` (`internal/core/artwork`).
 - **Depends on:** library-model.md, scanner.md
 
 ## Why it needs a plan

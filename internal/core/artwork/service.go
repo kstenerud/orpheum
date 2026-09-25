@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -45,6 +46,8 @@ type Store interface {
 	WriteArt(hash, name string, contents []byte) error
 	ReadArt(hash, name string) ([]byte, error)
 	HasArt(hash, name string) (bool, error)
+	RemoveArt(hash, name string) error
+	ListArt() ([]datadir.ArtFile, error)
 }
 
 // Settings are what the service reads from the settings.
@@ -58,6 +61,7 @@ type Parts struct {
 	Queue    Queue
 	Nodes    Nodes
 	Store    Store
+	Cache    *store.Cache // when each image was last served
 	Settings Settings
 	Fetchers map[string]Fetcher // by source: "tmdb"
 	Clock    clock.Clock
@@ -74,6 +78,7 @@ type Service struct {
 	next     int64
 	waiting  map[int64]chan nodeproto.ArtworkResult
 	breakers map[string]*breaker // by source
+	holdings *holdings
 }
 
 // NewService returns the service.
@@ -81,7 +86,10 @@ func NewService(parts Parts) *Service {
 	if parts.Wait == 0 {
 		parts.Wait = defaultWait
 	}
-	return &Service{parts: parts, waiting: map[int64]chan nodeproto.ArtworkResult{}, breakers: map[string]*breaker{}}
+	return &Service{
+		parts: parts, waiting: map[int64]chan nodeproto.ArtworkResult{}, breakers: map[string]*breaker{},
+		holdings: newHoldings(),
+	}
 }
 
 // owed is an artwork job's arguments: the images one item's source names that are not stored.
@@ -151,51 +159,6 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 		}
 		if err != nil {
 			return err
-		}
-	}
-	return nil
-}
-
-// makeSizes makes sizes of a stored image from its source, fetched again. A size the source is
-// too small for, or a source that is gone or changed, is noted so no request asks again.
-func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wanted, args owed) error {
-	shape, known := shapeOf(image.ref.Kind)
-	if !known {
-		return nil
-	}
-	source, err := service.fetch(ctx, fetcher, image.source, image.ref.Ref)
-	if errors.Is(err, ErrNoImage) || (err == nil && source.hash() != args.Hash) {
-		service.parts.Logger.WarnContext(ctx, "an image's source is gone or changed; its larger sizes are not made",
-			"hash", args.Hash, "source", image.source, "ref", image.ref.Ref)
-		return service.cannotMake(args.Hash, args.Sizes)
-	}
-	if err != nil {
-		return err
-	}
-	result, err := service.reEncode(ctx, source, shape, args.Sizes)
-	if err != nil {
-		return err
-	}
-	var unmade []nodeproto.ArtSizeName
-	for _, size := range args.Sizes {
-		made := slices.IndexFunc(result.Images, func(image nodeproto.ArtImage) bool { return image.Size == size })
-		if made < 0 || !isWebP(result.Images[made].Bytes) {
-			unmade = append(unmade, size)
-			continue
-		}
-		err := service.parts.Store.WriteArt(args.Hash, string(size)+webpFormat, result.Images[made].Bytes)
-		if err != nil {
-			return fmt.Errorf("store %s %s: %w", args.Hash, size, err)
-		}
-	}
-	return service.cannotMake(args.Hash, unmade)
-}
-
-// cannotMake notes sizes an image cannot be made at, as empty .none files beside its sizes.
-func (service *Service) cannotMake(hash string, sizes []nodeproto.ArtSizeName) error {
-	for _, size := range sizes {
-		if err := service.parts.Store.WriteArt(hash, string(size)+".none", nil); err != nil {
-			return fmt.Errorf("note %s %s cannot be made: %w", hash, size, err)
 		}
 	}
 	return nil
@@ -322,9 +285,12 @@ func (service *Service) keep(
 	}
 	hash := source.hash()
 	for _, made := range images {
-		if err := service.parts.Store.WriteArt(hash, string(made.Size)+webpFormat, made.Bytes); err != nil {
-			return fmt.Errorf("store %s %s: %w", hash, made.Size, err)
+		if err := service.writeArt(ctx, hash, string(made.Size)+webpFormat, made.Bytes); err != nil {
+			return err
 		}
+	}
+	if err := service.cannotMake(ctx, hash, tooLarge(shape, result.Images)); err != nil {
+		return err
 	}
 	return service.record(ctx, image, source.hash32())
 }

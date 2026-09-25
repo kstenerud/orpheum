@@ -17,6 +17,18 @@
 //   - An image the node refuses, or the source no longer has, is recorded with no hash, so it is
 //     not fetched again and an older image stays shown. TestService_RecordsARefusalAndKeepsTheOlderImage.
 //   - A job with no node connected waits without spending an attempt. TestService_WaitsForANode.
+//   - The cache is held to its ceiling in D212 §6's order — a removed item's images (after their
+//     grace, or sooner under pressure), sizes made on request and JPEG, other sizes, bases — least
+//     recently served first, down to 90% of it; a live item's poster-wall size and the smallest
+//     size of each shape are never evicted, and past the ceiling what they need is reported with
+//     the ceiling to set (D212 §7). TestSweep_EvictsInTheOrderOfD212DownToLowWaterAndNeverAWallSize,
+//     TestSweep_UnderTheCeilingOnlyARemovedItemsImagesGoAndOnlyAfterTheirGrace,
+//     TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling.
+//   - When an image was served is kept to the day, in memory, and written in a batch, never on
+//     the request path. TestFlush_WritesWhenImagesWereServedAndLoadReadsItBack.
+//   - An evicted size is cut again by the node from the image's base, our own WebP, without
+//     fetching; only a size larger than the base, or an image with nothing held, is fetched
+//     again. TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching.
 //   - A missing image is looked into once: its record is refreshed after the CDN stops answering
 //     from its cached 404, and a second miss gives it up (D213 §1).
 //     TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp.
@@ -44,5 +56,6 @@
 //
 //   - source.go: the unsanitised download and the fetcher interface; service.go: the queue's
 //     jobs, the node command and its answer, and the store; serve.go: answering a request;
-//     retry.go: the host's breaker, the retry schedule and the recheck of a missing image.
+//     retry.go: the host's breaker, the retry schedule and the recheck of a missing image;
+//     make.go: making sizes again; ceiling.go: the cache's ceiling, eviction and pressure.
 package artwork

@@ -27,6 +27,8 @@
 //     (/art) also take the media cookie, HttpOnly and SameSite Strict, which the API never does
 //     (D154). Enforced by TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut and
 //     TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt.
+//   - Only an admin sees /doctor; its artwork finding warns at high water with the ceiling to set
+//     (D212 §7). TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling.
 //   - A person with edit_metadata may refresh a title or series whenever they like (D213 §2).
 //     TestIdentification_APersonMayRefreshATitleWheneverTheyLike.
 //   - /health answers before the database is ready, and the rest answers "migrating" until then.

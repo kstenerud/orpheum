@@ -4,6 +4,11 @@
 
 package cachegen
 
+type ArtServed struct {
+	Hash string
+	Day  int64
+}
+
 type Job struct {
 	ID         int64
 	Kind       string

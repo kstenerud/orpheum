@@ -92,6 +92,47 @@ func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (i
 	return id, err
 }
 
+const listArtworkHashes = `-- name: ListArtworkHashes :many
+SELECT artwork.content_hash AS hash,
+  CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS live,
+  CAST(MAX(COALESCE(artwork.removed_at, item.removed_at, 0)) AS INTEGER) AS gone_at
+FROM artwork
+JOIN item ON item.id = artwork.item_id
+WHERE artwork.content_hash IS NOT NULL
+GROUP BY artwork.content_hash
+`
+
+type ListArtworkHashesRow struct {
+	Hash   []byte
+	Live   int64
+	GoneAt int64
+}
+
+// Every stored image, whether a live item shows it, and when it last stopped being shown: what
+// the artwork ceiling reads to find removed items' images, D212 section 6.
+func (q *Queries) ListArtworkHashes(ctx context.Context) ([]ListArtworkHashesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listArtworkHashes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListArtworkHashesRow{}
+	for rows.Next() {
+		var i ListArtworkHashesRow
+		if err := rows.Scan(&i.Hash, &i.Live, &i.GoneAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLiveArtwork = `-- name: ListLiveArtwork :many
 
 SELECT id, kind, source, source_ref, content_hash, chosen

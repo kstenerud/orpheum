@@ -42,6 +42,8 @@ const (
 	ArtworkWebPQuality         Key = "artwork_webp_quality"
 	TMDBRefreshAfterD          Key = "tmdb_refresh_after_d"
 	RefreshCheckEveryH         Key = "refresh_check_every_h"
+	ArtworkCacheCeilingGiB     Key = "artwork_cache_ceiling_gib"
+	ArtworkRemovedGraceD       Key = "artwork_removed_grace_d"
 )
 
 // Scope is whose a setting is.
@@ -166,6 +168,10 @@ func metadataDefinitions() []Definition {
 				"0 never refreshes (D213)"),
 		integer(RefreshCheckEveryH, "24", 1, 8760,
 			"hours between looks for titles whose data is due to be fetched again (D213)"),
+		integer(ArtworkCacheCeilingGiB, "20", 1, 1<<20,
+			"GiB the artwork cache may hold; past it, what can be made again is evicted (D212 §6)"),
+		integer(ArtworkRemovedGraceD, "30", 0, 3650,
+			"days a removed item's artwork is kept, in case its disk comes back (D212 §6)"),
 	}
 }
 
