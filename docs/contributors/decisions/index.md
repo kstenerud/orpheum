@@ -78,7 +78,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D69](working-notes.md#d69--group-size-is-a-priority-order-not-a-capability-two-then-four-or-five-then-a-party) Group size is a priority order, not a capability: two, then four or five, then a party
 - [D70](working-notes.md#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible) Hosted fan-out is the right shape for remote party viewing, and the cheap part is keeping it possible
 - [D71](working-notes.md#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it) One relay artefact, three jobs, and the core dials out to it — *revisited by D152, D193*
-- [D72](working-notes.md#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts) The hosted relay has no free tier, holds no data, and has no accounts — *revisited by D73*
+- [D72](working-notes.md#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts) The hosted relay has no free tier, holds no data, and has no accounts — *revisited by D73, D214*
 - [D73](working-notes.md#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque) Each component reports according to its own visibility; blind is not opaque — *revisited by D152*
 - [D74](working-notes.md#d74--bug-reports-pseudonymise-rather-than-redact-and-fan-in-across-components) Bug reports pseudonymise rather than redact, and fan in across components
 - [D75](working-notes.md#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable) One predicate language, three bindings; a typed field registry is the schema deliverable — *revisited by D76, D84, D98, D164*
@@ -219,6 +219,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D211](working-notes.md#d211--text-hygiene-a-file-is-known-by-its-bytes-display-text-goes-through-one-sanitiser-subtitles-are-converted-before-they-are-shown-and-usernames-are-compared-by-skeleton) Text hygiene: a file is known by its bytes, display text goes through one sanitiser, subtitles are converted before they are shown, and usernames are compared by skeleton
 - [D212](working-notes.md#d212--artwork-every-image-re-encoded-by-the-node-a-webp-base-kept-by-the-core-nine-sizes-jpeg-cut-by-the-core-and-a-ceiling-that-evicts-what-can-be-remade) Artwork: every image re-encoded by the node, a WebP base kept by the core, nine sizes, JPEG cut by the core, and a ceiling that evicts what can be remade
 - [D213](working-notes.md#d213--a-good-netizen-a-dead-image-is-checked-once-more-refresh-rolls-per-provider-and-nothing-is-deleted-because-a-provider-dropped-it) A good netizen: a dead image is checked once more, refresh rolls per provider, and nothing is deleted because a provider dropped it
+- [D214](working-notes.md#d214--a-later-commercial-service-connects-clients-to-a-core-without-carrying-content-the-hosted-relay-stays-deferred) A later commercial service connects clients to a core without carrying content; the hosted relay stays deferred
 
 ## Archived
 
