@@ -16,12 +16,15 @@
 //     TestAgent_RefusesToScanARootItWasNotGiven.
 //   - Losing the core ends the session and the next tick starts another.
 //     TestAgent_SaysHelloAgainAfterLosingTheCore.
+//   - An artwork command's answer — the sizes the deriver made, or why none — is posted to the
+//     core's artwork path (D212 §8). TestAgent_ReEncodesArtworkAndPostsTheAnswer.
 //
 // # Read before changing
 //
 //   - D107: a node's roots are set on the node.
 //   - D127, D193 §4: the node dials out; the one transport is HTTP and JSONL over a Unix socket.
 //   - D34: silence is only ever read as silence; the status record is how a node is heard.
+//   - D212: artwork is re-encoded here, and posted to the core.
 //   - docs/contributors/design/plans/cut-a.md §4.
 //
 // # Where to change

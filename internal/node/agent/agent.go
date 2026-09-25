@@ -34,6 +34,17 @@ type Scanner interface {
 	Scan(ctx context.Context, root *confine.MediaRoot, emit scan.Emit) error
 }
 
+// Artworker re-encodes an image; artwork.Deriver is the real one (D212).
+type Artworker interface {
+	Derive(ctx context.Context, command nodeproto.Artwork) nodeproto.ArtworkResult
+}
+
+// Workers are what the agent runs commands with.
+type Workers struct {
+	Scanner Scanner
+	Artwork Artworker
+}
+
 // Agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
 // commands and runs them one at a time, and streams its report — scan records and a status
 // record every tick — as one JSONL request. When anything breaks it waits for the next tick and
@@ -42,7 +53,7 @@ type Agent struct {
 	client  *http.Client
 	hello   nodeproto.Hello
 	roots   map[string]*confine.MediaRoot
-	scanner Scanner
+	workers Workers
 	clock   clock.Clock
 	logger  *slog.Logger
 
@@ -53,7 +64,7 @@ type Agent struct {
 // New returns an agent that talks to the core at socketPath. The hello is sent as given, with
 // the roots' paths filled in.
 func New(
-	socketPath string, hello nodeproto.Hello, roots []*confine.MediaRoot, scanner Scanner, now clock.Clock,
+	socketPath string, hello nodeproto.Hello, roots []*confine.MediaRoot, workers Workers, now clock.Clock,
 	logger *slog.Logger,
 ) *Agent {
 	byPath := make(map[string]*confine.MediaRoot, len(roots))
@@ -69,7 +80,7 @@ func New(
 		},
 	}
 	return &Agent{
-		client: &http.Client{Transport: transport}, hello: hello, roots: byPath, scanner: scanner,
+		client: &http.Client{Transport: transport}, hello: hello, roots: byPath, workers: workers,
 		clock: now, logger: logger, doing: "idle",
 	}
 }
@@ -105,7 +116,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	var running sync.WaitGroup
 	running.Go(func() { cancel(agent.stream(ctx, reply.NodeID, report)) })
 	running.Go(func() { cancel(agent.poll(ctx, reply.NodeID, work)) })
-	running.Go(func() { cancel(agent.work(ctx, work, report)) })
+	running.Go(func() { cancel(agent.work(ctx, reply.NodeID, work, report)) })
 	running.Go(func() {
 		for {
 			select {
@@ -154,13 +165,13 @@ func (agent *Agent) poll(ctx context.Context, nodeID int64, work chan<- nodeprot
 }
 
 // work runs commands one at a time.
-func (agent *Agent) work(ctx context.Context, work <-chan nodeproto.Command, report *report) error {
+func (agent *Agent) work(ctx context.Context, nodeID int64, work <-chan nodeproto.Command, report *report) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("worker stopped: %w", ctx.Err())
 		case command := <-work:
-			if err := agent.run(ctx, command, report); err != nil {
+			if err := agent.run(ctx, nodeID, command, report); err != nil {
 				return err
 			}
 		}
@@ -169,7 +180,10 @@ func (agent *Agent) work(ctx context.Context, work <-chan nodeproto.Command, rep
 
 // run carries out one command. A scan of a root the node was not configured with is refused,
 // whatever the core asks (D107).
-func (agent *Agent) run(ctx context.Context, command nodeproto.Command, report *report) error {
+func (agent *Agent) run(ctx context.Context, nodeID int64, command nodeproto.Command, report *report) error {
+	if command.Type == nodeproto.CommandArtwork && command.Artwork != nil {
+		return agent.artwork(ctx, nodeID, *command.Artwork)
+	}
 	if command.Type == nodeproto.CommandScan {
 		root, known := agent.roots[command.Scan.Root]
 		if !known {
@@ -178,7 +192,8 @@ func (agent *Agent) run(ctx context.Context, command nodeproto.Command, report *
 		}
 		agent.setDoing("scanning " + root.Path())
 		defer agent.setDoing("idle")
-		err := agent.scanner.Scan(ctx, root, func(record nodeproto.Record) error { return report.emit(ctx, record) })
+		emit := func(record nodeproto.Record) error { return report.emit(ctx, record) }
+		err := agent.workers.Scanner.Scan(ctx, root, emit)
 		if err != nil && ctx.Err() == nil {
 			agent.logger.WarnContext(ctx, "a scan ended early", "root", root.Path(), "err", err)
 		}
@@ -186,6 +201,24 @@ func (agent *Agent) run(ctx context.Context, command nodeproto.Command, report *
 	}
 	agent.logger.WarnContext(ctx, "ignored a command this node does not know", "type", command.Type)
 	return nil
+}
+
+// artwork re-encodes an image and posts the answer — the sizes, or why there are none — to the
+// core, whose artwork store takes images from nowhere else (D212 §8).
+func (agent *Agent) artwork(ctx context.Context, nodeID int64, command nodeproto.Artwork) error {
+	agent.setDoing("re-encoding artwork")
+	defer agent.setDoing("idle")
+	result := agent.workers.Artwork.Derive(ctx, command)
+	if result.Refused != "" {
+		agent.logger.WarnContext(ctx, "refused an image", "job", command.Job, "why", result.Refused)
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("encode artwork %d: %w", command.Job, err)
+	}
+	var accepted struct{}
+	body := bytes.NewReader(encoded)
+	return agent.exchange(ctx, http.MethodPost, nodeproto.PathArtwork, nodeID, body, &accepted)
 }
 
 func (agent *Agent) setDoing(doing string) {

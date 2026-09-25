@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -26,12 +27,16 @@ type fakeCore struct {
 	hellos      []nodeproto.Hello
 	commands    chan nodeproto.Command
 	records     chan nodeproto.Record
+	artwork     chan nodeproto.ArtworkResult
 	dropReports int // the first reports it ends at once, as a core that went away would
 }
 
 func startFakeCore(t *testing.T) (*fakeCore, string) {
 	t.Helper()
-	core := &fakeCore{commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64)}
+	core := &fakeCore{
+		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
+		artwork: make(chan nodeproto.ArtworkResult, 4),
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, func(writer http.ResponseWriter, request *http.Request) {
 		var hello nodeproto.Hello
@@ -77,6 +82,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 			core.records <- record
 		}
 	})
+	mux.HandleFunc("POST "+nodeproto.PathArtwork, core.artworkHandler(t))
 	socket := filepath.Join(t.TempDir(), "c.sock")
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", socket)
 	if err != nil {
@@ -86,6 +92,21 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	go func() { _ = server.Serve(listener) }() //nolint:errcheck // ends when the test closes it
 	t.Cleanup(func() { _ = server.Close() })   //nolint:errcheck // test teardown
 	return core, socket
+}
+
+// artworkHandler hands the test each artwork answer the node posts.
+func (core *fakeCore) artworkHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(writer http.ResponseWriter, request *http.Request) {
+		var result nodeproto.ArtworkResult
+		if err := json.NewDecoder(request.Body).Decode(&result); err != nil {
+			t.Error(err)
+		}
+		core.artwork <- result
+		if _, err := writer.Write([]byte("{}")); err != nil {
+			t.Error(err)
+		}
+	}
 }
 
 func (core *fakeCore) helloCount() int {
@@ -109,6 +130,17 @@ func (fakeScanner) Scan(_ context.Context, root *confine.MediaRoot, emit scan.Em
 	return nil
 }
 
+// fakeArtwork answers every artwork command with one size, the source's bytes reversed.
+type fakeArtwork struct{}
+
+func (fakeArtwork) Derive(_ context.Context, command nodeproto.Artwork) nodeproto.ArtworkResult {
+	reversed := slices.Clone(command.Source)
+	slices.Reverse(reversed)
+	return nodeproto.ArtworkResult{
+		Job: command.Job, Images: []nodeproto.ArtImage{{Size: nodeproto.PortraitS, Bytes: reversed}},
+	}
+}
+
 func running(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
 	t.Helper()
 	root, err := confine.OpenMediaRoot(t.TempDir())
@@ -117,7 +149,8 @@ func running(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
 	}
 	t.Cleanup(func() { _ = root.Close() }) //nolint:errcheck // test teardown
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
-	node := New(socket, nodeproto.Hello{Name: "local", Version: "test"}, []*confine.MediaRoot{root}, fakeScanner{},
+	workers := Workers{Scanner: fakeScanner{}, Artwork: fakeArtwork{}}
+	node := New(socket, nodeproto.Hello{Name: "local", Version: "test"}, []*confine.MediaRoot{root}, workers,
 		now, slog.New(slog.DiscardHandler))
 	tick := make(chan time.Time)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -204,5 +237,23 @@ func TestAgent_SaysHelloAgainAfterLosingTheCore(t *testing.T) {
 	}
 	if count := core.helloCount(); count != 2 {
 		t.Errorf("%d hellos, want 2: one per session", count)
+	}
+}
+
+func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	running(t, socket)
+	core.commands <- nodeproto.Command{Seq: 1, Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
+		Job: 12, Source: []byte("abc"), Shape: nodeproto.ShapePortrait,
+		Sizes: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+	}}
+	select {
+	case result := <-core.artwork:
+		if result.Job != 12 || len(result.Images) != 1 || string(result.Images[0].Bytes) != "cba" {
+			t.Errorf("the core heard %+v", result)
+		}
+	case <-t.Context().Done():
+		t.Fatal("no artwork answer reached the core")
 	}
 }
