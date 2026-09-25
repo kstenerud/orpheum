@@ -16220,5 +16220,6 @@ the display."* Extends [D49](#d49--unicode-discipline-at-the-boundaries-enforced
 4. **Usernames are compared by their Unicode confusable skeleton**, so a look-alike of an
    existing name is refused (M4, with invites).
 
-**Status:** Decided. Item 1 built with this decision; item 2 before the web client shows names;
-items 3 and 4 with their milestones.
+**Status:** Decided. Items 1 and 2 built with this decision (`internal/core/textindex`'s
+`Line` and `Prose`, applied where the pass writes a name and where the API shows a path or a
+track title); items 3 and 4 with their milestones.

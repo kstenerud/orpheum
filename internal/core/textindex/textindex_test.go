@@ -5,7 +5,9 @@ package textindex
 import (
 	"bytes"
 	"slices"
+	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestFold_OneNormaliserForEveryScript(t *testing.T) {
@@ -71,5 +73,32 @@ func TestPlanQuery_RoutesByLengthAndScript(t *testing.T) {
 		if got := PlanQuery(query); got != want {
 			t.Errorf("PlanQuery(%q) = %+v, want %+v", query, got, want)
 		}
+	}
+}
+
+func TestClean_NothingShownCanLieOrSpill(t *testing.T) {
+	t.Parallel()
+	zalgo := "Z" + strings.Repeat("\u0301", 40) + "algo"
+	for input, want := range map[string]string{
+		"evil\u202Evkm.exe":           "evilvkm.exe", // a right-to-left override
+		"a\u2066b\u2069c":             "abc",         // isolates
+		"in\u200Bvisible\uFEFF":       "invisible",   // zero width space, BOM
+		"tab\tand\nnewline\r\x07bell": "tab and newline bell",
+		"  spaced   out  ":            "spaced out",
+		"c1\u0085control":             "c1 control",
+		"bad \xff byte":               "bad � byte",
+		zalgo:                         "Z\u0301\u0301\u0301\u0301algo",
+		"Việt Nam":                    "Việt Nam", // marks a real script needs
+		"👩\u200D💻 مرحبا\u200Fعالم": "👩\u200D💻 مرحبا\u200Fعالم", // ZWJ and RLM kept
+	} {
+		if got := Line(input); got != want {
+			t.Errorf("Line(%q) = %q, want %q", input, got, want)
+		}
+	}
+	if got := Prose("One.\n\n\n\nTwo.\r\nThree."); got != "One.\n\nTwo.\nThree." {
+		t.Errorf("Prose = %q; paragraph breaks kept, at most two, and CRLF one break", got)
+	}
+	if got := Line(strings.Repeat("x", 600)); utf8.RuneCountInString(got) != MaxNameRunes {
+		t.Errorf("a 600-rune name kept %d runes, want %d", utf8.RuneCountInString(got), MaxNameRunes)
 	}
 }

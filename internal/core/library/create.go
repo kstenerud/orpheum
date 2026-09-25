@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -31,6 +32,7 @@ type NewLibrary struct {
 // Create adds a library and its roots. The schema's checks refuse a kind or an answer outside
 // the closed sets.
 func Create(ctx context.Context, database *store.Database, now clock.Clock, library NewLibrary) (int64, error) {
+	library.Name = textindex.Line(library.Name) // a person's text is shown to others (D211 §2)
 	var id int64
 	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		_, err := store.One(queries.GetLiveLibraryByName(ctx, library.Name))

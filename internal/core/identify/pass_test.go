@@ -371,3 +371,15 @@ func TestRefreshSortKeys_ALocaleChangeTakesEffectWithoutAScan(t *testing.T) {
 		t.Errorf("a second refresh wrote %d (%v); nothing was missing", written, err)
 	}
 }
+
+// D211 §2: a name from a path or an NFO is stored as a display may show it.
+func TestPass_ANameIsStoredClean(t *testing.T) {
+	t.Parallel()
+	lib := newWorld(t, "movies", "nfo_then_tmdb")
+	hostile := "<movie><title>Metropolis\u202Evkm.exe\u200B</title><year>1995</year>" +
+		"<plot>A saga.\n\n\n\nThe end.</plot></movie>"
+	lib.scan(video("Metropolis (1995).mkv"), nfo("Metropolis (1995).nfo", hostile))
+	if got := name(lib.files()["Metropolis (1995).mkv"]); got != "Heatvkm.exe" {
+		t.Errorf("stored name %q; want the override and the zero-width space gone", got)
+	}
+}

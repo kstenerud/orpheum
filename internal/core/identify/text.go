@@ -18,9 +18,13 @@ type itemText struct {
 	tagline  string
 }
 
-// writeText writes an item's text, with its name folded by the one normaliser for search (D48)
-// and its sort key in the library's locale (D47): the only way the pass names anything.
+// writeText writes an item's text, cleaned by the one display sanitiser (D211 §2), with its name
+// folded by the one normaliser for search (D48) and its sort key in the library's locale (D47):
+// the only way the pass names anything, so no name from a path, an NFO, a provider or a person
+// is stored unclean.
 func (work *run) writeText(ctx context.Context, itemID int64, text itemText) error {
+	text.name, text.tagline = textindex.Line(text.name), textindex.Line(text.tagline)
+	text.overview = textindex.Prose(text.overview)
 	err := work.queries.UpsertOriginalText(ctx, sqlcgen.UpsertOriginalTextParams{
 		ItemID: itemID, Lang: langUnknown, Name: text.name, Overview: optional(text.overview),
 		Tagline: optional(text.tagline), SearchAlt: optional(textindex.Fold(text.name)),
