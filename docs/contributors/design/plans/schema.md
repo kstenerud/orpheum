@@ -309,6 +309,7 @@ CREATE TABLE item_text (                                   -- class O/F, resolve
   name        TEXT NOT NULL,
   overview    TEXT,
   tagline     TEXT,
+  search_alt  TEXT,                      -- migration 0010: the name, folded for search (D48)
   PRIMARY KEY (item_id, lang)
 );
 CREATE UNIQUE INDEX item_text_original ON item_text(item_id) WHERE is_original = 1;
@@ -329,13 +330,18 @@ CREATE TABLE sort_key (                                    -- class C (D47)
 ) WITHOUT ROWID;
 
 CREATE VIRTUAL TABLE item_fts USING fts5(                 -- class C (D48)
-  name, overview, content='item_text', content_rowid='rowid',
+  name, search_alt, overview, content='item_text', content_rowid='rowid',
   tokenize='unicode61 remove_diacritics 2'
 );
 CREATE VIRTUAL TABLE item_fts_tri USING fts5(
-  name, content='item_text', content_rowid='rowid', tokenize='trigram'
+  name, search_alt, content='item_text', content_rowid='rowid', tokenize='trigram'
 );
 ```
+
+**Migration 0010 adds D48's alternates**, which 0001 left out: `item_text.search_alt` is the name
+folded by the one normaliser in Go (`internal/core/textindex`), and both indexes take it, so
+"Bjork" finds "Bjørk". The triggers below index it beside the name. Search's statements are
+hand-written in `internal/store/search.go`, because sqlc cannot parse FTS5's `MATCH`.
 
 ```sql
 CREATE TRIGGER item_text_ai AFTER INSERT ON item_text BEGIN

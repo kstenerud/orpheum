@@ -7,11 +7,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -31,6 +33,7 @@ type world struct {
 	provider  *fakeProvider
 	matcher   *Matcher
 	chooser   *Chooser
+	settings  *settings.Service
 	clock     *clocktest.Fake
 	nodeID    int64
 	libraryID int64
@@ -44,10 +47,11 @@ func newWorld(t *testing.T, kind, source string) *world {
 	logger := slog.New(slog.DiscardHandler)
 	provider := newFakeProvider()
 	providers := Providers{"tmdb": provider}
+	config := settingstest.Seeded(t, database)
 	created := &world{
-		t: t, database: database, clock: now, provider: provider,
-		ingester: library.NewIngester(database, now, settingstest.Seeded(t, database), logger),
-		pass:     NewPass(database, now, logger, providers),
+		t: t, database: database, clock: now, provider: provider, settings: config,
+		ingester: library.NewIngester(database, now, config, logger),
+		pass:     NewPass(database, now, logger, providers, config),
 	}
 	created.matcher = NewMatcher(database, storetest.OpenCache(t), created.pass, now, logger)
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
@@ -313,5 +317,27 @@ func TestPass_ATitleFollowsItsFilesToAnotherLibrary(t *testing.T) {
 	if rows[0].TitleID != the kid {
 		t.Errorf("The Kid in Kids is title %d, want %d: the title follows its files (D208 §2)",
 			rows[0].TitleID, the kid)
+	}
+}
+
+func TestPass_NamesAreSortedAndFoundInEveryScript(t *testing.T) {
+	t.Parallel()
+	lib := newWorld(t, "movies", "nfo")
+	lib.scan(video("Sølvi Live (2020).mkv"), video("Fièvre (2001).mkv"), video("十字路 (2001).mkv"))
+	browser := library.NewBrowser(lib.database, lib.settings)
+	byName := library.ListQuery{List: library.ListFilms, Sort: library.SortName, Limit: 10}
+	listed, err := browser.List(t.Context(), byName)
+	var order []string
+	for _, entry := range listed.Entries {
+		order = append(order, entry.Name)
+	}
+	if err != nil || !slices.Equal(order, []string{"Fièvre", "Sølvi Live", "十字路"}) {
+		t.Errorf("films by name = %v, %v", order, err)
+	}
+	for query, want := range map[string]string{"solvi": "Sølvi Live", "十字": "十字路", "ame": "Fièvre"} {
+		hits, err := browser.Search(t.Context(), query, 5)
+		if err != nil || len(hits) == 0 || hits[0].Name != want {
+			t.Errorf("Search(%q) = %+v, %v; want %q", query, hits, err, want)
+		}
 	}
 }

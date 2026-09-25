@@ -41,6 +41,8 @@
 //     TestLibraries_AnAdminCreatesOneOverTheNodesRoots,
 //     TestLibraries_AUserSeesTheLibrariesButNotTheirMachinery, TestFiles_PagesWhatTheScannerSaw
 //     and TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk.
+//   - Any signed-in user browses films and series, a title's detail, a series and search; a
+//     file's path is shown to an admin only. Enforced by TestBrowse_ListsDetailsSeriesAndSearch.
 //   - A chosen match is confirmed, and an override is set and removed, through the identify
 //     package (D172, D183). Enforced by TestIdentification_APersonChoosesAnAmbiguousTitlesMatch and
 //     TestIdentification_OverridesAreSetAndRemoved.
@@ -58,7 +60,7 @@
 // # Where to change
 //
 //   - One file per endpoint group of cut-a §5: session.go (setup and auth), settings.go,
-//     secrets.go, health.go, identification.go, libraries.go; later groups add theirs. server.go
+//     secrets.go, health.go, identification.go, libraries.go, browse.go; later groups add theirs. server.go
 //     holds the readiness gate and the
 //     authentication helpers. M1 builds setup, sessions, settings and secrets (D198).
 //   - api/openapi.json is generated with `orpheum openapi`; regenerate it after any change here.

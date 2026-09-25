@@ -136,6 +136,13 @@ func (service *Service) Int(ctx context.Context, key Key) (int64, error) {
 	return value, err
 }
 
+// String reads a string server setting.
+func (service *Service) String(ctx context.Context, key Key) (string, error) {
+	var value string
+	err := service.read(ctx, key, KindString, &value)
+	return value, err
+}
+
 // Bool reads a boolean server setting.
 func (service *Service) Bool(ctx context.Context, key Key) (bool, error) {
 	var value bool
@@ -277,8 +284,8 @@ func fits(decoded any, definition Definition) bool {
 		return isNumber && number == float64(int64(number)) &&
 			int64(number) >= definition.Minimum && int64(number) <= definition.Maximum
 	case KindString:
-		_, isString := decoded.(string)
-		return isString
+		text, isString := decoded.(string)
+		return isString && (definition.Pattern == nil || definition.Pattern.MatchString(text))
 	}
 	return false
 }

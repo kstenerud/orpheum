@@ -205,11 +205,11 @@ func (work *run) resolveSeries(ctx context.Context, seriesID int64, spec seriesS
 	if err != nil {
 		return fmt.Errorf("resolve series %d: %w", seriesID, err)
 	}
-	err = work.queries.UpsertOriginalText(ctx, sqlcgen.UpsertOriginalTextParams{
-		ItemID: seriesID, Lang: langUnknown, Name: values[fieldName], Overview: optional(values[fieldOverview]),
+	err = work.writeText(ctx, seriesID, itemText{
+		listing: KindSeries, name: values[fieldName], overview: values[fieldOverview],
 	})
 	if err != nil {
-		return fmt.Errorf("name series %d: %w", seriesID, err)
+		return err
 	}
 	if known && seriesMatched(current) {
 		seasons, err := seasonsToFetch(ctx, work.queries, provider, seriesID)

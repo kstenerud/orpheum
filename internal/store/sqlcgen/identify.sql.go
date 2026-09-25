@@ -33,6 +33,23 @@ func (q *Queries) CountLiveFilesOfTitle(ctx context.Context, titleID int64) (int
 	return count, err
 }
 
+const deleteItemSortKeys = `-- name: DeleteItemSortKeys :exec
+DELETE FROM sort_key
+WHERE item_id = ?1 AND locale = ?2
+`
+
+type DeleteItemSortKeysParams struct {
+	ItemID int64
+	Locale string
+}
+
+// An item's sort keys in one locale, replaced whenever its name is written (D47). sort_key is
+// a cache (class C).
+func (q *Queries) DeleteItemSortKeys(ctx context.Context, arg DeleteItemSortKeysParams) error {
+	_, err := q.db.ExecContext(ctx, deleteItemSortKeys, arg.ItemID, arg.Locale)
+	return err
+}
+
 const getLibraryForIdentify = `-- name: GetLibraryForIdentify :one
 SELECT id, kind, metadata_source FROM library WHERE id = ? AND removed_at IS NULL
 `
@@ -186,6 +203,28 @@ func (q *Queries) InsertOverrideIfAbsent(ctx context.Context, arg InsertOverride
 		arg.Value,
 		arg.Origin,
 		arg.SetAt,
+	)
+	return err
+}
+
+const insertSortKey = `-- name: InsertSortKey :exec
+INSERT INTO sort_key (item_id, locale, listing, key)
+VALUES (?1, ?2, ?3, ?4)
+`
+
+type InsertSortKeyParams struct {
+	ItemID  int64
+	Locale  string
+	Listing string
+	Key     []byte
+}
+
+func (q *Queries) InsertSortKey(ctx context.Context, arg InsertSortKeyParams) error {
+	_, err := q.db.ExecContext(ctx, insertSortKey,
+		arg.ItemID,
+		arg.Locale,
+		arg.Listing,
+		arg.Key,
 	)
 	return err
 }
@@ -691,20 +730,24 @@ func (q *Queries) UpsertCollectionMember(ctx context.Context, arg UpsertCollecti
 }
 
 const upsertOriginalText = `-- name: UpsertOriginalText :exec
-INSERT INTO item_text (item_id, lang, is_original, name, overview, tagline)
-VALUES (?1, ?2, 1, ?3, ?4, ?5)
+INSERT INTO item_text (item_id, lang, is_original, name, overview, tagline, search_alt)
+VALUES (?1, ?2, 1, ?3, ?4, ?5,
+  ?6)
 ON CONFLICT (item_id, lang) DO UPDATE SET
-  is_original = 1, name = excluded.name, overview = excluded.overview, tagline = excluded.tagline
+  is_original = 1, name = excluded.name, overview = excluded.overview, tagline = excluded.tagline,
+  search_alt = excluded.search_alt
 `
 
 type UpsertOriginalTextParams struct {
-	ItemID   int64
-	Lang     string
-	Name     string
-	Overview *string
-	Tagline  *string
+	ItemID    int64
+	Lang      string
+	Name      string
+	Overview  *string
+	Tagline   *string
+	SearchAlt *string
 }
 
+// search_alt is the name as the one normaliser folds it (D48), which both search indexes take.
 func (q *Queries) UpsertOriginalText(ctx context.Context, arg UpsertOriginalTextParams) error {
 	_, err := q.db.ExecContext(ctx, upsertOriginalText,
 		arg.ItemID,
@@ -712,6 +755,7 @@ func (q *Queries) UpsertOriginalText(ctx context.Context, arg UpsertOriginalText
 		arg.Name,
 		arg.Overview,
 		arg.Tagline,
+		arg.SearchAlt,
 	)
 	return err
 }

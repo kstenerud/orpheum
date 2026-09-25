@@ -62,10 +62,23 @@ UPDATE title SET
 WHERE id = sqlc.arg(id);
 
 -- name: UpsertOriginalText :exec
-INSERT INTO item_text (item_id, lang, is_original, name, overview, tagline)
-VALUES (sqlc.arg(item_id), sqlc.arg(lang), 1, sqlc.arg(name), sqlc.arg(overview), sqlc.arg(tagline))
+-- search_alt is the name as the one normaliser folds it (D48), which both search indexes take.
+INSERT INTO item_text (item_id, lang, is_original, name, overview, tagline, search_alt)
+VALUES (sqlc.arg(item_id), sqlc.arg(lang), 1, sqlc.arg(name), sqlc.arg(overview), sqlc.arg(tagline),
+  sqlc.arg(search_alt))
 ON CONFLICT (item_id, lang) DO UPDATE SET
-  is_original = 1, name = excluded.name, overview = excluded.overview, tagline = excluded.tagline;
+  is_original = 1, name = excluded.name, overview = excluded.overview, tagline = excluded.tagline,
+  search_alt = excluded.search_alt;
+
+-- name: DeleteItemSortKeys :exec
+-- An item's sort keys in one locale, replaced whenever its name is written (D47). sort_key is
+-- a cache (class C).
+DELETE FROM sort_key
+WHERE item_id = sqlc.arg(item_id) AND locale = sqlc.arg(locale);
+
+-- name: InsertSortKey :exec
+INSERT INTO sort_key (item_id, locale, listing, key)
+VALUES (sqlc.arg(item_id), sqlc.arg(locale), sqlc.arg(listing), sqlc.arg(key));
 
 -- name: InsertItemProviderID :exec
 INSERT INTO item_provider_id (item_id, provider, provider_id)

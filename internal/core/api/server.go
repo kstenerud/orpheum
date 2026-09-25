@@ -50,6 +50,8 @@ type Dependencies struct {
 	Identify *identify.Chooser
 	// Libraries is what an admin does with libraries: create, list, scan, and the scanner view.
 	Libraries *library.Admin
+	// Browse is what a person browses and searches.
+	Browse *library.Browser
 	// ConfigFile is the config file's keys as the server runs with them, for /config to show.
 	ConfigFile []ConfigFileKey
 }
@@ -92,6 +94,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerSecrets()
 	server.registerIdentification()
 	server.registerLibraries()
+	server.registerBrowse()
 	return server
 }
 

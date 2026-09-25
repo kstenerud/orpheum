@@ -61,6 +61,8 @@
 //     TestSeries_AnEpisodeAddedAfterTheSeriesWasRenamedJoinsIt.
 //   - A provider's episode ids never find a film, nor its film ids an episode.
 //     Enforced by titleByProviderID's kind filter; review.
+//   - Every name the pass writes is folded for search and given a sort key in the sort_locale,
+//     through writeText alone (D47, D48). TestPass_NamesAreSortedAndFoundInEveryScript.
 //   - One work found as two titles in a library becomes one, the other a tombstone pointing at it
 //     (D173). TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst.
 //

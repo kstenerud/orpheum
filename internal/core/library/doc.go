@@ -42,6 +42,11 @@
 //     waiting, once; a disk the admin says is gone loses its boundary, and its files go with that
 //     scan (D208). TestScenario_S7_AnApprovedRemovalGoesAheadOnTheNextScanOnly,
 //     TestScenario_S7b_AGoneDiskIsForgottenAndItsFilesRemoved.
+//   - Films and series are listed in the sort_locale's order (D47) or newest first, a page at a
+//     time behind an opaque cursor, and only those with a live file. TestBrowse_FilmsInTheLocalesOrderAPageAtATime,
+//     TestBrowse_FilmsNewestFirst.
+//   - A search is folded and routed by internal/core/textindex and answered by the index that
+//     can (D48). TestSearch_EveryRouteFindsWhatItShould.
 //   - A library covers only roots its node configured, as the node's hello named them (D107);
 //     creating one scans it. TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt.
 //     TestScenario_S10_AFilmPutBackRevivesItsTombstone.
@@ -59,5 +64,6 @@
 //
 //   - ingest.go, observe.go, complete.go, sidecar.go: the report ingest; streams.go: the stream rows a probe
 //     derives; create.go: libraries; admin.go: what an admin does with them (create over a node's
-//     roots, list, scan, the scanner view). Browse and search come later in M2.
+//     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
+//     series' episodes, and search.
 package library

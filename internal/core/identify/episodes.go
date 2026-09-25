@@ -176,10 +176,8 @@ func (work *run) seriesFor(ctx context.Context, name string) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("add series %q: %w", name, err)
 	}
-	named := sqlcgen.UpsertOriginalTextParams{ItemID: id, Lang: langUnknown, Name: name}
-	err = work.queries.UpsertOriginalText(ctx, named)
-	if err != nil {
-		return 0, fmt.Errorf("name series %q: %w", name, err)
+	if err := work.writeText(ctx, id, itemText{listing: KindSeries, name: name}); err != nil {
+		return 0, err
 	}
 	work.series[strings.ToLower(name)] = id
 	return id, nil
