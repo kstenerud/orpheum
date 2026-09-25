@@ -99,13 +99,19 @@ type Artwork struct {
 // PathArtwork is where the node posts an artwork command's answer.
 const PathArtwork = "/node/v1/artwork"
 
+// ArtImage is one size the node made: our own encoder's WebP.
+type ArtImage struct {
+	Size  ArtSizeName `json:"size"`
+	Bytes []byte      `json:"bytes"`
+}
+
 // ArtworkResult is the node's answer: every size it made, as our own encoder wrote it, or why it
 // made none.
 type ArtworkResult struct {
-	Job    int64                  `json:"job"`
-	Width  int                    `json:"width"`
-	Height int                    `json:"height"`
-	Images map[ArtSizeName][]byte `json:"images"`
+	Job    int64      `json:"job"`
+	Width  int        `json:"width"`
+	Height int        `json:"height"`
+	Images []ArtImage `json:"images"`
 	// Refused says why no size was made: over the pixel limit, not an image, a failed encode.
 	Refused string `json:"refused,omitempty"`
 }

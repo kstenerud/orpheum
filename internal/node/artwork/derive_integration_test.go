@@ -42,6 +42,16 @@ func withComment(t *testing.T, jpeg []byte, comment string) []byte {
 	return append(append(append([]byte{}, jpeg[:2]...), segment...), jpeg[2:]...)
 }
 
+// imageOf is the size's bytes in a result, or nil.
+func imageOf(result nodeproto.ArtworkResult, size nodeproto.ArtSizeName) []byte {
+	for _, image := range result.Images {
+		if image.Size == size {
+			return image.Bytes
+		}
+	}
+	return nil
+}
+
 func newDeriver(t *testing.T) (*Deriver, *execx.Runner) {
 	t.Helper()
 	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
@@ -90,15 +100,15 @@ func TestDerive_AJPEGPosterBecomesOurOwnWebPAtEverySizeItIsLargeEnoughFor(t *tes
 		width, height int
 	}{{nodeproto.PortraitS, 240, 360}, {nodeproto.PortraitM, 480, 720}} {
 		name := want.name
-		width, height, codec := dimensionsOf(t, deriver, result.Images[name])
+		width, height, codec := dimensionsOf(t, deriver, imageOf(result, name))
 		if width != want.width || height != want.height || codec != "webp" {
 			t.Errorf("%s: %d×%d %s, want %d×%d webp", name, width, height, codec, want.width, want.height)
 		}
-		if bytes.Contains(result.Images[name], []byte("SECRET-COMMENT")) {
+		if bytes.Contains(imageOf(result, name), []byte("SECRET-COMMENT")) {
 			t.Errorf("%s carries the source's metadata", name)
 		}
 	}
-	if _, made := result.Images["portrait-l"]; made {
+	if imageOf(result, nodeproto.PortraitL) != nil {
 		t.Error("portrait-l was made from a 900×1350 source: an upscale")
 	}
 }
@@ -112,7 +122,7 @@ func TestDerive_ALandscapeSourceIsCroppedToTheExactShape(t *testing.T) {
 		Source: backdrop, Shape: nodeproto.ShapeLandscape, MaxPixels: 40_000_000, Quality: 82,
 		Sizes: []nodeproto.ArtSizeName{"landscape-m"},
 	})
-	width, height, _ := dimensionsOf(t, deriver, result.Images["landscape-m"])
+	width, height, _ := dimensionsOf(t, deriver, imageOf(result, nodeproto.LandscapeM))
 	if result.Refused != "" || width != 960 || height != 540 {
 		t.Errorf("landscape-m: %d×%d (refused %q), want 960×540", width, height, result.Refused)
 	}
