@@ -16264,4 +16264,20 @@ questions and narrows [D99](#d99--the-core-does-not-decode-an-image-either-and-c
    and fetched on demand, and the admin is warned, lastingly, with the size needed and a
    ceiling to set (the need plus 15%), shown again beside the setting.
 
+8. **Only our encoder's images reach the core's store** (the owner, after a sweep of every way
+   an image gets in: providers, files beside the media, images inside containers, image
+   subtitles, frames we cut, and what people upload). The artwork store takes bytes from one
+   place: the node's answer to an artwork command. A provider's download or a person's upload
+   is held as an unsanitised value whose only use is being sent to the node; a file beside the
+   media or inside a container is read and re-encoded by the node, and its bytes never reach the
+   core. Past that, an image is as safe to pass around as a cleaned string
+   ([principles §22](../principles/README.md)).
+9. **URLs in NFO files are not fetched** — *"That's an easy way to DDOS someone using us as a
+   naive relay. I'd leave that deferred until we get requests for it, and then only allow from a
+   whitelisted set of image hosters."* The NFO reader does not read `<thumb>` or `<fanart>`.
+10. **Direct play is the one stated exception to re-encoding**: it sends the file's own bytes to
+    the client's decoders, which is what direct play is. A prepared rendition is our encoder's
+    output; direct play is not, by design. Image subtitles (PGS, VobSub, DVB) are decided with
+    M3's subtitle work: rendered by the node into our own bitmaps, or sent as found.
+
 **Status:** Decided; being built in M2.
