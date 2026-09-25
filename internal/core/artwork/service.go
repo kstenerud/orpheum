@@ -43,6 +43,8 @@ type Nodes interface {
 // Store keeps the images' sizes: datadir.Directories.
 type Store interface {
 	WriteArt(hash, name string, contents []byte) error
+	ReadArt(hash, name string) ([]byte, error)
+	HasArt(hash, name string) (bool, error)
 }
 
 // Settings are what the service reads from the settings.
@@ -85,6 +87,10 @@ func NewService(parts Parts) *Service {
 type owed struct {
 	Source string    `json:"source"`
 	Refs   []owedRef `json:"refs"`
+	// Hash and Sizes make sizes of a stored image that are made only on request, from its
+	// source fetched again (D212 §2, §3).
+	Hash  string                  `json:"hash,omitempty"`
+	Sizes []nodeproto.ArtSizeName `json:"sizes,omitempty"`
 }
 
 // owedRef is one image the job fetches: its kind, and the source's reference to it.
@@ -136,8 +142,59 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 	}
 	for _, ref := range args.Refs {
 		image := wanted{itemID: job.Subject, source: args.Source, ref: ref}
-		if err := service.one(ctx, fetcher, image); err != nil {
+		var err error
+		if len(args.Sizes) > 0 {
+			err = service.makeSizes(ctx, fetcher, image, args)
+		} else {
+			err = service.one(ctx, fetcher, image)
+		}
+		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// makeSizes makes sizes of a stored image from its source, fetched again. A size the source is
+// too small for, or a source that is gone or changed, is noted so no request asks again.
+func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wanted, args owed) error {
+	shape, known := shapeOf(image.ref.Kind)
+	if !known {
+		return nil
+	}
+	source, err := fetcher.Fetch(ctx, image.ref.Ref)
+	if errors.Is(err, ErrNoImage) || (err == nil && source.hash() != args.Hash) {
+		service.parts.Logger.WarnContext(ctx, "an image's source is gone or changed; its larger sizes are not made",
+			"hash", args.Hash, "source", image.source, "ref", image.ref.Ref)
+		return service.cannotMake(args.Hash, args.Sizes)
+	}
+	if err != nil {
+		return fmt.Errorf("fetch %s %s: %w", image.source, image.ref.Ref, err)
+	}
+	result, err := service.reEncode(ctx, source, shape, args.Sizes)
+	if err != nil {
+		return err
+	}
+	var unmade []nodeproto.ArtSizeName
+	for _, size := range args.Sizes {
+		made := slices.IndexFunc(result.Images, func(image nodeproto.ArtImage) bool { return image.Size == size })
+		if made < 0 || !isWebP(result.Images[made].Bytes) {
+			unmade = append(unmade, size)
+			continue
+		}
+		err := service.parts.Store.WriteArt(args.Hash, string(size)+webpFormat, result.Images[made].Bytes)
+		if err != nil {
+			return fmt.Errorf("store %s %s: %w", args.Hash, size, err)
+		}
+	}
+	return service.cannotMake(args.Hash, unmade)
+}
+
+// cannotMake notes sizes an image cannot be made at, as empty .none files beside its sizes.
+func (service *Service) cannotMake(hash string, sizes []nodeproto.ArtSizeName) error {
+	for _, size := range sizes {
+		if err := service.parts.Store.WriteArt(hash, string(size)+".none", nil); err != nil {
+			return fmt.Errorf("note %s %s cannot be made: %w", hash, size, err)
 		}
 	}
 	return nil
@@ -166,7 +223,7 @@ func (service *Service) one(ctx context.Context, fetcher Fetcher, image wanted) 
 	if err != nil {
 		return fmt.Errorf("fetch %s %s: %w", image.source, image.ref.Ref, err)
 	}
-	result, err := service.reEncode(ctx, source, shape)
+	result, err := service.reEncode(ctx, source, shape, fetchedSizes(shape))
 	if err != nil {
 		return err
 	}
@@ -188,7 +245,7 @@ func (service *Service) held(ctx context.Context, image wanted) (bool, error) {
 
 // reEncode sends a source to the node and waits for its answer.
 func (service *Service) reEncode(
-	ctx context.Context, source Unsanitised, shape nodeproto.Shape,
+	ctx context.Context, source Unsanitised, shape nodeproto.Shape, sizes []nodeproto.ArtSizeName,
 ) (nodeproto.ArtworkResult, error) {
 	nodeID, connected := service.parts.Nodes.Connected()
 	if !connected {
@@ -207,7 +264,7 @@ func (service *Service) reEncode(
 	request, answer := service.await()
 	defer service.forget(request)
 	service.parts.Nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
-		Job: request, Source: source.bytes, Shape: shape, Sizes: fetchedSizes(shape),
+		Job: request, Source: source.bytes, Shape: shape, Sizes: sizes,
 		MaxPixels: pixels, Quality: int(quality),
 	}})
 	timer := time.NewTimer(service.parts.Wait)

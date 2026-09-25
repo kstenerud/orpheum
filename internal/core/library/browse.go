@@ -56,6 +56,7 @@ type Entry struct {
 	Ident     string
 	LibraryID int64
 	AddedAt   int64
+	Poster    string // its poster's hash; "" when it has none
 }
 
 // Page is one page of a list, and the cursor of the next; "" on the last.
@@ -116,7 +117,8 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 	if err != nil {
 		return Page{}, fmt.Errorf("list %s by name: %w", query.List, err)
 	}
-	return page(entries, query.Limit, func(last int) string { return encodeCursor(keys[last], entries[last].ID) }), nil
+	return browser.withPosters(ctx,
+		page(entries, query.Limit, func(last int) string { return encodeCursor(keys[last], entries[last].ID) }))
 }
 
 func (browser *Browser) listAdded(ctx context.Context, query ListQuery) (Page, error) {
@@ -156,10 +158,10 @@ func (browser *Browser) listAdded(ctx context.Context, query ListQuery) (Page, e
 	if err != nil {
 		return Page{}, fmt.Errorf("list %s by date added: %w", query.List, err)
 	}
-	return page(entries, query.Limit, func(last int) string {
+	return browser.withPosters(ctx, page(entries, query.Limit, func(last int) string {
 		added := binary.BigEndian.AppendUint64(nil, uint64(entries[last].AddedAt)) //nolint:gosec // a time
 		return encodeCursor(added, entries[last].ID)
-	}), nil
+	}))
 }
 
 // page closes a list: a full page has a next cursor, made from its last entry.

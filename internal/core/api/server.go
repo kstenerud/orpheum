@@ -14,6 +14,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
+	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -52,6 +53,8 @@ type Dependencies struct {
 	Libraries *library.Admin
 	// Browse is what a person browses and searches.
 	Browse *library.Browser
+	// Artwork serves the images titles show.
+	Artwork *artwork.Service
 	// ConfigFile is the config file's keys as the server runs with them, for /config to show.
 	ConfigFile []ConfigFileKey
 }
@@ -95,6 +98,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerIdentification()
 	server.registerLibraries()
 	server.registerBrowse()
+	server.registerArt()
 	return server
 }
 

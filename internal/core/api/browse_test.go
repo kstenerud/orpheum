@@ -47,7 +47,15 @@ func (harness testHarness) shelve(t *testing.T) {
 		 (1, 1, 0, 'video', 'h264', NULL, NULL), (1, 1, 1, 'audio', 'truehd', 'en', 8)`,
 		"INSERT INTO ordering (id, collection_id, name) VALUES (1, 20, 'aired')",
 		"INSERT INTO position (ordering_id, title_id, grp, number, sort) VALUES (1, 21, 1, 1, 10001)",
-		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 21, 10001)")
+		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 21, 10001)",
+		// Metropolis's poster is a person's choice over a newer one TMDB named; its backdrop was refused.
+		`INSERT INTO artwork (item_id, kind, source, source_ref, content_hash, chosen, removed_at) VALUES
+		 (10, 'poster', 'user', NULL, X'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 1, NULL),
+		 (10, 'poster', 'tmdb', '/p.jpg', X'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 0, NULL),
+		 (10, 'backdrop', 'tmdb', '/b.jpg', NULL, 0, NULL),
+		 (20, 'poster', 'tmdb', '/old.jpg', X'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', 0, 5),
+		 (20, 'poster', 'tmdb', '/s.jpg', X'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', 0, NULL),
+		 (21, 'thumb', 'tmdb', '/e.jpg', X'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 0, NULL)`)
 }
 
 func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
@@ -95,5 +103,26 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	found := harness.do(t, http.MethodGet, "/search?q=breaking&limit=5", user, nil)
 	if !strings.Contains(found.body, `{"id":20,"kind":"series","name":"Brass Arena"}`) {
 		t.Errorf("search = %d %s", found.status, found.body)
+	}
+}
+
+func TestBrowse_EachItemShowsItsChosenOrNewestStoredImage(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	chosen, seriesPoster, still := strings.Repeat("aa", 32), strings.Repeat("cc", 32), strings.Repeat("dd", 32)
+	for _, check := range []struct {
+		path, want string
+	}{
+		{"/titles?kind=movie&sort=name&limit=10", `"poster":"` + chosen + `"`},
+		{"/titles?kind=series&sort=added&limit=10", `"poster":"` + seriesPoster + `"`},
+		{"/items/10", `"art":{"poster":"` + chosen + `"}`}, // and no refused backdrop
+		{"/collections/20", `"still":"` + still + `"`},
+		{"/collections/20", `"art":{"poster":"` + seriesPoster + `"}`},
+	} {
+		if answer := harness.do(t, http.MethodGet, check.path, user, nil); !strings.Contains(answer.body, check.want) {
+			t.Errorf("%s = %d %s; want %s", check.path, answer.status, answer.body, check.want)
+		}
 	}
 }

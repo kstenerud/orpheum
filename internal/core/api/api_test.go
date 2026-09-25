@@ -14,8 +14,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
@@ -63,6 +66,7 @@ type testHarness struct {
 	service  *auth.Service
 	codes    *memorySetupCodes
 	database string
+	art      *datadir.Directories
 }
 
 // newHarness serves an API whose dependencies are ready, over a real migrated database.
@@ -83,11 +87,19 @@ func newHarness(t *testing.T) testHarness {
 	providers := identify.Providers{"tmdb": provider}
 	pass := identify.NewPass(database, now, slog.New(slog.DiscardHandler), providers, seeded)
 	matcher := identify.NewMatcher(database, cache, pass, now, slog.New(slog.DiscardHandler))
+	art, err := datadir.Prepare(t.TempDir(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
 		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
 		Identify: identify.NewChooser(matcher, pass), Libraries: library.NewAdmin(database, now, nodes),
 		Browse: library.NewBrowser(database, seeded),
+		Artwork: artwork.NewService(artwork.Parts{
+			Database: database, Queue: jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler)),
+			Store: art, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
+		}),
 		ConfigFile: []ConfigFileKey{{
 			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), Start: json.RawMessage("10"),
 			IsFromFile: false, Describe: "seconds in-flight requests get to finish",
@@ -97,7 +109,7 @@ func newHarness(t *testing.T) testHarness {
 	t.Cleanup(served.Close)
 	return testHarness{
 		server: server, http: served, logs: logs, service: service, codes: codes, database: database.Path(),
-		provider: provider, cache: cache, nodes: nodes,
+		provider: provider, cache: cache, nodes: nodes, art: art,
 	}
 }
 

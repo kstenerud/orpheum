@@ -18,6 +18,7 @@ type TitleDetail struct {
 	Versions []Version
 	Extras   []sqlcgen.ListTitleExtrasRow
 	Episode  *sqlcgen.GetEpisodePlaceRow
+	Art      Art
 }
 
 // Version is one of a title's versions: its files in part order (D155).
@@ -51,6 +52,9 @@ func (browser *Browser) Title(ctx context.Context, titleID int64) (TitleDetail, 
 	}
 	if detail.Extras, err = queries.ListTitleExtras(ctx, titleID); err != nil {
 		return TitleDetail{}, fmt.Errorf("list title %d's extras: %w", titleID, err)
+	}
+	if detail.Art, err = browser.art(ctx, titleID); err != nil {
+		return TitleDetail{}, err
 	}
 	place, err := store.One(queries.GetEpisodePlace(ctx, titleID))
 	switch {
@@ -87,6 +91,8 @@ func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version,
 type SeriesDetail struct {
 	sqlcgen.GetSeriesDetailRow
 	Episodes []sqlcgen.ListSeriesEpisodeDetailsRow
+	Art      Art
+	Stills   map[int64]string // each episode's still, by its id
 }
 
 // Series is a series' detail.
@@ -103,5 +109,16 @@ func (browser *Browser) Series(ctx context.Context, seriesID int64) (SeriesDetai
 	if err != nil {
 		return SeriesDetail{}, fmt.Errorf("list series %d's episodes: %w", seriesID, err)
 	}
-	return SeriesDetail{GetSeriesDetailRow: series, Episodes: episodes}, nil
+	detail := SeriesDetail{GetSeriesDetailRow: series, Episodes: episodes}
+	if detail.Art, err = browser.art(ctx, seriesID); err != nil {
+		return SeriesDetail{}, err
+	}
+	ids := make([]int64, 0, len(episodes))
+	for _, episode := range episodes {
+		ids = append(ids, episode.TitleID)
+	}
+	if detail.Stills, err = browser.shown(ctx, artStill, ids); err != nil {
+		return SeriesDetail{}, err
+	}
+	return detail, nil
 }

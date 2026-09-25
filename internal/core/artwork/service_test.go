@@ -9,10 +9,12 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
@@ -65,6 +67,19 @@ type memoryStore map[string][]byte
 func (art memoryStore) WriteArt(hash, name string, contents []byte) error {
 	art[hash+"/"+name] = contents
 	return nil
+}
+
+func (art memoryStore) ReadArt(hash, name string) ([]byte, error) {
+	contents, found := art[hash+"/"+name]
+	if !found {
+		return nil, datadir.ErrNotFound
+	}
+	return contents, nil
+}
+
+func (art memoryStore) HasArt(hash, name string) (bool, error) {
+	_, found := art[hash+"/"+name]
+	return found, nil
 }
 
 type bench struct {
@@ -191,11 +206,11 @@ func TestService_RecordsARefusalAndKeepsTheOlderImage(t *testing.T) {
 	if len(rows) != 3 {
 		t.Fatalf("rows %+v; want the old poster, and the refused and missing ones held with no hash", rows)
 	}
-	shown, err := bench.database.Read().GetItemArtwork(t.Context(), sqlcgen.GetItemArtworkParams{
-		ItemID: bench.itemID, Kind: "poster",
+	shown, err := bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
+		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: "poster",
 	})
-	if err != nil || !bytes.Equal(shown, Received([]byte("old")).hash32()) {
-		t.Errorf("shown %x (%v); want the old poster", shown, err)
+	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].ContentHash, Received([]byte("old")).hash32()) {
+		t.Errorf("shown %+v (%v); want the old poster", shown, err)
 	}
 	sent := len(bench.node.sent)
 	bench.handle(t, owedRef{Kind: identify.ArtPoster, Ref: "/new.jpg"})
