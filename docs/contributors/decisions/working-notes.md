@@ -16348,3 +16348,66 @@ now refreshed on a schedule, and a dead image is looked into once.
    for it, and is where the licence notices that ship with a binary are shown.
 
 **Status:** Decided; being built in M2.
+
+## D214 — A later commercial service connects clients to a core without carrying content; the hosted relay stays deferred
+
+**Recorded, not scheduled** (2026-09-25), by the project owner, after the study
+[direct-reachability.md](../design/research/direct-reachability.md) found that no combination of
+networks needs a relay we host: wherever a third party is needed, the owner's own VPS serves
+every client. For Cut A, reachability stays as cut-a §2 has it (*"For my own purposes in this
+initial cut it doesn't matter"*). **Revisits [D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts)**,
+whose market — people who will not rent a VPS — is kept, and served another way first.
+
+> *"Later in thinking of offering a commercial service that gives orpheum users a simple
+> service to get their clients and core in contact, rather than a content relay (if possible).
+> The target would be people who have their own libraries but don't want the hassle of
+> maintaining their own vps, and end users who just want a qr code that does all of the set up
+> once and for all."*
+
+### 1. What a connection-only service can do, with no content passing through it
+
+- **Where the core is now**: the core reports its current addresses (a DS-Lite prefix is often
+  dynamic) and a paired client asks for them.
+- **A real HTTPS name and certificate** for the core, issued through the service's own domain by
+  DNS-01, as Plex does with `*.plex.direct`, so an owner needs no domain or DNS provider.
+- **Set-up from a QR code**: it carries the core's identity (a key fingerprint) and a one-time
+  pairing secret; the client asks the service where that core is and checks that it reached it.
+- **Introductions for clients that can use UDP** — our native apps, and browsers through WebRTC
+  data channels — which connect directly most of the time.
+
+### 2. The gap it cannot close, and the owner's options for it
+
+A TV browser or a Cast receiver on a network without IPv6, reaching a core with no public IPv4,
+can only open an ordinary connection to an address; no introduction makes one. Something with a
+public IPv4 must carry the bytes. The study puts this at roughly 2–10% of remote sessions after
+one-time fixes, mostly televisions. The options, to be chosen when the service is built:
+
+1. **A relay for that case only**, bounded to it — which brings back legal.md §4's duties for
+   that part of the service (a conduit, a repeat-infringer policy, a DMCA agent, retention).
+2. **Provisioning a VPS in the user's own account**: the service sets it up; the machine and its
+   traffic are the user's, so we carry no content. Less hassle than running one, not none — the
+   user needs a cloud account.
+3. **Unsupported, and said plainly** on the set-up screen: this TV cannot reach your server from
+   that network, and why.
+
+### 3. What it must hold to
+
+- **Private**: it answers *"where is this core"* only to a holder of that core's pairing secret,
+  never *"what cores exist"* — [D187](#d187--users-are-responsible-for-what-they-play-we-never-supply-locate-unlock-or-promote-it--and-the-store-and-legal-constraints-that-follow) forbids a directory of servers.
+- **Terms**: personal, non-commercial use of the user's own libraries; short retention of
+  connection logs. A lawyer confirms what a content-blind service needs; it avoids the conduit
+  questions a relay raises.
+- **No free tier whose cost scales with use** (D72's rule); a connection service's cost barely
+  does, which is part of its appeal.
+
+### 4. What Cut A keeps open, at no cost
+
+- The core has a **stable key identity** that a client can pin (D154's grants point that way).
+- **Pairing is a step a client can complete from a scanned code**, not only from a typed
+  address and password.
+
+**The hosted relay stays deferred** until all of these hold: a release aimed at owners who will
+not run a VPS, measured drop-off at the VPS step, someone to carry legal.md §4's duties, and no
+acceptable outside service — and even then, only if §2's first option is chosen.
+
+**Status:** Recorded; not scheduled. Nothing is built for it in Cut A beyond §4.
