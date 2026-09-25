@@ -86,10 +86,16 @@ func chrome(fileID int64) map[string]any {
 }
 
 type decision struct {
-	Kind    string   `json:"kind"`
-	URL     string   `json:"url"`
-	Profile string   `json:"profile"`
-	Reasons []string `json:"reasons"`
+	Kind      string   `json:"kind"`
+	URL       string   `json:"url"`
+	Profile   string   `json:"profile"`
+	Reasons   []string `json:"reasons"`
+	Preparing bool     `json:"preparing"`
+	Audio     []struct {
+		Track    int    `json:"track"`
+		Language string `json:"language"`
+		Boost    bool   `json:"boost"`
+	} `json:"audio"`
 }
 
 func (harness testHarness) play(t *testing.T, token string, body map[string]any) decision {

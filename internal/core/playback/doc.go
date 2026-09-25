@@ -22,6 +22,13 @@
 //   - A direct playback's bytes come from the file's node, named by root, path and payload
 //     hash; the core never opens the file (D193 §1). Enforced by
 //     TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore.
+//   - A prepared playback's files are relayed from its node, and one not written yet is 425 with
+//     Retry-After while its rendition is being made, never a 404 the player gives up on.
+//     Enforced by TestPrepare_APreparedPlaybackIsTooEarlyUntilItsFileExists.
+//   - A prepare job names its source by root, path and payload hash with every audio track, and
+//     the rendition is complete only when the node says so; FFmpeg's failure is not retried.
+//     Enforced by TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete and
+//     TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried.
 //
 // # Read before changing
 //
@@ -36,5 +43,7 @@
 // # Where to change
 //
 //   - tokens.go: media tokens, in memory. playback.go: starting a playback and finding a direct
-//     playback's bytes. The play-state report, Continue Watching and Next Up come later in M3.
+//     playback's bytes. prepare.go: renditions' rows, their jobs and the nodes' reports. hls.go:
+//     a prepared playback's files, and the prepare job's handler. The play-state report,
+//     Continue Watching and Next Up come later in M3.
 package playback

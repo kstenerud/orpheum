@@ -2,8 +2,9 @@
 
 import "./play.css";
 
-import type { Api, components, Menu } from "@orpheum/sdk";
-import { useState, type JSX, type SyntheticEvent } from "react";
+import { playHls, type Playback } from "@orpheum/player";
+import { whenReady, type Api, type components, type Menu } from "@orpheum/sdk";
+import { useEffect, useRef, useState, type JSX, type RefObject, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useServices } from "./services.tsx";
@@ -27,22 +28,102 @@ export async function requestPlayback(api: Api, fileId: number, menu: Menu): Pro
   return data;
 }
 
-/** A decision, shown: the original playing, or why it needs preparing. The reason is always on screen (D188). */
+/** A decision, shown: the original playing, or a prepared copy and why. The reason is always on screen (D188). */
 export function PlayView(props: { readonly decision: Decision }): JSX.Element {
-  const { t } = useTranslation();
   const { decision } = props;
-  if (decision.kind === "direct" && decision.url !== undefined) {
+  if (decision.kind === "direct") {
     return <DirectVideo url={decision.url} />;
   }
+  return <PreparedVideo decision={decision} />;
+}
+
+/** Where a track's standard and boosted mixes are among a rendition's audio, for its first track. */
+export function boostPair(decision: Decision): { standard: number; boosted: number } | undefined {
+  const audio = decision.audio ?? [];
+  const first = audio[0];
+  if (first === undefined) {
+    return undefined;
+  }
+  const standard = audio.findIndex((mix) => mix.track === first.track && !mix.boost);
+  const boosted = audio.findIndex((mix) => mix.track === first.track && mix.boost);
+  return standard < 0 || boosted < 0 ? undefined : { standard, boosted };
+}
+
+/**
+ * A prepared copy, playing: it waits while the copy's first part is made, then plays it, with a
+ * switch for the dialogue boost where the sound has a centre to raise (D217 §3).
+ */
+function PreparedVideo(props: { readonly decision: Decision }): JSX.Element {
+  const { t } = useTranslation();
+  const { decision } = props;
+  const { videoRef, playbackRef, isWaiting, failure } = usePrepared(decision);
   const reasons = (decision.reasons ?? [])
     .map((reason) => t(`play.reason.${camelKey(reason)}`))
     .join(", ");
+  const pair = boostPair(decision);
   return (
     <div className="play">
-      <p>{t("play.needsPreparing", { reasons })}</p>
-      {decision.url === undefined ? <p>{t("play.notYet")}</p> : null}
+      {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles arrive with M3's subtitle slice (cut-a §6) */}
+      <video className="play__video" ref={videoRef} controls autoPlay playsInline />
+      <p className="play__reason">{t("play.prepared", { reasons })}</p>
+      {isWaiting && failure === undefined ? <p>{t("play.preparing")}</p> : null}
+      {failure === undefined ? null : (
+        <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
+      )}
+      {pair === undefined ? null : (
+        <label className="play__boost">
+          <input
+            type="checkbox"
+            onChange={(event) => {
+              playbackRef.current?.setAudioRendition(
+                event.currentTarget.checked ? pair.boosted : pair.standard,
+              );
+            }}
+          />
+          {t("play.boost")}
+        </label>
+      )}
     </div>
   );
+}
+
+/** A prepared copy's playback: it waits while the copy's first part is made, then plays it. */
+function usePrepared(decision: Decision): {
+  videoRef: RefObject<HTMLVideoElement | null>;
+  playbackRef: RefObject<Playback | undefined>;
+  isWaiting: boolean;
+  failure: string | undefined;
+} {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playbackRef = useRef<Playback | undefined>(undefined);
+  const [isWaiting, setIsWaiting] = useState(decision.preparing);
+  const [failure, setFailure] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const element = videoRef.current;
+    if (element === null) {
+      return undefined;
+    }
+    const abort = new AbortController();
+    whenReady(decision.url, { signal: abort.signal }).then(
+      () => {
+        if (!abort.signal.aborted) {
+          setIsWaiting(false);
+          playbackRef.current = playHls(element, decision.url, setFailure);
+        }
+      },
+      (cause: unknown) => {
+        if (!abort.signal.aborted) {
+          setFailure(cause instanceof Error ? cause.message : String(cause));
+        }
+      },
+    );
+    return () => {
+      abort.abort();
+      playbackRef.current?.destroy();
+      playbackRef.current = undefined;
+    };
+  }, [decision.url]);
+  return { videoRef, playbackRef, isWaiting, failure };
 }
 
 /** The original file, playing; when the browser cannot play it, why, in words. */

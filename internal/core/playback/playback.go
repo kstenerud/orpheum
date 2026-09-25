@@ -10,9 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -33,18 +35,48 @@ type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
 }
 
-// Service starts playbacks and says where their bytes are.
+// Nodes is how playback reaches the nodes: nodes.Service.
+type Nodes interface {
+	Enqueue(nodeID int64, command nodeproto.Command)
+}
+
+// Queue is the job queue: jobs.Queue.
+type Queue interface {
+	Enqueue(ctx context.Context, job jobs.New) (bool, error)
+}
+
+// Parts are what the playback service is built from.
+type Parts struct {
+	Database *store.Database
+	Cache    *store.Cache
+	Queue    Queue
+	Nodes    Nodes
+	Settings Settings
+	Clock    clock.Clock
+	// Random makes media tokens.
+	Random io.Reader
+	Logger *slog.Logger
+	// Silence is how long a running prepare may go without a word from its node before it is
+	// given up and retried.
+	Silence time.Duration
+}
+
+// Service starts playbacks, says where their bytes are, and has renditions prepared.
 type Service struct {
 	database *store.Database
 	settings Settings
 	clock    clock.Clock
 	random   io.Reader
 	tokens   *tokens
+	prepares *prepares
 }
 
-// NewService returns the playback service, which makes media tokens from random.
-func NewService(database *store.Database, config Settings, now clock.Clock, random io.Reader) *Service {
-	return &Service{database: database, settings: config, clock: now, random: random, tokens: newTokens()}
+// NewService returns the playback service.
+func NewService(parts Parts) *Service {
+	return &Service{
+		database: parts.Database, settings: parts.Settings, clock: parts.Clock, random: parts.Random,
+		tokens: newTokens(), prepares: newPrepares(parts),
+	}
 }
 
 // Request is what a client asks to play, and what it can play (D21, D217 §1).
@@ -59,6 +91,10 @@ type Request struct {
 type Started struct {
 	Token    string
 	Decision decide.Decision
+	// Preparing is whether a prepared playback's rendition is still being made.
+	Preparing bool
+	// Audio are a prepared playback's audio renditions, in the master playlist's order.
+	Audio []AudioRendition
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -86,12 +122,22 @@ func (service *Service) Start(ctx context.Context, userID int64, session string,
 	if err != nil {
 		return Started{}, err
 	}
-	token, err := service.tokens.issue(service.random, playing{userID: userID, session: session, fileID: file.ID},
-		service.clock.Now(), idle)
+	started := Started{Decision: decision}
+	what := playing{userID: userID, session: session, fileID: file.ID}
+	if decision.Kind == decide.HLS {
+		what.profile = nodeproto.PrepareProfile(decision.Profile)
+		rendition, wantErr := service.prepares.want(ctx, file, what.profile)
+		if wantErr != nil {
+			return Started{}, wantErr
+		}
+		started.Preparing = rendition.State != renditionComplete
+		started.Audio = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, what.profile, probe))
+	}
+	started.Token, err = service.tokens.issue(service.random, what, service.clock.Now(), idle)
 	if err != nil {
 		return Started{}, err
 	}
-	return Started{Token: token, Decision: decision}, nil
+	return started, nil
 }
 
 // Source is where a direct playback's bytes are: a node, the target on its byte socket, and
@@ -109,30 +155,39 @@ func (service *Service) Direct(ctx context.Context, token string, userID int64, 
 		return Source{}, err
 	}
 	what, found := service.tokens.use(token, userID, session, service.clock.Now(), idle)
-	if !found {
+	if !found || what.profile != "" {
 		return Source{}, ErrNoToken
 	}
 	file, err := service.file(ctx, what.fileID)
 	if err != nil {
 		return Source{}, err
 	}
-	roots, err := service.database.Read().ListLibraryRootsOnNode(ctx, sqlcgen.ListLibraryRootsOnNodeParams{
-		LibraryID: file.LibraryID, NodeID: file.NodeID,
-	})
+	named, err := service.source(ctx, file)
 	if err != nil {
-		return Source{}, fmt.Errorf("read the library's roots: %w", err)
+		return Source{}, err
 	}
 	probe, err := decodeProbe(file.Probe)
 	if err != nil {
 		return Source{}, err
 	}
+	return Source{NodeID: file.NodeID, Target: named.Target(), ContentType: contentType(probe.Format)}, nil
+}
+
+// source names a file on its node's byte socket: the library root it is under, its path
+// relative to that root, and its payload hash.
+func (service *Service) source(ctx context.Context, file sqlcgen.GetPlayableFileRow) (nodeproto.BytesFile, error) {
+	roots, err := service.database.Read().ListLibraryRootsOnNode(ctx, sqlcgen.ListLibraryRootsOnNodeParams{
+		LibraryID: file.LibraryID, NodeID: file.NodeID,
+	})
+	if err != nil {
+		return nodeproto.BytesFile{}, fmt.Errorf("read the library's roots: %w", err)
+	}
 	for _, root := range roots {
 		if relative, under := bytes.CutPrefix(file.PathKey, []byte(root+"/")); under {
-			named := nodeproto.BytesFile{Root: root, Path: relative, Hash: hex.EncodeToString(file.PayloadHash)}
-			return Source{NodeID: file.NodeID, Target: named.Target(), ContentType: contentType(probe.Format)}, nil
+			return nodeproto.BytesFile{Root: root, Path: relative, Hash: hex.EncodeToString(file.PayloadHash)}, nil
 		}
 	}
-	return Source{}, fmt.Errorf("%w: file %d is under none of its library's roots", ErrNoFile, file.ID)
+	return nodeproto.BytesFile{}, fmt.Errorf("%w: file %d is under none of its library's roots", ErrNoFile, file.ID)
 }
 
 func (service *Service) file(ctx context.Context, fileID int64) (sqlcgen.GetPlayableFileRow, error) {

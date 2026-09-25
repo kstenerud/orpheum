@@ -13,6 +13,7 @@ import (
 	"net/http/pprof"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
@@ -103,6 +104,10 @@ func (opened started) release() error {
 	return errors.Join(opened.cache.Close(), opened.database.Close(), opened.lock.Release())
 }
 
+// prepareSilence is how long a running prepare may go without a word from its node before its
+// job is given up and retried: the node reports every two seconds while FFmpeg runs.
+const prepareSilence = 5 * time.Minute
+
 // start opens the state directory and the database, migrates, and hands the API its
 // dependencies.
 func start(
@@ -154,7 +159,13 @@ func start(
 	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes)
 	dependencies.Browse = library.NewBrowser(database, opened.settings)
 	dependencies.Artwork = opened.metadata.artwork
-	dependencies.Playback = playback.NewService(database, opened.settings, clock.System{}, rand.Reader)
+	dependencies.Playback = playback.NewService(playback.Parts{
+		Database: database, Cache: opened.cache, Queue: opened.metadata.queue, Nodes: opened.nodes,
+		Settings: opened.settings, Clock: clock.System{}, Random: rand.Reader, Logger: logger,
+		Silence: prepareSilence,
+	})
+	opened.metadata.playback = dependencies.Playback
+	opened.nodes.ReceivePrepare(dependencies.Playback)
 	dependencies.NodeBytes = nodes.NewBytes(opened.nodes, filepath.Join(config.Server.SocketDir, nodeSocket))
 	server.Ready(dependencies)
 	return opened, nil

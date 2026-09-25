@@ -10,5 +10,8 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "hls.js": "1.7.3"
   }
 }

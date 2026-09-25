@@ -125,7 +125,7 @@ func (server *Server) identity(file *os.File, info fs.FileInfo, key seen) (strin
 // renditionName is the only shape a rendition's file may be named by: "<file_id>/<profile>/" and
 // then the master playlist, or one rendition's playlist, init segment or media segment.
 var renditionName = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)/` +
-	`(master\.m3u8|(video|audio\d{1,3}(-boost)?)/(stream\.m3u8|init\.mp4|seg\d{5,9}\.m4s))$`)
+	`(master\.m3u8|(video|audio\d{1,3}(-boost)?)/(stream\.m3u8|init(_\d{1,3})?\.mp4|seg\d{5,9}\.m4s))$`)
 
 // renditionFile serves one file of a prepared rendition. A name that is not a rendition's is
 // refused before anything is opened; one not written yet is a 404, which the core turns into

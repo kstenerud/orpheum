@@ -8,6 +8,8 @@ import (
 	"io"
 	"sync"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // tokenBytes is a media token's length before encoding: long enough that one cannot be guessed,
@@ -16,9 +18,11 @@ const tokenBytes = 24
 
 // playing is what a media token refers to: whose playback of which file, under which session.
 type playing struct {
-	userID   int64
-	session  string
-	fileID   int64
+	userID  int64
+	session string
+	fileID  int64
+	// profile is a prepared playback's rendition; empty for direct play.
+	profile  nodeproto.PrepareProfile
 	lastUsed time.Time
 }
 

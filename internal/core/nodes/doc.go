@@ -18,7 +18,8 @@
 //     TestSupervisor_RestartsANodeThatStaysSilent, TestSupervisor_StartsAnExitedNodeAgainAfterTheDelay.
 //   - A node's artwork answer, bounded, goes to the artwork service and nowhere else; one from a
 //     node that has not said hello is refused (D212 §8).
-//     TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly.
+//     TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly. A prepare report goes to the
+//     playback service the same way, through the same handler.
 //
 // # Read before changing
 //

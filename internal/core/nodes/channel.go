@@ -122,22 +122,47 @@ const maxArtworkBytes = 64 << 20
 
 // artworkAnswer takes a node's answer to an artwork command to the artwork store.
 func (service *Service) artworkAnswer(writer http.ResponseWriter, request *http.Request) {
+	var deliver func(context.Context, int64, nodeproto.ArtworkResult)
+	if service.artwork != nil {
+		deliver = service.artwork.Answered
+	}
+	takeAnswer(service, writer, request, maxArtworkBytes, "an artwork answer", deliver)
+}
+
+// maxPrepareReportBytes bounds a prepare report: a few numbers and an error's tail.
+const maxPrepareReportBytes = 64 << 10
+
+// prepareReport takes a node's report on a prepare to the job waiting for it.
+func (service *Service) prepareReport(writer http.ResponseWriter, request *http.Request) {
+	var deliver func(context.Context, int64, nodeproto.PrepareReport)
+	if service.prepare != nil {
+		deliver = service.prepare.Reported
+	}
+	takeAnswer(service, writer, request, maxPrepareReportBytes, "a prepare report", deliver)
+}
+
+// takeAnswer reads one JSON answer of at most limit bytes from a known node and delivers it; with
+// nothing to deliver to, the answer is refused.
+func takeAnswer[Answer any](
+	service *Service, writer http.ResponseWriter, request *http.Request, limit int64, what string,
+	deliver func(context.Context, int64, Answer),
+) {
 	nodeID, ok := service.nodeID(writer, request)
 	if !ok {
 		return
 	}
 	service.heard(nodeID)
-	if service.artwork == nil {
-		http.Error(writer, "this core takes no artwork", http.StatusServiceUnavailable)
+	if deliver == nil {
+		http.Error(writer, "this core takes no "+what, http.StatusServiceUnavailable)
 		return
 	}
-	var result nodeproto.ArtworkResult
-	body := http.MaxBytesReader(writer, request.Body, maxArtworkBytes)
-	if err := json.NewDecoder(body).Decode(&result); err != nil {
-		http.Error(writer, "an artwork answer is JSON: "+err.Error(), http.StatusBadRequest)
+	var answer Answer
+	body := http.MaxBytesReader(writer, request.Body, limit)
+	if err := json.NewDecoder(body).Decode(&answer); err != nil {
+		http.Error(writer, what+" is JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	service.artwork.Answered(request.Context(), nodeID, result)
+	deliver(request.Context(), nodeID, answer)
 	writeJSON(writer, struct{}{}) // the node reads a JSON answer
 }
 

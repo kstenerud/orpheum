@@ -1,7 +1,8 @@
 # @orpheum/player
 
 Playback in the browser: hls.js, JASSUB and the subtitle layer, shared by the web app and the
-cast receiver. MPL-2.0. Empty until M2.
+cast receiver. MPL-2.0. It plays a prepared rendition with hls.js where the page has MSE, and
+with the element's own HLS where it has only that, as on an iPhone (`src/hls.ts`).
 
 ## Invariants
 

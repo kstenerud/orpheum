@@ -106,7 +106,11 @@ func newHarness(t *testing.T) testHarness {
 			Database: database, Queue: jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler)),
 			Store: art, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
 		}),
-		Playback:  playback.NewService(database, seeded, now, rand.Reader),
+		Playback: playback.NewService(playback.Parts{
+			Database: database, Cache: cache, Queue: jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler)),
+			Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
+			Silence: time.Minute,
+		}),
 		NodeBytes: nodeBytes,
 		ConfigFile: []ConfigFileKey{{
 			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), Start: json.RawMessage("10"),

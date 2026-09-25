@@ -113,8 +113,8 @@ func ContainerOf(format nodeproto.ProbeFormat) (Container, bool) {
 	return "", false
 }
 
-// mainVideo is the file's picture: its first video stream that is not cover art.
-func mainVideo(probe nodeproto.Probe) (nodeproto.ProbeStream, bool) {
+// MainVideo is the file's picture: its first video stream that is not cover art.
+func MainVideo(probe nodeproto.Probe) (nodeproto.ProbeStream, bool) {
 	for _, stream := range probe.Streams {
 		if stream.Kind == "video" && !slices.Contains(stream.Disposition, "attached_pic") {
 			return stream, true

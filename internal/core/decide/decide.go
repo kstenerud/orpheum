@@ -119,7 +119,7 @@ func axisReasons(input Input) (reasons []Reason, videoFits bool) {
 		reasons = append(reasons, ReasonContainer)
 	}
 	videoFits = true
-	if video, present := mainVideo(input.Probe); present {
+	if video, present := MainVideo(input.Probe); present {
 		name, placed := videoName(video)
 		videoFits = placed && slices.Contains(input.Menu.Video, name)
 	}

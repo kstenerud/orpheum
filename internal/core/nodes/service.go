@@ -44,6 +44,11 @@ type ArtworkSink interface {
 	Answered(ctx context.Context, nodeID int64, result nodeproto.ArtworkResult)
 }
 
+// PrepareSink receives a node's reports on a prepare: how far it is, and how it ended.
+type PrepareSink interface {
+	Reported(ctx context.Context, nodeID int64, report nodeproto.PrepareReport)
+}
+
 // Service is the core's side of the node channel (cut-a §4, D207): it enrols nodes, queues their
 // commands, receives their reports and knows when each last spoke.
 type Service struct {
@@ -55,6 +60,7 @@ type Service struct {
 	pollHold time.Duration
 
 	artwork ArtworkSink
+	prepare PrepareSink
 
 	mutex    sync.Mutex
 	channels map[int64]*channel
@@ -64,6 +70,12 @@ type Service struct {
 // answer that arrives with none set is refused.
 func (service *Service) ReceiveArtwork(sink ArtworkSink) {
 	service.artwork = sink
+}
+
+// ReceivePrepare names where the nodes' prepare reports go. Set it before the channel serves; a
+// report that arrives with none set is refused.
+func (service *Service) ReceivePrepare(sink PrepareSink) {
+	service.prepare = sink
 }
 
 // channel is what the core holds for one connected node.
@@ -95,6 +107,7 @@ func (service *Service) Handler() http.Handler {
 	mux.HandleFunc("POST "+nodeproto.PathReport, service.report)
 	mux.HandleFunc("GET "+nodeproto.PathCommands, service.commands)
 	mux.HandleFunc("POST "+nodeproto.PathArtwork, service.artworkAnswer)
+	mux.HandleFunc("POST "+nodeproto.PathPrepare, service.prepareReport)
 	return mux
 }
 

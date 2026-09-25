@@ -53,7 +53,7 @@ func Arguments(input, output string, command nodeproto.Prepare) []string {
 	arguments := []string{
 		"-v", "error", "-nostats", "-progress", "pipe:1",
 		"-protocol_whitelist", "file", "-i", "file:" + input,
-		"-map", "0:v:0",
+		"-map", "0:" + strconv.Itoa(command.VideoStream),
 	}
 	arguments = append(arguments, videoArguments(command)...)
 	streams := []string{"v:0,agroup:audio,name:video"}
