@@ -19,4 +19,4 @@ github.com/google/uuid  # indirect, modernc.org/sqlite
 github.com/mattn/go-isatty  # indirect, modernc.org/sqlite
 github.com/ncruces/go-strftime  # indirect, modernc.org/sqlite
 github.com/remyoudompheng/bigfft  # indirect, modernc.org/sqlite
-golang.org/x/sys  # indirect, modernc.org/sqlite and golang.org/x/crypto
+golang.org/x/sys  # seccomp and Landlock for the node's confinement (D217 §4; cut-a §7); also indirect, modernc.org/sqlite and golang.org/x/crypto
