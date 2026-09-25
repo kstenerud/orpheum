@@ -78,7 +78,7 @@
 //
 //   - filename.go: the filename parser, and its corpus in filename_test.go; nfo.go: the NFO
 //     reader.
-//   - pass.go, titles.go, episodes.go, extras.go: the identification pass; evidence.go: what a
+//   - pass.go, load.go, titles.go, episodes.go, extras.go: the identification pass; evidence.go: what a
 //     stored match says to it.
 //   - provider.go: the provider interface. match.go: the matcher and the fetch job's handler;
 //     match_series.go: a series' match and its season listings. series.go: a series in the pass.
