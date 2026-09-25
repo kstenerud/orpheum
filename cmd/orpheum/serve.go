@@ -20,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/webclient"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 )
@@ -34,6 +35,8 @@ func serve(
 	logger *slog.Logger,
 ) (err error) {
 	server := api.NewServer(logger)
+	clientFiles, _ := webclient.Files()
+	server.Mux().Handle("/", webclient.Handler(clientFiles, api.Prefix))
 	httpServer := &http.Server{Handler: server.Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
 	var serving sync.WaitGroup
 	serving.Go(func() {
