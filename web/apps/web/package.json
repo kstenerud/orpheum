@@ -14,7 +14,9 @@
   "dependencies": {
     "@orpheum/player": "0.0.0",
     "@orpheum/sdk": "0.0.0",
+    "i18next": "26.4.2",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "react-i18next": "17.0.15"
   }
 }

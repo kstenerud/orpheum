@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 # Every path generated code lives under; scripts/gate_paths.py lists the same for the hooks.
-GENERATED = ("internal/store/sqlcgen", "internal/store/cachegen", "api/openapi.json")
+GENERATED = ("internal/store/sqlcgen", "internal/store/cachegen", "api/openapi.json", "web/packages/sdk/src/gen")
 
 
 def snapshot(root: Path, paths: tuple[str, ...] = GENERATED) -> dict[str, bytes]:
