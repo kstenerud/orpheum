@@ -38,6 +38,9 @@
 //     TestMigrate_KeepsTheSnapshotAfterSuccess.
 //   - A committed step is never edited, renamed or deleted. Enforced by the pre-edit hook and
 //     TestSteps_MatchTheCommittedChecksums.
+//   - Each applied step's checksum is recorded, and a database where an applied step has since
+//     changed is refused (plan-deviations P17).
+//     TestMigrate_RecordsEveryStepsChecksumAndRefusesOneThatChanged.
 //   - cache.db is built from one schema file, cache/schema.sql, and versioned by discard: a file
 //     from another version is reported as outdated for the caller to delete, never migrated.
 //     Enforced by TestOpenCache_ReportsAnotherVersionAsOutdated.
@@ -71,7 +74,8 @@
 //   - cache/schema.sql and cache/queries/: cache.db. Raise the version line on any schema change.
 //   - cache.go: OpenCache, and cache.db's Read and Write.
 //   - open.go: Open, the pragmas and their read-back, Read, Write and One.
-//   - steps.go and migrate.go: the embedded steps and the runner (D181).
+//   - steps.go and migrate.go: the embedded steps and the runner (D181); step_record.go: the
+//     applied steps' checksums.
 //   - backup.go: VACUUM INTO, and reading a backup without changing it.
 //   - space_*.go: free space for the pre-migration preflight, per platform.
 package store

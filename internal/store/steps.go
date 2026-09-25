@@ -3,7 +3,9 @@
 package store
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"regexp"
@@ -29,6 +31,8 @@ type Step struct {
 	Name             string
 	SQL              string
 	RaisesCompatible bool
+	// Checksum is the hex SHA-256 of the file's bytes, as schema_step records it.
+	Checksum string
 }
 
 // Steps returns the embedded migration steps in order.
@@ -73,7 +77,9 @@ func readSteps(files fs.FS, directory string) ([]Step, error) {
 			return nil, fmt.Errorf("read migration step %q: %w", entry.Name(), err)
 		}
 		text := string(contents)
+		sum := sha256.Sum256(contents)
 		steps = append(steps, Step{
+			Checksum:         hex.EncodeToString(sum[:]),
 			Version:          version,
 			Name:             entry.Name(),
 			SQL:              text,

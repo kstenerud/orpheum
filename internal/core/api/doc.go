@@ -39,7 +39,8 @@
 //   - An admin creates a library only over roots its node configured, lists roots and filings,
 //     asks for scans and pages the scanner's view; a user sees only the libraries. Enforced by
 //     TestLibraries_AnAdminCreatesOneOverTheNodesRoots,
-//     TestLibraries_AUserSeesTheLibrariesButNotTheirMachinery and TestFiles_PagesWhatTheScannerSaw.
+//     TestLibraries_AUserSeesTheLibrariesButNotTheirMachinery, TestFiles_PagesWhatTheScannerSaw
+//     and TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk.
 //   - A chosen match is confirmed, and an override is set and removed, through the identify
 //     package (D172, D183). Enforced by TestIdentification_APersonChoosesAnAmbiguousTitlesMatch and
 //     TestIdentification_OverridesAreSetAndRemoved.

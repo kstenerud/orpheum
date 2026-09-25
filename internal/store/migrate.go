@@ -103,9 +103,12 @@ func (database *Database) migrate(ctx context.Context, steps []Step, options Mig
 	if err != nil {
 		return err
 	}
+	if checkErr := database.checkAppliedSteps(ctx, steps, state.Version); checkErr != nil {
+		return checkErr
+	}
 	pending := pendingSteps(steps, state)
 	if len(pending) == 0 {
-		return nil
+		return database.recordAppliedSteps(ctx, steps, state.Version)
 	}
 	snapshot, err := database.snapshotBeforeMigrating(ctx, state.Version, options)
 	if err != nil {
@@ -120,7 +123,7 @@ func (database *Database) migrate(ctx context.Context, steps []Step, options Mig
 			return &StepError{Step: step, Snapshot: snapshot, Err: err}
 		}
 	}
-	return nil
+	return database.recordAppliedSteps(ctx, steps, len(steps))
 }
 
 func pendingSteps(steps []Step, state SchemaState) []Step {

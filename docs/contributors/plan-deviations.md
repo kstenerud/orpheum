@@ -40,6 +40,35 @@ counted:
 
 ## Log
 
+### P18 — D208's two admin answers had no endpoint (M2, 2026-09-25) · plan-gap
+
+- **Planned:** D208 withholds a scan's removals "and the admin asked", and keeps a missing
+  disk's boundary "until the disk returns or the admin says it is gone". cut-a §5 lists every
+  endpoint.
+- **What happened:** §5 had no endpoint for either answer; building the Libraries API found it.
+  The owner approved two: approve a root's removals, and say a disk is gone. Both approve the
+  root's *next* scan rather than replaying the withheld one, whose unreadable regions were never
+  kept (migration 0008).
+- **Why the plan missed it:** D208 was decided after the plan's endpoint table was written, and
+  a decision that says "the admin is asked" did not prompt anyone to add where the admin answers.
+- **Cost:** one proposal round; a migration.
+- **Process lesson:** when a decision puts a person in a loop ("asked", "confirms", "chooses"),
+  add the endpoint and the screen for their answer to the plan in the same change.
+
+### P17 — A migration drafted, applied by the dev loop, then edited (M2, 2026-09-25) · gate-design
+
+- **Planned:** migrations are append-only, enforced by the pre-edit hook on committed steps and
+  by SHA256SUMS (D181).
+- **What happened:** the dev loop rebuilds and migrates on every save, so it applied the first
+  draft of step 0007. The agent then added a column to the uncommitted step. The dev database
+  stayed at version 7 without the column, and identification failed with "no such column".
+- **Why the plan missed it:** append-only was enforced where a step becomes shared (commit), but
+  a step becomes *applied* earlier than that — the moment the dev loop sees the file.
+- **Cost:** a dev database reset; migration 0009 and a runner check.
+- **Process lesson:** enforce an invariant where the state it protects is created, not where it
+  is published: the runner now records each applied step's checksum and refuses one that
+  changed.
+
 ### P16 — Identification was designed per title, and a series is not a title (M2, 2026-09-24) · plan-gap
 
 - **Planned:** D170 and D172 describe matching, fetching and choosing for a *title*; the schema

@@ -38,6 +38,10 @@
 //   - A payload that returns revives its tombstone, with its history (D208 §4).
 //   - Once a scan's end is committed its library is handed on, to identification.
 //     TestIngest_AfterAScanEndsItsLibraryIsHandedOn.
+//   - An admin's approval lets a root's next complete scan remove what it does not see without
+//     waiting, once; a disk the admin says is gone loses its boundary, and its files go with that
+//     scan (D208). TestScenario_S7_AnApprovedRemovalGoesAheadOnTheNextScanOnly,
+//     TestScenario_S7b_AGoneDiskIsForgottenAndItsFilesRemoved.
 //   - A library covers only roots its node configured, as the node's hello named them (D107);
 //     creating one scans it. TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt.
 //     TestScenario_S10_AFilmPutBackRevivesItsTombstone.

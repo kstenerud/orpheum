@@ -135,3 +135,31 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodGet, "/files?limit=2&cursor=x", admin, nil),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
 }
+
+func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/m")
+	storetest.ExecRaw(t, harness.database,
+		`INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at)
+		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
+		`INSERT INTO library_root (library_id, node_id, path) VALUES (1, 1, '/m')`,
+		`INSERT INTO root_state (node_id, path, outcome, outcome_at, withheld_since, withheld_reason)
+		 VALUES (1, '/m', 'withheld', 5, 4, 'the scan would remove 21 of the root''s 40 files')`,
+		`INSERT INTO root_mount (node_id, root, path, device, present) VALUES (1, '/m', '/m/disk1', 21, 0)`)
+	approved := harness.do(t, http.MethodPost, "/libraries/1/removals", admin,
+		map[string]string{"node": "local", "path": "/m"})
+	if approved.status != http.StatusAccepted || !strings.Contains(approved.body, `"scanning":true`) {
+		t.Errorf("POST removals = %d %s", approved.status, approved.body)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/removals", admin,
+		map[string]string{"node": "local", "path": "/other"}), http.StatusUnprocessableEntity, CodeInvalidRequest)
+	gone := harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
+		map[string]string{"node": "local", "path": "/m/disk1"})
+	if gone.status != http.StatusAccepted {
+		t.Errorf("POST mounts/gone = %d %s", gone.status, gone.body)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
+		map[string]string{"node": "local", "path": "/m/disk1"}), http.StatusConflict, CodeConflict)
+}

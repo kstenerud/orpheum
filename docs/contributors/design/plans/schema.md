@@ -76,6 +76,12 @@ CREATE TABLE schema_meta (
   compatible_version INTEGER NOT NULL  -- oldest schema whose code can still use this file
 );
 -- PRAGMA user_version is the schema version, set in each step's transaction (D181).
+
+CREATE TABLE schema_step (                                 -- migration 0009 (plan-deviations P17)
+  version INTEGER PRIMARY KEY,
+  sha256  TEXT NOT NULL                  -- of the step file as it was applied
+);
+-- The runner refuses a database where an applied step's text has since changed.
 ```
 
 ## Libraries and nodes
