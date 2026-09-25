@@ -70,9 +70,10 @@ type Parts struct {
 type Service struct {
 	parts Parts
 
-	mutex   sync.Mutex
-	next    int64
-	waiting map[int64]chan nodeproto.ArtworkResult
+	mutex    sync.Mutex
+	next     int64
+	waiting  map[int64]chan nodeproto.ArtworkResult
+	breakers map[string]*breaker // by source
 }
 
 // NewService returns the service.
@@ -80,7 +81,7 @@ func NewService(parts Parts) *Service {
 	if parts.Wait == 0 {
 		parts.Wait = defaultWait
 	}
-	return &Service{parts: parts, waiting: map[int64]chan nodeproto.ArtworkResult{}}
+	return &Service{parts: parts, waiting: map[int64]chan nodeproto.ArtworkResult{}, breakers: map[string]*breaker{}}
 }
 
 // owed is an artwork job's arguments: the images one item's source names that are not stored.
@@ -162,14 +163,14 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wa
 	if !known {
 		return nil
 	}
-	source, err := fetcher.Fetch(ctx, image.ref.Ref)
+	source, err := service.fetch(ctx, fetcher, image.source, image.ref.Ref)
 	if errors.Is(err, ErrNoImage) || (err == nil && source.hash() != args.Hash) {
 		service.parts.Logger.WarnContext(ctx, "an image's source is gone or changed; its larger sizes are not made",
 			"hash", args.Hash, "source", image.source, "ref", image.ref.Ref)
 		return service.cannotMake(args.Hash, args.Sizes)
 	}
 	if err != nil {
-		return fmt.Errorf("fetch %s %s: %w", image.source, image.ref.Ref, err)
+		return err
 	}
 	result, err := service.reEncode(ctx, source, shape, args.Sizes)
 	if err != nil {
@@ -216,12 +217,12 @@ func (service *Service) one(ctx context.Context, fetcher Fetcher, image wanted) 
 	if err != nil || held {
 		return err
 	}
-	source, err := fetcher.Fetch(ctx, image.ref.Ref)
+	source, err := service.fetch(ctx, fetcher, image.source, image.ref.Ref)
 	if errors.Is(err, ErrNoImage) {
-		return service.refused(ctx, image, err.Error())
+		return service.missing(ctx, fetcher, image, err)
 	}
 	if err != nil {
-		return fmt.Errorf("fetch %s %s: %w", image.source, image.ref.Ref, err)
+		return err
 	}
 	result, err := service.reEncode(ctx, source, shape, fetchedSizes(shape))
 	if err != nil {

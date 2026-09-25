@@ -40,6 +40,8 @@ const (
 	SortLocale                 Key = "sort_locale"
 	ArtworkMaxSourcePixels     Key = "artwork_max_source_pixels"
 	ArtworkWebPQuality         Key = "artwork_webp_quality"
+	TMDBRefreshAfterD          Key = "tmdb_refresh_after_d"
+	RefreshCheckEveryH         Key = "refresh_check_every_h"
 )
 
 // Scope is whose a setting is.
@@ -86,7 +88,7 @@ func (definition Definition) IsQuestion() bool {
 // Registry is every setting. The starting values are the opinions: each says why it is what it
 // is, or names the decision that chose it.
 func Registry() []Definition {
-	return []Definition{
+	return append([]Definition{
 		{
 			Key: UpdateCheck, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("null"), Exposed: true,
 			Question: "Check GitHub for a new release once a day? The check sends nothing but the request.",
@@ -138,6 +140,12 @@ func Registry() []Definition {
 			"a scan that would remove more than this percentage of a root's files waits for the admin (D208)"),
 		integer(RemovalWithholdMinFiles, "20", 0, math.MaxInt32,
 			"...and more than this many of them; a scan that would remove all of them always waits (D208)"),
+	}, metadataDefinitions()...)
+}
+
+// metadataDefinitions are the settings of fetching metadata and artwork.
+func metadataDefinitions() []Definition {
+	return []Definition{
 		integer(JobRetryLimit, "5", 1, 100,
 			"how many times a background job that failed is tried before it is marked failed"),
 		integer(JobRetryBackoffS, "30", 1, 86400,
@@ -153,6 +161,11 @@ func Registry() []Definition {
 		integer(ArtworkMaxSourcePixels, "40000000", 1_000_000, 400_000_000,
 			"the most pixels a source image may have; a larger one is refused before it is decoded (D212 §1)"),
 		integer(ArtworkWebPQuality, "82", 1, 100, "the quality our WebP encoder writes artwork at, 1 to 100 (D212)"),
+		integer(TMDBRefreshAfterD, "180", 0, 36500,
+			"days after which a title's TMDB data is fetched again; TMDB's terms allow keeping it six months; "+
+				"0 never refreshes (D213)"),
+		integer(RefreshCheckEveryH, "24", 1, 8760,
+			"hours between looks for titles whose data is due to be fetched again (D213)"),
 	}
 }
 

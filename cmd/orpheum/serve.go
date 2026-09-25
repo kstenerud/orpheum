@@ -145,6 +145,7 @@ func start(
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
 	}
 	dependencies.Identify = opened.metadata.chooser
+	dependencies.Refresh = opened.metadata.refresher
 	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes)
 	dependencies.Browse = library.NewBrowser(database, opened.settings)
 	dependencies.Artwork = opened.metadata.artwork

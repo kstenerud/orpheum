@@ -47,7 +47,7 @@ func fake(t *testing.T, answers map[string]string) (*httptest.Server, *[]*http.R
 
 func newClient(t *testing.T, base string, key fixedKey) *Client {
 	t.Helper()
-	httpClient, err := outbound.NewClient(5 * time.Second)
+	httpClient, err := outbound.NewClient(5*time.Second, "test")
 	if err != nil {
 		t.Fatal(err)
 	}

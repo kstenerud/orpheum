@@ -23,7 +23,15 @@ type Runner struct {
 	queue       *Queue
 	kind        Kind
 	handler     Handler
+	schedule    []time.Duration
 	pausedUntil time.Time
+}
+
+// RetryOn gives the runner's kind its own retry schedule in place of the settings' doubling
+// back-off: the wait before each retry, after which the job fails (D213 §5).
+func (runner *Runner) RetryOn(schedule []time.Duration) *Runner {
+	runner.schedule = schedule
+	return runner
 }
 
 // NewRunner returns the runner for one kind of job.
@@ -115,12 +123,18 @@ func (runner *Runner) finish(ctx context.Context, job Job, outcome error) error 
 		runner.pausedUntil = now.Add(backoff)
 		return runner.deferUntil(ctx, job, runner.pausedUntil, held, job.Attempts-1)
 	}
+	if runner.schedule != nil {
+		limit = int64(len(runner.schedule)) + 1
+	}
 	if job.Attempts >= limit {
 		runner.queue.logger.WarnContext(ctx, "a job failed", "kind", job.Kind, "subject", job.Subject,
 			"attempts", job.Attempts, "err", outcome)
 		return runner.write(ctx, finishParams(job, stateFailed, outcome, now))
 	}
 	wait := backoff << (job.Attempts - 1)
+	if runner.schedule != nil {
+		wait = runner.schedule[job.Attempts-1]
+	}
 	return runner.deferUntil(ctx, job, now.Add(wait), outcome, job.Attempts)
 }
 

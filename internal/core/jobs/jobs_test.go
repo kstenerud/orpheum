@@ -237,3 +237,50 @@ func TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts(t *testing.T) 
 		t.Error("once unblocked, the queue did not run both jobs")
 	}
 }
+
+func TestRunDue_AKindWithItsOwnScheduleRetriesOnItThenFails(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	jobs.enqueue(t, 1, 0)
+	runs := 0
+	schedule := []time.Duration{time.Minute, 5 * time.Minute}
+	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
+		runs++
+		return errors.New("the image server answered 503")
+	}).RetryOn(schedule)
+	for _, wait := range schedule {
+		if err := runner.RunDue(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if job := jobs.job(t, 1); job.State != "queued" || job.NotBefore != jobs.clock.Now().Add(wait).UnixMilli() {
+			t.Fatalf("after %d runs: %s, not before +%v; want queued, +%v", runs, job.State,
+				time.UnixMilli(job.NotBefore).Sub(jobs.clock.Now()), wait)
+		}
+		jobs.clock.Advance(wait)
+	}
+	if err := runner.RunDue(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if job := jobs.job(t, 1); runs != 3 || job.State != stateFailed {
+		t.Errorf("%d runs, job %s; want 3 runs, then failed (the settings' limit of 3 is not what decides)",
+			runs, job.State)
+	}
+}
+
+func TestEnqueue_AJobWaitsUntilItsNotBefore(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	later := jobs.clock.Now().Add(12 * time.Hour)
+	if _, err := jobs.queue.Enqueue(t.Context(), New{Kind: KindFetch, Subject: 4, NotBefore: later}); err != nil {
+		t.Fatal(err)
+	}
+	ran := 0
+	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error { ran++; return nil })
+	if err := runner.RunDue(t.Context()); err != nil || ran != 0 {
+		t.Fatalf("ran %d before its time (%v)", ran, err)
+	}
+	jobs.clock.Set(later)
+	if err := runner.RunDue(t.Context()); err != nil || ran != 1 {
+		t.Errorf("ran %d at its time (%v)", ran, err)
+	}
+}

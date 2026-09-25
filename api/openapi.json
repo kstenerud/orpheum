@@ -896,6 +896,19 @@
         ],
         "type": "object"
       },
+      "RefreshOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "queued": {
+            "description": "False when a fetch for it was already waiting",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "queued"
+        ],
+        "type": "object"
+      },
       "RescanOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1371,6 +1384,15 @@
             "name": "Authorization",
             "schema": {
               "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
               "type": "string"
             }
           },
@@ -2191,6 +2213,57 @@
         ]
       }
     },
+    "/items/{id}/refresh": {
+      "post": {
+        "operationId": "postItemRefresh",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshOutputBody"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Fetch a film's or series' data and its missing images again, whenever a person likes (edit_metadata; D213)",
+        "tags": [
+          "Identification"
+        ]
+      }
+    },
     "/libraries": {
       "get": {
         "operationId": "getLibraries",
@@ -2941,7 +3014,14 @@
         ],
         "responses": {
           "204": {
-            "description": "No Content"
+            "description": "No Content",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "default": {
             "content": {
@@ -2980,7 +3060,14 @@
                 }
               }
             },
-            "description": "Created"
+            "description": "Created",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "default": {
             "content": {

@@ -7,8 +7,8 @@
 //
 // # Invariants
 //
-//   - A client from NewClient uses no proxy, whatever the environment says.
-//     TestNewClient_TakesNoProxyFromTheEnvironment.
+//   - A client from NewClient uses no proxy, whatever the environment says, and says it is
+//     Orpheum in every request's User-Agent (D213 §6). TestNewClient_TakesNoProxyFromTheEnvironment.
 //   - No other package uses http.DefaultClient, http.DefaultTransport, http.Get and its
 //     siblings, or http.ProxyFromEnvironment. Enforced by the forbidigo rule tagged [outbound].
 //   - This package imports nothing from the module. Enforced by the depguard rule

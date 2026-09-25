@@ -3,7 +3,9 @@
 package identify
 
 import (
+	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -399,7 +401,17 @@ func derefText(text *string) string {
 // key unset or refused holds it until a person fixes the key; an id the provider does not have
 // fails the job; anything else retries.
 func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
-	outcome, err := matcher.Match(ctx, job.Subject)
+	var args refreshArgs
+	if err := json.Unmarshal([]byte(cmp.Or(job.Args, "{}")), &args); err != nil {
+		return fmt.Errorf("fetch job %d: %w", job.ID, jobs.Permanent(err))
+	}
+	var outcome Outcome
+	var err error
+	if args.Refresh {
+		outcome, err = matcher.refresh(ctx, job.Subject, args.RetryImages)
+	} else {
+		outcome, err = matcher.Match(ctx, job.Subject)
+	}
 	if limited, isLimited := errors.AsType[*RateLimitedError](err); isLimited {
 		return &jobs.RetryAtError{At: matcher.clock.Now().Add(limited.After), Err: err}
 	}

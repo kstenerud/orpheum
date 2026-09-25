@@ -12,14 +12,15 @@ import (
 
 func TestNewClient_TakesNoProxyFromTheEnvironment(t *testing.T) {
 	t.Parallel()
-	client, err := NewClient(5 * time.Second)
+	client, err := NewClient(5*time.Second, "1.2.3")
 	if err != nil {
 		t.Fatal(err)
 	}
-	transport, ok := client.Transport.(*http.Transport)
+	wrapped, ok := client.Transport.(identified)
 	if !ok {
-		t.Fatalf("transport is %T, want *http.Transport", client.Transport)
+		t.Fatalf("transport is %T, want our identified transport", client.Transport)
 	}
+	transport := wrapped.Transport
 	if transport.Proxy != nil {
 		t.Error("the transport has a Proxy function; it would read HTTP_PROXY (D204)")
 	}
@@ -28,7 +29,10 @@ func TestNewClient_TakesNoProxyFromTheEnvironment(t *testing.T) {
 	}
 
 	// The positive sibling: the client still reaches a server directly.
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if agent := request.Header.Get("User-Agent"); agent != "Orpheum/1.2.3" {
+			t.Errorf("User-Agent %q, want Orpheum/1.2.3 (D213 §6)", agent)
+		}
 		if _, writeErr := io.WriteString(writer, "direct"); writeErr != nil {
 			t.Error(writeErr)
 		}

@@ -43,25 +43,46 @@ type SignInInput struct {
 		Password string `json:"password" minLength:"1"`
 	}
 	clientAddress string
+	overTLS       bool
 }
 
-// Resolve records the client's address, for the per-address failure limit (D194 §2).
+// Resolve records the client's address, for the per-address failure limit (D194 §2), and
+// whether it came over TLS, for the media cookie.
 func (input *SignInInput) Resolve(ctx huma.Context) []error {
 	host, _, err := net.SplitHostPort(ctx.RemoteAddr())
 	if err != nil {
 		host = ctx.RemoteAddr()
 	}
-	input.clientAddress = host
+	input.clientAddress, input.overTLS = host, ctx.TLS() != nil
 	return nil
 }
 
 // SessionOutput carries a new session's token. The client sends it back in the Authorization
-// header; it never goes in a URL (D154).
+// header; it never goes in a URL (D154). The same session is set as the media cookie, for what
+// cannot send a header: an <img>.
 type SessionOutput struct {
-	Body struct {
+	SetCookie http.Cookie `header:"Set-Cookie"`
+	Body      struct {
 		Token string   `json:"token"`
 		User  UserBody `json:"user"`
 	}
+}
+
+// SignOutInput signs a session out.
+type SignOutInput struct {
+	AuthorizationHeader
+	overTLS bool
+}
+
+// Resolve records whether the request came over TLS, for clearing the media cookie.
+func (input *SignOutInput) Resolve(ctx huma.Context) []error {
+	input.overTLS = ctx.TLS() != nil
+	return nil
+}
+
+// SignOutOutput clears the media cookie.
+type SignOutOutput struct {
+	SetCookie http.Cookie `header:"Set-Cookie"`
 }
 
 func (server *Server) registerSetupAndAuth() {
@@ -131,12 +152,12 @@ func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionO
 	if err != nil {
 		return nil, server.internal(ctx, "read the new session", err)
 	}
-	output := &SessionOutput{}
+	output := &SessionOutput{SetCookie: mediaCookie(token, input.overTLS)}
 	output.Body.Token, output.Body.User = token, userBody(principal)
 	return output, nil
 }
 
-func (server *Server) signOut(ctx context.Context, input *AuthorizationHeader) (*struct{}, error) {
+func (server *Server) signOut(ctx context.Context, input *SignOutInput) (*SignOutOutput, error) {
 	dependencies, _, err := server.signedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -144,7 +165,9 @@ func (server *Server) signOut(ctx context.Context, input *AuthorizationHeader) (
 	if err = dependencies.Auth.SignOut(ctx, bearerToken(input.Authorization)); err != nil {
 		return nil, server.internal(ctx, "sign out", err)
 	}
-	return &struct{}{}, nil
+	cleared := mediaCookie("", input.overTLS) //nolint:gosec // as mediaCookie (P20)
+	cleared.MaxAge = -1
+	return &SignOutOutput{SetCookie: cleared}, nil
 }
 
 func (server *Server) me(ctx context.Context, input *AuthorizationHeader) (*UserOutput, error) {

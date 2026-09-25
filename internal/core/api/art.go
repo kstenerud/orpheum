@@ -20,7 +20,7 @@ const artCacheControl = "private, max-age=31536000, immutable"
 
 // ArtInput asks for one size of one image.
 type ArtInput struct {
-	AuthorizationHeader
+	MediaCredentials
 	Hash string `doc:"The image's hash, from a title's artwork" path:"hash" pattern:"^[0-9a-f]{64}$"`
 	File string `doc:"A size and a format: portrait-m.webp, landscape-l.jpeg" path:"file"`
 }
@@ -49,7 +49,7 @@ func (server *Server) registerArt() {
 }
 
 func (server *Server) getArt(ctx context.Context, input *ArtInput) (*ArtOutput, error) {
-	dependencies, _, err := server.signedIn(ctx, input.Authorization)
+	dependencies, err := server.signedInForMedia(ctx, input.MediaCredentials)
 	if err != nil {
 		return nil, err
 	}

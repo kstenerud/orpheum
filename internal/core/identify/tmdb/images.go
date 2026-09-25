@@ -11,8 +11,10 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
+	"github.com/kstenerud/orpheum/internal/core/identify"
 )
 
 // ImageBaseURL is TMDB's image server, at each image's original size: the node cuts our sizes
@@ -44,6 +46,13 @@ func NewImages(httpClient *http.Client, base string) *Images {
 	return &Images{http: httpClient, base: strings.TrimSuffix(base, "/")}
 }
 
+// notFoundKept is how long TMDB's image CDN serves a 404 from its cache: max-age=43200
+// (provider-etiquette.md, measured).
+const notFoundKept = 12 * time.Hour
+
+// RecheckAfter is how long TMDB's CDN keeps a 404.
+func (*Images) RecheckAfter() time.Duration { return notFoundKept }
+
 // Fetch downloads one image by its path, as an unsanitised value for the node to re-encode.
 func (images *Images) Fetch(ctx context.Context, ref string) (artwork.Unsanitised, error) {
 	if !imageRef.MatchString(ref) {
@@ -65,6 +74,11 @@ func (images *Images) Fetch(ctx context.Context, ref string) (artwork.Unsanitise
 	case http.StatusOK:
 	case http.StatusNotFound:
 		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: %w", ref, artwork.ErrNoImage)
+	case http.StatusTooManyRequests:
+		if after, found := retryAfter(response.Header); found {
+			return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: %w", ref, &identify.RateLimitedError{After: after})
+		}
+		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: status 429", ref)
 	default:
 		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: status %d", ref, response.StatusCode)
 	}

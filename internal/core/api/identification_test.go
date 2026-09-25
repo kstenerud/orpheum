@@ -160,10 +160,28 @@ func TestIdentification_OnlyARoleThatEditsMetadataMayChange(t *testing.T) {
 		{http.MethodPost, "/items/10/match", map[string]string{"provider": "tmdb", "providerId": "2"}},
 		{http.MethodPut, "/items/10/overrides/name", map[string]string{"value": "Mine"}},
 		{http.MethodDelete, "/items/10/overrides/name", nil},
+		{http.MethodPost, "/items/10/refresh", nil},
 	} {
 		wantError(t, harness.do(t, request.method, request.path, user, request.body), http.StatusForbidden,
 			CodeForbidden)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/items?ident=ambiguous", "", nil), http.StatusUnauthorized,
 		CodeAuthRequired)
+}
+
+func TestIdentification_APersonMayRefreshATitleWheneverTheyLike(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.ambiguousTitle(t)
+	first := harness.do(t, http.MethodPost, "/items/10/refresh", admin, nil)
+	if first.status != http.StatusAccepted || !strings.Contains(first.body, `"queued":true`) {
+		t.Errorf("a refresh = %d %s; want it queued", first.status, first.body)
+	}
+	again := harness.do(t, http.MethodPost, "/items/10/refresh", admin, nil)
+	if again.status != http.StatusAccepted || !strings.Contains(again.body, `"queued":false`) {
+		t.Errorf("a second refresh while the first waits = %d %s; want accepted, already queued", again.status,
+			again.body)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/items/99/refresh", admin, nil), http.StatusNotFound, CodeNotFound)
 }
