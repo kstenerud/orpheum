@@ -16405,6 +16405,9 @@ one-time fixes, mostly televisions. The options, to be chosen when the service i
 - The core has a **stable key identity** that a client can pin (D154's grants point that way).
 - **Pairing is a step a client can complete from a scanned code**, not only from a typed
   address and password.
+- **A device code typed at the service must name its core** ([D218](#d218--accounts-the-admin-creates-a-person-who-sets-a-password-from-a-one-time-link-a-signed-in-person-adds-a-tv-by-a-short-safe32-code)):
+  either the core registers each live code with the service, or the code carries a prefix for
+  the core. Decided when the service is designed.
 
 **The hosted relay stays deferred** until all of these hold: a release aimed at owners who will
 not run a VPS, measured drop-off at the VPS step, someone to carry legal.md §4's duties, and no
@@ -16461,10 +16464,9 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
 
 ## D217 — M3's playback contract: the client sends ranked lists, the media token is a reference, every audio track is prepared, and hls.js, JASSUB and Playwright are allowed
 
-**Decided in part** (2026-09-25), by the project owner, over the gaps found in cut-a before M3
-(*"1, 2, 4, 9: agreed"*, then *"ok, that all sounds good"* to §5–§8). What M3's accounts are,
-and how a person without a phone to hand receives their first sign-in, is still being discussed
-and will be added here.
+**Decided** (2026-09-25), by the project owner, over the gaps found in cut-a before M3
+(*"1, 2, 4, 9: agreed"*, then *"ok, that all sounds good"* to §5–§8). What M3's accounts are is
+[D218](#d218--accounts-the-admin-creates-a-person-who-sets-a-password-from-a-one-time-link-a-signed-in-person-adds-a-tv-by-a-short-safe32-code).
 
 1. **The menu is ranked lists, one per axis, with no weights** (refines
    [D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) and
@@ -16517,4 +16519,50 @@ and will be added here.
    the first time it plays, then kept
    ([D184](#d184--the-defaults-audit-four-become-questions-seven-must-be-made-visible-the-rest-pass)).
 
-**Status:** Decided in part; built in M3.
+9. **Fetching subtitles automatically is deferred** (the owner, 2026-09-25: *"this would be a
+   feature that the user must activate. So it can be added later, low priority"*): a person who
+   turns it on would have a missing subtitle in their chosen language fetched when a file is
+   played, once per file and language, kept, and labelled unverified. Cut A keeps fetch on
+   request (cut-a §1); neither is built in M3.
+
+**Status:** Decided; built in M3.
+
+## D218 — Accounts: the admin creates a person, who sets a password from a one-time link; a signed-in person adds a TV by a short safe32 code
+
+**Decided** (2026-09-25), by the project owner, who set the flow out: *"Admin creates account,
+sends url / qr to user. User clicks / opens link from a phone or computer ... to complete
+registration (selects a new password). User then uses phone/computer's browser/app to ask for a
+code to log in via their TV ... User browses to the server in their TV and types in the code, and
+it gets added as one of their devices"*, and *"A logged in user should be able to register as
+many devices as they like."* **Refines [D93](#d93--device-pairing-is-rfc-8628-shaped)**, whose
+code runs the other way (the TV shows it and a signed-in device approves), and moves signing in a
+TV into Cut A, as part of M3's accounts. The admin is the technical person in a household;
+everyone else should need nothing but a link and, on a TV, eight characters.
+
+1. **The admin creates the account** (name and role) in the admin panel and receives a one-time
+   registration link, shown as a URL and a QR code. Its secret travels after `#`, so the browser
+   never sends it to the server's logs or to another site: the one deliberate exception to
+   [D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url)'s
+   rule, because a QR code needs it. It is single use and lasts 7 days.
+2. **The person opens it on a phone or computer and chooses a password**, and that device becomes
+   their first.
+3. **A signed-in person adds a device** by asking for a code, naming the device ("Living room
+   TV"), as many times and for as many devices as they like. An admin can make one for any
+   person, which covers someone with no other device. The code is 8 characters of
+   [safe32](https://github.com/kstenerud/safe-encoding/blob/master/safe32-specification.md), one
+   full 40-bit group, shown as `xxxx-xxxx`: decoders accept either case, `o` for `0`, `l` or `i`
+   for `1`, `u` for `v`, and ignore dashes and spaces, so it survives a TV remote. It lasts 10
+   minutes and works once.
+4. **On the TV**, the person opens the server's address, chooses "I have a code" and types it; the
+   TV becomes one of their devices, listed and revocable like any other. A wrong code counts
+   against the sign-in rate limit.
+5. **A forgotten password**: the admin makes a new registration link. The old password works
+   until the new one is set, and a reset signs no one out; "sign out everywhere" is a separate
+   act.
+6. **People change their own password** in their settings.
+
+**Why this direction rather than D93's:** the TV is an ordinary page that sends one request
+instead of waiting to be approved, and the code can be made by an admin on someone else's behalf.
+Phishing risk is about equal either way; the ten-minute life and single use bound it.
+
+**Status:** Decided; built in M3.
