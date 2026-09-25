@@ -99,7 +99,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D90](working-notes.md#d90--playback-presentation-is-a-persisted-per-user-preference-set-and-captions-have-a-statutory-floor) Playback presentation is a persisted per-user preference set, and captions have a statutory floor
 - [D91](working-notes.md#d91--a-metrics-endpoint-off-by-default-and-local-when-on) A `/metrics` endpoint, off by default and local when on
 - [D92](working-notes.md#d92--a-failed-rendition-falls-to-the-next-one-and-the-client-remembers-the-server-still-has-no-device-database) A failed rendition falls to the next one, and the client remembers; the server still has no device database
-- [D93](working-notes.md#d93--device-pairing-is-rfc-8628-shaped) Device pairing is RFC 8628-shaped — *revisited by D154*
+- [D93](working-notes.md#d93--device-pairing-is-rfc-8628-shaped) Device pairing is RFC 8628-shaped — *revisited by D154, D218*
 - [D94](working-notes.md#d94--disk-spin-down-is-a-cost-of-the-snapshot-interval-and-archival-means-untouched) Disk spin-down is a cost of the snapshot interval, and `archival` means untouched
 - [D95](working-notes.md#d95--people-are-entities-with-provider-identity-a-name-is-never-a-key) People are entities with provider identity; a name is never a key
 - [D96](working-notes.md#d96--an-episodes-position-is-ordering-season-number-and-a-series-declares-its-orderings) An episode's position is `(ordering, season, number)`, and a series declares its orderings — *revisited by D159*
@@ -223,6 +223,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D215](working-notes.md#d215--local-artwork-images-beside-the-media-follow-the-librarys-metadata-source-named-as-kodi-and-jellyfin-name-them-embedded-art-waits) Local artwork: images beside the media follow the library's metadata source, named as Kodi and Jellyfin name them; embedded art waits
 - [D216](working-notes.md#d216--every-byte-path-is-under-apiv1bytes-the-media-cookies-one-scope-the-built-web-client-is-served-by-the-binary-from-m3) Every byte path is under /api/v1/bytes/, the media cookie's one scope; the built web client is served by the binary from M3
 - [D217](working-notes.md#d217--m3s-playback-contract-the-client-sends-ranked-lists-the-media-token-is-a-reference-every-audio-track-is-prepared-and-hlsjs-jassub-and-playwright-are-allowed) M3's playback contract: the client sends ranked lists, the media token is a reference, every audio track is prepared, and hls.js, JASSUB and Playwright are allowed
+- [D218](working-notes.md#d218--accounts-the-admin-creates-a-person-who-sets-a-password-from-a-one-time-link-a-signed-in-person-adds-a-tv-by-a-short-safe32-code) Accounts: the admin creates a person, who sets a password from a one-time link; a signed-in person adds a TV by a short safe32 code
 
 ## Archived
 
