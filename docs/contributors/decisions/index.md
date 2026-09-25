@@ -28,7 +28,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D18](working-notes.md#d18--the-jellyfin-compatible-surface-is-an-adapter-and-it-quarantines-device-profiles) The Jellyfin-compatible surface is an adapter, and it quarantines device profiles
 - [D19](working-notes.md#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three) The transcoder is a plugin we happen to maintain; plugin tiers become three — *revisited by D193*
 - [D20](working-notes.md#d20--plugin-architecture-constraints-and-four-things-the-catalogue-says-belong-in-the-core) Plugin-architecture constraints, and four things the catalogue says belong in the core
-- [D21](working-notes.md#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) A fixed, named output menu, negotiated by a prioritised client list — *revisited by D28, D40, D123*
+- [D21](working-notes.md#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) A fixed, named output menu, negotiated by a prioritised client list — *revisited by D28, D40, D123, D217*
 - [D22](working-notes.md#d22--video-audio-and-subtitles-negotiate-as-independent-axes) Video, audio and subtitles negotiate as independent axes
 - [D23](working-notes.md#d23--axis-switching-is-mid-session-by-default-burn-in-is-the-one-thing-that-breaks-it) Axis switching is mid-session by default; burn-in is the one thing that breaks it
 - [D24](working-notes.md#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series) Language is a preference axis, and track selections stick to the series — *revisited by D98, D140*
@@ -159,7 +159,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D151](working-notes.md#d151--withdrawn-notifications-a-media-server-has-nothing-you-are-waiting-for-and-its-ui-is-the-notification) Withdrawn: notifications. A media server has nothing you are waiting for, and its UI is the notification — *revisited by D152*
 - [D152](working-notes.md#d152--reachability-is-three-questions-with-three-observers-and-all-three-are-already-in-place) Reachability is three questions with three observers, and all three are already in place
 - [D153](working-notes.md#d153--a-ranked-feature-register-ordered-by-demand-and-annotated-by-retrofit-cost-because-those-are-different-numbers) A ranked feature register, ordered by demand and annotated by retrofit cost, because those are different numbers
-- [D154](working-notes.md#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url) One grant table, opaque and revocable; the session credential never appears in a URL — *revisited by D216*
+- [D154](working-notes.md#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url) One grant table, opaque and revocable; the session credential never appears in a URL — *revisited by D216, D217*
 - [D155](working-notes.md#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional) EIDR checked against its own schema: the levels are right, the citation was a proposal, and Edition must be optional — *revisited by D156*
 - [D156](working-notes.md#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one) A position is stored at the Version and resolved at the Edition; the Title never holds one — *revisited by D157*
 - [D157](working-notes.md#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does) A position belongs to the File. Completion rolls up; the position never does — *revisited by D158*
@@ -222,6 +222,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D214](working-notes.md#d214--a-later-commercial-service-connects-clients-to-a-core-without-carrying-content-the-hosted-relay-stays-deferred) A later commercial service connects clients to a core without carrying content; the hosted relay stays deferred
 - [D215](working-notes.md#d215--local-artwork-images-beside-the-media-follow-the-librarys-metadata-source-named-as-kodi-and-jellyfin-name-them-embedded-art-waits) Local artwork: images beside the media follow the library's metadata source, named as Kodi and Jellyfin name them; embedded art waits
 - [D216](working-notes.md#d216--every-byte-path-is-under-apiv1bytes-the-media-cookies-one-scope-the-built-web-client-is-served-by-the-binary-from-m3) Every byte path is under /api/v1/bytes/, the media cookie's one scope; the built web client is served by the binary from M3
+- [D217](working-notes.md#d217--m3s-playback-contract-the-client-sends-ranked-lists-the-media-token-is-a-reference-every-audio-track-is-prepared-and-hlsjs-jassub-and-playwright-are-allowed) M3's playback contract: the client sends ranked lists, the media token is a reference, every audio track is prepared, and hls.js, JASSUB and Playwright are allowed
 
 ## Archived
 
