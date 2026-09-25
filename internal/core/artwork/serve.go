@@ -5,8 +5,6 @@ package artwork
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"image/jpeg"
@@ -14,10 +12,8 @@ import (
 	"golang.org/x/image/webp"
 
 	"github.com/kstenerud/orpheum/internal/core/datadir"
-	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
-	"github.com/kstenerud/orpheum/internal/store"
 )
 
 // The formats a size is served in (D212 §4): WebP always, JPEG cut by the core when first asked
@@ -62,6 +58,7 @@ func (service *Service) Serve(ctx context.Context, hash string, name nodeproto.A
 	art := service.parts.Store
 	stored, err := art.ReadArt(hash, string(name)+"."+format)
 	if err == nil {
+		service.noteServed(hash)
 		return Served{Bytes: stored}, nil
 	}
 	if errors.Is(err, datadir.ErrBadArtName) {
@@ -72,11 +69,31 @@ func (service *Service) Serve(ctx context.Context, hash string, name nodeproto.A
 	}
 	if format == FormatJPEG {
 		cut, cutErr := service.cutJPEG(ctx, art, hash, name)
+		if cutErr == nil {
+			service.noteServed(hash)
+		}
 		if cutErr == nil || !isMissing(cutErr) {
 			return Served{Bytes: cut}, cutErr
 		}
 	}
+	return service.meanwhile(ctx, hash, size, format)
+}
+
+// meanwhile answers for a size not held: a redirect to the nearest size held, with the size
+// queued to be made; or, with nothing of the image held — the cache was deleted — no image, and
+// the image queued to be made again, if an item shows it.
+func (service *Service) meanwhile(ctx context.Context, hash string, size nodeproto.ArtSize, format string) (
+	Served, error,
+) {
+	art := service.parts.Store
 	nearest, err := service.nearest(art, hash, size)
+	if errors.Is(err, ErrNoArt) {
+		if makeErr := service.queueMake(ctx, hash, size.Shape, fetchedSizes(size.Shape)); makeErr != nil &&
+			!errors.Is(makeErr, ErrNoArt) {
+			return Served{}, makeErr
+		}
+		return Served{}, ErrNoArt
+	}
 	if err != nil {
 		return Served{}, err
 	}
@@ -119,8 +136,8 @@ func (service *Service) cutJPEG(ctx context.Context, art Store, hash string, nam
 	if err := jpeg.Encode(&cut, decoded, &jpeg.Options{Quality: jpegQuality}); err != nil {
 		return nil, fmt.Errorf("cut JPEG of art %s %s: %w", hash, name, err)
 	}
-	if err := art.WriteArt(hash, string(name)+"."+FormatJPEG, cut.Bytes()); err != nil {
-		return nil, fmt.Errorf("keep JPEG of art %s %s: %w", hash, name, err)
+	if err := service.writeArt(ctx, hash, string(name)+"."+FormatJPEG, cut.Bytes()); err != nil {
+		return nil, err
 	}
 	return cut.Bytes(), nil
 }
@@ -154,50 +171,15 @@ func (service *Service) nearest(art Store, hash string, want nodeproto.ArtSize) 
 	return "", ErrNoArt
 }
 
-// makeIfWanted queues a size made only on request, when its source may be large enough: the
-// largest size made at fetch time is there, and no attempt found the source too small.
+// makeIfWanted queues a size not held to be made, unless it is noted as one the source cannot
+// make: a size not held and not noted was evicted, or is made only on request.
 func (service *Service) makeIfWanted(ctx context.Context, art Store, hash string, want nodeproto.ArtSize) error {
-	if !want.OnRequest {
-		return nil // made at fetch time, when the source was large enough; it was not
-	}
-	fetched := fetchedSizes(want.Shape)
-	largest := fetched[len(fetched)-1]
-	for _, check := range []struct {
-		name string
-		want bool
-	}{{string(largest) + "." + FormatWebP, true}, {string(want.Name) + ".none", false}} {
-		found, err := art.HasArt(hash, check.name)
-		if err != nil {
-			return fmt.Errorf("look for art %s %s: %w", hash, check.name, err)
-		}
-		if found != check.want {
-			return nil
-		}
-	}
-	raw, err := hex.DecodeString(hash)
+	noted, err := art.HasArt(hash, string(want.Name)+noneMark)
 	if err != nil {
-		return ErrNoArt
+		return fmt.Errorf("look for art %s %s: %w", hash, want.Name, err)
 	}
-	origin, err := store.One(service.parts.Database.Read().GetArtworkSource(ctx, raw))
-	if errors.Is(err, store.ErrNotFound) {
-		return nil // an image no item shows any more
+	if noted {
+		return nil
 	}
-	if err != nil {
-		return fmt.Errorf("find where art %s came from: %w", hash, err)
-	}
-	args, err := json.Marshal(owed{
-		Source: origin.Source, Refs: []owedRef{{Kind: origin.Kind, Ref: *origin.SourceRef}},
-		Hash: hash, Sizes: []nodeproto.ArtSizeName{want.Name},
-	})
-	if err != nil {
-		return fmt.Errorf("encode the job: %w", err)
-	}
-	_, err = service.parts.Queue.Enqueue(ctx, jobs.New{
-		Kind: jobs.KindArtwork, Subject: origin.ItemID, Args: string(args), Priority: makePriority,
-		Reason: "a size someone asked for: " + string(want.Name),
-	})
-	if err != nil {
-		return fmt.Errorf("queue %s of art %s: %w", want.Name, hash, err)
-	}
-	return nil
+	return service.queueMake(ctx, hash, want.Shape, []nodeproto.ArtSizeName{want.Name})
 }

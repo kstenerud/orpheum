@@ -92,6 +92,23 @@ counted:
 - **Cost:** one research round; the refresh, the sweep and two settings.
 - **Process lesson:** before designing around an external service, read its terms of use.
 
+### P22 — The artwork ceiling keeps each shape's smallest size, and re-cuts from the base (M2, 2026-09-25) · refinement
+
+- **Planned:** D212 §6: never evict a live item's poster-wall size; evict bases last, "fetched
+  again when next needed"; §2: every size is cut from the base.
+- **What happened:** the smallest size of each shape (portrait-s, landscape-s, logo-s) is kept
+  too, so a request for an evicted size always has a size to be redirected to; a backdrop or a
+  still has no poster-wall size, and without it an evicted one would answer 404. An evicted size
+  no larger than the held base is cut again by the node from the base, our own WebP, and nothing
+  is fetched; only a larger size, or an image with nothing held, goes back to the provider. The
+  node marks at fetch time the sizes the source is too small for, so a missing size with no mark
+  is known to have been evicted. The high-water warning is `GET /doctor`'s first finding.
+- **Why the plan missed it:** D212 named the poster wall, which is posters only; and "cut from
+  the base" did not say by whom once the node is never on the request path.
+- **Cost:** the smallest sizes add about 0.6 GiB at the reference scale, mostly episode stills,
+  to what is never evicted.
+- **Process lesson:** when a policy protects one case, check what serves the cases next to it.
+
 ### P17 — A migration drafted, applied by the dev loop, then edited (M2, 2026-09-25) · gate-design
 
 - **Planned:** migrations are append-only, enforced by the pre-edit hook on committed steps and

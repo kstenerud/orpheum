@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -79,6 +81,20 @@ func (art memoryStore) ReadArt(hash, name string) ([]byte, error) {
 	return contents, nil
 }
 
+func (art memoryStore) RemoveArt(hash, name string) error {
+	delete(art, hash+"/"+name)
+	return nil
+}
+
+func (art memoryStore) ListArt() ([]datadir.ArtFile, error) {
+	var files []datadir.ArtFile
+	for key, contents := range art {
+		hash, name, _ := strings.Cut(key, "/")
+		files = append(files, datadir.ArtFile{Hash: hash, Name: name, Size: int64(len(contents))})
+	}
+	return files, nil
+}
+
 func (art memoryStore) HasArt(hash, name string) (bool, error) {
 	_, found := art[hash+"/"+name]
 	return found, nil
@@ -90,6 +106,8 @@ type bench struct {
 	node     *fakeNode
 	art      memoryStore
 	itemID   int64
+	config   *settings.Service
+	clock    *clocktest.Fake
 }
 
 func newBench(t *testing.T, images fetched) *bench {
@@ -106,14 +124,18 @@ func newBench(t *testing.T, images fetched) *bench {
 	}
 	node := &fakeNode{ctx: t.Context(), connected: true}
 	art := memoryStore{}
+	config := settingstest.Seeded(t, database)
+	now := clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	service := NewService(Parts{
-		Database: database, Queue: &queued{}, Nodes: node, Store: art, Settings: settingstest.Seeded(t, database),
+		Database: database, Queue: &queued{}, Nodes: node, Store: art, Cache: storetest.OpenCache(t), Settings: config,
 		Fetchers: map[string]Fetcher{"tmdb": images},
-		Clock:    clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)),
+		Clock:    now,
 		Logger:   slog.New(slog.DiscardHandler), Wait: 5 * time.Second,
 	})
 	node.service = service
-	return &bench{service: service, database: database, node: node, art: art, itemID: itemID}
+	return &bench{
+		service: service, database: database, node: node, art: art, itemID: itemID, config: config, clock: now,
+	}
 }
 
 func (bench *bench) job(refs ...owedRef) jobs.Job {

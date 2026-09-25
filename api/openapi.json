@@ -259,6 +259,24 @@
         ],
         "type": "object"
       },
+      "DoctorOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "findings"
+        ],
+        "type": "object"
+      },
       "EntryBody": {
         "additionalProperties": false,
         "properties": {
@@ -527,6 +545,34 @@
         },
         "required": [
           "files"
+        ],
+        "type": "object"
+      },
+      "FindingBody": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "check": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "ok",
+              "warn",
+              "fail"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "check",
+          "verdict",
+          "detail"
         ],
         "type": "object"
       },
@@ -1749,6 +1795,48 @@
         "summary": "Set a server setting to default: its starting value, no longer marked modified, so it follows its starting value when a release changes it (admin)",
         "tags": [
           "Settings"
+        ]
+      }
+    },
+    "/doctor": {
+      "get": {
+        "operationId": "getDoctor",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What the running server finds wrong with itself, and what to do (admin)",
+        "tags": [
+          "Running it"
         ]
       }
     },

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -258,5 +259,33 @@ func TestHasArt_SaysWhetherASizeIsStoredWithoutReadingIt(t *testing.T) {
 	}
 	if _, err := directories.HasArt(hash, "../x"); !errors.Is(err, ErrBadArtName) {
 		t.Errorf("HasArt of a path: %v, want ErrBadArtName", err)
+	}
+}
+
+func TestListArt_ListsEveryStoredFileWithItsSizeAndNothingElse(t *testing.T) {
+	t.Parallel()
+	directories := prepareTemporary(t)
+	if files, err := directories.ListArt(); err != nil || len(files) != 0 {
+		t.Fatalf("before any art: %v, %v", files, err)
+	}
+	first, second := strings.Repeat("ab", 32), strings.Repeat("cd", 32)
+	stored := []ArtFile{{first, "portrait-s.webp", 3}, {first, "portrait-m.jpeg", 5}, {second, "landscape-l.none", 0}}
+	for _, file := range stored {
+		if err := directories.WriteArt(file.Hash, file.Name, make([]byte, file.Size)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stray := filepath.Join(directories.cache, "art", first, "notes.txt")
+	if err := os.WriteFile(stray, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	files, err := directories.ListArt()
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.SortFunc(files, func(a, b ArtFile) int { return strings.Compare(a.Hash+a.Name, b.Hash+b.Name) })
+	want := []ArtFile{{first, "portrait-m.jpeg", 5}, {first, "portrait-s.webp", 3}, {second, "landscape-l.none", 0}}
+	if !slices.Equal(files, want) {
+		t.Errorf("ListArt = %+v, want %+v (the stray file skipped)", files, want)
 	}
 }

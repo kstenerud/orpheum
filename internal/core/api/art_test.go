@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
 // fetched is a response, read and closed.
@@ -79,4 +81,21 @@ func TestArt_ServesAStoredSizeAndRedirectsFromOneNotMade(t *testing.T) {
 		http.StatusUnauthorized {
 		t.Errorf("without signing in: %d, want 401", anonymous.StatusCode)
 	}
+}
+
+func TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	found := harness.do(t, http.MethodGet, "/doctor", admin, nil)
+	if found.status != http.StatusOK ||
+		!strings.Contains(found.body, `{"check":"artwork cache","verdict":"ok","detail":"0.0 GiB of a 0 GiB `) {
+		t.Errorf("doctor = %d %s", found.status, found.body)
+	}
+	if _, err := harness.service.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	wantError(t, harness.do(t, http.MethodGet, "/doctor", harness.signIn(t, "partner", "partner-password"), nil),
+		http.StatusForbidden, CodeForbidden)
 }

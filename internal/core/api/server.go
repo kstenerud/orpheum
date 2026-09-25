@@ -101,6 +101,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerLibraries()
 	server.registerBrowse()
 	server.registerArt()
+	server.registerDoctor()
 	return server
 }
 

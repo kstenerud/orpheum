@@ -89,6 +89,7 @@ func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop fun
 		})
 	}
 	done.Go(func() { fetching.sweep(running, logger) })
+	done.Go(func() { keepArtwork(running, fetching.artwork, logger) })
 	return func() { cancel(); done.Wait() }
 }
 

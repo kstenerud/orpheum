@@ -49,3 +49,14 @@ WHERE item_id = sqlc.arg(item_id) AND kind = sqlc.arg(kind) AND source = sqlc.ar
 -- more at its next pass, D213 sections 1 and 2.
 UPDATE artwork SET removed_at = sqlc.arg(removed_at)
 WHERE item_id = sqlc.arg(item_id) AND content_hash IS NULL AND chosen = 0 AND removed_at IS NULL;
+
+-- name: ListArtworkHashes :many
+-- Every stored image, whether a live item shows it, and when it last stopped being shown: what
+-- the artwork ceiling reads to find removed items' images, D212 section 6.
+SELECT artwork.content_hash AS hash,
+  CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS live,
+  CAST(MAX(COALESCE(artwork.removed_at, item.removed_at, 0)) AS INTEGER) AS gone_at
+FROM artwork
+JOIN item ON item.id = artwork.item_id
+WHERE artwork.content_hash IS NOT NULL
+GROUP BY artwork.content_hash;
