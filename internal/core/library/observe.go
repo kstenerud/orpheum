@@ -32,8 +32,8 @@ func (work *batch) observed(ctx context.Context, scan *scanState, observed *node
 	if err != nil {
 		return err
 	}
-	existing, err := store.One(work.queries.GetLiveFileByPath(ctx, sqlcgen.GetLiveFileByPathParams{
-		NodeID: work.nodeID, Path: seen.path,
+	existing, err := store.One(work.queries.GetLiveFileByKey(ctx, sqlcgen.GetLiveFileByKeyParams{
+		NodeID: work.nodeID, PathKey: seen.key,
 	}))
 	switch {
 	case err == nil && bytes.Equal(existing.PayloadHash, seen.hash):
@@ -93,29 +93,32 @@ func (work *batch) reviveOrInsert(ctx context.Context, scan *scanState, seen obs
 type observation struct {
 	path     string
 	raw      []byte
+	key      []byte
 	hash     []byte
 	probe    string
 	observed *nodeproto.Observed
 }
 
 func observationOf(root string, observed *nodeproto.Observed) (observation, error) {
-	filePath, raw := nodePath(root, observed.Path)
+	reported := nodePath(root, observed.Path)
 	hash, err := payloadHash(observed.Identity)
 	if err != nil {
 		return observation{}, err
 	}
 	probe, err := json.Marshal(observed.Probe)
 	if err != nil {
-		return observation{}, fmt.Errorf("encode the probe of %s: %w", filePath, err)
+		return observation{}, fmt.Errorf("encode the probe of %s: %w", reported.text, err)
 	}
-	return observation{path: filePath, raw: raw, hash: hash, probe: string(probe), observed: observed}, nil
+	return observation{
+		path: reported.text, raw: reported.raw, key: reported.key, hash: hash, probe: string(probe), observed: observed,
+	}, nil
 }
 
 // insert adds a new file row, unidentified until identification sees it, and its streams.
 func (work *batch) insert(ctx context.Context, scan *scanState, seen observation) error {
 	observed, reason := seen.observed, notIdentifiedYet
 	id, err := work.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: seen.path, PathRaw: seen.raw,
+		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key,
 		Size: &observed.Size, Mtime: &observed.MtimeMs, PayloadHash: seen.hash,
 		PayloadLen: &observed.Identity.PayloadLength, Filing: filingUnidentified, FilingReason: &reason,
 		Probe: &seen.probe, Seen: work.now,
@@ -131,7 +134,7 @@ func (work *batch) insert(ctx context.Context, scan *scanState, seen observation
 func (work *batch) update(ctx context.Context, scan *scanState, id int64, seen observation) error {
 	observed, reason := seen.observed, notIdentifiedYet
 	err := work.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
-		LibraryID: scan.libraryID, Path: seen.path, PathRaw: seen.raw, Size: &observed.Size,
+		LibraryID: scan.libraryID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key, Size: &observed.Size,
 		Mtime: &observed.MtimeMs, PayloadHash: seen.hash, PayloadLen: &observed.Identity.PayloadLength,
 		UnidentifiedReason: &reason, Probe: &seen.probe, Seen: work.now, ID: id,
 	})
@@ -146,16 +149,16 @@ func (work *batch) update(ctx context.Context, scan *scanState, id int64, seen o
 func (work *batch) filed(
 	ctx context.Context, scan *scanState, reported nodeproto.Path, filing, reason string, detail *string,
 ) error {
-	filePath, raw := nodePath(scan.root, reported)
-	existing, err := store.One(work.queries.GetLiveFileByPath(ctx, sqlcgen.GetLiveFileByPathParams{
-		NodeID: work.nodeID, Path: filePath,
+	located := nodePath(scan.root, reported)
+	existing, err := store.One(work.queries.GetLiveFileByKey(ctx, sqlcgen.GetLiveFileByKeyParams{
+		NodeID: work.nodeID, PathKey: located.key,
 	}))
 	if err == nil {
 		err = work.queries.UpdateFileFiling(ctx, sqlcgen.UpdateFileFilingParams{
 			Filing: filing, FilingReason: &reason, ErrorDetail: detail, Seen: work.now, ID: existing.ID,
 		})
 		if err != nil {
-			return fmt.Errorf("file %s as %s: %w", filePath, filing, err)
+			return fmt.Errorf("file %s as %s: %w", located.text, filing, err)
 		}
 		return nil
 	}
@@ -163,11 +166,11 @@ func (work *batch) filed(
 		return err
 	}
 	_, err = work.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: filePath, PathRaw: raw,
+		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, PathRaw: located.raw, PathKey: located.key,
 		Filing: filing, FilingReason: &reason, ErrorDetail: detail, Seen: work.now,
 	})
 	if err != nil {
-		return fmt.Errorf("insert %s as %s: %w", filePath, filing, err)
+		return fmt.Errorf("insert %s as %s: %w", located.text, filing, err)
 	}
 	return nil
 }
@@ -180,8 +183,7 @@ func (work *batch) errored(ctx context.Context, scan *scanState, failure *nodepr
 	case nodeproto.ScopeRoot, nodeproto.ScopeRun:
 		scan.unreadAll = true
 	case nodeproto.ScopeEntry, nodeproto.ScopeSubtree:
-		unread, _ := nodePath(scan.root, failure.Path)
-		scan.unread = append(scan.unread, unread)
+		scan.unread = append(scan.unread, nodePath(scan.root, failure.Path).text)
 	}
 	if failure.Path.Text == "." {
 		return nil // the root itself is not a file

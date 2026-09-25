@@ -63,26 +63,28 @@ func (q *Queries) GetLibraryForRoot(ctx context.Context, arg GetLibraryForRootPa
 	return library_id, err
 }
 
-const getLiveFileByPath = `-- name: GetLiveFileByPath :one
+const getLiveFileByKey = `-- name: GetLiveFileByKey :one
 SELECT id, payload_hash, last_seen
 FROM file
-WHERE node_id = ? AND path = ? AND removed_at IS NULL
+WHERE node_id = ?1 AND path_key = ?2 AND removed_at IS NULL
 `
 
-type GetLiveFileByPathParams struct {
-	NodeID int64
-	Path   string
+type GetLiveFileByKeyParams struct {
+	NodeID  int64
+	PathKey []byte
 }
 
-type GetLiveFileByPathRow struct {
+type GetLiveFileByKeyRow struct {
 	ID          int64
 	PayloadHash []byte
 	LastSeen    int64
 }
 
-func (q *Queries) GetLiveFileByPath(ctx context.Context, arg GetLiveFileByPathParams) (GetLiveFileByPathRow, error) {
-	row := q.db.QueryRowContext(ctx, getLiveFileByPath, arg.NodeID, arg.Path)
-	var i GetLiveFileByPathRow
+// A live file by the bytes its node reported (D211): two names that are one NFC text are two
+// files.
+func (q *Queries) GetLiveFileByKey(ctx context.Context, arg GetLiveFileByKeyParams) (GetLiveFileByKeyRow, error) {
+	row := q.db.QueryRowContext(ctx, getLiveFileByKey, arg.NodeID, arg.PathKey)
+	var i GetLiveFileByKeyRow
 	err := row.Scan(&i.ID, &i.PayloadHash, &i.LastSeen)
 	return i, err
 }
@@ -100,12 +102,12 @@ func (q *Queries) GetSidecarBody(ctx context.Context, id int64) ([]byte, error) 
 
 const insertFile = `-- name: InsertFile :one
 INSERT INTO file (
-  library_id, node_id, path, path_raw, size, mtime, payload_hash, payload_len,
+  library_id, node_id, path, path_raw, path_key, size, mtime, payload_hash, payload_len,
   filing, filing_reason, error_detail, probe, first_seen, last_seen
 ) VALUES (
-  ?1, ?2, ?3, ?4, ?5,
-  ?6, ?7, ?8, ?9,
-  ?10, ?11, ?12, ?13, ?13
+  ?1, ?2, ?3, ?4, ?5, ?6,
+  ?7, ?8, ?9, ?10,
+  ?11, ?12, ?13, ?14, ?14
 )
 RETURNING id
 `
@@ -115,6 +117,7 @@ type InsertFileParams struct {
 	NodeID       int64
 	Path         string
 	PathRaw      []byte
+	PathKey      []byte
 	Size         *int64
 	Mtime        *int64
 	PayloadHash  []byte
@@ -132,6 +135,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 		arg.NodeID,
 		arg.Path,
 		arg.PathRaw,
+		arg.PathKey,
 		arg.Size,
 		arg.Mtime,
 		arg.PayloadHash,
@@ -149,10 +153,11 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 
 const insertSidecarFile = `-- name: InsertSidecarFile :one
 INSERT INTO file (
-  library_id, node_id, path, path_raw, size, mtime, filing, filing_reason, sidecar_body, first_seen, last_seen
+  library_id, node_id, path, path_raw, path_key, size, mtime, filing, filing_reason, sidecar_body, first_seen,
+  last_seen
 ) VALUES (
-  ?1, ?2, ?3, ?4, ?5,
-  ?6, 'attached', ?7, ?8, ?9, ?9
+  ?1, ?2, ?3, ?4, ?5, ?6,
+  ?7, 'attached', ?8, ?9, ?10, ?10
 )
 RETURNING id
 `
@@ -162,6 +167,7 @@ type InsertSidecarFileParams struct {
 	NodeID    int64
 	Path      string
 	PathRaw   []byte
+	PathKey   []byte
 	Size      *int64
 	Mtime     *int64
 	Kind      *string
@@ -175,6 +181,7 @@ func (q *Queries) InsertSidecarFile(ctx context.Context, arg InsertSidecarFilePa
 		arg.NodeID,
 		arg.Path,
 		arg.PathRaw,
+		arg.PathKey,
 		arg.Size,
 		arg.Mtime,
 		arg.Kind,
@@ -532,24 +539,26 @@ UPDATE file SET
   library_id = ?1,
   path = ?2,
   path_raw = ?3,
-  size = ?4,
-  mtime = ?5,
-  payload_hash = ?6,
-  payload_len = ?7,
+  path_key = ?4,
+  size = ?5,
+  mtime = ?6,
+  payload_hash = ?7,
+  payload_len = ?8,
   identity = 'confirmed',
   filing = CASE WHEN filing IN ('skipped', 'errored') THEN 'unidentified' ELSE filing END,
-  filing_reason = CASE WHEN filing IN ('skipped', 'errored') THEN ?8
+  filing_reason = CASE WHEN filing IN ('skipped', 'errored') THEN ?9
                   ELSE filing_reason END,
   error_detail = NULL,
-  probe = ?9,
-  last_seen = ?10
-WHERE id = ?11
+  probe = ?10,
+  last_seen = ?11
+WHERE id = ?12
 `
 
 type UpdateObservedFileParams struct {
 	LibraryID          int64
 	Path               string
 	PathRaw            []byte
+	PathKey            []byte
 	Size               *int64
 	Mtime              *int64
 	PayloadHash        []byte
@@ -567,6 +576,7 @@ func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFile
 		arg.LibraryID,
 		arg.Path,
 		arg.PathRaw,
+		arg.PathKey,
 		arg.Size,
 		arg.Mtime,
 		arg.PayloadHash,

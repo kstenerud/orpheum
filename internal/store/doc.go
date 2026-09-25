@@ -50,7 +50,8 @@
 //     name a cache table (M2-1). Enforced by sqlc.yaml's two entries.
 //   - Every data-transforming step has a test on its rows: step 0002 in
 //     TestMigrate_Step0002MarksTheSettingsAPersonSetAsModified, step 0007 in
-//     TestMigrate_Step0007KeepsEveryStoredResponseAsItsItemsOwn.
+//     TestMigrate_Step0007KeepsEveryStoredResponseAsItsItemsOwn, step 0011 in
+//     TestMigrate_Step0011KeysEveryFileByItsReportedBytes.
 //   - Open and the runner take their choices (the reader pool minimum, the free-space factor) from
 //     the caller and refuse zero, never a value from here (D201). Enforced by
 //     TestOpen_RefusesOptionsNobodyChose.

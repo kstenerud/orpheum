@@ -405,3 +405,20 @@ func TestIngest_AfterAScanEndsItsLibraryIsHandedOn(t *testing.T) {
 		t.Errorf("handed on %v, want the scanned library once", handed)
 	}
 }
+
+// D211 §1: two names that fold to one text are two files.
+func TestIngest_TwoNamesThatAreOneTextAreTwoFiles(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	invalid1, invalid2 := observed("a�.mkv", "first"), observed("a�.mkv", "second")
+	invalid1.Observed.Path.Raw, invalid2.Observed.Path.Raw = []byte("a\xff.mkv"), []byte("a\xfe.mkv")
+	// "é" as one code point and as e plus a combining accent: one NFC text, two files on ext4.
+	composed, decomposed := observed("café.mkv", "third"), observed("café.mkv", "fourth")
+	for range 2 {
+		world.scan([]nodeproto.Record{invalid1, invalid2, composed, decomposed}, true)
+		rows, err := world.database.Read().ListLiveFilesByNode(t.Context(), world.nodeID)
+		if err != nil || len(rows) != 4 {
+			t.Fatalf("%d live files (%v), want 4: each keeps its own row across scans", len(rows), err)
+		}
+	}
+}

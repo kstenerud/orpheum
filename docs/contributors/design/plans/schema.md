@@ -152,6 +152,7 @@ CREATE TABLE file (                                        -- class I (identity 
   node_id       INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   path          TEXT NOT NULL,           -- NFC form
   path_raw      BLOB,                    -- the bytes, when they differ (D49)
+  path_key      BLOB,                    -- migration 0011: the reported bytes, always; the live-file key (D211)
   size          INTEGER,
   mtime         INTEGER,
   payload_hash  BLOB,                    -- D179: anchored on the media payload
@@ -170,7 +171,7 @@ CREATE TABLE file (                                        -- class I (identity 
   last_seen     INTEGER NOT NULL,
   removed_at    INTEGER                  -- tombstone: only on a positive report (D34, D179)
 );
-CREATE UNIQUE INDEX file_live_path ON file(node_id, path) WHERE removed_at IS NULL;
+CREATE UNIQUE INDEX file_live_path ON file(node_id, path_key) WHERE removed_at IS NULL;  -- 0011: was (node_id, path)
 CREATE INDEX file_payload ON file(payload_hash) WHERE removed_at IS NULL;  -- moves, duplicates
 CREATE INDEX file_version ON file(version_id) WHERE version_id IS NOT NULL;
 CREATE VIEW live_file AS SELECT * FROM file WHERE removed_at IS NULL;

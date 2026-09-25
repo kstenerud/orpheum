@@ -21,18 +21,18 @@ const filingAttached = "attached"
 // identification reads (D182). Which video it belongs to is settled when the scan completes,
 // because a sidecar can arrive before its video: "Film.en.srt" sorts before "Film.mkv".
 func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodeproto.Sidecar) error {
-	filePath, raw := nodePath(scan.root, sidecar.Path)
+	located := nodePath(scan.root, sidecar.Path)
 	kind := string(sidecar.Kind)
-	existing, err := store.One(work.queries.GetLiveFileByPath(ctx, sqlcgen.GetLiveFileByPathParams{
-		NodeID: work.nodeID, Path: filePath,
+	existing, err := store.One(work.queries.GetLiveFileByKey(ctx, sqlcgen.GetLiveFileByKeyParams{
+		NodeID: work.nodeID, PathKey: located.key,
 	}))
 	if err == nil {
 		err = work.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
-			LibraryID: scan.libraryID, PathRaw: raw, Size: &sidecar.Size, Mtime: &sidecar.MtimeMs, Kind: &kind,
+			LibraryID: scan.libraryID, PathRaw: located.raw, Size: &sidecar.Size, Mtime: &sidecar.MtimeMs, Kind: &kind,
 			Body: sidecar.Body, Seen: work.now, ID: existing.ID,
 		})
 		if err != nil {
-			return fmt.Errorf("update the sidecar %s: %w", filePath, err)
+			return fmt.Errorf("update the sidecar %s: %w", located.text, err)
 		}
 		return nil
 	}
@@ -40,11 +40,11 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 		return err
 	}
 	_, err = work.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
-		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: filePath, PathRaw: raw, Size: &sidecar.Size,
-		Mtime: &sidecar.MtimeMs, Kind: &kind, Body: sidecar.Body, Seen: work.now,
+		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, PathRaw: located.raw, PathKey: located.key,
+		Size: &sidecar.Size, Mtime: &sidecar.MtimeMs, Kind: &kind, Body: sidecar.Body, Seen: work.now,
 	})
 	if err != nil {
-		return fmt.Errorf("insert the sidecar %s: %w", filePath, err)
+		return fmt.Errorf("insert the sidecar %s: %w", located.text, err)
 	}
 	return nil
 }

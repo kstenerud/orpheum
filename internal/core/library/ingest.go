@@ -152,7 +152,7 @@ func (work *batch) record(ctx context.Context, record nodeproto.Record) error {
 		}
 	case nodeproto.RecordMount:
 		if scan := work.scan(); scan != nil {
-			mountPath, _ := nodePath(scan.root, record.Mount.Path)
+			mountPath := nodePath(scan.root, record.Mount.Path).text
 			scan.mounts[mountPath] = record.Mount.Device
 		}
 	case nodeproto.RecordStatus:
@@ -193,9 +193,17 @@ func (work *batch) begin(ctx context.Context, begin *nodeproto.ScanBegin) error 
 	return nil
 }
 
-// nodePath is a reported path as the file table keeps it: absolute on the node, in NFC for
-// identity and display, with the bytes beside it when they differ (D49).
-func nodePath(root string, reported nodeproto.Path) (string, []byte) {
+// filePath is a reported path as the file table keeps it: absolute on the node, in NFC for
+// display, search and D49's cross-node equality, with the bytes beside it when they differ, and
+// the reported bytes, always, as the key the file is known by (D211).
+type filePath struct {
+	text string
+	raw  []byte // nil when the text is the bytes
+	key  []byte
+}
+
+// nodePath turns a reported path into a filePath under the scan's root.
+func nodePath(root string, reported nodeproto.Path) filePath {
 	raw := reported.Text
 	if reported.Raw != nil {
 		raw = string(reported.Raw)
@@ -205,10 +213,11 @@ func nodePath(root string, reported nodeproto.Path) (string, []byte) {
 		absolute = path.Join(root, raw)
 	}
 	normal := norm.NFC.String(strings.ToValidUTF8(absolute, "�"))
-	if normal == absolute {
-		return normal, nil
+	result := filePath{text: normal, key: []byte(absolute)}
+	if normal != absolute {
+		result.raw = []byte(absolute)
 	}
-	return normal, []byte(absolute)
+	return result
 }
 
 // errorDetail is the error record's platform account, as the file row keeps it (D163).
