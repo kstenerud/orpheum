@@ -11,7 +11,6 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
-	"github.com/kstenerud/orpheum/internal/core/textindex"
 )
 
 const tagLibraries = "Libraries"
@@ -207,7 +206,7 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 			body.Filings = summary.Filings
 			for _, root := range summary.Roots {
 				body.Roots = append(body.Roots, RootBody{
-					Node: root.NodeName, Path: textindex.Line(root.Path), Outcome: text(root.Outcome),
+					Node: root.NodeName, Path: root.Path, Outcome: text(root.Outcome),
 					OutcomeAt:      number(root.OutcomeAt),
 					WithheldReason: text(root.WithheldReason),
 				})
@@ -286,8 +285,8 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 	output.Body.Files = make([]FileBody, 0, len(rows))
 	for _, row := range rows {
 		output.Body.Files = append(output.Body.Files, FileBody{
-			ID: row.ID, LibraryID: row.LibraryID, Path: textindex.Line(row.Path), Filing: row.Filing,
-			FilingReason: shown(row.FilingReason), ErrorDetail: row.ErrorDetail, Size: row.Size,
+			ID: row.ID, LibraryID: row.LibraryID, Path: row.Path, Filing: row.Filing,
+			FilingReason: row.FilingReason, ErrorDetail: row.ErrorDetail, Size: row.Size,
 			FirstSeen: row.FirstSeen, LastSeen: row.LastSeen,
 		})
 	}

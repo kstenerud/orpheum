@@ -422,3 +422,25 @@ func TestIngest_TwoNamesThatAreOneTextAreTwoFiles(t *testing.T) {
 		}
 	}
 }
+
+// Principles §22, D211: what a node reports is clean where it enters; the bytes stay bytes.
+func TestIngest_WhatANodeReportsIsCleanWhereItEnters(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	hostile := observed("evil\u202Evkm.mkv", "hostile")
+	hostile.Observed.Probe.Streams[1].Title = "Commentary\u2066\u0007\u200B"
+	world.scan([]nodeproto.Record{hostile}, true)
+	rows, err := world.database.Read().ListLiveFilesByNode(t.Context(), world.nodeID)
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("files %+v, %v", rows, err)
+	}
+	file := rows[0]
+	if file.Path != root+"/evil�vkm.mkv" || string(file.PathRaw) != root+"/evil\u202Evkm.mkv" {
+		t.Errorf("path %q, raw %q; want the override marked in the text and kept in the bytes",
+			file.Path, file.PathRaw)
+	}
+	streams, err := world.database.Read().ListStreamsOfFile(t.Context(), file.ID)
+	if err != nil || len(streams) < 2 || streams[1].TitleRaw == nil || *streams[1].TitleRaw != "Commentary" {
+		t.Errorf("streams %+v, %v; want the track title clean", streams, err)
+	}
+}

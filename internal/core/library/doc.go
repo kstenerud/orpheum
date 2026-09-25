@@ -26,6 +26,9 @@
 //     the root as scanned in the same transaction (D39, D40, schema.md root_scan).
 //     TestIngest_OnlyACompletedScanRemovesAndNeverWhereItCouldNotRead.
 //   - Paths are stored in NFC beside their bytes (D49). TestIngest_APathIsStoredInNFCBesideItsBytes.
+//   - What a node reports is cleaned where it enters the core: paths (the text; the bytes kept
+//     as bytes), track tags, error text, codes and rules (principles §22, D211).
+//     TestIngest_WhatANodeReportsIsCleanWhereItEnters.
 //   - A file is known by the bytes its node reported, so two names that are one NFC text — two
 //     invalid UTF-8 names, or two normalisations of one name — are two files (D211).
 //     TestIngest_TwoNamesThatAreOneTextAreTwoFiles.

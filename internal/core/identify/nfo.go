@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 )
 
 // NFO is what a Kodi-family .nfo file says (identification.md, Reading the sidecars). Its
@@ -92,7 +94,7 @@ func ParseNFO(body []byte) (NFO, error) {
 	}
 	nfo := NFO{
 		Kind: kind, Title: clean(document.Title), OriginalTitle: clean(document.OriginalTitle),
-		SortTitle: clean(document.SortTitle), Plot: clean(firstOf(document.Plot, document.Outline)),
+		SortTitle: clean(document.SortTitle), Plot: textindex.Prose(firstOf(document.Plot, document.Outline)),
 		Tagline: clean(document.Tagline), Year: yearOf(document), RuntimeMs: runtimeOf(document.Runtime),
 		Season: number(document.Season), Episode: number(document.Episode),
 		ProviderIDs: providerIDsOf(document),
@@ -165,7 +167,8 @@ func lockedOf(document nfoDocument, nfo NFO) []string {
 	return sortedStrings(locked)
 }
 
-func clean(text string) string { return strings.TrimSpace(text) }
+// clean is an NFO field as it enters the system (principles §22): an NFO is anyone's text.
+func clean(text string) string { return textindex.Line(text) }
 
 func firstOf(values ...string) string {
 	for _, value := range values {

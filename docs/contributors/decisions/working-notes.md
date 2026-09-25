@@ -16221,5 +16221,6 @@ the display."* Extends [D49](#d49--unicode-discipline-at-the-boundaries-enforced
    existing name is refused (M4, with invites).
 
 **Status:** Decided. Items 1 and 2 built with this decision (`internal/core/textindex`'s
-`Line` and `Prose`, applied where the pass writes a name and where the API shows a path or a
-track title); items 3 and 4 with their milestones.
+`Line`, `Prose` and `Path`, applied where text enters — a node's report at the ingest, an NFO
+at its parse, a provider's answer through one wrapper, a person's text at the API — per
+principles §22, which the owner stated the same day); items 3 and 4 with their milestones.

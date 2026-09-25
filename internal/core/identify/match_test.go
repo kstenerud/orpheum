@@ -13,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // fakeProvider is TMDB behind the provider interface (standards/testing.md, Network): films by
@@ -317,5 +318,34 @@ func TestPass_ATMDBOnlyLibraryIgnoresNFOFiles(t *testing.T) {
 	overrides, err := lib.database.Read().ListOverrides(t.Context(), file.TitleID)
 	if err != nil || len(overrides) != 0 {
 		t.Errorf("overrides %+v (%v); the NFO's locked fields should not have been read", overrides, err)
+	}
+}
+
+// Principles §22, D211: what a provider answers is clean where it enters, whoever wrote it.
+func TestMatch_AProvidersTextIsCleanWhereItEnters(t *testing.T) {
+	t.Parallel()
+	lib := newWorld(t, "movies", "tmdb")
+	hostile := Metadata{ID: "9019", Name: "Metropolis\u202Evkm.exe", Year: 1995, Overview: "One.\u200B\n\n\n\nTwo."}
+	lib.provider.add(hostile)
+	lib.scan(video("Metropolis {tmdb-9019}.mkv"))
+	lib.match("Metropolis {tmdb-9019}.mkv")
+	if got := name(lib.files()["Metropolis {tmdb-9019}.mkv"]); got != "Heatvkm.exe" {
+		t.Errorf("stored name %q; want the override gone", got)
+	}
+}
+
+// Principles §22: a person's override is clean where it enters.
+func TestChooser_AnOverrideIsCleanWhereItEnters(t *testing.T) {
+	t.Parallel()
+	lib := newWorld(t, "movies", "nfo")
+	lib.scan(video("Metropolis (1995).mkv"))
+	titleID := lib.files()["Metropolis (1995).mkv"].TitleID
+	person := storetest.InsertUser(t, lib.database, "alice", "admin")
+	if err := lib.chooser.SetOverride(t.Context(), titleID, fieldName, "Mine\u2067\u0000", person); err != nil {
+		t.Fatal(err)
+	}
+	overrides, err := lib.database.Read().ListOverrides(t.Context(), titleID)
+	if err != nil || len(overrides) != 1 || overrides[0].Value != "Mine" {
+		t.Errorf("stored override %+v, %v; want it clean", overrides, err)
 	}
 }

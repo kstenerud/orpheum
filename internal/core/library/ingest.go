@@ -16,6 +16,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -99,7 +100,7 @@ func (ingester *Ingester) Records(ctx context.Context, nodeID int64, records []n
 	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		batch := &batch{ingester: ingester, queries: queries, nodeID: nodeID, now: now}
 		for _, record := range records {
-			if err := batch.record(ctx, record); err != nil {
+			if err := batch.record(ctx, cleanRecord(record)); err != nil {
 				return fmt.Errorf("record %d (%s): %w", record.Seq, record.Type, err)
 			}
 		}
@@ -212,7 +213,9 @@ func nodePath(root string, reported nodeproto.Path) filePath {
 	if reported.Text != "." {
 		absolute = path.Join(root, raw)
 	}
-	normal := norm.NFC.String(strings.ToValidUTF8(absolute, "�"))
+	// NFC for D49's equality, then the path cleaner, so what is related and shown is safe
+	// (principles §22); the bytes stay beside it, as bytes, to open the file.
+	normal := textindex.Path(norm.NFC.String(strings.ToValidUTF8(absolute, "\uFFFD")))
 	result := filePath{text: normal, key: []byte(absolute)}
 	if normal != absolute {
 		result.raw = []byte(absolute)

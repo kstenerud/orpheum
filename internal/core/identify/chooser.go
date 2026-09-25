@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -216,6 +217,12 @@ func (chooser *Chooser) Choose(ctx context.Context, itemID int64, providerName, 
 // SetOverride sets a field on a title or series to a person's value, which every source and
 // pass keeps (D183), and re-derives its library.
 func (chooser *Chooser) SetOverride(ctx context.Context, titleID int64, field, value string, setBy int64) error {
+	// A person's text is cleaned where it enters (principles §22): it is shown to everyone.
+	if field == fieldOverview {
+		value = textindex.Prose(value)
+	} else {
+		value = textindex.Line(value)
+	}
 	title, err := chooser.target(ctx, titleID)
 	if err != nil {
 		return err
