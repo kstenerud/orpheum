@@ -1,7 +1,7 @@
 # @orpheum/sdk
 
 The client side of the API, usable from a plain web page: generated API types and client,
-probe-and-pick, the Watch Together client. MPL-2.0. Empty until M1.
+probe-and-pick, the Watch Together client. MPL-2.0. It holds the API client so far.
 
 ## Invariants
 
