@@ -384,3 +384,26 @@ func TestScan_ANameThatIsNotUTF8KeepsItsBytes(t *testing.T) {
 		t.Errorf("observed = %+v, want the raw bytes beside a readable text form (D49)", observed)
 	}
 }
+
+func TestScan_ReportsAnImageBesideTheMediaWithoutItsBytes(t *testing.T) {
+	t.Parallel()
+	root := tree(t, map[string]string{
+		"Film (1999)/poster.jpg": "jpeg", "Film (1999)/Film (1999)-fanart.PNG": "png", "Film (1999)/notes.gif": "gif",
+	})
+	media := openRoot(t, root)
+	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
+	var images []string
+	for _, record := range records {
+		if sidecar := record.Sidecar; sidecar != nil && sidecar.Kind == nodeproto.SidecarImage {
+			images = append(images, sidecar.Path.Text)
+			if sidecar.Body != nil || sidecar.Size == 0 {
+				t.Errorf("%s: body %q, size %d; an image's bytes never travel in a record (D215)",
+					sidecar.Path.Text, sidecar.Body, sidecar.Size)
+			}
+		}
+	}
+	slices.Sort(images)
+	if want := []string{"Film (1999)/Film (1999)-fanart.PNG", "Film (1999)/poster.jpg"}; !slices.Equal(images, want) {
+		t.Errorf("images %v, want %v (a GIF is not artwork anyone saves)", images, want)
+	}
+}

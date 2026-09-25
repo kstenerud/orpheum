@@ -5,8 +5,11 @@ package artwork
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strconv"
@@ -42,6 +45,8 @@ type fakeNode struct {
 }
 
 func (node *fakeNode) Connected() (int64, bool) { return 3, node.connected }
+
+func (node *fakeNode) IsConnected(nodeID int64) bool { return nodeID == 3 && node.connected }
 
 func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	node.mutex.Lock()
@@ -289,5 +294,60 @@ func TestService_OweQueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 	rows := bench.rows(t)
 	if len(rows) != 2 || rows[0].Kind != "backdrop" || rows[1].Kind != "poster" {
 		t.Errorf("rows %+v; want the backdrop and the poster the job named", rows)
+	}
+}
+
+func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fetched{"/poster.jpg": []byte("tmdb poster")})
+	var fileID int64
+	storetest.ExecRaw(t, bench.database.Path(),
+		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
+			"VALUES (9, 'L', 'movies', 'nfo_then_tmdb', 'manual', 0, 1)",
+		"INSERT INTO node (id, name, enrolled_at) VALUES (3, 'local', 1)",
+		"INSERT INTO file (id, library_id, node_id, path, path_key, size, mtime, filing, filing_reason, first_seen, "+
+			"last_seen) VALUES (40, 9, 3, '/m/Film/poster.jpg', CAST('/m/Film/poster.jpg' AS BLOB), 5, 7, "+
+			"'attached', 'image', 1, 1)")
+	fileID = 40
+	localSum := sha256.Sum256([]byte("the file beside the film"))
+	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
+		result := nodeproto.ArtworkResult{Job: command.Job, Images: []nodeproto.ArtImage{
+			{Size: nodeproto.PortraitS, Bytes: ourWebP},
+		}}
+		if command.Path != nil {
+			result.SourceHash = hex.EncodeToString(localSum[:])
+		}
+		return result
+	}
+	local := identify.LocalRef(fileID, 5, 7)
+	refs := []owedRef{{Kind: identify.ArtPoster, Ref: local}}
+	args, err := json.Marshal(owed{Source: identify.SourceLocal, Refs: refs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = bench.service.Handle(t.Context(), jobs.Job{ID: 5, Subject: bench.itemID, Args: string(args)}); err != nil {
+		t.Fatal(err)
+	}
+	sent := bench.node.sent[len(bench.node.sent)-1]
+	if sent.Path == nil || string(sent.Path.Raw) != "/m/Film/poster.jpg" || sent.Source != nil {
+		t.Fatalf("the node was sent %+v; want the file's path for it to read, and no bytes", sent)
+	}
+	// TMDB's poster arrives later, and is still not what the film shows.
+	bench.handle(t, owedRef{Kind: identify.ArtPoster, Ref: "/poster.jpg"})
+	shown, err := bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
+		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: identify.ArtPoster,
+	})
+	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].ContentHash, localSum[:]) {
+		t.Errorf("shown %+v (%v); want the image beside the media, stored under the hash the node read", shown, err)
+	}
+	// In a TMDB-only library, TMDB's poster replaces it once fetched (D215 §1).
+	storetest.ExecRaw(t, bench.database.Path(),
+		"UPDATE library SET metadata_source = 'tmdb' WHERE id = 9",
+		fmt.Sprintf("UPDATE item SET library_id = 9 WHERE id = %d", bench.itemID))
+	shown, err = bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
+		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: identify.ArtPoster,
+	})
+	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].ContentHash, Received([]byte("tmdb poster")).hash32()) {
+		t.Errorf("in a TMDB-only library shown %+v (%v); want TMDB's poster", shown, err)
 	}
 }

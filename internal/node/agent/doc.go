@@ -10,6 +10,9 @@
 //
 //   - Imports nothing from internal/core. Enforced by the depguard rule node-boundary and
 //     TestArch_NodeNeverImportsCore.
+//   - An artwork command naming an image beside the media is read through the root it is under,
+//     never from outside the node's roots, and answered with the SHA-256 of what was read
+//     (D215 §3). TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots.
 //   - Records reach the core in the order of their numbers, numbered on from the core's last,
 //     each as soon as it is written. TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder.
 //   - A root is scanned only if the node was configured with it, whatever the core asks (D107).

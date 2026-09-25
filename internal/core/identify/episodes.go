@@ -27,6 +27,7 @@ func (work *run) episode(ctx context.Context, file sqlcgen.ListIdentifyFilesRow,
 	if err != nil {
 		return err
 	}
+	work.seriesFolders[seriesFolderOf(file.Path)] = seriesID
 	season, number := parsed.Season, parsed.Episode
 	spec := titleSpec{
 		kind: kindEpisode, name: fmt.Sprintf("Episode %d", number), runtimeMs: probeRuntime(file.Probe),

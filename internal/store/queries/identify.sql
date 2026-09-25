@@ -8,7 +8,8 @@ SELECT node_id, path FROM library_root WHERE library_id = ? ORDER BY path;
 SELECT id, kind, metadata_source FROM library WHERE id = ? AND removed_at IS NULL;
 
 -- name: ListIdentifyFiles :many
-SELECT id, node_id, path, filing, filing_reason, payload_hash, version_id, attached_to, probe, identified_path
+SELECT id, node_id, path, filing, filing_reason, payload_hash, version_id, attached_to, probe, identified_path,
+  size, mtime
 FROM file
 WHERE library_id = ? AND removed_at IS NULL
 ORDER BY path;

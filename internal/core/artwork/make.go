@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -25,11 +26,28 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wa
 	if !known {
 		return nil
 	}
+	command := nodeproto.Artwork{Shape: shape, Sizes: args.Sizes}
 	if base, found := service.baseFor(args.Hash, args.Sizes); found {
 		stored, err := service.parts.Store.ReadArt(args.Hash, base)
 		if err == nil {
-			return service.cutFrom(ctx, Received(stored), shape, args, false)
+			nodeID, nodeErr := service.anyNode()
+			if nodeErr != nil {
+				return nodeErr
+			}
+			command.Source = stored
+			return service.cutFrom(ctx, nodeID, command, args, false)
 		}
+	}
+	if image.source == identify.SourceLocal {
+		nodeID, named, err := service.localFile(ctx, image.ref.Ref)
+		if errors.Is(err, ErrNoImage) {
+			return service.cannotMake(ctx, args.Hash, args.Sizes)
+		}
+		if err != nil {
+			return err
+		}
+		command.Path = named
+		return service.cutFrom(ctx, nodeID, command, args, true)
 	}
 	source, err := service.fetch(ctx, fetcher, image.source, image.ref.Ref)
 	if errors.Is(err, ErrNoImage) || (err == nil && source.hash() != args.Hash) {
@@ -40,17 +58,27 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wa
 	if err != nil {
 		return err
 	}
-	return service.cutFrom(ctx, source, shape, args, true)
+	nodeID, err := service.anyNode()
+	if err != nil {
+		return err
+	}
+	command.Source = source.bytes
+	return service.cutFrom(ctx, nodeID, command, args, true)
 }
 
 // cutFrom has the node cut the sizes asked for from a source and stores them. Only the image's
 // own source can say a size cannot be made; a size a base did not yield is an error, retried.
-func (service *Service) cutFrom(ctx context.Context, source Unsanitised, shape nodeproto.Shape, args owed,
-	fromSource bool,
+func (service *Service) cutFrom(
+	ctx context.Context, nodeID int64, command nodeproto.Artwork, args owed, fromSource bool,
 ) error {
-	result, err := service.reEncode(ctx, source, shape, args.Sizes)
+	result, err := service.reEncode(ctx, nodeID, command)
 	if err != nil {
 		return err
+	}
+	if command.Path != nil && result.Refused == "" && result.SourceHash != args.Hash {
+		service.parts.Logger.WarnContext(ctx, "an image beside the media changed; its sizes are not made",
+			"hash", args.Hash)
+		return service.cannotMake(ctx, args.Hash, args.Sizes)
 	}
 	var unmade []nodeproto.ArtSizeName
 	for _, size := range args.Sizes {

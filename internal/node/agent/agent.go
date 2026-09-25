@@ -5,6 +5,8 @@ package agent
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -208,7 +211,21 @@ func (agent *Agent) run(ctx context.Context, nodeID int64, command nodeproto.Com
 func (agent *Agent) artwork(ctx context.Context, nodeID int64, command nodeproto.Artwork) error {
 	agent.setDoing("re-encoding artwork")
 	defer agent.setDoing("idle")
-	result := agent.workers.Artwork.Derive(ctx, command)
+	var result nodeproto.ArtworkResult
+	sourceHash := ""
+	if command.Path != nil {
+		source, err := agent.readImage(*command.Path)
+		if err == nil {
+			sum := sha256.Sum256(source)
+			command.Source, command.Path, sourceHash = source, nil, hex.EncodeToString(sum[:])
+		} else {
+			result = nodeproto.ArtworkResult{Job: command.Job, Refused: err.Error()}
+		}
+	}
+	if result.Refused == "" {
+		result = agent.workers.Artwork.Derive(ctx, command)
+		result.SourceHash = sourceHash
+	}
 	if result.Refused != "" {
 		agent.logger.WarnContext(ctx, "refused an image", "job", command.Job, "why", result.Refused)
 	}
@@ -219,6 +236,43 @@ func (agent *Agent) artwork(ctx context.Context, nodeID int64, command nodeproto
 	var accepted struct{}
 	body := bytes.NewReader(encoded)
 	return agent.exchange(ctx, http.MethodPost, nodeproto.PathArtwork, nodeID, body, &accepted)
+}
+
+// maxImageBytes bounds an image beside the media the node reads: posters are megabytes.
+const maxImageBytes = 64 << 20
+
+// readImage reads an image beside the media through the root it is under, so no path the core
+// names can reach outside the node's roots (D107).
+func (agent *Agent) readImage(named nodeproto.Path) ([]byte, error) {
+	absolute := named.Text
+	if named.Raw != nil {
+		absolute = string(named.Raw)
+	}
+	for rootPath, root := range agent.roots {
+		rel, under := strings.CutPrefix(absolute, rootPath+"/")
+		if !under {
+			continue
+		}
+		return readBounded(root, rel)
+	}
+	return nil, errors.New("the image is under none of this node's roots")
+}
+
+// readBounded reads one file under a root, refusing one past maxImageBytes.
+func readBounded(root *confine.MediaRoot, rel string) ([]byte, error) {
+	file, err := root.Open(rel)
+	if err != nil {
+		return nil, fmt.Errorf("open the image: %w", err)
+	}
+	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
+	image, err := io.ReadAll(io.LimitReader(file, maxImageBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read the image: %w", err)
+	}
+	if len(image) > maxImageBytes {
+		return nil, fmt.Errorf("the image is larger than %d bytes", maxImageBytes)
+	}
+	return image, nil
 }
 
 func (agent *Agent) setDoing(doing string) {

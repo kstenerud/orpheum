@@ -37,7 +37,7 @@ func (work *run) load(ctx context.Context, libraryID int64) error {
 func (work *run) loadNFOs(ctx context.Context) error {
 	for _, file := range work.files {
 		isNFO := file.FilingReason != nil && *file.FilingReason == string(nodeproto.SidecarNFO)
-		if file.Filing != "attached" || !isNFO {
+		if file.Filing != filingAttached || !isNFO {
 			continue
 		}
 		body, bodyErr := work.queries.GetSidecarBody(ctx, file.ID)

@@ -223,6 +223,15 @@ func (service *Service) Connected() (int64, bool) {
 	return found, found != 0
 }
 
+// IsConnected is whether a node has said hello since the core started: where work on its own
+// files can be sent.
+func (service *Service) IsConnected(nodeID int64) bool {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	_, found := service.channels[nodeID]
+	return found
+}
+
 // LastHeard is when the named node last said anything, and whether it ever has.
 func (service *Service) LastHeard(name string) (time.Time, bool) {
 	service.mutex.Lock()

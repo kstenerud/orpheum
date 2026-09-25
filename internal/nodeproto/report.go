@@ -43,6 +43,9 @@ const (
 	SidecarNFO SidecarKind = "nfo"
 	// SidecarSubtitle is a text subtitle file beside its video. Its bytes are read when played.
 	SidecarSubtitle SidecarKind = "subtitle"
+	// SidecarImage is an image beside the media: a poster, a backdrop. Its bytes never travel in
+	// a record; the node reads and re-encodes it when the core asks (D212 §8, D215).
+	SidecarImage SidecarKind = "image"
 )
 
 // Sidecar is a file beside the media that is not media: metadata or subtitles. The core files it

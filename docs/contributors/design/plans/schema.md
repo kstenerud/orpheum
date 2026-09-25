@@ -387,7 +387,7 @@ CREATE TABLE artwork (                                     -- class O/F; A when 
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   kind        TEXT NOT NULL CHECK (kind IN ('poster','backdrop','logo','banner','thumb','disc')),
   lang        TEXT,
-  source      TEXT NOT NULL,             -- 'nfo', 'tmdb', 'embedded', 'user'
+  source      TEXT NOT NULL,             -- 'tmdb', 'local' (beside the media, D215), 'embedded', 'user'
   source_ref  TEXT,
   content_hash BLOB,                     -- the derived sizes live in cache/ under this
   chosen      INTEGER NOT NULL DEFAULT 0 CHECK (chosen IN (0,1)),  -- a person picked it

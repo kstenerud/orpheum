@@ -29,12 +29,16 @@ LIMIT 1;
 
 -- name: ListShownArtwork :many
 -- The images a page of items shows, of one kind; the ids are a JSON array. Per item, a person's
--- choice first, then the newest stored; the caller keeps the first row of each item.
-SELECT item_id, content_hash
+-- choice first; then the source the item's library prefers, an image beside the media unless the
+-- library takes TMDB only, D215; then the newest stored. The caller keeps each item's first row.
+SELECT artwork.item_id, artwork.content_hash
 FROM artwork
-WHERE item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids) AS TEXT))) AND kind = sqlc.arg(kind)
-  AND removed_at IS NULL AND content_hash IS NOT NULL
-ORDER BY item_id, chosen DESC, id DESC;
+JOIN item ON item.id = artwork.item_id
+LEFT JOIN library ON library.id = item.library_id
+WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids) AS TEXT)))
+  AND artwork.kind = sqlc.arg(kind) AND artwork.removed_at IS NULL AND artwork.content_hash IS NOT NULL
+ORDER BY artwork.item_id, artwork.chosen DESC,
+  (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC;
 
 -- name: CountEarlierMisses :one
 -- How often this image was missing before and looked into since: a recheck removes the row it
@@ -60,3 +64,9 @@ FROM artwork
 JOIN item ON item.id = artwork.item_id
 WHERE artwork.content_hash IS NOT NULL
 GROUP BY artwork.content_hash;
+
+-- name: GetFileForArtwork :one
+-- An image beside the media: the node that holds it, and its path, for the node to read.
+SELECT node_id, path, path_key
+FROM file
+WHERE id = sqlc.arg(id) AND removed_at IS NULL;

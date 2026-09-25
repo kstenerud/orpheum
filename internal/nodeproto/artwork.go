@@ -86,8 +86,11 @@ const CommandArtwork CommandType = "artwork"
 type Artwork struct {
 	// Job names the core's job the answer belongs to.
 	Job    int64  `json:"job"`
-	Source []byte `json:"source"`
-	Shape  Shape  `json:"shape"`
+	Source []byte `json:"source,omitempty"`
+	// Path, in place of Source, names an image beside the media for the node to read itself,
+	// under one of its roots, so its bytes never reach the core (D215).
+	Path  *Path `json:"path,omitempty"`
+	Shape Shape `json:"shape"`
 	// Sizes are the names to make; one larger than the source is not made.
 	Sizes []ArtSizeName `json:"sizes"`
 	// MaxPixels refuses a source larger than this before it is decoded: a decompression bomb.
@@ -112,6 +115,9 @@ type ArtworkResult struct {
 	Width  int        `json:"width"`
 	Height int        `json:"height"`
 	Images []ArtImage `json:"images"`
+	// SourceHash is the SHA-256, in hex, of the file a Path command named, as the node read it:
+	// what the core stores the sizes under.
+	SourceHash string `json:"sourceHash,omitempty"`
 	// Refused says why no size was made: over the pixel limit, not an image, a failed encode.
 	Refused string `json:"refused,omitempty"`
 }
