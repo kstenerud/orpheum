@@ -47,26 +47,11 @@ func selfStarter(config Config, output io.Writer) nodes.Starter {
 func runNodeChannel(
 	ctx context.Context, config Config, opened started, start nodes.Starter, logger *slog.Logger,
 ) (stop func() error, err error) {
-	database, settingsService := opened.database, opened.settings
+	service := opened.nodes
 	listener, err := datadir.ListenUnix(config.Server.SocketDir, coreSocket)
 	if err != nil {
 		return nil, err
 	}
-	ingester := library.NewIngester(database, clock.System{}, settingsService, logger)
-	pass, fetching := opened.metadata.pass, opened.metadata
-	ingester.AfterScan(func(ctx context.Context, libraryID int64) {
-		report, err := pass.Library(ctx, libraryID)
-		if err != nil {
-			logger.ErrorContext(ctx, "identification failed; the scan is stored and the next one tries again",
-				"libraryId", libraryID, "err", err)
-			return
-		}
-		logger.InfoContext(ctx, "identified a library", "libraryId", libraryID, "listed", report.Listed,
-			"unidentified", report.Unidentified, "awaitingMatch", len(report.AwaitingMatch))
-		queueMatches(ctx, fetching.queue, report, logger)
-	})
-	sink := reportSink{ingester: ingester, logger: logger}
-	service := nodes.NewService(database, clock.System{}, settingsService, sink, logger, commandPollHold)
 	server := &http.Server{Handler: service.Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
 	var running sync.WaitGroup
 	running.Go(func() {
@@ -77,7 +62,7 @@ func runNodeChannel(
 	supervising, stopSupervising := context.WithCancel(ctx)
 	if start != nil {
 		ticker := time.NewTicker(time.Second)
-		supervisor := nodes.NewSupervisor(start, service, config.Node.Name, clock.System{}, settingsService, logger)
+		supervisor := nodes.NewSupervisor(start, service, config.Node.Name, clock.System{}, opened.settings, logger)
 		running.Go(func() {
 			defer ticker.Stop()
 			if runErr := supervisor.Run(supervising, ticker.C); runErr != nil {
@@ -96,6 +81,27 @@ func runNodeChannel(
 		running.Wait()
 		return err
 	}, nil
+}
+
+// newNodeService builds the core's side of the node channel: the ingest, which hands each scanned
+// library to identification and queues what that leaves owing. It serves nothing until
+// runNodeChannel listens.
+func newNodeService(opened started, logger *slog.Logger) *nodes.Service {
+	ingester := library.NewIngester(opened.database, clock.System{}, opened.settings, logger)
+	pass, queue := opened.metadata.pass, opened.metadata.queue
+	ingester.AfterScan(func(ctx context.Context, libraryID int64) {
+		report, err := pass.Library(ctx, libraryID)
+		if err != nil {
+			logger.ErrorContext(ctx, "identification failed; the scan is stored and the next one tries again",
+				"libraryId", libraryID, "err", err)
+			return
+		}
+		logger.InfoContext(ctx, "identified a library", "libraryId", libraryID, "listed", report.Listed,
+			"unidentified", report.Unidentified, "awaitingMatch", len(report.AwaitingMatch))
+		queueMatches(ctx, queue, report, logger)
+	})
+	sink := reportSink{ingester: ingester, logger: logger}
+	return nodes.NewService(opened.database, clock.System{}, opened.settings, sink, logger, commandPollHold)
 }
 
 // reportSink stores what a node reports in library.db, then logs the scan's milestones.

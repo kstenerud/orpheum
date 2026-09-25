@@ -27,6 +27,6 @@
 //
 // # Where to change
 //
-//   - service.go: hello and enrolment; channel.go: commands and the report; supervisor.go: the
-//     child.
+//   - service.go: hello and enrolment, and each connected node's roots as its hello named them;
+//     channel.go: commands and the report; supervisor.go: the child.
 package nodes

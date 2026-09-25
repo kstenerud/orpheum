@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -54,6 +55,7 @@ type Service struct {
 // channel is what the core holds for one connected node.
 type channel struct {
 	name      string
+	roots     []string // as its last hello named them (D107)
 	commands  []nodeproto.Command
 	nextSeq   int64
 	wake      chan struct{}
@@ -104,7 +106,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		service.fail(ctx, writer, "read scan_on_node_hello", err)
 		return
 	}
-	service.connect(node.ID, hello.Name)
+	service.connect(node.ID, hello.Name, hello.Roots)
 	service.logger.InfoContext(ctx, "a node said hello", "node", hello.Name, "nodeId", node.ID,
 		"version", hello.Version, "ffmpeg", hello.FFmpegVersion, "roots", hello.Roots,
 		"confinement", hello.Confinement)
@@ -148,8 +150,9 @@ func enrol(
 	return node, err
 }
 
-// connect registers a node's channel, keeping its queue across a reconnection.
-func (service *Service) connect(nodeID int64, name string) {
+// connect registers a node's channel, keeping its queue across a reconnection, with the roots
+// its hello named.
+func (service *Service) connect(nodeID int64, name string, roots []string) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	existing, found := service.channels[nodeID]
@@ -158,6 +161,21 @@ func (service *Service) connect(nodeID int64, name string) {
 		service.channels[nodeID] = existing
 	}
 	existing.lastHeard = service.clock.Now()
+	existing.roots = slices.Clone(roots)
+}
+
+// Roots are the media roots the named node configured, as its last hello since the core started
+// said, with its id; false when it has not said hello since (D107: roots are configured on the
+// node, never remotely).
+func (service *Service) Roots(name string) (int64, []string, bool) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	for id, queue := range service.channels {
+		if queue.name == name {
+			return id, slices.Clone(queue.roots), true
+		}
+	}
+	return 0, nil, false
 }
 
 // Enqueue queues a command for a node, numbering it, and wakes a waiting long-poll.
