@@ -163,3 +163,23 @@ func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing
 	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
 		map[string]string{"node": "local", "path": "/m/disk1"}), http.StatusConflict, CodeConflict)
 }
+
+func TestNodes_AnAdminSeesEachNodeAndTheRootsItConfigured(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	storetest.ExecRaw(t, harness.database, "INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)")
+	harness.connectNode(t, "/media/films", "/media/shows")
+	listed := harness.do(t, http.MethodGet, "/nodes", admin, nil)
+	want := `{"nodes":[{"name":"attic","connected":false,"roots":[]},` +
+		`{"name":"local","connected":true,"roots":["/media/films","/media/shows"]}]}`
+	if listed.status != http.StatusOK || !strings.Contains(listed.body, want) {
+		t.Errorf("GET /nodes = %d %s", listed.status, listed.body)
+	}
+	if _, err := harness.service.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	wantError(t, harness.do(t, http.MethodGet, "/nodes", harness.signIn(t, "partner", "partner-password"), nil),
+		http.StatusForbidden, CodeForbidden)
+}

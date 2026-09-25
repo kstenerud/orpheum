@@ -901,6 +901,52 @@
         ],
         "type": "object"
       },
+      "NodeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "connected": {
+            "description": "Whether it has said hello since the server started",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "roots": {
+            "description": "Its configured roots; empty while it is not connected",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "connected",
+          "roots"
+        ],
+        "type": "object"
+      },
+      "NodesOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/NodeBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "type": "object"
+      },
       "PutOverrideInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -2890,6 +2936,48 @@
         "summary": "Change this user's own settings, all or none",
         "tags": [
           "Settings"
+        ]
+      }
+    },
+    "/nodes": {
+      "get": {
+        "operationId": "getNodes",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodesOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The nodes, and the roots each connected one configured, for a new library (admin)",
+        "tags": [
+          "Libraries"
         ]
       }
     },

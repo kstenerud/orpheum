@@ -48,7 +48,8 @@ counted:
   roots. The form takes them typed; the server refuses a root the node did not name.
 - **Why the plan missed it:** the endpoint table was written from the server's side, where the
   node's hello already carries its roots; the form's author is the first who has to know them.
-- **Cost:** a typed field for now; `GET /nodes` proposed (audit-2026-09-25, proposal 5).
+- **Cost:** `GET /nodes`, built after the audit (audit-2026-09-25, proposal 5); the form now
+  offers a connected node's roots to tick.
 - **Process lesson:** for every write endpoint, check that a client can learn every value it has
   to send.
 

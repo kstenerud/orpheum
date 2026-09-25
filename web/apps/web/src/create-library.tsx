@@ -5,6 +5,8 @@ import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useServices } from "./services.tsx";
+import { Loaded } from "./title.tsx";
+import { useResource } from "./use-resource.ts";
 
 /** A new library, as the server takes it. */
 export type NewLibrary = components["schemas"]["CreateLibraryInputBody"];
@@ -22,12 +24,62 @@ export function blankLibrary(): NewLibrary {
   };
 }
 
-/** The roots typed one per line, without blank lines. */
-export function rootsOf(text: string): string[] {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line !== "");
+/** A node, and the roots it configured when it is connected. */
+export type NodeRoots = components["schemas"]["NodeBody"];
+
+/** The roots chosen, with one ticked or unticked. */
+export function toggled(roots: readonly string[], root: string, isChosen: boolean): string[] {
+  return isChosen ? [...new Set([...roots, root])] : roots.filter((chosen) => chosen !== root);
+}
+
+/** Where the library's folders are: a connected node, and which of its configured roots. */
+function WhereItIs(props: {
+  readonly draft: NewLibrary;
+  readonly nodes: readonly NodeRoots[];
+  readonly set: SetAnswer;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { draft, nodes, set } = props;
+  if (!nodes.some((node) => node.connected)) {
+    return <p>{t("libraries.noNodes")}</p>;
+  }
+  const chosen = nodes.find((node) => node.name === draft.node);
+  const roots = draft.roots ?? [];
+  return (
+    <>
+      <label>
+        {t("libraries.node")}
+        <select
+          value={draft.node}
+          onChange={(event) => {
+            props.set("node", event.target.value);
+            props.set("roots", []);
+          }}
+        >
+          {nodes.map((node) => (
+            <option key={node.name} value={node.name} disabled={!node.connected}>
+              {node.connected ? node.name : t("libraries.nodeAway", { name: node.name })}
+            </option>
+          ))}
+        </select>
+      </label>
+      <fieldset>
+        <legend>{t("libraries.roots")}</legend>
+        {(chosen?.roots ?? []).map((root) => (
+          <label key={root}>
+            <input
+              type="checkbox"
+              checked={roots.includes(root)}
+              onChange={(event) => {
+                set("roots", toggled(roots, root, event.target.checked));
+              }}
+            />
+            <code>{root}</code>
+          </label>
+        ))}
+      </fieldset>
+    </>
+  );
 }
 
 /** One question with its answers, as radio buttons, each saying what it means (D184). */
@@ -172,10 +224,9 @@ function Writing(props: { readonly draft: NewLibrary; readonly set: SetAnswer })
 /** Creating a library asks three things, each stating its effect (D184): sources, changes, writing. */
 export function CreateLibraryForm(props: {
   readonly draft: NewLibrary;
-  readonly rootsText: string;
+  readonly nodes: readonly NodeRoots[];
   readonly problem: string;
   readonly onDraft: (draft: NewLibrary) => void;
-  readonly onRoots: (text: string) => void;
   readonly onSubmit: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -192,27 +243,7 @@ export function CreateLibraryForm(props: {
       <h2 id="create-library-heading">{t("libraries.createHeading")}</h2>
       <WhatItHolds draft={draft} set={set} />
       <ThreeQuestions draft={draft} set={set} />
-      <label>
-        {t("libraries.node")}
-        <input
-          required
-          value={draft.node}
-          onChange={(event) => {
-            set("node", event.target.value);
-          }}
-        />
-      </label>
-      <label>
-        {t("libraries.roots")}
-        <textarea
-          required
-          rows={3}
-          value={props.rootsText}
-          onChange={(event) => {
-            props.onRoots(event.target.value);
-          }}
-        />
-      </label>
+      <WhereItIs draft={draft} nodes={props.nodes} set={set} />
       {props.problem === "" ? null : (
         <p role="alert">{t("common.failed", { message: props.problem })}</p>
       )}
@@ -225,30 +256,37 @@ export function CreateLibraryForm(props: {
 export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.Element {
   const { api } = useServices();
   const [draft, setDraft] = useState(blankLibrary);
-  const [rootsText, setRootsText] = useState("");
   const [problem, setProblem] = useState("");
+  const [nodes] = useResource("nodes", async () => {
+    const { data, error } = await api.GET("/nodes");
+    if (data === undefined) {
+      throw new Error(error.error.message);
+    }
+    return data.nodes ?? [];
+  });
   const submit = (): void => {
     setProblem("");
-    void api
-      .POST("/libraries", { body: { ...draft, roots: rootsOf(rootsText) } })
-      .then(({ error }) => {
-        if (error === undefined) {
-          setDraft(blankLibrary());
-          setRootsText("");
-          props.onCreated();
-        } else {
-          setProblem(error.error.message);
-        }
-      });
+    void api.POST("/libraries", { body: draft }).then(({ error }) => {
+      if (error === undefined) {
+        setDraft(blankLibrary());
+        props.onCreated();
+      } else {
+        setProblem(error.error.message);
+      }
+    });
   };
   return (
-    <CreateLibraryForm
-      draft={draft}
-      rootsText={rootsText}
-      problem={problem}
-      onDraft={setDraft}
-      onRoots={setRootsText}
-      onSubmit={submit}
+    <Loaded
+      resource={nodes}
+      render={(value) => (
+        <CreateLibraryForm
+          draft={draft}
+          nodes={value}
+          problem={problem}
+          onDraft={setDraft}
+          onSubmit={submit}
+        />
+      )}
     />
   );
 }

@@ -23,3 +23,10 @@ UPDATE node SET status = sqlc.arg(status), status_at = sqlc.arg(status_at) WHERE
 SELECT id, name, status, status_at
 FROM node
 WHERE id = ?;
+
+-- name: ListLiveNodes :many
+-- Every enrolled node, for an admin choosing where a library's roots are.
+SELECT id, name, enrolled_at
+FROM node
+WHERE removed_at IS NULL
+ORDER BY name;

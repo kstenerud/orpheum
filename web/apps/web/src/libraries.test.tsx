@@ -5,7 +5,7 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { blankLibrary, CreateLibraryForm, rootsOf } from "./create-library.tsx";
+import { blankLibrary, CreateLibraryForm, toggled } from "./create-library.tsx";
 import { LibraryCard } from "./libraries.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -54,11 +54,13 @@ describe("libraries", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <CreateLibraryForm
-          draft={blankLibrary()}
-          rootsText=""
+          draft={{ ...blankLibrary(), roots: ["/media/films"] }}
+          nodes={[
+            { name: "local", connected: true, roots: ["/media/films", "/media/shows"] },
+            { name: "attic", connected: false, roots: [] },
+          ]}
           problem=""
           onDraft={ignore}
-          onRoots={ignore}
           onSubmit={ignore}
         />,
       ),
@@ -72,6 +74,25 @@ describe("libraries", () => {
     }
     expect(markup).toContain("TMDB only; NFO files are ignored");
     expect(markup).toMatch(/type="checkbox"(?![^>]*checked)/u);
-    expect(rootsOf(" /media/films \n\n/media/more\n")).toEqual(["/media/films", "/media/more"]);
+    expect(markup).toContain("attic (not connected)");
+    expect(markup).toMatch(/checked=""[^>]*\/><code>\/media\/films<\/code>/u);
+    expect(markup).toContain("<code>/media/shows</code>");
+    expect(toggled(["/a"], "/b", true)).toEqual(["/a", "/b"]);
+    expect(toggled(["/a", "/b"], "/a", false)).toEqual(["/b"]);
+  });
+
+  it("says to start a node when none is connected, rather than offer nothing to choose", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <CreateLibraryForm
+          draft={blankLibrary()}
+          nodes={[{ name: "local", connected: false, roots: [] }]}
+          problem=""
+          onDraft={ignore}
+          onSubmit={ignore}
+        />,
+      ),
+    );
+    expect(markup).toContain("No node has connected since the server started.");
   });
 });
