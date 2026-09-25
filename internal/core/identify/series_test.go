@@ -173,7 +173,7 @@ func TestSeries_AnAmbiguousSeriesIsChosenByAPerson(t *testing.T) {
 
 func TestSeries_AYearOrAnIDSettlesTheSearch(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "shows", "tmdb")
+	lib := newWorld(t, "shows", "nfo_then_tmdb")
 	uk := lib.provider.add(Metadata{ID: "2996", Name: "The Ledger Room", Year: 2001})
 	american := lib.provider.add(Metadata{ID: "2316", Name: "The Ledger Room", Year: 2005})
 	lib.provider.add(orbitorama)

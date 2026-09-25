@@ -23,6 +23,8 @@
 //     TestParsePath_ACorpusOfNames, TestParsePath_NoExpressionUsesAnASCIIOnlyClass.
 //   - An NFO's locked fields become overrides and the rest is the title's source; its watch
 //     counts are not read (D182, D183). TestParseNFO_AKodiMovieWithItsCorrectionsLocked.
+//   - A library asked for "TMDB only, ignore NFO files" reads none: not their values, ids or
+//     locked fields (D183 §2). TestPass_ATMDBOnlyLibraryIgnoresNFOFiles.
 //   - The pass reads only stored observations and reaches the same titles when run again (D182).
 //     TestPass_RunningAgainChangesNothing.
 //   - Films, versions, extras by containment and episodes in their series' aired order come from
