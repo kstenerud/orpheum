@@ -23,8 +23,12 @@
 //   - Every error, huma's own included, leaves as {"error": {...}} with a code from the
 //     enumeration, and never echoes a submitted value. Enforced by the tests' wantError and
 //     TestSecrets_AreWriteOnly.
-//   - A credential is read from the Authorization header only, never the URL. Enforced by
-//     TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut.
+//   - A credential is read from the Authorization header only, never the URL; the byte paths
+//     (/art) also take the media cookie, HttpOnly and SameSite Strict, which the API never does
+//     (D154). Enforced by TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut and
+//     TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt.
+//   - A person with edit_metadata may refresh a title or series whenever they like (D213 §2).
+//     TestIdentification_APersonMayRefreshATitleWheneverTheyLike.
 //   - /health answers before the database is ready, and the rest answers "migrating" until then.
 //     Enforced by TestHealth_AnswersBeforeTheDatabaseIsReady.
 //   - Secrets are write-only. Enforced by TestSecrets_AreWriteOnly.

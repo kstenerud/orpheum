@@ -17,6 +17,13 @@
 //   - An image the node refuses, or the source no longer has, is recorded with no hash, so it is
 //     not fetched again and an older image stays shown. TestService_RecordsARefusalAndKeepsTheOlderImage.
 //   - A job with no node connected waits without spending an attempt. TestService_WaitsForANode.
+//   - A missing image is looked into once: its record is refreshed after the CDN stops answering
+//     from its cached 404, and a second miss gives it up (D213 §1).
+//     TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp.
+//   - A host that fails five times in a row is left alone, probed once per step of
+//     RetrySchedule; a rate limit waits without costing an attempt (D213 §5).
+//     TestService_AFailingHostIsPausedAfterFiveFailuresAndProbedAfterEachStep,
+//     TestService_ARateLimitWaitsWithoutCostingAnAttempt.
 //   - The node is never on the request path: a size not made is answered with the nearest one
 //     there, and only a size made on request, whose source may be large enough, is queued; one
 //     the source cannot make, or a source that is gone or changed, is noted and never queued
@@ -36,5 +43,6 @@
 // # Where to change
 //
 //   - source.go: the unsanitised download and the fetcher interface; service.go: the queue's
-//     jobs, the node command and its answer, and the store; serve.go: answering a request.
+//     jobs, the node command and its answer, and the store; serve.go: answering a request;
+//     retry.go: the host's breaker, the retry schedule and the recheck of a missing image.
 package artwork

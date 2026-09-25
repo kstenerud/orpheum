@@ -74,6 +74,16 @@
 //   - The images a matched item's source names and its artwork does not hold are reported
 //     owing, by every pass and by the match itself, to whatever follows the pass (D212).
 //     TestPass_ReportsTheImagesAMatchNamesUntilTheyAreHeld.
+//   - A refresh fetches the source an item follows again — a series with each season it keeps,
+//     an episode through its series — takes the provider's values under a person's overrides, and
+//     keeps our copy of an item the provider dropped (D213 §2, §4).
+//     TestRefresh_TakesTheProvidersNewValuesAndKeepsAPersonsOverride,
+//     TestRefresh_AnItemGoneFromItsProviderKeepsOurCopy,
+//     TestRefresh_ASeriesFetchesItsRecordAndEachSeasonItKeeps.
+//   - The rolling refresh queues an item once its data is older than its provider's setting,
+//     somewhere in the period's last quarter by its id, never with the setting at 0; a person's
+//     refresh is queued whenever asked (D213 §3).
+//     TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod.
 //
 // # Read before changing
 //
@@ -82,6 +92,7 @@
 //   - D182: metadata is a stack of layers; re-derivation reads only stored input.
 //   - D183: an override is an override wherever its value came from.
 //   - D209: for shows, the series is what is identified.
+//   - D213: a dead image checked once, the rolling refresh, and nothing deleted upstream.
 //   - D141: NFO lock markers.
 //   - docs/contributors/design/plans/identification.md.
 //

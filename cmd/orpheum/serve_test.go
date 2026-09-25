@@ -196,7 +196,7 @@ func call(t *testing.T, method, url, token string, body any) reply {
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
-	client, err := outbound.NewClient(30 * time.Second)
+	client, err := outbound.NewClient(30*time.Second, version)
 	if err != nil {
 		t.Fatal(err)
 	}

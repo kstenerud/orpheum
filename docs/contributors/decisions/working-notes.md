@@ -16310,6 +16310,10 @@ now refreshed on a schedule, and a dead image is looked into once.
    last quarter of the period, spread by its id, so a library fetched in an afternoon is not
    refreshed in one. A refresh changes no field a person set (D183); it can change the others,
    which is what refreshing is.
+   How often the server looks for what is due is a setting too, `refresh_check_every_h`,
+   starting at a day, and it looks once when it starts — *"I don't care if a timeout goes beyond
+   6 months by a few days. We could even make this configurable."* One look is one query; the
+   interval decides only how late an item may be, a day at the start.
 4. **A refresh that finds an item gone keeps our copy** — *"If on a refresh an item is no
    longer available, we do NOT delete our copy."* The stored record, the item's values and its
    images stay; the attempt is noted so the item is not asked for again before its next period.

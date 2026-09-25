@@ -9,6 +9,34 @@ import (
 	"context"
 )
 
+const countEarlierMisses = `-- name: CountEarlierMisses :one
+SELECT COUNT(*) AS misses
+FROM artwork
+WHERE item_id = ?1 AND kind = ?2 AND source = ?3
+  AND source_ref = ?4 AND content_hash IS NULL AND removed_at IS NOT NULL
+`
+
+type CountEarlierMissesParams struct {
+	ItemID    int64
+	Kind      string
+	Source    string
+	SourceRef *string
+}
+
+// How often this image was missing before and looked into since: a recheck removes the row it
+// left, so a removed row with no hash is a miss already rechecked, D213 section 1.
+func (q *Queries) CountEarlierMisses(ctx context.Context, arg CountEarlierMissesParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countEarlierMisses,
+		arg.ItemID,
+		arg.Kind,
+		arg.Source,
+		arg.SourceRef,
+	)
+	var misses int64
+	err := row.Scan(&misses)
+	return misses, err
+}
+
 const getArtworkSource = `-- name: GetArtworkSource :one
 SELECT item_id, kind, source, source_ref
 FROM artwork
@@ -180,5 +208,22 @@ func (q *Queries) MarkArtworkRemoved(ctx context.Context, arg MarkArtworkRemoved
 		arg.Source,
 		arg.KeepID,
 	)
+	return err
+}
+
+const retryItemArtwork = `-- name: RetryItemArtwork :exec
+UPDATE artwork SET removed_at = ?1
+WHERE item_id = ?2 AND content_hash IS NULL AND chosen = 0 AND removed_at IS NULL
+`
+
+type RetryItemArtworkParams struct {
+	RemovedAt *int64
+	ItemID    int64
+}
+
+// A refresh that looks again: the item's images that were missing or refused are asked for once
+// more at its next pass, D213 sections 1 and 2.
+func (q *Queries) RetryItemArtwork(ctx context.Context, arg RetryItemArtworkParams) error {
+	_, err := q.db.ExecContext(ctx, retryItemArtwork, arg.RemovedAt, arg.ItemID)
 	return err
 }

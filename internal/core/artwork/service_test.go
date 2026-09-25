@@ -53,6 +53,8 @@ func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 // fetched is a source's images by reference.
 type fetched map[string][]byte
 
+func (fetched) RecheckAfter() time.Duration { return 12 * time.Hour }
+
 func (images fetched) Fetch(_ context.Context, ref string) (Unsanitised, error) {
 	image, found := images[ref]
 	if !found {
@@ -105,7 +107,7 @@ func newBench(t *testing.T, images fetched) *bench {
 	node := &fakeNode{ctx: t.Context(), connected: true}
 	art := memoryStore{}
 	service := NewService(Parts{
-		Database: database, Nodes: node, Store: art, Settings: settingstest.Seeded(t, database),
+		Database: database, Queue: &queued{}, Nodes: node, Store: art, Settings: settingstest.Seeded(t, database),
 		Fetchers: map[string]Fetcher{"tmdb": images},
 		Clock:    clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)),
 		Logger:   slog.New(slog.DiscardHandler), Wait: 5 * time.Second,

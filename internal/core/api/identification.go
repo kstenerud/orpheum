@@ -90,6 +90,14 @@ type PutOverrideInput struct {
 	}
 }
 
+// RefreshOutput says whether a refresh was queued, or one was already waiting.
+type RefreshOutput struct {
+	Status int
+	Body   struct {
+		Queued bool `doc:"False when a fetch for it was already waiting" json:"queued"`
+	}
+}
+
 func (server *Server) registerIdentification() {
 	tags := []string{tagIdentification}
 	huma.Register(server.api, huma.Operation{
@@ -115,6 +123,12 @@ func (server *Server) registerIdentification() {
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Remove a field's override, so it follows its source again (edit_metadata)",
 	}, server.deleteOverride)
+	huma.Register(server.api, huma.Operation{
+		OperationID: "postItemRefresh", Method: http.MethodPost, Path: "/items/{id}/refresh",
+		DefaultStatus: http.StatusAccepted, Tags: tags,
+		Summary: "Fetch a film's or series' data and its missing images again, whenever a person likes " +
+			"(edit_metadata; D213)",
+	}, server.postRefresh)
 }
 
 func (server *Server) getItems(ctx context.Context, input *ItemsInput) (*ItemsOutput, error) {
@@ -165,6 +179,20 @@ func (server *Server) postMatch(ctx context.Context, input *MatchInput) (*struct
 	}
 	err = dependencies.Identify.Choose(ctx, input.ID, input.Body.Provider, input.Body.ProviderID)
 	return &struct{}{}, server.identifyError(ctx, "choose a match", err)
+}
+
+func (server *Server) postRefresh(ctx context.Context, input *ItemInput) (*RefreshOutput, error) {
+	dependencies, _, err := server.metadataEditor(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	queued, err := dependencies.Refresh.Request(ctx, input.ID)
+	if err != nil {
+		return nil, server.identifyError(ctx, "queue a refresh", err)
+	}
+	output := &RefreshOutput{Status: http.StatusAccepted}
+	output.Body.Queued = queued
+	return output, nil
 }
 
 func (server *Server) putOverride(ctx context.Context, input *PutOverrideInput) (*struct{}, error) {

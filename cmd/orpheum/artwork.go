@@ -26,7 +26,7 @@ func newArtwork(
 	if err != nil {
 		return nil, err
 	}
-	httpClient, err := outbound.NewClient(time.Duration(timeout) * time.Second)
+	httpClient, err := outbound.NewClient(time.Duration(timeout)*time.Second, version)
 	if err != nil {
 		return nil, err
 	}

@@ -67,6 +67,31 @@ counted:
 - **Cost:** none.
 - **Process lesson:** none new; recorded so the decision's text and the code agree.
 
+### P20 — The media cookie is Secure only over TLS until the HTTPS name (M2, 2026-09-25) · refinement
+
+- **Planned:** D154: the media cookie is `Secure`, `HttpOnly`, `SameSite`, scoped to the byte
+  paths.
+- **What happened:** Cut A has no TLS until M4's HTTPS name, and a browser never sends a
+  `Secure` cookie back over plain HTTP, so posters would not show in M2 and M3 anywhere but on
+  localhost. The cookie is `Secure` when the request came over TLS. The rest is as D154 says.
+- **Why the plan missed it:** D154 was written for the finished product, where every
+  connection is TLS; the milestones put TLS after the first client that needs the cookie.
+- **Cost:** none; once M4 serves every client over TLS, the cookie is always `Secure`.
+- **Process lesson:** when a decision assumes a transport, check the milestone that first
+  needs it has that transport.
+
+### P21 — A person's refresh endpoint, from D213 (M2, 2026-09-25) · plan-change
+
+- **Planned:** cut-a §5 had no refresh; D170 allowed a refresh only when the user asks, per
+  title or per library, and no scheduled refresh.
+- **What happened:** the owner decided D213 after the research into provider etiquette:
+  `POST /items/{id}/refresh` for one title or series, as often as a person likes; no
+  library-wide refresh; a rolling refresh per provider; a dead image checked once.
+- **Why the plan missed it:** TMDB's six-month limit on keeping its data was not known when
+  D170 was decided.
+- **Cost:** one research round; the refresh, the sweep and two settings.
+- **Process lesson:** before designing around an external service, read its terms of use.
+
 ### P17 — A migration drafted, applied by the dev loop, then edited (M2, 2026-09-25) · gate-design
 
 - **Planned:** migrations are append-only, enforced by the pre-edit hook on committed steps and

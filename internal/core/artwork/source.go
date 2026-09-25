@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"time"
 )
 
 // ErrNoImage is a source that has no image at a reference: gone from the provider, or a
@@ -47,4 +48,7 @@ func (source Unsanitised) hash32() []byte {
 // server, by a poster's path.
 type Fetcher interface {
 	Fetch(ctx context.Context, ref string) (Unsanitised, error)
+	// RecheckAfter is how long the source's CDN answers a missing image from its cache: a
+	// recheck sooner would see the same 404 (D213 §1).
+	RecheckAfter() time.Duration
 }

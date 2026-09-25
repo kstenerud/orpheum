@@ -25,6 +25,9 @@
 //     TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind,
 //     TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts.
 //   - After a crash, running jobs return to queued. TestRequeueRunning_ReturnsWhatACrashLeftRunning.
+//   - A kind may retry on its own schedule instead (D213 §5), and a job may wait until a time
+//     before it first runs. TestRunDue_AKindWithItsOwnScheduleRetriesOnItThenFails,
+//     TestEnqueue_AJobWaitsUntilItsNotBefore.
 //
 // # Read before changing
 //

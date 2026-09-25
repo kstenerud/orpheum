@@ -49,6 +49,8 @@ type Dependencies struct {
 	SetupCodes auth.SetupCodes
 	// Identify is what a person does about identification: the chooser and overrides.
 	Identify *identify.Chooser
+	// Refresh queues a person's refresh of a title or series (D213).
+	Refresh *identify.Refresher
 	// Libraries is what an admin does with libraries: create, list, scan, and the scanner view.
 	Libraries *library.Admin
 	// Browse is what a person browses and searches.

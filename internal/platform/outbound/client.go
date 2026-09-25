@@ -8,15 +8,30 @@ import (
 	"time"
 )
 
-// NewClient returns a client for requests to other hosts, each bounded by timeout. It starts
-// from Go's default transport for its connection limits and HTTP/2 support, and drops the
-// proxy that transport would read from the environment (D204).
-func NewClient(timeout time.Duration) (*http.Client, error) {
+// NewClient returns a client for requests to other hosts, each bounded by timeout and each
+// saying it comes from Orpheum at version (D213 §6). It starts from Go's default transport for
+// its connection limits and HTTP/2 support, and drops the proxy that transport would read from
+// the environment (D204).
+func NewClient(timeout time.Duration, version string) (*http.Client, error) {
 	base, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
 		return nil, fmt.Errorf("http.DefaultTransport is a %T, not an *http.Transport", http.DefaultTransport)
 	}
 	transport := base.Clone()
 	transport.Proxy = nil
-	return &http.Client{Transport: transport, Timeout: timeout}, nil
+	return &http.Client{Transport: identified{Transport: transport, agent: "Orpheum/" + version}, Timeout: timeout}, nil
+}
+
+// identified sends every request with our User-Agent: a provider's terms ask an application
+// not to conceal who it is (TMDB's §1.C).
+type identified struct {
+	*http.Transport
+	agent string
+}
+
+// RoundTrip sends a copy of the request that carries the User-Agent.
+func (transport identified) RoundTrip(request *http.Request) (*http.Response, error) {
+	named := request.Clone(request.Context())
+	named.Header.Set("User-Agent", transport.agent)
+	return transport.Transport.RoundTrip(named)
 }

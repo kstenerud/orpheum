@@ -19,13 +19,15 @@ import (
 )
 
 // metadata is the fetch side of identification: the pass, the job queue, the matcher that runs
-// its fetch jobs, the chooser a person uses, and the artwork its matches name.
+// its fetch jobs, the chooser a person uses, the refresher, and the artwork its matches name.
 type metadata struct {
-	pass    *identify.Pass
-	queue   *jobs.Queue
-	matcher *identify.Matcher
-	chooser *identify.Chooser
-	artwork *artwork.Service
+	pass      *identify.Pass
+	queue     *jobs.Queue
+	matcher   *identify.Matcher
+	chooser   *identify.Chooser
+	refresher *identify.Refresher
+	settings  *settings.Service
+	artwork   *artwork.Service
 }
 
 // newMetadata builds the providers, the pass and the queue, and returns the jobs a crash left
@@ -35,7 +37,7 @@ func newMetadata(ctx context.Context, opened started, tmdbBase string, logger *s
 	if err != nil {
 		return metadata{}, err
 	}
-	httpClient, err := outbound.NewClient(time.Duration(timeout) * time.Second)
+	httpClient, err := outbound.NewClient(time.Duration(timeout)*time.Second, version)
 	if err != nil {
 		return metadata{}, err
 	}
@@ -55,20 +57,29 @@ func newMetadata(ctx context.Context, opened started, tmdbBase string, logger *s
 	pass.AfterPass(func(ctx context.Context, report identify.Report) { queueMatches(ctx, queue, report, logger) })
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return metadata{
-		pass: pass, queue: queue, matcher: matcher,
-		chooser: identify.NewChooser(matcher, pass),
+		pass: pass, queue: queue, matcher: matcher, settings: opened.settings,
+		chooser:   identify.NewChooser(matcher, pass),
+		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
 	}, nil
 }
 
-// run works the fetch and artwork jobs until the returned stop is called.
+// run works the fetch and artwork jobs, and looks for data due a refresh when it starts and every
+// refresh_check_every_h (D213 §3), until the returned stop is called.
 func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop func()) {
 	running, cancel := context.WithCancel(ctx)
 	var done sync.WaitGroup
 	for _, queue := range []struct {
-		kind    jobs.Kind
-		handler jobs.Handler
-	}{{jobs.KindFetch, fetching.matcher.Handle}, {jobs.KindArtwork, fetching.artwork.Handle}} {
+		kind     jobs.Kind
+		handler  jobs.Handler
+		schedule []time.Duration
+	}{
+		{jobs.KindFetch, fetching.matcher.Handle, nil},
+		{jobs.KindArtwork, fetching.artwork.Handle, artwork.RetrySchedule()},
+	} {
 		kind, runner := queue.kind, fetching.queue.NewRunner(queue.kind, queue.handler)
+		if queue.schedule != nil {
+			runner.RetryOn(queue.schedule)
+		}
 		done.Go(func() {
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
@@ -77,7 +88,33 @@ func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop fun
 			}
 		})
 	}
+	done.Go(func() { fetching.sweep(running, logger) })
 	return func() { cancel(); done.Wait() }
+}
+
+// sweep queues the rolling refresh: now, then every refresh_check_every_h, read afresh each time
+// so a change takes effect at the next look.
+func (fetching metadata) sweep(ctx context.Context, logger *slog.Logger) {
+	for {
+		queued, err := fetching.refresher.Sweep(ctx)
+		if err != nil && ctx.Err() == nil {
+			logger.ErrorContext(ctx, "could not look for data due a refresh", "err", err)
+		}
+		if queued > 0 {
+			logger.InfoContext(ctx, "queued refreshes of data that is due", "items", queued)
+		}
+		hours, err := fetching.settings.Int(ctx, settings.RefreshCheckEveryH)
+		if err != nil {
+			hours = 24
+		}
+		wait := time.NewTimer(time.Duration(hours) * time.Hour)
+		select {
+		case <-ctx.Done():
+			wait.Stop()
+			return
+		case <-wait.C:
+		}
+	}
 }
 
 // followSortLocale keeps every sort key in the sort_locale setting's locale: now, for a change
