@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-// MediaCookie is the cookie that carries the session to the byte paths — images now, media
+// MediaCookie is the cookie that carries the session to the byte paths, all under /bytes/ (D216) — images now, media
 // later — for what cannot send a header, such as an <img> (D154). It is HttpOnly, SameSite
 // Strict and scoped to the byte paths; the API takes the header and never this cookie, so a
 // forged cross-site request can only fetch what its user may already see.
@@ -22,7 +22,7 @@ const mediaCookieMaxAge = 400 * 24 * 60 * 60
 // (plan-deviations P20).
 func mediaCookie(token string, overTLS bool) http.Cookie {
 	return http.Cookie{ //nolint:gosec // Secure only over TLS until M4's HTTPS name (P20)
-		Name: MediaCookie, Value: token, Path: Prefix + "/art/", MaxAge: mediaCookieMaxAge,
+		Name: MediaCookie, Value: token, Path: Prefix + "/bytes/", MaxAge: mediaCookieMaxAge,
 		HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: overTLS,
 	}
 }

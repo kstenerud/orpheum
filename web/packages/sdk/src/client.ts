@@ -54,5 +54,5 @@ export type ArtSize =
  * media cookie sign-in set, never a token in the address (D154).
  */
 export function artUrl(hash: string, size: ArtSize, format: "webp" | "jpeg" = "webp"): string {
-  return `${apiPrefix}/art/${encodeURIComponent(hash)}/${size}.${format}`;
+  return `${apiPrefix}/bytes/art/${encodeURIComponent(hash)}/${size}.${format}`;
 }

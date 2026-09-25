@@ -49,12 +49,12 @@ func TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt(t *tes
 	signedIn, _ := harness.raw(t, http.MethodPost, "/session", `{"name":"owner","password":"owner-password"}`, nil)
 	cookies := (&http.Response{Header: signedIn.Header}).Cookies()
 	if len(cookies) != 1 || cookies[0].Name != MediaCookie || !cookies[0].HttpOnly ||
-		cookies[0].SameSite != http.SameSiteStrictMode || cookies[0].Path != Prefix+"/art/" || cookies[0].Secure {
-		t.Fatalf("sign-in set %+v; want one HttpOnly, SameSite=Strict media cookie scoped to /art/, not Secure "+
+		cookies[0].SameSite != http.SameSiteStrictMode || cookies[0].Path != Prefix+"/bytes/" || cookies[0].Secure {
+		t.Fatalf("sign-in set %+v; want one HttpOnly, SameSite=Strict media cookie scoped to /bytes/, not Secure "+
 			"over plain HTTP", cookies)
 	}
 	withCookie := http.Header{"Cookie": {MediaCookie + "=" + cookies[0].Value}}
-	image, body := harness.raw(t, http.MethodGet, "/art/"+hash+"/portrait-s.webp", "", withCookie)
+	image, body := harness.raw(t, http.MethodGet, "/bytes/art/"+hash+"/portrait-s.webp", "", withCookie)
 	if image.StatusCode != http.StatusOK || body != "RIFF....WEBP" {
 		t.Errorf("an image by the cookie alone: %d %q", image.StatusCode, body)
 	}
@@ -68,7 +68,7 @@ func TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt(t *tes
 	if signedOut.StatusCode != http.StatusNoContent || len(cleared) != 1 || cleared[0].MaxAge >= 0 {
 		t.Errorf("sign-out: %d, cookies %+v; want the media cookie cleared", signedOut.StatusCode, cleared)
 	}
-	if after, _ := harness.raw(t, http.MethodGet, "/art/"+hash+"/portrait-s.webp", "", withCookie); after.StatusCode !=
+	if after, _ := harness.raw(t, http.MethodGet, "/bytes/art/"+hash+"/portrait-s.webp", "", withCookie); after.StatusCode !=
 		http.StatusUnauthorized {
 		t.Errorf("the cookie after sign-out: %d, want 401", image.StatusCode)
 	}

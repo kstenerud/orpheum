@@ -35,7 +35,7 @@ describe("SeriesView", () => {
     const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));
     expect(markup.indexOf("Season 1")).toBeLessThan(markup.indexOf("Season 2"));
     expect(markup.indexOf("Season 2")).toBeLessThan(markup.indexOf("Specials"));
-    expect(markup).toContain('src="/api/v1/art/s31/landscape-s.webp"');
+    expect(markup).toContain('src="/api/v1/bytes/art/s31/landscape-s.webp"');
     expect(markup).toContain("not on disk");
     expect(markup).toContain('href="/titles/32"');
     expect(bySeason([]).length).toBe(0);
