@@ -6,7 +6,7 @@ import { createApi } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { PlayView, requestPlayback } from "./play.tsx";
+import { mediaFailure, PlayView, requestPlayback } from "./play.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 
 describe("playing a file", () => {
@@ -54,5 +54,14 @@ describe("playing a file", () => {
       "the browser cannot open its container, the browser cannot decode its sound",
     );
     expect(markup).toContain("not built yet");
+  });
+
+  it("words a media element's failure in the browser's own terms, or its code", () => {
+    const failed = (code: number, message: string) => ({ code, message });
+    expect(mediaFailure(failed(4, "No video with supported format and MIME type found"))).toBe(
+      "No video with supported format and MIME type found",
+    );
+    expect(mediaFailure(failed(3, ""))).toBe("MediaError 3");
+    expect(mediaFailure(null)).toBe("unknown");
   });
 });

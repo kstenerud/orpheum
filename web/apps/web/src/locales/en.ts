@@ -64,6 +64,7 @@ export const en = {
   play: {
     starting: "Asking the server how this plays here…",
     direct: "Playing the original file, as it is.",
+    failed: "This browser could not play the original file: {{reason}}.",
     needsPreparing: "This file needs preparing to play here: {{reasons}}.",
     notYet: "Preparing files is not built yet, so it cannot play in this browser yet.",
     reason: {

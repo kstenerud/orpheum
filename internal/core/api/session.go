@@ -170,12 +170,35 @@ func (server *Server) signOut(ctx context.Context, input *SignOutInput) (*SignOu
 	return &SignOutOutput{SetCookie: cleared}, nil
 }
 
-func (server *Server) me(ctx context.Context, input *AuthorizationHeader) (*UserOutput, error) {
+// MeInput asks who a session belongs to.
+type MeInput struct {
+	AuthorizationHeader
+	overTLS bool
+}
+
+// Resolve records whether the request came over TLS, for the media cookie.
+func (input *MeInput) Resolve(ctx huma.Context) []error {
+	input.overTLS = ctx.TLS() != nil
+	return nil
+}
+
+// MeOutput is who the session belongs to, and the media cookie set again for it.
+type MeOutput struct {
+	SetCookie http.Cookie `header:"Set-Cookie"`
+	Body      UserBody
+}
+
+// me answers who a session belongs to, and sets the media cookie to that session again: a
+// client asks at start, so a browser whose cookie is missing, from an older path, or from
+// another session gets the right one before it fetches an image or a video (D154, D216).
+func (server *Server) me(ctx context.Context, input *MeInput) (*MeOutput, error) {
 	_, principal, err := server.signedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	return &UserOutput{Body: userBody(principal)}, nil
+	return &MeOutput{
+		SetCookie: mediaCookie(bearerToken(input.Authorization), input.overTLS), Body: userBody(principal),
+	}, nil
 }
 
 func userBody(principal auth.Principal) UserBody {
