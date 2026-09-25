@@ -1,0 +1,36 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.series__head {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) 1fr;
+  gap: var(--space-page);
+  align-items: start;
+}
+
+.series__year,
+.series__absent {
+  color: var(--color-muted);
+}
+
+.series__episodes {
+  display: grid;
+  gap: calc(var(--space-page) / 2);
+  padding: 0;
+  list-style: none;
+}
+
+.series__episode {
+  display: grid;
+  grid-template-columns: 8rem 1fr auto;
+  gap: var(--space-page);
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.series__still {
+  width: 8rem;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--color-surface);
+}

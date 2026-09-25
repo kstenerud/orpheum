@@ -8,8 +8,8 @@
  * probe-and-pick and the Watch Together client (plans/cut-a.md §3, §5).
  */
 
-export { apiPrefix, createApi } from "./client.ts";
-export type { Api, ApiOptions } from "./client.ts";
+export { apiPrefix, artUrl, createApi } from "./client.ts";
+export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
 
 /** The npm name of this package, exported so the workspace wiring has something to resolve. */

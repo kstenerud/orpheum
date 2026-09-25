@@ -82,6 +82,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 
 	detail := harness.do(t, http.MethodGet, "/items/10", user, nil)
 	if !strings.Contains(detail.body, `"codec":"truehd","lang":"en","channels":8`) ||
+		!strings.Contains(detail.body, `"streams":[{"id":`) ||
 		strings.Contains(detail.body, "Metropolis (1995).mkv") {
 		t.Errorf("a user's detail = %d %s; want the streams and no path", detail.status, detail.body)
 	}

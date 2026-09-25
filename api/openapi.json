@@ -1261,6 +1261,11 @@
           "codec": {
             "type": "string"
           },
+          "id": {
+            "description": "Stable while the file is unchanged",
+            "format": "int64",
+            "type": "integer"
+          },
           "kind": {
             "type": "string"
           },
@@ -1273,6 +1278,7 @@
           }
         },
         "required": [
+          "id",
           "kind"
         ],
         "type": "object"

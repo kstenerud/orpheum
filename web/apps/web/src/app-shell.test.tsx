@@ -1,15 +1,41 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./i18n.ts";
+
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
+import { withServices } from "./test-services.tsx";
+
+const ignore = (): void => undefined;
 
 describe("AppShell", () => {
-  it("renders one main landmark headed by the product name", () => {
-    const markup = renderToStaticMarkup(<AppShell />);
+  it("renders a banner with the product name and the menu, and one main landmark", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <AppShell isAdmin={false} current="films" onSignOut={ignore}>
+          <p>screen</p>
+        </AppShell>,
+      ),
+    );
+    expect(markup.match(/<main/gu)).toHaveLength(1);
+    expect(markup).toContain(
+      '<header class="app-shell__banner"><p class="app-shell__title">Orpheum</p>',
+    );
+    expect(markup).toContain('<li aria-current="page"><a href="/films">Films</a></li>');
+    expect(markup).not.toContain("/libraries");
+  });
 
-    expect(markup).toMatch(/^<main[^>]*>/);
-    expect(markup).toContain(">Orpheum</h1>");
+  it("shows the admin's destinations to an admin", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <AppShell isAdmin={true} current="about" onSignOut={ignore}>
+          <p>screen</p>
+        </AppShell>,
+      ),
+    );
+    expect(markup).toContain('href="/libraries"');
+    expect(markup).toContain('href="/identify"');
   });
 });

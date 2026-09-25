@@ -883,6 +883,11 @@ export interface components {
             /** Format: int64 */
             channels?: number;
             codec?: string;
+            /**
+             * Format: int64
+             * @description Stable while the file is unchanged
+             */
+            id: number;
             kind: string;
             /** @description BCP 47 */
             lang?: string;

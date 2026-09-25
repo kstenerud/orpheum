@@ -1,0 +1,49 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.browse__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-page);
+}
+
+.poster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: var(--space-page);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A row off screen is not laid out or painted until it nears the view: a long list stays cheap. */
+.poster-grid > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 18rem;
+}
+
+.poster-grid__card {
+  display: grid;
+  gap: calc(var(--space-page) / 4);
+  color: inherit;
+  text-decoration: none;
+}
+
+.poster {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  background: var(--color-surface);
+  color: var(--color-muted);
+}
+
+.poster-grid__year {
+  color: var(--color-muted);
+}
+
+.end-of-list {
+  padding: var(--space-page) 0;
+}

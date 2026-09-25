@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* TMDB's logo stays smaller than our own mark (TMDB's terms §3). */
+.about__tmdb-logo {
+  display: block;
+  height: 1rem;
+  width: auto;
+}
+
+.about__thanks {
+  columns: 12rem;
+}
