@@ -39,6 +39,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bytes/media/hls/{token}/{rendition}/{file}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One file of a prepared playback's rendition, relayed from its node */
+        get: operations["getRenditionFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bytes/media/hls/{token}/master.m3u8": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A prepared playback's master playlist, relayed from its node */
+        get: operations["getMasterPlaylist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/collections/{id}": {
         parameters: {
             query?: never;
@@ -587,6 +621,12 @@ export interface components {
             /** @description An episode's frame */
             still?: string;
         };
+        AudioRenditionBody: {
+            boost: boolean;
+            language: string;
+            /** Format: int64 */
+            track: number;
+        };
         CandidateBody: {
             name: string;
             originalName?: string;
@@ -967,13 +1007,15 @@ export interface components {
             prefer?: "direct" | "prepare";
         };
         StartPlaybackOutputBody: {
+            audio?: components["schemas"]["AudioRenditionBody"][] | null;
             /** @enum {string} */
             kind: "direct" | "hls";
+            preparing: boolean;
             /** @enum {string} */
             profile?: "remux" | "h264-8m";
             reasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "user_choice")[] | null;
-            /** @description Where the bytes are; absent until prepared renditions are built */
-            url?: string;
+            /** @description Where the bytes are: the file, or a rendition's master playlist */
+            url: string;
         };
         StreamBody: {
             /** Format: int64 */
@@ -1147,6 +1189,87 @@ export interface operations {
             };
             /** @description The range asked for */
             206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getRenditionFile: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+                Range?: string;
+            };
+            path: {
+                /** @description stream.m3u8, init.mp4 or a segment */
+                file: string;
+                /** @description video, audio0, audio0-boost, ... */
+                rendition: string;
+                /** @description The playback's media token */
+                token: string;
+            };
+            cookie?: {
+                /** @description The media cookie sign-in sets, for an <img> */
+                orpheum_media?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.apple.mpegurl": unknown;
+                    "video/iso.segment": unknown;
+                    "video/mp4": unknown;
+                };
+            };
+            /** @description Not written yet: the rendition is being prepared; ask again after Retry-After */
+            425: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMasterPlaylist: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description The playback's media token */
+                token: string;
+            };
+            cookie?: {
+                /** @description The media cookie sign-in sets, for an <img> */
+                orpheum_media?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.apple.mpegurl": unknown;
+                    "video/iso.segment": unknown;
+                    "video/mp4": unknown;
+                };
+            };
+            /** @description Not written yet: the rendition is being prepared; ask again after Retry-After */
+            425: {
                 headers: {
                     [name: string]: unknown;
                 };

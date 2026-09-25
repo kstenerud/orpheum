@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -28,6 +29,8 @@ type metadata struct {
 	refresher *identify.Refresher
 	settings  *settings.Service
 	artwork   *artwork.Service
+	// playback runs the prepare jobs, which share the one queue (cut-a §5.3).
+	playback *playback.Service
 }
 
 // newMetadata builds the providers, the pass and the queue, and returns the jobs a crash left
@@ -75,6 +78,7 @@ func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop fun
 	}{
 		{jobs.KindFetch, fetching.matcher.Handle, nil},
 		{jobs.KindArtwork, fetching.artwork.Handle, artwork.RetrySchedule()},
+		{jobs.KindPrepare, fetching.playback.HandlePrepare, nil},
 	} {
 		kind, runner := queue.kind, fetching.queue.NewRunner(queue.kind, queue.handler)
 		if queue.schedule != nil {

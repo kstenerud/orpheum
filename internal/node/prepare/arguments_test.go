@@ -33,6 +33,9 @@ func TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre(t *testing.
 	if after(arguments, "-i") != "file:/media/a film.mkv" || after(arguments, "-protocol_whitelist") != "file" {
 		t.Errorf("the input is %q, want file: and only the file protocol", after(arguments, "-i"))
 	}
+	if after(arguments, "-map") != "0:0" {
+		t.Errorf("the picture is mapped as %q, want by its stream index", after(arguments, "-map"))
+	}
 	if after(arguments, "-c:v") != "copy" || slices.Contains(arguments, "-tag:v") {
 		t.Errorf("remuxed H.264 is %v, want copied untagged", arguments)
 	}

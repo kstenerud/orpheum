@@ -30,6 +30,9 @@ type Prepare struct {
 	// Dir is "<file_id>/<profile>", the rendition's directory under the node's prepared
 	// directory and its byte path.
 	Dir string `json:"dir"`
+	// VideoStream is the source picture's stream index, as ffprobe numbers every stream: the
+	// picture, never cover art that happens to come first.
+	VideoStream int `json:"videoStream"`
 	// VideoCodec is the source picture's codec as the probe named it: a copied HEVC picture is
 	// tagged hvc1, which Safari requires.
 	VideoCodec string `json:"videoCodec"`

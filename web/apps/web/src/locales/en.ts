@@ -65,8 +65,10 @@ export const en = {
     starting: "Asking the server how this plays here…",
     direct: "Playing the original file, as it is.",
     failed: "This browser could not play the original file: {{reason}}.",
-    needsPreparing: "This file needs preparing to play here: {{reasons}}.",
-    notYet: "Preparing files is not built yet, so it cannot play in this browser yet.",
+    prepared: "Playing a copy prepared for this browser, because {{reasons}}.",
+    preparing: "Preparing — ready in a few seconds.",
+    preparedFailed: "The prepared copy could not play: {{reason}}.",
+    boost: "Dialogue boost",
     reason: {
       container: "the browser cannot open its container",
       videoCodec: "the browser cannot decode its video",

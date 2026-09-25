@@ -42,6 +42,9 @@ type Job struct {
 	Attempts int64
 }
 
+// PriorityPlayNow is the highest priority: a job someone is waiting on to watch (cut-a §5.3).
+const PriorityPlayNow int64 = 1000
+
 // New is a job to queue.
 type New struct {
 	Kind     Kind

@@ -298,3 +298,32 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 		t.Errorf("the byte socket answered %d %q (%v), want 200 with the film's bytes", response.StatusCode, body, err)
 	}
 }
+
+func TestRunNode_StillServesFilesWhenItCannotPrepare(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	blocker := filepath.Join(t.TempDir(), "a file, not a directory")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config.Node.PreparedDir = filepath.Join(blocker, "prepared")
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "ffprobe version test"})
+	config.Node.FFmpegDir = fake.Directory
+	const listening, cannot = "serving the byte socket", "this node cannot prepare; it serves files as they are"
+	captured := newCapturedLog(listening, cannot)
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- runNode(ctx, config, captured.logger) }()
+	for _, awaited := range []string{cannot, listening} {
+		select {
+		case <-captured.signals[awaited]:
+		case early := <-done:
+			cancel()
+			t.Fatalf("runNode returned before logging %q: %v\n%s", awaited, early, captured)
+		}
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Errorf("runNode returned %v", err)
+	}
+}

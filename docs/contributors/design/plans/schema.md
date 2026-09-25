@@ -742,7 +742,7 @@ reference scale, and removes a failure mode.
 > **Built in M2**, versioned by discard (migrations.md): `internal/store/cache/schema.sql` is the
 > one schema, its version on a comment line, and a file whose `user_version` differs is deleted
 > and built again. sqlc reads it into its own package, `cachegen`, so a `library.db` query
-> cannot name a cache table. `prepared_rendition` arrives with prepare in M3.
+> cannot name a cache table. `prepared_rendition` came with prepare in M3 (version 5).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -775,14 +775,28 @@ CREATE TABLE art_served (                                  -- D212 §6: recency,
   hash        TEXT PRIMARY KEY,          -- an image's directory under cache/art/
   day         INTEGER NOT NULL           -- days since the Unix epoch it was last served
 ) WITHOUT ROWID;
-CREATE TABLE prepared_rendition (                          -- D175, D180; M3
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  source_file INTEGER NOT NULL,          -- play state records against this
-  profile     TEXT NOT NULL,
-  path        TEXT NOT NULL,             -- under cache/
-  bytes       INTEGER,
-  created_at  INTEGER NOT NULL
+CREATE TABLE prepared_rendition (                          -- D175, D180, D217 §5
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_file  INTEGER NOT NULL,         -- library.db's file; play state records against it
+  payload_hash BLOB NOT NULL,            -- the source as it was when prepared (D179)
+  profile      TEXT NOT NULL CHECK (profile IN ('remux','h264-8m')),
+  node_id      INTEGER NOT NULL,         -- the node that holds it, beside its source
+  state        TEXT NOT NULL DEFAULT 'queued'
+                 CHECK (state IN ('queued','running','complete','failed')),
+  done_ms      INTEGER NOT NULL DEFAULT 0,  -- how much of the source is prepared
+  bytes        INTEGER,                  -- its size once complete
+  error        TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
+  created_at   INTEGER NOT NULL,
+  finished_at  INTEGER,
+  UNIQUE (source_file, profile)
 );
+```
+
+A rendition's files live on its node, in `<file_id>/<profile>/` under the node's prepared
+directory, which the node alone deletes from (D217 §5); this row is the core's note of what it
+asked for and what the node said. Its prepare job's subject is the row's id (D217 §3).
+
+```sql
 ```
 
 No foreign keys cross into `library.db` — SQLite cannot enforce them across files, and nothing

@@ -14,3 +14,9 @@
 .play__reason {
   color: var(--color-muted);
 }
+
+.play__boost {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}

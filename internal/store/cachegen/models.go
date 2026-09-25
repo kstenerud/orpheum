@@ -36,3 +36,17 @@ type MatchCandidate struct {
 	RuntimeMs  *int64
 	PosterRef  *string
 }
+
+type PreparedRendition struct {
+	ID          int64
+	SourceFile  int64
+	PayloadHash []byte
+	Profile     string
+	NodeID      int64
+	State       string
+	DoneMs      int64
+	Bytes       *int64
+	Error       *string
+	CreatedAt   int64
+	FinishedAt  *int64
+}

@@ -98,11 +98,16 @@ func runNodeScanning(
 		UID:                hello.UID,
 		GID:                hello.GID,
 	})
+	// A node that cannot use its prepared directory still scans and serves files as they are; it
+	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
+	var preparing agent.Preparer
 	prepared, preparer, err := openPrepared(config, runner)
 	if err != nil {
-		return err
+		logger.ErrorContext(ctx, "this node cannot prepare; it serves files as they are", "err", err)
+	} else {
+		preparing = preparer
+		defer func() { _ = prepared.Close() }() //nolint:errcheck // read-only
 	}
-	defer func() { _ = prepared.Close() }() //nolint:errcheck // read-only
 	stopBytes, err := serveBytes(ctx, config, roots, prepared, logger)
 	if err != nil {
 		return err
@@ -117,7 +122,7 @@ func runNodeScanning(
 	if wrap != nil {
 		scanning = wrap(scanner)
 	}
-	workers := agent.Workers{Scanner: scanning, Artwork: deriver, Preparer: preparer}
+	workers := agent.Workers{Scanner: scanning, Artwork: deriver, Preparer: preparing}
 	node := agent.New(filepath.Join(config.Server.SocketDir, coreSocket), hello, roots, workers, clock.System{}, logger)
 	return node.Run(ctx, ticker.C)
 }

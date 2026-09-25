@@ -271,7 +271,8 @@ One shape everywhere, one enumeration shared by the Go server and the SDK:
 - `not_found`, `invalid_request`, `conflict`, `stale`
 - `rate_limited`, `quota_exhausted` (OpenSubtitles), `provider_error`
 - `node_silent`, `file_unavailable` (the node cannot see it; never "deleted")
-- `prepare_failed`, `migrating`, `internal`
+- `preparing` (with `425`: a rendition's file does not exist yet; ask again after `Retry-After`),
+  `prepare_failed`, `migrating`, `internal`
 
 `hop`, where present, names the failing leg for reachability errors: `client`, `core`, `node`,
 `provider` or `tunnel` ([remote-access.md](remote-access.md)).

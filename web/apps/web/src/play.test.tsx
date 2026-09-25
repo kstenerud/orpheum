@@ -6,7 +6,7 @@ import { createApi } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { mediaFailure, PlayView, requestPlayback } from "./play.tsx";
+import { boostPair, mediaFailure, PlayView, requestPlayback } from "./play.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 
 describe("playing a file", () => {
@@ -33,7 +33,12 @@ describe("playing a file", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <PlayView
-          decision={{ kind: "direct", url: "/api/v1/bytes/media/direct/abc", reasons: [] }}
+          decision={{
+            kind: "direct",
+            url: "/api/v1/bytes/media/direct/abc",
+            reasons: [],
+            preparing: false,
+          }}
         />,
       ),
     );
@@ -42,18 +47,47 @@ describe("playing a file", () => {
     expect(markup).toContain("Playing the original file, as it is.");
   });
 
-  it("names every reason a file needs preparing", () => {
+  it("plays a prepared copy, names every reason, and offers the boost where there is one", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <PlayView
-          decision={{ kind: "hls", profile: "remux", reasons: ["container", "audio_codec"] }}
+          decision={{
+            kind: "hls",
+            profile: "remux",
+            url: "/api/v1/bytes/media/hls/abc/master.m3u8",
+            reasons: ["container", "audio_codec"],
+            preparing: true,
+            audio: [
+              { track: 0, language: "en", boost: false },
+              { track: 0, language: "en", boost: true },
+            ],
+          }}
         />,
       ),
     );
     expect(markup).toContain(
-      "the browser cannot open its container, the browser cannot decode its sound",
+      "because the browser cannot open its container, the browser cannot decode its sound",
     );
-    expect(markup).toContain("not built yet");
+    expect(markup).toContain("Preparing — ready in a few seconds.");
+    expect(markup).toContain("Dialogue boost");
+  });
+
+  it("finds the standard and boosted mixes of the first track", () => {
+    const decision = {
+      kind: "hls" as const,
+      url: "/u",
+      reasons: [],
+      preparing: false,
+      audio: [
+        { track: 0, language: "en", boost: false },
+        { track: 0, language: "en", boost: true },
+        { track: 1, language: "de", boost: false },
+      ],
+    };
+    expect(boostPair(decision)).toEqual({ standard: 0, boosted: 1 });
+    expect(boostPair({ ...decision, audio: [{ track: 0, language: "en", boost: false }] })).toBe(
+      undefined,
+    );
   });
 
   it("words a media element's failure in the browser's own terms, or its code", () => {

@@ -17,6 +17,27 @@
         },
         "type": "object"
       },
+      "AudioRenditionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "boost": {
+            "type": "boolean"
+          },
+          "language": {
+            "type": "string"
+          },
+          "track": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "track",
+          "language",
+          "boost"
+        ],
+        "type": "object"
+      },
       "CandidateBody": {
         "additionalProperties": false,
         "properties": {
@@ -1399,12 +1420,24 @@
       "StartPlaybackOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "audio": {
+            "items": {
+              "$ref": "#/components/schemas/AudioRenditionBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "kind": {
             "enum": [
               "direct",
               "hls"
             ],
             "type": "string"
+          },
+          "preparing": {
+            "type": "boolean"
           },
           "profile": {
             "enum": [
@@ -1431,13 +1464,15 @@
             ]
           },
           "url": {
-            "description": "Where the bytes are; absent until prepared renditions are built",
+            "description": "Where the bytes are: the file, or a rendition's master playlist",
             "type": "string"
           }
         },
         "required": [
           "kind",
-          "reasons"
+          "url",
+          "reasons",
+          "preparing"
         ],
         "type": "object"
       },
@@ -1816,6 +1851,137 @@
           }
         },
         "summary": "A file's own bytes, relayed from its node, honouring Range",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
+    "/bytes/media/hls/{token}/master.m3u8": {
+      "get": {
+        "operationId": "getMasterPlaylist",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The playback's media token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The playback's media token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {},
+              "video/iso.segment": {},
+              "video/mp4": {}
+            },
+            "description": "The file"
+          },
+          "425": {
+            "description": "Not written yet: the rendition is being prepared; ask again after Retry-After"
+          }
+        },
+        "summary": "A prepared playback's master playlist, relayed from its node",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
+    "/bytes/media/hls/{token}/{rendition}/{file}": {
+      "get": {
+        "operationId": "getRenditionFile",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The playback's media token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The playback's media token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "video, audio0, audio0-boost, ...",
+            "in": "path",
+            "name": "rendition",
+            "required": true,
+            "schema": {
+              "description": "video, audio0, audio0-boost, ...",
+              "type": "string"
+            }
+          },
+          {
+            "description": "stream.m3u8, init.mp4 or a segment",
+            "in": "path",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "description": "stream.m3u8, init.mp4 or a segment",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Range",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.apple.mpegurl": {},
+              "video/iso.segment": {},
+              "video/mp4": {}
+            },
+            "description": "The file"
+          },
+          "425": {
+            "description": "Not written yet: the rendition is being prepared; ask again after Retry-After"
+          }
+        },
+        "summary": "One file of a prepared playback's rendition, relayed from its node",
         "tags": [
           "Playback"
         ]

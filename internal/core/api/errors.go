@@ -27,6 +27,7 @@ const (
 	CodeProviderError   Code = "provider_error"
 	CodeNodeSilent      Code = "node_silent"
 	CodeFileUnavailable Code = "file_unavailable"
+	CodePreparing       Code = "preparing"
 	CodePrepareFailed   Code = "prepare_failed"
 	CodeMigrating       Code = "migrating"
 	CodeInternal        Code = "internal"
@@ -51,12 +52,19 @@ type ErrorDetail struct {
 // Error is an API error with its HTTP status. Handlers return it; huma writes its body.
 type Error struct {
 	status int
+	// headers go out with the error, such as a 425's Retry-After.
+	headers http.Header
 	ErrorBody
 }
 
 // Error returns the message.
 func (failure *Error) Error() string {
 	return string(failure.ErrorBody.Error.Code) + ": " + failure.ErrorBody.Error.Message
+}
+
+// GetHeaders are the headers huma writes with the error.
+func (failure *Error) GetHeaders() http.Header {
+	return failure.headers
 }
 
 // GetStatus is the HTTP status huma writes.

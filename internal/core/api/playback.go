@@ -9,6 +9,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -50,11 +52,38 @@ type StartPlaybackInput struct {
 type StartPlaybackOutput struct {
 	Body struct {
 		Kind    string `enum:"direct,hls" json:"kind"`
-		URL     string `doc:"Where the bytes are; absent until prepared renditions are built" json:"url,omitempty"`
+		URL     string `doc:"Where the bytes are: the file, or a rendition's master playlist" json:"url"`
 		Profile string `enum:"remux,h264-8m" json:"profile,omitempty"`
 		// Reasons say why it is not played directly, to show on screen (D188).
 		Reasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,user_choice" json:"reasons"`
+		// Preparing is whether the rendition is still being made; its playlist answers 425 until
+		// the first segment exists.
+		Preparing bool `json:"preparing"`
+		// Audio are a rendition's audio renditions, in its master playlist's order.
+		Audio []AudioRenditionBody `json:"audio,omitempty"`
 	}
+}
+
+// AudioRenditionBody is one audio rendition: a source track's standard mix, or its boosted one.
+type AudioRenditionBody struct {
+	Track    int    `json:"track"`
+	Language string `json:"language"`
+	Boost    bool   `json:"boost"`
+}
+
+// MasterInput asks for a prepared playback's master playlist.
+type MasterInput struct {
+	MediaCredentials
+	Token string `doc:"The playback's media token" path:"token"`
+}
+
+// RenditionFileInput asks for one file of one of a prepared playback's renditions.
+type RenditionFileInput struct {
+	MediaCredentials
+	Token     string `doc:"The playback's media token" path:"token"`
+	Rendition string `doc:"video, audio0, audio0-boost, ..." path:"rendition"`
+	File      string `doc:"stream.m3u8, init.mp4 or a segment" path:"file"`
+	Range     string `header:"Range"`
 }
 
 // DirectInput asks for a direct playback's bytes.
@@ -83,7 +112,32 @@ func (server *Server) registerPlayback() {
 			return server.direct(ctx, method, input)
 		})
 	}
+	responses := map[string]*huma.Response{
+		"200": {Description: "The file", Content: map[string]*huma.MediaType{
+			"application/vnd.apple.mpegurl": {}, "video/iso.segment": {}, "video/mp4": {},
+		}},
+		"425": {Description: "Not written yet: the rendition is being prepared; ask again after Retry-After"},
+	}
+	huma.Register(server.api, huma.Operation{
+		OperationID: "getMasterPlaylist", Method: http.MethodGet, Path: "/bytes/media/hls/{token}/master.m3u8",
+		Summary: "A prepared playback's master playlist, relayed from its node", Tags: []string{tagPlayback},
+		Responses: responses,
+	}, func(ctx context.Context, input *MasterInput) (*huma.StreamResponse, error) {
+		return server.hls(ctx, input.MediaCredentials, input.Token, "master.m3u8", "")
+	})
+	huma.Register(server.api, huma.Operation{
+		OperationID: "getRenditionFile", Method: http.MethodGet, Path: "/bytes/media/hls/{token}/{rendition}/{file}",
+		Summary: "One file of a prepared playback's rendition, relayed from its node", Tags: []string{tagPlayback},
+		Responses: responses,
+	}, func(ctx context.Context, input *RenditionFileInput) (*huma.StreamResponse, error) {
+		return server.hls(ctx, input.MediaCredentials, input.Token, input.Rendition+"/"+input.File, input.Range)
+	})
 }
+
+// hlsName is the only shape a rendition's file may be asked for by: the master playlist, or one
+// rendition's playlist, init segment or media segment. The node checks it again.
+var hlsName = regexp.MustCompile(
+	`^(master\.m3u8|(video|audio\d{1,3}(-boost)?)/(stream\.m3u8|init(_\d{1,3})?\.mp4|seg\d{5,9}\.m4s))$`)
 
 func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInput) (*StartPlaybackOutput, error) {
 	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
@@ -110,8 +164,15 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	for _, reason := range started.Decision.Reasons {
 		output.Body.Reasons = append(output.Body.Reasons, string(reason))
 	}
-	if started.Decision.Kind == decide.Direct {
-		output.Body.URL = Prefix + "/bytes/media/direct/" + started.Token
+	output.Body.URL = Prefix + "/bytes/media/direct/" + started.Token
+	if started.Decision.Kind == decide.HLS {
+		output.Body.URL = Prefix + "/bytes/media/hls/" + started.Token + "/master.m3u8"
+	}
+	output.Body.Preparing = started.Preparing
+	for _, audio := range started.Audio {
+		output.Body.Audio = append(output.Body.Audio, AudioRenditionBody{
+			Track: audio.Track, Language: audio.Language, Boost: audio.Boost,
+		})
 	}
 	return output, nil
 }
@@ -137,8 +198,77 @@ func (server *Server) direct(ctx context.Context, method string, input *DirectIn
 	if input.IfRange != "" {
 		header.Set("If-Range", input.IfRange)
 	}
+	return server.relay(ctx, dependencies, relayed{method, source, header, "private, no-store"},
+		func() error {
+			// The node refuses a file that is gone or no longer the one named (D100).
+			return newError(http.StatusNotFound, CodeFileUnavailable, "the file is no longer there as it was")
+		})
+}
+
+// hls relays one file of a prepared playback's rendition. While the rendition is being made, a
+// file the node has not written yet is 425 with a Retry-After, and the player asks again.
+func (server *Server) hls(
+	ctx context.Context, credentials MediaCredentials, token, name, byteRange string,
+) (*huma.StreamResponse, error) {
+	if !hlsName.MatchString(name) {
+		return nil, newError(http.StatusNotFound, CodeNotFound, "no such rendition file")
+	}
+	authorization := credentials.authorization()
+	dependencies, principal, err := server.signedIn(ctx, authorization)
+	if err != nil {
+		return nil, err
+	}
+	source, err := dependencies.Playback.HLS(ctx, token, name, principal.UserID, sessionKey(authorization))
+	switch {
+	case errors.Is(err, playback.ErrNoToken):
+		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
+	case err != nil:
+		return nil, server.internal(ctx, "find a rendition's file", err)
+	}
+	header := http.Header{}
+	if byteRange != "" {
+		header.Set("Range", byteRange)
+	}
+	// A playlist grows while the rendition is made; a segment never changes once written.
+	cache := "private, max-age=86400"
+	if strings.HasSuffix(name, ".m3u8") && source.Readiness != playback.Complete {
+		cache = "no-cache"
+	}
+	return server.relay(ctx, dependencies, relayed{http.MethodGet, source.Source, header, cache}, func() error {
+		switch source.Readiness {
+		case playback.Preparing:
+			return tooEarly()
+		case playback.Failed:
+			return newError(http.StatusBadGateway, CodePrepareFailed, "this file could not be prepared")
+		case playback.Complete:
+		}
+		return newError(http.StatusNotFound, CodeFileUnavailable, "the rendition is no longer there")
+	})
+}
+
+// tooEarly is 425 Too Early, with the Retry-After a player waits for.
+func tooEarly() error {
+	failure := newError(http.StatusTooEarly, CodePreparing, "being prepared; ask again in a moment")
+	failure.headers = http.Header{"Retry-After": {"1"}}
+	return failure
+}
+
+// relayed is one request a relay makes of a node's byte socket, and how its answer is cached.
+type relayed struct {
+	method       string
+	source       playback.Source
+	header       http.Header
+	cacheControl string
+}
+
+// relay streams what a node's byte socket answers, or the refusal when it answers anything but
+// the bytes or a range of them.
+func (server *Server) relay(
+	ctx context.Context, dependencies *Dependencies, request relayed, refusal func() error,
+) (*huma.StreamResponse, error) {
+	source := request.source
 	//nolint:bodyclose // closed by the stream below, or on refusal
-	answer, err := dependencies.NodeBytes.Do(ctx, source.NodeID, method, source.Target, header)
+	answer, err := dependencies.NodeBytes.Do(ctx, source.NodeID, request.method, source.Target, request.header)
 	if errors.Is(err, nodes.ErrNodeSilent) {
 		failure := newError(http.StatusServiceUnavailable, CodeNodeSilent,
 			"the node that holds this file is not answering")
@@ -152,8 +282,7 @@ func (server *Server) direct(ctx context.Context, method string, input *DirectIn
 	case http.StatusOK, http.StatusPartialContent, http.StatusRequestedRangeNotSatisfiable:
 	default:
 		_ = answer.Body.Close() //nolint:errcheck // the answer is refused, unread
-		// The node refuses a file that is gone or no longer the one named (D100).
-		return nil, newError(http.StatusNotFound, CodeFileUnavailable, "the file is no longer there as it was")
+		return nil, refusal()
 	}
 	return &huma.StreamResponse{Body: func(stream huma.Context) {
 		defer func() { _ = answer.Body.Close() }() //nolint:errcheck // read-only
@@ -163,7 +292,7 @@ func (server *Server) direct(ctx context.Context, method string, input *DirectIn
 				stream.SetHeader(name, value)
 			}
 		}
-		stream.SetHeader("Cache-Control", "private, no-store")
+		stream.SetHeader("Cache-Control", request.cacheControl)
 		stream.SetStatus(answer.StatusCode)
 		// A player that stops reading ends the copy; there is nothing to report to it.
 		_, _ = io.Copy(stream.BodyWriter(), answer.Body) //nolint:errcheck // see above

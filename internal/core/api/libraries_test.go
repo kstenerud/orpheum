@@ -18,6 +18,8 @@ import (
 type fakeNodes struct {
 	roots  []string
 	queued []nodeproto.Command
+	// commanded, when set, also receives each command, for a test that waits on one.
+	commanded chan nodeproto.Command
 }
 
 func (nodes *fakeNodes) Roots(name string) (int64, []string, bool) {
@@ -28,6 +30,10 @@ func (nodes *fakeNodes) Roots(name string) (int64, []string, bool) {
 }
 
 func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
+	if nodes.commanded != nil {
+		nodes.commanded <- command
+		return
+	}
 	nodes.queued = append(nodes.queued, command)
 }
 
