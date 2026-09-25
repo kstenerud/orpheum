@@ -14,8 +14,9 @@ library browsing, search, playback with `hls.js` + `jassub` (stock JASSUB in Cut
 [D193](../../decisions/working-notes.md) §4), and the admin surface.
 
 **The stack** ([D193](../../decisions/working-notes.md) §6, refining
-[D10](../../decisions/working-notes.md)): **plain React + TypeScript + Vite**, in a pnpm
-workspace whose packages are the SDK (React-free), the web client and the cast receiver. The
+[D10](../../decisions/working-notes.md)): **plain React + TypeScript + Vite**, in an npm
+workspace ([D196](../../decisions/working-notes.md): npm ships with Node, so the build needs one tool fewer) whose
+packages are the SDK (React-free), the web client and the cast receiver. The
 API types come from the server's OpenAPI document through `openapi-typescript` and
 `openapi-fetch`. React Native is not in the web client; the television's framework is decided
 separately, when TV work starts.

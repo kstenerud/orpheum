@@ -134,6 +134,38 @@ CREATE TABLE root_scan (                                   -- class O
 and this is where "completed" is recorded, in the same transaction as the tombstones. After a
 rebuild it is empty, so nothing is tombstoned until a scan completes — the safe direction.
 
+```sql
+CREATE TABLE root_state (                                  -- class O; migrations 0003 and 0008
+  node_id         INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
+  path            TEXT NOT NULL,
+  device          INTEGER,                -- st_dev at the last complete scan
+  mount_point     INTEGER CHECK (mount_point IN (0, 1)),
+  outcome         TEXT NOT NULL CHECK (outcome IN ('complete', 'unreadable', 'withheld')),
+  outcome_at      INTEGER NOT NULL,
+  withheld_since  INTEGER,                -- the withheld scan's start: what it did not see goes
+  withheld_reason TEXT,                   -- once the admin confirms
+  removals_approved INTEGER NOT NULL DEFAULT 0 CHECK (removals_approved IN (0, 1)),  -- class A
+  PRIMARY KEY (node_id, path)
+);
+CREATE TABLE root_mount (                                  -- class O; migration 0004
+  node_id  INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
+  root     TEXT NOT NULL,
+  path     TEXT NOT NULL,                -- NFC, absolute on the node, like file.path
+  device   INTEGER NOT NULL,             -- st_dev when it was last seen where expected
+  present  INTEGER NOT NULL CHECK (present IN (0, 1)),
+  PRIMARY KEY (node_id, path)
+);
+```
+
+**A root's removals can be withheld, and a disk can go missing without its files going**
+([D208](../../decisions/working-notes.md)). `root_state` is how the last scan of each root
+ended: complete; unreadable, so nothing was removed; or withheld, because it would have
+removed more than `removal_withhold_percent` of the root, until an admin approves
+(`removals_approved`, the one authored column here, cleared by the scan it lets remove).
+`root_mount` is each mount boundary a complete scan crossed: a boundary that comes back as an
+empty directory on the root's own device is a disk that is not there, and its files wait
+rather than go, until it returns or an admin says it is gone.
+
 **The Cut A node has no enrolment credential.** It is the core's child on a Unix socket whose
 permissions are the boundary ([D193](../../decisions/working-notes.md)); a remote node's credential arrives with remote nodes, as a
 `grant` of kind `node`.
@@ -707,9 +739,10 @@ reference scale, and removes a failure mode.
 
 ## `cache.db` — never backed up
 
-> **Not built in M1** ([D198](../../decisions/working-notes.md)): migration 0001 is `library.db`
-> alone, and these tables, with how `cache.db` is versioned and how sqlc reads them, arrive with
-> the job queue in M2.
+> **Built in M2**, versioned by discard (migrations.md): `internal/store/cache/schema.sql` is the
+> one schema, its version on a comment line, and a file whose `user_version` differs is deleted
+> and built again. sqlc reads it into its own package, `cachegen`, so a `library.db` query
+> cannot name a cache table. `prepared_rendition` arrives with prepare in M3.
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -738,7 +771,11 @@ CREATE TABLE match_candidate (                             -- D172: kept so choo
   name        TEXT, year INTEGER, runtime_ms INTEGER, poster_ref TEXT,
   PRIMARY KEY (item_id, rank)
 );
-CREATE TABLE prepared_rendition (                          -- D175, D180
+CREATE TABLE art_served (                                  -- D212 §6: recency, to the day
+  hash        TEXT PRIMARY KEY,          -- an image's directory under cache/art/
+  day         INTEGER NOT NULL           -- days since the Unix epoch it was last served
+) WITHOUT ROWID;
+CREATE TABLE prepared_rendition (                          -- D175, D180; M3
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   source_file INTEGER NOT NULL,          -- play state records against this
   profile     TEXT NOT NULL,
