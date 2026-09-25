@@ -16161,4 +16161,35 @@ disagree on episode ordering?"* Two sources' orders are two orderings of one set
 not a conflict. What nothing records is **which ordering the files are numbered in**. What is
 built assumes aired: an episode's S/E is looked up in its series' aired season listing, so a
 series whose files follow DVD or absolute order would take the wrong names, flagged only where
-a number is missing from the listing. A proposal follows.
+a number is missing from the listing. **Answered by
+[D210](#d210--a-series-has-an-on-disk-order-its-files-are-numbered-in-and-a-viewing-order-each-person-chooses-built-after-cut-a).**
+
+## D210 — A series has an on-disk order its files are numbered in, and a viewing order each person chooses; built after Cut A
+
+**Decided** (2026-09-25), by the project owner, answering D209's open question: *"for when
+series are 'out of order', we could give them an 'on-disk order of the files' selector, and then
+a 'viewing order' selector to select the order the user actually wants them to be displayed and
+viewed in."*
+
+1. **On-disk order** is a fact about a library's files: which of the series' orderings
+   ([D96](#d96--an-episodes-position-is-ordering-season-number-and-a-series-declares-its-orderings))
+   their S/E numbers are in — aired, DVD, absolute, or a provider's alternate. It is set per
+   series, by an admin, for the household, and **defaults to aired**. Identification reads it:
+   a file is looked up in that ordering's listing (at TMDB, the matching episode group), so its
+   episode is named correctly. Changing it re-derives the series from stored listings.
+2. **The files' numbering is trusted within that order.** The one failure left is a rip numbered
+   wrongly by whoever made it, which the owner judges unlikely; nothing tries to detect it.
+3. **Viewing order** is the preference
+   [D159](#d159--d96-holds-under-the-new-lens-and-reaches-three-things-it-did-not-the-ordering-choice-is-a-preference-an-ordering-may-be-authored-and-a-multi-episode-file-is-a-boundary)
+   already made: per person, at series scope, governing display, Next Up and play order. It is
+   independent of the on-disk order: once an episode is identified, its provider id places it in
+   every ordering the provider lists.
+4. **Not in Cut A.** Aired is what Cut A assumes (D209). The owner was bitten by this before and
+   is not sure the library still has such a show; if one is noticed before Cut A ships, this is
+   built then. It is an addition — a series setting and reading a provider's episode groups — and
+   needs no rework of what exists.
+
+**Open, to settle when it is built:** whether a person's viewing order defaults to the series'
+on-disk order or to aired.
+
+**Status:** Decided; not built (after Cut A, unless a show in the owner's library needs it first).

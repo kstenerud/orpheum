@@ -215,6 +215,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D207](working-notes.md#d207--execx-starts-the-node-child-the-nodes-loop-is-internalnodeagent-and-the-cores-side-internalcorenodes-a-node-is-known-by-its-configured-name) execx starts the node child; the node's loop is internal/node/agent and the core's side internal/core/nodes; a node is known by its configured name
 - [D208](working-notes.md#d208--the-scenario-walks-answers-re-identify-on-rename-unless-confirmed-a-title-follows-its-files-between-libraries-withhold-removals-past-half-and-twenty-and-a-returning-payload-revives-its-tombstone) The scenario walk's answers: re-identify on rename unless confirmed, a Title follows its files between libraries, withhold removals past half and twenty, and a returning payload revives its tombstone
 - [D209](working-notes.md#d209--for-shows-the-series-is-what-is-identified-its-episodes-follow-it-by-season-and-number) For shows, the series is what is identified; its episodes follow it by season and number
+- [D210](working-notes.md#d210--a-series-has-an-on-disk-order-its-files-are-numbered-in-and-a-viewing-order-each-person-chooses-built-after-cut-a) A series has an on-disk order its files are numbered in, and a viewing order each person chooses; built after Cut A
 
 ## Archived
 
