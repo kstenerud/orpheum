@@ -71,6 +71,9 @@
 //     TestFollowSortLocale_KeysEveryNameAtStartAndOnEveryChange.
 //   - One work found as two titles in a library becomes one, the other a tombstone pointing at it
 //     (D173). TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst.
+//   - The images a matched item's source names and its artwork does not hold are reported
+//     owing, by every pass and by the match itself, to whatever follows the pass (D212).
+//     TestPass_ReportsTheImagesAMatchNamesUntilTheyAreHeld.
 //
 // # Read before changing
 //

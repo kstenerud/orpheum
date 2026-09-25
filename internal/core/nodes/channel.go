@@ -116,6 +116,31 @@ func (service *Service) report(writer http.ResponseWriter, request *http.Request
 	writer.WriteHeader(http.StatusNoContent)
 }
 
+// maxArtworkBytes bounds an artwork answer: seven sizes of our own WebP, the largest 3840×2160,
+// in base64. Real ones are a few megabytes.
+const maxArtworkBytes = 64 << 20
+
+// artworkAnswer takes a node's answer to an artwork command to the artwork store.
+func (service *Service) artworkAnswer(writer http.ResponseWriter, request *http.Request) {
+	nodeID, ok := service.nodeID(writer, request)
+	if !ok {
+		return
+	}
+	service.heard(nodeID)
+	if service.artwork == nil {
+		http.Error(writer, "this core takes no artwork", http.StatusServiceUnavailable)
+		return
+	}
+	var result nodeproto.ArtworkResult
+	body := http.MaxBytesReader(writer, request.Body, maxArtworkBytes)
+	if err := json.NewDecoder(body).Decode(&result); err != nil {
+		http.Error(writer, "an artwork answer is JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	service.artwork.Answered(request.Context(), nodeID, result)
+	writeJSON(writer, struct{}{}) // the node reads a JSON answer
+}
+
 // readLine reads one line without its newline, refusing one longer than limit. At the end of the
 // stream it returns what is left with io.EOF.
 func readLine(reader *bufio.Reader, limit int) ([]byte, error) {

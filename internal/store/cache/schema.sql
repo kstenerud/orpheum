@@ -4,12 +4,12 @@
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
 -- prepared_rendition arrives with prepare in M3; the version rises then.
--- cache schema version 2
+-- cache schema version 3
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch','prepare','scan','backup')),
-  subject     INTEGER,                   -- title_id, file_id, library_id, per kind
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch','artwork','prepare','scan','backup')),
+  subject     INTEGER,                   -- item_id, file_id, library_id, per kind
   args        TEXT NOT NULL DEFAULT '{}',  -- JSON: provider, profile, reason
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
   state       TEXT NOT NULL DEFAULT 'queued'

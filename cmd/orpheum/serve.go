@@ -49,7 +49,7 @@ func serve(
 	}()
 	logger.InfoContext(ctx, "listening", "address", listener.Addr().String())
 
-	opened, err := start(ctx, config, configReport, server, outside.tmdbBase, logger)
+	opened, err := start(ctx, config, configReport, server, outside, logger)
 	if err != nil {
 		server.SetStatus(api.StatusDegraded, "the server could not start", err.Error())
 		logger.ErrorContext(ctx, "the server could not start; it stays up to report why at /api/v1/health",
@@ -75,10 +75,12 @@ func serve(
 }
 
 // wiring is what serve is given from outside: how to start the node child (nil in tests that
-// run none), and where TMDB answers (tmdb.BaseURL, or a test's fake).
+// run none), and where TMDB answers and serves its images (tmdb.BaseURL and tmdb.ImageBaseURL,
+// or a test's fake).
 type wiring struct {
-	startNode nodes.Starter
-	tmdbBase  string
+	startNode  nodes.Starter
+	tmdbBase   string
+	tmdbImages string
 }
 
 // started is what start opened and serve must close.
@@ -99,7 +101,7 @@ func (opened started) release() error {
 // start opens the state directory and the database, migrates, and hands the API its
 // dependencies.
 func start(
-	ctx context.Context, config Config, configReport ConfigReport, server *api.Server, tmdbBase string,
+	ctx context.Context, config Config, configReport ConfigReport, server *api.Server, outside wiring,
 	logger *slog.Logger,
 ) (opened started, err error) {
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
@@ -133,10 +135,11 @@ func start(
 	}
 	if err == nil {
 		opened.settings, opened.secrets = dependencies.Settings, dependencies.Secrets
-		opened.metadata, err = newMetadata(ctx, opened, tmdbBase, logger)
+		opened.metadata, err = newMetadata(ctx, opened, outside.tmdbBase, logger)
 	}
 	if err == nil {
 		opened.nodes = newNodeService(opened, logger)
+		opened.metadata.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImages, logger)
 	}
 	if err != nil {
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())

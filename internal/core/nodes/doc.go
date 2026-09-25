@@ -16,6 +16,9 @@
 //   - A node silent for node_silent_after_s is reported; silent for node_restart_after_s it is
 //     restarted; one that exits is started again after node_restart_delay_s, so it cannot spin.
 //     TestSupervisor_RestartsANodeThatStaysSilent, TestSupervisor_StartsAnExitedNodeAgainAfterTheDelay.
+//   - A node's artwork answer, bounded, goes to the artwork service and nowhere else; one from a
+//     node that has not said hello is refused (D212 §8).
+//     TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly.
 //
 // # Read before changing
 //
@@ -28,5 +31,5 @@
 // # Where to change
 //
 //   - service.go: hello and enrolment, and each connected node's roots as its hello named them;
-//     channel.go: commands and the report; supervisor.go: the child.
+//     channel.go: commands, the report and artwork answers; supervisor.go: the child.
 package nodes

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -18,12 +19,13 @@ import (
 )
 
 // metadata is the fetch side of identification: the pass, the job queue, the matcher that runs
-// its fetch jobs, and the chooser a person uses.
+// its fetch jobs, the chooser a person uses, and the artwork its matches name.
 type metadata struct {
 	pass    *identify.Pass
 	queue   *jobs.Queue
 	matcher *identify.Matcher
 	chooser *identify.Chooser
+	artwork *artwork.Service
 }
 
 // newMetadata builds the providers, the pass and the queue, and returns the jobs a crash left
@@ -50,6 +52,7 @@ func newMetadata(ctx context.Context, opened started, tmdbBase string, logger *s
 	if err := followSortLocale(ctx, pass, opened.settings, logger); err != nil {
 		return metadata{}, err
 	}
+	pass.AfterPass(func(ctx context.Context, report identify.Report) { queueMatches(ctx, queue, report, logger) })
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return metadata{
 		pass: pass, queue: queue, matcher: matcher,
@@ -57,18 +60,23 @@ func newMetadata(ctx context.Context, opened started, tmdbBase string, logger *s
 	}, nil
 }
 
-// run works the fetch jobs until the returned stop is called.
+// run works the fetch and artwork jobs until the returned stop is called.
 func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop func()) {
-	runner := fetching.queue.NewRunner(jobs.KindFetch, fetching.matcher.Handle)
 	running, cancel := context.WithCancel(ctx)
 	var done sync.WaitGroup
-	ticker := time.NewTicker(time.Second)
-	done.Go(func() {
-		defer ticker.Stop()
-		if err := runner.Run(running, ticker.C); err != nil {
-			logger.ErrorContext(ctx, "the fetch queue stopped", "err", err)
-		}
-	})
+	for _, queue := range []struct {
+		kind    jobs.Kind
+		handler jobs.Handler
+	}{{jobs.KindFetch, fetching.matcher.Handle}, {jobs.KindArtwork, fetching.artwork.Handle}} {
+		kind, runner := queue.kind, fetching.queue.NewRunner(queue.kind, queue.handler)
+		done.Go(func() {
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			if err := runner.Run(running, ticker.C); err != nil {
+				logger.ErrorContext(ctx, "a job queue stopped", "kind", string(kind), "err", err)
+			}
+		})
+	}
 	return func() { cancel(); done.Wait() }
 }
 

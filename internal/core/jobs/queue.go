@@ -21,6 +21,7 @@ type Kind string
 // The kinds of job (cut-a §5.3).
 const (
 	KindFetch   Kind = "fetch"
+	KindArtwork Kind = "artwork"
 	KindPrepare Kind = "prepare"
 	KindScan    Kind = "scan"
 	KindBackup  Kind = "backup"

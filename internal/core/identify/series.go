@@ -180,10 +180,11 @@ func (work *run) resolveSeries(ctx context.Context, seriesID int64, spec seriesS
 		return err
 	}
 	provider, known := work.providers[providerOf(work.library.MetadataSource)]
-	values, source, err := work.seriesValues(ctx, seriesID, spec, current)
+	own, err := work.seriesValues(ctx, seriesID, spec, current)
 	if err != nil {
 		return err
 	}
+	values, source := own.values, own.source
 	if recordErr := work.recordSeriesIDs(ctx, seriesID, spec, values); recordErr != nil {
 		return recordErr
 	}
@@ -211,6 +212,9 @@ func (work *run) resolveSeries(ctx context.Context, seriesID int64, spec seriesS
 	if err != nil {
 		return err
 	}
+	if err := work.oweArtwork(ctx, seriesID, source, own.artwork); err != nil {
+		return err
+	}
 	if known && seriesMatched(current) {
 		seasons, err := seasonsToFetch(ctx, work.queries, provider, seriesID)
 		if err != nil {
@@ -223,11 +227,18 @@ func (work *run) resolveSeries(ctx context.Context, seriesID int64, spec seriesS
 	return nil
 }
 
+// seriesOwn is what a series is, as its source says.
+type seriesOwn struct {
+	values  map[string]string
+	source  string
+	artwork []ArtRef
+}
+
 // seriesValues are a series' own values and their source: a person's chosen match over all;
 // then its tvshow.nfo; then its stored match; then its folders.
 func (work *run) seriesValues(
 	ctx context.Context, seriesID int64, spec seriesSpec, current sqlcgen.GetSeriesForMatchRow,
-) (map[string]string, string, error) {
+) (seriesOwn, error) {
 	values := map[string]string{fieldName: spec.name, fieldYear: strconv.Itoa(spec.year), fieldOverview: spec.overview}
 	source := ""
 	switch {
@@ -241,25 +252,25 @@ func (work *run) seriesValues(
 		if source == "" && current.Source != nil && *current.Source == sourceNone {
 			source = sourceNone // its provider found nothing
 		}
-		return values, source, nil
+		return seriesOwn{values: values, source: source}, nil
 	}
 	stored, err := work.queries.GetProviderResponse(ctx, sqlcgen.GetProviderResponseParams{
 		ItemID: seriesID, Provider: provider.Name(), Part: "",
 	})
 	if err != nil {
-		return nil, "", fmt.Errorf("read series %d's %s response: %w", seriesID, provider.Name(), err)
+		return seriesOwn{}, fmt.Errorf("read series %d's %s response: %w", seriesID, provider.Name(), err)
 	}
 	body, err := decompress(stored)
 	if err != nil {
-		return nil, "", fmt.Errorf("series %d's %s response: %w", seriesID, provider.Name(), err)
+		return seriesOwn{}, fmt.Errorf("series %d's %s response: %w", seriesID, provider.Name(), err)
 	}
 	metadata, err := provider.Parse(KindSeries, body)
 	if err != nil {
-		return nil, "", fmt.Errorf("series %d's %s response: %w", seriesID, provider.Name(), err)
+		return seriesOwn{}, fmt.Errorf("series %d's %s response: %w", seriesID, provider.Name(), err)
 	}
 	values[fieldName], values[fieldYear], values[fieldOverview] = metadata.Name, strconv.Itoa(metadata.Year),
 		metadata.Overview
-	return values, provider.Name(), nil
+	return seriesOwn{values: values, source: provider.Name(), artwork: metadata.Artwork}, nil
 }
 
 // recordSeriesIDs keeps the ids a series' folders and tvshow.nfo name, and its tvshow.nfo's

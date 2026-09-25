@@ -55,6 +55,8 @@ type Episode struct {
 	Overview  string
 	Year      int
 	RuntimeMs int64
+	// Still is the provider's reference to the episode's still image, or "".
+	Still string
 }
 
 // Query is what a search asks for.
@@ -85,7 +87,23 @@ type Metadata struct {
 	RuntimeMs    int64
 	// IDs are the work's ids at every provider the response names, this one's included.
 	IDs map[string]string
+	// Artwork are the images the provider has for the work, fetched later (D212).
+	Artwork []ArtRef
 }
+
+// ArtRef is one image a provider has: its kind and the provider's reference to it.
+type ArtRef struct {
+	Kind string // ArtPoster, ArtBackdrop, ArtLogo, ArtStill
+	Ref  string // the provider's path, which its image service resolves
+}
+
+// The kinds of image, as the artwork table names them.
+const (
+	ArtPoster   = "poster"
+	ArtBackdrop = "backdrop"
+	ArtLogo     = "logo"
+	ArtStill    = "thumb"
+)
 
 // Errors a provider returns, wrapped.
 var (

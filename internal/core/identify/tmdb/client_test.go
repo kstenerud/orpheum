@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -98,7 +99,8 @@ func TestFetchAndParse_AFilmsDetails(t *testing.T) {
 	server, seen := fake(t, map[string]string{"/movie/9019": `{"id":9019,"title":"Metropolis","original_title":"Metropolis",
 		"original_language":"en","overview":"Obsessive...","tagline":"A Los Angeles crime saga",
 		"release_date":"1995-12-15",
-		"runtime":170,"imdb_id":"tt0234567","credits":{"cast":[{"name":"Ansel Vardo"}]}}`})
+		"runtime":170,"imdb_id":"tt0234567","poster_path":"/metropolis.jpg","backdrop_path":"/heat-wide.jpg",
+		"credits":{"cast":[{"name":"Ansel Vardo"}]}}`})
 	client := newClient(t, server.URL, "k")
 	body, err := client.Fetch(t.Context(), "movie", "949")
 	if err != nil {
@@ -113,7 +115,10 @@ func TestFetchAndParse_AFilmsDetails(t *testing.T) {
 	}
 	if film.ID != "9019" || film.Name != "Metropolis" || film.Year != 1995 || film.RuntimeMs != 170*60_000 ||
 		film.OriginalLang != "en" || film.Tagline == "" ||
-		!maps.Equal(film.IDs, map[string]string{"tmdb": "9019", "imdb": "tt0234567"}) {
+		!maps.Equal(film.IDs, map[string]string{"tmdb": "9019", "imdb": "tt0234567"}) ||
+		!slices.Equal(film.Artwork, []identify.ArtRef{
+			{Kind: identify.ArtPoster, Ref: "/metropolis.jpg"}, {Kind: identify.ArtBackdrop, Ref: "/heat-wide.jpg"},
+		}) {
 		t.Errorf("parsed %+v", film)
 	}
 }
@@ -195,7 +200,8 @@ func orbitoramaAtTMDB(t *testing.T) (*Client, *[]*http.Request) {
 			"external_ids":{"imdb_id":"tt0900460","tvdb_id":78871}}`,
 		"/tv/7615/season/2": `{"season_number":2,"episodes":[
 			{"id":1101,"season_number":2,"episode_number":10,"name":"A Comet of My Own",
-			 "overview":"The Professor names his successor.","air_date":"2000-04-09","runtime":22}]}`,
+			 "overview":"The Professor names his successor.","air_date":"2000-04-09","runtime":22,
+			 "still_path":"/clone.jpg"}]}`,
 	})
 	return newClient(t, server.URL, "k"), seen
 }
@@ -236,7 +242,7 @@ func TestSeries_FetchParseAndItsSeasons(t *testing.T) {
 	episodes, err := client.ParseSeason(listing)
 	want := identify.Episode{
 		ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own", Overview: "The Professor names his successor.",
-		Year: 2000, RuntimeMs: 22 * 60_000,
+		Year: 2000, RuntimeMs: 22 * 60_000, Still: "/clone.jpg",
 	}
 	if err != nil || len(episodes) != 1 || episodes[0] != want {
 		t.Errorf("ParseSeason = %+v, %v", episodes, err)

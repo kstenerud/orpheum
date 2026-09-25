@@ -714,7 +714,7 @@ reference scale, and removes a failure mode.
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch','prepare','scan','backup')),
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch','artwork','prepare','scan','backup')),  -- artwork: D212
   subject     INTEGER,                   -- title_id, file_id, library_id — per kind
   args        TEXT NOT NULL DEFAULT '{}',  -- JSON: provider, profile, reason
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest

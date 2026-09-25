@@ -29,6 +29,20 @@ type Pass struct {
 	logger    *slog.Logger
 	providers Providers
 	settings  Settings
+	after     []func(context.Context, Report)
+}
+
+// AfterPass calls follow after each pass and each re-derivation a match makes, with what it left
+// owing, once it is stored. Set them before the pass runs.
+func (pass *Pass) AfterPass(follow func(context.Context, Report)) {
+	pass.after = append(pass.after, follow)
+}
+
+// owe hands what a pass or a match left owing to the queues that follow it.
+func (pass *Pass) owe(ctx context.Context, report Report) {
+	for _, follow := range pass.after {
+		follow(ctx, report)
+	}
 }
 
 // Settings are what the pass reads from the settings: the locale it sorts in.
@@ -49,6 +63,8 @@ type Report struct {
 	// AwaitingListings are matched series with a season listing to fetch: missing, or older
 	// than a new episode it does not list (D209 §3).
 	AwaitingListings []int64
+	// Artwork are the images items' sources name that are not stored yet (D212).
+	Artwork []OwedArtwork
 }
 
 // NewPass returns the identification pass.
@@ -106,6 +122,7 @@ func (pass *Pass) Library(ctx context.Context, libraryID int64) (Report, error) 
 	if _, err := pass.RefreshSortKeys(ctx); err != nil {
 		return Report{}, err
 	}
+	pass.owe(ctx, report)
 	return report, nil
 }
 
