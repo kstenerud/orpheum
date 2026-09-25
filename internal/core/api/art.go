@@ -37,7 +37,7 @@ type ArtOutput struct {
 
 func (server *Server) registerArt() {
 	huma.Register(server.api, huma.Operation{
-		OperationID: "getArt", Method: http.MethodGet, Path: "/art/{hash}/{file}",
+		OperationID: "getArt", Method: http.MethodGet, Path: "/bytes/art/{hash}/{file}",
 		Summary: "One size of one image, in WebP or JPEG (D212)", Tags: []string{tagBrowse},
 		Responses: map[string]*huma.Response{
 			"200": {Description: "The image", Content: map[string]*huma.MediaType{
@@ -67,7 +67,7 @@ func (server *Server) getArt(ctx context.Context, input *ArtInput) (*ArtOutput, 
 	if served.Redirect != "" {
 		return &ArtOutput{
 			Status: http.StatusTemporaryRedirect, CacheControl: "no-store",
-			Location: Prefix + "/art/" + input.Hash + "/" + served.Redirect,
+			Location: Prefix + "/bytes/art/" + input.Hash + "/" + served.Redirect,
 		}, nil
 	}
 	return &ArtOutput{

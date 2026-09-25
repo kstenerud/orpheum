@@ -419,3 +419,28 @@ D194 is the design. In Go:
 - **`go.mod` and `go.sum` are tidy.** **Enforced by:** `go mod tidy -diff` in `make check`.
 - `github.com/google/go-cmp`, which [testing.md](testing.md) §13 allows for structural diffs,
   is used only once the owner has added it to the allowlist.
+
+## 21. Calls to other hosts
+
+Every request to another host — a metadata provider, an image server, later the update check
+and the subtitle provider — goes through `internal/platform/outbound` (§12) and has a stated
+policy for each way it can fail, **decided before it is built** (audit-2026-09-25 §2.2;
+agent-failures A5). [D213](../decisions/working-notes.md) is the pattern.
+
+| Answer | What it usually means | What the policy must say |
+| --- | --- | --- |
+| **404 / gone** | our stored reference is stale, or the thing was removed | whether our record is fetched again, how often, and when we give up; never "missing for good" on the first answer |
+| **429 / `Retry-After`** | we asked too fast | wait the time asked, in both its forms, capped; the wait costs no attempt |
+| **401 / 403** | our key is missing or refused | hold every job of the kind until something outside changes (`jobs.Blocked`), and say so where an admin looks |
+| **5xx, a timeout, a refused connection** | the host is having trouble | a back-off schedule with a cap and an end, and a pause for the host after several failures in a row, probed once per step |
+| **a 200 that is not what was asked for** | a proxy, a captive portal, a changed API | refuse it as a malformed answer; never store it |
+
+- **Every request says who we are** (`User-Agent: Orpheum/<version>`). **Enforced by:**
+  `TestNewClient_TakesNoProxyFromTheEnvironment`.
+- **A request built from someone else's text is checked before it is sent**: a provider's image
+  path is its expected shape, so it cannot name another path, query or host. **Enforced by:** the
+  fetcher's own tests (`TestImages_FetchesOnlyTMDBsImagePathsFromItsImageServer`); otherwise
+  **review-only**.
+- **Nothing refetches on a timer the provider has not asked for, and nothing fetches in bulk
+  that one request could answer**; a periodic refresh is a per-provider setting, spread out
+  (D213 §3). **Review-only.**

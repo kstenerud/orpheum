@@ -159,7 +159,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D151](working-notes.md#d151--withdrawn-notifications-a-media-server-has-nothing-you-are-waiting-for-and-its-ui-is-the-notification) Withdrawn: notifications. A media server has nothing you are waiting for, and its UI is the notification — *revisited by D152*
 - [D152](working-notes.md#d152--reachability-is-three-questions-with-three-observers-and-all-three-are-already-in-place) Reachability is three questions with three observers, and all three are already in place
 - [D153](working-notes.md#d153--a-ranked-feature-register-ordered-by-demand-and-annotated-by-retrofit-cost-because-those-are-different-numbers) A ranked feature register, ordered by demand and annotated by retrofit cost, because those are different numbers
-- [D154](working-notes.md#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url) One grant table, opaque and revocable; the session credential never appears in a URL
+- [D154](working-notes.md#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url) One grant table, opaque and revocable; the session credential never appears in a URL — *revisited by D216*
 - [D155](working-notes.md#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional) EIDR checked against its own schema: the levels are right, the citation was a proposal, and Edition must be optional — *revisited by D156*
 - [D156](working-notes.md#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one) A position is stored at the Version and resolved at the Edition; the Title never holds one — *revisited by D157*
 - [D157](working-notes.md#d157--a-position-belongs-to-the-file-completion-rolls-up-the-position-never-does) A position belongs to the File. Completion rolls up; the position never does — *revisited by D158*
@@ -221,6 +221,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D213](working-notes.md#d213--a-good-netizen-a-dead-image-is-checked-once-more-refresh-rolls-per-provider-and-nothing-is-deleted-because-a-provider-dropped-it) A good netizen: a dead image is checked once more, refresh rolls per provider, and nothing is deleted because a provider dropped it
 - [D214](working-notes.md#d214--a-later-commercial-service-connects-clients-to-a-core-without-carrying-content-the-hosted-relay-stays-deferred) A later commercial service connects clients to a core without carrying content; the hosted relay stays deferred
 - [D215](working-notes.md#d215--local-artwork-images-beside-the-media-follow-the-librarys-metadata-source-named-as-kodi-and-jellyfin-name-them-embedded-art-waits) Local artwork: images beside the media follow the library's metadata source, named as Kodi and Jellyfin name them; embedded art waits
+- [D216](working-notes.md#d216--every-byte-path-is-under-apiv1bytes-the-media-cookies-one-scope-the-built-web-client-is-served-by-the-binary-from-m3) Every byte path is under /api/v1/bytes/, the media cookie's one scope; the built web client is served by the binary from M3
 
 ## Archived
 

@@ -54,30 +54,30 @@ func TestArt_ServesAStoredSizeAndRedirectsFromOneNotMade(t *testing.T) {
 	if err := harness.art.WriteArt(hash, "portrait-s.webp", []byte("RIFF....WEBP")); err != nil {
 		t.Fatal(err)
 	}
-	answer, body := harness.get(t, "/art/"+hash+"/portrait-s.webp", token)
+	answer, body := harness.get(t, "/bytes/art/"+hash+"/portrait-s.webp", token)
 	if answer.StatusCode != http.StatusOK || body != "RIFF....WEBP" ||
 		answer.Header.Get("Content-Type") != "image/webp" ||
 		!strings.Contains(answer.Header.Get("Cache-Control"), "immutable") {
 		t.Errorf("a stored size: %d %v %q", answer.StatusCode, answer.Header, body)
 	}
-	moved, _ := harness.get(t, "/art/"+hash+"/portrait-m.webp", token)
+	moved, _ := harness.get(t, "/bytes/art/"+hash+"/portrait-m.webp", token)
 	if moved.StatusCode != http.StatusTemporaryRedirect ||
-		moved.Header.Get("Location") != Prefix+"/art/"+hash+"/portrait-s.webp" ||
+		moved.Header.Get("Location") != Prefix+"/bytes/art/"+hash+"/portrait-s.webp" ||
 		moved.Header.Get("Cache-Control") != "no-store" {
 		t.Errorf("a size not made: %d %v", moved.StatusCode, moved.Header)
 	}
 	for _, path := range []string{
-		"/art/" + hash + "/portrait-s.png", "/art/" + hash + "/poster", "/art/" + hash + "/landscape-s.webp",
-		"/art/" + strings.Repeat("cd", 32) + "/portrait-s.webp",
+		"/bytes/art/" + hash + "/portrait-s.png", "/bytes/art/" + hash + "/poster", "/bytes/art/" + hash + "/landscape-s.webp",
+		"/bytes/art/" + strings.Repeat("cd", 32) + "/portrait-s.webp",
 	} {
 		if missing, _ := harness.get(t, path, token); missing.StatusCode != http.StatusNotFound {
 			t.Errorf("%s: %d, want 404", path, missing.StatusCode)
 		}
 	}
-	if strange, _ := harness.get(t, "/art/..%2Fstate/portrait-s.webp", token); strange.StatusCode/100 != 4 {
+	if strange, _ := harness.get(t, "/bytes/art/..%2Fstate/portrait-s.webp", token); strange.StatusCode/100 != 4 {
 		t.Errorf("a hash that is a path: %d", strange.StatusCode)
 	}
-	if anonymous, _ := harness.get(t, "/art/"+hash+"/portrait-s.webp", ""); anonymous.StatusCode !=
+	if anonymous, _ := harness.get(t, "/bytes/art/"+hash+"/portrait-s.webp", ""); anonymous.StatusCode !=
 		http.StatusUnauthorized {
 		t.Errorf("without signing in: %d, want 401", anonymous.StatusCode)
 	}

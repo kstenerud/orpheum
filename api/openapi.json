@@ -299,7 +299,7 @@
             "type": "string"
           },
           "poster": {
-            "description": "Its poster's hash: GET /art/{hash}/portrait-m.webp",
+            "description": "Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp",
             "type": "string"
           },
           "year": {
@@ -346,7 +346,7 @@
             "type": "integer"
           },
           "still": {
-            "description": "Its still's hash: GET /art/{hash}/landscape-s.webp",
+            "description": "Its still's hash: GET /bytes/art/{hash}/landscape-s.webp",
             "type": "string"
           },
           "year": {
@@ -1426,7 +1426,7 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/art/{hash}/{file}": {
+    "/bytes/art/{hash}/{file}": {
       "get": {
         "operationId": "getArt",
         "parameters": [

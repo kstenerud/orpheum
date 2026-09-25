@@ -39,7 +39,7 @@ describe("browse", () => {
       },
     });
     expect(markup).toContain('href="/titles/10"');
-    expect(markup).toContain('src="/api/v1/art/ab12/portrait-m.webp"');
+    expect(markup).toContain('src="/api/v1/bytes/art/ab12/portrait-m.webp"');
     expect(markup).toContain(
       '<span class="poster-grid__name">Metropolis</span><span class="poster-grid__year">1995</span>',
     );

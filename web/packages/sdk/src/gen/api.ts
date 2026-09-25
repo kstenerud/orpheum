@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/art/{hash}/{file}": {
+    "/bytes/art/{hash}/{file}": {
         parameters: {
             query?: never;
             header?: never;
@@ -612,7 +612,7 @@ export interface components {
             /** Format: int64 */
             libraryId: number;
             name: string;
-            /** @description Its poster's hash: GET /art/{hash}/portrait-m.webp */
+            /** @description Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp */
             poster?: string;
             /** Format: int64 */
             year?: number;
@@ -630,7 +630,7 @@ export interface components {
             runtimeMs?: number;
             /** Format: int64 */
             season: number;
-            /** @description Its still's hash: GET /art/{hash}/landscape-s.webp */
+            /** @description Its still's hash: GET /bytes/art/{hash}/landscape-s.webp */
             still?: string;
             /** Format: int64 */
             year?: number;

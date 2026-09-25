@@ -86,6 +86,13 @@ chooses, and why:
 - **SQLite features sqlc cannot parse** (FTS5 `MATCH` edge cases, 3.53's new `ALTER` forms) are
   not used in queries until sqlc parses them. Search, which needs FTS5, is the filter builder of
   §4.
+- **A list argument is a JSON array**, read with `IN (SELECT value FROM json_each(CAST(sqlc.arg(ids)
+  AS TEXT)))`: `sqlc.slice` generates `[]interface{}`, which the rule above refuses, and the
+  `CAST` makes sqlc type the argument as a string. The caller marshals its ids.
+  (`ListShownArtwork`; audit-2026-09-25 §5.2.)
+- **Query files are ASCII**, comments included: sqlc miscounts a multibyte character and fails
+  with an unrelated syntax error (plan-deviations P13; it recurred in M2). Write "section 3", not
+  "§3". **Enforced by:** `scripts/check_source.py`.
 
 ## 4. The one dynamic query
 

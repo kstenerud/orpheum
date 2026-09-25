@@ -16440,3 +16440,21 @@ artwork turned to the images people keep beside their media.
    extraction in the node.
 
 **Status:** Decided; being built in M2.
+
+## D216 — Every byte path is under /api/v1/bytes/, the media cookie's one scope; the built web client is served by the binary from M3
+
+**Decided** (2026-09-25), by the project owner, taking the recommendations of the audit after M2
+([audit-2026-09-25.md](../design/research/audit-2026-09-25.md) §7): *"yes to all of your
+recommendations"*. **Refines [D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url)**,
+whose media cookie is scoped to the byte paths, and cut-a §5's paths.
+
+1. **One prefix for everything a browser fetches as bytes**: images at
+   `/api/v1/bytes/art/{hash}/{size}.{format}` (moved from `/api/v1/art/` while only our own client
+   used it), and M3's direct play, HLS and subtitles at `/api/v1/bytes/media/…`. The media cookie
+   is scoped to `/api/v1/bytes/`: one cookie, set at sign-in and cleared at sign-out, that the
+   browser sends nowhere else, and that the API never reads.
+2. **The built web client is served by the binary from M3**, embedded, at `/`, with the client's
+   own addresses answered by its `index.html`; until then only the dev loop's Vite serves it. The
+   release build builds the web client first.
+
+**Status:** Decided; §1 built in M2, §2 in M3.

@@ -22,10 +22,10 @@ type EntryBody struct {
 	Ident     string `json:"ident"`
 	LibraryID int64  `json:"libraryId"`
 	AddedAt   int64  `json:"addedAt"`
-	Poster    string `doc:"Its poster's hash: GET /art/{hash}/portrait-m.webp" json:"poster,omitempty"`
+	Poster    string `doc:"Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp" json:"poster,omitempty"`
 }
 
-// ArtBody is the images an item shows, by the hash GET /art/{hash}/{size}.{format} takes.
+// ArtBody is the images an item shows, by the hash GET /bytes/art/{hash}/{size}.{format} takes.
 type ArtBody struct {
 	Poster   string `json:"poster,omitempty"`
 	Backdrop string `json:"backdrop,omitempty"`
@@ -123,7 +123,7 @@ type EpisodeBody struct {
 	RuntimeMs int64  `json:"runtimeMs,omitempty"`
 	Ident     string `json:"ident"`
 	Available bool   `doc:"Whether it has a live file" json:"available"`
-	Still     string `doc:"Its still's hash: GET /art/{hash}/landscape-s.webp" json:"still,omitempty"`
+	Still     string `doc:"Its still's hash: GET /bytes/art/{hash}/landscape-s.webp" json:"still,omitempty"`
 }
 
 // CollectionOutput is a series with its episodes in aired order.

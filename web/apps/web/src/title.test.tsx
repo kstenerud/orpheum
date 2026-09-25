@@ -44,8 +44,8 @@ const heat: TitleDetail = {
 describe("TitleView", () => {
   it("shows a film's art, facts, streams and extras", () => {
     const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
-    expect(markup).toContain('src="/api/v1/art/b1/landscape-l.webp"');
-    expect(markup).toContain('src="/api/v1/art/p1/portrait-m.webp"');
+    expect(markup).toContain('src="/api/v1/bytes/art/b1/landscape-l.webp"');
+    expect(markup).toContain('src="/api/v1/bytes/art/p1/portrait-m.webp"');
     expect(markup).toContain("<h1>Metropolis</h1>");
     expect(markup).toContain("170 min");
     expect(markup).toContain("Audio: truehd en 8 channels");
@@ -69,7 +69,7 @@ describe("TitleView", () => {
     const markup = renderToStaticMarkup(withServices(<TitleView title={episode} />));
     expect(markup).toContain('href="/series/20"');
     expect(markup).toContain("Brass Arena · season 1, episode 1");
-    expect(markup).toContain('src="/api/v1/art/s1/landscape-m.webp"');
+    expect(markup).toContain('src="/api/v1/bytes/art/s1/landscape-m.webp"');
   });
 
   it("says what is loading, and why a load failed", () => {

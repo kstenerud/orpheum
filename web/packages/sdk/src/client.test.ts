@@ -23,7 +23,7 @@ describe("the API client", () => {
   });
 
   it("addresses an image by its hash and size, with nothing secret in the address", () => {
-    expect(artUrl("ab12", "portrait-m")).toBe("/api/v1/art/ab12/portrait-m.webp");
-    expect(artUrl("ab12", "landscape-l", "jpeg")).toBe("/api/v1/art/ab12/landscape-l.jpeg");
+    expect(artUrl("ab12", "portrait-m")).toBe("/api/v1/bytes/art/ab12/portrait-m.webp");
+    expect(artUrl("ab12", "landscape-l", "jpeg")).toBe("/api/v1/bytes/art/ab12/landscape-l.jpeg");
   });
 });
