@@ -280,6 +280,24 @@ func TestServe_ComesUpReadyAndStopsCleanly(t *testing.T) {
 	}
 }
 
+func TestServe_AnswersTheClientsAddressesAtTheRoot(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	server := startServing(t, config, newCapturedLog("ready"), "ready")
+	root := strings.TrimSuffix(server.baseURL, api.Prefix)
+	// A test binary has no web client built in, so the root says so rather than 404ing silently.
+	films := call(t, http.MethodGet, root+"/films", "", nil)
+	if films.status != http.StatusNotFound || !strings.Contains(films.body, "built without the web client") {
+		t.Errorf("/films = %d %q, want the web client's handler", films.status, films.body)
+	}
+	if health := call(t, http.MethodGet, server.baseURL+"/health", "", nil); health.status != http.StatusOK {
+		t.Errorf("/health beside the web client = %d, want 200", health.status)
+	}
+	if err := server.stop(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestServe_ReportsAFailedStartInsteadOfExiting(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)

@@ -17,3 +17,5 @@ web/**/.vite/
 /.claude/settings.local.json
 __pycache__/
 *.pyc
+# the built web client, copied in by `make build` (D216 §2)
+/internal/core/webclient/dist/
