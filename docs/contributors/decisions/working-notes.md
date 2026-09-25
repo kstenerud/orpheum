@@ -16462,9 +16462,9 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
 ## D217 — M3's playback contract: the client sends ranked lists, the media token is a reference, every audio track is prepared, and hls.js, JASSUB and Playwright are allowed
 
 **Decided in part** (2026-09-25), by the project owner, over the gaps found in cut-a before M3
-(*"1, 2, 4, 9: agreed"*). The other gaps the same review raised (where prepared renditions live,
-when subtitles are extracted, the play-state report, devices, and what M3's accounts are) are
-still being discussed and will be added here.
+(*"1, 2, 4, 9: agreed"*, then *"ok, that all sounds good"* to §5–§8). What M3's accounts are,
+and how a person without a phone to hand receives their first sign-in, is still being discussed
+and will be added here.
 
 1. **The menu is ranked lists, one per axis, with no weights** (refines
    [D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) and
@@ -16490,5 +16490,31 @@ still being discussed and will be added here.
 4. **New dependencies:** `hls.js` (HLS in every browser but Safari), `jassub` (ASS subtitles),
    and `@playwright/test` (M3's playback timing in Chrome and Firefox, and M4's two-client
    tests). `golang.org/x/sys` is used directly, for seccomp and Landlock.
+5. **A node owns its prepared renditions** (settles cut-a §2, §4 and §6, which disagreed): they
+   live in a directory named by the node's own configuration, under a budget the same
+   configuration sets, and the node is the only thing that deletes there. A rendition lives on
+   the node that holds its source, so there is never a choice of where to put one. The node
+   evicts by last use, which it knows because it serves the bytes; a rendition is kept while
+   someone is partway through its title, or for a short grace after its last play, within the
+   budget. The core's record of a rendition is a note of what the node said it has: when the
+   node answers that one is gone, the core prepares it again. `/doctor` shows each node's use.
+   The byte path is `/bytes/v1/prepared/<file_id>/<profile>/<name>`, and eviction by the core is
+   not needed.
+6. **Subtitles are extracted when it is cheap to** (settles the gap in cut-a §4 and §6): a
+   subtitle file beside the media is converted at scan; an embedded track, which means reading
+   the whole file because its packets are spread through it, is extracted when the file is first
+   played, whatever the decision. The node sends the converted text to the core, as it does
+   artwork, and the core keeps it by payload hash; one job makes both ASS and VTT.
+7. **A play position moves only for a report about a later moment of watching** (settles cut-a
+   §5 and schema.md, which named three different guards): the moment is the device's
+   monotonic time anchored to true time as
+   [D165](#d165--a-heartbeat-is-not-an-event-the-log-records-state-changes-and-watched-spans-there-is-no-retention-horizon-and-an-offline-device-must-not-be-able-to-rewind-you)
+   describes, so two devices reporting out of order never rewind a position. A device's own
+   sequence number only drops a repeated report from the same device, and a report that cannot
+   be anchored never moves a position.
+8. **A device is created at sign-in**: the client names itself and its platform, and the server
+   makes the device row and ties the session to it. How it makes sound (`audio_output`) is asked
+   the first time it plays, then kept
+   ([D184](#d184--the-defaults-audit-four-become-questions-seven-must-be-made-visible-the-rest-pass)).
 
 **Status:** Decided in part; built in M3.
