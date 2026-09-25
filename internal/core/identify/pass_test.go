@@ -167,8 +167,8 @@ func TestPass_TheDevLibrarysFilms(t *testing.T) {
 	checkMetropolis(t, files["Metropolis (1995)/Metropolis (1995).mkv"])
 	checkVersionsAndTrailer(t, files)
 	checkUnidentified(t, files["Unidentified/untitled rip final v2.mkv"])
-	if report.Listed != 4 || report.Unidentified != 1 {
-		t.Errorf("report %+v, want 4 listed and 1 unidentified", report)
+	if report.Listed != 3 || report.Extras != 1 || report.Unidentified != 1 {
+		t.Errorf("report %+v, want 3 listed, the trailer an extra, and 1 unidentified", report)
 	}
 }
 
@@ -190,6 +190,11 @@ func checkVersionsAndTrailer(t *testing.T, files map[string]sqlcgen.ListFileTitl
 	trailer := files["Two Versions Film (2019)/trailers/Two Versions Film trailer.mp4"]
 	if trailer.Kind != kindExtra || trailer.TitleID == high.TitleID {
 		t.Errorf("the trailer is %+v, want an extra of its own (D162)", trailer)
+	}
+	if trailer.Filing != filingExtra || trailer.FilingReason == nil ||
+		*trailer.FilingReason != "trailer of Two Versions Film (2019), by its trailers folder" {
+		t.Errorf("the trailer is filed %s (%v), want an extra with its owner, type and evidence (D163)",
+			trailer.Filing, derefText(trailer.FilingReason))
 	}
 }
 

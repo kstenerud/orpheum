@@ -146,7 +146,11 @@ func (work *run) resolveAndFile(ctx context.Context) error {
 			continue
 		}
 		filing, reason := filingListed, ""
-		if ident := idents[titleID]; ident == identUnidentified {
+		if why, isExtra := work.extraOf[file.ID]; isExtra {
+			// An extra is filed as one, with its owner, its type and the evidence (D163).
+			filing, reason = filingExtra, why
+			work.report.Extras++
+		} else if ident := idents[titleID]; ident == identUnidentified {
 			filing, reason = filingUnidentified, reasons[titleID]
 			work.report.Unidentified++
 		} else {

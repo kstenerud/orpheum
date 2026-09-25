@@ -57,6 +57,7 @@ type Providers map[string]Provider
 type Report struct {
 	Listed       int
 	Unidentified int
+	Extras       int
 	// AwaitingMatch are the films and series no source has answered for yet: the fetch queue's
 	// first fetches (D170, D209).
 	AwaitingMatch []int64
@@ -102,7 +103,7 @@ func (pass *Pass) Library(ctx context.Context, libraryID int64) (Report, error) 
 			sorter: sorter,
 			titles: map[string]int64{}, series: map[string]int64{}, nfoByVideo: map[int64]NFO{},
 			showNFOs: map[string]NFO{}, folderNFOs: map[string][]namedNFO{}, folderTitle: map[string]int64{},
-			evidence: map[int64][]titleSpec{}, fileTitle: map[int64]int64{},
+			evidence: map[int64][]titleSpec{}, fileTitle: map[int64]int64{}, extraOf: map[int64]string{},
 			seriesSeen: map[int64]seriesSpec{}, seriesRows: map[int64]sqlcgen.GetSeriesForMatchRow{},
 			listings: map[string][]Episode{},
 		}
@@ -145,6 +146,7 @@ type run struct {
 	folderTitle map[string]int64 // a film's folder, for its extras
 	evidence    map[int64][]titleSpec
 	fileTitle   map[int64]int64
+	extraOf     map[int64]string     // an extra's file, and why it is one (D163)
 	seriesSeen  map[int64]seriesSpec // what this pass's files say about each series
 	seriesRows  map[int64]sqlcgen.GetSeriesForMatchRow
 	listings    map[string][]Episode // parsed season listings, by "series/season"

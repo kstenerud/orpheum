@@ -16,6 +16,7 @@ import (
 type extraKind struct {
 	ownerFolder string // relative to the root
 	kind        string
+	evidence    string // what made it one, for its filing's reason (D163)
 }
 
 // pendingExtra is an extra waiting for its film to be filed.
@@ -67,12 +68,19 @@ func suffixKind(suffix string) string {
 	return extraUnknown
 }
 
-// extraOf reports whether a path is an extra by containment: in a vocabulary folder inside a
-// title's own folder, never at a library root (D162). A "Film-trailer.mkv" beside its film is
-// the other admissible evidence, settled once the folder's film is known (extraBySuffix).
+// extraOf reports whether a path is an extra by containment, never at a library root (D162):
+// in a vocabulary folder inside a title's own folder, or named for the title whose folder it is
+// in, with a vocabulary suffix ("Film (1999)/Film (1999)-trailer.mkv"). Either is settled once
+// the folder's film is known; with none there it is a film itself.
 func extraOf(rel string) (extraKind, bool) {
 	folders := strings.Split(path.Dir(rel), "/")
-	if path.Dir(rel) == "." || len(folders) < 2 {
+	if path.Dir(rel) == "." {
+		return extraKind{}, false
+	}
+	if bySuffix, isExtra := extraBySuffix(rel); isExtra {
+		return bySuffix, true
+	}
+	if len(folders) < 2 {
 		return extraKind{}, false
 	}
 	kind, isExtra := extraFolderKind(folders[len(folders)-1])
@@ -83,7 +91,22 @@ func extraOf(rel string) (extraKind, bool) {
 	if parsed.ExtraSuffix != "" {
 		kind = suffixKind(parsed.ExtraSuffix) // inside an extras folder, a suffix picks the type
 	}
-	return extraKind{ownerFolder: strings.Join(folders[:len(folders)-1], "/"), kind: kind}, true
+	return extraKind{
+		ownerFolder: strings.Join(folders[:len(folders)-1], "/"), kind: kind,
+		evidence: "its " + folders[len(folders)-1] + " folder",
+	}, true
+}
+
+// extraBySuffix is D162's second evidence: a file whose stem is its folder's title plus a
+// vocabulary suffix. The suffix alone never makes an extra; the folder's name must be the rest.
+func extraBySuffix(rel string) (extraKind, bool) {
+	folder := path.Dir(rel)
+	stem := strings.TrimSuffix(path.Base(rel), path.Ext(rel))
+	rest, suffix := cutExtraSuffix(stem)
+	if suffix == "" || foldName(rest) != foldName(path.Base(folder)) {
+		return extraKind{}, false
+	}
+	return extraKind{ownerFolder: folder, kind: suffixKind(suffix), evidence: "its name"}, true
 }
 
 // extra files an extra under the film in its owner folder. With no film there, containment does
@@ -114,5 +137,7 @@ func (work *run) extra(ctx context.Context, pending pendingExtra) error {
 	if err != nil {
 		return fmt.Errorf("relate the extra %s: %w", pending.file.Path, err)
 	}
+	work.extraOf[pending.file.ID] = fmt.Sprintf("%s of %s, by %s",
+		strings.ReplaceAll(pending.extra.kind, "_", " "), pending.extra.ownerFolder, pending.extra.evidence)
 	return work.place(ctx, pending.file, titleID, spec)
 }

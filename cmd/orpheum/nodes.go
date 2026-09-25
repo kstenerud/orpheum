@@ -96,7 +96,8 @@ func newNodeService(opened started, logger *slog.Logger) *nodes.Service {
 				"libraryId", libraryID, "err", err)
 			return
 		}
-		logger.InfoContext(ctx, "identified a library", "libraryId", libraryID, "listed", report.Listed,
+		logger.InfoContext(ctx, "identified a library", "libraryId", libraryID,
+			"listed", report.Listed, "extras", report.Extras,
 			"unidentified", report.Unidentified, "awaitingMatch", len(report.AwaitingMatch))
 	})
 	sink := reportSink{ingester: ingester, logger: logger}
