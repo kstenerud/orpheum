@@ -93,3 +93,30 @@ func removed(character rune) bool {
 	}
 	return false
 }
+
+// Path is a filesystem path as the library shows and relates it (D211 §2): what Line removes is
+// replaced with U+FFFD instead, so a path that had something hidden in it shows that it did, and
+// nothing else changes — no space collapsed, no length cut — so a path still begins with its
+// root. The bytes that open the file are kept apart, as bytes (principles §22).
+func Path(text string) string {
+	var builder strings.Builder
+	builder.Grow(len(text))
+	marks := 0
+	for _, character := range strings.ToValidUTF8(text, "�") {
+		switch {
+		case (unicode.IsControl(character) && character != ' ') || removed(character):
+			builder.WriteRune('�')
+			marks = 0
+			continue
+		case unicode.In(character, unicode.Mn, unicode.Me):
+			if marks >= maxMarkRun {
+				continue
+			}
+			marks++
+		default:
+			marks = 0
+		}
+		builder.WriteRune(character)
+	}
+	return builder.String()
+}

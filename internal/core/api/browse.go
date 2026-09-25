@@ -10,17 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
-	"github.com/kstenerud/orpheum/internal/core/textindex"
 )
-
-// shown is a stored text as a display may show it: through the one sanitiser (D211 §2).
-func shown(value *string) *string {
-	if value == nil {
-		return nil
-	}
-	cleaned := textindex.Line(*value)
-	return &cleaned
-}
 
 const tagBrowse = "Browse"
 
@@ -220,11 +210,11 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 		for _, file := range version.Files {
 			fileBody := FileDetailBody{ID: file.ID, Size: file.Size, Streams: []StreamBody{}}
 			if principal.IsAdmin() {
-				fileBody.Path = textindex.Line(file.Path)
+				fileBody.Path = file.Path
 			}
 			for _, stream := range file.Streams {
 				fileBody.Streams = append(fileBody.Streams, StreamBody{
-					Kind: stream.Kind, Codec: stream.Codec, Lang: stream.Lang, Title: shown(stream.TitleRaw),
+					Kind: stream.Kind, Codec: stream.Codec, Lang: stream.Lang, Title: stream.TitleRaw,
 					Channels: stream.Channels,
 				})
 			}

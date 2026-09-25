@@ -102,3 +102,18 @@ func TestClean_NothingShownCanLieOrSpill(t *testing.T) {
 		t.Errorf("a 600-rune name kept %d runes, want %d", utf8.RuneCountInString(got), MaxNameRunes)
 	}
 }
+
+func TestPath_MarksWhatWasHiddenAndChangesNothingElse(t *testing.T) {
+	t.Parallel()
+	for input, want := range map[string]string{
+		"/media/Films/Metropolis (1995)/Metropolis.mkv": "/media/Films/Metropolis (1995)/Metropolis.mkv",
+		"/media/two  spaces.mkv":            "/media/two  spaces.mkv",
+		"/media/evil\u202Evkm.exe":          "/media/evil�vkm.exe",
+		"/media/line\nbreak.mkv":            "/media/line�break.mkv",
+		"/media/bad\xffbyte.mkv":            "/media/bad�byte.mkv",
+	} {
+		if got := Path(input); got != want {
+			t.Errorf("Path(%q) = %q, want %q", input, got, want)
+		}
+	}
+}

@@ -55,7 +55,9 @@ type Report struct {
 func NewPass(
 	database *store.Database, now clock.Clock, logger *slog.Logger, providers Providers, config Settings,
 ) *Pass {
-	return &Pass{database: database, clock: now, logger: logger, providers: providers, settings: config}
+	return &Pass{
+		database: database, clock: now, logger: logger, providers: cleanProviders(providers), settings: config,
+	}
 }
 
 // sorter is the sort-key maker for the locale the settings name now (D47).
