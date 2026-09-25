@@ -155,20 +155,34 @@ func (work *batch) unseenUnder(ctx context.Context, scan *scanState) ([]int64, i
 	return unseen, total, nil
 }
 
+// changedFacts says how a root's device or mount differs from its last complete scan's, if it
+// does: an unmounted disk leaves its empty mount point behind (D41).
+func changedFacts(prior sqlcgen.GetRootStateRow, scan *scanState) string {
+	switch {
+	case prior.Device != nil && *prior.Device != int64(scan.facts.Device): //nolint:gosec // a device id fits
+		return "the root is on another device than at its last complete scan: an unmounted disk?"
+	case prior.MountPoint != nil && *prior.MountPoint != boolInt(scan.facts.MountPoint):
+		return "the root was a mount point and is not now, or the other way round"
+	}
+	return ""
+}
+
 // withholdReason says why a scan's removals should wait for the admin, or "" when they should
 // not: the root's device or mount changed since its last complete scan, or it would lose all of
 // its files, or more than removal_withhold_percent of them and more than
-// removal_withhold_min_files (D208 §3).
+// removal_withhold_min_files (D208 §3) — unless the admin approved this root's removals.
 func (work *batch) withholdReason(ctx context.Context, scan *scanState, removing, total int) (string, error) {
 	prior, err := store.One(work.queries.GetRootState(ctx, sqlcgen.GetRootStateParams{
 		NodeID: work.nodeID, Path: scan.root,
 	}))
 	switch {
-	case err == nil && prior.Device != nil && *prior.Device != int64(scan.facts.Device): //nolint:gosec // fits
-		return "the root is on another device than at its last complete scan: an unmounted disk?", nil
-	case err == nil && prior.MountPoint != nil && *prior.MountPoint != boolInt(scan.facts.MountPoint):
-		return "the root was a mount point and is not now, or the other way round", nil
-	case err != nil && !errors.Is(err, store.ErrNotFound):
+	case err == nil && prior.RemovalsApproved == 1:
+		return "", nil // the admin said the files are gone
+	case err == nil:
+		if changed := changedFacts(prior, scan); changed != "" {
+			return changed, nil
+		}
+	case !errors.Is(err, store.ErrNotFound):
 		return "", err
 	}
 	if removing == 0 {

@@ -2,7 +2,7 @@
 -- Each root's last scan and what it found (D208, D41, D42).
 
 -- name: GetRootState :one
-SELECT device, mount_point, outcome, withheld_since, withheld_reason
+SELECT device, mount_point, outcome, withheld_since, withheld_reason, removals_approved
 FROM root_state
 WHERE node_id = ? AND path = ?;
 
@@ -12,7 +12,7 @@ INSERT INTO root_state (node_id, path, device, mount_point, outcome, outcome_at)
 VALUES (sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(device), sqlc.arg(mount_point), 'complete', sqlc.arg(at))
 ON CONFLICT (node_id, path) DO UPDATE SET
   device = excluded.device, mount_point = excluded.mount_point, outcome = 'complete',
-  outcome_at = excluded.outcome_at, withheld_since = NULL, withheld_reason = NULL;
+  outcome_at = excluded.outcome_at, withheld_since = NULL, withheld_reason = NULL, removals_approved = 0;
 
 -- name: RecordRootNotComplete :exec
 -- A scan that could not read its root, or whose removals wait for the admin: the known-good
@@ -37,3 +37,21 @@ ON CONFLICT (node_id, path) DO UPDATE SET root = excluded.root, device = exclude
 
 -- name: RecordRootMountMissing :exec
 UPDATE root_mount SET present = 0 WHERE node_id = ? AND path = ?;
+
+-- name: ApproveRootRemovals :execrows
+-- An admin's approval: the root's next complete scan removes what it does not see without
+-- waiting (D208 section 3). A complete scan clears it.
+UPDATE root_state SET removals_approved = 1
+WHERE node_id = sqlc.arg(node_id) AND path = sqlc.arg(path);
+
+-- name: ForgetMissingRootMount :execrows
+-- An admin says a disk missing from a mount point inside a root is gone for good: the boundary
+-- is forgotten, so a scan reads what is under it as removed. Only a missing one is forgotten; a
+-- boundary is scan state, not a person's record (standards/sql.md section 6).
+DELETE FROM root_mount
+WHERE node_id = sqlc.arg(node_id) AND path = sqlc.arg(path) AND present = 0;
+
+-- name: GetRootMount :one
+SELECT root, present
+FROM root_mount
+WHERE node_id = sqlc.arg(node_id) AND path = sqlc.arg(path);

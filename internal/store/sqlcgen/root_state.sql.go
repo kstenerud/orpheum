@@ -9,9 +9,73 @@ import (
 	"context"
 )
 
+const approveRootRemovals = `-- name: ApproveRootRemovals :execrows
+UPDATE root_state SET removals_approved = 1
+WHERE node_id = ?1 AND path = ?2
+`
+
+type ApproveRootRemovalsParams struct {
+	NodeID int64
+	Path   string
+}
+
+// An admin's approval: the root's next complete scan removes what it does not see without
+// waiting (D208 section 3). A complete scan clears it.
+func (q *Queries) ApproveRootRemovals(ctx context.Context, arg ApproveRootRemovalsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, approveRootRemovals, arg.NodeID, arg.Path)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const forgetMissingRootMount = `-- name: ForgetMissingRootMount :execrows
+DELETE FROM root_mount
+WHERE node_id = ?1 AND path = ?2 AND present = 0
+`
+
+type ForgetMissingRootMountParams struct {
+	NodeID int64
+	Path   string
+}
+
+// An admin says a disk missing from a mount point inside a root is gone for good: the boundary
+// is forgotten, so a scan reads what is under it as removed. Only a missing one is forgotten; a
+// boundary is scan state, not a person's record (standards/sql.md section 6).
+func (q *Queries) ForgetMissingRootMount(ctx context.Context, arg ForgetMissingRootMountParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, forgetMissingRootMount, arg.NodeID, arg.Path)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const getRootMount = `-- name: GetRootMount :one
+SELECT root, present
+FROM root_mount
+WHERE node_id = ?1 AND path = ?2
+`
+
+type GetRootMountParams struct {
+	NodeID int64
+	Path   string
+}
+
+type GetRootMountRow struct {
+	Root    string
+	Present int64
+}
+
+func (q *Queries) GetRootMount(ctx context.Context, arg GetRootMountParams) (GetRootMountRow, error) {
+	row := q.db.QueryRowContext(ctx, getRootMount, arg.NodeID, arg.Path)
+	var i GetRootMountRow
+	err := row.Scan(&i.Root, &i.Present)
+	return i, err
+}
+
 const getRootState = `-- name: GetRootState :one
 
-SELECT device, mount_point, outcome, withheld_since, withheld_reason
+SELECT device, mount_point, outcome, withheld_since, withheld_reason, removals_approved
 FROM root_state
 WHERE node_id = ? AND path = ?
 `
@@ -22,11 +86,12 @@ type GetRootStateParams struct {
 }
 
 type GetRootStateRow struct {
-	Device         *int64
-	MountPoint     *int64
-	Outcome        string
-	WithheldSince  *int64
-	WithheldReason *string
+	Device           *int64
+	MountPoint       *int64
+	Outcome          string
+	WithheldSince    *int64
+	WithheldReason   *string
+	RemovalsApproved int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -40,6 +105,7 @@ func (q *Queries) GetRootState(ctx context.Context, arg GetRootStateParams) (Get
 		&i.Outcome,
 		&i.WithheldSince,
 		&i.WithheldReason,
+		&i.RemovalsApproved,
 	)
 	return i, err
 }
@@ -90,7 +156,7 @@ INSERT INTO root_state (node_id, path, device, mount_point, outcome, outcome_at)
 VALUES (?1, ?2, ?3, ?4, 'complete', ?5)
 ON CONFLICT (node_id, path) DO UPDATE SET
   device = excluded.device, mount_point = excluded.mount_point, outcome = 'complete',
-  outcome_at = excluded.outcome_at, withheld_since = NULL, withheld_reason = NULL
+  outcome_at = excluded.outcome_at, withheld_since = NULL, withheld_reason = NULL, removals_approved = 0
 `
 
 type RecordRootCompleteParams struct {

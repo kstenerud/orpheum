@@ -552,6 +552,37 @@
         ],
         "type": "object"
       },
+      "RescanOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "scanning": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "scanning"
+        ],
+        "type": "object"
+      },
+      "RootActionInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "node": {
+            "description": "The node's configured name",
+            "minLength": 1,
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "path"
+        ],
+        "type": "object"
+      },
       "RootBody": {
         "additionalProperties": false,
         "properties": {
@@ -1637,6 +1668,128 @@
           }
         },
         "summary": "Create a library over a node's roots, and scan it (admin)",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
+    "/libraries/{id}/mounts/gone": {
+      "post": {
+        "operationId": "postLibraryMountGone",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RootActionInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RescanOutputBody"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208)",
+        "tags": [
+          "Libraries"
+        ]
+      }
+    },
+    "/libraries/{id}/removals": {
+      "post": {
+        "operationId": "postLibraryRemovals",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RootActionInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RescanOutputBody"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Approve a root's withheld removals; its next scan removes what it does not see (admin; D208)",
         "tags": [
           "Libraries"
         ]

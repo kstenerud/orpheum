@@ -84,6 +84,10 @@ upgraded file is a known state, not a half-state.
 - **Rebuilds follow one documented pattern** — create new, copy **with explicit `rowid`** where FTS
   content depends on it, drop old, rename new, recreate indexes, triggers and views — and views
   are dropped before the rename. `CREATE TABLE … AS SELECT` is not used.
+- **The runner records each applied step's checksum** (`schema_step`, from step 0009) and
+  refuses a database where an applied step's text has since changed. A committed step never
+  changes; a draft applied by the dev loop and then edited before it was committed does, and
+  leaves a schema that is not the step's (plan-deviations P17).
 - **No filesystem, no network, no path parsing.** A step that would need them is instead a step
   that invalidates derived data and schedules a rescan or re-interpretation.
 - **Go code only for a data transform SQL cannot express**, and such a step changes no schema, so

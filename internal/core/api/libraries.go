@@ -85,6 +85,24 @@ type ScanOutput struct {
 	}
 }
 
+// RootActionInput names a root, or a mount point inside one, of a library, by node and path.
+type RootActionInput struct {
+	AuthorizationHeader
+	ID   int64 `path:"id"`
+	Body struct {
+		Node string `doc:"The node's configured name" json:"node" minLength:"1"`
+		Path string `json:"path" minLength:"1"`
+	}
+}
+
+// RescanOutput says whether the root was asked to scan now.
+type RescanOutput struct {
+	Body struct {
+		// Scanning is false when the root's node is away; the approval waits for its next scan.
+		Scanning bool `json:"scanning"`
+	}
+}
+
 // FilesInput pages through what the scanner saw.
 type FilesInput struct {
 	AuthorizationHeader
@@ -129,6 +147,16 @@ func (server *Server) registerLibraries() {
 		OperationID: "postLibraryScan", Method: http.MethodPost, Path: "/libraries/{id}/scan",
 		DefaultStatus: http.StatusAccepted, Summary: "Ask a library's nodes to scan it (admin)", Tags: tags,
 	}, server.scanLibrary)
+	huma.Register(server.api, huma.Operation{
+		OperationID: "postLibraryRemovals", Method: http.MethodPost, Path: "/libraries/{id}/removals",
+		DefaultStatus: http.StatusAccepted, Tags: tags,
+		Summary: "Approve a root's withheld removals; its next scan removes what it does not see (admin; D208)",
+	}, server.approveRemovals)
+	huma.Register(server.api, huma.Operation{
+		OperationID: "postLibraryMountGone", Method: http.MethodPost, Path: "/libraries/{id}/mounts/gone",
+		DefaultStatus: http.StatusAccepted, Tags: tags,
+		Summary: "Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208)",
+	}, server.forgetMount)
 	huma.Register(server.api, huma.Operation{
 		OperationID: "getFiles", Method: http.MethodGet, Path: "/files",
 		Summary: "What the scanner saw: every file with its filing and reason (admin; D163)", Tags: tags,
@@ -203,6 +231,34 @@ func (server *Server) scanLibrary(ctx context.Context, input *LibraryInput) (*Sc
 	return output, nil
 }
 
+func (server *Server) approveRemovals(ctx context.Context, input *RootActionInput) (*RescanOutput, error) {
+	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	scanning, err := dependencies.Libraries.ApproveRemovals(ctx, input.ID, input.Body.Node, input.Body.Path)
+	if err != nil {
+		return nil, server.libraryError(ctx, "approve removals", err)
+	}
+	output := &RescanOutput{}
+	output.Body.Scanning = scanning
+	return output, nil
+}
+
+func (server *Server) forgetMount(ctx context.Context, input *RootActionInput) (*RescanOutput, error) {
+	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	scanning, err := dependencies.Libraries.ForgetMount(ctx, input.ID, input.Body.Node, input.Body.Path)
+	if err != nil {
+		return nil, server.libraryError(ctx, "forget a mount", err)
+	}
+	output := &RescanOutput{}
+	output.Body.Scanning = scanning
+	return output, nil
+}
+
 func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOutput, error) {
 	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
 	if err != nil {
@@ -249,8 +305,10 @@ func (server *Server) libraryError(ctx context.Context, doing string, err error)
 	case errors.Is(err, library.ErrNodeNotConnected):
 		return newError(http.StatusServiceUnavailable, CodeNodeSilent,
 			"the node has not connected since the server started, so its roots are not known")
-	case errors.Is(err, library.ErrNotANodeRoot):
+	case errors.Is(err, library.ErrNotANodeRoot), errors.Is(err, library.ErrNoSuchRoot):
 		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, err.Error())
+	case errors.Is(err, library.ErrNothingWithheld), errors.Is(err, library.ErrMountNotMissing):
+		return newError(http.StatusConflict, CodeConflict, err.Error())
 	}
 	return server.internal(ctx, doing, err)
 }

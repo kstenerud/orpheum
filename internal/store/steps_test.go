@@ -3,7 +3,9 @@
 package store
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -34,5 +36,27 @@ func TestMigrate_Step0007KeepsEveryStoredResponseAsItsItemsOwn(t *testing.T) {
 	if err != nil || state.CompatibleVersion != 7 {
 		t.Errorf("compatible_version = %d (%v); step 0007 renames a column an older binary reads",
 			state.CompatibleVersion, err)
+	}
+}
+
+func TestMigrate_RecordsEveryStepsChecksumAndRefusesOneThatChanged(t *testing.T) {
+	t.Parallel()
+	database := openMigrated(t)
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := queryRows(t, database, "SELECT count(*), min(version), max(version) FROM schema_step", 3)
+	if fmt.Sprint(rows) != fmt.Sprintf("[[%d 1 %d]]", len(steps), len(steps)) {
+		t.Fatalf("schema_step holds %v; want every step, the ones before it included", rows)
+	}
+	if again := database.Migrate(t.Context(), testMigrateOptions(t.TempDir())); again != nil {
+		t.Fatalf("a second Migrate over the same steps: %v", again)
+	}
+	// As a draft step looks once it was applied and then edited before it was committed.
+	execRaw(t, database, "UPDATE schema_step SET sha256 = 'a draft' WHERE version = 7")
+	err = database.Migrate(t.Context(), testMigrateOptions(t.TempDir()))
+	if !errors.Is(err, ErrStepChanged) || !strings.Contains(err.Error(), steps[6].Name) {
+		t.Errorf("Migrate over a changed step = %v; want ErrStepChanged naming it", err)
 	}
 }
