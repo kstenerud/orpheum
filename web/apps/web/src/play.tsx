@@ -3,7 +3,7 @@
 import "./play.css";
 
 import type { Api, components, Menu } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useServices } from "./services.tsx";
@@ -32,13 +32,7 @@ export function PlayView(props: { readonly decision: Decision }): JSX.Element {
   const { t } = useTranslation();
   const { decision } = props;
   if (decision.kind === "direct" && decision.url !== undefined) {
-    return (
-      <div className="play">
-        {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles arrive with M3's subtitle slice (cut-a §6) */}
-        <video className="play__video" src={decision.url} controls autoPlay playsInline />
-        <p className="play__reason">{t("play.direct")}</p>
-      </div>
-    );
+    return <DirectVideo url={decision.url} />;
   }
   const reasons = (decision.reasons ?? [])
     .map((reason) => t(`play.reason.${camelKey(reason)}`))
@@ -49,6 +43,41 @@ export function PlayView(props: { readonly decision: Decision }): JSX.Element {
       {decision.url === undefined ? <p>{t("play.notYet")}</p> : null}
     </div>
   );
+}
+
+/** The original file, playing; when the browser cannot play it, why, in words. */
+function DirectVideo(props: { readonly url: string }): JSX.Element {
+  const { t } = useTranslation();
+  const [failure, setFailure] = useState<string | undefined>(undefined);
+  const failed = (event: SyntheticEvent<HTMLVideoElement>): void => {
+    setFailure(mediaFailure(event.currentTarget.error));
+  };
+  return (
+    <div className="play">
+      {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles arrive with M3's subtitle slice (cut-a §6) */}
+      <video
+        className="play__video"
+        src={props.url}
+        controls
+        autoPlay
+        playsInline
+        onError={failed}
+      />
+      {failure === undefined ? (
+        <p className="play__reason">{t("play.direct")}</p>
+      ) : (
+        <p role="alert">{t("play.failed", { reason: failure })}</p>
+      )}
+    </div>
+  );
+}
+
+/** What a media element's error says, in the browser's words, or its code when it gives none. */
+export function mediaFailure(error: Pick<MediaError, "code" | "message"> | null): string {
+  if (error === null) {
+    return "unknown";
+  }
+  return error.message === "" ? `MediaError ${String(error.code)}` : error.message;
 }
 
 /** The player's screen for one file. */

@@ -73,3 +73,20 @@ func TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt(t *tes
 		t.Errorf("the cookie after sign-out: %d, want 401", image.StatusCode)
 	}
 }
+
+func TestMediaCookie_AskingWhoIAmSetsItAgainForThisSession(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	token := harness.createAdminAndSignIn(t)
+	// A browser whose cookie is missing or stale, from an older path or another sign-in, asks
+	// who it is at start and is given this session's cookie before it fetches any bytes.
+	me, _ := harness.raw(t, http.MethodGet, "/me", "", http.Header{"Authorization": {"Bearer " + token}})
+	cookies := (&http.Response{Header: me.Header}).Cookies()
+	if me.StatusCode != http.StatusOK || len(cookies) != 1 || cookies[0].Name != MediaCookie ||
+		cookies[0].Value != token || cookies[0].Path != Prefix+"/bytes/" || !cookies[0].HttpOnly {
+		t.Errorf("GET /me = %d with cookies %+v; want this session's media cookie on /bytes/", me.StatusCode, cookies)
+	}
+	if refused, _ := harness.raw(t, http.MethodGet, "/me", "", nil); len(refused.Header.Values("Set-Cookie")) != 0 {
+		t.Errorf("GET /me with no session set a cookie: %v", refused.Header.Values("Set-Cookie"))
+	}
+}
