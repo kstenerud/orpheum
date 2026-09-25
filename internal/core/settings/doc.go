@@ -34,6 +34,9 @@
 //   - Reset writes the starting value back. Enforced by
 //     TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage and
 //     TestReset_WritesTheStartingValueBack.
+//   - What is derived from a server setting follows a set or reset of it at once, through
+//     OnChange, not at some later event (agent-failures A4); a string setting with a pattern
+//     refuses what does not match it. TestOnChange_ReactsToASetAndAResetOfItsKeyOnly.
 //
 // # Read before changing
 //

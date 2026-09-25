@@ -19,6 +19,25 @@ func (q *Queries) ConfirmTitleMatch(ctx context.Context, id int64) error {
 	return err
 }
 
+const countItemsMissingSortKey = `-- name: CountItemsMissingSortKey :one
+SELECT count(*)
+FROM item_text
+JOIN item ON item.id = item_text.item_id
+WHERE item_text.is_original = 1 AND item.removed_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM sort_key WHERE sort_key.item_id = item_text.item_id AND sort_key.locale = ?1
+  )
+`
+
+// Live named items with no sort key in a locale: after the locale changed, or a pass that began
+// before it did (D47).
+func (q *Queries) CountItemsMissingSortKey(ctx context.Context, locale string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countItemsMissingSortKey, locale)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countLiveFilesOfTitle = `-- name: CountLiveFilesOfTitle :one
 SELECT count(*)
 FROM file
@@ -47,6 +66,17 @@ type DeleteItemSortKeysParams struct {
 // a cache (class C).
 func (q *Queries) DeleteItemSortKeys(ctx context.Context, arg DeleteItemSortKeysParams) error {
 	_, err := q.db.ExecContext(ctx, deleteItemSortKeys, arg.ItemID, arg.Locale)
+	return err
+}
+
+const deleteSortKeysOfOtherLocales = `-- name: DeleteSortKeysOfOtherLocales :exec
+DELETE FROM sort_key
+WHERE locale != ?1
+`
+
+// Keys for a locale no longer in use (sort_key is a cache, class C).
+func (q *Queries) DeleteSortKeysOfOtherLocales(ctx context.Context, locale string) error {
+	_, err := q.db.ExecContext(ctx, deleteSortKeysOfOtherLocales, locale)
 	return err
 }
 
@@ -411,6 +441,47 @@ func (q *Queries) ListIdentifyFiles(ctx context.Context, libraryID int64) ([]Lis
 			&i.Probe,
 			&i.IdentifiedPath,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listItemsToSort = `-- name: ListItemsToSort :many
+SELECT item_text.item_id, item_text.name, coalesce(title.kind, collection.kind) AS listing
+FROM item_text
+JOIN item ON item.id = item_text.item_id
+LEFT JOIN title ON title.id = item_text.item_id
+LEFT JOIN collection ON collection.id = item_text.item_id
+WHERE item_text.is_original = 1 AND item.removed_at IS NULL
+  AND (title.id IS NOT NULL OR collection.kind = 'series')
+ORDER BY item_text.item_id
+`
+
+type ListItemsToSortRow struct {
+	ItemID  int64
+	Name    string
+	Listing string
+}
+
+// Every live named title and series, with the list it sorts in.
+func (q *Queries) ListItemsToSort(ctx context.Context) ([]ListItemsToSortRow, error) {
+	rows, err := q.db.QueryContext(ctx, listItemsToSort)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListItemsToSortRow{}
+	for rows.Next() {
+		var i ListItemsToSortRow
+		if err := rows.Scan(&i.ItemID, &i.Name, &i.Listing); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

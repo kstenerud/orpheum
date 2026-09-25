@@ -4,10 +4,12 @@ package settings
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -374,5 +376,36 @@ func TestSeed_MovesOnlyUnmodifiedSettingsToAChangedStartingValue(t *testing.T) {
 	}
 	if again, err := service.Seed(ctx); err != nil || len(again.Updated) != 0 {
 		t.Errorf("seeding again updated %v, %v; want nothing", again.Updated, err)
+	}
+}
+
+func TestOnChange_ReactsToASetAndAResetOfItsKeyOnly(t *testing.T) {
+	t.Parallel()
+	service, _ := seeded(t)
+	var seen []string
+	service.OnChange(SortLocale, func(ctx context.Context) error {
+		locale, err := service.String(ctx, SortLocale)
+		seen = append(seen, locale)
+		return err
+	})
+	set := func(key Key, value string) {
+		t.Helper()
+		if err := service.Set(t.Context(), nil, map[string]json.RawMessage{string(key): json.RawMessage(value)}, nil,
+			false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	set(SortLocale, `"sv"`)
+	set(ScanOnNodeHello, "false")
+	if err := service.Reset(t.Context(), SortLocale, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(seen, []string{"sv", "en"}) {
+		t.Errorf("reactions saw %v; want the new locale after the set and the starting one after the reset", seen)
+	}
+	malformed := map[string]json.RawMessage{string(SortLocale): json.RawMessage(`"not a tag!"`)}
+	err := service.Set(t.Context(), nil, malformed, nil, false)
+	if !errors.Is(err, ErrWrongKind) || len(seen) != 2 {
+		t.Errorf("a malformed locale: %v, reactions %v; want it refused, and no reaction", err, seen)
 	}
 }

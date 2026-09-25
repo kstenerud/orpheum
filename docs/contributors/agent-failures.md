@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A4 — A derived value's refresh tied to the step that happened to write it (2026-09-25)
+
+- **What happened:** sort keys (D47) were written by the identification pass beside each name,
+  so a change of the `sort_locale` setting was described to the owner, and in the setting's own
+  description, as "a scan applies a change". But a sort key is a pure function of a stored name
+  and the locale: the core can rebuild every key the moment the locale changes, with no scan
+  and no node. The false belief came from the code's shape — keys were written where names were
+  written, so their refresh looked like the pass's job — rather than from what the key depends
+  on.
+- **Caught by:** the owner asked: *"I don't understand why a sort_locale change has to wait for a
+  scan in order to take effect? The node is only giving us its raw, byte observation. It's the
+  core that decides what they mean."*
+- **Gate:** none can see it. The question that would have caught it, asked of every derived
+  value: *what are its inputs, and does every input's change refresh it?* The between-milestone
+  audit now asks it of each derived table.
+
 ### A3 — Removal logic built without reading the decisions that make removal safe (2026-09-24)
 
 - **What happened:** the scanner and the ingest (an earlier commit, 2563802) were built from D39
