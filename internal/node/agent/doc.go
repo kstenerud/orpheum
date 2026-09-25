@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
-// commands and runs them one at a time, and streams its report — scan records, and a status record
+// commands and runs them one at a time — except prepares, which run beside the rest in their own
+// slots — and streams its report — scan records, and a status record
 // every tick — as one JSONL request whose records reach the core as they are written. When the
 // core goes away it says hello again at the next tick, and numbers its records on from the last
 // one the core ingested.
@@ -21,6 +22,9 @@
 //     TestAgent_SaysHelloAgainAfterLosingTheCore.
 //   - An artwork command's answer — the sizes the deriver made, or why none — is posted to the
 //     core's artwork path (D212 §8). TestAgent_ReEncodesArtworkAndPostsTheAnswer.
+//   - A prepare runs only on the file the core named, under one of the node's roots, whose payload
+//     hash is still the one named (D100); its progress and its end are posted to the core. One
+//     encode and two remuxes run at once (cut-a §5.3). TestAgent_PreparesOnlyTheFileTheCoreNamed.
 //
 // # Read before changing
 //
@@ -32,5 +36,6 @@
 //
 // # Where to change
 //
-//   - agent.go: the session and its four parts; report.go: numbering.
+//   - agent.go: the session and its four parts; report.go: numbering; prepare.go: prepares and
+//     their slots.
 package agent

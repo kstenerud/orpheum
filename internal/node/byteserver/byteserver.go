@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path"
+	"regexp"
 	"sync"
 	"time"
 
@@ -24,6 +26,9 @@ const maxRemembered = 1024
 // Server answers the node's byte socket.
 type Server struct {
 	roots map[string]*confine.MediaRoot
+	// prepared is the node's prepared directory, read as a media root is: read-only, and nothing
+	// outside it. Nil on a node that does not prepare.
+	prepared *confine.MediaRoot
 
 	mutex      sync.Mutex
 	identities map[seen]string // guarded by mutex
@@ -37,19 +42,20 @@ type seen struct {
 	modified   time.Time
 }
 
-// New returns a server over the node's roots.
-func New(roots []*confine.MediaRoot) *Server {
+// New returns a server over the node's roots and its prepared directory, which may be nil.
+func New(roots []*confine.MediaRoot, prepared *confine.MediaRoot) *Server {
 	byPath := make(map[string]*confine.MediaRoot, len(roots))
 	for _, root := range roots {
 		byPath[root.Path()] = root
 	}
-	return &Server{roots: byPath, identities: make(map[seen]string)}
+	return &Server{roots: byPath, prepared: prepared, identities: make(map[seen]string)}
 }
 
 // Handler is the socket's HTTP handler: GET and HEAD only.
 func (server *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+nodeproto.PathBytesFile, server.file)
+	mux.HandleFunc("GET "+nodeproto.PathBytesPrepared+"{name...}", server.renditionFile)
 	return mux
 }
 
@@ -114,4 +120,44 @@ func (server *Server) identity(file *os.File, info fs.FileInfo, key seen) (strin
 	}
 	server.identities[key] = identity
 	return identity, nil
+}
+
+// renditionName is the only shape a rendition's file may be named by: "<file_id>/<profile>/" and
+// then the master playlist, or one rendition's playlist, init segment or media segment.
+var renditionName = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)/` +
+	`(master\.m3u8|(video|audio\d{1,3}(-boost)?)/(stream\.m3u8|init\.mp4|seg\d{5,9}\.m4s))$`)
+
+// renditionFile serves one file of a prepared rendition. A name that is not a rendition's is
+// refused before anything is opened; one not written yet is a 404, which the core turns into
+// "too early" while the job runs.
+func (server *Server) renditionFile(writer http.ResponseWriter, request *http.Request) {
+	name := request.PathValue("name")
+	if server.prepared == nil || !renditionName.MatchString(name) {
+		http.Error(writer, "no such rendition file", http.StatusNotFound)
+		return
+	}
+	file, err := server.prepared.Open(name)
+	if err != nil {
+		http.Error(writer, "no such rendition file", http.StatusNotFound)
+		return
+	}
+	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		http.Error(writer, "no such rendition file", http.StatusNotFound)
+		return
+	}
+	writer.Header().Set("Content-Type", renditionType(name))
+	http.ServeContent(writer, request, "", info.ModTime(), file)
+}
+
+// renditionType is a rendition file's media type, by its name.
+func renditionType(name string) string {
+	switch path.Ext(name) {
+	case ".m3u8":
+		return "application/vnd.apple.mpegurl"
+	case ".m4s":
+		return "video/iso.segment"
+	}
+	return "video/mp4"
 }

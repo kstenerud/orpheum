@@ -31,6 +31,7 @@ type fakeCore struct {
 	commands    chan nodeproto.Command
 	records     chan nodeproto.Record
 	artwork     chan nodeproto.ArtworkResult
+	prepared    chan nodeproto.PrepareReport
 	dropReports int // the first reports it ends at once, as a core that went away would
 }
 
@@ -38,7 +39,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	t.Helper()
 	core := &fakeCore{
 		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
-		artwork: make(chan nodeproto.ArtworkResult, 4),
+		artwork: make(chan nodeproto.ArtworkResult, 4), prepared: make(chan nodeproto.PrepareReport, 16),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, func(writer http.ResponseWriter, request *http.Request) {
@@ -86,6 +87,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		}
 	})
 	mux.HandleFunc("POST "+nodeproto.PathArtwork, core.artworkHandler(t))
+	mux.HandleFunc("POST "+nodeproto.PathPrepare, core.prepareHandler(t))
 	socket := filepath.Join(t.TempDir(), "c.sock")
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", socket)
 	if err != nil {
@@ -95,6 +97,21 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	go func() { _ = server.Serve(listener) }() //nolint:errcheck // ends when the test closes it
 	t.Cleanup(func() { _ = server.Close() })   //nolint:errcheck // test teardown
 	return core, socket
+}
+
+// prepareHandler hands the test each prepare report the node posts.
+func (core *fakeCore) prepareHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(writer http.ResponseWriter, request *http.Request) {
+		var report nodeproto.PrepareReport
+		if err := json.NewDecoder(request.Body).Decode(&report); err != nil {
+			t.Error(err)
+		}
+		core.prepared <- report
+		if _, err := writer.Write([]byte("{}")); err != nil {
+			t.Error(err)
+		}
+	}
 }
 
 // artworkHandler hands the test each artwork answer the node posts.
@@ -152,7 +169,7 @@ func running(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
 	}
 	t.Cleanup(func() { _ = root.Close() }) //nolint:errcheck // test teardown
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
-	workers := Workers{Scanner: fakeScanner{}, Artwork: fakeArtwork{}}
+	workers := Workers{Scanner: fakeScanner{}, Artwork: fakeArtwork{}, Preparer: fakePreparer{}}
 	node := New(socket, nodeproto.Hello{Name: "local", Version: "test"}, []*confine.MediaRoot{root}, workers,
 		now, slog.New(slog.DiscardHandler))
 	tick := make(chan time.Time)

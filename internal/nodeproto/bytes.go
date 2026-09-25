@@ -14,9 +14,9 @@ const PathBytesFile = "/bytes/v1/file"
 // it; Path, the file's path relative to that root, as bytes, so a name that is not UTF-8 travels
 // intact (D49); and Hash, the payload hash in hex the core knows the file by (D179, D100).
 type BytesFile struct {
-	Root string
-	Path []byte
-	Hash string
+	Root string `json:"root"`
+	Path []byte `json:"path"`
+	Hash string `json:"hash"`
 }
 
 // Target is the file's path and query on the byte socket; Path travels as unpadded base64url.

@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/byteserver"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
+	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/probe"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -97,7 +98,12 @@ func runNodeScanning(
 		UID:                hello.UID,
 		GID:                hello.GID,
 	})
-	stopBytes, err := serveBytes(ctx, config, roots, logger)
+	prepared, preparer, err := openPrepared(config, runner)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = prepared.Close() }() //nolint:errcheck // read-only
+	stopBytes, err := serveBytes(ctx, config, roots, prepared, logger)
 	if err != nil {
 		return err
 	}
@@ -111,18 +117,38 @@ func runNodeScanning(
 	if wrap != nil {
 		scanning = wrap(scanner)
 	}
-	workers := agent.Workers{Scanner: scanning, Artwork: deriver}
+	workers := agent.Workers{Scanner: scanning, Artwork: deriver, Preparer: preparer}
 	node := agent.New(filepath.Join(config.Server.SocketDir, coreSocket), hello, roots, workers, clock.System{}, logger)
 	return node.Run(ctx, ticker.C)
 }
 
+// openPrepared makes the node's prepared directory if it is missing, and returns it opened for
+// the byte socket to read, and the preparer that writes into it (D217 §5).
+func openPrepared(config Config, runner *execx.Runner) (*confine.MediaRoot, *prepare.Preparer, error) {
+	if err := os.MkdirAll(config.Node.PreparedDir, 0o750); err != nil {
+		return nil, nil, fmt.Errorf("make the prepared directory: %w", err)
+	}
+	prepared, err := confine.OpenMediaRoot(config.Node.PreparedDir)
+	if err != nil {
+		return nil, nil, err
+	}
+	preparer, err := prepare.New(runner, prepared.Path())
+	if err != nil {
+		return nil, nil, errors.Join(err, prepared.Close())
+	}
+	return prepared, preparer, nil
+}
+
 // serveBytes serves the node's byte socket until the returned stop is called.
-func serveBytes(ctx context.Context, config Config, roots []*confine.MediaRoot, logger *slog.Logger) (func(), error) {
+func serveBytes(
+	ctx context.Context, config Config, roots []*confine.MediaRoot, prepared *confine.MediaRoot, logger *slog.Logger,
+) (func(), error) {
 	listener, err := datadir.ListenUnix(config.Server.SocketDir, nodeSocket)
 	if err != nil {
 		return nil, err
 	}
-	server := &http.Server{Handler: byteserver.New(roots).Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
+	handler := byteserver.New(roots, prepared).Handler()
+	server := &http.Server{Handler: handler, ReadHeaderTimeout: config.readHeaderTimeout()}
 	logger.InfoContext(ctx, "serving the byte socket", "socket", listener.Addr().String())
 	var serving sync.WaitGroup
 	serving.Go(func() {

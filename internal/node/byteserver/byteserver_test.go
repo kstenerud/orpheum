@@ -80,7 +80,7 @@ func request(t *testing.T, handler http.Handler, method, target string, header h
 func TestFile_ServesTheBytesOfTheFileItsHashNames(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "Films/Film (1999)/Film (1999).mkv")
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
 	whole := movie.get(t, handler, movie.identity, nil)
 	if whole.Code != http.StatusOK || whole.Body.String() != string(movie.contents) {
 		t.Fatalf("GET = %d with %d bytes, want 200 with the file's %d",
@@ -101,7 +101,7 @@ func TestFile_ServesTheBytesOfTheFileItsHashNames(t *testing.T) {
 func TestFile_HonoursRangeAndIfRange(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
 	ranged := movie.get(t, handler, movie.identity, http.Header{"Range": {"bytes=10-19"}})
 	if ranged.Code != http.StatusPartialContent || ranged.Body.String() != string(movie.contents[10:20]) {
 		t.Errorf("Range bytes=10-19 = %d %q, want 206 %q", ranged.Code, ranged.Body.String(), movie.contents[10:20])
@@ -116,7 +116,7 @@ func TestFile_HonoursRangeAndIfRange(t *testing.T) {
 func TestFile_RefusesAFileThatIsNoLongerTheOneAskedFor(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
 	if got := movie.get(t, handler, movie.identity, nil); got.Code != http.StatusOK {
 		t.Fatalf("the first GET = %d, want 200", got.Code)
 	}
@@ -145,7 +145,7 @@ func TestFile_NamesNothingOutsideARoot(t *testing.T) {
 	if err := os.WriteFile(outside, movie.contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
 	cases := map[string]string{
 		"a path out of the root": movie.target("../secret.mkv", movie.identity),
 		"an absolute path":       movie.target(outside, movie.identity),
@@ -174,7 +174,7 @@ func TestFile_NamesNothingOutsideARoot(t *testing.T) {
 func TestFile_OnlyReads(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
 	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
 		got := request(t, handler, method, movie.target(movie.path, movie.identity), nil)
 		if got.Code != http.StatusMethodNotAllowed {
@@ -187,8 +187,68 @@ func TestFile_ServesANameThatIsNotUTF8(t *testing.T) {
 	t.Parallel()
 	name := "caf\xe9.mkv" // Latin-1, as an old disk wrote it (D49)
 	movie := newFilm(t, name)
-	handler := byteserver.New([]*confine.MediaRoot{movie.root}).Handler()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
 	if got := request(t, handler, http.MethodGet, movie.target(name, movie.identity), nil); got.Code != http.StatusOK {
 		t.Errorf("GET a Latin-1 name = %d, want 200", got.Code)
+	}
+}
+
+// rendition is a prepared directory with one rendition's master playlist, a segment and an init.
+func rendition(t *testing.T) *confine.MediaRoot {
+	t.Helper()
+	directory := t.TempDir()
+	for name, contents := range map[string]string{
+		"7/remux/master.m3u8":               "#EXTM3U\n",
+		"7/remux/audio0-boost/seg00001.m4s": "segment",
+		"7/remux/video/init.mp4":            "init",
+		"7/remux/notes.txt":                 "not a rendition's",
+	} {
+		full := filepath.Join(directory, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(full), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(contents), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	prepared, err := confine.OpenMediaRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = prepared.Close() }) //nolint:errcheck // read-only
+	return prepared
+}
+
+func TestRenditionFile_ServesARenditionsFilesAndNothingElse(t *testing.T) {
+	t.Parallel()
+	handler := byteserver.New(nil, rendition(t)).Handler()
+	for name, want := range map[string]string{
+		"7/remux/master.m3u8":               "application/vnd.apple.mpegurl",
+		"7/remux/audio0-boost/seg00001.m4s": "video/iso.segment",
+		"7/remux/video/init.mp4":            "video/mp4",
+	} {
+		got := request(t, handler, http.MethodGet, nodeproto.PathBytesPrepared+name, nil)
+		if got.Code != http.StatusOK || got.Header().Get("Content-Type") != want {
+			t.Errorf("%s: %d %q, want 200 %s", name, got.Code, got.Header().Get("Content-Type"), want)
+		}
+	}
+	for _, name := range []string{
+		"7/remux/notes.txt", "7/remux/video/seg00002.m4s", "7/other/master.m3u8", "0/remux/master.m3u8",
+	} {
+		if got := request(t, handler, http.MethodGet, nodeproto.PathBytesPrepared+name, nil); got.Code !=
+			http.StatusNotFound {
+			t.Errorf("%s: %d, want 404", name, got.Code)
+		}
+	}
+	// A path with .. is only ever redirected to its cleaned form, which is then judged as above.
+	for _, name := range []string{"7/remux/../remux/master.m3u8", "7/remux/video/../../../etc/passwd"} {
+		got := request(t, handler, http.MethodGet, nodeproto.PathBytesPrepared+name, nil)
+		if got.Code == http.StatusOK {
+			t.Errorf("%s was served", name)
+		}
+	}
+	if got := request(t, byteserver.New(nil, nil).Handler(), http.MethodGet,
+		nodeproto.PathBytesPrepared+"7/remux/master.m3u8", nil); got.Code != http.StatusNotFound {
+		t.Errorf("a node that does not prepare: %d, want 404", got.Code)
 	}
 }

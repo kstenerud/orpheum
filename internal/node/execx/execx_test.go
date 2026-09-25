@@ -125,3 +125,21 @@ func TestRunInput_FeedsTheToolsStdinAndRunClosesIt(t *testing.T) {
 		}
 	}
 }
+
+func TestRunStreaming_WritesStdoutToTheWriterAndCarriesAFailure(t *testing.T) {
+	t.Parallel()
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "out_time_us=1000000\nprogress=end\n"})
+	var progress strings.Builder
+	if err := newRunner(t, fake).RunStreaming(t.Context(), FFmpeg, []string{"-i", "x"}, &progress); err != nil {
+		t.Fatal(err)
+	}
+	if progress.String() != "out_time_us=1000000\nprogress=end\n" {
+		t.Errorf("the writer got %q, want the tool's stdout", progress.String())
+	}
+	failing := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stderr: "No such file", Status: 1})
+	err := newRunner(t, failing).RunStreaming(t.Context(), FFmpeg, []string{"-i", "x"}, &progress)
+	var failure *RunError
+	if !errors.As(err, &failure) || failure.Status != 1 || !strings.Contains(failure.StderrTail, "No such file") {
+		t.Errorf("a failing run = %v, want a RunError with its status and stderr", err)
+	}
+}

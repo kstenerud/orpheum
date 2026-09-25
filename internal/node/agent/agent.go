@@ -46,10 +46,12 @@ type Artworker interface {
 type Workers struct {
 	Scanner Scanner
 	Artwork Artworker
+	// Preparer is nil on a node that does not prepare.
+	Preparer Preparer
 }
 
 // Agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
-// commands and runs them one at a time, and streams its report — scan records and a status
+// commands and runs them one at a time, prepares beside them, and streams its report — scan records and a status
 // record every tick — as one JSONL request. When anything breaks it waits for the next tick and
 // says hello again.
 type Agent struct {
@@ -59,6 +61,8 @@ type Agent struct {
 	workers Workers
 	clock   clock.Clock
 	logger  *slog.Logger
+
+	slots slots
 
 	mutex sync.Mutex
 	doing string
@@ -84,7 +88,7 @@ func New(
 	}
 	return &Agent{
 		client: &http.Client{Transport: transport}, hello: hello, roots: byPath, workers: workers,
-		clock: now, logger: logger, doing: "idle",
+		clock: now, logger: logger, doing: "idle", slots: newSlots(),
 	}
 }
 
@@ -186,6 +190,10 @@ func (agent *Agent) work(ctx context.Context, nodeID int64, work <-chan nodeprot
 func (agent *Agent) run(ctx context.Context, nodeID int64, command nodeproto.Command, report *report) error {
 	if command.Type == nodeproto.CommandArtwork && command.Artwork != nil {
 		return agent.artwork(ctx, nodeID, *command.Artwork)
+	}
+	if command.Type == nodeproto.CommandPrepare && command.Prepare != nil {
+		agent.prepare(ctx, nodeID, *command.Prepare)
+		return nil
 	}
 	if command.Type == nodeproto.CommandScan {
 		root, known := agent.roots[command.Scan.Root]
