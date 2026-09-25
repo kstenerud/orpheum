@@ -16324,7 +16324,13 @@ now refreshed on a schedule, and a dead image is looked into once.
    its forms, capped at an hour. Images are fetched one at a time.
 6. **We say who we are.** Every request to another host carries `User-Agent: Orpheum/<version>`
    (TMDB's terms §1.C forbid concealing the application's identity).
-7. **TMDB is credited where its data is shown**, with its logo and its "not endorsed or
-   certified by TMDB" notice (TMDB's terms §3), in the web client.
+7. **Every client has an About section that credits what we are built on** — *"we can have an
+   about section and put all our acknowledgments there. I think it would be nice to acknowledge
+   all of the major things we use, even if not required."* TMDB's terms (§3) and its developer
+   FAQ ask for its logo, less prominent than ours, and the notice "This product uses the TMDB API
+   but is not endorsed or certified by TMDB" in an "About" or "Credits" type section; a splash
+   shown once is not that. The same section acknowledges the major projects we use — FFmpeg,
+   SQLite, Go and the web client's frameworks among them — whether or not their licences ask
+   for it, and is where the licence notices that ship with a binary are shown.
 
 **Status:** Decided; being built in M2.
