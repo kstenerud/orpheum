@@ -25,3 +25,6 @@ openapi-typescript  # generates the SDK's API types from api/openapi.json; a dev
 openapi-fetch  # the SDK's typed client over those types, the only code that calls the server (cut-a §5; web-client.md)
 i18next  # translation catalogues, from the first screen (D51; web-client.md)
 react-i18next  # i18next's React binding; returnEmptyString false so an untranslated key shows English (D51)
+hls.js  # HLS playback in every browser but Safari, which plays HLS natively (D217 §4; web-client.md)
+jassub  # ASS subtitles drawn as their author styled them, over the video (D217 §4; web-client.md)
+@playwright/test  # real browsers in tests: M3's playback timing in Chrome and Firefox, M4's two clients (D217 §4; D190)
