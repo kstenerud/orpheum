@@ -78,15 +78,16 @@ poster**. That is destructive to an image we do not own
 content-unaddressable. If we ever want badges they are drawn over an untouched image by the
 client, from fields it already has.
 
-## Open
+## Open — answered by [D212](../../decisions/working-notes.md)
 
-- **Format.** AVIF is smaller and is not universally decodable on the televisions we target;
-  WebP is. The answer is probably "WebP with a JPEG fallback, re-examined when the device lab
-  reports", but it is a measurement, not an opinion.
-- **How many sizes**, and whether the TV's poster-wall size is the same as the phone's. A
-  number for [performance-targets.md](performance-targets.md).
-- **Total cache ceiling**, and what evicts. A 20,000-item library at three sizes in two
-  languages is a real number nobody has computed.
+- ~~**Format.**~~ WebP, re-encoded by the node from every source; the client names the format in
+  the URL; JPEG cut by the core from its base on the first request for it
+  ([artwork-formats.md](../research/artwork-formats.md)).
+- ~~**How many sizes.**~~ Nine named sizes by shape, cropped to it; a phone and a 1080p TV share
+  the poster size ([artwork-sizes.md](../research/artwork-sizes.md)).
+- ~~**Total cache ceiling.**~~ A setting, starting at 20 GiB, evicting what can be remade first,
+  never a live item's poster-wall size, and warning the admin at high water
+  ([artwork-cache.md](../research/artwork-cache.md)).
 
 ## Done when
 

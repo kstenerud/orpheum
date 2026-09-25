@@ -16224,3 +16224,44 @@ the display."* Extends [D49](#d49--unicode-discipline-at-the-boundaries-enforced
 `Line`, `Prose` and `Path`, applied where text enters — a node's report at the ingest, an NFO
 at its parse, a provider's answer through one wrapper, a person's text at the API — per
 principles §22, which the owner stated the same day); items 3 and 4 with their milestones.
+
+## D212 — Artwork: every image re-encoded by the node, a WebP base kept by the core, nine sizes, JPEG cut by the core, and a ceiling that evicts what can be remade
+
+**Decided** (2026-09-25), by the project owner, over one exchange, with three studies behind it
+([artwork-formats.md](../design/research/artwork-formats.md),
+[artwork-sizes.md](../design/research/artwork-sizes.md),
+[artwork-cache.md](../design/research/artwork-cache.md)). It settles artwork.md's three open
+questions and narrows [D99](#d99--the-core-does-not-decode-an-image-either-and-community-uploaded-artwork-is-why).
+
+1. **Every image is re-encoded, whatever it arrived as** — *"force all images through our webp
+   conversion, even if the source already is webp"*. The node decodes the source under FFmpeg's
+   confinement, refuses one over a pixel limit before decoding it, keeps the first frame, and
+   encodes our own WebP; nothing a client decodes was written by anyone but our encoder
+   ([principles §22](../principles/README.md)). CVE-2023-4863 compromised the *clients* that
+   decoded a crafted WebP; passing a provider's file through would put every screen in the house
+   in its path. Metadata, extra chunks, trailing bytes and polyglots go with the re-encode.
+2. **The core keeps a base**: our WebP encode at the largest size ever served (portrait-l,
+   landscape-xl), from which every other size is cut. The original is discarded; a base that is
+   lost is fetched again.
+3. **Nine named sizes, a closed set, cropped to the exact shape** (a 27×40 one-sheet loses about
+   1%): portrait 240×360, 480×720, 960×1440; landscape 480×270, 960×540, 1920×1080, 3840×2160;
+   logo within 400×155 and 800×310. None larger than its source. The two largest are made on
+   request; the rest when the image is fetched.
+4. **The format is in the URL, and the client chooses it.** WebP always; JPEG is cut by the core
+   on the first request for it, from the base, and kept. No Cut A client needs JPEG.
+5. **The core may decode its own base images, and nothing else** (narrowing D99): they are our
+   encoder's output. It does so in `internal/core/artwork` only, with the node's pixel limit,
+   using `golang.org/x/image` (allowlisted). It cuts JPEG there; it cannot encode lossy WebP in
+   pure Go, so every WebP size is the node's. **The node is never on the request path:** a WebP
+   size not yet made is answered with a temporary redirect to the nearest one there, and a job
+   makes the real one.
+6. **A ceiling, a setting starting at 20 GiB**, measured against a large library's 5–13 GiB.
+   Evicted in this order, least recently served first within each step: a tombstoned item's
+   images after a grace period; sizes made on request and JPEG; other large sizes; bases
+   (fetched again when next needed). A live item's poster-wall size is never evicted. When it
+   was last served is kept to the day, in memory, written hourly.
+7. **High water:** when what is never evicted exceeds the ceiling, artwork keeps being served
+   and fetched on demand, and the admin is warned, lastingly, with the size needed and a
+   ceiling to set (the need plus 15%), shown again beside the setting.
+
+**Status:** Decided; being built in M2.
