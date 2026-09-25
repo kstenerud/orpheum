@@ -205,11 +205,15 @@ class RevertRed(unittest.TestCase):
 
     def test_test_files_and_scopes_per_language(self):
         self.assertTrue(rr.is_test_file("internal/core/x_test.go"))
+        self.assertTrue(rr.is_test_file("internal/testutil/image.go"))
+        self.assertFalse(rr.is_test_file("internal/core/testutility.go"))
         self.assertTrue(rr.is_test_file("web/packages/sdk/src/pick.test.ts"))
         self.assertFalse(rr.is_test_file("web/packages/sdk/src/pick.ts"))
         self.assertEqual(rr.scope_for("internal/core/api/x.go"), ["go", "test", "./internal/core/api/..."])
         self.assertEqual(rr.scope_for("web/apps/web/src/App.tsx"), ["npm", "--prefix", "web", "run", "test"])
         self.assertIsNone(rr.scope_for("docs/x.md"))
+        self.assertEqual(rr.scope_for("internal/store/sqlcgen/browse.sql.go"),
+                         ["go", "test", "-tags", "integration", "./internal/store/..."])
 
     def test_files_only_other_builds_compile_are_run_against_those_builds(self):
         dev = rr.other_builds("cmd/orpheum/dev_seed.go")

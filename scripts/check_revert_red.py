@@ -90,6 +90,16 @@ PY_SOURCE = re.compile(r"\.py$")
 # `*_test.py` path in the tree and is a 4000-line harness rather than a test, so
 # every `fix` to it was silently exempt; while `tests/conftest.py` matches neither
 # name pattern and was therefore treated as behavioral source that must go red.
+# internal/testutil is test code by construction: only tests may import it
+# (TestArch_TestutilIsImportedOnlyByTests), so no change to it can alter what the binary
+# does, and a helper only an integration test uses has no test in this suite to turn red
+# (audit-2026-09-25 section 5.3).
+GO_TEST_SUPPORT = "internal/testutil/"
+# Generated query code has no tests of its own, and a query's body can change without its
+# signature: a fix that makes a slow query fast is noticed only by the reference-scale test in
+# internal/store's integration tier, which is where such a file is reverted against
+# (audit-2026-09-25 section 5.3).
+GO_GENERATED_QUERIES = ("internal/store/sqlcgen/", "internal/store/cachegen/")
 # `*_test.go` is safe to match by name because in Go the compiler agrees; the same
 # suffix in Python is a borrowed idiom that only ever matched the wrong file.
 PY_TEST = re.compile(r"(^|/)tests/")
@@ -173,7 +183,7 @@ def is_test_file(path: str) -> bool:
     Python half of yoloAI's copy came to borrow Go's suffix and exempt a harness.
     """
     if GO_SOURCE.search(path):
-        return bool(GO_TEST.search(path))
+        return bool(GO_TEST.search(path)) or path.startswith(GO_TEST_SUPPORT)
     if PY_SOURCE.search(path):
         return bool(PY_TEST.search(path))
     if TS_SOURCE.search(path):
@@ -319,6 +329,8 @@ def scope_for(path: str) -> list[str] | None:
     suite happens only for a file that survives its own package, which is the
     suspicious case and the only one worth paying for.
     """
+    if path.startswith(GO_GENERATED_QUERIES):
+        return ["go", "test", "-tags", "integration", "./internal/store/..."]
     if GO_SOURCE.search(path):
         return ["go", "test", "./" + str(Path(path).parent) + "/..."]
     if PY_SOURCE.search(path) and any(path.startswith(r + "/") for r in PY_ROOTS):
