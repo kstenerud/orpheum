@@ -68,8 +68,8 @@ func TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt(t *tes
 	if signedOut.StatusCode != http.StatusNoContent || len(cleared) != 1 || cleared[0].MaxAge >= 0 {
 		t.Errorf("sign-out: %d, cookies %+v; want the media cookie cleared", signedOut.StatusCode, cleared)
 	}
-	if after, _ := harness.raw(t, http.MethodGet, "/bytes/art/"+hash+"/portrait-s.webp", "", withCookie); after.StatusCode !=
-		http.StatusUnauthorized {
+	after, _ := harness.raw(t, http.MethodGet, "/bytes/art/"+hash+"/portrait-s.webp", "", withCookie)
+	if after.StatusCode != http.StatusUnauthorized {
 		t.Errorf("the cookie after sign-out: %d, want 401", image.StatusCode)
 	}
 }

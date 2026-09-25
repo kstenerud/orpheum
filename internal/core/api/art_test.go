@@ -67,7 +67,8 @@ func TestArt_ServesAStoredSizeAndRedirectsFromOneNotMade(t *testing.T) {
 		t.Errorf("a size not made: %d %v", moved.StatusCode, moved.Header)
 	}
 	for _, path := range []string{
-		"/bytes/art/" + hash + "/portrait-s.png", "/bytes/art/" + hash + "/poster", "/bytes/art/" + hash + "/landscape-s.webp",
+		"/bytes/art/" + hash + "/portrait-s.png", "/bytes/art/" + hash + "/poster",
+		"/bytes/art/" + hash + "/landscape-s.webp",
 		"/bytes/art/" + strings.Repeat("cd", 32) + "/portrait-s.webp",
 	} {
 		if missing, _ := harness.get(t, path, token); missing.StatusCode != http.StatusNotFound {
