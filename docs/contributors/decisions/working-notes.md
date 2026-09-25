@@ -16281,3 +16281,46 @@ questions and narrows [D99](#d99--the-core-does-not-decode-an-image-either-and-c
     M3's subtitle work: rendered by the node into our own bitmaps, or sent as found.
 
 **Status:** Decided; being built in M2.
+
+## D213 — A good netizen: a dead image is checked once more, refresh rolls per provider, and nothing is deleted because a provider dropped it
+
+**Decided** (2026-09-25), by the project owner, after the research in
+[provider-etiquette.md](../design/research/provider-etiquette.md), which found that TMDB's terms
+forbid keeping its data longer than six months and that we send no User-Agent of our own. The
+owner's aim: *"I want us to be good netizens and not cause problems for these public
+databases."* **Narrows [D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)**:
+its fetch-once model stands for first fetches and for everything a person wrote, but a record is
+now refreshed on a schedule, and a dead image is looked into once.
+
+1. **A dead image is checked once, then given up** — *"a 404 triggers one refetch after the
+   CDN's timeout, then gives up."* When an image server answers 404, the record that named the
+   image is fetched again once, after the time the CDN keeps its 404 (twelve hours for TMDB):
+   the title's, the series', or an episode's season listing. A different image it names is
+   fetched; the same one is tried once more; after that the image is recorded as missing and no
+   longer asked for. An older image of the item stays shown meanwhile.
+2. **A person may refresh a title whenever they like** — *"The user can manually try to
+   refetch any time they want, as much as they want (per-movie, not per-library)."* Refreshing a
+   film or a series fetches its record, and every image it has that is missing or was refused,
+   again. There is no library-wide refresh; D170's bulk refresh is withdrawn.
+3. **Records are refreshed on a rolling schedule, set per provider** — *"We make the rolling
+   refresh values as configuration per-provider and populate with each provider's rules. If the
+   user changes those that's their business."* Each provider's record for an item is fetched
+   again once it is older than that provider's setting, starting at the provider's own rule:
+   `tmdb_refresh_after_d`, 180, under TMDB's six months. Each item falls due somewhere in the
+   last quarter of the period, spread by its id, so a library fetched in an afternoon is not
+   refreshed in one. A refresh changes no field a person set (D183); it can change the others,
+   which is what refreshing is.
+4. **A refresh that finds an item gone keeps our copy** — *"If on a refresh an item is no
+   longer available, we do NOT delete our copy."* The stored record, the item's values and its
+   images stay; the attempt is noted so the item is not asked for again before its next period.
+5. **Failures that are not the item's back off, and a failing host is left alone.** An image
+   that fails for any reason but a 404 is tried again after 1 minute, 5, 30, 2 hours, 12 hours,
+   then daily for a week, then the job fails. After five failures in a row a host is paused and
+   probed once per step, rather than tried for every image. `Retry-After` is honoured in both
+   its forms, capped at an hour. Images are fetched one at a time.
+6. **We say who we are.** Every request to another host carries `User-Agent: Orpheum/<version>`
+   (TMDB's terms §1.C forbid concealing the application's identity).
+7. **TMDB is credited where its data is shown**, with its logo and its "not endorsed or
+   certified by TMDB" notice (TMDB's terms §3), in the web client.
+
+**Status:** Decided; being built in M2.
