@@ -20,6 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -67,6 +68,8 @@ type testHarness struct {
 	codes    *memorySetupCodes
 	database string
 	art      *datadir.Directories
+	clock    *clocktest.Fake
+	bytes    *fakeNodeBytes
 }
 
 // newHarness serves an API whose dependencies are ready, over a real migrated database.
@@ -84,6 +87,7 @@ func newHarness(t *testing.T) testHarness {
 	server := NewServer(slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	codes := &memorySetupCodes{}
 	provider, cache, nodes := newFakeProvider(), storetest.OpenCache(t), &fakeNodes{}
+	nodeBytes := &fakeNodeBytes{files: map[string]string{}}
 	providers := identify.Providers{"tmdb": provider}
 	pass := identify.NewPass(database, now, slog.New(slog.DiscardHandler), providers, seeded)
 	matcher := identify.NewMatcher(database, cache, pass, now, slog.New(slog.DiscardHandler))
@@ -102,6 +106,8 @@ func newHarness(t *testing.T) testHarness {
 			Database: database, Queue: jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler)),
 			Store: art, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
 		}),
+		Playback:  playback.NewService(database, seeded, now, rand.Reader),
+		NodeBytes: nodeBytes,
 		ConfigFile: []ConfigFileKey{{
 			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), Start: json.RawMessage("10"),
 			IsFromFile: false, Describe: "seconds in-flight requests get to finish",
@@ -111,7 +117,7 @@ func newHarness(t *testing.T) testHarness {
 	t.Cleanup(served.Close)
 	return testHarness{
 		server: server, http: served, logs: logs, service: service, codes: codes, database: database.Path(),
-		provider: provider, cache: cache, nodes: nodes, art: art,
+		provider: provider, cache: cache, nodes: nodes, art: art, clock: now, bytes: nodeBytes,
 	}
 }
 

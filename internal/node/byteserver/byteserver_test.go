@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/byteserver"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // film is a root with one file in it, and the file's identity.
@@ -56,10 +57,7 @@ func newFilm(t *testing.T, name string) film {
 }
 
 func (movie film) target(path, identity string) string {
-	query := url.Values{
-		"root": {movie.root.Path()}, "path": {byteserver.EncodePath([]byte(path))}, "hash": {identity},
-	}
-	return byteserver.FilePath + "?" + query.Encode()
+	return nodeproto.BytesFile{Root: movie.root.Path(), Path: []byte(path), Hash: identity}.Target()
 }
 
 // get GETs the film's own path, naming identity as its hash.
@@ -152,10 +150,9 @@ func TestFile_NamesNothingOutsideARoot(t *testing.T) {
 		"a path out of the root": movie.target("../secret.mkv", movie.identity),
 		"an absolute path":       movie.target(outside, movie.identity),
 		"a directory":            movie.target("films", movie.identity),
-		"a root it does not have": byteserver.FilePath + "?" + url.Values{
-			"root": {filepath.Dir(movie.root.Path())}, "path": {byteserver.EncodePath([]byte("secret.mkv"))},
-			"hash": {movie.identity},
-		}.Encode(),
+		"a root it does not have": nodeproto.BytesFile{
+			Root: filepath.Dir(movie.root.Path()), Path: []byte("secret.mkv"), Hash: movie.identity,
+		}.Target(),
 	}
 	for name, target := range cases {
 		if got := request(t, handler, http.MethodGet, target, nil); got.Code != http.StatusNotFound {
@@ -163,8 +160,8 @@ func TestFile_NamesNothingOutsideARoot(t *testing.T) {
 		}
 	}
 	for name, target := range map[string]string{
-		"no hash": byteserver.FilePath + "?" + url.Values{"root": {movie.root.Path()}, "path": {"eA"}}.Encode(),
-		"a path not base64": byteserver.FilePath + "?" + url.Values{
+		"no hash": nodeproto.PathBytesFile + "?" + url.Values{"root": {movie.root.Path()}, "path": {"eA"}}.Encode(),
+		"a path not base64": nodeproto.PathBytesFile + "?" + url.Values{
 			"root": {movie.root.Path()}, "path": {"%%"}, "hash": {movie.identity},
 		}.Encode(),
 	} {

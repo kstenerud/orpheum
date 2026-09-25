@@ -44,6 +44,8 @@ const (
 	RefreshCheckEveryH         Key = "refresh_check_every_h"
 	ArtworkCacheCeilingGiB     Key = "artwork_cache_ceiling_gib"
 	ArtworkRemovedGraceD       Key = "artwork_removed_grace_d"
+	RemoteBitRateCeilingKbps   Key = "remote_bit_rate_ceiling_kbps"
+	MediaTokenIdleH            Key = "media_token_idle_h"
 )
 
 // Scope is whose a setting is.
@@ -172,6 +174,10 @@ func metadataDefinitions() []Definition {
 			"GiB the artwork cache may hold; past it, what can be made again is evicted (D212 §6)"),
 		integer(ArtworkRemovedGraceD, "30", 0, 3650,
 			"days a removed item's artwork is kept, in case its disk comes back (D212 §6)"),
+		integer(RemoteBitRateCeilingKbps, "10000", 500, 1_000_000,
+			"kb/s above which a file played over a remote link is re-encoded (cut-a §6, reason bandwidth)"),
+		integer(MediaTokenIdleH, "4", 1, 168,
+			"hours a playback's media address lasts after its last use (D217 §2)"),
 	}
 }
 

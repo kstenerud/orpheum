@@ -16,9 +16,16 @@
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
 //   - Play state records against the source file, never a prepared rendition. Review-only until
 //     M3's tests land.
+//   - A media token grants nothing alone: its bytes are served only to the person and session
+//     that started the playback, and only until it has been idle for media_token_idle_h (D217
+//     §2). Enforced by TestPlayback_AMediaAddressPlaysOnlyForItsSessionAndOnlyWhileInUse.
+//   - A direct playback's bytes come from the file's node, named by root, path and payload
+//     hash; the core never opens the file (D193 §1). Enforced by
+//     TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore.
 //
 // # Read before changing
 //
+//   - D217: the menu, the media token, and what M3 decided about playback.
 //   - D157: a position belongs to the File.
 //   - D165: the log records state changes and spans; an offline device must not rewind.
 //   - D180: a prepared rendition's play state is its source's.
@@ -28,5 +35,6 @@
 //
 // # Where to change
 //
-//   - Media tokens; the playback report endpoint's logic; Continue Watching and Next Up queries.
+//   - tokens.go: media tokens, in memory. playback.go: starting a playback and finding a direct
+//     playback's bytes. The play-state report, Continue Watching and Next Up come later in M3.
 package playback

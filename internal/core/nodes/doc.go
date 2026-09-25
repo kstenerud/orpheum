@@ -31,5 +31,6 @@
 // # Where to change
 //
 //   - service.go: hello and enrolment, and each connected node's roots as its hello named them;
-//     channel.go: commands, the report and artwork answers; supervisor.go: the child.
+//     channel.go: commands, the report and artwork answers; supervisor.go: the child; bytes.go:
+//     reading a file's bytes from a node's byte socket (cut-a §4).
 package nodes

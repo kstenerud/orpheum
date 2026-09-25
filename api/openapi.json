@@ -897,6 +897,81 @@
         ],
         "type": "object"
       },
+      "MenuBody": {
+        "additionalProperties": false,
+        "properties": {
+          "audio": {
+            "description": "Must list aac-stereo",
+            "items": {
+              "enum": [
+                "aac-stereo",
+                "aac-multi",
+                "ac3",
+                "eac3",
+                "opus",
+                "flac"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "containers": {
+            "description": "Containers played as they are",
+            "items": {
+              "enum": [
+                "mp4",
+                "mkv",
+                "mpegts"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "subtitle": {
+            "items": {
+              "enum": [
+                "ass",
+                "webvtt"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "video": {
+            "description": "Must list h264-sdr",
+            "items": {
+              "enum": [
+                "h264-sdr",
+                "hevc-sdr",
+                "hevc-hdr10",
+                "av1-sdr",
+                "av1-hdr10"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "video",
+          "audio",
+          "subtitle",
+          "containers"
+        ],
+        "type": "object"
+      },
       "NodeBody": {
         "additionalProperties": false,
         "properties": {
@@ -1286,6 +1361,86 @@
         ],
         "type": "object"
       },
+      "StartPlaybackInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "link": {
+            "description": "Where the client is",
+            "enum": [
+              "local",
+              "remote"
+            ],
+            "type": "string"
+          },
+          "menu": {
+            "$ref": "#/components/schemas/MenuBody"
+          },
+          "prefer": {
+            "description": "A person's override",
+            "enum": [
+              "direct",
+              "prepare"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileId",
+          "menu",
+          "link"
+        ],
+        "type": "object"
+      },
+      "StartPlaybackOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "direct",
+              "hls"
+            ],
+            "type": "string"
+          },
+          "profile": {
+            "enum": [
+              "remux",
+              "h264-8m"
+            ],
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "enum": [
+                "container",
+                "video_codec",
+                "audio_codec",
+                "bandwidth",
+                "dialogue_boost",
+                "user_choice"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "url": {
+            "description": "Where the bytes are; absent until prepared renditions are built",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "reasons"
+        ],
+        "type": "object"
+      },
       "StreamBody": {
         "additionalProperties": false,
         "properties": {
@@ -1537,6 +1692,132 @@
         "summary": "One size of one image, in WebP or JPEG (D212)",
         "tags": [
           "Browse"
+        ]
+      }
+    },
+    "/bytes/media/direct/{token}": {
+      "get": {
+        "operationId": "getDirect",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The playback's media token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The playback's media token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Range",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Range",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "The file"
+          },
+          "206": {
+            "description": "The range asked for"
+          }
+        },
+        "summary": "A file's own bytes, relayed from its node, honouring Range",
+        "tags": [
+          "Playback"
+        ]
+      },
+      "head": {
+        "operationId": "headDirect",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The playback's media token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The playback's media token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Range",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Range",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "The file"
+          },
+          "206": {
+            "description": "The range asked for"
+          }
+        },
+        "summary": "A file's own bytes, relayed from its node, honouring Range",
+        "tags": [
+          "Playback"
         ]
       }
     },
@@ -2967,6 +3248,58 @@
         "summary": "The nodes, and the roots each connected one configured, for a new library (admin)",
         "tags": [
           "Libraries"
+        ]
+      }
+    },
+    "/playback": {
+      "post": {
+        "operationId": "startPlayback",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartPlaybackInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartPlaybackOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Decide how a file plays on this client, and where its bytes are (cut-a §6)",
+        "tags": [
+          "Playback"
         ]
       }
     },

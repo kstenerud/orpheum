@@ -305,13 +305,16 @@ fetches, prepares, scans and backups.
 
 [D193](../../decisions/working-notes.md) §2 is the decision; this is the mechanism.
 
-**The decision (`POST /playback`).** The request carries the file or version, the device id,
-the client's prioritised menu per axis ([D21](../../decisions/working-notes.md)) and whether the
-link is local or remote. The core resolves it in this order:
+**The decision (`POST /playback`).** The request carries the file, the device id, the client's
+prioritised menu per axis ([D21](../../decisions/working-notes.md)) with the containers it plays
+as they are ([D217](../../decisions/working-notes.md) §1), whether the link is local or remote,
+and a person's `prefer` (`direct` or `prepare`) when they override it. The answer names every
+reason that stopped direct play, as `reasons`, not only the first. The core resolves it in this
+order:
 1. **The original is acceptable on every axis** (container, video, audio, and the boost is off
    or the device is not on stereo speakers): `{kind: "direct", url}`.
-2. **A complete or running prepared rendition matches:** `{kind: "hls", url, reason}`.
-3. **Otherwise:** queue `prepare` at the highest priority and return `{kind: "hls", url, reason,
+2. **A complete or running prepared rendition matches:** `{kind: "hls", url, reasons}`.
+3. **Otherwise:** queue `prepare` at the highest priority and return `{kind: "hls", url, reasons,
    preparing: true}`. The playlist URL answers `425` until the first segment exists; the SDK
    waits and shows *"Preparing — ready in a few seconds"*.
 

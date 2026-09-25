@@ -21,6 +21,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bytes/media/direct/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A file's own bytes, relayed from its node, honouring Range */
+        get: operations["getDirect"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        /** A file's own bytes, relayed from its node, honouring Range */
+        head: operations["headDirect"];
+        patch?: never;
+        trace?: never;
+    };
     "/collections/{id}": {
         parameters: {
             query?: never;
@@ -420,6 +438,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/playback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide how a file plays on this client, and where its bytes are (cut-a §6) */
+        post: operations["startPlayback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search": {
         parameters: {
             query?: never;
@@ -800,6 +835,15 @@ export interface components {
             provider: string;
             providerId: string;
         };
+        MenuBody: {
+            /** @description Must list aac-stereo */
+            audio: ("aac-stereo" | "aac-multi" | "ac3" | "eac3" | "opus" | "flac")[] | null;
+            /** @description Containers played as they are */
+            containers: ("mp4" | "mkv" | "mpegts")[] | null;
+            subtitle: ("ass" | "webvtt")[] | null;
+            /** @description Must list h264-sdr */
+            video: ("h264-sdr" | "hevc-sdr" | "hevc-hdr10" | "av1-sdr" | "av1-hdr10")[] | null;
+        };
         NodeBody: {
             /** @description Whether it has said hello since the server started */
             connected: boolean;
@@ -907,6 +951,30 @@ export interface components {
             name: string;
             password: string;
         };
+        StartPlaybackInputBody: {
+            /** Format: int64 */
+            fileId: number;
+            /**
+             * @description Where the client is
+             * @enum {string}
+             */
+            link: "local" | "remote";
+            menu: components["schemas"]["MenuBody"];
+            /**
+             * @description A person's override
+             * @enum {string}
+             */
+            prefer?: "direct" | "prepare";
+        };
+        StartPlaybackOutputBody: {
+            /** @enum {string} */
+            kind: "direct" | "hls";
+            /** @enum {string} */
+            profile?: "remux" | "h264-8m";
+            reasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "user_choice")[] | null;
+            /** @description Where the bytes are; absent until prepared renditions are built */
+            url?: string;
+        };
         StreamBody: {
             /** Format: int64 */
             channels?: number;
@@ -1003,6 +1071,82 @@ export interface operations {
             };
             /** @description The nearest size, while this one is made or when it cannot be */
             307: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getDirect: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+                "If-Range"?: string;
+                Range?: string;
+            };
+            path: {
+                /** @description The playback's media token */
+                token: string;
+            };
+            cookie?: {
+                /** @description The media cookie sign-in sets, for an <img> */
+                orpheum_media?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description The range asked for */
+            206: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    headDirect: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+                "If-Range"?: string;
+                Range?: string;
+            };
+            path: {
+                /** @description The playback's media token */
+                token: string;
+            };
+            cookie?: {
+                /** @description The media cookie sign-in sets, for an <img> */
+                orpheum_media?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description The range asked for */
+            206: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1954,6 +2098,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NodesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    startPlayback: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartPlaybackInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartPlaybackOutputBody"];
                 };
             };
             /** @description Error */
