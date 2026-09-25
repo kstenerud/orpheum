@@ -12,7 +12,7 @@ import type { Route } from "./router.ts";
 /** A place the menu leads to, and whether this person may go there. */
 interface Destination {
   readonly route: Route;
-  readonly label: "films" | "series" | "search" | "identify" | "libraries" | "about";
+  readonly label: "films" | "series" | "search" | "identify" | "libraries" | "settings" | "about";
   readonly isAdminOnly: boolean;
 }
 
@@ -22,6 +22,7 @@ const destinations: readonly Destination[] = [
   { route: { screen: "search", query: "" }, label: "search", isAdminOnly: false },
   { route: { screen: "identify" }, label: "identify", isAdminOnly: true },
   { route: { screen: "libraries" }, label: "libraries", isAdminOnly: true },
+  { route: { screen: "settings" }, label: "settings", isAdminOnly: true },
   { route: { screen: "about" }, label: "about", isAdminOnly: false },
 ];
 

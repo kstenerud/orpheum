@@ -12,6 +12,7 @@ import { Libraries } from "./libraries.tsx";
 import type { Route } from "./router.ts";
 import { Search } from "./search.tsx";
 import { Series } from "./series.tsx";
+import { Settings } from "./settings.tsx";
 import { useRoute, useServices, useToken } from "./services.tsx";
 import { SignIn } from "./sign-in.tsx";
 import { Title } from "./title.tsx";
@@ -82,6 +83,9 @@ function adminScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "libraries") {
     return <Libraries />;
+  }
+  if (route.screen === "settings") {
+    return <Settings />;
   }
   return route.screen === "files" ? (
     <Files key={route.libraryId} libraryId={route.libraryId} />

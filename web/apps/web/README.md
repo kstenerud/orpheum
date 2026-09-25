@@ -41,7 +41,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/router.ts` and `src/app.tsx`.
 - The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `search.tsx`,
   `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx`, `files.tsx` (what
-  the scanner saw), `about.tsx`, `sign-in.tsx`.
+  the scanner saw), `settings.tsx` (keys, passwords and server settings), `about.tsx`,
+  `sign-in.tsx`.
 - Every user-visible string: `src/locales/en.ts`, through react-i18next (D51).
 - Colours, sizes, focus effects: `src/tokens.css`, never a component's CSS.
 - The mount point: `src/main.tsx` and `index.html`.
