@@ -186,8 +186,8 @@ JOIN item ON item.id = title.id
 WHERE item.library_id = ?1 AND item.removed_at IS NULL AND title.kind = 'movie'
   AND title.source IS NULL AND title.ident = 'unidentified'
   AND EXISTS (
-    SELECT 1 FROM file JOIN version ON version.id = file.version_id
-    WHERE version.title_id = title.id AND file.removed_at IS NULL
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
   )
 ORDER BY title.id
 `

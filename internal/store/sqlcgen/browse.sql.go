@@ -173,8 +173,8 @@ LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 
 WHERE title.kind = 'movie' AND item.removed_at IS NULL
   AND (item.created_at < ?1 OR (item.created_at = ?1 AND item.id < ?2))
   AND EXISTS (
-    SELECT 1 FROM version JOIN file ON file.version_id = version.id
-    WHERE version.title_id = title.id AND file.removed_at IS NULL
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
   )
 ORDER BY item.created_at DESC, item.id DESC
 LIMIT ?3
@@ -235,8 +235,8 @@ LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_ori
 WHERE sort_key.locale = ?1 AND sort_key.listing = 'movie' AND item.removed_at IS NULL
   AND (sort_key.key > ?2 OR (sort_key.key = ?2 AND sort_key.item_id > ?3))
   AND EXISTS (
-    SELECT 1 FROM version JOIN file ON file.version_id = version.id
-    WHERE version.title_id = title.id AND file.removed_at IS NULL
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
   )
 ORDER BY sort_key.key, sort_key.item_id
 LIMIT ?4
@@ -262,7 +262,9 @@ type ListFilmsByNameRow struct {
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Browse (cut-a section 5, Browse): lists in a locale's order (D47), a title's detail and a
 // series' episodes. Search's three routes are in search.go: sqlc cannot parse FTS5's MATCH. Only what has a live file is
-// listed: a film whose files are all gone is kept, with its history, but not shown.
+// listed: a film whose files are all gone is kept, with its history, but not shown. The live-file
+// check starts from the title's live versions, in that order by CROSS JOIN: started from file, it
+// read every file for every title, seconds at the reference scale (audit-2026-09-25).
 func (q *Queries) ListFilmsByName(ctx context.Context, arg ListFilmsByNameParams) ([]ListFilmsByNameRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFilmsByName,
 		arg.Locale,
@@ -308,9 +310,10 @@ WHERE collection.kind = 'series' AND item.removed_at IS NULL
   AND (item.created_at < ?1 OR (item.created_at = ?1 AND item.id < ?2))
   AND EXISTS (
     SELECT 1 FROM collection_member
-    JOIN version ON version.title_id = collection_member.member_title
-    JOIN file ON file.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND file.removed_at IS NULL
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN file ON file.version_id = version.id
+    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      AND file.removed_at IS NULL
   )
 ORDER BY item.created_at DESC, item.id DESC
 LIMIT ?3
@@ -372,9 +375,10 @@ WHERE sort_key.locale = ?1 AND sort_key.listing = 'series' AND item.removed_at I
   AND (sort_key.key > ?2 OR (sort_key.key = ?2 AND sort_key.item_id > ?3))
   AND EXISTS (
     SELECT 1 FROM collection_member
-    JOIN version ON version.title_id = collection_member.member_title
-    JOIN file ON file.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND file.removed_at IS NULL
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN file ON file.version_id = version.id
+    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      AND file.removed_at IS NULL
   )
 ORDER BY sort_key.key, sort_key.item_id
 LIMIT ?4
@@ -437,8 +441,8 @@ const listSeriesEpisodeDetails = `-- name: ListSeriesEpisodeDetails :many
 SELECT position.title_id, position.grp, position.number, item_text.name, title.year, title.runtime_ms,
   title.ident,
   EXISTS (
-    SELECT 1 FROM version JOIN file ON file.version_id = version.id
-    WHERE version.title_id = position.title_id AND file.removed_at IS NULL
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = position.title_id AND version.removed_at IS NULL AND file.removed_at IS NULL
   ) AS available
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id

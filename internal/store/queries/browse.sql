@@ -1,7 +1,9 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- Browse (cut-a section 5, Browse): lists in a locale's order (D47), a title's detail and a
 -- series' episodes. Search's three routes are in search.go: sqlc cannot parse FTS5's MATCH. Only what has a live file is
--- listed: a film whose files are all gone is kept, with its history, but not shown.
+-- listed: a film whose files are all gone is kept, with its history, but not shown. The live-file
+-- check starts from the title's live versions, in that order by CROSS JOIN: started from file, it
+-- read every file for every title, seconds at the reference scale (audit-2026-09-25).
 
 -- name: ListFilmsByName :many
 SELECT sort_key.item_id, sort_key.key, item_text.name, title.year, title.ident, item.library_id, item.created_at
@@ -12,8 +14,8 @@ LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_ori
 WHERE sort_key.locale = sqlc.arg(locale) AND sort_key.listing = 'movie' AND item.removed_at IS NULL
   AND (sort_key.key > sqlc.arg(after_key) OR (sort_key.key = sqlc.arg(after_key) AND sort_key.item_id > sqlc.arg(after_id)))
   AND EXISTS (
-    SELECT 1 FROM version JOIN file ON file.version_id = version.id
-    WHERE version.title_id = title.id AND file.removed_at IS NULL
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
   )
 ORDER BY sort_key.key, sort_key.item_id
 LIMIT sqlc.arg(max_rows);
@@ -26,8 +28,8 @@ LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 
 WHERE title.kind = 'movie' AND item.removed_at IS NULL
   AND (item.created_at < sqlc.arg(before_at) OR (item.created_at = sqlc.arg(before_at) AND item.id < sqlc.arg(before_id)))
   AND EXISTS (
-    SELECT 1 FROM version JOIN file ON file.version_id = version.id
-    WHERE version.title_id = title.id AND file.removed_at IS NULL
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
   )
 ORDER BY item.created_at DESC, item.id DESC
 LIMIT sqlc.arg(max_rows);
@@ -43,9 +45,10 @@ WHERE sort_key.locale = sqlc.arg(locale) AND sort_key.listing = 'series' AND ite
   AND (sort_key.key > sqlc.arg(after_key) OR (sort_key.key = sqlc.arg(after_key) AND sort_key.item_id > sqlc.arg(after_id)))
   AND EXISTS (
     SELECT 1 FROM collection_member
-    JOIN version ON version.title_id = collection_member.member_title
-    JOIN file ON file.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND file.removed_at IS NULL
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN file ON file.version_id = version.id
+    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      AND file.removed_at IS NULL
   )
 ORDER BY sort_key.key, sort_key.item_id
 LIMIT sqlc.arg(max_rows);
@@ -59,9 +62,10 @@ WHERE collection.kind = 'series' AND item.removed_at IS NULL
   AND (item.created_at < sqlc.arg(before_at) OR (item.created_at = sqlc.arg(before_at) AND item.id < sqlc.arg(before_id)))
   AND EXISTS (
     SELECT 1 FROM collection_member
-    JOIN version ON version.title_id = collection_member.member_title
-    JOIN file ON file.version_id = version.id
-    WHERE collection_member.collection_id = collection.id AND file.removed_at IS NULL
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN file ON file.version_id = version.id
+    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      AND file.removed_at IS NULL
   )
 ORDER BY item.created_at DESC, item.id DESC
 LIMIT sqlc.arg(max_rows);
@@ -117,8 +121,8 @@ WHERE collection.id = sqlc.arg(id) AND collection.kind = 'series' AND item.remov
 SELECT position.title_id, position.grp, position.number, item_text.name, title.year, title.runtime_ms,
   title.ident,
   EXISTS (
-    SELECT 1 FROM version JOIN file ON file.version_id = version.id
-    WHERE version.title_id = position.title_id AND file.removed_at IS NULL
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = position.title_id AND version.removed_at IS NULL AND file.removed_at IS NULL
   ) AS available
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
