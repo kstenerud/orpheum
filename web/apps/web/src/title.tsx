@@ -36,8 +36,8 @@ export function StreamLine(props: { readonly stream: Stream }): JSX.Element | nu
   }
 }
 
-/** The catalogue key of an extra's type: the server's snake_case, in camelCase. */
-export function extraTypeKey(type: string): string {
+/** A catalogue key for one of the server's snake_case names: an extra's type, a reason. */
+export function camelKey(type: string): string {
   return type.replaceAll(/_([a-z])/gu, (_, letter: string) => letter.toUpperCase());
 }
 
@@ -119,6 +119,9 @@ function Versions(props: {
           {versions.length === 1 ? null : <h3>{t("title.version", { index: index + 1 })}</h3>}
           {(version.files ?? []).map((file) => (
             <div key={file.id} className="title__file">
+              <Link to={{ screen: "play", fileId: file.id }} className="title__play">
+                {t("title.play")}
+              </Link>
               {file.path === undefined ? null : <code>{file.path}</code>}
               <ul>
                 {(file.streams ?? []).map((stream) => (
@@ -149,7 +152,7 @@ function Extras(props: {
           <li key={extra.id}>
             <Link to={{ screen: "title", id: extra.id }}>{extra.name}</Link>{" "}
             <span>
-              {t(`extraType.${extraTypeKey(extra.type)}`, { defaultValue: t("extraType.unknown") })}
+              {t(`extraType.${camelKey(extra.type)}`, { defaultValue: t("extraType.unknown") })}
             </span>
           </li>
         ))}

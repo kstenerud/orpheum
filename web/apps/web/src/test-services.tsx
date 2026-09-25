@@ -23,6 +23,12 @@ export function testServices(token?: string, path = "/films"): Services {
     api: createApi({ origin: "http://orpheum.test", token: session.token }),
     session,
     navigation,
+    menu: () => ({
+      video: ["hevc-sdr", "h264-sdr"],
+      audio: ["aac-stereo", "aac-multi", "opus", "flac"],
+      subtitle: ["ass", "webvtt"],
+      containers: ["mp4"],
+    }),
   };
 }
 

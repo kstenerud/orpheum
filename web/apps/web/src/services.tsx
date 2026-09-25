@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api } from "@orpheum/sdk";
+import type { Api, Menu } from "@orpheum/sdk";
 import { createContext, use, useSyncExternalStore } from "react";
 
 import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
 import type { Session } from "./session.ts";
 
-/** What every screen reaches the world through: the API, the session and navigation. */
+/** What every screen reaches the world through: the API, the session, navigation, and what this browser plays. */
 export interface Services {
   readonly api: Api;
   readonly session: Session;
   readonly navigation: Navigation;
+  readonly menu: () => Menu;
 }
 
 /** Holds the services for the tree below it; main.tsx provides the real ones, tests their own. */

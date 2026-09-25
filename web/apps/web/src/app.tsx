@@ -9,6 +9,7 @@ import { Browse } from "./browse.tsx";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Libraries } from "./libraries.tsx";
+import { Play } from "./play.tsx";
 import type { Route } from "./router.ts";
 import { Search } from "./search.tsx";
 import { Series } from "./series.tsx";
@@ -69,6 +70,9 @@ function catalogueScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "collection") {
     return <Series key={route.id} id={route.id} />;
+  }
+  if (route.screen === "play") {
+    return <Play key={route.fileId} fileId={route.fileId} />;
   }
   if (route.screen === "search") {
     return <Search key={route.query} query={route.query} />;

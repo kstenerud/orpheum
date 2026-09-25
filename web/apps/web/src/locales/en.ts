@@ -59,6 +59,21 @@ export const en = {
     episodeLabel: "{{number}}. {{name}}",
     unavailable: "not on disk",
     specials: "Specials",
+    play: "Play",
+  },
+  play: {
+    starting: "Asking the server how this plays here…",
+    direct: "Playing the original file, as it is.",
+    needsPreparing: "This file needs preparing to play here: {{reasons}}.",
+    notYet: "Preparing files is not built yet, so it cannot play in this browser yet.",
+    reason: {
+      container: "the browser cannot open its container",
+      videoCodec: "the browser cannot decode its video",
+      audioCodec: "the browser cannot decode its sound",
+      bandwidth: "it is too large for the connection",
+      dialogueBoost: "the dialogue boost is on",
+      userChoice: "you asked for it to be prepared",
+    },
   },
   extraType: {
     trailer: "Trailer",

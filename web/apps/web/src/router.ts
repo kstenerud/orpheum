@@ -6,6 +6,7 @@ export type Route =
   | { readonly screen: "series" }
   | { readonly screen: "title"; readonly id: number }
   | { readonly screen: "collection"; readonly id: number }
+  | { readonly screen: "play"; readonly fileId: number }
   | { readonly screen: "search"; readonly query: string }
   | { readonly screen: "identify" }
   | { readonly screen: "libraries" }
@@ -26,6 +27,7 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/series\/?$/u, route: () => ({ screen: "series" }) },
   { pattern: /^\/titles\/([1-9]\d{0,15})$/u, route: (id) => ({ screen: "title", id }) },
   { pattern: /^\/series\/([1-9]\d{0,15})$/u, route: (id) => ({ screen: "collection", id }) },
+  { pattern: /^\/play\/([1-9]\d{0,15})$/u, route: (fileId) => ({ screen: "play", fileId }) },
   {
     pattern: /^\/search\/?$/u,
     route: (_, search) => ({ screen: "search", query: search.get("q") ?? "" }),
@@ -58,6 +60,9 @@ export function routeHref(route: Route): string {
   }
   if (route.screen === "collection") {
     return `/series/${String(route.id)}`;
+  }
+  if (route.screen === "play") {
+    return `/play/${String(route.fileId)}`;
   }
   if (route.screen === "files") {
     return `/libraries/${String(route.libraryId)}/files`;
