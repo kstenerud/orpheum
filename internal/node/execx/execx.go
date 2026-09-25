@@ -60,7 +60,7 @@ func (failure *RunError) Error() string {
 func (failure *RunError) Unwrap() error { return failure.Err }
 
 // Runner runs the bundled FFmpeg tools from one directory, each with an empty environment, in
-// its own process group, from the root directory, with stdin closed.
+// its own process group, from the root directory, with stdin closed unless a run feeds it.
 type Runner struct {
 	directory string
 	// started, when set by a test, is called once the process has started.
@@ -79,6 +79,21 @@ func NewRunner(directory string) (*Runner, error) {
 // refusing more than stdoutLimit bytes. Cancelling ctx kills the tool and every process it
 // started.
 func (runner *Runner) Run(ctx context.Context, tool Tool, arguments []string, stdoutLimit int) ([]byte, error) {
+	return runner.run(ctx, tool, arguments, nil, stdoutLimit)
+}
+
+// RunInput is Run with input fed to the tool's stdin: an image the core sent, which reaches the
+// tool as bytes on a pipe and never as a file name (D212). The caller restricts the tool to the
+// pipe protocol.
+func (runner *Runner) RunInput(
+	ctx context.Context, tool Tool, arguments []string, input []byte, stdoutLimit int,
+) ([]byte, error) {
+	return runner.run(ctx, tool, arguments, input, stdoutLimit)
+}
+
+func (runner *Runner) run(
+	ctx context.Context, tool Tool, arguments []string, input []byte, stdoutLimit int,
+) ([]byte, error) {
 	hardened, known := hardening(tool)
 	if !known {
 		return nil, fmt.Errorf("execx runs only ffmpeg and ffprobe, not %q", tool)
@@ -92,6 +107,9 @@ func (runner *Runner) Run(ctx context.Context, tool Tool, arguments []string, st
 	stderr := &tailBuffer{limit: stderrTailBytes}
 	command.Stdout = stdout
 	command.Stderr = stderr
+	if input != nil {
+		command.Stdin = bytes.NewReader(input)
+	}
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	command.Cancel = func() error {
 		// The negative pid names the process group: the tool and anything it started.

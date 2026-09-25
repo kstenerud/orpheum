@@ -74,6 +74,8 @@ type FakeCall struct {
 	Tool        string
 	Arguments   []string
 	Environment []string
+	// Stdin is what the run read on its standard input: nothing, unless the run was fed.
+	Stdin []byte
 }
 
 // FakeFFmpeg is a directory holding fake ffmpeg and ffprobe executables (testing.md §11).
@@ -128,6 +130,7 @@ func (fake FakeFFmpeg) Calls(tb testing.TB) []FakeCall {
 			Tool:        strings.TrimSpace(string(readFile(tb, name))),
 			Arguments:   terminated(string(readFile(tb, record+".arguments"))),
 			Environment: splitNonEmpty(string(readFile(tb, record+".environment")), "\n"),
+			Stdin:       readFile(tb, record+".stdin"),
 		})
 	}
 	return recorded

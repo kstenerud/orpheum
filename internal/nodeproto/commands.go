@@ -3,7 +3,7 @@
 package nodeproto
 
 // CommandType names one kind of command (cut-a §4). The set is closed; prepare, extract_subtitle
-// and cancel come with the work they command.
+// and cancel come with the work they command. CommandArtwork is in artwork.go.
 type CommandType string
 
 // The command types.
@@ -17,6 +17,8 @@ type Command struct {
 	Seq  int64       `json:"seq"`
 	Type CommandType `json:"type"`
 	Scan *Scan       `json:"scan,omitempty"`
+	// Artwork is set for CommandArtwork.
+	Artwork *Artwork `json:"artwork,omitempty"`
 }
 
 // Scan asks the node to scan one of its roots.

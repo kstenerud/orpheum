@@ -104,3 +104,24 @@ func TestNewRunner_RefusesARelativeDirectory(t *testing.T) {
 		t.Error("Run(sh) succeeded; execx runs only ffmpeg and ffprobe")
 	}
 }
+
+func TestRunInput_FeedsTheToolsStdinAndRunClosesIt(t *testing.T) {
+	t.Parallel()
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "done"})
+	runner := newRunner(t, fake)
+	_, err := runner.RunInput(t.Context(), FFmpeg, []string{"-i", "pipe:0"}, []byte("image bytes"), 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fake.OnlyCall(t).Stdin; string(got) != "image bytes" {
+		t.Errorf("the tool read %q on stdin", got)
+	}
+	if _, err := runner.Run(t.Context(), FFprobe, []string{"-version"}, 1024); err != nil {
+		t.Fatal(err)
+	}
+	for _, call := range fake.Calls(t) {
+		if call.Tool == "ffprobe" && len(call.Stdin) != 0 {
+			t.Errorf("a run that was not fed read %q on stdin", call.Stdin)
+		}
+	}
+}

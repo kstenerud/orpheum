@@ -4,7 +4,8 @@
 # ABOUTME: copies it into a test's directory as both tools; it records each run and replies.
 #
 # Each run records what it was given under calls/: its name, its arguments (NUL-separated) and
-# its environment, so the test can assert the argument list and the explicit environment. It
+# its environment and what it read on stdin, so the test can assert the argument list, the
+# explicit environment and the input. It
 # then replies as the test asked: reply.stdout to stdout, reply.stderr to stderr, and the exit
 # status in reply.status. With reply.hold present it starts a grandchild that holds stdout open,
 # records its pid in grandchild.pid, says "ready" into the FIFO named by reply.hold, and waits,
@@ -23,6 +24,7 @@ for argument in "$@"; do
 	printf '%s\0' "$argument" >>"$record.arguments"
 done
 /usr/bin/env >"$record.environment"
+/bin/cat >"$record.stdin"
 
 if [ -e "$directory/reply.hold" ]; then
 	/bin/sleep 600 &
