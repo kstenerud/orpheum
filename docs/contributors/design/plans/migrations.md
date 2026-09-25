@@ -42,9 +42,10 @@ only what must exist before the database opens.
 
 > **IMPLEMENTED — see `internal/store`** (M1): the two integers, the runner and its checks, the
 > pre-migration snapshot and free-space preflight, the newer-database refusal, `orpheum migrate`,
-> `/health` while migrating, and tests for the golden, interruption, failure and refusal. **Not
-> yet:** the reference-scale database and its 10 s step budget, and golden fixtures with rows,
-> which matter from the second schema version on.
+> `/health` while migrating, and tests for the golden, interruption, failure and refusal. The
+> reference-scale database and its 10 s step budget arrived after M2 (`TestReferenceScale`, in
+> `internal/store`'s integration tier). **Not yet:** golden fixtures with rows, which matter from
+> the second schema version on.
 
 ### Bookkeeping: two integers, and nothing clever
 
