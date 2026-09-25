@@ -322,10 +322,6 @@ linters:
               desc: "[core-boundary] the core talks to the node only through internal/nodeproto over its socket (D33)"
             - pkg: "github.com/kstenerud/orpheum/internal/node$"
               desc: "[core-boundary] the core talks to the node only through internal/nodeproto over its socket (D33)"
-            - pkg: "image"
-              desc: "[core-boundary] the core does not decode an image (D99); artwork is decoded by the node"
-            - pkg: "golang.org/x/image"
-              desc: "[core-boundary] the core does not decode an image (D99)"
             - pkg: "github.com/disintegration/imaging"
               desc: "[core-boundary] the core does not decode an image (D99)"
             - pkg: "github.com/davidbyttow/govips"
@@ -346,6 +342,18 @@ linters:
               desc: "[core-boundary] the core never parses media; probing is a node job (D126)"
             - pkg: "github.com/u2takey/ffmpeg-go"
               desc: "[core-boundary] FFmpeg runs only through internal/node/execx (D26)"
+
+        # D99 as narrowed by D212: the core decodes no image, except internal/core/artwork, which
+        # decodes only the base images the node already sanitised (our own encoder's output),
+        # never a fetched or found original.
+        core-no-image:
+          list-mode: lax
+          files: ["**/internal/core/**", "!**/internal/core/artwork/**"]
+          deny:
+            - pkg: "image"
+              desc: "[core-boundary] the core does not decode an image (D99); a base image is decoded in internal/core/artwork only (D212)"
+            - pkg: "golang.org/x/image"
+              desc: "[core-boundary] the core does not decode an image (D99); a base image is decoded in internal/core/artwork only (D212)"
 
         # D33/D31: the node imports nothing from the core and never touches the database.
         # Transitive form: TestArch_NodeNeverImportsCore.
