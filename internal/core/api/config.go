@@ -21,7 +21,7 @@ const tagSettings = "Settings"
 type ConfigFileKey struct {
 	Key        string          `json:"key"`
 	Value      json.RawMessage `json:"value"`
-	Start      json.RawMessage `doc:"The starting value; null when the key has none" json:"start" nullable:"true"`
+	Start      json.RawMessage `doc:"The starting value; null when the key has none" json:"start"`
 	IsFromFile bool            `doc:"False when the file lacks it: it runs on its starting value" json:"isFromFile"`
 	Describe   string          `json:"describe"`
 }

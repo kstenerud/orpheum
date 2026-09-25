@@ -11,6 +11,7 @@ export type Route =
   | { readonly screen: "libraries" }
   | { readonly screen: "files"; readonly libraryId: number }
   | { readonly screen: "about" }
+  | { readonly screen: "settings" }
   | { readonly screen: "not-found" };
 
 /** One address shape: a pattern over the path, and the route its match names. */
@@ -36,6 +37,7 @@ const shapes: readonly Shape[] = [
     route: (libraryId) => ({ screen: "files", libraryId }),
   },
   { pattern: /^\/about\/?$/u, route: () => ({ screen: "about" }) },
+  { pattern: /^\/settings\/?$/u, route: () => ({ screen: "settings" }) },
 ];
 
 /** The route an address names; an address the client does not know is not-found, never a guess. */

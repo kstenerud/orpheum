@@ -132,11 +132,7 @@
             "type": "string"
           },
           "start": {
-            "description": "The starting value; null when the key has none",
-            "type": [
-              "",
-              "null"
-            ]
+            "description": "The starting value; null when the key has none"
           },
           "value": {}
         },
@@ -1212,17 +1208,10 @@
             "type": "integer"
           },
           "start": {
-            "description": "The value a new server starts with",
-            "type": [
-              "",
-              "null"
-            ]
+            "description": "The value a new server starts with; null when it has none"
           },
           "value": {
-            "type": [
-              "",
-              "null"
-            ]
+            "description": "A bool, a whole number or a string, by its kind; null when unset"
           }
         },
         "required": [

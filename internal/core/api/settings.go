@@ -18,8 +18,8 @@ import (
 type SettingBody struct {
 	Key        string          `json:"key"`
 	Kind       string          `enum:"bool,integer,string" json:"kind"`
-	Value      json.RawMessage `json:"value"                         nullable:"true"`
-	Start      json.RawMessage `doc:"The value a new server starts with" json:"start" nullable:"true"`
+	Value      json.RawMessage `doc:"A bool, a whole number or a string, by its kind; null when unset" json:"value"`
+	Start      json.RawMessage `doc:"The value a new server starts with; null when it has none" json:"start"`
 	IsModified bool            `json:"isModified"`
 	Minimum    *int64          `json:"minimum,omitempty"`
 	Maximum    *int64          `json:"maximum,omitempty"`

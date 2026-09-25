@@ -586,7 +586,7 @@ export interface components {
             isFromFile: boolean;
             key: string;
             /** @description The starting value; null when the key has none */
-            start: Record<string, unknown> | null;
+            start: unknown;
             value: unknown;
         };
         ConfigOutputBody: {
@@ -889,9 +889,10 @@ export interface components {
             setAt: number;
             /** Format: int64 */
             setBy?: number;
-            /** @description The value a new server starts with */
-            start: Record<string, unknown> | null;
-            value: Record<string, unknown> | null;
+            /** @description The value a new server starts with; null when it has none */
+            start: unknown;
+            /** @description A bool, a whole number or a string, by its kind; null when unset */
+            value: unknown;
         };
         SettingsOutputBody: {
             settings: components["schemas"]["SettingBody"][] | null;
