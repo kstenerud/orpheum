@@ -297,3 +297,25 @@ func TestHandle_TellsTheQueueHowToWait(t *testing.T) {
 		t.Errorf("a search with no result: %v, want the job done", err)
 	}
 }
+
+func TestPass_ATMDBOnlyLibraryIgnoresNFOFiles(t *testing.T) {
+	t.Parallel()
+	lib := newWorld(t, "movies", "tmdb")
+	const body = "<movie><title>Not What The Path Says</title><year>1995</year><tmdbid>9019</tmdbid>" +
+		"<lockdata>true</lockdata></movie>"
+	report := lib.scan(video("Metropolis (1995).mkv"), nfo("Metropolis (1995).nfo", body))
+	file := lib.files()["Metropolis (1995).mkv"]
+	if name(file) != "Metropolis" || file.Source != nil || file.Filing != filingUnidentified ||
+		len(report.AwaitingMatch) != 1 {
+		t.Errorf("file %+v named %q, awaiting %v; want the path's name, awaiting TMDB (D183: ignore NFO files)",
+			file, name(file), report.AwaitingMatch)
+	}
+	ids, err := lib.database.Read().ListItemProviderIDs(t.Context(), file.TitleID)
+	if err != nil || len(ids) != 0 {
+		t.Errorf("ids %+v (%v); the NFO's id should not have been read", ids, err)
+	}
+	overrides, err := lib.database.Read().ListOverrides(t.Context(), file.TitleID)
+	if err != nil || len(overrides) != 0 {
+		t.Errorf("overrides %+v (%v); the NFO's locked fields should not have been read", overrides, err)
+	}
+}

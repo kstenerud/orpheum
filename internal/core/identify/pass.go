@@ -126,6 +126,18 @@ func (work *run) load(ctx context.Context, libraryID int64) error {
 	if work.files, err = work.queries.ListIdentifyFiles(ctx, libraryID); err != nil {
 		return fmt.Errorf("list its files: %w", err)
 	}
+	if work.library.MetadataSource != sourceTMDB {
+		if err := work.loadNFOs(ctx); err != nil {
+			return err
+		}
+	}
+	return work.loadTitles(ctx, libraryID)
+}
+
+// loadNFOs reads the NFO files the library's source takes. A library asked for "TMDB only,
+// ignore NFO files" reads none, not even their ids or locked fields (D183 §2); they stay filed
+// as sidecars, so changing the library's source finds them.
+func (work *run) loadNFOs(ctx context.Context) error {
 	for _, file := range work.files {
 		isNFO := file.FilingReason != nil && *file.FilingReason == string(nodeproto.SidecarNFO)
 		if file.Filing != "attached" || !isNFO {
@@ -149,7 +161,7 @@ func (work *run) load(ctx context.Context, libraryID int64) error {
 		folder := path.Dir(file.Path)
 		work.folderNFOs[folder] = append(work.folderNFOs[folder], namedNFO{stem: stem, nfo: nfo})
 	}
-	return work.loadTitles(ctx, libraryID)
+	return nil
 }
 
 func (work *run) loadTitles(ctx context.Context, libraryID int64) error {
