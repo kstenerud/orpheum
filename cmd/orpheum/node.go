@@ -54,6 +54,14 @@ func commandNode(ctx context.Context, call invocation) int {
 
 // runNode opens the media roots, builds the scanner and runs the node's loop until ctx ends.
 func runNode(ctx context.Context, config Config, logger *slog.Logger) error {
+	return runNodeScanning(ctx, config, logger, nil)
+}
+
+// runNodeScanning is runNode with the scanner wrapped: the M2 acceptance test records a real
+// scan through it and replays one against a media root no process may read (plan-deviations P9).
+func runNodeScanning(
+	ctx context.Context, config Config, logger *slog.Logger, wrap func(agent.Scanner) agent.Scanner,
+) error {
 	if config.Node.Confinement == "require" {
 		return errConfinementRequired
 	}
@@ -86,7 +94,11 @@ func runNode(ctx context.Context, config Config, logger *slog.Logger) error {
 	// An image's probe and each of its encodes are one FFmpeg run over one untrusted input each,
 	// bounded as a file's probe is.
 	deriver := artwork.NewDeriver(runner, time.Duration(config.Node.ProbeTimeoutS)*time.Second)
-	workers := agent.Workers{Scanner: scanner, Artwork: deriver}
+	var scanning agent.Scanner = scanner
+	if wrap != nil {
+		scanning = wrap(scanner)
+	}
+	workers := agent.Workers{Scanner: scanning, Artwork: deriver}
 	node := agent.New(filepath.Join(config.Server.SocketDir, coreSocket), hello, roots, workers, clock.System{}, logger)
 	return node.Run(ctx, ticker.C)
 }
