@@ -16458,3 +16458,37 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
    release build builds the web client first.
 
 **Status:** Decided; §1 built in M2, §2 in M3.
+
+## D217 — M3's playback contract: the client sends ranked lists, the media token is a reference, every audio track is prepared, and hls.js, JASSUB and Playwright are allowed
+
+**Decided in part** (2026-09-25), by the project owner, over the gaps found in cut-a before M3
+(*"1, 2, 4, 9: agreed"*). The other gaps the same review raised (where prepared renditions live,
+when subtitles are extracted, the play-state report, devices, and what M3's accounts are) are
+still being discussed and will be added here.
+
+1. **The menu is ranked lists, one per axis, with no weights** (refines
+   [D21](#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) and
+   [D22](#d22--video-audio-and-subtitles-negotiate-as-independent-axes)): video, audio and
+   subtitle names in the client's order of preference, and a fourth list, the containers the
+   client can play as they are. The container list is used only to ask whether the original can
+   be played directly, since a prepared rendition is always fMP4 (D21). A request whose lists
+   lack the baselines `h264-sdr` and `aac-stereo` is refused. The core sorts a file's streams
+   into menu names by a table in `internal/core/decide`, one test per row; a stream the table
+   cannot place is prepared, never guessed playable.
+2. **The single-playback media token is a reference, not a credential** (refines
+   [D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url)
+   and [D216](#d216--every-byte-path-is-under-apiv1bytes-the-media-cookies-one-scope-the-built-web-client-is-served-by-the-binary-from-m3)):
+   it names a user, a file, a rendition and a device, and grants nothing. Every byte request
+   still carries the media cookie or the Authorization header, so a URL that leaks plays for no
+   one. Each `POST /playback` issues a new token; it ends with the session or after an idle
+   period, a setting starting at 4 hours.
+3. **A prepare encodes every audio track of the source**, each as a standard and a boosted
+   rendition, so switching language never needs a new job
+   ([D23](#d23--axis-switching-is-mid-session-by-default-burn-in-is-the-one-thing-that-breaks-it)).
+   A prepare job's subject is its rendition, and an extract job's is its stream, so one file
+   can have several jobs open at once.
+4. **New dependencies:** `hls.js` (HLS in every browser but Safari), `jassub` (ASS subtitles),
+   and `@playwright/test` (M3's playback timing in Chrome and Firefox, and M4's two-client
+   tests). `golang.org/x/sys` is used directly, for seccomp and Landlock.
+
+**Status:** Decided in part; built in M3.
