@@ -105,7 +105,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D96](working-notes.md#d96--an-episodes-position-is-ordering-season-number-and-a-series-declares-its-orderings) An episode's position is `(ordering, season, number)`, and a series declares its orderings — *revisited by D159*
 - [D97](working-notes.md#d97--an-extra-is-a-typed-relation-not-an-edition-and-not-a-version) An extra is a typed relation, not an Edition and not a Version — *revisited by D140, D162*
 - [D98](working-notes.md#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person) A sidecar carries what is true about the work; the database carries what is true about a person — *revisited by D140, D141, D163*
-- [D99](working-notes.md#d99--the-core-does-not-decode-an-image-either-and-community-uploaded-artwork-is-why) The core does not decode an image either, and community-uploaded artwork is why — *revisited by D126*
+- [D99](working-notes.md#d99--the-core-does-not-decode-an-image-either-and-community-uploaded-artwork-is-why) The core does not decode an image either, and community-uploaded artwork is why — *revisited by D126, D212*
 - [D100](working-notes.md#d100--a-destructive-command-names-its-target-by-identity-not-by-path) A destructive command names its target by identity, not by path — *revisited by D116*
 - [D101](working-notes.md#d101--a-measurement-that-spans-files-is-a-core-supplied-job-the-node-never-chooses-the-set) A measurement that spans files is a core-supplied job; the node never chooses the set
 - [D102](working-notes.md#d102--the-nodes-work-is-a-pipeline-of-independently-deferrable-passes) The node's work is a pipeline of independently deferrable passes — *revisited by D114, D115, D148*
@@ -217,6 +217,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D209](working-notes.md#d209--for-shows-the-series-is-what-is-identified-its-episodes-follow-it-by-season-and-number) For shows, the series is what is identified; its episodes follow it by season and number
 - [D210](working-notes.md#d210--a-series-has-an-on-disk-order-its-files-are-numbered-in-and-a-viewing-order-each-person-chooses-built-after-cut-a) A series has an on-disk order its files are numbered in, and a viewing order each person chooses; built after Cut A
 - [D211](working-notes.md#d211--text-hygiene-a-file-is-known-by-its-bytes-display-text-goes-through-one-sanitiser-subtitles-are-converted-before-they-are-shown-and-usernames-are-compared-by-skeleton) Text hygiene: a file is known by its bytes, display text goes through one sanitiser, subtitles are converted before they are shown, and usernames are compared by skeleton
+- [D212](working-notes.md#d212--artwork-every-image-re-encoded-by-the-node-a-webp-base-kept-by-the-core-nine-sizes-jpeg-cut-by-the-core-and-a-ceiling-that-evicts-what-can-be-remade) Artwork: every image re-encoded by the node, a WebP base kept by the core, nine sizes, JPEG cut by the core, and a ceiling that evicts what can be remade
 
 ## Archived
 
