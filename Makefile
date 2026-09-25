@@ -166,10 +166,19 @@ test-integration: ## The integration tier: tests that run the pinned FFmpeg and 
 # Building and generating
 # ---------------------------------------------------------------------------------------------
 
+# The binary embeds whatever is in $(WEBCLIENT_DIST) (D216 §2). `make build` fills it for the one
+# go build and empties it after, so no other build or test embeds a client by accident; the
+# committed .keep keeps the directory, so every build compiles.
+WEBCLIENT_DIST := internal/core/webclient/dist
+WEBCLIENT_CLEAR := find $(WEBCLIENT_DIST) -mindepth 1 -maxdepth 1 ! -name .keep -exec rm -rf {} +
+
 .PHONY: build
-build: web-deps ## Build the server binary into bin/ and the web apps into their dist/
+build: web-deps ## Build the web apps into their dist/, then the server binary, with the web client in it, into bin/
 	@npm --prefix web run --silent build
+	@$(WEBCLIENT_CLEAR)
+	@cp -r web/apps/web/dist/. $(WEBCLIENT_DIST)/
 	@go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o bin/orpheum ./cmd/orpheum
+	@$(WEBCLIENT_CLEAR)
 
 .PHONY: generate
 generate: web-deps ## Regenerate committed generated code (sqlc for library.db and cache.db, the OpenAPI document, and the SDK's TS types)
@@ -323,3 +332,4 @@ setup: web-deps ## One-time setup of a clone: git hooks and web dependencies
 .PHONY: clean
 clean: ## Remove build output
 	@rm -rf bin web/apps/*/dist
+	@$(WEBCLIENT_CLEAR)
