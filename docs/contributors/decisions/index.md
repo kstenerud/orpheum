@@ -220,6 +220,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D212](working-notes.md#d212--artwork-every-image-re-encoded-by-the-node-a-webp-base-kept-by-the-core-nine-sizes-jpeg-cut-by-the-core-and-a-ceiling-that-evicts-what-can-be-remade) Artwork: every image re-encoded by the node, a WebP base kept by the core, nine sizes, JPEG cut by the core, and a ceiling that evicts what can be remade
 - [D213](working-notes.md#d213--a-good-netizen-a-dead-image-is-checked-once-more-refresh-rolls-per-provider-and-nothing-is-deleted-because-a-provider-dropped-it) A good netizen: a dead image is checked once more, refresh rolls per provider, and nothing is deleted because a provider dropped it
 - [D214](working-notes.md#d214--a-later-commercial-service-connects-clients-to-a-core-without-carrying-content-the-hosted-relay-stays-deferred) A later commercial service connects clients to a core without carrying content; the hosted relay stays deferred
+- [D215](working-notes.md#d215--local-artwork-images-beside-the-media-follow-the-librarys-metadata-source-named-as-kodi-and-jellyfin-name-them-embedded-art-waits) Local artwork: images beside the media follow the library's metadata source, named as Kodi and Jellyfin name them; embedded art waits
 
 ## Archived
 

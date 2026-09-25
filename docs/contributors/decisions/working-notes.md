@@ -16411,3 +16411,32 @@ not run a VPS, measured drop-off at the VPS step, someone to carry legal.md §4'
 acceptable outside service — and even then, only if §2's first option is chosen.
 
 **Status:** Recorded; not scheduled. Nothing is built for it in Cut A beyond §4.
+
+## D215 — Local artwork: images beside the media follow the library's metadata source, named as Kodi and Jellyfin name them; embedded art waits
+
+**Decided** (2026-09-25), by the project owner (*"follow your recommendations"*), when M2's
+artwork turned to the images people keep beside their media.
+
+1. **Images beside the media are taken in every library, at once; which one shows follows the
+   library's metadata source** (amended the same day: *"make it so that the scanner grabs local
+   images right away, and then if the user prefers them from a service, it updates the images as
+   it fetches them"*). They cost no network, so the pass that follows a scan owes them straight
+   away and the node re-encodes them. In a library that reads NFO files the image beside the
+   media wins, and the provider's image of that kind is not fetched; in a library set to *"TMDB
+   only"*, the image beside the media shows until the provider's is fetched, and then the
+   provider's does ([D183](#d183--an-override-is-an-override-wherever-its-value-came-from-a-librarys-source-is-asked-not-defaulted-a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts)).
+   A person's own choice beats both.
+2. **Names follow Kodi's and Jellyfin's conventions**: in a film's or a series' folder,
+   `poster`, `folder` and `cover` for the poster, `fanart`, `backdrop` and `background` for the
+   backdrop, `clearlogo` and `logo` for the logo; beside a video, `<name>-poster`,
+   `<name>-fanart`, `<name>-clearlogo` for a film and `<name>-thumb` for an episode's still; in
+   `.jpg`, `.jpeg`, `.png`, `.webp` or `.tbn`. A season's poster has no item to show it on yet,
+   and is filed without being used.
+3. **The node reads the image and re-encodes it; its bytes never reach the core**
+   ([D212](#d212--artwork-every-image-re-encoded-by-the-node-a-webp-base-kept-by-the-core-nine-sizes-jpeg-cut-by-the-core-and-a-ceiling-that-evicts-what-can-be-remade) §8).
+   A changed file (its size or modification time) is read again.
+4. **Art embedded in a video file** (Matroska attachments, MP4 cover art) waits until after Cut
+   A: image files beside the media are far more common, and embedded art needs its own
+   extraction in the node.
+
+**Status:** Decided; being built in M2.
