@@ -9,26 +9,32 @@ import (
 	"context"
 )
 
-const getItemArtwork = `-- name: GetItemArtwork :one
-SELECT content_hash
+const getArtworkSource = `-- name: GetArtworkSource :one
+SELECT item_id, kind, source, source_ref
 FROM artwork
-WHERE item_id = ?1 AND kind = ?2 AND removed_at IS NULL
-  AND content_hash IS NOT NULL
-ORDER BY chosen DESC, id DESC
+WHERE content_hash = ?1 AND removed_at IS NULL AND source_ref IS NOT NULL
+ORDER BY id DESC
 LIMIT 1
 `
 
-type GetItemArtworkParams struct {
-	ItemID int64
-	Kind   string
+type GetArtworkSourceRow struct {
+	ItemID    int64
+	Kind      string
+	Source    string
+	SourceRef *string
 }
 
-// The image an item shows for a kind: a person's choice, else the newest stored.
-func (q *Queries) GetItemArtwork(ctx context.Context, arg GetItemArtworkParams) ([]byte, error) {
-	row := q.db.QueryRowContext(ctx, getItemArtwork, arg.ItemID, arg.Kind)
-	var content_hash []byte
-	err := row.Scan(&content_hash)
-	return content_hash, err
+// Where a stored image came from, to fetch it again for a size made on request, D212 section 3.
+func (q *Queries) GetArtworkSource(ctx context.Context, contentHash []byte) (GetArtworkSourceRow, error) {
+	row := q.db.QueryRowContext(ctx, getArtworkSource, contentHash)
+	var i GetArtworkSourceRow
+	err := row.Scan(
+		&i.ItemID,
+		&i.Kind,
+		&i.Source,
+		&i.SourceRef,
+	)
+	return i, err
 }
 
 const insertArtwork = `-- name: InsertArtwork :one
@@ -95,6 +101,49 @@ func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLive
 			&i.ContentHash,
 			&i.Chosen,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listShownArtwork = `-- name: ListShownArtwork :many
+SELECT item_id, content_hash
+FROM artwork
+WHERE item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT))) AND kind = ?2
+  AND removed_at IS NULL AND content_hash IS NOT NULL
+ORDER BY item_id, chosen DESC, id DESC
+`
+
+type ListShownArtworkParams struct {
+	ItemIds string
+	Kind    string
+}
+
+type ListShownArtworkRow struct {
+	ItemID      int64
+	ContentHash []byte
+}
+
+// The images a page of items shows, of one kind; the ids are a JSON array. Per item, a person's
+// choice first, then the newest stored; the caller keeps the first row of each item.
+func (q *Queries) ListShownArtwork(ctx context.Context, arg ListShownArtworkParams) ([]ListShownArtworkRow, error) {
+	rows, err := q.db.QueryContext(ctx, listShownArtwork, arg.ItemIds, arg.Kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListShownArtworkRow{}
+	for rows.Next() {
+		var i ListShownArtworkRow
+		if err := rows.Scan(&i.ItemID, &i.ContentHash); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -2,7 +2,10 @@
 
 // Package artwork is the core's artwork (D212): it fetches the images an item's source names,
 // has the node re-encode them into our own WebP, and stores what the node answers under
-// content-addressed names in the cache directory, with the item's artwork rows in library.db.
+// content-addressed names in the cache directory, with the item's artwork rows in library.db. It
+// serves them: a stored size as it is, JPEG cut from the WebP of its size, and a size not made
+// by redirecting to the nearest one there. It is the one core package that decodes an image
+// (D212 §5; the depguard rule core-no-image).
 //
 // # Invariants
 //
@@ -14,6 +17,15 @@
 //   - An image the node refuses, or the source no longer has, is recorded with no hash, so it is
 //     not fetched again and an older image stays shown. TestService_RecordsARefusalAndKeepsTheOlderImage.
 //   - A job with no node connected waits without spending an attempt. TestService_WaitsForANode.
+//   - The node is never on the request path: a size not made is answered with the nearest one
+//     there, and only a size made on request, whose source may be large enough, is queued; one
+//     the source cannot make, or a source that is gone or changed, is noted and never queued
+//     again (D212 §3, §5). TestServe_ASizeNotMadeRedirectsToTheNearestAndOnlyAnOnRequestSizeIsQueued,
+//     TestServe_NothingIsQueuedForASizeTheSourceCannotMake,
+//     TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade,
+//     TestHandle_ASourceThatChangedMakesNoSizeUnderTheOldHash.
+//   - The core decodes only its own WebP, under the pixel limit, to cut JPEG, and keeps what it
+//     cut. TestServe_AJPEGIsCutFromTheWebPOfItsSizeAndKept (integration tier).
 //
 // # Read before changing
 //
@@ -24,5 +36,5 @@
 // # Where to change
 //
 //   - source.go: the unsanitised download and the fetcher interface; service.go: the queue's
-//     jobs, the node command and its answer, and the store.
+//     jobs, the node command and its answer, and the store; serve.go: answering a request.
 package artwork

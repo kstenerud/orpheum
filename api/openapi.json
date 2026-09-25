@@ -1,6 +1,22 @@
 {
   "components": {
     "schemas": {
+      "ArtBody": {
+        "additionalProperties": false,
+        "properties": {
+          "backdrop": {
+            "type": "string"
+          },
+          "poster": {
+            "type": "string"
+          },
+          "still": {
+            "description": "An episode's frame",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "CandidateBody": {
         "additionalProperties": false,
         "properties": {
@@ -52,6 +68,9 @@
       "CollectionOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "art": {
+            "$ref": "#/components/schemas/ArtBody"
+          },
           "episodes": {
             "items": {
               "$ref": "#/components/schemas/EpisodeBody"
@@ -94,7 +113,8 @@
           "kind",
           "name",
           "libraryId",
-          "episodes"
+          "episodes",
+          "art"
         ],
         "type": "object"
       },
@@ -260,6 +280,10 @@
           "name": {
             "type": "string"
           },
+          "poster": {
+            "description": "Its poster's hash: GET /art/{hash}/portrait-m.webp",
+            "type": "string"
+          },
           "year": {
             "format": "int64",
             "type": "integer"
@@ -302,6 +326,10 @@
           "season": {
             "format": "int64",
             "type": "integer"
+          },
+          "still": {
+            "description": "Its still's hash: GET /art/{hash}/landscape-s.webp",
+            "type": "string"
           },
           "year": {
             "format": "int64",
@@ -621,6 +649,9 @@
       "ItemDetailOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "art": {
+            "$ref": "#/components/schemas/ArtBody"
+          },
           "episode": {
             "$ref": "#/components/schemas/EpisodePlaceBody"
           },
@@ -689,7 +720,8 @@
           "ident",
           "libraryId",
           "versions",
-          "extras"
+          "extras",
+          "art"
         ],
         "type": "object"
       },
@@ -1329,6 +1361,76 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/art/{hash}/{file}": {
+      "get": {
+        "operationId": "getArt",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The image's hash, from a title's artwork",
+            "in": "path",
+            "name": "hash",
+            "required": true,
+            "schema": {
+              "description": "The image's hash, from a title's artwork",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A size and a format: portrait-m.webp, landscape-l.jpeg",
+            "in": "path",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "description": "A size and a format: portrait-m.webp, landscape-l.jpeg",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {},
+              "image/webp": {}
+            },
+            "description": "The image",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Type": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "307": {
+            "description": "The nearest size, while this one is made or when it cannot be"
+          }
+        },
+        "summary": "One size of one image, in WebP or JPEG (D212)",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
     "/collections/{id}": {
       "get": {
         "operationId": "getCollection",

@@ -11,7 +11,8 @@ import (
 )
 
 // artDirectory holds the artwork under the cache directory (D212): one directory per image,
-// named by the hash of its source, holding one file per size and format.
+// named by the hash of its source, holding one file per size and format, and an empty .none file
+// for a size its source is too small to make.
 const artDirectory = "art"
 
 // ErrBadArtName is an artwork hash or file name that is not one the artwork store makes.
@@ -19,7 +20,7 @@ var ErrBadArtName = errors.New("not an artwork name")
 
 var (
 	artHash = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	artFile = regexp.MustCompile(`^[a-z]+-[a-z]+\.(webp|jpeg)$`)
+	artFile = regexp.MustCompile(`^[a-z]+-[a-z]+\.(webp|jpeg|none)$`)
 )
 
 // WriteArt stores one size of one image, atomically, mode 0600. Its names are ours, not
@@ -57,6 +58,29 @@ func (directories *Directories) ReadArt(hash, name string) (contents []byte, err
 		return nil, fmt.Errorf("read art %s/%s: %w", hash, name, err)
 	}
 	return contents, nil
+}
+
+// HasArt reports whether one size of one image is stored, without reading it.
+func (directories *Directories) HasArt(hash, name string) (found bool, err error) {
+	if !artFile.MatchString(name) {
+		return false, fmt.Errorf("%q: %w", name, ErrBadArtName)
+	}
+	image, err := directories.openArt(hash, false)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Join(err, wrapIf("close the artwork directory", image.Close())) }()
+	_, err = image.Stat(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("look for art %s/%s: %w", hash, name, err)
+	}
+	return true, nil
 }
 
 // RemoveArt removes one size of one image; one already gone is not an error.

@@ -55,6 +55,18 @@ counted:
 - **Process lesson:** when a decision puts a person in a loop ("asked", "confirms", "chooses"),
   add the endpoint and the screen for their answer to the plan in the same change.
 
+### P19 — JPEG is cut from the WebP of its size, not from the base (M2, 2026-09-25) · refinement
+
+- **Planned:** D212 §4: "JPEG is cut by the core on the first request for it, from the base".
+- **What happened:** the core cuts a size's JPEG from the WebP of the same size, which the node
+  cut from the source. Both are one lossy step from our own encode; cutting from the base would
+  add a resize, and so a resampler, to the one core package that decodes images, for no gain in
+  quality. A size with no WebP yet redirects to the nearest size's JPEG.
+- **Why the plan missed it:** D212 named where JPEG comes from before the sizes were settled as
+  each being made by the node.
+- **Cost:** none.
+- **Process lesson:** none new; recorded so the decision's text and the code agree.
+
 ### P17 — A migration drafted, applied by the dev loop, then edited (M2, 2026-09-25) · gate-design
 
 - **Planned:** migrations are append-only, enforced by the pre-edit hook on committed steps and

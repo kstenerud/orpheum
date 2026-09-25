@@ -217,6 +217,7 @@ func TestArt_StoresReadsAndRemovesOnlyItsOwnNames(t *testing.T) {
 	if _, err := directories.ReadArt(hash, "portrait-s.webp"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("a size never written: %v, want ErrNotFound", err)
 	}
+
 	for _, name := range []string{"../../state/library.db", "portrait-m.webp/../x", ".hidden", "poster.png"} {
 		if err := directories.WriteArt(hash, name, nil); !errors.Is(err, ErrBadArtName) {
 			t.Errorf("WriteArt(%q) = %v, want ErrBadArtName", name, err)
@@ -233,5 +234,29 @@ func TestArt_StoresReadsAndRemovesOnlyItsOwnNames(t *testing.T) {
 	}
 	if err := directories.RemoveArt(hash, "portrait-m.webp"); err != nil {
 		t.Errorf("removing again: %v", err)
+	}
+}
+
+func TestHasArt_SaysWhetherASizeIsStoredWithoutReadingIt(t *testing.T) {
+	t.Parallel()
+	directories := prepareTemporary(t)
+	hash := strings.Repeat("ab", 32)
+	if err := directories.WriteArt(hash, "portrait-m.webp", []byte("RIFF")); err != nil {
+		t.Fatal(err)
+	}
+	for _, check := range []struct {
+		hash, name string
+		want       bool
+	}{
+		{hash, "portrait-m.webp", true},
+		{hash, "portrait-l.none", false},
+		{strings.Repeat("cd", 32), "portrait-m.webp", false},
+	} {
+		if found, err := directories.HasArt(check.hash, check.name); found != check.want || err != nil {
+			t.Errorf("HasArt(%s, %s) = %v, %v; want %v", check.hash[:4], check.name, found, err, check.want)
+		}
+	}
+	if _, err := directories.HasArt(hash, "../x"); !errors.Is(err, ErrBadArtName) {
+		t.Errorf("HasArt of a path: %v, want ErrBadArtName", err)
 	}
 }

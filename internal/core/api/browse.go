@@ -22,6 +22,18 @@ type EntryBody struct {
 	Ident     string `json:"ident"`
 	LibraryID int64  `json:"libraryId"`
 	AddedAt   int64  `json:"addedAt"`
+	Poster    string `doc:"Its poster's hash: GET /art/{hash}/portrait-m.webp" json:"poster,omitempty"`
+}
+
+// ArtBody is the images an item shows, by the hash GET /art/{hash}/{size}.{format} takes.
+type ArtBody struct {
+	Poster   string `json:"poster,omitempty"`
+	Backdrop string `json:"backdrop,omitempty"`
+	Still    string `doc:"An episode's frame" json:"still,omitempty"`
+}
+
+func artBody(art library.Art) ArtBody {
+	return ArtBody{Poster: art.Poster, Backdrop: art.Backdrop, Still: art.Still}
 }
 
 // TitlesInput asks for one page of films or series.
@@ -96,6 +108,7 @@ type ItemDetailOutput struct {
 		Versions  []VersionBody     `json:"versions"`
 		Extras    []ExtraBody       `json:"extras"`
 		Episode   *EpisodePlaceBody `json:"episode,omitempty"`
+		Art       ArtBody           `json:"art"`
 	}
 }
 
@@ -109,6 +122,7 @@ type EpisodeBody struct {
 	RuntimeMs int64  `json:"runtimeMs,omitempty"`
 	Ident     string `json:"ident"`
 	Available bool   `doc:"Whether it has a live file" json:"available"`
+	Still     string `doc:"Its still's hash: GET /art/{hash}/landscape-s.webp" json:"still,omitempty"`
 }
 
 // CollectionOutput is a series with its episodes in aired order.
@@ -122,6 +136,7 @@ type CollectionOutput struct {
 		Ident     string        `json:"ident,omitempty"`
 		LibraryID int64         `json:"libraryId"`
 		Episodes  []EpisodeBody `json:"episodes"`
+		Art       ArtBody       `json:"art"`
 	}
 }
 
@@ -183,7 +198,7 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 	for _, entry := range page.Entries {
 		output.Body.Titles = append(output.Body.Titles, EntryBody{
 			ID: entry.ID, Name: entry.Name, Year: entry.Year, Ident: entry.Ident, LibraryID: entry.LibraryID,
-			AddedAt: entry.AddedAt,
+			AddedAt: entry.AddedAt, Poster: entry.Poster,
 		})
 	}
 	output.Body.NextCursor = page.Next
@@ -226,6 +241,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	for _, extra := range detail.Extras {
 		body.Extras = append(body.Extras, ExtraBody{ID: extra.ExtraTitle, Type: extra.Type, Name: text(extra.Name)})
 	}
+	body.Art = artBody(detail.Art)
 	if place := detail.Episode; place != nil {
 		body.Episode = &EpisodePlaceBody{
 			SeriesID: place.CollectionID, SeriesName: text(place.SeriesName), Season: number(place.Grp),
@@ -253,9 +269,10 @@ func (server *Server) getCollection(ctx context.Context, input *ItemInput) (*Col
 		body.Episodes = append(body.Episodes, EpisodeBody{
 			ID: episode.TitleID, Season: number(episode.Grp), Number: number(episode.Number), Name: text(episode.Name),
 			Year: number(episode.Year), RuntimeMs: number(episode.RuntimeMs), Ident: episode.Ident,
-			Available: episode.Available,
+			Available: episode.Available, Still: series.Stills[episode.TitleID],
 		})
 	}
+	body.Art = artBody(series.Art)
 	return output, nil
 }
 
