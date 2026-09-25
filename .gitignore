@@ -17,5 +17,6 @@ web/**/.vite/
 /.claude/settings.local.json
 __pycache__/
 *.pyc
-# the built web client, copied in by `make build` (D216 §2)
-/internal/core/webclient/dist/
+# the built web client, copied in by `make build` (D216 §2); the placeholder keeps the directory
+/internal/core/webclient/dist/*
+!/internal/core/webclient/dist/.keep
