@@ -137,8 +137,8 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
 - **Every released version has a golden fixture; every golden migrates to a schema equal to a
   fresh install's; killing the runner after any step and restarting ends identical; a step
   takes under 10 s at the reference scale.** **Enforced by:** the migration tests in
-  `internal/store`; the 10 s budget is **review-only** until M2 builds the reference-scale
-  database (audit 2026-09-24, §3.2).
+  `internal/store`; the 10 s budget by `TestReferenceScale` in its integration tier, which fills
+  a schema-1 database with the reference library (about 46 MB) and times every later step.
 
 ## 6. Tombstones and deletes
 
@@ -223,8 +223,10 @@ page budget ([performance-targets.md](../design/plans/performance-targets.md)).
 - **A correlated check is a `LIMIT 1` scalar subquery driven by an index**, not an `EXISTS` the
   planner may turn into a scan.
 - **Pages use keyset pagination** (`WHERE (sort_key, id) > (?, ?) … LIMIT ?`), never `OFFSET`.
-- **Enforced by:** review now; a test that runs `EXPLAIN QUERY PLAN` over every `List…` query at
-  the reference scale and fails on an unlisted `SCAN` *(M2)*.
+- **Enforced by:** `TestReferenceScale` (the integration tier): it reads every `List…` query's
+  plan at the reference scale and fails on a full scan not listed, with its reason, in
+  `fullScansAllowed`; and it times each browse page against the 50 ms budget. Its first run found
+  every list's live-file check reading all files for each title — seconds a page.
 
 ## 12. Backups
 
