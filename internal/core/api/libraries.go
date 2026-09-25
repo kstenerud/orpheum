@@ -140,6 +140,10 @@ func (server *Server) registerLibraries() {
 		Summary: "Create a library over a node's roots, and scan it (admin)", Tags: tags,
 	}, server.createLibrary)
 	huma.Register(server.api, huma.Operation{
+		OperationID: "getNodes", Method: http.MethodGet, Path: "/nodes",
+		Summary: "The nodes, and the roots each connected one configured, for a new library (admin)", Tags: tags,
+	}, server.getNodes)
+	huma.Register(server.api, huma.Operation{
 		OperationID: "getLibraries", Method: http.MethodGet, Path: "/libraries",
 		Summary: "The libraries; an admin also sees their roots and files by filing", Tags: tags,
 	}, server.getLibraries)
@@ -182,6 +186,38 @@ func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInp
 	}
 	output := &CreatedOutput{}
 	output.Body.ID = id
+	return output, nil
+}
+
+// NodeBody is one node, and the roots it configured when it is connected (D107).
+type NodeBody struct {
+	Name      string   `json:"name"`
+	Connected bool     `doc:"Whether it has said hello since the server started" json:"connected"`
+	Roots     []string `doc:"Its configured roots; empty while it is not connected" json:"roots"`
+}
+
+// NodesOutput is every enrolled node.
+type NodesOutput struct {
+	Body struct {
+		Nodes []NodeBody `json:"nodes"`
+	}
+}
+
+func (server *Server) getNodes(ctx context.Context, input *AuthorizationHeader) (*NodesOutput, error) {
+	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	nodes, err := dependencies.Libraries.NodeRoots(ctx)
+	if err != nil {
+		return nil, server.internal(ctx, "list nodes", err)
+	}
+	output := &NodesOutput{}
+	output.Body.Nodes = make([]NodeBody, 0, len(nodes))
+	for _, node := range nodes {
+		body := NodeBody{Name: node.Name, Connected: node.Connected, Roots: node.Roots}
+		output.Body.Nodes = append(output.Body.Nodes, body)
+	}
 	return output, nil
 }
 

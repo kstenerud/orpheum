@@ -51,6 +51,31 @@ func NewAdmin(database *store.Database, now clock.Clock, nodes Nodes) *Admin {
 	return &Admin{database: database, clock: now, nodes: nodes}
 }
 
+// NodeRoots is one enrolled node, and the roots its last hello named when it is connected: what
+// a new library's roots are chosen from (D107; audit-2026-09-25, proposal 5).
+type NodeRoots struct {
+	Name      string
+	Connected bool
+	Roots     []string
+}
+
+// NodeRoots is every enrolled node, by name, with the roots of those connected.
+func (admin *Admin) NodeRoots(ctx context.Context) ([]NodeRoots, error) {
+	enrolled, err := admin.database.Read().ListLiveNodes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list the nodes: %w", err)
+	}
+	listed := make([]NodeRoots, 0, len(enrolled))
+	for _, node := range enrolled {
+		_, roots, connected := admin.nodes.Roots(node.Name)
+		if roots == nil {
+			roots = []string{}
+		}
+		listed = append(listed, NodeRoots{Name: node.Name, Connected: connected, Roots: roots})
+	}
+	return listed, nil
+}
+
 // Request is a library an admin asks for: the three questions answered (D184), and the roots of
 // one node, by the node's name.
 type Request struct {

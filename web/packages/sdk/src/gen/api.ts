@@ -403,6 +403,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The nodes, and the roots each connected one configured, for a new library (admin) */
+        get: operations["getNodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search": {
         parameters: {
             query?: never;
@@ -782,6 +799,16 @@ export interface components {
             /** @example tmdb */
             provider: string;
             providerId: string;
+        };
+        NodeBody: {
+            /** @description Whether it has said hello since the server started */
+            connected: boolean;
+            name: string;
+            /** @description Its configured roots; empty while it is not connected */
+            roots: string[] | null;
+        };
+        NodesOutputBody: {
+            nodes: components["schemas"]["NodeBody"][] | null;
         };
         PutOverrideInputBody: {
             /** @description The value; year and runtime (milliseconds) are whole numbers */
@@ -1894,6 +1921,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getNodes: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodesOutputBody"];
                 };
             };
             /** @description Error */

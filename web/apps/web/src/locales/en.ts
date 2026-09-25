@@ -113,7 +113,10 @@ export const en = {
     writableHelp:
       "Read-only unless you allow it; while read-only, nothing is saved beside your files.",
     node: "Node",
-    roots: "Folders, one per line, as the node's configuration names them",
+    nodeAway: "{{name}} (not connected)",
+    roots: "Folders, as the node's configuration names them",
+    noNodes:
+      "No node has connected since the server started. Start one, and its folders show here.",
     create: "Create and scan",
   },
   files: {

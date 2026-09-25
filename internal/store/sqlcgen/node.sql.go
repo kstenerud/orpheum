@@ -82,6 +82,43 @@ func (q *Queries) InsertNode(ctx context.Context, arg InsertNodeParams) (int64, 
 	return id, err
 }
 
+const listLiveNodes = `-- name: ListLiveNodes :many
+SELECT id, name, enrolled_at
+FROM node
+WHERE removed_at IS NULL
+ORDER BY name
+`
+
+type ListLiveNodesRow struct {
+	ID         int64
+	Name       string
+	EnrolledAt int64
+}
+
+// Every enrolled node, for an admin choosing where a library's roots are.
+func (q *Queries) ListLiveNodes(ctx context.Context) ([]ListLiveNodesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveNodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLiveNodesRow{}
+	for rows.Next() {
+		var i ListLiveNodesRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.EnrolledAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateNodeReportSeq = `-- name: UpdateNodeReportSeq :exec
 UPDATE node SET report_seq = ?1 WHERE id = ?2
 `
