@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"path/filepath"
 	"syscall"
@@ -91,9 +92,34 @@ func (runner *Runner) RunInput(
 	return runner.run(ctx, tool, arguments, input, stdoutLimit)
 }
 
+// RunStreaming is Run for a long run whose stdout is read as it is written, such as FFmpeg's
+// -progress lines: stdout goes to the writer, not into memory.
+func (runner *Runner) RunStreaming(ctx context.Context, tool Tool, arguments []string, stdout io.Writer) error {
+	_, err := runner.start(ctx, tool, arguments, nil, stdout)
+	return err
+}
+
 func (runner *Runner) run(
 	ctx context.Context, tool Tool, arguments []string, input []byte, stdoutLimit int,
 ) ([]byte, error) {
+	stdout := &limitedBuffer{limit: stdoutLimit}
+	finished, err := runner.start(ctx, tool, arguments, input, stdout)
+	if err != nil {
+		return nil, err
+	}
+	if stdout.exceeded {
+		return nil, &RunError{
+			Tool: tool, Status: 0, StderrTail: finished.String(),
+			Err: fmt.Errorf("%w (%d bytes)", ErrOutputTooLarge, stdoutLimit),
+		}
+	}
+	return stdout.buffer.Bytes(), nil
+}
+
+// start runs tool to its end, writing its stdout to stdout, and returns the tail of its stderr.
+func (runner *Runner) start(
+	ctx context.Context, tool Tool, arguments []string, input []byte, stdout io.Writer,
+) (*tailBuffer, error) {
 	hardened, known := hardening(tool)
 	if !known {
 		return nil, fmt.Errorf("execx runs only ffmpeg and ffprobe, not %q", tool)
@@ -103,7 +129,6 @@ func (runner *Runner) run(
 		append(hardened, arguments...)...)
 	command.Env = []string{}
 	command.Dir = "/"
-	stdout := &limitedBuffer{limit: stdoutLimit}
 	stderr := &tailBuffer{limit: stderrTailBytes}
 	command.Stdout = stdout
 	command.Stderr = stderr
@@ -131,13 +156,8 @@ func (runner *Runner) run(
 	case err != nil:
 		status := command.ProcessState.ExitCode()
 		return nil, &RunError{Tool: tool, Status: status, StderrTail: stderr.String(), Err: err}
-	case stdout.exceeded:
-		return nil, &RunError{
-			Tool: tool, Status: 0, StderrTail: stderr.String(),
-			Err: fmt.Errorf("%w (%d bytes)", ErrOutputTooLarge, stdoutLimit),
-		}
 	}
-	return stdout.buffer.Bytes(), nil
+	return stderr, nil
 }
 
 // limitedBuffer keeps up to limit bytes and notes whether more came. It never refuses a write,

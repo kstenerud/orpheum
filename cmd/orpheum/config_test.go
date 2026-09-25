@@ -129,6 +129,7 @@ subtitle_extensions = ["srt"]
 max_errors_per_root = 1000
 probe_timeout_s = 60
 status_interval_s = 10
+prepared_dir = "/var/cache/orpheum/prepared"
 
 [log]
 level = "info"

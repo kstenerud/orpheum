@@ -19,6 +19,8 @@
 //     TestFile_RefusesAFileThatIsNoLongerTheOneAskedFor.
 //   - Nothing outside a root is served: not a path that climbs out, an absolute path, a
 //     directory or a root the node does not have. Enforced by TestFile_NamesNothingOutsideARoot.
+//   - A rendition's file is served only by a name of a rendition's shape, from the prepared
+//     directory, read-only. Enforced by TestRenditionFile_ServesARenditionsFilesAndNothingElse.
 //   - GET and HEAD only; Range and If-Range are honoured. Enforced by TestFile_OnlyReads and
 //     TestFile_HonoursRangeAndIfRange.
 //
@@ -31,5 +33,5 @@
 //
 // # Where to change
 //
-//   - byteserver.go: the file route. The prepared route (D217 §5) comes with prepare.
+//   - byteserver.go: the file route, and the prepared route (D217 §5).
 package byteserver

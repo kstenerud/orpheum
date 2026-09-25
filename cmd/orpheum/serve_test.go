@@ -114,11 +114,13 @@ subtitle_extensions = ["srt"]
 max_errors_per_root = 1000
 probe_timeout_s = 60
 status_interval_s = 10
+prepared_dir = %q
 
 [log]
 level = "debug"
 format = "json"
-`, filepath.Join(root, "state"), filepath.Join(root, "cache"), filepath.Join(root, "r"), filepath.Join(root, "ffmpeg"))
+`, filepath.Join(root, "state"), filepath.Join(root, "cache"), filepath.Join(root, "r"), filepath.Join(root, "ffmpeg"),
+		filepath.Join(root, "prepared"))
 	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}

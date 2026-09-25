@@ -16501,7 +16501,13 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
    budget. The core's record of a rendition is a note of what the node said it has: when the
    node answers that one is gone, the core prepares it again. `/doctor` shows each node's use.
    The byte path is `/bytes/v1/prepared/<file_id>/<profile>/<name>`, and eviction by the core is
-   not needed.
+   not needed. **The starting values** (the owner, 2026-09-25: *"ok sounds good"*, then *"Maybe
+   the cache should be default 200gb but also check that disk usage on that device isn't above
+   95%"*): a budget of 200 GiB, a grace of 3 days after the last play, and a second limit on the
+   filesystem that holds the directory: past 95% full, renditions are evicted as they are past
+   the budget, whatever the budget says, because a fixed budget cannot know what else shares
+   the disk. When nothing can be evicted and the disk is past it, a new prepare is refused with
+   a reason rather than filling the disk.
 6. **Subtitles are extracted when it is cheap to** (settles the gap in cut-a §4 and §6): a
    subtitle file beside the media is converted at scan; an embedded track, which means reading
    the whole file because its packets are spread through it, is extracted when the file is first

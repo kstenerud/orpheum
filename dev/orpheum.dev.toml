@@ -35,6 +35,7 @@ subtitle_extensions = ["srt", "ass", "ssa", "vtt"]
 max_errors_per_root = 1000
 probe_timeout_s = 60
 status_interval_s = 10
+prepared_dir = "{root}/.dev/cache/prepared"
 
 [log]
 level = "debug"

@@ -61,6 +61,7 @@ type NodeConfig struct {
 	MaxErrorsPerRoot   int      `toml:"max_errors_per_root"`
 	ProbeTimeoutS      int64    `toml:"probe_timeout_s"`
 	StatusIntervalS    int64    `toml:"status_interval_s"`
+	PreparedDir        string   `toml:"prepared_dir"`
 }
 
 // LogConfig is how the server logs.
@@ -95,7 +96,7 @@ func configKeys() []configKey {
 	return []configKey{
 		{tableServer, "listen", "", "the address and port to serve on, which only this machine's owner can choose"},
 		{tableServer, "data_dir", "", "where library.db, secret.key and backups live on this machine"},
-		{tableServer, "cache_dir", "", "where cache.db and prepared renditions live on this machine"},
+		{tableServer, "cache_dir", "", "where cache.db and the artwork cache live on this machine"},
 		{tableServer, "read_header_timeout_s", "10", "seconds a client has to send its request headers"},
 		{tableServer, "shutdown_grace_s", "10", "seconds in-flight requests get to finish when the server stops"},
 		{
@@ -133,6 +134,10 @@ func configKeys() []configKey {
 		{
 			tableNode, "status_interval_s", "10",
 			"seconds between the node's status records; keep it well under the core's node_silent_after_s",
+		},
+		{
+			tableNode, "prepared_dir", `"/var/cache/orpheum/prepared"`,
+			"where this node's prepared renditions live; the node alone deletes there (D217 §5)",
 		},
 		{tableLog, "level", `"info"`, "debug, info, warn or error"},
 		{tableLog, "format", `"json"`, "json for the service's journal, text for a person's terminal"},
