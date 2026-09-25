@@ -21,6 +21,7 @@ const (
 
 	filingListed       = "listed"
 	filingUnidentified = "unidentified"
+	filingExtra        = "extra"
 
 	fieldName     = "name"
 	fieldOverview = "overview"

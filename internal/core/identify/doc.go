@@ -30,6 +30,10 @@
 //   - Films, versions, extras by containment and episodes in their series' aired order come from
 //     the paths and NFO files (D155, D162, D96). TestPass_TheDevLibrarysFilms,
 //     TestPass_ASeriesFromItsFoldersAndItsTvshowNFO.
+//   - An extra is one by a vocabulary folder in its title's folder, or by being named for that
+//     title with a vocabulary suffix; a suffix alone, or at a library root, makes none. It is filed
+//     `extra`, with its type, its owner and the evidence (D162, D163).
+//     TestPass_AFileNamedForItsFoldersTitleWithASuffixIsAnExtra, TestPass_TheDevLibrarysFilms.
 //   - A renamed or moved file is identified again from its new path, unless a person confirmed
 //     its match (D208 §1). TestPass_ARenamedFileIsIdentifiedAgainUnlessConfirmed.
 //   - A title with no live files left follows them to another library, found by provider id
