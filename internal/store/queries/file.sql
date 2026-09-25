@@ -9,10 +9,12 @@ WHERE library_root.node_id = ? AND library_root.path = ? AND library.removed_at 
 ORDER BY library_root.library_id
 LIMIT 1;
 
--- name: GetLiveFileByPath :one
+-- name: GetLiveFileByKey :one
+-- A live file by the bytes its node reported (D211): two names that are one NFC text are two
+-- files.
 SELECT id, payload_hash, last_seen
 FROM file
-WHERE node_id = ? AND path = ? AND removed_at IS NULL;
+WHERE node_id = sqlc.arg(node_id) AND path_key = sqlc.arg(path_key) AND removed_at IS NULL;
 
 -- name: ListLiveFilesByHash :many
 SELECT id, path, last_seen
@@ -22,10 +24,10 @@ ORDER BY id;
 
 -- name: InsertFile :one
 INSERT INTO file (
-  library_id, node_id, path, path_raw, size, mtime, payload_hash, payload_len,
+  library_id, node_id, path, path_raw, path_key, size, mtime, payload_hash, payload_len,
   filing, filing_reason, error_detail, probe, first_seen, last_seen
 ) VALUES (
-  sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(path_raw), sqlc.arg(size),
+  sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(path_raw), sqlc.arg(path_key), sqlc.arg(size),
   sqlc.arg(mtime), sqlc.arg(payload_hash), sqlc.arg(payload_len), sqlc.arg(filing),
   sqlc.arg(filing_reason), sqlc.arg(error_detail), sqlc.arg(probe), sqlc.arg(seen), sqlc.arg(seen)
 )
@@ -38,6 +40,7 @@ UPDATE file SET
   library_id = sqlc.arg(library_id),
   path = sqlc.arg(path),
   path_raw = sqlc.arg(path_raw),
+  path_key = sqlc.arg(path_key),
   size = sqlc.arg(size),
   mtime = sqlc.arg(mtime),
   payload_hash = sqlc.arg(payload_hash),
@@ -110,9 +113,10 @@ ORDER BY stream_index;
 
 -- name: InsertSidecarFile :one
 INSERT INTO file (
-  library_id, node_id, path, path_raw, size, mtime, filing, filing_reason, sidecar_body, first_seen, last_seen
+  library_id, node_id, path, path_raw, path_key, size, mtime, filing, filing_reason, sidecar_body, first_seen,
+  last_seen
 ) VALUES (
-  sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(path_raw), sqlc.arg(size),
+  sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(path_raw), sqlc.arg(path_key), sqlc.arg(size),
   sqlc.arg(mtime), 'attached', sqlc.arg(kind), sqlc.arg(body), sqlc.arg(seen), sqlc.arg(seen)
 )
 RETURNING id;

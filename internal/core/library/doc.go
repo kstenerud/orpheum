@@ -26,6 +26,9 @@
 //     the root as scanned in the same transaction (D39, D40, schema.md root_scan).
 //     TestIngest_OnlyACompletedScanRemovesAndNeverWhereItCouldNotRead.
 //   - Paths are stored in NFC beside their bytes (D49). TestIngest_APathIsStoredInNFCBesideItsBytes.
+//   - A file is known by the bytes its node reported, so two names that are one NFC text — two
+//     invalid UTF-8 names, or two normalisations of one name — are two files (D211).
+//     TestIngest_TwoNamesThatAreOneTextAreTwoFiles.
 //   - A clean scan of an unplugged disk's empty mount point removes nothing: a changed device or
 //     mount, or a removal of all of a root's files or more than half and more than twenty, waits
 //     for the admin (D41, D208 §3). TestScenario_S7_S8_AnUnpluggedDiskRemovesNothingAndItsReturnRestoresEverything,

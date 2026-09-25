@@ -16195,3 +16195,30 @@ viewed in."*
    order when an admin changes the on-disk one.
 
 **Status:** Decided; not built (after Cut A, unless a show in the owner's library needs it first).
+
+## D211 — Text hygiene: a file is known by its bytes, display text goes through one sanitiser, subtitles are converted before they are shown, and usernames are compared by skeleton
+
+**Decided** (2026-09-25), by the project owner, raising it: *"One thing we'll want to be careful
+about is UTF-8 shenanigans. For filenames we'll probably want to keep raw bytes and then a
+cleaned, normalized string version. For subtitles we'll want to make sure the text can't mess up
+the display."* Extends [D49](#d49--unicode-discipline-at-the-boundaries-enforced-by-tests)'s rule
+— keep the original for provenance, normalise for use — to every place text enters.
+
+1. **A file is identified by the bytes its node reported**, not by its NFC text. Checking this
+   found that two files whose names are different invalid UTF-8 (`a\xff.mkv`, `a\xfe.mkv`) both
+   became `a�.mkv` and the library kept one of them; two names that differ only in Unicode
+   normalisation, which a Linux filesystem holds as two files, did the same. The NFC text stays
+   for display, search and D49's cross-node equality.
+2. **Text shown to a person passes through one sanitiser** where it enters the library —
+   filenames' display form, NFO and provider text, track titles, a person's overrides: bidi
+   controls, invisible characters and C0/C1 controls are removed, runs of combining marks are
+   capped and length is bounded. Identity and search keep their own forms. The web client also
+   isolates the direction of every name it shows.
+3. **Subtitles are converted by the node, never shown as found** (M3): encoding detected and
+   converted to UTF-8, cue text never rendered as HTML, ASS sizes and drawing coordinates
+   bounded, and embedded fonts parsed only inside the renderer's WASM sandbox.
+4. **Usernames are compared by their Unicode confusable skeleton**, so a look-alike of an
+   existing name is refused (M4, with invites).
+
+**Status:** Decided. Item 1 built with this decision; item 2 before the web client shows names;
+items 3 and 4 with their milestones.

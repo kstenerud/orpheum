@@ -60,3 +60,31 @@ func TestMigrate_RecordsEveryStepsChecksumAndRefusesOneThatChanged(t *testing.T)
 		t.Errorf("Migrate over a changed step = %v; want ErrStepChanged naming it", err)
 	}
 }
+
+func TestMigrate_Step0011KeysEveryFileByItsReportedBytes(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:10], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
+		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
+			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)",
+		"INSERT INTO file (library_id, node_id, path, path_raw, filing, first_seen, last_seen) VALUES "+
+			"(1, 1, '/m/plain.mkv', NULL, 'listed', 1, 1), (1, 1, '/m/a�.mkv', X'2F6D2F61FF2E6D6B76', 'listed', 1, 1)")
+	if err = database.migrate(t.Context(), steps[:11], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	rows := queryRows(t, database, "SELECT hex(path_key) FROM file ORDER BY id", 1)
+	if fmt.Sprint(rows) != "[[2F6D2F706C61696E2E6D6B76] [2F6D2F61FF2E6D6B76]]" {
+		t.Errorf("after step 0011, the keys are %v; want each file's reported bytes", rows)
+	}
+	// Two live files whose names are one NFC text are two files now.
+	execRaw(t, database, "INSERT INTO file (library_id, node_id, path, path_key, filing, first_seen, last_seen) "+
+		"VALUES (1, 1, '/m/a�.mkv', X'2F6D2F61FE2E6D6B76', 'listed', 1, 1)")
+}

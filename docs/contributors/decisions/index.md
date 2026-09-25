@@ -56,7 +56,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D46](working-notes.md#d46--no-translated-string-is-ever-stored-in-the-database) No translated string is ever stored in the database
 - [D47](working-notes.md#d47--sort-order-is-a-materialised-cldr-sort-key-per-item-per-locale) Sort order is a materialised CLDR sort key, per item per locale
 - [D48](working-notes.md#d48--two-fts5-tokenisers-routed-by-script-and-length-and-exactly-one-normaliser) Two FTS5 tokenisers, routed by script and length, and exactly one normaliser
-- [D49](working-notes.md#d49--unicode-discipline-at-the-boundaries-enforced-by-tests) Unicode discipline at the boundaries, enforced by tests
+- [D49](working-notes.md#d49--unicode-discipline-at-the-boundaries-enforced-by-tests) Unicode discipline at the boundaries, enforced by tests — *revisited by D211*
 - [D50](working-notes.md#d50--build-libass-correctly-and-turn-off-vsfilter-bug-compatibility-for-non-authored-subtitles) Build libass correctly and turn off VSFilter bug-compatibility for non-authored subtitles — *revisited by D53*
 - [D51](working-notes.md#d51--react-i18next-catalogues-served-by-us-weblate-deferred) react-i18next, catalogues served by us, Weblate deferred
 - [D52](working-notes.md#d52--pseudo-localisation-is-the-default-development-build) Pseudo-localisation is the default development build
@@ -216,6 +216,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D208](working-notes.md#d208--the-scenario-walks-answers-re-identify-on-rename-unless-confirmed-a-title-follows-its-files-between-libraries-withhold-removals-past-half-and-twenty-and-a-returning-payload-revives-its-tombstone) The scenario walk's answers: re-identify on rename unless confirmed, a Title follows its files between libraries, withhold removals past half and twenty, and a returning payload revives its tombstone
 - [D209](working-notes.md#d209--for-shows-the-series-is-what-is-identified-its-episodes-follow-it-by-season-and-number) For shows, the series is what is identified; its episodes follow it by season and number
 - [D210](working-notes.md#d210--a-series-has-an-on-disk-order-its-files-are-numbered-in-and-a-viewing-order-each-person-chooses-built-after-cut-a) A series has an on-disk order its files are numbered in, and a viewing order each person chooses; built after Cut A
+- [D211](working-notes.md#d211--text-hygiene-a-file-is-known-by-its-bytes-display-text-goes-through-one-sanitiser-subtitles-are-converted-before-they-are-shown-and-usernames-are-compared-by-skeleton) Text hygiene: a file is known by its bytes, display text goes through one sanitiser, subtitles are converted before they are shown, and usernames are compared by skeleton
 
 ## Archived
 
