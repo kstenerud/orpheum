@@ -11,6 +11,9 @@
 :root {
   --color-text: #1b1b1f;
   --color-background: #fafafa;
+  --color-problem: #a4161a;
+  --color-muted: #5c5c66;
+  --color-surface: #ffffff;
   --font-body: system-ui, sans-serif;
   --font-size-title: 1.5rem;
   --space-page: 1rem;

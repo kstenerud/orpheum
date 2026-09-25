@@ -8,13 +8,58 @@
 .app-shell {
   min-height: 100vh;
   margin: 0;
-  padding: var(--space-page);
   color: var(--color-text);
   background: var(--color-background);
   font-family: var(--font-body);
 }
 
+.app-shell__banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-page);
+  padding: var(--space-page);
+  background: var(--color-surface);
+}
+
 .app-shell__title {
   margin: 0;
   font-size: var(--font-size-title);
+  font-weight: bold;
+}
+
+.app-shell__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-page);
+}
+
+.app-shell__nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-page);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-shell__nav [aria-current="page"] {
+  font-weight: bold;
+}
+
+.app-shell__main {
+  padding: var(--space-page);
+}
+
+/* A label and its control sit side by side with room between them; a theme restyles this. */
+.app-shell__main label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--space-page) / 2);
+}
+
+.app-shell__main fieldset label {
+  display: flex;
 }

@@ -12,8 +12,17 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `control-has-associated-label`.
 - **No user-visible text written inline in JSX** (D51). `no-restricted-syntax` on `JSXText`
   and literal `aria-label`/`title`/`alt`/`placeholder`.
-- **The shell renders one `main` landmark headed by the product name.**
+- **The shell renders a banner with the product name and the menu, and one `main` landmark;**
+  an admin's destinations show to an admin only (the server refuses them to anyone else).
   `src/app-shell.test.tsx`.
+- **Every screen is a pure view of its data, tested by rendering it**; the loading around it is
+  thin. `src/*.test.tsx`.
+- **The session token travels in the Authorization header**; images load through the media
+  cookie sign-in sets (D154), by addresses from `artUrl` in `@orpheum/sdk`.
+- **Lists have no pagination to click through** (web-client.md): the next page loads as the
+  end comes into view, with a button that always asks too. `src/end-of-list.tsx`.
+- **About credits TMDB with its logo and exact notice, and names what we are built on**
+  (D213 §7). `src/about.test.tsx`.
 - **Focus only adds** (D189): ring, lift and modest scale are custom properties in
   `src/tokens.css`. Review-only until the first tile lands; then the geometry and luminance
   tests of [testing-strategy.md](../../../docs/contributors/design/plans/testing-strategy.md) enforce it.
@@ -28,6 +37,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
 
 ## Where to change
 
-- The frame every screen renders in: `src/app-shell.tsx`.
+- The frame every screen renders in: `src/app-shell.tsx`; which screen an address names:
+  `src/router.ts` and `src/app.tsx`.
+- The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `search.tsx`,
+  `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx`, `files.tsx` (what
+  the scanner saw), `about.tsx`, `sign-in.tsx`.
+- Every user-visible string: `src/locales/en.ts`, through react-i18next (D51).
 - Colours, sizes, focus effects: `src/tokens.css`, never a component's CSS.
 - The mount point: `src/main.tsx` and `index.html`.

@@ -55,6 +55,7 @@ type TitlesOutput struct {
 
 // StreamBody is one stream of a file.
 type StreamBody struct {
+	ID       int64   `doc:"Stable while the file is unchanged" json:"id"`
 	Kind     string  `json:"kind"`
 	Codec    *string `json:"codec,omitempty"`
 	Lang     *string `doc:"BCP 47" json:"lang,omitempty"`
@@ -229,7 +230,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 			}
 			for _, stream := range file.Streams {
 				fileBody.Streams = append(fileBody.Streams, StreamBody{
-					Kind: stream.Kind, Codec: stream.Codec, Lang: stream.Lang, Title: stream.TitleRaw,
+					ID: stream.ID, Kind: stream.Kind, Codec: stream.Codec, Lang: stream.Lang, Title: stream.TitleRaw,
 					Channels: stream.Channels,
 				})
 			}

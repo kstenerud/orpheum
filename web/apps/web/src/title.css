@@ -1,0 +1,37 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.title__backdrop {
+  display: block;
+  width: 100%;
+  max-height: 40vh;
+  object-fit: cover;
+}
+
+.title__head {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) 1fr;
+  gap: var(--space-page);
+  align-items: start;
+  padding-block: var(--space-page);
+}
+
+.title__still {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.title__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-page);
+  color: var(--color-muted);
+}
+
+.title__tagline {
+  font-style: italic;
+}
+
+.title__file code {
+  overflow-wrap: anywhere;
+}

@@ -36,3 +36,23 @@ export function createApi(options: ApiOptions): Api {
   api.use(authorise);
   return api;
 }
+
+/** The sizes an image is served at (D212): a closed set, as the server names them. */
+export type ArtSize =
+  | "portrait-s"
+  | "portrait-m"
+  | "portrait-l"
+  | "landscape-s"
+  | "landscape-m"
+  | "landscape-l"
+  | "landscape-xl"
+  | "logo-s"
+  | "logo-m";
+
+/**
+ * The address of one size of an image, by the hash a title's artwork names. An <img> sends the
+ * media cookie sign-in set, never a token in the address (D154).
+ */
+export function artUrl(hash: string, size: ArtSize, format: "webp" | "jpeg" = "webp"): string {
+  return `${apiPrefix}/art/${encodeURIComponent(hash)}/${size}.${format}`;
+}
