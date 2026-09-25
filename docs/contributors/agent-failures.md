@@ -49,6 +49,34 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A6 — A decided rule left unbuilt behind a comment naming code that never existed (2026-09-25)
+
+- **What happened:** D162's second evidence of an extra (`Film (1999)-trailer.mkv` beside its
+  film) and D163's `extra` filing were decided and in the plan, and neither was built: a comment
+  in `extras.go` said the suffix case was "settled once the folder's film is known
+  (extraBySuffix)", and no `extraBySuffix` existed. The comment read as a pointer to working code,
+  so nobody looked; such a file joined the film's title as another version, and every extra was
+  filed `listed`. The same shape as A3: a rule built without reading every decision that governs
+  it.
+- **Caught by:** the M2 acceptance test's 200-file fixture tree, on its first run, which checked
+  that a trailer or featurette of a film is filed `extra`. Fixed in an earlier commit.
+- **Gate:** the acceptance fixture, now. A check that identifiers named in comments exist was
+  proposed and weighed against its noise (audit-2026-09-25 §2.1).
+
+### A5 — A failure policy for another host's answers decided in code (2026-09-25)
+
+- **What happened:** the artwork job recorded an image TMDB's CDN answered 404 for as missing,
+  for good, and the summary to the owner said so as settled: "a refusal or a missing image is
+  recorded with no hash, so it is not fetched again". A 404 there usually means our stored record
+  is stale — TMDB replaced the image — and can be a CDN fault; giving up left a blank forever. The
+  belief came from treating a 404 as the answer about the image, not about our copy of the record.
+- **Caught by:** the owner: *"If TMDB no longer has an image, shouldn't that be a trigger for us
+  to schedule another TMDB scan for that title? … They could also be experiencing technical
+  difficulties."* The research that followed (provider-etiquette.md) found TMDB's six-month limit
+  on keeping its data too, and D213 settled the policy.
+- **Gate:** none can decide policy. Proposed: standards name the failure classes of every call to
+  another host, each needing a stated policy before it is built (audit-2026-09-25 §2.2).
+
 ### A4 — A derived value's refresh tied to the step that happened to write it (2026-09-25)
 
 - **What happened:** sort keys (D47) were written by the identification pass beside each name,

@@ -40,59 +40,34 @@ counted:
 
 ## Log
 
-### P18 — D208's two admin answers had no endpoint (M2, 2026-09-25) · plan-gap
+### P24 — Creating a library needs a node's roots, and nothing lists them (M2, 2026-09-25) · plan-gap
 
-- **Planned:** D208 withholds a scan's removals "and the admin asked", and keeps a missing
-  disk's boundary "until the disk returns or the admin says it is gone". cut-a §5 lists every
-  endpoint.
-- **What happened:** §5 had no endpoint for either answer; building the Libraries API found it.
-  The owner approved two: approve a root's removals, and say a disk is gone. Both approve the
-  root's *next* scan rather than replaying the withheld one, whose unreadable regions were never
-  kept (migration 0008).
-- **Why the plan missed it:** D208 was decided after the plan's endpoint table was written, and
-  a decision that says "the admin is asked" did not prompt anyone to add where the admin answers.
-- **Cost:** one proposal round; a migration.
-- **Process lesson:** when a decision puts a person in a loop ("asked", "confirms", "chooses"),
-  add the endpoint and the screen for their answer to the plan in the same change.
+- **Planned:** cut-a §5's `POST /libraries` takes a node's name and roots its node configured
+  (D107); the web client's create form asks three questions (D184).
+- **What happened:** building the form found no endpoint that lists nodes or their configured
+  roots. The form takes them typed; the server refuses a root the node did not name.
+- **Why the plan missed it:** the endpoint table was written from the server's side, where the
+  node's hello already carries its roots; the form's author is the first who has to know them.
+- **Cost:** a typed field for now; `GET /nodes` proposed (audit-2026-09-25, proposal 5).
+- **Process lesson:** for every write endpoint, check that a client can learn every value it has
+  to send.
 
-### P19 — JPEG is cut from the WebP of its size, not from the base (M2, 2026-09-25) · refinement
+### P23 — The plan never said how an image beside the media ranks against a provider's (M2, 2026-09-25) · plan-gap
 
-- **Planned:** D212 §4: "JPEG is cut by the core on the first request for it, from the base".
-- **What happened:** the core cuts a size's JPEG from the WebP of the same size, which the node
-  cut from the source. Both are one lossy step from our own encode; cutting from the base would
-  add a resize, and so a resampler, to the one core package that decodes images, for no gain in
-  quality. A size with no WebP yet redirects to the nearest size's JPEG.
-- **Why the plan missed it:** D212 named where JPEG comes from before the sizes were settled as
-  each being made by the node.
-- **Cost:** none.
-- **Process lesson:** none new; recorded so the decision's text and the code agree.
+- **Planned:** artwork.md named "images beside the media" as a source, and D183 says NFO files
+  come before a provider where the library reads them; nothing said which image shows when a
+  film has both its own `poster.jpg` and TMDB's.
+- **What happened:** the owner decided (D215): images beside the media are taken in every
+  library at once; where the library reads NFO files they win and the provider's of that kind is
+  not fetched; in a TMDB-only library the provider's replaces them once fetched. The owner amended it
+  mid-build, after seeing that the first version ignored local images in TMDB-only libraries.
+- **Why the plan missed it:** artwork was planned as one pipeline from one source; the question
+  only exists once there are two sources for the same slot.
+- **Cost:** one decision, amended once; the ranking lives in one query.
+- **Process lesson:** wherever two sources can fill the same slot, the plan says which wins, and
+  what the other one is for.
 
-### P20 — The media cookie is Secure only over TLS until the HTTPS name (M2, 2026-09-25) · refinement
-
-- **Planned:** D154: the media cookie is `Secure`, `HttpOnly`, `SameSite`, scoped to the byte
-  paths.
-- **What happened:** Cut A has no TLS until M4's HTTPS name, and a browser never sends a
-  `Secure` cookie back over plain HTTP, so posters would not show in M2 and M3 anywhere but on
-  localhost. The cookie is `Secure` when the request came over TLS. The rest is as D154 says.
-- **Why the plan missed it:** D154 was written for the finished product, where every
-  connection is TLS; the milestones put TLS after the first client that needs the cookie.
-- **Cost:** none; once M4 serves every client over TLS, the cookie is always `Secure`.
-- **Process lesson:** when a decision assumes a transport, check the milestone that first
-  needs it has that transport.
-
-### P21 — A person's refresh endpoint, from D213 (M2, 2026-09-25) · plan-change
-
-- **Planned:** cut-a §5 had no refresh; D170 allowed a refresh only when the user asks, per
-  title or per library, and no scheduled refresh.
-- **What happened:** the owner decided D213 after the research into provider etiquette:
-  `POST /items/{id}/refresh` for one title or series, as often as a person likes; no
-  library-wide refresh; a rolling refresh per provider; a dead image checked once.
-- **Why the plan missed it:** TMDB's six-month limit on keeping its data was not known when
-  D170 was decided.
-- **Cost:** one research round; the refresh, the sweep and two settings.
-- **Process lesson:** before designing around an external service, read its terms of use.
-
-### P22 — The artwork ceiling keeps each shape's smallest size, and re-cuts from the base (M2, 2026-09-25) · refinement
+### P22 — The artwork ceiling keeps each shape's smallest size, and re-cuts from the base (M2, 2026-09-25) · plan-gap
 
 - **Planned:** D212 §6: never evict a live item's poster-wall size; evict bases last, "fetched
   again when next needed"; §2: every size is cut from the base.
@@ -108,6 +83,58 @@ counted:
 - **Cost:** the smallest sizes add about 0.6 GiB at the reference scale, mostly episode stills,
   to what is never evicted.
 - **Process lesson:** when a policy protects one case, check what serves the cases next to it.
+
+### P21 — A person's refresh endpoint, from D213 (M2, 2026-09-25) · plan-gap
+
+- **Planned:** cut-a §5 had no refresh; D170 allowed a refresh only when the user asks, per
+  title or per library, and no scheduled refresh.
+- **What happened:** the owner decided D213 after the research into provider etiquette:
+  `POST /items/{id}/refresh` for one title or series, as often as a person likes; no
+  library-wide refresh; a rolling refresh per provider; a dead image checked once.
+- **Why the plan missed it:** TMDB's six-month limit on keeping its data was not known when
+  D170 was decided.
+- **Cost:** one research round; the refresh, the sweep and two settings.
+- **Process lesson:** before designing around an external service, read its terms of use.
+
+### P20 — The media cookie is Secure only over TLS until the HTTPS name (M2, 2026-09-25) · plan-gap
+
+- **Planned:** D154: the media cookie is `Secure`, `HttpOnly`, `SameSite`, scoped to the byte
+  paths.
+- **What happened:** Cut A has no TLS until M4's HTTPS name, and a browser never sends a
+  `Secure` cookie back over plain HTTP, so posters would not show in M2 and M3 anywhere but on
+  localhost. The cookie is `Secure` when the request came over TLS. The rest is as D154 says.
+- **Why the plan missed it:** D154 was written for the finished product, where every
+  connection is TLS; the milestones put TLS after the first client that needs the cookie.
+- **Cost:** none; once M4 serves every client over TLS, the cookie is always `Secure`.
+- **Process lesson:** when a decision assumes a transport, check the milestone that first
+  needs it has that transport.
+
+### P19 — JPEG is cut from the WebP of its size, not from the base (M2, 2026-09-25) · plan-gap
+
+- **Planned:** D212 §4: "JPEG is cut by the core on the first request for it, from the base".
+- **What happened:** the core cuts a size's JPEG from the WebP of the same size, which the node
+  cut from the source. Both are one lossy step from our own encode; cutting from the base would
+  add a resize, and so a resampler, to the one core package that decodes images, for no gain in
+  quality. A size with no WebP yet redirects to the nearest size's JPEG.
+- **Why the plan missed it:** D212 named where JPEG comes from before the sizes were settled as
+  each being made by the node.
+- **Cost:** none.
+- **Process lesson:** none new; recorded so the decision's text and the code agree.
+
+### P18 — D208's two admin answers had no endpoint (M2, 2026-09-25) · plan-gap
+
+- **Planned:** D208 withholds a scan's removals "and the admin asked", and keeps a missing
+  disk's boundary "until the disk returns or the admin says it is gone". cut-a §5 lists every
+  endpoint.
+- **What happened:** §5 had no endpoint for either answer; building the Libraries API found it.
+  The owner approved two: approve a root's removals, and say a disk is gone. Both approve the
+  root's *next* scan rather than replaying the withheld one, whose unreadable regions were never
+  kept (migration 0008).
+- **Why the plan missed it:** D208 was decided after the plan's endpoint table was written, and
+  a decision that says "the admin is asked" did not prompt anyone to add where the admin answers.
+- **Cost:** one proposal round; a migration.
+- **Process lesson:** when a decision puts a person in a loop ("asked", "confirms", "chooses"),
+  add the endpoint and the screen for their answer to the plan in the same change.
 
 ### P17 — A migration drafted, applied by the dev loop, then edited (M2, 2026-09-25) · gate-design
 
