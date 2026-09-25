@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package textindex is how names are found and ordered: the one normaliser that folds text for
-// search, the CLDR sort keys a library lists in, and the routing of a search to the index that
-// can answer it. The identification pass writes with it; browse and search read with it.
+// Package textindex is how names are shown, found and ordered: the one display sanitiser, the
+// one normaliser that folds text for search, the CLDR sort keys a library lists in, and the
+// routing of a search to the index that can answer it. The identification pass writes with it;
+// browse and search read with it.
 //
 // # Invariants
 //
@@ -11,6 +12,10 @@
 //     TestArch_CoreNeverExecs.
 //   - It is the one normaliser (D48): every script's letters survive it, marks go, and the atomic
 //     letters no Unicode option decomposes are spelled out. TestFold_OneNormaliserForEveryScript.
+//   - It is the one display sanitiser (D211 §2): nothing it passes can reorder a display (bidi
+//     embeddings, overrides, isolates), hide in it (invisible characters, controls) or spill
+//     over it (combining marks past four on one letter, unbounded length); real scripts' marks,
+//     the bidi marks and the joiners survive. TestClean_NothingShownCanLieOrSpill.
 //   - Sort keys follow the locale, and numbers sort as numbers (D47).
 //     TestSorter_FollowsTheLocaleAndNumbers.
 //   - A search goes to the index that can answer it: a folded substring under three characters, the word index
@@ -22,9 +27,11 @@
 //   - D47: sort order is a materialised CLDR sort key, per item per locale.
 //   - D48: two FTS5 tokenisers, routed by script and length, and exactly one normaliser.
 //   - D49: Unicode discipline at the boundaries.
+//   - D211: text hygiene.
 //   - docs/contributors/design/research/internationalisation.md.
 //
 // # Where to change
 //
-//   - fold.go: the normaliser. sortkey.go: the sort keys. query.go: the search routing.
+//   - clean.go: the display sanitiser. fold.go: the search normaliser. sortkey.go: the sort keys.
+//     query.go: the search routing.
 package textindex
