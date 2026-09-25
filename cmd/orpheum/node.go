@@ -10,13 +10,17 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/node/artwork"
+	"github.com/kstenerud/orpheum/internal/node/byteserver"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/probe"
@@ -27,6 +31,10 @@ import (
 
 // coreSocket is the core's socket's name in server.socket_dir (cut-a §2).
 const coreSocket = "core.sock"
+
+// nodeSocket is the node's byte socket's name in server.socket_dir, from which the core reads
+// media bytes (cut-a §4, D193 §1).
+const nodeSocket = "node.sock"
 
 // errConfinementRequired refuses to run FFmpeg unconfined while confinement is not built.
 var errConfinementRequired = errors.New("node.confinement is \"require\", and confinement is not built " +
@@ -89,6 +97,11 @@ func runNodeScanning(
 		UID:                hello.UID,
 		GID:                hello.GID,
 	})
+	stopBytes, err := serveBytes(ctx, config, roots, logger)
+	if err != nil {
+		return err
+	}
+	defer stopBytes()
 	ticker := time.NewTicker(time.Duration(config.Node.StatusIntervalS) * time.Second)
 	defer ticker.Stop()
 	// An image's probe and each of its encodes are one FFmpeg run over one untrusted input each,
@@ -101,6 +114,27 @@ func runNodeScanning(
 	workers := agent.Workers{Scanner: scanning, Artwork: deriver}
 	node := agent.New(filepath.Join(config.Server.SocketDir, coreSocket), hello, roots, workers, clock.System{}, logger)
 	return node.Run(ctx, ticker.C)
+}
+
+// serveBytes serves the node's byte socket until the returned stop is called.
+func serveBytes(ctx context.Context, config Config, roots []*confine.MediaRoot, logger *slog.Logger) (func(), error) {
+	listener, err := datadir.ListenUnix(config.Server.SocketDir, nodeSocket)
+	if err != nil {
+		return nil, err
+	}
+	server := &http.Server{Handler: byteserver.New(roots).Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
+	logger.InfoContext(ctx, "serving the byte socket", "socket", listener.Addr().String())
+	var serving sync.WaitGroup
+	serving.Go(func() {
+		if serveErr := server.Serve(listener); !errors.Is(serveErr, http.ErrServerClosed) {
+			logger.ErrorContext(ctx, "the byte socket stopped", "err", serveErr)
+		}
+	})
+	return func() {
+		// A player's reads end with the node; the core answers them with node_silent.
+		_ = server.Close() //nolint:errcheck // the listener is ours and closing it cannot fail usefully
+		serving.Wait()
+	}, nil
 }
 
 // openRoots opens each configured media root. One that cannot be opened is logged and left out
