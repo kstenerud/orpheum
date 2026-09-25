@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
@@ -57,6 +58,10 @@ type Dependencies struct {
 	Browse *library.Browser
 	// Artwork serves the images titles show.
 	Artwork *artwork.Service
+	// Playback decides how a file plays and says where its bytes are.
+	Playback *playback.Service
+	// NodeBytes reads a file's bytes from its node.
+	NodeBytes NodeBytes
 	// ConfigFile is the config file's keys as the server runs with them, for /config to show.
 	ConfigFile []ConfigFileKey
 }
@@ -102,6 +107,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerBrowse()
 	server.registerArt()
 	server.registerDoctor()
+	server.registerPlayback()
 	return server
 }
 

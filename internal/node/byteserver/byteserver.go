@@ -14,13 +14,8 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
-
-// FilePath is the route of a file's bytes (cut-a §4). Its query names the file: `root`, one of
-// the node's roots as its hello named it; `path`, the file's path relative to that root as
-// unpadded base64url of its bytes, so a name that is not UTF-8 travels intact (D49); and `hash`,
-// the payload hash in hex the core knows the file by (D179).
-const FilePath = "/bytes/v1/file"
 
 // maxRemembered bounds the identities remembered between requests. A player's range requests
 // come for one file at a time; the bound only stops a long-running node growing.
@@ -54,12 +49,12 @@ func New(roots []*confine.MediaRoot) *Server {
 // Handler is the socket's HTTP handler: GET and HEAD only.
 func (server *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+FilePath, server.file)
+	mux.HandleFunc("GET "+nodeproto.PathBytesFile, server.file)
 	return mux
 }
 
-// file serves a file's bytes, honouring Range and If-Range, once its payload hash is the one the
-// core asked for.
+// file serves nodeproto.PathBytesFile: a file's bytes, honouring Range and If-Range, once its
+// payload hash is the one the core asked for.
 func (server *Server) file(writer http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
 	root, found := server.roots[query.Get("root")]
@@ -119,9 +114,4 @@ func (server *Server) identity(file *os.File, info fs.FileInfo, key seen) (strin
 	}
 	server.identities[key] = identity
 	return identity, nil
-}
-
-// EncodePath is a relative path as the file route's `path` expects it.
-func EncodePath(relative []byte) string {
-	return base64.RawURLEncoding.EncodeToString(relative)
 }

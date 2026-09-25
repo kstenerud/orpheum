@@ -114,7 +114,7 @@ func Decide(input Input) Decision {
 // axisReasons asks the menu's three axes of the original: its container, its picture and the
 // track a player starts with. It also says whether the picture can be copied as it is.
 func axisReasons(input Input) (reasons []Reason, videoFits bool) {
-	container, found := containerName(input.Probe.Format)
+	container, found := ContainerOf(input.Probe.Format)
 	if !found || !slices.Contains(input.Menu.Containers, container) {
 		reasons = append(reasons, ReasonContainer)
 	}

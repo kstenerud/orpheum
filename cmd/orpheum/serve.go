@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"path/filepath"
 	"sync"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
@@ -18,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/webclient"
@@ -152,6 +154,8 @@ func start(
 	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes)
 	dependencies.Browse = library.NewBrowser(database, opened.settings)
 	dependencies.Artwork = opened.metadata.artwork
+	dependencies.Playback = playback.NewService(database, opened.settings, clock.System{}, rand.Reader)
+	dependencies.NodeBytes = nodes.NewBytes(opened.nodes, filepath.Join(config.Server.SocketDir, nodeSocket))
 	server.Ready(dependencies)
 	return opened, nil
 }

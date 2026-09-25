@@ -33,12 +33,16 @@ type MediaCredentials struct {
 	Cookie string `cookie:"orpheum_media" doc:"The media cookie sign-in sets, for an <img>"`
 }
 
+// authorization is the credential as an Authorization header: the header's, else the cookie's.
+func (credentials MediaCredentials) authorization() string {
+	if credentials.Authorization == "" && credentials.Cookie != "" {
+		return "Bearer " + credentials.Cookie
+	}
+	return credentials.Authorization
+}
+
 // signedInForMedia authenticates a byte path's request by its header, else its media cookie.
 func (server *Server) signedInForMedia(ctx context.Context, credentials MediaCredentials) (*Dependencies, error) {
-	authorization := credentials.Authorization
-	if authorization == "" && credentials.Cookie != "" {
-		authorization = "Bearer " + credentials.Cookie
-	}
-	dependencies, _, err := server.signedIn(ctx, authorization)
+	dependencies, _, err := server.signedIn(ctx, credentials.authorization())
 	return dependencies, err
 }

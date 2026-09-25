@@ -9,17 +9,17 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/node/byteserver"
 	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -86,7 +86,50 @@ type scanResult struct {
 // in-process until the log says awaited, and stops.
 func scanOnce(t *testing.T, metadataSource, awaited string) scanResult {
 	t.Helper()
-	config, _ := testConfig(t)
+	shelved := filmOnNode(t, metadataSource)
+	config, media, nodeID := shelved.config, shelved.media, shelved.nodeID
+	captured := newCapturedLog("ready", awaited)
+	server := serveWithNode(t, config, captured, awaited)
+	if stopped := server.stop(); stopped != nil {
+		t.Errorf("serve returned %v", stopped)
+	}
+	return scanResult{config: config, log: captured, nodeID: nodeID, media: media}
+}
+
+func TestRun_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
+	t.Parallel()
+	scanned := scanOnce(t, "tmdb", "queued fetches")
+	config := scanned.config
+	if log := scanned.log.String(); !strings.Contains(log, `"awaitingMatch":1`) {
+		t.Errorf("the log does not say one film awaits its match:\n%s", log)
+	}
+	cache, err := store.OpenCache(t.Context(), filepath.Join(config.Server.CacheDir, "cache.db"), config.openOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = cache.Close() }() //nolint:errcheck // read only
+	jobs, err := cache.Read().ListJobs(t.Context(), 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(jobs) != 1 || jobs[0].Kind != "fetch" || jobs[0].State == "failed" {
+		t.Errorf("cache.db holds %+v; want one fetch job, waiting (no TMDB key is set)", jobs)
+	}
+}
+
+// shelf is a config whose node has one root and a library over it.
+type shelf struct {
+	config     Config
+	configPath string
+	media      string
+	nodeID     int64
+}
+
+// filmOnNode makes a config whose node has one root, holding a film and a text file, and a
+// library over it; the fake FFmpeg probes the film as Matroska with no streams.
+func filmOnNode(t *testing.T, metadataSource string) shelf {
+	t.Helper()
+	config, configPath := testConfig(t)
 	media := t.TempDir()
 	for name, contents := range map[string]string{"Film (2020)/Film (2020).mkv": "film", "notes.txt": "notes"} {
 		path := filepath.Join(media, name)
@@ -106,8 +149,13 @@ func scanOnce(t *testing.T, metadataSource, awaited string) scanResult {
 	config.Node.FFmpegDir = fake.Directory
 	config.Node.VideoExtensions = []string{"mkv"}
 	nodeID := createLibrary(t, config, media, metadataSource)
+	return shelf{config: config, configPath: configPath, media: media, nodeID: nodeID}
+}
 
-	captured := newCapturedLog("ready", awaited)
+// serveWithNode serves the core with the node running in-process, until the log says awaited;
+// the returned stop ends both, and so does the test's end.
+func serveWithNode(t *testing.T, config Config, captured capturedLog, awaited string) running {
+	t.Helper()
 	var start nodes.Starter = func(ctx context.Context) (nodes.Process, error) {
 		ctx, cancel := context.WithCancel(ctx)
 		node := &inProcessNode{done: make(chan struct{}), cancel: cancel}
@@ -133,32 +181,17 @@ func scanOnce(t *testing.T, metadataSource, awaited string) scanResult {
 		cancel()
 		t.Fatalf("serve returned before logging %q: %v\n%s", awaited, early, captured)
 	}
-	cancel()
-	if stopped := <-done; stopped != nil {
-		t.Errorf("serve returned %v", stopped)
+	stopped := false
+	stop := func() error {
+		if stopped {
+			return nil
+		}
+		stopped = true
+		cancel()
+		return <-done
 	}
-	return scanResult{config: config, log: captured, nodeID: nodeID, media: media}
-}
-
-func TestRun_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
-	t.Parallel()
-	scanned := scanOnce(t, "tmdb", "queued fetches")
-	config := scanned.config
-	if log := scanned.log.String(); !strings.Contains(log, `"awaitingMatch":1`) {
-		t.Errorf("the log does not say one film awaits its match:\n%s", log)
-	}
-	cache, err := store.OpenCache(t.Context(), filepath.Join(config.Server.CacheDir, "cache.db"), config.openOptions())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = cache.Close() }() //nolint:errcheck // read only
-	jobs, err := cache.Read().ListJobs(t.Context(), 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(jobs) != 1 || jobs[0].Kind != "fetch" || jobs[0].State == "failed" {
-		t.Errorf("cache.db holds %+v; want one fetch job, waiting (no TMDB key is set)", jobs)
-	}
+	t.Cleanup(func() { _ = stop() }) //nolint:errcheck // a stop the test already checked returns nil
+	return running{baseURL: "http://" + listener.Addr().String() + api.Prefix, stop: stop}
 }
 
 // createLibrary makes the database serve will open, with a library covering root on the
@@ -249,10 +282,8 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	target := "http://node" + byteserver.FilePath + "?" + url.Values{
-		"root": {media}, "path": {byteserver.EncodePath([]byte("film.mkv"))},
-		"hash": {hex.EncodeToString(identity.Hash[:])},
-	}.Encode()
+	named := nodeproto.BytesFile{Root: media, Path: []byte("film.mkv"), Hash: hex.EncodeToString(identity.Hash[:])}
+	target := "http://node" + named.Target()
 	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, http.NoBody)
 	if err != nil {
 		t.Fatal(err)

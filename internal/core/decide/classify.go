@@ -99,9 +99,9 @@ func audioName(stream nodeproto.ProbeStream) (Audio, bool) {
 	return "", false
 }
 
-// containerName is the container a file is, from the demuxer's names, or false when none of the
+// ContainerOf is the container a file is, from the demuxer's names, or false when none of the
 // menu's.
-func containerName(format nodeproto.ProbeFormat) (Container, bool) {
+func ContainerOf(format nodeproto.ProbeFormat) (Container, bool) {
 	switch {
 	case slices.Contains(format.Names, "mp4") || slices.Contains(format.Names, "mov"):
 		return MP4, true

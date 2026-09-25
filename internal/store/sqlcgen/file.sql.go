@@ -89,6 +89,37 @@ func (q *Queries) GetLiveFileByKey(ctx context.Context, arg GetLiveFileByKeyPara
 	return i, err
 }
 
+const getPlayableFile = `-- name: GetPlayableFile :one
+SELECT id, node_id, library_id, path_key, payload_hash, probe
+FROM file
+WHERE id = ? AND removed_at IS NULL AND filing IN ('listed', 'extra', 'unidentified')
+`
+
+type GetPlayableFileRow struct {
+	ID          int64
+	NodeID      int64
+	LibraryID   int64
+	PathKey     []byte
+	PayloadHash []byte
+	Probe       *string
+}
+
+// A live file a person may play: a video the scan filed, whatever it was identified as. What a
+// scan skipped, could not read or attached to another is not played.
+func (q *Queries) GetPlayableFile(ctx context.Context, id int64) (GetPlayableFileRow, error) {
+	row := q.db.QueryRowContext(ctx, getPlayableFile, id)
+	var i GetPlayableFileRow
+	err := row.Scan(
+		&i.ID,
+		&i.NodeID,
+		&i.LibraryID,
+		&i.PathKey,
+		&i.PayloadHash,
+		&i.Probe,
+	)
+	return i, err
+}
+
 const getSidecarBody = `-- name: GetSidecarBody :one
 SELECT sidecar_body FROM file WHERE id = ?
 `
@@ -226,6 +257,43 @@ func (q *Queries) InsertStream(ctx context.Context, arg InsertStreamParams) erro
 		arg.Channels,
 	)
 	return err
+}
+
+const listLibraryRootsOnNode = `-- name: ListLibraryRootsOnNode :many
+SELECT path
+FROM library_root
+WHERE library_id = ? AND node_id = ?
+ORDER BY length(path) DESC, path
+`
+
+type ListLibraryRootsOnNodeParams struct {
+	LibraryID int64
+	NodeID    int64
+}
+
+// The roots a library has on a node, longest first, so the root a path is under is the first
+// that is a prefix of it.
+func (q *Queries) ListLibraryRootsOnNode(ctx context.Context, arg ListLibraryRootsOnNodeParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryRootsOnNode, arg.LibraryID, arg.NodeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		items = append(items, path)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listLiveFilesByHash = `-- name: ListLiveFilesByHash :many
