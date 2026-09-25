@@ -38,6 +38,8 @@ const (
 	JobRetryBackoffS           Key = "job_retry_backoff_s"
 	ProviderTimeoutS           Key = "provider_timeout_s"
 	SortLocale                 Key = "sort_locale"
+	ArtworkMaxSourcePixels     Key = "artwork_max_source_pixels"
+	ArtworkWebPQuality         Key = "artwork_webp_quality"
 )
 
 // Scope is whose a setting is.
@@ -148,6 +150,9 @@ func Registry() []Definition {
 			Exposed:  true,
 			Describe: "the language whose alphabetical order the libraries are listed in (BCP 47: en, sv, de...)",
 		},
+		integer(ArtworkMaxSourcePixels, "40000000", 1_000_000, 400_000_000,
+			"the most pixels a source image may have; a larger one is refused before it is decoded (D212 §1)"),
+		integer(ArtworkWebPQuality, "82", 1, 100, "the quality our WebP encoder writes artwork at, 1 to 100 (D212)"),
 	}
 }
 

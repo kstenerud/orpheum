@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -196,5 +197,41 @@ func TestDiscardCacheDatabase_RemovesTheFileAndItsJournalsOnly(t *testing.T) {
 	}
 	if err := directories.DiscardCacheDatabase(); err != nil {
 		t.Errorf("discarding again, with nothing there: %v", err)
+	}
+}
+
+func TestArt_StoresReadsAndRemovesOnlyItsOwnNames(t *testing.T) {
+	t.Parallel()
+	directories := prepareTemporary(t)
+	hash := strings.Repeat("ab", 32)
+	if err := directories.WriteArt(hash, "portrait-m.webp", []byte("RIFF")); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(filepath.Join(directories.cache, "art", hash, "portrait-m.webp"))
+	if err != nil || info.Mode().Perm() != fileMode {
+		t.Fatalf("stored file: %v, %v; want mode 0600", info, err)
+	}
+	if got, err := directories.ReadArt(hash, "portrait-m.webp"); err != nil || string(got) != "RIFF" {
+		t.Errorf("ReadArt = %q, %v", got, err)
+	}
+	if _, err := directories.ReadArt(hash, "portrait-s.webp"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("a size never written: %v, want ErrNotFound", err)
+	}
+	for _, name := range []string{"../../state/library.db", "portrait-m.webp/../x", ".hidden", "poster.png"} {
+		if err := directories.WriteArt(hash, name, nil); !errors.Is(err, ErrBadArtName) {
+			t.Errorf("WriteArt(%q) = %v, want ErrBadArtName", name, err)
+		}
+	}
+	if err := directories.WriteArt("../"+hash[3:], "portrait-m.webp", nil); !errors.Is(err, ErrBadArtName) {
+		t.Errorf("a hash that is a path: %v, want ErrBadArtName", err)
+	}
+	if err := directories.RemoveArt(hash, "portrait-m.webp"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := directories.ReadArt(hash, "portrait-m.webp"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("after RemoveArt: %v", err)
+	}
+	if err := directories.RemoveArt(hash, "portrait-m.webp"); err != nil {
+		t.Errorf("removing again: %v", err)
 	}
 }

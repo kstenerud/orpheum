@@ -205,14 +205,24 @@ func (matcher *Matcher) accept(
 	if err != nil {
 		return err
 	}
+	var owed Report
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		found := match{provider: provider.Name(), id: metadata.ID, ident: ident}
-		return matcher.record(ctx, queries, found, title, stored, sorter)
+		owed = Report{}
+		return matcher.record(ctx, queries, found, title, stored, derivation{sorter: sorter, report: &owed})
 	})
 	if err != nil {
 		return fmt.Errorf("record title %d's match: %w", title.ID, err)
 	}
+	matcher.pass.owe(ctx, owed)
 	return nil
+}
+
+// derivation is how a match re-derives its title: the locale it sorts in, and the report it notes
+// what the title owes in.
+type derivation struct {
+	sorter *textindex.Sorter
+	report *Report
 }
 
 // match is what a title was matched to, and by whom: identified by the matcher, confirmed by a
@@ -226,7 +236,7 @@ type match struct {
 // record stores a match's response and re-derives the title from it, as a pass would.
 func (matcher *Matcher) record(
 	ctx context.Context, queries *sqlcgen.Queries, found match, title sqlcgen.GetTitleForMatchRow, stored []byte,
-	sorter *textindex.Sorter,
+	derive derivation,
 ) error {
 	provider, id := found.provider, found.id
 	now := matcher.clock.Now().UnixMilli()
@@ -253,7 +263,7 @@ func (matcher *Matcher) record(
 	if err != nil {
 		return fmt.Errorf("record the match: %w", err)
 	}
-	work := &run{queries: queries, now: now, providers: matcher.providers, sorter: sorter}
+	work := &run{queries: queries, now: now, report: derive.report, providers: matcher.providers, sorter: derive.sorter}
 	result, err := work.resolveWithMatch(ctx, titleID, titleSpec{kind: title.Kind})
 	if err != nil {
 		return err

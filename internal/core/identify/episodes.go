@@ -157,6 +157,9 @@ func (spec *titleSpec) fromEpisode(provider string, episode Episode) {
 		spec.runtimeMs = episode.RuntimeMs
 	}
 	spec.source, spec.sourceID, spec.ident, spec.reason = provider, episode.ID, identIdentified, ""
+	if episode.Still != "" {
+		spec.artwork = []ArtRef{{Kind: ArtStill, Ref: episode.Still}}
+	}
 }
 
 // seriesFor finds the series collection by name in this library, or makes it.

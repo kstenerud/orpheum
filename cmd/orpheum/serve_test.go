@@ -145,7 +145,8 @@ func startServing(t *testing.T, config Config, captured capturedLog, awaited str
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() {
-		done <- serve(ctx, config, ConfigReport{}, listener, wiring{tmdbBase: noTMDB}, captured.logger)
+		outside := wiring{tmdbBase: noTMDB, tmdbImages: noTMDB}
+		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()
 	select {
 	case <-captured.signals[awaited]:

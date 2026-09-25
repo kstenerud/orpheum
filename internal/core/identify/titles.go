@@ -26,10 +26,11 @@ type titleSpec struct {
 	tagline   string
 	ids       map[string]string
 	locked    []string
-	source    string // "nfo", "none", a provider's name, or "" while a provider match is pending
-	sourceID  string // the title's id at its source, when its ids do not say (an episode's)
-	ident     string // identified or unidentified
-	reason    string // why a file is unidentified
+	artwork   []ArtRef // the images its source names
+	source    string   // "nfo", "none", a provider's name, or "" while a provider match is pending
+	sourceID  string   // the title's id at its source, when its ids do not say (an episode's)
+	ident     string   // identified or unidentified
+	reason    string   // why a file is unidentified
 }
 
 // fromNFO takes an NFO as the title's source: its values over the path's, and its locked fields
@@ -189,13 +190,8 @@ type resolved struct {
 // resolve writes a title's provider ids, its NFO's locked fields as overrides, and its resolved
 // values, and returns its ident and, when it is unidentified, why.
 func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (resolved, error) {
-	for provider, id := range spec.ids {
-		err := work.queries.InsertItemProviderID(ctx, sqlcgen.InsertItemProviderIDParams{
-			ItemID: titleID, Provider: provider, ProviderID: id,
-		})
-		if err != nil {
-			return resolved{}, fmt.Errorf("record %s %s: %w", provider, id, err)
-		}
+	if err := work.recordIDs(ctx, titleID, spec.ids); err != nil {
+		return resolved{}, err
 	}
 	values := map[string]string{
 		fieldName: spec.name, fieldOverview: spec.overview, fieldTagline: spec.tagline,
@@ -245,11 +241,27 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 	if err != nil {
 		return resolved{}, fmt.Errorf("name title %d: %w", titleID, err)
 	}
+	if owedErr := work.oweArtwork(ctx, titleID, spec.source, spec.artwork); owedErr != nil {
+		return resolved{}, owedErr
+	}
 	current, err := store.One(work.queries.GetTitleIdent(ctx, titleID))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return resolved{}, fmt.Errorf("read title %d's identification: %w", titleID, err)
 	}
 	return resolved{ident: current, reason: spec.reason}, nil
+}
+
+// recordIDs keeps the provider ids a title's evidence names.
+func (work *run) recordIDs(ctx context.Context, titleID int64, ids map[string]string) error {
+	for provider, id := range ids {
+		err := work.queries.InsertItemProviderID(ctx, sqlcgen.InsertItemProviderIDParams{
+			ItemID: titleID, Provider: provider, ProviderID: id,
+		})
+		if err != nil {
+			return fmt.Errorf("record %s %s: %w", provider, id, err)
+		}
+	}
+	return nil
 }
 
 func optional(text string) *string {

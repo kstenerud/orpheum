@@ -84,11 +84,11 @@ func runNodeChannel(
 }
 
 // newNodeService builds the core's side of the node channel: the ingest, which hands each scanned
-// library to identification and queues what that leaves owing. It serves nothing until
+// library to identification. It serves nothing until
 // runNodeChannel listens.
 func newNodeService(opened started, logger *slog.Logger) *nodes.Service {
 	ingester := library.NewIngester(opened.database, clock.System{}, opened.settings, logger)
-	pass, queue := opened.metadata.pass, opened.metadata.queue
+	pass := opened.metadata.pass
 	ingester.AfterScan(func(ctx context.Context, libraryID int64) {
 		report, err := pass.Library(ctx, libraryID)
 		if err != nil {
@@ -98,7 +98,6 @@ func newNodeService(opened started, logger *slog.Logger) *nodes.Service {
 		}
 		logger.InfoContext(ctx, "identified a library", "libraryId", libraryID, "listed", report.Listed,
 			"unidentified", report.Unidentified, "awaitingMatch", len(report.AwaitingMatch))
-		queueMatches(ctx, queue, report, logger)
 	})
 	sink := reportSink{ingester: ingester, logger: logger}
 	return nodes.NewService(opened.database, clock.System{}, opened.settings, sink, logger, commandPollHold)

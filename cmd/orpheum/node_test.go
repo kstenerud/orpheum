@@ -117,7 +117,7 @@ func scanOnce(t *testing.T, metadataSource, awaited string) scanResult {
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() {
-		outside := wiring{startNode: start, tmdbBase: noTMDB}
+		outside := wiring{startNode: start, tmdbBase: noTMDB, tmdbImages: noTMDB}
 		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()
 	select {

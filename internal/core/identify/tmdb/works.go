@@ -127,6 +127,7 @@ type details struct {
 	Tagline          string  `json:"tagline"`
 	Runtime          int64   `json:"runtime"`
 	EpisodeRunTime   []int64 `json:"episode_run_time"`
+	BackdropPath     string  `json:"backdrop_path"`
 	IMDbID           string  `json:"imdb_id"`
 	ExternalIDs      struct {
 		IMDbID string `json:"imdb_id"`
@@ -158,10 +159,17 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 	if kind == identify.KindSeries {
 		runtime = 0 // a series has no runtime; its episodes each have theirs
 	}
+	var artwork []identify.ArtRef
+	if work.PosterPath != "" {
+		artwork = append(artwork, identify.ArtRef{Kind: identify.ArtPoster, Ref: work.PosterPath})
+	}
+	if work.BackdropPath != "" {
+		artwork = append(artwork, identify.ArtRef{Kind: identify.ArtBackdrop, Ref: work.BackdropPath})
+	}
 	return identify.Metadata{
 		ID: summary.ID, Name: summary.Name, OriginalName: summary.OriginalName, OriginalLang: work.OriginalLanguage,
 		Overview: work.Overview, Tagline: work.Tagline, Year: summary.Year,
-		RuntimeMs: runtime * int64(time.Minute/time.Millisecond), IDs: ids,
+		RuntimeMs: runtime * int64(time.Minute/time.Millisecond), IDs: ids, Artwork: artwork,
 	}, nil
 }
 
@@ -185,6 +193,7 @@ func (*Client) ParseSeason(body []byte) ([]identify.Episode, error) {
 			Overview      string `json:"overview"`
 			AirDate       string `json:"air_date"`
 			Runtime       int64  `json:"runtime"`
+			StillPath     string `json:"still_path"`
 		} `json:"episodes"`
 	}
 	if err := json.Unmarshal(body, &listing); err != nil {
@@ -195,7 +204,7 @@ func (*Client) ParseSeason(body []byte) ([]identify.Episode, error) {
 		episodes = append(episodes, identify.Episode{
 			ID: strconv.FormatInt(episode.ID, 10), Season: episode.SeasonNumber, Number: episode.EpisodeNumber,
 			Name: episode.Name, Overview: episode.Overview, Year: yearOf(episode.AirDate),
-			RuntimeMs: episode.Runtime * int64(time.Minute/time.Millisecond),
+			RuntimeMs: episode.Runtime * int64(time.Minute/time.Millisecond), Still: episode.StillPath,
 		})
 	}
 	return episodes, nil

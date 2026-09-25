@@ -349,3 +349,48 @@ func TestRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
 		t.Errorf("Roots = %d, %v, %v; want the last hello's", nodeID, roots, connected)
 	}
 }
+
+// artworkSink records the artwork answers it is handed.
+type artworkSink struct {
+	answers []nodeproto.ArtworkResult
+	from    []int64
+}
+
+func (sink *artworkSink) Answered(_ context.Context, nodeID int64, result nodeproto.ArtworkResult) {
+	sink.answers = append(sink.answers, result)
+	sink.from = append(sink.from, nodeID)
+}
+
+func TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	answerJSON := func(result nodeproto.ArtworkResult) io.Reader {
+		encoded, err := json.Marshal(result)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return bytes.NewReader(encoded)
+	}
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	result := nodeproto.ArtworkResult{
+		Job: 4, Images: []nodeproto.ArtImage{{Size: nodeproto.PortraitS, Bytes: []byte("RIFF")}},
+	}
+	if refused := harness.post(t, nodeproto.PathArtwork, reply.NodeID, answerJSON(result)); refused.status !=
+		http.StatusServiceUnavailable {
+		t.Errorf("with no artwork sink: %d, want 503", refused.status)
+	}
+	sink := &artworkSink{}
+	harness.service.ReceiveArtwork(sink)
+	if stranger := harness.post(t, nodeproto.PathArtwork, reply.NodeID+1, answerJSON(result)); stranger.status !=
+		http.StatusConflict {
+		t.Errorf("from a node that never said hello: %d, want 409", stranger.status)
+	}
+	taken := harness.post(t, nodeproto.PathArtwork, reply.NodeID, answerJSON(result))
+	if taken.status != http.StatusOK || len(sink.answers) != 1 || sink.from[0] != reply.NodeID ||
+		sink.answers[0].Job != 4 || string(sink.answers[0].Images[0].Bytes) != "RIFF" {
+		t.Errorf("answered %d %s; sink has %+v", taken.status, taken.body, sink.answers)
+	}
+	if connected, found := harness.service.Connected(); !found || connected != reply.NodeID {
+		t.Errorf("Connected = %d, %v; want the node", connected, found)
+	}
+}

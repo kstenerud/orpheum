@@ -38,6 +38,12 @@ type Sink interface {
 	Records(ctx context.Context, nodeID int64, records []nodeproto.Record) error
 }
 
+// ArtworkSink receives a node's answer to an artwork command: the artwork store's one way in
+// (D212 §8).
+type ArtworkSink interface {
+	Answered(ctx context.Context, nodeID int64, result nodeproto.ArtworkResult)
+}
+
 // Service is the core's side of the node channel (cut-a §4, D207): it enrols nodes, queues their
 // commands, receives their reports and knows when each last spoke.
 type Service struct {
@@ -48,8 +54,16 @@ type Service struct {
 	logger   *slog.Logger
 	pollHold time.Duration
 
+	artwork ArtworkSink
+
 	mutex    sync.Mutex
 	channels map[int64]*channel
+}
+
+// ReceiveArtwork names where the nodes' artwork answers go. Set it before the channel serves; an
+// answer that arrives with none set is refused.
+func (service *Service) ReceiveArtwork(sink ArtworkSink) {
+	service.artwork = sink
 }
 
 // channel is what the core holds for one connected node.
@@ -74,12 +88,13 @@ func NewService(
 	}
 }
 
-// Handler serves the node channel's three paths.
+// Handler serves the node channel's paths.
 func (service *Service) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, service.hello)
 	mux.HandleFunc("POST "+nodeproto.PathReport, service.report)
 	mux.HandleFunc("GET "+nodeproto.PathCommands, service.commands)
+	mux.HandleFunc("POST "+nodeproto.PathArtwork, service.artworkAnswer)
 	return mux
 }
 
@@ -191,6 +206,21 @@ func (service *Service) Enqueue(nodeID int64, command nodeproto.Command) {
 	queue.commands = append(queue.commands, command)
 	close(queue.wake)
 	queue.wake = make(chan struct{})
+}
+
+// Connected is the node heard from most recently, and whether any has said hello since the core
+// started: where work that any node can do is sent.
+func (service *Service) Connected() (int64, bool) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	var latest time.Time
+	found := int64(0)
+	for id, queue := range service.channels {
+		if found == 0 || queue.lastHeard.After(latest) {
+			found, latest = id, queue.lastHeard
+		}
+	}
+	return found, found != 0
 }
 
 // LastHeard is when the named node last said anything, and whether it ever has.

@@ -54,8 +54,13 @@ func (provider cleaned) Parse(kind string, body []byte) (Metadata, error) {
 	for source, id := range metadata.IDs {
 		ids[textindex.Line(source)] = textindex.Line(id)
 	}
+	artwork := make([]ArtRef, 0, len(metadata.Artwork))
+	for _, image := range metadata.Artwork {
+		artwork = append(artwork, ArtRef{Kind: textindex.Line(image.Kind), Ref: textindex.Line(image.Ref)})
+	}
 	return Metadata{
-		ID: textindex.Line(metadata.ID), Name: textindex.Line(metadata.Name),
+		Artwork: artwork,
+		ID:      textindex.Line(metadata.ID), Name: textindex.Line(metadata.Name),
 		OriginalName: textindex.Line(metadata.OriginalName), OriginalLang: textindex.Line(metadata.OriginalLang),
 		Overview: textindex.Prose(metadata.Overview), Tagline: textindex.Line(metadata.Tagline),
 		Year: metadata.Year, RuntimeMs: metadata.RuntimeMs, IDs: ids,
@@ -67,7 +72,7 @@ func (provider cleaned) ParseSeason(body []byte) ([]Episode, error) {
 	episodes, err := provider.Provider.ParseSeason(body)
 	for index, episode := range episodes {
 		episode.ID, episode.Name = textindex.Line(episode.ID), textindex.Line(episode.Name)
-		episode.Overview = textindex.Prose(episode.Overview)
+		episode.Overview, episode.Still = textindex.Prose(episode.Overview), textindex.Line(episode.Still)
 		episodes[index] = episode
 	}
 	return episodes, err //nolint:wrapcheck // the provider's own error, passed through as it is
