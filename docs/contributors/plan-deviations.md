@@ -40,6 +40,38 @@ counted:
 
 ## Log
 
+### P26 — M3's contract had gaps in nine places, found by reading it end to end before building (M3, 2026-09-25) · plan-gap
+
+- **Planned:** cut-a §4–§6 and §8 as the build contract for playing in a browser.
+- **What happened:** a review before the first line found nine places where building would
+  have meant inventing design. The client's menu had no wire format, and the plan called the
+  container an axis where D21 says it is not. The media token was unnamed as a credential or
+  not. Three sections put prepared output in different places. The job queue's one-per-file rule
+  could not hold two renditions. The subtitle command lacked the payload hash §4 requires of
+  every command. The play position had three different guards. Nothing created a device, and
+  M3's "accounts" had no content once invites moved to M4. The new player libraries were not on
+  the allowlist. The owner settled them in D217 and D218.
+- **Why the plan missed it:** sections written at different times by the same design pass,
+  each consistent inside itself; nobody read the milestone's path through all of them at once.
+- **Cost:** one review, one exchange with the owner, two decisions, one allowlist patch.
+- **Process lesson:** before a milestone, walk one request through every section it touches,
+  in order, and list each value some step needs that no step produces.
+
+### P25 — The node's byte socket, part of M2, was never built (M3, 2026-09-25) · plan-gap
+
+- **Planned:** cut-a §2 and §4: the node serves `/run/orpheum/node.sock`, and M2's row names
+  "both sockets". §4's file route is `GET /bytes/v1/file?path=…&hash=…`.
+- **What happened:** M2 read no media bytes through the core (artwork travels in the node's
+  answer), so nothing needed the socket and nothing noticed it was missing; `byteserver` held
+  only its `doc.go`. The M3 review found it. Building it, the route gained a `root` and carries
+  `path` as base64url of the bytes relative to that root, because a path is known relative to its
+  root and need not be UTF-8 (D49).
+- **Why the plan missed it:** a milestone row named a component that no acceptance test of
+  that milestone exercised.
+- **Cost:** built at the start of M3.
+- **Process lesson:** every component a milestone names needs an acceptance line that fails
+  without it; otherwise it is scheduled only by hope.
+
 ### P24 — Creating a library needs a node's roots, and nothing lists them (M2, 2026-09-25) · plan-gap
 
 - **Planned:** cut-a §5's `POST /libraries` takes a node's name and roots its node configured

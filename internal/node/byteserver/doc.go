@@ -14,6 +14,13 @@
 //   - Removes, renames and truncates nothing. Enforced by the forbidigo rule tagged [delete].
 //   - Opens media only through the read-only confine.MediaRoot. Enforced by the forbidigo rule
 //     tagged [media-root].
+//   - A file's bytes are served only while its payload hash is the one the request names; a file
+//     replaced at its path is refused, even after its identity was remembered. Enforced by
+//     TestFile_RefusesAFileThatIsNoLongerTheOneAskedFor.
+//   - Nothing outside a root is served: not a path that climbs out, an absolute path, a
+//     directory or a root the node does not have. Enforced by TestFile_NamesNothingOutsideARoot.
+//   - GET and HEAD only; Range and If-Range are honoured. Enforced by TestFile_OnlyReads and
+//     TestFile_HonoursRangeAndIfRange.
 //
 // # Read before changing
 //
@@ -24,5 +31,5 @@
 //
 // # Where to change
 //
-//   - The two GET routes of cut-a §4 and their Range handling.
+//   - byteserver.go: the file route. The prepared route (D217 §5) comes with prepare.
 package byteserver

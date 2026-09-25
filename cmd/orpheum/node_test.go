@@ -3,8 +3,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
+	"io"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +18,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/node/byteserver"
+	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -204,5 +211,59 @@ func TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired(t *testing.T) {
 	captured := newCapturedLog()
 	if err := runNode(t.Context(), config, captured.logger); err == nil || !strings.Contains(err.Error(), "M3") {
 		t.Errorf("runNode = %v, want a refusal saying confinement comes in M3", err)
+	}
+}
+
+func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	media := t.TempDir()
+	if err := os.WriteFile(filepath.Join(media, "film.mkv"), []byte("film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "ffprobe version test"})
+	config.Node.Roots, config.Node.FFmpegDir = []string{media}, fake.Directory
+	const listening = "serving the byte socket"
+	captured := newCapturedLog(listening)
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan error, 1)
+	go func() { done <- runNode(ctx, config, captured.logger) }()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Errorf("runNode returned %v", err)
+		}
+	}()
+	select {
+	case <-captured.signals[listening]:
+	case early := <-done:
+		t.Fatalf("runNode returned before serving the byte socket: %v\n%s", early, captured)
+	}
+	socket := filepath.Join(config.Server.SocketDir, nodeSocket)
+	client := &http.Client{Transport: &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "unix", socket)
+		},
+	}}
+	identity, err := hash.Payload(bytes.NewReader([]byte("film")), 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := "http://node" + byteserver.FilePath + "?" + url.Values{
+		"root": {media}, "path": {byteserver.EncodePath([]byte("film.mkv"))},
+		"hash": {hex.EncodeToString(identity.Hash[:])},
+	}.Encode()
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read to the end below
+	body, err := io.ReadAll(response.Body)
+	if err != nil || response.StatusCode != http.StatusOK || string(body) != "film" {
+		t.Errorf("the byte socket answered %d %q (%v), want 200 with the film's bytes", response.StatusCode, body, err)
 	}
 }
