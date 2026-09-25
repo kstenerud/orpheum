@@ -14593,6 +14593,20 @@ the legally stronger position. It becomes **[principles §16](../principles/READ
   cannot see. So the grantee **accepts terms when the grant is made** (personal, non-commercial,
   never in a public place, never resold), the owner sees **how many people** each grant serves,
   and **non-transitivity stays a hard rule** — it is legally valuable, not just tidy.
+- **The owner acknowledges too, when they grant rebroadcast** (added 2026-09-25, by the project
+  owner: *"I do want family households to be able to share family videos with each other, but I
+  don't want to be charged with encouraging piracy when some people share copyrighted content
+  this way. We can't stop them, but we can bring up a nag screen whenever they do grant
+  rebroadcast on a library to someone, and then show a nag screen to the receiver when he adds
+  it as a source"*). Granting rebroadcast shows the owner a notice they accept: share only what
+  you have the right to share, such as your own videos; the household it goes to uses it
+  privately, never in a public place or for money. The receiver's acceptance above is shown when
+  they add the library as a source. **Each is shown once per grant, not on every use, and kept
+  with the grant**: who accepted, when, and which version of the wording — a record is evidence,
+  and a screen that nags every time is clicked through and proves less. The wording speaks of
+  the user's responsibility and leads with family videos; it never says or implies that we
+  check what is shared (§1: monitoring would create the knowledge liability rests on). Its final
+  text is legal.md §6's third question for a lawyer.
 - **A bar franchise is a public performance in every bar**, which no feature of ours makes lawful
   and none is built for. What we can say, we say in the docs and in the relay's terms.
 
