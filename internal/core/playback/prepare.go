@@ -11,7 +11,6 @@ import (
 	"io"
 	"log/slog"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
@@ -45,8 +44,7 @@ type prepares struct {
 	logger     *slog.Logger
 	maxSilence time.Duration
 
-	mutex   sync.Mutex
-	waiting map[int64]chan nodeproto.PrepareReport // guarded by mutex; by job id
+	waiting *waiting[nodeproto.PrepareReport]
 }
 
 func newPrepares(parts Parts) *prepares {
@@ -54,7 +52,7 @@ func newPrepares(parts Parts) *prepares {
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		random: parts.Random,
 		clock:  parts.Clock, logger: parts.Logger, maxSilence: parts.MaxSilence,
-		waiting: map[int64]chan nodeproto.PrepareReport{},
+		waiting: newWaiting[nodeproto.PrepareReport](parts.Logger, "a prepare report"),
 	}
 }
 
@@ -151,8 +149,8 @@ func (all *prepares) newRunID() (string, error) {
 // handle runs one prepare job: it commands the node and waits for its reports, recording each,
 // until the node says the rendition is done or failed, or says nothing for too long.
 func (all *prepares) handle(ctx context.Context, job jobs.Job, command nodeproto.Prepare, nodeID int64) error {
-	answers := all.await(job.ID)
-	defer all.forget(job.ID)
+	answers := all.waiting.await(job.ID)
+	defer all.waiting.forget(job.ID)
 	if err := all.running(ctx, job.Subject, 0); err != nil {
 		return err
 	}
@@ -215,36 +213,9 @@ func (all *prepares) finish(ctx context.Context, rendition int64, size *int64, f
 	return nil
 }
 
-func (all *prepares) await(job int64) <-chan nodeproto.PrepareReport {
-	all.mutex.Lock()
-	defer all.mutex.Unlock()
-	answers := make(chan nodeproto.PrepareReport, 8)
-	all.waiting[job] = answers
-	return answers
-}
-
-func (all *prepares) forget(job int64) {
-	all.mutex.Lock()
-	defer all.mutex.Unlock()
-	delete(all.waiting, job)
-}
-
-// reported hands a node's report to the job waiting for it. One nothing waits for, or one that
-// finds the job's reports unread, is dropped: progress is only ever the latest, and the end is
-// sent once, to a job that is reading.
+// reported hands a node's report to the job waiting for it.
 func (all *prepares) reported(ctx context.Context, nodeID int64, report nodeproto.PrepareReport) {
-	all.mutex.Lock()
-	answers, found := all.waiting[report.Job]
-	all.mutex.Unlock()
-	if !found {
-		all.logger.InfoContext(ctx, "a prepare report came for no waiting job", "nodeId", nodeID, "job", report.Job)
-		return
-	}
-	select {
-	case answers <- report:
-	default:
-		all.logger.DebugContext(ctx, "a prepare's progress was dropped: its job is behind", "job", report.Job)
-	}
+	all.waiting.deliver(ctx, nodeID, report.Job, report)
 }
 
 // prepareCommand is the node's command for a rendition of file: its source by identity, its
