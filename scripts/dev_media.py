@@ -53,10 +53,10 @@ Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BorderStyle, Out
 Style: Default,sans-serif,48,&H00FFFFFF,&H00000000,1,3,2,40
 
 [Events]
-Format: Layer, Start, End, Style, Text
-Dialogue: 0,0:00:01.00,0:00:04.00,Default,The centre channel carries this line.
-Dialogue: 0,0:00:05.00,0:00:08.00,Default,{\\i1}Styled text{\\i0} survives the remux.
-Dialogue: 0,0:00:10.00,0:00:14.00,Default,If you can read this, libass rendered it.
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.00,0:00:04.00,Default,,0,0,0,,The centre channel carries this line.
+Dialogue: 0,0:00:05.00,0:00:08.00,Default,,0,0,0,,{\\i1}Styled text{\\i0} survives the remux.
+Dialogue: 0,0:00:10.00,0:00:14.00,Default,,0,0,0,,If you can read this, libass rendered it.
 """
 SRT = """1
 00:00:01,000 --> 00:00:04,000
