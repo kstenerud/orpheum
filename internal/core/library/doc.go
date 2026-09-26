@@ -41,6 +41,10 @@
 //     TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt.
 //   - A sidecar is filed as attached to the video it belongs to, and an NFO's bytes are stored as
 //     identification's input (D182). TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo.
+//   - A subtitle file keeps its payload hash and, while it belongs to a video, is one track of it,
+//     with the language and flags its name gives after the video's name; its row keeps its id
+//     across scans. TestIngest_ASubtitleFileIsATrackOfItsVideoUntilItsVideoIsGone,
+//     TestSidecarTrackOf_ReadsTheLanguageAndFlagsAfterTheVideosName.
 //   - A payload that returns revives its tombstone, with its history (D208 §4).
 //   - Once a scan's end is committed its library is handed on, to identification.
 //     TestIngest_AfterAScanEndsItsLibraryIsHandedOn.

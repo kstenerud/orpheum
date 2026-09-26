@@ -81,7 +81,7 @@ export function Subtitles(props: {
   // The offset a newly chosen track starts with, read when its text arrives rather than in render.
   const offsetRef = useRef(props.startingOffsetMs);
   const [failure, setFailure] = useState<string | undefined>(undefined);
-  const track = props.tracks.find((candidate) => candidate.streamIndex === chosen);
+  const track = props.tracks.find((candidate) => candidate.streamId === chosen);
   const layerRef = useSubtitleLayer(track?.assUrl, props.videoRef, {
     offsetRef,
     failed: setFailure,
@@ -103,9 +103,9 @@ export function Subtitles(props: {
       <TrackMenu
         tracks={props.tracks}
         chosen={chosen}
-        choose={(streamIndex) => {
+        choose={(streamId) => {
           setFailure(undefined);
-          setChosen(streamIndex);
+          setChosen(streamId);
         }}
       />
       <OffsetControl offsetMs={offsetMs} move={move} />
@@ -120,7 +120,7 @@ export function Subtitles(props: {
 function TrackMenu(props: {
   readonly tracks: readonly SubtitleTrack[];
   readonly chosen: number | undefined;
-  readonly choose: (streamIndex: number | undefined) => void;
+  readonly choose: (streamId: number | undefined) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const words = {
@@ -140,7 +140,7 @@ function TrackMenu(props: {
       >
         <option value="">{t("play.subtitles.off")}</option>
         {props.tracks.map((track) => (
-          <option key={track.streamIndex} value={String(track.streamIndex)}>
+          <option key={track.streamId} value={String(track.streamId)}>
             {trackLabel(track, i18n.language, words)}
           </option>
         ))}

@@ -112,24 +112,27 @@ WHERE bytes_file = ?
 ORDER BY stream_index;
 
 -- name: InsertSidecarFile :one
+-- A subtitle carries its payload hash, the file hashed whole; an NFO or an image has none.
 INSERT INTO file (
-  library_id, node_id, path, path_raw, path_key, size_bytes, mtime_ms, filing, filing_reason, sidecar_body, first_seen_at,
-  last_seen_at
+  library_id, node_id, path, path_raw, path_key, size_bytes, mtime_ms, payload_hash, payload_bytes, filing,
+  filing_reason, sidecar_body, first_seen_at, last_seen_at
 ) VALUES (
   sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(path_raw), sqlc.arg(path_key), sqlc.arg(size_bytes),
-  sqlc.arg(mtime_ms), 'attached', sqlc.arg(kind), sqlc.arg(body), sqlc.arg(seen_at), sqlc.arg(seen_at)
+  sqlc.arg(mtime_ms), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), 'attached', sqlc.arg(kind), sqlc.arg(body),
+  sqlc.arg(seen_at), sqlc.arg(seen_at)
 )
 RETURNING id;
 
 -- name: UpdateSidecarFile :exec
 UPDATE file SET
   library_id = sqlc.arg(library_id), path_raw = sqlc.arg(path_raw), size_bytes = sqlc.arg(size_bytes),
-  mtime_ms = sqlc.arg(mtime_ms), filing = 'attached', filing_reason = sqlc.arg(kind),
-  error_detail = NULL, sidecar_body = sqlc.arg(body), last_seen_at = sqlc.arg(seen_at)
+  mtime_ms = sqlc.arg(mtime_ms), payload_hash = sqlc.arg(payload_hash), payload_bytes = sqlc.arg(payload_bytes),
+  filing = 'attached', filing_reason = sqlc.arg(kind), error_detail = NULL, sidecar_body = sqlc.arg(body),
+  last_seen_at = sqlc.arg(seen_at)
 WHERE id = sqlc.arg(id);
 
 -- name: ListLiveFilesForAttaching :many
-SELECT id, path, filing, payload_hash, attached_to
+SELECT id, path, filing, filing_reason, payload_hash, attached_to
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY path;
@@ -155,15 +158,34 @@ FROM library_root
 WHERE library_id = ? AND node_id = ?
 ORDER BY length(path) DESC, path;
 
--- name: ListSubtitleStreamsOfFile :many
--- A video's own subtitle tracks by stream index: the ids an extraction job names.
-SELECT id, stream_index
-FROM stream
-WHERE bytes_file = ? AND video_file = bytes_file AND kind = 'subtitle' AND stream_index IS NOT NULL
-ORDER BY stream_index;
+-- name: ListSubtitleTracksOfVideo :many
+-- A video's subtitle tracks, its own and those of the live sidecar files attached to it, with the
+-- payload hash of the file each track's bytes are in: what a playback offers.
+SELECT s.id, s.stream_index, s.codec, s.lang, s.title_raw, s.disposition, f.payload_hash AS bytes_payload_hash
+FROM stream s
+JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
+WHERE s.video_file = sqlc.arg(video_file) AND s.kind = 'subtitle'
+ORDER BY s.bytes_file <> s.video_file, s.stream_index, f.path;
 
 -- name: GetSubtitleStream :one
--- A subtitle track inside a video, for the job that extracts it.
-SELECT id, bytes_file, stream_index, codec
+-- A subtitle track, and the live file its bytes are in, for the job that extracts it.
+SELECT s.id, s.video_file, s.stream_index, s.codec, f.library_id, f.node_id, f.path_key, f.payload_hash
+FROM stream s
+JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
+WHERE s.id = sqlc.arg(id) AND s.kind = 'subtitle';
+
+-- name: GetSidecarStream :one
+-- A sidecar's one stream: a whole-file track has no stream index (schema.md, stream).
+SELECT id, video_file, codec, lang_raw, lang, disposition
 FROM stream
-WHERE id = ? AND kind = 'subtitle' AND stream_index IS NOT NULL;
+WHERE bytes_file = sqlc.arg(bytes_file) AND stream_index IS NULL;
+
+-- name: InsertSidecarStream :exec
+INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang, disposition)
+VALUES (sqlc.arg(bytes_file), sqlc.arg(video_file), NULL, 'subtitle', sqlc.arg(codec), sqlc.arg(lang_raw),
+  sqlc.arg(lang), sqlc.arg(disposition));
+
+-- name: UpdateSidecarStream :exec
+UPDATE stream SET video_file = sqlc.arg(video_file), codec = sqlc.arg(codec), lang_raw = sqlc.arg(lang_raw),
+  lang = sqlc.arg(lang), disposition = sqlc.arg(disposition)
+WHERE id = sqlc.arg(id);

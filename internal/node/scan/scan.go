@@ -323,12 +323,20 @@ func (walk *walk) sidecar(place location, info fs.FileInfo, kind nodeproto.Sidec
 	record := &nodeproto.Sidecar{
 		Path: reportedPath(place.reported), Kind: kind, Size: info.Size(), MtimeMs: info.ModTime().UnixMilli(),
 	}
-	if kind == nodeproto.SidecarNFO {
+	switch kind {
+	case nodeproto.SidecarNFO:
 		body, err := walk.readNFO(place, info.Size())
 		if err != nil {
 			return walk.fail(place.reported, nodeproto.ScopeEntry, err, info)
 		}
 		record.Body = body
+	case nodeproto.SidecarSubtitle:
+		identity, err := walk.identity(place, info.Size())
+		if err != nil {
+			return walk.fail(place.reported, nodeproto.ScopeEntry, err, info)
+		}
+		record.Identity = &identity
+	case nodeproto.SidecarImage:
 	}
 	walk.sidecars++
 	return walk.send(nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: record})

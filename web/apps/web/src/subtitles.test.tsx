@@ -18,14 +18,14 @@ import { withServices } from "./test-services.tsx";
 
 function track(overrides: Partial<SubtitleTrack>): SubtitleTrack {
   return {
-    streamIndex: 2,
+    streamId: 5,
     language: "en",
     title: "",
     isDefault: false,
     isForced: false,
     isHearingImpaired: false,
-    assUrl: "/api/v1/bytes/media/sub/t/2.ass",
-    vttUrl: "/api/v1/bytes/media/sub/t/2.vtt",
+    assUrl: "/api/v1/bytes/media/sub/t/5.ass",
+    vttUrl: "/api/v1/bytes/media/sub/t/5.vtt",
     ...overrides,
   };
 }
@@ -53,15 +53,15 @@ describe("subtitles", () => {
       withServices(
         <Subtitles
           fileId={2}
-          tracks={[track({}), track({ streamIndex: 3, language: "fr" })]}
+          tracks={[track({}), track({ streamId: 7, language: "fr" })]}
           startingOffsetMs={-1500}
           videoRef={createRef()}
         />,
       ),
     );
     expect(markup).toContain('<option value="" selected="">Off</option>');
-    expect(markup).toContain('<option value="2">English</option>');
-    expect(markup).toContain('<option value="3">French</option>');
+    expect(markup).toContain('<option value="5">English</option>');
+    expect(markup).toContain('<option value="7">French</option>');
     expect(markup).toContain("Subtitle offset: -1.5 s");
   });
 

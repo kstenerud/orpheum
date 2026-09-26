@@ -11,9 +11,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// dispositionBit is FFmpeg's AV_DISPOSITION_* flag for the name ffprobe prints, or 0: the
+// DispositionBit is FFmpeg's AV_DISPOSITION_* flag for the name ffprobe prints, or 0: the
 // stream table keeps the flags as found (schema.md, stream).
-func dispositionBit(name string) int64 {
+func DispositionBit(name string) int64 {
 	bits := []string{
 		"default", "dub", "original", "comment", "lyrics", "karaoke", "forced", "hearing_impaired",
 		"visual_impaired", "clean_effects", "attached_pic", "timed_thumbnails", "non_diegetic", "", "", "",
@@ -43,7 +43,7 @@ func (work *batch) streams(ctx context.Context, fileID int64, probe nodeproto.Pr
 		}
 		var disposition int64
 		for _, flag := range stream.Disposition {
-			disposition |= dispositionBit(flag)
+			disposition |= DispositionBit(flag)
 		}
 		index := int64(stream.Index)
 		err := work.queries.InsertStream(ctx, sqlcgen.InsertStreamParams{

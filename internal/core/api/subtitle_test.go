@@ -17,12 +17,30 @@ import (
 // subtitleStreamID is the stream row of film 2's ASS track, as shelveSubtitles records it.
 const subtitleStreamID = 5
 
-// shelveSubtitles records film 2's subtitle tracks as a scan would: its ASS and its PGS.
+// shelveSubtitles records film 2's subtitle tracks as a scan would: its ASS, English and the
+// default, and its PGS; and film 1's own track, which no playback of film 2 may reach.
 func (harness testHarness) shelveSubtitles(t *testing.T) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.database,
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec) VALUES
-		 (5, 2, 2, 2, 'subtitle', 'ass'), (6, 2, 2, 3, 'subtitle', 'hdmv_pgs_subtitle')`)
+		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang, disposition) VALUES
+		 (5, 2, 2, 2, 'subtitle', 'ass', 'en', 1), (6, 2, 2, 3, 'subtitle', 'hdmv_pgs_subtitle', NULL, 0),
+		 (8, 1, 1, 2, 'subtitle', 'mov_text', 'en', 0)`)
+}
+
+// sidecarStreamID is the stream row of film 2's Spanish subtitle file, as shelveSidecar records it.
+const sidecarStreamID = 7
+
+// shelveSidecar records "Film (2002).es.srt" beside film 2 as a scan would: the file, attached,
+// with its payload hash, and its one track.
+func (harness testHarness) shelveSidecar(t *testing.T) {
+	t.Helper()
+	storetest.ExecRaw(t, harness.database,
+		`INSERT INTO file (id, library_id, node_id, path, path_key, size_bytes, payload_hash, filing, filing_reason,
+		 attached_to, first_seen_at, last_seen_at) VALUES
+		 (10, 1, 1, '/media/Film (2002).es.srt', CAST('/media/Film (2002).es.srt' AS BLOB), 5, X'1e1f', 'attached',
+		 'subtitle', 2, 1, 1)`,
+		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang_raw, lang) VALUES
+		 (7, 10, 2, NULL, 'subtitle', 'subrip', 'es', 'es')`)
 }
 
 // extract runs the extraction job of film 2's ASS track, answering the node's command with
@@ -39,6 +57,31 @@ func (harness testHarness) extract(
 	answer.Job = jobID
 	playback.Extracted(t.Context(), 1, answer)
 	return command, <-finished
+}
+
+// extractedText keeps text as extracted for the track at streamIndex of the file with payloadHash.
+func (harness testHarness) extractedText(t *testing.T, payloadHash []byte, streamIndex int64, text string) {
+	t.Helper()
+	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		err := queries.WantSubtitleText(t.Context(), cachegen.WantSubtitleTextParams{
+			PayloadHash: payloadHash, StreamIndex: streamIndex, CreatedAt: 1,
+		})
+		if err != nil {
+			return fmt.Errorf("want the text: %w", err)
+		}
+		finished := int64(2)
+		err = queries.SetSubtitleTextComplete(t.Context(), cachegen.SetSubtitleTextCompleteParams{
+			Ass: []byte(text), Vtt: []byte(text), FinishedAt: &finished,
+			PayloadHash: payloadHash, StreamIndex: streamIndex,
+		})
+		if err != nil {
+			return fmt.Errorf("complete the text: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // subtitleJobs counts the extraction jobs ever queued for film 2's ASS track.
@@ -86,9 +129,9 @@ func offeredASSTrack(t *testing.T, decided decision) subtitleTrack {
 		t.Fatalf("the subtitles offered = %+v, want the ASS track only, not the PGS", decided.Subtitles)
 	}
 	track := decided.Subtitles[0]
-	if track.StreamIndex != 2 || track.Language != "en" || !track.IsDefault ||
-		!strings.HasSuffix(track.ASSURL, "/2.ass") || !strings.HasSuffix(track.VTTURL, "/2.vtt") {
-		t.Fatalf("the track offered = %+v, want stream 2, English, the default", track)
+	if track.StreamID != subtitleStreamID || track.Language != "en" || !track.IsDefault ||
+		!strings.HasSuffix(track.ASSURL, "/5.ass") || !strings.HasSuffix(track.VTTURL, "/5.vtt") {
+		t.Fatalf("the track offered = %+v, want stream 5, English, the default", track)
 	}
 	return track
 }
@@ -108,8 +151,10 @@ func TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntil
 		!strings.Contains(early.body, `"code":"preparing"`) {
 		t.Errorf("before it is extracted: %d %v %s, want 425 preparing", early.status, early.header, early.body)
 	}
-	base := strings.TrimSuffix(track.ASSURL, "2.ass")
-	for _, name := range []string{"2.srt", "3.ass", "notes"} {
+	base := strings.TrimSuffix(track.ASSURL, "5.ass")
+	// 8 is another film's track, extracted: a playback reaches only its own file's.
+	harness.extractedText(t, []byte{0x0a, 0x0b}, 2, "film 1's text")
+	for _, name := range []string{"5.srt", "6.ass", "8.ass", "99.ass", "notes"} {
 		if odd := harness.fetch(t, base+name, user, true, ""); odd.status != http.StatusNotFound {
 			t.Errorf("%s: %d, want 404", name, odd.status)
 		}
@@ -179,5 +224,39 @@ func TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed(t *testi
 	again := harness.play(t, user, chrome(2))
 	if early := harness.fetch(t, again.Subtitles[0].ASSURL, user, true, ""); early.status != http.StatusTooEarly {
 		t.Errorf("played again after a failure: %d, want 425 while it is tried again", early.status)
+	}
+}
+
+func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveSubtitles(t)
+	harness.shelveSidecar(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 2)
+	decided := harness.play(t, user, chrome(2))
+	if len(decided.Subtitles) != 2 || decided.Subtitles[0].StreamID != subtitleStreamID ||
+		decided.Subtitles[1].StreamID != sidecarStreamID || decided.Subtitles[1].Language != "es" {
+		t.Fatalf("the subtitles offered = %+v, want the video's own track, then the Spanish file", decided.Subtitles)
+	}
+	playback := harness.server.dependencies.Load().Playback
+	finished := make(chan error, 1)
+	job := jobs.Job{ID: 92, Kind: jobs.KindExtractSubtitle, Subject: sidecarStreamID}
+	go func() { finished <- playback.HandleSubtitle(t.Context(), job) }()
+	command := <-harness.nodes.commanded
+	sent := command.ExtractSubtitle
+	if sent == nil || sent.Video != nil || sent.Sidecar == nil || sent.Sidecar.Root != "/media" ||
+		string(sent.Sidecar.Path) != "Film (2002).es.srt" || sent.Sidecar.Hash != "1e1f" {
+		t.Fatalf("the node was sent %+v, want the subtitle file whole, by root, path and hash", command)
+	}
+	extracted := nodeproto.SubtitleText{Job: 92, ASS: []byte("[Script Info] es"), VTT: []byte("WEBVTT es")}
+	playback.Extracted(t.Context(), 1, extracted)
+	if err := <-finished; err != nil {
+		t.Fatalf("the job ended %v, want done", err)
+	}
+	if served := harness.fetch(t, decided.Subtitles[1].ASSURL, user, true, ""); served.status != http.StatusOK ||
+		served.body != "[Script Info] es" {
+		t.Errorf("the subtitle file's track: %d %q", served.status, served.body)
 	}
 }

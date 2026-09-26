@@ -23,13 +23,22 @@ const filingAttached = "attached"
 func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodeproto.Sidecar) error {
 	located := nodePath(scan.root, sidecar.Path)
 	kind := string(sidecar.Kind)
+	var hash []byte
+	var payloadBytes *int64
+	if sidecar.Identity != nil {
+		decoded, hashErr := payloadHash(*sidecar.Identity)
+		if hashErr != nil {
+			return fmt.Errorf("the sidecar %s: %w", located.text, hashErr)
+		}
+		hash, payloadBytes = decoded, &sidecar.Identity.PayloadLength
+	}
 	existing, err := store.One(work.queries.GetLiveFileByKey(ctx, sqlcgen.GetLiveFileByKeyParams{
 		NodeID: work.nodeID, PathKey: located.key,
 	}))
 	if err == nil {
 		err = work.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
 			LibraryID: scan.libraryID, PathRaw: located.raw, SizeBytes: &sidecar.Size, MtimeMs: &sidecar.MtimeMs,
-			Kind: &kind,
+			PayloadHash: hash, PayloadBytes: payloadBytes, Kind: &kind,
 			Body: sidecar.Body, SeenAt: work.now, ID: existing.ID,
 		})
 		if err != nil {
@@ -42,7 +51,8 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 	}
 	_, err = work.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
 		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, PathRaw: located.raw, PathKey: located.key,
-		SizeBytes: &sidecar.Size, MtimeMs: &sidecar.MtimeMs, Kind: &kind, Body: sidecar.Body, SeenAt: work.now,
+		SizeBytes: &sidecar.Size, MtimeMs: &sidecar.MtimeMs, PayloadHash: hash, PayloadBytes: payloadBytes, Kind: &kind,
+		Body: sidecar.Body, SeenAt: work.now,
 	})
 	if err != nil {
 		return fmt.Errorf("insert the sidecar %s: %w", located.text, err)
@@ -53,7 +63,8 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 // attachSidecars points each sidecar under the root at the video it belongs to: the video in
 // its folder whose name it extends ("Film (2020).es.srt", "Film (2020).nfo" for
 // "Film (2020).mkv"), or, for a "movie.nfo", the folder's only video. A sidecar that belongs to
-// no single video — a tvshow.nfo, a season's — is attached to none.
+// no single video — a tvshow.nfo, a season's — is attached to none. A subtitle's track is kept
+// beside its video's own (keepSidecarTrack).
 func (work *batch) attachSidecars(ctx context.Context, scan *scanState) error {
 	files, err := work.queries.ListLiveFilesForAttaching(ctx, sqlcgen.ListLiveFilesForAttachingParams{
 		NodeID: work.nodeID, LibraryID: scan.libraryID,
@@ -63,7 +74,8 @@ func (work *batch) attachSidecars(ctx context.Context, scan *scanState) error {
 	}
 	videos := map[string][]sqlcgen.ListLiveFilesForAttachingRow{} // by folder
 	for _, file := range files {
-		if under(file.Path, scan.root) && file.PayloadHash != nil {
+		// A subtitle sidecar has a payload hash too; a video is what has one and is not attached.
+		if under(file.Path, scan.root) && file.PayloadHash != nil && file.Filing != filingAttached {
 			videos[path.Dir(file.Path)] = append(videos[path.Dir(file.Path)], file)
 		}
 	}
@@ -71,8 +83,14 @@ func (work *batch) attachSidecars(ctx context.Context, scan *scanState) error {
 		if file.Filing != filingAttached || !under(file.Path, scan.root) {
 			continue
 		}
-		owner := ownerOf(file.Path, videos[path.Dir(file.Path)])
-		if sameOwner(file.AttachedTo, owner) {
+		folder := videos[path.Dir(file.Path)]
+		owner := ownerOf(file.Path, folder)
+		if file.FilingReason != nil && *file.FilingReason == string(nodeproto.SidecarSubtitle) {
+			if err := work.keepSidecarTrack(ctx, file, videoOf(owner, folder)); err != nil {
+				return err
+			}
+		}
+		if samePointee(file.AttachedTo, owner) {
 			continue
 		}
 		err := work.queries.SetFileAttachedTo(ctx, sqlcgen.SetFileAttachedToParams{AttachedTo: owner, ID: file.ID})
@@ -103,9 +121,10 @@ func ownerOf(sidecarPath string, videos []sqlcgen.ListLiveFilesForAttachingRow) 
 	return owner
 }
 
-func sameOwner(current, owner *int64) bool {
-	if current == nil || owner == nil {
-		return current == owner
+// samePointee is whether two optional values are both absent, or both present and equal.
+func samePointee[T comparable](stored, derived *T) bool {
+	if stored == nil || derived == nil {
+		return stored == derived
 	}
-	return *current == *owner
+	return *stored == *derived
 }

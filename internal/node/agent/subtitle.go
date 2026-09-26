@@ -5,11 +5,13 @@ package agent
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -47,8 +49,9 @@ func (agent *Agent) extractSubtitle(ctx context.Context, nodeID int64, command n
 	}()
 }
 
-// runExtraction makes one subtitle's text, or says why it could not: a video is checked to be
-// the file the core named (D100), and a sidecar is read through the root it is under.
+// runExtraction makes one subtitle's text, or says why it could not: a video or a sidecar is
+// checked to be the file the core named (D100), and a sidecar is read through the root it is
+// under.
 func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.ExtractSubtitle) nodeproto.SubtitleText {
 	refused := func(err error) nodeproto.SubtitleText {
 		return nodeproto.SubtitleText{Job: command.Job, Refused: err.Error()}
@@ -75,6 +78,13 @@ func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.Extract
 		source, err := readBounded(root, string(command.Sidecar.Path), subtitle.MaxTextBytes)
 		if err != nil {
 			return refused(fmt.Errorf("read the sidecar: %w", err))
+		}
+		identity, err := hash.Payload(bytes.NewReader(source), int64(len(source)))
+		if err != nil {
+			return refused(fmt.Errorf("hash the sidecar: %w", err))
+		}
+		if hex.EncodeToString(identity.Hash[:]) != command.Sidecar.Hash {
+			return refused(errors.New("the file at this path is not the one named; it changed since the scan"))
 		}
 		if text, err = agent.workers.Subtitles.ConvertFile(ctx, source); err != nil {
 			return refused(err)

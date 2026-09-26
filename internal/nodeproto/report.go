@@ -41,7 +41,8 @@ const (
 	// SidecarNFO is Kodi's metadata file. Its bytes travel in the record: identification reads
 	// them in the core, which never opens a file (identification.md, Reading the sidecars).
 	SidecarNFO SidecarKind = "nfo"
-	// SidecarSubtitle is a text subtitle file beside its video. Its bytes are read when played.
+	// SidecarSubtitle is a text subtitle file beside its video, with its payload hash. Its bytes
+	// are read when it is extracted.
 	SidecarSubtitle SidecarKind = "subtitle"
 	// SidecarImage is an image beside the media: a poster, a backdrop. Its bytes never travel in
 	// a record; the node reads and re-encodes it when the core asks (D212 §8, D215).
@@ -57,6 +58,9 @@ type Sidecar struct {
 	MtimeMs int64       `json:"mtimeMs"`
 	// Body is the file's bytes, for an NFO only, and bounded: a larger NFO is an error record.
 	Body []byte `json:"body,omitempty"`
+	// Identity is a subtitle's payload hash (D179): a text file is hashed whole, so a changed
+	// subtitle has a new one, and its extracted text is kept by it (D217 §6).
+	Identity *Identity `json:"identity,omitempty"`
 }
 
 // Mount is a directory below the root that is on another device than its parent: a mount
