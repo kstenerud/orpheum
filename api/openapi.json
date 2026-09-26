@@ -445,6 +445,37 @@
         ],
         "type": "object"
       },
+      "EventBody": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "started",
+              "paused",
+              "seeked",
+              "completed",
+              "abandoned"
+            ],
+            "type": "string"
+          },
+          "monoMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "positionMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "positionMs",
+          "monoMs"
+        ],
+        "type": "object"
+      },
       "ExtraBody": {
         "additionalProperties": false,
         "properties": {
@@ -1131,6 +1162,58 @@
         ],
         "type": "object"
       },
+      "ReportInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/EventBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "positionMonoMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "positionMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sentMonoMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "seq": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "spans": {
+            "items": {
+              "$ref": "#/components/schemas/SpanBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "seq",
+          "sentMonoMs",
+          "positionMs",
+          "positionMonoMs",
+          "events",
+          "spans"
+        ],
+        "type": "object"
+      },
       "RescanOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1424,6 +1507,42 @@
         ],
         "type": "object"
       },
+      "SpanBody": {
+        "additionalProperties": false,
+        "properties": {
+          "endedMonoMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "fromPositionMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "isUnattended": {
+            "description": "Played after nobody answered still watching (D188)",
+            "type": "boolean"
+          },
+          "startedMonoMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "toPositionMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fromPositionMs",
+          "toPositionMs",
+          "startedMonoMs",
+          "endedMonoMs"
+        ],
+        "type": "object"
+      },
       "StartPlaybackInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1508,6 +1627,10 @@
               "null"
             ]
           },
+          "resumePositionMs": {
+            "format": "int64",
+            "type": "integer"
+          },
           "subtitles": {
             "items": {
               "$ref": "#/components/schemas/SubtitleTrackBody"
@@ -1528,7 +1651,8 @@
           "reasons",
           "isPreparing",
           "subtitles",
-          "prefs"
+          "prefs",
+          "resumePositionMs"
         ],
         "type": "object"
       },
@@ -3688,6 +3812,61 @@
           }
         },
         "summary": "Decide how a file plays on this client, and where its bytes are (cut-a §6)",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
+    "/playback/{token}/report": {
+      "post": {
+        "operationId": "reportPlayback",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The playback's media token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The playback's media token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Report where a playback is and what changed; the position never moves back (D217 §7)",
         "tags": [
           "Playback"
         ]

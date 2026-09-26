@@ -632,9 +632,10 @@ CREATE TABLE play_position (                               -- class A (D81, D157
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   file_id     INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT,
   position_ms INTEGER NOT NULL,
-  seq         INTEGER NOT NULL,          -- the guard: an older report does not move it
+  seq         INTEGER NOT NULL,          -- 0014: the report's number within its playback
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT,
   updated_at  INTEGER NOT NULL,
+  watched_at  INTEGER NOT NULL DEFAULT 0,  -- 0014: the guard, the moment of watching it records
   PRIMARY KEY (user_id, file_id)
 ) WITHOUT ROWID;
 
@@ -664,6 +665,18 @@ CREATE TABLE play_span (                                   -- class A (D165)
 );
 CREATE INDEX play_span_user ON play_span(user_id, started_at);
 CREATE INDEX play_span_file ON play_span(file_id);
+```
+
+**The guard is the moment of watching, not the order of arrival** (D217 §7, migration 0014). A
+player reports on one playback: its report's number within the playback, the device's monotonic
+clock when it sent the report and when it read the position, and the changes and spans since its
+last report, each at a monotonic time. The server anchors each time to its own clock on arrival
+(`server_now − (sent − t)`, D165), keeps events and spans at those times, and moves the position
+only when its moment, `watched_at`, is later than the stored one's. A report about an earlier
+moment that arrives late is logged and moves nothing. The report number drops a report sent
+again, and is kept with the playback in memory, not in this table.
+
+```sql
 
 CREATE TABLE favourite (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, added_at INTEGER NOT NULL,

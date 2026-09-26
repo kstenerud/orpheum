@@ -41,6 +41,7 @@ describe("playing a file", () => {
             isPreparing: false,
             subtitles: [],
             prefs: { subtitleOffsetMs: 0 },
+            resumePositionMs: 0,
           }}
         />,
       ),
@@ -63,6 +64,7 @@ describe("playing a file", () => {
             isPreparing: true,
             subtitles: [],
             prefs: { subtitleOffsetMs: 0 },
+            resumePositionMs: 0,
             audio: [
               { sourceTrack: 0, language: "en", isDialogueBoost: false },
               { sourceTrack: 0, language: "en", isDialogueBoost: true },
@@ -86,6 +88,7 @@ describe("playing a file", () => {
       isPreparing: false,
       subtitles: [],
       prefs: { subtitleOffsetMs: 0 },
+      resumePositionMs: 0,
       audio: [
         { sourceTrack: 0, language: "en", isDialogueBoost: false },
         { sourceTrack: 0, language: "en", isDialogueBoost: true },

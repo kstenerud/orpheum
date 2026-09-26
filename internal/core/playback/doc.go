@@ -14,8 +14,15 @@
 //     forbidigo rule tagged [core-fs].
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
-//   - Play state records against the source file, never a prepared rendition. Review-only until
-//     M3's tests land.
+//   - Play state records against the source file, never a prepared rendition, and a position moves
+//     only for a report about a later moment of watching, anchored from the device's monotonic
+//     clock, so two devices reporting out of order never rewind it; a report sent again changes
+//     nothing (D217 §7, D165). Enforced by
+//     TestPlayState_TwoDevicesReportingOutOfOrderNeverRewindThePosition and
+//     TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching.
+//   - A playback starts where the person left the file, unless that is before resume_min_percent
+//     or after finished_after_percent of a known length; an unknown length is never read as
+//     finished. Enforced by TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength.
 //   - A media token grants nothing alone: its bytes are served only to the person and session
 //     that started the playback, and only until it has been idle for media_token_idle_expiry_h (D217
 //     §2). Enforced by TestPlayback_AMediaAddressPlaysOnlyForItsSessionAndOnlyWhileInUse.
@@ -62,5 +69,6 @@
 //     playback's bytes. prepare.go: renditions' rows, their jobs and the nodes' reports. hls.go:
 //     a prepared playback's files, and the prepare job's handler. subtitles.go: the text tracks a
 //     playback offers, their extraction jobs and their text. waiting.go: jobs waiting for a node's
-//     answer. The play-state report, Continue Watching and Next Up come later in M3.
+//     answer. report.go: the play report, its log and the guarded position. resume.go: where a
+//     playback starts. Continue Watching comes later in M3; Next Up after it.
 package playback

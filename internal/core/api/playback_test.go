@@ -103,6 +103,7 @@ type decision struct {
 	Prefs     struct {
 		SubtitleOffsetMs int `json:"subtitleOffsetMs"`
 	} `json:"prefs"`
+	ResumePositionMs int64 `json:"resumePositionMs"`
 }
 
 type subtitleTrack struct {

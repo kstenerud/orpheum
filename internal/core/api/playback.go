@@ -66,6 +66,9 @@ type StartPlaybackOutput struct {
 		Subtitles []SubtitleTrackBody `json:"subtitles"`
 		// Prefs are the person's choices for this file, which the player starts with.
 		Prefs FilePrefsBody `json:"prefs"`
+		// ResumePositionMs is where the player starts, without asking (D188): where the person
+		// left the file, or 0.
+		ResumePositionMs int64 `json:"resumePositionMs"`
 	}
 }
 
@@ -175,6 +178,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	}
 	output.Body.Subtitles = subtitleTracks(started)
 	output.Body.Prefs = FilePrefsBody{SubtitleOffsetMs: started.Prefs.SubtitleOffsetMs}
+	output.Body.ResumePositionMs = started.ResumePositionMs
 	return output, nil
 }
 

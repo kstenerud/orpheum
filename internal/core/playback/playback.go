@@ -106,6 +106,8 @@ type Started struct {
 	Subtitles []SubtitleTrack
 	// Prefs are the person's choices for the file, which the player starts with.
 	Prefs FilePrefs
+	// ResumePositionMs is where the player starts: where the person left the file, or 0.
+	ResumePositionMs int64
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -138,6 +140,9 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		return Started{}, err
 	}
 	if started.Prefs, err = service.FilePrefs(ctx, userID, file.ID); err != nil {
+		return Started{}, err
+	}
+	if started.ResumePositionMs, err = service.resumeAt(ctx, userID, file.ID, probe.Format.DurationMs); err != nil {
 		return Started{}, err
 	}
 	playback := playing{userID: userID, sessionKey: sessionKey, fileID: file.ID}

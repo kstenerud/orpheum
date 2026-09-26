@@ -109,6 +109,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerDoctor()
 	server.registerPlayback()
 	server.registerFilePrefs()
+	server.registerReport()
 	return server
 }
 
