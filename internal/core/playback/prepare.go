@@ -5,8 +5,10 @@ package playback
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"strconv"
 	"sync"
@@ -38,6 +40,7 @@ type prepares struct {
 	queue    Queue
 	nodes    Nodes
 	settings Settings
+	random   io.Reader
 	clock    clock.Clock
 	logger   *slog.Logger
 	silence  time.Duration
@@ -49,7 +52,8 @@ type prepares struct {
 func newPrepares(parts Parts) *prepares {
 	return &prepares{
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
-		clock: parts.Clock, logger: parts.Logger, silence: parts.Silence,
+		random: parts.Random,
+		clock:  parts.Clock, logger: parts.Logger, silence: parts.Silence,
 		waiting: map[int64]chan nodeproto.PrepareReport{},
 	}
 }
@@ -65,6 +69,10 @@ func (all *prepares) want(
 	if settingErr != nil {
 		return row, fmt.Errorf("read hls_segment_s: %w", settingErr)
 	}
+	run, runErr := all.newRun()
+	if runErr != nil {
+		return row, runErr
+	}
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		key := cachegen.GetRenditionParams{SourceFile: file.ID, Profile: string(profile)}
 		found, err := store.One(queries.GetRendition(ctx, key))
@@ -72,13 +80,13 @@ func (all *prepares) want(
 		case errors.Is(err, store.ErrNotFound):
 			_, err = queries.InsertRendition(ctx, cachegen.InsertRenditionParams{
 				SourceFile: file.ID, PayloadHash: file.PayloadHash, Profile: string(profile), NodeID: file.NodeID,
-				SegmentS: segment, CreatedAt: all.clock.Now().UnixMilli(),
+				SegmentS: segment, Run: run, CreatedAt: all.clock.Now().UnixMilli(),
 			})
 		case err != nil:
 		case !bytes.Equal(found.PayloadHash, file.PayloadHash) || found.State == renditionFailed ||
 			found.SegmentS != segment:
 			err = queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-				PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentS: segment, ID: found.ID,
+				PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentS: segment, Run: run, ID: found.ID,
 			})
 		}
 		if err != nil {
@@ -103,14 +111,18 @@ func (all *prepares) want(
 func (all *prepares) redo(
 	ctx context.Context, file sqlcgen.GetPlayableFileRow, profile nodeproto.PrepareProfile,
 ) error {
-	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
+	run, err := all.newRun()
+	if err != nil {
+		return err
+	}
+	err = all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		key := cachegen.GetRenditionParams{SourceFile: file.ID, Profile: string(profile)}
-		found, err := queries.GetRendition(ctx, key)
-		if err != nil {
-			return err
+		found, readErr := queries.GetRendition(ctx, key)
+		if readErr != nil {
+			return readErr
 		}
 		return queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-			PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentS: found.SegmentS, ID: found.ID,
+			PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentS: found.SegmentS, Run: run, ID: found.ID,
 		})
 	})
 	if err != nil {
@@ -118,6 +130,20 @@ func (all *prepares) redo(
 	}
 	_, err = all.want(ctx, file, profile)
 	return err
+}
+
+// runBytes is a run's random name's length before hex: eight bytes never repeat in practice,
+// even across a cache.db rebuilt from nothing.
+const runBytes = 8
+
+// newRun names one making of a rendition: its own directory on the node, so no request can
+// reach a copy that an earlier making left and a later one is overwriting.
+func (all *prepares) newRun() (string, error) {
+	raw := make([]byte, runBytes)
+	if _, err := io.ReadFull(all.random, raw); err != nil {
+		return "", fmt.Errorf("name a rendition's run: %w", err)
+	}
+	return hex.EncodeToString(raw), nil
 }
 
 // handle runs one prepare job: it commands the node and waits for its reports, recording each,
@@ -220,10 +246,10 @@ func (all *prepares) reported(ctx context.Context, nodeID int64, report nodeprot
 // prepareCommand is the node's command for a rendition of file: its source by identity, its
 // directory, its picture's codec and every audio track (D217 §3).
 func prepareCommand(
-	source nodeproto.BytesFile, fileID int64, profile nodeproto.PrepareProfile, probe nodeproto.Probe,
+	source nodeproto.BytesFile, fileID int64, profile nodeproto.PrepareProfile, run string, probe nodeproto.Probe,
 ) nodeproto.Prepare {
 	command := nodeproto.Prepare{
-		Source: source, Profile: profile, Dir: strconv.FormatInt(fileID, 10) + "/" + string(profile),
+		Source: source, Profile: profile, Dir: strconv.FormatInt(fileID, 10) + "/" + string(profile) + "/" + run,
 	}
 	if picture, found := decide.MainVideo(probe); found {
 		command.VideoStream, command.VideoCodec = picture.Index, picture.Codec

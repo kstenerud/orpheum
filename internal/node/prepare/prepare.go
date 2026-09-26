@@ -24,11 +24,11 @@ type Runner interface {
 	RunStreaming(ctx context.Context, tool execx.Tool, arguments []string, stdout io.Writer) error
 }
 
-// renditionDir is the only shape a rendition's directory may have: "<file_id>/<profile>".
-var renditionDir = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)$`)
+// renditionDir is the only shape a rendition's directory may have: "<file_id>/<profile>/<run>".
+var renditionDir = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)/[0-9a-f]{16}$`)
 
-// ErrBadDir is a rendition directory that is not "<file_id>/<profile>".
-var ErrBadDir = errors.New("a rendition's directory must be <file_id>/<profile>")
+// ErrBadDir is a rendition directory that is not "<file_id>/<profile>/<run>".
+var ErrBadDir = errors.New("a rendition's directory must be <file_id>/<profile>/<run>")
 
 // Preparer makes renditions under the node's prepared directory.
 type Preparer struct {

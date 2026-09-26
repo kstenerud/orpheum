@@ -16506,8 +16506,10 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
    someone is partway through its title, or for a short grace after its last play, within the
    budget. The core's record of a rendition is a note of what the node said it has: when the
    node answers that one is gone, the core prepares it again. `/doctor` shows each node's use.
-   The byte path is `/bytes/v1/prepared/<file_id>/<profile>/<name>`, and eviction by the core is
-   not needed. **The starting values** (the owner, 2026-09-25: *"ok sounds good"*, then *"Maybe
+   The byte path is `/bytes/v1/prepared/<file_id>/<profile>/<run>/<name>`, and eviction by the
+   core is not needed. `<run>` is new each time a rendition is made (a random name, 2026-09-26):
+   a copy made again never writes where an earlier making's files are, so no request can reach
+   a copy half overwritten, and the earlier making's directory is left for eviction. **The starting values** (the owner, 2026-09-25: *"ok sounds good"*, then *"Maybe
    the cache should be default 200gb but also check that disk usage on that device isn't above
    95%"*): a budget of 200 GiB, a grace of 3 days after the last play, and a second limit on the
    filesystem that holds the directory: past 95% full, renditions are evicted as they are past

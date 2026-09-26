@@ -81,7 +81,8 @@ func (service *Service) HLS(ctx context.Context, token, name string, userID int6
 	case renditionFailed:
 		readiness = Failed
 	}
-	target := nodeproto.PathBytesPrepared + strconv.FormatInt(what.fileID, 10) + "/" + string(what.profile) + "/" + name
+	target := nodeproto.PathBytesPrepared + strconv.FormatInt(what.fileID, 10) + "/" + string(what.profile) + "/" +
+		rendition.Run + "/" + name
 	return HLSSource{
 		Source:    Source{NodeID: rendition.NodeID, Target: target, ContentType: hlsType(name)},
 		Readiness: readiness, fileID: what.fileID, profile: what.profile,
@@ -145,7 +146,7 @@ func (service *Service) commandFor(
 	if err != nil {
 		return nodeproto.Prepare{}, 0, err
 	}
-	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), probe)
+	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), rendition.Run, probe)
 	command.SegmentSeconds = int(rendition.SegmentS)
 	return command, file.NodeID, nil
 }

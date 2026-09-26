@@ -131,7 +131,7 @@ func (service *Service) Start(ctx context.Context, userID int64, session string,
 			return Started{}, wantErr
 		}
 		started.Preparing = rendition.State != renditionComplete
-		started.Audio = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, what.profile, probe))
+		started.Audio = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, what.profile, "", probe))
 	}
 	started.Token, err = service.tokens.issue(service.random, what, service.clock.Now(), idle)
 	if err != nil {

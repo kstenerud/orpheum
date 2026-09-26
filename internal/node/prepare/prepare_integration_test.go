@@ -80,14 +80,14 @@ func TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentr
 	}
 	var doneMs int64
 	command := nodeproto.Prepare{
-		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", Dir: "7/remux",
+		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", Dir: "7/remux/0123456789abcdef",
 		Audio: []nodeproto.PrepareAudio{{Index: 0, Language: "en", Channels: 6}},
 	}
 	size, err := preparer.Prepare(t.Context(), film, command, func(ms int64) { doneMs = ms })
 	if err != nil {
 		t.Fatal(err)
 	}
-	rendition := filepath.Join(directory, "7", "remux")
+	rendition := filepath.Join(directory, "7", "remux", "0123456789abcdef")
 	master, err := os.ReadFile(filepath.Join(rendition, "master.m3u8"))
 	if err != nil {
 		t.Fatal(err)

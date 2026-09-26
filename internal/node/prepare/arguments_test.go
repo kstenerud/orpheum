@@ -22,14 +22,14 @@ func after(arguments []string, flag string) string {
 func TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre(t *testing.T) {
 	t.Parallel()
 	command := nodeproto.Prepare{
-		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", Dir: "7/remux",
+		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", Dir: "7/remux/0123456789abcdef",
 		Audio: []nodeproto.PrepareAudio{
 			{Index: 0, Language: "en", Channels: 6},
 			{Index: 1, Language: "de", Channels: 2},
 			{Index: 2, Language: "bad tag,x", Channels: 8},
 		},
 	}
-	arguments := prepare.Arguments("/media/a film.mkv", "/prep/7/remux", command)
+	arguments := prepare.Arguments("/media/a film.mkv", "/prep/7/remux/0123456789abcdef", command)
 	if after(arguments, "-i") != "file:/media/a film.mkv" || after(arguments, "-protocol_whitelist") != "file" {
 		t.Errorf("the input is %q, want file: and only the file protocol", after(arguments, "-i"))
 	}
@@ -53,7 +53,7 @@ func TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre(t *testing.
 			after(arguments, "-filter:a:2"))
 	}
 	if after(arguments, "-hls_segment_type") != "fmp4" || after(arguments, "-hls_playlist_type") != "event" ||
-		arguments[len(arguments)-1] != "/prep/7/remux/%v/stream.m3u8" {
+		arguments[len(arguments)-1] != "/prep/7/remux/0123456789abcdef/%v/stream.m3u8" {
 		t.Errorf("the output is %v, want fMP4 HLS as an EVENT playlist under the rendition", arguments)
 	}
 }

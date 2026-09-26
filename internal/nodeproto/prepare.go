@@ -9,7 +9,7 @@ const CommandPrepare CommandType = "prepare"
 const PathPrepare = "/node/v1/prepare"
 
 // PathBytesPrepared is the byte socket's route for a rendition's files:
-// PathBytesPrepared + "<file_id>/<profile>/<name>" (D217 §5).
+// PathBytesPrepared + "<file_id>/<profile>/<run>/<name>" (D217 §5).
 const PathBytesPrepared = "/bytes/v1/prepared/"
 
 // PrepareProfile is a rendition's recipe (cut-a §6).
@@ -27,8 +27,9 @@ type Prepare struct {
 	Job     int64          `json:"job"`
 	Source  BytesFile      `json:"source"`
 	Profile PrepareProfile `json:"profile"`
-	// Dir is "<file_id>/<profile>", the rendition's directory under the node's prepared
-	// directory and its byte path.
+	// Dir is "<file_id>/<profile>/<run>", this making's directory under the node's prepared
+	// directory and its byte path: a new run for each making, so no request reaches a copy an
+	// earlier making left.
 	Dir string `json:"dir"`
 	// VideoStream is the source picture's stream index, as ffprobe numbers every stream: the
 	// picture, never cover art that happens to come first.

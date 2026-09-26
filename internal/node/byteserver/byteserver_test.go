@@ -198,10 +198,10 @@ func rendition(t *testing.T) *confine.MediaRoot {
 	t.Helper()
 	directory := t.TempDir()
 	for name, contents := range map[string]string{
-		"7/remux/master.m3u8":               "#EXTM3U\n",
-		"7/remux/audio0-boost/seg00001.m4s": "segment",
-		"7/remux/video/init.mp4":            "init",
-		"7/remux/notes.txt":                 "not a rendition's",
+		"7/remux/0123456789abcdef/master.m3u8":               "#EXTM3U\n",
+		"7/remux/0123456789abcdef/audio0-boost/seg00001.m4s": "segment",
+		"7/remux/0123456789abcdef/video/init_0.mp4":          "init",
+		"7/remux/0123456789abcdef/notes.txt":                 "not a rendition's",
 	} {
 		full := filepath.Join(directory, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(full), 0o700); err != nil {
@@ -223,9 +223,9 @@ func TestRenditionFile_ServesARenditionsFilesAndNothingElse(t *testing.T) {
 	t.Parallel()
 	handler := byteserver.New(nil, rendition(t)).Handler()
 	for name, want := range map[string]string{
-		"7/remux/master.m3u8":               "application/vnd.apple.mpegurl",
-		"7/remux/audio0-boost/seg00001.m4s": "video/iso.segment",
-		"7/remux/video/init.mp4":            "video/mp4",
+		"7/remux/0123456789abcdef/master.m3u8":               "application/vnd.apple.mpegurl",
+		"7/remux/0123456789abcdef/audio0-boost/seg00001.m4s": "video/iso.segment",
+		"7/remux/0123456789abcdef/video/init_0.mp4":          "video/mp4",
 	} {
 		got := request(t, handler, http.MethodGet, nodeproto.PathBytesPrepared+name, nil)
 		if got.Code != http.StatusOK || got.Header().Get("Content-Type") != want {
@@ -233,7 +233,8 @@ func TestRenditionFile_ServesARenditionsFilesAndNothingElse(t *testing.T) {
 		}
 	}
 	for _, name := range []string{
-		"7/remux/notes.txt", "7/remux/video/seg00002.m4s", "7/other/master.m3u8", "0/remux/master.m3u8",
+		"7/remux/0123456789abcdef/notes.txt", "7/remux/0123456789abcdef/video/seg00002.m4s",
+		"7/other/0123456789abcdef/master.m3u8", "0/remux/0123456789abcdef/master.m3u8", "7/remux/master.m3u8",
 	} {
 		if got := request(t, handler, http.MethodGet, nodeproto.PathBytesPrepared+name, nil); got.Code !=
 			http.StatusNotFound {
@@ -248,7 +249,7 @@ func TestRenditionFile_ServesARenditionsFilesAndNothingElse(t *testing.T) {
 		}
 	}
 	if got := request(t, byteserver.New(nil, nil).Handler(), http.MethodGet,
-		nodeproto.PathBytesPrepared+"7/remux/master.m3u8", nil); got.Code != http.StatusNotFound {
+		nodeproto.PathBytesPrepared+"7/remux/0123456789abcdef/master.m3u8", nil); got.Code != http.StatusNotFound {
 		t.Errorf("a node that does not prepare: %d, want 404", got.Code)
 	}
 }

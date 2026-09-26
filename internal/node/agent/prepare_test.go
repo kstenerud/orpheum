@@ -55,7 +55,7 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 	}
 	send := func(job int64, source nodeproto.BytesFile) {
 		core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-			Job: job, Source: source, Profile: nodeproto.ProfileRemux, Dir: "3/remux",
+			Job: job, Source: source, Profile: nodeproto.ProfileRemux, Dir: "3/remux/0123456789abcdef",
 		}}
 	}
 	send(1, named)

@@ -11,7 +11,7 @@ import (
 
 const getRendition = `-- name: GetRendition :one
 
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, done_ms, bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, run, done_ms, bytes, error, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?
 `
 
@@ -34,6 +34,7 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 		&i.NodeID,
 		&i.State,
 		&i.SegmentS,
+		&i.Run,
 		&i.DoneMs,
 		&i.Bytes,
 		&i.Error,
@@ -44,7 +45,7 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 }
 
 const getRenditionByID = `-- name: GetRenditionByID :one
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, done_ms, bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, run, done_ms, bytes, error, created_at, finished_at
 FROM prepared_rendition WHERE id = ?
 `
 
@@ -59,6 +60,7 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 		&i.NodeID,
 		&i.State,
 		&i.SegmentS,
+		&i.Run,
 		&i.DoneMs,
 		&i.Bytes,
 		&i.Error,
@@ -69,8 +71,8 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 }
 
 const insertRendition = `-- name: InsertRendition :one
-INSERT INTO prepared_rendition (source_file, payload_hash, profile, node_id, segment_s, created_at)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO prepared_rendition (source_file, payload_hash, profile, node_id, segment_s, run, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
@@ -80,6 +82,7 @@ type InsertRenditionParams struct {
 	Profile     string
 	NodeID      int64
 	SegmentS    int64
+	Run         string
 	CreatedAt   int64
 }
 
@@ -90,6 +93,7 @@ func (q *Queries) InsertRendition(ctx context.Context, arg InsertRenditionParams
 		arg.Profile,
 		arg.NodeID,
 		arg.SegmentS,
+		arg.Run,
 		arg.CreatedAt,
 	)
 	var id int64
@@ -99,7 +103,7 @@ func (q *Queries) InsertRendition(ctx context.Context, arg InsertRenditionParams
 
 const restartRendition = `-- name: RestartRendition :exec
 UPDATE prepared_rendition
-SET payload_hash = ?, node_id = ?, segment_s = ?, state = 'queued', done_ms = 0, bytes = NULL, error = NULL,
+SET payload_hash = ?, node_id = ?, segment_s = ?, run = ?, state = 'queued', done_ms = 0, bytes = NULL, error = NULL,
     finished_at = NULL
 WHERE id = ?
 `
@@ -108,6 +112,7 @@ type RestartRenditionParams struct {
 	PayloadHash []byte
 	NodeID      int64
 	SegmentS    int64
+	Run         string
 	ID          int64
 }
 
@@ -117,6 +122,7 @@ func (q *Queries) RestartRendition(ctx context.Context, arg RestartRenditionPara
 		arg.PayloadHash,
 		arg.NodeID,
 		arg.SegmentS,
+		arg.Run,
 		arg.ID,
 	)
 	return err
