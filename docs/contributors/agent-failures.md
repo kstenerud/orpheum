@@ -62,7 +62,11 @@ rests on, so the claim can be checked against them; a total goes stale with the 
   unit; the missing word was "length". The owner: *"the only way to solve this will be to do
   periodic audits to catch them"*. So a naming pass joins every between-milestone audit, a
   codebase-wide one ran at once, and before committing a slice the agent re-reads each name it
-  introduced as a reader at the use site would.
+  introduced as a reader at the use site would. The codebase-wide audit found 47 unclear names
+  and 99 minor ones; those its summary named were renamed in an earlier commit to an earlier commit, but its
+  per-item lists were lost when the machine failed, so the next milestone audit runs the naming
+  pass over the whole tree again. The owner then made the checks policy at every commit as well
+  as every milestone (AGENTS.md rule 17; audit-checklist.md, "At every commit").
 
 ### A7 — A cause asserted from a plausible mechanism, and a fix built on it, without a measurement (2026-09-26)
 

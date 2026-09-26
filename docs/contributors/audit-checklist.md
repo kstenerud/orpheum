@@ -1,5 +1,5 @@
-> **ABOUTME:** What every audit between milestones checks. It grows: each time an audit, a
-> correction or a defect shows something no gate catches, the check for it is added here.
+> **ABOUTME:** What every commit and every audit between milestones checks. It grows: each time
+> an audit, a correction or a defect shows something no gate catches, the check for it is added.
 
 # The audit checklist
 
@@ -15,6 +15,17 @@ audit is that rule's only enforcement.
 [plan deviation](plan-deviations.md) shows a kind of defect that a gate cannot catch, add the
 check here, citing where it came from. When a gate later takes a check over, say so beside it
 rather than deleting it.
+
+## At every commit
+
+The 2026-09-26 naming audit found the naming rule broken across the whole codebase: 47 names a
+reader had to look up and 99 that could be clearer, each written one commit at a time with a
+rule in place that said not to. The owner then made these checks policy at every commit as well
+as at every milestone (AGENTS.md rule 17), so that a lapse is caught in the commit that makes it,
+not after it has spread: *"Since you're non-deterministic with prose rules, we need mechanical
+checks to catch things you miss."* Before committing, check the diff against items 7, 8, 10 and
+11 below. A finding is fixed in the same commit; one that reaches a migration, the API or a
+setting key goes to the owner first.
 
 ## The milestone
 
