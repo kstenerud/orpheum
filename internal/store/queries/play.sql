@@ -41,3 +41,29 @@ SELECT kind, position_ms, server_at, device_id
 FROM play_event
 WHERE user_id = sqlc.arg(user_id) AND file_id = sqlc.arg(file_id)
 ORDER BY server_at, id;
+
+-- name: ListRecentPlayPositions :many
+-- A person's positions in live files of live films and episodes, most recent watching first,
+-- with each file's length where its probe knows it and when its work was last hidden: what
+-- Continue Watching is chosen from. Extras are left out (D162).
+SELECT play_position.file_id, play_position.position_ms, play_position.watched_at,
+  CAST(coalesce(json_extract(file.probe, '$.format.durationMs'), 0) AS INTEGER) AS duration_ms, file.path,
+  title.id AS title_id, title.kind, title.year, item.library_id, item_text.name, progress_hide.hidden_at
+FROM play_position
+JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
+JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode')
+JOIN item ON item.id = title.id AND item.removed_at IS NULL
+LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = title.id
+WHERE play_position.user_id = sqlc.arg(user_id)
+ORDER BY play_position.watched_at DESC
+LIMIT sqlc.arg(max_rows);
+
+-- name: HideProgress :exec
+-- A work hidden from Continue Watching until it next has activity (D188): not a completion.
+INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (sqlc.arg(user_id), sqlc.arg(item_id), sqlc.arg(hidden_at))
+ON CONFLICT (user_id, item_id) DO UPDATE SET hidden_at = excluded.hidden_at;
+
+-- name: UnhideProgress :exec
+DELETE FROM progress_hide WHERE user_id = sqlc.arg(user_id) AND item_id = sqlc.arg(item_id);

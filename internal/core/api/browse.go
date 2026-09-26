@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 const tagBrowse = "Browse"
@@ -252,13 +253,19 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 		})
 	}
 	body.Art = artBody(detail.Art)
-	if place := detail.Episode; place != nil {
-		body.Episode = &EpisodePlaceBody{
-			SeriesID: place.CollectionID, SeriesName: ptr.ValueOrZero(place.SeriesName),
-			Season: ptr.ValueOrZero(place.GroupNumber), Number: ptr.ValueOrZero(place.Number),
-		}
-	}
+	body.Episode = episodePlaceBody(detail.Episode)
 	return output, nil
+}
+
+// episodePlaceBody is an episode's place as the API shows it, or nil for a title in no series.
+func episodePlaceBody(place *sqlcgen.GetEpisodePlaceRow) *EpisodePlaceBody {
+	if place == nil {
+		return nil
+	}
+	return &EpisodePlaceBody{
+		SeriesID: place.CollectionID, SeriesName: ptr.ValueOrZero(place.SeriesName),
+		Season: ptr.ValueOrZero(place.GroupNumber), Number: ptr.ValueOrZero(place.Number),
+	}
 }
 
 func (server *Server) getCollection(ctx context.Context, input *ItemInput) (*CollectionOutput, error) {

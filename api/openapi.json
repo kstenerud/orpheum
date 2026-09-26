@@ -702,6 +702,76 @@
         ],
         "type": "object"
       },
+      "HomeOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "continueWatching": {
+            "items": {
+              "$ref": "#/components/schemas/InProgressBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "continueWatching"
+        ],
+        "type": "object"
+      },
+      "InProgressBody": {
+        "additionalProperties": false,
+        "properties": {
+          "durationMs": {
+            "description": "0 when the file's length is unknown",
+            "format": "int64",
+            "type": "integer"
+          },
+          "episode": {
+            "$ref": "#/components/schemas/EpisodePlaceBody"
+          },
+          "fileId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "fileName": {
+            "description": "Which file it resumes, when two are partway",
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "libraryId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "positionMs": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "posterHash": {
+            "type": "string"
+          },
+          "year": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "libraryId",
+          "fileId",
+          "positionMs",
+          "durationMs"
+        ],
+        "type": "object"
+      },
       "ItemBody": {
         "additionalProperties": false,
         "properties": {
@@ -2795,6 +2865,48 @@
         ]
       }
     },
+    "/home": {
+      "get": {
+        "operationId": "getHome",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The home screen: what the person stopped in the middle of",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
     "/items": {
       "get": {
         "operationId": "getItemsByIdentification",
@@ -2951,6 +3063,94 @@
         "summary": "An ambiguous film's or series' search results, to choose from (edit_metadata)",
         "tags": [
           "Identification"
+        ]
+      }
+    },
+    "/items/{id}/hide": {
+      "delete": {
+        "operationId": "unhideProgress",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Undo hiding a work",
+        "tags": [
+          "Playback"
+        ]
+      },
+      "post": {
+        "operationId": "hideProgress",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Hide a work from Continue Watching until it next has activity; not a completion (D188)",
+        "tags": [
+          "Playback"
         ]
       }
     },

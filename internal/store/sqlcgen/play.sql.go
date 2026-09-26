@@ -45,6 +45,23 @@ func (q *Queries) GetPlayPosition(ctx context.Context, arg GetPlayPositionParams
 	return i, err
 }
 
+const hideProgress = `-- name: HideProgress :exec
+INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (?1, ?2, ?3)
+ON CONFLICT (user_id, item_id) DO UPDATE SET hidden_at = excluded.hidden_at
+`
+
+type HideProgressParams struct {
+	UserID   int64
+	ItemID   int64
+	HiddenAt int64
+}
+
+// A work hidden from Continue Watching until it next has activity (D188): not a completion.
+func (q *Queries) HideProgress(ctx context.Context, arg HideProgressParams) error {
+	_, err := q.db.ExecContext(ctx, hideProgress, arg.UserID, arg.ItemID, arg.HiddenAt)
+	return err
+}
+
 const insertPlayEvent = `-- name: InsertPlayEvent :exec
 INSERT INTO play_event (user_id, file_id, device_id, kind, position_ms, server_at, client_mono_ms)
 VALUES (?1, ?2, ?3, ?4, ?5,
@@ -205,6 +222,79 @@ func (q *Queries) ListPlaySpansOfFile(ctx context.Context, arg ListPlaySpansOfFi
 	return items, nil
 }
 
+const listRecentPlayPositions = `-- name: ListRecentPlayPositions :many
+SELECT play_position.file_id, play_position.position_ms, play_position.watched_at,
+  CAST(coalesce(json_extract(file.probe, '$.format.durationMs'), 0) AS INTEGER) AS duration_ms, file.path,
+  title.id AS title_id, title.kind, title.year, item.library_id, item_text.name, progress_hide.hidden_at
+FROM play_position
+JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
+JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode')
+JOIN item ON item.id = title.id AND item.removed_at IS NULL
+LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = title.id
+WHERE play_position.user_id = ?1
+ORDER BY play_position.watched_at DESC
+LIMIT ?2
+`
+
+type ListRecentPlayPositionsParams struct {
+	UserID  int64
+	MaxRows int64
+}
+
+type ListRecentPlayPositionsRow struct {
+	FileID     int64
+	PositionMs int64
+	WatchedAt  int64
+	DurationMs int64
+	Path       string
+	TitleID    int64
+	Kind       string
+	Year       *int64
+	LibraryID  *int64
+	Name       *string
+	HiddenAt   *int64
+}
+
+// A person's positions in live files of live films and episodes, most recent watching first,
+// with each file's length where its probe knows it and when its work was last hidden: what
+// Continue Watching is chosen from. Extras are left out (D162).
+func (q *Queries) ListRecentPlayPositions(ctx context.Context, arg ListRecentPlayPositionsParams) ([]ListRecentPlayPositionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRecentPlayPositions, arg.UserID, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRecentPlayPositionsRow{}
+	for rows.Next() {
+		var i ListRecentPlayPositionsRow
+		if err := rows.Scan(
+			&i.FileID,
+			&i.PositionMs,
+			&i.WatchedAt,
+			&i.DurationMs,
+			&i.Path,
+			&i.TitleID,
+			&i.Kind,
+			&i.Year,
+			&i.LibraryID,
+			&i.Name,
+			&i.HiddenAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const movePlayPosition = `-- name: MovePlayPosition :exec
 INSERT INTO play_position (user_id, file_id, position_ms, seq, device_id, updated_at, watched_at)
 VALUES (?1, ?2, ?3, ?4, ?5,
@@ -237,5 +327,19 @@ func (q *Queries) MovePlayPosition(ctx context.Context, arg MovePlayPositionPara
 		arg.UpdatedAt,
 		arg.WatchedAt,
 	)
+	return err
+}
+
+const unhideProgress = `-- name: UnhideProgress :exec
+DELETE FROM progress_hide WHERE user_id = ?1 AND item_id = ?2
+`
+
+type UnhideProgressParams struct {
+	UserID int64
+	ItemID int64
+}
+
+func (q *Queries) UnhideProgress(ctx context.Context, arg UnhideProgressParams) error {
+	_, err := q.db.ExecContext(ctx, unhideProgress, arg.UserID, arg.ItemID)
 	return err
 }
