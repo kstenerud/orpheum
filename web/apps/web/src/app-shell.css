@@ -93,3 +93,17 @@
   padding: 0;
   list-style: none;
 }
+
+.account__device-list {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.account__device {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  align-items: center;
+}

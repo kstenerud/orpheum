@@ -68,5 +68,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   On the phone, open **Your account**, name a device and make a code. On a television's browser
   (or a second browser), open the server, choose **I have a code**, and type the code in capitals
   with a space for the dash: it signs in as that person. The code does not work a second time.
-  Back on the computer, **New link** for the person, and the old link no longer works.
+  Back on the computer, **New link** for the person, and the old link no longer works. On the
+  phone, **Your devices** lists the phone and the television; while a code is showing, let the
+  phone sleep and wake it: the code is still there. **Remove** the television: its next page
+  load asks it to sign in.
   (`web/apps/web/src/people.tsx`, `register.tsx`, `code-sign-in.tsx`, `account.tsx`)

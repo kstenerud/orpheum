@@ -92,3 +92,88 @@ export async function changePassword(
     throw new Error(error.error.message);
   }
 }
+
+/** One of a person's devices. */
+export type Device = components["schemas"]["DeviceBody"];
+
+/** One's own devices, most recently used first. */
+export async function listMyDevices(api: Api): Promise<Device[]> {
+  return dataOrThrow(await api.GET("/me/devices")).devices ?? [];
+}
+
+/** Renames one of one's devices. */
+export async function renameMyDevice(api: Api, deviceId: number, name: string): Promise<void> {
+  const { error } = await api.PUT("/me/devices/{id}", {
+    params: { path: { id: deviceId } },
+    body: { name },
+  });
+  if (error !== undefined) {
+    throw new Error(error.error.message);
+  }
+}
+
+/** Removes one of one's devices: it is signed out at its next request (D218 §4). */
+export async function removeMyDevice(api: Api, deviceId: number): Promise<void> {
+  const { error } = await api.DELETE("/me/devices/{id}", { params: { path: { id: deviceId } } });
+  if (error !== undefined) {
+    throw new Error(error.error.message);
+  }
+}
+
+/** Signs every other device out; they stay listed. */
+export async function signOutElsewhere(api: Api): Promise<void> {
+  const { error } = await api.POST("/me/devices/sign-out-elsewhere");
+  if (error !== undefined) {
+    throw new Error(error.error.message);
+  }
+}
+
+/** Where this tab keeps a device code it showed, so a reload shows it again until it expires. */
+const shownCodeKey = "orpheum.deviceCode";
+
+/** Keeps a device code this tab showed, with its device's name. */
+export function keepShownCode(
+  storage: Storage,
+  code: Invitation & { readonly deviceName: string },
+): void {
+  storage.setItem(shownCodeKey, JSON.stringify(code));
+}
+
+/** A device code as this tab keeps it. */
+type ShownCode = Invitation & { readonly deviceName: string };
+
+/** What was kept, when it is a code this tab wrote. */
+function asShownCode(kept: unknown): ShownCode | undefined {
+  if (
+    typeof kept !== "object" ||
+    kept === null ||
+    !("secret" in kept && "expiresAt" in kept && "deviceName" in kept)
+  ) {
+    return undefined;
+  }
+  const { secret, expiresAt, deviceName } = kept;
+  if (
+    typeof secret !== "string" ||
+    typeof expiresAt !== "number" ||
+    typeof deviceName !== "string"
+  ) {
+    return undefined;
+  }
+  return { secret, expiresAt, deviceName };
+}
+
+/** The device code this tab last showed, while it still works; one that has expired is forgotten. */
+export function shownCode(storage: Storage, nowMs: number): ShownCode | undefined {
+  const kept = storage.getItem(shownCodeKey);
+  let code: ShownCode | undefined;
+  try {
+    code = kept === null ? undefined : asShownCode(JSON.parse(kept));
+  } catch {
+    code = undefined; // not what this tab wrote
+  }
+  if (code === undefined || code.expiresAt <= nowMs) {
+    storage.removeItem(shownCodeKey);
+    return undefined;
+  }
+  return code;
+}

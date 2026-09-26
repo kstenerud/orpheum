@@ -5,3 +5,35 @@
 INSERT INTO device (user_id, name, platform, first_seen_at, last_seen_at)
 VALUES (sqlc.arg(user_id), sqlc.arg(name), sqlc.arg(platform), sqlc.arg(seen_at), sqlc.arg(seen_at))
 RETURNING id;
+
+-- name: ListLiveDevicesOf :many
+-- A person's devices, most recently used first: when each was last used, by the latest use of any
+-- of its sessions, and whether any is still live.
+SELECT device.id, device.name, device.platform, device.first_seen_at,
+  CAST(coalesce(max("grant".last_seen_at), device.first_seen_at) AS INTEGER) AS last_used_at,
+  CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > sqlc.arg(now))), 0) AS INTEGER) AS is_signed_in
+FROM device
+LEFT JOIN "grant" ON "grant".device_id = device.id AND "grant".kind = 'session'
+WHERE device.user_id = sqlc.arg(user_id) AND device.removed_at IS NULL
+GROUP BY device.id
+ORDER BY last_used_at DESC, device.id DESC;
+
+-- name: GetLiveDeviceOwner :one
+SELECT user_id FROM device WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: RenameDevice :exec
+UPDATE device SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
+
+-- name: RemoveDevice :exec
+-- A device revoked (D218 section 4): it leaves the list, and its sessions end.
+UPDATE device SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id);
+
+-- name: RevokeSessionsOfDevice :exec
+UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
+WHERE device_id = sqlc.arg(device_id) AND kind = 'session' AND revoked_at IS NULL;
+
+-- name: RevokeSessionsOfUserExceptDevice :exec
+-- Signing out everywhere else: every session of the person's but those of the device asking.
+UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
+WHERE subject = sqlc.arg(user_id) AND kind = 'session' AND revoked_at IS NULL
+  AND device_id IS NOT sqlc.arg(keep_device_id);

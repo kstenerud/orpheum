@@ -60,6 +60,18 @@ export const en = {
     newPassword: "New password",
     passwordChanged: "Your password is changed. Your other devices stay signed in.",
   },
+  devices: {
+    heading: "Your devices",
+    thisDevice: "This device",
+    signedIn: "Signed in",
+    signedOut: "Signed out",
+    lastUsed: "Last used {{when}}",
+    rename: "Rename",
+    save: "Save",
+    remove: "Remove",
+    removeLabel: "Remove {{name}}; it is signed out",
+    signOutElsewhere: "Sign out everywhere else",
+  },
   people: {
     heading: "People",
     add: "Add a person",
