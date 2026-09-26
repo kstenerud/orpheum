@@ -47,6 +47,8 @@ const (
 	RemoteBitRateCeilingKbps      Key = "remote_bit_rate_ceiling_kbps"
 	MediaTokenIdleExpiryH         Key = "media_token_idle_expiry_h"
 	HLSSegmentLengthS             Key = "hls_segment_length_s"
+	ResumeMinPercent              Key = "resume_min_percent"
+	FinishedAfterPercent          Key = "finished_after_percent"
 )
 
 // Scope is whose a setting is.
@@ -182,6 +184,12 @@ func metadataDefinitions() []Definition {
 		integer(HLSSegmentLengthS, "2", 1, 10,
 			"seconds per segment of a prepared copy: shorter switches the dialogue boost sooner, longer "+
 				"makes fewer requests; a copy made with another length is made again when next played (D217 §3)"),
+		integer(ResumeMinPercent, "5", 0, 50,
+			"percent of a file's length before which a position is not resumed and the file plays from the "+
+				"start; a file of unknown length always resumes (play-state.md)"),
+		integer(FinishedAfterPercent, "90", 50, 100,
+			"percent of a file's length after which it counts as finished: it leaves Continue Watching and plays "+
+				"from the start (play-state.md)"),
 	}
 }
 

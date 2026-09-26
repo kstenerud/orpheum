@@ -523,6 +523,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/playback/{token}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report where a playback is and what changed; the position never moves back (D217 §7) */
+        post: operations["reportPlayback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search": {
         parameters: {
             query?: never;
@@ -781,6 +798,14 @@ export interface components {
             hop?: string;
             message: string;
         };
+        EventBody: {
+            /** @enum {string} */
+            kind: "started" | "paused" | "seeked" | "completed" | "abandoned";
+            /** Format: int64 */
+            monoMs: number;
+            /** Format: int64 */
+            positionMs: number;
+        };
         ExtraBody: {
             /** Format: int64 */
             id: number;
@@ -958,6 +983,18 @@ export interface components {
             /** @description False when a fetch for it was already waiting */
             isQueued: boolean;
         };
+        ReportInputBody: {
+            events: components["schemas"]["EventBody"][] | null;
+            /** Format: int64 */
+            positionMonoMs: number;
+            /** Format: int64 */
+            positionMs: number;
+            /** Format: int64 */
+            sentMonoMs: number;
+            /** Format: int64 */
+            seq: number;
+            spans: components["schemas"]["SpanBody"][] | null;
+        };
         RescanOutputBody: {
             isScanning: boolean;
         };
@@ -1039,6 +1076,18 @@ export interface components {
             name: string;
             password: string;
         };
+        SpanBody: {
+            /** Format: int64 */
+            endedMonoMs: number;
+            /** Format: int64 */
+            fromPositionMs: number;
+            /** @description Played after nobody answered still watching (D188) */
+            isUnattended?: boolean;
+            /** Format: int64 */
+            startedMonoMs: number;
+            /** Format: int64 */
+            toPositionMs: number;
+        };
         StartPlaybackInputBody: {
             /** Format: int64 */
             fileId: number;
@@ -1063,6 +1112,8 @@ export interface components {
             /** @enum {string} */
             profile?: "remux" | "h264-8m";
             reasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "user_choice")[] | null;
+            /** Format: int64 */
+            resumePositionMs: number;
             subtitles: components["schemas"]["SubtitleTrackBody"][] | null;
             /** @description Where the bytes are: the file, or a rendition's master playlist */
             url: string;
@@ -2401,6 +2452,43 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StartPlaybackOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    reportPlayback: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description The playback's media token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

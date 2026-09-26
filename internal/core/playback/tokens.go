@@ -24,6 +24,9 @@ type playing struct {
 	// profile is a prepared playback's rendition; empty for direct play.
 	profile  nodeproto.PrepareProfile
 	lastUsed time.Time
+	// lastReportSeq is the number of the last play report taken for this playback: the player
+	// numbers its reports from 1, and one sent again is taken once.
+	lastReportSeq int64
 }
 
 // tokens are the playbacks in progress, in memory: a restart ends them, and the client asks for
@@ -76,4 +79,35 @@ func (all *tokens) use(
 	}
 	known.lastUsed = now
 	return *known, true
+}
+
+// takeReport marks report seq of a token's playback taken, when it is this user's under this
+// session, and says whether it is new: a report numbered no higher than the last is a repeat. A
+// report that could not be kept is given back with returnReport, so the player's retry is taken.
+func (all *tokens) takeReport(
+	token string, userID int64, sessionKey string, seq int64, now time.Time, idle time.Duration,
+) (what playing, isNew, found bool) {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	known, found := all.playing[token]
+	if !found || now.Sub(known.lastUsed) > idle || known.userID != userID || known.sessionKey != sessionKey {
+		return playing{}, false, false
+	}
+	known.lastUsed = now
+	if seq <= known.lastReportSeq {
+		return *known, false, true
+	}
+	before := *known // with the last report's number, for returnReport
+	known.lastReportSeq = seq
+	return before, true, true
+}
+
+// returnReport undoes takeReport for a report that could not be kept, unless a later one was
+// taken since.
+func (all *tokens) returnReport(token string, seq, previous int64) {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	if known, found := all.playing[token]; found && known.lastReportSeq == seq {
+		known.lastReportSeq = previous
+	}
 }

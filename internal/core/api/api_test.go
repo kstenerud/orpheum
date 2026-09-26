@@ -67,6 +67,7 @@ type testHarness struct {
 	service  *auth.Service
 	codes    *memorySetupCodes
 	database string
+	library  *store.Database
 	art      *datadir.Directories
 	clock    *clocktest.Fake
 	bytes    *fakeNodeBytes
@@ -121,6 +122,7 @@ func newHarness(t *testing.T) testHarness {
 	t.Cleanup(served.Close)
 	return testHarness{
 		server: server, http: served, logs: logs, service: service, codes: codes, database: database.Path(),
+		library:  database,
 		provider: provider, cache: cache, nodes: nodes, art: art, clock: now, bytes: nodeBytes,
 	}
 }
