@@ -38,20 +38,27 @@ export const reportEveryMs = 10_000;
  * sent again, with its changes, in the next one.
  */
 export class PlayReporter {
-  private seq = 0;
+  private hasStarted = false;
   private events: PlayEvent[] = [];
   private spans: PlaySpan[] = [];
   private open: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
 
+  /**
+   * nextSeq numbers the reports. Every reporter of one playback must share it: the server takes a
+   * report numbered no higher than the last as sent again, so a second reporter counting from 1
+   * would be ignored.
+   */
   constructor(
     private readonly send: (report: PlayReport) => Promise<void>,
+    private readonly nextSeq: () => number,
     private readonly monotonicMs: () => number = () => Math.round(performance.now()),
   ) {}
 
   /** Playing began or resumed at positionMs. */
   started(positionMs: number): void {
     const now = this.monotonicMs();
+    this.hasStarted = true;
     this.open ??= { fromPositionMs: positionMs, startedMonoMs: now };
     this.change("started", positionMs, now);
   }
@@ -79,9 +86,11 @@ export class PlayReporter {
     this.change("completed", positionMs, this.close(positionMs));
   }
 
-  /** The person left the playback at positionMs. */
+  /** The person left the playback at positionMs; a playback that never played says nothing. */
   abandoned(positionMs: number): void {
-    this.change("abandoned", positionMs, this.close(positionMs));
+    if (this.hasStarted) {
+      this.change("abandoned", positionMs, this.close(positionMs));
+    }
   }
 
   /** Reports where the playback is, with any changes not yet sent. */
@@ -91,7 +100,7 @@ export class PlayReporter {
     }
     const now = this.monotonicMs();
     const report: PlayReport = {
-      seq: ++this.seq,
+      seq: this.nextSeq(),
       sentMonoMs: now,
       positionMs: Math.max(0, Math.round(positionMs)),
       positionMonoMs: now,

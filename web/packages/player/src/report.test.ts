@@ -4,8 +4,14 @@ import { describe, expect, it } from "vitest";
 
 import { PlayReporter, type PlayReport } from "./report.ts";
 
+/** A counter of report numbers, as one playback's reporters share. */
+function counter(): () => number {
+  let last = 0;
+  return () => ++last;
+}
+
 /** A reporter whose clock the test sets and whose reports it keeps; sending fails when told to. */
-function reporter(): {
+function reporter(nextSeq: () => number = counter()): {
   play: PlayReporter;
   sent: PlayReport[];
   setNow: (ms: number) => void;
@@ -23,6 +29,7 @@ function reporter(): {
       sent.push(report);
       return Promise.resolve();
     },
+    nextSeq,
     () => now,
   );
   return {
@@ -92,5 +99,23 @@ describe("reporting play state", () => {
     expect(sent.map((report) => report.seq)).toEqual([1, 3]);
     expect(sent[1]?.events.map((event) => event.kind)).toEqual(["paused"]);
     expect(sent[1]?.spans).toHaveLength(1);
+  });
+
+  it("says nothing when left before it played", async () => {
+    const { play, sent } = reporter();
+    play.abandoned(0);
+    await settled();
+    expect(sent).toEqual([]);
+  });
+
+  it("numbers on across a second reporter of the same playback", async () => {
+    const shared = counter();
+    const first = reporter(shared);
+    first.play.started(0);
+    await settled();
+    const second = reporter(shared);
+    second.play.started(0);
+    await settled();
+    expect([...first.sent, ...second.sent].map((report) => report.seq)).toEqual([1, 2]);
   });
 });

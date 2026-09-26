@@ -21,44 +21,76 @@ function positionMs(video: HTMLVideoElement): number {
 }
 
 /**
- * Tells the reporter what the video does, and starts it at resumePositionMs. Returns what
- * stops listening.
+ * Whether the video holds media. A video being torn down is emptied first, and then says it is
+ * paused at 0:00, which is nothing the person watched.
+ */
+function hasMedia(video: HTMLVideoElement): boolean {
+  return video.readyState !== HTMLMediaElement.HAVE_NOTHING;
+}
+
+/** The last report number of each playback, by media token, kept across the player's remounts. */
+const lastSeqByToken = new Map<string, number>();
+
+/** Numbers one playback's reports on from its last, however many reporters it has had. */
+function seqCounter(mediaToken: string): () => number {
+  return () => {
+    const next = (lastSeqByToken.get(mediaToken) ?? 0) + 1;
+    lastSeqByToken.set(mediaToken, next);
+    return next;
+  };
+}
+
+/** What reportVideoEvents hands back: where the video last was while it held media, and how to stop. */
+interface Watching {
+  readonly lastPositionMs: () => number;
+  readonly stop: () => void;
+}
+
+/**
+ * Tells the reporter what the video does, and starts it at resumePositionMs. Events from a video
+ * with no media are ignored, and where it was when it last held some is kept: an emptied video is
+ * at 0:00, which the person did not watch.
  */
 function reportVideoEvents(
   video: HTMLVideoElement,
   reporter: PlayReporter,
   resumePositionMs: number,
-): () => void {
-  let lastMs = resumePositionMs;
+): Watching {
   let isResuming = resumePositionMs > 0;
+  let lastMs = resumePositionMs;
+  const whileItHoldsMedia = (listener: () => void) => (): void => {
+    if (hasMedia(video)) {
+      listener();
+    }
+  };
   const listeners: Record<string, () => void> = {
     loadedmetadata: () => {
       if (isResuming) {
         seekTo(video, resumePositionMs);
       }
     },
-    playing: () => {
+    playing: whileItHoldsMedia(() => {
       reporter.started(positionMs(video));
-    },
-    pause: () => {
+    }),
+    pause: whileItHoldsMedia(() => {
       if (!video.ended) {
         reporter.paused(positionMs(video));
       }
-    },
-    seeking: () => {
+    }),
+    seeking: whileItHoldsMedia(() => {
       // The seek that puts the player where the person left it is not theirs to log.
       if (isResuming) {
         isResuming = false;
       } else {
         reporter.seeked(lastMs, positionMs(video));
       }
-    },
-    timeupdate: () => {
+    }),
+    timeupdate: whileItHoldsMedia(() => {
       lastMs = positionMs(video);
-    },
-    ended: () => {
+    }),
+    ended: whileItHoldsMedia(() => {
       reporter.completed(positionMs(video));
-    },
+    }),
   };
   for (const [event, listener] of Object.entries(listeners)) {
     video.addEventListener(event, listener);
@@ -66,10 +98,13 @@ function reportVideoEvents(
   if (isResuming && video.readyState >= HTMLMediaElement.HAVE_METADATA) {
     seekTo(video, resumePositionMs);
   }
-  return () => {
-    for (const [event, listener] of Object.entries(listeners)) {
-      video.removeEventListener(event, listener);
-    }
+  return {
+    lastPositionMs: () => lastMs,
+    stop: () => {
+      for (const [event, listener] of Object.entries(listeners)) {
+        video.removeEventListener(event, listener);
+      }
+    },
   };
 }
 
@@ -89,24 +124,28 @@ export function usePlayState(
     if (video === null) {
       return undefined;
     }
-    const reporter = new PlayReporter((report) => sendReport(api, mediaToken, report));
-    const stopListening = reportVideoEvents(video, reporter, resumePositionMs);
+    const reporter = new PlayReporter(
+      (report) => sendReport(api, mediaToken, report),
+      seqCounter(mediaToken),
+    );
+    const watching = reportVideoEvents(video, reporter, resumePositionMs);
     const ticker = setInterval(() => {
-      if (!video.paused) {
+      if (!video.paused && hasMedia(video)) {
         reporter.flush(positionMs(video));
       }
     }, reportEveryMs);
     const hidden = (): void => {
       if (document.visibilityState === "hidden") {
-        reporter.flush(positionMs(video));
+        reporter.flush(watching.lastPositionMs());
       }
     };
     document.addEventListener("visibilitychange", hidden);
     return () => {
       clearInterval(ticker);
       document.removeEventListener("visibilitychange", hidden);
-      stopListening();
-      reporter.abandoned(positionMs(video));
+      watching.stop();
+      // The video may be emptied already: where it last was is where the person left it.
+      reporter.abandoned(watching.lastPositionMs());
     };
   }, [api, videoRef, mediaToken, resumePositionMs]);
 }
