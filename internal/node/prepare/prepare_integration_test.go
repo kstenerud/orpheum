@@ -78,12 +78,12 @@ func TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentr
 	if err != nil {
 		t.Fatal(err)
 	}
-	var doneMs int64
+	var preparedMs int64
 	command := nodeproto.Prepare{
-		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", Dir: "7/remux/0123456789abcdef",
+		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", RenditionDir: "7/remux/0123456789abcdef",
 		Audio: []nodeproto.PrepareAudio{{Index: 0, Language: "en", Channels: 6}},
 	}
-	size, err := preparer.Prepare(t.Context(), film, command, func(ms int64) { doneMs = ms })
+	size, err := preparer.Prepare(t.Context(), film, command, func(ms int64) { preparedMs = ms })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,8 +100,8 @@ func TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentr
 			t.Errorf("master.m3u8 lacks %s:\n%s", want, master)
 		}
 	}
-	if size <= 0 || doneMs < 7000 {
-		t.Errorf("size %d and progress %d ms; want the rendition's bytes and progress to near 8 s", size, doneMs)
+	if size <= 0 || preparedMs < 7000 {
+		t.Errorf("size %d and progress %d ms; want the rendition's bytes and progress to near 8 s", size, preparedMs)
 	}
 	// The boost raises the centre's share: 1 kHz against 300 Hz, standard against boosted.
 	standard := leftChannel(t, runner, filepath.Join(rendition, "audio0", "stream.m3u8"))

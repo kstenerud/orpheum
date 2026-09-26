@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 7
+-- cache schema version 8
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,9 +46,9 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   node_id      INTEGER NOT NULL,         -- the node that holds it, beside its source
   state        TEXT NOT NULL DEFAULT 'queued'
                  CHECK (state IN ('queued','running','complete','failed')),
-  segment_s    INTEGER NOT NULL,         -- its segment length; another setting remakes it
-  run          TEXT NOT NULL,            -- this making's directory on the node: new each restart
-  done_ms      INTEGER NOT NULL DEFAULT 0,  -- how much of the source is prepared
+  segment_length_s INTEGER NOT NULL,     -- seconds per segment; another setting remakes it
+  run_id       TEXT NOT NULL,            -- names this making's directory on the node; new each time
+  prepared_ms  INTEGER NOT NULL DEFAULT 0,  -- how much of the source is prepared
   bytes        INTEGER,                  -- its size once complete
   error        TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
   created_at   INTEGER NOT NULL,

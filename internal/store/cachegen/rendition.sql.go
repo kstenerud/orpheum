@@ -11,7 +11,7 @@ import (
 
 const getRendition = `-- name: GetRendition :one
 
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, run, done_ms, bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, bytes, error, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?
 `
 
@@ -33,9 +33,9 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 		&i.Profile,
 		&i.NodeID,
 		&i.State,
-		&i.SegmentS,
-		&i.Run,
-		&i.DoneMs,
+		&i.SegmentLengthS,
+		&i.RunID,
+		&i.PreparedMs,
 		&i.Bytes,
 		&i.Error,
 		&i.CreatedAt,
@@ -45,7 +45,7 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 }
 
 const getRenditionByID = `-- name: GetRenditionByID :one
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, run, done_ms, bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, bytes, error, created_at, finished_at
 FROM prepared_rendition WHERE id = ?
 `
 
@@ -59,9 +59,9 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 		&i.Profile,
 		&i.NodeID,
 		&i.State,
-		&i.SegmentS,
-		&i.Run,
-		&i.DoneMs,
+		&i.SegmentLengthS,
+		&i.RunID,
+		&i.PreparedMs,
 		&i.Bytes,
 		&i.Error,
 		&i.CreatedAt,
@@ -71,19 +71,19 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 }
 
 const insertRendition = `-- name: InsertRendition :one
-INSERT INTO prepared_rendition (source_file, payload_hash, profile, node_id, segment_s, run, created_at)
+INSERT INTO prepared_rendition (source_file, payload_hash, profile, node_id, segment_length_s, run_id, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
 type InsertRenditionParams struct {
-	SourceFile  int64
-	PayloadHash []byte
-	Profile     string
-	NodeID      int64
-	SegmentS    int64
-	Run         string
-	CreatedAt   int64
+	SourceFile     int64
+	PayloadHash    []byte
+	Profile        string
+	NodeID         int64
+	SegmentLengthS int64
+	RunID          string
+	CreatedAt      int64
 }
 
 func (q *Queries) InsertRendition(ctx context.Context, arg InsertRenditionParams) (int64, error) {
@@ -92,8 +92,8 @@ func (q *Queries) InsertRendition(ctx context.Context, arg InsertRenditionParams
 		arg.PayloadHash,
 		arg.Profile,
 		arg.NodeID,
-		arg.SegmentS,
-		arg.Run,
+		arg.SegmentLengthS,
+		arg.RunID,
 		arg.CreatedAt,
 	)
 	var id int64
@@ -103,17 +103,17 @@ func (q *Queries) InsertRendition(ctx context.Context, arg InsertRenditionParams
 
 const restartRendition = `-- name: RestartRendition :exec
 UPDATE prepared_rendition
-SET payload_hash = ?, node_id = ?, segment_s = ?, run = ?, state = 'queued', done_ms = 0, bytes = NULL, error = NULL,
+SET payload_hash = ?, node_id = ?, segment_length_s = ?, run_id = ?, state = 'queued', prepared_ms = 0, bytes = NULL, error = NULL,
     finished_at = NULL
 WHERE id = ?
 `
 
 type RestartRenditionParams struct {
-	PayloadHash []byte
-	NodeID      int64
-	SegmentS    int64
-	Run         string
-	ID          int64
+	PayloadHash    []byte
+	NodeID         int64
+	SegmentLengthS int64
+	RunID          string
+	ID             int64
 }
 
 // A rendition prepared again from the start: its source changed, or it failed or was lost.
@@ -121,8 +121,8 @@ func (q *Queries) RestartRendition(ctx context.Context, arg RestartRenditionPara
 	_, err := q.db.ExecContext(ctx, restartRendition,
 		arg.PayloadHash,
 		arg.NodeID,
-		arg.SegmentS,
-		arg.Run,
+		arg.SegmentLengthS,
+		arg.RunID,
 		arg.ID,
 	)
 	return err
@@ -159,15 +159,15 @@ func (q *Queries) SetRenditionFailed(ctx context.Context, arg SetRenditionFailed
 }
 
 const setRenditionRunning = `-- name: SetRenditionRunning :exec
-UPDATE prepared_rendition SET state = 'running', done_ms = ? WHERE id = ?
+UPDATE prepared_rendition SET state = 'running', prepared_ms = ? WHERE id = ?
 `
 
 type SetRenditionRunningParams struct {
-	DoneMs int64
-	ID     int64
+	PreparedMs int64
+	ID         int64
 }
 
 func (q *Queries) SetRenditionRunning(ctx context.Context, arg SetRenditionRunningParams) error {
-	_, err := q.db.ExecContext(ctx, setRenditionRunning, arg.DoneMs, arg.ID)
+	_, err := q.db.ExecContext(ctx, setRenditionRunning, arg.PreparedMs, arg.ID)
 	return err
 }

@@ -61,12 +61,12 @@ func (service *Service) HLS(ctx context.Context, token, name string, userID int6
 	if err != nil {
 		return HLSSource{}, err
 	}
-	what, found := service.tokens.use(token, userID, session, service.clock.Now(), idle)
-	if !found || what.profile == "" {
+	playback, found := service.tokens.use(token, userID, session, service.clock.Now(), idle)
+	if !found || playback.profile == "" {
 		return HLSSource{}, ErrNoToken
 	}
 	rendition, err := store.One(service.prepares.cache.Read().GetRendition(ctx, cachegen.GetRenditionParams{
-		SourceFile: what.fileID, Profile: string(what.profile),
+		SourceFile: playback.fileID, Profile: string(playback.profile),
 	}))
 	if errors.Is(err, store.ErrNotFound) {
 		return HLSSource{}, ErrNoToken
@@ -81,11 +81,11 @@ func (service *Service) HLS(ctx context.Context, token, name string, userID int6
 	case renditionFailed:
 		readiness = Failed
 	}
-	target := nodeproto.PathBytesPrepared + strconv.FormatInt(what.fileID, 10) + "/" + string(what.profile) + "/" +
-		rendition.Run + "/" + name
+	target := nodeproto.PathBytesPrepared + strconv.FormatInt(playback.fileID, 10) + "/" +
+		string(playback.profile) + "/" + rendition.RunID + "/" + name
 	return HLSSource{
 		Source:    Source{NodeID: rendition.NodeID, Target: target, ContentType: hlsType(name)},
-		Readiness: readiness, fileID: what.fileID, profile: what.profile,
+		Readiness: readiness, fileID: playback.fileID, profile: playback.profile,
 	}, nil
 }
 
@@ -146,8 +146,8 @@ func (service *Service) commandFor(
 	if err != nil {
 		return nodeproto.Prepare{}, 0, err
 	}
-	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), rendition.Run, probe)
-	command.SegmentSeconds = int(rendition.SegmentS)
+	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), rendition.RunID, probe)
+	command.SegmentLengthSeconds = int(rendition.SegmentLengthS)
 	return command, file.NodeID, nil
 }
 

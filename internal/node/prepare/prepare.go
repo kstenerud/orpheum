@@ -24,11 +24,11 @@ type Runner interface {
 	RunStreaming(ctx context.Context, tool execx.Tool, arguments []string, stdout io.Writer) error
 }
 
-// renditionDir is the only shape a rendition's directory may have: "<file_id>/<profile>/<run>".
+// renditionDir is the only shape a rendition's directory may have: "<file_id>/<profile>/<run_id>".
 var renditionDir = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)/[0-9a-f]{16}$`)
 
-// ErrBadDir is a rendition directory that is not "<file_id>/<profile>/<run>".
-var ErrBadDir = errors.New("a rendition's directory must be <file_id>/<profile>/<run>")
+// ErrBadDir is a rendition directory that is not "<file_id>/<profile>/<run_id>".
+var ErrBadDir = errors.New("a rendition's directory must be <file_id>/<profile>/<run_id>")
 
 // Preparer makes renditions under the node's prepared directory.
 type Preparer struct {
@@ -51,12 +51,12 @@ func (preparer *Preparer) Directory() string { return preparer.directory }
 // rendition into its directory, reporting how much of the source is done as it goes. It returns
 // the rendition's size.
 func (preparer *Preparer) Prepare(
-	ctx context.Context, input string, command nodeproto.Prepare, progress func(doneMs int64),
+	ctx context.Context, input string, command nodeproto.Prepare, progress func(preparedMs int64),
 ) (int64, error) {
-	if !renditionDir.MatchString(command.Dir) {
-		return 0, fmt.Errorf("%w, not %q", ErrBadDir, command.Dir)
+	if !renditionDir.MatchString(command.RenditionDir) {
+		return 0, fmt.Errorf("%w, not %q", ErrBadDir, command.RenditionDir)
 	}
-	output := filepath.Join(preparer.directory, filepath.FromSlash(command.Dir))
+	output := filepath.Join(preparer.directory, filepath.FromSlash(command.RenditionDir))
 	if err := os.MkdirAll(output, 0o750); err != nil {
 		return 0, fmt.Errorf("make the rendition's directory: %w", err)
 	}
@@ -70,14 +70,14 @@ func (preparer *Preparer) Prepare(
 	_ = writer.Close() //nolint:errcheck // a pipe's writer closes without error
 	<-done
 	if err != nil {
-		return 0, fmt.Errorf("prepare %s: %w", command.Dir, err)
+		return 0, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}
 	return size(output)
 }
 
 // readProgress reads FFmpeg's -progress lines and reports out_time_us, in milliseconds, each time
 // it moves.
-func readProgress(reader io.Reader, progress func(doneMs int64)) {
+func readProgress(reader io.Reader, progress func(preparedMs int64)) {
 	lines := bufio.NewScanner(reader)
 	for lines.Scan() {
 		value, found := strings.CutPrefix(lines.Text(), "out_time_us=")

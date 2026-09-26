@@ -22,7 +22,7 @@ func after(arguments []string, flag string) string {
 func TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre(t *testing.T) {
 	t.Parallel()
 	command := nodeproto.Prepare{
-		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", Dir: "7/remux/0123456789abcdef",
+		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", RenditionDir: "7/remux/0123456789abcdef",
 		Audio: []nodeproto.PrepareAudio{
 			{Index: 0, Language: "en", Channels: 6},
 			{Index: 1, Language: "de", Channels: 2},
@@ -74,7 +74,7 @@ func TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264(t *testing.T) {
 func TestArguments_SegmentLengthIsTheOneAskedForWithinBounds(t *testing.T) {
 	t.Parallel()
 	for asked, want := range map[int]string{0: "2", 1: "1", 6: "6", 10: "10", 11: "2", 60: "2"} {
-		command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, SegmentSeconds: asked}
+		command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, SegmentLengthSeconds: asked}
 		if got := after(prepare.Arguments("/a", "/b", command), "-hls_time"); got != want {
 			t.Errorf("asked for %d-second segments: -hls_time %s, want %s", asked, got, want)
 		}

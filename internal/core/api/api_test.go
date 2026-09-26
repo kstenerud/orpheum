@@ -109,7 +109,7 @@ func newHarness(t *testing.T) testHarness {
 		Playback: playback.NewService(playback.Parts{
 			Database: database, Cache: cache, Queue: jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler)),
 			Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-			Silence: time.Minute,
+			MaxSilence: time.Minute,
 		}),
 		NodeBytes: nodeBytes,
 		ConfigFile: []ConfigFileKey{{

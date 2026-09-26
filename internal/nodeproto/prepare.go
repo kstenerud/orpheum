@@ -9,7 +9,7 @@ const CommandPrepare CommandType = "prepare"
 const PathPrepare = "/node/v1/prepare"
 
 // PathBytesPrepared is the byte socket's route for a rendition's files:
-// PathBytesPrepared + "<file_id>/<profile>/<run>/<name>" (D217 §5).
+// PathBytesPrepared + "<file_id>/<profile>/<run_id>/<name>" (D217 §5).
 const PathBytesPrepared = "/bytes/v1/prepared/"
 
 // PrepareProfile is a rendition's recipe (cut-a §6).
@@ -27,18 +27,18 @@ type Prepare struct {
 	Job     int64          `json:"job"`
 	Source  BytesFile      `json:"source"`
 	Profile PrepareProfile `json:"profile"`
-	// Dir is "<file_id>/<profile>/<run>", this making's directory under the node's prepared
+	// RenditionDir is "<file_id>/<profile>/<run_id>", this making's directory under the node's prepared
 	// directory and its byte path: a new run for each making, so no request reaches a copy an
 	// earlier making left.
-	Dir string `json:"dir"`
+	RenditionDir string `json:"renditionDir"`
 	// VideoStream is the source picture's stream index, as ffprobe numbers every stream: the
 	// picture, never cover art that happens to come first.
 	VideoStream int `json:"videoStream"`
 	// VideoCodec is the source picture's codec as the probe named it: a copied HEVC picture is
 	// tagged hvc1, which Safari requires.
 	VideoCodec string `json:"videoCodec"`
-	// SegmentSeconds is each HLS segment's target length (D217 §3).
-	SegmentSeconds int `json:"segmentSeconds"`
+	// SegmentLengthSeconds is each HLS segment's target length (D217 §3).
+	SegmentLengthSeconds int `json:"segmentLengthSeconds"`
 	// Audio lists the source's audio tracks, in order: every one is carried, so switching
 	// language needs no new job (D217 §3).
 	Audio []PrepareAudio `json:"audio"`
@@ -67,8 +67,8 @@ const (
 type PrepareReport struct {
 	Job   int64        `json:"job"`
 	State PrepareState `json:"state"`
-	// DoneMs is how much of the source is prepared, in milliseconds of its time.
-	DoneMs int64 `json:"doneMs"`
+	// PreparedMs is how much of the source is prepared, in milliseconds of its time.
+	PreparedMs int64 `json:"preparedMs"`
 	// Bytes is the rendition's size once done.
 	Bytes int64 `json:"bytes,omitempty"`
 	// Error is FFmpeg's exit and the tail of its stderr, or why the node refused.
