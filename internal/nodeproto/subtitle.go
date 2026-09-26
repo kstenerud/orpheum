@@ -19,8 +19,8 @@ type ExtractSubtitle struct {
 	Video *BytesFile `json:"video,omitempty"`
 	// StreamIndex is the track's stream index in Video, as ffprobe numbers every stream.
 	StreamIndex int `json:"streamIndex,omitempty"`
-	// Sidecar is a subtitle file beside the media. A sidecar has no payload hash, so its Hash is
-	// empty and the answer's SourceHash says which bytes were converted.
+	// Sidecar is a subtitle file beside the media, converted whole, named by payload hash as a
+	// video is and checked the same way (D100).
 	Sidecar *BytesFile `json:"sidecar,omitempty"`
 }
 
@@ -30,9 +30,6 @@ type SubtitleText struct {
 	Job int64  `json:"job"`
 	ASS []byte `json:"ass,omitempty"`
 	VTT []byte `json:"vtt,omitempty"`
-	// SourceHash is the SHA-256, in hex, of the sidecar file as the node read it; empty for a
-	// track in a video, which the command named by payload hash.
-	SourceHash string `json:"sourceHash,omitempty"`
 	// Refused says why nothing was made: a source that changed, a track FFmpeg cannot convert.
 	Refused string `json:"refused,omitempty"`
 }

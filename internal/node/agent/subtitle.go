@@ -5,8 +5,6 @@ package agent
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -78,8 +76,6 @@ func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.Extract
 		if err != nil {
 			return refused(fmt.Errorf("read the sidecar: %w", err))
 		}
-		sum := sha256.Sum256(source)
-		answer.SourceHash = hex.EncodeToString(sum[:])
 		if text, err = agent.workers.Subtitles.ConvertFile(ctx, source); err != nil {
 			return refused(err)
 		}

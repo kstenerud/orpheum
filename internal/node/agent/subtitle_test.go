@@ -4,7 +4,6 @@ package agent
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"os"
 	"path/filepath"
@@ -75,9 +74,7 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 
 	sidecar := nodeproto.BytesFile{Root: root.Path(), Path: []byte("film.en.srt")}
 	converted := send(3, nodeproto.ExtractSubtitle{Sidecar: &sidecar})
-	sum := sha256.Sum256([]byte("the sidecar"))
-	if converted.Refused != "" || string(converted.ASS) != "the sidecar" ||
-		converted.SourceHash != hex.EncodeToString(sum[:]) {
+	if converted.Refused != "" || string(converted.ASS) != "the sidecar" {
 		t.Errorf("a sidecar: %+v", converted)
 	}
 	outside := nodeproto.BytesFile{Root: t.TempDir(), Path: []byte("film.en.srt")}
