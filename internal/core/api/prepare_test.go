@@ -9,14 +9,21 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// renditionFile puts one file of film 2's remux on the fake node.
-func (harness testHarness) renditionFile(name, contents string) {
+// renditionFile puts one file of film 2's remux, in its current run, on the fake node.
+func (harness testHarness) renditionFile(t *testing.T, name, contents string) {
+	t.Helper()
+	rendition, err := harness.cache.Read().GetRendition(t.Context(),
+		cachegen.GetRenditionParams{SourceFile: 2, Profile: "remux"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	harness.bytes.mutex.Lock()
 	defer harness.bytes.mutex.Unlock()
-	harness.bytes.files[nodeproto.PathBytesPrepared+"2/remux/"+name] = contents
+	harness.bytes.files[nodeproto.PathBytesPrepared+"2/remux/"+rendition.Run+"/"+name] = contents
 }
 
 func TestPrepare_APreparedPlaybackIsTooEarlyUntilItsFileExists(t *testing.T) {
@@ -35,7 +42,7 @@ func TestPrepare_APreparedPlaybackIsTooEarlyUntilItsFileExists(t *testing.T) {
 		t.Errorf("before the first segment: %d %v %s, want 425 preparing with Retry-After 1",
 			early.status, early.header, early.body)
 	}
-	harness.renditionFile("master.m3u8", "#EXTM3U\n")
+	harness.renditionFile(t, "master.m3u8", "#EXTM3U\n")
 	master := harness.fetch(t, decided.URL, user, true, "")
 	if master.status != http.StatusOK || master.body != "#EXTM3U\n" ||
 		master.header.Get("Content-Type") != "application/vnd.apple.mpegurl" ||
@@ -44,7 +51,7 @@ func TestPrepare_APreparedPlaybackIsTooEarlyUntilItsFileExists(t *testing.T) {
 			master.status, master.header, master.body)
 	}
 	base := strings.TrimSuffix(decided.URL, "master.m3u8")
-	harness.renditionFile("audio0-boost/seg00001.m4s", "segment")
+	harness.renditionFile(t, "audio0-boost/seg00001.m4s", "segment")
 	if segment := harness.fetch(t, base+"audio0-boost/seg00001.m4s", user, true, ""); segment.status !=
 		http.StatusOK || segment.header.Get("Content-Type") != "video/iso.segment" {
 		t.Errorf("a segment: %d %v", segment.status, segment.header)
@@ -75,7 +82,8 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
 	command := <-harness.nodes.commanded
 	sent := command.Prepare
-	if command.Type != nodeproto.CommandPrepare || sent == nil || sent.Job != 77 || sent.Dir != "2/remux" ||
+	if command.Type != nodeproto.CommandPrepare || sent == nil || sent.Job != 77 ||
+		!strings.HasPrefix(sent.Dir, "2/remux/") ||
 		sent.Source.Root != "/media" || string(sent.Source.Path) != "Film (2002).mkv" ||
 		sent.Source.Hash != "0c0d" || len(sent.Audio) != 1 || sent.Audio[0].Channels != 8 {
 		t.Fatalf("the node was sent %+v, want the MKV by root, path and hash, with its 8-channel track", command)
@@ -162,7 +170,8 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 		}
 		return *command.Prepare
 	}
-	if first := run(81); first.SegmentSeconds != 2 {
+	first := run(81)
+	if first.SegmentSeconds != 2 {
 		t.Errorf("the first copy asked for %d-second segments, want hls_segment_s's 2", first.SegmentSeconds)
 	}
 	if same := harness.play(t, user, chrome(2)); same.Preparing {
@@ -173,7 +182,12 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 	if changed := harness.play(t, user, chrome(2)); !changed.Preparing {
 		t.Errorf("played after hls_segment_s changed: %+v, want the copy made again", changed)
 	}
-	if again := run(82); again.SegmentSeconds != 6 {
+	again := run(82)
+	if again.SegmentSeconds != 6 {
 		t.Errorf("the copy made again asked for %d-second segments, want 6", again.SegmentSeconds)
+	}
+	// A new making writes where no earlier one did, so no request reaches the old copy's files.
+	if again.Dir == first.Dir || !strings.HasPrefix(again.Dir, "2/remux/") {
+		t.Errorf("made again in %q after %q, want a new run under 2/remux", again.Dir, first.Dir)
 	}
 }

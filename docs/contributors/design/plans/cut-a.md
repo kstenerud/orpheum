@@ -195,7 +195,7 @@ longer match ([D100](../../decisions/working-notes.md)).
 
 **Core reads from the node** (`/run/orpheum/node.sock`, `GET` only):
 - `GET /bytes/v1/file?root=…&path=…&hash=…`, honouring `Range`: `path` is base64url of the bytes relative to `root` (plan-deviations P25);
-- `GET /bytes/v1/prepared/<file_id>/<profile>/<name>` (D217 §5).
+- `GET /bytes/v1/prepared/<file_id>/<profile>/<run>/<name>` (D217 §5).
 
 **Liveness:** `status` records carry the node's clock and what it is doing. The core marks the
 node *silent* after 30 s with no record, and restarts the child after 120 s. A node that has
@@ -346,7 +346,7 @@ ffmpeg -nostdin -hide_banner -protocol_whitelist file -i <source>
   than as HLS renditions in Cut A.
 - **The boost matrix** is one fixed matrix whose centre gain is set in M3 by listening test on a
   television, and recorded as an `assumptions/` test.
-- **Where the output lives:** `<file_id>/<profile>/` under the node's own prepared directory, a
+- **Where the output lives:** `<file_id>/<profile>/<run>/` under the node's own prepared directory, a
   node configuration key whose default is `/var/cache/orpheum/prepared/`. The node owns it and is
   the only thing that deletes there (D217 §5).
 - **The `prepared_rendition` row** is written when the job starts and marked complete when it

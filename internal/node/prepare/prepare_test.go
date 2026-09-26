@@ -43,7 +43,7 @@ func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *
 		t.Fatal(err)
 	}
 	var progress []int64
-	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, Dir: "7/remux"}
+	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, Dir: "7/remux/0123456789abcdef"}
 	size, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(ms int64) {
 		progress = append(progress, ms)
 	})
@@ -53,7 +53,8 @@ func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *
 	if size != 5 || !slices.Equal(progress, []int64{1500}) {
 		t.Errorf("size %d, progress %v; want 5 bytes and 1500 ms", size, progress)
 	}
-	if _, err := os.Stat(filepath.Join(directory, "7", "remux", "video", "seg00000.m4s")); err != nil {
+	segment := filepath.Join(directory, "7", "remux", "0123456789abcdef", "video", "seg00000.m4s")
+	if _, err := os.Stat(segment); err != nil {
 		t.Errorf("the rendition is not under 7/remux: %v", err)
 	}
 }
@@ -64,7 +65,10 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, dir := range []string{"../7/remux", "7/remux/..", "7/other", "/7/remux", "0/remux"} {
+	for _, dir := range []string{
+		"../7/remux", "7/remux", "7/remux/../x", "7/other/0123456789abcdef", "0/remux/0123456789abcdef",
+		"7/remux/0123456789ABCDEF",
+	} {
 		_, refused := preparer.Prepare(t.Context(), "/a", nodeproto.Prepare{Dir: dir}, func(int64) {})
 		if !errors.Is(refused, prepare.ErrBadDir) {
 			t.Errorf("%q: %v, want ErrBadDir", dir, refused)
@@ -74,7 +78,8 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := failing.Prepare(t.Context(), "/a", nodeproto.Prepare{Dir: "7/remux"}, func(int64) {}); err == nil {
+	named := nodeproto.Prepare{Dir: "7/remux/0123456789abcdef"}
+	if _, err := failing.Prepare(t.Context(), "/a", named, func(int64) {}); err == nil {
 		t.Error("a failed run reported success")
 	}
 	if _, err := prepare.New(fakeFFmpeg{}, "relative"); err == nil {

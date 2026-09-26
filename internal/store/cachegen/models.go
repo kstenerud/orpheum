@@ -45,6 +45,7 @@ type PreparedRendition struct {
 	NodeID      int64
 	State       string
 	SegmentS    int64
+	Run         string
 	DoneMs      int64
 	Bytes       *int64
 	Error       *string

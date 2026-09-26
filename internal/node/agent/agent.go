@@ -203,7 +203,14 @@ func (agent *Agent) run(ctx context.Context, nodeID int64, command nodeproto.Com
 		}
 		agent.setDoing("scanning " + root.Path())
 		defer agent.setDoing("idle")
-		emit := func(record nodeproto.Record) error { return report.emit(ctx, record) }
+		emit := func(record nodeproto.Record) error {
+			// Once a scan says it is complete, the node is idle: a status record sent after the
+			// completion must not still say it is scanning.
+			if record.Type == nodeproto.RecordScanComplete {
+				agent.setDoing("idle")
+			}
+			return report.emit(ctx, record)
+		}
 		err := agent.workers.Scanner.Scan(ctx, root, emit)
 		if err != nil && ctx.Err() == nil {
 			agent.logger.WarnContext(ctx, "a scan ended early", "root", root.Path(), "err", err)

@@ -21,7 +21,7 @@
 //   - The boost raises the centre's share by 6 dB over the standard mix, with the pinned FFmpeg.
 //     Enforced by TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentre
 //     (integration tier). The gain is provisional until the listening test sets it (cut-a §6).
-//   - A rendition is written only under "<file_id>/<profile>" in the prepared directory.
+//   - A rendition is written only under "<file_id>/<profile>/<run>" in the prepared directory.
 //     Enforced by the renditionDir pattern, checked before anything is made.
 //
 // # Read before changing

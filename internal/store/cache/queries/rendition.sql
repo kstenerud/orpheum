@@ -3,22 +3,22 @@
 -- prepare, and how far it is.
 
 -- name: GetRendition :one
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, done_ms, bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, run, done_ms, bytes, error, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?;
 
 -- name: GetRenditionByID :one
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, done_ms, bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, run, done_ms, bytes, error, created_at, finished_at
 FROM prepared_rendition WHERE id = ?;
 
 -- name: InsertRendition :one
-INSERT INTO prepared_rendition (source_file, payload_hash, profile, node_id, segment_s, created_at)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO prepared_rendition (source_file, payload_hash, profile, node_id, segment_s, run, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: RestartRendition :exec
 -- A rendition prepared again from the start: its source changed, or it failed or was lost.
 UPDATE prepared_rendition
-SET payload_hash = ?, node_id = ?, segment_s = ?, state = 'queued', done_ms = 0, bytes = NULL, error = NULL,
+SET payload_hash = ?, node_id = ?, segment_s = ?, run = ?, state = 'queued', done_ms = 0, bytes = NULL, error = NULL,
     finished_at = NULL
 WHERE id = ?;
 
