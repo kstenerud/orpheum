@@ -10,7 +10,7 @@ import (
 )
 
 const getLiveGrant = `-- name: GetLiveGrant :one
-SELECT hash, kind, subject, scope, issued_at, expires_at, last_seen_at
+SELECT hash, kind, subject, scope, issued_at, expires_at, last_seen_at, device_id
 FROM "grant"
 WHERE hash = ?1
   AND revoked_at IS NULL
@@ -30,6 +30,7 @@ type GetLiveGrantRow struct {
 	IssuedAt   int64
 	ExpiresAt  *int64
 	LastSeenAt *int64
+	DeviceID   *int64
 }
 
 func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (GetLiveGrantRow, error) {
@@ -43,15 +44,16 @@ func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (Get
 		&i.IssuedAt,
 		&i.ExpiresAt,
 		&i.LastSeenAt,
+		&i.DeviceID,
 	)
 	return i, err
 }
 
 const insertGrant = `-- name: InsertGrant :exec
 
-INSERT INTO "grant" (hash, kind, subject, scope, issued_at, expires_at, last_seen_at, label)
+INSERT INTO "grant" (hash, kind, subject, scope, issued_at, expires_at, last_seen_at, label, device_id)
 VALUES (?1, ?2, ?3, ?4, ?5,
-        ?6, ?5, ?7)
+        ?6, ?5, ?7, ?8)
 `
 
 type InsertGrantParams struct {
@@ -62,6 +64,7 @@ type InsertGrantParams struct {
 	IssuedAt  int64
 	ExpiresAt *int64
 	Label     *string
+	DeviceID  *int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -75,6 +78,7 @@ func (q *Queries) InsertGrant(ctx context.Context, arg InsertGrantParams) error 
 		arg.IssuedAt,
 		arg.ExpiresAt,
 		arg.Label,
+		arg.DeviceID,
 	)
 	return err
 }

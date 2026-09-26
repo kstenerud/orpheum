@@ -35,6 +35,9 @@ func TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore(t *testing.T) {
 	}
 }
 
+// signInDevice is the device the tests sign in on (D217 §8).
+var signInDevice = map[string]string{"name": "Firefox on Linux", "platform": "web"}
+
 // playableFilm serves the shelved film's core with its node, signs in as the owner, and returns
 // the server, the session token and the film's file id.
 func playableFilm(t *testing.T, shelved shelf) (server running, token string, filmID int64) {
@@ -49,7 +52,7 @@ func playableFilm(t *testing.T, shelved shelf) (server running, token string, fi
 		t.Fatalf("setup: %d %s", created.status, created.body)
 	}
 	session := call(t, http.MethodPost, server.baseURL+"/session", "",
-		map[string]string{"name": "owner", "password": "pw"})
+		map[string]any{"name": "owner", "password": "pw", "device": signInDevice})
 	var signedIn struct {
 		Token string `json:"token"`
 	}

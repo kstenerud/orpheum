@@ -185,6 +185,9 @@ func wantError(t *testing.T, got response, status int, code Code) {
 	}
 }
 
+// testDevice is the device the tests sign in on.
+var testDevice = map[string]string{"name": "Firefox on Linux", "platform": "web"}
+
 // createAdminAndSignIn completes setup as owner and returns a session token.
 func (harness testHarness) createAdminAndSignIn(t *testing.T) string {
 	t.Helper()
@@ -202,7 +205,9 @@ func (harness testHarness) createAdminAndSignIn(t *testing.T) string {
 
 func (harness testHarness) signIn(t *testing.T, name, password string) string {
 	t.Helper()
-	signedIn := harness.do(t, http.MethodPost, "/session", "", map[string]string{"name": name, "password": password})
+	signedIn := harness.do(t, http.MethodPost, "/session", "", map[string]any{
+		"name": name, "password": password, "device": testDevice,
+	})
 	var session struct {
 		Token string `json:"token"`
 	}
@@ -241,7 +246,7 @@ func TestSetup_TheCodeCreatesTheFirstAdminAndThenSetupIsClosed(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	wantError(t, harness.do(t, http.MethodPost, "/session", "",
-		map[string]string{"name": "owner", "password": "x"}), http.StatusConflict, CodeSetupRequired)
+		map[string]any{"name": "owner", "password": "x", "device": testDevice}), http.StatusConflict, CodeSetupRequired)
 	code, err := harness.service.EnsureSetupCode(t.Context(), harness.codes)
 	if err != nil {
 		t.Fatal(err)
@@ -269,7 +274,13 @@ func TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodGet, "/me", "", nil), http.StatusUnauthorized, CodeAuthRequired)
 	wantError(t, harness.do(t, http.MethodGet, "/me?token="+token, "", nil), http.StatusUnauthorized, CodeAuthRequired)
 	wantError(t, harness.do(t, http.MethodPost, "/session", "",
-		map[string]string{"name": "owner", "password": "wrong"}), http.StatusUnauthorized, CodeAuthRequired)
+		map[string]any{"name": "owner", "password": "wrong", "device": testDevice}),
+		http.StatusUnauthorized, CodeAuthRequired)
+	unnamed := harness.do(t, http.MethodPost, "/session", "",
+		map[string]any{"name": "owner", "password": "owner-password"})
+	if unnamed.status < 400 || unnamed.status >= 500 {
+		t.Errorf("a sign-in that names no device: %d, want refused (D217 §8)", unnamed.status)
+	}
 	if out := harness.do(t, http.MethodDelete, "/session", token, nil); out.status != http.StatusNoContent {
 		t.Errorf("DELETE /session = %d %s", out.status, out.body)
 	}

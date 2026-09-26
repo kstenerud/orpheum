@@ -5,6 +5,7 @@ import "./sign-in.css";
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import { deviceFrom } from "./device.ts";
 import { useServices } from "./services.tsx";
 
 /** Why a sign-in failed, from the server's status, in words a person can act on. */
@@ -93,20 +94,22 @@ export function SignIn(): JSX.Element {
   const submit = (): void => {
     setIsSending(true);
     setProblem(undefined);
-    api.POST("/session", { body: { name, password } }).then(
-      ({ data, response }) => {
-        setIsSending(false);
-        if (data === undefined) {
-          setProblem(signInProblem(response.status));
-          return;
-        }
-        session.signIn(data.token);
-      },
-      () => {
-        setIsSending(false);
-        setProblem("failed");
-      },
-    );
+    api
+      .POST("/session", { body: { name, password, device: deviceFrom(navigator.userAgent) } })
+      .then(
+        ({ data, response }) => {
+          setIsSending(false);
+          if (data === undefined) {
+            setProblem(signInProblem(response.status));
+            return;
+          }
+          session.signIn(data.token);
+        },
+        () => {
+          setIsSending(false);
+          setProblem("failed");
+        },
+      );
   };
   return (
     <SignInForm

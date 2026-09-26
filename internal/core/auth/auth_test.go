@@ -91,12 +91,15 @@ func TestCreateUser_StoresOnlyTheHash(t *testing.T) {
 	}
 }
 
+// laptop is the device the tests sign in on.
+var laptop = NewDevice{Name: "Firefox on Linux", Platform: "web"}
+
 func TestSignIn_IssuesASessionUntilSignedOut(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "owner", "right", RoleAdmin)
-	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1")
+	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
 	if err != nil {
 		t.Fatalf("SignIn: %v", err)
 	}
@@ -106,6 +109,15 @@ func TestSignIn_IssuesASessionUntilSignedOut(t *testing.T) {
 	}
 	if principal.UserID != id || principal.Role != RoleAdmin || !principal.IsAdmin() {
 		t.Errorf("principal = %+v, want the admin owner", principal)
+	}
+	second, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", NewDevice{Name: "TV", Platform: "web"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := fixture.service.Authenticate(ctx, second)
+	if err != nil || principal.DeviceID == 0 || other.DeviceID == 0 || other.DeviceID == principal.DeviceID {
+		t.Errorf("two sign-ins are on devices %d and %d (%v), want two new devices (D217 §8)",
+			principal.DeviceID, other.DeviceID, err)
 	}
 	if err := fixture.service.SignOut(ctx, token); err != nil {
 		t.Fatal(err)
@@ -125,7 +137,7 @@ func TestSignIn_SaysNothingAboutWhichPartWasWrong(t *testing.T) {
 	fixture := newFixture(t)
 	fixture.createUser(t, "partner", "right", RoleUser)
 	for _, attempt := range [][2]string{{"partner", "wrong"}, {"nobody", "right"}} {
-		_, err := fixture.service.SignIn(t.Context(), attempt[0], attempt[1], "192.0.2.1")
+		_, err := fixture.service.SignIn(t.Context(), attempt[0], attempt[1], "192.0.2.1", laptop)
 		if !errors.Is(err, ErrBadCredentials) || err.Error() != ErrBadCredentials.Error() {
 			t.Errorf("SignIn(%s, %s) error = %v, want exactly ErrBadCredentials", attempt[0], attempt[1], err)
 		}
@@ -141,20 +153,22 @@ func TestSignIn_RateLimitsRepeatedFailuresBySetting(t *testing.T) {
 	settingstest.Set(t, fixture.settings, settings.SignInFailureWindowS, "60")
 	fixture.createUser(t, "partner", "right", RoleUser)
 	for range limit {
-		_, err := fixture.service.SignIn(ctx, "partner", "wrong", "198.51.100.7")
+		_, err := fixture.service.SignIn(ctx, "partner", "wrong", "198.51.100.7", laptop)
 		if !errors.Is(err, ErrBadCredentials) {
 			t.Fatalf("a failed sign-in: %v", err)
 		}
 	}
-	if _, err := fixture.service.SignIn(ctx, "partner", "right", "203.0.113.9"); !errors.Is(err, ErrRateLimited) {
+	_, err := fixture.service.SignIn(ctx, "partner", "right", "203.0.113.9", laptop)
+	if !errors.Is(err, ErrRateLimited) {
 		t.Errorf("the right password after %d failures, from another address: %v, want ErrRateLimited",
 			limit, err)
 	}
-	if _, err := fixture.service.SignIn(ctx, "someone", "right", "198.51.100.7"); !errors.Is(err, ErrRateLimited) {
+	_, err = fixture.service.SignIn(ctx, "someone", "right", "198.51.100.7", laptop)
+	if !errors.Is(err, ErrRateLimited) {
 		t.Errorf("another account from the failing address: %v, want ErrRateLimited", err)
 	}
 	fixture.clock.Advance(window + time.Second)
-	if _, err := fixture.service.SignIn(ctx, "partner", "right", "198.51.100.7"); err != nil {
+	if _, err := fixture.service.SignIn(ctx, "partner", "right", "198.51.100.7", laptop); err != nil {
 		t.Errorf("after the window: %v, want the sign-in to succeed", err)
 	}
 }
@@ -164,7 +178,7 @@ func TestSignIn_RehashesAPasswordMadeUnderOlderCosts(t *testing.T) {
 	fixture := newFixture(t)
 	fixture.createUser(t, "owner", "right", RoleAdmin)
 	settingstest.Set(t, fixture.settings, settings.Argon2Iterations, "2")
-	if _, err := fixture.service.SignIn(t.Context(), "owner", "right", "192.0.2.1"); err != nil {
+	if _, err := fixture.service.SignIn(t.Context(), "owner", "right", "192.0.2.1", laptop); err != nil {
 		t.Fatal(err)
 	}
 	user, err := fixture.database.Read().GetLiveUserByName(t.Context(), "owner")
@@ -183,7 +197,7 @@ func TestAuthenticate_EndsASessionUnusedForTheIdleExpiry(t *testing.T) {
 	settingstest.Set(t, fixture.settings, settings.SessionIdleExpiryH, "1")
 	settingstest.Set(t, fixture.settings, settings.SessionLastSeenWriteIntervalS, "60")
 	fixture.createUser(t, "owner", "right", RoleAdmin)
-	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1")
+	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +218,7 @@ func TestSignIn_HealsAMissingSettingWithItsStartingValue(t *testing.T) {
 	fixture := newFixture(t)
 	fixture.createUser(t, "owner", "right", RoleAdmin)
 	storetest.ExecRaw(t, fixture.database.Path(), "DELETE FROM setting WHERE key = 'signin_failure_limit'")
-	if _, err := fixture.service.SignIn(t.Context(), "owner", "right", "192.0.2.1"); err != nil {
+	if _, err := fixture.service.SignIn(t.Context(), "owner", "right", "192.0.2.1", laptop); err != nil {
 		t.Fatalf("signing in with signin_failure_limit removed: %v, want the row healed and the sign-in to work", err)
 	}
 	if limit, err := fixture.settings.Int(t.Context(), settings.SignInFailureLimit); err != nil || limit != 5 {
@@ -260,7 +274,7 @@ func TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the right code: %v", err)
 	}
-	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1")
+	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
 	if err != nil {
 		t.Fatal(err)
 	}

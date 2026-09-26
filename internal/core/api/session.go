@@ -36,14 +36,22 @@ type UserOutput struct {
 	Body UserBody
 }
 
-// SignInInput signs in with a name and password.
+// SignInInput signs in with a name and password, on a device the client names (D217 §8).
 type SignInInput struct {
 	Body struct {
-		Name     string `json:"name"     minLength:"1"`
-		Password string `json:"password" minLength:"1"`
+		Name     string        `json:"name"     minLength:"1"`
+		Password string        `json:"password" minLength:"1"`
+		Device   NewDeviceBody `json:"device"`
 	}
 	clientAddress string
 	overTLS       bool
+}
+
+// NewDeviceBody is how a client names itself: the device becomes one of the person's, listed
+// and revocable.
+type NewDeviceBody struct {
+	Name     string `doc:"What the person will know it by: \"Chrome on Android\", \"Living room TV\"" json:"name"     maxLength:"100" minLength:"1"` //nolint:lll // one struct tag
+	Platform string `doc:"The kind of client: \"web\", \"cast\""                                    json:"platform" maxLength:"40"  minLength:"1"`   //nolint:lll // one struct tag
 }
 
 // Resolve records the client's address, for the per-address failure limit (D194 §2), and
@@ -138,7 +146,8 @@ func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionO
 		return nil, newError(http.StatusConflict, CodeSetupRequired,
 			"no one can sign in until the first admin is created with the setup code")
 	}
-	token, err := dependencies.Auth.SignIn(ctx, input.Body.Name, input.Body.Password, input.clientAddress)
+	device := auth.NewDevice{Name: input.Body.Device.Name, Platform: input.Body.Device.Platform}
+	token, err := dependencies.Auth.SignIn(ctx, input.Body.Name, input.Body.Password, input.clientAddress, device)
 	switch {
 	case errors.Is(err, auth.ErrRateLimited):
 		return nil, newError(http.StatusTooManyRequests, CodeRateLimited,

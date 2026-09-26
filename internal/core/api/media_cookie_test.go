@@ -46,7 +46,9 @@ func TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt(t *tes
 	if err := harness.art.WriteArt(hash, "portrait-s.webp", []byte("RIFF....WEBP")); err != nil {
 		t.Fatal(err)
 	}
-	signedIn, _ := harness.raw(t, http.MethodPost, "/session", `{"name":"owner","password":"owner-password"}`, nil)
+	const credentials = `{"name":"owner","password":"owner-password",` +
+		`"device":{"name":"Firefox on Linux","platform":"web"}}`
+	signedIn, _ := harness.raw(t, http.MethodPost, "/session", credentials, nil)
 	cookies := (&http.Response{Header: signedIn.Header}).Cookies()
 	if len(cookies) != 1 || cookies[0].Name != MediaCookie || !cookies[0].HttpOnly ||
 		cookies[0].SameSite != http.SameSiteStrictMode || cookies[0].Path != Prefix+"/bytes/" || cookies[0].Secure {

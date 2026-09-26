@@ -21,7 +21,8 @@
 //   - Failed sign-ins are limited per account and per address, and a failure does not say which
 //     part was wrong. Enforced by TestSignIn_RateLimitsRepeatedFailuresBySetting and
 //     TestSignIn_SaysNothingAboutWhichPartWasWrong.
-//   - A session is stored only as its token's SHA-256 and ends when revoked. Enforced by
+//   - A session is stored only as its token's SHA-256 and ends when revoked, and each sign-in
+//     makes a new device, named by the client, that the session belongs to (D217 §8). Enforced by
 //     TestSignIn_IssuesASessionUntilSignedOut.
 //   - Only the setup code creates the first admin, and only once. Enforced by
 //     TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce.
@@ -35,6 +36,7 @@
 //
 // # Read before changing
 //
+//   - D217 §8: a device is created at sign-in.
 //   - D125: access is role-based with two roles; a Watch Together guest is not a principal.
 //   - D154: one grant table, opaque and revocable.
 //   - D168: entitlement is resolved at the point of use, never pushed.
