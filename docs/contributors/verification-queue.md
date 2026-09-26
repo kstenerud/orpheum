@@ -28,3 +28,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   ([D194](decisions/working-notes.md#d194--secrets-our-users-passwords-are-hashed-third-party-secrets-are-sealed-with-a-key-that-never-enters-the-database-and-nothing-reads-a-secret-back-out)
   §2); above it, the memory cost comes down to OWASP's 46 MiB, t = 1. For reference, an
   i3-N305 VM measured 50 ms. (M1)
+- [x] **VQ2** — In Firefox on the dev loop, play a prepared film or episode with sound in its
+  centre (any dev-library MKV but the stereo ones), and tick and untick **Dialogue boost**
+  while it plays. Passes when the change is heard within about a second of the click, with at
+  most a moment's pause. Before this change it took two to four seconds whatever the segment
+  length. (the seek after an audio switch in `web/packages/player/src/hls.ts`) — done
+  2026-09-26 by the owner: *"Yup, works within about a second now."*
