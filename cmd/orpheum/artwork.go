@@ -22,11 +22,11 @@ import (
 func newArtwork(
 	ctx context.Context, opened started, directories *datadir.Directories, imageBase string, logger *slog.Logger,
 ) (*artwork.Service, error) {
-	timeout, err := opened.settings.Int(ctx, settings.ProviderTimeoutS)
+	providerTimeoutSeconds, err := opened.settings.Int(ctx, settings.ProviderTimeoutS)
 	if err != nil {
 		return nil, err
 	}
-	httpClient, err := outbound.NewClient(time.Duration(timeout)*time.Second, version)
+	httpClient, err := outbound.NewClient(time.Duration(providerTimeoutSeconds)*time.Second, version)
 	if err != nil {
 		return nil, err
 	}

@@ -154,7 +154,7 @@ func (runner *Runner) deferUntil(ctx context.Context, job Job, until time.Time, 
 	message := why.Error()
 	return runner.queue.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		err := queries.DeferJob(ctx, cachegen.DeferJobParams{
-			NotBefore: until.UnixMilli(), LastError: &message, Attempts: attempts, ID: job.ID,
+			RunnableAt: until.UnixMilli(), LastError: &message, Attempts: attempts, ID: job.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("defer job %d: %w", job.ID, err)

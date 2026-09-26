@@ -28,9 +28,10 @@ type AudioRendition struct {
 func audioRenditions(command nodeproto.Prepare) []AudioRendition {
 	var renditions []AudioRendition
 	for _, track := range command.Audio {
-		renditions = append(renditions, AudioRendition{Track: track.Index, Language: track.Language})
+		renditions = append(renditions, AudioRendition{Track: track.AudioTrackIndex, Language: track.Language})
 		if track.Channels > 2 {
-			renditions = append(renditions, AudioRendition{Track: track.Index, Language: track.Language, Boost: true})
+			boosted := AudioRendition{Track: track.AudioTrackIndex, Language: track.Language, Boost: true}
+			renditions = append(renditions, boosted)
 		}
 	}
 	return renditions
@@ -56,12 +57,14 @@ type HLSSource struct {
 }
 
 // HLS is where the named file of the rendition a media token refers to is (cut-a §5).
-func (service *Service) HLS(ctx context.Context, token, name string, userID int64, session string) (HLSSource, error) {
+func (service *Service) HLS(
+	ctx context.Context, token, name string, userID int64, sessionKey string,
+) (HLSSource, error) {
 	idle, err := service.idle(ctx)
 	if err != nil {
 		return HLSSource{}, err
 	}
-	playback, found := service.tokens.use(token, userID, session, service.clock.Now(), idle)
+	playback, found := service.tokens.use(token, userID, sessionKey, service.clock.Now(), idle)
 	if !found || playback.profile == "" {
 		return HLSSource{}, ErrNoToken
 	}

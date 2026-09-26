@@ -103,21 +103,21 @@ func TestBrowse_FilmsInTheLocalesOrderAPageAtATime(t *testing.T) {
 	world.film("Ödet", "o.mkv")
 	world.film("Fièvre", "a.mkv")
 	world.film("Gone Film", "gone.mkv")
-	first, err := world.browser.List(t.Context(), ListQuery{List: ListFilms, Sort: SortName, Limit: 2})
-	if err != nil || !slices.Equal(names(first), []string{"Fièvre", "Ödet"}) || first.Next == "" {
+	first, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Sort: SortName, Limit: 2})
+	if err != nil || !slices.Equal(names(first), []string{"Fièvre", "Ödet"}) || first.NextCursor == "" {
 		t.Fatalf("first page = %+v, %v", first, err)
 	}
-	next := ListQuery{List: ListFilms, Sort: SortName, Cursor: first.Next, Limit: 2}
+	next := ListQuery{Kind: ListFilms, Sort: SortName, Cursor: first.NextCursor, Limit: 2}
 	rest, err := world.browser.List(t.Context(), next)
-	if err != nil || !slices.Equal(names(rest), []string{"Destiny"}) || rest.Next != "" {
+	if err != nil || !slices.Equal(names(rest), []string{"Destiny"}) || rest.NextCursor != "" {
 		t.Errorf("second page = %+v, %v; the film with no live file is not listed", rest, err)
 	}
 	settingstest.Set(t, world.config, settings.SortLocale, `"sv"`)
-	swedish, err := world.browser.List(t.Context(), ListQuery{List: ListFilms, Sort: SortName, Limit: 10})
+	swedish, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Sort: SortName, Limit: 10})
 	if err != nil || !slices.Equal(names(swedish), []string{"Fièvre", "Destiny", "Ödet"}) {
 		t.Errorf("in Swedish = %v, %v; Ö comes after Z", names(swedish), err)
 	}
-	if _, err := world.browser.List(t.Context(), ListQuery{List: ListFilms, Cursor: "!", Limit: 1}); err == nil {
+	if _, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Cursor: "!", Limit: 1}); err == nil {
 		t.Error("a cursor this server did not give was accepted")
 	}
 }
@@ -129,11 +129,11 @@ func TestBrowse_FilmsNewestFirst(t *testing.T) {
 	world.film("First", "a.mkv")
 	world.film("Second", "b.mkv")
 	world.film("Third", "c.mkv")
-	first, err := world.browser.List(t.Context(), ListQuery{List: ListFilms, Sort: SortAdded, Limit: 2})
+	first, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Sort: SortAdded, Limit: 2})
 	if err != nil || !slices.Equal(names(first), []string{"Third", "Second"}) {
 		t.Fatalf("first page = %v, %v", names(first), err)
 	}
-	next := ListQuery{List: ListFilms, Sort: SortAdded, Cursor: first.Next, Limit: 2}
+	next := ListQuery{Kind: ListFilms, Sort: SortAdded, Cursor: first.NextCursor, Limit: 2}
 	rest, err := world.browser.List(t.Context(), next)
 	if err != nil || !slices.Equal(names(rest), []string{"First"}) {
 		t.Errorf("second page = %v, %v", names(rest), err)

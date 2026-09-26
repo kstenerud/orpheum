@@ -33,7 +33,7 @@ func TestOpenCache_BuildsAnEmptyFileAndKeepsWhatItHolds(t *testing.T) {
 	}
 	err = cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		_, insertErr := queries.InsertJob(t.Context(), cachegen.InsertJobParams{
-			Kind: "fetch", Args: "{}", NotBefore: 1, CreatedAt: 1,
+			Kind: "fetch", Args: "{}", RunnableAt: 1, CreatedAt: 1,
 		})
 		return insertErr //nolint:wrapcheck // the test reads it as is
 	})

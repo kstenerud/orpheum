@@ -93,9 +93,10 @@ type Service struct {
 }
 
 // NewService returns a Service.
-func NewService(database *store.Database, now clock.Clock, random io.Reader, config Settings) *Service {
+func NewService(database *store.Database, clockSource clock.Clock, random io.Reader, config Settings) *Service {
 	return &Service{
-		database: database, clock: now, random: random, settings: config, limiter: newFailureLimiter(now),
+		database: database, clock: clockSource, random: random, settings: config,
+		limiter: newFailureLimiter(clockSource),
 	}
 }
 

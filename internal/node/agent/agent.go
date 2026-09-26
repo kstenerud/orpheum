@@ -71,7 +71,7 @@ type Agent struct {
 // New returns an agent that talks to the core at socketPath. The hello is sent as given, with
 // the roots' paths filled in.
 func New(
-	socketPath string, hello nodeproto.Hello, roots []*confine.MediaRoot, workers Workers, now clock.Clock,
+	socketPath string, hello nodeproto.Hello, roots []*confine.MediaRoot, workers Workers, clockSource clock.Clock,
 	logger *slog.Logger,
 ) *Agent {
 	byPath := make(map[string]*confine.MediaRoot, len(roots))
@@ -88,7 +88,7 @@ func New(
 	}
 	return &Agent{
 		client: &http.Client{Transport: transport}, hello: hello, roots: byPath, workers: workers,
-		clock: now, logger: logger, doing: "idle", slots: newSlots(),
+		clock: clockSource, logger: logger, doing: "idle", slots: newSlots(),
 	}
 }
 
@@ -228,11 +228,11 @@ func (agent *Agent) artwork(ctx context.Context, nodeID int64, command nodeproto
 	defer agent.setDoing("idle")
 	var result nodeproto.ArtworkResult
 	sourceHash := ""
-	if command.Path != nil {
-		source, err := agent.readImage(*command.Path)
+	if command.AbsolutePath != nil {
+		source, err := agent.readImage(*command.AbsolutePath)
 		if err == nil {
 			sum := sha256.Sum256(source)
-			command.Source, command.Path, sourceHash = source, nil, hex.EncodeToString(sum[:])
+			command.Source, command.AbsolutePath, sourceHash = source, nil, hex.EncodeToString(sum[:])
 		} else {
 			result = nodeproto.ArtworkResult{Job: command.Job, Refused: err.Error()}
 		}

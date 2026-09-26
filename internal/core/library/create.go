@@ -31,7 +31,7 @@ type NewLibrary struct {
 
 // Create adds a library and its roots. The schema's checks refuse a kind or an answer outside
 // the closed sets.
-func Create(ctx context.Context, database *store.Database, now clock.Clock, library NewLibrary) (int64, error) {
+func Create(ctx context.Context, database *store.Database, clockSource clock.Clock, library NewLibrary) (int64, error) {
 	library.Name = textindex.Line(library.Name) // a person's text is shown to others (D211 §2)
 	var id int64
 	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -49,7 +49,7 @@ func Create(ctx context.Context, database *store.Database, now clock.Clock, libr
 		id, err = queries.InsertLibrary(ctx, sqlcgen.InsertLibraryParams{
 			Name: library.Name, Kind: library.Kind, MetadataSource: library.MetadataSource,
 			ChangeDetection: library.ChangeDetection, CheckEveryH: library.CheckEveryH, Writable: writable,
-			CreatedAt: now.Now().UnixMilli(),
+			CreatedAt: clockSource.Now().UnixMilli(),
 		})
 		if err != nil {
 			return fmt.Errorf("create library %q: %w", library.Name, err)

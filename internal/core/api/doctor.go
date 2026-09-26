@@ -56,14 +56,15 @@ func artworkFinding(dependencies *Dependencies) FindingBody {
 	const gib = 1 << 30
 	finding := FindingBody{
 		Check: "artwork cache", Verdict: verdictOK,
-		Detail: fmt.Sprintf("%.1f GiB of a %d GiB ceiling", float64(pressure.Total)/gib, pressure.Ceiling/gib),
+		Detail: fmt.Sprintf("%.1f GiB of a %d GiB ceiling",
+			float64(pressure.TotalBytes)/gib, pressure.CeilingBytes/gib),
 	}
 	if pressure.HighWater {
 		finding.Verdict = verdictWarn
 		finding.Detail = fmt.Sprintf("the libraries need %.1f GiB of artwork to be shown at once, more than the "+
 			"%d GiB ceiling; artwork beyond it is fetched again when it is opened, which is slower",
-			float64(pressure.Required)/gib, pressure.Ceiling/gib)
-		finding.Action = fmt.Sprintf("set artwork_cache_ceiling_gib to at least %d", pressure.Recommended/gib)
+			float64(pressure.RequiredBytes)/gib, pressure.CeilingBytes/gib)
+		finding.Action = fmt.Sprintf("set artwork_cache_ceiling_gib to at least %d", pressure.RecommendedBytes/gib)
 	}
 	return finding
 }

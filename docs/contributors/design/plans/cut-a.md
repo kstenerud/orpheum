@@ -292,7 +292,7 @@ It is shown on screen (D188).
 Every piece of background work is a row in `cache.db`'s `job` table ([schema.md](schema.md)):
 fetches, prepares, scans and backups.
 - **Scheduling.** One scheduler in the core picks the highest-priority queued job whose
-  `not_before` has passed and whose runner has a free slot. The slots are: one encode per node,
+  `runnable_at` has passed and whose runner has a free slot. The slots are: one encode per node,
   two remux or extract jobs per node, one fetch per provider under its rate limit, and one
   backup.
 - **Node jobs** become commands, and their progress arrives as `job` records.

@@ -292,7 +292,7 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 	answer := func(job int64, named string) nodeproto.ArtworkResult {
 		t.Helper()
 		core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
-			Job: job, Path: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
+			Job: job, AbsolutePath: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
 			Sizes: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 		}}
 		select {

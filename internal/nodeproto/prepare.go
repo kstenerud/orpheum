@@ -31,9 +31,9 @@ type Prepare struct {
 	// directory and its byte path: a new run for each making, so no request reaches a copy an
 	// earlier making left.
 	RenditionDir string `json:"renditionDir"`
-	// VideoStream is the source picture's stream index, as ffprobe numbers every stream: the
+	// VideoStreamIndex is the source picture's stream index, as ffprobe numbers every stream: the
 	// picture, never cover art that happens to come first.
-	VideoStream int `json:"videoStream"`
+	VideoStreamIndex int `json:"videoStreamIndex"`
 	// VideoCodec is the source picture's codec as the probe named it: a copied HEVC picture is
 	// tagged hvc1, which Safari requires.
 	VideoCodec string `json:"videoCodec"`
@@ -47,10 +47,10 @@ type Prepare struct {
 // PrepareAudio is one source audio track. A track with more than two channels has a centre and
 // gets a boosted rendition beside its standard one; one without has no centre to raise.
 type PrepareAudio struct {
-	// Index is the track's place among the source's audio tracks, as FFmpeg's 0:a:<index>.
-	Index    int    `json:"index"`
-	Language string `json:"language,omitempty"`
-	Channels int    `json:"channels"`
+	// AudioTrackIndex is the track's place among the source's audio tracks, as FFmpeg's 0:a:<index>.
+	AudioTrackIndex int    `json:"audioTrackIndex"`
+	Language        string `json:"language,omitempty"`
+	Channels        int    `json:"channels"`
 }
 
 // PrepareState is where a prepare is.
@@ -69,8 +69,8 @@ type PrepareReport struct {
 	State PrepareState `json:"state"`
 	// PreparedMs is how much of the source is prepared, in milliseconds of its time.
 	PreparedMs int64 `json:"preparedMs"`
-	// Bytes is the rendition's size once done.
-	Bytes int64 `json:"bytes,omitempty"`
+	// SizeBytes is the rendition's size once done.
+	SizeBytes int64 `json:"sizeBytes,omitempty"`
 	// Error is FFmpeg's exit and the tail of its stderr, or why the node refused.
 	Error string `json:"error,omitempty"`
 }

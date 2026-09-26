@@ -44,10 +44,11 @@ type Supervisor struct {
 
 // NewSupervisor supervises the node called name.
 func NewSupervisor(
-	start Starter, liveness Liveness, name string, now clock.Clock, settingsService Settings, logger *slog.Logger,
+	start Starter, liveness Liveness, name string, clockSource clock.Clock, settingsService Settings,
+	logger *slog.Logger,
 ) *Supervisor {
 	return &Supervisor{
-		start: start, liveness: liveness, name: name, clock: now, settings: settingsService, logger: logger,
+		start: start, liveness: liveness, name: name, clock: clockSource, settings: settingsService, logger: logger,
 	}
 }
 

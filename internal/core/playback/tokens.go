@@ -18,9 +18,9 @@ const tokenBytes = 24
 
 // playing is what a media token refers to: whose playback of which file, under which session.
 type playing struct {
-	userID  int64
-	session string
-	fileID  int64
+	userID     int64
+	sessionKey string
+	fileID     int64
 	// profile is a prepared playback's rendition; empty for direct play.
 	profile  nodeproto.PrepareProfile
 	lastUsed time.Time
@@ -58,7 +58,9 @@ func (all *tokens) issue(random io.Reader, what playing, now time.Time, idle tim
 
 // use is the playback a token refers to, when it is this user's under this session and has not
 // been idle for longer than idle; using it keeps it alive.
-func (all *tokens) use(token string, userID int64, session string, now time.Time, idle time.Duration) (playing, bool) {
+func (all *tokens) use(
+	token string, userID int64, sessionKey string, now time.Time, idle time.Duration,
+) (playing, bool) {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
 	known, found := all.playing[token]
@@ -69,7 +71,7 @@ func (all *tokens) use(token string, userID int64, session string, now time.Time
 		delete(all.playing, token)
 		return playing{}, false
 	}
-	if known.userID != userID || known.session != session {
+	if known.userID != userID || known.sessionKey != sessionKey {
 		return playing{}, false
 	}
 	known.lastUsed = now

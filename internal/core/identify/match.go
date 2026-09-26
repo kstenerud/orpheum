@@ -38,10 +38,10 @@ type Matcher struct {
 // NewMatcher returns the matcher. It reaches the providers through the pass, which re-derives a
 // series' episodes once it is matched.
 func NewMatcher(
-	database *store.Database, cache *store.Cache, pass *Pass, now clock.Clock, logger *slog.Logger,
+	database *store.Database, cache *store.Cache, pass *Pass, clockSource clock.Clock, logger *slog.Logger,
 ) *Matcher {
 	return &Matcher{
-		database: database, cache: cache, pass: pass, providers: pass.providers, clock: now, logger: logger,
+		database: database, cache: cache, pass: pass, providers: pass.providers, clock: clockSource, logger: logger,
 	}
 }
 

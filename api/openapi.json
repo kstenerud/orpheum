@@ -1196,7 +1196,7 @@
             "type": "string"
           },
           "hint": {
-            "description": "The last four characters of an API key",
+            "description": "An API key's last characters, secret_hint_chars of them",
             "type": "string"
           },
           "isSet": {

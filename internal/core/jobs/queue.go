@@ -52,8 +52,8 @@ type New struct {
 	Args     string // JSON; "{}" when empty
 	Priority int64
 	Reason   string // why it exists, shown to the user
-	// NotBefore is when it may first run; now when zero.
-	NotBefore time.Time
+	// RunnableAt is when it may first run; now when zero.
+	RunnableAt time.Time
 }
 
 // Settings are the values the queue reads when a job fails.
@@ -71,8 +71,8 @@ type Queue struct {
 }
 
 // NewQueue returns the queue.
-func NewQueue(cache *store.Cache, now clock.Clock, config Settings, logger *slog.Logger) *Queue {
-	return &Queue{cache: cache, clock: now, settings: config, logger: logger, wake: make(chan struct{}, 1)}
+func NewQueue(cache *store.Cache, clockSource clock.Clock, config Settings, logger *slog.Logger) *Queue {
+	return &Queue{cache: cache, clock: clockSource, settings: config, logger: logger, wake: make(chan struct{}, 1)}
 }
 
 // Enqueue adds a job unless one of its kind is already queued or running for its subject, and
@@ -93,13 +93,13 @@ func (queue *Queue) Enqueue(ctx context.Context, job New) (bool, error) {
 		if args == "" {
 			args = "{}"
 		}
-		reason, notBefore := job.Reason, job.NotBefore
-		if notBefore.IsZero() {
-			notBefore = queue.clock.Now()
+		reason, runnableAt := job.Reason, job.RunnableAt
+		if runnableAt.IsZero() {
+			runnableAt = queue.clock.Now()
 		}
 		_, insertErr := queries.InsertJob(ctx, cachegen.InsertJobParams{
 			Kind: string(job.Kind), Subject: &subject, Args: args, Priority: job.Priority,
-			NotBefore: notBefore.UnixMilli(), Reason: &reason, CreatedAt: queue.clock.Now().UnixMilli(),
+			RunnableAt: runnableAt.UnixMilli(), Reason: &reason, CreatedAt: queue.clock.Now().UnixMilli(),
 		})
 		if insertErr != nil {
 			return fmt.Errorf("queue a %s job: %w", job.Kind, insertErr)

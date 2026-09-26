@@ -165,7 +165,7 @@ func (spec *titleSpec) fromEpisode(provider string, episode Episode) {
 
 // seriesFor finds the series collection by name in this library, or makes it.
 func (work *run) seriesFor(ctx context.Context, name string) (int64, error) {
-	if id, found := work.series[strings.ToLower(name)]; found {
+	if id, found := work.seriesIDByName[strings.ToLower(name)]; found {
 		return id, nil
 	}
 	libraryID := work.library.ID
@@ -183,7 +183,7 @@ func (work *run) seriesFor(ctx context.Context, name string) (int64, error) {
 	if err := work.writeText(ctx, id, itemText{listing: KindSeries, name: name}); err != nil {
 		return 0, err
 	}
-	work.series[strings.ToLower(name)] = id
+	work.seriesIDByName[strings.ToLower(name)] = id
 	return id, nil
 }
 

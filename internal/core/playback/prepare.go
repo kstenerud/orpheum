@@ -170,7 +170,7 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, command nodeproto
 				}
 				timer.Reset(all.maxSilence)
 			case nodeproto.PrepareDone:
-				return all.finish(ctx, job.Subject, &report.Bytes, "")
+				return all.finish(ctx, job.Subject, &report.SizeBytes, "")
 			case nodeproto.PrepareFailed:
 				// FFmpeg failing on a file fails again on it: this is not retried.
 				failure := errors.New(report.Error)
@@ -202,7 +202,7 @@ func (all *prepares) finish(ctx context.Context, rendition int64, size *int64, f
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		if size != nil {
 			return queries.SetRenditionComplete(ctx, cachegen.SetRenditionCompleteParams{
-				Bytes: size, FinishedAt: &now, ID: rendition,
+				SizeBytes: size, FinishedAt: &now, ID: rendition,
 			})
 		}
 		return queries.SetRenditionFailed(ctx, cachegen.SetRenditionFailedParams{
@@ -257,7 +257,7 @@ func prepareCommand(
 		RenditionDir: strconv.FormatInt(fileID, 10) + "/" + string(profile) + "/" + runID,
 	}
 	if picture, found := decide.MainVideo(probe); found {
-		command.VideoStream, command.VideoCodec = picture.Index, picture.Codec
+		command.VideoStreamIndex, command.VideoCodec = picture.Index, picture.Codec
 	}
 	index := 0
 	for _, stream := range probe.Streams {
@@ -269,7 +269,7 @@ func prepareCommand(
 			language = "und"
 		}
 		command.Audio = append(command.Audio, nodeproto.PrepareAudio{
-			Index: index, Language: language, Channels: stream.Audio.Channels,
+			AudioTrackIndex: index, Language: language, Channels: stream.Audio.Channels,
 		})
 		index++
 	}

@@ -125,7 +125,7 @@ func commandRun(ctx context.Context, call invocation) int {
 		return call.fail(fmt.Errorf("listen on %s: %w", config.Server.Listen, err))
 	}
 	outside := wiring{
-		startNode: selfStarter(config, call.stderr), tmdbBase: tmdb.BaseURL, tmdbImages: tmdb.ImageBaseURL,
+		startNode: selfStarter(config, call.stderr), tmdbBaseURL: tmdb.BaseURL, tmdbImagesBaseURL: tmdb.ImageBaseURL,
 	}
 	if err = serve(ctx, config, configReport, listener, outside, logger); err != nil {
 		return exitFailure

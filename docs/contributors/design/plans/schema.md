@@ -604,7 +604,7 @@ CREATE TABLE secret (                                      -- class A, sealed (D
   key_id      INTEGER NOT NULL,          -- which secret.key sealed it (rotation)
   nonce       BLOB NOT NULL,             -- 24 bytes, XChaCha20-Poly1305
   ciphertext      BLOB NOT NULL,             -- ciphertext; the associated data is (scope, user_id, name)
-  hint        TEXT,                      -- last four characters of an API key; NULL for a password
+  hint        TEXT,                      -- last secret_hint_chars characters of an API key; NULL for a password
   set_by      INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
   CHECK ((scope = 'server') = (user_id IS NULL))
@@ -747,7 +747,8 @@ reference scale, and removes a failure mode.
 > **Built in M2**, versioned by discard (migrations.md): `internal/store/cache/schema.sql` is the
 > one schema, its version on a comment line, and a file whose `user_version` differs is deleted
 > and built again. sqlc reads it into its own package, `cachegen`, so a `library.db` query
-> cannot name a cache table. `prepared_rendition` came with prepare in M3 (version 8).
+> cannot name a cache table. `prepared_rendition` came with prepare in M3 (version 8); version 9
+> renamed columns to say what they hold (`runnable_at`, `last_served_epoch_day`, `size_bytes`).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -759,7 +760,7 @@ CREATE TABLE job (                                         -- the one work queue
   state       TEXT NOT NULL DEFAULT 'queued'
                 CHECK (state IN ('queued','running','done','failed','cancelled')),
   node_id     INTEGER,                   -- where it runs, for node work
-  not_before  INTEGER NOT NULL,          -- rate limits and retry back-off (D170)
+  runnable_at INTEGER NOT NULL,          -- not before this: rate limits and retry back-off (D170)
   attempts    INTEGER NOT NULL DEFAULT 0,
   progress    REAL,                      -- 0..1 when known
   reason      TEXT,                      -- why it exists, shown to the user
@@ -767,7 +768,7 @@ CREATE TABLE job (                                         -- the one work queue
   created_at  INTEGER NOT NULL,
   finished_at INTEGER
 );
-CREATE INDEX job_next ON job(state, priority DESC, not_before) WHERE state = 'queued';
+CREATE INDEX job_next ON job(state, priority DESC, runnable_at) WHERE state = 'queued';
 CREATE TABLE match_candidate (                             -- D172: kept so choosing costs nothing
   item_id     INTEGER NOT NULL,          -- a film, or a series (D209)
   rank        INTEGER NOT NULL,
@@ -778,7 +779,7 @@ CREATE TABLE match_candidate (                             -- D172: kept so choo
 );
 CREATE TABLE art_served (                                  -- D212 §6: recency, to the day
   hash        TEXT PRIMARY KEY,          -- an image's directory under cache/art/
-  day         INTEGER NOT NULL           -- days since the Unix epoch it was last served
+  last_served_epoch_day INTEGER NOT NULL  -- days since the Unix epoch it was last served
 ) WITHOUT ROWID;
 CREATE TABLE prepared_rendition (                          -- D175, D180, D217 §5
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -791,7 +792,7 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 �
   segment_length_s INTEGER NOT NULL,     -- seconds per segment; another setting remakes it
   run_id       TEXT NOT NULL,            -- names this making's directory on the node; new each time
   prepared_ms  INTEGER NOT NULL DEFAULT 0,  -- how much of the source is prepared
-  bytes        INTEGER,                  -- its size once complete
+  size_bytes   INTEGER,                  -- its size once complete
   error        TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,

@@ -11,7 +11,7 @@ import (
 
 const getRendition = `-- name: GetRendition :one
 
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?
 `
 
@@ -36,7 +36,7 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 		&i.SegmentLengthS,
 		&i.RunID,
 		&i.PreparedMs,
-		&i.Bytes,
+		&i.SizeBytes,
 		&i.Error,
 		&i.CreatedAt,
 		&i.FinishedAt,
@@ -45,7 +45,7 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 }
 
 const getRenditionByID = `-- name: GetRenditionByID :one
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, created_at, finished_at
 FROM prepared_rendition WHERE id = ?
 `
 
@@ -62,7 +62,7 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 		&i.SegmentLengthS,
 		&i.RunID,
 		&i.PreparedMs,
-		&i.Bytes,
+		&i.SizeBytes,
 		&i.Error,
 		&i.CreatedAt,
 		&i.FinishedAt,
@@ -103,7 +103,7 @@ func (q *Queries) InsertRendition(ctx context.Context, arg InsertRenditionParams
 
 const restartRendition = `-- name: RestartRendition :exec
 UPDATE prepared_rendition
-SET payload_hash = ?, node_id = ?, segment_length_s = ?, run_id = ?, state = 'queued', prepared_ms = 0, bytes = NULL, error = NULL,
+SET payload_hash = ?, node_id = ?, segment_length_s = ?, run_id = ?, state = 'queued', prepared_ms = 0, size_bytes = NULL, error = NULL,
     finished_at = NULL
 WHERE id = ?
 `
@@ -129,17 +129,17 @@ func (q *Queries) RestartRendition(ctx context.Context, arg RestartRenditionPara
 }
 
 const setRenditionComplete = `-- name: SetRenditionComplete :exec
-UPDATE prepared_rendition SET state = 'complete', bytes = ?, finished_at = ? WHERE id = ?
+UPDATE prepared_rendition SET state = 'complete', size_bytes = ?, finished_at = ? WHERE id = ?
 `
 
 type SetRenditionCompleteParams struct {
-	Bytes      *int64
+	SizeBytes  *int64
 	FinishedAt *int64
 	ID         int64
 }
 
 func (q *Queries) SetRenditionComplete(ctx context.Context, arg SetRenditionCompleteParams) error {
-	_, err := q.db.ExecContext(ctx, setRenditionComplete, arg.Bytes, arg.FinishedAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, setRenditionComplete, arg.SizeBytes, arg.FinishedAt, arg.ID)
 	return err
 }
 

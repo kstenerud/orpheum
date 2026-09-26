@@ -18,7 +18,7 @@ type SecretBody struct {
 	Name         string `json:"name"`
 	Description  string `json:"description"`
 	IsSet        bool   `json:"isSet"`
-	Hint         string `doc:"The last four characters of an API key" json:"hint,omitempty"`
+	Hint         string `doc:"An API key's last characters, secret_hint_chars of them" json:"hint,omitempty"`
 	SetBy        *int64 `json:"setBy,omitempty"`
 	SetAt        int64  `json:"setAt,omitempty"`
 	NeedsReentry bool   `doc:"Sealed under a key this server no longer has" json:"needsReentry"`

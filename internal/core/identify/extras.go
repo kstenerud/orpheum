@@ -114,7 +114,7 @@ func extraBySuffix(rel string) (extraKind, bool) {
 // for an extra vanishes (D162).
 func (work *run) extra(ctx context.Context, pending pendingExtra) error {
 	root := strings.TrimSuffix(pending.file.Path, pending.rel)
-	ownerTitle, found := work.folderTitle[path.Clean(root+pending.extra.ownerFolder)]
+	ownerTitle, found := work.titleIDByFolder[path.Clean(root+pending.extra.ownerFolder)]
 	if !found {
 		return work.work(ctx, pending.file, pending.rel)
 	}

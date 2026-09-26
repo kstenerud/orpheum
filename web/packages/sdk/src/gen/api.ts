@@ -938,7 +938,7 @@ export interface components {
         };
         SecretBody: {
             description: string;
-            /** @description The last four characters of an API key */
+            /** @description An API key's last characters, secret_hint_chars of them */
             hint?: string;
             isSet: boolean;
             name: string;

@@ -31,7 +31,7 @@ type refreshArgs struct {
 func RefreshJob(itemID int64, reason string, at time.Time, retryImages bool, priority int64) jobs.New {
 	args := fmt.Sprintf(`{"refresh":true,"retryImages":%t}`, retryImages) // refreshArgs, as JSON
 	return jobs.New{
-		Kind: jobs.KindFetch, Subject: itemID, Args: args, Reason: reason, NotBefore: at, Priority: priority,
+		Kind: jobs.KindFetch, Subject: itemID, Args: args, Reason: reason, RunnableAt: at, Priority: priority,
 	}
 }
 
@@ -270,9 +270,9 @@ type RefreshSettings interface {
 
 // NewRefresher returns the refresher.
 func NewRefresher(
-	database *store.Database, queue Queue, config RefreshSettings, now clock.Clock, logger *slog.Logger,
+	database *store.Database, queue Queue, config RefreshSettings, clockSource clock.Clock, logger *slog.Logger,
 ) *Refresher {
-	return &Refresher{database: database, queue: queue, settings: config, clock: now, logger: logger}
+	return &Refresher{database: database, queue: queue, settings: config, clock: clockSource, logger: logger}
 }
 
 // Request queues a person's refresh of a title or series, with its missing images asked for

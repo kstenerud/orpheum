@@ -61,13 +61,13 @@ type Entry struct {
 
 // Page is one page of a list, and the cursor of the next; "" on the last.
 type Page struct {
-	Entries []Entry
-	Next    string
+	Entries    []Entry
+	NextCursor string
 }
 
 // ListQuery asks for one page of a list.
 type ListQuery struct {
-	List   string // ListFilms or ListSeries
+	Kind   string // ListFilms or ListSeries
 	Sort   string // SortName or SortAdded
 	Cursor string
 	Limit  int64
@@ -89,7 +89,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 	var entries []Entry
 	var keys [][]byte
 	queries := browser.database.Read()
-	if query.List == ListSeries {
+	if query.Kind == ListSeries {
 		rows, listErr := queries.ListSeriesByName(ctx, sqlcgen.ListSeriesByNameParams{
 			Locale: locale, AfterKey: key, AfterID: id, MaxRows: query.Limit,
 		})
@@ -115,7 +115,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 		}
 	}
 	if err != nil {
-		return Page{}, fmt.Errorf("list %s by name: %w", query.List, err)
+		return Page{}, fmt.Errorf("list %s by name: %w", query.Kind, err)
 	}
 	return browser.withPosters(ctx,
 		page(entries, query.Limit, func(last int) string { return encodeCursor(keys[last], entries[last].ID) }))
@@ -132,7 +132,7 @@ func (browser *Browser) listAdded(ctx context.Context, query ListQuery) (Page, e
 	}
 	var entries []Entry
 	queries := browser.database.Read()
-	if query.List == ListSeries {
+	if query.Kind == ListSeries {
 		rows, listErr := queries.ListSeriesByAdded(ctx, sqlcgen.ListSeriesByAddedParams{
 			BeforeAt: before, BeforeID: beforeID, MaxRows: query.Limit,
 		})
@@ -156,7 +156,7 @@ func (browser *Browser) listAdded(ctx context.Context, query ListQuery) (Page, e
 		}
 	}
 	if err != nil {
-		return Page{}, fmt.Errorf("list %s by date added: %w", query.List, err)
+		return Page{}, fmt.Errorf("list %s by date added: %w", query.Kind, err)
 	}
 	return browser.withPosters(ctx, page(entries, query.Limit, func(last int) string {
 		added := binary.BigEndian.AppendUint64(nil, uint64(entries[last].AddedAt)) //nolint:gosec // a time
@@ -171,7 +171,7 @@ func page(entries []Entry, limit int64, cursor func(last int) string) Page {
 		result.Entries = []Entry{}
 	}
 	if int64(len(entries)) == limit && len(entries) > 0 {
-		result.Next = cursor(len(entries) - 1)
+		result.NextCursor = cursor(len(entries) - 1)
 	}
 	return result
 }
