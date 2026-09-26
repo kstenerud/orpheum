@@ -4,12 +4,15 @@ import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { About } from "./about.tsx";
+import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
 import { Browse } from "./browse.tsx";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Libraries } from "./libraries.tsx";
+import { People } from "./people.tsx";
 import { Play } from "./play.tsx";
+import { Register } from "./register.tsx";
 import type { Route } from "./router.ts";
 import { Search } from "./search.tsx";
 import { Series } from "./series.tsx";
@@ -19,9 +22,17 @@ import { SignIn } from "./sign-in.tsx";
 import { Title } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
-/** The client: sign-in until there is a session, then the shell and the route's screen. */
+/**
+ * The client: sign-in until there is a session, then the shell and the route's screen. A
+ * registration link is its own page, signed in or not (D218 §2).
+ */
 export function App(): JSX.Element {
-  return useToken() === undefined ? <SignIn /> : <SignedIn />;
+  const route = useRoute();
+  const token = useToken();
+  if (route.screen === "register") {
+    return <Register />;
+  }
+  return token === undefined ? <SignIn /> : <SignedIn />;
 }
 
 /** The signed-in client. A session the server no longer knows signs out here too. */
@@ -77,6 +88,9 @@ function catalogueScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "search") {
     return <Search key={route.query} query={route.query} />;
   }
+  if (route.screen === "account") {
+    return <Account />;
+  }
   return route.screen === "about" ? <About /> : undefined;
 }
 
@@ -90,6 +104,9 @@ function adminScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "settings") {
     return <Settings />;
+  }
+  if (route.screen === "people") {
+    return <People />;
   }
   return route.screen === "files" ? (
     <Files key={route.libraryId} libraryId={route.libraryId} />

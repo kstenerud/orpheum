@@ -26,6 +26,7 @@ describe("sign-in", () => {
         onName={ignore}
         onPassword={ignore}
         onSubmit={ignore}
+        onUseCode={ignore}
       />,
     );
     expect(markup).toContain('role="alert"');
@@ -43,6 +44,7 @@ describe("sign-in", () => {
         onName={ignore}
         onPassword={ignore}
         onSubmit={ignore}
+        onUseCode={ignore}
       />,
     );
     expect(markup).toContain("<label");

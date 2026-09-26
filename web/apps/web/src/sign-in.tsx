@@ -5,7 +5,9 @@ import "./sign-in.css";
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import { CodeSignIn } from "./code-sign-in.tsx";
 import { deviceFrom } from "./device.ts";
+import { PasswordField } from "./register.tsx";
 import { useServices } from "./services.tsx";
 
 /** Why a sign-in failed, from the server's status, in words a person can act on. */
@@ -34,6 +36,7 @@ export function SignInForm(props: {
   readonly onName: (name: string) => void;
   readonly onPassword: (password: string) => void;
   readonly onSubmit: () => void;
+  readonly onUseCode: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const submit = (event: SyntheticEvent): void => {
@@ -56,19 +59,12 @@ export function SignInForm(props: {
             }}
           />
         </label>
-        <label className="sign-in__field">
-          {t("signIn.password")}
-          <input
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={props.password}
-            onChange={(event) => {
-              props.onPassword(event.target.value);
-            }}
-          />
-        </label>
+        <PasswordField
+          label={t("signIn.password")}
+          value={props.password}
+          onChange={props.onPassword}
+          autoComplete="current-password"
+        />
         {props.problem === undefined ? null : (
           <p className="sign-in__problem" role="alert">
             {props.problem === "failed"
@@ -78,6 +74,9 @@ export function SignInForm(props: {
         )}
         <button type="submit" disabled={props.isSending}>
           {t("signIn.submit")}
+        </button>
+        <button type="button" onClick={props.onUseCode}>
+          {t("signIn.useCode")}
         </button>
       </form>
     </main>
@@ -91,6 +90,16 @@ export function SignIn(): JSX.Element {
   const [password, setPassword] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [problem, setProblem] = useState<SignInProblem | undefined>(undefined);
+  const [isUsingCode, setIsUsingCode] = useState(false);
+  if (isUsingCode) {
+    return (
+      <CodeSignIn
+        onBack={() => {
+          setIsUsingCode(false);
+        }}
+      />
+    );
+  }
   const submit = (): void => {
     setIsSending(true);
     setProblem(undefined);
@@ -120,6 +129,9 @@ export function SignIn(): JSX.Element {
       onName={setName}
       onPassword={setPassword}
       onSubmit={submit}
+      onUseCode={() => {
+        setIsUsingCode(true);
+      }}
     />
   );
 }
