@@ -1108,6 +1108,7 @@ export interface components {
             isPreparing: boolean;
             /** @enum {string} */
             kind: "direct" | "hls";
+            mediaToken: string;
             prefs: components["schemas"]["FilePrefsBody"];
             /** @enum {string} */
             profile?: "remux" | "h264-8m";

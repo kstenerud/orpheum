@@ -12,24 +12,13 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// report sends a play report for a playback; the token is the one in the decision's URL.
+// report sends a play report on a playback, by the media token its decision named.
 func (harness testHarness) report(t *testing.T, session string, decided decision, body map[string]any) response {
 	t.Helper()
-	token := playbackToken(t, decided.URL)
-	return harness.do(t, http.MethodPost, "/playback/"+token+"/report", session, body)
-}
-
-// playbackToken is the media token in a playback's URL.
-func playbackToken(t *testing.T, url string) string {
-	t.Helper()
-	for _, prefix := range []string{Prefix + "/bytes/media/direct/", Prefix + "/bytes/media/hls/"} {
-		if rest, found := strings.CutPrefix(url, prefix); found {
-			token, _, _ := strings.Cut(rest, "/")
-			return token
-		}
+	if decided.MediaToken == "" || !strings.Contains(decided.URL, decided.MediaToken) {
+		t.Fatalf("the decision names media token %q, and its URL is %q", decided.MediaToken, decided.URL)
 	}
-	t.Fatalf("%q is no playback's URL", url)
-	return ""
+	return harness.do(t, http.MethodPost, "/playback/"+decided.MediaToken+"/report", session, body)
 }
 
 // at is a report of the position positionMs, read sampledBefore milliseconds before it was sent.

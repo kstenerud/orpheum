@@ -69,6 +69,7 @@ export const en = {
     preparing: "Preparing — ready in a few seconds.",
     preparedFailed: "The prepared copy could not play: {{reason}}.",
     boost: "Dialogue boost",
+    startOver: "Start over",
     subtitles: {
       label: "Subtitles",
       off: "Off",

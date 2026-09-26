@@ -9,6 +9,8 @@
 
 export { hlsSupport, hlsWay, playHls, playNative } from "./hls.ts";
 export type { HlsSupport, HlsWay, NativeTarget, Playback } from "./hls.ts";
+export { PlayReporter, reportEveryMs, seekTo } from "./report.ts";
+export type { PlayEvent, PlayEventKind, PlayReport, PlaySpan } from "./report.ts";
 export { drawSubtitles, jassubTimeOffset } from "./subtitles.ts";
 export type { SubtitleLayer } from "./subtitles.ts";
 

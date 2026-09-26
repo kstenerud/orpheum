@@ -1600,6 +1600,9 @@
             ],
             "type": "string"
           },
+          "mediaToken": {
+            "type": "string"
+          },
           "prefs": {
             "$ref": "#/components/schemas/FilePrefsBody"
           },
@@ -1652,7 +1655,8 @@
           "isPreparing",
           "subtitles",
           "prefs",
-          "resumePositionMs"
+          "resumePositionMs",
+          "mediaToken"
         ],
         "type": "object"
       },
