@@ -56,9 +56,9 @@ type Parts struct {
 	// Random makes media tokens.
 	Random io.Reader
 	Logger *slog.Logger
-	// Silence is how long a running prepare may go without a word from its node before it is
+	// MaxSilence is how long a running prepare may go without a word from its node before it is
 	// given up and retried.
-	Silence time.Duration
+	MaxSilence time.Duration
 }
 
 // Service starts playbacks, says where their bytes are, and has renditions prepared.
@@ -123,17 +123,17 @@ func (service *Service) Start(ctx context.Context, userID int64, session string,
 		return Started{}, err
 	}
 	started := Started{Decision: decision}
-	what := playing{userID: userID, session: session, fileID: file.ID}
+	playback := playing{userID: userID, session: session, fileID: file.ID}
 	if decision.Kind == decide.HLS {
-		what.profile = nodeproto.PrepareProfile(decision.Profile)
-		rendition, wantErr := service.prepares.want(ctx, file, what.profile)
+		playback.profile = nodeproto.PrepareProfile(decision.Profile)
+		rendition, wantErr := service.prepares.want(ctx, file, playback.profile)
 		if wantErr != nil {
 			return Started{}, wantErr
 		}
 		started.Preparing = rendition.State != renditionComplete
-		started.Audio = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, what.profile, "", probe))
+		started.Audio = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, playback.profile, "", probe))
 	}
-	started.Token, err = service.tokens.issue(service.random, what, service.clock.Now(), idle)
+	started.Token, err = service.tokens.issue(service.random, playback, service.clock.Now(), idle)
 	if err != nil {
 		return Started{}, err
 	}
@@ -154,11 +154,11 @@ func (service *Service) Direct(ctx context.Context, token string, userID int64, 
 	if err != nil {
 		return Source{}, err
 	}
-	what, found := service.tokens.use(token, userID, session, service.clock.Now(), idle)
-	if !found || what.profile != "" {
+	playback, found := service.tokens.use(token, userID, session, service.clock.Now(), idle)
+	if !found || playback.profile != "" {
 		return Source{}, ErrNoToken
 	}
-	file, err := service.file(ctx, what.fileID)
+	file, err := service.file(ctx, playback.fileID)
 	if err != nil {
 		return Source{}, err
 	}

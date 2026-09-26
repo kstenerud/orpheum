@@ -46,7 +46,7 @@ const (
 	ArtworkRemovedGraceD       Key = "artwork_removed_grace_d"
 	RemoteBitRateCeilingKbps   Key = "remote_bit_rate_ceiling_kbps"
 	MediaTokenIdleH            Key = "media_token_idle_h"
-	HLSSegmentS                Key = "hls_segment_s"
+	HLSSegmentLengthS          Key = "hls_segment_length_s"
 )
 
 // Scope is whose a setting is.
@@ -179,7 +179,7 @@ func metadataDefinitions() []Definition {
 			"kb/s above which a file played over a remote link is re-encoded (cut-a §6, reason bandwidth)"),
 		integer(MediaTokenIdleH, "4", 1, 168,
 			"hours a playback's media address lasts after its last use (D217 §2)"),
-		integer(HLSSegmentS, "2", 1, 10,
+		integer(HLSSegmentLengthS, "2", 1, 10,
 			"seconds per segment of a prepared copy: shorter switches the dialogue boost sooner, longer "+
 				"makes fewer requests; a copy made with another length is made again when next played (D217 §3)"),
 	}

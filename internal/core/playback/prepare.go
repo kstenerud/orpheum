@@ -35,15 +35,15 @@ const (
 // prepares has renditions made: it keeps their rows, queues their jobs, and runs each job by
 // commanding the node that holds the source and waiting for its reports (cut-a §6).
 type prepares struct {
-	database *store.Database
-	cache    *store.Cache
-	queue    Queue
-	nodes    Nodes
-	settings Settings
-	random   io.Reader
-	clock    clock.Clock
-	logger   *slog.Logger
-	silence  time.Duration
+	database   *store.Database
+	cache      *store.Cache
+	queue      Queue
+	nodes      Nodes
+	settings   Settings
+	random     io.Reader
+	clock      clock.Clock
+	logger     *slog.Logger
+	maxSilence time.Duration
 
 	mutex   sync.Mutex
 	waiting map[int64]chan nodeproto.PrepareReport // guarded by mutex; by job id
@@ -53,23 +53,23 @@ func newPrepares(parts Parts) *prepares {
 	return &prepares{
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		random: parts.Random,
-		clock:  parts.Clock, logger: parts.Logger, silence: parts.Silence,
+		clock:  parts.Clock, logger: parts.Logger, maxSilence: parts.MaxSilence,
 		waiting: map[int64]chan nodeproto.PrepareReport{},
 	}
 }
 
 // want makes sure a rendition of file in profile is complete or on its way, at the highest
 // priority, and returns its row. One whose source changed, that failed, or that was made with
-// another segment length than hls_segment_s now asks for, is prepared again.
+// another segment length than hls_segment_length_s now asks for, is prepared again.
 func (all *prepares) want(
 	ctx context.Context, file sqlcgen.GetPlayableFileRow, profile nodeproto.PrepareProfile,
 ) (cachegen.PreparedRendition, error) {
 	var row cachegen.PreparedRendition
-	segment, settingErr := all.settings.Int(ctx, settings.HLSSegmentS)
+	segmentLength, settingErr := all.settings.Int(ctx, settings.HLSSegmentLengthS)
 	if settingErr != nil {
-		return row, fmt.Errorf("read hls_segment_s: %w", settingErr)
+		return row, fmt.Errorf("read hls_segment_length_s: %w", settingErr)
 	}
-	run, runErr := all.newRun()
+	runID, runErr := all.newRunID()
 	if runErr != nil {
 		return row, runErr
 	}
@@ -80,13 +80,14 @@ func (all *prepares) want(
 		case errors.Is(err, store.ErrNotFound):
 			_, err = queries.InsertRendition(ctx, cachegen.InsertRenditionParams{
 				SourceFile: file.ID, PayloadHash: file.PayloadHash, Profile: string(profile), NodeID: file.NodeID,
-				SegmentS: segment, Run: run, CreatedAt: all.clock.Now().UnixMilli(),
+				SegmentLengthS: segmentLength, RunID: runID, CreatedAt: all.clock.Now().UnixMilli(),
 			})
 		case err != nil:
 		case !bytes.Equal(found.PayloadHash, file.PayloadHash) || found.State == renditionFailed ||
-			found.SegmentS != segment:
+			found.SegmentLengthS != segmentLength:
 			err = queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-				PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentS: segment, Run: run, ID: found.ID,
+				PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthS: segmentLength, RunID: runID,
+				ID: found.ID,
 			})
 		}
 		if err != nil {
@@ -111,7 +112,7 @@ func (all *prepares) want(
 func (all *prepares) redo(
 	ctx context.Context, file sqlcgen.GetPlayableFileRow, profile nodeproto.PrepareProfile,
 ) error {
-	run, err := all.newRun()
+	runID, err := all.newRunID()
 	if err != nil {
 		return err
 	}
@@ -122,7 +123,8 @@ func (all *prepares) redo(
 			return readErr
 		}
 		return queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-			PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentS: found.SegmentS, Run: run, ID: found.ID,
+			PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthS: found.SegmentLengthS, RunID: runID,
+			ID: found.ID,
 		})
 	})
 	if err != nil {
@@ -132,14 +134,14 @@ func (all *prepares) redo(
 	return err
 }
 
-// runBytes is a run's random name's length before hex: eight bytes never repeat in practice,
+// runIDBytes is a run id's random name's length before hex: eight bytes never repeat in practice,
 // even across a cache.db rebuilt from nothing.
-const runBytes = 8
+const runIDBytes = 8
 
-// newRun names one making of a rendition: its own directory on the node, so no request can
+// newRunID names one making of a rendition: its own directory on the node, so no request can
 // reach a copy that an earlier making left and a later one is overwriting.
-func (all *prepares) newRun() (string, error) {
-	raw := make([]byte, runBytes)
+func (all *prepares) newRunID() (string, error) {
+	raw := make([]byte, runIDBytes)
 	if _, err := io.ReadFull(all.random, raw); err != nil {
 		return "", fmt.Errorf("name a rendition's run: %w", err)
 	}
@@ -156,17 +158,17 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, command nodeproto
 	}
 	command.Job = job.ID
 	all.nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &command})
-	timer := time.NewTimer(all.silence)
+	timer := time.NewTimer(all.maxSilence)
 	defer timer.Stop()
 	for {
 		select {
 		case report := <-answers:
 			switch report.State {
 			case nodeproto.PrepareRunning:
-				if err := all.running(ctx, job.Subject, report.DoneMs); err != nil {
+				if err := all.running(ctx, job.Subject, report.PreparedMs); err != nil {
 					return err
 				}
-				timer.Reset(all.silence)
+				timer.Reset(all.maxSilence)
 			case nodeproto.PrepareDone:
 				return all.finish(ctx, job.Subject, &report.Bytes, "")
 			case nodeproto.PrepareFailed:
@@ -175,16 +177,18 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, command nodeproto
 				return jobs.Permanent(errors.Join(failure, all.finish(ctx, job.Subject, nil, report.Error)))
 			}
 		case <-timer.C:
-			return fmt.Errorf("node %d said nothing about prepare %s for %s", nodeID, command.Dir, all.silence)
+			return fmt.Errorf("node %d said nothing about prepare %s for %s",
+				nodeID, command.RenditionDir, all.maxSilence)
 		case <-ctx.Done():
-			return fmt.Errorf("wait for prepare %s: %w", command.Dir, ctx.Err())
+			return fmt.Errorf("wait for prepare %s: %w", command.RenditionDir, ctx.Err())
 		}
 	}
 }
 
-func (all *prepares) running(ctx context.Context, rendition, doneMs int64) error {
+func (all *prepares) running(ctx context.Context, rendition, preparedMs int64) error {
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		return queries.SetRenditionRunning(ctx, cachegen.SetRenditionRunningParams{DoneMs: doneMs, ID: rendition})
+		progress := cachegen.SetRenditionRunningParams{PreparedMs: preparedMs, ID: rendition}
+		return queries.SetRenditionRunning(ctx, progress)
 	})
 	if err != nil {
 		return fmt.Errorf("record rendition %d running: %w", rendition, err)
@@ -246,10 +250,11 @@ func (all *prepares) reported(ctx context.Context, nodeID int64, report nodeprot
 // prepareCommand is the node's command for a rendition of file: its source by identity, its
 // directory, its picture's codec and every audio track (D217 §3).
 func prepareCommand(
-	source nodeproto.BytesFile, fileID int64, profile nodeproto.PrepareProfile, run string, probe nodeproto.Probe,
+	source nodeproto.BytesFile, fileID int64, profile nodeproto.PrepareProfile, runID string, probe nodeproto.Probe,
 ) nodeproto.Prepare {
 	command := nodeproto.Prepare{
-		Source: source, Profile: profile, Dir: strconv.FormatInt(fileID, 10) + "/" + string(profile) + "/" + run,
+		Source: source, Profile: profile,
+		RenditionDir: strconv.FormatInt(fileID, 10) + "/" + string(profile) + "/" + runID,
 	}
 	if picture, found := decide.MainVideo(probe); found {
 		command.VideoStream, command.VideoCodec = picture.Index, picture.Codec

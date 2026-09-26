@@ -23,7 +23,7 @@ func (harness testHarness) renditionFile(t *testing.T, name, contents string) {
 	}
 	harness.bytes.mutex.Lock()
 	defer harness.bytes.mutex.Unlock()
-	harness.bytes.files[nodeproto.PathBytesPrepared+"2/remux/"+rendition.Run+"/"+name] = contents
+	harness.bytes.files[nodeproto.PathBytesPrepared+"2/remux/"+rendition.RunID+"/"+name] = contents
 }
 
 func TestPrepare_APreparedPlaybackIsTooEarlyUntilItsFileExists(t *testing.T) {
@@ -83,12 +83,13 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	command := <-harness.nodes.commanded
 	sent := command.Prepare
 	if command.Type != nodeproto.CommandPrepare || sent == nil || sent.Job != 77 ||
-		!strings.HasPrefix(sent.Dir, "2/remux/") ||
+		!strings.HasPrefix(sent.RenditionDir, "2/remux/") ||
 		sent.Source.Root != "/media" || string(sent.Source.Path) != "Film (2002).mkv" ||
 		sent.Source.Hash != "0c0d" || len(sent.Audio) != 1 || sent.Audio[0].Channels != 8 {
 		t.Fatalf("the node was sent %+v, want the MKV by root, path and hash, with its 8-channel track", command)
 	}
-	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: 77, State: nodeproto.PrepareRunning, DoneMs: 4000})
+	running := nodeproto.PrepareReport{Job: 77, State: nodeproto.PrepareRunning, PreparedMs: 4000}
+	playback.Reported(t.Context(), 1, running)
 	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: 77, State: nodeproto.PrepareDone, Bytes: 1234})
 	if err := <-finished; err != nil {
 		t.Fatalf("the job ended %v, want done", err)
@@ -171,23 +172,24 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 		return *command.Prepare
 	}
 	first := run(81)
-	if first.SegmentSeconds != 2 {
-		t.Errorf("the first copy asked for %d-second segments, want hls_segment_s's 2", first.SegmentSeconds)
+	if first.SegmentLengthSeconds != 2 {
+		t.Errorf("the first copy asked for %d-second segments, want hls_segment_length_s's 2",
+			first.SegmentLengthSeconds)
 	}
 	if same := harness.play(t, user, chrome(2)); same.Preparing {
 		t.Errorf("played again with the same setting: %+v, want the copy as it is", same)
 	}
 	storetest.ExecRaw(t, harness.database,
-		"UPDATE setting SET value = '6', is_modified = 1 WHERE scope = 'server' AND key = 'hls_segment_s'")
+		"UPDATE setting SET value = '6', is_modified = 1 WHERE scope = 'server' AND key = 'hls_segment_length_s'")
 	if changed := harness.play(t, user, chrome(2)); !changed.Preparing {
-		t.Errorf("played after hls_segment_s changed: %+v, want the copy made again", changed)
+		t.Errorf("played after hls_segment_length_s changed: %+v, want the copy made again", changed)
 	}
 	again := run(82)
-	if again.SegmentSeconds != 6 {
-		t.Errorf("the copy made again asked for %d-second segments, want 6", again.SegmentSeconds)
+	if again.SegmentLengthSeconds != 6 {
+		t.Errorf("the copy made again asked for %d-second segments, want 6", again.SegmentLengthSeconds)
 	}
 	// A new making writes where no earlier one did, so no request reaches the old copy's files.
-	if again.Dir == first.Dir || !strings.HasPrefix(again.Dir, "2/remux/") {
-		t.Errorf("made again in %q after %q, want a new run under 2/remux", again.Dir, first.Dir)
+	if again.RenditionDir == first.RenditionDir || !strings.HasPrefix(again.RenditionDir, "2/remux/") {
+		t.Errorf("made again in %q after %q, want a new run under 2/remux", again.RenditionDir, first.RenditionDir)
 	}
 }

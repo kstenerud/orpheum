@@ -12,13 +12,13 @@ import (
 )
 
 // The HLS shape of every rendition (cut-a §6): fMP4 segments of the length the core asks for, two
-// seconds unless the owner changed hls_segment_s (D217 §3), and an EVENT playlist that grows
+// seconds unless the owner changed hls_segment_length_s (D217 §3), and an EVENT playlist that grows
 // while the job runs, so playback starts before it ends.
 const (
-	defaultSegmentSeconds = 2
-	maxSegmentSeconds     = 10
-	audioBitRate          = "192k"
-	masterPlaylist        = "master.m3u8"
+	defaultSegmentLengthSeconds = 2
+	maxSegmentLengthSeconds     = 10
+	audioBitRate                = "192k"
+	masterPlaylist              = "master.m3u8"
 )
 
 // The two stereo mixes of a track with a centre, from 5.1 (a 7.1 source is first folded to it).
@@ -75,7 +75,8 @@ func Arguments(input, output string, command nodeproto.Prepare) []string {
 	}
 	return append(arguments,
 		"-c:a", "aac", "-b:a", audioBitRate, "-ac", "2", "-sn", "-dn",
-		"-f", "hls", "-hls_time", strconv.Itoa(segmentSeconds(command.SegmentSeconds)), "-hls_playlist_type", "event",
+		"-f", "hls", "-hls_time", strconv.Itoa(segmentLengthSeconds(command.SegmentLengthSeconds)),
+		"-hls_playlist_type", "event",
 		"-hls_segment_type", "fmp4", "-hls_fmp4_init_filename", "init.mp4",
 		"-hls_segment_filename", filepath.Join(output, "%v", "seg%05d.m4s"),
 		"-master_pl_name", masterPlaylist,
@@ -101,10 +102,10 @@ func videoArguments(command nodeproto.Prepare) []string {
 	}
 }
 
-// segmentSeconds is the segment length asked for, or the default when it is out of bounds.
-func segmentSeconds(asked int) int {
-	if asked < 1 || asked > maxSegmentSeconds {
-		return defaultSegmentSeconds
+// segmentLengthSeconds is the segment length asked for, or the default when it is out of bounds.
+func segmentLengthSeconds(asked int) int {
+	if asked < 1 || asked > maxSegmentLengthSeconds {
+		return defaultSegmentLengthSeconds
 	}
 	return asked
 }

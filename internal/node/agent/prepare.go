@@ -18,7 +18,9 @@ import (
 
 // Preparer makes a rendition; prepare.Preparer is the real one.
 type Preparer interface {
-	Prepare(ctx context.Context, input string, command nodeproto.Prepare, progress func(doneMs int64)) (int64, error)
+	Prepare(
+		ctx context.Context, input string, command nodeproto.Prepare, progress func(preparedMs int64),
+	) (int64, error)
 }
 
 // progressEvery is how often a running prepare tells the core how far it is.
@@ -57,7 +59,7 @@ func (agent *Agent) prepare(ctx context.Context, nodeID int64, command nodeproto
 		report := agent.runPrepare(ctx, nodeID, command)
 		if report.State == nodeproto.PrepareFailed {
 			agent.logger.WarnContext(ctx, "a prepare failed",
-				"job", command.Job, "dir", command.Dir, "why", report.Error)
+				"job", command.Job, "renditionDir", command.RenditionDir, "why", report.Error)
 		}
 		if err := agent.sendPrepare(ctx, nodeID, report); err != nil && ctx.Err() == nil {
 			agent.logger.WarnContext(ctx, "could not tell the core a prepare ended", "job", command.Job, "err", err)
@@ -80,10 +82,12 @@ func (agent *Agent) runPrepare(
 		return failed(err)
 	}
 	var last time.Time
-	progress := func(doneMs int64) {
+	progress := func(preparedMs int64) {
 		if now := agent.clock.Now(); now.Sub(last) >= progressEvery {
 			last = now
-			running := nodeproto.PrepareReport{Job: command.Job, State: nodeproto.PrepareRunning, DoneMs: doneMs}
+			running := nodeproto.PrepareReport{
+				Job: command.Job, State: nodeproto.PrepareRunning, PreparedMs: preparedMs,
+			}
 			if sendErr := agent.sendPrepare(ctx, nodeID, running); sendErr != nil && ctx.Err() == nil {
 				agent.logger.DebugContext(ctx, "could not send a prepare's progress",
 					"job", command.Job, "err", sendErr)

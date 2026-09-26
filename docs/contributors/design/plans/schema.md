@@ -742,7 +742,7 @@ reference scale, and removes a failure mode.
 > **Built in M2**, versioned by discard (migrations.md): `internal/store/cache/schema.sql` is the
 > one schema, its version on a comment line, and a file whose `user_version` differs is deleted
 > and built again. sqlc reads it into its own package, `cachegen`, so a `library.db` query
-> cannot name a cache table. `prepared_rendition` came with prepare in M3 (version 7).
+> cannot name a cache table. `prepared_rendition` came with prepare in M3 (version 8).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -783,9 +783,9 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 ย
   node_id      INTEGER NOT NULL,         -- the node that holds it, beside its source
   state        TEXT NOT NULL DEFAULT 'queued'
                  CHECK (state IN ('queued','running','complete','failed')),
-  segment_s    INTEGER NOT NULL,         -- its segment length; another setting remakes it
-  run          TEXT NOT NULL,            -- this making's directory on the node: new each restart
-  done_ms      INTEGER NOT NULL DEFAULT 0,  -- how much of the source is prepared
+  segment_length_s INTEGER NOT NULL,     -- seconds per segment; another setting remakes it
+  run_id       TEXT NOT NULL,            -- names this making's directory on the node; new each time
+  prepared_ms  INTEGER NOT NULL DEFAULT 0,  -- how much of the source is prepared
   bytes        INTEGER,                  -- its size once complete
   error        TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
   created_at   INTEGER NOT NULL,
@@ -794,7 +794,7 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 ย
 );
 ```
 
-A rendition's files live on its node, in `<file_id>/<profile>/<run>/` under the node's prepared
+A rendition's files live on its node, in `<file_id>/<profile>/<run_id>/` under the node's prepared
 directory, which the node alone deletes from (D217 ยง5); this row is the core's note of what it
 asked for and what the node said. Its prepare job's subject is the row's id (D217 ยง3).
 

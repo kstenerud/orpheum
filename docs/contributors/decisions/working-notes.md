@@ -7104,7 +7104,7 @@ So the requirement is larger than a test:
   which mechanisms it asked for, which it got, and which it did not.
 - **The core can say "this node is running FFmpeg unconfined" out loud**, because a user whose
   threat model depends on [D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp)
-  deserves to know it is not in force. Silence here is the failure mode.
+  deserves to know it is not in force. MaxSilence here is the failure mode.
 - **The escape test asserts what is actually in force**, not that the right function was
   called: attempt the forbidden open and the forbidden syscall, and assert the denial —
   ~~skipping loudly, not silently, where the mechanism is absent~~. **Refined by [D190](#d190--the-testing-strategy-devices-report-on-themselves-against-numbers-a-missing-capability-fails-every-check-first-shows-it-can-fail-and-the-lab-is-built-from-what-is-on-the-shelf):**
@@ -10685,7 +10685,7 @@ the ones already there.
 
 ### Six declines, on the record
 
-Silence reads as neglect, so these are stated rather than omitted. They join the table in
+MaxSilence reads as neglect, so these are stated rather than omitted. They join the table in
 [overview.md](../design/overview.md).
 
 | Declined | Why, with the number |
@@ -13004,7 +13004,7 @@ So the rule has to be the strong form:
 
 **The server must tell them apart, because the client cannot.** The reconciliation reply
 distinguishes *"this item is no longer available"* from *"you are no longer entitled to it"* —
-a small protocol point with the whole behaviour hanging off it. Silence is neither.
+a small protocol point with the whole behaviour hanging off it. MaxSilence is neither.
 
 ### 5. Three things that fall out, all cheap
 
@@ -16491,7 +16491,7 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
    can have several jobs open at once. **Segments are two seconds long** (the owner, 2026-09-26,
    choosing it over six-second segments and over carrying both mixes in one four-channel track):
    switching between the standard and boosted mix waits for the next segment, so it takes about
-   a second rather than three. The length is the server setting `hls_segment_s` (the owner:
+   a second rather than three. The length is the server setting `hls_segment_length_s` (the owner:
    *"would it make sense to make the segment length configurable? We probably need to do testing
    for various network conditions"*), starting at 2, from 1 to 10; a copy made with another
    length is made again the next time it is played.
@@ -16506,8 +16506,8 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
    someone is partway through its title, or for a short grace after its last play, within the
    budget. The core's record of a rendition is a note of what the node said it has: when the
    node answers that one is gone, the core prepares it again. `/doctor` shows each node's use.
-   The byte path is `/bytes/v1/prepared/<file_id>/<profile>/<run>/<name>`, and eviction by the
-   core is not needed. `<run>` is new each time a rendition is made (a random name, 2026-09-26):
+   The byte path is `/bytes/v1/prepared/<file_id>/<profile>/<run_id>/<name>`, and eviction by the
+   core is not needed. `<run_id>` is new each time a rendition is made (a random name, 2026-09-26):
    a copy made again never writes where an earlier making's files are, so no request can reach
    a copy half overwritten, and the earlier making's directory is left for eviction. **The starting values** (the owner, 2026-09-25: *"ok sounds good"*, then *"Maybe
    the cache should be default 200gb but also check that disk usage on that device isn't above

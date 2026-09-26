@@ -30,7 +30,7 @@
 //     TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain.
 //   - Each making of a copy writes into a run directory of its own, so no request reaches an
 //     earlier making's files. Enforced by TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain.
-//   - A copy is made with hls_segment_s's segment length, and one made with another length is
+//   - A copy is made with hls_segment_length_s's segment length, and one made with another length is
 //     made again when next played. Enforced by
 //     TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain.
 //   - A prepare job names its source by root, path and payload hash with every audio track, and

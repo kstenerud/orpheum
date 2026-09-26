@@ -38,17 +38,17 @@ type MatchCandidate struct {
 }
 
 type PreparedRendition struct {
-	ID          int64
-	SourceFile  int64
-	PayloadHash []byte
-	Profile     string
-	NodeID      int64
-	State       string
-	SegmentS    int64
-	Run         string
-	DoneMs      int64
-	Bytes       *int64
-	Error       *string
-	CreatedAt   int64
-	FinishedAt  *int64
+	ID             int64
+	SourceFile     int64
+	PayloadHash    []byte
+	Profile        string
+	NodeID         int64
+	State          string
+	SegmentLengthS int64
+	RunID          string
+	PreparedMs     int64
+	Bytes          *int64
+	Error          *string
+	CreatedAt      int64
+	FinishedAt     *int64
 }

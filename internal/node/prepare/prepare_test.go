@@ -43,7 +43,7 @@ func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *
 		t.Fatal(err)
 	}
 	var progress []int64
-	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, Dir: "7/remux/0123456789abcdef"}
+	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, RenditionDir: "7/remux/0123456789abcdef"}
 	size, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(ms int64) {
 		progress = append(progress, ms)
 	})
@@ -69,7 +69,7 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 		"../7/remux", "7/remux", "7/remux/../x", "7/other/0123456789abcdef", "0/remux/0123456789abcdef",
 		"7/remux/0123456789ABCDEF",
 	} {
-		_, refused := preparer.Prepare(t.Context(), "/a", nodeproto.Prepare{Dir: dir}, func(int64) {})
+		_, refused := preparer.Prepare(t.Context(), "/a", nodeproto.Prepare{RenditionDir: dir}, func(int64) {})
 		if !errors.Is(refused, prepare.ErrBadDir) {
 			t.Errorf("%q: %v, want ErrBadDir", dir, refused)
 		}
@@ -78,7 +78,7 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	named := nodeproto.Prepare{Dir: "7/remux/0123456789abcdef"}
+	named := nodeproto.Prepare{RenditionDir: "7/remux/0123456789abcdef"}
 	if _, err := failing.Prepare(t.Context(), "/a", named, func(int64) {}); err == nil {
 		t.Error("a failed run reported success")
 	}
