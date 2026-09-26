@@ -164,6 +164,31 @@ class TestWeakening(unittest.TestCase):
             self.assertIsNotNone(weakened, status)
             self.assertEqual(weakened.path, golden)
 
+    def test_a_row_of_an_inline_table_counts_as_a_check(self):
+        # One assertion per case, then the same cases as a table: 3 checks become 1 call and 3 rows.
+        before = ('func TestA(t *testing.T) {\n'
+                  '\tif f("a") { t.Error("a") }\n\tif f("b") { t.Error("b") }\n\tif f("c, d") { t.Error("c") }\n}\n')
+        table = ('func TestA(t *testing.T) {\n'
+                 '\tfor _, c := range []struct {\n\t\tin string\n\t\twant struct{ ok bool }\n\t}{\n'
+                 '\t\t{"a", struct{ ok bool }{true}},\n\t\t{"b", struct{ ok bool }{}}, // a comment, with a comma\n'
+                 '\t\t{"c, d", struct{ ok bool }{}},\n\t} {\n\t\tif f(c.in) { t.Errorf("%s", c.in) }\n\t}\n}\n')
+        self.assertEqual(tw.table_rows("x_test.go", table), 3)
+        self.assertEqual(tw.compare("x_test.go", before, table), [])
+        mapped = ('func TestM(t *testing.T) {\n\tfor k, v := range map[string]int{"a": 1, "b": 2} {\n'
+                  '\t\tif k == "" { t.Error(v) }\n\t}\n}\n')
+        self.assertEqual(tw.table_rows("x_test.go", mapped), 2)
+
+    def test_dropping_a_table_row_is_weakening(self):
+        table = 'func TestA(t *testing.T) {\n\tfor _, c := range []string{"a", "b"} {\n\t\tt.Error(c)\n\t}\n}\n'
+        fewer = table.replace('"a", "b"', '"a"')
+        whats = [w.what for w in tw.compare("x_test.go", table, fewer)]
+        self.assertIn("assertions went from 3 to 2", whats)
+
+    def test_a_named_slice_and_a_typescript_file_count_no_rows(self):
+        named = 'func TestA(t *testing.T) {\n\trecords := []string{"a", "b"}\n\tfor _, r := range records {}\n}\n'
+        self.assertEqual(tw.table_rows("x_test.go", named), 0)
+        self.assertEqual(tw.table_rows("a.test.ts", "for (const x of range []int{1}) {}"), 0)
+
     def test_a_stronger_test_is_not_weakening(self):
         before = "func TestA(t *testing.T) { t.Fatal(\"x\") }\n"
         after = before + "func TestB(t *testing.T) { t.Fatal(\"y\") }\n"
