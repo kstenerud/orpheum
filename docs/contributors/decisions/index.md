@@ -225,6 +225,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D217](working-notes.md#d217--m3s-playback-contract-the-client-sends-ranked-lists-the-media-token-is-a-reference-every-audio-track-is-prepared-and-hlsjs-jassub-and-playwright-are-allowed) M3's playback contract: the client sends ranked lists, the media token is a reference, every audio track is prepared, and hls.js, JASSUB and Playwright are allowed
 - [D218](working-notes.md#d218--accounts-the-admin-creates-a-person-who-sets-a-password-from-a-one-time-link-a-signed-in-person-adds-a-tv-by-a-short-safe32-code) Accounts: the admin creates a person, who sets a password from a one-time link; a signed-in person adds a TV by a short safe32 code
 - [D219](working-notes.md#d219--a-subtitle-choice-is-kept-per-file-choosing-one-carries-it-to-the-works-other-files-that-have-none-of-their-own) A subtitle choice is kept per file; choosing one carries it to the work's other files that have none of their own
+- [D220](working-notes.md#d220--before-a-public-release-every-dependency-direct-and-transitive-is-pinned-to-an-audited-commit-and-a-bump-is-an-audit-of-the-changes) Before a public release, every dependency, direct and transitive, is pinned to an audited commit, and a bump is an audit of the changes
 
 ## Archived
 

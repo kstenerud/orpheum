@@ -16609,3 +16609,26 @@ what a choice is still hold.
    chosen, since nothing carries a choice to a file that did not exist when it was made.
 
 **Status:** Decided; built in M3.
+
+## D220 — Before a public release, every dependency, direct and transitive, is pinned to an audited commit, and a bump is an audit of the changes
+
+**Decided** (2026-09-26), by the project owner, for when the project prepares a public release:
+*"record the commit sha of the exact version of the libraries we ingest, as well as those of the
+full tree of dependencies. We do a full security audit of the libraries we use, and whenever
+we're about to bump versions, we do an audit of the changes leading up to the new sha of each.
+This will also detect rewritten histories."*
+
+1. **A record of every dependency's source commit**: each Go module and npm package the release
+   builds with, direct and transitive, with the commit its release was built from. A version
+   number and a checksum of the published archive (go.sum, package-lock.json) say what was
+   downloaded, not which history it came from; the commit does.
+2. **A full security audit of each** before the first public release.
+3. **A bump is an audit of the history between the recorded commit and the new one**, library by
+   library. If the recorded commit is not an ancestor of the new one, the history was rewritten,
+   and that stops the bump until someone has seen why.
+
+It extends [deps/](../../../deps/) allowlisting (AGENTS.md rule 3), which says what may be used,
+with what exactly is used. The mechanism (where the record lives, how a gate checks it, and how a
+package whose published archive has no commit in it is traced) is designed with the release work.
+
+**Status:** Decided; to be built before the first public release.
