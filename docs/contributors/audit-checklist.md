@@ -24,7 +24,7 @@ rule in place that said not to. The owner then made these checks policy at every
 as at every milestone (AGENTS.md rule 17), so that a lapse is caught in the commit that makes it,
 not after it has spread: *"Since you're non-deterministic with prose rules, we need mechanical
 checks to catch things you miss."* Before committing, check the diff against items 7, 8, 10 and
-11 below. A finding is fixed in the same commit; one that reaches a migration, the API or a
+11 below, and against item 19 when the commit claims to finish a decision. A finding is fixed in the same commit; one that reaches a migration, the API or a
 setting key goes to the owner first.
 
 ## The milestone
@@ -79,3 +79,10 @@ setting key goes to the owner first.
     searching the decisions for anything already settled.
 17. **Platforms** (D205): the module still builds for linux/arm64; recheck riscv64's blockers.
 18. **New dependencies** since the last audit, and whether any is architecture-specific.
+
+## Decisions
+
+19. **Decisions claimed built:** for each decision a commit or a report calls built, each of its
+    numbered clauses read back against the code and its tests, and any clause not built named
+    (agent-failures A9: D218 was reported built while §4's listing and revoking of devices was
+    not).
