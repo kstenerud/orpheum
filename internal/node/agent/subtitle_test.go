@@ -67,7 +67,7 @@ func extracting(t *testing.T) (
 	return named["film.mkv"], named["film.en.srt"], send
 }
 
-func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamed(t *testing.T) {
+func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot(t *testing.T) {
 	t.Parallel()
 	video, sidecar, send := extracting(t)
 	track := send(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: 2})
@@ -75,39 +75,37 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamed(t *testing.T) {
 		string(track.VTT) != "2" {
 		t.Errorf("a track of the named video: %+v", track)
 	}
-	changed := video
-	changed.Hash = strings.Repeat("0", 64)
-	refused := send(2, nodeproto.ExtractSubtitle{Video: &changed, StreamIndex: 2})
-	if !strings.Contains(refused.Refused, "not the one named") {
-		t.Errorf("a track of a changed video: %+v, want refused", refused)
-	}
-	if refused := send(3, nodeproto.ExtractSubtitle{Video: &video, Sidecar: &sidecar}); refused.Refused == "" {
-		t.Errorf("a command naming both a track and a sidecar ran: %+v", refused)
-	}
-}
-
-func TestAgent_ConvertsOnlyTheSidecarTheCoreNamedUnderItsRoot(t *testing.T) {
-	t.Parallel()
-	_, sidecar, send := extracting(t)
-	converted := send(1, nodeproto.ExtractSubtitle{Sidecar: &sidecar})
+	converted := send(2, nodeproto.ExtractSubtitle{Sidecar: &sidecar})
 	if converted.Refused != "" || string(converted.ASS) != "the sidecar" {
 		t.Errorf("a sidecar: %+v", converted)
 	}
-	changed := sidecar
-	changed.Hash = strings.Repeat("0", 64)
-	refused := send(2, nodeproto.ExtractSubtitle{Sidecar: &changed})
-	if !strings.Contains(refused.Refused, "not the one named") {
-		t.Errorf("a changed sidecar: %+v, want refused", refused)
-	}
-	outside := sidecar
+	changedVideo, changedSidecar, outside, escaping := video, sidecar, sidecar, sidecar
+	changedVideo.Hash = strings.Repeat("0", 64)
+	changedSidecar.Hash = strings.Repeat("0", 64)
 	outside.Root = t.TempDir()
-	refused = send(3, nodeproto.ExtractSubtitle{Sidecar: &outside})
-	if !strings.Contains(refused.Refused, "none of this node's roots") {
-		t.Errorf("a sidecar under another root: %+v, want refused", refused)
-	}
-	escaping := sidecar
 	escaping.Path = []byte("../film.en.srt")
-	if refused := send(4, nodeproto.ExtractSubtitle{Sidecar: &escaping}); refused.Refused == "" {
-		t.Errorf("a sidecar path leaving its root was read: %+v", refused)
+	for index, refusal := range []struct {
+		what    string
+		command nodeproto.ExtractSubtitle
+		why     string
+	}{
+		{
+			"a track of a changed video",
+			nodeproto.ExtractSubtitle{Video: &changedVideo, StreamIndex: 2},
+			"not the one named",
+		},
+		{"a changed sidecar", nodeproto.ExtractSubtitle{Sidecar: &changedSidecar}, "not the one named"},
+		{
+			"a sidecar under another root",
+			nodeproto.ExtractSubtitle{Sidecar: &outside},
+			"none of this node's roots",
+		},
+		{"a sidecar path leaving its root", nodeproto.ExtractSubtitle{Sidecar: &escaping}, ""},
+		{"a track and a sidecar at once", nodeproto.ExtractSubtitle{Video: &video, Sidecar: &sidecar}, "only one"},
+	} {
+		answer := send(int64(index+3), refusal.command)
+		if answer.Refused == "" || !strings.Contains(answer.Refused, refusal.why) {
+			t.Errorf("%s: %+v, want refused: %s", refusal.what, answer, refusal.why)
+		}
 	}
 }

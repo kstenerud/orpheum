@@ -27,8 +27,7 @@
 //     encode and two remuxes run at once (cut-a §5.3). TestAgent_PreparesOnlyTheFileTheCoreNamed.
 //   - A subtitle is extracted only from the video or sidecar the core named, under one of the
 //     node's roots, whose payload hash is still the one named (D100, D217 §6). One extraction runs
-//     at once. TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamed,
-//     TestAgent_ConvertsOnlyTheSidecarTheCoreNamedUnderItsRoot.
+//     at once. TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
 //
 // # Read before changing
 //
