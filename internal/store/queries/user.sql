@@ -22,7 +22,7 @@ JOIN role ON role.id = user.role_id
 WHERE user.name = ? AND user.removed_at IS NULL;
 
 -- name: GetLiveUserByID :one
-SELECT user.id, user.name, user.outsider, role.name AS role_name, role.capabilities
+SELECT user.id, user.name, user.password_hash, user.outsider, role.name AS role_name, role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.id = ? AND user.removed_at IS NULL;
@@ -30,3 +30,12 @@ WHERE user.id = ? AND user.removed_at IS NULL;
 -- name: UpdateUserPasswordHash :exec
 UPDATE user SET password_hash = sqlc.arg(password_hash)
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: ListLiveUsers :many
+-- Everyone, for the admin's list of people: whether each has set a password yet.
+SELECT user.id, user.name, role.name AS role_name, user.outsider, user.password_hash IS NOT NULL AS has_password,
+  user.created_at
+FROM user
+JOIN role ON role.id = user.role_id
+WHERE user.removed_at IS NULL
+ORDER BY user.name COLLATE NOCASE, user.id;

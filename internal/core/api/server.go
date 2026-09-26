@@ -111,6 +111,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerFilePrefs()
 	server.registerReport()
 	server.registerHome()
+	server.registerAccounts()
 	return server
 }
 

@@ -5,7 +5,6 @@ package auth
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -110,6 +109,9 @@ type NewUser struct {
 	Password   string
 	Role       Role
 	IsOutsider bool
+	// AwaitsRegistration makes the user with no password: they set one from a registration link
+	// (D218), and until then nobody can sign in as them.
+	AwaitsRegistration bool
 }
 
 // CreateUser adds a user with an argon2id password hash and returns its id.
@@ -126,8 +128,8 @@ func (service *Service) CreateUser(ctx context.Context, user NewUser) (int64, er
 // insertUser adds a user inside the caller's write transaction.
 func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries, user NewUser) (int64, error) {
 	name := strings.TrimSpace(user.Name)
-	if name == "" || user.Password == "" {
-		return 0, errors.New("a user needs a name and a password")
+	if name == "" || (user.Password == "") != user.AwaitsRegistration {
+		return 0, errors.New("a user needs a name, and a password unless they await registration")
 	}
 	if _, err := store.One(queries.GetLiveUserByName(ctx, name)); err == nil {
 		return 0, fmt.Errorf("%q: %w", name, ErrNameTaken)
@@ -138,20 +140,18 @@ func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries
 	if err != nil {
 		return 0, fmt.Errorf("find role %q: %w", user.Role, err)
 	}
-	parameters, err := service.parameters(ctx)
-	if err != nil {
-		return 0, err
-	}
-	hash, err := HashPassword(user.Password, parameters, service.random)
-	if err != nil {
-		return 0, err
+	var hash []byte
+	if !user.AwaitsRegistration {
+		if hash, err = service.hash(ctx, user.Password); err != nil {
+			return 0, err
+		}
 	}
 	var outsider int64
 	if user.IsOutsider {
 		outsider = 1
 	}
 	id, err := queries.InsertUser(ctx, sqlcgen.InsertUserParams{
-		Name: name, RoleID: role.ID, PasswordHash: []byte(hash), Outsider: outsider,
+		Name: name, RoleID: role.ID, PasswordHash: hash, Outsider: outsider,
 		CreatedAt: service.clock.Now().UnixMilli(),
 	})
 	if err != nil {
@@ -218,6 +218,19 @@ func (service *Service) SignIn(
 	return service.issueSession(ctx, user.ID, device)
 }
 
+// hash hashes a password with the costs the settings name now.
+func (service *Service) hash(ctx context.Context, password string) ([]byte, error) {
+	parameters, err := service.parameters(ctx)
+	if err != nil {
+		return nil, err
+	}
+	hashed, err := HashPassword(password, parameters, service.random)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(hashed), nil
+}
+
 func (service *Service) rehash(ctx context.Context, userID int64, password string, parameters Parameters) error {
 	hash, err := HashPassword(password, parameters, service.random)
 	if err != nil {
@@ -233,18 +246,17 @@ func (service *Service) rehash(ctx context.Context, userID int64, password strin
 // issueSession makes the device the user signed in on and mints a session grant tied to it, and
 // returns its token, which is stored only as its SHA-256 (D154).
 func (service *Service) issueSession(ctx context.Context, userID int64, device NewDevice) (string, error) {
-	secret := make([]byte, tokenBytes)
-	if _, err := io.ReadFull(service.random, secret); err != nil {
-		return "", fmt.Errorf("make a session token: %w", err)
+	token, err := randomSecret(service.random)
+	if err != nil {
+		return "", err
 	}
-	token := base64.RawURLEncoding.EncodeToString(secret)
 	now := service.clock.Now().UnixMilli()
-	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		deviceID, err := queries.InsertDevice(ctx, sqlcgen.InsertDeviceParams{
+	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		deviceID, deviceErr := queries.InsertDevice(ctx, sqlcgen.InsertDeviceParams{
 			UserID: &userID, Name: device.Name, Platform: device.Platform, SeenAt: now,
 		})
-		if err != nil {
-			return fmt.Errorf("record the device: %w", err)
+		if deviceErr != nil {
+			return fmt.Errorf("record the device: %w", deviceErr)
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			Hash: tokenHash(token), Kind: grantKindSession, Subject: &userID, Scope: grantScopeSession,

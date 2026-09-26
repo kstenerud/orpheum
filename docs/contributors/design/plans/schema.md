@@ -579,6 +579,11 @@ CREATE INDEX grant_subject ON "grant"(subject) WHERE revoked_at IS NULL;
 and redeeming it creates the outsider's user with the role **asked when the invite was made**
 ([D184](../../decisions/working-notes.md)); ceilings and a lease join that question when they
 exist.
+[D218](../../decisions/working-notes.md)'s accounts use it too, in two scopes: `register`, a
+registration link for a person the admin already made, which sets their password (seven days;
+a new one withdraws the old), and `add_device`, a device code whose `label` is the name the
+device will be listed under (ten minutes). Both are single use, and like every grant they are
+stored only as a hash.
 
 ```sql
 CREATE TABLE setting (                                     -- class A

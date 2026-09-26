@@ -176,6 +176,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/device-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A code that signs a device in, for ten minutes, once (D218) */
+        post: operations["issueDeviceCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/doctor": {
         parameters: {
             query?: never;
@@ -471,6 +488,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change one's own password; other sessions stay signed in */
+        put: operations["changePassword"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/secrets": {
         parameters: {
             query?: never;
@@ -575,6 +609,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Use a registration link: set a password and sign this device in */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search": {
         parameters: {
             query?: never;
@@ -645,6 +696,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/session/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign a device in with a device code */
+        post: operations["signInWithCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings": {
         parameters: {
             query?: never;
@@ -697,10 +765,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Everyone, for the admin */
+        get: operations["listAccounts"];
+        put?: never;
+        /** Make a person, and a one-time link for them to set a password (D218) */
+        post: operations["createAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/registration-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A new registration link for a person, withdrawing the old; their password works until they use it */
+        post: operations["issueRegistrationLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AccountBody: {
+            /** @description False until they register from their link */
+            hasPassword: boolean;
+            /** Format: int64 */
+            id: number;
+            isOutsider: boolean;
+            name: string;
+            /** @enum {string} */
+            role: "admin" | "user";
+        };
+        AccountsOutputBody: {
+            accounts: components["schemas"]["AccountBody"][] | null;
+        };
         ArtBody: {
             backdropHash?: string;
             posterHash?: string;
@@ -725,6 +841,15 @@ export interface components {
         CandidatesOutputBody: {
             candidates: components["schemas"]["CandidateBody"][] | null;
             provider?: string;
+        };
+        ChangePasswordInputBody: {
+            currentPassword: string;
+            newPassword: string;
+        };
+        CodeSignInInputBody: {
+            /** @description As typed: case, dashes and spaces do not matter */
+            code: string;
+            platform: string;
         };
         CollectionOutputBody: {
             art: components["schemas"]["ArtBody"];
@@ -754,6 +879,15 @@ export interface components {
             file: components["schemas"]["ConfigFileKey"][] | null;
             settings: components["schemas"]["SettingBody"][] | null;
         };
+        CreateAccountInputBody: {
+            name: string;
+            /** @enum {string} */
+            role: "admin" | "user";
+        };
+        CreateAccountOutputBody: {
+            account: components["schemas"]["AccountBody"];
+            registration: components["schemas"]["InvitationBody"];
+        };
         CreatedOutputBody: {
             /** Format: int64 */
             id: number;
@@ -777,6 +911,15 @@ export interface components {
             node: string;
             /** @description Roots the node configured */
             roots: string[] | null;
+        };
+        DeviceCodeInputBody: {
+            /** @description What the device will be listed as: "Living room TV" */
+            deviceName: string;
+            /**
+             * Format: int64
+             * @description Whose device; an admin's to name, oneself otherwise
+             */
+            userId?: number;
         };
         DoctorOutputBody: {
             findings: components["schemas"]["FindingBody"][] | null;
@@ -932,6 +1075,14 @@ export interface components {
             /** Format: int64 */
             year?: number;
         };
+        InvitationBody: {
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            expiresAt: number;
+            secret: string;
+        };
         ItemBody: {
             /** Format: int64 */
             id: number;
@@ -1043,6 +1194,11 @@ export interface components {
         RefreshOutputBody: {
             /** @description False when a fetch for it was already waiting */
             isQueued: boolean;
+        };
+        RegisterInputBody: {
+            device: components["schemas"]["NewDeviceBody"];
+            password: string;
+            secret: string;
         };
         ReportInputBody: {
             events: components["schemas"]["EventBody"][] | null;
@@ -1704,6 +1860,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    issueDeviceCode: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceCodeInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationBody"];
+                };
             };
             /** @description Error */
             default: {
@@ -2400,6 +2592,40 @@ export interface operations {
             };
         };
     };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getMineSecrets: {
         parameters: {
             query?: never;
@@ -2673,6 +2899,40 @@ export interface operations {
             };
         };
     };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     search: {
         parameters: {
             query: {
@@ -2873,6 +3133,40 @@ export interface operations {
             };
         };
     };
+    signInWithCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeSignInInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getSettings: {
         parameters: {
             query?: never;
@@ -2999,6 +3293,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TitlesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listAccounts: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createAccount: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAccountInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateAccountOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    issueRegistrationLink: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationBody"];
                 };
             };
             /** @description Error */

@@ -26,6 +26,17 @@
 //     TestSignIn_IssuesASessionUntilSignedOut.
 //   - Only the setup code creates the first admin, and only once. Enforced by
 //     TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce.
+//   - An account is made with no password and a registration link: 256 bits, seven days, once,
+//     and only the newest works; the old password works until the new one is set (D218 §1, §5).
+//     Enforced by TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn and
+//     TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneIsSet.
+//   - A device code is eight safe32 characters, read as safe32 reads them, for ten minutes, once;
+//     a wrong one counts against the address's failed sign-ins (D218 §3, §4). Enforced by
+//     TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes,
+//     TestDeviceCode_SignsOneDeviceInOnceWithinTenMinutesAsTyped and
+//     TestDeviceCode_WrongCodesCountAgainstTheSignInLimit.
+//   - Changing a password needs the current one and signs no one out (D218 §6). Enforced by
+//     TestChangePassword_NeedsTheCurrentOneAndKeepsOtherSessions.
 //   - argon2id takes at most 500 ms on devnas: BenchmarkHashPassword_DefaultParameters, run there
 //     (verification queue VQ1).
 //   - Its opinions — argon2id's costs, the failure limit and window, idle expiry — are settings
@@ -39,6 +50,7 @@
 //   - D217 §8: a device is created at sign-in.
 //   - D125: access is role-based with two roles; a Watch Together guest is not a principal.
 //   - D154: one grant table, opaque and revocable.
+//   - D218: accounts by one-time link; a device by a short code.
 //   - D168: entitlement is resolved at the point of use, never pushed.
 //   - D194 §2: argon2id with RFC 9106's second parameters; re-hash on login; rate-limit failures.
 //   - docs/contributors/design/plans/auth.md.
@@ -48,5 +60,6 @@
 //   - password.go: argon2id and PHC strings. policy.go: the settings auth reads. limiter.go: the
 //     failure counts.
 //   - auth.go: users, sign-in, sessions on the grant table. setup.go: the setup code and the first
-//     admin. The invite flow of cut-a §5 (Setup and auth) arrives with M4.
+//     admin. accounts.go: accounts, registration links, device codes and changing a password
+//     (D218). code.go: a device code's safe32.
 package auth
