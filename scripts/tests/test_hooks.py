@@ -14,11 +14,17 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import gate_paths  # noqa: E402
 
 
+# The owner's flags, which a session may be started with. A hook's decision depends on them, so
+# each test sets the ones it is about and none leaks in from the session that runs the tests.
+OWNER_FLAGS = ("ORPHEUM_ALLOW_GATE_EDIT", "ORPHEUM_ALLOW_DEPS")
+
+
 def run_hook(name: str, event: dict, **env: str) -> dict:
+    inherited = {key: value for key, value in os.environ.items() if key not in OWNER_FLAGS}
     done = subprocess.run(
         [sys.executable, str(HOOKS / name)],
         input=json.dumps(event), capture_output=True, text=True, check=True,
-        env={**os.environ, "CLAUDE_PROJECT_DIR": str(ROOT), **env},
+        env={**inherited, "CLAUDE_PROJECT_DIR": str(ROOT), **env},
     )
     return json.loads(done.stdout) if done.stdout.strip() else {}
 
