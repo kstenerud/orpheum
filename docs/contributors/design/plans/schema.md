@@ -748,13 +748,14 @@ reference scale, and removes a failure mode.
 > one schema, its version on a comment line, and a file whose `user_version` differs is deleted
 > and built again. sqlc reads it into its own package, `cachegen`, so a `library.db` query
 > cannot name a cache table. `prepared_rendition` came with prepare in M3 (version 8); version 9
-> renamed columns to say what they hold (`runnable_at`, `last_served_epoch_day`, `size_bytes`).
+> renamed columns to say what they hold (`runnable_at`, `last_served_epoch_day`, `size_bytes`);
+> version 10 added `subtitle_text` and the `extract_subtitle` job with subtitle extraction in M3.
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch','artwork','prepare','scan','backup')),  -- artwork: D212
-  subject     INTEGER,                   -- title_id, file_id, library_id — per kind
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch','artwork','prepare','extract_subtitle','scan','backup')),  -- artwork: D212
+  subject     INTEGER,                   -- item_id, file_id, library_id, stream_id — per kind
   args        TEXT NOT NULL DEFAULT '{}',  -- JSON: provider, profile, reason
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
   state       TEXT NOT NULL DEFAULT 'queued'
@@ -805,7 +806,24 @@ directory, which the node alone deletes from (D217 §5); this row is the core's 
 asked for and what the node said. Its prepare job's subject is the row's id (D217 §3).
 
 ```sql
+CREATE TABLE subtitle_text (                               -- D217 §6: by the video's payload hash
+  payload_hash BLOB NOT NULL,            -- the video the track is in, as it was when extracted
+  stream_index INTEGER NOT NULL,         -- the track's stream index in that video
+  state        TEXT NOT NULL DEFAULT 'queued' CHECK (state IN ('queued','complete','failed')),
+  ass          BLOB,                     -- once complete: for JASSUB
+  vtt          BLOB,                     -- once complete: for the cast receiver
+  error        TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
+  created_at   INTEGER NOT NULL,
+  finished_at  INTEGER,
+  PRIMARY KEY (payload_hash, stream_index)
+);
 ```
+
+An embedded text track is extracted when its video is first played (D217 §6), and kept by the
+video's payload hash and the track's stream index, so a move or a rescan keeps it. Its extraction
+job's subject is the `stream` row (D217 §3), which a rescan replaces: a job whose stream is gone
+fails, and the next play queues another. The text is a few hundred kilobytes at most, so it is
+kept in the row rather than beside the art.
 
 No foreign keys cross into `library.db` — SQLite cannot enforce them across files, and nothing
 here is referenced by anything authored. **Losing `cache.db` costs re-queued work and

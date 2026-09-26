@@ -37,10 +37,16 @@
 //     the rendition is complete only when the node says so; FFmpeg's failure is not retried.
 //     Enforced by TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete and
 //     TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried.
+//   - Every text subtitle track of a played video is extracted, whatever the decision, once per
+//     video payload hash; a track not yet extracted is 425 with Retry-After, and a failed one is
+//     prepare_failed and tried again when next played (D217 §6). Enforced by
+//     TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntilExtracted,
+//     TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain and
+//     TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed.
 //
 // # Read before changing
 //
-//   - D217: the menu, the media token, and what M3 decided about playback.
+//   - D217: the menu, the media token, and what M3 decided about playback; §6, subtitles.
 //   - D157: a position belongs to the File.
 //   - D165: the log records state changes and spans; an offline device must not rewind.
 //   - D180: a prepared rendition's play state is its source's.
@@ -52,6 +58,7 @@
 //
 //   - tokens.go: media tokens, in memory. playback.go: starting a playback and finding a direct
 //     playback's bytes. prepare.go: renditions' rows, their jobs and the nodes' reports. hls.go:
-//     a prepared playback's files, and the prepare job's handler. The play-state report,
-//     Continue Watching and Next Up come later in M3.
+//     a prepared playback's files, and the prepare job's handler. subtitles.go: the text tracks a
+//     playback offers, their extraction jobs and their text. waiting.go: jobs waiting for a node's
+//     answer. The play-state report, Continue Watching and Next Up come later in M3.
 package playback

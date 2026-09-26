@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { whenReady } from "./ready.ts";
+import { textWhenReady, whenReady } from "./ready.ts";
 
 function answer(status: number, headers: Record<string, string> = {}, body = "{}"): Response {
   return new Response(body, {
@@ -49,5 +49,16 @@ describe("waiting for a prepared rendition", () => {
         attempts: 3,
       }),
     ).rejects.toThrow("still being prepared");
+  });
+});
+
+describe("reading a subtitle being extracted", () => {
+  it("waits through the 425s and returns the text", async () => {
+    const answers = [answer(425), answer(200, { "Content-Type": "text/x-ssa" }, "[Script Info]")];
+    const text = await textWhenReady("/api/v1/bytes/media/sub/t/2.ass", {
+      fetch: () => Promise.resolve(answers.shift() ?? answer(500)),
+      sleep: () => Promise.resolve(),
+    });
+    expect(text).toBe("[Script Info]");
   });
 });

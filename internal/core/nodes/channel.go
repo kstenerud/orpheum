@@ -141,6 +141,19 @@ func (service *Service) prepareReport(writer http.ResponseWriter, request *http.
 	takeAnswer(service, writer, request, maxPrepareReportBytes, "a prepare report", deliver)
 }
 
+// maxSubtitleAnswerBytes bounds a subtitle answer: the text twice, each at most the node's own bound
+// of 16 MiB, in base64.
+const maxSubtitleAnswerBytes = 48 << 20
+
+// subtitleAnswer takes a node's answer to an extract_subtitle command to the job waiting for it.
+func (service *Service) subtitleAnswer(writer http.ResponseWriter, request *http.Request) {
+	var deliver func(context.Context, int64, nodeproto.SubtitleText)
+	if service.subtitles != nil {
+		deliver = service.subtitles.Extracted
+	}
+	takeAnswer(service, writer, request, maxSubtitleAnswerBytes, "a subtitle", deliver)
+}
+
 // takeAnswer reads one JSON answer of at most limit bytes from a known node and delivers it; with
 // nothing to deliver to, the answer is refused.
 func takeAnswer[Answer any](

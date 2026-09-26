@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package prepare runs one FFmpeg command per prepare job, through execx, producing an fMP4 HLS
-// rendition in the node's cache (an EVENT playlist that grows while the job runs), plus
-// extract_subtitle jobs for text tracks. The output is a cache; a crash restarts the job from
+// rendition in the node's cache (an EVENT playlist that grows while the job runs). Text
+// subtitles are internal/node/subtitle's. The output is a cache; a crash restarts the job from
 // zero.
 //
 // # Invariants
@@ -36,5 +36,5 @@
 // # Where to change
 //
 //   - arguments.go: the FFmpeg command line and the mixes. prepare.go: one run, its progress and
-//     its size. Subtitle extraction comes with the subtitle slice.
+//     its size.
 package prepare

@@ -73,6 +73,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/bytes/media/sub/{token}/{file}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of a playback's subtitle tracks, as ASS or WebVTT (D217 §6) */
+        get: operations["getSubtitle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/collections/{id}": {
         parameters: {
             query?: never;
@@ -186,6 +203,23 @@ export interface paths {
         /** What the scanner saw: every file with its filing and reason (admin; D163) */
         get: operations["getFiles"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/files/{id}/prefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Keep a person's choices for one file: its subtitle offset */
+        put: operations["setFilePrefs"];
         post?: never;
         delete?: never;
         options?: never;
@@ -778,6 +812,13 @@ export interface components {
             sizeBytes?: number;
             streams: components["schemas"]["StreamBody"][] | null;
         };
+        FilePrefsBody: {
+            /**
+             * Format: int64
+             * @description Shows the subtitles this much later, or earlier when negative
+             */
+            subtitleOffsetMs: number;
+        };
         FilesOutputBody: {
             files: components["schemas"]["FileBody"][] | null;
             /** @description Empty on the last page */
@@ -1011,9 +1052,11 @@ export interface components {
             isPreparing: boolean;
             /** @enum {string} */
             kind: "direct" | "hls";
+            prefs: components["schemas"]["FilePrefsBody"];
             /** @enum {string} */
             profile?: "remux" | "h264-8m";
             reasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "user_choice")[] | null;
+            subtitles: components["schemas"]["SubtitleTrackBody"][] | null;
             /** @description Where the bytes are: the file, or a rendition's master playlist */
             url: string;
         };
@@ -1030,6 +1073,23 @@ export interface components {
             /** @description BCP 47 */
             language?: string;
             title?: string;
+        };
+        SubtitleTrackBody: {
+            /** @description The track as ASS, for JASSUB */
+            assUrl: string;
+            isDefault: boolean;
+            isForced: boolean;
+            isHearingImpaired: boolean;
+            /** @description BCP 47; empty when the file names none */
+            language: string;
+            /**
+             * Format: int64
+             * @description The track's stream index in the file
+             */
+            streamIndex: number;
+            title: string;
+            /** @description The track as WebVTT */
+            vttUrl: string;
         };
         TitlesOutputBody: {
             /** @description Empty on the last page */
@@ -1269,6 +1329,45 @@ export interface operations {
                 };
             };
             /** @description Not written yet: the rendition is being prepared; ask again after Retry-After */
+            425: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getSubtitle: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description <streamIndex>.ass or <streamIndex>.vtt */
+                file: string;
+                /** @description The playback's media token */
+                token: string;
+            };
+            cookie?: {
+                /** @description The media cookie sign-in sets, for an <img> */
+                orpheum_media?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The track */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/vtt; charset=utf-8": unknown;
+                    "text/x-ssa; charset=utf-8": unknown;
+                };
+            };
+            /** @description Not extracted yet; ask again after Retry-After */
             425: {
                 headers: {
                     [name: string]: unknown;
@@ -1541,6 +1640,42 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["FilesOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setFilePrefs: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FilePrefsBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

@@ -49,6 +49,11 @@ type PrepareSink interface {
 	Reported(ctx context.Context, nodeID int64, report nodeproto.PrepareReport)
 }
 
+// SubtitleSink receives a node's answer to an extract_subtitle command: the text, or why none.
+type SubtitleSink interface {
+	Extracted(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText)
+}
+
 // Service is the core's side of the node channel (cut-a §4, D207): it enrols nodes, queues their
 // commands, receives their reports and knows when each last spoke.
 type Service struct {
@@ -59,8 +64,9 @@ type Service struct {
 	logger   *slog.Logger
 	pollHold time.Duration
 
-	artwork ArtworkSink
-	prepare PrepareSink
+	artwork   ArtworkSink
+	prepare   PrepareSink
+	subtitles SubtitleSink
 
 	mutex    sync.Mutex
 	channels map[int64]*channel
@@ -76,6 +82,12 @@ func (service *Service) ReceiveArtwork(sink ArtworkSink) {
 // report that arrives with none set is refused.
 func (service *Service) ReceivePrepare(sink PrepareSink) {
 	service.prepare = sink
+}
+
+// ReceiveSubtitles names where the nodes' subtitle answers go. Set it before the channel serves;
+// an answer that arrives with none set is refused.
+func (service *Service) ReceiveSubtitles(sink SubtitleSink) {
+	service.subtitles = sink
 }
 
 // channel is what the core holds for one connected node.
@@ -108,6 +120,7 @@ func (service *Service) Handler() http.Handler {
 	mux.HandleFunc("GET "+nodeproto.PathCommands, service.commands)
 	mux.HandleFunc("POST "+nodeproto.PathArtwork, service.artworkAnswer)
 	mux.HandleFunc("POST "+nodeproto.PathPrepare, service.prepareReport)
+	mux.HandleFunc("POST "+nodeproto.PathSubtitle, service.subtitleAnswer)
 	return mux
 }
 

@@ -56,26 +56,33 @@ type Parts struct {
 	// Random makes media tokens.
 	Random io.Reader
 	Logger *slog.Logger
-	// MaxSilence is how long a running prepare may go without a word from its node before it is
-	// given up and retried.
+	// MaxSilence is how long a running prepare or extraction may go without a word from its node
+	// before it is given up and retried.
 	MaxSilence time.Duration
 }
 
 // Service starts playbacks, says where their bytes are, and has renditions prepared.
 type Service struct {
-	database *store.Database
-	settings Settings
-	clock    clock.Clock
-	random   io.Reader
-	tokens   *tokens
-	prepares *prepares
+	database   *store.Database
+	cache      *store.Cache
+	queue      Queue
+	nodes      Nodes
+	settings   Settings
+	clock      clock.Clock
+	random     io.Reader
+	maxSilence time.Duration
+	tokens     *tokens
+	prepares   *prepares
+	subtitles  *waiting[nodeproto.SubtitleText]
 }
 
 // NewService returns the playback service.
 func NewService(parts Parts) *Service {
 	return &Service{
-		database: parts.Database, settings: parts.Settings, clock: parts.Clock, random: parts.Random,
+		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
+		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
 		tokens: newTokens(), prepares: newPrepares(parts),
+		subtitles: newWaiting[nodeproto.SubtitleText](parts.Logger, "a subtitle"),
 	}
 }
 
@@ -95,6 +102,10 @@ type Started struct {
 	Preparing bool
 	// Audio are a prepared playback's audio renditions, in the master playlist's order.
 	Audio []AudioRendition
+	// Subtitles are the file's text subtitle tracks, each extracted or on its way (D217 §6).
+	Subtitles []SubtitleTrack
+	// Prefs are the person's choices for the file, which the player starts with.
+	Prefs FilePrefs
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -122,7 +133,13 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if err != nil {
 		return Started{}, err
 	}
-	started := Started{Decision: decision}
+	started := Started{Decision: decision, Subtitles: textTracks(probe)}
+	if wantErr := service.wantSubtitles(ctx, file, started.Subtitles); wantErr != nil {
+		return Started{}, wantErr
+	}
+	if started.Prefs, err = service.FilePrefs(ctx, userID, file.ID); err != nil {
+		return Started{}, err
+	}
 	playback := playing{userID: userID, sessionKey: sessionKey, fileID: file.ID}
 	if decision.Kind == decide.HLS {
 		playback.profile = nodeproto.PrepareProfile(decision.Profile)

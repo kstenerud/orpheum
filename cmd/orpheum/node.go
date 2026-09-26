@@ -26,6 +26,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/probe"
 	"github.com/kstenerud/orpheum/internal/node/scan"
+	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
@@ -122,7 +123,9 @@ func runNodeScanning(
 	if wrap != nil {
 		scanning = wrap(scanner)
 	}
-	workers := agent.Workers{Scanner: scanning, Artwork: deriver, Preparer: preparing}
+	workers := agent.Workers{
+		Scanner: scanning, Artwork: deriver, Preparer: preparing, Subtitles: subtitle.NewExtractor(runner),
+	}
 	node := agent.New(filepath.Join(config.Server.SocketDir, coreSocket), hello, roots, workers, clock.System{}, logger)
 	return node.Run(ctx, ticker.C)
 }

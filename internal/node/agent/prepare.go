@@ -27,14 +27,16 @@ type Preparer interface {
 const progressEvery = 2 * time.Second
 
 // slots are how many prepares run at once on this node (cut-a §5.3): one encode, and two
-// remuxes, which are bound by the disk rather than the processor.
+// remuxes, which are bound by the disk rather than the processor; and one subtitle extraction,
+// which reads a whole video.
 type slots struct {
-	encode chan struct{}
-	remux  chan struct{}
+	encode  chan struct{}
+	remux   chan struct{}
+	extract chan struct{}
 }
 
 func newSlots() slots {
-	return slots{encode: make(chan struct{}, 1), remux: make(chan struct{}, 2)}
+	return slots{encode: make(chan struct{}, 1), remux: make(chan struct{}, 2), extract: make(chan struct{}, 1)}
 }
 
 func (all slots) of(profile nodeproto.PrepareProfile) chan struct{} {

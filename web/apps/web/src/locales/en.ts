@@ -69,6 +69,17 @@ export const en = {
     preparing: "Preparing — ready in a few seconds.",
     preparedFailed: "The prepared copy could not play: {{reason}}.",
     boost: "Dialogue boost",
+    subtitles: {
+      label: "Subtitles",
+      off: "Off",
+      unknownLanguage: "Unknown language",
+      forced: "forced",
+      hearingImpaired: "for the deaf and hard of hearing",
+      earlier: "Earlier",
+      later: "Later",
+      offset: "Subtitle offset: {{seconds}} s",
+      failed: "The subtitles could not be shown: {{reason}}.",
+    },
     reason: {
       container: "the browser cannot open its container",
       videoCodec: "the browser cannot decode its video",

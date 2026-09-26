@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
-// commands and runs them one at a time — except prepares, which run beside the rest in their own
-// slots — and streams its report — scan records, and a status record
+// commands and runs them one at a time — except prepares and subtitle extractions, which run
+// beside the rest in their own slots — and streams its report — scan records, and a status record
 // every tick — as one JSONL request whose records reach the core as they are written. When the
 // core goes away it says hello again at the next tick, and numbers its records on from the last
 // one the core ingested.
@@ -25,6 +25,10 @@
 //   - A prepare runs only on the file the core named, under one of the node's roots, whose payload
 //     hash is still the one named (D100); its progress and its end are posted to the core. One
 //     encode and two remuxes run at once (cut-a §5.3). TestAgent_PreparesOnlyTheFileTheCoreNamed.
+//   - A subtitle is extracted only from the video the core named, whose payload hash is still the
+//     one named, or read from a sidecar only under one of the node's roots, answered with the
+//     SHA-256 of what was read (D100, D217 §6). One extraction runs at once.
+//     TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
 //
 // # Read before changing
 //
@@ -32,10 +36,11 @@
 //   - D127, D193 §4: the node dials out; the one transport is HTTP and JSONL over a Unix socket.
 //   - D34: silence is only ever read as silence; the status record is how a node is heard.
 //   - D212: artwork is re-encoded here, and posted to the core.
+//   - D217 §6: subtitles are extracted when it is cheap to.
 //   - docs/contributors/design/plans/cut-a.md §4.
 //
 // # Where to change
 //
 //   - agent.go: the session and its four parts; report.go: numbering; prepare.go: prepares and
-//     their slots.
+//     their slots; subtitle.go: subtitle extraction.
 package agent

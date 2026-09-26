@@ -17,18 +17,33 @@ const tooEarly = 425;
  * player's will. A failure other than "too early" is thrown with the server's message.
  */
 export async function whenReady(url: string, options: WaitOptions = {}): Promise<void> {
+  await readyAnswer(url, options);
+}
+
+/**
+ * Reads a text the server may still be making, such as a subtitle track being extracted: it
+ * answers 425 with a Retry-After until the text exists (D217 §6), and is waited for as a
+ * rendition is.
+ */
+export async function textWhenReady(url: string, options: WaitOptions = {}): Promise<string> {
+  const answer = await readyAnswer(url, options);
+  return await answer.text();
+}
+
+/** The first answer that is not "too early", when it is a success. */
+async function readyAnswer(url: string, options: WaitOptions): Promise<Response> {
   const { get, sleep, attempts } = withDefaults(options);
   for (let attempt = 0; attempt < attempts; attempt++) {
     const answer = await get(url, requestInit(options.signal));
     if (answer.ok) {
-      return;
+      return answer;
     }
     if (answer.status !== tooEarly) {
       throw new Error(await errorMessage(answer));
     }
     await sleep(retryAfterSeconds(answer) * 1000);
   }
-  throw new Error("the file is still being prepared; try again in a while");
+  throw new Error("still being prepared; try again in a while");
 }
 
 function withDefaults(options: WaitOptions): {

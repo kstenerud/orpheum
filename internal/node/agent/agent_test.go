@@ -32,6 +32,7 @@ type fakeCore struct {
 	records     chan nodeproto.Record
 	artwork     chan nodeproto.ArtworkResult
 	prepared    chan nodeproto.PrepareReport
+	subtitles   chan nodeproto.SubtitleText
 	dropReports int // the first reports it ends at once, as a core that went away would
 }
 
@@ -40,6 +41,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	core := &fakeCore{
 		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
 		artwork: make(chan nodeproto.ArtworkResult, 4), prepared: make(chan nodeproto.PrepareReport, 16),
+		subtitles: make(chan nodeproto.SubtitleText, 4),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, func(writer http.ResponseWriter, request *http.Request) {
@@ -86,8 +88,9 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 			core.records <- record
 		}
 	})
-	mux.HandleFunc("POST "+nodeproto.PathArtwork, core.artworkHandler(t))
-	mux.HandleFunc("POST "+nodeproto.PathPrepare, core.prepareHandler(t))
+	mux.HandleFunc("POST "+nodeproto.PathArtwork, posted(t, core.artwork))
+	mux.HandleFunc("POST "+nodeproto.PathPrepare, posted(t, core.prepared))
+	mux.HandleFunc("POST "+nodeproto.PathSubtitle, posted(t, core.subtitles))
 	socket := filepath.Join(t.TempDir(), "c.sock")
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", socket)
 	if err != nil {
@@ -99,30 +102,15 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	return core, socket
 }
 
-// prepareHandler hands the test each prepare report the node posts.
-func (core *fakeCore) prepareHandler(t *testing.T) http.HandlerFunc {
+// posted hands the test each answer of type T the node posts.
+func posted[T any](t *testing.T, into chan<- T) http.HandlerFunc {
 	t.Helper()
 	return func(writer http.ResponseWriter, request *http.Request) {
-		var report nodeproto.PrepareReport
-		if err := json.NewDecoder(request.Body).Decode(&report); err != nil {
+		var answer T
+		if err := json.NewDecoder(request.Body).Decode(&answer); err != nil {
 			t.Error(err)
 		}
-		core.prepared <- report
-		if _, err := writer.Write([]byte("{}")); err != nil {
-			t.Error(err)
-		}
-	}
-}
-
-// artworkHandler hands the test each artwork answer the node posts.
-func (core *fakeCore) artworkHandler(t *testing.T) http.HandlerFunc {
-	t.Helper()
-	return func(writer http.ResponseWriter, request *http.Request) {
-		var result nodeproto.ArtworkResult
-		if err := json.NewDecoder(request.Body).Decode(&result); err != nil {
-			t.Error(err)
-		}
-		core.artwork <- result
+		into <- answer
 		if _, err := writer.Write([]byte("{}")); err != nil {
 			t.Error(err)
 		}
@@ -169,7 +157,9 @@ func running(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
 	}
 	t.Cleanup(func() { _ = root.Close() }) //nolint:errcheck // test teardown
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
-	workers := Workers{Scanner: fakeScanner{}, Artwork: fakeArtwork{}, Preparer: fakePreparer{}}
+	workers := Workers{
+		Scanner: fakeScanner{}, Artwork: fakeArtwork{}, Preparer: fakePreparer{}, Subtitles: fakeSubtitles{},
+	}
 	node := New(socket, nodeproto.Hello{Name: "local", Version: "test"}, []*confine.MediaRoot{root}, workers,
 		now, slog.New(slog.DiscardHandler))
 	tick := make(chan time.Time)

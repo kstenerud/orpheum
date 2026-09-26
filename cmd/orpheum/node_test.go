@@ -129,6 +129,13 @@ type shelf struct {
 // library over it; the fake FFmpeg probes the film as Matroska with no streams.
 func filmOnNode(t *testing.T, metadataSource string) shelf {
 	t.Helper()
+	return filmProbedAs(t, metadataSource, `{"format":{"format_name":"matroska","duration":"1.000"},"streams":[]}`)
+}
+
+// filmProbedAs is filmOnNode with the fake FFmpeg answering every run with reply: the probe of
+// the film, and whatever else the node runs.
+func filmProbedAs(t *testing.T, metadataSource, reply string) shelf {
+	t.Helper()
 	config, configPath := testConfig(t)
 	media := t.TempDir()
 	for name, contents := range map[string]string{"Film (2020)/Film (2020).mkv": "film", "notes.txt": "notes"} {
@@ -140,11 +147,9 @@ func filmOnNode(t *testing.T, metadataSource string) shelf {
 			t.Fatal(err)
 		}
 	}
-	// One reply serves both runs the node makes: `ffprobe -version`, whose first line becomes
+	// One reply serves every run the node makes: `ffprobe -version`, whose first line becomes
 	// the hello's FFmpeg version, and the probe of the film, which parses.
-	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{
-		Stdout: `{"format":{"format_name":"matroska","duration":"1.000"},"streams":[]}`,
-	})
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: reply})
 	config.Node.Roots = []string{media}
 	config.Node.FFmpegDir = fake.Directory
 	config.Node.VideoExtensions = []string{"mkv"}

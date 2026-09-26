@@ -12,7 +12,7 @@ export { apiPrefix, artUrl, createApi } from "./client.ts";
 export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
 export { browserMenu, menuFrom } from "./menu.ts";
-export { whenReady } from "./ready.ts";
+export { textWhenReady, whenReady } from "./ready.ts";
 export type { WaitOptions } from "./ready.ts";
 export type { MediaProbe, Menu } from "./menu.ts";
 

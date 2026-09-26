@@ -187,7 +187,8 @@ with the file channel deleted.
 **Commands** (core → node, delivered by the long-poll):
 - `scan{root, priority_paths[]}`
 - `prepare{job_id, path, payload_hash, profile, out_dir}`
-- `extract_subtitle{job_id, path, stream_index, format}`
+- `extract_subtitle{job_id, video{root, path, payload_hash}, stream_index}` or `{job_id, sidecar{root, path}}`:
+  one job makes both ASS and WebVTT ([D217](../../decisions/working-notes.md) §6)
 - `cancel{job_id}`
 
 **A command names its target by path *and* payload hash**, and the node refuses it if they no
