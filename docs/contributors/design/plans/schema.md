@@ -742,7 +742,7 @@ reference scale, and removes a failure mode.
 > **Built in M2**, versioned by discard (migrations.md): `internal/store/cache/schema.sql` is the
 > one schema, its version on a comment line, and a file whose `user_version` differs is deleted
 > and built again. sqlc reads it into its own package, `cachegen`, so a `library.db` query
-> cannot name a cache table. `prepared_rendition` came with prepare in M3 (version 5).
+> cannot name a cache table. `prepared_rendition` came with prepare in M3 (version 6).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -783,6 +783,7 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 Â
   node_id      INTEGER NOT NULL,         -- the node that holds it, beside its source
   state        TEXT NOT NULL DEFAULT 'queued'
                  CHECK (state IN ('queued','running','complete','failed')),
+  segment_s    INTEGER NOT NULL,         -- its segment length; another setting remakes it
   done_ms      INTEGER NOT NULL DEFAULT 0,  -- how much of the source is prepared
   bytes        INTEGER,                  -- its size once complete
   error        TEXT,                     -- why it failed: FFmpeg's exit and stderr tail

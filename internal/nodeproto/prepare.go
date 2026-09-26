@@ -36,6 +36,8 @@ type Prepare struct {
 	// VideoCodec is the source picture's codec as the probe named it: a copied HEVC picture is
 	// tagged hvc1, which Safari requires.
 	VideoCodec string `json:"videoCodec"`
+	// SegmentSeconds is each HLS segment's target length (D217 §3).
+	SegmentSeconds int `json:"segmentSeconds"`
 	// Audio lists the source's audio tracks, in order: every one is carried, so switching
 	// language needs no new job (D217 §3).
 	Audio []PrepareAudio `json:"audio"`

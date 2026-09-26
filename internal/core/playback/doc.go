@@ -28,6 +28,9 @@
 //   - A complete rendition whose node no longer has its playlist is prepared again, and the player
 //     waits as for a new one (D217 §5). Enforced by
 //     TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain.
+//   - A copy is made with hls_segment_s's segment length, and one made with another length is
+//     made again when next played. Enforced by
+//     TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain.
 //   - A prepare job names its source by root, path and payload hash with every audio track, and
 //     the rendition is complete only when the node says so; FFmpeg's failure is not retried.
 //     Enforced by TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete and

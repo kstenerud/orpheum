@@ -9,6 +9,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // renditionFile puts one file of film 2's remux on the fake node.
@@ -138,5 +139,41 @@ func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
 	}
 	if again := harness.play(t, user, chrome(2)); !again.Preparing {
 		t.Errorf("after it was lost: %+v, want it being prepared again", again)
+	}
+}
+
+func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 2)
+	harness.play(t, user, chrome(2))
+	playback := harness.server.dependencies.Load().Playback
+	run := func(job int64) nodeproto.Prepare {
+		finished := make(chan error, 1)
+		go func() {
+			finished <- playback.HandlePrepare(t.Context(), jobs.Job{ID: job, Kind: jobs.KindPrepare, Subject: 1})
+		}()
+		command := <-harness.nodes.commanded
+		playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: job, State: nodeproto.PrepareDone, Bytes: 9})
+		if err := <-finished; err != nil {
+			t.Fatal(err)
+		}
+		return *command.Prepare
+	}
+	if first := run(81); first.SegmentSeconds != 2 {
+		t.Errorf("the first copy asked for %d-second segments, want hls_segment_s's 2", first.SegmentSeconds)
+	}
+	if same := harness.play(t, user, chrome(2)); same.Preparing {
+		t.Errorf("played again with the same setting: %+v, want the copy as it is", same)
+	}
+	storetest.ExecRaw(t, harness.database,
+		"UPDATE setting SET value = '6', is_modified = 1 WHERE scope = 'server' AND key = 'hls_segment_s'")
+	if changed := harness.play(t, user, chrome(2)); !changed.Preparing {
+		t.Errorf("played after hls_segment_s changed: %+v, want the copy made again", changed)
+	}
+	if again := run(82); again.SegmentSeconds != 6 {
+		t.Errorf("the copy made again asked for %d-second segments, want 6", again.SegmentSeconds)
 	}
 }

@@ -44,6 +44,7 @@ type PreparedRendition struct {
 	Profile     string
 	NodeID      int64
 	State       string
+	SegmentS    int64
 	DoneMs      int64
 	Bytes       *int64
 	Error       *string
