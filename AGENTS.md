@@ -76,6 +76,13 @@ A branch also passes `make check-pr` (revert-red, test weakening, commit lint) b
     on. It is the input from which the next gate is built. *Review.*
 16. **Tests never touch the network, the real media library or the real clock.** Use generated
     fixtures, the fake FFmpeg and `clocktest`. *Standards: testing.md; forbidigo.*
+17. **Audit your own work at every commit, and the whole codebase at every milestone.** Before
+    each commit, work through the "At every commit" section of
+    [`audit-checklist.md`](docs/contributors/audit-checklist.md) against the diff: above all,
+    read each name it adds or changes as someone at the use site who has not seen the
+    declaration. When a milestone is done, work through the whole checklist before starting the
+    next. A prose rule is followed unevenly, and these checks catch what slipped past it before
+    it spreads. *The checklist; no gate can check meaning (agent-failures A8).*
 
 ## Where things are
 
