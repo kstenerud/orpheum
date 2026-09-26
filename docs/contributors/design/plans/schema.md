@@ -829,9 +829,11 @@ CREATE TABLE subtitle_text (                               -- D217 §6: by the v
 A text track is extracted when its video is first played (D217 §6): a track inside the video,
 or a subtitle file beside it, converted whole. Its text is kept by the payload hash of the file
 its bytes are in and its stream index there, a subtitle file's one track being its stream 0, so
-a move or a rescan keeps it. Its extraction job's subject is the `stream` row (D217 §3). A
-video's own rows are replaced when it is observed again, so a job whose stream is gone fails and
-the next play queues another; a subtitle file's row is changed in place. The text is a few
+a move or a rescan keeps it. Its extraction job's subject is the `stream` row (D217 §3).
+A `stream` row keeps its id for as long as its file has that track: a video observed again has
+its rows changed in place by stream index, and only a track its probe no longer has is dropped;
+a subtitle file's row is changed in place too. A job whose stream is gone fails, and the next
+play queues another. The text is a few
 hundred kilobytes at most, so it is kept in the row rather than beside the art.
 
 No foreign keys cross into `library.db` — SQLite cannot enforce them across files, and nothing
