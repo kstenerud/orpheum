@@ -63,3 +63,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   a while and come back: after the page reloads, the choice is still there.
   (`web/apps/web/src/subtitles.tsx`) — done 2026-09-26 by the owner, on an
   Android phone in Chrome: *"Verified on the phone."*
+- [ ] **VQ7** — On the dev loop, as owner on a computer, open **People**, add a person, and send
+  the link shown to an Android phone. On the phone, open it: choose a password, and it signs in.
+  On the phone, open **Your account**, name a device and make a code. On a television's browser
+  (or a second browser), open the server, choose **I have a code**, and type the code in capitals
+  with a space for the dash: it signs in as that person. The code does not work a second time.
+  Back on the computer, **New link** for the person, and the old link no longer works.
+  (`web/apps/web/src/people.tsx`, `register.tsx`, `code-sign-in.tsx`, `account.tsx`)
