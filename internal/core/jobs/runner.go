@@ -139,7 +139,7 @@ func (runner *Runner) finish(ctx context.Context, job Job, outcome error) error 
 }
 
 func (runner *Runner) retryPolicy(ctx context.Context) (limit int64, backoff time.Duration, err error) {
-	limit, err = runner.queue.settings.Int(ctx, settings.JobRetryLimit)
+	limit, err = runner.queue.settings.Int(ctx, settings.JobAttemptLimit)
 	if err != nil {
 		return 0, 0, fmt.Errorf("read the retry limit: %w", err)
 	}

@@ -254,7 +254,7 @@ func TestStore_ShowsAHintOnlyForAnAPIKey(t *testing.T) {
 	if hint := findStatus(t, statuses, OpenSubtitlesAPIKey).Hint; hint != "WXYZ" {
 		t.Errorf("API key hint = %q, want its last four characters", hint)
 	}
-	settingstest.Set(t, fixture.settings, settings.SecretHintLength, "2")
+	settingstest.Set(t, fixture.settings, settings.SecretHintChars, "2")
 	if err = fixture.secrets.Set(ctx, OpenSubtitlesAPIKey, &fixture.userID, NewValue(apiKey), nil); err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestStore_ShowsAHintOnlyForAnAPIKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	if hint := findStatus(t, statuses, OpenSubtitlesAPIKey).Hint; hint != "YZ" {
-		t.Errorf("with secret_hint_length 2, the hint = %q, want the last two characters", hint)
+		t.Errorf("with secret_hint_chars 2, the hint = %q, want the last two characters", hint)
 	}
 	if hint := findStatus(t, statuses, OpenSubtitlesPassword).Hint; hint != "" {
 		t.Errorf("password hint = %q, want none", hint)

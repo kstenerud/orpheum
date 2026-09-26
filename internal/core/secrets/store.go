@@ -139,7 +139,7 @@ func (secrets *Store) Set(ctx context.Context, name Name, owner *int64, value Va
 	sealed := cipher.Seal(nil, nonce, []byte(value.Reveal()), associatedData(definition.Scope, owner, name))
 	var hint *string
 	if definition.HasHint {
-		length, lengthErr := secrets.settings.Int(ctx, settings.SecretHintLength)
+		length, lengthErr := secrets.settings.Int(ctx, settings.SecretHintChars)
 		if lengthErr != nil {
 			return lengthErr
 		}

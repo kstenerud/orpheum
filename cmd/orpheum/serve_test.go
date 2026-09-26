@@ -327,17 +327,17 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 	server := startServing(t, config, newCapturedLog("ready"), "ready")
 	pprofURL := strings.TrimSuffix(server.baseURL, api.Prefix) + "/debug/pprof/"
 	if off := call(t, http.MethodGet, pprofURL, "", nil); off.status != http.StatusNotFound {
-		t.Errorf("with debug_pprof at its starting value, /debug/pprof/ = %d, want 404", off.status)
+		t.Errorf("with serve_debug_pprof at its starting value, /debug/pprof/ = %d, want 404", off.status)
 	}
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
 	}
 	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
-		"UPDATE setting SET value = 'true', is_modified = 1 WHERE scope = 'server' AND key = 'debug_pprof'")
+		"UPDATE setting SET value = 'true', is_modified = 1 WHERE scope = 'server' AND key = 'serve_debug_pprof'")
 	restarted := startServing(t, config, newCapturedLog("ready"), "ready")
 	pprofURL = strings.TrimSuffix(restarted.baseURL, api.Prefix) + "/debug/pprof/"
 	if on := call(t, http.MethodGet, pprofURL, "", nil); on.status != http.StatusOK {
-		t.Errorf("with debug_pprof on and a loopback listener, /debug/pprof/ = %d, want 200", on.status)
+		t.Errorf("with serve_debug_pprof on and a loopback listener, /debug/pprof/ = %d, want 200", on.status)
 	}
 }
 
@@ -352,14 +352,14 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 	// touched still holds the old value; the other was set by a person.
 	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
 		"UPDATE setting SET value = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
-		"UPDATE setting SET value = '6', is_modified = 1 WHERE key = 'secret_hint_length'")
+		"UPDATE setting SET value = '6', is_modified = 1 WHERE key = 'secret_hint_chars'")
 	captured := newCapturedLog("ready")
 	server := startServing(t, config, captured, "ready")
 	logged := captured.String()
 	sweep := strings.Index(logged, "this release changed the starting value of settings nobody had set")
 	ready := strings.Index(logged, `"msg":"ready"`)
 	if sweep < 0 || ready < 0 || sweep > ready || !strings.Contains(logged[sweep:ready], "signin_failure_limit") ||
-		strings.Contains(logged[sweep:ready], "secret_hint_length") {
+		strings.Contains(logged[sweep:ready], "secret_hint_chars") {
 		t.Errorf("the sweep was not logged before ready, or touched the setting a person set:\n%s", logged)
 	}
 	if err := server.stop(); err != nil {

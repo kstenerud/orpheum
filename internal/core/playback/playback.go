@@ -205,7 +205,7 @@ func (service *Service) file(ctx context.Context, fileID int64) (sqlcgen.GetPlay
 }
 
 func (service *Service) idle(ctx context.Context) (time.Duration, error) {
-	hours, err := service.settings.Int(ctx, settings.MediaTokenIdleH)
+	hours, err := service.settings.Int(ctx, settings.MediaTokenIdleExpiryH)
 	if err != nil {
 		return 0, fmt.Errorf("read the media token's idle time: %w", err)
 	}

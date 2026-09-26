@@ -204,7 +204,7 @@ func TestPlayback_AMediaAddressPlaysOnlyForItsSessionAndOnlyWhileInUse(t *testin
 	}
 	harness.clock.Advance(5 * time.Hour)
 	if answer := harness.fetch(t, decided.URL, user, false, ""); answer.status != http.StatusNotFound {
-		t.Errorf("idle past media_token_idle_h: %d, want 404", answer.status)
+		t.Errorf("idle past media_token_idle_expiry_h: %d, want 404", answer.status)
 	}
 }
 

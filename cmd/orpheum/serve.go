@@ -298,17 +298,17 @@ func (codes stateSetupCodes) Remove() error {
 	return codes.directories.RemoveStateFile(auth.SetupCodeFileName)
 }
 
-// mountDebug serves pprof on the API's mux when the debug_pprof setting says so, and only on a
+// mountDebug serves pprof on the API's mux when the serve_debug_pprof setting says so, and only on a
 // loopback listener (cut-a §2a, D91). It reads the settings once, at start. Metrics are a setting
 // too and not built yet; the log says so.
 func mountDebug(
 	ctx context.Context, mux *http.ServeMux, config Config, settingsService *settings.Service, logger *slog.Logger,
 ) error {
-	pprofOn, err := settingsService.Bool(ctx, settings.DebugPProf)
+	pprofOn, err := settingsService.Bool(ctx, settings.ServeDebugPProf)
 	if err != nil {
 		return err
 	}
-	metricsOn, err := settingsService.Bool(ctx, settings.DebugMetrics)
+	metricsOn, err := settingsService.Bool(ctx, settings.ServeDebugMetrics)
 	if err != nil {
 		return err
 	}
@@ -326,7 +326,7 @@ func mountDebug(
 			"listen", config.Server.Listen)
 	}
 	if metricsOn && loopback {
-		logger.WarnContext(ctx, "debug_metrics is set, but /metrics is not built yet; nothing is served there")
+		logger.WarnContext(ctx, "serve_debug_metrics is set, but /metrics is not built yet; nothing is served there")
 	}
 	return nil
 }
