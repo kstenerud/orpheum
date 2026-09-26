@@ -117,7 +117,7 @@ loop to work:**
 
   This is the D182 §3 file: only what must exist before the database opens. Unknown keys are
   reported and ignored, never fatal ([packaging-history.md](../research/packaging-history.md)
-  lesson 11). pprof and `/metrics` are the `debug_pprof` and `debug_metrics` settings, served on
+  lesson 11). pprof and `/metrics` are the `serve_debug_pprof` and `serve_debug_metrics` settings, served on
   the listen address only when it is loopback; every opinionated value is a setting (D200).
 - **`orpheum dev seed --config <file> --seed <file>`, in `-tags dev` builds only** (M1 for the
   users and settings, M2 for the libraries). It applies [`dev/seed.toml`](../../../../dev/seed.toml):

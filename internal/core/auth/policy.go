@@ -65,7 +65,7 @@ func (service *Service) sessionPolicy(ctx context.Context) (idleExpiry, lastSeen
 	if err != nil {
 		return 0, 0, err
 	}
-	resolutionSeconds, err := service.settings.Int(ctx, settings.SessionLastSeenResolutionS)
+	resolutionSeconds, err := service.settings.Int(ctx, settings.SessionLastSeenWriteIntervalS)
 	if err != nil {
 		return 0, 0, err
 	}

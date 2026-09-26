@@ -17,7 +17,7 @@
 //   - Play state records against the source file, never a prepared rendition. Review-only until
 //     M3's tests land.
 //   - A media token grants nothing alone: its bytes are served only to the person and session
-//     that started the playback, and only until it has been idle for media_token_idle_h (D217
+//     that started the playback, and only until it has been idle for media_token_idle_expiry_h (D217
 //     §2). Enforced by TestPlayback_AMediaAddressPlaysOnlyForItsSessionAndOnlyWhileInUse.
 //   - A direct playback's bytes come from the file's node, named by root, path and payload
 //     hash; the core never opens the file (D193 §1). Enforced by

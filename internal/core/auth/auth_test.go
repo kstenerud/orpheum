@@ -181,7 +181,7 @@ func TestAuthenticate_EndsASessionUnusedForTheIdleExpiry(t *testing.T) {
 	fixture := newFixture(t)
 	ctx := t.Context()
 	settingstest.Set(t, fixture.settings, settings.SessionIdleExpiryH, "1")
-	settingstest.Set(t, fixture.settings, settings.SessionLastSeenResolutionS, "60")
+	settingstest.Set(t, fixture.settings, settings.SessionLastSeenWriteIntervalS, "60")
 	fixture.createUser(t, "owner", "right", RoleAdmin)
 	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1")
 	if err != nil {

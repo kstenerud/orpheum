@@ -69,7 +69,7 @@ INSERT INTO user_deny (user_id, item_id) VALUES (2, 2);
 INSERT INTO "grant" (hash, kind, subject, scope, issued_at, expires_at, last_seen_at, label, device_id)
   VALUES (X'01', 'session', 2, 'role', 1790000000000, NULL, 1790000100000, 'phone', 1);
 INSERT INTO setting (scope, user_id, key, value, set_by, set_at)
-  VALUES ('server', NULL, 'update_check', 'false', 1, 1790000000000),
+  VALUES ('server', NULL, 'check_for_updates', 'false', 1, 1790000000000),
          ('user', 2, 'caption_size', '"large"', 2, 1790000000000);
 INSERT INTO secret (scope, user_id, name, key_id, nonce, ciphertext, hint, set_by, set_at)
   VALUES ('server', NULL, 'tmdb_api_key', 7, X'000102030405060708090A0B0C0D0E0F1011121314151617', X'DEADBEEF',

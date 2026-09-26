@@ -27,7 +27,7 @@ type fixture struct {
 func newFixture(t *testing.T) fixture {
 	t.Helper()
 	config := settingstest.Seeded(t, storetest.Open(t))
-	settingstest.Set(t, config, settings.JobRetryLimit, "3")
+	settingstest.Set(t, config, settings.JobAttemptLimit, "3")
 	settingstest.Set(t, config, settings.JobRetryBackoffS, "10")
 	cache := storetest.OpenCache(t)
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))

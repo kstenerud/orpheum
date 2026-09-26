@@ -288,18 +288,18 @@ func TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing(t *test
 	wantError(t, harness.do(t, http.MethodGet, "/settings", user, nil), http.StatusForbidden, CodeForbidden)
 
 	wantError(t, harness.do(t, http.MethodPut, "/settings", admin,
-		map[string]any{"values": map[string]any{"update_check": "yes"}}),
+		map[string]any{"values": map[string]any{"check_for_updates": "yes"}}),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
 	wantError(t, harness.do(t, http.MethodPut, "/settings", admin,
 		map[string]any{"values": map[string]any{"signin_failure_limit": 3}}),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
 	page := harness.do(t, http.MethodGet, "/settings", admin, nil)
-	if strings.Contains(page.body, "signin_failure_limit") || !strings.Contains(page.body, "update_check") {
+	if strings.Contains(page.body, "signin_failure_limit") || !strings.Contains(page.body, "check_for_updates") {
 		t.Errorf("GET /settings shows a setting it should not, or misses one it should: %s", page.body)
 	}
 	changed := harness.do(t, http.MethodPut, "/settings", admin,
-		map[string]any{"values": map[string]any{"update_check": false}})
-	const wantChanged = `"key":"update_check","kind":"bool","value":false,"startingValue":null,"isModified":true`
+		map[string]any{"values": map[string]any{"check_for_updates": false}})
+	const wantChanged = `"key":"check_for_updates","kind":"bool","value":false,"startingValue":null,"isModified":true`
 	if changed.status != http.StatusOK || !strings.Contains(changed.body, wantChanged) {
 		t.Errorf("PUT /settings = %d %s", changed.status, changed.body)
 	}
@@ -390,9 +390,9 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/config/no_such_setting/reset", admin, nil),
 		http.StatusNotFound, CodeNotFound)
 
-	storetest.ExecRaw(t, harness.database, "DELETE FROM setting WHERE key = 'secret_hint_length'")
+	storetest.ExecRaw(t, harness.database, "DELETE FROM setting WHERE key = 'secret_hint_chars'")
 	healed := harness.do(t, http.MethodGet, "/config", admin, nil)
-	const hint = `"key":"secret_hint_length","kind":"integer","value":4`
+	const hint = `"key":"secret_hint_chars","kind":"integer","value":4`
 	if healed.status != http.StatusOK || !strings.Contains(healed.body, hint) {
 		t.Errorf("GET /config with a removed row = %d %s, want it healed with its starting value", healed.status,
 			healed.body)
@@ -442,8 +442,8 @@ func TestConfig_FiltersToWhatDiffersFromTheStartingValue(t *testing.T) {
 		}
 		found = found || setting.Key == "signin_failure_limit"
 	}
-	if !found || strings.Contains(changed.body, `"key":"update_check"`) ||
-		!strings.Contains(all.body, `"key":"update_check"`) {
+	if !found || strings.Contains(changed.body, `"key":"check_for_updates"`) ||
+		!strings.Contains(all.body, `"key":"check_for_updates"`) {
 		t.Errorf("the filter kept an unchanged setting or dropped the changed one:\n%s", changed.body)
 	}
 }

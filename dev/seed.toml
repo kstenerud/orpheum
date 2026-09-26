@@ -37,11 +37,11 @@ writable = false
 # Server settings (the `setting` table), chosen so nothing reaches the network by itself. Every
 # setting already has its starting value (D200); these are the ones dev changes.
 [settings]
-update_check = false
+check_for_updates = false
 subtitles_on_by_default = true
-dialogue_boost_default = false
-debug_pprof = true       # /debug/pprof on the listen address, loopback only (D91: off to start with)
-debug_metrics = true     # /metrics (D91); not built yet, and the log says so
+dialogue_boost_on_by_default = false
+serve_debug_pprof = true       # /debug/pprof on the listen address, loopback only (D91: off to start with)
+serve_debug_metrics = true     # /metrics (D91); not built yet, and the log says so
 
 # Secrets are not seeded. To try TMDB or OpenSubtitles in dev, export ORPHEUM_DEV_TMDB_KEY or
 # ORPHEUM_DEV_OPENSUBTITLES_* before `make dev`; the seed seals whichever are set (D194).
