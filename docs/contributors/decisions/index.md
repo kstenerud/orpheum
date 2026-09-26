@@ -31,7 +31,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D21](working-notes.md#d21--a-fixed-named-output-menu-negotiated-by-a-prioritised-client-list) A fixed, named output menu, negotiated by a prioritised client list — *revisited by D28, D40, D123, D217*
 - [D22](working-notes.md#d22--video-audio-and-subtitles-negotiate-as-independent-axes) Video, audio and subtitles negotiate as independent axes
 - [D23](working-notes.md#d23--axis-switching-is-mid-session-by-default-burn-in-is-the-one-thing-that-breaks-it) Axis switching is mid-session by default; burn-in is the one thing that breaks it
-- [D24](working-notes.md#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series) Language is a preference axis, and track selections stick to the series — *revisited by D98, D140*
+- [D24](working-notes.md#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series) Language is a preference axis, and track selections stick to the series — *revisited by D98, D140, D219*
 - [D25](working-notes.md#d25--remote-access-is-tiered-and-the-promise-changes-from-no-accounts-to-we-only-charge-for-another-machine) Remote access is tiered, and the promise changes from "no accounts" to "we only charge for another machine"
 - [D26](working-notes.md#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp) No FFmpeg in the core process; confine it with Landlock + seccomp — *revisited by D193*
 - [D27](working-notes.md#d27--change-detection-is-a-strategy-interface-that-reports-which-strategy-it-is-using) Change detection is a strategy interface that reports which strategy it is using — *revisited by D32, D33*
@@ -224,6 +224,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D216](working-notes.md#d216--every-byte-path-is-under-apiv1bytes-the-media-cookies-one-scope-the-built-web-client-is-served-by-the-binary-from-m3) Every byte path is under /api/v1/bytes/, the media cookie's one scope; the built web client is served by the binary from M3
 - [D217](working-notes.md#d217--m3s-playback-contract-the-client-sends-ranked-lists-the-media-token-is-a-reference-every-audio-track-is-prepared-and-hlsjs-jassub-and-playwright-are-allowed) M3's playback contract: the client sends ranked lists, the media token is a reference, every audio track is prepared, and hls.js, JASSUB and Playwright are allowed
 - [D218](working-notes.md#d218--accounts-the-admin-creates-a-person-who-sets-a-password-from-a-one-time-link-a-signed-in-person-adds-a-tv-by-a-short-safe32-code) Accounts: the admin creates a person, who sets a password from a one-time link; a signed-in person adds a TV by a short safe32 code
+- [D219](working-notes.md#d219--a-subtitle-choice-is-kept-per-file-choosing-one-carries-it-to-the-works-other-files-that-have-none-of-their-own) A subtitle choice is kept per file; choosing one carries it to the work's other files that have none of their own
 
 ## Archived
 

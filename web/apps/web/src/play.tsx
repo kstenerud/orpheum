@@ -72,7 +72,7 @@ function UnderTheVideo(props: {
       <Subtitles
         fileId={props.fileId}
         tracks={props.decision.subtitles ?? []}
-        startingOffsetMs={props.decision.prefs.subtitleOffsetMs}
+        prefs={props.decision.prefs}
         videoRef={props.videoRef}
       />
     </>

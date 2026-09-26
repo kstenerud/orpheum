@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // The states of an extracted subtitle, as cache.db names them.
@@ -68,27 +69,56 @@ func textKey(payloadHash []byte, streamIndex *int64) cachegen.GetSubtitleTextPar
 // whole file, so it is done when the file is first played (D217 §6). A track that failed is tried
 // again. Bitmap tracks are not offered (cut-a §1).
 func (service *Service) wantSubtitles(ctx context.Context, videoID int64) ([]SubtitleTrack, error) {
+	rows, err := service.textTrackRows(ctx, videoID)
+	if err != nil {
+		return nil, err
+	}
+	now := service.clock.Now().UnixMilli()
+	for _, row := range rows {
+		if err := service.wantText(ctx, row.ID, textKey(row.BytesPayloadHash, row.StreamIndex), now); err != nil {
+			return nil, err
+		}
+	}
+	return tracksOf(rows), nil
+}
+
+// textTracksOf lists a video's text subtitle tracks, its own and its subtitle files'.
+func (service *Service) textTracksOf(ctx context.Context, videoID int64) ([]SubtitleTrack, error) {
+	rows, err := service.textTrackRows(ctx, videoID)
+	if err != nil {
+		return nil, err
+	}
+	return tracksOf(rows), nil
+}
+
+// textTrackRows are a video's subtitle tracks that are text in a file with a payload hash.
+func (service *Service) textTrackRows(
+	ctx context.Context, videoID int64,
+) ([]sqlcgen.ListSubtitleTracksOfVideoRow, error) {
 	rows, err := service.database.Read().ListSubtitleTracksOfVideo(ctx, videoID)
 	if err != nil {
 		return nil, fmt.Errorf("read the subtitle tracks of file %d: %w", videoID, err)
 	}
-	tracks := []SubtitleTrack{}
-	now := service.clock.Now().UnixMilli()
+	text := rows[:0]
 	for _, row := range rows {
-		if row.Codec == nil || !decide.IsTextSubtitle(*row.Codec) || row.BytesPayloadHash == nil {
-			continue
+		if row.Codec != nil && decide.IsTextSubtitle(*row.Codec) && row.BytesPayloadHash != nil {
+			text = append(text, row)
 		}
+	}
+	return text, nil
+}
+
+func tracksOf(rows []sqlcgen.ListSubtitleTracksOfVideoRow) []SubtitleTrack {
+	tracks := make([]SubtitleTrack, 0, len(rows))
+	for _, row := range rows {
 		tracks = append(tracks, SubtitleTrack{
 			StreamID: row.ID, Language: ptr.ValueOrZero(row.Lang), Title: ptr.ValueOrZero(row.TitleRaw),
 			Default:         row.Disposition&library.DispositionBit("default") != 0,
 			Forced:          row.Disposition&library.DispositionBit("forced") != 0,
 			HearingImpaired: row.Disposition&library.DispositionBit("hearing_impaired") != 0,
 		})
-		if err := service.wantText(ctx, row.ID, textKey(row.BytesPayloadHash, row.StreamIndex), now); err != nil {
-			return nil, err
-		}
 	}
-	return tracks, nil
+	return tracks
 }
 
 // wantText has one track's text extracted unless it already is.

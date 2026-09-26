@@ -9,6 +9,84 @@ import (
 	"context"
 )
 
+const deletePreference = `-- name: DeletePreference :exec
+DELETE FROM preference
+WHERE user_id = ?1 AND scope = ?2 AND scope_id = ?3 AND axis = ?4
+`
+
+type DeletePreferenceParams struct {
+	UserID  int64
+	Scope   string
+	ScopeID int64
+	Axis    string
+}
+
+func (q *Queries) DeletePreference(ctx context.Context, arg DeletePreferenceParams) error {
+	_, err := q.db.ExecContext(ctx, deletePreference,
+		arg.UserID,
+		arg.Scope,
+		arg.ScopeID,
+		arg.Axis,
+	)
+	return err
+}
+
+const getTitleOfFile = `-- name: GetTitleOfFile :one
+SELECT version.title_id
+FROM file
+JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+WHERE file.id = ?1 AND file.removed_at IS NULL
+`
+
+// The title a live file is a version of.
+func (q *Queries) GetTitleOfFile(ctx context.Context, fileID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getTitleOfFile, fileID)
+	var title_id int64
+	err := row.Scan(&title_id)
+	return title_id, err
+}
+
+const listFilesOfWork = `-- name: ListFilesOfWork :many
+SELECT DISTINCT file.id
+FROM file
+JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+WHERE file.removed_at IS NULL AND (
+  version.title_id = ?1
+  OR version.title_id IN (
+    SELECT sibling.member_title FROM collection_member AS own
+    JOIN collection_member AS sibling ON sibling.collection_id = own.collection_id
+    JOIN collection ON collection.id = own.collection_id AND collection.kind = 'series'
+    WHERE own.member_title = ?1
+  )
+)
+ORDER BY file.id
+`
+
+// The live files of a work, for carrying a choice across it (D219): of the title, or when the
+// title is an episode in a series, of every episode of that series.
+func (q *Queries) ListFilesOfWork(ctx context.Context, titleID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesOfWork, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPreferencesAt = `-- name: ListPreferencesAt :many
 SELECT axis, value
 FROM preference

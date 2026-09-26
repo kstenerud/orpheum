@@ -13,3 +13,31 @@ SELECT axis, value
 FROM preference
 WHERE user_id = ? AND scope = ? AND scope_id = ?
 ORDER BY axis;
+
+-- name: DeletePreference :exec
+DELETE FROM preference
+WHERE user_id = sqlc.arg(user_id) AND scope = sqlc.arg(scope) AND scope_id = sqlc.arg(scope_id) AND axis = sqlc.arg(axis);
+
+-- name: GetTitleOfFile :one
+-- The title a live file is a version of.
+SELECT version.title_id
+FROM file
+JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+WHERE file.id = sqlc.arg(file_id) AND file.removed_at IS NULL;
+
+-- name: ListFilesOfWork :many
+-- The live files of a work, for carrying a choice across it (D219): of the title, or when the
+-- title is an episode in a series, of every episode of that series.
+SELECT DISTINCT file.id
+FROM file
+JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+WHERE file.removed_at IS NULL AND (
+  version.title_id = sqlc.arg(title_id)
+  OR version.title_id IN (
+    SELECT sibling.member_title FROM collection_member AS own
+    JOIN collection_member AS sibling ON sibling.collection_id = own.collection_id
+    JOIN collection ON collection.id = own.collection_id AND collection.kind = 'series'
+    WHERE own.member_title = sqlc.arg(title_id)
+  )
+)
+ORDER BY file.id;

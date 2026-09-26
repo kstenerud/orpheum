@@ -218,7 +218,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Keep a person's choices for one file: its subtitle offset */
+        /** Keep a person's choices for one file: its subtitle offset, its subtitle track */
         put: operations["setFilePrefs"];
         post?: never;
         delete?: never;
@@ -873,6 +873,7 @@ export interface components {
             streams: components["schemas"]["StreamBody"][] | null;
         };
         FilePrefsBody: {
+            subtitle?: components["schemas"]["SubtitleChoiceBody"];
             /**
              * Format: int64
              * @description Shows the subtitles this much later, or earlier when negative
@@ -1100,6 +1101,11 @@ export interface components {
             token: string;
             user: components["schemas"]["UserBody"];
         };
+        SetFilePrefsInputBody: {
+            subtitle?: components["schemas"]["SubtitleChoiceBody"];
+            /** Format: int64 */
+            subtitleOffsetMs?: number;
+        };
         SettingBody: {
             description: string;
             /** @description Shown on the settings page; every setting is in /config */
@@ -1192,6 +1198,15 @@ export interface components {
             /** @description BCP 47 */
             language?: string;
             title?: string;
+        };
+        SubtitleChoiceBody: {
+            readonly isCarried?: boolean;
+            isOff?: boolean;
+            /**
+             * Format: int64
+             * @description The chosen track; absent when off
+             */
+            streamId?: number;
         };
         SubtitleTrackBody: {
             /** @description The track as ASS, for JASSUB */
@@ -1785,7 +1800,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["FilePrefsBody"];
+                "application/json": components["schemas"]["SetFilePrefsInputBody"];
             };
         };
         responses: {

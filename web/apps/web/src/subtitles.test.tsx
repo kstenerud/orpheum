@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   keepOffset,
+  keepSubtitleChoice,
+  startingTrack,
   formatOffsetSeconds,
   Subtitles,
   trackLabel,
@@ -54,21 +56,21 @@ describe("subtitles", () => {
         <Subtitles
           fileId={2}
           tracks={[track({}), track({ streamId: 7, language: "fr" })]}
-          startingOffsetMs={-1500}
+          prefs={{ subtitleOffsetMs: -1500, subtitle: { streamId: 7 } }}
           videoRef={createRef()}
         />,
       ),
     );
-    expect(markup).toContain('<option value="" selected="">Off</option>');
+    expect(markup).toContain('<option value="">Off</option>');
     expect(markup).toContain('<option value="5">English</option>');
-    expect(markup).toContain('<option value="7">French</option>');
+    expect(markup).toContain('<option value="7" selected="">French</option>');
     expect(markup).toContain("Subtitle offset: -1.5 s");
   });
 
   it("shows nothing for a file without subtitles", () => {
     const markup = renderToStaticMarkup(
       withServices(
-        <Subtitles fileId={2} tracks={[]} startingOffsetMs={0} videoRef={createRef()} />,
+        <Subtitles fileId={2} tracks={[]} prefs={{ subtitleOffsetMs: 0 }} videoRef={createRef()} />,
       ),
     );
     expect(markup).toBe("");
@@ -90,5 +92,32 @@ describe("subtitles", () => {
       method: "PUT",
       body: { subtitleOffsetMs: 250 },
     });
+  });
+
+  it("starts with the file's choice only when it names one of the file's tracks", () => {
+    const tracks = [track({}), track({ streamId: 7, language: "fr" })];
+    expect(startingTrack({ subtitleOffsetMs: 0, subtitle: { streamId: 7 } }, tracks)).toBe(7);
+    expect(
+      startingTrack({ subtitleOffsetMs: 0, subtitle: { isOff: true } }, tracks),
+    ).toBeUndefined();
+    expect(
+      startingTrack({ subtitleOffsetMs: 0, subtitle: { streamId: 99 } }, tracks),
+    ).toBeUndefined();
+    expect(startingTrack({ subtitleOffsetMs: 0 }, tracks)).toBeUndefined();
+  });
+
+  it("keeps a choice of a track, or of off", async () => {
+    const sent: unknown[] = [];
+    const api = createApi({ origin: "http://orpheum.test", token: () => "token" });
+    // Answered here, before any request leaves: tests never touch the network.
+    api.use({
+      async onRequest({ request }) {
+        sent.push(await request.json());
+        return new Response(null, { status: 204 });
+      },
+    });
+    await keepSubtitleChoice(api, 2, 5);
+    await keepSubtitleChoice(api, 2, undefined);
+    expect(sent).toEqual([{ subtitle: { streamId: 5 } }, { subtitle: { isOff: true } }]);
   });
 });

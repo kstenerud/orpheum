@@ -577,11 +577,12 @@
       "FilePrefsBody": {
         "additionalProperties": false,
         "properties": {
+          "subtitle": {
+            "$ref": "#/components/schemas/SubtitleChoiceBody"
+          },
           "subtitleOffsetMs": {
             "description": "Shows the subtitles this much later, or earlier when negative",
             "format": "int64",
-            "maximum": 600000,
-            "minimum": -600000,
             "type": "integer"
           }
         },
@@ -1451,6 +1452,21 @@
         ],
         "type": "object"
       },
+      "SetFilePrefsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "subtitle": {
+            "$ref": "#/components/schemas/SubtitleChoiceBody"
+          },
+          "subtitleOffsetMs": {
+            "format": "int64",
+            "maximum": 600000,
+            "minimum": -600000,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "SettingBody": {
         "additionalProperties": false,
         "properties": {
@@ -1760,6 +1776,24 @@
           "id",
           "kind"
         ],
+        "type": "object"
+      },
+      "SubtitleChoiceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "isCarried": {
+            "readOnly": true,
+            "type": "boolean"
+          },
+          "isOff": {
+            "type": "boolean"
+          },
+          "streamId": {
+            "description": "The chosen track; absent when off",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
         "type": "object"
       },
       "SubtitleTrackBody": {
@@ -2806,7 +2840,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/FilePrefsBody"
+                "$ref": "#/components/schemas/SetFilePrefsInputBody"
               }
             }
           },
@@ -2827,7 +2861,7 @@
             "description": "Error"
           }
         },
-        "summary": "Keep a person's choices for one file: its subtitle offset",
+        "summary": "Keep a person's choices for one file: its subtitle offset, its subtitle track",
         "tags": [
           "Playback"
         ]

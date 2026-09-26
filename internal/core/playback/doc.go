@@ -20,6 +20,9 @@
 //     nothing (D217 §7, D165). Enforced by
 //     TestPlayState_TwoDevicesReportingOutOfOrderNeverRewindThePosition and
 //     TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching.
+//   - A subtitle choice is kept per file, as the file's own, and carried to the work's other files
+//     with none of their own, by language and kind, never over a file's own (D219). Enforced by
+//     TestSubtitleChoice_IsKeptPerFileAndCarriedToTheSeriesFilesWithNoneOfTheirOwn.
 //   - A playback starts where the person left the file, unless that is before resume_min_percent
 //     or after finished_after_percent of a known length; an unknown length is never read as
 //     finished. Enforced by TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength.
@@ -56,6 +59,7 @@
 // # Read before changing
 //
 //   - D217: the menu, the media token, and what M3 decided about playback; §6, subtitles.
+//   - D219: a subtitle choice per file, carried across the work; D24: what a choice is.
 //   - D157: a position belongs to the File.
 //   - D165: the log records state changes and spans; an offline device must not rewind.
 //   - D180: a prepared rendition's play state is its source's.
