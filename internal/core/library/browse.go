@@ -32,20 +32,22 @@ const (
 	SortAdded  = "added"
 )
 
-// Locales is what the browser reads from the settings: the locale lists sort in (D47).
-type Locales interface {
+// BrowseSettings is what the browser reads from the settings: the locale lists sort in (D47), and
+// the thresholds that choose Continue Watching (play-state.md).
+type BrowseSettings interface {
 	String(ctx context.Context, key settings.Key) (string, error)
+	Int(ctx context.Context, key settings.Key) (int64, error)
 }
 
 // Browser is what a person browses and searches: films and series in a locale's order or newest
 // first, a title's detail, a series' episodes (cut-a §5, Browse; D47, D48).
 type Browser struct {
 	database *store.Database
-	settings Locales
+	settings BrowseSettings
 }
 
 // NewBrowser returns the browser.
-func NewBrowser(database *store.Database, config Locales) *Browser {
+func NewBrowser(database *store.Database, config BrowseSettings) *Browser {
 	return &Browser{database: database, settings: config}
 }
 

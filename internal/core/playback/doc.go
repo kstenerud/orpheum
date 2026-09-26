@@ -70,5 +70,6 @@
 //     a prepared playback's files, and the prepare job's handler. subtitles.go: the text tracks a
 //     playback offers, their extraction jobs and their text. waiting.go: jobs waiting for a node's
 //     answer. report.go: the play report, its log and the guarded position. resume.go: where a
-//     playback starts. Continue Watching comes later in M3; Next Up after it.
+//     playback starts. hide.go: hiding a work from Continue Watching, which library's home.go
+//     lists. Next Up comes after M3.
 package playback

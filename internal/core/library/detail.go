@@ -56,14 +56,22 @@ func (browser *Browser) Title(ctx context.Context, titleID int64) (TitleDetail, 
 	if detail.Art, err = browser.art(ctx, titleID); err != nil {
 		return TitleDetail{}, err
 	}
-	place, err := store.One(queries.GetEpisodePlace(ctx, titleID))
-	switch {
-	case err == nil:
-		detail.Episode = &place
-	case !errors.Is(err, store.ErrNotFound):
-		return TitleDetail{}, fmt.Errorf("read title %d's place: %w", titleID, err)
+	if detail.Episode, err = browser.episodePlace(ctx, titleID); err != nil {
+		return TitleDetail{}, err
 	}
 	return detail, nil
+}
+
+// episodePlace is an episode's series and place in the aired order, or nil for a title in none.
+func (browser *Browser) episodePlace(ctx context.Context, titleID int64) (*sqlcgen.GetEpisodePlaceRow, error) {
+	place, err := store.One(browser.database.Read().GetEpisodePlace(ctx, titleID))
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		return nil, nil //nolint:nilnil // no place is an answer, not an error
+	case err != nil:
+		return nil, fmt.Errorf("read title %d's place: %w", titleID, err)
+	}
+	return &place, nil
 }
 
 func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version, error) {

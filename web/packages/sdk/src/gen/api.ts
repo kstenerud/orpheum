@@ -247,6 +247,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The home screen: what the person stopped in the middle of */
+        get: operations["getHome"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/items": {
         parameters: {
             query?: never;
@@ -293,6 +310,24 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{id}/hide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hide a work from Continue Watching until it next has activity; not a completion (D188) */
+        post: operations["hideProgress"];
+        /** Undo hiding a work */
+        delete: operations["unhideProgress"];
         options?: never;
         head?: never;
         patch?: never;
@@ -868,6 +903,31 @@ export interface components {
             /** @enum {string} */
             kind: "movie" | "episode" | "extra" | "series";
             name: string;
+            /** Format: int64 */
+            year?: number;
+        };
+        HomeOutputBody: {
+            continueWatching: components["schemas"]["InProgressBody"][] | null;
+        };
+        InProgressBody: {
+            /**
+             * Format: int64
+             * @description 0 when the file's length is unknown
+             */
+            durationMs: number;
+            episode?: components["schemas"]["EpisodePlaceBody"];
+            /** Format: int64 */
+            fileId: number;
+            /** @description Which file it resumes, when two are partway */
+            fileName?: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            libraryId: number;
+            name: string;
+            /** Format: int64 */
+            positionMs: number;
+            posterHash?: string;
             /** Format: int64 */
             year?: number;
         };
@@ -1776,6 +1836,38 @@ export interface operations {
             };
         };
     };
+    getHome: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getItemsByIdentification: {
         parameters: {
             query: {
@@ -1866,6 +1958,70 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CandidatesOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    hideProgress: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    unhideProgress: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
