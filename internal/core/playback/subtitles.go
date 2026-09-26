@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
@@ -78,7 +79,7 @@ func (service *Service) wantSubtitles(ctx context.Context, videoID int64) ([]Sub
 			continue
 		}
 		tracks = append(tracks, SubtitleTrack{
-			StreamID: row.ID, Language: text(row.Lang), Title: text(row.TitleRaw),
+			StreamID: row.ID, Language: ptr.ValueOrZero(row.Lang), Title: ptr.ValueOrZero(row.TitleRaw),
 			Default:         row.Disposition&library.DispositionBit("default") != 0,
 			Forced:          row.Disposition&library.DispositionBit("forced") != 0,
 			HearingImpaired: row.Disposition&library.DispositionBit("hearing_impaired") != 0,
@@ -117,13 +118,6 @@ func (service *Service) wantText(
 		Reason: "someone is watching it, and its subtitles are offered",
 	})
 	return err
-}
-
-func text(optional *string) string {
-	if optional == nil {
-		return ""
-	}
-	return *optional
 }
 
 // Subtitle is the text, in format, of the subtitle track streamID of the file a media token refers

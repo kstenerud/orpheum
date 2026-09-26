@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -94,7 +95,7 @@ func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome,
 	if id != "" {
 		return OutcomeMatched, matcher.accept(ctx, provider, title, id, identIdentified)
 	}
-	query := Query{Kind: title.Kind, Name: derefText(title.Name), Year: int(deref(title.Year))}
+	query := Query{Kind: title.Kind, Name: ptr.ValueOrZero(title.Name), Year: int(deref(title.Year))}
 	candidates, err := provider.Search(ctx, query)
 	if err != nil {
 		return "", fmt.Errorf("search %s for %q: %w", provider.Name(), query.Name, err)
@@ -388,13 +389,6 @@ func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, ident,
 		}
 	}
 	return nil
-}
-
-func derefText(text *string) string {
-	if text == nil {
-		return ""
-	}
-	return *text
 }
 
 // Handle is the fetch job's handler. A provider's rate limit defers the queue until its time; a

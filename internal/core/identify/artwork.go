@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -37,7 +38,7 @@ func (work *run) oweArtwork(ctx context.Context, itemID int64, source string, re
 	var owed []ArtRef
 	for _, ref := range refs {
 		held := slices.ContainsFunc(stored, func(row storedArt) bool {
-			return row.Kind == ref.Kind && row.Source == source && derefText(row.SourceRef) == ref.Ref
+			return row.Kind == ref.Kind && row.Source == source && ptr.ValueOrZero(row.SourceRef) == ref.Ref
 		})
 		if !held {
 			owed = append(owed, ref)

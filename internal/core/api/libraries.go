@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
 
 const tagLibraries = "Libraries"
@@ -243,9 +244,9 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 			body.Filings = summary.Filings
 			for _, root := range summary.Roots {
 				body.Roots = append(body.Roots, RootBody{
-					Node: root.NodeName, Path: root.Path, Outcome: text(root.Outcome),
-					OutcomeAt:      number(root.OutcomeAt),
-					WithheldReason: text(root.WithheldReason),
+					Node: root.NodeName, Path: root.Path, Outcome: ptr.ValueOrZero(root.Outcome),
+					OutcomeAt:      ptr.ValueOrZero(root.OutcomeAt),
+					WithheldReason: ptr.ValueOrZero(root.WithheldReason),
 				})
 			}
 		}
@@ -349,18 +350,4 @@ func (server *Server) libraryError(ctx context.Context, doing string, err error)
 		return newError(http.StatusConflict, CodeConflict, err.Error())
 	}
 	return server.internal(ctx, doing, err)
-}
-
-func text(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}
-
-func number(value *int64) int64 {
-	if value == nil {
-		return 0
-	}
-	return *value
 }

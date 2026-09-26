@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/kstenerud/orpheum/internal/core/textindex"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -82,16 +83,16 @@ func (chooser *Chooser) Items(ctx context.Context, ident string) ([]ItemSummary,
 	items := make([]ItemSummary, 0, len(titles)+len(series))
 	for _, row := range titles {
 		items = append(items, ItemSummary{
-			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: row.Kind, Name: derefText(row.Name),
-			Year: deref(row.Year), Ident: row.Identification, Source: derefText(row.Source),
-			SourceID: derefText(row.SourceID),
+			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: row.Kind, Name: ptr.ValueOrZero(row.Name),
+			Year: deref(row.Year), Ident: row.Identification, Source: ptr.ValueOrZero(row.Source),
+			SourceID: ptr.ValueOrZero(row.SourceID),
 		})
 	}
 	for _, row := range series {
 		items = append(items, ItemSummary{
-			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: KindSeries, Name: derefText(row.Name),
-			Year: deref(row.Year), Ident: derefText(row.Identification), Source: derefText(row.Source),
-			SourceID: derefText(row.SourceID),
+			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: KindSeries, Name: ptr.ValueOrZero(row.Name),
+			Year: deref(row.Year), Ident: ptr.ValueOrZero(row.Identification), Source: ptr.ValueOrZero(row.Source),
+			SourceID: ptr.ValueOrZero(row.SourceID),
 		})
 	}
 	slices.SortStableFunc(items, func(a, b ItemSummary) int {
@@ -116,14 +117,14 @@ func (item target) id() int64 {
 
 func (item target) query() Query {
 	if item.isSeries {
-		return Query{Kind: KindSeries, Name: derefText(item.series.Name), Year: int(deref(item.series.Year))}
+		return Query{Kind: KindSeries, Name: ptr.ValueOrZero(item.series.Name), Year: int(deref(item.series.Year))}
 	}
-	return Query{Kind: item.title.Kind, Name: derefText(item.title.Name), Year: int(deref(item.title.Year))}
+	return Query{Kind: item.title.Kind, Name: ptr.ValueOrZero(item.title.Name), Year: int(deref(item.title.Year))}
 }
 
 func (item target) ident() string {
 	if item.isSeries {
-		return derefText(item.series.Identification)
+		return ptr.ValueOrZero(item.series.Identification)
 	}
 	return item.title.Identification
 }
@@ -158,8 +159,8 @@ func (chooser *Chooser) Candidates(ctx context.Context, itemID int64) ([]Candida
 	for _, row := range kept {
 		provider = row.Provider
 		candidates = append(candidates, Candidate{
-			ID: row.ProviderID, Name: derefText(row.Name), Year: int(deref(row.Year)),
-			PosterRef: derefText(row.PosterRef),
+			ID: row.ProviderID, Name: ptr.ValueOrZero(row.Name), Year: int(deref(row.Year)),
+			PosterRef: ptr.ValueOrZero(row.PosterRef),
 		})
 	}
 	if len(candidates) > 0 || item.ident() != identAmbiguous {

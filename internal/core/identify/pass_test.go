@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -194,7 +195,7 @@ func checkVersionsAndTrailer(t *testing.T, files map[string]sqlcgen.ListFileTitl
 	if trailer.Filing != filingExtra || trailer.FilingReason == nil ||
 		*trailer.FilingReason != "trailer of Two Versions Film (2019), by its trailers folder" {
 		t.Errorf("the trailer is filed %s (%v), want an extra with its owner, type and evidence (D163)",
-			trailer.Filing, derefText(trailer.FilingReason))
+			trailer.Filing, ptr.ValueOrZero(trailer.FilingReason))
 	}
 }
 

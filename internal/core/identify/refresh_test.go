@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -64,9 +65,9 @@ func TestRefresh_TakesTheProvidersNewValuesAndKeepsAPersonsOverride(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if derefText(detail.Overview) != changed.Overview || derefText(detail.Name) != "Metropolis (Director's Cut)" {
+	if ptr.ValueOrZero(detail.Overview) != changed.Overview || ptr.ValueOrZero(detail.Name) != "Metropolis (Director's Cut)" {
 		t.Errorf("after the refresh: %q, %q; want TMDB's new overview and the person's name",
-			derefText(detail.Name), derefText(detail.Overview))
+			ptr.ValueOrZero(detail.Name), ptr.ValueOrZero(detail.Overview))
 	}
 	if lib.fetchedAt(titleID, "") != lib.clock.Now().UnixMilli() {
 		t.Error("the stored response was not fetched again")

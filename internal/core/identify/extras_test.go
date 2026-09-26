@@ -2,7 +2,11 @@
 
 package identify
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
+)
 
 // D162's second evidence: named for its folder's title with a vocabulary suffix. The suffix alone
 // never makes an extra, and nothing at a library root is one.
@@ -19,9 +23,9 @@ func TestPass_AFileNamedForItsFoldersTitleWithASuffixIsAnExtra(t *testing.T) {
 	film := files["Quiet Harbour (1999)/Quiet Harbour (1999).mkv"]
 	featurette := files["Quiet Harbour (1999)/Quiet Harbour (1999)-featurette.mkv"]
 	if featurette.Kind != kindExtra || featurette.TitleID == film.TitleID || featurette.Filing != filingExtra ||
-		derefText(featurette.FilingReason) != "featurette of Quiet Harbour (1999), by its name" {
+		ptr.ValueOrZero(featurette.FilingReason) != "featurette of Quiet Harbour (1999), by its name" {
 		t.Errorf("the featurette is %+v (%s); want an extra of the film, by its name", featurette,
-			derefText(featurette.FilingReason))
+			ptr.ValueOrZero(featurette.FilingReason))
 	}
 	for _, rel := range []string{"Quiet Harbour (1999)/Something Else-trailer.mkv", "Loose Ends-trailer.mkv"} {
 		if file := files[rel]; file.Kind == kindExtra || file.Filing == filingExtra {
