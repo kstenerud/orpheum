@@ -52,6 +52,9 @@ func TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre(t *testing.
 		t.Errorf("the mixes are %q, %q, %q", after(arguments, "-filter:a:0"), after(arguments, "-filter:a:1"),
 			after(arguments, "-filter:a:2"))
 	}
+	if after(arguments, "-hls_time") != "2" {
+		t.Errorf("segments are %q s, want 2: switching the boost waits for the next one", after(arguments, "-hls_time"))
+	}
 	if after(arguments, "-hls_segment_type") != "fmp4" || after(arguments, "-hls_playlist_type") != "event" ||
 		arguments[len(arguments)-1] != "/prep/7/remux/%v/stream.m3u8" {
 		t.Errorf("the output is %v, want fMP4 HLS as an EVENT playlist under the rendition", arguments)

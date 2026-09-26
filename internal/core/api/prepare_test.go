@@ -112,3 +112,31 @@ func TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried(t *testing.T) {
 		t.Errorf("a failed rendition's playlist: %d %s, want prepare_failed", playlist.status, playlist.body)
 	}
 }
+
+func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 2)
+	decided := harness.play(t, user, chrome(2))
+	playback := harness.server.dependencies.Load().Playback
+	first := make(chan error, 1)
+	go func() {
+		first <- playback.HandlePrepare(t.Context(), jobs.Job{ID: 80, Kind: jobs.KindPrepare, Subject: 1})
+	}()
+	<-harness.nodes.commanded
+	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: 80, State: nodeproto.PrepareDone, Bytes: 9})
+	if err := <-first; err != nil {
+		t.Fatal(err)
+	}
+	// Complete, but the node has no playlist for it: it was evicted, or its directory lost.
+	lost := harness.fetch(t, decided.URL, user, true, "")
+	if lost.status != http.StatusTooEarly {
+		t.Errorf("a complete rendition the node lost: %d %s, want 425 while it is prepared again",
+			lost.status, lost.body)
+	}
+	if again := harness.play(t, user, chrome(2)); !again.Preparing {
+		t.Errorf("after it was lost: %+v, want it being prepared again", again)
+	}
+}

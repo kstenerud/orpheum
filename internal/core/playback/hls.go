@@ -50,6 +50,9 @@ const (
 type HLSSource struct {
 	Source
 	Readiness Readiness
+	// fileID and profile name the rendition, for Lost.
+	fileID  int64
+	profile nodeproto.PrepareProfile
 }
 
 // HLS is where the named file of the rendition a media token refers to is (cut-a §5).
@@ -81,8 +84,18 @@ func (service *Service) HLS(ctx context.Context, token, name string, userID int6
 	target := nodeproto.PathBytesPrepared + strconv.FormatInt(what.fileID, 10) + "/" + string(what.profile) + "/" + name
 	return HLSSource{
 		Source:    Source{NodeID: rendition.NodeID, Target: target, ContentType: hlsType(name)},
-		Readiness: readiness,
+		Readiness: readiness, fileID: what.fileID, profile: what.profile,
 	}, nil
+}
+
+// Lost prepares a complete rendition again when its node no longer has it: evicted, or its
+// directory lost (D217 §5). The player is told it is too early, and waits as for a new one.
+func (service *Service) Lost(ctx context.Context, source HLSSource) error {
+	file, err := service.file(ctx, source.fileID)
+	if err != nil {
+		return err
+	}
+	return service.prepares.redo(ctx, file, source.profile)
 }
 
 // hlsType is a rendition file's media type, by its name.
