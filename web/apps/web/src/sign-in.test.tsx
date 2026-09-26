@@ -11,13 +11,18 @@ const ignore = (): void => undefined;
 
 describe("sign-in", () => {
   it("names each failure so a person knows what to do", () => {
-    expect([401, 429, 409, 500].map(signInProblem)).toEqual(["wrong", "wait", "setup", "failed"]);
+    expect([401, 429, 409, 500].map(signInProblem)).toEqual([
+      "wrongNameOrPassword",
+      "tooManyAttempts",
+      "noAdminYet",
+      "failed",
+    ]);
     const markup = renderToStaticMarkup(
       <SignInForm
         name="owner"
         password=""
         isSending={false}
-        problem="setup"
+        problem="noAdminYet"
         onName={ignore}
         onPassword={ignore}
         onSubmit={ignore}

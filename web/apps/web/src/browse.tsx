@@ -17,7 +17,7 @@ import type { Resource } from "./use-resource.ts";
 export type Entry = components["schemas"]["EntryBody"];
 
 /** Which list: films or series. */
-export type BrowseList = "movie" | "series";
+export type BrowseKind = "movie" | "series";
 
 /** The order a list comes in. */
 export type BrowseSort = "name" | "added";
@@ -25,8 +25,8 @@ export type BrowseSort = "name" | "added";
 const pageSize = 60;
 
 /** Where an entry leads: a film's page, or a series'. */
-export function entryRoute(list: BrowseList, id: number): Route {
-  return list === "movie" ? { screen: "title", id } : { screen: "collection", id };
+export function entryRoute(kind: BrowseKind, id: number): Route {
+  return kind === "movie" ? { screen: "title", id } : { screen: "collection", id };
 }
 
 /** A poster, or a named blank where there is none; the card's own text names the item. */
@@ -53,7 +53,7 @@ export function Poster(props: { readonly hash: string | undefined }): JSX.Elemen
 
 /** A grid of films or series, each a poster with its name and year under it. */
 export function PosterGrid(props: {
-  readonly list: BrowseList;
+  readonly kind: BrowseKind;
   readonly entries: readonly Entry[];
 }): JSX.Element {
   const { t } = useTranslation();
@@ -61,7 +61,7 @@ export function PosterGrid(props: {
     <ul className="poster-grid">
       {props.entries.map((entry) => (
         <li key={entry.id}>
-          <Link to={entryRoute(props.list, entry.id)} className="poster-grid__card">
+          <Link to={entryRoute(props.kind, entry.id)} className="poster-grid__card">
             <Poster hash={entry.posterHash} />
             <span className="poster-grid__name">{entry.name}</span>
             {entry.year === undefined ? null : (
@@ -78,16 +78,16 @@ export function PosterGrid(props: {
  * Films or series, by name or newest first, with no pagination to click through: the next page
  * loads as the end comes into view, or on the button that is always there for it.
  */
-export function Browse(props: { readonly list: BrowseList }): JSX.Element {
+export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
   const { t } = useTranslation();
   const [sort, setSort] = useState<BrowseSort>("name");
   return (
     <section className="browse" aria-labelledby="browse-heading">
       <div className="browse__bar">
-        <h1 id="browse-heading">{t(props.list === "movie" ? "browse.films" : "browse.series")}</h1>
+        <h1 id="browse-heading">{t(props.kind === "movie" ? "browse.films" : "browse.series")}</h1>
         <SortChoice sort={sort} onSort={setSort} />
       </div>
-      <BrowsePages key={`${props.list}/${sort}`} list={props.list} sort={sort} />
+      <BrowsePages key={`${props.kind}/${sort}`} kind={props.kind} sort={sort} />
     </section>
   );
 }
@@ -115,24 +115,24 @@ export function SortChoice(props: {
 }
 
 /** One list in one order, read a page at a time. */
-function BrowsePages(props: { readonly list: BrowseList; readonly sort: BrowseSort }): JSX.Element {
+function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSort }): JSX.Element {
   const { api } = useServices();
-  const { list, sort } = props;
+  const { kind, sort } = props;
   const load = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
-      const query = { kind: list, sort, limit: pageSize, ...(cursor === "" ? {} : { cursor }) };
+      const query = { kind, sort, limit: pageSize, ...(cursor === "" ? {} : { cursor }) };
       const { data, error } = await api.GET("/titles", { params: { query } });
       if (data === undefined) {
         throw new Error(error.error.message);
       }
       return { items: data.titles ?? [], next: data.nextCursor ?? "" };
     },
-    [api, list, sort],
+    [api, kind, sort],
   );
   const pages = usePages(load);
   return (
     <BrowseView
-      list={list}
+      kind={kind}
       pages={pages.list}
       isLoadingMore={pages.isLoadingMore}
       onMore={pages.more}
@@ -142,7 +142,7 @@ function BrowsePages(props: { readonly list: BrowseList; readonly sort: BrowseSo
 
 /** A list's pages as they show: loading, failed with why, empty, or the grid and a way to more. */
 export function BrowseView(props: {
-  readonly list: BrowseList;
+  readonly kind: BrowseKind;
   readonly pages: Resource<Page<Entry>>;
   readonly isLoadingMore: boolean;
   readonly onMore: () => void;
@@ -160,7 +160,7 @@ export function BrowseView(props: {
   }
   return (
     <>
-      <PosterGrid list={props.list} entries={pages.value.items} />
+      <PosterGrid kind={props.kind} entries={pages.value.items} />
       {pages.value.next === "" ? null : (
         <EndOfList onVisible={props.onMore}>
           <button type="button" onClick={props.onMore} disabled={props.isLoadingMore}>

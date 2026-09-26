@@ -92,10 +92,10 @@ function WaitingRow(props: {
         );
       });
   };
-  const list = item.kind === "series" ? "series" : "movie";
+  const kind = item.kind === "series" ? "series" : "movie";
   return (
     <div>
-      <Link to={entryRoute(list, item.id)}>{item.name}</Link>{" "}
+      <Link to={entryRoute(kind, item.id)}>{item.name}</Link>{" "}
       {item.year === undefined ? null : <span>{item.year}</span>}{" "}
       {props.waiting === "ambiguous" ? (
         <button
