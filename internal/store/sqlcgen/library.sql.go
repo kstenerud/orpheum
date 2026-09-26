@@ -154,7 +154,7 @@ func (q *Queries) InsertLibraryRoot(ctx context.Context, arg InsertLibraryRootPa
 }
 
 const listFilesPage = `-- name: ListFilesPage :many
-SELECT id, library_id, path, filing, filing_reason, error_detail, size, first_seen, last_seen
+SELECT id, library_id, path, filing, filing_reason, error_detail, size_bytes, first_seen_at, last_seen_at
 FROM file
 WHERE removed_at IS NULL AND id > ?1
   AND (library_id = ?2 OR ?2 IS NULL)
@@ -177,9 +177,9 @@ type ListFilesPageRow struct {
 	Filing       string
 	FilingReason *string
 	ErrorDetail  *string
-	Size         *int64
-	FirstSeen    int64
-	LastSeen     int64
+	SizeBytes    *int64
+	FirstSeenAt  int64
+	LastSeenAt   int64
 }
 
 // What the scanner saw (D163): live files by id after a cursor, optionally of one library and
@@ -205,9 +205,9 @@ func (q *Queries) ListFilesPage(ctx context.Context, arg ListFilesPageParams) ([
 			&i.Filing,
 			&i.FilingReason,
 			&i.ErrorDetail,
-			&i.Size,
-			&i.FirstSeen,
-			&i.LastSeen,
+			&i.SizeBytes,
+			&i.FirstSeenAt,
+			&i.LastSeenAt,
 		); err != nil {
 			return nil, err
 		}

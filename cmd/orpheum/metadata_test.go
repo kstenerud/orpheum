@@ -22,7 +22,7 @@ func TestFollowSortLocale_KeysEveryNameAtStartAndOnEveryChange(t *testing.T) {
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at)
 		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
 		"INSERT INTO item (id, kind, library_id, created_at) VALUES (10, 'title', 1, 1)",
-		"INSERT INTO title (id, kind, ident) VALUES (10, 'movie', 'identified')",
+		"INSERT INTO title (id, kind, identification) VALUES (10, 'movie', 'identified')",
 		"INSERT INTO item_text (item_id, lang, is_original, name) VALUES (10, 'und', 1, 'Metropolis')")
 	pass := identify.NewPass(database, clock.System{}, slog.New(slog.DiscardHandler), nil, config)
 	if err := followSortLocale(t.Context(), pass, config, slog.New(slog.DiscardHandler)); err != nil {

@@ -62,7 +62,7 @@ objects, each with one job:
 | --- | --- | --- |
 | the guarded position, above | where you are now | every ~10 s, in place |
 | a **state-change event** — `started`, `paused`, `seeked`, `completed`, `abandoned` | what happened | when one happens |
-| a **watched span** — `(user, file, device, pos_from→pos_to, t_from→t_to)` | what was actually seen | **appended when a state change closes it** |
+| a **watched span** — `(user, file, device, from_position_ms→to_position_ms, started_at→ended_at)` | what was actually seen | **appended when a state change closes it** |
 
 Each carries the user, the file, the version actually played, the device, the server timestamp
 **and the client's own monotonic clock** — the last being what makes an offline device's events

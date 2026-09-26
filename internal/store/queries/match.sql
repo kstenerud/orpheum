@@ -3,7 +3,7 @@
 -- writes in library.db. The kept search results are cache.db's.
 
 -- name: GetTitleForMatch :one
-SELECT title.id, title.kind, title.year, title.ident, title.source, title.source_id, item.library_id,
+SELECT title.id, title.kind, title.year, title.identification, title.source, title.source_id, item.library_id,
   library.metadata_source, item_text.name
 FROM title
 JOIN item ON item.id = title.id
@@ -32,7 +32,7 @@ WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part = s
 -- The outcome of a match: the source and its id, or ambiguous, or 'none' when the provider has
 -- nothing. A confirmed match is a person's and stays (D172).
 UPDATE title SET source = sqlc.arg(source), source_id = sqlc.arg(source_id),
-  ident = CASE WHEN ident = 'confirmed' THEN ident ELSE sqlc.arg(ident) END
+  identification = CASE WHEN identification = 'confirmed' THEN identification ELSE sqlc.arg(identification) END
 WHERE id = sqlc.arg(id);
 
 -- name: ListLiveFilesOfTitle :many
@@ -58,7 +58,7 @@ SELECT title.id
 FROM title
 JOIN item ON item.id = title.id
 WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND title.kind = 'movie'
-  AND title.source IS NULL AND title.ident = 'unidentified'
+  AND title.source IS NULL AND title.identification = 'unidentified'
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
@@ -67,12 +67,12 @@ ORDER BY title.id;
 
 -- name: ListTitlesByIdent :many
 -- The titles in one state of identification, for the chooser's list (cut-a section 5).
-SELECT title.id, title.kind, title.year, title.ident, title.source, title.source_id, item.library_id,
+SELECT title.id, title.kind, title.year, title.identification, title.source, title.source_id, item.library_id,
   item_text.name
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-WHERE title.ident = sqlc.arg(ident) AND item.removed_at IS NULL
+WHERE title.identification = sqlc.arg(identification) AND item.removed_at IS NULL
 ORDER BY item_text.name, title.id;
 
 -- name: DeleteItemProviderIDsOf :exec

@@ -65,7 +65,8 @@ func TestChooser_AChosenMatchIsPermanent(t *testing.T) {
 	}
 	for _, when := range []string{"after choosing", "after another pass"} {
 		file := lib.files()["The General (2003).mkv"]
-		if file.Ident != identConfirmed || file.Year == nil || *file.Year != 2002 || file.Filing != filingListed {
+		if file.Identification != identConfirmed || file.Year == nil || *file.Year != 2002 ||
+			file.Filing != filingListed {
 			t.Errorf("%s: %+v; want the chosen film, confirmed", when, file)
 		}
 		lib.scan(video("The General (2003).mkv"))
@@ -90,7 +91,7 @@ func TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne(t *testing.T) {
 	}
 	lib.scan(video("Metropolis (1995).mkv"),
 		nfo("Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year><tmdbid>9019</tmdbid></movie>"))
-	if file := lib.files()["Metropolis (1995).mkv"]; name(file) != leon.Name || file.Ident != identConfirmed {
+	if file := lib.files()["Metropolis (1995).mkv"]; name(file) != leon.Name || file.Identification != identConfirmed {
 		t.Errorf("file %+v is %q; want the person's choice over the NFO", file, name(file))
 	}
 	ids, err := lib.database.Read().ListItemProviderIDs(t.Context(), titleID)

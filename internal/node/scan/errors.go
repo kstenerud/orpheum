@@ -46,15 +46,15 @@ func (log *errorLog) record(reported string, scope nodeproto.ErrorScope, cause e
 	code := classify(cause)
 	directory := path.Dir(reported)
 	if log.pending != nil && log.pending.Code == code && log.pending.Scope == scope && log.pendDir == directory {
-		log.pending.Count++
+		log.pending.RepeatCount++
 	} else {
 		log.err = log.flush()
 		log.pending = &nodeproto.Error{
-			Path:  reportedPath(reported),
-			Scope: scope,
-			Code:  code,
-			Count: 1,
-			Raw:   raw(cause, info),
+			Path:        reportedPath(reported),
+			Scope:       scope,
+			Code:        code,
+			RepeatCount: 1,
+			Raw:         raw(cause, info),
 		}
 		log.pendDir = directory
 	}
@@ -65,7 +65,7 @@ func (log *errorLog) record(reported string, scope nodeproto.ErrorScope, cause e
 		log.stopped = true
 		stop := fmt.Errorf("%w (%d)", errStopped, log.total)
 		log.pending = &nodeproto.Error{
-			Path: reportedPath("."), Scope: nodeproto.ScopeRoot, Code: code, Count: 1, Raw: raw(stop, nil),
+			Path: reportedPath("."), Scope: nodeproto.ScopeRoot, Code: code, RepeatCount: 1, Raw: raw(stop, nil),
 		}
 		if flushErr := log.flush(); log.err == nil {
 			log.err = flushErr
@@ -103,14 +103,14 @@ func classify(cause error) nodeproto.ErrorCode {
 // raw is the platform's account of an error: its text, and the path's owner, group and mode
 // when the node could stat it (D163 §8).
 func raw(cause error, info fs.FileInfo) nodeproto.ErrorRaw {
-	described := nodeproto.ErrorRaw{Text: cause.Error(), Owner: -1, Group: -1}
+	described := nodeproto.ErrorRaw{Text: cause.Error(), OwnerUID: -1, GroupGID: -1}
 	if info == nil {
 		return described
 	}
 	described.Mode = info.Mode().String()
 	if system, ok := info.Sys().(*syscall.Stat_t); ok {
-		described.Owner = int(system.Uid)
-		described.Group = int(system.Gid)
+		described.OwnerUID = int(system.Uid)
+		described.GroupGID = int(system.Gid)
 	}
 	return described
 }

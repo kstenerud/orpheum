@@ -76,7 +76,7 @@ func (work *batch) complete(ctx context.Context, scan *scanState, complete *node
 	}
 	device, mountPoint := int64(scan.facts.Device), boolInt(scan.facts.MountPoint) //nolint:gosec // a device id fits
 	err = work.queries.RecordRootComplete(ctx, sqlcgen.RecordRootCompleteParams{
-		NodeID: work.nodeID, Path: scan.root, Device: &device, MountPoint: &mountPoint, At: work.now,
+		NodeID: work.nodeID, Path: scan.root, FilesystemDevice: &device, IsMountPoint: &mountPoint, OutcomeAt: work.now,
 	})
 	if err != nil {
 		return fmt.Errorf("record %s's facts: %w", scan.root, err)
@@ -89,14 +89,17 @@ func (work *batch) complete(ctx context.Context, scan *scanState, complete *node
 // that is not there — an unplugged disk under /mnt lists as an empty directory — so nothing
 // under it may be removed: it joins the regions the scan could not read (D208).
 func (work *batch) missingMounts(ctx context.Context, scan *scanState) (map[string]bool, error) {
-	known, err := work.queries.ListRootMounts(ctx, sqlcgen.ListRootMountsParams{NodeID: work.nodeID, Root: scan.root})
+	known, err := work.queries.ListRootMounts(ctx, sqlcgen.ListRootMountsParams{
+		NodeID:   work.nodeID,
+		RootPath: scan.root,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list the mounts under %s: %w", scan.root, err)
 	}
 	missing := map[string]bool{}
 	for _, mount := range known {
 		device, seen := scan.mounts[mount.Path]
-		if seen && int64(device) == mount.Device { //nolint:gosec // a device id fits
+		if seen && int64(device) == mount.FilesystemDevice { //nolint:gosec // a device id fits
 			continue
 		}
 		missing[mount.Path] = true
@@ -123,7 +126,8 @@ func (work *batch) recordMounts(ctx context.Context, scan *scanState, missing ma
 			continue // on another device than it was: not the disk we knew
 		}
 		err := work.queries.RecordRootMountPresent(ctx, sqlcgen.RecordRootMountPresentParams{
-			NodeID: work.nodeID, Root: scan.root, Path: mountPath, Device: int64(device), //nolint:gosec // fits
+			NodeID: work.nodeID, RootPath: scan.root, Path: mountPath,
+			FilesystemDevice: int64(device), //nolint:gosec // fits
 		})
 		if err != nil {
 			return fmt.Errorf("record the mount %s: %w", mountPath, err)
@@ -148,7 +152,7 @@ func (work *batch) unseenUnder(ctx context.Context, scan *scanState) ([]int64, i
 			continue
 		}
 		total++
-		if file.LastSeen < scan.startedAt && !scan.hides(file.Path) {
+		if file.LastSeenAt < scan.startedAt && !scan.hides(file.Path) {
 			unseen = append(unseen, file.ID)
 		}
 	}
@@ -159,9 +163,10 @@ func (work *batch) unseenUnder(ctx context.Context, scan *scanState) ([]int64, i
 // does: an unmounted disk leaves its empty mount point behind (D41).
 func changedFacts(prior sqlcgen.GetRootStateRow, scan *scanState) string {
 	switch {
-	case prior.Device != nil && *prior.Device != int64(scan.facts.Device): //nolint:gosec // a device id fits
+	//nolint:gosec // a device id fits
+	case prior.FilesystemDevice != nil && *prior.FilesystemDevice != int64(scan.facts.Device):
 		return "the root is on another device than at its last complete scan: an unmounted disk?"
-	case prior.MountPoint != nil && *prior.MountPoint != boolInt(scan.facts.MountPoint):
+	case prior.IsMountPoint != nil && *prior.IsMountPoint != boolInt(scan.facts.MountPoint):
 		return "the root was a mount point and is not now, or the other way round"
 	}
 	return ""
@@ -213,7 +218,8 @@ func (work *batch) recordNotComplete(ctx context.Context, scan *scanState, outco
 		since, why = &scan.startedAt, &reason
 	}
 	err := work.queries.RecordRootNotComplete(ctx, sqlcgen.RecordRootNotCompleteParams{
-		NodeID: work.nodeID, Path: scan.root, Outcome: outcome, At: work.now, WithheldSince: since, WithheldReason: why,
+		NodeID: work.nodeID, Path: scan.root, Outcome: outcome, OutcomeAt: work.now,
+		WithheldScanStartedAt: since, WithheldReason: why,
 	})
 	if err != nil {
 		return fmt.Errorf("record the scan of %s as %s: %w", scan.root, outcome, err)
@@ -234,7 +240,7 @@ func (work *batch) concludeMoves(ctx context.Context, scan *scanState) error {
 		}
 		movedFrom := int64(0)
 		for _, candidate := range candidates {
-			if candidate.ID == move.from && candidate.LastSeen < scan.startedAt {
+			if candidate.ID == move.from && candidate.LastSeenAt < scan.startedAt {
 				movedFrom = candidate.ID
 			}
 		}

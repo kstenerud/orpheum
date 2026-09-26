@@ -176,7 +176,7 @@ func TestDecide_JudgesTheTrackAPlayerStartsWith(t *testing.T) {
 func TestDecide_AFastFileIsReEncodedForARemoteLinkOnly(t *testing.T) {
 	t.Parallel()
 	fast := file("mp4", video("h264", "High", "yuv420p", ""), audio("aac", "LC", 2))
-	fast.Format.BitRate = 40_000_000
+	fast.Format.BitRateBps = 40_000_000
 	remote := decide.Decide(decide.Input{Probe: fast, Menu: browser, Link: decide.Remote, RemoteCeilingKbps: 10_000})
 	if remote.Profile != decide.H264At8M || !slices.Equal(remote.Reasons, []decide.Reason{decide.ReasonBandwidth}) {
 		t.Errorf("remote: %+v, want h264-8m for bandwidth", remote)

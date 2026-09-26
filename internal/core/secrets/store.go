@@ -147,15 +147,15 @@ func (secrets *Store) Set(ctx context.Context, name Name, owner *int64, value Va
 	}
 	return secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertSealedSecret(ctx, sqlcgen.UpsertSealedSecretParams{
-			Scope:  string(definition.Scope),
-			UserID: owner,
-			Name:   string(name),
-			KeyID:  secrets.key.ID(),
-			Nonce:  nonce,
-			Sealed: sealed,
-			Hint:   hint,
-			SetBy:  setBy,
-			SetAt:  secrets.clock.Now().UnixMilli(),
+			Scope:      string(definition.Scope),
+			UserID:     owner,
+			Name:       string(name),
+			KeyID:      secrets.key.ID(),
+			Nonce:      nonce,
+			Ciphertext: sealed,
+			Hint:       hint,
+			SetBy:      setBy,
+			SetAt:      secrets.clock.Now().UnixMilli(),
 		})
 	})
 }
@@ -183,7 +183,7 @@ func (secrets *Store) Open(ctx context.Context, name Name, owner *int64) (Value,
 	if err != nil {
 		return Value{}, fmt.Errorf("open %s: %w", name, err)
 	}
-	plain, err := cipher.Open(nil, row.Nonce, row.Sealed, associatedData(definition.Scope, owner, name))
+	plain, err := cipher.Open(nil, row.Nonce, row.Ciphertext, associatedData(definition.Scope, owner, name))
 	if err != nil {
 		// The key matches but the row does not: it was copied from another row or altered.
 		return Value{}, fmt.Errorf("%s: %w (the sealed value does not belong to this row)", name, ErrNeedsReentry)

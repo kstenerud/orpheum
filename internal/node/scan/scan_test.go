@@ -290,7 +290,7 @@ func TestScan_CollapsesRepeatedErrorsAndSaysWhoCouldNotRead(t *testing.T) {
 		t.Errorf("report:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 	locked := records[2].Error
-	if locked.Count != 3 || locked.Raw.Mode != "----------" || locked.Raw.Owner != os.Getuid() ||
+	if locked.RepeatCount != 3 || locked.Raw.Mode != "----------" || locked.Raw.OwnerUID != os.Getuid() ||
 		locked.Raw.Text == "" {
 		t.Errorf("the collapsed error = %+v, want a count of 3 with owner and mode", locked)
 	}

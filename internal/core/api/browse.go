@@ -217,7 +217,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	}
 	output := &ItemDetailOutput{}
 	body := &output.Body
-	body.ID, body.Kind, body.Name, body.Ident = detail.ID, detail.Kind, text(detail.Name), detail.Ident
+	body.ID, body.Kind, body.Name, body.Ident = detail.ID, detail.Kind, text(detail.Name), detail.Identification
 	body.Overview, body.Tagline, body.Source = text(detail.Overview), text(detail.Tagline), text(detail.Source)
 	body.Year, body.RuntimeMs, body.LibraryID = number(detail.Year), number(detail.RuntimeMs), number(detail.LibraryID)
 	body.Versions = make([]VersionBody, 0, len(detail.Versions))
@@ -245,7 +245,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	body.Art = artBody(detail.Art)
 	if place := detail.Episode; place != nil {
 		body.Episode = &EpisodePlaceBody{
-			SeriesID: place.CollectionID, SeriesName: text(place.SeriesName), Season: number(place.Grp),
+			SeriesID: place.CollectionID, SeriesName: text(place.SeriesName), Season: number(place.GroupNumber),
 			Number: number(place.Number),
 		}
 	}
@@ -264,12 +264,13 @@ func (server *Server) getCollection(ctx context.Context, input *ItemInput) (*Col
 	output := &CollectionOutput{}
 	body := &output.Body
 	body.ID, body.Kind, body.Name, body.Overview = series.ID, "series", text(series.Name), text(series.Overview)
-	body.Year, body.Ident, body.LibraryID = number(series.Year), text(series.Ident), number(series.LibraryID)
+	body.Year, body.Ident, body.LibraryID = number(series.Year), text(series.Identification), number(series.LibraryID)
 	body.Episodes = make([]EpisodeBody, 0, len(series.Episodes))
 	for _, episode := range series.Episodes {
 		body.Episodes = append(body.Episodes, EpisodeBody{
-			ID: episode.TitleID, Season: number(episode.Grp), Number: number(episode.Number), Name: text(episode.Name),
-			Year: number(episode.Year), RuntimeMs: number(episode.RuntimeMs), Ident: episode.Ident,
+			ID: episode.TitleID, Season: number(episode.GroupNumber), Number: number(episode.Number),
+			Name: text(episode.Name),
+			Year: number(episode.Year), RuntimeMs: number(episode.RuntimeMs), Ident: episode.Identification,
 			Available: episode.Available, Still: series.Stills[episode.TitleID],
 		})
 	}

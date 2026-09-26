@@ -80,7 +80,7 @@ func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome,
 	if err != nil {
 		return "", fmt.Errorf("read title %d: %w", titleID, err)
 	}
-	if title.Source != nil || title.Ident != identUnidentified || title.MetadataSource == sourceNFO {
+	if title.Source != nil || title.Identification != identUnidentified || title.MetadataSource == sourceNFO {
 		return OutcomeNothingToDo, nil // matched, answered, ambiguous or confirmed since it was queued
 	}
 	provider, known := matcher.providers[providerOf(title.MetadataSource)]
@@ -260,7 +260,7 @@ func (matcher *Matcher) record(
 		return fmt.Errorf("store the response: %w", err)
 	}
 	err = queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
-		Source: &provider, SourceID: &id, Ident: found.ident, ID: titleID,
+		Source: &provider, SourceID: &id, Identification: found.ident, ID: titleID,
 	})
 	if err != nil {
 		return fmt.Errorf("record the match: %w", err)
@@ -314,7 +314,7 @@ func (matcher *Matcher) ambiguous(
 		return err
 	}
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		markErr := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{Ident: identAmbiguous, ID: title.ID})
+		markErr := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{Identification: identAmbiguous, ID: title.ID})
 		if markErr != nil {
 			return fmt.Errorf("mark title %d ambiguous: %w", title.ID, markErr)
 		}
@@ -331,7 +331,7 @@ func (matcher *Matcher) ambiguous(
 func (matcher *Matcher) noMatch(ctx context.Context, title sqlcgen.GetTitleForMatchRow) error {
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		err := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
-			Source: new(sourceNone), Ident: identUnidentified, ID: title.ID,
+			Source: new(sourceNone), Identification: identUnidentified, ID: title.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("record title %d's empty search: %w", title.ID, err)

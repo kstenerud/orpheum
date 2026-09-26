@@ -132,7 +132,8 @@ func TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStore
 	checkLeon := func(when string) {
 		t.Helper()
 		file := lib.files()[rel]
-		if name(file) != leon.Name || file.Ident != identIdentified || file.Source == nil || *file.Source != "tmdb" ||
+		if name(file) != leon.Name || file.Identification != identIdentified || file.Source == nil ||
+			*file.Source != "tmdb" ||
 			file.Filing != filingListed || file.Year == nil || *file.Year != 1994 {
 			t.Errorf("%s: %+v (%s), want TMDB's film, listed", when, file, name(file))
 		}
@@ -163,7 +164,7 @@ func TestMatch_AnAmbiguousSearchIsNeverGuessed(t *testing.T) {
 	}
 	lib.scan(video("The General (2003).mkv"), video("Metropolis.mkv"))
 	solaris := lib.files()["The General (2003).mkv"]
-	if solaris.Ident != identAmbiguous || solaris.Filing != filingListed || solaris.Source != nil {
+	if solaris.Identification != identAmbiguous || solaris.Filing != filingListed || solaris.Source != nil {
 		t.Errorf("after another pass: %+v; want ambiguous, listed on local data", solaris)
 	}
 	kept, err := lib.matcher.cache.Read().ListMatchCandidates(t.Context(), solaris.TitleID)
@@ -273,7 +274,7 @@ func TestMatch_AProvidersRefusalReturnsForTheQueueToActOn(t *testing.T) {
 	if limited, isLimited := errors.AsType[*RateLimitedError](err); !isLimited || limited.After != 3 {
 		t.Errorf("Match = %v, want the provider's RateLimitedError", err)
 	}
-	if file := lib.files()["Metropolis (1995).mkv"]; file.Ident != identUnidentified || file.Source != nil {
+	if file := lib.files()["Metropolis (1995).mkv"]; file.Identification != identUnidentified || file.Source != nil {
 		t.Errorf("a refused call changed the title: %+v", file)
 	}
 }

@@ -172,20 +172,20 @@ const (
 // Error is something the node could not read. Repeats of one code and scope in one directory
 // collapse into one record with a Count (D40).
 type Error struct {
-	Path  Path       `json:"path"`
-	Scope ErrorScope `json:"scope"`
-	Code  ErrorCode  `json:"code"`
-	Count int        `json:"count"`
-	Raw   ErrorRaw   `json:"raw"`
+	Path        Path       `json:"path"`
+	Scope       ErrorScope `json:"scope"`
+	Code        ErrorCode  `json:"code"`
+	RepeatCount int        `json:"repeatCount"`
+	Raw         ErrorRaw   `json:"raw"`
 }
 
 // ErrorRaw is the platform's truth for a person diagnosing it: the error text and, where the
 // node could stat the path, its owner, group and mode (D163 §8).
 type ErrorRaw struct {
-	Text  string `json:"text"`
-	Owner int    `json:"owner"`
-	Group int    `json:"group"`
-	Mode  string `json:"mode"`
+	Text     string `json:"text"`
+	OwnerUID int    `json:"ownerUid"`
+	GroupGID int    `json:"groupGid"`
+	Mode     string `json:"mode"`
 }
 
 // ScanComplete closes a scan: the moment the core may apply removals in the regions no error

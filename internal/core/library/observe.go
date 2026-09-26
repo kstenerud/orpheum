@@ -57,7 +57,7 @@ func (work *batch) observed(ctx context.Context, scan *scanState, observed *node
 		// Only a file under this scan's root can be judged absent by it. One in another root was
 		// simply not looked at, so a match there is a duplicate, never a move.
 		unseen := slices.IndexFunc(elsewhere, func(row sqlcgen.ListLiveFilesByHashRow) bool {
-			return row.LastSeen < scan.startedAt && under(row.Path, scan.root)
+			return row.LastSeenAt < scan.startedAt && under(row.Path, scan.root)
 		})
 		if unseen >= 0 && len(elsewhere) == 1 {
 			scan.pending = append(scan.pending, pendingMove{seen: seen, from: elsewhere[unseen].ID})
@@ -119,9 +119,9 @@ func (work *batch) insert(ctx context.Context, scan *scanState, seen observation
 	observed, reason := seen.observed, notIdentifiedYet
 	id, err := work.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
 		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key,
-		Size: &observed.Size, Mtime: &observed.MtimeMs, PayloadHash: seen.hash,
-		PayloadLen: &observed.Identity.PayloadLength, Filing: filingUnidentified, FilingReason: &reason,
-		Probe: &seen.probe, Seen: work.now,
+		SizeBytes: &observed.Size, MtimeMs: &observed.MtimeMs, PayloadHash: seen.hash,
+		PayloadBytes: &observed.Identity.PayloadLength, Filing: filingUnidentified, FilingReason: &reason,
+		Probe: &seen.probe, SeenAt: work.now,
 	})
 	if err != nil {
 		return fmt.Errorf("insert %s: %w", seen.path, err)
@@ -134,9 +134,9 @@ func (work *batch) insert(ctx context.Context, scan *scanState, seen observation
 func (work *batch) update(ctx context.Context, scan *scanState, id int64, seen observation) error {
 	observed, reason := seen.observed, notIdentifiedYet
 	err := work.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
-		LibraryID: scan.libraryID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key, Size: &observed.Size,
-		Mtime: &observed.MtimeMs, PayloadHash: seen.hash, PayloadLen: &observed.Identity.PayloadLength,
-		UnidentifiedReason: &reason, Probe: &seen.probe, Seen: work.now, ID: id,
+		LibraryID: scan.libraryID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key, SizeBytes: &observed.Size,
+		MtimeMs: &observed.MtimeMs, PayloadHash: seen.hash, PayloadBytes: &observed.Identity.PayloadLength,
+		UnidentifiedReason: &reason, Probe: &seen.probe, SeenAt: work.now, ID: id,
 	})
 	if err != nil {
 		return fmt.Errorf("update %s: %w", seen.path, err)
@@ -155,7 +155,7 @@ func (work *batch) filed(
 	}))
 	if err == nil {
 		err = work.queries.UpdateFileFiling(ctx, sqlcgen.UpdateFileFilingParams{
-			Filing: filing, FilingReason: &reason, ErrorDetail: detail, Seen: work.now, ID: existing.ID,
+			Filing: filing, FilingReason: &reason, ErrorDetail: detail, SeenAt: work.now, ID: existing.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("file %s as %s: %w", located.text, filing, err)
@@ -167,7 +167,7 @@ func (work *batch) filed(
 	}
 	_, err = work.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
 		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, PathRaw: located.raw, PathKey: located.key,
-		Filing: filing, FilingReason: &reason, ErrorDetail: detail, Seen: work.now,
+		Filing: filing, FilingReason: &reason, ErrorDetail: detail, SeenAt: work.now,
 	})
 	if err != nil {
 		return fmt.Errorf("insert %s as %s: %w", located.text, filing, err)

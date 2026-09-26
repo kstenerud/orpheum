@@ -90,7 +90,7 @@ func Decide(input Input) Decision {
 	}
 	reasons, videoFits := axisReasons(input)
 	tooFast := input.Link == Remote && input.RemoteCeilingKbps > 0 &&
-		input.Probe.Format.BitRate > input.RemoteCeilingKbps*1000
+		input.Probe.Format.BitRateBps > input.RemoteCeilingKbps*1000
 	if tooFast {
 		reasons = append(reasons, ReasonBandwidth)
 	}

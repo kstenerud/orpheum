@@ -55,7 +55,7 @@ LIMIT ?`
 	searchShortSQL = `SELECT ` + searchColumns + `
 FROM item_text
 ` + searchJoins + `
-WHERE instr(item_text.search_alt, ?) > 0 AND item.removed_at IS NULL
+WHERE instr(item_text.search_alternates, ?) > 0 AND item.removed_at IS NULL
 ORDER BY item_text.name, item_text.item_id
 LIMIT ?`
 )

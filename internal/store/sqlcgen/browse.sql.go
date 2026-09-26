@@ -10,7 +10,7 @@ import (
 )
 
 const getEpisodePlace = `-- name: GetEpisodePlace :one
-SELECT ordering.collection_id, position.grp, position.number, item_text.name AS series_name
+SELECT ordering.collection_id, position.group_number, position.number, item_text.name AS series_name
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 LEFT JOIN item_text ON item_text.item_id = ordering.collection_id AND item_text.is_original = 1
@@ -19,7 +19,7 @@ WHERE position.title_id = ?1 AND ordering.name = 'aired'
 
 type GetEpisodePlaceRow struct {
 	CollectionID int64
-	Grp          *int64
+	GroupNumber  *int64
 	Number       *int64
 	SeriesName   *string
 }
@@ -30,7 +30,7 @@ func (q *Queries) GetEpisodePlace(ctx context.Context, titleID int64) (GetEpisod
 	var i GetEpisodePlaceRow
 	err := row.Scan(
 		&i.CollectionID,
-		&i.Grp,
+		&i.GroupNumber,
 		&i.Number,
 		&i.SeriesName,
 	)
@@ -38,7 +38,7 @@ func (q *Queries) GetEpisodePlace(ctx context.Context, titleID int64) (GetEpisod
 }
 
 const getSeriesDetail = `-- name: GetSeriesDetail :one
-SELECT collection.id, collection.year, collection.ident, collection.source, collection.source_id,
+SELECT collection.id, collection.year, collection.identification, collection.source, collection.source_id,
   item.library_id, item_text.name, item_text.overview
 FROM collection
 JOIN item ON item.id = collection.id
@@ -47,14 +47,14 @@ WHERE collection.id = ?1 AND collection.kind = 'series' AND item.removed_at IS N
 `
 
 type GetSeriesDetailRow struct {
-	ID        int64
-	Year      *int64
-	Ident     *string
-	Source    *string
-	SourceID  *string
-	LibraryID *int64
-	Name      *string
-	Overview  *string
+	ID             int64
+	Year           *int64
+	Identification *string
+	Source         *string
+	SourceID       *string
+	LibraryID      *int64
+	Name           *string
+	Overview       *string
 }
 
 func (q *Queries) GetSeriesDetail(ctx context.Context, id int64) (GetSeriesDetailRow, error) {
@@ -63,7 +63,7 @@ func (q *Queries) GetSeriesDetail(ctx context.Context, id int64) (GetSeriesDetai
 	err := row.Scan(
 		&i.ID,
 		&i.Year,
-		&i.Ident,
+		&i.Identification,
 		&i.Source,
 		&i.SourceID,
 		&i.LibraryID,
@@ -74,7 +74,7 @@ func (q *Queries) GetSeriesDetail(ctx context.Context, id int64) (GetSeriesDetai
 }
 
 const getTitleDetail = `-- name: GetTitleDetail :one
-SELECT title.id, title.kind, title.year, title.runtime_ms, title.ident, title.source, title.source_id,
+SELECT title.id, title.kind, title.year, title.runtime_ms, title.identification, title.source, title.source_id,
   item.library_id, item.created_at, item_text.name, item_text.overview, item_text.tagline
 FROM title
 JOIN item ON item.id = title.id
@@ -83,18 +83,18 @@ WHERE title.id = ?1 AND item.removed_at IS NULL
 `
 
 type GetTitleDetailRow struct {
-	ID        int64
-	Kind      string
-	Year      *int64
-	RuntimeMs *int64
-	Ident     string
-	Source    *string
-	SourceID  *string
-	LibraryID *int64
-	CreatedAt int64
-	Name      *string
-	Overview  *string
-	Tagline   *string
+	ID             int64
+	Kind           string
+	Year           *int64
+	RuntimeMs      *int64
+	Identification string
+	Source         *string
+	SourceID       *string
+	LibraryID      *int64
+	CreatedAt      int64
+	Name           *string
+	Overview       *string
+	Tagline        *string
 }
 
 func (q *Queries) GetTitleDetail(ctx context.Context, id int64) (GetTitleDetailRow, error) {
@@ -105,7 +105,7 @@ func (q *Queries) GetTitleDetail(ctx context.Context, id int64) (GetTitleDetailR
 		&i.Kind,
 		&i.Year,
 		&i.RuntimeMs,
-		&i.Ident,
+		&i.Identification,
 		&i.Source,
 		&i.SourceID,
 		&i.LibraryID,
@@ -120,7 +120,7 @@ func (q *Queries) GetTitleDetail(ctx context.Context, id int64) (GetTitleDetailR
 const listFileStreams = `-- name: ListFileStreams :many
 SELECT id, kind, codec, lang, title_raw, channels, disposition
 FROM stream
-WHERE media_file = ?1
+WHERE video_file = ?1
 ORDER BY kind, stream_index
 `
 
@@ -134,8 +134,8 @@ type ListFileStreamsRow struct {
 	Disposition int64
 }
 
-func (q *Queries) ListFileStreams(ctx context.Context, mediaFile int64) ([]ListFileStreamsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listFileStreams, mediaFile)
+func (q *Queries) ListFileStreams(ctx context.Context, videoFile int64) ([]ListFileStreamsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFileStreams, videoFile)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +166,7 @@ func (q *Queries) ListFileStreams(ctx context.Context, mediaFile int64) ([]ListF
 }
 
 const listFilmsByAdded = `-- name: ListFilmsByAdded :many
-SELECT item.id AS item_id, item_text.name, title.year, title.ident, item.library_id, item.created_at
+SELECT item.id AS item_id, item_text.name, title.year, title.identification, item.library_id, item.created_at
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
@@ -187,12 +187,12 @@ type ListFilmsByAddedParams struct {
 }
 
 type ListFilmsByAddedRow struct {
-	ItemID    int64
-	Name      *string
-	Year      *int64
-	Ident     string
-	LibraryID *int64
-	CreatedAt int64
+	ItemID         int64
+	Name           *string
+	Year           *int64
+	Identification string
+	LibraryID      *int64
+	CreatedAt      int64
 }
 
 func (q *Queries) ListFilmsByAdded(ctx context.Context, arg ListFilmsByAddedParams) ([]ListFilmsByAddedRow, error) {
@@ -208,7 +208,7 @@ func (q *Queries) ListFilmsByAdded(ctx context.Context, arg ListFilmsByAddedPara
 			&i.ItemID,
 			&i.Name,
 			&i.Year,
-			&i.Ident,
+			&i.Identification,
 			&i.LibraryID,
 			&i.CreatedAt,
 		); err != nil {
@@ -227,7 +227,7 @@ func (q *Queries) ListFilmsByAdded(ctx context.Context, arg ListFilmsByAddedPara
 
 const listFilmsByName = `-- name: ListFilmsByName :many
 
-SELECT sort_key.item_id, sort_key.key, item_text.name, title.year, title.ident, item.library_id, item.created_at
+SELECT sort_key.item_id, sort_key.key, item_text.name, title.year, title.identification, item.library_id, item.created_at
 FROM sort_key
 JOIN item ON item.id = sort_key.item_id
 JOIN title ON title.id = sort_key.item_id
@@ -250,13 +250,13 @@ type ListFilmsByNameParams struct {
 }
 
 type ListFilmsByNameRow struct {
-	ItemID    int64
-	Key       []byte
-	Name      *string
-	Year      *int64
-	Ident     string
-	LibraryID *int64
-	CreatedAt int64
+	ItemID         int64
+	Key            []byte
+	Name           *string
+	Year           *int64
+	Identification string
+	LibraryID      *int64
+	CreatedAt      int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -284,7 +284,7 @@ func (q *Queries) ListFilmsByName(ctx context.Context, arg ListFilmsByNameParams
 			&i.Key,
 			&i.Name,
 			&i.Year,
-			&i.Ident,
+			&i.Identification,
 			&i.LibraryID,
 			&i.CreatedAt,
 		); err != nil {
@@ -302,7 +302,7 @@ func (q *Queries) ListFilmsByName(ctx context.Context, arg ListFilmsByNameParams
 }
 
 const listSeriesByAdded = `-- name: ListSeriesByAdded :many
-SELECT item.id AS item_id, item_text.name, collection.year, collection.ident, item.library_id, item.created_at
+SELECT item.id AS item_id, item_text.name, collection.year, collection.identification, item.library_id, item.created_at
 FROM collection
 JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
@@ -326,12 +326,12 @@ type ListSeriesByAddedParams struct {
 }
 
 type ListSeriesByAddedRow struct {
-	ItemID    int64
-	Name      *string
-	Year      *int64
-	Ident     *string
-	LibraryID *int64
-	CreatedAt int64
+	ItemID         int64
+	Name           *string
+	Year           *int64
+	Identification *string
+	LibraryID      *int64
+	CreatedAt      int64
 }
 
 func (q *Queries) ListSeriesByAdded(ctx context.Context, arg ListSeriesByAddedParams) ([]ListSeriesByAddedRow, error) {
@@ -347,7 +347,7 @@ func (q *Queries) ListSeriesByAdded(ctx context.Context, arg ListSeriesByAddedPa
 			&i.ItemID,
 			&i.Name,
 			&i.Year,
-			&i.Ident,
+			&i.Identification,
 			&i.LibraryID,
 			&i.CreatedAt,
 		); err != nil {
@@ -365,7 +365,7 @@ func (q *Queries) ListSeriesByAdded(ctx context.Context, arg ListSeriesByAddedPa
 }
 
 const listSeriesByName = `-- name: ListSeriesByName :many
-SELECT sort_key.item_id, sort_key.key, item_text.name, collection.year, collection.ident, item.library_id,
+SELECT sort_key.item_id, sort_key.key, item_text.name, collection.year, collection.identification, item.library_id,
   item.created_at
 FROM sort_key
 JOIN item ON item.id = sort_key.item_id
@@ -392,13 +392,13 @@ type ListSeriesByNameParams struct {
 }
 
 type ListSeriesByNameRow struct {
-	ItemID    int64
-	Key       []byte
-	Name      *string
-	Year      *int64
-	Ident     *string
-	LibraryID *int64
-	CreatedAt int64
+	ItemID         int64
+	Key            []byte
+	Name           *string
+	Year           *int64
+	Identification *string
+	LibraryID      *int64
+	CreatedAt      int64
 }
 
 func (q *Queries) ListSeriesByName(ctx context.Context, arg ListSeriesByNameParams) ([]ListSeriesByNameRow, error) {
@@ -420,7 +420,7 @@ func (q *Queries) ListSeriesByName(ctx context.Context, arg ListSeriesByNamePara
 			&i.Key,
 			&i.Name,
 			&i.Year,
-			&i.Ident,
+			&i.Identification,
 			&i.LibraryID,
 			&i.CreatedAt,
 		); err != nil {
@@ -438,8 +438,8 @@ func (q *Queries) ListSeriesByName(ctx context.Context, arg ListSeriesByNamePara
 }
 
 const listSeriesEpisodeDetails = `-- name: ListSeriesEpisodeDetails :many
-SELECT position.title_id, position.grp, position.number, item_text.name, title.year, title.runtime_ms,
-  title.ident,
+SELECT position.title_id, position.group_number, position.number, item_text.name, title.year, title.runtime_ms,
+  title.identification,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = position.title_id AND version.removed_at IS NULL AND file.removed_at IS NULL
@@ -454,14 +454,14 @@ ORDER BY position.sort
 `
 
 type ListSeriesEpisodeDetailsRow struct {
-	TitleID   int64
-	Grp       *int64
-	Number    *int64
-	Name      *string
-	Year      *int64
-	RuntimeMs *int64
-	Ident     string
-	Available bool
+	TitleID        int64
+	GroupNumber    *int64
+	Number         *int64
+	Name           *string
+	Year           *int64
+	RuntimeMs      *int64
+	Identification string
+	Available      bool
 }
 
 // A series' episodes in aired order, each with whether it has a live file.
@@ -476,12 +476,12 @@ func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, collectionID int
 		var i ListSeriesEpisodeDetailsRow
 		if err := rows.Scan(
 			&i.TitleID,
-			&i.Grp,
+			&i.GroupNumber,
 			&i.Number,
 			&i.Name,
 			&i.Year,
 			&i.RuntimeMs,
-			&i.Ident,
+			&i.Identification,
 			&i.Available,
 		); err != nil {
 			return nil, err
@@ -536,7 +536,7 @@ func (q *Queries) ListTitleExtras(ctx context.Context, ownerTitle int64) ([]List
 }
 
 const listTitleFiles = `-- name: ListTitleFiles :many
-SELECT version.id AS version_id, version.edition_id, file.id AS file_id, file.path, file.size, file.part_index
+SELECT version.id AS version_id, version.edition_id, file.id AS file_id, file.path, file.size_bytes, file.part_index
 FROM version
 JOIN file ON file.version_id = version.id
 WHERE version.title_id = ?1 AND version.removed_at IS NULL AND file.removed_at IS NULL
@@ -548,7 +548,7 @@ type ListTitleFilesRow struct {
 	EditionID *int64
 	FileID    int64
 	Path      string
-	Size      *int64
+	SizeBytes *int64
 	PartIndex *int64
 }
 
@@ -567,7 +567,7 @@ func (q *Queries) ListTitleFiles(ctx context.Context, titleID int64) ([]ListTitl
 			&i.EditionID,
 			&i.FileID,
 			&i.Path,
-			&i.Size,
+			&i.SizeBytes,
 			&i.PartIndex,
 		); err != nil {
 			return nil, err

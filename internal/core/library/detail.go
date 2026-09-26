@@ -82,7 +82,10 @@ func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version,
 			return nil, fmt.Errorf("list file %d's streams: %w", file.FileID, err)
 		}
 		last := &versions[len(versions)-1]
-		last.Files = append(last.Files, FileDetail{ID: file.FileID, Path: file.Path, Size: file.Size, Streams: streams})
+		last.Files = append(last.Files, FileDetail{
+			ID: file.FileID, Path: file.Path, Size: file.SizeBytes,
+			Streams: streams,
+		})
 	}
 	return versions, nil
 }
