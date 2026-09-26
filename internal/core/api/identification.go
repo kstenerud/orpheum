@@ -17,20 +17,20 @@ const tagIdentification = "Identification"
 
 // ItemBody is one title or series in a list.
 type ItemBody struct {
-	ID        int64  `json:"id"`
-	LibraryID int64  `json:"libraryId"`
-	Kind      string `enum:"movie,episode,extra,series" json:"kind"`
-	Name      string `json:"name"`
-	Year      int64  `json:"year,omitempty"`
-	Ident     string `enum:"identified,ambiguous,unidentified,confirmed" json:"ident"`
-	Source    string `doc:"Where its own values come from: nfo, tmdb, or none" json:"source,omitempty"`
-	SourceID  string `doc:"Its id at its provider" json:"sourceId,omitempty"`
+	ID             int64  `json:"id"`
+	LibraryID      int64  `json:"libraryId"`
+	Kind           string `enum:"movie,episode,extra,series" json:"kind"`
+	Name           string `json:"name"`
+	Year           int64  `json:"year,omitempty"`
+	Identification string `enum:"identified,ambiguous,unidentified,confirmed" json:"identification"`
+	Source         string `doc:"Where its own values come from: nfo, tmdb, or none" json:"source,omitempty"`
+	SourceID       string `doc:"Its id at its provider" json:"sourceId,omitempty"`
 }
 
 // ItemsInput asks for the titles and series in one state of identification.
 type ItemsInput struct {
 	AuthorizationHeader
-	Ident string `enum:"identified,ambiguous,unidentified,confirmed" query:"ident" required:"true"`
+	Identification string `enum:"identified,ambiguous,unidentified,confirmed" query:"identification" required:"true"`
 }
 
 // ItemsOutput lists titles and series.
@@ -94,14 +94,14 @@ type PutOverrideInput struct {
 type RefreshOutput struct {
 	Status int
 	Body   struct {
-		Queued bool `doc:"False when a fetch for it was already waiting" json:"queued"`
+		IsQueued bool `doc:"False when a fetch for it was already waiting" json:"isQueued"`
 	}
 }
 
 func (server *Server) registerIdentification() {
 	tags := []string{tagIdentification}
 	huma.Register(server.api, huma.Operation{
-		OperationID: "getItems", Method: http.MethodGet, Path: "/items",
+		OperationID: "getItemsByIdentification", Method: http.MethodGet, Path: "/items",
 		Summary: "The titles and series in one state of identification", Tags: tags,
 	}, server.getItems)
 	huma.Register(server.api, huma.Operation{
@@ -136,7 +136,7 @@ func (server *Server) getItems(ctx context.Context, input *ItemsInput) (*ItemsOu
 	if err != nil {
 		return nil, err
 	}
-	items, err := dependencies.Identify.Items(ctx, input.Ident)
+	items, err := dependencies.Identify.Items(ctx, input.Identification)
 	if err != nil {
 		return nil, server.internal(ctx, "list items", err)
 	}
@@ -145,7 +145,7 @@ func (server *Server) getItems(ctx context.Context, input *ItemsInput) (*ItemsOu
 	for _, item := range items {
 		output.Body.Items = append(output.Body.Items, ItemBody{
 			ID: item.ID, LibraryID: item.LibraryID, Kind: item.Kind, Name: item.Name, Year: item.Year,
-			Ident: item.Ident, Source: item.Source, SourceID: item.SourceID,
+			Identification: item.Ident, Source: item.Source, SourceID: item.SourceID,
 		})
 	}
 	return output, nil
@@ -191,7 +191,7 @@ func (server *Server) postRefresh(ctx context.Context, input *ItemInput) (*Refre
 		return nil, server.identifyError(ctx, "queue a refresh", err)
 	}
 	output := &RefreshOutput{Status: http.StatusAccepted}
-	output.Body.Queued = queued
+	output.Body.IsQueued = queued
 	return output, nil
 }
 

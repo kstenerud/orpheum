@@ -58,7 +58,7 @@ type StartPlaybackOutput struct {
 		Reasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,user_choice" json:"reasons"`
 		// Preparing is whether the rendition is still being made; its playlist answers 425 until
 		// the first segment exists.
-		Preparing bool `json:"preparing"`
+		IsPreparing bool `json:"isPreparing"`
 		// Audio are a rendition's audio renditions, in its master playlist's order.
 		Audio []AudioRenditionBody `json:"audio,omitempty"`
 	}
@@ -66,9 +66,9 @@ type StartPlaybackOutput struct {
 
 // AudioRenditionBody is one audio rendition: a source track's standard mix, or its boosted one.
 type AudioRenditionBody struct {
-	Track    int    `json:"track"`
-	Language string `json:"language"`
-	Boost    bool   `json:"boost"`
+	SourceTrack     int    `json:"sourceTrack"`
+	Language        string `json:"language"`
+	IsDialogueBoost bool   `json:"isDialogueBoost"`
 }
 
 // MasterInput asks for a prepared playback's master playlist.
@@ -168,10 +168,10 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	if started.Decision.Kind == decide.HLS {
 		output.Body.URL = Prefix + "/bytes/media/hls/" + started.Token + "/master.m3u8"
 	}
-	output.Body.Preparing = started.Preparing
+	output.Body.IsPreparing = started.Preparing
 	for _, audio := range started.Audio {
 		output.Body.Audio = append(output.Body.Audio, AudioRenditionBody{
-			Track: audio.Track, Language: audio.Language, Boost: audio.Boost,
+			SourceTrack: audio.Track, Language: audio.Language, IsDialogueBoost: audio.Boost,
 		})
 	}
 	return output, nil

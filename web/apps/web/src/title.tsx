@@ -20,7 +20,7 @@ export function StreamLine(props: { readonly stream: Stream }): JSX.Element | nu
   const { t } = useTranslation();
   const { stream } = props;
   const codec = stream.codec ?? "";
-  const lang = stream.lang ?? "";
+  const lang = stream.language ?? "";
   switch (stream.kind) {
     case "video":
       return <li>{t("title.streamVideo", { codec })}</li>;
@@ -46,8 +46,12 @@ export function TitleView(props: { readonly title: TitleDetail }): JSX.Element {
   const { title } = props;
   return (
     <article className="title">
-      {title.art.backdrop === undefined ? null : (
-        <img className="title__backdrop" src={artUrl(title.art.backdrop, "landscape-l")} alt={""} />
+      {title.art.backdropHash === undefined ? null : (
+        <img
+          className="title__backdrop"
+          src={artUrl(title.art.backdropHash, "landscape-l")}
+          alt={""}
+        />
       )}
       <div className="title__head">
         <TitleArt title={title} />
@@ -63,10 +67,10 @@ export function TitleView(props: { readonly title: TitleDetail }): JSX.Element {
 function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
   const { art, kind } = props.title;
   if (kind !== "episode") {
-    return <Poster hash={art.poster} />;
+    return <Poster hash={art.posterHash} />;
   }
-  return art.still === undefined ? null : (
-    <img className="title__still" src={artUrl(art.still, "landscape-m")} alt={""} />
+  return art.stillHash === undefined ? null : (
+    <img className="title__still" src={artUrl(art.stillHash, "landscape-m")} alt={""} />
   );
 }
 
@@ -94,7 +98,7 @@ function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
         {title.runtimeMs === undefined ? null : (
           <span>{t("title.runtime", { minutes: Math.round(title.runtimeMs / 60_000) })}</span>
         )}
-        {title.ident === "unidentified" ? <span>{t("title.unidentified")}</span> : null}
+        {title.identification === "unidentified" ? <span>{t("title.unidentified")}</span> : null}
       </p>
       {title.tagline === undefined ? null : <p className="title__tagline">{title.tagline}</p>}
       {title.overview === undefined ? null : <p>{title.overview}</p>}
@@ -152,7 +156,7 @@ function Extras(props: {
           <li key={extra.id}>
             <Link to={{ screen: "title", id: extra.id }}>{extra.name}</Link>{" "}
             <span>
-              {t(`extraType.${camelKey(extra.type)}`, { defaultValue: t("extraType.unknown") })}
+              {t(`extraType.${camelKey(extra.kind)}`, { defaultValue: t("extraType.unknown") })}
             </span>
           </li>
         ))}

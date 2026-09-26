@@ -350,7 +350,8 @@ func configFileKeys(config Config, report ConfigReport) ([]api.ConfigFileKey, er
 			start = json.RawMessage(key.start)
 		}
 		keys = append(keys, api.ConfigFileKey{
-			Key: key.path(), Value: value, Start: start, IsFromFile: !fromStart[key.path()], Describe: key.describe,
+			Key: key.path(), Value: value, StartingValue: start, IsFromFile: !fromStart[key.path()],
+			Description: key.describe,
 		})
 	}
 	return keys, nil

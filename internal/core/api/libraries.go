@@ -34,7 +34,7 @@ type LibraryBody struct {
 	MetadataSource  string           `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource"`
 	ChangeDetection string           `enum:"watch,interval,manual" json:"changeDetection"`
 	CheckEveryH     *int64           `json:"checkEveryH,omitempty"`
-	Writable        bool             `json:"writable"`
+	IsWritable      bool             `json:"isWritable"`
 	CreatedAt       int64            `json:"createdAt"`
 	Roots           []RootBody       `json:"roots,omitempty"`
 	Filings         map[string]int64 `doc:"Live files by filing (D163)" json:"filings,omitempty"`
@@ -58,7 +58,7 @@ type CreateLibraryInput struct {
 		MetadataSource  string   `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource"`
 		ChangeDetection string   `enum:"watch,interval,manual" json:"changeDetection"`
 		CheckEveryH     *int64   `doc:"Hours between checks; interval only" json:"checkEveryH,omitempty" minimum:"1"`
-		Writable        bool     `doc:"May the server write beside the media" json:"writable"`
+		IsWritable      bool     `doc:"May the server write beside the media" json:"isWritable"`
 		Node            string   `doc:"The node's configured name" json:"node" minLength:"1"`
 		Roots           []string `doc:"Roots the node configured" json:"roots" minItems:"1"`
 	}
@@ -81,7 +81,7 @@ type LibraryInput struct {
 type ScanOutput struct {
 	Body struct {
 		// Roots is how many roots' nodes were asked; a root whose node is away scans on its return.
-		Roots int `json:"roots"`
+		RootsAsked int `json:"rootsAsked"`
 	}
 }
 
@@ -99,7 +99,7 @@ type RootActionInput struct {
 type RescanOutput struct {
 	Body struct {
 		// Scanning is false when the root's node is away; the approval waits for its next scan.
-		Scanning bool `json:"scanning"`
+		IsScanning bool `json:"isScanning"`
 	}
 }
 
@@ -120,9 +120,9 @@ type FileBody struct {
 	Filing       string  `json:"filing"`
 	FilingReason *string `json:"filingReason,omitempty"`
 	ErrorDetail  *string `doc:"Owner, group, mode; the platform's words" json:"errorDetail,omitempty"`
-	Size         *int64  `json:"size,omitempty"`
-	FirstSeen    int64   `json:"firstSeen"`
-	LastSeen     int64   `json:"lastSeen"`
+	SizeBytes    *int64  `json:"sizeBytes,omitempty"`
+	FirstSeenAt  int64   `json:"firstSeenAt"`
+	LastSeenAt   int64   `json:"lastSeenAt"`
 }
 
 // FilesOutput is one page of files.
@@ -179,7 +179,7 @@ func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInp
 	}
 	id, err := dependencies.Libraries.Create(ctx, library.Request{Node: body.Node, NewLibrary: library.NewLibrary{
 		Name: body.Name, Kind: body.Kind, MetadataSource: body.MetadataSource, ChangeDetection: body.ChangeDetection,
-		CheckEveryH: body.CheckEveryH, Writable: body.Writable, Roots: body.Roots,
+		CheckEveryH: body.CheckEveryH, Writable: body.IsWritable, Roots: body.Roots,
 	}})
 	if err != nil {
 		return nil, server.libraryError(ctx, "create a library", err)
@@ -191,9 +191,9 @@ func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInp
 
 // NodeBody is one node, and the roots it configured when it is connected (D107).
 type NodeBody struct {
-	Name      string   `json:"name"`
-	Connected bool     `doc:"Whether it has said hello since the server started" json:"connected"`
-	Roots     []string `doc:"Its configured roots; empty while it is not connected" json:"roots"`
+	Name        string   `json:"name"`
+	IsConnected bool     `doc:"Whether it has said hello since the server started" json:"isConnected"`
+	Roots       []string `doc:"Its configured roots; empty while it is not connected" json:"roots"`
 }
 
 // NodesOutput is every enrolled node.
@@ -215,7 +215,7 @@ func (server *Server) getNodes(ctx context.Context, input *AuthorizationHeader) 
 	output := &NodesOutput{}
 	output.Body.Nodes = make([]NodeBody, 0, len(nodes))
 	for _, node := range nodes {
-		body := NodeBody{Name: node.Name, Connected: node.Connected, Roots: node.Roots}
+		body := NodeBody{Name: node.Name, IsConnected: node.Connected, Roots: node.Roots}
 		output.Body.Nodes = append(output.Body.Nodes, body)
 	}
 	return output, nil
@@ -235,8 +235,9 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 	for _, summary := range summaries {
 		body := LibraryBody{
 			ID: summary.ID, Name: summary.Name, Kind: summary.Kind, MetadataSource: summary.MetadataSource,
-			ChangeDetection: summary.ChangeDetection, CheckEveryH: summary.CheckEveryH, Writable: summary.Writable == 1,
-			CreatedAt: summary.CreatedAt,
+			ChangeDetection: summary.ChangeDetection, CheckEveryH: summary.CheckEveryH,
+			IsWritable: summary.Writable == 1,
+			CreatedAt:  summary.CreatedAt,
 		}
 		if principal.IsAdmin() {
 			body.Filings = summary.Filings
@@ -263,7 +264,7 @@ func (server *Server) scanLibrary(ctx context.Context, input *LibraryInput) (*Sc
 		return nil, server.libraryError(ctx, "scan a library", err)
 	}
 	output := &ScanOutput{}
-	output.Body.Roots = asked
+	output.Body.RootsAsked = asked
 	return output, nil
 }
 
@@ -277,7 +278,7 @@ func (server *Server) approveRemovals(ctx context.Context, input *RootActionInpu
 		return nil, server.libraryError(ctx, "approve removals", err)
 	}
 	output := &RescanOutput{}
-	output.Body.Scanning = scanning
+	output.Body.IsScanning = scanning
 	return output, nil
 }
 
@@ -291,7 +292,7 @@ func (server *Server) forgetMount(ctx context.Context, input *RootActionInput) (
 		return nil, server.libraryError(ctx, "forget a mount", err)
 	}
 	output := &RescanOutput{}
-	output.Body.Scanning = scanning
+	output.Body.IsScanning = scanning
 	return output, nil
 }
 
@@ -322,8 +323,8 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 	for _, row := range rows {
 		output.Body.Files = append(output.Body.Files, FileBody{
 			ID: row.ID, LibraryID: row.LibraryID, Path: row.Path, Filing: row.Filing,
-			FilingReason: row.FilingReason, ErrorDetail: row.ErrorDetail, Size: row.SizeBytes,
-			FirstSeen: row.FirstSeenAt, LastSeen: row.LastSeenAt,
+			FilingReason: row.FilingReason, ErrorDetail: row.ErrorDetail, SizeBytes: row.SizeBytes,
+			FirstSeenAt: row.FirstSeenAt, LastSeenAt: row.LastSeenAt,
 		})
 	}
 	if int64(len(rows)) == input.Limit {

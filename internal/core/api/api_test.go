@@ -113,8 +113,8 @@ func newHarness(t *testing.T) testHarness {
 		}),
 		NodeBytes: nodeBytes,
 		ConfigFile: []ConfigFileKey{{
-			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), Start: json.RawMessage("10"),
-			IsFromFile: false, Describe: "seconds in-flight requests get to finish",
+			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), StartingValue: json.RawMessage("10"),
+			IsFromFile: false, Description: "seconds in-flight requests get to finish",
 		}},
 	})
 	served := httptest.NewServer(server.Handler())
@@ -299,7 +299,7 @@ func TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing(t *test
 	}
 	changed := harness.do(t, http.MethodPut, "/settings", admin,
 		map[string]any{"values": map[string]any{"update_check": false}})
-	const wantChanged = `"key":"update_check","kind":"bool","value":false,"start":null,"isModified":true`
+	const wantChanged = `"key":"update_check","kind":"bool","value":false,"startingValue":null,"isModified":true`
 	if changed.status != http.StatusOK || !strings.Contains(changed.body, wantChanged) {
 		t.Errorf("PUT /settings = %d %s", changed.status, changed.body)
 	}
@@ -367,15 +367,15 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 	}
 
 	listed := harness.do(t, http.MethodGet, "/config", admin, nil)
-	const limit = `"key":"signin_failure_limit","kind":"integer","value":5,"start":5,"isModified":false,` +
+	const limit = `"key":"signin_failure_limit","kind":"integer","value":5,"startingValue":5,"isModified":false,` +
 		`"minimum":1,"maximum":1000`
-	const file = `"file":[{"key":"server.shutdown_grace_s","value":10,"start":10,"isFromFile":false`
+	const file = `"file":[{"key":"server.shutdown_grace_s","value":10,"startingValue":10,"isFromFile":false`
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, limit) || !strings.Contains(listed.body, file) {
 		t.Errorf("GET /config = %d %s", listed.status, listed.body)
 	}
 	changed := harness.do(t, http.MethodPut, "/config", admin,
 		map[string]any{"values": map[string]any{"signin_failure_limit": 7}})
-	if !strings.Contains(changed.body, `"key":"signin_failure_limit","kind":"integer","value":7,"start":5,`+
+	if !strings.Contains(changed.body, `"key":"signin_failure_limit","kind":"integer","value":7,"startingValue":5,`+
 		`"isModified":true`) {
 		t.Errorf("PUT /config = %d %s", changed.status, changed.body)
 	}
@@ -383,7 +383,8 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 		map[string]any{"values": map[string]any{"signin_failure_limit": 0}}),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
 	reset := harness.do(t, http.MethodPost, "/config/signin_failure_limit/reset", admin, nil)
-	if reset.status != http.StatusOK || !strings.Contains(reset.body, `"value":5,"start":5,"isModified":false`) {
+	if reset.status != http.StatusOK || !strings.Contains(reset.body,
+		`"value":5,"startingValue":5,"isModified":false`) {
 		t.Errorf("POST /config/signin_failure_limit/reset = %d %s", reset.status, reset.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/config/no_such_setting/reset", admin, nil),

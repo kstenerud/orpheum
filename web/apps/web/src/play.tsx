@@ -44,8 +44,12 @@ export function boostPair(decision: Decision): { standard: number; boosted: numb
   if (first === undefined) {
     return undefined;
   }
-  const standard = audio.findIndex((mix) => mix.track === first.track && !mix.boost);
-  const boosted = audio.findIndex((mix) => mix.track === first.track && mix.boost);
+  const standard = audio.findIndex(
+    (mix) => mix.sourceTrack === first.sourceTrack && !mix.isDialogueBoost,
+  );
+  const boosted = audio.findIndex(
+    (mix) => mix.sourceTrack === first.sourceTrack && mix.isDialogueBoost,
+  );
   return standard < 0 || boosted < 0 ? undefined : { standard, boosted };
 }
 
@@ -96,7 +100,7 @@ function usePrepared(decision: Decision): {
 } {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playbackRef = useRef<Playback | undefined>(undefined);
-  const [isWaiting, setIsWaiting] = useState(decision.preparing);
+  const [isWaiting, setIsWaiting] = useState(decision.isPreparing);
   const [failure, setFailure] = useState<string | undefined>(undefined);
   useEffect(() => {
     const element = videoRef.current;

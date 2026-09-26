@@ -59,7 +59,8 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 		t.Errorf("the seeded setting is not in force: %s", settings.body)
 	}
 	raw := call(t, http.MethodGet, server.baseURL+"/config", token, nil)
-	if !strings.Contains(raw.body, `"key":"debug_pprof","kind":"bool","value":true,"start":false,"isModified":true`) ||
+	const pprofOn = `"key":"debug_pprof","kind":"bool","value":true,"startingValue":false,"isModified":true`
+	if !strings.Contains(raw.body, pprofOn) ||
 		strings.Contains(settings.body, "debug_pprof") {
 		t.Errorf("the seed did not turn debug_pprof on through /config, or the settings page shows it:\n%s", raw.body)
 	}

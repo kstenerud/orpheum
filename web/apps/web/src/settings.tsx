@@ -139,7 +139,7 @@ function SettingRow(props: {
       <h3 id={`setting-${setting.key}`}>
         <code>{setting.key}</code>
       </h3>
-      <p>{setting.question ?? setting.describe}</p>
+      <p>{setting.question ?? setting.description}</p>
       <label>
         {setting.kind === "bool" ? t("settings.on") : setting.key}
         {setting.kind === "bool" ? (
@@ -165,7 +165,7 @@ function SettingRow(props: {
       <button type="submit">{t("settings.save")}</button>{" "}
       {setting.isModified ? (
         <>
-          <span>{t("settings.changed", { start: shown(setting.start) })}</span>{" "}
+          <span>{t("settings.changed", { start: shown(setting.startingValue) })}</span>{" "}
           <button type="button" onClick={props.onReset}>
             {t("settings.reset")}
           </button>

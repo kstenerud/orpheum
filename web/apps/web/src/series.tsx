@@ -34,7 +34,7 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
   return (
     <article className="series">
       <div className="series__head">
-        <Poster hash={series.art.poster} />
+        <Poster hash={series.art.posterHash} />
         <div>
           <h1>{series.name}</h1>
           {series.year === undefined ? null : <p className="series__year">{series.year}</p>}
@@ -50,15 +50,15 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
             {episodes.map((episode) => (
               <li
                 key={episode.id}
-                className={episode.available ? undefined : "series__episode--absent"}
+                className={episode.hasLiveFile ? undefined : "series__episode--absent"}
               >
                 <Link to={{ screen: "title", id: episode.id }} className="series__episode">
-                  {episode.still === undefined ? (
+                  {episode.stillHash === undefined ? (
                     <span className="series__still" aria-hidden="true" />
                   ) : (
                     <img
                       className="series__still"
-                      src={artUrl(episode.still, "landscape-s")}
+                      src={artUrl(episode.stillHash, "landscape-s")}
                       alt={""}
                       loading="lazy"
                     />
@@ -66,7 +66,7 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
                   <span>
                     {t("title.episodeLabel", { number: episode.number, name: episode.name })}
                   </span>
-                  {episode.available ? null : (
+                  {episode.hasLiveFile ? null : (
                     <span className="series__absent">{t("title.unavailable")}</span>
                   )}
                 </Link>

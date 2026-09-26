@@ -16,9 +16,9 @@ const heat: TitleDetail = {
   runtimeMs: 170 * 60_000,
   tagline: "A Los Angeles crime saga",
   overview: "A crime saga.",
-  ident: "identified",
+  identification: "identified",
   libraryId: 1,
-  art: { poster: "p1", backdrop: "b1" },
+  art: { posterHash: "p1", backdropHash: "b1" },
   versions: [
     {
       id: 1,
@@ -28,7 +28,7 @@ const heat: TitleDetail = {
           path: "/m/Metropolis (1995).mkv",
           streams: [
             { id: 1, kind: "video", codec: "h264" },
-            { id: 2, kind: "audio", codec: "truehd", lang: "en", channels: 8 },
+            { id: 2, kind: "audio", codec: "truehd", language: "en", channels: 8 },
             { id: 3, kind: "attachment", codec: "ttf" },
           ],
         },
@@ -36,8 +36,8 @@ const heat: TitleDetail = {
     },
   ],
   extras: [
-    { id: 30, name: "Metropolis trailer", type: "trailer" },
-    { id: 31, name: "Making Metropolis", type: "behind_the_scenes" },
+    { id: 30, name: "Metropolis trailer", kind: "trailer" },
+    { id: 31, name: "Making Metropolis", kind: "behind_the_scenes" },
   ],
 };
 
@@ -61,7 +61,7 @@ describe("TitleView", () => {
       ...heat,
       kind: "episode",
       name: "Pilot",
-      art: { still: "s1" },
+      art: { stillHash: "s1" },
       episode: { seriesId: 20, seriesName: "Brass Arena", season: 1, number: 1 },
       versions: [],
       extras: null,

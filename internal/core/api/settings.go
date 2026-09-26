@@ -16,18 +16,18 @@ import (
 // SettingBody is one setting: the value in force, whether it differs from the value a new server
 // starts with, and the question still to answer if it is one (D200).
 type SettingBody struct {
-	Key        string          `json:"key"`
-	Kind       string          `enum:"bool,integer,string" json:"kind"`
-	Value      json.RawMessage `doc:"A bool, a whole number or a string, by its kind; null when unset" json:"value"`
-	Start      json.RawMessage `doc:"The value a new server starts with; null when it has none" json:"start"`
-	IsModified bool            `json:"isModified"`
-	Minimum    *int64          `json:"minimum,omitempty"`
-	Maximum    *int64          `json:"maximum,omitempty"`
-	Question   string          `json:"question,omitempty"`
-	Describe   string          `json:"describe"`
-	IsExposed  bool            `doc:"Shown on the settings page; every setting is in /config" json:"isExposed"`
-	SetBy      *int64          `json:"setBy,omitempty"`
-	SetAt      int64           `json:"setAt"`
+	Key           string          `json:"key"`
+	Kind          string          `enum:"bool,integer,string" json:"kind"`
+	Value         json.RawMessage `doc:"A bool, a whole number or a string, by its kind; null when unset" json:"value"`
+	StartingValue json.RawMessage `doc:"The value a new server starts with; null when it has none" json:"startingValue"`
+	IsModified    bool            `json:"isModified"`
+	Minimum       *int64          `json:"minimum,omitempty"`
+	Maximum       *int64          `json:"maximum,omitempty"`
+	Question      string          `json:"question,omitempty"`
+	Description   string          `json:"description"`
+	IsExposed     bool            `doc:"Shown on the settings page; every setting is in /config" json:"isExposed"`
+	SetBy         *int64          `json:"setBy,omitempty"`
+	SetAt         int64           `json:"setAt"`
 }
 
 // SettingsOutput lists settings.
@@ -109,8 +109,8 @@ func (server *Server) listSettings(ctx context.Context, service *settings.Servic
 func settingBody(entry settings.Entry) SettingBody {
 	definition := entry.Definition
 	body := SettingBody{
-		Key: string(definition.Key), Kind: string(definition.Kind), Value: entry.Value, Start: definition.Start,
-		IsModified: entry.IsModified, Question: definition.Question, Describe: definition.Describe,
+		Key: string(definition.Key), Kind: string(definition.Kind), Value: entry.Value, StartingValue: definition.Start,
+		IsModified: entry.IsModified, Question: definition.Question, Description: definition.Describe,
 		IsExposed: definition.Exposed, SetBy: entry.SetBy, SetAt: entry.SetAt,
 	}
 	if definition.Kind == settings.KindInteger {

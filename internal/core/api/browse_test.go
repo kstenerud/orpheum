@@ -82,7 +82,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
 
 	detail := harness.do(t, http.MethodGet, "/items/10", user, nil)
-	if !strings.Contains(detail.body, `"codec":"truehd","lang":"en","channels":8`) ||
+	if !strings.Contains(detail.body, `"codec":"truehd","language":"en","channels":8`) ||
 		!strings.Contains(detail.body, `"streams":[{"id":`) ||
 		strings.Contains(detail.body, "Metropolis (1995).mkv") {
 		t.Errorf("a user's detail = %d %s; want the streams and no path", detail.status, detail.body)
@@ -98,7 +98,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodGet, "/items/99", user, nil), http.StatusNotFound, CodeNotFound)
 
 	series := harness.do(t, http.MethodGet, "/collections/20", user, nil)
-	if !strings.Contains(series.body, `"name":"Pilot"`) || !strings.Contains(series.body, `"available":true`) {
+	if !strings.Contains(series.body, `"name":"Pilot"`) || !strings.Contains(series.body, `"hasLiveFile":true`) {
 		t.Errorf("a series = %d %s", series.status, series.body)
 	}
 
@@ -117,11 +117,11 @@ func TestBrowse_EachItemShowsItsChosenOrNewestStoredImage(t *testing.T) {
 	for _, check := range []struct {
 		path, want string
 	}{
-		{"/titles?kind=movie&sort=name&limit=10", `"poster":"` + chosen + `"`},
-		{"/titles?kind=series&sort=added&limit=10", `"poster":"` + seriesPoster + `"`},
-		{"/items/10", `"art":{"poster":"` + chosen + `"}`}, // and no refused backdrop
-		{"/collections/20", `"still":"` + still + `"`},
-		{"/collections/20", `"art":{"poster":"` + seriesPoster + `"}`},
+		{"/titles?kind=movie&sort=name&limit=10", `"posterHash":"` + chosen + `"`},
+		{"/titles?kind=series&sort=added&limit=10", `"posterHash":"` + seriesPoster + `"`},
+		{"/items/10", `"art":{"posterHash":"` + chosen + `"}`}, // and no refused backdrop
+		{"/collections/20", `"stillHash":"` + still + `"`},
+		{"/collections/20", `"art":{"posterHash":"` + seriesPoster + `"}`},
 	} {
 		if answer := harness.do(t, http.MethodGet, check.path, user, nil); !strings.Contains(answer.body, check.want) {
 			t.Errorf("%s = %d %s; want %s", check.path, answer.status, answer.body, check.want)

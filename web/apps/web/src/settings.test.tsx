@@ -54,9 +54,9 @@ describe("settings", () => {
             {
               key: "tmdb_refresh_after_d",
               kind: "integer",
-              describe: "days",
+              description: "days",
               value: 90,
-              start: 180,
+              startingValue: 180,
               isModified: true,
               isExposed: false,
               minimum: 0,
@@ -66,9 +66,9 @@ describe("settings", () => {
             {
               key: "scan_on_node_hello",
               kind: "bool",
-              describe: "scan on hello",
+              description: "scan on hello",
               value: true,
-              start: true,
+              startingValue: true,
               isModified: false,
               isExposed: false,
               setAt: 1,
