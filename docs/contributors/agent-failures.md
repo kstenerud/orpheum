@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A8 — Names that made the reader dig, against a standard that already forbade them (2026-09-26)
+
+- **What happened:** building prepare, I named the segment length's setting `hls_segment_s`,
+  its constant `HLSSegmentS`, and the variable holding it `segment`; beside them `done_ms` (done
+  of what?), `run` (a run of what?), `Dir` and `Silence`. standards/go.md §3 says a name says
+  what the thing is, so a reader at a use site needs no trip to the declaration; it is
+  review-only, and nothing reviewed it before the owner read the code. Renamed in an earlier commit.
+- **Caught by:** the owner, reading the code: *"its actual function is the segment length,
+  which I'd never have guessed without digging around a lot."*
+- **Gate:** none can be built: the rule is about meaning, and even `hls_segment_s` carried its
+  unit; the missing word was "length". The owner: *"the only way to solve this will be to do
+  periodic audits to catch them"*. So a naming pass joins every between-milestone audit, a
+  codebase-wide one ran at once, and before committing a slice the agent re-reads each name it
+  introduced as a reader at the use site would.
+
 ### A7 — A cause asserted from a plausible mechanism, and a fix built on it, without a measurement (2026-09-26)
 
 - **What happened:** the owner reported that the dialogue boost took two to three seconds to be
