@@ -34,9 +34,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   most a moment's pause. Before this change it took two to four seconds whatever the segment
   length. (the seek after an audio switch in `web/packages/player/src/hls.ts`) — done
   2026-09-26 by the owner: *"Yup, works within about a second now."*
-- [ ] **VQ3** — On an Android phone in Chrome, and in desktop Firefox, on the dev loop, play
+- [x] **VQ3** — On an Android phone in Chrome, and in desktop Firefox, on the dev loop, play
   **Remux Film (2021)** and choose **English** under **Subtitles**. Passes when the text
   appears over the picture, styled as its ASS says, inside the picture's area and not under the
   controls, within a few seconds of choosing it. Then press **Later** three times: the offset
   reads +0.3 s and the text moves at once, paused or playing. Leave and play the film again:
-  it starts at +0.3 s. (JASSUB in `web/packages/player/src/subtitles.ts`)
+  it starts at +0.3 s. (JASSUB in `web/packages/player/src/subtitles.ts`) — done 2026-09-26 by the owner, on an Android phone in Chrome: *"Subtitles render, and I've
+  observed the subtitles arriving later and earlier when I adjust the offset"*, and the offset
+  was still set after the page reloaded. Desktop Firefox not yet seen.
