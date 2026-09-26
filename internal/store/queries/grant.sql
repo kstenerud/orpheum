@@ -7,7 +7,7 @@ VALUES (sqlc.arg(hash), sqlc.arg(kind), sqlc.arg(subject), sqlc.arg(scope), sqlc
         sqlc.arg(expires_at), sqlc.arg(issued_at), sqlc.arg(label), sqlc.arg(device_id));
 
 -- name: GetLiveGrant :one
-SELECT hash, kind, subject, scope, issued_at, expires_at, last_seen_at, device_id
+SELECT hash, kind, subject, scope, issued_at, expires_at, last_seen_at, device_id, label
 FROM "grant"
 WHERE hash = sqlc.arg(hash)
   AND revoked_at IS NULL
@@ -20,3 +20,9 @@ WHERE hash = sqlc.arg(hash);
 -- name: MarkGrantRevoked :exec
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
 WHERE hash = sqlc.arg(hash) AND revoked_at IS NULL;
+
+-- name: RevokeLiveGrantsOf :exec
+-- A person's live grants of one kind and scope: an older registration link, when a new one is
+-- made (D218).
+UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
+WHERE subject = sqlc.arg(subject) AND kind = sqlc.arg(kind) AND scope = sqlc.arg(scope) AND revoked_at IS NULL;

@@ -10,7 +10,7 @@ import (
 )
 
 const getLiveGrant = `-- name: GetLiveGrant :one
-SELECT hash, kind, subject, scope, issued_at, expires_at, last_seen_at, device_id
+SELECT hash, kind, subject, scope, issued_at, expires_at, last_seen_at, device_id, label
 FROM "grant"
 WHERE hash = ?1
   AND revoked_at IS NULL
@@ -31,6 +31,7 @@ type GetLiveGrantRow struct {
 	ExpiresAt  *int64
 	LastSeenAt *int64
 	DeviceID   *int64
+	Label      *string
 }
 
 func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (GetLiveGrantRow, error) {
@@ -45,6 +46,7 @@ func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (Get
 		&i.ExpiresAt,
 		&i.LastSeenAt,
 		&i.DeviceID,
+		&i.Label,
 	)
 	return i, err
 }
@@ -95,6 +97,30 @@ type MarkGrantRevokedParams struct {
 
 func (q *Queries) MarkGrantRevoked(ctx context.Context, arg MarkGrantRevokedParams) error {
 	_, err := q.db.ExecContext(ctx, markGrantRevoked, arg.RevokedAt, arg.Hash)
+	return err
+}
+
+const revokeLiveGrantsOf = `-- name: RevokeLiveGrantsOf :exec
+UPDATE "grant" SET revoked_at = ?1
+WHERE subject = ?2 AND kind = ?3 AND scope = ?4 AND revoked_at IS NULL
+`
+
+type RevokeLiveGrantsOfParams struct {
+	RevokedAt *int64
+	Subject   *int64
+	Kind      string
+	Scope     string
+}
+
+// A person's live grants of one kind and scope: an older registration link, when a new one is
+// made (D218).
+func (q *Queries) RevokeLiveGrantsOf(ctx context.Context, arg RevokeLiveGrantsOfParams) error {
+	_, err := q.db.ExecContext(ctx, revokeLiveGrantsOf,
+		arg.RevokedAt,
+		arg.Subject,
+		arg.Kind,
+		arg.Scope,
+	)
 	return err
 }
 

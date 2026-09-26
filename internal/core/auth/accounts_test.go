@@ -1,0 +1,172 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package auth
+
+import (
+	"errors"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id, link, err := fixture.service.CreateAccount(ctx, "partner", RoleUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if link.ExpiresAt.Sub(fixture.clock.Now()) != 7*24*time.Hour || len(link.Secret) < 40 {
+		t.Errorf("the link = %+v, want 256 bits lasting seven days (D218 §1)", link)
+	}
+	_, err = fixture.service.SignIn(ctx, "partner", "", "192.0.2.1", laptop)
+	if err == nil {
+		t.Error("a person who has not registered signed in")
+	}
+	token, err := fixture.service.Register(ctx, link.Secret, "partner-password", "192.0.2.1", laptop)
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	principal, err := fixture.service.Authenticate(ctx, token)
+	if err != nil || principal.UserID != id || principal.DeviceID == 0 {
+		t.Errorf("after registering: %+v, %v; want the person, signed in on a device", principal, err)
+	}
+	_, err = fixture.service.Register(ctx, link.Secret, "other", "192.0.2.1", laptop)
+	if !errors.Is(err, ErrBadInvitation) {
+		t.Errorf("a link used twice: %v, want ErrBadInvitation", err)
+	}
+	_, err = fixture.service.SignIn(ctx, "partner", "partner-password", "192.0.2.1", laptop)
+	if err != nil {
+		t.Errorf("the password set by the link does not sign in: %v", err)
+	}
+}
+
+func TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneIsSet(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id := fixture.createUser(t, "partner", "forgotten", RoleUser)
+	old, err := fixture.service.IssueRegistrationLink(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	current, err := fixture.service.IssueRegistrationLink(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fixture.service.Register(ctx, old.Secret, "x", "192.0.2.1", laptop)
+	if !errors.Is(err, ErrBadInvitation) {
+		t.Errorf("an older link: %v, want withdrawn", err)
+	}
+	_, err = fixture.service.SignIn(ctx, "partner", "forgotten", "192.0.2.1", laptop)
+	if err != nil {
+		t.Errorf("the old password before the new one is set: %v, want it to work (D218 §5)", err)
+	}
+	_, err = fixture.service.Register(ctx, current.Secret, "remembered", "192.0.2.1", laptop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fixture.service.SignIn(ctx, "partner", "forgotten", "192.0.2.1", laptop)
+	if err == nil {
+		t.Error("the old password still works after the new one is set")
+	}
+	fixture.clock.Advance(time.Second)
+	expiring, err := fixture.service.IssueRegistrationLink(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.clock.Advance(7*24*time.Hour + time.Second)
+	_, err = fixture.service.Register(ctx, expiring.Secret, "late", "192.0.2.1", laptop)
+	if !errors.Is(err, ErrBadInvitation) {
+		t.Errorf("a link past seven days: %v, want expired", err)
+	}
+}
+
+func TestDeviceCode_SignsOneDeviceInOnceWithinTenMinutesAsTyped(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id := fixture.createUser(t, "partner", "pw", RoleUser)
+	code, err := fixture.service.IssueDeviceCode(ctx, id, "Living room TV")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(code.Secret) != 9 || code.Secret[4] != '-' || code.ExpiresAt.Sub(fixture.clock.Now()) != 10*time.Minute {
+		t.Errorf("the code = %+v, want xxxx-xxxx for ten minutes (D218 §3)", code)
+	}
+	typed := strings.ToUpper(strings.ReplaceAll(code.Secret, "-", " "))
+	token, err := fixture.service.SignInWithCode(ctx, typed, "web", "192.0.2.9")
+	if err != nil {
+		t.Fatalf("signing in with %q: %v", typed, err)
+	}
+	principal, err := fixture.service.Authenticate(ctx, token)
+	if err != nil || principal.UserID != id || principal.DeviceID == 0 {
+		t.Errorf("the television is %+v, %v; want the person, on a new device", principal, err)
+	}
+	_, err = fixture.service.SignInWithCode(ctx, code.Secret, "web", "192.0.2.9")
+	if !errors.Is(err, ErrBadInvitation) {
+		t.Errorf("a code used twice: %v, want ErrBadInvitation", err)
+	}
+	late, err := fixture.service.IssueDeviceCode(ctx, id, "Bedroom TV")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.clock.Advance(10*time.Minute + time.Second)
+	_, err = fixture.service.SignInWithCode(ctx, late.Secret, "web", "192.0.2.9")
+	if !errors.Is(err, ErrBadInvitation) {
+		t.Errorf("a code past ten minutes: %v, want expired", err)
+	}
+}
+
+func TestDeviceCode_WrongCodesCountAgainstTheSignInLimit(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id := fixture.createUser(t, "partner", "pw", RoleUser)
+	code, err := fixture.service.IssueDeviceCode(ctx, id, "TV")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var last error
+	for attempt := range 20 {
+		if _, last = fixture.service.SignInWithCode(ctx, "0000-000"+string(rune('0'+attempt%10)), "web",
+			"203.0.113.5"); errors.Is(last, ErrRateLimited) {
+			break
+		}
+	}
+	if !errors.Is(last, ErrRateLimited) {
+		t.Fatalf("twenty wrong codes: %v, want the address limited", last)
+	}
+	_, err = fixture.service.SignInWithCode(ctx, code.Secret, "web", "203.0.113.5")
+	if !errors.Is(err, ErrRateLimited) {
+		t.Errorf("the right code from a limited address: %v, want limited", err)
+	}
+}
+
+func TestChangePassword_NeedsTheCurrentOneAndKeepsOtherSessions(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id := fixture.createUser(t, "partner", "old", RoleUser)
+	other, err := fixture.service.SignIn(ctx, "partner", "old", "192.0.2.1", laptop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = fixture.service.ChangePassword(ctx, id, "wrong", "new")
+	if !errors.Is(err, ErrBadCredentials) {
+		t.Errorf("with the wrong current password: %v, want refused", err)
+	}
+	err = fixture.service.ChangePassword(ctx, id, "old", "new")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fixture.service.SignIn(ctx, "partner", "new", "192.0.2.1", laptop)
+	if err != nil {
+		t.Errorf("the new password: %v", err)
+	}
+	_, err = fixture.service.Authenticate(ctx, other)
+	if err != nil {
+		t.Errorf("another session after the change: %v, want still signed in (D218 §6)", err)
+	}
+}

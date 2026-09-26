@@ -21,7 +21,7 @@ func (q *Queries) CountLiveUsers(ctx context.Context) (int64, error) {
 }
 
 const getLiveUserByID = `-- name: GetLiveUserByID :one
-SELECT user.id, user.name, user.outsider, role.name AS role_name, role.capabilities
+SELECT user.id, user.name, user.password_hash, user.outsider, role.name AS role_name, role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.id = ? AND user.removed_at IS NULL
@@ -30,6 +30,7 @@ WHERE user.id = ? AND user.removed_at IS NULL
 type GetLiveUserByIDRow struct {
 	ID           int64
 	Name         string
+	PasswordHash []byte
 	Outsider     int64
 	RoleName     string
 	Capabilities string
@@ -41,6 +42,7 @@ func (q *Queries) GetLiveUserByID(ctx context.Context, id int64) (GetLiveUserByI
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.PasswordHash,
 		&i.Outsider,
 		&i.RoleName,
 		&i.Capabilities,
@@ -132,6 +134,55 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (int64, 
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const listLiveUsers = `-- name: ListLiveUsers :many
+SELECT user.id, user.name, role.name AS role_name, user.outsider, user.password_hash IS NOT NULL AS has_password,
+  user.created_at
+FROM user
+JOIN role ON role.id = user.role_id
+WHERE user.removed_at IS NULL
+ORDER BY user.name COLLATE NOCASE, user.id
+`
+
+type ListLiveUsersRow struct {
+	ID          int64
+	Name        string
+	RoleName    string
+	Outsider    int64
+	HasPassword bool
+	CreatedAt   int64
+}
+
+// Everyone, for the admin's list of people: whether each has set a password yet.
+func (q *Queries) ListLiveUsers(ctx context.Context) ([]ListLiveUsersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLiveUsersRow{}
+	for rows.Next() {
+		var i ListLiveUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.RoleName,
+			&i.Outsider,
+			&i.HasPassword,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateUserPasswordHash = `-- name: UpdateUserPasswordHash :exec

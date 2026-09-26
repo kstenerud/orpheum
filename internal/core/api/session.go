@@ -43,6 +43,12 @@ type SignInInput struct {
 		Password string        `json:"password" minLength:"1"`
 		Device   NewDeviceBody `json:"device"`
 	}
+	ClientFacts
+}
+
+// ClientFacts are what a sign-in needs to know of the request: the client's address, for the
+// per-address failure limit (D194 §2), and whether it came over TLS, for the media cookie.
+type ClientFacts struct {
 	clientAddress string
 	overTLS       bool
 }
@@ -54,14 +60,13 @@ type NewDeviceBody struct {
 	Platform string `doc:"The kind of client: \"web\", \"cast\""                                    json:"platform" maxLength:"40"  minLength:"1"`   //nolint:lll // one struct tag
 }
 
-// Resolve records the client's address, for the per-address failure limit (D194 §2), and
-// whether it came over TLS, for the media cookie.
-func (input *SignInInput) Resolve(ctx huma.Context) []error {
+// Resolve records the client's address and whether it came over TLS.
+func (facts *ClientFacts) Resolve(ctx huma.Context) []error {
 	host, _, err := net.SplitHostPort(ctx.RemoteAddr())
 	if err != nil {
 		host = ctx.RemoteAddr()
 	}
-	input.clientAddress, input.overTLS = host, ctx.TLS() != nil
+	facts.clientAddress, facts.overTLS = host, ctx.TLS() != nil
 	return nil
 }
 
@@ -157,11 +162,19 @@ func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionO
 	case err != nil:
 		return nil, server.internal(ctx, "sign in", err)
 	}
+	return server.sessionAnswer(ctx, dependencies, token, input.overTLS)
+}
+
+// sessionAnswer answers a sign-in, a registration or a device code with the new session: its
+// token, who it is, and the media cookie.
+func (server *Server) sessionAnswer(
+	ctx context.Context, dependencies *Dependencies, token string, overTLS bool,
+) (*SessionOutput, error) {
 	principal, err := dependencies.Auth.Authenticate(ctx, token)
 	if err != nil {
 		return nil, server.internal(ctx, "read the new session", err)
 	}
-	output := &SessionOutput{SetCookie: mediaCookie(token, input.overTLS)}
+	output := &SessionOutput{SetCookie: mediaCookie(token, overTLS)}
 	output.Body.Token, output.Body.User = token, userBody(principal)
 	return output, nil
 }
