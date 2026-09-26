@@ -10,6 +10,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
 
 const tagBrowse = "Browse"
@@ -217,10 +218,14 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	}
 	output := &ItemDetailOutput{}
 	body := &output.Body
-	body.ID, body.Kind, body.Name = detail.ID, detail.Kind, text(detail.Name)
+	body.ID, body.Kind, body.Name = detail.ID, detail.Kind, ptr.ValueOrZero(detail.Name)
 	body.Identification = detail.Identification
-	body.Overview, body.Tagline, body.Source = text(detail.Overview), text(detail.Tagline), text(detail.Source)
-	body.Year, body.RuntimeMs, body.LibraryID = number(detail.Year), number(detail.RuntimeMs), number(detail.LibraryID)
+	body.Overview = ptr.ValueOrZero(detail.Overview)
+	body.Tagline = ptr.ValueOrZero(detail.Tagline)
+	body.Source = ptr.ValueOrZero(detail.Source)
+	body.Year = ptr.ValueOrZero(detail.Year)
+	body.RuntimeMs = ptr.ValueOrZero(detail.RuntimeMs)
+	body.LibraryID = ptr.ValueOrZero(detail.LibraryID)
 	body.Versions = make([]VersionBody, 0, len(detail.Versions))
 	for _, version := range detail.Versions {
 		versionBody := VersionBody{ID: version.ID, EditionID: version.EditionID, Files: []FileDetailBody{}}
@@ -242,13 +247,15 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	}
 	body.Extras = make([]ExtraBody, 0, len(detail.Extras))
 	for _, extra := range detail.Extras {
-		body.Extras = append(body.Extras, ExtraBody{ID: extra.ExtraTitle, Kind: extra.Type, Name: text(extra.Name)})
+		body.Extras = append(body.Extras, ExtraBody{
+			ID: extra.ExtraTitle, Kind: extra.Type, Name: ptr.ValueOrZero(extra.Name),
+		})
 	}
 	body.Art = artBody(detail.Art)
 	if place := detail.Episode; place != nil {
 		body.Episode = &EpisodePlaceBody{
-			SeriesID: place.CollectionID, SeriesName: text(place.SeriesName), Season: number(place.GroupNumber),
-			Number: number(place.Number),
+			SeriesID: place.CollectionID, SeriesName: ptr.ValueOrZero(place.SeriesName),
+			Season: ptr.ValueOrZero(place.GroupNumber), Number: ptr.ValueOrZero(place.Number),
 		}
 	}
 	return output, nil
@@ -265,16 +272,18 @@ func (server *Server) getCollection(ctx context.Context, input *ItemInput) (*Col
 	}
 	output := &CollectionOutput{}
 	body := &output.Body
-	body.ID, body.Kind, body.Name, body.Overview = series.ID, "series", text(series.Name), text(series.Overview)
-	body.Year, body.LibraryID = number(series.Year), number(series.LibraryID)
-	body.Identification = text(series.Identification)
+	body.ID, body.Kind = series.ID, "series"
+	body.Name, body.Overview = ptr.ValueOrZero(series.Name), ptr.ValueOrZero(series.Overview)
+	body.Year, body.LibraryID = ptr.ValueOrZero(series.Year), ptr.ValueOrZero(series.LibraryID)
+	body.Identification = ptr.ValueOrZero(series.Identification)
 	body.Episodes = make([]EpisodeBody, 0, len(series.Episodes))
 	for _, episode := range series.Episodes {
 		body.Episodes = append(body.Episodes, EpisodeBody{
-			ID: episode.TitleID, Season: number(episode.GroupNumber), Number: number(episode.Number),
-			Name: text(episode.Name),
-			Year: number(episode.Year), RuntimeMs: number(episode.RuntimeMs), Identification: episode.Identification,
-			HasLiveFile: episode.Available, StillHash: series.Stills[episode.TitleID],
+			ID: episode.TitleID, Season: ptr.ValueOrZero(episode.GroupNumber), Number: ptr.ValueOrZero(episode.Number),
+			Name: ptr.ValueOrZero(episode.Name),
+			Year: ptr.ValueOrZero(episode.Year), RuntimeMs: ptr.ValueOrZero(episode.RuntimeMs),
+			Identification: episode.Identification,
+			HasLiveFile:    episode.Available, StillHash: series.Stills[episode.TitleID],
 		})
 	}
 	body.Art = artBody(series.Art)
@@ -298,7 +307,7 @@ func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOu
 			kind = *hit.TitleKind
 		}
 		output.Body.Results = append(output.Body.Results, HitBody{
-			ID: hit.ItemID, Kind: kind, Name: hit.Name, Year: number(hit.Year),
+			ID: hit.ItemID, Kind: kind, Name: hit.Name, Year: ptr.ValueOrZero(hit.Year),
 		})
 	}
 	return output, nil

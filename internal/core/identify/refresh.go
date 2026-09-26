@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -79,7 +80,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages b
 		}
 		return matcher.refreshSeries(ctx, seriesID, retryImages)
 	}
-	provider, matched := matcher.providers[derefText(title.Source)]
+	provider, matched := matcher.providers[ptr.ValueOrZero(title.Source)]
 	if !matched || title.SourceID == nil {
 		return matcher.Match(ctx, itemID)
 	}
@@ -125,7 +126,7 @@ func (matcher *Matcher) refreshSeries(ctx context.Context, seriesID int64, retry
 	}
 	outcome := OutcomeMatched
 	for _, part := range parts {
-		body, fetchErr := matcher.fetchPart(ctx, provider, derefText(series.SourceID), part)
+		body, fetchErr := matcher.fetchPart(ctx, provider, ptr.ValueOrZero(series.SourceID), part)
 		if errors.Is(fetchErr, ErrNoMatch) {
 			outcome = OutcomeKept
 			if err := matcher.touch(ctx, keptPart{seriesID, provider.Name(), part}); err != nil {
@@ -175,7 +176,8 @@ func (matcher *Matcher) storePart(
 		return err
 	}
 	found := seriesFound{
-		provider: provider.Name(), seriesID: series.ID, metadata: metadata, ident: derefText(series.Identification),
+		provider: provider.Name(), seriesID: series.ID, metadata: metadata,
+		ident: ptr.ValueOrZero(series.Identification),
 	}
 	now := matcher.clock.Now().UnixMilli()
 	return matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error { //nolint:wrapcheck // recordSeries wraps

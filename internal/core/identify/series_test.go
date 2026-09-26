@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -101,8 +102,8 @@ func checkOrbitorama(t *testing.T, lib *world, when string) {
 	}
 	series := lib.onlySeries()
 	got := []string{
-		derefText(series.Name), strconv.FormatInt(deref(series.Year), 10), derefText(series.Identification),
-		derefText(series.Source), derefText(series.SourceID),
+		ptr.ValueOrZero(series.Name), strconv.FormatInt(deref(series.Year), 10), ptr.ValueOrZero(series.Identification),
+		ptr.ValueOrZero(series.Source), ptr.ValueOrZero(series.SourceID),
 	}
 	if want := []string{"Orbitorama", "1999", identIdentified, sourceTMDB, "7615"}; !slices.Equal(got, want) {
 		t.Errorf("%s: series name, year, ident, source and id = %v, want %v", when, got, want)
@@ -162,7 +163,7 @@ func TestSeries_AnAmbiguousSeriesIsChosenByAPerson(t *testing.T) {
 	if got := name(lib.files()[rel]); got != "The Dundies" {
 		t.Errorf("after choosing the American series: %q", got)
 	}
-	if ident := derefText(lib.onlySeries().Identification); ident != identConfirmed {
+	if ident := ptr.ValueOrZero(lib.onlySeries().Identification); ident != identConfirmed {
 		t.Errorf("the chosen series is %s, want confirmed", ident)
 	}
 	episode := lib.files()[rel].TitleID
@@ -188,7 +189,7 @@ func TestSeries_AYearOrAnIDSettlesTheSearch(t *testing.T) {
 	}
 	for _, show := range series {
 		if outcome, err := lib.matcher.Match(t.Context(), show.ID); err != nil || outcome != OutcomeMatched {
-			t.Errorf("Match(%s) = %s, %v", derefText(show.Name), outcome, err)
+			t.Errorf("Match(%s) = %s, %v", ptr.ValueOrZero(show.Name), outcome, err)
 		}
 	}
 	if slices.Contains(lib.provider.calls, "search Orbitorama|0") {
@@ -208,7 +209,7 @@ func TestSeries_AnEpisodeAddedAfterTheSeriesWasRenamedJoinsIt(t *testing.T) {
 		t.Fatalf("Match = %s, %v; calls %v", outcome, err, lib.provider.calls)
 	}
 	lib.scanAll("Always Sunny {tmdb-2710}/Season 1/S01E01.mkv", first)
-	if series := lib.onlySeries(); derefText(series.Name) != sunny.Name {
+	if series := lib.onlySeries(); ptr.ValueOrZero(series.Name) != sunny.Name {
 		t.Errorf("series %+v", series)
 	}
 }

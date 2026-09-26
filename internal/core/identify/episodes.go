@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -123,7 +124,7 @@ func (work *run) fromListing(ctx context.Context, seriesID int64, season, number
 	provider, known := work.providers[providerOf(work.library.MetadataSource)]
 	switch {
 	case !known:
-	case derefText(series.Identification) == identAmbiguous:
+	case ptr.ValueOrZero(series.Identification) == identAmbiguous:
 		spec.reason = "its series matches more than one show: choose its match"
 	case seriesMatched(series):
 		episodes, fetched, listErr := work.listing(ctx, seriesID, provider, season)

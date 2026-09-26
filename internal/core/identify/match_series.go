@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -26,7 +27,7 @@ func (matcher *Matcher) matchSeries(ctx context.Context, seriesID int64) (Outcom
 	if !known || series.MetadataSource == sourceNFO {
 		return OutcomeNothingToDo, nil
 	}
-	ident := derefText(series.Identification)
+	ident := ptr.ValueOrZero(series.Identification)
 	switch {
 	case seriesMatched(series):
 		return matcher.listSeasons(ctx, provider, series)
@@ -40,7 +41,7 @@ func (matcher *Matcher) matchSeries(ctx context.Context, seriesID int64) (Outcom
 	if id != "" {
 		return OutcomeMatched, matcher.acceptSeries(ctx, provider, series, id, identIdentified)
 	}
-	query := Query{Kind: KindSeries, Name: derefText(series.Name), Year: int(deref(series.Year))}
+	query := Query{Kind: KindSeries, Name: ptr.ValueOrZero(series.Name), Year: int(deref(series.Year))}
 	candidates, err := provider.Search(ctx, query)
 	if err != nil {
 		return "", fmt.Errorf("search %s for the series %q: %w", provider.Name(), query.Name, err)
@@ -154,7 +155,7 @@ func (matcher *Matcher) listSeasons(
 		outcome = OutcomeNothingToDo
 	}
 	for _, season := range seasons {
-		body, err := provider.FetchSeason(ctx, derefText(series.SourceID), season)
+		body, err := provider.FetchSeason(ctx, ptr.ValueOrZero(series.SourceID), season)
 		if errors.Is(err, ErrNoMatch) {
 			body, err = []byte{}, nil // the provider has no such season: stored empty, so it is not asked again
 		}

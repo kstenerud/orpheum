@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -96,8 +97,9 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 		err = listErr
 		for _, row := range rows {
 			entries = append(entries, Entry{
-				ID: row.ItemID, Name: text(row.Name), Year: number(row.Year),
-				Ident: text(row.Identification), LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
+				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
+				Ident: ptr.ValueOrZero(row.Identification), LibraryID: ptr.ValueOrZero(row.LibraryID),
+				AddedAt: row.CreatedAt,
 			})
 			keys = append(keys, row.Key)
 		}
@@ -108,8 +110,8 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 		err = listErr
 		for _, row := range rows {
 			entries = append(entries, Entry{
-				ID: row.ItemID, Name: text(row.Name), Year: number(row.Year),
-				Ident: row.Identification, LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
+				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
+				Ident: row.Identification, LibraryID: ptr.ValueOrZero(row.LibraryID), AddedAt: row.CreatedAt,
 			})
 			keys = append(keys, row.Key)
 		}
@@ -139,8 +141,9 @@ func (browser *Browser) listAdded(ctx context.Context, query ListQuery) (Page, e
 		err = listErr
 		for _, row := range rows {
 			entries = append(entries, Entry{
-				ID: row.ItemID, Name: text(row.Name), Year: number(row.Year),
-				Ident: text(row.Identification), LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
+				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
+				Ident: ptr.ValueOrZero(row.Identification), LibraryID: ptr.ValueOrZero(row.LibraryID),
+				AddedAt: row.CreatedAt,
 			})
 		}
 	} else {
@@ -150,8 +153,8 @@ func (browser *Browser) listAdded(ctx context.Context, query ListQuery) (Page, e
 		err = listErr
 		for _, row := range rows {
 			entries = append(entries, Entry{
-				ID: row.ItemID, Name: text(row.Name), Year: number(row.Year),
-				Ident: row.Identification, LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
+				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
+				Ident: row.Identification, LibraryID: ptr.ValueOrZero(row.LibraryID), AddedAt: row.CreatedAt,
 			})
 		}
 	}
@@ -217,18 +220,4 @@ func (browser *Browser) Search(ctx context.Context, query string, limit int64) (
 		return nil, fmt.Errorf("search: %w", err)
 	}
 	return hits, nil
-}
-
-func text(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}
-
-func number(value *int64) int64 {
-	if value == nil {
-		return 0
-	}
-	return *value
 }

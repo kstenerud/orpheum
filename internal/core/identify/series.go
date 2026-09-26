@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -41,7 +42,7 @@ func (spec *seriesSpec) fromNFO(nfo NFO) {
 
 // seriesMatched reports whether a series is matched at its provider, by the matcher or a person.
 func seriesMatched(row sqlcgen.GetSeriesForMatchRow) bool {
-	ident := derefText(row.Identification)
+	ident := ptr.ValueOrZero(row.Identification)
 	return row.SourceID != nil && (ident == identIdentified || ident == identConfirmed)
 }
 
@@ -248,7 +249,7 @@ func (work *run) seriesValues(
 		source = sourceNFO
 	}
 	provider, known := work.providers[providerOf(work.library.MetadataSource)]
-	if !known || !seriesMatched(current) || (spec.hasNFO && derefText(current.Identification) != identConfirmed) {
+	if !known || !seriesMatched(current) || (spec.hasNFO && ptr.ValueOrZero(current.Identification) != identConfirmed) {
 		if source == "" && current.Source != nil && *current.Source == sourceNone {
 			source = sourceNone // its provider found nothing
 		}
