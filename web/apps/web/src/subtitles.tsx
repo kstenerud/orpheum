@@ -64,22 +64,53 @@ export async function keepOffset(
   }
 }
 
+/** A person's choices for one file, as the server sends them. */
+export type FilePrefs = components["schemas"]["FilePrefsBody"];
+
 /**
- * The subtitle menu and offset for a playing video: the chosen track is drawn over it by JASSUB,
- * and the offset, which the person set for this file, is kept whenever they change it.
+ * Keeps a subtitle choice as the file's own: a track, or off when streamId is undefined. The
+ * server carries it to the work's other files that have no choice of their own (D219).
+ */
+export async function keepSubtitleChoice(
+  api: Api,
+  fileId: number,
+  streamId: number | undefined,
+): Promise<void> {
+  const subtitle = streamId === undefined ? { isOff: true } : { streamId };
+  const { error } = await api.PUT("/files/{id}/prefs", {
+    params: { path: { id: fileId } },
+    body: { subtitle },
+  });
+  if (error !== undefined) {
+    throw new Error(error.error.message);
+  }
+}
+
+/** The track a playback starts with: the file's choice when it names one of its tracks, else none. */
+export function startingTrack(
+  prefs: FilePrefs,
+  tracks: readonly SubtitleTrack[],
+): number | undefined {
+  const streamId = prefs.subtitle?.streamId;
+  return tracks.some((track) => track.streamId === streamId) ? streamId : undefined;
+}
+
+/**
+ * The subtitle menu and offset for a playing video: the chosen track is drawn over it by JASSUB.
+ * It starts with the person's choices for this file, and keeps each change to them.
  */
 export function Subtitles(props: {
   readonly fileId: number;
   readonly tracks: readonly SubtitleTrack[];
-  readonly startingOffsetMs: number;
+  readonly prefs: FilePrefs;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [chosen, setChosen] = useState<number | undefined>(undefined);
-  const [offsetMs, setOffsetMs] = useState(props.startingOffsetMs);
+  const [chosen, setChosen] = useState(() => startingTrack(props.prefs, props.tracks));
+  const [offsetMs, setOffsetMs] = useState(props.prefs.subtitleOffsetMs);
   // The offset a newly chosen track starts with, read when its text arrives rather than in render.
-  const offsetRef = useRef(props.startingOffsetMs);
+  const offsetRef = useRef(props.prefs.subtitleOffsetMs);
   const [failure, setFailure] = useState<string | undefined>(undefined);
   const track = props.tracks.find((candidate) => candidate.streamId === chosen);
   const layerRef = useSubtitleLayer(track?.assUrl, props.videoRef, {
@@ -106,6 +137,9 @@ export function Subtitles(props: {
         choose={(streamId) => {
           setFailure(undefined);
           setChosen(streamId);
+          keepSubtitleChoice(api, props.fileId, streamId).catch((cause: unknown) => {
+            setFailure(cause instanceof Error ? cause.message : String(cause));
+          });
         }}
       />
       <OffsetControl offsetMs={offsetMs} move={move} />

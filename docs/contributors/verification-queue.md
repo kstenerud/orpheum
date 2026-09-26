@@ -49,9 +49,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   the later watching, not the earlier. (`web/apps/web/src/play-state.ts`) — done 2026-09-26 by the owner, on an
   Android phone in Chrome, after `5da8b69`: *"Yup works correctly with pause and without"*; the
   second device's part not yet seen.
-- [ ] **VQ5** — On an Android phone in Chrome, on the dev loop, play two films partway and leave
+- [x] **VQ5** — On an Android phone in Chrome, on the dev loop, play two films partway and leave
   each. Open the home screen (Films): **Continue watching** shows both, the last watched first,
   each with how far along it is, and touching one plays it from where it was left. Press **Hide**
   on one: it goes, with **Undo**, which brings it back. Hide it again and play it a little: it is
   back by itself. The row scrolls sideways and fits the phone's width.
-  (`web/apps/web/src/continue-watching.tsx`)
+  (`web/apps/web/src/continue-watching.tsx`) — done 2026-09-26 by the owner, on an
+  Android phone in Chrome: *"Browser test on Android worked fine. With 3 partially viewed films
+  the row showed a scroll bar that matched the width, so all looks good."*
+- [ ] **VQ6** — On an Android phone in Chrome, on the dev loop, play **Remux Film (2021)**,
+  choose **Spanish** under **Subtitles**, and leave. Play it again: Spanish is chosen and drawn
+  from the start. Choose **Off**, leave, and play it again: subtitles are off. Then switch apps for
+  a while and come back: after the page reloads, the choice is still there.
+  (`web/apps/web/src/subtitles.tsx`)

@@ -179,7 +179,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		})
 	}
 	output.Body.Subtitles = subtitleTracks(started)
-	output.Body.Prefs = FilePrefsBody{SubtitleOffsetMs: started.Prefs.SubtitleOffsetMs}
+	output.Body.Prefs = filePrefsBody(started.Prefs)
 	output.Body.ResumePositionMs = started.ResumePositionMs
 	output.Body.MediaToken = started.Token
 	return output, nil

@@ -16580,3 +16580,32 @@ instead of waiting to be approved, and the code can be made by an admin on someo
 Phishing risk is about equal either way; the ten-minute life and single use bound it.
 
 **Status:** Decided; built in M3.
+
+## D219 — A subtitle choice is kept per file; choosing one carries it to the work's other files that have none of their own
+
+**Decided** (2026-09-26), by the project owner, answering where M3 keeps a chosen subtitle track:
+*"why can't it be attached to the lowest id level (the hash or whatever uniquely identifies the
+file)? If one subtitle file in a series is broken, we don't want them to be stuck. We can set all
+unset ones when they select subtitles, but otherwise they need to be individually selectable."*
+**Refines [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)**,
+whose sticky scope was the series for an episode and the title for a film; its three rules about
+what a choice is still hold.
+
+1. **The choice is kept per person and per file**, as the subtitle offset is (preference scope
+   `file`): the track chosen in that file, or *off*. Within one file a track is a stable thing,
+   a stream row whose id holds while the file does, so D24's warning against remembering a track
+   index, which is about carrying one to another file, does not apply to the file itself.
+2. **Choosing carries the choice to the work's other files that have none of their own**: every
+   episode of the series, or every other copy of the film. In each, it takes the track of the
+   same language and kind (forced, for the deaf and hard of hearing), preferring the same title;
+   *off* carries as *off*. A file with no such track is left without a choice: a fallback is not
+   a choice (D24, rule 1).
+3. **A choice made in a file is that file's own; a carried one is not.** A later choice elsewhere
+   carries over carried choices, never over a file's own, so one broken subtitle file chosen
+   around stays chosen around, and a person who switches from English to Spanish at episode 5
+   gets Spanish in episode 6. (The owner's words say "unset"; this reading, that a carried choice
+   still counts as unset for the next carry, was put to the owner with the implementation.)
+4. **An episode added after the choice has none**, and plays with subtitles off until one is
+   chosen, since nothing carries a choice to a file that did not exist when it was made.
+
+**Status:** Decided; built in M3.
