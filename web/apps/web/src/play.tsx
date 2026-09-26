@@ -2,11 +2,12 @@
 
 import "./play.css";
 
-import { playHls, type Playback } from "@orpheum/player";
+import { playHls, seekTo, type Playback } from "@orpheum/player";
 import { whenReady, type Api, type components, type Menu } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
 import { Subtitles } from "./subtitles.tsx";
 import { camelKey, Loaded } from "./title.tsx";
@@ -41,19 +42,40 @@ export function PlayView(props: {
   return <PreparedVideo fileId={props.fileId} decision={decision} />;
 }
 
-/** The subtitle menu and offset under a playing video, for the decision's tracks. */
-function SubtitlesOf(props: {
+/**
+ * What sits under a playing video: "Start over", and the subtitle menu and offset for the
+ * decision's tracks. It keeps the playback's play state on the server, starting where the person
+ * left the file.
+ */
+function UnderTheVideo(props: {
   readonly fileId: number;
   readonly decision: Decision;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
 }): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  usePlayState(api, props.videoRef, props.decision);
   return (
-    <Subtitles
-      fileId={props.fileId}
-      tracks={props.decision.subtitles ?? []}
-      startingOffsetMs={props.decision.prefs.subtitleOffsetMs}
-      videoRef={props.videoRef}
-    />
+    <>
+      <button
+        type="button"
+        className="play__start-over"
+        onClick={() => {
+          const video = props.videoRef.current;
+          if (video !== null) {
+            seekTo(video, 0);
+          }
+        }}
+      >
+        {t("play.startOver")}
+      </button>
+      <Subtitles
+        fileId={props.fileId}
+        tracks={props.decision.subtitles ?? []}
+        startingOffsetMs={props.decision.prefs.subtitleOffsetMs}
+        videoRef={props.videoRef}
+      />
+    </>
   );
 }
 
@@ -94,7 +116,7 @@ function PreparedVideo(props: {
         {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- JASSUB draws the subtitles over the video, not a <track> (cut-a §6) */}
         <video className="play__video" ref={videoRef} controls autoPlay playsInline />
       </div>
-      <SubtitlesOf fileId={props.fileId} decision={decision} videoRef={videoRef} />
+      <UnderTheVideo fileId={props.fileId} decision={decision} videoRef={videoRef} />
       <p className="play__reason">{t("play.prepared", { reasons })}</p>
       {isWaiting && failure === undefined ? <p>{t("play.preparing")}</p> : null}
       {failure === undefined ? null : (
@@ -178,7 +200,7 @@ function DirectVideo(props: { readonly fileId: number; readonly decision: Decisi
           onError={failed}
         />
       </div>
-      <SubtitlesOf fileId={props.fileId} decision={props.decision} videoRef={videoRef} />
+      <UnderTheVideo fileId={props.fileId} decision={props.decision} videoRef={videoRef} />
       {failure === undefined ? (
         <p className="play__reason">{t("play.direct")}</p>
       ) : (

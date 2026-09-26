@@ -69,6 +69,8 @@ type StartPlaybackOutput struct {
 		// ResumePositionMs is where the player starts, without asking (D188): where the person
 		// left the file, or 0.
 		ResumePositionMs int64 `json:"resumePositionMs"`
+		// MediaToken names this playback in its reports; it grants nothing alone (D217 §2).
+		MediaToken string `json:"mediaToken"`
 	}
 }
 
@@ -179,6 +181,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	output.Body.Subtitles = subtitleTracks(started)
 	output.Body.Prefs = FilePrefsBody{SubtitleOffsetMs: started.Prefs.SubtitleOffsetMs}
 	output.Body.ResumePositionMs = started.ResumePositionMs
+	output.Body.MediaToken = started.Token
 	return output, nil
 }
 

@@ -42,3 +42,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   it starts at +0.3 s. (JASSUB in `web/packages/player/src/subtitles.ts`) — done 2026-09-26 by the owner, on an Android phone in Chrome: *"Subtitles render, and I've
   observed the subtitles arriving later and earlier when I adjust the offset"*, and the offset
   was still set after the page reloaded. Desktop Firefox not yet seen.
+- [ ] **VQ4** — On an Android phone in Chrome, on the dev loop, play **Remux Film (2021)**, let it
+  play past 0:20, pause, and leave the page. Play it again: it starts where it was paused, with no
+  question asked. Then press **Start over**: it plays from 0:00. On a second device signed in as
+  the same person, play it past 0:25 and leave; on the phone, play it again: it starts near 0:25,
+  the later watching, not the earlier. (`web/apps/web/src/play-state.ts`)
