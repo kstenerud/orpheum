@@ -25,6 +25,9 @@
 //   - A prepared playback's files are relayed from its node, and one not written yet is 425 with
 //     Retry-After while its rendition is being made, never a 404 the player gives up on.
 //     Enforced by TestPrepare_APreparedPlaybackIsTooEarlyUntilItsFileExists.
+//   - A complete rendition whose node no longer has its playlist is prepared again, and the player
+//     waits as for a new one (D217 §5). Enforced by
+//     TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain.
 //   - A prepare job names its source by root, path and payload hash with every audio track, and
 //     the rendition is complete only when the node says so; FFmpeg's failure is not retried.
 //     Enforced by TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete and

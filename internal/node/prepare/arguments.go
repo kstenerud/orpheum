@@ -11,10 +11,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// The HLS shape of every rendition (cut-a §6): fMP4 segments of about six seconds, and an EVENT
-// playlist that grows while the job runs, so playback starts before it ends.
+// The HLS shape of every rendition (cut-a §6): fMP4 segments of about two seconds, so switching
+// between the standard and boosted mix takes about a second (D217 §3), and an EVENT playlist that
+// grows while the job runs, so playback starts before it ends.
 const (
-	segmentSeconds = "6"
+	segmentSeconds = "2"
 	audioBitRate   = "192k"
 	masterPlaylist = "master.m3u8"
 )

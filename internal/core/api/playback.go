@@ -241,6 +241,14 @@ func (server *Server) hls(
 		case playback.Failed:
 			return newError(http.StatusBadGateway, CodePrepareFailed, "this file could not be prepared")
 		case playback.Complete:
+			// A complete rendition whose playlist its node no longer has was evicted or lost: it is
+			// prepared again, and the player waits as for a new one (D217 §5).
+			if name == "master.m3u8" {
+				if err := dependencies.Playback.Lost(ctx, source); err != nil {
+					return server.internal(ctx, "prepare a lost rendition again", err)
+				}
+				return tooEarly()
+			}
 		}
 		return newError(http.StatusNotFound, CodeFileUnavailable, "the rendition is no longer there")
 	})

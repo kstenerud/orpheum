@@ -16488,7 +16488,10 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
    rendition, so switching language never needs a new job
    ([D23](#d23--axis-switching-is-mid-session-by-default-burn-in-is-the-one-thing-that-breaks-it)).
    A prepare job's subject is its rendition, and an extract job's is its stream, so one file
-   can have several jobs open at once.
+   can have several jobs open at once. **Segments are two seconds long** (the owner, 2026-09-26,
+   choosing it over six-second segments and over carrying both mixes in one four-channel track):
+   switching between the standard and boosted mix waits for the next segment, so it takes about
+   a second rather than three.
 4. **New dependencies:** `hls.js` (HLS in every browser but Safari), `jassub` (ASS subtitles),
    and `@playwright/test` (M3's playback timing in Chrome and Firefox, and M4's two-client
    tests). `golang.org/x/sys` is used directly, for seccomp and Landlock.

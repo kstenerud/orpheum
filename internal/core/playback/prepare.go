@@ -91,6 +91,27 @@ func (all *prepares) want(
 	return row, err
 }
 
+// redo prepares a rendition again from the start, whatever state its row is in.
+func (all *prepares) redo(
+	ctx context.Context, file sqlcgen.GetPlayableFileRow, profile nodeproto.PrepareProfile,
+) error {
+	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		key := cachegen.GetRenditionParams{SourceFile: file.ID, Profile: string(profile)}
+		found, err := queries.GetRendition(ctx, key)
+		if err != nil {
+			return err
+		}
+		return queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
+			PayloadHash: file.PayloadHash, NodeID: file.NodeID, ID: found.ID,
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("prepare file %d again: %w", file.ID, err)
+	}
+	_, err = all.want(ctx, file, profile)
+	return err
+}
+
 // handle runs one prepare job: it commands the node and waits for its reports, recording each,
 // until the node says the rendition is done or failed, or says nothing for too long.
 func (all *prepares) handle(ctx context.Context, job jobs.Job, command nodeproto.Prepare, nodeID int64) error {
