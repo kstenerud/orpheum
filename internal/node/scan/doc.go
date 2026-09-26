@@ -19,7 +19,8 @@
 //   - Every entry it enumerates gets a record — observed, skip with its rule, or error — in byte
 //     order of name. TestScan_ReportsEveryEntryWithAFilingInByteOrder.
 //   - An NFO or text subtitle beside the media is reported as a sidecar, an NFO with its bytes up
-//     to a bound. TestScan_ReportsEveryEntryWithAFilingInByteOrder, TestScan_RefusesAnNFOPastTheBound.
+//     to a bound and a subtitle with its payload hash. TestScan_ReportsEveryEntryWithAFilingInByteOrder,
+//     TestScan_RefusesAnNFOPastTheBound.
 //   - A symlink is followed only into a media root, and a directory is walked once however many
 //     links reach it (D206). TestScan_FollowsASymlinkOnlyIntoAMediaRoot.
 //   - An error keeps its place in the stream; repeats of one code and scope in one directory

@@ -106,11 +106,11 @@ type decision struct {
 }
 
 type subtitleTrack struct {
-	StreamIndex int    `json:"streamIndex"`
-	Language    string `json:"language"`
-	IsDefault   bool   `json:"isDefault"`
-	ASSURL      string `json:"assUrl"`
-	VTTURL      string `json:"vttUrl"`
+	StreamID  int64  `json:"streamId"`
+	Language  string `json:"language"`
+	IsDefault bool   `json:"isDefault"`
+	ASSURL    string `json:"assUrl"`
+	VTTURL    string `json:"vttUrl"`
 }
 
 func (harness testHarness) play(t *testing.T, token string, body map[string]any) decision {

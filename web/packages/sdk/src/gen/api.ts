@@ -1084,9 +1084,9 @@ export interface components {
             language: string;
             /**
              * Format: int64
-             * @description The track's stream index in the file
+             * @description The track: one inside the file, or a subtitle file beside it
              */
-            streamIndex: number;
+            streamId: number;
             title: string;
             /** @description The track as WebVTT */
             vttUrl: string;
@@ -1345,7 +1345,7 @@ export interface operations {
                 Authorization?: string;
             };
             path: {
-                /** @description <streamIndex>.ass or <streamIndex>.vtt */
+                /** @description <streamId>.ass or <streamId>.vtt */
                 file: string;
                 /** @description The playback's media token */
                 token: string;

@@ -37,9 +37,11 @@
 //     the rendition is complete only when the node says so; FFmpeg's failure is not retried.
 //     Enforced by TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete and
 //     TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried.
-//   - Every text subtitle track of a played video is extracted, whatever the decision, once per
-//     video payload hash; a track not yet extracted is 425 with Retry-After, and a failed one is
-//     prepare_failed and tried again when next played (D217 §6). Enforced by
+//   - Every text subtitle track of a played video, its own and its subtitle files', is extracted,
+//     whatever the decision, once per payload hash of the file it is in; a track not yet extracted
+//     is 425 with Retry-After, a failed one is prepare_failed and tried again when next played,
+//     and a playback reaches only its own file's tracks (D217 §6). Enforced by
+//     TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole,
 //     TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntilExtracted,
 //     TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain and
 //     TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed.

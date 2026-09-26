@@ -4,6 +4,7 @@ package scan
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -194,7 +196,28 @@ func checkSidecarBodies(t *testing.T, records []nodeproto.Record) {
 				t.Errorf("sidecar %s carries %q; an NFO carries its bytes, a subtitle does not",
 					sidecar.Path.Text, sidecar.Body)
 			}
+			checkSidecarIdentity(t, sidecar)
 		}
+	}
+}
+
+// checkSidecarIdentity fails unless a subtitle carries the payload hash of its bytes, hashed
+// whole, and nothing else carries one.
+func checkSidecarIdentity(t *testing.T, sidecar *nodeproto.Sidecar) {
+	t.Helper()
+	if sidecar.Kind != nodeproto.SidecarSubtitle {
+		if sidecar.Identity != nil {
+			t.Errorf("sidecar %s carries an identity; only a subtitle does", sidecar.Path.Text)
+		}
+		return
+	}
+	const contents = "1\n00:00:01,000 --> 00:00:02,000\nHello\n"
+	want, err := hash.Payload(strings.NewReader(contents), int64(len(contents)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sidecar.Identity == nil || sidecar.Identity.Hash != hex.EncodeToString(want.Hash[:]) {
+		t.Errorf("subtitle %s carries identity %+v, want its bytes' payload hash", sidecar.Path.Text, sidecar.Identity)
 	}
 }
 

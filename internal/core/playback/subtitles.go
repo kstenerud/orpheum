@@ -6,15 +6,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // The states of an extracted subtitle, as cache.db names them.
@@ -24,11 +23,11 @@ const (
 	subtitleFailed   = "failed"
 )
 
-// SubtitleTrack is one text subtitle a playback offers: a track inside the video, by its stream
-// index, with what its container says of it.
+// SubtitleTrack is one text subtitle a playback offers: a track inside the video, or a subtitle
+// file beside it, named by its stream row, with what the container or the file's name says of it.
 type SubtitleTrack struct {
-	StreamIndex int
-	// Language is BCP 47, or empty when the container named none.
+	StreamID int64
+	// Language is BCP 47, or empty when nothing named one.
 	Language        string
 	Title           string
 	Default         bool
@@ -53,82 +52,84 @@ type Subtitle struct {
 	Error string
 }
 
-// textTracks are the text subtitle tracks of a probed video, in stream order (D217 §6).
-func textTracks(probe nodeproto.Probe) []SubtitleTrack {
-	var tracks []SubtitleTrack
-	for _, stream := range probe.Streams {
-		if stream.Kind != "subtitle" || !decide.IsTextSubtitle(stream.Codec) {
+// textKey is where a track's text is kept: the payload hash of the file its bytes are in, and its
+// stream index there. A subtitle file's one track is its stream 0, as FFmpeg numbers it.
+func textKey(payloadHash []byte, streamIndex *int64) cachegen.GetSubtitleTextParams {
+	key := cachegen.GetSubtitleTextParams{PayloadHash: payloadHash}
+	if streamIndex != nil {
+		key.StreamIndex = *streamIndex
+	}
+	return key
+}
+
+// wantSubtitles lists a video's text subtitle tracks, its own and its subtitle files', and has
+// each extracted that is not already, whatever the decision: an embedded track means reading the
+// whole file, so it is done when the file is first played (D217 §6). A track that failed is tried
+// again. Bitmap tracks are not offered (cut-a §1).
+func (service *Service) wantSubtitles(ctx context.Context, videoID int64) ([]SubtitleTrack, error) {
+	rows, err := service.database.Read().ListSubtitleTracksOfVideo(ctx, videoID)
+	if err != nil {
+		return nil, fmt.Errorf("read the subtitle tracks of file %d: %w", videoID, err)
+	}
+	tracks := []SubtitleTrack{}
+	now := service.clock.Now().UnixMilli()
+	for _, row := range rows {
+		if row.Codec == nil || !decide.IsTextSubtitle(*row.Codec) || row.BytesPayloadHash == nil {
 			continue
 		}
 		tracks = append(tracks, SubtitleTrack{
-			StreamIndex: stream.Index, Language: stream.LanguageTag, Title: stream.Title,
-			Default:         slices.Contains(stream.Disposition, "default"),
-			Forced:          slices.Contains(stream.Disposition, "forced"),
-			HearingImpaired: slices.Contains(stream.Disposition, "hearing_impaired"),
+			StreamID: row.ID, Language: text(row.Lang), Title: text(row.TitleRaw),
+			Default:         row.Disposition&library.DispositionBit("default") != 0,
+			Forced:          row.Disposition&library.DispositionBit("forced") != 0,
+			HearingImpaired: row.Disposition&library.DispositionBit("hearing_impaired") != 0,
 		})
+		if err := service.wantText(ctx, row.ID, textKey(row.BytesPayloadHash, row.StreamIndex), now); err != nil {
+			return nil, err
+		}
 	}
-	return tracks
+	return tracks, nil
 }
 
-// wantSubtitles has every text track of a video extracted that is not already, whatever the
-// decision: an embedded track means reading the whole file, so it is done when the file is first
-// played (D217 §6). A track that failed is tried again.
-func (service *Service) wantSubtitles(
-	ctx context.Context, file sqlcgen.GetPlayableFileRow, tracks []SubtitleTrack,
+// wantText has one track's text extracted unless it already is.
+func (service *Service) wantText(
+	ctx context.Context, streamID int64, key cachegen.GetSubtitleTextParams, now int64,
 ) error {
-	if len(tracks) == 0 {
+	var state string
+	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		wantErr := queries.WantSubtitleText(ctx, cachegen.WantSubtitleTextParams{
+			PayloadHash: key.PayloadHash, StreamIndex: key.StreamIndex, CreatedAt: now,
+		})
+		if wantErr != nil {
+			return wantErr
+		}
+		row, readErr := queries.GetSubtitleText(ctx, key)
+		state = row.State
+		return readErr
+	})
+	if err != nil {
+		return fmt.Errorf("want stream %d extracted: %w", streamID, err)
+	}
+	if state == subtitleComplete {
 		return nil
 	}
-	streams, err := service.database.Read().ListSubtitleStreamsOfFile(ctx, file.ID)
-	if err != nil {
-		return fmt.Errorf("read the subtitle tracks of file %d: %w", file.ID, err)
-	}
-	streamIDByIndex := map[int64]int64{}
-	for _, stream := range streams {
-		if stream.StreamIndex != nil {
-			streamIDByIndex[*stream.StreamIndex] = stream.ID
-		}
-	}
-	now := service.clock.Now().UnixMilli()
-	for _, track := range tracks {
-		streamID, found := streamIDByIndex[int64(track.StreamIndex)]
-		if !found {
-			continue // the probe and the stream rows disagree until the next scan
-		}
-		var state string
-		key := cachegen.GetSubtitleTextParams{PayloadHash: file.PayloadHash, StreamIndex: int64(track.StreamIndex)}
-		err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
-			wantErr := queries.WantSubtitleText(ctx, cachegen.WantSubtitleTextParams{
-				PayloadHash: key.PayloadHash, StreamIndex: key.StreamIndex, CreatedAt: now,
-			})
-			if wantErr != nil {
-				return wantErr
-			}
-			row, readErr := queries.GetSubtitleText(ctx, key)
-			state = row.State
-			return readErr
-		})
-		if err != nil {
-			return fmt.Errorf("want stream %d of file %d extracted: %w", track.StreamIndex, file.ID, err)
-		}
-		if state == subtitleComplete {
-			continue
-		}
-		_, err = service.queue.Enqueue(ctx, jobs.New{
-			Kind: jobs.KindExtractSubtitle, Subject: streamID, Priority: jobs.PriorityPlayNow,
-			Reason: "someone is watching it, and its subtitles are offered",
-		})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err = service.queue.Enqueue(ctx, jobs.New{
+		Kind: jobs.KindExtractSubtitle, Subject: streamID, Priority: jobs.PriorityPlayNow,
+		Reason: "someone is watching it, and its subtitles are offered",
+	})
+	return err
 }
 
-// Subtitle is the text, in format, of the subtitle at streamIndex of the file a media token
-// refers to (cut-a §5).
+func text(optional *string) string {
+	if optional == nil {
+		return ""
+	}
+	return *optional
+}
+
+// Subtitle is the text, in format, of the subtitle track streamID of the file a media token refers
+// to (cut-a §5). A track of any other file is no subtitle of this playback.
 func (service *Service) Subtitle(
-	ctx context.Context, token string, streamIndex int, format SubtitleFormat, userID int64, sessionKey string,
+	ctx context.Context, token string, streamID int64, format SubtitleFormat, userID int64, sessionKey string,
 ) (Subtitle, error) {
 	idle, err := service.idle(ctx)
 	if err != nil {
@@ -138,13 +139,14 @@ func (service *Service) Subtitle(
 	if !found {
 		return Subtitle{}, ErrNoToken
 	}
-	file, err := service.file(ctx, playback.fileID)
-	if err != nil {
-		return Subtitle{}, err
+	stream, err := store.One(service.database.Read().GetSubtitleStream(ctx, streamID))
+	if errors.Is(err, store.ErrNotFound) || (err == nil && stream.VideoFile != playback.fileID) {
+		return Subtitle{}, ErrNoSubtitle
 	}
-	row, err := store.One(service.cache.Read().GetSubtitleText(ctx, cachegen.GetSubtitleTextParams{
-		PayloadHash: file.PayloadHash, StreamIndex: int64(streamIndex),
-	}))
+	if err != nil {
+		return Subtitle{}, fmt.Errorf("read stream %d: %w", streamID, err)
+	}
+	row, err := store.One(service.cache.Read().GetSubtitleText(ctx, textKey(stream.PayloadHash, stream.StreamIndex)))
 	if errors.Is(err, store.ErrNotFound) {
 		return Subtitle{}, ErrNoSubtitle
 	}
@@ -171,36 +173,36 @@ func (service *Service) Subtitle(
 // ErrNoSubtitle is a subtitle a playback does not offer.
 var ErrNoSubtitle = errors.New("no such subtitle")
 
-// HandleSubtitle runs one extraction job (jobs.KindExtractSubtitle): the node that holds the video
-// extracts the track, and this waits for its answer and keeps the text by the video's payload
-// hash. FFmpeg's failure is not retried.
+// HandleSubtitle runs one extraction job (jobs.KindExtractSubtitle): the node that holds the
+// track's file extracts it, a track from its video or a subtitle file whole, and this waits for its
+// answer and keeps the text by that file's payload hash. FFmpeg's failure is not retried.
 func (service *Service) HandleSubtitle(ctx context.Context, job jobs.Job) error {
 	stream, err := store.One(service.database.Read().GetSubtitleStream(ctx, job.Subject))
 	if errors.Is(err, store.ErrNotFound) {
-		return jobs.Permanent(fmt.Errorf("no subtitle stream %d: the video was scanned again since", job.Subject))
+		return jobs.Permanent(fmt.Errorf("no subtitle stream %d: its file was scanned again or is gone", job.Subject))
 	}
 	if err != nil {
 		return fmt.Errorf("read stream %d: %w", job.Subject, err)
 	}
-	file, err := service.file(ctx, stream.BytesFile)
+	if stream.PayloadHash == nil {
+		return jobs.Permanent(fmt.Errorf("stream %d is in a file with no payload hash", job.Subject))
+	}
+	named, err := service.source(ctx, located{
+		id: job.Subject, libraryID: stream.LibraryID, nodeID: stream.NodeID, pathKey: stream.PathKey,
+		payloadHash: stream.PayloadHash,
+	})
 	if err != nil {
 		return jobs.Permanent(err)
 	}
-	video, err := service.source(ctx, file)
-	if err != nil {
-		return jobs.Permanent(err)
+	command := &nodeproto.ExtractSubtitle{Job: job.ID, Sidecar: &named}
+	if stream.StreamIndex != nil {
+		command = &nodeproto.ExtractSubtitle{Job: job.ID, Video: &named, StreamIndex: int(*stream.StreamIndex)}
 	}
-	if stream.StreamIndex == nil {
-		return jobs.Permanent(fmt.Errorf("stream %d is a sidecar, not a track", job.Subject))
-	}
-	key := cachegen.GetSubtitleTextParams{PayloadHash: file.PayloadHash, StreamIndex: *stream.StreamIndex}
+	key := textKey(stream.PayloadHash, stream.StreamIndex)
 	answers := service.subtitles.await(job.ID)
 	defer service.subtitles.forget(job.ID)
-	service.nodes.Enqueue(file.NodeID, nodeproto.Command{
-		Type: nodeproto.CommandExtractSubtitle,
-		ExtractSubtitle: &nodeproto.ExtractSubtitle{
-			Job: job.ID, Video: &video, StreamIndex: int(*stream.StreamIndex),
-		},
+	service.nodes.Enqueue(stream.NodeID, nodeproto.Command{
+		Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: command,
 	})
 	timer := time.NewTimer(service.maxSilence)
 	defer timer.Stop()
@@ -212,7 +214,7 @@ func (service *Service) HandleSubtitle(ctx context.Context, job jobs.Job) error 
 		}
 		return service.finishSubtitle(ctx, key, answer)
 	case <-timer.C:
-		return fmt.Errorf("node %d said nothing about stream %d for %s", file.NodeID, job.Subject, service.maxSilence)
+		return fmt.Errorf("node %d said nothing about stream %d for %s", stream.NodeID, job.Subject, service.maxSilence)
 	case <-ctx.Done():
 		return fmt.Errorf("wait for stream %d: %w", job.Subject, ctx.Err())
 	}

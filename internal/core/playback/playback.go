@@ -133,9 +133,9 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if err != nil {
 		return Started{}, err
 	}
-	started := Started{Decision: decision, Subtitles: textTracks(probe)}
-	if wantErr := service.wantSubtitles(ctx, file, started.Subtitles); wantErr != nil {
-		return Started{}, wantErr
+	started := Started{Decision: decision}
+	if started.Subtitles, err = service.wantSubtitles(ctx, file.ID); err != nil {
+		return Started{}, err
 	}
 	if started.Prefs, err = service.FilePrefs(ctx, userID, file.ID); err != nil {
 		return Started{}, err
@@ -179,7 +179,7 @@ func (service *Service) Direct(ctx context.Context, token string, userID int64, 
 	if err != nil {
 		return Source{}, err
 	}
-	named, err := service.source(ctx, file)
+	named, err := service.source(ctx, locatedOf(file))
 	if err != nil {
 		return Source{}, err
 	}
@@ -190,21 +190,38 @@ func (service *Service) Direct(ctx context.Context, token string, userID int64, 
 	return Source{NodeID: file.NodeID, Target: named.Target(), ContentType: contentType(probe.Format)}, nil
 }
 
+// located is where a file's bytes are: its library, its node, the path its node reported, and
+// its payload hash.
+type located struct {
+	id          int64
+	libraryID   int64
+	nodeID      int64
+	pathKey     []byte
+	payloadHash []byte
+}
+
+func locatedOf(file sqlcgen.GetPlayableFileRow) located {
+	return located{
+		id: file.ID, libraryID: file.LibraryID, nodeID: file.NodeID, pathKey: file.PathKey,
+		payloadHash: file.PayloadHash,
+	}
+}
+
 // source names a file on its node's byte socket: the library root it is under, its path
 // relative to that root, and its payload hash.
-func (service *Service) source(ctx context.Context, file sqlcgen.GetPlayableFileRow) (nodeproto.BytesFile, error) {
+func (service *Service) source(ctx context.Context, file located) (nodeproto.BytesFile, error) {
 	roots, err := service.database.Read().ListLibraryRootsOnNode(ctx, sqlcgen.ListLibraryRootsOnNodeParams{
-		LibraryID: file.LibraryID, NodeID: file.NodeID,
+		LibraryID: file.libraryID, NodeID: file.nodeID,
 	})
 	if err != nil {
 		return nodeproto.BytesFile{}, fmt.Errorf("read the library's roots: %w", err)
 	}
 	for _, root := range roots {
-		if relative, under := bytes.CutPrefix(file.PathKey, []byte(root+"/")); under {
-			return nodeproto.BytesFile{Root: root, Path: relative, Hash: hex.EncodeToString(file.PayloadHash)}, nil
+		if relative, under := bytes.CutPrefix(file.pathKey, []byte(root+"/")); under {
+			return nodeproto.BytesFile{Root: root, Path: relative, Hash: hex.EncodeToString(file.payloadHash)}, nil
 		}
 	}
-	return nodeproto.BytesFile{}, fmt.Errorf("%w: file %d is under none of its library's roots", ErrNoFile, file.ID)
+	return nodeproto.BytesFile{}, fmt.Errorf("%w: file %d is under none of its library's roots", ErrNoFile, file.id)
 }
 
 func (service *Service) file(ctx context.Context, fileID int64) (sqlcgen.GetPlayableFileRow, error) {

@@ -38,30 +38,40 @@ func receiveSubtitle(t *testing.T, core *fakeCore) nodeproto.SubtitleText {
 	return nodeproto.SubtitleText{}
 }
 
-func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot(t *testing.T) {
-	t.Parallel()
+// extracting starts an agent whose root holds film.mkv and film.en.srt, and returns them named
+// by root, path and payload hash, and a way to send an extraction and read the core's answer.
+func extracting(t *testing.T) (
+	video, sidecar nodeproto.BytesFile, send func(int64, nodeproto.ExtractSubtitle) nodeproto.SubtitleText,
+) {
+	t.Helper()
 	core, socket := startFakeCore(t)
 	root, _ := running(t, socket)
+	named := map[string]nodeproto.BytesFile{}
 	for name, contents := range map[string]string{"film.mkv": "a film", "film.en.srt": "the sidecar"} {
 		if err := os.WriteFile(filepath.Join(root.Path(), name), []byte(contents), 0o600); err != nil {
 			t.Fatal(err)
 		}
+		identity, err := hash.Payload(strings.NewReader(contents), int64(len(contents)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		named[name] = nodeproto.BytesFile{
+			Root: root.Path(), Path: []byte(name), Hash: hex.EncodeToString(identity.Hash[:]),
+		}
 	}
-	identity, err := hash.Payload(strings.NewReader("a film"), 6)
-	if err != nil {
-		t.Fatal(err)
-	}
-	video := nodeproto.BytesFile{
-		Root: root.Path(), Path: []byte("film.mkv"), Hash: hex.EncodeToString(identity.Hash[:]),
-	}
-	send := func(job int64, extract nodeproto.ExtractSubtitle) nodeproto.SubtitleText {
+	send = func(job int64, extract nodeproto.ExtractSubtitle) nodeproto.SubtitleText {
 		extract.Job = job
 		core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: &extract}
 		return receiveSubtitle(t, core)
 	}
+	return named["film.mkv"], named["film.en.srt"], send
+}
 
+func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamed(t *testing.T) {
+	t.Parallel()
+	video, sidecar, send := extracting(t)
 	track := send(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: 2})
-	if track.Job != 1 || track.Refused != "" || string(track.ASS) != root.Path()+"/film.mkv" ||
+	if track.Job != 1 || track.Refused != "" || string(track.ASS) != video.Root+"/film.mkv" ||
 		string(track.VTT) != "2" {
 		t.Errorf("a track of the named video: %+v", track)
 	}
@@ -71,22 +81,33 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 	if !strings.Contains(refused.Refused, "not the one named") {
 		t.Errorf("a track of a changed video: %+v, want refused", refused)
 	}
+	if refused := send(3, nodeproto.ExtractSubtitle{Video: &video, Sidecar: &sidecar}); refused.Refused == "" {
+		t.Errorf("a command naming both a track and a sidecar ran: %+v", refused)
+	}
+}
 
-	sidecar := nodeproto.BytesFile{Root: root.Path(), Path: []byte("film.en.srt")}
-	converted := send(3, nodeproto.ExtractSubtitle{Sidecar: &sidecar})
+func TestAgent_ConvertsOnlyTheSidecarTheCoreNamedUnderItsRoot(t *testing.T) {
+	t.Parallel()
+	_, sidecar, send := extracting(t)
+	converted := send(1, nodeproto.ExtractSubtitle{Sidecar: &sidecar})
 	if converted.Refused != "" || string(converted.ASS) != "the sidecar" {
 		t.Errorf("a sidecar: %+v", converted)
 	}
-	outside := nodeproto.BytesFile{Root: t.TempDir(), Path: []byte("film.en.srt")}
-	refused = send(4, nodeproto.ExtractSubtitle{Sidecar: &outside})
+	changed := sidecar
+	changed.Hash = strings.Repeat("0", 64)
+	refused := send(2, nodeproto.ExtractSubtitle{Sidecar: &changed})
+	if !strings.Contains(refused.Refused, "not the one named") {
+		t.Errorf("a changed sidecar: %+v, want refused", refused)
+	}
+	outside := sidecar
+	outside.Root = t.TempDir()
+	refused = send(3, nodeproto.ExtractSubtitle{Sidecar: &outside})
 	if !strings.Contains(refused.Refused, "none of this node's roots") {
 		t.Errorf("a sidecar under another root: %+v, want refused", refused)
 	}
-	escaping := nodeproto.BytesFile{Root: root.Path(), Path: []byte("../film.en.srt")}
-	if refused := send(5, nodeproto.ExtractSubtitle{Sidecar: &escaping}); refused.Refused == "" {
+	escaping := sidecar
+	escaping.Path = []byte("../film.en.srt")
+	if refused := send(4, nodeproto.ExtractSubtitle{Sidecar: &escaping}); refused.Refused == "" {
 		t.Errorf("a sidecar path leaving its root was read: %+v", refused)
-	}
-	if refused := send(6, nodeproto.ExtractSubtitle{Video: &video, Sidecar: &sidecar}); refused.Refused == "" {
-		t.Errorf("a command naming both a track and a sidecar ran: %+v", refused)
 	}
 }

@@ -1558,8 +1558,8 @@
             "description": "BCP 47; empty when the file names none",
             "type": "string"
           },
-          "streamIndex": {
-            "description": "The track's stream index in the file",
+          "streamId": {
+            "description": "The track: one inside the file, or a subtitle file beside it",
             "format": "int64",
             "type": "integer"
           },
@@ -1572,7 +1572,7 @@
           }
         },
         "required": [
-          "streamIndex",
+          "streamId",
           "language",
           "title",
           "isDefault",
@@ -2095,12 +2095,12 @@
             }
           },
           {
-            "description": "\u003cstreamIndex\u003e.ass or \u003cstreamIndex\u003e.vtt",
+            "description": "\u003cstreamId\u003e.ass or \u003cstreamId\u003e.vtt",
             "in": "path",
             "name": "file",
             "required": true,
             "schema": {
-              "description": "\u003cstreamIndex\u003e.ass or \u003cstreamIndex\u003e.vtt",
+              "description": "\u003cstreamId\u003e.ass or \u003cstreamId\u003e.vtt",
               "type": "string"
             }
           }

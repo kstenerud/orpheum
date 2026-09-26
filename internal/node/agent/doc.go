@@ -25,10 +25,10 @@
 //   - A prepare runs only on the file the core named, under one of the node's roots, whose payload
 //     hash is still the one named (D100); its progress and its end are posted to the core. One
 //     encode and two remuxes run at once (cut-a §5.3). TestAgent_PreparesOnlyTheFileTheCoreNamed.
-//   - A subtitle is extracted only from the video the core named, whose payload hash is still the
-//     one named, or read from a sidecar only under one of the node's roots, answered with the
-//     SHA-256 of what was read (D100, D217 §6). One extraction runs at once.
-//     TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
+//   - A subtitle is extracted only from the video or sidecar the core named, under one of the
+//     node's roots, whose payload hash is still the one named (D100, D217 §6). One extraction runs
+//     at once. TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamed,
+//     TestAgent_ConvertsOnlyTheSidecarTheCoreNamedUnderItsRoot.
 //
 // # Read before changing
 //

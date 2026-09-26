@@ -217,6 +217,13 @@ CREATE VIEW live_file AS SELECT * FROM file WHERE removed_at IS NULL;
 beside it is neither listed nor an extra. D163 said a new reason would be visible with no new UI;
 this is the first.
 
+**A subtitle file is a track of its video.** Its `file` row carries its payload hash, the file
+hashed whole (D179), and once it is attached it has one `stream` row: `bytes_file` the subtitle
+file, `video_file` the video, no `stream_index`, and the language and flags its name gives after
+the video's name, as Kodi and Jellyfin read them (`Film (2020).en.forced.srt`; `sdh`, `hi` and
+`cc` mark a track for the deaf and hard of hearing). A subtitle file that belongs to no video has
+no track.
+
 ```sql
 CREATE TABLE stream (                                      -- class O; not "track" (D186)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -819,11 +826,13 @@ CREATE TABLE subtitle_text (                               -- D217 §6: by the v
 );
 ```
 
-An embedded text track is extracted when its video is first played (D217 §6), and kept by the
-video's payload hash and the track's stream index, so a move or a rescan keeps it. Its extraction
-job's subject is the `stream` row (D217 §3), which a rescan replaces: a job whose stream is gone
-fails, and the next play queues another. The text is a few hundred kilobytes at most, so it is
-kept in the row rather than beside the art.
+A text track is extracted when its video is first played (D217 §6): a track inside the video,
+or a subtitle file beside it, converted whole. Its text is kept by the payload hash of the file
+its bytes are in and its stream index there, a subtitle file's one track being its stream 0, so
+a move or a rescan keeps it. Its extraction job's subject is the `stream` row (D217 §3). A
+video's own rows are replaced when it is observed again, so a job whose stream is gone fails and
+the next play queues another; a subtitle file's row is changed in place. The text is a few
+hundred kilobytes at most, so it is kept in the row rather than beside the art.
 
 No foreign keys cross into `library.db` — SQLite cannot enforce them across files, and nothing
 here is referenced by anything authored. **Losing `cache.db` costs re-queued work and

@@ -145,7 +145,7 @@ func (service *Service) commandFor(
 	if err != nil {
 		return nodeproto.Prepare{}, 0, err
 	}
-	source, err := service.source(ctx, file)
+	source, err := service.source(ctx, locatedOf(file))
 	if err != nil {
 		return nodeproto.Prepare{}, 0, err
 	}
