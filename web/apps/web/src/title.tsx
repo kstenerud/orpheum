@@ -6,7 +6,7 @@ import { artUrl, type components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Poster } from "./browse.tsx";
+import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { useResource, type Resource } from "./use-resource.ts";

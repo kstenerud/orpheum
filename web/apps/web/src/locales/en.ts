@@ -90,6 +90,15 @@ export const en = {
       userChoice: "you asked for it to be prepared",
     },
   },
+  continueWatching: {
+    heading: "Continue watching",
+    episode: "{{series}} · S{{season}}E{{number}} · {{episode}}",
+    watched: "{{percent}}% watched",
+    hide: "Hide",
+    hideLabel: "Hide {{name}} from Continue watching",
+    hidden: "{{name}} is hidden until you watch it again.",
+    undo: "Undo",
+  },
   extraType: {
     trailer: "Trailer",
     teaser: "Teaser",
