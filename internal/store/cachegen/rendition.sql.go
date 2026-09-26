@@ -11,7 +11,7 @@ import (
 
 const getRendition = `-- name: GetRendition :one
 
-SELECT id, source_file, payload_hash, profile, node_id, state, done_ms, bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, done_ms, bytes, error, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?
 `
 
@@ -33,6 +33,7 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 		&i.Profile,
 		&i.NodeID,
 		&i.State,
+		&i.SegmentS,
 		&i.DoneMs,
 		&i.Bytes,
 		&i.Error,
@@ -43,7 +44,7 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 }
 
 const getRenditionByID = `-- name: GetRenditionByID :one
-SELECT id, source_file, payload_hash, profile, node_id, state, done_ms, bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_s, done_ms, bytes, error, created_at, finished_at
 FROM prepared_rendition WHERE id = ?
 `
 
@@ -57,6 +58,7 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 		&i.Profile,
 		&i.NodeID,
 		&i.State,
+		&i.SegmentS,
 		&i.DoneMs,
 		&i.Bytes,
 		&i.Error,
@@ -67,8 +69,8 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 }
 
 const insertRendition = `-- name: InsertRendition :one
-INSERT INTO prepared_rendition (source_file, payload_hash, profile, node_id, created_at)
-VALUES (?, ?, ?, ?, ?)
+INSERT INTO prepared_rendition (source_file, payload_hash, profile, node_id, segment_s, created_at)
+VALUES (?, ?, ?, ?, ?, ?)
 RETURNING id
 `
 
@@ -77,6 +79,7 @@ type InsertRenditionParams struct {
 	PayloadHash []byte
 	Profile     string
 	NodeID      int64
+	SegmentS    int64
 	CreatedAt   int64
 }
 
@@ -86,6 +89,7 @@ func (q *Queries) InsertRendition(ctx context.Context, arg InsertRenditionParams
 		arg.PayloadHash,
 		arg.Profile,
 		arg.NodeID,
+		arg.SegmentS,
 		arg.CreatedAt,
 	)
 	var id int64
@@ -95,7 +99,7 @@ func (q *Queries) InsertRendition(ctx context.Context, arg InsertRenditionParams
 
 const restartRendition = `-- name: RestartRendition :exec
 UPDATE prepared_rendition
-SET payload_hash = ?, node_id = ?, state = 'queued', done_ms = 0, bytes = NULL, error = NULL,
+SET payload_hash = ?, node_id = ?, segment_s = ?, state = 'queued', done_ms = 0, bytes = NULL, error = NULL,
     finished_at = NULL
 WHERE id = ?
 `
@@ -103,12 +107,18 @@ WHERE id = ?
 type RestartRenditionParams struct {
 	PayloadHash []byte
 	NodeID      int64
+	SegmentS    int64
 	ID          int64
 }
 
 // A rendition prepared again from the start: its source changed, or it failed or was lost.
 func (q *Queries) RestartRendition(ctx context.Context, arg RestartRenditionParams) error {
-	_, err := q.db.ExecContext(ctx, restartRendition, arg.PayloadHash, arg.NodeID, arg.ID)
+	_, err := q.db.ExecContext(ctx, restartRendition,
+		arg.PayloadHash,
+		arg.NodeID,
+		arg.SegmentS,
+		arg.ID,
+	)
 	return err
 }
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -36,6 +37,7 @@ type prepares struct {
 	cache    *store.Cache
 	queue    Queue
 	nodes    Nodes
+	settings Settings
 	clock    clock.Clock
 	logger   *slog.Logger
 	silence  time.Duration
@@ -46,18 +48,23 @@ type prepares struct {
 
 func newPrepares(parts Parts) *prepares {
 	return &prepares{
-		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes,
+		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		clock: parts.Clock, logger: parts.Logger, silence: parts.Silence,
 		waiting: map[int64]chan nodeproto.PrepareReport{},
 	}
 }
 
 // want makes sure a rendition of file in profile is complete or on its way, at the highest
-// priority, and returns its row. One whose source changed, or that failed, is prepared again.
+// priority, and returns its row. One whose source changed, that failed, or that was made with
+// another segment length than hls_segment_s now asks for, is prepared again.
 func (all *prepares) want(
 	ctx context.Context, file sqlcgen.GetPlayableFileRow, profile nodeproto.PrepareProfile,
 ) (cachegen.PreparedRendition, error) {
 	var row cachegen.PreparedRendition
+	segment, settingErr := all.settings.Int(ctx, settings.HLSSegmentS)
+	if settingErr != nil {
+		return row, fmt.Errorf("read hls_segment_s: %w", settingErr)
+	}
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		key := cachegen.GetRenditionParams{SourceFile: file.ID, Profile: string(profile)}
 		found, err := store.One(queries.GetRendition(ctx, key))
@@ -65,12 +72,13 @@ func (all *prepares) want(
 		case errors.Is(err, store.ErrNotFound):
 			_, err = queries.InsertRendition(ctx, cachegen.InsertRenditionParams{
 				SourceFile: file.ID, PayloadHash: file.PayloadHash, Profile: string(profile), NodeID: file.NodeID,
-				CreatedAt: all.clock.Now().UnixMilli(),
+				SegmentS: segment, CreatedAt: all.clock.Now().UnixMilli(),
 			})
 		case err != nil:
-		case !bytes.Equal(found.PayloadHash, file.PayloadHash) || found.State == renditionFailed:
+		case !bytes.Equal(found.PayloadHash, file.PayloadHash) || found.State == renditionFailed ||
+			found.SegmentS != segment:
 			err = queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-				PayloadHash: file.PayloadHash, NodeID: file.NodeID, ID: found.ID,
+				PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentS: segment, ID: found.ID,
 			})
 		}
 		if err != nil {
@@ -102,7 +110,7 @@ func (all *prepares) redo(
 			return err
 		}
 		return queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-			PayloadHash: file.PayloadHash, NodeID: file.NodeID, ID: found.ID,
+			PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentS: found.SegmentS, ID: found.ID,
 		})
 	})
 	if err != nil {

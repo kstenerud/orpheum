@@ -11,13 +11,14 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// The HLS shape of every rendition (cut-a §6): fMP4 segments of about two seconds, so switching
-// between the standard and boosted mix takes about a second (D217 §3), and an EVENT playlist that
-// grows while the job runs, so playback starts before it ends.
+// The HLS shape of every rendition (cut-a §6): fMP4 segments of the length the core asks for, two
+// seconds unless the owner changed hls_segment_s (D217 §3), and an EVENT playlist that grows
+// while the job runs, so playback starts before it ends.
 const (
-	segmentSeconds = "2"
-	audioBitRate   = "192k"
-	masterPlaylist = "master.m3u8"
+	defaultSegmentSeconds = 2
+	maxSegmentSeconds     = 10
+	audioBitRate          = "192k"
+	masterPlaylist        = "master.m3u8"
 )
 
 // The two stereo mixes of a track with a centre, from 5.1 (a 7.1 source is first folded to it).
@@ -74,7 +75,7 @@ func Arguments(input, output string, command nodeproto.Prepare) []string {
 	}
 	return append(arguments,
 		"-c:a", "aac", "-b:a", audioBitRate, "-ac", "2", "-sn", "-dn",
-		"-f", "hls", "-hls_time", segmentSeconds, "-hls_playlist_type", "event",
+		"-f", "hls", "-hls_time", strconv.Itoa(segmentSeconds(command.SegmentSeconds)), "-hls_playlist_type", "event",
 		"-hls_segment_type", "fmp4", "-hls_fmp4_init_filename", "init.mp4",
 		"-hls_segment_filename", filepath.Join(output, "%v", "seg%05d.m4s"),
 		"-master_pl_name", masterPlaylist,
@@ -98,6 +99,14 @@ func videoArguments(command nodeproto.Prepare) []string {
 		"-b:v", "8M", "-maxrate", "10M", "-bufsize", "16M",
 		"-force_key_frames", "expr:gte(t,n_forced*2)",
 	}
+}
+
+// segmentSeconds is the segment length asked for, or the default when it is out of bounds.
+func segmentSeconds(asked int) int {
+	if asked < 1 || asked > maxSegmentSeconds {
+		return defaultSegmentSeconds
+	}
+	return asked
 }
 
 // language is a track's tag as the stream map may carry it, or "und".

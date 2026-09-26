@@ -145,7 +145,9 @@ func (service *Service) commandFor(
 	if err != nil {
 		return nodeproto.Prepare{}, 0, err
 	}
-	return prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), probe), file.NodeID, nil
+	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), probe)
+	command.SegmentSeconds = int(rendition.SegmentS)
+	return command, file.NodeID, nil
 }
 
 // Reported takes a node's report on a prepare to the job waiting for it.

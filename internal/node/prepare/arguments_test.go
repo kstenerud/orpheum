@@ -52,9 +52,6 @@ func TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre(t *testing.
 		t.Errorf("the mixes are %q, %q, %q", after(arguments, "-filter:a:0"), after(arguments, "-filter:a:1"),
 			after(arguments, "-filter:a:2"))
 	}
-	if after(arguments, "-hls_time") != "2" {
-		t.Errorf("segments are %q s, want 2: switching the boost waits for the next one", after(arguments, "-hls_time"))
-	}
 	if after(arguments, "-hls_segment_type") != "fmp4" || after(arguments, "-hls_playlist_type") != "event" ||
 		arguments[len(arguments)-1] != "/prep/7/remux/%v/stream.m3u8" {
 		t.Errorf("the output is %v, want fMP4 HLS as an EVENT playlist under the rendition", arguments)
@@ -71,5 +68,15 @@ func TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264(t *testing.T) {
 	if after(encoded, "-c:v") != "libx264" || after(encoded, "-pix_fmt") != "yuv420p" ||
 		after(encoded, "-b:v") != "8M" || after(encoded, "-force_key_frames") != "expr:gte(t,n_forced*2)" {
 		t.Errorf("h264-8m is %v, want 8-bit H.264 at 8M with a keyframe every 2 s", encoded)
+	}
+}
+
+func TestArguments_SegmentLengthIsTheOneAskedForWithinBounds(t *testing.T) {
+	t.Parallel()
+	for asked, want := range map[int]string{0: "2", 1: "1", 6: "6", 10: "10", 11: "2", 60: "2"} {
+		command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, SegmentSeconds: asked}
+		if got := after(prepare.Arguments("/a", "/b", command), "-hls_time"); got != want {
+			t.Errorf("asked for %d-second segments: -hls_time %s, want %s", asked, got, want)
+		}
 	}
 }
