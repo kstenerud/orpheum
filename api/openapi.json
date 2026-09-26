@@ -543,6 +543,22 @@
         ],
         "type": "object"
       },
+      "FilePrefsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "subtitleOffsetMs": {
+            "description": "Shows the subtitles this much later, or earlier when negative",
+            "format": "int64",
+            "maximum": 600000,
+            "minimum": -600000,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "subtitleOffsetMs"
+        ],
+        "type": "object"
+      },
       "FilesOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1439,6 +1455,9 @@
             ],
             "type": "string"
           },
+          "prefs": {
+            "$ref": "#/components/schemas/FilePrefsBody"
+          },
           "profile": {
             "enum": [
               "remux",
@@ -1463,6 +1482,15 @@
               "null"
             ]
           },
+          "subtitles": {
+            "items": {
+              "$ref": "#/components/schemas/SubtitleTrackBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "url": {
             "description": "Where the bytes are: the file, or a rendition's master playlist",
             "type": "string"
@@ -1472,7 +1500,9 @@
           "kind",
           "url",
           "reasons",
-          "isPreparing"
+          "isPreparing",
+          "subtitles",
+          "prefs"
         ],
         "type": "object"
       },
@@ -1505,6 +1535,51 @@
         "required": [
           "id",
           "kind"
+        ],
+        "type": "object"
+      },
+      "SubtitleTrackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "assUrl": {
+            "description": "The track as ASS, for JASSUB",
+            "type": "string"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "isForced": {
+            "type": "boolean"
+          },
+          "isHearingImpaired": {
+            "type": "boolean"
+          },
+          "language": {
+            "description": "BCP 47; empty when the file names none",
+            "type": "string"
+          },
+          "streamIndex": {
+            "description": "The track's stream index in the file",
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "vttUrl": {
+            "description": "The track as WebVTT",
+            "type": "string"
+          }
+        },
+        "required": [
+          "streamIndex",
+          "language",
+          "title",
+          "isDefault",
+          "isForced",
+          "isHearingImpaired",
+          "assUrl",
+          "vttUrl"
         ],
         "type": "object"
       },
@@ -1987,6 +2062,67 @@
         ]
       }
     },
+    "/bytes/media/sub/{token}/{file}": {
+      "get": {
+        "operationId": "getSubtitle",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The playback's media token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The playback's media token",
+              "type": "string"
+            }
+          },
+          {
+            "description": "\u003cstreamIndex\u003e.ass or \u003cstreamIndex\u003e.vtt",
+            "in": "path",
+            "name": "file",
+            "required": true,
+            "schema": {
+              "description": "\u003cstreamIndex\u003e.ass or \u003cstreamIndex\u003e.vtt",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/vtt; charset=utf-8": {},
+              "text/x-ssa; charset=utf-8": {}
+            },
+            "description": "The track"
+          },
+          "425": {
+            "description": "Not extracted yet; ask again after Retry-After"
+          }
+        },
+        "summary": "One of a playback's subtitle tracks, as ASS or WebVTT (D217 §6)",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
     "/collections/{id}": {
       "get": {
         "operationId": "getSeries",
@@ -2415,6 +2551,61 @@
         "summary": "What the scanner saw: every file with its filing and reason (admin; D163)",
         "tags": [
           "Libraries"
+        ]
+      }
+    },
+    "/files/{id}/prefs": {
+      "put": {
+        "operationId": "setFilePrefs",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FilePrefsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Keep a person's choices for one file: its subtitle offset",
+        "tags": [
+          "Playback"
         ]
       }
     },

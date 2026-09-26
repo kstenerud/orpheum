@@ -143,3 +143,14 @@ func mainAudio(probe nodeproto.Probe) (nodeproto.ProbeStream, bool) {
 	}
 	return *first, true
 }
+
+// IsTextSubtitle is whether a subtitle codec is text, which the node turns into ASS and WebVTT
+// (cut-a §6). Bitmap subtitles — PGS, DVD, DVB — are out of Cut A (cut-a §1), and so is any
+// codec this table does not name.
+func IsTextSubtitle(codec string) bool {
+	switch codec {
+	case "ass", "ssa", "subrip", "webvtt", "mov_text", "text":
+		return true
+	}
+	return false
+}

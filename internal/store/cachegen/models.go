@@ -52,3 +52,14 @@ type PreparedRendition struct {
 	CreatedAt      int64
 	FinishedAt     *int64
 }
+
+type SubtitleText struct {
+	PayloadHash []byte
+	StreamIndex int64
+	State       string
+	Ass         []byte
+	Vtt         []byte
+	Error       *string
+	CreatedAt   int64
+	FinishedAt  *int64
+}

@@ -154,3 +154,16 @@ SELECT path
 FROM library_root
 WHERE library_id = ? AND node_id = ?
 ORDER BY length(path) DESC, path;
+
+-- name: ListSubtitleStreamsOfFile :many
+-- A video's own subtitle tracks by stream index: the ids an extraction job names.
+SELECT id, stream_index
+FROM stream
+WHERE bytes_file = ? AND video_file = bytes_file AND kind = 'subtitle' AND stream_index IS NOT NULL
+ORDER BY stream_index;
+
+-- name: GetSubtitleStream :one
+-- A subtitle track inside a video, for the job that extracts it.
+SELECT id, bytes_file, stream_index, codec
+FROM stream
+WHERE id = ? AND kind = 'subtitle' AND stream_index IS NOT NULL;

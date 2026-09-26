@@ -23,8 +23,10 @@ const (
 	KindFetch   Kind = "fetch"
 	KindArtwork Kind = "artwork"
 	KindPrepare Kind = "prepare"
-	KindScan    Kind = "scan"
-	KindBackup  Kind = "backup"
+	// KindExtractSubtitle extracts one text subtitle track; its subject is the stream (D217 §3).
+	KindExtractSubtitle Kind = "extract_subtitle"
+	KindScan            Kind = "scan"
+	KindBackup          Kind = "backup"
 )
 
 // The states a job moves through.

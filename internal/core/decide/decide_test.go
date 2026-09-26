@@ -236,3 +236,15 @@ func TestMenu_RefusesAMenuWithoutTheBaselinesOrWithAnUnknownName(t *testing.T) {
 		}
 	}
 }
+
+func TestIsTextSubtitle_OffersTextTracksAndNoBitmaps(t *testing.T) {
+	t.Parallel()
+	for codec, want := range map[string]bool{
+		"ass": true, "ssa": true, "subrip": true, "webvtt": true, "mov_text": true, "text": true,
+		"hdmv_pgs_subtitle": false, "dvd_subtitle": false, "dvb_subtitle": false, "eia_608": false, "": false,
+	} {
+		if got := decide.IsTextSubtitle(codec); got != want {
+			t.Errorf("IsTextSubtitle(%q) = %v, want %v", codec, got, want)
+		}
+	}
+}

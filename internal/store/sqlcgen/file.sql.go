@@ -131,6 +131,32 @@ func (q *Queries) GetSidecarBody(ctx context.Context, id int64) ([]byte, error) 
 	return sidecar_body, err
 }
 
+const getSubtitleStream = `-- name: GetSubtitleStream :one
+SELECT id, bytes_file, stream_index, codec
+FROM stream
+WHERE id = ? AND kind = 'subtitle' AND stream_index IS NOT NULL
+`
+
+type GetSubtitleStreamRow struct {
+	ID          int64
+	BytesFile   int64
+	StreamIndex *int64
+	Codec       *string
+}
+
+// A subtitle track inside a video, for the job that extracts it.
+func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleStreamRow, error) {
+	row := q.db.QueryRowContext(ctx, getSubtitleStream, id)
+	var i GetSubtitleStreamRow
+	err := row.Scan(
+		&i.ID,
+		&i.BytesFile,
+		&i.StreamIndex,
+		&i.Codec,
+	)
+	return i, err
+}
+
 const insertFile = `-- name: InsertFile :one
 INSERT INTO file (
   library_id, node_id, path, path_raw, path_key, size_bytes, mtime_ms, payload_hash, payload_bytes,
@@ -523,6 +549,42 @@ func (q *Queries) ListStreamsOfFile(ctx context.Context, bytesFile int64) ([]Lis
 			&i.Disposition,
 			&i.Channels,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSubtitleStreamsOfFile = `-- name: ListSubtitleStreamsOfFile :many
+SELECT id, stream_index
+FROM stream
+WHERE bytes_file = ? AND video_file = bytes_file AND kind = 'subtitle' AND stream_index IS NOT NULL
+ORDER BY stream_index
+`
+
+type ListSubtitleStreamsOfFileRow struct {
+	ID          int64
+	StreamIndex *int64
+}
+
+// A video's own subtitle tracks by stream index: the ids an extraction job names.
+func (q *Queries) ListSubtitleStreamsOfFile(ctx context.Context, bytesFile int64) ([]ListSubtitleStreamsOfFileRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSubtitleStreamsOfFile, bytesFile)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSubtitleStreamsOfFileRow{}
+	for rows.Next() {
+		var i ListSubtitleStreamsOfFileRow
+		if err := rows.Scan(&i.ID, &i.StreamIndex); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

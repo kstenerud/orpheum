@@ -33,11 +33,14 @@ describe("playing a file", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <PlayView
+          fileId={2}
           decision={{
             kind: "direct",
             url: "/api/v1/bytes/media/direct/abc",
             reasons: [],
             isPreparing: false,
+            subtitles: [],
+            prefs: { subtitleOffsetMs: 0 },
           }}
         />,
       ),
@@ -51,12 +54,15 @@ describe("playing a file", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <PlayView
+          fileId={2}
           decision={{
             kind: "hls",
             profile: "remux",
             url: "/api/v1/bytes/media/hls/abc/master.m3u8",
             reasons: ["container", "audio_codec"],
             isPreparing: true,
+            subtitles: [],
+            prefs: { subtitleOffsetMs: 0 },
             audio: [
               { sourceTrack: 0, language: "en", isDialogueBoost: false },
               { sourceTrack: 0, language: "en", isDialogueBoost: true },
@@ -78,6 +84,8 @@ describe("playing a file", () => {
       url: "/u",
       reasons: [],
       isPreparing: false,
+      subtitles: [],
+      prefs: { subtitleOffsetMs: 0 },
       audio: [
         { sourceTrack: 0, language: "en", isDialogueBoost: false },
         { sourceTrack: 0, language: "en", isDialogueBoost: true },

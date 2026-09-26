@@ -108,6 +108,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerArt()
 	server.registerDoctor()
 	server.registerPlayback()
+	server.registerFilePrefs()
 	return server
 }
 

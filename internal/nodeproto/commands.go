@@ -2,9 +2,9 @@
 
 package nodeproto
 
-// CommandType names one kind of command (cut-a §4). The set is closed; extract_subtitle and
-// cancel come with the work they command. CommandArtwork is in artwork.go, CommandPrepare in
-// prepare.go.
+// CommandType names one kind of command (cut-a §4). The set is closed; cancel comes with the
+// work it commands. CommandArtwork is in artwork.go, CommandPrepare in prepare.go,
+// CommandExtractSubtitle in subtitle.go.
 type CommandType string
 
 // The command types.
@@ -22,6 +22,8 @@ type Command struct {
 	Artwork *Artwork `json:"artwork,omitempty"`
 	// Prepare is set for CommandPrepare.
 	Prepare *Prepare `json:"prepare,omitempty"`
+	// ExtractSubtitle is set for CommandExtractSubtitle.
+	ExtractSubtitle *ExtractSubtitle `json:"extractSubtitle,omitempty"`
 }
 
 // Scan asks the node to scan one of its roots.

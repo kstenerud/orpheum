@@ -166,6 +166,7 @@ func start(
 	})
 	opened.metadata.playback = dependencies.Playback
 	opened.nodes.ReceivePrepare(dependencies.Playback)
+	opened.nodes.ReceiveSubtitles(dependencies.Playback)
 	dependencies.NodeBytes = nodes.NewBytes(opened.nodes, filepath.Join(config.Server.SocketDir, nodeSocket))
 	server.Ready(dependencies)
 	return opened, nil

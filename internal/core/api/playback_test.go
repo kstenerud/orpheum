@@ -58,7 +58,9 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		`{"kind":"audio","codec":"aac","profile":"LC","audio":{"channels":2}}]}`
 	mkv := `{"format":{"names":["matroska","webm"]},"streams":[` +
 		`{"kind":"video","codec":"h264","profile":"High","video":{"pixelFormat":"yuv420p"}},` +
-		`{"kind":"audio","codec":"truehd","audio":{"channels":8}},{"kind":"subtitle","codec":"ass"}]}`
+		`{"index":1,"kind":"audio","codec":"truehd","audio":{"channels":8}},` +
+		`{"index":2,"kind":"subtitle","codec":"ass","languageTag":"en","disposition":["default"]},` +
+		`{"index":3,"kind":"subtitle","codec":"hdmv_pgs_subtitle"}]}`
 	storetest.ExecRaw(t, harness.database,
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at)
@@ -97,6 +99,18 @@ type decision struct {
 		Language        string `json:"language"`
 		IsDialogueBoost bool   `json:"isDialogueBoost"`
 	} `json:"audio"`
+	Subtitles []subtitleTrack `json:"subtitles"`
+	Prefs     struct {
+		SubtitleOffsetMs int `json:"subtitleOffsetMs"`
+	} `json:"prefs"`
+}
+
+type subtitleTrack struct {
+	StreamIndex int    `json:"streamIndex"`
+	Language    string `json:"language"`
+	IsDefault   bool   `json:"isDefault"`
+	ASSURL      string `json:"assUrl"`
+	VTTURL      string `json:"vttUrl"`
 }
 
 func (harness testHarness) play(t *testing.T, token string, body map[string]any) decision {

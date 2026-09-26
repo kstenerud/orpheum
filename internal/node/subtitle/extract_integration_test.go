@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+//go:build integration
+
+package subtitle_test
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/kstenerud/orpheum/internal/node/execx"
+	"github.com/kstenerud/orpheum/internal/node/subtitle"
+	"github.com/kstenerud/orpheum/internal/testutil"
+)
+
+const srt = "1\n00:00:01,000 --> 00:00:02,500\nHello <i>there</i>\n\n2\n00:00:03,000 --> 00:00:04,000\nSecond line\n"
+
+// checkText fails unless text carries both cues as ASS and as WebVTT.
+func checkText(t *testing.T, what string, text subtitle.Text) {
+	t.Helper()
+	ass, vtt := string(text.ASS), string(text.VTT)
+	if !strings.Contains(ass, "[Events]") ||
+		!strings.Contains(ass, `Dialogue: 0,0:00:01.00,0:00:02.50,Default,,0,0,0,,Hello {\i1}there{\i0}`) ||
+		!strings.Contains(ass, "0:00:03.00,0:00:04.00") {
+		t.Errorf("%s: the ASS is\n%s", what, ass)
+	}
+	if !strings.HasPrefix(vtt, "WEBVTT") || !strings.Contains(vtt, "00:01.000 --> 00:02.500\nHello <i>there</i>") ||
+		!strings.Contains(vtt, "Second line") {
+		t.Errorf("%s: the WebVTT is\n%s", what, vtt)
+	}
+}
+
+func TestExtract_ATrackAndASidecarBecomeASSAndWebVTT(t *testing.T) {
+	t.Parallel()
+	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := t.TempDir()
+	sidecar := filepath.Join(directory, "film.en.srt")
+	if writeErr := os.WriteFile(sidecar, []byte(srt), 0o600); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+	film := filepath.Join(directory, "film.mkv")
+	_, err = runner.Run(t.Context(), execx.FFmpeg, []string{
+		"-v", "error", "-f", "lavfi", "-i", "color=c=black:s=64x64:d=5", "-i", "file:" + sidecar,
+		"-map", "0", "-map", "1", "-c:v", "libx264", "-preset", "ultrafast", "-c:s", "ass", "file:" + film,
+	}, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	extractor := subtitle.NewExtractor(runner)
+	track, err := extractor.ExtractTrack(t.Context(), film, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkText(t, "the embedded track", track)
+	converted, err := extractor.ConvertFile(t.Context(), []byte(srt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkText(t, "the sidecar", converted)
+	if _, err := extractor.ConvertFile(t.Context(), []byte("not a subtitle\n")); err == nil {
+		t.Error("a file that is not a subtitle converted")
+	}
+}

@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type JSX, type RefObject, type SyntheticEv
 import { useTranslation } from "react-i18next";
 
 import { useServices } from "./services.tsx";
+import { Subtitles } from "./subtitles.tsx";
 import { camelKey, Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
@@ -29,12 +30,31 @@ export async function requestPlayback(api: Api, fileId: number, menu: Menu): Pro
 }
 
 /** A decision, shown: the original playing, or a prepared copy and why. The reason is always on screen (D188). */
-export function PlayView(props: { readonly decision: Decision }): JSX.Element {
+export function PlayView(props: {
+  readonly fileId: number;
+  readonly decision: Decision;
+}): JSX.Element {
   const { decision } = props;
   if (decision.kind === "direct") {
-    return <DirectVideo url={decision.url} />;
+    return <DirectVideo fileId={props.fileId} decision={decision} />;
   }
-  return <PreparedVideo decision={decision} />;
+  return <PreparedVideo fileId={props.fileId} decision={decision} />;
+}
+
+/** The subtitle menu and offset under a playing video, for the decision's tracks. */
+function SubtitlesOf(props: {
+  readonly fileId: number;
+  readonly decision: Decision;
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+}): JSX.Element {
+  return (
+    <Subtitles
+      fileId={props.fileId}
+      tracks={props.decision.subtitles ?? []}
+      startingOffsetMs={props.decision.prefs.subtitleOffsetMs}
+      videoRef={props.videoRef}
+    />
+  );
 }
 
 /** Where a track's standard and boosted mixes are among a rendition's audio, for its first track. */
@@ -57,7 +77,10 @@ export function boostPair(decision: Decision): { standard: number; boosted: numb
  * A prepared copy, playing: it waits while the copy's first part is made, then plays it, with a
  * switch for the dialogue boost where the sound has a centre to raise (D217 §3).
  */
-function PreparedVideo(props: { readonly decision: Decision }): JSX.Element {
+function PreparedVideo(props: {
+  readonly fileId: number;
+  readonly decision: Decision;
+}): JSX.Element {
   const { t } = useTranslation();
   const { decision } = props;
   const { videoRef, playbackRef, isWaiting, failure } = usePrepared(decision);
@@ -67,8 +90,11 @@ function PreparedVideo(props: { readonly decision: Decision }): JSX.Element {
   const pair = boostPair(decision);
   return (
     <div className="play">
-      {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles arrive with M3's subtitle slice (cut-a §6) */}
-      <video className="play__video" ref={videoRef} controls autoPlay playsInline />
+      <div className="play__stage">
+        {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- JASSUB draws the subtitles over the video, not a <track> (cut-a §6) */}
+        <video className="play__video" ref={videoRef} controls autoPlay playsInline />
+      </div>
+      <SubtitlesOf fileId={props.fileId} decision={decision} videoRef={videoRef} />
       <p className="play__reason">{t("play.prepared", { reasons })}</p>
       {isWaiting && failure === undefined ? <p>{t("play.preparing")}</p> : null}
       {failure === undefined ? null : (
@@ -131,23 +157,28 @@ function usePrepared(decision: Decision): {
 }
 
 /** The original file, playing; when the browser cannot play it, why, in words. */
-function DirectVideo(props: { readonly url: string }): JSX.Element {
+function DirectVideo(props: { readonly fileId: number; readonly decision: Decision }): JSX.Element {
   const { t } = useTranslation();
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [failure, setFailure] = useState<string | undefined>(undefined);
   const failed = (event: SyntheticEvent<HTMLVideoElement>): void => {
     setFailure(mediaFailure(event.currentTarget.error));
   };
   return (
     <div className="play">
-      {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles arrive with M3's subtitle slice (cut-a §6) */}
-      <video
-        className="play__video"
-        src={props.url}
-        controls
-        autoPlay
-        playsInline
-        onError={failed}
-      />
+      <div className="play__stage">
+        {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- JASSUB draws the subtitles over the video, not a <track> (cut-a §6) */}
+        <video
+          className="play__video"
+          ref={videoRef}
+          src={props.decision.url}
+          controls
+          autoPlay
+          playsInline
+          onError={failed}
+        />
+      </div>
+      <SubtitlesOf fileId={props.fileId} decision={props.decision} videoRef={videoRef} />
       {failure === undefined ? (
         <p className="play__reason">{t("play.direct")}</p>
       ) : (
@@ -171,5 +202,10 @@ export function Play(props: { readonly fileId: number }): JSX.Element {
   const [decision] = useResource(`play/${String(props.fileId)}`, () =>
     requestPlayback(api, props.fileId, menu()),
   );
-  return <Loaded resource={decision} render={(value) => <PlayView decision={value} />} />;
+  return (
+    <Loaded
+      resource={decision}
+      render={(value) => <PlayView fileId={props.fileId} decision={value} />}
+    />
+  );
 }

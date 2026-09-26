@@ -79,6 +79,7 @@ func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop fun
 		{jobs.KindFetch, fetching.matcher.Handle, nil},
 		{jobs.KindArtwork, fetching.artwork.Handle, artwork.RetrySchedule()},
 		{jobs.KindPrepare, fetching.playback.HandlePrepare, nil},
+		{jobs.KindExtractSubtitle, fetching.playback.HandleSubtitle, nil},
 	} {
 		kind, runner := queue.kind, fetching.queue.NewRunner(queue.kind, queue.handler)
 		if queue.schedule != nil {

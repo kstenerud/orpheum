@@ -61,14 +61,12 @@ type StartPlaybackOutput struct {
 		IsPreparing bool `json:"isPreparing"`
 		// Audio are a rendition's audio renditions, in its master playlist's order.
 		Audio []AudioRenditionBody `json:"audio,omitempty"`
+		// Subtitles are the file's text subtitle tracks, each extracted or on its way; a track's
+		// URLs answer 425 until it is (D217 §6).
+		Subtitles []SubtitleTrackBody `json:"subtitles"`
+		// Prefs are the person's choices for this file, which the player starts with.
+		Prefs FilePrefsBody `json:"prefs"`
 	}
-}
-
-// AudioRenditionBody is one audio rendition: a source track's standard mix, or its boosted one.
-type AudioRenditionBody struct {
-	SourceTrack     int    `json:"sourceTrack"`
-	Language        string `json:"language"`
-	IsDialogueBoost bool   `json:"isDialogueBoost"`
 }
 
 // MasterInput asks for a prepared playback's master playlist.
@@ -125,6 +123,7 @@ func (server *Server) registerPlayback() {
 	}, func(ctx context.Context, input *MasterInput) (*huma.StreamResponse, error) {
 		return server.hls(ctx, input.MediaCredentials, input.Token, "master.m3u8", "")
 	})
+	server.registerSubtitles()
 	huma.Register(server.api, huma.Operation{
 		OperationID: "getRenditionFile", Method: http.MethodGet, Path: "/bytes/media/hls/{token}/{rendition}/{file}",
 		Summary: "One file of a prepared playback's rendition, relayed from its node", Tags: []string{tagPlayback},
@@ -174,6 +173,8 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 			SourceTrack: audio.Track, Language: audio.Language, IsDialogueBoost: audio.Boost,
 		})
 	}
+	output.Body.Subtitles = subtitleTracks(started)
+	output.Body.Prefs = FilePrefsBody{SubtitleOffsetMs: started.Prefs.SubtitleOffsetMs}
 	return output, nil
 }
 

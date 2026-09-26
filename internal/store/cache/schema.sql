@@ -3,12 +3,12 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 9
+-- cache schema version 10
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch','artwork','prepare','scan','backup')),
-  subject     INTEGER,                   -- item_id, file_id, library_id, per kind
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch','artwork','prepare','extract_subtitle','scan','backup')),
+  subject     INTEGER,                   -- item_id, file_id, library_id, stream_id, per kind
   args        TEXT NOT NULL DEFAULT '{}',  -- JSON: provider, profile, reason
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
   state       TEXT NOT NULL DEFAULT 'queued'
@@ -54,4 +54,16 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
   UNIQUE (source_file, profile)
+);
+
+CREATE TABLE subtitle_text (                               -- D217 section 6: by the video's payload hash
+  payload_hash BLOB NOT NULL,            -- the video the track is in, as it was when extracted
+  stream_index INTEGER NOT NULL,         -- the track's stream index in that video
+  state        TEXT NOT NULL DEFAULT 'queued' CHECK (state IN ('queued','complete','failed')),
+  ass          BLOB,                     -- once complete: for JASSUB
+  vtt          BLOB,                     -- once complete: for the cast receiver
+  error        TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
+  created_at   INTEGER NOT NULL,
+  finished_at  INTEGER,
+  PRIMARY KEY (payload_hash, stream_index)
 );

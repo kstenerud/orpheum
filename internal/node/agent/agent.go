@@ -48,6 +48,8 @@ type Workers struct {
 	Artwork Artworker
 	// Preparer is nil on a node that does not prepare.
 	Preparer Preparer
+	// Subtitles is nil on a node that does not extract subtitles.
+	Subtitles Subtitler
 }
 
 // Agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
@@ -195,6 +197,10 @@ func (agent *Agent) run(ctx context.Context, nodeID int64, command nodeproto.Com
 		agent.prepare(ctx, nodeID, *command.Prepare)
 		return nil
 	}
+	if command.Type == nodeproto.CommandExtractSubtitle && command.ExtractSubtitle != nil {
+		agent.extractSubtitle(ctx, nodeID, *command.ExtractSubtitle)
+		return nil
+	}
 	if command.Type == nodeproto.CommandScan {
 		root, known := agent.roots[command.Scan.Root]
 		if !known {
@@ -268,26 +274,26 @@ func (agent *Agent) readImage(named nodeproto.Path) ([]byte, error) {
 		if !under {
 			continue
 		}
-		return readBounded(root, rel)
+		return readBounded(root, rel, maxImageBytes)
 	}
 	return nil, errors.New("the image is under none of this node's roots")
 }
 
-// readBounded reads one file under a root, refusing one past maxImageBytes.
-func readBounded(root *confine.MediaRoot, rel string) ([]byte, error) {
+// readBounded reads one file under a root, refusing one past maxBytes.
+func readBounded(root *confine.MediaRoot, rel string, maxBytes int) ([]byte, error) {
 	file, err := root.Open(rel)
 	if err != nil {
-		return nil, fmt.Errorf("open the image: %w", err)
+		return nil, fmt.Errorf("open %s: %w", rel, err)
 	}
 	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
-	image, err := io.ReadAll(io.LimitReader(file, maxImageBytes+1))
+	contents, err := io.ReadAll(io.LimitReader(file, int64(maxBytes)+1))
 	if err != nil {
-		return nil, fmt.Errorf("read the image: %w", err)
+		return nil, fmt.Errorf("read %s: %w", rel, err)
 	}
-	if len(image) > maxImageBytes {
-		return nil, fmt.Errorf("the image is larger than %d bytes", maxImageBytes)
+	if len(contents) > maxBytes {
+		return nil, fmt.Errorf("%s is larger than %d bytes", rel, maxBytes)
 	}
-	return image, nil
+	return contents, nil
 }
 
 func (agent *Agent) setDoing(doing string) {
