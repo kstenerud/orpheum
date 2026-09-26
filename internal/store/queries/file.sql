@@ -91,12 +91,24 @@ ON CONFLICT (node_id, path) DO UPDATE SET completed_at = excluded.completed_at;
 -- name: DeleteFileStreams :exec
 DELETE FROM stream WHERE bytes_file = ?;
 
--- name: InsertStream :exec
+-- name: UpsertStream :exec
+-- A video's own track, by its stream index. A row keeps its id for as long as its file has the
+-- index, so an extraction job or a playback's subtitle address that names it holds across scans.
 INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang, title_raw, disposition, channels)
 VALUES (
   sqlc.arg(file_id), sqlc.arg(file_id), sqlc.arg(stream_index), sqlc.arg(kind), sqlc.arg(codec),
   sqlc.arg(lang_raw), sqlc.arg(lang), sqlc.arg(title_raw), sqlc.arg(disposition), sqlc.arg(channels)
-);
+)
+ON CONFLICT (bytes_file, stream_index) DO UPDATE SET
+  video_file = excluded.video_file, kind = excluded.kind, codec = excluded.codec, lang_raw = excluded.lang_raw,
+  lang = excluded.lang, title_raw = excluded.title_raw, disposition = excluded.disposition,
+  channels = excluded.channels;
+
+-- name: DeleteFileStreamsNotIn :exec
+-- A video's own tracks whose stream index its probe no longer has.
+DELETE FROM stream
+WHERE bytes_file = sqlc.arg(file_id) AND stream_index IS NOT NULL
+  AND stream_index NOT IN (SELECT value FROM json_each(CAST(sqlc.arg(kept_indexes) AS TEXT)));
 
 -- name: ListLiveFilesByNode :many
 SELECT id, library_id, path, path_raw, size_bytes, payload_hash, payload_bytes, filing, filing_reason,
@@ -106,7 +118,7 @@ WHERE node_id = ? AND removed_at IS NULL
 ORDER BY path;
 
 -- name: ListStreamsOfFile :many
-SELECT stream_index, kind, codec, lang_raw, lang, title_raw, disposition, channels
+SELECT id, stream_index, kind, codec, lang_raw, lang, title_raw, disposition, channels
 FROM stream
 WHERE bytes_file = ?
 ORDER BY stream_index;

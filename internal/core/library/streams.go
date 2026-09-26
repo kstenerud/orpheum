@@ -4,6 +4,7 @@ package library
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -31,12 +32,12 @@ func isTrackKind(kind string) bool {
 	return kind == "video" || kind == "audio" || kind == "subtitle" || kind == "attachment"
 }
 
-// streams replaces a file's stream rows with those its probe describes. They are derived rows
-// (class O): re-derived from the stored probe, never edited.
+// streams brings a file's own stream rows to what its probe describes. They are derived rows
+// (class O): re-derived from the stored probe, never edited. A row is changed in place, keyed by
+// its stream index, so its id holds from scan to scan; one whose index the probe no longer has
+// is dropped.
 func (work *batch) streams(ctx context.Context, fileID int64, probe nodeproto.Probe) error {
-	if err := work.queries.DeleteFileStreams(ctx, fileID); err != nil {
-		return fmt.Errorf("clear the streams of file %d: %w", fileID, err)
-	}
+	kept := []int64{}
 	for _, stream := range probe.Streams {
 		if !isTrackKind(stream.Kind) {
 			continue
@@ -46,14 +47,25 @@ func (work *batch) streams(ctx context.Context, fileID int64, probe nodeproto.Pr
 			disposition |= DispositionBit(flag)
 		}
 		index := int64(stream.Index)
-		err := work.queries.InsertStream(ctx, sqlcgen.InsertStreamParams{
+		kept = append(kept, index)
+		err := work.queries.UpsertStream(ctx, sqlcgen.UpsertStreamParams{
 			FileID: fileID, StreamIndex: &index, Kind: stream.Kind, Codec: optional(stream.Codec),
 			LangRaw: optional(stream.Language), Lang: optional(stream.LanguageTag), TitleRaw: optional(stream.Title),
 			Disposition: disposition, Channels: optionalInt(int64(stream.Audio.Channels)),
 		})
 		if err != nil {
-			return fmt.Errorf("insert stream %d of file %d: %w", stream.Index, fileID, err)
+			return fmt.Errorf("keep stream %d of file %d: %w", stream.Index, fileID, err)
 		}
+	}
+	encoded, err := json.Marshal(kept)
+	if err != nil {
+		return fmt.Errorf("encode the stream indexes of file %d: %w", fileID, err)
+	}
+	err = work.queries.DeleteFileStreamsNotIn(ctx, sqlcgen.DeleteFileStreamsNotInParams{
+		FileID: fileID, KeptIndexes: string(encoded),
+	})
+	if err != nil {
+		return fmt.Errorf("drop the streams file %d no longer has: %w", fileID, err)
 	}
 	return nil
 }

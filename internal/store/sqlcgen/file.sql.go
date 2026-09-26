@@ -18,6 +18,23 @@ func (q *Queries) DeleteFileStreams(ctx context.Context, bytesFile int64) error 
 	return err
 }
 
+const deleteFileStreamsNotIn = `-- name: DeleteFileStreamsNotIn :exec
+DELETE FROM stream
+WHERE bytes_file = ?1 AND stream_index IS NOT NULL
+  AND stream_index NOT IN (SELECT value FROM json_each(CAST(?2 AS TEXT)))
+`
+
+type DeleteFileStreamsNotInParams struct {
+	FileID      int64
+	KeptIndexes string
+}
+
+// A video's own tracks whose stream index its probe no longer has.
+func (q *Queries) DeleteFileStreamsNotIn(ctx context.Context, arg DeleteFileStreamsNotInParams) error {
+	_, err := q.db.ExecContext(ctx, deleteFileStreamsNotIn, arg.FileID, arg.KeptIndexes)
+	return err
+}
+
 const getLatestTombstoneByHash = `-- name: GetLatestTombstoneByHash :one
 SELECT id
 FROM file
@@ -322,41 +339,6 @@ func (q *Queries) InsertSidecarStream(ctx context.Context, arg InsertSidecarStre
 	return err
 }
 
-const insertStream = `-- name: InsertStream :exec
-INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang, title_raw, disposition, channels)
-VALUES (
-  ?1, ?1, ?2, ?3, ?4,
-  ?5, ?6, ?7, ?8, ?9
-)
-`
-
-type InsertStreamParams struct {
-	FileID      int64
-	StreamIndex *int64
-	Kind        string
-	Codec       *string
-	LangRaw     *string
-	Lang        *string
-	TitleRaw    *string
-	Disposition int64
-	Channels    *int64
-}
-
-func (q *Queries) InsertStream(ctx context.Context, arg InsertStreamParams) error {
-	_, err := q.db.ExecContext(ctx, insertStream,
-		arg.FileID,
-		arg.StreamIndex,
-		arg.Kind,
-		arg.Codec,
-		arg.LangRaw,
-		arg.Lang,
-		arg.TitleRaw,
-		arg.Disposition,
-		arg.Channels,
-	)
-	return err
-}
-
 const listLibraryRootsOnNode = `-- name: ListLibraryRootsOnNode :many
 SELECT path
 FROM library_root
@@ -587,13 +569,14 @@ func (q *Queries) ListLiveFilesOfLibrary(ctx context.Context, arg ListLiveFilesO
 }
 
 const listStreamsOfFile = `-- name: ListStreamsOfFile :many
-SELECT stream_index, kind, codec, lang_raw, lang, title_raw, disposition, channels
+SELECT id, stream_index, kind, codec, lang_raw, lang, title_raw, disposition, channels
 FROM stream
 WHERE bytes_file = ?
 ORDER BY stream_index
 `
 
 type ListStreamsOfFileRow struct {
+	ID          int64
 	StreamIndex *int64
 	Kind        string
 	Codec       *string
@@ -614,6 +597,7 @@ func (q *Queries) ListStreamsOfFile(ctx context.Context, bytesFile int64) ([]Lis
 	for rows.Next() {
 		var i ListStreamsOfFileRow
 		if err := rows.Scan(
+			&i.ID,
 			&i.StreamIndex,
 			&i.Kind,
 			&i.Codec,
@@ -887,5 +871,46 @@ type UpsertRootScanParams struct {
 
 func (q *Queries) UpsertRootScan(ctx context.Context, arg UpsertRootScanParams) error {
 	_, err := q.db.ExecContext(ctx, upsertRootScan, arg.NodeID, arg.Path, arg.CompletedAt)
+	return err
+}
+
+const upsertStream = `-- name: UpsertStream :exec
+INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang, title_raw, disposition, channels)
+VALUES (
+  ?1, ?1, ?2, ?3, ?4,
+  ?5, ?6, ?7, ?8, ?9
+)
+ON CONFLICT (bytes_file, stream_index) DO UPDATE SET
+  video_file = excluded.video_file, kind = excluded.kind, codec = excluded.codec, lang_raw = excluded.lang_raw,
+  lang = excluded.lang, title_raw = excluded.title_raw, disposition = excluded.disposition,
+  channels = excluded.channels
+`
+
+type UpsertStreamParams struct {
+	FileID      int64
+	StreamIndex *int64
+	Kind        string
+	Codec       *string
+	LangRaw     *string
+	Lang        *string
+	TitleRaw    *string
+	Disposition int64
+	Channels    *int64
+}
+
+// A video's own track, by its stream index. A row keeps its id for as long as its file has the
+// index, so an extraction job or a playback's subtitle address that names it holds across scans.
+func (q *Queries) UpsertStream(ctx context.Context, arg UpsertStreamParams) error {
+	_, err := q.db.ExecContext(ctx, upsertStream,
+		arg.FileID,
+		arg.StreamIndex,
+		arg.Kind,
+		arg.Codec,
+		arg.LangRaw,
+		arg.Lang,
+		arg.TitleRaw,
+		arg.Disposition,
+		arg.Channels,
+	)
 	return err
 }

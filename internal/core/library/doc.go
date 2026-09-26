@@ -41,6 +41,9 @@
 //     TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt.
 //   - A sidecar is filed as attached to the video it belongs to, and an NFO's bytes are stored as
 //     identification's input (D182). TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo.
+//   - A file observed again keeps its stream rows, changed in place by stream index, and loses
+//     only a track its probe no longer has, so an id a job or an address names holds.
+//     TestIngest_AFileObservedAgainKeepsItsStreamRowsAndDropsOnlyWhatItLost.
 //   - A subtitle file keeps its payload hash and, while it belongs to a video, is one track of it,
 //     with the language and flags its name gives after the video's name; its row keeps its id
 //     across scans. TestIngest_ASubtitleFileIsATrackOfItsVideoUntilItsVideoIsGone,
