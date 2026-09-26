@@ -22,7 +22,7 @@ describe("identify", () => {
               id: 7,
               kind: "series",
               name: "Glass Tide",
-              ident: "ambiguous",
+              identification: "ambiguous",
               libraryId: 1,
               year: 2011,
             },

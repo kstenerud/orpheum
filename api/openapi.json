@@ -4,13 +4,13 @@
       "ArtBody": {
         "additionalProperties": false,
         "properties": {
-          "backdrop": {
+          "backdropHash": {
             "type": "string"
           },
-          "poster": {
+          "posterHash": {
             "type": "string"
           },
-          "still": {
+          "stillHash": {
             "description": "An episode's frame",
             "type": "string"
           }
@@ -20,21 +20,21 @@
       "AudioRenditionBody": {
         "additionalProperties": false,
         "properties": {
-          "boost": {
+          "isDialogueBoost": {
             "type": "boolean"
           },
           "language": {
             "type": "string"
           },
-          "track": {
+          "sourceTrack": {
             "format": "int64",
             "type": "integer"
           }
         },
         "required": [
-          "track",
+          "sourceTrack",
           "language",
-          "boost"
+          "isDialogueBoost"
         ],
         "type": "object"
       },
@@ -105,7 +105,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "ident": {
+          "identification": {
             "type": "string"
           },
           "kind": {
@@ -142,7 +142,7 @@
       "ConfigFileKey": {
         "additionalProperties": false,
         "properties": {
-          "describe": {
+          "description": {
             "type": "string"
           },
           "isFromFile": {
@@ -152,7 +152,7 @@
           "key": {
             "type": "string"
           },
-          "start": {
+          "startingValue": {
             "description": "The starting value; null when the key has none"
           },
           "value": {}
@@ -160,9 +160,9 @@
         "required": [
           "key",
           "value",
-          "start",
+          "startingValue",
           "isFromFile",
-          "describe"
+          "description"
         ],
         "type": "object"
       },
@@ -211,6 +211,10 @@
             "minimum": 1,
             "type": "integer"
           },
+          "isWritable": {
+            "description": "May the server write beside the media",
+            "type": "boolean"
+          },
           "kind": {
             "enum": [
               "movies",
@@ -246,10 +250,6 @@
               "array",
               "null"
             ]
-          },
-          "writable": {
-            "description": "May the server write beside the media",
-            "type": "boolean"
           }
         },
         "required": [
@@ -257,7 +257,7 @@
           "kind",
           "metadataSource",
           "changeDetection",
-          "writable",
+          "isWritable",
           "node",
           "roots"
         ],
@@ -305,7 +305,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "ident": {
+          "identification": {
             "type": "string"
           },
           "libraryId": {
@@ -315,7 +315,7 @@
           "name": {
             "type": "string"
           },
-          "poster": {
+          "posterHash": {
             "description": "Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp",
             "type": "string"
           },
@@ -327,7 +327,7 @@
         "required": [
           "id",
           "name",
-          "ident",
+          "identification",
           "libraryId",
           "addedAt"
         ],
@@ -336,7 +336,7 @@
       "EpisodeBody": {
         "additionalProperties": false,
         "properties": {
-          "available": {
+          "hasLiveFile": {
             "description": "Whether it has a live file",
             "type": "boolean"
           },
@@ -344,7 +344,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "ident": {
+          "identification": {
             "type": "string"
           },
           "name": {
@@ -362,7 +362,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "still": {
+          "stillHash": {
             "description": "Its still's hash: GET /bytes/art/{hash}/landscape-s.webp",
             "type": "string"
           },
@@ -376,8 +376,8 @@
           "season",
           "number",
           "name",
-          "ident",
-          "available"
+          "identification",
+          "hasLiveFile"
         ],
         "type": "object"
       },
@@ -452,16 +452,16 @@
             "format": "int64",
             "type": "integer"
           },
-          "name": {
+          "kind": {
             "type": "string"
           },
-          "type": {
+          "name": {
             "type": "string"
           }
         },
         "required": [
           "id",
-          "type",
+          "kind",
           "name"
         ],
         "type": "object"
@@ -479,7 +479,7 @@
           "filingReason": {
             "type": "string"
           },
-          "firstSeen": {
+          "firstSeenAt": {
             "format": "int64",
             "type": "integer"
           },
@@ -487,7 +487,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "lastSeen": {
+          "lastSeenAt": {
             "format": "int64",
             "type": "integer"
           },
@@ -498,7 +498,7 @@
           "path": {
             "type": "string"
           },
-          "size": {
+          "sizeBytes": {
             "format": "int64",
             "type": "integer"
           }
@@ -508,8 +508,8 @@
           "libraryId",
           "path",
           "filing",
-          "firstSeen",
-          "lastSeen"
+          "firstSeenAt",
+          "lastSeenAt"
         ],
         "type": "object"
       },
@@ -523,7 +523,7 @@
           "path": {
             "type": "string"
           },
-          "size": {
+          "sizeBytes": {
             "format": "int64",
             "type": "integer"
           },
@@ -662,7 +662,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "ident": {
+          "identification": {
             "enum": [
               "identified",
               "ambiguous",
@@ -705,7 +705,7 @@
           "libraryId",
           "kind",
           "name",
-          "ident"
+          "identification"
         ],
         "type": "object"
       },
@@ -731,7 +731,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "ident": {
+          "identification": {
             "type": "string"
           },
           "kind": {
@@ -780,7 +780,7 @@
           "id",
           "kind",
           "name",
-          "ident",
+          "identification",
           "libraryId",
           "versions",
           "extras",
@@ -855,6 +855,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "isWritable": {
+            "type": "boolean"
+          },
           "kind": {
             "enum": [
               "movies",
@@ -882,9 +885,6 @@
               "array",
               "null"
             ]
-          },
-          "writable": {
-            "type": "boolean"
           }
         },
         "required": [
@@ -893,7 +893,7 @@
           "kind",
           "metadataSource",
           "changeDetection",
-          "writable",
+          "isWritable",
           "createdAt"
         ],
         "type": "object"
@@ -996,7 +996,7 @@
       "NodeBody": {
         "additionalProperties": false,
         "properties": {
-          "connected": {
+          "isConnected": {
             "description": "Whether it has said hello since the server started",
             "type": "boolean"
           },
@@ -1016,7 +1016,7 @@
         },
         "required": [
           "name",
-          "connected",
+          "isConnected",
           "roots"
         ],
         "type": "object"
@@ -1083,25 +1083,25 @@
       "RefreshOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "queued": {
+          "isQueued": {
             "description": "False when a fetch for it was already waiting",
             "type": "boolean"
           }
         },
         "required": [
-          "queued"
+          "isQueued"
         ],
         "type": "object"
       },
       "RescanOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "scanning": {
+          "isScanning": {
             "type": "boolean"
           }
         },
         "required": [
-          "scanning"
+          "isScanning"
         ],
         "type": "object"
       },
@@ -1161,13 +1161,13 @@
       "ScanOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "roots": {
+          "rootsAsked": {
             "format": "int64",
             "type": "integer"
           }
         },
         "required": [
-          "roots"
+          "rootsAsked"
         ],
         "type": "object"
       },
@@ -1263,7 +1263,7 @@
       "SettingBody": {
         "additionalProperties": false,
         "properties": {
-          "describe": {
+          "description": {
             "type": "string"
           },
           "isExposed": {
@@ -1303,7 +1303,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "start": {
+          "startingValue": {
             "description": "The value a new server starts with; null when it has none"
           },
           "value": {
@@ -1314,9 +1314,9 @@
           "key",
           "kind",
           "value",
-          "start",
+          "startingValue",
           "isModified",
-          "describe",
+          "description",
           "isExposed",
           "setAt"
         ],
@@ -1429,15 +1429,15 @@
               "null"
             ]
           },
+          "isPreparing": {
+            "type": "boolean"
+          },
           "kind": {
             "enum": [
               "direct",
               "hls"
             ],
             "type": "string"
-          },
-          "preparing": {
-            "type": "boolean"
           },
           "profile": {
             "enum": [
@@ -1472,7 +1472,7 @@
           "kind",
           "url",
           "reasons",
-          "preparing"
+          "isPreparing"
         ],
         "type": "object"
       },
@@ -1494,7 +1494,7 @@
           "kind": {
             "type": "string"
           },
-          "lang": {
+          "language": {
             "description": "BCP 47",
             "type": "string"
           },
@@ -1989,7 +1989,7 @@
     },
     "/collections/{id}": {
       "get": {
-        "operationId": "getCollection",
+        "operationId": "getSeries",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -2452,7 +2452,7 @@
     },
     "/items": {
       "get": {
-        "operationId": "getItems",
+        "operationId": "getItemsByIdentification",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -2466,7 +2466,7 @@
           {
             "explode": false,
             "in": "query",
-            "name": "ident",
+            "name": "identification",
             "required": true,
             "schema": {
               "enum": [
@@ -2509,7 +2509,7 @@
     },
     "/items/{id}": {
       "get": {
-        "operationId": "getItem",
+        "operationId": "getTitle",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",

@@ -37,7 +37,7 @@ describe("playing a file", () => {
             kind: "direct",
             url: "/api/v1/bytes/media/direct/abc",
             reasons: [],
-            preparing: false,
+            isPreparing: false,
           }}
         />,
       ),
@@ -56,10 +56,10 @@ describe("playing a file", () => {
             profile: "remux",
             url: "/api/v1/bytes/media/hls/abc/master.m3u8",
             reasons: ["container", "audio_codec"],
-            preparing: true,
+            isPreparing: true,
             audio: [
-              { track: 0, language: "en", boost: false },
-              { track: 0, language: "en", boost: true },
+              { sourceTrack: 0, language: "en", isDialogueBoost: false },
+              { sourceTrack: 0, language: "en", isDialogueBoost: true },
             ],
           }}
         />,
@@ -77,17 +77,20 @@ describe("playing a file", () => {
       kind: "hls" as const,
       url: "/u",
       reasons: [],
-      preparing: false,
+      isPreparing: false,
       audio: [
-        { track: 0, language: "en", boost: false },
-        { track: 0, language: "en", boost: true },
-        { track: 1, language: "de", boost: false },
+        { sourceTrack: 0, language: "en", isDialogueBoost: false },
+        { sourceTrack: 0, language: "en", isDialogueBoost: true },
+        { sourceTrack: 1, language: "de", isDialogueBoost: false },
       ],
     };
     expect(boostPair(decision)).toEqual({ standard: 0, boosted: 1 });
-    expect(boostPair({ ...decision, audio: [{ track: 0, language: "en", boost: false }] })).toBe(
-      undefined,
-    );
+    expect(
+      boostPair({
+        ...decision,
+        audio: [{ sourceTrack: 0, language: "en", isDialogueBoost: false }],
+      }),
+    ).toBe(undefined);
   });
 
   it("words a media element's failure in the browser's own terms, or its code", () => {

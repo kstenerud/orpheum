@@ -87,15 +87,15 @@ func chrome(fileID int64) map[string]any {
 }
 
 type decision struct {
-	Kind      string   `json:"kind"`
-	URL       string   `json:"url"`
-	Profile   string   `json:"profile"`
-	Reasons   []string `json:"reasons"`
-	Preparing bool     `json:"preparing"`
-	Audio     []struct {
-		Track    int    `json:"track"`
-		Language string `json:"language"`
-		Boost    bool   `json:"boost"`
+	Kind        string   `json:"kind"`
+	URL         string   `json:"url"`
+	Profile     string   `json:"profile"`
+	Reasons     []string `json:"reasons"`
+	IsPreparing bool     `json:"isPreparing"`
+	Audio       []struct {
+		SourceTrack     int    `json:"sourceTrack"`
+		Language        string `json:"language"`
+		IsDialogueBoost bool   `json:"isDialogueBoost"`
 	} `json:"audio"`
 }
 

@@ -130,7 +130,7 @@ function useLibraryActions(reload: () => void): {
             id,
             data === undefined
               ? t("common.failed", { message: error.error.message })
-              : t("libraries.scanning", { count: data.roots }),
+              : t("libraries.scanning", { count: data.rootsAsked }),
           );
         });
     },

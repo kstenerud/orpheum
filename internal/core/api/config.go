@@ -19,11 +19,11 @@ const tagSettings = "Settings"
 // ConfigFileKey is one key of the config file as the server runs with it: read-only here, since the
 // file is the machine owner's to edit (D200, D202).
 type ConfigFileKey struct {
-	Key        string          `json:"key"`
-	Value      json.RawMessage `json:"value"`
-	Start      json.RawMessage `doc:"The starting value; null when the key has none" json:"start"`
-	IsFromFile bool            `doc:"False when the file lacks it: it runs on its starting value" json:"isFromFile"`
-	Describe   string          `json:"describe"`
+	Key           string          `json:"key"`
+	Value         json.RawMessage `json:"value"`
+	StartingValue json.RawMessage `doc:"The starting value; null when the key has none" json:"startingValue"`
+	IsFromFile    bool            `doc:"False when the file lacks it: it runs on its starting value" json:"isFromFile"`
+	Description   string          `json:"description"`
 }
 
 // ConfigListInput asks for every server setting, or only those a person changed.

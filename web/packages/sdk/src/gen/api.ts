@@ -81,7 +81,7 @@ export interface paths {
             cookie?: never;
         };
         /** A series with its episodes in aired order */
-        get: operations["getCollection"];
+        get: operations["getSeries"];
         put?: never;
         post?: never;
         delete?: never;
@@ -221,7 +221,7 @@ export interface paths {
             cookie?: never;
         };
         /** The titles and series in one state of identification */
-        get: operations["getItems"];
+        get: operations["getItemsByIdentification"];
         put?: never;
         post?: never;
         delete?: never;
@@ -238,7 +238,7 @@ export interface paths {
             cookie?: never;
         };
         /** A title's detail: versions, files, streams, extras and, for an episode, its place */
-        get: operations["getItem"];
+        get: operations["getTitle"];
         put?: never;
         post?: never;
         delete?: never;
@@ -616,16 +616,16 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         ArtBody: {
-            backdrop?: string;
-            poster?: string;
+            backdropHash?: string;
+            posterHash?: string;
             /** @description An episode's frame */
-            still?: string;
+            stillHash?: string;
         };
         AudioRenditionBody: {
-            boost: boolean;
+            isDialogueBoost: boolean;
             language: string;
             /** Format: int64 */
-            track: number;
+            sourceTrack: number;
         };
         CandidateBody: {
             name: string;
@@ -645,7 +645,7 @@ export interface components {
             episodes: components["schemas"]["EpisodeBody"][] | null;
             /** Format: int64 */
             id: number;
-            ident?: string;
+            identification?: string;
             /** @enum {string} */
             kind: "series";
             /** Format: int64 */
@@ -656,12 +656,12 @@ export interface components {
             year?: number;
         };
         ConfigFileKey: {
-            describe: string;
+            description: string;
             /** @description False when the file lacks it: it runs on its starting value */
             isFromFile: boolean;
             key: string;
             /** @description The starting value; null when the key has none */
-            start: unknown;
+            startingValue: unknown;
             value: unknown;
         };
         ConfigOutputBody: {
@@ -680,6 +680,8 @@ export interface components {
              * @description Hours between checks; interval only
              */
             checkEveryH?: number;
+            /** @description May the server write beside the media */
+            isWritable: boolean;
             /** @enum {string} */
             kind: "movies" | "shows" | "mixed";
             /** @enum {string} */
@@ -689,8 +691,6 @@ export interface components {
             node: string;
             /** @description Roots the node configured */
             roots: string[] | null;
-            /** @description May the server write beside the media */
-            writable: boolean;
         };
         DoctorOutputBody: {
             findings: components["schemas"]["FindingBody"][] | null;
@@ -700,21 +700,21 @@ export interface components {
             addedAt: number;
             /** Format: int64 */
             id: number;
-            ident: string;
+            identification: string;
             /** Format: int64 */
             libraryId: number;
             name: string;
             /** @description Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp */
-            poster?: string;
+            posterHash?: string;
             /** Format: int64 */
             year?: number;
         };
         EpisodeBody: {
             /** @description Whether it has a live file */
-            available: boolean;
+            hasLiveFile: boolean;
             /** Format: int64 */
             id: number;
-            ident: string;
+            identification: string;
             name: string;
             /** Format: int64 */
             number: number;
@@ -723,7 +723,7 @@ export interface components {
             /** Format: int64 */
             season: number;
             /** @description Its still's hash: GET /bytes/art/{hash}/landscape-s.webp */
-            still?: string;
+            stillHash?: string;
             /** Format: int64 */
             year?: number;
         };
@@ -750,8 +750,8 @@ export interface components {
         ExtraBody: {
             /** Format: int64 */
             id: number;
+            kind: string;
             name: string;
-            type: string;
         };
         FileBody: {
             /** @description Owner, group, mode; the platform's words */
@@ -759,23 +759,23 @@ export interface components {
             filing: string;
             filingReason?: string;
             /** Format: int64 */
-            firstSeen: number;
+            firstSeenAt: number;
             /** Format: int64 */
             id: number;
             /** Format: int64 */
-            lastSeen: number;
+            lastSeenAt: number;
             /** Format: int64 */
             libraryId: number;
             path: string;
             /** Format: int64 */
-            size?: number;
+            sizeBytes?: number;
         };
         FileDetailBody: {
             /** Format: int64 */
             id: number;
             path?: string;
             /** Format: int64 */
-            size?: number;
+            sizeBytes?: number;
             streams: components["schemas"]["StreamBody"][] | null;
         };
         FilesOutputBody: {
@@ -809,7 +809,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             /** @enum {string} */
-            ident: "identified" | "ambiguous" | "unidentified" | "confirmed";
+            identification: "identified" | "ambiguous" | "unidentified" | "confirmed";
             /** @enum {string} */
             kind: "movie" | "episode" | "extra" | "series";
             /** Format: int64 */
@@ -828,7 +828,7 @@ export interface components {
             extras: components["schemas"]["ExtraBody"][] | null;
             /** Format: int64 */
             id: number;
-            ident: string;
+            identification: string;
             /** @enum {string} */
             kind: "movie" | "episode" | "extra";
             /** Format: int64 */
@@ -862,13 +862,13 @@ export interface components {
             };
             /** Format: int64 */
             id: number;
+            isWritable: boolean;
             /** @enum {string} */
             kind: "movies" | "shows" | "mixed";
             /** @enum {string} */
             metadataSource: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
             roots?: components["schemas"]["RootBody"][] | null;
-            writable: boolean;
         };
         MatchInputBody: {
             /** @example tmdb */
@@ -886,7 +886,7 @@ export interface components {
         };
         NodeBody: {
             /** @description Whether it has said hello since the server started */
-            connected: boolean;
+            isConnected: boolean;
             name: string;
             /** @description Its configured roots; empty while it is not connected */
             roots: string[] | null;
@@ -909,10 +909,10 @@ export interface components {
         };
         RefreshOutputBody: {
             /** @description False when a fetch for it was already waiting */
-            queued: boolean;
+            isQueued: boolean;
         };
         RescanOutputBody: {
-            scanning: boolean;
+            isScanning: boolean;
         };
         RootActionInputBody: {
             /** @description The node's configured name */
@@ -931,7 +931,7 @@ export interface components {
         };
         ScanOutputBody: {
             /** Format: int64 */
-            roots: number;
+            rootsAsked: number;
         };
         SearchOutputBody: {
             results: components["schemas"]["HitBody"][] | null;
@@ -957,7 +957,7 @@ export interface components {
             user: components["schemas"]["UserBody"];
         };
         SettingBody: {
-            describe: string;
+            description: string;
             /** @description Shown on the settings page; every setting is in /config */
             isExposed: boolean;
             isModified: boolean;
@@ -974,7 +974,7 @@ export interface components {
             /** Format: int64 */
             setBy?: number;
             /** @description The value a new server starts with; null when it has none */
-            start: unknown;
+            startingValue: unknown;
             /** @description A bool, a whole number or a string, by its kind; null when unset */
             value: unknown;
         };
@@ -1008,9 +1008,9 @@ export interface components {
         };
         StartPlaybackOutputBody: {
             audio?: components["schemas"]["AudioRenditionBody"][] | null;
+            isPreparing: boolean;
             /** @enum {string} */
             kind: "direct" | "hls";
-            preparing: boolean;
             /** @enum {string} */
             profile?: "remux" | "h264-8m";
             reasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "user_choice")[] | null;
@@ -1028,7 +1028,7 @@ export interface components {
             id: number;
             kind: string;
             /** @description BCP 47 */
-            lang?: string;
+            language?: string;
             title?: string;
         };
         TitlesOutputBody: {
@@ -1277,7 +1277,7 @@ export interface operations {
             };
         };
     };
-    getCollection: {
+    getSeries: {
         parameters: {
             query?: never;
             header?: {
@@ -1582,10 +1582,10 @@ export interface operations {
             };
         };
     };
-    getItems: {
+    getItemsByIdentification: {
         parameters: {
             query: {
-                ident: "identified" | "ambiguous" | "unidentified" | "confirmed";
+                identification: "identified" | "ambiguous" | "unidentified" | "confirmed";
             };
             header?: {
                 /** @description Bearer <session token> */
@@ -1616,7 +1616,7 @@ export interface operations {
             };
         };
     };
-    getItem: {
+    getTitle: {
         parameters: {
             query?: never;
             header?: {

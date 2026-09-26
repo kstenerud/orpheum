@@ -13,8 +13,8 @@ const episode = (id: number, place: { season: number; number: number }, isAvaila
   season: place.season,
   number: place.number,
   name: `Episode ${String(place.number)}`,
-  ident: "identified",
-  available: isAvailable,
+  identification: "identified",
+  hasLiveFile: isAvailable,
 });
 
 describe("SeriesView", () => {
@@ -24,9 +24,9 @@ describe("SeriesView", () => {
       kind: "series",
       name: "Glass Tide",
       libraryId: 1,
-      art: { poster: "p" },
+      art: { posterHash: "p" },
       episodes: [
-        { ...episode(31, { season: 1, number: 1 }), still: "s31" },
+        { ...episode(31, { season: 1, number: 1 }), stillHash: "s31" },
         episode(32, { season: 1, number: 2 }, false),
         episode(40, { season: 0, number: 1 }),
         episode(33, { season: 2, number: 1 }),

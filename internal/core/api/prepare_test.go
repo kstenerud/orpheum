@@ -73,7 +73,7 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	harness.shelveFilms(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	decided := harness.play(t, user, chrome(2))
-	if len(decided.Audio) != 2 || !decided.Audio[1].Boost || !decided.Preparing {
+	if len(decided.Audio) != 2 || !decided.Audio[1].IsDialogueBoost || !decided.IsPreparing {
 		t.Fatalf("the decision = %+v, want a standard and a boosted mix, preparing", decided)
 	}
 	playback := harness.server.dependencies.Load().Playback
@@ -95,7 +95,7 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 		t.Fatalf("the job ended %v, want done", err)
 	}
 	again := harness.play(t, user, chrome(2))
-	if again.Preparing {
+	if again.IsPreparing {
 		t.Errorf("after the node said done: %+v, want the rendition complete", again)
 	}
 }
@@ -146,7 +146,7 @@ func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
 		t.Errorf("a complete rendition the node lost: %d %s, want 425 while it is prepared again",
 			lost.status, lost.body)
 	}
-	if again := harness.play(t, user, chrome(2)); !again.Preparing {
+	if again := harness.play(t, user, chrome(2)); !again.IsPreparing {
 		t.Errorf("after it was lost: %+v, want it being prepared again", again)
 	}
 }
@@ -176,12 +176,12 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 		t.Errorf("the first copy asked for %d-second segments, want hls_segment_length_s's 2",
 			first.SegmentLengthSeconds)
 	}
-	if same := harness.play(t, user, chrome(2)); same.Preparing {
+	if same := harness.play(t, user, chrome(2)); same.IsPreparing {
 		t.Errorf("played again with the same setting: %+v, want the copy as it is", same)
 	}
 	storetest.ExecRaw(t, harness.database,
 		"UPDATE setting SET value = '6', is_modified = 1 WHERE scope = 'server' AND key = 'hls_segment_length_s'")
-	if changed := harness.play(t, user, chrome(2)); !changed.Preparing {
+	if changed := harness.play(t, user, chrome(2)); !changed.IsPreparing {
 		t.Errorf("played after hls_segment_length_s changed: %+v, want the copy made again", changed)
 	}
 	again := run(82)

@@ -17,8 +17,8 @@ const file = (
   libraryId: 1,
   path: `/media/${String(id)}.mkv`,
   filing,
-  firstSeen: 1,
-  lastSeen: 1,
+  firstSeenAt: 1,
+  lastSeenAt: 1,
   ...(why.reason === undefined ? {} : { filingReason: why.reason }),
   ...(why.detail === undefined ? {} : { errorDetail: why.detail }),
 });

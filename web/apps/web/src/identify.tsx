@@ -169,7 +169,9 @@ export function Identify(): JSX.Element {
   const { api } = useServices();
   const [waiting, setWaiting] = useState<Waiting>("ambiguous");
   const [items, reload] = useResource(`items/${waiting}`, async () => {
-    const { data, error } = await api.GET("/items", { params: { query: { ident: waiting } } });
+    const { data, error } = await api.GET("/items", {
+      params: { query: { identification: waiting } },
+    });
     if (data === undefined) {
       throw new Error(error.error.message);
     }

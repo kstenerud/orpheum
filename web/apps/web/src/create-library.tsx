@@ -18,7 +18,7 @@ export function blankLibrary(): NewLibrary {
     kind: "movies",
     metadataSource: "nfo_then_tmdb",
     changeDetection: "manual",
-    writable: false,
+    isWritable: false,
     node: "local",
     roots: [],
   };
@@ -40,7 +40,7 @@ function WhereItIs(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { draft, nodes, set } = props;
-  if (!nodes.some((node) => node.connected)) {
+  if (!nodes.some((node) => node.isConnected)) {
     return <p>{t("libraries.noNodes")}</p>;
   }
   const chosen = nodes.find((node) => node.name === draft.node);
@@ -57,8 +57,8 @@ function WhereItIs(props: {
           }}
         >
           {nodes.map((node) => (
-            <option key={node.name} value={node.name} disabled={!node.connected}>
-              {node.connected ? node.name : t("libraries.nodeAway", { name: node.name })}
+            <option key={node.name} value={node.name} disabled={!node.isConnected}>
+              {node.isConnected ? node.name : t("libraries.nodeAway", { name: node.name })}
             </option>
           ))}
         </select>
@@ -209,9 +209,9 @@ function Writing(props: { readonly draft: NewLibrary; readonly set: SetAnswer })
       <label>
         <input
           type="checkbox"
-          checked={props.draft.writable}
+          checked={props.draft.isWritable}
           onChange={(event) => {
-            props.set("writable", event.target.checked);
+            props.set("isWritable", event.target.checked);
           }}
         />
         {t("libraries.writable")}

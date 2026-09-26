@@ -26,7 +26,7 @@ describe("libraries", () => {
             kind: "movies",
             metadataSource: "nfo_then_tmdb",
             changeDetection: "manual",
-            writable: false,
+            isWritable: false,
             createdAt: 1,
             filings: { listed: 40, errored: 2 },
             roots: [
@@ -56,8 +56,8 @@ describe("libraries", () => {
         <CreateLibraryForm
           draft={{ ...blankLibrary(), roots: ["/media/films"] }}
           nodes={[
-            { name: "local", connected: true, roots: ["/media/films", "/media/shows"] },
-            { name: "attic", connected: false, roots: [] },
+            { name: "local", isConnected: true, roots: ["/media/films", "/media/shows"] },
+            { name: "attic", isConnected: false, roots: [] },
           ]}
           problem=""
           onDraft={ignore}
@@ -86,7 +86,7 @@ describe("libraries", () => {
       withServices(
         <CreateLibraryForm
           draft={blankLibrary()}
-          nodes={[{ name: "local", connected: false, roots: [] }]}
+          nodes={[{ name: "local", isConnected: false, roots: [] }]}
           problem=""
           onDraft={ignore}
           onSubmit={ignore}
