@@ -21,9 +21,9 @@ export const en = {
     name: "Name",
     password: "Password",
     submit: "Sign in",
-    wrong: "The name or password is wrong.",
-    wait: "Too many failed sign-ins. Wait a few minutes and try again.",
-    setup:
+    wrongNameOrPassword: "The name or password is wrong.",
+    tooManyAttempts: "Too many failed sign-ins. Wait a few minutes and try again.",
+    noAdminYet:
       "No one can sign in until the first admin is created with the setup code from the server's log.",
   },
   about: {

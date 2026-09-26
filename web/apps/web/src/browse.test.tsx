@@ -14,7 +14,7 @@ const ignore = (): void => undefined;
 
 function render(pages: Resource<Page<Entry>>): string {
   return renderToStaticMarkup(
-    withServices(<BrowseView list="movie" pages={pages} isLoadingMore={false} onMore={ignore} />),
+    withServices(<BrowseView kind="movie" pages={pages} isLoadingMore={false} onMore={ignore} />),
   );
 }
 

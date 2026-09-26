@@ -63,7 +63,7 @@ export function Screen(props: { readonly route: Route }): JSX.Element {
 /** The screens for watching: lists, a title, a series, search and About. */
 function catalogueScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "films" || route.screen === "series") {
-    return <Browse key={route.screen} list={route.screen === "films" ? "movie" : "series"} />;
+    return <Browse key={route.screen} kind={route.screen === "films" ? "movie" : "series"} />;
   }
   if (route.screen === "title") {
     return <Title key={route.id} id={route.id} />;

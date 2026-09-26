@@ -8,17 +8,17 @@ import { useTranslation } from "react-i18next";
 import { useServices } from "./services.tsx";
 
 /** Why a sign-in failed, from the server's status, in words a person can act on. */
-export type SignInProblem = "wrong" | "wait" | "setup" | "failed";
+export type SignInProblem = "wrongNameOrPassword" | "tooManyAttempts" | "noAdminYet" | "failed";
 
 /** The problem a failed sign-in's status names. */
 export function signInProblem(status: number): SignInProblem {
   switch (status) {
     case 401:
-      return "wrong";
+      return "wrongNameOrPassword";
     case 429:
-      return "wait";
+      return "tooManyAttempts";
     case 409:
-      return "setup";
+      return "noAdminYet";
     default:
       return "failed";
   }

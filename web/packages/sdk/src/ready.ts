@@ -26,7 +26,7 @@ export async function whenReady(url: string, options: WaitOptions = {}): Promise
     if (answer.status !== tooEarly) {
       throw new Error(await errorMessage(answer));
     }
-    await sleep(retryAfter(answer) * 1000);
+    await sleep(retryAfterSeconds(answer) * 1000);
   }
   throw new Error("the file is still being prepared; try again in a while");
 }
@@ -52,7 +52,7 @@ function requestInit(signal: AbortSignal | undefined): RequestInit {
 }
 
 /** The seconds a 425 asks to wait, or one when it names none that makes sense. */
-function retryAfter(answer: Response): number {
+function retryAfterSeconds(answer: Response): number {
   const seconds = Number(answer.headers.get("Retry-After") ?? "1");
   return Number.isFinite(seconds) && seconds > 0 ? seconds : 1;
 }
