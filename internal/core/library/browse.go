@@ -97,7 +97,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 		for _, row := range rows {
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: text(row.Name), Year: number(row.Year),
-				Ident: text(row.Ident), LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
+				Ident: text(row.Identification), LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
 			})
 			keys = append(keys, row.Key)
 		}
@@ -109,7 +109,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 		for _, row := range rows {
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: text(row.Name), Year: number(row.Year),
-				Ident: row.Ident, LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
+				Ident: row.Identification, LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
 			})
 			keys = append(keys, row.Key)
 		}
@@ -140,7 +140,7 @@ func (browser *Browser) listAdded(ctx context.Context, query ListQuery) (Page, e
 		for _, row := range rows {
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: text(row.Name), Year: number(row.Year),
-				Ident: text(row.Ident), LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
+				Ident: text(row.Identification), LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
 			})
 		}
 	} else {
@@ -151,7 +151,7 @@ func (browser *Browser) listAdded(ctx context.Context, query ListQuery) (Page, e
 		for _, row := range rows {
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: text(row.Name), Year: number(row.Year),
-				Ident: row.Ident, LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
+				Ident: row.Identification, LibraryID: number(row.LibraryID), AddedAt: row.CreatedAt,
 			})
 		}
 	}

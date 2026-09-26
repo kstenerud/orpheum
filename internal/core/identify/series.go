@@ -41,7 +41,7 @@ func (spec *seriesSpec) fromNFO(nfo NFO) {
 
 // seriesMatched reports whether a series is matched at its provider, by the matcher or a person.
 func seriesMatched(row sqlcgen.GetSeriesForMatchRow) bool {
-	ident := derefText(row.Ident)
+	ident := derefText(row.Identification)
 	return row.SourceID != nil && (ident == identIdentified || ident == identConfirmed)
 }
 
@@ -119,7 +119,7 @@ func seasonsToFetch(ctx context.Context, queries *sqlcgen.Queries, provider Prov
 		if episode.Source != nil && *episode.Source == sourceNFO {
 			continue // its own NFO speaks for it
 		}
-		season, number := int(deref(episode.Grp)), int(deref(episode.Number))
+		season, number := int(deref(episode.GroupNumber)), int(deref(episode.Number))
 		if slices.Contains(seasons, season) {
 			continue
 		}
@@ -201,7 +201,7 @@ func (work *run) resolveSeries(ctx context.Context, seriesID int64, spec seriesS
 	}
 	year, _ := strconv.ParseInt(values[fieldYear], 10, 64) //nolint:errcheck // zero when unset
 	err = work.queries.UpdateSeriesResolved(ctx, sqlcgen.UpdateSeriesResolvedParams{
-		Year: optionalInt(year), Source: optional(source), Ident: &ident, ID: seriesID,
+		Year: optionalInt(year), Source: optional(source), Identification: &ident, ID: seriesID,
 	})
 	if err != nil {
 		return fmt.Errorf("resolve series %d: %w", seriesID, err)
@@ -248,7 +248,7 @@ func (work *run) seriesValues(
 		source = sourceNFO
 	}
 	provider, known := work.providers[providerOf(work.library.MetadataSource)]
-	if !known || !seriesMatched(current) || (spec.hasNFO && derefText(current.Ident) != identConfirmed) {
+	if !known || !seriesMatched(current) || (spec.hasNFO && derefText(current.Identification) != identConfirmed) {
 		if source == "" && current.Source != nil && *current.Source == sourceNone {
 			source = sourceNone // its provider found nothing
 		}

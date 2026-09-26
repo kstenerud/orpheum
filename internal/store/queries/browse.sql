@@ -6,7 +6,7 @@
 -- read every file for every title, seconds at the reference scale (audit-2026-09-25).
 
 -- name: ListFilmsByName :many
-SELECT sort_key.item_id, sort_key.key, item_text.name, title.year, title.ident, item.library_id, item.created_at
+SELECT sort_key.item_id, sort_key.key, item_text.name, title.year, title.identification, item.library_id, item.created_at
 FROM sort_key
 JOIN item ON item.id = sort_key.item_id
 JOIN title ON title.id = sort_key.item_id
@@ -21,7 +21,7 @@ ORDER BY sort_key.key, sort_key.item_id
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListFilmsByAdded :many
-SELECT item.id AS item_id, item_text.name, title.year, title.ident, item.library_id, item.created_at
+SELECT item.id AS item_id, item_text.name, title.year, title.identification, item.library_id, item.created_at
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
@@ -35,7 +35,7 @@ ORDER BY item.created_at DESC, item.id DESC
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListSeriesByName :many
-SELECT sort_key.item_id, sort_key.key, item_text.name, collection.year, collection.ident, item.library_id,
+SELECT sort_key.item_id, sort_key.key, item_text.name, collection.year, collection.identification, item.library_id,
   item.created_at
 FROM sort_key
 JOIN item ON item.id = sort_key.item_id
@@ -54,7 +54,7 @@ ORDER BY sort_key.key, sort_key.item_id
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListSeriesByAdded :many
-SELECT item.id AS item_id, item_text.name, collection.year, collection.ident, item.library_id, item.created_at
+SELECT item.id AS item_id, item_text.name, collection.year, collection.identification, item.library_id, item.created_at
 FROM collection
 JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
@@ -71,7 +71,7 @@ ORDER BY item.created_at DESC, item.id DESC
 LIMIT sqlc.arg(max_rows);
 
 -- name: GetTitleDetail :one
-SELECT title.id, title.kind, title.year, title.runtime_ms, title.ident, title.source, title.source_id,
+SELECT title.id, title.kind, title.year, title.runtime_ms, title.identification, title.source, title.source_id,
   item.library_id, item.created_at, item_text.name, item_text.overview, item_text.tagline
 FROM title
 JOIN item ON item.id = title.id
@@ -80,7 +80,7 @@ WHERE title.id = sqlc.arg(id) AND item.removed_at IS NULL;
 
 -- name: ListTitleFiles :many
 -- A title's versions and their live files, a version's parts in order.
-SELECT version.id AS version_id, version.edition_id, file.id AS file_id, file.path, file.size, file.part_index
+SELECT version.id AS version_id, version.edition_id, file.id AS file_id, file.path, file.size_bytes, file.part_index
 FROM version
 JOIN file ON file.version_id = version.id
 WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL AND file.removed_at IS NULL
@@ -89,7 +89,7 @@ ORDER BY version.id, file.part_index, file.id;
 -- name: ListFileStreams :many
 SELECT id, kind, codec, lang, title_raw, channels, disposition
 FROM stream
-WHERE media_file = sqlc.arg(media_file)
+WHERE video_file = sqlc.arg(video_file)
 ORDER BY kind, stream_index;
 
 -- name: ListTitleExtras :many
@@ -102,14 +102,14 @@ ORDER BY extra_relation.position, extra_relation.extra_title;
 
 -- name: GetEpisodePlace :one
 -- An episode's series and its place in the aired order.
-SELECT ordering.collection_id, position.grp, position.number, item_text.name AS series_name
+SELECT ordering.collection_id, position.group_number, position.number, item_text.name AS series_name
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 LEFT JOIN item_text ON item_text.item_id = ordering.collection_id AND item_text.is_original = 1
 WHERE position.title_id = sqlc.arg(title_id) AND ordering.name = 'aired';
 
 -- name: GetSeriesDetail :one
-SELECT collection.id, collection.year, collection.ident, collection.source, collection.source_id,
+SELECT collection.id, collection.year, collection.identification, collection.source, collection.source_id,
   item.library_id, item_text.name, item_text.overview
 FROM collection
 JOIN item ON item.id = collection.id
@@ -118,8 +118,8 @@ WHERE collection.id = sqlc.arg(id) AND collection.kind = 'series' AND item.remov
 
 -- name: ListSeriesEpisodeDetails :many
 -- A series' episodes in aired order, each with whether it has a live file.
-SELECT position.title_id, position.grp, position.number, item_text.name, title.year, title.runtime_ms,
-  title.ident,
+SELECT position.title_id, position.group_number, position.number, item_text.name, title.year, title.runtime_ms,
+  title.identification,
   EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = position.title_id AND version.removed_at IS NULL AND file.removed_at IS NULL

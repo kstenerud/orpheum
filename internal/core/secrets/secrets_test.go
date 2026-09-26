@@ -143,7 +143,7 @@ func TestStore_SealsAndOpens(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(row.Sealed, []byte(canary)) || bytes.Contains(row.Nonce, []byte(canary)) {
+	if bytes.Contains(row.Ciphertext, []byte(canary)) || bytes.Contains(row.Nonce, []byte(canary)) {
 		t.Error("the stored row holds the secret in plain text")
 	}
 	if row.KeyID != fixture.key.ID() {
@@ -176,7 +176,7 @@ func TestStore_ASealedValueCopiedToAnotherRowDoesNotOpen(t *testing.T) {
 	err = fixture.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertSealedSecret(ctx, sqlcgen.UpsertSealedSecretParams{
 			Scope: row.Scope, UserID: &fixture.otherID, Name: row.Name, KeyID: row.KeyID,
-			Nonce: row.Nonce, Sealed: row.Sealed, SetAt: row.SetAt,
+			Nonce: row.Nonce, Ciphertext: row.Ciphertext, SetAt: row.SetAt,
 		})
 	})
 	if err != nil {

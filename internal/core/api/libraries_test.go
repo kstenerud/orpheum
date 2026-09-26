@@ -117,7 +117,7 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 	storetest.ExecRaw(t, harness.database,
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at)
 		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
-		`INSERT INTO file (library_id, node_id, path, filing, filing_reason, first_seen, last_seen) VALUES
+		`INSERT INTO file (library_id, node_id, path, filing, filing_reason, first_seen_at, last_seen_at) VALUES
 		 (1, 1, '/m/a.mkv', 'listed', NULL, 1, 2), (1, 1, '/m/b.txt', 'skipped', 'extension', 1, 2),
 		 (1, 1, '/m/c.mkv', 'errored', 'permission_denied', 1, 2)`)
 	var page struct {
@@ -151,9 +151,10 @@ func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at)
 		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
 		`INSERT INTO library_root (library_id, node_id, path) VALUES (1, 1, '/m')`,
-		`INSERT INTO root_state (node_id, path, outcome, outcome_at, withheld_since, withheld_reason)
+		`INSERT INTO root_state (node_id, path, outcome, outcome_at, withheld_scan_started_at, withheld_reason)
 		 VALUES (1, '/m', 'withheld', 5, 4, 'the scan would remove 21 of the root''s 40 files')`,
-		`INSERT INTO root_mount (node_id, root, path, device, present) VALUES (1, '/m', '/m/disk1', 21, 0)`)
+		`INSERT INTO root_mount (node_id, root_path, path, filesystem_device, is_present)
+		 VALUES (1, '/m', '/m/disk1', 21, 0)`)
 	approved := harness.do(t, http.MethodPost, "/libraries/1/removals", admin,
 		map[string]string{"node": "local", "path": "/m"})
 	if approved.status != http.StatusAccepted || !strings.Contains(approved.body, `"scanning":true`) {

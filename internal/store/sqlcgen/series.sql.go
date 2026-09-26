@@ -44,7 +44,7 @@ func (q *Queries) GetProviderResponseFetchedAt(ctx context.Context, arg GetProvi
 }
 
 const getSeriesForMatch = `-- name: GetSeriesForMatch :one
-SELECT collection.id, collection.year, collection.source, collection.source_id, collection.ident,
+SELECT collection.id, collection.year, collection.source, collection.source_id, collection.identification,
   item.library_id, library.metadata_source, item_text.name
 FROM collection
 JOIN item ON item.id = collection.id
@@ -58,7 +58,7 @@ type GetSeriesForMatchRow struct {
 	Year           *int64
 	Source         *string
 	SourceID       *string
-	Ident          *string
+	Identification *string
 	LibraryID      *int64
 	MetadataSource string
 	Name           *string
@@ -72,7 +72,7 @@ func (q *Queries) GetSeriesForMatch(ctx context.Context, id int64) (GetSeriesFor
 		&i.Year,
 		&i.Source,
 		&i.SourceID,
-		&i.Ident,
+		&i.Identification,
 		&i.LibraryID,
 		&i.MetadataSource,
 		&i.Name,
@@ -101,7 +101,7 @@ FROM collection
 JOIN item ON item.id = collection.id
 JOIN library ON library.id = item.library_id
 WHERE item.library_id = ?1 AND item.removed_at IS NULL AND collection.kind = 'series'
-  AND library.metadata_source != 'nfo' AND collection.ident = 'unidentified'
+  AND library.metadata_source != 'nfo' AND collection.identification = 'unidentified'
   AND collection.source IS NOT 'none'
   AND EXISTS (
     SELECT 1 FROM ordering
@@ -138,28 +138,28 @@ func (q *Queries) ListSeriesAwaitingMatch(ctx context.Context, libraryID *int64)
 }
 
 const listSeriesByIdent = `-- name: ListSeriesByIdent :many
-SELECT collection.id, collection.year, collection.ident, collection.source, collection.source_id,
+SELECT collection.id, collection.year, collection.identification, collection.source, collection.source_id,
   item.library_id, item_text.name
 FROM collection
 JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
-WHERE collection.kind = 'series' AND collection.ident = ?1 AND item.removed_at IS NULL
+WHERE collection.kind = 'series' AND collection.identification = ?1 AND item.removed_at IS NULL
 ORDER BY item_text.name, collection.id
 `
 
 type ListSeriesByIdentRow struct {
-	ID        int64
-	Year      *int64
-	Ident     *string
-	Source    *string
-	SourceID  *string
-	LibraryID *int64
-	Name      *string
+	ID             int64
+	Year           *int64
+	Identification *string
+	Source         *string
+	SourceID       *string
+	LibraryID      *int64
+	Name           *string
 }
 
 // The series in one state of identification, for the chooser's list.
-func (q *Queries) ListSeriesByIdent(ctx context.Context, ident *string) ([]ListSeriesByIdentRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSeriesByIdent, ident)
+func (q *Queries) ListSeriesByIdent(ctx context.Context, identification *string) ([]ListSeriesByIdentRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeriesByIdent, identification)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (q *Queries) ListSeriesByIdent(ctx context.Context, ident *string) ([]ListS
 		if err := rows.Scan(
 			&i.ID,
 			&i.Year,
-			&i.Ident,
+			&i.Identification,
 			&i.Source,
 			&i.SourceID,
 			&i.LibraryID,
@@ -190,7 +190,7 @@ func (q *Queries) ListSeriesByIdent(ctx context.Context, ident *string) ([]ListS
 }
 
 const listSeriesEpisodes = `-- name: ListSeriesEpisodes :many
-SELECT position.title_id, position.grp, position.number, title.source, item.created_at
+SELECT position.title_id, position.group_number, position.number, title.source, item.created_at
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 JOIN title ON title.id = position.title_id
@@ -200,11 +200,11 @@ ORDER BY position.sort
 `
 
 type ListSeriesEpisodesRow struct {
-	TitleID   int64
-	Grp       *int64
-	Number    *int64
-	Source    *string
-	CreatedAt int64
+	TitleID     int64
+	GroupNumber *int64
+	Number      *int64
+	Source      *string
+	CreatedAt   int64
 }
 
 // A series' episodes in its aired order, with where each takes its values from and when it
@@ -221,7 +221,7 @@ func (q *Queries) ListSeriesEpisodes(ctx context.Context, collectionID int64) ([
 		var i ListSeriesEpisodesRow
 		if err := rows.Scan(
 			&i.TitleID,
-			&i.Grp,
+			&i.GroupNumber,
 			&i.Number,
 			&i.Source,
 			&i.CreatedAt,
@@ -252,33 +252,33 @@ func (q *Queries) MarkSeriesUnmatched(ctx context.Context, id int64) error {
 
 const setSeriesMatch = `-- name: SetSeriesMatch :exec
 UPDATE collection SET source_id = ?1,
-  ident = CASE WHEN ident = 'confirmed' THEN ident ELSE ?2 END
+  identification = CASE WHEN identification = 'confirmed' THEN identification ELSE ?2 END
 WHERE id = ?3 AND kind = 'series'
 `
 
 type SetSeriesMatchParams struct {
-	SourceID *string
-	Ident    *string
-	ID       int64
+	SourceID       *string
+	Identification *string
+	ID             int64
 }
 
 // The outcome of a series' match. A confirmed match is a person's and stays (D172).
 func (q *Queries) SetSeriesMatch(ctx context.Context, arg SetSeriesMatchParams) error {
-	_, err := q.db.ExecContext(ctx, setSeriesMatch, arg.SourceID, arg.Ident, arg.ID)
+	_, err := q.db.ExecContext(ctx, setSeriesMatch, arg.SourceID, arg.Identification, arg.ID)
 	return err
 }
 
 const updateSeriesResolved = `-- name: UpdateSeriesResolved :exec
 UPDATE collection SET year = ?1, source = ?2,
-  ident = CASE WHEN ident IN ('identified', 'ambiguous', 'confirmed') THEN ident ELSE ?3 END
+  identification = CASE WHEN identification IN ('identified', 'ambiguous', 'confirmed') THEN identification ELSE ?3 END
 WHERE id = ?4 AND kind = 'series'
 `
 
 type UpdateSeriesResolvedParams struct {
-	Year   *int64
-	Source *string
-	Ident  *string
-	ID     int64
+	Year           *int64
+	Source         *string
+	Identification *string
+	ID             int64
 }
 
 // A pass's resolution of a series' own fields; its match is the matcher's and a person's.
@@ -286,7 +286,7 @@ func (q *Queries) UpdateSeriesResolved(ctx context.Context, arg UpdateSeriesReso
 	_, err := q.db.ExecContext(ctx, updateSeriesResolved,
 		arg.Year,
 		arg.Source,
-		arg.Ident,
+		arg.Identification,
 		arg.ID,
 	)
 	return err

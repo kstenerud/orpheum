@@ -322,8 +322,8 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 	for _, row := range rows {
 		output.Body.Files = append(output.Body.Files, FileBody{
 			ID: row.ID, LibraryID: row.LibraryID, Path: row.Path, Filing: row.Filing,
-			FilingReason: row.FilingReason, ErrorDetail: row.ErrorDetail, Size: row.Size,
-			FirstSeen: row.FirstSeen, LastSeen: row.LastSeen,
+			FilingReason: row.FilingReason, ErrorDetail: row.ErrorDetail, Size: row.SizeBytes,
+			FirstSeen: row.FirstSeenAt, LastSeen: row.LastSeenAt,
 		})
 	}
 	if int64(len(rows)) == input.Limit {

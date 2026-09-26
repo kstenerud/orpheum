@@ -18,7 +18,7 @@ type ProbeFormat struct {
 	// them ("matroska", "webm"). The extension is a hint; this is what the file is.
 	Names      []string `json:"names"`
 	DurationMs int64    `json:"durationMs"`
-	BitRate    int64    `json:"bitRate"`
+	BitRateBps int64    `json:"bitRateBps"`
 	Title      string   `json:"title"`
 }
 
@@ -40,7 +40,7 @@ type ProbeStream struct {
 	// "hearing_impaired", "comment", "descriptions", "dub", "original", ...
 	Disposition []string `json:"disposition"`
 	DurationMs  int64    `json:"durationMs"`
-	BitRate     int64    `json:"bitRate"`
+	BitRateBps  int64    `json:"bitRateBps"`
 
 	Video ProbeVideo `json:"video"`
 	Audio ProbeAudio `json:"audio"`
@@ -63,7 +63,7 @@ type ProbeVideo struct {
 type ProbeAudio struct {
 	Channels      int    `json:"channels"`
 	ChannelLayout string `json:"channelLayout"`
-	SampleRate    int    `json:"sampleRate"`
+	SampleRateHz  int    `json:"sampleRateHz"`
 }
 
 // ProbeAttachment names an attached file; zero for other kinds.

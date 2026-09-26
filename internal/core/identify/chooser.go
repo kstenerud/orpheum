@@ -83,13 +83,14 @@ func (chooser *Chooser) Items(ctx context.Context, ident string) ([]ItemSummary,
 	for _, row := range titles {
 		items = append(items, ItemSummary{
 			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: row.Kind, Name: derefText(row.Name),
-			Year: deref(row.Year), Ident: row.Ident, Source: derefText(row.Source), SourceID: derefText(row.SourceID),
+			Year: deref(row.Year), Ident: row.Identification, Source: derefText(row.Source),
+			SourceID: derefText(row.SourceID),
 		})
 	}
 	for _, row := range series {
 		items = append(items, ItemSummary{
 			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: KindSeries, Name: derefText(row.Name),
-			Year: deref(row.Year), Ident: derefText(row.Ident), Source: derefText(row.Source),
+			Year: deref(row.Year), Ident: derefText(row.Identification), Source: derefText(row.Source),
 			SourceID: derefText(row.SourceID),
 		})
 	}
@@ -122,9 +123,9 @@ func (item target) query() Query {
 
 func (item target) ident() string {
 	if item.isSeries {
-		return derefText(item.series.Ident)
+		return derefText(item.series.Identification)
 	}
-	return item.title.Ident
+	return item.title.Identification
 }
 
 func (item target) metadataSource() string {

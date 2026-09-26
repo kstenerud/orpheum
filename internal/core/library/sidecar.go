@@ -28,8 +28,9 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 	}))
 	if err == nil {
 		err = work.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
-			LibraryID: scan.libraryID, PathRaw: located.raw, Size: &sidecar.Size, Mtime: &sidecar.MtimeMs, Kind: &kind,
-			Body: sidecar.Body, Seen: work.now, ID: existing.ID,
+			LibraryID: scan.libraryID, PathRaw: located.raw, SizeBytes: &sidecar.Size, MtimeMs: &sidecar.MtimeMs,
+			Kind: &kind,
+			Body: sidecar.Body, SeenAt: work.now, ID: existing.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("update the sidecar %s: %w", located.text, err)
@@ -41,7 +42,7 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 	}
 	_, err = work.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
 		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, PathRaw: located.raw, PathKey: located.key,
-		Size: &sidecar.Size, Mtime: &sidecar.MtimeMs, Kind: &kind, Body: sidecar.Body, Seen: work.now,
+		SizeBytes: &sidecar.Size, MtimeMs: &sidecar.MtimeMs, Kind: &kind, Body: sidecar.Body, SeenAt: work.now,
 	})
 	if err != nil {
 		return fmt.Errorf("insert the sidecar %s: %w", located.text, err)

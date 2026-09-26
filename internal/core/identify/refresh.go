@@ -88,7 +88,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages b
 			return "", retryErr
 		}
 	}
-	err = matcher.accept(ctx, provider, title, *title.SourceID, title.Ident)
+	err = matcher.accept(ctx, provider, title, *title.SourceID, title.Identification)
 	if errors.Is(err, ErrNoMatch) {
 		return OutcomeKept, matcher.kept(ctx, title.LibraryID, keptPart{itemID, provider.Name(), ""})
 	}
@@ -175,7 +175,7 @@ func (matcher *Matcher) storePart(
 		return err
 	}
 	found := seriesFound{
-		provider: provider.Name(), seriesID: series.ID, metadata: metadata, ident: derefText(series.Ident),
+		provider: provider.Name(), seriesID: series.ID, metadata: metadata, ident: derefText(series.Identification),
 	}
 	now := matcher.clock.Now().UnixMilli()
 	return matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error { //nolint:wrapcheck // recordSeries wraps

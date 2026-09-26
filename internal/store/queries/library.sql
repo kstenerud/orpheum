@@ -53,7 +53,7 @@ ORDER BY filing;
 -- name: ListFilesPage :many
 -- What the scanner saw (D163): live files by id after a cursor, optionally of one library and
 -- one filing.
-SELECT id, library_id, path, filing, filing_reason, error_detail, size, first_seen, last_seen
+SELECT id, library_id, path, filing, filing_reason, error_detail, size_bytes, first_seen_at, last_seen_at
 FROM file
 WHERE removed_at IS NULL AND id > sqlc.arg(after_id)
   AND (library_id = sqlc.narg(library_id) OR sqlc.narg(library_id) IS NULL)

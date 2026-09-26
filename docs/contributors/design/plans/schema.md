@@ -13,6 +13,10 @@
   ([D179](../../decisions/working-notes.md)–[D185](../../decisions/working-notes.md); this sketch is D185). The SQL
   blocks below are loaded verbatim by the benchmark in
   `/yoloai/cache/bench/schema/` (SQLite 3.53.4 via modernc), so they are valid as written.
+- **Renamed 2026-09-26** by migration 0012, after a naming audit (agent-failures A8): the SQL
+  below uses the current names. Units are in names (`size_bytes`, `mtime_ms`), times end in
+  `_at`, booleans are predicates, and abbreviations are spelled out (`identification`,
+  `group_number`, `search_alternates`, `started_at` for play spans).
 - **Depends on:** [library-model.md](library-model.md) (the *why*), [migrations.md](migrations.md)
   (how this changes), [backup-restore.md](backup-restore.md).
 - **Scope:** [Cut A](../../../ROADMAP.md) — two people, one remote, watching together with
@@ -138,21 +142,21 @@ rebuild it is empty, so nothing is tombstoned until a scan completes — the saf
 CREATE TABLE root_state (                                  -- class O; migrations 0003 and 0008
   node_id         INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   path            TEXT NOT NULL,
-  device          INTEGER,                -- st_dev at the last complete scan
-  mount_point     INTEGER CHECK (mount_point IN (0, 1)),
+  filesystem_device          INTEGER,                -- st_dev at the last complete scan
+  is_mount_point     INTEGER CHECK (is_mount_point IN (0, 1)),
   outcome         TEXT NOT NULL CHECK (outcome IN ('complete', 'unreadable', 'withheld')),
   outcome_at      INTEGER NOT NULL,
-  withheld_since  INTEGER,                -- the withheld scan's start: what it did not see goes
+  withheld_scan_started_at  INTEGER,                -- the withheld scan's start: what it did not see goes
   withheld_reason TEXT,                   -- once the admin confirms
   removals_approved INTEGER NOT NULL DEFAULT 0 CHECK (removals_approved IN (0, 1)),  -- class A
   PRIMARY KEY (node_id, path)
 );
 CREATE TABLE root_mount (                                  -- class O; migration 0004
   node_id  INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
-  root     TEXT NOT NULL,
+  root_path     TEXT NOT NULL,
   path     TEXT NOT NULL,                -- NFC, absolute on the node, like file.path
-  device   INTEGER NOT NULL,             -- st_dev when it was last seen where expected
-  present  INTEGER NOT NULL CHECK (present IN (0, 1)),
+  filesystem_device   INTEGER NOT NULL,             -- st_dev when it was last seen where expected
+  is_present  INTEGER NOT NULL CHECK (is_present IN (0, 1)),
   PRIMARY KEY (node_id, path)
 );
 ```
@@ -185,10 +189,10 @@ CREATE TABLE file (                                        -- class I (identity 
   path          TEXT NOT NULL,           -- NFC form
   path_raw      BLOB,                    -- the bytes, when they differ (D49)
   path_key      BLOB,                    -- migration 0011: the reported bytes, always; the live-file key (D211)
-  size          INTEGER,
-  mtime         INTEGER,
+  size_bytes          INTEGER,
+  mtime_ms         INTEGER,
   payload_hash  BLOB,                    -- D179: anchored on the media payload
-  payload_len   INTEGER,
+  payload_bytes   INTEGER,
   identity      TEXT NOT NULL DEFAULT 'confirmed'
                   CHECK (identity IN ('confirmed','unconfirmed')),   -- D179: after a rebuild
   filing        TEXT NOT NULL CHECK (filing IN
@@ -199,8 +203,8 @@ CREATE TABLE file (                                        -- class I (identity 
   version_id    INTEGER REFERENCES version(id) ON DELETE RESTRICT,
   part_index    INTEGER,                 -- order within a multi-part Version
   attached_to   INTEGER REFERENCES file(id) ON DELETE RESTRICT,  -- a sidecar's video
-  first_seen    INTEGER NOT NULL,
-  last_seen     INTEGER NOT NULL,
+  first_seen_at    INTEGER NOT NULL,
+  last_seen_at     INTEGER NOT NULL,
   removed_at    INTEGER                  -- tombstone: only on a positive report (D34, D179)
 );
 CREATE UNIQUE INDEX file_live_path ON file(node_id, path_key) WHERE removed_at IS NULL;  -- 0011: was (node_id, path)
@@ -216,8 +220,8 @@ this is the first.
 ```sql
 CREATE TABLE stream (                                      -- class O; not "track" (D186)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  file_id     INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT, -- where the bytes are
-  media_file  INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT, -- the video it serves
+  bytes_file     INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT, -- where the bytes are
+  video_file  INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT, -- the video it serves
   stream_index INTEGER,                  -- NULL for a whole-file sidecar
   kind        TEXT NOT NULL CHECK (kind IN ('video','audio','subtitle','attachment')),
   codec       TEXT,
@@ -226,13 +230,13 @@ CREATE TABLE stream (                                      -- class O; not "trac
   title_raw   TEXT,
   disposition INTEGER NOT NULL DEFAULT 0,  -- FFmpeg's flags, as found
   channels    INTEGER,
-  UNIQUE (file_id, stream_index)
+  UNIQUE (bytes_file, stream_index)
 );
-CREATE INDEX stream_media ON stream(media_file, kind);
+CREATE INDEX stream_media ON stream(video_file, kind);
 
 CREATE TABLE fetched_subtitle (                            -- class A: quota-limited, kept
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  media_file  INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT,
+  video_file  INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
   provider_ref TEXT NOT NULL,
   lang        TEXT NOT NULL,
@@ -293,10 +297,10 @@ CREATE TABLE title (                                       -- mixed: see the col
   -- chose it: a match is a fetch, and a migration never redoes one.
   source         TEXT CHECK (source IN ('nfo','tmdb','tvdb','none')),       -- F/A
   source_id      TEXT,                                                      -- F/A
-  ident          TEXT NOT NULL CHECK (ident IN
+  identification          TEXT NOT NULL CHECK (identification IN
                    ('identified','ambiguous','unidentified','confirmed'))    -- F/A (D172)
 );
-CREATE INDEX title_ambiguous ON title(id) WHERE ident = 'ambiguous';
+CREATE INDEX title_ambiguous ON title(id) WHERE identification = 'ambiguous';
 
 CREATE TABLE edition (                                     -- class A when a person made it
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -342,7 +346,7 @@ CREATE TABLE item_text (                                   -- class O/F, resolve
   name        TEXT NOT NULL,
   overview    TEXT,
   tagline     TEXT,
-  search_alt  TEXT,                      -- migration 0010: the name, folded for search (D48)
+  search_alternates  TEXT,                      -- migration 0010: the name, folded for search (D48)
   PRIMARY KEY (item_id, lang)
 );
 CREATE UNIQUE INDEX item_text_original ON item_text(item_id) WHERE is_original = 1;
@@ -363,15 +367,16 @@ CREATE TABLE sort_key (                                    -- class C (D47)
 ) WITHOUT ROWID;
 
 CREATE VIRTUAL TABLE item_fts USING fts5(                 -- class C (D48)
-  name, search_alt, overview, content='item_text', content_rowid='rowid',
+  name, search_alternates, overview, content='item_text', content_rowid='rowid',
   tokenize='unicode61 remove_diacritics 2'
 );
 CREATE VIRTUAL TABLE item_fts_tri USING fts5(
-  name, search_alt, content='item_text', content_rowid='rowid', tokenize='trigram'
+  name, search_alternates, content='item_text', content_rowid='rowid', tokenize='trigram'
 );
 ```
 
-**Migration 0010 adds D48's alternates**, which 0001 left out: `item_text.search_alt` is the name
+**Migration 0010 adds D48's alternates**, which 0001 left out: `item_text.search_alternates` (named
+`search_alt` until 0012) is the name
 folded by the one normaliser in Go (`internal/core/textindex`), and both indexes take it, so
 "Bjork" finds "Bjørk". The triggers below index it beside the name. Search's statements are
 hand-written in `internal/store/search.go`, because sqlc cannot parse FTS5's `MATCH`.
@@ -457,7 +462,7 @@ CREATE TABLE collection (                                  -- class A or O
   year        INTEGER,                                                       -- O: resolved
   source      TEXT CHECK (source IN ('nfo','tmdb','tvdb','none')),         -- F/A: its own values
   source_id   TEXT,                                                          -- F/A: its match
-  ident       TEXT CHECK (ident IN ('identified','ambiguous','unidentified','confirmed'))  -- F/A
+  identification       TEXT CHECK (identification IN ('identified','ambiguous','unidentified','confirmed'))  -- F/A
 );
 CREATE TABLE collection_member (                           -- D159, D160
   collection_id     INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
@@ -479,7 +484,7 @@ CREATE TABLE ordering (                                    -- D96, D159
 CREATE TABLE position (                                    -- season/episode, or disc/track
   ordering_id INTEGER NOT NULL REFERENCES ordering(id) ON DELETE RESTRICT,
   title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
-  grp         INTEGER,                   -- season, or disc
+  group_number         INTEGER,                   -- season, or disc
   number      INTEGER,                   -- episode, or track
   sort        REAL NOT NULL,             -- a total order within the ordering
   PRIMARY KEY (ordering_id, title_id)
@@ -488,17 +493,17 @@ CREATE INDEX position_sort ON position(ordering_id, sort);
 CREATE INDEX position_title ON position(title_id);
 CREATE TABLE group_text (                                  -- a season's name, a disc's subtitle
   collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
-  grp         INTEGER NOT NULL,
+  group_number         INTEGER NOT NULL,
   lang        TEXT NOT NULL,
   name        TEXT,
   overview    TEXT,
-  PRIMARY KEY (collection_id, grp, lang)
+  PRIMARY KEY (collection_id, group_number, lang)
 );
 ```
 
 **There is no series table and no season table.** A series is a Collection whose members are
 episodes; a season is a group number within an ordering, with optional text — and the same
-tables hold an album's discs and tracks, which is why they are named `position` and `grp` rather
+tables hold an album's discs and tracks, which is why they are named `position` and `group_number` rather
 than `episode_position` and `season` ([D186](../../decisions/working-notes.md))
 ([D160](../../decisions/working-notes.md)). `kind` omits `season` and `smart` from
 library-model.md's list for that reason: a season is not a Collection here, and "smart" is
@@ -541,8 +546,8 @@ CREATE TABLE device (                                      -- class A
   platform      TEXT NOT NULL,
   audio_output  TEXT CHECK (audio_output IN ('tv_speakers','receiver','headphones')),
                                          -- NULL until asked on first playback (D184)
-  first_seen    INTEGER NOT NULL,
-  last_seen     INTEGER NOT NULL,
+  first_seen_at    INTEGER NOT NULL,
+  last_seen_at     INTEGER NOT NULL,
   removed_at    INTEGER
 );
 
@@ -555,7 +560,7 @@ CREATE TABLE "grant" (                                     -- class A (D154)
   parent      BLOB REFERENCES "grant"(hash) ON DELETE RESTRICT,  -- D177: derived grants
   issued_at   INTEGER NOT NULL,
   expires_at  INTEGER,
-  last_seen   INTEGER,
+  last_seen_at   INTEGER,
   revoked_at  INTEGER,
   label       TEXT,
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT
@@ -598,7 +603,7 @@ CREATE TABLE secret (                                      -- class A, sealed (D
   name        TEXT NOT NULL,             -- 'tmdb_api_key', 'opensubtitles_password', 'turn_secret'…
   key_id      INTEGER NOT NULL,          -- which secret.key sealed it (rotation)
   nonce       BLOB NOT NULL,             -- 24 bytes, XChaCha20-Poly1305
-  sealed      BLOB NOT NULL,             -- ciphertext; the associated data is (scope, user_id, name)
+  ciphertext      BLOB NOT NULL,             -- ciphertext; the associated data is (scope, user_id, name)
   hint        TEXT,                      -- last four characters of an API key; NULL for a password
   set_by      INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
@@ -643,29 +648,29 @@ CREATE TABLE play_span (                                   -- class A (D165)
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   file_id     INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT,
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT,
-  pos_from_ms INTEGER NOT NULL,
-  pos_to_ms   INTEGER NOT NULL,
-  t_from      INTEGER NOT NULL,
-  t_to        INTEGER NOT NULL,
+  from_position_ms INTEGER NOT NULL,
+  to_position_ms   INTEGER NOT NULL,
+  started_at      INTEGER NOT NULL,
+  ended_at        INTEGER NOT NULL,
   unterminated INTEGER NOT NULL DEFAULT 0 CHECK (unterminated IN (0,1)),
   unattended  INTEGER NOT NULL DEFAULT 0 CHECK (unattended IN (0,1))  -- after "still watching?" went unanswered (D188): never completes anything
 );
-CREATE INDEX play_span_user ON play_span(user_id, t_from);
+CREATE INDEX play_span_user ON play_span(user_id, started_at);
 CREATE INDEX play_span_file ON play_span(file_id);
 
 CREATE TABLE favourite (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, at INTEGER NOT NULL,
+  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, added_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 CREATE TABLE user_rating (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, rating INTEGER NOT NULL,
-  at INTEGER NOT NULL, PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
+  rated_at INTEGER NOT NULL, PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 CREATE TABLE watchlist (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, at INTEGER NOT NULL,
+  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, added_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 -- Hidden from Continue Watching / Next Up (D188). Not a completion; it lapses by itself when
--- the item has activity after `at`, so there is nothing to clear.
+-- the item has activity after `hidden_at`, so there is nothing to clear.
 CREATE TABLE progress_hide (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, at INTEGER NOT NULL,
+  item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, hidden_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 
 CREATE TABLE preference (                                  -- class A (D24, D57, D90, D103)

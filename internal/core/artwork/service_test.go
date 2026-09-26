@@ -305,8 +305,9 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
 			"VALUES (9, 'L', 'movies', 'nfo_then_tmdb', 'manual', 0, 1)",
 		"INSERT INTO node (id, name, enrolled_at) VALUES (3, 'local', 1)",
-		"INSERT INTO file (id, library_id, node_id, path, path_key, size, mtime, filing, filing_reason, first_seen, "+
-			"last_seen) VALUES (40, 9, 3, '/m/Film/poster.jpg', CAST('/m/Film/poster.jpg' AS BLOB), 5, 7, "+
+		"INSERT INTO file (id, library_id, node_id, path, path_key, size_bytes, mtime_ms, filing, filing_reason, "+
+			"first_seen_at, "+
+			"last_seen_at) VALUES (40, 9, 3, '/m/Film/poster.jpg', CAST('/m/Film/poster.jpg' AS BLOB), 5, 7, "+
 			"'attached', 'image', 1, 1)")
 	fileID = 40
 	localSum := sha256.Sum256([]byte("the file beside the film"))

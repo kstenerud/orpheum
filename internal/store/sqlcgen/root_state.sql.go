@@ -31,7 +31,7 @@ func (q *Queries) ApproveRootRemovals(ctx context.Context, arg ApproveRootRemova
 
 const forgetMissingRootMount = `-- name: ForgetMissingRootMount :execrows
 DELETE FROM root_mount
-WHERE node_id = ?1 AND path = ?2 AND present = 0
+WHERE node_id = ?1 AND path = ?2 AND is_present = 0
 `
 
 type ForgetMissingRootMountParams struct {
@@ -51,7 +51,7 @@ func (q *Queries) ForgetMissingRootMount(ctx context.Context, arg ForgetMissingR
 }
 
 const getRootMount = `-- name: GetRootMount :one
-SELECT root, present
+SELECT root_path, is_present
 FROM root_mount
 WHERE node_id = ?1 AND path = ?2
 `
@@ -62,20 +62,20 @@ type GetRootMountParams struct {
 }
 
 type GetRootMountRow struct {
-	Root    string
-	Present int64
+	RootPath  string
+	IsPresent int64
 }
 
 func (q *Queries) GetRootMount(ctx context.Context, arg GetRootMountParams) (GetRootMountRow, error) {
 	row := q.db.QueryRowContext(ctx, getRootMount, arg.NodeID, arg.Path)
 	var i GetRootMountRow
-	err := row.Scan(&i.Root, &i.Present)
+	err := row.Scan(&i.RootPath, &i.IsPresent)
 	return i, err
 }
 
 const getRootState = `-- name: GetRootState :one
 
-SELECT device, mount_point, outcome, withheld_since, withheld_reason, removals_approved
+SELECT filesystem_device, is_mount_point, outcome, withheld_scan_started_at, withheld_reason, removals_approved
 FROM root_state
 WHERE node_id = ? AND path = ?
 `
@@ -86,12 +86,12 @@ type GetRootStateParams struct {
 }
 
 type GetRootStateRow struct {
-	Device           *int64
-	MountPoint       *int64
-	Outcome          string
-	WithheldSince    *int64
-	WithheldReason   *string
-	RemovalsApproved int64
+	FilesystemDevice      *int64
+	IsMountPoint          *int64
+	Outcome               string
+	WithheldScanStartedAt *int64
+	WithheldReason        *string
+	RemovalsApproved      int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -100,10 +100,10 @@ func (q *Queries) GetRootState(ctx context.Context, arg GetRootStateParams) (Get
 	row := q.db.QueryRowContext(ctx, getRootState, arg.NodeID, arg.Path)
 	var i GetRootStateRow
 	err := row.Scan(
-		&i.Device,
-		&i.MountPoint,
+		&i.FilesystemDevice,
+		&i.IsMountPoint,
 		&i.Outcome,
-		&i.WithheldSince,
+		&i.WithheldScanStartedAt,
 		&i.WithheldReason,
 		&i.RemovalsApproved,
 	)
@@ -111,25 +111,25 @@ func (q *Queries) GetRootState(ctx context.Context, arg GetRootStateParams) (Get
 }
 
 const listRootMounts = `-- name: ListRootMounts :many
-SELECT path, device, present
+SELECT path, filesystem_device, is_present
 FROM root_mount
-WHERE node_id = ? AND root = ?
+WHERE node_id = ? AND root_path = ?
 ORDER BY path
 `
 
 type ListRootMountsParams struct {
-	NodeID int64
-	Root   string
+	NodeID   int64
+	RootPath string
 }
 
 type ListRootMountsRow struct {
-	Path    string
-	Device  int64
-	Present int64
+	Path             string
+	FilesystemDevice int64
+	IsPresent        int64
 }
 
 func (q *Queries) ListRootMounts(ctx context.Context, arg ListRootMountsParams) ([]ListRootMountsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listRootMounts, arg.NodeID, arg.Root)
+	rows, err := q.db.QueryContext(ctx, listRootMounts, arg.NodeID, arg.RootPath)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (q *Queries) ListRootMounts(ctx context.Context, arg ListRootMountsParams) 
 	items := []ListRootMountsRow{}
 	for rows.Next() {
 		var i ListRootMountsRow
-		if err := rows.Scan(&i.Path, &i.Device, &i.Present); err != nil {
+		if err := rows.Scan(&i.Path, &i.FilesystemDevice, &i.IsPresent); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -152,19 +152,19 @@ func (q *Queries) ListRootMounts(ctx context.Context, arg ListRootMountsParams) 
 }
 
 const recordRootComplete = `-- name: RecordRootComplete :exec
-INSERT INTO root_state (node_id, path, device, mount_point, outcome, outcome_at)
+INSERT INTO root_state (node_id, path, filesystem_device, is_mount_point, outcome, outcome_at)
 VALUES (?1, ?2, ?3, ?4, 'complete', ?5)
 ON CONFLICT (node_id, path) DO UPDATE SET
-  device = excluded.device, mount_point = excluded.mount_point, outcome = 'complete',
-  outcome_at = excluded.outcome_at, withheld_since = NULL, withheld_reason = NULL, removals_approved = 0
+  filesystem_device = excluded.filesystem_device, is_mount_point = excluded.is_mount_point, outcome = 'complete',
+  outcome_at = excluded.outcome_at, withheld_scan_started_at = NULL, withheld_reason = NULL, removals_approved = 0
 `
 
 type RecordRootCompleteParams struct {
-	NodeID     int64
-	Path       string
-	Device     *int64
-	MountPoint *int64
-	At         int64
+	NodeID           int64
+	Path             string
+	FilesystemDevice *int64
+	IsMountPoint     *int64
+	OutcomeAt        int64
 }
 
 // A complete scan: its facts become the known-good ones later scans are compared against.
@@ -172,15 +172,15 @@ func (q *Queries) RecordRootComplete(ctx context.Context, arg RecordRootComplete
 	_, err := q.db.ExecContext(ctx, recordRootComplete,
 		arg.NodeID,
 		arg.Path,
-		arg.Device,
-		arg.MountPoint,
-		arg.At,
+		arg.FilesystemDevice,
+		arg.IsMountPoint,
+		arg.OutcomeAt,
 	)
 	return err
 }
 
 const recordRootMountMissing = `-- name: RecordRootMountMissing :exec
-UPDATE root_mount SET present = 0 WHERE node_id = ? AND path = ?
+UPDATE root_mount SET is_present = 0 WHERE node_id = ? AND path = ?
 `
 
 type RecordRootMountMissingParams struct {
@@ -194,44 +194,45 @@ func (q *Queries) RecordRootMountMissing(ctx context.Context, arg RecordRootMoun
 }
 
 const recordRootMountPresent = `-- name: RecordRootMountPresent :exec
-INSERT INTO root_mount (node_id, root, path, device, present)
+INSERT INTO root_mount (node_id, root_path, path, filesystem_device, is_present)
 VALUES (?1, ?2, ?3, ?4, 1)
-ON CONFLICT (node_id, path) DO UPDATE SET root = excluded.root, device = excluded.device, present = 1
+ON CONFLICT (node_id, path) DO UPDATE SET
+  root_path = excluded.root_path, filesystem_device = excluded.filesystem_device, is_present = 1
 `
 
 type RecordRootMountPresentParams struct {
-	NodeID int64
-	Root   string
-	Path   string
-	Device int64
+	NodeID           int64
+	RootPath         string
+	Path             string
+	FilesystemDevice int64
 }
 
 func (q *Queries) RecordRootMountPresent(ctx context.Context, arg RecordRootMountPresentParams) error {
 	_, err := q.db.ExecContext(ctx, recordRootMountPresent,
 		arg.NodeID,
-		arg.Root,
+		arg.RootPath,
 		arg.Path,
-		arg.Device,
+		arg.FilesystemDevice,
 	)
 	return err
 }
 
 const recordRootNotComplete = `-- name: RecordRootNotComplete :exec
-INSERT INTO root_state (node_id, path, outcome, outcome_at, withheld_since, withheld_reason)
+INSERT INTO root_state (node_id, path, outcome, outcome_at, withheld_scan_started_at, withheld_reason)
 VALUES (?1, ?2, ?3, ?4, ?5,
   ?6)
 ON CONFLICT (node_id, path) DO UPDATE SET
   outcome = excluded.outcome, outcome_at = excluded.outcome_at,
-  withheld_since = excluded.withheld_since, withheld_reason = excluded.withheld_reason
+  withheld_scan_started_at = excluded.withheld_scan_started_at, withheld_reason = excluded.withheld_reason
 `
 
 type RecordRootNotCompleteParams struct {
-	NodeID         int64
-	Path           string
-	Outcome        string
-	At             int64
-	WithheldSince  *int64
-	WithheldReason *string
+	NodeID                int64
+	Path                  string
+	Outcome               string
+	OutcomeAt             int64
+	WithheldScanStartedAt *int64
+	WithheldReason        *string
 }
 
 // A scan that could not read its root, or whose removals wait for the admin: the known-good
@@ -241,8 +242,8 @@ func (q *Queries) RecordRootNotComplete(ctx context.Context, arg RecordRootNotCo
 		arg.NodeID,
 		arg.Path,
 		arg.Outcome,
-		arg.At,
-		arg.WithheldSince,
+		arg.OutcomeAt,
+		arg.WithheldScanStartedAt,
 		arg.WithheldReason,
 	)
 	return err

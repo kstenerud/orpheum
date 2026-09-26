@@ -257,8 +257,8 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	}
 	// Sessions end on idle, not absolutely (D154 §3). issued_at stands in for a session never used.
 	lastUse := grant.IssuedAt
-	if grant.LastSeen != nil {
-		lastUse = *grant.LastSeen
+	if grant.LastSeenAt != nil {
+		lastUse = *grant.LastSeenAt
 	}
 	if now.Sub(time.UnixMilli(lastUse)) > idleExpiry {
 		return Principal{}, ErrNotAuthenticated
@@ -273,7 +273,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if now.Sub(time.UnixMilli(lastUse)) >= lastSeenResolution {
 		err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 			return queries.UpdateGrantLastSeen(ctx, sqlcgen.UpdateGrantLastSeenParams{
-				Hash: hash, LastSeen: new(now.UnixMilli()),
+				Hash: hash, LastSeenAt: new(now.UnixMilli()),
 			})
 		})
 		if err != nil {

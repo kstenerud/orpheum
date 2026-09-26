@@ -372,7 +372,7 @@ func (work *run) keepOrMove(ctx context.Context, file sqlcgen.ListIdentifyFilesR
 	if err != nil {
 		return 0, fmt.Errorf("read %s's version: %w", file.Path, err)
 	}
-	if current.Ident == identConfirmed || !moved(file) {
+	if current.Identification == identConfirmed || !moved(file) {
 		titleID = current.TitleID
 	} else if current.TitleID != titleID {
 		move := sqlcgen.MoveVersionToTitleParams{TitleID: titleID, ID: *file.VersionID}

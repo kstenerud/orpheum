@@ -67,7 +67,7 @@ func (q *Queries) GetProviderResponse(ctx context.Context, arg GetProviderRespon
 
 const getTitleForMatch = `-- name: GetTitleForMatch :one
 
-SELECT title.id, title.kind, title.year, title.ident, title.source, title.source_id, item.library_id,
+SELECT title.id, title.kind, title.year, title.identification, title.source, title.source_id, item.library_id,
   library.metadata_source, item_text.name
 FROM title
 JOIN item ON item.id = title.id
@@ -80,7 +80,7 @@ type GetTitleForMatchRow struct {
 	ID             int64
 	Kind           string
 	Year           *int64
-	Ident          string
+	Identification string
 	Source         *string
 	SourceID       *string
 	LibraryID      *int64
@@ -98,7 +98,7 @@ func (q *Queries) GetTitleForMatch(ctx context.Context, id int64) (GetTitleForMa
 		&i.ID,
 		&i.Kind,
 		&i.Year,
-		&i.Ident,
+		&i.Identification,
 		&i.Source,
 		&i.SourceID,
 		&i.LibraryID,
@@ -184,7 +184,7 @@ SELECT title.id
 FROM title
 JOIN item ON item.id = title.id
 WHERE item.library_id = ?1 AND item.removed_at IS NULL AND title.kind = 'movie'
-  AND title.source IS NULL AND title.ident = 'unidentified'
+  AND title.source IS NULL AND title.identification = 'unidentified'
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
@@ -217,29 +217,29 @@ func (q *Queries) ListTitlesAwaitingMatch(ctx context.Context, libraryID *int64)
 }
 
 const listTitlesByIdent = `-- name: ListTitlesByIdent :many
-SELECT title.id, title.kind, title.year, title.ident, title.source, title.source_id, item.library_id,
+SELECT title.id, title.kind, title.year, title.identification, title.source, title.source_id, item.library_id,
   item_text.name
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-WHERE title.ident = ?1 AND item.removed_at IS NULL
+WHERE title.identification = ?1 AND item.removed_at IS NULL
 ORDER BY item_text.name, title.id
 `
 
 type ListTitlesByIdentRow struct {
-	ID        int64
-	Kind      string
-	Year      *int64
-	Ident     string
-	Source    *string
-	SourceID  *string
-	LibraryID *int64
-	Name      *string
+	ID             int64
+	Kind           string
+	Year           *int64
+	Identification string
+	Source         *string
+	SourceID       *string
+	LibraryID      *int64
+	Name           *string
 }
 
 // The titles in one state of identification, for the chooser's list (cut-a section 5).
-func (q *Queries) ListTitlesByIdent(ctx context.Context, ident string) ([]ListTitlesByIdentRow, error) {
-	rows, err := q.db.QueryContext(ctx, listTitlesByIdent, ident)
+func (q *Queries) ListTitlesByIdent(ctx context.Context, identification string) ([]ListTitlesByIdentRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesByIdent, identification)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func (q *Queries) ListTitlesByIdent(ctx context.Context, ident string) ([]ListTi
 			&i.ID,
 			&i.Kind,
 			&i.Year,
-			&i.Ident,
+			&i.Identification,
 			&i.Source,
 			&i.SourceID,
 			&i.LibraryID,
@@ -305,15 +305,15 @@ func (q *Queries) MoveVersionsBetweenTitles(ctx context.Context, arg MoveVersion
 
 const setTitleMatch = `-- name: SetTitleMatch :exec
 UPDATE title SET source = ?1, source_id = ?2,
-  ident = CASE WHEN ident = 'confirmed' THEN ident ELSE ?3 END
+  identification = CASE WHEN identification = 'confirmed' THEN identification ELSE ?3 END
 WHERE id = ?4
 `
 
 type SetTitleMatchParams struct {
-	Source   *string
-	SourceID *string
-	Ident    string
-	ID       int64
+	Source         *string
+	SourceID       *string
+	Identification string
+	ID             int64
 }
 
 // The outcome of a match: the source and its id, or ambiguous, or 'none' when the provider has
@@ -322,7 +322,7 @@ func (q *Queries) SetTitleMatch(ctx context.Context, arg SetTitleMatchParams) er
 	_, err := q.db.ExecContext(ctx, setTitleMatch,
 		arg.Source,
 		arg.SourceID,
-		arg.Ident,
+		arg.Identification,
 		arg.ID,
 	)
 	return err

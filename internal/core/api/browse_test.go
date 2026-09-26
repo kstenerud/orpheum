@@ -29,24 +29,25 @@ func (harness testHarness) shelve(t *testing.T) {
 		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
 		`INSERT INTO item (id, kind, library_id, created_at)
 		 VALUES (10, 'title', 1, 1), (20, 'collection', 1, 2), (21, 'title', 1, 2)`,
-		`INSERT INTO title (id, kind, year, ident)
+		`INSERT INTO title (id, kind, year, identification)
 		 VALUES (10, 'movie', 1995, 'identified'), (21, 'episode', 2008, 'identified')`,
-		`INSERT INTO collection (id, kind, membership, created_by, ident)
+		`INSERT INTO collection (id, kind, membership, created_by, identification)
 		 VALUES (20, 'series', 'explicit', 'scanner', 'identified')`,
-		`INSERT INTO item_text (item_id, lang, is_original, name, overview, search_alt) VALUES
+		`INSERT INTO item_text (item_id, lang, is_original, name, overview, search_alternates) VALUES
 		 (10, 'und', 1, 'Metropolis', 'A crime saga.', 'heat'), (20, 'und', 1, 'Brass Arena', NULL, 'brass arena'),
 		 (21, 'und', 1, 'Pilot', NULL, 'pilot')`,
 		fmt.Sprintf(`INSERT INTO sort_key (item_id, locale, listing, key)
 		 VALUES (10, 'en', 'movie', %s), (20, 'en', 'series', %s)`,
 			key("Metropolis"), key("Brass Arena")),
 		"INSERT INTO version (id, title_id, created_at) VALUES (1, 10, 1), (2, 21, 2)",
-		`INSERT INTO file (id, library_id, node_id, path, size, filing, version_id, first_seen, last_seen) VALUES
+		`INSERT INTO file (id, library_id, node_id, path, size_bytes, filing, version_id, first_seen_at, last_seen_at)
+		 VALUES
 		 (1, 1, 1, '/m/Metropolis (1995).mkv', 1000, 'listed', 1, 1, 1),
 		 (2, 1, 1, '/m/BB/S01E01.mkv', 10, 'listed', 2, 1, 1)`,
-		`INSERT INTO stream (file_id, media_file, stream_index, kind, codec, lang, channels) VALUES
+		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang, channels) VALUES
 		 (1, 1, 0, 'video', 'h264', NULL, NULL), (1, 1, 1, 'audio', 'truehd', 'en', 8)`,
 		"INSERT INTO ordering (id, collection_id, name) VALUES (1, 20, 'aired')",
-		"INSERT INTO position (ordering_id, title_id, grp, number, sort) VALUES (1, 21, 1, 1, 10001)",
+		"INSERT INTO position (ordering_id, title_id, group_number, number, sort) VALUES (1, 21, 1, 1, 10001)",
 		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 21, 10001)",
 		// Metropolis's poster is a person's choice over a newer one TMDB named; its backdrop was refused.
 		`INSERT INTO artwork (item_id, kind, source, source_ref, content_hash, chosen, removed_at) VALUES

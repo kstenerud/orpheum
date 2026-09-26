@@ -123,7 +123,7 @@ func (work *run) fromListing(ctx context.Context, seriesID int64, season, number
 	provider, known := work.providers[providerOf(work.library.MetadataSource)]
 	switch {
 	case !known:
-	case derefText(series.Ident) == identAmbiguous:
+	case derefText(series.Identification) == identAmbiguous:
 		spec.reason = "its series matches more than one show: choose its match"
 	case seriesMatched(series):
 		episodes, fetched, listErr := work.listing(ctx, seriesID, provider, season)
@@ -208,7 +208,7 @@ func (work *run) position(ctx context.Context, seriesID, titleID int64, season, 
 	}
 	grp, num := int64(season), int64(number)
 	err = work.queries.UpsertPosition(ctx, sqlcgen.UpsertPositionParams{
-		OrderingID: ordering, TitleID: titleID, Grp: &grp, Number: &num, Sort: sort,
+		OrderingID: ordering, TitleID: titleID, GroupNumber: &grp, Number: &num, Sort: sort,
 	})
 	if err != nil {
 		return fmt.Errorf("place title %d at season %d, episode %d: %w", titleID, season, number, err)

@@ -174,7 +174,7 @@ func TestPass_TheDevLibrarysFilms(t *testing.T) {
 
 func checkMetropolis(t *testing.T, heat sqlcgen.ListFileTitlesRow) {
 	t.Helper()
-	if name(heat) != "Metropolis" || heat.Year == nil || *heat.Year != 1995 || heat.Ident != identIdentified ||
+	if name(heat) != "Metropolis" || heat.Year == nil || *heat.Year != 1995 || heat.Identification != identIdentified ||
 		heat.Filing != filingListed || heat.Source == nil || *heat.Source != sourceNFO {
 		t.Errorf("Metropolis = %+v, want identified from its NFO and listed", heat)
 	}

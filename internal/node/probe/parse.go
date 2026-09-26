@@ -84,7 +84,7 @@ func (raw rawOutput) record() (nodeproto.Probe, error) {
 		Format: nodeproto.ProbeFormat{
 			Names:      make([]string, 0, len(names)),
 			DurationMs: milliseconds(raw.Format.Duration),
-			BitRate:    integer(raw.Format.BitRate),
+			BitRateBps: integer(raw.Format.BitRate),
 			Title:      tag(raw.Format.Tags, "title"),
 		},
 		Streams:  make([]nodeproto.ProbeStream, 0, len(raw.Streams)),
@@ -119,7 +119,7 @@ func (stream rawStream) record() nodeproto.ProbeStream {
 		Title:       tag(stream.Tags, "title"),
 		Disposition: setFlags(stream.Disposition),
 		DurationMs:  streamDuration(stream),
-		BitRate:     integer(stream.BitRate),
+		BitRateBps:  integer(stream.BitRate),
 	}
 	switch stream.CodecType {
 	case "video":
@@ -135,7 +135,7 @@ func (stream rawStream) record() nodeproto.ProbeStream {
 		record.Audio = nodeproto.ProbeAudio{
 			Channels:      stream.Channels,
 			ChannelLayout: bounded(stream.ChannelLayout),
-			SampleRate:    int(integer(stream.SampleRate)),
+			SampleRateHz:  int(integer(stream.SampleRate)),
 		}
 	case "attachment":
 		record.Attachment = nodeproto.ProbeAttachment{

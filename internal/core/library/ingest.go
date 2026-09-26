@@ -227,8 +227,8 @@ func nodePath(root string, reported nodeproto.Path) filePath {
 func errorDetail(failure *nodeproto.Error) (*string, error) {
 	encoded, err := json.Marshal(struct {
 		nodeproto.ErrorRaw
-		Count int `json:"count"`
-	}{failure.Raw, failure.Count})
+		RepeatCount int `json:"repeatCount"`
+	}{failure.Raw, failure.RepeatCount})
 	if err != nil {
 		return nil, fmt.Errorf("encode the error's detail: %w", err)
 	}

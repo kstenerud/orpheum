@@ -85,7 +85,8 @@ func (work *run) loadTitles(ctx context.Context, libraryID int64) error {
 			return fmt.Errorf("list the episodes of %s: %w", *show.Name, listErr)
 		}
 		for _, episode := range episodes {
-			work.titles[episodeKey(show.ID, int(deref(episode.Grp)), int(deref(episode.Number)))] = episode.TitleID
+			work.titles[episodeKey(show.ID, int(deref(episode.GroupNumber)),
+				int(deref(episode.Number)))] = episode.TitleID
 		}
 	}
 	return nil

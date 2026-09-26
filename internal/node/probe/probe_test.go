@@ -80,7 +80,7 @@ func checkRecordedAudio(t *testing.T, record nodeproto.Probe) {
 	t.Helper()
 	audio := record.Streams[1]
 	if audio.Codec != "aac" || audio.Language != "ger" || audio.Title != "Deutsch (Stereo)" ||
-		audio.Audio.Channels != 2 || audio.Audio.SampleRate != 44100 ||
+		audio.Audio.Channels != 2 || audio.Audio.SampleRateHz != 44100 ||
 		!slices.Contains(audio.Disposition, "default") {
 		t.Errorf("audio = %+v", audio)
 	}
@@ -200,7 +200,7 @@ func TestParse_NonsenseNumbersAreZero(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if record.Format.DurationMs != 0 || record.Format.BitRate != 0 || record.Streams[0].Audio.SampleRate != 0 ||
+	if record.Format.DurationMs != 0 || record.Format.BitRateBps != 0 || record.Streams[0].Audio.SampleRateHz != 0 ||
 		record.Streams[0].DurationMs != 0 {
 		t.Errorf("record = %+v, want zeros", record)
 	}

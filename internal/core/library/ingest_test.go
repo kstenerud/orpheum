@@ -93,8 +93,8 @@ func skipped(path string, rule nodeproto.SkipRule) nodeproto.Record {
 
 func failed(path string, scope nodeproto.ErrorScope) nodeproto.Record {
 	return nodeproto.Record{Type: nodeproto.RecordError, Error: &nodeproto.Error{
-		Path: nodeproto.Path{Text: path}, Scope: scope, Code: nodeproto.CodePermissionDenied, Count: 1,
-		Raw: nodeproto.ErrorRaw{Text: "permission denied", Owner: 0, Group: 0, Mode: "-rw-------"},
+		Path: nodeproto.Path{Text: path}, Scope: scope, Code: nodeproto.CodePermissionDenied, RepeatCount: 1,
+		Raw: nodeproto.ErrorRaw{Text: "permission denied", OwnerUID: 0, GroupGID: 0, Mode: "-rw-------"},
 	}}
 }
 

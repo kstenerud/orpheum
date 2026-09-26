@@ -9,13 +9,13 @@ SELECT id, kind, metadata_source FROM library WHERE id = ? AND removed_at IS NUL
 
 -- name: ListIdentifyFiles :many
 SELECT id, node_id, path, filing, filing_reason, payload_hash, version_id, attached_to, probe, identified_path,
-  size, mtime
+  size_bytes, mtime_ms
 FROM file
 WHERE library_id = ? AND removed_at IS NULL
 ORDER BY path;
 
 -- name: ListLibraryTitles :many
-SELECT title.id, title.kind, title.year, title.ident, item.library_id, item_text.name
+SELECT title.id, title.kind, title.year, title.identification, item.library_id, item_text.name
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
@@ -23,7 +23,7 @@ WHERE item.library_id = ? AND item.removed_at IS NULL
 ORDER BY title.id;
 
 -- name: ListTitlesByProviderID :many
-SELECT title.id, item.library_id, title.ident, title.kind
+SELECT title.id, item.library_id, title.identification, title.kind
 FROM item_provider_id
 JOIN title ON title.id = item_provider_id.item_id
 JOIN item ON item.id = title.id
@@ -37,7 +37,7 @@ JOIN version ON version.id = file.version_id
 WHERE version.title_id = ? AND file.removed_at IS NULL;
 
 -- name: GetVersionTitle :one
-SELECT version.title_id, title.ident
+SELECT version.title_id, title.identification
 FROM version
 JOIN title ON title.id = version.title_id
 WHERE version.id = ?;
@@ -50,26 +50,26 @@ RETURNING id;
 UPDATE item SET library_id = sqlc.arg(library_id) WHERE id = sqlc.arg(id);
 
 -- name: InsertTitle :exec
-INSERT INTO title (id, kind, year, runtime_ms, source, source_id, ident)
+INSERT INTO title (id, kind, year, runtime_ms, source, source_id, identification)
 VALUES (sqlc.arg(id), sqlc.arg(kind), sqlc.arg(year), sqlc.arg(runtime_ms), sqlc.arg(source), sqlc.arg(source_id),
-  sqlc.arg(ident));
+  sqlc.arg(identification));
 
 -- name: UpdateTitleResolved :exec
 -- A confirmed match is a person's: the pass never lowers it (D172).
 UPDATE title SET
   year = sqlc.arg(year), runtime_ms = sqlc.arg(runtime_ms), source = sqlc.arg(source),
   source_id = sqlc.arg(source_id),
-  ident = CASE WHEN ident = 'confirmed' THEN ident ELSE sqlc.arg(ident) END
+  identification = CASE WHEN identification = 'confirmed' THEN identification ELSE sqlc.arg(identification) END
 WHERE id = sqlc.arg(id);
 
 -- name: UpsertOriginalText :exec
--- search_alt is the name as the one normaliser folds it (D48), which both search indexes take.
-INSERT INTO item_text (item_id, lang, is_original, name, overview, tagline, search_alt)
+-- search_alternates is the name as the one normaliser folds it (D48), which both search indexes take.
+INSERT INTO item_text (item_id, lang, is_original, name, overview, tagline, search_alternates)
 VALUES (sqlc.arg(item_id), sqlc.arg(lang), 1, sqlc.arg(name), sqlc.arg(overview), sqlc.arg(tagline),
-  sqlc.arg(search_alt))
+  sqlc.arg(search_alternates))
 ON CONFLICT (item_id, lang) DO UPDATE SET
   is_original = 1, name = excluded.name, overview = excluded.overview, tagline = excluded.tagline,
-  search_alt = excluded.search_alt;
+  search_alternates = excluded.search_alternates;
 
 -- name: DeleteItemSortKeys :exec
 -- An item's sort keys in one locale, replaced whenever its name is written (D47). sort_key is
@@ -133,13 +133,13 @@ INSERT INTO ordering (collection_id, name, provider) VALUES (sqlc.arg(collection
 RETURNING id;
 
 -- name: UpsertPosition :exec
-INSERT INTO position (ordering_id, title_id, grp, number, sort)
-VALUES (sqlc.arg(ordering_id), sqlc.arg(title_id), sqlc.arg(grp), sqlc.arg(number), sqlc.arg(sort))
-ON CONFLICT (ordering_id, title_id) DO UPDATE SET grp = excluded.grp, number = excluded.number,
+INSERT INTO position (ordering_id, title_id, group_number, number, sort)
+VALUES (sqlc.arg(ordering_id), sqlc.arg(title_id), sqlc.arg(group_number), sqlc.arg(number), sqlc.arg(sort))
+ON CONFLICT (ordering_id, title_id) DO UPDATE SET group_number = excluded.group_number, number = excluded.number,
   sort = excluded.sort;
 
 -- name: ListEpisodesOfSeries :many
-SELECT position.title_id, position.grp, position.number
+SELECT position.title_id, position.group_number, position.number
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 WHERE ordering.collection_id = ? AND ordering.name = 'aired'
@@ -153,14 +153,14 @@ ON CONFLICT (owner_title, extra_title) DO UPDATE SET type = excluded.type
 WHERE extra_relation.asserted_by = 'scanner';
 
 -- name: GetTitleIdent :one
-SELECT ident FROM title WHERE id = ?;
+SELECT identification FROM title WHERE id = ?;
 
 -- name: ConfirmTitleMatch :exec
 -- A person confirmed the match: permanent, and never moved by a later pass (D172).
-UPDATE title SET ident = 'confirmed' WHERE id = ?;
+UPDATE title SET identification = 'confirmed' WHERE id = ?;
 
 -- name: ListFileTitles :many
-SELECT file.id, file.path, file.filing, file.filing_reason, title.id AS title_id, title.kind, title.ident,
+SELECT file.id, file.path, file.filing, file.filing_reason, title.id AS title_id, title.kind, title.identification,
   title.year, title.source, item_text.name
 FROM file
 JOIN version ON version.id = file.version_id

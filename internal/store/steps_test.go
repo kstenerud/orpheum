@@ -88,3 +88,45 @@ func TestMigrate_Step0011KeysEveryFileByItsReportedBytes(t *testing.T) {
 	execRaw(t, database, "INSERT INTO file (library_id, node_id, path, path_key, filing, first_seen, last_seen) "+
 		"VALUES (1, 1, '/m/a�.mkv', X'2F6D2F61FE2E6D6B76', 'listed', 1, 1)")
 }
+
+func TestMigrate_Step0012RenamesColumnsKeepingTheirDataAndTheStoredKeys(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:11], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
+		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
+			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)",
+		"INSERT INTO file (id, library_id, node_id, path, path_key, size, mtime, payload_len, filing, "+
+			"error_detail, probe, first_seen, last_seen) "+
+			"VALUES (1, 1, 1, '/m/a.mkv', X'2F6D2F612E6D6B76', 2048, 7, 1000, 'errored', "+
+			`'{"text":"denied","owner":1000,"group":100,"mode":"0600","count":3}', `+
+			`'{"format":{"bitRate":800},"streams":[{"bitRate":700,"audio":{"sampleRate":48000}}]}', 5, 6)`,
+		"INSERT INTO item (id, kind, library_id, created_at) VALUES (1, 'title', 1, 1)",
+		"INSERT INTO title (id, kind, ident) VALUES (1, 'movie', 'identified')",
+		"INSERT INTO item_text (item_id, lang, is_original, name, search_alt) VALUES (1, 'und', 1, 'Sølvi', 'solvi')")
+	if err = database.migrate(t.Context(), steps[:12], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	file := queryRows(t, database, "SELECT size_bytes, mtime_ms, payload_bytes, first_seen_at, last_seen_at, "+
+		"error_detail, probe FROM file", 7)
+	want := `[[2048 7 1000 5 6 {"text":"denied","ownerUid":1000,"groupGid":100,"mode":"0600","repeatCount":3} ` +
+		`{"format":{"bitRateBps":800},"streams":[{"bitRateBps":700,"audio":{"sampleRateHz":48000}}]}]]`
+	if fmt.Sprint(file) != want {
+		t.Errorf("after step 0012 the file row is\n%v\nwant\n%s", file, want)
+	}
+	if title := queryRows(t, database, "SELECT identification FROM title", 1); fmt.Sprint(title) != "[[identified]]" {
+		t.Errorf("the title's identification is %v, want identified", title)
+	}
+	// The search indexes were rebuilt over the renamed column, and still find the folded name.
+	found := queryRows(t, database, "SELECT rowid FROM item_fts WHERE item_fts MATCH 'solvi'", 1)
+	if len(found) != 1 {
+		t.Errorf("the word index finds %v for the folded name, want the one row", found)
+	}
+}

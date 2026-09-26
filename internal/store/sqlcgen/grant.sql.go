@@ -10,7 +10,7 @@ import (
 )
 
 const getLiveGrant = `-- name: GetLiveGrant :one
-SELECT hash, kind, subject, scope, issued_at, expires_at, last_seen
+SELECT hash, kind, subject, scope, issued_at, expires_at, last_seen_at
 FROM "grant"
 WHERE hash = ?1
   AND revoked_at IS NULL
@@ -23,13 +23,13 @@ type GetLiveGrantParams struct {
 }
 
 type GetLiveGrantRow struct {
-	Hash      []byte
-	Kind      string
-	Subject   *int64
-	Scope     string
-	IssuedAt  int64
-	ExpiresAt *int64
-	LastSeen  *int64
+	Hash       []byte
+	Kind       string
+	Subject    *int64
+	Scope      string
+	IssuedAt   int64
+	ExpiresAt  *int64
+	LastSeenAt *int64
 }
 
 func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (GetLiveGrantRow, error) {
@@ -42,14 +42,14 @@ func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (Get
 		&i.Scope,
 		&i.IssuedAt,
 		&i.ExpiresAt,
-		&i.LastSeen,
+		&i.LastSeenAt,
 	)
 	return i, err
 }
 
 const insertGrant = `-- name: InsertGrant :exec
 
-INSERT INTO "grant" (hash, kind, subject, scope, issued_at, expires_at, last_seen, label)
+INSERT INTO "grant" (hash, kind, subject, scope, issued_at, expires_at, last_seen_at, label)
 VALUES (?1, ?2, ?3, ?4, ?5,
         ?6, ?5, ?7)
 `
@@ -95,16 +95,16 @@ func (q *Queries) MarkGrantRevoked(ctx context.Context, arg MarkGrantRevokedPara
 }
 
 const updateGrantLastSeen = `-- name: UpdateGrantLastSeen :exec
-UPDATE "grant" SET last_seen = ?1
+UPDATE "grant" SET last_seen_at = ?1
 WHERE hash = ?2
 `
 
 type UpdateGrantLastSeenParams struct {
-	LastSeen *int64
-	Hash     []byte
+	LastSeenAt *int64
+	Hash       []byte
 }
 
 func (q *Queries) UpdateGrantLastSeen(ctx context.Context, arg UpdateGrantLastSeenParams) error {
-	_, err := q.db.ExecContext(ctx, updateGrantLastSeen, arg.LastSeen, arg.Hash)
+	_, err := q.db.ExecContext(ctx, updateGrantLastSeen, arg.LastSeenAt, arg.Hash)
 	return err
 }

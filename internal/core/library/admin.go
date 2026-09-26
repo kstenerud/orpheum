@@ -209,13 +209,13 @@ func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, node, moun
 	mount, err := store.One(admin.database.Read().GetRootMount(ctx, sqlcgen.GetRootMountParams{
 		NodeID: nodeID, Path: mountPath,
 	}))
-	if errors.Is(err, store.ErrNotFound) || (err == nil && mount.Present != 0) {
+	if errors.Is(err, store.ErrNotFound) || (err == nil && mount.IsPresent != 0) {
 		return false, fmt.Errorf("%s on %s: %w", mountPath, node, ErrMountNotMissing)
 	}
 	if err != nil {
 		return false, fmt.Errorf("read the mount %s: %w", mountPath, err)
 	}
-	root, err := admin.root(ctx, libraryID, node, mount.Root)
+	root, err := admin.root(ctx, libraryID, node, mount.RootPath)
 	if err != nil {
 		return false, fmt.Errorf("%s on %s: %w", mountPath, node, ErrMountNotMissing)
 	}
@@ -224,7 +224,7 @@ func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, node, moun
 		if _, forgetErr := queries.ForgetMissingRootMount(ctx, forget); forgetErr != nil {
 			return fmt.Errorf("forget the mount: %w", forgetErr)
 		}
-		approve := sqlcgen.ApproveRootRemovalsParams{NodeID: nodeID, Path: mount.Root}
+		approve := sqlcgen.ApproveRootRemovalsParams{NodeID: nodeID, Path: mount.RootPath}
 		if _, approveErr := queries.ApproveRootRemovals(ctx, approve); approveErr != nil {
 			return fmt.Errorf("approve the root's removals: %w", approveErr)
 		}

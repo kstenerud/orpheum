@@ -64,8 +64,9 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at)
 		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
 		"INSERT INTO library_root (library_id, node_id, path) VALUES (1, 1, '/media')",
-		`INSERT INTO file (id, library_id, node_id, path, path_key, size, payload_hash, filing, probe, first_seen,
-		 last_seen) VALUES
+		`INSERT INTO file (id, library_id, node_id, path, path_key, size_bytes, payload_hash, filing, probe,
+		 first_seen_at,
+		 last_seen_at) VALUES
 		 (1, 1, 1, '/media/Film (2001).mp4', CAST('/media/Film (2001).mp4' AS BLOB), 10, X'0a0b', 'listed', '`+
 			mp4+`', 1, 1),
 		 (2, 1, 1, '/media/Film (2002).mkv', CAST('/media/Film (2002).mkv' AS BLOB), 10, X'0c0d', 'listed', '`+

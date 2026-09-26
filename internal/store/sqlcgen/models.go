@@ -5,13 +5,13 @@
 package sqlcgen
 
 type Secret struct {
-	Scope  string
-	UserID *int64
-	Name   string
-	KeyID  int64
-	Nonce  []byte
-	Sealed []byte
-	Hint   *string
-	SetBy  *int64
-	SetAt  int64
+	Scope      string
+	UserID     *int64
+	Name       string
+	KeyID      int64
+	Nonce      []byte
+	Ciphertext []byte
+	Hint       *string
+	SetBy      *int64
+	SetAt      int64
 }
