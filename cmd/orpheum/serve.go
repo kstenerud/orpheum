@@ -84,9 +84,9 @@ func serve(
 // run none), and where TMDB answers and serves its images (tmdb.BaseURL and tmdb.ImageBaseURL,
 // or a test's fake).
 type wiring struct {
-	startNode  nodes.Starter
-	tmdbBase   string
-	tmdbImages string
+	startNode         nodes.Starter
+	tmdbBaseURL       string
+	tmdbImagesBaseURL string
 }
 
 // started is what start opened and serve must close.
@@ -145,11 +145,11 @@ func start(
 	}
 	if err == nil {
 		opened.settings, opened.secrets = dependencies.Settings, dependencies.Secrets
-		opened.metadata, err = newMetadata(ctx, opened, outside.tmdbBase, logger)
+		opened.metadata, err = newMetadata(ctx, opened, outside.tmdbBaseURL, logger)
 	}
 	if err == nil {
 		opened.nodes = newNodeService(opened, logger)
-		opened.metadata.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImages, logger)
+		opened.metadata.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImagesBaseURL, logger)
 	}
 	if err != nil {
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
@@ -218,8 +218,8 @@ func reportMigration(report func(api.Status, string, ...string), logger *slog.Lo
 func buildDependencies(
 	ctx context.Context, directories *datadir.Directories, database *store.Database, logger *slog.Logger,
 ) (api.Dependencies, error) {
-	now := clock.System{}
-	settingsService := settings.NewService(database, now, logger)
+	systemClock := clock.System{}
+	settingsService := settings.NewService(database, systemClock, logger)
 	report, err := settingsService.Seed(ctx)
 	if err != nil {
 		return api.Dependencies{}, err
@@ -239,7 +239,7 @@ func buildDependencies(
 	if err != nil {
 		return api.Dependencies{}, err
 	}
-	authService := auth.NewService(database, now, rand.Reader, settingsService)
+	authService := auth.NewService(database, systemClock, rand.Reader, settingsService)
 	codes := stateSetupCodes{directories: directories}
 	code, err := authService.EnsureSetupCode(ctx, codes)
 	if err != nil {
@@ -251,7 +251,7 @@ func buildDependencies(
 	}
 	return api.Dependencies{
 		Auth: authService, Settings: settingsService,
-		Secrets: secrets.NewStore(database, key, now, rand.Reader, settingsService), SetupCodes: codes,
+		Secrets: secrets.NewStore(database, key, systemClock, rand.Reader, settingsService), SetupCodes: codes,
 	}, nil
 }
 

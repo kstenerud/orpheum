@@ -42,7 +42,7 @@ type mix struct {
 
 // mixes are a track's renditions: standard and boosted when it has a centre, else one.
 func mixes(track nodeproto.PrepareAudio) []mix {
-	name := "audio" + strconv.Itoa(track.Index)
+	name := "audio" + strconv.Itoa(track.AudioTrackIndex)
 	if track.Channels > 2 {
 		return []mix{{name, standardMix}, {name + "-boost", boostedMix}}
 	}
@@ -51,18 +51,18 @@ func mixes(track nodeproto.PrepareAudio) []mix {
 
 // Arguments is FFmpeg's command line for one prepare, after execx's hardening flags: input is
 // the source's absolute path, output the rendition's absolute directory.
-func Arguments(input, output string, command nodeproto.Prepare) []string {
+func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare) []string {
 	arguments := []string{
 		"-v", "error", "-nostats", "-progress", "pipe:1",
-		"-protocol_whitelist", "file", "-i", "file:" + input,
-		"-map", "0:" + strconv.Itoa(command.VideoStream),
+		"-protocol_whitelist", "file", "-i", "file:" + sourcePath,
+		"-map", "0:" + strconv.Itoa(command.VideoStreamIndex),
 	}
 	arguments = append(arguments, videoArguments(command)...)
 	streams := []string{"v:0,agroup:audio,name:video"}
 	slot := 0
 	for _, track := range command.Audio {
 		for _, rendition := range mixes(track) {
-			arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(track.Index),
+			arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(track.AudioTrackIndex),
 				"-filter:a:"+strconv.Itoa(slot), rendition.filter)
 			entry := "a:" + strconv.Itoa(slot) + ",agroup:audio,language:" + language(track.Language) +
 				",name:" + rendition.name
@@ -78,10 +78,10 @@ func Arguments(input, output string, command nodeproto.Prepare) []string {
 		"-f", "hls", "-hls_time", strconv.Itoa(segmentLengthSeconds(command.SegmentLengthSeconds)),
 		"-hls_playlist_type", "event",
 		"-hls_segment_type", "fmp4", "-hls_fmp4_init_filename", "init.mp4",
-		"-hls_segment_filename", filepath.Join(output, "%v", "seg%05d.m4s"),
+		"-hls_segment_filename", filepath.Join(renditionPath, "%v", "seg%05d.m4s"),
 		"-master_pl_name", masterPlaylist,
 		"-var_stream_map", strings.Join(streams, " "),
-		filepath.Join(output, "%v", "stream.m3u8"),
+		filepath.Join(renditionPath, "%v", "stream.m3u8"),
 	)
 }
 

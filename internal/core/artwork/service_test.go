@@ -315,7 +315,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 		result := nodeproto.ArtworkResult{Job: command.Job, Images: []nodeproto.ArtImage{
 			{Size: nodeproto.PortraitS, Bytes: ourWebP},
 		}}
-		if command.Path != nil {
+		if command.AbsolutePath != nil {
 			result.SourceHash = hex.EncodeToString(localSum[:])
 		}
 		return result
@@ -330,7 +330,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 		t.Fatal(err)
 	}
 	sent := bench.node.sent[len(bench.node.sent)-1]
-	if sent.Path == nil || string(sent.Path.Raw) != "/m/Film/poster.jpg" || sent.Source != nil {
+	if sent.AbsolutePath == nil || string(sent.AbsolutePath.Raw) != "/m/Film/poster.jpg" || sent.Source != nil {
 		t.Fatalf("the node was sent %+v; want the file's path for it to read, and no bytes", sent)
 	}
 	// TMDB's poster arrives later, and is still not what the film shows.

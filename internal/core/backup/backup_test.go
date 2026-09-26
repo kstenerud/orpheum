@@ -118,10 +118,10 @@ func TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if written.Key != "" {
-		t.Errorf("a backup without --include-key wrote a key: %s", written.Key)
+	if written.KeyPath != "" {
+		t.Errorf("a backup without --include-key wrote a key: %s", written.KeyPath)
 	}
-	contents, err := os.ReadFile(written.Database)
+	contents, err := os.ReadFile(written.DatabasePath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse(t *t
 	}
 
 	target := emptyDataDirectory(t)
-	restore(t, target, written.Database, nil)
+	restore(t, target, written.DatabasePath, nil)
 	restored := openAt(t, target)
 	if _, err = store.One(restored.Read().GetLiveUserByName(t.Context(), "owner")); err != nil {
 		t.Errorf("the restored database lost the owner: %v", err)
@@ -165,12 +165,12 @@ func TestRestore_WithTheIncludedKeyOpensSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, err := os.ReadFile(written.Key)
+	key, err := os.ReadFile(written.KeyPath)
 	if err != nil {
 		t.Fatalf("the included key: %v", err)
 	}
 	target := emptyDataDirectory(t)
-	if plan := restore(t, target, written.Database, key); !plan.InstallsKey {
+	if plan := restore(t, target, written.DatabasePath, key); !plan.InstallsKey {
 		t.Error("the plan does not say it installs the key")
 	}
 	installed, err := target.ReadStateFile(secrets.KeyFileName)
@@ -207,7 +207,7 @@ func TestRestore_KeepsTheDatabaseItReplaces(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plan := restore(t, target, written.Database, nil)
+	plan := restore(t, target, written.DatabasePath, nil)
 	if !plan.ReplacesOne || !strings.Contains(plan.Describe(), plan.Snapshot) {
 		t.Errorf("the plan did not say what it replaces and where it keeps it:\n%s", plan.Describe())
 	}
@@ -237,7 +237,7 @@ func TestRestore_RefusesWhileTheServerRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := MakePlan(t.Context(), target, written.Database, nil, testTime)
+	plan, err := MakePlan(t.Context(), target, written.DatabasePath, nil, testTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,16 +270,16 @@ func TestMakePlan_RefusesAForeignOrNewerBackup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = MakePlan(t.Context(), target, written.Database, nil, testTime); err != nil {
+	if _, err = MakePlan(t.Context(), target, written.DatabasePath, nil, testTime); err != nil {
 		t.Fatalf("a backup from this release: %v", err)
 	}
-	if _, err = MakePlan(t.Context(), target, written.Database, []byte("not a key"), testTime); err == nil {
+	if _, err = MakePlan(t.Context(), target, written.DatabasePath, []byte("not a key"), testTime); err == nil {
 		t.Error("MakePlan accepted a key file that is not one")
 	}
-	storetest.ExecRaw(t, written.Database,
+	storetest.ExecRaw(t, written.DatabasePath,
 		"PRAGMA user_version = "+strconv.Itoa(version+1),
 		"UPDATE schema_meta SET compatible_version = "+strconv.Itoa(version+1)+" WHERE id = 1")
-	_, err = MakePlan(t.Context(), target, written.Database, nil, testTime)
+	_, err = MakePlan(t.Context(), target, written.DatabasePath, nil, testTime)
 	if !errors.Is(err, ErrNewerBackup) {
 		t.Errorf("a backup from a newer, incompatible release: %v, want ErrNewerBackup", err)
 	}

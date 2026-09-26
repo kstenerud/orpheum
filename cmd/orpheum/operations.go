@@ -136,10 +136,10 @@ func commandBackup(ctx context.Context, call invocation) int {
 	if err = errors.Join(err, database.Close()); err != nil {
 		return call.fail(err)
 	}
-	report := fmt.Sprintf("wrote %s (sealed secrets are ciphertext in it)\n", written.Database)
-	if written.Key != "" {
+	report := fmt.Sprintf("wrote %s (sealed secrets are ciphertext in it)\n", written.DatabasePath)
+	if written.KeyPath != "" {
 		report += fmt.Sprintf("wrote %s: whoever has both files has every secret; keep them apart, or safe\n",
-			written.Key)
+			written.KeyPath)
 	}
 	return write(call.stdout, report, exitSuccess)
 }

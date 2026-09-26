@@ -43,7 +43,7 @@ func (browser *Browser) shown(ctx context.Context, kind string, itemIDs []int64)
 		return nil, fmt.Errorf("read the %s of %d items: %w", kind, len(itemIDs), err)
 	}
 	for _, row := range rows {
-		if _, first := hashes[row.ItemID]; !first {
+		if _, alreadyHas := hashes[row.ItemID]; !alreadyHas {
 			hashes[row.ItemID] = hex.EncodeToString(row.ContentHash)
 		}
 	}

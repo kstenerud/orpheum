@@ -89,9 +89,10 @@ type ScanBegin struct {
 	ReadOnly   bool   `json:"readOnly"`
 }
 
-// Path is a path relative to its media root, as the filesystem gave it (D49). Text holds it
-// exactly when it is valid UTF-8; otherwise Text is a readable approximation and Raw holds the
-// bytes. The core normalises Text to NFC for identity and display, and opens by the bytes.
+// Path is a path as the filesystem gave it (D49): relative to its media root everywhere but
+// Artwork.AbsolutePath, which says in its name that it is not. Text holds it exactly when it is
+// valid UTF-8; otherwise Text is a readable approximation and Raw holds the bytes. The core
+// normalises Text to NFC for identity and display, and opens by the bytes.
 type Path struct {
 	Text string `json:"text"`
 	Raw  []byte `json:"raw,omitempty"`

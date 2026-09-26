@@ -5,8 +5,8 @@
 package cachegen
 
 type ArtServed struct {
-	Hash string
-	Day  int64
+	Hash               string
+	LastServedEpochDay int64
 }
 
 type Job struct {
@@ -17,7 +17,7 @@ type Job struct {
 	Priority   int64
 	State      string
 	NodeID     *int64
-	NotBefore  int64
+	RunnableAt int64
 	Attempts   int64
 	Progress   *float64
 	Reason     *string
@@ -47,7 +47,7 @@ type PreparedRendition struct {
 	SegmentLengthS int64
 	RunID          string
 	PreparedMs     int64
-	Bytes          *int64
+	SizeBytes      *int64
 	Error          *string
 	CreatedAt      int64
 	FinishedAt     *int64

@@ -35,16 +35,16 @@ type metadata struct {
 
 // newMetadata builds the providers, the pass and the queue, and returns the jobs a crash left
 // running to the queue.
-func newMetadata(ctx context.Context, opened started, tmdbBase string, logger *slog.Logger) (metadata, error) {
-	timeout, err := opened.settings.Int(ctx, settings.ProviderTimeoutS)
+func newMetadata(ctx context.Context, opened started, tmdbBaseURL string, logger *slog.Logger) (metadata, error) {
+	providerTimeoutSeconds, err := opened.settings.Int(ctx, settings.ProviderTimeoutS)
 	if err != nil {
 		return metadata{}, err
 	}
-	httpClient, err := outbound.NewClient(time.Duration(timeout)*time.Second, version)
+	httpClient, err := outbound.NewClient(time.Duration(providerTimeoutSeconds)*time.Second, version)
 	if err != nil {
 		return metadata{}, err
 	}
-	providers := identify.Providers{"tmdb": tmdb.New(httpClient, tmdbBase, opened.secrets)}
+	providers := identify.Providers{"tmdb": tmdb.New(httpClient, tmdbBaseURL, opened.secrets)}
 	queue := jobs.NewQueue(opened.cache, clock.System{}, opened.settings, logger)
 	requeued, err := queue.RequeueRunning(ctx)
 	if err != nil {

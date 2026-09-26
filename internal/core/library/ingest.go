@@ -85,9 +85,12 @@ type Settings interface {
 }
 
 // NewIngester returns the ingest.
-func NewIngester(database *store.Database, now clock.Clock, settingsService Settings, logger *slog.Logger) *Ingester {
+func NewIngester(
+	database *store.Database, clockSource clock.Clock, settingsService Settings, logger *slog.Logger,
+) *Ingester {
 	return &Ingester{
-		database: database, clock: now, settings: settingsService, logger: logger, scans: map[int64]*scanState{},
+		database: database, clock: clockSource, settings: settingsService, logger: logger,
+		scans: map[int64]*scanState{},
 	}
 }
 

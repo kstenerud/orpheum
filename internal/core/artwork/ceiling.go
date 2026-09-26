@@ -30,29 +30,29 @@ const (
 // holdings is what the art directory holds, kept in memory from one listing at start and every
 // write and removal since, and when each image was last served, to the day.
 type holdings struct {
-	mutex    sync.Mutex
-	files    map[string]map[string]int64 // hash, then file name, to size
-	total    int64
-	served   map[string]int64 // hash to day
-	unsaved  map[string]int64 // served since the last flush
-	pressure Pressure
-	sweep    chan struct{}
+	mutex               sync.Mutex
+	files               map[string]map[string]int64 // hash, then file name, to size
+	total               int64
+	lastServedDayByHash map[string]int64 // hash to day
+	unsaved             map[string]int64 // served since the last flush
+	pressure            Pressure
+	sweep               chan struct{}
 }
 
 // Pressure is the artwork cache against its ceiling, as the last sweep found it.
 type Pressure struct {
-	Total    int64 // bytes held
-	Required int64 // bytes never evicted: what live items need to be shown
-	Ceiling  int64
+	TotalBytes    int64 // bytes held
+	RequiredBytes int64 // bytes never evicted: what live items need to be shown
+	CeilingBytes  int64
 	// HighWater is what is never evicted exceeding the ceiling: artwork is still served and
 	// fetched as needed, and the admin is told the ceiling to set (D212 §7).
-	HighWater   bool
-	Recommended int64 // the ceiling to set: what is required plus 15%, in whole GiB
+	HighWater        bool
+	RecommendedBytes int64 // the ceiling to set: what is required plus 15%, in whole GiB
 }
 
 func newHoldings() *holdings {
 	return &holdings{
-		files: map[string]map[string]int64{}, served: map[string]int64{}, unsaved: map[string]int64{},
+		files: map[string]map[string]int64{}, lastServedDayByHash: map[string]int64{}, unsaved: map[string]int64{},
 		sweep: make(chan struct{}, 1),
 	}
 }
@@ -75,7 +75,7 @@ func (service *Service) Load(ctx context.Context) error {
 		held.add(file.Hash, file.Name, file.Size)
 	}
 	for _, row := range rows {
-		held.served[row.Hash] = row.Day
+		held.lastServedDayByHash[row.Hash] = row.LastServedEpochDay
 	}
 	return nil
 }
@@ -114,8 +114,8 @@ func (service *Service) noteServed(hash string) {
 	held := service.holdings
 	held.mutex.Lock()
 	defer held.mutex.Unlock()
-	if held.served[hash] < today {
-		held.served[hash], held.unsaved[hash] = today, today
+	if held.lastServedDayByHash[hash] < today {
+		held.lastServedDayByHash[hash], held.unsaved[hash] = today, today
 	}
 }
 
@@ -131,7 +131,8 @@ func (service *Service) Flush(ctx context.Context) error {
 	}
 	err := service.parts.Cache.Write(ctx, func(queries *cachegen.Queries) error {
 		for hash, served := range unsaved {
-			if err := queries.MarkArtServed(ctx, cachegen.MarkArtServedParams{Hash: hash, Day: served}); err != nil {
+			marked := cachegen.MarkArtServedParams{Hash: hash, LastServedEpochDay: served}
+			if err := queries.MarkArtServed(ctx, marked); err != nil {
 				return err
 			}
 		}
@@ -213,9 +214,11 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 		}
 		total -= file.size
 	}
-	pressure := Pressure{Total: total, Required: required, Ceiling: ceiling, HighWater: required > ceiling}
+	pressure := Pressure{
+		TotalBytes: total, RequiredBytes: required, CeilingBytes: ceiling, HighWater: required > ceiling,
+	}
 	if pressure.HighWater {
-		pressure.Recommended = (int64(float64(required)*headroom) + gib - 1) / gib * gib
+		pressure.RecommendedBytes = (int64(float64(required)*headroom) + gib - 1) / gib * gib
 	}
 	service.recordPressure(ctx, pressure)
 	return pressure, nil
@@ -239,7 +242,9 @@ func (service *Service) classify(shown map[string]bool, goneAt map[string]int64)
 	for hash, files := range held.files {
 		base := baseOf(files)
 		for name, size := range files {
-			file := candidate{hash: hash, name: name, size: size, served: held.served[hash], goneAt: goneAt[hash]}
+			file := candidate{
+				hash: hash, name: name, size: size, served: held.lastServedDayByHash[hash], goneAt: goneAt[hash],
+			}
 			file.class = classOf(name, base, shown[hash])
 			if file.class == classKept {
 				required += size
@@ -322,8 +327,8 @@ func (service *Service) recordPressure(ctx context.Context, pressure Pressure) {
 	switch {
 	case pressure.HighWater && !was:
 		service.parts.Logger.WarnContext(ctx, "the artwork cache ceiling is smaller than what the libraries need "+
-			"to show; artwork is fetched again as it is needed", "requiredBytes", pressure.Required,
-			"ceilingBytes", pressure.Ceiling, "recommendedGiB", pressure.Recommended/gib)
+			"to show; artwork is fetched again as it is needed", "requiredBytes", pressure.RequiredBytes,
+			"ceilingBytes", pressure.CeilingBytes, "recommendedGiB", pressure.RecommendedBytes/gib)
 	case !pressure.HighWater && was:
 		service.parts.Logger.InfoContext(ctx, "the artwork cache fits under its ceiling again")
 	}

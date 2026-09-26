@@ -91,12 +91,12 @@ type channel struct {
 // NewService returns the service. The pollHold argument is how long a command long-poll waits
 // before it answers with nothing.
 func NewService(
-	database *store.Database, now clock.Clock, settingsService Settings, sink Sink, logger *slog.Logger,
+	database *store.Database, clockSource clock.Clock, settingsService Settings, sink Sink, logger *slog.Logger,
 	pollHold time.Duration,
 ) *Service {
 	return &Service{
-		database: database, clock: now, settings: settingsService, sink: sink, logger: logger, pollHold: pollHold,
-		channels: map[int64]*channel{},
+		database: database, clock: clockSource, settings: settingsService, sink: sink, logger: logger,
+		pollHold: pollHold, channels: map[int64]*channel{},
 	}
 }
 
@@ -149,13 +149,13 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 // Enrol returns the id of the live node called name, creating its row if there is none (D207):
 // the first hello does this, and so does a dev seed that names a library's node before the
 // node has spoken.
-func Enrol(ctx context.Context, database *store.Database, now clock.Clock, name string) (int64, error) {
-	node, err := enrol(ctx, database, now, name)
+func Enrol(ctx context.Context, database *store.Database, clockSource clock.Clock, name string) (int64, error) {
+	node, err := enrol(ctx, database, clockSource, name)
 	return node.ID, err
 }
 
 func enrol(
-	ctx context.Context, database *store.Database, now clock.Clock, name string,
+	ctx context.Context, database *store.Database, clockSource clock.Clock, name string,
 ) (sqlcgen.GetLiveNodeByNameRow, error) {
 	var node sqlcgen.GetLiveNodeByNameRow
 	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -167,7 +167,7 @@ func enrol(
 		if !errors.Is(err, store.ErrNotFound) {
 			return err
 		}
-		enrolledAt := now.Now().UnixMilli()
+		enrolledAt := clockSource.Now().UnixMilli()
 		id, err := queries.InsertNode(ctx, sqlcgen.InsertNodeParams{Name: name, EnrolledAt: enrolledAt})
 		if err != nil {
 			return fmt.Errorf("enrol node %q: %w", name, err)

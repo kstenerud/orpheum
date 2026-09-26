@@ -189,7 +189,7 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 		return nil, err
 	}
 	page, err := dependencies.Browse.List(ctx, library.ListQuery{
-		List: input.Kind, Sort: input.Sort, Cursor: input.Cursor, Limit: input.Limit,
+		Kind: input.Kind, Sort: input.Sort, Cursor: input.Cursor, Limit: input.Limit,
 	})
 	if err != nil {
 		return nil, server.browseError(ctx, "list titles", err)
@@ -202,7 +202,7 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 			AddedAt: entry.AddedAt, PosterHash: entry.Poster,
 		})
 	}
-	output.Body.NextCursor = page.Next
+	output.Body.NextCursor = page.NextCursor
 	return output, nil
 }
 

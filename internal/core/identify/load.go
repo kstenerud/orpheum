@@ -68,7 +68,7 @@ func (work *run) loadTitles(ctx context.Context, libraryID int64) error {
 	}
 	for _, title := range titles {
 		if title.Name != nil && title.Kind == kindMovie {
-			work.titles[movieKey(*title.Name, int(deref(title.Year)))] = title.ID
+			work.titleIDByKey[movieKey(*title.Name, int(deref(title.Year)))] = title.ID
 		}
 	}
 	series, err := work.queries.ListLibrarySeries(ctx, &libraryID)
@@ -79,13 +79,13 @@ func (work *run) loadTitles(ctx context.Context, libraryID int64) error {
 		if show.Name == nil {
 			continue
 		}
-		work.series[strings.ToLower(*show.Name)] = show.ID
+		work.seriesIDByName[strings.ToLower(*show.Name)] = show.ID
 		episodes, listErr := work.queries.ListEpisodesOfSeries(ctx, show.ID)
 		if listErr != nil {
 			return fmt.Errorf("list the episodes of %s: %w", *show.Name, listErr)
 		}
 		for _, episode := range episodes {
-			work.titles[episodeKey(show.ID, int(deref(episode.GroupNumber)),
+			work.titleIDByKey[episodeKey(show.ID, int(deref(episode.GroupNumber)),
 				int(deref(episode.Number)))] = episode.TitleID
 		}
 	}

@@ -330,7 +330,7 @@ func TestPass_NamesAreSortedAndFoundInEveryScript(t *testing.T) {
 	lib := newWorld(t, "movies", "nfo")
 	lib.scan(video("Sølvi Live (2020).mkv"), video("Fièvre (2001).mkv"), video("十字路 (2001).mkv"))
 	browser := library.NewBrowser(lib.database, lib.settings)
-	byName := library.ListQuery{List: library.ListFilms, Sort: library.SortName, Limit: 10}
+	byName := library.ListQuery{Kind: library.ListFilms, Sort: library.SortName, Limit: 10}
 	listed, err := browser.List(t.Context(), byName)
 	var order []string
 	for _, entry := range listed.Entries {
@@ -354,7 +354,7 @@ func TestRefreshSortKeys_ALocaleChangeTakesEffectWithoutAScan(t *testing.T) {
 	browser := library.NewBrowser(lib.database, lib.settings)
 	names := func() []string {
 		t.Helper()
-		byName := library.ListQuery{List: library.ListFilms, Sort: library.SortName, Limit: 10}
+		byName := library.ListQuery{Kind: library.ListFilms, Sort: library.SortName, Limit: 10}
 		listed, err := browser.List(t.Context(), byName)
 		if err != nil {
 			t.Fatal(err)

@@ -91,7 +91,7 @@ func TestSweep_EvictsInTheOrderOfD212DownToLowWaterAndNeverAWallSize(t *testing.
 		}
 	}
 	required := gibs(0.1) + 2*gibs(0.01)
-	if pressure.HighWater || pressure.Required != required || pressure.Total > gibs(0.9) {
+	if pressure.HighWater || pressure.RequiredBytes != required || pressure.TotalBytes > gibs(0.9) {
 		t.Errorf("pressure %+v; want %d required, under the low water, no high water", pressure, required)
 	}
 }
@@ -130,7 +130,7 @@ func TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !pressure.HighWater || pressure.Recommended != 3*gib || !bench.holds(wall, "portrait-m.webp") {
+	if !pressure.HighWater || pressure.RecommendedBytes != 3*gib || !bench.holds(wall, "portrait-m.webp") {
 		t.Errorf("pressure %+v; want high water, 3 GiB recommended (2.5 + 15%%), and the wall size kept", pressure)
 	}
 	if got := bench.service.Pressure(); !got.HighWater {
@@ -154,8 +154,8 @@ func TestFlush_WritesWhenImagesWereServedAndLoadReadsItBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	today := bench.service.parts.Clock.Now().Unix() / 86400
-	if fresh.holdings.served[hash] != today || fresh.holdings.total != int64(len(ourWebP)) {
-		t.Errorf("after Load: served day %d (want %d), total %d", fresh.holdings.served[hash], today,
+	if fresh.holdings.lastServedDayByHash[hash] != today || fresh.holdings.total != int64(len(ourWebP)) {
+		t.Errorf("after Load: served day %d (want %d), total %d", fresh.holdings.lastServedDayByHash[hash], today,
 			fresh.holdings.total)
 	}
 }

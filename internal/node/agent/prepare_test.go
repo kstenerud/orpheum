@@ -61,7 +61,7 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 	send(1, source)
 	done := finalReport(t, core)
 	wantInput := root.Path() + "/film.mkv"
-	if done.Job != 1 || done.State != nodeproto.PrepareDone || done.Bytes != int64(len(wantInput)) {
+	if done.Job != 1 || done.State != nodeproto.PrepareDone || done.SizeBytes != int64(len(wantInput)) {
 		t.Errorf("a prepare of the source file ended %+v, want done, run on %s", done, wantInput)
 	}
 	changed := source

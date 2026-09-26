@@ -19,8 +19,8 @@ type failureLimiter struct {
 	failures map[string][]time.Time // guarded by mutex
 }
 
-func newFailureLimiter(now clock.Clock) *failureLimiter {
-	return &failureLimiter{clock: now, failures: map[string][]time.Time{}}
+func newFailureLimiter(clockSource clock.Clock) *failureLimiter {
+	return &failureLimiter{clock: clockSource, failures: map[string][]time.Time{}}
 }
 
 // isLimited reports whether any of keys has reached limit within window.

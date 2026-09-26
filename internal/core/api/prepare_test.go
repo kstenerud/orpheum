@@ -90,7 +90,7 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	}
 	running := nodeproto.PrepareReport{Job: 77, State: nodeproto.PrepareRunning, PreparedMs: 4000}
 	playback.Reported(t.Context(), 1, running)
-	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: 77, State: nodeproto.PrepareDone, Bytes: 1234})
+	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: 77, State: nodeproto.PrepareDone, SizeBytes: 1234})
 	if err := <-finished; err != nil {
 		t.Fatalf("the job ended %v, want done", err)
 	}
@@ -136,7 +136,7 @@ func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
 		first <- playback.HandlePrepare(t.Context(), jobs.Job{ID: 80, Kind: jobs.KindPrepare, Subject: 1})
 	}()
 	<-harness.nodes.commanded
-	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: 80, State: nodeproto.PrepareDone, Bytes: 9})
+	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: 80, State: nodeproto.PrepareDone, SizeBytes: 9})
 	if err := <-first; err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 			finished <- playback.HandlePrepare(t.Context(), jobs.Job{ID: job, Kind: jobs.KindPrepare, Subject: 1})
 		}()
 		command := <-harness.nodes.commanded
-		playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: job, State: nodeproto.PrepareDone, Bytes: 9})
+		playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: job, State: nodeproto.PrepareDone, SizeBytes: 9})
 		if err := <-finished; err != nil {
 			t.Fatal(err)
 		}

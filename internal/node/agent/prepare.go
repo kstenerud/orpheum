@@ -98,7 +98,7 @@ func (agent *Agent) runPrepare(
 	if err != nil {
 		return failed(err)
 	}
-	return nodeproto.PrepareReport{Job: command.Job, State: nodeproto.PrepareDone, Bytes: size}
+	return nodeproto.PrepareReport{Job: command.Job, State: nodeproto.PrepareDone, SizeBytes: size}
 }
 
 // verifiedSource is the absolute path of the file source names, once it is under one of the

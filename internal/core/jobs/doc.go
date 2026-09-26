@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package jobs is the one work queue: fetches, prepares, scans and backups are rows in cache.db's
-// job table. One scheduler picks the highest-priority queued job whose not_before has passed and
+// job table. One scheduler picks the highest-priority queued job whose runnable_at has passed and
 // whose runner has a free slot. Node jobs become commands; their progress arrives as job records.
 // After a crash, running jobs return to queued and restart from zero.
 //

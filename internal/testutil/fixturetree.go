@@ -11,9 +11,9 @@ import (
 	"testing"
 )
 
-// FixtureTreeSize is how many files BuildFixtureTree writes: the 200-file tree of cut-a's M2
+// FixtureTreeFileCount is how many files BuildFixtureTree writes: the 200-file tree of cut-a's M2
 // acceptance.
-const FixtureTreeSize = 200
+const FixtureTreeFileCount = 200
 
 // FixtureTree is a generated media root: films and series as people name them, with what sits
 // beside them and what should not be there. Each video is a distinct one-second clip from the
@@ -58,7 +58,7 @@ func (builder *treeBuilder) video(rel string) {
 	builder.videos = append(builder.videos, rel)
 }
 
-func (builder *treeBuilder) full() bool { return len(builder.tree.Files) >= FixtureTreeSize }
+func (builder *treeBuilder) full() bool { return len(builder.tree.Files) >= FixtureTreeFileCount }
 
 // subtitle is a one-line SubRip file.
 func subtitle() []byte { return []byte("1\n00:00:00,000 --> 00:00:01,000\nHello.\n") }
@@ -71,7 +71,7 @@ func BuildFixtureTree(tb testing.TB) FixtureTree {
 	builder.series()
 	builder.junk()
 	builder.films()
-	builder.tree.Files = builder.tree.Files[:FixtureTreeSize]
+	builder.tree.Files = builder.tree.Files[:FixtureTreeFileCount]
 	generateClips(tb, builder.tree.Root, videosIn(builder.videos, builder.tree.Files))
 	unreadable := filepath.Join(builder.tree.Root, filepath.FromSlash(builder.tree.Unreadable))
 	if err := os.Chmod(unreadable, 0o000); err != nil {
@@ -126,7 +126,7 @@ func (builder *treeBuilder) junk() {
 	builder.video("Films/Аэлита (1972)/Аэлита (1972).mkv")
 }
 
-// films writes films until the tree holds FixtureTreeSize files: every fifth with an NFO, every
+// films writes films until the tree holds FixtureTreeFileCount files: every fifth with an NFO, every
 // fourth with subtitles, every seventh with a trailer and a featurette, every eleventh in two
 // parts.
 func (builder *treeBuilder) films() {

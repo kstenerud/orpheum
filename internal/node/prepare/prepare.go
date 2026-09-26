@@ -51,13 +51,13 @@ func (preparer *Preparer) Directory() string { return preparer.directory }
 // rendition into its directory, reporting how much of the source is done as it goes. It returns
 // the rendition's size.
 func (preparer *Preparer) Prepare(
-	ctx context.Context, input string, command nodeproto.Prepare, progress func(preparedMs int64),
+	ctx context.Context, sourcePath string, command nodeproto.Prepare, progress func(preparedMs int64),
 ) (int64, error) {
 	if !renditionDir.MatchString(command.RenditionDir) {
 		return 0, fmt.Errorf("%w, not %q", ErrBadDir, command.RenditionDir)
 	}
-	output := filepath.Join(preparer.directory, filepath.FromSlash(command.RenditionDir))
-	if err := os.MkdirAll(output, 0o750); err != nil {
+	renditionPath := filepath.Join(preparer.directory, filepath.FromSlash(command.RenditionDir))
+	if err := os.MkdirAll(renditionPath, 0o750); err != nil {
 		return 0, fmt.Errorf("make the rendition's directory: %w", err)
 	}
 	reader, writer := io.Pipe()
@@ -66,13 +66,13 @@ func (preparer *Preparer) Prepare(
 		defer close(done)
 		readProgress(reader, progress)
 	}()
-	err := preparer.runner.RunStreaming(ctx, execx.FFmpeg, Arguments(input, output, command), writer)
+	err := preparer.runner.RunStreaming(ctx, execx.FFmpeg, Arguments(sourcePath, renditionPath, command), writer)
 	_ = writer.Close() //nolint:errcheck // a pipe's writer closes without error
 	<-done
 	if err != nil {
 		return 0, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}
-	return size(output)
+	return size(renditionPath)
 }
 
 // readProgress reads FFmpeg's -progress lines and reports out_time_us, in milliseconds, each time

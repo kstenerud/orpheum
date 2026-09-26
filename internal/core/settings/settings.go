@@ -83,8 +83,8 @@ func (service *Service) changed(ctx context.Context, keys []Key) {
 }
 
 // NewService returns a settings Service.
-func NewService(database *store.Database, now clock.Clock, logger *slog.Logger) *Service {
-	return &Service{database: database, clock: now, logger: logger.With("component", "settings")}
+func NewService(database *store.Database, clockSource clock.Clock, logger *slog.Logger) *Service {
+	return &Service{database: database, clock: clockSource, logger: logger.With("component", "settings")}
 }
 
 // heal writes the starting value of a setting whose row is missing — removed while the server

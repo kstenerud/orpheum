@@ -19,7 +19,7 @@ func (q *Queries) ForgetArtServed(ctx context.Context, hash string) error {
 }
 
 const listArtServed = `-- name: ListArtServed :many
-SELECT hash, day FROM art_served
+SELECT hash, last_served_epoch_day FROM art_served
 `
 
 func (q *Queries) ListArtServed(ctx context.Context) ([]ArtServed, error) {
@@ -31,7 +31,7 @@ func (q *Queries) ListArtServed(ctx context.Context) ([]ArtServed, error) {
 	items := []ArtServed{}
 	for rows.Next() {
 		var i ArtServed
-		if err := rows.Scan(&i.Hash, &i.Day); err != nil {
+		if err := rows.Scan(&i.Hash, &i.LastServedEpochDay); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -47,19 +47,21 @@ func (q *Queries) ListArtServed(ctx context.Context) ([]ArtServed, error) {
 
 const markArtServed = `-- name: MarkArtServed :exec
 
-INSERT INTO art_served (hash, day) VALUES (?1, ?2)
-ON CONFLICT (hash) DO UPDATE SET day = MAX(art_served.day, excluded.day)
+INSERT INTO art_served (hash, last_served_epoch_day)
+VALUES (?1, ?2)
+ON CONFLICT (hash) DO UPDATE
+SET last_served_epoch_day = MAX(art_served.last_served_epoch_day, excluded.last_served_epoch_day)
 `
 
 type MarkArtServedParams struct {
-	Hash string
-	Day  int64
+	Hash               string
+	LastServedEpochDay int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
 // When each image was last served, to the day: what the artwork ceiling evicts first within a
 // class, D212 section 6. Written hourly in a batch, never on the request path.
 func (q *Queries) MarkArtServed(ctx context.Context, arg MarkArtServedParams) error {
-	_, err := q.db.ExecContext(ctx, markArtServed, arg.Hash, arg.Day)
+	_, err := q.db.ExecContext(ctx, markArtServed, arg.Hash, arg.LastServedEpochDay)
 	return err
 }

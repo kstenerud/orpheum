@@ -119,9 +119,9 @@ func TestRunDue_RetriesAFailureWithDoublingBackoffThenFails(t *testing.T) {
 			t.Fatal(err)
 		}
 		job := jobs.job(t, 1)
-		if job.State != "queued" || job.NotBefore != jobs.clock.Now().Add(wait).UnixMilli() {
+		if job.State != "queued" || job.RunnableAt != jobs.clock.Now().Add(wait).UnixMilli() {
 			t.Fatalf("after %d runs: state %s, not before +%v; want queued, +%v", runs, job.State,
-				time.UnixMilli(job.NotBefore).Sub(jobs.clock.Now()), wait)
+				time.UnixMilli(job.RunnableAt).Sub(jobs.clock.Now()), wait)
 		}
 		jobs.clock.Advance(wait - time.Second)
 		if err := runner.RunDue(t.Context()); err != nil {
@@ -156,7 +156,7 @@ func TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind(t *testin
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if job := jobs.job(t, 1); job.Attempts != 0 || job.State != "queued" || job.NotBefore != until.UnixMilli() {
+	if job := jobs.job(t, 1); job.Attempts != 0 || job.State != "queued" || job.RunnableAt != until.UnixMilli() {
 		t.Errorf("rate-limited job = %+v; want queued until the provider's time with no attempt spent", job)
 	}
 	if !slices.Equal(ran, []int64{1}) {
@@ -252,9 +252,9 @@ func TestRunDue_AKindWithItsOwnScheduleRetriesOnItThenFails(t *testing.T) {
 		if err := runner.RunDue(t.Context()); err != nil {
 			t.Fatal(err)
 		}
-		if job := jobs.job(t, 1); job.State != "queued" || job.NotBefore != jobs.clock.Now().Add(wait).UnixMilli() {
+		if job := jobs.job(t, 1); job.State != "queued" || job.RunnableAt != jobs.clock.Now().Add(wait).UnixMilli() {
 			t.Fatalf("after %d runs: %s, not before +%v; want queued, +%v", runs, job.State,
-				time.UnixMilli(job.NotBefore).Sub(jobs.clock.Now()), wait)
+				time.UnixMilli(job.RunnableAt).Sub(jobs.clock.Now()), wait)
 		}
 		jobs.clock.Advance(wait)
 	}
@@ -271,7 +271,7 @@ func TestEnqueue_AJobWaitsUntilItsNotBefore(t *testing.T) {
 	t.Parallel()
 	jobs := newFixture(t)
 	later := jobs.clock.Now().Add(12 * time.Hour)
-	if _, err := jobs.queue.Enqueue(t.Context(), New{Kind: KindFetch, Subject: 4, NotBefore: later}); err != nil {
+	if _, err := jobs.queue.Enqueue(t.Context(), New{Kind: KindFetch, Subject: 4, RunnableAt: later}); err != nil {
 		t.Fatal(err)
 	}
 	ran := 0

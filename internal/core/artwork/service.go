@@ -188,7 +188,7 @@ func (service *Service) one(ctx context.Context, fetcher Fetcher, image wanted) 
 	var nodeID int64
 	hash := ""
 	if image.source == identify.SourceLocal {
-		nodeID, command.Path, err = service.localFile(ctx, image.ref.Ref)
+		nodeID, command.AbsolutePath, err = service.localFile(ctx, image.ref.Ref)
 		if errors.Is(err, ErrNoImage) {
 			return service.refused(ctx, image, err.Error())
 		}

@@ -78,7 +78,7 @@ func (work *run) titleFor(ctx context.Context, spec titleSpec) (int64, error) {
 	if key == "" {
 		key = movieKey(spec.name, spec.year)
 	}
-	if id, found := work.titles[key]; found {
+	if id, found := work.titleIDByKey[key]; found {
 		return id, nil
 	}
 	libraryID := work.library.ID
@@ -95,7 +95,7 @@ func (work *run) titleFor(ctx context.Context, spec titleSpec) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("add title %q: %w", spec.name, err)
 	}
-	work.titles[key] = id
+	work.titleIDByKey[key] = id
 	return id, nil
 }
 
@@ -144,7 +144,7 @@ func (work *run) resolveAndFile(ctx context.Context) error {
 		idents[titleID], reasons[titleID] = result.ident, result.reason
 	}
 	for _, file := range work.files {
-		titleID, placed := work.fileTitle[file.ID]
+		titleID, placed := work.titleIDByFile[file.ID]
 		if !placed {
 			continue
 		}

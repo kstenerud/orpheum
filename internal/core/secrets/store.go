@@ -115,8 +115,8 @@ type Store struct {
 }
 
 // NewStore returns a Store that seals new secrets with key.
-func NewStore(database *store.Database, key Key, now clock.Clock, random io.Reader, config Settings) *Store {
-	return &Store{database: database, key: key, clock: now, random: random, settings: config}
+func NewStore(database *store.Database, key Key, clockSource clock.Clock, random io.Reader, config Settings) *Store {
+	return &Store{database: database, key: key, clock: clockSource, random: random, settings: config}
 }
 
 // Set seals value and stores it for owner (nil for a server secret), replacing any old value.

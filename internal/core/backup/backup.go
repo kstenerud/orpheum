@@ -23,8 +23,8 @@ const restoringName = "library.db.restoring"
 
 // Written is what a backup produced.
 type Written struct {
-	Database string
-	Key      string // empty unless the key was included
+	DatabasePath string
+	KeyPath      string // empty unless the key was included
 }
 
 // Write backs library.db up into the backup directory with VACUUM INTO. The file carries sealed
@@ -34,8 +34,8 @@ func Write(
 	ctx context.Context, database *store.Database, directories *datadir.Directories, now time.Time, includeKey bool,
 ) (Written, error) {
 	stem := "backup-" + now.UTC().Format(timestampLayout)
-	written := Written{Database: filepath.Join(directories.BackupDirectory(), stem+".sqlite")}
-	if err := database.BackupInto(ctx, written.Database); err != nil {
+	written := Written{DatabasePath: filepath.Join(directories.BackupDirectory(), stem+".sqlite")}
+	if err := database.BackupInto(ctx, written.DatabasePath); err != nil {
 		return Written{}, err
 	}
 	if !includeKey {
@@ -48,7 +48,7 @@ func Write(
 	if err = directories.WriteBackupFile(stem+"."+secrets.KeyFileName, key); err != nil {
 		return written, fmt.Errorf("include the key: %w", err)
 	}
-	written.Key = filepath.Join(directories.BackupDirectory(), stem+"."+secrets.KeyFileName)
+	written.KeyPath = filepath.Join(directories.BackupDirectory(), stem+"."+secrets.KeyFileName)
 	return written, nil
 }
 

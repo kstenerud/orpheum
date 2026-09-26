@@ -24,9 +24,9 @@ func TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre(t *testing.
 	command := nodeproto.Prepare{
 		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", RenditionDir: "7/remux/0123456789abcdef",
 		Audio: []nodeproto.PrepareAudio{
-			{Index: 0, Language: "en", Channels: 6},
-			{Index: 1, Language: "de", Channels: 2},
-			{Index: 2, Language: "bad tag,x", Channels: 8},
+			{AudioTrackIndex: 0, Language: "en", Channels: 6},
+			{AudioTrackIndex: 1, Language: "de", Channels: 2},
+			{AudioTrackIndex: 2, Language: "bad tag,x", Channels: 8},
 		},
 	}
 	arguments := prepare.Arguments("/media/a film.mkv", "/prep/7/remux/0123456789abcdef", command)

@@ -2,8 +2,8 @@
 -- The one work queue (cut-a section 5.3; schema.md, cache.db).
 
 -- name: InsertJob :one
-INSERT INTO job (kind, subject, args, priority, not_before, reason, created_at)
-VALUES (sqlc.arg(kind), sqlc.arg(subject), sqlc.arg(args), sqlc.arg(priority), sqlc.arg(not_before),
+INSERT INTO job (kind, subject, args, priority, runnable_at, reason, created_at)
+VALUES (sqlc.arg(kind), sqlc.arg(subject), sqlc.arg(args), sqlc.arg(priority), sqlc.arg(runnable_at),
         sqlc.arg(reason), sqlc.arg(created_at))
 RETURNING id;
 
@@ -24,10 +24,10 @@ LIMIT 1;
 
 -- name: NextQueuedJob :one
 -- The highest-priority queued job of a kind whose time has come; the oldest first among equals.
-SELECT id, kind, subject, args, priority, not_before, attempts, reason
+SELECT id, kind, subject, args, priority, runnable_at, attempts, reason
 FROM job
-WHERE state = 'queued' AND kind = sqlc.arg(kind) AND not_before <= sqlc.arg(now)
-ORDER BY priority DESC, not_before, id
+WHERE state = 'queued' AND kind = sqlc.arg(kind) AND runnable_at <= sqlc.arg(now)
+ORDER BY priority DESC, runnable_at, id
 LIMIT 1;
 
 -- name: StartJob :execrows
@@ -40,9 +40,9 @@ UPDATE job SET state = sqlc.arg(state), progress = sqlc.arg(progress), last_erro
 WHERE id = sqlc.arg(id);
 
 -- name: DeferJob :exec
--- Back to the queue until not_before: a rate limit, or a retry's back-off (D170). A wait that is
+-- Back to the queue until runnable_at: a rate limit, or a retry's back-off (D170). A wait that is
 -- not the job's fault gives back the attempt StartJob counted.
-UPDATE job SET state = 'queued', not_before = sqlc.arg(not_before), last_error = sqlc.arg(last_error),
+UPDATE job SET state = 'queued', runnable_at = sqlc.arg(runnable_at), last_error = sqlc.arg(last_error),
                attempts = sqlc.arg(attempts)
 WHERE id = sqlc.arg(id);
 
@@ -52,14 +52,14 @@ UPDATE job SET state = 'queued'
 WHERE state = 'running';
 
 -- name: GetJob :one
-SELECT id, kind, subject, args, priority, state, node_id, not_before, attempts, progress, reason,
+SELECT id, kind, subject, args, priority, state, node_id, runnable_at, attempts, progress, reason,
        last_error, created_at, finished_at
 FROM job
 WHERE id = sqlc.arg(id);
 
 -- name: ListJobs :many
 -- The job view, newest first.
-SELECT id, kind, subject, args, priority, state, node_id, not_before, attempts, progress, reason,
+SELECT id, kind, subject, args, priority, state, node_id, runnable_at, attempts, progress, reason,
        last_error, created_at, finished_at
 FROM job
 ORDER BY id DESC

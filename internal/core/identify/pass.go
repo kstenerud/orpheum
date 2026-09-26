@@ -70,10 +70,10 @@ type Report struct {
 
 // NewPass returns the identification pass.
 func NewPass(
-	database *store.Database, now clock.Clock, logger *slog.Logger, providers Providers, config Settings,
+	database *store.Database, clockSource clock.Clock, logger *slog.Logger, providers Providers, config Settings,
 ) *Pass {
 	return &Pass{
-		database: database, clock: now, logger: logger, providers: cleanProviders(providers), settings: config,
+		database: database, clock: clockSource, logger: logger, providers: cleanProviders(providers), settings: config,
 	}
 }
 
@@ -100,10 +100,10 @@ func (pass *Pass) Library(ctx context.Context, libraryID int64) (Report, error) 
 	err = pass.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		work := &run{
 			queries: queries, now: pass.clock.Now().UnixMilli(), report: &report, providers: pass.providers,
-			sorter: sorter,
-			titles: map[string]int64{}, series: map[string]int64{}, nfoByVideo: map[int64]NFO{},
-			showNFOs: map[string]NFO{}, folderNFOs: map[string][]namedNFO{}, folderTitle: map[string]int64{},
-			evidence: map[int64][]titleSpec{}, fileTitle: map[int64]int64{}, extraOf: map[int64]string{},
+			sorter:       sorter,
+			titleIDByKey: map[string]int64{}, seriesIDByName: map[string]int64{}, nfoByVideo: map[int64]NFO{},
+			showNFOs: map[string]NFO{}, folderNFOs: map[string][]namedNFO{}, titleIDByFolder: map[string]int64{},
+			evidence: map[int64][]titleSpec{}, titleIDByFile: map[int64]int64{}, extraOf: map[int64]string{},
 			localArt: map[int64][]ArtRef{}, seriesFolders: map[string]int64{},
 			seriesSeen: map[int64]seriesSpec{}, seriesRows: map[int64]sqlcgen.GetSeriesForMatchRow{},
 			listings: map[string][]Episode{},
@@ -139,20 +139,20 @@ type run struct {
 	roots     []sqlcgen.ListLibraryRootsRow
 	files     []sqlcgen.ListIdentifyFilesRow
 
-	nfoByVideo    map[int64]NFO // an NFO attached to its video
-	folderNFOs    map[string][]namedNFO
-	showNFOs      map[string]NFO   // a tvshow.nfo, by its folder
-	titles        map[string]int64 // by key
-	series        map[string]int64 // by name, lower case
-	folderTitle   map[string]int64 // a film's folder, for its extras
-	evidence      map[int64][]titleSpec
-	fileTitle     map[int64]int64
-	extraOf       map[int64]string     // an extra's file, and why it is one (D163)
-	localArt      map[int64][]ArtRef   // the images beside each item (D215)
-	seriesFolders map[string]int64     // the folder a series' images sit in
-	seriesSeen    map[int64]seriesSpec // what this pass's files say about each series
-	seriesRows    map[int64]sqlcgen.GetSeriesForMatchRow
-	listings      map[string][]Episode // parsed season listings, by "series/season"
+	nfoByVideo      map[int64]NFO // an NFO attached to its video
+	folderNFOs      map[string][]namedNFO
+	showNFOs        map[string]NFO   // a tvshow.nfo, by its folder
+	titleIDByKey    map[string]int64 // by key
+	seriesIDByName  map[string]int64 // by name, lower case
+	titleIDByFolder map[string]int64 // a film's folder, for its extras
+	evidence        map[int64][]titleSpec
+	titleIDByFile   map[int64]int64
+	extraOf         map[int64]string     // an extra's file, and why it is one (D163)
+	localArt        map[int64][]ArtRef   // the images beside each item (D215)
+	seriesFolders   map[string]int64     // the folder a series' images sit in
+	seriesSeen      map[int64]seriesSpec // what this pass's files say about each series
+	seriesRows      map[int64]sqlcgen.GetSeriesForMatchRow
+	listings        map[string][]Episode // parsed season listings, by "series/season"
 }
 
 // awaiting lists what the fetch queue owes the library: films and series never answered for.
@@ -230,7 +230,7 @@ func (work *run) knowSeriesByFolder(ctx context.Context) error {
 			continue
 		}
 		key := strings.ToLower(parsed.Name)
-		if _, known := work.series[key]; known {
+		if _, known := work.seriesIDByName[key]; known {
 			continue
 		}
 		seriesID, err := work.currentSeries(ctx, file)
@@ -238,7 +238,7 @@ func (work *run) knowSeriesByFolder(ctx context.Context) error {
 			return err
 		}
 		if seriesID != 0 {
-			work.series[key] = seriesID
+			work.seriesIDByName[key] = seriesID
 		}
 	}
 	return nil
@@ -277,7 +277,7 @@ func (work *run) work(ctx context.Context, file sqlcgen.ListIdentifyFilesRow, re
 	if err != nil {
 		return err
 	}
-	work.folderTitle[path.Dir(file.Path)] = titleID
+	work.titleIDByFolder[path.Dir(file.Path)] = titleID
 	return work.place(ctx, file, titleID, spec)
 }
 
@@ -347,7 +347,7 @@ func (work *run) place(ctx context.Context, file sqlcgen.ListIdentifyFilesRow, t
 	if err != nil {
 		return err
 	}
-	work.fileTitle[file.ID] = titleID
+	work.titleIDByFile[file.ID] = titleID
 	work.evidence[titleID] = append(work.evidence[titleID], spec)
 	return nil
 }

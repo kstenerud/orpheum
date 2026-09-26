@@ -47,8 +47,8 @@ type Admin struct {
 }
 
 // NewAdmin returns the admin service.
-func NewAdmin(database *store.Database, now clock.Clock, nodes Nodes) *Admin {
-	return &Admin{database: database, clock: now, nodes: nodes}
+func NewAdmin(database *store.Database, clockSource clock.Clock, nodes Nodes) *Admin {
+	return &Admin{database: database, clock: clockSource, nodes: nodes}
 }
 
 // NodeRoots is one enrolled node, and the roots its last hello named when it is connected: what

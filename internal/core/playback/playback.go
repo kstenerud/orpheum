@@ -99,7 +99,7 @@ type Started struct {
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
 // to the person and the session that asked (D217 §2).
-func (service *Service) Start(ctx context.Context, userID int64, session string, request Request) (Started, error) {
+func (service *Service) Start(ctx context.Context, userID int64, sessionKey string, request Request) (Started, error) {
 	if err := request.Menu.Validate(); err != nil {
 		return Started{}, err
 	}
@@ -123,7 +123,7 @@ func (service *Service) Start(ctx context.Context, userID int64, session string,
 		return Started{}, err
 	}
 	started := Started{Decision: decision}
-	playback := playing{userID: userID, session: session, fileID: file.ID}
+	playback := playing{userID: userID, sessionKey: sessionKey, fileID: file.ID}
 	if decision.Kind == decide.HLS {
 		playback.profile = nodeproto.PrepareProfile(decision.Profile)
 		rendition, wantErr := service.prepares.want(ctx, file, playback.profile)
@@ -149,12 +149,12 @@ type Source struct {
 }
 
 // Direct is where the bytes of the file a media token refers to are.
-func (service *Service) Direct(ctx context.Context, token string, userID int64, session string) (Source, error) {
+func (service *Service) Direct(ctx context.Context, token string, userID int64, sessionKey string) (Source, error) {
 	idle, err := service.idle(ctx)
 	if err != nil {
 		return Source{}, err
 	}
-	playback, found := service.tokens.use(token, userID, session, service.clock.Now(), idle)
+	playback, found := service.tokens.use(token, userID, sessionKey, service.clock.Now(), idle)
 	if !found || playback.profile != "" {
 		return Source{}, ErrNoToken
 	}

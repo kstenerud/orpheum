@@ -109,7 +109,7 @@ func (work *run) localImage(imagePath string, videos map[string]int64) (int64, l
 		if !cut {
 			continue
 		}
-		titleID, placed := work.fileTitle[videos[strings.ToLower(folder)+"/"+rest]]
+		titleID, placed := work.titleIDByFile[videos[strings.ToLower(folder)+"/"+rest]]
 		if !placed || !fits(work.titleKind(titleID), named.Kind) {
 			return 0, localChoice{}, false
 		}
@@ -120,7 +120,7 @@ func (work *run) localImage(imagePath string, videos map[string]int64) (int64, l
 			continue
 		}
 		rank += len(videoImageKinds()) // a name for one video is more specific than one for the folder
-		if titleID, isFilm := work.folderTitle[folder]; isFilm {
+		if titleID, isFilm := work.titleIDByFolder[folder]; isFilm {
 			return titleID, localChoice{ref: ArtRef{Kind: named.Kind}, rank: rank}, true
 		}
 		if seriesID, isSeries := work.seriesFolders[folder]; isSeries {

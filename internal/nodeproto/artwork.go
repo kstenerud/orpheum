@@ -87,10 +87,11 @@ type Artwork struct {
 	// Job names the core's job the answer belongs to.
 	Job    int64  `json:"job"`
 	Source []byte `json:"source,omitempty"`
-	// Path, in place of Source, names an image beside the media for the node to read itself,
-	// under one of its roots, so its bytes never reach the core (D215).
-	Path  *Path `json:"path,omitempty"`
-	Shape Shape `json:"shape"`
+	// AbsolutePath, in place of Source, names an image beside the media for the node to read
+	// itself, under one of its roots, so its bytes never reach the core (D215). Unlike every other
+	// Path on the wire it is absolute: the node finds the root it is under.
+	AbsolutePath *Path `json:"absolutePath,omitempty"`
+	Shape        Shape `json:"shape"`
 	// Sizes are the names to make; one larger than the source is not made.
 	Sizes []ArtSizeName `json:"sizes"`
 	// MaxPixels refuses a source larger than this before it is decoded: a decompression bomb.
