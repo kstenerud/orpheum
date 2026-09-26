@@ -925,6 +925,12 @@ export interface components {
             /** @description Must list h264-sdr */
             video: ("h264-sdr" | "hevc-sdr" | "hevc-hdr10" | "av1-sdr" | "av1-hdr10")[] | null;
         };
+        NewDeviceBody: {
+            /** @description What the person will know it by: "Chrome on Android", "Living room TV" */
+            name: string;
+            /** @description The kind of client: "web", "cast" */
+            platform: string;
+        };
         NodeBody: {
             /** @description Whether it has said hello since the server started */
             isConnected: boolean;
@@ -1029,6 +1035,7 @@ export interface components {
             setupCode: string;
         };
         SignInInputBody: {
+            device: components["schemas"]["NewDeviceBody"];
             name: string;
             password: string;
         };

@@ -96,7 +96,9 @@ func checkSeedsAgain(t *testing.T, seed func() (int, string)) {
 
 func signInAs(t *testing.T, baseURL, name, password string) string {
 	t.Helper()
-	answer := call(t, http.MethodPost, baseURL+"/session", "", map[string]string{"name": name, "password": password})
+	answer := call(t, http.MethodPost, baseURL+"/session", "", map[string]any{
+		"name": name, "password": password, "device": signInDevice,
+	})
 	const marker = `"token":"`
 	start := strings.Index(answer.body, marker)
 	if answer.status != http.StatusCreated || start < 0 {

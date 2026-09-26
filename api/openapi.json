@@ -1009,6 +1009,28 @@
         ],
         "type": "object"
       },
+      "NewDeviceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "What the person will know it by: \"Chrome on Android\", \"Living room TV\"",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "platform": {
+            "description": "The kind of client: \"web\", \"cast\"",
+            "maxLength": 40,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "platform"
+        ],
+        "type": "object"
+      },
       "NodeBody": {
         "additionalProperties": false,
         "properties": {
@@ -1383,6 +1405,9 @@
       "SignInInputBody": {
         "additionalProperties": false,
         "properties": {
+          "device": {
+            "$ref": "#/components/schemas/NewDeviceBody"
+          },
           "name": {
             "minLength": 1,
             "type": "string"
@@ -1394,7 +1419,8 @@
         },
         "required": [
           "name",
-          "password"
+          "password",
+          "device"
         ],
         "type": "object"
       },

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -69,6 +70,9 @@ type Principal struct {
 	Role         Role
 	Capabilities []string
 	IsOutsider   bool
+	// DeviceID is the device the session was signed in on (D217 §8), or 0 for a session from
+	// before devices were made at sign-in.
+	DeviceID int64
 }
 
 // IsAdmin reports whether the principal's role carries the administer capability.
@@ -165,9 +169,19 @@ func (service *Service) CountUsers(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
-// SignIn checks a name and password and issues a session. The address is the client's network
-// address, for the per-address failure limit. A hash made under older parameters is re-hashed.
-func (service *Service) SignIn(ctx context.Context, name, password, address string) (token string, err error) {
+// NewDevice is how a client names itself when it signs in (D217 §8): "Chrome on Android", and the
+// kind of client it is, "web".
+type NewDevice struct {
+	Name     string
+	Platform string
+}
+
+// SignIn checks a name and password and issues a session on a new device, which the client
+// named. The address is the client's network address, for the per-address failure limit. A
+// hash made under older parameters is re-hashed.
+func (service *Service) SignIn(
+	ctx context.Context, name, password, address string, device NewDevice,
+) (token string, err error) {
 	limit, window, err := service.failurePolicy(ctx)
 	if err != nil {
 		return "", err
@@ -201,7 +215,7 @@ func (service *Service) SignIn(ctx context.Context, name, password, address stri
 			return "", rehashErr
 		}
 	}
-	return service.issueSession(ctx, user.ID)
+	return service.issueSession(ctx, user.ID, device)
 }
 
 func (service *Service) rehash(ctx context.Context, userID int64, password string, parameters Parameters) error {
@@ -216,18 +230,25 @@ func (service *Service) rehash(ctx context.Context, userID int64, password strin
 	})
 }
 
-// issueSession mints a session grant for the user and returns its token, which is stored only
-// as its SHA-256 (D154).
-func (service *Service) issueSession(ctx context.Context, userID int64) (string, error) {
+// issueSession makes the device the user signed in on and mints a session grant tied to it, and
+// returns its token, which is stored only as its SHA-256 (D154).
+func (service *Service) issueSession(ctx context.Context, userID int64, device NewDevice) (string, error) {
 	secret := make([]byte, tokenBytes)
 	if _, err := io.ReadFull(service.random, secret); err != nil {
 		return "", fmt.Errorf("make a session token: %w", err)
 	}
 	token := base64.RawURLEncoding.EncodeToString(secret)
+	now := service.clock.Now().UnixMilli()
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		deviceID, err := queries.InsertDevice(ctx, sqlcgen.InsertDeviceParams{
+			UserID: &userID, Name: device.Name, Platform: device.Platform, SeenAt: now,
+		})
+		if err != nil {
+			return fmt.Errorf("record the device: %w", err)
+		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			Hash: tokenHash(token), Kind: grantKindSession, Subject: &userID, Scope: grantScopeSession,
-			IssuedAt: service.clock.Now().UnixMilli(),
+			IssuedAt: now, DeviceID: &deviceID,
 		})
 	})
 	if err != nil {
@@ -284,6 +305,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	return Principal{
 		UserID: user.ID, Name: user.Name, Role: Role(user.RoleName),
 		Capabilities: strings.Split(user.Capabilities, ","), IsOutsider: user.Outsider == 1,
+		DeviceID: ptr.ValueOrZero(grant.DeviceID),
 	}, nil
 }
 

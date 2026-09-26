@@ -42,7 +42,7 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 		t.Fatalf("setup: %d %s", created.status, created.body)
 	}
 	session := call(t, http.MethodPost, server.baseURL+"/session", "",
-		map[string]string{"name": adminName, "password": "pw"})
+		map[string]any{"name": adminName, "password": "pw", "device": signInDevice})
 	var signedIn struct {
 		Token string `json:"token"`
 	}
