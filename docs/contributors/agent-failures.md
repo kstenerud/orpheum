@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A7 — A cause asserted from a plausible mechanism, and a fix built on it, without a measurement (2026-09-26)
+
+- **What happened:** the owner reported that the dialogue boost took two to three seconds to be
+  heard. I said the cause was six-second segments, recommended two-second ones as making the
+  switch "about a second", and the owner chose that; a setting to vary the length followed. The
+  owner then heard no change: still two to four seconds. The cause was elsewhere. The browser
+  plays out the audio it has already decoded ahead, whatever the segment length, and a seek in
+  place after the switch fixed it (VQ2). Nothing was lost but a round trip, and the
+  shorter segments and the setting are still useful; but a recommendation was offered as a
+  prediction it could not back.
+- **Caught by:** the owner, listening.
+- **Gate:** none; the lesson is the agent's. When a symptom's cause is inferred, say so, and
+  read the component that owns the behaviour (here hls.js's switch code, which said plainly it
+  does not flush the decoder) before recommending a fix, or offer the fix as a test of the
+  hypothesis rather than as the answer.
+
 ### A6 — A decided rule left unbuilt behind a comment naming code that never existed (2026-09-25)
 
 - **What happened:** D162's second evidence of an extra (`Film (1999)-trailer.mkv` beside its
