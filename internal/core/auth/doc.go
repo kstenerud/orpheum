@@ -37,6 +37,11 @@
 //     TestDeviceCode_WrongCodesCountAgainstTheSignInLimit.
 //   - Changing a password needs the current one and signs no one out (D218 §6). Enforced by
 //     TestChangePassword_NeedsTheCurrentOneAndKeepsOtherSessions.
+//   - A person's devices are listed, and only they, or an admin, change one; a removed device's
+//     sessions end, and signing out elsewhere ends every session but this device's and keeps
+//     the devices listed (D218 §4, §5). Enforced by
+//     TestDevices_AreListedAndARemovedOneIsSignedOutAtItsNextRequest and
+//     TestSignOutElsewhere_EndsEverySessionButThisDevicesAndKeepsThemListed.
 //   - argon2id takes at most 500 ms on devnas: BenchmarkHashPassword_DefaultParameters, run there
 //     (verification queue VQ1).
 //   - Its opinions — argon2id's costs, the failure limit and window, idle expiry — are settings
@@ -61,5 +66,5 @@
 //     failure counts.
 //   - auth.go: users, sign-in, sessions on the grant table. setup.go: the setup code and the first
 //     admin. accounts.go: accounts, registration links, device codes and changing a password
-//     (D218). code.go: a device code's safe32.
+//     (D218). devices.go: a person's devices. code.go: a device code's safe32.
 package auth

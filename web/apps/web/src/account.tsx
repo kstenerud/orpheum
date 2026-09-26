@@ -3,7 +3,14 @@
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import { changePassword, issueDeviceCode, type Invitation } from "./accounts.ts";
+import {
+  changePassword,
+  issueDeviceCode,
+  keepShownCode,
+  shownCode,
+  type Invitation,
+} from "./accounts.ts";
+import { YourDevices } from "./your-devices.tsx";
 import { PasswordField } from "./register.tsx";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
@@ -14,25 +21,50 @@ export function Account(): JSX.Element {
   return (
     <section className="account" aria-labelledby="account-heading">
       <h1 id="account-heading">{t("account.heading")}</h1>
+      <YourDevices />
       <AddDevice />
       <ChangePassword />
     </section>
   );
 }
 
-/** Asks for a code that signs a new device in as this person (D218 §3). */
+/** This tab's own storage, or undefined where the browser refuses it. */
+function tabStorage(): Storage | undefined {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Asks for a code that signs a new device in as this person (D218 §3). The code stays on screen
+ * across a reload, from this tab's own storage, until it expires: the server keeps only its hash.
+ */
 function AddDevice(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [name, setName] = useState("");
-  const [code, setCode] = useState<Invitation | undefined>(undefined);
+  const [code, setCode] = useState<Invitation | undefined>(() => {
+    const storage = tabStorage();
+    return storage === undefined ? undefined : shownCode(storage, Date.now());
+  });
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const submit = (event: SyntheticEvent): void => {
     event.preventDefault();
     setProblem(undefined);
-    issueDeviceCode(api, name).then(setCode, (cause: unknown) => {
-      setProblem(cause instanceof Error ? cause.message : String(cause));
-    });
+    issueDeviceCode(api, name).then(
+      (made) => {
+        setCode(made);
+        const storage = tabStorage();
+        if (storage !== undefined) {
+          keepShownCode(storage, { ...made, deviceName: name });
+        }
+      },
+      (cause: unknown) => {
+        setProblem(cause instanceof Error ? cause.message : String(cause));
+      },
+    );
   };
   return (
     <form className="account__part" onSubmit={submit}>

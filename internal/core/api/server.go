@@ -112,6 +112,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerReport()
 	server.registerHome()
 	server.registerAccounts()
+	server.registerDevices()
 	return server
 }
 

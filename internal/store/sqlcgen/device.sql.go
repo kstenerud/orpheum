@@ -9,6 +9,17 @@ import (
 	"context"
 )
 
+const getLiveDeviceOwner = `-- name: GetLiveDeviceOwner :one
+SELECT user_id FROM device WHERE id = ?1 AND removed_at IS NULL
+`
+
+func (q *Queries) GetLiveDeviceOwner(ctx context.Context, id int64) (*int64, error) {
+	row := q.db.QueryRowContext(ctx, getLiveDeviceOwner, id)
+	var user_id *int64
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
 const insertDevice = `-- name: InsertDevice :one
 
 INSERT INTO device (user_id, name, platform, first_seen_at, last_seen_at)
@@ -35,4 +46,123 @@ func (q *Queries) InsertDevice(ctx context.Context, arg InsertDeviceParams) (int
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const listLiveDevicesOf = `-- name: ListLiveDevicesOf :many
+SELECT device.id, device.name, device.platform, device.first_seen_at,
+  CAST(coalesce(max("grant".last_seen_at), device.first_seen_at) AS INTEGER) AS last_used_at,
+  CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > ?1)), 0) AS INTEGER) AS is_signed_in
+FROM device
+LEFT JOIN "grant" ON "grant".device_id = device.id AND "grant".kind = 'session'
+WHERE device.user_id = ?2 AND device.removed_at IS NULL
+GROUP BY device.id
+ORDER BY last_used_at DESC, device.id DESC
+`
+
+type ListLiveDevicesOfParams struct {
+	Now    *int64
+	UserID *int64
+}
+
+type ListLiveDevicesOfRow struct {
+	ID          int64
+	Name        string
+	Platform    string
+	FirstSeenAt int64
+	LastUsedAt  int64
+	IsSignedIn  int64
+}
+
+// A person's devices, most recently used first: when each was last used, by the latest use of any
+// of its sessions, and whether any is still live.
+func (q *Queries) ListLiveDevicesOf(ctx context.Context, arg ListLiveDevicesOfParams) ([]ListLiveDevicesOfRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveDevicesOf, arg.Now, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLiveDevicesOfRow{}
+	for rows.Next() {
+		var i ListLiveDevicesOfRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Platform,
+			&i.FirstSeenAt,
+			&i.LastUsedAt,
+			&i.IsSignedIn,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const removeDevice = `-- name: RemoveDevice :exec
+UPDATE device SET removed_at = ?1 WHERE id = ?2
+`
+
+type RemoveDeviceParams struct {
+	RemovedAt *int64
+	ID        int64
+}
+
+// A device revoked (D218 section 4): it leaves the list, and its sessions end.
+func (q *Queries) RemoveDevice(ctx context.Context, arg RemoveDeviceParams) error {
+	_, err := q.db.ExecContext(ctx, removeDevice, arg.RemovedAt, arg.ID)
+	return err
+}
+
+const renameDevice = `-- name: RenameDevice :exec
+UPDATE device SET name = ?1 WHERE id = ?2
+`
+
+type RenameDeviceParams struct {
+	Name string
+	ID   int64
+}
+
+func (q *Queries) RenameDevice(ctx context.Context, arg RenameDeviceParams) error {
+	_, err := q.db.ExecContext(ctx, renameDevice, arg.Name, arg.ID)
+	return err
+}
+
+const revokeSessionsOfDevice = `-- name: RevokeSessionsOfDevice :exec
+UPDATE "grant" SET revoked_at = ?1
+WHERE device_id = ?2 AND kind = 'session' AND revoked_at IS NULL
+`
+
+type RevokeSessionsOfDeviceParams struct {
+	RevokedAt *int64
+	DeviceID  *int64
+}
+
+func (q *Queries) RevokeSessionsOfDevice(ctx context.Context, arg RevokeSessionsOfDeviceParams) error {
+	_, err := q.db.ExecContext(ctx, revokeSessionsOfDevice, arg.RevokedAt, arg.DeviceID)
+	return err
+}
+
+const revokeSessionsOfUserExceptDevice = `-- name: RevokeSessionsOfUserExceptDevice :exec
+UPDATE "grant" SET revoked_at = ?1
+WHERE subject = ?2 AND kind = 'session' AND revoked_at IS NULL
+  AND device_id IS NOT ?3
+`
+
+type RevokeSessionsOfUserExceptDeviceParams struct {
+	RevokedAt    *int64
+	UserID       *int64
+	KeepDeviceID *int64
+}
+
+// Signing out everywhere else: every session of the person's but those of the device asking.
+func (q *Queries) RevokeSessionsOfUserExceptDevice(ctx context.Context, arg RevokeSessionsOfUserExceptDeviceParams) error {
+	_, err := q.db.ExecContext(ctx, revokeSessionsOfUserExceptDevice, arg.RevokedAt, arg.UserID, arg.KeepDeviceID)
+	return err
 }

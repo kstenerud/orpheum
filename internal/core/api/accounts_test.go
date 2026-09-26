@@ -5,6 +5,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -84,3 +85,44 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	}
 	harness.signIn(t, "partner", "new")
 }
+
+func TestDevices_APersonListsRenamesAndRemovesTheirOwnAndAnAdminAnyones(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	second := harness.signIn(t, "owner", "owner-password")
+	listed := harness.do(t, http.MethodGet, "/me/devices", admin, nil)
+	var mine DevicesOutput
+	if err := json.Unmarshal([]byte(listed.body), &mine.Body); err != nil || len(mine.Body.Devices) != 2 {
+		t.Fatalf("GET /me/devices = %d %s", listed.status, listed.body)
+	}
+	var other DeviceBody
+	for _, device := range mine.Body.Devices {
+		if !device.IsThisDevice {
+			other = device
+		}
+	}
+	if other.ID == 0 || !other.IsSignedIn {
+		t.Fatalf("devices = %+v, want this one and another, signed in", mine.Body.Devices)
+	}
+	if renamed := harness.do(t, http.MethodPut, "/me/devices/"+itoa(other.ID), admin,
+		map[string]string{"name": "Laptop"}); renamed.status != http.StatusNoContent {
+		t.Errorf("rename = %d %s", renamed.status, renamed.body)
+	}
+	if removed := harness.do(t, http.MethodDelete, "/me/devices/"+itoa(other.ID), admin, nil); removed.status !=
+		http.StatusNoContent {
+		t.Errorf("remove = %d %s", removed.status, removed.body)
+	}
+	wantError(t, harness.do(t, http.MethodGet, "/me", second, nil), http.StatusUnauthorized, CodeAuthRequired)
+	wantError(t, harness.do(t, http.MethodDelete, "/me/devices/9999", admin, nil), http.StatusNotFound, CodeNotFound)
+	if byAdmin := harness.do(t, http.MethodGet, "/users/1/devices", admin, nil); !strings.Contains(byAdmin.body,
+		`"isThisDevice":true`) {
+		t.Errorf("GET /users/1/devices = %s", byAdmin.body)
+	}
+	if signedOut := harness.do(t, http.MethodPost, "/me/devices/sign-out-elsewhere", admin, nil); signedOut.status !=
+		http.StatusNoContent {
+		t.Errorf("sign out elsewhere = %d %s", signedOut.status, signedOut.body)
+	}
+}
+
+func itoa(id int64) string { return strconv.FormatInt(id, 10) }

@@ -10,15 +10,42 @@ import {
   changePassword,
   createAccount,
   issueDeviceCode,
+  keepShownCode,
   register,
   registrationUrl,
+  removeMyDevice,
+  renameMyDevice,
   secretFromHash,
+  shownCode,
   signInWithCode,
+  signOutElsewhere,
 } from "./accounts.ts";
 import { PeopleList } from "./people.tsx";
 import { parseRoute } from "./router.ts";
 import { Share } from "./share.tsx";
 import { withServices } from "./test-services.tsx";
+import { DeviceList, deviceState } from "./your-devices.tsx";
+
+/** A Storage kept in memory, as a tab's sessionStorage is. */
+function memoryStorage(): Storage {
+  const items = new Map<string, string>();
+  return {
+    get length() {
+      return items.size;
+    },
+    clear: () => {
+      items.clear();
+    },
+    getItem: (key) => items.get(key) ?? null,
+    key: (index) => [...items.keys()][index] ?? null,
+    removeItem: (key) => {
+      items.delete(key);
+    },
+    setItem: (key, value) => {
+      items.set(key, value);
+    },
+  };
+}
 
 /** An API whose requests the test keeps, each answered with answer. */
 function recording(answer: unknown): {
@@ -117,5 +144,50 @@ describe("accounts", () => {
     );
     expect(code).toContain('<output class="share__code">abcd-efgh</output>');
     expect(code).toContain("It works once, until");
+  });
+
+  it("shows a device code again after a reload, until it expires", () => {
+    const storage = memoryStorage();
+    keepShownCode(storage, { secret: "abcd-efgh", expiresAt: 1000, deviceName: "TV" });
+    expect(shownCode(storage, 999)).toEqual({
+      secret: "abcd-efgh",
+      expiresAt: 1000,
+      deviceName: "TV",
+    });
+    expect(shownCode(storage, 1000)).toBeUndefined();
+    expect(storage.length).toBe(0);
+    storage.setItem("orpheum.deviceCode", "not json");
+    expect(shownCode(storage, 0)).toBeUndefined();
+  });
+
+  it("lists devices with which is this one, and renames, removes and signs out elsewhere", async () => {
+    const tv = {
+      id: 5,
+      name: "Living room TV",
+      platform: "web",
+      addedAt: 0,
+      lastUsedAt: 0,
+      isSignedIn: false,
+      isThisDevice: false,
+    };
+    expect(deviceState(tv)).toBe("signedOut");
+    expect(deviceState({ ...tv, isSignedIn: true })).toBe("signedIn");
+    expect(deviceState({ ...tv, isThisDevice: true })).toBe("thisDevice");
+    const nothing = (): void => undefined;
+    const markup = renderToStaticMarkup(
+      withServices(<DeviceList devices={[tv]} onRename={nothing} onRemove={nothing} />),
+    );
+    expect(markup).toContain("Living room TV");
+    expect(markup).toContain("Signed out");
+    expect(markup).toContain('aria-label="Remove Living room TV; it is signed out"');
+    const { api, sent } = recording(undefined);
+    await renameMyDevice(api, 5, "Lounge TV");
+    await removeMyDevice(api, 5);
+    await signOutElsewhere(api);
+    expect(sent).toEqual([
+      { method: "PUT", path: "/api/v1/me/devices/5", body: { name: "Lounge TV" } },
+      { method: "DELETE", path: "/api/v1/me/devices/5", body: undefined },
+      { method: "POST", path: "/api/v1/me/devices/sign-out-elsewhere", body: undefined },
+    ]);
   });
 });
