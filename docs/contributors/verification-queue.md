@@ -49,3 +49,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   the later watching, not the earlier. (`web/apps/web/src/play-state.ts`) — done 2026-09-26 by the owner, on an
   Android phone in Chrome, after `5da8b69`: *"Yup works correctly with pause and without"*; the
   second device's part not yet seen.
+- [ ] **VQ5** — On an Android phone in Chrome, on the dev loop, play two films partway and leave
+  each. Open the home screen (Films): **Continue watching** shows both, the last watched first,
+  each with how far along it is, and touching one plays it from where it was left. Press **Hide**
+  on one: it goes, with **Undo**, which brings it back. Hide it again and play it a little: it is
+  back by itself. The row scrolls sideways and fits the phone's width.
+  (`web/apps/web/src/continue-watching.tsx`)

@@ -2,11 +2,13 @@
 
 import "./browse.css";
 
-import { artUrl, type components } from "@orpheum/sdk";
+import type { components } from "@orpheum/sdk";
 import { useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ContinueWatching } from "./continue-watching.tsx";
 import { Link } from "./link.tsx";
+import { Poster } from "./poster.tsx";
 import type { Route } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
@@ -27,28 +29,6 @@ const pageSize = 60;
 /** Where an entry leads: a film's page, or a series'. */
 export function entryRoute(kind: BrowseKind, id: number): Route {
   return kind === "movie" ? { screen: "title", id } : { screen: "collection", id };
-}
-
-/** A poster, or a named blank where there is none; the card's own text names the item. */
-export function Poster(props: { readonly hash: string | undefined }): JSX.Element {
-  const { t } = useTranslation();
-  if (props.hash === undefined) {
-    return (
-      <span className="poster poster--blank" aria-hidden="true">
-        {t("common.noPoster")}
-      </span>
-    );
-  }
-  return (
-    <img
-      className="poster"
-      src={artUrl(props.hash, "portrait-m")}
-      alt={""}
-      loading="lazy"
-      width={240}
-      height={360}
-    />
-  );
 }
 
 /** A grid of films or series, each a poster with its name and year under it. */
@@ -83,6 +63,8 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
   const [sort, setSort] = useState<BrowseSort>("name");
   return (
     <section className="browse" aria-labelledby="browse-heading">
+      {/* The home screen opens on what the person stopped in the middle of (D188). */}
+      {props.kind === "movie" ? <ContinueWatching /> : null}
       <div className="browse__bar">
         <h1 id="browse-heading">{t(props.kind === "movie" ? "browse.films" : "browse.series")}</h1>
         <SortChoice sort={sort} onSort={setSort} />
