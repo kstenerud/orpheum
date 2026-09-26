@@ -84,6 +84,13 @@ export function playHls(
   return {
     setAudioRendition: (index) => {
       hls.audioTrack = index;
+      // hls.js drops the buffered audio of the old mix, but the browser has already decoded a
+      // few seconds of it ahead and would play those out first. Seeking to where it is makes it
+      // discard them, so the new mix is heard at once, after a moment's pause.
+      if (!video.paused || video.currentTime > 0) {
+        // eslint-disable-next-line no-param-reassign, no-self-assign -- a media element seeks when currentTime is set; the same value drops what it decoded ahead
+        video.currentTime = video.currentTime;
+      }
     },
     destroy: () => {
       hls.destroy();
