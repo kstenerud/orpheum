@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A9 — A decision reported built with one of its clauses left out (2026-09-26)
+
+- **What happened:** I built D218's accounts (registration links, device codes, password change)
+  and told the owner *"Accounts by one-time link (D218) are built"*. D218 §4 also says the added
+  device is *"listed and revocable like any other"*, and nothing listed or revoked a device. The
+  summary came from the list of endpoints I had planned, not from D218's clauses read back
+  against what was built.
+- **Caught by:** the owner, testing on a phone: *"Should it be showing me a list of devices I
+  have associated with my account so that I can revoke it?"*
+- **Gate:** none can read a decision's prose. The practice: before calling a decision built,
+  walk its numbered clauses one by one against the code and tests, and name any that are not
+  built. Proposed for the audit checklist's "At every commit" section when a commit claims to
+  finish a decision.
+
 ### A8 — Names that made the reader dig, against a standard that already forbade them (2026-09-26)
 
 - **What happened:** building prepare, I named the segment length's setting `hls_segment_s`,
