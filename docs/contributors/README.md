@@ -16,6 +16,7 @@ Docs for building and changing this project.
 | Start building | [`AGENTS.md`](../../AGENTS.md), then [`design/plans/cut-a.md`](design/plans/cut-a.md) |
 | Know the coding rules | [`standards/`](standards/README.md) |
 | Know the engineering disposition | [`principles/`](principles/README.md) |
+| Audit between milestones | [`audit-checklist.md`](audit-checklist.md) |
 
 ## The directories
 
