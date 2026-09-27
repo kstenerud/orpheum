@@ -17,6 +17,7 @@ type DeviceBody struct {
 	ID           int64  `json:"id"`
 	Name         string `json:"name"`
 	Platform     string `json:"platform"`
+	AudioOutput  string `doc:"Absent until the device is asked, the first time it plays (D222)" enum:"tv_speakers,receiver,headphones" json:"audioOutput,omitempty"` //nolint:lll // one struct tag
 	AddedAt      int64  `doc:"Unix milliseconds" json:"addedAt"`
 	LastUsedAt   int64  `doc:"Unix milliseconds" json:"lastUsedAt"`
 	IsSignedIn   bool   `json:"isSignedIn"`
@@ -36,12 +37,13 @@ type DeviceInput struct {
 	DeviceID int64 `minimum:"1" path:"id"`
 }
 
-// RenameDeviceInput renames one of the asker's devices.
-type RenameDeviceInput struct {
+// ChangeDeviceInput renames one of the asker's devices, or says how it makes sound, or both.
+type ChangeDeviceInput struct {
 	AuthorizationHeader
 	DeviceID int64 `minimum:"1" path:"id"`
 	Body     struct {
-		Name string `json:"name" maxLength:"100" minLength:"1"`
+		Name        *string `json:"name,omitempty" maxLength:"100" minLength:"1" required:"false"`
+		AudioOutput *string `doc:"How the device makes sound; TV speakers and headphones are stereo (D222)" enum:"tv_speakers,receiver,headphones" json:"audioOutput,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
@@ -65,9 +67,10 @@ func (server *Server) registerDevices() {
 		Summary: "One's own devices, most recently used first (D218)", Tags: tags,
 	}, server.listMyDevices)
 	huma.Register(server.api, huma.Operation{
-		OperationID: "renameMyDevice", Method: http.MethodPut, Path: "/me/devices/{id}",
-		Summary: "Rename one of one's devices", Tags: tags, DefaultStatus: http.StatusNoContent,
-	}, server.renameMyDevice)
+		OperationID: "changeMyDevice", Method: http.MethodPut, Path: "/me/devices/{id}",
+		Summary: "Rename one of one's devices, or say how it makes sound", Tags: tags,
+		DefaultStatus: http.StatusNoContent,
+	}, server.changeMyDevice)
 	huma.Register(server.api, huma.Operation{
 		OperationID: "removeMyDevice", Method: http.MethodDelete, Path: "/me/devices/{id}",
 		Summary: "Remove one of one's devices; it is signed out at its next request", Tags: tags,
@@ -100,7 +103,8 @@ func (server *Server) devicesOf(ctx context.Context, dependencies *Dependencies,
 	output.Body.Devices = make([]DeviceBody, 0, len(devices))
 	for _, device := range devices {
 		output.Body.Devices = append(output.Body.Devices, DeviceBody{
-			ID: device.ID, Name: device.Name, Platform: device.Platform, AddedAt: device.AddedAt.UnixMilli(),
+			ID: device.ID, Name: device.Name, Platform: device.Platform, AudioOutput: device.AudioOutput,
+			AddedAt:    device.AddedAt.UnixMilli(),
 			LastUsedAt: device.LastUsed.UnixMilli(), IsSignedIn: device.IsSignedIn,
 			IsThisDevice: device.ID == thisDevice,
 		})
@@ -116,13 +120,22 @@ func (server *Server) listMyDevices(ctx context.Context, input *struct{ Authoriz
 	return server.devicesOf(ctx, dependencies, principal.UserID, principal.DeviceID)
 }
 
-func (server *Server) renameMyDevice(ctx context.Context, input *RenameDeviceInput) (*struct{}, error) {
+func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInput) (*struct{}, error) {
 	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	err = dependencies.Auth.RenameDevice(ctx, principal.UserID, input.DeviceID, input.Body.Name)
-	return server.deviceAnswer(ctx, "rename a device", err)
+	if input.Body.Name == nil && input.Body.AudioOutput == nil {
+		return nil, newError(http.StatusBadRequest, CodeInvalidRequest,
+			"a change names a new name or how the device makes sound")
+	}
+	if name := input.Body.Name; name != nil {
+		err = dependencies.Auth.RenameDevice(ctx, principal.UserID, input.DeviceID, *name)
+	}
+	if output := input.Body.AudioOutput; err == nil && output != nil {
+		err = dependencies.Auth.SetAudioOutput(ctx, principal.UserID, input.DeviceID, *output)
+	}
+	return server.deviceAnswer(ctx, "change a device", err)
 }
 
 func (server *Server) removeMyDevice(ctx context.Context, input *DeviceInput) (*struct{}, error) {

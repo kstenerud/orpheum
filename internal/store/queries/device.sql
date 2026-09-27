@@ -9,7 +9,7 @@ RETURNING id;
 -- name: ListLiveDevicesOf :many
 -- A person's devices, most recently used first: when each was last used, by the latest use of any
 -- of its sessions, and whether any is still live.
-SELECT device.id, device.name, device.platform, device.first_seen_at,
+SELECT device.id, device.name, device.platform, device.audio_output, device.first_seen_at,
   CAST(coalesce(max("grant".last_seen_at), device.first_seen_at) AS INTEGER) AS last_used_at,
   CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > sqlc.arg(now))), 0) AS INTEGER) AS is_signed_in
 FROM device
@@ -23,6 +23,10 @@ SELECT user_id FROM device WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: RenameDevice :exec
 UPDATE device SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
+
+-- name: SetDeviceAudioOutput :exec
+-- How a device makes sound (D222): asked the first time it plays, changeable after.
+UPDATE device SET audio_output = sqlc.arg(audio_output) WHERE id = sqlc.arg(id);
 
 -- name: RemoveDevice :exec
 -- A device revoked (D218 section 4): it leaves the list, and its sessions end.
@@ -40,7 +44,7 @@ WHERE subject = sqlc.arg(user_id) AND kind = 'session' AND revoked_at IS NULL
 
 -- name: GetLiveDeviceOf :one
 -- One of a person's devices, when it is theirs and has not been removed.
-SELECT id, name, platform FROM device
+SELECT id, name, platform, audio_output FROM device
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND removed_at IS NULL;
 
 -- name: TouchDevice :exec

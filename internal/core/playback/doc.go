@@ -23,6 +23,11 @@
 //   - A subtitle choice is kept per file, as the file's own, and carried to the work's other files
 //     with none of their own, by language and kind, never over a file's own (D219). Enforced by
 //     TestSubtitleChoice_IsKeptPerFileAndCarriedToTheSeriesFilesWithNoneOfTheirOwn.
+//   - A decision reads how the asking device makes sound: TV speakers and headphones are stereo,
+//     a receiver or a device not yet asked is not, and the answer says which so the player can
+//     ask (D222). Enforced by TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct.
+//   - The dialogue boost is the person's, in every file, off until they turn it on (D83, D222).
+//     Enforced by TestFilePrefs_TheDialogueBoostIsThePersonsInEveryFile.
 //   - A playback starts where the person left the file, unless that is before resume_min_percent
 //     or after finished_after_percent of a known length; an unknown length is never read as
 //     finished. Enforced by TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength.
@@ -65,6 +70,7 @@
 //   - D180: a prepared rendition's play state is its source's.
 //   - D81: play state is an append-only event log plus a guarded position.
 //   - D191: signed-in Watch Together viewing is also recorded.
+//   - D83, D222: the dialogue boost is a person's; a device's sound decides whether we fold it down.
 //   - docs/contributors/design/plans/play-state.md, docs/contributors/design/plans/cut-a.md §6.
 //
 // # Where to change

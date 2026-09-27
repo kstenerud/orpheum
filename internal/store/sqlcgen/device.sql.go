@@ -10,7 +10,7 @@ import (
 )
 
 const getLiveDeviceOf = `-- name: GetLiveDeviceOf :one
-SELECT id, name, platform FROM device
+SELECT id, name, platform, audio_output FROM device
 WHERE id = ?1 AND user_id = ?2 AND removed_at IS NULL
 `
 
@@ -20,16 +20,22 @@ type GetLiveDeviceOfParams struct {
 }
 
 type GetLiveDeviceOfRow struct {
-	ID       int64
-	Name     string
-	Platform string
+	ID          int64
+	Name        string
+	Platform    string
+	AudioOutput *string
 }
 
 // One of a person's devices, when it is theirs and has not been removed.
 func (q *Queries) GetLiveDeviceOf(ctx context.Context, arg GetLiveDeviceOfParams) (GetLiveDeviceOfRow, error) {
 	row := q.db.QueryRowContext(ctx, getLiveDeviceOf, arg.ID, arg.UserID)
 	var i GetLiveDeviceOfRow
-	err := row.Scan(&i.ID, &i.Name, &i.Platform)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Platform,
+		&i.AudioOutput,
+	)
 	return i, err
 }
 
@@ -73,7 +79,7 @@ func (q *Queries) InsertDevice(ctx context.Context, arg InsertDeviceParams) (int
 }
 
 const listLiveDevicesOf = `-- name: ListLiveDevicesOf :many
-SELECT device.id, device.name, device.platform, device.first_seen_at,
+SELECT device.id, device.name, device.platform, device.audio_output, device.first_seen_at,
   CAST(coalesce(max("grant".last_seen_at), device.first_seen_at) AS INTEGER) AS last_used_at,
   CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > ?1)), 0) AS INTEGER) AS is_signed_in
 FROM device
@@ -92,6 +98,7 @@ type ListLiveDevicesOfRow struct {
 	ID          int64
 	Name        string
 	Platform    string
+	AudioOutput *string
 	FirstSeenAt int64
 	LastUsedAt  int64
 	IsSignedIn  int64
@@ -112,6 +119,7 @@ func (q *Queries) ListLiveDevicesOf(ctx context.Context, arg ListLiveDevicesOfPa
 			&i.ID,
 			&i.Name,
 			&i.Platform,
+			&i.AudioOutput,
 			&i.FirstSeenAt,
 			&i.LastUsedAt,
 			&i.IsSignedIn,
@@ -188,6 +196,21 @@ type RevokeSessionsOfUserExceptDeviceParams struct {
 // Signing out everywhere else: every session of the person's but those of the device asking.
 func (q *Queries) RevokeSessionsOfUserExceptDevice(ctx context.Context, arg RevokeSessionsOfUserExceptDeviceParams) error {
 	_, err := q.db.ExecContext(ctx, revokeSessionsOfUserExceptDevice, arg.RevokedAt, arg.UserID, arg.KeepDeviceID)
+	return err
+}
+
+const setDeviceAudioOutput = `-- name: SetDeviceAudioOutput :exec
+UPDATE device SET audio_output = ?1 WHERE id = ?2
+`
+
+type SetDeviceAudioOutputParams struct {
+	AudioOutput *string
+	ID          int64
+}
+
+// How a device makes sound (D222): asked the first time it plays, changeable after.
+func (q *Queries) SetDeviceAudioOutput(ctx context.Context, arg SetDeviceAudioOutputParams) error {
+	_, err := q.db.ExecContext(ctx, setDeviceAudioOutput, arg.AudioOutput, arg.ID)
 	return err
 }
 

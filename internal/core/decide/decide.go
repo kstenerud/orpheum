@@ -68,9 +68,10 @@ type Input struct {
 	Prefer Prefer
 	// RemoteCeilingKbps is the bit rate above which a file is re-encoded for a remote link.
 	RemoteCeilingKbps int64
-	// Boost is whether the dialogue boost is wanted on this device's sound: on, and the device
-	// on stereo speakers (cut-a §6, D184).
-	Boost bool
+	// StereoOutput is whether the device plays two channels that the server folds down for it: TV
+	// speakers or headphones. A sound of more than two channels is then always prepared, so the
+	// dialogue boost can act and be switched mid-film (D222).
+	StereoOutput bool
 }
 
 // Decision is the answer: how the file plays and why, and the recipe when it is prepared.
@@ -95,7 +96,7 @@ func Decide(input Input) Decision {
 		reasons = append(reasons, ReasonBandwidth)
 	}
 	// The boost changes nothing on a source with no centre channel to raise.
-	if audio, hasAudio := mainAudio(input.Probe); input.Boost && hasAudio && audio.Audio.Channels > 2 {
+	if audio, hasAudio := mainAudio(input.Probe); input.StereoOutput && hasAudio && audio.Audio.Channels > 2 {
 		reasons = append(reasons, ReasonDialogueBoost)
 	}
 	if input.Prefer == PreferPrepare {

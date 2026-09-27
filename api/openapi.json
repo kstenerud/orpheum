@@ -138,6 +138,26 @@
         ],
         "type": "object"
       },
+      "ChangeDeviceInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "audioOutput": {
+            "description": "How the device makes sound; TV speakers and headphones are stereo (D222)",
+            "enum": [
+              "tv_speakers",
+              "receiver",
+              "headphones"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "ChangePasswordInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -433,6 +453,15 @@
             "description": "Unix milliseconds",
             "format": "int64",
             "type": "integer"
+          },
+          "audioOutput": {
+            "description": "Absent until the device is asked, the first time it plays (D222)",
+            "enum": [
+              "tv_speakers",
+              "receiver",
+              "headphones"
+            ],
+            "type": "string"
           },
           "id": {
             "format": "int64",
@@ -808,6 +837,9 @@
       "FilePrefsBody": {
         "additionalProperties": false,
         "properties": {
+          "isDialogueBoost": {
+            "type": "boolean"
+          },
           "subtitle": {
             "$ref": "#/components/schemas/SubtitleChoiceBody"
           },
@@ -818,7 +850,8 @@
           }
         },
         "required": [
-          "subtitleOffsetMs"
+          "subtitleOffsetMs",
+          "isDialogueBoost"
         ],
         "type": "object"
       },
@@ -1525,20 +1558,6 @@
         ],
         "type": "object"
       },
-      "RenameDeviceInputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "maxLength": 100,
-            "minLength": 1,
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "type": "object"
-      },
       "RenamePersonInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1775,6 +1794,9 @@
       "SetFilePrefsInputBody": {
         "additionalProperties": false,
         "properties": {
+          "isDialogueBoost": {
+            "type": "boolean"
+          },
           "subtitle": {
             "$ref": "#/components/schemas/SubtitleChoiceBody"
           },
@@ -1995,6 +2017,14 @@
               "array",
               "null"
             ]
+          },
+          "audioOutput": {
+            "enum": [
+              "tv_speakers",
+              "receiver",
+              "headphones"
+            ],
+            "type": "string"
           },
           "isPreparing": {
             "type": "boolean"
@@ -3279,7 +3309,7 @@
             "description": "Error"
           }
         },
-        "summary": "Keep a person's choices for one file: its subtitle offset, its subtitle track",
+        "summary": "Keep a person's choices for one file: its subtitle offset, its subtitle track; and the dialogue boost, theirs in every file",
         "tags": [
           "Playback"
         ]
@@ -4315,7 +4345,7 @@
         ]
       },
       "put": {
-        "operationId": "renameMyDevice",
+        "operationId": "changeMyDevice",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -4341,7 +4371,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RenameDeviceInputBody"
+                "$ref": "#/components/schemas/ChangeDeviceInputBody"
               }
             }
           },
@@ -4362,7 +4392,7 @@
             "description": "Error"
           }
         },
-        "summary": "Rename one of one's devices",
+        "summary": "Rename one of one's devices, or say how it makes sound",
         "tags": [
           "Accounts"
         ]

@@ -24,6 +24,10 @@
 //   - Direct play is judged on the picture and on the track a player starts with (the default,
 //     else the first), never on cover art or a second track. Enforced by
 //     TestDecide_JudgesTheTrackAPlayerStartsWith.
+//   - On stereo output (TV speakers, headphones), a main sound of more than two channels is always
+//     prepared, for dialogue_boost, whether the boost is on or off, so it switches mid-film
+//     without a new job; a stereo sound is not (D222). Enforced by
+//     TestDecide_TheBoostPreparesOnlyASourceWithACentre.
 //   - Every switch over a codec, container or reason names every value; a new codec breaks each
 //     switch that does not handle it. Enforced by exhaustive (default-signifies-exhaustive:
 //     false).
@@ -36,6 +40,7 @@
 //   - D22: video, audio and subtitles negotiate as independent axes.
 //   - D103: a device capability is never stored.
 //   - D193 §2: prepare is the one path besides direct play.
+//   - D222: who folds a surround sound down to stereo, and when that prepares.
 //   - docs/contributors/design/plans/cut-a.md §6.
 //
 // # Where to change

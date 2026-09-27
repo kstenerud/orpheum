@@ -21,6 +21,9 @@ type FilePrefs struct {
 	SubtitleOffsetMs int64
 	// Subtitle is the file's subtitle choice, or nil when it has none.
 	Subtitle *SubtitleChoice
+	// IsDialogueBoost is whether the person plays with the dialogue boost: theirs, for every file,
+	// off until they turn it on (D83, D222).
+	IsDialogueBoost bool
 }
 
 // SubtitleChoice is a subtitle choice for one file: a track in it, or off (D219).
@@ -36,8 +39,12 @@ type SubtitleChoice struct {
 // The preference table's names for what FilePrefs holds.
 const (
 	scopeFile            = "file"
+	scopeUser            = "user"
 	axisSubtitleOffsetMs = "subtitle_offset_ms"
 	axisSubtitleTrack    = "subtitle_track"
+	axisDialogueBoost    = "dialogue_boost"
+	valueOn              = "on"
+	valueOff             = "off"
 )
 
 // ErrNoTrack is a subtitle choice naming a track the file does not have.
@@ -65,7 +72,36 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 			return FilePrefs{}, fmt.Errorf("read the %s of file %d: %w", preference.Axis, fileID, err)
 		}
 	}
+	personal, err := service.database.Read().ListPreferencesAt(ctx, sqlcgen.ListPreferencesAtParams{
+		UserID: userID, Scope: scopeUser, ScopeID: 0,
+	})
+	if err != nil {
+		return FilePrefs{}, fmt.Errorf("read user %d's preferences: %w", userID, err)
+	}
+	for _, preference := range personal {
+		if preference.Axis == axisDialogueBoost {
+			prefs.IsDialogueBoost = preference.Value == valueOn
+		}
+	}
 	return prefs, nil
+}
+
+// SetDialogueBoost keeps whether the person plays with the dialogue boost, for every file (D83).
+func (service *Service) SetDialogueBoost(ctx context.Context, userID int64, isOn bool) error {
+	value := valueOff
+	if isOn {
+		value = valueOn
+	}
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		return queries.SetPreference(ctx, sqlcgen.SetPreferenceParams{
+			UserID: userID, Scope: scopeUser, ScopeID: 0, Axis: axisDialogueBoost, Value: value,
+			SetAt: service.clock.Now().UnixMilli(),
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("keep user %d's dialogue boost: %w", userID, err)
+	}
+	return nil
 }
 
 // SetSubtitleOffset keeps the person's subtitle offset for a file they may play.

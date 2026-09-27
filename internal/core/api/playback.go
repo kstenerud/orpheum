@@ -71,6 +71,9 @@ type StartPlaybackOutput struct {
 		ResumePositionMs int64 `json:"resumePositionMs"`
 		// MediaToken names this playback in its reports; it grants nothing alone (D217 §2).
 		MediaToken string `json:"mediaToken"`
+		// AudioOutput is how the device asking makes sound, absent until it is asked: the player
+		// asks before it plays, and asks for the decision again with the answer (D222).
+		AudioOutput string `enum:"tv_speakers,receiver,headphones" json:"audioOutput,omitempty"`
 	}
 }
 
@@ -149,7 +152,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		return nil, err
 	}
 	request := playback.Request{
-		FileID: input.Body.FileID, Menu: menuOf(input.Body.Menu),
+		FileID: input.Body.FileID, DeviceID: principal.DeviceID, Menu: menuOf(input.Body.Menu),
 		Link: decide.Link(input.Body.Link), Prefer: decide.Prefer(input.Body.Prefer),
 	}
 	started, err := dependencies.Playback.Start(ctx, principal.UserID, sessionKey(input.Authorization), request)
@@ -182,6 +185,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	output.Body.Prefs = filePrefsBody(started.Prefs)
 	output.Body.ResumePositionMs = started.ResumePositionMs
 	output.Body.MediaToken = started.Token
+	output.Body.AudioOutput = started.AudioOutput
 	return output, nil
 }
 
