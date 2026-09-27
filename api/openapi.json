@@ -309,6 +309,32 @@
         ],
         "type": "object"
       },
+      "ConfinementBody": {
+        "additionalProperties": false,
+        "properties": {
+          "isInForce": {
+            "type": "boolean"
+          },
+          "mechanism": {
+            "enum": [
+              "landlock",
+              "seccomp"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "remedy": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mechanism",
+          "isInForce"
+        ],
+        "type": "object"
+      },
       "CreateAccountInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -1511,6 +1537,15 @@
       "NodeBody": {
         "additionalProperties": false,
         "properties": {
+          "confinement": {
+            "items": {
+              "$ref": "#/components/schemas/ConfinementBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "isConnected": {
             "description": "Whether it has said hello since the server started",
             "type": "boolean"
@@ -1532,7 +1567,8 @@
         "required": [
           "name",
           "isConnected",
-          "roots"
+          "roots",
+          "confinement"
         ],
         "type": "object"
       },

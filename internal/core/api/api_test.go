@@ -114,8 +114,9 @@ func newHarness(t *testing.T) testHarness {
 			Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
 			MaxSilence: time.Minute,
 		}),
-		NodeBytes: nodeBytes,
-		Jobs:      queue,
+		NodeBytes:   nodeBytes,
+		Jobs:        queue,
+		NodeReports: nodes,
 		ConfigFile: []ConfigFileKey{{
 			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), StartingValue: json.RawMessage("10"),
 			IsFromFile: false, Description: "seconds in-flight requests get to finish",

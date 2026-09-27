@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // fetched is a response, read and closed.
@@ -99,4 +100,30 @@ func TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling(t *testing.T) {
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/doctor", harness.signIn(t, "partner", "partner-password"), nil),
 		http.StatusForbidden, CodeForbidden)
+}
+
+func TestDoctor_SaysANodeRunsFFmpegWithoutAMechanismAndWhatWouldPutItThere(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/films")
+	harness.nodes.confinement = []nodeproto.Confinement{
+		{
+			Mechanism: "landlock", Reason: "the kernel has Landlock, but it is not enabled at boot",
+			Remedy: "add landlock to the lsm= list",
+		},
+		{Mechanism: "seccomp", InForce: true},
+	}
+	found := harness.do(t, http.MethodGet, "/doctor", admin, nil)
+	want := `{"check":"FFmpeg confinement on node local","verdict":"warn",` +
+		`"detail":"FFmpeg runs on this node without all its confinement: landlock: the kernel has Landlock, ` +
+		`but it is not enabled at boot","action":"landlock: add landlock to the lsm= list"}`
+	if found.status != http.StatusOK || !strings.Contains(found.body, want) {
+		t.Errorf("doctor = %d %s, want the missing mechanism and its remedy (D112)", found.status, found.body)
+	}
+	harness.nodes.confinement[0].InForce = true
+	if confined := harness.do(t, http.MethodGet, "/doctor", admin, nil); !strings.Contains(confined.body,
+		`{"check":"FFmpeg confinement on node local","verdict":"ok"`) {
+		t.Errorf("doctor with both in force = %s, want ok", confined.body)
+	}
 }

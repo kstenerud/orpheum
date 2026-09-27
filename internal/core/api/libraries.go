@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
 
@@ -195,6 +196,34 @@ type NodeBody struct {
 	Name        string   `json:"name"`
 	IsConnected bool     `doc:"Whether it has said hello since the server started" json:"isConnected"`
 	Roots       []string `doc:"Its configured roots; empty while it is not connected" json:"roots"`
+	// Confinement is how its FFmpeg runs are confined, per mechanism, as it last said; empty while
+	// it is not connected (D112).
+	Confinement []ConfinementBody `json:"confinement"`
+}
+
+// ConfinementBody is one mechanism on a node: in force, or not, why, and what would put it there.
+type ConfinementBody struct {
+	Mechanism string `enum:"landlock,seccomp" json:"mechanism"`
+	IsInForce bool   `json:"isInForce"`
+	Reason    string `json:"reason,omitempty"`
+	Remedy    string `json:"remedy,omitempty"`
+}
+
+// NodeReports is what each connected node said about itself: nodes.Service.
+type NodeReports interface {
+	Confinement(name string) ([]nodeproto.Confinement, bool)
+}
+
+// confinementOf is a node's confinement as the API shows it: empty when it is not connected.
+func confinementOf(reports NodeReports, name string) []ConfinementBody {
+	reported, _ := reports.Confinement(name)
+	bodies := make([]ConfinementBody, 0, len(reported))
+	for _, state := range reported {
+		bodies = append(bodies, ConfinementBody{
+			Mechanism: state.Mechanism, IsInForce: state.InForce, Reason: state.Reason, Remedy: state.Remedy,
+		})
+	}
+	return bodies
 }
 
 // NodesOutput is every enrolled node.
@@ -216,7 +245,10 @@ func (server *Server) getNodes(ctx context.Context, input *AuthorizationHeader) 
 	output := &NodesOutput{}
 	output.Body.Nodes = make([]NodeBody, 0, len(nodes))
 	for _, node := range nodes {
-		body := NodeBody{Name: node.Name, IsConnected: node.Connected, Roots: node.Roots}
+		body := NodeBody{
+			Name: node.Name, IsConnected: node.Connected, Roots: node.Roots,
+			Confinement: confinementOf(dependencies.NodeReports, node.Name),
+		}
 		output.Body.Nodes = append(output.Body.Nodes, body)
 	}
 	return output, nil

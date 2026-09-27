@@ -92,12 +92,14 @@ func (service *Service) ReceiveSubtitles(sink SubtitleSink) {
 
 // channel is what the core holds for one connected node.
 type channel struct {
-	name      string
-	roots     []string // as its last hello named them (D107)
-	commands  []nodeproto.Command
-	nextSeq   int64
-	wake      chan struct{}
-	lastHeard time.Time
+	name  string
+	roots []string // as its last hello named them (D107)
+	// confinement is what its last hello said about FFmpeg's confinement, per mechanism (D112).
+	confinement []nodeproto.Confinement
+	commands    []nodeproto.Command
+	nextSeq     int64
+	wake        chan struct{}
+	lastHeard   time.Time
 }
 
 // NewService returns the service. The pollHold argument is how long a command long-poll waits
@@ -147,7 +149,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		service.fail(ctx, writer, "read scan_on_node_hello", err)
 		return
 	}
-	service.connect(node.ID, hello.Name, hello.Roots)
+	service.connect(node.ID, hello)
 	service.logger.InfoContext(ctx, "a node said hello", "node", hello.Name, "nodeId", node.ID,
 		"version", hello.Version, "ffmpeg", hello.FFmpegVersion, "roots", hello.Roots,
 		"confinement", hello.Confinement)
@@ -193,16 +195,30 @@ func enrol(
 
 // connect registers a node's channel, keeping its queue across a reconnection, with the roots
 // its hello named.
-func (service *Service) connect(nodeID int64, name string, roots []string) {
+func (service *Service) connect(nodeID int64, hello nodeproto.Hello) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	existing, found := service.channels[nodeID]
 	if !found {
-		existing = &channel{name: name, nextSeq: 1, wake: make(chan struct{})}
+		existing = &channel{name: hello.Name, nextSeq: 1, wake: make(chan struct{})}
 		service.channels[nodeID] = existing
 	}
 	existing.lastHeard = service.clock.Now()
-	existing.roots = slices.Clone(roots)
+	existing.roots = slices.Clone(hello.Roots)
+	existing.confinement = slices.Clone(hello.Confinement)
+}
+
+// Confinement is what the named node's last hello since the core started said about FFmpeg's
+// confinement, per mechanism; false when it has not said hello since (D112).
+func (service *Service) Confinement(name string) ([]nodeproto.Confinement, bool) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	for _, existing := range service.channels {
+		if existing.name == name && !existing.lastHeard.IsZero() {
+			return slices.Clone(existing.confinement), true
+		}
+	}
+	return nil, false
 }
 
 // Roots are the media roots the named node configured, as its last hello since the core started

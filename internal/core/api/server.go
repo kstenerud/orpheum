@@ -65,6 +65,8 @@ type Dependencies struct {
 	NodeBytes NodeBytes
 	// Jobs is the one work queue, the one whose runners run the jobs, for the job view and cancel.
 	Jobs *jobs.Queue
+	// NodeReports is what each connected node said about itself, for the admin to see.
+	NodeReports NodeReports
 	// ConfigFile is the config file's keys as the server runs with them, for /config to show.
 	ConfigFile []ConfigFileKey
 }

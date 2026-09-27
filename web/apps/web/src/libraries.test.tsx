@@ -56,8 +56,13 @@ describe("libraries", () => {
         <CreateLibraryForm
           draft={{ ...blankLibrary(), roots: ["/media/films"] }}
           nodes={[
-            { name: "local", isConnected: true, roots: ["/media/films", "/media/shows"] },
-            { name: "attic", isConnected: false, roots: [] },
+            {
+              name: "local",
+              isConnected: true,
+              roots: ["/media/films", "/media/shows"],
+              confinement: [],
+            },
+            { name: "attic", isConnected: false, roots: [], confinement: [] },
           ]}
           problem=""
           onDraft={ignore}
@@ -86,7 +91,7 @@ describe("libraries", () => {
       withServices(
         <CreateLibraryForm
           draft={blankLibrary()}
-          nodes={[{ name: "local", isConnected: false, roots: [] }]}
+          nodes={[{ name: "local", isConnected: false, roots: [], confinement: [] }]}
           problem=""
           onDraft={ignore}
           onSubmit={ignore}

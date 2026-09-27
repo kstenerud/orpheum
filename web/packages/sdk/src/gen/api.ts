@@ -1047,6 +1047,13 @@ export interface components {
             file: components["schemas"]["ConfigFileKey"][] | null;
             settings: components["schemas"]["SettingBody"][] | null;
         };
+        ConfinementBody: {
+            isInForce: boolean;
+            /** @enum {string} */
+            mechanism: "landlock" | "seccomp";
+            reason?: string;
+            remedy?: string;
+        };
         CreateAccountInputBody: {
             name: string;
             /** @enum {string} */
@@ -1413,6 +1420,7 @@ export interface components {
             resumeId?: number;
         };
         NodeBody: {
+            confinement: components["schemas"]["ConfinementBody"][] | null;
             /** @description Whether it has said hello since the server started */
             isConnected: boolean;
             name: string;
