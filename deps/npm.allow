@@ -29,3 +29,4 @@ hls.js  # HLS playback in every browser but Safari, which plays HLS natively (D2
 jassub  # ASS subtitles drawn as their author styled them, over the video (D217 §4; web-client.md)
 @playwright/test  # real browsers in tests: M3's playback timing in Chrome and Firefox, M4's two clients (D217 §4; D190)
 qrcode-generator  # the registration link as a QR code, drawn in the browser; zero dependencies, MIT (D218 §1; the owner chose it, 2026-09-27)
+happy-dom  # a DOM for vitest, so a test can render a screen, click it and read what it shows; a dev dependency (D190; the owner chose it, 2026-09-27)
