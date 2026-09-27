@@ -21,11 +21,16 @@ import (
 // fakeFFmpeg writes a segment where the command line's output goes and reports its progress.
 type fakeFFmpeg struct {
 	fail error
+	// granted, when set, records what each run was granted.
+	granted *[]confine.Access
 }
 
 func (fake fakeFFmpeg) RunStreaming(
-	_ context.Context, _ execx.Tool, _ confine.Access, arguments []string, stdout io.Writer,
+	_ context.Context, _ execx.Tool, access confine.Access, arguments []string, stdout io.Writer,
 ) error {
+	if fake.granted != nil {
+		*fake.granted = append(*fake.granted, access)
+	}
 	output := filepath.Dir(filepath.Dir(arguments[len(arguments)-1]))
 	if err := os.MkdirAll(filepath.Join(output, "video"), 0o700); err != nil {
 		return err
@@ -86,6 +91,31 @@ func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *
 	segment := filepath.Join(directory, "7", "remux", "0123456789abcdef", "video", "seg00000.m4s")
 	if _, err := os.Stat(segment); err != nil {
 		t.Errorf("the rendition is not under 7/remux: %v", err)
+	}
+}
+
+func TestPreparer_OnlyAnEncodeOnTheGPUIsGrantedItsDevices(t *testing.T) {
+	t.Parallel()
+	prepareWith := func(encoder prepare.Encoder, profile nodeproto.PrepareProfile) confine.Access {
+		var granted []confine.Access
+		preparer, err := prepare.New(fakeFFmpeg{granted: &granted}, t.TempDir(), roomy{}, encoder)
+		if err != nil {
+			t.Fatal(err)
+		}
+		command := nodeproto.Prepare{Profile: profile, RenditionDir: "7/" + string(profile) + "/0123456789abcdef"}
+		if _, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(int64) {}); err != nil {
+			t.Fatal(err)
+		}
+		return granted[0]
+	}
+	if !prepareWith(prepare.EncoderQuickSync, nodeproto.ProfileH264At8M).Devices {
+		t.Error("an encode with Quick Sync is not granted the GPU; confined, it would fail")
+	}
+	if prepareWith(prepare.EncoderQuickSync, nodeproto.ProfileRemux).Devices {
+		t.Error("a remux is granted the GPU, which it never uses")
+	}
+	if prepareWith(prepare.EncoderX264, nodeproto.ProfileH264At8M).Devices {
+		t.Error("an x264 encode is granted the GPU, which it never uses")
 	}
 }
 
