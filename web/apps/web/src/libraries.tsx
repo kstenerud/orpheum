@@ -4,7 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem, problemText } from "./problem.ts";
+import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -125,26 +125,24 @@ function useLibraryActions(reload: () => void): {
   return {
     notes,
     scan: (id) => {
-      void api
+      api
         .POST("/libraries/{id}/scan", { params: { path: { id } } })
-        .then(({ data, error }) => {
-          noted(
-            id,
-            data === undefined
-              ? problemText(t, new ApiProblem(error.error))
-              : t("libraries.scanning", { count: data.rootsAsked }),
-          );
-        });
+        .then(dataOrThrow)
+        .then(
+          (data) => {
+            noted(id, t("libraries.scanning", { count: data.rootsAsked }));
+          },
+          (cause: unknown) => {
+            noted(id, problemText(t, cause));
+          },
+        );
     },
     answer: (id, root, path) => {
-      void api
+      api
         .POST(path, { params: { path: { id } }, body: { node: root.node, path: root.path } })
-        .then(({ error }) => {
-          if (error === undefined) {
-            reload();
-          } else {
-            noted(id, problemText(t, new ApiProblem(error.error)));
-          }
+        .then(throwIfRefused)
+        .then(reload, (cause: unknown) => {
+          noted(id, problemText(t, cause));
         });
     },
   };
@@ -155,10 +153,7 @@ export function Libraries(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [libraries, reload] = useResource("libraries", async () => {
-    const { data, error } = await api.GET("/libraries");
-    if (data === undefined) {
-      throw new ApiProblem(error.error);
-    }
+    const data = dataOrThrow(await api.GET("/libraries"));
     return data.libraries ?? [];
   });
   const actions = useLibraryActions(reload);

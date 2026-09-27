@@ -13,6 +13,8 @@ export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
 export { browserMenu, menuFrom } from "./menu.ts";
 export { textWhenReady, whenReady } from "./ready.ts";
+export { ApiProblem, dataOrThrow, isErrorDetail, throwIfRefused } from "./problem.ts";
+export type { ErrorDetail } from "./problem.ts";
 export type { WaitOptions } from "./ready.ts";
 export type { MediaProbe, Menu } from "./menu.ts";
 

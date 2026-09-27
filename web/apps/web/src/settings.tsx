@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { components } from "@orpheum/sdk";
+import type { components, ErrorDetail } from "@orpheum/sdk";
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem, problemText } from "./problem.ts";
+import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -14,8 +14,10 @@ export type Secret = components["schemas"]["SecretBody"];
 /** A server setting, with its value and its starting value. */
 export type Setting = components["schemas"]["SettingBody"];
 
-/** A refusal, as a request's answer carries it (cut-a §5.2). */
-type Refused = { readonly error: components["schemas"]["ErrorDetail"] } | undefined;
+/** A request's answer, as the SDK gives it: a refusal carries the server's error. */
+interface Answer {
+  readonly error?: { readonly error: ErrorDetail };
+}
 
 /** A setting's value as a person reads it. */
 export function shown(value: unknown): string {
@@ -223,23 +225,24 @@ function Secrets(): JSX.Element {
   const { api } = useServices();
   const [notes, setNotes] = useState<ReadonlyMap<string, string>>(() => new Map());
   const [secrets, reload] = useResource("secrets", async () => {
-    const { data, error } = await api.GET("/secrets");
-    if (data === undefined) {
-      throw new ApiProblem(error.error);
-    }
+    const data = dataOrThrow(await api.GET("/secrets"));
     return data.secrets ?? [];
   });
-  const answered =
-    (name: string, done: string) =>
-    ({ error }: { error?: Refused }): void => {
-      setNotes((previous) =>
-        new Map(previous).set(
-          name,
-          error === undefined ? done : problemText(t, new ApiProblem(error.error)),
-        ),
-      );
+  /** Shows how a change to a secret went, then loads the secrets again. */
+  const noteOutcome = (name: string, successNote: string, change: Promise<Answer>): void => {
+    const note = (text: string): void => {
+      setNotes((previous) => new Map(previous).set(name, text));
       reload();
     };
+    change.then(throwIfRefused).then(
+      () => {
+        note(successNote);
+      },
+      (cause: unknown) => {
+        note(problemText(t, cause));
+      },
+    );
+  };
   return (
     <Loaded
       resource={secrets}
@@ -247,15 +250,19 @@ function Secrets(): JSX.Element {
         <SecretsView
           secrets={value}
           notes={notes}
-          onSave={(name, secret) => {
-            void api
-              .PUT("/secrets/{name}", { params: { path: { name } }, body: { value: secret } })
-              .then(answered(name, t("settings.saved")));
+          onSave={(name, value) => {
+            noteOutcome(
+              name,
+              t("settings.saved"),
+              api.PUT("/secrets/{name}", { params: { path: { name } }, body: { value } }),
+            );
           }}
           onRemove={(name) => {
-            void api
-              .DELETE("/secrets/{name}", { params: { path: { name } } })
-              .then(answered(name, t("settings.removed")));
+            noteOutcome(
+              name,
+              t("settings.removed"),
+              api.DELETE("/secrets/{name}", { params: { path: { name } } }),
+            );
           }}
         />
       )}
@@ -269,15 +276,21 @@ function ServerSettings(): JSX.Element {
   const { api } = useServices();
   const [problem, setProblem] = useState("");
   const [config, reload] = useResource("config", async () => {
-    const { data, error } = await api.GET("/config");
-    if (data === undefined) {
-      throw new ApiProblem(error.error);
-    }
+    const data = dataOrThrow(await api.GET("/config"));
     return data.settings ?? [];
   });
-  const answered = ({ error }: { error?: Refused }): void => {
-    setProblem(error === undefined ? "" : problemText(t, new ApiProblem(error.error)));
-    reload();
+  /** Shows a change's refusal, if any, then loads the settings again. */
+  const noteOutcome = (change: Promise<Answer>): void => {
+    change.then(throwIfRefused).then(
+      () => {
+        setProblem("");
+        reload();
+      },
+      (cause: unknown) => {
+        setProblem(problemText(t, cause));
+        reload();
+      },
+    );
   };
   return (
     <>
@@ -288,10 +301,10 @@ function ServerSettings(): JSX.Element {
           <SettingsView
             settings={value}
             onSave={(key, setting) => {
-              void api.PUT("/config", { body: { values: { [key]: setting } } }).then(answered);
+              noteOutcome(api.PUT("/config", { body: { values: { [key]: setting } } }));
             }}
             onReset={(key) => {
-              void api.POST("/config/{key}/reset", { params: { path: { key } } }).then(answered);
+              noteOutcome(api.POST("/config/{key}/reset", { params: { path: { key } } }));
             }}
           />
         )}

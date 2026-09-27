@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { ApiProblem } from "./problem.ts";
 import { textWhenReady, whenReady } from "./ready.ts";
 
 function answer(status: number, headers: Record<string, string> = {}, body = "{}"): Response {
@@ -39,6 +40,25 @@ describe("waiting for a prepared rendition", () => {
     await expect(
       whenReady("/x", { fetch: () => Promise.resolve(failed), sleep: () => Promise.resolve() }),
     ).rejects.toThrow("could not be prepared");
+  });
+
+  it("throws a refusal as the ApiProblem it answered, so the client says it by its code", async () => {
+    const failed = answer(
+      502,
+      {},
+      JSON.stringify({ error: { code: "prepare_failed", message: "could not be prepared" } }),
+    );
+    const refusal: unknown = await whenReady("/x", {
+      fetch: () => Promise.resolve(failed),
+      sleep: () => Promise.resolve(),
+    }).catch((cause: unknown) => cause);
+    expect(refusal).toBeInstanceOf(ApiProblem);
+    expect(refusal instanceof ApiProblem ? refusal.code : "").toBe("prepare_failed");
+    const shapeless: unknown = await whenReady("/x", {
+      fetch: () => Promise.resolve(answer(500, {}, "not json")),
+      sleep: () => Promise.resolve(),
+    }).catch((cause: unknown) => cause);
+    expect(shapeless instanceof ApiProblem ? shapeless.code : "").toBe("internal");
   });
 
   it("gives up after its attempts", async () => {

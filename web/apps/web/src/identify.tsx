@@ -4,7 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem, problemText } from "./problem.ts";
+import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { entryRoute } from "./browse.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -83,15 +83,17 @@ function WaitingRow(props: {
   const [isChoosing, setIsChoosing] = useState(false);
   const [note, setNote] = useState("");
   const refresh = (): void => {
-    void api
+    api
       .POST("/items/{id}/refresh", { params: { path: { id: item.id } } })
-      .then(({ error }) => {
-        setNote(
-          error === undefined
-            ? t("identify.refreshed")
-            : problemText(t, new ApiProblem(error.error)),
-        );
-      });
+      .then(throwIfRefused)
+      .then(
+        () => {
+          setNote(t("identify.refreshed"));
+        },
+        (cause: unknown) => {
+          setNote(problemText(t, cause));
+        },
+      );
   };
   const kind = item.kind === "series" ? "series" : "movie";
   return (
@@ -124,26 +126,22 @@ function Candidates(props: { readonly id: number; readonly onChosen: () => void 
   const { api } = useServices();
   const [problem, setProblem] = useState("");
   const [found] = useResource(`candidates/${String(props.id)}`, async () => {
-    const { data, error } = await api.GET("/items/{id}/candidates", {
-      params: { path: { id: props.id } },
-    });
-    if (data === undefined) {
-      throw new ApiProblem(error.error);
-    }
+    const data = dataOrThrow(
+      await api.GET("/items/{id}/candidates", {
+        params: { path: { id: props.id } },
+      }),
+    );
     return data;
   });
   const pick = (provider: string, candidate: Candidate): void => {
-    void api
+    api
       .POST("/items/{id}/match", {
         params: { path: { id: props.id } },
         body: { provider, providerId: candidate.providerId },
       })
-      .then(({ error }) => {
-        if (error === undefined) {
-          props.onChosen();
-        } else {
-          setProblem(problemText(t, new ApiProblem(error.error)));
-        }
+      .then(throwIfRefused)
+      .then(props.onChosen, (cause: unknown) => {
+        setProblem(problemText(t, cause));
       });
   };
   return (
@@ -170,12 +168,11 @@ export function Identify(): JSX.Element {
   const { api } = useServices();
   const [waiting, setWaiting] = useState<Waiting>("ambiguous");
   const [items, reload] = useResource(`items/${waiting}`, async () => {
-    const { data, error } = await api.GET("/items", {
-      params: { query: { identification: waiting } },
-    });
-    if (data === undefined) {
-      throw new ApiProblem(error.error);
-    }
+    const data = dataOrThrow(
+      await api.GET("/items", {
+        params: { query: { identification: waiting } },
+      }),
+    );
     return data.items ?? [];
   });
   return (

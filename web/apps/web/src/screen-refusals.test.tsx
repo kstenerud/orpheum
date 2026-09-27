@@ -8,7 +8,16 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Identify } from "./identify.tsx";
 import { Libraries } from "./libraries.tsx";
 import { Settings } from "./settings.tsx";
-import { button, click, mount, refusal, servedBy, submit, type Mounted } from "./test-dom.tsx";
+import {
+  button,
+  click,
+  mount,
+  refusal,
+  servedBy,
+  submit,
+  unreachable,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 const library = {
@@ -119,5 +128,52 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
     expectSays(conflict);
     await click(button(mounted.container, "Reset to the starting value"));
     expectSays(notFound);
+  });
+});
+
+describe("a request that never reaches the server says so, rather than nothing", () => {
+  const cannotReach = "The server could not be reached. Check the connection and try again.";
+
+  it("scanning a library", async () => {
+    const services = servedBy({
+      "GET /libraries": [200, { libraries: [library] }],
+      "GET /nodes": [200, { nodes: [] }],
+      "POST /libraries/3/scan": unreachable,
+    });
+    mounted = await mount(withServices(<Libraries />, services));
+    await click(button(mounted.container, "Scan now"));
+    expectSays(cannotReach);
+  });
+
+  it("creating a library", async () => {
+    const services = servedBy({
+      "GET /libraries": [200, { libraries: [] }],
+      "GET /nodes": [200, { nodes: [] }],
+      "POST /libraries": unreachable,
+    });
+    mounted = await mount(withServices(<Libraries />, services));
+    await submit(mounted.container.querySelector("form"));
+    expectSays(cannotReach);
+  });
+
+  it("looking a title up again", async () => {
+    const services = servedBy({
+      "GET /items": [200, { items: [waitingItem] }],
+      "POST /items/7/refresh": unreachable,
+    });
+    mounted = await mount(withServices(<Identify />, services));
+    await click(button(mounted.container, "Look again"));
+    expectSays(cannotReach);
+  });
+
+  it("resetting a setting", async () => {
+    const services = servedBy({
+      "GET /secrets": [200, { secrets: [secret] }],
+      "GET /config": [200, { settings: [setting] }],
+      "POST /config/scan_on_node_hello/reset": unreachable,
+    });
+    mounted = await mount(withServices(<Settings />, services));
+    await click(button(mounted.container, "Reset to the starting value"));
+    expectSays(cannotReach);
   });
 });
