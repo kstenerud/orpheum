@@ -24,7 +24,8 @@ pointers.
 
 **`make check` must pass before you finish.** The Stop hook runs it at the end of every turn
 that changed a file and blocks the turn with the failures. The pre-commit hook and CI run it too.
-A branch also passes `make check-pr` (revert-red, test weakening, commit lint) before it merges.
+A branch also passes `make check-pr` (the integration tier, revert-red, test weakening, commit
+lint) before it merges.
 `make help` lists everything.
 
 ## Rules
