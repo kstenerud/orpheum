@@ -5,6 +5,7 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { ApiProblem } from "./problem.ts";
 import { Loaded, TitleView, type TitleDetail } from "./title.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -82,9 +83,15 @@ describe("TitleView", () => {
     expect(
       renderToStaticMarkup(
         withServices(
-          <Loaded resource={{ state: "failed", message: "no such title" }} render={render} />,
+          <Loaded
+            resource={{
+              state: "failed",
+              cause: new ApiProblem({ code: "not_found", message: "no such title" }),
+            }}
+            render={render}
+          />,
         ),
       ),
-    ).toContain("no such title");
+    ).toContain("That is no longer here");
   });
 });

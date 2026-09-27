@@ -6,6 +6,7 @@ import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { signInWithCode } from "./accounts.ts";
+import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 
 /**
@@ -14,18 +15,20 @@ import { useServices } from "./services.tsx";
  */
 export function CodeSignIn(props: { readonly onBack: () => void }): JSX.Element {
   const { t } = useTranslation();
-  const { api, session } = useServices();
+  const { api, session, navigation } = useServices();
   const [code, setCode] = useState("");
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const submit = (event: SyntheticEvent): void => {
     event.preventDefault();
     setProblem(undefined);
-    signInWithCode(api, code).then(
-      ({ token }) => {
-        session.signIn(token);
+    signInWithCode(api, code, session.deviceId()).then(
+      ({ token, user }) => {
+        // A television signed in by code starts at home, not wherever the address last was.
+        navigation.go({ screen: "films" });
+        session.signIn(token, user.device?.id);
       },
       (cause: unknown) => {
-        setProblem(cause instanceof Error ? cause.message : String(cause));
+        setProblem(problemText(t, cause, { authRequired: t("codeSignIn.badCode") }));
       },
     );
   };

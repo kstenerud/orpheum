@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiProblem } from "./problem.ts";
 import { entryRoute } from "./browse.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -127,7 +128,7 @@ function Candidates(props: { readonly id: number; readonly onChosen: () => void 
       params: { path: { id: props.id } },
     });
     if (data === undefined) {
-      throw new Error(error.error.message);
+      throw new ApiProblem(error.error);
     }
     return data;
   });
@@ -173,7 +174,7 @@ export function Identify(): JSX.Element {
       params: { query: { identification: waiting } },
     });
     if (data === undefined) {
-      throw new Error(error.error.message);
+      throw new ApiProblem(error.error);
     }
     return data.items ?? [];
   });

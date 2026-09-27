@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiProblem } from "./problem.ts";
 import { Link } from "./link.tsx";
 import type { Route } from "./router.ts";
 import { useServices } from "./services.tsx";
@@ -87,7 +88,7 @@ function SearchFor(props: { readonly query: string }): JSX.Element {
       params: { query: { q: props.query, limit: 100 } },
     });
     if (data === undefined) {
-      throw new Error(error.error.message);
+      throw new ApiProblem(error.error);
     }
     return data.results ?? [];
   });

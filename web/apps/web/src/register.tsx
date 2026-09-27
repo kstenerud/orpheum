@@ -6,7 +6,8 @@ import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { register, secretFromHash } from "./accounts.ts";
-import { deviceFrom } from "./device.ts";
+import { problemText } from "./problem.ts";
+import { thisDevice } from "./device.ts";
 import { useServices } from "./services.tsx";
 
 /** Why a registration did not go through. */
@@ -35,15 +36,15 @@ export function Register(): JSX.Element {
       setProblem("mismatch");
       return;
     }
-    register(api, { secret, password, device: deviceFrom(navigator.userAgent) }).then(
-      ({ token }) => {
+    register(api, { secret, password, device: thisDevice(session) }).then(
+      ({ token, user }) => {
         // The secret is spent; it should not stay in the address or the history.
         window.history.replaceState(null, "", "/");
-        session.signIn(token);
+        session.signIn(token, user.device?.id);
         navigation.go({ screen: "films" });
       },
       (cause: unknown) => {
-        setMessage(cause instanceof Error ? cause.message : String(cause));
+        setMessage(problemText(t, cause, { authRequired: t("register.badLink") }));
         setProblem("refused");
       },
     );

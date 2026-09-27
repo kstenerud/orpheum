@@ -6,6 +6,8 @@ import { artUrl, type components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { camelKey } from "./catalogue-key.ts";
+import { ApiProblem, problemText } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -34,11 +36,6 @@ export function StreamLine(props: { readonly stream: Stream }): JSX.Element | nu
     default:
       return null;
   }
-}
-
-/** A catalogue key for one of the server's snake_case names: an extra's type, a reason. */
-export function camelKey(type: string): string {
-  return type.replaceAll(/_([a-z])/gu, (_, letter: string) => letter.toUpperCase());
 }
 
 /** A title's page: its art, name, year and length, what it is about, its versions and extras. */
@@ -176,7 +173,7 @@ export function Loaded<T>(props: {
     return <p>{t("common.loading")}</p>;
   }
   if (resource.state === "failed") {
-    return <p role="alert">{t("common.failed", { message: resource.message })}</p>;
+    return <p role="alert">{problemText(t, resource.cause)}</p>;
   }
   return props.render(resource.value);
 }
@@ -187,7 +184,7 @@ export function Title(props: { readonly id: number }): JSX.Element {
   const [title] = useResource(`title/${String(props.id)}`, async () => {
     const { data, error } = await api.GET("/items/{id}", { params: { path: { id: props.id } } });
     if (data === undefined) {
-      throw new Error(error.error.message);
+      throw new ApiProblem(error.error);
     }
     return data;
   });

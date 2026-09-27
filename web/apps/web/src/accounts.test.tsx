@@ -91,7 +91,7 @@ describe("accounts", () => {
     await register(api, { secret: "s", password: "p", device: { name: "Phone", platform: "web" } });
     await issueDeviceCode(api, "Living room TV");
     await issueDeviceCode(api, "Bedroom TV", 7);
-    await signInWithCode(api, "abcd-efgh");
+    await signInWithCode(api, "abcd-efgh", 7);
     expect(sent).toEqual([
       { method: "POST", path: "/api/v1/users", body: { name: "partner", role: "user" } },
       {
@@ -108,7 +108,7 @@ describe("accounts", () => {
       {
         method: "POST",
         path: "/api/v1/session/code",
-        body: { code: "abcd-efgh", platform: "web" },
+        body: { code: "abcd-efgh", platform: "web", resumeId: 7 },
       },
     ]);
     const changing = recording(undefined);

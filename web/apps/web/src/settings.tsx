@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiProblem } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -221,7 +222,7 @@ function Secrets(): JSX.Element {
   const [secrets, reload] = useResource("secrets", async () => {
     const { data, error } = await api.GET("/secrets");
     if (data === undefined) {
-      throw new Error(error.error.message);
+      throw new ApiProblem(error.error);
     }
     return data.secrets ?? [];
   });
@@ -266,7 +267,7 @@ function ServerSettings(): JSX.Element {
   const [config, reload] = useResource("config", async () => {
     const { data, error } = await api.GET("/config");
     if (data === undefined) {
-      throw new Error(error.error.message);
+      throw new ApiProblem(error.error);
     }
     return data.settings ?? [];
   });

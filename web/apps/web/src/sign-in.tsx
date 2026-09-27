@@ -6,7 +6,8 @@ import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CodeSignIn } from "./code-sign-in.tsx";
-import { deviceFrom } from "./device.ts";
+import { camelKey } from "./catalogue-key.ts";
+import { thisDevice } from "./device.ts";
 import { PasswordField } from "./register.tsx";
 import { useServices } from "./services.tsx";
 
@@ -27,12 +28,29 @@ export function signInProblem(status: number): SignInProblem {
   }
 }
 
+/** Why the last session ended, when the server ended it; nothing otherwise. */
+export function EndedNotice(props: { readonly reason: string | undefined }): JSX.Element | null {
+  const { t } = useTranslation();
+  if (props.reason === undefined) {
+    return null;
+  }
+  return (
+    <output className="sign-in__problem">
+      {t(`problem.signedOut.${camelKey(props.reason)}`, {
+        defaultValue: t("problem.signedOut.noSession"),
+      })}
+    </output>
+  );
+}
+
 /** The sign-in form, as it shows: what was typed, whether it is sending, and what went wrong. */
 export function SignInForm(props: {
   readonly name: string;
   readonly password: string;
   readonly isSending: boolean;
   readonly problem: SignInProblem | undefined;
+  /** Why the last session ended, when the server ended it: said first, so the person knows. */
+  readonly endedBecause?: string | undefined;
   readonly onName: (name: string) => void;
   readonly onPassword: (password: string) => void;
   readonly onSubmit: () => void;
@@ -47,6 +65,7 @@ export function SignInForm(props: {
     <main className="sign-in">
       <form className="sign-in__form" onSubmit={submit}>
         <h1>{t("signIn.heading")}</h1>
+        <EndedNotice reason={props.endedBecause} />
         <label className="sign-in__field">
           {t("signIn.name")}
           <input
@@ -103,22 +122,20 @@ export function SignIn(): JSX.Element {
   const submit = (): void => {
     setIsSending(true);
     setProblem(undefined);
-    api
-      .POST("/session", { body: { name, password, device: deviceFrom(navigator.userAgent) } })
-      .then(
-        ({ data, response }) => {
-          setIsSending(false);
-          if (data === undefined) {
-            setProblem(signInProblem(response.status));
-            return;
-          }
-          session.signIn(data.token);
-        },
-        () => {
-          setIsSending(false);
-          setProblem("failed");
-        },
-      );
+    api.POST("/session", { body: { name, password, device: thisDevice(session) } }).then(
+      ({ data, response }) => {
+        setIsSending(false);
+        if (data === undefined) {
+          setProblem(signInProblem(response.status));
+          return;
+        }
+        session.signIn(data.token, data.user.device?.id);
+      },
+      () => {
+        setIsSending(false);
+        setProblem("failed");
+      },
+    );
   };
   return (
     <SignInForm
@@ -129,6 +146,7 @@ export function SignIn(): JSX.Element {
       onName={setName}
       onPassword={setPassword}
       onSubmit={submit}
+      endedBecause={session.endedBecause()}
       onUseCode={() => {
         setIsUsingCode(true);
       }}

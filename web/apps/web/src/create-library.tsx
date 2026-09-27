@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiProblem } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -260,7 +261,7 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
   const [nodes] = useResource("nodes", async () => {
     const { data, error } = await api.GET("/nodes");
     if (data === undefined) {
-      throw new Error(error.error.message);
+      throw new ApiProblem(error.error);
     }
     return data.nodes ?? [];
   });

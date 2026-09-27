@@ -4,6 +4,8 @@
 export interface NewDevice {
   readonly name: string;
   readonly platform: "web";
+  /** The device this browser was signed in as before, which the server resumes (D221). */
+  readonly resumeId?: number;
 }
 
 /** The browser's name, from its user agent: the first that matches, so Edge is not Chrome. */
@@ -37,4 +39,11 @@ export function deviceFrom(userAgent: string): NewDevice {
   const browser = browserOf(userAgent) ?? "A web browser";
   const system = systemOf(userAgent);
   return { name: system === undefined ? browser : `${browser} on ${system}`, platform: "web" };
+}
+
+/** This browser as a device to sign in on: named from its user agent, resuming the last (D221). */
+export function thisDevice(session: { readonly deviceId: () => number | undefined }): NewDevice {
+  const resumeId = session.deviceId();
+  const named = deviceFrom(navigator.userAgent);
+  return resumeId === undefined ? named : { ...named, resumeId };
 }

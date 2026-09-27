@@ -46,6 +46,9 @@ export function AppShell(props: {
   readonly isAdmin: boolean;
   readonly current: Route["screen"];
   readonly onSignOut: () => void;
+  /** Who is signed in, and on which device, once known: said in the banner. */
+  readonly signedInAs:
+    { readonly name: string; readonly deviceName: string | undefined } | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -66,6 +69,16 @@ export function AppShell(props: {
                 </li>
               ))}
           </ul>
+          {props.signedInAs === undefined ? null : (
+            <span className="app-shell__who">
+              {props.signedInAs.deviceName === undefined
+                ? t("nav.signedInAs", { name: props.signedInAs.name })
+                : t("nav.signedInAsOn", {
+                    name: props.signedInAs.name,
+                    device: props.signedInAs.deviceName,
+                  })}
+            </span>
+          )}
           <button type="button" onClick={props.onSignOut}>
             {t("nav.signOut")}
           </button>

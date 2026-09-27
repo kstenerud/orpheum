@@ -2,29 +2,41 @@
 
 import { useEffect, useState } from "react";
 
-/** Something loaded from the server: still loading, loaded, or failed with why. */
+import { ApiProblem } from "./problem.ts";
+
+/**
+ * Something loaded from the server: still loading, loaded, or failed with why. A failure keeps
+ * its cause, which a screen tells the person in their words (problemText).
+ */
 export type Resource<T> =
   | { readonly state: "loading" }
   | { readonly state: "loaded"; readonly value: T }
-  | { readonly state: "failed"; readonly message: string };
+  | { readonly state: "failed"; readonly cause: unknown };
 
-/** What a failed load says: the server's message, else what went wrong in the browser. */
+/** A failed load, with its cause: an error the server sent as it was thrown becomes an ApiProblem. */
 export function failure(cause: unknown): Resource<never> {
-  if (cause instanceof Error) {
-    return { state: "failed", message: cause.message };
+  if (
+    typeof cause === "object" &&
+    cause !== null &&
+    !(cause instanceof Error) &&
+    "error" in cause &&
+    isErrorDetail(cause.error)
+  ) {
+    return { state: "failed", cause: new ApiProblem(cause.error) };
   }
-  if (typeof cause === "object" && cause !== null && "error" in cause) {
-    const detail = cause.error;
-    if (
-      typeof detail === "object" &&
-      detail !== null &&
-      "message" in detail &&
-      typeof detail.message === "string"
-    ) {
-      return { state: "failed", message: detail.message };
-    }
-  }
-  return { state: "failed", message: String(cause) };
+  return { state: "failed", cause };
+}
+
+/** Whether a value is the server's error detail. */
+function isErrorDetail(value: unknown): value is ConstructorParameters<typeof ApiProblem>[0] {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "code" in value &&
+    typeof value.code === "string" &&
+    "message" in value &&
+    typeof value.message === "string"
+  );
 }
 
 /**

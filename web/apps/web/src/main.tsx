@@ -11,6 +11,7 @@ import { App } from "./app.tsx";
 import { createNavigation } from "./navigation.ts";
 import { ServicesContext } from "./services.tsx";
 import { createSession, type TokenStorage } from "./session.ts";
+import { watchForSignOut } from "./signed-out-watch.ts";
 
 const rootElement = document.getElementById("root");
 if (rootElement === null) {
@@ -25,12 +26,10 @@ try {
   storage = undefined;
 }
 const session = createSession(storage);
-const services = {
-  api: createApi({ token: session.token }),
-  session,
-  navigation: createNavigation(window),
-  menu: browserMenu,
-};
+const navigation = createNavigation(window);
+const api = createApi({ token: session.token });
+api.use(watchForSignOut(session, navigation));
+const services = { api, session, navigation, menu: browserMenu };
 
 createRoot(rootElement).render(
   <StrictMode>

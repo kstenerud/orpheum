@@ -16,6 +16,8 @@ export const en = {
     account: "Your account",
     about: "About",
     signOut: "Sign out",
+    signedInAs: "{{name}}",
+    signedInAsOn: "{{name}} on {{device}}",
     label: "Main",
   },
   signIn: {
@@ -29,6 +31,34 @@ export const en = {
       "No one can sign in until the first admin is created with the setup code from the server's log.",
     useCode: "I have a code",
   },
+  problem: {
+    signedOut: {
+      sessionEnded:
+        "This device was signed out: it was removed from your devices, or signed out from another device. Sign in again, or use a code from Your account on another device.",
+      sessionExpired: "You were signed out after a long time away. Sign in again.",
+      noSession: "You are not signed in. Sign in to continue.",
+    },
+    forbidden: "Only an administrator can do that.",
+    notFound: "That is no longer here: it may have been removed. Go back and try again.",
+    invalidRequest: "The server could not accept that. Check what was entered and try again.",
+    conflict: "That clashes with something that already exists.",
+    stale: "Someone changed this meanwhile. Reload and try again.",
+    rateLimited: "Too many attempts. Wait a minute, then try again.",
+    quotaExhausted: "Today's allowance for this is used up. Try again tomorrow.",
+    providerError: "An outside service did not answer properly. Try again later.",
+    nodeSilent:
+      "The machine that holds this file is not answering. Check that it is on and connected.",
+    fileUnavailable:
+      "The file is not where it was. It may have been moved or its disk unplugged; scanning the library again finds it.",
+    preparing: "It is still being prepared. Wait a moment.",
+    prepareFailed: "This could not be prepared for this device.",
+    migrating: "The server is updating. Try again in a minute.",
+    setupRequired: "The server has not been set up yet.",
+    internal:
+      "Something went wrong on the server. Try again; if it keeps happening, the server's log says why.",
+    unreachable: "The server could not be reached. Check the connection and try again.",
+    unknown: "Something went wrong: {{message}}",
+  },
   codeSignIn: {
     heading: "Sign in with a code",
     explain:
@@ -36,6 +66,8 @@ export const en = {
     code: "Code",
     submit: "Sign in",
     back: "Sign in with a name and password instead",
+    badCode:
+      "That code does not work: it may be mistyped, used, replaced by a newer one, or more than ten minutes old. Make a new one and try again.",
   },
   register: {
     heading: "Choose your password",
@@ -45,7 +77,9 @@ export const en = {
     submit: "Set password and sign in",
     noLink: "This address has no registration link in it. Open the link you were given.",
     mismatch: "The two passwords are not the same.",
-    refused: "That did not work: {{message}}",
+    refused: "{{message}}",
+    badLink:
+      "This link does not work: it was used, replaced by a newer one, or is more than seven days old. Ask the person who made it for a new one.",
   },
   account: {
     heading: "Your account",
@@ -74,6 +108,7 @@ export const en = {
   },
   people: {
     heading: "People",
+    nameTaken: "Someone already has that name. Choose another.",
     add: "Add a person",
     name: "Name",
     role: "Role",

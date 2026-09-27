@@ -7,10 +7,12 @@ import { whenReady, type Api, type components, type Menu } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiProblem, problemText } from "./problem.ts";
 import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
 import { Subtitles } from "./subtitles.tsx";
-import { camelKey, Loaded } from "./title.tsx";
+import { camelKey } from "./catalogue-key.ts";
+import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** The server's decision on how a file plays here (cut-a §6). */
@@ -25,7 +27,7 @@ export async function requestPlayback(api: Api, fileId: number, menu: Menu): Pro
     body: { fileId, menu, link: "local" },
   });
   if (data === undefined) {
-    throw new Error(error.error.message);
+    throw new ApiProblem(error.error);
   }
   return data;
 }
@@ -146,6 +148,7 @@ function usePrepared(decision: Decision): {
   isWaiting: boolean;
   failure: string | undefined;
 } {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const playbackRef = useRef<Playback | undefined>(undefined);
   const [isWaiting, setIsWaiting] = useState(decision.isPreparing);
@@ -165,7 +168,7 @@ function usePrepared(decision: Decision): {
       },
       (cause: unknown) => {
         if (!abort.signal.aborted) {
-          setFailure(cause instanceof Error ? cause.message : String(cause));
+          setFailure(problemText(t, cause));
         }
       },
     );
@@ -174,7 +177,7 @@ function usePrepared(decision: Decision): {
       playbackRef.current?.destroy();
       playbackRef.current = undefined;
     };
-  }, [decision.url]);
+  }, [decision.url, t]);
   return { videoRef, playbackRef, isWaiting, failure };
 }
 

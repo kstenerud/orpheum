@@ -10,6 +10,7 @@ import {
   signOutElsewhere,
   type Device,
 } from "./accounts.ts";
+import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -32,7 +33,7 @@ export function YourDevices(): JSX.Element {
         afterwards?.();
       },
       (cause: unknown) => {
-        setProblem(cause instanceof Error ? cause.message : String(cause));
+        setProblem(problemText(t, cause));
       },
     );
   };
