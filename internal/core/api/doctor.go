@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 )
@@ -46,7 +47,43 @@ func (server *Server) doctor(ctx context.Context, input *AuthorizationHeader) (*
 	}
 	output := &DoctorOutput{}
 	output.Body.Findings = []FindingBody{artworkFinding(dependencies)}
+	nodes, err := dependencies.Libraries.NodeRoots(ctx)
+	if err != nil {
+		return nil, server.internal(ctx, "list nodes", err)
+	}
+	for _, node := range nodes {
+		if node.Connected {
+			output.Body.Findings = append(output.Body.Findings, confinementFinding(node.Name,
+				confinementOf(dependencies.NodeReports, node.Name)))
+		}
+	}
 	return output, nil
+}
+
+// confinementFinding is a node's FFmpeg confinement: a warning for each mechanism not in force,
+// with what would put it there, because a user whose safety depends on it deserves to know
+// (D112).
+func confinementFinding(node string, confinement []ConfinementBody) FindingBody {
+	finding := FindingBody{
+		Check: "FFmpeg confinement on node " + node, Verdict: verdictOK,
+		Detail: "every FFmpeg run is confined by Landlock and seccomp",
+	}
+	var missing, remedies []string
+	for _, mechanism := range confinement {
+		if !mechanism.IsInForce {
+			missing = append(missing, mechanism.Mechanism+": "+mechanism.Reason)
+			remedies = append(remedies, mechanism.Mechanism+": "+mechanism.Remedy)
+		}
+	}
+	if len(confinement) == 0 {
+		missing = []string{"the node reported no confinement"}
+	}
+	if len(missing) > 0 {
+		finding.Verdict = verdictWarn
+		finding.Detail = "FFmpeg runs on this node without all its confinement: " + strings.Join(missing, "; ")
+		finding.Action = strings.Join(remedies, "; ")
+	}
+	return finding
 }
 
 // artworkFinding is the artwork cache against its ceiling: at high water the admin is told what

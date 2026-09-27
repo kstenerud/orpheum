@@ -18,6 +18,8 @@ import (
 type fakeNodes struct {
 	roots  []string
 	queued []nodeproto.Command
+	// confinement is what the connected node said about its FFmpeg's confinement.
+	confinement []nodeproto.Confinement
 	// commanded, when set, also receives each command, for a test that waits on one.
 	commanded chan nodeproto.Command
 }
@@ -27,6 +29,13 @@ func (nodes *fakeNodes) Roots(name string) (int64, []string, bool) {
 		return 0, nil, false
 	}
 	return 1, nodes.roots, true
+}
+
+func (nodes *fakeNodes) Confinement(name string) ([]nodeproto.Confinement, bool) {
+	if name != "local" || nodes.roots == nil {
+		return nil, false
+	}
+	return nodes.confinement, true
 }
 
 func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
@@ -177,9 +186,13 @@ func TestNodes_AnAdminSeesEachNodeAndTheRootsItConfigured(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	storetest.ExecRaw(t, harness.database, "INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)")
 	harness.connectNode(t, "/media/films", "/media/shows")
+	harness.nodes.confinement = []nodeproto.Confinement{
+		{Mechanism: "landlock", InForce: true}, {Mechanism: "seccomp", InForce: true},
+	}
 	listed := harness.do(t, http.MethodGet, "/nodes", admin, nil)
-	want := `{"nodes":[{"name":"attic","isConnected":false,"roots":[]},` +
-		`{"name":"local","isConnected":true,"roots":["/media/films","/media/shows"]}]}`
+	want := `{"nodes":[{"name":"attic","isConnected":false,"roots":[],"confinement":[]},` +
+		`{"name":"local","isConnected":true,"roots":["/media/films","/media/shows"],"confinement":[` +
+		`{"mechanism":"landlock","isInForce":true},{"mechanism":"seccomp","isInForce":true}]}]}`
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, want) {
 		t.Errorf("GET /nodes = %d %s", listed.status, listed.body)
 	}

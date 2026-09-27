@@ -397,3 +397,20 @@ func TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly(t *testing.T) {
 		t.Error("IsConnected does not tell the node that said hello from one that did not")
 	}
 }
+
+func TestHello_KeepsWhatTheNodeSaidAboutItsConfinement(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	if _, found := harness.service.Confinement("local"); found {
+		t.Error("a node that never said hello has a confinement")
+	}
+	said := []nodeproto.Confinement{
+		{Mechanism: "landlock", Reason: "not enabled at boot", Remedy: "add landlock to lsm="},
+		{Mechanism: "seccomp", InForce: true},
+	}
+	harness.hello(t, nodeproto.Hello{Name: "local", Confinement: said})
+	kept, found := harness.service.Confinement("local")
+	if !found || len(kept) != 2 || kept[0] != said[0] || kept[1] != said[1] {
+		t.Errorf("Confinement = %+v, %v; want what the hello said (D112)", kept, found)
+	}
+}

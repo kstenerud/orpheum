@@ -20,6 +20,9 @@
 //     node that has not said hello is refused (D212 §8).
 //     TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly. A prepare report goes to the
 //     playback service the same way, through the same handler.
+//   - What a node's last hello said about its FFmpeg's confinement is kept while the core runs,
+//     for doctor and the admin to say out loud (D112).
+//     TestHello_KeepsWhatTheNodeSaidAboutItsConfinement.
 //
 // # Read before changing
 //
