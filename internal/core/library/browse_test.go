@@ -185,3 +185,19 @@ func TestSearch_EveryRouteFindsWhatItShould(t *testing.T) {
 		t.Errorf("a query with FTS5 syntax in it = %+v, %v; want it read as words", hits, err)
 	}
 }
+
+func TestSearch_DoesNotFindAFilmWhoseFilesAreAllGone(t *testing.T) {
+	t.Parallel()
+	world := newShelf(t)
+	world.scan([]nodeproto.Record{observed("h.mkv", "h"), observed("u.mkv", "u")}, true)
+	world.film("Metropolis", "h.mkv")
+	world.film("Up", "u.mkv")
+	if hits, err := world.browser.Search(t.Context(), "heat", 10); err != nil || len(hits) != 1 {
+		t.Fatalf("Search(heat) with its file = %+v, %v; want Metropolis", hits, err)
+	}
+	// A complete scan without h.mkv removes its file; the film is kept, with its history, unlisted.
+	world.scan([]nodeproto.Record{observed("u.mkv", "u")}, true)
+	if hits, err := world.browser.Search(t.Context(), "heat", 10); err != nil || len(hits) != 0 {
+		t.Errorf("Search(heat) with its file gone = %+v, %v; want nothing, as browse lists nothing", hits, err)
+	}
+}

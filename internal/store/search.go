@@ -35,12 +35,25 @@ const (
 	searchJoins = `JOIN item ON item.id = item_text.item_id
 LEFT JOIN title ON title.id = item.id
 LEFT JOIN collection ON collection.id = item.id`
+	// The live-item check keeps only what browse would list: a title with a live file, or a series with
+	// an episode that has one. A film whose files are all gone is kept, with its history, but not
+	// shown, in search as in browse (browse.sql).
+	searchLive = `item.removed_at IS NULL AND (
+  (title.id IS NOT NULL AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL))
+  OR (collection.id IS NOT NULL AND EXISTS (
+    SELECT 1 FROM collection_member
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN file ON file.version_id = version.id
+    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      AND file.removed_at IS NULL)))`
 
 	searchWordsSQL = `SELECT ` + searchColumns + `
 FROM item_fts
 JOIN item_text ON item_text.rowid = item_fts.rowid
 ` + searchJoins + `
-WHERE item_fts MATCH ? AND item.removed_at IS NULL
+WHERE item_fts MATCH ? AND ` + searchLive + `
 ORDER BY bm25(item_fts), item_text.item_id
 LIMIT ?`
 
@@ -48,14 +61,14 @@ LIMIT ?`
 FROM item_fts_tri
 JOIN item_text ON item_text.rowid = item_fts_tri.rowid
 ` + searchJoins + `
-WHERE item_fts_tri MATCH ? AND item.removed_at IS NULL
+WHERE item_fts_tri MATCH ? AND ` + searchLive + `
 ORDER BY item_text.name, item_text.item_id
 LIMIT ?`
 
 	searchShortSQL = `SELECT ` + searchColumns + `
 FROM item_text
 ` + searchJoins + `
-WHERE instr(item_text.search_alternates, ?) > 0 AND item.removed_at IS NULL
+WHERE instr(item_text.search_alternates, ?) > 0 AND ` + searchLive + `
 ORDER BY item_text.name, item_text.item_id
 LIMIT ?`
 )
