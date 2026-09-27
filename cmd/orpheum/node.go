@@ -131,7 +131,10 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	if err != nil {
 		return err
 	}
-	hello, err := describeNode(ctx, config, runner, confinement)
+	// The encoder is chosen once: the first hardware one that works here, confined, else x264.
+	encoder, usable := prepare.ChooseEncoder(ctx, runner)
+	logger.InfoContext(ctx, "this node chose its encoder", "encoder", encoder, "usable", usable)
+	hello, err := describeNode(ctx, config, runner, nodeCapabilities{confinement: confinement, encoders: usable})
 	if err != nil {
 		return err
 	}
@@ -147,7 +150,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
 	var preparing agent.Preparer
 	var keeping agent.Keeper
-	directory, err := openPrepared(config, runner)
+	directory, err := openPrepared(config, runner, encoder)
 	if err != nil {
 		logger.ErrorContext(ctx, "this node cannot prepare; it serves files as they are", "err", err)
 	} else {
@@ -189,7 +192,7 @@ type preparedDirectory struct {
 }
 
 // openPrepared makes the node's prepared directory if it is missing, and opens it.
-func openPrepared(config Config, runner *execx.Runner) (preparedDirectory, error) {
+func openPrepared(config Config, runner *execx.Runner, encoder prepare.Encoder) (preparedDirectory, error) {
 	if err := os.MkdirAll(config.Node.PreparedDir, 0o750); err != nil {
 		return preparedDirectory{}, fmt.Errorf("make the prepared directory: %w", err)
 	}
@@ -201,7 +204,7 @@ func openPrepared(config Config, runner *execx.Runner) (preparedDirectory, error
 		MaxBytes: config.Node.PreparedBudgetGiB << 30, Grace: time.Duration(config.Node.PreparedGraceH) * time.Hour,
 		MaxDiskPercent: int(config.Node.PreparedDiskLimitPercent),
 	}, clock.System{})
-	preparer, err := prepare.New(runner, root.Path(), shelf)
+	preparer, err := prepare.New(runner, root.Path(), shelf, encoder)
 	if err != nil {
 		return preparedDirectory{}, errors.Join(err, root.Close())
 	}
@@ -252,9 +255,17 @@ func openRoots(ctx context.Context, paths []string, logger *slog.Logger) []*conf
 	return roots
 }
 
-// describeNode is the hello: who the node is, which FFmpeg it runs and what confinement it has.
+// nodeCapabilities are what the node found it has: its confinement, per mechanism, and the
+// encoders it can use.
+type nodeCapabilities struct {
+	confinement []confine.State
+	encoders    []prepare.Encoder
+}
+
+// describeNode is the hello: who the node is, which FFmpeg it runs, what it can do and what
+// confinement it has.
 func describeNode(
-	ctx context.Context, config Config, runner *execx.Runner, confinement []confine.State,
+	ctx context.Context, config Config, runner *execx.Runner, found nodeCapabilities,
 ) (nodeproto.Hello, error) {
 	output, err := runner.Run(ctx, execx.FFprobe, confine.Access{}, []string{"-version"}, 1<<20)
 	if err != nil {
@@ -265,8 +276,8 @@ func describeNode(
 	if err != nil {
 		return nodeproto.Hello{}, err
 	}
-	report := make([]nodeproto.Confinement, 0, len(confinement))
-	for _, state := range confinement {
+	report := make([]nodeproto.Confinement, 0, len(found.confinement))
+	for _, state := range found.confinement {
 		report = append(report, nodeproto.Confinement{
 			Mechanism: state.Mechanism, InForce: state.InForce, Cause: state.Cause, Reason: state.Reason,
 			Remedy: state.Remedy,
@@ -277,11 +288,21 @@ func describeNode(
 		Version:       version,
 		FFmpegVersion: firstLine,
 		FFmpegHash:    ffmpegHash,
-		Capabilities:  []string{},
+		Capabilities:  capabilities(found.encoders),
 		Confinement:   report,
 		UID:           os.Geteuid(),
 		GID:           os.Getegid(),
 	}, nil
+}
+
+// capabilities are the hello's (cut-a §4): remux and AAC, which every node can do, and the
+// encoders it found it can use.
+func capabilities(encoders []prepare.Encoder) []string {
+	names := []string{"remux", "aac"}
+	for _, encoder := range encoders {
+		names = append(names, string(encoder))
+	}
+	return names
 }
 
 func fileSHA256(path string) (string, error) {

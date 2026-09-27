@@ -54,7 +54,7 @@ func (full) Writing(string) (done func()) { panic("nothing is written where ther
 
 func TestPreparer_APrepareTheDiskHasNoRoomForIsRefusedAndRunsNothing(t *testing.T) {
 	t.Parallel()
-	preparer, err := prepare.New(fakeFFmpeg{fail: errors.New("FFmpeg ran")}, t.TempDir(), full{})
+	preparer, err := prepare.New(fakeFFmpeg{fail: errors.New("FFmpeg ran")}, t.TempDir(), full{}, prepare.EncoderX264)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestPreparer_APrepareTheDiskHasNoRoomForIsRefusedAndRunsNothing(t *testing.
 func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *testing.T) {
 	t.Parallel()
 	directory := t.TempDir()
-	preparer, err := prepare.New(fakeFFmpeg{}, directory, roomy{})
+	preparer, err := prepare.New(fakeFFmpeg{}, directory, roomy{}, prepare.EncoderX264)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *
 
 func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 	t.Parallel()
-	preparer, err := prepare.New(fakeFFmpeg{}, t.TempDir(), roomy{})
+	preparer, err := prepare.New(fakeFFmpeg{}, t.TempDir(), roomy{}, prepare.EncoderX264)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,8 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 			t.Errorf("%q: %v, want ErrBadDir", dir, refused)
 		}
 	}
-	failing, err := prepare.New(fakeFFmpeg{fail: errors.New("ffmpeg failed")}, t.TempDir(), roomy{})
+	failing, err := prepare.New(
+		fakeFFmpeg{fail: errors.New("ffmpeg failed")}, t.TempDir(), roomy{}, prepare.EncoderX264)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +113,7 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 	if _, err := failing.Prepare(t.Context(), "/a", named, func(int64) {}); err == nil {
 		t.Error("a failed run reported success")
 	}
-	if _, err := prepare.New(fakeFFmpeg{}, "relative", roomy{}); err == nil {
+	if _, err := prepare.New(fakeFFmpeg{}, "relative", roomy{}, prepare.EncoderX264); err == nil {
 		t.Error("a relative prepared directory was taken")
 	}
 }

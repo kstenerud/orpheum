@@ -35,6 +35,8 @@ const (
 	fileRights = unix.LANDLOCK_ACCESS_FS_EXECUTE | unix.LANDLOCK_ACCESS_FS_READ_FILE |
 		unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_TRUNCATE | unix.LANDLOCK_ACCESS_FS_IOCTL_DEV
 	useDevice = unix.LANDLOCK_ACCESS_FS_READ_FILE | unix.LANDLOCK_ACCESS_FS_WRITE_FILE
+	// A GPU's device nodes are opened read-write and driven by ioctl.
+	useGPU    = readTree | unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_IOCTL_DEV
 	writeTree = readTree | unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_TRUNCATE |
 		unix.LANDLOCK_ACCESS_FS_MAKE_REG | unix.LANDLOCK_ACCESS_FS_MAKE_DIR |
 		unix.LANDLOCK_ACCESS_FS_REMOVE_FILE | unix.LANDLOCK_ACCESS_FS_REMOVE_DIR
@@ -46,6 +48,19 @@ const (
 // when it exists.
 func systemReads() []string {
 	return []string{"/lib", "/lib64", "/usr/lib", "/usr/lib64", "/usr/local/lib", "/etc/ld.so.cache"}
+}
+
+// gpuDevices are the device nodes a hardware encode opens: Intel's and AMD's render nodes, and
+// NVIDIA's. Each is granted when it exists.
+func gpuDevices() []string {
+	return []string{
+		"/dev/dri", "/dev/nvidiactl", "/dev/nvidia0", "/dev/nvidia1", "/dev/nvidia-uvm", "/dev/nvidia-modeset",
+	}
+}
+
+// gpuDescriptions are what a GPU's drivers read to find their device: never a user's files.
+func gpuDescriptions() []string {
+	return []string{"/sys/devices", "/sys/class/drm", "/sys/bus/pci", "/proc/driver/nvidia", "/etc/OpenCL"}
 }
 
 // devicesAlways are the device nodes any run may read and write.
@@ -136,6 +151,14 @@ func grantsFor(spec Spec) []grant {
 	}
 	for _, path := range devicesAlways() {
 		grants = append(grants, grant{path: path, rights: useDevice})
+	}
+	if spec.Access.Devices {
+		for _, path := range gpuDevices() {
+			grants = append(grants, grant{path: path, rights: useGPU})
+		}
+		for _, path := range gpuDescriptions() {
+			grants = append(grants, grant{path: path, rights: readTree})
+		}
 	}
 	for _, path := range spec.Access.Read {
 		grants = append(grants, grant{path: path, rights: readTree, isRequired: true})

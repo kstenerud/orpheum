@@ -75,7 +75,7 @@ func TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentr
 	}
 	film := surroundFilm(t, runner)
 	directory := t.TempDir()
-	preparer, err := prepare.New(runner, directory, roomy{})
+	preparer, err := prepare.New(runner, directory, roomy{}, prepare.EncoderX264)
 	if err != nil {
 		t.Fatal(err)
 	}

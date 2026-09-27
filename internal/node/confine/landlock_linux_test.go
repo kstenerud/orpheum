@@ -31,3 +31,23 @@ func TestLandlockState_SaysWhyItIsMissingAndWhatWouldPutItThere(t *testing.T) {
 		t.Errorf("Landlock answering an ABI: %+v, want in force", got)
 	}
 }
+
+func TestGrantsFor_OnlyARunThatUsesTheGPUIsGrantedItsDevices(t *testing.T) {
+	t.Parallel()
+	has := func(spec Spec, path string) bool {
+		for _, rule := range grantsFor(spec) {
+			if rule.path == path {
+				return true
+			}
+		}
+		return false
+	}
+	plain := Spec{Tool: "/opt/ffmpeg/ffmpeg"}
+	gpu := Spec{Tool: "/opt/ffmpeg/ffmpeg", Access: Access{Devices: true}}
+	if has(plain, "/dev/dri") || has(plain, "/sys/devices") {
+		t.Error("a run that does not use the GPU is granted its devices")
+	}
+	if !has(gpu, "/dev/dri") || !has(gpu, "/sys/class/drm") || !has(gpu, "/dev/nvidiactl") {
+		t.Error("a hardware encode is not granted the GPU's devices and the files that describe them")
+	}
+}
