@@ -167,3 +167,17 @@ func liveKinds(t *testing.T, lib *world, itemID int64) []string {
 	slices.Sort(kinds)
 	return kinds
 }
+
+func TestPass_ASeasonFolderIsReadAsTheFilenameParserReadsOne(t *testing.T) {
+	t.Parallel()
+	lib := newWorld(t, "shows", "nfo")
+	// "Staffel 1" is a season folder to the filename parser, so the series' images are above it.
+	report := lib.scan(
+		video("Shows/Glass Tide/Staffel 1/Glass Tide - S01E01.mkv"),
+		image("Shows/Glass Tide/folder.jpg"),
+	)
+	series := lib.onlySeries().ID
+	if got := owedKinds(report, SourceLocal)[series]; !slices.Equal(got, []string{ArtPoster}) {
+		t.Errorf("the series owes %v from beside it, want its poster from above the season folder", got)
+	}
+}

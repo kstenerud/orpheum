@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -160,5 +161,17 @@ func TestLoadConfig_RefusesOnlyWhatHasNoStartingValue(t *testing.T) {
 	}
 	if config.Server.DataDir == "" {
 		t.Fatal("the test config has no data directory")
+	}
+}
+
+func TestConfinementFindings_SayEachMechanismAndWhatWouldPutAMissingOneInForce(t *testing.T) {
+	t.Parallel()
+	got := confinementFindings([]confine.State{
+		{Mechanism: confine.Landlock, Reason: "not enabled at boot", Remedy: "add landlock to lsm="},
+		{Mechanism: confine.Seccomp, InForce: true},
+	})
+	if len(got) != 2 || got[0].verdict != verdictWarning || !strings.Contains(got[0].what, "not enabled at boot") ||
+		got[0].remedy != "add landlock to lsm=" || got[1].verdict != verdictOK {
+		t.Errorf("findings = %+v; want Landlock warned with its remedy, seccomp ok (D112)", got)
 	}
 }

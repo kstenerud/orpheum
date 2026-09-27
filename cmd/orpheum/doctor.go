@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 )
@@ -93,8 +94,23 @@ func diagnose(ctx context.Context, config Config, logger *slog.Logger, now time.
 	findings = append(findings, keyFinding)
 	databaseFindings, backupAgeWarning := checkDatabase(ctx, directories, key, config.openOptions(), logger)
 	findings = append(findings, databaseFindings...)
-	findings = append(findings, checkBackups(directories, now, backupAgeWarning),
-		finding{verdictOK, "media node: not checked yet; the node arrives in M2", ""})
+	findings = append(findings, checkBackups(directories, now, backupAgeWarning))
+	return append(findings, confinementFindings(confine.Probe())...)
+}
+
+// confinementFindings are what this machine can confine FFmpeg with, as a node here would report it
+// (D112): each mechanism in force, or not, with what would put it there.
+func confinementFindings(states []confine.State) []finding {
+	findings := make([]finding, 0, len(states))
+	for _, state := range states {
+		if state.InForce {
+			what := "FFmpeg confinement: " + state.Mechanism + " is in force"
+			findings = append(findings, finding{verdictOK, what, ""})
+			continue
+		}
+		what := "FFmpeg confinement: " + state.Mechanism + " is not in force: " + state.Reason
+		findings = append(findings, finding{verdictWarning, what, state.Remedy})
+	}
 	return findings
 }
 
