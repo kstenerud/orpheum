@@ -84,3 +84,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   the owner, on an Android phone: *"Everything works as expected. when I select sound bar, I
   still see the dialogue boost button, and it boosts the channel"*; the receiver step was
   corrected to that (A11), and the owner kept the switch: *"Yes we keep the switch"*.
+- [ ] **VQ9** — On devnas, with Landlock switched on at boot (`cat /sys/kernel/security/lsm` lists
+  `landlock`), run `go test ./internal/node/confine/ -run TestEscape -v` from the tree: both
+  escape tests pass, and neither is skipped. Then start the node there and open **Libraries**:
+  the Machines section says FFmpeg runs in its sandbox on devnas, and doctor's confinement
+  finding is ok. M3's acceptance asks for the escape test green on devnas (cut-a §8, D112).
+  (`internal/node/confine/`)
