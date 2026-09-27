@@ -18,6 +18,10 @@
 //     TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre.
 //   - Copied HEVC is tagged hvc1; h264-8m is 8-bit H.264 with a keyframe every two seconds.
 //     Enforced by TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264.
+//   - The node encodes with Quick Sync, else NVENC, else x264: the first that encodes a test
+//     picture here, confined as a prepare is, with the GPU granted (cut-a §6).
+//     Enforced by TestChooseEncoder_TakesTheFirstHardwareEncoderThatWorksConfinedOrX264 and
+//     TestArguments_AnEncodeUsesTheNodesEncoderAndARemuxCopies.
 //   - The boost raises the centre's share by 6 dB over the standard mix, with the pinned FFmpeg.
 //     Enforced by TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentre
 //     (integration tier). The gain is provisional until the listening test sets it (cut-a §6).
@@ -35,6 +39,7 @@
 //
 // # Where to change
 //
-//   - arguments.go: the FFmpeg command line and the mixes. prepare.go: one run, its progress and
+//   - arguments.go: the FFmpeg command line and the mixes. encoder.go: choosing the video
+//     encoder and its arguments. prepare.go: one run, its progress and
 //     its size.
 package prepare

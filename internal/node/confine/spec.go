@@ -20,12 +20,13 @@ const (
 const ShimArgument = "__confined-exec"
 
 // Access is what one FFmpeg run may touch beyond the tool itself and the system's libraries: the
-// files or directories it reads, and the directories it writes (cut-a §7). Anything else under
-// Landlock is refused. Every encode is libx264 in M3; a hardware encoder's run will need its
-// GPU's device nodes, and the /sys files that describe them, granted here when it arrives.
+// files or directories it reads, the directories it writes, and whether it uses the GPU, for a
+// hardware encode (cut-a §6, §7): its device nodes, and the /sys and /proc files that describe
+// them. Anything else under Landlock is refused.
 type Access struct {
-	Read  []string `json:"read,omitempty"`
-	Write []string `json:"write,omitempty"`
+	Read    []string `json:"read,omitempty"`
+	Write   []string `json:"write,omitempty"`
+	Devices bool     `json:"devices,omitempty"`
 }
 
 // Spec is one confined run: the tool, its arguments, and its access.

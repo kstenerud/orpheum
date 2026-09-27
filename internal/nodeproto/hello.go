@@ -19,7 +19,8 @@ type Hello struct {
 	FFmpegVersion string   `json:"ffmpegVersion"`
 	// FFmpegHash is the SHA-256 of the ffmpeg binary, so the core can tell which build ran.
 	FFmpegHash string `json:"ffmpegHash"`
-	// Capabilities are the encoders the node found (remux, aac, h264_qsv, ...). Empty until M3.
+	// Capabilities are what the node found it can do (cut-a §4): remux and aac always, and the
+	// encoders it can use, h264_qsv, h264_nvenc and x264.
 	Capabilities []string `json:"capabilities"`
 	// Confinement is what the node got, per mechanism (D112).
 	Confinement []Confinement `json:"confinement"`

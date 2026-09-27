@@ -49,15 +49,15 @@ func mixes(track nodeproto.PrepareAudio) []mix {
 	return []mix{{name, stereoMix}}
 }
 
-// Arguments is FFmpeg's command line for one prepare, after execx's hardening flags: input is
-// the source's absolute path, output the rendition's absolute directory.
-func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare) []string {
+// Arguments is FFmpeg's command line for one prepare, after execx's hardening flags: the source's
+// absolute path, the rendition's absolute directory, and, for an encode, the encoder it uses.
+func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare, encoder Encoder) []string {
 	arguments := []string{
 		"-v", "error", "-nostats", "-progress", "pipe:1",
 		"-protocol_whitelist", "file", "-i", "file:" + sourcePath,
 		"-map", "0:" + strconv.Itoa(command.VideoStreamIndex),
 	}
-	arguments = append(arguments, videoArguments(command)...)
+	arguments = append(arguments, videoArguments(command, encoder)...)
 	streams := []string{"v:0,agroup:audio,name:video"}
 	slot := 0
 	for _, track := range command.Audio {
@@ -85,9 +85,9 @@ func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare) []st
 	)
 }
 
-// videoArguments copy the picture for remux, tagging HEVC as hvc1 for Safari, or re-encode it to
-// 8-bit H.264 at about 8 Mb/s with a keyframe every two seconds (cut-a §6).
-func videoArguments(command nodeproto.Prepare) []string {
+// videoArguments copy the picture for remux, tagging HEVC as hvc1 for Safari, or re-encode it with
+// the node's encoder (cut-a §6).
+func videoArguments(command nodeproto.Prepare, encoder Encoder) []string {
 	const codec = "-c:v"
 	if command.Profile == nodeproto.ProfileRemux {
 		if command.VideoCodec == "hevc" {
@@ -95,11 +95,7 @@ func videoArguments(command nodeproto.Prepare) []string {
 		}
 		return []string{codec, "copy"}
 	}
-	return []string{
-		codec, "libx264", "-preset", "veryfast", "-profile:v", "high", "-pix_fmt", "yuv420p",
-		"-b:v", "8M", "-maxrate", "10M", "-bufsize", "16M",
-		"-force_key_frames", "expr:gte(t,n_forced*2)",
-	}
+	return encoder.arguments()
 }
 
 // segmentLengthSeconds is the segment length asked for, or the default when it is out of bounds.

@@ -46,15 +46,16 @@ type Preparer struct {
 	runner    Runner
 	directory string
 	keeper    Keeper
+	encoder   Encoder
 }
 
 // New returns a preparer writing under directory, which must be absolute, within the budget its
-// keeper keeps.
-func New(runner Runner, directory string, keeper Keeper) (*Preparer, error) {
+// keeper keeps, encoding with encoder (ChooseEncoder).
+func New(runner Runner, directory string, keeper Keeper, encoder Encoder) (*Preparer, error) {
 	if !filepath.IsAbs(directory) {
 		return nil, fmt.Errorf("the prepared directory must be an absolute path, not %q", directory)
 	}
-	return &Preparer{runner: runner, directory: directory, keeper: keeper}, nil
+	return &Preparer{runner: runner, directory: directory, keeper: keeper, encoder: encoder}, nil
 }
 
 // Directory is where renditions are written, for the byte socket to serve them from.
@@ -85,9 +86,10 @@ func (preparer *Preparer) Prepare(
 		defer close(done)
 		readProgress(reader, progress)
 	}()
-	// It reads the source and writes the rendition, and nothing else (cut-a §7).
-	access := confine.Access{Read: []string{sourcePath}, Write: []string{renditionPath}}
-	arguments := Arguments(sourcePath, renditionPath, command)
+	// It reads the source and writes the rendition, and an encode on the GPU opens it (cut-a §7).
+	isOnGPU := command.Profile == nodeproto.ProfileH264At8M && preparer.encoder.UsesGPU()
+	access := confine.Access{Read: []string{sourcePath}, Write: []string{renditionPath}, Devices: isOnGPU}
+	arguments := Arguments(sourcePath, renditionPath, command, preparer.encoder)
 	err := preparer.runner.RunStreaming(ctx, execx.FFmpeg, access, arguments, writer)
 	_ = writer.Close() //nolint:errcheck // a pipe's writer closes without error
 	<-done

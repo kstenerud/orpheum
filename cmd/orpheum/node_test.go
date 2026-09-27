@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -344,5 +346,13 @@ func TestRunNode_StillServesFilesWhenItCannotPrepare(t *testing.T) {
 	cancel()
 	if err := <-done; err != nil {
 		t.Errorf("runNode returned %v", err)
+	}
+}
+
+func TestCapabilities_AreRemuxAACAndTheEncodersTheNodeFound(t *testing.T) {
+	t.Parallel()
+	got := capabilities([]prepare.Encoder{prepare.EncoderQuickSync, prepare.EncoderX264})
+	if want := []string{"remux", "aac", "h264_qsv", "x264"}; !slices.Equal(got, want) {
+		t.Errorf("capabilities = %v, want %v (cut-a §4)", got, want)
 	}
 }
