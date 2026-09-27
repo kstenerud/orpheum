@@ -4,7 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem } from "./problem.ts";
+import { ApiProblem, problemText } from "./problem.ts";
 import { entryRoute } from "./browse.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -89,7 +89,7 @@ function WaitingRow(props: {
         setNote(
           error === undefined
             ? t("identify.refreshed")
-            : t("common.failed", { message: error.error.message }),
+            : problemText(t, new ApiProblem(error.error)),
         );
       });
   };
@@ -142,7 +142,7 @@ function Candidates(props: { readonly id: number; readonly onChosen: () => void 
         if (error === undefined) {
           props.onChosen();
         } else {
-          setProblem(error.error.message);
+          setProblem(problemText(t, new ApiProblem(error.error)));
         }
       });
   };
@@ -159,7 +159,7 @@ function Candidates(props: { readonly id: number; readonly onChosen: () => void 
           />
         )}
       />
-      {problem === "" ? null : <p role="alert">{t("common.failed", { message: problem })}</p>}
+      {problem === "" ? null : <p role="alert">{problem}</p>}
     </section>
   );
 }

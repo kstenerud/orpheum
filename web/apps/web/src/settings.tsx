@@ -4,7 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem } from "./problem.ts";
+import { ApiProblem, problemText, type ErrorDetail } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -228,11 +228,11 @@ function Secrets(): JSX.Element {
   });
   const answered =
     (name: string, done: string) =>
-    ({ error }: { error?: { error: { message: string } } }): void => {
+    ({ error }: { error?: { error: ErrorDetail } }): void => {
       setNotes((previous) =>
         new Map(previous).set(
           name,
-          error === undefined ? done : t("common.failed", { message: error.error.message }),
+          error === undefined ? done : problemText(t, new ApiProblem(error.error)),
         ),
       );
       reload();
@@ -262,6 +262,7 @@ function Secrets(): JSX.Element {
 
 /** The server's settings, loaded, with saving and resetting. */
 function ServerSettings(): JSX.Element {
+  const { t } = useTranslation();
   const { api } = useServices();
   const [problem, setProblem] = useState("");
   const [config, reload] = useResource("config", async () => {
@@ -271,8 +272,8 @@ function ServerSettings(): JSX.Element {
     }
     return data.settings ?? [];
   });
-  const answered = ({ error }: { error?: { error: { message: string } } }): void => {
-    setProblem(error === undefined ? "" : error.error.message);
+  const answered = ({ error }: { error?: { error: ErrorDetail } }): void => {
+    setProblem(error === undefined ? "" : problemText(t, new ApiProblem(error.error)));
     reload();
   };
   return (

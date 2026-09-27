@@ -105,6 +105,19 @@ const noInlineAccessibleText = {
     "JSXAttribute[name.name=/^(aria-label|aria-description|title|alt|placeholder)$/] > Literal",
   message: "User-visible text goes through the translation layer (D51), never inline in JSX.",
 };
+// cut-a §5.2: the server's message is an English note for developers; a person is told what went
+// wrong by its code, through problemText, in their language.
+const noServerMessageShown = {
+  selector:
+    "MemberExpression[object.type='MemberExpression'][object.property.name='error'][property.name='message']",
+  message:
+    "The server's message is a note for developers (cut-a §5.2): throw ApiProblem and show problemText's words.",
+};
+// D51: text in a JSX expression is as visible as text in JSX.
+const noInlineExpressionText = {
+  selector: String.raw`:matches(JSXElement, JSXFragment) > JSXExpressionContainer > Literal[value=/\p{L}/u], :matches(JSXElement, JSXFragment) > JSXExpressionContainer > TemplateLiteral > TemplateElement[value.raw=/\p{L}/u]`,
+  message: "User-visible text goes through the translation layer (D51), never inline in JSX.",
+};
 
 export default tseslint.config(
   {
@@ -276,6 +289,8 @@ export default tseslint.config(
         noImportMetaEnv,
         noInlineUserText,
         noInlineAccessibleText,
+        noInlineExpressionText,
+        noServerMessageShown,
       ],
     },
   },
