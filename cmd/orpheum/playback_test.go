@@ -108,6 +108,11 @@ func TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore(t *testin
 		if text.status != http.StatusOK || text.body != reply {
 			t.Errorf("the subtitle = %d %q, want 200 and what FFmpeg wrote", text.status, text.body)
 		}
+		// The job view reads the queue the runners run (cut-a §5.3).
+		listed := call(t, http.MethodGet, server.baseURL+"/jobs", token, nil)
+		if listed.status != http.StatusOK || !strings.Contains(listed.body, `"kind":"extract_subtitle"`) {
+			t.Errorf("GET /jobs = %d %s, want the extraction listed", listed.status, listed.body)
+		}
 		return
 	}
 }

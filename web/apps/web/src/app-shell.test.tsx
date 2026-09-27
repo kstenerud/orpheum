@@ -30,6 +30,7 @@ describe("AppShell", () => {
     );
     expect(markup).toContain('<li aria-current="page"><a href="/films">Films</a></li>');
     expect(markup).not.toContain("/libraries");
+    expect(markup).not.toContain("/jobs");
     expect(markup).toContain("partner on Firefox on Mac");
   });
 
@@ -44,5 +45,6 @@ describe("AppShell", () => {
     expect(markup).toContain('href="/libraries"');
     expect(markup).toContain('href="/identify"');
     expect(markup).toContain('href="/settings"');
+    expect(markup).toContain('href="/jobs"');
   });
 });
