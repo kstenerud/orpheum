@@ -170,3 +170,11 @@ func TestChangePassword_NeedsTheCurrentOneAndKeepsOtherSessions(t *testing.T) {
 		t.Errorf("another session after the change: %v, want still signed in (D218 §6)", err)
 	}
 }
+
+func TestChangePassword_OfNoOneIsNoSuchPerson(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	if err := fixture.service.ChangePassword(t.Context(), 999, "old", "new"); !errors.Is(err, ErrNoUser) {
+		t.Errorf("the password of a person who is not there: %v, want ErrNoUser", err)
+	}
+}
