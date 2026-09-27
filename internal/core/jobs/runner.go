@@ -25,6 +25,8 @@ type Runner struct {
 	handler     Handler
 	schedule    []time.Duration
 	pausedUntil time.Time
+	// wake is this runner's own wake-up, left there when a job of its kind is queued.
+	wake chan struct{}
 }
 
 // RetryOn gives the runner's kind its own retry schedule in place of the settings' doubling
@@ -36,7 +38,7 @@ func (runner *Runner) RetryOn(schedule []time.Duration) *Runner {
 
 // NewRunner returns the runner for one kind of job.
 func (queue *Queue) NewRunner(kind Kind, handler Handler) *Runner {
-	return &Runner{queue: queue, kind: kind, handler: handler}
+	return &Runner{queue: queue, kind: kind, handler: handler, wake: queue.wakeFor(kind)}
 }
 
 // Run runs due jobs on every tick and whenever the queue is woken, until ctx ends.
@@ -46,7 +48,7 @@ func (runner *Runner) Run(ctx context.Context, tick <-chan time.Time) error {
 		case <-ctx.Done():
 			return nil
 		case <-tick:
-		case <-runner.queue.wake:
+		case <-runner.wake:
 		}
 		if err := runner.RunDue(ctx); err != nil && ctx.Err() == nil {
 			runner.queue.logger.ErrorContext(ctx, "the job queue could not run", "kind", runner.kind, "err", err)

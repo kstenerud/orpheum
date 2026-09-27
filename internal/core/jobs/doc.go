@@ -19,6 +19,8 @@
 //     tagged [clock].
 //   - A subject has at most one open job of a kind. TestEnqueue_QueuesASubjectOnceWhileItIsOpen.
 //   - The highest priority runs first. TestRunDue_RunsTheHighestPriorityFirst.
+//   - A queued job wakes a runner of its own kind at once; no other kind's runner takes its
+//     wake-up, so it never waits for the next tick. TestRun_AQueuedJobWakesARunnerOfItsOwnKindAtOnce.
 //   - A failure retries with doubling back-off up to the retry limit, then fails.
 //     TestRunDue_RetriesAFailureWithDoublingBackoffThenFails.
 //   - A provider's Retry-After, or a missing key, holds the kind without costing attempts (D170).

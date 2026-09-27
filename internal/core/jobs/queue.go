@@ -70,17 +70,19 @@ type Queue struct {
 	clock    clock.Clock
 	settings Settings
 	logger   *slog.Logger
-	wake     chan struct{}
 
 	mutex   sync.Mutex
 	running map[int64]context.CancelCauseFunc // guarded by mutex: each running job's cancel
+	// wakes are each kind's runners' wake-up: one each, so a job of one kind never wakes a
+	// runner of another in its place.
+	wakes map[Kind][]chan struct{} // guarded by mutex
 }
 
 // NewQueue returns the queue.
 func NewQueue(cache *store.Cache, clockSource clock.Clock, config Settings, logger *slog.Logger) *Queue {
 	return &Queue{
-		cache: cache, clock: clockSource, settings: config, logger: logger, wake: make(chan struct{}, 1),
-		running: map[int64]context.CancelCauseFunc{},
+		cache: cache, clock: clockSource, settings: config, logger: logger,
+		running: map[int64]context.CancelCauseFunc{}, wakes: map[Kind][]chan struct{}{},
 	}
 }
 
@@ -120,7 +122,7 @@ func (queue *Queue) Enqueue(ctx context.Context, job New) (bool, error) {
 		return false, fmt.Errorf("enqueue: %w", err)
 	}
 	if added {
-		queue.Wake()
+		queue.wakeKind(job.Kind)
 	}
 	return added, nil
 }
@@ -149,12 +151,41 @@ func (queue *Queue) RequeueRunning(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
-// Wake tells the runners there may be work before their next tick.
+// Wake tells every runner there may be work before its next tick.
 func (queue *Queue) Wake() {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	for _, wakes := range queue.wakes {
+		for _, wake := range wakes {
+			nudge(wake)
+		}
+	}
+}
+
+// wakeKind tells the runners of one kind there may be work before their next tick.
+func (queue *Queue) wakeKind(kind Kind) {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	for _, wake := range queue.wakes[kind] {
+		nudge(wake)
+	}
+}
+
+// nudge leaves a wake-up on a runner's channel unless one is already waiting there.
+func nudge(wake chan struct{}) {
 	select {
-	case queue.wake <- struct{}{}:
+	case wake <- struct{}{}:
 	default:
 	}
+}
+
+// wakeFor is a new runner's own wake-up, for its kind.
+func (queue *Queue) wakeFor(kind Kind) chan struct{} {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	wake := make(chan struct{}, 1)
+	queue.wakes[kind] = append(queue.wakes[kind], wake)
+	return wake
 }
 
 // RetryAtError is a handler's answer that the job cannot run before a time that is not its fault — a
