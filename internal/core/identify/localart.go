@@ -121,8 +121,8 @@ func (work *run) retireLocalArtwork(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("encode item %d's local artwork: %w", itemID, err)
 		}
-		err = work.queries.RetireLocalArtworkNotFound(ctx, sqlcgen.RetireLocalArtworkNotFoundParams{
-			RemovedAt: &work.now, ItemID: itemID, FoundRefs: string(encoded),
+		err = work.queries.RetireArtworkNotFound(ctx, sqlcgen.RetireArtworkNotFoundParams{
+			RemovedAt: &work.now, ItemID: itemID, Source: SourceLocal, FoundRefs: string(encoded),
 		})
 		if err != nil {
 			return fmt.Errorf("retire item %d's local artwork no longer found: %w", itemID, err)

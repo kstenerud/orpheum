@@ -310,23 +310,29 @@ func (q *Queries) MarkArtworkRemoved(ctx context.Context, arg MarkArtworkRemoved
 	return err
 }
 
-const retireLocalArtworkNotFound = `-- name: RetireLocalArtworkNotFound :exec
+const retireArtworkNotFound = `-- name: RetireArtworkNotFound :exec
 UPDATE artwork SET removed_at = ?1
-WHERE item_id = ?2 AND source = 'local' AND chosen = 0 AND removed_at IS NULL
-  AND source_ref NOT IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))
+WHERE item_id = ?2 AND source = ?3 AND chosen = 0 AND removed_at IS NULL
+  AND (source_ref IS NULL OR source_ref NOT IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
 `
 
-type RetireLocalArtworkNotFoundParams struct {
+type RetireArtworkNotFoundParams struct {
 	RemovedAt *int64
 	ItemID    int64
+	Source    string
 	FoundRefs string
 }
 
-// An item's images from beside the media that this pass no longer found beside it: a deleted
-// poster.jpg, or a video renamed away from its image. A person's choice stays. The refs kept are
-// a JSON array.
-func (q *Queries) RetireLocalArtworkNotFound(ctx context.Context, arg RetireLocalArtworkNotFoundParams) error {
-	_, err := q.db.ExecContext(ctx, retireLocalArtworkNotFound, arg.RemovedAt, arg.ItemID, arg.FoundRefs)
+// An item's images from one source that the source no longer offers: an image beside the media
+// that a pass no longer found (a deleted poster.jpg), or a provider's image the item's new work
+// lacks after a rematch, D223 section 9. A person's choice stays. The refs kept are a JSON array.
+func (q *Queries) RetireArtworkNotFound(ctx context.Context, arg RetireArtworkNotFoundParams) error {
+	_, err := q.db.ExecContext(ctx, retireArtworkNotFound,
+		arg.RemovedAt,
+		arg.ItemID,
+		arg.Source,
+		arg.FoundRefs,
+	)
 	return err
 }
 

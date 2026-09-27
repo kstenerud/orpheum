@@ -210,7 +210,7 @@ func (matcher *Matcher) accept(
 	}
 	var owed Report
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		found := match{provider: provider.Name(), id: metadata.ID, ident: ident}
+		found := match{provider: provider.Name(), id: metadata.ID, ident: ident, artwork: metadata.Artwork}
 		owed = Report{}
 		return matcher.record(ctx, queries, found, title, stored, derivation{sorter: sorter, report: &owed})
 	})
@@ -234,6 +234,8 @@ type match struct {
 	provider string
 	id       string
 	ident    string
+	// artwork is the work's images, whose refs a rematch keeps of the item's earlier ones.
+	artwork []ArtRef
 }
 
 // record stores a match's response and re-derives the title from it, as a pass would.
@@ -248,6 +250,12 @@ func (matcher *Matcher) record(
 		err := queries.DeleteItemProviderIDsOf(ctx, forget)
 		if err != nil {
 			return fmt.Errorf("forget title %d's earlier %s match: %w", title.ID, provider, err)
+		}
+	}
+	if isRematch := ptr.ValueOrZero(title.Source) == provider && ptr.ValueOrZero(title.SourceID) != id &&
+		title.SourceID != nil; isRematch {
+		if err := retireArtworkOf(ctx, queries, title.ID, provider, found.artwork, now); err != nil {
+			return err
 		}
 	}
 	titleID, err := joinExisting(ctx, queries, provider, id, title, now)
@@ -272,6 +280,28 @@ func (matcher *Matcher) record(
 		return err
 	}
 	return refile(ctx, queries, titleID, result.ident, result.reason)
+}
+
+// retireArtworkOf retires an item's images from a provider that its new work does not have: a
+// rematch to another work leaves none of the earlier work's kinds behind (D223 §9).
+func retireArtworkOf(
+	ctx context.Context, queries *sqlcgen.Queries, itemID int64, provider string, kept []ArtRef, now int64,
+) error {
+	refs := make([]string, 0, len(kept))
+	for _, ref := range kept {
+		refs = append(refs, ref.Ref)
+	}
+	encoded, err := json.Marshal(refs)
+	if err != nil {
+		return fmt.Errorf("encode item %d's artwork: %w", itemID, err)
+	}
+	err = queries.RetireArtworkNotFound(ctx, sqlcgen.RetireArtworkNotFoundParams{
+		RemovedAt: &now, ItemID: itemID, Source: provider, FoundRefs: string(encoded),
+	})
+	if err != nil {
+		return fmt.Errorf("retire item %d's earlier work's artwork: %w", itemID, err)
+	}
+	return nil
 }
 
 // joinExisting moves a title's versions into another live title of its library that already
