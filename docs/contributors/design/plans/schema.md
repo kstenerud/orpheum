@@ -557,6 +557,7 @@ CREATE TABLE device (                                      -- class A
   last_seen_at     INTEGER NOT NULL,
   removed_at    INTEGER
 );
+CREATE INDEX device_owner ON device(user_id) WHERE removed_at IS NULL;  -- a person's devices (0015)
 
 CREATE TABLE "grant" (                                     -- class A (D154)
   hash        BLOB PRIMARY KEY,          -- SHA-256 of the secret; never the secret
