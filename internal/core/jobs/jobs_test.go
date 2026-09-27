@@ -284,3 +284,33 @@ func TestEnqueue_AJobWaitsUntilItsNotBefore(t *testing.T) {
 		t.Errorf("ran %d at its time (%v)", ran, err)
 	}
 }
+
+func TestRun_AQueuedJobWakesARunnerOfItsOwnKindAtOnce(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	ctx, stop := context.WithTimeout(t.Context(), 10*time.Second)
+	defer stop()
+	ran := make(chan Kind, 4)
+	never := make(chan time.Time) // no tick: only a wake-up can start a run
+	kinds := []Kind{KindFetch, KindArtwork, KindPrepare, KindExtractSubtitle}
+	for _, kind := range kinds {
+		runner := jobs.queue.NewRunner(kind, func(_ context.Context, job Job) error {
+			ran <- job.Kind
+			return nil
+		})
+		go func() { _ = runner.Run(ctx, never) }() //nolint:errcheck // Run returns nil when ctx ends
+	}
+	for index, kind := range kinds {
+		if _, err := jobs.queue.Enqueue(t.Context(), New{Kind: kind, Subject: int64(index + 1)}); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case got := <-ran:
+			if got != kind {
+				t.Errorf("queued a %s job, and a %s job ran", kind, got)
+			}
+		case <-ctx.Done():
+			t.Fatalf("a queued %s job did not run: its runner was not woken", kind)
+		}
+	}
+}
