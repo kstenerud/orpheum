@@ -318,6 +318,7 @@
               "kernel_without",
               "blocked_by_runtime",
               "not_linux",
+              "architecture_unwritten",
               "unexplained"
             ],
             "type": "string"

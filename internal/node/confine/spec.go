@@ -51,7 +51,9 @@ const (
 	CauseKernelWithout    = "kernel_without"
 	CauseBlockedByRuntime = "blocked_by_runtime"
 	CauseNotLinux         = "not_linux"
-	CauseUnexplained      = "unexplained"
+	// CauseArchitectureUnwritten is a mechanism not yet written for the machine's architecture.
+	CauseArchitectureUnwritten = "architecture_unwritten"
+	CauseUnexplained           = "unexplained"
 )
 
 // IsConfined is whether every mechanism is in force.

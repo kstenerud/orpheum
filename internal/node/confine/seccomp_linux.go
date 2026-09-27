@@ -42,6 +42,12 @@ const (
 // seccompState is seccomp's state on this machine: whether the kernel filters system calls.
 func seccompState() State {
 	state := State{Mechanism: Seccomp}
+	if !isFilterWritten {
+		state.Cause = CauseArchitectureUnwritten
+		state.Reason = "the seccomp denylist is not written for this machine's architecture"
+		state.Remedy = "run the node on amd64 or arm64, where it is written (D205)"
+		return state
+	}
 	if _, err := unix.PrctlRetInt(unix.PR_GET_SECCOMP, 0, 0, 0, 0); err != nil {
 		if errors.Is(err, unix.EINVAL) {
 			state.Cause = CauseKernelWithout

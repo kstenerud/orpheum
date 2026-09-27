@@ -16007,7 +16007,7 @@ one.
 | --- | --- | --- |
 | MKVToolNix, the integration tier's Matroska editor | its only portable build is an x86_64 AppImage | pin distribution packages or a source build for `linux/arm64` in `scripts/fetch_mkvtoolnix.py`; until then an arm64 job lists `mkvtoolnix` in `ORPHEUM_TEST_UNCONTROLLED` |
 | Quick Sync and NVENC (M3's hardware encoders) | Intel and NVIDIA hardware | the node reports its encoders in `hello` (cut-a §4), so an arm64 node reports what it has; profiles never assume one |
-| The seccomp denylist (M3) | syscall numbers differ per architecture | write the denylist by syscall name, resolved per architecture, and test it on each architecture it claims |
+| The seccomp denylist (M3) | syscall numbers differ per architecture | written by syscall name for amd64 and arm64 (built 2026-09-27); the escape test has run on amd64 only, so arm64's filter is tested when the first arm64 machine is. Any other architecture reports seccomp not in force, cause `architecture_unwritten`, with no code of its own |
 | CI | one `ubuntu-24.04` runner | an arm64 job (`ubuntu-24.04-arm`) when the first arm64 machine is in view |
 
 The pinned FFmpeg is already pinned for `linux/arm64` and `darwin/arm64`.

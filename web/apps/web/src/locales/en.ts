@@ -223,6 +223,8 @@ export const en = {
       blockedByRuntime:
         "The container this runs in blocks {{mechanism}}. Update the container software, or allow it in the container's settings.",
       notLinux: "{{mechanism}} exists only on Linux, and this machine runs another system.",
+      architectureUnwritten:
+        "{{mechanism}} is not yet written for this machine's kind of processor; it is for x86-64 and ARM64.",
       unexplained:
         "{{mechanism}} is not working here, for a reason the machine could not name. The server's log has its exact answer.",
     },
