@@ -48,22 +48,23 @@ func (q *Queries) GetTitleOfFile(ctx context.Context, fileID int64) (int64, erro
 
 const listFilesOfWork = `-- name: ListFilesOfWork :many
 SELECT DISTINCT file.id
-FROM file
-JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
-WHERE file.removed_at IS NULL AND (
-  version.title_id = ?1
-  OR version.title_id IN (
-    SELECT sibling.member_title FROM collection_member AS own
-    JOIN collection_member AS sibling ON sibling.collection_id = own.collection_id
-    JOIN collection ON collection.id = own.collection_id AND collection.kind = 'series'
-    WHERE own.member_title = ?1
-  )
+FROM version
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+WHERE version.removed_at IS NULL AND version.title_id IN (
+  SELECT CAST(?1 AS INTEGER) AS member_title
+  UNION
+  SELECT sibling.member_title FROM collection_member AS own
+  JOIN collection_member AS sibling ON sibling.collection_id = own.collection_id
+  JOIN collection ON collection.id = own.collection_id AND collection.kind = 'series'
+  WHERE own.member_title = ?1
 )
 ORDER BY file.id
 `
 
 // The live files of a work, for carrying a choice across it (D219): of the title, or when the
 // title is an episode in a series, of every episode of that series.
+// It starts from the work's titles, so it reads their versions and files by index, never every
+// file (sql.md section 11).
 func (q *Queries) ListFilesOfWork(ctx context.Context, titleID int64) ([]int64, error) {
 	rows, err := q.db.QueryContext(ctx, listFilesOfWork, titleID)
 	if err != nil {
