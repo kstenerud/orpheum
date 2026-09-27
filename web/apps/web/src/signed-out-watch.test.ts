@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { createApi } from "@orpheum/sdk";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
@@ -52,15 +52,17 @@ describe("a session the server ended", () => {
     const answer = {
       error: { code: "auth_required", message: "x", detail: { reason: "session_ended" } },
     };
-    vi.stubGlobal("fetch", () =>
-      Promise.resolve(
-        new Response(JSON.stringify(answer), {
-          status: 401,
-          headers: { "Content-Type": "application/json" },
-        }),
-      ),
-    );
-    const api = createApi({ origin: "http://orpheum.test", token: session.token });
+    const api = createApi({
+      origin: "http://orpheum.test",
+      token: session.token,
+      fetch: () =>
+        Promise.resolve(
+          new Response(JSON.stringify(answer), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          }),
+        ),
+    });
     api.use(watchForSignOut(session, navigation));
     await api.GET("/me");
     expect(session.token()).toBeUndefined();
@@ -69,6 +71,5 @@ describe("a session the server ended", () => {
     expect(createSession(storage).deviceId()).toBe(42);
     session.signIn("next");
     expect(session.endedBecause()).toBeUndefined();
-    vi.unstubAllGlobals();
   });
 });
