@@ -16632,3 +16632,28 @@ with what exactly is used. The mechanism (where the record lives, how a gate che
 package whose published archive has no commit in it is traced) is designed with the release work.
 
 **Status:** Decided; to be built before the first public release.
+
+## D221 — A device keeps its identity across sign-ins, and a signed-out device is signed back in with a code made for it
+
+**Decided** (2026-09-27), by the project owner, after trying D218's devices on a phone: every
+sign-in made a new device, so a signed-out device could never come back and a browser signed in
+twice showed as two. The owner: *"that's fine for devices to be able to come back, but then we
+need a way to regenerate a new sign-in code for that device."* **Refines
+[D218](#d218--accounts-the-admin-creates-a-person-who-sets-a-password-from-a-one-time-link-a-signed-in-person-adds-a-tv-by-a-short-safe32-code)
+§3–§5 and
+[D217](#d217--m3s-playback-contract-the-client-sends-ranked-lists-the-media-token-is-a-reference-every-audio-track-is-prepared-and-hlsjs-jassub-and-playwright-are-allowed) §8.**
+
+1. **A client remembers the device it was signed in as**, and a sign-in, by password or by a
+   registration link, resumes that device when it is the same person's and has not been removed,
+   rather than making a new one. What the device carries (its name, how it makes sound, its
+   history) stays with it.
+2. **A device code is for a new device or for one already listed**: a person, or an admin for
+   them, can make a code for a signed-out device, and signing in with it resumes that device.
+3. **One code is outstanding per person at a time** (the owner, 2026-09-27): making a new one
+   withdraws the last, whichever device it was for. The client can ask whether its code is still
+   waiting, so it stops showing a code once it is used.
+4. **A registration link is not held back by the failed-sign-in limit**: its 256 bits cannot be
+   guessed, and it is the admin's answer to a person locked out. Making one clears the person's
+   account from the limit.
+
+**Status:** Decided; built in M3.
