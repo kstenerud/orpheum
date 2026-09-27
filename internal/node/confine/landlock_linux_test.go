@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package confine
+
+import (
+	"strings"
+	"testing"
+
+	"golang.org/x/sys/unix"
+)
+
+func TestLandlockState_SaysWhyItIsMissingAndWhatWouldPutItThere(t *testing.T) {
+	t.Parallel()
+	for _, want := range []struct {
+		errno  error
+		cause  string
+		remedy string
+	}{
+		{unix.EOPNOTSUPP, CauseDisabledAtBoot, "lsm="},
+		{unix.ENOSYS, CauseKernelWithout, "5.13"},
+		{unix.EPERM, CauseBlockedByRuntime, "container runtime"},
+		{unix.EIO, CauseUnexplained, "report it"},
+	} {
+		got := landlockStateOf(want.errno)
+		if got.InForce || got.Cause != want.cause || !strings.Contains(got.Remedy, want.remedy) || got.Reason == "" {
+			t.Errorf("Landlock answering %v: %+v, want %s with a remedy naming %q (D112)",
+				want.errno, got, want.cause, want.remedy)
+		}
+	}
+	if got := landlockStateOf(nil); !got.InForce || got.Cause != "" {
+		t.Errorf("Landlock answering an ABI: %+v, want in force", got)
+	}
+}

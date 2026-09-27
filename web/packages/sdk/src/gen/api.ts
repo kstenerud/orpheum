@@ -1048,6 +1048,8 @@ export interface components {
             settings: components["schemas"]["SettingBody"][] | null;
         };
         ConfinementBody: {
+            /** @enum {string} */
+            cause?: "disabled_at_boot" | "kernel_without" | "blocked_by_runtime" | "not_linux" | "unexplained";
             isInForce: boolean;
             /** @enum {string} */
             mechanism: "landlock" | "seccomp";

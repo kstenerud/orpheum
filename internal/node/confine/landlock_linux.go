@@ -65,23 +65,32 @@ func landlockABI() (int, error) {
 // landlockState is Landlock's state on this machine, with the errno translated into a cause and a
 // remedy (D112).
 func landlockState() State {
-	state := State{Mechanism: Landlock}
 	_, err := landlockABI()
+	return landlockStateOf(err)
+}
+
+// landlockStateOf is Landlock's state given what asking for its ABI answered.
+func landlockStateOf(err error) State {
+	state := State{Mechanism: Landlock}
 	switch {
 	case err == nil:
 		state.InForce = true
 	case errors.Is(err, unix.EOPNOTSUPP):
+		state.Cause = CauseDisabledAtBoot
 		state.Reason = "the kernel has Landlock, but it is not enabled at boot"
 		state.Remedy = "add landlock to the lsm= list on the kernel command line, for example " +
 			"lsm=landlock,lockdown,yama,integrity,apparmor, and reboot"
 	case errors.Is(err, unix.ENOSYS):
+		state.Cause = CauseKernelWithout
 		state.Reason = "the kernel is too old for Landlock, or was built without it"
 		state.Remedy = "run a kernel of 5.13 or newer built with Landlock"
 	case errors.Is(err, unix.EPERM):
+		state.Cause = CauseBlockedByRuntime
 		state.Reason = "the container runtime blocks Landlock's system calls"
 		state.Remedy = "upgrade the container runtime (Docker allows them from 23), " +
 			"or allow landlock_* in its seccomp profile"
 	default:
+		state.Cause = CauseUnexplained
 		state.Reason = fmt.Sprintf("Landlock answered %v", err)
 		state.Remedy = "report it; the node cannot say what would fix it"
 	}

@@ -205,8 +205,10 @@ type NodeBody struct {
 type ConfinementBody struct {
 	Mechanism string `enum:"landlock,seccomp" json:"mechanism"`
 	IsInForce bool   `json:"isInForce"`
-	Reason    string `json:"reason,omitempty"`
-	Remedy    string `json:"remedy,omitempty"`
+	// Cause names why it is not in force, for a client to say in its viewer's words.
+	Cause  string `enum:"disabled_at_boot,kernel_without,blocked_by_runtime,not_linux,unexplained" json:"cause,omitempty"` //nolint:lll // one struct tag
+	Reason string `json:"reason,omitempty"`
+	Remedy string `json:"remedy,omitempty"`
 }
 
 // NodeReports is what each connected node said about itself: nodes.Service.
@@ -220,7 +222,8 @@ func confinementOf(reports NodeReports, name string) []ConfinementBody {
 	bodies := make([]ConfinementBody, 0, len(reported))
 	for _, state := range reported {
 		bodies = append(bodies, ConfinementBody{
-			Mechanism: state.Mechanism, IsInForce: state.InForce, Reason: state.Reason, Remedy: state.Remedy,
+			Mechanism: state.Mechanism, IsInForce: state.InForce, Cause: state.Cause, Reason: state.Reason,
+			Remedy: state.Remedy,
 		})
 	}
 	return bodies

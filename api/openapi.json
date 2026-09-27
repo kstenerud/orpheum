@@ -312,6 +312,16 @@
       "ConfinementBody": {
         "additionalProperties": false,
         "properties": {
+          "cause": {
+            "enum": [
+              "disabled_at_boot",
+              "kernel_without",
+              "blocked_by_runtime",
+              "not_linux",
+              "unexplained"
+            ],
+            "type": "string"
+          },
           "isInForce": {
             "type": "boolean"
           },

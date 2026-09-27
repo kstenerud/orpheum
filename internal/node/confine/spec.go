@@ -39,9 +39,20 @@ type Spec struct {
 type State struct {
 	Mechanism string
 	InForce   bool
-	Reason    string
-	Remedy    string
+	// Cause names why it is not in force, from a closed set a client puts in its viewer's words.
+	Cause  string
+	Reason string
+	Remedy string
 }
+
+// The causes a mechanism is not in force (D112).
+const (
+	CauseDisabledAtBoot   = "disabled_at_boot"
+	CauseKernelWithout    = "kernel_without"
+	CauseBlockedByRuntime = "blocked_by_runtime"
+	CauseNotLinux         = "not_linux"
+	CauseUnexplained      = "unexplained"
+)
 
 // IsConfined is whether every mechanism is in force.
 func IsConfined(states []State) bool {

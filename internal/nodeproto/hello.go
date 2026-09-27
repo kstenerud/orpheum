@@ -31,6 +31,8 @@ type Hello struct {
 type Confinement struct {
 	Mechanism string `json:"mechanism"`
 	InForce   bool   `json:"inForce"`
+	// Cause names why it is not in force, from confine's closed set, for a client's own words.
+	Cause string `json:"cause,omitempty"`
 	// Reason says why a mechanism is not in force, and Remedy what would put it there.
 	Reason string `json:"reason"`
 	Remedy string `json:"remedy"`
