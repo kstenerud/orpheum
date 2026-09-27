@@ -404,3 +404,25 @@ func TestMigrate_Step0002MarksTheSettingsAPersonSetAsModified(t *testing.T) {
 		t.Errorf("after step 0002, the settings are %v; want the one a person set marked modified", rows)
 	}
 }
+
+func TestMigrate_Step0016RemovesTheDefaultSubtitlesAndBoostSettings(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:15], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		`INSERT INTO setting (scope, key, value, set_at) VALUES ('server', 'subtitles_on_by_default', 'true', 1),
+		 ('server', 'dialogue_boost_on_by_default', 'false', 1), ('server', 'scan_on_node_hello', 'true', 1)`)
+	if err = database.migrate(t.Context(), steps[:16], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	rows := queryRows(t, database, "SELECT key FROM setting ORDER BY key", 1)
+	if fmt.Sprint(rows) != "[[scan_on_node_hello]]" {
+		t.Errorf("after step 0016, the settings are %v; want only the one still registered (D223 §3)", rows)
+	}
+}

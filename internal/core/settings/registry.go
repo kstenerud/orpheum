@@ -15,8 +15,6 @@ type Key string
 // row that can be read and changed, not a default in code (D200). Units are in the name.
 const (
 	CheckForUpdates               Key = "check_for_updates"
-	SubtitlesOnByDefault          Key = "subtitles_on_by_default"
-	DialogueBoostOnByDefault      Key = "dialogue_boost_on_by_default"
 	SignInFailureLimit            Key = "signin_failure_limit"
 	SignInFailureWindowS          Key = "signin_failure_window_s"
 	SessionIdleExpiryH            Key = "session_idle_expiry_h"
@@ -100,15 +98,6 @@ func Registry() []Definition {
 			Key: CheckForUpdates, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("null"), Exposed: true,
 			Question: "Check GitHub for a new release once a day? The check sends nothing but the request.",
 			Describe: "whether the server checks for a new release (D184: asked, never assumed)",
-		},
-		{
-			Key: SubtitlesOnByDefault, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("true"),
-			Exposed: true, Describe: "whether subtitles are on when a person has chosen nothing (cut-a §1)",
-		},
-		{
-			Key: DialogueBoostOnByDefault, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("false"),
-			Exposed:  true,
-			Describe: "whether dialogue boost is on when a person has chosen nothing; off plays the original mix",
 		},
 		integer(SignInFailureLimit, "5", 1, 1000,
 			"failed sign-ins per account, and per address, before sign-in is refused for the window (D194 §2)"),
