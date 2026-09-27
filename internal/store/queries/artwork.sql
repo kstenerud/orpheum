@@ -70,3 +70,21 @@ GROUP BY artwork.content_hash;
 SELECT node_id, path, path_key
 FROM file
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: ListItemsWithLiveLocalArtwork :many
+-- A library's items that show an image found beside the media, D215: each pass checks they are
+-- still there.
+SELECT DISTINCT artwork.item_id
+FROM item
+JOIN artwork ON artwork.item_id = item.id
+WHERE item.library_id = sqlc.arg(library_id) AND artwork.source = 'local' AND artwork.removed_at IS NULL
+  AND artwork.chosen = 0
+ORDER BY artwork.item_id;
+
+-- name: RetireLocalArtworkNotFound :exec
+-- An item's images from beside the media that this pass no longer found beside it: a deleted
+-- poster.jpg, or a video renamed away from its image. A person's choice stays. The refs kept are
+-- a JSON array.
+UPDATE artwork SET removed_at = sqlc.arg(removed_at)
+WHERE item_id = sqlc.arg(item_id) AND source = 'local' AND chosen = 0 AND removed_at IS NULL
+  AND source_ref NOT IN (SELECT value FROM json_each(CAST(sqlc.arg(found_refs) AS TEXT)));

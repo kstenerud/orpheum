@@ -213,7 +213,7 @@ func (work *run) identify(ctx context.Context) error {
 			return err
 		}
 	}
-	return nil
+	return work.retireLocalArtwork(ctx)
 }
 
 // knowSeriesByFolder lets the name an episode's folders give find the series its neighbours are

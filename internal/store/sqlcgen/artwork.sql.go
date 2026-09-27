@@ -153,6 +153,40 @@ func (q *Queries) ListArtworkHashes(ctx context.Context) ([]ListArtworkHashesRow
 	return items, nil
 }
 
+const listItemsWithLiveLocalArtwork = `-- name: ListItemsWithLiveLocalArtwork :many
+SELECT DISTINCT artwork.item_id
+FROM item
+JOIN artwork ON artwork.item_id = item.id
+WHERE item.library_id = ?1 AND artwork.source = 'local' AND artwork.removed_at IS NULL
+  AND artwork.chosen = 0
+ORDER BY artwork.item_id
+`
+
+// A library's items that show an image found beside the media, D215: each pass checks they are
+// still there.
+func (q *Queries) ListItemsWithLiveLocalArtwork(ctx context.Context, libraryID *int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listItemsWithLiveLocalArtwork, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var item_id int64
+		if err := rows.Scan(&item_id); err != nil {
+			return nil, err
+		}
+		items = append(items, item_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLiveArtwork = `-- name: ListLiveArtwork :many
 
 SELECT id, kind, source, source_ref, content_hash, chosen
@@ -273,6 +307,26 @@ func (q *Queries) MarkArtworkRemoved(ctx context.Context, arg MarkArtworkRemoved
 		arg.Source,
 		arg.KeepID,
 	)
+	return err
+}
+
+const retireLocalArtworkNotFound = `-- name: RetireLocalArtworkNotFound :exec
+UPDATE artwork SET removed_at = ?1
+WHERE item_id = ?2 AND source = 'local' AND chosen = 0 AND removed_at IS NULL
+  AND source_ref NOT IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))
+`
+
+type RetireLocalArtworkNotFoundParams struct {
+	RemovedAt *int64
+	ItemID    int64
+	FoundRefs string
+}
+
+// An item's images from beside the media that this pass no longer found beside it: a deleted
+// poster.jpg, or a video renamed away from its image. A person's choice stays. The refs kept are
+// a JSON array.
+func (q *Queries) RetireLocalArtworkNotFound(ctx context.Context, arg RetireLocalArtworkNotFoundParams) error {
+	_, err := q.db.ExecContext(ctx, retireLocalArtworkNotFound, arg.RemovedAt, arg.ItemID, arg.FoundRefs)
 	return err
 }
 
