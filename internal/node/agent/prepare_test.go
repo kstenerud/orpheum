@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -29,17 +30,30 @@ func (fakePreparer) Prepare(
 	return int64(len(input)), nil
 }
 
+// patience is how long a test waits for the node's answer before it fails, so a report that
+// never comes fails the test in seconds rather than at the suite's deadline.
+const patience = 10 * time.Second
+
+// nextReport is the core's next report from a prepare.
+func nextReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
+	t.Helper()
+	ctx, stop := context.WithTimeout(t.Context(), patience)
+	defer stop()
+	select {
+	case report := <-core.prepared:
+		return report
+	case <-ctx.Done():
+		t.Fatal("no prepare report reached the core")
+	}
+	return nodeproto.PrepareReport{}
+}
+
 // finalReport is the core's last word from a prepare: done or failed.
 func finalReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
 	t.Helper()
 	for {
-		select {
-		case report := <-core.prepared:
-			if report.State != nodeproto.PrepareRunning {
-				return report
-			}
-		case <-t.Context().Done():
-			t.Fatal("no prepare report reached the core")
+		if report := nextReport(t, core); report.State != nodeproto.PrepareRunning {
+			return report
 		}
 	}
 }
@@ -108,7 +122,7 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 	core.commands <- prepare(1, "3/remux/slow")
 	core.commands <- prepare(2, "4/remux/slow")
 	for range 2 {
-		if started := <-core.prepared; started.State != nodeproto.PrepareRunning {
+		if started := nextReport(t, core); started.State != nodeproto.PrepareRunning {
 			t.Fatalf("a slow prepare's first report = %+v, want running", started)
 		}
 	}
