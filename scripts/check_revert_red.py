@@ -104,6 +104,12 @@ GO_TEST_SUPPORT = "internal/testutil/"
 # internal/store's integration tier, which is where such a file is reverted against
 # (audit-2026-09-25 section 5.3).
 GO_GENERATED_QUERIES = ("internal/store/sqlcgen/", "internal/store/cachegen/")
+# Where each generated query file's source is: sqlc writes sqlcgen/<name>.sql.go from
+# queries/<name>.sql, and cachegen/<name>.sql.go from cache/queries/<name>.sql.
+QUERY_SOURCES = {
+    "internal/store/sqlcgen/": "internal/store/queries/",
+    "internal/store/cachegen/": "internal/store/cache/queries/",
+}
 # `*_test.go` is safe to match by name because in Go the compiler agrees; the same
 # suffix in Python is a borrowed idiom that only ever matched the wrong file.
 PY_TEST = re.compile(r"(^|/)tests/")
@@ -466,6 +472,7 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
     if change.status == "D":
         return Outcome(change.path, "UNCHECKED", "deleted; reverting would re-add it")
 
+    source = query_source(change.path)
     try:
         if change.status == "A":
             (Path(tree) / change.path).unlink(missing_ok=True)
@@ -473,6 +480,8 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
             restored = _git("checkout", base, "--", change.path, cwd=tree)
             if restored.returncode != 0:
                 return Outcome(change.path, "UNCHECKED", "could not check out the base version")
+        if source is not None:
+            revert_to(tree, base, source)
 
         attempts = [Attempt(scope, "")]
         wide = wide_scope(change.path)
@@ -497,6 +506,26 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
         return Outcome(change.path, "GREEN", "every test still passes with this change reverted")
     finally:
         _git("checkout", head, "--", change.path, cwd=tree)
+        if source is not None:
+            _git("checkout", head, "--", source, cwd=tree)
+
+
+def query_source(path: str) -> str | None:
+    """The SQL a generated query file is written from, which a test such as the reference scale's
+    reads instead of the Go: undoing the generated file alone undoes nothing it checks, so both
+    are undone together."""
+    for generated, sources in QUERY_SOURCES.items():
+        if path.startswith(generated) and path.endswith(".sql.go"):
+            return sources + path[len(generated):-len(".go")]
+    return None
+
+
+def revert_to(tree: str, base: str, path: str) -> None:
+    """Puts path in the worktree as base had it, or removes it when base had none."""
+    if _git("cat-file", "-e", f"{base}:{path}", cwd=tree).returncode == 0:
+        _git("checkout", base, "--", path, cwd=tree)
+    else:
+        (Path(tree) / path).unlink(missing_ok=True)
 
 
 def report(outcomes: list[Outcome]) -> str:
