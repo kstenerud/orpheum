@@ -110,6 +110,7 @@ export const en = {
   people: {
     heading: "People",
     nameTaken: "Someone already has that name. Choose another.",
+    qrLabel: "{{name}}'s link as a QR code",
     add: "Add a person",
     name: "Name",
     role: "Role",
@@ -123,6 +124,12 @@ export const en = {
       link: "{{name}}'s link: send it to them",
       code: "A code for {{name}}'s device",
     },
+  },
+  person: {
+    devices: "Their devices",
+    rename: "Rename",
+    watched: "Watched {{hours}} hours of {{titles}} titles; last {{last}}",
+    neverWatched: "never",
   },
   share: {
     link: "It works once, until {{expires}}.",

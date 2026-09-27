@@ -5,21 +5,21 @@ import { useTranslation } from "react-i18next";
 
 import {
   createAccount,
-  issueDeviceCode,
-  issueRegistrationLink,
   listAccounts,
   registrationUrl,
   type Account,
   type Invitation,
 } from "./accounts.ts";
 import { problemText } from "./problem.ts";
+import { Link } from "./link.tsx";
+import { QrCode } from "./qr-code.tsx";
 import { Loaded } from "./title.tsx";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** What the admin last made, to pass on: a person's link or a device's code. */
-type Made =
+export type Made =
   | { readonly what: "link"; readonly name: string; readonly invitation: Invitation }
   | { readonly what: "code"; readonly name: string; readonly invitation: Invitation };
 
@@ -36,18 +36,6 @@ export function People(): JSX.Element {
   const failed = (cause: unknown): void => {
     setProblem(problemText(t, cause, { conflict: t("people.nameTaken") }));
   };
-  const act = {
-    linkFor: (account: Account): void => {
-      issueRegistrationLink(api, account.id).then((invitation) => {
-        setMade({ what: "link", name: account.name, invitation });
-      }, failed);
-    },
-    codeFor: (account: Account, deviceName: string): void => {
-      issueDeviceCode(api, { deviceName }, account.id).then((invitation) => {
-        setMade({ what: "code", name: account.name, invitation });
-      }, failed);
-    },
-  };
   return (
     <section className="people" aria-labelledby="people-heading">
       <h1 id="people-heading">{t("people.heading")}</h1>
@@ -60,13 +48,13 @@ export function People(): JSX.Element {
       />
       {made === undefined ? null : <MadeView made={made} />}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
-      <Loaded resource={accounts} render={(list) => <PeopleList accounts={list} act={act} />} />
+      <Loaded resource={accounts} render={(list) => <PeopleList accounts={list} />} />
     </section>
   );
 }
 
-/** What was just made, to pass on. */
-function MadeView(props: { readonly made: Made }): JSX.Element {
+/** What was just made, to pass on: a link also as a QR code a phone's camera opens (D218 §1). */
+export function MadeView(props: { readonly made: Made }): JSX.Element {
   const { t } = useTranslation();
   const { made } = props;
   const text =
@@ -76,6 +64,9 @@ function MadeView(props: { readonly made: Made }): JSX.Element {
   return (
     <div className="people__made">
       <h2>{t(`people.made.${made.what}`, { name: made.name })}</h2>
+      {made.what === "link" ? (
+        <QrCode text={text} label={t("people.qrLabel", { name: made.name })} />
+      ) : null}
       <Share what={made.what} text={text} invitation={made.invitation} />
     </div>
   );
@@ -128,65 +119,21 @@ function AddPerson(props: {
   );
 }
 
-/** Everyone, each with what the admin can make for them. */
-export function PeopleList(props: {
-  readonly accounts: readonly Account[];
-  readonly act: {
-    readonly linkFor: (account: Account) => void;
-    readonly codeFor: (account: Account, deviceName: string) => void;
-  };
-}): JSX.Element {
+/** Everyone, each leading to their page (the owner, 2026-09-27). */
+export function PeopleList(props: { readonly accounts: readonly Account[] }): JSX.Element {
   const { t } = useTranslation();
   return (
     <ul className="people__list">
       {props.accounts.map((account) => (
         <li key={account.id} className="people__person">
-          <span className="people__name">{account.name}</span>{" "}
+          <Link to={{ screen: "person", id: account.id }} className="people__name">
+            {account.name}
+          </Link>{" "}
           <span className="people__status">
             {t(account.hasPassword ? "people.registered" : "people.waiting")}
-          </span>{" "}
-          <button
-            type="button"
-            onClick={() => {
-              props.act.linkFor(account);
-            }}
-          >
-            {t("people.newLink")}
-          </button>{" "}
-          <DeviceFor
-            onCode={(deviceName) => {
-              props.act.codeFor(account, deviceName);
-            }}
-          />
+          </span>
         </li>
       ))}
     </ul>
-  );
-}
-
-/** A code for a device of one person: its name, then the code (D218 §3). */
-function DeviceFor(props: { readonly onCode: (deviceName: string) => void }): JSX.Element {
-  const { t } = useTranslation();
-  const [name, setName] = useState("");
-  return (
-    <form
-      className="people__device"
-      onSubmit={(event) => {
-        event.preventDefault();
-        props.onCode(name);
-      }}
-    >
-      <input
-        required
-        maxLength={100}
-        aria-label={t("account.deviceName")}
-        placeholder={t("account.deviceNameExample")}
-        value={name}
-        onChange={(event) => {
-          setName(event.target.value);
-        }}
-      />
-      <button type="submit">{t("account.makeCode")}</button>
-    </form>
   );
 }

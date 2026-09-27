@@ -80,7 +80,8 @@ export function deviceState(device: Device): "thisDevice" | "signedIn" | "signed
 /** The devices, each with its facts and what can be done to it. */
 export function DeviceList(props: {
   readonly devices: readonly Device[];
-  readonly onRename: (device: Device, name: string) => void;
+  /** Absent where the names are not the viewer's to change: an admin's view of someone's. */
+  readonly onRename?: ((device: Device, name: string) => void) | undefined;
   readonly onRemove: (device: Device) => void;
   readonly onCodeFor: (device: Device) => void;
 }): JSX.Element {
@@ -90,7 +91,11 @@ export function DeviceList(props: {
     <ul className="account__device-list">
       {props.devices.map((device) => (
         <li key={device.id} className="account__device">
-          <DeviceName device={device} onRename={props.onRename} />
+          {props.onRename === undefined ? (
+            <span className="account__device-name">{device.name}</span>
+          ) : (
+            <DeviceName device={device} onRename={props.onRename} />
+          )}
           <span>{t(`devices.${deviceState(device)}`)}</span>
           <span>
             {t("devices.addedAndUsed", {

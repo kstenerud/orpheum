@@ -2,7 +2,7 @@
 
 import type { Api, components } from "@orpheum/sdk";
 
-import { ApiProblem, dataOrThrow } from "./problem.ts";
+import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
 import type { NewDevice } from "./device.ts";
 
 /** One person, as the admin's list shows them. */
@@ -189,4 +189,40 @@ export function shownCode(storage: Storage, nowMs: number): ShownCode | undefine
     return undefined;
   }
   return code;
+}
+
+/** A person's page, for the admin: who they are and what they have watched. */
+export type Person = components["schemas"]["PersonOutputBody"];
+
+/** A person's page. */
+export async function getPerson(api: Api, userId: number): Promise<Person> {
+  return dataOrThrow(await api.GET("/users/{id}", { params: { path: { id: userId } } }));
+}
+
+/** Renames a person. */
+export async function renamePerson(api: Api, userId: number, name: string): Promise<void> {
+  throwIfRefused(
+    await api.PUT("/users/{id}", { params: { path: { id: userId } }, body: { name } }),
+  );
+}
+
+/** A person's devices, for the admin. */
+export async function listPersonDevices(api: Api, userId: number): Promise<Device[]> {
+  return (
+    dataOrThrow(await api.GET("/users/{id}/devices", { params: { path: { id: userId } } }))
+      .devices ?? []
+  );
+}
+
+/** Removes a person's device, for the admin: a lost or given-away one. */
+export async function removePersonDevice(
+  api: Api,
+  userId: number,
+  deviceId: number,
+): Promise<void> {
+  throwIfRefused(
+    await api.DELETE("/users/{id}/devices/{deviceId}", {
+      params: { path: { id: userId, deviceId } },
+    }),
+  );
 }

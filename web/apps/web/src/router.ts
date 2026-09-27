@@ -14,6 +14,7 @@ export type Route =
   | { readonly screen: "about" }
   | { readonly screen: "settings" }
   | { readonly screen: "people" }
+  | { readonly screen: "person"; readonly id: number }
   | { readonly screen: "account" }
   | { readonly screen: "register" }
   | { readonly screen: "not-found" };
@@ -44,6 +45,7 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/about\/?$/u, route: () => ({ screen: "about" }) },
   { pattern: /^\/settings\/?$/u, route: () => ({ screen: "settings" }) },
   { pattern: /^\/people\/?$/u, route: () => ({ screen: "people" }) },
+  { pattern: /^\/people\/([1-9]\d{0,15})$/u, route: (id) => ({ screen: "person", id }) },
   { pattern: /^\/account\/?$/u, route: () => ({ screen: "account" }) },
   { pattern: /^\/register\/?$/u, route: () => ({ screen: "register" }) },
 ];
@@ -69,6 +71,9 @@ export function routeHref(route: Route): string {
   }
   if (route.screen === "play") {
     return `/play/${String(route.fileId)}`;
+  }
+  if (route.screen === "person") {
+    return `/people/${String(route.id)}`;
   }
   if (route.screen === "files") {
     return `/libraries/${String(route.libraryId)}/files`;
