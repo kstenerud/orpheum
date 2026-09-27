@@ -206,7 +206,7 @@ type ConfinementBody struct {
 	Mechanism string `enum:"landlock,seccomp" json:"mechanism"`
 	IsInForce bool   `json:"isInForce"`
 	// Cause names why it is not in force, for a client to say in its viewer's words.
-	Cause  string `enum:"disabled_at_boot,kernel_without,blocked_by_runtime,not_linux,unexplained" json:"cause,omitempty"` //nolint:lll // one struct tag
+	Cause  string `enum:"disabled_at_boot,kernel_without,blocked_by_runtime,not_linux,architecture_unwritten,unexplained" json:"cause,omitempty"` //nolint:lll // one struct tag
 	Reason string `json:"reason,omitempty"`
 	Remedy string `json:"remedy,omitempty"`
 }
