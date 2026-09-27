@@ -230,6 +230,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D222](working-notes.md#d222--on-stereo-output-a-multichannel-sound-always-plays-through-our-prepared-copy-and-headphones-are-stereo) On stereo output, a multichannel sound always plays through our prepared copy, and headphones are stereo
 - [D223](working-notes.md#d223--the-m3-audits-decisions-contract-names-are-made-clear-now-subtitles-start-off-and-fetching-a-subtitle-on-request-is-in-cut-a) The M3 audit's decisions: contract names are made clear now, subtitles start off, and fetching a subtitle on request is in Cut A
 - [D224](working-notes.md#d224--a-fetched-subtitle-uses-the-servers-opensubtitles-login-finds-the-file-by-its-identity-and-its-provider-hash-shows-the-providers-own-count-and-is-converted-by-the-node) A fetched subtitle uses the server's OpenSubtitles login, finds the file by its identity and its provider hash, shows the provider's own count, and is converted by the node
+- [D225](working-notes.md#d225--one-admin-page-system-shows-every-fact-about-the-server-and-each-node-and-m3s-shows-whether-hardware-encoding-works) One admin page, System, shows every fact about the server and each node, and M3's shows whether hardware encoding works
 
 ## Archived
 
