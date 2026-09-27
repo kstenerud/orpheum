@@ -133,7 +133,7 @@ web-deps: ## Install web dependencies from the lockfile when they are missing or
 # ---------------------------------------------------------------------------------------------
 
 .PHONY: check-pr
-check-pr: check-revert-red check-test-weakening lint-commits ## Branch gates against BASE (default origin/main)
+check-pr: test-integration check-revert-red check-test-weakening lint-commits ## Branch gates against BASE (default origin/main), after the integration tier
 
 .PHONY: check-revert-red
 check-revert-red: ## Every behaviour change can turn a test red when reverted (D190)

@@ -91,7 +91,9 @@ A check belongs in `make check` when **all** of these hold:
 
 A check that needs a base revision goes in `make check-pr`; everything else goes in
 `make test-all` or the lab runner
-([testing.md](testing.md#10-what-runs-where)).
+([testing.md](testing.md#10-what-runs-where)). The one exception is the integration tier, which
+`make check-pr` runs first (the owner, 2026-09-27): the reference scale's test is in it, and two
+queries that read whole tables reached `main` because only CI ran it.
 
 - **A required tool that is missing fails the target.** A check never prints "skipping" and
   exits 0: *"a gate that can silently not run is not a gate"* (yoloAI's hadolint target had
