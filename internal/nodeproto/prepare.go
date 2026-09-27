@@ -12,6 +12,14 @@ const PathPrepare = "/node/v1/prepare"
 // PathBytesPrepared + "<file_id>/<profile>/<run_id>/<name>" (D217 §5).
 const PathBytesPrepared = "/bytes/v1/prepared/"
 
+// A node's prepare slots (cut-a §5.3): one encode, which the processor bounds, and two remuxes,
+// which the disk does. The core runs as many prepares at once as these add up to, and the node
+// holds any beyond its slots, saying so (PrepareWaiting).
+const (
+	EncodeSlots = 1
+	RemuxSlots  = 2
+)
+
 // PrepareProfile is a rendition's recipe (cut-a §6).
 type PrepareProfile string
 
@@ -58,6 +66,10 @@ type PrepareState string
 
 // The states a report names.
 const (
+	// PrepareWaiting is a prepare the node holds, waiting for a slot of its kind (cut-a §5.3):
+	// sent when it starts to wait and at each status tick while it does, so the core, which
+	// gives up on a node silent about a job, keeps waiting for it.
+	PrepareWaiting PrepareState = "waiting"
 	PrepareRunning PrepareState = "running"
 	PrepareDone    PrepareState = "done"
 	PrepareFailed  PrepareState = "failed"

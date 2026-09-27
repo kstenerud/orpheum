@@ -314,3 +314,40 @@ func TestRun_AQueuedJobWakesARunnerOfItsOwnKindAtOnce(t *testing.T) {
 		}
 	}
 }
+
+func TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	ctx, stop := context.WithTimeout(t.Context(), 10*time.Second)
+	defer stop()
+	const runners = 3
+	started := make(chan int64, runners*2)
+	release := make(chan struct{})
+	never := make(chan time.Time)
+	for range runners {
+		runner := jobs.queue.NewRunner(KindPrepare, func(_ context.Context, job Job) error {
+			started <- job.Subject
+			<-release
+			return nil
+		})
+		go func() { _ = runner.Run(ctx, never) }() //nolint:errcheck // Run returns nil when ctx ends
+	}
+	for subject := range int64(runners) {
+		if _, err := jobs.queue.Enqueue(t.Context(), New{Kind: KindPrepare, Subject: subject + 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	seen := map[int64]bool{}
+	for range runners {
+		select {
+		case subject := <-started:
+			if seen[subject] {
+				t.Errorf("job %d ran twice", subject)
+			}
+			seen[subject] = true
+		case <-ctx.Done():
+			t.Fatalf("only %d of %d jobs started while the others were running: not at once", len(seen), runners)
+		}
+	}
+	close(release)
+}

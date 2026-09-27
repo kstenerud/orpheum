@@ -163,6 +163,8 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 		select {
 		case report := <-answers:
 			switch report.State {
+			case nodeproto.PrepareWaiting:
+				timer.Reset(all.maxSilence) // the node holds it, waiting for a slot of its kind
 			case nodeproto.PrepareRunning:
 				if err := all.progressed(ctx, job, report.PreparedMs, made.durationMs); err != nil {
 					return err

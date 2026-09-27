@@ -137,6 +137,9 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 					cancel(err)
 					return
 				}
+				for _, job := range agent.working.waitingJobs() {
+					agent.sayWaiting(ctx, reply.NodeID, job)
+				}
 			}
 		}
 	})

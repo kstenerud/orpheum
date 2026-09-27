@@ -4,9 +4,13 @@ package playback
 
 import (
 	"context"
+	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -45,5 +49,34 @@ func TestProgressed_PutsTheShareOfTheSourceMadeOnTheJob(t *testing.T) {
 			t.Errorf("job %d at %d of %d ms: %v (%v), want %v (%v)",
 				step.job, step.preparedMs, step.durationMs, got, isKnown, step.want, step.isKnown)
 		}
+	}
+}
+
+// commanded is a node that takes commands and does nothing with them.
+type commanded struct{ sent chan nodeproto.Command }
+
+func (nodes commanded) Enqueue(_ int64, command nodeproto.Command) { nodes.sent <- command }
+
+func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *testing.T) {
+	t.Parallel()
+	const silence = 200 * time.Millisecond
+	nodes := commanded{sent: make(chan nodeproto.Command, 1)}
+	all := &prepares{
+		cache: storetest.OpenCache(t), queue: &progressQueue{progress: map[int64]float64{}}, nodes: nodes,
+		clock: clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), maxSilence: silence,
+		waiting: newWaiting[nodeproto.PrepareReport](slog.New(slog.DiscardHandler), "a prepare report"),
+	}
+	job := jobs.Job{ID: 7, Subject: 1}
+	ended := make(chan error, 1)
+	go func() { ended <- all.handle(t.Context(), job, making{command: nodeproto.Prepare{}, nodeID: 1}) }()
+	<-nodes.sent
+	// The node holds the prepare behind another for three silence limits, saying so each time.
+	for range 6 {
+		time.Sleep(silence / 2)
+		all.reported(t.Context(), 1, nodeproto.PrepareReport{Job: 7, State: nodeproto.PrepareWaiting})
+	}
+	all.reported(t.Context(), 1, nodeproto.PrepareReport{Job: 7, State: nodeproto.PrepareDone, SizeBytes: 10})
+	if err := <-ended; err != nil {
+		t.Errorf("a prepare waiting for a slot, said so: %v, want it to wait and end done", err)
 	}
 }

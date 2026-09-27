@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -46,5 +48,18 @@ func TestFollowSortLocale_KeysEveryNameAtStartAndOnEveryChange(t *testing.T) {
 	}
 	if missing("sv") != 0 {
 		t.Error("after the locale changed, a name had no sort key in it; the change must not wait for a scan")
+	}
+}
+
+func TestRunners_PreparesRunAsManyAtOnceAsANodeHasSlots(t *testing.T) {
+	t.Parallel()
+	for _, runner := range (metadata{}).runners() {
+		want := 1
+		if runner.kind == jobs.KindPrepare {
+			want = nodeproto.EncodeSlots + nodeproto.RemuxSlots // a second person's copy is not held behind the first's
+		}
+		if runner.atOnce != want {
+			t.Errorf("%s jobs run %d at once, want %d (cut-a §5.3)", runner.kind, runner.atOnce, want)
+		}
 	}
 }
