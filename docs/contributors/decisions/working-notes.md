@@ -16674,7 +16674,11 @@ both hold. The owner: *"I'm fine with always copying"*, and *"headphones count a
    down ourselves, so the dialogue boost can act. On such a device a file whose main sound has
    more than two channels is always prepared (reason `dialogue_boost`), whether the boost is on or
    off, so switching it mid-film never needs a new job. A soundbar or receiver takes the sound as
-   it is, and a device not yet asked is treated the same until it answers.
+   it is when the browser plays the original, and a device not yet asked is treated the same until
+   it answers. A file prepared for another reason (its container, its codec) carries stereo mixes
+   only in M3, standard and boosted, so on a receiver too the boost is offered there and works
+   (the owner, 2026-09-27: *"That's fine with me"*); a surround track in prepared copies, so a
+   receiver keeps its channels, is a later decision.
 3. **Whether the boost is on is the person's** ([D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)): one choice that follows them
    from film to film, off until they turn it on, and the player starts with it.
 4. **The boost's strength stays one fixed level in M3.** The owner asked whether it should be

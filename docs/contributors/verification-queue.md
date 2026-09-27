@@ -77,6 +77,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   the device plays sound. Choose **Headphones**; a film with 5.1 sound then plays through a
   prepared copy, saying the device plays stereo, with the **Dialogue boost** switch. Turn the
   boost on, go back, and play another 5.1 film: the switch starts on, and the voices are raised.
-  Under the video, **Change** the sound to **Soundbar or receiver**: the film plays as it is,
-  with no switch. In **Your account**, the device's sound shows the same and can be changed there
+  Under the video, **Change** the sound to **Soundbar or receiver**: a film the browser can
+  play plays as it is, with no switch; one prepared for its container or sound (an MKV, TrueHD)
+  keeps the switch, and the boost works on it. In **Your account**, the device's sound shows the same and can be changed there
   (D222). (`web/apps/web/src/sound.tsx`, `play.tsx`, `your-devices.tsx`)

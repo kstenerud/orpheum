@@ -64,6 +64,11 @@ describe("how a device makes sound (D222)", () => {
     mounted = await mount(withServices(<Play fileId={2} />, services));
     expect(mounted.container.textContent).toContain("How does this device play sound?");
     expect(mounted.container.querySelector("video")).toBeNull();
+    // A receiver's copy prepared for its container or codec is stereo, so the boost works there
+    // too, and the question must not promise otherwise (D222 §2).
+    expect(answerButton("Soundbar or receiver")?.textContent).toContain(
+      "a copy prepared for another reason is stereo, and the dialogue boost works on it",
+    );
     await click(answerButton("TV speakers"));
     expect(asked(heard)).toEqual(["POST /playback", "PUT /me/devices/5", "POST /playback"]);
     expect(heard[1]?.body).toEqual({ audioOutput: "tv_speakers" });
