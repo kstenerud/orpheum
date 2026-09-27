@@ -120,6 +120,23 @@ export async function renameMyDevice(api: Api, deviceId: number, name: string): 
   }
 }
 
+/** How a device makes sound (D222). */
+export type AudioOutput = NonNullable<Device["audioOutput"]>;
+
+/** Keeps how one of one's devices makes sound (D222). */
+export async function setMyDeviceSound(
+  api: Api,
+  deviceId: number,
+  audioOutput: AudioOutput,
+): Promise<void> {
+  throwIfRefused(
+    await api.PUT("/me/devices/{id}", {
+      params: { path: { id: deviceId } },
+      body: { audioOutput },
+    }),
+  );
+}
+
 /** Removes one of one's devices: it is signed out at its next request (D218 §4). */
 export async function removeMyDevice(api: Api, deviceId: number): Promise<void> {
   const { error } = await api.DELETE("/me/devices/{id}", { params: { path: { id: deviceId } } });

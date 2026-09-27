@@ -2,7 +2,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { hlsWay, playNative, type NativeTarget } from "./hls.ts";
+import Hls from "hls.js";
+
+import { hlsWay, playNative, startWithAudio, type AudioStart, type NativeTarget } from "./hls.ts";
 
 describe("playing a prepared rendition", () => {
   it("uses hls.js wherever there is MSE, the element's own HLS where there is only that", () => {
@@ -29,5 +31,25 @@ describe("playing a prepared rendition", () => {
     playback.destroy();
     expect(removed).toEqual(["src"]);
     expect(loads).toBe(1);
+  });
+
+  it("starts with the chosen mix once the master playlist is read, and leaves the default alone", () => {
+    const listeners: (() => void)[] = [];
+    const hls: AudioStart = {
+      on: (event, listener) => {
+        expect(event).toBe(Hls.Events.MANIFEST_PARSED);
+        listeners.push(listener);
+      },
+      audioTrack: -1,
+    };
+    startWithAudio(hls, 1);
+    expect(hls.audioTrack).toBe(-1);
+    for (const listener of listeners) {
+      listener();
+    }
+    expect(hls.audioTrack).toBe(1);
+    const untouched: AudioStart = { on: () => expect.fail("nothing to wait for"), audioTrack: -1 };
+    startWithAudio(untouched, 0);
+    expect(untouched.audioTrack).toBe(-1);
   });
 });

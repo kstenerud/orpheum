@@ -40,10 +40,11 @@ describe("playing a file", () => {
             reasons: [],
             isPreparing: false,
             subtitles: [],
-            prefs: { subtitleOffsetMs: 0 },
+            prefs: { subtitleOffsetMs: 0, isDialogueBoost: false },
             resumePositionMs: 0,
             mediaToken: "t",
           }}
+          soundChanged={() => undefined}
         />,
       ),
     );
@@ -64,7 +65,7 @@ describe("playing a file", () => {
             reasons: ["container", "audio_codec"],
             isPreparing: true,
             subtitles: [],
-            prefs: { subtitleOffsetMs: 0 },
+            prefs: { subtitleOffsetMs: 0, isDialogueBoost: false },
             resumePositionMs: 0,
             mediaToken: "t",
             audio: [
@@ -72,6 +73,7 @@ describe("playing a file", () => {
               { sourceTrack: 0, language: "en", isDialogueBoost: true },
             ],
           }}
+          soundChanged={() => undefined}
         />,
       ),
     );
@@ -89,7 +91,7 @@ describe("playing a file", () => {
       reasons: [],
       isPreparing: false,
       subtitles: [],
-      prefs: { subtitleOffsetMs: 0 },
+      prefs: { subtitleOffsetMs: 0, isDialogueBoost: false },
       resumePositionMs: 0,
       mediaToken: "t",
       audio: [

@@ -198,9 +198,26 @@ export const en = {
       videoCodec: "the browser cannot decode its video",
       audioCodec: "the browser cannot decode its sound",
       bandwidth: "it is too large for the connection",
-      dialogueBoost: "the dialogue boost is on",
+      dialogueBoost:
+        "this device plays stereo, so its surround sound is mixed here and the dialogue boost can act",
       userChoice: "you asked for it to be prepared",
     },
+  },
+  sound: {
+    question: "How does this device play sound?",
+    why: "So that dialogue can be made clearer where it helps. You can change this later, under the video or in Your account.",
+    tvSpeakers: "TV speakers",
+    tvSpeakersHint:
+      "The television's own speakers, or a laptop's or a phone's: surround sound is mixed down to two channels here, and the dialogue boost can raise the voices.",
+    receiver: "Soundbar or receiver",
+    receiverHint: "Surround sound goes to it as it is; the dialogue boost is not offered.",
+    headphones: "Headphones",
+    headphonesHint:
+      "Surround sound is mixed down to two channels here, and the dialogue boost can raise the voices.",
+    current: "Sound: {{output}}",
+    change: "Change",
+    label: "Sound",
+    notAsked: "Not asked yet",
   },
   continueWatching: {
     heading: "Continue watching",
