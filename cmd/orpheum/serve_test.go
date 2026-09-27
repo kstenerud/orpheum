@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
-	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -33,9 +32,8 @@ const noTMDB = "http://127.0.0.1:9"
 
 func TestMain(m *testing.M) {
 	// The node under test starts FFmpeg through this binary, as the real one does through orpheum.
-	if len(os.Args) == 3 && os.Args[1] == confine.ShimArgument {
-		_, _ = fmt.Fprintf(os.Stderr, "orpheum: %v\n", confine.Shim(os.Args[2]))
-		os.Exit(exitFailure)
+	if status, isShim := shimIfAsked(os.Args, os.Stderr); isShim {
+		os.Exit(status)
 	}
 	api.UseErrorShape()
 	m.Run()
