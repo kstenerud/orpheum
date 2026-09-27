@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
-	"regexp"
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -18,8 +17,11 @@ import (
 // SourceLocal is an image beside the media, read and re-encoded by the node (D215).
 const SourceLocal = "local"
 
-// seasonFolder is a series' season folder: an image in one is a season's, which nothing shows yet.
-var seasonFolder = regexp.MustCompile(`(?i)^(season|series|s)\s*\d+$|^specials$`)
+// isSeasonFolder is whether a folder is a series' season folder, named as the filename parser
+// reads one, or its specials: an image in one is a season's, which nothing shows yet.
+func isSeasonFolder(name string) bool {
+	return seasonDirPattern.MatchString(name) || strings.EqualFold(name, "specials")
+}
 
 // folderImageKinds are the names an image has in a film's or a series' folder, most specific
 // first within each kind (D215 §2, Kodi's and Jellyfin's names).
@@ -182,7 +184,7 @@ func (work *run) titleKind(titleID int64) string {
 // folder, else the episode's own.
 func seriesFolderOf(episodePath string) string {
 	folder := path.Dir(episodePath)
-	if seasonFolder.MatchString(path.Base(folder)) {
+	if isSeasonFolder(path.Base(folder)) {
 		return path.Dir(folder)
 	}
 	return folder
