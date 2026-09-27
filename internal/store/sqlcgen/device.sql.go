@@ -9,6 +9,30 @@ import (
 	"context"
 )
 
+const getLiveDeviceOf = `-- name: GetLiveDeviceOf :one
+SELECT id, name, platform FROM device
+WHERE id = ?1 AND user_id = ?2 AND removed_at IS NULL
+`
+
+type GetLiveDeviceOfParams struct {
+	ID     int64
+	UserID *int64
+}
+
+type GetLiveDeviceOfRow struct {
+	ID       int64
+	Name     string
+	Platform string
+}
+
+// One of a person's devices, when it is theirs and has not been removed.
+func (q *Queries) GetLiveDeviceOf(ctx context.Context, arg GetLiveDeviceOfParams) (GetLiveDeviceOfRow, error) {
+	row := q.db.QueryRowContext(ctx, getLiveDeviceOf, arg.ID, arg.UserID)
+	var i GetLiveDeviceOfRow
+	err := row.Scan(&i.ID, &i.Name, &i.Platform)
+	return i, err
+}
+
 const getLiveDeviceOwner = `-- name: GetLiveDeviceOwner :one
 SELECT user_id FROM device WHERE id = ?1 AND removed_at IS NULL
 `
@@ -164,5 +188,21 @@ type RevokeSessionsOfUserExceptDeviceParams struct {
 // Signing out everywhere else: every session of the person's but those of the device asking.
 func (q *Queries) RevokeSessionsOfUserExceptDevice(ctx context.Context, arg RevokeSessionsOfUserExceptDeviceParams) error {
 	_, err := q.db.ExecContext(ctx, revokeSessionsOfUserExceptDevice, arg.RevokedAt, arg.UserID, arg.KeepDeviceID)
+	return err
+}
+
+const touchDevice = `-- name: TouchDevice :exec
+UPDATE device SET platform = ?1, last_seen_at = ?2 WHERE id = ?3
+`
+
+type TouchDeviceParams struct {
+	Platform string
+	SeenAt   int64
+	ID       int64
+}
+
+// A device signed in again (D221): its platform as it says now, and when.
+func (q *Queries) TouchDevice(ctx context.Context, arg TouchDeviceParams) error {
+	_, err := q.db.ExecContext(ctx, touchDevice, arg.Platform, arg.SeenAt, arg.ID)
 	return err
 }

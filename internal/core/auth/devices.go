@@ -98,3 +98,18 @@ func (service *Service) onOwnDevice(
 		return change(queries)
 	})
 }
+
+// DeviceOf is one of a person's devices: the one a session is on, for showing who is signed in
+// where.
+func (service *Service) DeviceOf(ctx context.Context, userID, deviceID int64) (Device, error) {
+	known, err := store.One(service.database.Read().GetLiveDeviceOf(ctx, sqlcgen.GetLiveDeviceOfParams{
+		ID: deviceID, UserID: &userID,
+	}))
+	if errors.Is(err, store.ErrNotFound) {
+		return Device{}, ErrNoDevice
+	}
+	if err != nil {
+		return Device{}, fmt.Errorf("read device %d: %w", deviceID, err)
+	}
+	return Device{ID: known.ID, Name: known.Name, Platform: known.Platform, IsSignedIn: true}, nil
+}

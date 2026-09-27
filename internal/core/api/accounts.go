@@ -80,13 +80,14 @@ type RegisterInput struct {
 	ClientFacts
 }
 
-// DeviceCodeInput asks for a code that signs a device in (D218 §3): for oneself, or, for an
-// admin, for anyone.
+// DeviceCodeInput asks for a code that signs a device in (D218 §3, D221 §2): a new device,
+// named, or one already listed, by id; for oneself, or, for an admin, for anyone.
 type DeviceCodeInput struct {
 	AuthorizationHeader
 	Body struct {
-		DeviceName string `doc:"What the device will be listed as: \"Living room TV\"" json:"deviceName" maxLength:"100" minLength:"1"` //nolint:lll // one struct tag
-		UserID     int64  `doc:"Whose device; an admin's to name, oneself otherwise"   json:"userId,omitempty"   required:"false"`      //nolint:lll // one struct tag
+		DeviceName string `doc:"A new device's name: \"Living room TV\"" json:"deviceName,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
+		DeviceID   int64  `doc:"A listed device, to sign back in" json:"deviceId,omitempty" required:"false"`
+		UserID     int64  `doc:"Whose device; an admin's to name" json:"userId,omitempty" required:"false"`
 	}
 }
 
@@ -95,6 +96,7 @@ type CodeSignInInput struct {
 	Body struct {
 		Code     string `doc:"As typed: case, dashes and spaces do not matter" json:"code"     minLength:"1"`
 		Platform string `json:"platform" maxLength:"40" minLength:"1"`
+		ResumeID int64  `doc:"The device this client was signed in as before (D221)" json:"resumeId,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
@@ -208,8 +210,7 @@ func (server *Server) register(ctx context.Context, input *RegisterInput) (*Sess
 	if err != nil {
 		return nil, err
 	}
-	device := auth.NewDevice{Name: input.Body.Device.Name, Platform: input.Body.Device.Platform}
-	token, err := dependencies.Auth.Register(ctx, input.Body.Secret, input.Body.Password, input.clientAddress, device)
+	token, err := dependencies.Auth.Register(ctx, input.Body.Secret, input.Body.Password, newDevice(input.Body.Device))
 	if err != nil {
 		return nil, server.invitationRefusal(ctx, "register", err)
 	}
@@ -229,10 +230,16 @@ func (server *Server) issueDeviceCode(ctx context.Context, input *DeviceCodeInpu
 		}
 		userID = input.Body.UserID
 	}
-	code, err := dependencies.Auth.IssueDeviceCode(ctx, userID, input.Body.DeviceName)
+	if (input.Body.DeviceName == "") == (input.Body.DeviceID == 0) {
+		return nil, newError(http.StatusBadRequest, CodeInvalidRequest,
+			"a code is for a new device, named, or a listed one")
+	}
+	code, err := dependencies.Auth.IssueDeviceCode(ctx, userID, input.Body.DeviceName, input.Body.DeviceID)
 	switch {
 	case errors.Is(err, auth.ErrNoUser):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such person")
+	case errors.Is(err, auth.ErrNoDevice):
+		return nil, newError(http.StatusNotFound, CodeNotFound, "no such device")
 	case err != nil:
 		return nil, server.internal(ctx, "make a device code", err)
 	}
@@ -244,7 +251,8 @@ func (server *Server) signInWithCode(ctx context.Context, input *CodeSignInInput
 	if err != nil {
 		return nil, err
 	}
-	token, err := dependencies.Auth.SignInWithCode(ctx, input.Body.Code, input.Body.Platform, input.clientAddress)
+	token, err := dependencies.Auth.SignInWithCode(
+		ctx, input.Body.Code, input.Body.Platform, input.clientAddress, input.Body.ResumeID)
 	if err != nil {
 		return nil, server.invitationRefusal(ctx, "sign in with a code", err)
 	}
@@ -273,6 +281,89 @@ func (server *Server) changePassword(ctx context.Context, input *ChangePasswordI
 		return nil, newError(http.StatusForbidden, CodeForbidden, "the current password is wrong")
 	case err != nil:
 		return nil, server.internal(ctx, "change a password", err)
+	}
+	return &struct{}{}, nil
+}
+
+// RenamePersonInput renames a person, for the admin.
+type RenamePersonInput struct {
+	AuthorizationHeader
+	UserID int64 `minimum:"1" path:"id"`
+	Body   struct {
+		Name string `json:"name" maxLength:"100" minLength:"1"`
+	}
+}
+
+// PersonOutput is one person's page, for the admin: who they are, and what they have watched.
+type PersonOutput struct {
+	Body struct {
+		Account AccountBody    `json:"account"`
+		Watched WatchStatsBody `json:"watched"`
+	}
+}
+
+// WatchStatsBody is what a person has watched.
+type WatchStatsBody struct {
+	WatchedMs     int64 `json:"watchedMs"`
+	TitlesWatched int64 `json:"titlesWatched"`
+	LastWatchedAt int64 `doc:"Unix milliseconds; absent when nothing was watched" json:"lastWatchedAt,omitempty"`
+}
+
+func (server *Server) registerPerson() {
+	tags := []string{tagAccounts}
+	huma.Register(server.api, huma.Operation{
+		OperationID: "getPerson", Method: http.MethodGet, Path: "/users/{id}",
+		Summary: "A person's page, for the admin: who they are and what they have watched", Tags: tags,
+	}, server.person)
+	huma.Register(server.api, huma.Operation{
+		OperationID: "renamePerson", Method: http.MethodPut, Path: "/users/{id}",
+		Summary: "Rename a person; names are for display and sign-in, and stay unique", Tags: tags,
+		DefaultStatus: http.StatusNoContent,
+	}, server.renamePerson)
+}
+
+func (server *Server) person(ctx context.Context, input *PersonDevicesInput) (*PersonOutput, error) {
+	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	accounts, err := dependencies.Auth.Accounts(ctx)
+	if err != nil {
+		return nil, server.internal(ctx, "list accounts", err)
+	}
+	output := &PersonOutput{}
+	for _, account := range accounts {
+		if account.ID == input.UserID {
+			output.Body.Account = accountBody(account)
+		}
+	}
+	if output.Body.Account.ID == 0 {
+		return nil, newError(http.StatusNotFound, CodeNotFound, "no such person")
+	}
+	stats, err := dependencies.Playback.WatchStatsOf(ctx, input.UserID)
+	if err != nil {
+		return nil, server.internal(ctx, "read a person's watching", err)
+	}
+	output.Body.Watched = WatchStatsBody{WatchedMs: stats.WatchedMs, TitlesWatched: stats.TitlesWatched}
+	if !stats.LastWatchedAt.IsZero() {
+		output.Body.Watched.LastWatchedAt = stats.LastWatchedAt.UnixMilli()
+	}
+	return output, nil
+}
+
+func (server *Server) renamePerson(ctx context.Context, input *RenamePersonInput) (*struct{}, error) {
+	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	err = dependencies.Auth.RenameUser(ctx, input.UserID, input.Body.Name)
+	switch {
+	case errors.Is(err, auth.ErrNoUser):
+		return nil, newError(http.StatusNotFound, CodeNotFound, "no such person")
+	case errors.Is(err, auth.ErrNameTaken):
+		return nil, newError(http.StatusConflict, CodeConflict, "someone already has that name")
+	case err != nil:
+		return nil, server.internal(ctx, "rename a person", err)
 	}
 	return &struct{}{}, nil
 }

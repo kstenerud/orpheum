@@ -29,6 +29,14 @@ type UserBody struct {
 	Role       string `enum:"admin,user" json:"role"`
 	IsAdmin    bool   `json:"isAdmin"`
 	IsOutsider bool   `json:"isOutsider"`
+	// Device is the device this session is on, so a person can see who is signed in where.
+	Device *CurrentDeviceBody `json:"device,omitempty"`
+}
+
+// CurrentDeviceBody is the device a session is on; a client keeps its id to resume it (D221).
+type CurrentDeviceBody struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 // UserOutput answers with a user.
@@ -56,8 +64,13 @@ type ClientFacts struct {
 // NewDeviceBody is how a client names itself: the device becomes one of the person's, listed
 // and revocable.
 type NewDeviceBody struct {
-	Name     string `doc:"What the person will know it by: \"Chrome on Android\", \"Living room TV\"" json:"name"     maxLength:"100" minLength:"1"` //nolint:lll // one struct tag
-	Platform string `doc:"The kind of client: \"web\", \"cast\""                                    json:"platform" maxLength:"40"  minLength:"1"`   //nolint:lll // one struct tag
+	Name     string `doc:"What the person will know it by: \"Chrome on Android\", \"Living room TV\"" json:"name"     maxLength:"100" minLength:"1"`               //nolint:lll // one struct tag
+	Platform string `doc:"The kind of client: \"web\", \"cast\""                                    json:"platform" maxLength:"40"  minLength:"1"`                 //nolint:lll // one struct tag
+	ResumeID int64  `doc:"The device this client was signed in as before, resumed when it is the same person's (D221)" json:"resumeId,omitempty" required:"false"` //nolint:lll // one struct tag
+}
+
+func newDevice(body NewDeviceBody) auth.NewDevice {
+	return auth.NewDevice{Name: body.Name, Platform: body.Platform, ResumeID: body.ResumeID}
 }
 
 // Resolve records the client's address and whether it came over TLS.
@@ -151,8 +164,8 @@ func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionO
 		return nil, newError(http.StatusConflict, CodeSetupRequired,
 			"no one can sign in until the first admin is created with the setup code")
 	}
-	device := auth.NewDevice{Name: input.Body.Device.Name, Platform: input.Body.Device.Platform}
-	token, err := dependencies.Auth.SignIn(ctx, input.Body.Name, input.Body.Password, input.clientAddress, device)
+	token, err := dependencies.Auth.SignIn(
+		ctx, input.Body.Name, input.Body.Password, input.clientAddress, newDevice(input.Body.Device))
 	switch {
 	case errors.Is(err, auth.ErrRateLimited):
 		return nil, newError(http.StatusTooManyRequests, CodeRateLimited,
@@ -174,8 +187,12 @@ func (server *Server) sessionAnswer(
 	if err != nil {
 		return nil, server.internal(ctx, "read the new session", err)
 	}
+	body, err := server.userBody(ctx, dependencies, principal)
+	if err != nil {
+		return nil, err
+	}
 	output := &SessionOutput{SetCookie: mediaCookie(token, overTLS)}
-	output.Body.Token, output.Body.User = token, userBody(principal)
+	output.Body.Token, output.Body.User = token, body
 	return output, nil
 }
 
@@ -214,18 +231,33 @@ type MeOutput struct {
 // client asks at start, so a browser whose cookie is missing, from an older path, or from
 // another session gets the right one before it fetches an image or a video (D154, D216).
 func (server *Server) me(ctx context.Context, input *MeInput) (*MeOutput, error) {
-	_, principal, err := server.signedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	return &MeOutput{
-		SetCookie: mediaCookie(bearerToken(input.Authorization), input.overTLS), Body: userBody(principal),
-	}, nil
+	body, err := server.userBody(ctx, dependencies, principal)
+	if err != nil {
+		return nil, err
+	}
+	return &MeOutput{SetCookie: mediaCookie(bearerToken(input.Authorization), input.overTLS), Body: body}, nil
 }
 
-func userBody(principal auth.Principal) UserBody {
-	return UserBody{
+// userBody is who a session belongs to, and the device it is on.
+func (server *Server) userBody(
+	ctx context.Context, dependencies *Dependencies, principal auth.Principal,
+) (UserBody, error) {
+	body := UserBody{
 		ID: principal.UserID, Name: principal.Name, Role: string(principal.Role),
 		IsAdmin: principal.IsAdmin(), IsOutsider: principal.IsOutsider,
 	}
+	if principal.DeviceID != 0 {
+		device, err := dependencies.Auth.DeviceOf(ctx, principal.UserID, principal.DeviceID)
+		if err != nil && !errors.Is(err, auth.ErrNoDevice) {
+			return UserBody{}, server.internal(ctx, "read the session's device", err)
+		}
+		if err == nil {
+			body.Device = &CurrentDeviceBody{ID: device.ID, Name: device.Name}
+		}
+	}
+	return body, nil
 }

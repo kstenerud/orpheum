@@ -58,6 +58,12 @@ var (
 	ErrRateLimited = errors.New("too many failed sign-ins; wait and try again")
 	// ErrNotAuthenticated is returned for a missing, unknown, revoked or expired session.
 	ErrNotAuthenticated = errors.New("not signed in")
+	// ErrSessionEnded is a session that was ended: signed out, its device removed, or signed out
+	// from another device. It is ErrNotAuthenticated, said more exactly, so a client can tell the
+	// person why.
+	ErrSessionEnded = fmt.Errorf("%w: the session was ended", ErrNotAuthenticated)
+	// ErrSessionExpired is a session that lapsed: unused for longer than the idle expiry.
+	ErrSessionExpired = fmt.Errorf("%w: the session expired", ErrNotAuthenticated)
 	// ErrNameTaken is returned when a live user already has the name.
 	ErrNameTaken = errors.New("a user with that name already exists")
 )
@@ -174,6 +180,9 @@ func (service *Service) CountUsers(ctx context.Context) (int64, error) {
 type NewDevice struct {
 	Name     string
 	Platform string
+	// ResumeID is the device the client remembers being signed in as: a sign-in resumes it when it
+	// is the same person's and has not been removed, rather than making a new one (D221 §1).
+	ResumeID int64
 }
 
 // SignIn checks a name and password and issues a session on a new device, which the client
@@ -186,7 +195,7 @@ func (service *Service) SignIn(
 	if err != nil {
 		return "", err
 	}
-	accountKey, addressKey := "account:"+strings.ToLower(strings.TrimSpace(name)), "address:"+address
+	accountKey, addressKey := accountLimitKey(name), "address:"+address
 	if service.limiter.isLimited(limit, window, accountKey, addressKey) {
 		return "", ErrRateLimited
 	}
@@ -243,8 +252,42 @@ func (service *Service) rehash(ctx context.Context, userID int64, password strin
 	})
 }
 
-// issueSession makes the device the user signed in on and mints a session grant tied to it, and
-// returns its token, which is stored only as its SHA-256 (D154).
+// accountLimitKey is a person's key in the failed-sign-in limit.
+func accountLimitKey(name string) string {
+	return "account:" + strings.ToLower(strings.TrimSpace(name))
+}
+
+// resumeOrMakeDevice is the device a sign-in is on: the one the client remembers, when it is the
+// person's and not removed (D221 §1), else a new one.
+func resumeOrMakeDevice(
+	ctx context.Context, queries *sqlcgen.Queries, userID int64, device NewDevice, now int64,
+) (int64, error) {
+	if device.ResumeID != 0 {
+		known, err := store.One(queries.GetLiveDeviceOf(ctx, sqlcgen.GetLiveDeviceOfParams{
+			ID: device.ResumeID, UserID: &userID,
+		}))
+		if err == nil {
+			touch := sqlcgen.TouchDeviceParams{Platform: device.Platform, SeenAt: now, ID: known.ID}
+			if touchErr := queries.TouchDevice(ctx, touch); touchErr != nil {
+				return 0, fmt.Errorf("resume device %d: %w", known.ID, touchErr)
+			}
+			return known.ID, nil
+		}
+		if !errors.Is(err, store.ErrNotFound) {
+			return 0, fmt.Errorf("look up device %d: %w", device.ResumeID, err)
+		}
+	}
+	id, err := queries.InsertDevice(ctx, sqlcgen.InsertDeviceParams{
+		UserID: &userID, Name: device.Name, Platform: device.Platform, SeenAt: now,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("record the device: %w", err)
+	}
+	return id, nil
+}
+
+// issueSession signs the user in on a device, resumed or made, with a session grant tied to it,
+// and returns its token, which is stored only as its SHA-256 (D154).
 func (service *Service) issueSession(ctx context.Context, userID int64, device NewDevice) (string, error) {
 	token, err := randomSecret(service.random)
 	if err != nil {
@@ -252,11 +295,9 @@ func (service *Service) issueSession(ctx context.Context, userID int64, device N
 	}
 	now := service.clock.Now().UnixMilli()
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		deviceID, deviceErr := queries.InsertDevice(ctx, sqlcgen.InsertDeviceParams{
-			UserID: &userID, Name: device.Name, Platform: device.Platform, SeenAt: now,
-		})
+		deviceID, deviceErr := resumeOrMakeDevice(ctx, queries, userID, device, now)
 		if deviceErr != nil {
-			return fmt.Errorf("record the device: %w", deviceErr)
+			return deviceErr
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			Hash: tokenHash(token), Kind: grantKindSession, Subject: &userID, Scope: grantScopeSession,
@@ -279,7 +320,10 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	grant, err := store.One(service.database.Read().GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
 		Hash: hash, Now: new(now.UnixMilli()),
 	}))
-	if errors.Is(err, store.ErrNotFound) || (err == nil && (grant.Kind != grantKindSession || grant.Subject == nil)) {
+	if errors.Is(err, store.ErrNotFound) {
+		return Principal{}, service.whyNotLive(ctx, hash)
+	}
+	if err == nil && (grant.Kind != grantKindSession || grant.Subject == nil) {
 		return Principal{}, ErrNotAuthenticated
 	}
 	if err != nil {
@@ -295,7 +339,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 		lastUse = *grant.LastSeenAt
 	}
 	if now.Sub(time.UnixMilli(lastUse)) > idleExpiry {
-		return Principal{}, ErrNotAuthenticated
+		return Principal{}, ErrSessionExpired
 	}
 	user, err := store.One(service.database.Read().GetLiveUserByID(ctx, *grant.Subject))
 	if errors.Is(err, store.ErrNotFound) {
@@ -319,6 +363,20 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 		Capabilities: strings.Split(user.Capabilities, ","), IsOutsider: user.Outsider == 1,
 		DeviceID: ptr.ValueOrZero(grant.DeviceID),
 	}, nil
+}
+
+// whyNotLive says why a token finds no live session: ended, expired, or never one of ours.
+func (service *Service) whyNotLive(ctx context.Context, hash []byte) error {
+	state, err := store.One(service.database.Read().GetGrantState(ctx, hash))
+	switch {
+	case errors.Is(err, store.ErrNotFound) || (err == nil && state.Kind != grantKindSession):
+		return ErrNotAuthenticated
+	case err != nil:
+		return fmt.Errorf("look up the session: %w", err)
+	case state.RevokedAt != nil:
+		return ErrSessionEnded
+	}
+	return ErrSessionExpired
 }
 
 // SignOut revokes a session; revoking one already gone is not an error.

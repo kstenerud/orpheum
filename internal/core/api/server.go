@@ -113,6 +113,8 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerHome()
 	server.registerAccounts()
 	server.registerDevices()
+	server.registerWaitingCode()
+	server.registerPerson()
 	return server
 }
 
@@ -179,12 +181,36 @@ func (server *Server) signedIn(ctx context.Context, authorization string) (*Depe
 	}
 	principal, err := dependencies.Auth.Authenticate(ctx, bearerToken(authorization))
 	if errors.Is(err, auth.ErrNotAuthenticated) {
-		return nil, auth.Principal{}, newError(http.StatusUnauthorized, CodeAuthRequired, "sign in first")
+		return nil, auth.Principal{}, notSignedIn(err)
 	}
 	if err != nil {
 		return nil, auth.Principal{}, server.internal(ctx, "authenticate", err)
 	}
 	return dependencies, principal, nil
+}
+
+// The reasons a request is not signed in, in auth_required's detail, so a client can tell the
+// person why (cut-a §5.2): a session that was ended, one that lapsed, or none.
+const (
+	ReasonSessionEnded   = "session_ended"
+	ReasonSessionExpired = "session_expired"
+	ReasonNoSession      = "no_session"
+)
+
+// notSignedIn is auth_required with why.
+func notSignedIn(err error) *Error {
+	failure := newError(http.StatusUnauthorized, CodeAuthRequired, "sign in first")
+	reason := ReasonNoSession
+	switch {
+	case errors.Is(err, auth.ErrSessionEnded):
+		reason = ReasonSessionEnded
+		failure.ErrorBody.Error.Message = "this device was signed out: removed, or signed out from another device"
+	case errors.Is(err, auth.ErrSessionExpired):
+		reason = ReasonSessionExpired
+		failure.ErrorBody.Error.Message = "this device's session lapsed after going unused"
+	}
+	failure.ErrorBody.Error.Detail = map[string]string{"reason": reason}
+	return failure
 }
 
 // signedInAdmin is signedIn for an administrator.

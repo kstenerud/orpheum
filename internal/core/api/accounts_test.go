@@ -126,3 +126,76 @@ func TestDevices_APersonListsRenamesAndRemovesTheirOwnAndAnAdminAnyones(t *testi
 }
 
 func itoa(id int64) string { return strconv.FormatInt(id, 10) }
+
+func TestSession_ARemovedDeviceIsToldItWasSignedOutAndMeNamesTheDevice(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	other := harness.signIn(t, "owner", "owner-password")
+	me := harness.do(t, http.MethodGet, "/me", other, nil)
+	var body UserBody
+	if err := json.Unmarshal([]byte(me.body), &body); err != nil || body.Device == nil ||
+		body.Device.Name != "Firefox on Linux" {
+		t.Fatalf("GET /me = %s, want the device it is on", me.body)
+	}
+	harness.do(t, http.MethodDelete, "/me/devices/"+itoa(body.Device.ID), admin, nil)
+	signedOut := harness.do(t, http.MethodGet, "/items/1", other, nil)
+	wantError(t, signedOut, http.StatusUnauthorized, CodeAuthRequired)
+	if !strings.Contains(signedOut.body, `"reason":"`+ReasonSessionEnded+`"`) {
+		t.Errorf("a removed device's request = %s, want the reason %s", signedOut.body, ReasonSessionEnded)
+	}
+	if never := harness.do(t, http.MethodGet, "/me", "", nil); !strings.Contains(never.body,
+		`"reason":"`+ReasonNoSession+`"`) {
+		t.Errorf("a request with no session = %s, want the reason %s", never.body, ReasonNoSession)
+	}
+}
+
+func TestPeople_AnAdminRenamesAPersonAndSeesTheirPage(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.do(t, http.MethodPost, "/users", admin, map[string]string{"name": "partner", "role": "user"})
+	wantError(t, harness.do(t, http.MethodPut, "/users/2", admin, map[string]string{"name": "OWNER"}),
+		http.StatusConflict, CodeConflict)
+	if renamed := harness.do(t, http.MethodPut, "/users/2", admin, map[string]string{"name": "Sam"}); renamed.status !=
+		http.StatusNoContent {
+		t.Fatalf("rename = %d %s", renamed.status, renamed.body)
+	}
+	page := harness.do(t, http.MethodGet, "/users/2", admin, nil)
+	if !strings.Contains(page.body, `"name":"Sam"`) || !strings.Contains(page.body, `"watchedMs":0`) {
+		t.Errorf("GET /users/2 = %d %s", page.status, page.body)
+	}
+	wantError(t, harness.do(t, http.MethodGet, "/users/99", admin, nil), http.StatusNotFound, CodeNotFound)
+}
+
+func TestDeviceCodes_OneWaitsAndIsForANewOrAListedDevice(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	waiting := func() string {
+		t.Helper()
+		return harness.do(t, http.MethodGet, "/me/device-code", admin, nil).body
+	}
+	if got := waiting(); !strings.Contains(got, `"isWaiting":false`) {
+		t.Errorf("before any code: %s", got)
+	}
+	harness.do(t, http.MethodPost, "/device-codes", admin, map[string]string{"deviceName": "TV"})
+	if got := waiting(); !strings.Contains(got, `"isWaiting":true,"deviceName":"TV"`) {
+		t.Errorf("with a code made: %s", got)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/device-codes", admin, map[string]any{}),
+		http.StatusBadRequest, CodeInvalidRequest)
+	forListed := harness.do(t, http.MethodPost, "/device-codes", admin, map[string]any{"deviceId": 1})
+	var code InvitationBody
+	if err := json.Unmarshal([]byte(forListed.body), &code); err != nil || code.Secret == "" {
+		t.Fatalf("a code for a listed device = %d %s", forListed.status, forListed.body)
+	}
+	used := harness.do(t, http.MethodPost, "/session/code", "",
+		map[string]string{"code": code.Secret, "platform": "web"})
+	if _, name := session(t, used); name != "owner" {
+		t.Errorf("the code signed in %q", name)
+	}
+	if got := waiting(); !strings.Contains(got, `"isWaiting":false`) {
+		t.Errorf("after the code was used: %s", got)
+	}
+}

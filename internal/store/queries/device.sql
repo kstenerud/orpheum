@@ -37,3 +37,12 @@ WHERE device_id = sqlc.arg(device_id) AND kind = 'session' AND revoked_at IS NUL
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
 WHERE subject = sqlc.arg(user_id) AND kind = 'session' AND revoked_at IS NULL
   AND device_id IS NOT sqlc.arg(keep_device_id);
+
+-- name: GetLiveDeviceOf :one
+-- One of a person's devices, when it is theirs and has not been removed.
+SELECT id, name, platform FROM device
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND removed_at IS NULL;
+
+-- name: TouchDevice :exec
+-- A device signed in again (D221): its platform as it says now, and when.
+UPDATE device SET platform = sqlc.arg(platform), last_seen_at = sqlc.arg(seen_at) WHERE id = sqlc.arg(id);
