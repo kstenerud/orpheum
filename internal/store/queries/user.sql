@@ -16,10 +16,12 @@ VALUES (sqlc.arg(name), sqlc.arg(role_id), sqlc.arg(password_hash), sqlc.arg(out
 RETURNING id;
 
 -- name: GetLiveUserByName :one
+-- A name finds its person whatever the case of its ASCII letters (SQLite's NOCASE), and names are
+-- unique in the same way, so no two people differ only by a capital (the owner, 2026-09-27).
 SELECT user.id, user.name, user.password_hash, user.outsider, role.name AS role_name, role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
-WHERE user.name = ? AND user.removed_at IS NULL;
+WHERE user.name = ? COLLATE NOCASE AND user.removed_at IS NULL;
 
 -- name: GetLiveUserByID :one
 SELECT user.id, user.name, user.password_hash, user.outsider, role.name AS role_name, role.capabilities
@@ -39,3 +41,17 @@ FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.removed_at IS NULL
 ORDER BY user.name COLLATE NOCASE, user.id;
+
+-- name: RenameUser :exec
+UPDATE user SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
+
+-- name: GetWatchStats :one
+-- What a person has watched, for their page: time in spans, the titles they watched in, and when
+-- they last watched.
+SELECT CAST(coalesce(sum(play_span.ended_at - play_span.started_at), 0) AS INTEGER) AS watched_ms,
+  count(DISTINCT version.title_id) AS titles_watched,
+  CAST(coalesce(max(play_span.ended_at), 0) AS INTEGER) AS last_watched_at
+FROM play_span
+LEFT JOIN file ON file.id = play_span.file_id
+LEFT JOIN version ON version.id = file.version_id
+WHERE play_span.user_id = sqlc.arg(user_id);

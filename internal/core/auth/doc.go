@@ -35,6 +35,16 @@
 //     TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes,
 //     TestDeviceCode_SignsOneDeviceInOnceWithinTenMinutesAsTyped and
 //     TestDeviceCode_WrongCodesCountAgainstTheSignInLimit.
+//   - A sign-in resumes the device the client remembers when it is the same person's; a code can
+//     be for a listed device, which it signs back in; one code waits per person at a time; a
+//     registration link is not held back by the failed-sign-in limit and clears the person from it
+//     (D221). Enforced by TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons,
+//     TestDeviceCode_OneWaitsAtATimeAndACodeForAListedDeviceSignsItBackIn and
+//     TestRegistration_ALinkIsNotHeldBackByTheLimitAndMakingOneClearsThePerson.
+//   - A session that no longer works says why: ended, lapsed, or none, so a client can tell the
+//     person (cut-a §5.2). Enforced by TestAuthenticate_SaysASessionWasEndedRatherThanUnknown.
+//   - Names are unique without regard to the case of their ASCII letters, and nothing is keyed by
+//     them. Enforced by TestRenameUser_KeepsNamesUnique.
 //   - Changing a password needs the current one and signs no one out (D218 §6). Enforced by
 //     TestChangePassword_NeedsTheCurrentOneAndKeepsOtherSessions.
 //   - A person's devices are listed, and only they, or an admin, change one; a removed device's
@@ -55,7 +65,7 @@
 //   - D217 §8: a device is created at sign-in.
 //   - D125: access is role-based with two roles; a Watch Together guest is not a principal.
 //   - D154: one grant table, opaque and revocable.
-//   - D218: accounts by one-time link; a device by a short code.
+//   - D218: accounts by one-time link; a device by a short code. D221: a device keeps its identity.
 //   - D168: entitlement is resolved at the point of use, never pushed.
 //   - D194 §2: argon2id with RFC 9106's second parameters; re-hash on login; rate-limit failures.
 //   - docs/contributors/design/plans/auth.md.

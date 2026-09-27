@@ -24,7 +24,7 @@ func TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn(t *testing.T) {
 	if err == nil {
 		t.Error("a person who has not registered signed in")
 	}
-	token, err := fixture.service.Register(ctx, link.Secret, "partner-password", "192.0.2.1", laptop)
+	token, err := fixture.service.Register(ctx, link.Secret, "partner-password", laptop)
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn(t *testing.T) {
 	if err != nil || principal.UserID != id || principal.DeviceID == 0 {
 		t.Errorf("after registering: %+v, %v; want the person, signed in on a device", principal, err)
 	}
-	_, err = fixture.service.Register(ctx, link.Secret, "other", "192.0.2.1", laptop)
+	_, err = fixture.service.Register(ctx, link.Secret, "other", laptop)
 	if !errors.Is(err, ErrBadInvitation) {
 		t.Errorf("a link used twice: %v, want ErrBadInvitation", err)
 	}
@@ -55,7 +55,7 @@ func TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneI
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fixture.service.Register(ctx, old.Secret, "x", "192.0.2.1", laptop)
+	_, err = fixture.service.Register(ctx, old.Secret, "x", laptop)
 	if !errors.Is(err, ErrBadInvitation) {
 		t.Errorf("an older link: %v, want withdrawn", err)
 	}
@@ -63,7 +63,7 @@ func TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneI
 	if err != nil {
 		t.Errorf("the old password before the new one is set: %v, want it to work (D218 §5)", err)
 	}
-	_, err = fixture.service.Register(ctx, current.Secret, "remembered", "192.0.2.1", laptop)
+	_, err = fixture.service.Register(ctx, current.Secret, "remembered", laptop)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneI
 		t.Fatal(err)
 	}
 	fixture.clock.Advance(7*24*time.Hour + time.Second)
-	_, err = fixture.service.Register(ctx, expiring.Secret, "late", "192.0.2.1", laptop)
+	_, err = fixture.service.Register(ctx, expiring.Secret, "late", laptop)
 	if !errors.Is(err, ErrBadInvitation) {
 		t.Errorf("a link past seven days: %v, want expired", err)
 	}
@@ -88,7 +88,7 @@ func TestDeviceCode_SignsOneDeviceInOnceWithinTenMinutesAsTyped(t *testing.T) {
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	code, err := fixture.service.IssueDeviceCode(ctx, id, "Living room TV")
+	code, err := fixture.service.IssueDeviceCode(ctx, id, "Living room TV", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestDeviceCode_SignsOneDeviceInOnceWithinTenMinutesAsTyped(t *testing.T) {
 		t.Errorf("the code = %+v, want xxxx-xxxx for ten minutes (D218 §3)", code)
 	}
 	typed := strings.ToUpper(strings.ReplaceAll(code.Secret, "-", " "))
-	token, err := fixture.service.SignInWithCode(ctx, typed, "web", "192.0.2.9")
+	token, err := fixture.service.SignInWithCode(ctx, typed, "web", "192.0.2.9", 0)
 	if err != nil {
 		t.Fatalf("signing in with %q: %v", typed, err)
 	}
@@ -104,16 +104,16 @@ func TestDeviceCode_SignsOneDeviceInOnceWithinTenMinutesAsTyped(t *testing.T) {
 	if err != nil || principal.UserID != id || principal.DeviceID == 0 {
 		t.Errorf("the television is %+v, %v; want the person, on a new device", principal, err)
 	}
-	_, err = fixture.service.SignInWithCode(ctx, code.Secret, "web", "192.0.2.9")
+	_, err = fixture.service.SignInWithCode(ctx, code.Secret, "web", "192.0.2.9", 0)
 	if !errors.Is(err, ErrBadInvitation) {
 		t.Errorf("a code used twice: %v, want ErrBadInvitation", err)
 	}
-	late, err := fixture.service.IssueDeviceCode(ctx, id, "Bedroom TV")
+	late, err := fixture.service.IssueDeviceCode(ctx, id, "Bedroom TV", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	fixture.clock.Advance(10*time.Minute + time.Second)
-	_, err = fixture.service.SignInWithCode(ctx, late.Secret, "web", "192.0.2.9")
+	_, err = fixture.service.SignInWithCode(ctx, late.Secret, "web", "192.0.2.9", 0)
 	if !errors.Is(err, ErrBadInvitation) {
 		t.Errorf("a code past ten minutes: %v, want expired", err)
 	}
@@ -124,21 +124,21 @@ func TestDeviceCode_WrongCodesCountAgainstTheSignInLimit(t *testing.T) {
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	code, err := fixture.service.IssueDeviceCode(ctx, id, "TV")
+	code, err := fixture.service.IssueDeviceCode(ctx, id, "TV", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var last error
 	for attempt := range 20 {
 		if _, last = fixture.service.SignInWithCode(ctx, "0000-000"+string(rune('0'+attempt%10)), "web",
-			"203.0.113.5"); errors.Is(last, ErrRateLimited) {
+			"203.0.113.5", 0); errors.Is(last, ErrRateLimited) {
 			break
 		}
 	}
 	if !errors.Is(last, ErrRateLimited) {
 		t.Fatalf("twenty wrong codes: %v, want the address limited", last)
 	}
-	_, err = fixture.service.SignInWithCode(ctx, code.Secret, "web", "203.0.113.5")
+	_, err = fixture.service.SignInWithCode(ctx, code.Secret, "web", "203.0.113.5", 0)
 	if !errors.Is(err, ErrRateLimited) {
 		t.Errorf("the right code from a limited address: %v, want limited", err)
 	}

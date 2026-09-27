@@ -16,11 +16,11 @@ func phoneAndTelevision(t *testing.T, service *Service, id int64) (phone, televi
 	if err != nil {
 		t.Fatal(err)
 	}
-	code, err := service.IssueDeviceCode(ctx, id, "Living room TV")
+	code, err := service.IssueDeviceCode(ctx, id, "Living room TV", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	television, err = service.SignInWithCode(ctx, code.Secret, "web", "192.0.2.2")
+	television, err = service.SignInWithCode(ctx, code.Secret, "web", "192.0.2.2", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,8 +77,8 @@ func TestSignOutElsewhere_EndsEverySessionButThisDevicesAndKeepsThemListed(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	laptop := NewDevice{Name: "Laptop", Platform: "web"}
-	elsewhere, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop)
+	secondDevice := NewDevice{Name: "Laptop", Platform: "web"}
+	elsewhere, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", secondDevice)
 	if err != nil {
 		t.Fatal(err)
 	}

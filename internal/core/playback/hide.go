@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -43,4 +44,26 @@ func (service *Service) Unhide(ctx context.Context, userID, itemID int64) error 
 		return fmt.Errorf("unhide item %d: %w", itemID, err)
 	}
 	return nil
+}
+
+// WatchStats are what a person has watched, for their page.
+type WatchStats struct {
+	// WatchedMs is the time in their spans of watching.
+	WatchedMs     int64
+	TitlesWatched int64
+	// LastWatchedAt is when their latest span ended, or the zero time when they watched nothing.
+	LastWatchedAt time.Time
+}
+
+// WatchStatsOf reads a person's watching from their spans (D165).
+func (service *Service) WatchStatsOf(ctx context.Context, userID int64) (WatchStats, error) {
+	row, err := service.database.Read().GetWatchStats(ctx, userID)
+	if err != nil {
+		return WatchStats{}, fmt.Errorf("read user %d's watching: %w", userID, err)
+	}
+	stats := WatchStats{WatchedMs: row.WatchedMs, TitlesWatched: row.TitlesWatched}
+	if row.LastWatchedAt != 0 {
+		stats.LastWatchedAt = time.UnixMilli(row.LastWatchedAt)
+	}
+	return stats, nil
 }

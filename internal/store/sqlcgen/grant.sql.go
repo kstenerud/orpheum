@@ -9,6 +9,32 @@ import (
 	"context"
 )
 
+const getGrantState = `-- name: GetGrantState :one
+SELECT kind, revoked_at, expires_at, last_seen_at, issued_at FROM "grant" WHERE hash = ?1
+`
+
+type GetGrantStateRow struct {
+	Kind       string
+	RevokedAt  *int64
+	ExpiresAt  *int64
+	LastSeenAt *int64
+	IssuedAt   int64
+}
+
+// A grant whatever its state: why a session no longer works, when one does not.
+func (q *Queries) GetGrantState(ctx context.Context, hash []byte) (GetGrantStateRow, error) {
+	row := q.db.QueryRowContext(ctx, getGrantState, hash)
+	var i GetGrantStateRow
+	err := row.Scan(
+		&i.Kind,
+		&i.RevokedAt,
+		&i.ExpiresAt,
+		&i.LastSeenAt,
+		&i.IssuedAt,
+	)
+	return i, err
+}
+
 const getLiveGrant = `-- name: GetLiveGrant :one
 SELECT hash, kind, subject, scope, issued_at, expires_at, last_seen_at, device_id, label
 FROM "grant"
@@ -47,6 +73,46 @@ func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (Get
 		&i.LastSeenAt,
 		&i.DeviceID,
 		&i.Label,
+	)
+	return i, err
+}
+
+const getLiveGrantOf = `-- name: GetLiveGrantOf :one
+SELECT hash, label, device_id, expires_at FROM "grant"
+WHERE subject = ?1 AND kind = ?2 AND scope = ?3 AND revoked_at IS NULL
+  AND (expires_at IS NULL OR expires_at > ?4)
+ORDER BY issued_at DESC
+LIMIT 1
+`
+
+type GetLiveGrantOfParams struct {
+	Subject *int64
+	Kind    string
+	Scope   string
+	Now     *int64
+}
+
+type GetLiveGrantOfRow struct {
+	Hash      []byte
+	Label     *string
+	DeviceID  *int64
+	ExpiresAt *int64
+}
+
+// A person's live grant of one kind and scope: the device code still waiting (D221).
+func (q *Queries) GetLiveGrantOf(ctx context.Context, arg GetLiveGrantOfParams) (GetLiveGrantOfRow, error) {
+	row := q.db.QueryRowContext(ctx, getLiveGrantOf,
+		arg.Subject,
+		arg.Kind,
+		arg.Scope,
+		arg.Now,
+	)
+	var i GetLiveGrantOfRow
+	err := row.Scan(
+		&i.Hash,
+		&i.Label,
+		&i.DeviceID,
+		&i.ExpiresAt,
 	)
 	return i, err
 }

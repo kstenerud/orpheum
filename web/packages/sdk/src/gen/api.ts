@@ -488,6 +488,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/device-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether one's device code is still waiting to be used (D221) */
+        get: operations["getWaitingCode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/devices": {
         parameters: {
             query?: never;
@@ -835,6 +852,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A person's page, for the admin: who they are and what they have watched */
+        get: operations["getPerson"];
+        /** Rename a person; names are for display and sign-in, and stay unique */
+        put: operations["renamePerson"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{id}/devices": {
         parameters: {
             query?: never;
@@ -936,6 +971,11 @@ export interface components {
             /** @description As typed: case, dashes and spaces do not matter */
             code: string;
             platform: string;
+            /**
+             * Format: int64
+             * @description The device this client was signed in as before (D221)
+             */
+            resumeId?: number;
         };
         CollectionOutputBody: {
             art: components["schemas"]["ArtBody"];
@@ -998,6 +1038,11 @@ export interface components {
             /** @description Roots the node configured */
             roots: string[] | null;
         };
+        CurrentDeviceBody: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+        };
         DeviceBody: {
             /**
              * Format: int64
@@ -1018,11 +1063,16 @@ export interface components {
             platform: string;
         };
         DeviceCodeInputBody: {
-            /** @description What the device will be listed as: "Living room TV" */
-            deviceName: string;
             /**
              * Format: int64
-             * @description Whose device; an admin's to name, oneself otherwise
+             * @description A listed device, to sign back in
+             */
+            deviceId?: number;
+            /** @description A new device's name: "Living room TV" */
+            deviceName?: string;
+            /**
+             * Format: int64
+             * @description Whose device; an admin's to name
              */
             userId?: number;
         };
@@ -1275,6 +1325,11 @@ export interface components {
             name: string;
             /** @description The kind of client: "web", "cast" */
             platform: string;
+            /**
+             * Format: int64
+             * @description The device this client was signed in as before, resumed when it is the same person's (D221)
+             */
+            resumeId?: number;
         };
         NodeBody: {
             /** @description Whether it has said hello since the server started */
@@ -1285,6 +1340,10 @@ export interface components {
         };
         NodesOutputBody: {
             nodes: components["schemas"]["NodeBody"][] | null;
+        };
+        PersonOutputBody: {
+            account: components["schemas"]["AccountBody"];
+            watched: components["schemas"]["WatchStatsBody"];
         };
         PutOverrideInputBody: {
             /** @description The value; year and runtime (milliseconds) are whole numbers */
@@ -1309,6 +1368,9 @@ export interface components {
             secret: string;
         };
         RenameDeviceInputBody: {
+            name: string;
+        };
+        RenamePersonInputBody: {
             name: string;
         };
         ReportInputBody: {
@@ -1512,6 +1574,7 @@ export interface components {
             unused: components["schemas"]["UnusedBody"][] | null;
         };
         UserBody: {
+            device?: components["schemas"]["CurrentDeviceBody"];
             /** Format: int64 */
             id: number;
             isAdmin: boolean;
@@ -1529,6 +1592,26 @@ export interface components {
             files: components["schemas"]["FileDetailBody"][] | null;
             /** Format: int64 */
             id: number;
+        };
+        WaitingCodeOutputBody: {
+            deviceName?: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            expiresAt?: number;
+            isWaiting: boolean;
+        };
+        WatchStatsBody: {
+            /**
+             * Format: int64
+             * @description Unix milliseconds; absent when nothing was watched
+             */
+            lastWatchedAt?: number;
+            /** Format: int64 */
+            titlesWatched: number;
+            /** Format: int64 */
+            watchedMs: number;
         };
     };
     responses: never;
@@ -2703,6 +2786,38 @@ export interface operations {
             };
         };
     };
+    getWaitingCode: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitingCodeOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listMyDevices: {
         parameters: {
             query?: never;
@@ -3603,6 +3718,76 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CreateAccountOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPerson: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    renamePerson: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenamePersonInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

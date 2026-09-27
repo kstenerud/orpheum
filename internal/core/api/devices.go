@@ -170,3 +170,39 @@ func (server *Server) deviceAnswer(ctx context.Context, doing string, err error)
 	}
 	return &struct{}{}, nil
 }
+
+// WaitingCodeOutput says whether one's device code is still waiting to be used (D221 §3), so a
+// client that shows it stops once it is used.
+type WaitingCodeOutput struct {
+	Body struct {
+		IsWaiting  bool   `json:"isWaiting"`
+		DeviceName string `json:"deviceName,omitempty"`
+		ExpiresAt  int64  `doc:"Unix milliseconds" json:"expiresAt,omitempty"`
+	}
+}
+
+func (server *Server) registerWaitingCode() {
+	huma.Register(server.api, huma.Operation{
+		OperationID: "getWaitingCode", Method: http.MethodGet, Path: "/me/device-code",
+		Summary: "Whether one's device code is still waiting to be used (D221)", Tags: []string{tagAccounts},
+	}, server.waitingCode)
+}
+
+func (server *Server) waitingCode(
+	ctx context.Context, input *struct{ AuthorizationHeader },
+) (*WaitingCodeOutput, error) {
+	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	waiting, err := dependencies.Auth.WaitingCodeOf(ctx, principal.UserID)
+	if err != nil {
+		return nil, server.internal(ctx, "read the waiting code", err)
+	}
+	output := &WaitingCodeOutput{}
+	if waiting != nil {
+		output.Body.IsWaiting = true
+		output.Body.DeviceName, output.Body.ExpiresAt = waiting.DeviceName, waiting.ExpiresAt.UnixMilli()
+	}
+	return output, nil
+}

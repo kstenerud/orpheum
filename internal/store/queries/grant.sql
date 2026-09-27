@@ -26,3 +26,15 @@ WHERE hash = sqlc.arg(hash) AND revoked_at IS NULL;
 -- made (D218).
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
 WHERE subject = sqlc.arg(subject) AND kind = sqlc.arg(kind) AND scope = sqlc.arg(scope) AND revoked_at IS NULL;
+
+-- name: GetLiveGrantOf :one
+-- A person's live grant of one kind and scope: the device code still waiting (D221).
+SELECT hash, label, device_id, expires_at FROM "grant"
+WHERE subject = sqlc.arg(subject) AND kind = sqlc.arg(kind) AND scope = sqlc.arg(scope) AND revoked_at IS NULL
+  AND (expires_at IS NULL OR expires_at > sqlc.arg(now))
+ORDER BY issued_at DESC
+LIMIT 1;
+
+-- name: GetGrantState :one
+-- A grant whatever its state: why a session no longer works, when one does not.
+SELECT kind, revoked_at, expires_at, last_seen_at, issued_at FROM "grant" WHERE hash = sqlc.arg(hash);

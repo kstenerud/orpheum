@@ -54,7 +54,7 @@ const getLiveUserByName = `-- name: GetLiveUserByName :one
 SELECT user.id, user.name, user.password_hash, user.outsider, role.name AS role_name, role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
-WHERE user.name = ? AND user.removed_at IS NULL
+WHERE user.name = ? COLLATE NOCASE AND user.removed_at IS NULL
 `
 
 type GetLiveUserByNameRow struct {
@@ -66,6 +66,8 @@ type GetLiveUserByNameRow struct {
 	Capabilities string
 }
 
+// A name finds its person whatever the case of its ASCII letters (SQLite's NOCASE), and names are
+// unique in the same way, so no two people differ only by a capital (the owner, 2026-09-27).
 func (q *Queries) GetLiveUserByName(ctx context.Context, name string) (GetLiveUserByNameRow, error) {
 	row := q.db.QueryRowContext(ctx, getLiveUserByName, name)
 	var i GetLiveUserByNameRow
@@ -106,6 +108,31 @@ func (q *Queries) GetRoleByName(ctx context.Context, name string) (GetRoleByName
 		&i.Builtin,
 		&i.Capabilities,
 	)
+	return i, err
+}
+
+const getWatchStats = `-- name: GetWatchStats :one
+SELECT CAST(coalesce(sum(play_span.ended_at - play_span.started_at), 0) AS INTEGER) AS watched_ms,
+  count(DISTINCT version.title_id) AS titles_watched,
+  CAST(coalesce(max(play_span.ended_at), 0) AS INTEGER) AS last_watched_at
+FROM play_span
+LEFT JOIN file ON file.id = play_span.file_id
+LEFT JOIN version ON version.id = file.version_id
+WHERE play_span.user_id = ?1
+`
+
+type GetWatchStatsRow struct {
+	WatchedMs     int64
+	TitlesWatched int64
+	LastWatchedAt int64
+}
+
+// What a person has watched, for their page: time in spans, the titles they watched in, and when
+// they last watched.
+func (q *Queries) GetWatchStats(ctx context.Context, userID int64) (GetWatchStatsRow, error) {
+	row := q.db.QueryRowContext(ctx, getWatchStats, userID)
+	var i GetWatchStatsRow
+	err := row.Scan(&i.WatchedMs, &i.TitlesWatched, &i.LastWatchedAt)
 	return i, err
 }
 
@@ -183,6 +210,20 @@ func (q *Queries) ListLiveUsers(ctx context.Context) ([]ListLiveUsersRow, error)
 		return nil, err
 	}
 	return items, nil
+}
+
+const renameUser = `-- name: RenameUser :exec
+UPDATE user SET name = ?1 WHERE id = ?2
+`
+
+type RenameUserParams struct {
+	Name string
+	ID   int64
+}
+
+func (q *Queries) RenameUser(ctx context.Context, arg RenameUserParams) error {
+	_, err := q.db.ExecContext(ctx, renameUser, arg.Name, arg.ID)
+	return err
 }
 
 const updateUserPasswordHash = `-- name: UpdateUserPasswordHash :exec
