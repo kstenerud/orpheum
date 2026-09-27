@@ -16726,3 +16726,39 @@ both hold. The owner: *"I'm fine with always copying"*, and *"headphones count a
 11. **M4's nine open questions** (the audit's §8) are asked one at a time before M4's first line.
 
 **Status:** Decided.
+
+## D224 — A fetched subtitle uses the server's OpenSubtitles login, finds the file by its identity and its provider hash, shows the provider's own count, and is converted by the node
+
+**Decided** (2026-09-27), by the project owner, answering the questions that building
+[D223](#d223--the-m3-audits-decisions-contract-names-are-made-clear-now-subtitles-start-off-and-fetching-a-subtitle-on-request-is-in-cut-a)
+§4 raised. **Amends [D194](#d194--secrets-our-users-passwords-are-hashed-third-party-secrets-are-sealed-with-a-key-that-never-enters-the-database-and-nothing-reads-a-secret-back-out)
+§1 and subtitle-acquisition.md §4 and §8**, which made the OpenSubtitles credentials each user's
+and a download a capability on the role.
+
+1. **The login is the server's** (the owner: *"This is a trusted relationship with an admin. The
+   admin puts in their credentials and any user may trigger the download."*). An admin enters
+   the OpenSubtitles username and password once, as server secrets; every signed-in person may
+   fetch with them, and no role capability guards it in Cut A. A rebroadcast server
+   ([D177](#d177--a-rebroadcaster-is-a-user-whose-core-treats-our-server-as-a-node-and-his-household-plays-on-derived-grants-that-only-his-core-can-mint)),
+   when it comes, fetches with the credentials of the admin of the server it shares to.
+2. **The API key is the application's** (the owner: *"Wouldn't we register the app, and the
+   admins each use their logins?"*). OpenSubtitles issues a key per registered application, so
+   Orpheum is registered once and its key ships with it; each server's admin supplies only a
+   login. An admin may still set a key of their own, which is used in its place.
+3. **A candidate is found by what the file is, not by guessing** (the owner: *"if the NFO had an
+   ID just directly use it. Let's implement something non-hacky for cut A."*). The search sends
+   the work's IMDb or TMDB id when identification has one, from the NFO or from TMDB, and the
+   file's OpenSubtitles `moviehash`, which the node computes when it hashes the file and the
+   core stores with it. A candidate whose hash matches is listed first.
+4. **The count of downloads left is the provider's** (the owner: *"sounds good"*): the one
+   OpenSubtitles reports, which also counts downloads made on its site or in other programs.
+   Nothing counts them here; `subtitle_quota` is removed.
+5. **The node converts a fetched subtitle** as it converts a subtitle file beside the media (the
+   owner: *"sounds good"*): it is hostile input, and the node is where hostile input is parsed
+   (threat-model.md). The core sends the text in an `extract_subtitle` command, a third form
+   beside a track in a video and a file beside it.
+
+**Open:** whether a fetched subtitle is kept in `library.db`, where the backup carries it, or in
+`cache.db`, where the text extracted from the media already is (the owner asked, 2026-09-27).
+
+**Status:** Decided, except where a fetched subtitle is kept.
