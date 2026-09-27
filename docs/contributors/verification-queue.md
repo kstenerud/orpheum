@@ -73,3 +73,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   phone sleep and wake it: the code is still there. **Remove** the television: its next page
   load asks it to sign in.
   (`web/apps/web/src/people.tsx`, `register.tsx`, `code-sign-in.tsx`, `account.tsx`)
+- [ ] **VQ8** — On the dev loop, on the Android phone, play a film: before it plays, it asks how
+  the device plays sound. Choose **Headphones**; a film with 5.1 sound then plays through a
+  prepared copy, saying the device plays stereo, with the **Dialogue boost** switch. Turn the
+  boost on, go back, and play another 5.1 film: the switch starts on, and the voices are raised.
+  Under the video, **Change** the sound to **Soundbar or receiver**: the film plays as it is,
+  with no switch. In **Your account**, the device's sound shows the same and can be changed there
+  (D222). (`web/apps/web/src/sound.tsx`, `play.tsx`, `your-devices.tsx`)
