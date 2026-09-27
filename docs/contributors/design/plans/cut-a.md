@@ -313,8 +313,9 @@ as they are ([D217](../../decisions/working-notes.md) §1), whether the link is 
 and a person's `prefer` (`direct` or `prepare`) when they override it. The answer names every
 reason that stopped direct play, as `reasons`, not only the first. The core resolves it in this
 order:
-1. **The original is acceptable on every axis** (container, video, audio, and the boost is off
-   or the device is not on stereo speakers): `{kind: "direct", url}`.
+1. **The original is acceptable on every axis** (container, video, audio, and the device is not
+   on stereo output with a sound of more than two channels, whether the boost is on or off —
+   [D222](../../decisions/working-notes.md)): `{kind: "direct", url}`.
 2. **A complete or running prepared rendition matches:** `{kind: "hls", url, reasons}`.
 3. **Otherwise:** queue `prepare` at the highest priority and return `{kind: "hls", url, reasons,
    preparing: true}`. The playlist URL answers `425` until the first segment exists; the SDK

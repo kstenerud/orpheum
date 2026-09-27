@@ -89,7 +89,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D80](working-notes.md#d80--licence-by-artefact-gplv3-for-the-server-mpl-20-for-the-clients-and-the-sdk) Licence by artefact: GPLv3 for the server, MPL-2.0 for the clients and the SDK
 - [D81](working-notes.md#d81--play-state-is-an-append-only-event-log-plus-a-guarded-position-and-positions-are-edition-relative) Play state is an append-only event log plus a guarded position, and positions are Edition-relative — *revisited by D157, D165*
 - [D82](working-notes.md#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance) Media segments are typed, attach at the Version, and carry provenance — *revisited by D115, D159*
-- [D83](working-notes.md#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device) Loudness is measured at scan and applied as gain; downmix has one default and a dialogue control; DRC is per device — *revisited by D114*
+- [D83](working-notes.md#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device) Loudness is measured at scan and applied as gain; downmix has one default and a dialogue control; DRC is per device — *revisited by D114, D222*
 - [D84](working-notes.md#d84--certifications-are-system-code-with-a-per-system-order-a-kids-profile-is-a-grantee-plus-a-predicate) Certifications are `(system, code)` with a per-system order; a kids profile is a grantee plus a predicate — *revisited by D125, D132*
 - [D85](working-notes.md#d85--the-api-has-a-compatibility-contract-and-it-covers-three-protocols) The API has a compatibility contract, and it covers three protocols
 - [D86](working-notes.md#d86--adaptation-is-the-client-re-picking-on-a-buffer-signal-and-it-puts-bandwidth-transcoding-on-remote-accesss-critical-path) Adaptation is the client re-picking on a buffer signal, and it puts bandwidth transcoding on remote access's critical path
@@ -227,6 +227,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D219](working-notes.md#d219--a-subtitle-choice-is-kept-per-file-choosing-one-carries-it-to-the-works-other-files-that-have-none-of-their-own) A subtitle choice is kept per file; choosing one carries it to the work's other files that have none of their own
 - [D220](working-notes.md#d220--before-a-public-release-every-dependency-direct-and-transitive-is-pinned-to-an-audited-commit-and-a-bump-is-an-audit-of-the-changes) Before a public release, every dependency, direct and transitive, is pinned to an audited commit, and a bump is an audit of the changes
 - [D221](working-notes.md#d221--a-device-keeps-its-identity-across-sign-ins-and-a-signed-out-device-is-signed-back-in-with-a-code-made-for-it) A device keeps its identity across sign-ins, and a signed-out device is signed back in with a code made for it
+- [D222](working-notes.md#d222--on-stereo-output-a-multichannel-sound-always-plays-through-our-prepared-copy-and-headphones-are-stereo) On stereo output, a multichannel sound always plays through our prepared copy, and headphones are stereo
 
 ## Archived
 
