@@ -210,7 +210,8 @@ export const en = {
     tvSpeakersHint:
       "The television's own speakers, or a laptop's or a phone's: surround sound is mixed down to two channels here, and the dialogue boost can raise the voices.",
     receiver: "Soundbar or receiver",
-    receiverHint: "Surround sound goes to it as it is; the dialogue boost is not offered.",
+    receiverHint:
+      "Surround sound goes to it as it is when this browser can play the original file; a copy prepared for another reason is stereo, and the dialogue boost works on it.",
     headphones: "Headphones",
     headphonesHint:
       "Surround sound is mixed down to two channels here, and the dialogue boost can raise the voices.",
