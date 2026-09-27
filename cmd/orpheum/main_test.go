@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -113,5 +114,20 @@ func TestRun_DevSubcommandExistsOnlyInDevBuilds(t *testing.T) {
 	if unknown == isDevBuild {
 		t.Errorf("isDevBuild = %v but stderr = %q: the dev subcommand must exist exactly in dev builds",
 			isDevBuild, stderr.String())
+	}
+}
+
+func TestShimIfAsked_OnlyTheShimsArgumentMakesThisProcessTheShim(t *testing.T) {
+	t.Parallel()
+	var stderr strings.Builder
+	for _, arguments := range [][]string{{"orpheum"}, {"orpheum", "run"}, {"orpheum", "node", "--config"}} {
+		if _, isShim := shimIfAsked(arguments, &stderr); isShim {
+			t.Errorf("%q made this process the shim", arguments)
+		}
+	}
+	// A spec the shim cannot read returns, rather than becoming a tool, and says why.
+	status, isShim := shimIfAsked([]string{"orpheum", confine.ShimArgument, "not a spec"}, &stderr)
+	if !isShim || status != exitFailure || !strings.Contains(stderr.String(), "read a confined run") {
+		t.Errorf("a bad spec: %d, %v, %q; want the shim to fail and say why", status, isShim, stderr.String())
 	}
 }

@@ -66,11 +66,8 @@ func plannedSubcommands() []subcommand {
 }
 
 func main() {
-	// The shim confines itself and becomes an FFmpeg tool, before anything else runs (cut-a §7);
-	// it returns only when it could not, and the node sees the run fail with why.
-	if len(os.Args) == 3 && os.Args[1] == confine.ShimArgument {
-		_, _ = fmt.Fprintf(os.Stderr, "orpheum: %v\n", confine.Shim(os.Args[2]))
-		os.Exit(exitFailure)
+	if status, isShim := shimIfAsked(os.Args, os.Stderr); isShim {
+		os.Exit(status)
 	}
 	useUTC()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -78,6 +75,16 @@ func main() {
 	status := run(ctx, os.Args[1:], environment(), os.Stdout, os.Stderr)
 	stop()
 	os.Exit(status)
+}
+
+// shimIfAsked makes this process the shim when its arguments ask for it, before anything else
+// runs (cut-a §7): it confines itself and becomes an FFmpeg tool, so it returns only when it could
+// not, with why on stderr and the status to exit with. It reports false for any other arguments.
+func shimIfAsked(arguments []string, stderr io.Writer) (int, bool) {
+	if len(arguments) != 3 || arguments[1] != confine.ShimArgument {
+		return exitSuccess, false
+	}
+	return write(stderr, fmt.Sprintf("orpheum: %v\n", confine.Shim(arguments[2])), exitFailure), true
 }
 
 // useUTC makes every time the server formats UTC, whatever TZ says: the server's times are
