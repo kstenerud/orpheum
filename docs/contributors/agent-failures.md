@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A10 — A gate's pass taken as evidence without once watching it fail (2026-09-27)
+
+- **What happened:** every web `feat` and `fix` this milestone passed `make check-pr`, and
+  revert-red listed each TypeScript file as *"a test fails when it is reverted"*. It had run no
+  test. Its git worktree has no `node_modules`, `npm run test` stopped at "vitest: not found",
+  and the gate read that exit as red. I took the report as coverage, and the commits went in on
+  it. The false belief came from the report's wording, which is the same for a real failure and
+  a runner that never started.
+- **Caught by:** the agent, not the owner. A commit that changed only click handlers in screens
+  that no test renders was reported covered. Reverting one by hand left the suite green.
+- **Gate:** revert-red now links the installed packages into its worktree, and fails a run that
+  cannot start (`NO_RUNNER`); `test_a_suite_that_could_not_start_fails_rather_than_passing_as_red`.
+  The general lesson is yoloAI's: execution catches errors, so watch a new gate go red on a
+  change it should catch before trusting its green.
+
 ### A9 — A decision reported built with one of its clauses left out (2026-09-26)
 
 - **What happened:** I built D218's accounts (registration links, device codes, password change)
