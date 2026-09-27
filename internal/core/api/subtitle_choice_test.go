@@ -103,3 +103,30 @@ func TestSubtitleChoice_IsKeptPerFileAndCarriedToTheSeriesFilesWithNoneOfTheirOw
 		t.Errorf("choosing another file's track: %d, want 400", answer.status)
 	}
 }
+
+func TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	session := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	harness.shelveEpisodes(t)
+	if status := harness.choose(t, session, 5, 53).status; status != http.StatusNoContent {
+		t.Fatalf("choosing French in episode 2: %d", status)
+	}
+	// A rescan writes the file's streams again under new ids; the French track is still there.
+	storetest.ExecRaw(t, harness.database,
+		"DELETE FROM stream WHERE bytes_file = 5",
+		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang) VALUES
+		 (62, 5, 5, 2, 'subtitle', 'ass', 'en'), (63, 5, 5, 3, 'subtitle', 'ass', 'fr')`)
+	if got := harness.choiceIn(t, session, 5); got != "63 carried=false" {
+		t.Errorf("after the rescan: %s, want the French track under its new id", got)
+	}
+	// Episode 3 had French carried to it; its French track goes, and English comes.
+	storetest.ExecRaw(t, harness.database,
+		"DELETE FROM stream WHERE bytes_file = 6",
+		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang)
+		 VALUES (64, 6, 6, 2, 'subtitle', 'subrip', 'en')`)
+	if got := harness.choiceIn(t, session, 6); got != "none" {
+		t.Errorf("episode 3 without French: %s, want no choice rather than a track that is gone", got)
+	}
+}

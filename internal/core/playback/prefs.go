@@ -34,6 +34,33 @@ type SubtitleChoice struct {
 	// IsCarried is a choice made in another file of the work and carried here, which a later
 	// choice elsewhere carries over; a choice made in this file is its own and is kept.
 	IsCarried bool `json:"isCarried,omitempty"`
+	// Track is what the chosen track is. A rescan writes a file's streams again under new ids, so
+	// a choice is found again by what its track is, not only by its id (D223 §8).
+	Track *TrackDescription `json:"track,omitempty"`
+}
+
+// TrackDescription is what a subtitle track is, apart from its stream id: what finds the same
+// track again when the file's streams are written anew.
+type TrackDescription struct {
+	Language          string `json:"language,omitempty"`
+	Title             string `json:"title,omitempty"`
+	IsForced          bool   `json:"isForced,omitempty"`
+	IsHearingImpaired bool   `json:"isHearingImpaired,omitempty"`
+}
+
+// describe is what track is, apart from its stream id.
+func describe(track SubtitleTrack) *TrackDescription {
+	return &TrackDescription{
+		Language: track.Language, Title: track.Title, IsForced: track.Forced, IsHearingImpaired: track.HearingImpaired,
+	}
+}
+
+// trackLike is a track as a description names it, for matchingTrack.
+func trackLike(description TrackDescription) SubtitleTrack {
+	return SubtitleTrack{
+		Language: description.Language, Title: description.Title, Forced: description.IsForced,
+		HearingImpaired: description.IsHearingImpaired,
+	}
 }
 
 // The preference table's names for what FilePrefs holds.
@@ -77,6 +104,9 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 	})
 	if err != nil {
 		return FilePrefs{}, fmt.Errorf("read user %d's preferences: %w", userID, err)
+	}
+	if prefs.Subtitle, err = service.currentChoice(ctx, fileID, prefs.Subtitle); err != nil {
+		return FilePrefs{}, err
 	}
 	for _, preference := range personal {
 		if preference.Axis == axisDialogueBoost {
@@ -147,17 +177,14 @@ func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64
 			return ErrNoTrack
 		}
 	}
-	titleID, err := store.One(service.database.Read().GetTitleOfFile(ctx, fileID))
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("read the title of file %d: %w", fileID, err)
-	}
-	siblings := []int64{}
-	if err == nil {
-		if siblings, err = service.database.Read().ListFilesOfWork(ctx, titleID); err != nil {
-			return fmt.Errorf("list the files of title %d: %w", titleID, err)
-		}
+	siblings, err := service.filesOfWork(ctx, fileID)
+	if err != nil {
+		return err
 	}
 	own := SubtitleChoice{StreamID: choice.StreamID, IsOff: choice.IsOff}
+	if chosen != nil {
+		own.Track = describe(*chosen)
+	}
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		if err := service.keepChoice(ctx, queries, userID, fileID, &own); err != nil {
 			return err
@@ -172,6 +199,23 @@ func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64
 		}
 		return nil
 	})
+}
+
+// filesOfWork are the live files of the work a file belongs to (D219), or none when the file is
+// not yet a version of a title.
+func (service *Service) filesOfWork(ctx context.Context, fileID int64) ([]int64, error) {
+	titleID, err := store.One(service.database.Read().GetTitleOfFile(ctx, fileID))
+	if errors.Is(err, store.ErrNotFound) {
+		return []int64{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read the title of file %d: %w", fileID, err)
+	}
+	files, err := service.database.Read().ListFilesOfWork(ctx, titleID)
+	if err != nil {
+		return nil, fmt.Errorf("list the files of title %d: %w", titleID, err)
+	}
+	return files, nil
 }
 
 // carryChoice gives a file the choice carried from another, unless it has one of its own: the track
@@ -195,10 +239,38 @@ func (service *Service) carryChoice(
 		match := matchingTrack(tracks, *chosen)
 		carried = nil
 		if match != nil {
-			carried = &SubtitleChoice{StreamID: match.StreamID, IsCarried: true}
+			carried = &SubtitleChoice{StreamID: match.StreamID, IsCarried: true, Track: describe(*match)}
 		}
 	}
 	return service.keepChoice(ctx, queries, userID, fileID, carried)
+}
+
+// currentChoice is a stored subtitle choice as the file's tracks are now: its track found again by
+// what it is when a rescan gave it a new id, the matching track carried to a file whose tracks
+// changed, or no choice when none matches (D223 §8).
+func (service *Service) currentChoice(
+	ctx context.Context, fileID int64, stored *SubtitleChoice,
+) (*SubtitleChoice, error) {
+	if stored == nil || stored.IsOff {
+		return stored, nil
+	}
+	tracks, err := service.textTracksOf(ctx, fileID)
+	if err != nil {
+		return nil, err
+	}
+	if trackByID(tracks, stored.StreamID) != nil {
+		return stored, nil
+	}
+	if stored.Track == nil {
+		return nil, nil //nolint:nilnil // a choice made before tracks were described names nothing now
+	}
+	match := matchingTrack(tracks, trackLike(*stored.Track))
+	if match == nil {
+		return nil, nil //nolint:nilnil // no track of the file is the one chosen
+	}
+	found := *stored
+	found.StreamID = match.StreamID
+	return &found, nil
 }
 
 // keepChoice stores a file's subtitle choice, or removes it when choice is nil.

@@ -22,7 +22,10 @@
 //     TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching.
 //   - A subtitle choice is kept per file, as the file's own, and carried to the work's other files
 //     with none of their own, by language and kind, never over a file's own (D219). Enforced by
-//     TestSubtitleChoice_IsKeptPerFileAndCarriedToTheSeriesFilesWithNoneOfTheirOwn.
+//     TestSubtitleChoice_IsKeptPerFileAndCarriedToTheSeriesFilesWithNoneOfTheirOwn. A choice keeps
+//     what its track is, so a rescan's new stream ids find it again, and a file whose tracks lost
+//     it has no choice rather than a gone one (D223 §8). Enforced by
+//     TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks.
 //   - A decision reads how the asking device makes sound: TV speakers and headphones are stereo,
 //     a receiver or a device not yet asked is not, and the answer says which so the player can
 //     ask (D222). Enforced by TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct.
