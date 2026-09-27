@@ -16758,7 +16758,46 @@ and a download a capability on the role.
    (threat-model.md). The core sends the text in an `extract_subtitle` command, a third form
    beside a track in a video and a file beside it.
 
-**Open:** whether a fetched subtitle is kept in `library.db`, where the backup carries it, or in
-`cache.db`, where the text extracted from the media already is (the owner asked, 2026-09-27).
+6. **A fetched subtitle is kept in `library.db`, compressed** (the owner, 2026-09-27: *"go with
+   your recommendations"*), as schema.md has it. The owner asked whether it should go in
+   `cache.db` instead, where the text extracted from the media already is. It stays in
+   `library.db` because `cache.db` may be deleted at any time, and a lost fetch costs a download
+   and a person's choice to get back. The size is small: a two-hour film's subtitle is 60–120 KB,
+   20–40 KB compressed, and a free account fetches at most 20 a day, so a thousand fetches over
+   years is about 30–40 MB.
 
-**Status:** Decided, except where a fetched subtitle is kept.
+**Status:** Decided.
+
+## D225 — One admin page, System, shows every fact about the server and each node, and M3's shows whether hardware encoding works
+
+**Decided** (2026-09-27), by the project owner, asked how a person can tell whether the hardware
+encoders of cut-a §6 work: *"Are things set up properly? Does it see the GPU? Does it have
+access? Does it actually use the hardware when it transcodes? I have no idea! set-and-pray is
+never fun."*
+
+1. **One place** (the owner: *"We should put all of the server facts on this page rather than
+   spread around other pages"*): an admin page, **System**, holds what the running server knows
+   about itself, what `doctor` reports and anything else that helps diagnose a problem or shows
+   what is under the hood. What other pages showed of it moves there; the Machines section of
+   Libraries goes, and a library's creation still lists a node's roots.
+2. **Per node** (the owner: *"We should also be presenting this information per-node"*): the
+   server's own facts, then each node's.
+3. **M3 builds enough to know that hardware encoding works** (the owner: *"We don't need all of
+   that at M3, but I do want enough to know at least that the hardware encoding will work"*),
+   answering the owner's four questions for each node:
+   - **What it sees:** each GPU device, with the driver behind it.
+   - **Whether it can reach it:** whether the node's user may open each device, and whether
+     confinement grants it ([D112](#d112--the-node-probes-its-confinement-and-reports-it-the-escape-test-asserts-what-is-in-force)).
+   - **What works:** each hardware encoder's trial at startup, with FFmpeg's own words when it
+     failed, and the encoder chosen.
+   - **What it did:** each prepare records the encoder it ran with and its speed against real
+     time; the page lists a node's recent prepares with both.
+
+   With them, M3's page shows the versions (the server's, each node's and its FFmpeg's), the
+   confinement report, the disk each root and the prepared directory is on (used and free), the
+   prepared directory against its budget, and doctor's findings. `doctor` warns when a node has
+   a GPU but no hardware encoder works on it.
+4. **Later:** CPU and GPU load over time, and whatever else shows the server's load (the owner:
+   *"eventually even cpu/gpu graphs and other such things to understand server load"*).
+
+**Status:** Decided.

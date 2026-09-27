@@ -40,6 +40,34 @@ counted:
 
 ## Log
 
+### P33 — The owner could not tell whether the server was set up right (M3, 2026-09-27) · requirement-emerged
+
+- **Planned:** cut-a §6 named the hardware encoders; `doctor` and the Machines section of
+  Libraries reported confinement and prepared storage; nothing showed which encoder a node had or
+  used.
+- **What happened:** once hardware encoding was built, the owner asked for a single admin page
+  that shows every fact about the server and each node, and for M3, enough of it to know that
+  hardware encoding works: *"set-and-pray is never fun"* (D225).
+- **Why the plan missed it:** the plan listed what the server does, not how its operator learns
+  that it is doing it; diagnostics were scattered across the features that produced them.
+- **Cost:** a System page, the per-encoder trial and device report, and a record of the encoder
+  each prepare used, added to M3.
+- **Process lesson:** for each capability that depends on the machine (hardware, permissions,
+  kernel features), plan where its operator sees that it works, alongside the capability.
+
+### P32 — A fetched subtitle's credentials, search and conversion were left to the builder (M3, 2026-09-27) · plan-gap
+
+- **Planned:** subtitle-acquisition.md gave each user their own OpenSubtitles credentials and a
+  role capability, and ordered candidates by `moviehash`; cut-a named two endpoints.
+- **What happened:** building D223 §4 raised five questions the plan did not settle: who may
+  fetch, where the API key comes from, how a candidate is found, whose count of downloads is
+  shown, and which side parses the fetched text. The owner answered them (D224).
+- **Why the plan missed it:** the plan was written for automatic fetching, with verification;
+  when Cut A narrowed it to fetching on request, the narrowed form was described, not re-planned.
+- **Cost:** a round of questions before the feature's first line.
+- **Process lesson:** when scope narrows a planned feature, plan the narrowed form again rather
+  than trimming the old plan's text.
+
 ### P31 — Decided work reported built with a clause left out, again (M3, 2026-09-27) · plan-gap
 
 - **Planned:** D217 §5 gave the node a budget, eviction by last use, a grace and a disk-full
