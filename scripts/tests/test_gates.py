@@ -249,6 +249,11 @@ class RevertRed(unittest.TestCase):
         self.assertEqual(darwin[-1].env, {"GOOS": "darwin"})
         self.assertTrue(darwin[-1].compile_only)
         self.assertEqual(len(rr.other_builds("internal/store/space_linux.go")), 1)
+        self.assertEqual(rr.query_source("internal/store/sqlcgen/preference.sql.go"),
+                         "internal/store/queries/preference.sql")
+        self.assertEqual(rr.query_source("internal/store/cachegen/job.sql.go"), "internal/store/cache/queries/job.sql")
+        self.assertIsNone(rr.query_source("internal/store/sqlcgen/models.go"))
+        self.assertIsNone(rr.query_source("internal/store/store.go"))
         arm = rr.other_builds("internal/node/confine/arch_linux_arm64.go")
         self.assertEqual(arm[-1].env, {"GOOS": "linux", "GOARCH": "arm64"})
         self.assertTrue(arm[-1].compile_only)
