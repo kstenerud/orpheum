@@ -6,7 +6,7 @@ import type { TFunction } from "i18next";
 import { camelKey } from "./catalogue-key.ts";
 
 /** The server's error, as it sends it (cut-a §5.2). */
-export type ErrorDetail = components["schemas"]["ErrorDetail"];
+type ErrorDetail = components["schemas"]["ErrorDetail"];
 
 /**
  * A request the server refused, with its code and detail kept, so what the person is shown is
