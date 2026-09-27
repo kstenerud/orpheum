@@ -21,6 +21,7 @@ import {
   signOutElsewhere,
 } from "./accounts.ts";
 import { PeopleList } from "./people.tsx";
+import { QrCode, qrImage, qrPath } from "./qr-code.tsx";
 import { parseRoute } from "./router.ts";
 import { Share } from "./share.tsx";
 import { withServices } from "./test-services.tsx";
@@ -123,7 +124,6 @@ describe("accounts", () => {
   });
 
   it("lists who has registered, and shows a code large with when it stops working", () => {
-    const nothing = (): void => undefined;
     const list = renderToStaticMarkup(
       withServices(
         <PeopleList
@@ -131,11 +131,11 @@ describe("accounts", () => {
             { id: 1, name: "owner", role: "admin", isOutsider: false, hasPassword: true },
             { id: 2, name: "partner", role: "user", isOutsider: false, hasPassword: false },
           ]}
-          act={{ linkFor: nothing, codeFor: nothing }}
         />,
       ),
     );
     expect(list).toContain("Has a password");
+    expect(list).toContain('href="/people/2"');
     expect(list).toContain("Has not used their link yet");
     const code = renderToStaticMarkup(
       withServices(
@@ -192,5 +192,15 @@ describe("accounts", () => {
       { method: "DELETE", path: "/api/v1/me/devices/5", body: undefined },
       { method: "POST", path: "/api/v1/me/devices/sign-out-elsewhere", body: undefined },
     ]);
+  });
+
+  it("draws a registration link as a QR code, an image with its own alt text", () => {
+    const url = "https://orpheum.example/register#secret";
+    const { path, modules } = qrPath(url);
+    expect(modules).toBeGreaterThanOrEqual(21);
+    expect(path).toMatch(/^M\d/u);
+    expect(qrImage(url)).toMatch(/^data:image\/svg\+xml,/u);
+    const markup = renderToStaticMarkup(<QrCode text={url} label="partner's link" />);
+    expect(markup).toContain('alt="partner&#x27;s link"');
   });
 });

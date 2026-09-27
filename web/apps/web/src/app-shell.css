@@ -111,3 +111,9 @@
 .app-shell__who {
   color: var(--color-muted);
 }
+
+.qr-code {
+  display: block;
+  width: min(16rem, 70vw);
+  height: auto;
+}

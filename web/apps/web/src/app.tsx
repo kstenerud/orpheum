@@ -11,6 +11,7 @@ import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Libraries } from "./libraries.tsx";
 import { People } from "./people.tsx";
+import { PersonPage } from "./person.tsx";
 import { Play } from "./play.tsx";
 import { Register } from "./register.tsx";
 import type { Route } from "./router.ts";
@@ -112,6 +113,9 @@ function adminScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "people") {
     return <People />;
+  }
+  if (route.screen === "person") {
+    return <PersonPage key={route.id} userId={route.id} />;
   }
   return route.screen === "files" ? (
     <Files key={route.libraryId} libraryId={route.libraryId} />
