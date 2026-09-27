@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -31,7 +32,8 @@ func TestPayload_D179TableWithTheRealTools(t *testing.T) {
 	inTest := func(name string) string { return filepath.Join(directory, name) }
 	ffmpeg := func(arguments ...string) {
 		t.Helper()
-		_, runErr := runner.Run(t.Context(), execx.FFmpeg, append([]string{"-v", "error"}, arguments...), 1<<20)
+		quiet := append([]string{"-v", "error"}, arguments...)
+		_, runErr := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, quiet, 1<<20)
 		if runErr != nil {
 			t.Fatal(runErr)
 		}

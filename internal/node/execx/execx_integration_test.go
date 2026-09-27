@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -17,7 +18,7 @@ func TestRun_ThePinnedFFprobeRunsWithAnEmptyEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stdout, err := runner.Run(t.Context(), FFprobe, []string{"-version"}, 1<<20)
+	stdout, err := runner.Run(t.Context(), FFprobe, confine.Access{}, []string{"-version"}, 1<<20)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 )
 
@@ -16,8 +17,13 @@ const MaxTextBytes = 16 << 20
 
 // Runner runs FFmpeg and returns its stdout: execx.Runner.
 type Runner interface {
-	Run(ctx context.Context, tool execx.Tool, arguments []string, stdoutLimit int) ([]byte, error)
-	RunInput(ctx context.Context, tool execx.Tool, arguments []string, input []byte, stdoutLimit int) ([]byte, error)
+	Run(
+		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, stdoutLimit int,
+	) ([]byte, error)
+	RunInput(
+		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, input []byte,
+		stdoutLimit int,
+	) ([]byte, error)
 }
 
 // Extractor makes ASS and WebVTT with the bundled FFmpeg.
@@ -39,7 +45,7 @@ type Text struct {
 // ExtractTrack extracts the text track at streamIndex of the video at videoPath, an absolute
 // path the caller has checked.
 func (extractor *Extractor) ExtractTrack(ctx context.Context, videoPath string, streamIndex int) (Text, error) {
-	ass, err := extractor.runner.Run(ctx, execx.FFmpeg,
+	ass, err := extractor.runner.Run(ctx, execx.FFmpeg, confine.Access{Read: []string{videoPath}},
 		arguments("file", "file:"+videoPath, "0:"+strconv.Itoa(streamIndex), codecASS), MaxTextBytes)
 	if err != nil {
 		return Text{}, fmt.Errorf("extract stream %d as ASS: %w", streamIndex, err)
@@ -49,7 +55,7 @@ func (extractor *Extractor) ExtractTrack(ctx context.Context, videoPath string, 
 
 // ConvertFile converts a subtitle file's bytes, in any text format FFmpeg recognises.
 func (extractor *Extractor) ConvertFile(ctx context.Context, source []byte) (Text, error) {
-	ass, err := extractor.runner.RunInput(ctx, execx.FFmpeg,
+	ass, err := extractor.runner.RunInput(ctx, execx.FFmpeg, confine.Access{},
 		arguments("pipe", "pipe:0", "0:s:0", codecASS), source, MaxTextBytes)
 	if err != nil {
 		return Text{}, fmt.Errorf("convert the file to ASS: %w", err)
@@ -59,7 +65,7 @@ func (extractor *Extractor) ConvertFile(ctx context.Context, source []byte) (Tex
 
 // withVTT converts the ASS to WebVTT, so the video is read only once.
 func (extractor *Extractor) withVTT(ctx context.Context, ass []byte) (Text, error) {
-	vtt, err := extractor.runner.RunInput(ctx, execx.FFmpeg,
+	vtt, err := extractor.runner.RunInput(ctx, execx.FFmpeg, confine.Access{},
 		arguments("pipe", "pipe:0", "0:s:0", codecWebVTT, "-f", codecASS), ass, MaxTextBytes)
 	if err != nil {
 		return Text{}, fmt.Errorf("convert the ASS to WebVTT: %w", err)

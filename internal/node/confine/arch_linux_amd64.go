@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package confine
+
+import "golang.org/x/sys/unix"
+
+// auditArch is this architecture as seccomp names it.
+const auditArch = unix.AUDIT_ARCH_X86_64
+
+// x32Bit marks a system call made through the x32 ABI, which shares the x86-64 architecture
+// value and would otherwise pass under other numbers.
+const x32Bit = 0x40000000
+
+// foreignCalls refuses every x32 system call.
+func foreignCalls() []unix.SockFilter {
+	return []unix.SockFilter{
+		{Code: unix.BPF_JMP | unix.BPF_JGE | unix.BPF_K, K: x32Bit, Jt: 0, Jf: 1},
+		{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ERRNO | uint32(unix.EPERM)},
+	}
+}

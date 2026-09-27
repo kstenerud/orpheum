@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -23,7 +24,7 @@ func TestProbe_AFileThePinnedFFmpegMade(t *testing.T) {
 		t.Fatal(err)
 	}
 	film := filepath.Join(t.TempDir(), "film: a test (2020).mkv")
-	_, err = runner.Run(t.Context(), execx.FFmpeg, []string{
+	_, err = runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
 		"-v", "error",
 		"-f", "lavfi", "-i", "testsrc2=size=160x120:rate=25:duration=1",
 		"-f", "lavfi", "-i", "sine=frequency=440:duration=1",

@@ -38,9 +38,9 @@ const coreSocket = "core.sock"
 // media bytes (cut-a §4, D193 §1).
 const nodeSocket = "node.sock"
 
-// errConfinementRequired refuses to run FFmpeg unconfined while confinement is not built.
-var errConfinementRequired = errors.New("node.confinement is \"require\", and confinement is not built " +
-	"until M3; set it to \"report\" to run unconfined and say so (D112)")
+// errConfinementRequired refuses to run FFmpeg without every confinement mechanism in force.
+var errConfinementRequired = errors.New("node.confinement is \"require\", and not every mechanism is in " +
+	"force; fix what is missing, or set it to \"report\" to run with what there is and say so (D112)")
 
 // commandNode runs a media node: the child `run` starts, or a node on its own.
 func commandNode(ctx context.Context, call invocation) int {
@@ -64,30 +64,73 @@ func commandNode(ctx context.Context, call invocation) int {
 
 // runNode opens the media roots, builds the scanner and runs the node's loop until ctx ends.
 func runNode(ctx context.Context, config Config, logger *slog.Logger) error {
-	return runNodeScanning(ctx, config, logger, nil)
+	return runNodeWith(ctx, config, logger, nodeSeams{})
 }
 
-// runNodeScanning is runNode with the scanner wrapped: the M2 acceptance test records a real
-// scan through it and replays one against a media root no process may read (plan-deviations P9).
-func runNodeScanning(
-	ctx context.Context, config Config, logger *slog.Logger, wrap func(agent.Scanner) agent.Scanner,
-) error {
+// nodeSeams are where a test reaches into the node; the zero value is the node as it runs.
+type nodeSeams struct {
+	// wrapScanner wraps the scanner: the M2 acceptance test records a real scan through it and
+	// replays one against a media root no process may read (plan-deviations P9).
+	wrapScanner func(agent.Scanner) agent.Scanner
+	// probe stands in for confine.Probe, so a test can see what a machine without a mechanism does.
+	probe func() []confine.State
+	// isUnconfined runs the tools as they are, not through the shim: a test's fake FFmpeg is a
+	// shell script that records each run in its own directory, which no confined run may do.
+	isUnconfined bool
+}
+
+// checkConfinement is what the machine can confine FFmpeg with (D112): each mechanism missing is
+// logged with its remedy, and refuses the node's start when the config requires them all.
+func checkConfinement(
+	ctx context.Context, config Config, logger *slog.Logger, seams nodeSeams,
+) ([]confine.State, error) {
+	probeConfinement := confine.Probe
+	if seams.probe != nil {
+		probeConfinement = seams.probe
+	}
+	confinement := probeConfinement()
+	if confine.IsConfined(confinement) {
+		return confinement, nil
+	}
+	for _, state := range confinement {
+		if !state.InForce {
+			logger.WarnContext(ctx, "FFmpeg runs without a confinement mechanism", "mechanism", state.Mechanism,
+				"why", state.Reason, "remedy", state.Remedy)
+		}
+	}
 	if config.Node.Confinement == "require" {
-		return errConfinementRequired
+		return nil, errConfinementRequired
+	}
+	return confinement, nil
+}
+
+// runNodeWith is runNode with a test's seams.
+func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams nodeSeams) error {
+	confinement, err := checkConfinement(ctx, config, logger, seams)
+	if err != nil {
+		return err
 	}
 	roots := openRoots(ctx, config.Node.Roots, logger)
 	defer func() {
 		for _, root := range roots {
-			if err := root.Close(); err != nil {
-				logger.WarnContext(ctx, "could not close a media root", "err", err)
+			if closeErr := root.Close(); closeErr != nil {
+				logger.WarnContext(ctx, "could not close a media root", "err", closeErr)
 			}
 		}
 	}()
-	runner, err := execx.NewRunner(config.Node.FFmpegDir)
+	// Every FFmpeg run re-executes this binary as the shim that confines it (cut-a §7).
+	self, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("find orpheum's own path for the shim: %w", err)
+	}
+	if seams.isUnconfined {
+		self = ""
+	}
+	runner, err := execx.NewConfinedRunner(config.Node.FFmpegDir, self)
 	if err != nil {
 		return err
 	}
-	hello, err := describeNode(ctx, config, runner)
+	hello, err := describeNode(ctx, config, runner, confinement)
 	if err != nil {
 		return err
 	}
@@ -120,8 +163,8 @@ func runNodeScanning(
 	// bounded as a file's probe is.
 	deriver := artwork.NewDeriver(runner, time.Duration(config.Node.ProbeTimeoutS)*time.Second)
 	var scanning agent.Scanner = scanner
-	if wrap != nil {
-		scanning = wrap(scanner)
+	if seams.wrapScanner != nil {
+		scanning = seams.wrapScanner(scanner)
 	}
 	workers := agent.Workers{
 		Scanner: scanning, Artwork: deriver, Preparer: preparing, Subtitles: subtitle.NewExtractor(runner),
@@ -188,8 +231,10 @@ func openRoots(ctx context.Context, paths []string, logger *slog.Logger) []*conf
 }
 
 // describeNode is the hello: who the node is, which FFmpeg it runs and what confinement it has.
-func describeNode(ctx context.Context, config Config, runner *execx.Runner) (nodeproto.Hello, error) {
-	output, err := runner.Run(ctx, execx.FFprobe, []string{"-version"}, 1<<20)
+func describeNode(
+	ctx context.Context, config Config, runner *execx.Runner, confinement []confine.State,
+) (nodeproto.Hello, error) {
+	output, err := runner.Run(ctx, execx.FFprobe, confine.Access{}, []string{"-version"}, 1<<20)
 	if err != nil {
 		return nodeproto.Hello{}, fmt.Errorf("run the pinned ffprobe: %w", err)
 	}
@@ -198,19 +243,21 @@ func describeNode(ctx context.Context, config Config, runner *execx.Runner) (nod
 	if err != nil {
 		return nodeproto.Hello{}, err
 	}
-	notBuilt := "confinement is built in M3; until then every FFmpeg run is unconfined"
+	report := make([]nodeproto.Confinement, 0, len(confinement))
+	for _, state := range confinement {
+		report = append(report, nodeproto.Confinement{
+			Mechanism: state.Mechanism, InForce: state.InForce, Reason: state.Reason, Remedy: state.Remedy,
+		})
+	}
 	return nodeproto.Hello{
 		Name:          config.Node.Name,
 		Version:       version,
 		FFmpegVersion: firstLine,
 		FFmpegHash:    ffmpegHash,
 		Capabilities:  []string{},
-		Confinement: []nodeproto.Confinement{
-			{Mechanism: "landlock", Reason: notBuilt, Remedy: "none until M3"},
-			{Mechanism: "seccomp", Reason: notBuilt, Remedy: "none until M3"},
-		},
-		UID: os.Geteuid(),
-		GID: os.Getegid(),
+		Confinement:   report,
+		UID:           os.Geteuid(),
+		GID:           os.Getegid(),
 	}, nil
 }
 

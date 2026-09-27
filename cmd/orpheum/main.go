@@ -15,6 +15,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/identify/tmdb"
+	"github.com/kstenerud/orpheum/internal/node/confine"
 )
 
 // version is the release this binary was built from. The Makefile sets it with
@@ -65,6 +66,12 @@ func plannedSubcommands() []subcommand {
 }
 
 func main() {
+	// The shim confines itself and becomes an FFmpeg tool, before anything else runs (cut-a §7);
+	// it returns only when it could not, and the node sees the run fail with why.
+	if len(os.Args) == 3 && os.Args[1] == confine.ShimArgument {
+		_, _ = fmt.Fprintf(os.Stderr, "orpheum: %v\n", confine.Shim(os.Args[2]))
+		os.Exit(exitFailure)
+	}
 	useUTC()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	api.UseErrorShape()
