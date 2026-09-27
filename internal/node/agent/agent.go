@@ -167,7 +167,7 @@ func (agent *Agent) poll(ctx context.Context, nodeID int64, work chan<- nodeprot
 			// A cancel is carried out as it arrives, not queued behind the work it stops.
 			if command.Type == nodeproto.CommandCancel && command.Cancel != nil {
 				if !agent.working.cancel(command.Cancel.Job) {
-					agent.logger.InfoContext(ctx, "a cancelled job was not running here", "job", command.Cancel.Job)
+					agent.logger.InfoContext(ctx, "a job was cancelled before it started", "job", command.Cancel.Job)
 				}
 				after = command.Seq
 				continue

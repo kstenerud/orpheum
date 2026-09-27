@@ -19,9 +19,17 @@ import (
 // fakeSubtitles answers with text that names what it was given.
 type fakeSubtitles struct{}
 
-func (fakeSubtitles) ExtractTrack(_ context.Context, videoPath string, streamIndex int) (subtitle.Text, error) {
+// Track slowTrack runs until it is stopped.
+func (fakeSubtitles) ExtractTrack(ctx context.Context, videoPath string, streamIndex int) (subtitle.Text, error) {
+	if streamIndex == slowTrack {
+		<-ctx.Done()
+		return subtitle.Text{}, ctx.Err()
+	}
 	return subtitle.Text{ASS: []byte(videoPath), VTT: []byte(strconv.Itoa(streamIndex))}, nil
 }
+
+// slowTrack is the stream index whose extraction runs until it is stopped.
+const slowTrack = 99
 
 func (fakeSubtitles) ConvertFile(_ context.Context, source []byte) (subtitle.Text, error) {
 	return subtitle.Text{ASS: source, VTT: source}, nil
@@ -39,10 +47,8 @@ func receiveSubtitle(t *testing.T, core *fakeCore) nodeproto.SubtitleText {
 }
 
 // extracting starts an agent whose root holds film.mkv and film.en.srt, and returns them named
-// by root, path and payload hash, and a way to send an extraction and read the core's answer.
-func extracting(t *testing.T) (
-	video, sidecar nodeproto.BytesFile, send func(int64, nodeproto.ExtractSubtitle) nodeproto.SubtitleText,
-) {
+// by root, path and payload hash, and the core it talks to.
+func extracting(t *testing.T) (video, sidecar nodeproto.BytesFile, core *fakeCore) {
 	t.Helper()
 	core, socket := startFakeCore(t)
 	root, _ := running(t, socket)
@@ -59,17 +65,22 @@ func extracting(t *testing.T) (
 			Root: root.Path(), Path: []byte(name), Hash: hex.EncodeToString(identity.Hash[:]),
 		}
 	}
-	send = func(job int64, extract nodeproto.ExtractSubtitle) nodeproto.SubtitleText {
-		extract.Job = job
-		core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: &extract}
-		return receiveSubtitle(t, core)
-	}
-	return named["film.mkv"], named["film.en.srt"], send
+	return named["film.mkv"], named["film.en.srt"], core
+}
+
+// extract sends an extraction as job, without waiting for the answer.
+func (core *fakeCore) extract(job int64, extract nodeproto.ExtractSubtitle) {
+	extract.Job = job
+	core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: &extract}
 }
 
 func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot(t *testing.T) {
 	t.Parallel()
-	video, sidecar, send := extracting(t)
+	video, sidecar, core := extracting(t)
+	send := func(job int64, extract nodeproto.ExtractSubtitle) nodeproto.SubtitleText {
+		core.extract(job, extract)
+		return receiveSubtitle(t, core)
+	}
 	track := send(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: 2})
 	if track.Job != 1 || track.Refused != "" || string(track.ASS) != video.Root+"/film.mkv" ||
 		string(track.VTT) != "2" {
@@ -107,5 +118,17 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 		if answer.Refused == "" || !strings.Contains(answer.Refused, refusal.why) {
 			t.Errorf("%s: %+v, want refused: %s", refusal.what, answer, refusal.why)
 		}
+	}
+}
+
+func TestAgent_ACancelStopsARunningExtractionAndNothingIsReportedForIt(t *testing.T) {
+	t.Parallel()
+	video, _, core := extracting(t)
+	// One extraction runs at a time, so the next runs only once the cancel frees the slot.
+	core.extract(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: slowTrack})
+	core.commands <- nodeproto.Command{Seq: 2, Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{Job: 1}}
+	core.extract(3, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: 2})
+	if next := receiveSubtitle(t, core); next.Job != 3 || next.Refused != "" {
+		t.Errorf("the first answer = %+v, want job 3's text and nothing for the cancelled job 1", next)
 	}
 }

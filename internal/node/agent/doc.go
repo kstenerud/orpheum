@@ -29,7 +29,8 @@
 //     node's roots, whose payload hash is still the one named (D100, D217 §6). One extraction runs
 //     at once. TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
 //   - A cancel is carried out as it arrives, not queued behind other work: it stops the job's
-//     FFmpeg, frees its slot, and nothing more is reported for the job (cut-a §5.3).
+//     FFmpeg, frees its slot, and nothing more is reported for the job; a job cancelled before it
+//     started starts cancelled (cut-a §5.3).
 //     TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt.
 //
 // # Read before changing

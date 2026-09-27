@@ -8,17 +8,24 @@ import (
 )
 
 // working are the jobs this node is working on, by the core's job id, each with the cancel that
-// stops it (cut-a §5.3).
+// stops it (cut-a §5.3), and the jobs cancelled before they started: a cancel can arrive while
+// its job still waits behind other work.
 type working struct {
-	mutex sync.Mutex
-	jobs  map[int64]context.CancelFunc // guarded by mutex
+	mutex     sync.Mutex
+	jobs      map[int64]context.CancelFunc // guarded by mutex
+	cancelled map[int64]bool               // guarded by mutex: cancelled before they started
 }
 
-// start is a job's context, which cancel ends, and done, which forgets the job once it ends.
+// start is a job's context, which cancel ends, and done, which forgets the job once it ends. A
+// job cancelled before it started starts cancelled.
 func (all *working) start(ctx context.Context, job int64) (context.Context, func()) {
 	jobCtx, stop := context.WithCancel(ctx)
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
+	if all.cancelled[job] {
+		delete(all.cancelled, job)
+		stop()
+	}
 	if all.jobs == nil {
 		all.jobs = map[int64]context.CancelFunc{}
 	}
@@ -31,13 +38,19 @@ func (all *working) start(ctx context.Context, job int64) (context.Context, func
 	}
 }
 
-// cancel stops a job, and reports whether it was one this node is working on.
+// cancel stops a job, or, when it has not started, has it start cancelled. It reports whether the
+// job was running.
 func (all *working) cancel(job int64) bool {
 	all.mutex.Lock()
-	stop, found := all.jobs[job]
-	all.mutex.Unlock()
-	if found {
+	defer all.mutex.Unlock()
+	stop, isRunning := all.jobs[job]
+	if isRunning {
 		stop()
+		return true
 	}
-	return found
+	if all.cancelled == nil {
+		all.cancelled = map[int64]bool{}
+	}
+	all.cancelled[job] = true
+	return false
 }
