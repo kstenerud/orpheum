@@ -43,7 +43,7 @@ export function People(): JSX.Element {
       }, failed);
     },
     codeFor: (account: Account, deviceName: string): void => {
-      issueDeviceCode(api, deviceName, account.id).then((invitation) => {
+      issueDeviceCode(api, { deviceName }, account.id).then((invitation) => {
         setMade({ what: "code", name: account.name, invitation });
       }, failed);
     },

@@ -3,33 +3,30 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  listMyDevices,
-  removeMyDevice,
-  renameMyDevice,
-  signOutElsewhere,
-  type Device,
-} from "./accounts.ts";
+import { removeMyDevice, renameMyDevice, signOutElsewhere, type Device } from "./accounts.ts";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
-import { useResource } from "./use-resource.ts";
+import type { Resource } from "./use-resource.ts";
 
 /**
- * This person's devices (D218 §4): each named, when last used, and whether signed in, with a way
- * to rename it and to remove it, which signs it out at its next request; and a way to sign out
- * everywhere but here.
+ * This person's devices (D218 §4, D221): each named, when added and last used, and whether signed
+ * in, with a way to rename it, to remove it, which signs it out at its next request, and, when it
+ * is signed out, to make a code that signs it back in; and a way to sign out everywhere but here.
  */
-export function YourDevices(): JSX.Element {
+export function YourDevices(props: {
+  readonly devices: Resource<Device[]>;
+  readonly reload: () => void;
+  readonly onCodeFor: (device: Device) => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const { api, session } = useServices();
-  const [devices, reload] = useResource("my-devices", () => listMyDevices(api));
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const then = (change: Promise<void>, afterwards?: () => void): void => {
     change.then(
       () => {
         setProblem(undefined);
-        reload();
+        props.reload();
         afterwards?.();
       },
       (cause: unknown) => {
@@ -41,7 +38,7 @@ export function YourDevices(): JSX.Element {
     <div className="account__devices">
       <h2>{t("devices.heading")}</h2>
       <Loaded
-        resource={devices}
+        resource={props.devices}
         render={(list) => (
           <DeviceList
             devices={list}
@@ -55,6 +52,7 @@ export function YourDevices(): JSX.Element {
                 device.isThisDevice ? session.signOut : undefined,
               );
             }}
+            onCodeFor={props.onCodeFor}
           />
         )}
       />
@@ -84,6 +82,7 @@ export function DeviceList(props: {
   readonly devices: readonly Device[];
   readonly onRename: (device: Device, name: string) => void;
   readonly onRemove: (device: Device) => void;
+  readonly onCodeFor: (device: Device) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const when = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" });
@@ -93,7 +92,22 @@ export function DeviceList(props: {
         <li key={device.id} className="account__device">
           <DeviceName device={device} onRename={props.onRename} />
           <span>{t(`devices.${deviceState(device)}`)}</span>
-          <span>{t("devices.lastUsed", { when: when.format(new Date(device.lastUsedAt)) })}</span>
+          <span>
+            {t("devices.addedAndUsed", {
+              added: when.format(new Date(device.addedAt)),
+              used: when.format(new Date(device.lastUsedAt)),
+            })}
+          </span>
+          {device.isSignedIn ? null : (
+            <button
+              type="button"
+              onClick={() => {
+                props.onCodeFor(device);
+              }}
+            >
+              {t("devices.codeToSignBackIn")}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
