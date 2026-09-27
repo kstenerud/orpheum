@@ -125,12 +125,12 @@ class Change:
 @dataclass(frozen=True)
 class Outcome:
     path: str
-    verdict: str  # RED_TEST | RED_BUILD | GREEN | CLAIMED | COSMETIC | UNCHECKED
+    verdict: str  # RED_TEST | RED_BUILD | GREEN | NO_RUNNER | CLAIMED | COSMETIC | UNCHECKED
     detail: str = ""
 
     @property
     def is_failure(self) -> bool:
-        return self.verdict == "GREEN"
+        return self.verdict in ("GREEN", "NO_RUNNER")
 
 
 def _git(*args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
@@ -371,6 +371,47 @@ def other_builds(path: str) -> list[Attempt]:
     return attempts
 
 
+# The shell's exit status for a command it could not find: `npm run test` in a tree with no
+# installed packages, which once passed every TypeScript file as red because vitest was absent.
+RUNNER_MISSING = 127
+
+# Package caches a run writes, which the worktree keeps its own of rather than share.
+PACKAGE_CACHES = (".vite", ".vite-temp", ".vitest", ".cache")
+
+
+def link_installed_packages(source: Path, tree: Path) -> None:
+    """Give the worktree the web packages the working tree has installed, without installing.
+
+    git worktree copies only tracked files, so node_modules is absent, and the web suite cannot
+    run. Each node_modules under web/ is made in the worktree as a directory of links: an
+    installed package links to the working tree's copy, and a workspace link (@orpheum/sdk ->
+    ../../packages/sdk) is copied as the relative link it is, so it resolves to the worktree's
+    own package, the one a revert changes.
+    """
+    web = source / "web"
+    if not web.is_dir():
+        return
+    for installed in sorted(web.rglob("node_modules")):
+        relative = installed.relative_to(source)
+        if "node_modules" in relative.parts[:-1] or not installed.is_dir():
+            continue
+        _mirror_packages(installed, tree / relative, scoped=True)
+
+
+def _mirror_packages(installed: Path, into: Path, scoped: bool) -> None:
+    into.mkdir(parents=True, exist_ok=True)
+    for entry in installed.iterdir():
+        if entry.name in PACKAGE_CACHES:
+            continue
+        target = into / entry.name
+        if entry.is_symlink():
+            target.symlink_to(os.readlink(entry))
+        elif scoped and entry.name.startswith("@") and entry.is_dir():
+            _mirror_packages(entry, target, scoped=False)
+        else:
+            target.symlink_to(entry.resolve())
+
+
 def is_build_failure(output: str) -> bool:
     """Whether a failing run failed to compile rather than to assert.
 
@@ -420,6 +461,9 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
             )
             if done.returncode == 0:
                 continue
+            if done.returncode == RUNNER_MISSING:
+                return Outcome(change.path, "NO_RUNNER", f"the tests could not start: {attempt.command[0]} "
+                               "found no runner, so nothing was checked")
             combined = done.stdout + done.stderr
             if attempt.compile_only or is_build_failure(combined):
                 return Outcome(change.path, "RED_BUILD", f"reverting it breaks the build{attempt.label}")
@@ -433,6 +477,7 @@ def report(outcomes: list[Outcome]) -> str:
     lines = []
     for verdict, heading in (
         ("GREEN", "Changed with nothing to notice — no test goes red when these are reverted"),
+        ("NO_RUNNER", "Not checked: the tests could not start — fix the environment, not the code"),
         ("RED_BUILD", "Load-bearing, but only at compile time"),
         ("RED_TEST", "Covered — a test fails when these are reverted"),
         ("CLAIMED", "Verified outside the suite, on the author's word — review this"),
@@ -494,6 +539,7 @@ def main() -> int:
         shutil.rmtree(tmp, ignore_errors=True)
         return 1
     try:
+        link_installed_packages(Path(_git("rev-parse", "--show-toplevel").stdout.strip()), Path(tree))
         outcomes = [probe(tree, args.base, args.head, c, args.timeout) for c in owed]
     finally:
         _git("worktree", "remove", "--force", tree)
@@ -505,6 +551,13 @@ def main() -> int:
     failures = [o for o in outcomes if o.is_failure]
     if not failures:
         return 0
+    if any(o.verdict == "NO_RUNNER" for o in failures):
+        print(
+            "\nThe tests could not start in the worktree, so nothing was checked. That is the\n"
+            "environment (are the web packages installed? run `npm ci` in web/), not the code."
+        )
+    if all(o.verdict == "NO_RUNNER" for o in failures):
+        return 1
     print(
         "\nEach file above changed, and reverting it broke nothing. One of three things\n"
         "is true, and only you can say which:\n\n"
