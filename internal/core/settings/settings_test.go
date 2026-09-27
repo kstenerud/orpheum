@@ -142,7 +142,7 @@ func TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage(t *testing.
 	if entry := entryFor(t, page, CheckForUpdates); string(entry.Value) != "null" || entry.Definition.Question == "" {
 		t.Errorf("an unanswered question: %+v, want null and the question", entry)
 	}
-	answers := values("check_for_updates", "false", "subtitles_on_by_default", " false ")
+	answers := values("check_for_updates", "false", "sort_locale", ` "sv" `)
 	err = service.Set(ctx, nil, answers, &owner, true)
 	if err != nil {
 		t.Fatal(err)
@@ -151,9 +151,9 @@ func TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed := entryFor(t, all, SubtitlesOnByDefault)
-	if !changed.IsModified || string(changed.Value) != "false" || changed.SetBy == nil || *changed.SetBy != owner {
-		t.Errorf("a changed setting: %+v, want false, modified, set by the owner", changed)
+	changed := entryFor(t, all, SortLocale)
+	if !changed.IsModified || string(changed.Value) != `"sv"` || changed.SetBy == nil || *changed.SetBy != owner {
+		t.Errorf("a changed setting: %+v, want \"sv\", modified, set by the owner", changed)
 	}
 	if entry := entryFor(t, all, SignInFailureLimit); entry.IsModified {
 		t.Errorf("an untouched setting reads as modified: %+v", entry)
@@ -170,7 +170,7 @@ func TestReaders_RefuseAnUnansweredQuestionAndTheWrongKind(t *testing.T) {
 	if _, err := service.Int(ctx, ServeDebugPProf); !errors.Is(err, ErrWrongKind) {
 		t.Errorf("reading a bool as an integer: %v, want ErrWrongKind", err)
 	}
-	if on, err := service.Bool(ctx, SubtitlesOnByDefault); err != nil || !on {
+	if on, err := service.Bool(ctx, ScanOnNodeHello); err != nil || !on {
 		t.Errorf("reading a seeded bool: %v, %v; want its starting value", on, err)
 	}
 	if hours, err := service.Int(ctx, SessionIdleExpiryH); err != nil || hours != 2160 {
@@ -200,7 +200,7 @@ func TestSet_RefusesAndChangesNothing(t *testing.T) {
 		{"a hidden key on the settings page", nil, values("signin_failure_limit", "3"), true, ErrNotExposed},
 		{
 			"one bad among good", nil,
-			values("dialogue_boost_on_by_default", "true", "check_for_updates", "1"), false, ErrWrongKind,
+			values("scan_on_node_hello", "true", "check_for_updates", "1"), false, ErrWrongKind,
 		},
 	}
 	for _, tc := range cases {
