@@ -152,3 +152,18 @@ func TestChooser_RefusesWhatItCannotDo(t *testing.T) {
 		}
 	}
 }
+
+func TestChooser_CorrectingAnAmbiguousTitlesNameSearchesItsCandidatesAgain(t *testing.T) {
+	t.Parallel()
+	lib, titleID := ambiguousTheGeneral(t)
+	theGeneral72 := Metadata{ID: "1", Name: "The General", Year: 1972}
+	lib.provider.searches[searchKey("The General", 1972)] = []Candidate{lib.provider.add(theGeneral72)}
+	person := storetest.InsertUser(t, lib.database, "alice", "admin")
+	if err := lib.chooser.SetOverride(t.Context(), titleID, fieldYear, "1972", person); err != nil {
+		t.Fatal(err)
+	}
+	candidates, _, err := lib.chooser.Candidates(t.Context(), titleID)
+	if err != nil || len(candidates) != 1 || candidates[0].Year != 1972 {
+		t.Errorf("Candidates after the year is corrected = %+v, %v; want the new search's (D223 §7)", candidates, err)
+	}
+}

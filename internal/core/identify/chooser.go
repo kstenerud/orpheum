@@ -207,13 +207,25 @@ func (chooser *Chooser) Choose(ctx context.Context, itemID int64, providerName, 
 	if err != nil {
 		return err
 	}
-	err = chooser.matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
+	return chooser.dropCandidates(ctx, itemID)
+}
+
+// dropCandidates forgets an item's kept candidates: chosen from, or searched for under a name or
+// year that is no longer the item's, so the next look searches again.
+func (chooser *Chooser) dropCandidates(ctx context.Context, itemID int64) error {
+	err := chooser.matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		return queries.DeleteMatchCandidates(ctx, itemID)
 	})
 	if err != nil {
 		return fmt.Errorf("drop item %d's candidates: %w", itemID, err)
 	}
 	return nil
+}
+
+// searchesWith is whether a field is one a search for candidates is made with: changing it makes
+// the kept candidates another search's (D223 §7).
+func searchesWith(field string) bool {
+	return field == fieldName || field == fieldYear
 }
 
 // SetOverride sets a field on a title or series to a person's value, which every source and
@@ -240,6 +252,11 @@ func (chooser *Chooser) SetOverride(ctx context.Context, titleID int64, field, v
 	if err != nil {
 		return fmt.Errorf("override title %d's %s: %w", titleID, field, err)
 	}
+	if searchesWith(field) {
+		if err := chooser.dropCandidates(ctx, titleID); err != nil {
+			return err
+		}
+	}
 	return chooser.rederive(ctx, title)
 }
 
@@ -263,6 +280,11 @@ func (chooser *Chooser) ClearOverride(ctx context.Context, titleID int64, field 
 	}
 	if removed == 0 {
 		return fmt.Errorf("title %d's %s: %w", titleID, field, ErrNoOverride)
+	}
+	if searchesWith(field) {
+		if err := chooser.dropCandidates(ctx, titleID); err != nil {
+			return err
+		}
 	}
 	return chooser.rederive(ctx, title)
 }
