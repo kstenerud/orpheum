@@ -4,7 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem } from "./problem.ts";
+import { ApiProblem, problemText } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -130,7 +130,7 @@ function useLibraryActions(reload: () => void): {
           noted(
             id,
             data === undefined
-              ? t("common.failed", { message: error.error.message })
+              ? problemText(t, new ApiProblem(error.error))
               : t("libraries.scanning", { count: data.rootsAsked }),
           );
         });
@@ -142,7 +142,7 @@ function useLibraryActions(reload: () => void): {
           if (error === undefined) {
             reload();
           } else {
-            noted(id, t("common.failed", { message: error.error.message }));
+            noted(id, problemText(t, new ApiProblem(error.error)));
           }
         });
     },

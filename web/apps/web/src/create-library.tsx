@@ -4,7 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem } from "./problem.ts";
+import { ApiProblem, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -245,9 +245,7 @@ export function CreateLibraryForm(props: {
       <WhatItHolds draft={draft} set={set} />
       <ThreeQuestions draft={draft} set={set} />
       <WhereItIs draft={draft} nodes={props.nodes} set={set} />
-      {props.problem === "" ? null : (
-        <p role="alert">{t("common.failed", { message: props.problem })}</p>
-      )}
+      {props.problem === "" ? null : <p role="alert">{props.problem}</p>}
       <button type="submit">{t("libraries.create")}</button>
     </form>
   );
@@ -255,6 +253,7 @@ export function CreateLibraryForm(props: {
 
 /** The create-library form, sent to the server; a created library is scanned at once. */
 export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.Element {
+  const { t } = useTranslation();
   const { api } = useServices();
   const [draft, setDraft] = useState(blankLibrary);
   const [problem, setProblem] = useState("");
@@ -272,7 +271,7 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
         setDraft(blankLibrary());
         props.onCreated();
       } else {
-        setProblem(error.error.message);
+        setProblem(problemText(t, new ApiProblem(error.error)));
       }
     });
   };
