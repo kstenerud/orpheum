@@ -7,8 +7,15 @@ import { createNavigation } from "./navigation.ts";
 import { createSession } from "./session.ts";
 import { ServicesContext, type Services } from "./services.tsx";
 
-/** Services for a test render: an API nothing calls, a session with the token given, and a place at path. */
-export function testServices(token?: string, path = "/films"): Services {
+/**
+ * Services for a test render: an API that sends through send (by default nowhere a test reaches),
+ * a session with the token given, and a place at path.
+ */
+export function testServices(
+  token?: string,
+  path = "/films",
+  send?: (request: Request) => Promise<Response>,
+): Services {
   const session = createSession(undefined);
   if (token !== undefined) {
     session.signIn(token);
@@ -20,7 +27,11 @@ export function testServices(token?: string, path = "/films"): Services {
     addEventListener: () => undefined,
   });
   return {
-    api: createApi({ origin: "http://orpheum.test", token: session.token }),
+    api: createApi({
+      origin: "http://orpheum.test",
+      token: session.token,
+      ...(send === undefined ? {} : { fetch: send }),
+    }),
     session,
     navigation,
     menu: () => ({

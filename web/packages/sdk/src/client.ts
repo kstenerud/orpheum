@@ -16,6 +16,8 @@ export interface ApiOptions {
   readonly origin?: string;
   /** The session token, sent in the Authorization header and never in a URL (D154). */
   readonly token: () => string | undefined;
+  /** What sends a request: the browser's fetch when omitted, or a test's stand-in server. */
+  readonly fetch?: (request: Request) => Promise<Response>;
 }
 
 /** Creates the API client. The token is read on every request, so signing in or out needs no new client. */
@@ -23,6 +25,7 @@ export function createApi(options: ApiOptions): Api {
   const api = createClient<paths>({
     baseUrl: (options.origin ?? "") + apiPrefix,
     credentials: "same-origin",
+    ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
   });
   const authorise: Middleware = {
     onRequest({ request }) {
