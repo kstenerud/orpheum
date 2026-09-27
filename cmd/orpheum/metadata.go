@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -66,32 +67,45 @@ func newMetadata(ctx context.Context, opened started, tmdbBaseURL string, logger
 	}, nil
 }
 
+// jobRunners are the job queue's runners: each kind, its handler, its retry schedule when it has
+// its own, and how many of its jobs run at once.
+type jobRunners []struct {
+	kind     jobs.Kind
+	handler  jobs.Handler
+	schedule []time.Duration
+	atOnce   int
+}
+
+// runners are the kinds of job the server works. Prepares run as many at once as a node has
+// slots (cut-a §5.3), so a second person's copy is not held behind the first's.
+func (fetching metadata) runners() jobRunners {
+	return jobRunners{
+		{jobs.KindFetch, fetching.matcher.Handle, nil, 1},
+		{jobs.KindArtwork, fetching.artwork.Handle, artwork.RetrySchedule(), 1},
+		{jobs.KindPrepare, fetching.playback.HandlePrepare, nil, nodeproto.EncodeSlots + nodeproto.RemuxSlots},
+		{jobs.KindExtractSubtitle, fetching.playback.HandleSubtitle, nil, 1},
+	}
+}
+
 // run works the fetch and artwork jobs, and looks for data due a refresh when it starts and every
 // refresh_check_every_h (D213 §3), until the returned stop is called.
 func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop func()) {
 	running, cancel := context.WithCancel(ctx)
 	var done sync.WaitGroup
-	for _, queue := range []struct {
-		kind     jobs.Kind
-		handler  jobs.Handler
-		schedule []time.Duration
-	}{
-		{jobs.KindFetch, fetching.matcher.Handle, nil},
-		{jobs.KindArtwork, fetching.artwork.Handle, artwork.RetrySchedule()},
-		{jobs.KindPrepare, fetching.playback.HandlePrepare, nil},
-		{jobs.KindExtractSubtitle, fetching.playback.HandleSubtitle, nil},
-	} {
-		kind, runner := queue.kind, fetching.queue.NewRunner(queue.kind, queue.handler)
-		if queue.schedule != nil {
-			runner.RetryOn(queue.schedule)
-		}
-		done.Go(func() {
-			ticker := time.NewTicker(time.Second)
-			defer ticker.Stop()
-			if err := runner.Run(running, ticker.C); err != nil {
-				logger.ErrorContext(ctx, "a job queue stopped", "kind", string(kind), "err", err)
+	for _, queue := range fetching.runners() {
+		for range queue.atOnce {
+			kind, runner := queue.kind, fetching.queue.NewRunner(queue.kind, queue.handler)
+			if queue.schedule != nil {
+				runner.RetryOn(queue.schedule)
 			}
-		})
+			done.Go(func() {
+				ticker := time.NewTicker(time.Second)
+				defer ticker.Stop()
+				if err := runner.Run(running, ticker.C); err != nil {
+					logger.ErrorContext(ctx, "a job queue stopped", "kind", string(kind), "err", err)
+				}
+			})
+		}
 	}
 	done.Go(func() { fetching.sweep(running, logger) })
 	done.Go(func() { keepArtwork(running, fetching.artwork, logger) })

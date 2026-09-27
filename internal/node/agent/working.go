@@ -14,6 +14,32 @@ type working struct {
 	mutex     sync.Mutex
 	jobs      map[int64]context.CancelFunc // guarded by mutex
 	cancelled map[int64]bool               // guarded by mutex: cancelled before they started
+	waiting   map[int64]bool               // guarded by mutex: prepares waiting for a slot
+}
+
+// wait marks a job waiting for a slot, or no longer waiting.
+func (all *working) wait(job int64, isWaiting bool) {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	if all.waiting == nil {
+		all.waiting = map[int64]bool{}
+	}
+	if isWaiting {
+		all.waiting[job] = true
+	} else {
+		delete(all.waiting, job)
+	}
+}
+
+// waitingJobs are the jobs waiting for a slot, in no order.
+func (all *working) waitingJobs() []int64 {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	jobs := make([]int64, 0, len(all.waiting))
+	for job := range all.waiting {
+		jobs = append(jobs, job)
+	}
+	return jobs
 }
 
 // start is a job's context, which cancel ends, and done, which forgets the job once it ends. A

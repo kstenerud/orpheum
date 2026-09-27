@@ -132,3 +132,41 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 		t.Errorf("the next final report = %+v, want job 4 done and nothing for the cancelled job 1", next)
 	}
 }
+
+func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, tick := running(t, socket)
+	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	identity, err := hash.Payload(strings.NewReader("a film"), 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := nodeproto.BytesFile{
+		Root: root.Path(), Path: []byte("film.mkv"), Hash: hex.EncodeToString(identity.Hash[:]),
+	}
+	encode := func(job int64, dir string) nodeproto.Command {
+		return nodeproto.Command{Seq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
+			Job: job, Source: source, Profile: nodeproto.ProfileH264At8M, RenditionDir: dir,
+		}}
+	}
+	// One encode slot: the first encode runs, the second waits for it.
+	core.commands <- encode(1, "3/h264-8m/slow")
+	if first := nextReport(t, core); first.Job != 1 || first.State != nodeproto.PrepareRunning {
+		t.Fatalf("the first encode's report = %+v, want running", first)
+	}
+	core.commands <- encode(2, "4/h264-8m/0123456789abcdef")
+	if waiting := nextReport(t, core); waiting.Job != 2 || waiting.State != nodeproto.PrepareWaiting {
+		t.Fatalf("the second encode's report = %+v, want waiting, at once", waiting)
+	}
+	tick <- time.Time{}
+	if again := nextReport(t, core); again.Job != 2 || again.State != nodeproto.PrepareWaiting {
+		t.Errorf("at the next tick = %+v, want waiting again, so the core keeps waiting", again)
+	}
+	core.commands <- nodeproto.Command{Seq: 3, Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{Job: 1}}
+	if done := finalReport(t, core); done.Job != 2 || done.State != nodeproto.PrepareDone {
+		t.Errorf("once the slot is free = %+v, want the second encode done", done)
+	}
+}

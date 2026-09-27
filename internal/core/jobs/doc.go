@@ -19,6 +19,8 @@
 //     tagged [clock].
 //   - A subject has at most one open job of a kind. TestEnqueue_QueuesASubjectOnceWhileItIsOpen.
 //   - The highest priority runs first. TestRunDue_RunsTheHighestPriorityFirst.
+//   - Several runners of one kind run its jobs at once, each job once.
+//     TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce.
 //   - A queued job wakes a runner of its own kind at once; no other kind's runner takes its
 //     wake-up, so it never waits for the next tick. TestRun_AQueuedJobWakesARunnerOfItsOwnKindAtOnce.
 //   - A failure retries with doubling back-off up to the retry limit, then fails.
@@ -45,6 +47,7 @@
 // # Where to change
 //
 //   - queue.go: queuing, and the answers a handler gives. runner.go: running one kind, one job at
-//     a time, and recording each outcome. view.go: the job view, progress and cancel. The
-//     prepare, scan and backup runners and their slots come with their features.
+//     a time per runner (a kind may have several, as prepares do), and recording each outcome.
+//     view.go: the job view, progress and cancel. Each kind's handler and runner count are
+//     cmd/orpheum's (metadata.go); scan and backup jobs come in M4 (D223 §6).
 package jobs

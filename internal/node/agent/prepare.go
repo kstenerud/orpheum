@@ -36,7 +36,10 @@ type slots struct {
 }
 
 func newSlots() slots {
-	return slots{encode: make(chan struct{}, 1), remux: make(chan struct{}, 2), extract: make(chan struct{}, 1)}
+	return slots{
+		encode: make(chan struct{}, nodeproto.EncodeSlots), remux: make(chan struct{}, nodeproto.RemuxSlots),
+		extract: make(chan struct{}, 1),
+	}
 }
 
 func (all slots) of(profile nodeproto.PrepareProfile) chan struct{} {
@@ -53,13 +56,10 @@ func (agent *Agent) prepare(ctx context.Context, nodeID int64, command nodeproto
 	jobCtx, done := agent.working.start(ctx, command.Job)
 	go func() {
 		defer done()
-		slot := agent.slots.of(command.Profile)
-		select {
-		case slot <- struct{}{}:
-		case <-jobCtx.Done():
+		if !agent.takeSlot(jobCtx, nodeID, command) {
 			return
 		}
-		defer func() { <-slot }()
+		defer func() { <-agent.slots.of(command.Profile) }()
 		report := agent.runPrepare(jobCtx, nodeID, command)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
 			agent.logger.InfoContext(ctx, "a prepare was cancelled", "job", command.Job)
@@ -73,6 +73,35 @@ func (agent *Agent) prepare(ctx context.Context, nodeID int64, command nodeproto
 			agent.logger.WarnContext(ctx, "could not tell the core a prepare ended", "job", command.Job, "err", err)
 		}
 	}()
+}
+
+// takeSlot takes a slot of the prepare's kind, and reports false when the job ended first. A
+// prepare that has to wait says so at once and at each status tick while it waits (sayWaiting),
+// so the core keeps waiting for it (cut-a §5.3).
+func (agent *Agent) takeSlot(ctx context.Context, nodeID int64, command nodeproto.Prepare) bool {
+	slot := agent.slots.of(command.Profile)
+	select {
+	case slot <- struct{}{}:
+		return true
+	default:
+	}
+	agent.working.wait(command.Job, true)
+	defer agent.working.wait(command.Job, false)
+	agent.sayWaiting(ctx, nodeID, command.Job)
+	select {
+	case slot <- struct{}{}:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// sayWaiting tells the core a prepare is waiting for a slot.
+func (agent *Agent) sayWaiting(ctx context.Context, nodeID, job int64) {
+	waiting := nodeproto.PrepareReport{Job: job, State: nodeproto.PrepareWaiting}
+	if err := agent.sendPrepare(ctx, nodeID, waiting); err != nil && ctx.Err() == nil {
+		agent.logger.WarnContext(ctx, "could not tell the core a prepare is waiting", "job", job, "err", err)
+	}
 }
 
 // runPrepare runs one prepare to its end and says how it ended.
