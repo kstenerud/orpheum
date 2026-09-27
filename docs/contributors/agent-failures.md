@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A11 — A screen's words written from a decision's prose, not from what the code produces (2026-09-27)
+
+- **What happened:** building D222, I wrote the receiver's hint as *"Surround sound goes to it as
+  it is; the dialogue boost is not offered"*, and VQ8 said a film on a receiver *"plays as it is,
+  with no switch"*. Both hold only when the browser can play the original. A file prepared for
+  another reason (an MKV, TrueHD) is a copy whose sound is stereo in M3, standard and boosted,
+  and the switch is there and works. The words came from D222 §2's sentence, and I never walked
+  the prepare path's output for a receiver.
+- **Caught by:** the owner, on the phone: *"when I select sound bar, I still see the dialogue
+  boost button, and it boosts the channel"*.
+- **Gate:** none can compare prose with behaviour. The practice is A9's: read each clause back
+  against the code, including each case the decision's table of outcomes reaches (here: a
+  receiver × a file prepared for its container or codec), before writing what the screen says.
+
 ### A10 — A gate's pass taken as evidence without once watching it fail (2026-09-27)
 
 - **What happened:** every web `feat` and `fix` this milestone passed `make check-pr`, and
