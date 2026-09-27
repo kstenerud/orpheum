@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { ApiProblem, problemFromAnswer } from "./problem.ts";
+
 /** What waiting for a rendition needs: how to fetch and how to wait, so a test can supply both. */
 export interface WaitOptions {
   readonly fetch?: (url: string, init: RequestInit) => Promise<Response>;
@@ -14,7 +16,7 @@ const tooEarly = 425;
 /**
  * Waits until a prepared rendition's playlist exists: the server answers 425 with a Retry-After
  * while the first segment is being made (cut-a §6). The request carries the media cookie, as the
- * player's will. A failure other than "too early" is thrown with the server's message.
+ * player's will. A failure other than "too early" is thrown as the ApiProblem it answered.
  */
 export async function whenReady(url: string, options: WaitOptions = {}): Promise<void> {
   await readyAnswer(url, options);
@@ -39,11 +41,14 @@ async function readyAnswer(url: string, options: WaitOptions): Promise<Response>
       return answer;
     }
     if (answer.status !== tooEarly) {
-      throw new Error(await errorMessage(answer));
+      throw await problemFromAnswer(answer);
     }
     await sleep(retryAfterSeconds(answer) * 1000);
   }
-  throw new Error("still being prepared; try again in a while");
+  throw new ApiProblem({
+    code: "preparing",
+    message: "still being prepared; try again in a while",
+  });
 }
 
 function withDefaults(options: WaitOptions): {
@@ -70,19 +75,4 @@ function requestInit(signal: AbortSignal | undefined): RequestInit {
 function retryAfterSeconds(answer: Response): number {
   const seconds = Number(answer.headers.get("Retry-After") ?? "1");
   return Number.isFinite(seconds) && seconds > 0 ? seconds : 1;
-}
-
-async function errorMessage(answer: Response): Promise<string> {
-  try {
-    const body: unknown = await answer.json();
-    if (typeof body === "object" && body !== null && "error" in body) {
-      const detail = body.error;
-      if (typeof detail === "object" && detail !== null && "message" in detail) {
-        return String(detail.message);
-      }
-    }
-  } catch {
-    // Not our error shape; the status says enough.
-  }
-  return `the server answered ${String(answer.status)}`;
 }

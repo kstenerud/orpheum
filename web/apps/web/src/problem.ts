@@ -1,48 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { components } from "@orpheum/sdk";
+import { ApiProblem } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 
 import { camelKey } from "./catalogue-key.ts";
 
-/** The server's error, as it sends it (cut-a §5.2). */
-type ErrorDetail = components["schemas"]["ErrorDetail"];
-
-/**
- * A request the server refused, with its code and detail kept, so what the person is shown is
- * chosen here by the code, in their language, rather than the server's English note for
- * developers (cut-a §5.2).
- */
-export class ApiProblem extends Error {
-  readonly code: string;
-  readonly detail: Readonly<Record<string, string>>;
-
-  constructor(error: ErrorDetail) {
-    super(error.message);
-    this.name = "ApiProblem";
-    this.code = error.code;
-    this.detail = error.detail ?? {};
-  }
-}
-
-/** The answer's data, or the ApiProblem it refused with. */
-export function dataOrThrow<T>(result: { data?: T; error?: { error: ErrorDetail } }): T {
-  if (result.data === undefined) {
-    throw problemOf(result.error);
-  }
-  return result.data;
-}
-
-/** Nothing, or the ApiProblem an answer with no data refused with. */
-export function throwIfRefused(result: { error?: { error: ErrorDetail } }): void {
-  if (result.error !== undefined) {
-    throw problemOf(result.error);
-  }
-}
-
-function problemOf(error: { error: ErrorDetail } | undefined): Error {
-  return error === undefined ? new Error("the server did not answer") : new ApiProblem(error.error);
-}
+// A refusal and its reading are the SDK's (cut-a §5.2); the app puts it in the viewer's words.
+export { ApiProblem, dataOrThrow, throwIfRefused } from "@orpheum/sdk";
 
 /**
  * What to tell a person about a failure, in their language, with what they can do about it: by

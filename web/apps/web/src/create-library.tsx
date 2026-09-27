@@ -4,7 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem, problemText } from "./problem.ts";
+import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -258,22 +258,23 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
   const [draft, setDraft] = useState(blankLibrary);
   const [problem, setProblem] = useState("");
   const [nodes] = useResource("nodes", async () => {
-    const { data, error } = await api.GET("/nodes");
-    if (data === undefined) {
-      throw new ApiProblem(error.error);
-    }
+    const data = dataOrThrow(await api.GET("/nodes"));
     return data.nodes ?? [];
   });
   const submit = (): void => {
     setProblem("");
-    void api.POST("/libraries", { body: draft }).then(({ error }) => {
-      if (error === undefined) {
-        setDraft(blankLibrary());
-        props.onCreated();
-      } else {
-        setProblem(problemText(t, new ApiProblem(error.error)));
-      }
-    });
+    api
+      .POST("/libraries", { body: draft })
+      .then(throwIfRefused)
+      .then(
+        () => {
+          setDraft(blankLibrary());
+          props.onCreated();
+        },
+        (cause: unknown) => {
+          setProblem(problemText(t, cause));
+        },
+      );
   };
   return (
     <Loaded

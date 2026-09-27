@@ -13,7 +13,10 @@ export type Answer = readonly [number, unknown];
  * What a stand-in server answers each request with, by "METHOD /path" with the path as the API
  * names it (no /api/v1): one answer, or several given in turn, the last repeated.
  */
-export type Answers = Readonly<Record<string, Answer | readonly Answer[]>>;
+export type Answers = Readonly<Record<string, Answer | readonly Answer[] | typeof unreachable>>;
+
+/** An answer that never comes: the request fails as fetch fails when the server cannot be reached. */
+export const unreachable = "unreachable";
 
 /** A request the stand-in server heard: "METHOD /path", and its body when it had one. */
 export interface Heard {
@@ -33,7 +36,11 @@ export function servedBy(answers: Answers, heard: Heard[] = []): Services {
     const asked = `${request.method} ${path}`;
     const text = await request.text();
     heard.push({ asked, body: text === "" ? undefined : JSON.parse(text) });
-    const answer = inTurn(answers[asked], counts.get(asked) ?? 0);
+    const given = answers[asked];
+    if (given === unreachable) {
+      throw new TypeError("Failed to fetch");
+    }
+    const answer = inTurn(given, counts.get(asked) ?? 0);
     counts.set(asked, (counts.get(asked) ?? 0) + 1);
     if (answer === undefined) {
       throw new Error(`the test has no answer for ${asked}`);
