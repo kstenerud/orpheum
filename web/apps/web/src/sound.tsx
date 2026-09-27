@@ -13,13 +13,8 @@ import { useServices } from "./services.tsx";
 export const audioOutputs: readonly AudioOutput[] = ["tv_speakers", "receiver", "headphones"];
 
 /** Keeps whether the person plays with the dialogue boost: theirs, in every file (D83, D222). */
-export async function keepDialogueBoost(api: Api, fileId: number, isOn: boolean): Promise<void> {
-  throwIfRefused(
-    await api.PUT("/files/{id}/prefs", {
-      params: { path: { id: fileId } },
-      body: { isDialogueBoost: isOn },
-    }),
-  );
+export async function keepDialogueBoost(api: Api, isOn: boolean): Promise<void> {
+  throwIfRefused(await api.PUT("/me/prefs", { body: { isDialogueBoost: isOn } }));
 }
 
 /**
@@ -95,7 +90,6 @@ export function SoundLine(props: {
  * once and is kept for every file.
  */
 export function BoostSwitch(props: {
-  readonly fileId: number;
   readonly isOn: boolean;
   readonly switched: (isOn: boolean) => void;
 }): JSX.Element {
@@ -113,7 +107,7 @@ export function BoostSwitch(props: {
             const isNowOn = event.currentTarget.checked;
             setIsOn(isNowOn);
             props.switched(isNowOn);
-            keepDialogueBoost(api, props.fileId, isNowOn).then(
+            keepDialogueBoost(api, isNowOn).then(
               () => {
                 setProblem(undefined);
               },

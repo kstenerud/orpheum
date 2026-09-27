@@ -1929,9 +1929,6 @@
       "SetFilePrefsInputBody": {
         "additionalProperties": false,
         "properties": {
-          "isDialogueBoost": {
-            "type": "boolean"
-          },
           "subtitle": {
             "$ref": "#/components/schemas/SubtitleChoiceBody"
           },
@@ -1940,6 +1937,15 @@
             "maximum": 600000,
             "minimum": -600000,
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "SetMyPrefsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "isDialogueBoost": {
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -3444,7 +3450,7 @@
             "description": "Error"
           }
         },
-        "summary": "Keep a person's choices for one file: its subtitle offset, its subtitle track; and the dialogue boost, theirs in every file",
+        "summary": "Keep a person's choices for one file: its subtitle offset, its subtitle track",
         "tags": [
           "Playback"
         ]
@@ -4662,6 +4668,51 @@
         "summary": "Change one's own password; other sessions stay signed in",
         "tags": [
           "Accounts"
+        ]
+      }
+    },
+    "/me/prefs": {
+      "put": {
+        "operationId": "setMyPrefs",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMyPrefsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Keep a person's own choices, which hold in every file they play: the dialogue boost",
+        "tags": [
+          "Playback"
         ]
       }
     },

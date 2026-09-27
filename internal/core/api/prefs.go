@@ -38,18 +38,20 @@ type SetFilePrefsInput struct {
 		// Subtitle, when given, is the file's own choice, carried to the work's other files that
 		// have none of their own (D219).
 		Subtitle *SubtitleChoiceBody `json:"subtitle,omitempty" required:"false"`
-		// IsDialogueBoost, when given, is the person's, and holds in every file they play (D83).
-		IsDialogueBoost *bool `json:"isDialogueBoost,omitempty" required:"false"`
 	}
 }
 
 func (server *Server) registerFilePrefs() {
 	huma.Register(server.api, huma.Operation{
 		OperationID: "setFilePrefs", Method: http.MethodPut, Path: "/files/{id}/prefs",
-		Summary: "Keep a person's choices for one file: its subtitle offset, its subtitle track; " +
-			"and the dialogue boost, theirs in every file",
-		Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
+		Summary: "Keep a person's choices for one file: its subtitle offset, its subtitle track",
+		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.setFilePrefs)
+	huma.Register(server.api, huma.Operation{
+		OperationID: "setMyPrefs", Method: http.MethodPut, Path: "/me/prefs",
+		Summary: "Keep a person's own choices, which hold in every file they play: the dialogue boost",
+		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
+	}, server.setMyPrefs)
 }
 
 func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
@@ -58,6 +60,28 @@ func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
 		body.Subtitle = &SubtitleChoiceBody{StreamID: choice.StreamID, IsOff: choice.IsOff, IsCarried: choice.IsCarried}
 	}
 	return body
+}
+
+// SetMyPrefsInput changes a person's own choices, which hold in every file: what it names only.
+type SetMyPrefsInput struct {
+	AuthorizationHeader
+	Body struct {
+		// IsDialogueBoost, when given, is whether the person plays with the dialogue boost (D222 §3).
+		IsDialogueBoost *bool `json:"isDialogueBoost,omitempty" required:"false"`
+	}
+}
+
+func (server *Server) setMyPrefs(ctx context.Context, input *SetMyPrefsInput) (*struct{}, error) {
+	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	if isOn := input.Body.IsDialogueBoost; isOn != nil {
+		if err := dependencies.Playback.SetDialogueBoost(ctx, principal.UserID, *isOn); err != nil {
+			return nil, server.internal(ctx, "keep a person's dialogue boost", err)
+		}
+	}
+	return &struct{}{}, nil
 }
 
 func (server *Server) setFilePrefs(ctx context.Context, input *SetFilePrefsInput) (*struct{}, error) {
@@ -76,9 +100,6 @@ func (server *Server) setFilePrefs(ctx context.Context, input *SetFilePrefsInput
 		err = dependencies.Playback.ChooseSubtitle(ctx, principal.UserID, input.FileID, playback.SubtitleChoice{
 			StreamID: choice.StreamID, IsOff: choice.IsOff,
 		})
-	}
-	if isOn := input.Body.IsDialogueBoost; err == nil && isOn != nil {
-		err = dependencies.Playback.SetDialogueBoost(ctx, principal.UserID, *isOn)
 	}
 	switch {
 	case errors.Is(err, playback.ErrNoFile):

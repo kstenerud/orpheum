@@ -138,14 +138,14 @@ func TestFilePrefs_TheDialogueBoostIsThePersonsInEveryFile(t *testing.T) {
 		t.Error("before any choice: the boost is on, want off (D222)")
 	}
 	turnOn := map[string]bool{"isDialogueBoost": true}
-	if status := harness.do(t, http.MethodPut, "/files/2/prefs", user, turnOn).status; status != http.StatusNoContent {
+	if status := harness.do(t, http.MethodPut, "/me/prefs", user, turnOn).status; status != http.StatusNoContent {
 		t.Fatalf("PUT the boost: %d", status)
 	}
 	if !boostOf(2) || !boostOf(1) {
 		t.Error("after turning it on in one file: want it on in that file and the next (D83)")
 	}
 	turnOff := map[string]bool{"isDialogueBoost": false}
-	if status := harness.do(t, http.MethodPut, "/files/1/prefs", user, turnOff).status; status != http.StatusNoContent {
+	if status := harness.do(t, http.MethodPut, "/me/prefs", user, turnOff).status; status != http.StatusNoContent {
 		t.Fatalf("PUT the boost off: %d", status)
 	}
 	if boostOf(2) {
