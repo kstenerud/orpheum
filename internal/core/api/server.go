@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
@@ -62,6 +63,8 @@ type Dependencies struct {
 	Playback *playback.Service
 	// NodeBytes reads a file's bytes from its node.
 	NodeBytes NodeBytes
+	// Jobs is the one work queue, the one whose runners run the jobs, for the job view and cancel.
+	Jobs *jobs.Queue
 	// ConfigFile is the config file's keys as the server runs with them, for /config to show.
 	ConfigFile []ConfigFileKey
 }
@@ -115,6 +118,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerDevices()
 	server.registerWaitingCode()
 	server.registerPerson()
+	server.registerJobs()
 	return server
 }
 

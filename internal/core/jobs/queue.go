@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -70,11 +71,17 @@ type Queue struct {
 	settings Settings
 	logger   *slog.Logger
 	wake     chan struct{}
+
+	mutex   sync.Mutex
+	running map[int64]context.CancelCauseFunc // guarded by mutex: each running job's cancel
 }
 
 // NewQueue returns the queue.
 func NewQueue(cache *store.Cache, clockSource clock.Clock, config Settings, logger *slog.Logger) *Queue {
-	return &Queue{cache: cache, clock: clockSource, settings: config, logger: logger, wake: make(chan struct{}, 1)}
+	return &Queue{
+		cache: cache, clock: clockSource, settings: config, logger: logger, wake: make(chan struct{}, 1),
+		running: map[int64]context.CancelCauseFunc{},
+	}
 }
 
 // Enqueue adds a job unless one of its kind is already queued or running for its subject, and

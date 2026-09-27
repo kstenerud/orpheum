@@ -64,7 +64,8 @@ type Agent struct {
 	clock   clock.Clock
 	logger  *slog.Logger
 
-	slots slots
+	slots   slots
+	working working
 
 	mutex sync.Mutex
 	doing string
@@ -163,6 +164,14 @@ func (agent *Agent) poll(ctx context.Context, nodeID int64, work chan<- nodeprot
 			return err
 		}
 		for _, command := range answer.Commands {
+			// A cancel is carried out as it arrives, not queued behind the work it stops.
+			if command.Type == nodeproto.CommandCancel && command.Cancel != nil {
+				if !agent.working.cancel(command.Cancel.Job) {
+					agent.logger.InfoContext(ctx, "a cancelled job was not running here", "job", command.Cancel.Job)
+				}
+				after = command.Seq
+				continue
+			}
 			select {
 			case work <- command:
 			case <-ctx.Done():

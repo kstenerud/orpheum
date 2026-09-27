@@ -44,6 +44,7 @@ type Nodes interface {
 // Queue is the job queue: jobs.Queue.
 type Queue interface {
 	Enqueue(ctx context.Context, job jobs.New) (bool, error)
+	SetProgress(ctx context.Context, id int64, fraction float64) error
 }
 
 // Parts are what the playback service is built from.

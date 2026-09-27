@@ -66,11 +66,20 @@ func (runner *Runner) RunDue(ctx context.Context) error {
 		if err != nil || !found {
 			return err
 		}
-		if err := runner.finish(ctx, job, runner.handler(ctx, job)); err != nil {
+		if err := runner.finish(ctx, job, runner.handle(ctx, job)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// handle runs one job's handler in a context a person's cancel ends (Queue.Cancel).
+func (runner *Runner) handle(ctx context.Context, job Job) error {
+	jobCtx, stop := context.WithCancelCause(ctx)
+	defer stop(nil)
+	runner.queue.track(job.ID, stop)
+	defer runner.queue.untrack(job.ID)
+	return runner.handler(jobCtx, job)
 }
 
 // claim marks the next due job running.

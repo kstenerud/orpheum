@@ -123,35 +123,41 @@ func (service *Service) HandlePrepare(ctx context.Context, job jobs.Job) error {
 	if err != nil {
 		return fmt.Errorf("read rendition %d: %w", job.Subject, err)
 	}
-	command, nodeID, err := service.commandFor(ctx, rendition)
+	made, err := service.commandFor(ctx, rendition)
 	if errors.Is(err, ErrNoFile) {
 		return jobs.Permanent(errors.Join(err, service.prepares.finish(ctx, rendition.ID, nil, err.Error())))
 	}
 	if err != nil {
 		return err
 	}
-	return service.prepares.handle(ctx, job, command, nodeID)
+	return service.prepares.handle(ctx, job, made)
 }
 
-// commandFor is the node's command for a rendition, and the node that holds its source.
-func (service *Service) commandFor(
-	ctx context.Context, rendition cachegen.PreparedRendition,
-) (nodeproto.Prepare, int64, error) {
+// making is a rendition to have made: the node's command, the node that holds the source, and
+// the source's length in milliseconds, or 0 when its probe did not say.
+type making struct {
+	command    nodeproto.Prepare
+	nodeID     int64
+	durationMs int64
+}
+
+// commandFor is what a rendition's making needs.
+func (service *Service) commandFor(ctx context.Context, rendition cachegen.PreparedRendition) (making, error) {
 	file, err := service.file(ctx, rendition.SourceFile)
 	if err != nil {
-		return nodeproto.Prepare{}, 0, err
+		return making{}, err
 	}
 	probe, err := decodeProbe(file.Probe)
 	if err != nil {
-		return nodeproto.Prepare{}, 0, err
+		return making{}, err
 	}
 	source, err := service.source(ctx, locatedOf(file))
 	if err != nil {
-		return nodeproto.Prepare{}, 0, err
+		return making{}, err
 	}
 	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), rendition.RunID, probe)
 	command.SegmentLengthSeconds = int(rendition.SegmentLengthS)
-	return command, file.NodeID, nil
+	return making{command: command, nodeID: file.NodeID, durationMs: probe.Format.DurationMs}, nil
 }
 
 // Reported takes a node's report on a prepare to the job waiting for it.

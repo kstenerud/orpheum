@@ -10,6 +10,9 @@ type CommandType string
 // The command types.
 const (
 	CommandScan CommandType = "scan"
+	// CommandCancel stops a job the node is working on: its FFmpeg is stopped, and nothing more
+	// is reported for it (cut-a §5.3).
+	CommandCancel CommandType = "cancel"
 )
 
 // Command is one instruction from the core, delivered by the long-poll. Seq increases by one per
@@ -24,6 +27,13 @@ type Command struct {
 	Prepare *Prepare `json:"prepare,omitempty"`
 	// ExtractSubtitle is set for CommandExtractSubtitle.
 	ExtractSubtitle *ExtractSubtitle `json:"extractSubtitle,omitempty"`
+	// Cancel is set for CommandCancel.
+	Cancel *Cancel `json:"cancel,omitempty"`
+}
+
+// Cancel names the job to stop, by the core's job id.
+type Cancel struct {
+	Job int64 `json:"job"`
 }
 
 // Scan asks the node to scan one of its roots.

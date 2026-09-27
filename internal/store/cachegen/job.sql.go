@@ -9,10 +9,29 @@ import (
 	"context"
 )
 
+const cancelJob = `-- name: CancelJob :execrows
+UPDATE job SET state = 'cancelled', finished_at = ?1
+WHERE id = ?2 AND state IN ('queued', 'running')
+`
+
+type CancelJobParams struct {
+	FinishedAt *int64
+	ID         int64
+}
+
+// A person's cancel (cut-a section 5.3): only a queued or running job can be.
+func (q *Queries) CancelJob(ctx context.Context, arg CancelJobParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, cancelJob, arg.FinishedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deferJob = `-- name: DeferJob :exec
 UPDATE job SET state = 'queued', runnable_at = ?1, last_error = ?2,
                attempts = ?3
-WHERE id = ?4
+WHERE id = ?4 AND state <> 'cancelled'
 `
 
 type DeferJobParams struct {
@@ -63,7 +82,7 @@ func (q *Queries) FindOpenJob(ctx context.Context, arg FindOpenJobParams) (FindO
 const finishJob = `-- name: FinishJob :exec
 UPDATE job SET state = ?1, progress = ?2, last_error = ?3,
                finished_at = ?4
-WHERE id = ?5
+WHERE id = ?5 AND state <> 'cancelled'
 `
 
 type FinishJobParams struct {
@@ -74,6 +93,7 @@ type FinishJobParams struct {
 	ID         int64
 }
 
+// A cancelled job stays cancelled, whatever its handler answers after.
 func (q *Queries) FinishJob(ctx context.Context, arg FinishJobParams) error {
 	_, err := q.db.ExecContext(ctx, finishJob,
 		arg.State,
@@ -269,6 +289,22 @@ func (q *Queries) RequeueRunningJobs(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const setJobProgress = `-- name: SetJobProgress :exec
+UPDATE job SET progress = ?1
+WHERE id = ?2 AND state = 'running'
+`
+
+type SetJobProgressParams struct {
+	Progress *float64
+	ID       int64
+}
+
+// How far a running job is, 0 to 1, for the job view.
+func (q *Queries) SetJobProgress(ctx context.Context, arg SetJobProgressParams) error {
+	_, err := q.db.ExecContext(ctx, setJobProgress, arg.Progress, arg.ID)
+	return err
 }
 
 const startJob = `-- name: StartJob :execrows

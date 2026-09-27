@@ -71,6 +71,7 @@ type testHarness struct {
 	art      *datadir.Directories
 	clock    *clocktest.Fake
 	bytes    *fakeNodeBytes
+	queue    *jobs.Queue
 }
 
 // newHarness serves an API whose dependencies are ready, over a real migrated database.
@@ -96,23 +97,25 @@ func newHarness(t *testing.T) testHarness {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// One queue, as the server has: a cancel reaches the job the runner is running.
+	queue := jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler))
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
 		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
 		Identify: identify.NewChooser(matcher, pass), Libraries: library.NewAdmin(database, now, nodes),
-		Refresh: identify.NewRefresher(database, jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler)),
-			seeded, now, slog.New(slog.DiscardHandler)),
-		Browse: library.NewBrowser(database, seeded),
+		Refresh: identify.NewRefresher(database, queue, seeded, now, slog.New(slog.DiscardHandler)),
+		Browse:  library.NewBrowser(database, seeded),
 		Artwork: artwork.NewService(artwork.Parts{
-			Database: database, Queue: jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler)),
+			Database: database, Queue: queue,
 			Store: art, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
 		}),
 		Playback: playback.NewService(playback.Parts{
-			Database: database, Cache: cache, Queue: jobs.NewQueue(cache, now, seeded, slog.New(slog.DiscardHandler)),
+			Database: database, Cache: cache, Queue: queue,
 			Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
 			MaxSilence: time.Minute,
 		}),
 		NodeBytes: nodeBytes,
+		Jobs:      queue,
 		ConfigFile: []ConfigFileKey{{
 			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), StartingValue: json.RawMessage("10"),
 			IsFromFile: false, Description: "seconds in-flight requests get to finish",
@@ -123,7 +126,7 @@ func newHarness(t *testing.T) testHarness {
 	return testHarness{
 		server: server, http: served, logs: logs, service: service, codes: codes, database: database.Path(),
 		library:  database,
-		provider: provider, cache: cache, nodes: nodes, art: art, clock: now, bytes: nodeBytes,
+		provider: provider, cache: cache, nodes: nodes, art: art, clock: now, bytes: nodeBytes, queue: queue,
 	}
 }
 

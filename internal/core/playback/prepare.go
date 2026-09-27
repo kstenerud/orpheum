@@ -148,7 +148,8 @@ func (all *prepares) newRunID() (string, error) {
 
 // handle runs one prepare job: it commands the node and waits for its reports, recording each,
 // until the node says the rendition is done or failed, or says nothing for too long.
-func (all *prepares) handle(ctx context.Context, job jobs.Job, command nodeproto.Prepare, nodeID int64) error {
+func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) error {
+	command, nodeID := made.command, made.nodeID
 	answers := all.waiting.await(job.ID)
 	defer all.waiting.forget(job.ID)
 	if err := all.running(ctx, job.Subject, 0); err != nil {
@@ -163,7 +164,7 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, command nodeproto
 		case report := <-answers:
 			switch report.State {
 			case nodeproto.PrepareRunning:
-				if err := all.running(ctx, job.Subject, report.PreparedMs); err != nil {
+				if err := all.progressed(ctx, job, report.PreparedMs, made.durationMs); err != nil {
 					return err
 				}
 				timer.Reset(all.maxSilence)
@@ -178,9 +179,32 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, command nodeproto
 			return fmt.Errorf("node %d said nothing about prepare %s for %s",
 				nodeID, command.RenditionDir, all.maxSilence)
 		case <-ctx.Done():
+			if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
+				return all.abandon(ctx, job, nodeID)
+			}
 			return fmt.Errorf("wait for prepare %s: %w", command.RenditionDir, ctx.Err())
 		}
 	}
+}
+
+// progressed records how far a running prepare is, on its rendition and, when the source's length
+// is known, on its job for the job view.
+func (all *prepares) progressed(ctx context.Context, job jobs.Job, preparedMs, durationMs int64) error {
+	if err := all.running(ctx, job.Subject, preparedMs); err != nil {
+		return err
+	}
+	if durationMs <= 0 {
+		return nil
+	}
+	return all.queue.SetProgress(ctx, job.ID, min(float64(preparedMs)/float64(durationMs), 1))
+}
+
+// abandon ends a cancelled prepare: the node stops its FFmpeg, and the rendition is not made, so
+// a later play prepares it again rather than waiting on one no one is making.
+func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) error {
+	all.nodes.Enqueue(nodeID, cancelCommand(job.ID))
+	failed := all.finish(context.WithoutCancel(ctx), job.Subject, nil, jobs.ErrCancelled.Error())
+	return jobs.Permanent(errors.Join(jobs.ErrCancelled, failed))
 }
 
 func (all *prepares) running(ctx context.Context, rendition, preparedMs int64) error {
