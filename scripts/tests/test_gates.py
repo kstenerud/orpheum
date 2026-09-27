@@ -249,6 +249,10 @@ class RevertRed(unittest.TestCase):
         self.assertEqual(darwin[-1].env, {"GOOS": "darwin"})
         self.assertTrue(darwin[-1].compile_only)
         self.assertEqual(len(rr.other_builds("internal/store/space_linux.go")), 1)
+        arm = rr.other_builds("internal/node/confine/arch_linux_arm64.go")
+        self.assertEqual(arm[-1].env, {"GOOS": "linux", "GOARCH": "arm64"})
+        self.assertTrue(arm[-1].compile_only)
+        self.assertEqual(len(rr.other_builds("internal/node/confine/arch_linux_amd64.go")), 1)
         typed = rr.other_builds("web/apps/web/src/App.tsx")
         self.assertEqual([a.command for a in typed], [["npm", "--prefix", "web", "run", "typecheck"]])
         self.assertTrue(typed[0].compile_only)
@@ -285,6 +289,17 @@ class RevertRed(unittest.TestCase):
         self.assertEqual(rr.RUNNER_MISSING, 127)
         self.assertTrue(rr.Outcome("web/x.ts", "NO_RUNNER", "").is_failure)
         self.assertFalse(rr.Outcome("web/x.ts", "RED_TEST", "").is_failure)
+
+
+class RevertRedBuildLines(unittest.TestCase):
+    def test_a_file_whose_build_line_leaves_linux_out_is_compiled_for_darwin(self):
+        directory = Path(tempfile.mkdtemp())
+        other = directory / "shim_other.go"
+        other.write_text("// SPDX-License-Identifier: GPL-3.0-or-later\n\n//go:build !linux\n\npackage x\n")
+        plain = directory / "shim.go"
+        plain.write_text("package x\n")
+        self.assertEqual(rr.other_builds(str(other))[-1].env, {"GOOS": "darwin"})
+        self.assertEqual(len(rr.other_builds(str(plain))), 1)
 
 
 class CommitLint(unittest.TestCase):
