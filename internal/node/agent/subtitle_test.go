@@ -37,10 +37,12 @@ func (fakeSubtitles) ConvertFile(_ context.Context, source []byte) (subtitle.Tex
 
 func receiveSubtitle(t *testing.T, core *fakeCore) nodeproto.SubtitleText {
 	t.Helper()
+	ctx, stop := context.WithTimeout(t.Context(), patience)
+	defer stop()
 	select {
 	case answer := <-core.subtitles:
 		return answer
-	case <-t.Context().Done():
+	case <-ctx.Done():
 		t.Fatal("no subtitle reached the core")
 	}
 	return nodeproto.SubtitleText{}
