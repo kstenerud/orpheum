@@ -38,6 +38,8 @@ describe("App", () => {
       withServices(<App />, testServices("token", "/identify")),
     );
     expect(identify).toContain('id="identify-heading"');
+    const jobs = renderToStaticMarkup(withServices(<App />, testServices("token", "/jobs")));
+    expect(jobs).toContain('id="jobs-heading"');
   });
 
   it("says when an address names nothing", () => {
