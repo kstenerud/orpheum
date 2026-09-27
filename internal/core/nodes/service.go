@@ -96,10 +96,12 @@ type channel struct {
 	roots []string // as its last hello named them (D107)
 	// confinement is what its last hello said about FFmpeg's confinement, per mechanism (D112).
 	confinement []nodeproto.Confinement
-	commands    []nodeproto.Command
-	nextSeq     int64
-	wake        chan struct{}
-	lastHeard   time.Time
+	// prepared is what its last status said its prepared directory holds (D217 §5).
+	prepared  *nodeproto.PreparedUsage
+	commands  []nodeproto.Command
+	nextSeq   int64
+	wake      chan struct{}
+	lastHeard time.Time
 }
 
 // NewService returns the service. The pollHold argument is how long a command long-poll waits
@@ -219,6 +221,29 @@ func (service *Service) Confinement(name string) ([]nodeproto.Confinement, bool)
 		}
 	}
 	return nil, false
+}
+
+// PreparedUsage is what the named node's last status said its prepared directory holds, and
+// whether it said (D217 §5).
+func (service *Service) PreparedUsage(name string) (nodeproto.PreparedUsage, bool) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	for _, existing := range service.channels {
+		if existing.name == name && existing.prepared != nil {
+			return *existing.prepared, true
+		}
+	}
+	return nodeproto.PreparedUsage{}, false
+}
+
+// keepStatus keeps what a node's status says about it.
+func (service *Service) keepStatus(nodeID int64, status *nodeproto.Status) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	if existing, found := service.channels[nodeID]; found && status.Prepared != nil {
+		usage := *status.Prepared
+		existing.prepared = &usage
+	}
 }
 
 // Roots are the media roots the named node configured, as its last hello since the core started

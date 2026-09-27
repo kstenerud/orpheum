@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
@@ -38,10 +39,36 @@ func (fake fakeFFmpeg) RunStreaming(
 	return fake.fail
 }
 
+// roomy is a prepared directory with room for every prepare.
+type roomy struct{}
+
+func (roomy) Room() error                  { return nil }
+func (roomy) Writing(string) (done func()) { return func() {} }
+
+// full is a prepared directory whose disk is past its limit with nothing to evict, and which
+// records whether anything was written.
+type full struct{}
+
+func (full) Room() error                  { return errors.New("the disk is past its limit") }
+func (full) Writing(string) (done func()) { panic("nothing is written where there is no room") }
+
+func TestPreparer_APrepareTheDiskHasNoRoomForIsRefusedAndRunsNothing(t *testing.T) {
+	t.Parallel()
+	preparer, err := prepare.New(fakeFFmpeg{fail: errors.New("FFmpeg ran")}, t.TempDir(), full{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef"}
+	_, err = preparer.Prepare(t.Context(), "/media/a.mkv", command, func(int64) {})
+	if err == nil || !strings.Contains(err.Error(), "past its limit") {
+		t.Errorf("a prepare with no room: %v, want refused with why, before FFmpeg runs (D217 §5)", err)
+	}
+}
+
 func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *testing.T) {
 	t.Parallel()
 	directory := t.TempDir()
-	preparer, err := prepare.New(fakeFFmpeg{}, directory)
+	preparer, err := prepare.New(fakeFFmpeg{}, directory, roomy{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +91,7 @@ func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *
 
 func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 	t.Parallel()
-	preparer, err := prepare.New(fakeFFmpeg{}, t.TempDir())
+	preparer, err := prepare.New(fakeFFmpeg{}, t.TempDir(), roomy{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +104,7 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 			t.Errorf("%q: %v, want ErrBadDir", dir, refused)
 		}
 	}
-	failing, err := prepare.New(fakeFFmpeg{fail: errors.New("ffmpeg failed")}, t.TempDir())
+	failing, err := prepare.New(fakeFFmpeg{fail: errors.New("ffmpeg failed")}, t.TempDir(), roomy{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +112,7 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 	if _, err := failing.Prepare(t.Context(), "/a", named, func(int64) {}); err == nil {
 		t.Error("a failed run reported success")
 	}
-	if _, err := prepare.New(fakeFFmpeg{}, "relative"); err == nil {
+	if _, err := prepare.New(fakeFFmpeg{}, "relative", roomy{}); err == nil {
 		t.Error("a relative prepared directory was taken")
 	}
 }

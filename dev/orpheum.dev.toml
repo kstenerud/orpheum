@@ -36,6 +36,9 @@ max_errors_per_root = 1000
 probe_timeout_s = 60
 status_interval_s = 10
 prepared_dir = "{root}/.dev/cache/prepared"
+prepared_budget_gib = 5            # the sandbox's disk is small; a real node's starts at 200
+prepared_grace_h = 72
+prepared_disk_limit_percent = 95
 
 [log]
 level = "debug"

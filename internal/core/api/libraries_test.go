@@ -20,6 +20,8 @@ type fakeNodes struct {
 	queued []nodeproto.Command
 	// confinement is what the connected node said about its FFmpeg's confinement.
 	confinement []nodeproto.Confinement
+	// prepared is what its last status said its prepared directory holds, when it said.
+	prepared *nodeproto.PreparedUsage
 	// commanded, when set, also receives each command, for a test that waits on one.
 	commanded chan nodeproto.Command
 }
@@ -36,6 +38,13 @@ func (nodes *fakeNodes) Confinement(name string) ([]nodeproto.Confinement, bool)
 		return nil, false
 	}
 	return nodes.confinement, true
+}
+
+func (nodes *fakeNodes) PreparedUsage(name string) (nodeproto.PreparedUsage, bool) {
+	if name != "local" || nodes.prepared == nil {
+		return nodeproto.PreparedUsage{}, false
+	}
+	return *nodes.prepared, true
 }
 
 func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {

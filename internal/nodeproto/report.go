@@ -77,6 +77,18 @@ type Status struct {
 	ClockMs int64 `json:"clockMs"`
 	// Doing is what the node is busy with: "idle", or "scanning <root>".
 	Doing string `json:"doing"`
+	// Prepared is what the node's prepared directory holds against its budget, absent when the
+	// node prepares nothing (D217 §5).
+	Prepared *PreparedUsage `json:"prepared,omitempty"`
+}
+
+// PreparedUsage is what a node's prepared directory holds, against its budget and its disk's
+// limit (D217 §5).
+type PreparedUsage struct {
+	Bytes            int64 `json:"bytes"`
+	BudgetBytes      int64 `json:"budgetBytes"`
+	DiskPercent      int   `json:"diskPercent"`
+	DiskLimitPercent int   `json:"diskLimitPercent"`
 }
 
 // ScanBegin opens a scan of one media root. It carries the node's effective uid and gid, so a

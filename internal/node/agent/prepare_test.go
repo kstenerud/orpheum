@@ -48,11 +48,12 @@ func nextReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
 	return nodeproto.PrepareReport{}
 }
 
-// finalReport is the core's last word from a prepare: done or failed.
+// finalReport is the core's last word from a prepare: done or failed, past any waiting or running.
 func finalReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
 	t.Helper()
 	for {
-		if report := nextReport(t, core); report.State != nodeproto.PrepareRunning {
+		report := nextReport(t, core)
+		if report.State != nodeproto.PrepareRunning && report.State != nodeproto.PrepareWaiting {
 			return report
 		}
 	}

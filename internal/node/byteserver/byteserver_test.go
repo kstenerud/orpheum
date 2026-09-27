@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -251,5 +252,19 @@ func TestRenditionFile_ServesARenditionsFilesAndNothingElse(t *testing.T) {
 	if got := request(t, byteserver.New(nil, nil).Handler(), http.MethodGet,
 		nodeproto.PathBytesPrepared+"7/remux/0123456789abcdef/master.m3u8", nil); got.Code != http.StatusNotFound {
 		t.Errorf("a node that does not prepare: %d, want 404", got.Code)
+	}
+}
+
+func TestRenditionFile_SaysWhichRenditionItServed(t *testing.T) {
+	t.Parallel()
+	var served []string
+	handler := byteserver.New(nil, rendition(t)).OnRenditionServed(func(renditionDir string) {
+		served = append(served, renditionDir)
+	}).Handler()
+	const run = nodeproto.PathBytesPrepared + "7/remux/0123456789abcdef/"
+	request(t, handler, http.MethodGet, run+"audio0-boost/seg00001.m4s", nil)
+	request(t, handler, http.MethodGet, run+"notes.txt", nil)
+	if want := []string{"7/remux/0123456789abcdef"}; !slices.Equal(served, want) {
+		t.Errorf("served %v, want only the segment's rendition, its last use (D217 §5)", served)
 	}
 }

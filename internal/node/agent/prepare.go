@@ -72,7 +72,18 @@ func (agent *Agent) prepare(ctx context.Context, nodeID int64, command nodeproto
 		if err := agent.sendPrepare(ctx, nodeID, report); err != nil && ctx.Err() == nil {
 			agent.logger.WarnContext(ctx, "could not tell the core a prepare ended", "job", command.Job, "err", err)
 		}
+		agent.evict(ctx)
 	}()
+}
+
+// evict keeps the prepared directory within its budget after a prepare has added to it (D217 §5).
+func (agent *Agent) evict(ctx context.Context) {
+	if agent.workers.Keeper == nil {
+		return
+	}
+	if _, err := agent.workers.Keeper.Evict(); err != nil {
+		agent.logger.WarnContext(ctx, "could not keep the prepared directory within its budget", "err", err)
+	}
 }
 
 // takeSlot takes a slot of the prepare's kind, and reports false when the job ended first. A

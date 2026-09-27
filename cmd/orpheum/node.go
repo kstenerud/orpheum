@@ -24,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
+	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/node/probe"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
@@ -145,14 +146,18 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	// A node that cannot use its prepared directory still scans and serves files as they are; it
 	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
 	var preparing agent.Preparer
-	prepared, preparer, err := openPrepared(config, runner)
+	var keeping agent.Keeper
+	directory, err := openPrepared(config, runner)
 	if err != nil {
 		logger.ErrorContext(ctx, "this node cannot prepare; it serves files as they are", "err", err)
 	} else {
-		preparing = preparer
-		defer func() { _ = prepared.Close() }() //nolint:errcheck // read-only
+		preparing, keeping = directory.preparer, directory.shelf
+		defer func() { _ = directory.root.Close() }() //nolint:errcheck // read-only
+		if _, evictErr := directory.shelf.Evict(); evictErr != nil {
+			logger.WarnContext(ctx, "could not bring the prepared directory within its budget", "err", evictErr)
+		}
 	}
-	stopBytes, err := serveBytes(ctx, config, roots, prepared, logger)
+	stopBytes, err := serveBytes(ctx, config, roots, directory, logger)
 	if err != nil {
 		return err
 	}
@@ -168,48 +173,65 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	}
 	workers := agent.Workers{
 		Scanner: scanning, Artwork: deriver, Preparer: preparing, Subtitles: subtitle.NewExtractor(runner),
+		Keeper: keeping,
 	}
 	node := agent.New(filepath.Join(config.Server.SocketDir, coreSocket), hello, roots, workers, clock.System{}, logger)
 	return node.Run(ctx, ticker.C)
 }
 
-// openPrepared makes the node's prepared directory if it is missing, and returns it opened for
-// the byte socket to read, and the preparer that writes into it (D217 §5).
-func openPrepared(config Config, runner *execx.Runner) (*confine.MediaRoot, *prepare.Preparer, error) {
+// preparedDirectory is the node's prepared directory: opened for the byte socket to read, the
+// preparer that writes into it, and the shelf that keeps it within its budget (D217 §5). Its zero
+// value is a node that prepares nothing.
+type preparedDirectory struct {
+	root     *confine.MediaRoot
+	preparer *prepare.Preparer
+	shelf    *prepared.Shelf
+}
+
+// openPrepared makes the node's prepared directory if it is missing, and opens it.
+func openPrepared(config Config, runner *execx.Runner) (preparedDirectory, error) {
 	if err := os.MkdirAll(config.Node.PreparedDir, 0o750); err != nil {
-		return nil, nil, fmt.Errorf("make the prepared directory: %w", err)
+		return preparedDirectory{}, fmt.Errorf("make the prepared directory: %w", err)
 	}
-	prepared, err := confine.OpenMediaRoot(config.Node.PreparedDir)
+	root, err := confine.OpenMediaRoot(config.Node.PreparedDir)
 	if err != nil {
-		return nil, nil, err
+		return preparedDirectory{}, err
 	}
-	preparer, err := prepare.New(runner, prepared.Path())
+	shelf := prepared.New(root.Path(), prepared.Budget{
+		MaxBytes: config.Node.PreparedBudgetGiB << 30, Grace: time.Duration(config.Node.PreparedGraceH) * time.Hour,
+		MaxDiskPercent: int(config.Node.PreparedDiskLimitPercent),
+	}, clock.System{})
+	preparer, err := prepare.New(runner, root.Path(), shelf)
 	if err != nil {
-		return nil, nil, errors.Join(err, prepared.Close())
+		return preparedDirectory{}, errors.Join(err, root.Close())
 	}
-	return prepared, preparer, nil
+	return preparedDirectory{root: root, preparer: preparer, shelf: shelf}, nil
 }
 
 // serveBytes serves the node's byte socket until the returned stop is called.
 func serveBytes(
-	ctx context.Context, config Config, roots []*confine.MediaRoot, prepared *confine.MediaRoot, logger *slog.Logger,
+	ctx context.Context, config Config, roots []*confine.MediaRoot, directory preparedDirectory, logger *slog.Logger,
 ) (func(), error) {
 	listener, err := datadir.ListenUnix(config.Server.SocketDir, nodeSocket)
 	if err != nil {
 		return nil, err
 	}
-	handler := byteserver.New(roots, prepared).Handler()
-	server := &http.Server{Handler: handler, ReadHeaderTimeout: config.readHeaderTimeout()}
+	server := byteserver.New(roots, directory.root)
+	if directory.shelf != nil {
+		server.OnRenditionServed(directory.shelf.Served)
+	}
+	handler := server.Handler()
+	listening := &http.Server{Handler: handler, ReadHeaderTimeout: config.readHeaderTimeout()}
 	logger.InfoContext(ctx, "serving the byte socket", "socket", listener.Addr().String())
 	var serving sync.WaitGroup
 	serving.Go(func() {
-		if serveErr := server.Serve(listener); !errors.Is(serveErr, http.ErrServerClosed) {
+		if serveErr := listening.Serve(listener); !errors.Is(serveErr, http.ErrServerClosed) {
 			logger.ErrorContext(ctx, "the byte socket stopped", "err", serveErr)
 		}
 	})
 	return func() {
 		// A player's reads end with the node; the core answers them with node_silent.
-		_ = server.Close() //nolint:errcheck // the listener is ours and closing it cannot fail usefully
+		_ = listening.Close() //nolint:errcheck // the listener is ours and closing it cannot fail usefully
 		serving.Wait()
 	}, nil
 }

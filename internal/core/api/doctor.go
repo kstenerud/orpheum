@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // The verdicts a finding gives.
@@ -55,9 +57,29 @@ func (server *Server) doctor(ctx context.Context, input *AuthorizationHeader) (*
 		if node.Connected {
 			output.Body.Findings = append(output.Body.Findings, confinementFinding(node.Name,
 				confinementOf(dependencies.NodeReports, node.Name)))
+			if usage, known := dependencies.NodeReports.PreparedUsage(node.Name); known {
+				output.Body.Findings = append(output.Body.Findings, preparedFinding(node.Name, usage))
+			}
 		}
 	}
 	return output, nil
+}
+
+// preparedFinding is what a node's prepared directory holds against its budget and its disk's
+// limit (D217 §5): a warning when either is past, which eviction could not bring back.
+func preparedFinding(node string, usage nodeproto.PreparedUsage) FindingBody {
+	const gib = 1 << 30
+	finding := FindingBody{
+		Check: "prepared copies on node " + node, Verdict: verdictOK,
+		Detail: fmt.Sprintf("%.1f GiB of a %d GiB budget; the disk is %d%% full, its limit %d%%",
+			float64(usage.Bytes)/gib, usage.BudgetBytes/gib, usage.DiskPercent, usage.DiskLimitPercent),
+	}
+	if usage.DiskPercent > usage.DiskLimitPercent || usage.Bytes > usage.BudgetBytes {
+		finding.Verdict = verdictWarn
+		finding.Action = "free space on the disk that holds the prepared directory, or raise " +
+			"node.prepared_budget_gib; new copies are refused while nothing can be evicted"
+	}
+	return finding
 }
 
 // confinementFinding is a node's FFmpeg confinement: a warning for each mechanism not in force,

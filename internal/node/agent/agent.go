@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -50,6 +51,14 @@ type Workers struct {
 	Preparer Preparer
 	// Subtitles is nil on a node that does not extract subtitles.
 	Subtitles Subtitler
+	// Keeper keeps the prepared directory within its budget; nil on a node that does not prepare.
+	Keeper Keeper
+}
+
+// Keeper keeps the prepared directory within its budget: prepared.Shelf (D217 §5).
+type Keeper interface {
+	Evict() (prepared.Usage, error)
+	LastUsage() (prepared.Usage, bool)
 }
 
 // Agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
@@ -317,9 +326,16 @@ func (agent *Agent) setDoing(doing string) {
 func (agent *Agent) status() nodeproto.Record {
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
-	return nodeproto.Record{Type: nodeproto.RecordStatus, Status: &nodeproto.Status{
-		ClockMs: agent.clock.Now().UnixMilli(), Doing: agent.doing,
-	}}
+	status := &nodeproto.Status{ClockMs: agent.clock.Now().UnixMilli(), Doing: agent.doing}
+	if agent.workers.Keeper != nil {
+		if usage, known := agent.workers.Keeper.LastUsage(); known {
+			status.Prepared = &nodeproto.PreparedUsage{
+				Bytes: usage.Bytes, BudgetBytes: usage.BudgetBytes, DiskPercent: usage.DiskPercent,
+				DiskLimitPercent: usage.MaxDiskPercent,
+			}
+		}
+	}
+	return nodeproto.Record{Type: nodeproto.RecordStatus, Status: status}
 }
 
 // exchange makes one request and decodes its JSON answer.

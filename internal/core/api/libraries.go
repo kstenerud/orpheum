@@ -214,6 +214,7 @@ type ConfinementBody struct {
 // NodeReports is what each connected node said about itself: nodes.Service.
 type NodeReports interface {
 	Confinement(name string) ([]nodeproto.Confinement, bool)
+	PreparedUsage(name string) (nodeproto.PreparedUsage, bool)
 }
 
 // confinementOf is a node's confinement as the API shows it: empty when it is not connected.

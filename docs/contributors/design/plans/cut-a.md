@@ -109,7 +109,9 @@ loop to work:**
   - `[server]`: `listen`, `data_dir`, `cache_dir`, `read_header_timeout_s`, `shutdown_grace_s`
   - `[database]`: `readers_minimum`, `migrate_space_factor` (D201)
   - `[node]`: `roots`, `ffmpeg_dir`, and `confinement`. `confinement` is `"require"` or
-    `"report"`; a production install writes `"require"`.
+    `"report"`; a production install writes `"require"`. `prepared_dir`, `prepared_budget_gib`
+    (200), `prepared_grace_h` (72) and `prepared_disk_limit_percent` (95) keep the prepared
+    renditions within D217 §5's budget.
   - `[log]`: `level`, `format` (`text` or `json`)
 
   A missing key with a starting value runs on it, and doctor lists it; one with none refuses
