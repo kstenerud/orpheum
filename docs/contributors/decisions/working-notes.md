@@ -16657,3 +16657,31 @@ need a way to regenerate a new sign-in code for that device."* **Refines
    account from the limit.
 
 **Status:** Decided; built in M3.
+
+## D222 — On stereo output, a multichannel sound always plays through our prepared copy, and headphones are stereo
+
+**Decided** (2026-09-27), by the project owner, when the sound question on first playback
+([D184](#d184--the-defaults-audit-four-become-questions-seven-must-be-made-visible-the-rest-pass), [D217](#d217--m3s-playback-contract-the-client-sends-ranked-lists-the-media-token-is-a-reference-every-audio-track-is-prepared-and-hlsjs-jassub-and-playwright-are-allowed) §8) was built. cut-a §6
+played the original directly while the boost was off, and audio-presentation.md's *Done when*
+played a 5.1 film on television speakers through a prepared copy either way; the two could not
+both hold. The owner: *"I'm fine with always copying"*, and *"headphones count as stereo"*.
+**Refines [D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device) and cut-a §6.**
+
+1. **A device's sound is one of three answers**: TV speakers, soundbar or receiver, headphones.
+   It is asked the first time the device plays and kept on the device, and the person can change
+   it in the player and in their devices.
+2. **TV speakers and headphones are stereo output**: we fold a sound with more than two channels
+   down ourselves, so the dialogue boost can act. On such a device a file whose main sound has
+   more than two channels is always prepared (reason `dialogue_boost`), whether the boost is on or
+   off, so switching it mid-film never needs a new job. A soundbar or receiver takes the sound as
+   it is, and a device not yet asked is treated the same until it answers.
+3. **Whether the boost is on is the person's** ([D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)): one choice that follows them
+   from film to film, off until they turn it on, and the player starts with it.
+4. **The boost's strength stays one fixed level in M3.** The owner asked whether it should be
+   adjustable; the answer waits on the listening test on a television with a title whose
+   background drowns the dialogue: *The Dark Knight* first (the owner: *"one really bad one for
+   me"*), others later. If +6 dB is not enough, a stronger third mix (the centre raised
+   further, the surrounds and LFE lowered) is the proposal, chosen per person like the boost
+   itself.
+
+**Status:** Decided; built in M3.
