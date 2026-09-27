@@ -85,12 +85,9 @@ func (service *Service) Accounts(ctx context.Context) ([]Account, error) {
 // first for a new account, or a new one for a forgotten password, when the old password works
 // until the new one is set (D218 §1, §5). It takes the person out of the failed-sign-in limit.
 func (service *Service) IssueRegistrationLink(ctx context.Context, userID int64) (Invitation, error) {
-	user, err := store.One(service.database.Read().GetLiveUserByID(ctx, userID))
-	if errors.Is(err, store.ErrNotFound) {
-		return Invitation{}, ErrNoUser
-	}
+	user, err := liveUser(ctx, service.database.Read(), userID)
 	if err != nil {
-		return Invitation{}, fmt.Errorf("look up user %d: %w", userID, err)
+		return Invitation{}, err
 	}
 	// The link is the admin's answer to a person locked out: it clears them from the limit (D221 §4).
 	service.limiter.forget(accountLimitKey(user.Name))
@@ -150,11 +147,8 @@ func (service *Service) Register(ctx context.Context, secret, password string, d
 func (service *Service) IssueDeviceCode(
 	ctx context.Context, userID int64, deviceName string, forDevice int64,
 ) (Invitation, error) {
-	if _, err := store.One(service.database.Read().GetLiveUserByID(ctx, userID)); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return Invitation{}, ErrNoUser
-		}
-		return Invitation{}, fmt.Errorf("look up user %d: %w", userID, err)
+	if _, err := liveUser(ctx, service.database.Read(), userID); err != nil {
+		return Invitation{}, err
 	}
 	var device *int64
 	if forDevice != 0 {
@@ -242,15 +236,27 @@ func (service *Service) SignInWithCode(
 	return service.issueSession(ctx, *grant.Subject, device)
 }
 
+// liveUser is a person who has not been removed, or ErrNoUser.
+func liveUser(ctx context.Context, queries *sqlcgen.Queries, userID int64) (sqlcgen.GetLiveUserByIDRow, error) {
+	user, err := store.One(queries.GetLiveUserByID(ctx, userID))
+	if errors.Is(err, store.ErrNotFound) {
+		return user, ErrNoUser
+	}
+	if err != nil {
+		return user, fmt.Errorf("look up user %d: %w", userID, err)
+	}
+	return user, nil
+}
+
 // ChangePassword changes a person's own password, given their current one (D218 §6). Other
 // sessions stay signed in; signing out everywhere is a separate act.
 func (service *Service) ChangePassword(ctx context.Context, userID int64, current, replacement string) error {
 	if replacement == "" {
 		return errors.New("a password is needed")
 	}
-	user, err := store.One(service.database.Read().GetLiveUserByID(ctx, userID))
+	user, err := liveUser(ctx, service.database.Read(), userID)
 	if err != nil {
-		return fmt.Errorf("look up user %d: %w", userID, err)
+		return err
 	}
 	if matches, _, verifyErr := VerifyPassword(current, string(user.PasswordHash)); verifyErr != nil || !matches {
 		return ErrBadCredentials
@@ -328,11 +334,8 @@ func (service *Service) RenameUser(ctx context.Context, userID int64, name strin
 		return errors.New("a person needs a name")
 	}
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		if _, err := store.One(queries.GetLiveUserByID(ctx, userID)); err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				return ErrNoUser
-			}
-			return fmt.Errorf("look up user %d: %w", userID, err)
+		if _, err := liveUser(ctx, queries, userID); err != nil {
+			return err
 		}
 		other, err := store.One(queries.GetLiveUserByName(ctx, name))
 		if err == nil && other.ID != userID {
