@@ -4,7 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem, problemText, type ErrorDetail } from "./problem.ts";
+import { ApiProblem, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -13,6 +13,9 @@ import { useResource } from "./use-resource.ts";
 export type Secret = components["schemas"]["SecretBody"];
 /** A server setting, with its value and its starting value. */
 export type Setting = components["schemas"]["SettingBody"];
+
+/** A refusal, as a request's answer carries it (cut-a §5.2). */
+type Refused = { readonly error: components["schemas"]["ErrorDetail"] } | undefined;
 
 /** A setting's value as a person reads it. */
 export function shown(value: unknown): string {
@@ -228,7 +231,7 @@ function Secrets(): JSX.Element {
   });
   const answered =
     (name: string, done: string) =>
-    ({ error }: { error?: { error: ErrorDetail } }): void => {
+    ({ error }: { error?: Refused }): void => {
       setNotes((previous) =>
         new Map(previous).set(
           name,
@@ -272,7 +275,7 @@ function ServerSettings(): JSX.Element {
     }
     return data.settings ?? [];
   });
-  const answered = ({ error }: { error?: { error: ErrorDetail } }): void => {
+  const answered = ({ error }: { error?: Refused }): void => {
     setProblem(error === undefined ? "" : problemText(t, new ApiProblem(error.error)));
     reload();
   };
