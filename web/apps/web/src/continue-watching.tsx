@@ -4,7 +4,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem } from "./problem.ts";
+import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -15,22 +15,18 @@ export type InProgress = components["schemas"]["InProgressBody"];
 
 /** Reads the person's Continue Watching. */
 export async function loadContinueWatching(api: Api): Promise<InProgress[]> {
-  const { data, error } = await api.GET("/home");
-  if (data === undefined) {
-    throw new ApiProblem(error.error);
-  }
+  const data = dataOrThrow(await api.GET("/home"));
   return data.continueWatching ?? [];
 }
 
 /** Hides a work from Continue Watching, or with isUndo, brings it back (D188). */
 export async function changeHidden(api: Api, itemId: number, isUndo: boolean): Promise<void> {
   const options = { params: { path: { id: itemId } } };
-  const { error } = isUndo
-    ? await api.DELETE("/items/{id}/hide", options)
-    : await api.POST("/items/{id}/hide", options);
-  if (error !== undefined) {
-    throw new ApiProblem(error.error);
-  }
+  throwIfRefused(
+    isUndo
+      ? await api.DELETE("/items/{id}/hide", options)
+      : await api.POST("/items/{id}/hide", options),
+  );
 }
 
 /** How much of the file is watched, as a whole percent, or undefined when its length is unknown. */

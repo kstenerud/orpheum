@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { ApiProblem } from "./problem.ts";
+import { ApiProblem, isErrorDetail } from "@orpheum/sdk";
 
 /**
  * Something loaded from the server: still loading, loaded, or failed with why. A failure keeps
@@ -25,18 +25,6 @@ export function failure(cause: unknown): Resource<never> {
     return { state: "failed", cause: new ApiProblem(cause.error) };
   }
   return { state: "failed", cause };
-}
-
-/** Whether a value is the server's error detail. */
-function isErrorDetail(value: unknown): value is ConstructorParameters<typeof ApiProblem>[0] {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "code" in value &&
-    typeof value.code === "string" &&
-    "message" in value &&
-    typeof value.message === "string"
-  );
 }
 
 /**

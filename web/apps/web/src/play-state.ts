@@ -4,17 +4,16 @@ import { PlayReporter, reportEveryMs, seekTo, type PlayReport } from "@orpheum/p
 import type { Api } from "@orpheum/sdk";
 import { useEffect, type RefObject } from "react";
 
-import { ApiProblem } from "./problem.ts";
+import { throwIfRefused } from "./problem.ts";
 
 /** Sends one play report for the playback the media token names. */
 export async function sendReport(api: Api, mediaToken: string, report: PlayReport): Promise<void> {
-  const { error } = await api.POST("/playback/{token}/report", {
-    params: { path: { token: mediaToken } },
-    body: { ...report, events: [...report.events], spans: [...report.spans] },
-  });
-  if (error !== undefined) {
-    throw new ApiProblem(error.error);
-  }
+  throwIfRefused(
+    await api.POST("/playback/{token}/report", {
+      params: { path: { token: mediaToken } },
+      body: { ...report, events: [...report.events], spans: [...report.spans] },
+    }),
+  );
 }
 
 /** The video's position, in milliseconds. */

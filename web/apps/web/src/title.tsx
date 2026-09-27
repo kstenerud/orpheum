@@ -7,7 +7,7 @@ import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
-import { ApiProblem, problemText } from "./problem.ts";
+import { dataOrThrow, problemText } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -182,10 +182,7 @@ export function Loaded<T>(props: {
 export function Title(props: { readonly id: number }): JSX.Element {
   const { api } = useServices();
   const [title] = useResource(`title/${String(props.id)}`, async () => {
-    const { data, error } = await api.GET("/items/{id}", { params: { path: { id: props.id } } });
-    if (data === undefined) {
-      throw new ApiProblem(error.error);
-    }
+    const data = dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } }));
     return data;
   });
   return <Loaded resource={title} render={(value) => <TitleView title={value} />} />;

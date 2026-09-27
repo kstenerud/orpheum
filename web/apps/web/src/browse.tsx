@@ -6,7 +6,7 @@ import type { components } from "@orpheum/sdk";
 import { useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem, problemText } from "./problem.ts";
+import { dataOrThrow, problemText } from "./problem.ts";
 import { ContinueWatching } from "./continue-watching.tsx";
 import { Link } from "./link.tsx";
 import { Poster } from "./poster.tsx";
@@ -104,10 +104,7 @@ function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSo
   const load = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
       const query = { kind, sort, limit: pageSize, ...(cursor === "" ? {} : { cursor }) };
-      const { data, error } = await api.GET("/titles", { params: { query } });
-      if (data === undefined) {
-        throw new ApiProblem(error.error);
-      }
+      const data = dataOrThrow(await api.GET("/titles", { params: { query } }));
       return { items: data.titles ?? [], next: data.nextCursor ?? "" };
     },
     [api, kind, sort],

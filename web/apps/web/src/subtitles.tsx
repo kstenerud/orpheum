@@ -5,7 +5,7 @@ import { textWhenReady, type Api, type components } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem, problemText } from "./problem.ts";
+import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 
 /** One text subtitle track a playback offers (D217 §6). */
@@ -56,13 +56,12 @@ export async function keepOffset(
   fileId: number,
   subtitleOffsetMs: number,
 ): Promise<void> {
-  const { error } = await api.PUT("/files/{id}/prefs", {
-    params: { path: { id: fileId } },
-    body: { subtitleOffsetMs },
-  });
-  if (error !== undefined) {
-    throw new ApiProblem(error.error);
-  }
+  throwIfRefused(
+    await api.PUT("/files/{id}/prefs", {
+      params: { path: { id: fileId } },
+      body: { subtitleOffsetMs },
+    }),
+  );
 }
 
 /** A person's choices for one file, as the server sends them. */
@@ -78,13 +77,12 @@ export async function keepSubtitleChoice(
   streamId: number | undefined,
 ): Promise<void> {
   const subtitle = streamId === undefined ? { isOff: true } : { streamId };
-  const { error } = await api.PUT("/files/{id}/prefs", {
-    params: { path: { id: fileId } },
-    body: { subtitle },
-  });
-  if (error !== undefined) {
-    throw new ApiProblem(error.error);
-  }
+  throwIfRefused(
+    await api.PUT("/files/{id}/prefs", {
+      params: { path: { id: fileId } },
+      body: { subtitle },
+    }),
+  );
 }
 
 /** The track a playback starts with: the file's choice when it names one of its tracks, else none. */

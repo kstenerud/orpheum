@@ -4,7 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem } from "./problem.ts";
+import { dataOrThrow } from "./problem.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -124,10 +124,7 @@ function FilePages(props: {
         limit: 500,
         ...(cursor === "" ? {} : { cursor }),
       };
-      const { data, error } = await api.GET("/files", { params: { query } });
-      if (data === undefined) {
-        throw new ApiProblem(error.error);
-      }
+      const data = dataOrThrow(await api.GET("/files", { params: { query } }));
       return { items: data.files ?? [], next: data.nextCursor ?? "" };
     },
     [api, libraryId, filing],

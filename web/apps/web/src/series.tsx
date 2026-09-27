@@ -6,7 +6,7 @@ import { artUrl, type components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem } from "./problem.ts";
+import { dataOrThrow } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -84,12 +84,11 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
 export function Series(props: { readonly id: number }): JSX.Element {
   const { api } = useServices();
   const [series] = useResource(`series/${String(props.id)}`, async () => {
-    const { data, error } = await api.GET("/collections/{id}", {
-      params: { path: { id: props.id } },
-    });
-    if (data === undefined) {
-      throw new ApiProblem(error.error);
-    }
+    const data = dataOrThrow(
+      await api.GET("/collections/{id}", {
+        params: { path: { id: props.id } },
+      }),
+    );
     return data;
   });
   return <Loaded resource={series} render={(value) => <SeriesView series={value} />} />;
