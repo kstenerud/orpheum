@@ -81,10 +81,10 @@ WHERE item.library_id = sqlc.arg(library_id) AND artwork.source = 'local' AND ar
   AND artwork.chosen = 0
 ORDER BY artwork.item_id;
 
--- name: RetireLocalArtworkNotFound :exec
--- An item's images from beside the media that this pass no longer found beside it: a deleted
--- poster.jpg, or a video renamed away from its image. A person's choice stays. The refs kept are
--- a JSON array.
+-- name: RetireArtworkNotFound :exec
+-- An item's images from one source that the source no longer offers: an image beside the media
+-- that a pass no longer found (a deleted poster.jpg), or a provider's image the item's new work
+-- lacks after a rematch, D223 section 9. A person's choice stays. The refs kept are a JSON array.
 UPDATE artwork SET removed_at = sqlc.arg(removed_at)
-WHERE item_id = sqlc.arg(item_id) AND source = 'local' AND chosen = 0 AND removed_at IS NULL
-  AND source_ref NOT IN (SELECT value FROM json_each(CAST(sqlc.arg(found_refs) AS TEXT)));
+WHERE item_id = sqlc.arg(item_id) AND source = sqlc.arg(source) AND chosen = 0 AND removed_at IS NULL
+  AND (source_ref IS NULL OR source_ref NOT IN (SELECT value FROM json_each(CAST(sqlc.arg(found_refs) AS TEXT))));
