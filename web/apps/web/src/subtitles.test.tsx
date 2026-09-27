@@ -56,7 +56,7 @@ describe("subtitles", () => {
         <Subtitles
           fileId={2}
           tracks={[track({}), track({ streamId: 7, language: "fr" })]}
-          prefs={{ subtitleOffsetMs: -1500, subtitle: { streamId: 7 } }}
+          prefs={{ subtitleOffsetMs: -1500, isDialogueBoost: false, subtitle: { streamId: 7 } }}
           videoRef={createRef()}
         />,
       ),
@@ -70,7 +70,12 @@ describe("subtitles", () => {
   it("shows nothing for a file without subtitles", () => {
     const markup = renderToStaticMarkup(
       withServices(
-        <Subtitles fileId={2} tracks={[]} prefs={{ subtitleOffsetMs: 0 }} videoRef={createRef()} />,
+        <Subtitles
+          fileId={2}
+          tracks={[]}
+          prefs={{ subtitleOffsetMs: 0, isDialogueBoost: false }}
+          videoRef={createRef()}
+        />,
       ),
     );
     expect(markup).toBe("");
@@ -96,14 +101,25 @@ describe("subtitles", () => {
 
   it("starts with the file's choice only when it names one of the file's tracks", () => {
     const tracks = [track({}), track({ streamId: 7, language: "fr" })];
-    expect(startingTrack({ subtitleOffsetMs: 0, subtitle: { streamId: 7 } }, tracks)).toBe(7);
     expect(
-      startingTrack({ subtitleOffsetMs: 0, subtitle: { isOff: true } }, tracks),
+      startingTrack(
+        { subtitleOffsetMs: 0, isDialogueBoost: false, subtitle: { streamId: 7 } },
+        tracks,
+      ),
+    ).toBe(7);
+    expect(
+      startingTrack(
+        { subtitleOffsetMs: 0, isDialogueBoost: false, subtitle: { isOff: true } },
+        tracks,
+      ),
     ).toBeUndefined();
     expect(
-      startingTrack({ subtitleOffsetMs: 0, subtitle: { streamId: 99 } }, tracks),
+      startingTrack(
+        { subtitleOffsetMs: 0, isDialogueBoost: false, subtitle: { streamId: 99 } },
+        tracks,
+      ),
     ).toBeUndefined();
-    expect(startingTrack({ subtitleOffsetMs: 0 }, tracks)).toBeUndefined();
+    expect(startingTrack({ subtitleOffsetMs: 0, isDialogueBoost: false }, tracks)).toBeUndefined();
   });
 
   it("keeps a choice of a track, or of off", async () => {

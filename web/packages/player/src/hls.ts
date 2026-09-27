@@ -55,6 +55,26 @@ export function playNative(target: NativeTarget, url: string): Playback {
   };
 }
 
+/** What choosing the starting audio rendition needs of hls.js. */
+export interface AudioStart {
+  on: (event: typeof Hls.Events.MANIFEST_PARSED, listener: () => void) => void;
+  audioTrack: number;
+}
+
+/**
+ * Starts with the audio rendition at index once the master playlist is read: hls.js picks the
+ * playlist's default until then, and a choice made earlier is not kept.
+ */
+export function startWithAudio(hls: AudioStart, index: number): void {
+  if (index === 0) {
+    return;
+  }
+  hls.on(Hls.Events.MANIFEST_PARSED, () => {
+    // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when audioTrack is set
+    hls.audioTrack = index;
+  });
+}
+
 /**
  * Plays an HLS master playlist in video: with hls.js where the page has MSE, else with the
  * element's own HLS, as on an iPhone. The URL was produced by the SDK; the requests carry the
@@ -63,8 +83,14 @@ export function playNative(target: NativeTarget, url: string): Playback {
 export function playHls(
   video: HTMLVideoElement,
   url: string,
-  failed: (why: string) => void,
+  options: {
+    /** Called with why, when the playback cannot go on. */
+    readonly failed: (why: string) => void;
+    /** The audio rendition to start with; the playlist's default when omitted. */
+    readonly startAudio?: number;
+  },
 ): Playback {
+  const { failed } = options;
   const way = hlsWay(hlsSupport(video));
   if (way === "native") {
     return playNative(video, url);
@@ -79,6 +105,7 @@ export function playHls(
       failed(data.details);
     }
   });
+  startWithAudio(hls, options.startAudio ?? 0);
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

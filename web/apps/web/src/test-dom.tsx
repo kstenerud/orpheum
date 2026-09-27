@@ -6,37 +6,63 @@ import { createRoot } from "react-dom/client";
 import type { Services } from "./services.tsx";
 import { testServices } from "./test-services.tsx";
 
+/** One answer of a stand-in server: a status and a body. */
+export type Answer = readonly [number, unknown];
+
 /**
  * What a stand-in server answers each request with, by "METHOD /path" with the path as the API
- * names it (no /api/v1): a status and a body.
+ * names it (no /api/v1): one answer, or several given in turn, the last repeated.
  */
-export type Answers = Readonly<Record<string, readonly [number, unknown]>>;
+export type Answers = Readonly<Record<string, Answer | readonly Answer[]>>;
+
+/** A request the stand-in server heard: "METHOD /path", and its body when it had one. */
+export interface Heard {
+  readonly asked: string;
+  readonly body: unknown;
+}
 
 /**
  * Services whose API is answered by a stand-in server: each request from answers, and one it has
  * no answer for fails the test, so a screen cannot quietly ask for something the test did not
- * expect. Tests never touch the network.
+ * expect. Every request is added to heard. Tests never touch the network.
  */
-export function servedBy(answers: Answers): Services {
-  return testServices(undefined, "/films", (request) => {
+export function servedBy(answers: Answers, heard: Heard[] = []): Services {
+  const counts = new Map<string, number>();
+  return testServices(undefined, "/films", async (request) => {
     const path = new URL(request.url).pathname.replace(/^\/api\/v1/u, "");
     const asked = `${request.method} ${path}`;
-    const answer = answers[asked];
+    const text = await request.text();
+    heard.push({ asked, body: text === "" ? undefined : JSON.parse(text) });
+    const answer = inTurn(answers[asked], counts.get(asked) ?? 0);
+    counts.set(asked, (counts.get(asked) ?? 0) + 1);
     if (answer === undefined) {
       throw new Error(`the test has no answer for ${asked}`);
     }
     const [status, body] = answer;
-    return Promise.resolve(
-      new Response(JSON.stringify(body), {
-        status,
-        headers: { "Content-Type": "application/json" },
-      }),
-    );
+    if (status === 204) {
+      return new Response(null, { status });
+    }
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { "Content-Type": "application/json" },
+    });
   });
 }
 
+/** The answer for the turn'th time a request is asked: one answer always, or the next in turn. */
+function inTurn(answer: Answer | readonly Answer[] | undefined, turn: number): Answer | undefined {
+  if (answer === undefined || !isSeveral(answer)) {
+    return answer;
+  }
+  return answer[Math.min(turn, answer.length - 1)];
+}
+
+function isSeveral(answer: Answer | readonly Answer[]): answer is readonly Answer[] {
+  return Array.isArray(answer[0]);
+}
+
 /** A server refusal, as cut-a §5.2 shapes it, with an English note no viewer should see. */
-export function refusal(status: number, code: string): readonly [number, unknown] {
+export function refusal(status: number, code: string): Answer {
   return [status, { error: { code, message: "a note for developers" } }];
 }
 
@@ -88,6 +114,19 @@ export async function submit(form: Element | null | undefined): Promise<void> {
   }
   await act(async () => {
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    await answered();
+  });
+}
+
+/** Chooses value in a select, as a person does, and lets the requests it made answer. */
+export async function choose(select: Element | null | undefined, value: string): Promise<void> {
+  if (!(select instanceof HTMLSelectElement)) {
+    throw new Error("no select to choose in");
+  }
+  await act(async () => {
+    // eslint-disable-next-line no-param-reassign -- choosing is setting the select's value
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
     await answered();
   });
 }

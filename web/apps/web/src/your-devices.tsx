@@ -3,15 +3,24 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { removeMyDevice, renameMyDevice, signOutElsewhere, type Device } from "./accounts.ts";
+import {
+  removeMyDevice,
+  renameMyDevice,
+  setMyDeviceSound,
+  signOutElsewhere,
+  type AudioOutput,
+  type Device,
+} from "./accounts.ts";
+import { camelKey } from "./catalogue-key.ts";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { audioOutputs } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
 import type { Resource } from "./use-resource.ts";
 
 /**
  * This person's devices (D218 §4, D221): each named, when added and last used, and whether signed
- * in, with a way to rename it, to remove it, which signs it out at its next request, and, when it
+ * in, with a way to rename it, to say how it makes sound (D222), to remove it, which signs it out at its next request, and, when it
  * is signed out, to make a code that signs it back in; and a way to sign out everywhere but here.
  */
 export function YourDevices(props: {
@@ -44,6 +53,9 @@ export function YourDevices(props: {
             devices={list}
             onRename={(device, name) => {
               then(renameMyDevice(api, device.id, name));
+            }}
+            onSound={(device, output) => {
+              then(setMyDeviceSound(api, device.id, output));
             }}
             onRemove={(device) => {
               // Removing this device signs it out here too.
@@ -82,6 +94,8 @@ export function DeviceList(props: {
   readonly devices: readonly Device[];
   /** Absent where the names are not the viewer's to change: an admin's view of someone's. */
   readonly onRename?: ((device: Device, name: string) => void) | undefined;
+  /** Absent where how the devices make sound is not the viewer's to change. */
+  readonly onSound?: ((device: Device, output: AudioOutput) => void) | undefined;
   readonly onRemove: (device: Device) => void;
   readonly onCodeFor: (device: Device) => void;
 }): JSX.Element {
@@ -97,6 +111,7 @@ export function DeviceList(props: {
             <DeviceName device={device} onRename={props.onRename} />
           )}
           <span>{t(`devices.${deviceState(device)}`)}</span>
+          <DeviceSound device={device} onSound={props.onSound} />
           <span>
             {t("devices.addedAndUsed", {
               added: when.format(new Date(device.addedAt)),
@@ -125,6 +140,45 @@ export function DeviceList(props: {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** How a device makes sound: chosen here when it is the viewer's to change, else only said. */
+function DeviceSound(props: {
+  readonly device: Device;
+  readonly onSound: ((device: Device, output: AudioOutput) => void) | undefined;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { device, onSound } = props;
+  if (onSound === undefined) {
+    return device.audioOutput === undefined ? null : (
+      <span>{t("sound.current", { output: t(`sound.${camelKey(device.audioOutput)}`) })}</span>
+    );
+  }
+  return (
+    <label>
+      {t("sound.label")}{" "}
+      <select
+        value={device.audioOutput ?? ""}
+        onChange={(event) => {
+          const chosen = audioOutputs.find((output) => output === event.target.value);
+          if (chosen !== undefined) {
+            onSound(device, chosen);
+          }
+        }}
+      >
+        {device.audioOutput === undefined ? (
+          <option value="" disabled>
+            {t("sound.notAsked")}
+          </option>
+        ) : null}
+        {audioOutputs.map((output) => (
+          <option key={output} value={output}>
+            {t(`sound.${camelKey(output)}`)}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
