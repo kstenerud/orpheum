@@ -40,6 +40,62 @@ counted:
 
 ## Log
 
+### P31 — Decided work reported built with a clause left out, again (M3, 2026-09-27) · plan-gap
+
+- **Planned:** D217 §5 gave the node a budget, eviction by last use, a grace and a disk-full
+  limit for prepared renditions; D217 §4 allowed Playwright for M3's timing test; cut-a §6 named
+  three hardware encoders in order.
+- **What happened:** none was built, and D217's status line said "built in M3". The M3 audit
+  found them by reading each clause back (checklist item 19), which the status line had not had.
+- **Why the plan missed it:** the milestone's row lists outcomes ("prepare with both profiles"),
+  not the mechanisms a decision attached to them; a mechanism with no acceptance item is easy to
+  leave out and hard to notice missing.
+- **Cost:** three pieces of M3 built after the audit, and a status line corrected.
+- **Process lesson:** a milestone's acceptance list should name each mechanism a decision
+  attaches to it, or the decision should carry its own "done when"; a status line is written
+  only after its clauses are read back.
+
+### P30 — The gate that finds slow queries ran only where no one looked (M3, 2026-09-27) · gate-design
+
+- **Planned:** the reference scale's test (sql.md §11) keeps every listing query off whole tables.
+- **What happened:** it lives in the integration tier, which `make check-pr` did not run and CI
+  ran only on a push; two M3 queries that read whole tables reached `main`.
+- **Why the plan missed it:** the tiers were split by cost, not by what each gate protects.
+- **Cost:** a migration, a query rewrite, and `make check-pr` running the integration tier.
+- **Process lesson:** every gate that protects `main` runs in the branch gate, however slow.
+
+### P29 — The branch gate's revert check was blind to most of the web client (M3, 2026-09-27) · gate-design
+
+- **Planned:** revert-red proves every behaviour change has a test that fails without it.
+- **What happened:** its worktree had no installed web packages, so every TypeScript revert
+  "failed" for want of vitest and passed as covered; types, other architectures and generated
+  queries were blind spots too. Found only when a report did not match a hand-run.
+- **Why the plan missed it:** the gate was first seen to fail on Go, and its web path was
+  never watched going red.
+- **Cost:** four gate fixes, and screens made testable (happy-dom).
+- **Process lesson:** a gate is watched failing on every kind of file it claims, before its
+  passes are trusted.
+
+### P28 — The sound question's two sources disagreed (M3, 2026-09-27) · plan-gap
+
+- **Planned:** cut-a §6 played the original while the boost was off; audio-presentation.md's
+  "done when" prepared a 5.1 film on TV speakers either way.
+- **What happened:** building the question found the contradiction; D222 chose the copy, and
+  counted headphones as stereo.
+- **Why the plan missed it:** two documents each stated the rule for their own concern.
+- **Cost:** one decision.
+- **Process lesson:** a rule stated in two documents is one rule; say it once and point at it.
+
+### P27 — Next Up was deferred past M3 (M3, 2026-09-27) · requirement-emerged
+
+- **Planned:** cut-a §1 and `/home` in §5 include Next Up and "recently added".
+- **What happened:** the owner deferred Next Up (*"Next Up doesn't have to be in M3"*), and
+  "recently added" with it; `/home` has Continue Watching only.
+- **Why the plan missed it:** nothing missed; the owner chose to trade it for the milestone's
+  other work.
+- **Cost:** none yet.
+- **Process lesson:** none; recorded so the plan's row and the code agree on what is left.
+
 ### P26 — M3's contract had gaps in nine places, found by reading it end to end before building (M3, 2026-09-25) · plan-gap
 
 - **Planned:** cut-a §4–§6 and §8 as the build contract for playing in a browser.

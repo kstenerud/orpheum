@@ -67,6 +67,9 @@ setting key goes to the owner first.
 
 12. **Gates and rules that fought correct work:** hook false positives, lint conflicts,
     revert-red flags on code no test can reach. Is each recurring, and what would fix it?
+    And gates that passed wrong work: has each gate been **seen failing on every kind of file it
+    claims** — Go, TypeScript, types alone, another architecture, generated code? (P29: revert-red
+    passed every web file for want of vitest in its worktree.)
 13. **Agent failures since the last audit:** does each still have its gate or its practice, and
     has any recurred?
 14. **Plan deviations:** add one entry per deviation found, with its kind and a process lesson
@@ -85,4 +88,5 @@ setting key goes to the owner first.
 19. **Decisions claimed built:** for each decision a commit or a report calls built, each of its
     numbered clauses read back against the code and its tests, and any clause not built named
     (agent-failures A9: D218 was reported built while §4's listing and revoking of devices was
-    not).
+    not). A decision's **Status** line says "built" only after this read-back (plan-deviations
+    P31: D217's said built while §5's eviction was not).
