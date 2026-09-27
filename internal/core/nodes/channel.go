@@ -222,6 +222,7 @@ func (reader *reportReader) line(ctx context.Context, line []byte) error {
 	reader.service.heard(reader.nodeID)
 	if record.Type == nodeproto.RecordStatus && record.Status != nil {
 		reader.status = record.Status
+		reader.service.keepStatus(reader.nodeID, record.Status)
 	}
 	now := reader.service.clock.Now()
 	if len(reader.batch) == 0 {

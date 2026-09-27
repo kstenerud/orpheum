@@ -576,12 +576,12 @@ linters:
         # D144, D145). Media roots are read-only by construction; this closes the other routes.
         - pattern: '^os\.(Remove|RemoveAll|Rename|Truncate)$'
           pkg: '^os$'
-          msg: "[delete] only internal/node/trash and internal/core/datadir remove, rename or truncate files (principles §2, D144)"
+          msg: "[delete] only internal/node/trash, internal/node/prepared (the node's own prepared renditions, D217 §5) and internal/core/datadir remove, rename or truncate files (principles §2, D144)"
         - pattern: '^os\.(Root|File)\.(Remove|RemoveAll|Rename|Truncate)$'
           pkg: '^os$'
-          msg: "[delete] only internal/node/trash and internal/core/datadir remove, rename or truncate files (principles §2, D144)"
+          msg: "[delete] only internal/node/trash, internal/node/prepared (the node's own prepared renditions, D217 §5) and internal/core/datadir remove, rename or truncate files (principles §2, D144)"
         - pattern: '^(syscall|unix)\.(Unlink|Unlinkat|Rmdir|Rename|Renameat|Renameat2|Truncate|Ftruncate)$'
-          msg: "[delete] only internal/node/trash and internal/core/datadir remove, rename or truncate files (principles §2, D144)"
+          msg: "[delete] only internal/node/trash, internal/node/prepared (the node's own prepared renditions, D217 §5) and internal/core/datadir remove, rename or truncate files (principles §2, D144)"
 
         # A media root is opened once, read-only, by confine.MediaRoot.
         - pattern: '^os\.(OpenRoot|OpenInRoot)$'
@@ -654,7 +654,7 @@ linters:
       - path: ^internal/archtest/.*_test\.go$
         linters: [forbidigo]
         text: '\[exec\]'
-      - path: ^internal/(node/trash|core/datadir)/
+      - path: ^internal/(node/trash|node/prepared|core/datadir)/
         linters: [forbidigo]
         text: '\[delete\]'
       - path: ^internal/core/datadir/

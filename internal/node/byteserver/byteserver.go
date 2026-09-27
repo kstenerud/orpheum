@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,6 +30,8 @@ type Server struct {
 	// prepared is the node's prepared directory, read as a media root is: read-only, and nothing
 	// outside it. Nil on a node that does not prepare.
 	prepared *confine.MediaRoot
+	// served is told each rendition served, by its run directory, as its last use (D217 §5).
+	served func(renditionDir string)
 
 	mutex      sync.Mutex
 	identities map[seen]string // guarded by mutex
@@ -49,6 +52,14 @@ func New(roots []*confine.MediaRoot, prepared *confine.MediaRoot) *Server {
 		byPath[root.Path()] = root
 	}
 	return &Server{roots: byPath, prepared: prepared, identities: make(map[seen]string)}
+}
+
+// OnRenditionServed has the server tell served each time it serves one of a rendition's files,
+// naming the rendition by its run directory, <file_id>/<profile>/<run_id>: the node's record of
+// its last use, by which it evicts (D217 §5).
+func (server *Server) OnRenditionServed(served func(renditionDir string)) *Server {
+	server.served = served
+	return server
 }
 
 // Handler is the socket's HTTP handler: GET and HEAD only.
@@ -146,6 +157,10 @@ func (server *Server) renditionFile(writer http.ResponseWriter, request *http.Re
 	if err != nil || !info.Mode().IsRegular() {
 		http.Error(writer, "no such rendition file", http.StatusNotFound)
 		return
+	}
+	if server.served != nil {
+		parts := strings.SplitN(name, "/", 4)
+		server.served(strings.Join(parts[:3], "/"))
 	}
 	writer.Header().Set("Content-Type", renditionType(name))
 	http.ServeContent(writer, request, "", info.ModTime(), file)

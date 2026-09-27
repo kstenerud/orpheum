@@ -414,3 +414,24 @@ func TestHello_KeepsWhatTheNodeSaidAboutItsConfinement(t *testing.T) {
 		t.Errorf("Confinement = %+v, %v; want what the hello said (D112)", kept, found)
 	}
 }
+
+func TestStatus_KeepsWhatTheNodeSaysItsPreparedDirectoryHolds(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	if _, known := harness.service.PreparedUsage("local"); known {
+		t.Error("a node that has sent no status has a prepared usage")
+	}
+	usage := nodeproto.PreparedUsage{Bytes: 10, BudgetBytes: 100, DiskPercent: 50, DiskLimitPercent: 95}
+	status := []nodeproto.Record{{
+		Seq: reply.ReportSeq + 1, Type: nodeproto.RecordStatus,
+		Status: &nodeproto.Status{Doing: "idle", Prepared: &usage},
+	}}
+	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
+		http.StatusNoContent {
+		t.Fatalf("the report answered %d %s", response.status, response.body)
+	}
+	if kept, known := harness.service.PreparedUsage("local"); !known || kept != usage {
+		t.Errorf("PreparedUsage = %+v, %v; want what the status said (D217 §5)", kept, known)
+	}
+}

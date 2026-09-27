@@ -16539,9 +16539,11 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
    played, once per file and language, kept, and labelled unverified. Cut A keeps fetch on
    request (cut-a §1); neither is built in M3.
 
-**Status:** Decided; built in M3, except §5's budget and eviction and the Playwright timing test
-of §4, which the M3 audit found unbuilt (audit-2026-09-27 §3), and §6's conversion of a subtitle
-file beside the media, which happens at first play, not at scan.
+**Status:** Decided; built in M3. §5's budget and eviction, which the M3 audit found unbuilt
+(audit-2026-09-27 §3), are built in `internal/node/prepared`: a rendition played within the grace
+stands for "someone is partway through it", since only the core knows who is. The Playwright
+timing test of §4 is still to build. §6 is amended by D223 §5: a subtitle file beside the media is
+converted at first play.
 
 ## D218 — Accounts: the admin creates a person, who sets a password from a one-time link; a signed-in person adds a TV by a short safe32 code
 

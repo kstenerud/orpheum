@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -304,5 +305,23 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 		if refused := answer(job, named); refused.Refused == "" || len(refused.Images) != 0 {
 			t.Errorf("%s: %+v; a path outside the node's roots is refused", named, refused)
 		}
+	}
+}
+
+// keptUsage is a keeper whose last eviction left usage.
+type keptUsage struct{ usage prepared.Usage }
+
+func (kept keptUsage) Evict() (prepared.Usage, error)    { return kept.usage, nil }
+func (kept keptUsage) LastUsage() (prepared.Usage, bool) { return kept.usage, true }
+
+func TestStatus_CarriesWhatThePreparedDirectoryHolds(t *testing.T) {
+	t.Parallel()
+	usage := prepared.Usage{Bytes: 10, BudgetBytes: 100, DiskPercent: 50, MaxDiskPercent: 95}
+	node := New("/nowhere", nodeproto.Hello{Name: "local"}, nil, Workers{Keeper: keptUsage{usage}},
+		clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	got := node.status().Status.Prepared
+	want := nodeproto.PreparedUsage{Bytes: 10, BudgetBytes: 100, DiskPercent: 50, DiskLimitPercent: 95}
+	if got == nil || *got != want {
+		t.Errorf("the status's prepared usage = %+v, want %+v (D217 §5)", got, want)
 	}
 }

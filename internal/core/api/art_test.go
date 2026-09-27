@@ -127,3 +127,24 @@ func TestDoctor_SaysANodeRunsFFmpegWithoutAMechanismAndWhatWouldPutItThere(t *te
 		t.Errorf("doctor with both in force = %s, want ok", confined.body)
 	}
 }
+
+func TestDoctor_ShowsEachNodesPreparedCopiesAgainstTheirBudgetAndWarnsPastTheDisksLimit(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.connectNode(t, "/media/films")
+	harness.nodes.prepared = &nodeproto.PreparedUsage{
+		Bytes: 3 << 30, BudgetBytes: 200 << 30, DiskPercent: 40, DiskLimitPercent: 95,
+	}
+	within := harness.do(t, http.MethodGet, "/doctor", admin, nil)
+	want := `{"check":"prepared copies on node local","verdict":"ok","detail":"3.0 GiB of a 200 GiB budget; ` +
+		`the disk is 40% full, its limit 95%"}`
+	if !strings.Contains(within.body, want) {
+		t.Errorf("doctor = %s, want the node's prepared copies against their budget (D217 §5)", within.body)
+	}
+	harness.nodes.prepared.DiskPercent = 97
+	if past := harness.do(t, http.MethodGet, "/doctor", admin, nil); !strings.Contains(past.body,
+		`{"check":"prepared copies on node local","verdict":"warn"`) {
+		t.Errorf("doctor with the disk past its limit = %s, want a warning", past.body)
+	}
+}

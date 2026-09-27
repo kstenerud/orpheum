@@ -33,18 +33,28 @@ var renditionDir = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)/[0-9a-f]{1
 // ErrBadDir is a rendition directory that is not "<file_id>/<profile>/<run_id>".
 var ErrBadDir = errors.New("a rendition's directory must be <file_id>/<profile>/<run_id>")
 
+// Keeper keeps the prepared directory within its budget: prepared.Shelf (D217 §5).
+type Keeper interface {
+	// Room makes room for a prepare, or says why there is none.
+	Room() error
+	// Writing marks a rendition being written, which eviction leaves alone, until done is called.
+	Writing(renditionDir string) (done func())
+}
+
 // Preparer makes renditions under the node's prepared directory.
 type Preparer struct {
 	runner    Runner
 	directory string
+	keeper    Keeper
 }
 
-// New returns a preparer writing under directory, which must be absolute.
-func New(runner Runner, directory string) (*Preparer, error) {
+// New returns a preparer writing under directory, which must be absolute, within the budget its
+// keeper keeps.
+func New(runner Runner, directory string, keeper Keeper) (*Preparer, error) {
 	if !filepath.IsAbs(directory) {
 		return nil, fmt.Errorf("the prepared directory must be an absolute path, not %q", directory)
 	}
-	return &Preparer{runner: runner, directory: directory}, nil
+	return &Preparer{runner: runner, directory: directory, keeper: keeper}, nil
 }
 
 // Directory is where renditions are written, for the byte socket to serve them from.
@@ -59,6 +69,12 @@ func (preparer *Preparer) Prepare(
 	if !renditionDir.MatchString(command.RenditionDir) {
 		return 0, fmt.Errorf("%w, not %q", ErrBadDir, command.RenditionDir)
 	}
+	// A prepare the disk has no room for is refused rather than fill it (D217 §5).
+	if err := preparer.keeper.Room(); err != nil {
+		return 0, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
+	}
+	written := preparer.keeper.Writing(command.RenditionDir)
+	defer written()
 	renditionPath := filepath.Join(preparer.directory, filepath.FromSlash(command.RenditionDir))
 	if err := os.MkdirAll(renditionPath, 0o750); err != nil {
 		return 0, fmt.Errorf("make the rendition's directory: %w", err)

@@ -119,6 +119,9 @@ max_errors_per_root = 1000
 probe_timeout_s = 60
 status_interval_s = 10
 prepared_dir = %q
+prepared_budget_gib = 1
+prepared_grace_h = 72
+prepared_disk_limit_percent = 95
 
 [log]
 level = "debug"
