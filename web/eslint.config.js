@@ -14,7 +14,13 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 const testFiles = ["**/*.test.{ts,tsx}"];
-const toolingFiles = ["*.{js,cjs,ts}", "*/*/vite.config.ts"];
+// Playwright loads its config and its global setup by their default export.
+const toolingFiles = [
+  "*.{js,cjs,ts}",
+  "*/*/vite.config.ts",
+  "e2e/playwright.config.ts",
+  "e2e/server.ts",
+];
 const sdkFiles = ["packages/sdk/**"];
 
 // One library per job (standards/typescript.md, "Dependencies"). Each entry names what to use

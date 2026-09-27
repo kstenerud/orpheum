@@ -133,7 +133,7 @@ web-deps: ## Install web dependencies from the lockfile when they are missing or
 # ---------------------------------------------------------------------------------------------
 
 .PHONY: check-pr
-check-pr: test-integration check-revert-red check-test-weakening lint-commits ## Branch gates against BASE (default origin/main), after the integration tier
+check-pr: test-integration test-browser check-revert-red check-test-weakening lint-commits ## Branch gates against BASE (default origin/main), after the integration and browser tiers
 
 .PHONY: check-revert-red
 check-revert-red: ## Every behaviour change can turn a test red when reverted (D190)
@@ -161,6 +161,15 @@ test-integration: ## The integration tier: tests that run the pinned FFmpeg and 
 	@$(UNCONTROLLED)
 	@$(HERMETIC) ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" ORPHEUM_TEST_MKVTOOLNIX_DIR="$(MKVTOOLNIX_DIR)" \
 		go test -tags integration -count=1 ./...
+
+.PHONY: test-browser
+test-browser: web-deps ## The browser tier: Chrome and Firefox against a server of its own, with the built client (D217 §4)
+	@npm --prefix web run --silent build
+	@$(WEBCLIENT_CLEAR)
+	@cp -r web/apps/web/dist/. $(WEBCLIENT_DIST)/
+	@go build -tags dev -o $(DEV_DIR)/bin/orpheum-browser ./cmd/orpheum; status=$$?; $(WEBCLIENT_CLEAR); exit $$status
+	@$(HERMETIC) ORPHEUM_TEST_BINARY="$(CURDIR)/$(DEV_DIR)/bin/orpheum-browser" ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" \
+		npm --prefix web exec -- playwright test --config web/e2e/playwright.config.ts
 
 # ---------------------------------------------------------------------------------------------
 # Building and generating
