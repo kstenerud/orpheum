@@ -193,13 +193,13 @@ func TestDecide_TheBoostPreparesOnlyASourceWithACentre(t *testing.T) {
 	surround := file("mp4", picture, audio("aac", "LC", 6))
 	menu := browser
 	menu.Audio = append(menu.Audio, decide.AACMulti)
-	got := decide.Decide(decide.Input{Probe: surround, Menu: menu, Boost: true})
+	got := decide.Decide(decide.Input{Probe: surround, Menu: menu, StereoOutput: true})
 	if got.Profile != decide.Remux || !slices.Equal(got.Reasons, []decide.Reason{decide.ReasonDialogueBoost}) {
-		t.Errorf("5.1 with the boost: %+v, want remux for dialogue_boost", got)
+		t.Errorf("5.1 on stereo output: %+v, want remux for dialogue_boost", got)
 	}
 	stereo := file("mp4", picture, audio("aac", "LC", 2))
-	if got := decide.Decide(decide.Input{Probe: stereo, Menu: browser, Boost: true}); got.Kind != decide.Direct {
-		t.Errorf("stereo with the boost: %+v, want direct: there is no centre to raise", got)
+	if got := decide.Decide(decide.Input{Probe: stereo, Menu: browser, StereoOutput: true}); got.Kind != decide.Direct {
+		t.Errorf("stereo on stereo output: %+v, want direct: there is no centre to raise", got)
 	}
 }
 

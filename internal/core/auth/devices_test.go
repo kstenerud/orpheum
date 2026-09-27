@@ -108,3 +108,26 @@ func TestSignOutElsewhere_EndsEverySessionButThisDevicesAndKeepsThemListed(t *te
 		}
 	}
 }
+
+func TestSetAudioOutput_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id := fixture.createUser(t, "partner", "pw", RoleUser)
+	phoneAndTelevision(t, fixture.service, id)
+	other := fixture.createUser(t, "owner", "pw", RoleAdmin)
+	devices, err := fixture.service.Devices(ctx, id)
+	if err != nil || len(devices) == 0 || devices[0].AudioOutput != "" {
+		t.Fatalf("devices = %+v, %v; want none asked yet", devices, err)
+	}
+	if err = fixture.service.SetAudioOutput(ctx, other, devices[0].ID, "receiver"); !errors.Is(err, ErrNoDevice) {
+		t.Errorf("setting someone else's device: %v, want ErrNoDevice", err)
+	}
+	if err = fixture.service.SetAudioOutput(ctx, id, devices[0].ID, "tv_speakers"); err != nil {
+		t.Fatal(err)
+	}
+	device, err := fixture.service.DeviceOf(ctx, id, devices[0].ID)
+	if err != nil || device.AudioOutput != "tv_speakers" {
+		t.Errorf("the device after = %+v, %v; want tv_speakers kept", device, err)
+	}
+}

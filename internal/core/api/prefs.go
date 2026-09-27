@@ -17,6 +17,8 @@ type FilePrefsBody struct {
 	SubtitleOffsetMs int64 `doc:"Shows the subtitles this much later, or earlier when negative" json:"subtitleOffsetMs"`
 	// Subtitle is the file's subtitle choice, absent when it has none (D219).
 	Subtitle *SubtitleChoiceBody `json:"subtitle,omitempty"`
+	// IsDialogueBoost is whether the person plays with the dialogue boost, in every file (D83).
+	IsDialogueBoost bool `json:"isDialogueBoost"`
 }
 
 // SubtitleChoiceBody is a subtitle choice for one file: a track in it, or off (D219).
@@ -36,19 +38,22 @@ type SetFilePrefsInput struct {
 		// Subtitle, when given, is the file's own choice, carried to the work's other files that
 		// have none of their own (D219).
 		Subtitle *SubtitleChoiceBody `json:"subtitle,omitempty" required:"false"`
+		// IsDialogueBoost, when given, is the person's, and holds in every file they play (D83).
+		IsDialogueBoost *bool `json:"isDialogueBoost,omitempty" required:"false"`
 	}
 }
 
 func (server *Server) registerFilePrefs() {
 	huma.Register(server.api, huma.Operation{
 		OperationID: "setFilePrefs", Method: http.MethodPut, Path: "/files/{id}/prefs",
-		Summary: "Keep a person's choices for one file: its subtitle offset, its subtitle track",
-		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
+		Summary: "Keep a person's choices for one file: its subtitle offset, its subtitle track; " +
+			"and the dialogue boost, theirs in every file",
+		Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.setFilePrefs)
 }
 
 func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
-	body := FilePrefsBody{SubtitleOffsetMs: prefs.SubtitleOffsetMs}
+	body := FilePrefsBody{SubtitleOffsetMs: prefs.SubtitleOffsetMs, IsDialogueBoost: prefs.IsDialogueBoost}
 	if choice := prefs.Subtitle; choice != nil {
 		body.Subtitle = &SubtitleChoiceBody{StreamID: choice.StreamID, IsOff: choice.IsOff, IsCarried: choice.IsCarried}
 	}
@@ -71,6 +76,9 @@ func (server *Server) setFilePrefs(ctx context.Context, input *SetFilePrefsInput
 		err = dependencies.Playback.ChooseSubtitle(ctx, principal.UserID, input.FileID, playback.SubtitleChoice{
 			StreamID: choice.StreamID, IsOff: choice.IsOff,
 		})
+	}
+	if isOn := input.Body.IsDialogueBoost; err == nil && isOn != nil {
+		err = dependencies.Playback.SetDialogueBoost(ctx, principal.UserID, *isOn)
 	}
 	switch {
 	case errors.Is(err, playback.ErrNoFile):

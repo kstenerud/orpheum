@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -89,9 +90,12 @@ func NewService(parts Parts) *Service {
 // Request is what a client asks to play, and what it can play (D21, D217 §1).
 type Request struct {
 	FileID int64
-	Menu   decide.Menu
-	Link   decide.Link
-	Prefer decide.Prefer
+	// DeviceID is the device asking, whose sound decides whether we fold it down (D222); 0 for
+	// a session with no device.
+	DeviceID int64
+	Menu     decide.Menu
+	Link     decide.Link
+	Prefer   decide.Prefer
 }
 
 // Started is a playback: its media token and the decision.
@@ -108,6 +112,8 @@ type Started struct {
 	Prefs FilePrefs
 	// ResumePositionMs is where the player starts: where the person left the file, or 0.
 	ResumePositionMs int64
+	// AudioOutput is how the device asking makes sound, or empty until it is asked (D222).
+	AudioOutput string
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -128,14 +134,19 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if err != nil {
 		return Started{}, fmt.Errorf("read the remote bit-rate ceiling: %w", err)
 	}
+	output, err := service.audioOutput(ctx, userID, request.DeviceID)
+	if err != nil {
+		return Started{}, err
+	}
 	decision := decide.Decide(decide.Input{
 		Probe: probe, Menu: request.Menu, Link: request.Link, Prefer: request.Prefer, RemoteCeilingKbps: ceiling,
+		StereoOutput: isStereoOutput(output),
 	})
 	idle, err := service.idle(ctx)
 	if err != nil {
 		return Started{}, err
 	}
-	started := Started{Decision: decision}
+	started := Started{Decision: decision, AudioOutput: output}
 	if started.Subtitles, err = service.wantSubtitles(ctx, file.ID); err != nil {
 		return Started{}, err
 	}
@@ -160,6 +171,30 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		return Started{}, err
 	}
 	return started, nil
+}
+
+// isStereoOutput is whether a device's sound is two channels the server folds down for it: TV
+// speakers or headphones, not a soundbar or receiver, nor a device not yet asked (D222).
+func isStereoOutput(audioOutput string) bool {
+	return audioOutput == "tv_speakers" || audioOutput == "headphones"
+}
+
+// audioOutput is how a person's device makes sound, or empty when it is not yet asked or there is
+// no device.
+func (service *Service) audioOutput(ctx context.Context, userID, deviceID int64) (string, error) {
+	if deviceID == 0 {
+		return "", nil
+	}
+	device, err := store.One(service.database.Read().GetLiveDeviceOf(ctx, sqlcgen.GetLiveDeviceOfParams{
+		ID: deviceID, UserID: &userID,
+	}))
+	if errors.Is(err, store.ErrNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read device %d: %w", deviceID, err)
+	}
+	return ptr.ValueOrZero(device.AudioOutput), nil
 }
 
 // Source is where a direct playback's bytes are: a node, the target on its byte socket, and

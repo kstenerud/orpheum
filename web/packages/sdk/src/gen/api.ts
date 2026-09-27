@@ -235,7 +235,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Keep a person's choices for one file: its subtitle offset, its subtitle track */
+        /** Keep a person's choices for one file: its subtitle offset, its subtitle track; and the dialogue boost, theirs in every file */
         put: operations["setFilePrefs"];
         post?: never;
         delete?: never;
@@ -530,8 +530,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Rename one of one's devices */
-        put: operations["renameMyDevice"];
+        /** Rename one of one's devices, or say how it makes sound */
+        put: operations["changeMyDevice"];
         post?: never;
         /** Remove one of one's devices; it is signed out at its next request */
         delete: operations["removeMyDevice"];
@@ -963,6 +963,14 @@ export interface components {
             candidates: components["schemas"]["CandidateBody"][] | null;
             provider?: string;
         };
+        ChangeDeviceInputBody: {
+            /**
+             * @description How the device makes sound; TV speakers and headphones are stereo (D222)
+             * @enum {string}
+             */
+            audioOutput?: "tv_speakers" | "receiver" | "headphones";
+            name?: string;
+        };
         ChangePasswordInputBody: {
             currentPassword: string;
             newPassword: string;
@@ -1049,6 +1057,11 @@ export interface components {
              * @description Unix milliseconds
              */
             addedAt: number;
+            /**
+             * @description Absent until the device is asked, the first time it plays (D222)
+             * @enum {string}
+             */
+            audioOutput?: "tv_speakers" | "receiver" | "headphones";
             /** Format: int64 */
             id: number;
             isSignedIn: boolean;
@@ -1174,6 +1187,7 @@ export interface components {
             streams: components["schemas"]["StreamBody"][] | null;
         };
         FilePrefsBody: {
+            isDialogueBoost: boolean;
             subtitle?: components["schemas"]["SubtitleChoiceBody"];
             /**
              * Format: int64
@@ -1367,9 +1381,6 @@ export interface components {
             password: string;
             secret: string;
         };
-        RenameDeviceInputBody: {
-            name: string;
-        };
         RenamePersonInputBody: {
             name: string;
         };
@@ -1431,6 +1442,7 @@ export interface components {
             user: components["schemas"]["UserBody"];
         };
         SetFilePrefsInputBody: {
+            isDialogueBoost?: boolean;
             subtitle?: components["schemas"]["SubtitleChoiceBody"];
             /** Format: int64 */
             subtitleOffsetMs?: number;
@@ -1500,6 +1512,8 @@ export interface components {
         };
         StartPlaybackOutputBody: {
             audio?: components["schemas"]["AudioRenditionBody"][] | null;
+            /** @enum {string} */
+            audioOutput?: "tv_speakers" | "receiver" | "headphones";
             isPreparing: boolean;
             /** @enum {string} */
             kind: "direct" | "hls";
@@ -2850,7 +2864,7 @@ export interface operations {
             };
         };
     };
-    renameMyDevice: {
+    changeMyDevice: {
         parameters: {
             query?: never;
             header?: {
@@ -2864,7 +2878,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RenameDeviceInputBody"];
+                "application/json": components["schemas"]["ChangeDeviceInputBody"];
             };
         };
         responses: {

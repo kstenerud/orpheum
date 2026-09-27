@@ -47,10 +47,11 @@
 //     them. Enforced by TestRenameUser_KeepsNamesUnique.
 //   - Changing a password needs the current one and signs no one out (D218 §6). Enforced by
 //     TestChangePassword_NeedsTheCurrentOneAndKeepsOtherSessions.
-//   - A person's devices are listed, and only they, or an admin, change one; a removed device's
-//     sessions end, and signing out elsewhere ends every session but this device's and keeps
-//     the devices listed (D218 §4, §5). Enforced by
-//     TestDevices_AreListedAndARemovedOneIsSignedOutAtItsNextRequest and
+//   - A person's devices are listed, and only they, or an admin, change one, by its name or how
+//     it makes sound (D222); a removed device's sessions end, and signing out elsewhere ends
+//     every session but this device's and keeps the devices listed (D218 §4, §5). Enforced by
+//     TestDevices_AreListedAndARemovedOneIsSignedOutAtItsNextRequest,
+//     TestSetAudioOutput_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt and
 //     TestSignOutElsewhere_EndsEverySessionButThisDevicesAndKeepsThemListed.
 //   - argon2id takes at most 500 ms on devnas: BenchmarkHashPassword_DefaultParameters, run there
 //     (verification queue VQ1).
