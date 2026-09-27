@@ -89,8 +89,8 @@ describe("accounts", () => {
     const { api, sent } = recording({ token: "t", secret: "s", expiresAt: 1, accounts: [] });
     await createAccount(api, "partner", "user");
     await register(api, { secret: "s", password: "p", device: { name: "Phone", platform: "web" } });
-    await issueDeviceCode(api, "Living room TV");
-    await issueDeviceCode(api, "Bedroom TV", 7);
+    await issueDeviceCode(api, { deviceName: "Living room TV" });
+    await issueDeviceCode(api, { deviceName: "Bedroom TV" }, 7);
     await signInWithCode(api, "abcd-efgh", 7);
     expect(sent).toEqual([
       { method: "POST", path: "/api/v1/users", body: { name: "partner", role: "user" } },
@@ -175,10 +175,13 @@ describe("accounts", () => {
     expect(deviceState({ ...tv, isThisDevice: true })).toBe("thisDevice");
     const nothing = (): void => undefined;
     const markup = renderToStaticMarkup(
-      withServices(<DeviceList devices={[tv]} onRename={nothing} onRemove={nothing} />),
+      withServices(
+        <DeviceList devices={[tv]} onRename={nothing} onRemove={nothing} onCodeFor={nothing} />,
+      ),
     );
     expect(markup).toContain("Living room TV");
     expect(markup).toContain("Signed out");
+    expect(markup).toContain("Make a code to sign it back in");
     expect(markup).toContain('aria-label="Remove Living room TV; it is signed out"');
     const { api, sent } = recording(undefined);
     await renameMyDevice(api, 5, "Lounge TV");

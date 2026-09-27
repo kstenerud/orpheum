@@ -60,14 +60,22 @@ export async function register(
   return dataOrThrow(await api.POST("/registration", { body: { ...registration } }));
 }
 
+/** What a device code is for: a new device, named, or a listed one to sign back in (D221). */
+export type CodeTarget = { readonly deviceName: string } | { readonly deviceId: number };
+
 /** A code that signs a device in, for oneself or, for an admin, for another person. */
 export async function issueDeviceCode(
   api: Api,
-  deviceName: string,
+  target: CodeTarget,
   userId?: number,
 ): Promise<Invitation> {
-  const body = userId === undefined ? { deviceName } : { deviceName, userId };
+  const body = userId === undefined ? { ...target } : { ...target, userId };
   return dataOrThrow(await api.POST("/device-codes", { body }));
+}
+
+/** Whether one's device code is still waiting to be used (D221 §3). */
+export async function isCodeWaiting(api: Api): Promise<boolean> {
+  return dataOrThrow(await api.GET("/me/device-code")).isWaiting;
 }
 
 /** Signs this device in with a device code, resuming the device this browser was before (D221). */
@@ -139,8 +147,8 @@ export function keepShownCode(
   storage.setItem(shownCodeKey, JSON.stringify(code));
 }
 
-/** A device code as this tab keeps it. */
-type ShownCode = Invitation & { readonly deviceName: string };
+/** A device code as this tab keeps it: with the name of the device it is for. */
+export type ShownCode = Invitation & { readonly deviceName: string };
 
 /** What was kept, when it is a code this tab wrote. */
 function asShownCode(kept: unknown): ShownCode | undefined {
@@ -160,6 +168,11 @@ function asShownCode(kept: unknown): ShownCode | undefined {
     return undefined;
   }
   return { secret, expiresAt, deviceName };
+}
+
+/** Forgets the device code this tab showed: it was used, or replaced. */
+export function forgetShownCode(storage: Storage): void {
+  storage.removeItem(shownCodeKey);
 }
 
 /** The device code this tab last showed, while it still works; one that has expired is forgotten. */

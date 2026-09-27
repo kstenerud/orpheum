@@ -3,74 +3,52 @@
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  changePassword,
-  issueDeviceCode,
-  keepShownCode,
-  shownCode,
-  type Invitation,
-} from "./accounts.ts";
+import { changePassword, listMyDevices } from "./accounts.ts";
+import { ShownDeviceCode, useDeviceCode, type DeviceCode } from "./device-code.tsx";
 import { problemText } from "./problem.ts";
-import { YourDevices } from "./your-devices.tsx";
 import { PasswordField } from "./register.tsx";
 import { useServices } from "./services.tsx";
-import { Share } from "./share.tsx";
+import { useResource } from "./use-resource.ts";
+import { YourDevices } from "./your-devices.tsx";
 
-/** A person's own account: their password, and adding a device such as a television (D218). */
+/**
+ * A person's own account: their devices, a code to add one or sign one back in, and their
+ * password (D218, D221). A code on screen goes once it is used, and the list shows the device.
+ */
 export function Account(): JSX.Element {
   const { t } = useTranslation();
+  const { api } = useServices();
+  const [devices, reload] = useResource("my-devices", () => listMyDevices(api));
+  const codes = useDeviceCode(reload);
   return (
     <section className="account" aria-labelledby="account-heading">
       <h1 id="account-heading">{t("account.heading")}</h1>
-      <YourDevices />
-      <AddDevice />
+      {codes.code === undefined ? null : <ShownDeviceCode code={codes.code} />}
+      <YourDevices
+        devices={devices}
+        reload={reload}
+        onCodeFor={(device) => {
+          codes.make({ deviceId: device.id }, device.name);
+        }}
+      />
+      <AddDevice codes={codes} />
       <ChangePassword />
     </section>
   );
 }
 
-/** This tab's own storage, or undefined where the browser refuses it. */
-function tabStorage(): Storage | undefined {
-  try {
-    return window.sessionStorage;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Asks for a code that signs a new device in as this person (D218 §3). The code stays on screen
- * across a reload, from this tab's own storage, until it expires: the server keeps only its hash.
- */
-function AddDevice(): JSX.Element {
+/** Makes a code that signs a new device in as this person (D218 §3). */
+function AddDevice(props: { readonly codes: DeviceCode }): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
   const [name, setName] = useState("");
-  const [code, setCode] = useState<Invitation | undefined>(() => {
-    const storage = tabStorage();
-    return storage === undefined ? undefined : shownCode(storage, Date.now());
-  });
-  const [problem, setProblem] = useState<string | undefined>(undefined);
   const submit = (event: SyntheticEvent): void => {
     event.preventDefault();
-    setProblem(undefined);
-    issueDeviceCode(api, name).then(
-      (made) => {
-        setCode(made);
-        const storage = tabStorage();
-        if (storage !== undefined) {
-          keepShownCode(storage, { ...made, deviceName: name });
-        }
-      },
-      (cause: unknown) => {
-        setProblem(problemText(t, cause));
-      },
-    );
+    props.codes.make({ deviceName: name }, name);
   };
   return (
     <form className="account__part" onSubmit={submit}>
       <h2>{t("account.addDevice")}</h2>
-      <p>{t("account.addDeviceExplain", { origin: window.location.origin })}</p>
+      <p>{t("account.addDeviceExplain")}</p>
       <label>
         {t("account.deviceName")}{" "}
         <input
@@ -84,8 +62,7 @@ function AddDevice(): JSX.Element {
         />
       </label>
       <button type="submit">{t("account.makeCode")}</button>
-      {code === undefined ? null : <Share what="code" text={code.secret} invitation={code} />}
-      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      {props.codes.problem === undefined ? null : <p role="alert">{props.codes.problem}</p>}
     </form>
   );
 }
@@ -106,7 +83,7 @@ function ChangePassword(): JSX.Element {
         setOutcome(t("account.passwordChanged"));
       },
       (cause: unknown) => {
-        setOutcome(problemText(t, cause));
+        setOutcome(problemText(t, cause, { forbidden: t("account.wrongPassword") }));
       },
     );
   };
