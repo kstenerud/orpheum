@@ -246,7 +246,8 @@ func describeNode(
 	report := make([]nodeproto.Confinement, 0, len(confinement))
 	for _, state := range confinement {
 		report = append(report, nodeproto.Confinement{
-			Mechanism: state.Mechanism, InForce: state.InForce, Reason: state.Reason, Remedy: state.Remedy,
+			Mechanism: state.Mechanism, InForce: state.InForce, Cause: state.Cause, Reason: state.Reason,
+			Remedy: state.Remedy,
 		})
 	}
 	return nodeproto.Hello{

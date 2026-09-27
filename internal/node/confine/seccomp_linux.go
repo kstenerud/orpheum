@@ -44,10 +44,12 @@ func seccompState() State {
 	state := State{Mechanism: Seccomp}
 	if _, err := unix.PrctlRetInt(unix.PR_GET_SECCOMP, 0, 0, 0, 0); err != nil {
 		if errors.Is(err, unix.EINVAL) {
+			state.Cause = CauseKernelWithout
 			state.Reason = "the kernel was built without seccomp"
 			state.Remedy = "run a kernel built with CONFIG_SECCOMP_FILTER"
 			return state
 		}
+		state.Cause = CauseUnexplained
 		state.Reason = fmt.Sprintf("seccomp answered %v", err)
 		state.Remedy = "report it; the node cannot say what would fix it"
 		return state
