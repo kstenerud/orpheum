@@ -6,6 +6,7 @@
     { "path": "./packages/player" },
     { "path": "./apps/web" },
     { "path": "./apps/cast-receiver" },
-    { "path": "./tsconfig.tooling.json" }
+    { "path": "./tsconfig.tooling.json" },
+    { "path": "./e2e" }
   ]
 }
