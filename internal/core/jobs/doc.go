@@ -25,6 +25,9 @@
 //     TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind,
 //     TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts.
 //   - After a crash, running jobs return to queued. TestRequeueRunning_ReturnsWhatACrashLeftRunning.
+//   - A cancelled queued job never runs; a running one's handler is told through its context,
+//     whose cause is ErrCancelled; either stays cancelled whatever its handler answers after.
+//     TestCancel_AQueuedJobNeverRunsAndARunningOnesHandlerIsToldAndItStaysCancelled.
 //   - A kind may retry on its own schedule instead (D213 §5), and a job may wait until a time
 //     before it first runs. TestRunDue_AKindWithItsOwnScheduleRetriesOnItThenFails,
 //     TestEnqueue_AJobWaitsUntilItsNotBefore.
@@ -40,6 +43,6 @@
 // # Where to change
 //
 //   - queue.go: queuing, and the answers a handler gives. runner.go: running one kind, one job at
-//     a time, and recording each outcome. The prepare, scan and backup runners, their slots, and
-//     the job view come with their features.
+//     a time, and recording each outcome. view.go: the job view, progress and cancel. The
+//     prepare, scan and backup runners and their slots come with their features.
 package jobs

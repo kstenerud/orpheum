@@ -50,15 +50,21 @@ func (all slots) of(profile nodeproto.PrepareProfile) chan struct{} {
 // reports its progress and its end to the core. The source is checked to be the file the core
 // named before FFmpeg reads it (D100).
 func (agent *Agent) prepare(ctx context.Context, nodeID int64, command nodeproto.Prepare) {
+	jobCtx, done := agent.working.start(ctx, command.Job)
 	go func() {
+		defer done()
 		slot := agent.slots.of(command.Profile)
 		select {
 		case slot <- struct{}{}:
-		case <-ctx.Done():
+		case <-jobCtx.Done():
 			return
 		}
 		defer func() { <-slot }()
-		report := agent.runPrepare(ctx, nodeID, command)
+		report := agent.runPrepare(jobCtx, nodeID, command)
+		if jobCtx.Err() != nil && ctx.Err() == nil {
+			agent.logger.InfoContext(ctx, "a prepare was cancelled", "job", command.Job)
+			return
+		}
 		if report.State == nodeproto.PrepareFailed {
 			agent.logger.WarnContext(ctx, "a prepare failed",
 				"job", command.Job, "renditionDir", command.RenditionDir, "why", report.Error)

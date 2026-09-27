@@ -26,6 +26,10 @@
 //   - A decision reads how the asking device makes sound: TV speakers and headphones are stereo,
 //     a receiver or a device not yet asked is not, and the answer says which so the player can
 //     ask (D222). Enforced by TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct.
+//   - A cancelled prepare or subtitle extraction tells its node to stop, and a cancelled
+//     rendition is recorded failed, so the next play prepares it again rather than waiting on it
+//     (cut-a §5.3). Enforced by
+//     TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain.
 //   - The dialogue boost is the person's, in every file, off until they turn it on (D83, D222).
 //     Enforced by TestFilePrefs_TheDialogueBoostIsThePersonsInEveryFile.
 //   - A playback starts where the person left the file, unless that is before resume_min_percent

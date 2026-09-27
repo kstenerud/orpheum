@@ -240,8 +240,18 @@ func (service *Service) HandleSubtitle(ctx context.Context, job jobs.Job) error 
 	case <-timer.C:
 		return fmt.Errorf("node %d said nothing about stream %d for %s", stream.NodeID, job.Subject, service.maxSilence)
 	case <-ctx.Done():
+		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
+			// The node stops its FFmpeg; the text stays unmade, so a later play asks again.
+			service.nodes.Enqueue(stream.NodeID, cancelCommand(job.ID))
+			return jobs.Permanent(jobs.ErrCancelled)
+		}
 		return fmt.Errorf("wait for stream %d: %w", job.Subject, ctx.Err())
 	}
+}
+
+// cancelCommand tells a node to stop a job it is working on (cut-a §5.3).
+func cancelCommand(jobID int64) nodeproto.Command {
+	return nodeproto.Command{Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{Job: jobID}}
 }
 
 // finishSubtitle keeps a node's answer: the text, or why there is none.

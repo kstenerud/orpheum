@@ -35,16 +35,27 @@ UPDATE job SET state = 'running', attempts = attempts + 1
 WHERE id = sqlc.arg(id) AND state = 'queued';
 
 -- name: FinishJob :exec
+-- A cancelled job stays cancelled, whatever its handler answers after.
 UPDATE job SET state = sqlc.arg(state), progress = sqlc.arg(progress), last_error = sqlc.arg(last_error),
                finished_at = sqlc.arg(finished_at)
-WHERE id = sqlc.arg(id);
+WHERE id = sqlc.arg(id) AND state <> 'cancelled';
 
 -- name: DeferJob :exec
 -- Back to the queue until runnable_at: a rate limit, or a retry's back-off (D170). A wait that is
 -- not the job's fault gives back the attempt StartJob counted.
 UPDATE job SET state = 'queued', runnable_at = sqlc.arg(runnable_at), last_error = sqlc.arg(last_error),
                attempts = sqlc.arg(attempts)
-WHERE id = sqlc.arg(id);
+WHERE id = sqlc.arg(id) AND state <> 'cancelled';
+
+-- name: CancelJob :execrows
+-- A person's cancel (cut-a section 5.3): only a queued or running job can be.
+UPDATE job SET state = 'cancelled', finished_at = sqlc.arg(finished_at)
+WHERE id = sqlc.arg(id) AND state IN ('queued', 'running');
+
+-- name: SetJobProgress :exec
+-- How far a running job is, 0 to 1, for the job view.
+UPDATE job SET progress = sqlc.arg(progress)
+WHERE id = sqlc.arg(id) AND state = 'running';
 
 -- name: RequeueRunningJobs :execrows
 -- After a crash, running jobs return to queued; their output is a cache, so they restart.

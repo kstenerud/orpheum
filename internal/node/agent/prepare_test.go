@@ -14,13 +14,18 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// fakePreparer reports half the source done, then a size that names the input it was given.
+// fakePreparer reports half the source done, then a size that names the input it was given; a
+// rendition directory ending in /slow runs until it is stopped.
 type fakePreparer struct{}
 
 func (fakePreparer) Prepare(
-	_ context.Context, input string, _ nodeproto.Prepare, progress func(preparedMs int64),
+	ctx context.Context, input string, command nodeproto.Prepare, progress func(preparedMs int64),
 ) (int64, error) {
 	progress(500)
+	if strings.HasSuffix(command.RenditionDir, "/slow") {
+		<-ctx.Done()
+		return 0, ctx.Err()
+	}
 	return int64(len(input)), nil
 }
 
@@ -77,5 +82,39 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 	if refused := finalReport(t, core); refused.State != nodeproto.PrepareFailed ||
 		!strings.Contains(refused.Error, "none of this node's roots") {
 		t.Errorf("a prepare under another root ended %+v, want refused", refused)
+	}
+}
+
+func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := running(t, socket)
+	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	identity, err := hash.Payload(strings.NewReader("a film"), 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := nodeproto.BytesFile{
+		Root: root.Path(), Path: []byte("film.mkv"), Hash: hex.EncodeToString(identity.Hash[:]),
+	}
+	prepare := func(job int64, dir string) nodeproto.Command {
+		return nodeproto.Command{Seq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
+			Job: job, Source: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir,
+		}}
+	}
+	// Two slow prepares fill both remux slots, so a third runs only once a cancel frees one.
+	core.commands <- prepare(1, "3/remux/slow")
+	core.commands <- prepare(2, "4/remux/slow")
+	for range 2 {
+		if started := <-core.prepared; started.State != nodeproto.PrepareRunning {
+			t.Fatalf("a slow prepare's first report = %+v, want running", started)
+		}
+	}
+	core.commands <- nodeproto.Command{Seq: 3, Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{Job: 1}}
+	core.commands <- prepare(4, "5/remux/0123456789abcdef")
+	if next := finalReport(t, core); next.Job != 4 || next.State != nodeproto.PrepareDone {
+		t.Errorf("the next final report = %+v, want job 4 done and nothing for the cancelled job 1", next)
 	}
 }

@@ -25,14 +25,20 @@ type Subtitler interface {
 // extractSubtitle starts an extraction beside the node's other work, one at a time, since an
 // embedded track means reading the whole video, and posts the answer to the core.
 func (agent *Agent) extractSubtitle(ctx context.Context, nodeID int64, command nodeproto.ExtractSubtitle) {
+	jobCtx, done := agent.working.start(ctx, command.Job)
 	go func() {
+		defer done()
 		select {
 		case agent.slots.extract <- struct{}{}:
-		case <-ctx.Done():
+		case <-jobCtx.Done():
 			return
 		}
 		defer func() { <-agent.slots.extract }()
-		answer := agent.runExtraction(ctx, command)
+		answer := agent.runExtraction(jobCtx, command)
+		if jobCtx.Err() != nil && ctx.Err() == nil {
+			agent.logger.InfoContext(ctx, "a subtitle extraction was cancelled", "job", command.Job)
+			return
+		}
 		if answer.Refused != "" {
 			agent.logger.WarnContext(ctx, "refused a subtitle", "job", command.Job, "why", answer.Refused)
 		}
