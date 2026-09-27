@@ -30,7 +30,7 @@ background, never as a to-do list.
 | Library | scan, identify (TMDB, NFO read), ambiguous-match chooser, manual fixes, the four levels, versions, extras, **what the scanner saw** | [scanner.md](scanner.md), [identification.md](identification.md), [library-model.md](library-model.md) |
 | Finding and resuming | browse, search, detail pages, artwork, play state, Continue Watching (with hide and undo), Next Up | [play-state.md](play-state.md), [artwork.md](artwork.md), [web-client.md](web-client.md) |
 | Playback | direct play, and **prepare** (§6) for everything else | [stream-service.md](stream-service.md) |
-| Subtitles | embedded and sidecar text tracks via JASSUB; sync offset; **fetch on request** from OpenSubtitles, labelled unverified; on by default as a preference | [subtitle-acquisition.md](subtitle-acquisition.md) |
+| Subtitles | embedded and sidecar text tracks via JASSUB; sync offset; **fetch on request** from the play screen, from OpenSubtitles, labelled unverified; off until a person chooses a track (D223) | [subtitle-acquisition.md](subtitle-acquisition.md) |
 | Quiet dialogue | dialogue boost on or off, as a prepared audio rendition; the device declares its speakers | [audio-presentation.md](audio-presentation.md) |
 | People | local accounts, sessions, invites from outside | [auth.md](auth.md) |
 | Together | Watch Together for two with voice; reachability; one public HTTPS name; the cast receiver | [watch-together.md](watch-together.md), [remote-access.md](remote-access.md) |
