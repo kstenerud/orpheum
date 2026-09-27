@@ -10,6 +10,7 @@ import {
   shownCode,
   type Invitation,
 } from "./accounts.ts";
+import { problemText } from "./problem.ts";
 import { YourDevices } from "./your-devices.tsx";
 import { PasswordField } from "./register.tsx";
 import { useServices } from "./services.tsx";
@@ -62,7 +63,7 @@ function AddDevice(): JSX.Element {
         }
       },
       (cause: unknown) => {
-        setProblem(cause instanceof Error ? cause.message : String(cause));
+        setProblem(problemText(t, cause));
       },
     );
   };
@@ -105,7 +106,7 @@ function ChangePassword(): JSX.Element {
         setOutcome(t("account.passwordChanged"));
       },
       (cause: unknown) => {
-        setOutcome(cause instanceof Error ? cause.message : String(cause));
+        setOutcome(problemText(t, cause));
       },
     );
   };

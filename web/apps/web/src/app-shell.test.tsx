@@ -14,7 +14,12 @@ describe("AppShell", () => {
   it("renders a banner with the product name and the menu, and one main landmark", () => {
     const markup = renderToStaticMarkup(
       withServices(
-        <AppShell isAdmin={false} current="films" onSignOut={ignore}>
+        <AppShell
+          isAdmin={false}
+          current="films"
+          onSignOut={ignore}
+          signedInAs={{ name: "partner", deviceName: "Firefox on Mac" }}
+        >
           <p>screen</p>
         </AppShell>,
       ),
@@ -25,12 +30,13 @@ describe("AppShell", () => {
     );
     expect(markup).toContain('<li aria-current="page"><a href="/films">Films</a></li>');
     expect(markup).not.toContain("/libraries");
+    expect(markup).toContain("partner on Firefox on Mac");
   });
 
   it("shows the admin's destinations to an admin", () => {
     const markup = renderToStaticMarkup(
       withServices(
-        <AppShell isAdmin={true} current="about" onSignOut={ignore}>
+        <AppShell isAdmin={true} current="about" onSignOut={ignore} signedInAs={undefined}>
           <p>screen</p>
         </AppShell>,
       ),

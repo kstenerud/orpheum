@@ -12,6 +12,7 @@ import {
   type Account,
   type Invitation,
 } from "./accounts.ts";
+import { problemText } from "./problem.ts";
 import { Loaded } from "./title.tsx";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
@@ -33,7 +34,7 @@ export function People(): JSX.Element {
   const [made, setMade] = useState<Made | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const failed = (cause: unknown): void => {
-    setProblem(cause instanceof Error ? cause.message : String(cause));
+    setProblem(problemText(t, cause, { conflict: t("people.nameTaken") }));
   };
   const act = {
     linkFor: (account: Account): void => {

@@ -2,6 +2,7 @@
 
 import type { Api, components } from "@orpheum/sdk";
 
+import { ApiProblem, dataOrThrow } from "./problem.ts";
 import type { NewDevice } from "./device.ts";
 
 /** One person, as the admin's list shows them. */
@@ -10,17 +11,10 @@ export type Account = components["schemas"]["AccountBody"];
 /** A registration link's secret or a device code, and when it stops working. */
 export type Invitation = components["schemas"]["InvitationBody"];
 
-/** A new session: its token. */
+/** A new session: its token, and the device it is on. */
 interface Session {
   readonly token: string;
-}
-
-/** Throws the server's message, or returns the data, of an SDK call. */
-function dataOrThrow<T>(result: { data?: T; error?: { error: { message: string } } }): T {
-  if (result.data === undefined) {
-    throw new Error(result.error?.error.message ?? "the server did not answer");
-  }
-  return result.data;
+  readonly user: { readonly device?: { readonly id: number; readonly name: string } };
 }
 
 /**
@@ -76,9 +70,15 @@ export async function issueDeviceCode(
   return dataOrThrow(await api.POST("/device-codes", { body }));
 }
 
-/** Signs this device in with a device code. */
-export async function signInWithCode(api: Api, code: string): Promise<Session> {
-  return dataOrThrow(await api.POST("/session/code", { body: { code, platform: "web" } }));
+/** Signs this device in with a device code, resuming the device this browser was before (D221). */
+export async function signInWithCode(
+  api: Api,
+  code: string,
+  resumeId: number | undefined,
+): Promise<Session> {
+  const body =
+    resumeId === undefined ? { code, platform: "web" } : { code, platform: "web", resumeId };
+  return dataOrThrow(await api.POST("/session/code", { body }));
 }
 
 /** Changes one's own password. */
@@ -89,7 +89,7 @@ export async function changePassword(
 ): Promise<void> {
   const { error } = await api.PUT("/me/password", { body: { currentPassword, newPassword } });
   if (error !== undefined) {
-    throw new Error(error.error.message);
+    throw new ApiProblem(error.error);
   }
 }
 
@@ -108,7 +108,7 @@ export async function renameMyDevice(api: Api, deviceId: number, name: string): 
     body: { name },
   });
   if (error !== undefined) {
-    throw new Error(error.error.message);
+    throw new ApiProblem(error.error);
   }
 }
 
@@ -116,7 +116,7 @@ export async function renameMyDevice(api: Api, deviceId: number, name: string): 
 export async function removeMyDevice(api: Api, deviceId: number): Promise<void> {
   const { error } = await api.DELETE("/me/devices/{id}", { params: { path: { id: deviceId } } });
   if (error !== undefined) {
-    throw new Error(error.error.message);
+    throw new ApiProblem(error.error);
   }
 }
 
@@ -124,7 +124,7 @@ export async function removeMyDevice(api: Api, deviceId: number): Promise<void> 
 export async function signOutElsewhere(api: Api): Promise<void> {
   const { error } = await api.POST("/me/devices/sign-out-elsewhere");
   if (error !== undefined) {
-    throw new Error(error.error.message);
+    throw new ApiProblem(error.error);
   }
 }
 

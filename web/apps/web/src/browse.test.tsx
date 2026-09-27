@@ -5,6 +5,7 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { ApiProblem } from "./problem.ts";
 import { BrowseView, entryRoute, type Entry } from "./browse.tsx";
 import type { Page } from "./use-pages.ts";
 import type { Resource } from "./use-resource.ts";
@@ -51,9 +52,12 @@ describe("browse", () => {
     const empty = render({ state: "loaded", value: { next: "", items: [] } });
     expect(empty).toContain("Once a library is scanned");
     expect(empty).not.toContain("Show more");
-    expect(render({ state: "failed", message: "the server is migrating" })).toContain(
-      "the server is migrating",
-    );
+    expect(
+      render({
+        state: "failed",
+        cause: new ApiProblem({ code: "migrating", message: "the server is migrating" }),
+      }),
+    ).toContain("The server is updating. Try again in a minute.");
     expect(entryRoute("series", 4)).toEqual({ screen: "collection", id: 4 });
   });
 });

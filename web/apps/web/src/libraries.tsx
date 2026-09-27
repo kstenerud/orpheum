@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiProblem } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -155,7 +156,7 @@ export function Libraries(): JSX.Element {
   const [libraries, reload] = useResource("libraries", async () => {
     const { data, error } = await api.GET("/libraries");
     if (data === undefined) {
-      throw new Error(error.error.message);
+      throw new ApiProblem(error.error);
     }
     return data.libraries ?? [];
   });

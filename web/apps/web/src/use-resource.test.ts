@@ -2,18 +2,40 @@
 
 import { describe, expect, it } from "vitest";
 
+import { i18n } from "./i18n.ts";
+import { ApiProblem, problemText } from "./problem.ts";
 import { failure } from "./use-resource.ts";
 
 describe("failure", () => {
-  it("says the server's message, else the browser's", () => {
-    expect(failure({ error: { code: "not_found", message: "no such title or series" } })).toEqual({
-      state: "failed",
-      message: "no such title or series",
+  it("keeps the cause, and an error the server sent becomes an ApiProblem", () => {
+    const fromServer = failure({
+      error: { code: "not_found", message: "no such title or series" },
     });
-    expect(failure(new TypeError("Failed to fetch"))).toEqual({
-      state: "failed",
-      message: "Failed to fetch",
+    expect(fromServer.state === "failed" && fromServer.cause instanceof ApiProblem).toBe(true);
+    const network = new TypeError("Failed to fetch");
+    expect(failure(network)).toEqual({ state: "failed", cause: network });
+  });
+
+  it("tells the person what went wrong in their words, with what to do", () => {
+    const t = i18n.t.bind(i18n);
+    const notFound = new ApiProblem({ code: "not_found", message: "no such title or series" });
+    expect(problemText(t, notFound)).toBe(
+      "That is no longer here: it may have been removed. Go back and try again.",
+    );
+    const ended = new ApiProblem({
+      code: "auth_required",
+      message: "sign in first",
+      detail: { reason: "session_ended" },
     });
-    expect(failure("odd")).toEqual({ state: "failed", message: "odd" });
+    expect(problemText(t, ended)).toContain("This device was signed out");
+    expect(problemText(t, ended, { authRequired: "a code that does not work" })).toBe(
+      "a code that does not work",
+    );
+    expect(problemText(t, new ApiProblem({ code: "brand_new", message: "odd" }))).toBe(
+      "Something went wrong: odd",
+    );
+    expect(problemText(t, new TypeError("Failed to fetch"))).toBe(
+      "The server could not be reached. Check the connection and try again.",
+    );
   });
 });

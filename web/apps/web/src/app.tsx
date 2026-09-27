@@ -57,6 +57,11 @@ function SignedIn(): JSX.Element {
   return (
     <AppShell
       isAdmin={me.state === "loaded" && me.value.isAdmin}
+      signedInAs={
+        me.state === "loaded"
+          ? { name: me.value.name, deviceName: me.value.device?.name }
+          : undefined
+      }
       current={route.screen}
       onSignOut={signOut}
     >

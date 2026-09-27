@@ -6,6 +6,7 @@ import { artUrl, type components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiProblem } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -87,7 +88,7 @@ export function Series(props: { readonly id: number }): JSX.Element {
       params: { path: { id: props.id } },
     });
     if (data === undefined) {
-      throw new Error(error.error.message);
+      throw new ApiProblem(error.error);
     }
     return data;
   });

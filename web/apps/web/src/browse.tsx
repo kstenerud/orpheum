@@ -6,6 +6,7 @@ import type { components } from "@orpheum/sdk";
 import { useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiProblem, problemText } from "./problem.ts";
 import { ContinueWatching } from "./continue-watching.tsx";
 import { Link } from "./link.tsx";
 import { Poster } from "./poster.tsx";
@@ -105,7 +106,7 @@ function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSo
       const query = { kind, sort, limit: pageSize, ...(cursor === "" ? {} : { cursor }) };
       const { data, error } = await api.GET("/titles", { params: { query } });
       if (data === undefined) {
-        throw new Error(error.error.message);
+        throw new ApiProblem(error.error);
       }
       return { items: data.titles ?? [], next: data.nextCursor ?? "" };
     },
@@ -135,7 +136,7 @@ export function BrowseView(props: {
     return <p>{t("common.loading")}</p>;
   }
   if (pages.state === "failed") {
-    return <p role="alert">{t("common.failed", { message: pages.message })}</p>;
+    return <p role="alert">{problemText(t, pages.cause)}</p>;
   }
   if (pages.value.items.length === 0) {
     return <p>{t("browse.empty")}</p>;

@@ -5,6 +5,7 @@ import { textWhenReady, type Api, type components } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ApiProblem, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 
 /** One text subtitle track a playback offers (D217 §6). */
@@ -60,7 +61,7 @@ export async function keepOffset(
     body: { subtitleOffsetMs },
   });
   if (error !== undefined) {
-    throw new Error(error.error.message);
+    throw new ApiProblem(error.error);
   }
 }
 
@@ -82,7 +83,7 @@ export async function keepSubtitleChoice(
     body: { subtitle },
   });
   if (error !== undefined) {
-    throw new Error(error.error.message);
+    throw new ApiProblem(error.error);
   }
 }
 
@@ -126,7 +127,7 @@ export function Subtitles(props: {
     offsetRef.current = moved;
     layerRef.current?.setOffsetMs(moved);
     keepOffset(api, props.fileId, moved).catch((cause: unknown) => {
-      setFailure(cause instanceof Error ? cause.message : String(cause));
+      setFailure(problemText(t, cause));
     });
   };
   return (
@@ -138,7 +139,7 @@ export function Subtitles(props: {
           setFailure(undefined);
           setChosen(streamId);
           keepSubtitleChoice(api, props.fileId, streamId).catch((cause: unknown) => {
-            setFailure(cause instanceof Error ? cause.message : String(cause));
+            setFailure(problemText(t, cause));
           });
         }}
       />
@@ -224,6 +225,7 @@ function useSubtitleLayer(
   videoRef: RefObject<HTMLVideoElement | null>,
   options: { offsetRef: RefObject<number>; failed: (why: string) => void },
 ): RefObject<SubtitleLayer | undefined> {
+  const { t } = useTranslation();
   const layerRef = useRef<SubtitleLayer | undefined>(undefined);
   const { offsetRef, failed } = options;
   useEffect(() => {
@@ -240,7 +242,7 @@ function useSubtitleLayer(
       },
       (cause: unknown) => {
         if (!abort.signal.aborted) {
-          failed(cause instanceof Error ? cause.message : String(cause));
+          failed(problemText(t, cause));
         }
       },
     );
@@ -249,6 +251,6 @@ function useSubtitleLayer(
       layerRef.current?.destroy();
       layerRef.current = undefined;
     };
-  }, [assUrl, videoRef, offsetRef, failed]);
+  }, [assUrl, videoRef, offsetRef, failed, t]);
   return layerRef;
 }
