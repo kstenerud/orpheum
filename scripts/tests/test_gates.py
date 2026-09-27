@@ -5,6 +5,7 @@
 import contextlib
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -259,6 +260,29 @@ class RevertRed(unittest.TestCase):
         self.assertIn("not ticked", rr.verification_queue_problem("VQ2", str(root)))
         self.assertIn("is not in", rr.verification_queue_problem("VQ3", str(root)))
         self.assertIn("names no VQ", rr.verification_queue_problem("ran it by hand", str(root)))
+
+
+    def test_the_worktree_gets_the_installed_web_packages_and_its_own_workspace_links(self):
+        source, tree = Path(tempfile.mkdtemp()), Path(tempfile.mkdtemp())
+        installed = source / "web" / "node_modules"
+        (installed / "vitest").mkdir(parents=True)
+        (installed / "@orpheum").mkdir()
+        (installed / "@orpheum" / "sdk").symlink_to("../../packages/sdk")
+        (installed / ".vite").mkdir()
+        (installed / "vitest" / "node_modules").mkdir()  # a package's own, reached through it
+        (source / "web" / "packages" / "sdk" / "node_modules" / "typescript").mkdir(parents=True)
+        rr.link_installed_packages(source, tree)
+        mirrored = tree / "web" / "node_modules"
+        self.assertEqual((mirrored / "vitest").resolve(), (installed / "vitest").resolve())
+        self.assertEqual(os.readlink(mirrored / "@orpheum" / "sdk"), "../../packages/sdk")
+        self.assertFalse((mirrored / ".vite").exists())
+        self.assertTrue((tree / "web" / "packages" / "sdk" / "node_modules" / "typescript").is_symlink())
+        self.assertEqual(list((installed / "vitest" / "node_modules").iterdir()), [])  # untouched
+
+    def test_a_suite_that_could_not_start_fails_rather_than_passing_as_red(self):
+        self.assertEqual(rr.RUNNER_MISSING, 127)
+        self.assertTrue(rr.Outcome("web/x.ts", "NO_RUNNER", "").is_failure)
+        self.assertFalse(rr.Outcome("web/x.ts", "RED_TEST", "").is_failure)
 
 
 class CommitLint(unittest.TestCase):
