@@ -131,7 +131,6 @@ function PreparedVideo(props: PlayProps): JSX.Element {
       )}
       {pair === undefined ? null : (
         <BoostSwitch
-          fileId={props.fileId}
           isOn={decision.prefs.isDialogueBoost}
           switched={(isOn) => {
             playbackRef.current?.setAudioRendition(isOn ? pair.boosted : pair.standard);

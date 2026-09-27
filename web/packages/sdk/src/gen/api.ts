@@ -235,7 +235,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Keep a person's choices for one file: its subtitle offset, its subtitle track; and the dialogue boost, theirs in every file */
+        /** Keep a person's choices for one file: its subtitle offset, its subtitle track */
         put: operations["setFilePrefs"];
         post?: never;
         delete?: never;
@@ -601,6 +601,23 @@ export interface paths {
         get?: never;
         /** Change one's own password; other sessions stay signed in */
         put: operations["changePassword"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/prefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Keep a person's own choices, which hold in every file they play: the dialogue boost */
+        put: operations["setMyPrefs"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1519,10 +1536,12 @@ export interface components {
             user: components["schemas"]["UserBody"];
         };
         SetFilePrefsInputBody: {
-            isDialogueBoost?: boolean;
             subtitle?: components["schemas"]["SubtitleChoiceBody"];
             /** Format: int64 */
             subtitleOffsetMs?: number;
+        };
+        SetMyPrefsInputBody: {
+            isDialogueBoost?: boolean;
         };
         SettingBody: {
             description: string;
@@ -3116,6 +3135,40 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ChangePasswordInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setMyPrefs: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMyPrefsInputBody"];
             };
         };
         responses: {
