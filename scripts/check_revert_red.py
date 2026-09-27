@@ -82,6 +82,10 @@ GO_TEST = re.compile(r"_test\.go$")
 # reported as noticed by nothing.
 GO_EXTRA_TAGS = "dev"
 GO_OS_SUFFIX = re.compile(r"_(darwin|windows|freebsd|openbsd|netbsd)(?:_[a-z0-9]+)?\.go$")
+# A Linux file for another architecture than the machine's, compiled only there.
+GO_LINUX_ARCH_SUFFIX = re.compile(r"_linux_(arm64|riscv64|arm|386|ppc64le|s390x)\.go$")
+# A build line that leaves Linux out: the file is compiled only for another system.
+GO_NOT_LINUX = re.compile(r"^//go:build .*!linux", re.MULTILINE)
 PY_SOURCE = re.compile(r"\.py$")
 
 # A Python file is a test because of WHERE it lives, not what it is called. Every
@@ -372,7 +376,25 @@ def other_builds(path: str) -> list[Attempt]:
     if other_os:
         goos = other_os.group(1)
         attempts.append(Attempt(["go", "vet", "./..."], f", found by compiling for {goos}", {"GOOS": goos}, True))
+    other_arch = GO_LINUX_ARCH_SUFFIX.search(path)
+    if other_arch:
+        goarch = other_arch.group(1)
+        attempts.append(Attempt(["go", "vet", "./..."], f", found by compiling for linux/{goarch}",
+                                {"GOOS": "linux", "GOARCH": goarch}, True))
+    if not other_os and is_not_linux(path):
+        # macOS is the other system make check compiles for (lint-speculative-api).
+        attempts.append(Attempt(["go", "vet", "./..."], ", found by compiling for darwin", {"GOOS": "darwin"}, True))
     return attempts
+
+
+def is_not_linux(path: str) -> bool:
+    """Whether a Go file's build line leaves Linux out, as the working tree has it: a file only
+    another system compiles, whose revert only that system's build can notice."""
+    try:
+        head = Path(path).read_text(encoding="utf-8", errors="replace")[:2048]
+    except OSError:
+        return False
+    return bool(GO_NOT_LINUX.search(head))
 
 
 # The shell's exit status for a command it could not find: `npm run test` in a tree with no
