@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -64,7 +65,7 @@ func (deriver *Deriver) Derive(ctx context.Context, command nodeproto.Artwork) n
 func (deriver *Deriver) dimensions(ctx context.Context, source []byte) (width, height int, err error) {
 	ctx, cancel := context.WithTimeout(ctx, deriver.timeout)
 	defer cancel()
-	output, runErr := deriver.runner.RunInput(ctx, execx.FFprobe, []string{
+	output, runErr := deriver.runner.RunInput(ctx, execx.FFprobe, confine.Access{}, []string{
 		"-v", "error", "-protocol_whitelist", "pipe", "-select_streams", "v:0",
 		"-show_entries", "stream=width,height", "-of", "json", "pipe:0",
 	}, source, maxProbeBytes)
@@ -90,7 +91,7 @@ func (deriver *Deriver) dimensions(ctx context.Context, source []byte) (width, h
 func (deriver *Deriver) encode(ctx context.Context, source []byte, filter string, quality int) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, deriver.timeout)
 	defer cancel()
-	encoded, err := deriver.runner.RunInput(ctx, execx.FFmpeg, []string{
+	encoded, err := deriver.runner.RunInput(ctx, execx.FFmpeg, confine.Access{}, []string{
 		"-v", "error", "-protocol_whitelist", "pipe", "-i", "pipe:0",
 		"-frames:v", "1", "-map_metadata", "-1", "-vf", filter,
 		"-c:v", "libwebp", "-lossless", "0", "-quality", strconv.Itoa(quality), "-f", "webp", "pipe:1",

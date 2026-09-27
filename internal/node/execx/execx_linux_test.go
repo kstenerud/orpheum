@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -43,7 +44,7 @@ func TestRun_CancellingKillsTheWholeProcessGroup(t *testing.T) {
 		cancel()
 	}
 
-	_, err := runner.Run(ctx, FFmpeg, nil, 1024)
+	_, err := runner.Run(ctx, FFmpeg, confine.Access{}, nil, 1024)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("error = %v, want context.Canceled", err)
 	}

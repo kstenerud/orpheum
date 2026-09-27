@@ -156,9 +156,11 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 	recorder := &recordingScanner{}
 	first := acceptanceRun(t, config, root, func(captured capturedLog) nodes.Starter {
 		return inProcess(func(ctx context.Context) error {
-			return runNodeScanning(ctx, config, captured.logger, func(inner agent.Scanner) agent.Scanner {
-				recorder.inner = inner
-				return recorder
+			return runNodeWith(ctx, config, captured.logger, nodeSeams{
+				wrapScanner: func(inner agent.Scanner) agent.Scanner {
+					recorder.inner = inner
+					return recorder
+				},
 			})
 		})
 	})

@@ -11,6 +11,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -21,7 +22,9 @@ type fakeFFmpeg struct {
 	fail error
 }
 
-func (fake fakeFFmpeg) RunStreaming(_ context.Context, _ execx.Tool, arguments []string, stdout io.Writer) error {
+func (fake fakeFFmpeg) RunStreaming(
+	_ context.Context, _ execx.Tool, _ confine.Access, arguments []string, stdout io.Writer,
+) error {
 	output := filepath.Dir(filepath.Dir(arguments[len(arguments)-1]))
 	if err := os.MkdirAll(filepath.Join(output, "video"), 0o700); err != nil {
 		return err

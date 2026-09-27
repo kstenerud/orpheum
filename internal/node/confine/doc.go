@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package confine applies per-invocation confinement in the shim: argument hardening, a seccomp
-// denylist, and Landlock where the kernel has it, then reports per mechanism what it got,
-// translating a Landlock errno into a remedy. On macOS and Windows it compiles to a no-op that
-// reports unconfined. It also owns MediaRoot, the read-only wrapper over os.Root through which the
-// node opens media.
+// Package confine confines each FFmpeg run (cut-a §7). orpheum re-executes itself as the shim
+// (Shim), which sets no_new_privs, restricts itself with Landlock to the run's Access where the
+// kernel has it, installs a seccomp denylist, and then becomes the tool. Probe says, without
+// confining anything, which mechanisms this machine can put in force, translating a Landlock errno
+// into a cause and a remedy (D112). On macOS and Windows the shim is a no-op that reports
+// unconfined. It also owns MediaRoot, the read-only wrapper over os.Root through which the node
+// opens media.
 //
 // # Invariants
 //
@@ -14,6 +16,15 @@
 //     link into another root is the scanner's decision, made with Resolve and Contains (D206).
 //   - Imports nothing from internal/core. Enforced by the depguard rule node-boundary and
 //     TestArch_NodeNeverImportsCore.
+//   - A confined run reads and writes only what its Access names, beside its tool and the
+//     system's libraries, and opens no internet socket; each refusal is first shown to succeed
+//     unconfined (D112, D190 §3). Enforced by
+//     TestEscape_AConfinedToolReadsAndWritesOnlyWhatItWasGivenAndOpensNoNetwork, and for a
+//     dynamically linked tool, as FFmpeg is, by
+//     TestEscape_ADynamicallyLinkedToolStartsConfinedAndReadsOnlyWhatItWasGiven. Both fail on a
+//     machine without a mechanism unless the job lists it in ORPHEUM_TEST_UNCONTROLLED.
+//   - A mechanism the machine offers but the shim could not put in force stops the run
+//     (ErrNotConfined), so no run has less than the node reported.
 //
 // # Read before changing
 //
@@ -26,6 +37,7 @@
 //
 // # Where to change
 //
-//   - mediaroot.go: MediaRoot. The seccomp denylist, the Landlock ruleset and the confinement
-//     report come in M3.
+//   - mediaroot.go: MediaRoot. spec.go: a run's Access and the shim's entry. landlock_linux.go:
+//     the ruleset and what it grants; seccomp_linux.go: the denylist; arch_linux_*.go: each
+//     architecture's filter details; shim_linux.go and shim_other.go: Probe and the shim.
 package confine

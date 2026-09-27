@@ -15,13 +15,16 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // Runner runs FFmpeg to its end, streaming its stdout: execx.Runner.
 type Runner interface {
-	RunStreaming(ctx context.Context, tool execx.Tool, arguments []string, stdout io.Writer) error
+	RunStreaming(
+		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, stdout io.Writer,
+	) error
 }
 
 // renditionDir is the only shape a rendition's directory may have: "<file_id>/<profile>/<run_id>".
@@ -66,7 +69,10 @@ func (preparer *Preparer) Prepare(
 		defer close(done)
 		readProgress(reader, progress)
 	}()
-	err := preparer.runner.RunStreaming(ctx, execx.FFmpeg, Arguments(sourcePath, renditionPath, command), writer)
+	// It reads the source and writes the rendition, and nothing else (cut-a §7).
+	access := confine.Access{Read: []string{sourcePath}, Write: []string{renditionPath}}
+	arguments := Arguments(sourcePath, renditionPath, command)
+	err := preparer.runner.RunStreaming(ctx, execx.FFmpeg, access, arguments, writer)
 	_ = writer.Close() //nolint:errcheck // a pipe's writer closes without error
 	<-done
 	if err != nil {

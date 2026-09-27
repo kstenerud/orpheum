@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -44,7 +45,7 @@ func TestExtract_ATrackAndASidecarBecomeASSAndWebVTT(t *testing.T) {
 		t.Fatal(writeErr)
 	}
 	film := filepath.Join(directory, "film.mkv")
-	_, err = runner.Run(t.Context(), execx.FFmpeg, []string{
+	_, err = runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
 		"-v", "error", "-f", "lavfi", "-i", "color=c=black:s=64x64:d=5", "-i", "file:" + sidecar,
 		"-map", "0", "-map", "1", "-c:v", "libx264", "-preset", "ultrafast", "-c:s", "ass", "file:" + film,
 	}, 1<<20)

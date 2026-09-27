@@ -10,8 +10,11 @@ import (
 	"io"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"syscall"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/node/confine"
 )
 
 // Tool names one of the bundled FFmpeg binaries.
@@ -61,49 +64,72 @@ func (failure *RunError) Error() string {
 func (failure *RunError) Unwrap() error { return failure.Err }
 
 // Runner runs the bundled FFmpeg tools from one directory, each with an empty environment, in
-// its own process group, from the root directory, with stdin closed unless a run feeds it.
+// its own process group, from the root directory, with stdin closed unless a run feeds it. A
+// confined runner starts each run as orpheum's shim, which confines itself to the run's access
+// and then becomes the tool (cut-a §7).
 type Runner struct {
 	directory string
+	// shim is orpheum's own executable, which each run re-executes to be confined; empty runs the
+	// tool as it is, as a test's fake FFmpeg is.
+	shim string
 	// started, when set by a test, is called once the process has started.
 	started func()
 }
 
-// NewRunner returns a runner for the tools in directory, which must be an absolute path.
+// NewRunner returns a runner for the tools in directory, which must be an absolute path, that
+// runs them unconfined: a test's.
 func NewRunner(directory string) (*Runner, error) {
+	return NewConfinedRunner(directory, "")
+}
+
+// NewConfinedRunner returns a runner for the tools in directory that starts every run through
+// shim, orpheum's own absolute path, so each run is confined to its access (cut-a §7). Both
+// paths must be absolute; an empty shim runs the tools unconfined.
+func NewConfinedRunner(directory, shim string) (*Runner, error) {
 	if !filepath.IsAbs(directory) {
 		return nil, fmt.Errorf("the FFmpeg directory must be an absolute path, not %q", directory)
 	}
-	return &Runner{directory: directory}, nil
+	if shim != "" && !filepath.IsAbs(shim) {
+		return nil, fmt.Errorf("orpheum's own path must be absolute, not %q", shim)
+	}
+	return &Runner{directory: directory, shim: shim}, nil
 }
 
-// Run runs tool with arguments after the hardening flags and returns what it wrote to stdout,
-// refusing more than stdoutLimit bytes. Cancelling ctx kills the tool and every process it
-// started.
-func (runner *Runner) Run(ctx context.Context, tool Tool, arguments []string, stdoutLimit int) ([]byte, error) {
-	return runner.run(ctx, tool, arguments, nil, stdoutLimit)
+// IsConfined is whether the runner starts its runs through the shim.
+func (runner *Runner) IsConfined() bool { return runner.shim != "" }
+
+// Run runs tool with arguments after the hardening flags, confined to access, and returns what
+// it wrote to stdout, refusing more than stdoutLimit bytes. Cancelling ctx kills the tool and
+// every process it started.
+func (runner *Runner) Run(
+	ctx context.Context, tool Tool, access confine.Access, arguments []string, stdoutLimit int,
+) ([]byte, error) {
+	return runner.run(ctx, tool, access, arguments, nil, stdoutLimit)
 }
 
 // RunInput is Run with input fed to the tool's stdin: an image the core sent, which reaches the
 // tool as bytes on a pipe and never as a file name (D212). The caller restricts the tool to the
 // pipe protocol.
 func (runner *Runner) RunInput(
-	ctx context.Context, tool Tool, arguments []string, input []byte, stdoutLimit int,
+	ctx context.Context, tool Tool, access confine.Access, arguments []string, input []byte, stdoutLimit int,
 ) ([]byte, error) {
-	return runner.run(ctx, tool, arguments, input, stdoutLimit)
+	return runner.run(ctx, tool, access, arguments, input, stdoutLimit)
 }
 
 // RunStreaming is Run for a long run whose stdout is read as it is written, such as FFmpeg's
 // -progress lines: stdout goes to the writer, not into memory.
-func (runner *Runner) RunStreaming(ctx context.Context, tool Tool, arguments []string, stdout io.Writer) error {
-	_, err := runner.start(ctx, tool, arguments, nil, stdout)
+func (runner *Runner) RunStreaming(
+	ctx context.Context, tool Tool, access confine.Access, arguments []string, stdout io.Writer,
+) error {
+	_, err := runner.start(ctx, tool, access, arguments, nil, stdout)
 	return err
 }
 
 func (runner *Runner) run(
-	ctx context.Context, tool Tool, arguments []string, input []byte, stdoutLimit int,
+	ctx context.Context, tool Tool, access confine.Access, arguments []string, fed []byte, stdoutLimit int,
 ) ([]byte, error) {
 	stdout := &limitedBuffer{limit: stdoutLimit}
-	finished, err := runner.start(ctx, tool, arguments, input, stdout)
+	finished, err := runner.start(ctx, tool, access, arguments, fed, stdout)
 	if err != nil {
 		return nil, err
 	}
@@ -118,22 +144,29 @@ func (runner *Runner) run(
 
 // start runs tool to its end, writing its stdout to stdout, and returns the tail of its stderr.
 func (runner *Runner) start(
-	ctx context.Context, tool Tool, arguments []string, input []byte, stdout io.Writer,
+	ctx context.Context, tool Tool, access confine.Access, arguments []string, fed []byte, stdout io.Writer,
 ) (*tailBuffer, error) {
 	hardened, known := hardening(tool)
 	if !known {
 		return nil, fmt.Errorf("execx runs only ffmpeg and ffprobe, not %q", tool)
 	}
+	path, argv := filepath.Join(runner.directory, string(tool)), slices.Concat(hardened, arguments)
+	if runner.shim != "" {
+		spec, err := confine.EncodeSpec(confine.Spec{Tool: path, Arguments: argv, Access: access})
+		if err != nil {
+			return nil, err //nolint:wrapcheck // confine says which path it refused
+		}
+		path, argv = runner.shim, []string{confine.ShimArgument, spec}
+	}
 	//nolint:gosec // the one sanctioned start: a configured directory, a fixed tool name, and argv as a slice
-	command := exec.CommandContext(ctx, filepath.Join(runner.directory, string(tool)),
-		append(hardened, arguments...)...)
+	command := exec.CommandContext(ctx, path, argv...)
 	command.Env = []string{}
 	command.Dir = "/"
 	stderr := &tailBuffer{limit: stderrTailBytes}
 	command.Stdout = stdout
 	command.Stderr = stderr
-	if input != nil {
-		command.Stdin = bytes.NewReader(input)
+	if fed != nil {
+		command.Stdin = bytes.NewReader(fed)
 	}
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	command.Cancel = func() error {

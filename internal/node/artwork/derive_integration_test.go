@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -19,7 +20,7 @@ import (
 // source makes an image with the pinned FFmpeg: a test pattern of the size, in the codec.
 func source(t *testing.T, runner *execx.Runner, size, codec, format string) []byte {
 	t.Helper()
-	image, err := runner.Run(t.Context(), execx.FFmpeg, []string{
+	image, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
 		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=" + size + ":duration=1", "-frames:v", "1",
 		"-c:v", codec, "-f", format, "pipe:1",
 	}, 64<<20)
@@ -64,7 +65,7 @@ func newDeriver(t *testing.T) (*Deriver, *execx.Runner) {
 // dimensionsOf reads an encoded size back with the pinned ffprobe.
 func dimensionsOf(t *testing.T, deriver *Deriver, encoded []byte) (width, height int, codec string) {
 	t.Helper()
-	output, err := deriver.runner.RunInput(t.Context(), execx.FFprobe, []string{
+	output, err := deriver.runner.RunInput(t.Context(), execx.FFprobe, confine.Access{}, []string{
 		"-v", "error", "-protocol_whitelist", "pipe", "-show_entries", "stream=width,height,codec_name",
 		"-of", "json", "pipe:0",
 	}, encoded, 1<<16)

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -25,7 +26,7 @@ const sampleRate = 48000
 func surroundFilm(t *testing.T, runner *execx.Runner) string {
 	t.Helper()
 	film := filepath.Join(t.TempDir(), "a film (2020).mkv")
-	_, err := runner.Run(t.Context(), execx.FFmpeg, []string{
+	_, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
 		"-v", "error",
 		"-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=8",
 		"-f", "lavfi", "-i",
@@ -53,7 +54,7 @@ func strength(samples []float64, frequency float64) float64 {
 // leftChannel decodes a rendition's left channel.
 func leftChannel(t *testing.T, runner *execx.Runner, playlist string) []float64 {
 	t.Helper()
-	raw, err := runner.Run(t.Context(), execx.FFmpeg, []string{
+	raw, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
 		"-v", "error", "-i", playlist, "-af", "pan=mono|c0=FL", "-f", "s16le", "-ar", "48000", "pipe:1",
 	}, 16<<20)
 	if err != nil {

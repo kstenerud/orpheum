@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -166,7 +167,7 @@ func serveWithNode(t *testing.T, config Config, captured capturedLog, awaited st
 		node := &inProcessNode{done: make(chan struct{}), cancel: cancel}
 		go func() {
 			defer close(node.done)
-			node.err = runNode(ctx, config, captured.logger)
+			node.err = runNodeWith(ctx, config, captured.logger, fakeFFmpegSeams)
 		}()
 		return node, nil
 	}
@@ -242,13 +243,26 @@ func openDatabase(t *testing.T, config Config) *store.Database {
 	return database
 }
 
+// fakeFFmpegSeams run the node with the fake FFmpeg, a shell script no confined run may start.
+var fakeFFmpegSeams = nodeSeams{isUnconfined: true}
+
 func TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
 	config.Node.Confinement = "require"
 	captured := newCapturedLog()
-	if err := runNode(t.Context(), config, captured.logger); err == nil || !strings.Contains(err.Error(), "M3") {
-		t.Errorf("runNode = %v, want a refusal saying confinement comes in M3", err)
+	withoutLandlock := nodeSeams{isUnconfined: true, probe: func() []confine.State {
+		return []confine.State{
+			{Mechanism: confine.Landlock, Reason: "not enabled at boot", Remedy: "add lsm=landlock"},
+			{Mechanism: confine.Seccomp, InForce: true},
+		}
+	}}
+	err := runNodeWith(t.Context(), config, captured.logger, withoutLandlock)
+	if err == nil || !strings.Contains(err.Error(), "not every mechanism is in force") {
+		t.Errorf("runNode = %v, want a refusal saying a mechanism is not in force", err)
+	}
+	if logged := captured.String(); !strings.Contains(logged, "add lsm=landlock") {
+		t.Errorf("the log = %s, want the missing mechanism's remedy", logged)
 	}
 }
 
@@ -265,7 +279,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 	captured := newCapturedLog(listening)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- runNode(ctx, config, captured.logger) }()
+	go func() { done <- runNodeWith(ctx, config, captured.logger, fakeFFmpegSeams) }()
 	defer func() {
 		cancel()
 		if err := <-done; err != nil {
@@ -318,7 +332,7 @@ func TestRunNode_StillServesFilesWhenItCannotPrepare(t *testing.T) {
 	captured := newCapturedLog(listening, cannot)
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
-	go func() { done <- runNode(ctx, config, captured.logger) }()
+	go func() { done <- runNodeWith(ctx, config, captured.logger, fakeFFmpegSeams) }()
 	for _, awaited := range []string{cannot, listening} {
 		select {
 		case <-captured.signals[awaited]:

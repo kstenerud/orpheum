@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -48,7 +49,8 @@ func (prober *Prober) Probe(ctx context.Context, absolutePath string) (nodeproto
 	}
 	ctx, cancel := context.WithTimeout(ctx, prober.timeout)
 	defer cancel()
-	output, err := prober.runner.Run(ctx, execx.FFprobe, arguments(absolutePath), outputLimit)
+	output, err := prober.runner.Run(ctx, execx.FFprobe, confine.Access{Read: []string{absolutePath}},
+		arguments(absolutePath), outputLimit)
 	if err != nil {
 		return nodeproto.Probe{}, fmt.Errorf("probe %s: %w", absolutePath, err)
 	}

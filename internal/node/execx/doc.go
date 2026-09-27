@@ -3,9 +3,10 @@
 // Package execx is the only place a shipping process starts. It runs the bundled ffmpeg and ffprobe, and
 // nothing else, with hardened arguments, an empty environment, the root directory as its
 // working directory and stdin closed, in a process group that is killed whole when the run is
-// cancelled. A failure carries the exit status and the tail of the tool's stderr. From M3 every
-// run re-executes orpheum as a shim that applies confinement (internal/node/confine) first
-// (cut-a §7); until then runs are unconfined, and the node says so.
+// cancelled. A failure carries the exit status and the tail of the tool's stderr. A confined
+// runner (NewConfinedRunner) starts every run as orpheum's shim, which confines itself to the
+// run's Access (internal/node/confine) and then becomes the tool (cut-a §7); the node's runner is
+// confined, and only a test's fake FFmpeg runs unconfined.
 //
 // # Invariants
 //
@@ -35,5 +36,6 @@
 //
 // # Where to change
 //
-//   - The shim entry point and the argument hardening; the stderr tail on failure.
+//   - execx.go: starting a run, through the shim or not; the argument hardening; the stderr tail
+//     on failure. The shim itself is internal/node/confine's.
 package execx
