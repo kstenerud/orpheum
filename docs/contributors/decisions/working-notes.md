@@ -16691,3 +16691,36 @@ both hold. The owner: *"I'm fine with always copying"*, and *"headphones count a
    itself.
 
 **Status:** Decided; built in M3.
+
+## D223 — The M3 audit's decisions: contract names are made clear now, subtitles start off, and fetching a subtitle on request is in Cut A
+
+**Decided** (2026-09-27), by the project owner, answering the M3 audit's questions
+([audit-2026-09-27.md](../design/research/audit-2026-09-27.md) §10): *"1, 2, 5, 6, 7, 8, 9, 10,
+11: Go with your recommendations."*
+
+1. **The names in contracts that a reader has to look up are renamed now**, while one household
+   uses the server: the API's JSON, the node protocol, database columns (by migration) and setting
+   keys the audit marked unclear. The ones marked minor stay.
+2. **The setup code is safe32**, as the device code is (D218 §3): one way to make a code a person
+   types.
+3. **Subtitles start off** (the owner: *"We shouldn't have subtitles on by default. The user can
+   select them when they want them."*). A file with no choice plays without subtitles; cut-a §1's
+   "on by default as a preference" is withdrawn. `subtitles_on_by_default` and
+   `dialogue_boost_on_by_default`, read by nothing, are removed; the boost starts off (D222 §3).
+4. **Fetching a subtitle on request is in Cut A** (the owner: *"I'll want subtitle fetching for cut
+   A, but it doesn't have to be automatic. As long as I can from the play screen request subtitles
+   and it tells me what it can download."*): from the play screen a person asks for subtitles in a
+   language, is shown what can be downloaded, and chooses one; it is labelled unverified (cut-a
+   §1, §5). Automatic fetching stays deferred (D217 §9).
+5. **D217 §6 is amended:** a subtitle file beside the media is converted when its video is first
+   played, as built, not at scan.
+6. **Scans and backups become jobs in M4**, so the job view shows them, and scheduled backups
+   come with them.
+7. **Overriding an ambiguous item's name or year searches its candidates again.**
+8. **When a file's subtitle tracks change, the work's choice is carried to it again** (extends
+   D219 §4, which covered only new files).
+9. **A rematch drops the old work's artwork of kinds the new work lacks.**
+10. **The person's dialogue boost has its own endpoint, `PUT /me/prefs`**, not the file's (D222 §3).
+11. **M4's nine open questions** (the audit's §8) are asked one at a time before M4's first line.
+
+**Status:** Decided.
