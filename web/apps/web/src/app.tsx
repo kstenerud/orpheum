@@ -9,6 +9,7 @@ import { AppShell } from "./app-shell.tsx";
 import { Browse } from "./browse.tsx";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
+import { Jobs } from "./jobs.tsx";
 import { Libraries } from "./libraries.tsx";
 import { People } from "./people.tsx";
 import { PersonPage } from "./person.tsx";
@@ -110,6 +111,9 @@ function adminScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "settings") {
     return <Settings />;
+  }
+  if (route.screen === "jobs") {
+    return <Jobs />;
   }
   if (route.screen === "people") {
     return <People />;
