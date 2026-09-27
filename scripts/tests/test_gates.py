@@ -249,7 +249,9 @@ class RevertRed(unittest.TestCase):
         self.assertEqual(darwin[-1].env, {"GOOS": "darwin"})
         self.assertTrue(darwin[-1].compile_only)
         self.assertEqual(len(rr.other_builds("internal/store/space_linux.go")), 1)
-        self.assertEqual(rr.other_builds("web/apps/web/src/App.tsx"), [])
+        typed = rr.other_builds("web/apps/web/src/App.tsx")
+        self.assertEqual([a.command for a in typed], [["npm", "--prefix", "web", "run", "typecheck"]])
+        self.assertTrue(typed[0].compile_only)
 
     def test_verified_by_needs_a_ticked_queue_item(self):
         root = Path(tempfile.mkdtemp())

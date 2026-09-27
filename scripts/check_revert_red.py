@@ -360,7 +360,11 @@ class Attempt:
 
 def other_builds(path: str) -> list[Attempt]:
     """The runs beyond the default suite that `make check` also makes, for a file only they
-    compile: the dev-tagged suite, and a compile for the operating system a file is named for."""
+    compile: the dev-tagged suite, and a compile for the operating system a file is named for;
+    for TypeScript, the type check, since vitest drops types unchecked and a file of types alone
+    (the SDK's generated API) can break nothing else."""
+    if TS_SOURCE.search(path):
+        return [Attempt(["npm", "--prefix", "web", "run", "typecheck"], ", found by the type check", None, True)]
     if not GO_SOURCE.search(path):
         return []
     attempts = [Attempt(["go", "test", "-tags", GO_EXTRA_TAGS, "./..."], f", found by the -tags {GO_EXTRA_TAGS} suite")]
