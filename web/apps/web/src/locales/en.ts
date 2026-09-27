@@ -204,6 +204,29 @@ export const en = {
       userChoice: "you asked for it to be prepared",
     },
   },
+  nodes: {
+    heading: "Machines",
+    noneConnected: "No machine that reads media is connected.",
+    confined:
+      "{{node}}: FFmpeg runs in its sandbox, so a hostile media file can reach only the file being read.",
+    unconfined:
+      "{{node}}: FFmpeg runs without part of its sandbox, so a hostile media file could reach more of this machine than it should.",
+    mechanism: {
+      landlock: "Landlock (which files FFmpeg may open)",
+      seccomp: "seccomp (which system calls FFmpeg may make)",
+    },
+    cause: {
+      disabledAtBoot:
+        "{{mechanism}} is in the kernel but not switched on at boot. Add landlock to the lsm= setting on the kernel command line, then restart the machine.",
+      kernelWithout:
+        "{{mechanism}} is not in this machine's kernel. A newer kernel has it (5.13 or later for Landlock).",
+      blockedByRuntime:
+        "The container this runs in blocks {{mechanism}}. Update the container software, or allow it in the container's settings.",
+      notLinux: "{{mechanism}} exists only on Linux, and this machine runs another system.",
+      unexplained:
+        "{{mechanism}} is not working here, for a reason the machine could not name. The server's log has its exact answer.",
+    },
+  },
   jobs: {
     heading: "Jobs",
     none: "No work has been done yet.",
