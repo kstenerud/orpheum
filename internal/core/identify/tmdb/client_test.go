@@ -248,3 +248,14 @@ func TestSeries_FetchParseAndItsSeasons(t *testing.T) {
 		t.Errorf("ParseSeason = %+v, %v", episodes, err)
 	}
 }
+
+func TestGet_RefusesAnAnswerLargerThanItsBoundRatherThanReadingItCutShort(t *testing.T) {
+	t.Parallel()
+	// Cut at the bound, this answer still parses: only refusing it shows it was too large.
+	padded := `{"results":[]}` + strings.Repeat(" ", maxResponseBytes)
+	server, _ := fake(t, map[string]string{"/search/movie": padded})
+	_, err := newClient(t, server.URL, "key").Search(t.Context(), identify.Query{Kind: "movie", Name: "Metropolis"})
+	if err == nil || !strings.Contains(err.Error(), "larger than") {
+		t.Errorf("an answer past the bound: %v, want it refused", err)
+	}
+}
