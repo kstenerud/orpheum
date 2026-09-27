@@ -93,6 +93,9 @@ export const en = {
     currentPassword: "Current password",
     newPassword: "New password",
     passwordChanged: "Your password is changed. Your other devices stay signed in.",
+    wrongPassword: "That is not your current password. Check it and try again.",
+    codeFor: "The code for {{device}}",
+    useCode: "On that device, open {{origin}}, choose I have a code, and type this code.",
   },
   devices: {
     heading: "Your devices",
