@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 func image(path string) nodeproto.Record {
@@ -114,4 +116,54 @@ func TestPass_TheProvidersImageOfAKindBesideTheMediaIsNotFetched(t *testing.T) {
 	if local := owedKinds(report, SourceLocal)[titleID]; !slices.Equal(local, []string{ArtPoster}) {
 		t.Errorf("beside it owes %v, want the poster", local)
 	}
+}
+
+func TestPass_AnImageNoLongerBesideTheMediaIsRetired(t *testing.T) {
+	t.Parallel()
+	lib := newWorld(t, "movies", "nfo")
+	const rel = "Metropolis (1995)/Metropolis (1995).mkv"
+	report := lib.scan(video(rel), image("Metropolis (1995)/poster.jpg"))
+	titleID := lib.files()[rel].TitleID
+	var posterRef string
+	for _, owed := range report.Artwork {
+		if owed.ItemID == titleID && owed.Source == SourceLocal {
+			posterRef = owed.Refs[0].Ref
+		}
+	}
+	// The poster was stored, as the artwork job would have, and a person chose a backdrop.
+	for _, row := range []sqlcgen.InsertArtworkParams{
+		{ItemID: titleID, Kind: ArtPoster, Source: SourceLocal, SourceRef: &posterRef, ContentHash: []byte{1}},
+		{ItemID: titleID, Kind: ArtBackdrop, Source: SourceLocal, SourceRef: new("gone:1:1"), ContentHash: []byte{2}},
+	} {
+		if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+			_, err := queries.InsertArtwork(t.Context(), row)
+			return err //nolint:wrapcheck // a test
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	storetest.ExecRaw(t, lib.database.Path(), "UPDATE artwork SET chosen = 1 WHERE kind = 'backdrop'")
+	lib.scan(video(rel), image("Metropolis (1995)/poster.jpg"))
+	if live := liveKinds(t, lib, titleID); !slices.Equal(live, []string{ArtBackdrop, ArtPoster}) {
+		t.Errorf("with the poster still beside the film: %v live, want both", live)
+	}
+	lib.scan(video(rel)) // poster.jpg deleted
+	if live := liveKinds(t, lib, titleID); !slices.Equal(live, []string{ArtBackdrop}) {
+		t.Errorf("with poster.jpg gone: %v live, want only the person's choice, the poster retired", live)
+	}
+}
+
+// liveKinds are an item's live artwork's kinds, sorted.
+func liveKinds(t *testing.T, lib *world, itemID int64) []string {
+	t.Helper()
+	rows, err := lib.database.Read().ListLiveArtwork(t.Context(), itemID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kinds := make([]string, 0, len(rows))
+	for _, row := range rows {
+		kinds = append(kinds, row.Kind)
+	}
+	slices.Sort(kinds)
+	return kinds
 }

@@ -3,6 +3,8 @@
 package identify
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"regexp"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // SourceLocal is an image beside the media, read and re-encoded by the node (D215).
@@ -99,6 +102,33 @@ func (work *run) mapLocalArtwork() {
 			work.localArt[itemID] = append(work.localArt[itemID], choice.ref)
 		}
 	}
+}
+
+// retireLocalArtwork removes the images beside the media that this pass no longer found beside
+// their item: a deleted poster.jpg, or a video renamed away from its image. Without it, a removed
+// image kept showing, ranked first (D215 §1).
+func (work *run) retireLocalArtwork(ctx context.Context) error {
+	items, err := work.queries.ListItemsWithLiveLocalArtwork(ctx, &work.library.ID)
+	if err != nil {
+		return fmt.Errorf("list the library's local artwork: %w", err)
+	}
+	for _, itemID := range items {
+		found := make([]string, 0, len(work.localArt[itemID]))
+		for _, ref := range work.localArt[itemID] {
+			found = append(found, ref.Ref)
+		}
+		encoded, err := json.Marshal(found)
+		if err != nil {
+			return fmt.Errorf("encode item %d's local artwork: %w", itemID, err)
+		}
+		err = work.queries.RetireLocalArtworkNotFound(ctx, sqlcgen.RetireLocalArtworkNotFoundParams{
+			RemovedAt: &work.now, ItemID: itemID, FoundRefs: string(encoded),
+		})
+		if err != nil {
+			return fmt.Errorf("retire item %d's local artwork no longer found: %w", itemID, err)
+		}
+	}
+	return nil
 }
 
 // localImage is the item an image beside the media belongs to, and its kind, by its name.
