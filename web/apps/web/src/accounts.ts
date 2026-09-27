@@ -2,7 +2,7 @@
 
 import type { Api, components } from "@orpheum/sdk";
 
-import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
+import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import type { NewDevice } from "./device.ts";
 
 /** One person, as the admin's list shows them. */
@@ -95,10 +95,7 @@ export async function changePassword(
   currentPassword: string,
   newPassword: string,
 ): Promise<void> {
-  const { error } = await api.PUT("/me/password", { body: { currentPassword, newPassword } });
-  if (error !== undefined) {
-    throw new ApiProblem(error.error);
-  }
+  throwIfRefused(await api.PUT("/me/password", { body: { currentPassword, newPassword } }));
 }
 
 /** One of a person's devices. */
@@ -111,13 +108,12 @@ export async function listMyDevices(api: Api): Promise<Device[]> {
 
 /** Renames one of one's devices. */
 export async function renameMyDevice(api: Api, deviceId: number, name: string): Promise<void> {
-  const { error } = await api.PUT("/me/devices/{id}", {
-    params: { path: { id: deviceId } },
-    body: { name },
-  });
-  if (error !== undefined) {
-    throw new ApiProblem(error.error);
-  }
+  throwIfRefused(
+    await api.PUT("/me/devices/{id}", {
+      params: { path: { id: deviceId } },
+      body: { name },
+    }),
+  );
 }
 
 /** How a device makes sound (D222). */
@@ -139,18 +135,12 @@ export async function setMyDeviceSound(
 
 /** Removes one of one's devices: it is signed out at its next request (D218 §4). */
 export async function removeMyDevice(api: Api, deviceId: number): Promise<void> {
-  const { error } = await api.DELETE("/me/devices/{id}", { params: { path: { id: deviceId } } });
-  if (error !== undefined) {
-    throw new ApiProblem(error.error);
-  }
+  throwIfRefused(await api.DELETE("/me/devices/{id}", { params: { path: { id: deviceId } } }));
 }
 
 /** Signs every other device out; they stay listed. */
 export async function signOutElsewhere(api: Api): Promise<void> {
-  const { error } = await api.POST("/me/devices/sign-out-elsewhere");
-  if (error !== undefined) {
-    throw new ApiProblem(error.error);
-  }
+  throwIfRefused(await api.POST("/me/devices/sign-out-elsewhere"));
 }
 
 /** Where this tab keeps a device code it showed, so a reload shows it again until it expires. */

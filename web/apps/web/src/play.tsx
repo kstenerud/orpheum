@@ -7,7 +7,7 @@ import { whenReady, type Api, type components, type Menu } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ApiProblem, problemText } from "./problem.ts";
+import { dataOrThrow, problemText } from "./problem.ts";
 import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
 import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
@@ -24,12 +24,11 @@ export type Decision = components["schemas"]["StartPlaybackOutputBody"];
  * server an outside address.
  */
 export async function requestPlayback(api: Api, fileId: number, menu: Menu): Promise<Decision> {
-  const { data, error } = await api.POST("/playback", {
-    body: { fileId, menu, link: "local" },
-  });
-  if (data === undefined) {
-    throw new ApiProblem(error.error);
-  }
+  const data = dataOrThrow(
+    await api.POST("/playback", {
+      body: { fileId, menu, link: "local" },
+    }),
+  );
   return data;
 }
 
