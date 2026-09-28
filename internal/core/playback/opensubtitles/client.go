@@ -72,7 +72,7 @@ func (limited *RateLimitedError) Error() string {
 
 // Keys opens the login; secrets.Store is one.
 type Keys interface {
-	Open(ctx context.Context, name secrets.Name, owner *int64) (secrets.Value, error)
+	Open(ctx context.Context, name secrets.Name) (secrets.Value, error)
 }
 
 // Client is OpenSubtitles, for fetching a subtitle on request (D224): one login, the server's,
@@ -157,9 +157,9 @@ type loginAnswer struct {
 
 // credentials are the server's OpenSubtitles login (D224 §1).
 func (client *Client) credentials(ctx context.Context) (username, password secrets.Value, err error) {
-	username, err = client.keys.Open(ctx, secrets.OpenSubtitlesUsername, nil)
+	username, err = client.keys.Open(ctx, secrets.OpenSubtitlesUsername)
 	if err == nil {
-		password, err = client.keys.Open(ctx, secrets.OpenSubtitlesPassword, nil)
+		password, err = client.keys.Open(ctx, secrets.OpenSubtitlesPassword)
 		if err == nil && !username.IsZero() && !password.IsZero() {
 			return username, password, nil
 		}

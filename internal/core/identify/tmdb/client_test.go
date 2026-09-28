@@ -20,7 +20,7 @@ import (
 
 type fixedKey string
 
-func (key fixedKey) Open(context.Context, secrets.Name, *int64) (secrets.Value, error) {
+func (key fixedKey) Open(context.Context, secrets.Name) (secrets.Value, error) {
 	if key == "" {
 		return secrets.Value{}, secrets.ErrNotSet
 	}

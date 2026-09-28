@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package secrets holds the third-party secrets the server must present to someone else: the TMDB
-// key, a user's OpenSubtitles credentials, the DNS provider token and the TURN shared secret. Each
+// key, the OpenSubtitles login, the DNS provider token and the TURN shared secret. Each
 // is sealed with XChaCha20-Poly1305 under secret.key, which never enters the database, and bound
 // to its row's identity as associated data.
 //
@@ -24,8 +24,9 @@
 //   - Nothing that prints, logs or serialises a Value shows it. Enforced by
 //     TestValue_NeverShowsItsContents; across the whole server, by the canary test
 //     TestCanary_ASecretAppearsNowhereButAsCiphertext in cmd/orpheum.
-//   - A sealed value opens only in its own row: scope, user and name are its associated data.
-//     Enforced by TestStore_ASealedValueCopiedToAnotherRowDoesNotOpen.
+//   - Every secret is the server's (D224 §9). A sealed value opens only in its own row: its name
+//     is its associated data, in the form rows sealed when a user's secret was possible used, so
+//     they still open. Enforced by TestStore_ASealedValueCopiedToAnotherRowDoesNotOpen.
 //   - A row sealed under another key reads as "needs re-entering", not as an error, and nothing
 //     else is lost. Enforced by TestStore_AnotherKeyMarksSecretsNeedingReentry.
 //

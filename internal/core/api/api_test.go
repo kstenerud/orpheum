@@ -347,10 +347,11 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"isSet":true,"hint":"WXYZ"`) {
 		t.Errorf("GET /secrets = %d %s, want it set with its hint", listed.status, listed.body)
 	}
-	mine := harness.do(t, http.MethodPut, "/me/secrets/opensubtitles_password", admin,
+	login := harness.do(t, http.MethodPut, "/secrets/opensubtitles_password", admin,
 		map[string]string{"value": canary})
-	if mine.status != http.StatusNoContent {
-		t.Errorf("PUT /me/secrets/opensubtitles_password = %d %s", mine.status, mine.body)
+	if login.status != http.StatusNoContent {
+		t.Errorf("PUT /secrets/opensubtitles_password = %d %s; the login is the server's (D224 §1)",
+			login.status, login.body)
 	}
 	wantError(t, harness.do(t, http.MethodPut, "/secrets/plex_token", admin, map[string]string{"value": canary}),
 		http.StatusNotFound, CodeNotFound)
@@ -364,7 +365,7 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 	if cleared.status != http.StatusNoContent {
 		t.Errorf("DELETE /secrets/tmdb_api_key = %d %s", cleared.status, cleared.body)
 	}
-	for _, path := range []string{"/secrets", "/me/secrets", "/settings", "/me"} {
+	for _, path := range []string{"/secrets", "/settings", "/me"} {
 		if got := harness.do(t, http.MethodGet, path, admin, nil); strings.Contains(got.body, "CANARY") {
 			t.Errorf("GET %s shows the secret: %s", path, got.body)
 		}

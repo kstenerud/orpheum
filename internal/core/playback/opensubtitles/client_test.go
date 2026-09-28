@@ -23,10 +23,7 @@ import (
 // login is the server's OpenSubtitles login, as the secrets store opens it.
 type login struct{ username, password string }
 
-func (keys login) Open(_ context.Context, name secrets.Name, owner *int64) (secrets.Value, error) {
-	if owner != nil {
-		return secrets.Value{}, secrets.ErrWrongScope
-	}
+func (keys login) Open(_ context.Context, name secrets.Name) (secrets.Value, error) {
 	value := ""
 	switch name { //nolint:exhaustive // a fake login answers only for its two names
 	case secrets.OpenSubtitlesUsername:

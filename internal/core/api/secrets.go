@@ -9,7 +9,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 )
 
@@ -24,7 +23,7 @@ type SecretBody struct {
 	NeedsReentry bool   `doc:"Sealed under a key this server no longer has" json:"needsReentry"`
 }
 
-// SecretsOutput lists a scope's secrets.
+// SecretsOutput lists the secrets.
 type SecretsOutput struct {
 	Body struct {
 		Secrets []SecretBody `json:"secrets"`
@@ -48,55 +47,43 @@ type PutSecretInput struct {
 
 func (server *Server) registerSecrets() {
 	tags := []string{tagSettings}
-	for _, scope := range []struct {
-		path, suffix, who string
-		signIn            func(context.Context, string) (*Dependencies, auth.Principal, error)
-		owner             func(auth.Principal) *int64
-	}{
-		{"/secrets", "", " (admin)", server.signedInAdmin, func(auth.Principal) *int64 { return nil }},
-		{"/me/secrets", "Mine", " of this user", server.signedIn, func(principal auth.Principal) *int64 {
-			return &principal.UserID
-		}},
-	} {
-		huma.Register(server.api, huma.Operation{
-			OperationID: "get" + scope.suffix + "Secrets", Method: http.MethodGet, Path: scope.path,
-			Summary: "Which secrets" + scope.who + " are set; never their values", Tags: tags,
-		}, func(ctx context.Context, input *AuthorizationHeader) (*SecretsOutput, error) {
-			dependencies, principal, err := scope.signIn(ctx, input.Authorization)
-			if err != nil {
-				return nil, err
-			}
-			return server.listSecrets(ctx, dependencies.Secrets, scope.owner(principal))
-		})
-		huma.Register(server.api, huma.Operation{
-			OperationID: "put" + scope.suffix + "Secret", Method: http.MethodPut, Path: scope.path + "/{name}",
-			DefaultStatus: http.StatusNoContent, Summary: "Set a secret" + scope.who + "; write-only", Tags: tags,
-		}, func(ctx context.Context, input *PutSecretInput) (*struct{}, error) {
-			value := secrets.NewValue(input.Body.Value)
-			dependencies, principal, err := scope.signIn(ctx, input.Authorization)
-			if err != nil {
-				return nil, err
-			}
-			err = dependencies.Secrets.Set(ctx, secrets.Name(input.Name), scope.owner(principal), value,
-				&principal.UserID)
-			return &struct{}{}, server.secretError(ctx, "set a secret", err)
-		})
-		huma.Register(server.api, huma.Operation{
-			OperationID: "delete" + scope.suffix + "Secret", Method: http.MethodDelete, Path: scope.path + "/{name}",
-			DefaultStatus: http.StatusNoContent, Summary: "Clear a secret" + scope.who, Tags: tags,
-		}, func(ctx context.Context, input *SecretNameInput) (*struct{}, error) {
-			dependencies, principal, err := scope.signIn(ctx, input.Authorization)
-			if err != nil {
-				return nil, err
-			}
-			err = dependencies.Secrets.Clear(ctx, secrets.Name(input.Name), scope.owner(principal))
-			return &struct{}{}, server.secretError(ctx, "clear a secret", err)
-		})
-	}
+	huma.Register(server.api, huma.Operation{
+		OperationID: "getSecrets", Method: http.MethodGet, Path: "/secrets",
+		Summary: "Which secrets are set; never their values (admin)", Tags: tags,
+	}, func(ctx context.Context, input *AuthorizationHeader) (*SecretsOutput, error) {
+		dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+		if err != nil {
+			return nil, err
+		}
+		return server.listSecrets(ctx, dependencies.Secrets)
+	})
+	huma.Register(server.api, huma.Operation{
+		OperationID: "putSecret", Method: http.MethodPut, Path: "/secrets/{name}",
+		DefaultStatus: http.StatusNoContent, Summary: "Set a secret; write-only (admin)", Tags: tags,
+	}, func(ctx context.Context, input *PutSecretInput) (*struct{}, error) {
+		value := secrets.NewValue(input.Body.Value)
+		dependencies, principal, err := server.signedInAdmin(ctx, input.Authorization)
+		if err != nil {
+			return nil, err
+		}
+		err = dependencies.Secrets.Set(ctx, secrets.Name(input.Name), value, &principal.UserID)
+		return &struct{}{}, server.secretError(ctx, "set a secret", err)
+	})
+	huma.Register(server.api, huma.Operation{
+		OperationID: "deleteSecret", Method: http.MethodDelete, Path: "/secrets/{name}",
+		DefaultStatus: http.StatusNoContent, Summary: "Clear a secret (admin)", Tags: tags,
+	}, func(ctx context.Context, input *SecretNameInput) (*struct{}, error) {
+		dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+		if err != nil {
+			return nil, err
+		}
+		err = dependencies.Secrets.Clear(ctx, secrets.Name(input.Name))
+		return &struct{}{}, server.secretError(ctx, "clear a secret", err)
+	})
 }
 
-func (server *Server) listSecrets(ctx context.Context, store *secrets.Store, owner *int64) (*SecretsOutput, error) {
-	statuses, err := store.Statuses(ctx, owner)
+func (server *Server) listSecrets(ctx context.Context, store *secrets.Store) (*SecretsOutput, error) {
+	statuses, err := store.Statuses(ctx)
 	if err != nil {
 		return nil, server.internal(ctx, "list secrets", err)
 	}
@@ -117,8 +104,8 @@ func (server *Server) secretError(ctx context.Context, doing string, err error) 
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, secrets.ErrUnknownSecret), errors.Is(err, secrets.ErrWrongScope):
-		return newError(http.StatusNotFound, CodeNotFound, "no such secret here")
+	case errors.Is(err, secrets.ErrUnknownSecret):
+		return newError(http.StatusNotFound, CodeNotFound, "no such secret")
 	}
 	return server.internal(ctx, doing, err)
 }

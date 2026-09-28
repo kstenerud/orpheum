@@ -5135,142 +5135,6 @@
         ]
       }
     },
-    "/me/secrets": {
-      "get": {
-        "operationId": "getMineSecrets",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SecretsOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Which secrets of this user are set; never their values",
-        "tags": [
-          "Settings"
-        ]
-      }
-    },
-    "/me/secrets/{name}": {
-      "delete": {
-        "operationId": "deleteMineSecret",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Clear a secret of this user",
-        "tags": [
-          "Settings"
-        ]
-      },
-      "put": {
-        "operationId": "putMineSecret",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PutSecretInputBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Set a secret of this user; write-only",
-        "tags": [
-          "Settings"
-        ]
-      }
-    },
     "/me/settings": {
       "get": {
         "operationId": "getMySettings",
@@ -5659,7 +5523,7 @@
             "description": "Error"
           }
         },
-        "summary": "Which secrets (admin) are set; never their values",
+        "summary": "Which secrets are set; never their values (admin)",
         "tags": [
           "Settings"
         ]
@@ -5753,7 +5617,7 @@
             "description": "Error"
           }
         },
-        "summary": "Set a secret (admin); write-only",
+        "summary": "Set a secret; write-only (admin)",
         "tags": [
           "Settings"
         ]

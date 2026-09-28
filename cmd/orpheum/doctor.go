@@ -225,11 +225,7 @@ func checkSecrets(
 	}
 	var names []string
 	for _, status := range needing {
-		name := string(status.Name)
-		if status.UserID != nil {
-			name += fmt.Sprintf(" (user %d)", *status.UserID)
-		}
-		names = append(names, name)
+		names = append(names, string(status.Name))
 	}
 	return finding{
 		verdictWarning, "these secrets need re-entering: " + strings.Join(names, ", "),

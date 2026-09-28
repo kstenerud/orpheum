@@ -42,4 +42,5 @@ serve_debug_pprof = true       # /debug/pprof on the listen address, loopback on
 serve_debug_metrics = true     # /metrics (D91); not built yet, and the log says so
 
 # Secrets are not seeded. To try TMDB or OpenSubtitles in dev, export ORPHEUM_DEV_TMDB_KEY or
-# ORPHEUM_DEV_OPENSUBTITLES_* before `make dev`; the seed seals whichever are set (D194).
+# ORPHEUM_DEV_OPENSUBTITLES_USERNAME and _PASSWORD before `make dev`; the seed seals whichever are
+# set (D194, D224).

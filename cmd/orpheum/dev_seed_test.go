@@ -66,11 +66,10 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 			"or the settings page shows it:\n%s", raw.body)
 	}
 	serverSecrets := call(t, http.MethodGet, server.baseURL+"/secrets", token, nil)
-	mySecrets := call(t, http.MethodGet, server.baseURL+"/me/secrets", token, nil)
 	const tmdbSet = `"name":"tmdb_api_key","description":"the TMDB API key metadata is fetched with","isSet":true`
-	if !strings.Contains(serverSecrets.body, tmdbSet) ||
-		!strings.Contains(mySecrets.body, `"name":"opensubtitles_password"`) {
-		t.Errorf("the seeded secrets are not set:\n%s\n%s", serverSecrets.body, mySecrets.body)
+	const loginSet = `"description":"the password of that OpenSubtitles account","isSet":true`
+	if !strings.Contains(serverSecrets.body, tmdbSet) || !strings.Contains(serverSecrets.body, loginSet) {
+		t.Errorf("the seeded secrets are not set:\n%s", serverSecrets.body)
 	}
 	partner := signInAs(t, server.baseURL, "partner", "partner")
 	me := call(t, http.MethodGet, server.baseURL+"/me", partner, nil)

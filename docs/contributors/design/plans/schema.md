@@ -602,7 +602,7 @@ CREATE UNIQUE INDEX setting_key ON setting(scope, ifnull(user_id, 0), key);
 ```
 
 **Everything changeable at runtime lives here** ([D181](../../decisions/working-notes.md),
-[D182](../../decisions/working-notes.md) §3): the TMDB key, each user's OpenSubtitles login,
+[D182](../../decisions/working-notes.md) §3): the TMDB key, the server's OpenSubtitles login (D224),
 play-state thresholds, backup retention, the update-check answer. A key's type, bounds, starting
 value and whether the settings page shows it come from one registry in code. **Every key has a
 row** ([D200](../../decisions/working-notes.md)): the server writes each missing key's starting

@@ -27,7 +27,7 @@ const maxResponseBytes = 8 << 20
 
 // Keys opens the TMDB key; secrets.Store is one.
 type Keys interface {
-	Open(ctx context.Context, name secrets.Name, owner *int64) (secrets.Value, error)
+	Open(ctx context.Context, name secrets.Name) (secrets.Value, error)
 }
 
 // Client is TMDB behind the provider interface.
@@ -50,7 +50,7 @@ func (*Client) Name() string { return "tmdb" }
 
 // get calls one endpoint with the key and returns the body of a 200.
 func (client *Client) get(ctx context.Context, path string, parameters url.Values) ([]byte, error) {
-	key, err := client.keys.Open(ctx, secrets.TMDBAPIKey, nil)
+	key, err := client.keys.Open(ctx, secrets.TMDBAPIKey)
 	if errors.Is(err, secrets.ErrNotSet) || (err == nil && key.IsZero()) {
 		return nil, fmt.Errorf("tmdb: %w", identify.ErrNoKey)
 	}
