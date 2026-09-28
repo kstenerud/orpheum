@@ -55,6 +55,9 @@ describe("playing a file", () => {
     expect(markup).toContain('src="/api/v1/bytes/media/direct/abc"');
     expect(markup).toContain("playsInline");
     expect(markup).toContain("Playing the original file, as it is.");
+    // Levelling sits under the video, on as the person left it, and says what it does (D226).
+    expect(markup).toContain("Level loudness");
+    expect(markup).toContain("Its loudness is not measured yet, so it plays as it is.");
   });
 
   it("plays a prepared copy, names every reason, and offers the boost where there is one", () => {
