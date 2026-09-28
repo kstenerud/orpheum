@@ -27,6 +27,9 @@
 //     TestPayload_WithoutCuesTheWalkFindsTheSameSpan.
 //   - Any file has an identity: a truncated or unfollowable container is hashed whole, never
 //     refused, and no input panics. TestPayload_AFileItCannotFollowIsHashedWhole, FuzzPayload.
+//   - OpenSubtitles' moviehash is the file's size plus the words of its first and last 64 KiB,
+//     written from the provider's description (D224 §3).
+//     TestOpenSubtitles_IsTheSizePlusTheWordsOfBothEndsAsSixteenHexDigits.
 //
 // # Read before changing
 //
@@ -37,5 +40,5 @@
 // # Where to change
 //
 //   - identity.go: the scheme and its version (Scheme); a change to what is read is a new one.
-//   - matroska.go and mp4.go: finding the payload.
+//   - matroska.go and mp4.go: finding the payload. opensubtitles.go: the provider's moviehash.
 package hash

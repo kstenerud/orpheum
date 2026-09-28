@@ -35,6 +35,35 @@ func (q *Queries) DeleteFileStreamsNotIn(ctx context.Context, arg DeleteFileStre
 	return err
 }
 
+const getFileForSubtitleSearch = `-- name: GetFileForSubtitleSearch :one
+SELECT f.id, f.opensubtitles_hash, v.title_id, t.kind AS title_kind
+FROM file f
+LEFT JOIN version v ON v.id = f.version_id AND v.removed_at IS NULL
+LEFT JOIN title t ON t.id = v.title_id
+WHERE f.id = ?1 AND f.removed_at IS NULL
+`
+
+type GetFileForSubtitleSearchRow struct {
+	ID                int64
+	OpensubtitlesHash *string
+	TitleID           *int64
+	TitleKind         *string
+}
+
+// A live video, what finds subtitles made for it (D224 section 3): its OpenSubtitles hash, and the
+// title it is a version of, if it is identified.
+func (q *Queries) GetFileForSubtitleSearch(ctx context.Context, id int64) (GetFileForSubtitleSearchRow, error) {
+	row := q.db.QueryRowContext(ctx, getFileForSubtitleSearch, id)
+	var i GetFileForSubtitleSearchRow
+	err := row.Scan(
+		&i.ID,
+		&i.OpensubtitlesHash,
+		&i.TitleID,
+		&i.TitleKind,
+	)
+	return i, err
+}
+
 const getFilePath = `-- name: GetFilePath :one
 SELECT path FROM file WHERE id = ?
 `
@@ -228,30 +257,32 @@ func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleS
 const insertFile = `-- name: InsertFile :one
 INSERT INTO file (
   library_id, node_id, path, path_raw, path_key, size_bytes, mtime_ms, payload_hash, payload_bytes,
-  filing, filing_reason, error_detail, probe, first_seen_at, last_seen_at
+  filing, filing_reason, error_detail, probe, first_seen_at, last_seen_at, opensubtitles_hash
 ) VALUES (
   ?1, ?2, ?3, ?4, ?5, ?6,
   ?7, ?8, ?9, ?10,
-  ?11, ?12, ?13, ?14, ?14
+  ?11, ?12, ?13, ?14, ?14,
+  ?15
 )
 RETURNING id
 `
 
 type InsertFileParams struct {
-	LibraryID    int64
-	NodeID       int64
-	Path         string
-	PathRaw      []byte
-	PathKey      []byte
-	SizeBytes    *int64
-	MtimeMs      *int64
-	PayloadHash  []byte
-	PayloadBytes *int64
-	Filing       string
-	FilingReason *string
-	ErrorDetail  *string
-	Probe        *string
-	SeenAt       int64
+	LibraryID         int64
+	NodeID            int64
+	Path              string
+	PathRaw           []byte
+	PathKey           []byte
+	SizeBytes         *int64
+	MtimeMs           *int64
+	PayloadHash       []byte
+	PayloadBytes      *int64
+	Filing            string
+	FilingReason      *string
+	ErrorDetail       *string
+	Probe             *string
+	SeenAt            int64
+	OpensubtitlesHash *string
 }
 
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, error) {
@@ -270,6 +301,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 		arg.ErrorDetail,
 		arg.Probe,
 		arg.SeenAt,
+		arg.OpensubtitlesHash,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -765,8 +797,9 @@ UPDATE file SET
                   ELSE filing_reason END,
   error_detail = NULL,
   probe = ?10,
-  last_seen_at = ?11
-WHERE id = ?12
+  opensubtitles_hash = ?11,
+  last_seen_at = ?12
+WHERE id = ?13
 `
 
 type UpdateObservedFileParams struct {
@@ -780,6 +813,7 @@ type UpdateObservedFileParams struct {
 	PayloadBytes       *int64
 	UnidentifiedReason *string
 	Probe              *string
+	OpensubtitlesHash  *string
 	SeenAt             int64
 	ID                 int64
 }
@@ -798,6 +832,7 @@ func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFile
 		arg.PayloadBytes,
 		arg.UnidentifiedReason,
 		arg.Probe,
+		arg.OpensubtitlesHash,
 		arg.SeenAt,
 		arg.ID,
 	)

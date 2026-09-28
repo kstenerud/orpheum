@@ -277,6 +277,10 @@ func (walk *walk) file(place location, info fs.FileInfo) error {
 	if err != nil {
 		return walk.fail(place.reported, nodeproto.ScopeEntry, err, info)
 	}
+	providerHash, err := walk.openSubtitlesHash(place, info.Size())
+	if err != nil {
+		return walk.fail(place.reported, nodeproto.ScopeEntry, err, info)
+	}
 	probed, err := walk.scanner.prober.Probe(walk.ctx, place.absolute())
 	if err != nil {
 		return walk.fail(place.reported, nodeproto.ScopeEntry, fmt.Errorf("%w: %w", errProbe, err), info)
@@ -288,7 +292,27 @@ func (walk *walk) file(place location, info fs.FileInfo) error {
 		MtimeMs:  info.ModTime().UnixMilli(),
 		Identity: identity,
 		Probe:    probed,
+
+		OpenSubtitlesHash: providerHash,
 	}})
+}
+
+// openSubtitlesHash is OpenSubtitles' moviehash of a video, from its first and last 64 KiB
+// (D224 §3).
+func (walk *walk) openSubtitlesHash(place location, size int64) (string, error) {
+	file, err := place.media.Open(place.rel)
+	if err != nil {
+		return "", fmt.Errorf("open for the OpenSubtitles hash: %w", err)
+	}
+	hashed, hashErr := hash.OpenSubtitles(file, size)
+	closeErr := file.Close()
+	if hashErr != nil {
+		return "", fmt.Errorf("hash for OpenSubtitles: %w", hashErr)
+	}
+	if closeErr != nil {
+		return "", fmt.Errorf("close after the OpenSubtitles hash: %w", closeErr)
+	}
+	return hashed, nil
 }
 
 func (walk *walk) identity(place location, size int64) (nodeproto.Identity, error) {

@@ -25,11 +25,12 @@ ORDER BY id;
 -- name: InsertFile :one
 INSERT INTO file (
   library_id, node_id, path, path_raw, path_key, size_bytes, mtime_ms, payload_hash, payload_bytes,
-  filing, filing_reason, error_detail, probe, first_seen_at, last_seen_at
+  filing, filing_reason, error_detail, probe, first_seen_at, last_seen_at, opensubtitles_hash
 ) VALUES (
   sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(path_raw), sqlc.arg(path_key), sqlc.arg(size_bytes),
   sqlc.arg(mtime_ms), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), sqlc.arg(filing),
-  sqlc.arg(filing_reason), sqlc.arg(error_detail), sqlc.arg(probe), sqlc.arg(seen_at), sqlc.arg(seen_at)
+  sqlc.arg(filing_reason), sqlc.arg(error_detail), sqlc.arg(probe), sqlc.arg(seen_at), sqlc.arg(seen_at),
+  sqlc.narg(opensubtitles_hash)
 )
 RETURNING id;
 
@@ -51,6 +52,7 @@ UPDATE file SET
                   ELSE filing_reason END,
   error_detail = NULL,
   probe = sqlc.arg(probe),
+  opensubtitles_hash = sqlc.narg(opensubtitles_hash),
   last_seen_at = sqlc.arg(seen_at)
 WHERE id = sqlc.arg(id);
 
@@ -205,3 +207,12 @@ WHERE id = sqlc.arg(id);
 -- name: GetFilePath :one
 -- A file's path, removed or not, to name it where it was worked on (the System page, D225).
 SELECT path FROM file WHERE id = ?;
+
+-- name: GetFileForSubtitleSearch :one
+-- A live video, what finds subtitles made for it (D224 section 3): its OpenSubtitles hash, and the
+-- title it is a version of, if it is identified.
+SELECT f.id, f.opensubtitles_hash, v.title_id, t.kind AS title_kind
+FROM file f
+LEFT JOIN version v ON v.id = f.version_id AND v.removed_at IS NULL
+LEFT JOIN title t ON t.id = v.title_id
+WHERE f.id = sqlc.arg(id) AND f.removed_at IS NULL;

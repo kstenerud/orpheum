@@ -53,7 +53,8 @@ func (database *Database) recordAppliedSteps(ctx context.Context, steps []Step, 
 	if applied < stepRecordVersion {
 		return nil
 	}
-	for _, step := range steps[:applied] {
+	// A database a newer release migrated has steps this binary does not carry; it records its own.
+	for _, step := range steps[:min(applied, len(steps))] {
 		_, err := database.writer.ExecContext(ctx,
 			"INSERT INTO schema_step (version, sha256) VALUES (?, ?) ON CONFLICT (version) DO NOTHING",
 			step.Version, step.Checksum)

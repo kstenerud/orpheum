@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -442,5 +443,34 @@ func TestIngest_WhatANodeReportsIsCleanWhereItEnters(t *testing.T) {
 	streams, err := world.database.Read().ListStreamsOfFile(t.Context(), file.ID)
 	if err != nil || len(streams) < 2 || streams[1].TitleRaw == nil || *streams[1].TitleRaw != "Commentary" {
 		t.Errorf("streams %+v, %v; want the track title clean", streams, err)
+	}
+}
+
+// D224 §3: a video's OpenSubtitles hash is kept, and only in the shape the provider gives it.
+func TestIngest_KeepsAVideosOpenSubtitlesHashOnlyInItsOwnShape(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	hashed := observed("hashed.mkv", "hashed")
+	hashed.Observed.OpenSubtitlesHash = "8e245d9679d31e12"
+	hostile := observed("hostile.mkv", "hostile")
+	hostile.Observed.OpenSubtitlesHash = "8e245d9679d31e12&moviehash_match=only"
+	world.scan([]nodeproto.Record{hashed, hostile}, true)
+	rows, err := world.database.Read().ListLiveFilesByNode(t.Context(), world.nodeID)
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("files %+v, %v", rows, err)
+	}
+	for _, row := range rows {
+		file, err := world.database.Read().GetFileForSubtitleSearch(t.Context(), row.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := ptr.ValueOrZero(file.OpensubtitlesHash)
+		want := ""
+		if strings.HasSuffix(row.Path, "/hashed.mkv") {
+			want = "8e245d9679d31e12"
+		}
+		if got != want {
+			t.Errorf("%s keeps the hash %q, want %q", row.Path, got, want)
+		}
 	}
 }
