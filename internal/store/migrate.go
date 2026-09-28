@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 )
 
 // SchemaState is what a database file says about its schema: the version it is at, and the
@@ -195,16 +197,17 @@ func (database *Database) requireSpaceToMigrate(ctx context.Context, directory s
 	if factor < 1 {
 		return fmt.Errorf("the migration space factor is %d; it must be at least 1", factor)
 	}
-	size, err := database.sizeBytes(ctx)
+	size, err := database.SizeBytes(ctx)
 	if err != nil {
 		return err
 	}
 	needed := uint64(factor) * size
 	for _, where := range []string{directory, filepath.Dir(database.path)} {
-		available, measureErr := availableBytes(where)
+		space, measureErr := diskspace.Measure(where)
 		if measureErr != nil {
 			return fmt.Errorf("measure free space in %s: %w", where, measureErr)
 		}
+		available := uint64(space.FreeBytes) //nolint:gosec // never negative
 		if available < needed {
 			return fmt.Errorf("not enough free space to migrate safely: %s has %d bytes free, and the snapshot plus "+
 				"a rebuild may need %d (%d times the %d-byte database); nothing was changed",
@@ -214,7 +217,8 @@ func (database *Database) requireSpaceToMigrate(ctx context.Context, directory s
 	return nil
 }
 
-func (database *Database) sizeBytes(ctx context.Context) (uint64, error) {
+// SizeBytes is how large the database is: its pages, not counting the write-ahead log.
+func (database *Database) SizeBytes(ctx context.Context) (uint64, error) {
 	var pages, pageSize int64
 	if err := database.readers.QueryRowContext(ctx, "PRAGMA page_count").Scan(&pages); err != nil {
 		return 0, fmt.Errorf("read page_count: %w", err)

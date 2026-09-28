@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 )
 
 // Budget is what the prepared directory may hold (D217 §5).
@@ -240,13 +240,9 @@ func treeBytes(root string) (int64, error) {
 
 // filesystemPercent is how full, as a whole percent, the filesystem holding path is.
 func filesystemPercent(path string) (int, error) {
-	var filesystem syscall.Statfs_t
-	if err := syscall.Statfs(path, &filesystem); err != nil {
-		return 0, fmt.Errorf("statfs %s: %w", path, err)
+	space, err := diskspace.Measure(path)
+	if err != nil {
+		return 0, err
 	}
-	if filesystem.Blocks == 0 {
-		return 0, nil
-	}
-	used := filesystem.Blocks - filesystem.Bavail
-	return int(used * 100 / filesystem.Blocks), nil //nolint:gosec // a percentage fits
+	return space.UsedPercent(), nil
 }

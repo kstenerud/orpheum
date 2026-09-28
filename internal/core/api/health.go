@@ -19,6 +19,9 @@ type HealthOutput struct {
 	}
 }
 
+// tagRunningIt groups what an admin runs the server with: health, doctor, the System page.
+const tagRunningIt = "Running it"
+
 func (server *Server) registerHealth() {
 	huma.Register(server.api, huma.Operation{
 		OperationID: "getHealth",
@@ -27,7 +30,7 @@ func (server *Server) registerHealth() {
 		Summary:     "Whether the server is starting, migrating, ready or degraded",
 		Description: "Unauthenticated. Starting and migrating answer 200 so a container manager does not kill a " +
 			"busy server; degraded answers 503 with its reasons.",
-		Tags: []string{"Running it"},
+		Tags: []string{tagRunningIt},
 	}, func(context.Context, *struct{}) (*HealthOutput, error) {
 		status, detail, reasons := server.currentHealth()
 		output := &HealthOutput{Status: http.StatusOK}
