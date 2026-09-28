@@ -4,10 +4,13 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/identify/tmdb"
+	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
@@ -129,5 +132,15 @@ func TestShimIfAsked_OnlyTheShimsArgumentMakesThisProcessTheShim(t *testing.T) {
 	status, isShim := shimIfAsked([]string{"orpheum", confine.ShimArgument, "not a spec"}, &stderr)
 	if !isShim || status != exitFailure || !strings.Contains(stderr.String(), "read a confined run") {
 		t.Errorf("a bad spec: %d, %v, %q; want the shim to fail and say why", status, isShim, stderr.String())
+	}
+}
+
+func TestReleaseWiring_ReachesTheProvidersRealAddresses(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	outside := releaseWiring(config, io.Discard)
+	if outside.tmdbBaseURL != tmdb.BaseURL || outside.tmdbImagesBaseURL != tmdb.ImageBaseURL ||
+		outside.openSubtitlesBaseURL != opensubtitles.BaseURL || outside.startNode == nil {
+		t.Errorf("a release is wired to %+v; want TMDB's and OpenSubtitles' real addresses and its node", outside)
 	}
 }

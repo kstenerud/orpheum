@@ -33,6 +33,14 @@ const (
 	KindBackup                 Kind = "backup"
 )
 
+// Kinds are every kind of job, as the job view documents them: the one list, which the API's
+// description of a job is made from.
+func Kinds() []Kind {
+	return []Kind{
+		KindFetch, KindArtwork, KindPrepare, KindExtractSubtitle, KindConvertFetchedSubtitle, KindScan, KindBackup,
+	}
+}
+
 // The states a job moves through.
 const (
 	stateDone   = "done"
