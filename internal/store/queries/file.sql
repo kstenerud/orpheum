@@ -201,3 +201,7 @@ VALUES (sqlc.arg(bytes_file), sqlc.arg(video_file), NULL, 'subtitle', sqlc.arg(c
 UPDATE stream SET video_file = sqlc.arg(video_file), codec = sqlc.arg(codec), lang_raw = sqlc.arg(lang_raw),
   lang = sqlc.arg(lang), disposition = sqlc.arg(disposition)
 WHERE id = sqlc.arg(id);
+
+-- name: GetFilePath :one
+-- A file's path, removed or not, to name it where it was worked on (the System page, D225).
+SELECT path FROM file WHERE id = ?;

@@ -93,7 +93,8 @@ func newHarness(t *testing.T) testHarness {
 	providers := identify.Providers{"tmdb": provider}
 	pass := identify.NewPass(database, now, slog.New(slog.DiscardHandler), providers, seeded)
 	matcher := identify.NewMatcher(database, cache, pass, now, slog.New(slog.DiscardHandler))
-	art, err := datadir.Prepare(t.TempDir(), t.TempDir())
+	stateDirectory, cacheDirectory := t.TempDir(), t.TempDir()
+	art, err := datadir.Prepare(stateDirectory, cacheDirectory)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,6 +118,10 @@ func newHarness(t *testing.T) testHarness {
 		NodeBytes:   nodeBytes,
 		Jobs:        queue,
 		NodeReports: nodes,
+		System: System{
+			Version: "0.3.0", StartedAt: now.Now(), StateDirectory: stateDirectory, CacheDirectory: cacheDirectory,
+			Library: database, Cache: cache,
+		},
 		ConfigFile: []ConfigFileKey{{
 			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), StartingValue: json.RawMessage("10"),
 			IsFromFile: false, Description: "seconds in-flight requests get to finish",

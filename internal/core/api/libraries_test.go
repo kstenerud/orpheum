@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -20,8 +22,12 @@ type fakeNodes struct {
 	queued []nodeproto.Command
 	// confinement is what the connected node said about its FFmpeg's confinement.
 	confinement []nodeproto.Confinement
+	// hardware is what its hello said about hardware encoding.
+	hardware nodeproto.Hardware
 	// prepared is what its last status said its prepared directory holds, when it said.
 	prepared *nodeproto.PreparedUsage
+	// disks are what its last status said of its disks.
+	disks []nodeproto.Disk
 	// commanded, when set, also receives each command, for a test that waits on one.
 	commanded chan nodeproto.Command
 }
@@ -33,18 +39,22 @@ func (nodes *fakeNodes) Roots(name string) (int64, []string, bool) {
 	return 1, nodes.roots, true
 }
 
-func (nodes *fakeNodes) Confinement(name string) ([]nodeproto.Confinement, bool) {
+// Facts are what node 1 said: its hello, and a status once it said anything a status carries.
+func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 	if name != "local" || nodes.roots == nil {
-		return nil, false
+		return corenodes.Facts{}, false
 	}
-	return nodes.confinement, true
-}
-
-func (nodes *fakeNodes) PreparedUsage(name string) (nodeproto.PreparedUsage, bool) {
-	if name != "local" || nodes.prepared == nil {
-		return nodeproto.PreparedUsage{}, false
+	facts := corenodes.Facts{
+		NodeID: 1, LastHeard: time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC),
+		Hello: nodeproto.Hello{
+			Name: "local", Version: "0.3.0", Platform: "linux/amd64", FFmpegVersion: "ffmpeg version 7.1",
+			Roots: nodes.roots, Confinement: nodes.confinement, Hardware: nodes.hardware, UID: 1000, GID: 1000,
+		},
 	}
-	return *nodes.prepared, true
+	if nodes.prepared != nil || nodes.disks != nil {
+		facts.Status = &nodeproto.Status{Doing: "idle", Prepared: nodes.prepared, Disks: nodes.disks}
+	}
+	return facts, true
 }
 
 func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
@@ -195,13 +205,9 @@ func TestNodes_AnAdminSeesEachNodeAndTheRootsItConfigured(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	storetest.ExecRaw(t, harness.database, "INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)")
 	harness.connectNode(t, "/media/films", "/media/shows")
-	harness.nodes.confinement = []nodeproto.Confinement{
-		{Mechanism: "landlock", InForce: true}, {Mechanism: "seccomp", InForce: true},
-	}
 	listed := harness.do(t, http.MethodGet, "/nodes", admin, nil)
-	want := `{"nodes":[{"name":"attic","isConnected":false,"roots":[],"confinement":[]},` +
-		`{"name":"local","isConnected":true,"roots":["/media/films","/media/shows"],"confinement":[` +
-		`{"mechanism":"landlock","isInForce":true},{"mechanism":"seccomp","isInForce":true}]}]}`
+	want := `{"nodes":[{"name":"attic","isConnected":false,"roots":[]},` +
+		`{"name":"local","isConnected":true,"roots":["/media/films","/media/shows"]}]}`
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, want) {
 		t.Errorf("GET /nodes = %d %s", listed.status, listed.body)
 	}

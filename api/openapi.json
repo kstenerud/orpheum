@@ -483,6 +483,27 @@
         ],
         "type": "object"
       },
+      "DatabaseBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "enum": [
+              "library.db",
+              "cache.db"
+            ],
+            "type": "string"
+          },
+          "sizeBytes": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "sizeBytes"
+        ],
+        "type": "object"
+      },
       "DeviceBody": {
         "additionalProperties": false,
         "properties": {
@@ -573,6 +594,33 @@
         ],
         "type": "object"
       },
+      "DiskBody": {
+        "additionalProperties": false,
+        "properties": {
+          "failure": {
+            "description": "Why it could not be measured; the sizes are zero then",
+            "type": "string"
+          },
+          "freeBytes": {
+            "description": "What a user who is not root may still write",
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          },
+          "totalBytes": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "totalBytes",
+          "freeBytes"
+        ],
+        "type": "object"
+      },
       "DoctorOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -588,6 +636,25 @@
         },
         "required": [
           "findings"
+        ],
+        "type": "object"
+      },
+      "EncoderTrialBody": {
+        "additionalProperties": false,
+        "properties": {
+          "encoder": {
+            "enum": [
+              "h264_qsv",
+              "h264_nvenc"
+            ],
+            "type": "string"
+          },
+          "failure": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "encoder"
         ],
         "type": "object"
       },
@@ -939,6 +1006,117 @@
           "check",
           "verdict",
           "detail"
+        ],
+        "type": "object"
+      },
+      "FinishedPrepareBody": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "fileId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "finishedAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "path": {
+            "description": "Empty when the library no longer has the file",
+            "type": "string"
+          },
+          "profile": {
+            "enum": [
+              "remux",
+              "h264-8m"
+            ],
+            "type": "string"
+          },
+          "sizeBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "speed": {
+            "description": "Seconds of the source prepared per second of running",
+            "format": "double",
+            "type": "number"
+          },
+          "state": {
+            "enum": [
+              "complete",
+              "failed"
+            ],
+            "type": "string"
+          },
+          "videoEncoder": {
+            "description": "h264_qsv, h264_nvenc, x264, or copy for a remux",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileId",
+          "path",
+          "profile",
+          "state",
+          "finishedAt"
+        ],
+        "type": "object"
+      },
+      "GPUBody": {
+        "additionalProperties": false,
+        "properties": {
+          "device": {
+            "type": "string"
+          },
+          "driver": {
+            "type": "string"
+          },
+          "noAccess": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "device"
+        ],
+        "type": "object"
+      },
+      "HardwareBody": {
+        "additionalProperties": false,
+        "properties": {
+          "encoder": {
+            "enum": [
+              "h264_qsv",
+              "h264_nvenc",
+              "x264"
+            ],
+            "type": "string"
+          },
+          "gpus": {
+            "items": {
+              "$ref": "#/components/schemas/GPUBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "trials": {
+            "items": {
+              "$ref": "#/components/schemas/EncoderTrialBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "gpus",
+          "trials",
+          "encoder"
         ],
         "type": "object"
       },
@@ -1548,15 +1726,6 @@
       "NodeBody": {
         "additionalProperties": false,
         "properties": {
-          "confinement": {
-            "items": {
-              "$ref": "#/components/schemas/ConfinementBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
           "isConnected": {
             "description": "Whether it has said hello since the server started",
             "type": "boolean"
@@ -1578,8 +1747,7 @@
         "required": [
           "name",
           "isConnected",
-          "roots",
-          "confinement"
+          "roots"
         ],
         "type": "object"
       },
@@ -1614,6 +1782,34 @@
         "required": [
           "account",
           "watched"
+        ],
+        "type": "object"
+      },
+      "PreparedBody": {
+        "additionalProperties": false,
+        "properties": {
+          "budgetBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "bytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "diskLimitPercent": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "diskPercent": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bytes",
+          "budgetBytes",
+          "diskPercent",
+          "diskLimitPercent"
         ],
         "type": "object"
       },
@@ -1907,6 +2103,53 @@
         },
         "required": [
           "secrets"
+        ],
+        "type": "object"
+      },
+      "ServerBody": {
+        "additionalProperties": false,
+        "properties": {
+          "databases": {
+            "items": {
+              "$ref": "#/components/schemas/DatabaseBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "disks": {
+            "items": {
+              "$ref": "#/components/schemas/DiskBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "goVersion": {
+            "type": "string"
+          },
+          "platform": {
+            "description": "Operating system and architecture, as Go names them",
+            "type": "string"
+          },
+          "startedAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "platform",
+          "goVersion",
+          "startedAt",
+          "disks",
+          "databases"
         ],
         "type": "object"
       },
@@ -2329,6 +2572,118 @@
           "isHearingImpaired",
           "assUrl",
           "vttUrl"
+        ],
+        "type": "object"
+      },
+      "SystemNodeBody": {
+        "additionalProperties": false,
+        "properties": {
+          "confinement": {
+            "items": {
+              "$ref": "#/components/schemas/ConfinementBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "disks": {
+            "items": {
+              "$ref": "#/components/schemas/DiskBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "ffmpegHash": {
+            "type": "string"
+          },
+          "ffmpegVersion": {
+            "type": "string"
+          },
+          "gid": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "hardware": {
+            "$ref": "#/components/schemas/HardwareBody"
+          },
+          "isConnected": {
+            "description": "Whether it has said hello since the server started",
+            "type": "boolean"
+          },
+          "lastHeardAt": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "prepared": {
+            "$ref": "#/components/schemas/PreparedBody"
+          },
+          "recentPrepares": {
+            "items": {
+              "$ref": "#/components/schemas/FinishedPrepareBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "uid": {
+            "description": "The user the node runs as",
+            "format": "int64",
+            "type": "integer"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "isConnected",
+          "uid",
+          "gid",
+          "confinement",
+          "disks",
+          "recentPrepares"
+        ],
+        "type": "object"
+      },
+      "SystemOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/SystemNodeBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "server": {
+            "$ref": "#/components/schemas/ServerBody"
+          }
+        },
+        "required": [
+          "server",
+          "findings",
+          "nodes"
         ],
         "type": "object"
       },
@@ -5606,6 +5961,48 @@
         "summary": "Create the first admin with the one-time setup code from the log",
         "tags": [
           "Setup and auth"
+        ]
+      }
+    },
+    "/system": {
+      "get": {
+        "operationId": "getSystem",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Every fact about the server and each node, with doctor's findings: the System page (admin; D225)",
+        "tags": [
+          "Running it"
         ]
       }
     },

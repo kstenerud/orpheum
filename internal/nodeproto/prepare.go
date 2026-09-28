@@ -85,4 +85,10 @@ type PrepareReport struct {
 	SizeBytes int64 `json:"sizeBytes,omitempty"`
 	// Error is FFmpeg's exit and the tail of its stderr, or why the node refused.
 	Error string `json:"error,omitempty"`
+	// VideoEncoder is what made the video once done: h264_qsv, h264_nvenc, x264, or copy for a
+	// remux (D225 §3).
+	VideoEncoder string `json:"videoEncoder,omitempty"`
+	// Speed is seconds of the source prepared per second of running, as FFmpeg last said, once
+	// done; zero when it never said.
+	Speed float64 `json:"speed,omitempty"`
 }

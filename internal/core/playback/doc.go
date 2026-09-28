@@ -67,6 +67,8 @@
 //     TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntilExtracted,
 //     TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain and
 //     TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed.
+//   - A rendition the node finished records what made its video and how fast, as the node said
+//     (D225 §3). TestFinish_RecordsWhatMadeTheVideoAndHowFast.
 //
 // # Read before changing
 //
@@ -78,6 +80,7 @@
 //   - D81: play state is an append-only event log plus a guarded position.
 //   - D191: signed-in Watch Together viewing is also recorded.
 //   - D83, D222: the dialogue boost is a person's; a device's sound decides whether we fold it down.
+//   - D225: a finished rendition records what made its video and how fast, for the System page.
 //   - docs/contributors/design/plans/play-state.md, docs/contributors/design/plans/cut-a.md §6.
 //
 // # Where to change
@@ -88,5 +91,5 @@
 //     playback offers, their extraction jobs and their text. waiting.go: jobs waiting for a node's
 //     answer. report.go: the play report, its log and the guarded position. resume.go: where a
 //     playback starts. hide.go: hiding a work from Continue Watching, which library's home.go
-//     lists. Next Up comes after M3.
+//     lists. finished.go: a node's finished prepares, for the System page. Next Up comes after M3.
 package playback

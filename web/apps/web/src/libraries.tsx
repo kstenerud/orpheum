@@ -9,7 +9,6 @@ import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
-import { NodeConfinement } from "./node-confinement.tsx";
 import { CreateLibrary } from "./create-library.tsx";
 
 /** A library, as an admin sees it. */
@@ -183,7 +182,6 @@ export function Libraries(): JSX.Element {
         }
       />
       <CreateLibrary onCreated={reload} />
-      <NodeConfinement />
     </section>
   );
 }

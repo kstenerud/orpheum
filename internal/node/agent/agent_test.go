@@ -325,3 +325,23 @@ func TestStatus_CarriesWhatThePreparedDirectoryHolds(t *testing.T) {
 		t.Errorf("the status's prepared usage = %+v, want %+v (D217 §5)", got, want)
 	}
 }
+
+func TestStatus_CarriesTheDisksOfTheRootsAndThePreparedDirectory(t *testing.T) {
+	t.Parallel()
+	root, err := confine.OpenMediaRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = root.Close() }) //nolint:errcheck // test teardown
+	gone := filepath.Join(t.TempDir(), "gone")
+	node := New("/nowhere", nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{root},
+		Workers{PreparedDirectory: gone},
+		clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	disks := node.status().Status.Disks
+	if len(disks) != 2 || disks[0].Path != root.Path() || disks[0].TotalBytes <= 0 || disks[0].Failure != "" {
+		t.Fatalf("the status's disks = %+v; want the root's measured, then the prepared directory's (D225)", disks)
+	}
+	if disks[1].Path != gone || disks[1].Failure == "" {
+		t.Errorf("a prepared directory that cannot be measured = %+v; want why", disks[1])
+	}
+}

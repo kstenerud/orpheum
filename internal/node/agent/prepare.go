@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -20,7 +21,7 @@ import (
 type Preparer interface {
 	Prepare(
 		ctx context.Context, input string, command nodeproto.Prepare, progress func(preparedMs int64),
-	) (int64, error)
+	) (prepare.Made, error)
 }
 
 // progressEvery is how often a running prepare tells the core how far it is.
@@ -142,11 +143,14 @@ func (agent *Agent) runPrepare(
 			}
 		}
 	}
-	size, err := agent.workers.Preparer.Prepare(ctx, input, command, progress)
+	made, err := agent.workers.Preparer.Prepare(ctx, input, command, progress)
 	if err != nil {
 		return failed(err)
 	}
-	return nodeproto.PrepareReport{Job: command.Job, State: nodeproto.PrepareDone, SizeBytes: size}
+	return nodeproto.PrepareReport{
+		Job: command.Job, State: nodeproto.PrepareDone, SizeBytes: made.SizeBytes, VideoEncoder: made.VideoEncoder,
+		Speed: made.Speed,
+	}
 }
 
 // verifiedSource is the absolute path of the file source names, once it is under one of the

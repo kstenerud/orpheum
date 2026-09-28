@@ -72,3 +72,23 @@ test("an MKV with H.264, TrueHD and ASS plays within 8 s of pressing play, with 
   await expect(reason).toContainText("Playing a copy prepared for this browser");
   await expect(reason).toContainText("the browser cannot decode its sound");
 });
+
+test("the System page shows the machine's hardware encoding and what the timed film's prepare used", async ({
+  page,
+  browserName,
+}) => {
+  await signIn(page);
+  await page.goto(`${address()}/system`);
+  await expect(page.getByRole("heading", { name: "Hardware encoding" })).toBeVisible();
+  await expect(
+    page.getByText(/encoded on the GPU|encoded on the processor/u).first(),
+  ).toBeVisible();
+  // The timed film's video was copied: only its TrueHD was made into something a browser plays.
+  // Its prepare is listed once it has finished, which may be after the page first loads.
+  const row = page.getByRole("row", { name: new RegExp(timingFilm(browserName)) });
+  await expect(async () => {
+    await page.reload();
+    await expect(row).toContainText("copied, not encoded", { timeout: 1000 });
+  }).toPass({ timeout: 90_000 });
+  await expect(row).toContainText("× real time");
+});

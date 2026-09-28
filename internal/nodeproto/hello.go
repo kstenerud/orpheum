@@ -26,6 +26,38 @@ type Hello struct {
 	Confinement []Confinement `json:"confinement"`
 	UID         int           `json:"uid"`
 	GID         int           `json:"gid"`
+	// Platform is the node's operating system and architecture, as Go names them: "linux/amd64".
+	Platform string `json:"platform"`
+	// Hardware is what the node found for hardware encoding (D225 §3).
+	Hardware Hardware `json:"hardware"`
+}
+
+// Hardware is what a node found for hardware encoding: the GPU devices it sees, whether it may
+// open them, each hardware encoder's trial and the encoder it chose (D225 §3).
+type Hardware struct {
+	GPUs []GPU `json:"gpus"`
+	// Trials are the hardware encoders tried at startup, confined as a prepare is, in order.
+	Trials []EncoderTrial `json:"trials"`
+	// Encoder is the encoder its encodes use: h264_qsv, h264_nvenc or x264.
+	Encoder string `json:"encoder"`
+}
+
+// GPU is one GPU device node the node found.
+type GPU struct {
+	// Device is its path: /dev/dri/renderD128, /dev/nvidia0.
+	Device string `json:"device"`
+	// Driver is the kernel driver behind it (i915, xe, amdgpu, nvidia), empty when unknown.
+	Driver string `json:"driver,omitempty"`
+	// NoAccess is why the node's user may not open it for reading and writing, in the system's
+	// words; empty when it may.
+	NoAccess string `json:"noAccess,omitempty"`
+}
+
+// EncoderTrial is one hardware encoder's trial: it encoded a second of test picture, or Failure
+// says why not, in FFmpeg's words.
+type EncoderTrial struct {
+	Encoder string `json:"encoder"`
+	Failure string `json:"failure,omitempty"`
 }
 
 // Confinement is one mechanism's state on the node: in force, or not and why (cut-a §7).

@@ -409,3 +409,40 @@ func TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain(t *testing.T) {
 		t.Errorf("the rebuilt cache holds %d jobs (%v); the old file's job should be gone", len(jobs), err)
 	}
 }
+
+func TestServe_TheSystemPageShowsTheServersVersionDirectoriesAndDatabases(t *testing.T) {
+	t.Parallel()
+	config, path := testConfig(t)
+	server := startServing(t, config, newCapturedLog("ready"), "ready")
+	code := runCommand(t, "setup-code", "--config", path)
+	created := call(t, http.MethodPost, server.baseURL+"/setup", "",
+		map[string]string{"setupCode": strings.TrimSpace(code.stdout), "name": "owner", "password": "pw"})
+	if created.status != http.StatusCreated {
+		t.Fatalf("setup: %d %s", created.status, created.body)
+	}
+	session := call(t, http.MethodPost, server.baseURL+"/session", "",
+		map[string]any{"name": "owner", "password": "pw", "device": signInDevice})
+	var signedIn struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal([]byte(session.body), &signedIn); err != nil || signedIn.Token == "" {
+		t.Fatalf("sign in: %d %s", session.status, session.body)
+	}
+	system := call(t, http.MethodGet, server.baseURL+"/system", signedIn.Token, nil)
+	var page struct {
+		Server api.ServerBody `json:"server"`
+	}
+	if err := json.Unmarshal([]byte(system.body), &page); err != nil {
+		t.Fatalf("/system: %d %s", system.status, system.body)
+	}
+	facts := page.Server
+	if facts.Version != version || len(facts.Disks) != 2 || facts.Disks[0].Path != config.Server.DataDir ||
+		facts.Disks[1].Path != config.Server.CacheDir || facts.Disks[0].TotalBytes <= 0 ||
+		len(facts.Databases) != 2 || facts.Databases[0].SizeBytes <= 0 || facts.StartedAt <= 0 {
+		t.Errorf("the System page's server = %+v; want this build, its data and cache disks, and both databases "+
+			"(D225)", facts)
+	}
+	if err := server.stop(); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -11,7 +11,7 @@ import (
 
 const getRendition = `-- name: GetRendition :one
 
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?
 `
 
@@ -38,6 +38,8 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 		&i.PreparedMs,
 		&i.SizeBytes,
 		&i.Error,
+		&i.VideoEncoder,
+		&i.Speed,
 		&i.CreatedAt,
 		&i.FinishedAt,
 	)
@@ -45,7 +47,7 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 }
 
 const getRenditionByID = `-- name: GetRenditionByID :one
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, created_at, finished_at
 FROM prepared_rendition WHERE id = ?
 `
 
@@ -64,6 +66,8 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 		&i.PreparedMs,
 		&i.SizeBytes,
 		&i.Error,
+		&i.VideoEncoder,
+		&i.Speed,
 		&i.CreatedAt,
 		&i.FinishedAt,
 	)
@@ -101,10 +105,69 @@ func (q *Queries) InsertRendition(ctx context.Context, arg InsertRenditionParams
 	return id, err
 }
 
+const listFinishedRenditions = `-- name: ListFinishedRenditions :many
+SELECT id, source_file, profile, state, video_encoder, speed, size_bytes, error, finished_at
+FROM prepared_rendition
+WHERE node_id = ? AND finished_at IS NOT NULL
+ORDER BY finished_at DESC, id DESC
+LIMIT ?
+`
+
+type ListFinishedRenditionsParams struct {
+	NodeID int64
+	Limit  int64
+}
+
+type ListFinishedRenditionsRow struct {
+	ID           int64
+	SourceFile   int64
+	Profile      string
+	State        string
+	VideoEncoder *string
+	Speed        *float64
+	SizeBytes    *int64
+	Error        *string
+	FinishedAt   *int64
+}
+
+// A node's latest finished prepares, newest first, for the System page (D225).
+func (q *Queries) ListFinishedRenditions(ctx context.Context, arg ListFinishedRenditionsParams) ([]ListFinishedRenditionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFinishedRenditions, arg.NodeID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFinishedRenditionsRow{}
+	for rows.Next() {
+		var i ListFinishedRenditionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceFile,
+			&i.Profile,
+			&i.State,
+			&i.VideoEncoder,
+			&i.Speed,
+			&i.SizeBytes,
+			&i.Error,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const restartRendition = `-- name: RestartRendition :exec
 UPDATE prepared_rendition
 SET payload_hash = ?, node_id = ?, segment_length_s = ?, run_id = ?, state = 'queued', prepared_ms = 0, size_bytes = NULL, error = NULL,
-    finished_at = NULL
+    finished_at = NULL, video_encoder = NULL, speed = NULL
 WHERE id = ?
 `
 
@@ -129,17 +192,27 @@ func (q *Queries) RestartRendition(ctx context.Context, arg RestartRenditionPara
 }
 
 const setRenditionComplete = `-- name: SetRenditionComplete :exec
-UPDATE prepared_rendition SET state = 'complete', size_bytes = ?, finished_at = ? WHERE id = ?
+UPDATE prepared_rendition
+SET state = 'complete', size_bytes = ?, finished_at = ?, video_encoder = ?, speed = ?
+WHERE id = ?
 `
 
 type SetRenditionCompleteParams struct {
-	SizeBytes  *int64
-	FinishedAt *int64
-	ID         int64
+	SizeBytes    *int64
+	FinishedAt   *int64
+	VideoEncoder *string
+	Speed        *float64
+	ID           int64
 }
 
 func (q *Queries) SetRenditionComplete(ctx context.Context, arg SetRenditionCompleteParams) error {
-	_, err := q.db.ExecContext(ctx, setRenditionComplete, arg.SizeBytes, arg.FinishedAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, setRenditionComplete,
+		arg.SizeBytes,
+		arg.FinishedAt,
+		arg.VideoEncoder,
+		arg.Speed,
+		arg.ID,
+	)
 	return err
 }
 

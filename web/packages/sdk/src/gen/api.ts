@@ -868,6 +868,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every fact about the server and each node, with doctor's findings: the System page (admin; D225) */
+        get: operations["getSystem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/titles": {
         parameters: {
             query?: never;
@@ -1111,6 +1128,12 @@ export interface components {
             id: number;
             name: string;
         };
+        DatabaseBody: {
+            /** @enum {string} */
+            name: "library.db" | "cache.db";
+            /** Format: int64 */
+            sizeBytes: number;
+        };
         DeviceBody: {
             /**
              * Format: int64
@@ -1152,8 +1175,25 @@ export interface components {
         DevicesOutputBody: {
             devices: components["schemas"]["DeviceBody"][] | null;
         };
+        DiskBody: {
+            /** @description Why it could not be measured; the sizes are zero then */
+            failure?: string;
+            /**
+             * Format: int64
+             * @description What a user who is not root may still write
+             */
+            freeBytes: number;
+            path: string;
+            /** Format: int64 */
+            totalBytes: number;
+        };
         DoctorOutputBody: {
             findings: components["schemas"]["FindingBody"][] | null;
+        };
+        EncoderTrialBody: {
+            /** @enum {string} */
+            encoder: "h264_qsv" | "h264_nvenc";
+            failure?: string;
         };
         EntryBody: {
             /** Format: int64 */
@@ -1266,6 +1306,42 @@ export interface components {
             detail: string;
             /** @enum {string} */
             verdict: "ok" | "warn" | "fail";
+        };
+        FinishedPrepareBody: {
+            error?: string;
+            /** Format: int64 */
+            fileId: number;
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            finishedAt: number;
+            /** @description Empty when the library no longer has the file */
+            path: string;
+            /** @enum {string} */
+            profile: "remux" | "h264-8m";
+            /** Format: int64 */
+            sizeBytes?: number;
+            /**
+             * Format: double
+             * @description Seconds of the source prepared per second of running
+             */
+            speed?: number;
+            /** @enum {string} */
+            state: "complete" | "failed";
+            /** @description h264_qsv, h264_nvenc, x264, or copy for a remux */
+            videoEncoder?: string;
+        };
+        GPUBody: {
+            device: string;
+            driver?: string;
+            noAccess?: string;
+        };
+        HardwareBody: {
+            /** @enum {string} */
+            encoder: "h264_qsv" | "h264_nvenc" | "x264";
+            gpus: components["schemas"]["GPUBody"][] | null;
+            trials: components["schemas"]["EncoderTrialBody"][] | null;
         };
         HealthOutputBody: {
             detail?: string;
@@ -1439,7 +1515,6 @@ export interface components {
             resumeId?: number;
         };
         NodeBody: {
-            confinement: components["schemas"]["ConfinementBody"][] | null;
             /** @description Whether it has said hello since the server started */
             isConnected: boolean;
             name: string;
@@ -1452,6 +1527,16 @@ export interface components {
         PersonOutputBody: {
             account: components["schemas"]["AccountBody"];
             watched: components["schemas"]["WatchStatsBody"];
+        };
+        PreparedBody: {
+            /** Format: int64 */
+            budgetBytes: number;
+            /** Format: int64 */
+            bytes: number;
+            /** Format: int64 */
+            diskLimitPercent: number;
+            /** Format: int64 */
+            diskPercent: number;
         };
         PutOverrideInputBody: {
             /** @description The value; year and runtime (milliseconds) are whole numbers */
@@ -1530,6 +1615,19 @@ export interface components {
         };
         SecretsOutputBody: {
             secrets: components["schemas"]["SecretBody"][] | null;
+        };
+        ServerBody: {
+            databases: components["schemas"]["DatabaseBody"][] | null;
+            disks: components["schemas"]["DiskBody"][] | null;
+            goVersion: string;
+            /** @description Operating system and architecture, as Go names them */
+            platform: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            startedAt: number;
+            version: string;
         };
         SessionOutputBody: {
             token: string;
@@ -1663,6 +1761,34 @@ export interface components {
             title: string;
             /** @description The track as WebVTT */
             vttUrl: string;
+        };
+        SystemNodeBody: {
+            confinement: components["schemas"]["ConfinementBody"][] | null;
+            disks: components["schemas"]["DiskBody"][] | null;
+            ffmpegHash?: string;
+            ffmpegVersion?: string;
+            /** Format: int64 */
+            gid: number;
+            hardware?: components["schemas"]["HardwareBody"];
+            /** @description Whether it has said hello since the server started */
+            isConnected: boolean;
+            /** Format: int64 */
+            lastHeardAt?: number;
+            name: string;
+            platform?: string;
+            prepared?: components["schemas"]["PreparedBody"];
+            recentPrepares: components["schemas"]["FinishedPrepareBody"][] | null;
+            /**
+             * Format: int64
+             * @description The user the node runs as
+             */
+            uid: number;
+            version?: string;
+        };
+        SystemOutputBody: {
+            findings: components["schemas"]["FindingBody"][] | null;
+            nodes: components["schemas"]["SystemNodeBody"][] | null;
+            server: components["schemas"]["ServerBody"];
         };
         TitlesOutputBody: {
             /** @description Empty on the last page */
@@ -3819,6 +3945,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSystem: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemOutputBody"];
                 };
             };
             /** @description Error */

@@ -21,6 +21,7 @@ interface Destination {
     | "people"
     | "settings"
     | "jobs"
+    | "system"
     | "account"
     | "about";
   readonly isAdminOnly: boolean;
@@ -35,6 +36,7 @@ const destinations: readonly Destination[] = [
   { route: { screen: "people" }, label: "people", isAdminOnly: true },
   { route: { screen: "settings" }, label: "settings", isAdminOnly: true },
   { route: { screen: "jobs" }, label: "jobs", isAdminOnly: true },
+  { route: { screen: "system" }, label: "system", isAdminOnly: true },
   { route: { screen: "account" }, label: "account", isAdminOnly: false },
   { route: { screen: "about" }, label: "about", isAdminOnly: false },
 ];

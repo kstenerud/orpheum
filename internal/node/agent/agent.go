@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 )
 
 // nodeHeader names the node on every request after its hello; the core's nodes.NodeHeader.
@@ -53,6 +55,9 @@ type Workers struct {
 	Subtitles Subtitler
 	// Keeper keeps the prepared directory within its budget; nil on a node that does not prepare.
 	Keeper Keeper
+	// PreparedDirectory is where renditions are written, whose disk the status reports; empty on
+	// a node that does not prepare.
+	PreparedDirectory string
 }
 
 // Keeper keeps the prepared directory within its budget: prepared.Shelf (D217 §5).
@@ -324,9 +329,10 @@ func (agent *Agent) setDoing(doing string) {
 }
 
 func (agent *Agent) status() nodeproto.Record {
+	disks := agent.disks()
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
-	status := &nodeproto.Status{ClockMs: agent.clock.Now().UnixMilli(), Doing: agent.doing}
+	status := &nodeproto.Status{ClockMs: agent.clock.Now().UnixMilli(), Doing: agent.doing, Disks: disks}
 	if agent.workers.Keeper != nil {
 		if usage, known := agent.workers.Keeper.LastUsage(); known {
 			status.Prepared = &nodeproto.PreparedUsage{
@@ -336,6 +342,26 @@ func (agent *Agent) status() nodeproto.Record {
 		}
 	}
 	return nodeproto.Record{Type: nodeproto.RecordStatus, Status: status}
+}
+
+// disks are the filesystems the node's roots and prepared directory are on, each measured now
+// (D225 §3).
+func (agent *Agent) disks() []nodeproto.Disk {
+	paths := slices.Clone(agent.hello.Roots)
+	if agent.workers.PreparedDirectory != "" {
+		paths = append(paths, agent.workers.PreparedDirectory)
+	}
+	disks := make([]nodeproto.Disk, 0, len(paths))
+	for _, path := range paths {
+		disk := nodeproto.Disk{Path: path}
+		if space, err := diskspace.Measure(path); err != nil {
+			disk.Failure = err.Error()
+		} else {
+			disk.TotalBytes, disk.FreeBytes = space.TotalBytes, space.FreeBytes
+		}
+		disks = append(disks, disk)
+	}
+	return disks
 }
 
 // exchange makes one request and decodes its JSON answer.
