@@ -244,6 +244,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/files/{id}/subtitle-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The subtitles OpenSubtitles can give for a file, each unverified, and the downloads left (D224) */
+        get: operations["getSubtitleCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/files/{id}/subtitles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fetch a subtitle for a file; spends one of the account's daily downloads (D224) */
+        post: operations["postFileSubtitle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -971,6 +1005,13 @@ export interface components {
         AccountsOutputBody: {
             accounts: components["schemas"]["AccountBody"][] | null;
         };
+        AllowanceBody: {
+            /** Format: int64 */
+            allowed: number;
+            isVip: boolean;
+            /** Format: int64 */
+            remaining: number;
+        };
         ArtBody: {
             backdropHash?: string;
             posterHash?: string;
@@ -1240,6 +1281,25 @@ export interface components {
             kind: string;
             name: string;
         };
+        FetchSubtitleInputBody: {
+            language: string;
+            /** Format: int64 */
+            providerFileId: number;
+        };
+        FetchSubtitleOutputBody: {
+            /**
+             * Format: int64
+             * @description The new track; a playback started again offers it
+             */
+            fetchedId: number;
+            /** Format: int64 */
+            remaining: number;
+            /**
+             * Format: int64
+             * @description When the count starts again, Unix milliseconds
+             */
+            resetAt?: number;
+        };
         FileBody: {
             /** @description Owner, group, mode; the platform's words */
             errorDetail?: string;
@@ -1436,7 +1496,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             /** @enum {string} */
-            kind: "fetch" | "artwork" | "prepare" | "extract_subtitle" | "scan" | "backup";
+            kind: "fetch" | "artwork" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "scan" | "backup";
             lastError?: string;
             /** Format: double */
             progress?: number;
@@ -1723,18 +1783,52 @@ export interface components {
             language?: string;
             title?: string;
         };
+        SubtitleCandidateBody: {
+            /** Format: int64 */
+            downloads: number;
+            isHashMatch: boolean;
+            isHearingImpaired: boolean;
+            isMachineTranslated: boolean;
+            language: string;
+            /**
+             * Format: int64
+             * @description What POST /files/{id}/subtitles takes
+             */
+            providerFileId: number;
+            /** @description The uploader's name for what it was made for */
+            release: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds; absent when unknown
+             */
+            uploadedAt?: number;
+        };
+        SubtitleCandidatesOutputBody: {
+            allowance: components["schemas"]["AllowanceBody"];
+            candidates: components["schemas"]["SubtitleCandidateBody"][] | null;
+        };
         SubtitleChoiceBody: {
+            /**
+             * Format: int64
+             * @description The chosen track, a subtitle fetched for the file
+             */
+            fetchedId?: number;
             readonly isCarried?: boolean;
             isOff?: boolean;
             /**
              * Format: int64
-             * @description The chosen track; absent when off
+             * @description The chosen track, a stream of the file's; absent when off
              */
             streamId?: number;
         };
         SubtitleTrackBody: {
             /** @description The track as ASS, for JASSUB */
             assUrl: string;
+            /**
+             * Format: int64
+             * @description A subtitle fetched on request; unverified
+             */
+            fetchedId?: number;
             isDefault: boolean;
             isForced: boolean;
             isHearingImpaired: boolean;
@@ -1742,9 +1836,9 @@ export interface components {
             language: string;
             /**
              * Format: int64
-             * @description The track: one inside the file, or a subtitle file beside it
+             * @description A track inside the file, or a subtitle file beside it
              */
-            streamId: number;
+            streamId?: number;
             title: string;
             /** @description The track as WebVTT */
             vttUrl: string;
@@ -2053,7 +2147,7 @@ export interface operations {
                 Authorization?: string;
             };
             path: {
-                /** @description <streamId>.ass or <streamId>.vtt */
+                /** @description <streamId>.ass or <streamId>.vtt, or f<fetchedId>.ass or .vtt */
                 file: string;
                 /** @description The playback's media token */
                 token: string;
@@ -2420,6 +2514,81 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSubtitleCandidates: {
+        parameters: {
+            query: {
+                /** @description BCP 47: en, pt-BR */
+                lang: string;
+            };
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubtitleCandidatesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postFileSubtitle: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FetchSubtitleInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FetchSubtitleOutputBody"];
+                };
             };
             /** @description Error */
             default: {

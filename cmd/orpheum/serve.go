@@ -87,6 +87,8 @@ type wiring struct {
 	startNode         nodes.Starter
 	tmdbBaseURL       string
 	tmdbImagesBaseURL string
+	// openSubtitlesBaseURL is where OpenSubtitles answers (opensubtitles.BaseURL, or a test's fake).
+	openSubtitlesBaseURL string
 }
 
 // started is what start opened and serve must close.
@@ -145,7 +147,7 @@ func start(
 	}
 	if err == nil {
 		opened.settings, opened.secrets = dependencies.Settings, dependencies.Secrets
-		opened.metadata, err = newMetadata(ctx, opened, outside.tmdbBaseURL, logger)
+		opened.metadata, err = newMetadata(ctx, opened, outside, logger)
 	}
 	if err == nil {
 		opened.nodes = newNodeService(opened, logger)
@@ -162,7 +164,7 @@ func start(
 	dependencies.Playback = playback.NewService(playback.Parts{
 		Database: database, Cache: opened.cache, Queue: opened.metadata.queue, Nodes: opened.nodes,
 		Settings: opened.settings, Clock: clock.System{}, Random: rand.Reader, Logger: logger,
-		MaxSilence: prepareMaxSilence,
+		MaxSilence: prepareMaxSilence, Subtitler: opened.metadata.subtitler,
 	})
 	opened.metadata.playback = dependencies.Playback
 	opened.nodes.ReceivePrepare(dependencies.Playback)

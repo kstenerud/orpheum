@@ -35,6 +35,9 @@
 //     GPU and no hardware encoder works on it. TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor.
 //     Doctor warns when a node runs another build than the server's (D225 §5).
 //     TestBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer.
+//   - Why a subtitle could not be listed or fetched is said in OpenSubtitles' terms: no login, a
+//     refused login, or a spent quota with its reset time (D224).
+//     TestSubtitleCandidates_SayWhyInTheProvidersTerms.
 //   - A person with edit_metadata may refresh a title or series whenever they like (D213 §2).
 //     TestIdentification_APersonMayRefreshATitleWheneverTheyLike.
 //   - /health answers before the database is ready, and the rest answers "migrating" until then.

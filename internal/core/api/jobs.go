@@ -20,7 +20,7 @@ const jobViewLimit = 200
 // JobBody is one job as the job view shows it (cut-a §5.3).
 type JobBody struct {
 	ID      int64  `json:"id"`
-	Kind    string `enum:"fetch,artwork,prepare,extract_subtitle,scan,backup" json:"kind"`
+	Kind    string `enum:"fetch,artwork,prepare,extract_subtitle,convert_fetched_subtitle,scan,backup" json:"kind"`
 	Subject int64  `doc:"What it works on, by kind: an item, a rendition, a library, a stream" json:"subject"`
 	State   string `enum:"queued,running,done,failed,cancelled" json:"state"`
 	// Progress is how far it is, 0 to 1, absent when not known.

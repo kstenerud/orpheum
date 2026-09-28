@@ -23,8 +23,10 @@ type FilePrefsBody struct {
 
 // SubtitleChoiceBody is a subtitle choice for one file: a track in it, or off (D219).
 type SubtitleChoiceBody struct {
-	StreamID int64 `doc:"The chosen track; absent when off" json:"streamId,omitempty"`
-	IsOff    bool  `json:"isOff,omitempty"`
+	StreamID int64 `doc:"The chosen track, a stream of the file's; absent when off" json:"streamId,omitempty"`
+	// FetchedID is the chosen track when it is a subtitle fetched for the file (D224).
+	FetchedID int64 `doc:"The chosen track, a subtitle fetched for the file" json:"fetchedId,omitempty"`
+	IsOff     bool  `json:"isOff,omitempty"`
 	// IsCarried is a choice made in another file of the work and carried here.
 	IsCarried bool `json:"isCarried,omitempty" readOnly:"true"`
 }
@@ -57,7 +59,9 @@ func (server *Server) registerFilePrefs() {
 func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
 	body := FilePrefsBody{SubtitleOffsetMs: prefs.SubtitleOffsetMs, IsDialogueBoost: prefs.IsDialogueBoost}
 	if choice := prefs.Subtitle; choice != nil {
-		body.Subtitle = &SubtitleChoiceBody{StreamID: choice.StreamID, IsOff: choice.IsOff, IsCarried: choice.IsCarried}
+		body.Subtitle = &SubtitleChoiceBody{
+			StreamID: choice.StreamID, FetchedID: choice.FetchedID, IsOff: choice.IsOff, IsCarried: choice.IsCarried,
+		}
 	}
 	return body
 }
@@ -93,12 +97,18 @@ func (server *Server) setFilePrefs(ctx context.Context, input *SetFilePrefsInput
 		err = dependencies.Playback.SetSubtitleOffset(ctx, principal.UserID, input.FileID, *offset)
 	}
 	if choice := input.Body.Subtitle; err == nil && choice != nil {
-		if choice.IsOff == (choice.StreamID != 0) {
+		named := 0
+		for _, isNamed := range []bool{choice.IsOff, choice.StreamID != 0, choice.FetchedID != 0} {
+			if isNamed {
+				named++
+			}
+		}
+		if named != 1 {
 			return nil, newError(http.StatusBadRequest, CodeInvalidRequest,
-				"a subtitle choice is a track or off, not both")
+				"a subtitle choice is one track, a stream or a fetched one, or off")
 		}
 		err = dependencies.Playback.ChooseSubtitle(ctx, principal.UserID, input.FileID, playback.SubtitleChoice{
-			StreamID: choice.StreamID, IsOff: choice.IsOff,
+			TrackRef: playback.TrackRef{StreamID: choice.StreamID, FetchedID: choice.FetchedID}, IsOff: choice.IsOff,
 		})
 	}
 	switch {

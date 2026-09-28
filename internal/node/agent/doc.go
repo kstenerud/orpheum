@@ -28,6 +28,8 @@
 //   - A subtitle is extracted only from the video or sidecar the core named, under one of the
 //     node's roots, whose payload hash is still the one named (D100, D217 §6). One extraction runs
 //     at once. TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
+//     A fetched subtitle's text, which the command carries, is converted as a sidecar is (D224 §5).
+//     TestAgent_ConvertsAFetchedSubtitlesTextAndRefusesItBesideAFile.
 //   - A cancel is carried out as it arrives, not queued behind other work: it stops the job's
 //     FFmpeg, frees its slot, and nothing more is reported for the job; a job cancelled before it
 //     started starts cancelled (cut-a §5.3).

@@ -13,6 +13,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -32,11 +33,13 @@ type metadata struct {
 	artwork   *artwork.Service
 	// playback runs the prepare jobs, which share the one queue (cut-a §5.3).
 	playback *playback.Service
+	// subtitler fetches subtitles on request (D224).
+	subtitler *opensubtitles.Client
 }
 
 // newMetadata builds the providers, the pass and the queue, and returns the jobs a crash left
 // running to the queue.
-func newMetadata(ctx context.Context, opened started, tmdbBaseURL string, logger *slog.Logger) (metadata, error) {
+func newMetadata(ctx context.Context, opened started, outside wiring, logger *slog.Logger) (metadata, error) {
 	providerTimeoutSeconds, err := opened.settings.Int(ctx, settings.ProviderTimeoutS)
 	if err != nil {
 		return metadata{}, err
@@ -45,7 +48,11 @@ func newMetadata(ctx context.Context, opened started, tmdbBaseURL string, logger
 	if err != nil {
 		return metadata{}, err
 	}
-	providers := identify.Providers{"tmdb": tmdb.New(httpClient, tmdbBaseURL, opened.secrets)}
+	providers := identify.Providers{"tmdb": tmdb.New(httpClient, outside.tmdbBaseURL, opened.secrets)}
+	subtitler, err := opensubtitles.New(httpClient, outside.openSubtitlesBaseURL, opened.secrets, clock.System{})
+	if err != nil {
+		return metadata{}, err
+	}
 	queue := jobs.NewQueue(opened.cache, clock.System{}, opened.settings, logger)
 	requeued, err := queue.RequeueRunning(ctx)
 	if err != nil {
@@ -61,7 +68,7 @@ func newMetadata(ctx context.Context, opened started, tmdbBaseURL string, logger
 	pass.AfterPass(func(ctx context.Context, report identify.Report) { queueMatches(ctx, queue, report, logger) })
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return metadata{
-		pass: pass, queue: queue, matcher: matcher, settings: opened.settings,
+		pass: pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
 		chooser:   identify.NewChooser(matcher, pass),
 		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
 	}, nil
@@ -84,6 +91,7 @@ func (fetching metadata) runners() jobRunners {
 		{jobs.KindArtwork, fetching.artwork.Handle, artwork.RetrySchedule(), 1},
 		{jobs.KindPrepare, fetching.playback.HandlePrepare, nil, nodeproto.EncodeSlots + nodeproto.RemuxSlots},
 		{jobs.KindExtractSubtitle, fetching.playback.HandleSubtitle, nil, 1},
+		{jobs.KindConvertFetchedSubtitle, fetching.playback.HandleFetchedSubtitle, nil, 1},
 	}
 }
 

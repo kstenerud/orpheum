@@ -75,7 +75,9 @@ func acceptanceRun(
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() {
-		outside := wiring{startNode: start(captured), tmdbBaseURL: noTMDB, tmdbImagesBaseURL: noTMDB}
+		outside := wiring{
+			startNode: start(captured), tmdbBaseURL: noTMDB, tmdbImagesBaseURL: noTMDB, openSubtitlesBaseURL: noTMDB,
+		}
 		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()
 	select {

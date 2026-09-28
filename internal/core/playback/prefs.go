@@ -28,9 +28,9 @@ type FilePrefs struct {
 
 // SubtitleChoice is a subtitle choice for one file: a track in it, or off (D219).
 type SubtitleChoice struct {
-	// StreamID is the chosen track; 0 when IsOff.
-	StreamID int64 `json:"streamId,omitempty"`
-	IsOff    bool  `json:"isOff,omitempty"`
+	// TrackRef is the chosen track, its stream or a subtitle fetched for it; neither when IsOff.
+	TrackRef
+	IsOff bool `json:"isOff,omitempty"`
 	// IsCarried is a choice made in another file of the work and carried here, which a later
 	// choice elsewhere carries over; a choice made in this file is its own and is kept.
 	IsCarried bool `json:"isCarried,omitempty"`
@@ -172,7 +172,7 @@ func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64
 	}
 	var chosen *SubtitleTrack
 	if !choice.IsOff {
-		chosen = trackByID(tracks, choice.StreamID)
+		chosen = trackByID(tracks, choice.TrackRef)
 		if chosen == nil {
 			return ErrNoTrack
 		}
@@ -181,7 +181,7 @@ func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64
 	if err != nil {
 		return err
 	}
-	own := SubtitleChoice{StreamID: choice.StreamID, IsOff: choice.IsOff}
+	own := SubtitleChoice{TrackRef: choice.TrackRef, IsOff: choice.IsOff}
 	if chosen != nil {
 		own.Track = describe(*chosen)
 	}
@@ -239,7 +239,7 @@ func (service *Service) carryChoice(
 		match := matchingTrack(tracks, *chosen)
 		carried = nil
 		if match != nil {
-			carried = &SubtitleChoice{StreamID: match.StreamID, IsCarried: true, Track: describe(*match)}
+			carried = &SubtitleChoice{TrackRef: match.TrackRef, IsCarried: true, Track: describe(*match)}
 		}
 	}
 	return service.keepChoice(ctx, queries, userID, fileID, carried)
@@ -258,7 +258,7 @@ func (service *Service) currentChoice(
 	if err != nil {
 		return nil, err
 	}
-	if trackByID(tracks, stored.StreamID) != nil {
+	if trackByID(tracks, stored.TrackRef) != nil {
 		return stored, nil
 	}
 	if stored.Track == nil {
@@ -269,7 +269,7 @@ func (service *Service) currentChoice(
 		return nil, nil //nolint:nilnil // no track of the file is the one chosen
 	}
 	found := *stored
-	found.StreamID = match.StreamID
+	found.TrackRef = match.TrackRef
 	return &found, nil
 }
 
@@ -296,9 +296,9 @@ func (service *Service) keepChoice(
 	return nil
 }
 
-func trackByID(tracks []SubtitleTrack, streamID int64) *SubtitleTrack {
+func trackByID(tracks []SubtitleTrack, ref TrackRef) *SubtitleTrack {
 	for index := range tracks {
-		if tracks[index].StreamID == streamID {
+		if tracks[index].TrackRef == ref {
 			return &tracks[index]
 		}
 	}

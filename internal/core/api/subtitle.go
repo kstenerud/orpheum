@@ -16,7 +16,9 @@ import (
 
 // SubtitleTrackBody is one text subtitle track, in the two forms it is served in (cut-a §6).
 type SubtitleTrackBody struct {
-	StreamID          int64  `doc:"The track: one inside the file, or a subtitle file beside it" json:"streamId"`
+	StreamID int64 `doc:"A track inside the file, or a subtitle file beside it" json:"streamId,omitempty"`
+	// FetchedID is a subtitle fetched on request for the file; it is unverified (D224).
+	FetchedID         int64  `doc:"A subtitle fetched on request; unverified" json:"fetchedId,omitempty"`
 	Language          string `doc:"BCP 47; empty when the file names none" json:"language"`
 	Title             string `json:"title"`
 	IsDefault         bool   `json:"isDefault"`
@@ -37,7 +39,7 @@ type AudioRenditionBody struct {
 type SubtitleInput struct {
 	MediaCredentials
 	Token string `doc:"The playback's media token" path:"token"`
-	File  string `doc:"<streamId>.ass or <streamId>.vtt" path:"file"`
+	File  string `doc:"<streamId>.ass or <streamId>.vtt, or f<fetchedId>.ass or .vtt" path:"file"`
 }
 
 func (server *Server) registerSubtitles() {
@@ -59,16 +61,21 @@ const (
 	vttContentType = "text/vtt; charset=utf-8"
 )
 
-// subtitleFileName is the only shape a subtitle may be asked for by: its stream and its form.
-var subtitleFileName = regexp.MustCompile(`^(\d{1,18})\.(ass|vtt)$`)
+// subtitleFileName is the only shape a subtitle may be asked for by: its stream, or f and its
+// fetched id, and its form.
+var subtitleFileName = regexp.MustCompile(`^(f?)(\d{1,18})\.(ass|vtt)$`)
 
 // subtitleTracks lists a playback's text tracks, each with its URL in both forms.
 func subtitleTracks(started playback.Started) []SubtitleTrackBody {
 	tracks := make([]SubtitleTrackBody, 0, len(started.Subtitles))
 	for _, track := range started.Subtitles {
-		base := Prefix + "/bytes/media/sub/" + started.Token + "/" + strconv.FormatInt(track.StreamID, 10)
+		name := strconv.FormatInt(track.StreamID, 10)
+		if track.IsFetched() {
+			name = "f" + strconv.FormatInt(track.FetchedID, 10)
+		}
+		base := Prefix + "/bytes/media/sub/" + started.Token + "/" + name
 		tracks = append(tracks, SubtitleTrackBody{
-			StreamID: track.StreamID, Language: track.Language, Title: track.Title,
+			StreamID: track.StreamID, FetchedID: track.FetchedID, Language: track.Language, Title: track.Title,
 			IsDefault: track.Default, IsForced: track.Forced, IsHearingImpaired: track.HearingImpaired,
 			ASSURL: base + ".ass", VTTURL: base + ".vtt",
 		})
@@ -83,12 +90,16 @@ func (server *Server) subtitle(ctx context.Context, input *SubtitleInput) (*huma
 	if match == nil {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
 	}
-	streamID, err := strconv.ParseInt(match[1], 10, 64)
+	id, err := strconv.ParseInt(match[2], 10, 64)
 	if err != nil {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
 	}
+	track := playback.TrackRef{StreamID: id}
+	if match[1] == "f" {
+		track = playback.TrackRef{FetchedID: id}
+	}
 	format, contentType := playback.FormatASS, assContentType
-	if match[2] == string(playback.FormatWebVTT) {
+	if match[3] == string(playback.FormatWebVTT) {
 		format, contentType = playback.FormatWebVTT, vttContentType
 	}
 	authorization := input.authorization()
@@ -97,7 +108,7 @@ func (server *Server) subtitle(ctx context.Context, input *SubtitleInput) (*huma
 		return nil, err
 	}
 	text, err := dependencies.Playback.Subtitle(
-		ctx, input.Token, streamID, format, principal.UserID, sessionKey(authorization))
+		ctx, input.Token, track, format, principal.UserID, sessionKey(authorization))
 	switch {
 	case errors.Is(err, playback.ErrNoToken), errors.Is(err, playback.ErrNoFile):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")

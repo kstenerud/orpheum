@@ -134,3 +134,17 @@ func TestAgent_ACancelStopsARunningExtractionAndNothingIsReportedForIt(t *testin
 		t.Errorf("the first answer = %+v, want job 3's text and nothing for the cancelled job 1", next)
 	}
 }
+
+func TestAgent_ConvertsAFetchedSubtitlesTextAndRefusesItBesideAFile(t *testing.T) {
+	t.Parallel()
+	video, _, core := extracting(t)
+	core.extract(1, nodeproto.ExtractSubtitle{Fetched: []byte("1\n00:00:01,000 --> 00:00:02,000\nHallo\n")})
+	converted := receiveSubtitle(t, core)
+	if converted.Refused != "" || !strings.Contains(string(converted.ASS), "Hallo") {
+		t.Errorf("a fetched subtitle: %+v, want its text converted as a sidecar's is (D224 §5)", converted)
+	}
+	core.extract(2, nodeproto.ExtractSubtitle{Video: &video, Fetched: []byte("text")})
+	if both := receiveSubtitle(t, core); !strings.Contains(both.Refused, "only one") {
+		t.Errorf("a fetched text beside a video: %+v, want refused", both)
+	}
+}
