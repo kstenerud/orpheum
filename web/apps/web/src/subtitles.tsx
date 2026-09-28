@@ -23,11 +23,29 @@ export function languageName(tag: string, viewerLanguage: string): string {
   }
 }
 
-/** A track's name in the menu: its language, its title, and whether it is forced or for the deaf. */
+/** Names a track across both kinds: a stream of the file's ("s12"), or one fetched for it ("f3"). */
+export type TrackKey = string;
+
+/** The key of a track, or of a choice's track. */
+export function trackKey(track: {
+  readonly streamId?: number;
+  readonly fetchedId?: number;
+}): TrackKey | undefined {
+  if (track.fetchedId !== undefined && track.fetchedId !== 0) {
+    return `f${String(track.fetchedId)}`;
+  }
+  if (track.streamId !== undefined && track.streamId !== 0) {
+    return `s${String(track.streamId)}`;
+  }
+  return undefined;
+}
+
+/** A track's name in the menu: its language, its title, whether it is forced or for the deaf, and
+ * for one fetched on request, that it is unverified (D224). */
 export function trackLabel(
   track: SubtitleTrack,
   viewerLanguage: string,
-  words: { unknownLanguage: string; forced: string; hearingImpaired: string },
+  words: { unknownLanguage: string; forced: string; hearingImpaired: string; fetched: string },
 ): string {
   const parts = [
     track.language === "" ? words.unknownLanguage : languageName(track.language, viewerLanguage),
@@ -40,6 +58,9 @@ export function trackLabel(
   }
   if (track.isHearingImpaired) {
     parts.push(words.hearingImpaired);
+  }
+  if (track.fetchedId !== undefined && track.fetchedId !== 0) {
+    parts.push(words.fetched);
   }
   return parts.join(" · ");
 }
@@ -68,15 +89,21 @@ export async function keepOffset(
 export type FilePrefs = components["schemas"]["FilePrefsBody"];
 
 /**
- * Keeps a subtitle choice as the file's own: a track, or off when streamId is undefined. The
- * server carries it to the work's other files that have no choice of their own (D219).
+ * Keeps a subtitle choice as the file's own: a track, or off when key is undefined. The server
+ * carries it to the work's other files that have no choice of their own (D219).
  */
 export async function keepSubtitleChoice(
   api: Api,
   fileId: number,
-  streamId: number | undefined,
+  key: TrackKey | undefined,
 ): Promise<void> {
-  const subtitle = streamId === undefined ? { isOff: true } : { streamId };
+  const id = key === undefined ? 0 : Number(key.slice(1));
+  let subtitle: { isOff: true } | { streamId: number } | { fetchedId: number } = { isOff: true };
+  if (key?.startsWith("s") === true) {
+    subtitle = { streamId: id };
+  } else if (key?.startsWith("f") === true) {
+    subtitle = { fetchedId: id };
+  }
   throwIfRefused(
     await api.PUT("/files/{id}/prefs", {
       params: { path: { id: fileId } },
@@ -89,9 +116,9 @@ export async function keepSubtitleChoice(
 export function startingTrack(
   prefs: FilePrefs,
   tracks: readonly SubtitleTrack[],
-): number | undefined {
-  const streamId = prefs.subtitle?.streamId;
-  return tracks.some((track) => track.streamId === streamId) ? streamId : undefined;
+): TrackKey | undefined {
+  const chosen = prefs.subtitle === undefined ? undefined : trackKey(prefs.subtitle);
+  return tracks.some((track) => trackKey(track) === chosen) ? chosen : undefined;
 }
 
 /**
@@ -111,7 +138,7 @@ export function Subtitles(props: {
   // The offset a newly chosen track starts with, read when its text arrives rather than in render.
   const offsetRef = useRef(props.prefs.subtitleOffsetMs);
   const [failure, setFailure] = useState<string | undefined>(undefined);
-  const track = props.tracks.find((candidate) => candidate.streamId === chosen);
+  const track = props.tracks.find((candidate) => trackKey(candidate) === chosen);
   const layerRef = useSubtitleLayer(track?.assUrl, props.videoRef, {
     offsetRef,
     failed: setFailure,
@@ -133,10 +160,10 @@ export function Subtitles(props: {
       <TrackMenu
         tracks={props.tracks}
         chosen={chosen}
-        choose={(streamId) => {
+        choose={(key) => {
           setFailure(undefined);
-          setChosen(streamId);
-          keepSubtitleChoice(api, props.fileId, streamId).catch((cause: unknown) => {
+          setChosen(key);
+          keepSubtitleChoice(api, props.fileId, key).catch((cause: unknown) => {
             setFailure(problemText(t, cause));
           });
         }}
@@ -152,28 +179,31 @@ export function Subtitles(props: {
 /** The menu of tracks, with "Off" first. */
 function TrackMenu(props: {
   readonly tracks: readonly SubtitleTrack[];
-  readonly chosen: number | undefined;
-  readonly choose: (streamId: number | undefined) => void;
+  readonly chosen: TrackKey | undefined;
+  readonly choose: (key: TrackKey | undefined) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const words = {
     unknownLanguage: t("play.subtitles.unknownLanguage"),
     forced: t("play.subtitles.forced"),
     hearingImpaired: t("play.subtitles.hearingImpaired"),
+    fetched: t("play.subtitles.fetched"),
   };
   return (
     <label>
       {t("play.subtitles.label")}{" "}
       <select
-        value={props.chosen === undefined ? "" : String(props.chosen)}
+        value={props.chosen ?? ""}
         onChange={(event) => {
-          const value = event.currentTarget.value;
-          props.choose(value === "" ? undefined : Number(value));
+          const chosen = props.tracks.find(
+            (track) => trackKey(track) === event.currentTarget.value,
+          );
+          props.choose(chosen === undefined ? undefined : trackKey(chosen));
         }}
       >
         <option value="">{t("play.subtitles.off")}</option>
         {props.tracks.map((track) => (
-          <option key={track.streamId} value={String(track.streamId)}>
+          <option key={trackKey(track)} value={trackKey(track)}>
             {trackLabel(track, i18n.language, words)}
           </option>
         ))}

@@ -100,3 +100,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   to the confined encode (cut-a §6, D225). (`internal/node/prepare/encoder.go`,
   `internal/node/hardware/`, `internal/node/confine/landlock_linux.go`,
   `web/apps/web/src/system.tsx`)
+- [ ] **VQ11** — On the dev loop, as admin, open **Settings** and set the OpenSubtitles username
+  and password. Play a film that has no German subtitles, and under the video choose **Find
+  subtitles…**, pick German and **Search OpenSubtitles**: it says how many of the day's downloads
+  are left (20 on a free account), says none is checked against the sound, and lists what
+  OpenSubtitles has, a copy **made for this very file** first when there is one. **Download** one:
+  the film plays again with it chosen, named "downloaded, unverified" in the menu, and the count
+  is one lower next time. **Earlier**/**Later** move it. Play the film again: it starts with that
+  subtitle. Set a wrong password: the search says OpenSubtitles refused the login. This also shows
+  OpenSubtitles accepts the `Orpheum/<version>` User-Agent (opensubtitles-api.md §1).
+  (`internal/core/playback/opensubtitles/`, `web/apps/web/src/subtitle-search.tsx`, D224)

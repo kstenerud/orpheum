@@ -194,6 +194,31 @@ export const en = {
       later: "Later",
       offset: "Subtitle offset: {{seconds}} s",
       failed: "The subtitles could not be shown: {{reason}}.",
+      fetched: "downloaded, unverified",
+    },
+    findSubtitles: {
+      open: "Find subtitles…",
+      heading: "Find subtitles",
+      language: "Language",
+      search: "Search OpenSubtitles",
+      allowance: "{{remaining}} of {{allowed}} downloads left today.",
+      unverified:
+        "None of these is checked against this film's sound: one may be early, late or for another cut. The Earlier and Later buttons move it.",
+      none: "OpenSubtitles has no subtitles in this language for this.",
+      madeForThisFile: "made for this very file",
+      machineTranslated: "machine-translated",
+      downloads: "downloads: {{count}}",
+      fetch: "Download",
+      quotaSpent: "Today's downloads are spent; they start again at {{when}}.",
+      nothingToSearchBy:
+        "This file is not identified yet, so there is nothing to ask OpenSubtitles by. Identify it first, or scan it again.",
+      reason: {
+        noLogin: "No OpenSubtitles account is set up. An admin can add one in Settings.",
+        loginRefused:
+          "OpenSubtitles refused the account's login. An admin can change it in Settings.",
+        notConfigured: "This server does not download subtitles.",
+        unknown: "OpenSubtitles could not be reached.",
+      },
     },
     reason: {
       container: "the browser cannot open its container",

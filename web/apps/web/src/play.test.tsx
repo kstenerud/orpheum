@@ -44,7 +44,7 @@ describe("playing a file", () => {
             resumePositionMs: 0,
             mediaToken: "t",
           }}
-          soundChanged={() => undefined}
+          decideAgain={() => undefined}
         />,
       ),
     );
@@ -73,7 +73,7 @@ describe("playing a file", () => {
               { sourceTrack: 0, language: "en", isDialogueBoost: true },
             ],
           }}
-          soundChanged={() => undefined}
+          decideAgain={() => undefined}
         />,
       ),
     );
