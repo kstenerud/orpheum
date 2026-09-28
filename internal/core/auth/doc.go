@@ -24,8 +24,10 @@
 //   - A session is stored only as its token's SHA-256 and ends when revoked, and each sign-in
 //     makes a new device, named by the client, that the session belongs to (D217 §8). Enforced by
 //     TestSignIn_IssuesASessionUntilSignedOut.
-//   - Only the setup code creates the first admin, and only once. Enforced by
-//     TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce.
+//   - Only the setup code creates the first admin, and only once. It is twelve safe32 characters,
+//     written and read as a device code is (D223 §2). Enforced by
+//     TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce and
+//     TestSetup_ACodeAnEarlierReleaseStoredInAnotherAlphabetIsReplaced.
 //   - An account is made with no password and a registration link: 256 bits, seven days, once,
 //     and only the newest works; the old password works until the new one is set (D218 §1, §5).
 //     Enforced by TestRegistration_ALinkSetsAPasswordOnceAndSignsTheDeviceIn and
