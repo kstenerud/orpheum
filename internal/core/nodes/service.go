@@ -92,12 +92,12 @@ func (service *Service) ReceiveSubtitles(sink SubtitleSink) {
 
 // channel is what the core holds for one connected node.
 type channel struct {
-	name  string
-	roots []string // as its last hello named them (D107)
-	// confinement is what its last hello said about FFmpeg's confinement, per mechanism (D112).
-	confinement []nodeproto.Confinement
-	// prepared is what its last status said its prepared directory holds (D217 §5).
-	prepared  *nodeproto.PreparedUsage
+	name string
+	// hello is its last hello: its roots (D107), confinement (D112) and hardware (D225).
+	hello nodeproto.Hello
+	// status is its last status, nil before the first: what its prepared directory holds (D217
+	// §5) and its disks (D225).
+	status    *nodeproto.Status
 	commands  []nodeproto.Command
 	nextSeq   int64
 	wake      chan struct{}
@@ -206,43 +206,40 @@ func (service *Service) connect(nodeID int64, hello nodeproto.Hello) {
 		service.channels[nodeID] = existing
 	}
 	existing.lastHeard = service.clock.Now()
-	existing.roots = slices.Clone(hello.Roots)
-	existing.confinement = slices.Clone(hello.Confinement)
+	existing.hello = hello
 }
 
-// Confinement is what the named node's last hello since the core started said about FFmpeg's
-// confinement, per mechanism; false when it has not said hello since (D112).
-func (service *Service) Confinement(name string) ([]nodeproto.Confinement, bool) {
+// Facts are what a node last said about itself since the core started: its hello, its last
+// status (nil before the first) and when it was last heard, with its id (D225).
+type Facts struct {
+	NodeID    int64
+	Hello     nodeproto.Hello
+	Status    *nodeproto.Status
+	LastHeard time.Time
+}
+
+// Facts is what the named node last said about itself; false when it has not said hello since
+// the core started.
+func (service *Service) Facts(name string) (Facts, bool) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	for _, existing := range service.channels {
+	for id, existing := range service.channels {
 		if existing.name == name && !existing.lastHeard.IsZero() {
-			return slices.Clone(existing.confinement), true
+			return Facts{
+				NodeID: id, Hello: existing.hello, Status: existing.status, LastHeard: existing.lastHeard,
+			}, true
 		}
 	}
-	return nil, false
-}
-
-// PreparedUsage is what the named node's last status said its prepared directory holds, and
-// whether it said (D217 §5).
-func (service *Service) PreparedUsage(name string) (nodeproto.PreparedUsage, bool) {
-	service.mutex.Lock()
-	defer service.mutex.Unlock()
-	for _, existing := range service.channels {
-		if existing.name == name && existing.prepared != nil {
-			return *existing.prepared, true
-		}
-	}
-	return nodeproto.PreparedUsage{}, false
+	return Facts{}, false
 }
 
 // keepStatus keeps what a node's status says about it.
 func (service *Service) keepStatus(nodeID int64, status *nodeproto.Status) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	if existing, found := service.channels[nodeID]; found && status.Prepared != nil {
-		usage := *status.Prepared
-		existing.prepared = &usage
+	if existing, found := service.channels[nodeID]; found {
+		kept := *status
+		existing.status = &kept
 	}
 }
 
@@ -254,7 +251,7 @@ func (service *Service) Roots(name string) (int64, []string, bool) {
 	defer service.mutex.Unlock()
 	for id, queue := range service.channels {
 		if queue.name == name {
-			return id, slices.Clone(queue.roots), true
+			return id, slices.Clone(queue.hello.Roots), true
 		}
 	}
 	return 0, nil, false

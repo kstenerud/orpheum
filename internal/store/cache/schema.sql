@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 10
+-- cache schema version 11
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,6 +51,8 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   prepared_ms  INTEGER NOT NULL DEFAULT 0,  -- how much of the source is prepared
   size_bytes   INTEGER,                  -- its size once complete
   error        TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
+  video_encoder TEXT,                    -- what made the video once complete: h264_qsv, h264_nvenc, x264, or copy (D225)
+  speed        REAL,                     -- seconds of the source per second of running, as FFmpeg last said (D225)
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
   UNIQUE (source_file, profile)

@@ -80,6 +80,18 @@ type Status struct {
 	// Prepared is what the node's prepared directory holds against its budget, absent when the
 	// node prepares nothing (D217 §5).
 	Prepared *PreparedUsage `json:"prepared,omitempty"`
+	// Disks are the filesystems the node's roots and prepared directory are on (D225 §3).
+	Disks []Disk `json:"disks,omitempty"`
+}
+
+// Disk is one filesystem a node uses, named by a directory on it.
+type Disk struct {
+	// Path is the root or prepared directory it holds; several may share one filesystem.
+	Path       string `json:"path"`
+	TotalBytes int64  `json:"totalBytes"`
+	FreeBytes  int64  `json:"freeBytes"`
+	// Failure says why the node could not measure it; the sizes are zero then.
+	Failure string `json:"failure,omitempty"`
 }
 
 // PreparedUsage is what a node's prepared directory holds, against its budget and its disk's

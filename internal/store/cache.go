@@ -32,6 +32,11 @@ type Cache struct {
 	database *Database
 }
 
+// SizeBytes is how large cache.db is: its pages, not counting the write-ahead log.
+func (cache *Cache) SizeBytes(ctx context.Context) (uint64, error) {
+	return cache.database.SizeBytes(ctx)
+}
+
 // CacheVersion is the version the embedded cache schema declares.
 func CacheVersion() (int64, error) {
 	match := cacheVersionLine.FindStringSubmatch(cacheSchema)

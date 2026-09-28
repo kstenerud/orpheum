@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
@@ -34,23 +35,38 @@ func (machine *trials) RunStreaming(
 func TestChooseEncoder_TakesTheFirstHardwareEncoderThatWorksConfinedOrX264(t *testing.T) {
 	t.Parallel()
 	nvidia := &trials{works: map[string]bool{"h264_nvenc": true}}
-	chosen, usable := prepare.ChooseEncoder(t.Context(), nvidia)
+	choice := prepare.ChooseEncoder(t.Context(), nvidia)
 	wantUsable := []prepare.Encoder{prepare.EncoderNVENC, prepare.EncoderX264}
-	if chosen != prepare.EncoderNVENC || !slices.Equal(usable, wantUsable) {
-		t.Errorf("with NVENC only: %s, %v; want NVENC, and x264 usable too", chosen, usable)
+	if choice.Chosen != prepare.EncoderNVENC || !slices.Equal(choice.Usable(), wantUsable) {
+		t.Errorf("with NVENC only: %+v; want NVENC, and x264 usable too", choice)
 	}
 	for _, access := range nvidia.accesses {
 		if !access.Devices {
 			t.Errorf("a trial ran without the GPU granted: %+v; it would fail confined, as a real encode would", access)
 		}
 	}
-	chosen, usable = prepare.ChooseEncoder(t.Context(), &trials{works: map[string]bool{}})
-	if chosen != prepare.EncoderX264 || !slices.Equal(usable, []prepare.Encoder{prepare.EncoderX264}) {
-		t.Errorf("with no GPU: %s, %v; want x264 (cut-a §6)", chosen, usable)
+	none := prepare.ChooseEncoder(t.Context(), &trials{works: map[string]bool{}})
+	if none.Chosen != prepare.EncoderX264 || !slices.Equal(none.Usable(), []prepare.Encoder{prepare.EncoderX264}) {
+		t.Errorf("with no GPU: %+v; want x264 (cut-a §6)", none)
 	}
 	both := &trials{works: map[string]bool{"h264_qsv": true, "h264_nvenc": true}}
-	if chosen, _ = prepare.ChooseEncoder(t.Context(), both); chosen != prepare.EncoderQuickSync {
+	if chosen := prepare.ChooseEncoder(t.Context(), both).Chosen; chosen != prepare.EncoderQuickSync {
 		t.Errorf("with Quick Sync and NVENC: %s, want Quick Sync first (cut-a §6)", chosen)
+	}
+}
+
+func TestChooseEncoder_EachTrialSaysWhyItFailedInFFmpegsWords(t *testing.T) {
+	t.Parallel()
+	choice := prepare.ChooseEncoder(t.Context(), &trials{works: map[string]bool{"h264_nvenc": true}})
+	if len(choice.Trials) != 2 {
+		t.Fatalf("trials %+v; want Quick Sync's and NVENC's (D225 §3)", choice.Trials)
+	}
+	quickSync, nvenc := choice.Trials[0], choice.Trials[1]
+	if quickSync.Encoder != prepare.EncoderQuickSync || !strings.Contains(quickSync.Failure, "no such device") {
+		t.Errorf("Quick Sync's trial is %+v; want its failure in the words the run gave", quickSync)
+	}
+	if nvenc.Encoder != prepare.EncoderNVENC || nvenc.Failure != "" {
+		t.Errorf("NVENC's trial is %+v; want it worked", nvenc)
 	}
 }
 

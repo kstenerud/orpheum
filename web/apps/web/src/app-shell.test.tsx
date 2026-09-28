@@ -46,5 +46,6 @@ describe("AppShell", () => {
     expect(markup).toContain('href="/identify"');
     expect(markup).toContain('href="/settings"');
     expect(markup).toContain('href="/jobs"');
+    expect(markup).toContain('href="/system"');
   });
 });

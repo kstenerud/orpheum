@@ -38,7 +38,8 @@ func (fake fakeFFmpeg) RunStreaming(
 	if err := os.WriteFile(filepath.Join(output, "video", "seg00000.m4s"), []byte("12345"), 0o600); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(stdout, "frame=10\nout_time_us=1500000\nprogress=continue\n"); err != nil {
+	const progress = "frame=10\nspeed=N/A\nout_time_us=1500000\nspeed=4.25x\nprogress=continue\n"
+	if _, err := io.WriteString(stdout, progress); err != nil {
 		return err
 	}
 	return fake.fail
@@ -79,18 +80,40 @@ func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *
 	}
 	var progress []int64
 	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, RenditionDir: "7/remux/0123456789abcdef"}
-	size, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(ms int64) {
+	made, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(ms int64) {
 		progress = append(progress, ms)
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if size != 5 || !slices.Equal(progress, []int64{1500}) {
-		t.Errorf("size %d, progress %v; want 5 bytes and 1500 ms", size, progress)
+	if made.SizeBytes != 5 || !slices.Equal(progress, []int64{1500}) {
+		t.Errorf("size %d, progress %v; want 5 bytes and 1500 ms", made.SizeBytes, progress)
 	}
 	segment := filepath.Join(directory, "7", "remux", "0123456789abcdef", "video", "seg00000.m4s")
 	if _, err := os.Stat(segment); err != nil {
 		t.Errorf("the rendition is not under 7/remux: %v", err)
+	}
+}
+
+func TestPreparer_SaysWhatMadeTheVideoAndHowFastFFmpegSaidItRan(t *testing.T) {
+	t.Parallel()
+	prepareWith := func(profile nodeproto.PrepareProfile) prepare.Made {
+		preparer, err := prepare.New(fakeFFmpeg{}, t.TempDir(), roomy{}, prepare.EncoderQuickSync)
+		if err != nil {
+			t.Fatal(err)
+		}
+		command := nodeproto.Prepare{Profile: profile, RenditionDir: "7/" + string(profile) + "/0123456789abcdef"}
+		made, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(int64) {})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return made
+	}
+	if made := prepareWith(nodeproto.ProfileH264At8M); made.VideoEncoder != "h264_qsv" || made.Speed != 4.25 {
+		t.Errorf("an encode on a Quick Sync node made %+v; want h264_qsv at FFmpeg's last speed, 4.25 (D225 §3)", made)
+	}
+	if made := prepareWith(nodeproto.ProfileRemux); made.VideoEncoder != "copy" {
+		t.Errorf("a remux made %+v; want its video copied", made)
 	}
 }
 

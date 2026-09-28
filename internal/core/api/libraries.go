@@ -11,7 +11,6 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
-	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
 
@@ -191,43 +190,12 @@ func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInp
 	return output, nil
 }
 
-// NodeBody is one node, and the roots it configured when it is connected (D107).
+// NodeBody is one node, and the roots it configured when it is connected (D107). What else it
+// says about itself is the System page's (D225).
 type NodeBody struct {
 	Name        string   `json:"name"`
 	IsConnected bool     `doc:"Whether it has said hello since the server started" json:"isConnected"`
 	Roots       []string `doc:"Its configured roots; empty while it is not connected" json:"roots"`
-	// Confinement is how its FFmpeg runs are confined, per mechanism, as it last said; empty while
-	// it is not connected (D112).
-	Confinement []ConfinementBody `json:"confinement"`
-}
-
-// ConfinementBody is one mechanism on a node: in force, or not, why, and what would put it there.
-type ConfinementBody struct {
-	Mechanism string `enum:"landlock,seccomp" json:"mechanism"`
-	IsInForce bool   `json:"isInForce"`
-	// Cause names why it is not in force, for a client to say in its viewer's words.
-	Cause  string `enum:"disabled_at_boot,kernel_without,blocked_by_runtime,not_linux,architecture_unwritten,unexplained" json:"cause,omitempty"` //nolint:lll // one struct tag
-	Reason string `json:"reason,omitempty"`
-	Remedy string `json:"remedy,omitempty"`
-}
-
-// NodeReports is what each connected node said about itself: nodes.Service.
-type NodeReports interface {
-	Confinement(name string) ([]nodeproto.Confinement, bool)
-	PreparedUsage(name string) (nodeproto.PreparedUsage, bool)
-}
-
-// confinementOf is a node's confinement as the API shows it: empty when it is not connected.
-func confinementOf(reports NodeReports, name string) []ConfinementBody {
-	reported, _ := reports.Confinement(name)
-	bodies := make([]ConfinementBody, 0, len(reported))
-	for _, state := range reported {
-		bodies = append(bodies, ConfinementBody{
-			Mechanism: state.Mechanism, IsInForce: state.InForce, Cause: state.Cause, Reason: state.Reason,
-			Remedy: state.Remedy,
-		})
-	}
-	return bodies
 }
 
 // NodesOutput is every enrolled node.
@@ -249,11 +217,9 @@ func (server *Server) getNodes(ctx context.Context, input *AuthorizationHeader) 
 	output := &NodesOutput{}
 	output.Body.Nodes = make([]NodeBody, 0, len(nodes))
 	for _, node := range nodes {
-		body := NodeBody{
+		output.Body.Nodes = append(output.Body.Nodes, NodeBody{
 			Name: node.Name, IsConnected: node.Connected, Roots: node.Roots,
-			Confinement: confinementOf(dependencies.NodeReports, node.Name),
-		}
-		output.Body.Nodes = append(output.Body.Nodes, body)
+		})
 	}
 	return output, nil
 }

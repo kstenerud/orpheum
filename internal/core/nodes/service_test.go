@@ -401,7 +401,7 @@ func TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly(t *testing.T) {
 func TestHello_KeepsWhatTheNodeSaidAboutItsConfinement(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
-	if _, found := harness.service.Confinement("local"); found {
+	if _, found := harness.service.Facts("local"); found {
 		t.Error("a node that never said hello has a confinement")
 	}
 	said := []nodeproto.Confinement{
@@ -409,9 +409,10 @@ func TestHello_KeepsWhatTheNodeSaidAboutItsConfinement(t *testing.T) {
 		{Mechanism: "seccomp", InForce: true},
 	}
 	harness.hello(t, nodeproto.Hello{Name: "local", Confinement: said})
-	kept, found := harness.service.Confinement("local")
+	facts, found := harness.service.Facts("local")
+	kept := facts.Hello.Confinement
 	if !found || len(kept) != 2 || kept[0] != said[0] || kept[1] != said[1] {
-		t.Errorf("Confinement = %+v, %v; want what the hello said (D112)", kept, found)
+		t.Errorf("the kept confinement = %+v, %v; want what the hello said (D112)", kept, found)
 	}
 }
 
@@ -419,7 +420,7 @@ func TestStatus_KeepsWhatTheNodeSaysItsPreparedDirectoryHolds(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
-	if _, known := harness.service.PreparedUsage("local"); known {
+	if facts, _ := harness.service.Facts("local"); facts.Status != nil {
 		t.Error("a node that has sent no status has a prepared usage")
 	}
 	usage := nodeproto.PreparedUsage{Bytes: 10, BudgetBytes: 100, DiskPercent: 50, DiskLimitPercent: 95}
@@ -431,7 +432,41 @@ func TestStatus_KeepsWhatTheNodeSaysItsPreparedDirectoryHolds(t *testing.T) {
 		http.StatusNoContent {
 		t.Fatalf("the report answered %d %s", response.status, response.body)
 	}
-	if kept, known := harness.service.PreparedUsage("local"); !known || kept != usage {
-		t.Errorf("PreparedUsage = %+v, %v; want what the status said (D217 §5)", kept, known)
+	facts, _ := harness.service.Facts("local")
+	if facts.Status == nil || facts.Status.Prepared == nil || *facts.Status.Prepared != usage {
+		t.Errorf("the kept status = %+v; want the prepared usage it said (D217 §5)", facts.Status)
+	}
+}
+
+func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	if _, found := harness.service.Facts("local"); found {
+		t.Error("a node that has not said hello has facts")
+	}
+	hardware := nodeproto.Hardware{
+		GPUs:    []nodeproto.GPU{{Device: "/dev/dri/renderD128", Driver: "i915"}},
+		Trials:  []nodeproto.EncoderTrial{{Encoder: "h264_qsv"}, {Encoder: "h264_nvenc", Failure: "no device"}},
+		Encoder: "h264_qsv",
+	}
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", Platform: "linux/amd64", Hardware: hardware})
+	disk := nodeproto.Disk{Path: "/media", TotalBytes: 1000, FreeBytes: 400}
+	status := []nodeproto.Record{{
+		Seq: reply.ReportSeq + 1, Type: nodeproto.RecordStatus,
+		Status: &nodeproto.Status{Doing: "idle", Disks: []nodeproto.Disk{disk}},
+	}}
+	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
+		http.StatusNoContent {
+		t.Fatalf("the report answered %d %s", response.status, response.body)
+	}
+	facts, found := harness.service.Facts("local")
+	kept := facts.Hello.Hardware
+	if !found || facts.NodeID != reply.NodeID || facts.Hello.Platform != "linux/amd64" ||
+		kept.Encoder != "h264_qsv" || len(kept.Trials) != 2 || kept.GPUs[0].Driver != "i915" {
+		t.Errorf("the facts' hello is %+v, %v; want the platform and hardware the hello said (D225)",
+			facts.Hello, found)
+	}
+	if facts.Status == nil || len(facts.Status.Disks) != 1 || facts.Status.Disks[0] != disk {
+		t.Errorf("the facts' status is %+v; want the disks the status said (D225)", facts.Status)
 	}
 }

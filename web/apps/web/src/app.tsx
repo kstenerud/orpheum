@@ -21,6 +21,7 @@ import { Series } from "./series.tsx";
 import { Settings } from "./settings.tsx";
 import { useRoute, useServices, useToken } from "./services.tsx";
 import { SignIn } from "./sign-in.tsx";
+import { System } from "./system.tsx";
 import { Title } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
@@ -114,6 +115,9 @@ function adminScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "jobs") {
     return <Jobs />;
+  }
+  if (route.screen === "system") {
+    return <System />;
   }
   if (route.screen === "people") {
     return <People />;

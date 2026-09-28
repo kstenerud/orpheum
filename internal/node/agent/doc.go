@@ -32,6 +32,10 @@
 //     FFmpeg, frees its slot, and nothing more is reported for the job; a job cancelled before it
 //     started starts cancelled (cut-a §5.3).
 //     TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt.
+//   - A finished prepare's report says what made its video and how fast (D225 §3).
+//     TestAgent_PreparesOnlyTheFileTheCoreNamed.
+//   - The status carries the disk of each root and of the prepared directory, or why one could
+//     not be measured (D225). TestStatus_CarriesTheDisksOfTheRootsAndThePreparedDirectory.
 //
 // # Read before changing
 //

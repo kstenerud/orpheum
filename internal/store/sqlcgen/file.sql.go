@@ -35,6 +35,18 @@ func (q *Queries) DeleteFileStreamsNotIn(ctx context.Context, arg DeleteFileStre
 	return err
 }
 
+const getFilePath = `-- name: GetFilePath :one
+SELECT path FROM file WHERE id = ?
+`
+
+// A file's path, removed or not, to name it where it was worked on (the System page, D225).
+func (q *Queries) GetFilePath(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getFilePath, id)
+	var path string
+	err := row.Scan(&path)
+	return path, err
+}
+
 const getLatestTombstoneByHash = `-- name: GetLatestTombstoneByHash :one
 SELECT id
 FROM file

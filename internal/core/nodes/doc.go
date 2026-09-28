@@ -23,6 +23,8 @@
 //   - What a node's last hello said about its FFmpeg's confinement is kept while the core runs,
 //     for doctor and the admin to say out loud (D112).
 //     TestHello_KeepsWhatTheNodeSaidAboutItsConfinement.
+//   - A node's last hello and last status are kept whole, for the System page (D225): its
+//     hardware, disks and prepared directory. TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks.
 //
 // # Read before changing
 //

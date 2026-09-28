@@ -356,3 +356,21 @@ func TestCapabilities_AreRemuxAACAndTheEncodersTheNodeFound(t *testing.T) {
 		t.Errorf("capabilities = %v, want %v (cut-a §4)", got, want)
 	}
 }
+
+func TestHardwareReport_IsTheDevicesEachTrialAndTheEncoderChosen(t *testing.T) {
+	t.Parallel()
+	found := nodeCapabilities{
+		encoding: prepare.Choice{Chosen: prepare.EncoderNVENC, Trials: []prepare.Trial{
+			{Encoder: prepare.EncoderQuickSync, Failure: "no render node"}, {Encoder: prepare.EncoderNVENC},
+		}},
+		gpus: []nodeproto.GPU{{Device: "/dev/nvidia0", Driver: "nvidia"}},
+	}
+	got := hardwareReport(found)
+	want := nodeproto.Hardware{
+		GPUs: found.gpus, Encoder: "h264_nvenc",
+		Trials: []nodeproto.EncoderTrial{{Encoder: "h264_qsv", Failure: "no render node"}, {Encoder: "h264_nvenc"}},
+	}
+	if got.Encoder != want.Encoder || !slices.Equal(got.Trials, want.Trials) || !slices.Equal(got.GPUs, want.GPUs) {
+		t.Errorf("the hello's hardware = %+v, want %+v (D225 §3)", got, want)
+	}
+}

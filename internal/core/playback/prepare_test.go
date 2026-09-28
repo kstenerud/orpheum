@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -78,5 +79,35 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 	all.reported(t.Context(), 1, nodeproto.PrepareReport{Job: 7, State: nodeproto.PrepareDone, SizeBytes: 10})
 	if err := <-ended; err != nil {
 		t.Errorf("a prepare waiting for a slot, said so: %v, want it to wait and end done", err)
+	}
+}
+
+func TestFinish_RecordsWhatMadeTheVideoAndHowFast(t *testing.T) {
+	t.Parallel()
+	cache := storetest.OpenCache(t)
+	all := &prepares{cache: cache, clock: clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC))}
+	var rendition int64
+	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		var insertErr error
+		rendition, insertErr = queries.InsertRendition(t.Context(), cachegen.InsertRenditionParams{
+			SourceFile: 3, PayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthS: 6,
+			RunID: "0123456789abcdef", CreatedAt: 1,
+		})
+		return insertErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10, VideoEncoder: "h264_qsv", Speed: 6.5}
+	if err = all.finish(t.Context(), rendition, &done, ""); err != nil {
+		t.Fatal(err)
+	}
+	row, err := cache.Read().GetRenditionByID(t.Context(), rendition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row.VideoEncoder == nil || *row.VideoEncoder != "h264_qsv" || row.Speed == nil || *row.Speed != 6.5 {
+		t.Errorf("the rendition records encoder %v at speed %v; want h264_qsv at 6.5 (D225 §3)",
+			row.VideoEncoder, row.Speed)
 	}
 }

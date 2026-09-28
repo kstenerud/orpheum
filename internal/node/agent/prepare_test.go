@@ -12,22 +12,24 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// fakePreparer reports half the source done, then a size that names the input it was given; a
+// fakePreparer reports half the source done, then a size that names the input it was given, made
+// with Quick Sync at 6.5 times real time; a
 // rendition directory ending in /slow runs until it is stopped.
 type fakePreparer struct{}
 
 func (fakePreparer) Prepare(
 	ctx context.Context, input string, command nodeproto.Prepare, progress func(preparedMs int64),
-) (int64, error) {
+) (prepare.Made, error) {
 	progress(500)
 	if strings.HasSuffix(command.RenditionDir, "/slow") {
 		<-ctx.Done()
-		return 0, ctx.Err()
+		return prepare.Made{}, ctx.Err()
 	}
-	return int64(len(input)), nil
+	return prepare.Made{SizeBytes: int64(len(input)), VideoEncoder: "h264_qsv", Speed: 6.5}, nil
 }
 
 // patience is how long a test waits for the node's answer before it fails, so a report that
@@ -81,8 +83,10 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 	send(1, source)
 	done := finalReport(t, core)
 	wantInput := root.Path() + "/film.mkv"
-	if done.Job != 1 || done.State != nodeproto.PrepareDone || done.SizeBytes != int64(len(wantInput)) {
-		t.Errorf("a prepare of the source file ended %+v, want done, run on %s", done, wantInput)
+	if done.Job != 1 || done.State != nodeproto.PrepareDone || done.SizeBytes != int64(len(wantInput)) ||
+		done.VideoEncoder != "h264_qsv" || done.Speed != 6.5 {
+		t.Errorf("a prepare of the source file ended %+v, want done, run on %s, with the encoder and speed "+
+			"the preparer said", done, wantInput)
 	}
 	changed := source
 	changed.Hash = strings.Repeat("0", 64)
@@ -114,21 +118,21 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 	source := nodeproto.BytesFile{
 		Root: root.Path(), Path: []byte("film.mkv"), Hash: hex.EncodeToString(identity.Hash[:]),
 	}
-	prepare := func(job int64, dir string) nodeproto.Command {
+	commandFor := func(job int64, dir string) nodeproto.Command {
 		return nodeproto.Command{Seq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
 			Job: job, Source: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir,
 		}}
 	}
 	// Two slow prepares fill both remux slots, so a third runs only once a cancel frees one.
-	core.commands <- prepare(1, "3/remux/slow")
-	core.commands <- prepare(2, "4/remux/slow")
+	core.commands <- commandFor(1, "3/remux/slow")
+	core.commands <- commandFor(2, "4/remux/slow")
 	for range 2 {
 		if started := nextReport(t, core); started.State != nodeproto.PrepareRunning {
 			t.Fatalf("a slow prepare's first report = %+v, want running", started)
 		}
 	}
 	core.commands <- nodeproto.Command{Seq: 3, Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{Job: 1}}
-	core.commands <- prepare(4, "5/remux/0123456789abcdef")
+	core.commands <- commandFor(4, "5/remux/0123456789abcdef")
 	if next := finalReport(t, core); next.Job != 4 || next.State != nodeproto.PrepareDone {
 		t.Errorf("the next final report = %+v, want job 4 done and nothing for the cancelled job 1", next)
 	}

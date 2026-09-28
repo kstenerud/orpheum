@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/byteserver"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
+	"github.com/kstenerud/orpheum/internal/node/hardware"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/node/probe"
@@ -131,10 +133,10 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	if err != nil {
 		return err
 	}
-	// The encoder is chosen once: the first hardware one that works here, confined, else x264.
-	encoder, usable := prepare.ChooseEncoder(ctx, runner)
-	logger.InfoContext(ctx, "this node chose its encoder", "encoder", encoder, "usable", usable)
-	hello, err := describeNode(ctx, config, runner, nodeCapabilities{confinement: confinement, encoders: usable})
+	encoding := chooseEncoder(ctx, runner, logger)
+	hello, err := describeNode(ctx, config, runner, nodeCapabilities{
+		confinement: confinement, encoding: encoding, gpus: hardware.GPUs(),
+	})
 	if err != nil {
 		return err
 	}
@@ -150,7 +152,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
 	var preparing agent.Preparer
 	var keeping agent.Keeper
-	directory, err := openPrepared(config, runner, encoder)
+	directory, err := openPrepared(config, runner, encoding.Chosen)
 	if err != nil {
 		logger.ErrorContext(ctx, "this node cannot prepare; it serves files as they are", "err", err)
 	} else {
@@ -178,8 +180,19 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		Scanner: scanning, Artwork: deriver, Preparer: preparing, Subtitles: subtitle.NewExtractor(runner),
 		Keeper: keeping,
 	}
+	if directory.root != nil {
+		workers.PreparedDirectory = directory.root.Path()
+	}
 	node := agent.New(filepath.Join(config.Server.SocketDir, coreSocket), hello, roots, workers, clock.System{}, logger)
 	return node.Run(ctx, ticker.C)
+}
+
+// chooseEncoder chooses, once, the encoder the node's encodes use: the first hardware one that
+// works here, confined, else x264 (cut-a §6).
+func chooseEncoder(ctx context.Context, runner *execx.Runner, logger *slog.Logger) prepare.Choice {
+	encoding := prepare.ChooseEncoder(ctx, runner)
+	logger.InfoContext(ctx, "this node chose its encoder", "encoder", encoding.Chosen, "usable", encoding.Usable())
+	return encoding
 }
 
 // preparedDirectory is the node's prepared directory: opened for the byte socket to read, the
@@ -255,11 +268,12 @@ func openRoots(ctx context.Context, paths []string, logger *slog.Logger) []*conf
 	return roots
 }
 
-// nodeCapabilities are what the node found it has: its confinement, per mechanism, and the
-// encoders it can use.
+// nodeCapabilities are what the node found it has: its confinement, per mechanism, the encoder
+// trials that chose its encoder, and the GPU devices it sees (D225 §3).
 type nodeCapabilities struct {
 	confinement []confine.State
-	encoders    []prepare.Encoder
+	encoding    prepare.Choice
+	gpus        []nodeproto.GPU
 }
 
 // describeNode is the hello: who the node is, which FFmpeg it runs, what it can do and what
@@ -288,11 +302,23 @@ func describeNode(
 		Version:       version,
 		FFmpegVersion: firstLine,
 		FFmpegHash:    ffmpegHash,
-		Capabilities:  capabilities(found.encoders),
+		Capabilities:  capabilities(found.encoding.Usable()),
 		Confinement:   report,
 		UID:           os.Geteuid(),
 		GID:           os.Getegid(),
+		Platform:      runtime.GOOS + "/" + runtime.GOARCH,
+		Hardware:      hardwareReport(found),
 	}, nil
+}
+
+// hardwareReport is the hello's account of hardware encoding: the devices, each trial and the
+// encoder chosen (D225 §3).
+func hardwareReport(found nodeCapabilities) nodeproto.Hardware {
+	trials := make([]nodeproto.EncoderTrial, 0, len(found.encoding.Trials))
+	for _, trial := range found.encoding.Trials {
+		trials = append(trials, nodeproto.EncoderTrial{Encoder: string(trial.Encoder), Failure: trial.Failure})
+	}
+	return nodeproto.Hardware{GPUs: found.gpus, Trials: trials, Encoder: string(found.encoding.Chosen)}
 }
 
 // capabilities are the hello's (cut-a §4): remux and AAC, which every node can do, and the

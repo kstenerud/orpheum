@@ -37,7 +37,7 @@ type DoctorOutput struct {
 
 func (server *Server) registerDoctor() {
 	huma.Register(server.api, huma.Operation{
-		OperationID: "getDoctor", Method: http.MethodGet, Path: "/doctor", Tags: []string{"Running it"},
+		OperationID: "getDoctor", Method: http.MethodGet, Path: "/doctor", Tags: []string{tagRunningIt},
 		Summary: "What the running server finds wrong with itself, and what to do (admin)",
 	}, server.doctor)
 }
@@ -48,21 +48,32 @@ func (server *Server) doctor(ctx context.Context, input *AuthorizationHeader) (*
 		return nil, err
 	}
 	output := &DoctorOutput{}
-	output.Body.Findings = []FindingBody{artworkFinding(dependencies)}
-	nodes, err := dependencies.Libraries.NodeRoots(ctx)
+	output.Body.Findings, err = server.findings(ctx, dependencies)
+	if err != nil {
+		return nil, err
+	}
+	return output, nil
+}
+
+// findings are what the running server finds wrong with itself, for /doctor and the System page.
+func (server *Server) findings(ctx context.Context, dependencies *Dependencies) ([]FindingBody, error) {
+	findings := []FindingBody{artworkFinding(dependencies)}
+	listed, err := dependencies.Libraries.NodeRoots(ctx)
 	if err != nil {
 		return nil, server.internal(ctx, "list nodes", err)
 	}
-	for _, node := range nodes {
-		if node.Connected {
-			output.Body.Findings = append(output.Body.Findings, confinementFinding(node.Name,
-				confinementOf(dependencies.NodeReports, node.Name)))
-			if usage, known := dependencies.NodeReports.PreparedUsage(node.Name); known {
-				output.Body.Findings = append(output.Body.Findings, preparedFinding(node.Name, usage))
-			}
+	for _, node := range listed {
+		facts, found := dependencies.NodeReports.Facts(node.Name)
+		if !found {
+			continue
+		}
+		findings = append(findings, confinementFinding(node.Name, confinementBodies(facts.Hello.Confinement)),
+			hardwareFinding(node.Name, facts.Hello.Hardware))
+		if facts.Status != nil && facts.Status.Prepared != nil {
+			findings = append(findings, preparedFinding(node.Name, *facts.Status.Prepared))
 		}
 	}
-	return output, nil
+	return findings, nil
 }
 
 // preparedFinding is what a node's prepared directory holds against its budget and its disk's

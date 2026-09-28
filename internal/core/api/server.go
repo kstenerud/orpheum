@@ -67,6 +67,8 @@ type Dependencies struct {
 	Jobs *jobs.Queue
 	// NodeReports is what each connected node said about itself, for the admin to see.
 	NodeReports NodeReports
+	// System is what the System page shows of the server itself (D225).
+	System System
 	// ConfigFile is the config file's keys as the server runs with them, for /config to show.
 	ConfigFile []ConfigFileKey
 }
@@ -112,6 +114,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerBrowse()
 	server.registerArt()
 	server.registerDoctor()
+	server.registerSystem()
 	server.registerPlayback()
 	server.registerFilePrefs()
 	server.registerReport()

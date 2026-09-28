@@ -170,6 +170,10 @@ func start(
 	dependencies.NodeBytes = nodes.NewBytes(opened.nodes, filepath.Join(config.Server.SocketDir, nodeSocket))
 	dependencies.Jobs = opened.metadata.queue
 	dependencies.NodeReports = opened.nodes
+	dependencies.System = api.System{
+		Version: version, StartedAt: clock.System{}.Now(), StateDirectory: config.Server.DataDir,
+		CacheDirectory: config.Server.CacheDir, Library: database, Cache: opened.cache,
+	}
 	server.Ready(dependencies)
 	return opened, nil
 }

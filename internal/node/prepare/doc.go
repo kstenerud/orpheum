@@ -22,6 +22,10 @@
 //     picture here, confined as a prepare is, with the GPU granted (cut-a §6).
 //     Enforced by TestChooseEncoder_TakesTheFirstHardwareEncoderThatWorksConfinedOrX264 and
 //     TestArguments_AnEncodeUsesTheNodesEncoderAndARemuxCopies.
+//   - Each hardware encoder's trial is kept, with FFmpeg's words when it failed, and a prepare
+//     says what made its video and FFmpeg's last speed, for the System page (D225 §3).
+//     Enforced by TestChooseEncoder_EachTrialSaysWhyItFailedInFFmpegsWords and
+//     TestPreparer_SaysWhatMadeTheVideoAndHowFastFFmpegSaidItRan.
 //   - The boost raises the centre's share by 6 dB over the standard mix, with the pinned FFmpeg.
 //     Enforced by TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentre
 //     (integration tier). The gain is provisional until the listening test sets it (cut-a §6).
@@ -35,6 +39,7 @@
 //   - D169: the prepared rendition is a cache.
 //   - D180: its play state is its source's.
 //   - D217 §3 and §5: every audio track, and the node owns its prepared directory.
+//   - D225: the System page shows what the encoder trials found and what each prepare used.
 //   - docs/contributors/design/plans/cut-a.md §6.
 //
 // # Where to change

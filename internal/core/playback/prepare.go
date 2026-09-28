@@ -171,7 +171,7 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 				}
 				timer.Reset(all.maxSilence)
 			case nodeproto.PrepareDone:
-				return all.finish(ctx, job.Subject, &report.SizeBytes, "")
+				return all.finish(ctx, job.Subject, &report, "")
 			case nodeproto.PrepareFailed:
 				// FFmpeg failing on a file fails again on it: this is not retried.
 				failure := errors.New(report.Error)
@@ -220,13 +220,24 @@ func (all *prepares) running(ctx context.Context, rendition, preparedMs int64) e
 	return nil
 }
 
-// finish records a rendition complete with its size, or failed with why.
-func (all *prepares) finish(ctx context.Context, rendition int64, size *int64, failure string) error {
+// finish records a rendition complete with its size, what made its video and how fast, or
+// failed with why.
+func (all *prepares) finish(ctx context.Context, rendition int64, done *nodeproto.PrepareReport, failure string) error {
 	now := all.clock.Now().UnixMilli()
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		if size != nil {
+		if done != nil {
+			// What made it and how fast, for the System page (D225 §3); a node that did not say
+			// leaves them empty.
+			var videoEncoder *string
+			if done.VideoEncoder != "" {
+				videoEncoder = &done.VideoEncoder
+			}
+			var speed *float64
+			if done.Speed > 0 {
+				speed = &done.Speed
+			}
 			return queries.SetRenditionComplete(ctx, cachegen.SetRenditionCompleteParams{
-				SizeBytes: size, FinishedAt: &now, ID: rendition,
+				SizeBytes: &done.SizeBytes, FinishedAt: &now, VideoEncoder: videoEncoder, Speed: speed, ID: rendition,
 			})
 		}
 		return queries.SetRenditionFailed(ctx, cachegen.SetRenditionFailedParams{

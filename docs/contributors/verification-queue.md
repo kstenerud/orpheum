@@ -86,13 +86,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   corrected to that (A11), and the owner kept the switch: *"Yes we keep the switch"*.
 - [ ] **VQ9** — On devnas, with Landlock switched on at boot (`cat /sys/kernel/security/lsm` lists
   `landlock`), run `go test ./internal/node/confine/ -run TestEscape -v` from the tree: both
-  escape tests pass, and neither is skipped. Then start the node there and open **Libraries**:
-  the Machines section says FFmpeg runs in its sandbox on devnas, and doctor's confinement
+  escape tests pass, and neither is skipped. Then start the node there and open **System**:
+  it says FFmpeg runs in its sandbox on devnas, and doctor's confinement
   finding is ok. M3's acceptance asks for the escape test green on devnas (cut-a §8, D112).
   (`internal/node/confine/`)
-- [ ] **VQ10** — On devnas, start the node: its log says `this node chose its encoder` with
-  `encoder=h264_qsv`. Play
-  a film whose video the browser cannot play (HEVC 10-bit on a phone): it prepares with Quick
-  Sync, faster than real time, and plays; `intel_gpu_top` shows the video engine busy while it
-  prepares. With Landlock on (VQ9), the same holds: the GPU is granted to the confined encode
-  (cut-a §6). (`internal/node/prepare/encoder.go`, `internal/node/confine/landlock_linux.go`)
+- [ ] **VQ10** — On devnas, start the node and open **System**, as admin. Under the machine,
+  **Hardware encoding** says video is encoded on the GPU with Intel Quick Sync; **What it sees**
+  lists `/dev/dri/renderD128` with its driver (i915 or xe) and says the server may open it; the
+  Quick Sync trial worked, and doctor's hardware finding is OK. Play a film whose video the
+  browser cannot play (HEVC 10-bit on a phone): it prepares and plays, `intel_gpu_top` shows the
+  video engine busy meanwhile, and afterwards **Recent prepared copies** lists it made with Intel
+  Quick Sync, faster than real time. With Landlock on (VQ9), all of it holds: the GPU is granted
+  to the confined encode (cut-a §6, D225). (`internal/node/prepare/encoder.go`,
+  `internal/node/hardware/`, `internal/node/confine/landlock_linux.go`,
+  `web/apps/web/src/system.tsx`)

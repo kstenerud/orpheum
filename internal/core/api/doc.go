@@ -29,6 +29,10 @@
 //     TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt.
 //   - Only an admin sees /doctor; its artwork finding warns at high water with the ceiling to set
 //     (D212 §7). TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling.
+//   - Only an admin sees /system, the System page: the server's facts, doctor's findings and each
+//     node's, with the encoder each recent prepare used (D225).
+//     TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings. Doctor warns when a node has a
+//     GPU and no hardware encoder works on it. TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor.
 //   - A person with edit_metadata may refresh a title or series whenever they like (D213 §2).
 //     TestIdentification_APersonMayRefreshATitleWheneverTheyLike.
 //   - /health answers before the database is ready, and the rest answers "migrating" until then.
@@ -66,9 +70,9 @@
 // # Where to change
 //
 //   - One file per endpoint group of cut-a §5: session.go (setup and auth), settings.go,
-//     secrets.go, health.go, identification.go, libraries.go, browse.go; later groups add theirs. server.go
-//     holds the readiness gate and the
-//     authentication helpers. M1 builds setup, sessions, settings and secrets (D198).
+//     secrets.go, health.go, identification.go, libraries.go, browse.go, doctor.go, system.go;
+//     later groups add theirs. server.go holds the readiness gate and the authentication
+//     helpers. M1 builds setup, sessions, settings and secrets (D198).
 //   - api/openapi.json is generated with `orpheum openapi`; regenerate it after any change here.
 //   - The error enumeration lives here and is the only source the SDK's is generated from.
 package api

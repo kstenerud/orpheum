@@ -49,6 +49,8 @@ type PreparedRendition struct {
 	PreparedMs     int64
 	SizeBytes      *int64
 	Error          *string
+	VideoEncoder   *string
+	Speed          *float64
 	CreatedAt      int64
 	FinishedAt     *int64
 }

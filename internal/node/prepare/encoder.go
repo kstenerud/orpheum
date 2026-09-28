@@ -49,20 +49,44 @@ func (encoder Encoder) arguments() []string {
 // trialTimeout bounds one encoder's trial: a GPU that hangs is not one to encode with.
 const trialTimeout = 30 * time.Second
 
-// ChooseEncoder is the first hardware encoder that encodes a second of test picture on this
-// machine, confined as a prepare is, or x264 when none does. Every encoder the node can use is
-// in usable, x264 always.
-func ChooseEncoder(ctx context.Context, runner Runner) (chosen Encoder, usable []Encoder) {
-	chosen = EncoderX264
-	for _, encoder := range hardwareEncoders() {
-		if tryEncoder(ctx, runner, encoder) == nil {
-			usable = append(usable, encoder)
-			if chosen == EncoderX264 {
-				chosen = encoder
-			}
+// Trial is one hardware encoder's trial on this machine: it worked, or Failure says why, in
+// FFmpeg's words (D225 §3).
+type Trial struct {
+	Encoder Encoder
+	Failure string
+}
+
+// Choice is the encoder a node prepares with, and the trials that chose it.
+type Choice struct {
+	Chosen Encoder
+	Trials []Trial
+}
+
+// Usable is every encoder the node can use: the hardware ones whose trial worked, and x264.
+func (choice Choice) Usable() []Encoder {
+	var usable []Encoder
+	for _, trial := range choice.Trials {
+		if trial.Failure == "" {
+			usable = append(usable, trial.Encoder)
 		}
 	}
-	return chosen, append(usable, EncoderX264)
+	return append(usable, EncoderX264)
+}
+
+// ChooseEncoder tries each hardware encoder, encoding a second of test picture on this machine,
+// confined as a prepare is, and chooses the first that works, or x264 when none does.
+func ChooseEncoder(ctx context.Context, runner Runner) Choice {
+	choice := Choice{Chosen: EncoderX264}
+	for _, encoder := range hardwareEncoders() {
+		trial := Trial{Encoder: encoder}
+		if err := tryEncoder(ctx, runner, encoder); err != nil {
+			trial.Failure = err.Error()
+		} else if choice.Chosen == EncoderX264 {
+			choice.Chosen = encoder
+		}
+		choice.Trials = append(choice.Trials, trial)
+	}
+	return choice
 }
 
 // tryEncoder encodes a second of generated test picture with encoder, to nothing.

@@ -61,30 +61,41 @@ func New(runner Runner, directory string, keeper Keeper, encoder Encoder) (*Prep
 // Directory is where renditions are written, for the byte socket to serve them from.
 func (preparer *Preparer) Directory() string { return preparer.directory }
 
+// Made is what a prepare made, and how (D225 §3).
+type Made struct {
+	SizeBytes int64
+	// VideoEncoder is the encoder the video was made with, or "copy" for a remux.
+	VideoEncoder string
+	// Speed is how many seconds of the source FFmpeg prepared per second it ran, as it last said;
+	// zero when it never said.
+	Speed float64
+}
+
 // Prepare runs one prepare to its end: FFmpeg reads input, an absolute path, and writes the
 // rendition into its directory, reporting how much of the source is done as it goes. It returns
-// the rendition's size.
+// what it made.
 func (preparer *Preparer) Prepare(
 	ctx context.Context, sourcePath string, command nodeproto.Prepare, progress func(preparedMs int64),
-) (int64, error) {
+) (Made, error) {
 	if !renditionDir.MatchString(command.RenditionDir) {
-		return 0, fmt.Errorf("%w, not %q", ErrBadDir, command.RenditionDir)
+		return Made{}, fmt.Errorf("%w, not %q", ErrBadDir, command.RenditionDir)
 	}
 	// A prepare the disk has no room for is refused rather than fill it (D217 §5).
 	if err := preparer.keeper.Room(); err != nil {
-		return 0, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
+		return Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}
 	written := preparer.keeper.Writing(command.RenditionDir)
 	defer written()
 	renditionPath := filepath.Join(preparer.directory, filepath.FromSlash(command.RenditionDir))
 	if err := os.MkdirAll(renditionPath, 0o750); err != nil {
-		return 0, fmt.Errorf("make the rendition's directory: %w", err)
+		return Made{}, fmt.Errorf("make the rendition's directory: %w", err)
 	}
 	reader, writer := io.Pipe()
 	done := make(chan struct{})
+	var speed float64
 	go func() {
 		defer close(done)
-		readProgress(reader, progress)
+		speed = readProgress(reader, progress)
 	}()
 	// It reads the source and writes the rendition, and an encode on the GPU opens it (cut-a §7).
 	isOnGPU := command.Profile == nodeproto.ProfileH264At8M && preparer.encoder.UsesGPU()
@@ -94,27 +105,41 @@ func (preparer *Preparer) Prepare(
 	_ = writer.Close() //nolint:errcheck // a pipe's writer closes without error
 	<-done
 	if err != nil {
-		return 0, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
+		return Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}
-	return size(renditionPath)
+	bytes, err := size(renditionPath)
+	if err != nil {
+		return Made{}, err
+	}
+	videoEncoder := videoCopied
+	if command.Profile == nodeproto.ProfileH264At8M {
+		videoEncoder = string(preparer.encoder)
+	}
+	return Made{SizeBytes: bytes, VideoEncoder: videoEncoder, Speed: speed}, nil
 }
 
 // readProgress reads FFmpeg's -progress lines and reports out_time_us, in milliseconds, each time
-// it moves.
-func readProgress(reader io.Reader, progress func(preparedMs int64)) {
+// it moves. It returns the last speed FFmpeg gave ("speed=6.2x"), or zero when it gave none.
+func readProgress(reader io.Reader, progress func(preparedMs int64)) (speed float64) {
 	lines := bufio.NewScanner(reader)
 	for lines.Scan() {
-		value, found := strings.CutPrefix(lines.Text(), "out_time_us=")
-		if !found {
-			continue
-		}
-		microseconds, err := strconv.ParseInt(value, 10, 64)
-		if err == nil && microseconds >= 0 {
-			progress(microseconds / 1000)
+		key, value, _ := strings.Cut(lines.Text(), "=")
+		switch key {
+		case "out_time_us":
+			microseconds, err := strconv.ParseInt(value, 10, 64)
+			if err == nil && microseconds >= 0 {
+				progress(microseconds / 1000)
+			}
+		case "speed":
+			// "N/A" until FFmpeg has timed something; a speed it cannot say leaves the last one.
+			if said, err := strconv.ParseFloat(strings.TrimSuffix(strings.TrimSpace(value), "x"), 64); err == nil {
+				speed = said
+			}
 		}
 	}
 	// A reader that ends early leaves FFmpeg's pipe unread; drain it so the run is never blocked.
 	_, _ = io.Copy(io.Discard, reader) //nolint:errcheck // draining
+	return speed
 }
 
 // size is the bytes of every file under directory.
