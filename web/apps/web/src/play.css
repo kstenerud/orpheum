@@ -20,7 +20,11 @@
   color: var(--color-muted);
 }
 
-.play__boost {
+.play__level-note {
+  color: var(--color-muted);
+}
+
+.play__switch {
   display: flex;
   gap: 0.5rem;
   align-items: center;
