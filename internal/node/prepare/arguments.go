@@ -85,15 +85,18 @@ func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare, enco
 	)
 }
 
+// videoCopied is FFmpeg's name for a video copied, not encoded: a remux's.
+const videoCopied = "copy"
+
 // videoArguments copy the picture for remux, tagging HEVC as hvc1 for Safari, or re-encode it with
 // the node's encoder (cut-a §6).
 func videoArguments(command nodeproto.Prepare, encoder Encoder) []string {
 	const codec = "-c:v"
 	if command.Profile == nodeproto.ProfileRemux {
 		if command.VideoCodec == "hevc" {
-			return []string{codec, "copy", "-tag:v", "hvc1"}
+			return []string{codec, videoCopied, "-tag:v", "hvc1"}
 		}
-		return []string{codec, "copy"}
+		return []string{codec, videoCopied}
 	}
 	return encoder.arguments()
 }
