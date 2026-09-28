@@ -2,6 +2,8 @@
 
 .play {
   display: grid;
+  /* One column no wider than the screen: a long track name in a menu must not widen the page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-page);
 }
 
@@ -35,6 +37,13 @@
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
   align-items: center;
+}
+
+/* A subtitle's name can be a whole release name; the menu shrinks to the screen and cuts it. */
+.play__subtitles label,
+.play__subtitles select {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .play__offset {

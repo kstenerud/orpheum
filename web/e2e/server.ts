@@ -94,8 +94,14 @@ function timingFilmArguments(assPath: string, hue: number): string[] {
     ...["-c:v", "libx264", "-preset", "veryfast", "-crf", "30", "-pix_fmt", "yuv420p", "-g", "48"],
     ...["-c:a", "truehd", "-strict", "-2", "-c:s", "ass"],
     ...["-metadata:s:a:0", "language=eng", "-metadata:s:s:0", "language=eng"],
+    // A track named as a release is, wider than a phone's screen: the menu must not widen the page.
+    ...["-metadata:s:s:0", `title=${longTrackName}`],
   ];
 }
+
+/** A subtitle track's name as downloaded subtitles and rips carry them: one unbroken release name. */
+export const longTrackName =
+  "Timing.Film.2026.Directors.Cut.1080p.BluRay.x264.DTS-HD.MA.5.1-ReleaseGroupName";
 
 /** A short film every browser plays as it is: answering the sound question costs no prepare. */
 const warmUpArguments = [
