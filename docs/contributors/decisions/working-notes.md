@@ -16824,3 +16824,50 @@ never fun."*
      reads, with the kernel; the node runs no program but FFmpeg's (cut-a §7).
 
 **Status:** Decided.
+
+## D226 — Loudness is levelled in Cut A: the node measures each sound and its stereo mix, the core sets a gain towards -23 LUFS that no peak exceeds, and the player applies it after its volume
+
+**Decided** (2026-09-28), by the project owner. Playing *Wing* (the director's cut) on the dev
+loop, the owner found it *"so quiet that even when I put my speakers to maximum, it's hard to
+hear"*. Measured, ten minutes of it were at -35.7 LUFS with a peak of -16.2 dBFS; the owner's
+other films measured whole from -18.8 to -30.0 LUFS. The owner: *"this will be a problem for
+when [we] are watching films, so it needs to be in cut A"*, and to the questions it raised, *"go
+with your recommendations"*. **Brings [D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)'s loudness into Cut A, withdrawing cut-a §1's "loudness
+measurement" from Out and [D178](#d178--the-first-release-is-for-two-people-the-owner-at-home-and-one-person-remote-watching-together-with-subtitles) §4's deferral, and settles what D83 left open.**
+
+1. **What is measured.** Each audio track of a video file: its integrated loudness, loudness
+   range and true peak, by FFmpeg's `ebur128` (ITU-R BS.1770). A track with more than two
+   channels is also measured as the standard stereo mix the node prepares from it (D222 §2),
+   because that mix renormalises its gains so it cannot clip and plays about 7 to 8 dB quieter
+   than the original; a gain taken from the original would leave every downmixed film quiet.
+   Both come from one read of the file. D83's limitation stands: this is programme loudness, not
+   the dialogue-gated figure, and nothing says otherwise.
+2. **Where it is kept, and when it is made.** In library.db, by the file's payload hash and the
+   stream's index, so a rescan, a move or a second copy keeps a measurement that cost a read of
+   the whole file. It is not part of the scan, which would take hours instead of minutes: a job
+   per file (`measure_loudness`), queued for each file with sound whose payload has no
+   measurement, runs one at a time on the node. Measured 2026-09-28 on the sandbox: 21 s for an
+   81-minute film, most of it reading the file, about 230 times real time; the owner's 329 films
+   take two to three hours, once. A track FFmpeg cannot measure is recorded as failed, with its
+   words, and not tried again for the same bytes.
+3. **The gain** is set by the core: towards **-23 LUFS** (EBU R128's target), chosen from the
+   owner's films so that typical ones change little. It is capped so the track's true peak stays
+   at or below -1 dBTP, and so no track is raised more than 20 dB into its own noise. **A film
+   louder than the target is lowered**, so films sit at one level both ways. The gain for stereo
+   output is the stereo mix's, and the dialogue boost's mix plays with the same gain, so turning
+   the boost on raises the dialogue against the rest, not the whole film.
+4. **The player applies it, after the volume control** (the owner asked whether the slider would
+   then run past 100): the element's volume is still 0 to 100, and 100 now means the film at the
+   level. The web player and the cast receiver route the sound through Web Audio's gain; a
+   receiver's channels are kept. A prepared copy is made with its gain in its sound when the
+   measurement exists as it is made, and the copy records the gain it carries; the player
+   applies only the difference. Safari's own HLS, on an iPhone, cannot route through Web Audio,
+   so there the sound is levelled only through a copy made after the measurement; a copy made
+   before is not made again for it.
+5. **Each person may turn it off** ("Level loudness"): one choice that follows them from film to
+   film, like the dialogue boost (D222 §3), but **on** until they turn it off. On an iPhone, a
+   copy's own gain cannot be undone, so turning it off does not reach the sound there.
+6. **The player says what it did:** the gain applied to this film, or that its loudness is not
+   measured yet, beside the switch. A film not yet measured plays as it is.
+
+**Status:** Decided; built in M3.

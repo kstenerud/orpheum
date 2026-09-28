@@ -40,6 +40,24 @@ counted:
 
 ## Log
 
+### P34 — A film too quiet to hear brought loudness levelling into Cut A (M3, 2026-09-28) · requirement-emerged
+
+- **Planned:** D83 designed loudness measurement and a playback gain; D178 §4 left it out of Cut
+  A, and cut-a §1 listed "loudness measurement" under Out. The dialogue boost was Cut A's only
+  answer to quiet sound.
+- **What happened:** with a real library on the dev loop, the owner found *Wing* too quiet to
+  hear with the speakers at maximum. It measured -35.7 LUFS, about 12 dB under the owner's
+  typical films, and it is stereo, so the boost, which acts on a downmix, could not touch it. The
+  owner brought levelling into Cut A (D226).
+- **Why the plan missed it:** the plan's test media were generated at one level, and its
+  reasoning about quiet sound was about dialogue in a downmix, the case the design research had
+  documented; a whole film mastered quiet was not among the cases considered, and no real library
+  was played before M3.
+- **Cost:** a measurement job on the node, a table, a gain in the core, a switch per person and
+  Web Audio in the player, added to M3.
+- **Process lesson:** play a sample of the real library, not only generated fixtures, before
+  deciding what a release can leave out; generated media hide the spread real media have.
+
 ### P33 — The owner could not tell whether the server was set up right (M3, 2026-09-27) · requirement-emerged
 
 - **Planned:** cut-a §6 named the hardware encoders; `doctor` and the Machines section of

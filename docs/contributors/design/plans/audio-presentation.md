@@ -4,7 +4,7 @@
 
 # Audio presentation
 
-- **Status:** PLANNED — designed 2026-09-19 ([D83](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §5). **The dialogue boost is in Cut A; loudness measurement is not** ([D178](../../decisions/working-notes.md) §3–§4). **2026-09-23: the node, not the core, does the downmix, and Cut A's boost is on or off — two audio renditions in each prepared rendition** ([D193](../../decisions/working-notes.md) §1–§2).
+- **Status:** PLANNED — designed 2026-09-19 ([D83](../../decisions/working-notes.md), [audit-2026-09-19.md](../research/audit-2026-09-19.md) §5). **The dialogue boost is in Cut A; loudness measurement is not** ([D178](../../decisions/working-notes.md) §3–§4). **2026-09-23: the node, not the core, does the downmix, and Cut A's boost is on or off — two audio renditions in each prepared rendition** ([D193](../../decisions/working-notes.md) §1–§2). **2026-09-28: loudness levelling is in Cut A after all** ([D226](../../decisions/working-notes.md)): a film quiet enough that the owner could not hear it at full volume.
 - **Depends on:** library-model.md, scanner.md
 - **Blocks:** [library-model.md](library-model.md) — the per-track loudness columns are schema
 
@@ -50,13 +50,27 @@ figure — dialogue gating needs Dolby's Dialogue Intelligence, which FFmpeg doe
 number is comparable within our own library and **is not the same quantity**. Do not imply
 parity anywhere user-facing.
 
-**Not in Cut A** ([D178](../../decisions/working-notes.md) §4): the boost needs only the
-downmix, and the measurement pass stays later.
+### In Cut A ([D226](../../decisions/working-notes.md))
 
-**Cost is the open question.** It is an extra decode pass at scan time, on a machine that is
-already decoding — but on a Celeron NAS with fifty thousand files that is not free. Whether it
-is deferrable per library belongs in
-[performance-targets.md](performance-targets.md).
+~~Not in Cut A ([D178](../../decisions/working-notes.md) §4)~~: a film the owner could not hear
+at full volume brought it in.
+
+- **Measured by a job, not by the scan:** `measure_loudness`, one per file with sound whose
+  payload has no measurement, one at a time on the node. A scan stays minutes; the owner's 329
+  films take two to three hours once, the time being mostly the read of each file (measured
+  2026-09-28: 21 s for an 81-minute film).
+- **Each track, and its stereo mix:** a track with more than two channels is also measured as
+  the standard stereo mix of §2, whose renormalised gains play it 7 to 8 dB quieter than the
+  original. Kept in library.db by payload hash and stream index.
+- **The gain** goes towards -23 LUFS, both ways, and never lifts the true peak above -1 dBTP nor
+  raises a track more than 20 dB. The boosted mix plays with the standard mix's gain.
+- **The player applies it after its volume**, through Web Audio, so the volume control still runs
+  to 100 and 100 means the film at the level. A prepared copy made after the measurement carries
+  its gain, for Safari's own HLS on an iPhone, and the player applies only the difference.
+- **A person may turn it off**; it is on until they do. The player shows the gain it applied.
+
+~~**Cost is the open question.**~~ Answered by the measurement above: one read of each file,
+once, in the background.
 
 ## 2. Downmix: one default and one control
 
@@ -131,9 +145,9 @@ living-room television is a fact about a person in a room, not about hardware.
 
 **Cut A:** on a television's own speakers, a 5.1 film plays through a prepared rendition whose
 dialogue-boosted track is chosen by the user's preference, and turning the boost off or on
-mid-film switches track without a new job.
+mid-film switches track without a new job. Two films from different decades play at about the
+same level without touching the volume, and the player says what gain it applied (D226).
 
-**Later:** two films from different decades play at the same perceived level without touching the remote;
-dialogue is intelligible on a television's own speakers with no configuration; a home-cinema
+**Later:** dialogue is intelligible on a television's own speakers with no configuration; a home-cinema
 user can turn dynamic-range compression off for that device only; nothing was written to a
 media file; and the server can say, per track, what it measured and what gain it applied.
