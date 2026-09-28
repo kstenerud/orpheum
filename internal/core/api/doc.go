@@ -33,6 +33,8 @@
 //     node's, with the encoder each recent prepare used (D225).
 //     TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings. Doctor warns when a node has a
 //     GPU and no hardware encoder works on it. TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor.
+//     Doctor warns when a node runs another build than the server's (D225 §5).
+//     TestBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer.
 //   - A person with edit_metadata may refresh a title or series whenever they like (D213 §2).
 //     TestIdentification_APersonMayRefreshATitleWheneverTheyLike.
 //   - /health answers before the database is ready, and the rest answers "migrating" until then.

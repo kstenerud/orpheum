@@ -180,7 +180,7 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 	replayConfig.Node = config.Node
 	second := acceptanceRun(t, replayConfig, root, func(captured capturedLog) nodes.Starter {
 		return inProcess(func(ctx context.Context) error {
-			hello := nodeproto.Hello{Name: replayConfig.Node.Name, Version: version, Capabilities: []string{}}
+			hello := nodeproto.Hello{Name: replayConfig.Node.Name, Build: thisBuild(), Capabilities: []string{}}
 			node := agent.New(filepath.Join(replayConfig.Server.SocketDir, coreSocket), hello,
 				[]*confine.MediaRoot{media}, agent.Workers{Scanner: replayingScanner{records: recorder.records}},
 				clock.System{}, captured.logger)

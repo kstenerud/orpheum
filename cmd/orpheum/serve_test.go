@@ -436,7 +436,8 @@ func TestServe_TheSystemPageShowsTheServersVersionDirectoriesAndDatabases(t *tes
 		t.Fatalf("/system: %d %s", system.status, system.body)
 	}
 	facts := page.Server
-	if facts.Version != version || len(facts.Disks) != 2 || facts.Disks[0].Path != config.Server.DataDir ||
+	if facts.Build.Name != version || facts.Host.Platform == "" || len(facts.Disks) != 2 ||
+		facts.Disks[0].Path != config.Server.DataDir ||
 		facts.Disks[1].Path != config.Server.CacheDir || facts.Disks[0].TotalBytes <= 0 ||
 		len(facts.Databases) != 2 || facts.Databases[0].SizeBytes <= 0 || facts.StartedAt <= 0 {
 		t.Errorf("the System page's server = %+v; want this build, its data and cache disks, and both databases "+

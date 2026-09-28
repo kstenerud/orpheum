@@ -19,8 +19,16 @@ afterEach(() => {
 const connected: SystemNode = {
   name: "local",
   isConnected: true,
-  version: "0.3.0",
-  platform: "linux/amd64",
+  build: { name: "v0.3.0", version: "v0.3.0", commit: "0f6c5cc1a2b3c4d5", isModified: false },
+  isServersBuild: true,
+  host: {
+    distribution: "Debian GNU/Linux",
+    description: "Debian GNU/Linux 13 (trixie)",
+    release: "13",
+    codename: "trixie",
+    kernel: "6.12.107",
+    platform: "linux/amd64",
+  },
   ffmpegVersion: "ffmpeg version 7.1",
   ffmpegHash: "0123456789abcdef",
   uid: 1000,
@@ -52,8 +60,8 @@ const connected: SystemNode = {
 function report(node: SystemNode): SystemReport {
   return {
     server: {
-      version: "0.3.0",
-      platform: "linux/amd64",
+      build: { name: "v0.3.0", version: "v0.3.0", commit: "0f6c5cc1a2b3c4d5", isModified: false },
+      host: { platform: "linux/amd64", kernel: "6.12.107" },
       goVersion: "go1.26.1",
       startedAt: 1_790_000_000_000,
       disks: [
@@ -108,4 +116,26 @@ it("the System page warns when a machine has a GPU but encodes on the processor"
   expect(text).toContain("This machine has a GPU, but no hardware encoder works on it");
   expect(text).toContain("the server may not open it: permission denied");
   expect(mounted?.container.querySelectorAll('[role="alert"]').length).toBe(2);
+});
+
+it("the System page shows each machine's build and system, and warns when it is not the server's (D225)", async () => {
+  const same = await shown(connected);
+  expect(same).toContain("v0.3.0 from commit 0f6c5cc1a2b3");
+  expect(same).toContain("Debian GNU/Linux 13 (trixie)");
+  expect(same).toContain("Codenametrixie");
+  expect(same).toContain("Kernel6.12.107");
+  expect(same).not.toContain("runs a different Orpheum build");
+  mounted?.unmount();
+  const other = await shown({
+    ...connected,
+    build: {
+      name: "dev-0f6c5cc1a2b3-modified",
+      version: "dev",
+      commit: "0f6c5cc1a2b3",
+      isModified: true,
+    },
+    isServersBuild: false,
+  });
+  expect(other).toContain("This machine runs a different Orpheum build from the server's.");
+  expect(other).toContain("(built with uncommitted changes)");
 });

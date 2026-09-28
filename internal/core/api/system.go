@@ -14,7 +14,9 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
+	"github.com/kstenerud/orpheum/internal/platform/host"
 )
 
 // recentPrepares is how many of a node's finished prepares the System page lists.
@@ -32,7 +34,8 @@ type Sized interface {
 
 // System is what the System page shows of the server itself (D225).
 type System struct {
-	Version   string
+	// Build is what the server's binary was built from.
+	Build     build.Info
 	StartedAt time.Time
 	// StateDirectory and CacheDirectory are the server's own, whose disks the page shows.
 	StateDirectory string
@@ -54,12 +57,49 @@ type SystemOutput struct {
 
 // ServerBody is the server's own facts.
 type ServerBody struct {
-	Version   string         `json:"version"`
-	Platform  string         `doc:"Operating system and architecture, as Go names them" json:"platform"`
+	Build     BuildBody      `json:"build"`
+	Host      HostBody       `json:"host"`
 	GoVersion string         `json:"goVersion"`
 	StartedAt int64          `doc:"Unix milliseconds" json:"startedAt"`
 	Disks     []DiskBody     `json:"disks"`
 	Databases []DatabaseBody `json:"databases"`
+}
+
+// BuildBody is what a binary was built from (D225).
+type BuildBody struct {
+	// Name is the build in a word: its tag, or dev and its short commit, and -modified.
+	Name string `json:"name"`
+	// Version is the release tag its commit carries, or dev.
+	Version     string `json:"version"`
+	Commit      string `doc:"Empty when the build recorded none" json:"commit,omitempty"`
+	IsModified  bool   `doc:"Built from a tree with uncommitted changes" json:"isModified"`
+	CommittedAt int64  `doc:"Unix milliseconds; absent when unrecorded" json:"committedAt,omitempty"`
+	// BinarySHA256 is the binary's hash, which tells two builds of one modified tree apart.
+	BinarySHA256 string `json:"binarySha256,omitempty"`
+}
+
+// HostBody is a machine's operating system, as lsb_release -a shows it, and its kernel.
+type HostBody struct {
+	Distribution string `json:"distribution,omitempty"`
+	Description  string `json:"description,omitempty"`
+	Release      string `json:"release,omitempty"`
+	Codename     string `json:"codename,omitempty"`
+	Kernel       string `json:"kernel,omitempty"`
+	Platform     string `doc:"Operating system and architecture, as Go names them" json:"platform"`
+}
+
+func buildBody(info build.Info) BuildBody {
+	return BuildBody{
+		Name: info.String(), Version: info.Version, Commit: info.Commit, IsModified: info.IsModified,
+		CommittedAt: info.CommittedAt, BinarySHA256: info.BinarySHA256,
+	}
+}
+
+func hostBody(info host.Info) HostBody {
+	return HostBody{
+		Distribution: info.Distribution, Description: info.Description, Release: info.Release,
+		Codename: info.Codename, Kernel: info.Kernel, Platform: info.Platform,
+	}
 }
 
 // DiskBody is one filesystem, named by a directory on it.
@@ -82,13 +122,15 @@ type SystemNodeBody struct {
 	Name        string `json:"name"`
 	IsConnected bool   `doc:"Whether it has said hello since the server started" json:"isConnected"`
 	// LastHeardAt is when it last spoke since the server started, in Unix milliseconds.
-	LastHeardAt   *int64 `json:"lastHeardAt,omitempty"`
-	Version       string `json:"version,omitempty"`
-	Platform      string `json:"platform,omitempty"`
-	FFmpegVersion string `json:"ffmpegVersion,omitempty"`
-	FFmpegHash    string `json:"ffmpegHash,omitempty"`
-	UID           int    `doc:"The user the node runs as" json:"uid"`
-	GID           int    `json:"gid"`
+	LastHeardAt *int64 `json:"lastHeardAt,omitempty"`
+	// Build is what its binary was built from; IsServersBuild whether that is the server's own.
+	Build          *BuildBody `json:"build,omitempty"`
+	IsServersBuild bool       `json:"isServersBuild"`
+	Host           *HostBody  `json:"host,omitempty"`
+	FFmpegVersion  string     `json:"ffmpegVersion,omitempty"`
+	FFmpegHash     string     `json:"ffmpegHash,omitempty"`
+	UID            int        `doc:"The user the node runs as" json:"uid"`
+	GID            int        `json:"gid"`
 	// Confinement is how its FFmpeg runs are confined, per mechanism (D112).
 	Confinement []ConfinementBody `json:"confinement"`
 	// Hardware is what it found for hardware encoding; absent while it is not connected.
@@ -194,7 +236,7 @@ func (server *Server) system(ctx context.Context, input *AuthorizationHeader) (*
 			if err != nil {
 				return nil, server.internal(ctx, "list a node's prepares", err)
 			}
-			describeNode(&body, facts)
+			describeNode(&body, facts, dependencies.System.Build)
 		}
 		output.Body.Nodes = append(output.Body.Nodes, body)
 	}
@@ -204,7 +246,7 @@ func (server *Server) system(ctx context.Context, input *AuthorizationHeader) (*
 // serverFacts are the server's version, platform, disks and database sizes.
 func serverFacts(ctx context.Context, system System) (ServerBody, error) {
 	facts := ServerBody{
-		Version: system.Version, Platform: runtime.GOOS + "/" + runtime.GOARCH, GoVersion: runtime.Version(),
+		Build: buildBody(system.Build), Host: hostBody(host.Describe()), GoVersion: runtime.Version(),
 		StartedAt: system.StartedAt.UnixMilli(),
 		Disks:     []DiskBody{measured(system.StateDirectory), measured(system.CacheDirectory)},
 	}
@@ -233,12 +275,13 @@ func measured(path string) DiskBody {
 }
 
 // describeNode fills in what a connected node last said about itself.
-func describeNode(body *SystemNodeBody, facts nodes.Facts) {
+func describeNode(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Info) {
 	hello := facts.Hello
 	heard := facts.LastHeard.UnixMilli()
+	nodeBuild, nodeHost := buildBody(hello.Build), hostBody(hello.Host)
 	body.IsConnected, body.LastHeardAt = true, &heard
-	body.Version, body.Platform, body.FFmpegVersion, body.FFmpegHash = hello.Version, hello.Platform,
-		hello.FFmpegVersion, hello.FFmpegHash
+	body.Build, body.IsServersBuild, body.Host = &nodeBuild, hello.Build.IsSame(serverBuild), &nodeHost
+	body.FFmpegVersion, body.FFmpegHash = hello.FFmpegVersion, hello.FFmpegHash
 	body.UID, body.GID = hello.UID, hello.GID
 	body.Confinement = confinementBodies(hello.Confinement)
 	body.Hardware = hardwareBody(hello.Hardware)
@@ -295,6 +338,23 @@ func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID in
 		})
 	}
 	return bodies, nil
+}
+
+// buildFinding is whether a node runs the server's own build: a node on another release, or a
+// build of other changes, may not speak the same protocol or behave the same (D225).
+func buildFinding(node string, nodeBuild, serverBuild build.Info) FindingBody {
+	finding := FindingBody{
+		Check: "build on node " + node, Verdict: verdictOK, Detail: "the server's own build, " + serverBuild.String(),
+	}
+	if !nodeBuild.IsSame(serverBuild) {
+		finding.Verdict = verdictWarn
+		finding.Detail = fmt.Sprintf("the node runs %s, the server %s", nodeBuild.String(), serverBuild.String())
+		finding.Action = "install the server's build on the node, or the node's on the server, and restart both"
+		if nodeBuild.Commit != "" && nodeBuild.Commit == serverBuild.Commit {
+			finding.Detail += "; both are built from one commit with uncommitted changes, which may differ"
+		}
+	}
+	return finding
 }
 
 // hardwareFinding is whether a node's encodes use its GPU: a warning when it has one and no

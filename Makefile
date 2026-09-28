@@ -24,7 +24,6 @@ GOLANGCI_LINT_VERSION := 2.13.2
 GO_MINOR := 1.26
 NODE_MAJOR := 22
 
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BASE ?= origin/main
 PYTHON := python3
 
@@ -186,7 +185,7 @@ build: web-deps ## Build the web apps into their dist/, then the server binary, 
 	@npm --prefix web run --silent build
 	@$(WEBCLIENT_CLEAR)
 	@cp -r web/apps/web/dist/. $(WEBCLIENT_DIST)/
-	@go build -trimpath -ldflags "-s -w -X main.version=$(VERSION)" -o bin/orpheum ./cmd/orpheum
+	@go build -trimpath -ldflags "-s -w" -o bin/orpheum ./cmd/orpheum
 	@$(WEBCLIENT_CLEAR)
 
 .PHONY: generate

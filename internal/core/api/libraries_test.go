@@ -12,6 +12,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/build"
+	"github.com/kstenerud/orpheum/internal/platform/host"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -22,6 +24,8 @@ type fakeNodes struct {
 	queued []nodeproto.Command
 	// confinement is what the connected node said about its FFmpeg's confinement.
 	confinement []nodeproto.Confinement
+	// build is what its hello said it was built from.
+	build build.Info
 	// hardware is what its hello said about hardware encoding.
 	hardware nodeproto.Hardware
 	// prepared is what its last status said its prepared directory holds, when it said.
@@ -47,7 +51,8 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 	facts := corenodes.Facts{
 		NodeID: 1, LastHeard: time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC),
 		Hello: nodeproto.Hello{
-			Name: "local", Version: "0.3.0", Platform: "linux/amd64", FFmpegVersion: "ffmpeg version 7.1",
+			Name: "local", Build: nodes.build, FFmpegVersion: "ffmpeg version 7.1",
+			Host:  host.Info{Platform: "linux/amd64", Description: "Debian GNU/Linux 13 (trixie)", Kernel: "6.12.0"},
 			Roots: nodes.roots, Confinement: nodes.confinement, Hardware: nodes.hardware, UID: 1000, GID: 1000,
 		},
 	}
