@@ -37,7 +37,8 @@
 //
 //   - What a node reports is cleaned where it enters the core: paths (the text; the bytes kept
 //     as bytes), track tags, error text, codes and rules (principles §22, D211).
-//     TestIngest_WhatANodeReportsIsCleanWhereItEnters.
+//     TestIngest_WhatANodeReportsIsCleanWhereItEnters. A video's OpenSubtitles hash is kept
+//     only as 16 hex digits (D224 §3). TestIngest_KeepsAVideosOpenSubtitlesHashOnlyInItsOwnShape.
 //
 //   - A file is known by the bytes its node reported, so two names that are one NFC text — two
 //     invalid UTF-8 names, or two normalisations of one name — are two files (D211).

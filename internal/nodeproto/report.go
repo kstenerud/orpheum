@@ -135,6 +135,9 @@ type Observed struct {
 	// hex and the payload's length.
 	Identity Identity `json:"identity"`
 	Probe    Probe    `json:"probe"`
+	// OpenSubtitlesHash is OpenSubtitles' moviehash of the file, 16 hex digits, which finds
+	// subtitles made for these exact bytes (D224 §3); empty for a file too small to have one.
+	OpenSubtitlesHash string `json:"openSubtitlesHash,omitempty"`
 }
 
 // Identity is a file's payload identity (D179).

@@ -31,10 +31,11 @@ INSERT INTO extra_relation (owner_title, owner_edition, extra_title, type, posit
   VALUES (1, 1, 2, 'trailer', 1, 'scanner');
 
 INSERT INTO file (id, library_id, node_id, path, size_bytes, mtime_ms, payload_hash, payload_bytes, identity,
-                  filing, filing_reason, probe, version_id, part_index, first_seen_at, last_seen_at)
+                  filing, filing_reason, probe, version_id, part_index, first_seen_at, last_seen_at,
+                  opensubtitles_hash)
   VALUES (1, 1, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).mp4', 1048576, 1780000000000,
           X'00112233445566778899AABBCCDDEEFF', 1000000, 'confirmed', 'listed', 'movie folder',
-          '{"format":"mp4"}', 1, 1, 1790000000000, 1790000002000);
+          '{"format":"mp4"}', 1, 1, 1790000000000, 1790000002000, '8e245d9679d31e12');
 INSERT INTO file (id, library_id, node_id, path, size_bytes, mtime_ms, identity, filing, filing_reason,
                   attached_to, first_seen_at, last_seen_at)
   VALUES (2, 1, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).en.srt', 2048, 1780000000000,
@@ -43,9 +44,10 @@ INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang_
                     channels)
   VALUES (1, 1, 1, 1, 'audio', 'aac', 'eng', 'en', 'Stereo', 1, 2),
          (2, 2, 1, NULL, 'subtitle', 'subrip', 'en', 'en', NULL, 0, NULL);
-INSERT INTO fetched_subtitle (id, video_file, provider, provider_ref, lang, format, body, fetched_by, fetched_at)
+INSERT INTO fetched_subtitle (id, video_file, provider, provider_ref, lang, format, body, fetched_by, fetched_at,
+                              release_name)
   VALUES (1, 1, 'opensubtitles', 'os-1', 'de', 'srt', CAST('1\n00:00:01,000 --> 00:00:02,000\nHallo\n' AS BLOB),
-          2, 1790000003000);
+          2, 1790000003000, 'Direct.Play.Film.2020.German.srt');
 
 INSERT INTO item_text (item_id, lang, is_original, name, overview, tagline)
   VALUES (1, 'en', 1, 'Direct Play Film', 'A synthetic film.', 'It plays.');
@@ -89,7 +91,6 @@ INSERT INTO watchlist (user_id, item_id, added_at) VALUES (1, 1, 1790000000000);
 INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (1, 1, 1790000000000);
 INSERT INTO preference (user_id, scope, scope_id, axis, value, set_at)
   VALUES (2, 'file', 1, 'subtitle_offset_ms', '-250', 1790000000000);
-INSERT INTO subtitle_quota (user_id, provider, day, used) VALUES (2, 'opensubtitles', '2026-09-24', 3);
 INSERT INTO provider_response (item_id, provider, part, fetched_at, body)
   VALUES (1, 'tmdb', '', 1790000000000, X'1F8B0800');
 INSERT INTO provider_response (item_id, provider, part, fetched_at, body)

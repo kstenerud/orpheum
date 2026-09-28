@@ -430,3 +430,24 @@ func TestScan_ReportsAnImageBesideTheMediaWithoutItsBytes(t *testing.T) {
 		t.Errorf("images %v, want %v (a GIF is not artwork anyone saves)", images, want)
 	}
 }
+
+func TestScan_ReportsEachVideosOpenSubtitlesHash(t *testing.T) {
+	t.Parallel()
+	body := strings.Repeat("orpheum!", 25_000) // 200,000 bytes, past OpenSubtitles' 128 KiB floor
+	root := tree(t, map[string]string{"Movies/Big.mkv": body, "Movies/Small.mkv": "small"})
+	media := openRoot(t, root)
+	hashes := map[string]string{}
+	for _, record := range scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media) {
+		if record.Type == nodeproto.RecordObserved {
+			hashes[record.Observed.Path.Text] = record.Observed.OpenSubtitlesHash
+		}
+	}
+	want, err := hash.OpenSubtitles(strings.NewReader(body), int64(len(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hashes["Movies/Big.mkv"] != want || want == "" || hashes["Movies/Small.mkv"] != "" {
+		t.Errorf("the reported hashes are %v; want Big.mkv's to be %s, and none for a file too small (D224 §3)",
+			hashes, want)
+	}
+}

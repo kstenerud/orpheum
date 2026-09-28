@@ -193,6 +193,7 @@ CREATE TABLE file (                                        -- class I (identity 
   mtime_ms         INTEGER,
   payload_hash  BLOB,                    -- D179: anchored on the media payload
   payload_bytes   INTEGER,
+  opensubtitles_hash TEXT,               -- migration 0017: the provider's moviehash, 16 hex digits (D224 §3)
   identity      TEXT NOT NULL DEFAULT 'confirmed'
                   CHECK (identity IN ('confirmed','unconfirmed')),   -- D179: after a rebuild
   filing        TEXT NOT NULL CHECK (filing IN
@@ -248,9 +249,10 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
   provider_ref TEXT NOT NULL,
   lang        TEXT NOT NULL,
   format      TEXT NOT NULL,
-  body        BLOB NOT NULL,             -- a few kB; in the database so the backup carries it
+  body        BLOB NOT NULL,             -- gzip; a few kB; in the database so the backup carries it
   fetched_by  INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  fetched_at  INTEGER NOT NULL
+  fetched_at  INTEGER NOT NULL,
+  release_name TEXT                      -- migration 0017: the provider's name for it (D224)
 );
 ```
 
@@ -710,13 +712,8 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
   PRIMARY KEY (user_id, scope, scope_id, axis)
 ) WITHOUT ROWID;
 
-CREATE TABLE subtitle_quota (                              -- class C: a count per day
-  user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
-  provider    TEXT NOT NULL,
-  day         TEXT NOT NULL,
-  used        INTEGER NOT NULL,
-  PRIMARY KEY (user_id, provider, day)
-) WITHOUT ROWID;
+-- subtitle_quota was here; migration 0017 drops it: the count of downloads left is the
+-- provider's own (D224 §4).
 ```
 
 **A sync offset is a preference at `file` scope**, because it is expressed in seconds of one

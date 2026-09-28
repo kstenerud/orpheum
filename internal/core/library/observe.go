@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -97,6 +98,21 @@ type observation struct {
 	hash     []byte
 	probe    string
 	observed *nodeproto.Observed
+	// openSubtitlesHash is the file's OpenSubtitles moviehash, or nil when the node gave none a
+	// provider would accept (D224 §3).
+	openSubtitlesHash *string
+}
+
+// openSubtitlesShape is the only moviehash kept: 16 lowercase hex digits, as OpenSubtitles writes it.
+var openSubtitlesShape = regexp.MustCompile(`^[0-9a-f]{16}$`)
+
+// openSubtitlesHash is the moviehash a node reported, cleaned where it enters: anything else is
+// none, so nothing a node says reaches the provider's query unchecked.
+func openSubtitlesHash(reported string) *string {
+	if !openSubtitlesShape.MatchString(reported) {
+		return nil
+	}
+	return &reported
 }
 
 func observationOf(root string, observed *nodeproto.Observed) (observation, error) {
@@ -111,6 +127,7 @@ func observationOf(root string, observed *nodeproto.Observed) (observation, erro
 	}
 	return observation{
 		path: reported.text, raw: reported.raw, key: reported.key, hash: hash, probe: string(probe), observed: observed,
+		openSubtitlesHash: openSubtitlesHash(observed.OpenSubtitlesHash),
 	}, nil
 }
 
@@ -121,7 +138,7 @@ func (work *batch) insert(ctx context.Context, scan *scanState, seen observation
 		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key,
 		SizeBytes: &observed.Size, MtimeMs: &observed.MtimeMs, PayloadHash: seen.hash,
 		PayloadBytes: &observed.Identity.PayloadLength, Filing: filingUnidentified, FilingReason: &reason,
-		Probe: &seen.probe, SeenAt: work.now,
+		Probe: &seen.probe, SeenAt: work.now, OpensubtitlesHash: seen.openSubtitlesHash,
 	})
 	if err != nil {
 		return fmt.Errorf("insert %s: %w", seen.path, err)
@@ -136,7 +153,8 @@ func (work *batch) update(ctx context.Context, scan *scanState, id int64, seen o
 	err := work.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
 		LibraryID: scan.libraryID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key, SizeBytes: &observed.Size,
 		MtimeMs: &observed.MtimeMs, PayloadHash: seen.hash, PayloadBytes: &observed.Identity.PayloadLength,
-		UnidentifiedReason: &reason, Probe: &seen.probe, SeenAt: work.now, ID: id,
+		UnidentifiedReason: &reason, Probe: &seen.probe, OpensubtitlesHash: seen.openSubtitlesHash, SeenAt: work.now,
+		ID: id,
 	})
 	if err != nil {
 		return fmt.Errorf("update %s: %w", seen.path, err)
