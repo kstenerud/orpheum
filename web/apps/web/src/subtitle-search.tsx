@@ -186,7 +186,9 @@ export function FindSubtitles(props: {
         {t("play.findSubtitles.search")}
       </button>
       {problem === undefined ? null : <p role="alert">{problem}</p>}
-      {offer === undefined ? null : <CandidateList offer={offer} isBusy={isBusy} choose={choose} />}
+      {offer === undefined ? null : (
+        <CandidateList offer={offer} language={language} isBusy={isBusy} choose={choose} />
+      )}
     </section>
   );
 }
@@ -216,15 +218,21 @@ function LanguagePicker(props: {
   );
 }
 
-/** The candidates, each unverified, with what each would cost. */
+/**
+ * The candidates, each unverified, with what each would cost; or, when there are none, what was
+ * searched by, since a file not identified yet is searched for by its hash alone.
+ */
 function CandidateList(props: {
   readonly offer: SubtitleOffer;
+  readonly language: string;
   readonly isBusy: boolean;
   readonly choose: (candidate: SubtitleCandidate) => void;
 }): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const candidates = props.offer.candidates ?? [];
-  const { allowance } = props.offer;
+  const { allowance, didAskByIds } = props.offer;
+  const language = languageName(props.language, i18n.language);
+  const none = didAskByIds ? "play.findSubtitles.none" : "play.findSubtitles.noneForThisFile";
   return (
     <>
       <p>
@@ -233,8 +241,8 @@ function CandidateList(props: {
           allowed: allowance.allowed,
         })}
       </p>
-      <p>{t("play.findSubtitles.unverified")}</p>
-      {candidates.length === 0 ? <p>{t("play.findSubtitles.none")}</p> : null}
+      {candidates.length === 0 ? <p>{t(none, { language })}</p> : null}
+      {didAskByIds ? null : <p>{t("play.findSubtitles.fileHashOnly")}</p>}
       <ul className="find-subtitles__candidates">
         {candidates.map((candidate) => (
           <li key={candidate.providerFileId}>
@@ -257,6 +265,7 @@ function CandidateList(props: {
           </li>
         ))}
       </ul>
+      {candidates.length === 0 ? null : <p>{t("play.findSubtitles.unverified")}</p>}
     </>
   );
 }

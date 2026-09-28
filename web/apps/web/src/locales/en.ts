@@ -203,8 +203,11 @@ export const en = {
       search: "Search OpenSubtitles",
       allowance: "{{remaining}} of {{allowed}} downloads left today.",
       unverified:
-        "None of these is checked against this film's sound: one may be early, late or for another cut. The Earlier and Later buttons move it.",
-      none: "OpenSubtitles has no subtitles in this language for this.",
+        "Downloaded subtitles aren't checked against the sound, so one can run early or late, or be timed for a different cut. If it is, the Earlier and Later buttons shift it.",
+      none: "OpenSubtitles has no {{language}} subtitles for this video.",
+      noneForThisFile: "OpenSubtitles has no {{language}} subtitles made for this exact file.",
+      fileHashOnly:
+        "This video isn't identified yet, so only subtitles made for this exact file were searched for. Once it is identified, a search also finds those made for other copies of it.",
       madeForThisFile: "made for this very file",
       machineTranslated: "machine-translated",
       downloads: "downloads: {{count}}",
