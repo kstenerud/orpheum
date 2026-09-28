@@ -16744,7 +16744,9 @@ and a download a capability on the role.
 2. **The API key is the application's** (the owner: *"Wouldn't we register the app, and the
    admins each use their logins?"*). OpenSubtitles issues a key per registered application, so
    Orpheum is registered once and its key ships with it; each server's admin supplies only a
-   login. An admin may still set a key of their own, which is used in its place.
+   login. *(Corrected 2026-09-28: this said an admin could set a key of their own, which
+   OpenSubtitles forbids: "don't allow users to insert their API key". The key is the
+   application's alone; [opensubtitles-api.md](../design/research/opensubtitles-api.md) §1.)*
 3. **A candidate is found by what the file is, not by guessing** (the owner: *"if the NFO had an
    ID just directly use it. Let's implement something non-hacky for cut A."*). The search sends
    the work's IMDb or TMDB id when identification has one, from the NFO or from TMDB, and the
