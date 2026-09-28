@@ -11,6 +11,7 @@ import { dataOrThrow, problemText } from "./problem.ts";
 import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
 import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
+import { FindSubtitles } from "./subtitle-search.tsx";
 import { Subtitles } from "./subtitles.tsx";
 import { camelKey } from "./catalogue-key.ts";
 import { Loaded } from "./title.tsx";
@@ -37,7 +38,8 @@ export function PlayView(props: {
   readonly fileId: number;
   readonly decision: Decision;
   /** How the device makes sound changed: the decision is asked for again (D222). */
-  readonly soundChanged: () => void;
+  /** Asks the server again how the file plays: after the sound changed, or a subtitle was fetched. */
+  readonly decideAgain: () => void;
 }): JSX.Element {
   if (props.decision.kind === "direct") {
     return <DirectVideo {...props} />;
@@ -79,8 +81,9 @@ function UnderTheVideo(
         prefs={props.decision.prefs}
         videoRef={props.videoRef}
       />
+      <FindSubtitles fileId={props.fileId} fetched={props.decideAgain} />
       {props.decision.audioOutput === undefined ? null : (
-        <SoundLine current={props.decision.audioOutput} changed={props.soundChanged} />
+        <SoundLine current={props.decision.audioOutput} changed={props.decideAgain} />
       )}
     </>
   );
@@ -249,7 +252,7 @@ export function Play(props: { readonly fileId: number }): JSX.Element {
             <SoundQuestion answered={reload} />
           </div>
         ) : (
-          <PlayView fileId={props.fileId} decision={value} soundChanged={reload} />
+          <PlayView fileId={props.fileId} decision={value} decideAgain={reload} />
         )
       }
     />

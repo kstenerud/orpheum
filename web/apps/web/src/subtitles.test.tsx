@@ -32,7 +32,12 @@ function track(overrides: Partial<SubtitleTrack>): SubtitleTrack {
   };
 }
 
-const words = { unknownLanguage: "Unknown language", forced: "forced", hearingImpaired: "SDH" };
+const words = {
+  unknownLanguage: "Unknown language",
+  forced: "forced",
+  hearingImpaired: "SDH",
+  fetched: "downloaded, unverified",
+};
 
 describe("subtitles", () => {
   it("names a track by its language in the viewer's language, its title and its kind", () => {
@@ -42,6 +47,9 @@ describe("subtitles", () => {
       trackLabel(track({ title: "Signs", isForced: true, isHearingImpaired: true }), "en", words),
     ).toBe("English · Signs · forced · SDH");
     expect(trackLabel(track({ language: "" }), "en", words)).toBe("Unknown language");
+    expect(
+      trackLabel(track({ streamId: 0, fetchedId: 3, title: "Film.2002.1080p" }), "en", words),
+    ).toBe("English · Film.2002.1080p · downloaded, unverified");
   });
 
   it("shows an offset as signed seconds", () => {
@@ -62,8 +70,8 @@ describe("subtitles", () => {
       ),
     );
     expect(markup).toContain('<option value="">Off</option>');
-    expect(markup).toContain('<option value="5">English</option>');
-    expect(markup).toContain('<option value="7" selected="">French</option>');
+    expect(markup).toContain('<option value="s5">English</option>');
+    expect(markup).toContain('<option value="s7" selected="">French</option>');
     expect(markup).toContain("Subtitle offset: -1.5 s");
   });
 
@@ -106,7 +114,13 @@ describe("subtitles", () => {
         { subtitleOffsetMs: 0, isDialogueBoost: false, subtitle: { streamId: 7 } },
         tracks,
       ),
-    ).toBe(7);
+    ).toBe("s7");
+    expect(
+      startingTrack({ subtitleOffsetMs: 0, isDialogueBoost: false, subtitle: { fetchedId: 3 } }, [
+        ...tracks,
+        track({ streamId: 0, fetchedId: 3 }),
+      ]),
+    ).toBe("f3");
     expect(
       startingTrack(
         { subtitleOffsetMs: 0, isDialogueBoost: false, subtitle: { isOff: true } },
@@ -132,8 +146,13 @@ describe("subtitles", () => {
         return new Response(null, { status: 204 });
       },
     });
-    await keepSubtitleChoice(api, 2, 5);
+    await keepSubtitleChoice(api, 2, "s5");
+    await keepSubtitleChoice(api, 2, "f3");
     await keepSubtitleChoice(api, 2, undefined);
-    expect(sent).toEqual([{ subtitle: { streamId: 5 } }, { subtitle: { isOff: true } }]);
+    expect(sent).toEqual([
+      { subtitle: { streamId: 5 } },
+      { subtitle: { fetchedId: 3 } },
+      { subtitle: { isOff: true } },
+    ]);
   });
 });
