@@ -21,12 +21,13 @@ func (agent *Agent) measureLoudness(ctx context.Context, nodeID int64, command n
 		job: command.Job, slot: agent.slots.measure, path: nodeproto.PathLoudness, what: "a loudness measurement",
 		work: func(jobCtx context.Context) (any, string) {
 			answer := agent.runMeasurement(jobCtx, command)
-			return answer, answer.Refused
+			return answer, answer.Refused + answer.Failed
 		},
 	})
 }
 
-// runMeasurement measures a video checked to be the one the core named (D100), or says why not.
+// runMeasurement measures a video checked to be the one the core named (D100), or says why not:
+// that FFmpeg could not, which is the file's, or that the node did not try.
 func (agent *Agent) runMeasurement(ctx context.Context, command nodeproto.MeasureLoudness) nodeproto.Loudness {
 	refuse := func(err error) nodeproto.Loudness {
 		return nodeproto.Loudness{Job: command.Job, Refused: err.Error()}
@@ -40,7 +41,7 @@ func (agent *Agent) runMeasurement(ctx context.Context, command nodeproto.Measur
 	}
 	tracks, err := agent.workers.Loudness.Measure(ctx, videoPath, command.Audio)
 	if err != nil {
-		return refuse(err)
+		return nodeproto.Loudness{Job: command.Job, Failed: err.Error()}
 	}
 	return nodeproto.Loudness{Job: command.Job, Tracks: tracks}
 }

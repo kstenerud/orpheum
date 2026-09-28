@@ -239,9 +239,13 @@ func (service *Service) measure(
 	defer timer.Stop()
 	select {
 	case answer := <-answers:
-		keepErr := service.keepLoudness(ctx, file.PayloadHash, command.Audio, answer)
 		if answer.Refused != "" {
-			return jobs.Permanent(errors.Join(errors.New(answer.Refused), keepErr))
+			// Nothing is kept: the next sweep asks again, of the file as it is then.
+			return jobs.Permanent(errors.New(answer.Refused))
+		}
+		keepErr := service.keepLoudness(ctx, file.PayloadHash, command.Audio, answer)
+		if answer.Failed != "" {
+			return jobs.Permanent(errors.Join(errors.New(answer.Failed), keepErr))
 		}
 		return keepErr
 	case <-timer.C:
@@ -256,17 +260,18 @@ func (service *Service) measure(
 }
 
 // keepLoudness keeps a node's answer by the file's payload hash: each track's sounds, or, when
-// nothing was measured, why, for each track as stereo, so the sweep does not ask again.
+// FFmpeg could not measure the file, its words, for each track as stereo, so the sweep does not
+// ask again.
 func (service *Service) keepLoudness(
 	ctx context.Context, payloadHash []byte, tracks []nodeproto.LoudnessTrack, answer nodeproto.Loudness,
 ) error {
 	now := service.clock.Now().UnixMilli()
 	var rows []sqlcgen.UpsertLoudnessParams
-	if answer.Refused != "" {
+	if answer.Failed != "" {
 		for _, track := range tracks {
 			rows = append(rows, sqlcgen.UpsertLoudnessParams{
 				PayloadHash: payloadHash, StreamIndex: int64(track.StreamIndex), Sound: soundStereo,
-				Failure: &answer.Refused, MeasuredAt: now,
+				Failure: &answer.Failed, MeasuredAt: now,
 			})
 		}
 	}

@@ -76,9 +76,10 @@
 //     TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace,
 //     TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt (internal/core/api).
 //   - Each live video with sound is measured once per payload hash, by a job behind anything a
-//     person waits on, and one FFmpeg cannot measure is not asked again (D226 §2). Enforced by
-//     TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel and
-//     TestLoudness_AFileFFmpegCannotMeasureIsNotAskedAgain (internal/core/api), and end to end by
+//     person waits on; one FFmpeg cannot measure is not asked again, and one its node would not
+//     try is (D226 §2). Enforced by TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel and
+//     TestLoudness_AFileFFmpegCannotMeasureIsNotAskedAgainButOneTheNodeDidNotTryIs
+//     (internal/core/api), and end to end by
 //     TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled (cmd/orpheum).
 //   - A playback says the gain that levels its sound: towards -23 LUFS both ways, never lifting
 //     the true peak above -1 dBTP nor raising more than 20 dB, silence left as it is; a prepared
