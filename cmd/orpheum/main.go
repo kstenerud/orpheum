@@ -155,11 +155,7 @@ func commandRun(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(fmt.Errorf("listen on %s: %w", config.Server.Listen, err))
 	}
-	outside := wiring{
-		startNode: selfStarter(config, call.stderr), tmdbBaseURL: tmdb.BaseURL, tmdbImagesBaseURL: tmdb.ImageBaseURL,
-		openSubtitlesBaseURL: opensubtitles.BaseURL,
-	}
-	if err = serve(ctx, config, configReport, listener, outside, logger); err != nil {
+	if err = serve(ctx, config, configReport, listener, releaseWiring(config, call.stderr), logger); err != nil {
 		return exitFailure
 	}
 	return exitSuccess
@@ -184,4 +180,13 @@ func usage() string {
 	fmt.Fprintf(&text, "  %-11s %s\n", "version", "print the version and exit")
 	fmt.Fprintf(&text, "  %-11s %s\n", "help", "print this message and exit")
 	return text.String()
+}
+
+// releaseWiring is what a running server reaches outside itself: its node, started as a child,
+// and the providers' real addresses, which a test replaces with its fakes.
+func releaseWiring(config Config, output io.Writer) wiring {
+	return wiring{
+		startNode: selfStarter(config, output), tmdbBaseURL: tmdb.BaseURL, tmdbImagesBaseURL: tmdb.ImageBaseURL,
+		openSubtitlesBaseURL: opensubtitles.BaseURL,
+	}
 }

@@ -5,6 +5,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -34,7 +35,7 @@ func prepareJob(t *testing.T, listed []JobBody) JobBody {
 func newestOf(t *testing.T, listed []JobBody, kind jobs.Kind) JobBody {
 	t.Helper()
 	for _, job := range listed {
-		if job.Kind == string(kind) {
+		if string(job.Kind) == string(kind) {
 			return job
 		}
 	}
@@ -132,5 +133,29 @@ func TestJobs_ACancelledSubtitleExtractionIsStoppedOnTheNode(t *testing.T) {
 	}
 	if err := <-ran; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestJobs_TheDocumentNamesEveryKindOfJob(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	served := harness.do(t, http.MethodGet, "/openapi.json", "", nil)
+	var document struct {
+		Components struct {
+			Schemas map[string]struct {
+				Properties map[string]struct {
+					Enum []string `json:"enum"`
+				} `json:"properties"`
+			} `json:"schemas"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal([]byte(served.body), &document); err != nil {
+		t.Fatalf("GET /openapi.json = %d: %v", served.status, err)
+	}
+	documented := document.Components.Schemas["JobBody"].Properties["kind"].Enum
+	for _, kind := range jobs.Kinds() {
+		if !slices.Contains(documented, string(kind)) {
+			t.Errorf("the job view's kinds %v lack %q, which the queue has", documented, kind)
+		}
 	}
 }

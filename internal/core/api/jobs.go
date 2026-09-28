@@ -17,12 +17,26 @@ const tagJobs = "Jobs"
 // jobViewLimit is how many of the newest jobs the job view lists.
 const jobViewLimit = 200
 
+// JobKind is a job's kind, documented as one of jobs.Kinds, so the API names every kind the
+// queue has without a second list to keep in step.
+type JobKind string
+
+// Schema is a job kind's schema: a string, one of jobs.Kinds.
+func (JobKind) Schema(huma.Registry) *huma.Schema {
+	kinds := jobs.Kinds()
+	names := make([]any, 0, len(kinds))
+	for _, kind := range kinds {
+		names = append(names, string(kind))
+	}
+	return &huma.Schema{Type: huma.TypeString, Enum: names}
+}
+
 // JobBody is one job as the job view shows it (cut-a §5.3).
 type JobBody struct {
-	ID      int64  `json:"id"`
-	Kind    string `enum:"fetch,artwork,prepare,extract_subtitle,convert_fetched_subtitle,scan,backup" json:"kind"`
-	Subject int64  `doc:"What it works on, by kind: an item, a rendition, a library, a stream" json:"subject"`
-	State   string `enum:"queued,running,done,failed,cancelled" json:"state"`
+	ID      int64   `json:"id"`
+	Kind    JobKind `json:"kind"`
+	Subject int64   `doc:"What it works on, by kind: an item, a rendition, a library, a stream" json:"subject"`
+	State   string  `enum:"queued,running,done,failed,cancelled" json:"state"`
 	// Progress is how far it is, 0 to 1, absent when not known.
 	Progress   *float64 `json:"progress,omitempty"`
 	Reason     string   `doc:"Why it exists" json:"reason"`
@@ -71,7 +85,7 @@ func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) 
 	output.Body.Jobs = make([]JobBody, 0, len(views))
 	for _, view := range views {
 		body := JobBody{
-			ID: view.ID, Kind: string(view.Kind), Subject: view.Subject, State: view.State, Progress: view.Progress,
+			ID: view.ID, Kind: JobKind(view.Kind), Subject: view.Subject, State: view.State, Progress: view.Progress,
 			Reason: view.Reason, LastError: view.LastError, Attempts: view.Attempts,
 			CreatedAt: view.CreatedAt.UnixMilli(),
 		}
