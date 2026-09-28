@@ -666,9 +666,9 @@ linters:
       - path: ^internal/core/.*_test\.go$
         linters: [forbidigo]
         text: '\[core-fs\]'
-      # Provider clients: TMDB lives under identify; TURN derives credentials from its secret.
-      # The OpenSubtitles and DNS-01 clients are added here, by the owner, when they land.
-      - path: ^internal/core/(secrets|identify|turn)/
+      # Provider clients: TMDB lives under identify; TURN derives credentials from its secret;
+      # OpenSubtitles under playback (D224). The DNS-01 client is added here, by the owner, when it lands.
+      - path: ^internal/core/(secrets|identify|turn|playback/opensubtitles)/
         linters: [forbidigo]
         text: '\[reveal\]'
       - path: ^internal/(core/secrets|store)/
