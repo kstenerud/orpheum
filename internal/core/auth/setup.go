@@ -5,10 +5,10 @@ package auth
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -17,14 +17,9 @@ import (
 // `orpheum setup-code` prints. It exists only until the first admin is created.
 const SetupCodeFileName = "setup-code"
 
-// setupCodeAlphabet has no 0, O, 1 or I, so a code read from a log is typed right the first time.
-const setupCodeAlphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
-
-// setupCodeGroups and setupCodeGroupLength make a code like 7KQM-2XHP-9RTW: 60 bits.
-const (
-	setupCodeGroups      = 3
-	setupCodeGroupLength = 4
-)
+// setupCodeChars is a setup code's length in safe32, as a device code is written (D223 §2): 60
+// bits, like 7kqm-2xhp-9rtw, read however a person types it from the log.
+const setupCodeChars = 12
 
 var (
 	// ErrSetupComplete is returned once any user exists: setup creates only the first admin.
@@ -57,11 +52,12 @@ func (service *Service) EnsureSetupCode(ctx context.Context, codes SetupCodes) (
 		return "", codes.Remove()
 	}
 	code, err := codes.Read()
-	if err == nil && code != "" {
-		return code, nil
-	}
 	if err != nil && !errors.Is(err, ErrNoSetupCode) {
 		return "", fmt.Errorf("read the setup code: %w", err)
+	}
+	// A code an earlier release stored in another alphabet is replaced: safe32 cannot read it.
+	if canonical, readErr := readSafe32(code, setupCodeChars); err == nil && readErr == nil && canonical == code {
+		return code, nil
 	}
 	code, err = newSetupCode(service.random)
 	if err != nil {
@@ -86,8 +82,8 @@ func (service *Service) CompleteSetup(
 	if err != nil {
 		return 0, fmt.Errorf("read the setup code: %w", err)
 	}
-	given := strings.ToUpper(strings.TrimSpace(code))
-	if subtle.ConstantTimeCompare([]byte(given), []byte(stored)) != 1 {
+	given, err := readSafe32(code, setupCodeChars)
+	if err != nil || subtle.ConstantTimeCompare([]byte(given), []byte(stored)) != 1 {
 		return 0, ErrWrongSetupCode
 	}
 	admin.Role = RoleAdmin
@@ -110,18 +106,11 @@ func (service *Service) CompleteSetup(
 	return id, codes.Remove()
 }
 
+// newSetupCode is a new setup code: 60 random bits in safe32.
 func newSetupCode(random io.Reader) (string, error) {
-	raw := make([]byte, setupCodeGroups*setupCodeGroupLength)
-	if _, err := io.ReadFull(random, raw); err != nil {
+	var raw [8]byte
+	if _, err := io.ReadFull(random, raw[:]); err != nil {
 		return "", fmt.Errorf("make a setup code: %w", err)
 	}
-	var code strings.Builder
-	for index, value := range raw {
-		if index > 0 && index%setupCodeGroupLength == 0 {
-			code.WriteByte('-')
-		}
-		// 256 is a multiple of 32, so the modulus is unbiased.
-		code.WriteByte(setupCodeAlphabet[int(value)%len(setupCodeAlphabet)])
-	}
-	return code.String(), nil
+	return safe32Code(binary.BigEndian.Uint64(raw[:]), setupCodeChars), nil
 }

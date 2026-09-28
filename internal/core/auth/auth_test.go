@@ -248,6 +248,16 @@ func (codes *memorySetupCodes) Remove() error {
 	return nil
 }
 
+func TestSetup_ACodeAnEarlierReleaseStoredInAnotherAlphabetIsReplaced(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	codes := &memorySetupCodes{code: "7KQM-2XHP-9RTW"}
+	code, err := fixture.service.EnsureSetupCode(t.Context(), codes)
+	if err != nil || code == "7KQM-2XHP-9RTW" || codes.code != code {
+		t.Errorf("EnsureSetupCode = %q, %v, stored %q; want a new safe32 code, stored", code, err, codes.code)
+	}
+}
+
 func TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
@@ -257,8 +267,9 @@ func TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !regexp.MustCompile(`^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$`).MatchString(code) {
-		t.Errorf("setup code %q is not three groups of four unambiguous characters", code)
+	safe32Group := `[0-9a-hjkmnp-tv-z]{4}`
+	if !regexp.MustCompile(`^` + safe32Group + `-` + safe32Group + `-` + safe32Group + `$`).MatchString(code) {
+		t.Errorf("setup code %q is not three groups of four safe32 characters (D223 §2)", code)
 	}
 	again, err := fixture.service.EnsureSetupCode(ctx, codes)
 	if err != nil || again != code {
@@ -270,7 +281,9 @@ func TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce(t *testing.T) {
 	if !errors.Is(err, ErrWrongSetupCode) {
 		t.Errorf("a wrong code: %v, want ErrWrongSetupCode", err)
 	}
-	id, err := fixture.service.CompleteSetup(ctx, codes, strings.ToLower(code), admin)
+	// Typed as a person reads it from the log: in capitals, with spaces, an O for a 0.
+	typed := strings.ReplaceAll(strings.ReplaceAll(strings.ToUpper(code), "-", " "), "0", "O")
+	id, err := fixture.service.CompleteSetup(ctx, codes, typed, admin)
 	if err != nil {
 		t.Fatalf("the right code: %v", err)
 	}
