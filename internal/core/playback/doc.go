@@ -69,6 +69,12 @@
 //     TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed.
 //   - A rendition the node finished records what made its video and how fast, as the node said
 //     (D225 §3). TestFinish_RecordsWhatMadeTheVideoAndHowFast.
+//   - A subtitle fetched on request is found by the work's ids or the series' and place, and the
+//     file's moviehash; is kept gzipped in library.db; becomes the person's choice; and is offered
+//     as a track of the file, which the video's node converts (D224).
+//     TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloadsLeft,
+//     TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace,
+//     TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt (internal/core/api).
 //
 // # Read before changing
 //
@@ -80,6 +86,7 @@
 //   - D81: play state is an append-only event log plus a guarded position.
 //   - D191: signed-in Watch Together viewing is also recorded.
 //   - D83, D222: the dialogue boost is a person's; a device's sound decides whether we fold it down.
+//   - D224: fetching a subtitle on request; the provider client is opensubtitles/.
 //   - D225: a finished rendition records what made its video and how fast, for the System page.
 //   - docs/contributors/design/plans/play-state.md, docs/contributors/design/plans/cut-a.md §6.
 //
@@ -91,5 +98,6 @@
 //     playback offers, their extraction jobs and their text. waiting.go: jobs waiting for a node's
 //     answer. report.go: the play report, its log and the guarded position. resume.go: where a
 //     playback starts. hide.go: hiding a work from Continue Watching, which library's home.go
-//     lists. finished.go: a node's finished prepares, for the System page. Next Up comes after M3.
+//     lists. finished.go: a node's finished prepares, for the System page. fetch.go: subtitles
+//     fetched on request, and the job that converts one. Next Up comes after M3.
 package playback

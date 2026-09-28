@@ -73,6 +73,8 @@ type testHarness struct {
 	clock    *clocktest.Fake
 	bytes    *fakeNodeBytes
 	queue    *jobs.Queue
+	// subtitler is OpenSubtitles, faked (D224).
+	subtitler *fakeSubtitler
 }
 
 // serverBuild is the build the harness's server says it is.
@@ -93,6 +95,7 @@ func newHarness(t *testing.T) testHarness {
 	server := NewServer(slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	codes := &memorySetupCodes{}
 	provider, cache, nodes := newFakeProvider(), storetest.OpenCache(t), &fakeNodes{}
+	subtitler := &fakeSubtitler{}
 	nodeBytes := &fakeNodeBytes{files: map[string]string{}}
 	providers := identify.Providers{"tmdb": provider}
 	pass := identify.NewPass(database, now, slog.New(slog.DiscardHandler), providers, seeded)
@@ -117,7 +120,7 @@ func newHarness(t *testing.T) testHarness {
 		Playback: playback.NewService(playback.Parts{
 			Database: database, Cache: cache, Queue: queue,
 			Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader, Logger: slog.New(slog.DiscardHandler),
-			MaxSilence: time.Minute,
+			MaxSilence: time.Minute, Subtitler: subtitler,
 		}),
 		NodeBytes:   nodeBytes,
 		Jobs:        queue,
@@ -137,6 +140,7 @@ func newHarness(t *testing.T) testHarness {
 		server: server, http: served, logs: logs, service: service, codes: codes, database: database.Path(),
 		library:  database,
 		provider: provider, cache: cache, nodes: nodes, art: art, clock: now, bytes: nodeBytes, queue: queue,
+		subtitler: subtitler,
 	}
 }
 

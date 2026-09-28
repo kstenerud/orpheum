@@ -65,6 +65,9 @@ func (harness testHarness) choiceIn(t *testing.T, session string, fileID int64) 
 	case choice.IsOff:
 		return fmt.Sprintf("off carried=%v", choice.IsCarried)
 	}
+	if choice.FetchedID != 0 {
+		return fmt.Sprintf("fetched %d carried=%v", choice.FetchedID, choice.IsCarried)
+	}
 	return fmt.Sprintf("%d carried=%v", choice.StreamID, choice.IsCarried)
 }
 

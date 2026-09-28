@@ -61,6 +61,8 @@ type Parts struct {
 	// MaxSilence is how long a running prepare or extraction may go without a word from its node
 	// before it is given up and retried.
 	MaxSilence time.Duration
+	// Subtitler fetches subtitles on request (D224); nil when the server has none.
+	Subtitler Subtitler
 }
 
 // Service starts playbacks, says where their bytes are, and has renditions prepared.
@@ -76,6 +78,7 @@ type Service struct {
 	tokens     *tokens
 	prepares   *prepares
 	subtitles  *waiting[nodeproto.SubtitleText]
+	subtitler  Subtitler
 }
 
 // NewService returns the playback service.
@@ -84,7 +87,7 @@ func NewService(parts Parts) *Service {
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
 		tokens: newTokens(), prepares: newPrepares(parts),
-		subtitles: newWaiting[nodeproto.SubtitleText](parts.Logger, "a subtitle"),
+		subtitles: newWaiting[nodeproto.SubtitleText](parts.Logger, "a subtitle"), subtitler: parts.Subtitler,
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/identify/tmdb"
+	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 )
@@ -156,6 +157,7 @@ func commandRun(ctx context.Context, call invocation) int {
 	}
 	outside := wiring{
 		startNode: selfStarter(config, call.stderr), tmdbBaseURL: tmdb.BaseURL, tmdbImagesBaseURL: tmdb.ImageBaseURL,
+		openSubtitlesBaseURL: opensubtitles.BaseURL,
 	}
 	if err = serve(ctx, config, configReport, listener, outside, logger); err != nil {
 		return exitFailure

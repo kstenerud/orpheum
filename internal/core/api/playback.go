@@ -24,6 +24,9 @@ const tagPlayback = "Playback"
 // HopNode names the node as the leg that failed.
 const HopNode Hop = "node"
 
+// HopProvider is the failing leg when a provider, such as OpenSubtitles, is (cut-a §5).
+const HopProvider Hop = "provider"
+
 // NodeBytes reads from a node's byte socket.
 type NodeBytes interface {
 	Do(ctx context.Context, nodeID int64, method, target string, header http.Header) (*http.Response, error)
@@ -132,6 +135,7 @@ func (server *Server) registerPlayback() {
 		return server.hls(ctx, input.MediaCredentials, input.Token, "master.m3u8", "")
 	})
 	server.registerSubtitles()
+	server.registerSubtitleFetch()
 	huma.Register(server.api, huma.Operation{
 		OperationID: "getRenditionFile", Method: http.MethodGet, Path: "/bytes/media/hls/{token}/{rendition}/{file}",
 		Summary: "One file of a prepared playback's rendition, relayed from its node", Tags: []string{tagPlayback},

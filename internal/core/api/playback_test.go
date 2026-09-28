@@ -109,6 +109,7 @@ type decision struct {
 
 type subtitleTrack struct {
 	StreamID  int64  `json:"streamId"`
+	FetchedID int64  `json:"fetchedId"`
 	Language  string `json:"language"`
 	IsDefault bool   `json:"isDefault"`
 	ASSURL    string `json:"assUrl"`
