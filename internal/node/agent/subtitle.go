@@ -25,32 +25,57 @@ type Subtitler interface {
 // extractSubtitle starts an extraction beside the node's other work, one at a time, since an
 // embedded track means reading the whole video, and posts the answer to the core.
 func (agent *Agent) extractSubtitle(ctx context.Context, nodeID int64, command nodeproto.ExtractSubtitle) {
-	jobCtx, done := agent.working.start(ctx, command.Job)
+	agent.answerInBackground(ctx, nodeID, background{
+		job: command.Job, slot: agent.slots.extract, path: nodeproto.PathSubtitle, what: "a subtitle",
+		work: func(jobCtx context.Context) (any, string) {
+			answer := agent.runExtraction(jobCtx, command)
+			return answer, answer.Refused
+		},
+	})
+}
+
+// background is one command worked beside the node's others, whose answer is posted to the core.
+type background struct {
+	job int64
+	// slot bounds how many of its kind run at once.
+	slot chan struct{}
+	// path is where the answer is posted; what names the work in the log.
+	path, what string
+	// work makes the answer, and says why nothing was made when it refused.
+	work func(ctx context.Context) (answer any, refused string)
+}
+
+// answerInBackground runs one command beside the node's other work once its slot is free, and
+// posts its answer to the core; a command cancelled meanwhile posts nothing.
+func (agent *Agent) answerInBackground(ctx context.Context, nodeID int64, command background) {
+	jobCtx, done := agent.working.start(ctx, command.job)
 	go func() {
 		defer done()
 		select {
-		case agent.slots.extract <- struct{}{}:
+		case command.slot <- struct{}{}:
 		case <-jobCtx.Done():
 			return
 		}
-		defer func() { <-agent.slots.extract }()
-		answer := agent.runExtraction(jobCtx, command)
+		defer func() { <-command.slot }()
+		answer, refused := command.work(jobCtx)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
-			agent.logger.InfoContext(ctx, "a subtitle extraction was cancelled", "job", command.Job)
+			agent.logger.InfoContext(ctx, "a job was cancelled", "work", command.what, "job", command.job)
 			return
 		}
-		if answer.Refused != "" {
-			agent.logger.WarnContext(ctx, "refused a subtitle", "job", command.Job, "why", answer.Refused)
+		if refused != "" {
+			agent.logger.WarnContext(ctx, "refused a job", "work", command.what, "job", command.job, "why", refused)
 		}
 		encoded, err := json.Marshal(answer)
 		if err != nil {
-			agent.logger.ErrorContext(ctx, "could not encode a subtitle", "job", command.Job, "err", err)
+			agent.logger.ErrorContext(ctx, "could not encode a job's answer", "work", command.what, "job", command.job,
+				"err", err)
 			return
 		}
 		var accepted struct{}
-		err = agent.exchange(ctx, http.MethodPost, nodeproto.PathSubtitle, nodeID, bytes.NewReader(encoded), &accepted)
+		err = agent.exchange(ctx, http.MethodPost, command.path, nodeID, bytes.NewReader(encoded), &accepted)
 		if err != nil && ctx.Err() == nil {
-			agent.logger.WarnContext(ctx, "could not send a subtitle to the core", "job", command.Job, "err", err)
+			agent.logger.WarnContext(ctx, "could not send a job's answer to the core", "work", command.what,
+				"job", command.job, "err", err)
 		}
 	}()
 }

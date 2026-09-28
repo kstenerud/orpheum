@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
-// commands and runs them one at a time — except prepares and subtitle extractions, which run
-// beside the rest in their own slots — and streams its report — scan records, and a status record
-// every tick — as one JSONL request whose records reach the core as they are written. When the
-// core goes away it says hello again at the next tick, and numbers its records on from the last
-// one the core ingested.
+// commands and runs them one at a time — except prepares, subtitle extractions and loudness
+// measurements, which run beside the rest in their own slots — and streams its report — scan
+// records, and a status record every tick — as one JSONL request whose records reach the core as
+// they are written. When the core goes away it says hello again at the next tick, and numbers its
+// records on from the last one the core ingested.
 //
 // # Invariants
 //
@@ -30,6 +30,9 @@
 //     at once. TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
 //     A fetched subtitle's text, which the command carries, is converted as a sidecar is (D224 §5).
 //     TestAgent_ConvertsAFetchedSubtitlesTextAndRefusesItBesideAFile.
+//   - A loudness measurement reads only the video the core named, whose payload hash is still the
+//     one named (D100, D226). One measurement runs at once.
+//     TestAgent_MeasuresOnlyTheVideoTheCoreNamed.
 //   - A cancel is carried out as it arrives, not queued behind other work: it stops the job's
 //     FFmpeg, frees its slot, and nothing more is reported for the job; a job cancelled before it
 //     started starts cancelled (cut-a §5.3).
@@ -46,10 +49,12 @@
 //   - D34: silence is only ever read as silence; the status record is how a node is heard.
 //   - D212: artwork is re-encoded here, and posted to the core.
 //   - D217 §6: subtitles are extracted when it is cheap to.
+//   - D226: loudness is measured by a job, one read of the file for every track.
 //   - docs/contributors/design/plans/cut-a.md §4.
 //
 // # Where to change
 //
 //   - agent.go: the session and its four parts; report.go: numbering; prepare.go: prepares and
-//     their slots; subtitle.go: subtitle extraction; working.go: the jobs running, and cancel.
+//     their slots; subtitle.go: subtitle extraction, and running a command in the background;
+//     loudness.go: loudness measurement; working.go: the jobs running, and cancel.
 package agent

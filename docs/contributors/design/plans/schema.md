@@ -261,6 +261,27 @@ A fetched subtitle is **stored in the database, not the media tree**: it cost on
 20 daily downloads, the library may be read-only ([principles §2](../../principles/README.md)),
 and in the database the ordinary backup carries it with no second file class.
 
+**Each audio track's loudness** is measured once by the node (migration 0019,
+[D226](../../decisions/working-notes.md)): as it is when it has more than two channels, which a
+receiver plays, and as the stereo mix a stereo device hears. It is kept **by payload hash and
+stream index**, not by file, because it cost a read of the whole file: a rescan rewrites the
+file's streams, a move changes its row, and a second copy is the same bytes. A row outlives its
+file, at a few dozen bytes, and serves the bytes again if they come back.
+
+```sql
+CREATE TABLE loudness (                                    -- class O: what the node measured
+  payload_hash    BLOB NOT NULL,
+  stream_index    INTEGER NOT NULL,
+  sound           TEXT NOT NULL CHECK (sound IN ('source','stereo')),  -- as it is, or as stereo
+  integrated_lufs REAL,                  -- -70 for silence; NULL when it failed
+  range_lu        REAL,
+  true_peak_dbtp  REAL,                  -- NULL for silence, which has no peak, or a failure
+  failure         TEXT,                  -- FFmpeg's words when it could not be measured
+  measured_at     INTEGER NOT NULL,
+  PRIMARY KEY (payload_hash, stream_index, sound)
+) WITHOUT ROWID;
+```
+
 ## Items: what text, artwork, tags, overrides and favourites attach to
 
 Titles are not the only things with a name, a poster, a sort position, tags, a person's
@@ -773,12 +794,16 @@ reference scale, and removes a failure mode.
 > and built again. sqlc reads it into its own package, `cachegen`, so a `library.db` query
 > cannot name a cache table. `prepared_rendition` came with prepare in M3 (version 8); version 9
 > renamed columns to say what they hold (`runnable_at`, `last_served_epoch_day`, `size_bytes`);
-> version 10 added `subtitle_text` and the `extract_subtitle` job with subtitle extraction in M3.
+> version 10 added `subtitle_text` and the `extract_subtitle` job with subtitle extraction in M3;
+> version 11 what made a rendition's video and how fast (D225); version 12 the
+> `convert_fetched_subtitle` job (D224); version 13 the `measure_loudness` job and the gains a
+> rendition's sound carries (D226).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind        TEXT NOT NULL CHECK (kind IN ('fetch','artwork','prepare','extract_subtitle','scan','backup')),  -- artwork: D212
+  kind        TEXT NOT NULL CHECK (kind IN ('fetch','artwork','prepare','extract_subtitle',
+                'convert_fetched_subtitle','measure_loudness','scan','backup')),  -- artwork: D212
   subject     INTEGER,                   -- item_id, file_id, library_id, stream_id — per kind
   args        TEXT NOT NULL DEFAULT '{}',  -- JSON: provider, profile, reason
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
@@ -819,6 +844,9 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 �
   prepared_ms  INTEGER NOT NULL DEFAULT 0,  -- how much of the source is prepared
   size_bytes   INTEGER,                  -- its size once complete
   error        TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
+  video_encoder TEXT,                    -- what made the video once complete: h264_qsv, h264_nvenc, x264, or copy (D225)
+  speed        REAL,                     -- seconds of the source per second of running, as FFmpeg last said (D225)
+  audio_gains_db TEXT NOT NULL DEFAULT '[]',  -- JSON: the gain each audio track's sound carries, by its place (D226)
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
   UNIQUE (source_file, profile)

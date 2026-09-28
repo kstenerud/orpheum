@@ -96,7 +96,7 @@ func Decide(input Input) Decision {
 		reasons = append(reasons, ReasonBandwidth)
 	}
 	// The boost changes nothing on a source with no centre channel to raise.
-	if audio, hasAudio := mainAudio(input.Probe); input.StereoOutput && hasAudio && audio.Audio.Channels > 2 {
+	if audio, hasAudio := MainAudio(input.Probe); input.StereoOutput && hasAudio && audio.Audio.Channels > 2 {
 		reasons = append(reasons, ReasonDialogueBoost)
 	}
 	if input.Prefer == PreferPrepare {
@@ -127,7 +127,7 @@ func axisReasons(input Input) (reasons []Reason, videoFits bool) {
 	if !videoFits {
 		reasons = append(reasons, ReasonVideoCodec)
 	}
-	if audio, present := mainAudio(input.Probe); present {
+	if audio, present := MainAudio(input.Probe); present {
 		name, placed := audioName(audio)
 		if !placed || !slices.Contains(input.Menu.Audio, name) {
 			reasons = append(reasons, ReasonAudioCodec)

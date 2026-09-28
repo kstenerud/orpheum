@@ -35,6 +35,9 @@ type metadata struct {
 	playback *playback.Service
 	// subtitler fetches subtitles on request (D224).
 	subtitler *opensubtitles.Client
+	// measureDue is signalled after each identification pass, which follows every scan: new files
+	// may want measuring (D226 §2).
+	measureDue chan struct{}
 }
 
 // newMetadata builds the providers, the pass and the queue, and returns the jobs a crash left
@@ -66,11 +69,19 @@ func newMetadata(ctx context.Context, opened started, outside wiring, logger *sl
 		return metadata{}, err
 	}
 	pass.AfterPass(func(ctx context.Context, report identify.Report) { queueMatches(ctx, queue, report, logger) })
+	measureDue := make(chan struct{}, 1)
+	pass.AfterPass(func(context.Context, identify.Report) {
+		select {
+		case measureDue <- struct{}{}:
+		default: // a sweep is already due
+		}
+	})
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return metadata{
 		pass: pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
-		chooser:   identify.NewChooser(matcher, pass),
-		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
+		measureDue: measureDue,
+		chooser:    identify.NewChooser(matcher, pass),
+		refresher:  identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
 	}, nil
 }
 
@@ -92,6 +103,7 @@ func (fetching metadata) runners() jobRunners {
 		{jobs.KindPrepare, fetching.playback.HandlePrepare, nil, nodeproto.EncodeSlots + nodeproto.RemuxSlots},
 		{jobs.KindExtractSubtitle, fetching.playback.HandleSubtitle, nil, 1},
 		{jobs.KindConvertFetchedSubtitle, fetching.playback.HandleFetchedSubtitle, nil, 1},
+		{jobs.KindMeasureLoudness, fetching.playback.HandleLoudness, nil, 1},
 	}
 }
 
@@ -116,6 +128,7 @@ func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop fun
 		}
 	}
 	done.Go(func() { fetching.sweep(running, logger) })
+	done.Go(func() { fetching.queueMeasurements(running, logger) })
 	done.Go(func() { keepArtwork(running, fetching.artwork, logger) })
 	return func() { cancel(); done.Wait() }
 }
@@ -140,6 +153,32 @@ func (fetching metadata) sweep(ctx context.Context, logger *slog.Logger) {
 		case <-ctx.Done():
 			wait.Stop()
 			return
+		case <-wait.C:
+		}
+	}
+}
+
+// measureSweepEvery is how often the server looks for files to measure when no scan has said so.
+const measureSweepEvery = time.Hour
+
+// queueMeasurements queues a loudness measurement for each file with none (D226 §2): now, after
+// each identification pass, and every measureSweepEvery.
+func (fetching metadata) queueMeasurements(ctx context.Context, logger *slog.Logger) {
+	for {
+		queued, err := fetching.playback.QueueMeasurements(ctx)
+		if err != nil && ctx.Err() == nil {
+			logger.ErrorContext(ctx, "could not look for files to measure", "err", err)
+		}
+		if queued > 0 {
+			logger.InfoContext(ctx, "queued loudness measurements", "files", queued)
+		}
+		wait := time.NewTimer(measureSweepEvery)
+		select {
+		case <-ctx.Done():
+			wait.Stop()
+			return
+		case <-fetching.measureDue:
+			wait.Stop()
 		case <-wait.C:
 		}
 	}

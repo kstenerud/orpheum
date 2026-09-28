@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore plays a scanned film end to end: the
@@ -117,6 +119,53 @@ func TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore(t *testin
 		found := call(t, http.MethodGet, server.baseURL+"/doctor", token, nil)
 		if found.status != http.StatusOK || !strings.Contains(found.body, `"check":"FFmpeg confinement on node`) {
 			t.Errorf("GET /doctor = %d %s, want the node's confinement", found.status, found.body)
+		}
+		return
+	}
+}
+
+// TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled measures a scanned film end to end: the
+// sweep after its identification queues the measurement, the core's job commands the in-process
+// node, the node runs FFmpeg and reads its log, and the next playback is levelled by what it
+// measured (D226). The fake FFmpeg answers every run alike: the probe on stdout, the loudness on
+// stderr.
+func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
+	t.Parallel()
+	const probe = `{"format":{"format_name":"matroska","duration":"1.000"},"streams":[` +
+		`{"index":0,"codec_type":"video","codec_name":"h264","profile":"High","pix_fmt":"yuv420p"},` +
+		`{"index":1,"codec_type":"audio","codec_name":"aac","profile":"LC","channels":2}]}`
+	const measured = "[ebur128@stereo_1 @ 0x55d1] Summary:\n\n  Integrated loudness:\n    I:         -35.7 LUFS\n" +
+		"    Threshold: -46.0 LUFS\n\n  Loudness range:\n    LRA:        22.8 LU\n\n  True peak:\n" +
+		"    Peak:      -16.2 dBFS\n"
+	shelved := filmAnswered(t, "nfo", testutil.FakeReply{Stdout: probe, Stderr: measured})
+	server, token, filmID := playableFilm(t, shelved)
+	deadline := time.After(30 * time.Second)
+	for {
+		decided := call(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
+			"fileId": filmID, "link": "local", "menu": map[string]any{
+				"video": []string{"h264-sdr"}, "audio": []string{"aac-stereo"}, "subtitle": []string{},
+				"containers": []string{"mkv"},
+			},
+		})
+		var decision struct {
+			Levelling struct {
+				IsMeasured bool    `json:"isMeasured"`
+				GainDB     float64 `json:"gainDb"`
+			} `json:"levelling"`
+		}
+		if err := json.Unmarshal([]byte(decided.body), &decision); err != nil || decided.status != http.StatusOK {
+			t.Fatalf("POST /playback = %d %s", decided.status, decided.body)
+		}
+		if !decision.Levelling.IsMeasured {
+			select {
+			case <-deadline:
+				t.Fatal("the film was not measured within 30 seconds")
+			case <-time.After(50 * time.Millisecond):
+			}
+			continue
+		}
+		if decision.Levelling.GainDB != 12.7 {
+			t.Errorf("the levelling = %+v, want the node's measurement raised to -23 LUFS", decision.Levelling)
 		}
 		return
 	}

@@ -29,15 +29,18 @@ const (
 	// KindConvertFetchedSubtitle converts a subtitle fetched on request; its subject is the
 	// fetched subtitle (D224 §5).
 	KindConvertFetchedSubtitle Kind = "convert_fetched_subtitle"
-	KindScan                   Kind = "scan"
-	KindBackup                 Kind = "backup"
+	// KindMeasureLoudness measures a video's audio tracks; its subject is the file (D226 §2).
+	KindMeasureLoudness Kind = "measure_loudness"
+	KindScan            Kind = "scan"
+	KindBackup          Kind = "backup"
 )
 
 // Kinds are every kind of job, as the job view documents them: the one list, which the API's
 // description of a job is made from.
 func Kinds() []Kind {
 	return []Kind{
-		KindFetch, KindArtwork, KindPrepare, KindExtractSubtitle, KindConvertFetchedSubtitle, KindScan, KindBackup,
+		KindFetch, KindArtwork, KindPrepare, KindExtractSubtitle, KindConvertFetchedSubtitle, KindMeasureLoudness,
+		KindScan, KindBackup,
 	}
 }
 

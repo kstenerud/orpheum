@@ -94,11 +94,19 @@
       "AudioRenditionBody": {
         "additionalProperties": false,
         "properties": {
+          "carriedGainDb": {
+            "description": "dB already in the sound, put in when it was prepared",
+            "format": "double",
+            "type": "number"
+          },
           "isDialogueBoost": {
             "type": "boolean"
           },
           "language": {
             "type": "string"
+          },
+          "levelling": {
+            "$ref": "#/components/schemas/LevellingBody"
           },
           "sourceTrack": {
             "format": "int64",
@@ -108,7 +116,9 @@
         "required": [
           "sourceTrack",
           "language",
-          "isDialogueBoost"
+          "isDialogueBoost",
+          "levelling",
+          "carriedGainDb"
         ],
         "type": "object"
       },
@@ -1043,6 +1053,9 @@
           "isDialogueBoost": {
             "type": "boolean"
           },
+          "isLevelling": {
+            "type": "boolean"
+          },
           "subtitle": {
             "$ref": "#/components/schemas/SubtitleChoiceBody"
           },
@@ -1054,7 +1067,8 @@
         },
         "required": [
           "subtitleOffsetMs",
-          "isDialogueBoost"
+          "isDialogueBoost",
+          "isLevelling"
         ],
         "type": "object"
       },
@@ -1576,6 +1590,7 @@
               "prepare",
               "extract_subtitle",
               "convert_fetched_subtitle",
+              "measure_loudness",
               "scan",
               "backup"
             ],
@@ -1634,6 +1649,25 @@
         },
         "required": [
           "jobs"
+        ],
+        "type": "object"
+      },
+      "LevellingBody": {
+        "additionalProperties": false,
+        "properties": {
+          "gainDb": {
+            "description": "Applied after the player's volume; negative lowers a loud film",
+            "format": "double",
+            "type": "number"
+          },
+          "isMeasured": {
+            "description": "Absent a measurement, the sound plays as it is",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "isMeasured",
+          "gainDb"
         ],
         "type": "object"
       },
@@ -2316,6 +2350,9 @@
         "properties": {
           "isDialogueBoost": {
             "type": "boolean"
+          },
+          "isLevelling": {
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -2547,6 +2584,9 @@
             ],
             "type": "string"
           },
+          "levelling": {
+            "$ref": "#/components/schemas/LevellingBody"
+          },
           "mediaToken": {
             "type": "string"
           },
@@ -2603,7 +2643,8 @@
           "subtitles",
           "prefs",
           "resumePositionMs",
-          "mediaToken"
+          "mediaToken",
+          "levelling"
         ],
         "type": "object"
       },
@@ -5410,7 +5451,7 @@
             "description": "Error"
           }
         },
-        "summary": "Keep a person's own choices, which hold in every file they play: the dialogue boost",
+        "summary": "Keep a person's own choices, which hold in every file they play: the boost, levelling",
         "tags": [
           "Playback"
         ]

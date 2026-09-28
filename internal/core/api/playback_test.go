@@ -95,16 +95,20 @@ type decision struct {
 	Reasons     []string `json:"reasons"`
 	IsPreparing bool     `json:"isPreparing"`
 	Audio       []struct {
-		SourceTrack     int    `json:"sourceTrack"`
-		Language        string `json:"language"`
-		IsDialogueBoost bool   `json:"isDialogueBoost"`
+		SourceTrack     int           `json:"sourceTrack"`
+		Language        string        `json:"language"`
+		IsDialogueBoost bool          `json:"isDialogueBoost"`
+		Levelling       LevellingBody `json:"levelling"`
+		CarriedGainDB   float64       `json:"carriedGainDb"`
 	} `json:"audio"`
 	Subtitles []subtitleTrack `json:"subtitles"`
 	Prefs     struct {
-		SubtitleOffsetMs int `json:"subtitleOffsetMs"`
+		SubtitleOffsetMs int  `json:"subtitleOffsetMs"`
+		IsLevelling      bool `json:"isLevelling"`
 	} `json:"prefs"`
-	ResumePositionMs int64  `json:"resumePositionMs"`
-	MediaToken       string `json:"mediaToken"`
+	ResumePositionMs int64         `json:"resumePositionMs"`
+	MediaToken       string        `json:"mediaToken"`
+	Levelling        LevellingBody `json:"levelling"`
 }
 
 type subtitleTrack struct {

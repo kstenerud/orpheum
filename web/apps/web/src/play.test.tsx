@@ -9,6 +9,9 @@ import { describe, expect, it } from "vitest";
 import { boostPair, mediaFailure, PlayView, requestPlayback } from "./play.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 
+/** A sound not measured yet: played as it is (D226). */
+const unlevelled = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
+
 describe("playing a file", () => {
   it("asks the server with this browser's menu, over the local link", async () => {
     const menu = testServices().menu();
@@ -40,9 +43,10 @@ describe("playing a file", () => {
             reasons: [],
             isPreparing: false,
             subtitles: [],
-            prefs: { subtitleOffsetMs: 0, isDialogueBoost: false },
+            prefs: { subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true },
             resumePositionMs: 0,
             mediaToken: "t",
+            levelling: unlevelled.levelling,
           }}
           decideAgain={() => undefined}
         />,
@@ -65,12 +69,13 @@ describe("playing a file", () => {
             reasons: ["container", "audio_codec"],
             isPreparing: true,
             subtitles: [],
-            prefs: { subtitleOffsetMs: 0, isDialogueBoost: false },
+            prefs: { subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true },
             resumePositionMs: 0,
             mediaToken: "t",
+            levelling: unlevelled.levelling,
             audio: [
-              { sourceTrack: 0, language: "en", isDialogueBoost: false },
-              { sourceTrack: 0, language: "en", isDialogueBoost: true },
+              { sourceTrack: 0, language: "en", isDialogueBoost: false, ...unlevelled },
+              { sourceTrack: 0, language: "en", isDialogueBoost: true, ...unlevelled },
             ],
           }}
           decideAgain={() => undefined}
@@ -91,20 +96,21 @@ describe("playing a file", () => {
       reasons: [],
       isPreparing: false,
       subtitles: [],
-      prefs: { subtitleOffsetMs: 0, isDialogueBoost: false },
+      prefs: { subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true },
       resumePositionMs: 0,
       mediaToken: "t",
+      levelling: unlevelled.levelling,
       audio: [
-        { sourceTrack: 0, language: "en", isDialogueBoost: false },
-        { sourceTrack: 0, language: "en", isDialogueBoost: true },
-        { sourceTrack: 1, language: "de", isDialogueBoost: false },
+        { sourceTrack: 0, language: "en", isDialogueBoost: false, ...unlevelled },
+        { sourceTrack: 0, language: "en", isDialogueBoost: true, ...unlevelled },
+        { sourceTrack: 1, language: "de", isDialogueBoost: false, ...unlevelled },
       ],
     };
     expect(boostPair(decision)).toEqual({ standard: 0, boosted: 1 });
     expect(
       boostPair({
         ...decision,
-        audio: [{ sourceTrack: 0, language: "en", isDialogueBoost: false }],
+        audio: [{ sourceTrack: 0, language: "en", isDialogueBoost: false, ...unlevelled }],
       }),
     ).toBe(undefined);
   });

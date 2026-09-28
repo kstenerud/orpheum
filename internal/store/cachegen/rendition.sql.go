@@ -11,7 +11,7 @@ import (
 
 const getRendition = `-- name: GetRendition :one
 
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, audio_gains_db, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?
 `
 
@@ -40,6 +40,7 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 		&i.Error,
 		&i.VideoEncoder,
 		&i.Speed,
+		&i.AudioGainsDb,
 		&i.CreatedAt,
 		&i.FinishedAt,
 	)
@@ -47,7 +48,7 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 }
 
 const getRenditionByID = `-- name: GetRenditionByID :one
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, audio_gains_db, created_at, finished_at
 FROM prepared_rendition WHERE id = ?
 `
 
@@ -68,6 +69,7 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 		&i.Error,
 		&i.VideoEncoder,
 		&i.Speed,
+		&i.AudioGainsDb,
 		&i.CreatedAt,
 		&i.FinishedAt,
 	)
@@ -167,7 +169,7 @@ func (q *Queries) ListFinishedRenditions(ctx context.Context, arg ListFinishedRe
 const restartRendition = `-- name: RestartRendition :exec
 UPDATE prepared_rendition
 SET payload_hash = ?, node_id = ?, segment_length_s = ?, run_id = ?, state = 'queued', prepared_ms = 0, size_bytes = NULL, error = NULL,
-    finished_at = NULL, video_encoder = NULL, speed = NULL
+    finished_at = NULL, video_encoder = NULL, speed = NULL, audio_gains_db = '[]'
 WHERE id = ?
 `
 
@@ -228,6 +230,21 @@ type SetRenditionFailedParams struct {
 
 func (q *Queries) SetRenditionFailed(ctx context.Context, arg SetRenditionFailedParams) error {
 	_, err := q.db.ExecContext(ctx, setRenditionFailed, arg.Error, arg.FinishedAt, arg.ID)
+	return err
+}
+
+const setRenditionGains = `-- name: SetRenditionGains :exec
+UPDATE prepared_rendition SET audio_gains_db = ?1 WHERE id = ?2
+`
+
+type SetRenditionGainsParams struct {
+	AudioGainsDb string
+	ID           int64
+}
+
+// The gain a making puts in each audio track's sound, as its job starts (D226 section 4).
+func (q *Queries) SetRenditionGains(ctx context.Context, arg SetRenditionGainsParams) error {
+	_, err := q.db.ExecContext(ctx, setRenditionGains, arg.AudioGainsDb, arg.ID)
 	return err
 }
 

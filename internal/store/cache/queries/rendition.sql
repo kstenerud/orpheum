@@ -3,11 +3,11 @@
 -- prepare, and how far it is.
 
 -- name: GetRendition :one
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, audio_gains_db, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?;
 
 -- name: GetRenditionByID :one
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, created_at, finished_at
+SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, audio_gains_db, created_at, finished_at
 FROM prepared_rendition WHERE id = ?;
 
 -- name: InsertRendition :one
@@ -19,8 +19,12 @@ RETURNING id;
 -- A rendition prepared again from the start: its source changed, or it failed or was lost.
 UPDATE prepared_rendition
 SET payload_hash = ?, node_id = ?, segment_length_s = ?, run_id = ?, state = 'queued', prepared_ms = 0, size_bytes = NULL, error = NULL,
-    finished_at = NULL, video_encoder = NULL, speed = NULL
+    finished_at = NULL, video_encoder = NULL, speed = NULL, audio_gains_db = '[]'
 WHERE id = ?;
+
+-- name: SetRenditionGains :exec
+-- The gain a making puts in each audio track's sound, as its job starts (D226 section 4).
+UPDATE prepared_rendition SET audio_gains_db = sqlc.arg(audio_gains_db) WHERE id = sqlc.arg(id);
 
 -- name: SetRenditionRunning :exec
 UPDATE prepared_rendition SET state = 'running', prepared_ms = ? WHERE id = ?;

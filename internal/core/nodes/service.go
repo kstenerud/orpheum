@@ -54,6 +54,12 @@ type SubtitleSink interface {
 	Extracted(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText)
 }
 
+// LoudnessSink receives a node's answer to a measure_loudness command: the measurements, or why
+// none (D226).
+type LoudnessSink interface {
+	Measured(ctx context.Context, nodeID int64, answer nodeproto.Loudness)
+}
+
 // Service is the core's side of the node channel (cut-a §4, D207): it enrols nodes, queues their
 // commands, receives their reports and knows when each last spoke.
 type Service struct {
@@ -67,6 +73,7 @@ type Service struct {
 	artwork   ArtworkSink
 	prepare   PrepareSink
 	subtitles SubtitleSink
+	loudness  LoudnessSink
 
 	mutex    sync.Mutex
 	channels map[int64]*channel
@@ -88,6 +95,12 @@ func (service *Service) ReceivePrepare(sink PrepareSink) {
 // an answer that arrives with none set is refused.
 func (service *Service) ReceiveSubtitles(sink SubtitleSink) {
 	service.subtitles = sink
+}
+
+// ReceiveLoudness names where the nodes' loudness answers go. Set it before the channel serves;
+// an answer that arrives with none set is refused.
+func (service *Service) ReceiveLoudness(sink LoudnessSink) {
+	service.loudness = sink
 }
 
 // channel is what the core holds for one connected node.
@@ -125,6 +138,7 @@ func (service *Service) Handler() http.Handler {
 	mux.HandleFunc("POST "+nodeproto.PathArtwork, service.artworkAnswer)
 	mux.HandleFunc("POST "+nodeproto.PathPrepare, service.prepareReport)
 	mux.HandleFunc("POST "+nodeproto.PathSubtitle, service.subtitleAnswer)
+	mux.HandleFunc("POST "+nodeproto.PathLoudness, service.loudnessAnswer)
 	return mux
 }
 

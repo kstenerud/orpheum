@@ -97,6 +97,24 @@ func TestRun_RefusesMoreOutputThanAllowed(t *testing.T) {
 	}
 }
 
+func TestRunLogged_ReturnsTheEndOfTheLogAndNotTheOutput(t *testing.T) {
+	t.Parallel()
+	noise := strings.Repeat("[aac @ 0x1] a warning early in the run\n", 400)
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{
+		Stdout: "output nobody reads", Stderr: noise + "[ebur128@stereo1 @ 0x2] Summary:\n    I: -23.0 LUFS\n",
+	})
+	arguments := []string{"-f", "null", "-"}
+	logged, err := newRunner(t, fake).RunLogged(t.Context(), FFmpeg, confine.Access{}, arguments, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(logged, "Summary:\n    I: -23.0 LUFS\n") || len(logged) != 1024 ||
+		strings.Contains(logged, "output nobody reads") {
+		t.Errorf("logged %d bytes ending %q; want the last 1024 bytes of stderr, the summary last",
+			len(logged), logged[max(0, len(logged)-60):])
+	}
+}
+
 func TestNewRunner_RefusesARelativeDirectory(t *testing.T) {
 	t.Parallel()
 	if _, err := NewRunner(".tools/ffmpeg"); err == nil || !strings.Contains(err.Error(), "absolute") {

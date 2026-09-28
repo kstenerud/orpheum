@@ -25,10 +25,12 @@ const (
 // The standard mix is ITU-R BS.775's; the boosted one raises the centre, where dialogue is, by
 // 6 dB over it. "<" renormalises each side's gains to sum to one, so neither can clip. The
 // boost's gain is provisional until the listening test on a television sets it (cut-a §6).
+// StandardMix and StereoMix are what a stereo device hears, so internal/node/loudness measures
+// them (D226 §1).
 const (
-	standardMix = "aformat=channel_layouts=5.1,pan=stereo|FL<FL+0.707*FC+0.707*BL|FR<FR+0.707*FC+0.707*BR"
+	StandardMix = "aformat=channel_layouts=5.1,pan=stereo|FL<FL+0.707*FC+0.707*BL|FR<FR+0.707*FC+0.707*BR"
 	boostedMix  = "aformat=channel_layouts=5.1,pan=stereo|FL<FL+1.414*FC+0.707*BL|FR<FR+1.414*FC+0.707*BR"
-	stereoMix   = "aformat=channel_layouts=stereo"
+	StereoMix   = "aformat=channel_layouts=stereo"
 )
 
 // safeLanguage is a language tag FFmpeg's stream map can carry: letters and hyphens only.
@@ -40,13 +42,18 @@ type mix struct {
 	name, filter string
 }
 
-// mixes are a track's renditions: standard and boosted when it has a centre, else one.
+// mixes are a track's renditions: standard and boosted when it has a centre, else one. Each
+// carries the track's levelling gain, after the mix it was measured as (D226 §4).
 func mixes(track nodeproto.PrepareAudio) []mix {
 	name := "audio" + strconv.Itoa(track.AudioTrackIndex)
-	if track.Channels > 2 {
-		return []mix{{name, standardMix}, {name + "-boost", boostedMix}}
+	levelled := ""
+	if track.GainDB != 0 {
+		levelled = ",volume=" + strconv.FormatFloat(track.GainDB, 'f', 1, 64) + "dB"
 	}
-	return []mix{{name, stereoMix}}
+	if track.Channels > 2 {
+		return []mix{{name, StandardMix + levelled}, {name + "-boost", boostedMix + levelled}}
+	}
+	return []mix{{name, StereoMix + levelled}}
 }
 
 // Arguments is FFmpeg's command line for one prepare, after execx's hardening flags: the source's

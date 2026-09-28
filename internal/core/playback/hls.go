@@ -22,6 +22,12 @@ type AudioRendition struct {
 	Track    int
 	Language string
 	Boost    bool
+	// Levelling is the gain that brings the track's stereo sound to the level; the boosted mix
+	// plays with the standard one's (D226 §3).
+	Levelling Levelling
+	// CarriedGainDB is the gain the rendition's sound already carries, which the player takes
+	// from the levelling it applies (D226 §4).
+	CarriedGainDB float64
 }
 
 // audioRenditions lists a prepare's audio renditions in the order the master playlist has them.
@@ -139,6 +145,8 @@ type making struct {
 	command    nodeproto.Prepare
 	nodeID     int64
 	durationMs int64
+	// gains are the gains its audio tracks carry, as its rendition records them (D226 §4).
+	gains string
 }
 
 // commandFor is what a rendition's making needs.
@@ -157,7 +165,12 @@ func (service *Service) commandFor(ctx context.Context, rendition cachegen.Prepa
 	}
 	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), rendition.RunID, probe)
 	command.SegmentLengthSeconds = int(rendition.SegmentLengthS)
-	return making{command: command, nodeID: file.NodeID, durationMs: probe.Format.DurationMs}, nil
+	levels, err := service.levellings(ctx, file.PayloadHash)
+	if err != nil {
+		return making{}, err
+	}
+	gains := levelPrepare(&command, levels, probe)
+	return making{command: command, nodeID: file.NodeID, durationMs: probe.Format.DurationMs, gains: gains}, nil
 }
 
 // Reported takes a node's report on a prepare to the job waiting for it.
