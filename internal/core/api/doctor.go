@@ -67,7 +67,8 @@ func (server *Server) findings(ctx context.Context, dependencies *Dependencies) 
 		if !found {
 			continue
 		}
-		findings = append(findings, confinementFinding(node.Name, confinementBodies(facts.Hello.Confinement)),
+		findings = append(findings, buildFinding(node.Name, facts.Hello.Build, dependencies.System.Build),
+			confinementFinding(node.Name, confinementBodies(facts.Hello.Confinement)),
 			hardwareFinding(node.Name, facts.Hello.Hardware))
 		if facts.Status != nil && facts.Status.Prepared != nil {
 			findings = append(findings, preparedFinding(node.Name, *facts.Status.Prepared))

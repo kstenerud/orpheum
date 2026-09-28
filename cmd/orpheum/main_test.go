@@ -76,7 +76,7 @@ func TestRun_Version(t *testing.T) {
 		t.Errorf("exit status = %d, want %d", status, exitSuccess)
 	}
 	if got := strings.TrimSpace(stdout.String()); got != version {
-		t.Errorf("stdout = %q, want the linker-set version %q", got, version)
+		t.Errorf("stdout = %q, want the build Go recorded, %q", got, version)
 	}
 }
 

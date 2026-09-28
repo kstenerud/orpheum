@@ -2,6 +2,11 @@
 
 package nodeproto
 
+import (
+	"github.com/kstenerud/orpheum/internal/platform/build"
+	"github.com/kstenerud/orpheum/internal/platform/host"
+)
+
 // The node channel's paths on the core's socket (cut-a §4). The node dials; the core answers.
 const (
 	PathHello    = "/node/v1/hello"
@@ -12,8 +17,11 @@ const (
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
 	// Name is the node's configured name; the core enrols a node it has not seen by it (D207).
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	Name string `json:"name"`
+	// Build is what the node's binary was built from, so the core can see a mismatch (D225).
+	Build build.Info `json:"build"`
+	// Host is the node's operating system, as lsb_release shows it, and its kernel (D225).
+	Host host.Info `json:"host"`
 	// Roots are the media roots configured on the node, never remotely (D107).
 	Roots         []string `json:"roots"`
 	FFmpegVersion string   `json:"ffmpegVersion"`
@@ -26,8 +34,6 @@ type Hello struct {
 	Confinement []Confinement `json:"confinement"`
 	UID         int           `json:"uid"`
 	GID         int           `json:"gid"`
-	// Platform is the node's operating system and architecture, as Go names them: "linux/amd64".
-	Platform string `json:"platform"`
 	// Hardware is what the node found for hardware encoding (D225 §3).
 	Hardware Hardware `json:"hardware"`
 }

@@ -20,6 +20,8 @@ type Disk = components["schemas"]["DiskBody"];
 type Hardware = components["schemas"]["HardwareBody"];
 type FinishedPrepare = components["schemas"]["FinishedPrepareBody"];
 type Finding = components["schemas"]["FindingBody"];
+type Build = components["schemas"]["BuildBody"];
+type Host = components["schemas"]["HostBody"];
 
 /** A size in bytes, in the unit that keeps it short: "12.3 GB". */
 export function byteSize(bytes: number): string {
@@ -65,12 +67,10 @@ export function SystemView(props: { readonly report: SystemReport }): JSX.Elemen
       <section aria-labelledby="system-server">
         <h2 id="system-server">{t("system.server")}</h2>
         <dl>
-          <dt>{t("system.version")}</dt>
-          <dd>{server.version}</dd>
-          <dt>{t("system.platform")}</dt>
-          <dd>
-            {server.platform}, {server.goVersion}
-          </dd>
+          <BuildFacts build={server.build} />
+          <dt>{t("system.goVersion")}</dt>
+          <dd>{server.goVersion}</dd>
+          <HostFacts host={server.host} />
           <dt>{t("system.startedAt")}</dt>
           <dd>{when(server.startedAt)}</dd>
           {(server.databases ?? []).map((database) => (
@@ -84,6 +84,89 @@ export function SystemView(props: { readonly report: SystemReport }): JSX.Elemen
         <NodeFacts key={node.name} node={node} />
       ))}
     </div>
+  );
+}
+
+/** A connected machine's build, system, FFmpeg and user, and whether its build is the server's. */
+function NodeSoftware(props: { readonly node: SystemNode }): JSX.Element {
+  const { t } = useTranslation();
+  const { node } = props;
+  return (
+    <>
+      {node.isServersBuild ? null : <p role="alert">{t("system.otherBuild")}</p>}
+      <dl>
+        {node.build === undefined ? null : <BuildFacts build={node.build} />}
+        {node.host === undefined ? null : <HostFacts host={node.host} />}
+        <dt>{t("system.ffmpeg")}</dt>
+        <dd>
+          {node.ffmpegVersion} <code>{(node.ffmpegHash ?? "").slice(0, 12)}</code>
+        </dd>
+        <dt>{t("system.user")}</dt>
+        <dd>{t("system.uidGid", { uid: node.uid, gid: node.gid })}</dd>
+        {node.lastHeardAt === undefined ? null : (
+          <>
+            <dt>{t("system.lastHeard")}</dt>
+            <dd>{when(node.lastHeardAt)}</dd>
+          </>
+        )}
+      </dl>
+    </>
+  );
+}
+
+/** What a binary was built from: its tag, or dev and its commit, and whether the tree was modified. */
+function BuildFacts(props: { readonly build: Build }): JSX.Element {
+  const { t } = useTranslation();
+  const { build } = props;
+  return (
+    <>
+      <dt>{t("system.build")}</dt>
+      <dd>
+        <code>{build.name}</code>
+        {build.commit === undefined ? null : (
+          <>
+            {" "}
+            {t("system.commit", { commit: build.commit.slice(0, 12) })}
+            {build.committedAt === undefined
+              ? null
+              : ` ${t("system.committedAt", { when: when(build.committedAt) })}`}
+          </>
+        )}
+        {build.isModified ? ` ${t("system.modified")}` : null}
+      </dd>
+    </>
+  );
+}
+
+/** A machine's operating system, as lsb_release -a shows it, with its kernel and platform. */
+function HostFacts(props: { readonly host: Host }): JSX.Element {
+  const { t } = useTranslation();
+  const { host } = props;
+  const rows: readonly (readonly [string, string | undefined])[] = [
+    [t("system.distribution"), host.distribution],
+    [t("system.description"), host.description],
+    [t("system.release"), host.release],
+    [t("system.codename"), host.codename],
+    [t("system.kernel"), host.kernel],
+    [t("system.platform"), host.platform],
+  ];
+  return (
+    <>
+      {rows
+        .filter((row) => row[1] !== undefined && row[1] !== "")
+        .map(([label, value]) => (
+          <HostFact key={label} label={label} value={value ?? ""} />
+        ))}
+    </>
+  );
+}
+
+function HostFact(props: { readonly label: string; readonly value: string }): JSX.Element {
+  return (
+    <>
+      <dt>{props.label}</dt>
+      <dd>{props.value}</dd>
+    </>
   );
 }
 
@@ -149,24 +232,7 @@ function NodeFacts(props: { readonly node: SystemNode }): JSX.Element {
       <h2 id={headingId}>{t("system.node", { node: node.name })}</h2>
       {node.isConnected ? (
         <>
-          <dl>
-            <dt>{t("system.version")}</dt>
-            <dd>{node.version}</dd>
-            <dt>{t("system.platform")}</dt>
-            <dd>{node.platform}</dd>
-            <dt>{t("system.ffmpeg")}</dt>
-            <dd>
-              {node.ffmpegVersion} <code>{(node.ffmpegHash ?? "").slice(0, 12)}</code>
-            </dd>
-            <dt>{t("system.user")}</dt>
-            <dd>{t("system.uidGid", { uid: node.uid, gid: node.gid })}</dd>
-            {node.lastHeardAt === undefined ? null : (
-              <>
-                <dt>{t("system.lastHeard")}</dt>
-                <dd>{when(node.lastHeardAt)}</dd>
-              </>
-            )}
-          </dl>
+          <NodeSoftware node={node} />
           <NodeConfinementView node={node} />
           {node.hardware === undefined ? null : <HardwareEncoding hardware={node.hardware} />}
           {node.prepared === undefined ? null : (

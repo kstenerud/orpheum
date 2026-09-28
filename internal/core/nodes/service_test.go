@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/host"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -449,7 +450,9 @@ func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
 		Trials:  []nodeproto.EncoderTrial{{Encoder: "h264_qsv"}, {Encoder: "h264_nvenc", Failure: "no device"}},
 		Encoder: "h264_qsv",
 	}
-	reply := harness.hello(t, nodeproto.Hello{Name: "local", Platform: "linux/amd64", Hardware: hardware})
+	reply := harness.hello(t, nodeproto.Hello{
+		Name: "local", Host: host.Info{Platform: "linux/amd64", Codename: "trixie"}, Hardware: hardware,
+	})
 	disk := nodeproto.Disk{Path: "/media", TotalBytes: 1000, FreeBytes: 400}
 	status := []nodeproto.Record{{
 		Seq: reply.ReportSeq + 1, Type: nodeproto.RecordStatus,
@@ -461,9 +464,9 @@ func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
 	}
 	facts, found := harness.service.Facts("local")
 	kept := facts.Hello.Hardware
-	if !found || facts.NodeID != reply.NodeID || facts.Hello.Platform != "linux/amd64" ||
+	if !found || facts.NodeID != reply.NodeID || facts.Hello.Host.Codename != "trixie" ||
 		kept.Encoder != "h264_qsv" || len(kept.Trials) != 2 || kept.GPUs[0].Driver != "i915" {
-		t.Errorf("the facts' hello is %+v, %v; want the platform and hardware the hello said (D225)",
+		t.Errorf("the facts' hello is %+v, %v; want the host and hardware the hello said (D225)",
 			facts.Hello, found)
 	}
 	if facts.Status == nil || len(facts.Status.Disks) != 1 || facts.Status.Disks[0] != disk {

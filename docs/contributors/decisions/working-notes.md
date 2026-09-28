@@ -16799,5 +16799,17 @@ never fun."*
    a GPU but no hardware encoder works on it.
 4. **Later:** CPU and GPU load over time, and whatever else shows the server's load (the owner:
    *"eventually even cpu/gpu graphs and other such things to understand server load"*).
+5. **Each build and each machine's system are shown** (the owner, 2026-09-28, on the first
+   page):
+   - *"version should show tag if it matches one, otherwise "dev" + sha, and whether the tree was
+     dirty when the binary was built."* The version is what Go records in every binary it builds,
+     so the dev loop's, a test tier's and a release's all say it the same way; the Makefile no
+     longer stamps its own.
+   - *"each node's orpheum version info should also be in the info, so that we can catch
+     version mismatch between them."* A node's hello carries its build, with its binary's hash,
+     and doctor warns when it is not the server's.
+   - *"put in the info we can get from lsb_release -a in each machine info."* The distributor,
+     description, release and codename are read from `/etc/os-release`, the file lsb_release
+     reads, with the kernel; the node runs no program but FFmpeg's (cut-a §7).
 
 **Status:** Decided.

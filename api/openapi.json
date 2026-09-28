@@ -90,6 +90,39 @@
         ],
         "type": "object"
       },
+      "BuildBody": {
+        "additionalProperties": false,
+        "properties": {
+          "binarySha256": {
+            "type": "string"
+          },
+          "commit": {
+            "description": "Empty when the build recorded none",
+            "type": "string"
+          },
+          "committedAt": {
+            "description": "Unix milliseconds; absent when unrecorded",
+            "format": "int64",
+            "type": "integer"
+          },
+          "isModified": {
+            "description": "Built from a tree with uncommitted changes",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "version",
+          "isModified"
+        ],
+        "type": "object"
+      },
       "CandidateBody": {
         "additionalProperties": false,
         "properties": {
@@ -1200,6 +1233,34 @@
         ],
         "type": "object"
       },
+      "HostBody": {
+        "additionalProperties": false,
+        "properties": {
+          "codename": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "distribution": {
+            "type": "string"
+          },
+          "kernel": {
+            "type": "string"
+          },
+          "platform": {
+            "description": "Operating system and architecture, as Go names them",
+            "type": "string"
+          },
+          "release": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform"
+        ],
+        "type": "object"
+      },
       "InProgressBody": {
         "additionalProperties": false,
         "properties": {
@@ -2109,6 +2170,9 @@
       "ServerBody": {
         "additionalProperties": false,
         "properties": {
+          "build": {
+            "$ref": "#/components/schemas/BuildBody"
+          },
           "databases": {
             "items": {
               "$ref": "#/components/schemas/DatabaseBody"
@@ -2130,22 +2194,18 @@
           "goVersion": {
             "type": "string"
           },
-          "platform": {
-            "description": "Operating system and architecture, as Go names them",
-            "type": "string"
+          "host": {
+            "$ref": "#/components/schemas/HostBody"
           },
           "startedAt": {
             "description": "Unix milliseconds",
             "format": "int64",
             "type": "integer"
-          },
-          "version": {
-            "type": "string"
           }
         },
         "required": [
-          "version",
-          "platform",
+          "build",
+          "host",
           "goVersion",
           "startedAt",
           "disks",
@@ -2578,6 +2638,9 @@
       "SystemNodeBody": {
         "additionalProperties": false,
         "properties": {
+          "build": {
+            "$ref": "#/components/schemas/BuildBody"
+          },
           "confinement": {
             "items": {
               "$ref": "#/components/schemas/ConfinementBody"
@@ -2609,8 +2672,14 @@
           "hardware": {
             "$ref": "#/components/schemas/HardwareBody"
           },
+          "host": {
+            "$ref": "#/components/schemas/HostBody"
+          },
           "isConnected": {
             "description": "Whether it has said hello since the server started",
+            "type": "boolean"
+          },
+          "isServersBuild": {
             "type": "boolean"
           },
           "lastHeardAt": {
@@ -2618,9 +2687,6 @@
             "type": "integer"
           },
           "name": {
-            "type": "string"
-          },
-          "platform": {
             "type": "string"
           },
           "prepared": {
@@ -2639,14 +2705,12 @@
             "description": "The user the node runs as",
             "format": "int64",
             "type": "integer"
-          },
-          "version": {
-            "type": "string"
           }
         },
         "required": [
           "name",
           "isConnected",
+          "isServersBuild",
           "uid",
           "gid",
           "confinement",

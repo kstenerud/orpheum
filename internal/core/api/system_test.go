@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -50,6 +51,7 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 		},
 		Encoder: "h264_qsv",
 	}
+	harness.nodes.build = serverBuild
 	harness.nodes.disks = []nodeproto.Disk{{Path: "/media/films", TotalBytes: 4000, FreeBytes: 1000}}
 	harness.nodes.prepared = &nodeproto.PreparedUsage{
 		Bytes: 10, BudgetBytes: 100, DiskPercent: 75, DiskLimitPercent: 95,
@@ -73,7 +75,8 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 		t.Fatalf("the nodes are %+v; want attic, not connected, then local", system.Nodes)
 	}
 	checkLocalFacts(t, system.Nodes[1])
-	if !strings.Contains(got.body, `"check":"hardware encoding on node local","verdict":"ok"`) {
+	if !strings.Contains(got.body, `"check":"build on node local","verdict":"ok"`) ||
+		!strings.Contains(got.body, `"check":"hardware encoding on node local","verdict":"ok"`) {
 		t.Errorf("the findings are %+v; want doctor's, with the node's hardware encoding", system.Findings)
 	}
 	if _, err := harness.service.CreateUser(t.Context(),
@@ -87,7 +90,8 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 // checkServerFacts checks the server's own facts on the System page.
 func checkServerFacts(t *testing.T, server ServerBody) {
 	t.Helper()
-	if server.Version != "0.3.0" || server.Platform == "" || server.GoVersion == "" || len(server.Disks) != 2 ||
+	if server.Build.Name != "v0.3.0" || server.Host.Platform == "" || server.Host.Kernel == "" ||
+		server.GoVersion == "" || len(server.Disks) != 2 ||
 		server.Disks[0].TotalBytes <= 0 || len(server.Databases) != 2 || server.Databases[0].SizeBytes <= 0 {
 		t.Errorf("the server's facts are %+v; want its version, platform, both disks and both databases", server)
 	}
@@ -96,7 +100,8 @@ func checkServerFacts(t *testing.T, server ServerBody) {
 // checkLocalFacts checks what the connected node said about itself, as the System page shows it.
 func checkLocalFacts(t *testing.T, local SystemNodeBody) {
 	t.Helper()
-	if !local.IsConnected || local.Platform != "linux/amd64" || local.FFmpegVersion != "ffmpeg version 7.1" ||
+	checkBuildAndHost(t, local)
+	if !local.IsConnected || local.FFmpegVersion != "ffmpeg version 7.1" ||
 		len(local.Confinement) != 1 || !local.Confinement[0].IsInForce || local.Prepared == nil ||
 		len(local.Disks) != 1 || local.Disks[0].FreeBytes != 1000 {
 		t.Errorf("local's facts are %+v; want what it said about itself (D225)", local)
@@ -106,6 +111,16 @@ func checkLocalFacts(t *testing.T, local SystemNodeBody) {
 		local.RecentPrepares[0].VideoEncoder != "h264_qsv" || local.RecentPrepares[0].Speed != 6.5 {
 		t.Errorf("local's recent prepares are %+v; want the one it finished, with Quick Sync at 6.5x (D225 §3)",
 			local.RecentPrepares)
+	}
+}
+
+// checkBuildAndHost checks the connected node's build, against the server's, and its system.
+func checkBuildAndHost(t *testing.T, local SystemNodeBody) {
+	t.Helper()
+	if local.Host == nil || local.Host.Description != "Debian GNU/Linux 13 (trixie)" ||
+		local.Build == nil || local.Build.Name != "v0.3.0" || !local.IsServersBuild {
+		t.Errorf("local's build is %+v and host %+v; want the server's build and its system (D225)",
+			local.Build, local.Host)
 	}
 }
 
@@ -140,5 +155,23 @@ func TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor(t *testin
 		!strings.Contains(blocked.Action, "/dev/dri/renderD128") {
 		t.Errorf("a node whose user cannot open its GPU: %+v, want a warning with the trial's words and the device "+
 			"to give it (D225 §3)", blocked)
+	}
+}
+
+func TestBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer(t *testing.T) {
+	t.Parallel()
+	server := build.Info{Version: "dev", Commit: "abc", IsModified: true, BinarySHA256: "h1"}
+	if same := buildFinding("local", server, server); same.Verdict != verdictOK {
+		t.Errorf("a node on the server's own binary: %+v, want ok", same)
+	}
+	older := buildFinding("local", build.Info{Version: "v0.2.0", Commit: "def"}, server)
+	if older.Verdict != verdictWarn || !strings.Contains(older.Detail, "v0.2.0") ||
+		!strings.Contains(older.Detail, "dev-abc-modified") || older.Action == "" {
+		t.Errorf("a node on an older release: %+v, want a warning naming both builds (D225)", older)
+	}
+	rebuilt := buildFinding("local", build.Info{Version: "dev", Commit: "abc", IsModified: true, BinarySHA256: "h2"},
+		server)
+	if rebuilt.Verdict != verdictWarn || !strings.Contains(rebuilt.Detail, "uncommitted changes") {
+		t.Errorf("a node built from the same commit with other changes: %+v, want a warning saying so", rebuilt)
 	}
 }

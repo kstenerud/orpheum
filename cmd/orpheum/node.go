@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +31,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/host"
 )
 
 // coreSocket is the core's socket's name in server.socket_dir (cut-a §2).
@@ -299,14 +299,14 @@ func describeNode(
 	}
 	return nodeproto.Hello{
 		Name:          config.Node.Name,
-		Version:       version,
+		Build:         thisBuild(),
+		Host:          host.Describe(),
 		FFmpegVersion: firstLine,
 		FFmpegHash:    ffmpegHash,
 		Capabilities:  capabilities(found.encoding.Usable()),
 		Confinement:   report,
 		UID:           os.Geteuid(),
 		GID:           os.Getegid(),
-		Platform:      runtime.GOOS + "/" + runtime.GOARCH,
 		Hardware:      hardwareReport(found),
 	}, nil
 }

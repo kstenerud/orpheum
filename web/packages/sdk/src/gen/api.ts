@@ -1018,6 +1018,20 @@ export interface components {
             /** Format: int64 */
             sourceTrack: number;
         };
+        BuildBody: {
+            binarySha256?: string;
+            /** @description Empty when the build recorded none */
+            commit?: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds; absent when unrecorded
+             */
+            committedAt?: number;
+            /** @description Built from a tree with uncommitted changes */
+            isModified: boolean;
+            name: string;
+            version: string;
+        };
         CandidateBody: {
             name: string;
             originalName?: string;
@@ -1361,6 +1375,15 @@ export interface components {
         HomeOutputBody: {
             continueWatching: components["schemas"]["InProgressBody"][] | null;
         };
+        HostBody: {
+            codename?: string;
+            description?: string;
+            distribution?: string;
+            kernel?: string;
+            /** @description Operating system and architecture, as Go names them */
+            platform: string;
+            release?: string;
+        };
         InProgressBody: {
             /**
              * Format: int64
@@ -1617,17 +1640,16 @@ export interface components {
             secrets: components["schemas"]["SecretBody"][] | null;
         };
         ServerBody: {
+            build: components["schemas"]["BuildBody"];
             databases: components["schemas"]["DatabaseBody"][] | null;
             disks: components["schemas"]["DiskBody"][] | null;
             goVersion: string;
-            /** @description Operating system and architecture, as Go names them */
-            platform: string;
+            host: components["schemas"]["HostBody"];
             /**
              * Format: int64
              * @description Unix milliseconds
              */
             startedAt: number;
-            version: string;
         };
         SessionOutputBody: {
             token: string;
@@ -1763,6 +1785,7 @@ export interface components {
             vttUrl: string;
         };
         SystemNodeBody: {
+            build?: components["schemas"]["BuildBody"];
             confinement: components["schemas"]["ConfinementBody"][] | null;
             disks: components["schemas"]["DiskBody"][] | null;
             ffmpegHash?: string;
@@ -1770,12 +1793,13 @@ export interface components {
             /** Format: int64 */
             gid: number;
             hardware?: components["schemas"]["HardwareBody"];
+            host?: components["schemas"]["HostBody"];
             /** @description Whether it has said hello since the server started */
             isConnected: boolean;
+            isServersBuild: boolean;
             /** Format: int64 */
             lastHeardAt?: number;
             name: string;
-            platform?: string;
             prepared?: components["schemas"]["PreparedBody"];
             recentPrepares: components["schemas"]["FinishedPrepareBody"][] | null;
             /**
@@ -1783,7 +1807,6 @@ export interface components {
              * @description The user the node runs as
              */
             uid: number;
-            version?: string;
         };
         SystemOutputBody: {
             findings: components["schemas"]["FindingBody"][] | null;

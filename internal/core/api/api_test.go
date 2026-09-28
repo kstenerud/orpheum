@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
+	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -74,6 +75,9 @@ type testHarness struct {
 	queue    *jobs.Queue
 }
 
+// serverBuild is the build the harness's server says it is.
+var serverBuild = build.Info{Version: "v0.3.0", Commit: "0f6c5cc1a2b3c4d5e6f708192a3b4c5d6e7f8091"}
+
 // newHarness serves an API whose dependencies are ready, over a real migrated database.
 func newHarness(t *testing.T) testHarness {
 	t.Helper()
@@ -119,7 +123,7 @@ func newHarness(t *testing.T) testHarness {
 		Jobs:        queue,
 		NodeReports: nodes,
 		System: System{
-			Version: "0.3.0", StartedAt: now.Now(), StateDirectory: stateDirectory, CacheDirectory: cacheDirectory,
+			Build: serverBuild, StartedAt: now.Now(), StateDirectory: stateDirectory, CacheDirectory: cacheDirectory,
 			Library: database, Cache: cache,
 		},
 		ConfigFile: []ConfigFileKey{{

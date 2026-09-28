@@ -16,11 +16,27 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/identify/tmdb"
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/platform/build"
 )
 
-// version is the release this binary was built from. The Makefile sets it with
-// -ldflags "-X main.version=<version>"; an unset build says "dev".
-var version = "dev"
+// version is the build this binary is, in a word: its release tag, or "dev" and its commit, as
+// Go recorded them when it was built (D225).
+var version = build.This().String()
+
+// thisBuild is what this binary was built from, with its own hash, so a node and the server can
+// be told apart when they were built from one modified tree (D225).
+func thisBuild() build.Info {
+	built := build.This()
+	self, err := os.Executable()
+	if err != nil {
+		return built
+	}
+	hash, err := fileSHA256(self)
+	if err != nil {
+		return built
+	}
+	return built.Hashed(hash)
+}
 
 // Exit statuses. A usage error and a planned-but-unbuilt subcommand both exit 2, so a script
 // cannot mistake either for success.

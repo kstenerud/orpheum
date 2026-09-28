@@ -161,7 +161,7 @@ func running(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
 	workers := Workers{
 		Scanner: fakeScanner{}, Artwork: fakeArtwork{}, Preparer: fakePreparer{}, Subtitles: fakeSubtitles{},
 	}
-	node := New(socket, nodeproto.Hello{Name: "local", Version: "test"}, []*confine.MediaRoot{root}, workers,
+	node := New(socket, nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{root}, workers,
 		now, slog.New(slog.DiscardHandler))
 	tick := make(chan time.Time)
 	ctx, cancel := context.WithCancel(t.Context())
