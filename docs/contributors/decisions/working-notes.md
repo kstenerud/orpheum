@@ -16767,6 +16767,11 @@ and a download a capability on the role.
    and a person's choice to get back. The size is small: a two-hour film's subtitle is 60–120 KB,
    20–40 KB compressed, and a free account fetches at most 20 a day, so a thousand fetches over
    years is about 30–40 MB.
+7. **The application's API key is in the source** (the owner, 2026-09-28: *"yes put it in the
+   source code"*), as the Jellyfin plugin's, Bazarr's and OpenSubtitles' own Kodi add-on's are;
+   nothing asks that it be kept secret ([opensubtitles-api.md](../design/research/opensubtitles-api.md) §1).
+8. **A free account's subtitles are shown as delivered** (the owner, 2026-09-28: *"option a"*),
+   with any lines of advertising OpenSubtitles puts in them; a VIP account has none.
 
 **Status:** Decided.
 
