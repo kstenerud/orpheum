@@ -2,7 +2,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { owner, serverAddress, timingFilm, warmUpFilm } from "./server.ts";
+import { longTrackName, owner, serverAddress, timingFilm, warmUpFilm } from "./server.ts";
 
 /** How long pressing play may take to start the picture moving (cut-a §8, M3's acceptance). */
 const playsWithinMs = 8000;
@@ -23,9 +23,12 @@ async function signIn(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeHidden();
 }
 
-/** Opens a film's page from Films, waiting for the scan to have found it. */
+/**
+ * Opens a film's page from Films, waiting for the scan to have found it. A film played before is
+ * also under Continue Watching, so its first link is taken.
+ */
 async function openFilm(page: Page, name: string): Promise<void> {
-  const card = page.getByRole("link", { name: new RegExp(name) });
+  const card = page.getByRole("link", { name: new RegExp(name) }).first();
   await expect(async () => {
     await page.goto(`${address()}/films`);
     await expect(card).toBeVisible({ timeout: 1000 });
@@ -91,4 +94,21 @@ test("the System page shows the machine's hardware encoding and what the timed f
     await expect(row).toContainText("copied, not encoded", { timeout: 1000 });
   }).toPass({ timeout: 90_000 });
   await expect(row).toContainText("× real time");
+});
+
+test("on a phone's screen, the play page is no wider than the screen, whatever its tracks are called", async ({
+  page,
+  browserName,
+}) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await signIn(page);
+  await openFilm(page, timingFilm(browserName));
+  await page.getByRole("link", { name: "Play" }).click();
+  await page.getByRole("button", { name: /TV speakers/ }).click();
+  await expect(page.getByRole("combobox", { name: "Subtitles" })).toContainText(longTrackName);
+  const widths = await page.evaluate(() => ({
+    page: document.documentElement.scrollWidth,
+    screen: document.documentElement.clientWidth,
+  }));
+  expect(widths.page).toBeLessThanOrEqual(widths.screen);
 });
