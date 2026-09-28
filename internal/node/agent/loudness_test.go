@@ -4,6 +4,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -11,12 +12,19 @@ import (
 )
 
 // fakeMeasurer answers with each track's stream index as its loudness, and the path it was given
-// as the source's range, so a test sees which file was measured.
+// as the source's range, so a test sees which file was measured; stream unmeasurable fails, as
+// FFmpeg does on a file it cannot decode.
 type fakeMeasurer struct{}
+
+// unmeasurable is the stream index FFmpeg cannot measure.
+const unmeasurable = 99
 
 func (fakeMeasurer) Measure(
 	_ context.Context, videoPath string, tracks []nodeproto.LoudnessTrack,
 ) ([]nodeproto.TrackLoudness, error) {
+	if tracks[0].StreamIndex == unmeasurable {
+		return nil, errors.New("ffmpeg: Invalid data found when processing input")
+	}
 	measured := make([]nodeproto.TrackLoudness, 0, len(tracks))
 	for _, track := range tracks {
 		measured = append(measured, nodeproto.TrackLoudness{
@@ -45,14 +53,14 @@ func receiveLoudness(t *testing.T, core *fakeCore) nodeproto.Loudness {
 func TestAgent_MeasuresOnlyTheVideoTheCoreNamed(t *testing.T) {
 	t.Parallel()
 	video, _, core := extracting(t)
-	measure := func(job int64, named nodeproto.BytesFile) nodeproto.Loudness {
+	measure := func(job int64, named nodeproto.BytesFile, streamIndex int) nodeproto.Loudness {
 		command := nodeproto.MeasureLoudness{
-			Job: job, Video: named, Audio: []nodeproto.LoudnessTrack{{StreamIndex: 1, Channels: 6}},
+			Job: job, Video: named, Audio: []nodeproto.LoudnessTrack{{StreamIndex: streamIndex, Channels: 6}},
 		}
 		core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command}
 		return receiveLoudness(t, core)
 	}
-	measured := measure(1, video)
+	measured := measure(1, video, 1)
 	wantPath := video.Root + "/film.mkv"
 	if measured.Job != 1 || measured.Refused != "" || len(measured.Tracks) != 1 ||
 		measured.Tracks[0].Stereo.IntegratedLUFS != -1 || measured.Tracks[0].Stereo.RangeLU != float64(len(wantPath)) {
@@ -60,8 +68,12 @@ func TestAgent_MeasuresOnlyTheVideoTheCoreNamed(t *testing.T) {
 	}
 	changed := video
 	changed.Hash = strings.Repeat("0", 64)
-	refused := measure(2, changed)
-	if refused.Refused == "" || !strings.Contains(refused.Refused, "not the one named") {
-		t.Errorf("measuring a changed video: %+v, want it refused (D100)", refused)
+	refused := measure(2, changed, 1)
+	if refused.Refused == "" || !strings.Contains(refused.Refused, "not the one named") || refused.Failed != "" {
+		t.Errorf("measuring a changed video: %+v, want it refused, not failed (D100)", refused)
+	}
+	failed := measure(3, video, unmeasurable)
+	if failed.Failed == "" || !strings.Contains(failed.Failed, "Invalid data") || failed.Refused != "" {
+		t.Errorf("a video FFmpeg cannot measure: %+v, want FFmpeg's failure, which is the file's", failed)
 	}
 }

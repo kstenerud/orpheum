@@ -32,7 +32,11 @@ type LoudnessTrack struct {
 type Loudness struct {
 	Job    int64           `json:"job"`
 	Tracks []TrackLoudness `json:"tracks,omitempty"`
-	// Refused says why nothing was measured: a source that changed, a file FFmpeg cannot read.
+	// Failed is FFmpeg's word that it could not measure the file: a fact about its bytes, which
+	// measuring again would not change.
+	Failed string `json:"failed,omitempty"`
+	// Refused says why the node did not try: a source that changed since the scan, a node that
+	// does not measure. It says nothing of the bytes.
 	Refused string `json:"refused,omitempty"`
 }
 

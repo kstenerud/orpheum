@@ -134,19 +134,26 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 	}
 }
 
-func TestLoudness_AFileFFmpegCannotMeasureIsNotAskedAgain(t *testing.T) {
+func TestLoudness_AFileFFmpegCannotMeasureIsNotAskedAgainButOneTheNodeDidNotTryIs(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.withSound(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
-	_, err := harness.measureWith(t, 93, 2, nodeproto.Loudness{Refused: "ffmpeg: Invalid data found"})
+	_, err := harness.measureWith(t, 93, 2, nodeproto.Loudness{Refused: "the file at this path is not the one named"})
+	if err == nil || !strings.Contains(err.Error(), "not the one named") {
+		t.Errorf("a measurement the node would not try ended %v, want its reason", err)
+	}
+	if ids := harness.toMeasure(t); !slices.Equal(ids, []int64{1, 2}) {
+		t.Errorf("after the node would not try film 2, a sweep finds %v, want it asked again", ids)
+	}
+	_, err = harness.measureWith(t, 94, 2, nodeproto.Loudness{Failed: "ffmpeg: Invalid data found"})
 	if err == nil || !strings.Contains(err.Error(), "Invalid data found") {
-		t.Errorf("a refused measurement ended %v, want FFmpeg's words", err)
+		t.Errorf("a failed measurement ended %v, want FFmpeg's words", err)
 	}
 	if ids := harness.toMeasure(t); !slices.Equal(ids, []int64{1}) {
-		t.Errorf("after film 2 could not be measured, a sweep finds %v, want only film 1", ids)
+		t.Errorf("after FFmpeg could not measure film 2, a sweep finds %v, want only film 1", ids)
 	}
 }
 
