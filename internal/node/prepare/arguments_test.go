@@ -4,6 +4,7 @@ package prepare_test
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -55,6 +56,29 @@ func TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre(t *testing.
 	if after(arguments, "-hls_segment_type") != "fmp4" || after(arguments, "-hls_playlist_type") != "event" ||
 		arguments[len(arguments)-1] != "/prep/7/remux/0123456789abcdef/%v/stream.m3u8" {
 		t.Errorf("the output is %v, want fMP4 HLS as an EVENT playlist under the rendition", arguments)
+	}
+}
+
+func TestArguments_EachMixOfAMeasuredTrackCarriesItsLevellingGain(t *testing.T) {
+	t.Parallel()
+	command := nodeproto.Prepare{
+		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", RenditionDir: "7/remux/0123456789abcdef",
+		Audio: []nodeproto.PrepareAudio{
+			{AudioTrackIndex: 0, Language: "en", Channels: 6, GainDB: 12.7},
+			{AudioTrackIndex: 1, Language: "de", Channels: 2, GainDB: -3.4},
+			{AudioTrackIndex: 2, Language: "fr", Channels: 2},
+		},
+	}
+	arguments := prepare.Arguments("/media/film.mkv", "/prep/7/remux/0123456789abcdef", command, prepare.EncoderX264)
+	for slot, want := range []string{
+		prepare.StandardMix + ",volume=12.7dB", ",volume=12.7dB", prepare.StereoMix + ",volume=-3.4dB",
+		prepare.StereoMix,
+	} {
+		got := after(arguments, "-filter:a:"+strconv.Itoa(slot))
+		if !strings.HasSuffix(got, want) || (slot == 3 && strings.Contains(got, "volume")) {
+			t.Errorf("mix %d is %q, want it to end %q: the gain after the mix it was measured as (D226 §4)",
+				slot, got, want)
+		}
 	}
 }
 

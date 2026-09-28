@@ -25,6 +25,8 @@
 //     TestRun_CancellingKillsTheWholeProcessGroup.
 //   - A run that writes more than its caller allows is refused, never truncated.
 //     TestRun_RefusesMoreOutputThanAllowed.
+//   - A logged run returns the end of the tool's log, where FFmpeg's filters write what they
+//     measured, and none of its output. TestRunLogged_ReturnsTheEndOfTheLogAndNotTheOutput.
 //
 // # Read before changing
 //

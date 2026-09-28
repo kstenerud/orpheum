@@ -34,6 +34,7 @@ type fakeCore struct {
 	artwork     chan nodeproto.ArtworkResult
 	prepared    chan nodeproto.PrepareReport
 	subtitles   chan nodeproto.SubtitleText
+	loudness    chan nodeproto.Loudness
 	dropReports int // the first reports it ends at once, as a core that went away would
 }
 
@@ -42,7 +43,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	core := &fakeCore{
 		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
 		artwork: make(chan nodeproto.ArtworkResult, 4), prepared: make(chan nodeproto.PrepareReport, 16),
-		subtitles: make(chan nodeproto.SubtitleText, 4),
+		subtitles: make(chan nodeproto.SubtitleText, 4), loudness: make(chan nodeproto.Loudness, 4),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, func(writer http.ResponseWriter, request *http.Request) {
@@ -92,6 +93,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	mux.HandleFunc("POST "+nodeproto.PathArtwork, posted(t, core.artwork))
 	mux.HandleFunc("POST "+nodeproto.PathPrepare, posted(t, core.prepared))
 	mux.HandleFunc("POST "+nodeproto.PathSubtitle, posted(t, core.subtitles))
+	mux.HandleFunc("POST "+nodeproto.PathLoudness, posted(t, core.loudness))
 	socket := filepath.Join(t.TempDir(), "c.sock")
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", socket)
 	if err != nil {
@@ -160,6 +162,7 @@ func running(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	workers := Workers{
 		Scanner: fakeScanner{}, Artwork: fakeArtwork{}, Preparer: fakePreparer{}, Subtitles: fakeSubtitles{},
+		Loudness: fakeMeasurer{},
 	}
 	node := New(socket, nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{root}, workers,
 		now, slog.New(slog.DiscardHandler))

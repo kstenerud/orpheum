@@ -121,15 +121,29 @@ func (runner *Runner) RunInput(
 func (runner *Runner) RunStreaming(
 	ctx context.Context, tool Tool, access confine.Access, arguments []string, stdout io.Writer,
 ) error {
-	_, err := runner.start(ctx, tool, access, arguments, nil, stdout)
+	_, err := runner.start(ctx, tool, access, arguments, pipes{stdout: stdout, logBytes: stderrTailBytes})
 	return err
+}
+
+// RunLogged is Run for a tool whose answer is in its log, not its output, as FFmpeg's ebur128
+// filter writes its summary when it ends: stdout is discarded, and it returns the last logLimit
+// bytes the tool wrote to stderr.
+func (runner *Runner) RunLogged(
+	ctx context.Context, tool Tool, access confine.Access, arguments []string, logLimit int,
+) (string, error) {
+	logged, err := runner.start(ctx, tool, access, arguments, pipes{stdout: io.Discard, logBytes: logLimit})
+	if err != nil {
+		return "", err
+	}
+	return logged.String(), nil
 }
 
 func (runner *Runner) run(
 	ctx context.Context, tool Tool, access confine.Access, arguments []string, fed []byte, stdoutLimit int,
 ) ([]byte, error) {
 	stdout := &limitedBuffer{limit: stdoutLimit}
-	finished, err := runner.start(ctx, tool, access, arguments, fed, stdout)
+	finished, err := runner.start(ctx, tool, access, arguments,
+		pipes{stdin: fed, stdout: stdout, logBytes: stderrTailBytes})
 	if err != nil {
 		return nil, err
 	}
@@ -142,9 +156,17 @@ func (runner *Runner) run(
 	return stdout.buffer.Bytes(), nil
 }
 
-// start runs tool to its end, writing its stdout to stdout, and returns the tail of its stderr.
+// pipes are a run's streams: what its stdin is fed, nil to leave it closed; where its stdout goes;
+// and how much of the end of its stderr is kept.
+type pipes struct {
+	stdin    []byte
+	stdout   io.Writer
+	logBytes int
+}
+
+// start runs tool to its end, with its streams as streams says, and returns the end of its stderr.
 func (runner *Runner) start(
-	ctx context.Context, tool Tool, access confine.Access, arguments []string, fed []byte, stdout io.Writer,
+	ctx context.Context, tool Tool, access confine.Access, arguments []string, streams pipes,
 ) (*tailBuffer, error) {
 	hardened, known := hardening(tool)
 	if !known {
@@ -162,11 +184,11 @@ func (runner *Runner) start(
 	command := exec.CommandContext(ctx, path, argv...)
 	command.Env = []string{}
 	command.Dir = "/"
-	stderr := &tailBuffer{limit: stderrTailBytes}
-	command.Stdout = stdout
+	stderr := &tailBuffer{limit: streams.logBytes}
+	command.Stdout = streams.stdout
 	command.Stderr = stderr
-	if fed != nil {
-		command.Stdin = bytes.NewReader(fed)
+	if streams.stdin != nil {
+		command.Stdin = bytes.NewReader(streams.stdin)
 	}
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	command.Cancel = func() error {

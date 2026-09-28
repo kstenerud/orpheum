@@ -123,8 +123,8 @@ func MainVideo(probe nodeproto.Probe) (nodeproto.ProbeStream, bool) {
 	return nodeproto.ProbeStream{}, false
 }
 
-// mainAudio is the track a player starts with: the one marked default, else the first.
-func mainAudio(probe nodeproto.Probe) (nodeproto.ProbeStream, bool) {
+// MainAudio is the track a player starts with: the one marked default, else the first.
+func MainAudio(probe nodeproto.Probe) (nodeproto.ProbeStream, bool) {
 	var first *nodeproto.ProbeStream
 	for index := range probe.Streams {
 		stream := &probe.Streams[index]

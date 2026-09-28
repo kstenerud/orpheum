@@ -51,6 +51,7 @@ type PreparedRendition struct {
 	Error          *string
 	VideoEncoder   *string
 	Speed          *float64
+	AudioGainsDb   string
 	CreatedAt      int64
 	FinishedAt     *int64
 }

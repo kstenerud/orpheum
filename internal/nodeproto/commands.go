@@ -27,6 +27,8 @@ type Command struct {
 	Prepare *Prepare `json:"prepare,omitempty"`
 	// ExtractSubtitle is set for CommandExtractSubtitle.
 	ExtractSubtitle *ExtractSubtitle `json:"extractSubtitle,omitempty"`
+	// MeasureLoudness is set for CommandMeasureLoudness.
+	MeasureLoudness *MeasureLoudness `json:"measureLoudness,omitempty"`
 	// Cancel is set for CommandCancel.
 	Cancel *Cancel `json:"cancel,omitempty"`
 }

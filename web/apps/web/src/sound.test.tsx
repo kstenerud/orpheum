@@ -21,9 +21,10 @@ function direct(audioOutput?: Decision["audioOutput"]): Decision {
     reasons: [],
     isPreparing: false,
     subtitles: [],
-    prefs: { subtitleOffsetMs: 0, isDialogueBoost: false },
+    prefs: { subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true },
     resumePositionMs: 0,
     mediaToken: "t",
+    levelling: { isMeasured: false, gainDb: 0 },
     ...(audioOutput === undefined ? {} : { audioOutput }),
   };
 }

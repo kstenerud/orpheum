@@ -4,6 +4,17 @@
 
 package sqlcgen
 
+type Loudness struct {
+	PayloadHash    []byte
+	StreamIndex    int64
+	Sound          string
+	IntegratedLufs *float64
+	RangeLu        *float64
+	TruePeakDbtp   *float64
+	Failure        *string
+	MeasuredAt     int64
+}
+
 type Secret struct {
 	Scope      string
 	UserID     *int64

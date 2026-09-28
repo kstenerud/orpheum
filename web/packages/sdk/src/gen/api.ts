@@ -650,7 +650,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Keep a person's own choices, which hold in every file they play: the dialogue boost */
+        /** Keep a person's own choices, which hold in every file they play: the boost, levelling */
         put: operations["setMyPrefs"];
         post?: never;
         delete?: never;
@@ -1019,8 +1019,14 @@ export interface components {
             stillHash?: string;
         };
         AudioRenditionBody: {
+            /**
+             * Format: double
+             * @description dB already in the sound, put in when it was prepared
+             */
+            carriedGainDb: number;
             isDialogueBoost: boolean;
             language: string;
+            levelling: components["schemas"]["LevellingBody"];
             /** Format: int64 */
             sourceTrack: number;
         };
@@ -1327,6 +1333,7 @@ export interface components {
         };
         FilePrefsBody: {
             isDialogueBoost: boolean;
+            isLevelling: boolean;
             subtitle?: components["schemas"]["SubtitleChoiceBody"];
             /**
              * Format: int64
@@ -1496,7 +1503,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             /** @enum {string} */
-            kind: "fetch" | "artwork" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "scan" | "backup";
+            kind: "fetch" | "artwork" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "measure_loudness" | "scan" | "backup";
             lastError?: string;
             /** Format: double */
             progress?: number;
@@ -1512,6 +1519,15 @@ export interface components {
         };
         JobsOutputBody: {
             jobs: components["schemas"]["JobBody"][] | null;
+        };
+        LevellingBody: {
+            /**
+             * Format: double
+             * @description Applied after the player's volume; negative lowers a loud film
+             */
+            gainDb: number;
+            /** @description Absent a measurement, the sound plays as it is */
+            isMeasured: boolean;
         };
         LibrariesOutputBody: {
             libraries: components["schemas"]["LibraryBody"][] | null;
@@ -1687,6 +1703,7 @@ export interface components {
         };
         SetMyPrefsInputBody: {
             isDialogueBoost?: boolean;
+            isLevelling?: boolean;
         };
         SettingBody: {
             description: string;
@@ -1758,6 +1775,7 @@ export interface components {
             isPreparing: boolean;
             /** @enum {string} */
             kind: "direct" | "hls";
+            levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;
             prefs: components["schemas"]["FilePrefsBody"];
             /** @enum {string} */

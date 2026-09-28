@@ -24,6 +24,9 @@ type FilePrefs struct {
 	// IsDialogueBoost is whether the person plays with the dialogue boost: theirs, for every file,
 	// off until they turn it on (D83, D222).
 	IsDialogueBoost bool
+	// IsLevelling is whether the person plays with loudness levelled: theirs, for every file, on
+	// until they turn it off (D226 §5).
+	IsLevelling bool
 }
 
 // SubtitleChoice is a subtitle choice for one file: a track in it, or off (D219).
@@ -70,6 +73,7 @@ const (
 	axisSubtitleOffsetMs = "subtitle_offset_ms"
 	axisSubtitleTrack    = "subtitle_track"
 	axisDialogueBoost    = "dialogue_boost"
+	axisLevelling        = "loudness_levelling"
 	valueOn              = "on"
 	valueOff             = "off"
 )
@@ -108,9 +112,13 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 	if prefs.Subtitle, err = service.currentChoice(ctx, fileID, prefs.Subtitle); err != nil {
 		return FilePrefs{}, err
 	}
+	prefs.IsLevelling = true
 	for _, preference := range personal {
-		if preference.Axis == axisDialogueBoost {
+		switch preference.Axis {
+		case axisDialogueBoost:
 			prefs.IsDialogueBoost = preference.Value == valueOn
+		case axisLevelling:
+			prefs.IsLevelling = preference.Value != valueOff
 		}
 	}
 	return prefs, nil
@@ -118,18 +126,28 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 
 // SetDialogueBoost keeps whether the person plays with the dialogue boost, for every file (D83).
 func (service *Service) SetDialogueBoost(ctx context.Context, userID int64, isOn bool) error {
+	return service.setOwn(ctx, userID, axisDialogueBoost, isOn)
+}
+
+// SetLevelling keeps whether the person plays with loudness levelled, for every file (D226 §5).
+func (service *Service) SetLevelling(ctx context.Context, userID int64, isOn bool) error {
+	return service.setOwn(ctx, userID, axisLevelling, isOn)
+}
+
+// setOwn keeps one of the person's own choices that is on or off, for every file.
+func (service *Service) setOwn(ctx context.Context, userID int64, axis string, isOn bool) error {
 	value := valueOff
 	if isOn {
 		value = valueOn
 	}
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.SetPreference(ctx, sqlcgen.SetPreferenceParams{
-			UserID: userID, Scope: scopeUser, ScopeID: 0, Axis: axisDialogueBoost, Value: value,
+			UserID: userID, Scope: scopeUser, ScopeID: 0, Axis: axis, Value: value,
 			SetAt: service.clock.Now().UnixMilli(),
 		})
 	})
 	if err != nil {
-		return fmt.Errorf("keep user %d's dialogue boost: %w", userID, err)
+		return fmt.Errorf("keep user %d's %s: %w", userID, axis, err)
 	}
 	return nil
 }

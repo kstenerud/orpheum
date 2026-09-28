@@ -154,6 +154,18 @@ func (service *Service) subtitleAnswer(writer http.ResponseWriter, request *http
 	takeAnswer(service, writer, request, maxSubtitleAnswerBytes, "a subtitle", deliver)
 }
 
+// maxLoudnessAnswerBytes bounds a loudness answer: a few numbers for each audio track.
+const maxLoudnessAnswerBytes = 1 << 20
+
+// loudnessAnswer takes a node's answer to a measure_loudness command to the job waiting for it.
+func (service *Service) loudnessAnswer(writer http.ResponseWriter, request *http.Request) {
+	var deliver func(context.Context, int64, nodeproto.Loudness)
+	if service.loudness != nil {
+		deliver = service.loudness.Measured
+	}
+	takeAnswer(service, writer, request, maxLoudnessAnswerBytes, "a loudness measurement", deliver)
+}
+
 // takeAnswer reads one JSON answer of at most limit bytes from a known node and delivers it; with
 // nothing to deliver to, the answer is refused.
 func takeAnswer[Answer any](

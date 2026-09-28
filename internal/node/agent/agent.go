@@ -53,6 +53,8 @@ type Workers struct {
 	Preparer Preparer
 	// Subtitles is nil on a node that does not extract subtitles.
 	Subtitles Subtitler
+	// Loudness is nil on a node that does not measure loudness.
+	Loudness Measurer
 	// Keeper keeps the prepared directory within its budget; nil on a node that does not prepare.
 	Keeper Keeper
 	// PreparedDirectory is where renditions are written, whose disk the status reports; empty on
@@ -225,6 +227,10 @@ func (agent *Agent) run(ctx context.Context, nodeID int64, command nodeproto.Com
 	}
 	if command.Type == nodeproto.CommandExtractSubtitle && command.ExtractSubtitle != nil {
 		agent.extractSubtitle(ctx, nodeID, *command.ExtractSubtitle)
+		return nil
+	}
+	if command.Type == nodeproto.CommandMeasureLoudness && command.MeasureLoudness != nil {
+		agent.measureLoudness(ctx, nodeID, *command.MeasureLoudness)
 		return nil
 	}
 	if command.Type == nodeproto.CommandScan {

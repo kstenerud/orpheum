@@ -48,6 +48,10 @@ INSERT INTO fetched_subtitle (id, video_file, provider, provider_ref, lang, form
                               release_name)
   VALUES (1, 1, 'opensubtitles', 'os-1', 'de', 'srt', CAST('1\n00:00:01,000 --> 00:00:02,000\nHallo\n' AS BLOB),
           2, 1790000003000, 'Direct.Play.Film.2020.German.srt');
+INSERT INTO loudness (payload_hash, stream_index, sound, integrated_lufs, range_lu, true_peak_dbtp, failure,
+                      measured_at)
+  VALUES (X'0101', 1, 'stereo', -35.7, 22.8, -16.2, NULL, 1790000004000),
+         (X'0101', 2, 'stereo', NULL, NULL, NULL, 'FFmpeg could not decode it', 1790000004000);
 
 INSERT INTO item_text (item_id, lang, is_original, name, overview, tagline)
   VALUES (1, 'en', 1, 'Direct Play Film', 'A synthetic film.', 'It plays.');

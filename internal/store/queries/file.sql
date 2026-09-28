@@ -160,7 +160,7 @@ SELECT sidecar_body FROM file WHERE id = ?;
 -- name: GetPlayableFile :one
 -- A live file a person may play: a video the scan filed, whatever it was identified as. What a
 -- scan skipped, could not read or attached to another is not played.
-SELECT id, node_id, library_id, path_key, payload_hash, probe
+SELECT id, node_id, library_id, path_key, payload_hash, probe, size_bytes
 FROM file
 WHERE id = ? AND removed_at IS NULL AND filing IN ('listed', 'extra', 'unidentified');
 

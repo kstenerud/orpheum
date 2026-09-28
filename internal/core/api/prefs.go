@@ -19,6 +19,8 @@ type FilePrefsBody struct {
 	Subtitle *SubtitleChoiceBody `json:"subtitle,omitempty"`
 	// IsDialogueBoost is whether the person plays with the dialogue boost, in every file (D83).
 	IsDialogueBoost bool `json:"isDialogueBoost"`
+	// IsLevelling is whether the person plays with loudness levelled, in every file (D226 §5).
+	IsLevelling bool `json:"isLevelling"`
 }
 
 // SubtitleChoiceBody is a subtitle choice for one file: a track in it, or off (D219).
@@ -51,13 +53,16 @@ func (server *Server) registerFilePrefs() {
 	}, server.setFilePrefs)
 	huma.Register(server.api, huma.Operation{
 		OperationID: "setMyPrefs", Method: http.MethodPut, Path: "/me/prefs",
-		Summary: "Keep a person's own choices, which hold in every file they play: the dialogue boost",
+		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling",
 		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.setMyPrefs)
 }
 
 func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
-	body := FilePrefsBody{SubtitleOffsetMs: prefs.SubtitleOffsetMs, IsDialogueBoost: prefs.IsDialogueBoost}
+	body := FilePrefsBody{
+		SubtitleOffsetMs: prefs.SubtitleOffsetMs, IsDialogueBoost: prefs.IsDialogueBoost,
+		IsLevelling: prefs.IsLevelling,
+	}
 	if choice := prefs.Subtitle; choice != nil {
 		body.Subtitle = &SubtitleChoiceBody{
 			StreamID: choice.StreamID, FetchedID: choice.FetchedID, IsOff: choice.IsOff, IsCarried: choice.IsCarried,
@@ -72,6 +77,8 @@ type SetMyPrefsInput struct {
 	Body struct {
 		// IsDialogueBoost, when given, is whether the person plays with the dialogue boost (D222 §3).
 		IsDialogueBoost *bool `json:"isDialogueBoost,omitempty" required:"false"`
+		// IsLevelling, when given, is whether the person plays with loudness levelled (D226 §5).
+		IsLevelling *bool `json:"isLevelling,omitempty" required:"false"`
 	}
 }
 
@@ -83,6 +90,11 @@ func (server *Server) setMyPrefs(ctx context.Context, input *SetMyPrefsInput) (*
 	if isOn := input.Body.IsDialogueBoost; isOn != nil {
 		if err := dependencies.Playback.SetDialogueBoost(ctx, principal.UserID, *isOn); err != nil {
 			return nil, server.internal(ctx, "keep a person's dialogue boost", err)
+		}
+	}
+	if isOn := input.Body.IsLevelling; isOn != nil {
+		if err := dependencies.Playback.SetLevelling(ctx, principal.UserID, *isOn); err != nil {
+			return nil, server.internal(ctx, "keep whether a person's loudness is levelled", err)
 		}
 	}
 	return &struct{}{}, nil

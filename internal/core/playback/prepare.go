@@ -155,6 +155,9 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 	if err := all.running(ctx, job.Subject, 0); err != nil {
 		return err
 	}
+	if err := all.carrying(ctx, job.Subject, made.gains); err != nil {
+		return err
+	}
 	command.Job = job.ID
 	all.nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &command})
 	timer := time.NewTimer(all.maxSilence)
@@ -207,6 +210,17 @@ func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) er
 	all.nodes.Enqueue(nodeID, cancelCommand(job.ID))
 	failed := all.finish(context.WithoutCancel(ctx), job.Subject, nil, jobs.ErrCancelled.Error())
 	return jobs.Permanent(errors.Join(jobs.ErrCancelled, failed))
+}
+
+// carrying records the gains a making puts in the rendition's audio tracks (D226 §4).
+func (all *prepares) carrying(ctx context.Context, rendition int64, gains string) error {
+	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		return queries.SetRenditionGains(ctx, cachegen.SetRenditionGainsParams{AudioGainsDb: gains, ID: rendition})
+	})
+	if err != nil {
+		return fmt.Errorf("record rendition %d's gains: %w", rendition, err)
+	}
+	return nil
 }
 
 func (all *prepares) running(ctx context.Context, rendition, preparedMs int64) error {
@@ -267,11 +281,7 @@ func prepareCommand(
 	if picture, found := decide.MainVideo(probe); found {
 		command.VideoStreamIndex, command.VideoCodec = picture.Index, picture.Codec
 	}
-	index := 0
-	for _, stream := range probe.Streams {
-		if stream.Kind != "audio" {
-			continue
-		}
+	for index, stream := range audioStreams(probe) {
 		language := stream.LanguageTag
 		if language == "" {
 			language = "und"
@@ -279,7 +289,6 @@ func prepareCommand(
 		command.Audio = append(command.Audio, nodeproto.PrepareAudio{
 			AudioTrackIndex: index, Language: language, Channels: stream.Audio.Channels,
 		})
-		index++
 	}
 	return command
 }

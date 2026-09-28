@@ -78,6 +78,7 @@ type Service struct {
 	tokens     *tokens
 	prepares   *prepares
 	subtitles  *waiting[nodeproto.SubtitleText]
+	loudness   *waiting[nodeproto.Loudness]
 	subtitler  Subtitler
 }
 
@@ -88,6 +89,7 @@ func NewService(parts Parts) *Service {
 		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
 		tokens: newTokens(), prepares: newPrepares(parts),
 		subtitles: newWaiting[nodeproto.SubtitleText](parts.Logger, "a subtitle"), subtitler: parts.Subtitler,
+		loudness: newWaiting[nodeproto.Loudness](parts.Logger, "a loudness measurement"),
 	}
 }
 
@@ -118,6 +120,9 @@ type Started struct {
 	ResumePositionMs int64
 	// AudioOutput is how the device asking makes sound, or empty until it is asked (D222).
 	AudioOutput string
+	// Levelling is what brings the main sound to the level: the one played as it is, or, when
+	// prepared, its stereo mix (D226). Each audio rendition carries its own.
+	Levelling Levelling
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -160,6 +165,11 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if started.ResumePositionMs, err = service.resumeAt(ctx, userID, file.ID, probe.Format.DurationMs); err != nil {
 		return Started{}, err
 	}
+	levels, err := service.levellings(ctx, file.PayloadHash)
+	if err != nil {
+		return Started{}, err
+	}
+	started.Levelling = directLevelling(levels, probe)
 	playback := playing{userID: userID, sessionKey: sessionKey, fileID: file.ID}
 	if decision.Kind == decide.HLS {
 		playback.profile = nodeproto.PrepareProfile(decision.Profile)
@@ -169,6 +179,10 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		}
 		started.Preparing = rendition.State != renditionComplete
 		started.Audio = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, playback.profile, "", probe))
+		levelAudio(started.Audio, levels, probe, rendition.AudioGainsDb)
+		if main, found := decide.MainAudio(probe); found {
+			started.Levelling = levels[soundKey{int64(main.Index), soundStereo}]
+		}
 	}
 	started.Token, err = service.tokens.issue(service.random, playback, service.clock.Now(), idle)
 	if err != nil {

@@ -75,6 +75,19 @@
 //     TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloadsLeft,
 //     TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace,
 //     TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt (internal/core/api).
+//   - Each live video with sound is measured once per payload hash, by a job behind anything a
+//     person waits on, and one FFmpeg cannot measure is not asked again (D226 §2). Enforced by
+//     TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel and
+//     TestLoudness_AFileFFmpegCannotMeasureIsNotAskedAgain (internal/core/api), and end to end by
+//     TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled (cmd/orpheum).
+//   - A playback says the gain that levels its sound: towards -23 LUFS both ways, never lifting
+//     the true peak above -1 dBTP nor raising more than 20 dB, silence left as it is; a prepared
+//     one levels each mix as its track's stereo mix and says what gain its copy already carries,
+//     which the copy's making put in (D226 §3, §4). Enforced by
+//     TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits and
+//     TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain.
+//   - Levelling is the person's, in every file, on until they turn it off (D226 §5). Enforced by
+//     TestLoudness_LevellingIsOnUntilThePersonTurnsItOff.
 //
 // # Read before changing
 //
@@ -88,6 +101,7 @@
 //   - D83, D222: the dialogue boost is a person's; a device's sound decides whether we fold it down.
 //   - D224: fetching a subtitle on request; the provider client is opensubtitles/.
 //   - D225: a finished rendition records what made its video and how fast, for the System page.
+//   - D226: loudness is measured by the node and levelled by the player; the gain's rule.
 //   - docs/contributors/design/plans/play-state.md, docs/contributors/design/plans/cut-a.md §6.
 //
 // # Where to change
@@ -99,5 +113,6 @@
 //     answer. report.go: the play report, its log and the guarded position. resume.go: where a
 //     playback starts. hide.go: hiding a work from Continue Watching, which library's home.go
 //     lists. finished.go: a node's finished prepares, for the System page. fetch.go: subtitles
-//     fetched on request, and the job that converts one. Next Up comes after M3.
+//     fetched on request, and the job that converts one. loudness.go: the gain that levels a
+//     sound, the sweep for files to measure and the measurement job. Next Up comes after M3.
 package playback

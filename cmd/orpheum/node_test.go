@@ -139,6 +139,13 @@ func filmOnNode(t *testing.T, metadataSource string) shelf {
 // the film, and whatever else the node runs.
 func filmProbedAs(t *testing.T, metadataSource, reply string) shelf {
 	t.Helper()
+	return filmAnswered(t, metadataSource, testutil.FakeReply{Stdout: reply})
+}
+
+// filmAnswered is filmProbedAs with the whole of the fake FFmpeg's reply: what it writes to
+// stderr too, where FFmpeg's filters log what they measured.
+func filmAnswered(t *testing.T, metadataSource string, reply testutil.FakeReply) shelf {
+	t.Helper()
 	config, configPath := testConfig(t)
 	media := t.TempDir()
 	for name, contents := range map[string]string{"Film (2020)/Film (2020).mkv": "film", "notes.txt": "notes"} {
@@ -152,7 +159,7 @@ func filmProbedAs(t *testing.T, metadataSource, reply string) shelf {
 	}
 	// One reply serves every run the node makes: `ffprobe -version`, whose first line becomes
 	// the hello's FFmpeg version, and the probe of the film, which parses.
-	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: reply})
+	fake := testutil.InstallFakeFFmpeg(t, reply)
 	config.Node.Roots = []string{media}
 	config.Node.FFmpegDir = fake.Directory
 	config.Node.VideoExtensions = []string{"mkv"}

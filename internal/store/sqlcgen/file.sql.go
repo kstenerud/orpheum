@@ -148,7 +148,7 @@ func (q *Queries) GetLiveFileByKey(ctx context.Context, arg GetLiveFileByKeyPara
 }
 
 const getPlayableFile = `-- name: GetPlayableFile :one
-SELECT id, node_id, library_id, path_key, payload_hash, probe
+SELECT id, node_id, library_id, path_key, payload_hash, probe, size_bytes
 FROM file
 WHERE id = ? AND removed_at IS NULL AND filing IN ('listed', 'extra', 'unidentified')
 `
@@ -160,6 +160,7 @@ type GetPlayableFileRow struct {
 	PathKey     []byte
 	PayloadHash []byte
 	Probe       *string
+	SizeBytes   *int64
 }
 
 // A live file a person may play: a video the scan filed, whatever it was identified as. What a
@@ -174,6 +175,7 @@ func (q *Queries) GetPlayableFile(ctx context.Context, id int64) (GetPlayableFil
 		&i.PathKey,
 		&i.PayloadHash,
 		&i.Probe,
+		&i.SizeBytes,
 	)
 	return i, err
 }

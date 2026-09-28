@@ -24,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/hardware"
+	"github.com/kstenerud/orpheum/internal/node/loudness"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/node/probe"
@@ -178,7 +179,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	}
 	workers := agent.Workers{
 		Scanner: scanning, Artwork: deriver, Preparer: preparing, Subtitles: subtitle.NewExtractor(runner),
-		Keeper: keeping,
+		Loudness: loudness.NewMeasurer(runner), Keeper: keeping,
 	}
 	if directory.root != nil {
 		workers.PreparedDirectory = directory.root.Path()

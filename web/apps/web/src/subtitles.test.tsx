@@ -64,7 +64,12 @@ describe("subtitles", () => {
         <Subtitles
           fileId={2}
           tracks={[track({}), track({ streamId: 7, language: "fr" })]}
-          prefs={{ subtitleOffsetMs: -1500, isDialogueBoost: false, subtitle: { streamId: 7 } }}
+          prefs={{
+            subtitleOffsetMs: -1500,
+            isDialogueBoost: false,
+            isLevelling: true,
+            subtitle: { streamId: 7 },
+          }}
           videoRef={createRef()}
         />,
       ),
@@ -81,7 +86,7 @@ describe("subtitles", () => {
         <Subtitles
           fileId={2}
           tracks={[]}
-          prefs={{ subtitleOffsetMs: 0, isDialogueBoost: false }}
+          prefs={{ subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true }}
           videoRef={createRef()}
         />,
       ),
@@ -111,29 +116,51 @@ describe("subtitles", () => {
     const tracks = [track({}), track({ streamId: 7, language: "fr" })];
     expect(
       startingTrack(
-        { subtitleOffsetMs: 0, isDialogueBoost: false, subtitle: { streamId: 7 } },
+        {
+          subtitleOffsetMs: 0,
+          isDialogueBoost: false,
+          isLevelling: true,
+          subtitle: { streamId: 7 },
+        },
         tracks,
       ),
     ).toBe("s7");
     expect(
-      startingTrack({ subtitleOffsetMs: 0, isDialogueBoost: false, subtitle: { fetchedId: 3 } }, [
-        ...tracks,
-        track({ streamId: 0, fetchedId: 3 }),
-      ]),
+      startingTrack(
+        {
+          subtitleOffsetMs: 0,
+          isDialogueBoost: false,
+          isLevelling: true,
+          subtitle: { fetchedId: 3 },
+        },
+        [...tracks, track({ streamId: 0, fetchedId: 3 })],
+      ),
     ).toBe("f3");
     expect(
       startingTrack(
-        { subtitleOffsetMs: 0, isDialogueBoost: false, subtitle: { isOff: true } },
+        {
+          subtitleOffsetMs: 0,
+          isDialogueBoost: false,
+          isLevelling: true,
+          subtitle: { isOff: true },
+        },
         tracks,
       ),
     ).toBeUndefined();
     expect(
       startingTrack(
-        { subtitleOffsetMs: 0, isDialogueBoost: false, subtitle: { streamId: 99 } },
+        {
+          subtitleOffsetMs: 0,
+          isDialogueBoost: false,
+          isLevelling: true,
+          subtitle: { streamId: 99 },
+        },
         tracks,
       ),
     ).toBeUndefined();
-    expect(startingTrack({ subtitleOffsetMs: 0, isDialogueBoost: false }, tracks)).toBeUndefined();
+    expect(
+      startingTrack({ subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true }, tracks),
+    ).toBeUndefined();
   });
 
   it("keeps a choice of a track, or of off", async () => {

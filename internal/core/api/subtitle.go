@@ -33,6 +33,21 @@ type AudioRenditionBody struct {
 	SourceTrack     int    `json:"sourceTrack"`
 	Language        string `json:"language"`
 	IsDialogueBoost bool   `json:"isDialogueBoost"`
+	// Levelling brings the track's stereo sound to the level (D226).
+	Levelling LevellingBody `json:"levelling"`
+	// CarriedGainDB is already in the rendition's sound: the player applies the levelling less
+	// this, and on its own when levelling is off (D226 §4).
+	CarriedGainDB float64 `doc:"dB already in the sound, put in when it was prepared" json:"carriedGainDb"`
+}
+
+// LevellingBody is what brings a sound to the level (D226): its gain, once it is measured.
+type LevellingBody struct {
+	IsMeasured bool    `doc:"Absent a measurement, the sound plays as it is" json:"isMeasured"`
+	GainDB     float64 `doc:"Applied after the player's volume; negative lowers a loud film" json:"gainDb"`
+}
+
+func levellingBody(levelling playback.Levelling) LevellingBody {
+	return LevellingBody{IsMeasured: levelling.IsMeasured, GainDB: levelling.GainDB}
 }
 
 // SubtitleInput asks for one of a playback's subtitle tracks, in one form.
