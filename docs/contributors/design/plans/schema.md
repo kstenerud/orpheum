@@ -254,6 +254,7 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
   fetched_at  INTEGER NOT NULL,
   release_name TEXT                      -- migration 0017: the provider's name for it (D224)
 );
+CREATE INDEX fetched_subtitle_video ON fetched_subtitle(video_file);  -- migration 0018
 ```
 
 A fetched subtitle is **stored in the database, not the media tree**: it cost one of the user's
