@@ -14,6 +14,7 @@ import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { Subtitles } from "./subtitles.tsx";
 import { camelKey } from "./catalogue-key.ts";
+import { LevelSwitch, soundLevel } from "./levelling.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
@@ -51,8 +52,8 @@ export function PlayView(props: {
 type PlayProps = Parameters<typeof PlayView>[0];
 
 /**
- * What sits under a playing video: "Start over", and the subtitle menu and offset for the
- * decision's tracks. It keeps the playback's play state on the server, starting where the person
+ * What sits under a playing video: "Start over", the subtitle menu and offset for the decision's
+ * tracks, finding subtitles, the device's sound and levelling. It keeps the playback's play state on the server, starting where the person
  * left the file.
  */
 function UnderTheVideo(
@@ -85,6 +86,11 @@ function UnderTheVideo(
       {props.decision.audioOutput === undefined ? null : (
         <SoundLine current={props.decision.audioOutput} changed={props.decideAgain} />
       )}
+      <LevelSwitch
+        level={soundLevel(props.decision)}
+        isOn={props.decision.prefs.isLevelling}
+        videoRef={props.videoRef}
+      />
     </>
   );
 }

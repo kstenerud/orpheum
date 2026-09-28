@@ -12,9 +12,12 @@ import { useServices } from "./services.tsx";
 /** The three ways a device makes sound, as the question offers them (D184, D222). */
 export const audioOutputs: readonly AudioOutput[] = ["tv_speakers", "receiver", "headphones"];
 
-/** Keeps whether the person plays with the dialogue boost: theirs, in every file (D83, D222). */
-export async function keepDialogueBoost(api: Api, isOn: boolean): Promise<void> {
-  throwIfRefused(await api.PUT("/me/prefs", { body: { isDialogueBoost: isOn } }));
+/** A choice of the person's own, which holds in every file they play: its name in PUT /me/prefs. */
+type OwnChoice = "isDialogueBoost" | "isLevelling";
+
+/** Keeps one of the person's own choices: the dialogue boost (D83, D222), levelling (D226). */
+async function keepOwnChoice(api: Api, choice: OwnChoice, isOn: boolean): Promise<void> {
+  throwIfRefused(await api.PUT("/me/prefs", { body: { [choice]: isOn } }));
 }
 
 /**
@@ -94,12 +97,26 @@ export function BoostSwitch(props: {
   readonly switched: (isOn: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  return <OwnSwitch choice="isDialogueBoost" label={t("play.boost")} {...props} />;
+}
+
+/**
+ * A switch for one of the person's own choices, starting as they left it: switching it acts at
+ * once, through switched, and is kept for every file.
+ */
+export function OwnSwitch(props: {
+  readonly choice: OwnChoice;
+  readonly label: string;
+  readonly isOn: boolean;
+  readonly switched: (isOn: boolean) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
   const { api } = useServices();
   const [isOn, setIsOn] = useState(props.isOn);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   return (
     <>
-      <label className="play__boost">
+      <label className="play__switch">
         <input
           type="checkbox"
           checked={isOn}
@@ -107,7 +124,7 @@ export function BoostSwitch(props: {
             const isNowOn = event.currentTarget.checked;
             setIsOn(isNowOn);
             props.switched(isNowOn);
-            keepDialogueBoost(api, isNowOn).then(
+            keepOwnChoice(api, props.choice, isNowOn).then(
               () => {
                 setProblem(undefined);
               },
@@ -117,7 +134,7 @@ export function BoostSwitch(props: {
             );
           }}
         />
-        {t("play.boost")}
+        {props.label}
       </label>
       {problem === undefined ? null : <p role="alert">{problem}</p>}
     </>

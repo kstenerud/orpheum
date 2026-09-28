@@ -183,6 +183,16 @@ export const en = {
     preparing: "Preparing — ready in a few seconds.",
     preparedFailed: "The prepared copy could not play: {{reason}}.",
     boost: "Dialogue boost",
+    level: {
+      switch: "Level loudness",
+      raised: "Raised {{db}} dB, to the level of other films.",
+      lowered: "Lowered {{db}} dB, to the level of other films.",
+      atLevel: "Already at the level of other films.",
+      asMixed: "Playing as it was mixed.",
+      notMeasured: "Its loudness is not measured yet, so it plays as it is.",
+      deviceVolume:
+        "This device sets its own volume, so only a copy prepared after measuring is levelled here.",
+    },
     startOver: "Start over",
     subtitles: {
       label: "Subtitles",

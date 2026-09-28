@@ -7,6 +7,8 @@
  * The player wraps hls.js and JASSUB, the subtitle layer (plans/cut-a.md §3).
  */
 
+export { canSetVolume, gainAfterVolume } from "./gain.ts";
+export type { Gain } from "./gain.ts";
 export { hlsSupport, hlsWay, playHls, playNative } from "./hls.ts";
 export type { HlsSupport, HlsWay, NativeTarget, Playback } from "./hls.ts";
 export { PlayReporter, reportEveryMs, seekTo } from "./report.ts";

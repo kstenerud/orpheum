@@ -109,3 +109,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   is one lower next time. **Earlier**/**Later** move it. Play the film again: it starts with that
   subtitle. Set a wrong password: the search says OpenSubtitles refused the login.
   (`internal/core/playback/opensubtitles/`, `web/apps/web/src/subtitle-search.tsx`, D224)
+- [ ] **VQ12** — On the dev loop, on the Mac, in Chrome and then in Safari: play *Wing*
+  (director's cut) from the real films (`/play/42`) and then *Back to the Lantern* (`/play/59`),
+  once both are measured (the job view lists `measure_loudness` jobs until then). Under the video,
+  **Level loudness** is on and says Wing is raised about 13 dB; with the volume untouched, the
+  two play at about the same level, and Wing's dialogue is clear with the Mac's volume where it
+  is for other films. Turn **Level loudness** off: Wing is quiet again at once, and the note says
+  it plays as it was mixed; reload, and it stays off. Turn it back on. Play a film whose sound is
+  prepared (one with 5.1 sound, on TV speakers): it is levelled too, and switching the dialogue
+  boost changes the voices, not the whole film's level (D226).
+  (`web/packages/player/src/gain.ts`, `web/apps/web/src/levelling.tsx`,
+  `internal/core/playback/loudness.go`)
+- [ ] **VQ13** — On an iPhone, in Safari: play a measured film that plays directly, with the ring
+  switch on silent: it plays with sound, and the note says this device sets its own volume. Play
+  a measured film that is prepared after it was measured: it plays levelled (D226 §4).
+
