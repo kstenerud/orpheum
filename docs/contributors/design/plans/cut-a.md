@@ -31,7 +31,7 @@ background, never as a to-do list.
 | Finding and resuming | browse, search, detail pages, artwork, play state, Continue Watching (with hide and undo), Next Up | [play-state.md](play-state.md), [artwork.md](artwork.md), [web-client.md](web-client.md) |
 | Playback | direct play, and **prepare** (§6) for everything else | [stream-service.md](stream-service.md) |
 | Subtitles | embedded and sidecar text tracks via JASSUB; sync offset; **fetch on request** from the play screen, from OpenSubtitles, labelled unverified; off until a person chooses a track (D223) | [subtitle-acquisition.md](subtitle-acquisition.md) |
-| Quiet dialogue | dialogue boost on or off, as a prepared audio rendition; the device declares its speakers | [audio-presentation.md](audio-presentation.md) |
+| Quiet dialogue, quiet films | dialogue boost on or off, as a prepared audio rendition; the device declares its speakers; **loudness levelled**: each sound measured once by the node and brought towards one level by the player, on until a person turns it off (D226) | [audio-presentation.md](audio-presentation.md) |
 | People | local accounts, sessions, invites from outside | [auth.md](auth.md) |
 | Together | Watch Together for two with voice; reachability; one public HTTPS name; the cast receiver | [watch-together.md](watch-together.md), [remote-access.md](remote-access.md) |
 | Running it | backup and restore, now playing, the job view, `doctor` | [backup-restore.md](backup-restore.md), [observability.md](observability.md) |
@@ -40,7 +40,7 @@ background, never as a to-do list.
 - roles beyond `admin` and `user`, and parental controls;
 - device pairing (D191);
 - the TV client, and offline download;
-- trickplay, segment detection, loudness measurement and subtitle verification;
+- trickplay, segment detection and subtitle verification;
 - bitmap subtitles, NFO write, and the rules engine's authoring surfaces;
 - ceilings, OIDC/LDAP, play statistics and the Jellyfin adapter;
 - WASM plugins, our own relay role, and live transcoding;
@@ -191,6 +191,9 @@ with the file channel deleted.
 - `prepare{job_id, path, payload_hash, profile, out_dir}`
 - `extract_subtitle{job_id, video{root, path, payload_hash}, stream_index}` or `{job_id, sidecar{root, path, payload_hash}}`:
   one job makes both ASS and WebVTT ([D217](../../decisions/working-notes.md) §6)
+- `measure_loudness{job_id, video{root, path, payload_hash}, audio[]}`: each audio track's
+  integrated loudness, loudness range and true peak, and its standard stereo mix's when it has more
+  than two channels, from one read of the file ([D226](../../decisions/working-notes.md) §1)
 - `cancel{job_id}`
 
 **A command names its target by path *and* payload hash**, and the node refuses it if they no
@@ -296,8 +299,8 @@ Every piece of background work is a row in `cache.db`'s `job` table ([schema.md]
 fetches, prepares, scans and backups.
 - **Scheduling.** One scheduler in the core picks the highest-priority queued job whose
   `runnable_at` has passed and whose runner has a free slot. The slots are: one encode per node,
-  two remux or extract jobs per node, one fetch per provider under its rate limit, and one
-  backup.
+  two remux or extract jobs per node, one loudness measurement per node, one fetch per provider
+  under its rate limit, and one backup.
 - **Node jobs** become commands, and their progress arrives as `job` records.
 - **"Play this now"** sets the highest priority.
 - **Cancelling** a job sends `cancel` to the node.
@@ -391,7 +394,7 @@ must first be seen to fail ([D190](../../decisions/working-notes.md)).
 | **M0 — skeleton and gates** *(done 2026-09-23, [D196](../../decisions/working-notes.md); CI runs on the first push)* | the layout of §3, the licence files, `make check`, CI on the private repo, the Stop and pre-edit hooks, the dependency allowlist, the first `TestArch_` tests; the standards round's output ([D192](../../decisions/working-notes.md) §3) | CI is green on an empty server. Each of these turns it red: a SQLite import outside `store`; an `exec.Command` in core; an import of `internal/node` from core; editing a lint config through the agent. |
 | **M1 — schema, migrations, backup** *(done 2026-09-24, VQ1 open; [audit-2026-09-24.md](../research/audit-2026-09-24.md))* | the config file and `orpheum dev seed` for users and settings (§2a); [schema.md](schema.md) as migration 0001 through the D181 runner and sqlc; the `setting` registry; sealed secrets and `secret.key`; argon2id passwords; `VACUUM INTO` backup; `orpheum restore`; the setup code and the first admin | A fresh schema equals the golden. Killing the process mid-migration and restarting resumes. A database whose `compatible_version` is newer is refused, and the refusal names the snapshot. A backup restored into an empty data directory reproduces every authored table. A file without the `application_id` is refused. `/health` says `migrating` before the migration starts. **A canary secret appears in no API response, log, `doctor` output or backup except as ciphertext, nor in a bug report once they exist.** A restore without `secret.key` marks secrets *needs re-entering* and loses nothing else. argon2id takes ≤ 500 ms on devnas. |
 | **M2 — scan and identify** | node child and both sockets; enumerate, probe, payload hash; JSONL reports and ingest; the filename parser; the job queue with fetches; TMDB; NFO read; the ambiguous chooser; overrides; the scanner view; artwork; the rolling refresh, and the web client's About section with TMDB's logo and notice and our acknowledgments (D213 §7); browse and search | On the tier-1 corpus plus a 200-file fixture tree, every file has a filing and a reason. D179's table holds as tests: a `mkvpropedit` title edit keeps identity, and an `ffmpeg -c copy` remux gets a new one. No ambiguous title is auto-matched. An override survives re-derivation. With the media root at mode 000 to the core's user, the core still works: it never opens a media path. |
-| **M3 — play in a browser** | the playback decision; direct play relayed; **prepare** with both profiles; subtitles via JASSUB and the offset; the dialogue boost; play state, Continue Watching with hide and undo; accounts; the web client usable on a phone; the job view; confinement and its report; the System page with hardware encoding (D225) | An MKV with H.264, TrueHD and ASS plays in Chrome, Firefox and iPhone Safari within 8 s of pressing play, with the reason on screen. The boost measurably raises the centre channel's share of the stereo output. Two devices reporting out of order never rewind the position. `mediastreamvalidator` passes on a prepared rendition. The escape test is green on devnas. |
+| **M3 — play in a browser** | the playback decision; direct play relayed; **prepare** with both profiles; subtitles via JASSUB and the offset; the dialogue boost; loudness levelling (D226); play state, Continue Watching with hide and undo; accounts; the web client usable on a phone; the job view; confinement and its report; the System page with hardware encoding (D225) | An MKV with H.264, TrueHD and ASS plays in Chrome, Firefox and iPhone Safari within 8 s of pressing play, with the reason on screen. The boost measurably raises the centre channel's share of the stereo output. A quiet film's measured gain brings it towards -23 LUFS, no further than its peak allows. Two devices reporting out of order never rewind the position. `mediastreamvalidator` passes on a prepared rendition. The escape test is green on devnas. |
 | **M4 — two people, one remote** | the HTTPS name; reachability; invites; Watch Together over §5.1; voice through embedded TURN; recording for signed-in members; now playing | On D190's remote-household VM under its netem profiles, two Playwright clients stay within the drift bound for 30 minutes. Fake-microphone voice arrives within the jitter and loss bounds. An invite works once. Revocation ends access at the next request. No credential appears in any URL in a HAR capture. A signed-in guest's history advances; an anonymous one's does not. |
 | **M5 — the remote TV** | the first working path from [D188](../../decisions/working-notes.md)'s table for the remote person's actual TV; "Get this ready" and the session-start prepare of `h264-8m` | On that TV class, with the film on the TV and voice on the phone, a whole film completes with no manual resynchronisation. A prepared rendition plays without stalling over the "congested" profile. Resuming at home continues from the remote position. Deleting `cache.db` loses nothing but prepared renditions. |
 
