@@ -16772,6 +16772,10 @@ and a download a capability on the role.
    nothing asks that it be kept secret ([opensubtitles-api.md](../design/research/opensubtitles-api.md) §1).
 8. **A free account's subtitles are shown as delivered** (the owner, 2026-09-28: *"option a"*),
    with any lines of advertising OpenSubtitles puts in them; a VIP account has none.
+9. **Every secret is the server's** (the owner, 2026-09-28: *"Follow your recommendations"*).
+   With the OpenSubtitles login the server's, no secret belonged to one user, so a user's secret,
+   `/me/secrets` and its tests are gone rather than kept for a use nothing plans; a feature that
+   needs one brings it back. Amends D194 §1.
 
 **Status:** Decided.
 

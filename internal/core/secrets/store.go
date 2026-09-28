@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strconv"
 	"unicode/utf8"
 
 	"golang.org/x/crypto/chacha20poly1305"
@@ -18,34 +17,27 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// Scope is whose a secret is: the server's, or one user's (schema.md, secret).
-type Scope string
-
-// The two scopes, as the secret table's CHECK names them.
-const (
-	ScopeServer Scope = "server"
-	ScopeUser   Scope = "user"
-)
+// serverScope is every secret's row scope. The table can hold a user's secret too, but none is
+// one: the only ones were OpenSubtitles', which D224 §1 made the server's.
+const serverScope = "server"
 
 // Name is a secret's name. The set is closed: every secret the server stores is declared in
-// Registry with its scope, and nothing else can be set.
+// Registry, and nothing else can be set.
 type Name string
 
 // The secrets of Cut A (D194 §1).
 const (
 	TMDBAPIKey            Name = "tmdb_api_key" //nolint:gosec // G101: a secret's name, not a credential
-	OpenSubtitlesAPIKey   Name = "opensubtitles_api_key"
 	OpenSubtitlesUsername Name = "opensubtitles_username"
 	OpenSubtitlesPassword Name = "opensubtitles_password"
 	DNSProviderToken      Name = "dns_provider_token"
 	TURNSecret            Name = "turn_secret"
 )
 
-// Definition says whose a secret is and whether it shows a hint. A hint is the last four
+// Definition says what a secret is and whether it shows a hint. A hint is the last four
 // characters of an API key; a password or username has none (D194 §3).
 type Definition struct {
 	Name     Name
-	Scope    Scope
 	HasHint  bool
 	Describe string
 }
@@ -53,15 +45,17 @@ type Definition struct {
 // Registry lists every secret, in the order a settings page shows them.
 func Registry() []Definition {
 	return []Definition{
-		{Name: TMDBAPIKey, Scope: ScopeServer, HasHint: true, Describe: "the TMDB API key metadata is fetched with"},
+		{Name: TMDBAPIKey, HasHint: true, Describe: "the TMDB API key metadata is fetched with"},
 		{
-			Name: DNSProviderToken, Scope: ScopeServer, HasHint: true,
+			Name: DNSProviderToken, HasHint: true,
 			Describe: "the DNS provider token for the certificate",
 		},
-		{Name: TURNSecret, Scope: ScopeServer, HasHint: false, Describe: "the TURN shared secret voice relays use"},
-		{Name: OpenSubtitlesAPIKey, Scope: ScopeUser, HasHint: true, Describe: "your OpenSubtitles API key"},
-		{Name: OpenSubtitlesUsername, Scope: ScopeUser, HasHint: false, Describe: "your OpenSubtitles username"},
-		{Name: OpenSubtitlesPassword, Scope: ScopeUser, HasHint: false, Describe: "your OpenSubtitles password"},
+		{Name: TURNSecret, HasHint: false, Describe: "the TURN shared secret voice relays use"},
+		{
+			Name: OpenSubtitlesUsername, HasHint: false,
+			Describe: "the OpenSubtitles username every person's subtitle downloads use (D224)",
+		},
+		{Name: OpenSubtitlesPassword, HasHint: false, Describe: "the password of that OpenSubtitles account"},
 	}
 }
 
@@ -78,8 +72,6 @@ func Lookup(name Name) (Definition, bool) {
 var (
 	// ErrUnknownSecret is returned for a name that is not in Registry.
 	ErrUnknownSecret = errors.New("no such secret")
-	// ErrWrongScope is returned when a secret is set or read in the other scope.
-	ErrWrongScope = errors.New("the secret belongs to the other scope")
 	// ErrNotSet is returned when a secret has no value.
 	ErrNotSet = errors.New("the secret is not set")
 	// ErrNeedsReentry is returned when a secret was sealed under a key this server no longer has,
@@ -90,8 +82,6 @@ var (
 // Status is what may be shown about a secret: never its value (D194 §5).
 type Status struct {
 	Name         Name
-	Scope        Scope
-	UserID       *int64
 	IsSet        bool
 	Hint         string
 	SetBy        *int64
@@ -119,9 +109,9 @@ func NewStore(database *store.Database, key Key, clockSource clock.Clock, random
 	return &Store{database: database, key: key, clock: clockSource, random: random, settings: config}
 }
 
-// Set seals value and stores it for owner (nil for a server secret), replacing any old value.
-func (secrets *Store) Set(ctx context.Context, name Name, owner *int64, value Value, setBy *int64) error {
-	definition, err := checkScope(name, owner)
+// Set seals value and stores it, replacing any old value.
+func (secrets *Store) Set(ctx context.Context, name Name, value Value, setBy *int64) error {
+	definition, err := lookUp(name)
 	if err != nil {
 		return err
 	}
@@ -136,7 +126,7 @@ func (secrets *Store) Set(ctx context.Context, name Name, owner *int64, value Va
 	if err != nil {
 		return fmt.Errorf("set %s: %w", name, err)
 	}
-	sealed := cipher.Seal(nil, nonce, []byte(value.Reveal()), associatedData(definition.Scope, owner, name))
+	sealed := cipher.Seal(nil, nonce, []byte(value.Reveal()), associatedData(name))
 	var hint *string
 	if definition.HasHint {
 		length, lengthErr := secrets.settings.Int(ctx, settings.SecretHintChars)
@@ -147,8 +137,7 @@ func (secrets *Store) Set(ctx context.Context, name Name, owner *int64, value Va
 	}
 	return secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertSealedSecret(ctx, sqlcgen.UpsertSealedSecretParams{
-			Scope:      string(definition.Scope),
-			UserID:     owner,
+			Scope:      serverScope,
 			Name:       string(name),
 			KeyID:      secrets.key.ID(),
 			Nonce:      nonce,
@@ -162,13 +151,12 @@ func (secrets *Store) Set(ctx context.Context, name Name, owner *int64, value Va
 
 // Open returns a secret's value for the client that must present it. A secret sealed under
 // another key returns ErrNeedsReentry.
-func (secrets *Store) Open(ctx context.Context, name Name, owner *int64) (Value, error) {
-	definition, err := checkScope(name, owner)
-	if err != nil {
+func (secrets *Store) Open(ctx context.Context, name Name) (Value, error) {
+	if _, err := lookUp(name); err != nil {
 		return Value{}, err
 	}
 	row, err := store.One(secrets.database.Read().GetSealedSecret(ctx, sqlcgen.GetSealedSecretParams{
-		Scope: string(definition.Scope), UserID: owner, Name: string(name),
+		Scope: serverScope, Name: string(name),
 	}))
 	if errors.Is(err, store.ErrNotFound) {
 		return Value{}, fmt.Errorf("%s: %w", name, ErrNotSet)
@@ -183,7 +171,7 @@ func (secrets *Store) Open(ctx context.Context, name Name, owner *int64) (Value,
 	if err != nil {
 		return Value{}, fmt.Errorf("open %s: %w", name, err)
 	}
-	plain, err := cipher.Open(nil, row.Nonce, row.Ciphertext, associatedData(definition.Scope, owner, name))
+	plain, err := cipher.Open(nil, row.Nonce, row.Ciphertext, associatedData(name))
 	if err != nil {
 		// The key matches but the row does not: it was copied from another row or altered.
 		return Value{}, fmt.Errorf("%s: %w (the sealed value does not belong to this row)", name, ErrNeedsReentry)
@@ -192,29 +180,22 @@ func (secrets *Store) Open(ctx context.Context, name Name, owner *int64) (Value,
 }
 
 // Clear removes a secret's value; clearing one that is not set is not an error.
-func (secrets *Store) Clear(ctx context.Context, name Name, owner *int64) error {
-	definition, err := checkScope(name, owner)
-	if err != nil {
+func (secrets *Store) Clear(ctx context.Context, name Name) error {
+	if _, err := lookUp(name); err != nil {
 		return err
 	}
 	return secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.DeleteSealedSecret(ctx, sqlcgen.DeleteSealedSecretParams{
-			Scope: string(definition.Scope), UserID: owner, Name: string(name),
-		})
+		return queries.DeleteSealedSecret(ctx, sqlcgen.DeleteSealedSecretParams{Scope: serverScope, Name: string(name)})
 	})
 }
 
-// Statuses reports every secret of owner's scope (nil for the server), set or not.
-func (secrets *Store) Statuses(ctx context.Context, owner *int64) ([]Status, error) {
-	scope := ScopeServer
-	if owner != nil {
-		scope = ScopeUser
-	}
+// Statuses reports every secret, set or not.
+func (secrets *Store) Statuses(ctx context.Context) ([]Status, error) {
 	rows, err := secrets.database.Read().ListSealedSecretsInScope(ctx, sqlcgen.ListSealedSecretsInScopeParams{
-		Scope: string(scope), UserID: owner,
+		Scope: serverScope,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list %s secrets: %w", scope, err)
+		return nil, fmt.Errorf("list secrets: %w", err)
 	}
 	stored := map[string]sqlcgen.ListSealedSecretsInScopeRow{}
 	for _, row := range rows {
@@ -222,10 +203,7 @@ func (secrets *Store) Statuses(ctx context.Context, owner *int64) ([]Status, err
 	}
 	statuses := []Status{}
 	for _, definition := range Registry() {
-		if definition.Scope != scope {
-			continue
-		}
-		status := Status{Name: definition.Name, Scope: scope, UserID: owner}
+		status := Status{Name: definition.Name}
 		if row, isSet := stored[string(definition.Name)]; isSet {
 			status.IsSet = true
 			status.SetBy, status.SetAt = row.SetBy, row.SetAt
@@ -239,7 +217,7 @@ func (secrets *Store) Statuses(ctx context.Context, owner *int64) ([]Status, err
 	return statuses, nil
 }
 
-// NeedingReentry lists every stored secret, of any scope, sealed under a key this server does
+// NeedingReentry lists every stored secret sealed under a key this server does
 // not have: what doctor and the settings page report after a restore without secret.key.
 func (secrets *Store) NeedingReentry(ctx context.Context) ([]Status, error) {
 	rows, err := secrets.database.Read().ListAllSealedSecrets(ctx)
@@ -250,33 +228,27 @@ func (secrets *Store) NeedingReentry(ctx context.Context) ([]Status, error) {
 	for _, row := range rows {
 		if row.KeyID != secrets.key.ID() {
 			needing = append(needing, Status{
-				Name: Name(row.Name), Scope: Scope(row.Scope), UserID: row.UserID, IsSet: true, NeedsReentry: true,
+				Name: Name(row.Name), IsSet: true, NeedsReentry: true,
 			})
 		}
 	}
 	return needing, nil
 }
 
-// checkScope refuses an unknown name, or a server secret addressed to a user and the reverse.
-func checkScope(name Name, owner *int64) (Definition, error) {
+// lookUp refuses a name that is not in Registry.
+func lookUp(name Name) (Definition, error) {
 	definition, known := Lookup(name)
 	if !known {
 		return Definition{}, fmt.Errorf("%q: %w", name, ErrUnknownSecret)
 	}
-	if (definition.Scope == ScopeUser) != (owner != nil) {
-		return Definition{}, fmt.Errorf("%s: %w", name, ErrWrongScope)
-	}
 	return definition, nil
 }
 
-// associatedData binds a ciphertext to its row's identity, so a sealed value copied into
-// another row, or another user's row, fails to open (D194 §3).
-func associatedData(scope Scope, owner *int64, name Name) []byte {
-	user := "0"
-	if owner != nil {
-		user = strconv.FormatInt(*owner, 10)
-	}
-	return []byte(string(scope) + "\x00" + user + "\x00" + string(name))
+// associatedData binds a ciphertext to its row's identity, so a sealed value copied into another
+// row fails to open (D194 §3). It is the row's scope, user and name, as when a user's secret was
+// possible: the server's scope with no user is "server", "0", so values sealed then still open.
+func associatedData(name Name) []byte {
+	return []byte(serverScope + "\x000\x00" + string(name))
 }
 
 // hintOf is the last length characters of an API key, or nothing when the key is too short for

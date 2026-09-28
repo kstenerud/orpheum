@@ -51,7 +51,7 @@ type seedLibrary struct {
 }
 
 // devSecrets maps the environment variables `make dev` passes on to the secrets they seal
-// (dev/seed.toml; D194). A user-scope secret goes to the first admin the seed creates.
+// (dev/seed.toml; D194).
 func devSecrets() []struct {
 	variable string
 	name     secrets.Name
@@ -63,7 +63,6 @@ func devSecrets() []struct {
 		{"ORPHEUM_DEV_TMDB_KEY", secrets.TMDBAPIKey},
 		{"ORPHEUM_DEV_OPENSUBTITLES_USERNAME", secrets.OpenSubtitlesUsername},
 		{"ORPHEUM_DEV_OPENSUBTITLES_PASSWORD", secrets.OpenSubtitlesPassword},
-		{"ORPHEUM_DEV_OPENSUBTITLES_API_KEY", secrets.OpenSubtitlesAPIKey},
 	}
 }
 
@@ -129,7 +128,7 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if err != nil {
 		return err
 	}
-	firstAdmin, err := seedUsers(ctx, database, settingsService, seed.Users, report)
+	err = seedUsers(ctx, database, settingsService, seed.Users, report)
 	if err != nil {
 		return err
 	}
@@ -138,7 +137,7 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 		return err
 	}
 	sealed := secrets.NewStore(database, key, clock.System{}, rand.Reader, settingsService)
-	err = seedSecrets(ctx, call.lookupEnv, sealed, firstAdmin, report)
+	err = seedSecrets(ctx, call.lookupEnv, sealed, report)
 	if err != nil {
 		return err
 	}
@@ -182,45 +181,34 @@ func seedLibraries(
 func seedUsers(
 	ctx context.Context, database *store.Database, settingsService *settings.Service, users []seedUser,
 	report *strings.Builder,
-) (*int64, error) {
+) error {
 	service := auth.NewService(database, clock.System{}, rand.Reader, settingsService)
-	var firstAdmin *int64
 	for _, user := range users {
-		id, role, seedErr := seedUserOnce(ctx, service, database, user, report)
-		if seedErr != nil {
-			return nil, fmt.Errorf("seed user %q: %w", user.Name, seedErr)
-		}
-		if role == auth.RoleAdmin && firstAdmin == nil {
-			firstAdmin = &id
+		if err := seedUserOnce(ctx, service, user, report); err != nil {
+			return fmt.Errorf("seed user %q: %w", user.Name, err)
 		}
 	}
-	return firstAdmin, nil
+	return nil
 }
 
-// seedUserOnce creates a user, or finds the one a previous seed created.
-func seedUserOnce(
-	ctx context.Context, service *auth.Service, database *store.Database, user seedUser, report *strings.Builder,
-) (int64, auth.Role, error) {
+// seedUserOnce creates a user, or leaves the one a previous seed created.
+func seedUserOnce(ctx context.Context, service *auth.Service, user seedUser, report *strings.Builder) error {
 	role, err := auth.ParseRole(user.Role)
 	if err != nil {
-		return 0, "", err
+		return err
 	}
-	id, err := service.CreateUser(ctx, auth.NewUser{
+	_, err = service.CreateUser(ctx, auth.NewUser{
 		Name: user.Name, Password: user.Password, Role: role, IsOutsider: user.Outsider,
 	})
-	if err == nil {
+	switch {
+	case err == nil:
 		fmt.Fprintf(report, "seed: user %s (%s)\n", user.Name, role)
-		return id, role, nil
+	case errors.Is(err, auth.ErrNameTaken):
+		fmt.Fprintf(report, "seed: user %s exists; left as it is\n", user.Name)
+	default:
+		return err
 	}
-	if !errors.Is(err, auth.ErrNameTaken) {
-		return 0, "", err
-	}
-	fmt.Fprintf(report, "seed: user %s exists; left as it is\n", user.Name)
-	existing, err := store.One(database.Read().GetLiveUserByName(ctx, user.Name))
-	if err != nil {
-		return 0, "", err
-	}
-	return existing.ID, auth.Role(existing.RoleName), nil
+	return nil
 }
 
 // seedSettings sets the seed's values through the raw path, as /config does: the dev seed may set
@@ -238,23 +226,14 @@ func seedSettings(ctx context.Context, settingsService *settings.Service, values
 }
 
 func seedSecrets(
-	ctx context.Context, lookupEnv func(string) (string, bool), sealed *secrets.Store, firstAdmin *int64,
-	report *strings.Builder,
+	ctx context.Context, lookupEnv func(string) (string, bool), sealed *secrets.Store, report *strings.Builder,
 ) error {
 	for _, source := range devSecrets() {
 		text, isSet := lookupEnv(source.variable)
 		if !isSet || text == "" {
 			continue
 		}
-		definition, _ := secrets.Lookup(source.name)
-		owner := (*int64)(nil)
-		if definition.Scope == secrets.ScopeUser {
-			if firstAdmin == nil {
-				return fmt.Errorf("%s is set, but the seed created no admin to own it", source.variable)
-			}
-			owner = firstAdmin
-		}
-		if err := sealed.Set(ctx, source.name, owner, secrets.NewValue(text), nil); err != nil {
+		if err := sealed.Set(ctx, source.name, secrets.NewValue(text), nil); err != nil {
 			return fmt.Errorf("seal %s: %w", source.variable, err)
 		}
 		fmt.Fprintf(report, "seed: sealed %s from %s\n", source.name, source.variable)

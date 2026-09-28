@@ -81,7 +81,7 @@ func (server server) populate(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = secrets.NewStore(server.database, server.key, now, rand.Reader, seeded).
-		Set(ctx, secrets.TMDBAPIKey, nil, secrets.NewValue(canary), nil)
+		Set(ctx, secrets.TMDBAPIKey, secrets.NewValue(canary), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestRestore_WithTheIncludedKeyOpensSecrets(t *testing.T) {
 	_, err = secrets.NewStore(restoredDatabase, parsed, clocktest.NewFake(testTime), rand.Reader,
 		settings.NewService(restoredDatabase, clocktest.NewFake(testTime),
 			slog.New(slog.NewTextHandler(t.Output(), nil)))).
-		Open(t.Context(), secrets.TMDBAPIKey, nil)
+		Open(t.Context(), secrets.TMDBAPIKey)
 	if err != nil {
 		t.Errorf("with the key restored, the secret does not open: %v", err)
 	}

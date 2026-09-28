@@ -43,8 +43,8 @@ that depends on a score therefore waits, and Cut A uses the plan's own fallback:
   person keeps watching through is persisted onto the track (§3).
 - **The budget is shown before the fetch** and exhaustion is reported as a quota, exactly as §4.
 - **The provider is a Go package** behind the provider interface
-  ([D193](../../decisions/working-notes.md) §3), and each user's OpenSubtitles credentials live
-  in the database's `setting` table ([schema.md](schema.md)).
+  ([D193](../../decisions/working-notes.md) §3), and the server's OpenSubtitles login, which
+  every person's download uses, is a sealed secret ([D224](../../decisions/working-notes.md)).
 
 The automatic path of §2–§3 and the library-wide check of §5 arrive with the speech map, and
 then this list becomes the *"nothing cleared the threshold"* case rather than the ordinary one.

@@ -625,41 +625,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/me/secrets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Which secrets of this user are set; never their values */
-        get: operations["getMineSecrets"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/me/secrets/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Set a secret of this user; write-only */
-        put: operations["putMineSecret"];
-        post?: never;
-        /** Clear a secret of this user */
-        delete: operations["deleteMineSecret"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/me/settings": {
         parameters: {
             query?: never;
@@ -770,7 +735,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Which secrets (admin) are set; never their values */
+        /** Which secrets are set; never their values (admin) */
         get: operations["getSecrets"];
         put?: never;
         post?: never;
@@ -788,7 +753,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Set a secret (admin); write-only */
+        /** Set a secret; write-only (admin) */
         put: operations["putSecret"];
         post?: never;
         /** Clear a secret (admin) */
@@ -3320,106 +3285,6 @@ export interface operations {
                 "application/json": components["schemas"]["SetMyPrefsInputBody"];
             };
         };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getMineSecrets: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SecretsOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    putMineSecret: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PutSecretInputBody"];
-            };
-        };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteMineSecret: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
         responses: {
             /** @description No Content */
             204: {

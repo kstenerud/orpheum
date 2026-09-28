@@ -54,9 +54,6 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	record := func(answer reply) { responses.WriteString(answer.body + "\n") }
 	for _, definition := range secrets.Registry() {
 		path := "/secrets/"
-		if definition.Scope == secrets.ScopeUser {
-			path = "/me/secrets/"
-		}
 		value := canaryPrefix + "-" + string(definition.Name) + "-0123456789"
 		answer := call(t, http.MethodPut, server.baseURL+path+string(definition.Name), signedIn.Token,
 			map[string]string{"value": value})
@@ -68,7 +65,7 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 			map[string]any{"value": []string{value}}))
 	}
 	paths := []string{
-		"/health", "/me", "/settings", "/me/settings", "/config", "/secrets", "/me/secrets", "/openapi.json",
+		"/health", "/me", "/settings", "/me/settings", "/config", "/secrets", "/openapi.json",
 	}
 	for _, path := range paths {
 		record(call(t, http.MethodGet, server.baseURL+path, signedIn.Token, nil))

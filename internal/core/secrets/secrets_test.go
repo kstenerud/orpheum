@@ -104,7 +104,6 @@ type fixture struct {
 	secrets  *Store
 	key      Key
 	userID   int64
-	otherID  int64
 }
 
 func newFixture(t *testing.T) fixture {
@@ -122,7 +121,6 @@ func newFixture(t *testing.T) fixture {
 		secrets:  NewStore(database, key, now, rand.Reader, seeded),
 		key:      key,
 		userID:   storetest.InsertUser(t, database, "owner", "admin"),
-		otherID:  storetest.InsertUser(t, database, "partner", "user"),
 	}
 }
 
@@ -130,15 +128,15 @@ func TestStore_SealsAndOpens(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	if err := fixture.secrets.Set(ctx, TMDBAPIKey, nil, NewValue(canary), &fixture.userID); err != nil {
+	if err := fixture.secrets.Set(ctx, TMDBAPIKey, NewValue(canary), &fixture.userID); err != nil {
 		t.Fatal(err)
 	}
-	opened, err := fixture.secrets.Open(ctx, TMDBAPIKey, nil)
+	opened, err := fixture.secrets.Open(ctx, TMDBAPIKey)
 	if err != nil || opened.Reveal() != canary {
 		t.Fatalf("Open = %v, %v; want the value set", opened, err)
 	}
 	row, err := fixture.database.Read().GetSealedSecret(ctx, sqlcgen.GetSealedSecretParams{
-		Scope: string(ScopeServer), Name: string(TMDBAPIKey),
+		Scope: serverScope, Name: string(TMDBAPIKey),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -149,13 +147,13 @@ func TestStore_SealsAndOpens(t *testing.T) {
 	if row.KeyID != fixture.key.ID() {
 		t.Errorf("row key_id = %d, want the sealing key's %d", row.KeyID, fixture.key.ID())
 	}
-	if _, err := fixture.secrets.Open(ctx, OpenSubtitlesAPIKey, &fixture.userID); !errors.Is(err, ErrNotSet) {
+	if _, err := fixture.secrets.Open(ctx, OpenSubtitlesPassword); !errors.Is(err, ErrNotSet) {
 		t.Errorf("Open(unset) error = %v, want ErrNotSet", err)
 	}
-	if err := fixture.secrets.Clear(ctx, TMDBAPIKey, nil); err != nil {
+	if err := fixture.secrets.Clear(ctx, TMDBAPIKey); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.secrets.Open(ctx, TMDBAPIKey, nil); !errors.Is(err, ErrNotSet) {
+	if _, err := fixture.secrets.Open(ctx, TMDBAPIKey); !errors.Is(err, ErrNotSet) {
 		t.Errorf("Open(cleared) error = %v, want ErrNotSet", err)
 	}
 }
@@ -164,28 +162,28 @@ func TestStore_ASealedValueCopiedToAnotherRowDoesNotOpen(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	if err := fixture.secrets.Set(ctx, OpenSubtitlesPassword, &fixture.userID, NewValue(canary), nil); err != nil {
+	if err := fixture.secrets.Set(ctx, OpenSubtitlesPassword, NewValue(canary), nil); err != nil {
 		t.Fatal(err)
 	}
 	row, err := fixture.database.Read().GetSealedSecret(ctx, sqlcgen.GetSealedSecretParams{
-		Scope: string(ScopeUser), UserID: &fixture.userID, Name: string(OpenSubtitlesPassword),
+		Scope: serverScope, Name: string(OpenSubtitlesPassword),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	err = fixture.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertSealedSecret(ctx, sqlcgen.UpsertSealedSecretParams{
-			Scope: row.Scope, UserID: &fixture.otherID, Name: row.Name, KeyID: row.KeyID,
+			Scope: row.Scope, Name: string(TURNSecret), KeyID: row.KeyID,
 			Nonce: row.Nonce, Ciphertext: row.Ciphertext, SetAt: row.SetAt,
 		})
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.secrets.Open(ctx, OpenSubtitlesPassword, &fixture.otherID); !errors.Is(err, ErrNeedsReentry) {
-		t.Errorf("Open(another user's copied ciphertext) error = %v, want ErrNeedsReentry", err)
+	if _, err := fixture.secrets.Open(ctx, TURNSecret); !errors.Is(err, ErrNeedsReentry) {
+		t.Errorf("Open(another secret's copied ciphertext) error = %v, want ErrNeedsReentry", err)
 	}
-	if opened, err := fixture.secrets.Open(ctx, OpenSubtitlesPassword, &fixture.userID); err != nil ||
+	if opened, err := fixture.secrets.Open(ctx, OpenSubtitlesPassword); err != nil ||
 		opened.Reveal() != canary {
 		t.Errorf("the original row: %v, %v; want it still opens", opened, err)
 	}
@@ -195,7 +193,7 @@ func TestStore_AnotherKeyMarksSecretsNeedingReentry(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	if err := fixture.secrets.Set(ctx, TMDBAPIKey, nil, NewValue(canary), nil); err != nil {
+	if err := fixture.secrets.Set(ctx, TMDBAPIKey, NewValue(canary), nil); err != nil {
 		t.Fatal(err)
 	}
 	if status := serverStatus(t, fixture.secrets, TMDBAPIKey); !status.IsSet || status.NeedsReentry {
@@ -211,14 +209,14 @@ func TestStore_AnotherKeyMarksSecretsNeedingReentry(t *testing.T) {
 	if status := serverStatus(t, afterRestore, TMDBAPIKey); !status.IsSet || !status.NeedsReentry {
 		t.Errorf("under a new key: %+v, want set and needing re-entry", status)
 	}
-	if _, err = afterRestore.Open(ctx, TMDBAPIKey, nil); !errors.Is(err, ErrNeedsReentry) {
+	if _, err = afterRestore.Open(ctx, TMDBAPIKey); !errors.Is(err, ErrNeedsReentry) {
 		t.Errorf("Open under a new key: error = %v, want ErrNeedsReentry", err)
 	}
 	needing, err := afterRestore.NeedingReentry(ctx)
 	if err != nil || len(needing) != 1 || needing[0].Name != TMDBAPIKey {
 		t.Errorf("NeedingReentry = %+v, %v; want the TMDB key", needing, err)
 	}
-	if err = afterRestore.Set(ctx, TMDBAPIKey, nil, NewValue("re-entered"), nil); err != nil {
+	if err = afterRestore.Set(ctx, TMDBAPIKey, NewValue("re-entered"), nil); err != nil {
 		t.Fatal(err)
 	}
 	needing, err = afterRestore.NeedingReentry(ctx)
@@ -229,7 +227,7 @@ func TestStore_AnotherKeyMarksSecretsNeedingReentry(t *testing.T) {
 
 func serverStatus(t *testing.T, secrets *Store, name Name) Status {
 	t.Helper()
-	statuses, err := secrets.Statuses(t.Context(), nil)
+	statuses, err := secrets.Statuses(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,28 +239,28 @@ func TestStore_ShowsAHintOnlyForAnAPIKey(t *testing.T) {
 	fixture := newFixture(t)
 	ctx := t.Context()
 	const apiKey = "0123456789abcdefWXYZ"
-	if err := fixture.secrets.Set(ctx, OpenSubtitlesAPIKey, &fixture.userID, NewValue(apiKey), nil); err != nil {
+	if err := fixture.secrets.Set(ctx, TMDBAPIKey, NewValue(apiKey), nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.secrets.Set(ctx, OpenSubtitlesPassword, &fixture.userID, NewValue(canary), nil); err != nil {
+	if err := fixture.secrets.Set(ctx, OpenSubtitlesPassword, NewValue(canary), nil); err != nil {
 		t.Fatal(err)
 	}
-	statuses, err := fixture.secrets.Statuses(ctx, &fixture.userID)
+	statuses, err := fixture.secrets.Statuses(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hint := findStatus(t, statuses, OpenSubtitlesAPIKey).Hint; hint != "WXYZ" {
+	if hint := findStatus(t, statuses, TMDBAPIKey).Hint; hint != "WXYZ" {
 		t.Errorf("API key hint = %q, want its last four characters", hint)
 	}
 	settingstest.Set(t, fixture.settings, settings.SecretHintChars, "2")
-	if err = fixture.secrets.Set(ctx, OpenSubtitlesAPIKey, &fixture.userID, NewValue(apiKey), nil); err != nil {
+	if err = fixture.secrets.Set(ctx, TMDBAPIKey, NewValue(apiKey), nil); err != nil {
 		t.Fatal(err)
 	}
-	statuses, err = fixture.secrets.Statuses(ctx, &fixture.userID)
+	statuses, err = fixture.secrets.Statuses(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hint := findStatus(t, statuses, OpenSubtitlesAPIKey).Hint; hint != "YZ" {
+	if hint := findStatus(t, statuses, TMDBAPIKey).Hint; hint != "YZ" {
 		t.Errorf("with secret_hint_chars 2, the hint = %q, want the last two characters", hint)
 	}
 	if hint := findStatus(t, statuses, OpenSubtitlesPassword).Hint; hint != "" {
@@ -273,23 +271,15 @@ func TestStore_ShowsAHintOnlyForAnAPIKey(t *testing.T) {
 	}
 }
 
-func TestStore_RefusesAnUnknownNameOrTheWrongScope(t *testing.T) {
+func TestStore_RefusesAnUnknownName(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	cases := []struct {
-		name  Name
-		owner *int64
-		want  error
-	}{
-		{name: "plex_token", owner: nil, want: ErrUnknownSecret},
-		{name: TMDBAPIKey, owner: &fixture.userID, want: ErrWrongScope},
-		{name: OpenSubtitlesPassword, owner: nil, want: ErrWrongScope},
+	if err := fixture.secrets.Set(ctx, "plex_token", NewValue(canary), nil); !errors.Is(err, ErrUnknownSecret) {
+		t.Errorf("Set(plex_token) error = %v, want ErrUnknownSecret", err)
 	}
-	for _, tc := range cases {
-		if err := fixture.secrets.Set(ctx, tc.name, tc.owner, NewValue(canary), nil); !errors.Is(err, tc.want) {
-			t.Errorf("Set(%s) error = %v, want %v", tc.name, err, tc.want)
-		}
+	if _, err := fixture.secrets.Open(ctx, "plex_token"); !errors.Is(err, ErrUnknownSecret) {
+		t.Errorf("Open(plex_token) error = %v, want ErrUnknownSecret", err)
 	}
 }
 
