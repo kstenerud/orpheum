@@ -15,6 +15,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 // ImageBaseURL is TMDB's image server, at each image's original size: the node cuts our sizes
@@ -75,7 +76,7 @@ func (images *Images) Fetch(ctx context.Context, ref string) (artwork.Unsanitise
 	case http.StatusNotFound:
 		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: %w", ref, artwork.ErrNoImage)
 	case http.StatusTooManyRequests:
-		if after, found := retryAfter(response.Header); found {
+		if after, found := outbound.RetryAfter(response.Header); found {
 			return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: %w", ref, &identify.RateLimitedError{After: after})
 		}
 		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: status 429", ref)

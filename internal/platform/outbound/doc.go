@@ -21,5 +21,6 @@
 //
 // # Where to change
 //
-//   - client.go: transport settings every outbound request shares.
+//   - client.go: transport settings every outbound request shares. retryafter.go: reading a
+//     provider's Retry-After, which every provider client shares.
 package outbound
