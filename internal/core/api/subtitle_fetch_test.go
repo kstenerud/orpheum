@@ -82,16 +82,12 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 	harness.shelveFilms(t)
 	harness.identifyFilm(t)
 	answer := harness.do(t, http.MethodGet, "/files/2/subtitle-candidates?lang=de", user, nil)
-	var offered struct {
-		Candidates []SubtitleCandidateBody `json:"candidates"`
-		Allowance  AllowanceBody           `json:"allowance"`
-	}
-	if err := json.Unmarshal([]byte(answer.body), &offered); err != nil || answer.status != http.StatusOK {
-		t.Fatalf("GET subtitle-candidates = %d %s", answer.status, answer.body)
-	}
+	offered := offeredCandidates(t, answer)
 	first := offered.Candidates
-	if len(first) != 2 || !first[0].IsHashMatch || first[0].ProviderFileID != 7 || offered.Allowance.Remaining != 20 {
-		t.Errorf("offered %+v; want both candidates, the hash match first, and the downloads left (D224)", offered)
+	if len(first) != 2 || !first[0].IsHashMatch || first[0].ProviderFileID != 7 || offered.Allowance.Remaining != 20 ||
+		!offered.DidAskByIDs || !offered.DidAskByFileHash {
+		t.Errorf("offered %+v; want both candidates, the hash match first, the downloads left, and that it "+
+			"asked by the ids and the hash (D224)", offered)
 	}
 	asked := harness.subtitler.queries[0]
 	if asked.IMDbID != "tt0123456" || asked.TMDBID != "4801" || asked.MovieHash != "8e245d9679d31e12" ||
@@ -100,6 +96,32 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 	}
 	nothing := harness.do(t, http.MethodGet, "/files/1/subtitle-candidates?lang=de", user, nil)
 	wantError(t, nothing, http.StatusConflict, CodeConflict)
+
+	// A file not identified yet is asked for by its hash alone, and the answer says so.
+	storetest.ExecRaw(t, harness.database, "UPDATE file SET opensubtitles_hash = '43c6c64ddb8e4766' WHERE id = 1")
+	hashOnly := offeredCandidates(t, harness.do(t, http.MethodGet, "/files/1/subtitle-candidates?lang=de", user, nil))
+	if hashOnly.DidAskByIDs || !hashOnly.DidAskByFileHash {
+		t.Errorf("for an unidentified file: searched by ids %t, by hash %t; want the hash alone",
+			hashOnly.DidAskByIDs, hashOnly.DidAskByFileHash)
+	}
+}
+
+// offered is what GET subtitle-candidates answers.
+type offered struct {
+	Candidates       []SubtitleCandidateBody `json:"candidates"`
+	Allowance        AllowanceBody           `json:"allowance"`
+	DidAskByIDs      bool                    `json:"didAskByIds"`
+	DidAskByFileHash bool                    `json:"didAskByFileHash"`
+}
+
+// offeredCandidates reads a 200 answer of GET subtitle-candidates.
+func offeredCandidates(t *testing.T, answer response) offered {
+	t.Helper()
+	var body offered
+	if err := json.Unmarshal([]byte(answer.body), &body); err != nil || answer.status != http.StatusOK {
+		t.Fatalf("GET subtitle-candidates = %d %s", answer.status, answer.body)
+	}
+	return body
 }
 
 func TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace(t *testing.T) {

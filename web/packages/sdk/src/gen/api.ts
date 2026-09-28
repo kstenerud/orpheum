@@ -1806,6 +1806,10 @@ export interface components {
         SubtitleCandidatesOutputBody: {
             allowance: components["schemas"]["AllowanceBody"];
             candidates: components["schemas"]["SubtitleCandidateBody"][] | null;
+            /** @description Asked by the file's hash: those made for these bytes */
+            didAskByFileHash: boolean;
+            /** @description Asked by the work's ids: subtitles made for any copy of it */
+            didAskByIds: boolean;
         };
         SubtitleChoiceBody: {
             /**

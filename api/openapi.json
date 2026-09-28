@@ -2698,11 +2698,21 @@
               "array",
               "null"
             ]
+          },
+          "didAskByFileHash": {
+            "description": "Asked by the file's hash: those made for these bytes",
+            "type": "boolean"
+          },
+          "didAskByIds": {
+            "description": "Asked by the work's ids: subtitles made for any copy of it",
+            "type": "boolean"
           }
         },
         "required": [
           "candidates",
-          "allowance"
+          "allowance",
+          "didAskByIds",
+          "didAskByFileHash"
         ],
         "type": "object"
       },

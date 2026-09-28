@@ -28,6 +28,8 @@ const offer: Answer = [
   200,
   {
     allowance: { remaining: 19, allowed: 20, isVip: false },
+    didAskByIds: true,
+    didAskByFileHash: true,
     candidates: [
       {
         providerFileId: 7,
@@ -82,7 +84,8 @@ it("lists what OpenSubtitles has, unverified and made-for-this-file first, and f
   await click(button(mounted.container, "Search OpenSubtitles"));
   const text = mounted.container.textContent;
   expect(text).toContain("19 of 20 downloads left today.");
-  expect(text).toContain("None of these is checked against this film's sound");
+  expect(text).toContain("Downloaded subtitles aren't checked against the sound");
+  expect(text).not.toContain("isn't identified yet");
   expect(text).toContain("Film.2002.1080p");
   expect(text).toContain("made for this very file");
   await click(mounted.container.querySelectorAll("li button")[0]);
@@ -91,6 +94,31 @@ it("lists what OpenSubtitles has, unverified and made-for-this-file first, and f
     body: { providerFileId: 7, language: "en" },
   });
   expect(fetched).toBe(1);
+});
+
+it("says an empty search of a file not identified yet asked only for subtitles made for that file", async () => {
+  const services = servedBy({
+    "GET /files/2/subtitle-candidates": [
+      200,
+      {
+        allowance: { remaining: 19, allowed: 20, isVip: false },
+        didAskByIds: false,
+        didAskByFileHash: true,
+        candidates: [],
+      },
+    ],
+  });
+  mounted = await mount(
+    withServices(<FindSubtitles fileId={2} fetched={() => undefined} />, services),
+  );
+  await click(button(mounted.container, "Find subtitles…"));
+  await click(button(mounted.container, "Search OpenSubtitles"));
+  const text = mounted.container.textContent;
+  expect(text).toContain("OpenSubtitles has no English subtitles made for this exact file.");
+  expect(text).toContain(
+    "This video isn't identified yet, so only subtitles made for this exact file",
+  );
+  expect(text).not.toContain("Earlier and Later");
 });
 
 it("says when today's downloads are spent, and when they come back", async () => {

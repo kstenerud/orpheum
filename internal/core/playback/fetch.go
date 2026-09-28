@@ -45,6 +45,11 @@ var ErrNothingToSearchBy = errors.New("the file is not identified and has no Ope
 type SubtitleOffer struct {
 	Candidates []opensubtitles.Candidate
 	Allowance  opensubtitles.Allowance
+	// DidAskByIDs is a search that asked by the work's ids, which finds subtitles made for any copy of it;
+	// false for a file not identified yet.
+	DidAskByIDs bool
+	// DidAskByFileHash is a search that asked by the file's moviehash, which finds those made for its bytes.
+	DidAskByFileHash bool
 }
 
 // SubtitleCandidates lists the subtitles OpenSubtitles has in language for a file a person may
@@ -57,7 +62,7 @@ func (service *Service) SubtitleCandidates(ctx context.Context, fileID int64, la
 	if _, err := service.file(ctx, fileID); err != nil {
 		return SubtitleOffer{}, err
 	}
-	query, err := service.subtitleQuery(ctx, fileID, language)
+	query, hasIDs, err := service.subtitleQuery(ctx, fileID, language)
 	if err != nil {
 		return SubtitleOffer{}, err
 	}
@@ -69,24 +74,27 @@ func (service *Service) SubtitleCandidates(ctx context.Context, fileID int64, la
 	if err != nil {
 		return SubtitleOffer{}, err
 	}
-	return SubtitleOffer{Candidates: candidates, Allowance: allowance}, nil
+	return SubtitleOffer{
+		Candidates: candidates, Allowance: allowance, DidAskByIDs: hasIDs, DidAskByFileHash: query.MovieHash != "",
+	}, nil
 }
 
-// subtitleQuery is what names a file to OpenSubtitles.
-func (service *Service) subtitleQuery(ctx context.Context, fileID int64, language string) (opensubtitles.Query, error) {
+// subtitleQuery is what names a file to OpenSubtitles, and whether that includes its work's ids.
+func (service *Service) subtitleQuery(
+	ctx context.Context, fileID int64, language string,
+) (query opensubtitles.Query, hasIDs bool, err error) {
 	found, err := store.One(service.database.Read().GetFileForSubtitleSearch(ctx, fileID))
 	if err != nil {
-		return opensubtitles.Query{}, fmt.Errorf("read file %d: %w", fileID, err)
+		return opensubtitles.Query{}, false, fmt.Errorf("read file %d: %w", fileID, err)
 	}
-	query := opensubtitles.Query{
+	query = opensubtitles.Query{
 		MovieHash: ptr.ValueOrZero(found.OpensubtitlesHash), Language: strings.ToLower(language),
 	}
-	hasIDs := false
 	switch {
 	case found.TitleID != nil && ptr.ValueOrZero(found.TitleKind) == "episode":
 		place, placeErr := store.One(service.database.Read().GetEpisodePlace(ctx, *found.TitleID))
 		if placeErr != nil && !errors.Is(placeErr, store.ErrNotFound) {
-			return opensubtitles.Query{}, fmt.Errorf("read the place of title %d: %w", *found.TitleID, placeErr)
+			return opensubtitles.Query{}, false, fmt.Errorf("read the place of title %d: %w", *found.TitleID, placeErr)
 		}
 		if placeErr == nil {
 			query.Season, query.Episode = int(ptr.ValueOrZero(place.GroupNumber)), int(ptr.ValueOrZero(place.Number))
@@ -98,12 +106,12 @@ func (service *Service) subtitleQuery(ctx context.Context, fileID int64, languag
 		hasIDs = query.IMDbID != "" || query.TMDBID != ""
 	}
 	if err != nil {
-		return opensubtitles.Query{}, err
+		return opensubtitles.Query{}, false, err
 	}
 	if !hasIDs && query.MovieHash == "" {
-		return opensubtitles.Query{}, ErrNothingToSearchBy
+		return opensubtitles.Query{}, false, ErrNothingToSearchBy
 	}
-	return query, nil
+	return query, hasIDs, nil
 }
 
 // providerIDs are an item's IMDb and TMDB ids, as identification recorded them.

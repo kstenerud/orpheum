@@ -27,6 +27,10 @@ type SubtitleCandidatesOutput struct {
 	Body struct {
 		Candidates []SubtitleCandidateBody `json:"candidates"`
 		Allowance  AllowanceBody           `json:"allowance"`
+		// DidAskByIDs and DidAskByFileHash say what the search asked by, so a client can say
+		// why it found nothing: a file not identified yet is searched by its hash alone.
+		DidAskByIDs      bool `doc:"Asked by the work's ids: subtitles made for any copy of it" json:"didAskByIds"`
+		DidAskByFileHash bool `doc:"Asked by the file's hash: those made for these bytes" json:"didAskByFileHash"`
 	}
 }
 
@@ -104,6 +108,7 @@ func (server *Server) subtitleCandidates(
 			UploadedAt: unixMillisOrZero(candidate.UploadedAt),
 		})
 	}
+	output.Body.DidAskByIDs, output.Body.DidAskByFileHash = offer.DidAskByIDs, offer.DidAskByFileHash
 	output.Body.Allowance = AllowanceBody{
 		Remaining: offer.Allowance.Remaining, Allowed: offer.Allowance.Allowed, IsVIP: offer.Allowance.IsVIP,
 	}
