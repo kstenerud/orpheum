@@ -26,7 +26,9 @@ of 2025-11-24.
 - What the documentation forbids is the developer's own login in the application: *"it is wrong
   idea that users will download subtitles under your account"* (getting-started).
 - Every request sends `User-Agent: <AppName> v<X.Y>`, since 2023-09-08, or is refused with 403
-  (changelog, best-practices). The name is the application's choice.
+  (changelog, best-practices). The name is the application's choice. Measured 2026-09-28: a search
+  with Orpheum's key and `User-Agent: Orpheum/dev`, the form every Orpheum request carries,
+  answered 200 with ten German subtitles for The Matrix.
 
 **The warning** is addressed to end users who register a consumer thinking a program like Bazarr
 needs one. A developer's key is what lets its users log in with their own accounts, free or VIP.

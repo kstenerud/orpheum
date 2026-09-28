@@ -107,6 +107,5 @@ An item is ticked only by the person who did it, and only with what they saw.
   OpenSubtitles has, a copy **made for this very file** first when there is one. **Download** one:
   the film plays again with it chosen, named "downloaded, unverified" in the menu, and the count
   is one lower next time. **Earlier**/**Later** move it. Play the film again: it starts with that
-  subtitle. Set a wrong password: the search says OpenSubtitles refused the login. This also shows
-  OpenSubtitles accepts the `Orpheum/<version>` User-Agent (opensubtitles-api.md §1).
+  subtitle. Set a wrong password: the search says OpenSubtitles refused the login.
   (`internal/core/playback/opensubtitles/`, `web/apps/web/src/subtitle-search.tsx`, D224)
