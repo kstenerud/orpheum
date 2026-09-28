@@ -104,7 +104,12 @@ test("on a phone's screen, the play page is no wider than the screen, whatever i
   await signIn(page);
   await openFilm(page, timingFilm(browserName));
   await page.getByRole("link", { name: "Play" }).click();
-  await page.getByRole("button", { name: /TV speakers/ }).click();
+  // Each answer to the sound question puts what it does below its name, not run into it.
+  const answer = page.getByRole("button", { name: /TV speakers/ });
+  const name = await answer.locator("strong").boundingBox();
+  const hint = await answer.locator("span").boundingBox();
+  expect(hint?.y ?? 0).toBeGreaterThanOrEqual((name?.y ?? 0) + (name?.height ?? 0));
+  await answer.click();
   await expect(page.getByRole("combobox", { name: "Subtitles" })).toContainText(longTrackName);
   const widths = await page.evaluate(() => ({
     page: document.documentElement.scrollWidth,

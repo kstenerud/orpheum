@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* Each answer: its name, then what it does, on lines of their own. */
+.sound__answer {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  text-align: start;
+}
