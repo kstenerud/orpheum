@@ -438,7 +438,7 @@ linters:
         exec-only-in-execx:
           list-mode: lax
           # internal/testutil runs the MKVToolNix tests edit files with; only tests may import it
-          # (TestArch_TestutilIsImportedOnlyByTests).
+          # (TestArch_TestSupportIsImportedOnlyByTests).
           files: ["$all", "!**/internal/node/execx/**", "!**/internal/archtest/*_test.go", "!**/internal/testutil/**"]
           deny:
             - pkg: "os/exec"
