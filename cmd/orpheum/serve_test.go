@@ -105,14 +105,14 @@ shutdown_grace_s = 10
 socket_dir = %q
 
 [database]
-readers_minimum = 4
-migrate_space_factor = 3
+read_connections_minimum = 4
+migrate_free_space_db_multiple = 3
 
 [node]
 name = "local"
 roots = []
 ffmpeg_dir = %q
-confinement = "report"
+confinement_policy = "report"
 video_extensions = ["mkv"]
 subtitle_extensions = ["srt"]
 max_errors_per_root = 1000

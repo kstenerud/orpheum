@@ -186,9 +186,9 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 	if err != nil {
 		return Pressure{}, err
 	}
-	graceDays, err := service.parts.Settings.Int(ctx, settings.ArtworkRemovedGraceD)
+	graceDays, err := service.parts.Settings.Int(ctx, settings.RemovedItemArtworkKeptD)
 	if err != nil {
-		return Pressure{}, fmt.Errorf("read artwork_removed_grace_d: %w", err)
+		return Pressure{}, fmt.Errorf("read removed_item_artwork_kept_d: %w", err)
 	}
 	rows, err := service.parts.Database.Read().ListArtworkHashes(ctx)
 	if err != nil {

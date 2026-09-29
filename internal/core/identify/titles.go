@@ -202,7 +202,7 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 	}
 	values := map[string]string{
 		fieldName: spec.name, fieldOverview: spec.overview, fieldTagline: spec.tagline,
-		fieldYear: strconv.Itoa(spec.year), fieldRuntime: strconv.FormatInt(spec.runtimeMs, 10),
+		fieldYear: strconv.Itoa(spec.year), fieldRuntimeMs: strconv.FormatInt(spec.runtimeMs, 10),
 	}
 	for _, field := range spec.locked {
 		err := work.queries.InsertOverrideIfAbsent(ctx, sqlcgen.InsertOverrideIfAbsentParams{
@@ -219,8 +219,8 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 	for _, override := range overrides {
 		values[override.Field] = override.Value
 	}
-	year, _ := strconv.ParseInt(values[fieldYear], 10, 64)       //nolint:errcheck // zero when unset
-	runtime, _ := strconv.ParseInt(values[fieldRuntime], 10, 64) //nolint:errcheck // zero when unset
+	year, _ := strconv.ParseInt(values[fieldYear], 10, 64)         //nolint:errcheck // zero when unset
+	runtime, _ := strconv.ParseInt(values[fieldRuntimeMs], 10, 64) //nolint:errcheck // zero when unset
 	var source, sourceID *string
 	if spec.source != "" {
 		source = &spec.source

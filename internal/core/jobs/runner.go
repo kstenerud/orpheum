@@ -154,7 +154,7 @@ func (runner *Runner) retryPolicy(ctx context.Context) (limit int64, backoff tim
 	if err != nil {
 		return 0, 0, fmt.Errorf("read the retry limit: %w", err)
 	}
-	seconds, err := runner.queue.settings.Int(ctx, settings.JobRetryBackoffS)
+	seconds, err := runner.queue.settings.Int(ctx, settings.JobFirstRetryDelayS)
 	if err != nil {
 		return 0, 0, fmt.Errorf("read the retry back-off: %w", err)
 	}

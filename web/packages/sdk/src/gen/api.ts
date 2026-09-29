@@ -1603,7 +1603,7 @@ export interface components {
             diskPercent: number;
         };
         PutOverrideInputBody: {
-            /** @description The value; year and runtime (milliseconds) are whole numbers */
+            /** @description The value; year and runtime_ms are whole numbers */
             value: string;
         };
         PutSecretInputBody: {
@@ -2894,7 +2894,7 @@ export interface operations {
                 Authorization?: string;
             };
             path: {
-                field: "name" | "overview" | "tagline" | "year" | "runtime";
+                field: "name" | "overview" | "tagline" | "year" | "runtime_ms";
                 id: number;
             };
             cookie?: never;
@@ -2931,7 +2931,7 @@ export interface operations {
                 Authorization?: string;
             };
             path: {
-                field: "name" | "overview" | "tagline" | "year" | "runtime";
+                field: "name" | "overview" | "tagline" | "year" | "runtime_ms";
                 id: number;
             };
             cookie?: never;

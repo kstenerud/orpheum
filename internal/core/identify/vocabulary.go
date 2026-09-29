@@ -24,11 +24,11 @@ const (
 	filingExtra        = "extra"
 	filingAttached     = "attached"
 
-	fieldName     = "name"
-	fieldOverview = "overview"
-	fieldRuntime  = "runtime"
-	fieldYear     = "year"
-	fieldTagline  = "tagline"
+	fieldName      = "name"
+	fieldOverview  = "overview"
+	fieldRuntimeMs = "runtime_ms"
+	fieldYear      = "year"
+	fieldTagline   = "tagline"
 
 	extraTrailer    = "trailer"
 	extraFeaturette = "featurette"

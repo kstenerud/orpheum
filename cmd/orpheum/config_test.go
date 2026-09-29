@@ -29,7 +29,7 @@ func TestLoadConfig_ReadsTheDevFileAndReportsUnknownKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the dev config does not load: %v", err)
 	}
-	if config.Server.DataDir != "/srv/orpheum/.dev/state" || config.Node.Confinement != "report" ||
+	if config.Server.DataDir != "/srv/orpheum/.dev/state" || config.Node.ConfinementPolicy != "report" ||
 		config.Log.Format != "text" {
 		t.Errorf("the dev config read as %+v", config)
 	}
@@ -64,8 +64,8 @@ func TestLoadConfig_RunsAMissingKeyOnItsStartingValueOrRefusesOneWithNone(t *tes
 			t.Errorf("without log.level, the level is %q, want its starting value", loaded.Log.Level)
 		}
 	}
-	if complete.Database.ReadersMinimum != 4 {
-		t.Errorf("the complete config read readers_minimum as %d", complete.Database.ReadersMinimum)
+	if complete.Database.ReadConnectionsMinimum != 4 {
+		t.Errorf("the complete config read read_connections_minimum as %d", complete.Database.ReadConnectionsMinimum)
 	}
 }
 
@@ -93,7 +93,8 @@ func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
 			strings.Replace(valid, `listen = "127.0.0.1:8432"`, `listen = "nowhere"`, 1), "server.listen",
 		},
 		"bad confinement": {
-			strings.Replace(valid, `confinement = "require"`, `confinement = "maybe"`, 1), "node.confinement",
+			strings.Replace(valid, `confinement_policy = "require"`, `confinement_policy = "maybe"`, 1),
+			"node.confinement_policy",
 		},
 		"bad log level":    {strings.Replace(valid, `level = "info"`, `level = "loud"`, 1), "log.level"},
 		"bad log format":   {strings.Replace(valid, `format = "json"`, `format = "xml"`, 1), "log format"},
@@ -116,14 +117,14 @@ shutdown_grace_s = 10
 socket_dir = "/run/orpheum"
 
 [database]
-readers_minimum = 4
-migrate_space_factor = 3
+read_connections_minimum = 4
+migrate_free_space_db_multiple = 3
 
 [node]
 name = "local"
 roots = ["/media"]
 ffmpeg_dir = "/opt/ffmpeg"
-confinement = "require"
+confinement_policy = "require"
 video_extensions = ["mkv", "mp4"]
 subtitle_extensions = ["srt"]
 max_errors_per_root = 1000

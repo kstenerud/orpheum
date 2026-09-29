@@ -14,39 +14,39 @@ type Key string
 // The settings. Every opinionated value the server acts on is one of these, so each choice is a
 // row that can be read and changed, not a default in code (D200). Units are in the name.
 const (
-	CheckForUpdates               Key = "check_for_updates"
-	SignInFailureLimit            Key = "signin_failure_limit"
-	SignInFailureWindowS          Key = "signin_failure_window_s"
-	SessionIdleExpiryH            Key = "session_idle_expiry_h"
-	SessionLastSeenWriteIntervalS Key = "session_last_seen_write_interval_s"
-	Argon2MemoryKiB               Key = "argon2_memory_kib"
-	Argon2Iterations              Key = "argon2_iterations"
-	Argon2Parallelism             Key = "argon2_parallelism"
-	SecretHintChars               Key = "secret_hint_chars"
-	BackupAgeWarningH             Key = "backup_age_warning_h"
-	ServeDebugPProf               Key = "serve_debug_pprof"
-	ServeDebugMetrics             Key = "serve_debug_metrics"
-	NodeSilentAfterS              Key = "node_silent_after_s"
-	NodeRestartAfterS             Key = "node_restart_after_s"
-	NodeRestartDelayS             Key = "node_restart_delay_s"
-	ScanOnNodeHello               Key = "scan_on_node_hello"
-	RemovalWithholdPercent        Key = "removal_withhold_percent"
-	RemovalWithholdMinFiles       Key = "removal_withhold_min_files"
-	JobAttemptLimit               Key = "job_attempt_limit"
-	JobRetryBackoffS              Key = "job_retry_backoff_s"
-	ProviderTimeoutS              Key = "provider_timeout_s"
-	SortLocale                    Key = "sort_locale"
-	ArtworkMaxSourcePixels        Key = "artwork_max_source_pixels"
-	ArtworkWebPQuality            Key = "artwork_webp_quality"
-	TMDBRefreshAfterD             Key = "tmdb_refresh_after_d"
-	RefreshCheckEveryH            Key = "refresh_check_every_h"
-	ArtworkCacheCeilingGiB        Key = "artwork_cache_ceiling_gib"
-	ArtworkRemovedGraceD          Key = "artwork_removed_grace_d"
-	RemoteBitRateCeilingKbps      Key = "remote_bit_rate_ceiling_kbps"
-	MediaTokenIdleExpiryH         Key = "media_token_idle_expiry_h"
-	HLSSegmentLengthS             Key = "hls_segment_length_s"
-	ResumeMinPercent              Key = "resume_min_percent"
-	FinishedAfterPercent          Key = "finished_after_percent"
+	CheckForUpdates                 Key = "check_for_updates"
+	SignInFailureLimit              Key = "signin_failure_limit"
+	SignInFailureWindowS            Key = "signin_failure_window_s"
+	SessionIdleExpiryH              Key = "session_idle_expiry_h"
+	SessionLastSeenWriteIntervalS   Key = "session_last_seen_write_interval_s"
+	Argon2MemoryKiB                 Key = "argon2_memory_kib"
+	Argon2Iterations                Key = "argon2_iterations"
+	Argon2Parallelism               Key = "argon2_parallelism"
+	SecretHintChars                 Key = "secret_hint_chars"
+	BackupAgeWarningH               Key = "backup_age_warning_h"
+	ServeDebugPProf                 Key = "serve_debug_pprof"
+	ServeDebugMetrics               Key = "serve_debug_metrics"
+	NodeSilentAfterS                Key = "node_silent_after_s"
+	NodeRestartAfterSilentS         Key = "node_restart_after_silent_s"
+	NodeRestartAfterExitS           Key = "node_restart_after_exit_s"
+	ScanOnNodeHello                 Key = "scan_on_node_hello"
+	ScanWithholdRemovalsOverPercent Key = "scan_withhold_removals_over_percent"
+	ScanWithholdRemovalsOverFiles   Key = "scan_withhold_removals_over_files"
+	JobAttemptLimit                 Key = "job_attempt_limit"
+	JobFirstRetryDelayS             Key = "job_first_retry_delay_s"
+	ProviderTimeoutS                Key = "provider_timeout_s"
+	SortLocale                      Key = "sort_locale"
+	ArtworkMaxSourcePixels          Key = "artwork_max_source_pixels"
+	ArtworkWebPQuality              Key = "artwork_webp_quality"
+	TMDBRefreshAfterD               Key = "tmdb_refresh_after_d"
+	MetadataRefreshCheckEveryH      Key = "metadata_refresh_check_every_h"
+	ArtworkCacheCeilingGiB          Key = "artwork_cache_ceiling_gib"
+	RemovedItemArtworkKeptD         Key = "removed_item_artwork_kept_d"
+	RemoteBitRateCeilingKbps        Key = "remote_bit_rate_ceiling_kbps"
+	MediaTokenIdleExpiryH           Key = "media_token_idle_expiry_h"
+	HLSSegmentLengthS               Key = "hls_segment_length_s"
+	ResumeMinPercent                Key = "resume_min_percent"
+	FinishedAfterPercent            Key = "finished_after_percent"
 )
 
 // Scope is whose a setting is.
@@ -124,17 +124,17 @@ func Registry() []Definition {
 		},
 		integer(NodeSilentAfterS, "30", 1, 24*3600,
 			"seconds without a record from a node before the core shows it as silent (cut-a §4)"),
-		integer(NodeRestartAfterS, "120", 1, 24*3600,
+		integer(NodeRestartAfterSilentS, "120", 1, 24*3600,
 			"seconds of silence before the core restarts the node it supervises (cut-a §4)"),
-		integer(NodeRestartDelayS, "5", 1, 3600,
+		integer(NodeRestartAfterExitS, "5", 1, 3600,
 			"seconds the core waits before starting its node again after it exited, so a crash cannot spin"),
 		{
 			Key: ScanOnNodeHello, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("true"),
 			Describe: "whether the core asks a node to scan every root it names each time it says hello",
 		},
-		integer(RemovalWithholdPercent, "50", 1, 100,
+		integer(ScanWithholdRemovalsOverPercent, "50", 1, 100,
 			"a scan that would remove more than this percentage of a root's files waits for the admin (D208)"),
-		integer(RemovalWithholdMinFiles, "20", 0, math.MaxInt32,
+		integer(ScanWithholdRemovalsOverFiles, "20", 0, math.MaxInt32,
 			"...and more than this many of them; a scan that would remove all of them always waits (D208)"),
 	}, metadataDefinitions()...)
 }
@@ -144,7 +144,7 @@ func metadataDefinitions() []Definition {
 	return []Definition{
 		integer(JobAttemptLimit, "5", 1, 100,
 			"how many times a background job that failed is tried before it is marked failed"),
-		integer(JobRetryBackoffS, "30", 1, 86400,
+		integer(JobFirstRetryDelayS, "30", 1, 86400,
 			"seconds before a failed job's first retry; each later retry waits twice as long"),
 		integer(ProviderTimeoutS, "20", 1, 600,
 			"seconds a call to a metadata provider such as TMDB may take; read when the server starts"),
@@ -160,11 +160,11 @@ func metadataDefinitions() []Definition {
 		integer(TMDBRefreshAfterD, "180", 0, 36500,
 			"days after which a title's TMDB data is fetched again; TMDB's terms allow keeping it six months; "+
 				"0 never refreshes (D213)"),
-		integer(RefreshCheckEveryH, "24", 1, 8760,
+		integer(MetadataRefreshCheckEveryH, "24", 1, 8760,
 			"hours between looks for titles whose data is due to be fetched again (D213)"),
 		integer(ArtworkCacheCeilingGiB, "20", 1, 1<<20,
 			"GiB the artwork cache may hold; past it, what can be made again is evicted (D212 §6)"),
-		integer(ArtworkRemovedGraceD, "30", 0, 3650,
+		integer(RemovedItemArtworkKeptD, "30", 0, 3650,
 			"days a removed item's artwork is kept, in case its disk comes back (D212 §6)"),
 		integer(RemoteBitRateCeilingKbps, "10000", 500, 1_000_000,
 			"kb/s above which a file played over a remote link is re-encoded (cut-a §6, reason bandwidth)"),

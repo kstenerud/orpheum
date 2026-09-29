@@ -14,7 +14,7 @@ import (
 )
 
 // FilePrefs are a person's choices for one file (cut-a §5): kept per file, and lasting, so the
-// next playback starts with them. A sync offset is in seconds of one file; a subtitle choice is
+// next playback starts with them. A sync offset is in milliseconds of one file; a subtitle choice is
 // per file so one broken file can be chosen around (D219).
 type FilePrefs struct {
 	// SubtitleOffsetMs shows the subtitles this many milliseconds later, or earlier when negative.
@@ -71,7 +71,7 @@ const (
 	scopeFile            = "file"
 	scopeUser            = "user"
 	axisSubtitleOffsetMs = "subtitle_offset_ms"
-	axisSubtitleTrack    = "subtitle_track"
+	axisSubtitleChoice   = "subtitle_choice"
 	axisDialogueBoost    = "dialogue_boost"
 	axisLevelling        = "loudness_levelling"
 	valueOn              = "on"
@@ -95,7 +95,7 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 		switch preference.Axis {
 		case axisSubtitleOffsetMs:
 			prefs.SubtitleOffsetMs, err = strconv.ParseInt(preference.Value, 10, 64)
-		case axisSubtitleTrack:
+		case axisSubtitleChoice:
 			prefs.Subtitle = &SubtitleChoice{}
 			err = json.Unmarshal([]byte(preference.Value), prefs.Subtitle)
 		}
@@ -297,7 +297,7 @@ func (service *Service) keepChoice(
 ) error {
 	if choice == nil {
 		err := queries.DeletePreference(ctx, sqlcgen.DeletePreferenceParams{
-			UserID: userID, Scope: scopeFile, ScopeID: fileID, Axis: axisSubtitleTrack,
+			UserID: userID, Scope: scopeFile, ScopeID: fileID, Axis: axisSubtitleChoice,
 		})
 		if err != nil {
 			return fmt.Errorf("clear the subtitle choice of file %d: %w", fileID, err)
@@ -308,7 +308,7 @@ func (service *Service) keepChoice(
 	if err != nil {
 		return fmt.Errorf("encode a subtitle choice: %w", err)
 	}
-	if err := service.setPreference(ctx, queries, userID, fileID, axisSubtitleTrack, string(encoded)); err != nil {
+	if err := service.setPreference(ctx, queries, userID, fileID, axisSubtitleChoice, string(encoded)); err != nil {
 		return fmt.Errorf("keep the subtitle choice of file %d: %w", fileID, err)
 	}
 	return nil

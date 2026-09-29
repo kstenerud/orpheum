@@ -19,7 +19,7 @@ decision; the rule is standards/go.md §3.
 | `?library=`, `?user=` | a library's id, a user's id | `?libraryId=`, `?userId=` |
 | `file` (config) | the configuration file's keys | `configFileKeys` |
 | `?modified=` (config) | only settings a person changed | `?onlyModified=` |
-| override field `runtime` | the runtime, in milliseconds | `runtimeMs` |
+| override field `runtime` | the runtime, in milliseconds | `runtime_ms`, as it is stored: the API's enum values are snake_case |
 | `setBy` (settings, secrets) | the user who set it | `setByUserId` |
 | `subject` (a job) | an id whose table depends on the kind | `itemId`, `renditionId`, `streamId`, `fetchedSubtitleId`, `fileId`: one per kind |
 | `progress` (a job) | a fraction, 0 to 1 | `progressFraction` |

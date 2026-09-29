@@ -56,9 +56,9 @@ func (fakeSettings) Int(_ context.Context, key settings.Key) (int64, error) {
 	switch key { //nolint:exhaustive // the supervisor reads only these
 	case settings.NodeSilentAfterS:
 		return 30, nil
-	case settings.NodeRestartAfterS:
+	case settings.NodeRestartAfterSilentS:
 		return 120, nil
-	case settings.NodeRestartDelayS:
+	case settings.NodeRestartAfterExitS:
 		return 5, nil
 	}
 	return 0, errors.New("not a liveness setting")

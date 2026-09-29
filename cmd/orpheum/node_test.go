@@ -260,7 +260,7 @@ var fakeFFmpegSeams = nodeSeams{isUnconfined: true}
 func TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
-	config.Node.Confinement = "require"
+	config.Node.ConfinementPolicy = "require"
 	captured := newCapturedLog()
 	withoutLandlock := nodeSeams{isUnconfined: true, probe: func() []confine.State {
 		return []confine.State{

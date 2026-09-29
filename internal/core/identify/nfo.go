@@ -73,7 +73,7 @@ type nfoUniqueID struct {
 
 // lockedFieldNames maps the lockedfields vocabulary (Jellyfin's MetadataField) to ours.
 func lockedFieldNames() map[string]string {
-	return map[string]string{"name": fieldName, "overview": fieldOverview, "runtime": fieldRuntime}
+	return map[string]string{"name": fieldName, "overview": fieldOverview, "runtime": fieldRuntimeMs}
 }
 
 // ParseNFO reads an NFO. Kodi lets a file be XML followed by a scraper URL, so anything after
@@ -148,7 +148,7 @@ func lockedOf(document nfoDocument, nfo NFO) []string {
 	if strings.EqualFold(strings.TrimSpace(document.LockData), "true") {
 		var locked []string
 		for field, set := range map[string]bool{
-			fieldName: nfo.Title != "", fieldOverview: nfo.Plot != "", fieldRuntime: nfo.RuntimeMs > 0,
+			fieldName: nfo.Title != "", fieldOverview: nfo.Plot != "", fieldRuntimeMs: nfo.RuntimeMs > 0,
 			fieldYear: nfo.Year > 0, fieldTagline: nfo.Tagline != "",
 		} {
 			if set {
