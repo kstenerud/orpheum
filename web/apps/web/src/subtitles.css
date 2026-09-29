@@ -3,7 +3,7 @@
 .subtitles {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1rem;
+  gap: calc(var(--space-page) / 2) var(--space-page);
   align-items: center;
 }
 
@@ -16,6 +16,6 @@
 
 .subtitles__offset {
   display: flex;
-  gap: 0.5rem;
+  gap: calc(var(--space-page) / 2);
   align-items: center;
 }

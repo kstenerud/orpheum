@@ -2,7 +2,7 @@
 
 .your-devices__list {
   display: grid;
-  gap: 0.5rem;
+  gap: calc(var(--space-page) / 2);
   padding: 0;
   list-style: none;
 }
@@ -10,6 +10,6 @@
 .your-devices__device {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem 1rem;
+  gap: calc(var(--space-page) / 4) var(--space-page);
   align-items: center;
 }
