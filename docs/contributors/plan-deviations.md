@@ -40,6 +40,23 @@ counted:
 
 ## Log
 
+### P35 — Revert-red could not see a change only a browser shows (M3, 2026-09-29) · gate-design
+
+- **Planned:** revert-red (D190) reverts each changed file and runs the narrowest suite that
+  covers it, widening only for a file that survives: for web source, vitest and then the type
+  check.
+- **What happened:** a fix to the sound question's layout added a stylesheet that its component
+  imports. The browser tier, whose phone test checks the layout, went red without it, but
+  revert-red never runs the browser tier, and vitest renders no CSS, so the import could never go
+  red there. The owner chose to have revert-red try the browser tier too.
+- **Why the plan missed it:** the gate was written when the web client had no browser tier (it came
+  with M3, D217 §4), and its idea of a web test was vitest's.
+- **Cost:** a `browser-tier` target, `make test-browser` without its install step, which
+  revert-red runs last for a web source file that survives the unit tests and the type check:
+  about two minutes, and only for such a file.
+- **Process lesson:** when a new test tier is added, walk every gate that chooses which tests to
+  run and ask whether it should reach the new tier.
+
 ### P34 — A film too quiet to hear brought loudness levelling into Cut A (M3, 2026-09-28) · requirement-emerged
 
 - **Planned:** D83 designed loudness measurement and a playback gain; D178 §4 left it out of Cut
