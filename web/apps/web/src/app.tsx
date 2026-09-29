@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { Api } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -12,13 +13,14 @@ import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
 import { Libraries } from "./libraries.tsx";
 import { People } from "./people.tsx";
-import { dataOrThrow } from "./problem.ts";
+import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { PersonPage } from "./person.tsx";
 import { Play } from "./play.tsx";
 import { Register } from "./register.tsx";
 import type { Route } from "./router.ts";
 import { Search } from "./search.tsx";
 import { Series } from "./series.tsx";
+import type { Session } from "./session.ts";
 import { Settings } from "./settings.tsx";
 import { useRoute, useServices, useToken } from "./services.tsx";
 import { SignIn } from "./sign-in.tsx";
@@ -48,9 +50,7 @@ function SignedIn(): JSX.Element {
   const route = useRoute();
   const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
   const signOut = (): void => {
-    void api.DELETE("/session").finally(() => {
-      session.signOut();
-    });
+    signOutHere(api, session);
   };
   return (
     <AppShell
@@ -126,4 +126,27 @@ function adminScreen(route: Route): JSX.Element | undefined {
   return route.screen === "files" ? (
     <Files key={route.libraryId} libraryId={route.libraryId} />
   ) : undefined;
+}
+
+/**
+ * Signs this device out: at once here, whatever the server says. When the server could not be
+ * told (it refused, or could not be reached), the sign-in page says so, since the session may
+ * still work there until it expires; one the server had already ended needs no word.
+ */
+function signOutHere(api: Api, session: Session): void {
+  api
+    .DELETE("/session")
+    .then(throwIfRefused)
+    .then(
+      () => {
+        session.signOut();
+      },
+      (cause: unknown) => {
+        if (cause instanceof ApiProblem && cause.code === "auth_required") {
+          session.signOut();
+          return;
+        }
+        session.signOutBecause("sign_out_unheard");
+      },
+    );
 }
