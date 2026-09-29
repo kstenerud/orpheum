@@ -72,8 +72,8 @@
 //     TestMatch_AProvidersTextIsCleanWhereItEnters, TestChooser_AnOverrideIsCleanWhereItEnters.
 //   - A change of sort_locale re-keys every name from what is stored, with no scan (A4); so does a
 //     build that collates or folds a name otherwise, at its start, key by key and fold by fold
-//     (D47, D48). TestRefreshSortKeys_ALocaleChangeTakesEffectWithoutAScan,
-//     TestFollowSortLocale_KeysEveryNameAtStartAndOnEveryChange,
+//     (D47, D48). TestRefreshSortAndSearchKeys_ALocaleChangeTakesEffectWithoutAScan,
+//     TestKeepSortAndSearchKeysCurrent_KeysEveryNameAtStartAndOnEveryChange,
 //     TestRefreshSortAndSearchKeys_AKeyOrFoldAnotherBuildMadeIsMadeAgain.
 //   - One work found as two titles in a library becomes one, the other a tombstone pointing at it
 //     (D173). TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst.

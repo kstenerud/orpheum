@@ -16,7 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-func TestFollowSortLocale_KeysEveryNameAtStartAndOnEveryChange(t *testing.T) {
+func TestKeepSortAndSearchKeysCurrent_KeysEveryNameAtStartAndOnEveryChange(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	config := settingstest.Seeded(t, database)
@@ -27,7 +27,7 @@ func TestFollowSortLocale_KeysEveryNameAtStartAndOnEveryChange(t *testing.T) {
 		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
 		"INSERT INTO item_text (item_id, language, is_original, name) VALUES (10, 'und', 1, 'Metropolis')")
 	pass := identify.NewPass(database, clock.System{}, slog.New(slog.DiscardHandler), nil, config)
-	if err := followSortLocale(t.Context(), pass, config, slog.New(slog.DiscardHandler)); err != nil {
+	if err := keepSortAndSearchKeysCurrent(t.Context(), pass, config, slog.New(slog.DiscardHandler)); err != nil {
 		t.Fatal(err)
 	}
 	missing := func(locale string) int64 {

@@ -68,7 +68,7 @@ func newJobServices(
 		logger.InfoContext(ctx, "returned jobs a stop left running to the queue", "requeuedCount", requeued)
 	}
 	pass := identify.NewPass(opened.database, clock.System{}, logger, providers, opened.settings)
-	if err := followSortLocale(ctx, pass, opened.settings, logger); err != nil {
+	if err := keepSortAndSearchKeysCurrent(ctx, pass, opened.settings, logger); err != nil {
 		return jobServices{}, err
 	}
 	pass.AfterPass(func(ctx context.Context, report identify.Report) { queueOwedFetches(ctx, queue, report, logger) })
@@ -188,11 +188,11 @@ func (services jobServices) queueMeasurements(ctx context.Context, logger *slog.
 	}
 }
 
-// followSortLocale keeps every sort key in the sort_locale setting's locale, and every name's
+// keepSortAndSearchKeysCurrent keeps every sort key in the sort_locale setting's locale, and every name's
 // fold for search, what this build derives: now, for a change made while the server was stopped,
 // a release's new starting value or a build that collates or folds otherwise, and whenever a
 // person changes the locale (D47, D48; agent-failures A4).
-func followSortLocale(
+func keepSortAndSearchKeysCurrent(
 	ctx context.Context, pass *identify.Pass, settingsService *settings.Service, logger *slog.Logger,
 ) error {
 	rewrittenCount, err := pass.RefreshSortAndSearchKeys(ctx)
@@ -205,7 +205,7 @@ func followSortLocale(
 	settingsService.OnChange(settings.SortLocale, func(ctx context.Context) error {
 		rewrittenCount, err := pass.RefreshSortAndSearchKeys(ctx)
 		if err == nil {
-			logger.InfoContext(ctx, "the sort locale changed; keyed names again for sorting",
+			logger.InfoContext(ctx, "the sort locale changed; keyed and folded names again for sorting and search",
 				"rewrittenCount", rewrittenCount)
 		}
 		return err
