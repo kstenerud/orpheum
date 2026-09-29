@@ -40,6 +40,10 @@
 //   - Why a subtitle could not be listed or fetched is said in OpenSubtitles' terms: no login, a
 //     refused login, or a spent quota with its reset time (D224).
 //     TestSubtitleCandidates_SayWhyInTheProvidersTerms.
+//   - A provider that is not answering (a refused connection, a timeout, a 5xx) is 503
+//     provider_error with detail.reason unavailable and failedHop provider, whichever provider,
+//     never internal (cut-a §5.2). TestSubtitleCandidates_SayWhyInTheProvidersTerms,
+//     TestIdentification_AMissingOrRefusedKeySaysWhyWithTheProviderAsTheFailingLeg.
 //   - A provider's rate limit leaves the same way whichever provider it is and whatever asked it:
 //     rate_limited, naming the provider, with detail.retryAfterMs and failedHop provider (cut-a
 //     §5.2). TestIdentification_AProvidersRateLimitSaysWhichAndHowLongAsSubtitlesDo.

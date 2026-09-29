@@ -3,6 +3,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -161,11 +162,14 @@ func TestIdentification_AProvidersRateLimitSaysWhichAndHowLongAsSubtitlesDo(t *t
 	}
 }
 
-// A provider key that is missing or refused leaves the way a subtitle login does: why in
-// detail.reason, and the provider as the failing leg (cut-a §5.2).
+// A provider key that is missing or refused, or a provider that is not answering, leaves the way a
+// subtitle login does: why in detail.reason, and the provider as the failing leg (cut-a §5.2).
 func TestIdentification_AMissingOrRefusedKeySaysWhyWithTheProviderAsTheFailingLeg(t *testing.T) {
 	t.Parallel()
-	for failure, reason := range map[error]string{identify.ErrNoKey: "no_key", identify.ErrKeyRefused: "key_refused"} {
+	for failure, reason := range map[error]string{
+		identify.ErrNoKey: "no_key", identify.ErrKeyRefused: "key_refused",
+		fmt.Errorf("tmdb /movie/2: %w: status 502", outbound.ErrUnavailable): "unavailable",
+	} {
 		harness := newHarness(t)
 		admin := harness.createAdminAndSignIn(t)
 		harness.ambiguousTitle(t)

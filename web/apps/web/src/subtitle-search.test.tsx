@@ -165,3 +165,25 @@ it("tells a person when no OpenSubtitles account is set up", async () => {
   await click(buttonWithText(mounted.container, "Search OpenSubtitles"));
   expect(mounted.container.textContent).toContain("No OpenSubtitles account is set up.");
 });
+
+it("tells a person when OpenSubtitles is not answering", async () => {
+  const services = servedBy({
+    "GET /files/2/subtitle-candidates": [
+      503,
+      {
+        error: {
+          code: "provider_error",
+          message: "x",
+          detail: { reason: "unavailable" },
+          failedHop: "provider",
+        },
+      },
+    ],
+  });
+  mounted = await mount(
+    withServices(<FindSubtitles fileId={2} onFetched={() => undefined} />, services),
+  );
+  await click(buttonWithText(mounted.container, "Find subtitles…"));
+  await click(buttonWithText(mounted.container, "Search OpenSubtitles"));
+  expect(mounted.container.textContent).toContain("OpenSubtitles is not answering right now.");
+});

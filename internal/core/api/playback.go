@@ -296,6 +296,8 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 	case errors.Is(err, opensubtitles.ErrLoginRefused):
 		return providerRefusal("login_refused",
 			"OpenSubtitles refused the login; an admin can change it in Settings")
+	case errors.Is(err, outbound.ErrUnavailable):
+		return providerRefusal("unavailable", "OpenSubtitles is not answering; try again later")
 	case isSpent:
 		failure := newError(http.StatusTooManyRequests, CodeQuotaExhausted,
 			"the OpenSubtitles account's downloads for today are spent")
