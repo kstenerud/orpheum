@@ -34,10 +34,10 @@ type seedFile struct {
 }
 
 type seedUser struct {
-	Name     string `toml:"name"`
-	Password string `toml:"password"`
-	Role     string `toml:"role"`
-	Outsider bool   `toml:"outsider"`
+	Name       string `toml:"name"`
+	Password   string `toml:"password"`
+	Role       string `toml:"role"`
+	IsOutsider bool   `toml:"is_outsider"`
 }
 
 // seedLibrary is a library the seed creates, on the config's node, with D184's questions answered.
@@ -47,7 +47,7 @@ type seedLibrary struct {
 	Root            string `toml:"root"`
 	MetadataSource  string `toml:"metadata_source"`
 	ChangeDetection string `toml:"change_detection"`
-	Writable        bool   `toml:"writable"`
+	IsWritable      bool   `toml:"is_writable"`
 }
 
 // devSecrets maps the environment variables `make dev` passes on to the secrets they seal
@@ -164,7 +164,7 @@ func seedLibraries(
 		}
 		_, err = library.Create(ctx, database, clock.System{}, library.NewLibrary{
 			Name: seeded.Name, Kind: seeded.Kind, MetadataSource: seeded.MetadataSource,
-			ChangeDetection: seeded.ChangeDetection, Writable: seeded.Writable, NodeID: nodeID, Roots: []string{root},
+			ChangeDetection: seeded.ChangeDetection, Writable: seeded.IsWritable, NodeID: nodeID, Roots: []string{root},
 		})
 		switch {
 		case errors.Is(err, library.ErrExists):
@@ -198,7 +198,7 @@ func seedUserOnce(ctx context.Context, service *auth.Service, user seedUser, rep
 		return err
 	}
 	_, err = service.CreateUser(ctx, auth.NewUser{
-		Name: user.Name, Password: user.Password, Role: role, IsOutsider: user.Outsider,
+		Name: user.Name, Password: user.Password, Role: role, IsOutsider: user.IsOutsider,
 	})
 	switch {
 	case err == nil:

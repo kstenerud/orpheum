@@ -40,10 +40,10 @@ func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *te
 		t.Fatalf("queued %+v; want the item's record refreshed once, twelve hours on", *queue)
 	}
 	var args struct {
-		Refresh     bool `json:"refresh"`
+		IsRefresh   bool `json:"isRefresh"`
 		RetryImages bool `json:"retryImages"`
 	}
-	if err := json.Unmarshal([]byte((*queue)[0].Args), &args); err != nil || !args.Refresh || !args.RetryImages {
+	if err := json.Unmarshal([]byte((*queue)[0].Args), &args); err != nil || !args.IsRefresh || !args.RetryImages {
 		t.Errorf("the recheck's args %s (%v)", (*queue)[0].Args, err)
 	}
 	// The recheck's refresh asks for the images again: it removes the rows it left.

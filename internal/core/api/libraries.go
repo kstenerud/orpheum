@@ -238,7 +238,7 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 	for _, summary := range summaries {
 		body := LibraryBody{
 			ID: summary.ID, Name: summary.Name, Kind: summary.Kind, MetadataSource: summary.MetadataSource,
-			ChangeDetection: summary.ChangeDetection, CheckEveryHours: summary.CheckEveryH,
+			ChangeDetection: summary.ChangeDetection, CheckEveryHours: summary.CheckEveryHours,
 			IsWritable: summary.IsWritable == 1,
 			CreatedAt:  summary.CreatedAt,
 		}
@@ -246,8 +246,8 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 			body.FileCountsByFiling = summary.Filings
 			for _, root := range summary.Roots {
 				body.Roots = append(body.Roots, RootBody{
-					NodeName: root.NodeName, Path: root.Path, LastScanOutcome: ptr.ValueOrZero(root.Outcome),
-					LastScanAt:     ptr.ValueOrZero(root.OutcomeAt),
+					NodeName: root.NodeName, Path: root.Path, LastScanOutcome: ptr.ValueOrZero(root.LastScanOutcome),
+					LastScanAt:     ptr.ValueOrZero(root.LastScanAt),
 					WithheldReason: ptr.ValueOrZero(root.WithheldReason),
 				})
 			}
@@ -326,7 +326,7 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 	for _, row := range rows {
 		output.Body.Files = append(output.Body.Files, FileBody{
 			ID: row.ID, LibraryID: row.LibraryID, Path: row.Path, Filing: row.Filing,
-			FilingReason: row.FilingReason, ErrorDetail: row.ErrorDetail, SizeBytes: row.SizeBytes,
+			FilingReason: row.FilingReason, ErrorDetail: row.ErrorDetailJson, SizeBytes: row.SizeBytes,
 			FirstSeenAt: row.FirstSeenAt, LastSeenAt: row.LastSeenAt,
 		})
 	}

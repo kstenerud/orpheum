@@ -65,9 +65,9 @@ type NodeConfig struct {
 	PreparedDir        string   `toml:"prepared_dir"`
 	// PreparedBudgetGiB, PreparedGraceH and PreparedDiskLimitPercent keep the prepared
 	// directory in bounds (D217 §5).
-	PreparedBudgetGiB        int64 `toml:"prepared_budget_gib"`
-	PreparedGraceH           int64 `toml:"prepared_grace_h"`
-	PreparedDiskLimitPercent int64 `toml:"prepared_disk_limit_percent"`
+	PreparedBudgetGiB            int64 `toml:"prepared_budget_gib"`
+	PreparedGraceH               int64 `toml:"prepared_grace_h"`
+	PreparedDiskUsedLimitPercent int64 `toml:"prepared_disk_used_limit_percent"`
 }
 
 // LogConfig is how the server logs.
@@ -154,7 +154,7 @@ func configKeys() []configKey {
 			"hours after its last play a prepared rendition is kept before any past it is evicted (D217 §5)",
 		},
 		{
-			tableNode, "prepared_disk_limit_percent", "95",
+			tableNode, "prepared_disk_used_limit_percent", "95",
 			"how full the prepared directory's disk may be, whatever the budget; past it, renditions are " +
 				"evicted, and a prepare with nothing to evict is refused (D217 §5)",
 		},
@@ -289,8 +289,8 @@ func (config *Config) check() error {
 			problems = append(problems, fmt.Errorf("%s is %d; it must be at least 1", key, value))
 		}
 	}
-	if limit := config.Node.PreparedDiskLimitPercent; limit < 1 || limit > 100 {
-		problems = append(problems, fmt.Errorf("node.prepared_disk_limit_percent is %d; want 1 to 100", limit))
+	if limit := config.Node.PreparedDiskUsedLimitPercent; limit < 1 || limit > 100 {
+		problems = append(problems, fmt.Errorf("node.prepared_disk_used_limit_percent is %d; want 1 to 100", limit))
 	}
 	if config.Node.Name == "" {
 		problems = append(problems, errors.New("node.name is empty; the core knows a node by its name"))

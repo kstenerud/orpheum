@@ -130,7 +130,7 @@ func (harness *fixture) hello(t *testing.T, hello nodeproto.Hello) nodeproto.Hel
 
 func (harness *fixture) poll(t *testing.T, nodeID, after int64) (nodeproto.Commands, int) {
 	t.Helper()
-	url := fmt.Sprintf("%s%s?%s=%d", harness.server.URL, nodeproto.PathCommands, nodeproto.QueryAfterSeq, after)
+	url := fmt.Sprintf("%s%s?%s=%d", harness.server.URL, nodeproto.PathCommands, nodeproto.QueryAfterCommandSeq, after)
 	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
@@ -153,9 +153,9 @@ func (harness *fixture) poll(t *testing.T, nodeID, after int64) (nodeproto.Comma
 func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRoot(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
-	first := harness.hello(t, nodeproto.Hello{Name: "local", Roots: []string{"/media/films", "/media/shows"}})
-	again := harness.hello(t, nodeproto.Hello{Name: "local", Roots: []string{"/media/films"}})
-	other := harness.hello(t, nodeproto.Hello{Name: "attic", Roots: nil})
+	first := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films", "/media/shows"}})
+	again := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films"}})
+	other := harness.hello(t, nodeproto.Hello{Name: "attic", RootPaths: nil})
 	if first.NodeID == 0 || again.NodeID != first.NodeID || other.NodeID == first.NodeID {
 		t.Errorf("node ids %d, %d, %d: want one id per name (D207)", first.NodeID, again.NodeID, other.NodeID)
 	}
@@ -172,7 +172,7 @@ func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRoot(t *testing.T) {
 	if status != http.StatusOK || strings.Join(roots, ",") != "/media/films,/media/shows,/media/films" {
 		t.Errorf("status %d, scans of %q; want one scan per root named in each hello", status, roots)
 	}
-	if seqs := []int64{commands.Commands[0].Seq, commands.Commands[2].Seq}; seqs[0] != 1 || seqs[1] != 3 {
+	if seqs := []int64{commands.Commands[0].CommandSeq, commands.Commands[2].CommandSeq}; seqs[0] != 1 || seqs[1] != 3 {
 		t.Errorf("command numbers %v, want 1 then 3", seqs)
 	}
 }
@@ -181,7 +181,7 @@ func TestHello_ScansNothingWhenTheSettingSaysNot(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	settingstest.Set(t, harness.settings, settings.ScanOnNodeHello, "false")
-	reply := harness.hello(t, nodeproto.Hello{Name: "local", Roots: []string{"/media/films"}})
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films"}})
 	if commands, _ := harness.poll(t, reply.NodeID, 0); len(commands.Commands) != 0 {
 		t.Errorf("commands %+v, want none", commands.Commands)
 	}
@@ -210,7 +210,7 @@ func TestCommands_ALongPollWaitsForACommandAndAnAcknowledgedOneIsDropped(t *test
 	}
 	harness.service.Enqueue(reply.NodeID, scanOf("/b"))
 	commands, _ := harness.poll(t, reply.NodeID, 1)
-	if len(commands.Commands) != 1 || commands.Commands[0].Seq != 2 {
+	if len(commands.Commands) != 1 || commands.Commands[0].CommandSeq != 2 {
 		t.Errorf("after acknowledging 1: %+v, want only command 2", commands.Commands)
 	}
 }
@@ -257,12 +257,12 @@ func TestReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testing.T) 
 	records := make([]nodeproto.Record, 0, 300)
 	for index := range 299 {
 		records = append(records, nodeproto.Record{
-			Seq: reply.LastReportSeq + int64(index) + 1, Type: nodeproto.RecordSkip,
+			ReportSeq: reply.LastReportSeq + int64(index) + 1, Type: nodeproto.RecordSkip,
 			Skip: &nodeproto.Skip{Path: nodeproto.Path{Text: fmt.Sprintf("f%d", index)}, Rule: nodeproto.SkipExtension},
 		})
 	}
 	records = append(records, nodeproto.Record{
-		Seq: 300, Type: nodeproto.RecordStatus,
+		ReportSeq: 300, Type: nodeproto.RecordStatus,
 		Status: &nodeproto.Status{SentAt: 1, Activity: "idle"},
 	})
 	response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, records))
@@ -270,7 +270,7 @@ func TestReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testing.T) 
 		t.Fatalf("the report answered %d %s", response.status, response.body)
 	}
 	got := harness.sink.all()
-	if len(got) != 300 || got[0].Seq != 1 || got[299].Seq != 300 {
+	if len(got) != 300 || got[0].ReportSeq != 1 || got[299].ReportSeq != 300 {
 		t.Fatalf("the sink got %d records", len(got))
 	}
 	// How the body is split in transit decides where quiet moments fall, so assert the bounds:
@@ -303,8 +303,8 @@ func TestReport_RefusesARecordOutOfSequence(t *testing.T) {
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
 	records := []nodeproto.Record{
-		{Seq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{Activity: "idle"}},
-		{Seq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{Activity: "idle"}},
+		{ReportSeq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{Activity: "idle"}},
+		{ReportSeq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{Activity: "idle"}},
 	}
 	response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, records))
 	if response.status != http.StatusBadRequest || !strings.Contains(string(response.body), "only rises") {
@@ -319,7 +319,10 @@ func TestReport_ARecordReachesTheIngestWhileTheReportIsStillOpen(t *testing.T) {
 	reader, writer := io.Pipe()
 	done := make(chan answer, 1)
 	go func() { done <- harness.post(t, nodeproto.PathReport, reply.NodeID, reader) }()
-	record := nodeproto.Record{Seq: 1, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: "/m"}}
+	record := nodeproto.Record{
+		ReportSeq: 1, Type: nodeproto.RecordScanBegin,
+		ScanBegin: &nodeproto.ScanBegin{Root: "/m"},
+	}
 	if err := json.NewEncoder(writer).Encode(record); err != nil {
 		t.Fatal(err)
 	}
@@ -343,8 +346,8 @@ func TestRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
 	if _, _, connected := harness.service.Roots("local"); connected {
 		t.Error("a node that never said hello has roots")
 	}
-	harness.hello(t, nodeproto.Hello{Name: "local", Roots: []string{"/media/films", "/media/shows"}})
-	reply := harness.hello(t, nodeproto.Hello{Name: "local", Roots: []string{"/media/films"}})
+	harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films", "/media/shows"}})
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films"}})
 	nodeID, roots, connected := harness.service.Roots("local")
 	if !connected || nodeID != reply.NodeID || !slices.Equal(roots, []string{"/media/films"}) {
 		t.Errorf("Roots = %d, %v, %v; want the last hello's", nodeID, roots, connected)
@@ -426,7 +429,7 @@ func TestStatus_KeepsWhatTheNodeSaysItsPreparedDirectoryHolds(t *testing.T) {
 	}
 	usage := nodeproto.PreparedUsage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}
 	status := []nodeproto.Record{{
-		Seq: reply.LastReportSeq + 1, Type: nodeproto.RecordStatus,
+		ReportSeq: reply.LastReportSeq + 1, Type: nodeproto.RecordStatus,
 		Status: &nodeproto.Status{Activity: "idle", PreparedUsage: &usage},
 	}}
 	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
@@ -455,7 +458,7 @@ func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
 	})
 	disk := nodeproto.Disk{Path: "/media", TotalBytes: 1000, AvailableBytes: 400}
 	status := []nodeproto.Record{{
-		Seq: reply.LastReportSeq + 1, Type: nodeproto.RecordStatus,
+		ReportSeq: reply.LastReportSeq + 1, Type: nodeproto.RecordStatus,
 		Status: &nodeproto.Status{Activity: "idle", Disks: []nodeproto.Disk{disk}},
 	}}
 	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=

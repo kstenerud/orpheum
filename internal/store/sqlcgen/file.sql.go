@@ -259,7 +259,7 @@ func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleS
 const insertFile = `-- name: InsertFile :one
 INSERT INTO file (
   library_id, node_id, path, reported_path_bytes, size_bytes, mtime_ms, payload_hash, payload_bytes,
-  filing, filing_reason, error_detail, probe_json, first_seen_at, last_seen_at, opensubtitles_hash
+  filing, filing_reason, error_detail_json, probe_json, first_seen_at, last_seen_at, opensubtitles_hash
 ) VALUES (
   ?1, ?2, ?3, ?4, ?5,
   ?6, ?7, ?8, ?9,
@@ -280,7 +280,7 @@ type InsertFileParams struct {
 	PayloadBytes      *int64
 	Filing            string
 	FilingReason      *string
-	ErrorDetail       *string
+	ErrorDetailJson   *string
 	ProbeJson         *string
 	SeenAt            int64
 	OpensubtitlesHash *string
@@ -298,7 +298,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 		arg.PayloadBytes,
 		arg.Filing,
 		arg.FilingReason,
-		arg.ErrorDetail,
+		arg.ErrorDetailJson,
 		arg.ProbeJson,
 		arg.SeenAt,
 		arg.OpensubtitlesHash,
@@ -464,7 +464,7 @@ func (q *Queries) ListLiveFilesByHash(ctx context.Context, arg ListLiveFilesByHa
 
 const listLiveFilesByNode = `-- name: ListLiveFilesByNode :many
 SELECT id, library_id, path, reported_path_bytes, size_bytes, payload_hash, payload_bytes, filing, filing_reason,
-  error_detail, first_seen_at, last_seen_at
+  error_detail_json, first_seen_at, last_seen_at
 FROM file
 WHERE node_id = ? AND removed_at IS NULL
 ORDER BY path
@@ -480,7 +480,7 @@ type ListLiveFilesByNodeRow struct {
 	PayloadBytes      *int64
 	Filing            string
 	FilingReason      *string
-	ErrorDetail       *string
+	ErrorDetailJson   *string
 	FirstSeenAt       int64
 	LastSeenAt        int64
 }
@@ -504,7 +504,7 @@ func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]List
 			&i.PayloadBytes,
 			&i.Filing,
 			&i.FilingReason,
-			&i.ErrorDetail,
+			&i.ErrorDetailJson,
 			&i.FirstSeenAt,
 			&i.LastSeenAt,
 		); err != nil {
@@ -757,17 +757,17 @@ const updateFileFiling = `-- name: UpdateFileFiling :exec
 UPDATE file SET
   filing = ?1,
   filing_reason = ?2,
-  error_detail = ?3,
+  error_detail_json = ?3,
   last_seen_at = ?4
 WHERE id = ?5
 `
 
 type UpdateFileFilingParams struct {
-	Filing       string
-	FilingReason *string
-	ErrorDetail  *string
-	SeenAt       int64
-	ID           int64
+	Filing          string
+	FilingReason    *string
+	ErrorDetailJson *string
+	SeenAt          int64
+	ID              int64
 }
 
 // A path the node skipped or could not read: its filing says why, and it was seen.
@@ -775,7 +775,7 @@ func (q *Queries) UpdateFileFiling(ctx context.Context, arg UpdateFileFilingPara
 	_, err := q.db.ExecContext(ctx, updateFileFiling,
 		arg.Filing,
 		arg.FilingReason,
-		arg.ErrorDetail,
+		arg.ErrorDetailJson,
 		arg.SeenAt,
 		arg.ID,
 	)
@@ -795,7 +795,7 @@ UPDATE file SET
   filing = CASE WHEN filing IN ('skipped', 'errored') THEN 'unidentified' ELSE filing END,
   filing_reason = CASE WHEN filing IN ('skipped', 'errored') THEN ?8
                   ELSE filing_reason END,
-  error_detail = NULL,
+  error_detail_json = NULL,
   probe_json = ?9,
   opensubtitles_hash = ?10,
   last_seen_at = ?11
@@ -842,7 +842,7 @@ UPDATE file SET
   library_id = ?1, size_bytes = ?2,
   mtime_ms = ?3, payload_hash = ?4, payload_bytes = ?5,
   filing = 'attached', sidecar_kind = ?6, filing_reason = ?7,
-  error_detail = NULL,
+  error_detail_json = NULL,
   nfo_body = ?8,
   last_seen_at = ?9
 WHERE id = ?10

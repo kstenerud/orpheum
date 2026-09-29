@@ -3,7 +3,7 @@
 import type { components } from "./gen/api.ts";
 
 /** What a client can play, one list per axis, most preferred first (D21, D217 §1). */
-export type Menu = components["schemas"]["MenuBody"];
+export type Menu = components["schemas"]["PlayableFormatsBody"];
 
 type Video = NonNullable<Menu["videoCodecs"]>[number];
 type Audio = NonNullable<Menu["audioCodecs"]>[number];

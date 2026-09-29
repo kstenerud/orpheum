@@ -181,7 +181,7 @@ func (service *Service) FetchSubtitle(
 	if err != nil {
 		return Fetched{}, fmt.Errorf("keep the fetched subtitle: %w", err)
 	}
-	track := TrackRef{FetchedID: id}
+	track := TrackRef{FetchedSubtitleID: id}
 	if chooseErr := service.ChooseSubtitle(ctx, userID, fileID, SubtitleChoice{TrackRef: track}); chooseErr != nil {
 		return Fetched{}, chooseErr
 	}

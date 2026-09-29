@@ -22,7 +22,7 @@ const (
 // Record is one line of a JSONL report. Type says which one field is set; Seq is the node's
 // sequence number, increasing by one per record across the node's life.
 type Record struct {
-	Seq          int64         `json:"seq"`
+	ReportSeq    int64         `json:"reportSeq"`
 	Type         RecordType    `json:"type"`
 	ScanBegin    *ScanBegin    `json:"scanBegin,omitempty"`
 	Observed     *Observed     `json:"observed,omitempty"`
@@ -57,8 +57,8 @@ type Sidecar struct {
 	Kind      SidecarKind `json:"kind"`
 	SizeBytes int64       `json:"sizeBytes"`
 	MtimeMs   int64       `json:"mtimeMs"`
-	// Body is the file's bytes, for an NFO only, and bounded: a larger NFO is an error record.
-	Body []byte `json:"body,omitempty"`
+	// NFOBody is the file's bytes, for an NFO only, and bounded: a larger NFO is an error record.
+	NFOBody []byte `json:"nfoBody,omitempty"`
 	// Identity is a subtitle's payload hash (D179): a text file is hashed whole, so a changed
 	// subtitle has a new one, and its extracted text is kept by it (D217 §6).
 	Identity *Identity `json:"identity,omitempty"`
@@ -126,8 +126,8 @@ type ScanBegin struct {
 // valid UTF-8; otherwise Text is a readable approximation and Raw holds the bytes. The core
 // normalises Text to NFC for identity and display, and opens by the bytes.
 type Path struct {
-	Text string `json:"text"`
-	Raw  []byte `json:"raw,omitempty"`
+	Text  string `json:"text"`
+	Bytes []byte `json:"bytes,omitempty"`
 }
 
 // Observed is a file the node enumerated, probed and hashed.

@@ -432,7 +432,7 @@ func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	}
 	var outcome Outcome
 	var err error
-	if args.Refresh {
+	if args.IsRefresh {
 		outcome, err = matcher.refresh(ctx, job.ItemID, args.RetryImages)
 	} else {
 		outcome, err = matcher.Match(ctx, job.ItemID)

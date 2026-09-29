@@ -94,10 +94,10 @@ func New(
 	logger *slog.Logger,
 ) *Agent {
 	byPath := make(map[string]*confine.MediaRoot, len(roots))
-	hello.Roots = make([]string, 0, len(roots))
+	hello.RootPaths = make([]string, 0, len(roots))
 	for _, root := range roots {
 		byPath[root.Path()] = root
-		hello.Roots = append(hello.Roots, root.Path())
+		hello.RootPaths = append(hello.RootPaths, root.Path())
 	}
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -178,7 +178,7 @@ func (agent *Agent) poll(ctx context.Context, nodeID int64, work chan<- nodeprot
 	var after int64
 	for {
 		var answer nodeproto.Commands
-		path := nodeproto.PathCommands + "?" + nodeproto.QueryAfterSeq + "=" + strconv.FormatInt(after, 10)
+		path := nodeproto.PathCommands + "?" + nodeproto.QueryAfterCommandSeq + "=" + strconv.FormatInt(after, 10)
 		if err := agent.exchange(ctx, http.MethodGet, path, nodeID, http.NoBody, &answer); err != nil {
 			return err
 		}
@@ -188,15 +188,15 @@ func (agent *Agent) poll(ctx context.Context, nodeID int64, work chan<- nodeprot
 				if !agent.working.cancel(command.Cancel.JobID) {
 					agent.logger.InfoContext(ctx, "a job was cancelled before it started", "job", command.Cancel.JobID)
 				}
-				after = command.Seq
+				after = command.CommandSeq
 				continue
 			}
 			select {
 			case work <- command:
 			case <-ctx.Done():
-				return fmt.Errorf("stopped while queueing command %d: %w", command.Seq, ctx.Err())
+				return fmt.Errorf("stopped while queueing command %d: %w", command.CommandSeq, ctx.Err())
 			}
-			after = command.Seq
+			after = command.CommandSeq
 		}
 	}
 }
@@ -277,7 +277,7 @@ func (agent *Agent) artwork(ctx context.Context, nodeID int64, command nodeproto
 	}
 	if result.Refusal == "" {
 		result = agent.workers.Artwork.Derive(ctx, command)
-		result.SourceHash = sourceHash
+		result.SourceSha256 = sourceHash
 	}
 	if result.Refusal != "" {
 		agent.logger.WarnContext(ctx, "refused an image", "job", command.JobID, "why", result.Refusal)
@@ -298,8 +298,8 @@ const maxImageBytes = 64 << 20
 // names can reach outside the node's roots (D107).
 func (agent *Agent) readImage(named nodeproto.Path) ([]byte, error) {
 	absolute := named.Text
-	if named.Raw != nil {
-		absolute = string(named.Raw)
+	if named.Bytes != nil {
+		absolute = string(named.Bytes)
 	}
 	for rootPath, root := range agent.roots {
 		rel, under := strings.CutPrefix(absolute, rootPath+"/")
@@ -353,7 +353,7 @@ func (agent *Agent) status() nodeproto.Record {
 // disks are the filesystems the node's roots and prepared directory are on, each measured now
 // (D225 §3).
 func (agent *Agent) disks() []nodeproto.Disk {
-	paths := slices.Clone(agent.hello.Roots)
+	paths := slices.Clone(agent.hello.RootPaths)
 	if agent.workers.PreparedDirectory != "" {
 		paths = append(paths, agent.workers.PreparedDirectory)
 	}
@@ -422,7 +422,7 @@ func (agent *Agent) stream(ctx context.Context, nodeID int64, report *report) er
 			return errors.Join(fmt.Errorf("report stopped: %w", ctx.Err()), <-answered)
 		case record := <-report.records:
 			if err := encoder.Encode(record); err != nil {
-				return fmt.Errorf("write record %d: %w", record.Seq, errors.Join(err, <-answered))
+				return fmt.Errorf("write record %d: %w", record.ReportSeq, errors.Join(err, <-answered))
 			}
 		}
 	}

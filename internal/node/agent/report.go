@@ -27,10 +27,10 @@ func newReport(lastSeq int64) *report {
 func (stream *report) emit(ctx context.Context, record nodeproto.Record) error {
 	stream.mutex.Lock()
 	defer stream.mutex.Unlock()
-	record.Seq = stream.lastSeq + 1
+	record.ReportSeq = stream.lastSeq + 1
 	select {
 	case stream.records <- record:
-		stream.lastSeq = record.Seq
+		stream.lastSeq = record.ReportSeq
 		return nil
 	case <-ctx.Done():
 		return fmt.Errorf("record not sent: %w", ctx.Err())

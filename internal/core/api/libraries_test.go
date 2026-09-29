@@ -52,8 +52,11 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 		NodeID: 1, LastHeard: time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC),
 		Hello: nodeproto.Hello{
 			Name: "local", Build: nodes.build, FFmpegVersion: "ffmpeg version 7.1",
-			Host:  host.Info{Platform: "linux/amd64", Description: "Debian GNU/Linux 13 (trixie)", Kernel: "6.12.0"},
-			Roots: nodes.roots, Confinement: nodes.confinement, Hardware: nodes.hardware, UID: 1000, GID: 1000,
+			Host: host.Info{
+				Platform: "linux/amd64", Description: "Debian GNU/Linux 13 (trixie)",
+				Kernel: "6.12.0",
+			},
+			RootPaths: nodes.roots, Confinement: nodes.confinement, Hardware: nodes.hardware, UID: 1000, GID: 1000,
 		},
 	}
 	if nodes.prepared != nil || nodes.disks != nil {
@@ -187,7 +190,8 @@ func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
 		`INSERT INTO library_root (library_id, node_id, path) VALUES (1, 1, '/m')`,
-		`INSERT INTO root_state (node_id, root_path, outcome, outcome_at, withheld_scan_started_at, withheld_reason)
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at,
+		 withheld_reason)
 		 VALUES (1, '/m', 'withheld', 5, 4, 'the scan would remove 21 of the root''s 40 files')`,
 		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
 		 VALUES (1, '/m', '/m/disk1', 21, 0)`)

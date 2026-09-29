@@ -235,13 +235,13 @@ function NodeFacts(props: { readonly node: SystemNode }): JSX.Element {
           <NodeSoftware node={node} />
           <NodeConfinementView node={node} />
           {node.hardware === undefined ? null : <HardwareEncoding hardware={node.hardware} />}
-          {node.prepared === undefined ? null : (
+          {node.preparedUsage === undefined ? null : (
             <p>
               {t("system.prepared", {
-                used: byteSize(node.prepared.usedBytes),
-                budget: byteSize(node.prepared.budgetBytes),
-                percent: node.prepared.diskUsedPercent,
-                limit: node.prepared.diskUsedLimitPercent,
+                used: byteSize(node.preparedUsage.usedBytes),
+                budget: byteSize(node.preparedUsage.budgetBytes),
+                percent: node.preparedUsage.diskUsedPercent,
+                limit: node.preparedUsage.diskUsedLimitPercent,
               })}
             </p>
           )}

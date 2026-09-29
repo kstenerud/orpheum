@@ -13,7 +13,7 @@ role = "admin"
 name = "partner"
 password = "partner"
 role = "user"
-outsider = true          # D174: invited from outside the house
+is_outsider = true          # D174: invited from outside the house
 
 # The three questions asked when a library is created (D184), answered for debugging:
 # metadata from the NFO files the generator writes, so no TMDB key is needed; the watcher on,
@@ -24,7 +24,7 @@ kind = "movies"
 root = "{root}/.dev/media/movies"
 metadata_source = "nfo"
 change_detection = "watch"
-writable = false
+is_writable = false
 
 [[library]]
 name = "Dev shows"
@@ -32,7 +32,7 @@ kind = "shows"
 root = "{root}/.dev/media/shows"
 metadata_source = "nfo"
 change_detection = "watch"
-writable = false
+is_writable = false
 
 # Server settings (the `setting` table), chosen so nothing reaches the network by itself. Every
 # setting already has its starting value (D200); these are the ones dev changes.

@@ -25,11 +25,11 @@ ORDER BY id;
 -- name: InsertFile :one
 INSERT INTO file (
   library_id, node_id, path, reported_path_bytes, size_bytes, mtime_ms, payload_hash, payload_bytes,
-  filing, filing_reason, error_detail, probe_json, first_seen_at, last_seen_at, opensubtitles_hash
+  filing, filing_reason, error_detail_json, probe_json, first_seen_at, last_seen_at, opensubtitles_hash
 ) VALUES (
   sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(reported_path_bytes), sqlc.arg(size_bytes),
   sqlc.arg(mtime_ms), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), sqlc.arg(filing),
-  sqlc.arg(filing_reason), sqlc.arg(error_detail), sqlc.arg(probe_json), sqlc.arg(seen_at), sqlc.arg(seen_at),
+  sqlc.arg(filing_reason), sqlc.arg(error_detail_json), sqlc.arg(probe_json), sqlc.arg(seen_at), sqlc.arg(seen_at),
   sqlc.narg(opensubtitles_hash)
 )
 RETURNING id;
@@ -49,7 +49,7 @@ UPDATE file SET
   filing = CASE WHEN filing IN ('skipped', 'errored') THEN 'unidentified' ELSE filing END,
   filing_reason = CASE WHEN filing IN ('skipped', 'errored') THEN sqlc.arg(unidentified_reason)
                   ELSE filing_reason END,
-  error_detail = NULL,
+  error_detail_json = NULL,
   probe_json = sqlc.arg(probe_json),
   opensubtitles_hash = sqlc.narg(opensubtitles_hash),
   last_seen_at = sqlc.arg(seen_at)
@@ -60,7 +60,7 @@ WHERE id = sqlc.arg(id);
 UPDATE file SET
   filing = sqlc.arg(filing),
   filing_reason = sqlc.arg(filing_reason),
-  error_detail = sqlc.arg(error_detail),
+  error_detail_json = sqlc.arg(error_detail_json),
   last_seen_at = sqlc.arg(seen_at)
 WHERE id = sqlc.arg(id);
 
@@ -113,7 +113,7 @@ WHERE bytes_file = sqlc.arg(file_id) AND stream_index IS NOT NULL
 
 -- name: ListLiveFilesByNode :many
 SELECT id, library_id, path, reported_path_bytes, size_bytes, payload_hash, payload_bytes, filing, filing_reason,
-  error_detail, first_seen_at, last_seen_at
+  error_detail_json, first_seen_at, last_seen_at
 FROM file
 WHERE node_id = ? AND removed_at IS NULL
 ORDER BY path;
@@ -142,7 +142,7 @@ UPDATE file SET
   library_id = sqlc.arg(library_id), size_bytes = sqlc.arg(size_bytes),
   mtime_ms = sqlc.arg(mtime_ms), payload_hash = sqlc.arg(payload_hash), payload_bytes = sqlc.arg(payload_bytes),
   filing = 'attached', sidecar_kind = sqlc.arg(sidecar_kind), filing_reason = sqlc.arg(filing_reason),
-  error_detail = NULL,
+  error_detail_json = NULL,
   nfo_body = sqlc.arg(nfo_body),
   last_seen_at = sqlc.arg(seen_at)
 WHERE id = sqlc.arg(id);

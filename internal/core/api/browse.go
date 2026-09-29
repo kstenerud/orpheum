@@ -57,12 +57,12 @@ type TitlesOutput struct {
 
 // StreamBody is one stream of a file.
 type StreamBody struct {
-	ID       int64   `doc:"Stable while the file is unchanged" json:"id"`
-	Kind     string  `json:"kind"`
-	Codec    *string `json:"codec,omitempty"`
-	Language *string `doc:"BCP 47" json:"language,omitempty"`
-	Title    *string `json:"title,omitempty"`
-	Channels *int64  `json:"channels,omitempty"`
+	ID           int64   `doc:"Stable while the file is unchanged" json:"id"`
+	Kind         string  `json:"kind"`
+	Codec        *string `json:"codec,omitempty"`
+	Language     *string `doc:"BCP 47" json:"language,omitempty"`
+	Title        *string `json:"title,omitempty"`
+	ChannelCount *int64  `json:"channelCount,omitempty"`
 }
 
 // FileDetailBody is one file of a version; its path is shown to an admin only.
@@ -239,8 +239,8 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 			for _, stream := range file.Streams {
 				fileBody.Streams = append(fileBody.Streams, StreamBody{
 					ID: stream.ID, Kind: stream.Kind, Codec: stream.Codec, Language: stream.Lang,
-					Title:    stream.TitleRaw,
-					Channels: stream.ChannelCount,
+					Title:        stream.TitleRaw,
+					ChannelCount: stream.ChannelCount,
 				})
 			}
 			versionBody.Files = append(versionBody.Files, fileBody)

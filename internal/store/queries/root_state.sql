@@ -2,26 +2,26 @@
 -- Each root's last scan and what it found (D208, D41, D42).
 
 -- name: GetRootState :one
-SELECT filesystem_device, is_mount_point, outcome, withheld_scan_started_at, withheld_reason, are_removals_approved
+SELECT filesystem_device, is_mount_point, last_scan_outcome, withheld_scan_started_at, withheld_reason, are_removals_approved
 FROM root_state
 WHERE node_id = ? AND root_path = ?;
 
 -- name: RecordRootComplete :exec
 -- A complete scan: its facts become the known-good ones later scans are compared against.
-INSERT INTO root_state (node_id, root_path, filesystem_device, is_mount_point, outcome, outcome_at)
-VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(filesystem_device), sqlc.arg(is_mount_point), 'complete', sqlc.arg(outcome_at))
+INSERT INTO root_state (node_id, root_path, filesystem_device, is_mount_point, last_scan_outcome, last_scan_at)
+VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(filesystem_device), sqlc.arg(is_mount_point), 'complete', sqlc.arg(last_scan_at))
 ON CONFLICT (node_id, root_path) DO UPDATE SET
-  filesystem_device = excluded.filesystem_device, is_mount_point = excluded.is_mount_point, outcome = 'complete',
-  outcome_at = excluded.outcome_at, withheld_scan_started_at = NULL, withheld_reason = NULL, are_removals_approved = 0;
+  filesystem_device = excluded.filesystem_device, is_mount_point = excluded.is_mount_point, last_scan_outcome = 'complete',
+  last_scan_at = excluded.last_scan_at, withheld_scan_started_at = NULL, withheld_reason = NULL, are_removals_approved = 0;
 
 -- name: RecordRootNotComplete :exec
 -- A scan that could not read its root, or whose removals wait for the admin: the known-good
 -- facts stay as they were.
-INSERT INTO root_state (node_id, root_path, outcome, outcome_at, withheld_scan_started_at, withheld_reason)
-VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(outcome), sqlc.arg(outcome_at), sqlc.arg(withheld_scan_started_at),
+INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at, withheld_reason)
+VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(last_scan_outcome), sqlc.arg(last_scan_at), sqlc.arg(withheld_scan_started_at),
   sqlc.arg(withheld_reason))
 ON CONFLICT (node_id, root_path) DO UPDATE SET
-  outcome = excluded.outcome, outcome_at = excluded.outcome_at,
+  last_scan_outcome = excluded.last_scan_outcome, last_scan_at = excluded.last_scan_at,
   withheld_scan_started_at = excluded.withheld_scan_started_at, withheld_reason = excluded.withheld_reason;
 
 -- name: ListRootMounts :many

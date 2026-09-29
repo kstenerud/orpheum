@@ -174,7 +174,7 @@ func (work *batch) filed(
 	}))
 	if err == nil {
 		err = work.queries.UpdateFileFiling(ctx, sqlcgen.UpdateFileFilingParams{
-			Filing: filing, FilingReason: &reason, ErrorDetail: detail, SeenAt: work.now, ID: existing.ID,
+			Filing: filing, FilingReason: &reason, ErrorDetailJson: detail, SeenAt: work.now, ID: existing.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("file %s as %s: %w", located.text, filing, err)
@@ -186,7 +186,7 @@ func (work *batch) filed(
 	}
 	_, err = work.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
 		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, ReportedPathBytes: located.key,
-		Filing: filing, FilingReason: &reason, ErrorDetail: detail, SeenAt: work.now,
+		Filing: filing, FilingReason: &reason, ErrorDetailJson: detail, SeenAt: work.now,
 	})
 	if err != nil {
 		return fmt.Errorf("insert %s as %s: %w", located.text, filing, err)

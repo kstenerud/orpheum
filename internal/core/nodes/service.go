@@ -167,10 +167,10 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	}
 	service.connect(node.ID, hello)
 	service.logger.InfoContext(ctx, "a node said hello", "node", hello.Name, "nodeId", node.ID,
-		"build", hello.Build.String(), "ffmpeg", hello.FFmpegVersion, "roots", hello.Roots,
+		"build", hello.Build.String(), "ffmpeg", hello.FFmpegVersion, "roots", hello.RootPaths,
 		"confinement", hello.Confinement)
 	if scanOnHello {
-		for _, root := range hello.Roots {
+		for _, root := range hello.RootPaths {
 			service.Enqueue(node.ID, nodeproto.Command{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{Root: root}})
 		}
 	}
@@ -265,7 +265,7 @@ func (service *Service) Roots(name string) (int64, []string, bool) {
 	defer service.mutex.Unlock()
 	for id, queue := range service.channels {
 		if queue.name == name {
-			return id, slices.Clone(queue.hello.Roots), true
+			return id, slices.Clone(queue.hello.RootPaths), true
 		}
 	}
 	return 0, nil, false
@@ -279,7 +279,7 @@ func (service *Service) Enqueue(nodeID int64, command nodeproto.Command) {
 	if !found {
 		return
 	}
-	command.Seq = queue.nextSeq
+	command.CommandSeq = queue.nextSeq
 	queue.nextSeq++
 	queue.commands = append(queue.commands, command)
 	close(queue.wake)

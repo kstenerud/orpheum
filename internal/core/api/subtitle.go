@@ -17,8 +17,8 @@ import (
 // SubtitleTrackBody is one text subtitle track, in the two forms it is served in (cut-a §6).
 type SubtitleTrackBody struct {
 	StreamID int64 `doc:"A track inside the file, or a subtitle file beside it" json:"streamId,omitempty"`
-	// FetchedID is a subtitle fetched on request for the file; it is unverified (D224).
-	FetchedID         int64  `doc:"A subtitle fetched on request; unverified" json:"fetchedId,omitempty"`
+	// FetchedSubtitleID is a subtitle fetched on request for the file; it is unverified (D224).
+	FetchedSubtitleID int64  `doc:"A subtitle fetched on request; unverified" json:"fetchedSubtitleId,omitempty"`
 	Language          string `doc:"BCP 47; empty when the file names none" json:"language"`
 	Title             string `json:"title"`
 	IsDefault         bool   `json:"isDefault"`
@@ -86,11 +86,12 @@ func subtitleTracks(started playback.Started) []SubtitleTrackBody {
 	for _, track := range started.Subtitles {
 		name := strconv.FormatInt(track.StreamID, 10)
 		if track.IsFetched() {
-			name = "f" + strconv.FormatInt(track.FetchedID, 10)
+			name = "f" + strconv.FormatInt(track.FetchedSubtitleID, 10)
 		}
 		base := Prefix + "/bytes/media/sub/" + started.Token + "/" + name
 		tracks = append(tracks, SubtitleTrackBody{
-			StreamID: track.StreamID, FetchedID: track.FetchedID, Language: track.Language, Title: track.Title,
+			StreamID: track.StreamID, FetchedSubtitleID: track.FetchedSubtitleID, Language: track.Language,
+			Title:     track.Title,
 			IsDefault: track.Default, IsForced: track.Forced, IsHearingImpaired: track.HearingImpaired,
 			ASSURL: base + ".ass", VTTURL: base + ".vtt",
 		})
@@ -111,7 +112,7 @@ func (server *Server) subtitle(ctx context.Context, input *SubtitleInput) (*huma
 	}
 	track := playback.TrackRef{StreamID: id}
 	if match[1] == "f" {
-		track = playback.TrackRef{FetchedID: id}
+		track = playback.TrackRef{FetchedSubtitleID: id}
 	}
 	format, contentType := playback.FormatASS, assContentType
 	if match[3] == string(playback.FormatWebVTT) {

@@ -136,7 +136,7 @@ func (agent *Agent) runPrepare(
 		if now := agent.clock.Now(); now.Sub(last) >= progressEvery {
 			last = now
 			running := nodeproto.PrepareReport{
-				JobID: command.JobID, State: nodeproto.PrepareRunning, PreparedMs: preparedMs,
+				JobID: command.JobID, State: nodeproto.PrepareRunning, PreparedThroughMs: preparedMs,
 			}
 			if sendErr := agent.sendPrepare(ctx, nodeID, running); sendErr != nil && ctx.Err() == nil {
 				agent.logger.DebugContext(ctx, "could not send a prepare's progress",

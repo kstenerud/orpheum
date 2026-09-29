@@ -42,13 +42,13 @@ type SubtitleTrack struct {
 // one is set.
 type TrackRef struct {
 	StreamID int64 `json:"streamId,omitempty"`
-	// FetchedID is a subtitle fetched on request; it is unverified, as every fetched one is in
+	// FetchedSubtitleID is a subtitle fetched on request; it is unverified, as every fetched one is in
 	// Cut A (D224 §4, D178 §4).
-	FetchedID int64 `json:"fetchedId,omitempty"`
+	FetchedSubtitleID int64 `json:"fetchedSubtitleId,omitempty"`
 }
 
 // IsFetched is whether the track is a subtitle fetched on request.
-func (ref TrackRef) IsFetched() bool { return ref.FetchedID != 0 }
+func (ref TrackRef) IsFetched() bool { return ref.FetchedSubtitleID != 0 }
 
 // SubtitleFormat is one of the two forms a subtitle is served in (cut-a §6).
 type SubtitleFormat string
@@ -129,7 +129,7 @@ func fetchedTracksOf(rows []sqlcgen.ListFetchedSubtitlesOfVideoRow) []SubtitleTr
 	tracks := make([]SubtitleTrack, 0, len(rows))
 	for _, row := range rows {
 		tracks = append(tracks, SubtitleTrack{
-			TrackRef: TrackRef{FetchedID: row.ID}, Language: row.Lang, Title: ptr.ValueOrZero(row.ReleaseName),
+			TrackRef: TrackRef{FetchedSubtitleID: row.ID}, Language: row.Lang, Title: ptr.ValueOrZero(row.ReleaseName),
 		})
 	}
 	return tracks
@@ -248,12 +248,13 @@ func (service *Service) trackKey(
 	ctx context.Context, track TrackRef, video int64,
 ) (cachegen.GetSubtitleTextParams, error) {
 	if track.IsFetched() {
-		fetched, err := store.One(service.database.Read().GetFetchedSubtitle(ctx, track.FetchedID))
+		fetched, err := store.One(service.database.Read().GetFetchedSubtitle(ctx, track.FetchedSubtitleID))
 		if errors.Is(err, store.ErrNotFound) || (err == nil && fetched.VideoFile != video) {
 			return cachegen.GetSubtitleTextParams{}, ErrNoSubtitle
 		}
 		if err != nil {
-			return cachegen.GetSubtitleTextParams{}, fmt.Errorf("read fetched subtitle %d: %w", track.FetchedID, err)
+			return cachegen.GetSubtitleTextParams{}, fmt.Errorf("read fetched subtitle %d: %w", track.FetchedSubtitleID,
+				err)
 		}
 		return fetchedKey(fetched.BodyGzip), nil
 	}

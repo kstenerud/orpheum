@@ -26,9 +26,9 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wa
 	if !known {
 		return nil
 	}
-	command := nodeproto.Artwork{Shape: shape, SizeNames: args.Sizes}
-	if base, found := service.baseFor(args.Hash, args.Sizes); found {
-		stored, err := service.parts.Store.ReadArt(args.Hash, base)
+	command := nodeproto.Artwork{Shape: shape, SizeNames: args.SizeNames}
+	if base, found := service.baseFor(args.ImageHash, args.SizeNames); found {
+		stored, err := service.parts.Store.ReadArt(args.ImageHash, base)
 		if err == nil {
 			nodeID, nodeErr := service.anyNode()
 			if nodeErr != nil {
@@ -41,7 +41,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wa
 	if image.source == identify.SourceLocal {
 		nodeID, named, err := service.localFile(ctx, image.ref.Ref)
 		if errors.Is(err, ErrNoImage) {
-			return service.cannotMake(ctx, args.Hash, args.Sizes)
+			return service.cannotMake(ctx, args.ImageHash, args.SizeNames)
 		}
 		if err != nil {
 			return err
@@ -50,10 +50,10 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wa
 		return service.cutFrom(ctx, nodeID, command, args, true)
 	}
 	source, err := service.fetch(ctx, fetcher, image.source, image.ref.Ref)
-	if errors.Is(err, ErrNoImage) || (err == nil && source.hash() != args.Hash) {
+	if errors.Is(err, ErrNoImage) || (err == nil && source.hash() != args.ImageHash) {
 		service.parts.Logger.WarnContext(ctx, "an image's source is gone or changed; its sizes are not made",
-			"hash", args.Hash, "source", image.source, "ref", image.ref.Ref)
-		return service.cannotMake(ctx, args.Hash, args.Sizes)
+			"hash", args.ImageHash, "source", image.source, "ref", image.ref.Ref)
+		return service.cannotMake(ctx, args.ImageHash, args.SizeNames)
 	}
 	if err != nil {
 		return err
@@ -75,26 +75,26 @@ func (service *Service) cutFrom(
 	if err != nil {
 		return err
 	}
-	if command.AbsolutePath != nil && result.Refusal == "" && result.SourceHash != args.Hash {
+	if command.AbsolutePath != nil && result.Refusal == "" && result.SourceSha256 != args.ImageHash {
 		service.parts.Logger.WarnContext(ctx, "an image beside the media changed; its sizes are not made",
-			"hash", args.Hash)
-		return service.cannotMake(ctx, args.Hash, args.Sizes)
+			"hash", args.ImageHash)
+		return service.cannotMake(ctx, args.ImageHash, args.SizeNames)
 	}
 	var unmade []nodeproto.ArtSizeName
-	for _, size := range args.Sizes {
+	for _, size := range args.SizeNames {
 		made := slices.IndexFunc(result.Images, func(image nodeproto.ArtImage) bool { return image.SizeName == size })
 		if made < 0 || !isWebP(result.Images[made].WebP) {
 			unmade = append(unmade, size)
 			continue
 		}
-		if err := service.writeArt(ctx, args.Hash, string(size)+webpFormat, result.Images[made].WebP); err != nil {
+		if err := service.writeArt(ctx, args.ImageHash, string(size)+webpFormat, result.Images[made].WebP); err != nil {
 			return err
 		}
 	}
 	if len(unmade) > 0 && !fromSource {
-		return fmt.Errorf("the node cut no %v from art %s's base", unmade, args.Hash)
+		return fmt.Errorf("the node cut no %v from art %s's base", unmade, args.ImageHash)
 	}
-	return service.cannotMake(ctx, args.Hash, unmade)
+	return service.cannotMake(ctx, args.ImageHash, unmade)
 }
 
 // baseFor is the held WebP an image's sizes can be cut from: its largest, when it is at least
@@ -162,7 +162,8 @@ func (service *Service) queueMake(ctx context.Context, hash string, want nodepro
 		return nil
 	}
 	args, err := json.Marshal(owed{
-		Source: origin.Source, Refs: []owedRef{{Kind: origin.Kind, Ref: *origin.SourceRef}}, Hash: hash, Sizes: sizes,
+		FollowedSource: origin.Source, Refs: []owedRef{{Kind: origin.Kind, Ref: *origin.SourceRef}}, ImageHash: hash,
+		SizeNames: sizes,
 	})
 	if err != nil {
 		return fmt.Errorf("encode the job: %w", err)

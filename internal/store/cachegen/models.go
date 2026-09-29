@@ -55,7 +55,7 @@ type PreparedRendition struct {
 	Failure           *string
 	VideoEncoder      *string
 	RealtimeFactor    *float64
-	AudioGainsDb      string
+	AudioGainsDbJson  string
 	CreatedAt         int64
 	FinishedAt        *int64
 }

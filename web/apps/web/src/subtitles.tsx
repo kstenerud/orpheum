@@ -29,10 +29,10 @@ export type TrackKey = string;
 /** The key of a track, or of a choice's track. */
 export function trackKey(track: {
   readonly streamId?: number;
-  readonly fetchedId?: number;
+  readonly fetchedSubtitleId?: number;
 }): TrackKey | undefined {
-  if (track.fetchedId !== undefined && track.fetchedId !== 0) {
-    return `f${String(track.fetchedId)}`;
+  if (track.fetchedSubtitleId !== undefined && track.fetchedSubtitleId !== 0) {
+    return `f${String(track.fetchedSubtitleId)}`;
   }
   if (track.streamId !== undefined && track.streamId !== 0) {
     return `s${String(track.streamId)}`;
@@ -59,7 +59,7 @@ export function trackLabel(
   if (track.isHearingImpaired) {
     parts.push(words.hearingImpaired);
   }
-  if (track.fetchedId !== undefined && track.fetchedId !== 0) {
+  if (track.fetchedSubtitleId !== undefined && track.fetchedSubtitleId !== 0) {
     parts.push(words.fetched);
   }
   return parts.join(" · ");
@@ -98,11 +98,13 @@ export async function keepSubtitleChoice(
   key: TrackKey | undefined,
 ): Promise<void> {
   const id = key === undefined ? 0 : Number(key.slice(1));
-  let subtitle: { isOff: true } | { streamId: number } | { fetchedId: number } = { isOff: true };
+  let subtitle: { isOff: true } | { streamId: number } | { fetchedSubtitleId: number } = {
+    isOff: true,
+  };
   if (key?.startsWith("s") === true) {
     subtitle = { streamId: id };
   } else if (key?.startsWith("f") === true) {
-    subtitle = { fetchedId: id };
+    subtitle = { fetchedSubtitleId: id };
   }
   throwIfRefused(
     await api.PUT("/files/{id}/prefs", {

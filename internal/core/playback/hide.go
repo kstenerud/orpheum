@@ -61,7 +61,7 @@ func (service *Service) WatchStatsOf(ctx context.Context, userID int64) (WatchSt
 	if err != nil {
 		return WatchStats{}, fmt.Errorf("read user %d's watching: %w", userID, err)
 	}
-	stats := WatchStats{WatchedMs: row.WatchedMs, TitlesWatched: row.TitlesWatched}
+	stats := WatchStats{WatchedMs: row.WatchedMs, TitlesWatched: row.TitlesWatchedCount}
 	if row.LastWatchedAt != 0 {
 		stats.LastWatchedAt = time.UnixMilli(row.LastWatchedAt)
 	}

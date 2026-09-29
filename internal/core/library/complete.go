@@ -77,7 +77,7 @@ func (work *batch) complete(ctx context.Context, scan *scanState, complete *node
 	device, mountPoint := int64(scan.facts.Device), boolInt(scan.facts.MountPoint) //nolint:gosec // a device id fits
 	err = work.queries.RecordRootComplete(ctx, sqlcgen.RecordRootCompleteParams{
 		NodeID: work.nodeID, RootPath: scan.root, FilesystemDevice: &device, IsMountPoint: &mountPoint,
-		OutcomeAt: work.now,
+		LastScanAt: work.now,
 	})
 	if err != nil {
 		return fmt.Errorf("record %s's facts: %w", scan.root, err)
@@ -219,7 +219,7 @@ func (work *batch) recordNotComplete(ctx context.Context, scan *scanState, outco
 		since, why = &scan.startedAt, &reason
 	}
 	err := work.queries.RecordRootNotComplete(ctx, sqlcgen.RecordRootNotCompleteParams{
-		NodeID: work.nodeID, RootPath: scan.root, Outcome: outcome, OutcomeAt: work.now,
+		NodeID: work.nodeID, RootPath: scan.root, LastScanOutcome: outcome, LastScanAt: work.now,
 		WithheldScanStartedAt: since, WithheldReason: why,
 	})
 	if err != nil {

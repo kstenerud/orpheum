@@ -170,7 +170,7 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 			case nodeproto.PrepareWaiting:
 				timer.Reset(all.maxSilence) // the node holds it, waiting for a slot of its kind
 			case nodeproto.PrepareRunning:
-				if err := all.progressed(ctx, job, report.PreparedMs, made.durationMs); err != nil {
+				if err := all.progressed(ctx, job, report.PreparedThroughMs, made.durationMs); err != nil {
 					return err
 				}
 				timer.Reset(all.maxSilence)
@@ -216,7 +216,7 @@ func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) er
 // carrying records the gains a making puts in the rendition's audio tracks (D226 §4).
 func (all *prepares) carrying(ctx context.Context, rendition int64, gains string) error {
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		return queries.SetRenditionGains(ctx, cachegen.SetRenditionGainsParams{AudioGainsDb: gains, ID: rendition})
+		return queries.SetRenditionGains(ctx, cachegen.SetRenditionGainsParams{AudioGainsDbJson: gains, ID: rendition})
 	})
 	if err != nil {
 		return fmt.Errorf("record rendition %d's gains: %w", rendition, err)

@@ -135,8 +135,8 @@ type SystemNodeBody struct {
 	Confinement []ConfinementBody `json:"confinement"`
 	// Hardware is what it found for hardware encoding; absent while it is not connected.
 	Hardware *HardwareBody `json:"hardware,omitempty"`
-	// Prepared is what its prepared directory holds against its budget (D217 §5).
-	Prepared *PreparedBody `json:"prepared,omitempty"`
+	// PreparedUsage is what its prepared directory holds against its budget (D217 §5).
+	PreparedUsage *PreparedBody `json:"preparedUsage,omitempty"`
 	// Disks are the filesystems its roots and prepared directory are on.
 	Disks []DiskBody `json:"disks"`
 	// RecentPrepares are its latest finished prepares, newest first, each with what made it.
@@ -147,10 +147,10 @@ type SystemNodeBody struct {
 type ConfinementBody struct {
 	Mechanism string `enum:"landlock,seccomp" json:"mechanism"`
 	IsInForce bool   `json:"isInForce"`
-	// Cause names why it is not in force, for a client to say in its viewer's words.
-	Cause  string `enum:"disabled_at_boot,kernel_without,blocked_by_runtime,not_linux,architecture_unwritten,unexplained" json:"cause,omitempty"` //nolint:lll // one struct tag
-	Reason string `json:"reason,omitempty"`
-	Remedy string `json:"remedy,omitempty"`
+	// CauseCode names why it is not in force, for a client to say in its viewer's words.
+	CauseCode string `enum:"disabled_at_boot,kernel_without,blocked_by_runtime,not_linux,architecture_unwritten,unexplained" json:"causeCode,omitempty"` //nolint:lll // one struct tag
+	Reason    string `json:"reason,omitempty"`
+	Remedy    string `json:"remedy,omitempty"`
 }
 
 // HardwareBody is a node's hardware encoding: what it sees, whether it may open it, what worked
@@ -281,7 +281,7 @@ func describeNode(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Inf
 	nodeBuild, nodeHost := buildBody(hello.Build), hostBody(hello.Host)
 	body.IsConnected, body.LastHeardAt = true, &heard
 	body.Build, body.IsServersBuild, body.Host = &nodeBuild, hello.Build.IsSame(serverBuild), &nodeHost
-	body.FFmpegVersion, body.FFmpegSha256 = hello.FFmpegVersion, hello.FFmpegHash
+	body.FFmpegVersion, body.FFmpegSha256 = hello.FFmpegVersion, hello.FFmpegSha256
 	body.UID, body.GID = hello.UID, hello.GID
 	body.Confinement = confinementBodies(hello.Confinement)
 	body.Hardware = hardwareBody(hello.Hardware)
@@ -289,7 +289,7 @@ func describeNode(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Inf
 		return
 	}
 	if usage := facts.Status.PreparedUsage; usage != nil {
-		body.Prepared = &PreparedBody{
+		body.PreparedUsage = &PreparedBody{
 			UsedBytes: usage.UsedBytes, BudgetBytes: usage.BudgetBytes, DiskUsedPercent: usage.DiskUsedPercent,
 			DiskUsedLimitPercent: usage.DiskUsedLimitPercent,
 		}
@@ -306,7 +306,7 @@ func confinementBodies(reported []nodeproto.Confinement) []ConfinementBody {
 	bodies := make([]ConfinementBody, 0, len(reported))
 	for _, state := range reported {
 		bodies = append(bodies, ConfinementBody{
-			Mechanism: state.Mechanism, IsInForce: state.IsInForce, Cause: state.CauseCode, Reason: state.Reason,
+			Mechanism: state.Mechanism, IsInForce: state.IsInForce, CauseCode: state.CauseCode, Reason: state.Reason,
 			Remedy: state.Remedy,
 		})
 	}

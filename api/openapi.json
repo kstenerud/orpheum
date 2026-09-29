@@ -377,7 +377,7 @@
       "ConfinementBody": {
         "additionalProperties": false,
         "properties": {
-          "cause": {
+          "causeCode": {
             "enum": [
               "disabled_at_boot",
               "kernel_without",
@@ -954,7 +954,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "fetchedId": {
+          "fetchedSubtitleId": {
             "description": "The new track; a playback started again offers it",
             "format": "int64",
             "type": "integer"
@@ -965,7 +965,7 @@
           }
         },
         "required": [
-          "fetchedId",
+          "fetchedSubtitleId",
           "remainingDownloads"
         ],
         "type": "object"
@@ -1797,81 +1797,6 @@
         ],
         "type": "object"
       },
-      "MenuBody": {
-        "additionalProperties": false,
-        "properties": {
-          "audioCodecs": {
-            "description": "Must list aac-stereo",
-            "items": {
-              "enum": [
-                "aac-stereo",
-                "aac-multi",
-                "ac3",
-                "eac3",
-                "opus",
-                "flac"
-              ],
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "containers": {
-            "description": "Containers played as they are",
-            "items": {
-              "enum": [
-                "mp4",
-                "mkv",
-                "mpegts"
-              ],
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "subtitleFormats": {
-            "items": {
-              "enum": [
-                "ass",
-                "webvtt"
-              ],
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
-          "videoCodecs": {
-            "description": "Must list h264-sdr",
-            "items": {
-              "enum": [
-                "h264-sdr",
-                "hevc-sdr",
-                "hevc-hdr10",
-                "av1-sdr",
-                "av1-hdr10"
-              ],
-              "type": "string"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "videoCodecs",
-          "audioCodecs",
-          "subtitleFormats",
-          "containers"
-        ],
-        "type": "object"
-      },
       "NewDeviceBody": {
         "additionalProperties": false,
         "properties": {
@@ -1958,6 +1883,81 @@
         "required": [
           "account",
           "watchStats"
+        ],
+        "type": "object"
+      },
+      "PlayableFormatsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "audioCodecs": {
+            "description": "Must list aac-stereo",
+            "items": {
+              "enum": [
+                "aac-stereo",
+                "aac-multi",
+                "ac3",
+                "eac3",
+                "opus",
+                "flac"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "containers": {
+            "description": "Containers played as they are",
+            "items": {
+              "enum": [
+                "mp4",
+                "mkv",
+                "mpegts"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "subtitleFormats": {
+            "items": {
+              "enum": [
+                "ass",
+                "webvtt"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "videoCodecs": {
+            "description": "Must list h264-sdr",
+            "items": {
+              "enum": [
+                "h264-sdr",
+                "hevc-sdr",
+                "hevc-hdr10",
+                "av1-sdr",
+                "av1-hdr10"
+              ],
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "videoCodecs",
+          "audioCodecs",
+          "subtitleFormats",
+          "containers"
         ],
         "type": "object"
       },
@@ -2550,7 +2550,7 @@
             "type": "string"
           },
           "playableFormats": {
-            "$ref": "#/components/schemas/MenuBody"
+            "$ref": "#/components/schemas/PlayableFormatsBody"
           },
           "preferredDelivery": {
             "description": "A person's override",
@@ -2665,7 +2665,7 @@
       "StreamBody": {
         "additionalProperties": false,
         "properties": {
-          "channels": {
+          "channelCount": {
             "format": "int64",
             "type": "integer"
           },
@@ -2774,7 +2774,7 @@
       "SubtitleChoiceBody": {
         "additionalProperties": false,
         "properties": {
-          "fetchedId": {
+          "fetchedSubtitleId": {
             "description": "The chosen track, a subtitle fetched for the file",
             "format": "int64",
             "type": "integer"
@@ -2801,7 +2801,7 @@
             "description": "The track as ASS, for JASSUB",
             "type": "string"
           },
-          "fetchedId": {
+          "fetchedSubtitleId": {
             "description": "A subtitle fetched on request; unverified",
             "format": "int64",
             "type": "integer"
@@ -2897,7 +2897,7 @@
           "name": {
             "type": "string"
           },
-          "prepared": {
+          "preparedUsage": {
             "$ref": "#/components/schemas/PreparedBody"
           },
           "recentPrepares": {

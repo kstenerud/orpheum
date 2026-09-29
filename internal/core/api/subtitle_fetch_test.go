@@ -153,7 +153,7 @@ func TestSubtitleCandidates_SayWhyInTheProvidersTerms(t *testing.T) {
 	for failure, want := range map[error]string{
 		opensubtitles.ErrNoLogin:                         `"reason":"no_login"`,
 		opensubtitles.ErrLoginRefused:                    `"reason":"login_refused"`,
-		&opensubtitles.QuotaSpentError{ResetAt: resetAt}: `"resetAt":"2026-09-29T06:00:00Z"`,
+		&opensubtitles.QuotaSpentError{ResetAt: resetAt}: `"downloadsResetAt":"2026-09-29T06:00:00Z"`,
 	} {
 		harness.subtitler.mutex.Lock()
 		harness.subtitler.failure = failure
@@ -195,15 +195,15 @@ func fetchGerman(t *testing.T, harness testHarness, user string) int64 {
 	answer := harness.do(t, http.MethodPost, "/files/2/subtitles", user,
 		map[string]any{"providerFileId": 7, "language": "de"})
 	var fetched struct {
-		FetchedID int64 `json:"fetchedId"`
-		Remaining int   `json:"remainingDownloads"`
-		ResetAt   int64 `json:"downloadsResetAt"`
+		FetchedSubtitleID int64 `json:"fetchedSubtitleId"`
+		Remaining         int   `json:"remainingDownloads"`
+		ResetAt           int64 `json:"downloadsResetAt"`
 	}
 	if err := json.Unmarshal([]byte(answer.body), &fetched); err != nil || answer.status != http.StatusOK ||
-		fetched.FetchedID == 0 || fetched.Remaining != 19 || fetched.ResetAt != resetAt.UnixMilli() {
+		fetched.FetchedSubtitleID == 0 || fetched.Remaining != 19 || fetched.ResetAt != resetAt.UnixMilli() {
 		t.Fatalf("POST /files/2/subtitles = %d %s; want the new track and what is left", answer.status, answer.body)
 	}
-	return fetched.FetchedID
+	return fetched.FetchedSubtitleID
 }
 
 // offeredFetched is the fetched track a playback offers, which fails the test when it is not there.
@@ -211,7 +211,7 @@ func offeredFetched(t *testing.T, decided decision, fetchedID int64) subtitleTra
 	t.Helper()
 	wantURL := fmt.Sprintf("/f%d.vtt", fetchedID)
 	for _, track := range decided.Subtitles {
-		if track.FetchedID == fetchedID && track.Language == "de" && strings.HasSuffix(track.VTTURL, wantURL) {
+		if track.FetchedSubtitleID == fetchedID && track.Language == "de" && strings.HasSuffix(track.VTTURL, wantURL) {
 			return track
 		}
 	}

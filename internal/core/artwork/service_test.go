@@ -144,7 +144,7 @@ func newBench(t *testing.T, images fetched) *bench {
 }
 
 func (bench *bench) job(refs ...owedRef) jobs.Job {
-	args, err := json.Marshal(owed{Source: "tmdb", Refs: refs})
+	args, err := json.Marshal(owed{FollowedSource: "tmdb", Refs: refs})
 	if err != nil {
 		panic(err)
 	}
@@ -323,13 +323,13 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 			{SizeName: nodeproto.PortraitS, WebP: ourWebP},
 		}}
 		if command.AbsolutePath != nil {
-			result.SourceHash = hex.EncodeToString(localSum[:])
+			result.SourceSha256 = hex.EncodeToString(localSum[:])
 		}
 		return result
 	}
 	local := identify.LocalRef(fileID, 5, 7)
 	refs := []owedRef{{Kind: identify.ArtPoster, Ref: local}}
-	args, err := json.Marshal(owed{Source: identify.SourceLocal, Refs: refs})
+	args, err := json.Marshal(owed{FollowedSource: identify.SourceLocal, Refs: refs})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,7 +340,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 		t.Fatal(err)
 	}
 	sent := bench.node.sent[len(bench.node.sent)-1]
-	if sent.AbsolutePath == nil || string(sent.AbsolutePath.Raw) != "/m/Film/poster.jpg" || sent.SourceImage != nil {
+	if sent.AbsolutePath == nil || string(sent.AbsolutePath.Bytes) != "/m/Film/poster.jpg" || sent.SourceImage != nil {
 		t.Fatalf("the node was sent %+v; want the file's path for it to read, and no bytes", sent)
 	}
 	// TMDB's poster arrives later, and is still not what the film shows.

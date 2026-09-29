@@ -47,7 +47,7 @@ func (q *Queries) CountLibraryFilings(ctx context.Context, libraryID int64) ([]C
 }
 
 const getLibrary = `-- name: GetLibrary :one
-SELECT id, name, kind, metadata_source, change_detection, check_every_h, is_writable, created_at
+SELECT id, name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at
 FROM library
 WHERE id = ?1 AND removed_at IS NULL
 `
@@ -58,7 +58,7 @@ type GetLibraryRow struct {
 	Kind            string
 	MetadataSource  string
 	ChangeDetection string
-	CheckEveryH     *int64
+	CheckEveryHours *int64
 	IsWritable      int64
 	CreatedAt       int64
 }
@@ -72,7 +72,7 @@ func (q *Queries) GetLibrary(ctx context.Context, id int64) (GetLibraryRow, erro
 		&i.Kind,
 		&i.MetadataSource,
 		&i.ChangeDetection,
-		&i.CheckEveryH,
+		&i.CheckEveryHours,
 		&i.IsWritable,
 		&i.CreatedAt,
 	)
@@ -102,7 +102,7 @@ func (q *Queries) GetLiveLibraryByName(ctx context.Context, name string) (GetLiv
 
 const insertLibrary = `-- name: InsertLibrary :one
 
-INSERT INTO library (name, kind, metadata_source, change_detection, check_every_h, is_writable, created_at)
+INSERT INTO library (name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at)
 VALUES (
   ?1, ?2, ?3, ?4,
   ?5, ?6, ?7
@@ -115,7 +115,7 @@ type InsertLibraryParams struct {
 	Kind            string
 	MetadataSource  string
 	ChangeDetection string
-	CheckEveryH     *int64
+	CheckEveryHours *int64
 	IsWritable      int64
 	CreatedAt       int64
 }
@@ -128,7 +128,7 @@ func (q *Queries) InsertLibrary(ctx context.Context, arg InsertLibraryParams) (i
 		arg.Kind,
 		arg.MetadataSource,
 		arg.ChangeDetection,
-		arg.CheckEveryH,
+		arg.CheckEveryHours,
 		arg.IsWritable,
 		arg.CreatedAt,
 	)
@@ -154,7 +154,7 @@ func (q *Queries) InsertLibraryRoot(ctx context.Context, arg InsertLibraryRootPa
 }
 
 const listFilesPage = `-- name: ListFilesPage :many
-SELECT id, library_id, path, filing, filing_reason, error_detail, size_bytes, first_seen_at, last_seen_at
+SELECT id, library_id, path, filing, filing_reason, error_detail_json, size_bytes, first_seen_at, last_seen_at
 FROM file
 WHERE removed_at IS NULL AND id > ?1
   AND (library_id = ?2 OR ?2 IS NULL)
@@ -171,15 +171,15 @@ type ListFilesPageParams struct {
 }
 
 type ListFilesPageRow struct {
-	ID           int64
-	LibraryID    int64
-	Path         string
-	Filing       string
-	FilingReason *string
-	ErrorDetail  *string
-	SizeBytes    *int64
-	FirstSeenAt  int64
-	LastSeenAt   int64
+	ID              int64
+	LibraryID       int64
+	Path            string
+	Filing          string
+	FilingReason    *string
+	ErrorDetailJson *string
+	SizeBytes       *int64
+	FirstSeenAt     int64
+	LastSeenAt      int64
 }
 
 // What the scanner saw (D163): live files by id after a cursor, optionally of one library and
@@ -204,7 +204,7 @@ func (q *Queries) ListFilesPage(ctx context.Context, arg ListFilesPageParams) ([
 			&i.Path,
 			&i.Filing,
 			&i.FilingReason,
-			&i.ErrorDetail,
+			&i.ErrorDetailJson,
 			&i.SizeBytes,
 			&i.FirstSeenAt,
 			&i.LastSeenAt,
@@ -223,7 +223,7 @@ func (q *Queries) ListFilesPage(ctx context.Context, arg ListFilesPageParams) ([
 }
 
 const listLibraries = `-- name: ListLibraries :many
-SELECT id, name, kind, metadata_source, change_detection, check_every_h, is_writable, created_at
+SELECT id, name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at
 FROM library
 WHERE removed_at IS NULL
 ORDER BY name, id
@@ -235,7 +235,7 @@ type ListLibrariesRow struct {
 	Kind            string
 	MetadataSource  string
 	ChangeDetection string
-	CheckEveryH     *int64
+	CheckEveryHours *int64
 	IsWritable      int64
 	CreatedAt       int64
 }
@@ -255,7 +255,7 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]ListLibrariesRow, error)
 			&i.Kind,
 			&i.MetadataSource,
 			&i.ChangeDetection,
-			&i.CheckEveryH,
+			&i.CheckEveryHours,
 			&i.IsWritable,
 			&i.CreatedAt,
 		); err != nil {
@@ -273,8 +273,8 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]ListLibrariesRow, error)
 }
 
 const listLibraryRootStates = `-- name: ListLibraryRootStates :many
-SELECT library_root.path, library_root.node_id, node.name AS node_name, root_state.outcome,
-  root_state.outcome_at, root_state.withheld_reason
+SELECT library_root.path, library_root.node_id, node.name AS node_name, root_state.last_scan_outcome,
+  root_state.last_scan_at, root_state.withheld_reason
 FROM library_root
 JOIN node ON node.id = library_root.node_id
 LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.path
@@ -283,12 +283,12 @@ ORDER BY library_root.path
 `
 
 type ListLibraryRootStatesRow struct {
-	Path           string
-	NodeID         int64
-	NodeName       string
-	Outcome        *string
-	OutcomeAt      *int64
-	WithheldReason *string
+	Path            string
+	NodeID          int64
+	NodeName        string
+	LastScanOutcome *string
+	LastScanAt      *int64
+	WithheldReason  *string
 }
 
 // A library's roots with their node and the last scan's outcome: whether the files are
@@ -306,8 +306,8 @@ func (q *Queries) ListLibraryRootStates(ctx context.Context, libraryID int64) ([
 			&i.Path,
 			&i.NodeID,
 			&i.NodeName,
-			&i.Outcome,
-			&i.OutcomeAt,
+			&i.LastScanOutcome,
+			&i.LastScanAt,
 			&i.WithheldReason,
 		); err != nil {
 			return nil, err

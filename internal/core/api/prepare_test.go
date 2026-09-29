@@ -88,7 +88,7 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 		sent.Source.PayloadHash != "0c0d" || len(sent.Audio) != 1 || sent.Audio[0].ChannelCount != 8 {
 		t.Fatalf("the node was sent %+v, want the MKV by root, path and hash, with its 8-channel track", command)
 	}
-	running := nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareRunning, PreparedMs: 4000}
+	running := nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareRunning, PreparedThroughMs: 4000}
 	playback.Reported(t.Context(), 1, running)
 	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareDone, SizeBytes: 1234})
 	if err := <-finished; err != nil {

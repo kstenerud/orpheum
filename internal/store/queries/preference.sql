@@ -3,13 +3,13 @@
 -- value set equal to the starting one is still a choice, so it is stored, never deleted.
 
 -- name: SetPreference :exec
-INSERT INTO preference (user_id, scope, scope_id, axis, value, set_at)
-VALUES (sqlc.arg(user_id), sqlc.arg(scope), sqlc.arg(scope_id), sqlc.arg(axis), sqlc.arg(value), sqlc.arg(set_at))
-ON CONFLICT (user_id, scope, scope_id, axis) DO UPDATE SET value = excluded.value, set_at = excluded.set_at;
+INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
+VALUES (sqlc.arg(user_id), sqlc.arg(scope), sqlc.arg(scope_id), sqlc.arg(axis), sqlc.arg(value_json), sqlc.arg(set_at))
+ON CONFLICT (user_id, scope, scope_id, axis) DO UPDATE SET value_json = excluded.value_json, set_at = excluded.set_at;
 
 -- name: ListPreferencesAt :many
 -- A person's preferences at one scope: a file's sync offset, say.
-SELECT axis, value
+SELECT axis, value_json
 FROM preference
 WHERE user_id = ? AND scope = ? AND scope_id = ?
 ORDER BY axis;

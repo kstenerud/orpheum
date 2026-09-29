@@ -14,9 +14,9 @@ const (
 	PathCommands = "/node/v1/commands"
 )
 
-// QueryAfterSeq is the commands long-poll's parameter: the sequence number of the last command
+// QueryAfterCommandSeq is the commands long-poll's parameter: the sequence number of the last command
 // the node took, so the core answers with the ones after it.
-const QueryAfterSeq = "afterSeq"
+const QueryAfterCommandSeq = "afterCommandSeq"
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -26,11 +26,11 @@ type Hello struct {
 	Build build.Info `json:"build"`
 	// Host is the node's operating system, as lsb_release shows it, and its kernel (D225).
 	Host host.Info `json:"host"`
-	// Roots are the media roots configured on the node, never remotely (D107).
-	Roots         []string `json:"roots"`
+	// RootPaths are the media roots configured on the node, never remotely (D107).
+	RootPaths     []string `json:"rootPaths"`
 	FFmpegVersion string   `json:"ffmpegVersion"`
-	// FFmpegHash is the SHA-256 of the ffmpeg binary, so the core can tell which build ran.
-	FFmpegHash string `json:"ffmpegHash"`
+	// FFmpegSha256 is the SHA-256 of the ffmpeg binary, so the core can tell which build ran.
+	FFmpegSha256 string `json:"ffmpegSha256"`
 	// Capabilities are what the node found it can do (cut-a §4): remux and aac always, and the
 	// encoders it can use, h264_qsv, h264_nvenc and x264.
 	Capabilities []string `json:"capabilities"`

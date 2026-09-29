@@ -66,8 +66,8 @@ func (harness testHarness) choiceIn(t *testing.T, session string, fileID int64) 
 	case choice.IsOff:
 		return fmt.Sprintf("off carried=%v", choice.IsCarriedFromWork)
 	}
-	if choice.FetchedID != 0 {
-		return fmt.Sprintf("fetched %d carried=%v", choice.FetchedID, choice.IsCarriedFromWork)
+	if choice.FetchedSubtitleID != 0 {
+		return fmt.Sprintf("fetched %d carried=%v", choice.FetchedSubtitleID, choice.IsCarriedFromWork)
 	}
 	return fmt.Sprintf("%d carried=%v", choice.StreamID, choice.IsCarriedFromWork)
 }
@@ -80,7 +80,7 @@ func TestSubtitleChoice_AChoiceStoredBeforeTheRenameIsStillFound(t *testing.T) {
 	user := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	harness.shelveEpisodes(t)
-	storetest.ExecRaw(t, harness.database, `INSERT INTO preference (user_id, scope, scope_id, axis, value, set_at)
+	storetest.ExecRaw(t, harness.database, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
 		VALUES (1, 'file', 2, 'subtitle_choice', '{"isOff":true}', 1)`)
 	if got := harness.choiceIn(t, user, 2); got != "off carried=false" {
 		t.Errorf("a choice stored as subtitle_choice: file 2 starts with %q, want it off", got)

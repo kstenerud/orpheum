@@ -82,8 +82,8 @@ const (
 type PrepareReport struct {
 	JobID int64        `json:"jobId"`
 	State PrepareState `json:"state"`
-	// PreparedMs is how much of the source is prepared, in milliseconds of its time.
-	PreparedMs int64 `json:"preparedMs"`
+	// PreparedThroughMs is how much of the source is prepared, in milliseconds of its time.
+	PreparedThroughMs int64 `json:"preparedThroughMs"`
 	// SizeBytes is the rendition's size once done.
 	SizeBytes int64 `json:"sizeBytes,omitempty"`
 	// Failure is FFmpeg's exit and the tail of its stderr, or why the node refused.

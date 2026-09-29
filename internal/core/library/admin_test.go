@@ -83,7 +83,7 @@ func TestAdmin_ListsEachLibrarysRootStateAndFilings(t *testing.T) {
 		t.Fatalf("List = %+v, %v", libraries, err)
 	}
 	films := libraries[0]
-	if len(films.Roots) != 1 || films.Roots[0].Outcome == nil || *films.Roots[0].Outcome != "complete" {
+	if len(films.Roots) != 1 || films.Roots[0].LastScanOutcome == nil || *films.Roots[0].LastScanOutcome != "complete" {
 		t.Errorf("roots %+v, want the root complete", films.Roots)
 	}
 	if films.Filings["skipped"] != 1 || len(films.Filings) != 2 {

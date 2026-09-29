@@ -129,7 +129,7 @@ it("says when today's downloads are spent, and when they come back", async () =>
         error: {
           code: "quota_exhausted",
           message: "a note for developers",
-          detail: { resetAt: "2026-09-29T06:00:00Z" },
+          detail: { downloadsResetAt: "2026-09-29T06:00:00Z" },
         },
       },
     ],

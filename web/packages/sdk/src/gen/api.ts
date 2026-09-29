@@ -1109,7 +1109,7 @@ export interface components {
         };
         ConfinementBody: {
             /** @enum {string} */
-            cause?: "disabled_at_boot" | "kernel_without" | "blocked_by_runtime" | "not_linux" | "architecture_unwritten" | "unexplained";
+            causeCode?: "disabled_at_boot" | "kernel_without" | "blocked_by_runtime" | "not_linux" | "architecture_unwritten" | "unexplained";
             isInForce: boolean;
             /** @enum {string} */
             mechanism: "landlock" | "seccomp";
@@ -1302,7 +1302,7 @@ export interface components {
              * Format: int64
              * @description The new track; a playback started again offers it
              */
-            fetchedId: number;
+            fetchedSubtitleId: number;
             /** Format: int64 */
             remainingDownloads: number;
         };
@@ -1563,15 +1563,6 @@ export interface components {
             provider: string;
             providerId: string;
         };
-        MenuBody: {
-            /** @description Must list aac-stereo */
-            audioCodecs: ("aac-stereo" | "aac-multi" | "ac3" | "eac3" | "opus" | "flac")[] | null;
-            /** @description Containers played as they are */
-            containers: ("mp4" | "mkv" | "mpegts")[] | null;
-            subtitleFormats: ("ass" | "webvtt")[] | null;
-            /** @description Must list h264-sdr */
-            videoCodecs: ("h264-sdr" | "hevc-sdr" | "hevc-hdr10" | "av1-sdr" | "av1-hdr10")[] | null;
-        };
         NewDeviceBody: {
             /** @description What the person will know it by: "Chrome on Android", "Living room TV" */
             name: string;
@@ -1596,6 +1587,15 @@ export interface components {
         PersonOutputBody: {
             account: components["schemas"]["AccountBody"];
             watchStats: components["schemas"]["WatchStatsBody"];
+        };
+        PlayableFormatsBody: {
+            /** @description Must list aac-stereo */
+            audioCodecs: ("aac-stereo" | "aac-multi" | "ac3" | "eac3" | "opus" | "flac")[] | null;
+            /** @description Containers played as they are */
+            containers: ("mp4" | "mkv" | "mpegts")[] | null;
+            subtitleFormats: ("ass" | "webvtt")[] | null;
+            /** @description Must list h264-sdr */
+            videoCodecs: ("h264-sdr" | "hevc-sdr" | "hevc-hdr10" | "av1-sdr" | "av1-hdr10")[] | null;
         };
         PreparedBody: {
             /** Format: int64 */
@@ -1766,7 +1766,7 @@ export interface components {
              * @enum {string}
              */
             network: "local" | "remote";
-            playableFormats: components["schemas"]["MenuBody"];
+            playableFormats: components["schemas"]["PlayableFormatsBody"];
             /**
              * @description A person's override
              * @enum {string}
@@ -1794,7 +1794,7 @@ export interface components {
         };
         StreamBody: {
             /** Format: int64 */
-            channels?: number;
+            channelCount?: number;
             codec?: string;
             /**
              * Format: int64
@@ -1839,7 +1839,7 @@ export interface components {
              * Format: int64
              * @description The chosen track, a subtitle fetched for the file
              */
-            fetchedId?: number;
+            fetchedSubtitleId?: number;
             readonly isCarriedFromWork?: boolean;
             isOff?: boolean;
             /**
@@ -1855,7 +1855,7 @@ export interface components {
              * Format: int64
              * @description A subtitle fetched on request; unverified
              */
-            fetchedId?: number;
+            fetchedSubtitleId?: number;
             isDefault: boolean;
             isForced: boolean;
             isHearingImpaired: boolean;
@@ -1886,7 +1886,7 @@ export interface components {
             /** Format: int64 */
             lastHeardAt?: number;
             name: string;
-            prepared?: components["schemas"]["PreparedBody"];
+            preparedUsage?: components["schemas"]["PreparedBody"];
             recentPrepares: components["schemas"]["FinishedPrepareBody"][] | null;
             /**
              * Format: int64

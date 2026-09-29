@@ -194,9 +194,9 @@ func checkSidecarBodies(t *testing.T, records []nodeproto.Record) {
 	for _, record := range records {
 		if sidecar := record.Sidecar; sidecar != nil {
 			wantBody := sidecar.Kind == nodeproto.SidecarNFO
-			if (string(sidecar.Body) == "<movie/>") != wantBody {
+			if (string(sidecar.NFOBody) == "<movie/>") != wantBody {
 				t.Errorf("sidecar %s carries %q; an NFO carries its bytes, a subtitle does not",
-					sidecar.Path.Text, sidecar.Body)
+					sidecar.Path.Text, sidecar.NFOBody)
 			}
 			checkSidecarIdentity(t, sidecar)
 		}
@@ -406,7 +406,7 @@ func TestScan_ANameThatIsNotUTF8KeepsItsBytes(t *testing.T) {
 	media := openRoot(t, root)
 	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
 	observed := records[1].Observed
-	if observed == nil || string(observed.Path.Raw) != name || observed.Path.Text != "Am�lie.mkv" {
+	if observed == nil || string(observed.Path.Bytes) != name || observed.Path.Text != "Am�lie.mkv" {
 		t.Errorf("observed = %+v, want the raw bytes beside a readable text form (D49)", observed)
 	}
 }
@@ -422,9 +422,9 @@ func TestScan_ReportsAnImageBesideTheMediaWithoutItsBytes(t *testing.T) {
 	for _, record := range records {
 		if sidecar := record.Sidecar; sidecar != nil && sidecar.Kind == nodeproto.SidecarImage {
 			images = append(images, sidecar.Path.Text)
-			if sidecar.Body != nil || sidecar.SizeBytes == 0 {
+			if sidecar.NFOBody != nil || sidecar.SizeBytes == 0 {
 				t.Errorf("%s: body %q, size %d; an image's bytes never travel in a record (D215)",
-					sidecar.Path.Text, sidecar.Body, sidecar.SizeBytes)
+					sidecar.Path.Text, sidecar.NFOBody, sidecar.SizeBytes)
 			}
 		}
 	}

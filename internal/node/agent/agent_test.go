@@ -195,24 +195,28 @@ func TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder(t *testing.T
 	core, socket := startFakeCore(t)
 	root, tick := running(t, socket)
 
-	core.commands <- nodeproto.Command{Seq: 1, Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{Root: root.Path()}}
+	core.commands <- nodeproto.Command{
+		CommandSeq: 1, Type: nodeproto.CommandScan,
+		Scan: &nodeproto.Scan{Root: root.Path()},
+	}
 	begin, complete := receive(t, core), receive(t, core)
-	if begin.Type != nodeproto.RecordScanBegin || begin.Seq != 41 || complete.Type != nodeproto.RecordScanComplete ||
-		complete.Seq != 42 {
+	if begin.Type != nodeproto.RecordScanBegin || begin.ReportSeq != 41 ||
+		complete.Type != nodeproto.RecordScanComplete ||
+		complete.ReportSeq != 42 {
 		t.Errorf("heard %s #%d then %s #%d; want the scan numbered on from the core's 40",
-			begin.Type, begin.Seq, complete.Type, complete.Seq)
+			begin.Type, begin.ReportSeq, complete.Type, complete.ReportSeq)
 	}
 	// A status record reaches the core while the report is still open: each record is sent as
 	// it is written, not when the request ends.
 	tick <- time.Time{}
-	if status := receive(t, core); status.Type != nodeproto.RecordStatus || status.Seq != 43 ||
+	if status := receive(t, core); status.Type != nodeproto.RecordStatus || status.ReportSeq != 43 ||
 		status.Status.Activity != "idle" {
 		t.Errorf("heard %+v, want status #43, idle", status)
 	}
 	core.mutex.Lock()
 	hello := core.hellos[0]
 	core.mutex.Unlock()
-	if hello.Name != "local" || len(hello.Roots) != 1 || hello.Roots[0] != root.Path() {
+	if hello.Name != "local" || len(hello.RootPaths) != 1 || hello.RootPaths[0] != root.Path() {
 		t.Errorf("the hello was %+v, want the node's name and its root", hello)
 	}
 }
@@ -221,7 +225,7 @@ func TestAgent_RefusesToScanARootItWasNotGiven(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	_, tick := running(t, socket)
-	core.commands <- nodeproto.Command{Seq: 1, Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{Root: "/etc"}}
+	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{Root: "/etc"}}
 	tick <- time.Time{}
 	if record := receive(t, core); record.Type != nodeproto.RecordStatus {
 		t.Errorf("heard %s before the status; a scan of /etc ran (D107)", record.Type)
@@ -258,7 +262,7 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	running(t, socket)
-	core.commands <- nodeproto.Command{Seq: 1, Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
+	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
 		JobID: 12, SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
 		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 	}}
@@ -285,7 +289,7 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 	}
 	answer := func(job int64, named string) nodeproto.ArtworkResult {
 		t.Helper()
-		core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
+		core.commands <- nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
 			JobID: job, AbsolutePath: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
 			SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 		}}
@@ -299,7 +303,7 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 	}
 	sum := sha256.Sum256([]byte("xyz"))
 	if beside := answer(1, filepath.Join(root.Path(), "poster.jpg")); beside.Refusal != "" ||
-		string(beside.Images[0].WebP) != "zyx" || beside.SourceHash != hex.EncodeToString(sum[:]) {
+		string(beside.Images[0].WebP) != "zyx" || beside.SourceSha256 != hex.EncodeToString(sum[:]) {
 		t.Errorf("an image under the root: %+v; want it read, re-encoded and hashed", beside)
 	}
 	for job, named := range map[int64]string{

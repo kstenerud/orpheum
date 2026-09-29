@@ -110,7 +110,7 @@ loop to work:**
   - `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
   - `[node]`: `roots`, `ffmpeg_dir`, and `confinement_policy`, which is `"require"` or
     `"report"`; a production install writes `"require"`. `prepared_dir`, `prepared_budget_gib`
-    (200), `prepared_grace_h` (72) and `prepared_disk_limit_percent` (95) keep the prepared
+    (200), `prepared_grace_h` (72) and `prepared_disk_used_limit_percent` (95) keep the prepared
     renditions within D217 §5's budget.
   - `[log]`: `level`, `format` (`text` or `json`)
 
@@ -183,8 +183,8 @@ with the file channel deleted.
 | Request | Body |
 | --- | --- |
 | `POST /node/v1/hello` | node id, version, FFmpeg version and hash, capabilities (`remux`, `aac`, `h264_qsv`, `h264_nvenc`, `x264`), confinement report per mechanism with errno and remedy ([D112](../../decisions/working-notes.md)) |
-| `POST /node/v1/report` | a JSONL stream, one record per line, each with a node sequence number. Record types: `scan_begin{root, filesystemDevice, isMountPoint, isReadOnly}`, `observed{path, sizeBytes, mtimeMs, identity{payloadHash, payloadBytes}, probe}`, `sidecar{…}`, `mount{path, filesystemDevice}`, `skip{path, rule}`, `error{path, scope, code, occurrenceCount, platform}`, `scan_complete{root, observedCount, sidecarCount, skippedCount, errorCount, isStoppedByErrors}`, `status{sentAt, activity, preparedUsage, disks}`. A job's progress and end are posted to its own path, not reported (D227 renamed these fields) |
-| `GET /node/v1/commands?afterSeq=<seq>` | long-poll; returns the next commands |
+| `POST /node/v1/report` | a JSONL stream, one record per line, each with its `reportSeq`. Record types: `scan_begin{root, filesystemDevice, isMountPoint, isReadOnly}`, `observed{path, sizeBytes, mtimeMs, identity{payloadHash, payloadBytes}, probe}`, `sidecar{path, kind, sizeBytes, mtimeMs, nfoBody}`, `mount{path, filesystemDevice}`, `skip{path, rule}`, `error{path, scope, code, occurrenceCount, platform}`, `scan_complete{root, observedCount, sidecarCount, skippedCount, errorCount, isStoppedByErrors}`, `status{sentAt, activity, preparedUsage, disks}`. A job's progress and end are posted to its own path, not reported (D227 renamed these fields) |
+| `GET /node/v1/commands?afterCommandSeq=<commandSeq>` | long-poll; returns the next commands |
 
 **Commands** (core → node, delivered by the long-poll):
 - `scan{root}`

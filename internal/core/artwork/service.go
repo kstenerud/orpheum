@@ -98,12 +98,12 @@ func NewService(parts Parts) *Service {
 
 // owed is an artwork job's arguments: the images one item's source names that are not stored.
 type owed struct {
-	Source string    `json:"source"`
-	Refs   []owedRef `json:"refs"`
-	// Hash and Sizes make sizes of a stored image that are made only on request, from its
+	FollowedSource string    `json:"followedSource"`
+	Refs           []owedRef `json:"refs"`
+	// ImageHash and Sizes make sizes of a stored image that are made only on request, from its
 	// source fetched again (D212 §2, §3).
-	Hash  string                  `json:"hash,omitempty"`
-	Sizes []nodeproto.ArtSizeName `json:"sizes,omitempty"`
+	ImageHash string                  `json:"imageHash,omitempty"`
+	SizeNames []nodeproto.ArtSizeName `json:"sizeNames,omitempty"`
 }
 
 // owedRef is one image the job fetches: its kind, and the source's reference to it.
@@ -121,7 +121,7 @@ func (service *Service) Owe(ctx context.Context, items []identify.OwedArtwork) {
 		for _, ref := range item.Refs {
 			refs = append(refs, owedRef{Kind: ref.Kind, Ref: ref.Ref})
 		}
-		args, err := json.Marshal(owed{Source: item.Source, Refs: refs})
+		args, err := json.Marshal(owed{FollowedSource: item.Source, Refs: refs})
 		if err == nil {
 			var added bool
 			added, err = service.parts.Queue.Enqueue(ctx, jobs.New{
@@ -149,14 +149,15 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 	if err := json.Unmarshal([]byte(job.Args), &args); err != nil {
 		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.Permanent(err))
 	}
-	fetcher, known := service.parts.Fetchers[args.Source]
-	if !known && args.Source != identify.SourceLocal {
-		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.Permanent(fmt.Errorf("no fetcher for %q", args.Source)))
+	fetcher, known := service.parts.Fetchers[args.FollowedSource]
+	if !known && args.FollowedSource != identify.SourceLocal {
+		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.Permanent(fmt.Errorf("no fetcher for %q",
+			args.FollowedSource)))
 	}
 	for _, ref := range args.Refs {
-		image := wanted{itemID: job.ItemID, source: args.Source, ref: ref}
+		image := wanted{itemID: job.ItemID, source: args.FollowedSource, ref: ref}
 		var err error
-		if len(args.Sizes) > 0 {
+		if len(args.SizeNames) > 0 {
 			err = service.makeSizes(ctx, fetcher, image, args)
 		} else {
 			err = service.one(ctx, fetcher, image)
@@ -210,7 +211,7 @@ func (service *Service) one(ctx context.Context, fetcher Fetcher, image wanted) 
 	if err != nil {
 		return err
 	}
-	return service.keep(ctx, image, cmp.Or(hash, result.SourceHash), result)
+	return service.keep(ctx, image, cmp.Or(hash, result.SourceSha256), result)
 }
 
 // localFile is the node that holds an image beside the media and its path there. A file gone
@@ -233,7 +234,7 @@ func (service *Service) localFile(ctx context.Context, ref string) (int64, *node
 			Err: fmt.Errorf("node %d, which holds it, is not connected", file.NodeID),
 		}
 	}
-	return file.NodeID, &nodeproto.Path{Text: file.Path, Raw: file.ReportedPathBytes}, nil
+	return file.NodeID, &nodeproto.Path{Text: file.Path, Bytes: file.ReportedPathBytes}, nil
 }
 
 // anyNode is a connected node to re-encode a download; none is a wait that costs no attempt.

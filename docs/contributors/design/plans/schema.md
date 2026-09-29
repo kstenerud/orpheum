@@ -108,7 +108,7 @@ CREATE TABLE library (                                     -- class A
   -- the three questions asked at creation (D184), never defaulted:
   metadata_source  TEXT NOT NULL CHECK (metadata_source IN ('nfo_then_tmdb','tmdb','nfo')),
   change_detection TEXT NOT NULL CHECK (change_detection IN ('watch','interval','manual')),
-  check_every_h    INTEGER,          -- only for 'interval'
+  check_every_hours INTEGER,         -- only for 'interval'
   is_writable         INTEGER NOT NULL CHECK (is_writable IN (0,1)),
   created_at       INTEGER NOT NULL,
   removed_at       INTEGER
@@ -144,8 +144,8 @@ CREATE TABLE root_state (                                  -- class O; migration
   root_path       TEXT NOT NULL,
   filesystem_device          INTEGER,                -- st_dev at the last complete scan
   is_mount_point     INTEGER CHECK (is_mount_point IN (0, 1)),
-  outcome         TEXT NOT NULL CHECK (outcome IN ('complete', 'unreadable', 'withheld')),
-  outcome_at      INTEGER NOT NULL,
+  last_scan_outcome TEXT NOT NULL CHECK (last_scan_outcome IN ('complete', 'unreadable', 'withheld')),
+  last_scan_at    INTEGER NOT NULL,
   withheld_scan_started_at  INTEGER,                -- the withheld scan's start: what it did not see goes
   withheld_reason TEXT,                   -- once the admin confirms
   are_removals_approved INTEGER NOT NULL DEFAULT 0 CHECK (are_removals_approved IN (0, 1)),  -- class A
@@ -200,7 +200,7 @@ CREATE TABLE file (                                        -- class I (identity 
                   ('listed','extra','attached','skipped','errored','unidentified')),
   filing_reason TEXT,                    -- the rule verbatim, the error code, what was tried
   sidecar_kind  TEXT CHECK (sidecar_kind IN ('nfo','subtitle','image')),  -- 0023: an attached file's kind
-  error_detail  TEXT,                    -- owner, group, mode; the platform's text (D163)
+  error_detail_json TEXT,                -- owner, group, mode; the platform's text (D163)
   probe_json    TEXT,                    -- raw probe output, JSON; the input D59 replays
   version_id    INTEGER REFERENCES version(id) ON DELETE RESTRICT,
   part_index    INTEGER,                 -- order within a multi-part Version
@@ -732,7 +732,7 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
   scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'
   axis        TEXT NOT NULL,               -- 'audio_lang', 'subtitle_set', 'subtitle_offset_ms',
                                            -- 'embedded_fonts', 'caption_size', 'dialogue_boost'…
-  value       TEXT NOT NULL,               -- tri-valued where the axis says so: 'off' ≠ unset
+  value_json  TEXT NOT NULL,               -- tri-valued where the axis says so: 'off' ≠ unset
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, scope, scope_id, axis)
 ) WITHOUT ROWID;
@@ -858,7 +858,7 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   failure      TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
   video_encoder TEXT,                    -- what made the video once complete: h264_qsv, h264_nvenc, x264, or copy (D225)
   realtime_factor REAL,                  -- seconds of the source per second of running, as FFmpeg last said (D225)
-  audio_gains_db TEXT NOT NULL DEFAULT '[]',  -- JSON: the gain each audio track's sound carries, by its place (D226)
+  audio_gains_db_json TEXT NOT NULL DEFAULT '[]',  -- JSON: the gain each audio track's sound carries, by its place (D226)
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
   UNIQUE (source_file, profile)

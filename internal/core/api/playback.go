@@ -32,8 +32,8 @@ type NodeBytes interface {
 	Do(ctx context.Context, nodeID int64, method, target string, header http.Header) (*http.Response, error)
 }
 
-// MenuBody is what a client can play, one list per axis, most preferred first (D21, D217 §1).
-type MenuBody struct {
+// PlayableFormatsBody is what a client can play, one list per axis, most preferred first (D21, D217 §1).
+type PlayableFormatsBody struct {
 	VideoCodecs     []string `doc:"Must list h264-sdr" enum:"h264-sdr,hevc-sdr,hevc-hdr10,av1-sdr,av1-hdr10" json:"videoCodecs"` //nolint:lll // one struct tag
 	AudioCodecs     []string `doc:"Must list aac-stereo" enum:"aac-stereo,aac-multi,ac3,eac3,opus,flac" json:"audioCodecs"`      //nolint:lll // one struct tag
 	SubtitleFormats []string `enum:"ass,webvtt" json:"subtitleFormats"`
@@ -44,10 +44,10 @@ type MenuBody struct {
 type StartPlaybackInput struct {
 	AuthorizationHeader
 	Body struct {
-		FileID            int64    `json:"fileId" minimum:"1"`
-		PlayableFormats   MenuBody `json:"playableFormats"`
-		Network           string   `doc:"Where the client is" enum:"local,remote" json:"network"`
-		PreferredDelivery string   `doc:"A person's override" enum:"direct,prepare" json:"preferredDelivery,omitempty" required:"false"` //nolint:lll // one struct tag
+		FileID            int64               `json:"fileId" minimum:"1"`
+		PlayableFormats   PlayableFormatsBody `json:"playableFormats"`
+		Network           string              `doc:"Where the client is" enum:"local,remote" json:"network"`
+		PreferredDelivery string              `doc:"A person's override" enum:"direct,prepare" json:"preferredDelivery,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
@@ -328,7 +328,7 @@ func (server *Server) relay(
 	}}, nil
 }
 
-func menuOf(body MenuBody) decide.Menu {
+func menuOf(body PlayableFormatsBody) decide.Menu {
 	return decide.Menu{
 		Video: names[decide.Video](body.VideoCodecs), Audio: names[decide.Audio](body.AudioCodecs),
 		Subtitle: names[decide.Subtitle](body.SubtitleFormats), Containers: names[decide.Container](body.Containers),

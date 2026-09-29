@@ -116,9 +116,9 @@ type ArtworkResult struct {
 	SourceWidth  int        `json:"sourceWidth"`
 	SourceHeight int        `json:"sourceHeight"`
 	Images       []ArtImage `json:"images"`
-	// SourceHash is the SHA-256, in hex, of the file an AbsolutePath command named, as the node read it:
+	// SourceSha256 is the SHA-256, in hex, of the file an AbsolutePath command named, as the node read it:
 	// what the core stores the sizes under.
-	SourceHash string `json:"sourceHash,omitempty"`
+	SourceSha256 string `json:"sourceSha256,omitempty"`
 	// Refusal says why no size was made: over the pixel limit, not an image, a failed encode.
 	Refusal string `json:"refusal,omitempty"`
 }

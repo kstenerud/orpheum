@@ -216,7 +216,7 @@ func openPrepared(config Config, runner *execx.Runner, encoder prepare.Encoder) 
 	}
 	shelf := prepared.New(root.Path(), prepared.Budget{
 		MaxBytes: config.Node.PreparedBudgetGiB << 30, Grace: time.Duration(config.Node.PreparedGraceH) * time.Hour,
-		MaxDiskPercent: int(config.Node.PreparedDiskLimitPercent),
+		MaxDiskPercent: int(config.Node.PreparedDiskUsedLimitPercent),
 	}, clock.System{})
 	preparer, err := prepare.New(runner, root.Path(), shelf, encoder)
 	if err != nil {
@@ -303,7 +303,7 @@ func describeNode(
 		Build:         thisBuild(),
 		Host:          host.Describe(),
 		FFmpegVersion: firstLine,
-		FFmpegHash:    ffmpegHash,
+		FFmpegSha256:  ffmpegHash,
 		Capabilities:  capabilities(found.encoding.Usable()),
 		Confinement:   report,
 		UID:           os.Geteuid(),
