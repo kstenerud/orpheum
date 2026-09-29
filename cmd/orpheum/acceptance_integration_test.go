@@ -7,7 +7,6 @@ package main
 import (
 	"context"
 	"errors"
-	"net"
 	"os"
 	"path/filepath"
 	"slices"
@@ -16,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/node/confine"
@@ -67,32 +65,12 @@ func acceptanceRun(
 	t *testing.T, config Config, root string, start func(captured capturedLog) nodes.Starter,
 ) map[string]storedFiling {
 	t.Helper()
-	nodeID := enrolNodeWithMixedLibrary(t, config, root)
-	captured := newCapturedLog("identified a library")
-	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithCancel(t.Context())
-	done := make(chan error, 1)
-	go func() {
-		outside := wiring{
-			startNode: start(captured), tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL,
-			openSubtitlesBaseURL: unreachableURL,
-		}
-		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
-	}()
-	select {
-	case <-captured.signals["identified a library"]:
-	case early := <-done:
-		cancel()
-		t.Fatalf("serve returned before identifying the library: %v\n%s", early, captured)
-	case <-time.After(5 * time.Minute):
-		cancel()
-		t.Fatalf("no identification within five minutes:\n%s", captured)
-	}
-	cancel()
-	if stopped := <-done; stopped != nil {
+	nodeID := enrolNodeWithLibrary(t, config, root,
+		libraryShape{name: "Everything", kind: "mixed", metadataSource: "nfo"})
+	const identified = "identified a library"
+	captured := newCapturedLog(identified)
+	server := startServing(t, config, captured, identified, start(captured))
+	if stopped := server.stop(); stopped != nil {
 		t.Errorf("serve returned %v", stopped)
 	}
 	files, err := openDatabase(t, config).Read().ListLiveFilesByNode(t.Context(), nodeID)
@@ -107,31 +85,6 @@ func acceptanceRun(
 		}
 	}
 	return filings
-}
-
-// enrolNodeWithMixedLibrary makes the database with one mixed library, reading NFO files, over root
-// on the config's node, which it enrols, and returns the node's id.
-func enrolNodeWithMixedLibrary(t *testing.T, config Config, root string) int64 {
-	t.Helper()
-	database := openDatabase(t, config)
-	if err := database.Migrate(t.Context(), config.migrateOptions(t.TempDir(), nil)); err != nil {
-		t.Fatal(err)
-	}
-	nodeID, err := nodes.Enrol(t.Context(), database, clock.System{}, config.Node.Name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = library.Create(t.Context(), database, clock.System{}, library.NewLibrary{
-		Name: "Everything", Kind: "mixed", MetadataSource: "nfo", ChangeDetection: "manual",
-		NodeID: nodeID, Roots: []string{root},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := database.Close(); err != nil {
-		t.Fatal(err)
-	}
-	return nodeID
 }
 
 // The M2 acceptance (cut-a §8): on a 200-file fixture tree every file has a filing, and every
@@ -190,19 +143,6 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 		})
 	})
 	checkSameFilings(t, first, second)
-}
-
-// inProcessStarter is a node starter that runs a node's loop in this process.
-func inProcessStarter(run func(ctx context.Context) error) nodes.Starter {
-	return func(ctx context.Context) (nodes.Process, error) {
-		ctx, cancel := context.WithCancel(ctx)
-		node := &inProcessNode{done: make(chan struct{}), cancel: cancel}
-		go func() {
-			defer close(node.done)
-			node.err = run(ctx)
-		}()
-		return node, nil
-	}
 }
 
 // checkFilings checks every file of the tree has a filing, every file not listed a reason, the

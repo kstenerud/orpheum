@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -32,7 +33,7 @@ func TestServe_AStoredSizeIsServedAndAnythingElseIsNoArt(t *testing.T) {
 	t.Parallel()
 	source := []byte("poster")
 	bench := newBench(t, fakeFetcher{"/poster.jpg": source})
-	bench.service.parts.Queue = &recordingQueue{}
+	bench.service.parts.Queue = &jobstest.Queue{}
 	hash := bench.storePoster(t, source, nodeproto.PortraitS)
 	served, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitS, FormatWebP)
 	if err != nil || string(served.Bytes) != string(ourWebP) || served.RedirectName != "" {
@@ -60,7 +61,7 @@ func TestServe_ASizeNotMadeRedirectsToTheNearestAndOnlyAnOnRequestSizeIsQueued(t
 	t.Parallel()
 	source := []byte("poster")
 	bench := newBench(t, fakeFetcher{"/poster.jpg": source})
-	queue := &recordingQueue{}
+	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	hash := bench.storePoster(t, source, nodeproto.PortraitS, nodeproto.PortraitM)
 
@@ -89,7 +90,7 @@ func TestServe_NothingIsQueuedForASizeTheSourceCannotMake(t *testing.T) {
 	t.Parallel()
 	source := []byte("poster")
 	bench := newBench(t, fakeFetcher{"/poster.jpg": source})
-	queue := &recordingQueue{}
+	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	// Only portrait-s: the source was smaller than portrait-m, so it is smaller than portrait-l.
 	hash := bench.storePoster(t, source, nodeproto.PortraitS)
@@ -108,7 +109,7 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 	t.Parallel()
 	source := []byte("poster")
 	bench := newBench(t, fakeFetcher{"/poster.jpg": source})
-	queue := &recordingQueue{}
+	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	hash := bench.storePoster(t, source, nodeproto.PortraitS, nodeproto.PortraitM)
 	if _, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitL, FormatWebP); err != nil {
@@ -157,7 +158,7 @@ func TestHandle_ASourceThatChangedMakesNoSizeUnderTheOldHash(t *testing.T) {
 	t.Parallel()
 	images := fakeFetcher{"/poster.jpg": []byte("poster")}
 	bench := newBench(t, images)
-	queue := &recordingQueue{}
+	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	hash := bench.storePoster(t, []byte("poster"), nodeproto.PortraitS, nodeproto.PortraitM)
 	if _, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitL, FormatWebP); err != nil {

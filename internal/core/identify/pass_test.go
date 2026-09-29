@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -38,7 +39,7 @@ type testLibrary struct {
 	clock     *clocktest.Fake
 	nodeID    int64
 	libraryID int64
-	seq       int64
+	reports   librarytest.Reports
 }
 
 func newTestLibrary(t *testing.T, kind, source string) *testLibrary {
@@ -55,25 +56,8 @@ func newTestLibrary(t *testing.T, kind, source string) *testLibrary {
 		pass:     NewPass(database, now, logger, providers, config),
 	}
 	created.matcher = NewMatcher(database, storetest.OpenCache(t), created.pass, now, logger)
-	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-		var err error
-		created.nodeID, err = queries.InsertNode(t.Context(), sqlcgen.InsertNodeParams{Name: "local", EnrolledAt: 1})
-		if err != nil {
-			return fmt.Errorf("node: %w", err)
-		}
-		created.libraryID, err = queries.InsertLibrary(t.Context(), sqlcgen.InsertLibraryParams{
-			Name: "Library", Kind: kind, MetadataSource: source, ChangeDetection: "manual", CreatedAt: 1,
-		})
-		if err != nil {
-			return fmt.Errorf("library: %w", err)
-		}
-		return queries.InsertLibraryRoot(t.Context(), sqlcgen.InsertLibraryRootParams{
-			LibraryID: created.libraryID, NodeID: created.nodeID, Path: libraryRoot,
-		})
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	created.nodeID, created.libraryID = librarytest.NodeWithLibrary(t, database,
+		librarytest.Library{Name: "Library", Kind: kind, MetadataSource: source, Root: libraryRoot})
 	created.chooser = NewChooser(created.matcher, created.pass)
 	return created
 }
@@ -108,17 +92,7 @@ func nfoRecord(path, body string) nodeproto.Record {
 func (lib *testLibrary) scan(records ...nodeproto.Record) Report {
 	lib.t.Helper()
 	lib.clock.Advance(time.Minute)
-	all := append([]nodeproto.Record{{
-		Type:      nodeproto.RecordScanBegin,
-		ScanBegin: &nodeproto.ScanBegin{RootPath: libraryRoot},
-	}},
-		records...)
-	complete := nodeproto.ScanComplete{RootPath: libraryRoot}
-	all = append(all, nodeproto.Record{Type: nodeproto.RecordScanComplete, ScanComplete: &complete})
-	for index := range all {
-		lib.seq++
-		all[index].ReportSeq = lib.seq
-	}
+	all := lib.reports.Scan(nodeproto.ScanBegin{RootPath: libraryRoot}, records, true)
 	if err := lib.ingester.IngestRecords(lib.t.Context(), lib.nodeID, all); err != nil {
 		lib.t.Fatal(err)
 	}
@@ -313,13 +287,10 @@ func TestPass_ATitleFollowsItsFilesToAnotherLibrary(t *testing.T) {
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
 	// ...and arrives in Kids.
 	lib.clock.Advance(time.Minute)
-	records := []nodeproto.Record{
-		{ReportSeq: 900, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: kids}},
-		videoRecord("The Kid (2014)/The Kid (2014).mkv"), nfoRecord("The Kid (2014)/The Kid (2014).nfo",
-			body),
-		{ReportSeq: 903, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: kids}},
-	}
-	records[1].ReportSeq, records[2].ReportSeq = 901, 902
+	records := lib.reports.Scan(nodeproto.ScanBegin{RootPath: kids}, []nodeproto.Record{
+		videoRecord("The Kid (2014)/The Kid (2014).mkv"),
+		nfoRecord("The Kid (2014)/The Kid (2014).nfo", body),
+	}, true)
 	if ingestErr := lib.ingester.IngestRecords(t.Context(), lib.nodeID, records); ingestErr != nil {
 		t.Fatal(ingestErr)
 	}

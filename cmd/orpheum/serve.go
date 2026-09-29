@@ -130,7 +130,7 @@ func openAndWire(
 			err = errors.Join(err, opened.lock.Release())
 		}
 	}()
-	database, err := openAndMigrate(ctx, config, directories, server.SetStatus, logger)
+	database, err := openAndMigrate(ctx, config, directories, reportMigration(server.SetStatus, logger))
 	if err != nil {
 		return opened, err
 	}
@@ -183,17 +183,16 @@ func openAndWire(
 	return opened, nil
 }
 
-// openAndMigrate opens library.db and migrates it, reporting each step before it starts.
+// openAndMigrate opens library.db and migrates it, calling beforeStep, when it is not nil, before
+// each step starts. Serving, the migrate command and the dev seed all open the database this way.
 func openAndMigrate(
-	ctx context.Context, config Config, directories *datadir.Directories,
-	setStatus func(api.Status, string, ...string), logger *slog.Logger,
+	ctx context.Context, config Config, directories *datadir.Directories, beforeStep func(step, total int),
 ) (*store.Database, error) {
 	database, err := store.Open(ctx, directories.LibraryDatabasePath(), config.openOptions())
 	if err != nil {
 		return nil, err
 	}
-	err = database.Migrate(ctx,
-		config.migrateOptions(directories.BackupDirectory(), reportMigration(setStatus, logger)))
+	err = database.Migrate(ctx, config.migrateOptions(directories.BackupDirectory(), beforeStep))
 	if err != nil {
 		return nil, errors.Join(err, database.Close())
 	}

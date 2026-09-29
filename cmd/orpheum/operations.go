@@ -105,16 +105,15 @@ func commandMigrate(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(err)
 	}
-	database, err := store.Open(ctx, directories.LibraryDatabasePath(), config.openOptions())
+	var report strings.Builder
+	database, err := openAndMigrate(ctx, config, directories, func(step, total int) {
+		fmt.Fprintf(&report, "migrating: step %d of %d\n", step, total)
+	})
 	if err != nil {
 		return call.fail(err)
 	}
-	var report strings.Builder
-	err = database.Migrate(ctx, config.migrateOptions(directories.BackupDirectory(), func(step, total int) {
-		fmt.Fprintf(&report, "migrating: step %d of %d\n", step, total)
-	}))
-	state, stateErr := database.State(ctx)
-	if err = errors.Join(err, stateErr, database.Close()); err != nil {
+	state, err := database.State(ctx)
+	if err = errors.Join(err, database.Close()); err != nil {
 		return call.fail(err)
 	}
 	fmt.Fprintf(&report, "the database is at schema %d\n", state.Version)

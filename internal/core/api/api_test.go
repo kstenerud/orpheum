@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/auth/authtest"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -36,28 +37,6 @@ func TestMain(m *testing.M) {
 
 const canary = "CANARY-api-4e1f-0123456789WXYZ"
 
-// memorySetupCodes keeps the setup code in memory.
-type memorySetupCodes struct {
-	code string
-}
-
-func (codes *memorySetupCodes) Read() (string, error) {
-	if codes.code == "" {
-		return "", auth.ErrNoSetupCode
-	}
-	return codes.code, nil
-}
-
-func (codes *memorySetupCodes) Write(code string) error {
-	codes.code = code
-	return nil
-}
-
-func (codes *memorySetupCodes) Remove() error {
-	codes.code = ""
-	return nil
-}
-
 type testHarness struct {
 	server       *Server
 	tmdbProvider *fakeProvider
@@ -66,7 +45,7 @@ type testHarness struct {
 	httpServer   *httptest.Server
 	logs         *bytes.Buffer
 	authService  *auth.Service
-	setupCodes   *memorySetupCodes
+	setupCodes   *authtest.SetupCodes
 	databasePath string
 	database     *store.Database
 	directories  *datadir.Directories
@@ -93,7 +72,7 @@ func newHarness(t *testing.T) testHarness {
 	}
 	logs := &bytes.Buffer{}
 	server := NewServer(slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
-	codes := &memorySetupCodes{}
+	codes := &authtest.SetupCodes{}
 	provider, cache, nodes := newFakeProvider(), storetest.OpenCache(t), &fakeNodes{}
 	subtitler := &fakeSubtitler{}
 	nodeBytes := &fakeNodeBytes{files: map[string]string{}}
@@ -217,8 +196,10 @@ func wantErrorSaying(t *testing.T, got response, status int, code Code, message 
 	}
 }
 
-// testDevice is the device the tests sign in on.
-var testDevice = map[string]string{"name": "Firefox on Linux", "platform": "web"}
+// testDevice is the device the tests sign in on. The tests of cmd/orpheum keep their own,
+// signInDevice: a shared test package would import this one, which these in-package tests could
+// then not import.
+var testDevice = NewDeviceBody{Name: "Firefox on Linux", Platform: "web"}
 
 // createAdminAndSignIn completes setup as owner and returns a session token.
 func (harness testHarness) createAdminAndSignIn(t *testing.T) string {
@@ -240,13 +221,8 @@ func (harness testHarness) signIn(t *testing.T, name, password string) string {
 	signedIn := harness.do(t, http.MethodPost, "/session", "", map[string]any{
 		"name": name, "password": password, "device": testDevice,
 	})
-	var session struct {
-		Token string `json:"token"`
-	}
-	if err := json.Unmarshal([]byte(signedIn.body), &session); err != nil || session.Token == "" {
-		t.Fatalf("sign in as %s: %d %s", name, signedIn.status, signedIn.body)
-	}
-	return session.Token
+	token, _ := readSignIn(t, signedIn)
+	return token
 }
 
 func TestHealth_AnswersBeforeTheDatabaseIsReady(t *testing.T) {

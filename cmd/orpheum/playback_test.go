@@ -37,9 +37,6 @@ func TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore(t *testing.T) {
 	}
 }
 
-// signInDevice is the device the tests sign in on (D217 §8).
-var signInDevice = map[string]string{"name": "Firefox on Linux", "platform": "web"}
-
 // playableFilm serves the shelved film's core with its node, signs in as the owner, and returns
 // the server, the session token and the film's file id.
 func playableFilm(t *testing.T, shelved filmFixture) (server runningServer, token string, filmFileID int64) {
@@ -47,20 +44,7 @@ func playableFilm(t *testing.T, shelved filmFixture) (server runningServer, toke
 	config, configPath, nodeID := shelved.config, shelved.configPath, shelved.nodeID
 	const identified = "identified a library"
 	server = serveWithNode(t, config, newCapturedLog("ready", identified), identified)
-	setupCode := runCommand(t, "setup-code", "--config", configPath)
-	created := requestAPI(t, http.MethodPost, server.baseURL+"/setup", "",
-		map[string]string{"setupCode": strings.TrimSpace(setupCode.stdout), "name": "owner", "password": "pw"})
-	if created.status != http.StatusCreated {
-		t.Fatalf("setup: %d %s", created.status, created.body)
-	}
-	session := requestAPI(t, http.MethodPost, server.baseURL+"/session", "",
-		map[string]any{"name": "owner", "password": "pw", "device": signInDevice})
-	var signedIn struct {
-		Token string `json:"token"`
-	}
-	if err := json.Unmarshal([]byte(session.body), &signedIn); err != nil || signedIn.Token == "" {
-		t.Fatalf("sign in: %d %s", session.status, session.body)
-	}
+	token = signedInOwner(t, server, configPath)
 	files, err := openDatabase(t, config).Read().ListLiveFilesByNode(t.Context(), nodeID)
 	if err != nil {
 		t.Fatal(err)
@@ -70,7 +54,7 @@ func playableFilm(t *testing.T, shelved filmFixture) (server runningServer, toke
 			filmFileID = file.ID
 		}
 	}
-	return server, signedIn.Token, filmFileID
+	return server, token, filmFileID
 }
 
 // TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore plays a film with an ASS
@@ -98,30 +82,40 @@ func TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore(t *testin
 		t.Fatalf("POST /playback = %d %s, want one subtitle track", decided.status, decided.body)
 	}
 	root := strings.TrimSuffix(server.baseURL, "/api/v1")
-	for {
-		text := requestAPI(t, http.MethodGet, root+decision.Subtitles[0].ASSURL, token, nil)
-		if text.status == http.StatusTooEarly {
-			select {
-			case <-t.Context().Done():
-				t.Fatal("the subtitle was never extracted")
-			case <-time.After(50 * time.Millisecond):
-			}
-			continue
+	var text apiReply
+	pollUntil(t, "the subtitle was extracted", func() bool {
+		text = requestAPI(t, http.MethodGet, root+decision.Subtitles[0].ASSURL, token, nil)
+		return text.status != http.StatusTooEarly
+	})
+	if text.status != http.StatusOK || text.body != reply {
+		t.Errorf("the subtitle = %d %q, want 200 and what FFmpeg wrote", text.status, text.body)
+	}
+	// The job view reads the queue the runners run (cut-a §5.3).
+	listed := requestAPI(t, http.MethodGet, server.baseURL+"/jobs", token, nil)
+	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"kind":"extract_subtitle"`) {
+		t.Errorf("GET /jobs = %d %s, want the extraction listed", listed.status, listed.body)
+	}
+	// Doctor reads what the node's hello said about its confinement (D112).
+	found := requestAPI(t, http.MethodGet, server.baseURL+"/doctor", token, nil)
+	if found.status != http.StatusOK || !strings.Contains(found.body, `"check":"FFmpeg confinement on node`) {
+		t.Errorf("GET /doctor = %d %s, want the node's confinement", found.status, found.body)
+	}
+}
+
+// pollLimit is how long pollUntil waits for what a node does in the background.
+const pollLimit = 30 * time.Second
+
+// pollUntil calls isDone every 50 ms until it says true, and fails the test, saying what never
+// happened, when pollLimit passes first.
+func pollUntil(t *testing.T, what string, isDone func() bool) {
+	t.Helper()
+	deadline := time.After(pollLimit)
+	for !isDone() {
+		select {
+		case <-deadline:
+			t.Fatalf("not within %v: %s", pollLimit, what)
+		case <-time.After(50 * time.Millisecond):
 		}
-		if text.status != http.StatusOK || text.body != reply {
-			t.Errorf("the subtitle = %d %q, want 200 and what FFmpeg wrote", text.status, text.body)
-		}
-		// The job view reads the queue the runners run (cut-a §5.3).
-		listed := requestAPI(t, http.MethodGet, server.baseURL+"/jobs", token, nil)
-		if listed.status != http.StatusOK || !strings.Contains(listed.body, `"kind":"extract_subtitle"`) {
-			t.Errorf("GET /jobs = %d %s, want the extraction listed", listed.status, listed.body)
-		}
-		// Doctor reads what the node's hello said about its confinement (D112).
-		found := requestAPI(t, http.MethodGet, server.baseURL+"/doctor", token, nil)
-		if found.status != http.StatusOK || !strings.Contains(found.body, `"check":"FFmpeg confinement on node`) {
-			t.Errorf("GET /doctor = %d %s, want the node's confinement", found.status, found.body)
-		}
-		return
 	}
 }
 
@@ -135,13 +129,15 @@ func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
 	const probe = `{"format":{"format_name":"matroska","duration":"1.000"},"streams":[` +
 		`{"index":0,"codec_type":"video","codec_name":"h264","profile":"High","pix_fmt":"yuv420p"},` +
 		`{"index":1,"codec_type":"audio","codec_name":"aac","profile":"LC","channels":2}]}`
-	const measured = "[ebur128@stereo_1 @ 0x55d1] Summary:\n\n  Integrated loudness:\n    I:         -35.7 LUFS\n" +
-		"    Threshold: -46.0 LUFS\n\n  Loudness range:\n    LRA:        22.8 LU\n\n  True peak:\n" +
-		"    Peak:      -16.2 dBFS\n"
+	measured := testutil.EBUR128Summary("stereo_1", "-35.7", "22.8", "-16.2")
 	shelved := filmAnswered(t, "nfo", testutil.FakeReply{Stdout: probe, Stderr: measured})
 	server, token, filmFileID := playableFilm(t, shelved)
-	deadline := time.After(30 * time.Second)
-	for {
+	type levelling struct {
+		IsMeasured bool    `json:"isMeasured"`
+		GainDB     float64 `json:"gainDb"`
+	}
+	var levelled levelling
+	pollUntil(t, "the film was measured", func() bool {
 		decided := requestAPI(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
 			"fileId": filmFileID, "network": "local", "playableFormats": map[string]any{
 				"videoCodecs": []string{"h264-sdr"}, "audioCodecs": []string{"aac-stereo"},
@@ -150,25 +146,15 @@ func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
 			},
 		})
 		var decision struct {
-			Levelling struct {
-				IsMeasured bool    `json:"isMeasured"`
-				GainDB     float64 `json:"gainDb"`
-			} `json:"levelling"`
+			Levelling levelling `json:"levelling"`
 		}
 		if err := json.Unmarshal([]byte(decided.body), &decision); err != nil || decided.status != http.StatusOK {
 			t.Fatalf("POST /playback = %d %s", decided.status, decided.body)
 		}
-		if !decision.Levelling.IsMeasured {
-			select {
-			case <-deadline:
-				t.Fatal("the film was not measured within 30 seconds")
-			case <-time.After(50 * time.Millisecond):
-			}
-			continue
-		}
-		if decision.Levelling.GainDB != 12.7 {
-			t.Errorf("the levelling = %+v, want the node's measurement raised to -23 LUFS", decision.Levelling)
-		}
-		return
+		levelled = decision.Levelling
+		return levelled.IsMeasured
+	})
+	if levelled.GainDB != 12.7 {
+		t.Errorf("the levelling = %+v, want the node's measurement raised to -23 LUFS", levelled)
 	}
 }

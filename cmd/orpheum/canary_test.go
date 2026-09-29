@@ -4,7 +4,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,42 +32,30 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	t.Parallel()
 	config, configPath := testConfig(t)
 	captured := newCapturedLog("ready", "stopping")
-	server := startServing(t, config, captured, "ready")
-	setupCode := runCommand(t, "setup-code", "--config", configPath)
+	server := startServing(t, config, captured, "ready", nil)
 	const adminName = "CONTROL-admin-name"
-	created := requestAPI(t, http.MethodPost, server.baseURL+"/setup", "",
-		map[string]string{"setupCode": strings.TrimSpace(setupCode.stdout), "name": adminName, "password": "pw"})
-	if created.status != http.StatusCreated {
-		t.Fatalf("setup: %d %s", created.status, created.body)
-	}
-	session := requestAPI(t, http.MethodPost, server.baseURL+"/session", "",
-		map[string]any{"name": adminName, "password": "pw", "device": signInDevice})
-	var signedIn struct {
-		Token string `json:"token"`
-	}
-	if err := json.Unmarshal([]byte(session.body), &signedIn); err != nil || signedIn.Token == "" {
-		t.Fatalf("sign in: %d %s", session.status, session.body)
-	}
+	setupCode := setUpOwner(t, server, configPath, adminName)
+	token := signInAs(t, server.baseURL, adminName, ownerPassword)
 
 	var responses strings.Builder
 	record := func(answer apiReply) { responses.WriteString(answer.body + "\n") }
 	for _, definition := range secrets.Registry() {
 		path := "/secrets/"
 		value := canaryPrefix + "-" + string(definition.Name) + "-0123456789"
-		answer := requestAPI(t, http.MethodPut, server.baseURL+path+string(definition.Name), signedIn.Token,
+		answer := requestAPI(t, http.MethodPut, server.baseURL+path+string(definition.Name), token,
 			map[string]string{"value": value})
 		if answer.status != http.StatusNoContent {
 			t.Fatalf("PUT %s%s: %d %s", path, definition.Name, answer.status, answer.body)
 		}
 		record(answer)
-		record(requestAPI(t, http.MethodPut, server.baseURL+path+string(definition.Name), signedIn.Token,
+		record(requestAPI(t, http.MethodPut, server.baseURL+path+string(definition.Name), token,
 			map[string]any{"value": []string{value}}))
 	}
 	paths := []string{
 		"/health", "/me", "/settings", "/me/settings", "/config", "/secrets", "/openapi.json",
 	}
 	for _, path := range paths {
-		record(requestAPI(t, http.MethodGet, server.baseURL+path, signedIn.Token, nil))
+		record(requestAPI(t, http.MethodGet, server.baseURL+path, token, nil))
 	}
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
@@ -81,7 +68,7 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	databaseBytes := readFile(t, filepath.Join(config.Server.DataDir, "library.db"))
 	channels := []channel{
 		{"API responses", responses.String(), adminName},
-		{"the log", captured.String(), strings.TrimSpace(setupCode.stdout)},
+		{"the log", captured.String(), setupCode},
 		{"doctor's output", doctor.stdout + doctor.stderr, config.Server.DataDir},
 		{"a backup", string(backupBytes), adminName},
 		{"library.db", string(databaseBytes), adminName},

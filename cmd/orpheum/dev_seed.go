@@ -106,15 +106,11 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if err != nil {
 		return err
 	}
-	database, err := store.Open(ctx, directories.LibraryDatabasePath(), config.openOptions())
+	database, err := openAndMigrate(ctx, config, directories, nil)
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Join(err, database.Close()) }()
-	err = database.Migrate(ctx, config.migrateOptions(directories.BackupDirectory(), nil))
-	if err != nil {
-		return err
-	}
 	logger, err := call.logger(config)
 	if err != nil {
 		return err

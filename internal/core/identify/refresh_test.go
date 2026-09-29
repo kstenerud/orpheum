@@ -3,13 +3,13 @@
 package identify
 
 import (
-	"context"
 	"encoding/json"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -118,23 +118,10 @@ func TestRefresh_ASeriesFetchesItsRecordAndEachSeasonItKeeps(t *testing.T) {
 	}
 }
 
-// fakeQueue is the job queue as a list.
-type fakeQueue []jobs.Request
-
-func (queue *fakeQueue) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
-	for _, open := range *queue {
-		if open.Kind == job.Kind && open.Target == job.Target {
-			return false, nil
-		}
-	}
-	*queue = append(*queue, job)
-	return true, nil
-}
-
 func TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod(t *testing.T) {
 	t.Parallel()
 	lib, titleID := matchedMetropolis(t)
-	queue := &fakeQueue{}
+	queue := &jobstest.Queue{}
 	refresher := NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.matcher.logger)
 	period := 180 * 24 * time.Hour
 	due := dueAfter(period, titleID)
