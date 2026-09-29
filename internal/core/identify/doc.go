@@ -70,9 +70,11 @@
 //   - An NFO, every provider's answer and a person's override are cleaned where they enter,
 //     so every name the pass writes is clean (principles §22, D211 §2). TestPass_ANameIsStoredClean,
 //     TestMatch_AProvidersTextIsCleanWhereItEnters, TestChooser_AnOverrideIsCleanWhereItEnters.
-//   - A change of sort_locale re-keys every name from what is stored, with no scan (A4).
-//     TestRefreshSortKeys_ALocaleChangeTakesEffectWithoutAScan,
-//     TestFollowSortLocale_KeysEveryNameAtStartAndOnEveryChange.
+//   - A change of sort_locale re-keys every name from what is stored, with no scan (A4); so does a
+//     build that collates or folds a name otherwise, at its start, key by key and fold by fold
+//     (D47, D48). TestRefreshSortKeys_ALocaleChangeTakesEffectWithoutAScan,
+//     TestFollowSortLocale_KeysEveryNameAtStartAndOnEveryChange,
+//     TestRefreshSortAndSearchKeys_AKeyOrFoldAnotherBuildMadeIsMadeAgain.
 //   - One work found as two titles in a library becomes one, the other a tombstone pointing at it
 //     (D173). TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst.
 //   - The images a matched item's source names and its artwork does not hold are reported
@@ -112,10 +114,10 @@
 //   - filename.go: the filename parser, and its corpus in filename_test.go; nfo.go: the NFO
 //     reader.
 //   - pass.go, load.go, titles.go, episodes.go, extras.go: the identification pass; evidence.go: what a
-//     stored match says to it; text.go: how the pass writes a name, and sortkeys.go: re-keying
-//     every name when the sort locale changes; localart.go: the images beside the media;
-//     artwork.go: the images an item's source names that are owed; vocabulary.go: the schema's
-//     closed sets.
+//     stored match says to it; text.go: how the pass writes a name, and sortkeys.go: keying and
+//     folding every name again when the sort locale, the collation or the fold changes;
+//     localart.go: the images beside the media; artwork.go: the images an item's source names
+//     that are owed; vocabulary.go: the schema's closed sets.
 //   - provider.go: the provider interface; cleaned.go: cleaning every provider answer where it
 //     enters. match.go: the matcher and the fetch job's handler; match_series.go: a series' match
 //     and its season listings. series.go: a series in the pass. refresh.go: a person's refresh and

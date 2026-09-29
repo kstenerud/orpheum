@@ -188,24 +188,25 @@ func (services jobServices) queueMeasurements(ctx context.Context, logger *slog.
 	}
 }
 
-// followSortLocale keeps every sort key in the sort_locale setting's locale: now, for a change
-// made while the server was stopped or a release's new starting value, and whenever a person
-// changes it (D47; agent-failures A4).
+// followSortLocale keeps every sort key in the sort_locale setting's locale, and every name's
+// fold for search, what this build derives: now, for a change made while the server was stopped,
+// a release's new starting value or a build that collates or folds otherwise, and whenever a
+// person changes the locale (D47, D48; agent-failures A4).
 func followSortLocale(
 	ctx context.Context, pass *identify.Pass, settingsService *settings.Service, logger *slog.Logger,
 ) error {
-	written, err := pass.RefreshSortKeys(ctx)
+	rewrittenCount, err := pass.RefreshSortAndSearchKeys(ctx)
 	if err != nil {
 		return err
 	}
-	if written > 0 {
-		logger.InfoContext(ctx, "sorted every title and series in the sort locale", "sortedCount", written)
+	if rewrittenCount > 0 {
+		logger.InfoContext(ctx, "keyed and folded names again for sorting and search", "rewrittenCount", rewrittenCount)
 	}
 	settingsService.OnChange(settings.SortLocale, func(ctx context.Context) error {
-		written, err := pass.RefreshSortKeys(ctx)
+		rewrittenCount, err := pass.RefreshSortAndSearchKeys(ctx)
 		if err == nil {
-			logger.InfoContext(ctx, "the sort locale changed; sorted every title and series again",
-				"sortedCount", written)
+			logger.InfoContext(ctx, "the sort locale changed; keyed names again for sorting",
+				"rewrittenCount", rewrittenCount)
 		}
 		return err
 	})

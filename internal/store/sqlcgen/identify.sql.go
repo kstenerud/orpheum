@@ -426,47 +426,6 @@ func (q *Queries) ListIdentifyFiles(ctx context.Context, libraryID int64) ([]Lis
 	return items, nil
 }
 
-const listItemsToSort = `-- name: ListItemsToSort :many
-SELECT item_text.item_id, item_text.name, coalesce(title.kind, collection.kind) AS listing
-FROM item_text
-JOIN item ON item.id = item_text.item_id
-LEFT JOIN title ON title.id = item_text.item_id
-LEFT JOIN collection ON collection.id = item_text.item_id
-WHERE item_text.is_original = 1 AND item.removed_at IS NULL
-  AND (title.id IS NOT NULL OR collection.kind = 'series')
-ORDER BY item_text.item_id
-`
-
-type ListItemsToSortRow struct {
-	ItemID  int64
-	Name    string
-	Listing string
-}
-
-// Every live named title and series, with the list it sorts in.
-func (q *Queries) ListItemsToSort(ctx context.Context) ([]ListItemsToSortRow, error) {
-	rows, err := q.db.QueryContext(ctx, listItemsToSort)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListItemsToSortRow{}
-	for rows.Next() {
-		var i ListItemsToSortRow
-		if err := rows.Scan(&i.ItemID, &i.Name, &i.Listing); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listLibraryRoots = `-- name: ListLibraryRoots :many
 
 SELECT node_id, root_path FROM library_root WHERE library_id = ? ORDER BY root_path
@@ -573,6 +532,62 @@ func (q *Queries) ListLibraryTitles(ctx context.Context, libraryID *int64) ([]Li
 			&i.IdentificationState,
 			&i.LibraryID,
 			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNamesWithSortAndSearchKeys = `-- name: ListNamesWithSortAndSearchKeys :many
+SELECT item_text.item_id, item_text.name, item_text.search_alternates, title.kind AS title_kind,
+  collection.kind AS collection_kind, sort_key.listing AS keyed_listing, sort_key.collation_key
+FROM item_text
+JOIN item ON item.id = item_text.item_id
+LEFT JOIN title ON title.id = item_text.item_id
+LEFT JOIN collection ON collection.id = item_text.item_id
+LEFT JOIN sort_key ON sort_key.item_id = item_text.item_id AND sort_key.locale = ?1
+WHERE item_text.is_original = 1 AND item.removed_at IS NULL
+ORDER BY item_text.item_id
+`
+
+type ListNamesWithSortAndSearchKeysRow struct {
+	ItemID           int64
+	Name             string
+	SearchAlternates *string
+	TitleKind        *string
+	CollectionKind   *string
+	KeyedListing     *string
+	CollationKey     []byte
+}
+
+// Every live named item: its name, its stored search fold, its kind as a title or a collection,
+// and its stored sort keys in a locale, one row per key and one with none when it has none. What
+// a refresh compares with what this build derives from the name (D47, D48).
+func (q *Queries) ListNamesWithSortAndSearchKeys(ctx context.Context, locale string) ([]ListNamesWithSortAndSearchKeysRow, error) {
+	rows, err := q.db.QueryContext(ctx, listNamesWithSortAndSearchKeys, locale)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListNamesWithSortAndSearchKeysRow{}
+	for rows.Next() {
+		var i ListNamesWithSortAndSearchKeysRow
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.Name,
+			&i.SearchAlternates,
+			&i.TitleKind,
+			&i.CollectionKind,
+			&i.KeyedListing,
+			&i.CollationKey,
 		); err != nil {
 			return nil, err
 		}
@@ -759,6 +774,22 @@ type SetFileVersionAndIdentifiedPathParams struct {
 
 func (q *Queries) SetFileVersionAndIdentifiedPath(ctx context.Context, arg SetFileVersionAndIdentifiedPathParams) error {
 	_, err := q.db.ExecContext(ctx, setFileVersionAndIdentifiedPath, arg.VersionID, arg.ID)
+	return err
+}
+
+const setSearchAlternates = `-- name: SetSearchAlternates :exec
+UPDATE item_text SET search_alternates = ?1
+WHERE item_id = ?2 AND is_original = 1
+`
+
+type SetSearchAlternatesParams struct {
+	SearchAlternates *string
+	ItemID           int64
+}
+
+// An item's name folded again, when the one normaliser now folds it otherwise (D48).
+func (q *Queries) SetSearchAlternates(ctx context.Context, arg SetSearchAlternatesParams) error {
+	_, err := q.db.ExecContext(ctx, setSearchAlternates, arg.SearchAlternates, arg.ItemID)
 	return err
 }
 

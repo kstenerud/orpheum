@@ -353,14 +353,50 @@ func TestRefreshSortKeys_ALocaleChangeTakesEffectWithoutAScan(t *testing.T) {
 		return order
 	}
 	settingstest.Set(t, lib.settings, settings.SortLocale, `"sv"`)
-	if written, err := lib.pass.RefreshSortKeys(t.Context()); err != nil || written != 3 {
-		t.Fatalf("RefreshSortKeys = %d, %v; want every film keyed again", written, err)
+	if written, err := lib.pass.RefreshSortAndSearchKeys(t.Context()); err != nil || written != 3 {
+		t.Fatalf("RefreshSortAndSearchKeys = %d, %v; want every film keyed again", written, err)
 	}
 	if got := names(); !slices.Equal(got, []string{"Apa", "Destiny", "Ödet"}) {
 		t.Errorf("in Swedish, with no scan since the change: %v", got)
 	}
-	if written, err := lib.pass.RefreshSortKeys(t.Context()); err != nil || written != 0 {
+	if written, err := lib.pass.RefreshSortAndSearchKeys(t.Context()); err != nil || written != 0 {
 		t.Errorf("a second refresh wrote %d (%v); nothing was missing", written, err)
+	}
+}
+
+// A build that collates or folds otherwise finds every key and fold the last one stored; each is
+// made again from its name, not only the missing ones (D47, D48).
+func TestRefreshSortAndSearchKeys_AKeyOrFoldAnotherBuildMadeIsMadeAgain(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "nfo")
+	lib.scan(videoRecord("Destiny (1998).mkv"), videoRecord("Sølvi Live (2020).mkv"), videoRecord("Apa (2000).mkv"))
+	// What an older build stored: a key that sorted Apa last, and Sølvi folded with its ø kept.
+	storetest.ExecRaw(t, lib.database.Path(),
+		"UPDATE sort_key SET collation_key = X'FFFFFFFF' "+
+			"WHERE item_id = (SELECT item_id FROM item_text WHERE name = 'Apa')",
+		"UPDATE item_text SET search_alternates = 'sølvi live' WHERE name = 'Sølvi Live'")
+	browser := library.NewBrowser(lib.database, lib.settings)
+	if hits, err := browser.Search(t.Context(), "solvi", 5); err != nil || len(hits) != 0 {
+		t.Fatalf("Search(solvi) under the older fold = %+v, %v; the setup did not take", hits, err)
+	}
+	if rewrittenCount, err := lib.pass.RefreshSortAndSearchKeys(t.Context()); err != nil || rewrittenCount != 2 {
+		t.Fatalf("RefreshSortAndSearchKeys = %d, %v; want Apa keyed and Sølvi folded again", rewrittenCount, err)
+	}
+	byName := library.ListQuery{Kind: library.ListFilms, Sort: library.SortName, Limit: 10}
+	listed, err := browser.List(t.Context(), byName)
+	var order []string
+	for _, entry := range listed.Entries {
+		order = append(order, entry.Name)
+	}
+	if err != nil || !slices.Equal(order, []string{"Apa", "Sølvi Live", "Destiny"}) {
+		t.Errorf("films by name after the refresh = %v, %v", order, err)
+	}
+	hits, err := browser.Search(t.Context(), "solvi", 5)
+	if err != nil || len(hits) != 1 || hits[0].Name != "Sølvi Live" {
+		t.Errorf("Search(solvi) after the refresh = %+v, %v; want Sølvi Live", hits, err)
+	}
+	if rewrittenCount, err := lib.pass.RefreshSortAndSearchKeys(t.Context()); err != nil || rewrittenCount != 0 {
+		t.Errorf("a second refresh rewrote %d (%v); every key and fold was current", rewrittenCount, err)
 	}
 }
 

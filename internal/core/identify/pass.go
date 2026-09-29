@@ -122,7 +122,7 @@ func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report,
 	}
 	// The locale may have changed after this pass read it: any name it keyed in the old one is
 	// keyed again in the new.
-	if _, err := pass.RefreshSortKeys(ctx); err != nil {
+	if _, err := pass.RefreshSortAndSearchKeys(ctx); err != nil {
 		return Report{}, err
 	}
 	pass.runAfterPassHooks(ctx, report)
