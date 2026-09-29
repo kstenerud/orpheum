@@ -23,7 +23,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D13](working-notes.md#d13--no-telemetry-no-account-no-upsell--as-a-stated-promise) No telemetry, no account, no upsell — as a stated promise — *revisited by D25*
 - [D14](working-notes.md#d14--remote-access-for-non-technical-family-is-a-headline-feature) Remote access for non-technical family is a headline feature — *revisited by D25*
 - [D15](working-notes.md#d15--two-plugin-tiers-in-process-wasm-and-out-of-process-adapters) Two plugin tiers: in-process WASM, and out-of-process adapters — *revisited by D19, D193*
-- [D16](working-notes.md#d16--gplv3-no-nonfree-components-and-provider-keys-belong-to-the-user) GPLv3, no nonfree components, and provider keys belong to the user — *revisited by D22*
+- [D16](working-notes.md#d16--gplv3-no-nonfree-components-and-provider-keys-belong-to-the-user) GPLv3, no nonfree components, and provider keys belong to the user — *revisited by D22, D224*
 - [D17](working-notes.md#d17--direct-play-first-transcoding-additive-and-optional) Direct play first; transcoding additive and optional
 - [D18](working-notes.md#d18--the-jellyfin-compatible-surface-is-an-adapter-and-it-quarantines-device-profiles) The Jellyfin-compatible surface is an adapter, and it quarantines device profiles
 - [D19](working-notes.md#d19--the-transcoder-is-a-plugin-we-happen-to-maintain-plugin-tiers-become-three) The transcoder is a plugin we happen to maintain; plugin tiers become three — *revisited by D193*

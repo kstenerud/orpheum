@@ -125,3 +125,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   switch on silent: it plays with sound, and the note says this device sets its own volume. Play
   a measured film that is prepared after it was measured: it plays levelled (D226 §4).
 
+- [ ] **VQ14** — On an iPhone, in Safari, on the dev loop after `make dev-reset`: play
+  **TrueHD Film (2022)** (H.264 with TrueHD, so it is prepared on play), then **Remux Film (2021)**
+  and choose **English** under **Subtitles** (its ASS track). Passes when each film's picture
+  moves within 8 s of pressing play, the reason it is not played directly is on screen, and the
+  ASS text appears over the picture. The dev library has no one file with H.264, TrueHD and ASS
+  together; `web/e2e/play-timing.spec.ts` checks that file in Chromium and Firefox, and this item
+  is its iPhone Safari half (cut-a §8, M3's acceptance). (`web/packages/player/`)
+- [ ] **VQ15** — On the Mac, with Apple's HTTP Live Streaming tools installed: once VQ14 has
+  prepared **TrueHD Film (2022)**, copy the rendition's directory (the one holding
+  `master.m3u8` under `.dev/cache/prepared/`) to the Mac and run
+  `mediastreamvalidator master.m3u8` in it. Passes when it reports no errors (cut-a §8, M3's
+  acceptance: `mediastreamvalidator` passes on a prepared rendition).
+  (`internal/node/prepare/arguments.go`)
