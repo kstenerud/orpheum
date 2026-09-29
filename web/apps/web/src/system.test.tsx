@@ -95,7 +95,10 @@ it("the System page says whether each machine runs FFmpeg in its sandbox (D112)"
 it("the System page answers whether a machine sees its GPU, may open it, and encodes on it (D225)", async () => {
   const text = await shown(connected);
   expect(text).toContain("Video is encoded on the GPU, with Intel Quick Sync.");
-  expect(text).toContain("/dev/dri/renderD128 (driver i915) — the server may open it.");
+  expect(text).toContain(
+    "/dev/dri/renderD128 (driver i915) — Orpheum on this machine may open it.",
+  );
+  expect(text).toContain("What worked when Orpheum started on this machine");
   expect(text).toContain("NVIDIA NVENC: did not work: Cannot load libcuda.so.1");
   expect(text).toContain("Films/Metropolis (1995)/Metropolis.mkv");
   expect(text).toContain("6.5× real time");
@@ -116,7 +119,7 @@ it("the System page warns when a machine has a GPU but encodes on the processor"
     },
   });
   expect(text).toContain("This machine has a GPU, but no hardware encoder works on it");
-  expect(text).toContain("the server may not open it: permission denied");
+  expect(text).toContain("Orpheum on this machine may not open it: permission denied");
   expect(mounted?.container.querySelectorAll('[role="alert"]').length).toBe(2);
 });
 
