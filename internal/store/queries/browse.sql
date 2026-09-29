@@ -54,9 +54,12 @@ ORDER BY sort_key.collation_key, sort_key.item_id
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListSeriesByAdded :many
+-- The series are read first, by CROSS JOIN, and sorted: they are few, and walking item_added
+-- newest first would pass every film and episode added between them, about seventy for each
+-- series at the reference scale.
 SELECT item.id AS item_id, item_text.name, collection.year, collection.identification_state, item.library_id, item.added_at
 FROM collection
-JOIN item ON item.id = collection.id
+CROSS JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
 WHERE collection.kind = 'series' AND item.removed_at IS NULL
   AND (item.added_at < sqlc.arg(before_at) OR (item.added_at = sqlc.arg(before_at) AND item.id < sqlc.arg(before_id)))

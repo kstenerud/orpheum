@@ -1,7 +1,6 @@
 -- application_id 1447646258
 -- user_version 25
 -- compatible_version 25
--- sqlite_sequence artwork 0
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -71,7 +70,7 @@ CREATE UNIQUE INDEX user_live_name ON user(name) WHERE removed_at IS NULL;
 CREATE INDEX version_title ON version(title_id) WHERE removed_at IS NULL;
 
 -- table artwork
-CREATE TABLE "artwork" (                                 -- class O/F; A when chosen
+CREATE TABLE artwork (                                     -- class O/F; A when chosen
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   kind        TEXT NOT NULL CHECK (kind IN ('poster','backdrop','logo','banner','still','disc')),
@@ -79,7 +78,7 @@ CREATE TABLE "artwork" (                                 -- class O/F; A when ch
   source      TEXT NOT NULL,             -- 'nfo', 'tmdb', 'local'
   source_ref  TEXT,
   source_sha256 BLOB,                    -- the SHA-256 of the source image; its sizes live in cache/ under it
-  is_chosen      INTEGER NOT NULL DEFAULT 0 CHECK (is_chosen IN (0,1)),  -- a person picked it
+  is_chosen   INTEGER NOT NULL DEFAULT 0 CHECK (is_chosen IN (0,1)),  -- a person picked it
   removed_at  INTEGER
 );
 
@@ -118,8 +117,8 @@ CREATE TABLE device (                                      -- class A
   platform      TEXT NOT NULL,
   audio_output  TEXT CHECK (audio_output IN ('built_in_speakers','receiver','headphones')),
                                          -- NULL until asked on first playback (D184)
-  added_at INTEGER NOT NULL,
-  last_signed_in_at  INTEGER NOT NULL,
+  added_at      INTEGER NOT NULL,
+  last_signed_in_at INTEGER NOT NULL,
   removed_at    INTEGER
 );
 
@@ -135,7 +134,7 @@ CREATE TABLE edition (                                     -- class A when a per
 -- table edition_text
 CREATE TABLE edition_text (                                -- class A or O
   edition_id  INTEGER NOT NULL REFERENCES edition(id) ON DELETE RESTRICT,
-  language        TEXT NOT NULL,
+  language    TEXT NOT NULL,
   name        TEXT NOT NULL,
   PRIMARY KEY (edition_id, language)
 );
@@ -164,10 +163,10 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
   video_file  INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
   provider_file_id TEXT NOT NULL,
-  language        TEXT NOT NULL,
+  language    TEXT NOT NULL,
   format      TEXT NOT NULL,
   body_gzip   BLOB NOT NULL,             -- a few kB; in the database so the backup carries it
-  fetched_by_user_id  INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
+  fetched_by_user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   fetched_at  INTEGER NOT NULL,
   release_name TEXT                      -- the provider's file name for it (D224)
 );
@@ -176,7 +175,7 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
 CREATE TABLE field_override (                              -- class A (D183)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   field       TEXT NOT NULL,             -- a field-registry name
-  language        TEXT NOT NULL DEFAULT '',  -- '' for language-invariant fields
+  language    TEXT NOT NULL DEFAULT '',  -- '' for language-invariant fields
   override_value TEXT NOT NULL,          -- a frozen copy
   origin      TEXT NOT NULL,             -- 'typed', 'nfo', 'tmdb', 'tvdb' — display only
   set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,
@@ -191,7 +190,7 @@ CREATE TABLE file (                                        -- class I (identity 
   node_id       INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   path          TEXT NOT NULL,           -- NFC form, for display and search
   size_bytes    INTEGER,
-  modified_at      INTEGER,
+  modified_at   INTEGER,
   payload_hash  BLOB,                    -- D179: anchored on the media payload
   payload_bytes INTEGER,
   filing        TEXT NOT NULL CHECK (filing IN
@@ -239,7 +238,7 @@ CREATE TABLE "grant" (                                     -- class A (D154)
 CREATE TABLE group_text (                                  -- a season's name, a disc's subtitle
   collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
   group_number  INTEGER NOT NULL,
-  language          TEXT NOT NULL,
+  language      TEXT NOT NULL,
   name          TEXT,
   overview      TEXT,
   PRIMARY KEY (collection_id, group_number, language)
@@ -252,7 +251,7 @@ CREATE TABLE item (                                        -- class I
   library_id  INTEGER REFERENCES library(id) ON DELETE RESTRICT,
   origin_server TEXT,                    -- NULL = this server; else who gave it (D174)
   merged_into INTEGER REFERENCES item(id) ON DELETE RESTRICT,  -- D173
-  added_at  INTEGER NOT NULL,
+  added_at    INTEGER NOT NULL,
   removed_at  INTEGER
 );
 
@@ -309,7 +308,7 @@ CREATE TABLE item_tag (
 -- table item_text
 CREATE TABLE item_text (                                   -- class O/F, resolved (D45)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
-  language        TEXT NOT NULL,
+  language    TEXT NOT NULL,
   is_original INTEGER NOT NULL DEFAULT 0 CHECK (is_original IN (0,1)),
   name        TEXT NOT NULL,
   overview    TEXT,
@@ -339,7 +338,7 @@ CREATE TABLE library (                                     -- class A
 CREATE TABLE library_root (                                -- class O: as the node reports it (D107)
   library_id INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
   node_id    INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
-  root_path       TEXT NOT NULL,
+  root_path  TEXT NOT NULL,
   PRIMARY KEY (library_id, node_id, root_path)
 );
 
@@ -516,7 +515,7 @@ CREATE TABLE secret (                                      -- class A, sealed (D
   key_id      INTEGER NOT NULL,          -- which secret.key sealed it (rotation)
   nonce       BLOB NOT NULL,             -- 24 bytes, XChaCha20-Poly1305
   ciphertext  BLOB NOT NULL,             -- ciphertext; the associated data is (scope, user_id, name)
-  last_chars        TEXT,                      -- last four characters of an API key; NULL for a password
+  last_chars  TEXT,                      -- last four characters of an API key; NULL for a password
   set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
   CHECK ((scope = 'server') = (user_id IS NULL))
@@ -557,9 +556,9 @@ CREATE TABLE stream (                                      -- class O; not "trac
   stream_index INTEGER,                  -- NULL for a whole-file sidecar
   kind        TEXT NOT NULL CHECK (kind IN ('video','audio','subtitle','attachment')),
   codec       TEXT,
-  container_language    TEXT,                      -- as the container carried it
-  language        TEXT,                      -- BCP 47, normalised (D24)
-  container_title   TEXT,
+  container_language TEXT,               -- as the container carried it
+  language    TEXT,                      -- BCP 47, normalised (D24)
+  container_title TEXT,
   disposition_flags INTEGER NOT NULL DEFAULT 0,  -- FFmpeg's flags, as found
   channel_count INTEGER,
   UNIQUE (bytes_file, stream_index)
@@ -578,7 +577,7 @@ CREATE TABLE title (                                       -- mixed: see the col
   media_kind     TEXT NOT NULL DEFAULT 'video' CHECK (media_kind IN ('video','audio')),
   year           INTEGER,                                    -- O: resolved
   runtime_ms     INTEGER,                                    -- O: resolved
-  original_language  TEXT,                                       -- O: resolved
+  original_language TEXT,                                    -- O: resolved
   -- D170/D183: the one source this title follows, and its id there. F, or A once a person
   -- chose it: a match is a fetch, and a migration never redoes one.
   followed_source    TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),  -- F/A
