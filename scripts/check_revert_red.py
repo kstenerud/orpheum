@@ -99,7 +99,7 @@ PY_SOURCE = re.compile(r"\.py$")
 # every `fix` to it was silently exempt; while `tests/conftest.py` matches neither
 # name pattern and was therefore treated as behavioral source that must go red.
 # internal/testutil is test code by construction: only tests may import it
-# (TestArch_TestutilIsImportedOnlyByTests), so no change to it can alter what the binary
+# (TestArch_TestSupportIsImportedOnlyByTests), so no change to it can alter what the binary
 # does, and a helper only an integration test uses has no test in this suite to turn red
 # (audit-2026-09-25 section 5.3).
 GO_TEST_SUPPORT = "internal/testutil/"
