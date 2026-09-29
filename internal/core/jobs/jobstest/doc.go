@@ -8,8 +8,7 @@
 //   - Queue.Enqueue refuses a second job of a kind for a target while one is listed, as the
 //     real queue does for an open job (TestEnqueue_QueuesATargetOnceWhileItIsOpen); a test that
 //     wants the job taken off the list sets the list to nil. Review-only.
-//   - Only tests import it. Review-only: no gate checks it yet, as TestArch_TestutilIsImportedOnlyByTests
-//     does for internal/testutil.
+//   - Only tests import it. Enforced by TestArch_TestSupportIsImportedOnlyByTests.
 //   - Imports nothing from internal/node, never os/exec. Enforced by the depguard rule
 //     core-boundary.
 //

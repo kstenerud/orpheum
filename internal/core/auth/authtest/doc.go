@@ -8,8 +8,7 @@
 //   - SetupCodes satisfies auth.SetupCodes, and its Read answers auth.ErrNoSetupCode when no
 //     code is stored, as the real file does; the compile-time assertion in setupcodes.go fails
 //     the build if the interface changes. Review-only for the error.
-//   - Only tests import it. Review-only: no gate checks it yet, as TestArch_TestutilIsImportedOnlyByTests
-//     does for internal/testutil.
+//   - Only tests import it. Enforced by TestArch_TestSupportIsImportedOnlyByTests.
 //   - auth's own tests that use it are in the external package auth_test (setup_test.go):
 //     an in-package test importing it would be an import cycle.
 //

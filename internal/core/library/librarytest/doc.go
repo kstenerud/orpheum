@@ -13,8 +13,7 @@
 //
 //   - Imports nothing from internal/core/library, so library's in-package tests can use it with
 //     no import cycle. Review-only.
-//   - Only tests import it. Review-only: no gate checks it yet, as TestArch_TestutilIsImportedOnlyByTests
-//     does for internal/testutil.
+//   - Only tests import it. Enforced by TestArch_TestSupportIsImportedOnlyByTests.
 //   - Imports nothing from internal/node, never os/exec. Enforced by the depguard rule
 //     core-boundary.
 //

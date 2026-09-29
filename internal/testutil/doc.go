@@ -16,7 +16,7 @@
 //   - ORPHEUM_TEST_UNCONTROLLED is read here and nowhere else in Go code, and the Makefile
 //     prints it on every Go test run. check-claims fails a test variable nothing sets.
 //   - Only tests import this package, so nothing here — skipping, test variables, starting
-//     MKVToolNix — reaches a binary. Enforced by TestArch_TestutilIsImportedOnlyByTests; that
+//     MKVToolNix — reaches a binary. Enforced by TestArch_TestSupportIsImportedOnlyByTests; that
 //     is why the depguard rule exec-only-in-execx and forbidigo's [exec] exempt it.
 //
 // # Read before changing
