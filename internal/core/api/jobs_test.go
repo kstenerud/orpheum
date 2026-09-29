@@ -118,7 +118,7 @@ func TestJobs_ACancelledSubtitleExtractionIsStoppedOnTheNode(t *testing.T) {
 	harness.play(t, admin, chrome(2))
 	extraction := newestOf(t, harness.listedJobs(t, admin), jobs.KindExtractSubtitle)
 	playback := harness.server.dependencies.Load().Playback
-	runner := harness.queue.NewRunner(jobs.KindExtractSubtitle, playback.HandleSubtitle)
+	runner := harness.queue.NewRunner(jobs.KindExtractSubtitle, playback.HandleExtractSubtitle)
 	ran := make(chan error, 1)
 	go func() { ran <- runner.RunDue(t.Context()) }()
 	if command := <-harness.nodes.commanded; command.Type != nodeproto.CommandExtractSubtitle {

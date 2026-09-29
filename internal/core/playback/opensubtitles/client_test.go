@@ -20,10 +20,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
-// login is the server's OpenSubtitles login, as the secrets store opens it.
-type login struct{ username, password string }
+// fakeKeys is the server's OpenSubtitles login, as the secrets store opens it.
+type fakeKeys struct{ username, password string }
 
-func (keys login) Open(_ context.Context, name secrets.Name) (secrets.Value, error) {
+func (keys fakeKeys) Open(_ context.Context, name secrets.Name) (secrets.Value, error) {
 	value := ""
 	switch name { //nolint:exhaustive // a fake login answers only for its two names
 	case secrets.OpenSubtitlesUsername:
@@ -37,17 +37,17 @@ func (keys login) Open(_ context.Context, name secrets.Name) (secrets.Value, err
 	return secrets.NewValue(value), nil
 }
 
-// provider is OpenSubtitles, faked: its logins, what it was asked, and a quota.
-type provider struct {
-	mutex     sync.Mutex
-	logins    int
-	tokens    map[string]bool
-	searched  []url.Values
-	remaining int
-	server    *httptest.Server
+// fakeProvider is OpenSubtitles, faked: its logins, what it was asked, and a quota.
+type fakeProvider struct {
+	mutex         sync.Mutex
+	loginCount    int
+	isTokenIssued map[string]bool
+	searched      []url.Values
+	remaining     int
+	server        *httptest.Server
 }
 
-func (fake *provider) serve(writer http.ResponseWriter, request *http.Request) {
+func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Request) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	if request.URL.Path == "/files/subtitle.srt" { // the download link: a file, no key asked
@@ -65,14 +65,14 @@ func (fake *provider) serve(writer http.ResponseWriter, request *http.Request) {
 			http.Error(writer, `{"message":"Error, invalid username/password"}`, http.StatusUnauthorized)
 			return
 		}
-		fake.logins++
-		token := fmt.Sprintf("token-%d", fake.logins)
-		fake.tokens[token] = true
+		fake.loginCount++
+		token := fmt.Sprintf("token-%d", fake.loginCount)
+		fake.isTokenIssued[token] = true
 		host := strings.TrimPrefix(fake.server.URL, "http://")
 		reply(writer, fmt.Sprintf(`{"token":%q,"base_url":%q,"status":200}`, token, host))
 		return
 	}
-	if !fake.tokens[strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")] {
+	if !fake.isTokenIssued[strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")] {
 		http.Error(writer, `{"message":"invalid token"}`, http.StatusUnauthorized)
 		return
 	}
@@ -108,26 +108,26 @@ func reply(writer http.ResponseWriter, text string) {
 	_, _ = writer.Write([]byte(text)) //nolint:errcheck // see above
 }
 
-func newProvider(t *testing.T, keys Keys) (*provider, *Client, *clocktest.Fake) {
+func newProvider(t *testing.T, keys LoginSecrets) (*fakeProvider, *Client, *clocktest.Fake) {
 	t.Helper()
-	fake := &provider{tokens: map[string]bool{}, remaining: 2}
+	fake := &fakeProvider{isTokenIssued: map[string]bool{}, remaining: 2}
 	fake.server = httptest.NewServer(http.HandlerFunc(fake.serve))
 	t.Cleanup(fake.server.Close)
 	httpClient, err := outbound.NewClient(5*time.Second, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	now := clocktest.NewFake(time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC))
-	client, err := New(httpClient, fake.server.URL+"/api/v1", keys, now)
+	fakeClock := clocktest.NewFake(time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC))
+	client, err := New(httpClient, fake.server.URL+"/api/v1", keys, fakeClock)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fake, client, now
+	return fake, client, fakeClock
 }
 
 func TestSearch_LogsInOnceAndAsksByTheWorksIDsAndTheFilesHash(t *testing.T) {
 	t.Parallel()
-	fake, client, _ := newProvider(t, login{"owner", "right"})
+	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
 	query := Query{IMDbID: "tt0123456", TMDBID: "4801", MovieHash: "8E245D9679D31E12", Language: "EN"}
 	found, err := client.Search(t.Context(), query)
 	if err != nil {
@@ -136,23 +136,23 @@ func TestSearch_LogsInOnceAndAsksByTheWorksIDsAndTheFilesHash(t *testing.T) {
 	if _, err = client.Search(t.Context(), query); err != nil {
 		t.Fatal(err)
 	}
-	if fake.logins != 1 {
-		t.Errorf("%d logins for two searches, want one, shared (opensubtitles-api.md §3)", fake.logins)
+	if fake.loginCount != 1 {
+		t.Errorf("%d logins for two searches, want one, shared (opensubtitles-api.md §3)", fake.loginCount)
 	}
 	asked := fake.searched[0]
 	if asked.Get("imdb_id") != "133093" || asked.Get("tmdb_id") != "603" ||
 		asked.Get("moviehash") != "8e245d9679d31e12" || asked.Get("languages") != "en" {
 		t.Errorf("searched with %v; want the ids without tt, the hash and language lower-case (D224 §3)", asked)
 	}
-	if len(found) != 2 || found[0].FileID != 7 || !found[0].IsHashMatch || found[0].Downloads != 120 ||
-		found[0].UploadedAt.IsZero() || found[1].FileID != 8 || !found[1].IsHearingImpaired {
+	if len(found) != 2 || found[0].ProviderFileID != 7 || !found[0].IsHashMatch || found[0].DownloadCount != 120 ||
+		found[0].UploadedAt.IsZero() || found[1].ProviderFileID != 8 || !found[1].IsHearingImpaired {
 		t.Errorf("found %+v; want the two with a file, the hash match first", found)
 	}
 }
 
 func TestSearch_AsksForAnEpisodeByItsSeriesAndPlace(t *testing.T) {
 	t.Parallel()
-	fake, client, _ := newProvider(t, login{"owner", "right"})
+	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
 	_, err := client.Search(t.Context(), Query{SeriesTMDBID: "1399", Season: 1, Episode: 3, Language: "de"})
 	if err != nil {
 		t.Fatal(err)
@@ -166,37 +166,37 @@ func TestSearch_AsksForAnEpisodeByItsSeriesAndPlace(t *testing.T) {
 
 func TestLogin_IsUsedForItsDayAndMadeAgainWhenOpenSubtitlesNoLongerAcceptsIt(t *testing.T) {
 	t.Parallel()
-	fake, client, now := newProvider(t, login{"owner", "right"})
+	fake, client, now := newProvider(t, fakeKeys{"owner", "right"})
 	if _, err := client.Allowance(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	now.Advance(tokenLife)
-	if _, err := client.Allowance(t.Context()); err != nil || fake.logins != 2 {
-		t.Errorf("a day later: %v, %d logins; want a new login", err, fake.logins)
+	if _, err := client.Allowance(t.Context()); err != nil || fake.loginCount != 2 {
+		t.Errorf("a day later: %v, %d logins; want a new login", err, fake.loginCount)
 	}
 	fake.mutex.Lock()
-	fake.tokens = map[string]bool{} // OpenSubtitles forgets the token
+	fake.isTokenIssued = map[string]bool{} // OpenSubtitles forgets the token
 	fake.mutex.Unlock()
 	allowance, err := client.Allowance(t.Context())
-	if err != nil || fake.logins != 3 || allowance.Allowed != 20 || allowance.Remaining != 2 {
+	if err != nil || fake.loginCount != 3 || allowance.AllowedDownloads != 20 || allowance.RemainingDownloads != 2 {
 		t.Errorf("after the token was refused: %+v, %v, %d logins; want one new login and the allowance",
-			allowance, err, fake.logins)
+			allowance, err, fake.loginCount)
 	}
 }
 
 func TestLogin_ARefusedLoginIsNotTriedAgainUntilItChanges(t *testing.T) {
 	t.Parallel()
-	_, client, _ := newProvider(t, login{"owner", "wrong"})
+	_, client, _ := newProvider(t, fakeKeys{"owner", "wrong"})
 	for range 2 {
 		if _, err := client.Allowance(t.Context()); !errors.Is(err, ErrLoginRefused) {
 			t.Errorf("with a wrong password: %v, want ErrLoginRefused", err)
 		}
 	}
-	client.keys = login{"owner", "right"}
+	client.loginSecrets = fakeKeys{"owner", "right"}
 	if _, err := client.Allowance(t.Context()); err != nil {
 		t.Errorf("after the admin changed it: %v, want it tried", err)
 	}
-	_, unset, _ := newProvider(t, login{})
+	_, unset, _ := newProvider(t, fakeKeys{})
 	if _, err := unset.Search(t.Context(), Query{Language: "en"}); !errors.Is(err, ErrNoLogin) {
 		t.Errorf("with no login set: %v, want ErrNoLogin", err)
 	}
@@ -204,13 +204,13 @@ func TestLogin_ARefusedLoginIsNotTriedAgainUntilItChanges(t *testing.T) {
 
 func TestDownload_FetchesTheFileAndSaysWhatIsLeftAndASpentQuotaWhenItResets(t *testing.T) {
 	t.Parallel()
-	_, client, _ := newProvider(t, login{"owner", "right"})
+	_, client, _ := newProvider(t, fakeKeys{"owner", "right"})
 	downloaded, err := client.Download(t.Context(), 7)
 	if err != nil {
 		t.Fatal(err)
 	}
 	reset := time.Date(2026, 9, 29, 6, 0, 0, 0, time.UTC)
-	if !strings.Contains(string(downloaded.Body), "Hello") || downloaded.Remaining != 1 ||
+	if !strings.Contains(string(downloaded.Body), "Hello") || downloaded.RemainingDownloads != 1 ||
 		!downloaded.ResetAt.Equal(reset) || downloaded.FileName != "Film.2020.srt" {
 		t.Errorf("downloaded %+v; want the subtitle, one left, and the provider's reset time (D224 §4)", downloaded)
 	}

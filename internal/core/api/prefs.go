@@ -60,10 +60,10 @@ func (server *Server) registerFilePrefs() {
 
 func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
 	body := FilePrefsBody{
-		SubtitleOffsetMs: prefs.SubtitleOffsetMs, IsDialogueBoostOn: prefs.IsDialogueBoost,
+		SubtitleOffsetMs: prefs.SubtitleOffsetMs, IsDialogueBoostOn: prefs.IsDialogueBoostOn,
 		IsLevellingOn: prefs.IsLevelling,
 	}
-	if choice := prefs.Subtitle; choice != nil {
+	if choice := prefs.SubtitleChoice; choice != nil {
 		body.SubtitleChoice = &SubtitleChoiceBody{
 			StreamID: choice.StreamID, FetchedSubtitleID: choice.FetchedSubtitleID, IsOff: choice.IsOff,
 			IsCarriedFromWork: choice.IsCarriedFromWork,

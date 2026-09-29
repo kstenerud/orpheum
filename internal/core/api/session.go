@@ -70,7 +70,7 @@ type NewDeviceBody struct {
 }
 
 func newDevice(body NewDeviceBody) auth.NewDevice {
-	return auth.NewDevice{Name: body.Name, Platform: body.Platform, ResumeID: body.PreviousDeviceID}
+	return auth.NewDevice{Name: body.Name, Platform: body.Platform, ResumeDeviceID: body.PreviousDeviceID}
 }
 
 // Resolve records the client's address and whether it came over TLS.

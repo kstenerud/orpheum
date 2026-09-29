@@ -19,11 +19,11 @@ import (
 type FilePrefs struct {
 	// SubtitleOffsetMs shows the subtitles this many milliseconds later, or earlier when negative.
 	SubtitleOffsetMs int64
-	// Subtitle is the file's subtitle choice, or nil when it has none.
-	Subtitle *SubtitleChoice
-	// IsDialogueBoost is whether the person plays with the dialogue boost: theirs, for every file,
+	// SubtitleChoice is the file's subtitle choice, or nil when it has none.
+	SubtitleChoice *SubtitleChoice
+	// IsDialogueBoostOn is whether the person plays with the dialogue boost: theirs, for every file,
 	// off until they turn it on (D83, D222).
-	IsDialogueBoost bool
+	IsDialogueBoostOn bool
 	// IsLevelling is whether the person plays with loudness levelled: theirs, for every file, on
 	// until they turn it off (D226 §5).
 	IsLevelling bool
@@ -37,9 +37,9 @@ type SubtitleChoice struct {
 	// IsCarriedFromWork is a choice made in another file of the work and carried here, which a later
 	// choice elsewhere carries over; a choice made in this file is its own and is kept.
 	IsCarriedFromWork bool `json:"isCarriedFromWork,omitempty"`
-	// Track is what the chosen track is. A rescan writes a file's streams again under new ids, so
+	// TrackDescription is what the chosen track is. A rescan writes a file's streams again under new ids, so
 	// a choice is found again by what its track is, not only by its id (D223 §8).
-	Track *TrackDescription `json:"track,omitempty"`
+	TrackDescription *TrackDescription `json:"track,omitempty"`
 }
 
 // TrackDescription is what a subtitle track is, apart from its stream id: what finds the same
@@ -54,15 +54,16 @@ type TrackDescription struct {
 // describe is what track is, apart from its stream id.
 func describe(track SubtitleTrack) *TrackDescription {
 	return &TrackDescription{
-		Language: track.Language, Title: track.Title, IsForced: track.Forced, IsHearingImpaired: track.HearingImpaired,
+		Language: track.Language, Title: track.Title, IsForced: track.IsForced,
+		IsHearingImpaired: track.IsHearingImpaired,
 	}
 }
 
 // trackLike is a track as a description names it, for matchingTrack.
 func trackLike(description TrackDescription) SubtitleTrack {
 	return SubtitleTrack{
-		Language: description.Language, Title: description.Title, Forced: description.IsForced,
-		HearingImpaired: description.IsHearingImpaired,
+		Language: description.Language, Title: description.Title, IsForced: description.IsForced,
+		IsHearingImpaired: description.IsHearingImpaired,
 	}
 }
 
@@ -97,8 +98,8 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 		case axisSubtitleOffsetMs:
 			prefs.SubtitleOffsetMs, err = strconv.ParseInt(preference.ValueJson, 10, 64)
 		case axisSubtitleChoice:
-			prefs.Subtitle = &SubtitleChoice{}
-			err = json.Unmarshal([]byte(preference.ValueJson), prefs.Subtitle)
+			prefs.SubtitleChoice = &SubtitleChoice{}
+			err = json.Unmarshal([]byte(preference.ValueJson), prefs.SubtitleChoice)
 		}
 		if err != nil {
 			return FilePrefs{}, fmt.Errorf("read the %s of file %d: %w", preference.Axis, fileID, err)
@@ -110,14 +111,14 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 	if err != nil {
 		return FilePrefs{}, fmt.Errorf("read user %d's preferences: %w", userID, err)
 	}
-	if prefs.Subtitle, err = service.currentChoice(ctx, fileID, prefs.Subtitle); err != nil {
+	if prefs.SubtitleChoice, err = service.currentChoice(ctx, fileID, prefs.SubtitleChoice); err != nil {
 		return FilePrefs{}, err
 	}
 	prefs.IsLevelling = true
 	for _, preference := range personal {
 		switch preference.Axis {
 		case axisDialogueBoost:
-			prefs.IsDialogueBoost = preference.ValueJson == valueTrue
+			prefs.IsDialogueBoostOn = preference.ValueJson == valueTrue
 		case axisLevelling:
 			prefs.IsLevelling = preference.ValueJson != valueFalse
 		}
@@ -127,16 +128,16 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 
 // SetDialogueBoost keeps whether the person plays with the dialogue boost, for every file (D83).
 func (service *Service) SetDialogueBoost(ctx context.Context, userID int64, isOn bool) error {
-	return service.setOwn(ctx, userID, axisDialogueBoost, isOn)
+	return service.setPersonalSwitch(ctx, userID, axisDialogueBoost, isOn)
 }
 
 // SetLevelling keeps whether the person plays with loudness levelled, for every file (D226 §5).
 func (service *Service) SetLevelling(ctx context.Context, userID int64, isOn bool) error {
-	return service.setOwn(ctx, userID, axisLevelling, isOn)
+	return service.setPersonalSwitch(ctx, userID, axisLevelling, isOn)
 }
 
-// setOwn keeps one of the person's own choices that is on or off, for every file.
-func (service *Service) setOwn(ctx context.Context, userID int64, axis string, isOn bool) error {
+// setPersonalSwitch keeps one of the person's own choices that is on or off, for every file.
+func (service *Service) setPersonalSwitch(ctx context.Context, userID int64, axis string, isOn bool) error {
 	value := valueFalse
 	if isOn {
 		value = valueTrue
@@ -155,12 +156,12 @@ func (service *Service) setOwn(ctx context.Context, userID int64, axis string, i
 
 // SetSubtitleOffset keeps the person's subtitle offset for a file they may play.
 func (service *Service) SetSubtitleOffset(ctx context.Context, userID, fileID, offsetMs int64) error {
-	if _, err := service.file(ctx, fileID); err != nil {
+	if _, err := service.playableFile(ctx, fileID); err != nil {
 		return err
 	}
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		offset := strconv.FormatInt(offsetMs, 10)
-		return service.setPreference(ctx, queries, userID, fileID, axisSubtitleOffsetMs, offset)
+		return service.setFilePreference(ctx, queries, userID, fileID, axisSubtitleOffsetMs, offset)
 	})
 	if err != nil {
 		return fmt.Errorf("keep the subtitle offset for file %d: %w", fileID, err)
@@ -168,7 +169,7 @@ func (service *Service) SetSubtitleOffset(ctx context.Context, userID, fileID, o
 	return nil
 }
 
-func (service *Service) setPreference(
+func (service *Service) setFilePreference(
 	ctx context.Context, queries *sqlcgen.Queries, userID, fileID int64, axis, value string,
 ) error {
 	return queries.SetPreference(ctx, sqlcgen.SetPreferenceParams{
@@ -182,7 +183,7 @@ func (service *Service) setPreference(
 // same language and kind, preferring the same title, or off; one with no such track is left
 // without a choice, since a fallback is not a choice (D24).
 func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64, choice SubtitleChoice) error {
-	if _, err := service.file(ctx, fileID); err != nil {
+	if _, err := service.playableFile(ctx, fileID); err != nil {
 		return err
 	}
 	tracks, err := service.textTracksOf(ctx, fileID)
@@ -202,7 +203,7 @@ func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64
 	}
 	own := SubtitleChoice{TrackRef: choice.TrackRef, IsOff: choice.IsOff}
 	if chosen != nil {
-		own.Track = describe(*chosen)
+		own.TrackDescription = describe(*chosen)
 	}
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		if err := service.keepChoice(ctx, queries, userID, fileID, &own); err != nil {
@@ -246,7 +247,7 @@ func (service *Service) carryChoice(
 	if err != nil {
 		return err
 	}
-	if current.Subtitle != nil && !current.Subtitle.IsCarriedFromWork {
+	if current.SubtitleChoice != nil && !current.SubtitleChoice.IsCarriedFromWork {
 		return nil // the file's own choice stands
 	}
 	carried := &SubtitleChoice{IsOff: true, IsCarriedFromWork: true}
@@ -258,7 +259,9 @@ func (service *Service) carryChoice(
 		match := matchingTrack(tracks, *chosen)
 		carried = nil
 		if match != nil {
-			carried = &SubtitleChoice{TrackRef: match.TrackRef, IsCarriedFromWork: true, Track: describe(*match)}
+			carried = &SubtitleChoice{
+				TrackRef: match.TrackRef, IsCarriedFromWork: true, TrackDescription: describe(*match),
+			}
 		}
 	}
 	return service.keepChoice(ctx, queries, userID, fileID, carried)
@@ -280,10 +283,10 @@ func (service *Service) currentChoice(
 	if trackByID(tracks, stored.TrackRef) != nil {
 		return stored, nil
 	}
-	if stored.Track == nil {
+	if stored.TrackDescription == nil {
 		return nil, nil //nolint:nilnil // a choice made before tracks were described names nothing now
 	}
-	match := matchingTrack(tracks, trackLike(*stored.Track))
+	match := matchingTrack(tracks, trackLike(*stored.TrackDescription))
 	if match == nil {
 		return nil, nil //nolint:nilnil // no track of the file is the one chosen
 	}
@@ -309,7 +312,7 @@ func (service *Service) keepChoice(
 	if err != nil {
 		return fmt.Errorf("encode a subtitle choice: %w", err)
 	}
-	if err := service.setPreference(ctx, queries, userID, fileID, axisSubtitleChoice, string(encoded)); err != nil {
+	if err := service.setFilePreference(ctx, queries, userID, fileID, axisSubtitleChoice, string(encoded)); err != nil {
 		return fmt.Errorf("keep the subtitle choice of file %d: %w", fileID, err)
 	}
 	return nil
@@ -330,8 +333,8 @@ func matchingTrack(tracks []SubtitleTrack, chosen SubtitleTrack) *SubtitleTrack 
 	var match *SubtitleTrack
 	for index := range tracks {
 		track := &tracks[index]
-		if track.Language != chosen.Language || track.Forced != chosen.Forced ||
-			track.HearingImpaired != chosen.HearingImpaired {
+		if track.Language != chosen.Language || track.IsForced != chosen.IsForced ||
+			track.IsHearingImpaired != chosen.IsHearingImpaired {
 			continue
 		}
 		if track.Title == chosen.Title {

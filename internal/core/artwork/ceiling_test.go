@@ -33,25 +33,25 @@ func (bench *bench) show(t *testing.T, kind, hash string, removedAt int64) {
 }
 
 // hold makes the bench hold files of the sizes given, in fractions of a GiB.
-func (bench *bench) hold(hash string, files map[string]float64) {
-	for name, size := range files {
-		bench.service.holdings.add(hash, name, gibs(size))
+func (bench *bench) hold(hash string, sizesGiB map[string]float64) {
+	for name, size := range sizesGiB {
+		bench.service.holdings.add(hash, name, gibToBytes(size))
 		bench.art[hash+"/"+name] = nil
 	}
 }
 
-// gibs is a fraction of a GiB in bytes, as hold counts it.
-func gibs(fraction float64) int64 { return int64(fraction * float64(gib)) }
+// gibToBytes is a fraction of a GiB in bytes, as hold counts it.
+func gibToBytes(fraction float64) int64 { return int64(fraction * float64(gib)) }
 
-func (bench *bench) holds(hash, name string) bool {
-	_, found := bench.service.holdings.files[hash][name]
+func (bench *bench) isHeld(hash, name string) bool {
+	_, found := bench.service.holdings.sizeBytesByNameByHash[hash][name]
 	return found
 }
 
 func TestSweep_EvictsInTheOrderOfD212DownToLowWaterAndNeverAWallSize(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{})
-	settingstest.Set(t, bench.config, settings.ArtworkCacheCeilingGiB, "1")
+	bench := newBench(t, fakeFetcher{})
+	settingstest.Set(t, bench.settings, settings.ArtworkCacheCeilingGiB, "1")
 	clock := bench.clock
 	poster, backdrop, removed, orphan := hashOf("a"), hashOf("b"), hashOf("c"), hashOf("d")
 	bench.show(t, identify.ArtPoster, poster, 0)
@@ -74,7 +74,7 @@ func TestSweep_EvictsInTheOrderOfD212DownToLowWaterAndNeverAWallSize(t *testing.
 	for _, gone := range [][2]string{
 		{removed, "portrait-m.webp"}, {orphan, "portrait-s.webp"}, {poster, "portrait-l.webp"},
 	} {
-		if bench.holds(gone[0], gone[1]) {
+		if bench.isHeld(gone[0], gone[1]) {
 			t.Errorf("%s %s is still held", gone[0][:4], gone[1])
 		}
 	}
@@ -86,19 +86,19 @@ func TestSweep_EvictsInTheOrderOfD212DownToLowWaterAndNeverAWallSize(t *testing.
 		{backdrop, "landscape-m.webp"},
 		{backdrop, "landscape-l.webp"},
 	} {
-		if !bench.holds(kept[0], kept[1]) {
+		if !bench.isHeld(kept[0], kept[1]) {
 			t.Errorf("%s %s was evicted; the sweep should stop at 90%% of the ceiling", kept[0][:4], kept[1])
 		}
 	}
-	required := gibs(0.1) + 2*gibs(0.01)
-	if pressure.HighWater || pressure.RequiredBytes != required || pressure.TotalBytes > gibs(0.9) {
+	required := gibToBytes(0.1) + 2*gibToBytes(0.01)
+	if pressure.IsHighWater || pressure.RequiredBytes != required || pressure.TotalBytes > gibToBytes(0.9) {
 		t.Errorf("pressure %+v; want %d required, under the low water, no high water", pressure, required)
 	}
 }
 
 func TestSweep_UnderTheCeilingOnlyARemovedItemsImagesGoAndOnlyAfterTheirGrace(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{})
+	bench := newBench(t, fakeFetcher{})
 	clock := bench.clock
 	removed := hashOf("c")
 	bench.show(t, identify.ArtPoster, removed, clock.Now().UnixMilli())
@@ -107,22 +107,22 @@ func TestSweep_UnderTheCeilingOnlyARemovedItemsImagesGoAndOnlyAfterTheirGrace(t 
 	if _, err := bench.service.Sweep(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if !bench.holds(removed, "portrait-m.webp") {
+	if !bench.isHeld(removed, "portrait-m.webp") {
 		t.Fatal("a removed item's image went within its grace, under the ceiling")
 	}
 	clock.Advance(31 * 24 * time.Hour)
 	if _, err := bench.service.Sweep(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if bench.holds(removed, "portrait-m.webp") {
+	if bench.isHeld(removed, "portrait-m.webp") {
 		t.Error("a removed item's image stayed after its 30 days' grace")
 	}
 }
 
 func TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{})
-	settingstest.Set(t, bench.config, settings.ArtworkCacheCeilingGiB, "2")
+	bench := newBench(t, fakeFetcher{})
+	settingstest.Set(t, bench.settings, settings.ArtworkCacheCeilingGiB, "2")
 	wall := hashOf("a")
 	bench.show(t, identify.ArtPoster, wall, 0)
 	bench.hold(wall, map[string]float64{"portrait-m.webp": 2.5})
@@ -130,17 +130,17 @@ func TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !pressure.HighWater || pressure.RecommendedBytes != 3*gib || !bench.holds(wall, "portrait-m.webp") {
+	if !pressure.IsHighWater || pressure.RecommendedBytes != 3*gib || !bench.isHeld(wall, "portrait-m.webp") {
 		t.Errorf("pressure %+v; want high water, 3 GiB recommended (2.5 + 15%%), and the wall size kept", pressure)
 	}
-	if got := bench.service.Pressure(); !got.HighWater {
+	if got := bench.service.Pressure(); !got.IsHighWater {
 		t.Error("the last sweep's pressure is not kept for the admin to see")
 	}
 }
 
 func TestFlush_WritesWhenImagesWereServedAndLoadReadsItBack(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{})
+	bench := newBench(t, fakeFetcher{})
 	hash := hashOf("a")
 	bench.art[hash+"/portrait-s.webp"] = ourWebP
 	if _, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitS, FormatWebP); err != nil {
@@ -150,22 +150,22 @@ func TestFlush_WritesWhenImagesWereServedAndLoadReadsItBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	fresh := NewService(bench.service.parts)
-	if err := fresh.Load(t.Context()); err != nil {
+	if err := fresh.LoadHoldings(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	today := bench.service.parts.Clock.Now().Unix() / 86400
-	if fresh.holdings.lastServedDayByHash[hash] != today || fresh.holdings.total != int64(len(ourWebP)) {
+	if fresh.holdings.lastServedDayByHash[hash] != today || fresh.holdings.totalBytes != int64(len(ourWebP)) {
 		t.Errorf("after Load: served day %d (want %d), total %d", fresh.holdings.lastServedDayByHash[hash], today,
-			fresh.holdings.total)
+			fresh.holdings.totalBytes)
 	}
 }
 
 func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 	t.Parallel()
 	source := []byte("backdrop")
-	provider := &failing{err: ErrNoImage} // were it asked, it has nothing
-	bench := newBench(t, fetched{"/back.jpg": source})
-	queue := &queued{}
+	provider := &failingFetcher{err: ErrNoImage} // were it asked, it has nothing
+	bench := newBench(t, fakeFetcher{"/back.jpg": source})
+	queue := &recordingQueue{}
 	bench.service.parts.Queue = queue
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
 		var images []nodeproto.ArtImage
@@ -180,7 +180,7 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 		t.Fatal(err)
 	}
 	served, err := bench.service.Serve(t.Context(), hash, nodeproto.LandscapeM, FormatWebP)
-	if err != nil || served.Redirect != "landscape-s.webp" || len(*queue) != 1 {
+	if err != nil || served.RedirectName != "landscape-s.webp" || len(*queue) != 1 {
 		t.Fatalf("an evicted size: %+v, %v, queued %+v", served, err, *queue)
 	}
 	bench.service.parts.Fetchers["tmdb"] = provider
@@ -192,11 +192,11 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 		t.Fatal(err)
 	}
 	cutFromBase := len(bench.node.sent) == sent+1 && string(bench.node.sent[sent].SourceImage) == string(ourWebP)
-	if provider.calls != 0 || !cutFromBase {
+	if provider.callCount != 0 || !cutFromBase {
 		t.Errorf("TMDB asked %d times; the node was sent %d; want the base cut by the node, nothing fetched",
-			provider.calls, len(bench.node.sent)-sent)
+			provider.callCount, len(bench.node.sent)-sent)
 	}
-	if !bench.holds(hash, "landscape-m.webp") {
+	if !bench.isHeld(hash, "landscape-m.webp") {
 		t.Error("landscape-m was not made again")
 	}
 }

@@ -12,9 +12,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// resumeAt is where the person's playback of a file starts (play-state.md): where they left it,
+// resumePositionMs is where the person's playback of a file starts (play-state.md): where they left it,
 // when that is partway through the file by the resume thresholds, and otherwise the beginning.
-func (service *Service) resumeAt(ctx context.Context, userID, fileID, durationMs int64) (int64, error) {
+func (service *Service) resumePositionMs(ctx context.Context, userID, fileID, durationMs int64) (int64, error) {
 	stored, err := store.OrNotFound(service.database.Read().GetPlayPosition(ctx, sqlcgen.GetPlayPositionParams{
 		UserID: userID, FileID: fileID,
 	}))

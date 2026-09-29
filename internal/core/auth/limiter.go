@@ -24,19 +24,19 @@ func newFailureLimiter(clockSource clock.Clock) *failureLimiter {
 }
 
 // isLimited reports whether any of keys has reached limit within window.
-func (limiter *failureLimiter) isLimited(limit int64, window time.Duration, keys ...string) bool {
+func (limiter *failureLimiter) isLimited(maxFailures int64, window time.Duration, keys ...string) bool {
 	limiter.mutex.Lock()
 	defer limiter.mutex.Unlock()
 	for _, key := range keys {
-		if int64(len(limiter.recent(key, window))) >= limit {
+		if int64(len(limiter.recent(key, window))) >= maxFailures {
 			return true
 		}
 	}
 	return false
 }
 
-// fail records one failure against each of keys.
-func (limiter *failureLimiter) fail(window time.Duration, keys ...string) {
+// recordFailure records one failure against each of keys.
+func (limiter *failureLimiter) recordFailure(window time.Duration, keys ...string) {
 	limiter.mutex.Lock()
 	defer limiter.mutex.Unlock()
 	now := limiter.clock.Now()

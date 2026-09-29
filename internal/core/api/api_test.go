@@ -115,7 +115,7 @@ func newHarness(t *testing.T) testHarness {
 		Browse:  library.NewBrowser(database, seeded),
 		Artwork: artwork.NewService(artwork.Parts{
 			Database: database, Queue: queue,
-			Store: art, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
+			ArtFiles: art, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
 		}),
 		Playback: playback.NewService(playback.Parts{
 			Database: database, Cache: cache, Queue: queue,

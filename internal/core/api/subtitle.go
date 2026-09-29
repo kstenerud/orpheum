@@ -92,7 +92,7 @@ func subtitleTracks(started playback.Started) []SubtitleTrackBody {
 		tracks = append(tracks, SubtitleTrackBody{
 			StreamID: track.StreamID, FetchedSubtitleID: track.FetchedSubtitleID, Language: track.Language,
 			Title:     track.Title,
-			IsDefault: track.Default, IsForced: track.Forced, IsHearingImpaired: track.HearingImpaired,
+			IsDefault: track.IsDefault, IsForced: track.IsForced, IsHearingImpaired: track.IsHearingImpaired,
 			ASSURL: base + ".ass", VTTURL: base + ".vtt",
 		})
 	}
@@ -138,7 +138,7 @@ func (server *Server) subtitle(ctx context.Context, input *SubtitleInput) (*huma
 		return nil, tooEarly()
 	case playback.Failed:
 		return nil, newError(http.StatusBadGateway, CodePrepareFailed,
-			"this subtitle could not be extracted: "+text.Error)
+			"this subtitle could not be extracted: "+text.Failure)
 	case playback.Complete:
 	}
 	return &huma.StreamResponse{Body: func(stream huma.Context) {

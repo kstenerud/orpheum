@@ -15,15 +15,15 @@ import (
 
 func TestServe_AJPEGIsCutFromTheWebPOfItsSizeAndKept(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{})
+	bench := newBench(t, fakeFetcher{})
 	hash := Received([]byte("poster")).hash()
 	webp := testutil.GenerateImage(t, "240x360", "libwebp", "webp")
 	if err := bench.art.WriteArt(hash, "portrait-s.webp", webp); err != nil {
 		t.Fatal(err)
 	}
 	served, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitS, FormatJPEG)
-	if err != nil || served.Redirect != "" {
-		t.Fatalf("Serve = %+v, %v", served.Redirect, err)
+	if err != nil || served.RedirectName != "" {
+		t.Fatalf("Serve = %+v, %v", served.RedirectName, err)
 	}
 	config, err := jpeg.DecodeConfig(bytes.NewReader(served.Bytes))
 	if err != nil || config.Width != 240 || config.Height != 360 {

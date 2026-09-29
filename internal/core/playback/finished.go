@@ -24,11 +24,11 @@ type FinishedPrepare struct {
 	State string
 	// VideoEncoder is h264_qsv, h264_nvenc, x264 or copy; empty when the node did not say.
 	VideoEncoder string
-	// Speed is seconds of the source per second of running; zero when the node did not say.
-	Speed      float64
-	SizeBytes  int64
-	Error      string
-	FinishedAt time.Time
+	// RealtimeFactor is seconds of the source per second of running; zero when the node did not say.
+	RealtimeFactor float64
+	SizeBytes      int64
+	Failure        string
+	FinishedAt     time.Time
 }
 
 // FinishedPrepares are the node's latest finished prepares, newest first, at most limit.
@@ -47,8 +47,8 @@ func (service *Service) FinishedPrepares(ctx context.Context, nodeID int64, limi
 		}
 		finished = append(finished, FinishedPrepare{
 			FileID: row.SourceFile, Path: path, Profile: row.Profile, State: row.State,
-			VideoEncoder: ptr.ValueOrZero(row.VideoEncoder), Speed: ptr.ValueOrZero(row.RealtimeFactor),
-			SizeBytes: ptr.ValueOrZero(row.SizeBytes), Error: ptr.ValueOrZero(row.Failure),
+			VideoEncoder: ptr.ValueOrZero(row.VideoEncoder), RealtimeFactor: ptr.ValueOrZero(row.RealtimeFactor),
+			SizeBytes: ptr.ValueOrZero(row.SizeBytes), Failure: ptr.ValueOrZero(row.Failure),
 			FinishedAt: time.UnixMilli(ptr.ValueOrZero(row.FinishedAt)).UTC(),
 		})
 	}

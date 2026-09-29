@@ -52,17 +52,17 @@ type Span struct {
 	ToPositionMs   int64
 	StartedMonoMs  int64
 	EndedMonoMs    int64
-	Unattended     bool
+	IsUnattended   bool
 }
 
 // ErrBadReport is a report that cannot be true: a time after the report was sent, a position
 // before the start.
 var ErrBadReport = errors.New("the report cannot be true")
 
-// anchor turns a device's monotonic reading into the server's time: the report was sent at
+// serverTimeMs turns a device's monotonic reading into the server's time: the report was sent at
 // sentMonoMs by the device's clock and arrived now by the server's (D165), so a reading is that
 // far before now.
-func anchor(nowMs, sentMonoMs, monoMs int64) (int64, error) {
+func serverTimeMs(nowMs, sentMonoMs, monoMs int64) (int64, error) {
 	if monoMs > sentMonoMs || monoMs < 0 {
 		return 0, fmt.Errorf("%w: a moment at %d ms is after the report was sent at %d ms",
 			ErrBadReport, monoMs, sentMonoMs)
@@ -78,7 +78,7 @@ func anchor(nowMs, sentMonoMs, monoMs int64) (int64, error) {
 func (service *Service) Report(
 	ctx context.Context, token string, userID int64, sessionKey string, deviceID int64, report Report,
 ) error {
-	idle, err := service.idle(ctx)
+	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
 		return err
 	}
@@ -90,18 +90,18 @@ func (service *Service) Report(
 	if !isNew {
 		return nil
 	}
-	if err := service.keep(ctx, playback, userID, deviceID, now.UnixMilli(), report); err != nil {
+	if err := service.keepReport(ctx, playback, userID, deviceID, now.UnixMilli(), report); err != nil {
 		service.tokens.returnReport(token, report.Seq, playback.lastReportSeq)
 		return err
 	}
 	return nil
 }
 
-// keep writes a new report: its events and spans to the log, and the position through the guard.
-func (service *Service) keep(
-	ctx context.Context, playback playing, userID, deviceID, nowMs int64, report Report,
+// keepReport writes a new report: its events and spans to the log, and the position through the guard.
+func (service *Service) keepReport(
+	ctx context.Context, playback tokenPlayback, userID, deviceID, nowMs int64, report Report,
 ) error {
-	watchedAt, err := anchor(nowMs, report.SentMonoMs, report.PositionMonoMs)
+	watchedAt, err := serverTimeMs(nowMs, report.SentMonoMs, report.PositionMonoMs)
 	if err != nil {
 		return err
 	}
@@ -110,22 +110,22 @@ func (service *Service) keep(
 	}
 	log := playLog{userID: userID, fileID: playback.fileID, nowMs: nowMs, sentMonoMs: report.SentMonoMs}
 	if deviceID != 0 {
-		log.device = &deviceID
+		log.deviceID = &deviceID
 	}
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		for _, event := range report.Events {
-			if err := log.event(ctx, queries, event); err != nil {
+			if err := log.appendEvent(ctx, queries, event); err != nil {
 				return err
 			}
 		}
 		for _, span := range report.Spans {
-			if err := log.span(ctx, queries, span); err != nil {
+			if err := log.appendSpan(ctx, queries, span); err != nil {
 				return err
 			}
 		}
 		return queries.MovePlayPosition(ctx, sqlcgen.MovePlayPositionParams{
 			UserID: userID, FileID: playback.fileID, PositionMs: report.PositionMs, ReportSeq: report.Seq,
-			DeviceID: log.device, UpdatedAt: nowMs, PositionReadAt: watchedAt,
+			DeviceID: log.deviceID, UpdatedAt: nowMs, PositionReadAt: watchedAt,
 		})
 	})
 }
@@ -133,18 +133,18 @@ func (service *Service) keep(
 // playLog appends one report's events and spans, at the server's time of each.
 type playLog struct {
 	userID, fileID    int64
-	device            *int64
+	deviceID          *int64
 	nowMs, sentMonoMs int64
 }
 
-func (log playLog) event(ctx context.Context, queries *sqlcgen.Queries, event Event) error {
-	happenedAt, err := anchor(log.nowMs, log.sentMonoMs, event.MonoMs)
+func (log playLog) appendEvent(ctx context.Context, queries *sqlcgen.Queries, event Event) error {
+	happenedAt, err := serverTimeMs(log.nowMs, log.sentMonoMs, event.MonoMs)
 	if err != nil {
 		return err
 	}
 	mono := event.MonoMs
 	err = queries.InsertPlayEvent(ctx, sqlcgen.InsertPlayEventParams{
-		UserID: log.userID, FileID: log.fileID, DeviceID: log.device, Kind: string(event.Kind),
+		UserID: log.userID, FileID: log.fileID, DeviceID: log.deviceID, Kind: string(event.Kind),
 		PositionMs: event.PositionMs, HappenedAt: happenedAt, HappenedMonoMs: &mono,
 	})
 	if err != nil {
@@ -153,12 +153,12 @@ func (log playLog) event(ctx context.Context, queries *sqlcgen.Queries, event Ev
 	return nil
 }
 
-func (log playLog) span(ctx context.Context, queries *sqlcgen.Queries, span Span) error {
-	started, err := anchor(log.nowMs, log.sentMonoMs, span.StartedMonoMs)
+func (log playLog) appendSpan(ctx context.Context, queries *sqlcgen.Queries, span Span) error {
+	started, err := serverTimeMs(log.nowMs, log.sentMonoMs, span.StartedMonoMs)
 	if err != nil {
 		return err
 	}
-	ended, err := anchor(log.nowMs, log.sentMonoMs, span.EndedMonoMs)
+	ended, err := serverTimeMs(log.nowMs, log.sentMonoMs, span.EndedMonoMs)
 	if err != nil {
 		return err
 	}
@@ -166,11 +166,11 @@ func (log playLog) span(ctx context.Context, queries *sqlcgen.Queries, span Span
 		return fmt.Errorf("%w: a span that ends before it starts", ErrBadReport)
 	}
 	var unattended int64
-	if span.Unattended {
+	if span.IsUnattended {
 		unattended = 1
 	}
 	err = queries.InsertPlaySpan(ctx, sqlcgen.InsertPlaySpanParams{
-		UserID: log.userID, FileID: log.fileID, DeviceID: log.device, FromPositionMs: span.FromPositionMs,
+		UserID: log.userID, FileID: log.fileID, DeviceID: log.deviceID, FromPositionMs: span.FromPositionMs,
 		ToPositionMs: span.ToPositionMs, StartedAt: started, EndedAt: ended, IsUnattended: unattended,
 	})
 	if err != nil {

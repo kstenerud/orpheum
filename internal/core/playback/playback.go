@@ -56,7 +56,7 @@ type Parts struct {
 	Nodes    Nodes
 	Settings Settings
 	Clock    clock.Clock
-	// Random makes media tokens.
+	// Random makes media tokens and the run ids of renditions.
 	Random io.Reader
 	Logger *slog.Logger
 	// MaxSilence is how long a running prepare or extraction may go without a word from its node
@@ -68,19 +68,19 @@ type Parts struct {
 
 // Service starts playbacks, says where their bytes are, and has renditions prepared.
 type Service struct {
-	database   *store.Database
-	cache      *store.Cache
-	queue      Queue
-	nodes      Nodes
-	settings   Settings
-	clock      clock.Clock
-	random     io.Reader
-	maxSilence time.Duration
-	tokens     *tokens
-	prepares   *prepares
-	subtitles  *waiting[nodeproto.SubtitleText]
-	loudness   *waiting[nodeproto.LoudnessResult]
-	subtitler  Subtitler
+	database            *store.Database
+	cache               *store.Cache
+	queue               Queue
+	nodes               Nodes
+	settings            Settings
+	clock               clock.Clock
+	random              io.Reader
+	maxSilence          time.Duration
+	tokens              *tokens
+	prepares            *prepares
+	subtitleTextAnswers *answerRouter[nodeproto.SubtitleText]
+	loudnessAnswers     *answerRouter[nodeproto.LoudnessResult]
+	subtitler           Subtitler
 }
 
 // NewService returns the playback service.
@@ -89,8 +89,9 @@ func NewService(parts Parts) *Service {
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
 		tokens: newTokens(), prepares: newPrepares(parts),
-		subtitles: newWaiting[nodeproto.SubtitleText](parts.Logger, "a subtitle"), subtitler: parts.Subtitler,
-		loudness: newWaiting[nodeproto.LoudnessResult](parts.Logger, "a loudness measurement"),
+		subtitleTextAnswers: newAnswerRouter[nodeproto.SubtitleText](parts.Logger, "a subtitle"),
+		subtitler:           parts.Subtitler,
+		loudnessAnswers:     newAnswerRouter[nodeproto.LoudnessResult](parts.Logger, "a loudness measurement"),
 	}
 }
 
@@ -109,10 +110,10 @@ type Request struct {
 type Started struct {
 	Token    string
 	Decision decide.Decision
-	// Preparing is whether a prepared playback's rendition is still being made.
-	Preparing bool
-	// Audio are a prepared playback's audio renditions, in the master playlist's order.
-	Audio []AudioRendition
+	// IsPreparing is whether a prepared playback's rendition is still being made.
+	IsPreparing bool
+	// AudioRenditions are a prepared playback's audio renditions, in the master playlist's order.
+	AudioRenditions []AudioRendition
 	// Subtitles are the file's text subtitle tracks, each extracted or on its way (D217 §6).
 	Subtitles []SubtitleTrack
 	// Prefs are the person's choices for the file, which the player starts with.
@@ -132,7 +133,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if err := request.Menu.Validate(); err != nil {
 		return Started{}, err
 	}
-	file, err := service.file(ctx, request.FileID)
+	file, err := service.playableFile(ctx, request.FileID)
 	if err != nil {
 		return Started{}, err
 	}
@@ -140,7 +141,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if err != nil {
 		return Started{}, err
 	}
-	ceiling, err := service.settings.Int(ctx, settings.RemoteBitRateCeilingKbps)
+	remoteCeilingKbps, err := service.settings.Int(ctx, settings.RemoteBitRateCeilingKbps)
 	if err != nil {
 		return Started{}, fmt.Errorf("read the remote bit-rate ceiling: %w", err)
 	}
@@ -150,10 +151,10 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	}
 	decision := decide.Decide(decide.Input{
 		Probe: probe, Menu: request.Menu, Link: request.Link, PreferredDelivery: request.Prefer,
-		RemoteCeilingKbps: ceiling,
+		RemoteCeilingKbps: remoteCeilingKbps,
 		IsStereoOutput:    isStereoOutput(output),
 	})
-	idle, err := service.idle(ctx)
+	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
 		return Started{}, err
 	}
@@ -164,7 +165,8 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if started.Prefs, err = service.FilePrefs(ctx, userID, file.ID); err != nil {
 		return Started{}, err
 	}
-	if started.ResumePositionMs, err = service.resumeAt(ctx, userID, file.ID, probe.Format.DurationMs); err != nil {
+	started.ResumePositionMs, err = service.resumePositionMs(ctx, userID, file.ID, probe.Format.DurationMs)
+	if err != nil {
 		return Started{}, err
 	}
 	levels, err := service.levellings(ctx, file.PayloadHash)
@@ -172,16 +174,17 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		return Started{}, err
 	}
 	started.Levelling = directLevelling(levels, probe)
-	playback := playing{userID: userID, sessionKey: sessionKey, fileID: file.ID}
+	playback := tokenPlayback{userID: userID, sessionKey: sessionKey, fileID: file.ID}
 	if decision.Delivery == decide.HLS {
 		playback.profile = nodeproto.PrepareProfile(decision.Profile)
 		rendition, wantErr := service.prepares.want(ctx, file, playback.profile)
 		if wantErr != nil {
 			return Started{}, wantErr
 		}
-		started.Preparing = rendition.State != renditionComplete
-		started.Audio = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, playback.profile, "", probe))
-		levelAudio(started.Audio, levels, probe, rendition.CarriedGainsDbJson)
+		started.IsPreparing = rendition.State != renditionComplete
+		started.AudioRenditions = audioRenditions(
+			prepareCommand(nodeproto.BytesFile{}, file.ID, playback.profile, "", probe))
+		levelAudio(started.AudioRenditions, levels, probe, rendition.CarriedGainsDbJson)
 		if main, found := decide.MainAudio(probe); found {
 			started.Levelling = levels[soundKey{int64(main.StreamIndex), mixStereo}]
 		}
@@ -225,9 +228,11 @@ type Source struct {
 	ContentType string
 }
 
-// Direct is where the bytes of the file a media token refers to are.
-func (service *Service) Direct(ctx context.Context, token string, userID int64, sessionKey string) (Source, error) {
-	idle, err := service.idle(ctx)
+// DirectSource is where the bytes of the file a media token refers to are.
+func (service *Service) DirectSource(
+	ctx context.Context, token string, userID int64, sessionKey string,
+) (Source, error) {
+	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
 		return Source{}, err
 	}
@@ -235,11 +240,11 @@ func (service *Service) Direct(ctx context.Context, token string, userID int64, 
 	if !found || playback.profile != "" {
 		return Source{}, ErrNoToken
 	}
-	file, err := service.file(ctx, playback.fileID)
+	file, err := service.playableFile(ctx, playback.fileID)
 	if err != nil {
 		return Source{}, err
 	}
-	named, err := service.source(ctx, locatedOf(file))
+	bytesFile, err := service.bytesFileOf(ctx, locatedOf(file))
 	if err != nil {
 		return Source{}, err
 	}
@@ -247,13 +252,13 @@ func (service *Service) Direct(ctx context.Context, token string, userID int64, 
 	if err != nil {
 		return Source{}, err
 	}
-	return Source{NodeID: file.NodeID, Target: named.Target(), ContentType: contentType(probe.Format)}, nil
+	return Source{NodeID: file.NodeID, Target: bytesFile.Target(), ContentType: contentType(probe.Format)}, nil
 }
 
 // located is where a file's bytes are: its library, its node, the path its node reported, and
-// its payload hash.
+// its payload hash. Its subject names what was located, "file 12" or "stream 40", for an error.
 type located struct {
-	id          int64
+	subject     string
 	libraryID   int64
 	nodeID      int64
 	pathKey     []byte
@@ -262,14 +267,14 @@ type located struct {
 
 func locatedOf(file sqlcgen.GetPlayableFileRow) located {
 	return located{
-		id: file.ID, libraryID: file.LibraryID, nodeID: file.NodeID, pathKey: file.ReportedPathBytes,
-		payloadHash: file.PayloadHash,
+		subject: fmt.Sprintf("file %d", file.ID), libraryID: file.LibraryID, nodeID: file.NodeID,
+		pathKey: file.ReportedPathBytes, payloadHash: file.PayloadHash,
 	}
 }
 
-// source names a file on its node's byte socket: the library root it is under, its path
+// bytesFileOf names a file on its node's byte socket: the library root it is under, its path
 // relative to that root, and its payload hash.
-func (service *Service) source(ctx context.Context, file located) (nodeproto.BytesFile, error) {
+func (service *Service) bytesFileOf(ctx context.Context, file located) (nodeproto.BytesFile, error) {
 	roots, err := service.database.Read().ListLibraryRootsOnNode(ctx, sqlcgen.ListLibraryRootsOnNodeParams{
 		LibraryID: file.libraryID, NodeID: file.nodeID,
 	})
@@ -285,10 +290,10 @@ func (service *Service) source(ctx context.Context, file located) (nodeproto.Byt
 				nil
 		}
 	}
-	return nodeproto.BytesFile{}, fmt.Errorf("%w: file %d is under none of its library's roots", ErrNoFile, file.id)
+	return nodeproto.BytesFile{}, fmt.Errorf("%w: %s is under none of its library's roots", ErrNoFile, file.subject)
 }
 
-func (service *Service) file(ctx context.Context, fileID int64) (sqlcgen.GetPlayableFileRow, error) {
+func (service *Service) playableFile(ctx context.Context, fileID int64) (sqlcgen.GetPlayableFileRow, error) {
 	file, err := store.OrNotFound(service.database.Read().GetPlayableFile(ctx, fileID))
 	if errors.Is(err, store.ErrNotFound) {
 		return file, ErrNoFile
@@ -302,7 +307,7 @@ func (service *Service) file(ctx context.Context, fileID int64) (sqlcgen.GetPlay
 	return file, nil
 }
 
-func (service *Service) idle(ctx context.Context) (time.Duration, error) {
+func (service *Service) tokenIdleExpiry(ctx context.Context) (time.Duration, error) {
 	hours, err := service.settings.Int(ctx, settings.MediaTokenIdleExpiryH)
 	if err != nil {
 		return 0, fmt.Errorf("read the media token's idle time: %w", err)

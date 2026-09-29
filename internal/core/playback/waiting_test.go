@@ -16,7 +16,7 @@ import (
 func TestDeliver_AnAnswerForNoWaitingJobIsLoggedByItsJobID(t *testing.T) {
 	t.Parallel()
 	var logged bytes.Buffer
-	answers := newWaiting[nodeproto.PrepareReport](slog.New(slog.NewJSONHandler(&logged, nil)), "a prepare report")
+	answers := newAnswerRouter[nodeproto.PrepareReport](slog.New(slog.NewJSONHandler(&logged, nil)), "a prepare report")
 	answers.deliver(t.Context(), 1, 42, nodeproto.PrepareReport{})
 	if !strings.Contains(logged.String(), `"jobId":42`) || !strings.Contains(logged.String(), `"nodeId":1`) {
 		t.Errorf("the log = %s, want the job named as jobId and the node as nodeId", logged.String())

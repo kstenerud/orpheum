@@ -17,10 +17,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// rfc9106Second is RFC 9106's second recommended option, the argon2id costs a new server starts
+// rfc9106SecondParameters is RFC 9106's second recommended option, the argon2id costs a new server starts
 // with (D194 §2); the unit tests run under the cheap costs settingstest sets.
-func rfc9106Second() Parameters {
-	return Parameters{MemoryKiB: 64 * 1024, Iterations: 3, Parallelism: 4, SaltBytes: saltBytes, KeyBytes: keyBytes}
+func rfc9106SecondParameters() Argon2Parameters {
+	return Argon2Parameters{
+		MemoryKiB: 64 * 1024, Iterations: 3, Parallelism: 4, SaltBytes: saltBytes, KeyBytes: keyBytes,
+	}
 }
 
 type fixture struct {
@@ -33,10 +35,11 @@ type fixture struct {
 func newFixture(t *testing.T) fixture {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
-	now := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
+	fakeClock := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
 	seeded := settingstest.Seeded(t, database)
 	return fixture{
-		database: database, settings: seeded, clock: now, service: NewService(database, now, rand.Reader, seeded),
+		database: database, settings: seeded, clock: fakeClock,
+		service: NewService(database, fakeClock, rand.Reader, seeded),
 	}
 }
 
@@ -51,7 +54,7 @@ func (fixture fixture) createUser(t *testing.T, name, password string, role Role
 
 func TestHashPassword_IsAPHCStringThatVerifies(t *testing.T) {
 	t.Parallel()
-	hash, err := HashPassword("correct horse", rfc9106Second(), rand.Reader)
+	hash, err := HashPassword("correct horse", rfc9106SecondParameters(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +63,7 @@ func TestHashPassword_IsAPHCStringThatVerifies(t *testing.T) {
 		t.Errorf("hash %q is not an argon2id PHC string with RFC 9106's second parameters", hash)
 	}
 	matches, used, err := VerifyPassword("correct horse", hash)
-	if err != nil || !matches || !sameCosts(used, rfc9106Second()) {
+	if err != nil || !matches || !sameCosts(used, rfc9106SecondParameters()) {
 		t.Errorf("VerifyPassword(right) = %v, %+v, %v", matches, used, err)
 	}
 	if matches, _, err := VerifyPassword("wrong horse", hash); err != nil || matches {
@@ -311,7 +314,7 @@ func TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce(t *testing.T) {
 // a 500 ms ceiling on devnas; the verification queue records that run.
 func BenchmarkHashPassword_DefaultParameters(b *testing.B) {
 	for b.Loop() {
-		if _, err := HashPassword("correct horse battery staple", rfc9106Second(), rand.Reader); err != nil {
+		if _, err := HashPassword("correct horse battery staple", rfc9106SecondParameters(), rand.Reader); err != nil {
 			b.Fatal(err)
 		}
 	}

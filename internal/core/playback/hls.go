@@ -18,10 +18,10 @@ import (
 // AudioRendition is one audio rendition of a prepared playback: a source track's standard mix,
 // or its boosted one (D217 §3).
 type AudioRendition struct {
-	// Track is the source audio track's place among its audio tracks.
-	Track    int
-	Language string
-	Boost    bool
+	// AudioTrackIndex is the source audio track's place among its audio tracks.
+	AudioTrackIndex int
+	Language        string
+	IsBoosted       bool
 	// Levelling is the gain that brings the track's stereo sound to the level; the boosted mix
 	// plays with the standard one's (D226 §3).
 	Levelling Levelling
@@ -34,9 +34,10 @@ type AudioRendition struct {
 func audioRenditions(command nodeproto.Prepare) []AudioRendition {
 	var renditions []AudioRendition
 	for _, track := range command.Audio {
-		renditions = append(renditions, AudioRendition{Track: track.AudioTrackIndex, Language: track.Language})
+		standard := AudioRendition{AudioTrackIndex: track.AudioTrackIndex, Language: track.Language}
+		renditions = append(renditions, standard)
 		if track.ChannelCount > 2 {
-			boosted := AudioRendition{Track: track.AudioTrackIndex, Language: track.Language, Boost: true}
+			boosted := AudioRendition{AudioTrackIndex: track.AudioTrackIndex, Language: track.Language, IsBoosted: true}
 			renditions = append(renditions, boosted)
 		}
 	}
@@ -57,16 +58,16 @@ const (
 type HLSSource struct {
 	Source
 	Readiness Readiness
-	// fileID and profile name the rendition, for Lost.
+	// fileID and profile name the rendition, for PrepareAgain.
 	fileID  int64
 	profile nodeproto.PrepareProfile
 }
 
-// HLS is where the named file of the rendition a media token refers to is (cut-a §5).
-func (service *Service) HLS(
+// HLSSourceOf is where the named file of the rendition a media token refers to is (cut-a §5).
+func (service *Service) HLSSourceOf(
 	ctx context.Context, token, name string, userID int64, sessionKey string,
 ) (HLSSource, error) {
-	idle, err := service.idle(ctx)
+	idle, err := service.tokenIdleExpiry(ctx)
 	if err != nil {
 		return HLSSource{}, err
 	}
@@ -94,23 +95,23 @@ func (service *Service) HLS(
 	target := nodeproto.PathBytesPrepared + strconv.FormatInt(playback.fileID, 10) + "/" +
 		string(playback.profile) + "/" + rendition.RunID + "/" + name
 	return HLSSource{
-		Source:    Source{NodeID: rendition.NodeID, Target: target, ContentType: hlsType(name)},
+		Source:    Source{NodeID: rendition.NodeID, Target: target, ContentType: hlsContentType(name)},
 		Readiness: readiness, fileID: playback.fileID, profile: playback.profile,
 	}, nil
 }
 
-// Lost prepares a complete rendition again when its node no longer has it: evicted, or its
+// PrepareAgain prepares a complete rendition again when its node no longer has it: evicted, or its
 // directory lost (D217 §5). The player is told it is too early, and waits as for a new one.
-func (service *Service) Lost(ctx context.Context, source HLSSource) error {
-	file, err := service.file(ctx, source.fileID)
+func (service *Service) PrepareAgain(ctx context.Context, source HLSSource) error {
+	file, err := service.playableFile(ctx, source.fileID)
 	if err != nil {
 		return err
 	}
 	return service.prepares.redo(ctx, file, source.profile)
 }
 
-// hlsType is a rendition file's media type, by its name.
-func hlsType(name string) string {
+// hlsContentType is a rendition file's media type, by its name.
+func hlsContentType(name string) string {
 	switch path.Ext(name) {
 	case ".m3u8":
 		return "application/vnd.apple.mpegurl"
@@ -130,48 +131,53 @@ func (service *Service) HandlePrepare(ctx context.Context, job jobs.Job) error {
 	if err != nil {
 		return fmt.Errorf("read rendition %d: %w", job.RenditionID, err)
 	}
-	made, err := service.commandFor(ctx, rendition)
+	order, err := service.prepareOrderFor(ctx, rendition)
 	if errors.Is(err, ErrNoFile) {
 		return jobs.MarkPermanent(errors.Join(err, service.prepares.finish(ctx, rendition.ID, nil, err.Error())))
 	}
 	if err != nil {
 		return err
 	}
-	return service.prepares.handle(ctx, job, made)
+	return service.prepares.handle(ctx, job, order)
 }
 
-// making is a rendition to have made: the node's command, the node that holds the source, and
+// prepareOrder is a rendition to have made: the node's command, the node that holds the source, and
 // the source's length in milliseconds, or 0 when its probe did not say.
-type making struct {
+type prepareOrder struct {
 	command    nodeproto.Prepare
 	nodeID     int64
 	durationMs int64
-	// gains are the gains its audio tracks carry, as its rendition records them (D226 §4).
-	gains string
+	// carriedGainsJSON is the gains its audio tracks carry, as JSON, as its rendition records
+	// them (D226 §4).
+	carriedGainsJSON string
 }
 
-// commandFor is what a rendition's making needs.
-func (service *Service) commandFor(ctx context.Context, rendition cachegen.PreparedRendition) (making, error) {
-	file, err := service.file(ctx, rendition.SourceFile)
+// prepareOrderFor is what a rendition's making needs.
+func (service *Service) prepareOrderFor(
+	ctx context.Context, rendition cachegen.PreparedRendition,
+) (prepareOrder, error) {
+	file, err := service.playableFile(ctx, rendition.SourceFile)
 	if err != nil {
-		return making{}, err
+		return prepareOrder{}, err
 	}
 	probe, err := decodeProbe(file.ProbeJson)
 	if err != nil {
-		return making{}, err
+		return prepareOrder{}, err
 	}
-	source, err := service.source(ctx, locatedOf(file))
+	source, err := service.bytesFileOf(ctx, locatedOf(file))
 	if err != nil {
-		return making{}, err
+		return prepareOrder{}, err
 	}
 	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), rendition.RunID, probe)
 	command.SegmentLengthSeconds = int(rendition.SegmentLengthSeconds)
 	levels, err := service.levellings(ctx, file.PayloadHash)
 	if err != nil {
-		return making{}, err
+		return prepareOrder{}, err
 	}
 	gains := levelPrepare(&command, levels, probe)
-	return making{command: command, nodeID: file.NodeID, durationMs: probe.Format.DurationMs, gains: gains}, nil
+	return prepareOrder{
+		command: command, nodeID: file.NodeID, durationMs: probe.Format.DurationMs, carriedGainsJSON: gains,
+	}, nil
 }
 
 // TakePrepareReport takes a node's report on a prepare to the job waiting for it.

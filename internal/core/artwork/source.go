@@ -35,11 +35,12 @@ func (source Unsanitised) Len() int {
 // hash names the image's sizes in the store: the SHA-256 of its source, so the same image
 // fetched for two items, or twice, is stored once.
 func (source Unsanitised) hash() string {
-	return hex.EncodeToString(source.hash32())
+	return hex.EncodeToString(source.hashBytes())
 }
 
-// hash32 is the hash as the artwork table keeps it.
-func (source Unsanitised) hash32() []byte {
+// hashBytes is the source's SHA-256 as its 32 bytes, as the artwork table's source_sha256 holds
+// it; hash spells it in hex.
+func (source Unsanitised) hashBytes() []byte {
 	sum := sha256.Sum256(source.bytes)
 	return sum[:]
 }

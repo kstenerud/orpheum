@@ -31,18 +31,18 @@ func newArtwork(
 		return nil, err
 	}
 	service := artwork.NewService(artwork.Parts{
-		Database: opened.database, Queue: opened.metadata.queue, Nodes: opened.nodes, Store: directories,
+		Database: opened.database, Queue: opened.metadata.queue, Nodes: opened.nodes, ArtFiles: directories,
 		Cache:    opened.cache,
 		Settings: opened.settings,
 		Fetchers: map[string]artwork.Fetcher{"tmdb": tmdb.NewImageFetcher(httpClient, imageBase)},
 		Clock:    clock.System{}, Logger: logger,
 	})
-	if err := service.Load(ctx); err != nil {
+	if err := service.LoadHoldings(ctx); err != nil {
 		return nil, err
 	}
 	opened.nodes.SetArtworkSink(service)
 	opened.metadata.pass.AfterPass(func(ctx context.Context, report identify.Report) {
-		service.Owe(ctx, report.OwedArtwork)
+		service.QueueOwed(ctx, report.OwedArtwork)
 	})
 	return service, nil
 }
@@ -70,7 +70,7 @@ func keepArtwork(ctx context.Context, service *artwork.Service, logger *slog.Log
 		case <-ctx.Done():
 			flush(context.WithoutCancel(ctx))
 			return
-		case <-service.Sweeps():
+		case <-service.SweepWakes():
 			sweep()
 		case <-daily.C:
 			sweep()

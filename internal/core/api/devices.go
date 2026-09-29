@@ -119,7 +119,7 @@ func (server *Server) devicesOf(ctx context.Context, dependencies *Dependencies,
 		output.Body.Devices = append(output.Body.Devices, DeviceBody{
 			ID: device.ID, Name: device.Name, Platform: device.Platform, AudioOutput: AudioOutput(device.AudioOutput),
 			AddedAt:    device.AddedAt.UnixMilli(),
-			LastUsedAt: device.LastUsed.UnixMilli(), IsSignedIn: device.IsSignedIn,
+			LastUsedAt: device.LastUsedAt.UnixMilli(), IsSignedIn: device.IsSignedIn,
 			IsThisDevice: device.ID == thisDevice,
 		})
 	}

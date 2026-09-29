@@ -336,8 +336,8 @@ func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID in
 	for _, prepare := range finished {
 		bodies = append(bodies, FinishedPrepareBody{
 			SourceFileID: prepare.FileID, Path: prepare.Path, Profile: prepare.Profile, State: prepare.State,
-			VideoEncoder: prepare.VideoEncoder, RealtimeFactor: prepare.Speed, SizeBytes: prepare.SizeBytes,
-			Failure: prepare.Error, FinishedAt: prepare.FinishedAt.UnixMilli(),
+			VideoEncoder: prepare.VideoEncoder, RealtimeFactor: prepare.RealtimeFactor, SizeBytes: prepare.SizeBytes,
+			Failure: prepare.Failure, FinishedAt: prepare.FinishedAt.UnixMilli(),
 		})
 	}
 	return bodies, nil

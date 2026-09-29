@@ -64,10 +64,10 @@ func (server *Server) getArt(ctx context.Context, input *ArtInput) (*ArtOutput, 
 	if err != nil {
 		return nil, server.internal(ctx, "serve an image", err)
 	}
-	if served.Redirect != "" {
+	if served.RedirectName != "" {
 		return &ArtOutput{
 			Status: http.StatusTemporaryRedirect, CacheControl: "no-store",
-			Location: Prefix + "/bytes/art/" + input.SourceSha256 + "/" + served.Redirect,
+			Location: Prefix + "/bytes/art/" + input.SourceSha256 + "/" + served.RedirectName,
 		}, nil
 	}
 	return &ArtOutput{

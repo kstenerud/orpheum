@@ -13,9 +13,9 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-// Parameters are argon2id's costs. The hash carries them as a PHC string, so they can change
+// Argon2Parameters are argon2id's costs. The hash carries them as a PHC string, so they can change
 // later and an old hash still verifies (D194 §2).
-type Parameters struct {
+type Argon2Parameters struct {
 	MemoryKiB   uint32
 	Iterations  uint32
 	Parallelism uint8
@@ -30,7 +30,7 @@ const phcPrefix = "$argon2id$v=19$"
 
 // HashPassword hashes password with argon2id under parameters and a fresh salt, as a PHC string:
 // $argon2id$v=19$m=65536,t=3,p=4$<salt>$<hash>.
-func HashPassword(password string, parameters Parameters, random io.Reader) (string, error) {
+func HashPassword(password string, parameters Argon2Parameters, random io.Reader) (string, error) {
 	salt := make([]byte, parameters.SaltBytes)
 	if _, err := io.ReadFull(random, salt); err != nil {
 		return "", fmt.Errorf("make a salt: %w", err)
@@ -44,19 +44,20 @@ func HashPassword(password string, parameters Parameters, random io.Reader) (str
 
 // VerifyPassword reports whether password matches hash, comparing in constant time, and the
 // parameters the hash was made with, so the caller can re-hash one made under older costs.
-func VerifyPassword(password, hash string) (matches bool, used Parameters, err error) {
+func VerifyPassword(password, hash string) (isMatch bool, hashParameters Argon2Parameters, err error) {
 	parsed, err := parsePHC(hash)
 	if err != nil {
-		return false, Parameters{}, err
+		return false, Argon2Parameters{}, err
 	}
-	used = parsed.parameters
-	got := argon2.IDKey([]byte(password), parsed.salt, used.Iterations, used.MemoryKiB, used.Parallelism, used.KeyBytes)
-	return subtle.ConstantTimeCompare(got, parsed.key) == 1, used, nil
+	hashParameters = parsed.parameters
+	got := argon2.IDKey([]byte(password), parsed.salt, hashParameters.Iterations, hashParameters.MemoryKiB,
+		hashParameters.Parallelism, hashParameters.KeyBytes)
+	return subtle.ConstantTimeCompare(got, parsed.key) == 1, hashParameters, nil
 }
 
 // phcHash is a parsed PHC string.
 type phcHash struct {
-	parameters Parameters
+	parameters Argon2Parameters
 	salt       []byte
 	key        []byte
 }
@@ -95,7 +96,8 @@ func parsePHC(hash string) (phcHash, error) {
 }
 
 // sameCosts reports whether a hash made under used needs no re-hash under want.
-func sameCosts(used, want Parameters) bool {
-	return used.MemoryKiB == want.MemoryKiB && used.Iterations == want.Iterations &&
-		used.Parallelism == want.Parallelism && used.KeyBytes == want.KeyBytes && used.SaltBytes == want.SaltBytes
+func sameCosts(used, current Argon2Parameters) bool {
+	return used.MemoryKiB == current.MemoryKiB && used.Iterations == current.Iterations &&
+		used.Parallelism == current.Parallelism && used.KeyBytes == current.KeyBytes &&
+		used.SaltBytes == current.SaltBytes
 }

@@ -34,16 +34,16 @@ type Query struct {
 // Candidate is one subtitle OpenSubtitles offers. It is unverified: nothing here measured it
 // against the audio (D147, D178 §4).
 type Candidate struct {
-	// FileID is the provider's file, which Download takes.
-	FileID int64
-	// Release is the uploader's name for what it was made for.
-	Release  string
-	Language string
+	// ProviderFileID is the provider's file, which Download takes.
+	ProviderFileID int64
+	// ReleaseName is the uploader's name for what it was made for.
+	ReleaseName string
+	Language    string
 	// IsHashMatch is whether it was uploaded for these exact bytes.
 	IsHashMatch         bool
 	IsHearingImpaired   bool
 	IsMachineTranslated bool
-	Downloads           int
+	DownloadCount       int
 	UploadedAt          time.Time
 }
 
@@ -68,21 +68,21 @@ func (client *Client) Search(ctx context.Context, query Query) ([]Candidate, err
 	set("moviehash", query.MovieHash)
 	set("languages", query.Language)
 	var answer searchAnswer
-	if err := client.authorised(ctx, http.MethodGet, "/subtitles", parameters, nil, &answer); err != nil {
+	if err := client.callAuthorised(ctx, http.MethodGet, "/subtitles", parameters, nil, &answer); err != nil {
 		return nil, err
 	}
 	candidates := make([]Candidate, 0, len(answer.Data))
-	for _, found := range answer.Data {
-		attributes := found.Attributes
+	for _, result := range answer.Data {
+		attributes := result.Attributes
 		if len(attributes.Files) == 0 {
 			continue // nothing to download
 		}
 		uploaded, _ := time.Parse(time.RFC3339, attributes.UploadDate) //nolint:errcheck // zero when unsaid
 		candidates = append(candidates, Candidate{
-			FileID: attributes.Files[0].FileID, Release: attributes.Release, Language: attributes.Language,
+			ProviderFileID: attributes.Files[0].FileID, ReleaseName: attributes.Release, Language: attributes.Language,
 			IsHashMatch: attributes.MovieHashMatch, IsHearingImpaired: attributes.HearingImpaired,
 			IsMachineTranslated: attributes.MachineTranslated || attributes.AITranslated,
-			Downloads:           attributes.DownloadCount, UploadedAt: uploaded,
+			DownloadCount:       attributes.DownloadCount, UploadedAt: uploaded,
 		})
 	}
 	return candidates, nil
@@ -115,20 +115,20 @@ type Downloaded struct {
 	// advertising, which is shown as delivered (D224 §8).
 	Body     []byte
 	FileName string
-	// Remaining is how many downloads the account has left, and ResetAt when that count starts
+	// RemainingDownloads is how many downloads the account has left, and ResetAt when that count starts
 	// again, as OpenSubtitles says (D224 §4).
-	Remaining int
-	ResetAt   time.Time
+	RemainingDownloads int
+	ResetAt            time.Time
 }
 
 // Download fetches one file, which spends one of the account's downloads.
-func (client *Client) Download(ctx context.Context, fileID int64) (Downloaded, error) {
-	body, err := json.Marshal(map[string]any{"file_id": fileID, "sub_format": "srt"})
+func (client *Client) Download(ctx context.Context, providerFileID int64) (Downloaded, error) {
+	body, err := json.Marshal(map[string]any{"file_id": providerFileID, "sub_format": "srt"})
 	if err != nil {
 		return Downloaded{}, fmt.Errorf("opensubtitles: encode the download: %w", err)
 	}
 	var answer downloadAnswer
-	if downloadErr := client.authorised(ctx, http.MethodPost, "/download", nil, body, &answer); downloadErr != nil {
+	if downloadErr := client.callAuthorised(ctx, http.MethodPost, "/download", nil, body, &answer); downloadErr != nil {
 		return Downloaded{}, downloadErr
 	}
 	text, err := client.fetch(ctx, answer.Link)
@@ -136,7 +136,7 @@ func (client *Client) Download(ctx context.Context, fileID int64) (Downloaded, e
 		return Downloaded{}, err
 	}
 	return Downloaded{
-		Body: text, FileName: answer.FileName, Remaining: answer.Remaining, ResetAt: answer.resetAt(),
+		Body: text, FileName: answer.FileName, RemainingDownloads: answer.Remaining, ResetAt: answer.resetAt(),
 	}, nil
 }
 
@@ -186,20 +186,21 @@ func (client *Client) fetch(ctx context.Context, link string) ([]byte, error) {
 
 // Allowance is the account's downloads: how many are left of how many a day.
 type Allowance struct {
-	Remaining int
-	Allowed   int
-	IsVIP     bool
+	RemainingDownloads int
+	AllowedDownloads   int
+	IsVIP              bool
 }
 
 // Allowance asks OpenSubtitles what the account has left, which a person sees before they choose
 // (D224 §4).
 func (client *Client) Allowance(ctx context.Context) (Allowance, error) {
 	var answer allowanceAnswer
-	if err := client.authorised(ctx, http.MethodGet, "/infos/user", nil, nil, &answer); err != nil {
+	if err := client.callAuthorised(ctx, http.MethodGet, "/infos/user", nil, nil, &answer); err != nil {
 		return Allowance{}, err
 	}
 	return Allowance{
-		Remaining: answer.Data.RemainingDownloads, Allowed: answer.Data.AllowedDownloads, IsVIP: answer.Data.VIP,
+		RemainingDownloads: answer.Data.RemainingDownloads, AllowedDownloads: answer.Data.AllowedDownloads,
+		IsVIP: answer.Data.VIP,
 	}, nil
 }
 
