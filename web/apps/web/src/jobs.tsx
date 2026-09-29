@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { Api, components } from "@orpheum/sdk";
-import { useEffect, useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
@@ -9,7 +9,7 @@ import { dateTimeText } from "./date-time-text.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
-import type { Resource } from "./use-resource.ts";
+import { useResource } from "./use-resource.ts";
 
 /** One job, as the job view shows it (cut-a §5.3). */
 export type Job = components["schemas"]["JobBody"];
@@ -45,37 +45,13 @@ export function isCancellable(job: Job): boolean {
 export function Jobs(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [jobs, setJobs] = useState<Resource<Job[]>>({ state: "loading" });
-  const [cancelCount, setCancelCount] = useState(0);
+  const [jobs, reloadJobs] = useResource("jobs", () => listJobs(api), refreshEveryMs);
   const [problem, setProblem] = useState<string | undefined>(undefined);
-  useEffect(() => {
-    let isCurrent = true;
-    const load = (): void => {
-      listJobs(api).then(
-        (value) => {
-          if (isCurrent) {
-            setJobs({ state: "loaded", value });
-          }
-        },
-        (cause: unknown) => {
-          if (isCurrent) {
-            setJobs({ state: "failed", cause });
-          }
-        },
-      );
-    };
-    load();
-    const refreshTimer = setInterval(load, refreshEveryMs);
-    return () => {
-      isCurrent = false;
-      clearInterval(refreshTimer);
-    };
-  }, [api, cancelCount]);
   const cancel = (job: Job): void => {
     cancelJob(api, job.id).then(
       () => {
         setProblem(undefined);
-        setCancelCount((count) => count + 1);
+        reloadJobs();
       },
       (cause: unknown) => {
         setProblem(problemText(t, cause, { conflict: t("jobs.alreadyEnded") }));
