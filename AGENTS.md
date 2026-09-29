@@ -52,8 +52,10 @@ lint) before it merges.
    `ORPHEUM_TEST_UNCONTROLLED` list may be absent. *Standards: testing.md; `check-claims`.*
 7. **Generated code is never edited by hand.** Edit the source (`internal/store/queries/*.sql`,
    the handlers) and run `make generate`. *Pre-edit hook; `make check-generated`.*
-8. **Migrations are append-only.** Never edit one that is committed; add the next. *Pre-edit
-   hook; standards: sql.md.*
+8. **Migrations are append-only.** Never edit one that is committed; add the next. Until the
+   owner declares migrations live (D228), a schema change instead folds the last step into the
+   baseline and adds the change as the one step after it. *Pre-edit hook;
+   `TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive`; standards: sql.md.*
 9. **Cite decisions by ID (`D<n>`) where you write rationale; never invent one.** Archived
    decisions and `design/research/` are history, not specifications. *`make check-claims`,
    `make check-docs`.*

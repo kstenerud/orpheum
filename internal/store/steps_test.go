@@ -5,327 +5,272 @@ package store
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestMigrate_Step0007KeepsEveryStoredResponseAsItsItemsOwn(t *testing.T) {
-	t.Parallel()
-	steps, err := Steps()
-	if err != nil {
-		t.Fatal(err)
-	}
-	database := openTemporary(t)
-	if err = database.migrate(t.Context(), steps[:6], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	execRaw(t, database,
-		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
-			"VALUES (1, 'Films', 'movies', 'tmdb', 'manual', 0, 1)",
-		"INSERT INTO item (id, kind, library_id, created_at) VALUES (5, 'title', 1, 1)",
-		"INSERT INTO title (id, kind, ident) VALUES (5, 'movie', 'identified')",
-		"INSERT INTO provider_response (title_id, provider, fetched_at, body) VALUES (5, 'tmdb', 7, X'01')")
-	if err = database.migrate(t.Context(), steps[:7], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	rows := queryRows(t, database, "SELECT item_id, provider, part, fetched_at, hex(body) FROM provider_response", 5)
-	if fmt.Sprint(rows) != "[[5 tmdb  7 01]]" {
-		t.Errorf("after step 0007, provider_response holds %v; want the film's response, as its item's '' part", rows)
-	}
-	state, err := database.State(t.Context())
-	if err != nil || state.CompatibleVersion != 7 {
-		t.Errorf("compatible_version = %d (%v); step 0007 renames a column an older binary reads",
-			state.CompatibleVersion, err)
-	}
-}
+// The runner's tests run synthetic steps (migrate_test.go's firstStep and the ones below): until
+// migrations are live the real ones are a baseline and the one step after it (D228), and what the
+// runner does to any step is tested here so it is ready for every step to come.
 
 func TestMigrate_RecordsEveryStepsChecksumAndRefusesOneThatChanged(t *testing.T) {
 	t.Parallel()
-	database := openMigrated(t)
+	built := openMigrated(t)
 	steps, err := Steps()
 	if err != nil {
+		t.Fatal(err)
+	}
+	var want [][]string
+	for _, step := range steps {
+		want = append(want, []string{fmt.Sprint(step.Version), step.Checksum})
+	}
+	if rows := queryRows(t, built, "SELECT version, sha256 FROM schema_step ORDER BY version", 2); fmt.Sprint(rows) !=
+		fmt.Sprint(want) {
+		t.Errorf("schema_step holds %v; want every step's checksum, the baseline's at its version: %v", rows, want)
+	}
+
+	synthetic := syntheticSteps(t, firstStep, secondStep, thirdStep)
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), synthetic, testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
 	rows := queryRows(t, database, "SELECT count(*), min(version), max(version) FROM schema_step", 3)
-	if fmt.Sprint(rows) != fmt.Sprintf("[[%d 1 %d]]", len(steps), len(steps)) {
-		t.Fatalf("schema_step holds %v; want every step, the ones before it included", rows)
+	if fmt.Sprint(rows) != "[[3 1 3]]" {
+		t.Fatalf("schema_step holds %v; want every step", rows)
 	}
-	if again := database.Migrate(t.Context(), testMigrateOptions(t.TempDir())); again != nil {
-		t.Fatalf("a second Migrate over the same steps: %v", again)
+	if again := database.migrate(t.Context(), synthetic, testMigrateOptions(t.TempDir())); again != nil {
+		t.Fatalf("a second migrate over the same steps: %v", again)
 	}
 	// As a draft step looks once it was applied and then edited before it was committed.
-	execRaw(t, database, "UPDATE schema_step SET sha256 = 'a draft' WHERE version = 7")
-	err = database.Migrate(t.Context(), testMigrateOptions(t.TempDir()))
-	if !errors.Is(err, ErrStepChanged) || !strings.Contains(err.Error(), steps[6].Name) {
-		t.Errorf("Migrate over a changed step = %v; want ErrStepChanged naming it", err)
+	execRaw(t, database, "UPDATE schema_step SET sha256 = 'a draft' WHERE version = 2")
+	err = database.migrate(t.Context(), synthetic, testMigrateOptions(t.TempDir()))
+	if !errors.Is(err, ErrStepChanged) || !strings.Contains(err.Error(), synthetic[1].Name) {
+		t.Errorf("migrate over a changed step = %v; want ErrStepChanged naming it", err)
 	}
 }
 
-func TestMigrate_Step0011KeysEveryFileByItsReportedBytes(t *testing.T) {
-	t.Parallel()
-	steps, err := Steps()
-	if err != nil {
-		t.Fatal(err)
-	}
-	database := openTemporary(t)
-	if err = database.migrate(t.Context(), steps[:10], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	execRaw(t, database,
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
-			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)",
-		"INSERT INTO file (library_id, node_id, path, path_raw, filing, first_seen, last_seen) VALUES "+
-			"(1, 1, '/m/plain.mkv', NULL, 'listed', 1, 1), (1, 1, '/m/a�.mkv', X'2F6D2F61FF2E6D6B76', 'listed', 1, 1)")
-	if err = database.migrate(t.Context(), steps[:11], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	rows := queryRows(t, database, "SELECT hex(path_key) FROM file ORDER BY id", 1)
-	if fmt.Sprint(rows) != "[[2F6D2F706C61696E2E6D6B76] [2F6D2F61FF2E6D6B76]]" {
-		t.Errorf("after step 0011, the keys are %v; want each file's reported bytes", rows)
-	}
-	// Two live files whose names are one NFC text are two files now.
-	execRaw(t, database, "INSERT INTO file (library_id, node_id, path, path_key, filing, first_seen, last_seen) "+
-		"VALUES (1, 1, '/m/a�.mkv', X'2F6D2F61FE2E6D6B76', 'listed', 1, 1)")
+// foldedBaseline is a baseline at version 3 that folds firstStep, secondStep and thirdStep: what
+// the three build, in one step, with the third's checksum as the one it folded.
+func foldedBaseline(t *testing.T) string {
+	t.Helper()
+	third := syntheticSteps(t, firstStep, secondStep, thirdStep)[2]
+	return baselineDirective + " " + third.Checksum + "\n" + firstStep + "\n" + secondStep + "\n" + thirdStep
 }
 
-func TestMigrate_Step0012RenamesColumnsKeepingTheirDataAndTheStoredKeys(t *testing.T) {
+// fourthStep is the one step after the folded baseline.
+const fourthStep = "CREATE TABLE later (id INTEGER PRIMARY KEY);"
+
+func TestMigrate_ABaselineBuildsANewDatabaseAtItsVersion(t *testing.T) {
 	t.Parallel()
-	steps, err := Steps()
-	if err != nil {
-		t.Fatal(err)
+	steps := stepsFrom(t, 3, foldedBaseline(t), fourthStep)
+	if !steps[0].IsBaseline || steps[0].Version != 3 || steps[1].Version != 4 {
+		t.Fatalf("read the steps as %+v; want a baseline at 3 and step 4", steps)
 	}
 	database := openTemporary(t)
-	if err = database.migrate(t.Context(), steps[:11], testMigrateOptions(t.TempDir())); err != nil {
+	var progress []int
+	options := testMigrateOptions(t.TempDir())
+	options.OnBeforeStep = func(step, total int) { progress = append(progress, step, total) }
+	if err := database.migrate(t.Context(), steps, options); err != nil {
 		t.Fatal(err)
 	}
-	execRaw(t, database,
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
-			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)",
-		"INSERT INTO file (id, library_id, node_id, path, path_key, size, mtime, payload_len, filing, "+
-			"error_detail, probe, first_seen, last_seen) "+
-			"VALUES (1, 1, 1, '/m/a.mkv', X'2F6D2F612E6D6B76', 2048, 7, 1000, 'errored', "+
-			`'{"text":"denied","owner":1000,"group":100,"mode":"0600","count":3}', `+
-			`'{"format":{"bitRate":800},"streams":[{"bitRate":700,"audio":{"sampleRate":48000}}]}', 5, 6)`,
-		"INSERT INTO item (id, kind, library_id, created_at) VALUES (1, 'title', 1, 1)",
-		"INSERT INTO title (id, kind, ident) VALUES (1, 'movie', 'identified')",
-		"INSERT INTO item_text (item_id, lang, is_original, name, search_alt) VALUES (1, 'und', 1, 'Sølvi', 'solvi')")
-	if err = database.migrate(t.Context(), steps[:12], testMigrateOptions(t.TempDir())); err != nil {
+	if fmt.Sprint(progress) != "[1 2 2 2]" {
+		t.Errorf("progress = %v; want the baseline and the step after it, [1 2 2 2]", progress)
+	}
+	state, err := database.State(t.Context())
+	if err != nil || state.Version != 4 || state.CompatibleVersion != 3 {
+		t.Errorf("state = %+v (%v); want version 4, compatible_version 3, the baseline's", state, err)
+	}
+	if rows := queryRows(t, database, "SELECT version FROM schema_step ORDER BY version", 1); fmt.Sprint(rows) !=
+		"[[3] [4]]" {
+		t.Errorf("schema_step's versions are %v; want the baseline's and the step's, [[3] [4]]", rows)
+	}
+	if rows := queryRows(t, database, "SELECT id, name FROM live_thing ORDER BY id", 2); fmt.Sprint(rows) !=
+		"[[1 first] [2 second]]" {
+		t.Errorf("the baseline's rows are %v; want the ones its folded steps made", rows)
+	}
+	reopened, err := Open(t.Context(), database.Path(), testOpenOptions())
+	if err != nil {
+		t.Fatalf("a file a baseline built is refused as not ours: %v", err)
+	}
+	if err := reopened.Close(); err != nil {
 		t.Fatal(err)
-	}
-	file := queryRows(t, database, "SELECT size_bytes, mtime_ms, payload_bytes, first_seen_at, last_seen_at, "+
-		"error_detail, probe FROM file", 7)
-	want := `[[2048 7 1000 5 6 {"text":"denied","ownerUid":1000,"groupGid":100,"mode":"0600","repeatCount":3} ` +
-		`{"format":{"bitRateBps":800},"streams":[{"bitRateBps":700,"audio":{"sampleRateHz":48000}}]}]]`
-	if fmt.Sprint(file) != want {
-		t.Errorf("after step 0012 the file row is\n%v\nwant\n%s", file, want)
-	}
-	if title := queryRows(t, database, "SELECT identification FROM title", 1); fmt.Sprint(title) != "[[identified]]" {
-		t.Errorf("the title's identification is %v, want identified", title)
-	}
-	// The search indexes were rebuilt over the renamed column, and still find the folded name.
-	found := queryRows(t, database, "SELECT rowid FROM item_fts WHERE item_fts MATCH 'solvi'", 1)
-	if len(found) != 1 {
-		t.Errorf("the word index finds %v for the folded name, want the one row", found)
 	}
 }
 
-func TestMigrate_Step0020RenamesTVSpeakersToBuiltInSpeakersKeepingTheDevicesAndTheirIDs(t *testing.T) {
+func TestMigrate_ADatabaseMigratedThroughTheFoldedStepsCarriesOn(t *testing.T) {
 	t.Parallel()
-	steps, err := Steps()
-	if err != nil {
-		t.Fatal(err)
-	}
-	database := openTemporary(t)
-	if err = database.migrate(t.Context(), steps[:19], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	execRaw(t, database,
-		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)",
-		`INSERT INTO device (id, user_id, name, platform, audio_output, first_seen_at, last_seen_at, removed_at)
-		 VALUES (3, 1, 'Laptop', 'web', 'tv_speakers', 1, 2, NULL), (5, 1, 'Phone', 'web', 'headphones', 1, 2, NULL),
-		        (8, 1, 'Old', 'web', NULL, 1, 2, 3)`,
-		"DELETE FROM device WHERE id = 8")
-	if err = database.migrate(t.Context(), steps[:20], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	rows := queryRows(t, database, "SELECT id, audio_output FROM device ORDER BY id", 2)
-	if fmt.Sprint(rows) != "[[3 built_in_speakers] [5 headphones]]" {
-		t.Errorf("after step 0020 the devices are %v; want the laptop's speakers built-in, the rest kept", rows)
-	}
-	// The id sequence is kept: a device made next never takes an id an earlier one had.
-	execRaw(t, database,
-		"INSERT INTO device (user_id, name, platform, first_seen_at, last_seen_at) VALUES (1, 'New', 'web', 4, 4)")
-	if next := queryRows(t, database, "SELECT max(id) FROM device", 1); fmt.Sprint(next) != "[[9]]" {
-		t.Errorf("the next device's id is %v, want 9, after the 8 an earlier device had", next)
-	}
-}
-
-func TestMigrate_Step0021KeepsWhatAPersonSetUnderTheRenamedKeys(t *testing.T) {
-	t.Parallel()
-	steps, err := Steps()
-	if err != nil {
-		t.Fatal(err)
-	}
-	database := openTemporary(t)
-	if err = database.migrate(t.Context(), steps[:20], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	execRaw(t, database,
-		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)",
-		"INSERT INTO item (id, kind, created_at) VALUES (1, 'title', 1)",
-		`INSERT INTO setting (scope, key, value, set_at) VALUES ('server', 'removal_withhold_percent', '40', 1),
-		 ('server', 'node_restart_delay_s', '9', 1), ('server', 'scan_on_node_hello', 'true', 1)`,
-		`INSERT INTO preference (user_id, scope, scope_id, axis, value, set_at)
-		 VALUES (1, 'file', 2, 'subtitle_track', '{"isOff":true}', 1)`,
-		`INSERT INTO field_override (item_id, field, value, origin, set_at)
-		 VALUES (1, 'runtime', '6000000', 'typed', 1)`)
-	if err = database.migrate(t.Context(), steps[:21], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	checks := map[string]string{
-		"SELECT key, value FROM setting ORDER BY key": "[[node_restart_after_exit_s 9] [scan_on_node_hello true] " +
-			"[scan_withhold_removals_over_percent 40]]",
-		"SELECT axis, value FROM preference":      `[[subtitle_choice {"isOff":true}]]`,
-		"SELECT field, value FROM field_override": "[[runtime_ms 6000000]]",
-	}
-	for query, want := range checks {
-		if got := fmt.Sprint(queryRows(t, database, query, 2)); got != want {
-			t.Errorf("after step 0021, %s = %s, want %s (D227)", query, got, want)
-		}
-	}
-}
-
-func TestMigrate_Step0022RewritesTheStoredJSONWithTheNodesNewNames(t *testing.T) {
-	t.Parallel()
-	steps, err := Steps()
-	if err != nil {
-		t.Fatal(err)
-	}
-	database := openTemporary(t)
-	if err = database.migrate(t.Context(), steps[:21], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	execRaw(t, database,
-		`INSERT INTO node (id, name, enrolled_at, status) VALUES (1, 'local', 1,
-		 '{"clockMs":5,"doing":"idle","prepared":{"bytes":7,"diskPercent":40,"diskLimitPercent":95},`+
-			`"disks":[{"path":"/m","totalBytes":9,"freeBytes":3}]}')`,
-		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
-			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)",
-		`INSERT INTO file (id, library_id, node_id, path, path_key, filing, probe, error_detail, first_seen_at,
-		 last_seen_at) VALUES (1, 1, 1, '/m/a.mkv', X'2F', 'errored',
-		 '{"streams":[{"index":1,"kind":"audio","language":"ger","languageTag":"de","profile":"LC",`+
-			`"audio":{"channels":6,"channelLayout":"5.1"}}]}',
-		 '{"text":"denied","ownerUid":1,"groupGid":2,"mode":"-rw-------","repeatCount":3}', 1, 1)`)
-	if err = database.migrate(t.Context(), steps[:22], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	checks := map[string]string{
-		"SELECT probe FROM file": `[[{"streams":[{"streamIndex":1,"kind":"audio","containerLanguage":"ger",` +
-			`"languageTag":"de","codecProfile":"LC","audio":{"channelCount":6,"channelLayout":"5.1"}}]}]]`,
-		"SELECT error_detail FROM file": `[[{"text":"denied","ownerUid":1,"groupGid":2,"modeText":"-rw-------",` +
-			`"occurrenceCount":3}]]`,
-		"SELECT status FROM node": `[[{"sentAt":5,"activity":"idle","preparedUsage":{"usedBytes":7,` +
-			`"diskUsedPercent":40,"diskUsedLimitPercent":95},` +
-			`"disks":[{"path":"/m","totalBytes":9,"availableBytes":3}]}]]`,
-	}
-	for query, want := range checks {
-		if got := fmt.Sprint(queryRows(t, database, query, 1)); got != want {
-			t.Errorf("after step 0022, %s =\n%s\nwant\n%s (D227)", query, got, want)
-		}
-	}
-}
-
-func TestMigrate_Step0023RenamesColumnsKeepingTheirDataAndMovesASidecarsKind(t *testing.T) {
-	t.Parallel()
-	steps, err := Steps()
-	if err != nil {
-		t.Fatal(err)
-	}
-	database := openTemporary(t)
-	if err = database.migrate(t.Context(), steps[:22], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	execRaw(t, database,
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
-			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 1, 1)",
-		`INSERT INTO file (id, library_id, node_id, path, path_raw, path_key, filing, filing_reason, identity,
-		 sidecar_body, first_seen_at, last_seen_at) VALUES
-		 (1, 1, 1, '/m/a.mkv', NULL, X'2F6D2F612E6D6B76', 'listed', NULL, 'unconfirmed', NULL, 1, 1),
-		 (2, 1, 1, '/m/a.nfo', NULL, X'2F6D2F612E6E666F', 'attached', 'nfo', 'confirmed', X'3C6D6F7669652F3E', 1, 1)`,
-		`INSERT INTO loudness (payload_hash, stream_index, sound, integrated_lufs, measured_at)
-		 VALUES (X'01', 1, 'source', -20, 1), (X'01', 1, 'stereo', -27, 1)`)
-	if err = database.migrate(t.Context(), steps[:23], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	for _, check := range []struct {
-		query   string
-		columns int
-		want    string
+	for _, tc := range []struct {
+		name                 string
+		atVersion            int
+		isBuiltByTheBaseline bool
+		afterwards           string
+		wantErr              error
+		wantInMessage        string
+		wantVersion          int
 	}{
+		{"one at the baseline's version, through the steps it folded", 3, false, "", nil, "", 4},
+		{"one the baseline built", 3, true, "", nil, "", 4},
 		{
-			"SELECT id, ifnull(filing_reason, '-'), ifnull(sidecar_kind, '-'), is_identity_confirmed, " +
-				"hex(reported_path_bytes), hex(nfo_body) FROM file ORDER BY id", 6,
-			"[[1 - - 0 2F6D2F612E6D6B76 ] [2 an NFO beside its video nfo 1 2F6D2F612E6E666F 3C6D6F7669652F3E]]",
+			"one whose record at the baseline's version is neither", 3, false,
+			"UPDATE schema_step SET sha256 = 'other' WHERE version = 3", ErrStepChanged, "make dev-reset", 3,
 		},
 		{
-			"SELECT measured_mix, integrated_lufs FROM loudness ORDER BY measured_mix", 2,
-			"[[multichannel -20] [stereo -27]]",
-		},
-		{"SELECT is_writable FROM library", 1, "[[1]]"},
-	} {
-		if got := fmt.Sprint(queryRows(t, database, check.query, check.columns)); got != check.want {
-			t.Errorf("after step 0023, %s =\n%s\nwant\n%s (D227)", check.query, got, check.want)
-		}
-	}
-}
-
-func TestMigrate_Step0024AlignsTheNamesAndRewritesAStoredSubtitleChoice(t *testing.T) {
-	t.Parallel()
-	steps, err := Steps()
-	if err != nil {
-		t.Fatal(err)
-	}
-	database := openTemporary(t)
-	if err = database.migrate(t.Context(), steps[:23], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	execRaw(t, database,
-		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)",
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		"INSERT INTO library (id, name, kind, metadata_source, change_detection, check_every_h, is_writable, "+
-			"created_at) VALUES (1, 'Films', 'movies', 'nfo', 'interval', 6, 0, 1)",
-		`INSERT INTO root_state (node_id, root_path, outcome, outcome_at) VALUES (1, '/m', 'complete', 7)`,
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, filing, error_detail,
-		 first_seen_at, last_seen_at) VALUES (1, 1, 1, '/m/a.mkv', X'2F', 'errored', '{"text":"denied"}', 1, 1)`,
-		`INSERT INTO preference (user_id, scope, scope_id, axis, value, set_at) VALUES
-		 (1, 'file', 1, 'subtitle_choice', '{"streamId":4,"isCarried":true}', 1),
-		 (1, 'file', 2, 'subtitle_choice', '{"fetchedId":3}', 1),
-		 (1, 'file', 3, 'subtitle_choice', '{"isOff":true,"isCarried":false}', 1),
-		 (1, 'file', 1, 'subtitle_offset_ms', '-250', 1)`)
-	if err = database.migrate(t.Context(), steps[:24], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	for _, check := range []struct {
-		query   string
-		columns int
-		want    string
-	}{
-		{"SELECT check_every_hours FROM library", 1, "[[6]]"},
-		{"SELECT last_scan_outcome, last_scan_at FROM root_state", 2, "[[complete 7]]"},
-		{"SELECT error_detail_json FROM file", 1, `[[{"text":"denied"}]]`},
-		{
-			"SELECT scope_id, axis, value_json FROM preference ORDER BY scope_id, axis", 3,
-			`[[1 subtitle_choice {"streamId":4,"isCarriedFromWork":true}] [1 subtitle_offset_ms -250] ` +
-				`[2 subtitle_choice {"fetchedSubtitleId":3}] ` +
-				`[3 subtitle_choice {"isOff":true,"isCarriedFromWork":false}]]`,
+			"one below the baseline's version", 2, false, "", ErrBeforeBaseline,
+			"`make dev-reset`, and the next `make dev`", 2,
 		},
 	} {
-		if got := fmt.Sprint(queryRows(t, database, check.query, check.columns)); got != check.want {
-			t.Errorf("after step 0024, %s =\n%s\nwant\n%s (D227)", check.query, got, check.want)
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			database := openTemporary(t)
+			built := syntheticSteps(t, firstStep, secondStep, thirdStep)[:tc.atVersion]
+			if tc.isBuiltByTheBaseline {
+				built = stepsFrom(t, 3, foldedBaseline(t))
+			}
+			if err := database.migrate(t.Context(), built, testMigrateOptions(t.TempDir())); err != nil {
+				t.Fatal(err)
+			}
+			if tc.afterwards != "" {
+				execRaw(t, database, tc.afterwards)
+			}
+			err := database.migrate(t.Context(), stepsFrom(t, 3, foldedBaseline(t), fourthStep),
+				testMigrateOptions(t.TempDir()))
+			if !errors.Is(err, tc.wantErr) || (err != nil && !strings.Contains(err.Error(), tc.wantInMessage)) {
+				t.Errorf("migrate = %v; want %v, saying %q", err, tc.wantErr, tc.wantInMessage)
+			}
+			assertVersion(t, database, tc.wantVersion)
+		})
+	}
+}
+
+func TestMigrate_ADataTransformingStepKeepsTheRowsAndRaisesTheCompatibleVersion(t *testing.T) {
+	t.Parallel()
+	database := openTemporary(t)
+	if err := database.migrate(t.Context(), syntheticSteps(t, firstStep, secondStep, thirdStep),
+		testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	state, err := database.State(t.Context())
+	if err != nil || state.CompatibleVersion != 1 {
+		t.Errorf("after additive steps, compatible_version = %d (%v); want 1, the first step's",
+			state.CompatibleVersion, err)
+	}
+	execRaw(t, database, "INSERT INTO thing (name) VALUES ('third')")
+	transform := raisesCompatibleDirective + "\n" +
+		"ALTER TABLE thing RENAME COLUMN name TO label;\n" +
+		"ALTER TABLE thing ADD COLUMN detail_json TEXT;\n" +
+		"UPDATE thing SET detail_json = json_object('wasNamed', label), label = upper(label);"
+	err = database.migrate(t.Context(), syntheticSteps(t, firstStep, secondStep, thirdStep, transform, fourthStep),
+		testMigrateOptions(t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := queryRows(t, database, "SELECT id, label, detail_json FROM thing ORDER BY id", 3)
+	want := `[[1 FIRST {"wasNamed":"first"}] [2 SECOND {"wasNamed":"second"}] [3 THIRD {"wasNamed":"third"}]]`
+	if fmt.Sprint(rows) != want {
+		t.Errorf("after the transforming step, the rows are\n%v\nwant\n%s", rows, want)
+	}
+	state, err = database.State(t.Context())
+	if err != nil || state.CompatibleVersion != 4 || state.Version != 5 {
+		t.Errorf("state = %+v (%v); want version 5, compatible_version 4: the renaming step raises it, "+
+			"the additive one after it does not", state, err)
+	}
+}
+
+// rebuildThing rebuilds thing with a new CHECK, in the documented pattern (migrations.md), and
+// carries its id sequence over unless told not to.
+func rebuildThing(isSequenceKept bool) string {
+	keepSequence := ""
+	if isSequenceKept {
+		keepSequence = "UPDATE sqlite_sequence SET seq = (SELECT seq FROM sqlite_sequence WHERE name = 'thing') " +
+			"WHERE name = 'thing_new';\n"
+	}
+	return "DROP VIEW live_thing;\n" +
+		"CREATE TABLE thing_new (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL CHECK (name <> ''));\n" +
+		"INSERT INTO thing_new (id, name) SELECT id, name FROM thing;\n" +
+		keepSequence +
+		"DROP TABLE thing;\n" +
+		"ALTER TABLE thing_new RENAME TO thing;\n" +
+		"CREATE VIEW live_thing AS SELECT id, name FROM thing;"
+}
+
+func TestMigrate_ARebuildKeepsTheIDsAndTheIDSequence(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name           string
+		isSequenceKept bool
+		wantRefusal    string
+	}{
+		{"carrying the sequence over", true, ""},
+		{"losing the sequence", false, "went down"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			database := openTemporary(t)
+			good := syntheticSteps(t, firstStep, secondStep, thirdStep)
+			if err := database.migrate(t.Context(), good, testMigrateOptions(t.TempDir())); err != nil {
+				t.Fatal(err)
+			}
+			// The last thing made is gone: its id must never be issued again (D173).
+			execRaw(t, database, "INSERT INTO thing (name) VALUES ('third'), ('fourth')",
+				"DELETE FROM thing WHERE id = 4")
+			err := database.migrate(t.Context(), syntheticSteps(t, firstStep, secondStep, thirdStep,
+				rebuildThing(tc.isSequenceKept)), testMigrateOptions(t.TempDir()))
+			if tc.wantRefusal != "" {
+				stepError, isStepError := errors.AsType[*StepError](err)
+				if !isStepError || !strings.Contains(stepError.Error(), tc.wantRefusal) {
+					t.Errorf("a rebuild that loses the id sequence: migrate = %v; want a StepError saying %q",
+						err, tc.wantRefusal)
+				}
+				assertVersion(t, database, 3)
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertRebuiltThingKeptItsIDs(t, database)
+		})
+	}
+}
+
+// assertRebuiltThingKeptItsIDs checks that the rebuilt thing kept every row's id, and issues
+// the next id after the highest it ever issued.
+func assertRebuiltThingKeptItsIDs(t *testing.T, database *Database) {
+	t.Helper()
+	if rows := queryRows(t, database, "SELECT id, name FROM live_thing ORDER BY id", 2); fmt.Sprint(rows) !=
+		"[[1 first] [2 second] [3 third]]" {
+		t.Errorf("after the rebuild, the things are %v; want every one kept with its id", rows)
+	}
+	execRaw(t, database, "INSERT INTO thing (name) VALUES ('fifth')")
+	if next := queryRows(t, database, "SELECT max(id) FROM thing", 1); fmt.Sprint(next) != "[[5]]" {
+		t.Errorf("the next thing's id is %v, want 5, after the 4 an earlier thing had", next)
+	}
+}
+
+// migrationsLiveMarker is the file in migrations/ whose presence says migrations are live (D228):
+// from then on the baseline is frozen and every schema change is a new step.
+const migrationsLiveMarker = "LIVE"
+
+func TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(steps) == 0 {
+		t.Fatal("there is no migration step")
+	}
+	_, err = os.Stat(filepath.Join("migrations", migrationsLiveMarker))
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		if !steps[0].IsBaseline || len(steps) > 2 {
+			t.Errorf("the steps are %d, the first a baseline: %t; until migrations are live, a schema change "+
+				"folds the last step into the baseline and adds the change as the one step after it (D228)",
+				len(steps), steps[0].IsBaseline)
 		}
+	case err != nil:
+		t.Fatal(err)
 	}
 }
 
@@ -336,7 +281,7 @@ func TestMigrate_Step0025GivesEachValueOneNameAndRewritesWhatWasStoredUnderTheOl
 		t.Fatal(err)
 	}
 	database := openTemporary(t)
-	if err = database.migrate(t.Context(), steps[:24], testMigrateOptions(t.TempDir())); err != nil {
+	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
 	execRaw(t, database,
@@ -358,7 +303,7 @@ func TestMigrate_Step0025GivesEachValueOneNameAndRewritesWhatWasStoredUnderTheOl
 		 (1, 'user', 0, 'loudness_levelling', 'off', 1), (1, 'user', 0, 'dialogue_boost', 'on', 1)`,
 		`INSERT INTO setting (scope, key, value_json, is_modified, set_at) VALUES
 		 ('server', 'check_for_updates', 'false', 1, 1), ('server', 'secret_hint_chars', '2', 1, 1)`)
-	if err = database.migrate(t.Context(), steps[:25], testMigrateOptions(t.TempDir())); err != nil {
+	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
 	for _, check := range []struct {

@@ -2,7 +2,6 @@
 -- user_version 25
 -- compatible_version 25
 -- sqlite_sequence artwork 0
--- sqlite_sequence device 0
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -90,9 +89,15 @@ CREATE TABLE collection (                                  -- class A or O
   kind        TEXT NOT NULL CHECK (kind IN ('series','box_set','user')),
   membership  TEXT NOT NULL CHECK (membership IN ('explicit','predicate','external')),
   predicate   TEXT,                      -- D75's serialised form, for 'predicate'
-  created_by  TEXT NOT NULL CHECK (created_by IN ('scanner','provider','user'))
-, year INTEGER, followed_source TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')), followed_source_id TEXT, identification_state TEXT CHECK (identification_state IN
-  ('identified','ambiguous','unidentified','confirmed')));
+  created_by  TEXT NOT NULL CHECK (created_by IN ('scanner','provider','user')),
+  -- For shows, the series is what is identified (D209): it carries the year its search is keyed
+  -- on and the match state a title carries.
+  year        INTEGER,                                                        -- O: resolved
+  followed_source    TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),  -- F/A
+  followed_source_id TEXT,                                                    -- F/A
+  identification_state TEXT CHECK (identification_state IN
+    ('identified','ambiguous','unidentified','confirmed'))                    -- F/A (D172)
+);
 
 -- table collection_member
 CREATE TABLE collection_member (                           -- D159, D160
@@ -106,15 +111,15 @@ CREATE TABLE collection_member (                           -- D159, D160
 );
 
 -- table device
-CREATE TABLE "device" (                                  -- class A
+CREATE TABLE device (                                      -- class A
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id       INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   name          TEXT NOT NULL,
   platform      TEXT NOT NULL,
   audio_output  TEXT CHECK (audio_output IN ('built_in_speakers','receiver','headphones')),
                                          -- NULL until asked on first playback (D184)
-  added_at    INTEGER NOT NULL,
-  last_signed_in_at     INTEGER NOT NULL,
+  added_at INTEGER NOT NULL,
+  last_signed_in_at  INTEGER NOT NULL,
   removed_at    INTEGER
 );
 
@@ -140,7 +145,7 @@ CREATE TABLE extra_relation (                              -- class O, or A when
   owner_title   INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
   owner_edition INTEGER REFERENCES edition(id) ON DELETE RESTRICT,  -- only a person sets it
   extra_title   INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
-  extra_type          TEXT NOT NULL CHECK (extra_type IN ('trailer','teaser','clip','featurette',
+  extra_type    TEXT NOT NULL CHECK (extra_type IN ('trailer','teaser','clip','featurette',
                   'behind_the_scenes','deleted_scene','interview','short','scene',
                   'theme_song','theme_video','unknown')),       -- D97, D162: eleven + unknown
   position      INTEGER,
@@ -161,19 +166,20 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
   provider_file_id TEXT NOT NULL,
   language        TEXT NOT NULL,
   format      TEXT NOT NULL,
-  body_gzip        BLOB NOT NULL,             -- a few kB; in the database so the backup carries it
+  body_gzip   BLOB NOT NULL,             -- a few kB; in the database so the backup carries it
   fetched_by_user_id  INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
-  fetched_at  INTEGER NOT NULL
-, release_name TEXT);
+  fetched_at  INTEGER NOT NULL,
+  release_name TEXT                      -- the provider's file name for it (D224)
+);
 
 -- table field_override
 CREATE TABLE field_override (                              -- class A (D183)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   field       TEXT NOT NULL,             -- a field-registry name
   language        TEXT NOT NULL DEFAULT '',  -- '' for language-invariant fields
-  override_value       TEXT NOT NULL,             -- a frozen copy
+  override_value TEXT NOT NULL,          -- a frozen copy
   origin      TEXT NOT NULL,             -- 'typed', 'nfo', 'tmdb', 'tvdb' — display only
-  set_by_user_id      INTEGER REFERENCES user(id) ON DELETE RESTRICT,
+  set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (item_id, field, language)
 );
@@ -183,48 +189,59 @@ CREATE TABLE file (                                        -- class I (identity 
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   library_id    INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
   node_id       INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
-  path          TEXT NOT NULL,           -- NFC form
-  size_bytes          INTEGER,
-  modified_at         INTEGER,
+  path          TEXT NOT NULL,           -- NFC form, for display and search
+  size_bytes    INTEGER,
+  modified_at      INTEGER,
   payload_hash  BLOB,                    -- D179: anchored on the media payload
-  payload_bytes   INTEGER,
+  payload_bytes INTEGER,
   filing        TEXT NOT NULL CHECK (filing IN
                   ('listed','extra','attached','skipped','errored','unidentified')),
   filing_reason TEXT,                    -- the rule verbatim, the error code, what was tried
-  error_detail_json  TEXT,                    -- owner, group, mode; the platform's text (D163)
-  probe_json         TEXT,                    -- raw probe output, JSON; the input D59 replays
+  error_detail_json TEXT,                -- owner, group, mode; the platform's text (D163)
+  probe_json    TEXT,                    -- raw probe output, JSON; the input D59 replays
   version_id    INTEGER REFERENCES version(id) ON DELETE RESTRICT,
   part_index    INTEGER,                 -- order within a multi-part Version
-  attached_to_file   INTEGER REFERENCES file(id) ON DELETE RESTRICT,  -- a sidecar's video
-  first_seen_at    INTEGER NOT NULL,
-  last_seen_at     INTEGER NOT NULL,
-  removed_at    INTEGER                  -- tombstone: only on a positive report (D34, D179)
-, nfo_body BLOB, identified_from_path TEXT, reported_path_bytes BLOB, opensubtitles_hash TEXT, is_identity_confirmed INTEGER NOT NULL DEFAULT 1
-  CHECK (is_identity_confirmed IN (0, 1)), sidecar_kind TEXT CHECK (sidecar_kind IN ('nfo', 'subtitle', 'image')));
+  attached_to_file INTEGER REFERENCES file(id) ON DELETE RESTRICT,  -- a sidecar's video
+  first_seen_at INTEGER NOT NULL,
+  last_seen_at  INTEGER NOT NULL,
+  removed_at    INTEGER,                 -- tombstone: only on a positive report (D34, D179)
+  -- An NFO's bytes, as the node sent them: identification runs in the core, which never opens a
+  -- file, and re-derives a title from stored input only (D182). A subtitle's are read when played.
+  nfo_body      BLOB,                    -- class O: a rescan sends it again
+  -- The path identification was derived from (D208 section 1): a file whose path has not
+  -- changed keeps its title; a renamed or moved one is identified again, unless a person
+  -- confirmed its match.
+  identified_from_path TEXT,             -- class O
+  reported_path_bytes BLOB,              -- class I: the bytes the node reported, the file's key (D211)
+  opensubtitles_hash TEXT,               -- 16 hex digits of OpenSubtitles' moviehash (D224); NULL until scanned
+  is_identity_confirmed INTEGER NOT NULL DEFAULT 1
+    CHECK (is_identity_confirmed IN (0, 1)),  -- D179: 0 after a rebuild, until re-seen
+  sidecar_kind  TEXT CHECK (sidecar_kind IN ('nfo', 'subtitle', 'image'))
+);
 
 -- table grant
 CREATE TABLE "grant" (                                     -- class A (D154)
-  secret_sha256        BLOB PRIMARY KEY,          -- SHA-256 of the secret; never the secret
+  secret_sha256 BLOB PRIMARY KEY,        -- SHA-256 of the secret; never the secret
   kind        TEXT NOT NULL CHECK (kind IN ('session','link','cast','join','api_key',
                 'adapter','node','relay','invite')),
   user_id     INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   scope       TEXT NOT NULL,
-  parent_secret_sha256      BLOB REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,  -- D177: derived grants
+  parent_secret_sha256 BLOB REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,  -- D177: derived grants
   issued_at   INTEGER NOT NULL,
   expires_at  INTEGER,
-  last_seen_at   INTEGER,
+  last_seen_at INTEGER,
   revoked_at  INTEGER,
-  device_name       TEXT,
+  device_name TEXT,
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT
 ) WITHOUT ROWID;
 
 -- table group_text
 CREATE TABLE group_text (                                  -- a season's name, a disc's subtitle
   collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
-  group_number         INTEGER NOT NULL,
-  language        TEXT NOT NULL,
-  name        TEXT,
-  overview    TEXT,
+  group_number  INTEGER NOT NULL,
+  language          TEXT NOT NULL,
+  name          TEXT,
+  overview      TEXT,
   PRIMARY KEY (collection_id, group_number, language)
 );
 
@@ -233,7 +250,7 @@ CREATE TABLE item (                                        -- class I
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   kind        TEXT NOT NULL CHECK (kind IN ('title','collection','person')),
   library_id  INTEGER REFERENCES library(id) ON DELETE RESTRICT,
-  origin_server      TEXT,                      -- NULL = this server; else who gave it (D174)
+  origin_server TEXT,                    -- NULL = this server; else who gave it (D174)
   merged_into INTEGER REFERENCES item(id) ON DELETE RESTRICT,  -- D173
   added_at  INTEGER NOT NULL,
   removed_at  INTEGER
@@ -296,7 +313,11 @@ CREATE TABLE item_text (                                   -- class O/F, resolve
   is_original INTEGER NOT NULL DEFAULT 0 CHECK (is_original IN (0,1)),
   name        TEXT NOT NULL,
   overview    TEXT,
-  tagline     TEXT, search_alternates TEXT,
+  tagline     TEXT,
+  -- class C: the name folded by the one normaliser in Go (diacritics removed, and the atomic
+  -- letters no Unicode option decomposes, such as Ø and ß, spelled out), so "Bjork" finds
+  -- "Bjørk" (D48).
+  search_alternates TEXT,
   PRIMARY KEY (item_id, language)
 );
 
@@ -308,8 +329,8 @@ CREATE TABLE library (                                     -- class A
   -- the three questions asked at creation (D184), never defaulted:
   metadata_source  TEXT NOT NULL CHECK (metadata_source IN ('nfo_then_tmdb','tmdb','nfo')),
   change_detection TEXT NOT NULL CHECK (change_detection IN ('watch','interval','manual')),
-  check_every_hours    INTEGER,          -- only for 'interval'
-  is_writable         INTEGER NOT NULL CHECK (is_writable IN (0,1)),
+  check_every_hours INTEGER,             -- only for 'interval'
+  is_writable      INTEGER NOT NULL CHECK (is_writable IN (0,1)),
   created_at       INTEGER NOT NULL,
   removed_at       INTEGER
 );
@@ -323,7 +344,7 @@ CREATE TABLE library_root (                                -- class O: as the no
 );
 
 -- table loudness
-CREATE TABLE "loudness" (                                -- class O: what the node measured
+CREATE TABLE loudness (                                    -- class O: what the node measured
   payload_hash    BLOB NOT NULL,
   stream_index    INTEGER NOT NULL,
   measured_mix    TEXT NOT NULL CHECK (measured_mix IN ('multichannel','stereo')),  -- as it is, or as stereo
@@ -341,9 +362,9 @@ CREATE TABLE node (                                        -- class I + O (the l
   name        TEXT NOT NULL,
   enrolled_at INTEGER NOT NULL,
   removed_at  INTEGER,
-  last_ingested_report_seq  INTEGER NOT NULL DEFAULT 0,  -- last journal sequence the core ingested (D59)
-  last_status_json      TEXT,                        -- the node's last status record, JSON
-  last_status_at   INTEGER                      -- when it arrived; liveness is judged from this
+  last_ingested_report_seq INTEGER NOT NULL DEFAULT 0,  -- last journal sequence the core ingested (D59)
+  last_status_json         TEXT,         -- the node's last status record, JSON
+  last_status_at           INTEGER       -- when it arrived; liveness is judged from this
 );
 
 -- table ordering
@@ -363,7 +384,7 @@ CREATE TABLE play_event (                                  -- class A (D165)
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT,
   kind        TEXT NOT NULL CHECK (kind IN ('started','paused','seeked','completed','abandoned')),
   position_ms INTEGER NOT NULL,
-  happened_at   INTEGER NOT NULL,
+  happened_at INTEGER NOT NULL,
   happened_mono_ms INTEGER
 );
 
@@ -372,9 +393,13 @@ CREATE TABLE play_position (                               -- class A (D81, D157
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   file_id     INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT,
   position_ms INTEGER NOT NULL,
-  report_seq         INTEGER NOT NULL,          -- the guard: an older report does not move it
+  report_seq  INTEGER NOT NULL,          -- the report's number within its playback: a repeat is not new
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT,
-  updated_at  INTEGER NOT NULL, position_read_at INTEGER NOT NULL DEFAULT 0,
+  updated_at  INTEGER NOT NULL,
+  -- The moment of watching the position is for (D217 section 7): the device's monotonic time
+  -- anchored to the server's clock when the report arrived (D165). The guard: a report about an
+  -- earlier moment does not move it.
+  position_read_at INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, file_id)
 ) WITHOUT ROWID;
 
@@ -386,19 +411,19 @@ CREATE TABLE play_span (                                   -- class A (D165)
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT,
   from_position_ms INTEGER NOT NULL,
   to_position_ms   INTEGER NOT NULL,
-  started_at      INTEGER NOT NULL,
-  ended_at        INTEGER NOT NULL,
+  started_at  INTEGER NOT NULL,
+  ended_at    INTEGER NOT NULL,
   is_unterminated INTEGER NOT NULL DEFAULT 0 CHECK (is_unterminated IN (0,1)),
-  is_unattended  INTEGER NOT NULL DEFAULT 0 CHECK (is_unattended IN (0,1))  -- after "still watching?" went unanswered (D188): never completes anything
+  is_unattended   INTEGER NOT NULL DEFAULT 0 CHECK (is_unattended IN (0,1))  -- after "still watching?" went unanswered (D188): never completes anything
 );
 
 -- table position
 CREATE TABLE position (                                    -- season/episode, or disc/track
   ordering_id INTEGER NOT NULL REFERENCES ordering(id) ON DELETE RESTRICT,
   title_id    INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,
-  group_number         INTEGER,                   -- season, or disc
-  number_in_group      INTEGER,                   -- episode, or track
-  sort_order        REAL NOT NULL,             -- a total order within the ordering
+  group_number INTEGER,                  -- season, or disc
+  number_in_group INTEGER,               -- episode, or track
+  sort_order  REAL NOT NULL,             -- a total order within the ordering
   PRIMARY KEY (ordering_id, title_id)
 );
 
@@ -409,7 +434,7 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
   scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'
   axis        TEXT NOT NULL,               -- 'audio_lang', 'subtitle_set', 'subtitle_offset_ms',
                                            -- 'embedded_fonts', 'caption_size', 'dialogue_boost'…
-  value_json       TEXT NOT NULL,               -- tri-valued where the axis says so: 'off' ≠ unset
+  value_json  TEXT NOT NULL,               -- tri-valued where the axis says so: 'off' ≠ unset
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, scope, scope_id, axis)
 ) WITHOUT ROWID;
@@ -420,12 +445,12 @@ CREATE TABLE progress_hide (user_id INTEGER NOT NULL REFERENCES user(id) ON DELE
   PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
 
 -- table provider_response
-CREATE TABLE "provider_response" (                       -- class F: the stored input (D170)
+CREATE TABLE provider_response (                           -- class F: the stored input (D170)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
   part        TEXT NOT NULL DEFAULT '',  -- '' the item itself; 'season/N' a series' season listing
   fetched_at  INTEGER NOT NULL,
-  body_gzip        BLOB NOT NULL,             -- compressed; cast and crew are read from here in Cut A
+  body_gzip   BLOB NOT NULL,             -- compressed; cast and crew are read from here in Cut A
   PRIMARY KEY (item_id, provider, part)
 );
 
@@ -433,40 +458,41 @@ CREATE TABLE "provider_response" (                       -- class F: the stored 
 CREATE TABLE role (                                        -- class A (D130)
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   name          TEXT NOT NULL UNIQUE,
-  is_builtin       INTEGER NOT NULL DEFAULT 0 CHECK (is_builtin IN (0,1)),
+  is_builtin    INTEGER NOT NULL DEFAULT 0 CHECK (is_builtin IN (0,1)),
   capabilities  TEXT NOT NULL,           -- a set from the closed enum, e.g. 'administer,download'
   predicate     TEXT                     -- NULL = sees everything; invalid = sees nothing (D164)
 );
 
 -- table root_mount
 CREATE TABLE root_mount (                                  -- class O
-  node_id  INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
-  root_path     TEXT NOT NULL,
-  mount_path     TEXT NOT NULL,                -- NFC, absolute on the node, like file.path
-  filesystem_device   INTEGER NOT NULL,             -- st_dev when it was last seen where expected
-  is_present  INTEGER NOT NULL CHECK (is_present IN (0, 1)),
+  node_id           INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
+  root_path         TEXT NOT NULL,
+  mount_path        TEXT NOT NULL,       -- NFC, absolute on the node, like file.path
+  filesystem_device INTEGER NOT NULL,    -- st_dev when it was last seen where expected
+  is_present        INTEGER NOT NULL CHECK (is_present IN (0, 1)),
   PRIMARY KEY (node_id, mount_path)
 );
 
 -- table root_scan
 CREATE TABLE root_scan (                                   -- class O
   node_id      INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
-  root_path         TEXT NOT NULL,
+  root_path    TEXT NOT NULL,
   completed_at INTEGER NOT NULL,         -- the last scan of this root that finished
   PRIMARY KEY (node_id, root_path)
 );
 
 -- table root_state
 CREATE TABLE root_state (                                  -- class O
-  node_id         INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
-  root_path            TEXT NOT NULL,
-  filesystem_device          INTEGER,                -- st_dev at the last complete scan
-  is_mount_point     INTEGER CHECK (is_mount_point IN (0, 1)),
-  last_scan_outcome         TEXT NOT NULL CHECK (last_scan_outcome IN ('complete', 'unreadable', 'withheld')),
+  node_id           INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
+  root_path         TEXT NOT NULL,
+  filesystem_device INTEGER,             -- st_dev at the last complete scan
+  is_mount_point    INTEGER CHECK (is_mount_point IN (0, 1)),
+  last_scan_outcome TEXT NOT NULL CHECK (last_scan_outcome IN ('complete', 'unreadable', 'withheld')),
   last_scan_at      INTEGER NOT NULL,
-  withheld_scan_started_at  INTEGER,                -- the withheld scan's start: what it did not see goes
-  withheld_reason TEXT, are_removals_approved INTEGER NOT NULL DEFAULT 0
-  CHECK (are_removals_approved IN (0, 1)),                   -- once the admin confirms
+  withheld_scan_started_at INTEGER,      -- the withheld scan's start: what it did not see goes
+  withheld_reason   TEXT,                --   once the admin confirms
+  are_removals_approved INTEGER NOT NULL DEFAULT 0
+    CHECK (are_removals_approved IN (0, 1)),  -- class A: the admin said the files are gone
   PRIMARY KEY (node_id, root_path)
 );
 
@@ -489,9 +515,9 @@ CREATE TABLE secret (                                      -- class A, sealed (D
   name        TEXT NOT NULL,             -- 'tmdb_api_key', 'opensubtitles_password', 'turn_secret'…
   key_id      INTEGER NOT NULL,          -- which secret.key sealed it (rotation)
   nonce       BLOB NOT NULL,             -- 24 bytes, XChaCha20-Poly1305
-  ciphertext      BLOB NOT NULL,             -- ciphertext; the associated data is (scope, user_id, name)
+  ciphertext  BLOB NOT NULL,             -- ciphertext; the associated data is (scope, user_id, name)
   last_chars        TEXT,                      -- last four characters of an API key; NULL for a password
-  set_by_user_id      INTEGER REFERENCES user(id) ON DELETE RESTRICT,
+  set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
   CHECK ((scope = 'server') = (user_id IS NULL))
 );
@@ -501,9 +527,13 @@ CREATE TABLE setting (                                     -- class A
   scope       TEXT NOT NULL CHECK (scope IN ('server','user')),
   user_id     INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL for 'server'
   key         TEXT NOT NULL,             -- a name from the settings registry in code
-  value_json       TEXT NOT NULL,             -- JSON
-  set_by_user_id      INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL: the setup wizard
-  set_at      INTEGER NOT NULL, is_modified INTEGER NOT NULL DEFAULT 0 CHECK (is_modified IN (0, 1)),
+  value_json  TEXT NOT NULL,             -- JSON
+  set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL: the setup wizard
+  set_at      INTEGER NOT NULL,
+  -- Whether a person set it (D201 section 1): any manual set marks it, even to its starting
+  -- value; "set to default" clears it; a release that changes a starting value moves every
+  -- unmarked row to the new one.
+  is_modified INTEGER NOT NULL DEFAULT 0 CHECK (is_modified IN (0, 1)),
   CHECK ((scope = 'server') = (user_id IS NULL))
 );
 
@@ -512,7 +542,7 @@ CREATE TABLE sort_key (                                    -- class C (D47)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE CASCADE,
   locale      TEXT NOT NULL,
   listing     TEXT NOT NULL,             -- the list it sorts in: 'movie', 'series', 'album'…
-  collation_key         BLOB NOT NULL,             -- CLDR sort-key bytes, BINARY order
+  collation_key BLOB NOT NULL,           -- CLDR sort-key bytes, BINARY order
   PRIMARY KEY (locale, listing, collation_key, item_id)
 ) WITHOUT ROWID;
 
@@ -522,7 +552,7 @@ CREATE TABLE sqlite_sequence(name,seq);
 -- table stream
 CREATE TABLE stream (                                      -- class O; not "track" (D186)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  bytes_file     INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT, -- where the bytes are
+  bytes_file  INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT, -- where the bytes are
   video_file  INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT, -- the video it serves
   stream_index INTEGER,                  -- NULL for a whole-file sidecar
   kind        TEXT NOT NULL CHECK (kind IN ('video','audio','subtitle','attachment')),
@@ -531,7 +561,7 @@ CREATE TABLE stream (                                      -- class O; not "trac
   language        TEXT,                      -- BCP 47, normalised (D24)
   container_title   TEXT,
   disposition_flags INTEGER NOT NULL DEFAULT 0,  -- FFmpeg's flags, as found
-  channel_count    INTEGER,
+  channel_count INTEGER,
   UNIQUE (bytes_file, stream_index)
 );
 
@@ -551,9 +581,9 @@ CREATE TABLE title (                                       -- mixed: see the col
   original_language  TEXT,                                       -- O: resolved
   -- D170/D183: the one source this title follows, and its id there. F, or A once a person
   -- chose it: a match is a fetch, and a migration never redoes one.
-  followed_source         TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),       -- F/A
-  followed_source_id      TEXT,                                                      -- F/A
-  identification_state          TEXT NOT NULL CHECK (identification_state IN
+  followed_source    TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),  -- F/A
+  followed_source_id TEXT,                                                          -- F/A
+  identification_state TEXT NOT NULL CHECK (identification_state IN
                    ('identified','ambiguous','unidentified','confirmed'))    -- F/A (D172)
 );
 
@@ -563,7 +593,7 @@ CREATE TABLE user (                                        -- class A
   name          TEXT NOT NULL,
   role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
   password_hash BLOB,
-  is_outsider      INTEGER NOT NULL DEFAULT 0 CHECK (is_outsider IN (0,1)),  -- D174: sees no household
+  is_outsider   INTEGER NOT NULL DEFAULT 0 CHECK (is_outsider IN (0,1)),  -- D174: sees no household
   created_at    INTEGER NOT NULL,
   removed_at    INTEGER
 );

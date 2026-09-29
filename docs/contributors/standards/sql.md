@@ -115,13 +115,19 @@ the builder answers with one explained `//nolint:gosec` at its concatenation; th
 
 D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechanism. As rules:
 
-- **A step is a file `internal/store/migrations/NNNN_what_it_does.sql`**, numbered from `0001`
-  with no gaps. sqlc reads the same directory as the schema, so generated queries always match
-  the migrated tables.
+- **A step is a file `internal/store/migrations/NNNN_what_it_does.sql`**, numbered with no gaps
+  from `0001` or from a baseline. sqlc reads the same directory as the schema, so generated
+  queries always match the migrated tables.
+- **Until migrations are live, a baseline and one step** ([D228](../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)): `NNNN_baseline.sql` builds a
+  new database at its version, and a schema change folds the last step into it and adds the
+  change as the one step after it. **Enforced by:**
+  `TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive`; the owner commits
+  `internal/store/migrations/LIVE` to end it.
 - **Append only, forward only.** A merged step is never edited, renamed or deleted; a mistake is
-  a new step. There are no down migrations: the `VACUUM INTO` snapshot taken before migrating is
-  the way back. **Enforced by:** the pre-edit hook blocks edits to existing steps; a test
-  compares each step with a committed checksum list, so an edit fails even outside the agent
+  a new step. Until migrations are live, the baseline is the exception, rewritten by each fold.
+  There are no down migrations: the `VACUUM INTO` snapshot taken before migrating is the way
+  back. **Enforced by:** the pre-edit hook blocks edits to existing steps; a test compares each
+  step with a committed checksum list, so an edit fails even outside the agent
   (`TestSteps_MatchTheCommittedChecksums`).
 - **A step holds DDL and data statements only.** The runner owns `PRAGMA user_version`,
   `application_id` and `foreign_keys`, the `BEGIN IMMEDIATE`, and the checks a SQL file cannot
@@ -136,9 +142,11 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
   SELECT` is not used. **Review-only.**
 - **Every released version has a golden fixture; every golden migrates to a schema equal to a
   fresh install's; killing the runner after any step and restarting ends identical; a step
-  takes under 10 s at the reference scale.** **Enforced by:** the migration tests in
+  takes under 10 s at the reference scale.** Until migrations are live, the goldens are the
+  baseline's and the current version's (D228). **Enforced by:** the migration tests in
   `internal/store`; the 10 s budget by `TestReferenceScale` in its integration tier, which fills
-  a schema-1 database with the reference library (about 46 MB) and times every later step.
+  a database at the baseline's schema with the reference library (about 46 MB) and times every
+  later step and a rebuild of `file`.
 
 ## 6. Tombstones and deletes
 

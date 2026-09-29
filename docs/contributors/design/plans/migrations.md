@@ -40,6 +40,16 @@ only what must exist before the database opens.
 
 ## The database
 
+> **Until migrations are live, a baseline and one step ([D228](../../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)).** Nothing is released, so no
+> database but the owner's development one has ever been migrated. The steps are a baseline,
+> `NNNN_baseline.sql`, which builds a new database at its version in one step, and the one step
+> after it. A schema change folds the last step into the baseline and adds the change as the
+> next step, so a development database is one step behind and really migrates through it. The
+> baseline names the checksum of the step it folded last, which a database that reached its
+> version through that step recorded; a database below its version is refused. Everything below
+> applies to every step; *every step is kept, forever* and *a golden for every version* wait
+> until the owner declares migrations live, by committing `internal/store/migrations/LIVE`.
+
 > **IMPLEMENTED — see `internal/store`** (M1): the two integers, the runner and its checks, the
 > pre-migration snapshot and free-space preflight, the newer-database refusal, `orpheum migrate`,
 > `/health` while migrating, and tests for the golden, interruption, failure and refusal. The
@@ -85,8 +95,8 @@ upgraded file is a known state, not a half-state.
 - **Rebuilds follow one documented pattern** — create new, copy **with explicit `rowid`** where FTS
   content depends on it, drop old, rename new, recreate indexes, triggers and views — and views
   are dropped before the rename. `CREATE TABLE … AS SELECT` is not used.
-- **The runner records each applied step's checksum** (`schema_step`, from step 0009) and
-  refuses a database where an applied step's text has since changed. A committed step never
+- **The runner records each applied step's checksum** (`schema_step`), in the step's own
+  transaction, and refuses a database where an applied step's text has since changed. A committed step never
   changes; a draft applied by the dev loop and then edited before it was committed does, and
   leaves a schema that is not the step's (plan-deviations P17).
 - **No filesystem, no network, no path parsing.** A step that would need them is instead a step
@@ -149,7 +159,7 @@ upgraded file is a known state, not a half-state.
 
 ### Upgrading from anything
 
-**Every step is kept, forever.** Each is small, pure SQL and fixture-tested, and our users skip
+**Every step is kept, forever** — once migrations are live ([D228](../../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)). Each is small, pure SQL and fixture-tested, and our users skip
 releases. If the chain is ever long enough to matter, a fresh install may start from a schema
 snapshot (Grafana) — upgrades still walk the chain. A minimum upgrade-from version is introduced
 only for a measured reason, and then it is a named constant with its reason beside it.
