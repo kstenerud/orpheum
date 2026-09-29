@@ -119,17 +119,17 @@ func (q *Queries) ListLiveNodes(ctx context.Context) ([]ListLiveNodesRow, error)
 	return items, nil
 }
 
-const updateNodeReportSeq = `-- name: UpdateNodeReportSeq :exec
+const updateNodeLastIngestedReportSeq = `-- name: UpdateNodeLastIngestedReportSeq :exec
 UPDATE node SET last_ingested_report_seq = ?1 WHERE id = ?2
 `
 
-type UpdateNodeReportSeqParams struct {
+type UpdateNodeLastIngestedReportSeqParams struct {
 	LastIngestedReportSeq int64
 	ID                    int64
 }
 
-func (q *Queries) UpdateNodeReportSeq(ctx context.Context, arg UpdateNodeReportSeqParams) error {
-	_, err := q.db.ExecContext(ctx, updateNodeReportSeq, arg.LastIngestedReportSeq, arg.ID)
+func (q *Queries) UpdateNodeLastIngestedReportSeq(ctx context.Context, arg UpdateNodeLastIngestedReportSeqParams) error {
+	_, err := q.db.ExecContext(ctx, updateNodeLastIngestedReportSeq, arg.LastIngestedReportSeq, arg.ID)
 	return err
 }
 

@@ -30,14 +30,14 @@ type MKVToolNix struct {
 func RequireMKVToolNix(tb testing.TB) MKVToolNix {
 	tb.Helper()
 	directory := os.Getenv(MKVToolNixDirectoryVariable)
-	var absent error
+	var whyAbsent error
 	if directory == "" {
-		absent = fmt.Errorf("%s is not set; MKVToolNix is pinned for linux/amd64 only, and "+
+		whyAbsent = fmt.Errorf("%s is not set; MKVToolNix is pinned for linux/amd64 only, and "+
 			"`make test-integration` fetches it there", MKVToolNixDirectoryVariable)
 	} else if _, err := os.Stat(filepath.Join(directory, "usr", "bin", "mkvpropedit")); err != nil { //nolint:gosec,lll // the job's own MKVToolNix directory
-		absent = fmt.Errorf("%s=%s: %w", MKVToolNixDirectoryVariable, directory, err)
+		whyAbsent = fmt.Errorf("%s=%s: %w", MKVToolNixDirectoryVariable, directory, err)
 	}
-	Require(tb, MKVToolNixCapability, absent)
+	Require(tb, MKVToolNixCapability, whyAbsent)
 	return MKVToolNix{directory: directory}
 }
 

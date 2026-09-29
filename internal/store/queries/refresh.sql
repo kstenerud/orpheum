@@ -17,7 +17,7 @@ FROM provider_response
 WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider)
 ORDER BY part;
 
--- name: TouchProviderResponse :exec
+-- name: MarkProviderResponseAsked :exec
 -- A refresh that found the item gone upstream keeps our copy and notes that it asked, so it is
 -- not asked again before its next period, D213 section 4.
 UPDATE provider_response SET fetched_at = sqlc.arg(fetched_at)

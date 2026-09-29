@@ -13,7 +13,7 @@ INSERT INTO node (name, enrolled_at)
 VALUES (sqlc.arg(name), sqlc.arg(enrolled_at))
 RETURNING id;
 
--- name: UpdateNodeReportSeq :exec
+-- name: UpdateNodeLastIngestedReportSeq :exec
 UPDATE node SET last_ingested_report_seq = sqlc.arg(last_ingested_report_seq) WHERE id = sqlc.arg(id);
 
 -- name: UpdateNodeStatus :exec

@@ -78,12 +78,12 @@ type testHarness struct {
 }
 
 // serverBuild is the build the harness's server says it is.
-var serverBuild = build.Info{Version: "v0.3.0", Commit: "0f6c5cc1a2b3c4d5e6f708192a3b4c5d6e7f8091"}
+var serverBuild = build.Provenance{Version: "v0.3.0", Commit: "0f6c5cc1a2b3c4d5e6f708192a3b4c5d6e7f8091"}
 
 // newHarness serves an API whose dependencies are ready, over a real migrated database.
 func newHarness(t *testing.T) testHarness {
 	t.Helper()
-	database := storetest.Open(t)
+	database := storetest.OpenMigrated(t)
 	now := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
 	seeded := settingstest.Seeded(t, database)
 	service := auth.NewService(database, now, rand.Reader, seeded)

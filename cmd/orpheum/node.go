@@ -76,8 +76,8 @@ type nodeSeams struct {
 	// wrapScanner wraps the scanner: the M2 acceptance test records a real scan through it and
 	// replays one against a media root no process may read (plan-deviations P9).
 	wrapScanner func(agent.Scanner) agent.Scanner
-	// probe stands in for confine.Probe, so a test can see what a machine without a mechanism does.
-	probe func() []confine.State
+	// mechanismStates stands in for confine.MechanismStates, so a test can see what a machine without a mechanism does.
+	mechanismStates func() []confine.State
 	// isUnconfined runs the tools as they are, not through the shim: a test's fake FFmpeg is a
 	// shell script that records each run in its own directory, which no confined run may do.
 	isUnconfined bool
@@ -88,16 +88,16 @@ type nodeSeams struct {
 func checkConfinement(
 	ctx context.Context, config Config, logger *slog.Logger, seams nodeSeams,
 ) ([]confine.State, error) {
-	probeConfinement := confine.Probe
-	if seams.probe != nil {
-		probeConfinement = seams.probe
+	probeConfinement := confine.MechanismStates
+	if seams.mechanismStates != nil {
+		probeConfinement = seams.mechanismStates
 	}
 	confinement := probeConfinement()
 	if confine.IsConfined(confinement) {
 		return confinement, nil
 	}
 	for _, state := range confinement {
-		if !state.InForce {
+		if !state.IsInForce {
 			logger.WarnContext(ctx, "FFmpeg runs without a confinement mechanism", "mechanism", state.Mechanism,
 				"reason", state.Reason, "remedy", state.Remedy)
 		}
@@ -152,7 +152,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	// A node that cannot use its prepared directory still scans and serves files as they are; it
 	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
 	var preparing agent.Preparer
-	var keeping agent.Keeper
+	var keeping agent.PreparedShelf
 	directory, err := openPrepared(config, runner, encoding.Chosen)
 	if err != nil {
 		logger.ErrorContext(ctx, "this node cannot prepare; it serves files as they are", "err", err)
@@ -178,8 +178,8 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		scanning = seams.wrapScanner(scanner)
 	}
 	workers := agent.Workers{
-		Scanner: scanning, Artwork: deriver, Preparer: preparing, Subtitles: subtitle.NewExtractor(runner),
-		Loudness: loudness.NewMeasurer(runner), Keeper: keeping,
+		Scanner: scanning, Artworker: deriver, Preparer: preparing, Subtitler: subtitle.NewExtractor(runner),
+		LoudnessMeasurer: loudness.NewMeasurer(runner), PreparedShelf: keeping,
 	}
 	if directory.root != nil {
 		workers.PreparedDirectory = directory.root.Path()
@@ -216,9 +216,9 @@ func openPrepared(config Config, runner *execx.Runner, encoder prepare.Encoder) 
 		return preparedDirectory{}, err
 	}
 	shelf := prepared.New(root.Path(), prepared.Budget{
-		MaxBytes:       config.Node.PreparedBudgetGiB << 30,
-		Grace:          time.Duration(config.Node.PreparedKeptAfterPlayH) * time.Hour,
-		MaxDiskPercent: int(config.Node.PreparedDiskUsedLimitPercent),
+		MaxBytes:             config.Node.PreparedBudgetGiB << 30,
+		Grace:                time.Duration(config.Node.PreparedKeptAfterPlayH) * time.Hour,
+		DiskUsedLimitPercent: int(config.Node.PreparedDiskUsedLimitPercent),
 	}, clock.System{})
 	preparer, err := prepare.New(runner, root.Path(), shelf, encoder)
 	if err != nil {
@@ -237,7 +237,7 @@ func serveBytes(
 	}
 	server := byteserver.New(roots, directory.root)
 	if directory.shelf != nil {
-		server.OnRenditionServed(directory.shelf.Served)
+		server.OnRenditionServed(directory.shelf.MarkServed)
 	}
 	handler := server.Handler()
 	listening := &http.Server{Handler: handler, ReadHeaderTimeout: config.readHeaderTimeout()}
@@ -296,7 +296,7 @@ func describeNode(
 	report := make([]nodeproto.Confinement, 0, len(found.confinement))
 	for _, state := range found.confinement {
 		report = append(report, nodeproto.Confinement{
-			Mechanism: state.Mechanism, IsInForce: state.InForce, CauseCode: state.Cause, Reason: state.Reason,
+			Mechanism: state.Mechanism, IsInForce: state.IsInForce, CauseCode: state.CauseCode, Reason: state.Reason,
 			Remedy: state.Remedy,
 		})
 	}

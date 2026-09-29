@@ -45,22 +45,26 @@ func (fake fakeFFmpeg) RunStreaming(
 	return fake.fail
 }
 
-// roomy is a prepared directory with room for every prepare.
-type roomy struct{}
+// roomyKeeper is a prepared directory with room for every prepare.
+type roomyKeeper struct{}
 
-func (roomy) Room() error                  { return nil }
-func (roomy) Writing(string) (done func()) { return func() {} }
+func (roomyKeeper) MakeRoom() error                           { return nil }
+func (roomyKeeper) MarkWriting(string) (finishWriting func()) { return func() {} }
 
-// full is a prepared directory whose disk is past its limit with nothing to evict, and which
+// fullKeeper is a prepared directory whose disk is past its limit with nothing to evict, and which
 // records whether anything was written.
-type full struct{}
+type fullKeeper struct{}
 
-func (full) Room() error                  { return errors.New("the disk is past its limit") }
-func (full) Writing(string) (done func()) { panic("nothing is written where there is no room") }
+func (fullKeeper) MakeRoom() error { return errors.New("the disk is past its limit") }
+
+func (fullKeeper) MarkWriting(string) (finishWriting func()) {
+	panic("nothing is written where there is no room")
+}
 
 func TestPreparer_APrepareTheDiskHasNoRoomForIsRefusedAndRunsNothing(t *testing.T) {
 	t.Parallel()
-	preparer, err := prepare.New(fakeFFmpeg{fail: errors.New("FFmpeg ran")}, t.TempDir(), full{}, prepare.EncoderX264)
+	preparer, err := prepare.New(
+		fakeFFmpeg{fail: errors.New("FFmpeg ran")}, t.TempDir(), fullKeeper{}, prepare.EncoderX264)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +78,7 @@ func TestPreparer_APrepareTheDiskHasNoRoomForIsRefusedAndRunsNothing(t *testing.
 func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *testing.T) {
 	t.Parallel()
 	directory := t.TempDir()
-	preparer, err := prepare.New(fakeFFmpeg{}, directory, roomy{}, prepare.EncoderX264)
+	preparer, err := prepare.New(fakeFFmpeg{}, directory, roomyKeeper{}, prepare.EncoderX264)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +102,7 @@ func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *
 func TestPreparer_SaysWhatMadeTheVideoAndHowFastFFmpegSaidItRan(t *testing.T) {
 	t.Parallel()
 	prepareWith := func(profile nodeproto.PrepareProfile) prepare.Made {
-		preparer, err := prepare.New(fakeFFmpeg{}, t.TempDir(), roomy{}, prepare.EncoderQuickSync)
+		preparer, err := prepare.New(fakeFFmpeg{}, t.TempDir(), roomyKeeper{}, prepare.EncoderQuickSync)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -109,7 +113,7 @@ func TestPreparer_SaysWhatMadeTheVideoAndHowFastFFmpegSaidItRan(t *testing.T) {
 		}
 		return made
 	}
-	if made := prepareWith(nodeproto.ProfileH264At8M); made.VideoEncoder != "h264_qsv" || made.Speed != 4.25 {
+	if made := prepareWith(nodeproto.ProfileH264At8M); made.VideoEncoder != "h264_qsv" || made.RealtimeFactor != 4.25 {
 		t.Errorf("an encode on a Quick Sync node made %+v; want h264_qsv at FFmpeg's last speed, 4.25 (D225 §3)", made)
 	}
 	if made := prepareWith(nodeproto.ProfileRemux); made.VideoEncoder != "copy" {
@@ -121,7 +125,7 @@ func TestPreparer_OnlyAnEncodeOnTheGPUIsGrantedItsDevices(t *testing.T) {
 	t.Parallel()
 	prepareWith := func(encoder prepare.Encoder, profile nodeproto.PrepareProfile) confine.Access {
 		var granted []confine.Access
-		preparer, err := prepare.New(fakeFFmpeg{granted: &granted}, t.TempDir(), roomy{}, encoder)
+		preparer, err := prepare.New(fakeFFmpeg{granted: &granted}, t.TempDir(), roomyKeeper{}, encoder)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -131,20 +135,20 @@ func TestPreparer_OnlyAnEncodeOnTheGPUIsGrantedItsDevices(t *testing.T) {
 		}
 		return granted[0]
 	}
-	if !prepareWith(prepare.EncoderQuickSync, nodeproto.ProfileH264At8M).Devices {
+	if !prepareWith(prepare.EncoderQuickSync, nodeproto.ProfileH264At8M).UsesGPU {
 		t.Error("an encode with Quick Sync is not granted the GPU; confined, it would fail")
 	}
-	if prepareWith(prepare.EncoderQuickSync, nodeproto.ProfileRemux).Devices {
+	if prepareWith(prepare.EncoderQuickSync, nodeproto.ProfileRemux).UsesGPU {
 		t.Error("a remux is granted the GPU, which it never uses")
 	}
-	if prepareWith(prepare.EncoderX264, nodeproto.ProfileH264At8M).Devices {
+	if prepareWith(prepare.EncoderX264, nodeproto.ProfileH264At8M).UsesGPU {
 		t.Error("an x264 encode is granted the GPU, which it never uses")
 	}
 }
 
 func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 	t.Parallel()
-	preparer, err := prepare.New(fakeFFmpeg{}, t.TempDir(), roomy{}, prepare.EncoderX264)
+	preparer, err := prepare.New(fakeFFmpeg{}, t.TempDir(), roomyKeeper{}, prepare.EncoderX264)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,12 +157,12 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 		"7/remux/0123456789ABCDEF",
 	} {
 		_, refused := preparer.Prepare(t.Context(), "/a", nodeproto.Prepare{RenditionDir: dir}, func(int64) {})
-		if !errors.Is(refused, prepare.ErrBadDir) {
-			t.Errorf("%q: %v, want ErrBadDir", dir, refused)
+		if !errors.Is(refused, prepare.ErrBadRenditionDir) {
+			t.Errorf("%q: %v, want ErrBadRenditionDir", dir, refused)
 		}
 	}
 	failing, err := prepare.New(
-		fakeFFmpeg{fail: errors.New("ffmpeg failed")}, t.TempDir(), roomy{}, prepare.EncoderX264)
+		fakeFFmpeg{fail: errors.New("ffmpeg failed")}, t.TempDir(), roomyKeeper{}, prepare.EncoderX264)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +170,7 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 	if _, err := failing.Prepare(t.Context(), "/a", named, func(int64) {}); err == nil {
 		t.Error("a failed run reported success")
 	}
-	if _, err := prepare.New(fakeFFmpeg{}, "relative", roomy{}, prepare.EncoderX264); err == nil {
+	if _, err := prepare.New(fakeFFmpeg{}, "relative", roomyKeeper{}, prepare.EncoderX264); err == nil {
 		t.Error("a relative prepared directory was taken")
 	}
 }

@@ -31,7 +31,7 @@ UPDATE collection SET year = sqlc.arg(year), followed_source = sqlc.arg(followed
   identification_state = CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id) AND kind = 'series';
 
--- name: ListSeriesEpisodes :many
+-- name: ListLiveSeriesEpisodeSources :many
 -- A series' episodes in its aired order, with where each takes its values from and when it
 -- first appeared: a new episode missing from a season listing fetched before it arrived is
 -- what fetches that listing again (D209 section 3).
@@ -55,7 +55,7 @@ FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 WHERE position.title_id = sqlc.arg(title_id) AND ordering.name = 'aired';
 
--- name: ListSeriesByIdent :many
+-- name: ListSeriesByIdentification :many
 -- The series in one state of identification, for the chooser's list.
 SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
   item.library_id, item_text.name

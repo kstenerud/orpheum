@@ -14,8 +14,8 @@ const auditArch = unix.AUDIT_ARCH_X86_64
 // value and would otherwise pass under other numbers.
 const x32Bit = 0x40000000
 
-// foreignCalls refuses every x32 system call.
-func foreignCalls() []unix.SockFilter {
+// refuseForeignCalls refuses every x32 system call.
+func refuseForeignCalls() []unix.SockFilter {
 	return []unix.SockFilter{
 		{Code: unix.BPF_JMP | unix.BPF_JGE | unix.BPF_K, K: x32Bit, Jt: 0, Jf: 1},
 		{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ERRNO | uint32(unix.EPERM)},

@@ -262,10 +262,10 @@ func TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired(t *testing.T) {
 	config, _ := testConfig(t)
 	config.Node.ConfinementPolicy = "require"
 	captured := newCapturedLog()
-	withoutLandlock := nodeSeams{isUnconfined: true, probe: func() []confine.State {
+	withoutLandlock := nodeSeams{isUnconfined: true, mechanismStates: func() []confine.State {
 		return []confine.State{
-			{Mechanism: confine.Landlock, Reason: "not enabled at boot", Remedy: "add lsm=landlock"},
-			{Mechanism: confine.Seccomp, InForce: true},
+			{Mechanism: confine.MechanismLandlock, Reason: "not enabled at boot", Remedy: "add lsm=landlock"},
+			{Mechanism: confine.MechanismSeccomp, IsInForce: true},
 		}
 	}}
 	err := runNodeWith(t.Context(), config, captured.logger, withoutLandlock)
@@ -308,7 +308,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 			return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 		},
 	}}
-	identity, err := hash.Payload(bytes.NewReader([]byte("film")), 4)
+	identity, err := hash.PayloadIdentity(bytes.NewReader([]byte("film")), 4)
 	if err != nil {
 		t.Fatal(err)
 	}

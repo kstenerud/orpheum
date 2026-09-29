@@ -27,7 +27,7 @@ type Record struct {
 	ScanBegin    *ScanBegin    `json:"scanBegin,omitempty"`
 	Observed     *Observed     `json:"observed,omitempty"`
 	Skip         *Skip         `json:"skip,omitempty"`
-	Error        *Error        `json:"error,omitempty"`
+	Error        *ScanError    `json:"error,omitempty"`
 	ScanComplete *ScanComplete `json:"scanComplete,omitempty"`
 	Status       *Status       `json:"status,omitempty"`
 	Mount        *Mount        `json:"mount,omitempty"`
@@ -205,9 +205,9 @@ const (
 	CodeCancelled        ErrorCode = "cancelled"
 )
 
-// Error is something the node could not read. Repeats of one code and scope in one directory
+// ScanError is something the node could not read. Repeats of one code and scope in one directory
 // collapse into one record, which counts its occurrences (D40).
-type Error struct {
+type ScanError struct {
 	Path            Path          `json:"path"`
 	Scope           ErrorScope    `json:"scope"`
 	Code            ErrorCode     `json:"code"`

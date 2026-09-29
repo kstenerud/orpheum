@@ -6,7 +6,7 @@ INSERT INTO device (user_id, name, platform, added_at, last_signed_in_at)
 VALUES (sqlc.arg(user_id), sqlc.arg(name), sqlc.arg(platform), sqlc.arg(signed_in_at), sqlc.arg(signed_in_at))
 RETURNING id;
 
--- name: ListLiveDevicesOf :many
+-- name: ListLiveDevicesOfUser :many
 -- A person's devices, most recently used first: when each was last used, by the latest use of any
 -- of its sessions, and whether any is still live.
 SELECT device.id, device.name, device.platform, device.audio_output, device.added_at,
@@ -42,11 +42,11 @@ UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
 WHERE user_id = sqlc.arg(user_id) AND kind = 'session' AND revoked_at IS NULL
   AND device_id IS NOT sqlc.arg(keep_device_id);
 
--- name: GetLiveDeviceOf :one
+-- name: GetLiveDeviceOfUser :one
 -- One of a person's devices, when it is theirs and has not been removed.
 SELECT id, name, platform, audio_output FROM device
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND removed_at IS NULL;
 
--- name: TouchDevice :exec
+-- name: RecordDeviceSignIn :exec
 -- A device signed in again (D221): its platform as it says now, and when.
 UPDATE device SET platform = sqlc.arg(platform), last_signed_in_at = sqlc.arg(signed_in_at) WHERE id = sqlc.arg(id);

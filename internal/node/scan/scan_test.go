@@ -38,8 +38,8 @@ func (fake *fakeProber) Probe(_ context.Context, absolutePath string) (nodeproto
 	return nodeproto.Probe{Format: nodeproto.ProbeFormat{FormatNames: []string{"matroska"}}}, nil
 }
 
-// tree writes files (path → contents) under a new directory and returns its path.
-func tree(t *testing.T, files map[string]string) string {
+// writeTree writes files (path → contents) under a new directory and returns its path.
+func writeTree(t *testing.T, files map[string]string) string {
 	t.Helper()
 	root := t.TempDir()
 	for name, contents := range files {
@@ -123,7 +123,7 @@ func summary(records []nodeproto.Record) []string {
 
 func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 	t.Parallel()
-	root := tree(t, map[string]string{
+	root := writeTree(t, map[string]string{
 		"Movies/Wing (1979)/Wing (1979).mkv":    "alien",
 		"Movies/Wing (1979)/Wing (1979).nfo":    "<movie/>",
 		"Movies/Wing (1979)/Wing (1979).en.srt": "1\n00:00:01,000 --> 00:00:02,000\nHello\n",
@@ -214,7 +214,7 @@ func checkSidecarIdentity(t *testing.T, sidecar *nodeproto.Sidecar) {
 		return
 	}
 	const contents = "1\n00:00:01,000 --> 00:00:02,000\nHello\n"
-	want, err := hash.Payload(strings.NewReader(contents), int64(len(contents)))
+	want, err := hash.PayloadIdentity(strings.NewReader(contents), int64(len(contents)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func checkSidecarIdentity(t *testing.T, sidecar *nodeproto.Sidecar) {
 
 func TestScan_RefusesAnNFOPastTheBound(t *testing.T) {
 	t.Parallel()
-	root := tree(t, map[string]string{"Film/film.nfo": strings.Repeat("x", maxNFOBytes+1)})
+	root := writeTree(t, map[string]string{"Film/film.nfo": strings.Repeat("x", maxNFOBytes+1)})
 	media := openRoot(t, root)
 	records := scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media)
 	want := []string{"scan_begin", "error Film/film.nfo entry io_error", "scan_complete"}
@@ -239,9 +239,9 @@ func TestScan_RefusesAnNFOPastTheBound(t *testing.T) {
 
 func TestScan_FollowsASymlinkOnlyIntoAMediaRoot(t *testing.T) {
 	t.Parallel()
-	films := tree(t, map[string]string{"Metropolis (1995)/Metropolis.mkv": "heat"})
-	shows := tree(t, map[string]string{"Shared/Wing.mkv": "alien"})
-	elsewhere := tree(t, map[string]string{"secret.mkv": "not media", "shadow": "root:x:0:0"})
+	films := writeTree(t, map[string]string{"Metropolis (1995)/Metropolis.mkv": "heat"})
+	shows := writeTree(t, map[string]string{"Shared/Wing.mkv": "alien"})
+	elsewhere := writeTree(t, map[string]string{"secret.mkv": "not media", "shadow": "root:x:0:0"})
 	links := map[string]string{
 		"into another root.mkv": filepath.Join(shows, "Shared", "Wing.mkv"),
 		"a whole directory":     filepath.Join(shows, "Shared"),
@@ -284,7 +284,7 @@ func TestScan_CollapsesRepeatedErrorsAndSaysWhoCouldNotRead(t *testing.T) {
 	if os.Geteuid() == 0 {
 		testutil.Require(t, "unprivileged-user", errors.New("the tests run as root, which can read a mode-000 file"))
 	}
-	root := tree(t, map[string]string{
+	root := writeTree(t, map[string]string{
 		"Locked/a.mkv": "a", "Locked/b.mkv": "b", "Locked/c.mkv": "c", "Open/d.mkv": "d",
 		"Closed/e.mkv": "e",
 	})
@@ -331,7 +331,7 @@ func TestScan_StopsARootThatKeepsFailing(t *testing.T) {
 	for _, name := range []string{"a", "b", "c", "d", "e", "f"} {
 		files["Dir"+name+"/"+name+".mkv"] = name
 	}
-	root := tree(t, files)
+	root := writeTree(t, files)
 	failing := map[string]error{}
 	for _, name := range []string{"a", "b", "c", "d", "e", "f"} {
 		failing[name+".mkv"] = errors.New("Invalid data found when processing input")
@@ -359,7 +359,7 @@ func TestScan_StopsARootThatKeepsFailing(t *testing.T) {
 
 func TestScan_ACancelledScanNeverSaysComplete(t *testing.T) {
 	t.Parallel()
-	root := tree(t, map[string]string{"a.mkv": "a", "b.mkv": "b", "c.mkv": "c"})
+	root := writeTree(t, map[string]string{"a.mkv": "a", "b.mkv": "b", "c.mkv": "c"})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	media := openRoot(t, root)
@@ -379,7 +379,7 @@ func TestScan_ACancelledScanNeverSaysComplete(t *testing.T) {
 
 func TestScan_StopsWhenNobodyIsListening(t *testing.T) {
 	t.Parallel()
-	root := tree(t, map[string]string{"a.mkv": "a", "b.mkv": "b"})
+	root := writeTree(t, map[string]string{"a.mkv": "a", "b.mkv": "b"})
 	media := openRoot(t, root)
 	gone := errors.New("the core hung up")
 	sent := 0
@@ -413,7 +413,7 @@ func TestScan_ANameThatIsNotUTF8KeepsItsBytes(t *testing.T) {
 
 func TestScan_ReportsAnImageBesideTheMediaWithoutItsBytes(t *testing.T) {
 	t.Parallel()
-	root := tree(t, map[string]string{
+	root := writeTree(t, map[string]string{
 		"Film (1999)/poster.jpg": "jpeg", "Film (1999)/Film (1999)-fanart.PNG": "png", "Film (1999)/notes.gif": "gif",
 	})
 	media := openRoot(t, root)
@@ -437,7 +437,7 @@ func TestScan_ReportsAnImageBesideTheMediaWithoutItsBytes(t *testing.T) {
 func TestScan_ReportsEachVideosOpenSubtitlesHash(t *testing.T) {
 	t.Parallel()
 	body := strings.Repeat("orpheum!", 25_000) // 200,000 bytes, past OpenSubtitles' 128 KiB floor
-	root := tree(t, map[string]string{"Movies/Big.mkv": body, "Movies/Small.mkv": "small"})
+	root := writeTree(t, map[string]string{"Movies/Big.mkv": body, "Movies/Small.mkv": "small"})
 	media := openRoot(t, root)
 	hashes := map[string]string{}
 	for _, record := range scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media) {
@@ -445,7 +445,7 @@ func TestScan_ReportsEachVideosOpenSubtitlesHash(t *testing.T) {
 			hashes[record.Observed.Path.Text] = record.Observed.OpensubtitlesHash
 		}
 	}
-	want, err := hash.OpenSubtitles(strings.NewReader(body), int64(len(body)))
+	want, err := hash.OpenSubtitlesHash(strings.NewReader(body), int64(len(body)))
 	if err != nil {
 		t.Fatal(err)
 	}

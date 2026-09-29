@@ -98,7 +98,7 @@ func (service *Service) IssueRegistrationLink(ctx context.Context, userID int64)
 	now := service.clock.Now()
 	expires := now.Add(registrationLinkLife)
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		revokeErr := queries.RevokeLiveGrantsOf(ctx, sqlcgen.RevokeLiveGrantsOfParams{
+		revokeErr := queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
 			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindInvite, Scope: grantScopeRegister,
 		})
 		if revokeErr != nil {
@@ -152,9 +152,10 @@ func (service *Service) IssueDeviceCode(
 	}
 	var device *int64
 	if forDevice != 0 {
-		known, err := store.One(service.database.Read().GetLiveDeviceOf(ctx, sqlcgen.GetLiveDeviceOfParams{
-			ID: forDevice, UserID: &userID,
-		}))
+		known, err := store.OrNotFound(service.database.Read().GetLiveDeviceOfUser(ctx,
+			sqlcgen.GetLiveDeviceOfUserParams{
+				ID: forDevice, UserID: &userID,
+			}))
 		if errors.Is(err, store.ErrNotFound) {
 			return Invitation{}, ErrNoDevice
 		}
@@ -171,7 +172,7 @@ func (service *Service) IssueDeviceCode(
 	now := service.clock.Now()
 	expires := now.Add(deviceCodeLife)
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		revokeErr := queries.RevokeLiveGrantsOf(ctx, sqlcgen.RevokeLiveGrantsOfParams{
+		revokeErr := queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
 			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindInvite, Scope: grantScopeAddDevice,
 		})
 		if revokeErr != nil {
@@ -198,10 +199,11 @@ type WaitingCode struct {
 // WaitingCodeOf is the person's device code that has not been used yet, or nil when there is
 // none, so a client that showed one knows it was used, withdrawn or expired (D221 §3).
 func (service *Service) WaitingCodeOf(ctx context.Context, userID int64) (*WaitingCode, error) {
-	waiting, err := store.One(service.database.Read().GetLiveGrantOf(ctx, sqlcgen.GetLiveGrantOfParams{
-		UserID: &userID, Kind: grantKindInvite, Scope: grantScopeAddDevice,
-		Now: new(service.clock.Now().UnixMilli()),
-	}))
+	waiting, err := store.OrNotFound(service.database.Read().GetLatestLiveGrantOfUser(ctx,
+		sqlcgen.GetLatestLiveGrantOfUserParams{
+			UserID: &userID, Kind: grantKindInvite, Scope: grantScopeAddDevice,
+			Now: new(service.clock.Now().UnixMilli()),
+		}))
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, nil //nolint:nilnil // no code waiting is an answer, not an error
 	}
@@ -238,7 +240,7 @@ func (service *Service) SignInWithCode(
 
 // liveUser is a person who has not been removed, or ErrNoUser.
 func liveUser(ctx context.Context, queries *sqlcgen.Queries, userID int64) (sqlcgen.GetLiveUserByIDRow, error) {
-	user, err := store.One(queries.GetLiveUserByID(ctx, userID))
+	user, err := store.OrNotFound(queries.GetLiveUserByID(ctx, userID))
 	if errors.Is(err, store.ErrNotFound) {
 		return user, ErrNoUser
 	}
@@ -276,7 +278,7 @@ func (service *Service) spend(ctx context.Context, secret, scope string) (sqlcge
 	hash := tokenHash(secret)
 	var grant sqlcgen.GetLiveGrantRow
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		found, lookErr := store.One(queries.GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
+		found, lookErr := store.OrNotFound(queries.GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
 			SecretSha256: hash,
 			Now:          &now,
 		}))
@@ -340,7 +342,7 @@ func (service *Service) RenameUser(ctx context.Context, userID int64, name strin
 		if _, err := liveUser(ctx, queries, userID); err != nil {
 			return err
 		}
-		other, err := store.One(queries.GetLiveUserByName(ctx, name))
+		other, err := store.OrNotFound(queries.GetLiveUserByName(ctx, name))
 		if err == nil && other.ID != userID {
 			return fmt.Errorf("%q: %w", name, ErrNameTaken)
 		}

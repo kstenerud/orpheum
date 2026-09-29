@@ -15,7 +15,7 @@ func TestIngest_AFileObservedAgainKeepsItsStreamRowsAndDropsOnlyWhatItLost(t *te
 	fileID := world.live()[root+"/Metropolis.mkv"].ID
 	idsByIndex := func() map[int64]int64 {
 		t.Helper()
-		streams, err := world.database.Read().ListStreamsOfFile(t.Context(), fileID)
+		streams, err := world.database.Read().ListStreamsOfBytesFile(t.Context(), fileID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -36,7 +36,7 @@ func TestIngest_AFileObservedAgainKeepsItsStreamRowsAndDropsOnlyWhatItLost(t *te
 	remuxed.Observed.Probe.Streams = remuxed.Observed.Probe.Streams[:1]
 	remuxed.Observed.Probe.Streams[0].Codec = "hevc"
 	world.scan([]nodeproto.Record{remuxed}, true)
-	streams, err := world.database.Read().ListStreamsOfFile(t.Context(), fileID)
+	streams, err := world.database.Read().ListStreamsOfBytesFile(t.Context(), fileID)
 	if err != nil {
 		t.Fatal(err)
 	}

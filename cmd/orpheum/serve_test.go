@@ -242,9 +242,9 @@ func TestServe_HealthSaysMigratingBeforeTheMigrationStarts(t *testing.T) {
 	report := reportMigration(server.SetStatus, slog.New(slog.DiscardHandler))
 	var seen []string
 	err = database.Migrate(t.Context(), store.MigrateOptions{
-		SnapshotDirectory: t.TempDir(),
-		SpaceFactor:       3,
-		BeforeStep: func(step, total int) {
+		SnapshotDirectory:         t.TempDir(),
+		FreeSpaceDatabaseMultiple: 3,
+		OnBeforeStep: func(step, total int) {
 			report(step, total)
 			health := call(t, http.MethodGet, served.URL+api.Prefix+"/health", "", nil)
 			state, stateErr := database.State(t.Context())

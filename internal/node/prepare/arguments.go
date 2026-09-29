@@ -25,16 +25,16 @@ const (
 // The standard mix is ITU-R BS.775's; the boosted one raises the centre, where dialogue is, by
 // 6 dB over it. "<" renormalises each side's gains to sum to one, so neither can clip. The
 // boost's gain is provisional until the listening test on a television sets it (cut-a §6).
-// StandardMix and StereoMix are what a stereo device hears, so internal/node/loudness measures
+// StandardMix and StereoAsIsMix are what a stereo device hears, so internal/node/loudness measures
 // them (D226 §1).
 const (
-	StandardMix = "aformat=channel_layouts=5.1,pan=stereo|FL<FL+0.707*FC+0.707*BL|FR<FR+0.707*FC+0.707*BR"
-	boostedMix  = "aformat=channel_layouts=5.1,pan=stereo|FL<FL+1.414*FC+0.707*BL|FR<FR+1.414*FC+0.707*BR"
-	StereoMix   = "aformat=channel_layouts=stereo"
+	StandardMix   = "aformat=channel_layouts=5.1,pan=stereo|FL<FL+0.707*FC+0.707*BL|FR<FR+0.707*FC+0.707*BR"
+	boostedMix    = "aformat=channel_layouts=5.1,pan=stereo|FL<FL+1.414*FC+0.707*BL|FR<FR+1.414*FC+0.707*BR"
+	StereoAsIsMix = "aformat=channel_layouts=stereo"
 )
 
-// safeLanguage is a language tag FFmpeg's stream map can carry: letters and hyphens only.
-var safeLanguage = regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$`)
+// safeLanguagePattern is a language tag FFmpeg's stream map can carry: letters and hyphens only.
+var safeLanguagePattern = regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$`)
 
 // mix is one audio rendition: its name in the stream map, which is also its directory, and its
 // filter.
@@ -46,14 +46,14 @@ type mix struct {
 // carries the track's levelling gain, after the mix it was measured as (D226 §4).
 func mixes(track nodeproto.PrepareAudio) []mix {
 	name := "audio" + strconv.Itoa(track.AudioTrackIndex)
-	levelled := ""
+	gainFilter := ""
 	if track.CarriedGainDB != 0 {
-		levelled = ",volume=" + strconv.FormatFloat(track.CarriedGainDB, 'f', 1, 64) + "dB"
+		gainFilter = ",volume=" + strconv.FormatFloat(track.CarriedGainDB, 'f', 1, 64) + "dB"
 	}
 	if track.ChannelCount > 2 {
-		return []mix{{name, StandardMix + levelled}, {name + "-boost", boostedMix + levelled}}
+		return []mix{{name, StandardMix + gainFilter}, {name + "-boost", boostedMix + gainFilter}}
 	}
-	return []mix{{name, StereoMix + levelled}}
+	return []mix{{name, StereoAsIsMix + gainFilter}}
 }
 
 // Arguments is FFmpeg's command line for one prepare, after execx's hardening flags: the source's
@@ -66,18 +66,19 @@ func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare, enco
 	}
 	arguments = append(arguments, videoArguments(command, encoder)...)
 	streams := []string{"v:0,agroup:audio,name:video"}
-	slot := 0
+	audioOutputIndex := 0
 	for _, track := range command.Audio {
 		for _, rendition := range mixes(track) {
 			arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(track.AudioTrackIndex),
-				"-filter:a:"+strconv.Itoa(slot), rendition.filter)
-			entry := "a:" + strconv.Itoa(slot) + ",agroup:audio,language:" + language(track.Language) +
+				"-filter:a:"+strconv.Itoa(audioOutputIndex), rendition.filter)
+			entry := "a:" + strconv.Itoa(audioOutputIndex) + ",agroup:audio,language:" +
+				streamMapLanguage(track.Language) +
 				",name:" + rendition.name
-			if slot == 0 {
+			if audioOutputIndex == 0 {
 				entry += ",default:yes"
 			}
 			streams = append(streams, entry)
-			slot++
+			audioOutputIndex++
 		}
 	}
 	return append(arguments,
@@ -98,14 +99,14 @@ const videoCopied = "copy"
 // videoArguments copy the picture for remux, tagging HEVC as hvc1 for Safari, or re-encode it with
 // the node's encoder (cut-a §6).
 func videoArguments(command nodeproto.Prepare, encoder Encoder) []string {
-	const codec = "-c:v"
+	const codecFlag = "-c:v"
 	if command.Profile == nodeproto.ProfileRemux {
 		if command.VideoCodec == "hevc" {
-			return []string{codec, videoCopied, "-tag:v", "hvc1"}
+			return []string{codecFlag, videoCopied, "-tag:v", "hvc1"}
 		}
-		return []string{codec, videoCopied}
+		return []string{codecFlag, videoCopied}
 	}
-	return encoder.arguments()
+	return encoder.encodeArguments()
 }
 
 // segmentLengthSeconds is the segment length asked for, or the default when it is out of bounds.
@@ -116,9 +117,9 @@ func segmentLengthSeconds(asked int) int {
 	return asked
 }
 
-// language is a track's tag as the stream map may carry it, or "und".
-func language(tag string) string {
-	if safeLanguage.MatchString(tag) {
+// streamMapLanguage is a track's tag as the stream map may carry it, or "und".
+func streamMapLanguage(tag string) string {
+	if safeLanguagePattern.MatchString(tag) {
 		return tag
 	}
 	return "und"

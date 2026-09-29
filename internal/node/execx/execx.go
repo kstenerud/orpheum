@@ -33,8 +33,8 @@ const stderrTailBytes = 4096
 // Wait gives up on them.
 const waitDelay = 10 * time.Second
 
-// hardening is prepended to every run's arguments: no banner, and ffmpeg never reads stdin.
-func hardening(tool Tool) ([]string, bool) {
+// hardeningFlags is prepended to every run's arguments: no banner, and ffmpeg never reads stdin.
+func hardeningFlags(tool Tool) ([]string, bool) {
 	switch tool {
 	case FFmpeg:
 		return []string{"-nostdin", "-hide_banner"}, true
@@ -51,14 +51,14 @@ var ErrOutputTooLarge = errors.New("the tool wrote more to stdout than allowed")
 // tail of what it wrote to stderr.
 type RunError struct {
 	Tool       Tool
-	Status     int
+	ExitStatus int
 	StderrTail string
 	Err        error
 }
 
 func (failure *RunError) Error() string {
 	return fmt.Sprintf("%s failed (status %d): %v; stderr ends: %s",
-		failure.Tool, failure.Status, failure.Err, failure.StderrTail)
+		failure.Tool, failure.ExitStatus, failure.Err, failure.StderrTail)
 }
 
 func (failure *RunError) Unwrap() error { return failure.Err }
@@ -72,8 +72,8 @@ type Runner struct {
 	// shim is orpheum's own executable, which each run re-executes to be confined; empty runs the
 	// tool as it is, as a test's fake FFmpeg is.
 	shim string
-	// started, when set by a test, is called once the process has started.
-	started func()
+	// onStarted, when set by a test, is called once the process has started.
+	onStarted func()
 }
 
 // NewRunner returns a runner for the tools in directory, which must be an absolute path, that
@@ -102,18 +102,18 @@ func (runner *Runner) IsConfined() bool { return runner.shim != "" }
 // it wrote to stdout, refusing more than stdoutLimit bytes. Cancelling ctx kills the tool and
 // every process it started.
 func (runner *Runner) Run(
-	ctx context.Context, tool Tool, access confine.Access, arguments []string, stdoutLimit int,
+	ctx context.Context, tool Tool, access confine.Access, arguments []string, stdoutLimitBytes int,
 ) ([]byte, error) {
-	return runner.run(ctx, tool, access, arguments, nil, stdoutLimit)
+	return runner.run(ctx, tool, access, arguments, nil, stdoutLimitBytes)
 }
 
 // RunInput is Run with input fed to the tool's stdin: an image the core sent, which reaches the
 // tool as bytes on a pipe and never as a file name (D212). The caller restricts the tool to the
 // pipe protocol.
 func (runner *Runner) RunInput(
-	ctx context.Context, tool Tool, access confine.Access, arguments []string, input []byte, stdoutLimit int,
+	ctx context.Context, tool Tool, access confine.Access, arguments []string, input []byte, stdoutLimitBytes int,
 ) ([]byte, error) {
-	return runner.run(ctx, tool, access, arguments, input, stdoutLimit)
+	return runner.run(ctx, tool, access, arguments, input, stdoutLimitBytes)
 }
 
 // RunStreaming is Run for a long run whose stdout is read as it is written, such as FFmpeg's
@@ -121,7 +121,8 @@ func (runner *Runner) RunInput(
 func (runner *Runner) RunStreaming(
 	ctx context.Context, tool Tool, access confine.Access, arguments []string, stdout io.Writer,
 ) error {
-	_, err := runner.start(ctx, tool, access, arguments, pipes{stdout: stdout, logBytes: stderrTailBytes})
+	streams := pipes{stdout: stdout, stderrTailLimitBytes: stderrTailBytes}
+	_, err := runner.runToExit(ctx, tool, access, arguments, streams)
 	return err
 }
 
@@ -129,9 +130,10 @@ func (runner *Runner) RunStreaming(
 // filter writes its summary when it ends: stdout is discarded, and it returns the last logLimit
 // bytes the tool wrote to stderr.
 func (runner *Runner) RunLogged(
-	ctx context.Context, tool Tool, access confine.Access, arguments []string, logLimit int,
+	ctx context.Context, tool Tool, access confine.Access, arguments []string, logLimitBytes int,
 ) (string, error) {
-	logged, err := runner.start(ctx, tool, access, arguments, pipes{stdout: io.Discard, logBytes: logLimit})
+	streams := pipes{stdout: io.Discard, stderrTailLimitBytes: logLimitBytes}
+	logged, err := runner.runToExit(ctx, tool, access, arguments, streams)
 	if err != nil {
 		return "", err
 	}
@@ -139,18 +141,18 @@ func (runner *Runner) RunLogged(
 }
 
 func (runner *Runner) run(
-	ctx context.Context, tool Tool, access confine.Access, arguments []string, fed []byte, stdoutLimit int,
+	ctx context.Context, tool Tool, access confine.Access, arguments []string, fed []byte, stdoutLimitBytes int,
 ) ([]byte, error) {
-	stdout := &limitedBuffer{limit: stdoutLimit}
-	finished, err := runner.start(ctx, tool, access, arguments,
-		pipes{stdin: fed, stdout: stdout, logBytes: stderrTailBytes})
+	stdout := &limitedBuffer{limitBytes: stdoutLimitBytes}
+	stderrTail, err := runner.runToExit(ctx, tool, access, arguments,
+		pipes{stdin: fed, stdout: stdout, stderrTailLimitBytes: stderrTailBytes})
 	if err != nil {
 		return nil, err
 	}
-	if stdout.exceeded {
+	if stdout.isExceeded {
 		return nil, &RunError{
-			Tool: tool, Status: 0, StderrTail: finished.String(),
-			Err: fmt.Errorf("%w (%d bytes)", ErrOutputTooLarge, stdoutLimit),
+			Tool: tool, ExitStatus: 0, StderrTail: stderrTail.String(),
+			Err: fmt.Errorf("%w (%d bytes)", ErrOutputTooLarge, stdoutLimitBytes),
 		}
 	}
 	return stdout.buffer.Bytes(), nil
@@ -159,16 +161,16 @@ func (runner *Runner) run(
 // pipes are a run's streams: what its stdin is fed, nil to leave it closed; where its stdout goes;
 // and how much of the end of its stderr is kept.
 type pipes struct {
-	stdin    []byte
-	stdout   io.Writer
-	logBytes int
+	stdin                []byte
+	stdout               io.Writer
+	stderrTailLimitBytes int
 }
 
-// start runs tool to its end, with its streams as streams says, and returns the end of its stderr.
-func (runner *Runner) start(
+// runToExit runs tool to its end, with its streams as streams says, and returns the end of its stderr.
+func (runner *Runner) runToExit(
 	ctx context.Context, tool Tool, access confine.Access, arguments []string, streams pipes,
 ) (*tailBuffer, error) {
-	hardened, known := hardening(tool)
+	hardened, known := hardeningFlags(tool)
 	if !known {
 		return nil, fmt.Errorf("execx runs only ffmpeg and ffprobe, not %q", tool)
 	}
@@ -184,7 +186,7 @@ func (runner *Runner) start(
 	command := exec.CommandContext(ctx, path, argv...)
 	command.Env = []string{}
 	command.Dir = "/"
-	stderr := &tailBuffer{limit: streams.logBytes}
+	stderr := &tailBuffer{limitBytes: streams.stderrTailLimitBytes}
 	command.Stdout = streams.stdout
 	command.Stderr = stderr
 	if streams.stdin != nil {
@@ -198,19 +200,19 @@ func (runner *Runner) start(
 	command.WaitDelay = waitDelay
 
 	if err := command.Start(); err != nil {
-		return nil, &RunError{Tool: tool, Status: -1, Err: err}
+		return nil, &RunError{Tool: tool, ExitStatus: -1, Err: err}
 	}
-	if runner.started != nil {
-		runner.started()
+	if runner.onStarted != nil {
+		runner.onStarted()
 	}
 	err := command.Wait()
 	switch {
 	case ctx.Err() != nil:
 		// Keep Wait's error too: exec.ErrWaitDelay there means something outlived the kill.
-		return nil, &RunError{Tool: tool, Status: -1, StderrTail: stderr.String(), Err: errors.Join(ctx.Err(), err)}
+		return nil, &RunError{Tool: tool, ExitStatus: -1, StderrTail: stderr.String(), Err: errors.Join(ctx.Err(), err)}
 	case err != nil:
 		status := command.ProcessState.ExitCode()
-		return nil, &RunError{Tool: tool, Status: status, StderrTail: stderr.String(), Err: err}
+		return nil, &RunError{Tool: tool, ExitStatus: status, StderrTail: stderr.String(), Err: err}
 	}
 	return stderr, nil
 }
@@ -218,16 +220,16 @@ func (runner *Runner) start(
 // limitedBuffer keeps up to limit bytes and notes whether more came. It never refuses a write,
 // so a tool is never left blocked on a full pipe.
 type limitedBuffer struct {
-	buffer   bytes.Buffer
-	limit    int
-	exceeded bool
+	buffer     bytes.Buffer
+	limitBytes int
+	isExceeded bool
 }
 
 func (limited *limitedBuffer) Write(data []byte) (int, error) {
 	written := len(data)
-	room := limited.limit - limited.buffer.Len()
+	room := limited.limitBytes - limited.buffer.Len()
 	if written > room {
-		limited.exceeded = true
+		limited.isExceeded = true
 		data = data[:max(room, 0)]
 	}
 	_, _ = limited.buffer.Write(data)
@@ -236,13 +238,13 @@ func (limited *limitedBuffer) Write(data []byte) (int, error) {
 
 // tailBuffer keeps the last limit bytes written to it.
 type tailBuffer struct {
-	data  []byte
-	limit int
+	data       []byte
+	limitBytes int
 }
 
 func (tail *tailBuffer) Write(data []byte) (int, error) {
 	tail.data = append(tail.data, data...)
-	if excess := len(tail.data) - tail.limit; excess > 0 {
+	if excess := len(tail.data) - tail.limitBytes; excess > 0 {
 		tail.data = tail.data[excess:]
 	}
 	return len(data), nil

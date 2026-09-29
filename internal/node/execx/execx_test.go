@@ -61,8 +61,8 @@ func TestRun_AFailureCarriesTheStatusAndTheTailOfStderr(t *testing.T) {
 	t.Parallel()
 	noise := strings.Repeat("frame=1 fps=0.0 q=0.0\n", 400)
 	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{
-		Stderr: noise + "/media/a.mkv: Invalid data found when processing input\n",
-		Status: 183,
+		Stderr:     noise + "/media/a.mkv: Invalid data found when processing input\n",
+		ExitStatus: 183,
 	})
 	_, err := newRunner(t, fake).Run(t.Context(), FFprobe, confine.Access{}, []string{"-i", "file:/media/a.mkv"}, 1024)
 
@@ -70,8 +70,8 @@ func TestRun_AFailureCarriesTheStatusAndTheTailOfStderr(t *testing.T) {
 	if !isRunError {
 		t.Fatalf("error = %v, want a *RunError", err)
 	}
-	if failure.Status != 183 || failure.Tool != FFprobe {
-		t.Errorf("status %d from %s, want 183 from ffprobe", failure.Status, failure.Tool)
+	if failure.ExitStatus != 183 || failure.Tool != FFprobe {
+		t.Errorf("status %d from %s, want 183 from ffprobe", failure.ExitStatus, failure.Tool)
 	}
 	if !strings.HasSuffix(failure.StderrTail, "Invalid data found when processing input\n") {
 		t.Errorf("the stderr tail does not end with the cause: %q", failure.StderrTail)
@@ -159,10 +159,10 @@ func TestRunStreaming_WritesStdoutToTheWriterAndCarriesAFailure(t *testing.T) {
 	if progress.String() != "out_time_us=1000000\nprogress=end\n" {
 		t.Errorf("the writer got %q, want the tool's stdout", progress.String())
 	}
-	failing := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stderr: "No such file", Status: 1})
+	failing := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stderr: "No such file", ExitStatus: 1})
 	err = newRunner(t, failing).RunStreaming(t.Context(), FFmpeg, confine.Access{}, []string{"-i", "x"}, &progress)
 	var failure *RunError
-	if !errors.As(err, &failure) || failure.Status != 1 || !strings.Contains(failure.StderrTail, "No such file") {
+	if !errors.As(err, &failure) || failure.ExitStatus != 1 || !strings.Contains(failure.StderrTail, "No such file") {
 		t.Errorf("a failing run = %v, want a RunError with its status and stderr", err)
 	}
 }

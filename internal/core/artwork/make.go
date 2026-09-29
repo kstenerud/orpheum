@@ -134,7 +134,7 @@ func tooLarge(shape nodeproto.Shape, made []nodeproto.ArtImage) []nodeproto.ArtS
 	var unmade []nodeproto.ArtSizeName
 	for _, size := range shape.Sizes() {
 		isMade := slices.ContainsFunc(made, func(image nodeproto.ArtImage) bool { return image.SizeName == size.Name })
-		if len(unmade) > 0 || (!isMade && !size.OnRequest) {
+		if len(unmade) > 0 || (!isMade && !size.IsMadeOnRequest) {
 			if !isMade {
 				unmade = append(unmade, size.Name)
 			}
@@ -152,7 +152,7 @@ func (service *Service) queueMake(ctx context.Context, hash string, want nodepro
 	if err != nil {
 		return ErrNoArt
 	}
-	origin, err := store.One(service.parts.Database.Read().GetArtworkSource(ctx, raw))
+	origin, err := store.OrNotFound(service.parts.Database.Read().GetArtworkSource(ctx, raw))
 	if errors.Is(err, store.ErrNotFound) {
 		return nil // an image no item shows any more
 	}

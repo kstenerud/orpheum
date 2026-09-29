@@ -12,11 +12,11 @@ import (
 // unconfinedHere is why no mechanism is in force on this platform.
 const unconfinedHere = "Landlock and seccomp are Linux's; this platform has neither"
 
-// Probe says no mechanism is in force: the shim is a no-op off Linux (cut-a §7).
-func Probe() []State {
+// MechanismStates says no mechanism is in force: the shim is a no-op off Linux (cut-a §7).
+func MechanismStates() []State {
 	return []State{
-		{Mechanism: Landlock, Cause: CauseNotLinux, Reason: unconfinedHere, Remedy: "run the node on Linux"},
-		{Mechanism: Seccomp, Cause: CauseNotLinux, Reason: unconfinedHere, Remedy: "run the node on Linux"},
+		{Mechanism: MechanismLandlock, CauseCode: CauseNotLinux, Reason: unconfinedHere, Remedy: "run the node on Linux"},
+		{Mechanism: MechanismSeccomp, CauseCode: CauseNotLinux, Reason: unconfinedHere, Remedy: "run the node on Linux"},
 	}
 }
 

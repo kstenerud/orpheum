@@ -86,7 +86,7 @@ JOIN file ON file.version_id = version.id
 WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL AND file.removed_at IS NULL
 ORDER BY version.id, file.part_index, file.id;
 
--- name: ListFileStreams :many
+-- name: ListStreamsOfVideoFile :many
 SELECT id, kind, codec, language, container_title, channel_count, disposition_flags
 FROM stream
 WHERE video_file = sqlc.arg(video_file)

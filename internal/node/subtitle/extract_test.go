@@ -30,7 +30,7 @@ func TestExtract_FFmpegReadsOnlyTheFileOrThePipeItIsGiven(t *testing.T) {
 	if _, err := extractor.ExtractTrack(t.Context(), "/media/film.mkv", 3); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := extractor.ConvertFile(t.Context(), []byte("the sidecar")); err != nil {
+	if _, err := extractor.ConvertText(t.Context(), []byte("the sidecar")); err != nil {
 		t.Fatal(err)
 	}
 	calls := fake.Calls(t)

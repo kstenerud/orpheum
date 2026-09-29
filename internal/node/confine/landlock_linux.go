@@ -30,7 +30,7 @@ const (
 	readTree = unix.LANDLOCK_ACCESS_FS_READ_FILE | unix.LANDLOCK_ACCESS_FS_READ_DIR
 	runTool  = unix.LANDLOCK_ACCESS_FS_READ_FILE | unix.LANDLOCK_ACCESS_FS_EXECUTE
 	// Libraries are read, and executed as the kernel executes a tool's dynamic loader.
-	libraries = readTree | unix.LANDLOCK_ACCESS_FS_EXECUTE
+	libraryRights = readTree | unix.LANDLOCK_ACCESS_FS_EXECUTE
 	// The rights a rule on a file, not a directory, may grant.
 	fileRights = unix.LANDLOCK_ACCESS_FS_EXECUTE | unix.LANDLOCK_ACCESS_FS_READ_FILE |
 		unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_TRUNCATE | unix.LANDLOCK_ACCESS_FS_IOCTL_DEV
@@ -86,26 +86,26 @@ func landlockState() State {
 
 // landlockStateOf is Landlock's state given what asking for its ABI answered.
 func landlockStateOf(err error) State {
-	state := State{Mechanism: Landlock}
+	state := State{Mechanism: MechanismLandlock}
 	switch {
 	case err == nil:
-		state.InForce = true
+		state.IsInForce = true
 	case errors.Is(err, unix.EOPNOTSUPP):
-		state.Cause = CauseDisabledAtBoot
+		state.CauseCode = CauseDisabledAtBoot
 		state.Reason = "the kernel has Landlock, but it is not enabled at boot"
 		state.Remedy = "add landlock to the lsm= list on the kernel command line, for example " +
 			"lsm=landlock,lockdown,yama,integrity,apparmor, and reboot"
 	case errors.Is(err, unix.ENOSYS):
-		state.Cause = CauseKernelWithout
+		state.CauseCode = CauseKernelWithout
 		state.Reason = "the kernel is too old for Landlock, or was built without it"
 		state.Remedy = "run a kernel of 5.13 or newer built with Landlock"
 	case errors.Is(err, unix.EPERM):
-		state.Cause = CauseBlockedByRuntime
+		state.CauseCode = CauseBlockedByRuntime
 		state.Reason = "the container runtime blocks Landlock's system calls"
 		state.Remedy = "upgrade the container runtime (Docker allows them from 23), " +
 			"or allow landlock_* in its seccomp profile"
 	default:
-		state.Cause = CauseUnexplained
+		state.CauseCode = CauseUnexplained
 		state.Reason = fmt.Sprintf("Landlock answered %v", err)
 		state.Remedy = "report it; the node cannot say what would fix it"
 	}
@@ -147,12 +147,12 @@ type grant struct {
 func grantsFor(spec Spec) []grant {
 	grants := []grant{{path: spec.Tool, rights: runTool, isRequired: true}}
 	for _, path := range systemReads() {
-		grants = append(grants, grant{path: path, rights: libraries})
+		grants = append(grants, grant{path: path, rights: libraryRights})
 	}
 	for _, path := range devicesAlways() {
 		grants = append(grants, grant{path: path, rights: useDevice})
 	}
-	if spec.Access.Devices {
+	if spec.Access.UsesGPU {
 		for _, path := range gpuDevices() {
 			grants = append(grants, grant{path: path, rights: useGPU})
 		}
@@ -180,7 +180,7 @@ func restrictLandlock(abi int, spec Spec) error {
 	}
 	defer func() { _ = unix.Close(int(ruleset)) }() //nolint:errcheck // the thread keeps the domain
 	for _, rule := range grantsFor(spec) {
-		err := allow(int(ruleset), rule.path, rule.rights&attributes.Access_fs)
+		err := addLandlockRule(int(ruleset), rule.path, rule.rights&attributes.Access_fs)
 		if err != nil && (rule.isRequired || !errors.Is(err, os.ErrNotExist)) {
 			return err
 		}
@@ -191,9 +191,9 @@ func restrictLandlock(abi int, spec Spec) error {
 	return nil
 }
 
-// allow adds a rule granting rights beneath path; a file is granted only the rights a file can
+// addLandlockRule adds a rule granting rights beneath path; a file is granted only the rights a file can
 // have.
-func allow(ruleset int, path string, rights uint64) error {
+func addLandlockRule(ruleset int, path string, rights uint64) error {
 	file, err := os.Open(path) //nolint:gosec // a path the run names, opened to name it to Landlock
 	if err != nil {
 		return fmt.Errorf("name %s to Landlock: %w", path, err)

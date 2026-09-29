@@ -108,7 +108,7 @@ type fixture struct {
 
 func newFixture(t *testing.T) fixture {
 	t.Helper()
-	database := storetest.Open(t)
+	database := storetest.OpenMigrated(t)
 	key, err := GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)

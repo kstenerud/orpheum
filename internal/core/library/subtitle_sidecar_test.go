@@ -62,7 +62,7 @@ func TestIngest_ASubtitleFileIsATrackOfItsVideoUntilItsVideoIsGone(t *testing.T)
 		t.Errorf("the subtitle file's payload hash is %x, want its bytes' (D179)", sidecarFile.PayloadHash)
 	}
 	track := func() (sqlcgen.GetSidecarStreamRow, error) {
-		return store.One(world.database.Read().GetSidecarStream(t.Context(), sidecarFile.ID))
+		return store.OrNotFound(world.database.Read().GetSidecarStream(t.Context(), sidecarFile.ID))
 	}
 	first, err := track()
 	if err != nil {

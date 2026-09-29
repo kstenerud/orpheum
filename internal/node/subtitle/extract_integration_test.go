@@ -58,12 +58,12 @@ func TestExtract_ATrackAndASidecarBecomeASSAndWebVTT(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkText(t, "the embedded track", track)
-	converted, err := extractor.ConvertFile(t.Context(), []byte(srt))
+	converted, err := extractor.ConvertText(t.Context(), []byte(srt))
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkText(t, "the sidecar", converted)
-	if _, err := extractor.ConvertFile(t.Context(), []byte("not a subtitle\n")); err == nil {
+	if _, err := extractor.ConvertText(t.Context(), []byte("not a subtitle\n")); err == nil {
 		t.Error("a file that is not a subtitle converted")
 	}
 }

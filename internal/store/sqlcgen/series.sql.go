@@ -95,6 +95,56 @@ func (q *Queries) GetSeriesOfTitle(ctx context.Context, titleID int64) (int64, e
 	return collection_id, err
 }
 
+const listLiveSeriesEpisodeSources = `-- name: ListLiveSeriesEpisodeSources :many
+SELECT position.title_id, position.group_number, position.number_in_group, title.followed_source, item.added_at
+FROM position
+JOIN ordering ON ordering.id = position.ordering_id
+JOIN title ON title.id = position.title_id
+JOIN item ON item.id = title.id
+WHERE ordering.collection_id = ?1 AND ordering.name = 'aired' AND item.removed_at IS NULL
+ORDER BY position.sort_order
+`
+
+type ListLiveSeriesEpisodeSourcesRow struct {
+	TitleID        int64
+	GroupNumber    *int64
+	NumberInGroup  *int64
+	FollowedSource *string
+	AddedAt        int64
+}
+
+// A series' episodes in its aired order, with where each takes its values from and when it
+// first appeared: a new episode missing from a season listing fetched before it arrived is
+// what fetches that listing again (D209 section 3).
+func (q *Queries) ListLiveSeriesEpisodeSources(ctx context.Context, collectionID int64) ([]ListLiveSeriesEpisodeSourcesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveSeriesEpisodeSources, collectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLiveSeriesEpisodeSourcesRow{}
+	for rows.Next() {
+		var i ListLiveSeriesEpisodeSourcesRow
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.GroupNumber,
+			&i.NumberInGroup,
+			&i.FollowedSource,
+			&i.AddedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeriesAwaitingMatch = `-- name: ListSeriesAwaitingMatch :many
 SELECT collection.id
 FROM collection
@@ -137,7 +187,7 @@ func (q *Queries) ListSeriesAwaitingMatch(ctx context.Context, libraryID *int64)
 	return items, nil
 }
 
-const listSeriesByIdent = `-- name: ListSeriesByIdent :many
+const listSeriesByIdentification = `-- name: ListSeriesByIdentification :many
 SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
   item.library_id, item_text.name
 FROM collection
@@ -147,7 +197,7 @@ WHERE collection.kind = 'series' AND collection.identification_state = ?1 AND it
 ORDER BY item_text.name, collection.id
 `
 
-type ListSeriesByIdentRow struct {
+type ListSeriesByIdentificationRow struct {
 	ID                  int64
 	Year                *int64
 	IdentificationState *string
@@ -158,15 +208,15 @@ type ListSeriesByIdentRow struct {
 }
 
 // The series in one state of identification, for the chooser's list.
-func (q *Queries) ListSeriesByIdent(ctx context.Context, identificationState *string) ([]ListSeriesByIdentRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSeriesByIdent, identificationState)
+func (q *Queries) ListSeriesByIdentification(ctx context.Context, identificationState *string) ([]ListSeriesByIdentificationRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeriesByIdentification, identificationState)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListSeriesByIdentRow{}
+	items := []ListSeriesByIdentificationRow{}
 	for rows.Next() {
-		var i ListSeriesByIdentRow
+		var i ListSeriesByIdentificationRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Year,
@@ -175,56 +225,6 @@ func (q *Queries) ListSeriesByIdent(ctx context.Context, identificationState *st
 			&i.FollowedSourceID,
 			&i.LibraryID,
 			&i.Name,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSeriesEpisodes = `-- name: ListSeriesEpisodes :many
-SELECT position.title_id, position.group_number, position.number_in_group, title.followed_source, item.added_at
-FROM position
-JOIN ordering ON ordering.id = position.ordering_id
-JOIN title ON title.id = position.title_id
-JOIN item ON item.id = title.id
-WHERE ordering.collection_id = ?1 AND ordering.name = 'aired' AND item.removed_at IS NULL
-ORDER BY position.sort_order
-`
-
-type ListSeriesEpisodesRow struct {
-	TitleID        int64
-	GroupNumber    *int64
-	NumberInGroup  *int64
-	FollowedSource *string
-	AddedAt        int64
-}
-
-// A series' episodes in its aired order, with where each takes its values from and when it
-// first appeared: a new episode missing from a season listing fetched before it arrived is
-// what fetches that listing again (D209 section 3).
-func (q *Queries) ListSeriesEpisodes(ctx context.Context, collectionID int64) ([]ListSeriesEpisodesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSeriesEpisodes, collectionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListSeriesEpisodesRow{}
-	for rows.Next() {
-		var i ListSeriesEpisodesRow
-		if err := rows.Scan(
-			&i.TitleID,
-			&i.GroupNumber,
-			&i.NumberInGroup,
-			&i.FollowedSource,
-			&i.AddedAt,
 		); err != nil {
 			return nil, err
 		}

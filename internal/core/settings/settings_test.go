@@ -20,7 +20,7 @@ import (
 
 func newService(t *testing.T) (*Service, int64) {
 	t.Helper()
-	database := storetest.Open(t)
+	database := storetest.OpenMigrated(t)
 	now := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
 	return NewService(database, now, testLogger(t)), storetest.InsertUser(t, database, "owner", "admin")
 }
@@ -249,7 +249,7 @@ func TestReset_WritesTheStartingValueBack(t *testing.T) {
 
 func TestRead_HealsARemovedSettingAndSaysSo(t *testing.T) {
 	t.Parallel()
-	database := storetest.Open(t)
+	database := storetest.OpenMigrated(t)
 	var logged bytes.Buffer
 	service := NewService(database, clocktest.NewFake(time.Date(2026, time.September, 24, 0, 0, 0, 0, time.UTC)),
 		slog.New(slog.NewTextHandler(&logged, nil)))

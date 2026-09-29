@@ -26,7 +26,7 @@ type fixture struct {
 
 func newFixture(t *testing.T) fixture {
 	t.Helper()
-	config := settingstest.Seeded(t, storetest.Open(t))
+	config := settingstest.Seeded(t, storetest.OpenMigrated(t))
 	settingstest.Set(t, config, settings.JobAttemptLimit, "3")
 	settingstest.Set(t, config, settings.JobFirstRetryDelayS, "10")
 	cache := storetest.OpenCache(t)

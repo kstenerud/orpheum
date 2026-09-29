@@ -12,9 +12,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Info is a machine's operating system: what `lsb_release -a` shows, the kernel and the
+// System is a machine's operating system: what `lsb_release -a` shows, the kernel and the
 // platform. A field the machine does not say is empty.
-type Info struct {
+type System struct {
 	// Distribution is lsb_release's "Distributor": "Debian GNU/Linux".
 	Distribution string `json:"distribution,omitempty"`
 	// Description is its "Description": "Debian GNU/Linux 13 (trixie)".
@@ -31,11 +31,11 @@ type Info struct {
 
 // Describe is this machine. On a system without os-release, only the kernel and platform are
 // known.
-func Describe() Info {
-	info := Info{}
+func Describe() System {
+	info := System{}
 	for _, path := range []string{"/etc/os-release", "/usr/lib/os-release"} {
 		if contents, err := os.ReadFile(path); err == nil { //nolint:gosec // a fixed system path
-			info = Parse(string(contents))
+			info = ParseOSRelease(string(contents))
 			break
 		}
 	}
@@ -47,8 +47,8 @@ func Describe() Info {
 	return info
 }
 
-// Parse reads os-release's lines of KEY=value, the value quoted or not.
-func Parse(osRelease string) Info {
+// ParseOSRelease reads os-release's lines of KEY=value, the value quoted or not.
+func ParseOSRelease(osRelease string) System {
 	values := map[string]string{}
 	lines := bufio.NewScanner(strings.NewReader(osRelease))
 	for lines.Scan() {
@@ -63,7 +63,7 @@ func Parse(osRelease string) Info {
 		}
 		values[key] = value
 	}
-	return Info{
+	return System{
 		Distribution: values["NAME"], Description: values["PRETTY_NAME"], Release: values["VERSION_ID"],
 		Codename: values["VERSION_CODENAME"],
 	}

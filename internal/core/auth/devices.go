@@ -45,7 +45,7 @@ type Device struct {
 
 // Devices lists a person's devices, most recently used first.
 func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, error) {
-	rows, err := service.database.Read().ListLiveDevicesOf(ctx, sqlcgen.ListLiveDevicesOfParams{
+	rows, err := service.database.Read().ListLiveDevicesOfUser(ctx, sqlcgen.ListLiveDevicesOfUserParams{
 		UserID: &userID, Now: new(service.clock.Now().UnixMilli()),
 	})
 	if err != nil {
@@ -113,7 +113,7 @@ func (service *Service) onOwnDevice(
 	ctx context.Context, userID, deviceID int64, change func(*sqlcgen.Queries) error,
 ) error {
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		owner, err := store.One(queries.GetLiveDeviceOwner(ctx, deviceID))
+		owner, err := store.OrNotFound(queries.GetLiveDeviceOwner(ctx, deviceID))
 		if errors.Is(err, store.ErrNotFound) || (err == nil && (owner == nil || *owner != userID)) {
 			return ErrNoDevice
 		}
@@ -127,7 +127,7 @@ func (service *Service) onOwnDevice(
 // DeviceOf is one of a person's devices: the one a session is on, for showing who is signed in
 // where.
 func (service *Service) DeviceOf(ctx context.Context, userID, deviceID int64) (Device, error) {
-	known, err := store.One(service.database.Read().GetLiveDeviceOf(ctx, sqlcgen.GetLiveDeviceOfParams{
+	known, err := store.OrNotFound(service.database.Read().GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
 		ID: deviceID, UserID: &userID,
 	}))
 	if errors.Is(err, store.ErrNotFound) {

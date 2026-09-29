@@ -9,22 +9,13 @@ import (
 	"context"
 )
 
-const getRendition = `-- name: GetRendition :one
-
+const getRenditionByID = `-- name: GetRenditionByID :one
 SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, created_at, finished_at
-FROM prepared_rendition WHERE source_file = ? AND profile = ?
+FROM prepared_rendition WHERE id = ?
 `
 
-type GetRenditionParams struct {
-	SourceFile int64
-	Profile    string
-}
-
-// SPDX-License-Identifier: GPL-3.0-or-later
-// Prepared renditions (schema.md, cache.db; D217 section 5): what each node was asked to
-// prepare, and how far it is.
-func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (PreparedRendition, error) {
-	row := q.db.QueryRowContext(ctx, getRendition, arg.SourceFile, arg.Profile)
+func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendition, error) {
+	row := q.db.QueryRowContext(ctx, getRenditionByID, id)
 	var i PreparedRendition
 	err := row.Scan(
 		&i.ID,
@@ -47,13 +38,22 @@ func (q *Queries) GetRendition(ctx context.Context, arg GetRenditionParams) (Pre
 	return i, err
 }
 
-const getRenditionByID = `-- name: GetRenditionByID :one
+const getRenditionOfFileAndProfile = `-- name: GetRenditionOfFileAndProfile :one
+
 SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, created_at, finished_at
-FROM prepared_rendition WHERE id = ?
+FROM prepared_rendition WHERE source_file = ? AND profile = ?
 `
 
-func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendition, error) {
-	row := q.db.QueryRowContext(ctx, getRenditionByID, id)
+type GetRenditionOfFileAndProfileParams struct {
+	SourceFile int64
+	Profile    string
+}
+
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Prepared renditions (schema.md, cache.db; D217 section 5): what each node was asked to
+// prepare, and how far it is.
+func (q *Queries) GetRenditionOfFileAndProfile(ctx context.Context, arg GetRenditionOfFileAndProfileParams) (PreparedRendition, error) {
+	row := q.db.QueryRowContext(ctx, getRenditionOfFileAndProfile, arg.SourceFile, arg.Profile)
 	var i PreparedRendition
 	err := row.Scan(
 		&i.ID,

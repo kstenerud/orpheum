@@ -140,7 +140,7 @@ func (work *batch) recordMounts(ctx context.Context, scan *scanState, missing ma
 // unseenUnder returns the live files under the root that the scan did not see, outside what it
 // could not read, and how many live files the root holds.
 func (work *batch) unseenUnder(ctx context.Context, scan *scanState) ([]int64, int, error) {
-	files, err := work.queries.ListLiveFilesOfLibrary(ctx, sqlcgen.ListLiveFilesOfLibraryParams{
+	files, err := work.queries.ListLiveFilesOfLibraryOnNode(ctx, sqlcgen.ListLiveFilesOfLibraryOnNodeParams{
 		NodeID: work.nodeID, LibraryID: scan.libraryID,
 	})
 	if err != nil {
@@ -178,7 +178,7 @@ func changedFacts(prior sqlcgen.GetRootStateRow, scan *scanState) string {
 // its files, or more than scan_withhold_removals_over_percent of them and more than
 // scan_withhold_removals_over_files (D208 §3) — unless the admin approved this root's removals.
 func (work *batch) withholdReason(ctx context.Context, scan *scanState, removing, total int) (string, error) {
-	prior, err := store.One(work.queries.GetRootState(ctx, sqlcgen.GetRootStateParams{
+	prior, err := store.OrNotFound(work.queries.GetRootState(ctx, sqlcgen.GetRootStateParams{
 		NodeID: work.nodeID, RootPath: scan.root,
 	}))
 	switch {
@@ -233,7 +233,7 @@ func (work *batch) recordNotComplete(ctx context.Context, scan *scanState, outco
 // was, the new path is a duplicate with a row of its own (D179).
 func (work *batch) concludeMoves(ctx context.Context, scan *scanState) error {
 	for _, move := range scan.pending {
-		candidates, err := work.queries.ListLiveFilesByHash(ctx, sqlcgen.ListLiveFilesByHashParams{
+		candidates, err := work.queries.ListLiveFilesByPayloadHash(ctx, sqlcgen.ListLiveFilesByPayloadHashParams{
 			NodeID: work.nodeID, PayloadHash: move.seen.hash,
 		})
 		if err != nil {

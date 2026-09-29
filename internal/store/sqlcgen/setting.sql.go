@@ -70,6 +70,47 @@ func (q *Queries) InsertServerSettingIfMissing(ctx context.Context, arg InsertSe
 	return err
 }
 
+const listAllSettings = `-- name: ListAllSettings :many
+SELECT scope, user_id, key, value_json
+FROM setting
+ORDER BY scope, user_id, key
+`
+
+type ListAllSettingsRow struct {
+	Scope     string
+	UserID    *int64
+	Key       string
+	ValueJson string
+}
+
+func (q *Queries) ListAllSettings(ctx context.Context) ([]ListAllSettingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAllSettings)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllSettingsRow{}
+	for rows.Next() {
+		var i ListAllSettingsRow
+		if err := rows.Scan(
+			&i.Scope,
+			&i.UserID,
+			&i.Key,
+			&i.ValueJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listServerSettings = `-- name: ListServerSettings :many
 
 SELECT key, value_json, set_by_user_id, set_at, is_modified
@@ -104,47 +145,6 @@ func (q *Queries) ListServerSettings(ctx context.Context) ([]ListServerSettingsR
 			&i.SetByUserID,
 			&i.SetAt,
 			&i.IsModified,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSettingKeys = `-- name: ListSettingKeys :many
-SELECT scope, user_id, key, value_json
-FROM setting
-ORDER BY scope, user_id, key
-`
-
-type ListSettingKeysRow struct {
-	Scope     string
-	UserID    *int64
-	Key       string
-	ValueJson string
-}
-
-func (q *Queries) ListSettingKeys(ctx context.Context) ([]ListSettingKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSettingKeys)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListSettingKeysRow{}
-	for rows.Next() {
-		var i ListSettingKeysRow
-		if err := rows.Scan(
-			&i.Scope,
-			&i.UserID,
-			&i.Key,
-			&i.ValueJson,
 		); err != nil {
 			return nil, err
 		}

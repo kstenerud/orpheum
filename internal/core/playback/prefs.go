@@ -85,7 +85,7 @@ var ErrNoTrack = errors.New("no such subtitle track in this file")
 // FilePrefs are the person's choices for the file, at their starting values where they made
 // none.
 func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (FilePrefs, error) {
-	stored, err := service.database.Read().ListPreferencesAt(ctx, sqlcgen.ListPreferencesAtParams{
+	stored, err := service.database.Read().ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
 		UserID: userID, Scope: scopeFile, ScopeID: fileID,
 	})
 	if err != nil {
@@ -104,7 +104,7 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 			return FilePrefs{}, fmt.Errorf("read the %s of file %d: %w", preference.Axis, fileID, err)
 		}
 	}
-	personal, err := service.database.Read().ListPreferencesAt(ctx, sqlcgen.ListPreferencesAtParams{
+	personal, err := service.database.Read().ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
 		UserID: userID, Scope: scopeUser, ScopeID: 0,
 	})
 	if err != nil {
@@ -223,7 +223,7 @@ func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64
 // filesOfWork are the live files of the work a file belongs to (D219), or none when the file is
 // not yet a version of a title.
 func (service *Service) filesOfWork(ctx context.Context, fileID int64) ([]int64, error) {
-	titleID, err := store.One(service.database.Read().GetTitleOfFile(ctx, fileID))
+	titleID, err := store.OrNotFound(service.database.Read().GetTitleOfFile(ctx, fileID))
 	if errors.Is(err, store.ErrNotFound) {
 		return []int64{}, nil
 	}

@@ -79,7 +79,7 @@ type Service struct {
 	tokens     *tokens
 	prepares   *prepares
 	subtitles  *waiting[nodeproto.SubtitleText]
-	loudness   *waiting[nodeproto.Loudness]
+	loudness   *waiting[nodeproto.LoudnessResult]
 	subtitler  Subtitler
 }
 
@@ -90,7 +90,7 @@ func NewService(parts Parts) *Service {
 		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
 		tokens: newTokens(), prepares: newPrepares(parts),
 		subtitles: newWaiting[nodeproto.SubtitleText](parts.Logger, "a subtitle"), subtitler: parts.Subtitler,
-		loudness: newWaiting[nodeproto.Loudness](parts.Logger, "a loudness measurement"),
+		loudness: newWaiting[nodeproto.LoudnessResult](parts.Logger, "a loudness measurement"),
 	}
 }
 
@@ -204,7 +204,7 @@ func (service *Service) audioOutput(ctx context.Context, userID, deviceID int64)
 	if deviceID == 0 {
 		return "", nil
 	}
-	device, err := store.One(service.database.Read().GetLiveDeviceOf(ctx, sqlcgen.GetLiveDeviceOfParams{
+	device, err := store.OrNotFound(service.database.Read().GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
 		ID: deviceID, UserID: &userID,
 	}))
 	if errors.Is(err, store.ErrNotFound) {
@@ -288,7 +288,7 @@ func (service *Service) source(ctx context.Context, file located) (nodeproto.Byt
 }
 
 func (service *Service) file(ctx context.Context, fileID int64) (sqlcgen.GetPlayableFileRow, error) {
-	file, err := store.One(service.database.Read().GetPlayableFile(ctx, fileID))
+	file, err := store.OrNotFound(service.database.Read().GetPlayableFile(ctx, fileID))
 	if errors.Is(err, store.ErrNotFound) {
 		return file, ErrNoFile
 	}

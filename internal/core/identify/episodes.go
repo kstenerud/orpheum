@@ -104,7 +104,7 @@ func (work *run) currentSeries(ctx context.Context, file sqlcgen.ListIdentifyFil
 	if err != nil || !kept {
 		return 0, err
 	}
-	seriesID, err := store.One(work.queries.GetSeriesOfTitle(ctx, titleID))
+	seriesID, err := store.OrNotFound(work.queries.GetSeriesOfTitle(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return 0, nil
 	}

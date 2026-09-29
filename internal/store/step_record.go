@@ -8,8 +8,8 @@ import (
 	"fmt"
 )
 
-// stepRecordVersion is the step that creates schema_step; before it, nothing is recorded.
-const stepRecordVersion = 9
+// schemaStepTableVersion is the step that creates schema_step; before it, nothing is recorded.
+const schemaStepTableVersion = 9
 
 // ErrStepChanged is a database where a step was applied as another text than this binary
 // carries: its schema is not the step's. A committed step never changes, so it is a step edited
@@ -18,8 +18,8 @@ var ErrStepChanged = errors.New("a migration step was applied as another text th
 
 // checkAppliedSteps refuses a database where an applied step's recorded checksum differs from
 // the step this binary carries.
-func (database *Database) checkAppliedSteps(ctx context.Context, steps []Step, applied int) error {
-	if applied < stepRecordVersion {
+func (database *Database) checkAppliedSteps(ctx context.Context, steps []Step, appliedVersion int) error {
+	if appliedVersion < schemaStepTableVersion {
 		return nil
 	}
 	rows, err := database.readers.QueryContext(ctx, "SELECT version, sha256 FROM schema_step ORDER BY version")
@@ -33,7 +33,7 @@ func (database *Database) checkAppliedSteps(ctx context.Context, steps []Step, a
 		if err := rows.Scan(&version, &checksum); err != nil {
 			return fmt.Errorf("read an applied step's checksum: %w", err)
 		}
-		if version < 1 || version > len(steps) || version > applied {
+		if version < 1 || version > len(steps) || version > appliedVersion {
 			continue // a newer binary's step, which refuseNewer has judged
 		}
 		if step := steps[version-1]; step.Checksum != checksum {
@@ -49,12 +49,12 @@ func (database *Database) checkAppliedSteps(ctx context.Context, steps []Step, a
 
 // recordAppliedSteps records the checksum of every applied step that has none: each new one,
 // and, when schema_step is first created, the steps before it, with the text this binary carries.
-func (database *Database) recordAppliedSteps(ctx context.Context, steps []Step, applied int) error {
-	if applied < stepRecordVersion {
+func (database *Database) recordAppliedSteps(ctx context.Context, steps []Step, appliedVersion int) error {
+	if appliedVersion < schemaStepTableVersion {
 		return nil
 	}
 	// A database a newer release migrated has steps this binary does not carry; it records its own.
-	for _, step := range steps[:min(applied, len(steps))] {
+	for _, step := range steps[:min(appliedVersion, len(steps))] {
 		_, err := database.writer.ExecContext(ctx,
 			"INSERT INTO schema_step (version, sha256) VALUES (?, ?) ON CONFLICT (version) DO NOTHING",
 			step.Version, step.Checksum)

@@ -7,8 +7,10 @@
 //
 //   - Every database it opens is a real file under the test's temporary directory, migrated by
 //     the real runner, so a test sees the production schema. Review-only.
-//   - It imports no database/sql; it goes through internal/store like everyone else. Enforced by
-//     the depguard rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
+//   - It goes through internal/store like everyone else, except ExecRaw, which opens a file with
+//     database/sql to build a state the store never produces (a newer release's file, a foreign
+//     one). It may, being under internal/store: the depguard rule sql-only-in-store and
+//     TestArch_OnlyStoreImportsDatabaseSQL allow database/sql nowhere else.
 //
 // # Read before changing
 //
@@ -18,5 +20,5 @@
 //
 // # Where to change
 //
-//   - storetest.go: Open, and helpers that seed rows every caller needs (a user).
+//   - storetest.go: OpenMigrated, ExecRaw, and helpers that seed rows every caller needs (a user).
 package storetest

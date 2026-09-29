@@ -25,12 +25,12 @@ type MigrateOptions struct {
 	// SnapshotDirectory receives pre-migrate-vN.sqlite before the first pending step, and keeps
 	// it after success (D181).
 	SnapshotDirectory string
-	// BeforeStep, if set, is called before each pending step with its position and the number
+	// OnBeforeStep, if set, is called before each pending step with its position and the number
 	// pending, so /health can say "migrating: step 3 of 7" before the step starts.
-	BeforeStep func(step, total int)
-	// SpaceFactor is the free space the preflight needs, as a multiple of the database's size:
-	// the snapshot plus a rebuild's worst case. It comes from the config file (D200).
-	SpaceFactor int
+	OnBeforeStep func(stepPosition, pendingCount int)
+	// FreeSpaceDatabaseMultiple is the free space the preflight needs, as a multiple of the
+	// database's size: the snapshot plus a rebuild's worst case. It comes from the config file (D200).
+	FreeSpaceDatabaseMultiple int
 }
 
 // NewerDatabaseError refuses a database that a newer release upgraded past what this binary can
@@ -38,27 +38,27 @@ type MigrateOptions struct {
 type NewerDatabaseError struct {
 	State         SchemaState
 	BinaryVersion int
-	Snapshot      string
+	SnapshotPath  string
 }
 
 func (refusal *NewerDatabaseError) Error() string {
 	return fmt.Sprintf("this database was upgraded to schema %d by a newer release and cannot be used by this one, "+
 		"which understands schema %d and older (the file needs schema %d or newer). The snapshot %s, taken "+
 		"before that upgrade, can be restored with `orpheum restore`; you will lose what happened since",
-		refusal.State.Version, refusal.BinaryVersion, refusal.State.CompatibleVersion, refusal.Snapshot)
+		refusal.State.Version, refusal.BinaryVersion, refusal.State.CompatibleVersion, refusal.SnapshotPath)
 }
 
 // StepError is a step that failed and rolled back. The database stays at the version before it.
 type StepError struct {
-	Step     Step
-	Snapshot string
-	Err      error
+	Step         Step
+	SnapshotPath string
+	Err          error
 }
 
 func (failure *StepError) Error() string {
 	snapshot := "no snapshot was needed"
-	if failure.Snapshot != "" {
-		snapshot = "the snapshot taken before migrating is " + failure.Snapshot
+	if failure.SnapshotPath != "" {
+		snapshot = "the snapshot taken before migrating is " + failure.SnapshotPath
 	}
 	return fmt.Sprintf("migration step %s failed and was rolled back; %s: %v", failure.Step.Name, snapshot, failure.Err)
 }
@@ -117,12 +117,12 @@ func (database *Database) migrate(ctx context.Context, steps []Step, options Mig
 		return err
 	}
 	for position, step := range pending {
-		if options.BeforeStep != nil {
-			options.BeforeStep(position+1, len(pending))
+		if options.OnBeforeStep != nil {
+			options.OnBeforeStep(position+1, len(pending))
 		}
 		err = database.runStep(ctx, step)
 		if err != nil {
-			return &StepError{Step: step, Snapshot: snapshot, Err: err}
+			return &StepError{Step: step, SnapshotPath: snapshot, Err: err}
 		}
 	}
 	return database.recordAppliedSteps(ctx, steps, len(steps))
@@ -150,7 +150,7 @@ func refuseNewer(state SchemaState, binaryVersion int, snapshotDirectory string)
 	return &NewerDatabaseError{
 		State:         state,
 		BinaryVersion: binaryVersion,
-		Snapshot:      filepath.Join(snapshotDirectory, snapshotName(binaryVersion)),
+		SnapshotPath:  filepath.Join(snapshotDirectory, snapshotName(binaryVersion)),
 	}
 }
 
@@ -179,7 +179,7 @@ func (database *Database) snapshotBeforeMigrating(
 	case !errors.Is(err, os.ErrNotExist):
 		return "", fmt.Errorf("check for snapshot %s: %w", path, err)
 	}
-	err = database.requireSpaceToMigrate(ctx, directory, options.SpaceFactor)
+	err = database.requireSpaceToMigrate(ctx, directory, options.FreeSpaceDatabaseMultiple)
 	if err != nil {
 		return "", err
 	}
@@ -191,27 +191,29 @@ func (database *Database) snapshotBeforeMigrating(
 }
 
 // requireSpaceToMigrate refuses, with the numbers, when the snapshot plus a rebuild's worst case
-// would not fit: factor times the database, where a factor of 3 is the snapshot plus twice the
+// would not fit: databaseMultiple times the database, where a multiple of 3 is the snapshot plus twice the
 // whole database, which bounds twice its largest table.
-func (database *Database) requireSpaceToMigrate(ctx context.Context, directory string, factor int) error {
-	if factor < 1 {
-		return fmt.Errorf("the migration space factor is %d; it must be at least 1", factor)
+func (database *Database) requireSpaceToMigrate(
+	ctx context.Context, directory string, databaseMultiple int,
+) error {
+	if databaseMultiple < 1 {
+		return fmt.Errorf("the migration free-space database multiple is %d; it must be at least 1", databaseMultiple)
 	}
-	size, err := database.SizeBytes(ctx)
+	sizeBytes, err := database.SizeBytes(ctx)
 	if err != nil {
 		return err
 	}
-	needed := uint64(factor) * size
+	neededBytes := uint64(databaseMultiple) * sizeBytes
 	for _, where := range []string{directory, filepath.Dir(database.path)} {
 		space, measureErr := diskspace.Measure(where)
 		if measureErr != nil {
 			return fmt.Errorf("measure free space in %s: %w", where, measureErr)
 		}
-		available := uint64(space.FreeBytes) //nolint:gosec // never negative
-		if available < needed {
+		available := uint64(space.AvailableBytes) //nolint:gosec // never negative
+		if available < neededBytes {
 			return fmt.Errorf("not enough free space to migrate safely: %s has %d bytes free, and the snapshot plus "+
 				"a rebuild may need %d (%d times the %d-byte database); nothing was changed",
-				where, available, needed, factor, size)
+				where, available, neededBytes, databaseMultiple, sizeBytes)
 		}
 	}
 	return nil
@@ -288,7 +290,7 @@ func recordVersion(ctx context.Context, connection *sql.Conn, step Step) error {
 			return fmt.Errorf("set application_id: %w", err)
 		}
 	}
-	if step.RaisesCompatible {
+	if step.RaisesCompatibleVersion {
 		const raise = "INSERT INTO schema_meta (id, compatible_version) VALUES (1, ?) " +
 			"ON CONFLICT (id) DO UPDATE SET compatible_version = excluded.compatible_version"
 		if _, err := connection.ExecContext(ctx, raise, step.Version); err != nil {
@@ -301,9 +303,9 @@ func recordVersion(ctx context.Context, connection *sql.Conn, step Step) error {
 	return nil
 }
 
-func setForeignKeys(ctx context.Context, connection *sql.Conn, enabled bool) error {
+func setForeignKeys(ctx context.Context, connection *sql.Conn, isEnabled bool) error {
 	statement, want := "PRAGMA foreign_keys = OFF", 0
-	if enabled {
+	if isEnabled {
 		statement, want = "PRAGMA foreign_keys = ON", 1
 	}
 	if _, err := connection.ExecContext(ctx, statement); err != nil {

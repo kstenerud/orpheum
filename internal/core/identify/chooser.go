@@ -72,11 +72,11 @@ type ItemSummary struct {
 // Items lists the titles and series in one state of identification, by name.
 func (chooser *Chooser) Items(ctx context.Context, ident string) ([]ItemSummary, error) {
 	queries := chooser.matcher.database.Read()
-	titles, err := queries.ListTitlesByIdent(ctx, ident)
+	titles, err := queries.ListTitlesByIdentification(ctx, ident)
 	if err != nil {
 		return nil, fmt.Errorf("list %s titles: %w", ident, err)
 	}
-	series, err := queries.ListSeriesByIdent(ctx, &ident)
+	series, err := queries.ListSeriesByIdentification(ctx, &ident)
 	if err != nil {
 		return nil, fmt.Errorf("list %s series: %w", ident, err)
 	}
@@ -333,7 +333,7 @@ func (chooser *Chooser) rederive(ctx context.Context, item target) error {
 // target reads the title or series an id names.
 func (chooser *Chooser) target(ctx context.Context, itemID int64) (target, error) {
 	queries := chooser.matcher.database.Read()
-	kind, err := store.One(queries.GetItemKind(ctx, itemID))
+	kind, err := store.OrNotFound(queries.GetItemKind(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
 		return target{}, fmt.Errorf("item %d: %w", itemID, ErrNoItem)
 	}
@@ -343,9 +343,9 @@ func (chooser *Chooser) target(ctx context.Context, itemID int64) (target, error
 	var item target
 	if kind == itemCollection {
 		item.isSeries = true
-		item.series, err = store.One(queries.GetSeriesForMatch(ctx, itemID))
+		item.series, err = store.OrNotFound(queries.GetSeriesForMatch(ctx, itemID))
 	} else {
-		item.title, err = store.One(queries.GetTitleForMatch(ctx, itemID))
+		item.title, err = store.OrNotFound(queries.GetTitleForMatch(ctx, itemID))
 	}
 	if errors.Is(err, store.ErrNotFound) {
 		return target{}, fmt.Errorf("item %d: %w", itemID, ErrNoItem)

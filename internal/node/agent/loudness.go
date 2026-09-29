@@ -17,9 +17,10 @@ type Measurer interface {
 // measureLoudness starts a measurement beside the node's other work, one at a time, since it reads
 // the whole video, and posts the answer to the core (D226 §2).
 func (agent *Agent) measureLoudness(ctx context.Context, nodeID int64, command nodeproto.MeasureLoudness) {
-	agent.answerInBackground(ctx, nodeID, background{
-		job: command.JobID, slot: agent.slots.measure, path: nodeproto.PathLoudness, what: "a loudness measurement",
-		work: func(jobCtx context.Context) (any, string) {
+	agent.answerInBackground(ctx, nodeID, backgroundJob{
+		jobID: command.JobID, slot: agent.slots.measure, answerPath: nodeproto.PathLoudness,
+		jobKind: "a loudness measurement",
+		makeAnswer: func(jobCtx context.Context) (any, string) {
 			answer := agent.runMeasurement(jobCtx, command)
 			return answer, answer.Refusal + answer.Failure
 		},
@@ -28,20 +29,20 @@ func (agent *Agent) measureLoudness(ctx context.Context, nodeID int64, command n
 
 // runMeasurement measures a video checked to be the one the core named (D100), or says why not:
 // that FFmpeg could not, which is the file's, or that the node did not try.
-func (agent *Agent) runMeasurement(ctx context.Context, command nodeproto.MeasureLoudness) nodeproto.Loudness {
-	refuse := func(err error) nodeproto.Loudness {
-		return nodeproto.Loudness{JobID: command.JobID, Refusal: err.Error()}
+func (agent *Agent) runMeasurement(ctx context.Context, command nodeproto.MeasureLoudness) nodeproto.LoudnessResult {
+	refuse := func(err error) nodeproto.LoudnessResult {
+		return nodeproto.LoudnessResult{JobID: command.JobID, Refusal: err.Error()}
 	}
-	if agent.workers.Loudness == nil {
+	if agent.workers.LoudnessMeasurer == nil {
 		return refuse(errors.New("this node does not measure loudness"))
 	}
-	videoPath, err := agent.verifiedSource(command.Video)
+	videoPath, err := agent.verifiedSourcePath(command.Video)
 	if err != nil {
 		return refuse(err)
 	}
-	tracks, err := agent.workers.Loudness.Measure(ctx, videoPath, command.Tracks)
+	tracks, err := agent.workers.LoudnessMeasurer.Measure(ctx, videoPath, command.Tracks)
 	if err != nil {
-		return nodeproto.Loudness{JobID: command.JobID, Failure: err.Error()}
+		return nodeproto.LoudnessResult{JobID: command.JobID, Failure: err.Error()}
 	}
-	return nodeproto.Loudness{JobID: command.JobID, Tracks: tracks}
+	return nodeproto.LoudnessResult{JobID: command.JobID, Tracks: tracks}
 }

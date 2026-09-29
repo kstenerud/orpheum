@@ -28,8 +28,8 @@ type LoudnessTrack struct {
 	ChannelCount int `json:"channelCount"`
 }
 
-// Loudness is the node's answer: each track's measurements, or why there are none.
-type Loudness struct {
+// LoudnessResult is the node's answer: each track's measurements, or why there are none.
+type LoudnessResult struct {
 	JobID  int64           `json:"jobId"`
 	Tracks []TrackLoudness `json:"tracks,omitempty"`
 	// Failure is FFmpeg's word that it could not measure the file: a fact about its bytes, which

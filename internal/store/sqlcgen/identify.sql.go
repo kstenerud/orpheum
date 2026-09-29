@@ -113,12 +113,12 @@ func (q *Queries) GetOrdering(ctx context.Context, arg GetOrderingParams) (int64
 	return id, err
 }
 
-const getTitleIdent = `-- name: GetTitleIdent :one
+const getTitleIdentification = `-- name: GetTitleIdentification :one
 SELECT identification_state FROM title WHERE id = ?
 `
 
-func (q *Queries) GetTitleIdent(ctx context.Context, id int64) (string, error) {
-	row := q.db.QueryRowContext(ctx, getTitleIdent, id)
+func (q *Queries) GetTitleIdentification(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getTitleIdentification, id)
 	var identification_state string
 	err := row.Scan(&identification_state)
 	return identification_state, err
@@ -303,43 +303,6 @@ func (q *Queries) InsertVersion(ctx context.Context, arg InsertVersionParams) (i
 	var id int64
 	err := row.Scan(&id)
 	return id, err
-}
-
-const listEpisodesOfSeries = `-- name: ListEpisodesOfSeries :many
-SELECT position.title_id, position.group_number, position.number_in_group
-FROM position
-JOIN ordering ON ordering.id = position.ordering_id
-WHERE ordering.collection_id = ? AND ordering.name = 'aired'
-ORDER BY position.sort_order
-`
-
-type ListEpisodesOfSeriesRow struct {
-	TitleID       int64
-	GroupNumber   *int64
-	NumberInGroup *int64
-}
-
-func (q *Queries) ListEpisodesOfSeries(ctx context.Context, collectionID int64) ([]ListEpisodesOfSeriesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listEpisodesOfSeries, collectionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListEpisodesOfSeriesRow{}
-	for rows.Next() {
-		var i ListEpisodesOfSeriesRow
-		if err := rows.Scan(&i.TitleID, &i.GroupNumber, &i.NumberInGroup); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const listFileTitles = `-- name: ListFileTitles :many
@@ -654,6 +617,43 @@ func (q *Queries) ListOverrides(ctx context.Context, itemID int64) ([]ListOverri
 	return items, nil
 }
 
+const listSeriesEpisodePlaces = `-- name: ListSeriesEpisodePlaces :many
+SELECT position.title_id, position.group_number, position.number_in_group
+FROM position
+JOIN ordering ON ordering.id = position.ordering_id
+WHERE ordering.collection_id = ? AND ordering.name = 'aired'
+ORDER BY position.sort_order
+`
+
+type ListSeriesEpisodePlacesRow struct {
+	TitleID       int64
+	GroupNumber   *int64
+	NumberInGroup *int64
+}
+
+func (q *Queries) ListSeriesEpisodePlaces(ctx context.Context, collectionID int64) ([]ListSeriesEpisodePlacesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeriesEpisodePlaces, collectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSeriesEpisodePlacesRow{}
+	for rows.Next() {
+		var i ListSeriesEpisodePlacesRow
+		if err := rows.Scan(&i.TitleID, &i.GroupNumber, &i.NumberInGroup); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTitlesByProviderID = `-- name: ListTitlesByProviderID :many
 SELECT title.id, item.library_id, title.identification_state, title.kind
 FROM item_provider_id
@@ -746,17 +746,17 @@ func (q *Queries) SetFileFiling(ctx context.Context, arg SetFileFilingParams) er
 	return err
 }
 
-const setFileVersion = `-- name: SetFileVersion :exec
+const setFileVersionAndIdentifiedPath = `-- name: SetFileVersionAndIdentifiedPath :exec
 UPDATE file SET version_id = ?1, identified_from_path = path WHERE id = ?2
 `
 
-type SetFileVersionParams struct {
+type SetFileVersionAndIdentifiedPathParams struct {
 	VersionID *int64
 	ID        int64
 }
 
-func (q *Queries) SetFileVersion(ctx context.Context, arg SetFileVersionParams) error {
-	_, err := q.db.ExecContext(ctx, setFileVersion, arg.VersionID, arg.ID)
+func (q *Queries) SetFileVersionAndIdentifiedPath(ctx context.Context, arg SetFileVersionAndIdentifiedPathParams) error {
+	_, err := q.db.ExecContext(ctx, setFileVersionAndIdentifiedPath, arg.VersionID, arg.ID)
 	return err
 }
 

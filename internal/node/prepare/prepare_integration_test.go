@@ -75,7 +75,7 @@ func TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentr
 	}
 	film := surroundFilm(t, runner)
 	directory := t.TempDir()
-	preparer, err := prepare.New(runner, directory, roomy{}, prepare.EncoderX264)
+	preparer, err := prepare.New(runner, directory, roomyKeeper{}, prepare.EncoderX264)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentr
 		t.Errorf("size %d and progress %d ms; want the rendition's bytes and progress to near 8 s",
 			made.SizeBytes, preparedMs)
 	}
-	if made.Speed <= 0 || made.VideoEncoder != "copy" {
+	if made.RealtimeFactor <= 0 || made.VideoEncoder != "copy" {
 		t.Errorf("the remux made %+v; want its video copied, at the speed the pinned FFmpeg said (D225 §3)", made)
 	}
 

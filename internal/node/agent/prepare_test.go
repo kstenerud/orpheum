@@ -29,20 +29,20 @@ func (fakePreparer) Prepare(
 		<-ctx.Done()
 		return prepare.Made{}, ctx.Err()
 	}
-	return prepare.Made{SizeBytes: int64(len(input)), VideoEncoder: "h264_qsv", Speed: 6.5}, nil
+	return prepare.Made{SizeBytes: int64(len(input)), VideoEncoder: "h264_qsv", RealtimeFactor: 6.5}, nil
 }
 
-// patience is how long a test waits for the node's answer before it fails, so a report that
+// answerTimeout is how long a test waits for the node's answer before it fails, so a report that
 // never comes fails the test in seconds rather than at the suite's deadline.
-const patience = 10 * time.Second
+const answerTimeout = 10 * time.Second
 
-// nextReport is the core's next report from a prepare.
-func nextReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
+// nextPrepareReport is the core's next report from a prepare.
+func nextPrepareReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
 	t.Helper()
-	ctx, stop := context.WithTimeout(t.Context(), patience)
+	ctx, stop := context.WithTimeout(t.Context(), answerTimeout)
 	defer stop()
 	select {
-	case report := <-core.prepared:
+	case report := <-core.prepareReports:
 		return report
 	case <-ctx.Done():
 		t.Fatal("no prepare report reached the core")
@@ -50,11 +50,11 @@ func nextReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
 	return nodeproto.PrepareReport{}
 }
 
-// finalReport is the core's last word from a prepare: done or failed, past any waiting or running.
-func finalReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
+// finalPrepareReport is the core's last word from a prepare: done or failed, past any waiting or running.
+func finalPrepareReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
 	t.Helper()
 	for {
-		report := nextReport(t, core)
+		report := nextPrepareReport(t, core)
 		if report.State != nodeproto.PrepareRunning && report.State != nodeproto.PrepareWaiting {
 			return report
 		}
@@ -64,11 +64,11 @@ func finalReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
 func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	root, _ := running(t, socket)
+	root, _ := startAgent(t, socket)
 	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	identity, err := hash.Payload(strings.NewReader("a film"), 6)
+	identity, err := hash.PayloadIdentity(strings.NewReader("a film"), 6)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 		}}
 	}
 	send(1, source)
-	done := finalReport(t, core)
+	done := finalPrepareReport(t, core)
 	wantInput := root.Path() + "/film.mkv"
 	if done.JobID != 1 || done.State != nodeproto.PrepareDone || done.SizeBytes != int64(len(wantInput)) ||
 		done.VideoEncoder != "h264_qsv" || done.RealtimeFactor != 6.5 {
@@ -91,14 +91,14 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 	changed := source
 	changed.PayloadHash = strings.Repeat("0", 64)
 	send(2, changed)
-	if refused := finalReport(t, core); refused.State != nodeproto.PrepareFailed ||
+	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareFailed ||
 		!strings.Contains(refused.Failure, "not the one named") {
 		t.Errorf("a prepare of a changed file ended %+v, want refused", refused)
 	}
 	elsewhere := source
 	elsewhere.RootPath = t.TempDir()
 	send(3, elsewhere)
-	if refused := finalReport(t, core); refused.State != nodeproto.PrepareFailed ||
+	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareFailed ||
 		!strings.Contains(refused.Failure, "none of this node's roots") {
 		t.Errorf("a prepare under another root ended %+v, want refused", refused)
 	}
@@ -107,11 +107,11 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	root, _ := running(t, socket)
+	root, _ := startAgent(t, socket)
 	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	identity, err := hash.Payload(strings.NewReader("a film"), 6)
+	identity, err := hash.PayloadIdentity(strings.NewReader("a film"), 6)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 	core.commands <- commandFor(1, "3/remux/slow")
 	core.commands <- commandFor(2, "4/remux/slow")
 	for range 2 {
-		if started := nextReport(t, core); started.State != nodeproto.PrepareRunning {
+		if started := nextPrepareReport(t, core); started.State != nodeproto.PrepareRunning {
 			t.Fatalf("a slow prepare's first report = %+v, want running", started)
 		}
 	}
@@ -136,7 +136,7 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 		Cancel: &nodeproto.Cancel{JobID: 1},
 	}
 	core.commands <- commandFor(4, "5/remux/0123456789abcdef")
-	if next := finalReport(t, core); next.JobID != 4 || next.State != nodeproto.PrepareDone {
+	if next := finalPrepareReport(t, core); next.JobID != 4 || next.State != nodeproto.PrepareDone {
 		t.Errorf("the next final report = %+v, want job 4 done and nothing for the cancelled job 1", next)
 	}
 }
@@ -144,11 +144,11 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	root, tick := running(t, socket)
+	root, tick := startAgent(t, socket)
 	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	identity, err := hash.Payload(strings.NewReader("a film"), 6)
+	identity, err := hash.PayloadIdentity(strings.NewReader("a film"), 6)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,22 +162,22 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 	}
 	// One encode slot: the first encode runs, the second waits for it.
 	core.commands <- encode(1, "3/h264-8m/slow")
-	if first := nextReport(t, core); first.JobID != 1 || first.State != nodeproto.PrepareRunning {
+	if first := nextPrepareReport(t, core); first.JobID != 1 || first.State != nodeproto.PrepareRunning {
 		t.Fatalf("the first encode's report = %+v, want running", first)
 	}
 	core.commands <- encode(2, "4/h264-8m/0123456789abcdef")
-	if waiting := nextReport(t, core); waiting.JobID != 2 || waiting.State != nodeproto.PrepareWaiting {
+	if waiting := nextPrepareReport(t, core); waiting.JobID != 2 || waiting.State != nodeproto.PrepareWaiting {
 		t.Fatalf("the second encode's report = %+v, want waiting, at once", waiting)
 	}
 	tick <- time.Time{}
-	if again := nextReport(t, core); again.JobID != 2 || again.State != nodeproto.PrepareWaiting {
+	if again := nextPrepareReport(t, core); again.JobID != 2 || again.State != nodeproto.PrepareWaiting {
 		t.Errorf("at the next tick = %+v, want waiting again, so the core keeps waiting", again)
 	}
 	core.commands <- nodeproto.Command{
 		CommandSeq: 3, Type: nodeproto.CommandCancel,
 		Cancel: &nodeproto.Cancel{JobID: 1},
 	}
-	if done := finalReport(t, core); done.JobID != 2 || done.State != nodeproto.PrepareDone {
+	if done := finalPrepareReport(t, core); done.JobID != 2 || done.State != nodeproto.PrepareDone {
 		t.Errorf("once the slot is free = %+v, want the second encode done", done)
 	}
 }

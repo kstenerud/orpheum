@@ -14,9 +14,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// outputLimit bounds what ffprobe may write for one file. Real output is tens of kilobytes; a
+// maxOutputBytes bounds what ffprobe may write for one file. Real output is tens of kilobytes; a
 // file that makes ffprobe say more is hostile or broken, and is refused.
-const outputLimit = 16 << 20
+const maxOutputBytes = 16 << 20
 
 // Prober runs ffprobe on one file at a time, through execx.
 type Prober struct {
@@ -50,7 +50,7 @@ func (prober *Prober) Probe(ctx context.Context, absolutePath string) (nodeproto
 	ctx, cancel := context.WithTimeout(ctx, prober.timeout)
 	defer cancel()
 	output, err := prober.runner.Run(ctx, execx.FFprobe, confine.Access{Read: []string{absolutePath}},
-		arguments(absolutePath), outputLimit)
+		arguments(absolutePath), maxOutputBytes)
 	if err != nil {
 		return nodeproto.Probe{}, fmt.Errorf("probe %s: %w", absolutePath, err)
 	}
@@ -63,5 +63,5 @@ func Parse(output []byte) (nodeproto.Probe, error) {
 	if err := json.Unmarshal(output, &raw); err != nil {
 		return nodeproto.Probe{}, fmt.Errorf("ffprobe's output is not the JSON it promised: %w", err)
 	}
-	return raw.record()
+	return raw.toProbe()
 }

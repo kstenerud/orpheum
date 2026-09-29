@@ -26,7 +26,7 @@ func (work *run) matchEvidence(ctx context.Context, titleID int64, spec *titleSp
 	if spec.kind == kindEpisode {
 		return nil // an episode's evidence is its series' listing, read where it is filed (D209)
 	}
-	match, err := store.One(work.queries.GetTitleForMatch(ctx, titleID))
+	match, err := store.OrNotFound(work.queries.GetTitleForMatch(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
 	}

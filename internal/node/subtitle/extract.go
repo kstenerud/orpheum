@@ -18,11 +18,11 @@ const MaxTextBytes = 16 << 20
 // Runner runs FFmpeg and returns its stdout: execx.Runner.
 type Runner interface {
 	Run(
-		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, stdoutLimit int,
+		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, stdoutLimitBytes int,
 	) ([]byte, error)
 	RunInput(
 		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, input []byte,
-		stdoutLimit int,
+		stdoutLimitBytes int,
 	) ([]byte, error)
 }
 
@@ -53,8 +53,9 @@ func (extractor *Extractor) ExtractTrack(ctx context.Context, videoPath string, 
 	return extractor.withVTT(ctx, ass)
 }
 
-// ConvertFile converts a subtitle file's bytes, in any text format FFmpeg recognises.
-func (extractor *Extractor) ConvertFile(ctx context.Context, source []byte) (Text, error) {
+// ConvertText converts a subtitle's text — a sidecar's bytes or a fetched subtitle's — in any
+// text format FFmpeg recognises.
+func (extractor *Extractor) ConvertText(ctx context.Context, source []byte) (Text, error) {
 	ass, err := extractor.runner.RunInput(ctx, execx.FFmpeg, confine.Access{},
 		arguments("pipe", "pipe:0", "0:s:0", codecASS), source, MaxTextBytes)
 	if err != nil {
@@ -82,7 +83,7 @@ const (
 // arguments read input with only protocol allowed, and write the stream mapping names, as codec,
 // to stdout. When inputFormat is given, it names the input's format rather than letting FFmpeg
 // guess.
-func arguments(protocol, input, mapping, codec string, inputFormat ...string) []string {
-	read := append([]string{"-v", "error", "-protocol_whitelist", protocol}, inputFormat...)
+func arguments(protocol, input, mapping, codec string, inputFormatArguments ...string) []string {
+	read := append([]string{"-v", "error", "-protocol_whitelist", protocol}, inputFormatArguments...)
 	return append(read, "-i", input, "-map", mapping, "-c:s", codec, "-f", codec, "pipe:1")
 }

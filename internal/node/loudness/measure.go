@@ -17,14 +17,14 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// logBytes is how much of FFmpeg's log a measurement keeps: its end, where each ebur128 filter
+// maxLogBytes is how much of FFmpeg's log a measurement keeps: its end, where each ebur128 filter
 // writes a summary of about 400 bytes as it closes; enough for a file with dozens of tracks.
-const logBytes = 64 << 10
+const maxLogBytes = 64 << 10
 
 // Runner runs FFmpeg and returns the end of its log: execx.Runner.
 type Runner interface {
 	RunLogged(
-		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, logLimit int,
+		ctx context.Context, tool execx.Tool, access confine.Access, arguments []string, logLimitBytes int,
 	) (string, error)
 }
 
@@ -54,52 +54,52 @@ func (measurer *Measurer) Measure(
 		return nil, errors.New("no audio tracks to measure")
 	}
 	logged, err := measurer.runner.RunLogged(ctx, execx.FFmpeg, confine.Access{Read: []string{videoPath}},
-		arguments(videoPath, tracks), logBytes)
+		arguments(videoPath, tracks), maxLogBytes)
 	if err != nil {
 		return nil, fmt.Errorf("measure the loudness: %w", err)
 	}
 	summaries := parseSummaries(logged)
 	measured := make([]nodeproto.TrackLoudness, 0, len(tracks))
 	for _, track := range tracks {
-		stereo, found := summaries[instance(mixStereo, track.StreamIndex)]
+		stereo, found := summaries[filterInstanceName(mixStereo, track.StreamIndex)]
 		if !found {
 			return nil, fmt.Errorf("FFmpeg gave no loudness for stream %d", track.StreamIndex)
 		}
-		result := nodeproto.TrackLoudness{StreamIndex: track.StreamIndex, Stereo: stereo}
+		trackLoudness := nodeproto.TrackLoudness{StreamIndex: track.StreamIndex, Stereo: stereo}
 		if track.ChannelCount > 2 {
-			multichannel, isFound := summaries[instance(mixMultichannel, track.StreamIndex)]
+			multichannel, isFound := summaries[filterInstanceName(mixMultichannel, track.StreamIndex)]
 			if !isFound {
 				return nil, fmt.Errorf("FFmpeg gave no loudness for stream %d as its multichannel sound",
 					track.StreamIndex)
 			}
-			result.Multichannel = &multichannel
+			trackLoudness.Multichannel = &multichannel
 		}
-		measured = append(measured, result)
+		measured = append(measured, trackLoudness)
 	}
 	return measured, nil
 }
 
-// instance names one ebur128 filter, which its summary in the log carries: "stereo_3".
-func instance(sound string, streamIndex int) string {
+// filterInstanceName names one ebur128 filter, which its summary in the log carries: "stereo_3".
+func filterInstanceName(sound string, streamIndex int) string {
 	return sound + "_" + strconv.Itoa(streamIndex)
 }
 
 // arguments read the video as a local file only and send each sound through its own ebur128
 // filter, measuring the true peak, into the null muxer.
 func arguments(videoPath string, tracks []nodeproto.LoudnessTrack) []string {
-	const measure = "=peak=true:framelog=quiet"
+	const ebur128Options = "=peak=true:framelog=quiet"
 	var graph, maps []string
 	for _, track := range tracks {
-		input, stereo := "[0:"+strconv.Itoa(track.StreamIndex)+"]", instance(mixStereo, track.StreamIndex)
+		input, stereo := "[0:"+strconv.Itoa(track.StreamIndex)+"]", filterInstanceName(mixStereo, track.StreamIndex)
 		if track.ChannelCount > 2 {
-			multichannel := instance(mixMultichannel, track.StreamIndex)
+			multichannel := filterInstanceName(mixMultichannel, track.StreamIndex)
 			graph = append(graph,
 				input+"asplit=2["+multichannel+"_in]["+stereo+"_in]",
-				"["+multichannel+"_in]ebur128@"+multichannel+measure+"["+multichannel+"]",
-				"["+stereo+"_in]"+prepare.StandardMix+",ebur128@"+stereo+measure+"["+stereo+"]")
+				"["+multichannel+"_in]ebur128@"+multichannel+ebur128Options+"["+multichannel+"]",
+				"["+stereo+"_in]"+prepare.StandardMix+",ebur128@"+stereo+ebur128Options+"["+stereo+"]")
 			maps = append(maps, "-map", "["+multichannel+"]")
 		} else {
-			graph = append(graph, input+prepare.StereoMix+",ebur128@"+stereo+measure+"["+stereo+"]")
+			graph = append(graph, input+prepare.StereoAsIsMix+",ebur128@"+stereo+ebur128Options+"["+stereo+"]")
 		}
 		maps = append(maps, "-map", "["+stereo+"]")
 	}
@@ -113,10 +113,10 @@ func arguments(videoPath string, tracks []nodeproto.LoudnessTrack) []string {
 
 // The lines of an ebur128 summary that a measurement reads. FFmpeg labels the true peak dBFS.
 var (
-	summaryStart = regexp.MustCompile(`\[ebur128@(\w+) @ [^\]]*\] Summary:`)
-	integrated   = regexp.MustCompile(`(?m)^\s+I:\s+(-?[0-9.]+) LUFS`)
-	loudRange    = regexp.MustCompile(`(?m)^\s+LRA:\s+(-?[0-9.]+) LU`)
-	truePeak     = regexp.MustCompile(`(?m)^\s+Peak:\s+(-?[0-9.]+|-inf) dBFS`)
+	summaryStart      = regexp.MustCompile(`\[ebur128@(\w+) @ [^\]]*\] Summary:`)
+	integratedPattern = regexp.MustCompile(`(?m)^\s+I:\s+(-?[0-9.]+) LUFS`)
+	rangePattern      = regexp.MustCompile(`(?m)^\s+LRA:\s+(-?[0-9.]+) LU`)
+	truePeakPattern   = regexp.MustCompile(`(?m)^\s+Peak:\s+(-?[0-9.]+|-inf) dBFS`)
 )
 
 // parseSummaries reads each ebur128 filter's summary from the log, by the filter's name. A
@@ -140,8 +140,8 @@ func parseSummaries(logged string) map[string]nodeproto.Measurement {
 
 // parseSummary reads one summary: its integrated loudness, range and true peak.
 func parseSummary(block string) (nodeproto.Measurement, bool) {
-	integratedMatch, rangeMatch, peakMatch := integrated.FindStringSubmatch(block),
-		loudRange.FindStringSubmatch(block), truePeak.FindStringSubmatch(block)
+	integratedMatch, rangeMatch, peakMatch := integratedPattern.FindStringSubmatch(block),
+		rangePattern.FindStringSubmatch(block), truePeakPattern.FindStringSubmatch(block)
 	if integratedMatch == nil || rangeMatch == nil || peakMatch == nil {
 		return nodeproto.Measurement{}, false
 	}

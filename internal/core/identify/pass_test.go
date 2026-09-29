@@ -43,7 +43,7 @@ type world struct {
 
 func newWorld(t *testing.T, kind, source string) *world {
 	t.Helper()
-	database := storetest.Open(t)
+	database := storetest.OpenMigrated(t)
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	logger := slog.New(slog.DiscardHandler)
 	provider := newFakeProvider()
@@ -230,7 +230,7 @@ func TestPass_ASeriesFromItsFoldersAndItsTvshowNFO(t *testing.T) {
 	if err != nil || len(series) != 1 || series[0].Name == nil || *series[0].Name != "Test Show" {
 		t.Fatalf("series %+v, %v, want Test Show", series, err)
 	}
-	episodes, err := lib.database.Read().ListEpisodesOfSeries(t.Context(), series[0].ID)
+	episodes, err := lib.database.Read().ListSeriesEpisodePlaces(t.Context(), series[0].ID)
 	if err != nil || len(episodes) != 2 || *episodes[0].NumberInGroup != 1 || *episodes[1].NumberInGroup != 2 {
 		t.Errorf("aired order %+v, %v, want episodes 1 and 2", episodes, err)
 	}

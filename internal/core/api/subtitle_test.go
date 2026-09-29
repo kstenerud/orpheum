@@ -64,7 +64,7 @@ func (harness testHarness) extract(
 func (harness testHarness) extractedText(t *testing.T, payloadHash []byte, streamIndex int64, text string) {
 	t.Helper()
 	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
-		err := queries.WantSubtitleText(t.Context(), cachegen.WantSubtitleTextParams{
+		err := queries.RequestSubtitleText(t.Context(), cachegen.RequestSubtitleTextParams{
 			BytesPayloadHash: payloadHash, StreamIndex: streamIndex, CreatedAt: 1,
 		})
 		if err != nil {

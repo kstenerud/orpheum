@@ -54,13 +54,13 @@ func checkForeignKeys(ctx context.Context, connection *sql.Conn) (err error) {
 // readSequences returns sqlite_sequence as a map; it is empty before any AUTOINCREMENT table.
 func readSequences(ctx context.Context, connection *sql.Conn) (sequences map[string]int64, err error) {
 	sequences = map[string]int64{}
-	var exists int64
+	var sqliteSequenceCount int64
 	const findTable = "SELECT count(*) FROM sqlite_schema WHERE type = 'table' AND name = 'sqlite_sequence'"
-	err = connection.QueryRowContext(ctx, findTable).Scan(&exists)
+	err = connection.QueryRowContext(ctx, findTable).Scan(&sqliteSequenceCount)
 	if err != nil {
 		return nil, fmt.Errorf("look for sqlite_sequence: %w", err)
 	}
-	if exists == 0 {
+	if sqliteSequenceCount == 0 {
 		return sequences, nil
 	}
 	rows, err := connection.QueryContext(ctx, "SELECT name, seq FROM sqlite_sequence")

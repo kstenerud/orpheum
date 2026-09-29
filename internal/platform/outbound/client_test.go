@@ -16,7 +16,7 @@ func TestNewClient_TakesNoProxyFromTheEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrapped, ok := client.Transport.(identified)
+	wrapped, ok := client.Transport.(userAgentTransport)
 	if !ok {
 		t.Fatalf("transport is %T, want our identified transport", client.Transport)
 	}

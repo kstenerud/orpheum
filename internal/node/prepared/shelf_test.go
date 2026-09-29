@@ -38,20 +38,20 @@ func shelfWith(t *testing.T, budget Budget, diskPercent *int, runs map[string]st
 		}
 	}
 	shelf := New(directory, budget, clocktest.NewFake(now))
-	shelf.diskPercent = func(string) (int, error) { return *diskPercent, nil }
+	shelf.diskUsedPercent = func(string) (int, error) { return *diskPercent, nil }
 	return shelf
 }
 
-// left are the run directories still on the shelf, sorted.
-func left(t *testing.T, shelf *Shelf) []string {
+// remainingRunDirs are the run directories still on the shelf, sorted.
+func remainingRunDirs(t *testing.T, shelf *Shelf) []string {
 	t.Helper()
-	runs, err := shelf.runs()
+	runs, err := shelf.listRuns()
 	if err != nil {
 		t.Fatal(err)
 	}
 	dirs := make([]string, 0, len(runs))
 	for _, each := range runs {
-		dirs = append(dirs, each.dir)
+		dirs = append(dirs, each.renditionDir)
 	}
 	slices.Sort(dirs)
 	return dirs
@@ -60,7 +60,7 @@ func left(t *testing.T, shelf *Shelf) []string {
 func TestEvict_RemovesTheLeastRecentlyUsedPastTheGraceFirstAndNeverOneBeingWritten(t *testing.T) {
 	t.Parallel()
 	disk := 50
-	budget := Budget{MaxBytes: 250, Grace: 72 * time.Hour, MaxDiskPercent: 95}
+	budget := Budget{MaxBytes: 250, Grace: 72 * time.Hour, DiskUsedLimitPercent: 95}
 	shelf := shelfWith(t, budget, &disk, map[string]struct {
 		bytes int
 		ago   time.Duration
@@ -70,7 +70,7 @@ func TestEvict_RemovesTheLeastRecentlyUsedPastTheGraceFirstAndNeverOneBeingWritt
 		"3/remux/cccccccccccccccc":   {100, 1 * time.Hour},       // within its grace, least recent within
 		"4/h264-8m/dddddddddddddddd": {100, 10 * time.Minute},    // within its grace
 	})
-	done := shelf.Writing("1/remux/aaaaaaaaaaaaaaaa")
+	done := shelf.MarkWriting("1/remux/aaaaaaaaaaaaaaaa")
 	defer done()
 	usage, err := shelf.Evict()
 	if err != nil {
@@ -79,8 +79,8 @@ func TestEvict_RemovesTheLeastRecentlyUsedPastTheGraceFirstAndNeverOneBeingWritt
 	// 400 bytes against 250: the one past its grace goes; the one being written stays; then the
 	// least recent within its grace, as the budget still needs it.
 	want := []string{"1/remux/aaaaaaaaaaaaaaaa", "4/h264-8m/dddddddddddddddd"}
-	if got := left(t, shelf); !slices.Equal(got, want) || usage.Bytes != 200 {
-		t.Errorf("left %v with %d bytes, want %v with 200 (D217 §5)", got, usage.Bytes, want)
+	if got := remainingRunDirs(t, shelf); !slices.Equal(got, want) || usage.UsedBytes != 200 {
+		t.Errorf("left %v with %d bytes, want %v with 200 (D217 §5)", got, usage.UsedBytes, want)
 	}
 	if _, err := os.Stat(filepath.Join(shelf.directory, "2")); !os.IsNotExist(err) {
 		t.Errorf("an evicted run's empty file folder is still there: %v", err)
@@ -90,7 +90,7 @@ func TestEvict_RemovesTheLeastRecentlyUsedPastTheGraceFirstAndNeverOneBeingWritt
 func TestEvict_ADiskPastItsLimitEvictsWhateverTheBudgetSays(t *testing.T) {
 	t.Parallel()
 	disk := 97
-	budget := Budget{MaxBytes: 1 << 30, Grace: 72 * time.Hour, MaxDiskPercent: 95}
+	budget := Budget{MaxBytes: 1 << 30, Grace: 72 * time.Hour, DiskUsedLimitPercent: 95}
 	shelf := shelfWith(t, budget, &disk, map[string]struct {
 		bytes int
 		ago   time.Duration
@@ -98,8 +98,8 @@ func TestEvict_ADiskPastItsLimitEvictsWhateverTheBudgetSays(t *testing.T) {
 		"1/remux/aaaaaaaaaaaaaaaa": {100, 5 * 24 * time.Hour},
 		"2/remux/bbbbbbbbbbbbbbbb": {100, 1 * time.Hour},
 	})
-	shelf.diskPercent = func(string) (int, error) {
-		if len(left(t, shelf)) < 2 {
+	shelf.diskUsedPercent = func(string) (int, error) {
+		if len(remainingRunDirs(t, shelf)) < 2 {
 			return 90, nil // one eviction brings the disk under its limit
 		}
 		return disk, nil
@@ -107,7 +107,7 @@ func TestEvict_ADiskPastItsLimitEvictsWhateverTheBudgetSays(t *testing.T) {
 	if _, err := shelf.Evict(); err != nil {
 		t.Fatal(err)
 	}
-	if got := left(t, shelf); !slices.Equal(got, []string{"2/remux/bbbbbbbbbbbbbbbb"}) {
+	if got := remainingRunDirs(t, shelf); !slices.Equal(got, []string{"2/remux/bbbbbbbbbbbbbbbb"}) {
 		t.Errorf("left %v, want the older one evicted for the disk, though within the budget", got)
 	}
 }
@@ -115,31 +115,31 @@ func TestEvict_ADiskPastItsLimitEvictsWhateverTheBudgetSays(t *testing.T) {
 func TestRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict(t *testing.T) {
 	t.Parallel()
 	disk := 99
-	shelf := shelfWith(t, Budget{MaxBytes: 1 << 30, Grace: time.Hour, MaxDiskPercent: 95}, &disk, nil)
-	if err := shelf.Room(); !errors.Is(err, ErrNoRoom) {
-		t.Errorf("Room with the disk 99%% full and nothing to evict: %v, want ErrNoRoom", err)
+	shelf := shelfWith(t, Budget{MaxBytes: 1 << 30, Grace: time.Hour, DiskUsedLimitPercent: 95}, &disk, nil)
+	if err := shelf.MakeRoom(); !errors.Is(err, ErrNoRoom) {
+		t.Errorf("MakeRoom with the disk 99%% full and nothing to evict: %v, want ErrNoRoom", err)
 	}
 	disk = 50
-	if err := shelf.Room(); err != nil {
-		t.Errorf("Room with the disk half full: %v, want room", err)
+	if err := shelf.MakeRoom(); err != nil {
+		t.Errorf("MakeRoom with the disk half full: %v, want room", err)
 	}
 }
 
 func TestServed_MakesARenditionTheMostRecentlyUsed(t *testing.T) {
 	t.Parallel()
 	disk := 50
-	shelf := shelfWith(t, Budget{MaxBytes: 100, Grace: time.Hour, MaxDiskPercent: 95}, &disk, map[string]struct {
+	shelf := shelfWith(t, Budget{MaxBytes: 100, Grace: time.Hour, DiskUsedLimitPercent: 95}, &disk, map[string]struct {
 		bytes int
 		ago   time.Duration
 	}{
 		"1/remux/aaaaaaaaaaaaaaaa": {100, 5 * time.Hour},
 		"2/remux/bbbbbbbbbbbbbbbb": {100, 2 * time.Hour},
 	})
-	shelf.Served("1/remux/aaaaaaaaaaaaaaaa") // played now: the other is the least recently used
+	shelf.MarkServed("1/remux/aaaaaaaaaaaaaaaa") // played now: the other is the least recently used
 	if _, err := shelf.Evict(); err != nil {
 		t.Fatal(err)
 	}
-	if got := left(t, shelf); !slices.Equal(got, []string{"1/remux/aaaaaaaaaaaaaaaa"}) {
+	if got := remainingRunDirs(t, shelf); !slices.Equal(got, []string{"1/remux/aaaaaaaaaaaaaaaa"}) {
 		t.Errorf("left %v, want the one just served kept", got)
 	}
 }

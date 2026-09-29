@@ -151,38 +151,6 @@ func (q *Queries) GetJob(ctx context.Context, id int64) (Job, error) {
 	return i, err
 }
 
-const hasJob = `-- name: HasJob :one
-SELECT EXISTS (
-  SELECT 1 FROM job WHERE kind = ?1 AND item_id IS ?2 AND rendition_id IS ?3 AND stream_id IS ?4
-  AND fetched_subtitle_id IS ?5 AND file_id IS ?6
-) AS found
-`
-
-type HasJobParams struct {
-	Kind              string
-	ItemID            *int64
-	RenditionID       *int64
-	StreamID          *int64
-	FetchedSubtitleID *int64
-	FileID            *int64
-}
-
-// Whether any job of this kind was ever queued for this target: a first fetch happens once
-// (D170), and a later one is a person's request.
-func (q *Queries) HasJob(ctx context.Context, arg HasJobParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, hasJob,
-		arg.Kind,
-		arg.ItemID,
-		arg.RenditionID,
-		arg.StreamID,
-		arg.FetchedSubtitleID,
-		arg.FileID,
-	)
-	var found bool
-	err := row.Scan(&found)
-	return found, err
-}
-
 const insertJob = `-- name: InsertJob :one
 
 INSERT INTO job (kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, args_json, priority, runnable_at, reason,
@@ -370,4 +338,36 @@ func (q *Queries) StartJob(ctx context.Context, id int64) (int64, error) {
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const wasJobEverQueued = `-- name: WasJobEverQueued :one
+SELECT EXISTS (
+  SELECT 1 FROM job WHERE kind = ?1 AND item_id IS ?2 AND rendition_id IS ?3 AND stream_id IS ?4
+  AND fetched_subtitle_id IS ?5 AND file_id IS ?6
+) AS found
+`
+
+type WasJobEverQueuedParams struct {
+	Kind              string
+	ItemID            *int64
+	RenditionID       *int64
+	StreamID          *int64
+	FetchedSubtitleID *int64
+	FileID            *int64
+}
+
+// Whether any job of this kind was ever queued for this target: a first fetch happens once
+// (D170), and a later one is a person's request.
+func (q *Queries) WasJobEverQueued(ctx context.Context, arg WasJobEverQueuedParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, wasJobEverQueued,
+		arg.Kind,
+		arg.ItemID,
+		arg.RenditionID,
+		arg.StreamID,
+		arg.FetchedSubtitleID,
+		arg.FileID,
+	)
+	var found bool
+	err := row.Scan(&found)
+	return found, err
 }

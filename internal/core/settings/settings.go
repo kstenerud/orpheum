@@ -194,7 +194,7 @@ func (service *Service) read(ctx context.Context, key Key, kind Kind, target any
 		return fmt.Errorf("%s is a %s %s setting, read as a %s server one: %w",
 			key, definition.Scope, definition.Kind, kind, ErrWrongKind)
 	}
-	row, err := store.One(service.database.Read().GetServerSetting(ctx, string(key)))
+	row, err := store.OrNotFound(service.database.Read().GetServerSetting(ctx, string(key)))
 	if errors.Is(err, store.ErrNotFound) {
 		if healErr := service.heal(ctx, definition); healErr != nil {
 			return healErr

@@ -9,17 +9,17 @@ import (
 	"context"
 )
 
-const getLiveDeviceOf = `-- name: GetLiveDeviceOf :one
+const getLiveDeviceOfUser = `-- name: GetLiveDeviceOfUser :one
 SELECT id, name, platform, audio_output FROM device
 WHERE id = ?1 AND user_id = ?2 AND removed_at IS NULL
 `
 
-type GetLiveDeviceOfParams struct {
+type GetLiveDeviceOfUserParams struct {
 	ID     int64
 	UserID *int64
 }
 
-type GetLiveDeviceOfRow struct {
+type GetLiveDeviceOfUserRow struct {
 	ID          int64
 	Name        string
 	Platform    string
@@ -27,9 +27,9 @@ type GetLiveDeviceOfRow struct {
 }
 
 // One of a person's devices, when it is theirs and has not been removed.
-func (q *Queries) GetLiveDeviceOf(ctx context.Context, arg GetLiveDeviceOfParams) (GetLiveDeviceOfRow, error) {
-	row := q.db.QueryRowContext(ctx, getLiveDeviceOf, arg.ID, arg.UserID)
-	var i GetLiveDeviceOfRow
+func (q *Queries) GetLiveDeviceOfUser(ctx context.Context, arg GetLiveDeviceOfUserParams) (GetLiveDeviceOfUserRow, error) {
+	row := q.db.QueryRowContext(ctx, getLiveDeviceOfUser, arg.ID, arg.UserID)
+	var i GetLiveDeviceOfUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -78,7 +78,7 @@ func (q *Queries) InsertDevice(ctx context.Context, arg InsertDeviceParams) (int
 	return id, err
 }
 
-const listLiveDevicesOf = `-- name: ListLiveDevicesOf :many
+const listLiveDevicesOfUser = `-- name: ListLiveDevicesOfUser :many
 SELECT device.id, device.name, device.platform, device.audio_output, device.added_at,
   CAST(coalesce(max("grant".last_seen_at), device.added_at) AS INTEGER) AS last_used_at,
   CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > ?1)), 0) AS INTEGER) AS is_signed_in
@@ -89,12 +89,12 @@ GROUP BY device.id
 ORDER BY last_used_at DESC, device.id DESC
 `
 
-type ListLiveDevicesOfParams struct {
+type ListLiveDevicesOfUserParams struct {
 	Now    *int64
 	UserID *int64
 }
 
-type ListLiveDevicesOfRow struct {
+type ListLiveDevicesOfUserRow struct {
 	ID          int64
 	Name        string
 	Platform    string
@@ -106,15 +106,15 @@ type ListLiveDevicesOfRow struct {
 
 // A person's devices, most recently used first: when each was last used, by the latest use of any
 // of its sessions, and whether any is still live.
-func (q *Queries) ListLiveDevicesOf(ctx context.Context, arg ListLiveDevicesOfParams) ([]ListLiveDevicesOfRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLiveDevicesOf, arg.Now, arg.UserID)
+func (q *Queries) ListLiveDevicesOfUser(ctx context.Context, arg ListLiveDevicesOfUserParams) ([]ListLiveDevicesOfUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveDevicesOfUser, arg.Now, arg.UserID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListLiveDevicesOfRow{}
+	items := []ListLiveDevicesOfUserRow{}
 	for rows.Next() {
-		var i ListLiveDevicesOfRow
+		var i ListLiveDevicesOfUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -135,6 +135,22 @@ func (q *Queries) ListLiveDevicesOf(ctx context.Context, arg ListLiveDevicesOfPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const recordDeviceSignIn = `-- name: RecordDeviceSignIn :exec
+UPDATE device SET platform = ?1, last_signed_in_at = ?2 WHERE id = ?3
+`
+
+type RecordDeviceSignInParams struct {
+	Platform   string
+	SignedInAt int64
+	ID         int64
+}
+
+// A device signed in again (D221): its platform as it says now, and when.
+func (q *Queries) RecordDeviceSignIn(ctx context.Context, arg RecordDeviceSignInParams) error {
+	_, err := q.db.ExecContext(ctx, recordDeviceSignIn, arg.Platform, arg.SignedInAt, arg.ID)
+	return err
 }
 
 const removeDevice = `-- name: RemoveDevice :exec
@@ -211,21 +227,5 @@ type SetDeviceAudioOutputParams struct {
 // How a device makes sound (D222): asked the first time it plays, changeable after.
 func (q *Queries) SetDeviceAudioOutput(ctx context.Context, arg SetDeviceAudioOutputParams) error {
 	_, err := q.db.ExecContext(ctx, setDeviceAudioOutput, arg.AudioOutput, arg.ID)
-	return err
-}
-
-const touchDevice = `-- name: TouchDevice :exec
-UPDATE device SET platform = ?1, last_signed_in_at = ?2 WHERE id = ?3
-`
-
-type TouchDeviceParams struct {
-	Platform   string
-	SignedInAt int64
-	ID         int64
-}
-
-// A device signed in again (D221): its platform as it says now, and when.
-func (q *Queries) TouchDevice(ctx context.Context, arg TouchDeviceParams) error {
-	_, err := q.db.ExecContext(ctx, touchDevice, arg.Platform, arg.SignedInAt, arg.ID)
 	return err
 }

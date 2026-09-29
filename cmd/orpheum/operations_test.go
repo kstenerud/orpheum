@@ -167,8 +167,8 @@ func TestLoadConfig_RefusesOnlyWhatHasNoStartingValue(t *testing.T) {
 func TestConfinementFindings_SayEachMechanismAndWhatWouldPutAMissingOneInForce(t *testing.T) {
 	t.Parallel()
 	got := confinementFindings([]confine.State{
-		{Mechanism: confine.Landlock, Reason: "not enabled at boot", Remedy: "add landlock to lsm="},
-		{Mechanism: confine.Seccomp, InForce: true},
+		{Mechanism: confine.MechanismLandlock, Reason: "not enabled at boot", Remedy: "add landlock to lsm="},
+		{Mechanism: confine.MechanismSeccomp, IsInForce: true},
 	})
 	if len(got) != 2 || got[0].verdict != verdictWarning || !strings.Contains(got[0].what, "not enabled at boot") ||
 		got[0].remedy != "add landlock to lsm=" || got[1].verdict != verdictOK {

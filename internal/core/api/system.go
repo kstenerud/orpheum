@@ -35,7 +35,7 @@ type Sized interface {
 // System is what the System page shows of the server itself (D225).
 type System struct {
 	// Build is what the server's binary was built from.
-	Build     build.Info
+	Build     build.Provenance
 	StartedAt time.Time
 	// StateDirectory and CacheDirectory are the server's own, whose disks the page shows.
 	StateDirectory string
@@ -88,14 +88,14 @@ type HostBody struct {
 	Platform     string `doc:"Operating system and architecture, as Go names them" json:"platform"`
 }
 
-func buildBody(info build.Info) BuildBody {
+func buildBody(info build.Provenance) BuildBody {
 	return BuildBody{
 		Name: info.String(), Version: info.Version, Commit: info.Commit, IsModified: info.IsModified,
 		CommittedAt: info.CommittedAt, BinarySHA256: info.BinarySHA256,
 	}
 }
 
-func hostBody(info host.Info) HostBody {
+func hostBody(info host.System) HostBody {
 	return HostBody{
 		Distribution: info.Distribution, Description: info.Description, Release: info.Release,
 		Codename: info.Codename, Kernel: info.Kernel, Platform: info.Platform,
@@ -271,11 +271,11 @@ func measured(path string) DiskBody {
 	if err != nil {
 		return DiskBody{Path: path, Failure: err.Error()}
 	}
-	return DiskBody{Path: path, TotalBytes: space.TotalBytes, AvailableBytes: space.FreeBytes}
+	return DiskBody{Path: path, TotalBytes: space.TotalBytes, AvailableBytes: space.AvailableBytes}
 }
 
 // describeNode fills in what a connected node last said about itself.
-func describeNode(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Info) {
+func describeNode(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Provenance) {
 	hello := facts.Hello
 	heard := facts.LastHeard.UnixMilli()
 	nodeBuild, nodeHost := buildBody(hello.Build), hostBody(hello.Host)
@@ -345,7 +345,7 @@ func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID in
 
 // buildFinding is whether a node runs the server's own build: a node on another release, or a
 // build of other changes, may not speak the same protocol or behave the same (D225).
-func buildFinding(node string, nodeBuild, serverBuild build.Info) FindingBody {
+func buildFinding(node string, nodeBuild, serverBuild build.Provenance) FindingBody {
 	finding := FindingBody{
 		Check: "build on node " + node, Verdict: verdictOK, Detail: "the server's own build, " + serverBuild.String(),
 	}

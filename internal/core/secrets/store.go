@@ -155,7 +155,7 @@ func (secrets *Store) Open(ctx context.Context, name Name) (Value, error) {
 	if _, err := lookUp(name); err != nil {
 		return Value{}, err
 	}
-	row, err := store.One(secrets.database.Read().GetSealedSecret(ctx, sqlcgen.GetSealedSecretParams{
+	row, err := store.OrNotFound(secrets.database.Read().GetSealedSecret(ctx, sqlcgen.GetSealedSecretParams{
 		Scope: serverScope, Name: string(name),
 	}))
 	if errors.Is(err, store.ErrNotFound) {

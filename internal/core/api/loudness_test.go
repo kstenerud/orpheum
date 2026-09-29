@@ -26,7 +26,7 @@ func (harness testHarness) withSound(t *testing.T) {
 // measureWith runs a measurement job for fileID, answers the node's command with answer, and
 // returns the command and how the job ended.
 func (harness testHarness) measureWith(
-	t *testing.T, jobID, fileID int64, answer nodeproto.Loudness,
+	t *testing.T, jobID, fileID int64, answer nodeproto.LoudnessResult,
 ) (*nodeproto.MeasureLoudness, error) {
 	t.Helper()
 	service := harness.server.dependencies.Load().Playback
@@ -45,7 +45,7 @@ func (harness testHarness) measureWith(
 func (harness testHarness) toMeasure(t *testing.T) []int64 {
 	t.Helper()
 	ids, err := harness.library.Read().ListFilesToMeasure(t.Context(),
-		sqlcgen.ListFilesToMeasureParams{After: 0, Through: 1000})
+		sqlcgen.ListFilesToMeasureParams{AfterID: 0, ThroughID: 1000})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 
 	// Wing's ten minutes: quiet, with room below its peak for the whole gain.
 	alien := nodeproto.Measurement{IntegratedLUFS: -35.7, RangeLU: 22.8, TruePeakDBTP: new(-16.2)}
-	command, err := harness.measureWith(t, 90, 1, nodeproto.Loudness{Tracks: []nodeproto.TrackLoudness{
+	command, err := harness.measureWith(t, 90, 1, nodeproto.LoudnessResult{Tracks: []nodeproto.TrackLoudness{
 		{StreamIndex: 0, Stereo: alien},
 	}})
 	if err != nil {
@@ -99,7 +99,7 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	// The 7.1 track is louder as it is than as its renormalised stereo mix; the mix's gain is
 	// capped by its peak.
-	_, err := harness.measureWith(t, 91, 2, nodeproto.Loudness{Tracks: []nodeproto.TrackLoudness{{
+	_, err := harness.measureWith(t, 91, 2, nodeproto.LoudnessResult{Tracks: []nodeproto.TrackLoudness{{
 		StreamIndex:  1,
 		Multichannel: &nodeproto.Measurement{IntegratedLUFS: -20.0, RangeLU: 10, TruePeakDBTP: new(-1.0)},
 		Stereo:       nodeproto.Measurement{IntegratedLUFS: -31.0, RangeLU: 9, TruePeakDBTP: new(-6.0)},
@@ -141,14 +141,15 @@ func TestLoudness_AFileFFmpegCannotMeasureIsNotAskedAgainButOneTheNodeDidNotTryI
 	harness.shelveFilms(t)
 	harness.withSound(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
-	_, err := harness.measureWith(t, 93, 2, nodeproto.Loudness{Refusal: "the file at this path is not the one named"})
+	_, err := harness.measureWith(t, 93, 2,
+		nodeproto.LoudnessResult{Refusal: "the file at this path is not the one named"})
 	if err == nil || !strings.Contains(err.Error(), "not the one named") {
 		t.Errorf("a measurement the node would not try ended %v, want its reason", err)
 	}
 	if ids := harness.toMeasure(t); !slices.Equal(ids, []int64{1, 2}) {
 		t.Errorf("after the node would not try film 2, a sweep finds %v, want it asked again", ids)
 	}
-	_, err = harness.measureWith(t, 94, 2, nodeproto.Loudness{Failure: "ffmpeg: Invalid data found"})
+	_, err = harness.measureWith(t, 94, 2, nodeproto.LoudnessResult{Failure: "ffmpeg: Invalid data found"})
 	if err == nil || !strings.Contains(err.Error(), "Invalid data found") {
 		t.Errorf("a failed measurement ended %v, want FFmpeg's words", err)
 	}

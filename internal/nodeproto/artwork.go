@@ -36,8 +36,8 @@ type ArtSize struct {
 	Shape  Shape
 	Width  int
 	Height int
-	// OnRequest sizes are made when first asked for, not when the image is fetched.
-	OnRequest bool
+	// IsMadeOnRequest says the size is made when first asked for, not when the image is fetched.
+	IsMadeOnRequest bool
 }
 
 // Sizes are the shape's sizes, smallest first.
@@ -47,14 +47,14 @@ func (shape Shape) Sizes() []ArtSize {
 		return []ArtSize{
 			{Name: PortraitS, Shape: shape, Width: 240, Height: 360},
 			{Name: PortraitM, Shape: shape, Width: 480, Height: 720},
-			{Name: PortraitL, Shape: shape, Width: 960, Height: 1440, OnRequest: true},
+			{Name: PortraitL, Shape: shape, Width: 960, Height: 1440, IsMadeOnRequest: true},
 		}
 	case ShapeLandscape:
 		return []ArtSize{
 			{Name: LandscapeS, Shape: shape, Width: 480, Height: 270},
 			{Name: LandscapeM, Shape: shape, Width: 960, Height: 540},
 			{Name: LandscapeL, Shape: shape, Width: 1920, Height: 1080},
-			{Name: LandscapeXL, Shape: shape, Width: 3840, Height: 2160, OnRequest: true},
+			{Name: LandscapeXL, Shape: shape, Width: 3840, Height: 2160, IsMadeOnRequest: true},
 		}
 	case ShapeLogo:
 		return []ArtSize{

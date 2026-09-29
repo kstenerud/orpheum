@@ -10,9 +10,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Probe says which mechanisms this machine can put in force, without putting any in force: the
+// MechanismStates says which mechanisms this machine can put in force, without putting any in force: the
 // node's report at start (D112).
-func Probe() []State {
+func MechanismStates() []State {
 	return []State{landlockState(), seccompState()}
 }
 
@@ -30,7 +30,7 @@ func confineAndExec(spec Spec) error {
 			return fmt.Errorf("%w: %w", ErrNotConfined, err)
 		}
 	}
-	if seccompState().InForce {
+	if seccompState().IsInForce {
 		if err := installSeccomp(); err != nil {
 			return fmt.Errorf("%w: %w", ErrNotConfined, err)
 		}

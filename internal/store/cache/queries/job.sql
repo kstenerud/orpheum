@@ -9,7 +9,7 @@ VALUES (sqlc.arg(kind), sqlc.arg(item_id), sqlc.arg(rendition_id), sqlc.arg(stre
         sqlc.arg(created_at))
 RETURNING id;
 
--- name: HasJob :one
+-- name: WasJobEverQueued :one
 -- Whether any job of this kind was ever queued for this target: a first fetch happens once
 -- (D170), and a later one is a person's request.
 SELECT EXISTS (

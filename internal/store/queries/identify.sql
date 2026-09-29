@@ -93,7 +93,7 @@ RETURNING id;
 -- name: MoveVersionToTitle :exec
 UPDATE version SET title_id = sqlc.arg(title_id) WHERE id = sqlc.arg(id);
 
--- name: SetFileVersion :exec
+-- name: SetFileVersionAndIdentifiedPath :exec
 UPDATE file SET version_id = sqlc.arg(version_id), identified_from_path = path WHERE id = sqlc.arg(id);
 
 -- name: SetFileFiling :exec
@@ -138,7 +138,7 @@ VALUES (sqlc.arg(ordering_id), sqlc.arg(title_id), sqlc.arg(group_number), sqlc.
 ON CONFLICT (ordering_id, title_id) DO UPDATE SET group_number = excluded.group_number, number_in_group = excluded.number_in_group,
   sort_order = excluded.sort_order;
 
--- name: ListEpisodesOfSeries :many
+-- name: ListSeriesEpisodePlaces :many
 SELECT position.title_id, position.group_number, position.number_in_group
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
@@ -152,7 +152,7 @@ VALUES (sqlc.arg(owner_title), sqlc.arg(extra_title), sqlc.arg(extra_type), 'sca
 ON CONFLICT (owner_title, extra_title) DO UPDATE SET extra_type = excluded.extra_type
 WHERE extra_relation.asserted_by = 'scanner';
 
--- name: GetTitleIdent :one
+-- name: GetTitleIdentification :one
 SELECT identification_state FROM title WHERE id = ?;
 
 -- name: ConfirmTitleMatch :exec

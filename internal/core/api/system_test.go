@@ -160,17 +160,17 @@ func TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor(t *testin
 
 func TestBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer(t *testing.T) {
 	t.Parallel()
-	server := build.Info{Version: "dev", Commit: "abc", IsModified: true, BinarySHA256: "h1"}
+	server := build.Provenance{Version: "dev", Commit: "abc", IsModified: true, BinarySHA256: "h1"}
 	if same := buildFinding("local", server, server); same.Verdict != verdictOK {
 		t.Errorf("a node on the server's own binary: %+v, want ok", same)
 	}
-	older := buildFinding("local", build.Info{Version: "v0.2.0", Commit: "def"}, server)
+	older := buildFinding("local", build.Provenance{Version: "v0.2.0", Commit: "def"}, server)
 	if older.Verdict != verdictWarn || !strings.Contains(older.Detail, "v0.2.0") ||
 		!strings.Contains(older.Detail, "dev-abc-modified") || older.Action == "" {
 		t.Errorf("a node on an older release: %+v, want a warning naming both builds (D225)", older)
 	}
-	rebuilt := buildFinding("local", build.Info{Version: "dev", Commit: "abc", IsModified: true, BinarySHA256: "h2"},
-		server)
+	rebuilt := buildFinding("local",
+		build.Provenance{Version: "dev", Commit: "abc", IsModified: true, BinarySHA256: "h2"}, server)
 	if rebuilt.Verdict != verdictWarn || !strings.Contains(rebuilt.Detail, "uncommitted changes") {
 		t.Errorf("a node built from the same commit with other changes: %+v, want a warning saying so", rebuilt)
 	}

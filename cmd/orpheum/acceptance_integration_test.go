@@ -223,7 +223,7 @@ func checkFilings(t *testing.T, tree testutil.FixtureTree, first map[string]file
 	if len(missing) > 0 || len(first) != len(tree.Files) {
 		t.Fatalf("%d of %d files in library.db; missing %v", len(first), len(tree.Files), missing)
 	}
-	if unreadable := first[tree.Unreadable]; unreadable.filing != "errored" {
+	if unreadable := first[tree.UnreadablePath]; unreadable.filing != "errored" {
 		t.Errorf("the mode-000 file is %+v, want errored", unreadable)
 	}
 	for path, got := range first {

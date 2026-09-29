@@ -12,7 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-func names(sizes []planned) []nodeproto.ArtSizeName {
+func names(sizes []plannedSize) []nodeproto.ArtSizeName {
 	var list []nodeproto.ArtSizeName
 	for _, size := range sizes {
 		list = append(list, size.name)

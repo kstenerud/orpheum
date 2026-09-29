@@ -9,14 +9,14 @@ import (
 
 func TestParse_ReadsWhatLSBReleaseShowsFromOSRelease(t *testing.T) {
 	t.Parallel()
-	got := Parse(`PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+	got := ParseOSRelease(`PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
 NAME='Debian GNU/Linux'
 # a comment
 VERSION_ID="13"
 VERSION_CODENAME=trixie
 ID=debian
 `)
-	want := Info{
+	want := System{
 		Distribution: "Debian GNU/Linux", Description: "Debian GNU/Linux 13 (trixie)", Release: "13",
 		Codename: "trixie",
 	}

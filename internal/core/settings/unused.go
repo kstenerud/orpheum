@@ -45,7 +45,7 @@ var ErrInUse = errors.New("the setting is in use; set it to default instead of d
 
 // Unused lists the setting rows no setting of this release reads, without changing anything.
 func (service *Service) Unused(ctx context.Context) ([]UnusedSetting, error) {
-	rows, err := service.database.Read().ListSettingKeys(ctx)
+	rows, err := service.database.Read().ListAllSettings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list setting keys: %w", err)
 	}
@@ -67,7 +67,7 @@ func (service *Service) DeleteUnused(ctx context.Context, key string, owner *int
 	})
 }
 
-func unusedIn(rows []sqlcgen.ListSettingKeysRow) []UnusedSetting {
+func unusedIn(rows []sqlcgen.ListAllSettingsRow) []UnusedSetting {
 	retired := map[string]Retired{}
 	for _, entry := range RetiredKeys() {
 		retired[entry.Key] = entry

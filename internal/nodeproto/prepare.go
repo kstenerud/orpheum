@@ -16,8 +16,8 @@ const PathBytesPrepared = "/bytes/v1/prepared/"
 // which the disk does. The core runs as many prepares at once as these add up to, and the node
 // holds any beyond its slots, saying so (PrepareWaiting).
 const (
-	EncodeSlots = 1
-	RemuxSlots  = 2
+	EncodeSlotCount = 1
+	RemuxSlotCount  = 2
 )
 
 // PrepareProfile is a rendition's recipe (cut-a §6).

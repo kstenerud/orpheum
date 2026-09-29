@@ -88,34 +88,34 @@ func (q *Queries) ListFilesOfWork(ctx context.Context, titleID int64) ([]int64, 
 	return items, nil
 }
 
-const listPreferencesAt = `-- name: ListPreferencesAt :many
+const listPreferencesAtScope = `-- name: ListPreferencesAtScope :many
 SELECT axis, value_json
 FROM preference
 WHERE user_id = ? AND scope = ? AND scope_id = ?
 ORDER BY axis
 `
 
-type ListPreferencesAtParams struct {
+type ListPreferencesAtScopeParams struct {
 	UserID  int64
 	Scope   string
 	ScopeID int64
 }
 
-type ListPreferencesAtRow struct {
+type ListPreferencesAtScopeRow struct {
 	Axis      string
 	ValueJson string
 }
 
 // A person's preferences at one scope: a file's sync offset, say.
-func (q *Queries) ListPreferencesAt(ctx context.Context, arg ListPreferencesAtParams) ([]ListPreferencesAtRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPreferencesAt, arg.UserID, arg.Scope, arg.ScopeID)
+func (q *Queries) ListPreferencesAtScope(ctx context.Context, arg ListPreferencesAtScopeParams) ([]ListPreferencesAtScopeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPreferencesAtScope, arg.UserID, arg.Scope, arg.ScopeID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListPreferencesAtRow{}
+	items := []ListPreferencesAtScopeRow{}
 	for rows.Next() {
-		var i ListPreferencesAtRow
+		var i ListPreferencesAtScopeRow
 		if err := rows.Scan(&i.Axis, &i.ValueJson); err != nil {
 			return nil, err
 		}

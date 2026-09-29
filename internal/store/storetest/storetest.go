@@ -19,12 +19,12 @@ func OpenOptions() store.OpenOptions {
 
 // MigrateOptions are the runner options tests use, snapshotting into directory.
 func MigrateOptions(directory string) store.MigrateOptions {
-	return store.MigrateOptions{SnapshotDirectory: directory, SpaceFactor: 3}
+	return store.MigrateOptions{SnapshotDirectory: directory, FreeSpaceDatabaseMultiple: 3}
 }
 
-// Open returns a new database in a temporary directory, migrated to the current schema and
+// OpenMigrated returns a new database in a temporary directory, migrated to the current schema and
 // closed when the test ends.
-func Open(tb testing.TB) *store.Database {
+func OpenMigrated(tb testing.TB) *store.Database {
 	tb.Helper()
 	directory := tb.TempDir()
 	database, err := store.Open(tb.Context(), filepath.Join(directory, "library.db"), OpenOptions())

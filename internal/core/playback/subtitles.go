@@ -180,7 +180,7 @@ func (service *Service) wantText(ctx context.Context, want wanted, now int64) er
 	key := want.key
 	var state string
 	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		wantErr := queries.WantSubtitleText(ctx, cachegen.WantSubtitleTextParams{
+		wantErr := queries.RequestSubtitleText(ctx, cachegen.RequestSubtitleTextParams{
 			BytesPayloadHash: key.BytesPayloadHash, StreamIndex: key.StreamIndex, CreatedAt: now,
 		})
 		if wantErr != nil {
@@ -220,7 +220,7 @@ func (service *Service) Subtitle(
 	if err != nil {
 		return Subtitle{}, err
 	}
-	row, err := store.One(service.cache.Read().GetSubtitleText(ctx, key))
+	row, err := store.OrNotFound(service.cache.Read().GetSubtitleText(ctx, key))
 	if errors.Is(err, store.ErrNotFound) {
 		return Subtitle{}, ErrNoSubtitle
 	}
@@ -249,7 +249,7 @@ func (service *Service) trackKey(
 	ctx context.Context, track TrackRef, video int64,
 ) (cachegen.GetSubtitleTextParams, error) {
 	if track.IsFetched() {
-		fetched, err := store.One(service.database.Read().GetFetchedSubtitle(ctx, track.FetchedSubtitleID))
+		fetched, err := store.OrNotFound(service.database.Read().GetFetchedSubtitle(ctx, track.FetchedSubtitleID))
 		if errors.Is(err, store.ErrNotFound) || (err == nil && fetched.VideoFile != video) {
 			return cachegen.GetSubtitleTextParams{}, ErrNoSubtitle
 		}
@@ -259,7 +259,7 @@ func (service *Service) trackKey(
 		}
 		return fetchedKey(fetched.BodyGzip), nil
 	}
-	stream, err := store.One(service.database.Read().GetSubtitleStream(ctx, track.StreamID))
+	stream, err := store.OrNotFound(service.database.Read().GetSubtitleStream(ctx, track.StreamID))
 	if errors.Is(err, store.ErrNotFound) || (err == nil && stream.VideoFile != video) {
 		return cachegen.GetSubtitleTextParams{}, ErrNoSubtitle
 	}
@@ -276,7 +276,7 @@ var ErrNoSubtitle = errors.New("no such subtitle")
 // track's file extracts it, a track from its video or a subtitle file whole, and this waits for its
 // answer and keeps the text by that file's payload hash. FFmpeg's failure is not retried.
 func (service *Service) HandleSubtitle(ctx context.Context, job jobs.Job) error {
-	stream, err := store.One(service.database.Read().GetSubtitleStream(ctx, job.StreamID))
+	stream, err := store.OrNotFound(service.database.Read().GetSubtitleStream(ctx, job.StreamID))
 	if errors.Is(err, store.ErrNotFound) {
 		return jobs.Permanent(fmt.Errorf("no subtitle stream %d: its file was scanned again or is gone", job.StreamID))
 	}

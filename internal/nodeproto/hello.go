@@ -23,9 +23,9 @@ type Hello struct {
 	// Name is the node's configured name; the core enrols a node it has not seen by it (D207).
 	Name string `json:"name"`
 	// Build is what the node's binary was built from, so the core can see a mismatch (D225).
-	Build build.Info `json:"build"`
+	Build build.Provenance `json:"build"`
 	// Host is the node's operating system, as lsb_release shows it, and its kernel (D225).
-	Host host.Info `json:"host"`
+	Host host.System `json:"host"`
 	// RootPaths are the media roots configured on the node, never remotely (D107).
 	RootPaths     []string `json:"rootPaths"`
 	FFmpegVersion string   `json:"ffmpegVersion"`

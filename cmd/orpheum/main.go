@@ -26,7 +26,7 @@ var version = build.This().String()
 
 // thisBuild is what this binary was built from, with its own hash, so a node and the server can
 // be told apart when they were built from one modified tree (D225).
-func thisBuild() build.Info {
+func thisBuild() build.Provenance {
 	built := build.This()
 	self, err := os.Executable()
 	if err != nil {
@@ -36,7 +36,7 @@ func thisBuild() build.Info {
 	if err != nil {
 		return built
 	}
-	return built.Hashed(hash)
+	return built.WithBinarySHA256(hash)
 }
 
 // Exit statuses. A usage error and a planned-but-unbuilt subcommand both exit 2, so a script

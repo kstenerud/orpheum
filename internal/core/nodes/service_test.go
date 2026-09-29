@@ -66,7 +66,7 @@ type fixture struct {
 
 func newFixture(t *testing.T, pollHold time.Duration) *fixture {
 	t.Helper()
-	database := storetest.Open(t)
+	database := storetest.OpenMigrated(t)
 	settingsService := settingstest.Seeded(t, database)
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	sink := &recordingSink{arrived: make(chan struct{}, 1)}
@@ -455,7 +455,7 @@ func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
 		ChosenEncoder: "h264_qsv",
 	}
 	reply := harness.hello(t, nodeproto.Hello{
-		Name: "local", Host: host.Info{Platform: "linux/amd64", Codename: "trixie"}, Hardware: hardware,
+		Name: "local", Host: host.System{Platform: "linux/amd64", Codename: "trixie"}, Hardware: hardware,
 	})
 	disk := nodeproto.Disk{Path: "/media", TotalBytes: 1000, AvailableBytes: 400}
 	status := []nodeproto.Record{{

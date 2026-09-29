@@ -95,7 +95,7 @@ func diagnose(ctx context.Context, config Config, logger *slog.Logger, now time.
 	databaseFindings, backupAgeWarning := checkDatabase(ctx, directories, key, config.openOptions(), logger)
 	findings = append(findings, databaseFindings...)
 	findings = append(findings, checkBackups(directories, now, backupAgeWarning))
-	return append(findings, confinementFindings(confine.Probe())...)
+	return append(findings, confinementFindings(confine.MechanismStates())...)
 }
 
 // confinementFindings are what this machine can confine FFmpeg with, as a node here would report it
@@ -103,7 +103,7 @@ func diagnose(ctx context.Context, config Config, logger *slog.Logger, now time.
 func confinementFindings(states []confine.State) []finding {
 	findings := make([]finding, 0, len(states))
 	for _, state := range states {
-		if state.InForce {
+		if state.IsInForce {
 			what := "FFmpeg confinement: " + state.Mechanism + " is in force"
 			findings = append(findings, finding{verdictOK, what, ""})
 			continue

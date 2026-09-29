@@ -81,7 +81,7 @@ func (work *run) loadTitles(ctx context.Context, libraryID int64) error {
 			continue
 		}
 		work.seriesIDByName[strings.ToLower(*show.Name)] = show.ID
-		episodes, listErr := work.queries.ListEpisodesOfSeries(ctx, show.ID)
+		episodes, listErr := work.queries.ListSeriesEpisodePlaces(ctx, show.ID)
 		if listErr != nil {
 			return fmt.Errorf("list the episodes of %s: %w", *show.Name, listErr)
 		}

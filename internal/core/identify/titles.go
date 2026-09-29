@@ -251,7 +251,7 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 	if owedErr := work.oweArtwork(ctx, titleID, spec.source, spec.artwork); owedErr != nil {
 		return resolved{}, owedErr
 	}
-	current, err := store.One(work.queries.GetTitleIdent(ctx, titleID))
+	current, err := store.OrNotFound(work.queries.GetTitleIdentification(ctx, titleID))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return resolved{}, fmt.Errorf("read title %d's identification: %w", titleID, err)
 	}

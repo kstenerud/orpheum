@@ -18,7 +18,7 @@ var ErrNoItem = errors.New("no such item")
 // Hide takes a work out of the person's Continue Watching until it next has activity (D188).
 // Hiding is not watching: nothing is marked finished, and the position stays.
 func (service *Service) Hide(ctx context.Context, userID, itemID int64) error {
-	if _, err := store.One(service.database.Read().GetTitleDetail(ctx, itemID)); err != nil {
+	if _, err := store.OrNotFound(service.database.Read().GetTitleDetail(ctx, itemID)); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return ErrNoItem
 		}

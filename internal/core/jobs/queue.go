@@ -162,7 +162,7 @@ func (queue *Queue) Enqueue(ctx context.Context, job New) (bool, error) {
 			Kind: string(job.Kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
 			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
 		}
-		_, findErr := store.One(queries.FindOpenJob(ctx, open))
+		_, findErr := store.OrNotFound(queries.FindOpenJob(ctx, open))
 		if findErr == nil {
 			return nil
 		}
@@ -203,7 +203,7 @@ func (queue *Queue) EverQueued(ctx context.Context, kind Kind, target Target) (b
 	if err != nil {
 		return false, err
 	}
-	found, err := queue.cache.Read().HasJob(ctx, cachegen.HasJobParams{
+	found, err := queue.cache.Read().WasJobEverQueued(ctx, cachegen.WasJobEverQueuedParams{
 		Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
 		FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
 	})

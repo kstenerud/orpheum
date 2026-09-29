@@ -209,7 +209,7 @@ func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, node, moun
 	if err != nil {
 		return false, err
 	}
-	mount, err := store.One(admin.database.Read().GetRootMount(ctx, sqlcgen.GetRootMountParams{
+	mount, err := store.OrNotFound(admin.database.Read().GetRootMount(ctx, sqlcgen.GetRootMountParams{
 		NodeID: nodeID, MountPath: mountPath,
 	}))
 	if errors.Is(err, store.ErrNotFound) || (err == nil && mount.IsPresent != 0) {
@@ -242,7 +242,7 @@ func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, node, moun
 // libraryRoots are a live library's roots with their states.
 func (admin *Admin) libraryRoots(ctx context.Context, libraryID int64) ([]sqlcgen.ListLibraryRootStatesRow, error) {
 	queries := admin.database.Read()
-	if _, err := store.One(queries.GetLibrary(ctx, libraryID)); errors.Is(err, store.ErrNotFound) {
+	if _, err := store.OrNotFound(queries.GetLibrary(ctx, libraryID)); errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("library %d: %w", libraryID, ErrNoLibrary)
 	} else if err != nil {
 		return nil, fmt.Errorf("read library %d: %w", libraryID, err)

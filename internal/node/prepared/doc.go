@@ -10,8 +10,8 @@
 //
 // # Invariants
 //
-//   - Nothing but this package and internal/node/trash deletes on the node. Enforced by the
-//     forbidigo rules tagged [delete].
+//   - Nothing but this package and the planned trash writer (internal/node/trash, not yet
+//     written) deletes on the node. Enforced by the forbidigo rules tagged [delete].
 //   - It deletes only whole run directories under its own directory, three levels down
 //     (<file_id>/<profile>/<run_id>), and the empty folders they leave. Enforced by
 //     TestEvict_RemovesTheLeastRecentlyUsedPastTheGraceFirstAndNeverOneBeingWritten.

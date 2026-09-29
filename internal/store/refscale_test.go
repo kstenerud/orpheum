@@ -32,9 +32,9 @@ const (
 	stepBudget = 10 * time.Second
 )
 
-// refFiller writes the reference-scale rows through prepared statements in one transaction, at
+// referenceScaleFiller writes the reference-scale rows through prepared statements in one transaction, at
 // schema version 1, so every later step migrates real volumes.
-type refFiller struct {
+type referenceScaleFiller struct {
 	tb      testing.TB
 	ctx     context.Context //nolint:containedctx // the test's, for the statements it runs
 	tx      *sql.Tx
@@ -45,7 +45,7 @@ type refFiller struct {
 	now     int64
 }
 
-func (filler *refFiller) exec(query string, args ...any) {
+func (filler *referenceScaleFiller) exec(query string, args ...any) {
 	filler.tb.Helper()
 	if _, err := filler.tx.ExecContext(filler.ctx, query, args...); err != nil {
 		filler.tb.Fatalf("%s: %v", strings.Fields(query)[:3], err)
@@ -54,7 +54,7 @@ func (filler *refFiller) exec(query string, args ...any) {
 
 // bytes is n bytes, a multiple of 8, the fill cannot compress away, as stored responses and
 // hashes are.
-func (filler *refFiller) bytes(n int) []byte {
+func (filler *referenceScaleFiller) bytes(n int) []byte {
 	out := make([]byte, n)
 	for index := 0; index+8 <= n; index += 8 {
 		binary.LittleEndian.PutUint64(out[index:], filler.random.Uint64())
@@ -63,7 +63,7 @@ func (filler *refFiller) bytes(n int) []byte {
 }
 
 // words is a synthetic phrase of n words (D187: no real titles in fixtures).
-func (filler *refFiller) words(n int) string {
+func (filler *referenceScaleFiller) words(n int) string {
 	parts := make([]string, n)
 	for index := range parts {
 		parts[index] = refWords[filler.random.IntN(len(refWords))]
@@ -75,8 +75,8 @@ var refWords = strings.Fields("harbour lantern quiet orchard copper winter paper
 	"salt violet granite ember tidal northern glass velvet iron amber river station letter garden " +
 	"silent autumn falcon island bridge shadow marble crimson canyon echo")
 
-// item inserts an item and its text and sort key, and returns its id.
-func (filler *refFiller) item(kind string, libraryID int64, listing string) int64 {
+// insertItem inserts an item and its text and sort key, and returns its id.
+func (filler *referenceScaleFiller) insertItem(kind string, libraryID int64, listing string) int64 {
 	filler.nextID++
 	id := filler.nextID
 	name := filler.words(1 + filler.random.IntN(4))
@@ -92,8 +92,8 @@ func (filler *refFiller) item(kind string, libraryID int64, listing string) int6
 	return id
 }
 
-// video inserts a title's version, and its file with a probe and four streams.
-func (filler *refFiller) video(titleID, libraryID int64, path string) {
+// insertVideo inserts a title's version, and its file with a probe and four streams.
+func (filler *referenceScaleFiller) insertVideo(titleID, libraryID int64, path string) {
 	filler.exec("INSERT INTO version (title_id, created_at) VALUES (?, ?)", titleID, filler.now)
 	var versionID int64
 	if err := filler.tx.QueryRowContext(filler.ctx, "SELECT last_insert_rowid()").Scan(&versionID); err != nil {
@@ -118,20 +118,21 @@ func (filler *refFiller) video(titleID, libraryID int64, path string) {
 	}
 }
 
-// film inserts one film: its title, one or two versions, artwork, ids and stored response.
-func (filler *refFiller) film(index int) {
-	id := filler.item("title", 1, "movie")
+// insertFilm inserts one film: its title, one or two versions, artwork, ids and stored response.
+func (filler *referenceScaleFiller) insertFilm(index int) {
+	id := filler.insertItem("title", 1, "movie")
 	filler.exec(`INSERT INTO title (id, kind, year, runtime_ms, source, source_id, ident)
 		VALUES (?, 'movie', ?, ?, 'tmdb', ?, 'identified')`,
 		id, 1950+filler.random.IntN(76), 6_000_000, fmt.Sprint(index))
 	for version := range 1 + boolInt(index%10 == 0) {
-		filler.video(id, 1, fmt.Sprintf("/media/films/Film %d (%d)/Film %d - %d.mkv", index, index, index, version))
+		path := fmt.Sprintf("/media/films/Film %d (%d)/Film %d - %d.mkv", index, index, index, version)
+		filler.insertVideo(id, 1, path)
 	}
-	filler.provided(id, "movie", index)
+	filler.insertProviderData(id, "movie", index)
 }
 
-// provided inserts an item's artwork, provider ids and stored provider response.
-func (filler *refFiller) provided(itemID int64, kind string, index int) {
+// insertProviderData inserts an item's artwork, provider ids and stored provider response.
+func (filler *referenceScaleFiller) insertProviderData(itemID int64, kind string, index int) {
 	for _, art := range []string{"poster", "backdrop"} {
 		filler.exec("INSERT INTO artwork (item_id, kind, source, source_ref, content_hash) VALUES (?, ?, 'tmdb', ?, ?)",
 			itemID, art, fmt.Sprintf("/%s%d.jpg", art, index), filler.bytes(32))
@@ -144,9 +145,9 @@ func (filler *refFiller) provided(itemID int64, kind string, index int) {
 	}
 }
 
-// series inserts one series with its episodes, their places in the aired order and their stills.
-func (filler *refFiller) series(index int) {
-	id := filler.item("collection", 2, "series")
+// insertSeries inserts one series with its episodes, their places in the aired order and their stills.
+func (filler *referenceScaleFiller) insertSeries(index int) {
+	id := filler.insertItem("collection", 2, "series")
 	filler.exec("INSERT INTO collection (id, kind, membership, created_by) "+
 		"VALUES (?, 'series', 'explicit', 'scanner')", id)
 	filler.exec("INSERT INTO ordering (collection_id, name, provider) VALUES (?, 'aired', 'tmdb')", id)
@@ -154,14 +155,14 @@ func (filler *refFiller) series(index int) {
 	if err := filler.tx.QueryRowContext(filler.ctx, "SELECT last_insert_rowid()").Scan(&orderingID); err != nil {
 		filler.tb.Fatal(err)
 	}
-	filler.provided(id, "series", index)
+	filler.insertProviderData(id, "series", index)
 	for episode := range refEpisodesPerShow {
 		season, number := 1+episode/10, 1+episode%10
-		episodeID := filler.item("title", 2, "")
+		episodeID := filler.insertItem("title", 2, "")
 		filler.exec(`INSERT INTO title (id, kind, year, runtime_ms, source, source_id, ident)
 			VALUES (?, 'episode', ?, ?, 'tmdb', ?, 'identified')`, episodeID, 2000+index%26, 2_700_000,
 			fmt.Sprintf("%d-%d", index, episode))
-		filler.video(episodeID, 2, fmt.Sprintf("/media/shows/Show %d/Season %02d/Show %d - S%02dE%02d.mkv", index,
+		filler.insertVideo(episodeID, 2, fmt.Sprintf("/media/shows/Show %d/Season %02d/Show %d - S%02dE%02d.mkv", index,
 			season, index, season, number))
 		sort := float64(season*10000 + number)
 		filler.exec("INSERT INTO position (ordering_id, title_id, grp, number, sort) VALUES (?, ?, ?, ?, ?)",
@@ -189,7 +190,7 @@ func fillReferenceScale(t *testing.T, database *Database) {
 		t.Fatal(err)
 	}
 	random := rand.New(rand.NewPCG(1, 2)) //nolint:gosec // a fixture, the same every run
-	filler := &refFiller{
+	filler := &referenceScaleFiller{
 		tb: t, ctx: t.Context(), tx: transaction, random: random,
 		now: time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC).UnixMilli(),
 	}
@@ -200,10 +201,10 @@ func fillReferenceScale(t *testing.T, database *Database) {
 		"VALUES (1, 1, '/media/films'), (2, 1, '/media/shows')")
 	filler.exec("INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1), (2, 'partner', 2, 1)")
 	for index := range refFilms {
-		filler.film(index)
+		filler.insertFilm(index)
 	}
 	for index := range refSeries {
-		filler.series(index)
+		filler.insertSeries(index)
 	}
 	for span := range refPlaySpans {
 		fileID := 1 + filler.random.Int64N(filler.fileID)
@@ -257,7 +258,7 @@ func checkStepBudgets(t *testing.T, database *Database, steps []Step) {
 	var took []time.Duration
 	var started time.Time
 	options := testMigrateOptions(t.TempDir())
-	options.BeforeStep = func(int, int) {
+	options.OnBeforeStep = func(int, int) {
 		if !started.IsZero() {
 			took = append(took, wall.Now().Sub(started))
 		}
@@ -325,8 +326,8 @@ func listingQueries(t *testing.T) []listQuery {
 	return found
 }
 
-// scans are the tables a query's plan reads whole.
-func scans(t *testing.T, database *Database, query listQuery) []string {
+// fullyScannedTables are the tables a query's plan reads whole.
+func fullyScannedTables(t *testing.T, database *Database, query listQuery) []string {
 	t.Helper()
 	args := make([]any, strings.Count(query.sql, "?"))
 	rows, err := database.readers.QueryContext(t.Context(), "EXPLAIN QUERY PLAN "+query.sql, args...)
@@ -359,11 +360,11 @@ func fullScansAllowed() map[string]string {
 		"ListArtworkHashes": "the artwork cache's sweep reads every stored image, once a day (D212 section 6)",
 		"ListFilmsByAdded": "newest first sorts every live film: 12.5 ms at the reference scale against 50; " +
 			"an index on item(created_at) when it is not",
-		"ListSeriesByAdded": "newest first over the series, which are few: 200 at the reference scale",
-		"ListTitlesByIdent": "the admin's needs-a-match list: 1.3 ms at the reference scale",
-		"ListSeriesByIdent": "the same list's series, which are few",
-		"ListLibraries":     "a household has a handful of libraries",
-		"ListLiveNodes":     "a household has a handful of nodes",
+		"ListSeriesByAdded":          "newest first over the series, which are few: 200 at the reference scale",
+		"ListTitlesByIdentification": "the admin's needs-a-match list: 1.3 ms at the reference scale",
+		"ListSeriesByIdentification": "the same list's series, which are few",
+		"ListLibraries":              "a household has a handful of libraries",
+		"ListLiveNodes":              "a household has a handful of nodes",
 	}
 }
 
@@ -373,7 +374,7 @@ func checkQueryPlans(t *testing.T, database *Database) {
 	t.Helper()
 	allowed := fullScansAllowed()
 	for _, query := range listingQueries(t) {
-		scanned := scans(t, database, query)
+		scanned := fullyScannedTables(t, database, query)
 		reason, isAllowed := allowed[query.name]
 		delete(allowed, query.name)
 		switch {

@@ -9,19 +9,19 @@ import (
 	"context"
 )
 
-const deleteItemProviderIDsOf = `-- name: DeleteItemProviderIDsOf :exec
+const deleteItemProviderIDsAtProvider = `-- name: DeleteItemProviderIDsAtProvider :exec
 DELETE FROM item_provider_id
 WHERE item_id = ?1 AND provider = ?2
 `
 
-type DeleteItemProviderIDsOfParams struct {
+type DeleteItemProviderIDsAtProviderParams struct {
 	ItemID   int64
 	Provider string
 }
 
 // A person's choice replaces the ids an earlier match recorded at that provider.
-func (q *Queries) DeleteItemProviderIDsOf(ctx context.Context, arg DeleteItemProviderIDsOfParams) error {
-	_, err := q.db.ExecContext(ctx, deleteItemProviderIDsOf, arg.ItemID, arg.Provider)
+func (q *Queries) DeleteItemProviderIDsAtProvider(ctx context.Context, arg DeleteItemProviderIDsAtProviderParams) error {
+	_, err := q.db.ExecContext(ctx, deleteItemProviderIDsAtProvider, arg.ItemID, arg.Provider)
 	return err
 }
 
@@ -216,7 +216,7 @@ func (q *Queries) ListTitlesAwaitingMatch(ctx context.Context, libraryID *int64)
 	return items, nil
 }
 
-const listTitlesByIdent = `-- name: ListTitlesByIdent :many
+const listTitlesByIdentification = `-- name: ListTitlesByIdentification :many
 SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.library_id,
   item_text.name
 FROM title
@@ -226,7 +226,7 @@ WHERE title.identification_state = ?1 AND item.removed_at IS NULL
 ORDER BY item_text.name, title.id
 `
 
-type ListTitlesByIdentRow struct {
+type ListTitlesByIdentificationRow struct {
 	ID                  int64
 	Kind                string
 	Year                *int64
@@ -238,15 +238,15 @@ type ListTitlesByIdentRow struct {
 }
 
 // The titles in one state of identification, for the chooser's list (cut-a section 5).
-func (q *Queries) ListTitlesByIdent(ctx context.Context, identificationState string) ([]ListTitlesByIdentRow, error) {
-	rows, err := q.db.QueryContext(ctx, listTitlesByIdent, identificationState)
+func (q *Queries) ListTitlesByIdentification(ctx context.Context, identificationState string) ([]ListTitlesByIdentificationRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesByIdentification, identificationState)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListTitlesByIdentRow{}
+	items := []ListTitlesByIdentificationRow{}
 	for rows.Next() {
-		var i ListTitlesByIdentRow
+		var i ListTitlesByIdentificationRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Kind,

@@ -23,14 +23,14 @@ var migrationFiles embed.FS
 // reshapes, so an older binary can no longer use the file (migrations.md, Expand then contract).
 const raisesCompatibleDirective = "-- orpheum:raises-compatible-version"
 
-var stepFileName = regexp.MustCompile(`^(\d{4})_[a-z0-9_]+\.sql$`)
+var stepFileNamePattern = regexp.MustCompile(`^(\d{4})_[a-z0-9_]+\.sql$`)
 
 // Step is one migration: a SQL file, numbered from 1 with no gaps.
 type Step struct {
-	Version          int
-	Name             string
-	SQL              string
-	RaisesCompatible bool
+	Version                 int
+	Name                    string
+	SQL                     string
+	RaisesCompatibleVersion bool
 	// Checksum is the hex SHA-256 of the file's bytes, as schema_step records it.
 	Checksum string
 }
@@ -60,7 +60,7 @@ func readSteps(files fs.FS, directory string) ([]Step, error) {
 		if !strings.HasSuffix(entry.Name(), ".sql") {
 			continue
 		}
-		match := stepFileName.FindStringSubmatch(entry.Name())
+		match := stepFileNamePattern.FindStringSubmatch(entry.Name())
 		if match == nil {
 			return nil, fmt.Errorf("migration step %q: want NNNN_what_it_does.sql", entry.Name())
 		}
@@ -79,11 +79,11 @@ func readSteps(files fs.FS, directory string) ([]Step, error) {
 		text := string(contents)
 		sum := sha256.Sum256(contents)
 		steps = append(steps, Step{
-			Checksum:         hex.EncodeToString(sum[:]),
-			Version:          version,
-			Name:             entry.Name(),
-			SQL:              text,
-			RaisesCompatible: hasDirectiveLine(text, raisesCompatibleDirective),
+			Checksum:                hex.EncodeToString(sum[:]),
+			Version:                 version,
+			Name:                    entry.Name(),
+			SQL:                     text,
+			RaisesCompatibleVersion: hasDirectiveLine(text, raisesCompatibleDirective),
 		})
 	}
 	return steps, nil

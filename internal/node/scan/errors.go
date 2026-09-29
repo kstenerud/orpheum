@@ -16,61 +16,62 @@ import (
 // errProbe marks a failure to look inside a file that could be opened: probe_failed.
 var errProbe = errors.New("probe failed")
 
-// errStopped is returned once a root has produced MaxErrors errors.
-var errStopped = errors.New("too many errors; the node stopped enumerating this root")
+// errTooManyErrors is returned once a root has produced MaxErrors errors.
+var errTooManyErrors = errors.New("too many errors; the node stopped enumerating this root")
 
 // errorLog turns errors into error records: it classifies each into the closed vocabulary,
 // collapses repeats of one code and scope in one directory into one record with a count, and
 // stops the root after too many (D40).
 type errorLog struct {
-	emit    Emit
-	limit   int
-	pending *nodeproto.Error
-	pendDir string
-	total   int
-	stopped bool
-	// err is the first emit failure; once set, the walk stops.
-	err error
+	emit             Emit
+	maxErrors        int
+	pending          *nodeproto.ScanError
+	pendingDirectory string
+	errorCount       int
+	isStopped        bool
+	// emitErr is the first emit failure; once set, the walk stops.
+	emitErr error
 }
 
-func newErrorLog(emit Emit, limit int) *errorLog {
-	return &errorLog{emit: emit, limit: limit}
+func newErrorLog(emit Emit, maxErrors int) *errorLog {
+	return &errorLog{emit: emit, maxErrors: maxErrors}
 }
 
 // record notes one error at reported.
 func (log *errorLog) record(reported string, scope nodeproto.ErrorScope, cause error, info fs.FileInfo) {
-	if log.err != nil || log.stopped {
+	if log.emitErr != nil || log.isStopped {
 		return
 	}
-	log.total++
+	log.errorCount++
 	code := classify(cause)
 	directory := path.Dir(reported)
-	if log.pending != nil && log.pending.Code == code && log.pending.Scope == scope && log.pendDir == directory {
+	if log.pending != nil && log.pending.Code == code && log.pending.Scope == scope &&
+		log.pendingDirectory == directory {
 		log.pending.OccurrenceCount++
 	} else {
-		log.err = log.flush()
-		log.pending = &nodeproto.Error{
-			Path:            reportedPath(reported),
+		log.emitErr = log.flush()
+		log.pending = &nodeproto.ScanError{
+			Path:            toNodePath(reported),
 			Scope:           scope,
 			Code:            code,
 			OccurrenceCount: 1,
-			PlatformError:   raw(cause, info),
+			PlatformError:   platformError(cause, info),
 		}
-		log.pendDir = directory
+		log.pendingDirectory = directory
 	}
-	if log.limit > 0 && log.total >= log.limit && scope != nodeproto.ScopeRun {
-		if flushErr := log.flush(); log.err == nil {
-			log.err = flushErr
+	if log.maxErrors > 0 && log.errorCount >= log.maxErrors && scope != nodeproto.ScopeRun {
+		if flushErr := log.flush(); log.emitErr == nil {
+			log.emitErr = flushErr
 		}
-		log.stopped = true
-		stop := fmt.Errorf("%w (%d)", errStopped, log.total)
-		log.pending = &nodeproto.Error{
-			Path: reportedPath("."), Scope: nodeproto.ScopeRoot, Code: code, OccurrenceCount: 1,
-			PlatformError: raw(stop,
+		log.isStopped = true
+		stop := fmt.Errorf("%w (%d)", errTooManyErrors, log.errorCount)
+		log.pending = &nodeproto.ScanError{
+			Path: toNodePath("."), Scope: nodeproto.ScopeRoot, Code: code, OccurrenceCount: 1,
+			PlatformError: platformError(stop,
 				nil),
 		}
-		if flushErr := log.flush(); log.err == nil {
-			log.err = flushErr
+		if flushErr := log.flush(); log.emitErr == nil {
+			log.emitErr = flushErr
 		}
 	}
 }
@@ -102,9 +103,9 @@ func classify(cause error) nodeproto.ErrorCode {
 	return nodeproto.CodeIOError
 }
 
-// raw is the platform's account of an error: its text, and the path's owner, group and mode
+// platformError is the platform's account of an error: its text, and the path's owner, group and mode
 // when the node could stat it (D163 §8).
-func raw(cause error, info fs.FileInfo) nodeproto.PlatformError {
+func platformError(cause error, info fs.FileInfo) nodeproto.PlatformError {
 	described := nodeproto.PlatformError{Text: cause.Error(), OwnerUID: -1, GroupGID: -1}
 	if info == nil {
 		return described

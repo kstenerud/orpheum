@@ -65,7 +65,7 @@ WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND tit
   )
 ORDER BY title.id;
 
--- name: ListTitlesByIdent :many
+-- name: ListTitlesByIdentification :many
 -- The titles in one state of identification, for the chooser's list (cut-a section 5).
 SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.library_id,
   item_text.name
@@ -75,7 +75,7 @@ LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 
 WHERE title.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
 ORDER BY item_text.name, title.id;
 
--- name: DeleteItemProviderIDsOf :exec
+-- name: DeleteItemProviderIDsAtProvider :exec
 -- A person's choice replaces the ids an earlier match recorded at that provider.
 DELETE FROM item_provider_id
 WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider);

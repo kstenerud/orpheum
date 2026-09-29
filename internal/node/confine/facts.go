@@ -15,19 +15,19 @@ import (
 // leaves the empty directory under its mount point, which lists cleanly: its device id is then
 // its parent's, and it is no longer a mount point.
 type Facts struct {
-	Device     uint64
-	MountPoint bool
-	ReadOnly   bool
+	FilesystemDevice uint64
+	IsMountPoint     bool
+	IsReadOnly       bool
 }
 
 // Facts reads the root's device id, whether it is a mount point — its device differs from its
 // parent's — and whether its filesystem is mounted read-only.
 func (media *MediaRoot) Facts() (Facts, error) {
-	device, err := deviceOf(media.path)
+	device, err := deviceOfPath(media.path)
 	if err != nil {
 		return Facts{}, err
 	}
-	parent, err := deviceOf(filepath.Dir(media.path))
+	parent, err := deviceOfPath(filepath.Dir(media.path))
 	if err != nil {
 		return Facts{}, err
 	}
@@ -37,13 +37,13 @@ func (media *MediaRoot) Facts() (Facts, error) {
 	}
 	const readOnly = 1 // ST_RDONLY on Linux, MNT_RDONLY on macOS
 	return Facts{
-		Device:     device,
-		MountPoint: device != parent || media.path == "/",
-		ReadOnly:   uint64(filesystem.Flags)&readOnly != 0, //nolint:gosec // int64 on Linux, uint32 on macOS
+		FilesystemDevice: device,
+		IsMountPoint:     device != parent || media.path == "/",
+		IsReadOnly:       uint64(filesystem.Flags)&readOnly != 0, //nolint:gosec // int64 on Linux, uint32 on macOS
 	}, nil
 }
 
-func deviceOf(path string) (uint64, error) {
+func deviceOfPath(path string) (uint64, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return 0, fmt.Errorf("stat %s: %w", path, err)

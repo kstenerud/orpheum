@@ -100,7 +100,7 @@ func (fetching metadata) runners() jobRunners {
 	return jobRunners{
 		{jobs.KindFetch, fetching.matcher.Handle, nil, 1},
 		{jobs.KindArtwork, fetching.artwork.Handle, artwork.RetrySchedule(), 1},
-		{jobs.KindPrepare, fetching.playback.HandlePrepare, nil, nodeproto.EncodeSlots + nodeproto.RemuxSlots},
+		{jobs.KindPrepare, fetching.playback.HandlePrepare, nil, nodeproto.EncodeSlotCount + nodeproto.RemuxSlotCount},
 		{jobs.KindExtractSubtitle, fetching.playback.HandleSubtitle, nil, 1},
 		{jobs.KindConvertFetchedSubtitle, fetching.playback.HandleFetchedSubtitle, nil, 1},
 		{jobs.KindMeasureLoudness, fetching.playback.HandleLoudness, nil, 1},

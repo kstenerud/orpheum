@@ -25,8 +25,8 @@ const FFmpegCapability = "ffmpeg"
 // test fails, unless the job lists "ffmpeg" in ORPHEUM_TEST_UNCONTROLLED (D190 §2).
 func FFmpegDirectory(tb testing.TB) string {
 	tb.Helper()
-	directory, absent := findFFmpeg(os.Getenv(FFmpegDirectoryVariable))
-	Require(tb, FFmpegCapability, absent)
+	directory, whyAbsent := findFFmpeg(os.Getenv(FFmpegDirectoryVariable))
+	Require(tb, FFmpegCapability, whyAbsent)
 	return directory
 }
 
@@ -61,12 +61,12 @@ func fakeScript(tb testing.TB) string {
 
 // FakeReply is what every run of a fake tool writes and the status it exits with.
 type FakeReply struct {
-	Stdout string
-	Stderr string
-	Status int
-	// HoldFIFO, when set, makes each run start a grandchild that holds stdout open and write
+	Stdout     string
+	Stderr     string
+	ExitStatus int
+	// HoldFIFOPath, when set, makes each run start a grandchild that holds stdout open and write
 	// "ready" into this FIFO before waiting forever, so a test can cancel a run mid-flight.
-	HoldFIFO string
+	HoldFIFOPath string
 }
 
 // FakeCall is one recorded run of a fake tool.
@@ -91,7 +91,7 @@ func InstallFakeFFmpeg(tb testing.TB, reply FakeReply) FakeFFmpeg {
 	files := map[string][]byte{
 		"reply.stdout": []byte(reply.Stdout),
 		"reply.stderr": []byte(reply.Stderr),
-		"reply.status": []byte(strconv.Itoa(reply.Status)),
+		"reply.status": []byte(strconv.Itoa(reply.ExitStatus)),
 	}
 	for name, contents := range files {
 		writeFile(tb, filepath.Join(directory, name), contents, 0o600)
@@ -102,8 +102,8 @@ func InstallFakeFFmpeg(tb testing.TB, reply FakeReply) FakeFFmpeg {
 			tb.Fatal(err)
 		}
 	}
-	if reply.HoldFIFO != "" {
-		err := os.Symlink(reply.HoldFIFO, filepath.Join(directory, "reply.hold"))
+	if reply.HoldFIFOPath != "" {
+		err := os.Symlink(reply.HoldFIFOPath, filepath.Join(directory, "reply.hold"))
 		if err != nil {
 			tb.Fatal(err)
 		}
@@ -128,7 +128,7 @@ func (fake FakeFFmpeg) Calls(tb testing.TB) []FakeCall {
 		record := strings.TrimSuffix(name, ".tool")
 		recorded = append(recorded, FakeCall{
 			Tool:        strings.TrimSpace(string(readFile(tb, name))),
-			Arguments:   terminated(string(readFile(tb, record+".arguments"))),
+			Arguments:   splitNULTerminated(string(readFile(tb, record+".arguments"))),
 			Environment: splitNonEmpty(string(readFile(tb, record+".environment")), "\n"),
 			Stdin:       readFile(tb, record+".stdin"),
 		})
@@ -136,9 +136,9 @@ func (fake FakeFFmpeg) Calls(tb testing.TB) []FakeCall {
 	return recorded
 }
 
-// Grandchild returns the pid of the process a held run started (FakeReply.HoldFIFO), and
+// GrandchildPID returns the pid of the process a held run started (FakeReply.HoldFIFOPath), and
 // kills it when the test ends in case the code under test did not.
-func (fake FakeFFmpeg) Grandchild(tb testing.TB) int {
+func (fake FakeFFmpeg) GrandchildPID(tb testing.TB) int {
 	tb.Helper()
 	pid, err := strconv.Atoi(strings.TrimSpace(string(readFile(tb, filepath.Join(fake.Directory, "grandchild.pid")))))
 	if err != nil {
@@ -163,8 +163,8 @@ func (fake FakeFFmpeg) OnlyCall(tb testing.TB) FakeCall {
 	return calls[0]
 }
 
-// terminated splits NUL-terminated arguments, keeping an empty one.
-func terminated(text string) []string {
+// splitNULTerminated splits NUL-terminated arguments, keeping an empty one.
+func splitNULTerminated(text string) []string {
 	if text == "" {
 		return []string{}
 	}

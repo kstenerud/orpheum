@@ -16,9 +16,9 @@ import (
 	"testing/fstest"
 )
 
-// update regenerates the golden schema. It is never set by default or in CI; the golden changes
+// updateGolden regenerates the golden schema. It is never set by default or in CI; the golden changes
 // only as the subject of its own commit (standards/testing.md §8).
-var update = flag.Bool("update", false, "rewrite testdata/golden from the current schema and print what changed")
+var updateGolden = flag.Bool("update", false, "rewrite testdata/golden from the current schema and print what changed")
 
 // dumpSchema renders a database's schema as text for comparison: the bookkeeping integers, the
 // id sequences, and every schema object's SQL in a stable order.
@@ -102,7 +102,7 @@ func TestMigrate_FreshSchemaEqualsTheGolden(t *testing.T) {
 	}
 	got := dumpSchema(t, openMigrated(t))
 	golden := filepath.Join("testdata", "golden", fmt.Sprintf("schema-v%04d.sql", version))
-	if *update {
+	if *updateGolden {
 		rewriteGolden(t, golden, got)
 	}
 	want, err := os.ReadFile(golden)
@@ -153,9 +153,9 @@ func TestMigrate_ResumesAfterAnInterruption(t *testing.T) {
 	snapshots := t.TempDir()
 	ctx, kill := context.WithCancel(t.Context())
 	err := interrupted.migrate(ctx, steps, MigrateOptions{
-		SnapshotDirectory: snapshots,
-		SpaceFactor:       3,
-		BeforeStep: func(step, _ int) {
+		SnapshotDirectory:         snapshots,
+		FreeSpaceDatabaseMultiple: 3,
+		OnBeforeStep: func(step, _ int) {
 			if step == 3 {
 				kill()
 			}
@@ -175,9 +175,9 @@ func TestMigrate_ResumesAfterAnInterruption(t *testing.T) {
 
 	var resumedAt []int
 	err = interrupted.migrate(t.Context(), steps, MigrateOptions{
-		SnapshotDirectory: snapshots,
-		SpaceFactor:       3,
-		BeforeStep:        func(step, total int) { resumedAt = append(resumedAt, step, total) },
+		SnapshotDirectory:         snapshots,
+		FreeSpaceDatabaseMultiple: 3,
+		OnBeforeStep:              func(step, total int) { resumedAt = append(resumedAt, step, total) },
 	})
 	if err != nil {
 		t.Fatalf("resumed migrate: %v", err)
@@ -265,14 +265,14 @@ func TestMigrate_RefusesANewerDatabaseAndNamesTheSnapshot(t *testing.T) {
 
 	// A newer release that only added: it left the file usable by us, so we run.
 	execRaw(t, database, fmt.Sprintf("PRAGMA user_version = %d", version+1))
-	err = database.Migrate(t.Context(), MigrateOptions{SnapshotDirectory: snapshots, SpaceFactor: 3})
+	err = database.Migrate(t.Context(), MigrateOptions{SnapshotDirectory: snapshots, FreeSpaceDatabaseMultiple: 3})
 	if err != nil {
 		t.Fatalf("a newer but compatible database: %v, want it to run", err)
 	}
 
 	// A newer release that reshaped: refused, with the way back named.
 	execRaw(t, database, fmt.Sprintf("UPDATE schema_meta SET compatible_version = %d WHERE id = 1", version+1))
-	err = database.Migrate(t.Context(), MigrateOptions{SnapshotDirectory: snapshots, SpaceFactor: 3})
+	err = database.Migrate(t.Context(), MigrateOptions{SnapshotDirectory: snapshots, FreeSpaceDatabaseMultiple: 3})
 	refusal, isRefusal := errors.AsType[*NewerDatabaseError](err)
 	if !isRefusal {
 		t.Fatalf("migrate error = %v, want a NewerDatabaseError", err)
@@ -288,7 +288,7 @@ func TestMigrate_KeepsTheSnapshotAfterSuccess(t *testing.T) {
 	t.Parallel()
 	database := openTemporary(t)
 	snapshots := t.TempDir()
-	options := MigrateOptions{SnapshotDirectory: snapshots, SpaceFactor: 3}
+	options := MigrateOptions{SnapshotDirectory: snapshots, FreeSpaceDatabaseMultiple: 3}
 	if err := database.migrate(t.Context(), syntheticSteps(t, firstStep), options); err != nil {
 		t.Fatal(err)
 	}
