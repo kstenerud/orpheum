@@ -28,7 +28,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 )
 
-// nodeHeader names the node on every request after its hello; the core's nodes.NodeHeader.
+// nodeHeader names the node on every request after its hello; the core's nodes.NodeIDHeader.
 const nodeHeader = "Orpheum-Node-ID"
 
 // coreURL is the base of every request. The host is a placeholder: the dialer ignores it and

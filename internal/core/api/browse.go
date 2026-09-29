@@ -35,7 +35,7 @@ type ArtBody struct {
 }
 
 func artBody(art library.Art) ArtBody {
-	return ArtBody{PosterSha256: art.Poster, BackdropSha256: art.Backdrop, StillSha256: art.Still}
+	return ArtBody{PosterSha256: art.PosterHash, BackdropSha256: art.BackdropHash, StillSha256: art.StillHash}
 }
 
 // TitlesInput asks for one page of films or series.
@@ -200,9 +200,9 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 	output.Body.Titles = make([]EntryBody, 0, len(page.Entries))
 	for _, entry := range page.Entries {
 		output.Body.Titles = append(output.Body.Titles, EntryBody{
-			ID: entry.ID, Name: entry.Name, Year: entry.Year, IdentificationState: entry.Ident,
+			ID: entry.ID, Name: entry.Name, Year: entry.Year, IdentificationState: entry.IdentificationState,
 			LibraryID: entry.LibraryID,
-			AddedAt:   entry.AddedAt, PosterSha256: entry.Poster,
+			AddedAt:   entry.AddedAt, PosterSha256: entry.PosterHash,
 		})
 	}
 	output.Body.NextCursor = page.NextCursor
@@ -232,7 +232,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	for _, version := range detail.Versions {
 		versionBody := VersionBody{ID: version.ID, EditionID: version.EditionID, Files: []FileDetailBody{}}
 		for _, file := range version.Files {
-			fileBody := FileDetailBody{ID: file.ID, SizeBytes: file.Size, Streams: []StreamBody{}}
+			fileBody := FileDetailBody{ID: file.ID, SizeBytes: file.SizeBytes, Streams: []StreamBody{}}
 			if principal.IsAdmin() {
 				fileBody.Path = file.Path
 			}
@@ -292,7 +292,7 @@ func (server *Server) getCollection(ctx context.Context, input *ItemInput) (*Col
 			Name:          ptr.ValueOrZero(episode.Name),
 			Year:          ptr.ValueOrZero(episode.Year), RuntimeMs: ptr.ValueOrZero(episode.RuntimeMs),
 			IdentificationState: episode.IdentificationState,
-			HasLiveFile:         episode.Available, StillSha256: series.Stills[episode.TitleID],
+			HasLiveFile:         episode.Available, StillSha256: series.StillHashByEpisodeID[episode.TitleID],
 		})
 	}
 	body.Art = artBody(series.Art)

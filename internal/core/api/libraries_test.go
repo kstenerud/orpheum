@@ -36,7 +36,7 @@ type fakeNodes struct {
 	commanded chan nodeproto.Command
 }
 
-func (nodes *fakeNodes) Roots(name string) (int64, []string, bool) {
+func (nodes *fakeNodes) ConnectedNodeRoots(name string) (int64, []string, bool) {
 	if name != "local" || nodes.roots == nil {
 		return 0, nil, false
 	}

@@ -17,7 +17,7 @@ type fakeNodes struct {
 	queued []nodeproto.Command
 }
 
-func (nodes *fakeNodes) Roots(name string) (int64, []string, bool) {
+func (nodes *fakeNodes) ConnectedNodeRoots(name string) (int64, []string, bool) {
 	if name != "local" {
 		return 0, nil, false
 	}
@@ -40,8 +40,8 @@ func scannedRoots(commands []nodeproto.Command) []string {
 	return roots
 }
 
-func showsRequest(node string, roots ...string) Request {
-	return Request{Node: node, NewLibrary: NewLibrary{
+func showsRequest(node string, roots ...string) CreateRequest {
+	return CreateRequest{NodeName: node, NewLibrary: NewLibrary{
 		Name: "Shows", Kind: "shows", MetadataSource: "tmdb", ChangeDetection: "manual", Roots: roots,
 	}}
 }
@@ -76,7 +76,7 @@ func TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt(t *testing.T) {
 func TestAdmin_ListsEachLibrarysRootStateAndFilings(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.Record{observed("a.mkv", "a"), skipped("notes.txt", nodeproto.SkipExtension)}, true)
+	world.scan([]nodeproto.Record{observedRecord("a.mkv", "a"), skipRecord("notes.txt", nodeproto.SkipExtension)}, true)
 	admin := NewAdmin(world.database, world.clock, &fakeNodes{id: world.nodeID, roots: []string{root}})
 	libraries, err := admin.List(t.Context())
 	if err != nil || len(libraries) != 1 {
@@ -86,8 +86,8 @@ func TestAdmin_ListsEachLibrarysRootStateAndFilings(t *testing.T) {
 	if len(films.Roots) != 1 || films.Roots[0].LastScanOutcome == nil || *films.Roots[0].LastScanOutcome != "complete" {
 		t.Errorf("roots %+v, want the root complete", films.Roots)
 	}
-	if films.Filings["skipped"] != 1 || len(films.Filings) != 2 {
-		t.Errorf("filings %v, want one skipped and one other", films.Filings)
+	if films.FileCountByFiling["skipped"] != 1 || len(films.FileCountByFiling) != 2 {
+		t.Errorf("filings %v, want one skipped and one other", films.FileCountByFiling)
 	}
 }
 
@@ -113,14 +113,14 @@ func TestAdmin_FilesPagesByIDAndFilters(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	world.scan([]nodeproto.Record{
-		observed("a.mkv", "a"), observed("b.mkv", "b"), skipped("notes.txt", nodeproto.SkipExtension),
+		observedRecord("a.mkv", "a"), observedRecord("b.mkv", "b"), skipRecord("notes.txt", nodeproto.SkipExtension),
 	}, true)
 	admin := NewAdmin(world.database, world.clock, &fakeNodes{})
 	first, err := admin.Files(t.Context(), FilesQuery{Limit: 2})
 	if err != nil || len(first) != 2 {
 		t.Fatalf("first page = %+v, %v", first, err)
 	}
-	rest, err := admin.Files(t.Context(), FilesQuery{After: first[1].ID, Limit: 2})
+	rest, err := admin.Files(t.Context(), FilesQuery{AfterID: first[1].ID, Limit: 2})
 	if err != nil || len(rest) != 1 {
 		t.Errorf("second page = %+v, %v", rest, err)
 	}

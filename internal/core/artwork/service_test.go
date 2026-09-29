@@ -44,7 +44,7 @@ type fakeNode struct {
 	sent  []nodeproto.Artwork
 }
 
-func (node *fakeNode) Connected() (int64, bool) { return 3, node.connected }
+func (node *fakeNode) LastHeardNodeID() (int64, bool) { return 3, node.connected }
 
 func (node *fakeNode) IsConnected(nodeID int64) bool { return nodeID == 3 && node.connected }
 
@@ -53,7 +53,7 @@ func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	node.sent = append(node.sent, *command.EncodeArtwork)
 	node.mutex.Unlock()
 	if node.answer != nil {
-		go node.service.Answered(node.ctx, 3, node.answer(*command.EncodeArtwork))
+		go node.service.TakeArtworkAnswer(node.ctx, 3, node.answer(*command.EncodeArtwork))
 	}
 }
 
@@ -95,7 +95,7 @@ func (art memoryStore) ListArt() ([]datadir.ArtFile, error) {
 	var files []datadir.ArtFile
 	for key, contents := range art {
 		hash, name, _ := strings.Cut(key, "/")
-		files = append(files, datadir.ArtFile{Hash: hash, Name: name, Size: int64(len(contents))})
+		files = append(files, datadir.ArtFile{Hash: hash, Name: name, SizeBytes: int64(len(contents))})
 	}
 	return files, nil
 }
@@ -148,7 +148,7 @@ func (bench *bench) job(refs ...owedRef) jobs.Job {
 	if err != nil {
 		panic(err)
 	}
-	return jobs.Job{ID: 1, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, Args: string(args)}
+	return jobs.Job{ID: 1, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, ArgsJSON: string(args)}
 }
 
 func (bench *bench) handle(t *testing.T, refs ...owedRef) {
@@ -262,9 +262,9 @@ func TestService_WaitsForANode(t *testing.T) {
 }
 
 // queued is the job queue as a list, which says a job is open while one for its subject is.
-type queued []jobs.New
+type queued []jobs.Request
 
-func (queue *queued) Enqueue(_ context.Context, job jobs.New) (bool, error) {
+func (queue *queued) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
 	for _, open := range *queue {
 		if open.Kind == job.Kind && open.Target == job.Target {
 			return false, nil
@@ -293,7 +293,9 @@ func TestService_OweQueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindArtwork || (*queue)[0].ItemID != bench.itemID {
 		t.Fatalf("queued %+v; want one artwork job for the item", *queue)
 	}
-	job := jobs.Job{ID: 9, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, Args: (*queue)[0].Args}
+	job := jobs.Job{
+		ID: 9, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, ArgsJSON: (*queue)[0].ArgsJSON,
+	}
 	if err := bench.service.Handle(t.Context(), job); err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +337,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	}
 	if err = bench.service.Handle(t.Context(), jobs.Job{
 		ID: 5, Target: jobs.Target{ItemID: bench.itemID},
-		Args: string(args),
+		ArgsJSON: string(args),
 	}); err != nil {
 		t.Fatal(err)
 	}

@@ -28,8 +28,8 @@ func newShelf(t *testing.T) *shelf {
 	return &shelf{harness: world, browser: NewBrowser(world.database, config), config: config}
 }
 
-// name writes an item's text and its sort key in every locale the tests use, as the pass does.
-func name(t *testing.T, queries *sqlcgen.Queries, itemID int64, listing, text string) {
+// nameItem writes an item's text and its sort key in every locale the tests use, as the pass does.
+func nameItem(t *testing.T, queries *sqlcgen.Queries, itemID int64, listing, text string) {
 	t.Helper()
 	err := queries.UpsertOriginalText(t.Context(), sqlcgen.UpsertOriginalTextParams{
 		ItemID: itemID, Language: "und", Name: text, SearchAlternates: new(textindex.Fold(text)),
@@ -51,10 +51,10 @@ func name(t *testing.T, queries *sqlcgen.Queries, itemID int64, listing, text st
 	}
 }
 
-// film files the scanned file at path under a new film called text.
-func (world *shelf) film(text, path string) int64 {
+// fileAsFilm files the scanned file at path under a new film called text.
+func (world *shelf) fileAsFilm(text, path string) int64 {
 	world.t.Helper()
-	fileID := world.live()[root+"/"+path].ID
+	fileID := world.liveFilesByPath()[root+"/"+path].ID
 	world.clock.Advance(time.Minute)
 	var titleID int64
 	err := world.database.Write(world.t.Context(), func(queries *sqlcgen.Queries) error {
@@ -70,7 +70,7 @@ func (world *shelf) film(text, path string) int64 {
 		if err != nil {
 			return err
 		}
-		name(world.t, queries, titleID, ListFilms, text)
+		nameItem(world.t, queries, titleID, ListFilms, text)
 		if fileID == 0 {
 			return nil // a film whose files are gone
 		}
@@ -88,7 +88,7 @@ func (world *shelf) film(text, path string) int64 {
 	return titleID
 }
 
-func names(page Page) []string {
+func entryNames(page Page) []string {
 	var list []string
 	for _, entry := range page.Entries {
 		list = append(list, entry.Name)
@@ -99,24 +99,26 @@ func names(page Page) []string {
 func TestBrowse_FilmsInTheLocalesOrderAPageAtATime(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
-	world.scan([]nodeproto.Record{observed("z.mkv", "z"), observed("o.mkv", "o"), observed("a.mkv", "a")}, true)
-	world.film("Destiny", "z.mkv")
-	world.film("Ödet", "o.mkv")
-	world.film("Fièvre", "a.mkv")
-	world.film("Gone Film", "gone.mkv")
+	world.scan([]nodeproto.Record{
+		observedRecord("z.mkv", "z"), observedRecord("o.mkv", "o"), observedRecord("a.mkv", "a"),
+	}, true)
+	world.fileAsFilm("Destiny", "z.mkv")
+	world.fileAsFilm("Ödet", "o.mkv")
+	world.fileAsFilm("Fièvre", "a.mkv")
+	world.fileAsFilm("Gone Film", "gone.mkv")
 	first, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Sort: SortName, Limit: 2})
-	if err != nil || !slices.Equal(names(first), []string{"Fièvre", "Ödet"}) || first.NextCursor == "" {
+	if err != nil || !slices.Equal(entryNames(first), []string{"Fièvre", "Ödet"}) || first.NextCursor == "" {
 		t.Fatalf("first page = %+v, %v", first, err)
 	}
 	next := ListQuery{Kind: ListFilms, Sort: SortName, Cursor: first.NextCursor, Limit: 2}
 	rest, err := world.browser.List(t.Context(), next)
-	if err != nil || !slices.Equal(names(rest), []string{"Destiny"}) || rest.NextCursor != "" {
+	if err != nil || !slices.Equal(entryNames(rest), []string{"Destiny"}) || rest.NextCursor != "" {
 		t.Errorf("second page = %+v, %v; the film with no live file is not listed", rest, err)
 	}
 	settingstest.Set(t, world.config, settings.SortLocale, `"sv"`)
 	swedish, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Sort: SortName, Limit: 10})
-	if err != nil || !slices.Equal(names(swedish), []string{"Fièvre", "Destiny", "Ödet"}) {
-		t.Errorf("in Swedish = %v, %v; Ö comes after Z", names(swedish), err)
+	if err != nil || !slices.Equal(entryNames(swedish), []string{"Fièvre", "Destiny", "Ödet"}) {
+		t.Errorf("in Swedish = %v, %v; Ö comes after Z", entryNames(swedish), err)
 	}
 	if _, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Cursor: "!", Limit: 1}); err == nil {
 		t.Error("a cursor this server did not give was accepted")
@@ -126,26 +128,28 @@ func TestBrowse_FilmsInTheLocalesOrderAPageAtATime(t *testing.T) {
 func TestBrowse_FilmsNewestFirst(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
-	world.scan([]nodeproto.Record{observed("a.mkv", "a"), observed("b.mkv", "b"), observed("c.mkv", "c")}, true)
-	world.film("First", "a.mkv")
-	world.film("Second", "b.mkv")
-	world.film("Third", "c.mkv")
+	world.scan([]nodeproto.Record{
+		observedRecord("a.mkv", "a"), observedRecord("b.mkv", "b"), observedRecord("c.mkv", "c"),
+	}, true)
+	world.fileAsFilm("First", "a.mkv")
+	world.fileAsFilm("Second", "b.mkv")
+	world.fileAsFilm("Third", "c.mkv")
 	first, err := world.browser.List(t.Context(), ListQuery{Kind: ListFilms, Sort: SortAdded, Limit: 2})
-	if err != nil || !slices.Equal(names(first), []string{"Third", "Second"}) {
-		t.Fatalf("first page = %v, %v", names(first), err)
+	if err != nil || !slices.Equal(entryNames(first), []string{"Third", "Second"}) {
+		t.Fatalf("first page = %v, %v", entryNames(first), err)
 	}
 	next := ListQuery{Kind: ListFilms, Sort: SortAdded, Cursor: first.NextCursor, Limit: 2}
 	rest, err := world.browser.List(t.Context(), next)
-	if err != nil || !slices.Equal(names(rest), []string{"First"}) {
-		t.Errorf("second page = %v, %v", names(rest), err)
+	if err != nil || !slices.Equal(entryNames(rest), []string{"First"}) {
+		t.Errorf("second page = %v, %v", entryNames(rest), err)
 	}
 }
 
 func TestBrowse_ATitlesDetailHasItsVersionsFilesAndStreams(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
-	world.scan([]nodeproto.Record{observed("metropolis.mkv", "heat")}, true)
-	heat := world.film("Metropolis", "metropolis.mkv")
+	world.scan([]nodeproto.Record{observedRecord("metropolis.mkv", "heat")}, true)
+	heat := world.fileAsFilm("Metropolis", "metropolis.mkv")
 	detail, err := world.browser.Title(t.Context(), heat)
 	if err != nil || detail.Name == nil || *detail.Name != "Metropolis" || len(detail.Versions) != 1 {
 		t.Fatalf("Title = %+v, %v", detail, err)
@@ -163,12 +167,13 @@ func TestSearch_EveryRouteFindsWhatItShould(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
 	world.scan([]nodeproto.Record{
-		observed("b.mkv", "b"), observed("s.mkv", "s"), observed("u.mkv", "u"), observed("h.mkv", "h"),
+		observedRecord("b.mkv", "b"), observedRecord("s.mkv", "s"),
+		observedRecord("u.mkv", "u"), observedRecord("h.mkv", "h"),
 	}, true)
-	world.film("Sølvi: Lumenfold Live", "b.mkv")
-	world.film("十字路", "s.mkv")
-	world.film("Up", "u.mkv")
-	world.film("Metropolis", "h.mkv")
+	world.fileAsFilm("Sølvi: Lumenfold Live", "b.mkv")
+	world.fileAsFilm("十字路", "s.mkv")
+	world.fileAsFilm("Up", "u.mkv")
+	world.fileAsFilm("Metropolis", "h.mkv")
 	for query, want := range map[string]string{
 		"solvi":      "Sølvi: Lumenfold Live", // the word index, through the alternates
 		"biophi":     "Sølvi: Lumenfold Live", // a prefix
@@ -190,14 +195,14 @@ func TestSearch_EveryRouteFindsWhatItShould(t *testing.T) {
 func TestSearch_DoesNotFindAFilmWhoseFilesAreAllGone(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)
-	world.scan([]nodeproto.Record{observed("h.mkv", "h"), observed("u.mkv", "u")}, true)
-	world.film("Metropolis", "h.mkv")
-	world.film("Up", "u.mkv")
+	world.scan([]nodeproto.Record{observedRecord("h.mkv", "h"), observedRecord("u.mkv", "u")}, true)
+	world.fileAsFilm("Metropolis", "h.mkv")
+	world.fileAsFilm("Up", "u.mkv")
 	if hits, err := world.browser.Search(t.Context(), "heat", 10); err != nil || len(hits) != 1 {
 		t.Fatalf("Search(heat) with its file = %+v, %v; want Metropolis", hits, err)
 	}
 	// A complete scan without h.mkv removes its file; the film is kept, with its history, unlisted.
-	world.scan([]nodeproto.Record{observed("u.mkv", "u")}, true)
+	world.scan([]nodeproto.Record{observedRecord("u.mkv", "u")}, true)
 	if hits, err := world.browser.Search(t.Context(), "heat", 10); err != nil || len(hits) != 0 {
 		t.Errorf("Search(heat) with its file gone = %+v, %v; want nothing, as browse lists nothing", hits, err)
 	}

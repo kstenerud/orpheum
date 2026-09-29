@@ -39,7 +39,7 @@ func newArtwork(
 	if err := service.Load(ctx); err != nil {
 		return nil, err
 	}
-	opened.nodes.ReceiveArtwork(service)
+	opened.nodes.SetArtworkSink(service)
 	opened.metadata.pass.AfterPass(func(ctx context.Context, report identify.Report) {
 		service.Owe(ctx, report.Artwork)
 	})

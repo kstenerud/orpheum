@@ -17,18 +17,26 @@ func TestSidecarTrackOf_ReadsTheLanguageAndFlagsAfterTheVideosName(t *testing.T)
 	forced, deaf, isDefault := DispositionBit("forced"), DispositionBit("hearing_impaired"), DispositionBit("default")
 	const video = "/media/Copper Kettle (2015)/Copper Kettle (2015).mkv"
 	for name, want := range map[string]sidecarTrack{
-		"Copper Kettle (2015).srt":              {codec: "subrip"},
-		"Copper Kettle (2015).en.srt":           {codec: "subrip", langRaw: "en", lang: "en"},
-		"Copper Kettle (2015).ger.forced.srt":   {codec: "subrip", langRaw: "ger", lang: "de", disposition: forced},
-		"Copper Kettle (2015).forced.pt-BR.ass": {codec: "ass", langRaw: "pt-BR", lang: "pt-BR", disposition: forced},
-		"Copper Kettle (2015).en.SDH.vtt":       {codec: "webvtt", langRaw: "en", lang: "en", disposition: deaf},
-		"Copper Kettle (2015).es.hi.default.srt": {
-			codec: "subrip", langRaw: "es", lang: "es", disposition: deaf | isDefault,
+		"Copper Kettle (2015).srt":    {codec: "subrip"},
+		"Copper Kettle (2015).en.srt": {codec: "subrip", containerLanguage: "en", languageTag: "en"},
+		"Copper Kettle (2015).ger.forced.srt": {
+			codec: "subrip", containerLanguage: "ger", languageTag: "de", disposition: forced,
 		},
-		"Copper Kettle (2015).commentary.en.srt": {codec: "subrip", langRaw: "en", lang: "en"},
-		"Copper Kettle (2015).fr.cc.ssa":         {codec: "ssa", langRaw: "fr", lang: "fr", disposition: deaf},
-		"Copper Kettle (2015).en.fr.srt":         {codec: "subrip", langRaw: "en", lang: "en"},
-		"Something else entirely.en.srt":     {codec: "subrip"},
+		"Copper Kettle (2015).forced.pt-BR.ass": {
+			codec: "ass", containerLanguage: "pt-BR", languageTag: "pt-BR", disposition: forced,
+		},
+		"Copper Kettle (2015).en.SDH.vtt": {
+			codec: "webvtt", containerLanguage: "en", languageTag: "en", disposition: deaf,
+		},
+		"Copper Kettle (2015).es.hi.default.srt": {
+			codec: "subrip", containerLanguage: "es", languageTag: "es", disposition: deaf | isDefault,
+		},
+		"Copper Kettle (2015).commentary.en.srt": {codec: "subrip", containerLanguage: "en", languageTag: "en"},
+		"Copper Kettle (2015).fr.cc.ssa": {
+			codec: "ssa", containerLanguage: "fr", languageTag: "fr", disposition: deaf,
+		},
+		"Copper Kettle (2015).en.fr.srt":     {codec: "subrip", containerLanguage: "en", languageTag: "en"},
+		"Something else entirely.en.srt": {codec: "subrip"},
 	} {
 		if got := sidecarTrackOf("/media/Copper Kettle (2015)/"+name, video); got != want {
 			t.Errorf("%s: %+v, want %+v", name, got, want)
@@ -36,9 +44,9 @@ func TestSidecarTrackOf_ReadsTheLanguageAndFlagsAfterTheVideosName(t *testing.T)
 	}
 }
 
-// subtitleSidecar is a subtitle file's record, with the payload hash a scan gives it.
-func subtitleSidecar(path, content string) nodeproto.Record {
-	record := sidecar(path, nodeproto.SidecarSubtitle, content)
+// subtitleSidecarRecord is a subtitle file's record, with the payload hash a scan gives it.
+func subtitleSidecarRecord(path, content string) nodeproto.Record {
+	record := sidecarRecord(path, nodeproto.SidecarSubtitle, content)
 	record.Sidecar.Identity = &nodeproto.Identity{
 		Scheme: "payload-v1", Anchor: "whole-file", PayloadHash: hashOf(content), PayloadBytes: int64(len(content)),
 	}
@@ -49,13 +57,13 @@ func TestIngest_ASubtitleFileIsATrackOfItsVideoUntilItsVideoIsGone(t *testing.T)
 	t.Parallel()
 	world := newHarness(t)
 	// A subtitle file that belongs to no video is recorded, with no track, and the scan goes on.
-	world.scan([]nodeproto.Record{subtitleSidecar("Metropolis (1995)/Metropolis (1995).en.forced.srt", "1\n")}, true)
+	world.scan([]nodeproto.Record{subtitleSidecarRecord("Metropolis (1995)/Metropolis (1995).en.forced.srt", "1\n")}, true)
 	records := []nodeproto.Record{
-		subtitleSidecar("Metropolis (1995)/Metropolis (1995).en.forced.srt", "1\n"),
-		observed("Metropolis (1995)/Metropolis (1995).mkv", "heat"),
+		subtitleSidecarRecord("Metropolis (1995)/Metropolis (1995).en.forced.srt", "1\n"),
+		observedRecord("Metropolis (1995)/Metropolis (1995).mkv", "heat"),
 	}
 	world.scan(records, true)
-	files := world.live()
+	files := world.liveFilesByPath()
 	sidecarFile := files[root+"/Metropolis (1995)/Metropolis (1995).en.forced.srt"]
 	video := files[root+"/Metropolis (1995)/Metropolis (1995).mkv"]
 	if hex.EncodeToString(sidecarFile.PayloadHash) != hashOf("1\n") {

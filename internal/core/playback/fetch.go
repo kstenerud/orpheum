@@ -232,14 +232,14 @@ func fetchedKey(body []byte) cachegen.GetSubtitleTextParams {
 func (service *Service) HandleFetchedSubtitle(ctx context.Context, job jobs.Job) error {
 	fetched, err := store.OrNotFound(service.database.Read().GetFetchedSubtitle(ctx, job.FetchedSubtitleID))
 	if errors.Is(err, store.ErrNotFound) {
-		return jobs.Permanent(fmt.Errorf("no fetched subtitle %d, or its video is gone", job.FetchedSubtitleID))
+		return jobs.MarkPermanent(fmt.Errorf("no fetched subtitle %d, or its video is gone", job.FetchedSubtitleID))
 	}
 	if err != nil {
 		return fmt.Errorf("read fetched subtitle %d: %w", job.FetchedSubtitleID, err)
 	}
 	text, err := gunzipped(fetched.BodyGzip)
 	if err != nil {
-		return jobs.Permanent(err)
+		return jobs.MarkPermanent(err)
 	}
 	return service.convert(ctx, job, fetched.NodeID, &nodeproto.ExtractSubtitle{JobID: job.ID, FetchedSubRip: text},
 		fetchedKey(fetched.BodyGzip))

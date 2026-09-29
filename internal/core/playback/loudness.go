@@ -165,7 +165,7 @@ func (service *Service) QueueMeasurements(ctx context.Context) (int, error) {
 			return queued, fmt.Errorf("list files to measure: %w", listErr)
 		}
 		for _, id := range ids {
-			added, enqueueErr := service.queue.Enqueue(ctx, jobs.New{
+			added, enqueueErr := service.queue.Enqueue(ctx, jobs.Request{
 				Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: id},
 				Reason: "measures how loud it is, so it plays at the level of the others",
 			})
@@ -192,7 +192,7 @@ const slowestReadBytesPerSecond = 20 << 20
 func (service *Service) HandleLoudness(ctx context.Context, job jobs.Job) error {
 	file, err := service.file(ctx, job.FileID)
 	if errors.Is(err, ErrNoFile) {
-		return jobs.Permanent(err)
+		return jobs.MarkPermanent(err)
 	}
 	if err != nil {
 		return err
@@ -206,7 +206,7 @@ func (service *Service) HandleLoudness(ctx context.Context, job jobs.Job) error 
 	}
 	probe, err := decodeProbe(file.ProbeJson)
 	if err != nil {
-		return jobs.Permanent(err)
+		return jobs.MarkPermanent(err)
 	}
 	command := nodeproto.MeasureLoudness{JobID: job.ID}
 	for _, stream := range audioStreams(probe) {
@@ -218,7 +218,7 @@ func (service *Service) HandleLoudness(ctx context.Context, job jobs.Job) error 
 		return nil
 	}
 	if command.Video, err = service.source(ctx, locatedOf(file)); err != nil {
-		return jobs.Permanent(err)
+		return jobs.MarkPermanent(err)
 	}
 	reading := time.Duration(ptr.ValueOrZero(file.SizeBytes)/slowestReadBytesPerSecond) * time.Second
 	patience := service.maxSilence + reading
@@ -241,11 +241,11 @@ func (service *Service) measure(
 	case answer := <-answers:
 		if answer.Refusal != "" {
 			// Nothing is kept: the next sweep asks again, of the file as it is then.
-			return jobs.Permanent(errors.New(answer.Refusal))
+			return jobs.MarkPermanent(errors.New(answer.Refusal))
 		}
 		keepErr := service.keepLoudness(ctx, file.PayloadHash, command.Tracks, answer)
 		if answer.Failure != "" {
-			return jobs.Permanent(errors.Join(errors.New(answer.Failure), keepErr))
+			return jobs.MarkPermanent(errors.Join(errors.New(answer.Failure), keepErr))
 		}
 		return keepErr
 	case <-timer.C:
@@ -253,7 +253,7 @@ func (service *Service) measure(
 	case <-ctx.Done():
 		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
 			service.nodes.Enqueue(file.NodeID, cancelCommand(job.ID))
-			return jobs.Permanent(jobs.ErrCancelled)
+			return jobs.MarkPermanent(jobs.ErrCancelled)
 		}
 		return fmt.Errorf("wait for measurement job %d: %w", job.ID, ctx.Err())
 	}
@@ -305,7 +305,7 @@ func loudnessRow(
 	}
 }
 
-// Measured takes a node's answer to a measure_loudness command to the job waiting for it.
-func (service *Service) Measured(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult) {
+// TakeLoudness takes a node's answer to a measure_loudness command to the job waiting for it.
+func (service *Service) TakeLoudness(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult) {
 	service.loudness.deliver(ctx, nodeID, answer.JobID, answer)
 }

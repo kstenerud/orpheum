@@ -32,31 +32,31 @@ func attachedReason(kind nodeproto.SidecarKind) string {
 	return "a file beside its video"
 }
 
-// sidecar records a metadata or subtitle file, keeping an NFO's bytes as the stored input
+// recordSidecar records a metadata or subtitle file, keeping an NFO's bytes as the stored input
 // identification reads (D182). Which video it belongs to is settled when the scan completes,
 // because a sidecar can arrive before its video: "Film.en.srt" sorts before "Film.mkv".
-func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodeproto.Sidecar) error {
-	located := nodePath(scan.root, sidecar.Path)
+func (batch *ingestBatch) recordSidecar(ctx context.Context, scan *scanState, sidecar *nodeproto.Sidecar) error {
+	located := resolveReportedPath(scan.root, sidecar.Path)
 	kind, reason := string(sidecar.Kind), attachedReason(sidecar.Kind)
 	var hash []byte
 	var payloadBytes *int64
 	if sidecar.Identity != nil {
-		decoded, hashErr := payloadHash(*sidecar.Identity)
+		decoded, hashErr := decodePayloadHash(*sidecar.Identity)
 		if hashErr != nil {
 			return fmt.Errorf("the sidecar %s: %w", located.text, hashErr)
 		}
 		hash, payloadBytes = decoded, &sidecar.Identity.PayloadBytes
 	}
-	existing, err := store.OrNotFound(work.queries.GetLiveFileByReportedPathBytes(ctx,
+	existing, err := store.OrNotFound(batch.queries.GetLiveFileByReportedPathBytes(ctx,
 		sqlcgen.GetLiveFileByReportedPathBytesParams{
-			NodeID: work.nodeID, ReportedPathBytes: located.key,
+			NodeID: batch.nodeID, ReportedPathBytes: located.reportedBytes,
 		}))
 	if err == nil {
-		err = work.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
+		err = batch.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
 			LibraryID: scan.libraryID, SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt,
 			PayloadHash: hash, PayloadBytes: payloadBytes, SidecarKind: &kind,
 			FilingReason: &reason,
-			NfoBody:      sidecar.NFOBody, SeenAt: work.now, ID: existing.ID,
+			NfoBody:      sidecar.NFOBody, SeenAt: batch.nowMs, ID: existing.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("update the sidecar %s: %w", located.text, err)
@@ -66,11 +66,11 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 	if !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
-	_, err = work.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
-		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, ReportedPathBytes: located.key,
+	_, err = batch.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
+		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: located.text, ReportedPathBytes: located.reportedBytes,
 		SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt, PayloadHash: hash, PayloadBytes: payloadBytes,
 		SidecarKind: &kind, FilingReason: &reason,
-		NfoBody: sidecar.NFOBody, SeenAt: work.now,
+		NfoBody: sidecar.NFOBody, SeenAt: batch.nowMs,
 	})
 	if err != nil {
 		return fmt.Errorf("insert the sidecar %s: %w", located.text, err)
@@ -83,35 +83,36 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 // "Film (2020).mkv"), or, for a "movie.nfo", the folder's only video. A sidecar that belongs to
 // no single video — a tvshow.nfo, a season's — is attached to none. A subtitle's track is kept
 // beside its video's own (keepSidecarTrack).
-func (work *batch) attachSidecars(ctx context.Context, scan *scanState) error {
-	files, err := work.queries.ListLiveFilesForAttaching(ctx, sqlcgen.ListLiveFilesForAttachingParams{
-		NodeID: work.nodeID, LibraryID: scan.libraryID,
+func (batch *ingestBatch) attachSidecars(ctx context.Context, scan *scanState) error {
+	files, err := batch.queries.ListLiveFilesForAttaching(ctx, sqlcgen.ListLiveFilesForAttachingParams{
+		NodeID: batch.nodeID, LibraryID: scan.libraryID,
 	})
 	if err != nil {
 		return fmt.Errorf("list the files under %s: %w", scan.root, err)
 	}
-	videos := map[string][]sqlcgen.ListLiveFilesForAttachingRow{} // by folder
+	videosByFolder := map[string][]sqlcgen.ListLiveFilesForAttachingRow{} // by folder
 	for _, file := range files {
 		// A subtitle sidecar has a payload hash too; a video is what has one and is not attached.
-		if under(file.Path, scan.root) && file.PayloadHash != nil && file.Filing != filingAttached {
-			videos[path.Dir(file.Path)] = append(videos[path.Dir(file.Path)], file)
+		if isUnder(file.Path, scan.root) && file.PayloadHash != nil && file.Filing != filingAttached {
+			videosByFolder[path.Dir(file.Path)] = append(videosByFolder[path.Dir(file.Path)], file)
 		}
 	}
 	for _, file := range files {
-		if file.Filing != filingAttached || !under(file.Path, scan.root) {
+		if file.Filing != filingAttached || !isUnder(file.Path, scan.root) {
 			continue
 		}
-		folder := videos[path.Dir(file.Path)]
-		owner := ownerOf(file.Path, folder)
+		folderVideos := videosByFolder[path.Dir(file.Path)]
+		ownerVideoID := ownerVideoIDOf(file.Path, folderVideos)
 		if ptr.ValueOrZero(file.SidecarKind) == string(nodeproto.SidecarSubtitle) {
-			if err := work.keepSidecarTrack(ctx, file, videoOf(owner, folder)); err != nil {
+			if err := batch.keepSidecarTrack(ctx, file, videoOf(ownerVideoID, folderVideos)); err != nil {
 				return err
 			}
 		}
-		if samePointee(file.AttachedToFile, owner) {
+		if samePointee(file.AttachedToFile, ownerVideoID) {
 			continue
 		}
-		err := work.queries.SetFileAttachedTo(ctx, sqlcgen.SetFileAttachedToParams{AttachedToFile: owner, ID: file.ID})
+		attach := sqlcgen.SetFileAttachedToParams{AttachedToFile: ownerVideoID, ID: file.ID}
+		err := batch.queries.SetFileAttachedTo(ctx, attach)
 		if err != nil {
 			return fmt.Errorf("attach %s: %w", file.Path, err)
 		}
@@ -119,8 +120,8 @@ func (work *batch) attachSidecars(ctx context.Context, scan *scanState) error {
 	return nil
 }
 
-// ownerOf is the id of the video a sidecar at sidecarPath belongs to, or nil.
-func ownerOf(sidecarPath string, videos []sqlcgen.ListLiveFilesForAttachingRow) *int64 {
+// ownerVideoIDOf is the id of the video a sidecar at sidecarPath belongs to, or nil.
+func ownerVideoIDOf(sidecarPath string, videos []sqlcgen.ListLiveFilesForAttachingRow) *int64 {
 	name := path.Base(sidecarPath)
 	var owner *int64
 	longest := 0

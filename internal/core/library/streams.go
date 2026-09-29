@@ -32,12 +32,12 @@ func isTrackKind(kind string) bool {
 	return kind == "video" || kind == "audio" || kind == "subtitle" || kind == "attachment"
 }
 
-// streams brings a file's own stream rows to what its probe describes. They are derived rows
+// syncStreams brings a file's own stream rows to what its probe describes. They are derived rows
 // (class O): re-derived from the stored probe, never edited. A row is changed in place, keyed by
 // its stream index, so its id holds from scan to scan; one whose index the probe no longer has
 // is dropped.
-func (work *batch) streams(ctx context.Context, fileID int64, probe nodeproto.Probe) error {
-	kept := []int64{}
+func (batch *ingestBatch) syncStreams(ctx context.Context, fileID int64, probe nodeproto.Probe) error {
+	keptStreamIndexes := []int64{}
 	for _, stream := range probe.Streams {
 		if !isTrackKind(stream.Kind) {
 			continue
@@ -47,22 +47,22 @@ func (work *batch) streams(ctx context.Context, fileID int64, probe nodeproto.Pr
 			disposition |= DispositionBit(flag)
 		}
 		index := int64(stream.StreamIndex)
-		kept = append(kept, index)
-		err := work.queries.UpsertStream(ctx, sqlcgen.UpsertStreamParams{
-			FileID: fileID, StreamIndex: &index, Kind: stream.Kind, Codec: optional(stream.Codec),
-			ContainerLanguage: optional(stream.ContainerLanguage), Language: optional(stream.Language),
-			ContainerTitle:   optional(stream.ContainerTitle),
-			DispositionFlags: disposition, ChannelCount: optionalInt(int64(stream.Audio.ChannelCount)),
+		keptStreamIndexes = append(keptStreamIndexes, index)
+		err := batch.queries.UpsertStream(ctx, sqlcgen.UpsertStreamParams{
+			FileID: fileID, StreamIndex: &index, Kind: stream.Kind, Codec: nilIfEmpty(stream.Codec),
+			ContainerLanguage: nilIfEmpty(stream.ContainerLanguage), Language: nilIfEmpty(stream.Language),
+			ContainerTitle:   nilIfEmpty(stream.ContainerTitle),
+			DispositionFlags: disposition, ChannelCount: nilIfZero(int64(stream.Audio.ChannelCount)),
 		})
 		if err != nil {
 			return fmt.Errorf("keep stream %d of file %d: %w", stream.StreamIndex, fileID, err)
 		}
 	}
-	encoded, err := json.Marshal(kept)
+	encoded, err := json.Marshal(keptStreamIndexes)
 	if err != nil {
 		return fmt.Errorf("encode the stream indexes of file %d: %w", fileID, err)
 	}
-	err = work.queries.DeleteFileStreamsNotIn(ctx, sqlcgen.DeleteFileStreamsNotInParams{
+	err = batch.queries.DeleteFileStreamsNotIn(ctx, sqlcgen.DeleteFileStreamsNotInParams{
 		FileID: fileID, KeptIndexes: string(encoded),
 	})
 	if err != nil {
@@ -71,14 +71,14 @@ func (work *batch) streams(ctx context.Context, fileID int64, probe nodeproto.Pr
 	return nil
 }
 
-func optional(text string) *string {
+func nilIfEmpty(text string) *string {
 	if text == "" {
 		return nil
 	}
 	return &text
 }
 
-func optionalInt(value int64) *int64 {
+func nilIfZero(value int64) *int64 {
 	if value == 0 {
 		return nil
 	}

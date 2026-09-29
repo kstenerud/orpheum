@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 )
 
-// maxSocketPath is the longest socket path both Linux (108 bytes) and macOS (104) accept,
+// maxSocketPathBytes is the longest socket path both Linux (108 bytes) and macOS (104) accept,
 // counting the terminating NUL.
-const maxSocketPath = 103
+const maxSocketPathBytes = 103
 
 // ListenUnix listens on the Unix socket name in directory, which it creates with mode 0700 if it
 // is missing. The socket is mode 0600: its permissions are the node channel's authentication
@@ -24,9 +24,9 @@ func ListenUnix(directory, name string) (*net.UnixListener, error) {
 		return nil, fmt.Errorf("socket directory %q: want an absolute path", directory)
 	}
 	path := filepath.Join(directory, name)
-	if len(path) > maxSocketPath {
+	if len(path) > maxSocketPathBytes {
 		return nil, fmt.Errorf("socket path %s is %d bytes; a Unix socket's path may have at most %d",
-			path, len(path), maxSocketPath)
+			path, len(path), maxSocketPathBytes)
 	}
 	if err := os.MkdirAll(directory, directoryMode); err != nil {
 		return nil, fmt.Errorf("create the socket directory %s: %w", directory, err)

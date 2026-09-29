@@ -431,7 +431,7 @@ agent-failures A5). [D213](../decisions/working-notes.md) is the pattern.
 | --- | --- | --- |
 | **404 / gone** | our stored reference is stale, or the thing was removed | whether our record is fetched again, how often, and when we give up; never "missing for good" on the first answer |
 | **429 / `Retry-After`** | we asked too fast | wait the time asked, in both its forms, capped; the wait costs no attempt |
-| **401 / 403** | our key is missing or refused | hold every job of the kind until something outside changes (`jobs.Blocked`), and say so where an admin looks |
+| **401 / 403** | our key is missing or refused | hold every job of the kind until something outside changes (`jobs.MarkBlocked`), and say so where an admin looks |
 | **5xx, a timeout, a refused connection** | the host is having trouble | a back-off schedule with a cap and an end, and a pause for the host after several failures in a row, probed once per step |
 | **a 200 that is not what was asked for** | a proxy, a captive portal, a changed API | refuse it as a malformed answer; never store it |
 

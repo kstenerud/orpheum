@@ -167,10 +167,10 @@ func start(
 		MaxSilence: prepareMaxSilence, Subtitler: opened.metadata.subtitler,
 	})
 	opened.metadata.playback = dependencies.Playback
-	opened.nodes.ReceivePrepare(dependencies.Playback)
-	opened.nodes.ReceiveSubtitles(dependencies.Playback)
-	opened.nodes.ReceiveLoudness(dependencies.Playback)
-	dependencies.NodeBytes = nodes.NewBytes(opened.nodes, filepath.Join(config.Server.SocketDir, nodeSocket))
+	opened.nodes.SetPrepareSink(dependencies.Playback)
+	opened.nodes.SetSubtitleSink(dependencies.Playback)
+	opened.nodes.SetLoudnessSink(dependencies.Playback)
+	dependencies.NodeBytes = nodes.NewByteSocketClient(opened.nodes, filepath.Join(config.Server.SocketDir, nodeSocket))
 	dependencies.Jobs = opened.metadata.queue
 	dependencies.NodeReports = opened.nodes
 	dependencies.System = api.System{
@@ -186,7 +186,7 @@ func openAndMigrate(
 	ctx context.Context, config Config, directories *datadir.Directories,
 	report func(api.Status, string, ...string), logger *slog.Logger,
 ) (*store.Database, error) {
-	database, err := store.Open(ctx, directories.LibraryDatabase(), config.openOptions())
+	database, err := store.Open(ctx, directories.LibraryDatabasePath(), config.openOptions())
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +202,7 @@ func openAndMigrate(
 func openCache(
 	ctx context.Context, config Config, directories *datadir.Directories, logger *slog.Logger,
 ) (*store.Cache, error) {
-	cache, err := store.OpenCache(ctx, directories.CacheDatabase(), config.openOptions())
+	cache, err := store.OpenCache(ctx, directories.CacheDatabasePath(), config.openOptions())
 	if !errors.Is(err, store.ErrCacheOutdated) {
 		return cache, err
 	}
@@ -210,7 +210,7 @@ func openCache(
 	if err := directories.DiscardCacheDatabase(); err != nil {
 		return nil, err
 	}
-	return store.OpenCache(ctx, directories.CacheDatabase(), config.openOptions())
+	return store.OpenCache(ctx, directories.CacheDatabasePath(), config.openOptions())
 }
 
 // reportMigration returns the runner's BeforeStep: /health says "migrating: step 3 of 7" before
@@ -234,8 +234,8 @@ func buildDependencies(
 	if err != nil {
 		return api.Dependencies{}, err
 	}
-	if len(report.Written) > 0 {
-		logger.InfoContext(ctx, "wrote the starting value of settings that had none", "keys", report.Written)
+	if len(report.Inserted) > 0 {
+		logger.InfoContext(ctx, "wrote the starting value of settings that had none", "keys", report.Inserted)
 	}
 	if len(report.Updated) > 0 {
 		logger.InfoContext(ctx, "this release changed the starting value of settings nobody had set; they follow it",

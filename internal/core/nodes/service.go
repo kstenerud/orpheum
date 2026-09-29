@@ -21,8 +21,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// NodeHeader carries the node's id, from the hello reply, on every request after the hello.
-const NodeHeader = "Orpheum-Node-ID"
+// NodeIDHeader carries the node's id, from the hello reply, on every request after the hello.
+const NodeIDHeader = "Orpheum-Node-ID"
 
 // maxHelloBytes bounds a hello; a real one is a few hundred bytes.
 const maxHelloBytes = 1 << 20
@@ -35,76 +35,76 @@ type Settings interface {
 
 // Sink receives a node's report records, in order, a batch at a time: the ingest.
 type Sink interface {
-	Records(ctx context.Context, nodeID int64, records []nodeproto.Record) error
+	IngestRecords(ctx context.Context, nodeID int64, records []nodeproto.Record) error
 }
 
 // ArtworkSink receives a node's answer to an artwork command: the artwork store's one way in
 // (D212 §8).
 type ArtworkSink interface {
-	Answered(ctx context.Context, nodeID int64, result nodeproto.ArtworkResult)
+	TakeArtworkAnswer(ctx context.Context, nodeID int64, result nodeproto.ArtworkResult)
 }
 
 // PrepareSink receives a node's reports on a prepare: how far it is, and how it ended.
 type PrepareSink interface {
-	Reported(ctx context.Context, nodeID int64, report nodeproto.PrepareReport)
+	TakePrepareReport(ctx context.Context, nodeID int64, report nodeproto.PrepareReport)
 }
 
 // SubtitleSink receives a node's answer to an extract_subtitle command: the text, or why none.
 type SubtitleSink interface {
-	Extracted(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText)
+	TakeSubtitleText(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText)
 }
 
 // LoudnessSink receives a node's answer to a measure_loudness command: the measurements, or why
 // none (D226).
 type LoudnessSink interface {
-	Measured(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult)
+	TakeLoudness(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult)
 }
 
 // Service is the core's side of the node channel (cut-a §4, D207): it enrols nodes, queues their
 // commands, receives their reports and knows when each last spoke.
 type Service struct {
-	database *store.Database
-	clock    clock.Clock
-	settings Settings
-	sink     Sink
-	logger   *slog.Logger
-	pollHold time.Duration
+	database   *store.Database
+	clock      clock.Clock
+	settings   Settings
+	recordSink Sink
+	logger     *slog.Logger
+	pollHold   time.Duration
 
-	artwork   ArtworkSink
-	prepare   PrepareSink
-	subtitles SubtitleSink
-	loudness  LoudnessSink
+	artworkSink  ArtworkSink
+	prepareSink  PrepareSink
+	subtitleSink SubtitleSink
+	loudnessSink LoudnessSink
 
-	mutex    sync.Mutex
-	channels map[int64]*channel
+	mutex          sync.Mutex
+	connectedNodes map[int64]*connectedNode
 }
 
-// ReceiveArtwork names where the nodes' artwork answers go. Set it before the channel serves; an
+// SetArtworkSink names where the nodes' artwork answers go. Set it before the channel serves; an
 // answer that arrives with none set is refused.
-func (service *Service) ReceiveArtwork(sink ArtworkSink) {
-	service.artwork = sink
+func (service *Service) SetArtworkSink(sink ArtworkSink) {
+	service.artworkSink = sink
 }
 
-// ReceivePrepare names where the nodes' prepare reports go. Set it before the channel serves; a
+// SetPrepareSink names where the nodes' prepare reports go. Set it before the channel serves; a
 // report that arrives with none set is refused.
-func (service *Service) ReceivePrepare(sink PrepareSink) {
-	service.prepare = sink
+func (service *Service) SetPrepareSink(sink PrepareSink) {
+	service.prepareSink = sink
 }
 
-// ReceiveSubtitles names where the nodes' subtitle answers go. Set it before the channel serves;
+// SetSubtitleSink names where the nodes' subtitle answers go. Set it before the channel serves;
 // an answer that arrives with none set is refused.
-func (service *Service) ReceiveSubtitles(sink SubtitleSink) {
-	service.subtitles = sink
+func (service *Service) SetSubtitleSink(sink SubtitleSink) {
+	service.subtitleSink = sink
 }
 
-// ReceiveLoudness names where the nodes' loudness answers go. Set it before the channel serves;
+// SetLoudnessSink names where the nodes' loudness answers go. Set it before the channel serves;
 // an answer that arrives with none set is refused.
-func (service *Service) ReceiveLoudness(sink LoudnessSink) {
-	service.loudness = sink
+func (service *Service) SetLoudnessSink(sink LoudnessSink) {
+	service.loudnessSink = sink
 }
 
-// channel is what the core holds for one connected node.
-type channel struct {
+// connectedNode is what the core holds for one connected node.
+type connectedNode struct {
 	name string
 	// hello is its last hello: its roots (D107), confinement (D112) and hardware (D225).
 	hello nodeproto.Hello
@@ -124,8 +124,8 @@ func NewService(
 	pollHold time.Duration,
 ) *Service {
 	return &Service{
-		database: database, clock: clockSource, settings: settingsService, sink: sink, logger: logger,
-		pollHold: pollHold, channels: map[int64]*channel{},
+		database: database, clock: clockSource, settings: settingsService, recordSink: sink, logger: logger,
+		pollHold: pollHold, connectedNodes: map[int64]*connectedNode{},
 	}
 }
 
@@ -133,8 +133,8 @@ func NewService(
 func (service *Service) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, service.hello)
-	mux.HandleFunc("POST "+nodeproto.PathReport, service.report)
-	mux.HandleFunc("GET "+nodeproto.PathCommands, service.commands)
+	mux.HandleFunc("POST "+nodeproto.PathReport, service.serveReport)
+	mux.HandleFunc("GET "+nodeproto.PathCommands, service.serveCommands)
 	mux.HandleFunc("POST "+nodeproto.PathArtwork, service.artworkAnswer)
 	mux.HandleFunc("POST "+nodeproto.PathPrepare, service.prepareReport)
 	mux.HandleFunc("POST "+nodeproto.PathSubtitle, service.subtitleAnswer)
@@ -217,10 +217,10 @@ func enrol(
 func (service *Service) connect(nodeID int64, hello nodeproto.Hello) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	existing, found := service.channels[nodeID]
+	existing, found := service.connectedNodes[nodeID]
 	if !found {
-		existing = &channel{name: hello.Name, nextSeq: 1, wake: make(chan struct{})}
-		service.channels[nodeID] = existing
+		existing = &connectedNode{name: hello.Name, nextSeq: 1, wake: make(chan struct{})}
+		service.connectedNodes[nodeID] = existing
 	}
 	existing.lastHeard = service.clock.Now()
 	existing.hello = hello
@@ -240,7 +240,7 @@ type Facts struct {
 func (service *Service) Facts(name string) (Facts, bool) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	for id, existing := range service.channels {
+	for id, existing := range service.connectedNodes {
 		if existing.name == name && !existing.lastHeard.IsZero() {
 			return Facts{
 				NodeID: id, Hello: existing.hello, Status: existing.status, LastHeard: existing.lastHeard,
@@ -254,21 +254,21 @@ func (service *Service) Facts(name string) (Facts, bool) {
 func (service *Service) keepStatus(nodeID int64, status *nodeproto.Status) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	if existing, found := service.channels[nodeID]; found {
+	if existing, found := service.connectedNodes[nodeID]; found {
 		kept := *status
 		existing.status = &kept
 	}
 }
 
-// Roots are the media roots the named node configured, as its last hello since the core started
+// ConnectedNodeRoots are the media roots the named node configured, as its last hello since the core started
 // said, with its id; false when it has not said hello since (D107: roots are configured on the
 // node, never remotely).
-func (service *Service) Roots(name string) (int64, []string, bool) {
+func (service *Service) ConnectedNodeRoots(name string) (int64, []string, bool) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	for id, queue := range service.channels {
-		if queue.name == name {
-			return id, slices.Clone(queue.hello.RootPaths), true
+	for id, node := range service.connectedNodes {
+		if node.name == name {
+			return id, slices.Clone(node.hello.RootPaths), true
 		}
 	}
 	return 0, nil, false
@@ -278,30 +278,30 @@ func (service *Service) Roots(name string) (int64, []string, bool) {
 func (service *Service) Enqueue(nodeID int64, command nodeproto.Command) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	queue, found := service.channels[nodeID]
+	node, found := service.connectedNodes[nodeID]
 	if !found {
 		return
 	}
-	command.CommandSeq = queue.nextSeq
-	queue.nextSeq++
-	queue.commands = append(queue.commands, command)
-	close(queue.wake)
-	queue.wake = make(chan struct{})
+	command.CommandSeq = node.nextSeq
+	node.nextSeq++
+	node.commands = append(node.commands, command)
+	close(node.wake)
+	node.wake = make(chan struct{})
 }
 
-// Connected is the node heard from most recently, and whether any has said hello since the core
+// LastHeardNodeID is the node heard from most recently, and whether any has said hello since the core
 // started: where work that any node can do is sent.
-func (service *Service) Connected() (int64, bool) {
+func (service *Service) LastHeardNodeID() (int64, bool) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	var latest time.Time
-	found := int64(0)
-	for id, queue := range service.channels {
-		if found == 0 || queue.lastHeard.After(latest) {
-			found, latest = id, queue.lastHeard
+	latestNodeID := int64(0)
+	for id, node := range service.connectedNodes {
+		if latestNodeID == 0 || node.lastHeard.After(latest) {
+			latestNodeID, latest = id, node.lastHeard
 		}
 	}
-	return found, found != 0
+	return latestNodeID, latestNodeID != 0
 }
 
 // IsConnected is whether a node has said hello since the core started: where work on its own
@@ -309,7 +309,7 @@ func (service *Service) Connected() (int64, bool) {
 func (service *Service) IsConnected(nodeID int64) bool {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	_, found := service.channels[nodeID]
+	_, found := service.connectedNodes[nodeID]
 	return found
 }
 
@@ -317,33 +317,33 @@ func (service *Service) IsConnected(nodeID int64) bool {
 func (service *Service) LastHeard(name string) (time.Time, bool) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	for _, queue := range service.channels {
-		if queue.name == name {
-			return queue.lastHeard, true
+	for _, node := range service.connectedNodes {
+		if node.name == name {
+			return node.lastHeard, true
 		}
 	}
 	return time.Time{}, false
 }
 
-// heard notes that a node spoke.
-func (service *Service) heard(nodeID int64) {
+// noteHeard notes that a node spoke.
+func (service *Service) noteHeard(nodeID int64) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	if queue, found := service.channels[nodeID]; found {
-		queue.lastHeard = service.clock.Now()
+	if node, found := service.connectedNodes[nodeID]; found {
+		node.lastHeard = service.clock.Now()
 	}
 }
 
-// nodeID reads the node's id from a request after its hello, answering 400 or 409 if it is
+// knownNodeIDOf reads the node's id from a request after its hello, answering 400 or 409 if it is
 // missing or unknown.
-func (service *Service) nodeID(writer http.ResponseWriter, request *http.Request) (int64, bool) {
-	id, err := strconv.ParseInt(request.Header.Get(NodeHeader), 10, 64)
+func (service *Service) knownNodeIDOf(writer http.ResponseWriter, request *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(request.Header.Get(NodeIDHeader), 10, 64)
 	if err != nil {
-		http.Error(writer, "every request after the hello names its node in "+NodeHeader, http.StatusBadRequest)
+		http.Error(writer, "every request after the hello names its node in "+NodeIDHeader, http.StatusBadRequest)
 		return 0, false
 	}
 	service.mutex.Lock()
-	_, known := service.channels[id]
+	_, known := service.connectedNodes[id]
 	service.mutex.Unlock()
 	if !known {
 		http.Error(writer, "say hello first: the core does not know this node", http.StatusConflict)

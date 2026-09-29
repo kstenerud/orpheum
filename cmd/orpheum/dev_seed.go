@@ -106,7 +106,7 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if err != nil {
 		return err
 	}
-	database, err := store.Open(ctx, directories.LibraryDatabase(), config.openOptions())
+	database, err := store.Open(ctx, directories.LibraryDatabasePath(), config.openOptions())
 	if err != nil {
 		return err
 	}
@@ -164,10 +164,11 @@ func seedLibraries(
 		}
 		_, err = library.Create(ctx, database, clock.System{}, library.NewLibrary{
 			Name: seeded.Name, Kind: seeded.Kind, MetadataSource: seeded.MetadataSource,
-			ChangeDetection: seeded.ChangeDetection, Writable: seeded.IsWritable, NodeID: nodeID, Roots: []string{root},
+			ChangeDetection: seeded.ChangeDetection, IsWritable: seeded.IsWritable, NodeID: nodeID,
+			Roots: []string{root},
 		})
 		switch {
-		case errors.Is(err, library.ErrExists):
+		case errors.Is(err, library.ErrNameTaken):
 			fmt.Fprintf(report, "seed: library %q exists; left as it is\n", seeded.Name)
 		case err != nil:
 			return fmt.Errorf("seed library %q: %w", seeded.Name, err)

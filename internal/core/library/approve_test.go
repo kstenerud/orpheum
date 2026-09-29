@@ -27,8 +27,8 @@ func TestScenario_S7_AnApprovedRemovalGoesAheadOnTheNextScanOnly(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	admin, nodes, libraryID := adminOf(world)
-	world.scan(films(40), true)
-	world.scan(films(19), true)
+	world.scan(filmRecords(40), true)
+	world.scan(filmRecords(19), true)
 	if outcome, _ := world.rootState(); outcome != "withheld" {
 		t.Fatalf("root is %s, want withheld", outcome)
 	}
@@ -39,8 +39,8 @@ func TestScenario_S7_AnApprovedRemovalGoesAheadOnTheNextScanOnly(t *testing.T) {
 	if err != nil || !scanned || !slices.Equal(scannedRoots(nodes.queued), []string{root}) {
 		t.Fatalf("ApproveRemovals = %v, %v; queued %v", scanned, err, nodes.queued)
 	}
-	world.scan(films(19), true)
-	if live := len(world.live()); live != 19 {
+	world.scan(filmRecords(19), true)
+	if live := len(world.liveFilesByPath()); live != 19 {
 		t.Errorf("%d live files after the approved scan, want 19", live)
 	}
 	if outcome, _ := world.rootState(); outcome != "complete" {
@@ -50,7 +50,7 @@ func TestScenario_S7_AnApprovedRemovalGoesAheadOnTheNextScanOnly(t *testing.T) {
 		t.Errorf("approving again with nothing withheld: %v", err)
 	}
 	world.scan(nil, true)
-	if live := len(world.live()); live != 19 {
+	if live := len(world.liveFilesByPath()); live != 19 {
 		t.Errorf("%d live files: the approval should have been spent by the scan it was for", live)
 	}
 }
@@ -63,14 +63,14 @@ func TestScenario_S7b_AGoneDiskIsForgottenAndItsFilesRemoved(t *testing.T) {
 	withDisk := func(mounted bool) []nodeproto.Record {
 		var records []nodeproto.Record
 		if mounted {
-			records = append(records, mount("disk1", 21))
-			records = append(records, inDirectory("disk1", films(2))...)
+			records = append(records, mountRecord("disk1", 21))
+			records = append(records, inDirectory("disk1", filmRecords(2))...)
 		}
-		return append(records, films(30)...)
+		return append(records, filmRecords(30)...)
 	}
 	world.scan(withDisk(true), true)
 	world.scan(withDisk(false), true)
-	if live := len(world.live()); live != 32 {
+	if live := len(world.liveFilesByPath()); live != 32 {
 		t.Fatalf("%d live files with the disk away, want all 32 kept", live)
 	}
 	_, notMount := admin.ForgetMount(t.Context(), libraryID, "local", root+"/Film00.mkv")
@@ -81,7 +81,7 @@ func TestScenario_S7b_AGoneDiskIsForgottenAndItsFilesRemoved(t *testing.T) {
 		t.Fatal(err)
 	}
 	world.scan(withDisk(false), true)
-	if live := len(world.live()); live != 30 {
+	if live := len(world.liveFilesByPath()); live != 30 {
 		t.Errorf("%d live files after forgetting the disk, want its 2 removed", live)
 	}
 }

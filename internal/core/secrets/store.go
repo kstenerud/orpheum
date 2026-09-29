@@ -34,28 +34,28 @@ const (
 	TURNSecret            Name = "turn_secret"
 )
 
-// Definition says what a secret is and whether it shows a hint. A hint is the last four
-// characters of an API key; a password or username has none (D194 §3).
+// Definition says what a secret is and whether it shows a hint. A hint is the last
+// secret_last_chars_shown characters of an API key; a password or username has none (D194 §3).
 type Definition struct {
-	Name     Name
-	HasHint  bool
-	Describe string
+	Name        Name
+	HasHint     bool
+	Description string
 }
 
 // Registry lists every secret, in the order a settings page shows them.
 func Registry() []Definition {
 	return []Definition{
-		{Name: TMDBAPIKey, HasHint: true, Describe: "the TMDB API key metadata is fetched with"},
+		{Name: TMDBAPIKey, HasHint: true, Description: "the TMDB API key metadata is fetched with"},
 		{
 			Name: DNSProviderToken, HasHint: true,
-			Describe: "the DNS provider token for the certificate",
+			Description: "the DNS provider token for the certificate",
 		},
-		{Name: TURNSecret, HasHint: false, Describe: "the TURN shared secret voice relays use"},
+		{Name: TURNSecret, HasHint: false, Description: "the TURN shared secret voice relays use"},
 		{
 			Name: OpenSubtitlesUsername, HasHint: false,
-			Describe: "the OpenSubtitles username every person's subtitle downloads use (D224)",
+			Description: "the OpenSubtitles username every person's subtitle downloads use (D224)",
 		},
-		{Name: OpenSubtitlesPassword, HasHint: false, Describe: "the password of that OpenSubtitles account"},
+		{Name: OpenSubtitlesPassword, HasHint: false, Description: "the password of that OpenSubtitles account"},
 	}
 }
 
@@ -84,12 +84,12 @@ type Status struct {
 	Name         Name
 	IsSet        bool
 	Hint         string
-	SetBy        *int64
+	SetByUserID  *int64
 	SetAt        int64
 	NeedsReentry bool
 }
 
-// Settings is where the store reads the hint length (D200).
+// Settings is where the store reads secret_last_chars_shown, the hint's length (D200).
 type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
 }
@@ -110,8 +110,8 @@ func NewStore(database *store.Database, key Key, clockSource clock.Clock, random
 }
 
 // Set seals value and stores it, replacing any old value.
-func (secrets *Store) Set(ctx context.Context, name Name, value Value, setBy *int64) error {
-	definition, err := lookUp(name)
+func (secrets *Store) Set(ctx context.Context, name Name, value Value, setByUserID *int64) error {
+	definition, err := knownDefinition(name)
 	if err != nil {
 		return err
 	}
@@ -129,11 +129,11 @@ func (secrets *Store) Set(ctx context.Context, name Name, value Value, setBy *in
 	sealed := cipher.Seal(nil, nonce, []byte(value.Reveal()), associatedData(name))
 	var hint *string
 	if definition.HasHint {
-		length, lengthErr := secrets.settings.Int(ctx, settings.SecretLastCharsShown)
-		if lengthErr != nil {
-			return lengthErr
+		lastCharsShown, readErr := secrets.settings.Int(ctx, settings.SecretLastCharsShown)
+		if readErr != nil {
+			return readErr
 		}
-		hint = hintOf(value.Reveal(), length)
+		hint = hintOf(value.Reveal(), lastCharsShown)
 	}
 	return secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertSealedSecret(ctx, sqlcgen.UpsertSealedSecretParams{
@@ -143,7 +143,7 @@ func (secrets *Store) Set(ctx context.Context, name Name, value Value, setBy *in
 			Nonce:       nonce,
 			Ciphertext:  sealed,
 			LastChars:   hint,
-			SetByUserID: setBy,
+			SetByUserID: setByUserID,
 			SetAt:       secrets.clock.Now().UnixMilli(),
 		})
 	})
@@ -152,7 +152,7 @@ func (secrets *Store) Set(ctx context.Context, name Name, value Value, setBy *in
 // Open returns a secret's value for the client that must present it. A secret sealed under
 // another key returns ErrNeedsReentry.
 func (secrets *Store) Open(ctx context.Context, name Name) (Value, error) {
-	if _, err := lookUp(name); err != nil {
+	if _, err := knownDefinition(name); err != nil {
 		return Value{}, err
 	}
 	row, err := store.OrNotFound(secrets.database.Read().GetSealedSecret(ctx, sqlcgen.GetSealedSecretParams{
@@ -181,7 +181,7 @@ func (secrets *Store) Open(ctx context.Context, name Name) (Value, error) {
 
 // Clear removes a secret's value; clearing one that is not set is not an error.
 func (secrets *Store) Clear(ctx context.Context, name Name) error {
-	if _, err := lookUp(name); err != nil {
+	if _, err := knownDefinition(name); err != nil {
 		return err
 	}
 	return secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -197,16 +197,16 @@ func (secrets *Store) Statuses(ctx context.Context) ([]Status, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list secrets: %w", err)
 	}
-	stored := map[string]sqlcgen.ListSealedSecretsInScopeRow{}
+	storedByName := map[string]sqlcgen.ListSealedSecretsInScopeRow{}
 	for _, row := range rows {
-		stored[row.Name] = row
+		storedByName[row.Name] = row
 	}
 	statuses := []Status{}
 	for _, definition := range Registry() {
 		status := Status{Name: definition.Name}
-		if row, isSet := stored[string(definition.Name)]; isSet {
+		if row, isSet := storedByName[string(definition.Name)]; isSet {
 			status.IsSet = true
-			status.SetBy, status.SetAt = row.SetByUserID, row.SetAt
+			status.SetByUserID, status.SetAt = row.SetByUserID, row.SetAt
 			status.NeedsReentry = row.KeyID != secrets.key.ID()
 			if row.LastChars != nil {
 				status.Hint = *row.LastChars
@@ -235,8 +235,8 @@ func (secrets *Store) NeedingReentry(ctx context.Context) ([]Status, error) {
 	return needing, nil
 }
 
-// lookUp refuses a name that is not in Registry.
-func lookUp(name Name) (Definition, error) {
+// knownDefinition is a name's definition; it refuses a name that is not in Registry.
+func knownDefinition(name Name) (Definition, error) {
 	definition, known := Lookup(name)
 	if !known {
 		return Definition{}, fmt.Errorf("%q: %w", name, ErrUnknownSecret)
@@ -251,13 +251,13 @@ func associatedData(name Name) []byte {
 	return []byte(serverScope + "\x000\x00" + string(name))
 }
 
-// hintOf is the last length characters of an API key, or nothing when the key is too short for
-// them to leave most of it hidden, or length is zero.
-func hintOf(text string, length int64) *string {
-	if length <= 0 || int64(utf8.RuneCountInString(text)) < 3*length {
+// hintOf is the last lastCharsShown characters of an API key, or nothing when the key is too
+// short for them to leave most of it hidden, or lastCharsShown is zero.
+func hintOf(text string, lastCharsShown int64) *string {
+	if lastCharsShown <= 0 || int64(utf8.RuneCountInString(text)) < 3*lastCharsShown {
 		return nil
 	}
 	runes := []rune(text)
-	hint := string(runes[int64(len(runes))-length:])
+	hint := string(runes[int64(len(runes))-lastCharsShown:])
 	return &hint
 }

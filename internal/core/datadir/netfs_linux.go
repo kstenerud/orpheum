@@ -7,8 +7,8 @@ import (
 	"syscall"
 )
 
-// networkFilesystems maps the statfs magic numbers of network filesystems to their names.
-func networkFilesystems() map[int64]string {
+// networkFilesystemNameByMagic maps the statfs magic numbers of network filesystems to their names.
+func networkFilesystemNameByMagic() map[int64]string {
 	return map[int64]string{
 		0x6969:     "NFS",
 		0x517B:     "SMB",
@@ -30,11 +30,11 @@ func refuseNetworkFilesystem(directory string) error {
 	if err := syscall.Statfs(directory, &stat); err != nil {
 		return fmt.Errorf("statfs %s: %w", directory, err)
 	}
-	return checkFilesystemType(directory, stat.Type)
+	return refuseNetworkFilesystemType(directory, stat.Type)
 }
 
-func checkFilesystemType(directory string, magic int64) error {
-	if name, isNetwork := networkFilesystems()[magic]; isNetwork {
+func refuseNetworkFilesystemType(directory string, magic int64) error {
+	if name, isNetwork := networkFilesystemNameByMagic()[magic]; isNetwork {
 		return fmt.Errorf("%s is on %s, a network filesystem; SQLite's locking is not reliable there, so the "+
 			"state directory must be on a local disk (D31)", directory, name)
 	}

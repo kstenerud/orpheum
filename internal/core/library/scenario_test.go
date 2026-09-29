@@ -11,12 +11,12 @@ import (
 
 // These tests are scenarios from plans/scenarios.md, named by their ids.
 
-// films is n observed films, Film00.mkv onwards.
-func films(n int) []nodeproto.Record {
+// filmRecords is n observed films, Film00.mkv onwards.
+func filmRecords(n int) []nodeproto.Record {
 	records := make([]nodeproto.Record, 0, n)
 	for index := range n {
 		name := fmt.Sprintf("Film%02d.mkv", index)
-		records = append(records, observed(name, name))
+		records = append(records, observedRecord(name, name))
 	}
 	return records
 }
@@ -40,20 +40,20 @@ func TestScenario_S7_S8_AnUnpluggedDiskRemovesNothingAndItsReturnRestoresEveryth
 	t.Parallel()
 	world := newHarness(t)
 	mounted := nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 7, IsMountPoint: true}
-	world.scanOn(mounted, films(3), true)
-	before := world.live()
+	world.scanOn(mounted, filmRecords(3), true)
+	before := world.liveFilesByPath()
 
 	unplugged := nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 1, IsMountPoint: false}
 	world.scanOn(unplugged, nil, true)
-	if got := len(world.live()); got != 3 {
+	if got := len(world.liveFilesByPath()); got != 3 {
 		t.Fatalf("%d live files after a clean scan of the empty mount point, want all 3", got)
 	}
 	if outcome, reason := world.rootState(); outcome != "withheld" || reason == "" {
 		t.Errorf("root_state %s %q, want the removals withheld with a reason for the admin", outcome, reason)
 	}
 
-	world.scanOn(mounted, films(3), true)
-	for path, file := range world.live() {
+	world.scanOn(mounted, filmRecords(3), true)
+	for path, file := range world.liveFilesByPath() {
 		if before[path].ID != file.ID {
 			t.Errorf("%s came back as file %d, want %d with its history", path, file.ID, before[path].ID)
 		}
@@ -81,9 +81,9 @@ func TestScenario_S7_RemovalsPastTheThresholdWaitAndFewerGoAhead(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			world := newHarness(t)
-			world.scan(films(tc.had), true)
-			world.scan(films(tc.kept), true)
-			left := len(world.live())
+			world.scan(filmRecords(tc.had), true)
+			world.scan(filmRecords(tc.kept), true)
+			left := len(world.liveFilesByPath())
 			if tc.waits && left != tc.had {
 				t.Errorf("%d live files, want all %d: the removal should wait for the admin", left, tc.had)
 			}
@@ -100,31 +100,31 @@ func TestScenario_S10_AFilmPutBackRevivesItsTombstone(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	world.scan([]nodeproto.Record{
-		observed("Metropolis.mkv", "heat"), observed("Wing.mkv", "alien"),
-		observed("Nosferatu.mkv", "ronin"),
+		observedRecord("Metropolis.mkv", "heat"), observedRecord("Wing.mkv", "alien"),
+		observedRecord("Nosferatu.mkv", "ronin"),
 	}, true)
-	heat := world.live()[root+"/Metropolis.mkv"].ID
+	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
 
-	world.scan([]nodeproto.Record{observed("Wing.mkv", "alien"), observed("Nosferatu.mkv", "ronin")}, true)
-	if _, live := world.live()[root+"/Metropolis.mkv"]; live {
+	world.scan([]nodeproto.Record{observedRecord("Wing.mkv", "alien"), observedRecord("Nosferatu.mkv", "ronin")}, true)
+	if _, live := world.liveFilesByPath()[root+"/Metropolis.mkv"]; live {
 		t.Fatal("the deleted film is still live; the test proves nothing")
 	}
 	world.scan([]nodeproto.Record{
-		observed("Wing.mkv", "alien"), observed("Restored/Metropolis (1995).mkv", "heat"),
-		observed("Nosferatu.mkv", "ronin"),
+		observedRecord("Wing.mkv", "alien"), observedRecord("Restored/Metropolis (1995).mkv", "heat"),
+		observedRecord("Nosferatu.mkv", "ronin"),
 	}, true)
-	if back := world.live()[root+"/Restored/Metropolis (1995).mkv"]; back.ID != heat {
+	if back := world.liveFilesByPath()[root+"/Restored/Metropolis (1995).mkv"]; back.ID != heat {
 		t.Errorf("the film came back as file %d, want %d with its history (D208 §4)", back.ID, heat)
 	}
 }
 
-func mount(path string, device uint64) nodeproto.Record {
+func mountRecord(path string, device uint64) nodeproto.Record {
 	return nodeproto.Record{Type: nodeproto.RecordMount, Mount: &nodeproto.Mount{
 		Path: nodeproto.Path{Text: path}, FilesystemDevice: device,
 	}}
 }
 
-// under is records with path prefixed by directory.
+// inDirectory is records with path prefixed by directory.
 func inDirectory(directory string, records []nodeproto.Record) []nodeproto.Record {
 	for index := range records {
 		if observed := records[index].Observed; observed != nil {
@@ -144,18 +144,18 @@ func TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt(t *testing.
 	both := func(disk1, disk2 []nodeproto.Record, disk1Mounted bool) []nodeproto.Record {
 		var records []nodeproto.Record
 		if disk1Mounted {
-			records = append(records, mount("disk1", 21))
+			records = append(records, mountRecord("disk1", 21))
 		}
 		records = append(records, inDirectory("disk1", disk1)...)
-		records = append(records, mount("disk2", 22))
+		records = append(records, mountRecord("disk2", 22))
 		return append(records, inDirectory("disk2", disk2)...)
 	}
-	world.scan(both(films(2), films(30), true), true)
-	before := world.live()
+	world.scan(both(filmRecords(2), filmRecords(30), true), true)
+	before := world.liveFilesByPath()
 
 	// disk1 unplugged: an empty directory, no boundary. On disk2 one film was deleted.
-	world.scan(both(nil, films(29), false), true)
-	live := world.live()
+	world.scan(both(nil, filmRecords(29), false), true)
+	live := world.liveFilesByPath()
 	for _, name := range []string{"disk1/Film00.mkv", "disk1/Film01.mkv"} {
 		if _, found := live[root+"/"+name]; !found {
 			t.Errorf("%s was removed while its disk was unplugged", name)
@@ -165,9 +165,9 @@ func TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt(t *testing.
 		t.Error("the film deleted from the other disk was not removed")
 	}
 
-	world.scan(both(films(2), films(29), true), true)
+	world.scan(both(filmRecords(2), filmRecords(29), true), true)
 	for _, name := range []string{"disk1/Film00.mkv", "disk1/Film01.mkv"} {
-		if got := world.live()[root+"/"+name]; got.ID != before[root+"/"+name].ID {
+		if got := world.liveFilesByPath()[root+"/"+name]; got.ID != before[root+"/"+name].ID {
 			t.Errorf("%s came back as file %d, want %d", name, got.ID, before[root+"/"+name].ID)
 		}
 	}
@@ -179,10 +179,10 @@ func TestScenario_S7b_ADifferentDiskAtAMountPointHidesTheOldOnesFiles(t *testing
 	world := newHarness(t)
 	// Ten other films on the root, so the removal is small enough to go ahead on its own: only
 	// the boundary can keep the old disk's films.
-	world.scan(append(append([]nodeproto.Record{mount("disk1", 21)}, inDirectory("disk1", films(2))...),
-		inDirectory("local", films(10))...), true)
-	world.scan(append([]nodeproto.Record{mount("disk1", 99)}, inDirectory("local", films(10))...), true)
-	if got := len(world.live()); got != 12 {
+	world.scan(append(append([]nodeproto.Record{mountRecord("disk1", 21)}, inDirectory("disk1", filmRecords(2))...),
+		inDirectory("local", filmRecords(10))...), true)
+	world.scan(append([]nodeproto.Record{mountRecord("disk1", 99)}, inDirectory("local", filmRecords(10))...), true)
+	if got := len(world.liveFilesByPath()); got != 12 {
 		t.Errorf("%d live files, want all 12 kept: device 99 is not the disk that held two of them", got)
 	}
 }
@@ -192,9 +192,9 @@ func TestScenario_S7b_ADifferentDiskAtAMountPointHidesTheOldOnesFiles(t *testing
 func TestScenario_S7b_AnEmptiedDirectoryThatWasNeverAMountIsRemovedAsUsual(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan(append(inDirectory("Old", films(2)), films(10)...), true)
-	world.scan(films(10), true)
-	if got := len(world.live()); got != 10 {
+	world.scan(append(inDirectory("Old", filmRecords(2)), filmRecords(10)...), true)
+	world.scan(filmRecords(10), true)
+	if got := len(world.liveFilesByPath()); got != 10 {
 		t.Errorf("%d live files, want the 2 under Old/ removed", got)
 	}
 }

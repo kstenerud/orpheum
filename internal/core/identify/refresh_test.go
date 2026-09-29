@@ -22,7 +22,7 @@ func (lib *world) refresh(itemID int64) {
 	job := RefreshJob(itemID, "test", time.Time{}, false, 0)
 	err := lib.matcher.Handle(lib.t.Context(), jobs.Job{
 		ID: 1, Kind: job.Kind, Target: jobs.Target{ItemID: itemID},
-		Args: job.Args,
+		ArgsJSON: job.ArgsJSON,
 	})
 	if err != nil {
 		lib.t.Fatalf("refresh %d: %v", itemID, err)
@@ -115,9 +115,9 @@ func TestRefresh_ASeriesFetchesItsRecordAndEachSeasonItKeeps(t *testing.T) {
 }
 
 // queued is the job queue as a list.
-type queued []jobs.New
+type queued []jobs.Request
 
-func (queue *queued) Enqueue(_ context.Context, job jobs.New) (bool, error) {
+func (queue *queued) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
 	for _, open := range *queue {
 		if open.Kind == job.Kind && open.Target == job.Target {
 			return false, nil

@@ -35,5 +35,5 @@
 // # Where to change
 //
 //   - backup.go: Write (orpheum backup, --include-key), MakePlan and Restore (orpheum restore).
-//     Scheduled backups and pruning arrive with the job queue (M2).
+//     Scheduled backups and pruning are backup jobs, which come in M4 (D223 §6).
 package backup

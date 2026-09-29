@@ -30,10 +30,10 @@ type Version struct {
 
 // FileDetail is one file of a version, with its streams.
 type FileDetail struct {
-	ID      int64
-	Path    string
-	Size    *int64
-	Streams []sqlcgen.ListStreamsOfVideoFileRow
+	ID        int64
+	Path      string
+	SizeBytes *int64
+	Streams   []sqlcgen.ListStreamsOfVideoFileRow
 }
 
 // Title is a title's detail.
@@ -53,7 +53,7 @@ func (browser *Browser) Title(ctx context.Context, titleID int64) (TitleDetail, 
 	if detail.Extras, err = queries.ListTitleExtras(ctx, titleID); err != nil {
 		return TitleDetail{}, fmt.Errorf("list title %d's extras: %w", titleID, err)
 	}
-	if detail.Art, err = browser.art(ctx, titleID); err != nil {
+	if detail.Art, err = browser.itemArt(ctx, titleID); err != nil {
 		return TitleDetail{}, err
 	}
 	if detail.Episode, err = browser.episodePlace(ctx, titleID); err != nil {
@@ -91,7 +91,7 @@ func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version,
 		}
 		last := &versions[len(versions)-1]
 		last.Files = append(last.Files, FileDetail{
-			ID: file.FileID, Path: file.Path, Size: file.SizeBytes,
+			ID: file.FileID, Path: file.Path, SizeBytes: file.SizeBytes,
 			Streams: streams,
 		})
 	}
@@ -101,9 +101,9 @@ func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version,
 // SeriesDetail is a series with its episodes in aired order.
 type SeriesDetail struct {
 	sqlcgen.GetSeriesDetailRow
-	Episodes []sqlcgen.ListSeriesEpisodeDetailsRow
-	Art      Art
-	Stills   map[int64]string // each episode's still, by its id
+	Episodes             []sqlcgen.ListSeriesEpisodeDetailsRow
+	Art                  Art
+	StillHashByEpisodeID map[int64]string // each episode's still, by its id
 }
 
 // Series is a series' detail.
@@ -121,14 +121,14 @@ func (browser *Browser) Series(ctx context.Context, seriesID int64) (SeriesDetai
 		return SeriesDetail{}, fmt.Errorf("list series %d's episodes: %w", seriesID, err)
 	}
 	detail := SeriesDetail{GetSeriesDetailRow: series, Episodes: episodes}
-	if detail.Art, err = browser.art(ctx, seriesID); err != nil {
+	if detail.Art, err = browser.itemArt(ctx, seriesID); err != nil {
 		return SeriesDetail{}, err
 	}
 	ids := make([]int64, 0, len(episodes))
 	for _, episode := range episodes {
 		ids = append(ids, episode.TitleID)
 	}
-	if detail.Stills, err = browser.shown(ctx, artStill, ids); err != nil {
+	if detail.StillHashByEpisodeID, err = browser.shownArtHashes(ctx, artStill, ids); err != nil {
 		return SeriesDetail{}, err
 	}
 	return detail, nil

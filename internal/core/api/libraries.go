@@ -187,10 +187,13 @@ func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInp
 		return nil, newError(http.StatusUnprocessableEntity, CodeInvalidRequest,
 			"checkEveryHours is given with changeDetection interval, and only then")
 	}
-	id, err := dependencies.Libraries.Create(ctx, library.Request{Node: body.NodeName, NewLibrary: library.NewLibrary{
-		Name: body.Name, Kind: body.Kind, MetadataSource: body.MetadataSource, ChangeDetection: body.ChangeDetection,
-		CheckEveryH: body.CheckEveryHours, Writable: body.IsWritable, Roots: body.RootPaths,
-	}})
+	id, err := dependencies.Libraries.Create(ctx, library.CreateRequest{
+		NodeName: body.NodeName, NewLibrary: library.NewLibrary{
+			Name: body.Name, Kind: body.Kind, MetadataSource: body.MetadataSource,
+			ChangeDetection: body.ChangeDetection, CheckEveryHours: body.CheckEveryHours, IsWritable: body.IsWritable,
+			Roots: body.RootPaths,
+		},
+	})
 	if err != nil {
 		return nil, server.libraryError(ctx, "create a library", err)
 	}
@@ -227,7 +230,7 @@ func (server *Server) getNodes(ctx context.Context, input *AuthorizationHeader) 
 	output.Body.Nodes = make([]NodeBody, 0, len(nodes))
 	for _, node := range nodes {
 		output.Body.Nodes = append(output.Body.Nodes, NodeBody{
-			Name: node.Name, IsConnected: node.Connected, RootPaths: node.Roots,
+			Name: node.Name, IsConnected: node.IsConnected, RootPaths: node.Roots,
 		})
 	}
 	return output, nil
@@ -252,7 +255,7 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 			CreatedAt:  summary.CreatedAt,
 		}
 		if principal.IsAdmin() {
-			body.FileCountsByFiling = summary.Filings
+			body.FileCountsByFiling = summary.FileCountByFiling
 			for _, root := range summary.Roots {
 				body.Roots = append(body.Roots, RootBody{
 					NodeName: root.NodeName, RootPath: root.RootPath,
@@ -316,7 +319,7 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 	}
 	query := library.FilesQuery{Limit: input.Limit}
 	if input.Cursor != "" {
-		if query.After, err = strconv.ParseInt(input.Cursor, 10, 64); err != nil || query.After < 0 {
+		if query.AfterID, err = strconv.ParseInt(input.Cursor, 10, 64); err != nil || query.AfterID < 0 {
 			return nil, newError(http.StatusUnprocessableEntity, CodeInvalidRequest,
 				"the cursor is not one this server gave")
 		}
@@ -362,7 +365,7 @@ func (server *Server) libraryError(ctx context.Context, doing string, err error)
 	switch {
 	case errors.Is(err, library.ErrNoLibrary):
 		return newError(http.StatusNotFound, CodeNotFound, "no such library")
-	case errors.Is(err, library.ErrExists):
+	case errors.Is(err, library.ErrNameTaken):
 		return newError(http.StatusConflict, CodeConflict, "a library with that name already exists")
 	case errors.Is(err, library.ErrNodeNotConnected):
 		return newError(http.StatusServiceUnavailable, CodeNodeSilent,

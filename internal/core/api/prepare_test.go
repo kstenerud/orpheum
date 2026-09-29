@@ -89,8 +89,9 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 		t.Fatalf("the node was sent %+v, want the MKV by root, path and hash, with its 8-channel track", command)
 	}
 	running := nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareRunning, PreparedThroughMs: 4000}
-	playback.Reported(t.Context(), 1, running)
-	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareDone, SizeBytes: 1234})
+	playback.TakePrepareReport(t.Context(), 1, running)
+	done := nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareDone, SizeBytes: 1234}
+	playback.TakePrepareReport(t.Context(), 1, done)
 	if err := <-finished; err != nil {
 		t.Fatalf("the job ended %v, want done", err)
 	}
@@ -113,7 +114,7 @@ func TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried(t *testing.T) {
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
 	<-harness.nodes.commanded
 	failed := nodeproto.PrepareReport{JobID: 78, State: nodeproto.PrepareFailed, Failure: "ffmpeg: bad"}
-	playback.Reported(t.Context(), 1, failed)
+	playback.TakePrepareReport(t.Context(), 1, failed)
 	if err := <-finished; err == nil || !strings.Contains(err.Error(), "ffmpeg: bad") {
 		t.Errorf("the job ended %v, want FFmpeg's failure", err)
 	}
@@ -139,7 +140,8 @@ func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
 		})
 	}()
 	<-harness.nodes.commanded
-	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 80, State: nodeproto.PrepareDone, SizeBytes: 9})
+	done := nodeproto.PrepareReport{JobID: 80, State: nodeproto.PrepareDone, SizeBytes: 9}
+	playback.TakePrepareReport(t.Context(), 1, done)
 	if err := <-first; err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +173,7 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 			})
 		}()
 		command := <-harness.nodes.commanded
-		playback.Reported(t.Context(), 1, nodeproto.PrepareReport{
+		playback.TakePrepareReport(t.Context(), 1, nodeproto.PrepareReport{
 			JobID: job, State: nodeproto.PrepareDone,
 			SizeBytes: 9,
 		})

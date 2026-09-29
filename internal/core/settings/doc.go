@@ -52,7 +52,7 @@
 //
 //   - registry.go: every key, its type, bounds, starting value and whether the settings page shows
 //     it. A new opinion is a key here; it is seeded on the next start.
-//   - settings.go: List, Int and Bool (which heal a missing row), Set and Reset. seed.go: the sweep
+//   - settings.go: List, Int, String and Bool (which heal a missing row), Set and Reset. seed.go: the sweep
 //     at every start. unused.go: unused rows, retired keys and deleting. The endpoints (/settings and /config)
 //     are in internal/core/api. settingstest seeds for other packages' tests.
 package settings

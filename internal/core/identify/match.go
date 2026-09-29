@@ -431,8 +431,8 @@ func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, ident,
 // fails the job; anything else retries.
 func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	var args refreshArgs
-	if err := json.Unmarshal([]byte(cmp.Or(job.Args, "{}")), &args); err != nil {
-		return fmt.Errorf("fetch job %d: %w", job.ID, jobs.Permanent(err))
+	if err := json.Unmarshal([]byte(cmp.Or(job.ArgsJSON, "{}")), &args); err != nil {
+		return fmt.Errorf("fetch job %d: %w", job.ID, jobs.MarkPermanent(err))
 	}
 	var outcome Outcome
 	var err error
@@ -446,9 +446,9 @@ func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	}
 	switch {
 	case errors.Is(err, ErrNoKey), errors.Is(err, ErrKeyRefused):
-		return fmt.Errorf("match title %d: %w", job.ItemID, jobs.Blocked(err))
+		return fmt.Errorf("match title %d: %w", job.ItemID, jobs.MarkBlocked(err))
 	case errors.Is(err, ErrNoMatch):
-		return fmt.Errorf("match title %d: %w", job.ItemID, jobs.Permanent(err))
+		return fmt.Errorf("match title %d: %w", job.ItemID, jobs.MarkPermanent(err))
 	case err != nil:
 		return err
 	}

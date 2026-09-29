@@ -20,7 +20,7 @@ type progressQueue struct {
 	progress map[int64]float64
 }
 
-func (queue *progressQueue) Enqueue(context.Context, jobs.New) (bool, error) { return true, nil }
+func (queue *progressQueue) Enqueue(context.Context, jobs.Request) (bool, error) { return true, nil }
 
 func (queue *progressQueue) SetProgress(_ context.Context, id int64, fraction float64) error {
 	queue.progress[id] = fraction

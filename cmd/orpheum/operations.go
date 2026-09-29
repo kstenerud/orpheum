@@ -84,9 +84,9 @@ func openExisting(ctx context.Context, config Config) (*datadir.Directories, *st
 	}
 	if !exists {
 		return nil, nil, fmt.Errorf("there is no database at %s yet; start the server once with `orpheum run`",
-			directories.LibraryDatabase())
+			directories.LibraryDatabasePath())
 	}
-	database, err := store.Open(ctx, directories.LibraryDatabase(), config.openOptions())
+	database, err := store.Open(ctx, directories.LibraryDatabasePath(), config.openOptions())
 	return directories, database, err
 }
 
@@ -101,7 +101,7 @@ func commandMigrate(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(err)
 	}
-	database, err := store.Open(ctx, directories.LibraryDatabase(), config.openOptions())
+	database, err := store.Open(ctx, directories.LibraryDatabasePath(), config.openOptions())
 	if err != nil {
 		return call.fail(err)
 	}

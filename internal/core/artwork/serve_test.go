@@ -72,7 +72,7 @@ func TestServe_ASizeNotMadeRedirectsToTheNearestAndOnlyAnOnRequestSizeIsQueued(t
 		t.Fatalf("queued %+v; want one job to make portrait-l", *queue)
 	}
 	var args owed
-	if err := json.Unmarshal([]byte((*queue)[0].Args), &args); err != nil || args.SourceSha256 != hash ||
+	if err := json.Unmarshal([]byte((*queue)[0].ArgsJSON), &args); err != nil || args.SourceSha256 != hash ||
 		!slices.Equal(args.SizeNames,
 			[]nodeproto.ArtSizeName{nodeproto.PortraitL}) || args.Refs[0].SourceRef != "/poster.jpg" {
 		t.Errorf("the job's args %+v (%v)", args, err)
@@ -114,7 +114,9 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 	if _, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitL, FormatWebP); err != nil {
 		t.Fatal(err)
 	}
-	job := jobs.Job{ID: 2, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, Args: (*queue)[0].Args}
+	job := jobs.Job{
+		ID: 2, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, ArgsJSON: (*queue)[0].ArgsJSON,
+	}
 
 	// The node finds the source too small for portrait-l: noted, and never queued again.
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
@@ -163,7 +165,9 @@ func TestHandle_ASourceThatChangedMakesNoSizeUnderTheOldHash(t *testing.T) {
 	}
 	images["/poster.jpg"] = []byte("a different poster at the same path")
 	sent := len(bench.node.sent)
-	job := jobs.Job{ID: 2, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, Args: (*queue)[0].Args}
+	job := jobs.Job{
+		ID: 2, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, ArgsJSON: (*queue)[0].ArgsJSON,
+	}
 	if err := bench.service.Handle(t.Context(), job); err != nil {
 		t.Fatal(err)
 	}

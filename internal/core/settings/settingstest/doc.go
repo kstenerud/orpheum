@@ -19,5 +19,5 @@
 //
 // # Where to change
 //
-//   - settingstest.go: Seeded, and the values it lowers.
+//   - settingstest.go: Seeded, and the values it lowers; Set, which changes one setting.
 package settingstest

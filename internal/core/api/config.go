@@ -172,10 +172,10 @@ func (server *Server) getUnused(ctx context.Context, input *AuthorizationHeader)
 	output.Body.UnusedSettings = []UnusedBody{}
 	for _, row := range unused {
 		body := UnusedBody{
-			Key: row.Key, Scope: string(row.Scope), UserID: row.UserID, Value: json.RawMessage(row.Value),
+			Key: row.Key, Scope: string(row.Scope), UserID: row.UserID, Value: json.RawMessage(row.ValueJSON),
 		}
 		if row.Retired != nil {
-			body.RetiredIn, body.RetiredReason = row.Retired.Release, row.Retired.Why
+			body.RetiredIn, body.RetiredReason = row.Retired.Release, row.Retired.Reason
 		}
 		output.Body.UnusedSettings = append(output.Body.UnusedSettings, body)
 	}

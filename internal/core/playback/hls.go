@@ -125,14 +125,14 @@ func hlsType(name string) string {
 func (service *Service) HandlePrepare(ctx context.Context, job jobs.Job) error {
 	rendition, err := store.OrNotFound(service.prepares.cache.Read().GetRenditionByID(ctx, job.RenditionID))
 	if errors.Is(err, store.ErrNotFound) {
-		return jobs.Permanent(fmt.Errorf("no rendition %d", job.RenditionID))
+		return jobs.MarkPermanent(fmt.Errorf("no rendition %d", job.RenditionID))
 	}
 	if err != nil {
 		return fmt.Errorf("read rendition %d: %w", job.RenditionID, err)
 	}
 	made, err := service.commandFor(ctx, rendition)
 	if errors.Is(err, ErrNoFile) {
-		return jobs.Permanent(errors.Join(err, service.prepares.finish(ctx, rendition.ID, nil, err.Error())))
+		return jobs.MarkPermanent(errors.Join(err, service.prepares.finish(ctx, rendition.ID, nil, err.Error())))
 	}
 	if err != nil {
 		return err
@@ -174,7 +174,7 @@ func (service *Service) commandFor(ctx context.Context, rendition cachegen.Prepa
 	return making{command: command, nodeID: file.NodeID, durationMs: probe.Format.DurationMs, gains: gains}, nil
 }
 
-// Reported takes a node's report on a prepare to the job waiting for it.
-func (service *Service) Reported(ctx context.Context, nodeID int64, report nodeproto.PrepareReport) {
+// TakePrepareReport takes a node's report on a prepare to the job waiting for it.
+func (service *Service) TakePrepareReport(ctx context.Context, nodeID int64, report nodeproto.PrepareReport) {
 	service.prepares.reported(ctx, nodeID, report)
 }

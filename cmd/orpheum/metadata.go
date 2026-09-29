@@ -116,7 +116,7 @@ func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop fun
 		for range queue.atOnce {
 			kind, runner := queue.kind, fetching.queue.NewRunner(queue.kind, queue.handler)
 			if queue.schedule != nil {
-				runner.RetryOn(queue.schedule)
+				runner.WithRetrySchedule(queue.schedule)
 			}
 			done.Go(func() {
 				ticker := time.NewTicker(time.Second)
@@ -213,7 +213,7 @@ func queueMatches(ctx context.Context, queue *jobs.Queue, report identify.Report
 	for _, itemID := range report.AwaitingMatch {
 		ever, err := queue.EverQueued(ctx, jobs.KindFetch, jobs.Target{ItemID: itemID})
 		if err == nil && !ever {
-			_, err = queue.Enqueue(ctx, jobs.New{
+			_, err = queue.Enqueue(ctx, jobs.Request{
 				Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID},
 				Reason: "the first match for a newly identified title or series",
 			})
@@ -225,7 +225,7 @@ func queueMatches(ctx context.Context, queue *jobs.Queue, report identify.Report
 		}
 	}
 	for _, seriesID := range report.AwaitingListings {
-		added, err := queue.Enqueue(ctx, jobs.New{
+		added, err := queue.Enqueue(ctx, jobs.Request{
 			Kind: jobs.KindFetch, Target: jobs.Target{ItemID: seriesID}, Reason: "a season listing a new episode needs",
 		})
 		if err != nil {

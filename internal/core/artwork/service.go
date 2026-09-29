@@ -35,12 +35,12 @@ const (
 
 // Queue is where the artwork jobs go: jobs.Queue.
 type Queue interface {
-	Enqueue(ctx context.Context, job jobs.New) (bool, error)
+	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
 }
 
 // Nodes is the node channel: the node to send work to, and its command queue.
 type Nodes interface {
-	Connected() (int64, bool)
+	LastHeardNodeID() (int64, bool)
 	IsConnected(nodeID int64) bool
 	Enqueue(nodeID int64, command nodeproto.Command)
 }
@@ -124,8 +124,8 @@ func (service *Service) Owe(ctx context.Context, items []identify.OwedArtwork) {
 		args, err := json.Marshal(owed{ArtworkSource: item.Source, Refs: refs})
 		if err == nil {
 			var added bool
-			added, err = service.parts.Queue.Enqueue(ctx, jobs.New{
-				Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: item.ItemID}, Args: string(args),
+			added, err = service.parts.Queue.Enqueue(ctx, jobs.Request{
+				Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: item.ItemID}, ArgsJSON: string(args),
 				Reason: "the images " + item.Source + " names for it",
 			})
 			if added {
@@ -146,12 +146,12 @@ func (service *Service) Owe(ctx context.Context, items []identify.OwedArtwork) {
 // stored.
 func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 	var args owed
-	if err := json.Unmarshal([]byte(job.Args), &args); err != nil {
-		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.Permanent(err))
+	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
+		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.MarkPermanent(err))
 	}
 	fetcher, known := service.parts.Fetchers[args.ArtworkSource]
 	if !known && args.ArtworkSource != identify.SourceLocal {
-		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.Permanent(fmt.Errorf("no fetcher for %q",
+		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.MarkPermanent(fmt.Errorf("no fetcher for %q",
 			args.ArtworkSource)))
 	}
 	for _, ref := range args.Refs {
@@ -239,7 +239,7 @@ func (service *Service) localFile(ctx context.Context, ref string) (int64, *node
 
 // anyNode is a connected node to re-encode a download; none is a wait that costs no attempt.
 func (service *Service) anyNode() (int64, error) {
-	nodeID, connected := service.parts.Nodes.Connected()
+	nodeID, connected := service.parts.Nodes.LastHeardNodeID()
 	if !connected {
 		return 0, &jobs.RetryAtError{
 			At: service.parts.Clock.Now().Add(noNodeWait), Err: errors.New("no node is connected to re-encode it"),
@@ -304,9 +304,9 @@ func (service *Service) forget(request int64) {
 	delete(service.waiting, request)
 }
 
-// Answered takes a node's answer to the job waiting for it. One nothing waits for — it came after
+// TakeArtworkAnswer takes a node's answer to the job waiting for it. One nothing waits for — it came after
 // the wait ended — is dropped; its job was retried.
-func (service *Service) Answered(ctx context.Context, nodeID int64, result nodeproto.ArtworkResult) {
+func (service *Service) TakeArtworkAnswer(ctx context.Context, nodeID int64, result nodeproto.ArtworkResult) {
 	service.mutex.Lock()
 	answer, found := service.waiting[result.JobID]
 	delete(service.waiting, result.JobID)

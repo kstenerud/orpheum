@@ -10,27 +10,27 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// Retired is a key a release stopped reading, kept so an unused row can say why it is unused.
-type Retired struct {
+// RetiredKey is a key a release stopped reading, kept so an unused row can say why it is unused.
+type RetiredKey struct {
 	Key     string
 	Release string
-	Why     string
+	Reason  string
 }
 
 // RetiredKeys lists every setting a release stopped reading. A row with one of these keys is left
 // in place — an older release on a downgrade still reads it (D181) — until a person deletes it.
-func RetiredKeys() []Retired {
-	return []Retired{}
+func RetiredKeys() []RetiredKey {
+	return []RetiredKey{}
 }
 
 // UnusedSetting is a setting row no setting of this release reads: a key a release retired, or
 // one no release has used, which is most likely a typo.
 type UnusedSetting struct {
-	Scope   Scope
-	UserID  *int64
-	Key     string
-	Value   string
-	Retired *Retired // nil when no release ever used the key
+	Scope     Scope
+	UserID    *int64
+	Key       string
+	ValueJSON string
+	Retired   *RetiredKey // nil when no release ever used the key
 }
 
 func (unused UnusedSetting) String() string {
@@ -52,34 +52,35 @@ func (service *Service) Unused(ctx context.Context) ([]UnusedSetting, error) {
 	return unusedIn(rows), nil
 }
 
-// DeleteUnused removes a row no setting reads (owner nil for a server row). A setting this release
+// DeleteUnused removes a row no setting reads (ownerUserID nil for a server row). A setting this release
 // reads is refused: it is set to default, never deleted (D202).
-func (service *Service) DeleteUnused(ctx context.Context, key string, owner *int64) error {
+func (service *Service) DeleteUnused(ctx context.Context, key string, ownerUserID *int64) error {
 	if _, known := Lookup(Key(key)); known {
 		return fmt.Errorf("%s: %w", key, ErrInUse)
 	}
 	scope := ScopeServer
-	if owner != nil {
+	if ownerUserID != nil {
 		scope = ScopeUser
 	}
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.DeleteSetting(ctx, sqlcgen.DeleteSettingParams{Scope: string(scope), UserID: owner, Key: key})
+		params := sqlcgen.DeleteSettingParams{Scope: string(scope), UserID: ownerUserID, Key: key}
+		return queries.DeleteSetting(ctx, params)
 	})
 }
 
 func unusedIn(rows []sqlcgen.ListAllSettingsRow) []UnusedSetting {
-	retired := map[string]Retired{}
-	for _, entry := range RetiredKeys() {
-		retired[entry.Key] = entry
+	retired := map[string]RetiredKey{}
+	for _, retiredKey := range RetiredKeys() {
+		retired[retiredKey.Key] = retiredKey
 	}
 	unused := []UnusedSetting{}
 	for _, row := range rows {
 		if _, known := Lookup(Key(row.Key)); known {
 			continue
 		}
-		setting := UnusedSetting{Scope: Scope(row.Scope), UserID: row.UserID, Key: row.Key, Value: row.ValueJson}
-		if entry, isRetired := retired[row.Key]; isRetired {
-			setting.Retired = &entry
+		setting := UnusedSetting{Scope: Scope(row.Scope), UserID: row.UserID, Key: row.Key, ValueJSON: row.ValueJson}
+		if retiredKey, isRetired := retired[row.Key]; isRetired {
+			setting.Retired = &retiredKey
 		}
 		unused = append(unused, setting)
 	}

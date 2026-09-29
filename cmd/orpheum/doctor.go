@@ -156,7 +156,7 @@ func checkDatabase(
 	if !exists {
 		return []finding{{verdictWarning, "there is no library.db yet", "start the server with `orpheum run`"}}, nil
 	}
-	database, err := store.Open(ctx, directories.LibraryDatabase(), options)
+	database, err := store.Open(ctx, directories.LibraryDatabasePath(), options)
 	if err != nil {
 		return []finding{{verdictFailure, "library.db does not open", err.Error()}}, nil
 	}
@@ -270,7 +270,7 @@ func unusedFindings(ctx context.Context, settingsService *settings.Service) []fi
 	for _, row := range unused {
 		why := "no release has used this key: probably a typo"
 		if row.Retired != nil {
-			why = fmt.Sprintf("retired in %s: %s", row.Retired.Release, row.Retired.Why)
+			why = fmt.Sprintf("retired in %s: %s", row.Retired.Release, row.Retired.Reason)
 		}
 		findings = append(findings, finding{
 			verdictWarning, "setting " + row.String() + " is unused; " + why,
