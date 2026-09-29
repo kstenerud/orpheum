@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -14,8 +15,10 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -205,11 +208,17 @@ func commandSetupCode(ctx context.Context, call invocation) int {
 	if err == nil {
 		return write(call.stdout, code+"\n", exitSuccess)
 	}
+	logger, err := call.logger(config)
+	if err != nil {
+		return call.fail(err)
+	}
 	_, database, openErr := openExistingDatabase(ctx, config)
 	if openErr != nil {
 		return call.fail(openErr)
 	}
-	count, err := database.Read().CountLiveUsers(ctx)
+	authService := auth.NewService(database, clock.System{}, rand.Reader,
+		settings.NewService(database, clock.System{}, logger))
+	count, err := authService.CountUsers(ctx)
 	if err = errors.Join(err, database.Close()); err != nil {
 		return call.fail(err)
 	}

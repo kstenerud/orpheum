@@ -18,9 +18,6 @@ WHERE device.user_id = sqlc.arg(user_id) AND device.removed_at IS NULL
 GROUP BY device.id
 ORDER BY last_used_at DESC, device.id DESC;
 
--- name: GetLiveDeviceOwner :one
-SELECT user_id FROM device WHERE id = sqlc.arg(id) AND removed_at IS NULL;
-
 -- name: RenameDevice :exec
 UPDATE device SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
 

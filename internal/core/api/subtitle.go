@@ -124,7 +124,7 @@ func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*h
 		return nil, err
 	}
 	subtitleText, err := dependencies.Playback.Subtitle(
-		ctx, input.Token, track, format, principal.UserID, sessionKey(authorization))
+		ctx, input.Token, track, format, principal.UserID, principal.SessionKey)
 	switch {
 	case errors.Is(err, playback.ErrNoToken), errors.Is(err, playback.ErrNoFile):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")

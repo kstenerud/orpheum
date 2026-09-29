@@ -90,9 +90,9 @@ func (service *Service) CompleteSetup(
 	admin.Role = RoleAdmin
 	var id int64
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		count, countErr := queries.CountLiveUsers(ctx)
+		count, countErr := countUsers(ctx, queries)
 		if countErr != nil {
-			return fmt.Errorf("count users: %w", countErr)
+			return countErr
 		}
 		if count > 0 {
 			return ErrSetupComplete

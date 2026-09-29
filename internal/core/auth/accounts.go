@@ -152,15 +152,9 @@ func (service *Service) IssueDeviceCode(
 	}
 	var deviceID *int64
 	if forDeviceID != 0 {
-		known, err := store.OrNotFound(service.database.Read().GetLiveDeviceOfUser(ctx,
-			sqlcgen.GetLiveDeviceOfUserParams{
-				ID: forDeviceID, UserID: &userID,
-			}))
-		if errors.Is(err, store.ErrNotFound) {
-			return Invitation{}, ErrNoDevice
-		}
+		known, err := liveDevice(ctx, service.database.Read(), userID, forDeviceID)
 		if err != nil {
-			return Invitation{}, fmt.Errorf("look up device %d: %w", forDeviceID, err)
+			return Invitation{}, err
 		}
 		deviceID, deviceName = &known.ID, known.Name
 	}
@@ -248,6 +242,19 @@ func liveUser(ctx context.Context, queries *sqlcgen.Queries, userID int64) (sqlc
 		return user, fmt.Errorf("look up user %d: %w", userID, err)
 	}
 	return user, nil
+}
+
+// refuseTakenName answers ErrNameTaken when a live person other than exceptUserID (0 for none)
+// already has the name, in any case of its ASCII letters.
+func refuseTakenName(ctx context.Context, queries *sqlcgen.Queries, name string, exceptUserID int64) error {
+	other, err := store.OrNotFound(queries.GetLiveUserByName(ctx, name))
+	if errors.Is(err, store.ErrNotFound) || (err == nil && other.ID == exceptUserID) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("look up user %q: %w", name, err)
+	}
+	return fmt.Errorf("%q: %w", name, ErrNameTaken)
 }
 
 // ChangePassword changes a person's own password, given their current one (D218 §6). Other
@@ -343,12 +350,8 @@ func (service *Service) RenameUser(ctx context.Context, userID int64, name strin
 		if _, err := liveUser(ctx, queries, userID); err != nil {
 			return err
 		}
-		other, err := store.OrNotFound(queries.GetLiveUserByName(ctx, name))
-		if err == nil && other.ID != userID {
-			return fmt.Errorf("%q: %w", name, ErrNameTaken)
-		}
-		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			return fmt.Errorf("look up user %q: %w", name, err)
+		if err := refuseTakenName(ctx, queries, name, userID); err != nil {
+			return err
 		}
 		return queries.RenameUser(ctx, sqlcgen.RenameUserParams{Name: name, ID: userID})
 	})

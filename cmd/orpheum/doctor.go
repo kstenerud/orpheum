@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -164,7 +165,8 @@ func checkDatabase(
 	}
 	defer func() { _ = database.Close() }() //nolint:errcheck // doctor reports; a close error changes no finding
 	findings := []finding{checkSchema(ctx, database)}
-	count, err := database.Read().CountLiveUsers(ctx)
+	settingsService := settings.NewService(database, clock.System{}, logger)
+	count, err := auth.NewService(database, clock.System{}, rand.Reader, settingsService).CountUsers(ctx)
 	switch {
 	case err != nil:
 		findings = append(findings, finding{verdictFailure, "users cannot be counted", err.Error()})
@@ -176,7 +178,6 @@ func checkDatabase(
 	default:
 		findings = append(findings, finding{verdictOK, fmt.Sprintf("setup is complete; %d users", count), ""})
 	}
-	settingsService := settings.NewService(database, clock.System{}, logger)
 	if key != nil {
 		findings = append(findings, checkSecrets(ctx, database, *key, settingsService))
 	}

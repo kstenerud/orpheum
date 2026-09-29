@@ -5,6 +5,7 @@ package auth
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -78,6 +79,10 @@ type Principal struct {
 	// DeviceID is the device the session was signed in on (D217 §8), or 0 for a session from
 	// before devices were made at sign-in.
 	DeviceID int64
+	// SessionKey names the session without holding its credential: the hex of the token's
+	// SHA-256, the same digest the grant row keeps. A media token is bound to it, so signing out
+	// ends the playbacks the session started (D217 §2).
+	SessionKey string
 }
 
 // IsAdmin reports whether the principal's role carries the administer capability.
@@ -137,10 +142,8 @@ func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries
 	if name == "" || (user.Password == "") != user.AwaitsRegistration {
 		return 0, errors.New("a user needs a name, and a password unless they await registration")
 	}
-	if _, err := store.OrNotFound(queries.GetLiveUserByName(ctx, name)); err == nil {
-		return 0, fmt.Errorf("%q: %w", name, ErrNameTaken)
-	} else if !errors.Is(err, store.ErrNotFound) {
-		return 0, fmt.Errorf("look up user %q: %w", name, err)
+	if err := refuseTakenName(ctx, queries, name, 0); err != nil {
+		return 0, err
 	}
 	role, err := queries.GetRoleByName(ctx, string(user.Role))
 	if err != nil {
@@ -168,7 +171,13 @@ func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries
 
 // CountUsers returns how many live users exist; none means the server still needs setting up.
 func (service *Service) CountUsers(ctx context.Context) (int64, error) {
-	count, err := service.database.Read().CountLiveUsers(ctx)
+	return countUsers(ctx, service.database.Read())
+}
+
+// countUsers counts the live users as the caller's queries see them, so setup can count inside
+// the transaction that makes the first admin.
+func countUsers(ctx context.Context, queries *sqlcgen.Queries) (int64, error) {
+	count, err := queries.CountLiveUsers(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("count users: %w", err)
 	}
@@ -264,9 +273,7 @@ func resumeOrMakeDevice(
 	ctx context.Context, queries *sqlcgen.Queries, userID int64, device NewDevice, now int64,
 ) (int64, error) {
 	if device.ResumeDeviceID != 0 {
-		known, err := store.OrNotFound(queries.GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
-			ID: device.ResumeDeviceID, UserID: &userID,
-		}))
+		known, err := liveDevice(ctx, queries, userID, device.ResumeDeviceID)
 		if err == nil {
 			touch := sqlcgen.RecordDeviceSignInParams{Platform: device.Platform, SignedInAt: now, ID: known.ID}
 			if touchErr := queries.RecordDeviceSignIn(ctx, touch); touchErr != nil {
@@ -274,8 +281,8 @@ func resumeOrMakeDevice(
 			}
 			return known.ID, nil
 		}
-		if !errors.Is(err, store.ErrNotFound) {
-			return 0, fmt.Errorf("look up device %d: %w", device.ResumeDeviceID, err)
+		if !errors.Is(err, ErrNoDevice) {
+			return 0, err
 		}
 	}
 	id, err := queries.InsertDevice(ctx, sqlcgen.InsertDeviceParams{
@@ -342,12 +349,14 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if now.Sub(time.UnixMilli(lastUsedAt)) > idleExpiry {
 		return Principal{}, ErrSessionExpired
 	}
-	user, err := store.OrNotFound(service.database.Read().GetLiveUserByID(ctx, *grant.UserID))
-	if errors.Is(err, store.ErrNotFound) {
+	user, err := liveUser(ctx, service.database.Read(), *grant.UserID)
+	if errors.Is(err, ErrNoUser) {
+		// A session whose person is gone is no session: the client is signed out, not told of a
+		// missing person.
 		return Principal{}, ErrNotAuthenticated
 	}
 	if err != nil {
-		return Principal{}, fmt.Errorf("look up the session's user: %w", err)
+		return Principal{}, err
 	}
 	if now.Sub(time.UnixMilli(lastUsedAt)) >= lastSeenResolution {
 		err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -362,7 +371,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	return Principal{
 		UserID: user.ID, Name: user.Name, Role: Role(user.RoleName),
 		Capabilities: strings.Split(user.Capabilities, ","), IsOutsider: user.IsOutsider == 1,
-		DeviceID: ptr.ValueOrZero(grant.DeviceID),
+		DeviceID: ptr.ValueOrZero(grant.DeviceID), SessionKey: hex.EncodeToString(hash),
 	}, nil
 }
 
