@@ -43,8 +43,8 @@ func (fake *fakeSubtitler) Search(_ context.Context, query opensubtitles.Query) 
 		return nil, fake.failure
 	}
 	return []opensubtitles.Candidate{
-		{FileID: 7, Release: "Film.2002.1080p", Language: "de", IsHashMatch: true, Downloads: 120},
-		{FileID: 8, Release: "Film.2002.720p", Language: "de", IsHearingImpaired: true},
+		{ProviderFileID: 7, ReleaseName: "Film.2002.1080p", Language: "de", IsHashMatch: true, DownloadCount: 120},
+		{ProviderFileID: 8, ReleaseName: "Film.2002.720p", Language: "de", IsHearingImpaired: true},
 	}, nil
 }
 
@@ -55,12 +55,12 @@ func (fake *fakeSubtitler) Download(context.Context, int64) (opensubtitles.Downl
 		return opensubtitles.Downloaded{}, fake.failure
 	}
 	return opensubtitles.Downloaded{
-		Body: []byte(fetchedText), FileName: "Film.2002.1080p.de.srt", Remaining: 19, ResetAt: resetAt,
+		Body: []byte(fetchedText), FileName: "Film.2002.1080p.de.srt", RemainingDownloads: 19, ResetAt: resetAt,
 	}, nil
 }
 
 func (fake *fakeSubtitler) Allowance(context.Context) (opensubtitles.Allowance, error) {
-	return opensubtitles.Allowance{Remaining: 20, Allowed: 20}, nil
+	return opensubtitles.Allowance{RemainingDownloads: 20, AllowedDownloads: 20}, nil
 }
 
 // identifyFilm makes film 2 a version of a film TMDB and IMDb name, with its OpenSubtitles hash.
@@ -225,7 +225,7 @@ func convertFetched(t *testing.T, harness testHarness, fetchedID int64) {
 	playback := harness.server.dependencies.Load().Playback
 	finished := make(chan error, 1)
 	job := jobs.Job{ID: 95, Kind: jobs.KindConvertFetchedSubtitle, Target: jobs.Target{FetchedSubtitleID: fetchedID}}
-	go func() { finished <- playback.HandleFetchedSubtitle(t.Context(), job) }()
+	go func() { finished <- playback.HandleConvertFetchedSubtitle(t.Context(), job) }()
 	command := <-harness.nodes.commanded
 	if sent := command.ExtractSubtitle; sent == nil || string(sent.FetchedSubRip) != fetchedText || sent.Video != nil {
 		t.Fatalf("the node was sent %+v, want the fetched text to convert (D224 §5)", command)

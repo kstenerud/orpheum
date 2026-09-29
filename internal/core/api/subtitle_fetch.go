@@ -103,15 +103,15 @@ func (server *Server) subtitleCandidates(
 	output.Body.Candidates = make([]SubtitleCandidateBody, 0, len(offer.Candidates))
 	for _, candidate := range offer.Candidates {
 		output.Body.Candidates = append(output.Body.Candidates, SubtitleCandidateBody{
-			ProviderFileID: candidate.FileID, ReleaseName: candidate.Release, Language: candidate.Language,
+			ProviderFileID: candidate.ProviderFileID, ReleaseName: candidate.ReleaseName, Language: candidate.Language,
 			IsOpensubtitlesHashMatch: candidate.IsHashMatch, IsHearingImpaired: candidate.IsHearingImpaired,
-			IsMachineTranslated: candidate.IsMachineTranslated, DownloadCount: candidate.Downloads,
+			IsMachineTranslated: candidate.IsMachineTranslated, DownloadCount: candidate.DownloadCount,
 			UploadedAt: unixMillisOrZero(candidate.UploadedAt),
 		})
 	}
 	output.Body.DidAskByIDs, output.Body.DidAskByOpensubtitlesHash = offer.DidAskByIDs, offer.DidAskByFileHash
 	output.Body.Allowance = AllowanceBody{
-		RemainingDownloads: offer.Allowance.Remaining, AllowedDownloads: offer.Allowance.Allowed,
+		RemainingDownloads: offer.Allowance.RemainingDownloads, AllowedDownloads: offer.Allowance.AllowedDownloads,
 		IsVIP: offer.Allowance.IsVIP,
 	}
 	return output, nil
@@ -129,7 +129,8 @@ func (server *Server) fetchSubtitle(ctx context.Context, input *FetchSubtitleInp
 		return nil, server.fetchError(ctx, "fetch a subtitle", err)
 	}
 	output := &FetchSubtitleOutput{}
-	output.Body.FetchedSubtitleID, output.Body.RemainingDownloads = fetched.Track.FetchedSubtitleID, fetched.Remaining
+	output.Body.FetchedSubtitleID = fetched.Track.FetchedSubtitleID
+	output.Body.RemainingDownloads = fetched.RemainingDownloads
 	output.Body.DownloadsResetAt = unixMillisOrZero(fetched.ResetAt)
 	return output, nil
 }
@@ -178,7 +179,7 @@ func (server *Server) fetchError(ctx context.Context, doing string, err error) e
 	case isLimited:
 		failure := newError(http.StatusServiceUnavailable, CodeRateLimited, "OpenSubtitles asks us to wait")
 		failure.ErrorBody.Error.Detail = map[string]string{
-			"retryAfterMs": strconv.FormatInt(limited.After.Milliseconds(), 10),
+			"retryAfterMs": strconv.FormatInt(limited.RetryAfter.Milliseconds(), 10),
 		}
 		failure.ErrorBody.Error.FailedHop = HopProvider
 		return failure

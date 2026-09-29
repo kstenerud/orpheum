@@ -44,7 +44,7 @@ type prepares struct {
 	logger     *slog.Logger
 	maxSilence time.Duration
 
-	waiting *waiting[nodeproto.PrepareReport]
+	reportAnswers *answerRouter[nodeproto.PrepareReport]
 }
 
 func newPrepares(parts Parts) *prepares {
@@ -52,7 +52,7 @@ func newPrepares(parts Parts) *prepares {
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		random: parts.Random,
 		clock:  parts.Clock, logger: parts.Logger, maxSilence: parts.MaxSilence,
-		waiting: newWaiting[nodeproto.PrepareReport](parts.Logger, "a prepare report"),
+		reportAnswers: newAnswerRouter[nodeproto.PrepareReport](parts.Logger, "a prepare report"),
 	}
 }
 
@@ -63,7 +63,7 @@ func (all *prepares) want(
 	ctx context.Context, file sqlcgen.GetPlayableFileRow, profile nodeproto.PrepareProfile,
 ) (cachegen.PreparedRendition, error) {
 	var row cachegen.PreparedRendition
-	segmentLength, settingErr := all.settings.Int(ctx, settings.HLSSegmentLengthS)
+	segmentLengthS, settingErr := all.settings.Int(ctx, settings.HLSSegmentLengthS)
 	if settingErr != nil {
 		return row, fmt.Errorf("read hls_segment_length_s: %w", settingErr)
 	}
@@ -73,20 +73,20 @@ func (all *prepares) want(
 	}
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		key := cachegen.GetRenditionOfFileAndProfileParams{SourceFile: file.ID, Profile: string(profile)}
-		found, err := store.OrNotFound(queries.GetRenditionOfFileAndProfile(ctx, key))
+		existing, err := store.OrNotFound(queries.GetRenditionOfFileAndProfile(ctx, key))
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			_, err = queries.InsertRendition(ctx, cachegen.InsertRenditionParams{
 				SourceFile: file.ID, SourcePayloadHash: file.PayloadHash, Profile: string(profile), NodeID: file.NodeID,
-				SegmentLengthSeconds: segmentLength, RunID: runID, CreatedAt: all.clock.Now().UnixMilli(),
+				SegmentLengthSeconds: segmentLengthS, RunID: runID, CreatedAt: all.clock.Now().UnixMilli(),
 			})
 		case err != nil:
-		case !bytes.Equal(found.SourcePayloadHash, file.PayloadHash) || found.State == renditionFailed ||
-			found.SegmentLengthSeconds != segmentLength:
+		case !bytes.Equal(existing.SourcePayloadHash, file.PayloadHash) || existing.State == renditionFailed ||
+			existing.SegmentLengthSeconds != segmentLengthS:
 			err = queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-				SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthSeconds: segmentLength,
+				SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthSeconds: segmentLengthS,
 				RunID: runID,
-				ID:    found.ID,
+				ID:    existing.ID,
 			})
 		}
 		if err != nil {
@@ -117,14 +117,15 @@ func (all *prepares) redo(
 	}
 	err = all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		key := cachegen.GetRenditionOfFileAndProfileParams{SourceFile: file.ID, Profile: string(profile)}
-		found, readErr := queries.GetRenditionOfFileAndProfile(ctx, key)
+		existing, readErr := queries.GetRenditionOfFileAndProfile(ctx, key)
 		if readErr != nil {
 			return readErr
 		}
 		return queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-			SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthSeconds: found.SegmentLengthSeconds,
-			RunID: runID,
-			ID:    found.ID,
+			SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID,
+			SegmentLengthSeconds: existing.SegmentLengthSeconds,
+			RunID:                runID,
+			ID:                   existing.ID,
 		})
 	})
 	if err != nil {
@@ -150,14 +151,14 @@ func (all *prepares) newRunID() (string, error) {
 
 // handle runs one prepare job: it commands the node and waits for its reports, recording each,
 // until the node says the rendition is done or failed, or says nothing for too long.
-func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) error {
-	command, nodeID := made.command, made.nodeID
-	answers := all.waiting.await(job.ID)
-	defer all.waiting.forget(job.ID)
-	if err := all.running(ctx, job.RenditionID, 0); err != nil {
+func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrder) error {
+	command, nodeID := order.command, order.nodeID
+	answers := all.reportAnswers.await(job.ID)
+	defer all.reportAnswers.forget(job.ID)
+	if err := all.recordRunning(ctx, job.RenditionID, 0); err != nil {
 		return err
 	}
-	if err := all.carrying(ctx, job.RenditionID, made.gains); err != nil {
+	if err := all.recordCarriedGains(ctx, job.RenditionID, order.carriedGainsJSON); err != nil {
 		return err
 	}
 	command.JobID = job.ID
@@ -171,7 +172,7 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 			case nodeproto.PrepareWaiting:
 				timer.Reset(all.maxSilence) // the node holds it, waiting for a slot of its kind
 			case nodeproto.PrepareRunning:
-				if err := all.progressed(ctx, job, report.PreparedThroughMs, made.durationMs); err != nil {
+				if err := all.recordProgress(ctx, job, report.PreparedThroughMs, order.durationMs); err != nil {
 					return err
 				}
 				timer.Reset(all.maxSilence)
@@ -194,10 +195,10 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 	}
 }
 
-// progressed records how far a running prepare is, on its rendition and, when the source's length
+// recordProgress records how far a running prepare is, on its rendition and, when the source's length
 // is known, on its job for the job view.
-func (all *prepares) progressed(ctx context.Context, job jobs.Job, preparedMs, durationMs int64) error {
-	if err := all.running(ctx, job.RenditionID, preparedMs); err != nil {
+func (all *prepares) recordProgress(ctx context.Context, job jobs.Job, preparedMs, durationMs int64) error {
+	if err := all.recordRunning(ctx, job.RenditionID, preparedMs); err != nil {
 		return err
 	}
 	if durationMs <= 0 {
@@ -210,69 +211,72 @@ func (all *prepares) progressed(ctx context.Context, job jobs.Job, preparedMs, d
 // a later play prepares it again rather than waiting on one no one is making.
 func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) error {
 	all.nodes.Enqueue(nodeID, cancelCommand(job.ID))
-	failed := all.finish(context.WithoutCancel(ctx), job.RenditionID, nil, jobs.ErrCancelled.Error())
-	return jobs.MarkPermanent(errors.Join(jobs.ErrCancelled, failed))
+	finishErr := all.finish(context.WithoutCancel(ctx), job.RenditionID, nil, jobs.ErrCancelled.Error())
+	return jobs.MarkPermanent(errors.Join(jobs.ErrCancelled, finishErr))
 }
 
-// carrying records the gains a making puts in the rendition's audio tracks (D226 §4).
-func (all *prepares) carrying(ctx context.Context, rendition int64, gains string) error {
+// recordCarriedGains records the gains a making puts in the rendition's audio tracks (D226 §4).
+func (all *prepares) recordCarriedGains(ctx context.Context, renditionID int64, gains string) error {
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		return queries.SetRenditionGains(ctx, cachegen.SetRenditionGainsParams{
 			CarriedGainsDbJson: gains,
-			ID:                 rendition,
+			ID:                 renditionID,
 		})
 	})
 	if err != nil {
-		return fmt.Errorf("record rendition %d's gains: %w", rendition, err)
+		return fmt.Errorf("record rendition %d's gains: %w", renditionID, err)
 	}
 	return nil
 }
 
-func (all *prepares) running(ctx context.Context, rendition, preparedMs int64) error {
+func (all *prepares) recordRunning(ctx context.Context, renditionID, preparedMs int64) error {
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		progress := cachegen.SetRenditionRunningParams{PreparedThroughMs: preparedMs, ID: rendition}
+		progress := cachegen.SetRenditionRunningParams{PreparedThroughMs: preparedMs, ID: renditionID}
 		return queries.SetRenditionRunning(ctx, progress)
 	})
 	if err != nil {
-		return fmt.Errorf("record rendition %d running: %w", rendition, err)
+		return fmt.Errorf("record rendition %d running: %w", renditionID, err)
 	}
 	return nil
 }
 
 // finish records a rendition complete with its size, what made its video and how fast, or
 // failed with why.
-func (all *prepares) finish(ctx context.Context, rendition int64, done *nodeproto.PrepareReport, failure string) error {
+func (all *prepares) finish(
+	ctx context.Context, renditionID int64, doneReport *nodeproto.PrepareReport, failure string,
+) error {
 	now := all.clock.Now().UnixMilli()
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		if done != nil {
+		if doneReport != nil {
 			// What made it and how fast, for the System page (D225 §3); a node that did not say
 			// leaves them empty.
 			var videoEncoder *string
-			if done.VideoEncoder != "" {
-				videoEncoder = &done.VideoEncoder
+			if doneReport.VideoEncoder != "" {
+				videoEncoder = &doneReport.VideoEncoder
 			}
-			var speed *float64
-			if done.RealtimeFactor > 0 {
-				speed = &done.RealtimeFactor
+			var realtimeFactor *float64
+			if doneReport.RealtimeFactor > 0 {
+				realtimeFactor = &doneReport.RealtimeFactor
 			}
 			return queries.SetRenditionComplete(ctx, cachegen.SetRenditionCompleteParams{
-				SizeBytes: &done.SizeBytes, FinishedAt: &now, VideoEncoder: videoEncoder, RealtimeFactor: speed,
-				ID: rendition,
+				SizeBytes: &doneReport.SizeBytes, FinishedAt: &now, VideoEncoder: videoEncoder,
+				RealtimeFactor: realtimeFactor,
+				ID:             renditionID,
 			})
 		}
 		return queries.SetRenditionFailed(ctx, cachegen.SetRenditionFailedParams{
-			Failure: &failure, FinishedAt: &now, ID: rendition,
+			Failure: &failure, FinishedAt: &now, ID: renditionID,
 		})
 	})
 	if err != nil {
-		return fmt.Errorf("record rendition %d finished: %w", rendition, err)
+		return fmt.Errorf("record rendition %d finished: %w", renditionID, err)
 	}
 	return nil
 }
 
 // reported hands a node's report to the job waiting for it.
 func (all *prepares) reported(ctx context.Context, nodeID int64, report nodeproto.PrepareReport) {
-	all.waiting.deliver(ctx, nodeID, report.JobID, report)
+	all.reportAnswers.deliver(ctx, nodeID, report.JobID, report)
 }
 
 // prepareCommand is the node's command for a rendition of file: its source by identity, its

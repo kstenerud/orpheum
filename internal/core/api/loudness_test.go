@@ -33,7 +33,7 @@ func (harness testHarness) measureWith(
 	finished := make(chan error, 1)
 	go func() {
 		job := jobs.Job{ID: jobID, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: fileID}}
-		finished <- service.HandleLoudness(t.Context(), job)
+		finished <- service.HandleMeasureLoudness(t.Context(), job)
 	}()
 	command := <-harness.nodes.commanded
 	answer.JobID = jobID

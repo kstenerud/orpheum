@@ -9,22 +9,22 @@ import (
 
 // phoneAndTelevision signs a person in on a phone and adds a television by code, and returns the
 // two sessions.
-func phoneAndTelevision(t *testing.T, service *Service, id int64) (phone, television string) {
+func phoneAndTelevision(t *testing.T, service *Service, userID int64) (phoneToken, televisionToken string) {
 	t.Helper()
 	ctx := t.Context()
-	phone, err := service.SignIn(ctx, "partner", "pw", "192.0.2.1", NewDevice{Name: "Phone", Platform: "web"})
+	phoneToken, err := service.SignIn(ctx, "partner", "pw", "192.0.2.1", NewDevice{Name: "Phone", Platform: "web"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	code, err := service.IssueDeviceCode(ctx, id, "Living room TV", 0)
+	code, err := service.IssueDeviceCode(ctx, userID, "Living room TV", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	television, err = service.SignInWithCode(ctx, code.Secret, "web", "192.0.2.2", 0)
+	televisionToken, err = service.SignInWithCode(ctx, code.Secret, "web", "192.0.2.2", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return phone, television
+	return phoneToken, televisionToken
 }
 
 func TestDevices_AreListedAndARemovedOneIsSignedOutAtItsNextRequest(t *testing.T) {

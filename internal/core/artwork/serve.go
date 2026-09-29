@@ -39,9 +39,9 @@ const makePriority = 10
 // meanwhile.
 type Served struct {
 	Bytes []byte
-	// Redirect names the size and format to fetch instead, for now; the requested one is being
+	// RedirectName names the size and format to fetch instead, for now; the requested one is being
 	// made, or cannot be.
-	Redirect string
+	RedirectName string
 }
 
 // Serve answers a request for one size of one image in a format. A stored one is read; a JPEG
@@ -55,7 +55,7 @@ func (service *Service) Serve(ctx context.Context, hash string, name nodeproto.A
 	if !known || (format != FormatWebP && format != FormatJPEG) {
 		return Served{}, ErrNoArt
 	}
-	art := service.parts.Store
+	art := service.parts.ArtFiles
 	stored, err := art.ReadArt(hash, string(name)+"."+format)
 	if err == nil {
 		service.noteServed(hash)
@@ -76,16 +76,16 @@ func (service *Service) Serve(ctx context.Context, hash string, name nodeproto.A
 			return Served{Bytes: cut}, cutErr
 		}
 	}
-	return service.meanwhile(ctx, hash, size, format)
+	return service.serveNearest(ctx, hash, size, format)
 }
 
-// meanwhile answers for a size not held: a redirect to the nearest size held, with the size
+// serveNearest answers for a size not held: a redirect to the nearest size held, with the size
 // queued to be made; or, with nothing of the image held — the cache was deleted — no image, and
 // the image queued to be made again, if an item shows it.
-func (service *Service) meanwhile(ctx context.Context, hash string, size nodeproto.ArtSize, format string) (
+func (service *Service) serveNearest(ctx context.Context, hash string, size nodeproto.ArtSize, format string) (
 	Served, error,
 ) {
-	art := service.parts.Store
+	art := service.parts.ArtFiles
 	nearest, err := service.nearest(art, hash, size)
 	if errors.Is(err, ErrNoArt) {
 		if makeErr := service.queueMake(ctx, hash, size.Shape, fetchedSizes(size.Shape)); makeErr != nil &&
@@ -97,10 +97,10 @@ func (service *Service) meanwhile(ctx context.Context, hash string, size nodepro
 	if err != nil {
 		return Served{}, err
 	}
-	if err := service.makeIfWanted(ctx, art, hash, size); err != nil {
+	if err := service.queueMakeUnlessNoted(ctx, art, hash, size); err != nil {
 		return Served{}, err
 	}
-	return Served{Redirect: string(nearest) + "." + format}, nil
+	return Served{RedirectName: string(nearest) + "." + format}, nil
 }
 
 // isMissing is a size the store does not have.
@@ -110,7 +110,7 @@ func isMissing(err error) bool {
 
 // cutJPEG decodes the WebP of a size — our own encoder's output, and nothing else (D212 §5) —
 // and keeps it as JPEG.
-func (service *Service) cutJPEG(ctx context.Context, art Store, hash string, name nodeproto.ArtSizeName) (
+func (service *Service) cutJPEG(ctx context.Context, art ArtFiles, hash string, name nodeproto.ArtSizeName) (
 	[]byte, error,
 ) {
 	source, err := art.ReadArt(hash, string(name)+"."+FormatWebP)
@@ -121,11 +121,11 @@ func (service *Service) cutJPEG(ctx context.Context, art Store, hash string, nam
 	if err != nil {
 		return nil, fmt.Errorf("read the size of art %s %s: %w", hash, name, err)
 	}
-	limit, err := service.parts.Settings.Int(ctx, settings.ArtworkMaxSourcePixels)
+	maxSourcePixels, err := service.parts.Settings.Int(ctx, settings.ArtworkMaxSourcePixels)
 	if err != nil {
 		return nil, fmt.Errorf("read artwork_max_source_pixels: %w", err)
 	}
-	if int64(config.Width)*int64(config.Height) > limit {
+	if int64(config.Width)*int64(config.Height) > maxSourcePixels {
 		return nil, fmt.Errorf("art %s %s is %d×%d, over the pixel limit", hash, name, config.Width, config.Height)
 	}
 	decoded, err := webp.Decode(bytes.NewReader(source))
@@ -144,7 +144,7 @@ func (service *Service) cutJPEG(ctx context.Context, art Store, hash string, nam
 
 // nearest is the stored WebP size of the shape closest to the one asked for: the largest below
 // it, else the smallest above it.
-func (service *Service) nearest(art Store, hash string, want nodeproto.ArtSize) (nodeproto.ArtSizeName, error) {
+func (service *Service) nearest(art ArtFiles, hash string, want nodeproto.ArtSize) (nodeproto.ArtSizeName, error) {
 	var below, above nodeproto.ArtSizeName
 	for _, size := range want.Shape.Sizes() {
 		if size.Name == want.Name {
@@ -171,10 +171,12 @@ func (service *Service) nearest(art Store, hash string, want nodeproto.ArtSize) 
 	return "", ErrNoArt
 }
 
-// makeIfWanted queues a size not held to be made, unless it is noted as one the source cannot
+// queueMakeUnlessNoted queues a size not held to be made, unless it is noted as one the source cannot
 // make: a size not held and not noted was evicted, or is made only on request.
-func (service *Service) makeIfWanted(ctx context.Context, art Store, hash string, want nodeproto.ArtSize) error {
-	noted, err := art.HasArt(hash, string(want.Name)+noneMark)
+func (service *Service) queueMakeUnlessNoted(
+	ctx context.Context, art ArtFiles, hash string, want nodeproto.ArtSize,
+) error {
+	noted, err := art.HasArt(hash, string(want.Name)+cannotMakeSuffix)
 	if err != nil {
 		return fmt.Errorf("look for art %s %s: %w", hash, want.Name, err)
 	}

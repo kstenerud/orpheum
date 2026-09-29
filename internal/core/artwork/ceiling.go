@@ -20,23 +20,23 @@ import (
 const (
 	gib = int64(1) << 30
 	// A sweep evicts down to 90% of the ceiling, so it does not run again at the next write.
-	lowWater = 0.9
+	lowWaterFraction = 0.9
 	// The recommended ceiling is what is never evicted, plus 15%.
-	headroom = 1.15
-	day      = 24 * time.Hour
-	noneMark = ".none"
+	headroomFactor   = 1.15
+	day              = 24 * time.Hour
+	cannotMakeSuffix = ".none"
 )
 
 // holdings is what the art directory holds, kept in memory from one listing at start and every
 // write and removal since, and when each image was last served, to the day.
 type holdings struct {
-	mutex               sync.Mutex
-	files               map[string]map[string]int64 // hash, then file name, to size
-	total               int64
-	lastServedDayByHash map[string]int64 // hash to day
-	unsaved             map[string]int64 // served since the last flush
-	pressure            Pressure
-	sweep               chan struct{}
+	mutex                  sync.Mutex
+	sizeBytesByNameByHash  map[string]map[string]int64 // hash, then file name, to size
+	totalBytes             int64
+	lastServedDayByHash    map[string]int64 // hash to day
+	unsavedServedDayByHash map[string]int64 // served since the last flush
+	pressure               Pressure
+	sweepWake              chan struct{}
 }
 
 // Pressure is the artwork cache against its ceiling, as the last sweep found it.
@@ -44,23 +44,24 @@ type Pressure struct {
 	TotalBytes    int64 // bytes held
 	RequiredBytes int64 // bytes never evicted: what live items need to be shown
 	CeilingBytes  int64
-	// HighWater is what is never evicted exceeding the ceiling: artwork is still served and
+	// IsHighWater is what is never evicted exceeding the ceiling: artwork is still served and
 	// fetched as needed, and the admin is told the ceiling to set (D212 §7).
-	HighWater        bool
+	IsHighWater      bool
 	RecommendedBytes int64 // the ceiling to set: what is required plus 15%, in whole GiB
 }
 
 func newHoldings() *holdings {
 	return &holdings{
-		files: map[string]map[string]int64{}, lastServedDayByHash: map[string]int64{}, unsaved: map[string]int64{},
-		sweep: make(chan struct{}, 1),
+		sizeBytesByNameByHash: map[string]map[string]int64{}, lastServedDayByHash: map[string]int64{},
+		unsavedServedDayByHash: map[string]int64{},
+		sweepWake:              make(chan struct{}, 1),
 	}
 }
 
-// Load reads what the art directory holds and when each image was last served; call it once,
+// LoadHoldings reads what the art directory holds and when each image was last served; call it once,
 // before serving.
-func (service *Service) Load(ctx context.Context) error {
-	files, err := service.parts.Store.ListArt()
+func (service *Service) LoadHoldings(ctx context.Context) error {
+	files, err := service.parts.ArtFiles.ListArt()
 	if err != nil {
 		return err
 	}
@@ -81,27 +82,27 @@ func (service *Service) Load(ctx context.Context) error {
 }
 
 func (held *holdings) add(hash, name string, size int64) {
-	if held.files[hash] == nil {
-		held.files[hash] = map[string]int64{}
+	if held.sizeBytesByNameByHash[hash] == nil {
+		held.sizeBytesByNameByHash[hash] = map[string]int64{}
 	}
-	held.total += size - held.files[hash][name]
-	held.files[hash][name] = size
+	held.totalBytes += size - held.sizeBytesByNameByHash[hash][name]
+	held.sizeBytesByNameByHash[hash][name] = size
 }
 
 // writeArt stores one file and counts it; past the ceiling it wakes the sweep.
 func (service *Service) writeArt(ctx context.Context, hash, name string, contents []byte) error {
-	if err := service.parts.Store.WriteArt(hash, name, contents); err != nil {
+	if err := service.parts.ArtFiles.WriteArt(hash, name, contents); err != nil {
 		return fmt.Errorf("store art %s %s: %w", hash, name, err)
 	}
 	held := service.holdings
 	held.mutex.Lock()
 	held.add(hash, name, int64(len(contents)))
-	total := held.total
+	total := held.totalBytes
 	held.mutex.Unlock()
-	ceiling, err := service.ceiling(ctx)
+	ceiling, err := service.ceilingBytes(ctx)
 	if err == nil && total > ceiling {
 		select {
-		case held.sweep <- struct{}{}:
+		case held.sweepWake <- struct{}{}:
 		default:
 		}
 	}
@@ -110,12 +111,12 @@ func (service *Service) writeArt(ctx context.Context, hash, name string, content
 
 // noteServed records that an image was served today, in memory; Flush writes it.
 func (service *Service) noteServed(hash string) {
-	today := service.parts.Clock.Now().Unix() / int64(day/time.Second)
+	todayEpochDay := service.parts.Clock.Now().Unix() / int64(day/time.Second)
 	held := service.holdings
 	held.mutex.Lock()
 	defer held.mutex.Unlock()
-	if held.lastServedDayByHash[hash] < today {
-		held.lastServedDayByHash[hash], held.unsaved[hash] = today, today
+	if held.lastServedDayByHash[hash] < todayEpochDay {
+		held.lastServedDayByHash[hash], held.unsavedServedDayByHash[hash] = todayEpochDay, todayEpochDay
 	}
 }
 
@@ -123,15 +124,15 @@ func (service *Service) noteServed(hash string) {
 func (service *Service) Flush(ctx context.Context) error {
 	held := service.holdings
 	held.mutex.Lock()
-	unsaved := held.unsaved
-	held.unsaved = map[string]int64{}
+	unsaved := held.unsavedServedDayByHash
+	held.unsavedServedDayByHash = map[string]int64{}
 	held.mutex.Unlock()
 	if len(unsaved) == 0 {
 		return nil
 	}
 	err := service.parts.Cache.Write(ctx, func(queries *cachegen.Queries) error {
-		for hash, served := range unsaved {
-			marked := cachegen.MarkArtServedParams{SourceSha256Hex: hash, LastServedEpochDay: served}
+		for hash, servedDay := range unsaved {
+			marked := cachegen.MarkArtServedParams{SourceSha256Hex: hash, LastServedEpochDay: servedDay}
 			if err := queries.MarkArtServed(ctx, marked); err != nil {
 				return err
 			}
@@ -144,12 +145,12 @@ func (service *Service) Flush(ctx context.Context) error {
 	return nil
 }
 
-// Sweeps is woken when a write takes the cache past its ceiling.
-func (service *Service) Sweeps() <-chan struct{} {
-	return service.holdings.sweep
+// SweepWakes is woken when a write takes the cache past its ceiling.
+func (service *Service) SweepWakes() <-chan struct{} {
+	return service.holdings.sweepWake
 }
 
-func (service *Service) ceiling(ctx context.Context) (int64, error) {
+func (service *Service) ceilingBytes(ctx context.Context) (int64, error) {
 	gibs, err := service.parts.Settings.Int(ctx, settings.ArtworkCacheCeilingGiB)
 	if err != nil {
 		return 0, fmt.Errorf("read artwork_cache_ceiling_gib: %w", err)
@@ -170,11 +171,11 @@ const (
 
 // candidate is one file a sweep may evict.
 type candidate struct {
-	hash, name string
-	size       int64
-	class      class
-	served     int64
-	goneAt     int64
+	hash, name    string
+	sizeBytes     int64
+	class         class
+	lastServedDay int64
+	goneAt        int64
 }
 
 // Sweep evicts what the ceiling says to: removed items' images once their grace has passed,
@@ -182,7 +183,7 @@ type candidate struct {
 // class, down to 90% of it. It never evicts a live item's poster-wall size or the smallest size
 // of each shape, so a request always has a size to go to. It returns the cache's pressure.
 func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
-	ceiling, err := service.ceiling(ctx)
+	ceiling, err := service.ceilingBytes(ctx)
 	if err != nil {
 		return Pressure{}, err
 	}
@@ -194,31 +195,31 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 	if err != nil {
 		return Pressure{}, fmt.Errorf("list the stored images: %w", err)
 	}
-	shown := map[string]bool{}
-	goneAt := map[string]int64{}
+	isLiveByHash := map[string]bool{}
+	goneAtByHash := map[string]int64{}
 	for _, row := range rows {
 		key := hex.EncodeToString(row.SourceSha256)
-		shown[key], goneAt[key] = row.Live == 1, row.GoneAt
+		isLiveByHash[key], goneAtByHash[key] = row.Live == 1, row.GoneAt
 	}
-	sorted := service.classify(shown, goneAt)
-	candidates, required, total := sorted.candidates, sorted.required, sorted.total
-	graceEnds := service.parts.Clock.Now().Add(-time.Duration(graceDays) * day).UnixMilli()
-	over, lowMark := total > ceiling, int64(float64(ceiling)*lowWater)
+	sorted := service.classify(isLiveByHash, goneAtByHash)
+	candidates, required, total := sorted.candidates, sorted.requiredBytes, sorted.totalBytes
+	graceEndsAt := service.parts.Clock.Now().Add(-time.Duration(graceDays) * day).UnixMilli()
+	isOverCeiling, lowWaterBytes := total > ceiling, int64(float64(ceiling)*lowWaterFraction)
 	for _, file := range candidates {
-		pastGrace := file.class == classRemoved && file.goneAt < graceEnds
-		if !pastGrace && (!over || total <= lowMark) {
+		isPastGrace := file.class == classRemoved && file.goneAt < graceEndsAt
+		if !isPastGrace && (!isOverCeiling || total <= lowWaterBytes) {
 			continue
 		}
 		if err := service.evict(file); err != nil {
 			return Pressure{}, err
 		}
-		total -= file.size
+		total -= file.sizeBytes
 	}
 	pressure := Pressure{
-		TotalBytes: total, RequiredBytes: required, CeilingBytes: ceiling, HighWater: required > ceiling,
+		TotalBytes: total, RequiredBytes: required, CeilingBytes: ceiling, IsHighWater: required > ceiling,
 	}
-	if pressure.HighWater {
-		pressure.RecommendedBytes = (int64(float64(required)*headroom) + gib - 1) / gib * gib
+	if pressure.IsHighWater {
+		pressure.RecommendedBytes = (int64(float64(required)*headroomFactor) + gib - 1) / gib * gib
 	}
 	service.recordPressure(ctx, pressure)
 	return pressure, nil
@@ -227,25 +228,26 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 // classified is every held file a sweep may evict, soonest first, with the bytes never evicted
 // and the bytes held in all.
 type classified struct {
-	candidates []candidate
-	required   int64
-	total      int64
+	candidates    []candidate
+	requiredBytes int64
+	totalBytes    int64
 }
 
 // classify sorts every held file into its class.
-func (service *Service) classify(shown map[string]bool, goneAt map[string]int64) classified {
+func (service *Service) classify(isLiveByHash map[string]bool, goneAtByHash map[string]int64) classified {
 	held := service.holdings
 	held.mutex.Lock()
 	defer held.mutex.Unlock()
 	var candidates []candidate
 	var required int64
-	for hash, files := range held.files {
-		base := baseOf(files)
+	for hash, files := range held.sizeBytesByNameByHash {
+		base := baseNameOf(files)
 		for name, size := range files {
 			file := candidate{
-				hash: hash, name: name, size: size, served: held.lastServedDayByHash[hash], goneAt: goneAt[hash],
+				hash: hash, name: name, sizeBytes: size, lastServedDay: held.lastServedDayByHash[hash],
+				goneAt: goneAtByHash[hash],
 			}
-			file.class = classOf(name, base, shown[hash])
+			file.class = classOf(name, base, isLiveByHash[hash])
 			if file.class == classKept {
 				required += size
 				continue
@@ -257,25 +259,25 @@ func (service *Service) classify(shown map[string]bool, goneAt map[string]int64)
 		if first.class != second.class {
 			return int(first.class - second.class)
 		}
-		if first.served != second.served {
-			return int(first.served - second.served)
+		if first.lastServedDay != second.lastServedDay {
+			return int(first.lastServedDay - second.lastServedDay)
 		}
 		return strings.Compare(first.hash+first.name, second.hash+second.name)
 	})
-	return classified{candidates: candidates, required: required, total: held.total}
+	return classified{candidates: candidates, requiredBytes: required, totalBytes: held.totalBytes}
 }
 
 // classOf is a file's class.
-func classOf(name, base string, live bool) class {
+func classOf(name, base string, isLive bool) class {
 	switch {
-	case strings.HasSuffix(name, noneMark):
+	case strings.HasSuffix(name, cannotMakeSuffix):
 		return classKept // an empty note that a size cannot be made
-	case !live:
+	case !isLive:
 		return classRemoved
 	case strings.HasSuffix(name, "."+FormatJPEG):
 		return classOnDemand
 	}
-	size, known := nodeproto.ArtSizeName(strings.TrimSuffix(name, webpFormat)).Size()
+	size, known := nodeproto.ArtSizeName(strings.TrimSuffix(name, webpSuffix)).Size()
 	switch {
 	case !known:
 		return classRemoved
@@ -289,12 +291,12 @@ func classOf(name, base string, live bool) class {
 	return classOther
 }
 
-// baseOf is an image's largest WebP size held: what its other sizes are cut from.
-func baseOf(files map[string]int64) string {
+// baseNameOf is an image's largest WebP size held: what its other sizes are cut from.
+func baseNameOf(files map[string]int64) string {
 	base, width := "", 0
 	for name := range files {
-		size, known := nodeproto.ArtSizeName(strings.TrimSuffix(name, webpFormat)).Size()
-		if known && strings.HasSuffix(name, webpFormat) && size.Width > width {
+		size, known := nodeproto.ArtSizeName(strings.TrimSuffix(name, webpSuffix)).Size()
+		if known && strings.HasSuffix(name, webpSuffix) && size.Width > width {
 			base, width = name, size.Width
 		}
 	}
@@ -303,16 +305,16 @@ func baseOf(files map[string]int64) string {
 
 // evict removes one file and forgets it.
 func (service *Service) evict(file candidate) error {
-	if err := service.parts.Store.RemoveArt(file.hash, file.name); err != nil {
+	if err := service.parts.ArtFiles.RemoveArt(file.hash, file.name); err != nil {
 		return fmt.Errorf("evict art %s %s: %w", file.hash, file.name, err)
 	}
 	held := service.holdings
 	held.mutex.Lock()
 	defer held.mutex.Unlock()
-	held.total -= held.files[file.hash][file.name]
-	delete(held.files[file.hash], file.name)
-	if len(held.files[file.hash]) == 0 {
-		delete(held.files, file.hash)
+	held.totalBytes -= held.sizeBytesByNameByHash[file.hash][file.name]
+	delete(held.sizeBytesByNameByHash[file.hash], file.name)
+	if len(held.sizeBytesByNameByHash[file.hash]) == 0 {
+		delete(held.sizeBytesByNameByHash, file.hash)
 	}
 	return nil
 }
@@ -321,15 +323,15 @@ func (service *Service) evict(file candidate) error {
 func (service *Service) recordPressure(ctx context.Context, pressure Pressure) {
 	held := service.holdings
 	held.mutex.Lock()
-	was := held.pressure.HighWater
+	wasHighWater := held.pressure.IsHighWater
 	held.pressure = pressure
 	held.mutex.Unlock()
 	switch {
-	case pressure.HighWater && !was:
+	case pressure.IsHighWater && !wasHighWater:
 		service.parts.Logger.WarnContext(ctx, "the artwork cache ceiling is smaller than what the libraries need "+
 			"to show; artwork is fetched again as it is needed", "requiredBytes", pressure.RequiredBytes,
 			"ceilingBytes", pressure.CeilingBytes, "recommendedGiB", pressure.RecommendedBytes/gib)
-	case !pressure.HighWater && was:
+	case !pressure.IsHighWater && wasHighWater:
 		service.parts.Logger.InfoContext(ctx, "the artwork cache fits under its ceiling again")
 	}
 }

@@ -35,18 +35,18 @@ var ourWebP = append([]byte("RIFF\x10\x00\x00\x00WEBPVP8 "), bytes.Repeat([]byte
 
 // fakeNode is the node channel with one node that answers each artwork command as answer says.
 type fakeNode struct {
-	service   *Service
-	ctx       context.Context //nolint:containedctx // the test's, for the answers it sends
-	connected bool
-	answer    func(nodeproto.Artwork) nodeproto.ArtworkResult
+	service     *Service
+	ctx         context.Context //nolint:containedctx // the test's, for the answers it sends
+	isConnected bool
+	answer      func(nodeproto.Artwork) nodeproto.ArtworkResult
 
 	mutex sync.Mutex
 	sent  []nodeproto.Artwork
 }
 
-func (node *fakeNode) LastHeardNodeID() (int64, bool) { return 3, node.connected }
+func (node *fakeNode) LastHeardNodeID() (int64, bool) { return 3, node.isConnected }
 
-func (node *fakeNode) IsConnected(nodeID int64) bool { return nodeID == 3 && node.connected }
+func (node *fakeNode) IsConnected(nodeID int64) bool { return nodeID == 3 && node.isConnected }
 
 func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	node.mutex.Lock()
@@ -57,12 +57,12 @@ func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	}
 }
 
-// fetched is a source's images by reference.
-type fetched map[string][]byte
+// fakeFetcher is a source's images by reference.
+type fakeFetcher map[string][]byte
 
-func (fetched) RecheckAfter() time.Duration { return 12 * time.Hour }
+func (fakeFetcher) RecheckAfter() time.Duration { return 12 * time.Hour }
 
-func (images fetched) Fetch(_ context.Context, ref string) (Unsanitised, error) {
+func (images fakeFetcher) Fetch(_ context.Context, ref string) (Unsanitised, error) {
 	image, found := images[ref]
 	if !found {
 		return Unsanitised{}, ErrNoImage
@@ -111,11 +111,11 @@ type bench struct {
 	node     *fakeNode
 	art      memoryStore
 	itemID   int64
-	config   *settings.Service
+	settings *settings.Service
 	clock    *clocktest.Fake
 }
 
-func newBench(t *testing.T, images fetched) *bench {
+func newBench(t *testing.T, images fakeFetcher) *bench {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	var itemID int64
@@ -127,24 +127,25 @@ func newBench(t *testing.T, images fetched) *bench {
 	if err != nil {
 		t.Fatal(err)
 	}
-	node := &fakeNode{ctx: t.Context(), connected: true}
+	node := &fakeNode{ctx: t.Context(), isConnected: true}
 	art := memoryStore{}
 	config := settingstest.Seeded(t, database)
-	now := clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
+	fakeClock := clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	service := NewService(Parts{
-		Database: database, Queue: &queued{}, Nodes: node, Store: art, Cache: storetest.OpenCache(t), Settings: config,
+		Database: database, Queue: &recordingQueue{}, Nodes: node, ArtFiles: art, Cache: storetest.OpenCache(t),
+		Settings: config,
 		Fetchers: map[string]Fetcher{"tmdb": images},
-		Clock:    now,
-		Logger:   slog.New(slog.DiscardHandler), Wait: 5 * time.Second,
+		Clock:    fakeClock,
+		Logger:   slog.New(slog.DiscardHandler), AnswerWait: 5 * time.Second,
 	})
 	node.service = service
 	return &bench{
-		service: service, database: database, node: node, art: art, itemID: itemID, config: config, clock: now,
+		service: service, database: database, node: node, art: art, itemID: itemID, settings: config, clock: fakeClock,
 	}
 }
 
 func (bench *bench) job(refs ...owedRef) jobs.Job {
-	args, err := json.Marshal(owed{ArtworkSource: "tmdb", Refs: refs})
+	args, err := json.Marshal(artworkJobArgs{ArtworkSource: "tmdb", Refs: refs})
 	if err != nil {
 		panic(err)
 	}
@@ -170,7 +171,7 @@ func (bench *bench) rows(t *testing.T) []sqlcgen.ListLiveArtworkRow {
 func TestService_StoresOnlyTheNodesAnswer(t *testing.T) {
 	t.Parallel()
 	source := []byte("a provider's JPEG, with whatever else it carries")
-	bench := newBench(t, fetched{"/poster.jpg": source})
+	bench := newBench(t, fakeFetcher{"/poster.jpg": source})
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
 		return nodeproto.ArtworkResult{
 			JobID: command.JobID, SourceWidth: 600, SourceHeight: 900,
@@ -202,7 +203,7 @@ func checkStored(t *testing.T, art memoryStore, source []byte) {
 	t.Helper()
 	hash := Received(source).hash()
 	if len(art) != 1 || !bytes.Equal(art[hash+"/portrait-s.webp"], ourWebP) {
-		t.Errorf("stored %v; want only portrait-s, our WebP, under the source's hash", keys(art))
+		t.Errorf("stored %v; want only portrait-s, our WebP, under the source's hash", storedNames(art))
 	}
 	for _, stored := range art {
 		if bytes.Contains(stored, source) {
@@ -211,7 +212,7 @@ func checkStored(t *testing.T, art memoryStore, source []byte) {
 	}
 }
 
-func keys(art memoryStore) []string {
+func storedNames(art memoryStore) []string {
 	var names []string
 	for name := range art {
 		names = append(names, name)
@@ -222,7 +223,7 @@ func keys(art memoryStore) []string {
 
 func TestService_RecordsARefusalAndKeepsTheOlderImage(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{"/old.jpg": []byte("old"), "/new.jpg": []byte("<html>")})
+	bench := newBench(t, fakeFetcher{"/old.jpg": []byte("old"), "/new.jpg": []byte("<html>")})
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
 		if string(command.SourceImage) == "old" {
 			return nodeproto.ArtworkResult{JobID: command.JobID, Images: []nodeproto.ArtImage{
@@ -241,7 +242,7 @@ func TestService_RecordsARefusalAndKeepsTheOlderImage(t *testing.T) {
 	shown, err := bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
 		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: "poster",
 	})
-	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].SourceSha256, Received([]byte("old")).hash32()) {
+	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].SourceSha256, Received([]byte("old")).hashBytes()) {
 		t.Errorf("shown %+v (%v); want the old poster", shown, err)
 	}
 	sent := len(bench.node.sent)
@@ -253,18 +254,18 @@ func TestService_RecordsARefusalAndKeepsTheOlderImage(t *testing.T) {
 
 func TestService_WaitsForANode(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{"/poster.jpg": []byte("x")})
-	bench.node.connected = false
+	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("x")})
+	bench.node.isConnected = false
 	err := bench.service.Handle(t.Context(), bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/poster.jpg"}))
 	if retry, isRetry := errors.AsType[*jobs.RetryAtError](err); !isRetry || retry.At.IsZero() {
 		t.Errorf("with no node: %v, want a wait that costs no attempt", err)
 	}
 }
 
-// queued is the job queue as a list, which says a job is open while one for its subject is.
-type queued []jobs.Request
+// recordingQueue is the job queue as a list, which says a job is open while one for its subject is.
+type recordingQueue []jobs.Request
 
-func (queue *queued) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
+func (queue *recordingQueue) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
 	for _, open := range *queue {
 		if open.Kind == job.Kind && open.Target == job.Target {
 			return false, nil
@@ -276,8 +277,8 @@ func (queue *queued) Enqueue(_ context.Context, job jobs.Request) (bool, error) 
 
 func TestService_OweQueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{"/poster.jpg": []byte("p"), "/back.jpg": []byte("b")})
-	queue := &queued{}
+	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("p"), "/back.jpg": []byte("b")})
+	queue := &recordingQueue{}
 	bench.service.parts.Queue = queue
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
 		size := command.SizeNames[0]
@@ -289,7 +290,7 @@ func TestService_OweQueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 	owed := identify.OwedArtwork{ItemID: bench.itemID, Source: "tmdb", Refs: []identify.ArtRef{
 		{Kind: identify.ArtPoster, Ref: "/poster.jpg"}, {Kind: identify.ArtBackdrop, Ref: "/back.jpg"},
 	}}
-	bench.service.Owe(t.Context(), []identify.OwedArtwork{owed, owed})
+	bench.service.QueueOwed(t.Context(), []identify.OwedArtwork{owed, owed})
 	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindArtwork || (*queue)[0].ItemID != bench.itemID {
 		t.Fatalf("queued %+v; want one artwork job for the item", *queue)
 	}
@@ -307,7 +308,7 @@ func TestService_OweQueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 
 func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{"/poster.jpg": []byte("tmdb poster")})
+	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("tmdb poster")})
 	var fileID int64
 	storetest.ExecRaw(t, bench.database.Path(),
 		"INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) "+
@@ -331,7 +332,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	}
 	local := identify.LocalRef(fileID, 5, 7)
 	refs := []owedRef{{Kind: identify.ArtPoster, SourceRef: local}}
-	args, err := json.Marshal(owed{ArtworkSource: identify.SourceLocal, Refs: refs})
+	args, err := json.Marshal(artworkJobArgs{ArtworkSource: identify.SourceLocal, Refs: refs})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +361,8 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	shown, err = bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
 		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: identify.ArtPoster,
 	})
-	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].SourceSha256, Received([]byte("tmdb poster")).hash32()) {
+	if err != nil || len(shown) == 0 ||
+		!bytes.Equal(shown[0].SourceSha256, Received([]byte("tmdb poster")).hashBytes()) {
 		t.Errorf("in a TMDB-only library shown %+v (%v); want TMDB's poster", shown, err)
 	}
 }

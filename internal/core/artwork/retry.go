@@ -25,16 +25,16 @@ func RetrySchedule() []time.Duration {
 	return schedule
 }
 
-// breakAfter is how many failures in a row pause a source's host (D213 §5).
-const breakAfter = 5
+// breakAfterFailures is how many failures in a row pause a source's host (D213 §5).
+const breakAfterFailures = 5
 
 // breaker pauses a host that keeps failing: after breakAfter failures in a row no image is asked
 // of it until a time, and then one is, a probe, each pause the next step of RetrySchedule.
 type breaker struct {
-	mutex     sync.Mutex
-	failures  int
-	step      int
-	openUntil time.Time
+	mutex        sync.Mutex
+	failures     int
+	scheduleStep int
+	openUntil    time.Time
 }
 
 // fetch downloads an image through its source's breaker. A rate limit and an open breaker wait
@@ -57,14 +57,14 @@ func (service *Service) fetch(ctx context.Context, fetcher Fetcher, source, ref 
 	gate.mutex.Lock()
 	defer gate.mutex.Unlock()
 	if err == nil || errors.Is(err, ErrNoImage) {
-		gate.failures, gate.step = 0, 0
+		gate.failures, gate.scheduleStep = 0, 0
 		return image, err
 	}
 	gate.failures++
-	if gate.failures >= breakAfter {
+	if gate.failures >= breakAfterFailures {
 		schedule := RetrySchedule()
-		gate.openUntil = now.Add(schedule[min(gate.step, len(schedule)-1)])
-		gate.step++
+		gate.openUntil = now.Add(schedule[min(gate.scheduleStep, len(schedule)-1)])
+		gate.scheduleStep++
 		service.parts.Logger.WarnContext(ctx, "an image server keeps failing; pausing it", "source", source,
 			"failures", gate.failures, "until", gate.openUntil)
 	}
@@ -82,31 +82,31 @@ func (service *Service) breakerOf(source string) *breaker {
 	return gate
 }
 
-// missing records an image its source says is not there. The first time, the record that named
+// recordMissing records an image its source says is not there. The first time, the record that named
 // it is refreshed once, after the source's CDN stops answering from its cached 404, and the
 // image asked for again; the second time it is given up (D213 §1). An older image stays shown.
-func (service *Service) missing(ctx context.Context, fetcher Fetcher, image wanted, why error) error {
+func (service *Service) recordMissing(ctx context.Context, fetcher Fetcher, want wantedImage, missErr error) error {
 	misses, err := service.parts.Database.Read().CountEarlierMisses(ctx, sqlcgen.CountEarlierMissesParams{
-		ItemID: image.itemID, Kind: image.ref.Kind, Source: image.source, SourceRef: &image.ref.SourceRef,
+		ItemID: want.itemID, Kind: want.ref.Kind, Source: want.source, SourceRef: &want.ref.SourceRef,
 	})
 	if err != nil {
-		return fmt.Errorf("count item %d's earlier misses: %w", image.itemID, err)
+		return fmt.Errorf("count item %d's earlier misses: %w", want.itemID, err)
 	}
-	if refusedErr := service.refused(ctx, image, why.Error()); refusedErr != nil {
+	if refusedErr := service.recordRefusal(ctx, want, missErr.Error()); refusedErr != nil {
 		return refusedErr
 	}
 	if misses > 0 {
 		return nil // rechecked once already: given up
 	}
 	at := service.parts.Clock.Now().Add(fetcher.RecheckAfter())
-	job, err := identify.RefreshJob(image.itemID,
+	job, err := identify.RefreshJob(want.itemID,
 		"an image it names is missing; its record is looked at again once", at, true, 0)
 	if err != nil {
 		return err
 	}
 	_, err = service.parts.Queue.Enqueue(ctx, job)
 	if err != nil {
-		return fmt.Errorf("queue item %d's recheck: %w", image.itemID, err)
+		return fmt.Errorf("queue item %d's recheck: %w", want.itemID, err)
 	}
 	return nil
 }

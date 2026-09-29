@@ -127,7 +127,7 @@ func (service *Service) Register(ctx context.Context, secret, password string, d
 		return "", err
 	}
 	userID := *grant.UserID
-	hash, err := service.hash(ctx, password)
+	hash, err := service.hashWithCurrentCosts(ctx, password)
 	if err != nil {
 		return "", err
 	}
@@ -141,28 +141,28 @@ func (service *Service) Register(ctx context.Context, secret, password string, d
 }
 
 // IssueDeviceCode makes a code that signs a device in as the person (D218 §3): a new one, named
-// as it will be listed, or, with forDevice, one of theirs already listed, which the code signs
+// as it will be listed, or, with forDeviceID, one of theirs already listed, which the code signs
 // back in (D221 §2). Eight characters of safe32, for ten minutes, once; making one withdraws the
 // person's last, whichever device it was for (D221 §3).
 func (service *Service) IssueDeviceCode(
-	ctx context.Context, userID int64, deviceName string, forDevice int64,
+	ctx context.Context, userID int64, deviceName string, forDeviceID int64,
 ) (Invitation, error) {
 	if _, err := liveUser(ctx, service.database.Read(), userID); err != nil {
 		return Invitation{}, err
 	}
-	var device *int64
-	if forDevice != 0 {
+	var deviceID *int64
+	if forDeviceID != 0 {
 		known, err := store.OrNotFound(service.database.Read().GetLiveDeviceOfUser(ctx,
 			sqlcgen.GetLiveDeviceOfUserParams{
-				ID: forDevice, UserID: &userID,
+				ID: forDeviceID, UserID: &userID,
 			}))
 		if errors.Is(err, store.ErrNotFound) {
 			return Invitation{}, ErrNoDevice
 		}
 		if err != nil {
-			return Invitation{}, fmt.Errorf("look up device %d: %w", forDevice, err)
+			return Invitation{}, fmt.Errorf("look up device %d: %w", forDeviceID, err)
 		}
-		device, deviceName = &known.ID, known.Name
+		deviceID, deviceName = &known.ID, known.Name
 	}
 	var raw [codeBytes]byte
 	if _, err := io.ReadFull(service.random, raw[:]); err != nil {
@@ -180,7 +180,7 @@ func (service *Service) IssueDeviceCode(
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			SecretSha256: tokenHash(code), Kind: grantKindInvite, UserID: &userID, Scope: grantScopeAddDevice,
-			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()), DeviceName: &deviceName, DeviceID: device,
+			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()), DeviceName: &deviceName, DeviceID: deviceID,
 		})
 	})
 	if err != nil {
@@ -217,11 +217,11 @@ func (service *Service) WaitingCodeOf(ctx context.Context, userID int64) (*Waiti
 
 // SignInWithCode signs a device in with a device code, as its person, and spends the code (D218
 // §4). A code made for a listed device signs that one back in; otherwise the device the client
-// remembers, resumeID, is resumed when it is the person's (D221), or a new one is made under the
+// remembers, resumeDeviceID, is resumed when it is the person's (D221), or a new one is made under the
 // name the code carries. What was typed is read as safe32 reads it; a wrong code counts against
 // the address's failed sign-ins.
 func (service *Service) SignInWithCode(
-	ctx context.Context, typed, platform, address string, resumeID int64,
+	ctx context.Context, typed, platform, address string, resumeDeviceID int64,
 ) (string, error) {
 	code, err := normalizeCode(typed)
 	if err != nil {
@@ -231,9 +231,9 @@ func (service *Service) SignInWithCode(
 	if err != nil {
 		return "", err
 	}
-	device := NewDevice{Name: ptr.ValueOrZero(grant.DeviceName), Platform: platform, ResumeID: resumeID}
+	device := NewDevice{Name: ptr.ValueOrZero(grant.DeviceName), Platform: platform, ResumeDeviceID: resumeDeviceID}
 	if grant.DeviceID != nil {
-		device.ResumeID = *grant.DeviceID
+		device.ResumeDeviceID = *grant.DeviceID
 	}
 	return service.issueSession(ctx, *grant.UserID, device)
 }
@@ -252,18 +252,19 @@ func liveUser(ctx context.Context, queries *sqlcgen.Queries, userID int64) (sqlc
 
 // ChangePassword changes a person's own password, given their current one (D218 §6). Other
 // sessions stay signed in; signing out everywhere is a separate act.
-func (service *Service) ChangePassword(ctx context.Context, userID int64, current, replacement string) error {
-	if replacement == "" {
+func (service *Service) ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) error {
+	if newPassword == "" {
 		return errors.New("a password is needed")
 	}
 	user, err := liveUser(ctx, service.database.Read(), userID)
 	if err != nil {
 		return err
 	}
-	if matches, _, verifyErr := VerifyPassword(current, string(user.PasswordHash)); verifyErr != nil || !matches {
+	isMatch, _, verifyErr := VerifyPassword(currentPassword, string(user.PasswordHash))
+	if verifyErr != nil || !isMatch {
 		return ErrBadCredentials
 	}
-	hash, err := service.hash(ctx, replacement)
+	hash, err := service.hashWithCurrentCosts(ctx, newPassword)
 	if err != nil {
 		return err
 	}
@@ -306,17 +307,17 @@ func (service *Service) spend(ctx context.Context, secret, scope string) (sqlcge
 func (service *Service) spendGuessable(
 	ctx context.Context, secret, scope, address string,
 ) (sqlcgen.GetLiveGrantRow, error) {
-	limit, window, err := service.failurePolicy(ctx)
+	maxFailures, window, err := service.failurePolicy(ctx)
 	if err != nil {
 		return sqlcgen.GetLiveGrantRow{}, err
 	}
 	addressKey := "address:" + address
-	if service.limiter.isLimited(limit, window, addressKey) {
+	if service.limiter.isLimited(maxFailures, window, addressKey) {
 		return sqlcgen.GetLiveGrantRow{}, ErrRateLimited
 	}
 	grant, err := service.spend(ctx, secret, scope)
 	if errors.Is(err, ErrBadInvitation) {
-		service.limiter.fail(window, addressKey)
+		service.limiter.recordFailure(window, addressKey)
 	}
 	return grant, err
 }

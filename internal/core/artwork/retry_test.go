@@ -15,23 +15,23 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// failing is a source whose image server fails with err, counting the calls.
-type failing struct {
-	err   error
-	calls int
+// failingFetcher is a source whose image server fails with err, counting the calls.
+type failingFetcher struct {
+	err       error
+	callCount int
 }
 
-func (*failing) RecheckAfter() time.Duration { return 12 * time.Hour }
+func (*failingFetcher) RecheckAfter() time.Duration { return 12 * time.Hour }
 
-func (source *failing) Fetch(context.Context, string) (Unsanitised, error) {
-	source.calls++
+func (source *failingFetcher) Fetch(context.Context, string) (Unsanitised, error) {
+	source.callCount++
 	return Unsanitised{}, source.err
 }
 
 func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{})
-	queue := &queued{}
+	bench := newBench(t, fakeFetcher{})
+	queue := &recordingQueue{}
 	bench.service.parts.Queue = queue
 	gone := owedRef{Kind: identify.ArtPoster, SourceRef: "/gone.jpg"}
 	bench.handle(t, gone)
@@ -68,15 +68,15 @@ func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *te
 
 func TestService_AFailingHostIsPausedAfterFiveFailuresAndProbedAfterEachStep(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{})
-	down := &failing{err: errors.New("503")}
+	bench := newBench(t, fakeFetcher{})
+	down := &failingFetcher{err: errors.New("503")}
 	bench.service.parts.Fetchers["tmdb"] = down
 	clock, isFake := bench.service.parts.Clock.(*clocktest.Fake)
 	if !isFake {
 		t.Fatal("the bench's clock is not a fake")
 	}
 	job := bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/p.jpg"})
-	for range breakAfter {
+	for range breakAfterFailures {
 		err := bench.service.Handle(t.Context(), job)
 		var wait *jobs.RetryAtError
 		if err == nil || errors.As(err, &wait) {
@@ -85,13 +85,13 @@ func TestService_AFailingHostIsPausedAfterFiveFailuresAndProbedAfterEachStep(t *
 	}
 	err := bench.service.Handle(t.Context(), job)
 	wait, isWait := errors.AsType[*jobs.RetryAtError](err)
-	if !isWait || down.calls != breakAfter || !wait.At.Equal(clock.Now().Add(RetrySchedule()[0])) {
-		t.Fatalf("after %d failures: %v, %d calls; want a pause of %v with no call", breakAfter, err, down.calls,
-			RetrySchedule()[0])
+	if !isWait || down.callCount != breakAfterFailures || !wait.At.Equal(clock.Now().Add(RetrySchedule()[0])) {
+		t.Fatalf("after %d failures: %v, %d calls; want a pause of %v with no call", breakAfterFailures, err,
+			down.callCount, RetrySchedule()[0])
 	}
 	clock.Advance(RetrySchedule()[0])
-	if err := bench.service.Handle(t.Context(), job); err == nil || down.calls != breakAfter+1 {
-		t.Fatalf("the probe: %v, %d calls", err, down.calls)
+	if err := bench.service.Handle(t.Context(), job); err == nil || down.callCount != breakAfterFailures+1 {
+		t.Fatalf("the probe: %v, %d calls", err, down.callCount)
 	}
 	wait, isWait = errors.AsType[*jobs.RetryAtError](bench.service.Handle(t.Context(), job))
 	if !isWait || !wait.At.Equal(clock.Now().Add(RetrySchedule()[1])) {
@@ -101,8 +101,8 @@ func TestService_AFailingHostIsPausedAfterFiveFailuresAndProbedAfterEachStep(t *
 
 func TestService_ARateLimitWaitsWithoutCostingAnAttempt(t *testing.T) {
 	t.Parallel()
-	bench := newBench(t, fetched{})
-	bench.service.parts.Fetchers["tmdb"] = &failing{err: &identify.RateLimitedError{RetryAfter: time.Minute}}
+	bench := newBench(t, fakeFetcher{})
+	bench.service.parts.Fetchers["tmdb"] = &failingFetcher{err: &identify.RateLimitedError{RetryAfter: time.Minute}}
 	err := bench.service.Handle(t.Context(), bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/p.jpg"}))
 	if wait, isWait := errors.AsType[*jobs.RetryAtError](err); !isWait ||
 		!wait.At.Equal(bench.service.parts.Clock.Now().Add(time.Minute)) {

@@ -38,7 +38,7 @@ type Device struct {
 	// until it is asked, the first time it plays.
 	AudioOutput string
 	AddedAt     time.Time
-	LastUsed    time.Time
+	LastUsedAt  time.Time
 	// IsSignedIn is whether any of its sessions is still live.
 	IsSignedIn bool
 }
@@ -55,8 +55,8 @@ func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, er
 	for _, row := range rows {
 		devices = append(devices, Device{
 			ID: row.ID, Name: row.Name, Platform: row.Platform, AudioOutput: ptr.ValueOrZero(row.AudioOutput),
-			AddedAt:  time.UnixMilli(row.AddedAt),
-			LastUsed: time.UnixMilli(row.LastUsedAt), IsSignedIn: row.IsSignedIn == 1,
+			AddedAt:    time.UnixMilli(row.AddedAt),
+			LastUsedAt: time.UnixMilli(row.LastUsedAt), IsSignedIn: row.IsSignedIn == 1,
 		})
 	}
 	return devices, nil
@@ -113,8 +113,8 @@ func (service *Service) onOwnDevice(
 	ctx context.Context, userID, deviceID int64, change func(*sqlcgen.Queries) error,
 ) error {
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		owner, err := store.OrNotFound(queries.GetLiveDeviceOwner(ctx, deviceID))
-		if errors.Is(err, store.ErrNotFound) || (err == nil && (owner == nil || *owner != userID)) {
+		ownerUserID, err := store.OrNotFound(queries.GetLiveDeviceOwner(ctx, deviceID))
+		if errors.Is(err, store.ErrNotFound) || (err == nil && (ownerUserID == nil || *ownerUserID != userID)) {
 			return ErrNoDevice
 		}
 		if err != nil {

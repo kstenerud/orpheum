@@ -183,10 +183,10 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	if started.Decision.Delivery == decide.HLS {
 		output.Body.URL = Prefix + "/bytes/media/hls/" + started.Token + "/master.m3u8"
 	}
-	output.Body.IsPreparing = started.Preparing
-	for _, audio := range started.Audio {
+	output.Body.IsPreparing = started.IsPreparing
+	for _, audio := range started.AudioRenditions {
 		output.Body.AudioRenditions = append(output.Body.AudioRenditions, AudioRenditionBody{
-			AudioTrackIndex: audio.Track, Language: audio.Language, IsDialogueBoosted: audio.Boost,
+			AudioTrackIndex: audio.AudioTrackIndex, Language: audio.Language, IsDialogueBoosted: audio.IsBoosted,
 			Levelling: levellingBody(audio.Levelling), CarriedGainDB: audio.CarriedGainDB,
 		})
 	}
@@ -206,7 +206,7 @@ func (server *Server) direct(ctx context.Context, method string, input *DirectIn
 	if err != nil {
 		return nil, err
 	}
-	source, err := dependencies.Playback.Direct(ctx, input.Token, principal.UserID, sessionKey(authorization))
+	source, err := dependencies.Playback.DirectSource(ctx, input.Token, principal.UserID, sessionKey(authorization))
 	switch {
 	case errors.Is(err, playback.ErrNoToken), errors.Is(err, playback.ErrNoFile):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
@@ -240,7 +240,7 @@ func (server *Server) hls(
 	if err != nil {
 		return nil, err
 	}
-	source, err := dependencies.Playback.HLS(ctx, token, name, principal.UserID, sessionKey(authorization))
+	source, err := dependencies.Playback.HLSSourceOf(ctx, token, name, principal.UserID, sessionKey(authorization))
 	switch {
 	case errors.Is(err, playback.ErrNoToken):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
@@ -266,7 +266,7 @@ func (server *Server) hls(
 			// A complete rendition whose playlist its node no longer has was evicted or lost: it is
 			// prepared again, and the player waits as for a new one (D217 §5).
 			if name == "master.m3u8" {
-				if err := dependencies.Playback.Lost(ctx, source); err != nil {
+				if err := dependencies.Playback.PrepareAgain(ctx, source); err != nil {
 					return server.internal(ctx, "prepare a lost rendition again", err)
 				}
 				return tooEarly()

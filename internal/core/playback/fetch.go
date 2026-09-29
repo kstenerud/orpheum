@@ -26,7 +26,7 @@ import (
 // Subtitler is where subtitles are fetched on request: opensubtitles.Client (D224).
 type Subtitler interface {
 	Search(ctx context.Context, query opensubtitles.Query) ([]opensubtitles.Candidate, error)
-	Download(ctx context.Context, fileID int64) (opensubtitles.Downloaded, error)
+	Download(ctx context.Context, providerFileID int64) (opensubtitles.Downloaded, error)
 	Allowance(ctx context.Context) (opensubtitles.Allowance, error)
 }
 
@@ -59,7 +59,7 @@ func (service *Service) SubtitleCandidates(ctx context.Context, fileID int64, la
 	if service.subtitler == nil {
 		return SubtitleOffer{}, ErrNoSubtitler
 	}
-	if _, err := service.file(ctx, fileID); err != nil {
+	if _, err := service.playableFile(ctx, fileID); err != nil {
 		return SubtitleOffer{}, err
 	}
 	query, hasIDs, err := service.subtitleQuery(ctx, fileID, language)
@@ -83,18 +83,18 @@ func (service *Service) SubtitleCandidates(ctx context.Context, fileID int64, la
 func (service *Service) subtitleQuery(
 	ctx context.Context, fileID int64, language string,
 ) (query opensubtitles.Query, hasIDs bool, err error) {
-	found, err := store.OrNotFound(service.database.Read().GetFileForSubtitleSearch(ctx, fileID))
+	file, err := store.OrNotFound(service.database.Read().GetFileForSubtitleSearch(ctx, fileID))
 	if err != nil {
 		return opensubtitles.Query{}, false, fmt.Errorf("read file %d: %w", fileID, err)
 	}
 	query = opensubtitles.Query{
-		MovieHash: ptr.ValueOrZero(found.OpensubtitlesHash), Language: strings.ToLower(language),
+		MovieHash: ptr.ValueOrZero(file.OpensubtitlesHash), Language: strings.ToLower(language),
 	}
 	switch {
-	case found.TitleID != nil && ptr.ValueOrZero(found.TitleKind) == "episode":
-		place, placeErr := store.OrNotFound(service.database.Read().GetEpisodePlace(ctx, *found.TitleID))
+	case file.TitleID != nil && ptr.ValueOrZero(file.TitleKind) == "episode":
+		place, placeErr := store.OrNotFound(service.database.Read().GetEpisodePlace(ctx, *file.TitleID))
 		if placeErr != nil && !errors.Is(placeErr, store.ErrNotFound) {
-			return opensubtitles.Query{}, false, fmt.Errorf("read the place of title %d: %w", *found.TitleID, placeErr)
+			return opensubtitles.Query{}, false, fmt.Errorf("read the place of title %d: %w", *file.TitleID, placeErr)
 		}
 		if placeErr == nil {
 			query.Season, query.Episode = int(ptr.ValueOrZero(place.GroupNumber)),
@@ -102,8 +102,8 @@ func (service *Service) subtitleQuery(
 			query.SeriesIMDbID, query.SeriesTMDBID, err = service.providerIDs(ctx, place.CollectionID)
 			hasIDs = query.SeriesIMDbID != "" || query.SeriesTMDBID != ""
 		}
-	case found.TitleID != nil:
-		query.IMDbID, query.TMDBID, err = service.providerIDs(ctx, *found.TitleID)
+	case file.TitleID != nil:
+		query.IMDbID, query.TMDBID, err = service.providerIDs(ctx, *file.TitleID)
 		hasIDs = query.IMDbID != "" || query.TMDBID != ""
 	}
 	if err != nil {
@@ -116,7 +116,7 @@ func (service *Service) subtitleQuery(
 }
 
 // providerIDs are an item's IMDb and TMDB ids, as identification recorded them.
-func (service *Service) providerIDs(ctx context.Context, itemID int64) (imdb, tmdb string, err error) {
+func (service *Service) providerIDs(ctx context.Context, itemID int64) (imdbID, tmdbID string, err error) {
 	rows, err := service.database.Read().ListItemProviderIDs(ctx, itemID)
 	if err != nil {
 		return "", "", fmt.Errorf("read the ids of item %d: %w", itemID, err)
@@ -124,12 +124,12 @@ func (service *Service) providerIDs(ctx context.Context, itemID int64) (imdb, tm
 	for _, row := range rows {
 		switch row.Provider {
 		case "imdb":
-			imdb = row.ProviderID
+			imdbID = row.ProviderID
 		case "tmdb":
-			tmdb = row.ProviderID
+			tmdbID = row.ProviderID
 		}
 	}
-	return imdb, tmdb, nil
+	return imdbID, tmdbID, nil
 }
 
 // FetchRequest is the candidate a person chose to fetch.
@@ -142,9 +142,9 @@ type FetchRequest struct {
 
 // Fetched is a subtitle fetched on request, and what the account has left.
 type Fetched struct {
-	Track     TrackRef
-	Remaining int
-	ResetAt   time.Time
+	Track              TrackRef
+	RemainingDownloads int
+	ResetAt            time.Time
 }
 
 // FetchSubtitle downloads the subtitle a person chose, which spends one of the account's downloads;
@@ -156,7 +156,7 @@ func (service *Service) FetchSubtitle(
 	if service.subtitler == nil {
 		return Fetched{}, ErrNoSubtitler
 	}
-	if _, err := service.file(ctx, fileID); err != nil {
+	if _, err := service.playableFile(ctx, fileID); err != nil {
 		return Fetched{}, err
 	}
 	downloaded, err := service.subtitler.Download(ctx, request.ProviderFileID)
@@ -185,7 +185,7 @@ func (service *Service) FetchSubtitle(
 	if chooseErr := service.ChooseSubtitle(ctx, userID, fileID, SubtitleChoice{TrackRef: track}); chooseErr != nil {
 		return Fetched{}, chooseErr
 	}
-	return Fetched{Track: track, Remaining: downloaded.Remaining, ResetAt: downloaded.ResetAt}, nil
+	return Fetched{Track: track, RemainingDownloads: downloaded.RemainingDownloads, ResetAt: downloaded.ResetAt}, nil
 }
 
 // gzipped is a fetched subtitle's body as library.db keeps it.
@@ -227,9 +227,9 @@ func fetchedKey(body []byte) cachegen.GetSubtitleTextParams {
 	return cachegen.GetSubtitleTextParams{BytesPayloadHash: sum[:]}
 }
 
-// HandleFetchedSubtitle runs one conversion job (jobs.KindConvertFetchedSubtitle): the node that
+// HandleConvertFetchedSubtitle runs one conversion job (jobs.KindConvertFetchedSubtitle): the node that
 // holds the video converts the fetched text, since hostile input is parsed on a node (D224 §5).
-func (service *Service) HandleFetchedSubtitle(ctx context.Context, job jobs.Job) error {
+func (service *Service) HandleConvertFetchedSubtitle(ctx context.Context, job jobs.Job) error {
 	fetched, err := store.OrNotFound(service.database.Read().GetFetchedSubtitle(ctx, job.FetchedSubtitleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return jobs.MarkPermanent(fmt.Errorf("no fetched subtitle %d, or its video is gone", job.FetchedSubtitleID))
@@ -241,6 +241,6 @@ func (service *Service) HandleFetchedSubtitle(ctx context.Context, job jobs.Job)
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
-	return service.convert(ctx, job, fetched.NodeID, &nodeproto.ExtractSubtitle{JobID: job.ID, FetchedSubRip: text},
-		fetchedKey(fetched.BodyGzip))
+	command := &nodeproto.ExtractSubtitle{JobID: job.ID, FetchedSubRip: text}
+	return service.makeSubtitleText(ctx, job, fetched.NodeID, command, fetchedKey(fetched.BodyGzip))
 }

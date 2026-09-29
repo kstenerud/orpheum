@@ -53,7 +53,7 @@ func (harness testHarness) extract(
 	playback := harness.server.dependencies.Load().Playback
 	finished := make(chan error, 1)
 	job := jobs.Job{ID: jobID, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
-	go func() { finished <- playback.HandleSubtitle(t.Context(), job) }()
+	go func() { finished <- playback.HandleExtractSubtitle(t.Context(), job) }()
 	command := <-harness.nodes.commanded
 	answer.JobID = jobID
 	playback.TakeSubtitleText(t.Context(), 1, answer)
@@ -244,7 +244,7 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 	playback := harness.server.dependencies.Load().Playback
 	finished := make(chan error, 1)
 	job := jobs.Job{ID: 92, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: sidecarStreamID}}
-	go func() { finished <- playback.HandleSubtitle(t.Context(), job) }()
+	go func() { finished <- playback.HandleExtractSubtitle(t.Context(), job) }()
 	command := <-harness.nodes.commanded
 	sent := command.ExtractSubtitle
 	if sent == nil || sent.Video != nil || sent.Sidecar == nil || sent.Sidecar.RootPath != "/media" ||

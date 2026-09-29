@@ -14,8 +14,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// stored gives the bench a poster stored at the sizes named, from source, as the item's poster.
-func (bench *bench) stored(t *testing.T, source []byte, sizes ...nodeproto.ArtSizeName) string {
+// storePoster gives the bench a poster stored at the sizes named, from source, as the item's poster.
+func (bench *bench) storePoster(t *testing.T, source []byte, sizes ...nodeproto.ArtSizeName) string {
 	t.Helper()
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
 		var images []nodeproto.ArtImage
@@ -31,11 +31,11 @@ func (bench *bench) stored(t *testing.T, source []byte, sizes ...nodeproto.ArtSi
 func TestServe_AStoredSizeIsServedAndAnythingElseIsNoArt(t *testing.T) {
 	t.Parallel()
 	source := []byte("poster")
-	bench := newBench(t, fetched{"/poster.jpg": source})
-	bench.service.parts.Queue = &queued{}
-	hash := bench.stored(t, source, nodeproto.PortraitS)
+	bench := newBench(t, fakeFetcher{"/poster.jpg": source})
+	bench.service.parts.Queue = &recordingQueue{}
+	hash := bench.storePoster(t, source, nodeproto.PortraitS)
 	served, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitS, FormatWebP)
-	if err != nil || string(served.Bytes) != string(ourWebP) || served.Redirect != "" {
+	if err != nil || string(served.Bytes) != string(ourWebP) || served.RedirectName != "" {
 		t.Errorf("a stored size: %+v, %v", served, err)
 	}
 	for _, request := range []struct {
@@ -59,19 +59,19 @@ func TestServe_AStoredSizeIsServedAndAnythingElseIsNoArt(t *testing.T) {
 func TestServe_ASizeNotMadeRedirectsToTheNearestAndOnlyAnOnRequestSizeIsQueued(t *testing.T) {
 	t.Parallel()
 	source := []byte("poster")
-	bench := newBench(t, fetched{"/poster.jpg": source})
-	queue := &queued{}
+	bench := newBench(t, fakeFetcher{"/poster.jpg": source})
+	queue := &recordingQueue{}
 	bench.service.parts.Queue = queue
-	hash := bench.stored(t, source, nodeproto.PortraitS, nodeproto.PortraitM)
+	hash := bench.storePoster(t, source, nodeproto.PortraitS, nodeproto.PortraitM)
 
 	served, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitL, FormatWebP)
-	if err != nil || served.Redirect != "portrait-m.webp" {
+	if err != nil || served.RedirectName != "portrait-m.webp" {
 		t.Fatalf("portrait-l: %+v, %v; want a redirect to portrait-m", served, err)
 	}
 	if len(*queue) != 1 || (*queue)[0].ItemID != bench.itemID || (*queue)[0].Kind != jobs.KindArtwork {
 		t.Fatalf("queued %+v; want one job to make portrait-l", *queue)
 	}
-	var args owed
+	var args artworkJobArgs
 	if err := json.Unmarshal([]byte((*queue)[0].ArgsJSON), &args); err != nil || args.SourceSha256 != hash ||
 		!slices.Equal(args.SizeNames,
 			[]nodeproto.ArtSizeName{nodeproto.PortraitL}) || args.Refs[0].SourceRef != "/poster.jpg" {
@@ -80,7 +80,7 @@ func TestServe_ASizeNotMadeRedirectsToTheNearestAndOnlyAnOnRequestSizeIsQueued(t
 
 	// A JPEG of a size not made goes to the nearest size's JPEG.
 	if served, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitL, FormatJPEG); err != nil ||
-		served.Redirect != "portrait-m.jpeg" {
+		served.RedirectName != "portrait-m.jpeg" {
 		t.Errorf("portrait-l JPEG: %+v, %v", served, err)
 	}
 }
@@ -88,14 +88,14 @@ func TestServe_ASizeNotMadeRedirectsToTheNearestAndOnlyAnOnRequestSizeIsQueued(t
 func TestServe_NothingIsQueuedForASizeTheSourceCannotMake(t *testing.T) {
 	t.Parallel()
 	source := []byte("poster")
-	bench := newBench(t, fetched{"/poster.jpg": source})
-	queue := &queued{}
+	bench := newBench(t, fakeFetcher{"/poster.jpg": source})
+	queue := &recordingQueue{}
 	bench.service.parts.Queue = queue
 	// Only portrait-s: the source was smaller than portrait-m, so it is smaller than portrait-l.
-	hash := bench.stored(t, source, nodeproto.PortraitS)
+	hash := bench.storePoster(t, source, nodeproto.PortraitS)
 	for _, size := range []nodeproto.ArtSizeName{nodeproto.PortraitM, nodeproto.PortraitL} {
 		if served, err := bench.service.Serve(t.Context(), hash, size, FormatWebP); err != nil ||
-			served.Redirect != "portrait-s.webp" {
+			served.RedirectName != "portrait-s.webp" {
 			t.Errorf("%s: %+v, %v", size, served, err)
 		}
 	}
@@ -107,10 +107,10 @@ func TestServe_NothingIsQueuedForASizeTheSourceCannotMake(t *testing.T) {
 func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 	t.Parallel()
 	source := []byte("poster")
-	bench := newBench(t, fetched{"/poster.jpg": source})
-	queue := &queued{}
+	bench := newBench(t, fakeFetcher{"/poster.jpg": source})
+	queue := &recordingQueue{}
 	bench.service.parts.Queue = queue
-	hash := bench.stored(t, source, nodeproto.PortraitS, nodeproto.PortraitM)
+	hash := bench.storePoster(t, source, nodeproto.PortraitS, nodeproto.PortraitM)
 	if _, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitL, FormatWebP); err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, noted := bench.art[hash+"/portrait-l.none"]; !noted {
-		t.Fatalf("stored %v; want portrait-l noted as impossible", keys(bench.art))
+		t.Fatalf("stored %v; want portrait-l noted as impossible", storedNames(bench.art))
 	}
 	*queue = nil
 	_, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitL, FormatWebP)
@@ -148,18 +148,18 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 		t.Fatal(err)
 	}
 	if served, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitL, FormatWebP); err != nil ||
-		served.Redirect != "" {
+		served.RedirectName != "" {
 		t.Errorf("after making it: %+v, %v", served, err)
 	}
 }
 
 func TestHandle_ASourceThatChangedMakesNoSizeUnderTheOldHash(t *testing.T) {
 	t.Parallel()
-	images := fetched{"/poster.jpg": []byte("poster")}
+	images := fakeFetcher{"/poster.jpg": []byte("poster")}
 	bench := newBench(t, images)
-	queue := &queued{}
+	queue := &recordingQueue{}
 	bench.service.parts.Queue = queue
-	hash := bench.stored(t, []byte("poster"), nodeproto.PortraitS, nodeproto.PortraitM)
+	hash := bench.storePoster(t, []byte("poster"), nodeproto.PortraitS, nodeproto.PortraitM)
 	if _, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitL, FormatWebP); err != nil {
 		t.Fatal(err)
 	}
@@ -175,6 +175,6 @@ func TestHandle_ASourceThatChangedMakesNoSizeUnderTheOldHash(t *testing.T) {
 		t.Error("a changed source was re-encoded into the old image's sizes")
 	}
 	if _, noted := bench.art[hash+"/portrait-l.none"]; !noted {
-		t.Errorf("stored %v; want portrait-l noted as not makeable", keys(bench.art))
+		t.Errorf("stored %v; want portrait-l noted as not makeable", storedNames(bench.art))
 	}
 }

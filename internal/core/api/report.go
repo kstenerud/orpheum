@@ -72,7 +72,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	for _, span := range input.Body.Spans {
 		report.Spans = append(report.Spans, playback.Span{
 			FromPositionMs: span.FromPositionMs, ToPositionMs: span.ToPositionMs,
-			StartedMonoMs: span.StartedMonoMs, EndedMonoMs: span.EndedMonoMs, Unattended: span.IsUnattended,
+			StartedMonoMs: span.StartedMonoMs, EndedMonoMs: span.EndedMonoMs, IsUnattended: span.IsUnattended,
 		})
 	}
 	err = dependencies.Playback.Report(

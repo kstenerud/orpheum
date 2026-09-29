@@ -130,7 +130,7 @@ func artworkFinding(dependencies *Dependencies) FindingBody {
 		Detail: fmt.Sprintf("%.1f GiB of a %d GiB ceiling",
 			float64(pressure.TotalBytes)/gib, pressure.CeilingBytes/gib),
 	}
-	if pressure.HighWater {
+	if pressure.IsHighWater {
 		finding.Verdict = verdictWarn
 		finding.Detail = fmt.Sprintf("the libraries need %.1f GiB of artwork to be shown at once, more than the "+
 			"%d GiB ceiling; artwork beyond it is fetched again when it is opened, which is slower",

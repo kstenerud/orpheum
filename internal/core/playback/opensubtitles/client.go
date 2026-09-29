@@ -63,56 +63,56 @@ func (spent *QuotaSpentError) Error() string {
 
 // RateLimitedError is a request OpenSubtitles asked to be made again later.
 type RateLimitedError struct {
-	After time.Duration
+	RetryAfter time.Duration
 }
 
 func (limited *RateLimitedError) Error() string {
-	return "OpenSubtitles asks to wait " + limited.After.String()
+	return "OpenSubtitles asks to wait " + limited.RetryAfter.String()
 }
 
-// Keys opens the login; secrets.Store is one.
-type Keys interface {
+// LoginSecrets opens the login; secrets.Store is one.
+type LoginSecrets interface {
 	Open(ctx context.Context, name secrets.Name) (secrets.Value, error)
 }
 
 // Client is OpenSubtitles, for fetching a subtitle on request (D224): one login, the server's,
 // shared by every request for its day.
 type Client struct {
-	http  *http.Client
-	base  *url.URL
-	keys  Keys
-	clock clock.Clock
+	http         *http.Client
+	base         *url.URL
+	loginSecrets LoginSecrets
+	clock        clock.Clock
 
 	mutex sync.Mutex
 	// session is the current login, empty before the first (guarded by mutex).
 	session session
-	// refused is the fingerprint of a login OpenSubtitles refused, which is not tried again
-	// (guarded by mutex).
-	refused [sha256.Size]byte
+	// refusedLoginFingerprint is the fingerprint of a login OpenSubtitles refused, which is not
+	// tried again (guarded by mutex).
+	refusedLoginFingerprint [sha256.Size]byte
 }
 
 // session is one login: its token, where its requests go and until when it is used.
 type session struct {
-	token string
-	base  string
-	until time.Time
+	token     string
+	baseURL   string
+	usedUntil time.Time
 }
 
 // New returns a client calling base (BaseURL, or a test's fake) through httpClient, which comes
 // from internal/platform/outbound.
-func New(httpClient *http.Client, base string, keys Keys, clockSource clock.Clock) (*Client, error) {
+func New(httpClient *http.Client, base string, loginSecrets LoginSecrets, clockSource clock.Clock) (*Client, error) {
 	parsed, err := url.Parse(strings.TrimSuffix(base, "/"))
 	if err != nil {
 		return nil, fmt.Errorf("opensubtitles: the base URL: %w", err)
 	}
-	return &Client{http: httpClient, base: parsed, keys: keys, clock: clockSource}, nil
+	return &Client{http: httpClient, base: parsed, loginSecrets: loginSecrets, clock: clockSource}, nil
 }
 
-// login is the session to send a request with: the one in use, or a new login.
-func (client *Client) login(ctx context.Context) (session, error) {
+// currentSession is the session to send a request with: the one in use, or a new login.
+func (client *Client) currentSession(ctx context.Context) (session, error) {
 	client.mutex.Lock()
 	defer client.mutex.Unlock()
-	if client.session.token != "" && client.clock.Now().Before(client.session.until) {
+	if client.session.token != "" && client.clock.Now().Before(client.session.usedUntil) {
 		return client.session, nil
 	}
 	username, password, err := client.credentials(ctx)
@@ -120,7 +120,7 @@ func (client *Client) login(ctx context.Context) (session, error) {
 		return session{}, err
 	}
 	fingerprint := sha256.Sum256([]byte(username.Reveal() + "\x00" + password.Reveal()))
-	if fingerprint == client.refused {
+	if fingerprint == client.refusedLoginFingerprint {
 		return session{}, ErrLoginRefused
 	}
 	body, err := json.Marshal(map[string]string{"username": username.Reveal(), "password": password.Reveal()})
@@ -130,7 +130,7 @@ func (client *Client) login(ctx context.Context) (session, error) {
 	var answer loginAnswer
 	err = client.call(ctx, http.MethodPost, client.base.String()+"/login", "", body, &answer)
 	if errors.Is(err, errUnauthorized) {
-		client.refused = fingerprint
+		client.refusedLoginFingerprint = fingerprint
 		return session{}, ErrLoginRefused
 	}
 	if err != nil {
@@ -139,11 +139,11 @@ func (client *Client) login(ctx context.Context) (session, error) {
 	if answer.Token == "" {
 		return session{}, errors.New("opensubtitles: a login answered with no token")
 	}
-	next := client.base.String()
+	sessionBaseURL := client.base.String()
 	if host := strings.TrimSpace(answer.BaseURL); host != "" && !strings.ContainsAny(host, "/?#@") {
-		next = client.base.Scheme + "://" + host + client.base.Path
+		sessionBaseURL = client.base.Scheme + "://" + host + client.base.Path
 	}
-	client.session = session{token: answer.Token, base: next, until: client.clock.Now().Add(tokenLife)}
+	client.session = session{token: answer.Token, baseURL: sessionBaseURL, usedUntil: client.clock.Now().Add(tokenLife)}
 	return client.session, nil
 }
 
@@ -157,9 +157,9 @@ type loginAnswer struct {
 
 // credentials are the server's OpenSubtitles login (D224 §1).
 func (client *Client) credentials(ctx context.Context) (username, password secrets.Value, err error) {
-	username, err = client.keys.Open(ctx, secrets.OpenSubtitlesUsername)
+	username, err = client.loginSecrets.Open(ctx, secrets.OpenSubtitlesUsername)
 	if err == nil {
-		password, err = client.keys.Open(ctx, secrets.OpenSubtitlesPassword)
+		password, err = client.loginSecrets.Open(ctx, secrets.OpenSubtitlesPassword)
 		if err == nil && !username.IsZero() && !password.IsZero() {
 			return username, password, nil
 		}
@@ -179,17 +179,17 @@ func (client *Client) forget(stale session) {
 	}
 }
 
-// authorised makes one request with the current login, and logs in again once if OpenSubtitles
+// callAuthorised makes one request with the current login, and logs in again once if OpenSubtitles
 // no longer accepts it.
-func (client *Client) authorised(
+func (client *Client) callAuthorised(
 	ctx context.Context, method, path string, query url.Values, body []byte, into any,
 ) error {
 	for attempt := 0; ; attempt++ {
-		current, err := client.login(ctx)
+		current, err := client.currentSession(ctx)
 		if err != nil {
 			return err
 		}
-		address := current.base + path
+		address := current.baseURL + path
 		if len(query) > 0 {
 			// Sorted and lower-case, as OpenSubtitles asks, so no redirect is needed (best-practices).
 			address += "?" + query.Encode()
@@ -260,7 +260,7 @@ func statusError(response *http.Response, answer []byte) error {
 		if !found {
 			after = time.Second
 		}
-		return &RateLimitedError{After: after}
+		return &RateLimitedError{RetryAfter: after}
 	}
 	return fmt.Errorf("opensubtitles: status %d: %s", response.StatusCode, answer[:min(len(answer), 200)])
 }

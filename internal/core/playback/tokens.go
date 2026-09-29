@@ -16,14 +16,14 @@ import (
 // though a token grants nothing on its own (D217 §2).
 const tokenBytes = 24
 
-// playing is what a media token refers to: whose playback of which file, under which session.
-type playing struct {
+// tokenPlayback is what a media token refers to: whose playback of which file, under which session.
+type tokenPlayback struct {
 	userID     int64
 	sessionKey string
 	fileID     int64
 	// profile is a prepared playback's rendition; empty for direct play.
-	profile  nodeproto.PrepareProfile
-	lastUsed time.Time
+	profile    nodeproto.PrepareProfile
+	lastUsedAt time.Time
 	// lastReportSeq is the number of the last play report taken for this playback: the player
 	// numbers its reports from 1, and one sent again is taken once.
 	lastReportSeq int64
@@ -32,16 +32,16 @@ type playing struct {
 // tokens are the playbacks in progress, in memory: a restart ends them, and the client asks for
 // a new one with POST /playback, as it would after the idle period.
 type tokens struct {
-	mutex   sync.Mutex
-	playing map[string]*playing // guarded by mutex
+	mutex           sync.Mutex
+	playbackByToken map[string]*tokenPlayback // guarded by mutex
 }
 
 func newTokens() *tokens {
-	return &tokens{playing: map[string]*playing{}}
+	return &tokens{playbackByToken: map[string]*tokenPlayback{}}
 }
 
 // issue makes a token for one playback, forgetting those idle for longer than idle first.
-func (all *tokens) issue(random io.Reader, what playing, now time.Time, idle time.Duration) (string, error) {
+func (all *tokens) issue(random io.Reader, playback tokenPlayback, now time.Time, idle time.Duration) (string, error) {
 	raw := make([]byte, tokenBytes)
 	if _, err := io.ReadFull(random, raw); err != nil {
 		return "", fmt.Errorf("make a media token: %w", err)
@@ -49,13 +49,13 @@ func (all *tokens) issue(random io.Reader, what playing, now time.Time, idle tim
 	token := base64.RawURLEncoding.EncodeToString(raw)
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
-	for key, known := range all.playing {
-		if now.Sub(known.lastUsed) > idle {
-			delete(all.playing, key)
+	for key, known := range all.playbackByToken {
+		if now.Sub(known.lastUsedAt) > idle {
+			delete(all.playbackByToken, key)
 		}
 	}
-	what.lastUsed = now
-	all.playing[token] = &what
+	playback.lastUsedAt = now
+	all.playbackByToken[token] = &playback
 	return token, nil
 }
 
@@ -63,21 +63,21 @@ func (all *tokens) issue(random io.Reader, what playing, now time.Time, idle tim
 // been idle for longer than idle; using it keeps it alive.
 func (all *tokens) use(
 	token string, userID int64, sessionKey string, now time.Time, idle time.Duration,
-) (playing, bool) {
+) (tokenPlayback, bool) {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
-	known, found := all.playing[token]
+	known, found := all.playbackByToken[token]
 	if !found {
-		return playing{}, false
+		return tokenPlayback{}, false
 	}
-	if now.Sub(known.lastUsed) > idle {
-		delete(all.playing, token)
-		return playing{}, false
+	if now.Sub(known.lastUsedAt) > idle {
+		delete(all.playbackByToken, token)
+		return tokenPlayback{}, false
 	}
 	if known.userID != userID || known.sessionKey != sessionKey {
-		return playing{}, false
+		return tokenPlayback{}, false
 	}
-	known.lastUsed = now
+	known.lastUsedAt = now
 	return *known, true
 }
 
@@ -86,14 +86,14 @@ func (all *tokens) use(
 // report that could not be kept is given back with returnReport, so the player's retry is taken.
 func (all *tokens) takeReport(
 	token string, userID int64, sessionKey string, seq int64, now time.Time, idle time.Duration,
-) (what playing, isNew, found bool) {
+) (playback tokenPlayback, isNew, isFound bool) {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
-	known, found := all.playing[token]
-	if !found || now.Sub(known.lastUsed) > idle || known.userID != userID || known.sessionKey != sessionKey {
-		return playing{}, false, false
+	known, isFound := all.playbackByToken[token]
+	if !isFound || now.Sub(known.lastUsedAt) > idle || known.userID != userID || known.sessionKey != sessionKey {
+		return tokenPlayback{}, false, false
 	}
-	known.lastUsed = now
+	known.lastUsedAt = now
 	if seq <= known.lastReportSeq {
 		return *known, false, true
 	}
@@ -104,10 +104,10 @@ func (all *tokens) takeReport(
 
 // returnReport undoes takeReport for a report that could not be kept, unless a later one was
 // taken since.
-func (all *tokens) returnReport(token string, seq, previous int64) {
+func (all *tokens) returnReport(token string, seq, previousSeq int64) {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
-	if known, found := all.playing[token]; found && known.lastReportSeq == seq {
-		known.lastReportSeq = previous
+	if known, found := all.playbackByToken[token]; found && known.lastReportSeq == seq {
+		known.lastReportSeq = previousSeq
 	}
 }

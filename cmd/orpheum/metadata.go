@@ -101,9 +101,9 @@ func (fetching metadata) runners() jobRunners {
 		{jobs.KindFetch, fetching.matcher.Handle, nil, 1},
 		{jobs.KindArtwork, fetching.artwork.Handle, artwork.RetrySchedule(), 1},
 		{jobs.KindPrepare, fetching.playback.HandlePrepare, nil, nodeproto.EncodeSlotCount + nodeproto.RemuxSlotCount},
-		{jobs.KindExtractSubtitle, fetching.playback.HandleSubtitle, nil, 1},
-		{jobs.KindConvertFetchedSubtitle, fetching.playback.HandleFetchedSubtitle, nil, 1},
-		{jobs.KindMeasureLoudness, fetching.playback.HandleLoudness, nil, 1},
+		{jobs.KindExtractSubtitle, fetching.playback.HandleExtractSubtitle, nil, 1},
+		{jobs.KindConvertFetchedSubtitle, fetching.playback.HandleConvertFetchedSubtitle, nil, 1},
+		{jobs.KindMeasureLoudness, fetching.playback.HandleMeasureLoudness, nil, 1},
 	}
 }
 

@@ -81,11 +81,11 @@ func directLevelling(levels map[soundKey]Levelling, probe nodeproto.Probe) Level
 	if !found {
 		return Levelling{}
 	}
-	sound := mixStereo
+	mix := mixStereo
 	if main.Audio.ChannelCount > 2 {
-		sound = mixMultichannel
+		mix = mixMultichannel
 	}
-	return levels[soundKey{int64(main.StreamIndex), sound}]
+	return levels[soundKey{int64(main.StreamIndex), mix}]
 }
 
 // audioStreams are a file's audio tracks, in order: a track's place among them is how a prepare
@@ -112,17 +112,19 @@ func audioStreamIndexes(probe nodeproto.Probe) []int {
 // levelAudio gives each audio rendition of a prepared playback its levelling, which is its track's
 // stereo sound's, and the gain its sound carries, by its track's place in carried: what the
 // rendition's making put in (D226 §4).
-func levelAudio(renditions []AudioRendition, levels map[soundKey]Levelling, probe nodeproto.Probe, carried string) {
+func levelAudio(
+	renditions []AudioRendition, levels map[soundKey]Levelling, probe nodeproto.Probe, carriedGainsJSON string,
+) {
 	indexes := audioStreamIndexes(probe)
 	var gains []float64
-	_ = json.Unmarshal([]byte(carried), &gains) //nolint:errcheck // a rendition's own record; unreadable is none
+	_ = json.Unmarshal([]byte(carriedGainsJSON), &gains) //nolint:errcheck // its own record; unreadable is none
 	for index := range renditions {
 		rendition := &renditions[index]
-		if rendition.Track < len(indexes) {
-			rendition.Levelling = levels[soundKey{int64(indexes[rendition.Track]), mixStereo}]
+		if rendition.AudioTrackIndex < len(indexes) {
+			rendition.Levelling = levels[soundKey{int64(indexes[rendition.AudioTrackIndex]), mixStereo}]
 		}
-		if rendition.Track < len(gains) {
-			rendition.CarriedGainDB = gains[rendition.Track]
+		if rendition.AudioTrackIndex < len(gains) {
+			rendition.CarriedGainDB = gains[rendition.AudioTrackIndex]
 		}
 	}
 }
@@ -146,20 +148,20 @@ func levelPrepare(command *nodeproto.Prepare, levels map[soundKey]Levelling, pro
 	return string(encoded)
 }
 
-// sweepSpan is how many file ids a sweep for files to measure reads at a time.
-const sweepSpan = 1000
+// fileIDsPerSweepRead is how many file ids a sweep for files to measure reads at a time.
+const fileIDsPerSweepRead = 1000
 
 // QueueMeasurements queues a measurement for every live video with sound whose bytes have no
 // loudness yet (D226 §2), behind everything a person is waiting on, and returns how many it queued.
 func (service *Service) QueueMeasurements(ctx context.Context) (int, error) {
-	last, err := service.database.Read().GetMaxFileID(ctx)
+	lastFileID, err := service.database.Read().GetMaxFileID(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("read the last file id: %w", err)
 	}
 	queued := 0
-	for after := int64(0); after < last; after += sweepSpan {
+	for after := int64(0); after < lastFileID; after += fileIDsPerSweepRead {
 		ids, listErr := service.database.Read().ListFilesToMeasure(ctx, sqlcgen.ListFilesToMeasureParams{
-			AfterID: after, ThroughID: after + sweepSpan,
+			AfterID: after, ThroughID: after + fileIDsPerSweepRead,
 		})
 		if listErr != nil {
 			return queued, fmt.Errorf("list files to measure: %w", listErr)
@@ -185,23 +187,23 @@ func (service *Service) QueueMeasurements(ctx context.Context) (int, error) {
 // other jobs allow and the time to read the file at this rate.
 const slowestReadBytesPerSecond = 20 << 20
 
-// HandleLoudness runs one measurement job (jobs.KindMeasureLoudness): the node that holds the file
+// HandleMeasureLoudness runs one measurement job (jobs.KindMeasureLoudness): the node that holds the file
 // measures its audio tracks, and this waits for its answer and keeps it by the file's payload
 // hash. A file whose bytes are already measured, as a second copy's are, is not measured again,
 // and FFmpeg's failure is kept and not retried.
-func (service *Service) HandleLoudness(ctx context.Context, job jobs.Job) error {
-	file, err := service.file(ctx, job.FileID)
+func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job) error {
+	file, err := service.playableFile(ctx, job.FileID)
 	if errors.Is(err, ErrNoFile) {
 		return jobs.MarkPermanent(err)
 	}
 	if err != nil {
 		return err
 	}
-	levels, err := service.database.Read().ListLoudnessOfPayload(ctx, file.PayloadHash)
+	loudnessRows, err := service.database.Read().ListLoudnessOfPayload(ctx, file.PayloadHash)
 	if err != nil {
 		return fmt.Errorf("read the loudness of file %d: %w", file.ID, err)
 	}
-	if len(levels) > 0 {
+	if len(loudnessRows) > 0 {
 		return nil
 	}
 	probe, err := decodeProbe(file.ProbeJson)
@@ -217,7 +219,7 @@ func (service *Service) HandleLoudness(ctx context.Context, job jobs.Job) error 
 	if len(command.Tracks) == 0 {
 		return nil
 	}
-	if command.Video, err = service.source(ctx, locatedOf(file)); err != nil {
+	if command.Video, err = service.bytesFileOf(ctx, locatedOf(file)); err != nil {
 		return jobs.MarkPermanent(err)
 	}
 	reading := time.Duration(ptr.ValueOrZero(file.SizeBytes)/slowestReadBytesPerSecond) * time.Second
@@ -230,8 +232,8 @@ func (service *Service) measure(
 	ctx context.Context, job jobs.Job, file sqlcgen.GetPlayableFileRow, command nodeproto.MeasureLoudness,
 	patience time.Duration,
 ) error {
-	answers := service.loudness.await(job.ID)
-	defer service.loudness.forget(job.ID)
+	answers := service.loudnessAnswers.await(job.ID)
+	defer service.loudnessAnswers.forget(job.ID)
 	service.nodes.Enqueue(file.NodeID, nodeproto.Command{
 		Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command,
 	})
@@ -296,10 +298,10 @@ func (service *Service) keepLoudness(
 }
 
 func loudnessRow(
-	payloadHash []byte, streamIndex int, sound string, measured nodeproto.Measurement, now int64,
+	payloadHash []byte, streamIndex int, mix string, measured nodeproto.Measurement, now int64,
 ) sqlcgen.UpsertLoudnessParams {
 	return sqlcgen.UpsertLoudnessParams{
-		PayloadHash: payloadHash, StreamIndex: int64(streamIndex), MeasuredMix: sound,
+		PayloadHash: payloadHash, StreamIndex: int64(streamIndex), MeasuredMix: mix,
 		IntegratedLufs: &measured.IntegratedLUFS, RangeLu: &measured.RangeLU, TruePeakDbtp: measured.TruePeakDBTP,
 		MeasuredAt: now,
 	}
@@ -307,5 +309,5 @@ func loudnessRow(
 
 // TakeLoudness takes a node's answer to a measure_loudness command to the job waiting for it.
 func (service *Service) TakeLoudness(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult) {
-	service.loudness.deliver(ctx, nodeID, answer.JobID, answer)
+	service.loudnessAnswers.deliver(ctx, nodeID, answer.JobID, answer)
 }

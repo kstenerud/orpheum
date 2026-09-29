@@ -46,9 +46,9 @@ const capabilityEditMetadata = "edit_metadata"
 
 // Grant kinds and scopes this package mints (schema.md, grant; D154 §3).
 const (
-	grantKindSession  = "session"
-	grantScopeSession = "role" // a session carries the user's role, entire (D154 §3)
-	tokenBytes        = 32
+	grantKindSession = "session"
+	grantScopeRole   = "role" // a session carries the user's role, entire (D154 §3)
+	tokenBytes       = 32
 )
 
 var (
@@ -102,9 +102,9 @@ type Service struct {
 }
 
 // NewService returns a Service.
-func NewService(database *store.Database, clockSource clock.Clock, random io.Reader, config Settings) *Service {
+func NewService(database *store.Database, clockSource clock.Clock, random io.Reader, settings Settings) *Service {
 	return &Service{
-		database: database, clock: clockSource, random: random, settings: config,
+		database: database, clock: clockSource, random: random, settings: settings,
 		limiter: newFailureLimiter(clockSource),
 	}
 }
@@ -148,7 +148,7 @@ func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries
 	}
 	var hash []byte
 	if !user.AwaitsRegistration {
-		if hash, err = service.hash(ctx, user.Password); err != nil {
+		if hash, err = service.hashWithCurrentCosts(ctx, user.Password); err != nil {
 			return 0, err
 		}
 	}
@@ -180,26 +180,27 @@ func (service *Service) CountUsers(ctx context.Context) (int64, error) {
 type NewDevice struct {
 	Name     string
 	Platform string
-	// ResumeID is the device the client remembers being signed in as: a sign-in resumes it when it
+	// ResumeDeviceID is the device the client remembers being signed in as: a sign-in resumes it when it
 	// is the same person's and has not been removed, rather than making a new one (D221 §1).
-	ResumeID int64
+	ResumeDeviceID int64
 }
 
-// SignIn checks a name and password and issues a session on a new device, which the client
-// named. The address is the client's network address, for the per-address failure limit. A
-// hash made under older parameters is re-hashed.
+// SignIn checks a name and password and issues a session on the device the client remembers,
+// when it is the person's, or on a new one the client named (D221 §1). The per-address failure
+// limit counts by clientAddress, the client's network address. A hash made under older
+// parameters is re-hashed.
 func (service *Service) SignIn(
-	ctx context.Context, name, password, address string, device NewDevice,
+	ctx context.Context, name, password, clientAddress string, device NewDevice,
 ) (token string, err error) {
-	limit, window, err := service.failurePolicy(ctx)
+	maxFailures, window, err := service.failurePolicy(ctx)
 	if err != nil {
 		return "", err
 	}
-	accountKey, addressKey := accountLimitKey(name), "address:"+address
-	if service.limiter.isLimited(limit, window, accountKey, addressKey) {
+	accountKey, addressKey := accountLimitKey(name), "address:"+clientAddress
+	if service.limiter.isLimited(maxFailures, window, accountKey, addressKey) {
 		return "", ErrRateLimited
 	}
-	parameters, err := service.parameters(ctx)
+	parameters, err := service.argon2Parameters(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -207,19 +208,19 @@ func (service *Service) SignIn(
 	if errors.Is(err, store.ErrNotFound) {
 		// An unknown name costs what a known one does, so timing does not tell them apart.
 		_, hashErr := HashPassword(password, parameters, service.random)
-		service.limiter.fail(window, accountKey, addressKey)
+		service.limiter.recordFailure(window, accountKey, addressKey)
 		return "", errors.Join(ErrBadCredentials, hashErr)
 	}
 	if err != nil {
 		return "", fmt.Errorf("look up user: %w", err)
 	}
-	matches, used, err := VerifyPassword(password, string(user.PasswordHash))
-	if err != nil || !matches {
-		service.limiter.fail(window, accountKey, addressKey)
+	isMatch, hashParameters, err := VerifyPassword(password, string(user.PasswordHash))
+	if err != nil || !isMatch {
+		service.limiter.recordFailure(window, accountKey, addressKey)
 		return "", errors.Join(ErrBadCredentials, err)
 	}
 	service.limiter.forget(accountKey)
-	if !sameCosts(used, parameters) {
+	if !sameCosts(hashParameters, parameters) {
 		if rehashErr := service.rehash(ctx, user.ID, password, parameters); rehashErr != nil {
 			return "", rehashErr
 		}
@@ -227,9 +228,9 @@ func (service *Service) SignIn(
 	return service.issueSession(ctx, user.ID, device)
 }
 
-// hash hashes a password with the costs the settings name now.
-func (service *Service) hash(ctx context.Context, password string) ([]byte, error) {
-	parameters, err := service.parameters(ctx)
+// hashWithCurrentCosts hashes a password with the costs the settings name now.
+func (service *Service) hashWithCurrentCosts(ctx context.Context, password string) ([]byte, error) {
+	parameters, err := service.argon2Parameters(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +241,7 @@ func (service *Service) hash(ctx context.Context, password string) ([]byte, erro
 	return []byte(hashed), nil
 }
 
-func (service *Service) rehash(ctx context.Context, userID int64, password string, parameters Parameters) error {
+func (service *Service) rehash(ctx context.Context, userID int64, password string, parameters Argon2Parameters) error {
 	hash, err := HashPassword(password, parameters, service.random)
 	if err != nil {
 		return err
@@ -262,9 +263,9 @@ func accountLimitKey(name string) string {
 func resumeOrMakeDevice(
 	ctx context.Context, queries *sqlcgen.Queries, userID int64, device NewDevice, now int64,
 ) (int64, error) {
-	if device.ResumeID != 0 {
+	if device.ResumeDeviceID != 0 {
 		known, err := store.OrNotFound(queries.GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
-			ID: device.ResumeID, UserID: &userID,
+			ID: device.ResumeDeviceID, UserID: &userID,
 		}))
 		if err == nil {
 			touch := sqlcgen.RecordDeviceSignInParams{Platform: device.Platform, SignedInAt: now, ID: known.ID}
@@ -274,7 +275,7 @@ func resumeOrMakeDevice(
 			return known.ID, nil
 		}
 		if !errors.Is(err, store.ErrNotFound) {
-			return 0, fmt.Errorf("look up device %d: %w", device.ResumeID, err)
+			return 0, fmt.Errorf("look up device %d: %w", device.ResumeDeviceID, err)
 		}
 	}
 	id, err := queries.InsertDevice(ctx, sqlcgen.InsertDeviceParams{
@@ -300,7 +301,7 @@ func (service *Service) issueSession(ctx context.Context, userID int64, device N
 			return deviceErr
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
-			SecretSha256: tokenHash(token), Kind: grantKindSession, UserID: &userID, Scope: grantScopeSession,
+			SecretSha256: tokenHash(token), Kind: grantKindSession, UserID: &userID, Scope: grantScopeRole,
 			IssuedAt: now, DeviceID: &deviceID,
 		})
 	})
@@ -334,11 +335,11 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 		return Principal{}, err
 	}
 	// Sessions end on idle, not absolutely (D154 §3). issued_at stands in for a session never used.
-	lastUse := grant.IssuedAt
+	lastUsedAt := grant.IssuedAt
 	if grant.LastSeenAt != nil {
-		lastUse = *grant.LastSeenAt
+		lastUsedAt = *grant.LastSeenAt
 	}
-	if now.Sub(time.UnixMilli(lastUse)) > idleExpiry {
+	if now.Sub(time.UnixMilli(lastUsedAt)) > idleExpiry {
 		return Principal{}, ErrSessionExpired
 	}
 	user, err := store.OrNotFound(service.database.Read().GetLiveUserByID(ctx, *grant.UserID))
@@ -348,7 +349,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if err != nil {
 		return Principal{}, fmt.Errorf("look up the session's user: %w", err)
 	}
-	if now.Sub(time.UnixMilli(lastUse)) >= lastSeenResolution {
+	if now.Sub(time.UnixMilli(lastUsedAt)) >= lastSeenResolution {
 		err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 			return queries.UpdateGrantLastSeen(ctx, sqlcgen.UpdateGrantLastSeenParams{
 				SecretSha256: hash, LastSeenAt: new(now.UnixMilli()),
