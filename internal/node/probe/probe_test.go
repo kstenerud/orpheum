@@ -59,8 +59,8 @@ func TestParse_ARecordedMatroskaFile(t *testing.T) {
 func checkRecordedFormat(t *testing.T, record nodeproto.Probe) {
 	t.Helper()
 	wantNames := []string{"matroska", "webm"}
-	if !slices.Equal(record.Format.Names, wantNames) || record.Format.DurationMs != 2023 ||
-		record.Format.Title != "Synthetic Film" {
+	if !slices.Equal(record.Format.FormatNames, wantNames) || record.Format.DurationMs != 2023 ||
+		record.Format.ContainerTitle != "Synthetic Film" {
 		t.Errorf("format = %+v", record.Format)
 	}
 }
@@ -79,7 +79,7 @@ func checkRecordedVideo(t *testing.T, record nodeproto.Probe) {
 func checkRecordedAudio(t *testing.T, record nodeproto.Probe) {
 	t.Helper()
 	audio := record.Streams[1]
-	if audio.Codec != "aac" || audio.ContainerLanguage != "ger" || audio.Title != "Deutsch (Stereo)" ||
+	if audio.Codec != "aac" || audio.ContainerLanguage != "ger" || audio.ContainerTitle != "Deutsch (Stereo)" ||
 		audio.Audio.ChannelCount != 2 || audio.Audio.SampleRateHz != 44100 ||
 		!slices.Contains(audio.Disposition, "default") {
 		t.Errorf("audio = %+v", audio)
@@ -89,7 +89,7 @@ func checkRecordedAudio(t *testing.T, record nodeproto.Probe) {
 func checkRecordedSubtitle(t *testing.T, record nodeproto.Probe) {
 	t.Helper()
 	subtitle := record.Streams[2]
-	if subtitle.Codec != "ass" || subtitle.ContainerLanguage != "eng" || subtitle.Title != "Signs & Songs" ||
+	if subtitle.Codec != "ass" || subtitle.ContainerLanguage != "eng" || subtitle.ContainerTitle != "Signs & Songs" ||
 		!slices.Contains(subtitle.Disposition, "forced") {
 		t.Errorf("subtitle = %+v", subtitle)
 	}
@@ -107,8 +107,8 @@ func checkRecordedAttachment(t *testing.T, record nodeproto.Probe) {
 func checkRecordedChapters(t *testing.T, record nodeproto.Probe) {
 	t.Helper()
 	want := []nodeproto.ProbeChapter{
-		{StartMs: 0, EndMs: 1000, Title: "Opening"},
-		{StartMs: 1000, EndMs: 2000, Title: "Ending"},
+		{StartMs: 0, EndMs: 1000, ContainerTitle: "Opening"},
+		{StartMs: 1000, EndMs: 2000, ContainerTitle: "Ending"},
 	}
 	if !reflect.DeepEqual(record.Chapters, want) {
 		t.Errorf("chapters = %+v, want %+v", record.Chapters, want)
@@ -131,9 +131,9 @@ func TestParse_IsTheSameRecordEveryTime(t *testing.T) {
 			t.Fatalf("two parses differ: %+v and %+v", first, again)
 		}
 	}
-	if first.Format.Title != "b" || first.Streams[0].ContainerLanguage != "deu" {
+	if first.Format.ContainerTitle != "b" || first.Streams[0].ContainerLanguage != "deu" {
 		t.Errorf("title %q, language %q: want the first key in sorted order",
-			first.Format.Title, first.Streams[0].ContainerLanguage)
+			first.Format.ContainerTitle, first.Streams[0].ContainerLanguage)
 	}
 	if !slices.Equal(first.Streams[0].Disposition, []string{"comment", "default", "dub", "forced", "original"}) {
 		t.Errorf("disposition = %q, want the set flags, sorted", first.Streams[0].Disposition)
@@ -150,10 +150,10 @@ func TestParse_BoundsWhatAHostileFileCanMakeTheNodeReport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if title := record.Format.Title; len(title) > maxStringBytes || !utf8.ValidString(title) || title == "" {
+	if title := record.Format.ContainerTitle; len(title) > maxStringBytes || !utf8.ValidString(title) || title == "" {
 		t.Errorf("a %d-byte title became %d bytes, valid UTF-8 %v", len(long), len(title), utf8.ValidString(title))
 	}
-	if title := record.Streams[0].Title; title != "Tit�le" {
+	if title := record.Streams[0].ContainerTitle; title != "Tit�le" {
 		t.Errorf("an invalid title became %q, want the bad byte replaced", title)
 	}
 
@@ -186,9 +186,9 @@ func TestParse_ALanguageTagIsNormalisedBesideTheRawOne(t *testing.T) {
 			t.Fatal(err)
 		}
 		stream := record.Streams[0]
-		if stream.ContainerLanguage != raw || stream.LanguageTag != want {
+		if stream.ContainerLanguage != raw || stream.Language != want {
 			t.Errorf("%q: language %q, tag %q; want the raw tag kept and %q beside it",
-				raw, stream.ContainerLanguage, stream.LanguageTag, want)
+				raw, stream.ContainerLanguage, stream.Language, want)
 		}
 	}
 }
@@ -204,7 +204,7 @@ func TestParse_NonsenseNumbersAreZero(t *testing.T) {
 		record.Streams[0].DurationMs != 0 {
 		t.Errorf("record = %+v, want zeros", record)
 	}
-	if record.Streams == nil || record.Chapters == nil || record.Format.Names == nil {
+	if record.Streams == nil || record.Chapters == nil || record.Format.FormatNames == nil {
 		t.Error("an empty list is nil; the stored JSON would say null instead of []")
 	}
 }

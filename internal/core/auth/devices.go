@@ -55,7 +55,7 @@ func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, er
 	for _, row := range rows {
 		devices = append(devices, Device{
 			ID: row.ID, Name: row.Name, Platform: row.Platform, AudioOutput: ptr.ValueOrZero(row.AudioOutput),
-			AddedAt:  time.UnixMilli(row.FirstSeenAt),
+			AddedAt:  time.UnixMilli(row.AddedAt),
 			LastUsed: time.UnixMilli(row.LastUsedAt), IsSignedIn: row.IsSignedIn == 1,
 		})
 	}

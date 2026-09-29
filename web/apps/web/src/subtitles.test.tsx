@@ -72,7 +72,7 @@ describe("subtitles", () => {
             subtitleOffsetMs: -1500,
             isDialogueBoostOn: false,
             isLevellingOn: true,
-            subtitle: { streamId: 7 },
+            subtitleChoice: { streamId: 7 },
           }}
           videoRef={createRef()}
         />,
@@ -110,7 +110,7 @@ describe("subtitles", () => {
     });
     await keepOffset(api, 2, 250);
     expect(sent).toEqual({
-      url: "http://orpheum.test/api/v1/files/2/prefs",
+      url: "http://orpheum.test/api/v1/files/2/preferences",
       method: "PUT",
       body: { subtitleOffsetMs: 250 },
     });
@@ -124,7 +124,7 @@ describe("subtitles", () => {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
           isLevellingOn: true,
-          subtitle: { streamId: 7 },
+          subtitleChoice: { streamId: 7 },
         },
         tracks,
       ),
@@ -135,7 +135,7 @@ describe("subtitles", () => {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
           isLevellingOn: true,
-          subtitle: { fetchedSubtitleId: 3 },
+          subtitleChoice: { fetchedSubtitleId: 3 },
         },
         [...tracks, track({ streamId: 0, fetchedSubtitleId: 3 })],
       ),
@@ -146,7 +146,7 @@ describe("subtitles", () => {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
           isLevellingOn: true,
-          subtitle: { isOff: true },
+          subtitleChoice: { isOff: true },
         },
         tracks,
       ),
@@ -157,7 +157,7 @@ describe("subtitles", () => {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
           isLevellingOn: true,
-          subtitle: { streamId: 99 },
+          subtitleChoice: { streamId: 99 },
         },
         tracks,
       ),
@@ -181,9 +181,9 @@ describe("subtitles", () => {
     await keepSubtitleChoice(api, 2, "f3");
     await keepSubtitleChoice(api, 2, undefined);
     expect(sent).toEqual([
-      { subtitle: { streamId: 5 } },
-      { subtitle: { fetchedSubtitleId: 3 } },
-      { subtitle: { isOff: true } },
+      { subtitleChoice: { streamId: 5 } },
+      { subtitleChoice: { fetchedSubtitleId: 3 } },
+      { subtitleChoice: { isOff: true } },
     ]);
   });
 });

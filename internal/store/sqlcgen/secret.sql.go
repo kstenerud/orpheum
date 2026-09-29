@@ -29,7 +29,7 @@ func (q *Queries) DeleteSealedSecret(ctx context.Context, arg DeleteSealedSecret
 
 const getSealedSecret = `-- name: GetSealedSecret :one
 
-SELECT scope, user_id, name, key_id, nonce, ciphertext, hint, set_by_user_id, set_at
+SELECT scope, user_id, name, key_id, nonce, ciphertext, last_chars, set_by_user_id, set_at
 FROM secret
 WHERE scope = ?1 AND user_id IS ?2 AND name = ?3
 `
@@ -54,7 +54,7 @@ func (q *Queries) GetSealedSecret(ctx context.Context, arg GetSealedSecretParams
 		&i.KeyID,
 		&i.Nonce,
 		&i.Ciphertext,
-		&i.Hint,
+		&i.LastChars,
 		&i.SetByUserID,
 		&i.SetAt,
 	)
@@ -103,7 +103,7 @@ func (q *Queries) ListAllSealedSecrets(ctx context.Context) ([]ListAllSealedSecr
 }
 
 const listSealedSecretsInScope = `-- name: ListSealedSecretsInScope :many
-SELECT scope, user_id, name, key_id, hint, set_by_user_id, set_at
+SELECT scope, user_id, name, key_id, last_chars, set_by_user_id, set_at
 FROM secret
 WHERE scope = ?1 AND user_id IS ?2
 ORDER BY name
@@ -119,7 +119,7 @@ type ListSealedSecretsInScopeRow struct {
 	UserID      *int64
 	Name        string
 	KeyID       int64
-	Hint        *string
+	LastChars   *string
 	SetByUserID *int64
 	SetAt       int64
 }
@@ -138,7 +138,7 @@ func (q *Queries) ListSealedSecretsInScope(ctx context.Context, arg ListSealedSe
 			&i.UserID,
 			&i.Name,
 			&i.KeyID,
-			&i.Hint,
+			&i.LastChars,
 			&i.SetByUserID,
 			&i.SetAt,
 		); err != nil {
@@ -156,12 +156,12 @@ func (q *Queries) ListSealedSecretsInScope(ctx context.Context, arg ListSealedSe
 }
 
 const upsertSealedSecret = `-- name: UpsertSealedSecret :exec
-INSERT INTO secret (scope, user_id, name, key_id, nonce, ciphertext, hint, set_by_user_id, set_at)
+INSERT INTO secret (scope, user_id, name, key_id, nonce, ciphertext, last_chars, set_by_user_id, set_at)
 VALUES (?1, ?2, ?3, ?4, ?5,
         ?6, ?7, ?8, ?9)
 ON CONFLICT (scope, ifnull(user_id, 0), name)
 DO UPDATE SET key_id = excluded.key_id, nonce = excluded.nonce, ciphertext = excluded.ciphertext,
-              hint = excluded.hint, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at
+              last_chars = excluded.last_chars, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at
 `
 
 type UpsertSealedSecretParams struct {
@@ -171,7 +171,7 @@ type UpsertSealedSecretParams struct {
 	KeyID       int64
 	Nonce       []byte
 	Ciphertext  []byte
-	Hint        *string
+	LastChars   *string
 	SetByUserID *int64
 	SetAt       int64
 }
@@ -184,7 +184,7 @@ func (q *Queries) UpsertSealedSecret(ctx context.Context, arg UpsertSealedSecret
 		arg.KeyID,
 		arg.Nonce,
 		arg.Ciphertext,
-		arg.Hint,
+		arg.LastChars,
 		arg.SetByUserID,
 		arg.SetAt,
 	)

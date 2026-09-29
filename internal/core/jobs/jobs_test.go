@@ -136,7 +136,7 @@ func TestRunDue_RetriesAFailureWithDoublingBackoffThenFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	job := jobs.job(t, 1)
-	if runs != 3 || job.State != stateFailed || job.LastError == nil {
+	if runs != 3 || job.State != stateFailed || job.LastFailure == nil {
 		t.Errorf("after %v: %d runs, job %+v; want 3 runs, then failed with the reply",
 			jobs.clock.Now().Sub(start), runs, job)
 	}
@@ -159,7 +159,7 @@ func TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind(t *testin
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if job := jobs.job(t, 1); job.Attempts != 0 || job.State != "queued" || job.RunnableAt != until.UnixMilli() {
+	if job := jobs.job(t, 1); job.AttemptCount != 0 || job.State != "queued" || job.RunnableAt != until.UnixMilli() {
 		t.Errorf("rate-limited job = %+v; want queued until the provider's time with no attempt spent", job)
 	}
 	if !slices.Equal(ran, []int64{1}) {
@@ -184,7 +184,7 @@ func TestRunDue_APermanentFailureIsNotRetried(t *testing.T) {
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if job := jobs.job(t, 1); job.State != stateFailed || job.Attempts != 1 {
+	if job := jobs.job(t, 1); job.State != stateFailed || job.AttemptCount != 1 {
 		t.Errorf("job = %+v, want failed after one attempt", job)
 	}
 }
@@ -228,7 +228,7 @@ func TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts(t *testing.T) 
 		}
 		jobs.clock.Advance(10 * time.Second)
 	}
-	if job := jobs.job(t, 1); job.State != "queued" || job.Attempts != 0 || runs != 5 {
+	if job := jobs.job(t, 1); job.State != "queued" || job.AttemptCount != 0 || runs != 5 {
 		t.Errorf("after five blocked tries: job %+v, %d runs; want queued, no attempt spent, one run per wait",
 			job, runs)
 	}

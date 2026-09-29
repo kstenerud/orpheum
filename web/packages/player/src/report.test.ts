@@ -61,7 +61,7 @@ describe("reporting play state", () => {
     play.paused(100_000);
     await settled();
     expect(sent.map((report) => report.reportSeq)).toEqual([1, 2, 3]);
-    expect(sent[0]?.events).toEqual([{ kind: "started", positionMs: 0, atMonoMs: 1000 }]);
+    expect(sent[0]?.events).toEqual([{ kind: "started", positionMs: 0, happenedMonoMs: 1000 }]);
     expect(sent[1]?.spans).toEqual([
       { fromPositionMs: 0, toPositionMs: 30_000, startedMonoMs: 1000, endedMonoMs: 31_000 },
     ]);

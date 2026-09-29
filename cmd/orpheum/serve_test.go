@@ -110,7 +110,7 @@ migrate_free_space_db_multiple = 3
 
 [node]
 name = "local"
-roots = []
+root_paths = []
 ffmpeg_dir = %q
 confinement_policy = "report"
 video_extensions = ["mkv"]
@@ -120,7 +120,7 @@ probe_timeout_s = 60
 status_interval_s = 10
 prepared_dir = %q
 prepared_budget_gib = 1
-prepared_grace_h = 72
+prepared_kept_after_play_h = 72
 prepared_disk_used_limit_percent = 95
 
 [log]
@@ -334,17 +334,18 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 	server := startServing(t, config, newCapturedLog("ready"), "ready")
 	pprofURL := strings.TrimSuffix(server.baseURL, api.Prefix) + "/debug/pprof/"
 	if off := call(t, http.MethodGet, pprofURL, "", nil); off.status != http.StatusNotFound {
-		t.Errorf("with serve_debug_pprof at its starting value, /debug/pprof/ = %d, want 404", off.status)
+		t.Errorf("with should_serve_debug_pprof at its starting value, /debug/pprof/ = %d, want 404", off.status)
 	}
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
 	}
 	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
-		"UPDATE setting SET value_json = 'true', is_modified = 1 WHERE scope = 'server' AND key = 'serve_debug_pprof'")
+		"UPDATE setting SET value_json = 'true', is_modified = 1 "+
+			"WHERE scope = 'server' AND key = 'should_serve_debug_pprof'")
 	restarted := startServing(t, config, newCapturedLog("ready"), "ready")
 	pprofURL = strings.TrimSuffix(restarted.baseURL, api.Prefix) + "/debug/pprof/"
 	if on := call(t, http.MethodGet, pprofURL, "", nil); on.status != http.StatusOK {
-		t.Errorf("with serve_debug_pprof on and a loopback listener, /debug/pprof/ = %d, want 200", on.status)
+		t.Errorf("with should_serve_debug_pprof on and a loopback listener, /debug/pprof/ = %d, want 200", on.status)
 	}
 }
 
@@ -359,14 +360,14 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 	// touched still holds the old value; the other was set by a person.
 	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
 		"UPDATE setting SET value_json = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
-		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secret_hint_chars'")
+		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secret_last_chars_shown'")
 	captured := newCapturedLog("ready")
 	server := startServing(t, config, captured, "ready")
 	logged := captured.String()
 	sweep := strings.Index(logged, "this release changed the starting value of settings nobody had set")
 	ready := strings.Index(logged, `"msg":"ready"`)
 	if sweep < 0 || ready < 0 || sweep > ready || !strings.Contains(logged[sweep:ready], "signin_failure_limit") ||
-		strings.Contains(logged[sweep:ready], "secret_hint_chars") {
+		strings.Contains(logged[sweep:ready], "secret_last_chars_shown") {
 		t.Errorf("the sweep was not logged before ready, or touched the setting a person set:\n%s", logged)
 	}
 	if err := server.stop(); err != nil {

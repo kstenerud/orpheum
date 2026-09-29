@@ -106,7 +106,7 @@ func (scanner *Scanner) Scan(ctx context.Context, root *confine.MediaRoot, emit 
 	}
 	facts, factsErr := root.Facts()
 	err := emit(nodeproto.Record{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{
-		Root: root.Path(), UID: scanner.options.UID, GID: scanner.options.GID,
+		RootPath: root.Path(), UID: scanner.options.UID, GID: scanner.options.GID,
 		FilesystemDevice: facts.Device, IsMountPoint: facts.MountPoint, IsReadOnly: facts.ReadOnly,
 	}})
 	if err != nil {
@@ -133,7 +133,7 @@ func (scanner *Scanner) Scan(ctx context.Context, root *confine.MediaRoot, emit 
 		return fmt.Errorf("scan %s: %w", root.Path(), ctx.Err())
 	}
 	return emit(nodeproto.Record{Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{
-		Root:              root.Path(),
+		RootPath:          root.Path(),
 		ObservedCount:     walk.observed,
 		SidecarCount:      walk.sidecars,
 		SkippedCount:      walk.skipped,
@@ -287,13 +287,13 @@ func (walk *walk) file(place location, info fs.FileInfo) error {
 	}
 	walk.observed++
 	return walk.send(nodeproto.Record{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
-		Path:      reportedPath(place.reported),
-		SizeBytes: info.Size(),
-		MtimeMs:   info.ModTime().UnixMilli(),
-		Identity:  identity,
-		Probe:     probed,
+		Path:       reportedPath(place.reported),
+		SizeBytes:  info.Size(),
+		ModifiedAt: info.ModTime().UnixMilli(),
+		Identity:   identity,
+		Probe:      probed,
 
-		OpenSubtitlesHash: providerHash,
+		OpensubtitlesHash: providerHash,
 	}})
 }
 
@@ -345,7 +345,7 @@ func (walk *walk) fail(reported string, scope nodeproto.ErrorScope, cause error,
 // sidecar reports a metadata or subtitle file, with an NFO's bytes.
 func (walk *walk) sidecar(place location, info fs.FileInfo, kind nodeproto.SidecarKind) error {
 	record := &nodeproto.Sidecar{
-		Path: reportedPath(place.reported), Kind: kind, SizeBytes: info.Size(), MtimeMs: info.ModTime().UnixMilli(),
+		Path: reportedPath(place.reported), Kind: kind, SizeBytes: info.Size(), ModifiedAt: info.ModTime().UnixMilli(),
 	}
 	switch kind {
 	case nodeproto.SidecarNFO:

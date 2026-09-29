@@ -22,7 +22,7 @@ type Secret struct {
 	KeyID       int64
 	Nonce       []byte
 	Ciphertext  []byte
-	Hint        *string
+	LastChars   *string
 	SetByUserID *int64
 	SetAt       int64
 }

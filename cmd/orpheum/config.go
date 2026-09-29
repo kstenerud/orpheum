@@ -54,7 +54,7 @@ type DatabaseConfig struct {
 // NodeConfig is the media node's.
 type NodeConfig struct {
 	Name               string   `toml:"name"`
-	Roots              []string `toml:"roots"`
+	RootPaths          []string `toml:"root_paths"`
 	FFmpegDir          string   `toml:"ffmpeg_dir"`
 	ConfinementPolicy  string   `toml:"confinement_policy"`
 	VideoExtensions    []string `toml:"video_extensions"`
@@ -66,7 +66,7 @@ type NodeConfig struct {
 	// PreparedBudgetGiB, PreparedGraceH and PreparedDiskLimitPercent keep the prepared
 	// directory in bounds (D217 §5).
 	PreparedBudgetGiB            int64 `toml:"prepared_budget_gib"`
-	PreparedGraceH               int64 `toml:"prepared_grace_h"`
+	PreparedKeptAfterPlayH       int64 `toml:"prepared_kept_after_play_h"`
 	PreparedDiskUsedLimitPercent int64 `toml:"prepared_disk_used_limit_percent"`
 }
 
@@ -118,7 +118,7 @@ func configKeys() []configKey {
 			"free space needed before migrating, in multiples of the database: the snapshot plus a rebuild",
 		},
 		{tableNode, "name", `"local"`, "the name the core knows this node by (D207)"},
-		{tableNode, "roots", "", "the media directories this node serves; set on the node, never remotely (D107)"},
+		{tableNode, "root_paths", "", "the media directories this node serves; set on the node, never remotely (D107)"},
 		{tableNode, "ffmpeg_dir", "", "where the pinned FFmpeg is on this machine"},
 		{
 			tableNode, "confinement_policy", `"require"`,
@@ -150,7 +150,7 @@ func configKeys() []configKey {
 			"GiB the prepared renditions may take; the least recently played go first past it (D217 §5)",
 		},
 		{
-			tableNode, "prepared_grace_h", "72",
+			tableNode, "prepared_kept_after_play_h", "72",
 			"hours after its last play a prepared rendition is kept before any past it is evicted (D217 §5)",
 		},
 		{
@@ -283,7 +283,7 @@ func (config *Config) check() error {
 		"node.probe_timeout_s":                    config.Node.ProbeTimeoutS,
 		"node.status_interval_s":                  config.Node.StatusIntervalS,
 		"node.prepared_budget_gib":                config.Node.PreparedBudgetGiB,
-		"node.prepared_grace_h":                   config.Node.PreparedGraceH,
+		"node.prepared_kept_after_play_h":         config.Node.PreparedKeptAfterPlayH,
 	} {
 		if value < 1 {
 			problems = append(problems, fmt.Errorf("%s is %d; it must be at least 1", key, value))

@@ -62,13 +62,13 @@ type StartPlaybackOutput struct {
 		// Preparing is whether the rendition is still being made; its playlist answers 425 until
 		// the first segment exists.
 		IsPreparing bool `json:"isPreparing"`
-		// Audio are a rendition's audio renditions, in its master playlist's order.
-		Audio []AudioRenditionBody `json:"audio,omitempty"`
+		// AudioRenditions are a rendition's audio renditions, in its master playlist's order.
+		AudioRenditions []AudioRenditionBody `json:"audioRenditions,omitempty"`
 		// Subtitles are the file's text subtitle tracks, each extracted or on its way; a track's
 		// URLs answer 425 until it is (D217 §6).
 		Subtitles []SubtitleTrackBody `json:"subtitles"`
-		// Prefs are the person's choices for this file, which the player starts with.
-		Prefs FilePrefsBody `json:"prefs"`
+		// Preferences are the person's choices for this file, which the player starts with.
+		Preferences FilePrefsBody `json:"preferences"`
 		// ResumePositionMs is where the player starts, without asking (D188): where the person
 		// left the file, or 0.
 		ResumePositionMs int64 `json:"resumePositionMs"`
@@ -92,10 +92,10 @@ type MasterInput struct {
 // RenditionFileInput asks for one file of one of a prepared playback's renditions.
 type RenditionFileInput struct {
 	MediaCredentials
-	Token     string `doc:"The playback's media token" path:"token"`
-	Rendition string `doc:"video, audio0, audio0-boost, ..." path:"rendition"`
-	File      string `doc:"stream.m3u8, init.mp4 or a segment" path:"file"`
-	Range     string `header:"Range"`
+	Token         string `doc:"The playback's media token" path:"token"`
+	RenditionName string `doc:"video, audio0, audio0-boost, ..." path:"renditionName"`
+	FileName      string `doc:"stream.m3u8, init.mp4 or a segment" path:"fileName"`
+	Range         string `header:"Range"`
 }
 
 // DirectInput asks for a direct playback's bytes.
@@ -140,11 +140,12 @@ func (server *Server) registerPlayback() {
 	server.registerSubtitles()
 	server.registerSubtitleFetch()
 	huma.Register(server.api, huma.Operation{
-		OperationID: "getRenditionFile", Method: http.MethodGet, Path: "/bytes/media/hls/{token}/{rendition}/{file}",
+		OperationID: "getRenditionFile", Method: http.MethodGet,
+		Path:    "/bytes/media/hls/{token}/{renditionName}/{fileName}",
 		Summary: "One file of a prepared playback's rendition, relayed from its node", Tags: []string{tagPlayback},
 		Responses: responses,
 	}, func(ctx context.Context, input *RenditionFileInput) (*huma.StreamResponse, error) {
-		return server.hls(ctx, input.MediaCredentials, input.Token, input.Rendition+"/"+input.File, input.Range)
+		return server.hls(ctx, input.MediaCredentials, input.Token, input.RenditionName+"/"+input.FileName, input.Range)
 	})
 }
 
@@ -184,13 +185,13 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	}
 	output.Body.IsPreparing = started.Preparing
 	for _, audio := range started.Audio {
-		output.Body.Audio = append(output.Body.Audio, AudioRenditionBody{
-			SourceAudioIndex: audio.Track, Language: audio.Language, IsDialogueBoosted: audio.Boost,
+		output.Body.AudioRenditions = append(output.Body.AudioRenditions, AudioRenditionBody{
+			AudioTrackIndex: audio.Track, Language: audio.Language, IsDialogueBoosted: audio.Boost,
 			Levelling: levellingBody(audio.Levelling), CarriedGainDB: audio.CarriedGainDB,
 		})
 	}
 	output.Body.Subtitles = subtitleTracks(started)
-	output.Body.Prefs = filePrefsBody(started.Prefs)
+	output.Body.Preferences = filePrefsBody(started.Prefs)
 	output.Body.ResumePositionMs = started.ResumePositionMs
 	output.Body.MediaToken = started.Token
 	output.Body.AudioOutput = AudioOutput(started.AudioOutput)
@@ -301,7 +302,7 @@ func (server *Server) relay(
 	if errors.Is(err, nodes.ErrNodeSilent) {
 		failure := newError(http.StatusServiceUnavailable, CodeNodeSilent,
 			"the node that holds this file is not answering")
-		failure.ErrorBody.Error.Hop = HopNode
+		failure.ErrorBody.Error.FailedHop = HopNode
 		return nil, failure
 	}
 	if err != nil {

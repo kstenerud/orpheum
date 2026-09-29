@@ -21,8 +21,8 @@ type Command struct {
 	CommandSeq int64       `json:"commandSeq"`
 	Type       CommandType `json:"type"`
 	Scan       *Scan       `json:"scan,omitempty"`
-	// Artwork is set for CommandArtwork.
-	Artwork *Artwork `json:"artwork,omitempty"`
+	// EncodeArtwork is set for CommandArtwork.
+	EncodeArtwork *Artwork `json:"encodeArtwork,omitempty"`
 	// Prepare is set for CommandPrepare.
 	Prepare *Prepare `json:"prepare,omitempty"`
 	// ExtractSubtitle is set for CommandExtractSubtitle.
@@ -40,7 +40,7 @@ type Cancel struct {
 
 // Scan asks the node to scan one of its roots.
 type Scan struct {
-	Root string `json:"root"`
+	RootPath string `json:"rootPath"`
 }
 
 // Commands is the long-poll's answer: the commands after the one the node named, possibly none

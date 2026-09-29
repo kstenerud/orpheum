@@ -103,11 +103,11 @@ func audioName(stream nodeproto.ProbeStream) (Audio, bool) {
 // menu's.
 func ContainerOf(format nodeproto.ProbeFormat) (Container, bool) {
 	switch {
-	case slices.Contains(format.Names, "mp4") || slices.Contains(format.Names, "mov"):
+	case slices.Contains(format.FormatNames, "mp4") || slices.Contains(format.FormatNames, "mov"):
 		return MP4, true
-	case slices.Contains(format.Names, "matroska"):
+	case slices.Contains(format.FormatNames, "matroska"):
 		return Matroska, true
-	case slices.Contains(format.Names, "mpegts"):
+	case slices.Contains(format.FormatNames, "mpegts"):
 		return MPEGTS, true
 	}
 	return "", false

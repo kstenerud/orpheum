@@ -30,7 +30,7 @@ type SubtitleTrackBody struct {
 
 // AudioRenditionBody is one audio rendition: a source track's standard mix, or its boosted one.
 type AudioRenditionBody struct {
-	SourceAudioIndex  int    `json:"sourceAudioIndex"`
+	AudioTrackIndex   int    `json:"audioTrackIndex"`
 	Language          string `json:"language"`
 	IsDialogueBoosted bool   `json:"isDialogueBoosted"`
 	// Levelling brings the track's stereo sound to the level (D226).
@@ -53,13 +53,13 @@ func levellingBody(levelling playback.Levelling) LevellingBody {
 // SubtitleInput asks for one of a playback's subtitle tracks, in one form.
 type SubtitleInput struct {
 	MediaCredentials
-	Token string `doc:"The playback's media token" path:"token"`
-	File  string `doc:"<streamId>.ass or <streamId>.vtt, or f<fetchedSubtitleId>.ass or .vtt" path:"file"`
+	Token    string `doc:"The playback's media token" path:"token"`
+	FileName string `doc:"<streamId>.ass or <streamId>.vtt, or f<fetchedSubtitleId>.ass or .vtt" path:"fileName"`
 }
 
 func (server *Server) registerSubtitles() {
 	huma.Register(server.api, huma.Operation{
-		OperationID: "getSubtitle", Method: http.MethodGet, Path: "/bytes/media/sub/{token}/{file}",
+		OperationID: "getSubtitle", Method: http.MethodGet, Path: "/bytes/media/sub/{token}/{fileName}",
 		Summary: "One of a playback's subtitle tracks, as ASS or WebVTT (D217 §6)", Tags: []string{tagPlayback},
 		Responses: map[string]*huma.Response{
 			"200": {Description: "The track", Content: map[string]*huma.MediaType{
@@ -102,7 +102,7 @@ func subtitleTracks(started playback.Started) []SubtitleTrackBody {
 // subtitle serves one of a playback's subtitle tracks from the core's own copy. While it is being
 // extracted it is 425 with a Retry-After, as a rendition's file is.
 func (server *Server) subtitle(ctx context.Context, input *SubtitleInput) (*huma.StreamResponse, error) {
-	match := subtitleFileName.FindStringSubmatch(input.File)
+	match := subtitleFileName.FindStringSubmatch(input.FileName)
 	if match == nil {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
 	}

@@ -98,18 +98,18 @@ func NewService(parts Parts) *Service {
 
 // owed is an artwork job's arguments: the images one item's source names that are not stored.
 type owed struct {
-	FollowedSource string    `json:"followedSource"`
-	Refs           []owedRef `json:"refs"`
-	// ImageHash and Sizes make sizes of a stored image that are made only on request, from its
+	ArtworkSource string    `json:"artworkSource"`
+	Refs          []owedRef `json:"refs"`
+	// SourceSha256 and Sizes make sizes of a stored image that are made only on request, from its
 	// source fetched again (D212 §2, §3).
-	ImageHash string                  `json:"imageHash,omitempty"`
-	SizeNames []nodeproto.ArtSizeName `json:"sizeNames,omitempty"`
+	SourceSha256 string                  `json:"sourceSha256,omitempty"`
+	SizeNames    []nodeproto.ArtSizeName `json:"sizeNames,omitempty"`
 }
 
 // owedRef is one image the job fetches: its kind, and the source's reference to it.
 type owedRef struct {
-	Kind string `json:"kind"`
-	Ref  string `json:"ref"`
+	Kind      string `json:"kind"`
+	SourceRef string `json:"sourceRef"`
 }
 
 // Owe queues a job for each item with images owed. An item with a job already open is left to
@@ -119,9 +119,9 @@ func (service *Service) Owe(ctx context.Context, items []identify.OwedArtwork) {
 	for _, item := range items {
 		refs := make([]owedRef, 0, len(item.Refs))
 		for _, ref := range item.Refs {
-			refs = append(refs, owedRef{Kind: ref.Kind, Ref: ref.Ref})
+			refs = append(refs, owedRef{Kind: ref.Kind, SourceRef: ref.Ref})
 		}
-		args, err := json.Marshal(owed{FollowedSource: item.Source, Refs: refs})
+		args, err := json.Marshal(owed{ArtworkSource: item.Source, Refs: refs})
 		if err == nil {
 			var added bool
 			added, err = service.parts.Queue.Enqueue(ctx, jobs.New{
@@ -149,13 +149,13 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 	if err := json.Unmarshal([]byte(job.Args), &args); err != nil {
 		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.Permanent(err))
 	}
-	fetcher, known := service.parts.Fetchers[args.FollowedSource]
-	if !known && args.FollowedSource != identify.SourceLocal {
+	fetcher, known := service.parts.Fetchers[args.ArtworkSource]
+	if !known && args.ArtworkSource != identify.SourceLocal {
 		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.Permanent(fmt.Errorf("no fetcher for %q",
-			args.FollowedSource)))
+			args.ArtworkSource)))
 	}
 	for _, ref := range args.Refs {
-		image := wanted{itemID: job.ItemID, source: args.FollowedSource, ref: ref}
+		image := wanted{itemID: job.ItemID, source: args.ArtworkSource, ref: ref}
 		var err error
 		if len(args.SizeNames) > 0 {
 			err = service.makeSizes(ctx, fetcher, image, args)
@@ -189,13 +189,13 @@ func (service *Service) one(ctx context.Context, fetcher Fetcher, image wanted) 
 	var nodeID int64
 	hash := ""
 	if image.source == identify.SourceLocal {
-		nodeID, command.AbsolutePath, err = service.localFile(ctx, image.ref.Ref)
+		nodeID, command.AbsolutePath, err = service.localFile(ctx, image.ref.SourceRef)
 		if errors.Is(err, ErrNoImage) {
 			return service.refused(ctx, image, err.Error())
 		}
 	} else {
 		var source Unsanitised
-		source, err = service.fetch(ctx, fetcher, image.source, image.ref.Ref)
+		source, err = service.fetch(ctx, fetcher, image.source, image.ref.SourceRef)
 		if errors.Is(err, ErrNoImage) {
 			return service.missing(ctx, fetcher, image, err)
 		}
@@ -257,7 +257,7 @@ func (service *Service) held(ctx context.Context, image wanted) (bool, error) {
 	}
 	return slices.ContainsFunc(rows, func(row sqlcgen.ListLiveArtworkRow) bool {
 		return row.Kind == image.ref.Kind && row.Source == image.source && row.SourceRef != nil &&
-			*row.SourceRef == image.ref.Ref
+			*row.SourceRef == image.ref.SourceRef
 	}), nil
 }
 
@@ -276,7 +276,7 @@ func (service *Service) reEncode(
 	request, answer := service.await()
 	defer service.forget(request)
 	command.JobID, command.MaxSourcePixels, command.WebPQuality = request, pixels, int(quality)
-	service.parts.Nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandArtwork, Artwork: &command})
+	service.parts.Nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandArtwork, EncodeArtwork: &command})
 	timer := time.NewTimer(service.parts.Wait)
 	defer timer.Stop()
 	select {
@@ -370,7 +370,7 @@ func isWebP(image []byte) bool {
 // of the kind stays shown.
 func (service *Service) refused(ctx context.Context, image wanted, why string) error {
 	service.parts.Logger.WarnContext(ctx, "an image was not stored", "itemId", image.itemID,
-		"source", image.source, "ref", image.ref.Ref, "why", why)
+		"source", image.source, "sourceRef", image.ref.SourceRef, "reason", why)
 	return service.record(ctx, image, nil)
 }
 
@@ -386,8 +386,8 @@ func (service *Service) record(ctx context.Context, image wanted, hash []byte) e
 			return fmt.Errorf("read item %d: %w", image.itemID, err)
 		}
 		id, err := queries.InsertArtwork(ctx, sqlcgen.InsertArtworkParams{
-			ItemID: image.itemID, Kind: image.ref.Kind, Source: image.source, SourceRef: &image.ref.Ref,
-			ContentHash: hash,
+			ItemID: image.itemID, Kind: image.ref.Kind, Source: image.source, SourceRef: &image.ref.SourceRef,
+			SourceSha256: hash,
 		})
 		if err != nil || hash == nil {
 			return err

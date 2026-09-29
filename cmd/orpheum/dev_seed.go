@@ -44,7 +44,7 @@ type seedUser struct {
 type seedLibrary struct {
 	Name            string `toml:"name"`
 	Kind            string `toml:"kind"`
-	Root            string `toml:"root"`
+	RootPath        string `toml:"root_path"`
 	MetadataSource  string `toml:"metadata_source"`
 	ChangeDetection string `toml:"change_detection"`
 	IsWritable      bool   `toml:"is_writable"`
@@ -158,7 +158,7 @@ func seedLibraries(
 		return err
 	}
 	for _, seeded := range libraries {
-		root := seeded.Root
+		root := seeded.RootPath
 		if resolved, resolveErr := filepath.EvalSymlinks(root); resolveErr == nil {
 			root = resolved
 		}

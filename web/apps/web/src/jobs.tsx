@@ -117,8 +117,8 @@ export function JobList(props: {
             )}
             <span>{t("jobs.why", { reason: job.reason })}</span>
             <span>{t("jobs.made", { at: when.format(new Date(job.createdAt)) })}</span>
-            {job.lastError === undefined ? null : (
-              <span className="jobs__error">{t("jobs.lastError", { error: job.lastError })}</span>
+            {job.lastFailure === undefined ? null : (
+              <span className="jobs__error">{t("jobs.lastError", { error: job.lastFailure })}</span>
             )}
             {isOpen(job) ? (
               <button

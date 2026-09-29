@@ -13,7 +13,7 @@ import { withServices } from "./test-services.tsx";
 const file = (
   id: number,
   filing: string,
-  why: { reason?: string; detail?: string } = {},
+  why: { reason?: string; detail?: NonNullable<SeenFile["errorDetail"]> } = {},
 ): SeenFile => ({
   id,
   libraryId: 1,
@@ -45,14 +45,23 @@ describe("what the scanner saw", () => {
       withServices(
         <ReasonGroups
           files={[
-            file(1, "errored", { reason: "permission_denied", detail: "owner 1000, mode 0600" }),
+            file(1, "errored", {
+              reason: "permission_denied",
+              detail: {
+                text: "permission denied",
+                ownerUid: 1000,
+                groupGid: 100,
+                modeText: "-rw-------",
+                occurrenceCount: 1,
+              },
+            }),
           ]}
         />,
       ),
     );
     expect(markup).toContain("<summary>Could not be read · permission_denied (1)</summary>");
     expect(markup).toContain("<code>/media/1.mkv</code>");
-    expect(markup).toContain("Details: owner 1000, mode 0600");
+    expect(markup).toContain("Details: permission denied (owner 1000, group 100, mode -rw-------)");
   });
 });
 

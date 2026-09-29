@@ -47,8 +47,8 @@ type JobBody struct {
 	// ProgressFraction is how far it is, 0 to 1, absent when not known.
 	ProgressFraction *float64 `json:"progressFraction,omitempty"`
 	Reason           string   `doc:"Why it exists" json:"reason"`
-	LastError        string   `json:"lastError,omitempty"`
-	Attempts         int64    `json:"attempts"`
+	LastFailure      string   `json:"lastFailure,omitempty"`
+	AttemptCount     int64    `json:"attemptCount"`
 	CreatedAt        int64    `doc:"Unix milliseconds" json:"createdAt"`
 	FinishedAt       *int64   `doc:"Unix milliseconds" json:"finishedAt,omitempty"`
 }
@@ -95,7 +95,7 @@ func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) 
 			ID: view.ID, Kind: JobKind(view.Kind), ItemID: view.ItemID, RenditionID: view.RenditionID,
 			StreamID: view.StreamID, FetchedSubtitleID: view.FetchedSubtitleID, FileID: view.FileID,
 			State: view.State, ProgressFraction: view.Progress,
-			Reason: view.Reason, LastError: view.LastError, Attempts: view.Attempts,
+			Reason: view.Reason, LastFailure: view.LastError, AttemptCount: view.Attempts,
 			CreatedAt: view.CreatedAt.UnixMilli(),
 		}
 		if view.FinishedAt != nil {

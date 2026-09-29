@@ -21,7 +21,7 @@ func finishPrepare(t *testing.T, harness testHarness, file int64, encoder string
 	t.Helper()
 	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		id, err := queries.InsertRendition(t.Context(), cachegen.InsertRenditionParams{
-			SourceFile: file, SourcePayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthS: 6,
+			SourceFile: file, SourcePayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthSeconds: 6,
 			RunID: "0123456789abcdef", CreatedAt: 1,
 		})
 		if err != nil {
@@ -107,7 +107,7 @@ func checkLocalFacts(t *testing.T, local SystemNodeBody) {
 		t.Errorf("local's facts are %+v; want what it said about itself (D225)", local)
 	}
 	checkHardware(t, local.Hardware)
-	if len(local.RecentPrepares) != 1 || local.RecentPrepares[0].FileID != 42 ||
+	if len(local.RecentPrepares) != 1 || local.RecentPrepares[0].SourceFileID != 42 ||
 		local.RecentPrepares[0].VideoEncoder != "h264_qsv" || local.RecentPrepares[0].RealtimeFactor != 6.5 {
 		t.Errorf("local's recent prepares are %+v; want the one it finished, with Quick Sync at 6.5x (D225 §3)",
 			local.RecentPrepares)

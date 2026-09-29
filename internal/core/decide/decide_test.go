@@ -33,7 +33,7 @@ func audio(codec, profile string, channels int, disposition ...string) nodeproto
 }
 
 func file(container string, streams ...nodeproto.ProbeStream) nodeproto.Probe {
-	return nodeproto.Probe{Format: nodeproto.ProbeFormat{Names: []string{container}}, Streams: streams}
+	return nodeproto.Probe{Format: nodeproto.ProbeFormat{FormatNames: []string{container}}, Streams: streams}
 }
 
 // every lists every menu entry, so a test can ask what a stream was placed as.

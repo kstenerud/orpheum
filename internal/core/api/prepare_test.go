@@ -84,7 +84,7 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	sent := command.Prepare
 	if command.Type != nodeproto.CommandPrepare || sent == nil || sent.JobID != 77 ||
 		!strings.HasPrefix(sent.RenditionDir, "2/remux/") ||
-		sent.Source.Root != "/media" || string(sent.Source.Path) != "Film (2002).mkv" ||
+		sent.Source.RootPath != "/media" || string(sent.Source.Path) != "Film (2002).mkv" ||
 		sent.Source.PayloadHash != "0c0d" || len(sent.Audio) != 1 || sent.Audio[0].ChannelCount != 8 {
 		t.Fatalf("the node was sent %+v, want the MKV by root, path and hash, with its 8-channel track", command)
 	}

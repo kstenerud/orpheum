@@ -24,18 +24,18 @@ type EntryBody struct {
 	IdentificationState string `json:"identificationState"`
 	LibraryID           int64  `json:"libraryId"`
 	AddedAt             int64  `json:"addedAt"`
-	PosterHash          string `doc:"Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp" json:"posterHash,omitempty"` //nolint:lll // one struct tag
+	PosterSha256        string `doc:"Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp" json:"posterSha256,omitempty"` //nolint:lll // one struct tag
 }
 
 // ArtBody is the images an item shows, by the hash GET /bytes/art/{hash}/{size}.{format} takes.
 type ArtBody struct {
-	PosterHash   string `json:"posterHash,omitempty"`
-	BackdropHash string `json:"backdropHash,omitempty"`
-	StillHash    string `doc:"An episode's frame" json:"stillHash,omitempty"`
+	PosterSha256   string `json:"posterSha256,omitempty"`
+	BackdropSha256 string `json:"backdropSha256,omitempty"`
+	StillSha256    string `doc:"An episode's frame" json:"stillSha256,omitempty"`
 }
 
 func artBody(art library.Art) ArtBody {
-	return ArtBody{PosterHash: art.Poster, BackdropHash: art.Backdrop, StillHash: art.Still}
+	return ArtBody{PosterSha256: art.Poster, BackdropSha256: art.Backdrop, StillSha256: art.Still}
 }
 
 // TitlesInput asks for one page of films or series.
@@ -57,12 +57,12 @@ type TitlesOutput struct {
 
 // StreamBody is one stream of a file.
 type StreamBody struct {
-	ID           int64   `doc:"Stable while the file is unchanged" json:"id"`
-	Kind         string  `json:"kind"`
-	Codec        *string `json:"codec,omitempty"`
-	Language     *string `doc:"BCP 47" json:"language,omitempty"`
-	Title        *string `json:"title,omitempty"`
-	ChannelCount *int64  `json:"channelCount,omitempty"`
+	ID             int64   `doc:"Stable while the file is unchanged" json:"id"`
+	Kind           string  `json:"kind"`
+	Codec          *string `json:"codec,omitempty"`
+	Language       *string `doc:"BCP 47" json:"language,omitempty"`
+	ContainerTitle *string `json:"containerTitle,omitempty"`
+	ChannelCount   *int64  `json:"channelCount,omitempty"`
 }
 
 // FileDetailBody is one file of a version; its path is shown to an admin only.
@@ -82,9 +82,9 @@ type VersionBody struct {
 
 // ExtraBody is one extra of a title (D162).
 type ExtraBody struct {
-	ID   int64  `json:"id"`
-	Kind string `json:"kind"`
-	Name string `json:"name"`
+	ID        int64  `json:"id"`
+	ExtraType string `json:"extraType"`
+	Name      string `json:"name"`
 }
 
 // EpisodePlaceBody is an episode's series and place in its aired order.
@@ -125,7 +125,7 @@ type EpisodeBody struct {
 	RuntimeMs           int64  `json:"runtimeMs,omitempty"`
 	IdentificationState string `json:"identificationState"`
 	HasLiveFile         bool   `doc:"Whether it has a live file" json:"hasLiveFile"`
-	StillHash           string `doc:"Its still's hash: GET /bytes/art/{hash}/landscape-s.webp" json:"stillHash,omitempty"` //nolint:lll // one struct tag
+	StillSha256         string `doc:"Its still's hash: GET /bytes/art/{hash}/landscape-s.webp" json:"stillSha256,omitempty"` //nolint:lll // one struct tag
 }
 
 // CollectionOutput is a series with its episodes in aired order.
@@ -146,7 +146,7 @@ type CollectionOutput struct {
 // SearchInput is a search.
 type SearchInput struct {
 	AuthorizationHeader
-	Query string `query:"q" required:"true"`
+	Query string `query:"query" required:"true"`
 	Limit int64  `maximum:"100" minimum:"1" query:"limit" required:"true"`
 }
 
@@ -202,7 +202,7 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 		output.Body.Titles = append(output.Body.Titles, EntryBody{
 			ID: entry.ID, Name: entry.Name, Year: entry.Year, IdentificationState: entry.Ident,
 			LibraryID: entry.LibraryID,
-			AddedAt:   entry.AddedAt, PosterHash: entry.Poster,
+			AddedAt:   entry.AddedAt, PosterSha256: entry.Poster,
 		})
 	}
 	output.Body.NextCursor = page.NextCursor
@@ -221,7 +221,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	output := &ItemDetailOutput{}
 	body := &output.Body
 	body.ID, body.Kind, body.Name = detail.ID, detail.Kind, ptr.ValueOrZero(detail.Name)
-	body.IdentificationState = detail.Identification
+	body.IdentificationState = detail.IdentificationState
 	body.Overview = ptr.ValueOrZero(detail.Overview)
 	body.Tagline = ptr.ValueOrZero(detail.Tagline)
 	body.FollowedSource = ptr.ValueOrZero(detail.FollowedSource)
@@ -238,9 +238,9 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 			}
 			for _, stream := range file.Streams {
 				fileBody.Streams = append(fileBody.Streams, StreamBody{
-					ID: stream.ID, Kind: stream.Kind, Codec: stream.Codec, Language: stream.Lang,
-					Title:        stream.TitleRaw,
-					ChannelCount: stream.ChannelCount,
+					ID: stream.ID, Kind: stream.Kind, Codec: stream.Codec, Language: stream.Language,
+					ContainerTitle: stream.ContainerTitle,
+					ChannelCount:   stream.ChannelCount,
 				})
 			}
 			versionBody.Files = append(versionBody.Files, fileBody)
@@ -250,7 +250,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	body.Extras = make([]ExtraBody, 0, len(detail.Extras))
 	for _, extra := range detail.Extras {
 		body.Extras = append(body.Extras, ExtraBody{
-			ID: extra.ExtraTitle, Kind: extra.ExtraType, Name: ptr.ValueOrZero(extra.Name),
+			ID: extra.ExtraTitle, ExtraType: extra.ExtraType, Name: ptr.ValueOrZero(extra.Name),
 		})
 	}
 	body.Art = artBody(detail.Art)
@@ -283,7 +283,7 @@ func (server *Server) getCollection(ctx context.Context, input *ItemInput) (*Col
 	body.ID, body.Kind = series.ID, "series"
 	body.Name, body.Overview = ptr.ValueOrZero(series.Name), ptr.ValueOrZero(series.Overview)
 	body.Year, body.LibraryID = ptr.ValueOrZero(series.Year), ptr.ValueOrZero(series.LibraryID)
-	body.IdentificationState = ptr.ValueOrZero(series.Identification)
+	body.IdentificationState = ptr.ValueOrZero(series.IdentificationState)
 	body.Episodes = make([]EpisodeBody, 0, len(series.Episodes))
 	for _, episode := range series.Episodes {
 		body.Episodes = append(body.Episodes, EpisodeBody{
@@ -291,8 +291,8 @@ func (server *Server) getCollection(ctx context.Context, input *ItemInput) (*Col
 			EpisodeNumber: ptr.ValueOrZero(episode.NumberInGroup),
 			Name:          ptr.ValueOrZero(episode.Name),
 			Year:          ptr.ValueOrZero(episode.Year), RuntimeMs: ptr.ValueOrZero(episode.RuntimeMs),
-			IdentificationState: episode.Identification,
-			HasLiveFile:         episode.Available, StillHash: series.Stills[episode.TitleID],
+			IdentificationState: episode.IdentificationState,
+			HasLiveFile:         episode.Available, StillSha256: series.Stills[episode.TitleID],
 		})
 	}
 	body.Art = artBody(series.Art)

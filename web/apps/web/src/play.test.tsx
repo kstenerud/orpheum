@@ -46,7 +46,7 @@ describe("playing a file", () => {
             notDirectReasons: [],
             isPreparing: false,
             subtitles: [],
-            prefs: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
+            preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
             resumePositionMs: 0,
             mediaToken: "t",
             levelling: unlevelled.levelling,
@@ -75,13 +75,13 @@ describe("playing a file", () => {
             notDirectReasons: ["container", "audio_codec"],
             isPreparing: true,
             subtitles: [],
-            prefs: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
+            preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
             resumePositionMs: 0,
             mediaToken: "t",
             levelling: unlevelled.levelling,
-            audio: [
-              { sourceAudioIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
-              { sourceAudioIndex: 0, language: "en", isDialogueBoosted: true, ...unlevelled },
+            audioRenditions: [
+              { audioTrackIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
+              { audioTrackIndex: 0, language: "en", isDialogueBoosted: true, ...unlevelled },
             ],
           }}
           decideAgain={() => undefined}
@@ -102,21 +102,23 @@ describe("playing a file", () => {
       notDirectReasons: [],
       isPreparing: false,
       subtitles: [],
-      prefs: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
+      preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
       resumePositionMs: 0,
       mediaToken: "t",
       levelling: unlevelled.levelling,
-      audio: [
-        { sourceAudioIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
-        { sourceAudioIndex: 0, language: "en", isDialogueBoosted: true, ...unlevelled },
-        { sourceAudioIndex: 1, language: "de", isDialogueBoosted: false, ...unlevelled },
+      audioRenditions: [
+        { audioTrackIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
+        { audioTrackIndex: 0, language: "en", isDialogueBoosted: true, ...unlevelled },
+        { audioTrackIndex: 1, language: "de", isDialogueBoosted: false, ...unlevelled },
       ],
     };
     expect(boostPair(decision)).toEqual({ standard: 0, boosted: 1 });
     expect(
       boostPair({
         ...decision,
-        audio: [{ sourceAudioIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled }],
+        audioRenditions: [
+          { audioTrackIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
+        ],
       }),
     ).toBe(undefined);
   });

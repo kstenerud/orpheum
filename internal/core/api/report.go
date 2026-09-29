@@ -32,9 +32,9 @@ type ReportInput struct {
 
 // EventBody is one change of play state.
 type EventBody struct {
-	Kind       string `enum:"started,paused,seeked,completed,abandoned" json:"kind"`
-	PositionMs int64  `json:"positionMs" minimum:"0"`
-	AtMonoMs   int64  `json:"atMonoMs"     minimum:"0"`
+	Kind           string `enum:"started,paused,seeked,completed,abandoned" json:"kind"`
+	PositionMs     int64  `json:"positionMs" minimum:"0"`
+	HappenedMonoMs int64  `json:"happenedMonoMs"     minimum:"0"`
 }
 
 // SpanBody is a run of watching, from one position to another between two moments.
@@ -66,7 +66,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	}
 	for _, event := range input.Body.Events {
 		report.Events = append(report.Events, playback.Event{
-			Kind: playback.EventKind(event.Kind), PositionMs: event.PositionMs, MonoMs: event.AtMonoMs,
+			Kind: playback.EventKind(event.Kind), PositionMs: event.PositionMs, MonoMs: event.HappenedMonoMs,
 		})
 	}
 	for _, span := range input.Body.Spans {

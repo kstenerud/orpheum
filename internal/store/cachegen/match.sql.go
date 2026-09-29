@@ -23,20 +23,20 @@ func (q *Queries) DeleteMatchCandidates(ctx context.Context, itemID int64) error
 }
 
 const insertMatchCandidate = `-- name: InsertMatchCandidate :exec
-INSERT INTO match_candidate (item_id, rank, provider, provider_id, name, year, runtime_ms, poster_path)
+INSERT INTO match_candidate (item_id, rank, provider, provider_id, name, year, runtime_ms, provider_poster_path)
 VALUES (?1, ?2, ?3, ?4, ?5,
         ?6, ?7, ?8)
 `
 
 type InsertMatchCandidateParams struct {
-	ItemID     int64
-	Rank       int64
-	Provider   string
-	ProviderID string
-	Name       *string
-	Year       *int64
-	RuntimeMs  *int64
-	PosterPath *string
+	ItemID             int64
+	Rank               int64
+	Provider           string
+	ProviderID         string
+	Name               *string
+	Year               *int64
+	RuntimeMs          *int64
+	ProviderPosterPath *string
 }
 
 func (q *Queries) InsertMatchCandidate(ctx context.Context, arg InsertMatchCandidateParams) error {
@@ -48,13 +48,13 @@ func (q *Queries) InsertMatchCandidate(ctx context.Context, arg InsertMatchCandi
 		arg.Name,
 		arg.Year,
 		arg.RuntimeMs,
-		arg.PosterPath,
+		arg.ProviderPosterPath,
 	)
 	return err
 }
 
 const listMatchCandidates = `-- name: ListMatchCandidates :many
-SELECT item_id, rank, provider, provider_id, name, year, runtime_ms, poster_path
+SELECT item_id, rank, provider, provider_id, name, year, runtime_ms, provider_poster_path
 FROM match_candidate
 WHERE item_id = ?1
 ORDER BY rank
@@ -77,7 +77,7 @@ func (q *Queries) ListMatchCandidates(ctx context.Context, itemID int64) ([]Matc
 			&i.Name,
 			&i.Year,
 			&i.RuntimeMs,
-			&i.PosterPath,
+			&i.ProviderPosterPath,
 		); err != nil {
 			return nil, err
 		}

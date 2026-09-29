@@ -99,7 +99,7 @@ func checkConfinement(
 	for _, state := range confinement {
 		if !state.InForce {
 			logger.WarnContext(ctx, "FFmpeg runs without a confinement mechanism", "mechanism", state.Mechanism,
-				"why", state.Reason, "remedy", state.Remedy)
+				"reason", state.Reason, "remedy", state.Remedy)
 		}
 	}
 	if config.Node.ConfinementPolicy == "require" {
@@ -114,7 +114,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	if err != nil {
 		return err
 	}
-	roots := openRoots(ctx, config.Node.Roots, logger)
+	roots := openRoots(ctx, config.Node.RootPaths, logger)
 	defer func() {
 		for _, root := range roots {
 			if closeErr := root.Close(); closeErr != nil {
@@ -216,7 +216,8 @@ func openPrepared(config Config, runner *execx.Runner, encoder prepare.Encoder) 
 		return preparedDirectory{}, err
 	}
 	shelf := prepared.New(root.Path(), prepared.Budget{
-		MaxBytes: config.Node.PreparedBudgetGiB << 30, Grace: time.Duration(config.Node.PreparedGraceH) * time.Hour,
+		MaxBytes:       config.Node.PreparedBudgetGiB << 30,
+		Grace:          time.Duration(config.Node.PreparedKeptAfterPlayH) * time.Hour,
 		MaxDiskPercent: int(config.Node.PreparedDiskUsedLimitPercent),
 	}, clock.System{})
 	preparer, err := prepare.New(runner, root.Path(), shelf, encoder)

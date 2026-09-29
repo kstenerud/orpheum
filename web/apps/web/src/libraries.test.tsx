@@ -32,7 +32,7 @@ describe("libraries", () => {
             roots: [
               {
                 nodeName: "local",
-                path: "/media/films",
+                rootPath: "/media/films",
                 lastScanOutcome: "withheld",
                 withheldReason: "a third of the files went",
               },

@@ -45,10 +45,10 @@ export function TitleView(props: { readonly title: TitleDetail }): JSX.Element {
   const { title } = props;
   return (
     <article className="title">
-      {title.art.backdropHash === undefined ? null : (
+      {title.art.backdropSha256 === undefined ? null : (
         <img
           className="title__backdrop"
-          src={artUrl(title.art.backdropHash, "landscape-l")}
+          src={artUrl(title.art.backdropSha256, "landscape-l")}
           alt={""}
         />
       )}
@@ -66,10 +66,10 @@ export function TitleView(props: { readonly title: TitleDetail }): JSX.Element {
 function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
   const { art, kind } = props.title;
   if (kind !== "episode") {
-    return <Poster hash={art.posterHash} />;
+    return <Poster hash={art.posterSha256} />;
   }
-  return art.stillHash === undefined ? null : (
-    <img className="title__still" src={artUrl(art.stillHash, "landscape-m")} alt={""} />
+  return art.stillSha256 === undefined ? null : (
+    <img className="title__still" src={artUrl(art.stillSha256, "landscape-m")} alt={""} />
   );
 }
 
@@ -157,7 +157,9 @@ function Extras(props: {
           <li key={extra.id}>
             <Link to={{ screen: "title", id: extra.id }}>{extra.name}</Link>{" "}
             <span>
-              {t(`extraType.${camelKey(extra.kind)}`, { defaultValue: t("extraType.unknown") })}
+              {t(`extraType.${camelKey(extra.extraType)}`, {
+                defaultValue: t("extraType.unknown"),
+              })}
             </span>
           </li>
         ))}

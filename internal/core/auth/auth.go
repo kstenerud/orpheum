@@ -267,7 +267,7 @@ func resumeOrMakeDevice(
 			ID: device.ResumeID, UserID: &userID,
 		}))
 		if err == nil {
-			touch := sqlcgen.TouchDeviceParams{Platform: device.Platform, SeenAt: now, ID: known.ID}
+			touch := sqlcgen.TouchDeviceParams{Platform: device.Platform, SignedInAt: now, ID: known.ID}
 			if touchErr := queries.TouchDevice(ctx, touch); touchErr != nil {
 				return 0, fmt.Errorf("resume device %d: %w", known.ID, touchErr)
 			}
@@ -278,7 +278,7 @@ func resumeOrMakeDevice(
 		}
 	}
 	id, err := queries.InsertDevice(ctx, sqlcgen.InsertDeviceParams{
-		UserID: &userID, Name: device.Name, Platform: device.Platform, SeenAt: now,
+		UserID: &userID, Name: device.Name, Platform: device.Platform, SignedInAt: now,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("record the device: %w", err)

@@ -129,7 +129,8 @@ func fetchedTracksOf(rows []sqlcgen.ListFetchedSubtitlesOfVideoRow) []SubtitleTr
 	tracks := make([]SubtitleTrack, 0, len(rows))
 	for _, row := range rows {
 		tracks = append(tracks, SubtitleTrack{
-			TrackRef: TrackRef{FetchedSubtitleID: row.ID}, Language: row.Lang, Title: ptr.ValueOrZero(row.ReleaseName),
+			TrackRef: TrackRef{FetchedSubtitleID: row.ID}, Language: row.Language,
+			Title: ptr.ValueOrZero(row.ReleaseName),
 		})
 	}
 	return tracks
@@ -156,8 +157,8 @@ func tracksOf(rows []sqlcgen.ListSubtitleTracksOfVideoRow) []SubtitleTrack {
 	tracks := make([]SubtitleTrack, 0, len(rows))
 	for _, row := range rows {
 		tracks = append(tracks, SubtitleTrack{
-			TrackRef: TrackRef{StreamID: row.ID}, Language: ptr.ValueOrZero(row.Lang),
-			Title:           ptr.ValueOrZero(row.TitleRaw),
+			TrackRef: TrackRef{StreamID: row.ID}, Language: ptr.ValueOrZero(row.Language),
+			Title:           ptr.ValueOrZero(row.ContainerTitle),
 			Default:         row.DispositionFlags&library.DispositionBit("default") != 0,
 			Forced:          row.DispositionFlags&library.DispositionBit("forced") != 0,
 			HearingImpaired: row.DispositionFlags&library.DispositionBit("hearing_impaired") != 0,

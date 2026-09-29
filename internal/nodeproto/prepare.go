@@ -57,11 +57,11 @@ type Prepare struct {
 type PrepareAudio struct {
 	// AudioTrackIndex is the track's place among the source's audio tracks, as FFmpeg's 0:a:<index>.
 	AudioTrackIndex int    `json:"audioTrackIndex"`
-	LanguageTag     string `json:"languageTag,omitempty"`
+	Language        string `json:"language,omitempty"`
 	ChannelCount    int    `json:"channelCount"`
-	// GainDB is put in each of the track's mixes, so a player that cannot apply a gain itself, as
+	// CarriedGainDB is put in each of the track's mixes, so a player that cannot apply a gain itself, as
 	// Safari's own HLS cannot, plays it levelled (D226 §4); 0 for a track not measured yet.
-	GainDB float64 `json:"gainDb,omitempty"`
+	CarriedGainDB float64 `json:"carriedGainDb,omitempty"`
 }
 
 // PrepareState is where a prepare is.

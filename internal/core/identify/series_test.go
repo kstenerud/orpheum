@@ -92,7 +92,8 @@ func checkOrbitorama(t *testing.T, lib *world, when string) {
 	files := lib.files()
 	clone, missing := files[orbitoramaFiles[0]], files[orbitoramaFiles[1]]
 	fromTMDB := clone.FollowedSource != nil && *clone.FollowedSource == sourceTMDB
-	if name(clone) != "A Comet of My Own" || clone.Identification != identIdentified || clone.Filing != filingListed ||
+	if name(clone) != "A Comet of My Own" || clone.IdentificationState != identIdentified ||
+		clone.Filing != filingListed ||
 		!fromTMDB || clone.Year == nil || *clone.Year != 2000 {
 		t.Errorf("%s: S02E10 = %+v named %q", when, clone, name(clone))
 	}
@@ -102,7 +103,8 @@ func checkOrbitorama(t *testing.T, lib *world, when string) {
 	}
 	series := lib.onlySeries()
 	got := []string{
-		ptr.ValueOrZero(series.Name), strconv.FormatInt(deref(series.Year), 10), ptr.ValueOrZero(series.Identification),
+		ptr.ValueOrZero(series.Name), strconv.FormatInt(deref(series.Year), 10),
+		ptr.ValueOrZero(series.IdentificationState),
 		ptr.ValueOrZero(series.FollowedSource), ptr.ValueOrZero(series.FollowedSourceID),
 	}
 	if want := []string{"Orbitorama", "1999", identIdentified, sourceTMDB, "7615"}; !slices.Equal(got, want) {
@@ -163,7 +165,7 @@ func TestSeries_AnAmbiguousSeriesIsChosenByAPerson(t *testing.T) {
 	if got := name(lib.files()[rel]); got != "The Dundies" {
 		t.Errorf("after choosing the American series: %q", got)
 	}
-	if ident := ptr.ValueOrZero(lib.onlySeries().Identification); ident != identConfirmed {
+	if ident := ptr.ValueOrZero(lib.onlySeries().IdentificationState); ident != identConfirmed {
 		t.Errorf("the chosen series is %s, want confirmed", ident)
 	}
 	episode := lib.files()[rel].TitleID

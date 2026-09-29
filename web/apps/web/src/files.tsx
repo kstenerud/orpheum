@@ -69,7 +69,14 @@ export function ReasonGroups(props: { readonly files: readonly SeenFile[] }): JS
               <li key={file.id}>
                 <code>{file.path}</code>
                 {file.errorDetail === undefined ? null : (
-                  <p>{t("files.detail", { detail: file.errorDetail })}</p>
+                  <p>
+                    {t("files.detail", {
+                      text: file.errorDetail.text,
+                      owner: file.errorDetail.ownerUid,
+                      group: file.errorDetail.groupGid,
+                      mode: file.errorDetail.modeText,
+                    })}
+                  </p>
                 )}
               </li>
             ))}

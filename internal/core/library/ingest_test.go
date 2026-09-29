@@ -71,16 +71,16 @@ func hashOf(content string) string {
 
 func observed(path, content string) nodeproto.Record {
 	return nodeproto.Record{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
-		Path: nodeproto.Path{Text: path}, SizeBytes: int64(len(content)), MtimeMs: 1,
+		Path: nodeproto.Path{Text: path}, SizeBytes: int64(len(content)), ModifiedAt: 1,
 		Identity: nodeproto.Identity{
 			Scheme: "payload-v1", Anchor: "whole-file", PayloadHash: hashOf(content), PayloadBytes: 1,
 		},
 		Probe: nodeproto.Probe{Streams: []nodeproto.ProbeStream{
 			{StreamIndex: 0, Kind: "video", Codec: "h264"},
 			{
-				StreamIndex: 1, Kind: "audio", Codec: "aac", ContainerLanguage: "ger", LanguageTag: "de",
-				Title:       "Deutsch",
-				Disposition: []string{"default", "forced"}, Audio: nodeproto.ProbeAudio{ChannelCount: 6},
+				StreamIndex: 1, Kind: "audio", Codec: "aac", ContainerLanguage: "ger", Language: "de",
+				ContainerTitle: "Deutsch",
+				Disposition:    []string{"default", "forced"}, Audio: nodeproto.ProbeAudio{ChannelCount: 6},
 			},
 			{StreamIndex: 2, Kind: "data", Codec: "bin_data"},
 		}},
@@ -96,14 +96,17 @@ func skipped(path string, rule nodeproto.SkipRule) nodeproto.Record {
 func failed(path string, scope nodeproto.ErrorScope) nodeproto.Record {
 	return nodeproto.Record{Type: nodeproto.RecordError, Error: &nodeproto.Error{
 		Path: nodeproto.Path{Text: path}, Scope: scope, Code: nodeproto.CodePermissionDenied, OccurrenceCount: 1,
-		Platform: nodeproto.PlatformError{Text: "permission denied", OwnerUID: 0, GroupGID: 0, ModeText: "-rw-------"},
+		PlatformError: nodeproto.PlatformError{
+			Text: "permission denied", OwnerUID: 0, GroupGID: 0,
+			ModeText: "-rw-------",
+		},
 	}}
 }
 
 // scan sends one scan of root: begin, the records, and complete unless the scan is cut off.
 func (world *harness) scan(records []nodeproto.Record, completes bool) {
 	world.t.Helper()
-	world.scanOn(nodeproto.ScanBegin{Root: root, FilesystemDevice: 7, IsMountPoint: true}, records, completes)
+	world.scanOn(nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 7, IsMountPoint: true}, records, completes)
 }
 
 // scanOn is scan with the root's filesystem facts as the node reports them.
@@ -113,7 +116,7 @@ func (world *harness) scanOn(facts nodeproto.ScanBegin, records []nodeproto.Reco
 	begin := nodeproto.Record{Type: nodeproto.RecordScanBegin, ScanBegin: &facts}
 	all := append([]nodeproto.Record{begin}, records...)
 	if completes {
-		complete := &nodeproto.ScanComplete{Root: root}
+		complete := &nodeproto.ScanComplete{RootPath: root}
 		all = append(all, nodeproto.Record{Type: nodeproto.RecordScanComplete, ScanComplete: complete})
 	}
 	for index := range all {
@@ -181,7 +184,8 @@ func (world *harness) checkStreams(fileID int64) {
 	if err != nil {
 		world.t.Fatal(err)
 	}
-	if len(streams) != 2 || streams[1].Kind != "audio" || *streams[1].LangRaw != "ger" || *streams[1].Lang != "de" ||
+	if len(streams) != 2 || streams[1].Kind != "audio" || *streams[1].ContainerLanguage != "ger" ||
+		*streams[1].Language != "de" ||
 		streams[1].DispositionFlags != 0x41 || *streams[1].ChannelCount != 6 {
 		world.t.Errorf("streams = %+v, want the video and the audio (default and forced), no data stream", streams)
 	}
@@ -262,11 +266,11 @@ func TestIngest_ARootNoLibraryCoversIsNotStored(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	records := []nodeproto.Record{
-		{ReportSeq: 1, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: "/media/elsewhere"}},
+		{ReportSeq: 1, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: "/media/elsewhere"}},
 		observed("x.mkv", "x"),
 		{
 			ReportSeq: 3, Type: nodeproto.RecordScanComplete,
-			ScanComplete: &nodeproto.ScanComplete{Root: "/media/elsewhere"},
+			ScanComplete: &nodeproto.ScanComplete{RootPath: "/media/elsewhere"},
 		},
 	}
 	if err := world.ingester.Records(t.Context(), world.nodeID, records); err != nil {
@@ -313,9 +317,9 @@ func TestIngest_AFileInAnotherRootIsNeverTakenForAMove(t *testing.T) {
 	// only because it is in another root, so it is not absent: this is a duplicate, not a move.
 	world.clock.Advance(time.Minute)
 	records := []nodeproto.Record{
-		{ReportSeq: 100, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: shows}},
+		{ReportSeq: 100, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: shows}},
 		observed("Episode.mkv", "same bytes"),
-		{ReportSeq: 102, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{Root: shows}},
+		{ReportSeq: 102, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: shows}},
 	}
 	if err := world.ingester.Records(t.Context(), world.nodeID, records); err != nil {
 		t.Fatal(err)
@@ -334,7 +338,10 @@ func rootStateParams(nodeID int64) sqlcgen.GetRootStateParams {
 }
 
 func sidecar(path string, kind nodeproto.SidecarKind, body string) nodeproto.Record {
-	record := &nodeproto.Sidecar{Path: nodeproto.Path{Text: path}, Kind: kind, SizeBytes: int64(len(body)), MtimeMs: 1}
+	record := &nodeproto.Sidecar{
+		Path: nodeproto.Path{Text: path}, Kind: kind, SizeBytes: int64(len(body)),
+		ModifiedAt: 1,
+	}
 	if kind == nodeproto.SidecarNFO {
 		record.NFOBody = []byte(body)
 	}
@@ -433,7 +440,7 @@ func TestIngest_WhatANodeReportsIsCleanWhereItEnters(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	hostile := observed("evil\u202Evkm.mkv", "hostile")
-	hostile.Observed.Probe.Streams[1].Title = "Commentary\u2066\u0007\u200B"
+	hostile.Observed.Probe.Streams[1].ContainerTitle = "Commentary\u2066\u0007\u200B"
 	world.scan([]nodeproto.Record{hostile}, true)
 	rows, err := world.database.Read().ListLiveFilesByNode(t.Context(), world.nodeID)
 	if err != nil || len(rows) != 1 {
@@ -445,7 +452,8 @@ func TestIngest_WhatANodeReportsIsCleanWhereItEnters(t *testing.T) {
 			file.Path, file.ReportedPathBytes)
 	}
 	streams, err := world.database.Read().ListStreamsOfFile(t.Context(), file.ID)
-	if err != nil || len(streams) < 2 || streams[1].TitleRaw == nil || *streams[1].TitleRaw != "Commentary" {
+	if err != nil || len(streams) < 2 || streams[1].ContainerTitle == nil ||
+		*streams[1].ContainerTitle != "Commentary" {
 		t.Errorf("streams %+v, %v; want the track title clean", streams, err)
 	}
 }
@@ -455,9 +463,9 @@ func TestIngest_KeepsAVideosOpenSubtitlesHashOnlyInItsOwnShape(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	hashed := observed("hashed.mkv", "hashed")
-	hashed.Observed.OpenSubtitlesHash = "8e245d9679d31e12"
+	hashed.Observed.OpensubtitlesHash = "8e245d9679d31e12"
 	hostile := observed("hostile.mkv", "hostile")
-	hostile.Observed.OpenSubtitlesHash = "8e245d9679d31e12&moviehash_match=only"
+	hostile.Observed.OpensubtitlesHash = "8e245d9679d31e12&moviehash_match=only"
 	world.scan([]nodeproto.Record{hashed, hostile}, true)
 	rows, err := world.database.Read().ListLiveFilesByNode(t.Context(), world.nodeID)
 	if err != nil || len(rows) != 2 {

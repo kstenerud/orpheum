@@ -53,18 +53,18 @@ type SettingOutput struct {
 
 // UnusedBody is a setting row this release does not read (D202).
 type UnusedBody struct {
-	Key        string          `json:"key"`
-	Scope      string          `enum:"server,user" json:"scope"`
-	UserID     *int64          `json:"userId,omitempty"`
-	Value      json.RawMessage `json:"value"`
-	RetiredIn  string          `doc:"The release that stopped reading it; empty for a typo" json:"retiredIn,omitempty"`
-	RetiredWhy string          `json:"retiredWhy,omitempty"`
+	Key           string          `json:"key"`
+	Scope         string          `enum:"server,user" json:"scope"`
+	UserID        *int64          `json:"userId,omitempty"`
+	Value         json.RawMessage `json:"value"`
+	RetiredIn     string          `doc:"The release that stopped reading it; empty for a typo" json:"retiredIn,omitempty"` //nolint:lll // one struct tag
+	RetiredReason string          `json:"retiredReason,omitempty"`
 }
 
 // UnusedOutput lists the unused rows.
 type UnusedOutput struct {
 	Body struct {
-		Unused []UnusedBody `json:"unused"`
+		UnusedSettings []UnusedBody `json:"unusedSettings"`
 	}
 }
 
@@ -132,7 +132,7 @@ func (server *Server) putConfig(ctx context.Context, input *PutSettingsInput) (*
 	if err != nil {
 		return nil, err
 	}
-	return server.putSettings(ctx, dependencies.Settings, nil, input.Body.Values, principal.UserID, false)
+	return server.putSettings(ctx, dependencies.Settings, nil, input.Body.ValuesByKey, principal.UserID, false)
 }
 
 func (server *Server) resetConfig(ctx context.Context, input *ConfigKeyInput) (*SettingOutput, error) {
@@ -169,15 +169,15 @@ func (server *Server) getUnused(ctx context.Context, input *AuthorizationHeader)
 		return nil, server.internal(ctx, "list unused settings", err)
 	}
 	output := &UnusedOutput{}
-	output.Body.Unused = []UnusedBody{}
+	output.Body.UnusedSettings = []UnusedBody{}
 	for _, row := range unused {
 		body := UnusedBody{
 			Key: row.Key, Scope: string(row.Scope), UserID: row.UserID, Value: json.RawMessage(row.Value),
 		}
 		if row.Retired != nil {
-			body.RetiredIn, body.RetiredWhy = row.Retired.Release, row.Retired.Why
+			body.RetiredIn, body.RetiredReason = row.Retired.Release, row.Retired.Why
 		}
-		output.Body.Unused = append(output.Body.Unused, body)
+		output.Body.UnusedSettings = append(output.Body.UnusedSettings, body)
 	}
 	return output, nil
 }

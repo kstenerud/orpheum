@@ -6,7 +6,7 @@
 SELECT kind FROM item WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: GetSeriesForMatch :one
-SELECT collection.id, collection.year, collection.followed_source, collection.followed_source_id, collection.identification,
+SELECT collection.id, collection.year, collection.followed_source, collection.followed_source_id, collection.identification_state,
   item.library_id, library.metadata_source, item_text.name
 FROM collection
 JOIN item ON item.id = collection.id
@@ -17,7 +17,7 @@ WHERE collection.id = sqlc.arg(id) AND collection.kind = 'series' AND item.remov
 -- name: SetSeriesMatch :exec
 -- The outcome of a series' match. A confirmed match is a person's and stays (D172).
 UPDATE collection SET followed_source_id = sqlc.arg(followed_source_id),
-  identification = CASE WHEN identification = 'confirmed' THEN identification ELSE sqlc.arg(identification) END
+  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id) AND kind = 'series';
 
 -- name: MarkSeriesUnmatched :exec
@@ -28,14 +28,14 @@ WHERE id = sqlc.arg(id) AND kind = 'series' AND followed_source IS NULL;
 -- name: UpdateSeriesResolved :exec
 -- A pass's resolution of a series' own fields; its match is the matcher's and a person's.
 UPDATE collection SET year = sqlc.arg(year), followed_source = sqlc.arg(followed_source),
-  identification = CASE WHEN identification IN ('identified', 'ambiguous', 'confirmed') THEN identification ELSE sqlc.arg(identification) END
+  identification_state = CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id) AND kind = 'series';
 
 -- name: ListSeriesEpisodes :many
 -- A series' episodes in its aired order, with where each takes its values from and when it
 -- first appeared: a new episode missing from a season listing fetched before it arrived is
 -- what fetches that listing again (D209 section 3).
-SELECT position.title_id, position.group_number, position.number_in_group, title.followed_source, item.created_at
+SELECT position.title_id, position.group_number, position.number_in_group, title.followed_source, item.added_at
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 JOIN title ON title.id = position.title_id
@@ -57,12 +57,12 @@ WHERE position.title_id = sqlc.arg(title_id) AND ordering.name = 'aired';
 
 -- name: ListSeriesByIdent :many
 -- The series in one state of identification, for the chooser's list.
-SELECT collection.id, collection.year, collection.identification, collection.followed_source, collection.followed_source_id,
+SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
   item.library_id, item_text.name
 FROM collection
 JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
-WHERE collection.kind = 'series' AND collection.identification = sqlc.arg(identification) AND item.removed_at IS NULL
+WHERE collection.kind = 'series' AND collection.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
 ORDER BY item_text.name, collection.id;
 
 -- name: ListSeriesAwaitingMatch :many
@@ -72,7 +72,7 @@ FROM collection
 JOIN item ON item.id = collection.id
 JOIN library ON library.id = item.library_id
 WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND collection.kind = 'series'
-  AND library.metadata_source != 'nfo' AND collection.identification = 'unidentified'
+  AND library.metadata_source != 'nfo' AND collection.identification_state = 'unidentified'
   AND collection.followed_source IS NOT 'none'
   AND EXISTS (
     SELECT 1 FROM ordering

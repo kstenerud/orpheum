@@ -90,7 +90,7 @@ func TestFinish_RecordsWhatMadeTheVideoAndHowFast(t *testing.T) {
 	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		var insertErr error
 		rendition, insertErr = queries.InsertRendition(t.Context(), cachegen.InsertRenditionParams{
-			SourceFile: 3, SourcePayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthS: 6,
+			SourceFile: 3, SourcePayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthSeconds: 6,
 			RunID: "0123456789abcdef", CreatedAt: 1,
 		})
 		return insertErr

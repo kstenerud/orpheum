@@ -24,7 +24,7 @@ type itemText struct {
 // (principles §22).
 func (work *run) writeText(ctx context.Context, itemID int64, text itemText) error {
 	err := work.queries.UpsertOriginalText(ctx, sqlcgen.UpsertOriginalTextParams{
-		ItemID: itemID, Lang: langUnknown, Name: text.name, Overview: optional(text.overview),
+		ItemID: itemID, Language: langUnknown, Name: text.name, Overview: optional(text.overview),
 		Tagline: optional(text.tagline), SearchAlternates: optional(textindex.Fold(text.name)),
 	})
 	if err != nil {

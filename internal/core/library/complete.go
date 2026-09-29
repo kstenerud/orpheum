@@ -27,8 +27,8 @@ const (
 // root_state are written in this batch's transaction, together.
 func (work *batch) complete(ctx context.Context, scan *scanState, complete *nodeproto.ScanComplete) error {
 	delete(work.ingester.scans, work.nodeID)
-	if complete.Root != scan.root {
-		return fmt.Errorf("scan_complete names %s, but the scan in progress is of %s", complete.Root, scan.root)
+	if complete.RootPath != scan.root {
+		return fmt.Errorf("scan_complete names %s, but the scan in progress is of %s", complete.RootPath, scan.root)
 	}
 	if err := work.concludeMoves(ctx, scan); err != nil {
 		return err
@@ -106,7 +106,7 @@ func (work *batch) missingMounts(ctx context.Context, scan *scanState) (map[stri
 		missing[mount.MountPath] = true
 		scan.unread = append(scan.unread, mount.MountPath)
 		work.ingester.logger.WarnContext(ctx, "a disk mounted inside a root is not there; nothing under it was removed",
-			"nodeId", work.nodeID, "root", scan.root, "mount", mount.MountPath)
+			"nodeId", work.nodeID, "rootPath", scan.root, "mountPath", mount.MountPath)
 	}
 	return missing, nil
 }

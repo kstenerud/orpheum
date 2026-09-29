@@ -91,7 +91,7 @@ func (work *run) mapLocalArtwork() {
 		if !found {
 			continue
 		}
-		choice.ref.Ref = LocalRef(file.ID, deref(file.SizeBytes), deref(file.MtimeMs))
+		choice.ref.Ref = LocalRef(file.ID, deref(file.SizeBytes), deref(file.ModifiedAt))
 		if chosen[itemID] == nil {
 			chosen[itemID] = map[string]localChoice{}
 		}

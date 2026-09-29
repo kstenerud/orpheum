@@ -86,7 +86,7 @@ function SearchFor(props: { readonly query: string }): JSX.Element {
   const [hits] = useResource(`search/${props.query}`, async () => {
     const data = dataOrThrow(
       await api.GET("/search", {
-        params: { query: { q: props.query, limit: 100 } },
+        params: { query: { query: props.query, limit: 100 } },
       }),
     );
     return data.results ?? [];

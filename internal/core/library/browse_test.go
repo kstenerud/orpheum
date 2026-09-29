@@ -32,7 +32,7 @@ func newShelf(t *testing.T) *shelf {
 func name(t *testing.T, queries *sqlcgen.Queries, itemID int64, listing, text string) {
 	t.Helper()
 	err := queries.UpsertOriginalText(t.Context(), sqlcgen.UpsertOriginalTextParams{
-		ItemID: itemID, Lang: "und", Name: text, SearchAlternates: new(textindex.Fold(text)),
+		ItemID: itemID, Language: "und", Name: text, SearchAlternates: new(textindex.Fold(text)),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -60,12 +60,12 @@ func (world *shelf) film(text, path string) int64 {
 	err := world.database.Write(world.t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
 		titleID, err = queries.InsertItem(world.t.Context(), sqlcgen.InsertItemParams{
-			Kind: "title", LibraryID: new(int64(1)), CreatedAt: world.clock.Now().UnixMilli(),
+			Kind: "title", LibraryID: new(int64(1)), AddedAt: world.clock.Now().UnixMilli(),
 		})
 		if err != nil {
 			return err
 		}
-		film := sqlcgen.InsertTitleParams{ID: titleID, Kind: "movie", Identification: "identified"}
+		film := sqlcgen.InsertTitleParams{ID: titleID, Kind: "movie", IdentificationState: "identified"}
 		err = queries.InsertTitle(world.t.Context(), film)
 		if err != nil {
 			return err

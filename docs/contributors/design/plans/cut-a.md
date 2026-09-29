@@ -108,9 +108,9 @@ loop to work:**
   ([D200](../../decisions/working-notes.md), [D202](../../decisions/working-notes.md)). Paths arrive absolute (the loop renders them).
   - `[server]`: `listen`, `data_dir`, `cache_dir`, `read_header_timeout_s`, `shutdown_grace_s`
   - `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
-  - `[node]`: `roots`, `ffmpeg_dir`, and `confinement_policy`, which is `"require"` or
+  - `[node]`: `root_paths`, `ffmpeg_dir`, and `confinement_policy`, which is `"require"` or
     `"report"`; a production install writes `"require"`. `prepared_dir`, `prepared_budget_gib`
-    (200), `prepared_grace_h` (72) and `prepared_disk_used_limit_percent` (95) keep the prepared
+    (200), `prepared_kept_after_play_h` (72) and `prepared_disk_used_limit_percent` (95) keep the prepared
     renditions within D217 §5's budget.
   - `[log]`: `level`, `format` (`text` or `json`)
 
@@ -119,7 +119,7 @@ loop to work:**
 
   This is the D182 §3 file: only what must exist before the database opens. Unknown keys are
   reported and ignored, never fatal ([packaging-history.md](../research/packaging-history.md)
-  lesson 11). pprof and `/metrics` are the `serve_debug_pprof` and `serve_debug_metrics` settings, served on
+  lesson 11). pprof and `/metrics` are the `should_serve_debug_pprof` and `should_serve_debug_metrics` settings, served on
   the listen address only when it is loopback; every opinionated value is a setting (D200).
 - **`orpheum dev seed --config <file> --seed <file>`, in `-tags dev` builds only** (M1 for the
   users and settings, M2 for the libraries). It applies [`dev/seed.toml`](../../../../dev/seed.toml):
@@ -183,7 +183,7 @@ with the file channel deleted.
 | Request | Body |
 | --- | --- |
 | `POST /node/v1/hello` | its `name`, version, `ffmpegVersion` and `ffmpegSha256`, its `rootPaths`, capabilities (`remux`, `aac`, `h264_qsv`, `h264_nvenc`, `x264`), confinement report per mechanism with errno and remedy ([D112](../../decisions/working-notes.md)) |
-| `POST /node/v1/report` | a JSONL stream, one record per line, each with its `reportSeq`. Record types: `scan_begin{root, filesystemDevice, isMountPoint, isReadOnly}`, `observed{path, sizeBytes, mtimeMs, identity{payloadHash, payloadBytes}, probe}`, `sidecar{path, kind, sizeBytes, mtimeMs, nfoBody}`, `mount{path, filesystemDevice}`, `skip{path, rule}`, `error{path, scope, code, occurrenceCount, platform}`, `scan_complete{root, observedCount, sidecarCount, skippedCount, errorCount, isStoppedByErrors}`, `status{sentAt, activity, preparedUsage, disks}`. A job's progress and end are posted to its own path, not reported (D227 renamed these fields) |
+| `POST /node/v1/report` | a JSONL stream, one record per line, each with its `reportSeq`. Record types: `scan_begin{rootPath, filesystemDevice, isMountPoint, isReadOnly}`, `observed{path, sizeBytes, modifiedAt, identity{payloadHash, payloadBytes}, probe, opensubtitlesHash}`, `sidecar{path, kind, sizeBytes, modifiedAt, nfoBody}`, `mount{path, filesystemDevice}`, `skip{path, rule}`, `error{path, scope, code, occurrenceCount, platformError}`, `scan_complete{rootPath, observedCount, sidecarCount, skippedCount, errorCount, isStoppedByErrors}`, `status{sentAt, activity, preparedUsage, disks}`. A job's progress and end are posted to its own path, not reported (D227 renamed these fields) |
 | `GET /node/v1/commands?afterCommandSeq=<commandSeq>` | long-poll; returns the next commands |
 
 **Commands** (core → node, delivered by the long-poll):
@@ -223,8 +223,8 @@ single-playback token that the core maps to a grant.
 | Settings | `GET/PUT /settings` (server scope, admin; what the settings page shows); `GET/PUT /config` (`?onlyModified=true`; with the config file's keys, read-only), `POST /config/{key}/reset`, `GET /config/unused`, `DELETE /config/unused/{key}` (every server setting beside its starting value, admin; D200, D202); `GET/PUT /me/settings`; `GET /secrets`, `PUT /secrets/{name}`, `DELETE /secrets/{name}` (admin; every secret is the server's, D224 §9; write-only: `GET` shows `isSet`, `hint` and `needsReentry`, never a value — [D194](../../decisions/working-notes.md)); `PUT /me/devices/{id}` (name, `audioOutput`, asked on first playback — D184) |
 | Libraries | `POST /libraries` (the three questions, D184); `GET /libraries`; `GET /nodes` (each node and the roots it configured, for a new library; P24); `POST /libraries/{id}/scan`; `GET /files?filing=&libraryId=&cursor=&limit=` (what the scanner saw, D163); `POST /libraries/{id}/removals` (approve a root's withheld removals) and `POST /libraries/{id}/mounts/gone` (a disk missing from a mount point is gone for good) — the admin's two answers D208 asks for (plan-deviations P18) |
 | Identification | `GET /items?identificationState=ambiguous` (titles and series; the parameter was `ident`, then `identification`, until D227); `GET /items/{id}/candidates`; `POST /items/{id}/match`; `PUT /items/{id}/overrides/{field}`; `DELETE /items/{id}/overrides/{field}`; `POST /items/{id}/refresh` (a person's refresh, whenever they like — [D213](../../decisions/working-notes.md), plan-deviations P21) — under `/items` since a series is what is identified for shows ([D209](../../decisions/working-notes.md), plan-deviations P16) |
-| Browse | `GET /home` (Continue Watching, Next Up, recently added); `GET /titles?kind=&sort=&cursor=`; `GET /collections/{id}` (a series); `GET /items/{id}` (detail with editions, versions, files, streams, extras); `GET /search?q=`; `GET /bytes/art/{hash}/{variant}` (a variant is a size and a format: `portrait-m.webp`) |
-| Play state | `POST /playback/{id}/report` (state changes and spans with the device's sequence, D81/D165); `POST /items/{id}/hide`, `DELETE /items/{id}/hide` (undo); `PUT /files/{id}/prefs` (sync offset, track choices); `PUT /me/prefs` (the person's own: the dialogue boost, D222 §3, D223 §10; loudness levelling, D226 §5) |
+| Browse | `GET /home` (Continue Watching, Next Up, recently added); `GET /titles?kind=&sort=&cursor=`; `GET /collections/{id}` (a series); `GET /items/{id}` (detail with editions, versions, files, streams, extras); `GET /search?query=`; `GET /bytes/art/{sourceSha256}/{variant}` (a variant is a size and a format: `portrait-m.webp`) |
+| Play state | `POST /playback/{id}/report` (state changes and spans with the device's sequence, D81/D165); `POST /items/{id}/hide`, `DELETE /items/{id}/hide` (undo); `PUT /files/{id}/preferences` (sync offset, subtitle choice); `PUT /me/preferences` (the person's own: the dialogue boost, D222 §3, D223 §10; loudness levelling, D226 §5) |
 | Playback | `POST /playback` → the decision (§6); `GET /bytes/media/direct/{token}` (range, relayed); `GET /bytes/media/hls/{token}/{name}` (playlists, init, segments, relayed); `GET /bytes/media/sub/{token}/{stream}.{ass,vtt}` — every byte path under `/bytes/`, the media cookie's one scope ([D216](../../decisions/working-notes.md)); `POST /files/{id}/prepare` ("Get this ready") |
 | Subtitles | `GET /files/{id}/subtitle-candidates?language=` (unverified in Cut A); `POST /files/{id}/subtitles` (fetch one; spends one of the user's daily downloads) |
 | Watch Together | `POST /together` (host: item, abilities → session and link); `POST /together/join` (link → membership credential); `GET /together/ws` (WebSocket, §5.1); `GET /together/{id}/ice` (short-lived TURN credentials); `POST /together/{id}/rotate`, `POST /together/{id}/eject/{member}` (host) |
@@ -270,7 +270,7 @@ recorded.
 One shape everywhere, one enumeration shared by the Go server and the SDK:
 
 ```json
-{"error": {"code": "prepare_failed", "message": "…", "detail": {"…": "…"}, "hop": "node"}}
+{"error": {"code": "prepare_failed", "message": "…", "detail": {"…": "…"}, "failedHop": "node"}}
 ```
 
 `code` is one of:
@@ -281,7 +281,7 @@ One shape everywhere, one enumeration shared by the Go server and the SDK:
 - `preparing` (with `425`: a rendition's file does not exist yet; ask again after `Retry-After`),
   `prepare_failed`, `migrating`, `internal`
 
-`hop`, where present, names the failing leg for reachability errors: `client`, `core`, `node`,
+`failedHop`, where present, names the failing leg for reachability errors: `client`, `core`, `node`,
 `provider` or `tunnel` ([remote-access.md](remote-access.md)).
 
 **The transcode reason** travels in the playback decision, not as an error. It is one of:

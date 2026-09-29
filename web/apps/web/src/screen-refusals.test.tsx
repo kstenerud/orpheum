@@ -33,7 +33,7 @@ const library: components["schemas"]["LibraryBody"] = {
   roots: [
     {
       nodeName: "local",
-      path: "/media/films",
+      rootPath: "/media/films",
       lastScanOutcome: "withheld",
       withheldReason: "gone",
     },
@@ -56,7 +56,7 @@ const secret: components["schemas"]["SecretBody"] = {
 };
 
 const setting = {
-  key: "scan_on_node_hello",
+  key: "should_scan_on_node_hello",
   kind: "bool",
   description: "scan on hello",
   value: true,
@@ -134,7 +134,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "GET /secrets": [200, { secrets: [secret] }],
       "GET /config": [200, { settings: [setting] }],
       "PUT /secrets/tmdb_api_key": refusal(409, "conflict"),
-      "POST /config/scan_on_node_hello/reset": refusal(404, "not_found"),
+      "POST /config/should_scan_on_node_hello/reset": refusal(404, "not_found"),
     });
     mounted = await mount(withServices(<Settings />, services));
     await submit(mounted.container.querySelector('form[aria-labelledby="secret-tmdb_api_key"]'));
@@ -183,7 +183,7 @@ describe("a request that never reaches the server says so, rather than nothing",
     const services = servedBy({
       "GET /secrets": [200, { secrets: [secret] }],
       "GET /config": [200, { settings: [setting] }],
-      "POST /config/scan_on_node_hello/reset": unreachable,
+      "POST /config/should_scan_on_node_hello/reset": unreachable,
     });
     mounted = await mount(withServices(<Settings />, services));
     await click(button(mounted.container, "Reset to the starting value"));

@@ -19,7 +19,7 @@ const tagLibraries = "Libraries"
 // RootBody is one of a library's roots, and whether its files are available (D208).
 type RootBody struct {
 	NodeName string `json:"nodeName"`
-	Path     string `json:"path"`
+	RootPath string `json:"rootPath"`
 	// LastScanOutcome is the last scan's: complete, unreadable or withheld; empty before the first.
 	LastScanOutcome string `enum:"complete,unreadable,withheld," json:"lastScanOutcome"`
 	LastScanAt      int64  `json:"lastScanAt,omitempty"`
@@ -113,17 +113,26 @@ type FilesInput struct {
 	Limit     int64  `maximum:"1000" minimum:"1" query:"limit" required:"true"`
 }
 
+// ErrorDetailBody is why the node could not read a file, as the platform said it (D163).
+type ErrorDetailBody struct {
+	Text            string `doc:"The platform's words"                        json:"text"`
+	OwnerUID        int    `json:"ownerUid"`
+	GroupGID        int    `json:"groupGid"`
+	ModeText        string `doc:"The file's mode, as ls shows it: -rw-------" json:"modeText"`
+	OccurrenceCount int    `doc:"How often the node met it"                   json:"occurrenceCount"`
+}
+
 // FileBody is one file as the scanner saw it (D163).
 type FileBody struct {
-	ID           int64   `json:"id"`
-	LibraryID    int64   `json:"libraryId"`
-	Path         string  `json:"path"`
-	Filing       string  `json:"filing"`
-	FilingReason *string `json:"filingReason,omitempty"`
-	ErrorDetail  *string `doc:"Owner, group, mode; the platform's words" json:"errorDetail,omitempty"`
-	SizeBytes    *int64  `json:"sizeBytes,omitempty"`
-	FirstSeenAt  int64   `json:"firstSeenAt"`
-	LastSeenAt   int64   `json:"lastSeenAt"`
+	ID           int64            `json:"id"`
+	LibraryID    int64            `json:"libraryId"`
+	Path         string           `json:"path"`
+	Filing       string           `json:"filing"`
+	FilingReason *string          `json:"filingReason,omitempty"`
+	ErrorDetail  *ErrorDetailBody `json:"errorDetail,omitempty"`
+	SizeBytes    *int64           `json:"sizeBytes,omitempty"`
+	FirstSeenAt  int64            `json:"firstSeenAt"`
+	LastSeenAt   int64            `json:"lastSeenAt"`
 }
 
 // FilesOutput is one page of files.
@@ -246,9 +255,10 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 			body.FileCountsByFiling = summary.Filings
 			for _, root := range summary.Roots {
 				body.Roots = append(body.Roots, RootBody{
-					NodeName: root.NodeName, Path: root.Path, LastScanOutcome: ptr.ValueOrZero(root.LastScanOutcome),
-					LastScanAt:     ptr.ValueOrZero(root.LastScanAt),
-					WithheldReason: ptr.ValueOrZero(root.WithheldReason),
+					NodeName: root.NodeName, RootPath: root.RootPath,
+					LastScanOutcome: ptr.ValueOrZero(root.LastScanOutcome),
+					LastScanAt:      ptr.ValueOrZero(root.LastScanAt),
+					WithheldReason:  ptr.ValueOrZero(root.WithheldReason),
 				})
 			}
 		}
@@ -324,11 +334,22 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 	output := &FilesOutput{}
 	output.Body.Files = make([]FileBody, 0, len(rows))
 	for _, row := range rows {
-		output.Body.Files = append(output.Body.Files, FileBody{
+		file := FileBody{
 			ID: row.ID, LibraryID: row.LibraryID, Path: row.Path, Filing: row.Filing,
-			FilingReason: row.FilingReason, ErrorDetail: row.ErrorDetailJson, SizeBytes: row.SizeBytes,
+			FilingReason: row.FilingReason, SizeBytes: row.SizeBytes,
 			FirstSeenAt: row.FirstSeenAt, LastSeenAt: row.LastSeenAt,
-		})
+		}
+		if row.ErrorDetailJson != nil {
+			detail, err := library.DecodeErrorDetail(*row.ErrorDetailJson)
+			if err != nil {
+				return nil, server.internal(ctx, "list files", err)
+			}
+			file.ErrorDetail = &ErrorDetailBody{
+				Text: detail.Text, OwnerUID: detail.OwnerUID, GroupGID: detail.GroupGID, ModeText: detail.ModeText,
+				OccurrenceCount: detail.OccurrenceCount,
+			}
+		}
+		output.Body.Files = append(output.Body.Files, file)
 	}
 	if int64(len(rows)) == input.Limit {
 		output.Body.NextCursor = strconv.FormatInt(rows[len(rows)-1].ID, 10)

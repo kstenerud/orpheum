@@ -5,7 +5,7 @@
 package cachegen
 
 type ArtServed struct {
-	ContentHashHex     string
+	SourceSha256Hex    string
 	LastServedEpochDay int64
 }
 
@@ -22,42 +22,42 @@ type Job struct {
 	State             string
 	NodeID            *int64
 	RunnableAt        int64
-	Attempts          int64
+	AttemptCount      int64
 	ProgressFraction  *float64
 	Reason            *string
-	LastError         *string
+	LastFailure       *string
 	CreatedAt         int64
 	FinishedAt        *int64
 }
 
 type MatchCandidate struct {
-	ItemID     int64
-	Rank       int64
-	Provider   string
-	ProviderID string
-	Name       *string
-	Year       *int64
-	RuntimeMs  *int64
-	PosterPath *string
+	ItemID             int64
+	Rank               int64
+	Provider           string
+	ProviderID         string
+	Name               *string
+	Year               *int64
+	RuntimeMs          *int64
+	ProviderPosterPath *string
 }
 
 type PreparedRendition struct {
-	ID                int64
-	SourceFile        int64
-	SourcePayloadHash []byte
-	Profile           string
-	NodeID            int64
-	State             string
-	SegmentLengthS    int64
-	RunID             string
-	PreparedThroughMs int64
-	SizeBytes         *int64
-	Failure           *string
-	VideoEncoder      *string
-	RealtimeFactor    *float64
-	AudioGainsDbJson  string
-	CreatedAt         int64
-	FinishedAt        *int64
+	ID                   int64
+	SourceFile           int64
+	SourcePayloadHash    []byte
+	Profile              string
+	NodeID               int64
+	State                string
+	SegmentLengthSeconds int64
+	RunID                string
+	PreparedThroughMs    int64
+	SizeBytes            *int64
+	Failure              *string
+	VideoEncoder         *string
+	RealtimeFactor       *float64
+	CarriedGainsDbJson   string
+	CreatedAt            int64
+	FinishedAt           *int64
 }
 
 type SubtitleText struct {

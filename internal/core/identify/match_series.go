@@ -27,7 +27,7 @@ func (matcher *Matcher) matchSeries(ctx context.Context, seriesID int64) (Outcom
 	if !known || series.MetadataSource == sourceNFO {
 		return OutcomeNothingToDo, nil
 	}
-	ident := ptr.ValueOrZero(series.Identification)
+	ident := ptr.ValueOrZero(series.IdentificationState)
 	switch {
 	case seriesMatched(series):
 		return matcher.listSeasons(ctx, provider, series)
@@ -59,8 +59,8 @@ func (matcher *Matcher) matchSeries(ctx context.Context, seriesID int64) (Outcom
 	}
 	return OutcomeAmbiguous, matcher.seriesOutcome(ctx, series, func(queries *sqlcgen.Queries) error {
 		return queries.SetSeriesMatch(ctx, sqlcgen.SetSeriesMatchParams{
-			Identification: new(identAmbiguous),
-			ID:             seriesID,
+			IdentificationState: new(identAmbiguous),
+			ID:                  seriesID,
 		})
 	})
 }
@@ -90,7 +90,7 @@ func (matcher *Matcher) acceptSeries(
 	if err != nil {
 		return fmt.Errorf("record series %d's match: %w", series.ID, err)
 	}
-	series.FollowedSourceID, series.Identification = &metadata.ID, &ident
+	series.FollowedSourceID, series.IdentificationState = &metadata.ID, &ident
 	_, err = matcher.listSeasons(ctx, provider, series)
 	return err
 }
@@ -132,7 +132,7 @@ func recordSeries(ctx context.Context, queries *sqlcgen.Queries, found seriesFou
 		}
 	}
 	err = queries.SetSeriesMatch(ctx, sqlcgen.SetSeriesMatchParams{
-		FollowedSourceID: &metadata.ID, Identification: &ident,
+		FollowedSourceID: &metadata.ID, IdentificationState: &ident,
 		ID: seriesID,
 	})
 	if err != nil {

@@ -55,14 +55,15 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 	server := startServing(t, config, newCapturedLog("ready"), "ready")
 	token := signInAs(t, server.baseURL, "owner", "owner")
 	settings := call(t, http.MethodGet, server.baseURL+"/settings", token, nil)
-	if !strings.Contains(settings.body, `"key":"check_for_updates","kind":"bool","value":false`) {
+	if !strings.Contains(settings.body, `"key":"should_check_for_updates","kind":"bool","value":false`) {
 		t.Errorf("the seeded setting is not in force: %s", settings.body)
 	}
 	raw := call(t, http.MethodGet, server.baseURL+"/config", token, nil)
-	const pprofOn = `"key":"serve_debug_pprof","kind":"bool","value":true,"startingValue":false,"isModified":true`
+	const pprofOn = `"key":"should_serve_debug_pprof","kind":"bool","value":true,"startingValue":false,` +
+		`"isModified":true`
 	if !strings.Contains(raw.body, pprofOn) ||
-		strings.Contains(settings.body, "serve_debug_pprof") {
-		t.Errorf("the seed did not turn serve_debug_pprof on through /config, "+
+		strings.Contains(settings.body, "should_serve_debug_pprof") {
+		t.Errorf("the seed did not turn should_serve_debug_pprof on through /config, "+
 			"or the settings page shows it:\n%s", raw.body)
 	}
 	serverSecrets := call(t, http.MethodGet, server.baseURL+"/secrets", token, nil)

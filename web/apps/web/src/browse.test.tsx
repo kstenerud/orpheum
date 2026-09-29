@@ -33,7 +33,7 @@ describe("browse", () => {
             identificationState: "identified",
             libraryId: 1,
             addedAt: 1,
-            posterHash: "ab12",
+            posterSha256: "ab12",
           },
           {
             id: 11,

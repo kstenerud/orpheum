@@ -126,7 +126,7 @@ func observationOf(root string, observed *nodeproto.Observed) (observation, erro
 	}
 	return observation{
 		path: reported.text, key: reported.key, hash: hash, probe: string(probe), observed: observed,
-		openSubtitlesHash: openSubtitlesHash(observed.OpenSubtitlesHash),
+		openSubtitlesHash: openSubtitlesHash(observed.OpensubtitlesHash),
 	}, nil
 }
 
@@ -135,7 +135,7 @@ func (work *batch) insert(ctx context.Context, scan *scanState, seen observation
 	observed, reason := seen.observed, notIdentifiedYet
 	id, err := work.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
 		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: seen.path, ReportedPathBytes: seen.key,
-		SizeBytes: &observed.SizeBytes, MtimeMs: &observed.MtimeMs, PayloadHash: seen.hash,
+		SizeBytes: &observed.SizeBytes, ModifiedAt: &observed.ModifiedAt, PayloadHash: seen.hash,
 		PayloadBytes: &observed.Identity.PayloadBytes, Filing: filingUnidentified, FilingReason: &reason,
 		ProbeJson: &seen.probe, SeenAt: work.now, OpensubtitlesHash: seen.openSubtitlesHash,
 	})
@@ -151,8 +151,8 @@ func (work *batch) update(ctx context.Context, scan *scanState, id int64, seen o
 	observed, reason := seen.observed, notIdentifiedYet
 	err := work.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
 		LibraryID: scan.libraryID, Path: seen.path, ReportedPathBytes: seen.key,
-		SizeBytes: &observed.SizeBytes,
-		MtimeMs:   &observed.MtimeMs, PayloadHash: seen.hash, PayloadBytes: &observed.Identity.PayloadBytes,
+		SizeBytes:  &observed.SizeBytes,
+		ModifiedAt: &observed.ModifiedAt, PayloadHash: seen.hash, PayloadBytes: &observed.Identity.PayloadBytes,
 		UnidentifiedReason: &reason, ProbeJson: &seen.probe, OpensubtitlesHash: seen.openSubtitlesHash,
 		SeenAt: work.now,
 		ID:     id,

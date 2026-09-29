@@ -83,14 +83,14 @@ func (work *run) titleFor(ctx context.Context, spec titleSpec) (int64, error) {
 	}
 	libraryID := work.library.ID
 	id, err := work.queries.InsertItem(ctx, sqlcgen.InsertItemParams{
-		Kind: "title", LibraryID: &libraryID, CreatedAt: work.now,
+		Kind: "title", LibraryID: &libraryID, AddedAt: work.now,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("add a title for %q: %w", spec.name, err)
 	}
 	err = work.queries.InsertTitle(ctx, sqlcgen.InsertTitleParams{
 		ID: id, Kind: spec.kind,
-		Identification: identUnidentified,
+		IdentificationState: identUnidentified,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("add title %q: %w", spec.name, err)
@@ -237,7 +237,7 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 	}
 	err = work.queries.UpdateTitleResolved(ctx, sqlcgen.UpdateTitleResolvedParams{
 		Year: optionalInt(year), RuntimeMs: optionalInt(runtime), FollowedSource: source, FollowedSourceID: sourceID,
-		Identification: spec.ident, ID: titleID,
+		IdentificationState: spec.ident, ID: titleID,
 	})
 	if err != nil {
 		return resolved{}, fmt.Errorf("resolve title %d: %w", titleID, err)

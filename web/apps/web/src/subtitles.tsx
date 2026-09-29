@@ -78,7 +78,7 @@ export async function keepOffset(
   subtitleOffsetMs: number,
 ): Promise<void> {
   throwIfRefused(
-    await api.PUT("/files/{id}/prefs", {
+    await api.PUT("/files/{id}/preferences", {
       params: { path: { id: fileId } },
       body: { subtitleOffsetMs },
     }),
@@ -107,9 +107,9 @@ export async function keepSubtitleChoice(
     subtitle = { fetchedSubtitleId: id };
   }
   throwIfRefused(
-    await api.PUT("/files/{id}/prefs", {
+    await api.PUT("/files/{id}/preferences", {
       params: { path: { id: fileId } },
-      body: { subtitle },
+      body: { subtitleChoice: subtitle },
     }),
   );
 }
@@ -119,7 +119,7 @@ export function startingTrack(
   prefs: FilePrefs,
   tracks: readonly SubtitleTrack[],
 ): TrackKey | undefined {
-  const chosen = prefs.subtitle === undefined ? undefined : trackKey(prefs.subtitle);
+  const chosen = prefs.subtitleChoice === undefined ? undefined : trackKey(prefs.subtitleChoice);
   return tracks.some((track) => trackKey(track) === chosen) ? chosen : undefined;
 }
 

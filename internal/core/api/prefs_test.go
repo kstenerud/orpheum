@@ -25,7 +25,7 @@ func TestFilePrefs_ASubtitleOffsetIsKeptPerPersonAndFileAndTheNextPlaybackStarts
 		t.Errorf("before any choice: %+v, want no offset", first.Prefs)
 	}
 	set := func(token, fileID string, offset int) int {
-		return harness.do(t, http.MethodPut, "/files/"+fileID+"/prefs", token,
+		return harness.do(t, http.MethodPut, "/files/"+fileID+"/preferences", token,
 			map[string]int{"subtitleOffsetMs": offset}).status
 	}
 	if status := set(owner, "2", -1500); status != http.StatusNoContent {

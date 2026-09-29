@@ -21,8 +21,13 @@ export interface SoundLevel {
  * The sound a playback starts with: the original's main track, or a prepared copy's first mix,
  * whose boosted twin plays at the same gain (D226 §3).
  */
-export function soundLevel(decision: components["schemas"]["StartPlaybackOutputBody"]): SoundLevel {
-  const first = decision.audio?.[0];
+export function soundLevel(
+  decision: Pick<
+    components["schemas"]["StartPlaybackOutputBody"],
+    "delivery" | "levelling" | "audioRenditions"
+  >,
+): SoundLevel {
+  const first = decision.audioRenditions?.[0];
   if (decision.delivery === "hls" && first !== undefined) {
     return { levelling: first.levelling, carriedGainDb: first.carriedGainDb };
   }

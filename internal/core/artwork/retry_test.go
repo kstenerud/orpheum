@@ -33,7 +33,7 @@ func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *te
 	bench := newBench(t, fetched{})
 	queue := &queued{}
 	bench.service.parts.Queue = queue
-	gone := owedRef{Kind: identify.ArtPoster, Ref: "/gone.jpg"}
+	gone := owedRef{Kind: identify.ArtPoster, SourceRef: "/gone.jpg"}
 	bench.handle(t, gone)
 	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindFetch || (*queue)[0].ItemID != bench.itemID ||
 		!(*queue)[0].RunnableAt.Equal(bench.service.parts.Clock.Now().Add(12*time.Hour)) {
@@ -60,7 +60,7 @@ func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *te
 	if len(*queue) != 0 {
 		t.Errorf("queued %+v after the second miss; want it given up", *queue)
 	}
-	if rows := bench.rows(t); len(rows) != 1 || rows[0].ContentHash != nil {
+	if rows := bench.rows(t); len(rows) != 1 || rows[0].SourceSha256 != nil {
 		t.Errorf("rows %+v; want the miss held, so no pass asks for it again", rows)
 	}
 }
@@ -74,7 +74,7 @@ func TestService_AFailingHostIsPausedAfterFiveFailuresAndProbedAfterEachStep(t *
 	if !isFake {
 		t.Fatal("the bench's clock is not a fake")
 	}
-	job := bench.job(owedRef{Kind: identify.ArtPoster, Ref: "/p.jpg"})
+	job := bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/p.jpg"})
 	for range breakAfter {
 		err := bench.service.Handle(t.Context(), job)
 		var wait *jobs.RetryAtError
@@ -102,7 +102,7 @@ func TestService_ARateLimitWaitsWithoutCostingAnAttempt(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fetched{})
 	bench.service.parts.Fetchers["tmdb"] = &failing{err: &identify.RateLimitedError{After: time.Minute}}
-	err := bench.service.Handle(t.Context(), bench.job(owedRef{Kind: identify.ArtPoster, Ref: "/p.jpg"}))
+	err := bench.service.Handle(t.Context(), bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/p.jpg"}))
 	if wait, isWait := errors.AsType[*jobs.RetryAtError](err); !isWait ||
 		!wait.At.Equal(bench.service.parts.Clock.Now().Add(time.Minute)) {
 		t.Errorf("a 429: %v; want a wait of a minute", err)

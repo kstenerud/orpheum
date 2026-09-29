@@ -124,7 +124,7 @@ func (work *run) fromListing(ctx context.Context, seriesID int64, season, number
 	provider, known := work.providers[providerOf(work.library.MetadataSource)]
 	switch {
 	case !known:
-	case ptr.ValueOrZero(series.Identification) == identAmbiguous:
+	case ptr.ValueOrZero(series.IdentificationState) == identAmbiguous:
 		spec.reason = "its series matches more than one show: choose its match"
 	case seriesMatched(series):
 		episodes, fetched, listErr := work.listing(ctx, seriesID, provider, season)
@@ -171,7 +171,7 @@ func (work *run) seriesFor(ctx context.Context, name string) (int64, error) {
 	}
 	libraryID := work.library.ID
 	id, err := work.queries.InsertItem(ctx, sqlcgen.InsertItemParams{
-		Kind: itemCollection, LibraryID: &libraryID, CreatedAt: work.now,
+		Kind: itemCollection, LibraryID: &libraryID, AddedAt: work.now,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("add series %q: %w", name, err)

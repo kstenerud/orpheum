@@ -69,7 +69,7 @@ func (agent *Agent) prepare(ctx context.Context, nodeID int64, command nodeproto
 		}
 		if report.State == nodeproto.PrepareFailed {
 			agent.logger.WarnContext(ctx, "a prepare failed",
-				"jobId", command.JobID, "renditionDir", command.RenditionDir, "why", report.Failure)
+				"jobId", command.JobID, "renditionDir", command.RenditionDir, "failure", report.Failure)
 		}
 		if err := agent.sendPrepare(ctx, nodeID, report); err != nil && ctx.Err() == nil {
 			agent.logger.WarnContext(ctx, "could not tell the core a prepare ended", "jobId", command.JobID, "err", err)
@@ -157,7 +157,7 @@ func (agent *Agent) runPrepare(
 // verifiedSource is the absolute path of the file source names, once it is under one of the
 // node's roots and its payload hash is the one named.
 func (agent *Agent) verifiedSource(source nodeproto.BytesFile) (string, error) {
-	root, known := agent.roots[source.Root]
+	root, known := agent.roots[source.RootPath]
 	if !known {
 		return "", errors.New("the source is under none of this node's roots")
 	}

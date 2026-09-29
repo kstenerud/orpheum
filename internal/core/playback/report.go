@@ -145,7 +145,7 @@ func (log playLog) event(ctx context.Context, queries *sqlcgen.Queries, event Ev
 	mono := event.MonoMs
 	err = queries.InsertPlayEvent(ctx, sqlcgen.InsertPlayEventParams{
 		UserID: log.userID, FileID: log.fileID, DeviceID: log.device, Kind: string(event.Kind),
-		PositionMs: event.PositionMs, HappenedAt: happenedAt, ClientMonoMs: &mono,
+		PositionMs: event.PositionMs, HappenedAt: happenedAt, HappenedMonoMs: &mono,
 	})
 	if err != nil {
 		return fmt.Errorf("log a %s event: %w", event.Kind, err)

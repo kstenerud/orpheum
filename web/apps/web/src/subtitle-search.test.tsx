@@ -29,13 +29,13 @@ const offer: Answer = [
   {
     allowance: { remainingDownloads: 19, allowedDownloads: 20, isVip: false },
     didAskByIds: true,
-    didAskByFileHash: true,
+    didAskByOpensubtitlesHash: true,
     candidates: [
       {
         providerFileId: 7,
         releaseName: "Film.2002.1080p",
         language: "de",
-        isHashMatch: true,
+        isOpensubtitlesHashMatch: true,
         isHearingImpaired: false,
         isMachineTranslated: false,
         downloadCount: 120,
@@ -44,7 +44,7 @@ const offer: Answer = [
         providerFileId: 8,
         releaseName: "Film.2002.720p",
         language: "de",
-        isHashMatch: false,
+        isOpensubtitlesHashMatch: false,
         isHearingImpaired: true,
         isMachineTranslated: false,
         downloadCount: 3,
@@ -103,7 +103,7 @@ it("says an empty search of a file not identified yet asked only for subtitles m
       {
         allowance: { remainingDownloads: 19, allowedDownloads: 20, isVip: false },
         didAskByIds: false,
-        didAskByFileHash: true,
+        didAskByOpensubtitlesHash: true,
         candidates: [],
       },
     ],
@@ -129,7 +129,7 @@ it("says when today's downloads are spent, and when they come back", async () =>
         error: {
           code: "quota_exhausted",
           message: "a note for developers",
-          detail: { downloadsResetAt: "2026-09-29T06:00:00Z" },
+          detail: { downloadsResetAt: "1790661600000" },
         },
       },
     ],
@@ -139,8 +139,8 @@ it("says when today's downloads are spent, and when they come back", async () =>
   );
   await click(button(mounted.container, "Find subtitles…"));
   await click(button(mounted.container, "Search OpenSubtitles"));
-  expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
-    "Today's downloads are spent; they start again at",
+  expect(mounted.container.querySelector('[role="alert"]')?.textContent).toMatch(
+    /Today's downloads are spent; they start again at \d/u,
   );
 });
 

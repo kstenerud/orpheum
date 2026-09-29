@@ -19,9 +19,9 @@ ON CONFLICT (user_id, file_id) DO UPDATE SET
 WHERE excluded.position_read_at > play_position.position_read_at;
 
 -- name: InsertPlayEvent :exec
-INSERT INTO play_event (user_id, file_id, device_id, kind, position_ms, happened_at, client_mono_ms)
+INSERT INTO play_event (user_id, file_id, device_id, kind, position_ms, happened_at, happened_mono_ms)
 VALUES (sqlc.arg(user_id), sqlc.arg(file_id), sqlc.arg(device_id), sqlc.arg(kind), sqlc.arg(position_ms),
-  sqlc.arg(happened_at), sqlc.arg(client_mono_ms));
+  sqlc.arg(happened_at), sqlc.arg(happened_mono_ms));
 
 -- name: InsertPlaySpan :exec
 INSERT INTO play_span (user_id, file_id, device_id, from_position_ms, to_position_ms, started_at, ended_at, is_unattended)

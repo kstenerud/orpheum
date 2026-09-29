@@ -54,7 +54,7 @@ func (log *errorLog) record(reported string, scope nodeproto.ErrorScope, cause e
 			Scope:           scope,
 			Code:            code,
 			OccurrenceCount: 1,
-			Platform:        raw(cause, info),
+			PlatformError:   raw(cause, info),
 		}
 		log.pendDir = directory
 	}
@@ -65,7 +65,8 @@ func (log *errorLog) record(reported string, scope nodeproto.ErrorScope, cause e
 		log.stopped = true
 		stop := fmt.Errorf("%w (%d)", errStopped, log.total)
 		log.pending = &nodeproto.Error{
-			Path: reportedPath("."), Scope: nodeproto.ScopeRoot, Code: code, OccurrenceCount: 1, Platform: raw(stop,
+			Path: reportedPath("."), Scope: nodeproto.ScopeRoot, Code: code, OccurrenceCount: 1,
+			PlatformError: raw(stop,
 				nil),
 		}
 		if flushErr := log.flush(); log.err == nil {

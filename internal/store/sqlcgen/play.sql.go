@@ -63,19 +63,19 @@ func (q *Queries) HideProgress(ctx context.Context, arg HideProgressParams) erro
 }
 
 const insertPlayEvent = `-- name: InsertPlayEvent :exec
-INSERT INTO play_event (user_id, file_id, device_id, kind, position_ms, happened_at, client_mono_ms)
+INSERT INTO play_event (user_id, file_id, device_id, kind, position_ms, happened_at, happened_mono_ms)
 VALUES (?1, ?2, ?3, ?4, ?5,
   ?6, ?7)
 `
 
 type InsertPlayEventParams struct {
-	UserID       int64
-	FileID       int64
-	DeviceID     *int64
-	Kind         string
-	PositionMs   int64
-	HappenedAt   int64
-	ClientMonoMs *int64
+	UserID         int64
+	FileID         int64
+	DeviceID       *int64
+	Kind           string
+	PositionMs     int64
+	HappenedAt     int64
+	HappenedMonoMs *int64
 }
 
 func (q *Queries) InsertPlayEvent(ctx context.Context, arg InsertPlayEventParams) error {
@@ -86,7 +86,7 @@ func (q *Queries) InsertPlayEvent(ctx context.Context, arg InsertPlayEventParams
 		arg.Kind,
 		arg.PositionMs,
 		arg.HappenedAt,
-		arg.ClientMonoMs,
+		arg.HappenedMonoMs,
 	)
 	return err
 }

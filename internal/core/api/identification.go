@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -244,7 +245,9 @@ func (server *Server) identifyError(ctx context.Context, doing string, err error
 		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, "the provider has no such work")
 	case isLimited:
 		failure := newError(http.StatusServiceUnavailable, CodeRateLimited, "the provider asks us to wait")
-		failure.ErrorBody.Error.Detail = map[string]string{"retryAfter": limited.After.String()}
+		failure.ErrorBody.Error.Detail = map[string]string{
+			"retryAfterMs": strconv.FormatInt(limited.After.Milliseconds(), 10),
+		}
 		return failure
 	case errors.Is(err, identify.ErrNoKey), errors.Is(err, identify.ErrKeyRefused):
 		return newError(http.StatusServiceUnavailable, CodeProviderError,

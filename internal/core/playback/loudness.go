@@ -135,8 +135,8 @@ func levelPrepare(command *nodeproto.Prepare, levels map[soundKey]Levelling, pro
 	for index := range command.Audio {
 		track := &command.Audio[index]
 		if track.AudioTrackIndex < len(indexes) {
-			track.GainDB = levels[soundKey{int64(indexes[track.AudioTrackIndex]), mixStereo}].GainDB
-			gains[index] = track.GainDB
+			track.CarriedGainDB = levels[soundKey{int64(indexes[track.AudioTrackIndex]), mixStereo}].GainDB
+			gains[index] = track.CarriedGainDB
 		}
 	}
 	encoded, err := json.Marshal(gains)

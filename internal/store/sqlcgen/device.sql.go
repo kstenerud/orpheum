@@ -52,16 +52,16 @@ func (q *Queries) GetLiveDeviceOwner(ctx context.Context, id int64) (*int64, err
 
 const insertDevice = `-- name: InsertDevice :one
 
-INSERT INTO device (user_id, name, platform, first_seen_at, last_seen_at)
+INSERT INTO device (user_id, name, platform, added_at, last_signed_in_at)
 VALUES (?1, ?2, ?3, ?4, ?4)
 RETURNING id
 `
 
 type InsertDeviceParams struct {
-	UserID   *int64
-	Name     string
-	Platform string
-	SeenAt   int64
+	UserID     *int64
+	Name       string
+	Platform   string
+	SignedInAt int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -71,7 +71,7 @@ func (q *Queries) InsertDevice(ctx context.Context, arg InsertDeviceParams) (int
 		arg.UserID,
 		arg.Name,
 		arg.Platform,
-		arg.SeenAt,
+		arg.SignedInAt,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -79,8 +79,8 @@ func (q *Queries) InsertDevice(ctx context.Context, arg InsertDeviceParams) (int
 }
 
 const listLiveDevicesOf = `-- name: ListLiveDevicesOf :many
-SELECT device.id, device.name, device.platform, device.audio_output, device.first_seen_at,
-  CAST(coalesce(max("grant".last_seen_at), device.first_seen_at) AS INTEGER) AS last_used_at,
+SELECT device.id, device.name, device.platform, device.audio_output, device.added_at,
+  CAST(coalesce(max("grant".last_seen_at), device.added_at) AS INTEGER) AS last_used_at,
   CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > ?1)), 0) AS INTEGER) AS is_signed_in
 FROM device
 LEFT JOIN "grant" ON "grant".device_id = device.id AND "grant".kind = 'session'
@@ -99,7 +99,7 @@ type ListLiveDevicesOfRow struct {
 	Name        string
 	Platform    string
 	AudioOutput *string
-	FirstSeenAt int64
+	AddedAt     int64
 	LastUsedAt  int64
 	IsSignedIn  int64
 }
@@ -120,7 +120,7 @@ func (q *Queries) ListLiveDevicesOf(ctx context.Context, arg ListLiveDevicesOfPa
 			&i.Name,
 			&i.Platform,
 			&i.AudioOutput,
-			&i.FirstSeenAt,
+			&i.AddedAt,
 			&i.LastUsedAt,
 			&i.IsSignedIn,
 		); err != nil {
@@ -215,17 +215,17 @@ func (q *Queries) SetDeviceAudioOutput(ctx context.Context, arg SetDeviceAudioOu
 }
 
 const touchDevice = `-- name: TouchDevice :exec
-UPDATE device SET platform = ?1, last_seen_at = ?2 WHERE id = ?3
+UPDATE device SET platform = ?1, last_signed_in_at = ?2 WHERE id = ?3
 `
 
 type TouchDeviceParams struct {
-	Platform string
-	SeenAt   int64
-	ID       int64
+	Platform   string
+	SignedInAt int64
+	ID         int64
 }
 
 // A device signed in again (D221): its platform as it says now, and when.
 func (q *Queries) TouchDevice(ctx context.Context, arg TouchDeviceParams) error {
-	_, err := q.db.ExecContext(ctx, touchDevice, arg.Platform, arg.SeenAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, touchDevice, arg.Platform, arg.SignedInAt, arg.ID)
 	return err
 }

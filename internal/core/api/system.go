@@ -188,8 +188,8 @@ type PreparedBody struct {
 // FinishedPrepareBody is one finished prepare: its file, how it ended, what made its video and how
 // fast.
 type FinishedPrepareBody struct {
-	FileID int64  `json:"fileId"`
-	Path   string `doc:"Empty when the library no longer has the file" json:"path"`
+	SourceFileID int64  `json:"sourceFileId"`
+	Path         string `doc:"Empty when the library no longer has the file" json:"path"`
 	// Profile is what was made; State how it ended.
 	Profile        string  `enum:"remux,h264-8m" json:"profile"`
 	State          string  `enum:"complete,failed" json:"state"`
@@ -335,7 +335,7 @@ func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID in
 	bodies := make([]FinishedPrepareBody, 0, len(finished))
 	for _, prepare := range finished {
 		bodies = append(bodies, FinishedPrepareBody{
-			FileID: prepare.FileID, Path: prepare.Path, Profile: prepare.Profile, State: prepare.State,
+			SourceFileID: prepare.FileID, Path: prepare.Path, Profile: prepare.Profile, State: prepare.State,
 			VideoEncoder: prepare.VideoEncoder, RealtimeFactor: prepare.Speed, SizeBytes: prepare.SizeBytes,
 			Failure: prepare.Error, FinishedAt: prepare.FinishedAt.UnixMilli(),
 		})

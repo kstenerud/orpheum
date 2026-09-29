@@ -102,7 +102,7 @@ const (
 	ArtPoster   = "poster"
 	ArtBackdrop = "backdrop"
 	ArtLogo     = "logo"
-	ArtStill    = "thumb"
+	ArtStill    = "still"
 )
 
 // Errors a provider returns, wrapped.

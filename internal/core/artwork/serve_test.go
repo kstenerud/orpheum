@@ -24,7 +24,7 @@ func (bench *bench) stored(t *testing.T, source []byte, sizes ...nodeproto.ArtSi
 		}
 		return nodeproto.ArtworkResult{JobID: command.JobID, Images: images}
 	}
-	bench.handle(t, owedRef{Kind: identify.ArtPoster, Ref: "/poster.jpg"})
+	bench.handle(t, owedRef{Kind: identify.ArtPoster, SourceRef: "/poster.jpg"})
 	return Received(source).hash()
 }
 
@@ -72,9 +72,9 @@ func TestServe_ASizeNotMadeRedirectsToTheNearestAndOnlyAnOnRequestSizeIsQueued(t
 		t.Fatalf("queued %+v; want one job to make portrait-l", *queue)
 	}
 	var args owed
-	if err := json.Unmarshal([]byte((*queue)[0].Args), &args); err != nil || args.ImageHash != hash ||
+	if err := json.Unmarshal([]byte((*queue)[0].Args), &args); err != nil || args.SourceSha256 != hash ||
 		!slices.Equal(args.SizeNames,
-			[]nodeproto.ArtSizeName{nodeproto.PortraitL}) || args.Refs[0].Ref != "/poster.jpg" {
+			[]nodeproto.ArtSizeName{nodeproto.PortraitL}) || args.Refs[0].SourceRef != "/poster.jpg" {
 		t.Errorf("the job's args %+v (%v)", args, err)
 	}
 

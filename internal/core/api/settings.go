@@ -41,7 +41,7 @@ type SettingsOutput struct {
 type PutSettingsInput struct {
 	AuthorizationHeader
 	Body struct {
-		Values map[string]json.RawMessage `doc:"Setting keys and their new JSON values" json:"values"`
+		ValuesByKey map[string]json.RawMessage `doc:"Setting keys and their new JSON values" json:"valuesByKey"`
 	}
 }
 
@@ -65,7 +65,7 @@ func (server *Server) registerSettings() {
 		if err != nil {
 			return nil, err
 		}
-		return server.putSettings(ctx, dependencies.Settings, nil, input.Body.Values, principal.UserID, true)
+		return server.putSettings(ctx, dependencies.Settings, nil, input.Body.ValuesByKey, principal.UserID, true)
 	})
 	huma.Register(server.api, huma.Operation{
 		OperationID: "getMySettings", Method: http.MethodGet, Path: "/me/settings",
@@ -85,7 +85,7 @@ func (server *Server) registerSettings() {
 		if err != nil {
 			return nil, err
 		}
-		return server.putSettings(ctx, dependencies.Settings, &principal.UserID, input.Body.Values,
+		return server.putSettings(ctx, dependencies.Settings, &principal.UserID, input.Body.ValuesByKey,
 			principal.UserID, true)
 	})
 	server.registerConfig()

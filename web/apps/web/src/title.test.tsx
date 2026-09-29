@@ -19,7 +19,7 @@ const heat: TitleDetail = {
   overview: "A crime saga.",
   identificationState: "identified",
   libraryId: 1,
-  art: { posterHash: "p1", backdropHash: "b1" },
+  art: { posterSha256: "p1", backdropSha256: "b1" },
   versions: [
     {
       id: 1,
@@ -37,8 +37,8 @@ const heat: TitleDetail = {
     },
   ],
   extras: [
-    { id: 30, name: "Metropolis trailer", kind: "trailer" },
-    { id: 31, name: "Making Metropolis", kind: "behind_the_scenes" },
+    { id: 30, name: "Metropolis trailer", extraType: "trailer" },
+    { id: 31, name: "Making Metropolis", extraType: "behind_the_scenes" },
   ],
 };
 
@@ -62,7 +62,7 @@ describe("TitleView", () => {
       ...heat,
       kind: "episode",
       name: "Pilot",
-      art: { stillHash: "s1" },
+      art: { stillSha256: "s1" },
       episode: { seriesId: 20, seriesName: "Brass Arena", seasonNumber: 1, episodeNumber: 1 },
       versions: [],
       extras: null,

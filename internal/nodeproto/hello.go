@@ -84,6 +84,6 @@ type Confinement struct {
 // HelloReply is the core's answer: the node's id, and the last report sequence number the core
 // ingested, from which the node continues numbering.
 type HelloReply struct {
-	NodeID        int64 `json:"nodeId"`
-	LastReportSeq int64 `json:"lastReportSeq"`
+	NodeID                int64 `json:"nodeId"`
+	LastIngestedReportSeq int64 `json:"lastIngestedReportSeq"`
 }

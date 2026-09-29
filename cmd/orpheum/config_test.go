@@ -122,7 +122,7 @@ migrate_free_space_db_multiple = 3
 
 [node]
 name = "local"
-roots = ["/media"]
+root_paths = ["/media"]
 ffmpeg_dir = "/opt/ffmpeg"
 confinement_policy = "require"
 video_extensions = ["mkv", "mp4"]
@@ -132,7 +132,7 @@ probe_timeout_s = 60
 status_interval_s = 10
 prepared_dir = "/var/cache/orpheum/prepared"
 prepared_budget_gib = 1
-prepared_grace_h = 72
+prepared_kept_after_play_h = 72
 prepared_disk_used_limit_percent = 95
 
 [log]

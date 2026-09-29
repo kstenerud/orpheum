@@ -79,7 +79,7 @@ function UnderTheVideo(
       <Subtitles
         fileId={props.fileId}
         tracks={props.decision.subtitles ?? []}
-        prefs={props.decision.prefs}
+        prefs={props.decision.preferences}
         videoRef={props.videoRef}
       />
       <FindSubtitles fileId={props.fileId} fetched={props.decideAgain} />
@@ -88,7 +88,7 @@ function UnderTheVideo(
       )}
       <LevelSwitch
         level={soundLevel(props.decision)}
-        isOn={props.decision.prefs.isLevellingOn}
+        isOn={props.decision.preferences.isLevellingOn}
         videoRef={props.videoRef}
       />
     </>
@@ -97,16 +97,16 @@ function UnderTheVideo(
 
 /** Where a track's standard and boosted mixes are among a rendition's audio, for its first track. */
 export function boostPair(decision: Decision): { standard: number; boosted: number } | undefined {
-  const audio = decision.audio ?? [];
+  const audio = decision.audioRenditions ?? [];
   const first = audio[0];
   if (first === undefined) {
     return undefined;
   }
   const standard = audio.findIndex(
-    (mix) => mix.sourceAudioIndex === first.sourceAudioIndex && !mix.isDialogueBoosted,
+    (mix) => mix.audioTrackIndex === first.audioTrackIndex && !mix.isDialogueBoosted,
   );
   const boosted = audio.findIndex(
-    (mix) => mix.sourceAudioIndex === first.sourceAudioIndex && mix.isDialogueBoosted,
+    (mix) => mix.audioTrackIndex === first.audioTrackIndex && mix.isDialogueBoosted,
   );
   return standard < 0 || boosted < 0 ? undefined : { standard, boosted };
 }
@@ -121,7 +121,7 @@ function PreparedVideo(props: PlayProps): JSX.Element {
   const pair = boostPair(decision);
   const { videoRef, playbackRef, isWaiting, failure } = usePrepared(
     decision,
-    decision.prefs.isDialogueBoostOn ? pair?.boosted : undefined,
+    decision.preferences.isDialogueBoostOn ? pair?.boosted : undefined,
   );
   const reasons = (decision.notDirectReasons ?? [])
     .map((reason) => t(`play.reason.${camelKey(reason)}`))
@@ -140,7 +140,7 @@ function PreparedVideo(props: PlayProps): JSX.Element {
       )}
       {pair === undefined ? null : (
         <BoostSwitch
-          isOn={decision.prefs.isDialogueBoostOn}
+          isOn={decision.preferences.isDialogueBoostOn}
           switched={(isOn) => {
             playbackRef.current?.setAudioRendition(isOn ? pair.boosted : pair.standard);
           }}

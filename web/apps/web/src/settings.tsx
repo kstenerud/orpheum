@@ -47,9 +47,9 @@ function SecretState(props: { readonly secret: Secret }): JSX.Element {
   }
   return (
     <p>
-      {secret.hint === undefined
+      {secret.lastChars === undefined
         ? t("settings.secretSetNoHint")
-        : t("settings.secretSet", { hint: secret.hint })}
+        : t("settings.secretSet", { lastChars: secret.lastChars })}
     </p>
   );
 }
@@ -301,7 +301,7 @@ function ServerSettings(): JSX.Element {
           <SettingsView
             settings={value}
             onSave={(key, setting) => {
-              noteOutcome(api.PUT("/config", { body: { values: { [key]: setting } } }));
+              noteOutcome(api.PUT("/config", { body: { valuesByKey: { [key]: setting } } }));
             }}
             onReset={(key) => {
               noteOutcome(api.POST("/config/{key}/reset", { params: { path: { key } } }));

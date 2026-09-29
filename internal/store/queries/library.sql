@@ -10,7 +10,7 @@ VALUES (
 RETURNING id;
 
 -- name: InsertLibraryRoot :exec
-INSERT INTO library_root (library_id, node_id, path)
+INSERT INTO library_root (library_id, node_id, root_path)
 VALUES (sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path));
 
 -- name: GetLiveLibraryByName :one
@@ -34,13 +34,13 @@ WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 -- name: ListLibraryRootStates :many
 -- A library's roots with their node and the last scan's outcome: whether the files are
 -- available, and a withheld scan's reason (D208).
-SELECT library_root.path, library_root.node_id, node.name AS node_name, root_state.last_scan_outcome,
+SELECT library_root.root_path, library_root.node_id, node.name AS node_name, root_state.last_scan_outcome,
   root_state.last_scan_at, root_state.withheld_reason
 FROM library_root
 JOIN node ON node.id = library_root.node_id
-LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.path
+LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
 WHERE library_root.library_id = sqlc.arg(library_id)
-ORDER BY library_root.path;
+ORDER BY library_root.root_path;
 
 -- name: CountLibraryFilings :many
 -- How many live files a library has in each filing: the scanner view's summary (D163).

@@ -3,7 +3,7 @@
 -- writes in library.db. The kept search results are cache.db's.
 
 -- name: GetTitleForMatch :one
-SELECT title.id, title.kind, title.year, title.identification, title.followed_source, title.followed_source_id, item.library_id,
+SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.library_id,
   library.metadata_source, item_text.name
 FROM title
 JOIN item ON item.id = title.id
@@ -32,7 +32,7 @@ WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part = s
 -- The outcome of a match: the source and its id, or ambiguous, or 'none' when the provider has
 -- nothing. A confirmed match is a person's and stays (D172).
 UPDATE title SET followed_source = sqlc.arg(followed_source), followed_source_id = sqlc.arg(followed_source_id),
-  identification = CASE WHEN identification = 'confirmed' THEN identification ELSE sqlc.arg(identification) END
+  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id);
 
 -- name: ListLiveFilesOfTitle :many
@@ -58,7 +58,7 @@ SELECT title.id
 FROM title
 JOIN item ON item.id = title.id
 WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND title.kind = 'movie'
-  AND title.followed_source IS NULL AND title.identification = 'unidentified'
+  AND title.followed_source IS NULL AND title.identification_state = 'unidentified'
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
@@ -67,12 +67,12 @@ ORDER BY title.id;
 
 -- name: ListTitlesByIdent :many
 -- The titles in one state of identification, for the chooser's list (cut-a section 5).
-SELECT title.id, title.kind, title.year, title.identification, title.followed_source, title.followed_source_id, item.library_id,
+SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.library_id,
   item_text.name
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-WHERE title.identification = sqlc.arg(identification) AND item.removed_at IS NULL
+WHERE title.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
 ORDER BY item_text.name, title.id;
 
 -- name: DeleteItemProviderIDsOf :exec
@@ -82,13 +82,13 @@ WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider);
 
 -- name: UpsertOverride :exec
 -- A person's value for a field: the lock, kept over every source (D183).
-INSERT INTO field_override (item_id, field, lang, override_value, origin, set_by_user_id, set_at)
+INSERT INTO field_override (item_id, field, language, override_value, origin, set_by_user_id, set_at)
 VALUES (sqlc.arg(item_id), sqlc.arg(field), '', sqlc.arg(override_value), 'typed', sqlc.arg(set_by_user_id), sqlc.arg(set_at))
-ON CONFLICT (item_id, field, lang) DO UPDATE SET
+ON CONFLICT (item_id, field, language) DO UPDATE SET
   override_value = excluded.override_value, origin = excluded.origin, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at;
 
 -- name: DeleteOverride :execrows
 -- Removing an override is how a field returns to its source (D183). A person's correction is not
 -- a tombstoned row (standards/sql.md section 6): its absence is the state.
 DELETE FROM field_override
-WHERE item_id = sqlc.arg(item_id) AND field = sqlc.arg(field) AND lang = '';
+WHERE item_id = sqlc.arg(item_id) AND field = sqlc.arg(field) AND language = '';

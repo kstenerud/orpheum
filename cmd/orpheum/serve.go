@@ -206,7 +206,7 @@ func openCache(
 	if !errors.Is(err, store.ErrCacheOutdated) {
 		return cache, err
 	}
-	logger.InfoContext(ctx, "discarding cache.db: it was built by another version", "why", err.Error())
+	logger.InfoContext(ctx, "discarding cache.db: it was built by another version", "reason", err.Error())
 	if err := directories.DiscardCacheDatabase(); err != nil {
 		return nil, err
 	}
@@ -308,17 +308,17 @@ func (codes stateSetupCodes) Remove() error {
 	return codes.directories.RemoveStateFile(auth.SetupCodeFileName)
 }
 
-// mountDebug serves pprof on the API's mux when the serve_debug_pprof setting says so, and only on a
+// mountDebug serves pprof on the API's mux when the should_serve_debug_pprof setting says so, and only on a
 // loopback listener (cut-a §2a, D91). It reads the settings once, at start. Metrics are a setting
 // too and not built yet; the log says so.
 func mountDebug(
 	ctx context.Context, mux *http.ServeMux, config Config, settingsService *settings.Service, logger *slog.Logger,
 ) error {
-	pprofOn, err := settingsService.Bool(ctx, settings.ServeDebugPProf)
+	pprofOn, err := settingsService.Bool(ctx, settings.ShouldServeDebugPProf)
 	if err != nil {
 		return err
 	}
-	metricsOn, err := settingsService.Bool(ctx, settings.ServeDebugMetrics)
+	metricsOn, err := settingsService.Bool(ctx, settings.ShouldServeDebugMetrics)
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,8 @@ func mountDebug(
 			"listen", config.Server.Listen)
 	}
 	if metricsOn && loopback {
-		logger.WarnContext(ctx, "serve_debug_metrics is set, but /metrics is not built yet; nothing is served there")
+		logger.WarnContext(ctx,
+			"should_serve_debug_metrics is set, but /metrics is not built yet; nothing is served there")
 	}
 	return nil
 }

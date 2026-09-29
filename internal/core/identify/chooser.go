@@ -84,14 +84,14 @@ func (chooser *Chooser) Items(ctx context.Context, ident string) ([]ItemSummary,
 	for _, row := range titles {
 		items = append(items, ItemSummary{
 			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: row.Kind, Name: ptr.ValueOrZero(row.Name),
-			Year: deref(row.Year), Ident: row.Identification, Source: ptr.ValueOrZero(row.FollowedSource),
+			Year: deref(row.Year), Ident: row.IdentificationState, Source: ptr.ValueOrZero(row.FollowedSource),
 			SourceID: ptr.ValueOrZero(row.FollowedSourceID),
 		})
 	}
 	for _, row := range series {
 		items = append(items, ItemSummary{
 			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: KindSeries, Name: ptr.ValueOrZero(row.Name),
-			Year: deref(row.Year), Ident: ptr.ValueOrZero(row.Identification),
+			Year: deref(row.Year), Ident: ptr.ValueOrZero(row.IdentificationState),
 			Source:   ptr.ValueOrZero(row.FollowedSource),
 			SourceID: ptr.ValueOrZero(row.FollowedSourceID),
 		})
@@ -125,9 +125,9 @@ func (item target) query() Query {
 
 func (item target) ident() string {
 	if item.isSeries {
-		return ptr.ValueOrZero(item.series.Identification)
+		return ptr.ValueOrZero(item.series.IdentificationState)
 	}
-	return item.title.Identification
+	return item.title.IdentificationState
 }
 
 func (item target) metadataSource() string {
@@ -161,7 +161,7 @@ func (chooser *Chooser) Candidates(ctx context.Context, itemID int64) ([]Candida
 		provider = row.Provider
 		candidates = append(candidates, Candidate{
 			ID: row.ProviderID, Name: ptr.ValueOrZero(row.Name), Year: int(deref(row.Year)),
-			PosterRef: ptr.ValueOrZero(row.PosterPath),
+			PosterRef: ptr.ValueOrZero(row.ProviderPosterPath),
 		})
 	}
 	if len(candidates) > 0 || item.ident() != identAmbiguous {

@@ -14,7 +14,7 @@ type Key string
 // The settings. Every opinionated value the server acts on is one of these, so each choice is a
 // row that can be read and changed, not a default in code (D200). Units are in the name.
 const (
-	CheckForUpdates                 Key = "check_for_updates"
+	ShouldCheckForUpdates           Key = "should_check_for_updates"
 	SignInFailureLimit              Key = "signin_failure_limit"
 	SignInFailureWindowS            Key = "signin_failure_window_s"
 	SessionIdleExpiryH              Key = "session_idle_expiry_h"
@@ -22,14 +22,14 @@ const (
 	Argon2MemoryKiB                 Key = "argon2_memory_kib"
 	Argon2Iterations                Key = "argon2_iterations"
 	Argon2Parallelism               Key = "argon2_parallelism"
-	SecretHintChars                 Key = "secret_hint_chars"
+	SecretLastCharsShown            Key = "secret_last_chars_shown"
 	BackupAgeWarningH               Key = "backup_age_warning_h"
-	ServeDebugPProf                 Key = "serve_debug_pprof"
-	ServeDebugMetrics               Key = "serve_debug_metrics"
+	ShouldServeDebugPProf           Key = "should_serve_debug_pprof"
+	ShouldServeDebugMetrics         Key = "should_serve_debug_metrics"
 	NodeSilentAfterS                Key = "node_silent_after_s"
 	NodeRestartAfterSilentS         Key = "node_restart_after_silent_s"
 	NodeRestartAfterExitS           Key = "node_restart_after_exit_s"
-	ScanOnNodeHello                 Key = "scan_on_node_hello"
+	ShouldScanOnNodeHello           Key = "should_scan_on_node_hello"
 	ScanWithholdRemovalsOverPercent Key = "scan_withhold_removals_over_percent"
 	ScanWithholdRemovalsOverFiles   Key = "scan_withhold_removals_over_files"
 	JobAttemptLimit                 Key = "job_attempt_limit"
@@ -95,7 +95,8 @@ func (definition Definition) IsQuestion() bool {
 func Registry() []Definition {
 	return append([]Definition{
 		{
-			Key: CheckForUpdates, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("null"), Exposed: true,
+			Key: ShouldCheckForUpdates, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("null"),
+			Exposed:  true,
 			Question: "Check GitHub for a new release once a day? The check sends nothing but the request.",
 			Describe: "whether the server checks for a new release (D184: asked, never assumed)",
 		},
@@ -111,15 +112,15 @@ func Registry() []Definition {
 			"argon2id memory per password hash, KiB: RFC 9106's second option (D194 §2); new costs re-hash on sign-in"),
 		integer(Argon2Iterations, "3", 1, math.MaxUint32, "argon2id passes per password hash (D194 §2)"),
 		integer(Argon2Parallelism, "4", 1, math.MaxUint8, "argon2id lanes per password hash (D194 §2)"),
-		integer(SecretHintChars, "4", 0, 8,
+		integer(SecretLastCharsShown, "4", 0, 8,
 			"trailing characters of an API key shown as its hint; a password never has one (D194 §3)"),
 		integer(BackupAgeWarningH, "168", 1, 365*24, "hours after which doctor says the newest backup is old"),
 		{
-			Key: ServeDebugPProf, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("false"),
+			Key: ShouldServeDebugPProf, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("false"),
 			Describe: "serve /debug/pprof, on a loopback listen address only (D91); read at start",
 		},
 		{
-			Key: ServeDebugMetrics, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("false"),
+			Key: ShouldServeDebugMetrics, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("false"),
 			Describe: "serve /metrics, on a loopback listen address only (D91); not built yet",
 		},
 		integer(NodeSilentAfterS, "30", 1, 24*3600,
@@ -129,7 +130,7 @@ func Registry() []Definition {
 		integer(NodeRestartAfterExitS, "5", 1, 3600,
 			"seconds the core waits before starting its node again after it exited, so a crash cannot spin"),
 		{
-			Key: ScanOnNodeHello, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("true"),
+			Key: ShouldScanOnNodeHello, Scope: ScopeServer, Kind: KindBool, Start: json.RawMessage("true"),
 			Describe: "whether the core asks a node to scan every root it names each time it says hello",
 		},
 		integer(ScanWithholdRemovalsOverPercent, "50", 1, 100,

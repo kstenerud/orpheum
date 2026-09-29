@@ -167,7 +167,7 @@ func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRoot(t *testing.T) {
 			t.Errorf("command %+v, want a scan", command)
 			continue
 		}
-		roots = append(roots, command.Scan.Root)
+		roots = append(roots, command.Scan.RootPath)
 	}
 	if status != http.StatusOK || strings.Join(roots, ",") != "/media/films,/media/shows,/media/films" {
 		t.Errorf("status %d, scans of %q; want one scan per root named in each hello", status, roots)
@@ -180,7 +180,7 @@ func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRoot(t *testing.T) {
 func TestHello_ScansNothingWhenTheSettingSaysNot(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
-	settingstest.Set(t, harness.settings, settings.ScanOnNodeHello, "false")
+	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
 	reply := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films"}})
 	if commands, _ := harness.poll(t, reply.NodeID, 0); len(commands.Commands) != 0 {
 		t.Errorf("commands %+v, want none", commands.Commands)
@@ -188,13 +188,13 @@ func TestHello_ScansNothingWhenTheSettingSaysNot(t *testing.T) {
 }
 
 func scanOf(root string) nodeproto.Command {
-	return nodeproto.Command{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{Root: root}}
+	return nodeproto.Command{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{RootPath: root}}
 }
 
 func TestCommands_ALongPollWaitsForACommandAndAnAcknowledgedOneIsDropped(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Hour)
-	settingstest.Set(t, harness.settings, settings.ScanOnNodeHello, "false")
+	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
 
 	got := make(chan nodeproto.Commands)
@@ -205,7 +205,7 @@ func TestCommands_ALongPollWaitsForACommandAndAnAcknowledgedOneIsDropped(t *test
 	// The poll is held until a command is queued; Enqueue before the poll starts is also
 	// answered at once, so the order of these two does not matter.
 	harness.service.Enqueue(reply.NodeID, scanOf("/a"))
-	if commands := <-got; len(commands.Commands) != 1 || commands.Commands[0].Scan.Root != "/a" {
+	if commands := <-got; len(commands.Commands) != 1 || commands.Commands[0].Scan.RootPath != "/a" {
 		t.Fatalf("the long-poll answered %+v, want the scan of /a", commands)
 	}
 	harness.service.Enqueue(reply.NodeID, scanOf("/b"))
@@ -218,7 +218,7 @@ func TestCommands_ALongPollWaitsForACommandAndAnAcknowledgedOneIsDropped(t *test
 func TestCommands_ALongPollWithNothingToSayAnswersEmpty(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
-	settingstest.Set(t, harness.settings, settings.ScanOnNodeHello, "false")
+	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
 	commands, status := harness.poll(t, reply.NodeID, 0)
 	if status != http.StatusOK || commands.Commands == nil || len(commands.Commands) != 0 {
@@ -257,7 +257,7 @@ func TestReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testing.T) 
 	records := make([]nodeproto.Record, 0, 300)
 	for index := range 299 {
 		records = append(records, nodeproto.Record{
-			ReportSeq: reply.LastReportSeq + int64(index) + 1, Type: nodeproto.RecordSkip,
+			ReportSeq: reply.LastIngestedReportSeq + int64(index) + 1, Type: nodeproto.RecordSkip,
 			Skip: &nodeproto.Skip{Path: nodeproto.Path{Text: fmt.Sprintf("f%d", index)}, Rule: nodeproto.SkipExtension},
 		})
 	}
@@ -290,8 +290,9 @@ func TestReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testing.T) 
 	if node.LastStatusJson == nil || !strings.Contains(*node.LastStatusJson, `"activity":"idle"`) {
 		t.Errorf("the node's status is %v, want the last status record", node.LastStatusJson)
 	}
-	if again := harness.hello(t, nodeproto.Hello{Name: "local"}); again.LastReportSeq != 300 {
-		t.Errorf("a reconnecting node is told %d, want 300: it continues numbering from there", again.LastReportSeq)
+	if again := harness.hello(t, nodeproto.Hello{Name: "local"}); again.LastIngestedReportSeq != 300 {
+		t.Errorf("a reconnecting node is told %d, want 300: it continues numbering from there",
+			again.LastIngestedReportSeq)
 	}
 	if heard, ever := harness.service.LastHeard("local"); !ever || !heard.Equal(harness.clock.Now()) {
 		t.Errorf("LastHeard = %v, %v", heard, ever)
@@ -321,7 +322,7 @@ func TestReport_ARecordReachesTheIngestWhileTheReportIsStillOpen(t *testing.T) {
 	go func() { done <- harness.post(t, nodeproto.PathReport, reply.NodeID, reader) }()
 	record := nodeproto.Record{
 		ReportSeq: 1, Type: nodeproto.RecordScanBegin,
-		ScanBegin: &nodeproto.ScanBegin{Root: "/m"},
+		ScanBegin: &nodeproto.ScanBegin{RootPath: "/m"},
 	}
 	if err := json.NewEncoder(writer).Encode(record); err != nil {
 		t.Fatal(err)
@@ -429,7 +430,7 @@ func TestStatus_KeepsWhatTheNodeSaysItsPreparedDirectoryHolds(t *testing.T) {
 	}
 	usage := nodeproto.PreparedUsage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}
 	status := []nodeproto.Record{{
-		ReportSeq: reply.LastReportSeq + 1, Type: nodeproto.RecordStatus,
+		ReportSeq: reply.LastIngestedReportSeq + 1, Type: nodeproto.RecordStatus,
 		Status: &nodeproto.Status{Activity: "idle", PreparedUsage: &usage},
 	}}
 	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
@@ -458,7 +459,7 @@ func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
 	})
 	disk := nodeproto.Disk{Path: "/media", TotalBytes: 1000, AvailableBytes: 400}
 	status := []nodeproto.Record{{
-		ReportSeq: reply.LastReportSeq + 1, Type: nodeproto.RecordStatus,
+		ReportSeq: reply.LastIngestedReportSeq + 1, Type: nodeproto.RecordStatus,
 		Status: &nodeproto.Status{Activity: "idle", Disks: []nodeproto.Disk{disk}},
 	}}
 	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=

@@ -143,7 +143,7 @@ socket_dir = "${root}/run"
 
 [node]
 name = "browser-test"
-roots = ["${library}"]
+root_paths = ["${library}"]
 ffmpeg_dir = "${ffmpegDirectory}"
 confinement_policy = "report"
 prepared_dir = "${root}/cache/prepared"
@@ -164,13 +164,13 @@ role = "admin"
 [[library]]
 name = "Films"
 kind = "movies"
-root = "${library}"
+root_path = "${library}"
 metadata_source = "nfo"
 change_detection = "watch"
 is_writable = false
 
 [settings]
-check_for_updates = false
+should_check_for_updates = false
 `;
 }
 
