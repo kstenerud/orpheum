@@ -4,6 +4,7 @@ package identify
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -31,12 +32,16 @@ type refreshArgs struct {
 // (now when zero); with shouldRetryImages it also asks again for the images it is missing (D213 §1, §2).
 func RefreshJob(
 	itemID int64, reason string, runnableAt time.Time, shouldRetryImages bool, priority int64,
-) jobs.Request {
-	args := fmt.Sprintf(`{"isRefresh":true,"retryImages":%t}`, shouldRetryImages) // refreshArgs, as JSON
-	return jobs.Request{
-		Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID}, ArgsJSON: args, Reason: reason,
-		RunnableAt: runnableAt, Priority: priority,
+) (jobs.Request, error) {
+	// Encoded from refreshArgs itself, so the job reads the names it was written with.
+	args, err := json.Marshal(refreshArgs{IsRefresh: true, ShouldRetryImages: shouldRetryImages})
+	if err != nil {
+		return jobs.Request{}, fmt.Errorf("encode item %d's refresh: %w", itemID, err)
 	}
+	return jobs.Request{
+		Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID}, ArgsJSON: string(args), Reason: reason,
+		RunnableAt: runnableAt, Priority: priority,
+	}, nil
 }
 
 // OutcomeKept is a refresh that found the item gone from its provider: our copy is kept (D213 §4).
@@ -292,8 +297,11 @@ func (refresher *Refresher) Request(ctx context.Context, itemID int64) (bool, er
 		}
 		return false, fmt.Errorf("read item %d: %w", itemID, err)
 	}
-	queued, err := refresher.queue.Enqueue(ctx,
-		RefreshJob(itemID, "a person asked for it to be refreshed", time.Time{}, true, personRefreshPriority))
+	job, err := RefreshJob(itemID, "a person asked for it to be refreshed", time.Time{}, true, personRefreshPriority)
+	if err != nil {
+		return false, err
+	}
+	queued, err := refresher.queue.Enqueue(ctx, job)
 	if err != nil {
 		return false, fmt.Errorf("queue item %d's refresh: %w", itemID, err)
 	}
@@ -325,10 +333,9 @@ func (refresher *Refresher) Sweep(ctx context.Context) (int, error) {
 			if now.Before(time.UnixMilli(item.Oldest).Add(dueAfter(period, item.ItemID))) {
 				continue
 			}
-			added, err := refresher.queue.Enqueue(ctx, RefreshJob(item.ItemID,
-				"its "+provider+" data is due to be fetched again", time.Time{}, false, rollingPriority))
+			added, err := refresher.queueDue(ctx, item.ItemID, provider)
 			if err != nil {
-				return queued, fmt.Errorf("queue item %d's refresh: %w", item.ItemID, err)
+				return queued, err
 			}
 			if added {
 				queued++
@@ -336,6 +343,21 @@ func (refresher *Refresher) Sweep(ctx context.Context) (int, error) {
 		}
 	}
 	return queued, nil
+}
+
+// queueDue queues the rolling refresh of one item whose data from provider is due, and says
+// whether it was queued rather than already waiting.
+func (refresher *Refresher) queueDue(ctx context.Context, itemID int64, provider string) (bool, error) {
+	job, err := RefreshJob(itemID, "its "+provider+" data is due to be fetched again", time.Time{}, false,
+		rollingPriority)
+	if err != nil {
+		return false, err
+	}
+	added, err := refresher.queue.Enqueue(ctx, job)
+	if err != nil {
+		return false, fmt.Errorf("queue item %d's refresh: %w", itemID, err)
+	}
+	return added, nil
 }
 
 // dueAfter is how old an item's data gets before it is refreshed: between three quarters of the
