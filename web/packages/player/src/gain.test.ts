@@ -109,4 +109,14 @@ describe("a gain after the element's volume (D226 §4)", () => {
     };
     expect(canSetVolume(ios)).toBe(false);
   });
+
+  it("applies no gain where the page cannot set the volume, as on iOS", async () => {
+    const video = document.createElement("video");
+    Object.defineProperty(video, "volume", { get: () => 1, set: () => undefined });
+    const fake = fakeAudio({ isGranted: true });
+    gainAfterVolume(video, fake.createAudioContext).setDb(12);
+    await settled();
+    expect(fake.contextsMade()).toBe(0);
+    expect(fake.routed).toEqual([]);
+  });
 });

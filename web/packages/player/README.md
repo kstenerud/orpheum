@@ -16,8 +16,8 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   `no-restricted-imports` (`web/eslint.config.js`).
 - **A sound at the level never passes through Web Audio**; one to raise or lower does, once for
   the element's life, with every channel kept. And where a page cannot set the volume, as on iOS,
-  no gain is applied, since there Web Audio follows the silent switch (D226 §4).
-  `gain.test.ts`.
+  no gain is applied, since there Web Audio follows the silent switch (D226 §4): `gainAfterVolume`
+  checks the element itself. `gain.test.ts`.
 
 ## Read before changing
 

@@ -98,7 +98,8 @@ const levellingByElement = new WeakMap<HTMLMediaElement, ElementLevelling>();
  * The gain for element's sound. The sound is handed to Web Audio only once a gain other than 0 dB
  * is asked for and the audio context is running: a browser holds a context until the page is
  * played with, and one would hold the video with it, so until then the film plays as it is. Every
- * channel is kept, so a receiver still gets surround.
+ * channel is kept, so a receiver still gets surround. Where the page cannot set the element's
+ * volume, as on iOS, no gain is applied (canSetVolume).
  */
 export function gainAfterVolume(
   element: HTMLMediaElement,
@@ -109,7 +110,7 @@ export function gainAfterVolume(
       const levelling = levellingByElement.get(element);
       if (levelling !== undefined) {
         levelling.setDb(db);
-      } else if (db !== 0) {
+      } else if (db !== 0 && canSetVolume(element)) {
         levellingByElement.set(element, new ElementLevelling(element, createAudioContext(), db));
       }
     },
