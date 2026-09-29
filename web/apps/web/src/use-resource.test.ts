@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { createElement } from "react";
+import { act, createElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
@@ -26,7 +26,34 @@ async function settledAfter(load: () => Promise<unknown>): Promise<Resource<unkn
   return last;
 }
 
+/** Every state a probe polling load every few milliseconds shows while mounted for a moment. */
+async function statesWhilePolling(load: () => Promise<number>): Promise<Resource<number>[]> {
+  const seen: Resource<number>[] = [];
+  function Probe(): null {
+    const [resource] = useResource("probe", load, 5);
+    seen.push(resource);
+    return null;
+  }
+  const mounted = await mount(createElement(Probe));
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+  });
+  mounted.unmount();
+  return seen;
+}
+
 describe("useResource", () => {
+  it("asks again while polled, and keeps what it shows meanwhile", async () => {
+    let asked = 0;
+    const states = await statesWhilePolling(() => {
+      asked += 1;
+      return Promise.resolve(asked);
+    });
+    expect(asked).toBeGreaterThan(2);
+    const firstLoaded = states.findIndex((state) => state.state === "loaded");
+    expect(states.slice(firstLoaded).every((state) => state.state === "loaded")).toBe(true);
+  });
+
   it("keeps the cause, and an error the server sent becomes an ApiProblem", async () => {
     const services = servedBy({ "GET /me": refusal(404, "not_found") });
     const fromServer = await settledAfter(async () => dataOrThrow(await services.api.GET("/me")));

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 /**
  * Something loaded from the server: still loading, loaded, or failed with why. A failure keeps
@@ -14,33 +14,51 @@ export type Resource<T> =
 /**
  * Loads a value when the component mounts and whenever key changes, and reloads when the returned
  * function is called. An answer that arrives after the key changed is dropped.
+ *
+ * Given refreshEveryMs, it also asks again that often for as long as the component shows it, and
+ * keeps what it shows meanwhile: a reload or a new key does not go back to loading, so a view that
+ * follows something moving (the jobs, a device code waiting to be used) does not flicker. This is
+ * the one way the client polls the server.
  */
-export function useResource<T>(key: string, load: () => Promise<T>): [Resource<T>, () => void] {
+export function useResource<T>(
+  key: string,
+  load: () => Promise<T>,
+  refreshEveryMs?: number,
+): [Resource<T>, () => void] {
   const [resource, setResource] = useState<Resource<T>>({ state: "loading" });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let isCurrent = true;
-    setResource({ state: "loading" });
-    load().then(
-      (value) => {
-        if (isCurrent) {
-          setResource({ state: "loaded", value });
-        }
-      },
-      (cause: unknown) => {
-        if (isCurrent) {
-          setResource({ state: "failed", cause });
-        }
-      },
-    );
+    const ask = (): void => {
+      load().then(
+        (value) => {
+          if (isCurrent) {
+            setResource({ state: "loaded", value });
+          }
+        },
+        (cause: unknown) => {
+          if (isCurrent) {
+            setResource({ state: "failed", cause });
+          }
+        },
+      );
+    };
+    if (refreshEveryMs === undefined) {
+      setResource({ state: "loading" });
+      ask();
+      return () => {
+        isCurrent = false;
+      };
+    }
+    ask();
+    const refreshTimer = setInterval(ask, refreshEveryMs);
     return () => {
       isCurrent = false;
+      clearInterval(refreshTimer);
     };
-  }, [key, attempt]);
-  return [
-    resource,
-    () => {
-      setAttempt((count) => count + 1);
-    },
-  ];
+  }, [key, attempt, refreshEveryMs]);
+  const reload = useCallback(() => {
+    setAttempt((count) => count + 1);
+  }, []);
+  return [resource, reload];
 }
