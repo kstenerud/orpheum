@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -24,8 +25,7 @@ func gpusUnder(devDirectory, drmClassDirectory string) []nodeproto.GPU {
 		driver := driverOf(filepath.Join(drmClassDirectory, filepath.Base(device), "device", "driver"))
 		found = append(found, nodeproto.GPU{DevicePath: device, Driver: driver, NoAccessReason: noAccessReason(device)})
 	}
-	nvidiaDevices, _ := filepath.Glob(filepath.Join(devDirectory, "nvidia[0-9]*")) //nolint:errcheck // a fixed pattern
-	for _, device := range nvidiaDevices {
+	for _, device := range confine.NVIDIADevices(devDirectory) {
 		found = append(found,
 			nodeproto.GPU{DevicePath: device, Driver: "nvidia", NoAccessReason: noAccessReason(device)})
 	}

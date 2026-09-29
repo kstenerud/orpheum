@@ -10,6 +10,8 @@
 //     rule node-boundary and, transitively, TestArch_NodeNeverImportsCore.
 //   - A render node and an NVIDIA device are each reported with their driver, and one the node's
 //     user may not open says why. Enforced by TestGPUs_ReportsEachDeviceItsDriverAndWhyItCannotBeOpened.
+//   - The NVIDIA devices reported are the ones a confined encode is granted: both come from
+//     confine.NVIDIADevices. TestGPUDevices_AreGrantedEveryNVIDIAGPUDetectionFinds.
 //
 // # Read before changing
 //
