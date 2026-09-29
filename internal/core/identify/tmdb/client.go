@@ -32,17 +32,17 @@ type Keys interface {
 
 // Client is TMDB behind the provider interface.
 type Client struct {
-	http *http.Client
-	base string
-	keys Keys
+	http    *http.Client
+	baseURL string
+	keys    Keys
 }
 
 var _ identify.Provider = (*Client)(nil)
 
-// New returns a TMDB client calling base (BaseURL, or a test's fake) through httpClient, which
+// New returns a TMDB client calling baseURL (BaseURL, or a test's fake) through httpClient, which
 // comes from internal/platform/outbound.
-func New(httpClient *http.Client, base string, keys Keys) *Client {
-	return &Client{http: httpClient, base: strings.TrimSuffix(base, "/"), keys: keys}
+func New(httpClient *http.Client, baseURL string, keys Keys) *Client {
+	return &Client{http: httpClient, baseURL: strings.TrimSuffix(baseURL, "/"), keys: keys}
 }
 
 // Name is "tmdb".
@@ -57,7 +57,7 @@ func (client *Client) get(ctx context.Context, path string, parameters url.Value
 	if err != nil {
 		return nil, fmt.Errorf("tmdb: open the key: %w", err)
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.base+path, http.NoBody)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseURL+path, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("tmdb %s: %w", path, err)
 	}
@@ -113,7 +113,7 @@ func statusError(path string, response *http.Response, body []byte) error {
 		return fmt.Errorf("tmdb %s: %w", path, identify.ErrKeyRefused)
 	case http.StatusTooManyRequests:
 		if after, found := outbound.RetryAfter(response.Header); found {
-			return fmt.Errorf("tmdb %s: %w", path, &identify.RateLimitedError{After: after})
+			return fmt.Errorf("tmdb %s: %w", path, &identify.RateLimitedError{RetryAfter: after})
 		}
 	}
 	excerpt := string(body[:min(len(body), 200)])

@@ -3,7 +3,7 @@
 // Package identify matches titles to provider metadata: the filename parser, NFO read, the TMDB
 // client, ranked match candidates, the ambiguous-match chooser, and per-field overrides. An
 // ambiguous match is never guessed. A fetched response is stored and never refetched except by a
-// user's act; re-deriving a title reads only stored input.
+// person or the rolling refresh (D213); re-deriving a title reads only stored input.
 //
 // # Invariants
 //
@@ -64,7 +64,7 @@
 //   - A series renamed by its match keeps the new episodes its folders name.
 //     TestSeries_AnEpisodeAddedAfterTheSeriesWasRenamedJoinsIt.
 //   - A provider's episode ids never find a film, nor its film ids an episode.
-//     Enforced by titleByProviderID's kind filter; review.
+//     Enforced by claimTitleByProviderID's kind filter; review.
 //   - Every name the pass writes is folded for search and given a sort key in the sort_locale,
 //     through writeText alone (D47, D48). TestPass_NamesAreSortedAndFoundInEveryScript.
 //   - An NFO, every provider's answer and a person's override are cleaned where they enter,
@@ -97,7 +97,8 @@
 //
 // # Read before changing
 //
-//   - D170: one source per title, fetched once; every refetch is an act of the user.
+//   - D170: one source per title, fetched once; a refetch is a person's act or, since D213, the
+//     rolling refresh.
 //   - D172: an ambiguous match is never guessed.
 //   - D182: metadata is a stack of layers; re-derivation reads only stored input.
 //   - D183: an override is an override wherever its value came from.
@@ -111,8 +112,13 @@
 //   - filename.go: the filename parser, and its corpus in filename_test.go; nfo.go: the NFO
 //     reader.
 //   - pass.go, load.go, titles.go, episodes.go, extras.go: the identification pass; evidence.go: what a
-//     stored match says to it.
-//   - provider.go: the provider interface. match.go: the matcher and the fetch job's handler;
-//     match_series.go: a series' match and its season listings. series.go: a series in the pass.
+//     stored match says to it; text.go: how the pass writes a name, and sortkeys.go: re-keying
+//     every name when the sort locale changes; localart.go: the images beside the media;
+//     artwork.go: the images an item's source names that are owed; vocabulary.go: the schema's
+//     closed sets.
+//   - provider.go: the provider interface; cleaned.go: cleaning every provider answer where it
+//     enters. match.go: the matcher and the fetch job's handler; match_series.go: a series' match
+//     and its season listings. series.go: a series in the pass. refresh.go: a person's refresh and
+//     the rolling refresh.
 //   - chooser.go: what a person does — list, choose, override. tmdb/: the TMDB client.
 package identify

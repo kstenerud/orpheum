@@ -33,15 +33,16 @@ func newArtwork(
 	service := artwork.NewService(artwork.Parts{
 		Database: opened.database, Queue: opened.metadata.queue, Nodes: opened.nodes, Store: directories,
 		Cache:    opened.cache,
-		Settings: opened.settings, Fetchers: map[string]artwork.Fetcher{"tmdb": tmdb.NewImages(httpClient, imageBase)},
-		Clock: clock.System{}, Logger: logger,
+		Settings: opened.settings,
+		Fetchers: map[string]artwork.Fetcher{"tmdb": tmdb.NewImageFetcher(httpClient, imageBase)},
+		Clock:    clock.System{}, Logger: logger,
 	})
 	if err := service.Load(ctx); err != nil {
 		return nil, err
 	}
 	opened.nodes.SetArtworkSink(service)
 	opened.metadata.pass.AfterPass(func(ctx context.Context, report identify.Report) {
-		service.Owe(ctx, report.Artwork)
+		service.Owe(ctx, report.OwedArtwork)
 	})
 	return service, nil
 }

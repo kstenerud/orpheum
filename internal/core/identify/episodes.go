@@ -18,23 +18,25 @@ import (
 // airedOrdering is the ordering an episode's season and number place it in (D96, D159).
 const airedOrdering = "aired"
 
-// episode files an episode: its series, found by where the file already was, the tvshow.nfo
+// fileEpisode files an episode: its series, found by where the file already was, the tvshow.nfo
 // above it or the name its folders give, and its title at (season, episode) in the series' aired
 // order. Its values come from its own NFO; else, where the library reads a provider, from its
 // series' season listing (D209); else from the path.
-func (work *run) episode(ctx context.Context, file sqlcgen.ListIdentifyFilesRow, parsed Parsed) error {
-	show, hasShow := work.showNFOFor(file)
-	seriesID, err := work.seriesOf(ctx, file, parsed, show, hasShow)
+func (filer *libraryFiler) fileEpisode(
+	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, parsed ParsedPath,
+) error {
+	showNFO, hasShowNFO := filer.showNFOFor(file)
+	seriesID, err := filer.seriesOf(ctx, file, parsed, showNFO, hasShowNFO)
 	if err != nil {
 		return err
 	}
-	work.seriesFolders[seriesFolderOf(file.Path)] = seriesID
+	filer.seriesIDByFolder[seriesFolderOf(file.Path)] = seriesID
 	season, number := parsed.Season, parsed.Episode
 	spec := titleSpec{
-		kind: kindEpisode, name: fmt.Sprintf("Episode %d", number), runtimeMs: probeRuntime(file.ProbeJson),
+		kind: kindEpisode, name: fmt.Sprintf("Episode %d", number), runtimeMs: probeRuntimeMs(file.ProbeJson),
 		ids: map[string]string{},
 	}
-	nfo, hasNFO := work.nfoFor(file)
+	nfo, hasNFO := filer.nfoFor(file)
 	switch {
 	case hasNFO && nfo.Kind == "episodedetails":
 		if nfo.Season > 0 || nfo.Episode > 0 {
@@ -44,30 +46,30 @@ func (work *run) episode(ctx context.Context, file sqlcgen.ListIdentifyFilesRow,
 		if nfo.Title == "" {
 			spec.name = fmt.Sprintf("Episode %d", number)
 		}
-	case work.library.MetadataSource != sourceNFO:
-		if listErr := work.fromListing(ctx, seriesID, season, number, &spec); listErr != nil {
+	case filer.library.MetadataSource != sourceNFO:
+		if listErr := filer.fromListing(ctx, seriesID, season, number, &spec); listErr != nil {
 			return listErr
 		}
-	case hasShow:
-		spec.source, spec.ident = sourceNFO, identIdentified
-		spec.year = show.Year
+	case hasShowNFO:
+		spec.source, spec.identification = sourceNFO, identificationIdentified
+		spec.year = showNFO.Year
 	}
 	spec.key = episodeKey(seriesID, season, number)
-	work.unidentifiedUnlessNFO(&spec)
-	titleID, err := work.titleFor(ctx, spec)
+	filer.unidentifiedUnlessNFO(&spec)
+	titleID, err := filer.findOrAddTitle(ctx, spec)
 	if err != nil {
 		return err
 	}
-	if err := work.position(ctx, seriesID, titleID, season, number); err != nil {
+	if err := filer.positionEpisode(ctx, seriesID, titleID, season, number); err != nil {
 		return err
 	}
-	return work.place(ctx, file, titleID, spec)
+	return filer.place(ctx, file, titleID, spec)
 }
 
 // showNFOFor is the tvshow.nfo in the nearest folder above a file, if there is one.
-func (work *run) showNFOFor(file sqlcgen.ListIdentifyFilesRow) (NFO, bool) {
+func (filer *libraryFiler) showNFOFor(file sqlcgen.ListIdentifyFilesRow) (NFO, bool) {
 	for folder := path.Dir(file.Path); folder != "/" && folder != "."; folder = path.Dir(folder) {
-		if nfo, found := work.showNFOs[folder]; found {
+		if nfo, found := filer.showNFOs[folder]; found {
 			return nfo, true
 		}
 	}
@@ -77,34 +79,34 @@ func (work *run) showNFOFor(file sqlcgen.ListIdentifyFilesRow) (NFO, bool) {
 // seriesOf is an episode's series: the one it is already in, when the file has not moved, so a
 // series renamed by its match keeps its episodes; else the one its tvshow.nfo or folders name.
 // It gathers what the file says about the series for the pass to resolve.
-func (work *run) seriesOf(
-	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, parsed Parsed, show NFO, hasShow bool,
+func (filer *libraryFiler) seriesOf(
+	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, parsed ParsedPath, showNFO NFO, hasShowNFO bool,
 ) (int64, error) {
 	evidence := seriesSpec{name: parsed.Name, year: parsed.Year, ids: maps.Clone(parsed.ProviderIDs)}
-	if hasShow {
-		evidence.fromNFO(show)
+	if hasShowNFO {
+		evidence.fromNFO(showNFO)
 	}
-	seriesID, err := work.currentSeries(ctx, file)
+	seriesID, err := filer.currentSeries(ctx, file)
 	if err == nil && seriesID == 0 {
-		seriesID, err = work.seriesFor(ctx, evidence.name)
+		seriesID, err = filer.findOrAddSeries(ctx, evidence.name)
 	}
 	if err != nil {
 		return 0, err
 	}
-	if _, seen := work.seriesSeen[seriesID]; !seen {
-		work.seriesSeen[seriesID] = evidence
+	if _, seen := filer.seriesSpecByID[seriesID]; !seen {
+		filer.seriesSpecByID[seriesID] = evidence
 	}
 	return seriesID, nil
 }
 
 // currentSeries is the series a file's episode is already placed in, if it has one and has not
 // moved.
-func (work *run) currentSeries(ctx context.Context, file sqlcgen.ListIdentifyFilesRow) (int64, error) {
-	titleID, kept, err := work.currentTitle(ctx, file)
-	if err != nil || !kept {
+func (filer *libraryFiler) currentSeries(ctx context.Context, file sqlcgen.ListIdentifyFilesRow) (int64, error) {
+	titleID, hasCurrentTitle, err := filer.currentTitle(ctx, file)
+	if err != nil || !hasCurrentTitle {
 		return 0, err
 	}
-	seriesID, err := store.OrNotFound(work.queries.GetSeriesOfTitle(ctx, titleID))
+	seriesID, err := store.OrNotFound(filer.queries.GetSeriesOfTitle(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return 0, nil
 	}
@@ -116,18 +118,18 @@ func (work *run) currentSeries(ctx context.Context, file sqlcgen.ListIdentifyFil
 
 // fromListing gives an episode its values from its series' stored season listing, or says why
 // it cannot (D209).
-func (work *run) fromListing(ctx context.Context, seriesID int64, season, number int, spec *titleSpec) error {
-	series, err := work.seriesMatch(ctx, seriesID)
+func (filer *libraryFiler) fromListing(ctx context.Context, seriesID int64, season, number int, spec *titleSpec) error {
+	series, err := filer.cachedSeriesMatch(ctx, seriesID)
 	if err != nil {
 		return err
 	}
-	provider, known := work.providers[providerOf(work.library.MetadataSource)]
+	provider, known := filer.providers[providerOf(filer.library.MetadataSource)]
 	switch {
 	case !known:
-	case ptr.ValueOrZero(series.IdentificationState) == identAmbiguous:
+	case ptr.ValueOrZero(series.IdentificationState) == identificationAmbiguous:
 		spec.reason = "its series matches more than one show: choose its match"
-	case seriesMatched(series):
-		episodes, fetched, listErr := work.listing(ctx, seriesID, provider, season)
+	case isSeriesMatched(series):
+		episodes, fetched, listErr := filer.seasonListing(ctx, seriesID, provider, season)
 		if listErr != nil {
 			return listErr
 		}
@@ -158,58 +160,59 @@ func (spec *titleSpec) fromEpisode(provider string, episode Episode) {
 	if episode.RuntimeMs > 0 {
 		spec.runtimeMs = episode.RuntimeMs
 	}
-	spec.source, spec.sourceID, spec.ident, spec.reason = provider, episode.ID, identIdentified, ""
-	if episode.Still != "" {
-		spec.artwork = []ArtRef{{Kind: ArtStill, Ref: episode.Still}}
+	spec.source, spec.sourceID, spec.identification, spec.reason = provider, episode.ID, identificationIdentified, ""
+	if episode.StillRef != "" {
+		spec.artwork = []ArtRef{{Kind: ArtStill, Ref: episode.StillRef}}
 	}
 }
 
-// seriesFor finds the series collection by name in this library, or makes it.
-func (work *run) seriesFor(ctx context.Context, name string) (int64, error) {
-	if id, found := work.seriesIDByName[strings.ToLower(name)]; found {
+// findOrAddSeries finds the series collection by name in this library, or makes it.
+func (filer *libraryFiler) findOrAddSeries(ctx context.Context, name string) (int64, error) {
+	if id, found := filer.seriesIDByName[strings.ToLower(name)]; found {
 		return id, nil
 	}
-	libraryID := work.library.ID
-	id, err := work.queries.InsertItem(ctx, sqlcgen.InsertItemParams{
-		Kind: itemCollection, LibraryID: &libraryID, AddedAt: work.now,
+	libraryID := filer.library.ID
+	id, err := filer.queries.InsertItem(ctx, sqlcgen.InsertItemParams{
+		Kind: itemKindCollection, LibraryID: &libraryID, AddedAt: filer.nowMs,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("add series %q: %w", name, err)
 	}
 	collection := sqlcgen.InsertCollectionParams{ID: id, Kind: "series", CreatedBy: "scanner"}
-	err = work.queries.InsertCollection(ctx, collection)
+	err = filer.queries.InsertCollection(ctx, collection)
 	if err != nil {
 		return 0, fmt.Errorf("add series %q: %w", name, err)
 	}
-	if err := work.writeText(ctx, id, itemText{listing: KindSeries, name: name}); err != nil {
+	if err := filer.writeText(ctx, id, itemText{sortListing: KindSeries, name: name}); err != nil {
 		return 0, err
 	}
-	work.seriesIDByName[strings.ToLower(name)] = id
+	filer.seriesIDByName[strings.ToLower(name)] = id
 	return id, nil
 }
 
-// position puts an episode in its series and in the series' aired order.
-func (work *run) position(ctx context.Context, seriesID, titleID int64, season, number int) error {
-	sort := float64(season)*10_000 + float64(number)
-	err := work.queries.UpsertCollectionMember(ctx, sqlcgen.UpsertCollectionMemberParams{
-		CollectionID: seriesID, MemberTitle: &titleID, Position: &sort,
+// positionEpisode puts an episode in its series and in the series' aired order.
+func (filer *libraryFiler) positionEpisode(ctx context.Context, seriesID, titleID int64, season, number int) error {
+	sortOrder := float64(season)*10_000 + float64(number)
+	err := filer.queries.UpsertCollectionMember(ctx, sqlcgen.UpsertCollectionMemberParams{
+		CollectionID: seriesID, MemberTitle: &titleID, Position: &sortOrder,
 	})
 	if err != nil {
 		return fmt.Errorf("add title %d to series %d: %w", titleID, seriesID, err)
 	}
 	aired := sqlcgen.GetOrderingParams{CollectionID: seriesID, Name: airedOrdering}
-	ordering, err := work.queries.GetOrdering(ctx, aired)
+	ordering, err := filer.queries.GetOrdering(ctx, aired)
 	if err != nil {
-		ordering, err = work.queries.InsertOrdering(ctx, sqlcgen.InsertOrderingParams{
+		ordering, err = filer.queries.InsertOrdering(ctx, sqlcgen.InsertOrderingParams{
 			CollectionID: seriesID, Name: airedOrdering,
 		})
 		if err != nil {
 			return fmt.Errorf("add series %d's aired order: %w", seriesID, err)
 		}
 	}
-	grp, num := int64(season), int64(number)
-	err = work.queries.UpsertPosition(ctx, sqlcgen.UpsertPositionParams{
-		OrderingID: ordering, TitleID: titleID, GroupNumber: &grp, NumberInGroup: &num, SortOrder: sort,
+	groupNumber, numberInGroup := int64(season), int64(number)
+	err = filer.queries.UpsertPosition(ctx, sqlcgen.UpsertPositionParams{
+		OrderingID: ordering, TitleID: titleID, GroupNumber: &groupNumber, NumberInGroup: &numberInGroup,
+		SortOrder: sortOrder,
 	})
 	if err != nil {
 		return fmt.Errorf("place title %d at season %d, episode %d: %w", titleID, season, number, err)

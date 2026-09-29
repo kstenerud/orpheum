@@ -24,14 +24,14 @@ type OwedArtwork struct {
 
 // oweArtwork notes the images an item's source names that its artwork does not hold: new ones,
 // and ones the source changed. One the node refused is held, with no hash, and not asked for again.
-func (work *run) oweArtwork(ctx context.Context, itemID int64, source string, refs []ArtRef) error {
+func (filer *libraryFiler) oweArtwork(ctx context.Context, itemID int64, source string, refs []ArtRef) error {
 	if source != SourceLocal {
-		refs = work.withoutLocalKinds(itemID, refs)
+		refs = filer.withoutLocalKinds(itemID, refs)
 	}
 	if len(refs) == 0 || source == "" || source == sourceNFO || source == sourceNone {
 		return nil
 	}
-	stored, err := work.queries.ListLiveArtwork(ctx, itemID)
+	stored, err := filer.queries.ListLiveArtwork(ctx, itemID)
 	if err != nil {
 		return fmt.Errorf("list item %d's artwork: %w", itemID, err)
 	}
@@ -45,7 +45,8 @@ func (work *run) oweArtwork(ctx context.Context, itemID int64, source string, re
 		}
 	}
 	if len(owed) > 0 {
-		work.report.Artwork = append(work.report.Artwork, OwedArtwork{ItemID: itemID, Source: source, Refs: owed})
+		owedByItem := OwedArtwork{ItemID: itemID, Source: source, Refs: owed}
+		filer.report.OwedArtwork = append(filer.report.OwedArtwork, owedByItem)
 	}
 	return nil
 }

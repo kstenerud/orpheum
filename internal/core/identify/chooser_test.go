@@ -12,23 +12,23 @@ import (
 )
 
 // ambiguousTheGeneral is a library holding one film its search could not settle.
-func ambiguousTheGeneral(t *testing.T) (*world, int64) {
+func ambiguousTheGeneral(t *testing.T) (*testLibrary, int64) {
 	t.Helper()
-	lib := newWorld(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movies", "tmdb")
 	theGeneral72 := lib.provider.add(Metadata{ID: "1", Name: "The General", Year: 1972})
 	theGeneral02 := lib.provider.add(Metadata{ID: "2", Name: "The General", Year: 2002, Overview: "Soderbergh's."})
 	lib.provider.searches[searchKey("The General", 2003)] = []Candidate{theGeneral72, theGeneral02}
-	lib.scan(video("The General (2003).mkv"))
-	if outcome := lib.match("The General (2003).mkv"); outcome != OutcomeAmbiguous {
+	lib.scan(videoRecord("The General (2003).mkv"))
+	if outcome := lib.matchFileTitle("The General (2003).mkv"); outcome != OutcomeAmbiguous {
 		t.Fatalf("outcome %s, want ambiguous", outcome)
 	}
-	return lib, lib.files()["The General (2003).mkv"].TitleID
+	return lib, lib.titlesByPath()["The General (2003).mkv"].TitleID
 }
 
 func TestChooser_ListsTheAmbiguousTitlesAndTheirCandidates(t *testing.T) {
 	t.Parallel()
 	lib, titleID := ambiguousTheGeneral(t)
-	titles, err := lib.chooser.Items(t.Context(), identAmbiguous)
+	titles, err := lib.chooser.Items(t.Context(), identificationAmbiguous)
 	if err != nil || len(titles) != 1 || titles[0].ID != titleID || titles[0].Name != "The General" {
 		t.Fatalf("Items(ambiguous) = %+v, %v", titles, err)
 	}
@@ -64,12 +64,12 @@ func TestChooser_AChosenMatchIsPermanent(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, when := range []string{"after choosing", "after another pass"} {
-		file := lib.files()["The General (2003).mkv"]
-		if file.IdentificationState != identConfirmed || file.Year == nil || *file.Year != 2002 ||
+		file := lib.titlesByPath()["The General (2003).mkv"]
+		if file.IdentificationState != identificationConfirmed || file.Year == nil || *file.Year != 2002 ||
 			file.Filing != filingListed {
 			t.Errorf("%s: %+v; want the chosen film, confirmed", when, file)
 		}
-		lib.scan(video("The General (2003).mkv"))
+		lib.scan(videoRecord("The General (2003).mkv"))
 	}
 	if kept, err := lib.matcher.cache.Read().ListMatchCandidates(t.Context(), titleID); err != nil || len(kept) != 0 {
 		t.Errorf("%d candidates kept after the choice (%v)", len(kept), err)
@@ -78,21 +78,22 @@ func TestChooser_AChosenMatchIsPermanent(t *testing.T) {
 
 func TestChooser_AChoiceWinsOverTheNFOAndReplacesAnEarlierOne(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "nfo_then_tmdb")
+	lib := newTestLibrary(t, "movies", "nfo_then_tmdb")
 	lib.provider.add(heat)
 	lib.provider.add(leon)
-	lib.scan(video("Metropolis (1995).mkv"),
-		nfo("Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year><tmdbid>9019</tmdbid></movie>"))
-	titleID := lib.files()["Metropolis (1995).mkv"].TitleID
+	lib.scan(videoRecord("Metropolis (1995).mkv"),
+		nfoRecord("Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year><tmdbid>9019</tmdbid></movie>"))
+	titleID := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
 	for _, id := range []string{heat.ID, leon.ID} {
 		if err := lib.chooser.Choose(t.Context(), titleID, "tmdb", id); err != nil {
 			t.Fatal(err)
 		}
 	}
-	lib.scan(video("Metropolis (1995).mkv"),
-		nfo("Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year><tmdbid>9019</tmdbid></movie>"))
-	if file := lib.files()["Metropolis (1995).mkv"]; name(file) != leon.Name || file.IdentificationState != identConfirmed {
-		t.Errorf("file %+v is %q; want the person's choice over the NFO", file, name(file))
+	lib.scan(videoRecord("Metropolis (1995).mkv"),
+		nfoRecord("Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year><tmdbid>9019</tmdbid></movie>"))
+	file := lib.titlesByPath()["Metropolis (1995).mkv"]
+	if titleName(file) != leon.Name || file.IdentificationState != identificationConfirmed {
+		t.Errorf("file %+v is %q; want the person's choice over the NFO", file, titleName(file))
 	}
 	ids, err := lib.database.Read().ListItemProviderIDs(t.Context(), titleID)
 	if err != nil {
@@ -119,14 +120,14 @@ func TestChooser_AnOverrideHoldsUntilItIsRemoved(t *testing.T) {
 	if err := lib.chooser.SetOverride(t.Context(), titleID, fieldName, "The General (Soderbergh)", person); err != nil {
 		t.Fatal(err)
 	}
-	lib.scan(video("The General (2003).mkv"))
-	if got := name(lib.files()["The General (2003).mkv"]); got != "The General (Soderbergh)" {
+	lib.scan(videoRecord("The General (2003).mkv"))
+	if got := titleName(lib.titlesByPath()["The General (2003).mkv"]); got != "The General (Soderbergh)" {
 		t.Errorf("with the override, after another pass: %q", got)
 	}
 	if err := lib.chooser.ClearOverride(t.Context(), titleID, fieldName); err != nil {
 		t.Fatal(err)
 	}
-	if got := name(lib.files()["The General (2003).mkv"]); got != "The General" {
+	if got := titleName(lib.titlesByPath()["The General (2003).mkv"]); got != "The General" {
 		t.Errorf("with the override removed: %q, want the source's name", got)
 	}
 }

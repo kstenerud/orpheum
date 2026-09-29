@@ -101,7 +101,7 @@ func TestService_AFailingHostIsPausedAfterFiveFailuresAndProbedAfterEachStep(t *
 func TestService_ARateLimitWaitsWithoutCostingAnAttempt(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fetched{})
-	bench.service.parts.Fetchers["tmdb"] = &failing{err: &identify.RateLimitedError{After: time.Minute}}
+	bench.service.parts.Fetchers["tmdb"] = &failing{err: &identify.RateLimitedError{RetryAfter: time.Minute}}
 	err := bench.service.Handle(t.Context(), bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/p.jpg"}))
 	if wait, isWait := errors.AsType[*jobs.RetryAtError](err); !isWait ||
 		!wait.At.Equal(bench.service.parts.Clock.Now().Add(time.Minute)) {

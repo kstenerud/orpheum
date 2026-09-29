@@ -16,25 +16,25 @@ import (
 
 // endpoint is where one kind of work lives at TMDB, and what its search is keyed on.
 type endpoint struct {
-	path       string // "movie" or "tv"
-	yearFilter string // the search's year parameter
-	findField  string // /find's result list
+	path           string // "movie" or "tv"
+	yearFilter     string // the search's year parameter
+	findResultsKey string // /find's result list
 }
 
 func endpointFor(kind string) (endpoint, error) {
 	switch kind {
 	case identify.KindMovie:
-		return endpoint{path: "movie", yearFilter: "year", findField: "movie_results"}, nil
+		return endpoint{path: "movie", yearFilter: "year", findResultsKey: "movie_results"}, nil
 	case identify.KindSeries:
-		return endpoint{path: "tv", yearFilter: "first_air_date_year", findField: "tv_results"}, nil
+		return endpoint{path: "tv", yearFilter: "first_air_date_year", findResultsKey: "tv_results"}, nil
 	}
 	return endpoint{}, fmt.Errorf("tmdb: a %s is not a kind TMDB is asked about", kind)
 }
 
-// result is one search or find result: a film's fields, or a series' under their own names.
+// workSummary is one search or find result: a film's fields, or a series' under their own names.
 //
 //nolint:tagliatelle // TMDB's field names
-type result struct {
+type workSummary struct {
 	ID            int64  `json:"id"`
 	Title         string `json:"title"`
 	Name          string `json:"name"`
@@ -45,30 +45,30 @@ type result struct {
 	PosterPath    string `json:"poster_path"`
 }
 
-func (found result) candidate() identify.Candidate {
+func (found workSummary) candidate() identify.Candidate {
 	return identify.Candidate{
-		ID: strconv.FormatInt(found.ID, 10), Name: firstOf(found.Title, found.Name),
-		OriginalName: firstOf(found.OriginalTitle, found.OriginalName),
-		Year:         yearOf(firstOf(found.ReleaseDate, found.FirstAirDate)), PosterRef: found.PosterPath,
+		ID: strconv.FormatInt(found.ID, 10), Name: firstNonEmpty(found.Title, found.Name),
+		OriginalName: firstNonEmpty(found.OriginalTitle, found.OriginalName),
+		Year:         yearOf(firstNonEmpty(found.ReleaseDate, found.FirstAirDate)), PosterRef: found.PosterPath,
 	}
 }
 
 // Search asks /search/movie or /search/tv for a name and year.
 func (client *Client) Search(ctx context.Context, query identify.Query) ([]identify.Candidate, error) {
-	where, err := endpointFor(query.Kind)
+	kindEndpoint, err := endpointFor(query.Kind)
 	if err != nil {
 		return nil, err
 	}
 	parameters := url.Values{"query": {query.Name}, "include_adult": {"false"}}
 	if query.Year > 0 {
-		parameters.Set(where.yearFilter, strconv.Itoa(query.Year))
+		parameters.Set(kindEndpoint.yearFilter, strconv.Itoa(query.Year))
 	}
-	body, err := client.get(ctx, "/search/"+where.path, parameters)
+	body, err := client.get(ctx, "/search/"+kindEndpoint.path, parameters)
 	if err != nil {
 		return nil, err
 	}
 	var response struct {
-		Results []result `json:"results"`
+		Results []workSummary `json:"results"`
 	}
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nil, fmt.Errorf("tmdb: read the search response: %w", err)
@@ -82,7 +82,7 @@ func (client *Client) Search(ctx context.Context, query identify.Query) ([]ident
 
 // Find turns an IMDb id, or a TVDB id for a series, into TMDB's through /find.
 func (client *Client) Find(ctx context.Context, kind, source, id string) (string, error) {
-	where, err := endpointFor(kind)
+	kindEndpoint, err := endpointFor(kind)
 	if err != nil {
 		return "", err
 	}
@@ -94,38 +94,38 @@ func (client *Client) Find(ctx context.Context, kind, source, id string) (string
 	if err != nil {
 		return "", err
 	}
-	var response map[string][]result
+	var response map[string][]workSummary
 	if err := json.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("tmdb: read the find response: %w", err)
 	}
-	if len(response[where.findField]) == 0 {
+	if len(response[kindEndpoint.findResultsKey]) == 0 {
 		return "", fmt.Errorf("tmdb: %s %s: %w", source, id, identify.ErrNoMatch)
 	}
-	return strconv.FormatInt(response[where.findField][0].ID, 10), nil
+	return strconv.FormatInt(response[kindEndpoint.findResultsKey][0].ID, 10), nil
 }
 
 // Fetch returns a film's details with its credits and external ids, or a series' own, the body
 // that is stored.
 func (client *Client) Fetch(ctx context.Context, kind, id string) ([]byte, error) {
-	where, err := endpointFor(kind)
+	kindEndpoint, err := endpointFor(kind)
 	if err != nil {
 		return nil, err
 	}
 	if _, err := strconv.ParseInt(id, 10, 64); err != nil {
 		return nil, fmt.Errorf("tmdb: %q is not a TMDB id: %w", id, identify.ErrNoMatch)
 	}
-	return client.get(ctx, "/"+where.path+"/"+id, url.Values{"append_to_response": {"credits,external_ids"}})
+	return client.get(ctx, "/"+kindEndpoint.path+"/"+id, url.Values{"append_to_response": {"credits,external_ids"}})
 }
 
-// details is the part of /movie/{id} and /tv/{id} that is read, in TMDB's names.
+// workDetails is the part of /movie/{id} and /tv/{id} that is read, in TMDB's names.
 //
 //nolint:tagliatelle // TMDB's field names
-type details struct {
-	result
+type workDetails struct {
+	workSummary
 	OriginalLanguage string  `json:"original_language"`
 	Overview         string  `json:"overview"`
 	Tagline          string  `json:"tagline"`
-	Runtime          int64   `json:"runtime"`
+	RuntimeMinutes   int64   `json:"runtime"`
 	EpisodeRunTime   []int64 `json:"episode_run_time"`
 	BackdropPath     string  `json:"backdrop_path"`
 	IMDbID           string  `json:"imdb_id"`
@@ -140,7 +140,7 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 	if _, err := endpointFor(kind); err != nil {
 		return identify.Metadata{}, err
 	}
-	var work details
+	var work workDetails
 	if err := json.Unmarshal(body, &work); err != nil {
 		return identify.Metadata{}, fmt.Errorf("tmdb: read a stored response: %w", err)
 	}
@@ -149,15 +149,15 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 	}
 	summary := work.candidate()
 	ids := map[string]string{"tmdb": summary.ID}
-	if imdb := firstOf(work.IMDbID, work.ExternalIDs.IMDbID); imdb != "" {
+	if imdb := firstNonEmpty(work.IMDbID, work.ExternalIDs.IMDbID); imdb != "" {
 		ids["imdb"] = imdb
 	}
 	if work.ExternalIDs.TVDbID > 0 {
 		ids["tvdb"] = strconv.FormatInt(work.ExternalIDs.TVDbID, 10)
 	}
-	runtime := work.Runtime
+	runtimeMinutes := work.RuntimeMinutes
 	if kind == identify.KindSeries {
-		runtime = 0 // a series has no runtime; its episodes each have theirs
+		runtimeMinutes = 0 // a series has no runtime; its episodes each have theirs
 	}
 	var artwork []identify.ArtRef
 	if work.PosterPath != "" {
@@ -169,7 +169,7 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 	return identify.Metadata{
 		ID: summary.ID, Name: summary.Name, OriginalName: summary.OriginalName, OriginalLang: work.OriginalLanguage,
 		Overview: work.Overview, Tagline: work.Tagline, Year: summary.Year,
-		RuntimeMs: runtime * int64(time.Minute/time.Millisecond), IDs: ids, Artwork: artwork,
+		RuntimeMs: runtimeMinutes * int64(time.Minute/time.Millisecond), IDs: ids, Artwork: artwork,
 	}, nil
 }
 
@@ -186,14 +186,14 @@ func (*Client) ParseSeason(body []byte) ([]identify.Episode, error) {
 	//nolint:tagliatelle // TMDB's field names
 	var listing struct {
 		Episodes []struct {
-			ID            int64  `json:"id"`
-			SeasonNumber  int    `json:"season_number"`
-			EpisodeNumber int    `json:"episode_number"`
-			Name          string `json:"name"`
-			Overview      string `json:"overview"`
-			AirDate       string `json:"air_date"`
-			Runtime       int64  `json:"runtime"`
-			StillPath     string `json:"still_path"`
+			ID             int64  `json:"id"`
+			SeasonNumber   int    `json:"season_number"`
+			EpisodeNumber  int    `json:"episode_number"`
+			Name           string `json:"name"`
+			Overview       string `json:"overview"`
+			AirDate        string `json:"air_date"`
+			RuntimeMinutes int64  `json:"runtime"`
+			StillPath      string `json:"still_path"`
 		} `json:"episodes"`
 	}
 	if err := json.Unmarshal(body, &listing); err != nil {
@@ -204,13 +204,13 @@ func (*Client) ParseSeason(body []byte) ([]identify.Episode, error) {
 		episodes = append(episodes, identify.Episode{
 			ID: strconv.FormatInt(episode.ID, 10), Season: episode.SeasonNumber, Number: episode.EpisodeNumber,
 			Name: episode.Name, Overview: episode.Overview, Year: yearOf(episode.AirDate),
-			RuntimeMs: episode.Runtime * int64(time.Minute/time.Millisecond), Still: episode.StillPath,
+			RuntimeMs: episode.RuntimeMinutes * int64(time.Minute/time.Millisecond), StillRef: episode.StillPath,
 		})
 	}
 	return episodes, nil
 }
 
-func firstOf(values ...string) string {
+func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if value != "" {
 			return value

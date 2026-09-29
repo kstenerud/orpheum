@@ -12,27 +12,27 @@ import (
 
 func TestPass_ReportsTheImagesAMatchNamesUntilTheyAreHeld(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movies", "tmdb")
 	film := heat
 	film.Artwork = []ArtRef{{Kind: ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: ArtBackdrop, Ref: "/heat-back.jpg"}}
 	lib.provider.searches[searchKey("Metropolis", 1995)] = []Candidate{lib.provider.add(film)}
 	const rel = "Metropolis (1995).mkv"
-	if report := lib.scan(video(rel)); len(report.Artwork) != 0 {
-		t.Fatalf("before its match: owed %+v; want nothing, it has no source yet", report.Artwork)
+	if report := lib.scan(videoRecord(rel)); len(report.OwedArtwork) != 0 {
+		t.Fatalf("before its match: owed %+v; want nothing, it has no source yet", report.OwedArtwork)
 	}
 	var followed []OwedArtwork
-	lib.pass.AfterPass(func(_ context.Context, report Report) { followed = append(followed, report.Artwork...) })
-	if outcome := lib.match(rel); outcome != OutcomeMatched {
+	lib.pass.AfterPass(func(_ context.Context, report Report) { followed = append(followed, report.OwedArtwork...) })
+	if outcome := lib.matchFileTitle(rel); outcome != OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
-	titleID := lib.files()[rel].TitleID
+	titleID := lib.titlesByPath()[rel].TitleID
 	if len(followed) != 1 || !slices.Equal(followed[0].Refs, film.Artwork) {
 		t.Errorf("the match itself left owing %+v; want the film's images, without waiting for a scan", followed)
 	}
-	report := lib.scan(video(rel))
-	if len(report.Artwork) != 1 || report.Artwork[0].ItemID != titleID || report.Artwork[0].Source != "tmdb" ||
-		!slices.Equal(report.Artwork[0].Refs, film.Artwork) {
-		t.Fatalf("owed %+v; want the film's poster and backdrop", report.Artwork)
+	report := lib.scan(videoRecord(rel))
+	if len(report.OwedArtwork) != 1 || report.OwedArtwork[0].ItemID != titleID ||
+		report.OwedArtwork[0].Source != "tmdb" || !slices.Equal(report.OwedArtwork[0].Refs, film.Artwork) {
+		t.Fatalf("owed %+v; want the film's poster and backdrop", report.OwedArtwork)
 	}
 	// The poster is stored; the backdrop was refused by the node, and is held with no hash.
 	for _, row := range []sqlcgen.InsertArtworkParams{
@@ -46,14 +46,14 @@ func TestPass_ReportsTheImagesAMatchNamesUntilTheyAreHeld(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if report = lib.scan(video(rel)); len(report.Artwork) != 0 {
-		t.Errorf("owed %+v once both are held; want nothing", report.Artwork)
+	if report = lib.scan(videoRecord(rel)); len(report.OwedArtwork) != 0 {
+		t.Errorf("owed %+v once both are held; want nothing", report.OwedArtwork)
 	}
 }
 
 func TestChoose_ARematchRetiresTheEarlierWorksImagesTheNewOneLacks(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movies", "tmdb")
 	film := heat
 	film.Artwork = []ArtRef{{Kind: ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: ArtBackdrop, Ref: "/heat-back.jpg"}}
 	lib.provider.searches[searchKey("Metropolis", 1995)] = []Candidate{lib.provider.add(film)}
@@ -61,11 +61,11 @@ func TestChoose_ARematchRetiresTheEarlierWorksImagesTheNewOneLacks(t *testing.T)
 	other.Artwork = []ArtRef{{Kind: ArtPoster, Ref: "/leon-poster.jpg"}}
 	lib.provider.add(other)
 	const rel = "Metropolis (1995).mkv"
-	lib.scan(video(rel))
-	if outcome := lib.match(rel); outcome != OutcomeMatched {
+	lib.scan(videoRecord(rel))
+	if outcome := lib.matchFileTitle(rel); outcome != OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
-	titleID := lib.files()[rel].TitleID
+	titleID := lib.titlesByPath()[rel].TitleID
 	// Metropolis's poster and backdrop are stored, and a person chose a backdrop of their own.
 	for _, row := range []sqlcgen.InsertArtworkParams{
 		{ItemID: titleID, Kind: ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"), SourceSha256: []byte{1}},

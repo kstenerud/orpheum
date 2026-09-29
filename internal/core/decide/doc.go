@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package decide is the playback decision: given a file's streams, the device's prioritised menu
-// per axis and whether the link is local or remote, it answers direct play, an existing prepared
-// rendition, or a new prepare job, with the transcode reason. It is a pure function of declared
-// capabilities.
+// per axis and whether the link is local or remote, it answers direct play, or a prepared
+// rendition and its profile, with the transcode reasons. Whether that rendition already exists is
+// the caller's. It is a pure function of declared capabilities.
 //
 // # Invariants
 //
@@ -12,8 +12,8 @@
 //     TestArch_CoreNeverExecs.
 //   - Opens no file and walks no directory; files are internal/core/datadir's. Enforced by the
 //     forbidigo rule tagged [core-fs].
-//   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
-//     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
+//   - Imports no database/sql or SQLite driver. Enforced by the depguard rule sql-only-in-store and
+//     TestArch_OnlyStoreImportsDatabaseSQL. It calls no store either: a pure function (review).
 //   - Cannot see the HTTP request, so it cannot branch on client identity. Enforced by the
 //     depguard rule decide-sees-capabilities (no net/http, no internal/core/api).
 //   - A stream the table cannot place is prepared, never guessed playable; each row of the

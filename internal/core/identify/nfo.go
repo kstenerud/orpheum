@@ -33,9 +33,9 @@ type NFO struct {
 	Episode       int
 	// ProviderIDs are the ids it names, by provider: "tmdb", "imdb", "tvdb".
 	ProviderIDs map[string]string
-	// Locked are the fields a person locked, in our field names ("name", "overview", ...);
+	// LockedFields are the fields a person locked, in our field names ("name", "overview", ...);
 	// lockdata locks every field the file sets.
-	Locked []string
+	LockedFields []string
 }
 
 // ErrNotNFO is a body that is not an NFO document.
@@ -88,55 +88,57 @@ func ParseNFO(body []byte) (NFO, error) {
 	}
 	kind := strings.ToLower(document.XMLName.Local)
 	switch kind {
-	case kindMovie, "episodedetails", "tvshow", "season":
+	case KindMovie, "episodedetails", "tvshow", "season":
 	default:
 		return NFO{}, fmt.Errorf("%w: the root element is <%s>", ErrNotNFO, document.XMLName.Local)
 	}
 	nfo := NFO{
-		Kind: kind, Title: clean(document.Title), OriginalTitle: clean(document.OriginalTitle),
-		SortTitle: clean(document.SortTitle), Plot: textindex.Prose(firstOf(document.Plot, document.Outline)),
-		Tagline: clean(document.Tagline), Year: yearOf(document), RuntimeMs: runtimeOf(document.Runtime),
-		Season: number(document.Season), Episode: number(document.Episode),
+		Kind: kind, Title: cleanNFOText(document.Title), OriginalTitle: cleanNFOText(document.OriginalTitle),
+		SortTitle: cleanNFOText(document.SortTitle),
+		Plot:      textindex.Prose(firstNonBlank(document.Plot, document.Outline)),
+		Tagline:   cleanNFOText(document.Tagline), Year: yearOf(document), RuntimeMs: runtimeMsOf(document.Runtime),
+		Season: parseNonNegativeInt(document.Season), Episode: parseNonNegativeInt(document.Episode),
 		ProviderIDs: providerIDsOf(document),
 	}
-	nfo.Locked = lockedOf(document, nfo)
+	nfo.LockedFields = lockedOf(document, nfo)
 	return nfo, nil
 }
 
 func yearOf(document nfoDocument) int {
-	if year := number(document.Year); year > 0 {
+	if year := parseNonNegativeInt(document.Year); year > 0 {
 		return year
 	}
 	for _, date := range []string{document.Premiered, document.Aired} {
-		if year := number(strings.SplitN(strings.TrimSpace(date), "-", 2)[0]); year > 0 {
+		if year := parseNonNegativeInt(strings.SplitN(strings.TrimSpace(date), "-", 2)[0]); year > 0 {
 			return year
 		}
 	}
 	return 0
 }
 
-// runtimeOf reads Kodi's runtime, in minutes.
-func runtimeOf(text string) int64 {
-	minutes := number(strings.TrimSuffix(strings.TrimSpace(text), " min"))
+// runtimeMsOf reads Kodi's runtime, in minutes.
+func runtimeMsOf(text string) int64 {
+	minutes := parseNonNegativeInt(strings.TrimSuffix(strings.TrimSpace(text), " min"))
 	return int64(minutes) * 60_000
 }
 
 func providerIDsOf(document nfoDocument) map[string]string {
 	ids := map[string]string{}
 	for _, unique := range document.UniqueIDs {
-		if provider := strings.ToLower(strings.TrimSpace(unique.Type)); provider != "" && clean(unique.Value) != "" {
-			ids[provider] = clean(unique.Value)
+		provider := strings.ToLower(strings.TrimSpace(unique.Type))
+		if provider != "" && cleanNFOText(unique.Value) != "" {
+			ids[provider] = cleanNFOText(unique.Value)
 		}
 	}
 	for provider, value := range map[string]string{
 		sourceTMDB: document.TMDBID, sourceIMDb: document.IMDBID, sourceTVDB: document.TVDBID,
 	} {
-		if _, found := ids[provider]; !found && clean(value) != "" {
-			ids[provider] = clean(value)
+		if _, found := ids[provider]; !found && cleanNFOText(value) != "" {
+			ids[provider] = cleanNFOText(value)
 		}
 	}
 	// Kodi's bare <id> is IMDb's when it looks like one.
-	if id := clean(document.ID); strings.HasPrefix(id, "tt") && ids[sourceIMDb] == "" {
+	if id := cleanNFOText(document.ID); strings.HasPrefix(id, "tt") && ids[sourceIMDb] == "" {
 		ids[sourceIMDb] = id
 	}
 	return ids
@@ -167,10 +169,10 @@ func lockedOf(document nfoDocument, nfo NFO) []string {
 	return sortedStrings(locked)
 }
 
-// clean is an NFO field as it enters the system (principles §22): an NFO is anyone's text.
-func clean(text string) string { return textindex.Line(text) }
+// cleanNFOText is an NFO field as it enters the system (principles §22): an NFO is anyone's text.
+func cleanNFOText(text string) string { return textindex.Line(text) }
 
-func firstOf(values ...string) string {
+func firstNonBlank(values ...string) string {
 	for _, value := range values {
 		if strings.TrimSpace(value) != "" {
 			return value
@@ -179,7 +181,7 @@ func firstOf(values ...string) string {
 	return ""
 }
 
-func number(text string) int {
+func parseNonNegativeInt(text string) int {
 	value, err := strconv.Atoi(strings.TrimSpace(text))
 	if err != nil || value < 0 {
 		return 0

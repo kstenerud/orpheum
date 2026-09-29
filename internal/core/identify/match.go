@@ -51,11 +51,11 @@ type Outcome string
 
 // The outcomes of a match.
 const (
-	OutcomeMatched     Outcome = "matched"
-	OutcomeAmbiguous   Outcome = "ambiguous"
-	OutcomeNoMatch     Outcome = "no match"
-	OutcomeListed      Outcome = "season listings fetched"
-	OutcomeNothingToDo Outcome = "nothing to do"
+	OutcomeMatched         Outcome = "matched"
+	OutcomeAmbiguous       Outcome = "ambiguous"
+	OutcomeNoMatch         Outcome = "no match"
+	OutcomeListingsFetched Outcome = "season listings fetched"
+	OutcomeNothingToDo     Outcome = "nothing to do"
 )
 
 // Match matches a film or a series. Provider errors return as they came, for the queue to wait
@@ -67,7 +67,7 @@ func (matcher *Matcher) Match(ctx context.Context, itemID int64) (Outcome, error
 		return OutcomeNothingToDo, nil // gone since it was queued
 	case err != nil:
 		return "", fmt.Errorf("read item %d: %w", itemID, err)
-	case kind == itemCollection:
+	case kind == itemKindCollection:
 		return matcher.matchSeries(ctx, itemID)
 	}
 	return matcher.matchTitle(ctx, itemID)
@@ -81,7 +81,7 @@ func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome,
 	if err != nil {
 		return "", fmt.Errorf("read title %d: %w", titleID, err)
 	}
-	if title.FollowedSource != nil || title.IdentificationState != identUnidentified ||
+	if title.FollowedSource != nil || title.IdentificationState != identificationUnidentified ||
 		title.MetadataSource == sourceNFO {
 		return OutcomeNothingToDo, nil // matched, answered, ambiguous or confirmed since it was queued
 	}
@@ -94,20 +94,20 @@ func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome,
 		return "", err
 	}
 	if id != "" {
-		return OutcomeMatched, matcher.accept(ctx, provider, title, id, identIdentified)
+		return OutcomeMatched, matcher.accept(ctx, provider, title, id, identificationIdentified)
 	}
-	query := Query{Kind: title.Kind, Name: ptr.ValueOrZero(title.Name), Year: int(deref(title.Year))}
+	query := Query{Kind: title.Kind, Name: ptr.ValueOrZero(title.Name), Year: int(ptr.ValueOrZero(title.Year))}
 	candidates, err := provider.Search(ctx, query)
 	if err != nil {
 		return "", fmt.Errorf("search %s for %q: %w", provider.Name(), query.Name, err)
 	}
 	if chosen, single := singleMatch(query, candidates, true); single {
-		return OutcomeMatched, matcher.accept(ctx, provider, title, chosen.ID, identIdentified)
+		return OutcomeMatched, matcher.accept(ctx, provider, title, chosen.ID, identificationIdentified)
 	}
 	if len(candidates) == 0 {
-		return OutcomeNoMatch, matcher.noMatch(ctx, title)
+		return OutcomeNoMatch, matcher.markNoMatch(ctx, title)
 	}
-	return OutcomeAmbiguous, matcher.ambiguous(ctx, provider, title, candidates)
+	return OutcomeAmbiguous, matcher.markAmbiguous(ctx, provider, title, candidates)
 }
 
 func providerOf(metadataSource string) string {
@@ -148,8 +148,8 @@ func (matcher *Matcher) idInHand(ctx context.Context, provider Provider, kind st
 // singleMatch is the one candidate whose name and year are the query's (D172). A film with no
 // year in hand matches nothing: a wrong match is worse than none. A series' year is checked
 // where its folder or tvshow.nfo gives one (D209).
-func singleMatch(query Query, candidates []Candidate, yearRequired bool) (Candidate, bool) {
-	if query.Year == 0 && yearRequired {
+func singleMatch(query Query, candidates []Candidate, isYearRequired bool) (Candidate, bool) {
+	if query.Year == 0 && isYearRequired {
 		return Candidate{}, false
 	}
 	var found []Candidate
@@ -170,17 +170,17 @@ func singleMatch(query Query, candidates []Candidate, yearRequired bool) (Candid
 // collapsed (D49: letters of every script are kept).
 func foldName(name string) string {
 	var builder strings.Builder
-	space := false
+	isSpacePending := false
 	for _, character := range norm.NFC.String(name) {
 		switch {
 		case unicode.IsLetter(character) || unicode.IsNumber(character):
-			if space && builder.Len() > 0 {
+			if isSpacePending && builder.Len() > 0 {
 				builder.WriteByte(' ')
 			}
 			builder.WriteRune(unicode.ToLower(character))
-			space = false
+			isSpacePending = false
 		case unicode.IsSpace(character):
-			space = true
+			isSpacePending = true
 		}
 	}
 	return builder.String()
@@ -190,7 +190,7 @@ func foldName(name string) string {
 // the matcher or confirmed by a person. A title that turns out to be one already in the library
 // joins it.
 func (matcher *Matcher) accept(
-	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, id, ident string,
+	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, id, identification string,
 ) error {
 	body, err := provider.Fetch(ctx, title.Kind, id)
 	if err != nil {
@@ -200,7 +200,7 @@ func (matcher *Matcher) accept(
 	if err != nil {
 		return fmt.Errorf("read %s %s: %w", provider.Name(), id, err)
 	}
-	stored, err := compress(body)
+	bodyGzip, err := compress(body)
 	if err != nil {
 		return err
 	}
@@ -211,14 +211,16 @@ func (matcher *Matcher) accept(
 	}
 	var owed Report
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		found := match{provider: provider.Name(), id: metadata.ID, ident: ident, artwork: metadata.Artwork}
+		found := titleMatch{
+			provider: provider.Name(), id: metadata.ID, identification: identification, artwork: metadata.Artwork,
+		}
 		owed = Report{}
-		return matcher.record(ctx, queries, found, title, stored, derivation{sorter: sorter, report: &owed})
+		return matcher.recordMatch(ctx, queries, found, title, bodyGzip, derivation{sorter: sorter, report: &owed})
 	})
 	if err != nil {
 		return fmt.Errorf("record title %d's match: %w", title.ID, err)
 	}
-	matcher.pass.owe(ctx, owed)
+	matcher.pass.runAfterPassHooks(ctx, owed)
 	return nil
 }
 
@@ -229,24 +231,24 @@ type derivation struct {
 	report *Report
 }
 
-// match is what a title was matched to, and by whom: identified by the matcher, confirmed by a
+// titleMatch is what a title was matched to, and by whom: identified by the matcher, confirmed by a
 // person.
-type match struct {
-	provider string
-	id       string
-	ident    string
+type titleMatch struct {
+	provider       string
+	id             string
+	identification string
 	// artwork is the work's images, whose refs a rematch keeps of the item's earlier ones.
 	artwork []ArtRef
 }
 
-// record stores a match's response and re-derives the title from it, as a pass would.
-func (matcher *Matcher) record(
-	ctx context.Context, queries *sqlcgen.Queries, found match, title sqlcgen.GetTitleForMatchRow, stored []byte,
+// recordMatch stores a match's response and re-derives the title from it, as a pass would.
+func (matcher *Matcher) recordMatch(
+	ctx context.Context, queries *sqlcgen.Queries, found titleMatch, title sqlcgen.GetTitleForMatchRow, bodyGzip []byte,
 	derive derivation,
 ) error {
 	provider, id := found.provider, found.id
 	now := matcher.clock.Now().UnixMilli()
-	if found.ident == identConfirmed {
+	if found.identification == identificationConfirmed {
 		forget := sqlcgen.DeleteItemProviderIDsAtProviderParams{ItemID: title.ID, Provider: provider}
 		err := queries.DeleteItemProviderIDsAtProvider(ctx, forget)
 		if err != nil {
@@ -265,32 +267,34 @@ func (matcher *Matcher) record(
 		return err
 	}
 	err = queries.UpsertProviderResponse(ctx, sqlcgen.UpsertProviderResponseParams{
-		ItemID: titleID, Provider: provider, Part: "", FetchedAt: now, BodyGzip: stored,
+		ItemID: titleID, Provider: provider, Part: "", FetchedAt: now, BodyGzip: bodyGzip,
 	})
 	if err != nil {
 		return fmt.Errorf("store the response: %w", err)
 	}
 	err = queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
-		FollowedSource: &provider, FollowedSourceID: &id, IdentificationState: found.ident, ID: titleID,
+		FollowedSource: &provider, FollowedSourceID: &id, IdentificationState: found.identification, ID: titleID,
 	})
 	if err != nil {
 		return fmt.Errorf("record the match: %w", err)
 	}
-	work := &run{queries: queries, now: now, report: derive.report, providers: matcher.providers, sorter: derive.sorter}
-	result, err := work.resolveWithMatch(ctx, titleID, titleSpec{kind: title.Kind})
+	filer := &libraryFiler{
+		queries: queries, nowMs: now, report: derive.report, providers: matcher.providers, sorter: derive.sorter,
+	}
+	resolution, err := filer.resolveWithMatch(ctx, titleID, titleSpec{kind: title.Kind})
 	if err != nil {
 		return err
 	}
-	return refile(ctx, queries, titleID, result.ident, result.reason)
+	return refile(ctx, queries, titleID, resolution.identification, resolution.reason)
 }
 
 // retireArtworkOf retires an item's images from a provider that its new work does not have: a
 // rematch to another work leaves none of the earlier work's kinds behind (D223 §9).
 func retireArtworkOf(
-	ctx context.Context, queries *sqlcgen.Queries, itemID int64, provider string, kept []ArtRef, now int64,
+	ctx context.Context, queries *sqlcgen.Queries, itemID int64, provider string, keptArtwork []ArtRef, now int64,
 ) error {
-	refs := make([]string, 0, len(kept))
-	for _, ref := range kept {
+	refs := make([]string, 0, len(keptArtwork))
+	for _, ref := range keptArtwork {
 		refs = append(refs, ref.Ref)
 	}
 	encoded, err := json.Marshal(refs)
@@ -339,22 +343,22 @@ func joinExisting(
 	return title.ID, nil
 }
 
-// ambiguous keeps the search results and marks the title for the chooser (D172).
-func (matcher *Matcher) ambiguous(
+// markAmbiguous keeps the search results and marks the title for the chooser (D172).
+func (matcher *Matcher) markAmbiguous(
 	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, candidates []Candidate,
 ) error {
-	if err := matcher.keep(ctx, provider, title.ID, candidates); err != nil {
+	if err := matcher.keepCandidates(ctx, provider, title.ID, candidates); err != nil {
 		return err
 	}
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		markErr := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
-			IdentificationState: identAmbiguous,
+			IdentificationState: identificationAmbiguous,
 			ID:                  title.ID,
 		})
 		if markErr != nil {
 			return fmt.Errorf("mark title %d ambiguous: %w", title.ID, markErr)
 		}
-		return refile(ctx, queries, title.ID, identAmbiguous, "")
+		return refile(ctx, queries, title.ID, identificationAmbiguous, "")
 	})
 	if err != nil {
 		return fmt.Errorf("record title %d's ambiguity: %w", title.ID, err)
@@ -362,17 +366,17 @@ func (matcher *Matcher) ambiguous(
 	return nil
 }
 
-// noMatch records that the provider has nothing for the title, so it is not searched again
+// markNoMatch records that the provider has nothing for the title, so it is not searched again
 // until a person asks.
-func (matcher *Matcher) noMatch(ctx context.Context, title sqlcgen.GetTitleForMatchRow) error {
+func (matcher *Matcher) markNoMatch(ctx context.Context, title sqlcgen.GetTitleForMatchRow) error {
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		err := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
-			FollowedSource: new(sourceNone), IdentificationState: identUnidentified, ID: title.ID,
+			FollowedSource: new(sourceNone), IdentificationState: identificationUnidentified, ID: title.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("record title %d's empty search: %w", title.ID, err)
 		}
-		return refile(ctx, queries, title.ID, identUnidentified, noMatchReason(title.MetadataSource))
+		return refile(ctx, queries, title.ID, identificationUnidentified, noMatchReason(title.MetadataSource))
 	})
 	if err != nil {
 		return fmt.Errorf("record that nothing matched title %d: %w", title.ID, err)
@@ -380,8 +384,10 @@ func (matcher *Matcher) noMatch(ctx context.Context, title sqlcgen.GetTitleForMa
 	return nil
 }
 
-// keep replaces a film's or series' kept search results in cache.db.
-func (matcher *Matcher) keep(ctx context.Context, provider Provider, itemID int64, candidates []Candidate) error {
+// keepCandidates replaces a film's or series' kept search results in cache.db.
+func (matcher *Matcher) keepCandidates(
+	ctx context.Context, provider Provider, itemID int64, candidates []Candidate,
+) error {
 	err := matcher.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		if err := queries.DeleteMatchCandidates(ctx, itemID); err != nil {
 			return fmt.Errorf("clear item %d's candidates: %w", itemID, err)
@@ -389,8 +395,8 @@ func (matcher *Matcher) keep(ctx context.Context, provider Provider, itemID int6
 		for rank, candidate := range candidates {
 			err := queries.InsertMatchCandidate(ctx, cachegen.InsertMatchCandidateParams{
 				ItemID: itemID, Rank: int64(rank), Provider: provider.Name(), ProviderID: candidate.ID,
-				Name: optional(candidate.Name), Year: optionalInt(int64(candidate.Year)),
-				ProviderPosterPath: optional(candidate.PosterRef),
+				Name: nilIfEmpty(candidate.Name), Year: nilIfZero(int64(candidate.Year)),
+				ProviderPosterPath: nilIfEmpty(candidate.PosterRef),
 			})
 			if err != nil {
 				return fmt.Errorf("keep a candidate for item %d: %w", itemID, err)
@@ -405,19 +411,19 @@ func (matcher *Matcher) keep(ctx context.Context, provider Provider, itemID int6
 }
 
 // refile files a title's live files by its identification, as the pass would.
-func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, ident, reason string) error {
+func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identification, reason string) error {
 	files, err := queries.ListLiveFilesOfTitle(ctx, titleID)
 	if err != nil {
 		return fmt.Errorf("list title %d's files: %w", titleID, err)
 	}
 	filing := filingListed
-	if ident == identUnidentified {
+	if identification == identificationUnidentified {
 		filing = filingUnidentified
 	} else {
 		reason = ""
 	}
 	for _, file := range files {
-		params := sqlcgen.SetFileFilingParams{Filing: filing, FilingReason: optional(reason), ID: file.ID}
+		params := sqlcgen.SetFileFilingParams{Filing: filing, FilingReason: nilIfEmpty(reason), ID: file.ID}
 		err := queries.SetFileFiling(ctx, params)
 		if err != nil {
 			return fmt.Errorf("file %s: %w", file.Path, err)
@@ -442,13 +448,13 @@ func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 		outcome, err = matcher.Match(ctx, job.ItemID)
 	}
 	if limited, isLimited := errors.AsType[*RateLimitedError](err); isLimited {
-		return &jobs.RetryAtError{At: matcher.clock.Now().Add(limited.After), Err: err}
+		return &jobs.RetryAtError{At: matcher.clock.Now().Add(limited.RetryAfter), Err: err}
 	}
 	switch {
 	case errors.Is(err, ErrNoKey), errors.Is(err, ErrKeyRefused):
-		return fmt.Errorf("match title %d: %w", job.ItemID, jobs.MarkBlocked(err))
+		return fmt.Errorf("fetch item %d: %w", job.ItemID, jobs.MarkBlocked(err))
 	case errors.Is(err, ErrNoMatch):
-		return fmt.Errorf("match title %d: %w", job.ItemID, jobs.MarkPermanent(err))
+		return fmt.Errorf("fetch item %d: %w", job.ItemID, jobs.MarkPermanent(err))
 	case err != nil:
 		return err
 	}

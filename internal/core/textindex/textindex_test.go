@@ -60,15 +60,17 @@ func TestSorter_FollowsTheLocaleAndNumbers(t *testing.T) {
 func TestPlanQuery_RoutesByLengthAndScript(t *testing.T) {
 	t.Parallel()
 	for query, want := range map[string]Plan{
-		"":             {},
-		"  ":           {},
-		"up":           {Route: RouteShort, Match: "up"},
-		"5%":           {Route: RouteShort, Match: "5%"},
-		"Sølvi":        {Route: RouteWords, Match: `("solvi" OR "solvi"*)`},
-		"heat NEAR 95": {Route: RouteWords, Match: `("heat" OR "heat"*) AND ("near" OR "near"*) AND ("95" OR "95"*)`},
-		`the "quote"`:  {Route: RouteWords, Match: `("the" OR "the"*) AND ("quote" OR "quote"*)`},
-		"十字":         {Route: RouteTrigram, Match: `"十字"`},
-		"千尋":           {Route: RouteShort, Match: "千尋"},
+		"":      {},
+		"  ":    {},
+		"up":    {Route: RouteShort, IndexQuery: "up"},
+		"5%":    {Route: RouteShort, IndexQuery: "5%"},
+		"Sølvi": {Route: RouteWords, IndexQuery: `("solvi" OR "solvi"*)`},
+		"heat NEAR 95": {
+			Route: RouteWords, IndexQuery: `("heat" OR "heat"*) AND ("near" OR "near"*) AND ("95" OR "95"*)`,
+		},
+		`the "quote"`: {Route: RouteWords, IndexQuery: `("the" OR "the"*) AND ("quote" OR "quote"*)`},
+		"十字":        {Route: RouteTrigram, IndexQuery: `"十字"`},
+		"千尋":          {Route: RouteShort, IndexQuery: "千尋"},
 	} {
 		if got := PlanQuery(query); got != want {
 			t.Errorf("PlanQuery(%q) = %+v, want %+v", query, got, want)

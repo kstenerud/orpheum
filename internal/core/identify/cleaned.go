@@ -8,10 +8,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 )
 
-// cleaned is a provider whose every answer is cleaned where it enters the system (principles
+// cleaningProvider is a provider whose every answer is cleaned where it enters the system (principles
 // §22, D211): a provider's text is community-edited, and one day a plugin's. The fetched bodies
 // are bytes, stored as bytes, and cleaned when they are parsed, here.
-type cleaned struct {
+type cleaningProvider struct {
 	Provider
 }
 
@@ -19,17 +19,17 @@ type cleaned struct {
 func cleanProviders(providers Providers) Providers {
 	wrapped := make(Providers, len(providers))
 	for name, provider := range providers {
-		if _, already := provider.(cleaned); already {
+		if _, already := provider.(cleaningProvider); already {
 			wrapped[name] = provider
 			continue
 		}
-		wrapped[name] = cleaned{Provider: provider}
+		wrapped[name] = cleaningProvider{Provider: provider}
 	}
 	return wrapped
 }
 
 // Search cleans each candidate.
-func (provider cleaned) Search(ctx context.Context, query Query) ([]Candidate, error) {
+func (provider cleaningProvider) Search(ctx context.Context, query Query) ([]Candidate, error) {
 	candidates, err := provider.Provider.Search(ctx, query)
 	for index, candidate := range candidates {
 		candidates[index] = Candidate{
@@ -42,13 +42,13 @@ func (provider cleaned) Search(ctx context.Context, query Query) ([]Candidate, e
 }
 
 // Find cleans the id found.
-func (provider cleaned) Find(ctx context.Context, kind, source, id string) (string, error) {
+func (provider cleaningProvider) Find(ctx context.Context, kind, source, id string) (string, error) {
 	found, err := provider.Provider.Find(ctx, kind, source, id)
 	return textindex.Line(found), err
 }
 
 // Parse cleans every text of the work.
-func (provider cleaned) Parse(kind string, body []byte) (Metadata, error) {
+func (provider cleaningProvider) Parse(kind string, body []byte) (Metadata, error) {
 	metadata, err := provider.Provider.Parse(kind, body)
 	ids := make(map[string]string, len(metadata.IDs))
 	for source, id := range metadata.IDs {
@@ -68,11 +68,11 @@ func (provider cleaned) Parse(kind string, body []byte) (Metadata, error) {
 }
 
 // ParseSeason cleans every episode's text.
-func (provider cleaned) ParseSeason(body []byte) ([]Episode, error) {
+func (provider cleaningProvider) ParseSeason(body []byte) ([]Episode, error) {
 	episodes, err := provider.Provider.ParseSeason(body)
 	for index, episode := range episodes {
 		episode.ID, episode.Name = textindex.Line(episode.ID), textindex.Line(episode.Name)
-		episode.Overview, episode.Still = textindex.Prose(episode.Overview), textindex.Line(episode.Still)
+		episode.Overview, episode.StillRef = textindex.Prose(episode.Overview), textindex.Line(episode.StillRef)
 		episodes[index] = episode
 	}
 	return episodes, err //nolint:wrapcheck // the provider's own error, passed through as it is

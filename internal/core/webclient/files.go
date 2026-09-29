@@ -15,11 +15,11 @@ var dist embed.FS
 
 // Files is the built web client, or false when this binary was built without it.
 func Files() (fs.FS, bool) {
-	return builtIn(dist)
+	return builtClient(dist)
 }
 
-// builtIn is the client inside embedded, or false when there is no index.html to serve.
-func builtIn(embedded fs.FS) (fs.FS, bool) {
+// builtClient is the client inside embedded, or false when there is no index.html to serve.
+func builtClient(embedded fs.FS) (fs.FS, bool) {
 	files, err := fs.Sub(embedded, "dist")
 	if err != nil {
 		return nil, false

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package turn runs the TURN server embedded in the binary (pion/turn) that carries Watch Together
-// voice, and issues short-lived TURN credentials derived from the sealed shared secret.
+// Package turn will run the TURN server embedded in the binary (pion/turn) that carries Watch
+// Together voice, and issue short-lived TURN credentials derived from the sealed shared secret. It
+// is built in M4 (cut-a §8); for now it holds only this doc.
 //
 // # Invariants
 //

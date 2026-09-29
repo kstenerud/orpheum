@@ -20,32 +20,32 @@ const (
 	RouteTrigram Route = "trigram"
 )
 
-// shortQuery is the length under which the trigram index cannot answer: it needs three
+// minTrigramRunes is the length under which the trigram index cannot answer: it needs three
 // characters (D48's measured threshold).
-const shortQuery = 3
+const minTrigramRunes = 3
 
 // Plan is a search, folded and routed.
 type Plan struct {
 	Route Route
-	// Match is the index's query: a folded substring, an FTS5 word query, or a trigram phrase.
-	Match string
+	// IndexQuery is the index's query: a folded substring, an FTS5 word query, or a trigram phrase.
+	IndexQuery string
 }
 
 // PlanQuery folds a person's query with the one normaliser and routes it. An empty plan
-// (Match "") asks for nothing.
+// (IndexQuery "") asks for nothing.
 func PlanQuery(query string) Plan {
 	folded := strings.TrimSpace(Fold(query))
 	if folded == "" {
 		return Plan{}
 	}
-	if utf8.RuneCountInString(folded) < shortQuery {
-		return Plan{Route: RouteShort, Match: folded}
+	if utf8.RuneCountInString(folded) < minTrigramRunes {
+		return Plan{Route: RouteShort, IndexQuery: folded}
 	}
 	if !isLatin(folded) {
-		return Plan{Route: RouteTrigram, Match: quote(folded)}
+		return Plan{Route: RouteTrigram, IndexQuery: quote(folded)}
 	}
 	var terms []string
-	for _, word := range strings.FieldsFunc(folded, notWordRune) {
+	for _, word := range strings.FieldsFunc(folded, isNotWordRune) {
 		// Each word as itself or as a prefix: the same matches as a bare prefix, but bm25 ranks a
 		// whole word above a word it begins (D48, from Navidrome).
 		terms = append(terms, "("+quote(word)+" OR "+quote(word)+"*)")
@@ -54,7 +54,7 @@ func PlanQuery(query string) Plan {
 		return Plan{}
 	}
 	// FTS5 joins bare words with an implicit AND, but not parenthesised groups: they need it said.
-	return Plan{Route: RouteWords, Match: strings.Join(terms, " AND ")}
+	return Plan{Route: RouteWords, IndexQuery: strings.Join(terms, " AND ")}
 }
 
 // isLatin reports whether every letter is Latin: the word index tokenises Latin words and
@@ -68,7 +68,7 @@ func isLatin(text string) bool {
 	return true
 }
 
-func notWordRune(character rune) bool {
+func isNotWordRune(character rune) bool {
 	return !unicode.IsLetter(character) && !unicode.IsNumber(character)
 }
 

@@ -12,14 +12,14 @@ import (
 // never makes an extra, and nothing at a library root is one.
 func TestPass_AFileNamedForItsFoldersTitleWithASuffixIsAnExtra(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "nfo")
+	lib := newTestLibrary(t, "movies", "nfo")
 	report := lib.scan(
-		video("Quiet Harbour (1999)/Quiet Harbour (1999).mkv"),
-		video("Quiet Harbour (1999)/Quiet Harbour (1999)-featurette.mkv"),
-		video("Quiet Harbour (1999)/Something Else-trailer.mkv"),
-		video("Loose Ends-trailer.mkv"),
+		videoRecord("Quiet Harbour (1999)/Quiet Harbour (1999).mkv"),
+		videoRecord("Quiet Harbour (1999)/Quiet Harbour (1999)-featurette.mkv"),
+		videoRecord("Quiet Harbour (1999)/Something Else-trailer.mkv"),
+		videoRecord("Loose Ends-trailer.mkv"),
 	)
-	files := lib.files()
+	files := lib.titlesByPath()
 	film := files["Quiet Harbour (1999)/Quiet Harbour (1999).mkv"]
 	featurette := files["Quiet Harbour (1999)/Quiet Harbour (1999)-featurette.mkv"]
 	if featurette.Kind != kindExtra || featurette.TitleID == film.TitleID || featurette.Filing != filingExtra ||
@@ -32,7 +32,7 @@ func TestPass_AFileNamedForItsFoldersTitleWithASuffixIsAnExtra(t *testing.T) {
 			t.Errorf("%s is %+v; a suffix alone, or at the root, makes no extra", rel, file)
 		}
 	}
-	if report.Extras != 1 {
+	if report.ExtraCount != 1 {
 		t.Errorf("report %+v, want one extra", report)
 	}
 }

@@ -216,10 +216,10 @@ func (browser *Browser) sortLocale(ctx context.Context) (string, error) {
 // Search finds titles and series by name, through the index that can answer the query (D48).
 func (browser *Browser) Search(ctx context.Context, query string, limit int64) ([]store.SearchHit, error) {
 	plan := textindex.PlanQuery(query)
-	if plan.Match == "" {
+	if plan.IndexQuery == "" {
 		return []store.SearchHit{}, nil
 	}
-	hits, err := browser.database.Search(ctx, store.SearchRoute(plan.Route), plan.Match, limit)
+	hits, err := browser.database.Search(ctx, store.SearchRoute(plan.Route), plan.IndexQuery, limit)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}

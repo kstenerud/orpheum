@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// notBuiltIn is the page a binary built without the web client serves at `/`.
-const notBuiltIn = "This Orpheum binary was built without the web client. `make build` builds it in; " +
+// notBuiltInMessage is the page a binary built without the web client serves at `/`.
+const notBuiltInMessage = "This Orpheum binary was built without the web client. `make build` builds it in; " +
 	"`make dev` serves it from Vite.\n"
 
 // Handler serves files at `/`, answering the client's own addresses with index.html. files is
@@ -32,7 +32,7 @@ func Handler(files fs.FS, apiPrefix string) http.Handler {
 		if files == nil {
 			writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			writer.WriteHeader(http.StatusNotFound)
-			_, _ = writer.Write([]byte(notBuiltIn))
+			_, _ = writer.Write([]byte(notBuiltInMessage))
 			return
 		}
 		if name == "" || !isFile(files, name) {
@@ -53,9 +53,9 @@ func Handler(files fs.FS, apiPrefix string) http.Handler {
 }
 
 // isServerPath is a path the server answers itself, never with the client.
-func isServerPath(clean, apiPrefix string) bool {
+func isServerPath(cleanPath, apiPrefix string) bool {
 	for _, prefix := range []string{apiPrefix, "/debug"} {
-		if clean == prefix || strings.HasPrefix(clean, prefix+"/") {
+		if cleanPath == prefix || strings.HasPrefix(cleanPath, prefix+"/") {
 			return true
 		}
 	}

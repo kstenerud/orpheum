@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package webclient serves the built web client at `/`: its files as they are, and its own
-// addresses (`/films`, `/title/…`) with its index.html, so a reload or a shared link opens the
+// addresses (`/films`, `/titles/…`) with its index.html, so a reload or a shared link opens the
 // right screen (D216 §2). `make build` copies web/apps/web/dist into dist/ before building the
 // binary, which embeds it; a build without it serves a page that says the client was not built
 // in, and the dev loop serves the client from Vite instead.

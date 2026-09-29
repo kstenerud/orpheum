@@ -161,11 +161,11 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	}
 	request := playback.Request{
 		FileID: input.Body.FileID, DeviceID: principal.DeviceID, Menu: menuOf(input.Body.PlayableFormats),
-		Link: decide.Link(input.Body.Network), Prefer: decide.Prefer(input.Body.PreferredDelivery),
+		Link: decide.Link(input.Body.Network), Prefer: decide.PreferredDelivery(input.Body.PreferredDelivery),
 	}
 	started, err := dependencies.Playback.Start(ctx, principal.UserID, sessionKey(input.Authorization), request)
 	switch {
-	case errors.Is(err, decide.ErrMenu):
+	case errors.Is(err, decide.ErrBadMenu):
 		return nil, newError(http.StatusBadRequest, CodeInvalidRequest, err.Error())
 	case errors.Is(err, playback.ErrNoFile):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such file to play")
@@ -173,14 +173,14 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		return nil, server.internal(ctx, "start a playback", err)
 	}
 	output := &StartPlaybackOutput{}
-	output.Body.Delivery = string(started.Decision.Kind)
+	output.Body.Delivery = string(started.Decision.Delivery)
 	output.Body.Profile = string(started.Decision.Profile)
 	output.Body.NotDirectReasons = make([]string, 0, len(started.Decision.Reasons))
 	for _, reason := range started.Decision.Reasons {
 		output.Body.NotDirectReasons = append(output.Body.NotDirectReasons, string(reason))
 	}
 	output.Body.URL = Prefix + "/bytes/media/direct/" + started.Token
-	if started.Decision.Kind == decide.HLS {
+	if started.Decision.Delivery == decide.HLS {
 		output.Body.URL = Prefix + "/bytes/media/hls/" + started.Token + "/master.m3u8"
 	}
 	output.Body.IsPreparing = started.Preparing
@@ -331,8 +331,9 @@ func (server *Server) relay(
 
 func menuOf(body PlayableFormatsBody) decide.Menu {
 	return decide.Menu{
-		Video: names[decide.Video](body.VideoCodecs), Audio: names[decide.Audio](body.AudioCodecs),
-		Subtitle: names[decide.Subtitle](body.SubtitleFormats), Containers: names[decide.Container](body.Containers),
+		VideoCodecs: names[decide.Video](body.VideoCodecs), AudioCodecs: names[decide.Audio](body.AudioCodecs),
+		SubtitleFormats: names[decide.Subtitle](body.SubtitleFormats),
+		Containers:      names[decide.Container](body.Containers),
 	}
 }
 

@@ -21,7 +21,7 @@ const (
 )
 
 // Line is text for one line of a display: a name, a tagline, a path. Controls, line breaks and
-// runs of spaces become one space; see Clean for what is removed.
+// runs of spaces become one space; see clean for what is removed.
 func Line(text string) string {
 	return clean(text, false, MaxNameRunes)
 }
@@ -38,22 +38,22 @@ func Prose(text string) string {
 // controls, non-characters, and combining marks past maxMarkRun on one letter; it bounds the
 // length. It keeps what real text needs: the left-to-right and right-to-left marks, and the zero
 // width joiners (emoji, Persian, Indic scripts).
-func clean(text string, prose bool, limit int) string {
+func clean(text string, isProse bool, maxRunes int) string {
 	var builder strings.Builder
-	builder.Grow(min(len(text), limit*utf8.UTFMax))
-	marks, runes, space, breaks := 0, 0, false, 0
+	builder.Grow(min(len(text), maxRunes*utf8.UTFMax))
+	marks, runes, isSpacePending, pendingBreaks := 0, 0, false, 0
 	for _, character := range strings.ToValidUTF8(text, "�") {
-		if runes >= limit {
+		if runes >= maxRunes {
 			break
 		}
 		switch {
-		case character == '\n' && prose:
-			space, breaks = false, breaks+1
+		case character == '\n' && isProse:
+			isSpacePending, pendingBreaks = false, pendingBreaks+1
 			continue
 		case unicode.IsSpace(character) || unicode.IsControl(character):
-			space = true
+			isSpacePending = true
 			continue
-		case removed(character):
+		case isNeverShown(character):
 			continue
 		case unicode.In(character, unicode.Mn, unicode.Me):
 			if marks >= maxMarkRun {
@@ -64,23 +64,23 @@ func clean(text string, prose bool, limit int) string {
 			marks = 0
 		}
 		switch {
-		case breaks > 0 && runes > 0:
-			builder.WriteString(strings.Repeat("\n", min(breaks, 2)))
-			runes += min(breaks, 2)
-		case space && runes > 0:
+		case pendingBreaks > 0 && runes > 0:
+			builder.WriteString(strings.Repeat("\n", min(pendingBreaks, 2)))
+			runes += min(pendingBreaks, 2)
+		case isSpacePending && runes > 0:
 			builder.WriteByte(' ')
 			runes++
 		}
-		space, breaks = false, 0
+		isSpacePending, pendingBreaks = false, 0
 		builder.WriteRune(character)
 		runes++
 	}
 	return builder.String()
 }
 
-// removed reports the characters a display never shows: bidi embeddings, overrides and isolates,
-// invisible formatting, and non-characters.
-func removed(character rune) bool {
+// isNeverShown reports whether a character is one a display never shows: bidi embeddings,
+// overrides and isolates, invisible formatting, and non-characters.
+func isNeverShown(character rune) bool {
 	switch {
 	case character >= 0x202A && character <= 0x202E, // LRE RLE PDF LRO RLO
 		character >= 0x2066 && character <= 0x2069,                    // LRI RLI FSI PDI
@@ -104,7 +104,7 @@ func Path(text string) string {
 	marks := 0
 	for _, character := range strings.ToValidUTF8(text, "�") {
 		switch {
-		case (unicode.IsControl(character) && character != ' ') || removed(character):
+		case (unicode.IsControl(character) && character != ' ') || isNeverShown(character):
 			builder.WriteRune('�')
 			marks = 0
 			continue

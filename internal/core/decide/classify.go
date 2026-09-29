@@ -19,9 +19,10 @@ const profileMain = "Main"
 // tenBitPixels is the 10-bit 4:2:0 pixel format, the only one HDR10 comes in.
 const tenBitPixels = "yuv420p10le"
 
-// eightBit420 and tenBit420 are the pixel formats a browser decodes: 4:2:0, 8 or 10 bits.
-func eightBit420() []string { return []string{"yuv420p", "yuvj420p"} }
-func tenBit420() []string   { return []string{"yuv420p", "yuvj420p", tenBitPixels} }
+// eightBit420 and upToTenBit420 are the pixel formats a browser decodes: 4:2:0, at 8 bits, or at
+// 8 or 10.
+func eightBit420() []string   { return []string{"yuv420p", "yuvj420p"} }
+func upToTenBit420() []string { return []string{"yuv420p", "yuvj420p", tenBitPixels} }
 
 // h264Profiles are the H.264 profiles every browser decodes; High 10, 4:2:2 and 4:4:4 are not.
 func h264Profiles() []string {
@@ -38,15 +39,15 @@ const (
 	hlgTransfer = "arib-std-b67"
 )
 
-// videoName is the menu entry a video stream is, or false when it is none.
-func videoName(stream nodeproto.ProbeStream) (Video, bool) {
+// videoEntry is the menu entry a video stream is, or false when it is none.
+func videoEntry(stream nodeproto.ProbeStream) (Video, bool) {
 	picture := stream.Video
-	sdr := picture.ColorTransfer != pqTransfer && picture.ColorTransfer != hlgTransfer
+	isSDR := picture.ColorTransfer != pqTransfer && picture.ColorTransfer != hlgTransfer
 	switch stream.Codec {
 	case "h264":
 		decodable := slices.Contains(h264Profiles(), stream.CodecProfile) &&
 			slices.Contains(eightBit420(), picture.PixelFormat)
-		if decodable && sdr {
+		if decodable && isSDR {
 			return H264SDR, true
 		}
 	case "hevc":
@@ -60,7 +61,7 @@ func videoName(stream nodeproto.ProbeStream) (Video, bool) {
 // hdrOrSDR places an HEVC or AV1 stream: SDR at 8 or 10 bits, or HDR10 at 10 bits.
 func hdrOrSDR(stream nodeproto.ProbeStream, sdr, hdr10 Video, profiles []string) (Video, bool) {
 	picture := stream.Video
-	if !slices.Contains(profiles, stream.CodecProfile) || !slices.Contains(tenBit420(), picture.PixelFormat) {
+	if !slices.Contains(profiles, stream.CodecProfile) || !slices.Contains(upToTenBit420(), picture.PixelFormat) {
 		return "", false
 	}
 	switch picture.ColorTransfer {
@@ -75,9 +76,9 @@ func hdrOrSDR(stream nodeproto.ProbeStream, sdr, hdr10 Video, profiles []string)
 	return sdr, true
 }
 
-// audioName is the menu entry an audio stream is, or false when it is none (TrueHD, DTS, MP3
+// audioEntry is the menu entry an audio stream is, or false when it is none (TrueHD, DTS, MP3
 // and PCM are not on the menu).
-func audioName(stream nodeproto.ProbeStream) (Audio, bool) {
+func audioEntry(stream nodeproto.ProbeStream) (Audio, bool) {
 	switch stream.Codec {
 	case "aac":
 		if !slices.Contains(aacProfiles(), stream.CodecProfile) {

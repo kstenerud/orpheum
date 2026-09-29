@@ -90,15 +90,15 @@ func newNodeService(opened started, logger *slog.Logger) *nodes.Service {
 	ingester := library.NewIngester(opened.database, clock.System{}, opened.settings, logger)
 	pass := opened.metadata.pass
 	ingester.SetOnScanEnded(func(ctx context.Context, libraryID int64) {
-		report, err := pass.Library(ctx, libraryID)
+		report, err := pass.IdentifyLibrary(ctx, libraryID)
 		if err != nil {
 			logger.ErrorContext(ctx, "identification failed; the scan is stored and the next one tries again",
 				"libraryId", libraryID, "err", err)
 			return
 		}
 		logger.InfoContext(ctx, "identified a library", "libraryId", libraryID,
-			"listed", report.Listed, "extras", report.Extras,
-			"unidentified", report.Unidentified, "awaitingMatch", len(report.AwaitingMatch))
+			"listed", report.ListedCount, "extras", report.ExtraCount,
+			"unidentified", report.UnidentifiedCount, "awaitingMatch", len(report.AwaitingMatch))
 	})
 	sink := reportSink{ingester: ingester, logger: logger}
 	return nodes.NewService(opened.database, clock.System{}, opened.settings, sink, logger, commandPollHold)
