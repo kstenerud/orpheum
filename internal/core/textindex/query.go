@@ -11,13 +11,13 @@ import (
 // Route is which index a search asks (D48).
 type Route string
 
-// The routes: a short query scans the folded names for a substring; a Latin query of three characters or more asks the
-// word index, which ranks and matches prefixes; any other asks the trigram index, which finds
-// substrings in any script.
+// The routes: a query too short for the trigram index scans the folded names for a substring; a
+// Latin query of three characters or more asks the word index, which ranks and matches prefixes;
+// any other asks the trigram index, which finds substrings in any script.
 const (
-	RouteShort   Route = "short"
-	RouteWords   Route = "words"
-	RouteTrigram Route = "trigram"
+	RouteSubstring Route = "substring"
+	RouteWords     Route = "words"
+	RouteTrigram   Route = "trigram"
 )
 
 // minTrigramRunes is the length under which the trigram index cannot answer: it needs three
@@ -39,7 +39,7 @@ func PlanQuery(query string) Plan {
 		return Plan{}
 	}
 	if utf8.RuneCountInString(folded) < minTrigramRunes {
-		return Plan{Route: RouteShort, IndexQuery: folded}
+		return Plan{Route: RouteSubstring, IndexQuery: folded}
 	}
 	if !isLatin(folded) {
 		return Plan{Route: RouteTrigram, IndexQuery: quote(folded)}

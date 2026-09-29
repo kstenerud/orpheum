@@ -62,15 +62,15 @@ func TestPlanQuery_RoutesByLengthAndScript(t *testing.T) {
 	for query, want := range map[string]Plan{
 		"":      {},
 		"  ":    {},
-		"up":    {Route: RouteShort, IndexQuery: "up"},
-		"5%":    {Route: RouteShort, IndexQuery: "5%"},
+		"up":    {Route: RouteSubstring, IndexQuery: "up"},
+		"5%":    {Route: RouteSubstring, IndexQuery: "5%"},
 		"Sølvi": {Route: RouteWords, IndexQuery: `("solvi" OR "solvi"*)`},
 		"heat NEAR 95": {
 			Route: RouteWords, IndexQuery: `("heat" OR "heat"*) AND ("near" OR "near"*) AND ("95" OR "95"*)`,
 		},
 		`the "quote"`: {Route: RouteWords, IndexQuery: `("the" OR "the"*) AND ("quote" OR "quote"*)`},
 		"十字":        {Route: RouteTrigram, IndexQuery: `"十字"`},
-		"千尋":          {Route: RouteShort, IndexQuery: "千尋"},
+		"千尋":          {Route: RouteSubstring, IndexQuery: "千尋"},
 	} {
 		if got := PlanQuery(query); got != want {
 			t.Errorf("PlanQuery(%q) = %+v, want %+v", query, got, want)

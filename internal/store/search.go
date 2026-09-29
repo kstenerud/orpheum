@@ -13,9 +13,9 @@ type SearchRoute string
 
 // The routes, as textindex names them.
 const (
-	SearchRouteShort   SearchRoute = "short"
-	SearchRouteWords   SearchRoute = "words"
-	SearchRouteTrigram SearchRoute = "trigram"
+	SearchRouteSubstring SearchRoute = "substring"
+	SearchRouteWords     SearchRoute = "words"
+	SearchRouteTrigram   SearchRoute = "trigram"
 )
 
 // SearchHit is one item a search found.
@@ -65,7 +65,7 @@ WHERE item_fts_tri MATCH ? AND ` + searchLiveCondition + `
 ORDER BY item_text.name, item_text.item_id
 LIMIT ?`
 
-	searchShortSQL = `SELECT ` + searchColumns + `
+	searchSubstringSQL = `SELECT ` + searchColumns + `
 FROM item_text
 ` + searchJoins + `
 WHERE instr(item_text.search_alternates, ?) > 0 AND ` + searchLiveCondition + `
@@ -78,7 +78,9 @@ func (database *Database) Search(ctx context.Context, route SearchRoute, foldedQ
 	hits []SearchHit, err error,
 ) {
 	statement := map[SearchRoute]string{
-		SearchRouteShort: searchShortSQL, SearchRouteWords: searchWordsSQL, SearchRouteTrigram: searchTrigramSQL,
+		SearchRouteSubstring: searchSubstringSQL,
+		SearchRouteWords:     searchWordsSQL,
+		SearchRouteTrigram:   searchTrigramSQL,
 	}[route]
 	if statement == "" {
 		return nil, fmt.Errorf("search: no route %q", route)
