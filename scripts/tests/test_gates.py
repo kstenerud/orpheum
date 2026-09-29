@@ -352,6 +352,35 @@ class RevertRed(unittest.TestCase):
         self.assertTrue((tree / "web" / "packages" / "sdk" / "node_modules" / "typescript").is_symlink())
         self.assertEqual(list((installed / "vitest" / "node_modules").iterdir()), [])  # untouched
 
+    def test_a_kept_tree_is_set_to_the_working_trees_head_not_its_own(self):
+        root = git_repo({"a.txt": "one\n"})
+        commit = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "c"]
+        subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+        subprocess.run(commit, cwd=root, check=True)
+        cwd = os.getcwd()
+        try:
+            os.chdir(root)
+            [tree] = rr.probe_trees("HEAD", 1)
+            (root / "a.txt").write_text("two\n")
+            subprocess.run(commit, cwd=root, check=True)
+            [tree] = rr.probe_trees("HEAD", 1)
+        finally:
+            os.chdir(cwd)
+        self.assertEqual((Path(tree) / "a.txt").read_text(), "two\n")
+
+    def test_one_run_at_a_time_holds_the_shared_probe_trees(self):
+        root = git_repo({})
+        cwd = os.getcwd()
+        try:
+            os.chdir(root)
+            with rr.hold_probe_trees():
+                lock = root / ".git" / "revert-red" / "lock"
+                with open(lock, "w", encoding="utf-8") as other:
+                    with self.assertRaises(BlockingIOError):
+                        rr.fcntl.flock(other, rr.fcntl.LOCK_EX | rr.fcntl.LOCK_NB)
+        finally:
+            os.chdir(cwd)
+
     def test_a_suite_that_could_not_start_fails_rather_than_passing_as_red(self):
         self.assertEqual(rr.RUNNER_MISSING, 127)
         self.assertTrue(rr.Outcome("web/x.ts", "NO_RUNNER", "").is_failure)
