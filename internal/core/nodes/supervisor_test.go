@@ -5,7 +5,9 @@ package nodes
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -49,22 +51,28 @@ func (liveness *fakeLiveness) set(heard time.Time) {
 	liveness.heard = heard
 }
 
-// fakeSettings holds the liveness settings at their starting values.
+// fakeSettings holds every setting at its starting value, read from the registry, so the test
+// cannot drift from what a new server starts with.
 type fakeSettings struct{}
 
 func (fakeSettings) Int(_ context.Context, key settings.Key) (int64, error) {
-	switch key { //nolint:exhaustive // the supervisor reads only these
-	case settings.NodeSilentAfterS:
-		return 30, nil
-	case settings.NodeRestartAfterSilentS:
-		return 120, nil
-	case settings.NodeRestartAfterExitS:
-		return 5, nil
-	}
-	return 0, errors.New("not a liveness setting")
+	return startingValue[int64](key)
 }
 
-func (fakeSettings) Bool(context.Context, settings.Key) (bool, error) { return true, nil }
+func (fakeSettings) Bool(_ context.Context, key settings.Key) (bool, error) {
+	return startingValue[bool](key)
+}
+
+// startingValue is key's starting value in the registry.
+func startingValue[T any](key settings.Key) (T, error) {
+	var value T
+	definition, found := settings.Lookup(key)
+	if !found {
+		return value, fmt.Errorf("%s is not a setting", key)
+	}
+	err := json.Unmarshal(definition.StartJSON, &value)
+	return value, err
+}
 
 // syncLog is a log the supervisor writes while the test reads it.
 type syncLog struct {

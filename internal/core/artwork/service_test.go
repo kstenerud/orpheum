@@ -21,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -132,7 +133,7 @@ func newBench(t *testing.T, images fakeFetcher) *bench {
 	config := settingstest.Seeded(t, database)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	service := NewService(Parts{
-		Database: database, Queue: &recordingQueue{}, Nodes: node, ArtFiles: art, Cache: storetest.OpenCache(t),
+		Database: database, Queue: &jobstest.Queue{}, Nodes: node, ArtFiles: art, Cache: storetest.OpenCache(t),
 		Settings: config,
 		Fetchers: map[string]Fetcher{"tmdb": images},
 		Clock:    fakeClock,
@@ -262,23 +263,10 @@ func TestService_WaitsForANode(t *testing.T) {
 	}
 }
 
-// recordingQueue is the job queue as a list, which says a job is open while one for its subject is.
-type recordingQueue []jobs.Request
-
-func (queue *recordingQueue) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
-	for _, open := range *queue {
-		if open.Kind == job.Kind && open.Target == job.Target {
-			return false, nil
-		}
-	}
-	*queue = append(*queue, job)
-	return true, nil
-}
-
 func TestService_OweQueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("p"), "/back.jpg": []byte("b")})
-	queue := &recordingQueue{}
+	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
 		size := command.SizeNames[0]

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -29,7 +30,7 @@ type harness struct {
 	ingester *Ingester
 	clock    *clocktest.Fake
 	nodeID   int64
-	seq      int64
+	reports  librarytest.Reports
 }
 
 // newHarness is a database with a node and one library covering root, and the ingest.
@@ -37,26 +38,8 @@ func newHarness(t *testing.T) *harness {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
-	var nodeID int64
-	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
-		var err error
-		nodeID, err = queries.InsertNode(t.Context(), sqlcgen.InsertNodeParams{Name: "local", EnrolledAt: 1})
-		if err != nil {
-			return err
-		}
-		libraryID, err := queries.InsertLibrary(t.Context(), sqlcgen.InsertLibraryParams{
-			Name: "Films", Kind: "movies", MetadataSource: "nfo", ChangeDetection: "manual", CreatedAt: 1,
-		})
-		if err != nil {
-			return err
-		}
-		return queries.InsertLibraryRoot(t.Context(), sqlcgen.InsertLibraryRootParams{
-			LibraryID: libraryID, NodeID: nodeID, Path: root,
-		})
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	nodeID, _ := librarytest.NodeWithLibrary(t, database,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: root})
 	return &harness{
 		t: t, database: database, clock: fakeClock, nodeID: nodeID,
 		ingester: NewIngester(database, fakeClock, settingstest.Seeded(t, database), slog.New(slog.DiscardHandler)),
@@ -113,16 +96,7 @@ func (world *harness) scan(records []nodeproto.Record, isComplete bool) {
 func (world *harness) scanOn(facts nodeproto.ScanBegin, records []nodeproto.Record, isComplete bool) {
 	world.t.Helper()
 	world.clock.Advance(time.Minute)
-	begin := nodeproto.Record{Type: nodeproto.RecordScanBegin, ScanBegin: &facts}
-	all := append([]nodeproto.Record{begin}, records...)
-	if isComplete {
-		complete := &nodeproto.ScanComplete{RootPath: root}
-		all = append(all, nodeproto.Record{Type: nodeproto.RecordScanComplete, ScanComplete: complete})
-	}
-	for index := range all {
-		world.seq++
-		all[index].ReportSeq = world.seq
-	}
+	all := world.reports.Scan(facts, records, isComplete)
 	if err := world.ingester.IngestRecords(world.t.Context(), world.nodeID, all); err != nil {
 		world.t.Fatal(err)
 	}
@@ -267,17 +241,8 @@ func TestIngest_OnlyACompletedScanRemovesAndNeverWhereItCouldNotRead(t *testing.
 func TestIngest_ARootNoLibraryCoversIsNotStored(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	records := []nodeproto.Record{
-		{ReportSeq: 1, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: "/media/elsewhere"}},
-		observedRecord("x.mkv", "x"),
-		{
-			ReportSeq: 3, Type: nodeproto.RecordScanComplete,
-			ScanComplete: &nodeproto.ScanComplete{RootPath: "/media/elsewhere"},
-		},
-	}
-	if err := world.ingester.IngestRecords(t.Context(), world.nodeID, records); err != nil {
-		t.Fatal(err)
-	}
+	world.scanOn(nodeproto.ScanBegin{RootPath: "/media/elsewhere"}, []nodeproto.Record{observedRecord("x.mkv", "x")},
+		true)
 	if got := world.liveFilesByPath(); len(got) != 0 {
 		t.Errorf("stored %v for a root no library covers", got)
 	}
@@ -317,15 +282,8 @@ func TestIngest_AFileInAnotherRootIsNeverTakenForAMove(t *testing.T) {
 
 	// The shows root holds a file with the film's payload. The film was not seen by this scan
 	// only because it is in another root, so it is not absent: this is a duplicate, not a move.
-	world.clock.Advance(time.Minute)
-	records := []nodeproto.Record{
-		{ReportSeq: 100, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: shows}},
-		observedRecord("Episode.mkv", "same bytes"),
-		{ReportSeq: 102, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: shows}},
-	}
-	if err := world.ingester.IngestRecords(t.Context(), world.nodeID, records); err != nil {
-		t.Fatal(err)
-	}
+	world.scanOn(nodeproto.ScanBegin{RootPath: shows}, []nodeproto.Record{observedRecord("Episode.mkv", "same bytes")},
+		true)
 	live := world.liveFilesByPath()
 	if kept, found := live[root+"/Film.mkv"]; !found || kept.ID != film.ID || kept.LibraryID != film.LibraryID {
 		t.Errorf("the film is %+v, want it left where it is, in its library", kept)

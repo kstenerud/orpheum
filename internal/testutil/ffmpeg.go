@@ -69,6 +69,15 @@ type FakeReply struct {
 	HoldFIFOPath string
 }
 
+// EBUR128Summary is how FFmpeg's ebur128 filter named name logs what it measured when it closes:
+// a FakeReply's Stderr, for a test of reading a loudness measurement.
+func EBUR128Summary(name, integratedLUFS, rangeLU, truePeakDBFS string) string {
+	return "[ebur128@" + name + " @ 0x55d1] Summary:\n\n  Integrated loudness:\n    I:         " + integratedLUFS +
+		" LUFS\n    Threshold: -45.2 LUFS\n\n  Loudness range:\n    LRA:        " + rangeLU +
+		" LU\n    Threshold: -55.0 LUFS\n    LRA low:   -41.0 LUFS\n    LRA high:  -20.1 LUFS\n\n" +
+		"  True peak:\n    Peak:      " + truePeakDBFS + " dBFS\n"
+}
+
 // FakeCall is one recorded run of a fake tool.
 type FakeCall struct {
 	Tool        string

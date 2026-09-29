@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -32,7 +33,7 @@ func (source *failingFetcher) Fetch(context.Context, string) (Unsanitised, error
 func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
-	queue := &recordingQueue{}
+	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	gone := owedRef{Kind: identify.ArtPoster, SourceRef: "/gone.jpg"}
 	bench.handle(t, gone)

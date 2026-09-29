@@ -13,18 +13,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// summary is how FFmpeg's ebur128 logs what it measured when it closes.
-func summary(name, integrated, loudRange, peak string) string {
-	return "[ebur128@" + name + " @ 0x55d1] Summary:\n\n  Integrated loudness:\n    I:         " + integrated +
-		" LUFS\n    Threshold: -45.2 LUFS\n\n  Loudness range:\n    LRA:        " + loudRange +
-		" LU\n    Threshold: -55.0 LUFS\n    LRA low:   -41.0 LUFS\n    LRA high:  -20.1 LUFS\n\n" +
-		"  True peak:\n    Peak:      " + peak + " dBFS\n"
-}
-
 func TestMeasure_ReadsOnlyTheFileAndMeasuresEachSoundByName(t *testing.T) {
 	t.Parallel()
-	logged := "[aac @ 0x1] a warning while decoding\n" + summary("multichannel_1", "-24.5", "18.2", "-1.3") +
-		summary("stereo_1", "-31.9", "17.0", "-6.4") + summary("stereo_2", "-70.0", "0.0", "-inf") +
+	logged := "[aac @ 0x1] a warning while decoding\n" +
+		testutil.EBUR128Summary("multichannel_1", "-24.5", "18.2", "-1.3") +
+		testutil.EBUR128Summary("stereo_1", "-31.9", "17.0", "-6.4") +
+		testutil.EBUR128Summary("stereo_2", "-70.0", "0.0", "-inf") +
 		"[out#0/null @ 0x2] video:0KiB audio:1KiB\n"
 	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stderr: logged})
 	runner, err := execx.NewRunner(fake.Directory)
@@ -68,7 +62,8 @@ func checkArguments(t *testing.T, arguments []string) {
 
 func TestMeasure_ATrackFFmpegSaidNothingOfIsAFailure(t *testing.T) {
 	t.Parallel()
-	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stderr: summary("stereo_1", "-20.0", "3.0", "-9.0")})
+	fake := testutil.InstallFakeFFmpeg(t,
+		testutil.FakeReply{Stderr: testutil.EBUR128Summary("stereo_1", "-20.0", "3.0", "-9.0")})
 	runner, err := execx.NewRunner(fake.Directory)
 	if err != nil {
 		t.Fatal(err)

@@ -52,7 +52,7 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 		}
 	}
 
-	server := startServing(t, config, newCapturedLog("ready"), "ready")
+	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	token := signInAs(t, server.baseURL, "owner", "owner")
 	settings := requestAPI(t, http.MethodGet, server.baseURL+"/settings", token, nil)
 	if !strings.Contains(settings.body, `"key":"should_check_for_updates","kind":"bool","value":false`) {
@@ -92,21 +92,4 @@ func checkSeedsAgain(t *testing.T, runSeed func() (int, string)) {
 		!strings.Contains(output, `library "Dev films" exists; left as it is`) {
 		t.Errorf("seeding again = %d, want it to leave existing users and libraries alone:\n%s", status, output)
 	}
-}
-
-func signInAs(t *testing.T, baseURL, name, password string) string {
-	t.Helper()
-	answer := requestAPI(t, http.MethodPost, baseURL+"/session", "", map[string]any{
-		"name": name, "password": password, "device": signInDevice,
-	})
-	const marker = `"token":"`
-	start := strings.Index(answer.body, marker)
-	if answer.status != http.StatusCreated || start < 0 {
-		t.Fatalf("sign in as %s: %d %s", name, answer.status, answer.body)
-	}
-	token, _, found := strings.Cut(answer.body[start+len(marker):], `"`)
-	if !found {
-		t.Fatalf("sign in as %s: no end to the token in %s", name, answer.body)
-	}
-	return token
 }

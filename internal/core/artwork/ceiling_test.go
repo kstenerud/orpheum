@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -165,7 +166,7 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 	source := []byte("backdrop")
 	provider := &failingFetcher{err: ErrNoImage} // were it asked, it has nothing
 	bench := newBench(t, fakeFetcher{"/back.jpg": source})
-	queue := &recordingQueue{}
+	queue := &jobstest.Queue{}
 	bench.service.parts.Queue = queue
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
 		var images []nodeproto.ArtImage

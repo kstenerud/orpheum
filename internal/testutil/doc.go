@@ -34,4 +34,6 @@
 //   - ffmpeg.go and testdata/fake-ffmpeg.sh: the pinned FFmpeg and the fake. The fake is linked,
 //     never copied: writing an executable while a parallel test forks makes running it fail
 //     with "text file busy".
+//     EBUR128Summary is the loudness log the fake writes where a test needs FFmpeg to have
+//     measured something.
 package testutil

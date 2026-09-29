@@ -3,7 +3,6 @@
 package main
 
 import (
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +17,7 @@ import (
 func startServerOnce(t *testing.T) (Config, string) {
 	t.Helper()
 	config, path := testConfig(t)
-	server := startServing(t, config, newCapturedLog("ready"), "ready")
+	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
 	}
@@ -31,16 +30,12 @@ func TestSetupCode_PrintsTheCodeUntilSetupIsDone(t *testing.T) {
 	if got := runCommand(t, "setup-code", "--config", path); got.status == exitSuccess {
 		t.Errorf("before the first start: %+v, want a failure saying to start the server", got)
 	}
-	server := startServing(t, config, newCapturedLog("ready"), "ready")
+	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	code := runCommand(t, "setup-code", "--config", path)
 	if code.status != exitSuccess || len(strings.TrimSpace(code.stdout)) != len("AAAA-BBBB-CCCC") {
 		t.Fatalf("setup-code = %+v", code)
 	}
-	created := requestAPI(t, http.MethodPost, server.baseURL+"/setup", "",
-		map[string]string{"setupCode": strings.TrimSpace(code.stdout), "name": "owner", "password": "pw"})
-	if created.status != http.StatusCreated {
-		t.Fatalf("setup: %d %s", created.status, created.body)
-	}
+	setUpOwner(t, server, path, "owner")
 	after := runCommand(t, "setup-code", "--config", path)
 	if after.status == exitSuccess || !strings.Contains(after.stdout, "setup is complete") {
 		t.Errorf("after setup: %+v, want it to say setup is complete, and not succeed", after)

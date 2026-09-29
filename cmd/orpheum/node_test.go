@@ -15,7 +15,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -163,79 +162,73 @@ func filmAnswered(t *testing.T, metadataSource string, reply testutil.FakeReply)
 	config.Node.RootPaths = []string{media}
 	config.Node.FFmpegDir = fake.Directory
 	config.Node.VideoExtensions = []string{"mkv"}
-	nodeID := enrolNodeWithLibrary(t, config, media, metadataSource)
+	nodeID := enrolNodeWithLibrary(t, config, media,
+		libraryShape{name: "Films", kind: "movies", metadataSource: metadataSource})
 	return filmFixture{config: config, configPath: configPath, media: media, nodeID: nodeID}
 }
 
-// serveWithNode serves the core with the node running in-process, until the log says awaited;
-// the returned stop ends both, and so does the test's end.
+// serveWithNode serves the core with the node running in-process on the fake FFmpeg, until the
+// log says awaited; the returned stop ends both, and so does the test's end.
 func serveWithNode(t *testing.T, config Config, captured capturedLog, awaited string) runningServer {
 	t.Helper()
-	var start nodes.Starter = func(ctx context.Context) (nodes.Process, error) {
+	return startServing(t, config, captured, awaited, inProcessStarter(func(ctx context.Context) error {
+		return runNodeWith(ctx, config, captured.logger, fakeFFmpegSeams)
+	}))
+}
+
+// inProcessStarter is a node starter that runs a node's loop in this process.
+func inProcessStarter(run func(ctx context.Context) error) nodes.Starter {
+	return func(ctx context.Context) (nodes.Process, error) {
 		ctx, cancel := context.WithCancel(ctx)
 		node := &inProcessNode{done: make(chan struct{}), cancel: cancel}
 		go func() {
 			defer close(node.done)
-			node.err = runNodeWith(ctx, config, captured.logger, fakeFFmpegSeams)
+			node.err = run(ctx)
 		}()
 		return node, nil
 	}
-	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+}
+
+// libraryShape is what enrolNodeWithLibrary's library is: its name, kind and metadata source.
+type libraryShape struct {
+	name           string
+	kind           string
+	metadataSource string
+}
+
+// enrolNodeWithLibrary makes the database serve will open, enrols the config's node and creates
+// a library of shape over root on it, and returns the node's id. The library's root is root with
+// its symbolic links resolved, as the node names its roots in its hello (confine.OpenMediaRoot):
+// the core refuses a library root no connected node has, and a temporary directory can sit under
+// a link (macOS's /var).
+func enrolNodeWithLibrary(t *testing.T, config Config, root string, shape libraryShape) int64 {
+	t.Helper()
+	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(t.Context())
-	done := make(chan error, 1)
-	go func() {
-		outside := wiring{
-			startNode: start, tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL,
-			openSubtitlesBaseURL: unreachableURL,
-		}
-		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
-	}()
-	select {
-	case <-captured.signals[awaited]:
-	case early := <-done:
-		cancel()
-		t.Fatalf("serve returned before logging %q: %v\n%s", awaited, early, captured)
-	}
-	stopped := false
-	stop := func() error {
-		if stopped {
-			return nil
-		}
-		stopped = true
-		cancel()
-		return <-done
-	}
-	t.Cleanup(func() { _ = stop() }) //nolint:errcheck // a stop the test already checked returns nil
-	return runningServer{baseURL: "http://" + listener.Addr().String() + api.Prefix, stop: stop}
-}
-
-// enrolNodeWithLibrary makes the database serve will open, with a library covering root on the
-// config's node, and returns the node's id.
-func enrolNodeWithLibrary(t *testing.T, config Config, root, metadataSource string) int64 {
-	t.Helper()
-	database := openDatabase(t, config)
-	if err := database.Migrate(t.Context(), config.migrateOptions(t.TempDir(), nil)); err != nil {
+	database, err := openAndMigrate(t.Context(), config, directories, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
-	nodeID, enrolErr := nodes.Enrol(t.Context(), database, clock.System{}, config.Node.Name)
-	if enrolErr != nil {
-		t.Fatal(enrolErr)
+	defer func() {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+	}()
+	nodeID, err := nodes.Enrol(t.Context(), database, clock.System{}, config.Node.Name)
+	if err != nil {
+		t.Fatal(err)
 	}
 	resolved, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, err = library.Create(t.Context(), database, clock.System{}, library.NewLibrary{
-		Name: "Films", Kind: "movies", MetadataSource: metadataSource, ChangeDetection: "manual",
+		Name: shape.name, Kind: shape.kind, MetadataSource: shape.metadataSource, ChangeDetection: "manual",
 		NodeID: nodeID, Roots: []string{resolved},
 	})
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
 	return nodeID

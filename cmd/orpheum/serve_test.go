@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -145,8 +146,15 @@ type runningServer struct {
 	stop    func() error
 }
 
-// startServing runs serve until the test stops it, and waits until it logs awaited.
-func startServing(t *testing.T, config Config, captured capturedLog, awaited string) runningServer {
+// serveWaitLimit is how long startServing waits for the log line it awaits before failing with
+// the log so far, rather than hanging until the test binary's timeout says nothing useful.
+const serveWaitLimit = 5 * time.Minute
+
+// startServing runs serve until the test stops it, and waits until it logs awaited. When startNode
+// is not nil, the core starts its node with it: inProcessStarter runs one in this process.
+func startServing(
+	t *testing.T, config Config, captured capturedLog, awaited string, startNode nodes.Starter,
+) runningServer {
 	t.Helper()
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
@@ -156,7 +164,8 @@ func startServing(t *testing.T, config Config, captured capturedLog, awaited str
 	done := make(chan error, 1)
 	go func() {
 		outside := wiring{
-			tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL, openSubtitlesBaseURL: unreachableURL,
+			startNode: startNode, tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL,
+			openSubtitlesBaseURL: unreachableURL,
 		}
 		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()
@@ -165,6 +174,9 @@ func startServing(t *testing.T, config Config, captured capturedLog, awaited str
 	case err := <-done:
 		cancel()
 		t.Fatalf("serve returned before logging %q: %v\n%s", awaited, err, captured)
+	case <-time.After(serveWaitLimit):
+		cancel()
+		t.Fatalf("serve did not log %q within %v:\n%s", awaited, serveWaitLimit, captured)
 	}
 	stopped := false
 	stop := func() error {
@@ -228,6 +240,47 @@ func requestAPI(t *testing.T, method, url, token string, body any) apiReply {
 	return apiReply{status: answer.StatusCode, body: string(text)}
 }
 
+// signInDevice is the device the tests sign in on (D217 §8).
+var signInDevice = api.NewDeviceBody{Name: "Firefox on Linux", Platform: "web"}
+
+// ownerPassword is the password setUpOwner gives the admin it makes.
+const ownerPassword = "pw"
+
+// setUpOwner completes setup with the code the setup-code command prints, making name the admin
+// with ownerPassword, and returns the code.
+func setUpOwner(t *testing.T, server runningServer, configPath, name string) string {
+	t.Helper()
+	code := runCommand(t, "setup-code", "--config", configPath)
+	setupCode := strings.TrimSpace(code.stdout)
+	created := requestAPI(t, http.MethodPost, server.baseURL+"/setup", "",
+		map[string]string{"setupCode": setupCode, "name": name, "password": ownerPassword})
+	if created.status != http.StatusCreated {
+		t.Fatalf("setup: %d %s", created.status, created.body)
+	}
+	return setupCode
+}
+
+// signInAs signs name in on signInDevice and returns the session's token.
+func signInAs(t *testing.T, baseURL, name, password string) string {
+	t.Helper()
+	answer := requestAPI(t, http.MethodPost, baseURL+"/session", "", map[string]any{
+		"name": name, "password": password, "device": signInDevice,
+	})
+	var session api.SessionOutput
+	if err := json.Unmarshal([]byte(answer.body), &session.Body); err != nil ||
+		answer.status != http.StatusCreated || session.Body.Token == "" {
+		t.Fatalf("sign in as %s: %d %s", name, answer.status, answer.body)
+	}
+	return session.Body.Token
+}
+
+// signedInOwner sets up the server with "owner" as its admin and returns the owner's session token.
+func signedInOwner(t *testing.T, server runningServer, configPath string) string {
+	t.Helper()
+	setUpOwner(t, server, configPath, "owner")
+	return signInAs(t, server.baseURL, "owner", ownerPassword)
+}
+
 func TestServe_HealthSaysMigratingBeforeTheMigrationStarts(t *testing.T) {
 	t.Parallel()
 	server := api.NewServer(slog.New(slog.DiscardHandler))
@@ -279,7 +332,7 @@ func TestServe_ComesUpReadyAndStopsCleanly(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
 	captured := newCapturedLog("ready")
-	server := startServing(t, config, captured, "ready")
+	server := startServing(t, config, captured, "ready", nil)
 	health := requestAPI(t, http.MethodGet, server.baseURL+"/health", "", nil)
 	if health.status != http.StatusOK || !strings.Contains(health.body, `"status":"ready"`) {
 		t.Errorf("/health once ready = %d %s", health.status, health.body)
@@ -295,7 +348,7 @@ func TestServe_ComesUpReadyAndStopsCleanly(t *testing.T) {
 func TestServe_AnswersTheClientsAddressesAtTheRoot(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
-	server := startServing(t, config, newCapturedLog("ready"), "ready")
+	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	root := strings.TrimSuffix(server.baseURL, api.Prefix)
 	// A test binary has no web client built in, so the root says so rather than 404ing silently.
 	films := requestAPI(t, http.MethodGet, root+"/films", "", nil)
@@ -321,7 +374,7 @@ func TestServe_ReportsAFailedStartInsteadOfExiting(t *testing.T) {
 		t.Fatal(err)
 	}
 	const failed = "the server could not start; it stays up to report why at /api/v1/health"
-	server := startServing(t, config, newCapturedLog(failed), failed)
+	server := startServing(t, config, newCapturedLog(failed), failed, nil)
 	health := requestAPI(t, http.MethodGet, server.baseURL+"/health", "", nil)
 	if health.status != http.StatusServiceUnavailable || !strings.Contains(health.body, `"status":"degraded"`) {
 		t.Errorf("/health after a failed start = %d %s, want 503 degraded with the reason", health.status, health.body)
@@ -334,7 +387,7 @@ func TestServe_ReportsAFailedStartInsteadOfExiting(t *testing.T) {
 func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
-	server := startServing(t, config, newCapturedLog("ready"), "ready")
+	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	pprofURL := strings.TrimSuffix(server.baseURL, api.Prefix) + "/debug/pprof/"
 	if off := requestAPI(t, http.MethodGet, pprofURL, "", nil); off.status != http.StatusNotFound {
 		t.Errorf("with should_serve_debug_pprof at its starting value, /debug/pprof/ = %d, want 404", off.status)
@@ -345,7 +398,7 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
 		"UPDATE setting SET value_json = 'true', is_modified = 1 "+
 			"WHERE scope = 'server' AND key = 'should_serve_debug_pprof'")
-	restarted := startServing(t, config, newCapturedLog("ready"), "ready")
+	restarted := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	pprofURL = strings.TrimSuffix(restarted.baseURL, api.Prefix) + "/debug/pprof/"
 	if on := requestAPI(t, http.MethodGet, pprofURL, "", nil); on.status != http.StatusOK {
 		t.Errorf("with should_serve_debug_pprof on and a loopback listener, /debug/pprof/ = %d, want 200", on.status)
@@ -355,7 +408,7 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *testing.T) {
 	t.Parallel()
 	config, path := testConfig(t)
-	first := startServing(t, config, newCapturedLog("ready"), "ready")
+	first := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	if err := first.stop(); err != nil {
 		t.Fatal(err)
 	}
@@ -365,7 +418,7 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 		"UPDATE setting SET value_json = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
 		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secret_last_chars_shown'")
 	captured := newCapturedLog("ready")
-	server := startServing(t, config, captured, "ready")
+	server := startServing(t, config, captured, "ready", nil)
 	logged := captured.String()
 	sweep := strings.Index(logged, "this release changed the starting value of settings nobody had set")
 	ready := strings.Index(logged, `"msg":"ready"`)
@@ -385,7 +438,7 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 func TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
-	first := startServing(t, config, newCapturedLog("ready"), "ready")
+	first := startServing(t, config, newCapturedLog("ready"), "ready", nil)
 	if err := first.stop(); err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +446,7 @@ func TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain(t *testing.T) {
 	storetest.ExecRaw(t, cachePath, "PRAGMA user_version = 999",
 		"INSERT INTO job (kind, runnable_at, created_at) VALUES ('fetch', 0, 0)")
 	captured := newCapturedLog("ready")
-	server := startServing(t, config, captured, "ready")
+	server := startServing(t, config, captured, "ready", nil)
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
 	}
@@ -417,22 +470,9 @@ func TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain(t *testing.T) {
 func TestServe_TheSystemPageShowsTheServersVersionDirectoriesAndDatabases(t *testing.T) {
 	t.Parallel()
 	config, path := testConfig(t)
-	server := startServing(t, config, newCapturedLog("ready"), "ready")
-	code := runCommand(t, "setup-code", "--config", path)
-	created := requestAPI(t, http.MethodPost, server.baseURL+"/setup", "",
-		map[string]string{"setupCode": strings.TrimSpace(code.stdout), "name": "owner", "password": "pw"})
-	if created.status != http.StatusCreated {
-		t.Fatalf("setup: %d %s", created.status, created.body)
-	}
-	session := requestAPI(t, http.MethodPost, server.baseURL+"/session", "",
-		map[string]any{"name": "owner", "password": "pw", "device": signInDevice})
-	var signedIn struct {
-		Token string `json:"token"`
-	}
-	if err := json.Unmarshal([]byte(session.body), &signedIn); err != nil || signedIn.Token == "" {
-		t.Fatalf("sign in: %d %s", session.status, session.body)
-	}
-	system := requestAPI(t, http.MethodGet, server.baseURL+"/system", signedIn.Token, nil)
+	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
+	token := signedInOwner(t, server, path)
+	system := requestAPI(t, http.MethodGet, server.baseURL+"/system", token, nil)
 	var page struct {
 		Server api.ServerBody `json:"server"`
 	}
