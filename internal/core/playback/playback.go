@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -191,10 +192,10 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	return started, nil
 }
 
-// isStereoOutput is whether a device's sound is two channels the server folds down for it: TV
-// speakers or headphones, not a soundbar or receiver, nor a device not yet asked (D222).
+// isStereoOutput is whether a device's sound is two channels the server folds down for it: its
+// built-in speakers or headphones, not a soundbar or receiver, nor a device not yet asked (D222).
 func isStereoOutput(audioOutput string) bool {
-	return audioOutput == "built_in_speakers" || audioOutput == "headphones"
+	return audioOutput == auth.AudioOutputBuiltInSpeakers || audioOutput == auth.AudioOutputHeadphones
 }
 
 // audioOutput is how a person's device makes sound, or empty when it is not yet asked or there is

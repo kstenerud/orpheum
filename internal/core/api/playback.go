@@ -76,7 +76,7 @@ type StartPlaybackOutput struct {
 		MediaToken string `json:"mediaToken"`
 		// AudioOutput is how the device asking makes sound, absent until it is asked: the player
 		// asks before it plays, and asks for the decision again with the answer (D222).
-		AudioOutput string `enum:"built_in_speakers,receiver,headphones" json:"audioOutput,omitempty"`
+		AudioOutput AudioOutput `json:"audioOutput,omitempty"`
 		// Levelling brings the main sound to the level: the file's own when played directly, the
 		// main track's stereo mix when prepared, where each audio rendition carries its own (D226).
 		Levelling LevellingBody `json:"levelling"`
@@ -193,7 +193,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	output.Body.Prefs = filePrefsBody(started.Prefs)
 	output.Body.ResumePositionMs = started.ResumePositionMs
 	output.Body.MediaToken = started.Token
-	output.Body.AudioOutput = started.AudioOutput
+	output.Body.AudioOutput = AudioOutput(started.AudioOutput)
 	output.Body.Levelling = levellingBody(started.Levelling)
 	return output, nil
 }

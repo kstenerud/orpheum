@@ -12,16 +12,30 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
+// AudioOutput is how a device makes sound, documented as one of auth.AudioOutputs, so the API
+// names every answer without a second list to keep in step (D222).
+type AudioOutput string
+
+// Schema is an audio output's schema: a string, one of auth.AudioOutputs.
+func (AudioOutput) Schema(huma.Registry) *huma.Schema {
+	outputs := auth.AudioOutputs()
+	names := make([]any, 0, len(outputs))
+	for _, output := range outputs {
+		names = append(names, output)
+	}
+	return &huma.Schema{Type: huma.TypeString, Enum: names}
+}
+
 // DeviceBody is one of a person's devices (D218 §4).
 type DeviceBody struct {
-	ID           int64  `json:"id"`
-	Name         string `json:"name"`
-	Platform     string `json:"platform"`
-	AudioOutput  string `doc:"Absent until the device is asked, the first time it plays (D222)" enum:"built_in_speakers,receiver,headphones" json:"audioOutput,omitempty"` //nolint:lll // one struct tag
-	AddedAt      int64  `doc:"Unix milliseconds" json:"addedAt"`
-	LastUsedAt   int64  `doc:"Unix milliseconds" json:"lastUsedAt"`
-	IsSignedIn   bool   `json:"isSignedIn"`
-	IsThisDevice bool   `doc:"The device asking" json:"isThisDevice"`
+	ID           int64       `json:"id"`
+	Name         string      `json:"name"`
+	Platform     string      `json:"platform"`
+	AudioOutput  AudioOutput `doc:"Absent until the device is asked, when it first plays (D222)" json:"audioOutput,omitempty"` //nolint:lll // one struct tag
+	AddedAt      int64       `doc:"Unix milliseconds" json:"addedAt"`
+	LastUsedAt   int64       `doc:"Unix milliseconds" json:"lastUsedAt"`
+	IsSignedIn   bool        `json:"isSignedIn"`
+	IsThisDevice bool        `doc:"The device asking" json:"isThisDevice"`
 }
 
 // DevicesOutput is a person's devices, most recently used first.
@@ -42,8 +56,8 @@ type ChangeDeviceInput struct {
 	AuthorizationHeader
 	DeviceID int64 `minimum:"1" path:"id"`
 	Body     struct {
-		Name        *string `json:"name,omitempty" maxLength:"100" minLength:"1" required:"false"`
-		AudioOutput *string `doc:"How the device makes sound; built-in speakers and headphones are stereo (D222)" enum:"built_in_speakers,receiver,headphones" json:"audioOutput,omitempty" required:"false"` //nolint:lll // one struct tag
+		Name        *string      `json:"name,omitempty" maxLength:"100" minLength:"1" required:"false"`
+		AudioOutput *AudioOutput `doc:"How the device makes sound; built-in speakers and headphones are stereo (D222)" json:"audioOutput,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
@@ -103,7 +117,7 @@ func (server *Server) devicesOf(ctx context.Context, dependencies *Dependencies,
 	output.Body.Devices = make([]DeviceBody, 0, len(devices))
 	for _, device := range devices {
 		output.Body.Devices = append(output.Body.Devices, DeviceBody{
-			ID: device.ID, Name: device.Name, Platform: device.Platform, AudioOutput: device.AudioOutput,
+			ID: device.ID, Name: device.Name, Platform: device.Platform, AudioOutput: AudioOutput(device.AudioOutput),
 			AddedAt:    device.AddedAt.UnixMilli(),
 			LastUsedAt: device.LastUsed.UnixMilli(), IsSignedIn: device.IsSignedIn,
 			IsThisDevice: device.ID == thisDevice,
@@ -133,7 +147,7 @@ func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInp
 		err = dependencies.Auth.RenameDevice(ctx, principal.UserID, input.DeviceID, *name)
 	}
 	if output := input.Body.AudioOutput; err == nil && output != nil {
-		err = dependencies.Auth.SetAudioOutput(ctx, principal.UserID, input.DeviceID, *output)
+		err = dependencies.Auth.SetAudioOutput(ctx, principal.UserID, input.DeviceID, string(*output))
 	}
 	return server.deviceAnswer(ctx, "change a device", err)
 }

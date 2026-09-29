@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -150,5 +151,37 @@ func TestFilePrefs_TheDialogueBoostIsThePersonsInEveryFile(t *testing.T) {
 	}
 	if boostOf(2) {
 		t.Error("after turning it off: want it off everywhere")
+	}
+}
+
+// The answers to how a device makes sound are auth's one list, wherever the API names them, and a
+// name not on it, as the old tv_speakers, is refused (D222).
+func TestDevices_TheDocumentNamesEveryAudioOutputAndAnOldNameIsRefused(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	served := harness.do(t, http.MethodGet, "/openapi.json", "", nil)
+	var document struct {
+		Components struct {
+			Schemas map[string]struct {
+				Properties map[string]struct {
+					Enum []string `json:"enum"`
+				} `json:"properties"`
+			} `json:"schemas"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal([]byte(served.body), &document); err != nil {
+		t.Fatalf("GET /openapi.json = %d: %v", served.status, err)
+	}
+	for _, schema := range []string{"DeviceBody", "StartPlaybackOutputBody", "ChangeDeviceInputBody"} {
+		documented := document.Components.Schemas[schema].Properties["audioOutput"].Enum
+		if !slices.Equal(documented, auth.AudioOutputs()) {
+			t.Errorf("%s names the answers %v, want %v", schema, documented, auth.AudioOutputs())
+		}
+	}
+	device := "/me/devices/" + strconv.FormatInt(harness.thisDeviceID(t, user), 10)
+	old := harness.do(t, http.MethodPut, device, user, map[string]string{"audioOutput": "tv_speakers"})
+	if old.status < 400 {
+		t.Errorf("PUT audioOutput tv_speakers = %d, want refused: the answer is built_in_speakers now", old.status)
 	}
 }
