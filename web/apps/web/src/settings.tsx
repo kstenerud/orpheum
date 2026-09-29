@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { components, ErrorDetail } from "@orpheum/sdk";
+import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -15,9 +15,7 @@ export type Secret = components["schemas"]["SecretBody"];
 export type Setting = components["schemas"]["SettingBody"];
 
 /** A request's answer, as the SDK gives it: a refusal carries the server's error. */
-interface RefusableAnswer {
-  readonly error?: { readonly error: ErrorDetail };
-}
+type RefusableAnswer = Parameters<typeof throwIfRefused>[0];
 
 /** A setting's value as a person reads it. */
 export function settingText(value: unknown): string {
@@ -38,7 +36,7 @@ export function parseSettingText(kind: Setting["kind"], text: string): string | 
   return kind === "integer" ? Number(text) : text;
 }
 
-/** Whether a secret is set, in words: with its hint where it has one. */
+/** Whether a secret is set, in words: with its last characters where it has them. */
 function SecretState(props: { readonly secret: Secret }): JSX.Element {
   const { t } = useTranslation();
   const { secret } = props;
@@ -48,7 +46,7 @@ function SecretState(props: { readonly secret: Secret }): JSX.Element {
   return (
     <p>
       {secret.lastChars === undefined
-        ? t("settings.secretSetNoHint")
+        ? t("settings.secretSetNoLastChars")
         : t("settings.secretSet", { lastChars: secret.lastChars })}
     </p>
   );

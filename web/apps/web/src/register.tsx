@@ -57,9 +57,7 @@ export function Register(): JSX.Element {
         onChange={setPasswordAgain}
       />
       {problem === undefined ? null : (
-        <CredentialsProblem isAlert>
-          {t(`register.${problem}`, { message: refusalText })}
-        </CredentialsProblem>
+        <CredentialsProblem isAlert>{t(`register.${problem}`, { refusalText })}</CredentialsProblem>
       )}
       <button type="submit" disabled={secret === undefined}>
         {t("register.submit")}

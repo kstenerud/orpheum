@@ -86,12 +86,12 @@ export function subtitleProblemText(
 ): string {
   if (cause instanceof ApiProblem) {
     if (cause.code === "quota_exhausted") {
-      const resetAt = cause.detail["downloadsResetAt"];
+      const downloadsResetAt = cause.detail["downloadsResetAt"];
       const resetTime =
-        resetAt === undefined
+        downloadsResetAt === undefined
           ? ""
           : new Intl.DateTimeFormat(viewerLanguage, { timeStyle: "short" }).format(
-              new Date(Number(resetAt)),
+              new Date(Number(downloadsResetAt)),
             );
       return t("play.findSubtitles.quotaSpent", { when: resetTime });
     }

@@ -26,7 +26,7 @@ export function problemText(
       return override;
     }
     if (code === "authRequired") {
-      return signedOutText(t, cause.detail["reason"]);
+      return signedOutText(t, sessionEndReason(cause));
     }
     return t(`problem.${code}`, { defaultValue: t("problem.unknown", { message: cause.message }) });
   }
@@ -37,11 +37,19 @@ export function problemText(
 }
 
 /**
- * Why a session ended, in the person's words, by the reason the server gave ("session_ended");
- * no reason, or one this client does not know, says only that they are not signed in.
+ * Why the server refused a session, by the reason its refusal gives ("session_ended"); a refusal
+ * that gives none says only that there is no session ("no_session").
  */
-export function signedOutText(t: TFunction, reason: string | undefined): string {
-  return t(`problem.signedOut.${camelKey(reason ?? "no_session")}`, {
+export function sessionEndReason(problem: ApiProblem): string {
+  return problem.detail["reason"] ?? "no_session";
+}
+
+/**
+ * Why a session ended, in the person's words, by the reason the server gave ("session_ended");
+ * a reason this client does not know says only that they are not signed in.
+ */
+export function signedOutText(t: TFunction, reason: string): string {
+  return t(`problem.signedOut.${camelKey(reason)}`, {
     defaultValue: t("problem.signedOut.noSession"),
   });
 }

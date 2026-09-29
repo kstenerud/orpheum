@@ -162,11 +162,11 @@ function PreparedVideo(props: PlayProps): JSX.Element {
 
 /**
  * A prepared copy's playback: it waits while the copy's first part is made, then plays it,
- * starting with the audio rendition startAudioIndex when one is given.
+ * starting with the audio rendition startAudioRenditionIndex when one is given.
  */
 function usePreparedPlayback(
   decision: PlaybackDecision,
-  startAudioIndex: number | undefined,
+  startAudioRenditionIndex: number | undefined,
 ): {
   videoRef: RefObject<HTMLVideoElement | null>;
   playbackRef: RefObject<HlsPlayback | undefined>;
@@ -190,7 +190,7 @@ function usePreparedPlayback(
           setIsWaiting(false);
           playbackRef.current = playHls(element, decision.url, {
             onFailed: setFailure,
-            ...(startAudioIndex === undefined ? {} : { startAudioIndex }),
+            ...(startAudioRenditionIndex === undefined ? {} : { startAudioRenditionIndex }),
           });
         }
       },
@@ -205,7 +205,7 @@ function usePreparedPlayback(
       playbackRef.current?.destroy();
       playbackRef.current = undefined;
     };
-  }, [decision.url, startAudioIndex, t]);
+  }, [decision.url, startAudioRenditionIndex, t]);
   return { videoRef, playbackRef, isWaiting, failure };
 }
 

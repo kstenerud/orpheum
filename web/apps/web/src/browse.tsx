@@ -29,7 +29,9 @@ const entriesPerPage = 60;
 
 /** Where an entry leads: a film's page, or a series'. */
 export function entryRoute(kind: BrowseKind, id: number): Route {
-  return kind === "movie" ? { screen: "title", id } : { screen: "series-page", id };
+  return kind === "movie"
+    ? { screen: "title", itemId: id }
+    : { screen: "series-page", collectionId: id };
 }
 
 /** A grid of films or series, each a poster with its name and year under it. */
@@ -43,7 +45,7 @@ export function PosterGrid(props: {
       {props.entries.map((entry) => (
         <li key={entry.id}>
           <Link to={entryRoute(props.kind, entry.id)} className="poster-grid__card">
-            <Poster hash={entry.posterSha256} />
+            <Poster sourceSha256={entry.posterSha256} />
             <span className="poster-grid__name">{entry.name}</span>
             {entry.year === undefined ? null : (
               <span className="poster-grid__year">{t("browse.year", { year: entry.year })}</span>
@@ -113,7 +115,7 @@ function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSo
   return (
     <BrowseView
       kind={kind}
-      loadedEntries={pages.pagesSoFar}
+      loadedEntries={pages.loadedSoFar}
       isLoadingMore={pages.isLoadingMore}
       onLoadMore={pages.loadMore}
     />

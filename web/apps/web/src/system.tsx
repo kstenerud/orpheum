@@ -188,7 +188,7 @@ function Disks(props: { readonly disks: readonly Disk[] }): JSX.Element | null {
           <code>{disk.path}</code>{" "}
           {disk.failure === undefined
             ? t("system.disk", {
-                free: byteSizeText(disk.availableBytes),
+                available: byteSizeText(disk.availableBytes),
                 total: byteSizeText(disk.totalBytes),
               })
             : t("system.diskUnmeasured", { why: disk.failure })}
@@ -313,7 +313,7 @@ function RecentPrepares(props: { readonly prepares: readonly FinishedPrepare[] }
             <tr>
               <th scope="col">{t("system.preparedFile")}</th>
               <th scope="col">{t("system.preparedWith")}</th>
-              <th scope="col">{t("system.speed")}</th>
+              <th scope="col">{t("system.realtimeFactor")}</th>
               <th scope="col">{t("system.finishedAt")}</th>
             </tr>
           </thead>
@@ -335,8 +335,8 @@ function RecentPrepares(props: { readonly prepares: readonly FinishedPrepare[] }
                 <td>
                   {prepare.realtimeFactor === undefined
                     ? ""
-                    : t("system.speedTimes", {
-                        speed: prepare.realtimeFactor.toLocaleString(i18n.language, {
+                    : t("system.realtimeFactorTimes", {
+                        realtimeFactor: prepare.realtimeFactor.toLocaleString(i18n.language, {
                           maximumFractionDigits: 1,
                         }),
                       })}

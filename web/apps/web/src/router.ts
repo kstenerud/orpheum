@@ -4,8 +4,8 @@
 export type Route =
   | { readonly screen: "films" }
   | { readonly screen: "series" }
-  | { readonly screen: "title"; readonly id: number }
-  | { readonly screen: "series-page"; readonly id: number }
+  | { readonly screen: "title"; readonly itemId: number }
+  | { readonly screen: "series-page"; readonly collectionId: number }
   | { readonly screen: "play"; readonly fileId: number }
   | { readonly screen: "search"; readonly query: string }
   | { readonly screen: "identify" }
@@ -16,7 +16,7 @@ export type Route =
   | { readonly screen: "jobs" }
   | { readonly screen: "system" }
   | { readonly screen: "people" }
-  | { readonly screen: "person"; readonly id: number }
+  | { readonly screen: "person"; readonly userId: number }
   | { readonly screen: "account" }
   | { readonly screen: "register" }
   | { readonly screen: "not-found" };
@@ -31,8 +31,11 @@ interface Shape {
 const shapes: readonly Shape[] = [
   { pattern: /^\/(?:films\/?)?$/u, toRoute: () => ({ screen: "films" }) },
   { pattern: /^\/series\/?$/u, toRoute: () => ({ screen: "series" }) },
-  { pattern: /^\/titles\/([1-9]\d{0,15})$/u, toRoute: (id) => ({ screen: "title", id }) },
-  { pattern: /^\/series\/([1-9]\d{0,15})$/u, toRoute: (id) => ({ screen: "series-page", id }) },
+  { pattern: /^\/titles\/([1-9]\d{0,15})$/u, toRoute: (itemId) => ({ screen: "title", itemId }) },
+  {
+    pattern: /^\/series\/([1-9]\d{0,15})$/u,
+    toRoute: (collectionId) => ({ screen: "series-page", collectionId }),
+  },
   { pattern: /^\/play\/([1-9]\d{0,15})$/u, toRoute: (fileId) => ({ screen: "play", fileId }) },
   {
     pattern: /^\/search\/?$/u,
@@ -49,7 +52,7 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/jobs\/?$/u, toRoute: () => ({ screen: "jobs" }) },
   { pattern: /^\/system\/?$/u, toRoute: () => ({ screen: "system" }) },
   { pattern: /^\/people\/?$/u, toRoute: () => ({ screen: "people" }) },
-  { pattern: /^\/people\/([1-9]\d{0,15})$/u, toRoute: (id) => ({ screen: "person", id }) },
+  { pattern: /^\/people\/([1-9]\d{0,15})$/u, toRoute: (userId) => ({ screen: "person", userId }) },
   { pattern: /^\/account\/?$/u, toRoute: () => ({ screen: "account" }) },
   { pattern: /^\/register\/?$/u, toRoute: () => ({ screen: "register" }) },
 ];
@@ -68,16 +71,16 @@ export function parseRoute(pathname: string, search: string): Route {
 /** The address of a route: what parseRoute reads back as the same route. */
 export function routeHref(route: Route): string {
   if (route.screen === "title") {
-    return `/titles/${String(route.id)}`;
+    return `/titles/${String(route.itemId)}`;
   }
   if (route.screen === "series-page") {
-    return `/series/${String(route.id)}`;
+    return `/series/${String(route.collectionId)}`;
   }
   if (route.screen === "play") {
     return `/play/${String(route.fileId)}`;
   }
   if (route.screen === "person") {
-    return `/people/${String(route.id)}`;
+    return `/people/${String(route.userId)}`;
   }
   if (route.screen === "files") {
     return `/libraries/${String(route.libraryId)}/files`;

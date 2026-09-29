@@ -7,13 +7,13 @@ import { useTranslation } from "react-i18next";
 import { camelKey } from "./catalogue-key.ts";
 
 /** What a machine said about the sandbox its FFmpeg runs in. */
-export type NodeSandbox = Pick<components["schemas"]["SystemNodeBody"], "name" | "confinement">;
+export type NodeConfinement = Pick<components["schemas"]["SystemNodeBody"], "name" | "confinement">;
 
 /**
  * Whether a machine runs FFmpeg in its sandbox, said out loud (D112): a hostile file is what the
  * sandbox is for, so the admin is told when part of it is missing, why, and how to put it back.
  */
-export function NodeConfinementView(props: { readonly node: NodeSandbox }): JSX.Element {
+export function NodeConfinementView(props: { readonly node: NodeConfinement }): JSX.Element {
   const { t } = useTranslation();
   const { node } = props;
   const confinement = node.confinement ?? [];

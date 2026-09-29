@@ -88,9 +88,13 @@ export type ArtSize =
   | "logo-m";
 
 /**
- * The address of one size of an image, by the hash a title's artwork names. An <img> sends the
+ * The address of one size of an image, by the source SHA-256 a title's artwork names. An <img> sends the
  * media cookie sign-in set, never a token in the address (D154).
  */
-export function artUrl(hash: string, size: ArtSize, format: "webp" | "jpeg" = "webp"): string {
-  return `${apiPrefix}/bytes/art/${encodeURIComponent(hash)}/${size}.${format}`;
+export function artUrl(
+  sourceSha256: string,
+  size: ArtSize,
+  format: "webp" | "jpeg" = "webp",
+): string {
+  return `${apiPrefix}/bytes/art/${encodeURIComponent(sourceSha256)}/${size}.${format}`;
 }

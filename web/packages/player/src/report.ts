@@ -62,13 +62,13 @@ export class PlayReporter {
   private isRefused = false;
 
   /**
-   * nextSeq numbers the reports. Every reporter of one playback must share it: the server takes a
-   * report numbered no higher than the last as sent again, so a second reporter counting from 1
-   * would be ignored.
+   * nextReportSeq numbers the reports. Every reporter of one playback must share it: the server
+   * takes a report numbered no higher than the last as sent again, so a second reporter counting
+   * from 1 would be ignored.
    */
   constructor(
     private readonly send: (report: PlayReport) => Promise<void>,
-    private readonly nextSeq: () => number,
+    private readonly nextReportSeq: () => number,
     private readonly readMonotonicMs: () => number = () => Math.round(performance.now()),
   ) {}
 
@@ -117,7 +117,7 @@ export class PlayReporter {
     }
     const now = this.readMonotonicMs();
     const report: PlayReport = {
-      reportSeq: this.nextSeq(),
+      reportSeq: this.nextReportSeq(),
       sentMonoMs: now,
       positionMs: Math.max(0, Math.round(positionMs)),
       positionReadMonoMs: now,
@@ -144,11 +144,11 @@ export class PlayReporter {
     );
   }
 
-  private recordEvent(kind: PlayEventKind, positionMs: number, monoMs: number): void {
+  private recordEvent(kind: PlayEventKind, positionMs: number, happenedMonoMs: number): void {
     this.events.push({
       kind,
       positionMs: Math.max(0, Math.round(positionMs)),
-      happenedMonoMs: monoMs,
+      happenedMonoMs,
     });
     this.flush(positionMs);
   }

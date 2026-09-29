@@ -36,7 +36,7 @@ describe("createNavigation", () => {
     const navigation = createNavigation(place);
     const heard: string[] = [];
     navigation.subscribe(() => heard.push(navigation.route().screen));
-    expect(navigation.route()).toEqual({ screen: "title", id: 4 });
+    expect(navigation.route()).toEqual({ screen: "title", itemId: 4 });
     navigation.go({ screen: "search", query: "heat" });
     expect(place.location.search).toBe("?q=heat");
     place.back("/series");

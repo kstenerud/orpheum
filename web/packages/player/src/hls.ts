@@ -87,7 +87,7 @@ export function playHls(
     /** Called with why, when the playback cannot go on. */
     readonly onFailed: (why: string) => void;
     /** The audio rendition to start with; the playlist's default when omitted. */
-    readonly startAudioIndex?: number;
+    readonly startAudioRenditionIndex?: number;
   },
 ): HlsPlayback {
   const { onFailed } = options;
@@ -105,7 +105,7 @@ export function playHls(
       onFailed(data.details);
     }
   });
-  startWithAudio(hls, options.startAudioIndex ?? 0);
+  startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

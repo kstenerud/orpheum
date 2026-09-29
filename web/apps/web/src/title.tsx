@@ -66,7 +66,7 @@ export function TitleView(props: { readonly title: TitleDetail }): JSX.Element {
 function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
   const { art, kind } = props.title;
   if (kind !== "episode") {
-    return <Poster hash={art.posterSha256} />;
+    return <Poster sourceSha256={art.posterSha256} />;
   }
   return art.stillSha256 === undefined ? null : (
     <img className="title__still" src={artUrl(art.stillSha256, "landscape-m")} alt={""} />
@@ -83,7 +83,7 @@ function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
       <h1>{title.name}</h1>
       {episodePlace === undefined ? null : (
         <p>
-          <Link to={{ screen: "series-page", id: episodePlace.seriesId }}>
+          <Link to={{ screen: "series-page", collectionId: episodePlace.seriesId }}>
             {t("title.place", {
               series: episodePlace.seriesName,
               season: episodePlace.seasonNumber,
@@ -155,7 +155,7 @@ function Extras(props: {
       <ul>
         {props.extras.map((extra) => (
           <li key={extra.id}>
-            <Link to={{ screen: "title", id: extra.id }}>{extra.name}</Link>{" "}
+            <Link to={{ screen: "title", itemId: extra.id }}>{extra.name}</Link>{" "}
             <span>
               {t(`extraType.${camelKey(extra.extraType)}`, {
                 defaultValue: t("extraType.unknown"),

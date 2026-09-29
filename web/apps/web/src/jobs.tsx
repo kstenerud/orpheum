@@ -67,7 +67,7 @@ export function Jobs(): JSX.Element {
   );
 }
 
-/** The jobs, each with its kind, subject, state, progress, reason and last error. */
+/** The jobs, each with its kind, target, state, progress, reason and last failure. */
 export function JobList(props: {
   readonly jobs: readonly Job[];
   readonly onCancel: (job: Job) => void;
@@ -82,7 +82,7 @@ export function JobList(props: {
         const kindText = t(`jobs.kind.${camelKey(job.kind)}`);
         return (
           <li key={job.id} className="jobs__job">
-            <strong>{t("jobs.subject", { kind: kindText, target: targetId(job) })}</strong>{" "}
+            <strong>{t("jobs.target", { kind: kindText, target: targetId(job) })}</strong>{" "}
             <span>{t(`jobs.state.${job.state}`)}</span>{" "}
             {job.progressFraction === undefined ? null : (
               <progress
@@ -94,7 +94,9 @@ export function JobList(props: {
             <span>{t("jobs.reason", { reason: job.reason })}</span>
             <span>{t("jobs.queuedAt", { at: dateTimeText(job.createdAt, i18n.language) })}</span>
             {job.lastFailure === undefined ? null : (
-              <span className="jobs__error">{t("jobs.lastError", { error: job.lastFailure })}</span>
+              <span className="jobs__failure">
+                {t("jobs.lastFailure", { failure: job.lastFailure })}
+              </span>
             )}
             {isCancellable(job) ? (
               <button

@@ -17,8 +17,8 @@ export type SearchHit = components["schemas"]["HitBody"];
 /** Where a result leads: a series' page, else a title's. */
 export function hitRoute(hit: SearchHit): Route {
   return hit.kind === "series"
-    ? { screen: "series-page", id: hit.id }
-    : { screen: "title", id: hit.id };
+    ? { screen: "series-page", collectionId: hit.id }
+    : { screen: "title", itemId: hit.id };
 }
 
 const kindKeys = {

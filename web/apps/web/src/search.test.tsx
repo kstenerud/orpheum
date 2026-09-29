@@ -25,7 +25,10 @@ describe("search", () => {
     expect(markup).toContain('href="/titles/21"');
     expect(markup).toContain("Series");
     expect(markup).toContain("Episode");
-    expect(hitRoute({ id: 5, kind: "movie", name: "Metropolis" })).toEqual({ screen: "title", id: 5 });
+    expect(hitRoute({ id: 5, kind: "movie", name: "Metropolis" })).toEqual({
+      screen: "title",
+      itemId: 5,
+    });
   });
 
   it("says when nothing matches, and keeps the query in the box", () => {

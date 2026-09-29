@@ -128,7 +128,7 @@ export function PeopleList(props: { readonly accounts: readonly Account[] }): JS
     <ul className="people__list">
       {props.accounts.map((account) => (
         <li key={account.id} className="people__person">
-          <Link to={{ screen: "person", id: account.id }} className="people__name">
+          <Link to={{ screen: "person", userId: account.id }} className="people__name">
             {account.name}
           </Link>{" "}
           <span className="people__status">

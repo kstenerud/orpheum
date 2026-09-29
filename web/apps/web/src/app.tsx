@@ -83,10 +83,10 @@ function viewerScreen(route: Route): JSX.Element | undefined {
     return <Browse key={route.screen} kind={route.screen === "films" ? "movie" : "series"} />;
   }
   if (route.screen === "title") {
-    return <Title key={route.id} id={route.id} />;
+    return <Title key={route.itemId} id={route.itemId} />;
   }
   if (route.screen === "series-page") {
-    return <Series key={route.id} id={route.id} />;
+    return <Series key={route.collectionId} id={route.collectionId} />;
   }
   if (route.screen === "play") {
     return <Play key={route.fileId} fileId={route.fileId} />;
@@ -121,7 +121,7 @@ function adminScreen(route: Route): JSX.Element | undefined {
     return <People />;
   }
   if (route.screen === "person") {
-    return <PersonPage key={route.id} userId={route.id} />;
+    return <PersonPage key={route.userId} userId={route.userId} />;
   }
   return route.screen === "files" ? (
     <Files key={route.libraryId} libraryId={route.libraryId} />
