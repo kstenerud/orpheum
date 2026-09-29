@@ -4,7 +4,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -77,13 +76,8 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	}
 	err = dependencies.Playback.Report(
 		ctx, input.Token, principal.UserID, principal.SessionKey, principal.DeviceID, report)
-	switch {
-	case errors.Is(err, playback.ErrNoToken):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
-	case errors.Is(err, playback.ErrBadReport):
-		return nil, newError(http.StatusBadRequest, CodeInvalidRequest, err.Error())
-	case err != nil:
-		return nil, server.logInternalError(ctx, "keep a play report", err)
+	if err != nil {
+		return nil, server.playbackError(ctx, "keep a play report", err)
 	}
 	return &struct{}{}, nil
 }

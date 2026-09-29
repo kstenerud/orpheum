@@ -4,12 +4,9 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
-
-	"github.com/kstenerud/orpheum/internal/core/playback"
 )
 
 // InProgressBody is one row of Continue Watching: a work, and the file of it the person was most
@@ -83,12 +80,8 @@ func (server *Server) hideProgress(ctx context.Context, input *HideInput) (*stru
 	if err != nil {
 		return nil, err
 	}
-	err = dependencies.Playback.Hide(ctx, principal.UserID, input.ItemID)
-	switch {
-	case errors.Is(err, playback.ErrNoItem):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such item")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "hide an item", err)
+	if err := dependencies.Playback.Hide(ctx, principal.UserID, input.ItemID); err != nil {
+		return nil, server.playbackError(ctx, "hide an item", err)
 	}
 	return &struct{}{}, nil
 }
@@ -99,7 +92,7 @@ func (server *Server) unhideProgress(ctx context.Context, input *HideInput) (*st
 		return nil, err
 	}
 	if err := dependencies.Playback.Unhide(ctx, principal.UserID, input.ItemID); err != nil {
-		return nil, server.logInternalError(ctx, "unhide an item", err)
+		return nil, server.playbackError(ctx, "unhide an item", err)
 	}
 	return &struct{}{}, nil
 }

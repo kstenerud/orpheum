@@ -4,7 +4,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -90,12 +89,12 @@ func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPrefsInp
 	}
 	if isOn := input.Body.IsDialogueBoostOn; isOn != nil {
 		if err := dependencies.Playback.SetDialogueBoost(ctx, principal.UserID, *isOn); err != nil {
-			return nil, server.logInternalError(ctx, "keep a person's dialogue boost", err)
+			return nil, server.playbackError(ctx, "keep a person's dialogue boost", err)
 		}
 	}
 	if isOn := input.Body.IsLevellingOn; isOn != nil {
 		if err := dependencies.Playback.SetLevelling(ctx, principal.UserID, *isOn); err != nil {
-			return nil, server.logInternalError(ctx, "keep whether a person's loudness is levelled", err)
+			return nil, server.playbackError(ctx, "keep whether a person's loudness is levelled", err)
 		}
 	}
 	return &struct{}{}, nil
@@ -125,13 +124,8 @@ func (server *Server) setFilePreferences(ctx context.Context, input *SetFilePref
 			IsOff:    choice.IsOff,
 		})
 	}
-	switch {
-	case errors.Is(err, playback.ErrNoFile):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such file to play")
-	case errors.Is(err, playback.ErrNoTrack):
-		return nil, newError(http.StatusBadRequest, CodeInvalidRequest, "this file has no such subtitle track")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "keep a file's preferences", err)
+	if err != nil {
+		return nil, server.playbackError(ctx, "keep a file's preferences", err)
 	}
 	return &struct{}{}, nil
 }

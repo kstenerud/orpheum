@@ -316,7 +316,7 @@ func (server *Server) getPerson(ctx context.Context, input *PersonInput) (*Perso
 	}
 	stats, err := dependencies.Playback.WatchStatsOf(ctx, input.UserID)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "read a person's watching", err)
+		return nil, server.playbackError(ctx, "read a person's watching", err)
 	}
 	output.Body.WatchStats = WatchStatsBody{WatchedMs: stats.WatchedMs, TitlesWatchedCount: stats.TitlesWatched}
 	if !stats.LastWatchedAt.IsZero() {
