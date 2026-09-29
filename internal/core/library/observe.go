@@ -59,7 +59,8 @@ func (batch *ingestBatch) ingestObserved(ctx context.Context, scan *scanState, o
 		// Only a file under this scan's root can be judged absent by it. One in another root was
 		// simply not looked at, so a match there is a duplicate, never a move.
 		unseenIndex := slices.IndexFunc(elsewhere, func(row sqlcgen.ListLiveFilesByPayloadHashRow) bool {
-			return row.LastSeenAt < scan.startedAt && isUnder(row.Path, scan.root)
+			_, under := RelativeToRoot(row.ReportedPathBytes, scan.root)
+			return row.LastSeenAt < scan.startedAt && under
 		})
 		if unseenIndex >= 0 && len(elsewhere) == 1 {
 			move := pendingMove{seenFile: seenFile, fromFileID: elsewhere[unseenIndex].ID}
@@ -209,7 +210,7 @@ func (batch *ingestBatch) recordError(ctx context.Context, scan *scanState, fail
 	case nodeproto.ScopeRoot, nodeproto.ScopeRun:
 		scan.isEverythingUnread = true
 	case nodeproto.ScopeEntry, nodeproto.ScopeSubtree:
-		scan.unreadPaths = append(scan.unreadPaths, resolveReportedPath(scan.root, failure.Path).text)
+		scan.unreadPaths = append(scan.unreadPaths, string(resolveReportedPath(scan.root, failure.Path).reportedBytes))
 	}
 	if failure.Path.Text == "." {
 		return nil // the root itself is not a file

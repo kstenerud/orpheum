@@ -44,6 +44,12 @@
 //     invalid UTF-8 names, or two normalisations of one name — are two files (D211).
 //     TestIngest_TwoNamesThatAreOneTextAreTwoFiles.
 //
+//   - Which root a file is under is judged in one place, RelativeToRoot, by the bytes its node
+//     reported, so a root whose name is not NFC holds its files and a root of "/" holds what is
+//     below it; the deepest root holds a file when roots nest (D211).
+//     TestRelativeToRoot_ComparesTheReportedBytesAndTakesARootOfSlash,
+//     TestIngest_UnderARootNotInNFCOrOfSlashAScanMovesRemovesKeepsAndAttaches.
+//
 //   - A clean scan of an unplugged disk's empty mount point removes nothing: a changed device or
 //     mount, or a removal of all of a root's files or more than half and more than twenty, waits
 //     for the admin (D41, D208 §3). TestScenario_S7_S8_AnUnpluggedDiskRemovesNothingAndItsReturnRestoresEverything,
@@ -109,5 +115,6 @@
 //     derives; create.go: libraries; admin.go: what an admin does with them (create over a node's
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; home.go: Continue Watching and the resume thresholds;
-//     subtitle_sidecar.go: a subtitle file's track.
+//     subtitle_sidecar.go: a subtitle file's track; rootpath.go: which root a file is under, and a
+//     path's text.
 package library

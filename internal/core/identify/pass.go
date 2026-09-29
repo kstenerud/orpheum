@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -250,19 +251,19 @@ func isVideo(file sqlcgen.ListIdentifyFilesRow) bool {
 		file.Filing != filingAttached
 }
 
-// relativePath is a file's path below the library root that holds it.
+// relativePath is a file's path below the library root on its node that holds it, as text.
 func (filer *libraryFiler) relativePath(file sqlcgen.ListIdentifyFilesRow) (string, bool) {
-	best := ""
+	var rootPaths []string
 	for _, root := range filer.roots {
-		if root.NodeID == file.NodeID && strings.HasPrefix(file.Path,
-			root.RootPath+"/") && len(root.RootPath) > len(best) {
-			best = root.RootPath
+		if root.NodeID == file.NodeID {
+			rootPaths = append(rootPaths, root.RootPath)
 		}
 	}
-	if best == "" {
+	_, relative, found := library.RootHolding(file.ReportedPathBytes, rootPaths)
+	if !found {
 		return "", false
 	}
-	return strings.TrimPrefix(file.Path, best+"/"), true
+	return library.PathText(relative), true
 }
 
 // fileFilmOrEpisode files a film or an episode.

@@ -30,18 +30,25 @@ type harness struct {
 	ingester *Ingester
 	clock    *clocktest.Fake
 	nodeID   int64
+	rootPath string // the library's one root, as its node names it
 	reports  librarytest.Reports
 }
 
 // newHarness is a database with a node and one library covering root, and the ingest.
 func newHarness(t *testing.T) *harness {
 	t.Helper()
+	return newHarnessAt(t, root)
+}
+
+// newHarnessAt is newHarness with the library's root at rootPath.
+func newHarnessAt(t *testing.T, rootPath string) *harness {
+	t.Helper()
 	database := storetest.OpenMigrated(t)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	nodeID, _ := librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: root})
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: rootPath})
 	return &harness{
-		t: t, database: database, clock: fakeClock, nodeID: nodeID,
+		t: t, database: database, clock: fakeClock, nodeID: nodeID, rootPath: rootPath,
 		ingester: NewIngester(database, fakeClock, settingstest.Seeded(t, database), slog.New(slog.DiscardHandler)),
 	}
 }
@@ -86,10 +93,11 @@ func errorRecord(path string, scope nodeproto.ErrorScope) nodeproto.Record {
 	}}
 }
 
-// scan sends one scan of root: begin, the records, and complete unless the scan is cut off.
+// scan sends one scan of the root: begin, the records, and complete unless the scan is cut off.
 func (world *harness) scan(records []nodeproto.Record, isComplete bool) {
 	world.t.Helper()
-	world.scanOn(nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 7, IsMountPoint: true}, records, isComplete)
+	facts := nodeproto.ScanBegin{RootPath: world.rootPath, FilesystemDevice: 7, IsMountPoint: true}
+	world.scanOn(facts, records, isComplete)
 }
 
 // scanOn is scan with the root's filesystem facts as the node reports them.

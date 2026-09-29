@@ -91,14 +91,18 @@ func (batch *ingestBatch) attachSidecars(ctx context.Context, scan *scanState) e
 		return fmt.Errorf("list the files under %s: %w", scan.root, err)
 	}
 	videosByFolder := map[string][]sqlcgen.ListLiveFilesForAttachingRow{} // by folder
+	isInRoot := func(file sqlcgen.ListLiveFilesForAttachingRow) bool {
+		_, under := RelativeToRoot(file.ReportedPathBytes, scan.root)
+		return under
+	}
 	for _, file := range files {
 		// A subtitle sidecar has a payload hash too; a video is what has one and is not attached.
-		if isUnder(file.Path, scan.root) && file.PayloadHash != nil && file.Filing != filingAttached {
+		if isInRoot(file) && file.PayloadHash != nil && file.Filing != filingAttached {
 			videosByFolder[path.Dir(file.Path)] = append(videosByFolder[path.Dir(file.Path)], file)
 		}
 	}
 	for _, file := range files {
-		if file.Filing != filingAttached || !isUnder(file.Path, scan.root) {
+		if file.Filing != filingAttached || !isInRoot(file) {
 			continue
 		}
 		folderVideos := videosByFolder[path.Dir(file.Path)]

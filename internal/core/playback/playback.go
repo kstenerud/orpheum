@@ -3,7 +3,6 @@
 package playback
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -16,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -282,16 +282,11 @@ func (service *Service) bytesFileOf(ctx context.Context, file located) (nodeprot
 	if err != nil {
 		return nodeproto.BytesFile{}, fmt.Errorf("read the library's roots: %w", err)
 	}
-	for _, root := range roots {
-		if relative, under := bytes.CutPrefix(file.reportedPathBytes, []byte(root+"/")); under {
-			return nodeproto.BytesFile{
-					RootPath: root, Path: relative,
-					PayloadHash: hex.EncodeToString(file.payloadHash),
-				},
-				nil
-		}
+	root, relative, found := library.RootHolding(file.reportedPathBytes, roots)
+	if !found {
+		return nodeproto.BytesFile{}, fmt.Errorf("%w: %s is under none of its library's roots", ErrNoFile, file.subject)
 	}
-	return nodeproto.BytesFile{}, fmt.Errorf("%w: %s is under none of its library's roots", ErrNoFile, file.subject)
+	return nodeproto.BytesFile{RootPath: root, Path: relative, PayloadHash: hex.EncodeToString(file.payloadHash)}, nil
 }
 
 func (service *Service) playableFile(

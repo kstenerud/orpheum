@@ -481,7 +481,7 @@ func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]List
 }
 
 const listLiveFilesByPayloadHash = `-- name: ListLiveFilesByPayloadHash :many
-SELECT id, path, last_seen_at
+SELECT id, path, reported_path_bytes, last_seen_at
 FROM file
 WHERE node_id = ? AND payload_hash = ? AND removed_at IS NULL
 ORDER BY id
@@ -493,9 +493,10 @@ type ListLiveFilesByPayloadHashParams struct {
 }
 
 type ListLiveFilesByPayloadHashRow struct {
-	ID         int64
-	Path       string
-	LastSeenAt int64
+	ID                int64
+	Path              string
+	ReportedPathBytes []byte
+	LastSeenAt        int64
 }
 
 func (q *Queries) ListLiveFilesByPayloadHash(ctx context.Context, arg ListLiveFilesByPayloadHashParams) ([]ListLiveFilesByPayloadHashRow, error) {
@@ -507,7 +508,12 @@ func (q *Queries) ListLiveFilesByPayloadHash(ctx context.Context, arg ListLiveFi
 	items := []ListLiveFilesByPayloadHashRow{}
 	for rows.Next() {
 		var i ListLiveFilesByPayloadHashRow
-		if err := rows.Scan(&i.ID, &i.Path, &i.LastSeenAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Path,
+			&i.ReportedPathBytes,
+			&i.LastSeenAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -522,7 +528,7 @@ func (q *Queries) ListLiveFilesByPayloadHash(ctx context.Context, arg ListLiveFi
 }
 
 const listLiveFilesForAttaching = `-- name: ListLiveFilesForAttaching :many
-SELECT id, path, filing, sidecar_kind, payload_hash, attached_to_file
+SELECT id, path, reported_path_bytes, filing, sidecar_kind, payload_hash, attached_to_file
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY path
@@ -534,12 +540,13 @@ type ListLiveFilesForAttachingParams struct {
 }
 
 type ListLiveFilesForAttachingRow struct {
-	ID             int64
-	Path           string
-	Filing         string
-	SidecarKind    *string
-	PayloadHash    []byte
-	AttachedToFile *int64
+	ID                int64
+	Path              string
+	ReportedPathBytes []byte
+	Filing            string
+	SidecarKind       *string
+	PayloadHash       []byte
+	AttachedToFile    *int64
 }
 
 func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFilesForAttachingParams) ([]ListLiveFilesForAttachingRow, error) {
@@ -554,6 +561,7 @@ func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFil
 		if err := rows.Scan(
 			&i.ID,
 			&i.Path,
+			&i.ReportedPathBytes,
 			&i.Filing,
 			&i.SidecarKind,
 			&i.PayloadHash,
@@ -573,7 +581,7 @@ func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFil
 }
 
 const listLiveFilesOfLibraryOnNode = `-- name: ListLiveFilesOfLibraryOnNode :many
-SELECT id, path, last_seen_at
+SELECT id, path, reported_path_bytes, last_seen_at
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY id
@@ -585,9 +593,10 @@ type ListLiveFilesOfLibraryOnNodeParams struct {
 }
 
 type ListLiveFilesOfLibraryOnNodeRow struct {
-	ID         int64
-	Path       string
-	LastSeenAt int64
+	ID                int64
+	Path              string
+	ReportedPathBytes []byte
+	LastSeenAt        int64
 }
 
 func (q *Queries) ListLiveFilesOfLibraryOnNode(ctx context.Context, arg ListLiveFilesOfLibraryOnNodeParams) ([]ListLiveFilesOfLibraryOnNodeRow, error) {
@@ -599,7 +608,12 @@ func (q *Queries) ListLiveFilesOfLibraryOnNode(ctx context.Context, arg ListLive
 	items := []ListLiveFilesOfLibraryOnNodeRow{}
 	for rows.Next() {
 		var i ListLiveFilesOfLibraryOnNodeRow
-		if err := rows.Scan(&i.ID, &i.Path, &i.LastSeenAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Path,
+			&i.ReportedPathBytes,
+			&i.LastSeenAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -17,7 +17,7 @@ FROM file
 WHERE node_id = sqlc.arg(node_id) AND reported_path_bytes = sqlc.arg(reported_path_bytes) AND removed_at IS NULL;
 
 -- name: ListLiveFilesByPayloadHash :many
-SELECT id, path, last_seen_at
+SELECT id, path, reported_path_bytes, last_seen_at
 FROM file
 WHERE node_id = ? AND payload_hash = ? AND removed_at IS NULL
 ORDER BY id;
@@ -65,7 +65,7 @@ UPDATE file SET
 WHERE id = sqlc.arg(id);
 
 -- name: ListLiveFilesOfLibraryOnNode :many
-SELECT id, path, last_seen_at
+SELECT id, path, reported_path_bytes, last_seen_at
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY id;
@@ -148,7 +148,7 @@ UPDATE file SET
 WHERE id = sqlc.arg(id);
 
 -- name: ListLiveFilesForAttaching :many
-SELECT id, path, filing, sidecar_kind, payload_hash, attached_to_file
+SELECT id, path, reported_path_bytes, filing, sidecar_kind, payload_hash, attached_to_file
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY path;

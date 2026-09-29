@@ -383,6 +383,28 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 	}
 }
 
+func TestReadImage_ReadsAnImageUnderARootOfSlash(t *testing.T) {
+	t.Parallel()
+	directory, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(directory, "poster.jpg"), []byte("xyz"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	slash, err := confine.OpenMediaRoot("/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = slash.Close() }) //nolint:errcheck // read-only
+	node := New("/nowhere", nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{slash}, Workers{},
+		clocktest.NewFake(time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
+	image, err := node.readImage(nodeproto.Path{Text: filepath.Join(directory, "poster.jpg")})
+	if err != nil || string(image) != "xyz" {
+		t.Errorf("an image under the root / read as %q, %v; want its bytes", image, err)
+	}
+}
+
 // fakePreparedShelf is a prepared shelf whose last eviction left usage.
 type fakePreparedShelf struct{ usage prepared.Usage }
 
