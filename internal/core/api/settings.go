@@ -71,7 +71,7 @@ func (server *Server) listSettings(
 ) (*SettingsOutput, error) {
 	entries, err := service.List(ctx, ownerUserID, isExposedOnly)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list settings", err)
+		return nil, server.settingsError(ctx, "list settings", err)
 	}
 	output := &SettingsOutput{}
 	output.Body.Settings = []SettingBody{}
@@ -79,6 +79,24 @@ func (server *Server) listSettings(
 		output.Body.Settings = append(output.Body.Settings, settingBody(entry))
 	}
 	return output, nil
+}
+
+// settingsError maps the settings package's refusals to API errors. Every handler that calls
+// settings answers through it, so a refusal always leaves with one code and one message: a
+// setting named in the path that is not there is not_found, a value in the body that cannot be
+// set is invalid_request, naming the key.
+func (server *Server) settingsError(ctx context.Context, action string, err error) error {
+	switch {
+	case errors.Is(err, settings.ErrNoServerSetting):
+		return newError(http.StatusNotFound, CodeNotFound, "no such server setting")
+	case errors.Is(err, settings.ErrUnknownSetting), errors.Is(err, settings.ErrWrongScope),
+		errors.Is(err, settings.ErrInvalidValue), errors.Is(err, settings.ErrNotExposed):
+		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, err.Error())
+	case errors.Is(err, settings.ErrInUse):
+		return newError(http.StatusConflict, CodeConflict,
+			"this release reads that setting; set it to default instead of deleting it")
+	}
+	return server.logInternalError(ctx, action, err)
 }
 
 func settingBody(entry settings.Entry) SettingBody {
@@ -100,13 +118,8 @@ func (server *Server) writeSettings(
 	setByUserID int64,
 	isExposedOnly bool,
 ) (*SettingsOutput, error) {
-	err := service.Set(ctx, ownerUserID, values, &setByUserID, isExposedOnly)
-	switch {
-	case errors.Is(err, settings.ErrUnknownSetting), errors.Is(err, settings.ErrWrongScope),
-		errors.Is(err, settings.ErrInvalidValue), errors.Is(err, settings.ErrNotExposed):
-		return nil, newError(http.StatusUnprocessableEntity, CodeInvalidRequest, err.Error())
-	case err != nil:
-		return nil, server.logInternalError(ctx, "set settings", err)
+	if err := service.Set(ctx, ownerUserID, values, &setByUserID, isExposedOnly); err != nil {
+		return nil, server.settingsError(ctx, "set settings", err)
 	}
 	return server.listSettings(ctx, service, ownerUserID, isExposedOnly)
 }

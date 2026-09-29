@@ -4,7 +4,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -194,7 +193,7 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 		Kind: input.Kind, Sort: input.Sort, Cursor: input.Cursor, Limit: input.Limit,
 	})
 	if err != nil {
-		return nil, server.browseError(ctx, "list titles", err)
+		return nil, server.libraryError(ctx, "list titles", err)
 	}
 	output := &TitlesOutput{}
 	output.Body.Titles = make([]EntryBody, 0, len(page.Entries))
@@ -216,7 +215,7 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 	}
 	detail, err := dependencies.Browser.Title(ctx, input.ID)
 	if err != nil {
-		return nil, server.browseError(ctx, "read a title", err)
+		return nil, server.libraryError(ctx, "read a title", err)
 	}
 	output := &ItemDetailOutput{}
 	body := &output.Body
@@ -276,7 +275,7 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	}
 	series, err := dependencies.Browser.Series(ctx, input.ID)
 	if err != nil {
-		return nil, server.browseError(ctx, "read a series", err)
+		return nil, server.libraryError(ctx, "read a series", err)
 	}
 	output := &CollectionOutput{}
 	body := &output.Body
@@ -306,7 +305,7 @@ func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOu
 	}
 	hits, err := dependencies.Browser.Search(ctx, input.Query, input.Limit)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "search", err)
+		return nil, server.libraryError(ctx, "search", err)
 	}
 	output := &SearchOutput{}
 	output.Body.Results = make([]HitBody, 0, len(hits))
@@ -320,15 +319,4 @@ func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOu
 		})
 	}
 	return output, nil
-}
-
-// browseError maps browse's refusals to API errors.
-func (server *Server) browseError(ctx context.Context, action string, err error) error {
-	switch {
-	case errors.Is(err, library.ErrNoItem):
-		return newError(http.StatusNotFound, CodeNotFound, "no such title or series")
-	case errors.Is(err, library.ErrBadCursor):
-		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, "the cursor is not one this server gave")
-	}
-	return server.logInternalError(ctx, action, err)
 }

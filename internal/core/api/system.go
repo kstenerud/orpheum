@@ -223,7 +223,7 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 	}
 	listed, err := dependencies.Libraries.NodeRoots(ctx)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list nodes", err)
+		return nil, server.libraryError(ctx, "list nodes", err)
 	}
 	output.Body.Nodes = make([]SystemNodeBody, 0, len(listed))
 	for _, node := range listed {
