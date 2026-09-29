@@ -11,8 +11,8 @@ import (
 func TestIngest_AFileObservedAgainKeepsItsStreamRowsAndDropsOnlyWhatItLost(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	world.scan([]nodeproto.Record{observed("Metropolis.mkv", "heat")}, true)
-	fileID := world.live()[root+"/Metropolis.mkv"].ID
+	world.scan([]nodeproto.Record{observedRecord("Metropolis.mkv", "heat")}, true)
+	fileID := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
 	idsByIndex := func() map[int64]int64 {
 		t.Helper()
 		streams, err := world.database.Read().ListStreamsOfBytesFile(t.Context(), fileID)
@@ -27,12 +27,12 @@ func TestIngest_AFileObservedAgainKeepsItsStreamRowsAndDropsOnlyWhatItLost(t *te
 	}
 	first := idsByIndex()
 
-	world.scan([]nodeproto.Record{observed("Metropolis.mkv", "heat")}, true)
+	world.scan([]nodeproto.Record{observedRecord("Metropolis.mkv", "heat")}, true)
 	if again := idsByIndex(); len(again) != 2 || again[0] != first[0] || again[1] != first[1] {
 		t.Errorf("after a rescan the stream ids are %v, want %v: an address or a job names them", again, first)
 	}
 
-	remuxed := observed("Metropolis.mkv", "heat")
+	remuxed := observedRecord("Metropolis.mkv", "heat")
 	remuxed.Observed.Probe.Streams = remuxed.Observed.Probe.Streams[:1]
 	remuxed.Observed.Probe.Streams[0].Codec = "hevc"
 	world.scan([]nodeproto.Record{remuxed}, true)

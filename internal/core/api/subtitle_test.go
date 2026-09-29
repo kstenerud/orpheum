@@ -56,7 +56,7 @@ func (harness testHarness) extract(
 	go func() { finished <- playback.HandleSubtitle(t.Context(), job) }()
 	command := <-harness.nodes.commanded
 	answer.JobID = jobID
-	playback.Extracted(t.Context(), 1, answer)
+	playback.TakeSubtitleText(t.Context(), 1, answer)
 	return command, <-finished
 }
 
@@ -252,7 +252,7 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 		t.Fatalf("the node was sent %+v, want the subtitle file whole, by root, path and hash", command)
 	}
 	extracted := nodeproto.SubtitleText{JobID: 92, ASS: []byte("[Script Info] es"), VTT: []byte("WEBVTT es")}
-	playback.Extracted(t.Context(), 1, extracted)
+	playback.TakeSubtitleText(t.Context(), 1, extracted)
 	if err := <-finished; err != nil {
 		t.Fatalf("the job ended %v, want done", err)
 	}

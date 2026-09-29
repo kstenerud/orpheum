@@ -30,31 +30,31 @@ func newFixture(t *testing.T) fixture {
 	settingstest.Set(t, config, settings.JobAttemptLimit, "3")
 	settingstest.Set(t, config, settings.JobFirstRetryDelayS, "10")
 	cache := storetest.OpenCache(t)
-	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
+	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	logger := slog.New(slog.NewTextHandler(t.Output(), nil))
-	return fixture{queue: NewQueue(cache, now, config, logger), cache: cache, clock: now}
+	return fixture{queue: NewQueue(cache, fakeClock, config, logger), cache: cache, clock: fakeClock}
 }
 
-func (fixed fixture) enqueue(t *testing.T, subject, priority int64) {
+func (fixed fixture) enqueue(t *testing.T, itemID, priority int64) {
 	t.Helper()
-	job := New{Kind: KindFetch, Target: Target{ItemID: subject}, Priority: priority, Reason: "test"}
+	job := Request{Kind: KindFetch, Target: Target{ItemID: itemID}, Priority: priority, Reason: "test"}
 	if _, err := fixed.queue.Enqueue(t.Context(), job); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (fixed fixture) job(t *testing.T, subject int64) cachegen.Job {
+func (fixed fixture) job(t *testing.T, itemID int64) cachegen.Job {
 	t.Helper()
 	jobs, err := fixed.cache.Read().ListJobs(t.Context(), 100)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, job := range jobs {
-		if job.ItemID != nil && *job.ItemID == subject {
+		if job.ItemID != nil && *job.ItemID == itemID {
 			return job
 		}
 	}
-	t.Fatalf("no job for subject %d", subject)
+	t.Fatalf("no job for subject %d", itemID)
 	return cachegen.Job{}
 }
 
@@ -71,7 +71,7 @@ func TestEnqueue_QueuesASubjectOnceWhileItIsOpen(t *testing.T) {
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if added, err := jobs.queue.Enqueue(t.Context(), New{
+	if added, err := jobs.queue.Enqueue(t.Context(), Request{
 		Kind:   KindFetch,
 		Target: Target{ItemID: 7},
 	}); err != nil || !added {
@@ -179,7 +179,7 @@ func TestRunDue_APermanentFailureIsNotRetried(t *testing.T) {
 	jobs := newFixture(t)
 	jobs.enqueue(t, 1, 0)
 	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
-		return Permanent(errors.New("the key was refused"))
+		return MarkPermanent(errors.New("the key was refused"))
 	})
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
@@ -218,7 +218,7 @@ func TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts(t *testing.T) 
 	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
 		runs++
 		if blocked {
-			return Blocked(errors.New("no key"))
+			return MarkBlocked(errors.New("no key"))
 		}
 		return nil
 	})
@@ -250,7 +250,7 @@ func TestRunDue_AKindWithItsOwnScheduleRetriesOnItThenFails(t *testing.T) {
 	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
 		runs++
 		return errors.New("the image server answered 503")
-	}).RetryOn(schedule)
+	}).WithRetrySchedule(schedule)
 	for _, wait := range schedule {
 		if err := runner.RunDue(t.Context()); err != nil {
 			t.Fatal(err)
@@ -274,7 +274,7 @@ func TestEnqueue_AJobWaitsUntilItsNotBefore(t *testing.T) {
 	t.Parallel()
 	jobs := newFixture(t)
 	later := jobs.clock.Now().Add(12 * time.Hour)
-	if _, err := jobs.queue.Enqueue(t.Context(), New{
+	if _, err := jobs.queue.Enqueue(t.Context(), Request{
 		Kind: KindFetch, Target: Target{ItemID: 4},
 		RunnableAt: later,
 	}); err != nil {
@@ -307,7 +307,7 @@ func TestRun_AQueuedJobWakesARunnerOfItsOwnKindAtOnce(t *testing.T) {
 		go func() { _ = runner.Run(ctx, never) }() //nolint:errcheck // Run returns nil when ctx ends
 	}
 	for index, kind := range kinds {
-		if _, err := jobs.queue.Enqueue(t.Context(), New{
+		if _, err := jobs.queue.Enqueue(t.Context(), Request{
 			Kind:   kind,
 			Target: Target{ItemID: int64(index + 1)},
 		}); err != nil {
@@ -342,7 +342,7 @@ func TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce(t *testing.T) {
 		go func() { _ = runner.Run(ctx, never) }() //nolint:errcheck // Run returns nil when ctx ends
 	}
 	for subject := range int64(runners) {
-		if _, err := jobs.queue.Enqueue(t.Context(), New{
+		if _, err := jobs.queue.Enqueue(t.Context(), Request{
 			Kind:   KindPrepare,
 			Target: Target{RenditionID: subject + 1},
 		}); err != nil {

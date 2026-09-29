@@ -246,7 +246,7 @@ func openDatabase(t *testing.T, config Config) *store.Database {
 	if err != nil {
 		t.Fatal(err)
 	}
-	database, err := store.Open(t.Context(), directories.LibraryDatabase(), config.openOptions())
+	database, err := store.Open(t.Context(), directories.LibraryDatabasePath(), config.openOptions())
 	if err != nil {
 		t.Fatal(err)
 	}

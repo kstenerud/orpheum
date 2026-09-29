@@ -41,8 +41,8 @@ func TestCancel_AQueuedJobNeverRunsAndARunningOnesHandlerIsToldAndItStaysCancell
 	if !errors.Is(cause, ErrCancelled) {
 		t.Errorf("the running handler's cause = %v, want ErrCancelled", cause)
 	}
-	if view := jobs.view(t, second.ID); view.Progress == nil || *view.Progress != 0.25 {
-		t.Errorf("the running job's progress = %v, want 0.25 kept", view.Progress)
+	if view := jobs.view(t, second.ID); view.ProgressFraction == nil || *view.ProgressFraction != 0.25 {
+		t.Errorf("the running job's progress = %v, want 0.25 kept", view.ProgressFraction)
 	}
 	for _, id := range []int64{first.ID, second.ID} {
 		if view := jobs.view(t, id); view.State != "cancelled" || view.FinishedAt == nil {

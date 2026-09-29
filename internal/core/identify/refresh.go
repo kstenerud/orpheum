@@ -29,10 +29,10 @@ type refreshArgs struct {
 
 // RefreshJob is the fetch job that refreshes an item from the source it follows, from at (now
 // when zero); with retryImages it also asks again for the images it is missing (D213 §1, §2).
-func RefreshJob(itemID int64, reason string, at time.Time, retryImages bool, priority int64) jobs.New {
+func RefreshJob(itemID int64, reason string, at time.Time, retryImages bool, priority int64) jobs.Request {
 	args := fmt.Sprintf(`{"isRefresh":true,"retryImages":%t}`, retryImages) // refreshArgs, as JSON
-	return jobs.New{
-		Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID}, Args: args, Reason: reason, RunnableAt: at,
+	return jobs.Request{
+		Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID}, ArgsJSON: args, Reason: reason, RunnableAt: at,
 		Priority: priority,
 	}
 }
@@ -253,7 +253,7 @@ func (matcher *Matcher) retrySeriesImages(ctx context.Context, seriesID int64) e
 
 // Queue is where refreshes are queued: jobs.Queue.
 type Queue interface {
-	Enqueue(ctx context.Context, job jobs.New) (bool, error)
+	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
 }
 
 // Refresher queues refreshes: a person's, of one title or series whenever they like, and the

@@ -72,7 +72,7 @@ func (service *Service) Load(ctx context.Context) error {
 	held.mutex.Lock()
 	defer held.mutex.Unlock()
 	for _, file := range files {
-		held.add(file.Hash, file.Name, file.Size)
+		held.add(file.Hash, file.Name, file.SizeBytes)
 	}
 	for _, row := range rows {
 		held.lastServedDayByHash[row.SourceSha256Hex] = row.LastServedEpochDay

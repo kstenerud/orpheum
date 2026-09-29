@@ -34,7 +34,7 @@ var (
 // Nodes is what the admin service asks of the node channel: the roots a connected node named, by
 // name (D207), and a command queued to it.
 type Nodes interface {
-	Roots(name string) (int64, []string, bool)
+	ConnectedNodeRoots(name string) (int64, []string, bool)
 	Enqueue(nodeID int64, command nodeproto.Command)
 }
 
@@ -54,9 +54,9 @@ func NewAdmin(database *store.Database, clockSource clock.Clock, nodes Nodes) *A
 // NodeRoots is one enrolled node, and the roots its last hello named when it is connected: what
 // a new library's roots are chosen from (D107; audit-2026-09-25, proposal 5).
 type NodeRoots struct {
-	Name      string
-	Connected bool
-	Roots     []string
+	Name        string
+	IsConnected bool
+	Roots       []string
 }
 
 // NodeRoots is every enrolled node, by name, with the roots of those connected.
@@ -67,31 +67,31 @@ func (admin *Admin) NodeRoots(ctx context.Context) ([]NodeRoots, error) {
 	}
 	listed := make([]NodeRoots, 0, len(enrolled))
 	for _, node := range enrolled {
-		_, roots, connected := admin.nodes.Roots(node.Name)
+		_, roots, connected := admin.nodes.ConnectedNodeRoots(node.Name)
 		if roots == nil {
 			roots = []string{}
 		}
-		listed = append(listed, NodeRoots{Name: node.Name, Connected: connected, Roots: roots})
+		listed = append(listed, NodeRoots{Name: node.Name, IsConnected: connected, Roots: roots})
 	}
 	return listed, nil
 }
 
-// Request is a library an admin asks for: the three questions answered (D184), and the roots of
+// CreateRequest is a library an admin asks for: the three questions answered (D184), and the roots of
 // one node, by the node's name.
-type Request struct {
+type CreateRequest struct {
 	NewLibrary
-	Node string
+	NodeName string
 }
 
 // Create adds a library over roots the node configured, then asks the node to scan them.
-func (admin *Admin) Create(ctx context.Context, request Request) (int64, error) {
-	nodeID, roots, connected := admin.nodes.Roots(request.Node)
+func (admin *Admin) Create(ctx context.Context, request CreateRequest) (int64, error) {
+	nodeID, roots, connected := admin.nodes.ConnectedNodeRoots(request.NodeName)
 	if !connected {
-		return 0, fmt.Errorf("node %q: %w", request.Node, ErrNodeNotConnected)
+		return 0, fmt.Errorf("node %q: %w", request.NodeName, ErrNodeNotConnected)
 	}
 	for _, root := range request.Roots {
 		if !slices.Contains(roots, root) {
-			return 0, fmt.Errorf("%s on node %q: %w; it names %v", root, request.Node, ErrNotANodeRoot, roots)
+			return 0, fmt.Errorf("%s on node %q: %w; it names %v", root, request.NodeName, ErrNotANodeRoot, roots)
 		}
 	}
 	library := request.NewLibrary
@@ -112,8 +112,8 @@ func (admin *Admin) Create(ctx context.Context, request Request) (int64, error) 
 // Summary is a library with its roots' states and its files counted by filing.
 type Summary struct {
 	sqlcgen.ListLibrariesRow
-	Roots   []sqlcgen.ListLibraryRootStatesRow
-	Filings map[string]int64
+	Roots             []sqlcgen.ListLibraryRootStatesRow
+	FileCountByFiling map[string]int64
 }
 
 // List is every live library, by name.
@@ -137,7 +137,7 @@ func (admin *Admin) List(ctx context.Context) ([]Summary, error) {
 		for _, count := range counts {
 			filings[count.Filing] = count.Files
 		}
-		summaries = append(summaries, Summary{ListLibrariesRow: library, Roots: roots, Filings: filings})
+		summaries = append(summaries, Summary{ListLibrariesRow: library, Roots: roots, FileCountByFiling: filings})
 	}
 	return summaries, nil
 }
@@ -163,14 +163,14 @@ func (admin *Admin) Scan(ctx context.Context, libraryID int64) (int, error) {
 type FilesQuery struct {
 	LibraryID *int64
 	Filing    *string
-	After     int64 // the last id of the page before; 0 for the first
+	AfterID   int64 // the last id of the page before; 0 for the first
 	Limit     int64
 }
 
 // Files is one page of live files, by id.
 func (admin *Admin) Files(ctx context.Context, query FilesQuery) ([]sqlcgen.ListFilesPageRow, error) {
 	rows, err := admin.database.Read().ListFilesPage(ctx, sqlcgen.ListFilesPageParams{
-		AfterID: query.After, LibraryID: query.LibraryID, Filing: query.Filing, MaxRows: query.Limit,
+		AfterID: query.AfterID, LibraryID: query.LibraryID, Filing: query.Filing, MaxRows: query.Limit,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list files: %w", err)
@@ -181,13 +181,13 @@ func (admin *Admin) Files(ctx context.Context, query FilesQuery) ([]sqlcgen.List
 // ApproveRemovals is the admin saying a root's withheld removals are real (D208 §3): its next
 // complete scan removes what it does not see without waiting again. The root is scanned now if
 // its node is connected; it reports whether it was.
-func (admin *Admin) ApproveRemovals(ctx context.Context, libraryID int64, node, path string) (bool, error) {
-	root, err := admin.root(ctx, libraryID, node, path)
+func (admin *Admin) ApproveRemovals(ctx context.Context, libraryID int64, nodeName, path string) (bool, error) {
+	root, err := admin.findRoot(ctx, libraryID, nodeName, path)
 	if err != nil {
 		return false, err
 	}
 	if root.LastScanOutcome == nil || *root.LastScanOutcome != outcomeWithheld {
-		return false, fmt.Errorf("%s on %s: %w", path, node, ErrNothingWithheld)
+		return false, fmt.Errorf("%s on %s: %w", path, nodeName, ErrNothingWithheld)
 	}
 	err = admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		_, approveErr := queries.ApproveRootRemovals(ctx, sqlcgen.ApproveRootRemovalsParams{
@@ -204,8 +204,8 @@ func (admin *Admin) ApproveRemovals(ctx context.Context, libraryID int64, node, 
 // ForgetMount is the admin saying a disk missing from a mount point inside a root is gone for
 // good: its boundary is forgotten and the root's removals approved, so the next complete scan
 // removes its files (D208).
-func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, node, mountPath string) (bool, error) {
-	nodeID, err := admin.nodeOfLibrary(ctx, libraryID, node)
+func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, nodeName, mountPath string) (bool, error) {
+	nodeID, err := admin.libraryNodeIDByName(ctx, libraryID, nodeName)
 	if err != nil {
 		return false, err
 	}
@@ -213,14 +213,14 @@ func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, node, moun
 		NodeID: nodeID, MountPath: mountPath,
 	}))
 	if errors.Is(err, store.ErrNotFound) || (err == nil && mount.IsPresent != 0) {
-		return false, fmt.Errorf("%s on %s: %w", mountPath, node, ErrMountNotMissing)
+		return false, fmt.Errorf("%s on %s: %w", mountPath, nodeName, ErrMountNotMissing)
 	}
 	if err != nil {
 		return false, fmt.Errorf("read the mount %s: %w", mountPath, err)
 	}
-	root, err := admin.root(ctx, libraryID, node, mount.RootPath)
+	root, err := admin.findRoot(ctx, libraryID, nodeName, mount.RootPath)
 	if err != nil {
-		return false, fmt.Errorf("%s on %s: %w", mountPath, node, ErrMountNotMissing)
+		return false, fmt.Errorf("%s on %s: %w", mountPath, nodeName, ErrMountNotMissing)
 	}
 	err = admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		forget := sqlcgen.ForgetMissingRootMountParams{NodeID: nodeID, MountPath: mountPath}
@@ -254,39 +254,39 @@ func (admin *Admin) libraryRoots(ctx context.Context, libraryID int64) ([]sqlcge
 	return roots, nil
 }
 
-// root is one of a library's roots, by its node's name and its path.
-func (admin *Admin) root(
-	ctx context.Context, libraryID int64, node, path string,
+// findRoot is one of a library's roots, by its node's name and its path.
+func (admin *Admin) findRoot(
+	ctx context.Context, libraryID int64, nodeName, path string,
 ) (sqlcgen.ListLibraryRootStatesRow, error) {
 	roots, err := admin.libraryRoots(ctx, libraryID)
 	if err != nil {
 		return sqlcgen.ListLibraryRootStatesRow{}, err
 	}
 	for _, root := range roots {
-		if root.NodeName == node && root.RootPath == path {
+		if root.NodeName == nodeName && root.RootPath == path {
 			return root, nil
 		}
 	}
-	return sqlcgen.ListLibraryRootStatesRow{}, fmt.Errorf("%s on %s: %w", path, node, ErrNoSuchRoot)
+	return sqlcgen.ListLibraryRootStatesRow{}, fmt.Errorf("%s on %s: %w", path, nodeName, ErrNoSuchRoot)
 }
 
-// nodeOfLibrary is the id of the named node, which must hold one of the library's roots.
-func (admin *Admin) nodeOfLibrary(ctx context.Context, libraryID int64, node string) (int64, error) {
+// libraryNodeIDByName is the id of the named node, which must hold one of the library's roots.
+func (admin *Admin) libraryNodeIDByName(ctx context.Context, libraryID int64, nodeName string) (int64, error) {
 	roots, err := admin.libraryRoots(ctx, libraryID)
 	if err != nil {
 		return 0, err
 	}
 	for _, root := range roots {
-		if root.NodeName == node {
+		if root.NodeName == nodeName {
 			return root.NodeID, nil
 		}
 	}
-	return 0, fmt.Errorf("node %s: %w", node, ErrNoSuchRoot)
+	return 0, fmt.Errorf("node %s: %w", nodeName, ErrNoSuchRoot)
 }
 
 // rescan asks a root's node to scan it, if the node is connected, and reports whether it did.
 func (admin *Admin) rescan(root sqlcgen.ListLibraryRootStatesRow) bool {
-	nodeID, _, connected := admin.nodes.Roots(root.NodeName)
+	nodeID, _, connected := admin.nodes.ConnectedNodeRoots(root.NodeName)
 	if !connected || nodeID != root.NodeID {
 		return false
 	}

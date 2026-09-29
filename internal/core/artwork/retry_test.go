@@ -43,8 +43,8 @@ func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *te
 		IsRefresh   bool `json:"isRefresh"`
 		RetryImages bool `json:"retryImages"`
 	}
-	if err := json.Unmarshal([]byte((*queue)[0].Args), &args); err != nil || !args.IsRefresh || !args.RetryImages {
-		t.Errorf("the recheck's args %s (%v)", (*queue)[0].Args, err)
+	if err := json.Unmarshal([]byte((*queue)[0].ArgsJSON), &args); err != nil || !args.IsRefresh || !args.RetryImages {
+		t.Errorf("the recheck's args %s (%v)", (*queue)[0].ArgsJSON, err)
 	}
 	// The recheck's refresh asks for the images again: it removes the rows it left.
 	err := bench.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {

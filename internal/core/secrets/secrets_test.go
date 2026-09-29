@@ -113,12 +113,12 @@ func newFixture(t *testing.T) fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	now := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
+	fakeClock := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
 	seeded := settingstest.Seeded(t, database)
 	return fixture{
 		database: database,
 		settings: seeded,
-		secrets:  NewStore(database, key, now, rand.Reader, seeded),
+		secrets:  NewStore(database, key, fakeClock, rand.Reader, seeded),
 		key:      key,
 		userID:   storetest.InsertUser(t, database, "owner", "admin"),
 	}

@@ -119,7 +119,7 @@ func (lib *world) scan(records ...nodeproto.Record) Report {
 		lib.seq++
 		all[index].ReportSeq = lib.seq
 	}
-	if err := lib.ingester.Records(lib.t.Context(), lib.nodeID, all); err != nil {
+	if err := lib.ingester.IngestRecords(lib.t.Context(), lib.nodeID, all); err != nil {
 		lib.t.Fatal(err)
 	}
 	report, err := lib.pass.Library(lib.t.Context(), lib.libraryID)
@@ -316,7 +316,7 @@ func TestPass_ATitleFollowsItsFilesToAnotherLibrary(t *testing.T) {
 		{ReportSeq: 903, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: kids}},
 	}
 	records[1].ReportSeq, records[2].ReportSeq = 901, 902
-	if ingestErr := lib.ingester.Records(t.Context(), lib.nodeID, records); ingestErr != nil {
+	if ingestErr := lib.ingester.IngestRecords(t.Context(), lib.nodeID, records); ingestErr != nil {
 		t.Fatal(ingestErr)
 	}
 	if _, passErr := lib.pass.Library(t.Context(), kidsID); passErr != nil {

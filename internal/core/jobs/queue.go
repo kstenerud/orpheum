@@ -62,8 +62,8 @@ type Target struct {
 	FileID            int64
 }
 
-// ErrOneTarget is a job that names no target, or more than one.
-var ErrOneTarget = errors.New("a job works on one target")
+// ErrNotOneTarget is a job that names no target, or more than one.
+var ErrNotOneTarget = errors.New("a job works on one target")
 
 // targetColumns are a target as cache.db's job table holds it: one column per kind, NULL when
 // unset.
@@ -71,22 +71,22 @@ type targetColumns struct {
 	item, rendition, stream, fetchedSubtitle, file *int64
 }
 
-// columns are the target's columns, or ErrOneTarget when it names no target or several.
+// columns are the target's columns, or ErrNotOneTarget when it names no target or several.
 func (target Target) columns() (targetColumns, error) {
-	set := 0
+	setCount := 0
 	column := func(id int64) *int64 {
 		if id == 0 {
 			return nil
 		}
-		set++
+		setCount++
 		return &id
 	}
 	columns := targetColumns{
 		item: column(target.ItemID), rendition: column(target.RenditionID), stream: column(target.StreamID),
 		fetchedSubtitle: column(target.FetchedSubtitleID), file: column(target.FileID),
 	}
-	if set != 1 {
-		return targetColumns{}, fmt.Errorf("%w: %+v", ErrOneTarget, target)
+	if setCount != 1 {
+		return targetColumns{}, fmt.Errorf("%w: %+v", ErrNotOneTarget, target)
 	}
 	return columns, nil
 }
@@ -104,18 +104,18 @@ type Job struct {
 	ID   int64
 	Kind Kind
 	Target
-	Args     string
-	Attempts int64
+	ArgsJSON      string
+	AttemptNumber int64
 }
 
 // PriorityPlayNow is the highest priority: a job someone is waiting on to watch (cut-a §5.3).
 const PriorityPlayNow int64 = 1000
 
-// New is a job to queue.
-type New struct {
+// Request is a job to queue.
+type Request struct {
 	Kind Kind
 	Target
-	Args     string // JSON; "{}" when empty
+	ArgsJSON string // JSON; "{}" when empty
 	Priority int64
 	Reason   string // why it exists, shown to the user
 	// RunnableAt is when it may first run; now when zero.
@@ -134,24 +134,24 @@ type Queue struct {
 	settings Settings
 	logger   *slog.Logger
 
-	mutex   sync.Mutex
-	running map[int64]context.CancelCauseFunc // guarded by mutex: each running job's cancel
-	// wakes are each kind's runners' wake-up: one each, so a job of one kind never wakes a
+	mutex                sync.Mutex
+	cancelByRunningJobID map[int64]context.CancelCauseFunc // guarded by mutex: each running job's cancel
+	// wakeupsByKind are each kind's runners' wake-up: one each, so a job of one kind never wakes a
 	// runner of another in its place.
-	wakes map[Kind][]chan struct{} // guarded by mutex
+	wakeupsByKind map[Kind][]chan struct{} // guarded by mutex
 }
 
 // NewQueue returns the queue.
 func NewQueue(cache *store.Cache, clockSource clock.Clock, config Settings, logger *slog.Logger) *Queue {
 	return &Queue{
 		cache: cache, clock: clockSource, settings: config, logger: logger,
-		running: map[int64]context.CancelCauseFunc{}, wakes: map[Kind][]chan struct{}{},
+		cancelByRunningJobID: map[int64]context.CancelCauseFunc{}, wakeupsByKind: map[Kind][]chan struct{}{},
 	}
 }
 
 // Enqueue adds a job unless one of its kind is already queued or running for its target, and
 // reports whether it added one.
-func (queue *Queue) Enqueue(ctx context.Context, job New) (bool, error) {
+func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
 	columns, err := job.columns()
 	if err != nil {
 		return false, err
@@ -169,7 +169,7 @@ func (queue *Queue) Enqueue(ctx context.Context, job New) (bool, error) {
 		if !errors.Is(findErr, store.ErrNotFound) {
 			return fmt.Errorf("look for an open %s job: %w", job.Kind, findErr)
 		}
-		args := job.Args
+		args := job.ArgsJSON
 		if args == "" {
 			args = "{}"
 		}
@@ -232,7 +232,7 @@ func (queue *Queue) RequeueRunning(ctx context.Context) (int64, error) {
 func (queue *Queue) Wake() {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
-	for _, wakes := range queue.wakes {
+	for _, wakes := range queue.wakeupsByKind {
 		for _, wake := range wakes {
 			nudge(wake)
 		}
@@ -243,7 +243,7 @@ func (queue *Queue) Wake() {
 func (queue *Queue) wakeKind(kind Kind) {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
-	for _, wake := range queue.wakes[kind] {
+	for _, wake := range queue.wakeupsByKind[kind] {
 		nudge(wake)
 	}
 }
@@ -256,12 +256,12 @@ func nudge(wake chan struct{}) {
 	}
 }
 
-// wakeFor is a new runner's own wake-up, for its kind.
-func (queue *Queue) wakeFor(kind Kind) chan struct{} {
+// registerWake makes a new runner's own wake-up, for its kind, and keeps it with the kind's others.
+func (queue *Queue) registerWake(kind Kind) chan struct{} {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
 	wake := make(chan struct{}, 1)
-	queue.wakes[kind] = append(queue.wakes[kind], wake)
+	queue.wakeupsByKind[kind] = append(queue.wakeupsByKind[kind], wake)
 	return wake
 }
 
@@ -278,18 +278,18 @@ func (retry *RetryAtError) Error() string {
 
 func (retry *RetryAtError) Unwrap() error { return retry.Err }
 
-// Blocked marks a handler's error as one that holds every job of its kind until something
-// outside the queue changes — a provider's key unset or refused — so the kind waits the retry
-// back-off, and the wait costs the job no attempt.
-func Blocked(err error) error { return &blocked{err: err} }
+// MarkBlocked marks a handler's error as one that holds every job of its kind until something
+// outside the queue changes — a provider's key unset or refused — so the kind waits
+// job_first_retry_delay_s, and the wait costs the job no attempt.
+func MarkBlocked(err error) error { return &blocked{err: err} }
 
 type blocked struct{ err error }
 
 func (failure *blocked) Error() string { return failure.err.Error() }
 func (failure *blocked) Unwrap() error { return failure.err }
 
-// Permanent marks a handler's error as one no retry can fix.
-func Permanent(err error) error { return &permanent{err: err} }
+// MarkPermanent marks a handler's error as one no retry can fix.
+func MarkPermanent(err error) error { return &permanent{err: err} }
 
 type permanent struct{ err error }
 

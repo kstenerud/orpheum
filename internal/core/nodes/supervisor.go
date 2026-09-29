@@ -34,12 +34,12 @@ type Liveness interface {
 // (node_restart_after_silent_s), and starts it again after node_restart_after_exit_s when it exits, so a
 // crashing node cannot spin. It never exits because the node did: it reports.
 type Supervisor struct {
-	start    Starter
-	liveness Liveness
-	name     string
-	clock    clock.Clock
-	settings Settings
-	logger   *slog.Logger
+	startNode Starter
+	liveness  Liveness
+	name      string
+	clock     clock.Clock
+	settings  Settings
+	logger    *slog.Logger
 }
 
 // NewSupervisor supervises the node called name.
@@ -48,7 +48,7 @@ func NewSupervisor(
 	logger *slog.Logger,
 ) *Supervisor {
 	return &Supervisor{
-		start: start, liveness: liveness, name: name, clock: clockSource, settings: settingsService, logger: logger,
+		startNode: start, liveness: liveness, name: name, clock: clockSource, settings: settingsService, logger: logger,
 	}
 }
 
@@ -78,70 +78,70 @@ func (supervisor *Supervisor) Run(ctx context.Context, tick <-chan time.Time) er
 
 // supervision is what the supervisor knows about its child between passes.
 type supervision struct {
-	child        Process
-	startedAt    time.Time
-	exitedAt     time.Time
-	warnedSilent bool
+	child           Process
+	startedAt       time.Time
+	exitedAt        time.Time
+	hasWarnedSilent bool
 }
 
 // judge is one pass: note an exit, start a child that is due, and act on silence.
 func (supervisor *Supervisor) judge(ctx context.Context, state *supervision) error {
 	now := supervisor.clock.Now()
-	if state.child != nil && exited(state.child) {
+	if state.child != nil && hasExited(state.child) {
 		supervisor.logger.WarnContext(ctx, "the node exited; it will be started again", "node", supervisor.name,
 			"err", state.child.Err())
 		state.child, state.exitedAt = nil, now
 	}
-	limits, err := supervisor.limits(ctx)
+	limits, err := supervisor.readLivenessLimits(ctx)
 	if err != nil {
 		return err
 	}
 	if state.child == nil {
-		if state.exitedAt.IsZero() || now.Sub(state.exitedAt) >= limits.restartDelay {
+		if state.exitedAt.IsZero() || now.Sub(state.exitedAt) >= limits.restartAfterExit {
 			supervisor.startChild(ctx, state, now)
 		}
 		return nil
 	}
 	silence := now.Sub(supervisor.lastHeard(state.startedAt))
 	switch {
-	case silence >= limits.restartAfter:
+	case silence >= limits.restartAfterSilence:
 		supervisor.logger.WarnContext(ctx, "the node has been silent too long; restarting it",
 			"node", supervisor.name, "silentFor", silence.String())
 		if err := state.child.Kill(); err != nil {
 			return fmt.Errorf("kill the silent node: %w", err)
 		}
-	case silence >= limits.silentAfter && !state.warnedSilent:
+	case silence >= limits.silentAfter && !state.hasWarnedSilent:
 		supervisor.logger.WarnContext(ctx, "the node is silent", "node", supervisor.name, "silentFor", silence.String())
-		state.warnedSilent = true
+		state.hasWarnedSilent = true
 	}
 	return nil
 }
 
 func (supervisor *Supervisor) startChild(ctx context.Context, state *supervision, now time.Time) {
-	child, err := supervisor.start(ctx)
+	child, err := supervisor.startNode(ctx)
 	if err != nil {
 		supervisor.logger.ErrorContext(ctx, "could not start the node; trying again", "err", err)
 		state.exitedAt = now
 		return
 	}
-	state.child, state.startedAt, state.warnedSilent = child, now, false
+	state.child, state.startedAt, state.hasWarnedSilent = child, now, false
 	supervisor.logger.InfoContext(ctx, "started the node", "node", supervisor.name)
 }
 
 // lastHeard is when the node last spoke, or when it was started if it has not spoken since.
 func (supervisor *Supervisor) lastHeard(startedAt time.Time) time.Time {
-	heard, ever := supervisor.liveness.LastHeard(supervisor.name)
-	if !ever || heard.Before(startedAt) {
+	heard, hasSpoken := supervisor.liveness.LastHeard(supervisor.name)
+	if !hasSpoken || heard.Before(startedAt) {
 		return startedAt
 	}
 	return heard
 }
 
-type limits struct {
-	silentAfter, restartAfter, restartDelay time.Duration
+type livenessLimits struct {
+	silentAfter, restartAfterSilence, restartAfterExit time.Duration
 }
 
-func (supervisor *Supervisor) limits(ctx context.Context) (limits, error) {
+func (supervisor *Supervisor) readLivenessLimits(ctx context.Context) (livenessLimits, error) {
 	var seconds [3]int64
 	var errs []error
 	keys := []settings.Key{settings.NodeSilentAfterS, settings.NodeRestartAfterSilentS, settings.NodeRestartAfterExitS}
@@ -151,12 +151,12 @@ func (supervisor *Supervisor) limits(ctx context.Context) (limits, error) {
 		errs = append(errs, err)
 	}
 	if err := errors.Join(errs...); err != nil {
-		return limits{}, fmt.Errorf("read the node's liveness settings: %w", err)
+		return livenessLimits{}, fmt.Errorf("read the node's liveness settings: %w", err)
 	}
-	return limits{
-		silentAfter:  time.Duration(seconds[0]) * time.Second,
-		restartAfter: time.Duration(seconds[1]) * time.Second,
-		restartDelay: time.Duration(seconds[2]) * time.Second,
+	return livenessLimits{
+		silentAfter:         time.Duration(seconds[0]) * time.Second,
+		restartAfterSilence: time.Duration(seconds[1]) * time.Second,
+		restartAfterExit:    time.Duration(seconds[2]) * time.Second,
 	}, nil
 }
 
@@ -168,8 +168,8 @@ func doneOf(child Process) <-chan struct{} {
 	return child.Done()
 }
 
-// exited reports, without waiting, whether the child has exited.
-func exited(child Process) bool {
+// hasExited reports, without waiting, whether the child has exited.
+func hasExited(child Process) bool {
 	select {
 	case <-child.Done():
 		return true

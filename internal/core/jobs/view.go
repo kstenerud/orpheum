@@ -25,13 +25,13 @@ type View struct {
 	Kind Kind
 	Target
 	State string
-	// Progress is how far it is, 0 to 1, or nil when not known.
-	Progress   *float64
-	Reason     string
-	LastError  string
-	Attempts   int64
-	CreatedAt  time.Time
-	FinishedAt *time.Time
+	// ProgressFraction is how far it is, 0 to 1, or nil when not known.
+	ProgressFraction *float64
+	Reason           string
+	LastError        string
+	AttemptCount     int64
+	CreatedAt        time.Time
+	FinishedAt       *time.Time
 }
 
 // List is the newest jobs, newest first, at most limit of them.
@@ -44,10 +44,10 @@ func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
 	for _, row := range rows {
 		view := View{
 			ID: row.ID, Kind: Kind(row.Kind), State: row.State,
-			Target:   targetOf(row.ItemID, row.RenditionID, row.StreamID, row.FetchedSubtitleID, row.FileID),
-			Progress: row.ProgressFraction, Reason: ptr.ValueOrZero(row.Reason),
-			LastError: ptr.ValueOrZero(row.LastFailure),
-			Attempts:  row.AttemptCount, CreatedAt: time.UnixMilli(row.CreatedAt),
+			Target:           targetOf(row.ItemID, row.RenditionID, row.StreamID, row.FetchedSubtitleID, row.FileID),
+			ProgressFraction: row.ProgressFraction, Reason: ptr.ValueOrZero(row.Reason),
+			LastError:    ptr.ValueOrZero(row.LastFailure),
+			AttemptCount: row.AttemptCount, CreatedAt: time.UnixMilli(row.CreatedAt),
 		}
 		if row.FinishedAt != nil {
 			view.FinishedAt = new(time.UnixMilli(*row.FinishedAt))
@@ -61,10 +61,10 @@ func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
 // is told through its context, whose cause is ErrCancelled, so it can stop the work it started.
 // Whatever the handler answers after, the job stays cancelled.
 func (queue *Queue) Cancel(ctx context.Context, id int64) error {
-	var cancelled int64
+	var cancelledCount int64
 	err := queue.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		var cancelErr error
-		cancelled, cancelErr = queries.CancelJob(ctx, cachegen.CancelJobParams{
+		cancelledCount, cancelErr = queries.CancelJob(ctx, cachegen.CancelJobParams{
 			FinishedAt: new(queue.clock.Now().UnixMilli()), ID: id,
 		})
 		return cancelErr
@@ -72,11 +72,11 @@ func (queue *Queue) Cancel(ctx context.Context, id int64) error {
 	if err != nil {
 		return fmt.Errorf("cancel job %d: %w", id, err)
 	}
-	if cancelled == 0 {
+	if cancelledCount == 0 {
 		return ErrNotOpen
 	}
 	queue.mutex.Lock()
-	stop, isRunning := queue.running[id]
+	stop, isRunning := queue.cancelByRunningJobID[id]
 	queue.mutex.Unlock()
 	if isRunning {
 		stop(ErrCancelled)
@@ -95,15 +95,15 @@ func (queue *Queue) SetProgress(ctx context.Context, id int64, fraction float64)
 	return nil
 }
 
-// track keeps a running job's cancel until its handler returns.
-func (queue *Queue) track(id int64, stop context.CancelCauseFunc) {
+// trackCancel keeps a running job's cancel until its handler returns.
+func (queue *Queue) trackCancel(id int64, stop context.CancelCauseFunc) {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
-	queue.running[id] = stop
+	queue.cancelByRunningJobID[id] = stop
 }
 
-func (queue *Queue) untrack(id int64) {
+func (queue *Queue) untrackCancel(id int64) {
 	queue.mutex.Lock()
 	defer queue.mutex.Unlock()
-	delete(queue.running, id)
+	delete(queue.cancelByRunningJobID, id)
 }

@@ -13,23 +13,24 @@ import (
 	"time"
 )
 
-// The files and directories this package owns under the state directory.
+// The names of the files and directories this package owns under the state and cache
+// directories, and the modes it makes them with.
 const (
-	libraryDatabase = "library.db"
-	cacheDatabase   = "cache.db"
-	backupDirectory = "backups"
-	directoryMode   = 0o700
-	fileMode        = 0o600
+	libraryDatabaseName = "library.db"
+	cacheDatabaseName   = "cache.db"
+	backupDirectoryName = "backups"
+	directoryMode       = 0o700
+	fileMode            = 0o600
 )
 
-// ErrNotFound is returned when a state file does not exist.
+// ErrNotFound is returned when a state file or a stored artwork file does not exist.
 var ErrNotFound = errors.New("state file not found")
 
 // Directories are the server's state directory (library.db, secret.key, backups) and cache
 // directory. Both are created on first use with mode 0700.
 type Directories struct {
-	state string
-	cache string
+	stateDirectory string
+	cacheDirectory string
 }
 
 // Prepare creates the state and cache directories if they are missing and refuses a state
@@ -43,37 +44,37 @@ func Prepare(stateDirectory, cacheDirectory string) (*Directories, error) {
 			return nil, fmt.Errorf("create directory %s: %w", directory, err)
 		}
 	}
-	if err := os.MkdirAll(filepath.Join(stateDirectory, backupDirectory), directoryMode); err != nil {
+	if err := os.MkdirAll(filepath.Join(stateDirectory, backupDirectoryName), directoryMode); err != nil {
 		return nil, fmt.Errorf("create the backup directory: %w", err)
 	}
 	if err := refuseNetworkFilesystem(stateDirectory); err != nil {
 		return nil, err
 	}
-	return &Directories{state: stateDirectory, cache: cacheDirectory}, nil
+	return &Directories{stateDirectory: stateDirectory, cacheDirectory: cacheDirectory}, nil
 }
 
-// LibraryDatabase is the path of library.db.
-func (directories *Directories) LibraryDatabase() string {
-	return filepath.Join(directories.state, libraryDatabase)
+// LibraryDatabasePath is the path of library.db.
+func (directories *Directories) LibraryDatabasePath() string {
+	return filepath.Join(directories.stateDirectory, libraryDatabaseName)
 }
 
-// CacheDatabase is the path of cache.db.
-func (directories *Directories) CacheDatabase() string {
-	return filepath.Join(directories.cache, cacheDatabase)
+// CacheDatabasePath is the path of cache.db.
+func (directories *Directories) CacheDatabasePath() string {
+	return filepath.Join(directories.cacheDirectory, cacheDatabaseName)
 }
 
 // DiscardCacheDatabase removes cache.db and its WAL and shared-memory files, which is how a
 // cache from another schema version is replaced (migrations.md, versioned by discard). Files
 // already gone are not an error.
 func (directories *Directories) DiscardCacheDatabase() (err error) {
-	root, err := os.OpenRoot(directories.cache)
+	root, err := os.OpenRoot(directories.cacheDirectory)
 	if err != nil {
 		return fmt.Errorf("open the cache directory: %w", err)
 	}
 	defer func() { err = errors.Join(err, wrapIf("close the cache directory", root.Close())) }()
-	for _, name := range []string{cacheDatabase + "-wal", cacheDatabase + "-shm", cacheDatabase} {
+	for _, name := range []string{cacheDatabaseName + "-wal", cacheDatabaseName + "-shm", cacheDatabaseName} {
 		if removeErr := root.Remove(name); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
-			return fmt.Errorf("remove %s: %w", filepath.Join(directories.cache, name), removeErr)
+			return fmt.Errorf("remove %s: %w", filepath.Join(directories.cacheDirectory, name), removeErr)
 		}
 	}
 	return nil
@@ -81,37 +82,37 @@ func (directories *Directories) DiscardCacheDatabase() (err error) {
 
 // BackupDirectory is where backups and pre-migration snapshots are written.
 func (directories *Directories) BackupDirectory() string {
-	return filepath.Join(directories.state, backupDirectory)
+	return filepath.Join(directories.stateDirectory, backupDirectoryName)
 }
 
 // LibraryDatabaseExists reports whether library.db is there.
 func (directories *Directories) LibraryDatabaseExists() (bool, error) {
-	_, err := os.Stat(directories.LibraryDatabase())
+	_, err := os.Stat(directories.LibraryDatabasePath())
 	switch {
 	case err == nil:
 		return true, nil
 	case errors.Is(err, os.ErrNotExist):
 		return false, nil
 	}
-	return false, fmt.Errorf("look for %s: %w", directories.LibraryDatabase(), err)
+	return false, fmt.Errorf("look for %s: %w", directories.LibraryDatabasePath(), err)
 }
 
 // ReadStateFile reads a file this package keeps directly in the state directory.
 func (directories *Directories) ReadStateFile(name string) (contents []byte, err error) {
-	if nameErr := checkStateName(name); nameErr != nil {
+	if nameErr := checkPlainFileName(name); nameErr != nil {
 		return nil, nameErr
 	}
-	root, err := directories.openState()
+	root, err := directories.openStateRoot()
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, wrapIf("close the state directory", root.Close())) }()
 	contents, err = root.ReadFile(name)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("%s: %w", filepath.Join(directories.state, name), ErrNotFound)
+		return nil, fmt.Errorf("%s: %w", filepath.Join(directories.stateDirectory, name), ErrNotFound)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", filepath.Join(directories.state, name), err)
+		return nil, fmt.Errorf("read %s: %w", filepath.Join(directories.stateDirectory, name), err)
 	}
 	return contents, nil
 }
@@ -119,10 +120,10 @@ func (directories *Directories) ReadStateFile(name string) (contents []byte, err
 // WriteStateFile replaces a state file atomically, mode 0600: it writes a temporary file beside
 // it, syncs it, and renames it into place, so a crash leaves the old file or the new one.
 func (directories *Directories) WriteStateFile(name string, contents []byte) (err error) {
-	if nameErr := checkStateName(name); nameErr != nil {
+	if nameErr := checkPlainFileName(name); nameErr != nil {
 		return nameErr
 	}
-	root, err := directories.openState()
+	root, err := directories.openStateRoot()
 	if err != nil {
 		return err
 	}
@@ -132,17 +133,17 @@ func (directories *Directories) WriteStateFile(name string, contents []byte) (er
 
 // RemoveStateFile removes a state file; a file already gone is not an error.
 func (directories *Directories) RemoveStateFile(name string) (err error) {
-	if nameErr := checkStateName(name); nameErr != nil {
+	if nameErr := checkPlainFileName(name); nameErr != nil {
 		return nameErr
 	}
-	root, err := directories.openState()
+	root, err := directories.openStateRoot()
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Join(err, wrapIf("close the state directory", root.Close())) }()
 	err = root.Remove(name)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("remove %s: %w", filepath.Join(directories.state, name), err)
+		return fmt.Errorf("remove %s: %w", filepath.Join(directories.stateDirectory, name), err)
 	}
 	return nil
 }
@@ -150,7 +151,7 @@ func (directories *Directories) RemoveStateFile(name string) (err error) {
 // WriteBackupFile writes a file into the backup directory atomically, mode 0600: the key a
 // `backup --include-key` puts beside its database (D194 §4).
 func (directories *Directories) WriteBackupFile(name string, contents []byte) (err error) {
-	if nameErr := checkStateName(name); nameErr != nil {
+	if nameErr := checkPlainFileName(name); nameErr != nil {
 		return nameErr
 	}
 	root, err := os.OpenRoot(directories.BackupDirectory())
@@ -189,25 +190,25 @@ func (directories *Directories) ListBackups() ([]BackupFile, error) {
 }
 
 // ReplaceLibraryDatabase moves a restored copy, already written into the state directory under
-// the name restored, into place as library.db. The old database's WAL and shared-memory files
+// the name restoredName, into place as library.db. The old database's WAL and shared-memory files
 // are removed first: a stale WAL beside a different database is replayed into it. The caller
 // has already snapshotted the old database.
-func (directories *Directories) ReplaceLibraryDatabase(restored string) (err error) {
-	if nameErr := checkStateName(restored); nameErr != nil {
+func (directories *Directories) ReplaceLibraryDatabase(restoredName string) (err error) {
+	if nameErr := checkPlainFileName(restoredName); nameErr != nil {
 		return nameErr
 	}
-	root, err := directories.openState()
+	root, err := directories.openStateRoot()
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Join(err, wrapIf("close the state directory", root.Close())) }()
-	for _, sidecar := range []string{libraryDatabase + "-wal", libraryDatabase + "-shm"} {
-		if err = ignoreMissing(root.Remove(sidecar)); err != nil {
-			return fmt.Errorf("remove %s: %w", sidecar, err)
+	for _, walFile := range []string{libraryDatabaseName + "-wal", libraryDatabaseName + "-shm"} {
+		if err = ignoreMissing(root.Remove(walFile)); err != nil {
+			return fmt.Errorf("remove %s: %w", walFile, err)
 		}
 	}
-	if err = root.Rename(restored, libraryDatabase); err != nil {
-		return fmt.Errorf("move %s into place: %w", restored, err)
+	if err = root.Rename(restoredName, libraryDatabaseName); err != nil {
+		return fmt.Errorf("move %s into place: %w", restoredName, err)
 	}
 	return syncRoot(root)
 }
@@ -215,23 +216,23 @@ func (directories *Directories) ReplaceLibraryDatabase(restored string) (err err
 // StatePath is the path of a state file, for a caller that must hand a path to SQLite (a
 // restored copy written by VACUUM INTO). It refuses anything but a plain name.
 func (directories *Directories) StatePath(name string) (string, error) {
-	if err := checkStateName(name); err != nil {
+	if err := checkPlainFileName(name); err != nil {
 		return "", err
 	}
-	return filepath.Join(directories.state, name), nil
+	return filepath.Join(directories.stateDirectory, name), nil
 }
 
-// checkStateName refuses a name that is not a plain file name. An os.Root already keeps every
+// checkPlainFileName refuses a name that is not a plain file name. An os.Root already keeps every
 // operation inside the state directory; this also keeps out hidden and temporary names.
-func checkStateName(name string) error {
+func checkPlainFileName(name string) error {
 	if name == "" || name != filepath.Base(name) || strings.HasPrefix(name, ".") {
-		return fmt.Errorf("state file %q: want a plain file name", name)
+		return fmt.Errorf("file %q: want a plain file name", name)
 	}
 	return nil
 }
 
-func (directories *Directories) openState() (*os.Root, error) {
-	root, err := os.OpenRoot(directories.state)
+func (directories *Directories) openStateRoot() (*os.Root, error) {
+	root, err := os.OpenRoot(directories.stateDirectory)
 	if err != nil {
 		return nil, fmt.Errorf("open the state directory: %w", err)
 	}

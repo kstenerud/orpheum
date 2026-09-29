@@ -196,7 +196,7 @@ func (service *Service) wantText(ctx context.Context, want wanted, now int64) er
 	if state == subtitleComplete {
 		return nil
 	}
-	_, err = service.queue.Enqueue(ctx, jobs.New{
+	_, err = service.queue.Enqueue(ctx, jobs.Request{
 		Kind: want.kind, Target: want.target, Priority: jobs.PriorityPlayNow,
 		Reason: "someone is watching it, and its subtitles are offered",
 	})
@@ -278,20 +278,21 @@ var ErrNoSubtitle = errors.New("no such subtitle")
 func (service *Service) HandleSubtitle(ctx context.Context, job jobs.Job) error {
 	stream, err := store.OrNotFound(service.database.Read().GetSubtitleStream(ctx, job.StreamID))
 	if errors.Is(err, store.ErrNotFound) {
-		return jobs.Permanent(fmt.Errorf("no subtitle stream %d: its file was scanned again or is gone", job.StreamID))
+		return jobs.MarkPermanent(
+			fmt.Errorf("no subtitle stream %d: its file was scanned again or is gone", job.StreamID))
 	}
 	if err != nil {
 		return fmt.Errorf("read stream %d: %w", job.StreamID, err)
 	}
 	if stream.PayloadHash == nil {
-		return jobs.Permanent(fmt.Errorf("stream %d is in a file with no payload hash", job.StreamID))
+		return jobs.MarkPermanent(fmt.Errorf("stream %d is in a file with no payload hash", job.StreamID))
 	}
 	named, err := service.source(ctx, located{
 		id: job.StreamID, libraryID: stream.LibraryID, nodeID: stream.NodeID, pathKey: stream.ReportedPathBytes,
 		payloadHash: stream.PayloadHash,
 	})
 	if err != nil {
-		return jobs.Permanent(err)
+		return jobs.MarkPermanent(err)
 	}
 	command := &nodeproto.ExtractSubtitle{JobID: job.ID, Sidecar: &named}
 	if stream.StreamIndex != nil {
@@ -317,7 +318,7 @@ func (service *Service) convert(
 	case answer := <-answers:
 		if answer.Refusal != "" {
 			failure := errors.New(answer.Refusal)
-			return jobs.Permanent(errors.Join(failure, service.finishSubtitle(ctx, key, answer)))
+			return jobs.MarkPermanent(errors.Join(failure, service.finishSubtitle(ctx, key, answer)))
 		}
 		return service.finishSubtitle(ctx, key, answer)
 	case <-timer.C:
@@ -326,7 +327,7 @@ func (service *Service) convert(
 		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
 			// The node stops its FFmpeg; the text stays unmade, so a later play asks again.
 			service.nodes.Enqueue(nodeID, cancelCommand(job.ID))
-			return jobs.Permanent(jobs.ErrCancelled)
+			return jobs.MarkPermanent(jobs.ErrCancelled)
 		}
 		return fmt.Errorf("wait for %s job %d: %w", job.Kind, job.ID, ctx.Err())
 	}
@@ -360,7 +361,7 @@ func (service *Service) finishSubtitle(
 	return nil
 }
 
-// Extracted takes a node's answer to an extract_subtitle command to the job waiting for it.
-func (service *Service) Extracted(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText) {
+// TakeSubtitleText takes a node's answer to an extract_subtitle command to the job waiting for it.
+func (service *Service) TakeSubtitleText(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText) {
 	service.subtitles.deliver(ctx, nodeID, answer.JobID, answer)
 }

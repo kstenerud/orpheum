@@ -99,7 +99,7 @@ func (all *prepares) want(
 		return row, fmt.Errorf("want a rendition of file %d: %w", file.ID, err)
 	}
 	if row.State != renditionComplete {
-		_, err = all.queue.Enqueue(ctx, jobs.New{
+		_, err = all.queue.Enqueue(ctx, jobs.Request{
 			Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: row.ID}, Priority: jobs.PriorityPlayNow,
 			Reason: "someone is waiting to watch it",
 		})
@@ -180,7 +180,7 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 			case nodeproto.PrepareFailed:
 				// FFmpeg failing on a file fails again on it: this is not retried.
 				failure := errors.New(report.Failure)
-				return jobs.Permanent(errors.Join(failure, all.finish(ctx, job.RenditionID, nil, report.Failure)))
+				return jobs.MarkPermanent(errors.Join(failure, all.finish(ctx, job.RenditionID, nil, report.Failure)))
 			}
 		case <-timer.C:
 			return fmt.Errorf("node %d said nothing about prepare %s for %s",
@@ -211,7 +211,7 @@ func (all *prepares) progressed(ctx context.Context, job jobs.Job, preparedMs, d
 func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) error {
 	all.nodes.Enqueue(nodeID, cancelCommand(job.ID))
 	failed := all.finish(context.WithoutCancel(ctx), job.RenditionID, nil, jobs.ErrCancelled.Error())
-	return jobs.Permanent(errors.Join(jobs.ErrCancelled, failed))
+	return jobs.MarkPermanent(errors.Join(jobs.ErrCancelled, failed))
 }
 
 // carrying records the gains a making puts in the rendition's audio tracks (D226 §4).

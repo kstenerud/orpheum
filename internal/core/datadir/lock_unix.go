@@ -27,8 +27,8 @@ type Lock struct {
 // `orpheum restore`, which must run with the server stopped, cannot replace a database in use.
 // The kernel drops the lock when the process ends, however it ends.
 func (directories *Directories) LockState() (*Lock, error) {
-	path := filepath.Join(directories.state, lockFileName)
-	root, err := directories.openState()
+	path := filepath.Join(directories.stateDirectory, lockFileName)
+	root, err := directories.openStateRoot()
 	if err != nil {
 		return nil, err
 	}

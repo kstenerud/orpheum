@@ -37,7 +37,7 @@ func (harness testHarness) measureWith(
 	}()
 	command := <-harness.nodes.commanded
 	answer.JobID = jobID
-	service.Measured(t.Context(), 1, answer)
+	service.TakeLoudness(t.Context(), 1, answer)
 	return command.MeasureLoudness, <-finished
 }
 
@@ -124,7 +124,8 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 		t.Fatalf("the prepare sent %+v, want the track's gain in its mixes (D226 §4)", command.Prepare)
 	}
 	service := harness.server.dependencies.Load().Playback
-	service.Reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 92, State: nodeproto.PrepareDone, SizeBytes: 1})
+	done := nodeproto.PrepareReport{JobID: 92, State: nodeproto.PrepareDone, SizeBytes: 1}
+	service.TakePrepareReport(t.Context(), 1, done)
 	if err := <-prepared; err != nil {
 		t.Fatal(err)
 	}

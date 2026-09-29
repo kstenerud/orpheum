@@ -16,7 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// observed matches a file the node read against what the core knows, by D179's table:
+// ingestObserved matches a file the node read against what the core knows, by D179's table:
 //
 //	same path, same hash      → the same file
 //	same path, other hash     → a different file at that path; the old row is tombstoned (D173)
@@ -28,77 +28,78 @@ import (
 //
 // A file moved from one root to another is therefore recorded as a new file, and the old row is
 // tombstoned when its root's next scan completes: its history does not follow it.
-func (work *batch) observed(ctx context.Context, scan *scanState, observed *nodeproto.Observed) error {
-	seen, err := observationOf(scan.root, observed)
+func (batch *ingestBatch) ingestObserved(ctx context.Context, scan *scanState, observed *nodeproto.Observed) error {
+	seenFile, err := observationOf(scan.root, observed)
 	if err != nil {
 		return err
 	}
-	existing, err := store.OrNotFound(work.queries.GetLiveFileByReportedPathBytes(ctx,
+	existing, err := store.OrNotFound(batch.queries.GetLiveFileByReportedPathBytes(ctx,
 		sqlcgen.GetLiveFileByReportedPathBytesParams{
-			NodeID: work.nodeID, ReportedPathBytes: seen.key,
+			NodeID: batch.nodeID, ReportedPathBytes: seenFile.reportedBytes,
 		}))
 	switch {
-	case err == nil && bytes.Equal(existing.PayloadHash, seen.hash):
-		return work.update(ctx, scan, existing.ID, seen)
+	case err == nil && bytes.Equal(existing.PayloadHash, seenFile.hash):
+		return batch.updateObservedFile(ctx, scan, existing.ID, seenFile)
 	case err == nil:
 		// A different file at the path: the old row's history stays with it (D173).
-		tombstone := sqlcgen.TombstoneFileParams{RemovedAt: &work.now, ID: existing.ID}
-		tombstoneErr := work.queries.TombstoneFile(ctx, tombstone)
+		tombstone := sqlcgen.TombstoneFileParams{RemovedAt: &batch.nowMs, ID: existing.ID}
+		tombstoneErr := batch.queries.TombstoneFile(ctx, tombstone)
 		if tombstoneErr != nil {
-			return fmt.Errorf("tombstone the file replaced at %s: %w", seen.path, tombstoneErr)
+			return fmt.Errorf("tombstone the file replaced at %s: %w", seenFile.path, tombstoneErr)
 		}
 	case !errors.Is(err, store.ErrNotFound):
 		return err
 	default:
-		elsewhere, listErr := work.queries.ListLiveFilesByPayloadHash(ctx, sqlcgen.ListLiveFilesByPayloadHashParams{
-			NodeID: work.nodeID, PayloadHash: seen.hash,
+		elsewhere, listErr := batch.queries.ListLiveFilesByPayloadHash(ctx, sqlcgen.ListLiveFilesByPayloadHashParams{
+			NodeID: batch.nodeID, PayloadHash: seenFile.hash,
 		})
 		if listErr != nil {
-			return fmt.Errorf("look for %s's payload elsewhere: %w", seen.path, listErr)
+			return fmt.Errorf("look for %s's payload elsewhere: %w", seenFile.path, listErr)
 		}
 		// Only a file under this scan's root can be judged absent by it. One in another root was
 		// simply not looked at, so a match there is a duplicate, never a move.
-		unseen := slices.IndexFunc(elsewhere, func(row sqlcgen.ListLiveFilesByPayloadHashRow) bool {
-			return row.LastSeenAt < scan.startedAt && under(row.Path, scan.root)
+		unseenIndex := slices.IndexFunc(elsewhere, func(row sqlcgen.ListLiveFilesByPayloadHashRow) bool {
+			return row.LastSeenAt < scan.startedAt && isUnder(row.Path, scan.root)
 		})
-		if unseen >= 0 && len(elsewhere) == 1 {
-			scan.pending = append(scan.pending, pendingMove{seen: seen, from: elsewhere[unseen].ID})
+		if unseenIndex >= 0 && len(elsewhere) == 1 {
+			move := pendingMove{seenFile: seenFile, fromFileID: elsewhere[unseenIndex].ID}
+			scan.pendingMoves = append(scan.pendingMoves, move)
 			return nil
 		}
 		if len(elsewhere) > 0 {
-			return work.insert(ctx, scan, seen) // a duplicate of a live file
+			return batch.insertFile(ctx, scan, seenFile) // a duplicate of a live file
 		}
 	}
-	return work.reviveOrInsert(ctx, scan, seen)
+	return batch.reviveOrInsert(ctx, scan, seenFile)
 }
 
 // reviveOrInsert brings back the latest tombstone in the library with this payload, with its
 // history, wherever the payload now is — a film deleted by mistake and copied back, a disk that
 // returned after its files were removed — or else adds a new file (D208 §4, D41).
-func (work *batch) reviveOrInsert(ctx context.Context, scan *scanState, seen observation) error {
-	tombstone, err := store.OrNotFound(work.queries.GetLatestTombstoneByPayloadHash(ctx,
+func (batch *ingestBatch) reviveOrInsert(ctx context.Context, scan *scanState, seenFile observation) error {
+	tombstone, err := store.OrNotFound(batch.queries.GetLatestTombstoneByPayloadHash(ctx,
 		sqlcgen.GetLatestTombstoneByPayloadHashParams{
-			LibraryID: scan.libraryID, PayloadHash: seen.hash,
+			LibraryID: scan.libraryID, PayloadHash: seenFile.hash,
 		}))
 	if errors.Is(err, store.ErrNotFound) {
-		return work.insert(ctx, scan, seen)
+		return batch.insertFile(ctx, scan, seenFile)
 	}
 	if err != nil {
 		return err
 	}
-	if err := work.queries.ReviveFile(ctx, tombstone); err != nil {
-		return fmt.Errorf("revive file %d at %s: %w", tombstone, seen.path, err)
+	if err := batch.queries.ReviveFile(ctx, tombstone); err != nil {
+		return fmt.Errorf("revive file %d at %s: %w", tombstone, seenFile.path, err)
 	}
-	return work.update(ctx, scan, tombstone, seen)
+	return batch.updateObservedFile(ctx, scan, tombstone, seenFile)
 }
 
 // observation is an observed record resolved to the file table's terms.
 type observation struct {
-	path     string
-	key      []byte
-	hash     []byte
-	probe    string
-	observed *nodeproto.Observed
+	path          string
+	reportedBytes []byte
+	hash          []byte
+	probeJSON     string
+	observed      *nodeproto.Observed
 	// openSubtitlesHash is the file's OpenSubtitles moviehash, or nil when the node gave none a
 	// provider would accept (D224 §3).
 	openSubtitlesHash *string
@@ -107,9 +108,9 @@ type observation struct {
 // openSubtitlesShape is the only moviehash kept: 16 lowercase hex digits, as OpenSubtitles writes it.
 var openSubtitlesShape = regexp.MustCompile(`^[0-9a-f]{16}$`)
 
-// openSubtitlesHash is the moviehash a node reported, cleaned where it enters: anything else is
+// cleanOpenSubtitlesHash is the moviehash a node reported, cleaned where it enters: anything else is
 // none, so nothing a node says reaches the provider's query unchecked.
-func openSubtitlesHash(reported string) *string {
+func cleanOpenSubtitlesHash(reported string) *string {
 	if !openSubtitlesShape.MatchString(reported) {
 		return nil
 	}
@@ -117,8 +118,8 @@ func openSubtitlesHash(reported string) *string {
 }
 
 func observationOf(root string, observed *nodeproto.Observed) (observation, error) {
-	reported := nodePath(root, observed.Path)
-	hash, err := payloadHash(observed.Identity)
+	reported := resolveReportedPath(root, observed.Path)
+	hash, err := decodePayloadHash(observed.Identity)
 	if err != nil {
 		return observation{}, err
 	}
@@ -127,57 +128,60 @@ func observationOf(root string, observed *nodeproto.Observed) (observation, erro
 		return observation{}, fmt.Errorf("encode the probe of %s: %w", reported.text, err)
 	}
 	return observation{
-		path: reported.text, key: reported.key, hash: hash, probe: string(probe), observed: observed,
-		openSubtitlesHash: openSubtitlesHash(observed.OpensubtitlesHash),
+		path: reported.text, reportedBytes: reported.reportedBytes, hash: hash, probeJSON: string(probe),
+		observed:          observed,
+		openSubtitlesHash: cleanOpenSubtitlesHash(observed.OpensubtitlesHash),
 	}, nil
 }
 
-// insert adds a new file row, unidentified until identification sees it, and its streams.
-func (work *batch) insert(ctx context.Context, scan *scanState, seen observation) error {
-	observed, reason := seen.observed, notIdentifiedYet
-	id, err := work.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: seen.path, ReportedPathBytes: seen.key,
-		SizeBytes: &observed.SizeBytes, ModifiedAt: &observed.ModifiedAt, PayloadHash: seen.hash,
+// insertFile adds a new file row, unidentified until identification sees it, and its streams.
+func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenFile observation) error {
+	observed, reason := seenFile.observed, notIdentifiedYet
+	id, err := batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
+		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: seenFile.path, ReportedPathBytes: seenFile.reportedBytes,
+		SizeBytes: &observed.SizeBytes, ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash,
 		PayloadBytes: &observed.Identity.PayloadBytes, Filing: filingUnidentified, FilingReason: &reason,
-		ProbeJson: &seen.probe, SeenAt: work.now, OpensubtitlesHash: seen.openSubtitlesHash,
+		ProbeJson: &seenFile.probeJSON, SeenAt: batch.nowMs, OpensubtitlesHash: seenFile.openSubtitlesHash,
 	})
 	if err != nil {
-		return fmt.Errorf("insert %s: %w", seen.path, err)
+		return fmt.Errorf("insert %s: %w", seenFile.path, err)
 	}
-	return work.streams(ctx, id, observed.Probe)
+	return batch.syncStreams(ctx, id, observed.Probe)
 }
 
-// update records a file observed again, perhaps at a new path (a move), and re-derives its
+// updateObservedFile records a file observed again, perhaps at a new path (a move), and re-derives its
 // streams from the new probe.
-func (work *batch) update(ctx context.Context, scan *scanState, id int64, seen observation) error {
-	observed, reason := seen.observed, notIdentifiedYet
-	err := work.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
-		LibraryID: scan.libraryID, Path: seen.path, ReportedPathBytes: seen.key,
+func (batch *ingestBatch) updateObservedFile(
+	ctx context.Context, scan *scanState, id int64, seenFile observation,
+) error {
+	observed, reason := seenFile.observed, notIdentifiedYet
+	err := batch.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
+		LibraryID: scan.libraryID, Path: seenFile.path, ReportedPathBytes: seenFile.reportedBytes,
 		SizeBytes:  &observed.SizeBytes,
-		ModifiedAt: &observed.ModifiedAt, PayloadHash: seen.hash, PayloadBytes: &observed.Identity.PayloadBytes,
-		UnidentifiedReason: &reason, ProbeJson: &seen.probe, OpensubtitlesHash: seen.openSubtitlesHash,
-		SeenAt: work.now,
+		ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash, PayloadBytes: &observed.Identity.PayloadBytes,
+		UnidentifiedReason: &reason, ProbeJson: &seenFile.probeJSON, OpensubtitlesHash: seenFile.openSubtitlesHash,
+		SeenAt: batch.nowMs,
 		ID:     id,
 	})
 	if err != nil {
-		return fmt.Errorf("update %s: %w", seen.path, err)
+		return fmt.Errorf("update %s: %w", seenFile.path, err)
 	}
-	return work.streams(ctx, id, observed.Probe)
+	return batch.syncStreams(ctx, id, observed.Probe)
 }
 
-// filed records a path the node skipped or could not read: an existing row keeps its identity
+// recordFiling records a path the node skipped or could not read: an existing row keeps its identity
 // and takes the filing; a new path gets a row with no payload.
-func (work *batch) filed(
+func (batch *ingestBatch) recordFiling(
 	ctx context.Context, scan *scanState, reported nodeproto.Path, filing, reason string, detail *string,
 ) error {
-	located := nodePath(scan.root, reported)
-	existing, err := store.OrNotFound(work.queries.GetLiveFileByReportedPathBytes(ctx,
+	located := resolveReportedPath(scan.root, reported)
+	existing, err := store.OrNotFound(batch.queries.GetLiveFileByReportedPathBytes(ctx,
 		sqlcgen.GetLiveFileByReportedPathBytesParams{
-			NodeID: work.nodeID, ReportedPathBytes: located.key,
+			NodeID: batch.nodeID, ReportedPathBytes: located.reportedBytes,
 		}))
 	if err == nil {
-		err = work.queries.UpdateFileFilingAndLastSeen(ctx, sqlcgen.UpdateFileFilingAndLastSeenParams{
-			Filing: filing, FilingReason: &reason, ErrorDetailJson: detail, SeenAt: work.now, ID: existing.ID,
+		err = batch.queries.UpdateFileFilingAndLastSeen(ctx, sqlcgen.UpdateFileFilingAndLastSeenParams{
+			Filing: filing, FilingReason: &reason, ErrorDetailJson: detail, SeenAt: batch.nowMs, ID: existing.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("file %s as %s: %w", located.text, filing, err)
@@ -187,9 +191,9 @@ func (work *batch) filed(
 	if !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
-	_, err = work.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, ReportedPathBytes: located.key,
-		Filing: filing, FilingReason: &reason, ErrorDetailJson: detail, SeenAt: work.now,
+	_, err = batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
+		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: located.text, ReportedPathBytes: located.reportedBytes,
+		Filing: filing, FilingReason: &reason, ErrorDetailJson: detail, SeenAt: batch.nowMs,
 	})
 	if err != nil {
 		return fmt.Errorf("insert %s as %s: %w", located.text, filing, err)
@@ -197,15 +201,15 @@ func (work *batch) filed(
 	return nil
 }
 
-// errored records what the node could not read, and marks the region no removal may touch:
+// recordError records what the node could not read, and marks the region no removal may touch:
 // an entry is unknown, not absent; a subtree hides everything below it; a root or a stopped
 // scan hides everything (D40).
-func (work *batch) errored(ctx context.Context, scan *scanState, failure *nodeproto.ScanError) error {
+func (batch *ingestBatch) recordError(ctx context.Context, scan *scanState, failure *nodeproto.ScanError) error {
 	switch failure.Scope {
 	case nodeproto.ScopeRoot, nodeproto.ScopeRun:
-		scan.unreadAll = true
+		scan.isEverythingUnread = true
 	case nodeproto.ScopeEntry, nodeproto.ScopeSubtree:
-		scan.unread = append(scan.unread, nodePath(scan.root, failure.Path).text)
+		scan.unreadPaths = append(scan.unreadPaths, resolveReportedPath(scan.root, failure.Path).text)
 	}
 	if failure.Path.Text == "." {
 		return nil // the root itself is not a file
@@ -214,5 +218,5 @@ func (work *batch) errored(ctx context.Context, scan *scanState, failure *nodepr
 	if err != nil {
 		return err
 	}
-	return work.filed(ctx, scan, failure.Path, filingErrored, string(failure.Code), detail)
+	return batch.recordFiling(ctx, scan, failure.Path, filingErrored, string(failure.Code), detail)
 }

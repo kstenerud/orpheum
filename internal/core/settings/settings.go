@@ -21,8 +21,9 @@ var (
 	ErrUnknownSetting = errors.New("no such setting")
 	// ErrWrongScope is returned for a server setting set as a user's, or the reverse.
 	ErrWrongScope = errors.New("the setting belongs to the other scope")
-	// ErrWrongKind is returned for a value of the wrong JSON type, or out of its bounds.
-	ErrWrongKind = errors.New("the value has the wrong type or is out of bounds")
+	// ErrInvalidValue is returned for a value of the wrong JSON type, or out of its bounds, and
+	// for a setting read as the wrong kind or scope.
+	ErrInvalidValue = errors.New("the value has the wrong type or is out of bounds")
 	// ErrNotExposed is returned when the settings page is asked to change a setting it does not
 	// show; /config changes every setting.
 	ErrNotExposed = errors.New("the setting is not on the settings page; change it through /config")
@@ -34,11 +35,11 @@ var (
 // person set it. A setting set to the value it starts with is still modified: it no longer
 // follows its starting value when a release changes it (D200).
 type Entry struct {
-	Definition Definition
-	Value      json.RawMessage
-	IsModified bool
-	SetBy      *int64
-	SetAt      int64
+	Definition  Definition
+	Value       json.RawMessage
+	IsModified  bool
+	SetByUserID *int64
+	SetAt       int64
 }
 
 // Service reads and writes settings.
@@ -47,8 +48,8 @@ type Service struct {
 	clock    clock.Clock
 	logger   *slog.Logger
 
-	mutex    sync.Mutex
-	watchers map[Key][]func(context.Context) error // guarded by mutex
+	mutex          sync.Mutex
+	reactionsByKey map[Key][]func(context.Context) error // guarded by mutex
 }
 
 // OnChange runs react after a person sets or resets a server setting, once the change is
@@ -57,27 +58,27 @@ type Service struct {
 func (service *Service) OnChange(key Key, react func(context.Context) error) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	if service.watchers == nil {
-		service.watchers = map[Key][]func(context.Context) error{}
+	if service.reactionsByKey == nil {
+		service.reactionsByKey = map[Key][]func(context.Context) error{}
 	}
-	service.watchers[key] = append(service.watchers[key], react)
+	service.reactionsByKey[key] = append(service.reactionsByKey[key], react)
 }
 
-// changed runs the reactions to server settings that were written.
-func (service *Service) changed(ctx context.Context, keys []Key) {
+// runReactions runs the reactions to server settings that were written.
+func (service *Service) runReactions(ctx context.Context, keys []Key) {
 	service.mutex.Lock()
 	var reactions []func(context.Context) error
-	var reacting []Key
+	var reactionKeys []Key
 	for _, key := range keys {
-		for _, react := range service.watchers[key] {
-			reactions, reacting = append(reactions, react), append(reacting, key)
+		for _, react := range service.reactionsByKey[key] {
+			reactions, reactionKeys = append(reactions, react), append(reactionKeys, key)
 		}
 	}
 	service.mutex.Unlock()
 	for index, react := range reactions {
 		if err := react(ctx); err != nil {
 			service.logger.ErrorContext(ctx, "a setting changed, and what follows from it could not follow",
-				"key", string(reacting[index]), "err", err)
+				"key", string(reactionKeys[index]), "err", err)
 		}
 	}
 }
@@ -93,75 +94,79 @@ func NewService(database *store.Database, clockSource clock.Clock, logger *slog.
 func (service *Service) heal(ctx context.Context, definition Definition) error {
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.InsertServerSettingIfMissing(ctx, sqlcgen.InsertServerSettingIfMissingParams{
-			Key: string(definition.Key), ValueJson: compact(definition.Start), SetAt: service.clock.Now().UnixMilli(),
+			Key: string(definition.Key), ValueJson: compactJSON(definition.StartJSON),
+			SetAt: service.clock.Now().UnixMilli(),
 		})
 	})
 	if err != nil {
 		return fmt.Errorf("write the starting value of %s: %w", definition.Key, err)
 	}
 	service.logger.WarnContext(ctx, "a setting had no row, so its starting value was written",
-		"key", definition.Key, "value", string(definition.Start))
+		"key", definition.Key, "value", string(definition.StartJSON))
 	return nil
 }
 
-// List returns every setting of a scope with its value in force: owner is the user for the user
-// scope and nil for the server's. With exposedOnly it returns only what the settings page shows.
-func (service *Service) List(ctx context.Context, owner *int64, exposedOnly bool) ([]Entry, error) {
-	scope, stored, err := service.stored(ctx, owner)
+// List returns every setting of a scope with its value in force: ownerUserID is the user for
+// the user scope and nil for the server's. With exposedOnly it returns only what the settings
+// page shows.
+func (service *Service) List(ctx context.Context, ownerUserID *int64, exposedOnly bool) ([]Entry, error) {
+	scope, storedByKey, err := service.storedSettings(ctx, ownerUserID)
 	if err != nil {
 		return nil, err
 	}
 	entries := []Entry{}
 	for _, definition := range Registry() {
-		if definition.Scope != scope || (exposedOnly && !definition.Exposed) {
+		if definition.Scope != scope || (exposedOnly && !definition.IsExposed) {
 			continue
 		}
-		row, isSeeded := stored[string(definition.Key)]
+		row, isSeeded := storedByKey[string(definition.Key)]
 		if !isSeeded {
 			if healErr := service.heal(ctx, definition); healErr != nil {
 				return nil, healErr
 			}
-			row = storedSetting{Value: compact(definition.Start), SetAt: service.clock.Now().UnixMilli()}
+			row = storedSetting{Value: compactJSON(definition.StartJSON), SetAt: service.clock.Now().UnixMilli()}
 		}
 		entries = append(entries, Entry{
 			Definition: definition, Value: json.RawMessage(row.Value),
-			IsModified: row.IsModified, SetBy: row.SetBy, SetAt: row.SetAt,
+			IsModified: row.IsModified, SetByUserID: row.SetByUserID, SetAt: row.SetAt,
 		})
 	}
 	return entries, nil
 }
 
 type storedSetting struct {
-	Value      string
-	SetBy      *int64
-	SetAt      int64
-	IsModified bool
+	Value       string
+	SetByUserID *int64
+	SetAt       int64
+	IsModified  bool
 }
 
-func (service *Service) stored(ctx context.Context, owner *int64) (Scope, map[string]storedSetting, error) {
-	stored := map[string]storedSetting{}
-	if owner == nil {
+func (service *Service) storedSettings(
+	ctx context.Context, ownerUserID *int64,
+) (Scope, map[string]storedSetting, error) {
+	storedByKey := map[string]storedSetting{}
+	if ownerUserID == nil {
 		rows, err := service.database.Read().ListServerSettings(ctx)
 		if err != nil {
 			return ScopeServer, nil, fmt.Errorf("list server settings: %w", err)
 		}
 		for _, row := range rows {
-			stored[row.Key] = storedSetting{
-				Value: row.ValueJson, SetBy: row.SetByUserID, SetAt: row.SetAt, IsModified: row.IsModified == 1,
+			storedByKey[row.Key] = storedSetting{
+				Value: row.ValueJson, SetByUserID: row.SetByUserID, SetAt: row.SetAt, IsModified: row.IsModified == 1,
 			}
 		}
-		return ScopeServer, stored, nil
+		return ScopeServer, storedByKey, nil
 	}
-	rows, err := service.database.Read().ListUserSettings(ctx, owner)
+	rows, err := service.database.Read().ListUserSettings(ctx, ownerUserID)
 	if err != nil {
 		return ScopeUser, nil, fmt.Errorf("list user settings: %w", err)
 	}
 	for _, row := range rows {
-		stored[row.Key] = storedSetting{
-			Value: row.ValueJson, SetBy: row.SetByUserID, SetAt: row.SetAt, IsModified: row.IsModified == 1,
+		storedByKey[row.Key] = storedSetting{
+			Value: row.ValueJson, SetByUserID: row.SetByUserID, SetAt: row.SetAt, IsModified: row.IsModified == 1,
 		}
 	}
-	return ScopeUser, stored, nil
+	return ScopeUser, storedByKey, nil
 }
 
 // Int reads an integer server setting.
@@ -192,14 +197,14 @@ func (service *Service) read(ctx context.Context, key Key, kind Kind, target any
 	}
 	if definition.Kind != kind || definition.Scope != ScopeServer {
 		return fmt.Errorf("%s is a %s %s setting, read as a %s server one: %w",
-			key, definition.Scope, definition.Kind, kind, ErrWrongKind)
+			key, definition.Scope, definition.Kind, kind, ErrInvalidValue)
 	}
 	row, err := store.OrNotFound(service.database.Read().GetServerSetting(ctx, string(key)))
 	if errors.Is(err, store.ErrNotFound) {
 		if healErr := service.heal(ctx, definition); healErr != nil {
 			return healErr
 		}
-		row.ValueJson = compact(definition.Start)
+		row.ValueJson = compactJSON(definition.StartJSON)
 	} else if err != nil {
 		return fmt.Errorf("read %s: %w", key, err)
 	}
@@ -213,26 +218,29 @@ func (service *Service) read(ctx context.Context, key Key, kind Kind, target any
 }
 
 // Set stores values, each checked against the registry, in one transaction: all of them or
-// none. The owner is the user for user settings and nil for server settings; setBy is who
-// changed them, nil for the dev seed. With exposedOnly, a key the settings page does not show is
-// refused.
+// none. The owner, ownerUserID, is the user for user settings and nil for server settings;
+// setByUserID is who changed them, nil for the dev seed. With exposedOnly, a key the settings page does not
+// show is refused.
 func (service *Service) Set(
-	ctx context.Context, owner *int64, values map[string]json.RawMessage, setBy *int64, exposedOnly bool,
+	ctx context.Context, ownerUserID *int64, values map[string]json.RawMessage, setByUserID *int64, exposedOnly bool,
 ) error {
 	scope := ScopeServer
-	if owner != nil {
+	if ownerUserID != nil {
 		scope = ScopeUser
 	}
 	for key, value := range values {
-		if err := check(Key(key), scope, value, exposedOnly); err != nil {
+		if err := checkValue(Key(key), scope, value, exposedOnly); err != nil {
 			return err
 		}
 	}
-	now := service.clock.Now().UnixMilli()
+	setAt := service.clock.Now().UnixMilli()
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		for key, value := range values {
-			change := change{owner: owner, key: key, value: compact(value), setBy: setBy, setAt: now, isModified: true}
-			if err := upsert(ctx, queries, change); err != nil {
+			write := settingWrite{
+				ownerUserID: ownerUserID, key: key, value: compactJSON(value), setByUserID: setByUserID, setAt: setAt,
+				isModified: true,
+			}
+			if err := upsert(ctx, queries, write); err != nil {
 				return fmt.Errorf("set %s: %w", key, err)
 			}
 		}
@@ -245,13 +253,13 @@ func (service *Service) Set(
 	for key := range values {
 		keys = append(keys, Key(key))
 	}
-	service.changed(ctx, keys)
+	service.runReactions(ctx, keys)
 	return nil
 }
 
 // Reset writes a server setting's starting value back and clears its modified mark, so it follows
 // its starting value again when a release changes it: "set to default".
-func (service *Service) Reset(ctx context.Context, key Key, setBy *int64) error {
+func (service *Service) Reset(ctx context.Context, key Key, setByUserID *int64) error {
 	definition, known := Lookup(key)
 	if !known {
 		return fmt.Errorf("%q: %w", key, ErrUnknownSetting)
@@ -259,49 +267,49 @@ func (service *Service) Reset(ctx context.Context, key Key, setBy *int64) error 
 	if definition.Scope != ScopeServer {
 		return fmt.Errorf("%s: %w", key, ErrWrongScope)
 	}
-	now := service.clock.Now().UnixMilli()
+	setAt := service.clock.Now().UnixMilli()
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return upsert(ctx, queries, change{
-			key: string(key), value: compact(definition.Start), setBy: setBy, setAt: now,
+		return upsert(ctx, queries, settingWrite{
+			key: string(key), value: compactJSON(definition.StartJSON), setByUserID: setByUserID, setAt: setAt,
 		})
 	})
 	if err != nil {
 		return err
 	}
-	service.changed(ctx, []Key{key})
+	service.runReactions(ctx, []Key{key})
 	return nil
 }
 
-// change is one setting being written.
-type change struct {
-	owner      *int64
-	key        string
-	value      string
-	setBy      *int64
-	setAt      int64
-	isModified bool
+// settingWrite is one setting being written.
+type settingWrite struct {
+	ownerUserID *int64
+	key         string
+	value       string
+	setByUserID *int64
+	setAt       int64
+	isModified  bool
 }
 
-func upsert(ctx context.Context, queries *sqlcgen.Queries, change change) error {
+func upsert(ctx context.Context, queries *sqlcgen.Queries, write settingWrite) error {
 	var modified int64
-	if change.isModified {
+	if write.isModified {
 		modified = 1
 	}
-	if change.owner == nil {
+	if write.ownerUserID == nil {
 		return queries.UpsertServerSetting(ctx, sqlcgen.UpsertServerSettingParams{
-			Key: change.key, ValueJson: change.value, SetByUserID: change.setBy, SetAt: change.setAt,
+			Key: write.key, ValueJson: write.value, SetByUserID: write.setByUserID, SetAt: write.setAt,
 			IsModified: modified,
 		})
 	}
 	return queries.UpsertUserSetting(ctx, sqlcgen.UpsertUserSettingParams{
-		UserID: change.owner, Key: change.key, ValueJson: change.value, SetByUserID: change.setBy, SetAt: change.setAt,
-		IsModified: modified,
+		UserID: write.ownerUserID, Key: write.key, ValueJson: write.value, SetByUserID: write.setByUserID,
+		SetAt: write.setAt, IsModified: modified,
 	})
 }
 
-// check refuses an unknown key, the wrong scope, a hidden key on the settings page, or a value
+// checkValue refuses an unknown key, the wrong scope, a hidden key on the settings page, or a value
 // of the wrong kind or out of bounds.
-func check(key Key, scope Scope, value json.RawMessage, exposedOnly bool) error {
+func checkValue(key Key, scope Scope, value json.RawMessage, exposedOnly bool) error {
 	definition, known := Lookup(key)
 	if !known {
 		return fmt.Errorf("%q: %w", key, ErrUnknownSetting)
@@ -309,15 +317,15 @@ func check(key Key, scope Scope, value json.RawMessage, exposedOnly bool) error 
 	if definition.Scope != scope {
 		return fmt.Errorf("%s: %w", key, ErrWrongScope)
 	}
-	if exposedOnly && !definition.Exposed {
+	if exposedOnly && !definition.IsExposed {
 		return fmt.Errorf("%s: %w", key, ErrNotExposed)
 	}
 	var decoded any
 	if err := json.Unmarshal(value, &decoded); err != nil {
-		return fmt.Errorf("%s: %w: %w", key, ErrWrongKind, err)
+		return fmt.Errorf("%s: %w: %w", key, ErrInvalidValue, err)
 	}
 	if !fits(decoded, definition) {
-		return fmt.Errorf("%s: %w: want %s", key, ErrWrongKind, describeKind(definition))
+		return fmt.Errorf("%s: %w: want %s", key, ErrInvalidValue, describeKind(definition))
 	}
 	return nil
 }
@@ -347,11 +355,11 @@ func describeKind(definition Definition) string {
 	return "a " + string(definition.Kind)
 }
 
-// compact stores JSON without insignificant whitespace, so equal values are equal text.
-func compact(value json.RawMessage) string {
+// compactJSON stores JSON without insignificant whitespace, so equal values are equal text.
+func compactJSON(value json.RawMessage) string {
 	var buffer bytes.Buffer
 	if err := json.Compact(&buffer, value); err != nil {
-		return string(value) // check has already parsed it; this cannot happen
+		return string(value) // checkValue has already parsed it; this cannot happen
 	}
 	return buffer.String()
 }

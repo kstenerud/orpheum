@@ -18,15 +18,15 @@ import (
 
 // fakeProcess is a node child the test ends by hand.
 type fakeProcess struct {
-	done   chan struct{}
-	once   sync.Once
-	killed bool
+	done      chan struct{}
+	once      sync.Once
+	wasKilled bool
 }
 
 func (process *fakeProcess) Done() <-chan struct{} { return process.done }
 func (process *fakeProcess) Err() error            { return errors.New("exit status 1") }
 func (process *fakeProcess) Kill() error {
-	process.once.Do(func() { process.killed = true; close(process.done) })
+	process.once.Do(func() { process.wasKilled = true; close(process.done) })
 	return nil
 }
 func (process *fakeProcess) exit() { process.once.Do(func() { close(process.done) }) }
@@ -85,15 +85,15 @@ func (log *syncLog) String() string {
 }
 
 type supervised struct {
-	clock    *clocktest.Fake
-	liveness *fakeLiveness
-	tick     chan time.Time
-	log      *syncLog
-	mutex    sync.Mutex
-	started  []*fakeProcess
-	failNext bool
-	stop     context.CancelFunc
-	finished chan error
+	clock               *clocktest.Fake
+	liveness            *fakeLiveness
+	tick                chan time.Time
+	log                 *syncLog
+	mutex               sync.Mutex
+	started             []*fakeProcess
+	shouldFailNextStart bool
+	stop                context.CancelFunc
+	finished            chan error
 }
 
 func supervise(t *testing.T) *supervised {
@@ -108,8 +108,8 @@ func supervise(t *testing.T) *supervised {
 	start := func(context.Context) (Process, error) {
 		harness.mutex.Lock()
 		defer harness.mutex.Unlock()
-		if harness.failNext {
-			harness.failNext = false
+		if harness.shouldFailNextStart {
+			harness.shouldFailNextStart = false
 			return nil, errors.New("fork: resource temporarily unavailable")
 		}
 		process := &fakeProcess{done: make(chan struct{})}
@@ -128,15 +128,15 @@ func supervise(t *testing.T) *supervised {
 	return harness
 }
 
-// after advances the clock and ticks twice: the second tick is received only once the first has
+// advanceAndJudge advances the clock and ticks twice: the second tick is received only once the first has
 // been acted on, so on return the supervisor has judged the new time.
-func (harness *supervised) after(step time.Duration) {
+func (harness *supervised) advanceAndJudge(step time.Duration) {
 	harness.clock.Advance(step)
 	harness.tick <- harness.clock.Now()
 	harness.tick <- harness.clock.Now()
 }
 
-func (harness *supervised) starts() []*fakeProcess {
+func (harness *supervised) startedProcesses() []*fakeProcess {
 	harness.mutex.Lock()
 	defer harness.mutex.Unlock()
 	return append([]*fakeProcess(nil), harness.started...)
@@ -145,38 +145,38 @@ func (harness *supervised) starts() []*fakeProcess {
 func TestSupervisor_RestartsANodeThatStaysSilent(t *testing.T) {
 	t.Parallel()
 	harness := supervise(t)
-	harness.after(0)
-	if len(harness.starts()) != 1 {
-		t.Fatalf("%d starts, want the node started at once", len(harness.starts()))
+	harness.advanceAndJudge(0)
+	if len(harness.startedProcesses()) != 1 {
+		t.Fatalf("%d starts, want the node started at once", len(harness.startedProcesses()))
 	}
 	harness.liveness.set(harness.clock.Now().Add(10 * time.Second))
-	harness.after(40 * time.Second)
-	if !strings.Contains(harness.log.String(), "the node is silent") || harness.starts()[0].killed {
+	harness.advanceAndJudge(40 * time.Second)
+	if !strings.Contains(harness.log.String(), "the node is silent") || harness.startedProcesses()[0].wasKilled {
 		t.Errorf("30 s after it was last heard: log %q; want it shown silent, not killed", harness.log.String())
 	}
-	harness.after(90 * time.Second)
-	if !harness.starts()[0].killed {
+	harness.advanceAndJudge(90 * time.Second)
+	if !harness.startedProcesses()[0].wasKilled {
 		t.Fatal("120 s after it was last heard the node was not killed")
 	}
-	harness.after(5 * time.Second)
-	if len(harness.starts()) != 2 {
-		t.Errorf("%d starts, want the node started again", len(harness.starts()))
+	harness.advanceAndJudge(5 * time.Second)
+	if len(harness.startedProcesses()) != 2 {
+		t.Errorf("%d starts, want the node started again", len(harness.startedProcesses()))
 	}
 }
 
 func TestSupervisor_StartsAnExitedNodeAgainAfterTheDelay(t *testing.T) {
 	t.Parallel()
 	harness := supervise(t)
-	harness.after(0)
-	harness.starts()[0].exit()
-	harness.after(time.Second)
-	if len(harness.starts()) != 1 {
-		t.Fatalf("%d starts 1 s after the node exited, want no restart before 5 s", len(harness.starts()))
+	harness.advanceAndJudge(0)
+	harness.startedProcesses()[0].exit()
+	harness.advanceAndJudge(time.Second)
+	if len(harness.startedProcesses()) != 1 {
+		t.Fatalf("%d starts 1 s after the node exited, want no restart before 5 s", len(harness.startedProcesses()))
 	}
-	harness.after(5 * time.Second)
-	if len(harness.starts()) != 2 || !strings.Contains(harness.log.String(), "the node exited") {
+	harness.advanceAndJudge(5 * time.Second)
+	if len(harness.startedProcesses()) != 2 || !strings.Contains(harness.log.String(), "the node exited") {
 		t.Errorf("%d starts, log %q; want it started again, and the exit reported",
-			len(harness.starts()), harness.log.String())
+			len(harness.startedProcesses()), harness.log.String())
 	}
 }
 
@@ -184,20 +184,20 @@ func TestSupervisor_ACouldNotStartIsTriedAgainAndStoppingKillsTheNode(t *testing
 	t.Parallel()
 	harness := supervise(t)
 	harness.mutex.Lock()
-	harness.failNext = true
+	harness.shouldFailNextStart = true
 	harness.mutex.Unlock()
-	harness.after(0)
-	harness.after(5 * time.Second)
-	if len(harness.starts()) != 1 || !strings.Contains(harness.log.String(), "could not start the node") {
+	harness.advanceAndJudge(0)
+	harness.advanceAndJudge(5 * time.Second)
+	if len(harness.startedProcesses()) != 1 || !strings.Contains(harness.log.String(), "could not start the node") {
 		t.Fatalf("%d starts, log %q; want the failure reported and the start retried",
-			len(harness.starts()), harness.log.String())
+			len(harness.startedProcesses()), harness.log.String())
 	}
 	harness.stop()
 	if err := <-harness.finished; err != nil {
 		t.Errorf("Run returned %v", err)
 	}
 	harness.finished <- nil // for the cleanup
-	if !harness.starts()[0].killed {
+	if !harness.startedProcesses()[0].wasKilled {
 		t.Error("stopping the supervisor left the node running")
 	}
 }

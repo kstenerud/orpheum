@@ -21,17 +21,17 @@ import (
 func newService(t *testing.T) (*Service, int64) {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
-	now := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
-	return NewService(database, now, testLogger(t)), storetest.InsertUser(t, database, "owner", "admin")
+	fakeClock := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
+	return NewService(database, fakeClock, testLogger(t)), storetest.InsertUser(t, database, "owner", "admin")
 }
 
-// testLogger writes into the test's own output; logs holds what a test needs to read back.
+// testLogger writes into the test's own output.
 func testLogger(t *testing.T) *slog.Logger {
 	t.Helper()
 	return slog.New(slog.NewTextHandler(t.Output(), nil))
 }
 
-func seeded(t *testing.T) (*Service, int64) {
+func newSeededService(t *testing.T) (*Service, int64) {
 	t.Helper()
 	service, owner := newService(t)
 	if _, err := service.Seed(t.Context()); err != nil {
@@ -51,7 +51,7 @@ func entryFor(t *testing.T, entries []Entry, key Key) Entry {
 	return Entry{}
 }
 
-func values(pairs ...string) map[string]json.RawMessage {
+func jsonByKey(pairs ...string) map[string]json.RawMessage {
 	encoded := map[string]json.RawMessage{}
 	for index := 0; index+1 < len(pairs); index += 2 {
 		encoded[pairs[index]] = json.RawMessage(pairs[index+1])
@@ -70,7 +70,7 @@ func TestRegistry_EveryStartingValueIsAValidValueOrAQuestion(t *testing.T) {
 			t.Errorf("%s is declared twice", definition.Key)
 		}
 		seen[definition.Key] = true
-		if definition.Describe == "" {
+		if definition.Description == "" {
 			t.Errorf("%s says nothing about what it is", definition.Key)
 		}
 		if definition.Scope != ScopeServer {
@@ -81,7 +81,7 @@ func TestRegistry_EveryStartingValueIsAValidValueOrAQuestion(t *testing.T) {
 			t.Errorf("%s: a setting starts as null exactly when it is a question", definition.Key)
 		}
 		if !definition.IsQuestion() {
-			if err := check(definition.Key, definition.Scope, definition.Start, false); err != nil {
+			if err := checkValue(definition.Key, definition.Scope, definition.StartJSON, false); err != nil {
 				t.Errorf("%s: its own starting value is refused: %v", definition.Key, err)
 			}
 		}
@@ -93,7 +93,7 @@ func TestSeed_WritesEveryStartingValueAndNeverOverwrites(t *testing.T) {
 	service, owner := newService(t)
 	ctx := t.Context()
 	report, err := service.Seed(ctx)
-	if err != nil || len(report.Written) != len(Registry()) || len(report.Unused) != 0 {
+	if err != nil || len(report.Inserted) != len(Registry()) || len(report.Unused) != 0 {
 		t.Fatalf("the first seed = %+v, %v; want every setting written and nothing unknown", report, err)
 	}
 	entries, err := service.List(ctx, nil, false)
@@ -104,11 +104,11 @@ func TestSeed_WritesEveryStartingValueAndNeverOverwrites(t *testing.T) {
 		t.Errorf("after seeding, %d settings, want all %d", len(entries), len(Registry()))
 	}
 	for _, entry := range entries {
-		if entry.IsModified || entry.SetBy != nil {
+		if entry.IsModified || entry.SetByUserID != nil {
 			t.Errorf("a seeded setting reads as changed: %+v", entry)
 		}
 	}
-	if err = service.Set(ctx, nil, values("signin_failure_limit", "9"), &owner, false); err != nil {
+	if err = service.Set(ctx, nil, jsonByKey("signin_failure_limit", "9"), &owner, false); err != nil {
 		t.Fatal(err)
 	}
 	assertSeedKeepsTheLimitAt(t, service, 9)
@@ -118,8 +118,8 @@ func TestSeed_WritesEveryStartingValueAndNeverOverwrites(t *testing.T) {
 func assertSeedKeepsTheLimitAt(t *testing.T, service *Service, want int64) {
 	t.Helper()
 	report, err := service.Seed(t.Context())
-	if err != nil || len(report.Written) != 0 {
-		t.Fatalf("seeding a seeded database wrote %v, %v; want nothing", report.Written, err)
+	if err != nil || len(report.Inserted) != 0 {
+		t.Fatalf("seeding a seeded database wrote %v, %v; want nothing", report.Inserted, err)
 	}
 	if limit, err := service.Int(t.Context(), SignInFailureLimit); err != nil || limit != want {
 		t.Errorf("after seeding again, the limit = %d, %v; a person's choice must survive every start", limit, err)
@@ -128,14 +128,14 @@ func assertSeedKeepsTheLimitAt(t *testing.T, service *Service, want int64) {
 
 func TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage(t *testing.T) {
 	t.Parallel()
-	service, owner := seeded(t)
+	service, owner := newSeededService(t)
 	ctx := t.Context()
 	page, err := service.List(ctx, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, entry := range page {
-		if !entry.Definition.Exposed {
+		if !entry.Definition.IsExposed {
 			t.Errorf("the settings page lists %s, which it does not show", entry.Definition.Key)
 		}
 	}
@@ -143,7 +143,7 @@ func TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage(t *testing.
 		ShouldCheckForUpdates); string(entry.Value) != "null" || entry.Definition.Question == "" {
 		t.Errorf("an unanswered question: %+v, want null and the question", entry)
 	}
-	answers := values("should_check_for_updates", "false", "sort_locale", ` "sv" `)
+	answers := jsonByKey("should_check_for_updates", "false", "sort_locale", ` "sv" `)
 	err = service.Set(ctx, nil, answers, &owner, true)
 	if err != nil {
 		t.Fatal(err)
@@ -153,7 +153,8 @@ func TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage(t *testing.
 		t.Fatal(err)
 	}
 	changed := entryFor(t, all, SortLocale)
-	if !changed.IsModified || string(changed.Value) != `"sv"` || changed.SetBy == nil || *changed.SetBy != owner {
+	if !changed.IsModified || string(changed.Value) != `"sv"` ||
+		changed.SetByUserID == nil || *changed.SetByUserID != owner {
 		t.Errorf("a changed setting: %+v, want \"sv\", modified, set by the owner", changed)
 	}
 	if entry := entryFor(t, all, SignInFailureLimit); entry.IsModified {
@@ -163,13 +164,13 @@ func TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage(t *testing.
 
 func TestReaders_RefuseAnUnansweredQuestionAndTheWrongKind(t *testing.T) {
 	t.Parallel()
-	service, _ := seeded(t)
+	service, _ := newSeededService(t)
 	ctx := t.Context()
 	if _, err := service.Bool(ctx, ShouldCheckForUpdates); !errors.Is(err, ErrUnanswered) {
 		t.Errorf("reading an unanswered question: %v, want ErrUnanswered", err)
 	}
-	if _, err := service.Int(ctx, ShouldServeDebugPProf); !errors.Is(err, ErrWrongKind) {
-		t.Errorf("reading a bool as an integer: %v, want ErrWrongKind", err)
+	if _, err := service.Int(ctx, ShouldServeDebugPProf); !errors.Is(err, ErrInvalidValue) {
+		t.Errorf("reading a bool as an integer: %v, want ErrInvalidValue", err)
 	}
 	if on, err := service.Bool(ctx, ShouldScanOnNodeHello); err != nil || !on {
 		t.Errorf("reading a seeded bool: %v, %v; want its starting value", on, err)
@@ -181,7 +182,7 @@ func TestReaders_RefuseAnUnansweredQuestionAndTheWrongKind(t *testing.T) {
 
 func TestSet_RefusesAndChangesNothing(t *testing.T) {
 	t.Parallel()
-	service, owner := seeded(t)
+	service, owner := newSeededService(t)
 	ctx := t.Context()
 	cases := []struct {
 		name        string
@@ -190,18 +191,18 @@ func TestSet_RefusesAndChangesNothing(t *testing.T) {
 		exposedOnly bool
 		want        error
 	}{
-		{"an unknown key", nil, values("transcode_quality", "1"), false, ErrUnknownSetting},
-		{"a server key as a user's", &owner, values("should_check_for_updates", "true"), false, ErrWrongScope},
-		{"a string for a bool", nil, values("should_check_for_updates", `"yes"`), false, ErrWrongKind},
-		{"null, which only reset writes", nil, values("should_check_for_updates", "null"), false, ErrWrongKind},
-		{"not JSON", nil, values("should_check_for_updates", `yes`), false, ErrWrongKind},
-		{"below the minimum", nil, values("signin_failure_limit", "0"), false, ErrWrongKind},
-		{"above the maximum", nil, values("secret_last_chars_shown", "9"), false, ErrWrongKind},
-		{"a fraction", nil, values("signin_failure_limit", "2.5"), false, ErrWrongKind},
-		{"a hidden key on the settings page", nil, values("signin_failure_limit", "3"), true, ErrNotExposed},
+		{"an unknown key", nil, jsonByKey("transcode_quality", "1"), false, ErrUnknownSetting},
+		{"a server key as a user's", &owner, jsonByKey("should_check_for_updates", "true"), false, ErrWrongScope},
+		{"a string for a bool", nil, jsonByKey("should_check_for_updates", `"yes"`), false, ErrInvalidValue},
+		{"null, which only reset writes", nil, jsonByKey("should_check_for_updates", "null"), false, ErrInvalidValue},
+		{"not JSON", nil, jsonByKey("should_check_for_updates", `yes`), false, ErrInvalidValue},
+		{"below the minimum", nil, jsonByKey("signin_failure_limit", "0"), false, ErrInvalidValue},
+		{"above the maximum", nil, jsonByKey("secret_last_chars_shown", "9"), false, ErrInvalidValue},
+		{"a fraction", nil, jsonByKey("signin_failure_limit", "2.5"), false, ErrInvalidValue},
+		{"a hidden key on the settings page", nil, jsonByKey("signin_failure_limit", "3"), true, ErrNotExposed},
 		{
 			"one bad among good", nil,
-			values("should_scan_on_node_hello", "true", "should_check_for_updates", "1"), false, ErrWrongKind,
+			jsonByKey("should_scan_on_node_hello", "true", "should_check_for_updates", "1"), false, ErrInvalidValue,
 		},
 	}
 	for _, tc := range cases {
@@ -222,9 +223,9 @@ func TestSet_RefusesAndChangesNothing(t *testing.T) {
 
 func TestReset_WritesTheStartingValueBack(t *testing.T) {
 	t.Parallel()
-	service, owner := seeded(t)
+	service, owner := newSeededService(t)
 	ctx := t.Context()
-	changes := values("signin_failure_limit", "9", "should_check_for_updates", "true")
+	changes := jsonByKey("signin_failure_limit", "9", "should_check_for_updates", "true")
 	if err := service.Set(ctx, nil, changes, &owner, false); err != nil {
 		t.Fatal(err)
 	}
@@ -266,8 +267,9 @@ func TestRead_HealsARemovedSettingAndSaysSo(t *testing.T) {
 		t.Errorf("List with a removed setting: %v, want it healed", err)
 	}
 	report, err := service.Seed(ctx)
-	if err != nil || len(report.Written) != 0 {
-		t.Errorf("after the reads healed them, Seed wrote %v, %v; want nothing: the rows are back", report.Written, err)
+	if err != nil || len(report.Inserted) != 0 {
+		t.Errorf("after the reads healed them, Seed inserted %v, %v; want nothing: the rows are back",
+			report.Inserted, err)
 	}
 	for _, key := range []string{"key=signin_failure_limit", "key=backup_age_warning_h"} {
 		if !strings.Contains(logged.String(), key) {
@@ -278,7 +280,7 @@ func TestRead_HealsARemovedSettingAndSaysSo(t *testing.T) {
 
 func TestUnused_ListsRowsNothingReadsAndDeletesOnlyThem(t *testing.T) {
 	t.Parallel()
-	service, owner := seeded(t)
+	service, owner := newSeededService(t)
 	ctx := t.Context()
 	storetest.ExecRaw(t, service.database.Path(),
 		"INSERT INTO setting (scope, key, value_json, set_at) VALUES ('server', 'signin_falure_limit', '3', 1)",
@@ -295,7 +297,7 @@ func TestUnused_ListsRowsNothingReadsAndDeletesOnlyThem(t *testing.T) {
 	}
 	var found []string
 	for _, row := range unused {
-		found = append(found, row.String()+"="+row.Value)
+		found = append(found, row.String()+"="+row.ValueJSON)
 		if row.Retired != nil {
 			t.Errorf("%s reads as retired, but no release retired it", row.Key)
 		}
@@ -326,7 +328,7 @@ func TestRetiredKeys_AreNotInUseAndSayWhen(t *testing.T) {
 		if _, inUse := Lookup(Key(retired.Key)); inUse {
 			t.Errorf("%s is both retired and in the registry", retired.Key)
 		}
-		if retired.Release == "" || retired.Why == "" {
+		if retired.Release == "" || retired.Reason == "" {
 			t.Errorf("retired key %s does not say when or why", retired.Key)
 		}
 	}
@@ -334,9 +336,9 @@ func TestRetiredKeys_AreNotInUseAndSayWhen(t *testing.T) {
 
 func TestSet_MarksModifiedEvenAtTheStartingValueAndResetClearsIt(t *testing.T) {
 	t.Parallel()
-	service, owner := seeded(t)
+	service, owner := newSeededService(t)
 	ctx := t.Context()
-	if err := service.Set(ctx, nil, values("signin_failure_limit", "5"), &owner, false); err != nil {
+	if err := service.Set(ctx, nil, jsonByKey("signin_failure_limit", "5"), &owner, false); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := service.List(ctx, nil, false)
@@ -360,7 +362,7 @@ func TestSet_MarksModifiedEvenAtTheStartingValueAndResetClearsIt(t *testing.T) {
 
 func TestSeed_MovesOnlyUnmodifiedSettingsToAChangedStartingValue(t *testing.T) {
 	t.Parallel()
-	service, _ := seeded(t)
+	service, _ := newSeededService(t)
 	ctx := t.Context()
 	// As a database from an older release looks when this release changed both starting values:
 	// one row still has the old starting value, unmodified; the other was set by a person.
@@ -387,7 +389,7 @@ func TestSeed_MovesOnlyUnmodifiedSettingsToAChangedStartingValue(t *testing.T) {
 
 func TestOnChange_ReactsToASetAndAResetOfItsKeyOnly(t *testing.T) {
 	t.Parallel()
-	service, _ := seeded(t)
+	service, _ := newSeededService(t)
 	var seen []string
 	service.OnChange(SortLocale, func(ctx context.Context) error {
 		locale, err := service.String(ctx, SortLocale)
@@ -411,7 +413,7 @@ func TestOnChange_ReactsToASetAndAResetOfItsKeyOnly(t *testing.T) {
 	}
 	malformed := map[string]json.RawMessage{string(SortLocale): json.RawMessage(`"not a tag!"`)}
 	err := service.Set(t.Context(), nil, malformed, nil, false)
-	if !errors.Is(err, ErrWrongKind) || len(seen) != 2 {
+	if !errors.Is(err, ErrInvalidValue) || len(seen) != 2 {
 		t.Errorf("a malformed locale: %v, reactions %v; want it refused, and no reaction", err, seen)
 	}
 }

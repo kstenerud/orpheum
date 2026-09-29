@@ -20,24 +20,24 @@ const (
 
 // Art is the images an item shows, by the hash /art/ names them with; "" when it has none.
 type Art struct {
-	Poster   string
-	Backdrop string
-	Still    string
+	PosterHash   string
+	BackdropHash string
+	StillHash    string
 }
 
-// shown is the image of a kind each item shows, by hash: a person's choice, else the newest
+// shownArtHashes is the image of a kind each item shows, by hash: a person's choice, else the newest
 // stored.
-func (browser *Browser) shown(ctx context.Context, kind string, itemIDs []int64) (map[int64]string, error) {
+func (browser *Browser) shownArtHashes(ctx context.Context, kind string, itemIDs []int64) (map[int64]string, error) {
 	hashes := map[int64]string{}
 	if len(itemIDs) == 0 {
 		return hashes, nil
 	}
-	ids, err := json.Marshal(itemIDs)
+	itemIDsJSON, err := json.Marshal(itemIDs)
 	if err != nil {
 		return nil, fmt.Errorf("encode %d item ids: %w", len(itemIDs), err)
 	}
 	rows, err := browser.database.Read().ListShownArtwork(ctx, sqlcgen.ListShownArtworkParams{
-		ItemIds: string(ids), Kind: kind,
+		ItemIds: string(itemIDsJSON), Kind: kind,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read the %s of %d items: %w", kind, len(itemIDs), err)
@@ -50,14 +50,14 @@ func (browser *Browser) shown(ctx context.Context, kind string, itemIDs []int64)
 	return hashes, nil
 }
 
-// art is one item's images.
-func (browser *Browser) art(ctx context.Context, itemID int64) (Art, error) {
+// itemArt is one item's images.
+func (browser *Browser) itemArt(ctx context.Context, itemID int64) (Art, error) {
 	var art Art
 	for _, kind := range []struct {
 		name string
 		into *string
-	}{{artPoster, &art.Poster}, {artBackdrop, &art.Backdrop}, {artStill, &art.Still}} {
-		hashes, err := browser.shown(ctx, kind.name, []int64{itemID})
+	}{{artPoster, &art.PosterHash}, {artBackdrop, &art.BackdropHash}, {artStill, &art.StillHash}} {
+		hashes, err := browser.shownArtHashes(ctx, kind.name, []int64{itemID})
 		if err != nil {
 			return Art{}, err
 		}
@@ -72,12 +72,12 @@ func (browser *Browser) withPosters(ctx context.Context, page Page) (Page, error
 	for _, entry := range page.Entries {
 		ids = append(ids, entry.ID)
 	}
-	posters, err := browser.shown(ctx, artPoster, ids)
+	posters, err := browser.shownArtHashes(ctx, artPoster, ids)
 	if err != nil {
 		return Page{}, err
 	}
 	for index := range page.Entries {
-		page.Entries[index].Poster = posters[page.Entries[index].ID]
+		page.Entries[index].PosterHash = posters[page.Entries[index].ID]
 	}
 	return page, nil
 }

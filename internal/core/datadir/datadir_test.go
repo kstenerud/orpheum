@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func prepareTemporary(t *testing.T) *Directories {
+func prepareTemporaryDirectories(t *testing.T) *Directories {
 	t.Helper()
 	root := t.TempDir()
 	directories, err := Prepare(filepath.Join(root, "state"), filepath.Join(root, "cache"))
@@ -24,8 +24,9 @@ func prepareTemporary(t *testing.T) *Directories {
 
 func TestPrepare_CreatesPrivateDirectories(t *testing.T) {
 	t.Parallel()
-	directories := prepareTemporary(t)
-	for _, directory := range []string{directories.state, directories.cache, directories.BackupDirectory()} {
+	directories := prepareTemporaryDirectories(t)
+	all := []string{directories.stateDirectory, directories.cacheDirectory, directories.BackupDirectory()}
+	for _, directory := range all {
 		info, err := os.Stat(directory)
 		if err != nil {
 			t.Fatal(err)
@@ -41,7 +42,7 @@ func TestPrepare_CreatesPrivateDirectories(t *testing.T) {
 
 func TestWriteStateFile_ReplacesAtomicallyWithMode0600(t *testing.T) {
 	t.Parallel()
-	directories := prepareTemporary(t)
+	directories := prepareTemporaryDirectories(t)
 	for _, contents := range []string{"first", "second"} {
 		if err := directories.WriteStateFile("secret.key", []byte(contents)); err != nil {
 			t.Fatal(err)
@@ -51,19 +52,19 @@ func TestWriteStateFile_ReplacesAtomicallyWithMode0600(t *testing.T) {
 	if err != nil || string(got) != "second" {
 		t.Errorf("ReadStateFile = %q, %v; want the second write", got, err)
 	}
-	info, err := os.Stat(filepath.Join(directories.state, "secret.key"))
+	info, err := os.Stat(filepath.Join(directories.stateDirectory, "secret.key"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if info.Mode().Perm() != fileMode {
 		t.Errorf("secret.key has mode %v, want 0600", info.Mode().Perm())
 	}
-	entries, err := os.ReadDir(directories.state)
+	entries, err := os.ReadDir(directories.stateDirectory)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, entry := range entries {
-		if entry.Name() != "secret.key" && entry.Name() != backupDirectory {
+		if entry.Name() != "secret.key" && entry.Name() != backupDirectoryName {
 			t.Errorf("the state directory holds %q; an atomic write leaves no temporary file", entry.Name())
 		}
 	}
@@ -71,7 +72,7 @@ func TestWriteStateFile_ReplacesAtomicallyWithMode0600(t *testing.T) {
 
 func TestStateFiles_RefuseAnythingButAPlainName(t *testing.T) {
 	t.Parallel()
-	directories := prepareTemporary(t)
+	directories := prepareTemporaryDirectories(t)
 	for _, name := range []string{"", "../escape", "sub/file", ".hidden", "/etc/passwd"} {
 		if err := directories.WriteStateFile(name, []byte("x")); err == nil {
 			t.Errorf("WriteStateFile(%q) succeeded, want a refusal", name)
@@ -90,14 +91,14 @@ func TestStateFiles_RefuseAnythingButAPlainName(t *testing.T) {
 
 func TestReplaceLibraryDatabase_RemovesTheOldWAL(t *testing.T) {
 	t.Parallel()
-	directories := prepareTemporary(t)
-	target := directories.LibraryDatabase()
+	directories := prepareTemporaryDirectories(t)
+	target := directories.LibraryDatabasePath()
 	for _, path := range []string{target, target + "-wal", target + "-shm"} {
 		if err := os.WriteFile(path, []byte("old"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	restoredPath := filepath.Join(directories.state, "library.db.restoring")
+	restoredPath := filepath.Join(directories.stateDirectory, "library.db.restoring")
 	if err := os.WriteFile(restoredPath, []byte("restored"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestReplaceLibraryDatabase_RemovesTheOldWAL(t *testing.T) {
 
 func TestLockState_RefusesASecondHolder(t *testing.T) {
 	t.Parallel()
-	directories := prepareTemporary(t)
+	directories := prepareTemporaryDirectories(t)
 	server, err := directories.LockState()
 	if err != nil {
 		t.Fatalf("the first lock: %v", err)
@@ -142,7 +143,7 @@ func TestLockState_RefusesASecondHolder(t *testing.T) {
 
 func TestWriteBackupFile_WritesIntoTheBackupDirectory(t *testing.T) {
 	t.Parallel()
-	directories := prepareTemporary(t)
+	directories := prepareTemporaryDirectories(t)
 	if err := directories.WriteBackupFile("backup.secret.key", []byte("key")); err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +158,7 @@ func TestWriteBackupFile_WritesIntoTheBackupDirectory(t *testing.T) {
 
 func TestListBackups_ListsNewestFirst(t *testing.T) {
 	t.Parallel()
-	directories := prepareTemporary(t)
+	directories := prepareTemporaryDirectories(t)
 	older := time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)
 	for index, name := range []string{"backup-old.sqlite", "backup-new.sqlite"} {
 		path := filepath.Join(directories.BackupDirectory(), name)
@@ -180,10 +181,10 @@ func TestListBackups_ListsNewestFirst(t *testing.T) {
 
 func TestDiscardCacheDatabase_RemovesTheFileAndItsJournalsOnly(t *testing.T) {
 	t.Parallel()
-	directories := prepareTemporary(t)
+	directories := prepareTemporaryDirectories(t)
 	names := []string{"cache.db", "cache.db-wal", "cache.db-shm", "art"}
 	for _, name := range names {
-		if err := os.WriteFile(filepath.Join(directories.cache, name), []byte("x"), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(directories.cacheDirectory, name), []byte("x"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -191,7 +192,7 @@ func TestDiscardCacheDatabase_RemovesTheFileAndItsJournalsOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range names {
-		_, err := os.Stat(filepath.Join(directories.cache, name))
+		_, err := os.Stat(filepath.Join(directories.cacheDirectory, name))
 		if kept := err == nil; kept != (name == "art") {
 			t.Errorf("%s kept = %v", name, kept)
 		}
@@ -203,12 +204,12 @@ func TestDiscardCacheDatabase_RemovesTheFileAndItsJournalsOnly(t *testing.T) {
 
 func TestArt_StoresReadsAndRemovesOnlyItsOwnNames(t *testing.T) {
 	t.Parallel()
-	directories := prepareTemporary(t)
+	directories := prepareTemporaryDirectories(t)
 	hash := strings.Repeat("ab", 32)
 	if err := directories.WriteArt(hash, "portrait-m.webp", []byte("RIFF")); err != nil {
 		t.Fatal(err)
 	}
-	info, err := os.Stat(filepath.Join(directories.cache, "art", hash, "portrait-m.webp"))
+	info, err := os.Stat(filepath.Join(directories.cacheDirectory, "art", hash, "portrait-m.webp"))
 	if err != nil || info.Mode().Perm() != fileMode {
 		t.Fatalf("stored file: %v, %v; want mode 0600", info, err)
 	}
@@ -240,7 +241,7 @@ func TestArt_StoresReadsAndRemovesOnlyItsOwnNames(t *testing.T) {
 
 func TestHasArt_SaysWhetherASizeIsStoredWithoutReadingIt(t *testing.T) {
 	t.Parallel()
-	directories := prepareTemporary(t)
+	directories := prepareTemporaryDirectories(t)
 	hash := strings.Repeat("ab", 32)
 	if err := directories.WriteArt(hash, "portrait-m.webp", []byte("RIFF")); err != nil {
 		t.Fatal(err)
@@ -264,18 +265,18 @@ func TestHasArt_SaysWhetherASizeIsStoredWithoutReadingIt(t *testing.T) {
 
 func TestListArt_ListsEveryStoredFileWithItsSizeAndNothingElse(t *testing.T) {
 	t.Parallel()
-	directories := prepareTemporary(t)
+	directories := prepareTemporaryDirectories(t)
 	if files, err := directories.ListArt(); err != nil || len(files) != 0 {
 		t.Fatalf("before any art: %v, %v", files, err)
 	}
 	first, second := strings.Repeat("ab", 32), strings.Repeat("cd", 32)
 	stored := []ArtFile{{first, "portrait-s.webp", 3}, {first, "portrait-m.jpeg", 5}, {second, "landscape-l.none", 0}}
 	for _, file := range stored {
-		if err := directories.WriteArt(file.Hash, file.Name, make([]byte, file.Size)); err != nil {
+		if err := directories.WriteArt(file.Hash, file.Name, make([]byte, file.SizeBytes)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	stray := filepath.Join(directories.cache, "art", first, "notes.txt")
+	stray := filepath.Join(directories.cacheDirectory, "art", first, "notes.txt")
 	if err := os.WriteFile(stray, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}

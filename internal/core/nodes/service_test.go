@@ -34,7 +34,7 @@ type recordingSink struct {
 	arrived chan struct{}
 }
 
-func (sink *recordingSink) Records(_ context.Context, _ int64, records []nodeproto.Record) error {
+func (sink *recordingSink) IngestRecords(_ context.Context, _ int64, records []nodeproto.Record) error {
 	sink.mutex.Lock()
 	sink.batches = append(sink.batches, append([]nodeproto.Record(nil), records...))
 	sink.mutex.Unlock()
@@ -68,36 +68,36 @@ func newFixture(t *testing.T, pollHold time.Duration) *fixture {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	settingsService := settingstest.Seeded(t, database)
-	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
+	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	sink := &recordingSink{arrived: make(chan struct{}, 1)}
-	service := NewService(database, now, settingsService, sink, slog.New(slog.DiscardHandler), pollHold)
+	service := NewService(database, fakeClock, settingsService, sink, slog.New(slog.DiscardHandler), pollHold)
 	server := httptest.NewServer(service.Handler())
 	t.Cleanup(server.Close)
 	return &fixture{
-		database: database, settings: settingsService, service: service, sink: sink, server: server, clock: now,
+		database: database, settings: settingsService, service: service, sink: sink, server: server, clock: fakeClock,
 	}
 }
 
-// answer is a response, read and closed.
-type answer struct {
+// httpAnswer is a response, read and closed.
+type httpAnswer struct {
 	status int
 	body   []byte
 }
 
-func (harness *fixture) post(t *testing.T, path string, nodeID int64, body io.Reader) answer {
+func (harness *fixture) post(t *testing.T, path string, nodeID int64, body io.Reader) httpAnswer {
 	t.Helper()
 	request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, harness.server.URL+path, body)
 	if err != nil {
 		t.Error(err)
-		return answer{}
+		return httpAnswer{}
 	}
 	if nodeID != 0 {
-		request.Header.Set(NodeHeader, strconv.FormatInt(nodeID, 10))
+		request.Header.Set(NodeIDHeader, strconv.FormatInt(nodeID, 10))
 	}
 	response, err := harness.server.Client().Do(request)
 	if err != nil {
 		t.Error(err)
-		return answer{}
+		return httpAnswer{}
 	}
 	defer func() {
 		if closeErr := response.Body.Close(); closeErr != nil {
@@ -108,7 +108,7 @@ func (harness *fixture) post(t *testing.T, path string, nodeID int64, body io.Re
 	if err != nil {
 		t.Error(err)
 	}
-	return answer{status: response.StatusCode, body: read}
+	return httpAnswer{status: response.StatusCode, body: read}
 }
 
 func (harness *fixture) hello(t *testing.T, hello nodeproto.Hello) nodeproto.HelloReply {
@@ -135,7 +135,7 @@ func (harness *fixture) poll(t *testing.T, nodeID, after int64) (nodeproto.Comma
 	if err != nil {
 		t.Fatal(err)
 	}
-	request.Header.Set(NodeHeader, strconv.FormatInt(nodeID, 10))
+	request.Header.Set(NodeIDHeader, strconv.FormatInt(nodeID, 10))
 	response, err := harness.server.Client().Do(request)
 	if err != nil {
 		t.Fatal(err)
@@ -279,8 +279,8 @@ func TestReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testing.T) 
 		t.Errorf("%d batches for 300 records; the ingest is not batched", len(harness.sink.batches))
 	}
 	for _, batch := range harness.sink.batches {
-		if len(batch) > batchRecords {
-			t.Errorf("a batch of %d, over %d", len(batch), batchRecords)
+		if len(batch) > maxBatchRecords {
+			t.Errorf("a batch of %d, over %d", len(batch), maxBatchRecords)
 		}
 	}
 	node, err := harness.database.Read().GetNodeStatus(t.Context(), reply.NodeID)
@@ -318,7 +318,7 @@ func TestReport_ARecordReachesTheIngestWhileTheReportIsStillOpen(t *testing.T) {
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
 	reader, writer := io.Pipe()
-	done := make(chan answer, 1)
+	done := make(chan httpAnswer, 1)
 	go func() { done <- harness.post(t, nodeproto.PathReport, reply.NodeID, reader) }()
 	record := nodeproto.Record{
 		ReportSeq: 1, Type: nodeproto.RecordScanBegin,
@@ -344,24 +344,24 @@ func TestReport_ARecordReachesTheIngestWhileTheReportIsStillOpen(t *testing.T) {
 func TestRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)
-	if _, _, connected := harness.service.Roots("local"); connected {
+	if _, _, connected := harness.service.ConnectedNodeRoots("local"); connected {
 		t.Error("a node that never said hello has roots")
 	}
 	harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films", "/media/shows"}})
 	reply := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films"}})
-	nodeID, roots, connected := harness.service.Roots("local")
+	nodeID, roots, connected := harness.service.ConnectedNodeRoots("local")
 	if !connected || nodeID != reply.NodeID || !slices.Equal(roots, []string{"/media/films"}) {
 		t.Errorf("Roots = %d, %v, %v; want the last hello's", nodeID, roots, connected)
 	}
 }
 
-// artworkSink records the artwork answers it is handed.
-type artworkSink struct {
+// recordingArtworkSink records the artwork answers it is handed.
+type recordingArtworkSink struct {
 	answers []nodeproto.ArtworkResult
 	from    []int64
 }
 
-func (sink *artworkSink) Answered(_ context.Context, nodeID int64, result nodeproto.ArtworkResult) {
+func (sink *recordingArtworkSink) TakeArtworkAnswer(_ context.Context, nodeID int64, result nodeproto.ArtworkResult) {
 	sink.answers = append(sink.answers, result)
 	sink.from = append(sink.from, nodeID)
 }
@@ -384,8 +384,8 @@ func TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly(t *testing.T) {
 		http.StatusServiceUnavailable {
 		t.Errorf("with no artwork sink: %d, want 503", refused.status)
 	}
-	sink := &artworkSink{}
-	harness.service.ReceiveArtwork(sink)
+	sink := &recordingArtworkSink{}
+	harness.service.SetArtworkSink(sink)
 	if stranger := harness.post(t, nodeproto.PathArtwork, reply.NodeID+1, answerJSON(result)); stranger.status !=
 		http.StatusConflict {
 		t.Errorf("from a node that never said hello: %d, want 409", stranger.status)
@@ -395,7 +395,7 @@ func TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly(t *testing.T) {
 		sink.answers[0].JobID != 4 || string(sink.answers[0].Images[0].WebP) != "RIFF" {
 		t.Errorf("answered %d %s; sink has %+v", taken.status, taken.body, sink.answers)
 	}
-	if connected, found := harness.service.Connected(); !found || connected != reply.NodeID {
+	if connected, found := harness.service.LastHeardNodeID(); !found || connected != reply.NodeID {
 		t.Errorf("Connected = %d, %v; want the node", connected, found)
 	}
 	if !harness.service.IsConnected(reply.NodeID) || harness.service.IsConnected(reply.NodeID+1) {

@@ -109,9 +109,10 @@ func (server *Server) listSettings(ctx context.Context, service *settings.Servic
 func settingBody(entry settings.Entry) SettingBody {
 	definition := entry.Definition
 	body := SettingBody{
-		Key: string(definition.Key), Kind: string(definition.Kind), Value: entry.Value, StartingValue: definition.Start,
-		IsModified: entry.IsModified, Question: definition.Question, Description: definition.Describe,
-		IsExposed: definition.Exposed, SetByUserID: entry.SetBy, SetAt: entry.SetAt,
+		Key: string(definition.Key), Kind: string(definition.Kind), Value: entry.Value,
+		StartingValue: definition.StartJSON,
+		IsModified:    entry.IsModified, Question: definition.Question, Description: definition.Description,
+		IsExposed: definition.IsExposed, SetByUserID: entry.SetByUserID, SetAt: entry.SetAt,
 	}
 	if definition.Kind == settings.KindInteger {
 		body.Minimum, body.Maximum = &definition.Minimum, &definition.Maximum
@@ -126,7 +127,7 @@ func (server *Server) putSettings(
 	err := service.Set(ctx, owner, values, &setBy, exposedOnly)
 	switch {
 	case errors.Is(err, settings.ErrUnknownSetting), errors.Is(err, settings.ErrWrongScope),
-		errors.Is(err, settings.ErrWrongKind), errors.Is(err, settings.ErrNotExposed):
+		errors.Is(err, settings.ErrInvalidValue), errors.Is(err, settings.ErrNotExposed):
 		return nil, newError(http.StatusUnprocessableEntity, CodeInvalidRequest, err.Error())
 	case err != nil:
 		return nil, server.internal(ctx, "set settings", err)

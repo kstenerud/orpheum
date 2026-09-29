@@ -35,5 +35,6 @@
 // # Where to change
 //
 //   - datadir.go: the layout (library.db, cache.db, backups/, state files) and atomic writes.
-//   - lock_unix.go: the state lock. netfs_*.go: the network-filesystem refusal.
+//   - art.go: the artwork store under the cache directory. socket.go: ListenUnix, the node's
+//     socket. lock_unix.go: the state lock. netfs_*.go: the network-filesystem refusal.
 package datadir

@@ -89,7 +89,7 @@ func runNodeChannel(
 func newNodeService(opened started, logger *slog.Logger) *nodes.Service {
 	ingester := library.NewIngester(opened.database, clock.System{}, opened.settings, logger)
 	pass := opened.metadata.pass
-	ingester.AfterScan(func(ctx context.Context, libraryID int64) {
+	ingester.SetOnScanEnded(func(ctx context.Context, libraryID int64) {
 		report, err := pass.Library(ctx, libraryID)
 		if err != nil {
 			logger.ErrorContext(ctx, "identification failed; the scan is stored and the next one tries again",
@@ -110,8 +110,8 @@ type reportSink struct {
 	logger   *slog.Logger
 }
 
-func (sink reportSink) Records(ctx context.Context, nodeID int64, records []nodeproto.Record) error {
-	if err := sink.ingester.Records(ctx, nodeID, records); err != nil {
+func (sink reportSink) IngestRecords(ctx context.Context, nodeID int64, records []nodeproto.Record) error {
+	if err := sink.ingester.IngestRecords(ctx, nodeID, records); err != nil {
 		return err
 	}
 	counts := map[nodeproto.RecordType]int{}

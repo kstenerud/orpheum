@@ -14,12 +14,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// continueWatchingRows is how many works Continue Watching shows.
-const continueWatchingRows = 20
+// maxContinueWatchingRows is how many works Continue Watching shows.
+const maxContinueWatchingRows = 20
 
-// recentPositionsRead is how many of a person's most recent positions Continue Watching is chosen
+// maxRecentPositionsRead is how many of a person's most recent positions Continue Watching is chosen
 // from: enough for its rows once finished and barely started files are passed over.
-const recentPositionsRead = 200
+const maxRecentPositionsRead = 200
 
 // InProgress is one row of Continue Watching: a work, and the file of it the person was most
 // recently partway through (play-state.md).
@@ -46,14 +46,14 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64) ([]I
 		return nil, err
 	}
 	rows, err := browser.database.Read().ListRecentPlayPositions(ctx, sqlcgen.ListRecentPlayPositionsParams{
-		UserID: userID, MaxRows: recentPositionsRead,
+		UserID: userID, MaxRows: maxRecentPositionsRead,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read the recent positions: %w", err)
 	}
-	var result []InProgress
-	byTitle := map[int64]int{} // a title's row in result
-	partwayFiles := map[int64]int{}
+	var inProgress []InProgress
+	rowIndexByTitle := map[int64]int{} // a title's row in inProgress
+	partwayFileCountByTitle := map[int64]int{}
 	latestWatchedAt := map[int64]int64{} // a title's most recent watching, in any file
 	for _, row := range rows {
 		if _, seen := latestWatchedAt[row.TitleID]; !seen {
@@ -65,12 +65,12 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64) ([]I
 		if !thresholds.IsPartwayThrough(row.PositionMs, row.DurationMs) {
 			continue
 		}
-		partwayFiles[row.TitleID]++
-		if _, placed := byTitle[row.TitleID]; placed || len(result) == continueWatchingRows {
+		partwayFileCountByTitle[row.TitleID]++
+		if _, placed := rowIndexByTitle[row.TitleID]; placed || len(inProgress) == maxContinueWatchingRows {
 			continue
 		}
-		byTitle[row.TitleID] = len(result)
-		result = append(result, InProgress{
+		rowIndexByTitle[row.TitleID] = len(inProgress)
+		inProgress = append(inProgress, InProgress{
 			Entry: Entry{
 				ID: row.TitleID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 				LibraryID: ptr.ValueOrZero(row.LibraryID),
@@ -78,37 +78,37 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64) ([]I
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: path.Base(row.Path),
 		})
 		if row.Kind == "episode" {
-			if result[len(result)-1].Episode, err = browser.episodePlace(ctx, row.TitleID); err != nil {
+			if inProgress[len(inProgress)-1].Episode, err = browser.episodePlace(ctx, row.TitleID); err != nil {
 				return nil, err
 			}
 		}
 	}
 	// A row is ordered by its work's latest watching, in any of its files: finishing one copy is
 	// activity, though the row resumes another.
-	slices.SortStableFunc(result, func(first, second InProgress) int {
+	slices.SortStableFunc(inProgress, func(first, second InProgress) int {
 		return cmp.Compare(latestWatchedAt[second.ID], latestWatchedAt[first.ID])
 	})
-	return browser.withPostersAndFileNames(ctx, result, partwayFiles)
+	return browser.withPostersAndFileNames(ctx, inProgress, partwayFileCountByTitle)
 }
 
 // withPostersAndFileNames gives each row its poster, and drops the file's name where the work has only
 // one file partway through.
 func (browser *Browser) withPostersAndFileNames(
-	ctx context.Context, rows []InProgress, partwayFiles map[int64]int,
+	ctx context.Context, rows []InProgress, partwayFileCountByTitle map[int64]int,
 ) ([]InProgress, error) {
 	entries := make([]Entry, 0, len(rows))
 	for index := range rows {
-		if partwayFiles[rows[index].ID] < 2 {
+		if partwayFileCountByTitle[rows[index].ID] < 2 {
 			rows[index].FileName = ""
 		}
 		entries = append(entries, rows[index].Entry)
 	}
-	withPosters, err := browser.withPosters(ctx, Page{Entries: entries})
+	posterPage, err := browser.withPosters(ctx, Page{Entries: entries})
 	if err != nil {
 		return nil, err
 	}
 	for index := range rows {
-		rows[index].Entry = withPosters.Entries[index]
+		rows[index].Entry = posterPage.Entries[index]
 	}
 	if rows == nil {
 		rows = []InProgress{}
@@ -120,7 +120,7 @@ func (browser *Browser) withPostersAndFileNames(
 // counts as partway through it (play-state.md). Continue Watching and a playback's starting point
 // both read them here.
 type ResumeThresholds struct {
-	minimumPercent, finishedPercent int64
+	resumeMinPercent, finishedAfterPercent int64
 }
 
 // IntSettings reads an integer setting: settings.Service.
@@ -138,7 +138,7 @@ func ReadResumeThresholds(ctx context.Context, config IntSettings) (ResumeThresh
 	if err != nil {
 		return ResumeThresholds{}, fmt.Errorf("read finished_after_percent: %w", err)
 	}
-	return ResumeThresholds{minimumPercent: minimum, finishedPercent: finished}, nil
+	return ResumeThresholds{resumeMinPercent: minimum, finishedAfterPercent: finished}, nil
 }
 
 // IsPartwayThrough is whether a position is partway through a file: past the first threshold and not
@@ -148,6 +148,6 @@ func (thresholds ResumeThresholds) IsPartwayThrough(positionMs, durationMs int64
 	if durationMs <= 0 {
 		return positionMs > 0
 	}
-	return positionMs*100 >= thresholds.minimumPercent*durationMs &&
-		positionMs*100 <= thresholds.finishedPercent*durationMs
+	return positionMs*100 >= thresholds.resumeMinPercent*durationMs &&
+		positionMs*100 <= thresholds.finishedAfterPercent*durationMs
 }

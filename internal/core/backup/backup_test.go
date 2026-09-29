@@ -53,7 +53,7 @@ func newServer(t *testing.T) server {
 
 func openAt(t *testing.T, directories *datadir.Directories) *store.Database {
 	t.Helper()
-	database, err := store.Open(t.Context(), directories.LibraryDatabase(), storetest.OpenOptions())
+	database, err := store.Open(t.Context(), directories.LibraryDatabasePath(), storetest.OpenOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,10 +209,10 @@ func TestRestore_KeepsTheDatabaseItReplaces(t *testing.T) {
 	}
 
 	plan := restore(t, target, written.DatabasePath, nil)
-	if !plan.ReplacesOne || !strings.Contains(plan.Describe(), plan.Snapshot) {
+	if !plan.ReplacesExistingDatabase || !strings.Contains(plan.Describe(), plan.SnapshotPath) {
 		t.Errorf("the plan did not say what it replaces and where it keeps it:\n%s", plan.Describe())
 	}
-	kept, err := store.Open(t.Context(), plan.Snapshot, storetest.OpenOptions())
+	kept, err := store.Open(t.Context(), plan.SnapshotPath, storetest.OpenOptions())
 	if err != nil {
 		t.Fatalf("the kept copy: %v", err)
 	}
