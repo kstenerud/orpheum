@@ -49,7 +49,7 @@ describe("TitleView", () => {
     expect(markup).toContain('src="/api/v1/bytes/art/p1/portrait-m.webp"');
     expect(markup).toContain("<h1>Metropolis</h1>");
     expect(markup).toContain("170 min");
-    expect(markup).toContain("Audio: truehd en 8 channels");
+    expect(markup).toContain("Audio: truehd English 8 channels");
     expect(markup).not.toContain("ttf");
     expect(markup).toContain('href="/titles/30"');
     expect(markup).toContain("Trailer");

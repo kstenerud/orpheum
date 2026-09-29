@@ -7,6 +7,7 @@ import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
+import { languageName } from "./language-name.ts";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
@@ -19,10 +20,13 @@ type Stream = components["schemas"]["StreamBody"];
 
 /** A stream in a line: its kind, codec, language and channels, where it has them. */
 export function StreamLine(props: { readonly stream: Stream }): JSX.Element | null {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { stream } = props;
   const codec = stream.codec ?? "";
-  const language = stream.language ?? "";
+  const language =
+    stream.language === undefined || stream.language === ""
+      ? ""
+      : languageName(stream.language, i18n.language);
   switch (stream.kind) {
     case "video":
       return <li>{t("title.streamVideo", { codec })}</li>;

@@ -57,9 +57,10 @@ describe("subtitles", () => {
   });
 
   it("shows an offset as signed seconds", () => {
-    expect(formatOffsetSeconds(0)).toBe("0.0");
-    expect(formatOffsetSeconds(300)).toBe("+0.3");
-    expect(formatOffsetSeconds(-1500)).toBe("-1.5");
+    expect(formatOffsetSeconds(0, "en")).toBe("0.0");
+    expect(formatOffsetSeconds(300, "en")).toBe("+0.3");
+    expect(formatOffsetSeconds(-1500, "en")).toBe("-1.5");
+    expect(formatOffsetSeconds(1500, "de")).toBe("+1,5");
   });
 
   it("offers Off and each track, and starts at the offset the person kept", () => {
