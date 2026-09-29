@@ -4,6 +4,7 @@ package playback
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -20,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/langtag"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -313,14 +315,11 @@ func prepareCommand(
 }
 
 // preparedAudio are a source's audio tracks as a prepare carries them: each in its place, tagged
-// with its language, "und" when the probe gave none.
+// with its language, langtag.Undetermined when the probe gave none.
 func preparedAudio(probe nodeproto.Probe) []nodeproto.PrepareAudio {
 	var tracks []nodeproto.PrepareAudio
 	for index, stream := range audioStreams(probe) {
-		language := stream.Language
-		if language == "" {
-			language = "und"
-		}
+		language := cmp.Or(stream.Language, langtag.Undetermined)
 		tracks = append(tracks, nodeproto.PrepareAudio{
 			AudioTrackIndex: index, Language: language, ChannelCount: stream.Audio.ChannelCount,
 		})

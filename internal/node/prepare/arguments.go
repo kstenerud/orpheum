@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/langtag"
 )
 
 // The HLS shape of every rendition (cut-a §6): fMP4 segments of the length the core asks for, two
@@ -115,10 +116,10 @@ func segmentLengthSeconds(asked int) int {
 	return asked
 }
 
-// streamMapLanguage is a track's tag as the stream map may carry it, or "und".
+// streamMapLanguage is a track's tag as the stream map may carry it, or langtag.Undetermined.
 func streamMapLanguage(tag string) string {
 	if safeLanguagePattern.MatchString(tag) {
 		return tag
 	}
-	return "und"
+	return langtag.Undetermined
 }
