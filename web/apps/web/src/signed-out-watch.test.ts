@@ -54,7 +54,7 @@ describe("a session the server ended", () => {
     };
     const api = createApi({
       origin: "http://orpheum.test",
-      token: session.token,
+      getToken: session.token,
       fetch: () =>
         Promise.resolve(
           new Response(JSON.stringify(answer), {

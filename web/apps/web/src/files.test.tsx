@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { byReason, Files, ReasonGroups, type SeenFile } from "./files.tsx";
+import { groupByReason, Files, ReasonGroups, type SeenFile } from "./files.tsx";
 import { mount, servedBy, type Heard } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -27,7 +27,7 @@ const file = (
 
 describe("what the scanner saw", () => {
   it("groups files by filing and reason, the largest group first", () => {
-    const groups = byReason([
+    const groups = groupByReason([
       file(1, "errored", { reason: "permission_denied" }),
       file(2, "skipped", { reason: "extension" }),
       file(3, "errored", { reason: "permission_denied" }),

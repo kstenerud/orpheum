@@ -11,8 +11,8 @@ function counter(): () => number {
 }
 
 /** A reporter whose clock the test sets and whose reports it keeps; sending fails when told to. */
-function reporter(nextSeq: () => number = counter()): {
-  play: PlayReporter;
+function fakeReporter(nextSeq: () => number = counter()): {
+  reporter: PlayReporter;
   sent: PlayReport[];
   setNow: (ms: number) => void;
   failNext: () => void;
@@ -20,7 +20,7 @@ function reporter(nextSeq: () => number = counter()): {
   let now = 0;
   let shouldFail = false;
   const sent: PlayReport[] = [];
-  const play = new PlayReporter(
+  const reporter = new PlayReporter(
     (report) => {
       if (shouldFail) {
         shouldFail = false;
@@ -33,7 +33,7 @@ function reporter(nextSeq: () => number = counter()): {
     () => now,
   );
   return {
-    play,
+    reporter,
     sent,
     setNow: (ms) => {
       now = ms;
@@ -50,15 +50,15 @@ async function settled(): Promise<void> {
 
 describe("reporting play state", () => {
   it("reports each change with the span it closes, numbered in order", async () => {
-    const { play, sent, setNow } = reporter();
+    const { reporter, sent, setNow } = fakeReporter();
     setNow(1000);
-    play.started(0);
+    reporter.recordStarted(0);
     await settled();
     setNow(31_000);
-    play.seeked(30_000, 90_000);
+    reporter.recordSeeked(30_000, 90_000);
     await settled();
     setNow(41_000);
-    play.paused(100_000);
+    reporter.recordPaused(100_000);
     await settled();
     expect(sent.map((report) => report.reportSeq)).toEqual([1, 2, 3]);
     expect(sent[0]?.events).toEqual([{ kind: "started", positionMs: 0, happenedMonoMs: 1000 }]);
@@ -76,25 +76,25 @@ describe("reporting play state", () => {
   });
 
   it("does not open a span for a seek while paused", async () => {
-    const { play, sent, setNow } = reporter();
-    play.seeked(0, 60_000);
+    const { reporter, sent, setNow } = fakeReporter();
+    reporter.recordSeeked(0, 60_000);
     await settled();
     setNow(5000);
-    play.paused(60_000);
+    reporter.recordPaused(60_000);
     await settled();
     expect(sent.flatMap((report) => report.spans)).toEqual([]);
   });
 
   it("sends what a failed report carried in the next one", async () => {
-    const { play, sent, setNow, failNext } = reporter();
+    const { reporter, sent, setNow, failNext } = fakeReporter();
     setNow(1000);
-    play.started(0);
+    reporter.recordStarted(0);
     await settled();
     failNext();
     setNow(11_000);
-    play.paused(10_000);
+    reporter.recordPaused(10_000);
     await settled();
-    play.flush(10_000);
+    reporter.flush(10_000);
     await settled();
     expect(sent.map((report) => report.reportSeq)).toEqual([1, 3]);
     expect(sent[1]?.events.map((event) => event.kind)).toEqual(["paused"]);
@@ -102,19 +102,19 @@ describe("reporting play state", () => {
   });
 
   it("says nothing when left before it played", async () => {
-    const { play, sent } = reporter();
-    play.abandoned(0);
+    const { reporter, sent } = fakeReporter();
+    reporter.recordAbandoned(0);
     await settled();
     expect(sent).toEqual([]);
   });
 
   it("numbers on across a second reporter of the same playback", async () => {
     const shared = counter();
-    const first = reporter(shared);
-    first.play.started(0);
+    const first = fakeReporter(shared);
+    first.reporter.recordStarted(0);
     await settled();
-    const second = reporter(shared);
-    second.play.started(0);
+    const second = fakeReporter(shared);
+    second.reporter.recordStarted(0);
     await settled();
     expect([...first.sent, ...second.sent].map((report) => report.reportSeq)).toEqual([1, 2]);
   });

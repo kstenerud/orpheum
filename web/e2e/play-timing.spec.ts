@@ -2,13 +2,19 @@
 
 import { expect, test, type Page } from "@playwright/test";
 
-import { longTrackName, owner, serverAddress, timingFilm, warmUpFilm } from "./server.ts";
+import {
+  longTrackName,
+  owner,
+  serverAddressEnvVariable,
+  timingFilm,
+  warmUpFilm,
+} from "./server.ts";
 
 /** How long pressing play may take to start the picture moving (cut-a §8, M3's acceptance). */
 const playsWithinMs = 8000;
 
-function address(): string {
-  const url = process.env[serverAddress];
+function serverUrl(): string {
+  const url = process.env[serverAddressEnvVariable];
   if (url === undefined) {
     throw new Error("the global setup did not start a server");
   }
@@ -16,7 +22,7 @@ function address(): string {
 }
 
 async function signIn(page: Page): Promise<void> {
-  await page.goto(address());
+  await page.goto(serverUrl());
   await page.getByLabel("Name").fill(owner.name);
   await page.getByLabel("Password").fill(owner.password);
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -30,7 +36,7 @@ async function signIn(page: Page): Promise<void> {
 async function openFilm(page: Page, name: string): Promise<void> {
   const card = page.locator("a.poster-grid__card").filter({ hasText: new RegExp(name) });
   await expect(async () => {
-    await page.goto(`${address()}/films`);
+    await page.goto(`${serverUrl()}/films`);
     await expect(card).toBeVisible({ timeout: 1000 });
   }).toPass({ timeout: 60_000 });
   await card.click();
@@ -64,10 +70,10 @@ test("an MKV with H.264, TrueHD and ASS plays within 8 s of pressing play, with 
   await expect(page.locator(".play__reason")).toHaveText("Playing the original file, as it is.");
 
   await openFilm(page, timingFilm(browserName));
-  const pressed = Date.now();
+  const pressedAt = Date.now();
   await page.getByRole("link", { name: "Play" }).click();
   await expect.poll(() => isPlaying(page), { timeout: playsWithinMs, intervals: [50] }).toBe(true);
-  const tookMs = Date.now() - pressed;
+  const tookMs = Date.now() - pressedAt;
   test.info().annotations.push({ type: "played after", description: `${String(tookMs)} ms` });
   expect(tookMs).toBeLessThanOrEqual(playsWithinMs);
   // TrueHD is the reason: no browser decodes it, so what plays is the copy prepared with AAC.
@@ -81,7 +87,7 @@ test("the System page shows the machine's hardware encoding and what the timed f
   browserName,
 }) => {
   await signIn(page);
-  await page.goto(`${address()}/system`);
+  await page.goto(`${serverUrl()}/system`);
   await expect(page.getByRole("heading", { name: "Hardware encoding" })).toBeVisible();
   await expect(
     page.getByText(/encoded on the GPU|encoded on the processor/u).first(),
@@ -106,9 +112,9 @@ test("on a phone's screen, the play page is no wider than the screen, whatever i
   await page.getByRole("link", { name: "Play" }).click();
   // Each answer to the sound question puts what it does below its name, not run into it.
   const answer = page.getByRole("button", { name: /Built-in speakers/ });
-  const name = await answer.locator("strong").boundingBox();
-  const hint = await answer.locator("span").boundingBox();
-  expect(hint?.y ?? 0).toBeGreaterThanOrEqual((name?.y ?? 0) + (name?.height ?? 0));
+  const nameBox = await answer.locator("strong").boundingBox();
+  const hintBox = await answer.locator("span").boundingBox();
+  expect(hintBox?.y ?? 0).toBeGreaterThanOrEqual((nameBox?.y ?? 0) + (nameBox?.height ?? 0));
   await answer.click();
   await expect(page.getByRole("combobox", { name: "Subtitles" })).toContainText(longTrackName);
   const widths = await page.evaluate(() => ({

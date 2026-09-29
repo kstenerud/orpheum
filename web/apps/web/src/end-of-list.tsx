@@ -17,8 +17,8 @@ export function EndOfList(props: {
     if (target === null || typeof IntersectionObserver === "undefined") {
       return;
     }
-    const watcher = new IntersectionObserver((seen) => {
-      if (seen.some((entry) => entry.isIntersecting)) {
+    const watcher = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
         onVisible();
       }
     });

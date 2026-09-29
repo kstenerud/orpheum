@@ -33,17 +33,17 @@ export function canSetVolume(element: Pick<HTMLMediaElement, "volume">): boolean
 }
 
 /** A gain in decibels as Web Audio's factor. */
-function factor(db: number): number {
+function dbToGainFactor(db: number): number {
   return 10 ** (db / 20);
 }
 
 /**
- * One element's levelling: its audio context, the gain wanted, and the stage once the element's
+ * One element's levelling: its audio context, the gain wanted, and the gain node once the element's
  * sound is routed through it.
  */
-class Levelled {
+class ElementLevelling {
   private wantedDb: number;
-  private stage: GainNode | undefined = undefined;
+  private gainNode: GainNode | undefined = undefined;
 
   constructor(
     private readonly element: HTMLMediaElement,
@@ -52,15 +52,15 @@ class Levelled {
   ) {
     this.wantedDb = db;
     element.addEventListener("play", () => {
-      this.start();
+      this.resumeAndRoute();
     });
-    this.start();
+    this.resumeAndRoute();
   }
 
   setDb(db: number): void {
     this.wantedDb = db;
-    if (this.stage !== undefined) {
-      this.stage.gain.value = factor(db);
+    if (this.gainNode !== undefined) {
+      this.gainNode.gain.value = dbToGainFactor(db);
     }
   }
 
@@ -68,7 +68,7 @@ class Levelled {
    * Asks the context to run, and routes the sound once it does; when that is not allowed yet, the
    * next play asks again.
    */
-  private start(): void {
+  private resumeAndRoute(): void {
     this.context.resume().then(
       () => {
         this.route();
@@ -78,21 +78,21 @@ class Levelled {
   }
 
   private route(): void {
-    if (this.stage !== undefined || this.context.state !== "running") {
+    if (this.gainNode !== undefined || this.context.state !== "running") {
       return;
     }
     const { destination } = this.context;
     destination.channelCount = Math.max(destination.maxChannelCount, destination.channelCount);
-    const stage = this.context.createGain();
-    stage.gain.value = factor(this.wantedDb);
-    this.context.createMediaElementSource(this.element).connect(stage);
-    stage.connect(destination);
-    this.stage = stage;
+    const gainNode = this.context.createGain();
+    gainNode.gain.value = dbToGainFactor(this.wantedDb);
+    this.context.createMediaElementSource(this.element).connect(gainNode);
+    gainNode.connect(destination);
+    this.gainNode = gainNode;
   }
 }
 
 /** Each element's levelling: Web Audio takes an element's sound once, for the element's life. */
-const levelled = new WeakMap<HTMLMediaElement, Levelled>();
+const levellingByElement = new WeakMap<HTMLMediaElement, ElementLevelling>();
 
 /**
  * The gain for element's sound. The sound is handed to Web Audio only once a gain other than 0 dB
@@ -102,15 +102,15 @@ const levelled = new WeakMap<HTMLMediaElement, Levelled>();
  */
 export function gainAfterVolume(
   element: HTMLMediaElement,
-  audio: () => GainAudio = () => new AudioContext(),
+  createAudioContext: () => GainAudio = () => new AudioContext(),
 ): Gain {
   return {
     setDb: (db) => {
-      const level = levelled.get(element);
-      if (level !== undefined) {
-        level.setDb(db);
+      const levelling = levellingByElement.get(element);
+      if (levelling !== undefined) {
+        levelling.setDb(db);
       } else if (db !== 0) {
-        levelled.set(element, new Levelled(element, audio(), db));
+        levellingByElement.set(element, new ElementLevelling(element, createAudioContext(), db));
       }
     },
   };

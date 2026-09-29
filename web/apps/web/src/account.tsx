@@ -4,7 +4,7 @@ import { useState, type JSX, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { changePassword, listMyDevices } from "./accounts.ts";
-import { ShownDeviceCode, useDeviceCode, type DeviceCode } from "./device-code.tsx";
+import { ShownDeviceCode, useDeviceCode, type DeviceCodeState } from "./device-code.tsx";
 import { problemText } from "./problem.ts";
 import { PasswordField } from "./register.tsx";
 import { useServices } from "./services.tsx";
@@ -19,34 +19,34 @@ export function Account(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [devices, reload] = useResource("my-devices", () => listMyDevices(api));
-  const codes = useDeviceCode(reload);
+  const deviceCode = useDeviceCode(reload);
   return (
     <section className="account" aria-labelledby="account-heading">
       <h1 id="account-heading">{t("account.heading")}</h1>
-      {codes.code === undefined ? null : <ShownDeviceCode code={codes.code} />}
+      {deviceCode.code === undefined ? null : <ShownDeviceCode code={deviceCode.code} />}
       <YourDevices
         devices={devices}
         reload={reload}
         onCodeFor={(device) => {
-          codes.make({ deviceId: device.id }, device.name);
+          deviceCode.makeCode({ deviceId: device.id }, device.name);
         }}
       />
-      <AddDevice codes={codes} />
+      <AddDevice deviceCode={deviceCode} />
       <ChangePassword />
     </section>
   );
 }
 
 /** Makes a code that signs a new device in as this person (D218 §3). */
-function AddDevice(props: { readonly codes: DeviceCode }): JSX.Element {
+function AddDevice(props: { readonly deviceCode: DeviceCodeState }): JSX.Element {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const submit = (event: SyntheticEvent): void => {
     event.preventDefault();
-    props.codes.make({ deviceName: name }, name);
+    props.deviceCode.makeCode({ deviceName: name }, name);
   };
   return (
-    <form className="account__part" onSubmit={submit}>
+    <form className="app-shell__form-part" onSubmit={submit}>
       <h2>{t("account.addDevice")}</h2>
       <p>{t("account.addDeviceExplain")}</p>
       <label>
@@ -62,7 +62,9 @@ function AddDevice(props: { readonly codes: DeviceCode }): JSX.Element {
         />
       </label>
       <button type="submit">{t("account.makeCode")}</button>
-      {props.codes.problem === undefined ? null : <p role="alert">{props.codes.problem}</p>}
+      {props.deviceCode.problem === undefined ? null : (
+        <p role="alert">{props.deviceCode.problem}</p>
+      )}
     </form>
   );
 }
@@ -71,15 +73,15 @@ function AddDevice(props: { readonly codes: DeviceCode }): JSX.Element {
 function ChangePassword(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [current, setCurrent] = useState("");
-  const [replacement, setReplacement] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [outcome, setOutcome] = useState<string | undefined>(undefined);
   const submit = (event: SyntheticEvent): void => {
     event.preventDefault();
-    changePassword(api, current, replacement).then(
+    changePassword(api, currentPassword, newPassword).then(
       () => {
-        setCurrent("");
-        setReplacement("");
+        setCurrentPassword("");
+        setNewPassword("");
         setOutcome(t("account.passwordChanged"));
       },
       (cause: unknown) => {
@@ -88,18 +90,18 @@ function ChangePassword(): JSX.Element {
     );
   };
   return (
-    <form className="account__part" onSubmit={submit}>
+    <form className="app-shell__form-part" onSubmit={submit}>
       <h2>{t("account.changePassword")}</h2>
       <PasswordField
         label={t("account.currentPassword")}
-        value={current}
-        onChange={setCurrent}
+        value={currentPassword}
+        onChange={setCurrentPassword}
         autoComplete="current-password"
       />
       <PasswordField
         label={t("account.newPassword")}
-        value={replacement}
-        onChange={setReplacement}
+        value={newPassword}
+        onChange={setNewPassword}
       />
       <button type="submit">{t("account.changePassword")}</button>
       {outcome === undefined ? null : <output>{outcome}</output>}

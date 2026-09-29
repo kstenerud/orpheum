@@ -9,16 +9,16 @@ import { describe, expect, it } from "vitest";
 import {
   ContinueWatchingView,
   rowName,
-  changeHidden,
+  setItemHidden,
   watchedPercent,
   type EpisodeNaming,
-  type InProgress,
+  type ContinueWatchingRow,
 } from "./continue-watching.tsx";
 import { withServices } from "./test-services.tsx";
 
 const nothing = (): void => undefined;
 
-const heat: InProgress = {
+const heat: ContinueWatchingRow = {
   id: 10,
   name: "Metropolis",
   libraryId: 1,
@@ -32,7 +32,12 @@ describe("Continue Watching", () => {
   it("plays each work's file at once, says how far along, which copy, and offers to hide it", () => {
     const markup = renderToStaticMarkup(
       withServices(
-        <ContinueWatchingView rows={[heat]} hidden={undefined} onHide={nothing} onUndo={nothing} />,
+        <ContinueWatchingView
+          rows={[heat]}
+          hiddenName={undefined}
+          onHide={nothing}
+          onUndo={nothing}
+        />,
       ),
     );
     expect(markup).toContain('href="/play/3"');
@@ -44,30 +49,30 @@ describe("Continue Watching", () => {
   it("offers to undo a hide, and shows nothing when there is nothing", () => {
     const hidden = renderToStaticMarkup(
       withServices(
-        <ContinueWatchingView rows={[]} hidden="Metropolis" onHide={nothing} onUndo={nothing} />,
+        <ContinueWatchingView rows={[]} hiddenName="Metropolis" onHide={nothing} onUndo={nothing} />,
       ),
     );
     expect(hidden).toContain("Metropolis is hidden until you watch it again.");
     expect(hidden).toContain("Undo");
     const empty = renderToStaticMarkup(
       withServices(
-        <ContinueWatchingView rows={[]} hidden={undefined} onHide={nothing} onUndo={nothing} />,
+        <ContinueWatchingView rows={[]} hiddenName={undefined} onHide={nothing} onUndo={nothing} />,
       ),
     );
     expect(empty).toBe("");
   });
 
   it("names an episode by its series and place, and a film by its name", () => {
-    const episodeName = (place: EpisodeNaming): string =>
-      `${place.series} ${String(place.season)}x${String(place.number)} ${place.episode}`;
-    expect(rowName(heat, episodeName)).toBe("Metropolis");
+    const formatEpisodeName = (place: EpisodeNaming): string =>
+      `${place.seriesName} ${String(place.seasonNumber)}x${String(place.episodeNumber)} ${place.episodeName}`;
+    expect(rowName(heat, formatEpisodeName)).toBe("Metropolis");
     expect(
       rowName(
         {
           name: "Pilot",
           episode: { seriesId: 20, seriesName: "Brass Arena", seasonNumber: 1, episodeNumber: 1 },
         },
-        episodeName,
+        formatEpisodeName,
       ),
     ).toBe("Brass Arena 1x1 Pilot");
   });
@@ -79,7 +84,7 @@ describe("Continue Watching", () => {
 
   it("hides with POST and undoes with DELETE", async () => {
     const sent: string[] = [];
-    const api = createApi({ origin: "http://orpheum.test", token: () => "token" });
+    const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
     // Answered here, before any request leaves: tests never touch the network.
     api.use({
       onRequest({ request }) {
@@ -87,8 +92,8 @@ describe("Continue Watching", () => {
         return new Response(null, { status: 204 });
       },
     });
-    await changeHidden(api, 10, false);
-    await changeHidden(api, 10, true);
+    await setItemHidden(api, 10, true);
+    await setItemHidden(api, 10, false);
     expect(sent).toEqual([
       "POST http://orpheum.test/api/v1/items/10/hide",
       "DELETE http://orpheum.test/api/v1/items/10/hide",

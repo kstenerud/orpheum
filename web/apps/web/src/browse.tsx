@@ -25,7 +25,7 @@ export type BrowseKind = "movie" | "series";
 /** The order a list comes in. */
 export type BrowseSort = "name" | "added";
 
-const pageSize = 60;
+const entriesPerPage = 60;
 
 /** Where an entry leads: a film's page, or a series'. */
 export function entryRoute(kind: BrowseKind, id: number): Route {
@@ -101,21 +101,21 @@ export function SortChoice(props: {
 function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSort }): JSX.Element {
   const { api } = useServices();
   const { kind, sort } = props;
-  const load = useCallback(
+  const loadPage = useCallback(
     async (cursor: string): Promise<Page<Entry>> => {
-      const query = { kind, sort, limit: pageSize, ...(cursor === "" ? {} : { cursor }) };
-      const data = dataOrThrow(await api.GET("/titles", { params: { query } }));
-      return { items: data.titles ?? [], next: data.nextCursor ?? "" };
+      const query = { kind, sort, limit: entriesPerPage, ...(cursor === "" ? {} : { cursor }) };
+      const titlesPage = dataOrThrow(await api.GET("/titles", { params: { query } }));
+      return { items: titlesPage.titles ?? [], next: titlesPage.nextCursor ?? "" };
     },
     [api, kind, sort],
   );
-  const pages = usePages(load);
+  const pages = usePages(loadPage);
   return (
     <BrowseView
       kind={kind}
-      pages={pages.list}
+      loadedEntries={pages.list}
       isLoadingMore={pages.isLoadingMore}
-      onMore={pages.more}
+      onLoadMore={pages.more}
     />
   );
 }
@@ -123,28 +123,28 @@ function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSo
 /** A list's pages as they show: loading, failed with why, empty, or the grid and a way to more. */
 export function BrowseView(props: {
   readonly kind: BrowseKind;
-  readonly pages: Resource<Page<Entry>>;
+  readonly loadedEntries: Resource<Page<Entry>>;
   readonly isLoadingMore: boolean;
-  readonly onMore: () => void;
+  readonly onLoadMore: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { pages } = props;
-  if (pages.state === "loading") {
+  const { loadedEntries } = props;
+  if (loadedEntries.state === "loading") {
     return <p>{t("common.loading")}</p>;
   }
-  if (pages.state === "failed") {
-    return <p role="alert">{problemText(t, pages.cause)}</p>;
+  if (loadedEntries.state === "failed") {
+    return <p role="alert">{problemText(t, loadedEntries.cause)}</p>;
   }
-  if (pages.value.items.length === 0) {
+  if (loadedEntries.value.items.length === 0) {
     return <p>{t("browse.empty")}</p>;
   }
   return (
     <>
-      <PosterGrid kind={props.kind} entries={pages.value.items} />
-      {pages.value.next === "" ? null : (
-        <EndOfList onVisible={props.onMore}>
-          <button type="button" onClick={props.onMore} disabled={props.isLoadingMore}>
-            {t("browse.more")}
+      <PosterGrid kind={props.kind} entries={loadedEntries.value.items} />
+      {loadedEntries.value.next === "" ? null : (
+        <EndOfList onVisible={props.onLoadMore}>
+          <button type="button" onClick={props.onLoadMore} disabled={props.isLoadingMore}>
+            {t("common.showMore")}
           </button>
         </EndOfList>
       )}

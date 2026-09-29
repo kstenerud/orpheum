@@ -16,7 +16,7 @@ describe("playing a file", () => {
   it("asks the server with this browser's menu, over the local link", async () => {
     const menu = testServices().menu();
     let sent: unknown;
-    const api = createApi({ origin: "http://orpheum.test", token: () => "token" });
+    const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
     // Answered here, before any request leaves: tests never touch the network.
     api.use({
       async onRequest({ request }) {

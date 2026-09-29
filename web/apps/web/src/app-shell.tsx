@@ -12,7 +12,8 @@ import type { Route } from "./router.ts";
 /** A place the menu leads to, and whether this person may go there. */
 interface Destination {
   readonly route: Route;
-  readonly label:
+  /** The key of the destination's name in the catalogue, under nav. */
+  readonly labelKey:
     | "films"
     | "series"
     | "search"
@@ -28,17 +29,17 @@ interface Destination {
 }
 
 const destinations: readonly Destination[] = [
-  { route: { screen: "films" }, label: "films", isAdminOnly: false },
-  { route: { screen: "series" }, label: "series", isAdminOnly: false },
-  { route: { screen: "search", query: "" }, label: "search", isAdminOnly: false },
-  { route: { screen: "identify" }, label: "identify", isAdminOnly: true },
-  { route: { screen: "libraries" }, label: "libraries", isAdminOnly: true },
-  { route: { screen: "people" }, label: "people", isAdminOnly: true },
-  { route: { screen: "settings" }, label: "settings", isAdminOnly: true },
-  { route: { screen: "jobs" }, label: "jobs", isAdminOnly: true },
-  { route: { screen: "system" }, label: "system", isAdminOnly: true },
-  { route: { screen: "account" }, label: "account", isAdminOnly: false },
-  { route: { screen: "about" }, label: "about", isAdminOnly: false },
+  { route: { screen: "films" }, labelKey: "films", isAdminOnly: false },
+  { route: { screen: "series" }, labelKey: "series", isAdminOnly: false },
+  { route: { screen: "search", query: "" }, labelKey: "search", isAdminOnly: false },
+  { route: { screen: "identify" }, labelKey: "identify", isAdminOnly: true },
+  { route: { screen: "libraries" }, labelKey: "libraries", isAdminOnly: true },
+  { route: { screen: "people" }, labelKey: "people", isAdminOnly: true },
+  { route: { screen: "settings" }, labelKey: "settings", isAdminOnly: true },
+  { route: { screen: "jobs" }, labelKey: "jobs", isAdminOnly: true },
+  { route: { screen: "system" }, labelKey: "system", isAdminOnly: true },
+  { route: { screen: "account" }, labelKey: "account", isAdminOnly: false },
+  { route: { screen: "about" }, labelKey: "about", isAdminOnly: false },
 ];
 
 /**
@@ -48,7 +49,7 @@ const destinations: readonly Destination[] = [
  */
 export function AppShell(props: {
   readonly isAdmin: boolean;
-  readonly current: Route["screen"];
+  readonly currentScreen: Route["screen"];
   readonly onSignOut: () => void;
   /** Who is signed in, and on which device, once known: said in the banner. */
   readonly signedInAs:
@@ -66,10 +67,12 @@ export function AppShell(props: {
               .filter((destination) => props.isAdmin || !destination.isAdminOnly)
               .map((destination) => (
                 <li
-                  key={destination.label}
-                  aria-current={destination.route.screen === props.current ? "page" : undefined}
+                  key={destination.labelKey}
+                  aria-current={
+                    destination.route.screen === props.currentScreen ? "page" : undefined
+                  }
                 >
-                  <Link to={destination.route}>{t(`nav.${destination.label}`)}</Link>
+                  <Link to={destination.route}>{t(`nav.${destination.labelKey}`)}</Link>
                 </li>
               ))}
           </ul>

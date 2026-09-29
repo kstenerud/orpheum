@@ -41,7 +41,7 @@ export class PlayReporter {
   private hasStarted = false;
   private events: PlayEvent[] = [];
   private spans: PlaySpan[] = [];
-  private open: { fromPositionMs: number; startedMonoMs: number } | undefined;
+  private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
 
   /**
@@ -52,44 +52,44 @@ export class PlayReporter {
   constructor(
     private readonly send: (report: PlayReport) => Promise<void>,
     private readonly nextSeq: () => number,
-    private readonly monotonicMs: () => number = () => Math.round(performance.now()),
+    private readonly readMonotonicMs: () => number = () => Math.round(performance.now()),
   ) {}
 
   /** Playing began or resumed at positionMs. */
-  started(positionMs: number): void {
-    const now = this.monotonicMs();
+  recordStarted(positionMs: number): void {
+    const now = this.readMonotonicMs();
     this.hasStarted = true;
-    this.open ??= { fromPositionMs: positionMs, startedMonoMs: now };
-    this.change("started", positionMs, now);
+    this.openSpan ??= { fromPositionMs: positionMs, startedMonoMs: now };
+    this.recordEvent("started", positionMs, now);
   }
 
   /** Playing stopped at positionMs. */
-  paused(positionMs: number): void {
-    this.change("paused", positionMs, this.close(positionMs));
+  recordPaused(positionMs: number): void {
+    this.recordEvent("paused", positionMs, this.closeSpan(positionMs));
   }
 
   /**
    * The person moved from fromMs to toMs. What was playing before the move is a span; watching
    * goes on from toMs if it was playing.
    */
-  seeked(fromMs: number, toMs: number): void {
-    const wasPlaying = this.open !== undefined;
-    const now = this.close(fromMs);
+  recordSeeked(fromMs: number, toMs: number): void {
+    const wasPlaying = this.openSpan !== undefined;
+    const now = this.closeSpan(fromMs);
     if (wasPlaying) {
-      this.open = { fromPositionMs: toMs, startedMonoMs: now };
+      this.openSpan = { fromPositionMs: toMs, startedMonoMs: now };
     }
-    this.change("seeked", toMs, now);
+    this.recordEvent("seeked", toMs, now);
   }
 
   /** The file played to its end. */
-  completed(positionMs: number): void {
-    this.change("completed", positionMs, this.close(positionMs));
+  recordCompleted(positionMs: number): void {
+    this.recordEvent("completed", positionMs, this.closeSpan(positionMs));
   }
 
   /** The person left the playback at positionMs; a playback that never played says nothing. */
-  abandoned(positionMs: number): void {
+  recordAbandoned(positionMs: number): void {
     if (this.hasStarted) {
-      this.change("abandoned", positionMs, this.close(positionMs));
+      this.recordEvent("abandoned", positionMs, this.closeSpan(positionMs));
     }
   }
 
@@ -98,7 +98,7 @@ export class PlayReporter {
     if (this.isSending) {
       return;
     }
-    const now = this.monotonicMs();
+    const now = this.readMonotonicMs();
     const report: PlayReport = {
       reportSeq: this.nextSeq(),
       sentMonoMs: now,
@@ -123,7 +123,7 @@ export class PlayReporter {
     );
   }
 
-  private change(kind: PlayEventKind, positionMs: number, monoMs: number): void {
+  private recordEvent(kind: PlayEventKind, positionMs: number, monoMs: number): void {
     this.events.push({
       kind,
       positionMs: Math.max(0, Math.round(positionMs)),
@@ -133,16 +133,16 @@ export class PlayReporter {
   }
 
   /** Closes the open span at positionMs, if one is open, and says when. */
-  private close(positionMs: number): number {
-    const now = this.monotonicMs();
-    if (this.open !== undefined) {
+  private closeSpan(positionMs: number): number {
+    const now = this.readMonotonicMs();
+    if (this.openSpan !== undefined) {
       this.spans.push({
-        fromPositionMs: Math.max(0, Math.round(this.open.fromPositionMs)),
+        fromPositionMs: Math.max(0, Math.round(this.openSpan.fromPositionMs)),
         toPositionMs: Math.max(0, Math.round(positionMs)),
-        startedMonoMs: this.open.startedMonoMs,
+        startedMonoMs: this.openSpan.startedMonoMs,
         endedMonoMs: now,
       });
-      this.open = undefined;
+      this.openSpan = undefined;
     }
     return now;
   }

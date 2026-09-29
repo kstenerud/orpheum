@@ -6,7 +6,13 @@ import "./i18n.ts";
 import { createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { addedGainDb, LevelSwitch, levelNote, soundLevel, type SoundLevel } from "./levelling.tsx";
+import {
+  addedGainDb,
+  LevelSwitch,
+  levelNote,
+  startingSoundLevel,
+  type SoundLevel,
+} from "./levelling.tsx";
 import { click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -31,15 +37,15 @@ describe("levelling a film's loudness (D226)", () => {
   });
 
   it("levels a prepared copy by its first mix, and the original by its main track", () => {
-    const direct: Parameters<typeof soundLevel>[0] = {
+    const direct: Parameters<typeof startingSoundLevel>[0] = {
       delivery: "direct",
       levelling: { isMeasured: true, gainDb: -4.2 },
     };
-    expect(soundLevel(direct)).toEqual({
+    expect(startingSoundLevel(direct)).toEqual({
       levelling: { isMeasured: true, gainDb: -4.2 },
       carriedGainDb: 0,
     });
-    const hls: Parameters<typeof soundLevel>[0] = {
+    const hls: Parameters<typeof startingSoundLevel>[0] = {
       delivery: "hls",
       levelling: { isMeasured: true, gainDb: 1 },
       audioRenditions: [
@@ -52,7 +58,7 @@ describe("levelling a film's loudness (D226)", () => {
         },
       ],
     };
-    expect(soundLevel(hls)).toEqual({
+    expect(startingSoundLevel(hls)).toEqual({
       levelling: { isMeasured: true, gainDb: 5 },
       carriedGainDb: 5,
     });
@@ -76,7 +82,7 @@ describe("levelling a film's loudness (D226)", () => {
     const heard: Heard[] = [];
     const services = servedBy({ "PUT /me/preferences": [204, undefined] }, heard);
     mounted = await mount(
-      withServices(<LevelSwitch level={alien} isOn videoRef={createRef()} />, services),
+      withServices(<LevelSwitch level={alien} isInitiallyOn videoRef={createRef()} />, services),
     );
     const box = mounted.container.querySelector("input");
     expect(box?.checked).toBe(true);

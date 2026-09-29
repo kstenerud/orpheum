@@ -3,7 +3,7 @@
 import Hls from "hls.js";
 
 /** A prepared rendition playing in a video element. */
-export interface Playback {
+export interface HlsPlayback {
   /** Plays the audio rendition at index, in the master playlist's order. */
   readonly setAudioRendition: (index: number) => void;
   /** Stops playing and lets go of the element. */
@@ -25,10 +25,10 @@ export function hlsSupport(video: HTMLVideoElement): HlsSupport {
 }
 
 /** How a page plays HLS: hls.js, the element's own HLS, or not at all. */
-export type HlsWay = "hls.js" | "native" | "none";
+export type HlsMethod = "hls.js" | "native" | "none";
 
-/** The way to play HLS: hls.js wherever MSE is, since it switches audio renditions itself. */
-export function hlsWay(support: HlsSupport): HlsWay {
+/** The method to play HLS by: hls.js wherever MSE is, since it switches audio renditions itself. */
+export function hlsMethod(support: HlsSupport): HlsMethod {
   if (support.hasMse) {
     return "hls.js";
   }
@@ -43,7 +43,7 @@ export interface NativeTarget {
 }
 
 /** Plays a playlist with the element's own HLS, as Safari's. */
-export function playNative(target: NativeTarget, url: string): Playback {
+export function playNative(target: NativeTarget, url: string): HlsPlayback {
   target.setAttribute("src", url);
   return {
     // Safari switches its own tracks from its controls; choosing one is left to them.
@@ -62,16 +62,16 @@ export interface AudioStart {
 }
 
 /**
- * Starts with the audio rendition at index once the master playlist is read: hls.js picks the
+ * Starts with the audio rendition at audioIndex once the master playlist is read: hls.js picks the
  * playlist's default until then, and a choice made earlier is not kept.
  */
-export function startWithAudio(hls: AudioStart, index: number): void {
-  if (index === 0) {
+export function startWithAudio(hls: AudioStart, audioIndex: number): void {
+  if (audioIndex === 0) {
     return;
   }
   hls.on(Hls.Events.MANIFEST_PARSED, () => {
     // eslint-disable-next-line no-param-reassign -- hls.js switches the mix when audioTrack is set
-    hls.audioTrack = index;
+    hls.audioTrack = audioIndex;
   });
 }
 
@@ -85,27 +85,27 @@ export function playHls(
   url: string,
   options: {
     /** Called with why, when the playback cannot go on. */
-    readonly failed: (why: string) => void;
+    readonly onFailed: (why: string) => void;
     /** The audio rendition to start with; the playlist's default when omitted. */
-    readonly startAudio?: number;
+    readonly startAudioIndex?: number;
   },
-): Playback {
-  const { failed } = options;
-  const way = hlsWay(hlsSupport(video));
-  if (way === "native") {
+): HlsPlayback {
+  const { onFailed } = options;
+  const method = hlsMethod(hlsSupport(video));
+  if (method === "native") {
     return playNative(video, url);
   }
-  if (way === "none") {
-    failed("this browser cannot play HLS");
+  if (method === "none") {
+    onFailed("this browser cannot play HLS");
     return { setAudioRendition: () => undefined, destroy: () => undefined };
   }
   const hls = new Hls();
   hls.on(Hls.Events.ERROR, (_event, data) => {
     if (data.fatal) {
-      failed(data.details);
+      onFailed(data.details);
     }
   });
-  startWithAudio(hls, options.startAudio ?? 0);
+  startWithAudio(hls, options.startAudioIndex ?? 0);
   hls.loadSource(url);
   hls.attachMedia(video);
   return {

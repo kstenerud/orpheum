@@ -2,7 +2,7 @@
 
 import "./play.css";
 
-import { playHls, seekTo, type Playback } from "@orpheum/player";
+import { playHls, seekTo, type HlsPlayback } from "@orpheum/player";
 import { whenReady, type Api, type components, type Menu } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +14,7 @@ import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { Subtitles } from "./subtitles.tsx";
 import { camelKey } from "./catalogue-key.ts";
-import { LevelSwitch, soundLevel } from "./levelling.tsx";
+import { LevelSwitch, startingSoundLevel } from "./levelling.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
@@ -87,8 +87,8 @@ function UnderTheVideo(
         <SoundLine current={props.decision.audioOutput} changed={props.decideAgain} />
       )}
       <LevelSwitch
-        level={soundLevel(props.decision)}
-        isOn={props.decision.preferences.isLevellingOn}
+        level={startingSoundLevel(props.decision)}
+        isInitiallyOn={props.decision.preferences.isLevellingOn}
         videoRef={props.videoRef}
       />
     </>
@@ -141,7 +141,7 @@ function PreparedVideo(props: PlayProps): JSX.Element {
       {pair === undefined ? null : (
         <BoostSwitch
           isOn={decision.preferences.isDialogueBoostOn}
-          switched={(isOn) => {
+          onSwitched={(isOn) => {
             playbackRef.current?.setAudioRendition(isOn ? pair.boosted : pair.standard);
           }}
         />
@@ -152,20 +152,20 @@ function PreparedVideo(props: PlayProps): JSX.Element {
 
 /**
  * A prepared copy's playback: it waits while the copy's first part is made, then plays it,
- * starting with the audio rendition startAudio when one is given.
+ * starting with the audio rendition startAudioIndex when one is given.
  */
 function usePrepared(
   decision: Decision,
-  startAudio: number | undefined,
+  startAudioIndex: number | undefined,
 ): {
   videoRef: RefObject<HTMLVideoElement | null>;
-  playbackRef: RefObject<Playback | undefined>;
+  playbackRef: RefObject<HlsPlayback | undefined>;
   isWaiting: boolean;
   failure: string | undefined;
 } {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const playbackRef = useRef<Playback | undefined>(undefined);
+  const playbackRef = useRef<HlsPlayback | undefined>(undefined);
   const [isWaiting, setIsWaiting] = useState(decision.isPreparing);
   const [failure, setFailure] = useState<string | undefined>(undefined);
   useEffect(() => {
@@ -179,8 +179,8 @@ function usePrepared(
         if (!abort.signal.aborted) {
           setIsWaiting(false);
           playbackRef.current = playHls(element, decision.url, {
-            failed: setFailure,
-            ...(startAudio === undefined ? {} : { startAudio }),
+            onFailed: setFailure,
+            ...(startAudioIndex === undefined ? {} : { startAudioIndex }),
           });
         }
       },
@@ -195,7 +195,7 @@ function usePrepared(
       playbackRef.current?.destroy();
       playbackRef.current = undefined;
     };
-  }, [decision.url, startAudio, t]);
+  }, [decision.url, startAudioIndex, t]);
   return { videoRef, playbackRef, isWaiting, failure };
 }
 
@@ -225,7 +225,7 @@ function DirectVideo(props: PlayProps): JSX.Element {
       {failure === undefined ? (
         <p className="play__reason">{t("play.direct")}</p>
       ) : (
-        <p role="alert">{t("play.failed", { reason: failure })}</p>
+        <p role="alert">{t("play.directFailed", { reason: failure })}</p>
       )}
     </div>
   );

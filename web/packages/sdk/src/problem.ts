@@ -37,8 +37,10 @@ export function throwIfRefused(result: { error?: { error: ErrorDetail } }): void
   }
 }
 
-function problemOf(error: { error: ErrorDetail } | undefined): Error {
-  return error === undefined ? new Error("the server did not answer") : new ApiProblem(error.error);
+function problemOf(errorBody: { error: ErrorDetail } | undefined): Error {
+  return errorBody === undefined
+    ? new Error("the server did not answer")
+    : new ApiProblem(errorBody.error);
 }
 
 /** The ApiProblem in an error answer's body, or one naming only its status when it has none. */

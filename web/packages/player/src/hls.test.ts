@@ -4,13 +4,19 @@ import { describe, expect, it } from "vitest";
 
 import Hls from "hls.js";
 
-import { hlsWay, playNative, startWithAudio, type AudioStart, type NativeTarget } from "./hls.ts";
+import {
+  hlsMethod,
+  playNative,
+  startWithAudio,
+  type AudioStart,
+  type NativeTarget,
+} from "./hls.ts";
 
 describe("playing a prepared rendition", () => {
   it("uses hls.js wherever there is MSE, the element's own HLS where there is only that", () => {
-    expect(hlsWay({ hasMse: true, canPlayNatively: true })).toBe("hls.js");
-    expect(hlsWay({ hasMse: false, canPlayNatively: true })).toBe("native");
-    expect(hlsWay({ hasMse: false, canPlayNatively: false })).toBe("none");
+    expect(hlsMethod({ hasMse: true, canPlayNatively: true })).toBe("hls.js");
+    expect(hlsMethod({ hasMse: false, canPlayNatively: true })).toBe("native");
+    expect(hlsMethod({ hasMse: false, canPlayNatively: false })).toBe("none");
   });
 
   it("hands the playlist to the element itself, and lets go of it", () => {

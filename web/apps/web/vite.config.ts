@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
 
 import { devAllowedHosts } from "./src/dev-hosts";
-import { devServer } from "./src/dev-server";
+import { devServerOrigin } from "./src/dev-server";
 
 // In `make dev` the web client runs on Vite's dev server with hot reload, and everything that
 // is the server's — the API, media bytes and the Watch Together socket — is proxied to the Go
@@ -13,7 +13,7 @@ import { devServer } from "./src/dev-server";
 export default defineConfig(({ command, mode }) => {
   // envDir false: the process environment only, never .env files.
   const env = loadEnv(mode, false, "ORPHEUM_");
-  const target = devServer(env["ORPHEUM_DEV_SERVER"], command);
+  const target = devServerOrigin(env["ORPHEUM_DEV_SERVER"], command);
   return {
     plugins: [react()],
     // No .env files: the configuration is what the process was given (D204).

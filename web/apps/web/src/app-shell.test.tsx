@@ -16,7 +16,7 @@ describe("AppShell", () => {
       withServices(
         <AppShell
           isAdmin={false}
-          current="films"
+          currentScreen="films"
           onSignOut={ignore}
           signedInAs={{ name: "partner", deviceName: "Firefox on Mac" }}
         >
@@ -37,7 +37,7 @@ describe("AppShell", () => {
   it("shows the admin's destinations to an admin", () => {
     const markup = renderToStaticMarkup(
       withServices(
-        <AppShell isAdmin={true} current="about" onSignOut={ignore} signedInAs={undefined}>
+        <AppShell isAdmin={true} currentScreen="about" onSignOut={ignore} signedInAs={undefined}>
           <p>screen</p>
         </AppShell>,
       ),

@@ -100,7 +100,7 @@ describe("subtitles", () => {
 
   it("keeps the offset for the file", async () => {
     let sent: { url: string; method: string; body: unknown } | undefined;
-    const api = createApi({ origin: "http://orpheum.test", token: () => "token" });
+    const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
     // Answered here, before any request leaves: tests never touch the network.
     api.use({
       async onRequest({ request }) {
@@ -169,7 +169,7 @@ describe("subtitles", () => {
 
   it("keeps a choice of a track, or of off", async () => {
     const sent: unknown[] = [];
-    const api = createApi({ origin: "http://orpheum.test", token: () => "token" });
+    const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
     // Answered here, before any request leaves: tests never touch the network.
     api.use({
       async onRequest({ request }) {

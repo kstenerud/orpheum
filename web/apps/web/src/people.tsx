@@ -8,7 +8,7 @@ import {
   listAccounts,
   registrationUrl,
   type Account,
-  type Invitation,
+  type IssuedSecret,
 } from "./accounts.ts";
 import { problemText } from "./problem.ts";
 import { Link } from "./link.tsx";
@@ -20,8 +20,8 @@ import { useResource } from "./use-resource.ts";
 
 /** What the admin last made, to pass on: a person's link or a device's code. */
 export type Made =
-  | { readonly what: "link"; readonly name: string; readonly invitation: Invitation }
-  | { readonly what: "code"; readonly name: string; readonly invitation: Invitation };
+  | { readonly what: "link"; readonly name: string; readonly invitation: IssuedSecret }
+  | { readonly what: "code"; readonly name: string; readonly invitation: IssuedSecret };
 
 /**
  * The household, for the admin (D218): everyone, whether they have registered, a way to add a
@@ -74,7 +74,7 @@ export function MadeView(props: { readonly made: Made }): JSX.Element {
 
 /** Adds a person: their name and role, and their registration link to pass on. */
 function AddPerson(props: {
-  readonly onMade: (name: string, invitation: Invitation) => void;
+  readonly onMade: (name: string, invitation: IssuedSecret) => void;
   readonly onFailed: (cause: unknown) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -130,7 +130,7 @@ export function PeopleList(props: { readonly accounts: readonly Account[] }): JS
             {account.name}
           </Link>{" "}
           <span className="people__status">
-            {t(account.hasPassword ? "people.registered" : "people.waiting")}
+            {t(account.hasPassword ? "people.registered" : "people.notRegistered")}
           </span>
         </li>
       ))}

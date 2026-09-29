@@ -38,7 +38,7 @@ export interface ReasonGroup {
 }
 
 /** Groups files by filing and reason, the largest group first. */
-export function byReason(files: readonly SeenFile[]): ReasonGroup[] {
+export function groupByReason(files: readonly SeenFile[]): ReasonGroup[] {
   const groups = new Map<string, { filing: string; reason: string; files: SeenFile[] }>();
   for (const file of files) {
     const reason = file.filingReason ?? "";
@@ -55,7 +55,7 @@ export function ReasonGroups(props: { readonly files: readonly SeenFile[] }): JS
   const { t } = useTranslation();
   return (
     <>
-      {byReason(props.files).map((group) => (
+      {groupByReason(props.files).map((group) => (
         <details key={`${group.filing}/${group.reason}`}>
           <summary>
             {t("files.group", {
@@ -70,7 +70,7 @@ export function ReasonGroups(props: { readonly files: readonly SeenFile[] }): JS
                 <code>{file.path}</code>
                 {file.errorDetail === undefined ? null : (
                   <p>
-                    {t("files.detail", {
+                    {t("files.errorDetail", {
                       text: file.errorDetail.text,
                       owner: file.errorDetail.ownerUid,
                       group: file.errorDetail.groupGid,
@@ -90,16 +90,16 @@ export function ReasonGroups(props: { readonly files: readonly SeenFile[] }): JS
 /** What the scanner saw in a library: every file, whatever became of it (D163). */
 export function Files(props: { readonly libraryId: number }): JSX.Element {
   const { t } = useTranslation();
-  const [filing, setFiling] = useState<FilingChoice>("");
+  const [filingFilter, setFilingFilter] = useState<FilingChoice>("");
   return (
     <section aria-labelledby="files-heading">
       <h1 id="files-heading">{t("files.heading")}</h1>
       <label>
-        {t("files.show")}
+        {t("common.show")}
         <select
-          value={filing}
+          value={filingFilter}
           onChange={(event) => {
-            setFiling(filingChoices.find((choice) => choice === event.target.value) ?? "");
+            setFilingFilter(filingChoices.find((choice) => choice === event.target.value) ?? "");
           }}
         >
           {filingChoices.map((choice) => (
@@ -110,9 +110,9 @@ export function Files(props: { readonly libraryId: number }): JSX.Element {
         </select>
       </label>
       <FilePages
-        key={`${String(props.libraryId)}/${filing}`}
+        key={`${String(props.libraryId)}/${filingFilter}`}
         libraryId={props.libraryId}
-        filing={filing}
+        filingFilter={filingFilter}
       />
     </section>
   );
@@ -121,25 +121,25 @@ export function Files(props: { readonly libraryId: number }): JSX.Element {
 /** One library's files of one filing, read a page at a time. */
 function FilePages(props: {
   readonly libraryId: number;
-  readonly filing: FilingChoice;
+  readonly filingFilter: FilingChoice;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { libraryId, filing } = props;
-  const load = useCallback(
+  const { libraryId, filingFilter } = props;
+  const loadPage = useCallback(
     async (cursor: string): Promise<Page<SeenFile>> => {
       const query = {
         libraryId,
-        filing,
+        filing: filingFilter,
         limit: 500,
         ...(cursor === "" ? {} : { cursor }),
       } satisfies FilesQuery;
-      const data = dataOrThrow(await api.GET("/files", { params: { query } }));
-      return { items: data.files ?? [], next: data.nextCursor ?? "" };
+      const filesPage = dataOrThrow(await api.GET("/files", { params: { query } }));
+      return { items: filesPage.files ?? [], next: filesPage.nextCursor ?? "" };
     },
-    [api, libraryId, filing],
+    [api, libraryId, filingFilter],
   );
-  const pages = usePages(load);
+  const pages = usePages(loadPage);
   return (
     <Loaded
       resource={pages.list}
@@ -149,7 +149,7 @@ function FilePages(props: {
           {page.next === "" ? null : (
             <EndOfList onVisible={pages.more}>
               <button type="button" onClick={pages.more} disabled={pages.isLoadingMore}>
-                {t("browse.more")}
+                {t("common.showMore")}
               </button>
             </EndOfList>
           )}

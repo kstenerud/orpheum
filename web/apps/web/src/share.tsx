@@ -3,7 +3,7 @@
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { Invitation } from "./accounts.ts";
+import type { IssuedSecret } from "./accounts.ts";
 
 /** When an invitation stops working, in the viewer's words. */
 export function expiresText(expiresAtMs: number, locale: string): string {
@@ -19,7 +19,7 @@ export function expiresText(expiresAtMs: number, locale: string): string {
 export function Share(props: {
   readonly what: "link" | "code";
   readonly text: string;
-  readonly invitation: Invitation;
+  readonly invitation: IssuedSecret;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   return (

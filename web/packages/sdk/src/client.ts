@@ -48,8 +48,8 @@ export type Api = Omit<Client<paths>, Uppercase<ApiMethod>> & {
 export interface ApiOptions {
   /** The server's origin; the page's own when omitted. */
   readonly origin?: string;
-  /** The session token, sent in the Authorization header and never in a URL (D154). */
-  readonly token: () => string | undefined;
+  /** Reads the session token, sent in the Authorization header and never in a URL (D154). */
+  readonly getToken: () => string | undefined;
   /** What sends a request: the browser's fetch when omitted, or a test's stand-in server. */
   readonly fetch?: (request: Request) => Promise<Response>;
 }
@@ -63,7 +63,7 @@ export function createApi(options: ApiOptions): Api {
   });
   const authorise: Middleware = {
     onRequest({ request }) {
-      const token = options.token();
+      const token = options.getToken();
       if (token !== undefined) {
         request.headers.set("Authorization", `Bearer ${token}`);
       }

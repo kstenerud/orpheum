@@ -150,7 +150,7 @@ describe("the dialogue boost's switch", () => {
       withServices(
         <BoostSwitch
           isOn
-          switched={(isOn) => {
+          onSwitched={(isOn) => {
             switched.push(isOn);
           }}
         />,

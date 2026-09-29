@@ -19,24 +19,24 @@ export function jassubTimeOffset(offsetMs: number): number {
 }
 
 /**
- * Draws an ASS track over video with JASSUB (D217 §4), offset by offsetMs. The text was fetched
- * through the SDK. Fonts come from the track's own styles and JASSUB's bundled default; the page
+ * Draws an ASS track, assText, over video with JASSUB (D217 §4), offset by offsetMs. The text
+ * was fetched through the SDK. Fonts come from the track's own styles and JASSUB's bundled default; the page
  * never asks the browser for its local fonts, which would prompt the viewer, nor any font service.
  */
 export function drawSubtitles(
   video: HTMLVideoElement,
-  ass: string,
+  assText: string,
   offsetMs: number,
 ): SubtitleLayer {
   const renderer = new JASSUB({
     video,
-    subContent: ass,
+    subContent: assText,
     timeOffset: jassubTimeOffset(offsetMs),
     queryFonts: false,
   });
   return {
-    setOffsetMs: (changed) => {
-      renderer.timeOffset = jassubTimeOffset(changed);
+    setOffsetMs: (newOffsetMs) => {
+      renderer.timeOffset = jassubTimeOffset(newOffsetMs);
       // A paused video shows no new frame, so the change is drawn now.
       void renderer.resize(true);
     },

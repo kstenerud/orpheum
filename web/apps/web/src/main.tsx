@@ -27,7 +27,7 @@ try {
 }
 const session = createSession(storage);
 const navigation = createNavigation(window);
-const api = createApi({ token: session.token });
+const api = createApi({ getToken: session.token });
 api.use(watchForSignOut(session, navigation));
 const services = { api, session, navigation, menu: browserMenu };
 

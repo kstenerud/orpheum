@@ -101,7 +101,7 @@ function NodeSoftware(props: { readonly node: SystemNode }): JSX.Element {
         <dd>
           {node.ffmpegVersion} <code>{(node.ffmpegSha256 ?? "").slice(0, 12)}</code>
         </dd>
-        <dt>{t("system.user")}</dt>
+        <dt>{t("system.runsAs")}</dt>
         <dd>{t("system.uidGid", { uid: node.uid, gid: node.gid })}</dd>
         {node.lastHeardAt === undefined ? null : (
           <>
@@ -132,7 +132,7 @@ function BuildFacts(props: { readonly build: Build }): JSX.Element {
               : ` ${t("system.committedAt", { when: when(build.committedAt) })}`}
           </>
         )}
-        {build.isModified ? ` ${t("system.modified")}` : null}
+        {build.isModified ? ` ${t("system.uncommittedChanges")}` : null}
       </dd>
     </>
   );
@@ -237,7 +237,7 @@ function NodeFacts(props: { readonly node: SystemNode }): JSX.Element {
           {node.hardware === undefined ? null : <HardwareEncoding hardware={node.hardware} />}
           {node.preparedUsage === undefined ? null : (
             <p>
-              {t("system.prepared", {
+              {t("system.preparedUsage", {
                 used: byteSize(node.preparedUsage.usedBytes),
                 budget: byteSize(node.preparedUsage.budgetBytes),
                 percent: node.preparedUsage.diskUsedPercent,
@@ -273,7 +273,7 @@ function HardwareEncoding(props: { readonly hardware: Hardware }): JSX.Element {
     <section aria-label={t("system.hardware")}>
       <h3>{t("system.hardware")}</h3>
       <p role={!isOnGPU && gpus.length > 0 ? "alert" : undefined}>{verdict}</p>
-      <h4>{t("system.sees")}</h4>
+      <h4>{t("system.gpuDevices")}</h4>
       {gpus.length === 0 ? (
         <p>{t("system.seesNothing")}</p>
       ) : (
@@ -317,7 +317,7 @@ function RecentPrepares(props: { readonly prepares: readonly FinishedPrepare[] }
           <thead>
             <tr>
               <th scope="col">{t("system.preparedFile")}</th>
-              <th scope="col">{t("system.madeWith")}</th>
+              <th scope="col">{t("system.preparedWith")}</th>
               <th scope="col">{t("system.speed")}</th>
               <th scope="col">{t("system.finishedAt")}</th>
             </tr>

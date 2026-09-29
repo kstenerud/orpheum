@@ -8,7 +8,7 @@ import {
   isCodeWaiting,
   issueDeviceCode,
   keepShownCode,
-  shownCode,
+  readShownCode,
   type CodeTarget,
   type ShownCode,
 } from "./accounts.ts";
@@ -29,10 +29,10 @@ function tabStorage(): Storage | undefined {
 }
 
 /** The device code on screen, and how to make one: what useDeviceCode returns. */
-export interface DeviceCode {
+export interface DeviceCodeState {
   readonly code: ShownCode | undefined;
   readonly problem: string | undefined;
-  readonly make: (target: CodeTarget, deviceName: string) => void;
+  readonly makeCode: (target: CodeTarget, deviceName: string) => void;
 }
 
 /**
@@ -40,12 +40,12 @@ export interface DeviceCode {
  * reload in this tab's storage, and taken off the screen once the server says it is no longer
  * waiting, used, replaced or expired, when onUsed is told so the device list can show it.
  */
-export function useDeviceCode(onUsed: () => void): DeviceCode {
+export function useDeviceCode(onUsed: () => void): DeviceCodeState {
   const { t } = useTranslation();
   const { api } = useServices();
   const [code, setCode] = useState<ShownCode | undefined>(() => {
     const storage = tabStorage();
-    return storage === undefined ? undefined : shownCode(storage, Date.now());
+    return storage === undefined ? undefined : readShownCode(storage, Date.now());
   });
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const secret = code?.secret;
@@ -53,7 +53,7 @@ export function useDeviceCode(onUsed: () => void): DeviceCode {
     if (secret === undefined) {
       return undefined;
     }
-    const checker = setInterval(() => {
+    const pollTimer = setInterval(() => {
       isCodeWaiting(api).then(
         (isWaiting) => {
           if (!isWaiting) {
@@ -69,14 +69,14 @@ export function useDeviceCode(onUsed: () => void): DeviceCode {
       );
     }, codeCheckEveryMs);
     return () => {
-      clearInterval(checker);
+      clearInterval(pollTimer);
     };
   }, [api, secret, onUsed]);
-  const make = (target: CodeTarget, deviceName: string): void => {
+  const makeCode = (target: CodeTarget, deviceName: string): void => {
     setProblem(undefined);
     issueDeviceCode(api, target).then(
-      (made) => {
-        const shown = { ...made, deviceName };
+      (issued) => {
+        const shown = { ...issued, deviceName };
         setCode(shown);
         const storage = tabStorage();
         if (storage !== undefined) {
@@ -88,14 +88,14 @@ export function useDeviceCode(onUsed: () => void): DeviceCode {
       },
     );
   };
-  return { code, problem, make };
+  return { code, problem, makeCode };
 }
 
 /** A device code on screen: the code, for which device, and how to use it. */
 export function ShownDeviceCode(props: { readonly code: ShownCode }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <div className="account__code">
+    <div className="device-code">
       <h2>{t("account.codeFor", { device: props.code.deviceName })}</h2>
       <p>{t("account.useCode", { origin: window.location.origin })}</p>
       <Share what="code" text={props.code.secret} invitation={props.code} />
