@@ -3,8 +3,6 @@
 package playback
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -164,7 +162,7 @@ func (service *Service) FetchSubtitle(
 	if err != nil {
 		return Fetched{}, err
 	}
-	body, err := gzipped(downloaded.Body)
+	body, err := bounded.Gzip(downloaded.Body)
 	if err != nil {
 		return Fetched{}, err
 	}
@@ -191,32 +189,6 @@ func (service *Service) FetchSubtitle(
 	}, nil
 }
 
-// gzipped is a fetched subtitle's body as library.db keeps it.
-func gzipped(text []byte) ([]byte, error) {
-	var buffer bytes.Buffer
-	writer := gzip.NewWriter(&buffer)
-	if _, err := writer.Write(text); err != nil {
-		return nil, fmt.Errorf("compress the subtitle: %w", err)
-	}
-	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("compress the subtitle: %w", err)
-	}
-	return buffer.Bytes(), nil
-}
-
-// gunzipped is a fetched subtitle's text, bounded as its download is.
-func gunzipped(body []byte) ([]byte, error) {
-	reader, err := gzip.NewReader(bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("read the fetched subtitle: %w", err)
-	}
-	text, err := bounded.ReadAll(reader, opensubtitles.MaxSubtitleBytes)
-	if err != nil {
-		return nil, fmt.Errorf("read the fetched subtitle: %w", err)
-	}
-	return text, nil
-}
-
 // fetchedKey is where a fetched subtitle's text is kept: by the hash of its body as library.db
 // keeps it, as a subtitle file's is by its payload hash.
 func fetchedKey(body []byte) cachegen.GetSubtitleTextParams {
@@ -234,7 +206,7 @@ func (service *Service) HandleConvertFetchedSubtitle(ctx context.Context, job jo
 	if err != nil {
 		return fmt.Errorf("read fetched subtitle %d: %w", job.FetchedSubtitleID, err)
 	}
-	text, err := gunzipped(fetched.BodyGzip)
+	text, err := bounded.Gunzip(fetched.BodyGzip, opensubtitles.MaxSubtitleBytes)
 	if err != nil {
 		return jobs.MarkPermanent(err)
 	}
