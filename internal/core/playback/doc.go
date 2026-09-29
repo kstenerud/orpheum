@@ -25,7 +25,10 @@
 //     TestSubtitleChoice_IsKeptPerFileAndCarriedToTheSeriesFilesWithNoneOfTheirOwn. A choice keeps
 //     what its track is, so a rescan's new stream ids find it again, and a file whose tracks lost
 //     it has no choice rather than a gone one (D223 §8). Enforced by
-//     TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks.
+//     TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks. Choosing reads the file,
+//     its tracks, the work's files and their choices in the transaction that keeps the choice, so
+//     it never decides on what that transaction does not see. Enforced by
+//     TestCarryChoice_SeesAnOwnChoiceKeptEarlierInItsTransaction.
 //   - A decision reads how the asking device makes sound: built-in speakers and headphones are stereo,
 //     a receiver or a device not yet asked is not, and the answer says which so the player can
 //     ask (D222). Enforced by TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct.
