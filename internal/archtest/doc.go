@@ -3,8 +3,8 @@
 // Package archtest holds the architecture tests: the design's structural promises, checked against
 // the real package graph from go list. Each checker is a pure function and is unit-tested against
 // a synthetic graph that violates it, so every test is seen to fail (D190). The package has no
-// production code; its tests are the one place outside internal/node/execx allowed to run a
-// process (go list).
+// production code; its tests run a process (go list), as internal/testutil does for the tests'
+// tools, and neither ever ships.
 //
 // # Invariants
 //
@@ -16,8 +16,14 @@
 //     internal/core.
 //   - TestArch_OnlyStoreImportsDatabaseSQL: only internal/store imports database/sql or a SQLite
 //     driver directly.
-//   - TestArch_OnlyExecxImportsOsExec: only internal/node/execx imports os/exec directly, and only
-//     this package's tests besides.
+//   - TestArch_OnlyExecxImportsOsExec: of the code that ships, only internal/node/execx imports
+//     os/exec directly; internal/testutil and this package's tests may too.
+//   - TestArch_TestutilIsImportedOnlyByTests: no package that ships imports internal/testutil.
+//   - TestArch_ReleaseBinaryReadsNoEnvironment: the release build of cmd/orpheum reads no
+//     environment variable (D204).
+//   - TestArch_NoHandBuiltJSON: no code that ships spells out a JSON object's keys in a string; a
+//     document is encoded from a struct, so a renamed field is renamed everywhere it is written
+//     (agent failures A13).
 //   - TestArch_NodeprotoHasNoLogic: internal/nodeproto imports nothing from the module except
 //     internal/platform, and declares no functions outside methods.
 //   - TestArch_EveryPackageHasDocGo: every package under internal/ and cmd/ has a doc.go whose
@@ -42,6 +48,8 @@
 //
 //   - graph_test.go: loading the package graph.
 //   - rules_test.go: the checkers and their TestArch_ tests.
+//   - environment_test.go: the release binary's environment rule.
+//   - json_test.go: the hand-built JSON rule.
 //   - rules_selftest_test.go: each checker against a violating synthetic graph.
 //   - Add a claim as a pure checker, a TestArch_ test, a self-test that makes it fail, and a
 //     citation in the owning package's doc.go.

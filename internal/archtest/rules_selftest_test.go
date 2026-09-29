@@ -244,3 +244,26 @@ func TestFindStarSelections(t *testing.T) {
 		t.Errorf("got %v, want none", got)
 	}
 }
+
+func TestFindHandBuiltJSON_CatchesAnObjectWrittenOutAndLetsOtherBracesBe(t *testing.T) {
+	t.Parallel()
+	handBuilt := map[string]string{
+		"a format in backquotes": "package p\n\nimport \"fmt\"\n\n" +
+			"var s = fmt.Sprintf(`{\"isRefresh\":true,\"retryImages\":%t}`, true)\n",
+		"escaped quotes": "package p\n\nvar s = \"{\\\"error\\\": {\\\"code\\\": 1}}\"\n",
+		"spaced":         "package p\n\nvar s = `{ \"name\" : \"x\" }`\n",
+	}
+	for name, contents := range handBuilt {
+		if got := findHandBuiltJSON([]sourceFile{{path: "p.go", contents: contents}}); len(got) != 1 {
+			t.Errorf("%s: got %d violations, want 1", name, len(got))
+		}
+	}
+	clean := "package p\n\nvar a, b, c, d = \"{}\", \"{{.Name}}\", \"%v{%d}\", \"an object {code, message}\"\n"
+	if got := findHandBuiltJSON([]sourceFile{{path: "p.go", contents: clean}}); len(got) != 0 {
+		t.Errorf("braces that are not a JSON key: got %v, want none", got)
+	}
+	broken := []sourceFile{{path: "broken.go", contents: "package p\n\nfunc {"}}
+	if got := findHandBuiltJSON(broken); len(got) != 1 {
+		t.Errorf("an unparseable file: got %d violations, want 1", len(got))
+	}
+}

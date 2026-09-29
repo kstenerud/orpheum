@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A13 — JSON written out by hand beside the struct that reads it, so a rename missed it (2026-09-29)
+
+- **What happened:** `RefreshJob` built a fetch job's arguments with `fmt.Sprintf` and the JSON
+  typed out, beside `refreshArgs`, the struct the job decodes them into; the string was there to
+  avoid handling an error `json.Marshal` never returns for two booleans. D227 §6 renamed the
+  struct's `retryImages` to `shouldRetryImages` with a type-aware rename, which cannot see a
+  string, so every refresh read the flag as false and no refresh asked for missing images again.
+  The artwork test that checked the recheck decoded the arguments with its own copy of the struct,
+  which kept the old name too, so it agreed with the bug.
+- **Caught by:** the identify group's rename agent, reading the code by hand; no test failed.
+- **Gate:** `TestArch_NoHandBuiltJSON` fails on any string in shipped code that spells out a JSON
+  object's keys, and `RefreshJob` encodes `refreshArgs` itself; `TestRefreshJob_ItsArgumentsReadBackAsTheJobReadsThem`
+  decodes with the struct the job reads. The lesson for tests: decode with the production struct,
+  not a copy of it.
+
 ### A12 — A contract rename called done because the client compiled and its tests passed (2026-09-29)
 
 - **What happened:** I committed D227's API renames as complete with `make check` and
