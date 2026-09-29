@@ -234,7 +234,7 @@ func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader)
 		if facts, found := dependencies.NodeReports.Facts(node.Name); found {
 			body.RecentPrepares, err = finishedPrepares(ctx, dependencies, facts.NodeID)
 			if err != nil {
-				return nil, server.logInternalError(ctx, "list a node's prepares", err)
+				return nil, server.playbackError(ctx, "list a node's prepares", err)
 			}
 			fillNodeFacts(&body, facts, dependencies.System.Build)
 		}

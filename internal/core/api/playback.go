@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -15,6 +16,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
+	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 const tagPlayback = "Playback"
@@ -154,13 +157,8 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		Link: decide.Link(input.Body.Network), Prefer: decide.PreferredDelivery(input.Body.PreferredDelivery),
 	}
 	started, err := dependencies.Playback.Start(ctx, principal.UserID, principal.SessionKey, request)
-	switch {
-	case errors.Is(err, decide.ErrBadMenu):
-		return nil, newError(http.StatusBadRequest, CodeInvalidRequest, err.Error())
-	case errors.Is(err, playback.ErrNoFile):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such file to play")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "start a playback", err)
+	if err != nil {
+		return nil, server.playbackError(ctx, "start a playback", err)
 	}
 	output := &StartPlaybackOutput{}
 	output.Body.Delivery = string(started.Decision.Delivery)
@@ -199,11 +197,8 @@ func (server *Server) relayDirect(
 		return nil, err
 	}
 	source, err := dependencies.Playback.DirectSource(ctx, input.Token, principal.UserID, principal.SessionKey)
-	switch {
-	case errors.Is(err, playback.ErrNoToken), errors.Is(err, playback.ErrNoFile):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "find a playback's bytes", err)
+	if err != nil {
+		return nil, server.playbackError(ctx, "find a playback's bytes", err)
 	}
 	header := http.Header{}
 	if input.Range != "" {
@@ -234,11 +229,8 @@ func (server *Server) relayHLSFile(
 	}
 	source, err := dependencies.Playback.HLSSourceOf(
 		ctx, token, renditionPath, principal.UserID, principal.SessionKey)
-	switch {
-	case errors.Is(err, playback.ErrNoToken):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "find a rendition's file", err)
+	if err != nil {
+		return nil, server.playbackError(ctx, "find a rendition's file", err)
 	}
 	header := http.Header{}
 	if byteRange != "" {
@@ -261,13 +253,65 @@ func (server *Server) relayHLSFile(
 			// prepared again, and the player waits as for a new one (D217 §5).
 			if renditionPath == "master.m3u8" {
 				if err := dependencies.Playback.PrepareAgain(ctx, source); err != nil {
-					return server.logInternalError(ctx, "prepare a lost rendition again", err)
+					return server.playbackError(ctx, "prepare a lost rendition again", err)
 				}
 				return tooEarly()
 			}
 		}
 		return newError(http.StatusNotFound, CodeFileUnavailable, "the rendition is no longer there")
 	})
+}
+
+// playbackError maps the playback package's refusals, and a subtitle provider's that reach the API
+// through it, to API errors. Every handler that calls playback answers through it, so a refusal
+// always leaves with one code and one message. A subtitle provider's refusal says why in
+// detail.reason, in OpenSubtitles' terms, with the provider as the failing leg (D224).
+func (server *Server) playbackError(ctx context.Context, action string, err error) error {
+	fromProvider := func(status int, code Code, reason, message string) error {
+		failure := newError(status, code, message)
+		failure.ErrorBody.Error.Detail = map[string]string{"reason": reason}
+		failure.ErrorBody.Error.FailedHop = HopProvider
+		return failure
+	}
+	spent, isSpent := errors.AsType[*opensubtitles.QuotaSpentError](err)
+	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
+	switch {
+	case errors.Is(err, decide.ErrBadMenu), errors.Is(err, playback.ErrBadReport):
+		return newError(http.StatusBadRequest, CodeInvalidRequest, err.Error())
+	case errors.Is(err, playback.ErrNoFile):
+		return newError(http.StatusNotFound, CodeNotFound, "no such file to play")
+	case errors.Is(err, playback.ErrNoToken):
+		return newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
+	case errors.Is(err, playback.ErrNoSubtitle):
+		return newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
+	case errors.Is(err, playback.ErrNoTrack):
+		return newError(http.StatusBadRequest, CodeInvalidRequest, "this file has no such subtitle track")
+	case errors.Is(err, playback.ErrNoItem):
+		return newError(http.StatusNotFound, CodeNotFound, "no such item")
+	case errors.Is(err, playback.ErrNothingToSearchBy):
+		return newError(http.StatusConflict, CodeConflict,
+			"this file is not identified yet, and has not been scanned since it could be hashed for OpenSubtitles")
+	case errors.Is(err, playback.ErrNoSubtitler):
+		return fromProvider(http.StatusServiceUnavailable, CodeProviderError, "not_configured",
+			"this server fetches no subtitles")
+	case errors.Is(err, opensubtitles.ErrNoLogin):
+		return fromProvider(http.StatusServiceUnavailable, CodeProviderError, "no_login",
+			"no OpenSubtitles login is set; an admin can set it in Settings")
+	case errors.Is(err, opensubtitles.ErrLoginRefused):
+		return fromProvider(http.StatusServiceUnavailable, CodeProviderError, "login_refused",
+			"OpenSubtitles refused the login; an admin can change it in Settings")
+	case isSpent:
+		failure := newError(http.StatusTooManyRequests, CodeQuotaExhausted,
+			"the OpenSubtitles account's downloads for today are spent")
+		failure.ErrorBody.Error.Detail = map[string]string{
+			"downloadsResetAt": strconv.FormatInt(spent.ResetAt.UnixMilli(), 10),
+		}
+		failure.ErrorBody.Error.FailedHop = HopProvider
+		return failure
+	case isLimited:
+		return providerRateLimited(limited)
+	}
+	return server.logInternalError(ctx, action, err)
 }
 
 // tooEarly is 425 Too Early, with the Retry-After a player waits for.

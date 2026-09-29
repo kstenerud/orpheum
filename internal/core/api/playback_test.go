@@ -269,3 +269,17 @@ func TestPlayback_RefusesWhatCannotBePlayed(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/playback", user, chrome(99)), http.StatusNotFound, CodeNotFound)
 	wantError(t, harness.do(t, http.MethodPost, "/playback", "", chrome(1)), http.StatusUnauthorized, CodeAuthRequired)
 }
+
+func TestPlayback_AFileRemovedWhilePlayingIsNoFileToPlayAsItIsToStart(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	decided := harness.play(t, user, chrome(1))
+	storetest.ExecRaw(t, harness.databasePath, "UPDATE file SET removed_at = 2 WHERE id = 1")
+	playing := harness.getBytePath(t, decided.URL, user, false, "")
+	wantErrorSaying(t, response{status: playing.status, body: playing.body}, http.StatusNotFound, CodeNotFound,
+		"no such file to play")
+	wantErrorSaying(t, harness.do(t, http.MethodPost, "/playback", user, chrome(1)), http.StatusNotFound,
+		CodeNotFound, "no such file to play")
+}

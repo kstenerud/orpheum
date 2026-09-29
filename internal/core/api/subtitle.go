@@ -4,7 +4,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -104,11 +103,11 @@ func subtitleTracks(started playback.Started) []SubtitleTrackBody {
 func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*huma.StreamResponse, error) {
 	match := subtitleFilePattern.FindStringSubmatch(input.FileName)
 	if match == nil {
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
+		return nil, server.playbackError(ctx, "find a subtitle", playback.ErrNoSubtitle)
 	}
 	id, err := strconv.ParseInt(match[2], 10, 64)
 	if err != nil {
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
+		return nil, server.playbackError(ctx, "find a subtitle", playback.ErrNoSubtitle)
 	}
 	track := playback.TrackRef{StreamID: id}
 	if match[1] == "f" {
@@ -125,13 +124,8 @@ func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*h
 	}
 	subtitleText, err := dependencies.Playback.Subtitle(
 		ctx, input.Token, track, format, principal.UserID, principal.SessionKey)
-	switch {
-	case errors.Is(err, playback.ErrNoToken), errors.Is(err, playback.ErrNoFile):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
-	case errors.Is(err, playback.ErrNoSubtitle):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "find a subtitle", err)
+	if err != nil {
+		return nil, server.playbackError(ctx, "find a subtitle", err)
 	}
 	switch subtitleText.Readiness {
 	case playback.Preparing:

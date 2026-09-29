@@ -4,16 +4,12 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/playback"
-	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
-	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 // SubtitleCandidatesInput asks for the subtitles that can be fetched for a file in a language.
@@ -98,7 +94,7 @@ func (server *Server) getSubtitleCandidates(
 	}
 	offer, err := dependencies.Playback.SubtitleCandidates(ctx, input.FileID, input.Language)
 	if err != nil {
-		return nil, server.subtitleProviderError(ctx, "list subtitle candidates", err)
+		return nil, server.playbackError(ctx, "list subtitle candidates", err)
 	}
 	output := &SubtitleCandidatesOutput{}
 	output.Body.Candidates = make([]SubtitleCandidateBody, 0, len(offer.Candidates))
@@ -127,7 +123,7 @@ func (server *Server) postFileSubtitle(ctx context.Context, input *FetchSubtitle
 		ProviderFileID: input.Body.ProviderFileID, Language: input.Body.Language,
 	})
 	if err != nil {
-		return nil, server.subtitleProviderError(ctx, "fetch a subtitle", err)
+		return nil, server.playbackError(ctx, "fetch a subtitle", err)
 	}
 	output := &FetchSubtitleOutput{}
 	output.Body.FetchedSubtitleID = fetched.Track.FetchedSubtitleID
@@ -141,44 +137,4 @@ func unixMillisOrZero(at time.Time) int64 {
 		return 0
 	}
 	return at.UnixMilli()
-}
-
-// subtitleProviderError says why a subtitle could not be listed or fetched, in terms a client can
-// put in its viewer's words: detail.reason names the case (D224).
-func (server *Server) subtitleProviderError(ctx context.Context, action string, err error) error {
-	withReason := func(status int, code Code, reason, message string) error {
-		failure := newError(status, code, message)
-		failure.ErrorBody.Error.Detail = map[string]string{"reason": reason}
-		failure.ErrorBody.Error.FailedHop = HopProvider
-		return failure
-	}
-	quotaErr, isSpent := errors.AsType[*opensubtitles.QuotaSpentError](err)
-	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
-	switch {
-	case errors.Is(err, playback.ErrNoFile):
-		return newError(http.StatusNotFound, CodeNotFound, "no such file to play")
-	case errors.Is(err, playback.ErrNothingToSearchBy):
-		return newError(http.StatusConflict, CodeConflict,
-			"this file is not identified yet, and has not been scanned since it could be hashed for OpenSubtitles")
-	case errors.Is(err, playback.ErrNoSubtitler):
-		return withReason(http.StatusServiceUnavailable, CodeProviderError, "not_configured",
-			"this server fetches no subtitles")
-	case errors.Is(err, opensubtitles.ErrNoLogin):
-		return withReason(http.StatusServiceUnavailable, CodeProviderError, "no_login",
-			"no OpenSubtitles login is set; an admin can set it in Settings")
-	case errors.Is(err, opensubtitles.ErrLoginRefused):
-		return withReason(http.StatusServiceUnavailable, CodeProviderError, "login_refused",
-			"OpenSubtitles refused the login; an admin can change it in Settings")
-	case isSpent:
-		failure := newError(http.StatusTooManyRequests, CodeQuotaExhausted,
-			"the OpenSubtitles account's downloads for today are spent")
-		failure.ErrorBody.Error.Detail = map[string]string{
-			"downloadsResetAt": strconv.FormatInt(quotaErr.ResetAt.UnixMilli(), 10),
-		}
-		failure.ErrorBody.Error.FailedHop = HopProvider
-		return failure
-	case isLimited:
-		return providerRateLimited(limited)
-	}
-	return server.logInternalError(ctx, action, err)
 }
