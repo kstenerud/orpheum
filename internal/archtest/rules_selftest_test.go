@@ -267,3 +267,24 @@ func TestFindHandBuiltJSON_CatchesAnObjectWrittenOutAndLetsOtherBracesBe(t *test
 		t.Errorf("an unparseable file: got %d violations, want 1", len(got))
 	}
 }
+
+func TestFindMisnamedHandlers_CatchesAHandlerNamedApartFromItsOperation(t *testing.T) {
+	t.Parallel()
+	const header = "package api\n\nfunc (server *Server) register() {\n"
+	named := header + "\thuma.Register(server.api, huma.Operation{OperationID: \"getMe\"}, server.getMe)\n}\n"
+	if got := findMisnamedHandlers([]sourceFile{{path: "a.go", contents: named}}); len(got) != 0 {
+		t.Errorf("a handler named for its operation: got %v, want none", got)
+	}
+	unreadable := map[string]string{
+		"another name": header + "\thuma.Register(server.api, huma.Operation{OperationID: \"getMe\"}, server.me)\n}\n",
+		"a closure": header + "\thuma.Register(server.api, huma.Operation{OperationID: \"getMe\"}, " +
+			"func(context.Context, *struct{}) (*struct{}, error) { return nil, nil })\n}\n",
+		"a computed id": header + "\thuma.Register(server.api, huma.Operation{OperationID: id}, server.getMe)\n}\n",
+		"no id":         header + "\thuma.Register(server.api, huma.Operation{}, server.getMe)\n}\n",
+	}
+	for name, contents := range unreadable {
+		if got := findMisnamedHandlers([]sourceFile{{path: "a.go", contents: contents}}); len(got) != 1 {
+			t.Errorf("%s: got %d violations, want 1", name, len(got))
+		}
+	}
+}

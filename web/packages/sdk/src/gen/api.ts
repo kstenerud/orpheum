@@ -34,7 +34,7 @@ export interface paths {
         post?: never;
         delete?: never;
         options?: never;
-        /** A file's own bytes, relayed from its node, honouring Range */
+        /** What a file's own bytes would be, without them */
         head: operations["headDirect"];
         patch?: never;
         trace?: never;

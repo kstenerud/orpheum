@@ -112,18 +112,20 @@ func (server *Server) registerPlayback() {
 		Summary: "Decide how a file plays on this client, and where its bytes are (cut-a §6)",
 		Tags:    []string{tagPlayback},
 	}, server.startPlayback)
-	for method, operationID := range map[string]string{http.MethodGet: "getDirect", http.MethodHead: "headDirect"} {
-		huma.Register(server.humaAPI, huma.Operation{
-			OperationID: operationID, Method: method, Path: "/bytes/media/direct/{token}",
-			Summary: "A file's own bytes, relayed from its node, honouring Range", Tags: []string{tagPlayback},
-			Responses: map[string]*huma.Response{
-				"200": {Description: "The file", Content: map[string]*huma.MediaType{"application/octet-stream": {}}},
-				"206": {Description: "The range asked for"},
-			},
-		}, func(ctx context.Context, input *DirectInput) (*huma.StreamResponse, error) {
-			return server.relayDirect(ctx, method, input)
-		})
+	directResponses := map[string]*huma.Response{
+		"200": {Description: "The file", Content: map[string]*huma.MediaType{"application/octet-stream": {}}},
+		"206": {Description: "The range asked for"},
 	}
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "getDirect", Method: http.MethodGet, Path: "/bytes/media/direct/{token}",
+		Summary: "A file's own bytes, relayed from its node, honouring Range", Tags: []string{tagPlayback},
+		Responses: directResponses,
+	}, server.getDirect)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "headDirect", Method: http.MethodHead, Path: "/bytes/media/direct/{token}",
+		Summary: "What a file's own bytes would be, without them", Tags: []string{tagPlayback},
+		Responses: directResponses,
+	}, server.headDirect)
 	responses := map[string]*huma.Response{
 		"200": {Description: "The file", Content: map[string]*huma.MediaType{
 			"application/vnd.apple.mpegurl": {}, "video/iso.segment": {}, "video/mp4": {},
@@ -134,9 +136,7 @@ func (server *Server) registerPlayback() {
 		OperationID: "getMasterPlaylist", Method: http.MethodGet, Path: "/bytes/media/hls/{token}/master.m3u8",
 		Summary: "A prepared playback's master playlist, relayed from its node", Tags: []string{tagPlayback},
 		Responses: responses,
-	}, func(ctx context.Context, input *MasterInput) (*huma.StreamResponse, error) {
-		return server.relayHLSFile(ctx, input.MediaCredentials, input.Token, "master.m3u8", "")
-	})
+	}, server.getMasterPlaylist)
 	server.registerSubtitles()
 	server.registerSubtitleFetch()
 	huma.Register(server.humaAPI, huma.Operation{
@@ -144,10 +144,7 @@ func (server *Server) registerPlayback() {
 		Path:    "/bytes/media/hls/{token}/{renditionName}/{fileName}",
 		Summary: "One file of a prepared playback's rendition, relayed from its node", Tags: []string{tagPlayback},
 		Responses: responses,
-	}, func(ctx context.Context, input *RenditionFileInput) (*huma.StreamResponse, error) {
-		return server.relayHLSFile(ctx, input.MediaCredentials, input.Token,
-			input.RenditionName+"/"+input.FileName, input.Range)
-	})
+	}, server.getRenditionFile)
 }
 
 // hlsFilePattern is the only shape a rendition's file may be asked for by: the master playlist, or
@@ -356,4 +353,26 @@ func convertNames[T ~string](listed []string) []T {
 func sessionKey(authorization string) string {
 	sum := sha256.Sum256([]byte(bearerToken(authorization)))
 	return hex.EncodeToString(sum[:])
+}
+
+// getDirect answers GET /bytes/media/direct/{token}: a file's own bytes, relayed from its node.
+func (server *Server) getDirect(ctx context.Context, input *DirectInput) (*huma.StreamResponse, error) {
+	return server.relayDirect(ctx, http.MethodGet, input)
+}
+
+// headDirect answers HEAD /bytes/media/direct/{token}: the headers a GET would send.
+func (server *Server) headDirect(ctx context.Context, input *DirectInput) (*huma.StreamResponse, error) {
+	return server.relayDirect(ctx, http.MethodHead, input)
+}
+
+// getMasterPlaylist answers GET /bytes/media/hls/{token}/master.m3u8, relayed from its node.
+func (server *Server) getMasterPlaylist(ctx context.Context, input *MasterInput) (*huma.StreamResponse, error) {
+	return server.relayHLSFile(ctx, input.MediaCredentials, input.Token, "master.m3u8", "")
+}
+
+// getRenditionFile answers GET /bytes/media/hls/{token}/{renditionName}/{fileName}: one file of a
+// prepared playback's rendition, relayed from its node.
+func (server *Server) getRenditionFile(ctx context.Context, input *RenditionFileInput) (*huma.StreamResponse, error) {
+	return server.relayHLSFile(ctx, input.MediaCredentials, input.Token,
+		input.RenditionName+"/"+input.FileName, input.Range)
 }

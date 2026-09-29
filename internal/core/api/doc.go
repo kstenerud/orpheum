@@ -20,6 +20,8 @@
 //   - Every JSON field on the wire is camelCase and every marshalled struct has explicit tags.
 //     Enforced by tagliatelle (json: camel) and musttag.
 //   - Never branches on the User-Agent. Enforced by the forbidigo rule tagged [client-identity].
+//   - Every handler is the Server method its operation's OperationID names, so the API document
+//     and the code say one name. Enforced by TestArch_APIHandlersAreNamedForTheirOperations.
 //   - Every error, huma's own included, leaves as {"error": {...}} with a code from the
 //     enumeration, and never echoes a submitted value. Enforced by the tests' wantError and
 //     TestSecrets_AreWriteOnly.
@@ -34,7 +36,7 @@
 //     TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings. Doctor warns when a node has a
 //     GPU and no hardware encoder works on it. TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor.
 //     Doctor warns when a node runs another build than the server's (D225 §5).
-//     TestBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer.
+//     TestNodeBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer.
 //   - Why a subtitle could not be listed or fetched is said in OpenSubtitles' terms: no login, a
 //     refused login, or a spent quota with its reset time (D224).
 //     TestSubtitleCandidates_SayWhyInTheProvidersTerms.
@@ -77,7 +79,7 @@
 //   - One file per endpoint group of cut-a §5: session.go (setup and auth), settings.go,
 //     config.go, secrets.go, health.go, identification.go, libraries.go, browse.go, art.go,
 //     doctor.go, system.go, playback.go, subtitle.go, subtitle_fetch.go, prefs.go, report.go,
-//     home.go, accounts.go, devices.go and jobs.go. A handler method is named for its OperationID.
+//     home.go, accounts.go, devices.go and jobs.go.
 //   - server.go holds the readiness gate and the authentication helpers: requireSignedIn and
 //     requireAdmin; requireMetadataEditor is in identification.go, and requireSignedInForMedia,
 //     for the byte paths, in media_cookie.go.

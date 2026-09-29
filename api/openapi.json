@@ -3380,7 +3380,7 @@
             "description": "The range asked for"
           }
         },
-        "summary": "A file's own bytes, relayed from its node, honouring Range",
+        "summary": "What a file's own bytes would be, without them",
         "tags": [
           "Playback"
         ]

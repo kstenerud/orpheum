@@ -50,44 +50,19 @@ func (server *Server) registerSettings() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSettings", Method: http.MethodGet, Path: "/settings",
 		Summary: "The server settings the settings page shows (admin)", Tags: tags,
-	}, func(ctx context.Context, input *AuthorizationHeader) (*SettingsOutput, error) {
-		dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
-		if err != nil {
-			return nil, err
-		}
-		return server.listSettings(ctx, dependencies.Settings, nil, true)
-	})
+	}, server.getSettings)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "putSettings", Method: http.MethodPut, Path: "/settings",
 		Summary: "Change server settings the settings page shows, all or none (admin)", Tags: tags,
-	}, func(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
-		dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
-		if err != nil {
-			return nil, err
-		}
-		return server.putSettings(ctx, dependencies.Settings, nil, input.Body.ValuesByKey, principal.UserID, true)
-	})
+	}, server.putSettings)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getMySettings", Method: http.MethodGet, Path: "/me/settings",
 		Summary: "This user's own settings", Tags: tags,
-	}, func(ctx context.Context, input *AuthorizationHeader) (*SettingsOutput, error) {
-		dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
-		if err != nil {
-			return nil, err
-		}
-		return server.listSettings(ctx, dependencies.Settings, &principal.UserID, true)
-	})
+	}, server.getMySettings)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "putMySettings", Method: http.MethodPut, Path: "/me/settings",
 		Summary: "Change this user's own settings, all or none", Tags: tags,
-	}, func(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
-		dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
-		if err != nil {
-			return nil, err
-		}
-		return server.putSettings(ctx, dependencies.Settings, &principal.UserID, input.Body.ValuesByKey,
-			principal.UserID, true)
-	})
+	}, server.putMySettings)
 	server.registerConfig()
 }
 
@@ -120,7 +95,7 @@ func settingBody(entry settings.Entry) SettingBody {
 	return body
 }
 
-func (server *Server) putSettings(
+func (server *Server) writeSettings(
 	ctx context.Context, service *settings.Service, ownerUserID *int64, values map[string]json.RawMessage,
 	setByUserID int64,
 	isExposedOnly bool,
@@ -134,4 +109,41 @@ func (server *Server) putSettings(
 		return nil, server.logInternalError(ctx, "set settings", err)
 	}
 	return server.listSettings(ctx, service, ownerUserID, isExposedOnly)
+}
+
+// getSettings answers GET /settings: the server settings the settings page shows (admin).
+func (server *Server) getSettings(ctx context.Context, input *AuthorizationHeader) (*SettingsOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	return server.listSettings(ctx, dependencies.Settings, nil, true)
+}
+
+// putSettings answers PUT /settings: change server settings the settings page shows, all or none (admin).
+func (server *Server) putSettings(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
+	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	return server.writeSettings(ctx, dependencies.Settings, nil, input.Body.ValuesByKey, principal.UserID, true)
+}
+
+// getMySettings answers GET /me/settings: this user's own settings.
+func (server *Server) getMySettings(ctx context.Context, input *AuthorizationHeader) (*SettingsOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	return server.listSettings(ctx, dependencies.Settings, &principal.UserID, true)
+}
+
+// putMySettings answers PUT /me/settings: change this user's own settings, all or none.
+func (server *Server) putMySettings(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	return server.writeSettings(ctx, dependencies.Settings, &principal.UserID, input.Body.ValuesByKey,
+		principal.UserID, true)
 }

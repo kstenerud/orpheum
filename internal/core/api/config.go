@@ -132,7 +132,7 @@ func (server *Server) putConfig(ctx context.Context, input *PutSettingsInput) (*
 	if err != nil {
 		return nil, err
 	}
-	return server.putSettings(ctx, dependencies.Settings, nil, input.Body.ValuesByKey, principal.UserID, false)
+	return server.writeSettings(ctx, dependencies.Settings, nil, input.Body.ValuesByKey, principal.UserID, false)
 }
 
 func (server *Server) resetConfig(ctx context.Context, input *SettingKeyInput) (*SettingOutput, error) {
