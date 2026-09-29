@@ -58,6 +58,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import fcntl
 import functools
 import ast
 import os
@@ -577,11 +578,35 @@ def report(outcomes: list[Outcome]) -> str:
 BROWSER_TIER_LOCK = threading.Lock()
 
 
+@contextlib.contextmanager
+def hold_probe_trees():
+    """The kept trees are shared by every worktree of the repository, so two runs at once (two
+    agents' worktrees, or a hook beside a manual run) would reset each other's trees mid-probe.
+    A run holds this lock on the git common directory for as long as it uses them."""
+    common = Path(_git("rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip())
+    (common / "revert-red").mkdir(exist_ok=True)
+    with open(common / "revert-red" / "lock", "w", encoding="utf-8") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print("Another revert-red run is using the probe trees; waiting for it to finish.", flush=True)
+            fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
 def probe_trees(head: str, count: int) -> list[str]:
     """`count` worktrees to probe in, at fixed paths inside the repository's git directory, made
     once and kept: a Go build or test cached in one is found again next run, which a fresh path
     would miss. Each is set back to `head` and cleaned of untracked files, keeping the ignored
-    ones (the linked node_modules)."""
+    ones (the linked node_modules).
+
+    `head` is resolved to a commit here, in the working tree: a ref such as HEAD names a
+    different commit inside each kept tree (the one it was last set to), so passing it through
+    would set every tree back to where it already was and probe a stale copy of the code."""
+    resolved = _git("rev-parse", "--verify", "--quiet", f"{head}^{{commit}}")
+    if resolved.returncode != 0:
+        raise RuntimeError(f"{head!r} is not a commit this repository can resolve")
+    head = resolved.stdout.strip()
     common = Path(_git("rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip())
     source = Path(_git("rev-parse", "--show-toplevel").stdout.strip())
     trees = []
@@ -643,8 +668,13 @@ def main() -> int:
         return 0
 
     jobs = args.jobs or max(1, (os.cpu_count() or 2) // 2)
+    with hold_probe_trees():
+        return probe_all(args, owed, exempt, min(jobs, len(owed)))
+
+
+def probe_all(args: argparse.Namespace, owed: list[Change], exempt: int, jobs: int) -> int:
     try:
-        trees = probe_trees(args.head, min(jobs, len(owed)))
+        trees = probe_trees(args.head, jobs)
     except RuntimeError as problem:
         print(f"Could not prepare the worktrees to test in:\n{problem}")
         return 1
