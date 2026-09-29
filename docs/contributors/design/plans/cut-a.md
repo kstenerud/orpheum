@@ -201,7 +201,7 @@ with the file channel deleted.
 longer match ([D100](../../decisions/working-notes.md)).
 
 **Core reads from the node** (`/run/orpheum/node.sock`, `GET` only):
-- `GET /bytes/v1/file?root=…&path=…&payloadHash=…`, honouring `Range`: `path` is base64url of the bytes relative to `root` (plan-deviations P25);
+- `GET /bytes/v1/file?rootPath=…&path=…&payloadHash=…`, honouring `Range`: `path` is base64url of the bytes relative to `rootPath` (plan-deviations P25);
 - `GET /bytes/v1/prepared/<file_id>/<profile>/<run_id>/<name>` (D217 §5).
 
 **Liveness:** `status` records carry the node's clock and what it is doing. The core marks the

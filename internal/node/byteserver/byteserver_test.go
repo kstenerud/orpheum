@@ -161,9 +161,9 @@ func TestServeFile_NamesNothingOutsideARoot(t *testing.T) {
 		}
 	}
 	for name, target := range map[string]string{
-		"no hash": nodeproto.PathBytesFile + "?" + url.Values{"root": {movie.root.Path()}, "path": {"eA"}}.Encode(),
+		"no hash": nodeproto.PathBytesFile + "?" + url.Values{"rootPath": {movie.root.Path()}, "path": {"eA"}}.Encode(),
 		"a path not base64": nodeproto.PathBytesFile + "?" + url.Values{
-			"root": {movie.root.Path()}, "path": {"%%"}, "payloadHash": {movie.payloadHash},
+			"rootPath": {movie.root.Path()}, "path": {"%%"}, "payloadHash": {movie.payloadHash},
 		}.Encode(),
 	} {
 		got := request(t, handler, http.MethodGet, target, nil)
