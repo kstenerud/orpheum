@@ -49,6 +49,25 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A12 — A contract rename called done because the client compiled and its tests passed (2026-09-29)
+
+- **What happened:** I committed D227's API renames as complete with `make check` and
+  `make check-pr` green, and four old names were still live in the web client: the sound
+  switches sent `isDialogueBoost` and `isLevelling`, which the server now refuses; a browser
+  signing in again sent `resumeId`, refused too; the Files screen asked with `?library=`, which
+  the server ignores, so it listed every library's files; and the browser tier's config said
+  `confinement`, which the server ignores. The belief came from the compiler and the tests. The
+  compiler checks no excess property on a body built with a computed key or held in a variable,
+  and the stand-in server accepted any body and dropped the query string, so the tests asserted
+  the old names on both sides.
+- **Caught by:** a second audit the owner asked for, whose reviewer compared each API call
+  against `api/openapi.json`.
+- **Gate:** the four fixes take their names from the API's own types (`satisfies` and the
+  generated schemas), so a rename fails to compile. The stand-in server records the query, and
+  a Files test checks `libraryId`. The browser tier fails when its server says a config key is
+  read by nothing. `jobs.test.tsx` makes every job kind have words. Still open: the stand-in
+  server does not check a body against the schema.
+
 ### A11 — A screen's words written from a decision's prose, not from what the code produces (2026-09-27)
 
 - **What happened:** building D222, I wrote the receiver's hint as *"Surround sound goes to it as

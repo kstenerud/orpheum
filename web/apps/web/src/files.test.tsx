@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
 import "./i18n.ts";
@@ -5,7 +6,8 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { byReason, ReasonGroups, type SeenFile } from "./files.tsx";
+import { byReason, Files, ReasonGroups, type SeenFile } from "./files.tsx";
+import { mount, servedBy, type Heard } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 const file = (
@@ -51,5 +53,18 @@ describe("what the scanner saw", () => {
     expect(markup).toContain("<summary>Could not be read · permission_denied (1)</summary>");
     expect(markup).toContain("<code>/media/1.mkv</code>");
     expect(markup).toContain("Details: owner 1000, mode 0600");
+  });
+});
+
+describe("the files screen", () => {
+  it("asks for one library's files by libraryId, the parameter's name (D227)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "GET /files": [200, { files: [file(1, "listed")] }] }, heard);
+    const mounted = await mount(withServices(<Files libraryId={3} />, services));
+    const asked = new URLSearchParams(heard[0]?.query);
+    expect(heard[0]?.asked).toBe("GET /files");
+    expect(asked.get("libraryId")).toBe("3");
+    expect(mounted.container.textContent).toContain("/media/1.mkv");
+    mounted.unmount();
   });
 });

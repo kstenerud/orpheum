@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
-/** How this client names itself when it signs in (D217 §8): the person can rename it later. */
-export interface NewDevice {
-  readonly name: string;
-  readonly platform: "web";
-  /** The device this browser was signed in as before, which the server resumes (D221). */
-  readonly resumeId?: number;
-}
+import type { components } from "@orpheum/sdk";
+
+/**
+ * How this client names itself when it signs in (D217 §8): the person can rename it later. Its
+ * fields are the API's own, so a renamed field fails to compile. previousDeviceId is the device
+ * this browser was signed in as before, which the server resumes (D221).
+ */
+export type NewDevice = components["schemas"]["NewDeviceBody"] & { readonly platform: "web" };
 
 /** The browser's name, from its user agent: the first that matches, so Edge is not Chrome. */
 function browserOf(userAgent: string): string | undefined {
@@ -43,7 +44,7 @@ export function deviceFrom(userAgent: string): NewDevice {
 
 /** This browser as a device to sign in on: named from its user agent, resuming the last (D221). */
 export function thisDevice(session: { readonly deviceId: () => number | undefined }): NewDevice {
-  const resumeId = session.deviceId();
+  const previousDeviceId = session.deviceId();
   const named = deviceFrom(navigator.userAgent);
-  return resumeId === undefined ? named : { ...named, resumeId };
+  return previousDeviceId === undefined ? named : { ...named, previousDeviceId };
 }

@@ -2,7 +2,7 @@
 
 import "./sound.css";
 
-import type { Api } from "@orpheum/sdk";
+import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -14,8 +14,11 @@ import { useServices } from "./services.tsx";
 /** The three ways a device makes sound, as the question offers them (D184, D222). */
 export const audioOutputs: readonly AudioOutput[] = ["built_in_speakers", "receiver", "headphones"];
 
-/** A choice of the person's own, which holds in every file they play: its name in PUT /me/prefs. */
-type OwnChoice = "isDialogueBoost" | "isLevelling";
+/**
+ * A choice of the person's own, which holds in every file they play: its name in PUT /me/prefs,
+ * taken from the API's own body so a renamed field fails to compile rather than being refused.
+ */
+type OwnChoice = keyof components["schemas"]["SetMyPrefsInputBody"];
 
 /** Keeps one of the person's own choices: the dialogue boost (D83, D222), levelling (D226). */
 async function keepOwnChoice(api: Api, choice: OwnChoice, isOn: boolean): Promise<void> {
@@ -99,7 +102,7 @@ export function BoostSwitch(props: {
   readonly switched: (isOn: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  return <OwnSwitch choice="isDialogueBoost" label={t("play.boost")} {...props} />;
+  return <OwnSwitch choice="isDialogueBoostOn" label={t("play.boost")} {...props} />;
 }
 
 /**

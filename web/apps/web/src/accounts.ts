@@ -82,10 +82,13 @@ export async function isCodeWaiting(api: Api): Promise<boolean> {
 export async function signInWithCode(
   api: Api,
   code: string,
-  resumeId: number | undefined,
+  previousDeviceId: number | undefined,
 ): Promise<Session> {
-  const body =
-    resumeId === undefined ? { code, platform: "web" } : { code, platform: "web", resumeId };
+  const body = (
+    previousDeviceId === undefined
+      ? { code, platform: "web" }
+      : { code, platform: "web", previousDeviceId }
+  ) satisfies components["schemas"]["CodeSignInInputBody"];
   return dataOrThrow(await api.POST("/session/code", { body }));
 }
 

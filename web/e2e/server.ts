@@ -145,7 +145,7 @@ socket_dir = "${root}/run"
 name = "browser-test"
 roots = ["${library}"]
 ffmpeg_dir = "${ffmpegDirectory}"
-confinement = "report"
+confinement_policy = "report"
 prepared_dir = "${root}/cache/prepared"
 prepared_budget_gib = 1
 
@@ -241,6 +241,13 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   // workers.
   process.env[serverAddress] = url;
   await waitForHealth(url, server, () => log);
+  // A key the server does not read is a key this config names wrongly, as after a rename (D227):
+  // the tests would run on its starting value, not the one written here.
+  const unread = log.split("\n").filter((line) => line.includes("nothing reads it"));
+  if (unread.length > 0) {
+    server.kill("SIGTERM");
+    throw new Error(`the test config names keys the server does not read:\n${unread.join("\n")}`);
+  }
 
   return async () => {
     server.kill("SIGTERM");

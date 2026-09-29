@@ -339,6 +339,7 @@ export const en = {
       artwork: "Artwork",
       prepare: "Preparing a copy",
       extractSubtitle: "Extracting subtitles",
+      measureLoudness: "Measuring loudness",
       convertFetchedSubtitle: "Converting a downloaded subtitle",
       scan: "Scanning",
       backup: "Backing up",
