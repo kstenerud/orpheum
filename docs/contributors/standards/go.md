@@ -294,7 +294,7 @@ describe in a phrase, and give it that phrase as its name.
   `TestArch_OnlyExecxImportsOsExec`, `TestArch_CoreNeverExecs`.
 - The other exceptions start no process that ships: archtest's tests, which run `go list`, and
   `internal/testutil`, which runs the MKVToolNix the integration tier edits Matroska files with
-  (the node never edits media). **Enforced by:** `TestArch_TestutilIsImportedOnlyByTests`.
+  (the node never edits media). **Enforced by:** `TestArch_TestSupportIsImportedOnlyByTests`.
 - **`execx` is the only place a child's lifetime is decided**, and it decides it the same way
   every time ([yoloai-lessons.md](../design/research/yoloai-lessons.md)):
   - never `sh -c`: the argv is a slice;

@@ -18,7 +18,8 @@
 //     driver directly.
 //   - TestArch_OnlyExecxImportsOsExec: of the code that ships, only internal/node/execx imports
 //     os/exec directly; internal/testutil and this package's tests may too.
-//   - TestArch_TestutilIsImportedOnlyByTests: no package that ships imports internal/testutil.
+//   - TestArch_TestSupportIsImportedOnlyByTests: no package that ships imports internal/testutil
+//     or a test-support package (storetest, clocktest, settingstest, authtest, jobstest…).
 //   - TestArch_ReleaseBinaryReadsNoEnvironment: the release build of cmd/orpheum reads no
 //     environment variable (D204).
 //   - TestArch_APIHandlersAreNamedForTheirOperations: each handler internal/core/api registers is

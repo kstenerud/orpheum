@@ -347,7 +347,7 @@ func TestArch_OnlyStoreImportsDatabaseSQL(t *testing.T) {
 
 // TestArch_OnlyExecxImportsOsExec checks that, of the code that ships, only execx starts a
 // process. The test-only package internal/testutil may too, to run the tools the tests need
-// (MKVToolNix, FFmpeg, this binary); that it never ships is TestArch_TestutilIsImportedOnlyByTests.
+// (MKVToolNix, FFmpeg, this binary); that it never ships is TestArch_TestSupportIsImportedOnlyByTests.
 func TestArch_OnlyExecxImportsOsExec(t *testing.T) {
 	t.Parallel()
 	packages := loadModulePackages(t)
@@ -359,16 +359,34 @@ func TestArch_OnlyExecxImportsOsExec(t *testing.T) {
 	}))
 }
 
-// TestArch_TestutilIsImportedOnlyByTests checks that no package that ships imports
-// internal/testutil, so what it may do — skip a test, read test variables, run MKVToolNix —
-// never reaches a binary.
-func TestArch_TestutilIsImportedOnlyByTests(t *testing.T) {
+// testSupportPackages are the packages that exist for tests: internal/testutil and every package
+// named for a test's use (storetest, clocktest, settingstest, authtest…), which may import one
+// another.
+func testSupportPackages(packages []listedPackage) []string {
+	support := []string{testutilPath}
+	for _, listed := range packages {
+		name := listed.ImportPath[strings.LastIndex(listed.ImportPath, "/")+1:]
+		if strings.HasSuffix(name, "test") && listed.ImportPath != modulePath+"/internal/archtest" {
+			support = append(support, listed.ImportPath)
+		}
+	}
+	return support
+}
+
+// TestArch_TestSupportIsImportedOnlyByTests checks that no package that ships imports a
+// test-support package, so what one may do — skip a test, read test variables, run MKVToolNix,
+// fake a service — never reaches a binary.
+func TestArch_TestSupportIsImportedOnlyByTests(t *testing.T) {
 	t.Parallel()
 	packages := loadModulePackages(t)
 	requirePackagesUnder(t, packages, testutilPath)
+	support := testSupportPackages(packages)
+	if len(support) < 2 {
+		t.Fatalf("found no test-support package beside testutil (%v); the rule would check too little", support)
+	}
 	reportViolations(t, findDirectImporters(packages, importRule{
-		forbidden:            []string{testutilPath},
-		allowedImporters:     []string{testutilPath},
+		forbidden:            support,
+		allowedImporters:     support,
 		allowedTestImporters: []string{modulePath},
 	}))
 }

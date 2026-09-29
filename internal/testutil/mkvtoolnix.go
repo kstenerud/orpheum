@@ -20,7 +20,7 @@ const MKVToolNixCapability = "mkvtoolnix"
 
 // MKVToolNix runs the pinned mkvmerge and mkvpropedit for a test. The node never runs them: it
 // only reads media, and execx refuses anything but ffmpeg and ffprobe. That is why this lives
-// here, in a package only tests may import (TestArch_TestutilIsImportedOnlyByTests).
+// here, in a package only tests may import (TestArch_TestSupportIsImportedOnlyByTests).
 type MKVToolNix struct {
 	directory string
 }

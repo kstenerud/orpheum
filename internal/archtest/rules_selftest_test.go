@@ -3,6 +3,7 @@
 package archtest
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -286,5 +287,20 @@ func TestFindMisnamedHandlers_CatchesAHandlerNamedApartFromItsOperation(t *testi
 		if got := findMisnamedHandlers([]sourceFile{{path: "a.go", contents: contents}}); len(got) != 1 {
 			t.Errorf("%s: got %d violations, want 1", name, len(got))
 		}
+	}
+}
+
+func TestTestSupportPackages_FindsEveryPackageNamedForATestButArchtest(t *testing.T) {
+	t.Parallel()
+	listed := []listedPackage{
+		{ImportPath: storePath + "/storetest"},
+		{ImportPath: corePath + "/auth/authtest"},
+		{ImportPath: modulePath + "/internal/archtest"},
+		{ImportPath: corePath + "/library"},
+	}
+	got := testSupportPackages(listed)
+	want := []string{testutilPath, storePath + "/storetest", corePath + "/auth/authtest"}
+	if !slices.Equal(got, want) {
+		t.Errorf("test-support packages = %v, want %v", got, want)
 	}
 }
