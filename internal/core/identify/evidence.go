@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -21,7 +22,7 @@ const identificationAmbiguous = "ambiguous"
 // ambiguity, or that its provider found nothing. A pass reads these and never calls the provider
 // (D170, D172, D182).
 func (filer *libraryFiler) matchEvidence(ctx context.Context, titleID int64, spec *titleSpec) error {
-	if spec.kind == kindEpisode {
+	if spec.kind == library.TitleKindEpisode {
 		return nil // an episode's evidence is its series' listing, read where it is filed (D209)
 	}
 	matchRow, err := store.OrNotFound(filer.queries.GetTitleForMatch(ctx, titleID))

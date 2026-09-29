@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -33,8 +34,9 @@ func (filer *libraryFiler) fileEpisode(
 	filer.seriesIDByFolder[seriesFolderOf(file.Path)] = seriesID
 	season, number := parsed.Season, parsed.Episode
 	spec := titleSpec{
-		kind: kindEpisode, name: fmt.Sprintf("Episode %d", number), runtimeMs: probeRuntimeMs(file.ProbeJson),
-		ids: map[string]string{},
+		kind: library.TitleKindEpisode, name: fmt.Sprintf("Episode %d", number),
+		runtimeMs: probeRuntimeMs(file.ProbeJson),
+		ids:       map[string]string{},
 	}
 	nfo, hasNFO := filer.nfoFor(file)
 	switch {

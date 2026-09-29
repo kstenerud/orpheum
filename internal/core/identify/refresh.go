@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -82,7 +83,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, shouldRetryIm
 	if err != nil {
 		return "", fmt.Errorf("read title %d: %w", itemID, err)
 	}
-	if title.Kind == kindEpisode {
+	if title.Kind == library.TitleKindEpisode {
 		seriesID, seriesErr := store.OrNotFound(queries.GetSeriesOfTitle(ctx, itemID))
 		if seriesErr != nil {
 			return OutcomeNothingToDo, nil //nolint:nilerr // an episode with no series has nothing to refresh

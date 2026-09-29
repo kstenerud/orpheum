@@ -128,7 +128,7 @@ func (browser *Browser) Series(ctx context.Context, seriesID int64) (SeriesDetai
 	for _, episode := range episodes {
 		ids = append(ids, episode.TitleID)
 	}
-	if detail.StillSha256ByEpisodeID, err = browser.shownArtSourceSha256s(ctx, artStill, ids); err != nil {
+	if detail.StillSha256ByEpisodeID, err = browser.shownArtSourceSha256s(ctx, ArtStill, ids); err != nil {
 		return SeriesDetail{}, err
 	}
 	return detail, nil

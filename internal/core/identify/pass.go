@@ -228,7 +228,7 @@ func (filer *libraryFiler) knowSeriesByFolder(ctx context.Context) error {
 			continue
 		}
 		parsed := ParsePath(relativePath)
-		if parsed.Kind != kindEpisode {
+		if parsed.Kind != library.TitleKindEpisode {
 			continue
 		}
 		key := strings.ToLower(parsed.Name)
@@ -247,8 +247,8 @@ func (filer *libraryFiler) knowSeriesByFolder(ctx context.Context) error {
 }
 
 func isVideo(file sqlcgen.ListIdentifyFilesRow) bool {
-	return file.PayloadHash != nil && file.Filing != "skipped" && file.Filing != "errored" &&
-		file.Filing != filingAttached
+	return file.PayloadHash != nil && file.Filing != library.FilingSkipped && file.Filing != library.FilingErrored &&
+		file.Filing != library.FilingAttached
 }
 
 // relativePath is a file's path below the library root on its node that holds it, as text.
@@ -271,7 +271,7 @@ func (filer *libraryFiler) fileFilmOrEpisode(
 	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, relativePath string,
 ) error {
 	parsed := ParsePath(relativePath)
-	if parsed.Kind == kindEpisode {
+	if parsed.Kind == library.TitleKindEpisode {
 		return filer.fileEpisode(ctx, file, parsed)
 	}
 	spec := filer.movieSpec(file, parsed)

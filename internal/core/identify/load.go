@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
@@ -38,7 +39,7 @@ func (filer *libraryFiler) load(ctx context.Context, libraryID int64) error {
 func (filer *libraryFiler) loadNFOs(ctx context.Context) error {
 	for _, file := range filer.files {
 		isNFO := ptr.ValueOrZero(file.SidecarKind) == string(nodeproto.SidecarNFO)
-		if file.Filing != filingAttached || !isNFO {
+		if file.Filing != library.FilingAttached || !isNFO {
 			continue
 		}
 		body, bodyErr := filer.queries.GetNFOBody(ctx, file.ID)

@@ -2,12 +2,10 @@
 
 package identify
 
-// The closed sets the schema's checks name (schema.md): a title's kind, its source and its
-// identification, a file's filing, the overridable fields, and the extra types (D162).
+// The closed sets the schema's checks name (schema.md) that only identification writes: a title's
+// source and its identification, the overridable fields, and the extra types (D162). A file's
+// filing, a title's kind and an image's kind are library's (library/vocabulary.go).
 const (
-	kindEpisode = "episode"
-	kindExtra   = "extra"
-
 	sourceNFO  = "nfo"
 	sourceTMDB = "tmdb"
 	sourceIMDb = "imdb"
@@ -17,11 +15,6 @@ const (
 	identificationIdentified   = "identified"
 	identificationUnidentified = "unidentified"
 	identificationConfirmed    = "confirmed"
-
-	filingListed       = "listed"
-	filingUnidentified = "unidentified"
-	filingExtra        = "extra"
-	filingAttached     = "attached"
 
 	fieldName      = "name"
 	fieldOverview  = "overview"

@@ -15,6 +15,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -418,9 +419,9 @@ func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identi
 	if err != nil {
 		return fmt.Errorf("list title %d's files: %w", titleID, err)
 	}
-	filing := filingListed
+	filing := library.FilingListed
 	if identification == identificationUnidentified {
-		filing = filingUnidentified
+		filing = library.FilingUnidentified
 	} else {
 		reason = ""
 	}

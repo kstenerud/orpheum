@@ -5,6 +5,8 @@ package identify
 import (
 	"context"
 	"errors"
+
+	"github.com/kstenerud/orpheum/internal/core/library"
 )
 
 // Provider is a metadata source behind the interface that is the future plugin host-function
@@ -95,12 +97,13 @@ type ArtRef struct {
 	Ref  string // the provider's path, which its image service resolves
 }
 
-// The kinds of image, as the artwork table names them.
+// The kinds of image, as the artwork table names them: library's, named here for the providers
+// and the artwork service, which speak of identification's images.
 const (
-	ArtPoster   = "poster"
-	ArtBackdrop = "backdrop"
-	ArtLogo     = "logo"
-	ArtStill    = "still"
+	ArtPoster   = library.ArtPoster
+	ArtBackdrop = library.ArtBackdrop
+	ArtLogo     = library.ArtLogo
+	ArtStill    = library.ArtStill
 )
 
 // Errors a provider returns, wrapped.

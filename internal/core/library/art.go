@@ -11,13 +11,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// The kinds of image an item shows, as the artwork table names them.
-const (
-	artPoster   = "poster"
-	artBackdrop = "backdrop"
-	artStill    = "still"
-)
-
 // Art is the images an item shows, by the source SHA-256 /art/ names them with; "" when it has none.
 type Art struct {
 	PosterSha256   string
@@ -58,7 +51,7 @@ func (browser *Browser) itemArt(ctx context.Context, itemID int64) (Art, error) 
 	for _, kind := range []struct {
 		name string
 		into *string
-	}{{artPoster, &art.PosterSha256}, {artBackdrop, &art.BackdropSha256}, {artStill, &art.StillSha256}} {
+	}{{ArtPoster, &art.PosterSha256}, {ArtBackdrop, &art.BackdropSha256}, {ArtStill, &art.StillSha256}} {
 		sourceSha256ByItemID, err := browser.shownArtSourceSha256s(ctx, kind.name, []int64{itemID})
 		if err != nil {
 			return Art{}, err
@@ -74,7 +67,7 @@ func (browser *Browser) withPosters(ctx context.Context, page Page) (Page, error
 	for _, entry := range page.Entries {
 		ids = append(ids, entry.ID)
 	}
-	posters, err := browser.shownArtSourceSha256s(ctx, artPoster, ids)
+	posters, err := browser.shownArtSourceSha256s(ctx, ArtPoster, ids)
 	if err != nil {
 		return Page{}, err
 	}

@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/kstenerud/orpheum/internal/core/library"
 )
 
 // ParsedPath is what a path says about the work in it: a hint, never an authority
@@ -82,7 +84,7 @@ func ParsePath(relative string) ParsedPath {
 	stem, parsed.ExtraSuffix = cutExtraSuffix(stem)
 
 	if marker, found := findEpisode(stem); found {
-		parsed.Kind = kindEpisode
+		parsed.Kind = library.TitleKindEpisode
 		parsed.Season, parsed.Episode, parsed.EpisodeEnd = marker.season, marker.episode, marker.lastEpisode
 		// The folders name a series more reliably than the words before "S02E05", which may be
 		// the episode's own name or "Folge" ("episode"); the file name is the fallback.

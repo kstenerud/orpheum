@@ -116,5 +116,5 @@
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; home.go: Continue Watching and the resume thresholds;
 //     subtitle_sidecar.go: a subtitle file's track; rootpath.go: which root a file is under, and a
-//     path's text.
+//     path's text; vocabulary.go: the filings, title kinds and image kinds identification shares.
 package library
