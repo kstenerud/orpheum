@@ -333,6 +333,9 @@ func TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing(t *test
 	if changed.status != http.StatusOK || !strings.Contains(changed.body, wantChanged) {
 		t.Errorf("PUT /settings = %d %s", changed.status, changed.body)
 	}
+	if !strings.Contains(changed.body, `"setByUserId":1`) {
+		t.Errorf("PUT /settings = %s, want it to name the admin who set it as setByUserId (D227)", changed.body)
+	}
 	mine := harness.do(t, http.MethodGet, "/me/settings", user, nil)
 	if mine.status != http.StatusOK || !strings.Contains(mine.body, `"settings":[]`) {
 		t.Errorf("GET /me/settings = %d %s, want an empty list, not null", mine.status, mine.body)
@@ -350,6 +353,9 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 	listed := harness.do(t, http.MethodGet, "/secrets", admin, nil)
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"isSet":true,"hint":"WXYZ"`) {
 		t.Errorf("GET /secrets = %d %s, want it set with its hint", listed.status, listed.body)
+	}
+	if !strings.Contains(listed.body, `"setByUserId":1`) {
+		t.Errorf("GET /secrets = %s, want it to name the admin who set it as setByUserId (D227)", listed.body)
 	}
 	login := harness.do(t, http.MethodPut, "/secrets/opensubtitles_password", admin,
 		map[string]string{"value": canary})

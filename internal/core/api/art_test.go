@@ -3,9 +3,11 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -82,6 +84,36 @@ func TestArt_ServesAStoredSizeAndRedirectsFromOneNotMade(t *testing.T) {
 	if anonymous, _ := harness.get(t, "/bytes/art/"+hash+"/portrait-s.webp", ""); anonymous.StatusCode !=
 		http.StatusUnauthorized {
 		t.Errorf("without signing in: %d, want 401", anonymous.StatusCode)
+	}
+}
+
+// The art path's last part is a variant of the image, a size and a format, and the API document
+// says so (D227).
+func TestArt_TheDocumentNamesThePathsVariant(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	served := harness.do(t, http.MethodGet, "/openapi.json", "", nil)
+	var document struct {
+		Paths map[string]struct {
+			Get struct {
+				Parameters []struct {
+					Name string `json:"name"`
+					In   string `json:"in"`
+				} `json:"parameters"`
+			} `json:"get"`
+		} `json:"paths"`
+	}
+	if err := json.Unmarshal([]byte(served.body), &document); err != nil {
+		t.Fatalf("GET /openapi.json = %d: %v", served.status, err)
+	}
+	var named []string
+	for _, parameter := range document.Paths["/bytes/art/{hash}/{variant}"].Get.Parameters {
+		if parameter.In == "path" {
+			named = append(named, parameter.Name)
+		}
+	}
+	if !slices.Equal(named, []string{"hash", "variant"}) {
+		t.Errorf("the art path's parameters are %v, want [hash variant]", named)
 	}
 }
 
