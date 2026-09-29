@@ -16874,3 +16874,26 @@ measurement" from Out and [D178](#d178--the-first-release-is-for-two-people-the-
    measured yet, beside the switch. A film not yet measured plays as it is.
 
 **Status:** Decided; built in M3.
+
+## D227 — Every name in a contract that a reader must look up is renamed now, minor ones too; a job names its target by kind, and a sidecar's kind has its own column
+
+**Decided** (2026-09-29), by the project owner, shown the unclear names of the four contracts
+and three calls. **Widens [D223](#d223--the-m3-audits-decisions-contract-names-are-made-clear-now-subtitles-start-off-and-fetching-a-subtitle-on-request-is-in-cut-a) §1**, which renamed only the unclear names and left the minor
+ones.
+
+1. **Every name is renamed, minor ones too** (the owner: *"Just fix everything now, including
+   minor things. I'm not actually using the software yet so breakage is no big deal."*): the
+   API's JSON and parameters, the node protocol, library.db's and cache.db's columns, and setting,
+   configuration and stored keys. The names, with what each holds, are in
+   [contract-names-2026-09-29.md](../design/research/contract-names-2026-09-29.md). Stored JSON
+   (a file's probe and its error) is rewritten with the node's new names.
+2. **A job names its target by kind** (agreed): an item, a rendition, a stream, a fetched subtitle
+   or a file, each its own column in cache.db and its own field in the job view, not one
+   `subject` whose table depends on the kind.
+3. **A sidecar's kind has its own column** (agreed), `sidecar_kind`, and `filing_reason` holds
+   only reasons.
+4. **`file.path_raw` is dropped**: since D211 the reported bytes are always kept, in what is now
+   `reported_path_bytes`, so it was a second copy. **`user_rating.rating` keeps its name**: its
+   scale was never decided, and a name would decide it.
+
+**Status:** Decided; built before M3's closing audit.
