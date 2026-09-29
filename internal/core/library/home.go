@@ -77,7 +77,7 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64) ([]I
 			},
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: path.Base(row.Path),
 		})
-		if row.Kind == "episode" {
+		if row.Kind == TitleKindEpisode {
 			if inProgress[len(inProgress)-1].Episode, err = browser.episodePlace(ctx, row.TitleID); err != nil {
 				return nil, err
 			}

@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -120,7 +121,8 @@ func (filer *libraryFiler) fileExtra(ctx context.Context, pending pendingExtra) 
 	}
 	parsed := ParsePath(pending.relativePath)
 	spec := titleSpec{
-		kind: kindExtra, name: parsed.Name, runtimeMs: probeRuntimeMs(pending.file.ProbeJson), ids: map[string]string{},
+		kind: library.TitleKindExtra, name: parsed.Name, runtimeMs: probeRuntimeMs(pending.file.ProbeJson),
+		ids:    map[string]string{},
 		key:    fmt.Sprintf("extra|%d|%s", ownerTitleID, strings.ToLower(pending.relativePath)),
 		source: sourceNone, identification: identificationIdentified,
 	}

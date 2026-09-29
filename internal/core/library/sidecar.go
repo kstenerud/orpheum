@@ -15,9 +15,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// filingAttached is a sidecar's filing: it belongs to a video beside it (schema.md, attached).
-const filingAttached = "attached"
-
 // attachedReason is why a sidecar is filed attached, as every filing but listed says why (D163):
 // what kind of file it is, beside which video. Its kind is kept apart, in sidecar_kind (D227).
 func attachedReason(kind nodeproto.SidecarKind) string {
@@ -97,12 +94,12 @@ func (batch *ingestBatch) attachSidecars(ctx context.Context, scan *scanState) e
 	}
 	for _, file := range files {
 		// A subtitle sidecar has a payload hash too; a video is what has one and is not attached.
-		if isInRoot(file) && file.PayloadHash != nil && file.Filing != filingAttached {
+		if isInRoot(file) && file.PayloadHash != nil && file.Filing != FilingAttached {
 			videosByFolder[path.Dir(file.Path)] = append(videosByFolder[path.Dir(file.Path)], file)
 		}
 	}
 	for _, file := range files {
-		if file.Filing != filingAttached || !isInRoot(file) {
+		if file.Filing != FilingAttached || !isInRoot(file) {
 			continue
 		}
 		folderVideos := videosByFolder[path.Dir(file.Path)]

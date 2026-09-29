@@ -141,7 +141,7 @@ func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenF
 	id, err := batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
 		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: seenFile.path, ReportedPathBytes: seenFile.reportedBytes,
 		SizeBytes: &observed.SizeBytes, ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash,
-		PayloadBytes: &observed.Identity.PayloadBytes, Filing: filingUnidentified, FilingReason: &reason,
+		PayloadBytes: &observed.Identity.PayloadBytes, Filing: FilingUnidentified, FilingReason: &reason,
 		ProbeJson: &seenFile.probeJSON, SeenAt: batch.nowMs, OpensubtitlesHash: seenFile.openSubtitlesHash,
 	})
 	if err != nil {
@@ -219,5 +219,5 @@ func (batch *ingestBatch) recordError(ctx context.Context, scan *scanState, fail
 	if err != nil {
 		return err
 	}
-	return batch.recordFiling(ctx, scan, failure.Path, filingErrored, string(failure.Code), detail)
+	return batch.recordFiling(ctx, scan, failure.Path, FilingErrored, string(failure.Code), detail)
 }

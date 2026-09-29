@@ -19,13 +19,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// The filings the ingest gives; identification gives listed and extra later (D163).
-const (
-	filingUnidentified = "unidentified"
-	filingSkipped      = "skipped"
-	filingErrored      = "errored"
-)
-
 // notIdentifiedYet is the reason on a file the node has read and identification has not seen.
 const notIdentifiedYet = "not identified yet"
 
@@ -136,7 +129,7 @@ func (batch *ingestBatch) ingestRecord(ctx context.Context, record nodeproto.Rec
 		}
 	case nodeproto.RecordSkip:
 		if scan := batch.scanInProgress(); scan != nil {
-			return batch.recordFiling(ctx, scan, record.Skip.Path, filingSkipped, string(record.Skip.Rule), nil)
+			return batch.recordFiling(ctx, scan, record.Skip.Path, FilingSkipped, string(record.Skip.Rule), nil)
 		}
 	case nodeproto.RecordError:
 		if scan := batch.scanInProgress(); scan != nil {

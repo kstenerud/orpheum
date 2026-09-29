@@ -145,13 +145,13 @@ func TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason(t *testing.T) 
 	live := world.liveFilesByPath()
 	alien, notes := live[root+"/Wing (1979)/Wing.mkv"], live[root+"/Wing (1979)/notes.txt"]
 	broken := live[root+"/Broken.mkv"]
-	if alien.Filing != filingUnidentified || *alien.FilingReason != notIdentifiedYet || alien.PayloadHash == nil {
+	if alien.Filing != FilingUnidentified || *alien.FilingReason != notIdentifiedYet || alien.PayloadHash == nil {
 		t.Errorf("the film = %+v, want unidentified with its payload hash", alien)
 	}
-	if notes.Filing != filingSkipped || *notes.FilingReason != "extension" || notes.PayloadHash != nil {
+	if notes.Filing != FilingSkipped || *notes.FilingReason != "extension" || notes.PayloadHash != nil {
 		t.Errorf("the notes = %+v, want skipped, rule extension (D163)", notes)
 	}
-	if broken.Filing != filingErrored || *broken.FilingReason != "permission_denied" ||
+	if broken.Filing != FilingErrored || *broken.FilingReason != "permission_denied" ||
 		broken.ErrorDetailJson == nil || !strings.Contains(*broken.ErrorDetailJson, `"modeText":"-rw-------"`) {
 		t.Errorf("the broken file = %+v, want errored with the owner, group and mode (D163)", broken)
 	}
@@ -362,7 +362,7 @@ func TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo(t *testing.T) {
 		t.Errorf("the NFO's stored bytes are %q, %v; identification reads them (D182)", body, err)
 	}
 	for sidecarPath, video := range want {
-		if byPath[sidecarPath].Filing != filingAttached {
+		if byPath[sidecarPath].Filing != FilingAttached {
 			t.Errorf("%s is filed %q, want attached", sidecarPath, byPath[sidecarPath].Filing)
 		}
 		if got := owner(sidecarPath); got != video {

@@ -2,12 +2,14 @@
 
 package identify
 
+import "github.com/kstenerud/orpheum/internal/core/library"
+
 // The names identify_test reads that the package keeps to itself. The tests that drive a library
 // through identifytest.Provider live in identify_test, since identifytest imports this package;
 // they compare what the pass stored against the schema's closed sets (vocabulary.go) and check
 // two of its rules, and nothing outside the package needs any of them.
 const (
-	KindExtra = kindExtra
+	KindExtra = library.TitleKindExtra
 
 	SourceNFO  = sourceNFO
 	SourceTMDB = sourceTMDB
@@ -17,9 +19,9 @@ const (
 	IdentificationConfirmed    = identificationConfirmed
 	IdentificationAmbiguous    = identificationAmbiguous
 
-	FilingListed       = filingListed
-	FilingUnidentified = filingUnidentified
-	FilingExtra        = filingExtra
+	FilingListed       = library.FilingListed
+	FilingUnidentified = library.FilingUnidentified
+	FilingExtra        = library.FilingExtra
 
 	FieldName    = fieldName
 	FieldYear    = fieldYear

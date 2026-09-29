@@ -9,6 +9,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -84,7 +85,8 @@ func (filer *libraryFiler) mapLocalArtwork() {
 	}
 	chosen := map[int64]map[string]localChoice{}
 	for _, file := range filer.files {
-		if file.Filing != filingAttached || ptr.ValueOrZero(file.SidecarKind) != string(nodeproto.SidecarImage) {
+		isImage := ptr.ValueOrZero(file.SidecarKind) == string(nodeproto.SidecarImage)
+		if file.Filing != library.FilingAttached || !isImage {
 			continue
 		}
 		itemID, choice, found := filer.localImageOwner(file.Path, videoFileIDByStem)
@@ -168,7 +170,7 @@ func (filer *libraryFiler) localImageOwner(
 // showsArtKind is whether a title of a kind shows an image of an artwork kind: an episode its still, a
 // film its poster, backdrop and logo.
 func showsArtKind(titleKind, artKind string) bool {
-	if titleKind == kindEpisode {
+	if titleKind == library.TitleKindEpisode {
 		return artKind == ArtStill
 	}
 	return titleKind == KindMovie && artKind != ArtStill

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -67,7 +68,7 @@ func episodeKey(seriesID int64, season, episode int) string {
 func (filer *libraryFiler) findOrAddTitle(ctx context.Context, spec titleSpec) (int64, error) {
 	for _, provider := range []string{sourceTMDB, sourceIMDb, sourceTVDB} {
 		id := spec.ids[provider]
-		if id == "" || spec.kind == kindEpisode {
+		if id == "" || spec.kind == library.TitleKindEpisode {
 			continue // an episode is its series' (D209)
 		}
 		found, err := filer.claimTitleByProviderID(ctx, spec.kind, provider, id)
@@ -151,13 +152,13 @@ func (filer *libraryFiler) resolveAndFile(ctx context.Context) error {
 		if !placed {
 			continue
 		}
-		filing, reason := filingListed, ""
+		filing, reason := library.FilingListed, ""
 		if why, isExtra := filer.extraReasonByFile[file.ID]; isExtra {
 			// An extra is filed as one, with its owner, its type and the evidence (D163).
-			filing, reason = filingExtra, why
+			filing, reason = library.FilingExtra, why
 			filer.report.ExtraCount++
 		} else if identification := identificationByTitle[titleID]; identification == identificationUnidentified {
-			filing, reason = filingUnidentified, reasonByTitle[titleID]
+			filing, reason = library.FilingUnidentified, reasonByTitle[titleID]
 			filer.report.UnidentifiedCount++
 		} else {
 			filer.report.ListedCount++

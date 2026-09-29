@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -200,7 +201,7 @@ func (chooser *Chooser) Choose(ctx context.Context, itemID int64, providerName, 
 	if err != nil {
 		return err
 	}
-	if !item.isSeries && item.title.Kind == kindEpisode {
+	if !item.isSeries && item.title.Kind == library.TitleKindEpisode {
 		return fmt.Errorf("title %d: %w", itemID, ErrNotChoosable)
 	}
 	provider, known := chooser.matcher.providers[providerName]
