@@ -176,7 +176,7 @@ func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInp
 	body := input.Body
 	if (body.ChangeDetection == "interval") != (body.CheckEveryHours != nil) {
 		return nil, newError(http.StatusUnprocessableEntity, CodeInvalidRequest,
-			"checkEveryH is given with changeDetection interval, and only then")
+			"checkEveryHours is given with changeDetection interval, and only then")
 	}
 	id, err := dependencies.Libraries.Create(ctx, library.Request{Node: body.NodeName, NewLibrary: library.NewLibrary{
 		Name: body.Name, Kind: body.Kind, MetadataSource: body.MetadataSource, ChangeDetection: body.ChangeDetection,

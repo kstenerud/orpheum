@@ -95,8 +95,11 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
 	interval := newShows("/media/shows")
 	interval["changeDetection"] = "interval"
-	wantError(t, harness.do(t, http.MethodPost, "/libraries", admin, interval),
-		http.StatusUnprocessableEntity, CodeInvalidRequest)
+	withoutHours := harness.do(t, http.MethodPost, "/libraries", admin, interval)
+	wantError(t, withoutHours, http.StatusUnprocessableEntity, CodeInvalidRequest)
+	if !strings.Contains(withoutHours.body, "checkEveryHours") {
+		t.Errorf("an interval library with no hours = %s, want it to name checkEveryHours", withoutHours.body)
+	}
 	created := harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows"))
 	if created.status != http.StatusCreated || !strings.Contains(created.body, `"id":`) {
 		t.Fatalf("POST /libraries = %d %s", created.status, created.body)

@@ -82,7 +82,7 @@ func (server *Server) file(writer http.ResponseWriter, request *http.Request) {
 		http.Error(writer, "the root is not one of this node's", http.StatusNotFound)
 		return
 	case pathErr != nil || len(rawPath) == 0 || hashErr != nil || len(want) == 0:
-		http.Error(writer, "want root, path (base64url) and hash (hex)", http.StatusBadRequest)
+		http.Error(writer, "want root, path (base64url) and payloadHash (hex)", http.StatusBadRequest)
 		return
 	}
 	file, err := root.Open(string(rawPath))

@@ -15,7 +15,7 @@ import (
 
 // Handler runs one job. A nil error finishes it; a *RetryAtError defers it and Blocked holds its kind,
 // neither costing an attempt; Permanent fails it; any other error retries it with back-off until
-// the retry limit.
+// job_attempt_limit.
 type Handler func(ctx context.Context, job Job) error
 
 // Runner runs one kind of job, one at a time: one fetch per provider (cut-a §5.3).

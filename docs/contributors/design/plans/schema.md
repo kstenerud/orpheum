@@ -154,10 +154,10 @@ CREATE TABLE root_state (                                  -- class O; migration
 CREATE TABLE root_mount (                                  -- class O; migration 0004
   node_id  INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   root_path     TEXT NOT NULL,
-  path     TEXT NOT NULL,                -- NFC, absolute on the node, like file.path
+  mount_path    TEXT NOT NULL,           -- NFC, absolute on the node, like file.path
   filesystem_device   INTEGER NOT NULL,             -- st_dev when it was last seen where expected
   is_present  INTEGER NOT NULL CHECK (is_present IN (0, 1)),
-  PRIMARY KEY (node_id, path)
+  PRIMARY KEY (node_id, mount_path)
 );
 ```
 
@@ -609,7 +609,7 @@ and redeeming it creates the outsider's user with the role **asked when the invi
 exist.
 [D218](../../decisions/working-notes.md)'s accounts use it too, in two scopes: `register`, a
 registration link for a person the admin already made, which sets their password (seven days;
-a new one withdraws the old), and `add_device`, a device code whose `label` is the name the
+a new one withdraws the old), and `add_device`, a device code whose `device_name` is the name the
 device will be listed under (ten minutes). Both are single use, and like every grant they are
 stored only as a hash.
 
@@ -900,7 +900,7 @@ screen searches once more, which is a search the user asked for, and running job
 zero because their output is a cache.
 
 **One queue, not one per kind** (principles §4). Metadata fetches, prepare jobs, scans and
-backups differ in what runs them and in `args`, not in how they wait, retry, report progress or
+backups differ in what runs them and in `args_json`, not in how they wait, retry, report progress or
 get cancelled; `fetch_queue` was the first of what would have become four.
 
 ## Not in Cut A, and additive
@@ -924,8 +924,8 @@ any (sessions live in memory and end with the process — [D119](../../decisions
 | 3. referenced rows tombstoned | `removed_at` + `ON DELETE RESTRICT` + `live_*` |
 | 4. collection membership is three kinds | `collection.membership` |
 | 7. the track model is not three axes | `stream.kind` is a closed set that widens by rebuild |
-| 13. a grant may have a parent | `"grant".parent` |
-| 14. every item carries its source | `item.origin` |
+| 13. a grant may have a parent | `"grant".parent_secret_sha256` |
+| 14. every item carries its source | `item.origin_server` |
 
 Obligations 5, 6 and 8–12 are satisfied by additive tables or by client behaviour and are
 unaffected by this sketch.

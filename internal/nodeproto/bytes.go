@@ -12,7 +12,7 @@ const PathBytesFile = "/bytes/v1/file"
 
 // BytesFile names a file on the byte socket: Root, one of the node's roots as its hello named
 // it; Path, the file's path relative to that root, as bytes, so a name that is not UTF-8 travels
-// intact (D49); and Hash, the payload hash in hex the core knows the file by (D179, D100).
+// intact (D49); and PayloadHash, the payload hash in hex the core knows the file by (D179, D100).
 type BytesFile struct {
 	Root        string `json:"root"`
 	Path        []byte `json:"path"`

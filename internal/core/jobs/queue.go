@@ -25,12 +25,12 @@ const (
 	KindFetch   Kind = "fetch"
 	KindArtwork Kind = "artwork"
 	KindPrepare Kind = "prepare"
-	// KindExtractSubtitle extracts one text subtitle track; its subject is the stream (D217 §3).
+	// KindExtractSubtitle extracts one text subtitle track; its target is the stream (D217 §3).
 	KindExtractSubtitle Kind = "extract_subtitle"
-	// KindConvertFetchedSubtitle converts a subtitle fetched on request; its subject is the
+	// KindConvertFetchedSubtitle converts a subtitle fetched on request; its target is the
 	// fetched subtitle (D224 §5).
 	KindConvertFetchedSubtitle Kind = "convert_fetched_subtitle"
-	// KindMeasureLoudness measures a video's audio tracks; its subject is the file (D226 §2).
+	// KindMeasureLoudness measures a video's audio tracks; its target is the file (D226 §2).
 	KindMeasureLoudness Kind = "measure_loudness"
 	KindScan            Kind = "scan"
 	KindBackup          Kind = "backup"
