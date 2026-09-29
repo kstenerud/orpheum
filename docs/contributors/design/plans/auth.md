@@ -33,12 +33,15 @@ so is retrofitting anything else on this page. **Both are out of Cut A**
   short code from her phone, as a device of her membership, and needs no sign-in of its own
   ([D191](../../decisions/working-notes.md)).
 - **Settings and provider credentials live in the database.** Whatever changes at runtime is a
-  row in the `setting` table, except that a credential — the TMDB key, each user's
+  row in the `setting` table, except that a credential — the TMDB key, the server's
   OpenSubtitles login ([subtitle-acquisition.md](subtitle-acquisition.md)) — is a sealed row in
   the `secret` table ([D194](../../decisions/working-notes.md)). Both live
-  ([schema.md](schema.md), [D181](../../decisions/working-notes.md)), per user where the
-  provider's terms are per user ([D13](../../decisions/working-notes.md)). Because the backup
-  carries the whole database ([D185](../../decisions/working-notes.md)), it carries these too.
+  ([schema.md](schema.md), [D181](../../decisions/working-notes.md)). Every secret is the
+  server's: an admin enters the OpenSubtitles login once and every signed-in person fetches with
+  it ([D224](../../decisions/working-notes.md) §1, §9). *(Amended 2026-09-27 by D224: this made
+  the OpenSubtitles login each user's, per user where the provider's terms are per user.)*
+  Because the backup carries the whole database ([D185](../../decisions/working-notes.md)), it
+  carries these too.
 
 ## Four identity sources, in the order they ship
 
@@ -281,8 +284,9 @@ that it be a row in the same table.
 ## Done when
 
 **Cut A:** the owner invites the remote person, who signs in from outside the house over HTTPS
-with a local account; a session can be listed and revoked by device; her OpenSubtitles
-credentials are hers and stored as a setting; and no credential appears in a URL anywhere.
+with a local account; a session can be listed and revoked by device; she fetches subtitles with
+the server's OpenSubtitles login, a sealed secret she never sees
+([D224](../../decisions/working-notes.md) §1); and no credential appears in a URL anywhere.
 
 **Later:** a television is signed in without anyone typing a password with a remote; a grantee pairs their
 own device without the owner present; a session can be listed and revoked by device; an old

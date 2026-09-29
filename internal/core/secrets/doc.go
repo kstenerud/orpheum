@@ -34,7 +34,8 @@
 //
 //   - D194: the whole design, and its canary test.
 //   - D74: bug reports carry no secrets.
-//   - D16: provider keys belong to the user.
+//   - D16, as amended by D224 §2 and §7: OpenSubtitles' API key is the application's, in the
+//     source; every secret this package seals is the server's (D224 §9).
 //   - D190: the canary test must first be seen to fail against a leaking handler.
 //   - docs/contributors/design/plans/auth.md.
 //

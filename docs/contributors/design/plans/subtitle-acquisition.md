@@ -5,7 +5,7 @@
 # Subtitle acquisition
 
 - **Status:** PLANNED — gap identified 2026-09-21 ([D140](../../decisions/working-notes.md)), specified the same day by [D147](../../decisions/working-notes.md) and [D148](../../decisions/working-notes.md) on the measurements in [subtitle-sync.md](../research/subtitle-sync.md). Provider constraints researched in [tech-licensing.md](../research/tech-licensing.md) and [tech-metadata.md](../research/tech-metadata.md). **Cut A has no verification** ([D178](../../decisions/working-notes.md) §4), so Cut A's form is acquisition on request with an unverified candidate list and the manual offset control (below); OpenSubtitles is a Go package behind the provider interface, not a WASM plugin ([D193](../../decisions/working-notes.md) §3).
-- **Depends on:** [schema.md](schema.md) (per-user provider credentials, in the `setting` table), [identification.md](identification.md) (what the file *is*), [library-model.md](library-model.md) (where a fetched track lives, and the speech map), [scanner.md](scanner.md) (the pass that produces it)
+- **Depends on:** [schema.md](schema.md) (the server's OpenSubtitles login, a sealed secret, [D224](../../decisions/working-notes.md) §1), [identification.md](identification.md) (what the file *is*), [library-model.md](library-model.md) (where a fetched track lives, and the speech map), [scanner.md](scanner.md) (the pass that produces it)
 
 ## Why this exists
 
@@ -138,12 +138,16 @@ file*; they are different questions that happen to share a read.
 [tech-licensing.md](../research/tech-licensing.md): OpenSubtitles is **5 downloads/day
 anonymous, 20/day with a free account, 1000/day VIP**. Consequences:
 
-- **Credentials are per user, not per server** — the same rule as
-  [D13](../../decisions/working-notes.md)'s provider keys. They live in the database's `setting`
-  table ([schema.md](schema.md)), which holds what changes at runtime
-  ([D181](../../decisions/working-notes.md)), and [auth.md](auth.md) says how they are protected.
-- **Counting downloads per user per day is a table.** The remaining budget is visible *before*
-  a fetch, and exhausting it refuses cleanly.
+- **The login is the server's.** An admin enters the OpenSubtitles username and password once,
+  as server secrets sealed as [auth.md](auth.md) says, and every signed-in person fetches with
+  them; the API key is the application's, in the source
+  ([D224](../../decisions/working-notes.md) §1, §2, §7). *(Amended 2026-09-27 by D224: this
+  said the credentials were each user's, in the `setting` table.)*
+- **The count is the provider's.** The downloads left are the number OpenSubtitles reports for
+  the account, which also counts downloads made elsewhere; nothing counts them here. It is
+  visible *before* a fetch, and exhausting it refuses cleanly
+  ([D224](../../decisions/working-notes.md) §4). *(Amended 2026-09-27 by D224: this counted
+  downloads per user per day in a table.)*
 - **Report the reason, not the symptom.** "Your daily quota is spent, 0 of 20 left, resets at
   midnight UTC" — not "failed". Bazarr maintains a typed back-off table with **3–6 hour**
   penalties for `DownloadLimitExceeded`; that is what "about half of them fail to download"
@@ -168,16 +172,19 @@ extremely ordinary subject.
 
 ### 7. Where a fetched track goes
 
-A sidecar beside the media, which is what every other tool does and what
-[D98](../../decisions/working-notes.md) covers: a fetched subtitle is *about the work*, so it
-is the clearest sidecar candidate there is. It needs a writable path, which is
-[principles §2](../../principles/README.md)'s read-only default, so on a read-only library the
-track lives in the cache and the user is told it will not survive a rebuild.
+In `library.db`, compressed, where [schema.md](schema.md) has it
+([D224](../../decisions/working-notes.md) §6): `cache.db` may be deleted at any time, and a lost
+fetch costs a download and a person's choice to get back. The node converts it, as it converts a
+subtitle file beside the media, because it is hostile input (§6; D224 §5). *(Amended 2026-09-27
+by D224: this wrote a fetched subtitle beside the media as a sidecar, or into the cache on a
+read-only library.)*
 
 ### 8. Who may do it
 
-A capability on the role ([D130](../../decisions/working-notes.md)) — a download spends a
-shared budget and touches an external service.
+Every signed-in person, with the server's login; no role capability guards it in Cut A
+([D224](../../decisions/working-notes.md) §1). *(Amended 2026-09-27 by D224: this made it a
+capability on the role, [D130](../../decisions/working-notes.md), because a download spends a
+shared budget and touches an external service.)*
 
 ## Prior art we should read rather than reinvent
 

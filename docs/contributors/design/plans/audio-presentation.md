@@ -1,5 +1,5 @@
-> **ABOUTME:** Why dialogue is too quiet and what we do about it — loudness measured at scan
-> and applied as gain, one downmix default plus a dialogue control, and dynamic range as a
+> **ABOUTME:** Why dialogue is too quiet and what we do about it — loudness measured once by
+> the node and applied as gain, one downmix default plus a dialogue control, and dynamic range as a
 > property of the room. The audio half of "it should just play the file, and sound right".
 
 # Audio presentation
@@ -26,13 +26,13 @@ every downmix matrix attenuates it to avoid clipping the sum.
 
 | Problem | Mechanism | Where it belongs |
 | --- | --- | --- |
-| This film is quieter than the last one | **Loudness normalisation** — measure, store, apply gain | scan time + playback |
+| This film is quieter than the last one | **Loudness normalisation** — measure, store, apply gain | a node job per file + playback ([D226](../../decisions/working-notes.md) §2) |
 | Dialogue is buried under the music | **Downmix matrix** and a dialogue control | the downmix, in the node ([D193](../../decisions/working-notes.md) §1) |
 | Explosions are too loud at 11pm | **Dynamic range compression** (`dialnorm`/DRC metadata) | a per-device preference |
 
 Treating them as one thing is what produces a "volume boost" setting that helps nobody.
 
-## 1. Loudness: measure at scan, apply as gain
+## 1. Loudness: measure once, apply as gain
 
 **Netflix fixes this at ingest**: their delivery spec requires **-27 LKFS ±2 LU, dialog-gated**,
 true peak ≤ **-2 dBTP**, measured per ITU-R BS.1770. The whole catalogue is loudness-consistent
@@ -43,7 +43,10 @@ music world found under the same constraint — measure once, store the number, 
 playback. The node already opens every file; FFmpeg's `ebur128` filter implements EBU R128.
 
 Per audio track, stored as node-observed facts: **integrated loudness**, **loudness range**,
-**true peak**. The core derives a playback gain from the user's target.
+**true peak**. The core derives a playback gain towards a fixed target, -23 LUFS, capped by the
+track's peak ([D226](../../decisions/working-notes.md) §3); a person chooses only whether it is
+applied (D226 §5), not the target. *(Amended 2026-09-28 by D226: the gain was derived from the
+user's target, and the measurement taken at scan; D226 §2 makes it a job per file.)*
 
 **Stated limitation.** FFmpeg measures *programme* loudness, not Netflix's **dialogue-gated**
 figure — dialogue gating needs Dolby's Dialogue Intelligence, which FFmpeg does not have. Our
