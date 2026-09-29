@@ -11,8 +11,8 @@ it is for, every citation resolves, and no sentence claims more than something c
 decision log keeps extra rules of its own in
 [decisions/conventions.md](../decisions/conventions.md); this standard does not repeat them.
 
-Scope: every `.md` file under `docs/`, plus `README.md`, `AGENTS.md`, `FEATURES.md` and
-`ROADMAP.md` at the root. Not Markdown emitted by the program.
+Scope: every `.md` file under `docs/` (`docs/FEATURES.md` and `docs/ROADMAP.md` among them), plus
+`README.md` and `AGENTS.md` at the root. Not Markdown emitted by the program.
 
 ## 1. The ABOUTME header
 
@@ -84,7 +84,8 @@ it renders as noise in a plain view.
 
 **Enforced by:** `scripts/check_docs.py` fails on a broken link, a decision link that lands on
 the wrong entry, a gap or duplicate in the decision numbers, and a live document citing an
-archived decision; CI runs it on every push (`.github/workflows/docs.yml`). "Cite what you
+archived decision; CI runs it on every push, as part of `make check`
+(`.github/workflows/ci.yml`). "Cite what you
 opened" is **review-only**.
 
 ## 5. Claims about the code are backed by tests
@@ -136,7 +137,8 @@ can be a line break.
 ## 8. Filenames and placement
 
 - Lowercase kebab-case, naming the subject, not its status: `cut-a.md`, not `cut-a-draft.md`.
-  `README.md` is the one uppercase name inside `docs/`.
+  The uppercase names inside `docs/` are `README.md` and the two top-level documents
+  `docs/FEATURES.md` and `docs/ROADMAP.md`.
 - **A directory's `README.md` routes; it does not inventory.** `ls` is the inventory and cannot
   be incomplete.
 - An idea worth building is a plan file in `design/plans/`, never a bullet in a README.

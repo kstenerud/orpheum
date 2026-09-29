@@ -1,5 +1,5 @@
 > **ABOUTME:** How SQL is written here: SQLite through sqlc and our own migration runner — table
-> and column naming, where queries live, the one dynamic query, migrations, how the database is
+> and column naming, where queries live, search's hand-written statements, migrations, how the database is
 > opened and written, tombstones, time, and query plans. Each rule names its enforcement.
 
 # SQL Standard
@@ -26,12 +26,12 @@ Names match [schema.md](../design/plans/schema.md), and sqlc turns them into Go 
 | Key | `id INTEGER PRIMARY KEY AUTOINCREMENT` on any table something references; never reissued, never a UUID (D173, D179) | `title.id` |
 | Reference | `<table>_id`, or a role name when two point at one table | `library_id`, `source_file` |
 | Time | integer milliseconds since the epoch, server clock, named `…_at` | `created_at`, `removed_at` |
-| Client time | a client's monotonic clock, named `…_mono_ms` (D165) | `started_mono_ms` |
+| Client time | a client's monotonic clock, named `…_mono_ms` (D165) | `happened_mono_ms` |
 | Other quantities | the unit in the name: `_ms` for milliseconds, any other unit spelled out (D227 §6); a setting key keeps its short suffix (`_s`, `_h`, `_d`) | `runtime_ms`, `check_every_hours`, `segment_length_seconds`, `size_bytes` |
 | Boolean | `INTEGER NOT NULL CHECK (x IN (0,1))`, named as a predicate in new columns | `is_original` |
 | Closed vocabulary | `TEXT` with a `CHECK (… IN (…))`, mirrored by a Go type with constants | `job.state` |
 | Index | `<table>_<purpose>` | `job_next`, `item_text_original` |
-| View | `live_<table>` for the rows not tombstoned | `live_title` |
+| View | `live_<table>` for the rows not tombstoned | `live_file` |
 | Trigger | `<table>_<ai/ad/au>` (after insert, delete, update) | `item_text_ai` |
 
 **Enforced by:** review against schema.md; `TestMigrate_FreshSchemaEqualsTheGolden` makes any rename a
@@ -40,12 +40,14 @@ exhaustive ([go.md](go.md) §6).
 
 ## 2. Queries
 
-- **All SQL lives in `internal/store/queries/*.sql`, one file per concern** (`library.sql`,
-  `play_state.sql`, `job.sql`, `secret.sql`), and sqlc generates the Go in
-  `internal/store/sqlcgen`. No other package holds SQL. **Enforced by:** depguard
+- **All SQL lives in `internal/store/queries/*.sql` for library.db and
+  `internal/store/cache/queries/*.sql` for cache.db, one file per concern** (`library.sql`,
+  `play.sql`, `secret.sql`; cache.db's `job.sql`), and sqlc generates the Go in
+  `internal/store/sqlcgen` and `internal/store/cachegen`. Search's three statements
+  (`internal/store/search.go`, §4) are the one exception. No other package holds SQL. **Enforced by:** depguard
   `sql-only-in-store` and `TestArch_OnlyStoreImportsDatabaseSQL` (nothing else can run it).
 - **A query is named for what it does**, verb first, with its sqlc command:
-  `-- name: ListLiveTitlesByLibrary :many`. The verbs are `Get` (one row, an error if absent),
+  `-- name: ListFilmsByName :many`. The verbs are `Get` (one row, an error if absent),
   `List`, `Count`, `Insert`, `Update`, `Upsert`, `Mark` (sets a tombstone) and `Delete` (cache
   tables only, §6). **Review-only.**
 - **Every column is named.** `SELECT *` and `RETURNING *` change shape when a migration adds a
@@ -84,8 +86,8 @@ chooses, and why:
   (audit §5); a column sqlc cannot type gets an explicit override in `sqlc.yaml`, and a test
   fails on `interface{}` or `any` in `sqlcgen` (`TestGeneratedQueries_HaveNoUntypedValues`).
 - **SQLite features sqlc cannot parse** (FTS5 `MATCH` edge cases, 3.53's new `ALTER` forms) are
-  not used in queries until sqlc parses them. Search, which needs FTS5, is the filter builder of
-  §4.
+  not used in queries until sqlc parses them. Search, which needs FTS5's `MATCH`, is written by
+  hand (§4).
 - **A list argument is a JSON array**, read with `IN (SELECT value FROM json_each(CAST(sqlc.arg(ids)
   AS TEXT)))`: `sqlc.slice` generates `[]interface{}`, which the rule above refuses, and the
   `CAST` makes sqlc type the argument as a string. The caller marshals its ids.
@@ -94,22 +96,21 @@ chooses, and why:
   with an unrelated syntax error (plan-deviations P13; it recurred in M2). Write "section 3", not
   "§3". **Enforced by:** `scripts/check_source.py`.
 
-## 4. The one dynamic query
+## 4. Search's hand-written statements
 
-Cut A's pages are fixed sqlc queries, plus **one small hand-written filter builder for search**
-(D193 §4). It is the only place SQL text is assembled at run time, and there is no second
-mechanism: no squirrel, no goqu, no `fmt.Sprintf` into SQL anywhere else. When the predicate
-compiler arrives (D164), it **replaces** the builder; it never sits beside it.
+Cut A's pages are fixed sqlc queries. D193 §4 allowed one small hand-written filter builder for
+search; what exists is less: **three static statements in `internal/store/search.go`**, one per
+route (D48: the two FTS5 indexes and a substring match), written by hand only because sqlc
+cannot parse `MATCH`. No
+SQL text is assembled at run time anywhere: no builder, no squirrel, no goqu, no `fmt.Sprintf`
+into SQL (plan-deviations P36). When the predicate compiler arrives (D164), it is the one
+mechanism for dynamic queries; nothing sits beside it.
 
-- It lives in `internal/store`, in one file, and takes a typed filter value, never a string.
-- **Identifiers come from a fixed map of constants** (the searchable fields to their columns);
-  no identifier is ever taken from input. **Every value is a `?` parameter.**
-- Its tests include a hostile value (`'; DROP TABLE title; --`) and assert it arrives as a
-  parameter.
+- The statements are `const`s; **every value, the search text included, is a `?` parameter.**
+- They list only what browse lists: live items with a live file (`browse.sql`).
 
-**Enforced by:** depguard `one-way-to-do-it` (squirrel, goqu); gosec G201/G202 everywhere, which
-the builder answers with one explained `//nolint:gosec` at its concatenation; the rest is
-**review-only**.
+**Enforced by:** depguard `one-way-to-do-it` (squirrel, goqu); gosec G201/G202 everywhere; the
+rest is **review-only**.
 
 ## 5. Migrations
 
@@ -140,10 +141,10 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
 - **Rebuilds follow one pattern**: create new, copy with explicit `rowid` where FTS content
   depends on it, drop old, rename, recreate indexes, triggers and views. `CREATE TABLE … AS
   SELECT` is not used. **Review-only.**
-- **Every released version has a golden fixture; every golden migrates to a schema equal to a
-  fresh install's; killing the runner after any step and restarting ends identical; a step
-  takes under 10 s at the reference scale.** Until migrations are live, the goldens are the
-  baseline's and the current version's (D228). **Enforced by:** the migration tests in
+- **Once migrations are live, every released version has a golden fixture; every golden
+  migrates to a schema equal to a fresh install's; killing the runner after any step and
+  restarting ends identical; a step takes under 10 s at the reference scale.** Until then, the
+  only goldens are the baseline's and the current version's (D228). **Enforced by:** the migration tests in
   `internal/store`; the 10 s budget by `TestReferenceScale` in its integration tier, which fills
   a database at the baseline's schema with the reference library (about 46 MB) and times every
   later step and a rebuild of `file`.
@@ -182,7 +183,7 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
   write transaction takes SQLite's write lock at `BEGIN` and never has to upgrade a read.
   Writes queue in Go for that one connection instead of contending inside SQLite.
 - **The readers** are a second `*sql.DB`, opened with `_pragma=query_only(1)` and sized
-  `max(4, runtime.NumCPU())`. In WAL mode they never block the writer or each other, and
+  `max(read_connections_minimum, runtime.NumCPU())`, the minimum from the config file. In WAL mode they never block the writer or each other, and
   SQLite itself refuses a write through them.
 - **Why not one pool for both.** SQLite has one writer whatever the pool says. A pool of writers
   turns that into `SQLITE_BUSY` waits, and into `SQLITE_BUSY_SNAPSHOT` when a read transaction
