@@ -101,6 +101,10 @@ FROM extra_relation
 JOIN item ON item.id = extra_relation.extra_title
 LEFT JOIN item_text ON item_text.item_id = extra_relation.extra_title AND item_text.is_original = 1
 WHERE extra_relation.owner_title = sqlc.arg(owner_title) AND item.removed_at IS NULL
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = extra_relation.extra_title AND version.removed_at IS NULL AND file.removed_at IS NULL
+  )
 ORDER BY extra_relation.position, extra_relation.extra_title;
 
 -- name: GetEpisodePlace :one

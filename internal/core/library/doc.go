@@ -78,7 +78,8 @@
 //
 //   - Films and series are listed in the sort_locale's order (D47) or newest first, a page at a
 //     time behind an opaque cursor, and only those with a live file. TestBrowse_FilmsInTheLocalesOrderAPageAtATime,
-//     TestBrowse_FilmsNewestFirst.
+//     TestBrowse_FilmsNewestFirst. A title's extras, too, are only those with a live file.
+//     TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile.
 //
 //   - A search is folded and routed by internal/core/textindex and answered by the index that
 //     can (D48). TestSearch_EveryRouteFindsWhatItShould.
