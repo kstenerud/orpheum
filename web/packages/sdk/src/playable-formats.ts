@@ -2,12 +2,12 @@
 
 import type { components } from "./gen/api.ts";
 
-/** What a client can play, one list per axis, most preferred first (D21, D217 §1). */
-export type Menu = components["schemas"]["PlayableFormatsBody"];
+/** What a client can play, one list per axis of the menu, most preferred first (D21, D217 §1). */
+export type PlayableFormats = components["schemas"]["PlayableFormatsBody"];
 
-type VideoCodecName = NonNullable<Menu["videoCodecs"]>[number];
-type AudioCodecName = NonNullable<Menu["audioCodecs"]>[number];
-type ContainerName = NonNullable<Menu["containers"]>[number];
+type VideoCodecName = NonNullable<PlayableFormats["videoCodecs"]>[number];
+type AudioCodecName = NonNullable<PlayableFormats["audioCodecs"]>[number];
+type ContainerName = NonNullable<PlayableFormats["containers"]>[number];
 
 /** How a page asks what it can decode: a media element's canPlayType, and MSE's isTypeSupported. */
 export interface MediaProbe {
@@ -36,12 +36,12 @@ const containerProbes: readonly (readonly [ContainerName, readonly string[]])[] 
 ];
 
 /**
- * The menu a page can play, from what its media element and MSE say. The baselines, h264-sdr
+ * The formats a page can play, from what its media element and MSE say. The baselines, h264-sdr
  * and aac-stereo, are always listed: every client plays them (D21), and they come last among
  * the video entries, after what is more efficient. AAC with more than two channels is decoded
  * and downmixed by every browser, so aac-multi follows aac-stereo.
  */
-export function menuFrom(probe: MediaProbe): Menu {
+export function playableFormatsFrom(probe: MediaProbe): PlayableFormats {
   const isPlayable = (type: string): boolean =>
     probe.isTypeSupported(type) || probe.canPlayType(type) !== "";
   return {
@@ -61,12 +61,12 @@ export function menuFrom(probe: MediaProbe): Menu {
   };
 }
 
-/** The menu of the browser this runs in. */
-export function browserMenu(): Menu {
+/** The formats the browser this runs in can play. */
+export function browserPlayableFormats(): PlayableFormats {
   const element = document.createElement("video");
   // Safari on iOS has ManagedMediaSource instead; canPlayType answers for it there.
   const hasMediaSource = "MediaSource" in globalThis;
-  return menuFrom({
+  return playableFormatsFrom({
     canPlayType: (type) => element.canPlayType(type),
     isTypeSupported: (type) => hasMediaSource && MediaSource.isTypeSupported(type),
   });

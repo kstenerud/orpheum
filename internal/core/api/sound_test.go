@@ -51,8 +51,8 @@ func (harness testHarness) thisDeviceID(t *testing.T, token string) int64 {
 	return 0
 }
 
-// surroundMenu is Chrome's menu for file 4, with aac-multi, so its 5.1 sound plays as it is.
-func surroundMenu() map[string]any {
+// surroundFormats are Chrome's playable formats for file 4, with aac-multi, so its 5.1 sound plays as it is.
+func surroundFormats() map[string]any {
 	body := chrome(4)
 	body["playableFormats"] = map[string]any{
 		"videoCodecs": []string{"hevc-sdr", "h264-sdr"}, "audioCodecs": []string{"aac-stereo", "aac-multi"},
@@ -88,14 +88,15 @@ func TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct(t
 	answer := func(output string) int {
 		return harness.do(t, http.MethodPut, device, user, map[string]string{"audioOutput": output}).status
 	}
-	if first := harness.playWithSound(t, user, surroundMenu()); first.Delivery != "direct" || first.AudioOutput != "" {
+	first := harness.playWithSound(t, user, surroundFormats())
+	if first.Delivery != "direct" || first.AudioOutput != "" {
 		t.Errorf("before the device is asked: %s %q, want direct and no answer", first.Delivery, first.AudioOutput)
 	}
 	for _, output := range []string{"built_in_speakers", "headphones"} {
 		if status := answer(output); status != http.StatusNoContent {
 			t.Fatalf("PUT audioOutput %s: %d", output, status)
 		}
-		got := harness.playWithSound(t, user, surroundMenu())
+		got := harness.playWithSound(t, user, surroundFormats())
 		if got.Delivery != "hls" || !slices.Equal(got.NotDirectReasons, []string{"dialogue_boost"}) ||
 			got.AudioOutput != output {
 			t.Errorf("on %s: %s %v %q, want prepared for dialogue_boost (D222)",
@@ -109,7 +110,7 @@ func TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct(t
 	if status := answer("receiver"); status != http.StatusNoContent {
 		t.Fatalf("PUT audioOutput receiver: %d", status)
 	}
-	got := harness.playWithSound(t, user, surroundMenu())
+	got := harness.playWithSound(t, user, surroundFormats())
 	if got.Delivery != "direct" || got.AudioOutput != "receiver" {
 		t.Errorf("on a receiver: %s %q, want direct: it takes the sound as it is", got.Delivery, got.AudioOutput)
 	}
@@ -121,7 +122,7 @@ func TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct(t
 	}
 }
 
-func TestFilePrefs_TheDialogueBoostIsThePersonsInEveryFile(t *testing.T) {
+func TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
@@ -130,14 +131,14 @@ func TestFilePrefs_TheDialogueBoostIsThePersonsInEveryFile(t *testing.T) {
 		t.Helper()
 		answer := harness.do(t, http.MethodPost, "/playback", user, chrome(fileID))
 		var answered struct {
-			Prefs struct {
-				IsDialogueBoost bool `json:"isDialogueBoostOn"`
+			Preferences struct {
+				IsDialogueBoostOn bool `json:"isDialogueBoostOn"`
 			} `json:"preferences"`
 		}
 		if err := json.Unmarshal([]byte(answer.body), &answered); err != nil {
 			t.Fatalf("POST /playback = %d %s", answer.status, answer.body)
 		}
-		return answered.Prefs.IsDialogueBoost
+		return answered.Preferences.IsDialogueBoostOn
 	}
 	if boostOf(2) {
 		t.Error("before any choice: the boost is on, want off (D222)")

@@ -165,14 +165,14 @@ func TestLoudness_LevellingIsOnUntilThePersonTurnsItOff(t *testing.T) {
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	if first := harness.play(t, user, chrome(1)); !first.Prefs.IsLevellingOn {
-		t.Errorf("a person who never chose: levelling %t, want on (D226 §5)", first.Prefs.IsLevellingOn)
+	if first := harness.play(t, user, chrome(1)); !first.Preferences.IsLevellingOn {
+		t.Errorf("a person who never chose: levelling %t, want on (D226 §5)", first.Preferences.IsLevellingOn)
 	}
 	answer := harness.do(t, http.MethodPut, "/me/preferences", user, map[string]any{"isLevellingOn": false})
 	if answer.status != http.StatusNoContent {
 		t.Fatalf("PUT /me/preferences = %d %s", answer.status, answer.body)
 	}
-	if off := harness.play(t, user, chrome(2)); off.Prefs.IsLevellingOn {
+	if off := harness.play(t, user, chrome(2)); off.Preferences.IsLevellingOn {
 		t.Error("after turning it off: levelling on, want off in every file")
 	}
 }

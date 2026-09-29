@@ -1080,7 +1080,7 @@
         ],
         "type": "object"
       },
-      "FilePrefsBody": {
+      "FilePreferencesBody": {
         "additionalProperties": false,
         "properties": {
           "isDialogueBoostOn": {
@@ -2377,7 +2377,7 @@
         ],
         "type": "object"
       },
-      "SetFilePrefsInputBody": {
+      "SetFilePreferencesInputBody": {
         "additionalProperties": false,
         "properties": {
           "subtitleChoice": {
@@ -2392,7 +2392,7 @@
         },
         "type": "object"
       },
-      "SetMyPrefsInputBody": {
+      "SetMyPreferencesInputBody": {
         "additionalProperties": false,
         "properties": {
           "isDialogueBoostOn": {
@@ -2655,7 +2655,7 @@
             ]
           },
           "preferences": {
-            "$ref": "#/components/schemas/FilePrefsBody"
+            "$ref": "#/components/schemas/FilePreferencesBody"
           },
           "profile": {
             "enum": [
@@ -4089,7 +4089,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetFilePrefsInputBody"
+                "$ref": "#/components/schemas/SetFilePreferencesInputBody"
               }
             }
           },
@@ -5477,7 +5477,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetMyPrefsInputBody"
+                "$ref": "#/components/schemas/SetMyPreferencesInputBody"
               }
             }
           },

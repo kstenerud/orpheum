@@ -102,8 +102,8 @@ type decision struct {
 		Levelling         LevellingBody `json:"levelling"`
 		CarriedGainDB     float64       `json:"carriedGainDb"`
 	} `json:"audioRenditions"`
-	Subtitles []subtitleTrack `json:"subtitles"`
-	Prefs     struct {
+	Subtitles   []subtitleTrack `json:"subtitles"`
+	Preferences struct {
 		SubtitleOffsetMs int  `json:"subtitleOffsetMs"`
 		IsLevellingOn    bool `json:"isLevellingOn"`
 	} `json:"preferences"`

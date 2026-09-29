@@ -11,8 +11,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 )
 
-// FilePrefsBody are a person's choices for one file (cut-a §5).
-type FilePrefsBody struct {
+// FilePreferencesBody are a person's choices for one file (cut-a §5).
+type FilePreferencesBody struct {
 	SubtitleOffsetMs int64 `doc:"Shows the subtitles this much later, or earlier when negative" json:"subtitleOffsetMs"`
 	// SubtitleChoice is the file's subtitle choice, absent when it has none (D219).
 	SubtitleChoice *SubtitleChoiceBody `json:"subtitleChoice,omitempty"`
@@ -32,8 +32,8 @@ type SubtitleChoiceBody struct {
 	IsCarriedFromWork bool `json:"isCarriedFromWork,omitempty" readOnly:"true"`
 }
 
-// SetFilePrefsInput changes a person's choices for one file: what it names, and nothing else.
-type SetFilePrefsInput struct {
+// SetFilePreferencesInput changes a person's choices for one file: what it names, and nothing else.
+type SetFilePreferencesInput struct {
 	AuthorizationHeader
 	FileID int64 `minimum:"1" path:"id"`
 	Body   struct {
@@ -44,7 +44,7 @@ type SetFilePrefsInput struct {
 	}
 }
 
-func (server *Server) registerFilePrefs() {
+func (server *Server) registerPreferences() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setFilePreferences", Method: http.MethodPut, Path: "/files/{id}/preferences",
 		Summary: "Keep a person's choices for one file: its subtitle offset, its subtitle track",
@@ -57,12 +57,12 @@ func (server *Server) registerFilePrefs() {
 	}, server.setMyPreferences)
 }
 
-func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
-	body := FilePrefsBody{
-		SubtitleOffsetMs: prefs.SubtitleOffsetMs, IsDialogueBoostOn: prefs.IsDialogueBoostOn,
-		IsLevellingOn: prefs.IsLevelling,
+func filePreferencesBody(preferences playback.FilePreferences) FilePreferencesBody {
+	body := FilePreferencesBody{
+		SubtitleOffsetMs: preferences.SubtitleOffsetMs, IsDialogueBoostOn: preferences.IsDialogueBoostOn,
+		IsLevellingOn: preferences.IsLevellingOn,
 	}
-	if choice := prefs.SubtitleChoice; choice != nil {
+	if choice := preferences.SubtitleChoice; choice != nil {
 		body.SubtitleChoice = &SubtitleChoiceBody{
 			StreamID: choice.StreamID, FetchedSubtitleID: choice.FetchedSubtitleID, IsOff: choice.IsOff,
 			IsCarriedFromWork: choice.IsCarriedFromWork,
@@ -71,8 +71,8 @@ func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
 	return body
 }
 
-// SetMyPrefsInput changes a person's own choices, which hold in every file: what it names only.
-type SetMyPrefsInput struct {
+// SetMyPreferencesInput changes a person's own choices, which hold in every file: what it names only.
+type SetMyPreferencesInput struct {
 	AuthorizationHeader
 	Body struct {
 		// IsDialogueBoostOn, when given, is whether the person plays with the dialogue boost (D222 §3).
@@ -82,7 +82,7 @@ type SetMyPrefsInput struct {
 	}
 }
 
-func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPrefsInput) (*struct{}, error) {
+func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPreferencesInput) (*struct{}, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
@@ -100,7 +100,7 @@ func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPrefsInp
 	return &struct{}{}, nil
 }
 
-func (server *Server) setFilePreferences(ctx context.Context, input *SetFilePrefsInput) (*struct{}, error) {
+func (server *Server) setFilePreferences(ctx context.Context, input *SetFilePreferencesInput) (*struct{}, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

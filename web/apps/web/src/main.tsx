@@ -3,7 +3,7 @@
 import "./tokens.css";
 import "./i18n.ts";
 
-import { browserMenu, createApi } from "@orpheum/sdk";
+import { browserPlayableFormats, createApi } from "@orpheum/sdk";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -23,7 +23,7 @@ const session = createSession(storageIfAllowed(() => window.localStorage));
 const navigation = createNavigation(window);
 const api = createApi({ getToken: session.token });
 api.use(watchForSignOut(session, navigation));
-const services = { api, session, navigation, playableFormats: browserMenu };
+const services = { api, session, navigation, playableFormats: browserPlayableFormats };
 
 createRoot(rootElement).render(
   <StrictMode>

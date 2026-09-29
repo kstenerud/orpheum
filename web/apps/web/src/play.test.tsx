@@ -13,7 +13,7 @@ import { testServices, withServices } from "./test-services.tsx";
 const unlevelled = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
 
 describe("playing a file", () => {
-  it("asks the server with this browser's menu, over the local link", async () => {
+  it("asks the server with this browser's playable formats, on the local network", async () => {
     const playableFormats = testServices().playableFormats();
     const heard: Heard[] = [];
     const { api } = servedBy(

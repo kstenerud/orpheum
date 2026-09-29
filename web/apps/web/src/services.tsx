@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api, Menu } from "@orpheum/sdk";
+import type { Api, PlayableFormats } from "@orpheum/sdk";
 import { createContext, use, useSyncExternalStore } from "react";
 
 import type { Navigation } from "./navigation.ts";
@@ -12,7 +12,7 @@ export interface Services {
   readonly api: Api;
   readonly session: Session;
   readonly navigation: Navigation;
-  readonly playableFormats: () => Menu;
+  readonly playableFormats: () => PlayableFormats;
 }
 
 /** Holds the services for the tree below it; main.tsx provides the real ones, tests their own. */

@@ -58,41 +58,42 @@ func audios() []Audio         { return []Audio{AACStereo, AACMulti, AC3, EAC3, O
 func subtitles() []Subtitle   { return []Subtitle{ASS, WebVTT} }
 func containers() []Container { return []Container{MP4, Matroska, MPEGTS} }
 
-// Menu is what a client can play, one list per axis, most preferred first, with no weights
-// (D217 §1).
-type Menu struct {
+// PlayableFormats is what a client can play, one list per axis of D21's menu, most preferred
+// first, with no weights (D217 §1): the API's playableFormats.
+type PlayableFormats struct {
 	VideoCodecs     []Video
 	AudioCodecs     []Audio
 	SubtitleFormats []Subtitle
 	Containers      []Container
 }
 
-// ErrBadMenu is a menu that names something the menu does not have, or lacks a baseline.
-var ErrBadMenu = errors.New("the menu")
+// ErrBadPlayableFormats is a list of playable formats that names something the menu does not
+// have, or lacks a baseline.
+var ErrBadPlayableFormats = errors.New("the playable formats")
 
-// Validate refuses a menu without both baselines (D21: every client lists them, so negotiation
+// Validate refuses playable formats without both baselines (D21: every client lists them, so negotiation
 // cannot fail) or with a name the menu does not have.
-func (menu Menu) Validate() error {
-	if !slices.Contains(menu.VideoCodecs, H264SDR) || !slices.Contains(menu.AudioCodecs, AACStereo) {
+func (formats PlayableFormats) Validate() error {
+	if !slices.Contains(formats.VideoCodecs, H264SDR) || !slices.Contains(formats.AudioCodecs, AACStereo) {
 		return fmt.Errorf("%w must list %s and %s, the baselines every client plays (D21)",
-			ErrBadMenu, H264SDR, AACStereo)
+			ErrBadPlayableFormats, H264SDR, AACStereo)
 	}
-	if err := checkAllOnMenu("video", menu.VideoCodecs, videos()); err != nil {
+	if err := checkAllOnMenu("video", formats.VideoCodecs, videos()); err != nil {
 		return err
 	}
-	if err := checkAllOnMenu("audio", menu.AudioCodecs, audios()); err != nil {
+	if err := checkAllOnMenu("audio", formats.AudioCodecs, audios()); err != nil {
 		return err
 	}
-	if err := checkAllOnMenu("subtitle", menu.SubtitleFormats, subtitles()); err != nil {
+	if err := checkAllOnMenu("subtitle", formats.SubtitleFormats, subtitles()); err != nil {
 		return err
 	}
-	return checkAllOnMenu("container", menu.Containers, containers())
+	return checkAllOnMenu("container", formats.Containers, containers())
 }
 
 func checkAllOnMenu[T comparable](axis string, listed, defined []T) error {
 	for _, name := range listed {
 		if !slices.Contains(defined, name) {
-			return fmt.Errorf("%w has no %s entry %v", ErrBadMenu, axis, name)
+			return fmt.Errorf("%w has no %s entry %v", ErrBadPlayableFormats, axis, name)
 		}
 	}
 	return nil
