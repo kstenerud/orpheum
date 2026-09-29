@@ -117,16 +117,19 @@ func TestAdmin_FilesPagesByIDAndFilters(t *testing.T) {
 	}, true)
 	admin := NewAdmin(world.database, world.clock, &fakeNodes{})
 	first, err := admin.Files(t.Context(), FilesQuery{Limit: 2})
-	if err != nil || len(first) != 2 {
+	if err != nil || len(first.Files) != 2 || first.NextCursor == "" {
 		t.Fatalf("first page = %+v, %v", first, err)
 	}
-	rest, err := admin.Files(t.Context(), FilesQuery{AfterID: first[1].ID, Limit: 2})
-	if err != nil || len(rest) != 1 {
+	rest, err := admin.Files(t.Context(), FilesQuery{Cursor: first.NextCursor, Limit: 2})
+	if err != nil || len(rest.Files) != 1 || rest.NextCursor != "" {
 		t.Errorf("second page = %+v, %v", rest, err)
 	}
 	skipped := "skipped"
 	only, err := admin.Files(t.Context(), FilesQuery{Filing: &skipped, Limit: 10})
-	if err != nil || len(only) != 1 || only[0].Filing != skipped {
+	if err != nil || len(only.Files) != 1 || only.Files[0].Filing != skipped {
 		t.Errorf("filing=skipped = %+v, %v", only, err)
+	}
+	if _, err = admin.Files(t.Context(), FilesQuery{Cursor: "12", Limit: 2}); !errors.Is(err, ErrBadCursor) {
+		t.Errorf("a cursor this server did not give: %v, want ErrBadCursor", err)
 	}
 }

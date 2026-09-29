@@ -163,19 +163,33 @@ func (admin *Admin) Scan(ctx context.Context, libraryID int64) (int, error) {
 type FilesQuery struct {
 	LibraryID *int64
 	Filing    *string
-	AfterID   int64 // the last id of the page before; 0 for the first
+	Cursor    string // the page before's NextCursor; empty for the first
 	Limit     int64
 }
 
-// Files is one page of live files, by id.
-func (admin *Admin) Files(ctx context.Context, query FilesQuery) ([]sqlcgen.ListFilesPageRow, error) {
+// FilesPage is one page of live files, by id, and the cursor of the next when it is full.
+type FilesPage struct {
+	Files      []sqlcgen.ListFilesPageRow
+	NextCursor string
+}
+
+// Files is one page of live files, by id, behind the same opaque cursor as the browse lists.
+func (admin *Admin) Files(ctx context.Context, query FilesQuery) (FilesPage, error) {
+	key, afterID, err := decodeCursor(query.Cursor)
+	if err != nil || len(key) != 0 || afterID < 0 {
+		return FilesPage{}, ErrBadCursor
+	}
 	rows, err := admin.database.Read().ListFilesPage(ctx, sqlcgen.ListFilesPageParams{
-		AfterID: query.AfterID, LibraryID: query.LibraryID, Filing: query.Filing, MaxRows: query.Limit,
+		AfterID: afterID, LibraryID: query.LibraryID, Filing: query.Filing, MaxRows: query.Limit,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list files: %w", err)
+		return FilesPage{}, fmt.Errorf("list files: %w", err)
 	}
-	return rows, nil
+	page := FilesPage{Files: rows}
+	if int64(len(rows)) == query.Limit && len(rows) > 0 {
+		page.NextCursor = encodeCursor(nil, rows[len(rows)-1].ID)
+	}
+	return page, nil
 }
 
 // ApproveRemovals is the admin saying a root's withheld removals are real (D208 §3): its next

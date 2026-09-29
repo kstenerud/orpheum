@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -318,25 +317,21 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 	if err != nil {
 		return nil, err
 	}
-	query := library.FilesQuery{Limit: input.Limit}
-	if input.Cursor != "" {
-		if query.AfterID, err = strconv.ParseInt(input.Cursor, 10, 64); err != nil || query.AfterID < 0 {
-			return nil, server.libraryError(ctx, "list files", library.ErrBadCursor)
-		}
-	}
+	query := library.FilesQuery{Cursor: input.Cursor, Limit: input.Limit}
 	if input.LibraryID != 0 {
 		query.LibraryID = &input.LibraryID
 	}
 	if input.Filing != "" {
 		query.Filing = &input.Filing
 	}
-	rows, err := dependencies.Libraries.Files(ctx, query)
+	page, err := dependencies.Libraries.Files(ctx, query)
 	if err != nil {
 		return nil, server.libraryError(ctx, "list files", err)
 	}
 	output := &FilesOutput{}
-	output.Body.Files = make([]FileBody, 0, len(rows))
-	for _, row := range rows {
+	output.Body.Files = make([]FileBody, 0, len(page.Files))
+	output.Body.NextCursor = page.NextCursor
+	for _, row := range page.Files {
 		file := FileBody{
 			ID: row.ID, LibraryID: row.LibraryID, Path: row.Path, Filing: row.Filing,
 			FilingReason: row.FilingReason, SizeBytes: row.SizeBytes,
@@ -353,9 +348,6 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 			}
 		}
 		output.Body.Files = append(output.Body.Files, file)
-	}
-	if int64(len(rows)) == input.Limit {
-		output.Body.NextCursor = strconv.FormatInt(rows[len(rows)-1].ID, 10)
 	}
 	return output, nil
 }
