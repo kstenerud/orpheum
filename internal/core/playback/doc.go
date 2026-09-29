@@ -122,8 +122,8 @@
 //   - tokens.go: media tokens, in memory. playback.go: starting a playback and finding a direct
 //     playback's bytes. prepare.go: renditions' rows, their jobs and the nodes' reports. hls.go:
 //     a prepared playback's files, and the prepare job's handler. subtitles.go: the text tracks a
-//     playback offers, their extraction jobs and their text. waiting.go: jobs waiting for a node's
-//     answer. report.go: the play report, its log and the guarded position. resume.go: where a
+//     playback offers, their extraction jobs and their text; a job waits for a node's answer
+//     through nodes.AnswerRouter. report.go: the play report, its log and the guarded position. resume.go: where a
 //     playback starts. hide.go: hiding a work from Continue Watching, which library's home.go
 //     lists. finished.go: a node's finished prepares, for the System page. fetch.go: subtitles
 //     fetched on request, and the job that converts one. loudness.go: the gain that levels a

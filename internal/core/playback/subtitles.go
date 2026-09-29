@@ -11,6 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -302,8 +303,8 @@ func (service *Service) makeSubtitleText(
 	ctx context.Context, job jobs.Job, nodeID int64, command *nodeproto.ExtractSubtitle,
 	key cachegen.GetSubtitleTextParams,
 ) error {
-	answers := service.subtitleTextAnswers.await(job.ID)
-	defer service.subtitleTextAnswers.forget(job.ID)
+	answers := service.subtitleTextAnswers.Await(job.ID)
+	defer service.subtitleTextAnswers.Forget(job.ID)
 	service.nodes.Enqueue(nodeID, nodeproto.Command{
 		Type: nodeproto.CommandExtractSubtitle, ExtractSubtitle: command,
 	})
@@ -324,16 +325,11 @@ func (service *Service) makeSubtitleText(
 	case <-ctx.Done():
 		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
 			// The node stops its FFmpeg; the text stays unmade, so a later play asks again.
-			service.nodes.Enqueue(nodeID, cancelCommand(job.ID))
+			service.nodes.Enqueue(nodeID, nodes.CancelCommand(job.ID))
 			return jobs.MarkPermanent(jobs.ErrCancelled)
 		}
 		return fmt.Errorf("wait for %s job %d: %w", job.Kind, job.ID, ctx.Err())
 	}
-}
-
-// cancelCommand tells a node to stop a job it is working on (cut-a §5.3).
-func cancelCommand(jobID int64) nodeproto.Command {
-	return nodeproto.Command{Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{JobID: jobID}}
 }
 
 // finishSubtitle keeps a node's answer: the text, or why there is none.
@@ -361,5 +357,5 @@ func (service *Service) finishSubtitle(
 
 // TakeSubtitleText takes a node's answer to an extract_subtitle command to the job waiting for it.
 func (service *Service) TakeSubtitleText(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText) {
-	service.subtitleTextAnswers.deliver(ctx, nodeID, answer.JobID, answer)
+	service.subtitleTextAnswers.Deliver(ctx, nodeID, answer.JobID, answer)
 }

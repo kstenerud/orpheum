@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -78,8 +79,8 @@ type Service struct {
 	maxSilence          time.Duration
 	tokens              *tokens
 	prepares            *prepares
-	subtitleTextAnswers *answerRouter[nodeproto.SubtitleText]
-	loudnessAnswers     *answerRouter[nodeproto.LoudnessResult]
+	subtitleTextAnswers *nodes.AnswerRouter[nodeproto.SubtitleText]
+	loudnessAnswers     *nodes.AnswerRouter[nodeproto.LoudnessResult]
 	subtitler           Subtitler
 }
 
@@ -89,9 +90,9 @@ func NewService(parts Parts) *Service {
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		clock: parts.Clock, random: parts.Random, maxSilence: parts.MaxSilence,
 		tokens: newTokens(), prepares: newPrepares(parts),
-		subtitleTextAnswers: newAnswerRouter[nodeproto.SubtitleText](parts.Logger, "a subtitle"),
+		subtitleTextAnswers: nodes.NewAnswerRouter[nodeproto.SubtitleText](parts.Logger, "a subtitle"),
 		subtitler:           parts.Subtitler,
-		loudnessAnswers:     newAnswerRouter[nodeproto.LoudnessResult](parts.Logger, "a loudness measurement"),
+		loudnessAnswers:     nodes.NewAnswerRouter[nodeproto.LoudnessResult](parts.Logger, "a loudness measurement"),
 	}
 }
 

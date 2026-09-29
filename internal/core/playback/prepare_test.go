@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -58,21 +59,22 @@ func TestRecordProgress_PutsTheShareOfTheSourceMadeOnTheJob(t *testing.T) {
 // fakeNodes is a node that takes commands and does nothing with them.
 type fakeNodes struct{ sent chan nodeproto.Command }
 
-func (nodes fakeNodes) Enqueue(_ int64, command nodeproto.Command) { nodes.sent <- command }
+func (node fakeNodes) Enqueue(_ int64, command nodeproto.Command) { node.sent <- command }
 
 func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *testing.T) {
 	t.Parallel()
 	const silence = 200 * time.Millisecond
-	nodes := fakeNodes{sent: make(chan nodeproto.Command, 1)}
+	node := fakeNodes{sent: make(chan nodeproto.Command, 1)}
 	all := &prepares{
-		cache: storetest.OpenCache(t), queue: &progressQueue{progress: map[int64]float64{}}, nodes: nodes,
+		cache: storetest.OpenCache(t), queue: &progressQueue{progress: map[int64]float64{}}, nodes: node,
 		clock: clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), maxSilence: silence,
-		reportAnswers: newAnswerRouter[nodeproto.PrepareReport](slog.New(slog.DiscardHandler), "a prepare report"),
+		reportAnswers: nodes.NewAnswerRouter[nodeproto.PrepareReport](slog.New(slog.DiscardHandler),
+			"a prepare report"),
 	}
 	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: 1}}
 	ended := make(chan error, 1)
 	go func() { ended <- all.handle(t.Context(), job, prepareOrder{command: nodeproto.Prepare{}, nodeID: 1}) }()
-	<-nodes.sent
+	<-node.sent
 	// The node holds the prepare behind another for three silence limits, saying so each time.
 	for range 6 {
 		time.Sleep(silence / 2)
