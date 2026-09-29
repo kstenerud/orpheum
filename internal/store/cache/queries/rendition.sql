@@ -3,23 +3,23 @@
 -- prepare, and how far it is.
 
 -- name: GetRendition :one
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, audio_gains_db, created_at, finished_at
+SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, audio_gains_db, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?;
 
 -- name: GetRenditionByID :one
-SELECT id, source_file, payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_ms, size_bytes, error, video_encoder, speed, audio_gains_db, created_at, finished_at
+SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_s, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, audio_gains_db, created_at, finished_at
 FROM prepared_rendition WHERE id = ?;
 
 -- name: InsertRendition :one
-INSERT INTO prepared_rendition (source_file, payload_hash, profile, node_id, segment_length_s, run_id, created_at)
+INSERT INTO prepared_rendition (source_file, source_payload_hash, profile, node_id, segment_length_s, run_id, created_at)
 VALUES (?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 
 -- name: RestartRendition :exec
 -- A rendition prepared again from the start: its source changed, or it failed or was lost.
 UPDATE prepared_rendition
-SET payload_hash = ?, node_id = ?, segment_length_s = ?, run_id = ?, state = 'queued', prepared_ms = 0, size_bytes = NULL, error = NULL,
-    finished_at = NULL, video_encoder = NULL, speed = NULL, audio_gains_db = '[]'
+SET source_payload_hash = ?, node_id = ?, segment_length_s = ?, run_id = ?, state = 'queued', prepared_through_ms = 0, size_bytes = NULL, failure = NULL,
+    finished_at = NULL, video_encoder = NULL, realtime_factor = NULL, audio_gains_db = '[]'
 WHERE id = ?;
 
 -- name: SetRenditionGains :exec
@@ -27,19 +27,19 @@ WHERE id = ?;
 UPDATE prepared_rendition SET audio_gains_db = sqlc.arg(audio_gains_db) WHERE id = sqlc.arg(id);
 
 -- name: SetRenditionRunning :exec
-UPDATE prepared_rendition SET state = 'running', prepared_ms = ? WHERE id = ?;
+UPDATE prepared_rendition SET state = 'running', prepared_through_ms = ? WHERE id = ?;
 
 -- name: SetRenditionComplete :exec
 UPDATE prepared_rendition
-SET state = 'complete', size_bytes = ?, finished_at = ?, video_encoder = ?, speed = ?
+SET state = 'complete', size_bytes = ?, finished_at = ?, video_encoder = ?, realtime_factor = ?
 WHERE id = ?;
 
 -- name: SetRenditionFailed :exec
-UPDATE prepared_rendition SET state = 'failed', error = ?, finished_at = ? WHERE id = ?;
+UPDATE prepared_rendition SET state = 'failed', failure = ?, finished_at = ? WHERE id = ?;
 
 -- name: ListFinishedRenditions :many
 -- A node's latest finished prepares, newest first, for the System page (D225).
-SELECT id, source_file, profile, state, video_encoder, speed, size_bytes, error, finished_at
+SELECT id, source_file, profile, state, video_encoder, realtime_factor, size_bytes, failure, finished_at
 FROM prepared_rendition
 WHERE node_id = ? AND finished_at IS NOT NULL
 ORDER BY finished_at DESC, id DESC

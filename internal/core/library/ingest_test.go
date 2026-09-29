@@ -182,7 +182,7 @@ func (world *harness) checkStreams(fileID int64) {
 		world.t.Fatal(err)
 	}
 	if len(streams) != 2 || streams[1].Kind != "audio" || *streams[1].LangRaw != "ger" || *streams[1].Lang != "de" ||
-		streams[1].Disposition != 0x41 || *streams[1].Channels != 6 {
+		streams[1].DispositionFlags != 0x41 || *streams[1].ChannelCount != 6 {
 		world.t.Errorf("streams = %+v, want the video and the audio (default and forced), no data stream", streams)
 	}
 }
@@ -280,7 +280,7 @@ func TestIngest_APathIsStoredInNFCBesideItsBytes(t *testing.T) {
 	decomposed := "Fièvre.mkv" // as macOS writes it
 	world.scan([]nodeproto.Record{observed(decomposed, "fievre")}, true)
 	row, found := world.live()[root+"/Fièvre.mkv"]
-	if !found || string(row.PathRaw) != root+"/"+decomposed {
+	if !found || string(row.ReportedPathBytes) != root+"/"+decomposed {
 		t.Errorf("rows %+v: want the NFC path, with the decomposed bytes beside it (D49)", world.live())
 	}
 }
@@ -327,7 +327,7 @@ func TestIngest_AFileInAnotherRootIsNeverTakenForAMove(t *testing.T) {
 }
 
 func rootStateParams(nodeID int64) sqlcgen.GetRootStateParams {
-	return sqlcgen.GetRootStateParams{NodeID: nodeID, Path: root}
+	return sqlcgen.GetRootStateParams{NodeID: nodeID, RootPath: root}
 }
 
 func sidecar(path string, kind nodeproto.SidecarKind, body string) nodeproto.Record {
@@ -362,7 +362,7 @@ func TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo(t *testing.T) {
 		byPath[strings.TrimPrefix(row.Path, root+"/")] = row
 	}
 	owner := func(sidecarPath string) string {
-		attached := byPath[sidecarPath].AttachedTo
+		attached := byPath[sidecarPath].AttachedToFile
 		if attached == nil {
 			return ""
 		}
@@ -379,7 +379,7 @@ func TestIngest_ASidecarIsAttachedToTheVideoItBelongsTo(t *testing.T) {
 		"Nosferatu (1998)/movie.nfo":                "Nosferatu (1998)/nosferatu.mkv",
 		"Show/tvshow.nfo":                       "",
 	}
-	body, err := world.database.Read().GetSidecarBody(t.Context(), byPath["Metropolis (1995)/Metropolis (1995).nfo"].ID)
+	body, err := world.database.Read().GetNFOBody(t.Context(), byPath["Metropolis (1995)/Metropolis (1995).nfo"].ID)
 	if err != nil || string(body) != "<movie><title>Metropolis</title></movie>" {
 		t.Errorf("the NFO's stored bytes are %q, %v; identification reads them (D182)", body, err)
 	}
@@ -437,9 +437,9 @@ func TestIngest_WhatANodeReportsIsCleanWhereItEnters(t *testing.T) {
 		t.Fatalf("files %+v, %v", rows, err)
 	}
 	file := rows[0]
-	if file.Path != root+"/evil�vkm.mkv" || string(file.PathRaw) != root+"/evil\u202Evkm.mkv" {
+	if file.Path != root+"/evil�vkm.mkv" || string(file.ReportedPathBytes) != root+"/evil\u202Evkm.mkv" {
 		t.Errorf("path %q, raw %q; want the override marked in the text and kept in the bytes",
-			file.Path, file.PathRaw)
+			file.Path, file.ReportedPathBytes)
 	}
 	streams, err := world.database.Read().ListStreamsOfFile(t.Context(), file.ID)
 	if err != nil || len(streams) < 2 || streams[1].TitleRaw == nil || *streams[1].TitleRaw != "Commentary" {

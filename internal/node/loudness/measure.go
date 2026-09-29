@@ -40,8 +40,8 @@ func NewMeasurer(runner Runner) *Measurer {
 
 // The two sounds of a track a measurement names: as it is, and as a stereo device hears it.
 const (
-	soundSource = "source"
-	soundStereo = "stereo"
+	mixMultichannel = "multichannel"
+	mixStereo       = "stereo"
 )
 
 // Measure measures each track of the video at videoPath, an absolute path the caller has checked,
@@ -61,17 +61,18 @@ func (measurer *Measurer) Measure(
 	summaries := parseSummaries(logged)
 	measured := make([]nodeproto.TrackLoudness, 0, len(tracks))
 	for _, track := range tracks {
-		stereo, found := summaries[instance(soundStereo, track.StreamIndex)]
+		stereo, found := summaries[instance(mixStereo, track.StreamIndex)]
 		if !found {
 			return nil, fmt.Errorf("FFmpeg gave no loudness for stream %d", track.StreamIndex)
 		}
 		result := nodeproto.TrackLoudness{StreamIndex: track.StreamIndex, Stereo: stereo}
 		if track.ChannelCount > 2 {
-			source, isFound := summaries[instance(soundSource, track.StreamIndex)]
+			multichannel, isFound := summaries[instance(mixMultichannel, track.StreamIndex)]
 			if !isFound {
-				return nil, fmt.Errorf("FFmpeg gave no loudness for stream %d as it is", track.StreamIndex)
+				return nil, fmt.Errorf("FFmpeg gave no loudness for stream %d as its multichannel sound",
+					track.StreamIndex)
 			}
-			result.Multichannel = &source
+			result.Multichannel = &multichannel
 		}
 		measured = append(measured, result)
 	}
@@ -89,14 +90,14 @@ func arguments(videoPath string, tracks []nodeproto.LoudnessTrack) []string {
 	const measure = "=peak=true:framelog=quiet"
 	var graph, maps []string
 	for _, track := range tracks {
-		input, stereo := "[0:"+strconv.Itoa(track.StreamIndex)+"]", instance(soundStereo, track.StreamIndex)
+		input, stereo := "[0:"+strconv.Itoa(track.StreamIndex)+"]", instance(mixStereo, track.StreamIndex)
 		if track.ChannelCount > 2 {
-			source := instance(soundSource, track.StreamIndex)
+			multichannel := instance(mixMultichannel, track.StreamIndex)
 			graph = append(graph,
-				input+"asplit=2["+source+"_in]["+stereo+"_in]",
-				"["+source+"_in]ebur128@"+source+measure+"["+source+"]",
+				input+"asplit=2["+multichannel+"_in]["+stereo+"_in]",
+				"["+multichannel+"_in]ebur128@"+multichannel+measure+"["+multichannel+"]",
 				"["+stereo+"_in]"+prepare.StandardMix+",ebur128@"+stereo+measure+"["+stereo+"]")
-			maps = append(maps, "-map", "["+source+"]")
+			maps = append(maps, "-map", "["+multichannel+"]")
 		} else {
 			graph = append(graph, input+prepare.StereoMix+",ebur128@"+stereo+measure+"["+stereo+"]")
 		}

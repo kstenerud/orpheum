@@ -90,7 +90,7 @@ func (matcher *Matcher) acceptSeries(
 	if err != nil {
 		return fmt.Errorf("record series %d's match: %w", series.ID, err)
 	}
-	series.SourceID, series.Identification = &metadata.ID, &ident
+	series.FollowedSourceID, series.Identification = &metadata.ID, &ident
 	_, err = matcher.listSeasons(ctx, provider, series)
 	return err
 }
@@ -114,7 +114,7 @@ func recordSeries(ctx context.Context, queries *sqlcgen.Queries, found seriesFou
 		}
 	}
 	err := queries.UpsertProviderResponse(ctx, sqlcgen.UpsertProviderResponseParams{
-		ItemID: seriesID, Provider: provider, Part: "", FetchedAt: now, Body: stored,
+		ItemID: seriesID, Provider: provider, Part: "", FetchedAt: now, BodyGzip: stored,
 	})
 	if err != nil {
 		return fmt.Errorf("store the response: %w", err)
@@ -132,7 +132,7 @@ func recordSeries(ctx context.Context, queries *sqlcgen.Queries, found seriesFou
 		}
 	}
 	err = queries.SetSeriesMatch(ctx, sqlcgen.SetSeriesMatchParams{
-		SourceID: &metadata.ID, Identification: &ident,
+		FollowedSourceID: &metadata.ID, Identification: &ident,
 		ID: seriesID,
 	})
 	if err != nil {
@@ -155,7 +155,7 @@ func (matcher *Matcher) listSeasons(
 		outcome = OutcomeNothingToDo
 	}
 	for _, season := range seasons {
-		body, err := provider.FetchSeason(ctx, ptr.ValueOrZero(series.SourceID), season)
+		body, err := provider.FetchSeason(ctx, ptr.ValueOrZero(series.FollowedSourceID), season)
 		if errors.Is(err, ErrNoMatch) {
 			body, err = []byte{}, nil // the provider has no such season: stored empty, so it is not asked again
 		}
@@ -179,7 +179,7 @@ func (matcher *Matcher) storeSeason(
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertProviderResponse(ctx, sqlcgen.UpsertProviderResponseParams{
 			ItemID: seriesID, Provider: provider.Name(), Part: seasonPart(season),
-			FetchedAt: matcher.clock.Now().UnixMilli(), Body: stored,
+			FetchedAt: matcher.clock.Now().UnixMilli(), BodyGzip: stored,
 		})
 	})
 	if err != nil {

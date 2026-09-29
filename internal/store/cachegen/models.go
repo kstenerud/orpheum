@@ -5,25 +5,29 @@
 package cachegen
 
 type ArtServed struct {
-	Hash               string
+	ContentHashHex     string
 	LastServedEpochDay int64
 }
 
 type Job struct {
-	ID         int64
-	Kind       string
-	Subject    *int64
-	Args       string
-	Priority   int64
-	State      string
-	NodeID     *int64
-	RunnableAt int64
-	Attempts   int64
-	Progress   *float64
-	Reason     *string
-	LastError  *string
-	CreatedAt  int64
-	FinishedAt *int64
+	ID                int64
+	Kind              string
+	ItemID            *int64
+	RenditionID       *int64
+	StreamID          *int64
+	FetchedSubtitleID *int64
+	FileID            *int64
+	ArgsJson          string
+	Priority          int64
+	State             string
+	NodeID            *int64
+	RunnableAt        int64
+	Attempts          int64
+	ProgressFraction  *float64
+	Reason            *string
+	LastError         *string
+	CreatedAt         int64
+	FinishedAt        *int64
 }
 
 type MatchCandidate struct {
@@ -34,35 +38,35 @@ type MatchCandidate struct {
 	Name       *string
 	Year       *int64
 	RuntimeMs  *int64
-	PosterRef  *string
+	PosterPath *string
 }
 
 type PreparedRendition struct {
-	ID             int64
-	SourceFile     int64
-	PayloadHash    []byte
-	Profile        string
-	NodeID         int64
-	State          string
-	SegmentLengthS int64
-	RunID          string
-	PreparedMs     int64
-	SizeBytes      *int64
-	Error          *string
-	VideoEncoder   *string
-	Speed          *float64
-	AudioGainsDb   string
-	CreatedAt      int64
-	FinishedAt     *int64
+	ID                int64
+	SourceFile        int64
+	SourcePayloadHash []byte
+	Profile           string
+	NodeID            int64
+	State             string
+	SegmentLengthS    int64
+	RunID             string
+	PreparedThroughMs int64
+	SizeBytes         *int64
+	Failure           *string
+	VideoEncoder      *string
+	RealtimeFactor    *float64
+	AudioGainsDb      string
+	CreatedAt         int64
+	FinishedAt        *int64
 }
 
 type SubtitleText struct {
-	PayloadHash []byte
-	StreamIndex int64
-	State       string
-	Ass         []byte
-	Vtt         []byte
-	Error       *string
-	CreatedAt   int64
-	FinishedAt  *int64
+	BytesPayloadHash []byte
+	StreamIndex      int64
+	State            string
+	Ass              []byte
+	Vtt              []byte
+	Failure          *string
+	CreatedAt        int64
+	FinishedAt       *int64
 }

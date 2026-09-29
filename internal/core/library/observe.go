@@ -34,7 +34,7 @@ func (work *batch) observed(ctx context.Context, scan *scanState, observed *node
 		return err
 	}
 	existing, err := store.One(work.queries.GetLiveFileByKey(ctx, sqlcgen.GetLiveFileByKeyParams{
-		NodeID: work.nodeID, PathKey: seen.key,
+		NodeID: work.nodeID, ReportedPathBytes: seen.key,
 	}))
 	switch {
 	case err == nil && bytes.Equal(existing.PayloadHash, seen.hash):
@@ -93,7 +93,6 @@ func (work *batch) reviveOrInsert(ctx context.Context, scan *scanState, seen obs
 // observation is an observed record resolved to the file table's terms.
 type observation struct {
 	path     string
-	raw      []byte
 	key      []byte
 	hash     []byte
 	probe    string
@@ -126,7 +125,7 @@ func observationOf(root string, observed *nodeproto.Observed) (observation, erro
 		return observation{}, fmt.Errorf("encode the probe of %s: %w", reported.text, err)
 	}
 	return observation{
-		path: reported.text, raw: reported.raw, key: reported.key, hash: hash, probe: string(probe), observed: observed,
+		path: reported.text, key: reported.key, hash: hash, probe: string(probe), observed: observed,
 		openSubtitlesHash: openSubtitlesHash(observed.OpenSubtitlesHash),
 	}, nil
 }
@@ -135,10 +134,10 @@ func observationOf(root string, observed *nodeproto.Observed) (observation, erro
 func (work *batch) insert(ctx context.Context, scan *scanState, seen observation) error {
 	observed, reason := seen.observed, notIdentifiedYet
 	id, err := work.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key,
+		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: seen.path, ReportedPathBytes: seen.key,
 		SizeBytes: &observed.SizeBytes, MtimeMs: &observed.MtimeMs, PayloadHash: seen.hash,
 		PayloadBytes: &observed.Identity.PayloadBytes, Filing: filingUnidentified, FilingReason: &reason,
-		Probe: &seen.probe, SeenAt: work.now, OpensubtitlesHash: seen.openSubtitlesHash,
+		ProbeJson: &seen.probe, SeenAt: work.now, OpensubtitlesHash: seen.openSubtitlesHash,
 	})
 	if err != nil {
 		return fmt.Errorf("insert %s: %w", seen.path, err)
@@ -151,11 +150,12 @@ func (work *batch) insert(ctx context.Context, scan *scanState, seen observation
 func (work *batch) update(ctx context.Context, scan *scanState, id int64, seen observation) error {
 	observed, reason := seen.observed, notIdentifiedYet
 	err := work.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
-		LibraryID: scan.libraryID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key,
+		LibraryID: scan.libraryID, Path: seen.path, ReportedPathBytes: seen.key,
 		SizeBytes: &observed.SizeBytes,
 		MtimeMs:   &observed.MtimeMs, PayloadHash: seen.hash, PayloadBytes: &observed.Identity.PayloadBytes,
-		UnidentifiedReason: &reason, Probe: &seen.probe, OpensubtitlesHash: seen.openSubtitlesHash, SeenAt: work.now,
-		ID: id,
+		UnidentifiedReason: &reason, ProbeJson: &seen.probe, OpensubtitlesHash: seen.openSubtitlesHash,
+		SeenAt: work.now,
+		ID:     id,
 	})
 	if err != nil {
 		return fmt.Errorf("update %s: %w", seen.path, err)
@@ -170,7 +170,7 @@ func (work *batch) filed(
 ) error {
 	located := nodePath(scan.root, reported)
 	existing, err := store.One(work.queries.GetLiveFileByKey(ctx, sqlcgen.GetLiveFileByKeyParams{
-		NodeID: work.nodeID, PathKey: located.key,
+		NodeID: work.nodeID, ReportedPathBytes: located.key,
 	}))
 	if err == nil {
 		err = work.queries.UpdateFileFiling(ctx, sqlcgen.UpdateFileFilingParams{
@@ -185,7 +185,7 @@ func (work *batch) filed(
 		return err
 	}
 	_, err = work.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
-		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, PathRaw: located.raw, PathKey: located.key,
+		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, ReportedPathBytes: located.key,
 		Filing: filing, FilingReason: &reason, ErrorDetail: detail, SeenAt: work.now,
 	})
 	if err != nil {

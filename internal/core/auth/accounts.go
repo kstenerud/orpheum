@@ -74,7 +74,7 @@ func (service *Service) Accounts(ctx context.Context) ([]Account, error) {
 	accounts := make([]Account, 0, len(rows))
 	for _, row := range rows {
 		accounts = append(accounts, Account{
-			ID: row.ID, Name: row.Name, Role: Role(row.RoleName), IsOutsider: row.Outsider == 1,
+			ID: row.ID, Name: row.Name, Role: Role(row.RoleName), IsOutsider: row.IsOutsider == 1,
 			HasPassword: row.HasPassword,
 		})
 	}
@@ -99,13 +99,13 @@ func (service *Service) IssueRegistrationLink(ctx context.Context, userID int64)
 	expires := now.Add(registrationLinkLife)
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		revokeErr := queries.RevokeLiveGrantsOf(ctx, sqlcgen.RevokeLiveGrantsOfParams{
-			RevokedAt: new(now.UnixMilli()), Subject: &userID, Kind: grantKindInvite, Scope: grantScopeRegister,
+			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindInvite, Scope: grantScopeRegister,
 		})
 		if revokeErr != nil {
 			return fmt.Errorf("withdraw the earlier link: %w", revokeErr)
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
-			Hash: tokenHash(secret), Kind: grantKindInvite, Subject: &userID, Scope: grantScopeRegister,
+			SecretSha256: tokenHash(secret), Kind: grantKindInvite, UserID: &userID, Scope: grantScopeRegister,
 			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()),
 		})
 	})
@@ -126,7 +126,7 @@ func (service *Service) Register(ctx context.Context, secret, password string, d
 	if err != nil {
 		return "", err
 	}
-	userID := *grant.Subject
+	userID := *grant.UserID
 	hash, err := service.hash(ctx, password)
 	if err != nil {
 		return "", err
@@ -172,14 +172,14 @@ func (service *Service) IssueDeviceCode(
 	expires := now.Add(deviceCodeLife)
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		revokeErr := queries.RevokeLiveGrantsOf(ctx, sqlcgen.RevokeLiveGrantsOfParams{
-			RevokedAt: new(now.UnixMilli()), Subject: &userID, Kind: grantKindInvite, Scope: grantScopeAddDevice,
+			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindInvite, Scope: grantScopeAddDevice,
 		})
 		if revokeErr != nil {
 			return fmt.Errorf("withdraw the last code: %w", revokeErr)
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
-			Hash: tokenHash(code), Kind: grantKindInvite, Subject: &userID, Scope: grantScopeAddDevice,
-			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()), Label: &deviceName, DeviceID: device,
+			SecretSha256: tokenHash(code), Kind: grantKindInvite, UserID: &userID, Scope: grantScopeAddDevice,
+			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()), DeviceName: &deviceName, DeviceID: device,
 		})
 	})
 	if err != nil {
@@ -199,7 +199,7 @@ type WaitingCode struct {
 // none, so a client that showed one knows it was used, withdrawn or expired (D221 §3).
 func (service *Service) WaitingCodeOf(ctx context.Context, userID int64) (*WaitingCode, error) {
 	waiting, err := store.One(service.database.Read().GetLiveGrantOf(ctx, sqlcgen.GetLiveGrantOfParams{
-		Subject: &userID, Kind: grantKindInvite, Scope: grantScopeAddDevice,
+		UserID: &userID, Kind: grantKindInvite, Scope: grantScopeAddDevice,
 		Now: new(service.clock.Now().UnixMilli()),
 	}))
 	if errors.Is(err, store.ErrNotFound) {
@@ -209,7 +209,7 @@ func (service *Service) WaitingCodeOf(ctx context.Context, userID int64) (*Waiti
 		return nil, fmt.Errorf("read user %d's device code: %w", userID, err)
 	}
 	return &WaitingCode{
-		DeviceName: ptr.ValueOrZero(waiting.Label), ExpiresAt: time.UnixMilli(ptr.ValueOrZero(waiting.ExpiresAt)),
+		DeviceName: ptr.ValueOrZero(waiting.DeviceName), ExpiresAt: time.UnixMilli(ptr.ValueOrZero(waiting.ExpiresAt)),
 	}, nil
 }
 
@@ -229,11 +229,11 @@ func (service *Service) SignInWithCode(
 	if err != nil {
 		return "", err
 	}
-	device := NewDevice{Name: ptr.ValueOrZero(grant.Label), Platform: platform, ResumeID: resumeID}
+	device := NewDevice{Name: ptr.ValueOrZero(grant.DeviceName), Platform: platform, ResumeID: resumeID}
 	if grant.DeviceID != nil {
 		device.ResumeID = *grant.DeviceID
 	}
-	return service.issueSession(ctx, *grant.Subject, device)
+	return service.issueSession(ctx, *grant.UserID, device)
 }
 
 // liveUser is a person who has not been removed, or ErrNoUser.
@@ -276,15 +276,18 @@ func (service *Service) spend(ctx context.Context, secret, scope string) (sqlcge
 	hash := tokenHash(secret)
 	var grant sqlcgen.GetLiveGrantRow
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		found, lookErr := store.One(queries.GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{Hash: hash, Now: &now}))
+		found, lookErr := store.One(queries.GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
+			SecretSha256: hash,
+			Now:          &now,
+		}))
 		if lookErr != nil {
 			return lookErr
 		}
-		if found.Kind != grantKindInvite || found.Scope != scope || found.Subject == nil {
+		if found.Kind != grantKindInvite || found.Scope != scope || found.UserID == nil {
 			return store.ErrNotFound
 		}
 		grant = found
-		return queries.MarkGrantRevoked(ctx, sqlcgen.MarkGrantRevokedParams{Hash: hash, RevokedAt: &now})
+		return queries.MarkGrantRevoked(ctx, sqlcgen.MarkGrantRevokedParams{SecretSha256: hash, RevokedAt: &now})
 	})
 	if errors.Is(err, store.ErrNotFound) {
 		return sqlcgen.GetLiveGrantRow{}, ErrBadInvitation

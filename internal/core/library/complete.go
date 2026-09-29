@@ -69,14 +69,15 @@ func (work *batch) complete(ctx context.Context, scan *scanState, complete *node
 		return attachErr
 	}
 	err = work.queries.UpsertRootScan(ctx, sqlcgen.UpsertRootScanParams{
-		NodeID: work.nodeID, Path: scan.root, CompletedAt: work.now,
+		NodeID: work.nodeID, RootPath: scan.root, CompletedAt: work.now,
 	})
 	if err != nil {
 		return fmt.Errorf("record the scan of %s as complete: %w", scan.root, err)
 	}
 	device, mountPoint := int64(scan.facts.Device), boolInt(scan.facts.MountPoint) //nolint:gosec // a device id fits
 	err = work.queries.RecordRootComplete(ctx, sqlcgen.RecordRootCompleteParams{
-		NodeID: work.nodeID, Path: scan.root, FilesystemDevice: &device, IsMountPoint: &mountPoint, OutcomeAt: work.now,
+		NodeID: work.nodeID, RootPath: scan.root, FilesystemDevice: &device, IsMountPoint: &mountPoint,
+		OutcomeAt: work.now,
 	})
 	if err != nil {
 		return fmt.Errorf("record %s's facts: %w", scan.root, err)
@@ -98,14 +99,14 @@ func (work *batch) missingMounts(ctx context.Context, scan *scanState) (map[stri
 	}
 	missing := map[string]bool{}
 	for _, mount := range known {
-		device, seen := scan.mounts[mount.Path]
+		device, seen := scan.mounts[mount.MountPath]
 		if seen && int64(device) == mount.FilesystemDevice { //nolint:gosec // a device id fits
 			continue
 		}
-		missing[mount.Path] = true
-		scan.unread = append(scan.unread, mount.Path)
+		missing[mount.MountPath] = true
+		scan.unread = append(scan.unread, mount.MountPath)
 		work.ingester.logger.WarnContext(ctx, "a disk mounted inside a root is not there; nothing under it was removed",
-			"nodeId", work.nodeID, "root", scan.root, "mount", mount.Path)
+			"nodeId", work.nodeID, "root", scan.root, "mount", mount.MountPath)
 	}
 	return missing, nil
 }
@@ -115,7 +116,7 @@ func (work *batch) missingMounts(ctx context.Context, scan *scanState) (map[stri
 func (work *batch) recordMounts(ctx context.Context, scan *scanState, missing map[string]bool) error {
 	for mountPath := range missing {
 		err := work.queries.RecordRootMountMissing(ctx, sqlcgen.RecordRootMountMissingParams{
-			NodeID: work.nodeID, Path: mountPath,
+			NodeID: work.nodeID, MountPath: mountPath,
 		})
 		if err != nil {
 			return fmt.Errorf("record %s as missing: %w", mountPath, err)
@@ -126,7 +127,7 @@ func (work *batch) recordMounts(ctx context.Context, scan *scanState, missing ma
 			continue // on another device than it was: not the disk we knew
 		}
 		err := work.queries.RecordRootMountPresent(ctx, sqlcgen.RecordRootMountPresentParams{
-			NodeID: work.nodeID, RootPath: scan.root, Path: mountPath,
+			NodeID: work.nodeID, RootPath: scan.root, MountPath: mountPath,
 			FilesystemDevice: int64(device), //nolint:gosec // fits
 		})
 		if err != nil {
@@ -178,10 +179,10 @@ func changedFacts(prior sqlcgen.GetRootStateRow, scan *scanState) string {
 // scan_withhold_removals_over_files (D208 §3) — unless the admin approved this root's removals.
 func (work *batch) withholdReason(ctx context.Context, scan *scanState, removing, total int) (string, error) {
 	prior, err := store.One(work.queries.GetRootState(ctx, sqlcgen.GetRootStateParams{
-		NodeID: work.nodeID, Path: scan.root,
+		NodeID: work.nodeID, RootPath: scan.root,
 	}))
 	switch {
-	case err == nil && prior.RemovalsApproved == 1:
+	case err == nil && prior.AreRemovalsApproved == 1:
 		return "", nil // the admin said the files are gone
 	case err == nil:
 		if changed := changedFacts(prior, scan); changed != "" {
@@ -218,7 +219,7 @@ func (work *batch) recordNotComplete(ctx context.Context, scan *scanState, outco
 		since, why = &scan.startedAt, &reason
 	}
 	err := work.queries.RecordRootNotComplete(ctx, sqlcgen.RecordRootNotCompleteParams{
-		NodeID: work.nodeID, Path: scan.root, Outcome: outcome, OutcomeAt: work.now,
+		NodeID: work.nodeID, RootPath: scan.root, Outcome: outcome, OutcomeAt: work.now,
 		WithheldScanStartedAt: since, WithheldReason: why,
 	})
 	if err != nil {

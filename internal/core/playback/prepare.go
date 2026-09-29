@@ -77,14 +77,14 @@ func (all *prepares) want(
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			_, err = queries.InsertRendition(ctx, cachegen.InsertRenditionParams{
-				SourceFile: file.ID, PayloadHash: file.PayloadHash, Profile: string(profile), NodeID: file.NodeID,
+				SourceFile: file.ID, SourcePayloadHash: file.PayloadHash, Profile: string(profile), NodeID: file.NodeID,
 				SegmentLengthS: segmentLength, RunID: runID, CreatedAt: all.clock.Now().UnixMilli(),
 			})
 		case err != nil:
-		case !bytes.Equal(found.PayloadHash, file.PayloadHash) || found.State == renditionFailed ||
+		case !bytes.Equal(found.SourcePayloadHash, file.PayloadHash) || found.State == renditionFailed ||
 			found.SegmentLengthS != segmentLength:
 			err = queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-				PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthS: segmentLength, RunID: runID,
+				SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthS: segmentLength, RunID: runID,
 				ID: found.ID,
 			})
 		}
@@ -99,7 +99,7 @@ func (all *prepares) want(
 	}
 	if row.State != renditionComplete {
 		_, err = all.queue.Enqueue(ctx, jobs.New{
-			Kind: jobs.KindPrepare, Subject: row.ID, Priority: jobs.PriorityPlayNow,
+			Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: row.ID}, Priority: jobs.PriorityPlayNow,
 			Reason: "someone is waiting to watch it",
 		})
 	}
@@ -121,8 +121,9 @@ func (all *prepares) redo(
 			return readErr
 		}
 		return queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-			PayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthS: found.SegmentLengthS, RunID: runID,
-			ID: found.ID,
+			SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthS: found.SegmentLengthS,
+			RunID: runID,
+			ID:    found.ID,
 		})
 	})
 	if err != nil {
@@ -152,10 +153,10 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 	command, nodeID := made.command, made.nodeID
 	answers := all.waiting.await(job.ID)
 	defer all.waiting.forget(job.ID)
-	if err := all.running(ctx, job.Subject, 0); err != nil {
+	if err := all.running(ctx, job.RenditionID, 0); err != nil {
 		return err
 	}
-	if err := all.carrying(ctx, job.Subject, made.gains); err != nil {
+	if err := all.carrying(ctx, job.RenditionID, made.gains); err != nil {
 		return err
 	}
 	command.JobID = job.ID
@@ -174,11 +175,11 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 				}
 				timer.Reset(all.maxSilence)
 			case nodeproto.PrepareDone:
-				return all.finish(ctx, job.Subject, &report, "")
+				return all.finish(ctx, job.RenditionID, &report, "")
 			case nodeproto.PrepareFailed:
 				// FFmpeg failing on a file fails again on it: this is not retried.
 				failure := errors.New(report.Failure)
-				return jobs.Permanent(errors.Join(failure, all.finish(ctx, job.Subject, nil, report.Failure)))
+				return jobs.Permanent(errors.Join(failure, all.finish(ctx, job.RenditionID, nil, report.Failure)))
 			}
 		case <-timer.C:
 			return fmt.Errorf("node %d said nothing about prepare %s for %s",
@@ -195,7 +196,7 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 // progressed records how far a running prepare is, on its rendition and, when the source's length
 // is known, on its job for the job view.
 func (all *prepares) progressed(ctx context.Context, job jobs.Job, preparedMs, durationMs int64) error {
-	if err := all.running(ctx, job.Subject, preparedMs); err != nil {
+	if err := all.running(ctx, job.RenditionID, preparedMs); err != nil {
 		return err
 	}
 	if durationMs <= 0 {
@@ -208,7 +209,7 @@ func (all *prepares) progressed(ctx context.Context, job jobs.Job, preparedMs, d
 // a later play prepares it again rather than waiting on one no one is making.
 func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) error {
 	all.nodes.Enqueue(nodeID, cancelCommand(job.ID))
-	failed := all.finish(context.WithoutCancel(ctx), job.Subject, nil, jobs.ErrCancelled.Error())
+	failed := all.finish(context.WithoutCancel(ctx), job.RenditionID, nil, jobs.ErrCancelled.Error())
 	return jobs.Permanent(errors.Join(jobs.ErrCancelled, failed))
 }
 
@@ -225,7 +226,7 @@ func (all *prepares) carrying(ctx context.Context, rendition int64, gains string
 
 func (all *prepares) running(ctx context.Context, rendition, preparedMs int64) error {
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		progress := cachegen.SetRenditionRunningParams{PreparedMs: preparedMs, ID: rendition}
+		progress := cachegen.SetRenditionRunningParams{PreparedThroughMs: preparedMs, ID: rendition}
 		return queries.SetRenditionRunning(ctx, progress)
 	})
 	if err != nil {
@@ -251,11 +252,12 @@ func (all *prepares) finish(ctx context.Context, rendition int64, done *nodeprot
 				speed = &done.RealtimeFactor
 			}
 			return queries.SetRenditionComplete(ctx, cachegen.SetRenditionCompleteParams{
-				SizeBytes: &done.SizeBytes, FinishedAt: &now, VideoEncoder: videoEncoder, Speed: speed, ID: rendition,
+				SizeBytes: &done.SizeBytes, FinishedAt: &now, VideoEncoder: videoEncoder, RealtimeFactor: speed,
+				ID: rendition,
 			})
 		}
 		return queries.SetRenditionFailed(ctx, cachegen.SetRenditionFailedParams{
-			Error: &failure, FinishedAt: &now, ID: rendition,
+			Failure: &failure, FinishedAt: &now, ID: rendition,
 		})
 	})
 	if err != nil {

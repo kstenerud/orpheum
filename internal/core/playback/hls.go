@@ -122,12 +122,12 @@ func hlsType(name string) string {
 // HandlePrepare runs one prepare job (jobs.KindPrepare): the node that holds the source makes the
 // rendition, and this waits for it.
 func (service *Service) HandlePrepare(ctx context.Context, job jobs.Job) error {
-	rendition, err := store.One(service.prepares.cache.Read().GetRenditionByID(ctx, job.Subject))
+	rendition, err := store.One(service.prepares.cache.Read().GetRenditionByID(ctx, job.RenditionID))
 	if errors.Is(err, store.ErrNotFound) {
-		return jobs.Permanent(fmt.Errorf("no rendition %d", job.Subject))
+		return jobs.Permanent(fmt.Errorf("no rendition %d", job.RenditionID))
 	}
 	if err != nil {
-		return fmt.Errorf("read rendition %d: %w", job.Subject, err)
+		return fmt.Errorf("read rendition %d: %w", job.RenditionID, err)
 	}
 	made, err := service.commandFor(ctx, rendition)
 	if errors.Is(err, ErrNoFile) {
@@ -155,7 +155,7 @@ func (service *Service) commandFor(ctx context.Context, rendition cachegen.Prepa
 	if err != nil {
 		return making{}, err
 	}
-	probe, err := decodeProbe(file.Probe)
+	probe, err := decodeProbe(file.ProbeJson)
 	if err != nil {
 		return making{}, err
 	}

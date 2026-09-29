@@ -1574,12 +1574,24 @@
             "format": "int64",
             "type": "integer"
           },
+          "fetchedSubtitleId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "fileId": {
+            "format": "int64",
+            "type": "integer"
+          },
           "finishedAt": {
             "description": "Unix milliseconds",
             "format": "int64",
             "type": "integer"
           },
           "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "itemId": {
             "format": "int64",
             "type": "integer"
           },
@@ -1607,6 +1619,10 @@
             "description": "Why it exists",
             "type": "string"
           },
+          "renditionId": {
+            "format": "int64",
+            "type": "integer"
+          },
           "state": {
             "enum": [
               "queued",
@@ -1617,8 +1633,7 @@
             ],
             "type": "string"
           },
-          "subject": {
-            "description": "What it works on, by kind: an item, a rendition, a library, a stream",
+          "streamId": {
             "format": "int64",
             "type": "integer"
           }
@@ -1626,7 +1641,6 @@
         "required": [
           "id",
           "kind",
-          "subject",
           "state",
           "reason",
           "attempts",

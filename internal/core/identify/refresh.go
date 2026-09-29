@@ -32,7 +32,8 @@ type refreshArgs struct {
 func RefreshJob(itemID int64, reason string, at time.Time, retryImages bool, priority int64) jobs.New {
 	args := fmt.Sprintf(`{"refresh":true,"retryImages":%t}`, retryImages) // refreshArgs, as JSON
 	return jobs.New{
-		Kind: jobs.KindFetch, Subject: itemID, Args: args, Reason: reason, RunnableAt: at, Priority: priority,
+		Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID}, Args: args, Reason: reason, RunnableAt: at,
+		Priority: priority,
 	}
 }
 
@@ -80,8 +81,8 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages b
 		}
 		return matcher.refreshSeries(ctx, seriesID, retryImages)
 	}
-	provider, matched := matcher.providers[ptr.ValueOrZero(title.Source)]
-	if !matched || title.SourceID == nil {
+	provider, matched := matcher.providers[ptr.ValueOrZero(title.FollowedSource)]
+	if !matched || title.FollowedSourceID == nil {
 		return matcher.Match(ctx, itemID)
 	}
 	if retryImages {
@@ -89,7 +90,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages b
 			return "", retryErr
 		}
 	}
-	err = matcher.accept(ctx, provider, title, *title.SourceID, title.Identification)
+	err = matcher.accept(ctx, provider, title, *title.FollowedSourceID, title.Identification)
 	if errors.Is(err, ErrNoMatch) {
 		return OutcomeKept, matcher.kept(ctx, title.LibraryID, keptPart{itemID, provider.Name(), ""})
 	}
@@ -126,7 +127,7 @@ func (matcher *Matcher) refreshSeries(ctx context.Context, seriesID int64, retry
 	}
 	outcome := OutcomeMatched
 	for _, part := range parts {
-		body, fetchErr := matcher.fetchPart(ctx, provider, ptr.ValueOrZero(series.SourceID), part)
+		body, fetchErr := matcher.fetchPart(ctx, provider, ptr.ValueOrZero(series.FollowedSourceID), part)
 		if errors.Is(fetchErr, ErrNoMatch) {
 			outcome = OutcomeKept
 			if err := matcher.touch(ctx, keptPart{seriesID, provider.Name(), part}); err != nil {

@@ -222,7 +222,7 @@ func convertFetched(t *testing.T, harness testHarness, fetchedID int64) {
 	t.Helper()
 	playback := harness.server.dependencies.Load().Playback
 	finished := make(chan error, 1)
-	job := jobs.Job{ID: 95, Kind: jobs.KindConvertFetchedSubtitle, Subject: fetchedID}
+	job := jobs.Job{ID: 95, Kind: jobs.KindConvertFetchedSubtitle, Target: jobs.Target{FetchedSubtitleID: fetchedID}}
 	go func() { finished <- playback.HandleFetchedSubtitle(t.Context(), job) }()
 	command := <-harness.nodes.commanded
 	if sent := command.ExtractSubtitle; sent == nil || string(sent.FetchedSubRip) != fetchedText || sent.Video != nil {
@@ -241,7 +241,7 @@ func checkKeptGzipped(t *testing.T, harness testHarness, fetchedID int64) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	reader, err := gzip.NewReader(bytes.NewReader(kept.Body))
+	reader, err := gzip.NewReader(bytes.NewReader(kept.BodyGzip))
 	if err != nil {
 		t.Fatalf("the kept body is not gzip: %v", err)
 	}

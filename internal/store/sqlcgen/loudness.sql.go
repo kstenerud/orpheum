@@ -28,7 +28,7 @@ const listFilesToMeasure = `-- name: ListFilesToMeasure :many
 SELECT f.id
 FROM file f
 WHERE f.id > ?1 AND f.id <= ?2 AND f.removed_at IS NULL
-  AND f.filing IN ('listed', 'extra', 'unidentified') AND f.payload_hash IS NOT NULL AND f.probe IS NOT NULL
+  AND f.filing IN ('listed', 'extra', 'unidentified') AND f.payload_hash IS NOT NULL AND f.probe_json IS NOT NULL
   AND (SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'audio' LIMIT 1) IS NOT NULL
   AND (SELECT 1 FROM loudness l WHERE l.payload_hash = f.payload_hash LIMIT 1) IS NULL
 ORDER BY f.id
@@ -66,10 +66,10 @@ func (q *Queries) ListFilesToMeasure(ctx context.Context, arg ListFilesToMeasure
 }
 
 const listLoudnessOfPayload = `-- name: ListLoudnessOfPayload :many
-SELECT payload_hash, stream_index, sound, integrated_lufs, range_lu, true_peak_dbtp, failure, measured_at
+SELECT payload_hash, stream_index, measured_mix, integrated_lufs, range_lu, true_peak_dbtp, failure, measured_at
 FROM loudness
 WHERE payload_hash = ?
-ORDER BY stream_index, sound
+ORDER BY stream_index, measured_mix
 `
 
 // What was measured of a file's bytes: each track's sounds, or why they could not be measured.
@@ -85,7 +85,7 @@ func (q *Queries) ListLoudnessOfPayload(ctx context.Context, payloadHash []byte)
 		if err := rows.Scan(
 			&i.PayloadHash,
 			&i.StreamIndex,
-			&i.Sound,
+			&i.MeasuredMix,
 			&i.IntegratedLufs,
 			&i.RangeLu,
 			&i.TruePeakDbtp,
@@ -106,11 +106,11 @@ func (q *Queries) ListLoudnessOfPayload(ctx context.Context, payloadHash []byte)
 }
 
 const upsertLoudness = `-- name: UpsertLoudness :exec
-INSERT INTO loudness (payload_hash, stream_index, sound, integrated_lufs, range_lu, true_peak_dbtp, failure,
+INSERT INTO loudness (payload_hash, stream_index, measured_mix, integrated_lufs, range_lu, true_peak_dbtp, failure,
   measured_at)
 VALUES (?1, ?2, ?3, ?4,
   ?5, ?6, ?7, ?8)
-ON CONFLICT (payload_hash, stream_index, sound) DO UPDATE SET
+ON CONFLICT (payload_hash, stream_index, measured_mix) DO UPDATE SET
   integrated_lufs = excluded.integrated_lufs, range_lu = excluded.range_lu,
   true_peak_dbtp = excluded.true_peak_dbtp, failure = excluded.failure, measured_at = excluded.measured_at
 `
@@ -118,7 +118,7 @@ ON CONFLICT (payload_hash, stream_index, sound) DO UPDATE SET
 type UpsertLoudnessParams struct {
 	PayloadHash    []byte
 	StreamIndex    int64
-	Sound          string
+	MeasuredMix    string
 	IntegratedLufs *float64
 	RangeLu        *float64
 	TruePeakDbtp   *float64
@@ -130,7 +130,7 @@ func (q *Queries) UpsertLoudness(ctx context.Context, arg UpsertLoudnessParams) 
 	_, err := q.db.ExecContext(ctx, upsertLoudness,
 		arg.PayloadHash,
 		arg.StreamIndex,
-		arg.Sound,
+		arg.MeasuredMix,
 		arg.IntegratedLufs,
 		arg.RangeLu,
 		arg.TruePeakDbtp,

@@ -137,14 +137,14 @@ func (secrets *Store) Set(ctx context.Context, name Name, value Value, setBy *in
 	}
 	return secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertSealedSecret(ctx, sqlcgen.UpsertSealedSecretParams{
-			Scope:      serverScope,
-			Name:       string(name),
-			KeyID:      secrets.key.ID(),
-			Nonce:      nonce,
-			Ciphertext: sealed,
-			Hint:       hint,
-			SetBy:      setBy,
-			SetAt:      secrets.clock.Now().UnixMilli(),
+			Scope:       serverScope,
+			Name:        string(name),
+			KeyID:       secrets.key.ID(),
+			Nonce:       nonce,
+			Ciphertext:  sealed,
+			Hint:        hint,
+			SetByUserID: setBy,
+			SetAt:       secrets.clock.Now().UnixMilli(),
 		})
 	})
 }
@@ -206,7 +206,7 @@ func (secrets *Store) Statuses(ctx context.Context) ([]Status, error) {
 		status := Status{Name: definition.Name}
 		if row, isSet := stored[string(definition.Name)]; isSet {
 			status.IsSet = true
-			status.SetBy, status.SetAt = row.SetBy, row.SetAt
+			status.SetBy, status.SetAt = row.SetByUserID, row.SetAt
 			status.NeedsReentry = row.KeyID != secrets.key.ID()
 			if row.Hint != nil {
 				status.Hint = *row.Hint

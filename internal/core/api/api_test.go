@@ -435,7 +435,7 @@ func TestConfig_ListsAndDeletesOnlyUnusedRows(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	storetest.ExecRaw(t, harness.database,
-		"INSERT INTO setting (scope, key, value, set_at) VALUES ('server', 'signin_falure_limit', '3', 1)")
+		"INSERT INTO setting (scope, key, value_json, set_at) VALUES ('server', 'signin_falure_limit', '3', 1)")
 	unused := harness.do(t, http.MethodGet, "/config/unused", admin, nil)
 	if unused.status != http.StatusOK ||
 		!strings.Contains(unused.body, `"unused":[{"key":"signin_falure_limit","scope":"server","value":3}]`) {

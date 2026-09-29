@@ -37,7 +37,7 @@ func newFixture(t *testing.T) fixture {
 
 func (fixed fixture) enqueue(t *testing.T, subject, priority int64) {
 	t.Helper()
-	job := New{Kind: KindFetch, Subject: subject, Priority: priority, Reason: "test"}
+	job := New{Kind: KindFetch, Target: Target{ItemID: subject}, Priority: priority, Reason: "test"}
 	if _, err := fixed.queue.Enqueue(t.Context(), job); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func (fixed fixture) job(t *testing.T, subject int64) cachegen.Job {
 		t.Fatal(err)
 	}
 	for _, job := range jobs {
-		if job.Subject != nil && *job.Subject == subject {
+		if job.ItemID != nil && *job.ItemID == subject {
 			return job
 		}
 	}
@@ -71,13 +71,16 @@ func TestEnqueue_QueuesASubjectOnceWhileItIsOpen(t *testing.T) {
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if added, err := jobs.queue.Enqueue(t.Context(), New{Kind: KindFetch, Subject: 7}); err != nil || !added {
+	if added, err := jobs.queue.Enqueue(t.Context(), New{
+		Kind:   KindFetch,
+		Target: Target{ItemID: 7},
+	}); err != nil || !added {
 		t.Errorf("a finished job's subject could not be queued again: %v", err)
 	}
-	if ever, err := jobs.queue.EverQueued(t.Context(), KindFetch, 7); err != nil || !ever {
+	if ever, err := jobs.queue.EverQueued(t.Context(), KindFetch, Target{ItemID: 7}); err != nil || !ever {
 		t.Errorf("EverQueued forgot subject 7: %v", err)
 	}
-	if ever, err := jobs.queue.EverQueued(t.Context(), KindFetch, 8); err != nil || ever {
+	if ever, err := jobs.queue.EverQueued(t.Context(), KindFetch, Target{ItemID: 8}); err != nil || ever {
 		t.Errorf("EverQueued claims subject 8, never queued: %v", err)
 	}
 }
@@ -90,7 +93,7 @@ func TestRunDue_RunsTheHighestPriorityFirst(t *testing.T) {
 	jobs.enqueue(t, 3, 0)
 	var ran []int64
 	runner := jobs.queue.NewRunner(KindFetch, func(_ context.Context, job Job) error {
-		ran = append(ran, job.Subject)
+		ran = append(ran, job.ItemID)
 		return nil
 	})
 	if err := runner.RunDue(t.Context()); err != nil {
@@ -147,7 +150,7 @@ func TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind(t *testin
 	until := jobs.clock.Now().Add(time.Minute)
 	var ran []int64
 	runner := jobs.queue.NewRunner(KindFetch, func(_ context.Context, job Job) error {
-		ran = append(ran, job.Subject)
+		ran = append(ran, job.ItemID)
 		if jobs.clock.Now().Before(until) {
 			return &RetryAtError{At: until, Err: errors.New("429")}
 		}
@@ -271,7 +274,10 @@ func TestEnqueue_AJobWaitsUntilItsNotBefore(t *testing.T) {
 	t.Parallel()
 	jobs := newFixture(t)
 	later := jobs.clock.Now().Add(12 * time.Hour)
-	if _, err := jobs.queue.Enqueue(t.Context(), New{Kind: KindFetch, Subject: 4, RunnableAt: later}); err != nil {
+	if _, err := jobs.queue.Enqueue(t.Context(), New{
+		Kind: KindFetch, Target: Target{ItemID: 4},
+		RunnableAt: later,
+	}); err != nil {
 		t.Fatal(err)
 	}
 	ran := 0
@@ -301,7 +307,10 @@ func TestRun_AQueuedJobWakesARunnerOfItsOwnKindAtOnce(t *testing.T) {
 		go func() { _ = runner.Run(ctx, never) }() //nolint:errcheck // Run returns nil when ctx ends
 	}
 	for index, kind := range kinds {
-		if _, err := jobs.queue.Enqueue(t.Context(), New{Kind: kind, Subject: int64(index + 1)}); err != nil {
+		if _, err := jobs.queue.Enqueue(t.Context(), New{
+			Kind:   kind,
+			Target: Target{ItemID: int64(index + 1)},
+		}); err != nil {
 			t.Fatal(err)
 		}
 		select {
@@ -326,14 +335,17 @@ func TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce(t *testing.T) {
 	never := make(chan time.Time)
 	for range runners {
 		runner := jobs.queue.NewRunner(KindPrepare, func(_ context.Context, job Job) error {
-			started <- job.Subject
+			started <- job.RenditionID
 			<-release
 			return nil
 		})
 		go func() { _ = runner.Run(ctx, never) }() //nolint:errcheck // Run returns nil when ctx ends
 	}
 	for subject := range int64(runners) {
-		if _, err := jobs.queue.Enqueue(t.Context(), New{Kind: KindPrepare, Subject: subject + 1}); err != nil {
+		if _, err := jobs.queue.Enqueue(t.Context(), New{
+			Kind:   KindPrepare,
+			Target: Target{RenditionID: subject + 1},
+		}); err != nil {
 			t.Fatal(err)
 		}
 	}

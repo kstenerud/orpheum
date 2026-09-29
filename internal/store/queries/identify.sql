@@ -8,8 +8,8 @@ SELECT node_id, path FROM library_root WHERE library_id = ? ORDER BY path;
 SELECT id, kind, metadata_source FROM library WHERE id = ? AND removed_at IS NULL;
 
 -- name: ListIdentifyFiles :many
-SELECT id, node_id, path, filing, filing_reason, payload_hash, version_id, attached_to, probe, identified_path,
-  size_bytes, mtime_ms
+SELECT id, node_id, path, filing, filing_reason, sidecar_kind, payload_hash, version_id, attached_to_file, probe_json,
+  identified_from_path, size_bytes, mtime_ms
 FROM file
 WHERE library_id = ? AND removed_at IS NULL
 ORDER BY path;
@@ -50,15 +50,15 @@ RETURNING id;
 UPDATE item SET library_id = sqlc.arg(library_id) WHERE id = sqlc.arg(id);
 
 -- name: InsertTitle :exec
-INSERT INTO title (id, kind, year, runtime_ms, source, source_id, identification)
-VALUES (sqlc.arg(id), sqlc.arg(kind), sqlc.arg(year), sqlc.arg(runtime_ms), sqlc.arg(source), sqlc.arg(source_id),
+INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id, identification)
+VALUES (sqlc.arg(id), sqlc.arg(kind), sqlc.arg(year), sqlc.arg(runtime_ms), sqlc.arg(followed_source), sqlc.arg(followed_source_id),
   sqlc.arg(identification));
 
 -- name: UpdateTitleResolved :exec
 -- A confirmed match is a person's: the pass never lowers it (D172).
 UPDATE title SET
-  year = sqlc.arg(year), runtime_ms = sqlc.arg(runtime_ms), source = sqlc.arg(source),
-  source_id = sqlc.arg(source_id),
+  year = sqlc.arg(year), runtime_ms = sqlc.arg(runtime_ms), followed_source = sqlc.arg(followed_source),
+  followed_source_id = sqlc.arg(followed_source_id),
   identification = CASE WHEN identification = 'confirmed' THEN identification ELSE sqlc.arg(identification) END
 WHERE id = sqlc.arg(id);
 
@@ -78,8 +78,8 @@ DELETE FROM sort_key
 WHERE item_id = sqlc.arg(item_id) AND locale = sqlc.arg(locale);
 
 -- name: InsertSortKey :exec
-INSERT INTO sort_key (item_id, locale, listing, key)
-VALUES (sqlc.arg(item_id), sqlc.arg(locale), sqlc.arg(listing), sqlc.arg(key));
+INSERT INTO sort_key (item_id, locale, listing, collation_key)
+VALUES (sqlc.arg(item_id), sqlc.arg(locale), sqlc.arg(listing), sqlc.arg(collation_key));
 
 -- name: InsertItemProviderID :exec
 INSERT INTO item_provider_id (item_id, provider, provider_id)
@@ -94,18 +94,18 @@ RETURNING id;
 UPDATE version SET title_id = sqlc.arg(title_id) WHERE id = sqlc.arg(id);
 
 -- name: SetFileVersion :exec
-UPDATE file SET version_id = sqlc.arg(version_id), identified_path = path WHERE id = sqlc.arg(id);
+UPDATE file SET version_id = sqlc.arg(version_id), identified_from_path = path WHERE id = sqlc.arg(id);
 
 -- name: SetFileFiling :exec
 UPDATE file SET filing = sqlc.arg(filing), filing_reason = sqlc.arg(filing_reason) WHERE id = sqlc.arg(id);
 
 -- name: ListOverrides :many
-SELECT field, value FROM field_override WHERE item_id = ? AND lang = '' ORDER BY field;
+SELECT field, override_value FROM field_override WHERE item_id = ? AND lang = '' ORDER BY field;
 
 -- name: InsertOverrideIfAbsent :exec
 -- A locked NFO field is an override (D182); one a person already set here stays.
-INSERT INTO field_override (item_id, field, lang, value, origin, set_at)
-VALUES (sqlc.arg(item_id), sqlc.arg(field), '', sqlc.arg(value), sqlc.arg(origin), sqlc.arg(set_at))
+INSERT INTO field_override (item_id, field, lang, override_value, origin, set_at)
+VALUES (sqlc.arg(item_id), sqlc.arg(field), '', sqlc.arg(override_value), sqlc.arg(origin), sqlc.arg(set_at))
 ON CONFLICT (item_id, field, lang) DO NOTHING;
 
 -- name: ListLibrarySeries :many
@@ -133,23 +133,23 @@ INSERT INTO ordering (collection_id, name, provider) VALUES (sqlc.arg(collection
 RETURNING id;
 
 -- name: UpsertPosition :exec
-INSERT INTO position (ordering_id, title_id, group_number, number, sort)
-VALUES (sqlc.arg(ordering_id), sqlc.arg(title_id), sqlc.arg(group_number), sqlc.arg(number), sqlc.arg(sort))
-ON CONFLICT (ordering_id, title_id) DO UPDATE SET group_number = excluded.group_number, number = excluded.number,
-  sort = excluded.sort;
+INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order)
+VALUES (sqlc.arg(ordering_id), sqlc.arg(title_id), sqlc.arg(group_number), sqlc.arg(number_in_group), sqlc.arg(sort_order))
+ON CONFLICT (ordering_id, title_id) DO UPDATE SET group_number = excluded.group_number, number_in_group = excluded.number_in_group,
+  sort_order = excluded.sort_order;
 
 -- name: ListEpisodesOfSeries :many
-SELECT position.title_id, position.group_number, position.number
+SELECT position.title_id, position.group_number, position.number_in_group
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 WHERE ordering.collection_id = ? AND ordering.name = 'aired'
-ORDER BY position.sort;
+ORDER BY position.sort_order;
 
 -- name: UpsertScannerExtraRelation :exec
 -- The scanner may assert an extra of a Title; a relation a person asserted stays theirs (D162).
-INSERT INTO extra_relation (owner_title, extra_title, type, asserted_by)
-VALUES (sqlc.arg(owner_title), sqlc.arg(extra_title), sqlc.arg(type), 'scanner')
-ON CONFLICT (owner_title, extra_title) DO UPDATE SET type = excluded.type
+INSERT INTO extra_relation (owner_title, extra_title, extra_type, asserted_by)
+VALUES (sqlc.arg(owner_title), sqlc.arg(extra_title), sqlc.arg(extra_type), 'scanner')
+ON CONFLICT (owner_title, extra_title) DO UPDATE SET extra_type = excluded.extra_type
 WHERE extra_relation.asserted_by = 'scanner';
 
 -- name: GetTitleIdent :one
@@ -161,7 +161,7 @@ UPDATE title SET identification = 'confirmed' WHERE id = ?;
 
 -- name: ListFileTitles :many
 SELECT file.id, file.path, file.filing, file.filing_reason, title.id AS title_id, title.kind, title.identification,
-  title.year, title.source, item_text.name
+  title.year, title.followed_source, item_text.name
 FROM file
 JOIN version ON version.id = file.version_id
 JOIN title ON title.id = version.title_id

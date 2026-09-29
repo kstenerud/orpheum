@@ -41,7 +41,7 @@ func TestProgressed_PutsTheShareOfTheSourceMadeOnTheJob(t *testing.T) {
 		{job: 2, preparedMs: 120_000, durationMs: 100_000, want: 1, isKnown: true}, // never past the end
 		{job: 3, preparedMs: 1_000, durationMs: 0},                                 // a length the probe did not say
 	} {
-		job := jobs.Job{ID: step.job, Subject: 9}
+		job := jobs.Job{ID: step.job, Target: jobs.Target{RenditionID: 9}}
 		if err := all.progressed(t.Context(), job, step.preparedMs, step.durationMs); err != nil {
 			t.Fatal(err)
 		}
@@ -67,7 +67,7 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 		clock: clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), maxSilence: silence,
 		waiting: newWaiting[nodeproto.PrepareReport](slog.New(slog.DiscardHandler), "a prepare report"),
 	}
-	job := jobs.Job{ID: 7, Subject: 1}
+	job := jobs.Job{ID: 7, Target: jobs.Target{RenditionID: 1}}
 	ended := make(chan error, 1)
 	go func() { ended <- all.handle(t.Context(), job, making{command: nodeproto.Prepare{}, nodeID: 1}) }()
 	<-nodes.sent
@@ -90,7 +90,7 @@ func TestFinish_RecordsWhatMadeTheVideoAndHowFast(t *testing.T) {
 	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		var insertErr error
 		rendition, insertErr = queries.InsertRendition(t.Context(), cachegen.InsertRenditionParams{
-			SourceFile: 3, PayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthS: 6,
+			SourceFile: 3, SourcePayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthS: 6,
 			RunID: "0123456789abcdef", CreatedAt: 1,
 		})
 		return insertErr
@@ -109,8 +109,9 @@ func TestFinish_RecordsWhatMadeTheVideoAndHowFast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if row.VideoEncoder == nil || *row.VideoEncoder != "h264_qsv" || row.Speed == nil || *row.Speed != 6.5 {
+	if row.VideoEncoder == nil || *row.VideoEncoder != "h264_qsv" || row.RealtimeFactor == nil ||
+		*row.RealtimeFactor != 6.5 {
 		t.Errorf("the rendition records encoder %v at speed %v; want h264_qsv at 6.5 (D225 §3)",
-			row.VideoEncoder, row.Speed)
+			row.VideoEncoder, row.RealtimeFactor)
 	}
 }

@@ -84,15 +84,16 @@ func (chooser *Chooser) Items(ctx context.Context, ident string) ([]ItemSummary,
 	for _, row := range titles {
 		items = append(items, ItemSummary{
 			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: row.Kind, Name: ptr.ValueOrZero(row.Name),
-			Year: deref(row.Year), Ident: row.Identification, Source: ptr.ValueOrZero(row.Source),
-			SourceID: ptr.ValueOrZero(row.SourceID),
+			Year: deref(row.Year), Ident: row.Identification, Source: ptr.ValueOrZero(row.FollowedSource),
+			SourceID: ptr.ValueOrZero(row.FollowedSourceID),
 		})
 	}
 	for _, row := range series {
 		items = append(items, ItemSummary{
 			ID: row.ID, LibraryID: deref(row.LibraryID), Kind: KindSeries, Name: ptr.ValueOrZero(row.Name),
-			Year: deref(row.Year), Ident: ptr.ValueOrZero(row.Identification), Source: ptr.ValueOrZero(row.Source),
-			SourceID: ptr.ValueOrZero(row.SourceID),
+			Year: deref(row.Year), Ident: ptr.ValueOrZero(row.Identification),
+			Source:   ptr.ValueOrZero(row.FollowedSource),
+			SourceID: ptr.ValueOrZero(row.FollowedSourceID),
 		})
 	}
 	slices.SortStableFunc(items, func(a, b ItemSummary) int {
@@ -160,7 +161,7 @@ func (chooser *Chooser) Candidates(ctx context.Context, itemID int64) ([]Candida
 		provider = row.Provider
 		candidates = append(candidates, Candidate{
 			ID: row.ProviderID, Name: ptr.ValueOrZero(row.Name), Year: int(deref(row.Year)),
-			PosterRef: ptr.ValueOrZero(row.PosterRef),
+			PosterRef: ptr.ValueOrZero(row.PosterPath),
 		})
 	}
 	if len(candidates) > 0 || item.ident() != identAmbiguous {
@@ -246,7 +247,8 @@ func (chooser *Chooser) SetOverride(ctx context.Context, titleID int64, field, v
 	}
 	err = chooser.matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertOverride(ctx, sqlcgen.UpsertOverrideParams{
-			ItemID: titleID, Field: field, Value: value, SetBy: &setBy, SetAt: chooser.matcher.clock.Now().UnixMilli(),
+			ItemID: titleID, Field: field, OverrideValue: value, SetByUserID: &setBy,
+			SetAt: chooser.matcher.clock.Now().UnixMilli(),
 		})
 	})
 	if err != nil {

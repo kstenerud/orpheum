@@ -21,7 +21,7 @@ func (q *Queries) CountLiveUsers(ctx context.Context) (int64, error) {
 }
 
 const getLiveUserByID = `-- name: GetLiveUserByID :one
-SELECT user.id, user.name, user.password_hash, user.outsider, role.name AS role_name, role.capabilities
+SELECT user.id, user.name, user.password_hash, user.is_outsider, role.name AS role_name, role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.id = ? AND user.removed_at IS NULL
@@ -31,7 +31,7 @@ type GetLiveUserByIDRow struct {
 	ID           int64
 	Name         string
 	PasswordHash []byte
-	Outsider     int64
+	IsOutsider   int64
 	RoleName     string
 	Capabilities string
 }
@@ -43,7 +43,7 @@ func (q *Queries) GetLiveUserByID(ctx context.Context, id int64) (GetLiveUserByI
 		&i.ID,
 		&i.Name,
 		&i.PasswordHash,
-		&i.Outsider,
+		&i.IsOutsider,
 		&i.RoleName,
 		&i.Capabilities,
 	)
@@ -51,7 +51,7 @@ func (q *Queries) GetLiveUserByID(ctx context.Context, id int64) (GetLiveUserByI
 }
 
 const getLiveUserByName = `-- name: GetLiveUserByName :one
-SELECT user.id, user.name, user.password_hash, user.outsider, role.name AS role_name, role.capabilities
+SELECT user.id, user.name, user.password_hash, user.is_outsider, role.name AS role_name, role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.name = ? COLLATE NOCASE AND user.removed_at IS NULL
@@ -61,7 +61,7 @@ type GetLiveUserByNameRow struct {
 	ID           int64
 	Name         string
 	PasswordHash []byte
-	Outsider     int64
+	IsOutsider   int64
 	RoleName     string
 	Capabilities string
 }
@@ -75,7 +75,7 @@ func (q *Queries) GetLiveUserByName(ctx context.Context, name string) (GetLiveUs
 		&i.ID,
 		&i.Name,
 		&i.PasswordHash,
-		&i.Outsider,
+		&i.IsOutsider,
 		&i.RoleName,
 		&i.Capabilities,
 	)
@@ -84,7 +84,7 @@ func (q *Queries) GetLiveUserByName(ctx context.Context, name string) (GetLiveUs
 
 const getRoleByName = `-- name: GetRoleByName :one
 
-SELECT id, name, builtin, capabilities
+SELECT id, name, is_builtin, capabilities
 FROM role
 WHERE name = ?
 `
@@ -92,7 +92,7 @@ WHERE name = ?
 type GetRoleByNameRow struct {
 	ID           int64
 	Name         string
-	Builtin      int64
+	IsBuiltin    int64
 	Capabilities string
 }
 
@@ -105,7 +105,7 @@ func (q *Queries) GetRoleByName(ctx context.Context, name string) (GetRoleByName
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Builtin,
+		&i.IsBuiltin,
 		&i.Capabilities,
 	)
 	return i, err
@@ -137,7 +137,7 @@ func (q *Queries) GetWatchStats(ctx context.Context, userID int64) (GetWatchStat
 }
 
 const insertUser = `-- name: InsertUser :one
-INSERT INTO user (name, role_id, password_hash, outsider, created_at)
+INSERT INTO user (name, role_id, password_hash, is_outsider, created_at)
 VALUES (?1, ?2, ?3, ?4, ?5)
 RETURNING id
 `
@@ -146,7 +146,7 @@ type InsertUserParams struct {
 	Name         string
 	RoleID       int64
 	PasswordHash []byte
-	Outsider     int64
+	IsOutsider   int64
 	CreatedAt    int64
 }
 
@@ -155,7 +155,7 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (int64, 
 		arg.Name,
 		arg.RoleID,
 		arg.PasswordHash,
-		arg.Outsider,
+		arg.IsOutsider,
 		arg.CreatedAt,
 	)
 	var id int64
@@ -164,7 +164,7 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (int64, 
 }
 
 const listLiveUsers = `-- name: ListLiveUsers :many
-SELECT user.id, user.name, role.name AS role_name, user.outsider, user.password_hash IS NOT NULL AS has_password,
+SELECT user.id, user.name, role.name AS role_name, user.is_outsider, user.password_hash IS NOT NULL AS has_password,
   user.created_at
 FROM user
 JOIN role ON role.id = user.role_id
@@ -176,7 +176,7 @@ type ListLiveUsersRow struct {
 	ID          int64
 	Name        string
 	RoleName    string
-	Outsider    int64
+	IsOutsider  int64
 	HasPassword bool
 	CreatedAt   int64
 }
@@ -195,7 +195,7 @@ func (q *Queries) ListLiveUsers(ctx context.Context) ([]ListLiveUsersRow, error)
 			&i.ID,
 			&i.Name,
 			&i.RoleName,
-			&i.Outsider,
+			&i.IsOutsider,
 			&i.HasPassword,
 			&i.CreatedAt,
 		); err != nil {

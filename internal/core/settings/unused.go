@@ -77,7 +77,7 @@ func unusedIn(rows []sqlcgen.ListSettingKeysRow) []UnusedSetting {
 		if _, known := Lookup(Key(row.Key)); known {
 			continue
 		}
-		setting := UnusedSetting{Scope: Scope(row.Scope), UserID: row.UserID, Key: row.Key, Value: row.Value}
+		setting := UnusedSetting{Scope: Scope(row.Scope), UserID: row.UserID, Key: row.Key, Value: row.ValueJson}
 		if entry, isRetired := retired[row.Key]; isRetired {
 			setting.Retired = &entry
 		}

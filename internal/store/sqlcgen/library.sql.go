@@ -47,7 +47,7 @@ func (q *Queries) CountLibraryFilings(ctx context.Context, libraryID int64) ([]C
 }
 
 const getLibrary = `-- name: GetLibrary :one
-SELECT id, name, kind, metadata_source, change_detection, check_every_h, writable, created_at
+SELECT id, name, kind, metadata_source, change_detection, check_every_h, is_writable, created_at
 FROM library
 WHERE id = ?1 AND removed_at IS NULL
 `
@@ -59,7 +59,7 @@ type GetLibraryRow struct {
 	MetadataSource  string
 	ChangeDetection string
 	CheckEveryH     *int64
-	Writable        int64
+	IsWritable      int64
 	CreatedAt       int64
 }
 
@@ -73,7 +73,7 @@ func (q *Queries) GetLibrary(ctx context.Context, id int64) (GetLibraryRow, erro
 		&i.MetadataSource,
 		&i.ChangeDetection,
 		&i.CheckEveryH,
-		&i.Writable,
+		&i.IsWritable,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -102,7 +102,7 @@ func (q *Queries) GetLiveLibraryByName(ctx context.Context, name string) (GetLiv
 
 const insertLibrary = `-- name: InsertLibrary :one
 
-INSERT INTO library (name, kind, metadata_source, change_detection, check_every_h, writable, created_at)
+INSERT INTO library (name, kind, metadata_source, change_detection, check_every_h, is_writable, created_at)
 VALUES (
   ?1, ?2, ?3, ?4,
   ?5, ?6, ?7
@@ -116,7 +116,7 @@ type InsertLibraryParams struct {
 	MetadataSource  string
 	ChangeDetection string
 	CheckEveryH     *int64
-	Writable        int64
+	IsWritable      int64
 	CreatedAt       int64
 }
 
@@ -129,7 +129,7 @@ func (q *Queries) InsertLibrary(ctx context.Context, arg InsertLibraryParams) (i
 		arg.MetadataSource,
 		arg.ChangeDetection,
 		arg.CheckEveryH,
-		arg.Writable,
+		arg.IsWritable,
 		arg.CreatedAt,
 	)
 	var id int64
@@ -223,7 +223,7 @@ func (q *Queries) ListFilesPage(ctx context.Context, arg ListFilesPageParams) ([
 }
 
 const listLibraries = `-- name: ListLibraries :many
-SELECT id, name, kind, metadata_source, change_detection, check_every_h, writable, created_at
+SELECT id, name, kind, metadata_source, change_detection, check_every_h, is_writable, created_at
 FROM library
 WHERE removed_at IS NULL
 ORDER BY name, id
@@ -236,7 +236,7 @@ type ListLibrariesRow struct {
 	MetadataSource  string
 	ChangeDetection string
 	CheckEveryH     *int64
-	Writable        int64
+	IsWritable      int64
 	CreatedAt       int64
 }
 
@@ -256,7 +256,7 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]ListLibrariesRow, error)
 			&i.MetadataSource,
 			&i.ChangeDetection,
 			&i.CheckEveryH,
-			&i.Writable,
+			&i.IsWritable,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -277,7 +277,7 @@ SELECT library_root.path, library_root.node_id, node.name AS node_name, root_sta
   root_state.outcome_at, root_state.withheld_reason
 FROM library_root
 JOIN node ON node.id = library_root.node_id
-LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.path = library_root.path
+LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.path
 WHERE library_root.library_id = ?1
 ORDER BY library_root.path
 `

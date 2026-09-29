@@ -31,7 +31,7 @@ func (work *run) episode(ctx context.Context, file sqlcgen.ListIdentifyFilesRow,
 	work.seriesFolders[seriesFolderOf(file.Path)] = seriesID
 	season, number := parsed.Season, parsed.Episode
 	spec := titleSpec{
-		kind: kindEpisode, name: fmt.Sprintf("Episode %d", number), runtimeMs: probeRuntime(file.Probe),
+		kind: kindEpisode, name: fmt.Sprintf("Episode %d", number), runtimeMs: probeRuntime(file.ProbeJson),
 		ids: map[string]string{},
 	}
 	nfo, hasNFO := work.nfoFor(file)
@@ -141,7 +141,7 @@ func (work *run) fromListing(ctx context.Context, seriesID int64, season, number
 		if !fetched {
 			spec.reason = fmt.Sprintf("season %d's listing is not fetched yet", season)
 		}
-	case series.Source != nil && *series.Source == sourceNone:
+	case series.FollowedSource != nil && *series.FollowedSource == sourceNone:
 		spec.reason = provider.Name() + " found no single match for its series"
 	default:
 		spec.reason = "its series is not matched yet"
@@ -209,7 +209,7 @@ func (work *run) position(ctx context.Context, seriesID, titleID int64, season, 
 	}
 	grp, num := int64(season), int64(number)
 	err = work.queries.UpsertPosition(ctx, sqlcgen.UpsertPositionParams{
-		OrderingID: ordering, TitleID: titleID, GroupNumber: &grp, Number: &num, Sort: sort,
+		OrderingID: ordering, TitleID: titleID, GroupNumber: &grp, NumberInGroup: &num, SortOrder: sort,
 	})
 	if err != nil {
 		return fmt.Errorf("place title %d at season %d, episode %d: %w", titleID, season, number, err)

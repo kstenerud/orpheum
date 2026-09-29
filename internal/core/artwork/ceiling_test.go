@@ -185,7 +185,7 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 	}
 	bench.service.parts.Fetchers["tmdb"] = provider
 	sent := len(bench.node.sent)
-	job := jobs.Job{ID: 3, Kind: jobs.KindArtwork, Subject: bench.itemID, Args: (*queue)[0].Args}
+	job := jobs.Job{ID: 3, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, Args: (*queue)[0].Args}
 	if err := bench.service.Handle(t.Context(), job); err != nil {
 		t.Fatal(err)
 	}

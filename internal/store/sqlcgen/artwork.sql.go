@@ -66,22 +66,22 @@ func (q *Queries) GetArtworkSource(ctx context.Context, contentHash []byte) (Get
 }
 
 const getFileForArtwork = `-- name: GetFileForArtwork :one
-SELECT node_id, path, path_key
+SELECT node_id, path, reported_path_bytes
 FROM file
 WHERE id = ?1 AND removed_at IS NULL
 `
 
 type GetFileForArtworkRow struct {
-	NodeID  int64
-	Path    string
-	PathKey []byte
+	NodeID            int64
+	Path              string
+	ReportedPathBytes []byte
 }
 
 // An image beside the media: the node that holds it, and its path, for the node to read.
 func (q *Queries) GetFileForArtwork(ctx context.Context, id int64) (GetFileForArtworkRow, error) {
 	row := q.db.QueryRowContext(ctx, getFileForArtwork, id)
 	var i GetFileForArtworkRow
-	err := row.Scan(&i.NodeID, &i.Path, &i.PathKey)
+	err := row.Scan(&i.NodeID, &i.Path, &i.ReportedPathBytes)
 	return i, err
 }
 
@@ -113,7 +113,7 @@ func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (i
 }
 
 const listArtworkHashes = `-- name: ListArtworkHashes :many
-SELECT artwork.content_hash AS hash,
+SELECT artwork.content_hash,
   CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS live,
   CAST(MAX(COALESCE(artwork.removed_at, item.removed_at, 0)) AS INTEGER) AS gone_at
 FROM artwork
@@ -123,9 +123,9 @@ GROUP BY artwork.content_hash
 `
 
 type ListArtworkHashesRow struct {
-	Hash   []byte
-	Live   int64
-	GoneAt int64
+	ContentHash []byte
+	Live        int64
+	GoneAt      int64
 }
 
 // Every stored image, whether a live item shows it, and when it last stopped being shown: what
@@ -139,7 +139,7 @@ func (q *Queries) ListArtworkHashes(ctx context.Context) ([]ListArtworkHashesRow
 	items := []ListArtworkHashesRow{}
 	for rows.Next() {
 		var i ListArtworkHashesRow
-		if err := rows.Scan(&i.Hash, &i.Live, &i.GoneAt); err != nil {
+		if err := rows.Scan(&i.ContentHash, &i.Live, &i.GoneAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -158,7 +158,7 @@ SELECT DISTINCT artwork.item_id
 FROM item
 JOIN artwork ON artwork.item_id = item.id
 WHERE item.library_id = ?1 AND artwork.source = 'local' AND artwork.removed_at IS NULL
-  AND artwork.chosen = 0
+  AND artwork.is_chosen = 0
 ORDER BY artwork.item_id
 `
 
@@ -189,10 +189,10 @@ func (q *Queries) ListItemsWithLiveLocalArtwork(ctx context.Context, libraryID *
 
 const listLiveArtwork = `-- name: ListLiveArtwork :many
 
-SELECT id, kind, source, source_ref, content_hash, chosen
+SELECT id, kind, source, source_ref, content_hash, is_chosen
 FROM artwork
 WHERE item_id = ?1 AND removed_at IS NULL
-ORDER BY kind, chosen DESC, id DESC
+ORDER BY kind, is_chosen DESC, id DESC
 `
 
 type ListLiveArtworkRow struct {
@@ -201,12 +201,12 @@ type ListLiveArtworkRow struct {
 	Source      string
 	SourceRef   *string
 	ContentHash []byte
-	Chosen      int64
+	IsChosen    int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
 // An item's images (schema.md, artwork; D212): which it has, where each came from, and the hash
-// its sizes are stored under in cache/art/. A person's choice is chosen = 1 and stays.
+// its sizes are stored under in cache/art/. A person's choice is is_chosen = 1 and stays.
 func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLiveArtworkRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveArtwork, itemID)
 	if err != nil {
@@ -222,7 +222,7 @@ func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLive
 			&i.Source,
 			&i.SourceRef,
 			&i.ContentHash,
-			&i.Chosen,
+			&i.IsChosen,
 		); err != nil {
 			return nil, err
 		}
@@ -244,7 +244,7 @@ JOIN item ON item.id = artwork.item_id
 LEFT JOIN library ON library.id = item.library_id
 WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
   AND artwork.kind = ?2 AND artwork.removed_at IS NULL AND artwork.content_hash IS NOT NULL
-ORDER BY artwork.item_id, artwork.chosen DESC,
+ORDER BY artwork.item_id, artwork.is_chosen DESC,
   (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC
 `
 
@@ -287,7 +287,7 @@ func (q *Queries) ListShownArtwork(ctx context.Context, arg ListShownArtworkPara
 const markArtworkRemoved = `-- name: MarkArtworkRemoved :exec
 UPDATE artwork SET removed_at = ?1
 WHERE item_id = ?2 AND kind = ?3 AND source = ?4
-  AND chosen = 0 AND removed_at IS NULL AND id != ?5
+  AND is_chosen = 0 AND removed_at IS NULL AND id != ?5
 `
 
 type MarkArtworkRemovedParams struct {
@@ -312,7 +312,7 @@ func (q *Queries) MarkArtworkRemoved(ctx context.Context, arg MarkArtworkRemoved
 
 const retireArtworkNotFound = `-- name: RetireArtworkNotFound :exec
 UPDATE artwork SET removed_at = ?1
-WHERE item_id = ?2 AND source = ?3 AND chosen = 0 AND removed_at IS NULL
+WHERE item_id = ?2 AND source = ?3 AND is_chosen = 0 AND removed_at IS NULL
   AND (source_ref IS NULL OR source_ref NOT IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
 `
 
@@ -338,7 +338,7 @@ func (q *Queries) RetireArtworkNotFound(ctx context.Context, arg RetireArtworkNo
 
 const retryItemArtwork = `-- name: RetryItemArtwork :exec
 UPDATE artwork SET removed_at = ?1
-WHERE item_id = ?2 AND content_hash IS NULL AND chosen = 0 AND removed_at IS NULL
+WHERE item_id = ?2 AND content_hash IS NULL AND is_chosen = 0 AND removed_at IS NULL
 `
 
 type RetryItemArtworkParams struct {

@@ -63,7 +63,7 @@ func seedOne(
 	start := compact(definition.Start)
 	if !isPresent {
 		err := queries.InsertServerSettingIfMissing(ctx, sqlcgen.InsertServerSettingIfMissingParams{
-			Key: string(definition.Key), Value: start, SetAt: now,
+			Key: string(definition.Key), ValueJson: start, SetAt: now,
 		})
 		if err != nil {
 			return fmt.Errorf("seed %s: %w", definition.Key, err)
@@ -72,7 +72,7 @@ func seedOne(
 		return nil
 	}
 	updated, err := queries.UpdateUnmodifiedServerSetting(ctx, sqlcgen.UpdateUnmodifiedServerSettingParams{
-		Key: string(definition.Key), Value: start, SetAt: now,
+		Key: string(definition.Key), ValueJson: start, SetAt: now,
 	})
 	if err != nil {
 		return fmt.Errorf("update %s to its starting value: %w", definition.Key, err)

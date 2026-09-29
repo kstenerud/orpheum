@@ -206,7 +206,7 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 	}
 	for _, field := range spec.locked {
 		err := work.queries.InsertOverrideIfAbsent(ctx, sqlcgen.InsertOverrideIfAbsentParams{
-			ItemID: titleID, Field: field, Value: values[field], Origin: "nfo", SetAt: work.now,
+			ItemID: titleID, Field: field, OverrideValue: values[field], Origin: "nfo", SetAt: work.now,
 		})
 		if err != nil {
 			return resolved{}, fmt.Errorf("record the locked %s: %w", field, err)
@@ -217,7 +217,7 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 		return resolved{}, fmt.Errorf("read the overrides of title %d: %w", titleID, err)
 	}
 	for _, override := range overrides {
-		values[override.Field] = override.Value
+		values[override.Field] = override.OverrideValue
 	}
 	year, _ := strconv.ParseInt(values[fieldYear], 10, 64)         //nolint:errcheck // zero when unset
 	runtime, _ := strconv.ParseInt(values[fieldRuntimeMs], 10, 64) //nolint:errcheck // zero when unset
@@ -236,7 +236,7 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 		}
 	}
 	err = work.queries.UpdateTitleResolved(ctx, sqlcgen.UpdateTitleResolvedParams{
-		Year: optionalInt(year), RuntimeMs: optionalInt(runtime), Source: source, SourceID: sourceID,
+		Year: optionalInt(year), RuntimeMs: optionalInt(runtime), FollowedSource: source, FollowedSourceID: sourceID,
 		Identification: spec.ident, ID: titleID,
 	})
 	if err != nil {

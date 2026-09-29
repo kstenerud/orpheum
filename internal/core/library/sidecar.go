@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -17,12 +18,26 @@ import (
 // filingAttached is a sidecar's filing: it belongs to a video beside it (schema.md, attached).
 const filingAttached = "attached"
 
+// attachedReason is why a sidecar is filed attached, as every filing but listed says why (D163):
+// what kind of file it is, beside which video. Its kind is kept apart, in sidecar_kind (D227).
+func attachedReason(kind nodeproto.SidecarKind) string {
+	switch kind {
+	case nodeproto.SidecarNFO:
+		return "an NFO beside its video"
+	case nodeproto.SidecarSubtitle:
+		return "a subtitle beside its video"
+	case nodeproto.SidecarImage:
+		return "an image beside its video"
+	}
+	return "a file beside its video"
+}
+
 // sidecar records a metadata or subtitle file, keeping an NFO's bytes as the stored input
 // identification reads (D182). Which video it belongs to is settled when the scan completes,
 // because a sidecar can arrive before its video: "Film.en.srt" sorts before "Film.mkv".
 func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodeproto.Sidecar) error {
 	located := nodePath(scan.root, sidecar.Path)
-	kind := string(sidecar.Kind)
+	kind, reason := string(sidecar.Kind), attachedReason(sidecar.Kind)
 	var hash []byte
 	var payloadBytes *int64
 	if sidecar.Identity != nil {
@@ -33,13 +48,14 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 		hash, payloadBytes = decoded, &sidecar.Identity.PayloadBytes
 	}
 	existing, err := store.One(work.queries.GetLiveFileByKey(ctx, sqlcgen.GetLiveFileByKeyParams{
-		NodeID: work.nodeID, PathKey: located.key,
+		NodeID: work.nodeID, ReportedPathBytes: located.key,
 	}))
 	if err == nil {
 		err = work.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
-			LibraryID: scan.libraryID, PathRaw: located.raw, SizeBytes: &sidecar.SizeBytes, MtimeMs: &sidecar.MtimeMs,
-			PayloadHash: hash, PayloadBytes: payloadBytes, Kind: &kind,
-			Body: sidecar.Body, SeenAt: work.now, ID: existing.ID,
+			LibraryID: scan.libraryID, SizeBytes: &sidecar.SizeBytes, MtimeMs: &sidecar.MtimeMs,
+			PayloadHash: hash, PayloadBytes: payloadBytes, SidecarKind: &kind,
+			FilingReason: &reason,
+			NfoBody:      sidecar.Body, SeenAt: work.now, ID: existing.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("update the sidecar %s: %w", located.text, err)
@@ -50,10 +66,10 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 		return err
 	}
 	_, err = work.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
-		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, PathRaw: located.raw, PathKey: located.key,
+		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, ReportedPathBytes: located.key,
 		SizeBytes: &sidecar.SizeBytes, MtimeMs: &sidecar.MtimeMs, PayloadHash: hash, PayloadBytes: payloadBytes,
-		Kind: &kind,
-		Body: sidecar.Body, SeenAt: work.now,
+		SidecarKind: &kind, FilingReason: &reason,
+		NfoBody: sidecar.Body, SeenAt: work.now,
 	})
 	if err != nil {
 		return fmt.Errorf("insert the sidecar %s: %w", located.text, err)
@@ -86,15 +102,15 @@ func (work *batch) attachSidecars(ctx context.Context, scan *scanState) error {
 		}
 		folder := videos[path.Dir(file.Path)]
 		owner := ownerOf(file.Path, folder)
-		if file.FilingReason != nil && *file.FilingReason == string(nodeproto.SidecarSubtitle) {
+		if ptr.ValueOrZero(file.SidecarKind) == string(nodeproto.SidecarSubtitle) {
 			if err := work.keepSidecarTrack(ctx, file, videoOf(owner, folder)); err != nil {
 				return err
 			}
 		}
-		if samePointee(file.AttachedTo, owner) {
+		if samePointee(file.AttachedToFile, owner) {
 			continue
 		}
-		err := work.queries.SetFileAttachedTo(ctx, sqlcgen.SetFileAttachedToParams{AttachedTo: owner, ID: file.ID})
+		err := work.queries.SetFileAttachedTo(ctx, sqlcgen.SetFileAttachedToParams{AttachedToFile: owner, ID: file.ID})
 		if err != nil {
 			return fmt.Errorf("attach %s: %w", file.Path, err)
 		}

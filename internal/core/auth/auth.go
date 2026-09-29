@@ -157,7 +157,7 @@ func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries
 		outsider = 1
 	}
 	id, err := queries.InsertUser(ctx, sqlcgen.InsertUserParams{
-		Name: name, RoleID: role.ID, PasswordHash: hash, Outsider: outsider,
+		Name: name, RoleID: role.ID, PasswordHash: hash, IsOutsider: outsider,
 		CreatedAt: service.clock.Now().UnixMilli(),
 	})
 	if err != nil {
@@ -300,7 +300,7 @@ func (service *Service) issueSession(ctx context.Context, userID int64, device N
 			return deviceErr
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
-			Hash: tokenHash(token), Kind: grantKindSession, Subject: &userID, Scope: grantScopeSession,
+			SecretSha256: tokenHash(token), Kind: grantKindSession, UserID: &userID, Scope: grantScopeSession,
 			IssuedAt: now, DeviceID: &deviceID,
 		})
 	})
@@ -318,12 +318,12 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	now := service.clock.Now()
 	hash := tokenHash(token)
 	grant, err := store.One(service.database.Read().GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
-		Hash: hash, Now: new(now.UnixMilli()),
+		SecretSha256: hash, Now: new(now.UnixMilli()),
 	}))
 	if errors.Is(err, store.ErrNotFound) {
 		return Principal{}, service.whyNotLive(ctx, hash)
 	}
-	if err == nil && (grant.Kind != grantKindSession || grant.Subject == nil) {
+	if err == nil && (grant.Kind != grantKindSession || grant.UserID == nil) {
 		return Principal{}, ErrNotAuthenticated
 	}
 	if err != nil {
@@ -341,7 +341,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if now.Sub(time.UnixMilli(lastUse)) > idleExpiry {
 		return Principal{}, ErrSessionExpired
 	}
-	user, err := store.One(service.database.Read().GetLiveUserByID(ctx, *grant.Subject))
+	user, err := store.One(service.database.Read().GetLiveUserByID(ctx, *grant.UserID))
 	if errors.Is(err, store.ErrNotFound) {
 		return Principal{}, ErrNotAuthenticated
 	}
@@ -351,7 +351,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if now.Sub(time.UnixMilli(lastUse)) >= lastSeenResolution {
 		err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 			return queries.UpdateGrantLastSeen(ctx, sqlcgen.UpdateGrantLastSeenParams{
-				Hash: hash, LastSeenAt: new(now.UnixMilli()),
+				SecretSha256: hash, LastSeenAt: new(now.UnixMilli()),
 			})
 		})
 		if err != nil {
@@ -360,7 +360,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	}
 	return Principal{
 		UserID: user.ID, Name: user.Name, Role: Role(user.RoleName),
-		Capabilities: strings.Split(user.Capabilities, ","), IsOutsider: user.Outsider == 1,
+		Capabilities: strings.Split(user.Capabilities, ","), IsOutsider: user.IsOutsider == 1,
 		DeviceID: ptr.ValueOrZero(grant.DeviceID),
 	}, nil
 }
@@ -383,7 +383,7 @@ func (service *Service) whyNotLive(ctx context.Context, hash []byte) error {
 func (service *Service) SignOut(ctx context.Context, token string) error {
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.MarkGrantRevoked(ctx, sqlcgen.MarkGrantRevokedParams{
-			Hash: tokenHash(token), RevokedAt: new(service.clock.Now().UnixMilli()),
+			SecretSha256: tokenHash(token), RevokedAt: new(service.clock.Now().UnixMilli()),
 		})
 	})
 }

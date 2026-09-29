@@ -43,7 +43,7 @@ func (spec *seriesSpec) fromNFO(nfo NFO) {
 // seriesMatched reports whether a series is matched at its provider, by the matcher or a person.
 func seriesMatched(row sqlcgen.GetSeriesForMatchRow) bool {
 	ident := ptr.ValueOrZero(row.Identification)
-	return row.SourceID != nil && (ident == identIdentified || ident == identConfirmed)
+	return row.FollowedSourceID != nil && (ident == identIdentified || ident == identConfirmed)
 }
 
 // seasonPart is where a season's listing is stored in provider_response.
@@ -117,10 +117,10 @@ func seasonsToFetch(ctx context.Context, queries *sqlcgen.Queries, provider Prov
 	var seasons []int
 	listings := map[int][]Episode{}
 	for _, episode := range episodes {
-		if episode.Source != nil && *episode.Source == sourceNFO {
+		if episode.FollowedSource != nil && *episode.FollowedSource == sourceNFO {
 			continue // its own NFO speaks for it
 		}
-		season, number := int(deref(episode.GroupNumber)), int(deref(episode.Number))
+		season, number := int(deref(episode.GroupNumber)), int(deref(episode.NumberInGroup))
 		if slices.Contains(seasons, season) {
 			continue
 		}
@@ -194,7 +194,7 @@ func (work *run) resolveSeries(ctx context.Context, seriesID int64, spec seriesS
 		return fmt.Errorf("read series %d's overrides: %w", seriesID, err)
 	}
 	for _, override := range overrides {
-		values[override.Field] = override.Value
+		values[override.Field] = override.OverrideValue
 	}
 	ident := identUnidentified
 	if work.library.MetadataSource == sourceNFO && spec.hasNFO {
@@ -202,7 +202,7 @@ func (work *run) resolveSeries(ctx context.Context, seriesID int64, spec seriesS
 	}
 	year, _ := strconv.ParseInt(values[fieldYear], 10, 64) //nolint:errcheck // zero when unset
 	err = work.queries.UpdateSeriesResolved(ctx, sqlcgen.UpdateSeriesResolvedParams{
-		Year: optionalInt(year), Source: optional(source), Identification: &ident, ID: seriesID,
+		Year: optionalInt(year), FollowedSource: optional(source), Identification: &ident, ID: seriesID,
 	})
 	if err != nil {
 		return fmt.Errorf("resolve series %d: %w", seriesID, err)
@@ -250,7 +250,7 @@ func (work *run) seriesValues(
 	}
 	provider, known := work.providers[providerOf(work.library.MetadataSource)]
 	if !known || !seriesMatched(current) || (spec.hasNFO && ptr.ValueOrZero(current.Identification) != identConfirmed) {
-		if source == "" && current.Source != nil && *current.Source == sourceNone {
+		if source == "" && current.FollowedSource != nil && *current.FollowedSource == sourceNone {
 			source = sourceNone // its provider found nothing
 		}
 		return seriesOwn{values: values, source: source}, nil
@@ -291,7 +291,7 @@ func (work *run) recordSeriesIDs(ctx context.Context, seriesID int64, spec serie
 			continue
 		}
 		err := work.queries.InsertOverrideIfAbsent(ctx, sqlcgen.InsertOverrideIfAbsentParams{
-			ItemID: seriesID, Field: field, Value: value, Origin: "nfo", SetAt: work.now,
+			ItemID: seriesID, Field: field, OverrideValue: value, Origin: "nfo", SetAt: work.now,
 		})
 		if err != nil {
 			return fmt.Errorf("record series %d's locked %s: %w", seriesID, field, err)

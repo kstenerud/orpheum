@@ -11,7 +11,7 @@ import (
 
 const getPlayPosition = `-- name: GetPlayPosition :one
 
-SELECT position_ms, seq, device_id, updated_at, watched_at
+SELECT position_ms, report_seq, device_id, updated_at, position_read_at
 FROM play_position
 WHERE user_id = ?1 AND file_id = ?2
 `
@@ -22,11 +22,11 @@ type GetPlayPositionParams struct {
 }
 
 type GetPlayPositionRow struct {
-	PositionMs int64
-	Seq        int64
-	DeviceID   *int64
-	UpdatedAt  int64
-	WatchedAt  int64
+	PositionMs     int64
+	ReportSeq      int64
+	DeviceID       *int64
+	UpdatedAt      int64
+	PositionReadAt int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -37,10 +37,10 @@ func (q *Queries) GetPlayPosition(ctx context.Context, arg GetPlayPositionParams
 	var i GetPlayPositionRow
 	err := row.Scan(
 		&i.PositionMs,
-		&i.Seq,
+		&i.ReportSeq,
 		&i.DeviceID,
 		&i.UpdatedAt,
-		&i.WatchedAt,
+		&i.PositionReadAt,
 	)
 	return i, err
 }
@@ -63,7 +63,7 @@ func (q *Queries) HideProgress(ctx context.Context, arg HideProgressParams) erro
 }
 
 const insertPlayEvent = `-- name: InsertPlayEvent :exec
-INSERT INTO play_event (user_id, file_id, device_id, kind, position_ms, server_at, client_mono_ms)
+INSERT INTO play_event (user_id, file_id, device_id, kind, position_ms, happened_at, client_mono_ms)
 VALUES (?1, ?2, ?3, ?4, ?5,
   ?6, ?7)
 `
@@ -74,7 +74,7 @@ type InsertPlayEventParams struct {
 	DeviceID     *int64
 	Kind         string
 	PositionMs   int64
-	ServerAt     int64
+	HappenedAt   int64
 	ClientMonoMs *int64
 }
 
@@ -85,14 +85,14 @@ func (q *Queries) InsertPlayEvent(ctx context.Context, arg InsertPlayEventParams
 		arg.DeviceID,
 		arg.Kind,
 		arg.PositionMs,
-		arg.ServerAt,
+		arg.HappenedAt,
 		arg.ClientMonoMs,
 	)
 	return err
 }
 
 const insertPlaySpan = `-- name: InsertPlaySpan :exec
-INSERT INTO play_span (user_id, file_id, device_id, from_position_ms, to_position_ms, started_at, ended_at, unattended)
+INSERT INTO play_span (user_id, file_id, device_id, from_position_ms, to_position_ms, started_at, ended_at, is_unattended)
 VALUES (?1, ?2, ?3, ?4,
   ?5, ?6, ?7, ?8)
 `
@@ -105,7 +105,7 @@ type InsertPlaySpanParams struct {
 	ToPositionMs   int64
 	StartedAt      int64
 	EndedAt        int64
-	Unattended     int64
+	IsUnattended   int64
 }
 
 func (q *Queries) InsertPlaySpan(ctx context.Context, arg InsertPlaySpanParams) error {
@@ -117,16 +117,16 @@ func (q *Queries) InsertPlaySpan(ctx context.Context, arg InsertPlaySpanParams) 
 		arg.ToPositionMs,
 		arg.StartedAt,
 		arg.EndedAt,
-		arg.Unattended,
+		arg.IsUnattended,
 	)
 	return err
 }
 
 const listPlayEventsOfFile = `-- name: ListPlayEventsOfFile :many
-SELECT kind, position_ms, server_at, device_id
+SELECT kind, position_ms, happened_at, device_id
 FROM play_event
 WHERE user_id = ?1 AND file_id = ?2
-ORDER BY server_at, id
+ORDER BY happened_at, id
 `
 
 type ListPlayEventsOfFileParams struct {
@@ -137,7 +137,7 @@ type ListPlayEventsOfFileParams struct {
 type ListPlayEventsOfFileRow struct {
 	Kind       string
 	PositionMs int64
-	ServerAt   int64
+	HappenedAt int64
 	DeviceID   *int64
 }
 
@@ -154,7 +154,7 @@ func (q *Queries) ListPlayEventsOfFile(ctx context.Context, arg ListPlayEventsOf
 		if err := rows.Scan(
 			&i.Kind,
 			&i.PositionMs,
-			&i.ServerAt,
+			&i.HappenedAt,
 			&i.DeviceID,
 		); err != nil {
 			return nil, err
@@ -171,7 +171,7 @@ func (q *Queries) ListPlayEventsOfFile(ctx context.Context, arg ListPlayEventsOf
 }
 
 const listPlaySpansOfFile = `-- name: ListPlaySpansOfFile :many
-SELECT from_position_ms, to_position_ms, started_at, ended_at, device_id, unattended
+SELECT from_position_ms, to_position_ms, started_at, ended_at, device_id, is_unattended
 FROM play_span
 WHERE user_id = ?1 AND file_id = ?2
 ORDER BY started_at, id
@@ -188,7 +188,7 @@ type ListPlaySpansOfFileRow struct {
 	StartedAt      int64
 	EndedAt        int64
 	DeviceID       *int64
-	Unattended     int64
+	IsUnattended   int64
 }
 
 // A person's watching of one file, in the order it happened.
@@ -207,7 +207,7 @@ func (q *Queries) ListPlaySpansOfFile(ctx context.Context, arg ListPlaySpansOfFi
 			&i.StartedAt,
 			&i.EndedAt,
 			&i.DeviceID,
-			&i.Unattended,
+			&i.IsUnattended,
 		); err != nil {
 			return nil, err
 		}
@@ -223,8 +223,8 @@ func (q *Queries) ListPlaySpansOfFile(ctx context.Context, arg ListPlaySpansOfFi
 }
 
 const listRecentPlayPositions = `-- name: ListRecentPlayPositions :many
-SELECT play_position.file_id, play_position.position_ms, play_position.watched_at,
-  CAST(coalesce(json_extract(file.probe, '$.format.durationMs'), 0) AS INTEGER) AS duration_ms, file.path,
+SELECT play_position.file_id, play_position.position_ms, play_position.position_read_at,
+  CAST(coalesce(json_extract(file.probe_json, '$.format.durationMs'), 0) AS INTEGER) AS duration_ms, file.path,
   title.id AS title_id, title.kind, title.year, item.library_id, item_text.name, progress_hide.hidden_at
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
@@ -234,7 +234,7 @@ JOIN item ON item.id = title.id AND item.removed_at IS NULL
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = title.id
 WHERE play_position.user_id = ?1
-ORDER BY play_position.watched_at DESC
+ORDER BY play_position.position_read_at DESC
 LIMIT ?2
 `
 
@@ -244,17 +244,17 @@ type ListRecentPlayPositionsParams struct {
 }
 
 type ListRecentPlayPositionsRow struct {
-	FileID     int64
-	PositionMs int64
-	WatchedAt  int64
-	DurationMs int64
-	Path       string
-	TitleID    int64
-	Kind       string
-	Year       *int64
-	LibraryID  *int64
-	Name       *string
-	HiddenAt   *int64
+	FileID         int64
+	PositionMs     int64
+	PositionReadAt int64
+	DurationMs     int64
+	Path           string
+	TitleID        int64
+	Kind           string
+	Year           *int64
+	LibraryID      *int64
+	Name           *string
+	HiddenAt       *int64
 }
 
 // A person's positions in live files of live films and episodes, most recent watching first,
@@ -272,7 +272,7 @@ func (q *Queries) ListRecentPlayPositions(ctx context.Context, arg ListRecentPla
 		if err := rows.Scan(
 			&i.FileID,
 			&i.PositionMs,
-			&i.WatchedAt,
+			&i.PositionReadAt,
 			&i.DurationMs,
 			&i.Path,
 			&i.TitleID,
@@ -296,23 +296,23 @@ func (q *Queries) ListRecentPlayPositions(ctx context.Context, arg ListRecentPla
 }
 
 const movePlayPosition = `-- name: MovePlayPosition :exec
-INSERT INTO play_position (user_id, file_id, position_ms, seq, device_id, updated_at, watched_at)
+INSERT INTO play_position (user_id, file_id, position_ms, report_seq, device_id, updated_at, position_read_at)
 VALUES (?1, ?2, ?3, ?4, ?5,
   ?6, ?7)
 ON CONFLICT (user_id, file_id) DO UPDATE SET
-  position_ms = excluded.position_ms, seq = excluded.seq, device_id = excluded.device_id,
-  updated_at = excluded.updated_at, watched_at = excluded.watched_at
-WHERE excluded.watched_at > play_position.watched_at
+  position_ms = excluded.position_ms, report_seq = excluded.report_seq, device_id = excluded.device_id,
+  updated_at = excluded.updated_at, position_read_at = excluded.position_read_at
+WHERE excluded.position_read_at > play_position.position_read_at
 `
 
 type MovePlayPositionParams struct {
-	UserID     int64
-	FileID     int64
-	PositionMs int64
-	Seq        int64
-	DeviceID   *int64
-	UpdatedAt  int64
-	WatchedAt  int64
+	UserID         int64
+	FileID         int64
+	PositionMs     int64
+	ReportSeq      int64
+	DeviceID       *int64
+	UpdatedAt      int64
+	PositionReadAt int64
 }
 
 // The guard: a report moves the position only when the watching it describes is later than the
@@ -322,10 +322,10 @@ func (q *Queries) MovePlayPosition(ctx context.Context, arg MovePlayPositionPara
 		arg.UserID,
 		arg.FileID,
 		arg.PositionMs,
-		arg.Seq,
+		arg.ReportSeq,
 		arg.DeviceID,
 		arg.UpdatedAt,
-		arg.WatchedAt,
+		arg.PositionReadAt,
 	)
 	return err
 }

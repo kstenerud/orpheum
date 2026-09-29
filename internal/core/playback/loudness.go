@@ -26,11 +26,11 @@ const (
 	maxRaiseDB      = 20.0
 )
 
-// The sounds of a track library.db's loudness table names: as it is, which a receiver plays, and
-// as a stereo device hears it (D226 §1).
+// The mixes of a track library.db's loudness table names (measured_mix): the multichannel sound
+// as it is, which a receiver plays, and the stereo a stereo device hears (D226 §1).
 const (
-	soundSource = "source"
-	soundStereo = "stereo"
+	mixMultichannel = "multichannel"
+	mixStereo       = "stereo"
 )
 
 // Levelling is what brings a sound to the level: the gain, once the sound is measured. A sound not
@@ -40,10 +40,10 @@ type Levelling struct {
 	GainDB     float64
 }
 
-// soundKey names one measured sound of a file: a track, as it is or as stereo.
+// soundKey names one measured sound of a file: a track, as its multichannel sound or as stereo.
 type soundKey struct {
 	streamIndex int64
-	sound       string
+	mix         string
 }
 
 // levellings are the gains that level each measured sound of the bytes with payloadHash.
@@ -55,7 +55,7 @@ func (service *Service) levellings(ctx context.Context, payloadHash []byte) (map
 	levels := make(map[soundKey]Levelling, len(rows))
 	for _, row := range rows {
 		if level, isMeasured := levellingOf(row); isMeasured {
-			levels[soundKey{row.StreamIndex, row.Sound}] = level
+			levels[soundKey{row.StreamIndex, row.MeasuredMix}] = level
 		}
 	}
 	return levels, nil
@@ -81,9 +81,9 @@ func directLevelling(levels map[soundKey]Levelling, probe nodeproto.Probe) Level
 	if !found {
 		return Levelling{}
 	}
-	sound := soundStereo
+	sound := mixStereo
 	if main.Audio.ChannelCount > 2 {
-		sound = soundSource
+		sound = mixMultichannel
 	}
 	return levels[soundKey{int64(main.StreamIndex), sound}]
 }
@@ -119,7 +119,7 @@ func levelAudio(renditions []AudioRendition, levels map[soundKey]Levelling, prob
 	for index := range renditions {
 		rendition := &renditions[index]
 		if rendition.Track < len(indexes) {
-			rendition.Levelling = levels[soundKey{int64(indexes[rendition.Track]), soundStereo}]
+			rendition.Levelling = levels[soundKey{int64(indexes[rendition.Track]), mixStereo}]
 		}
 		if rendition.Track < len(gains) {
 			rendition.CarriedGainDB = gains[rendition.Track]
@@ -135,7 +135,7 @@ func levelPrepare(command *nodeproto.Prepare, levels map[soundKey]Levelling, pro
 	for index := range command.Audio {
 		track := &command.Audio[index]
 		if track.AudioTrackIndex < len(indexes) {
-			track.GainDB = levels[soundKey{int64(indexes[track.AudioTrackIndex]), soundStereo}].GainDB
+			track.GainDB = levels[soundKey{int64(indexes[track.AudioTrackIndex]), mixStereo}].GainDB
 			gains[index] = track.GainDB
 		}
 	}
@@ -166,7 +166,7 @@ func (service *Service) QueueMeasurements(ctx context.Context) (int, error) {
 		}
 		for _, id := range ids {
 			added, enqueueErr := service.queue.Enqueue(ctx, jobs.New{
-				Kind: jobs.KindMeasureLoudness, Subject: id,
+				Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: id},
 				Reason: "measures how loud it is, so it plays at the level of the others",
 			})
 			if enqueueErr != nil {
@@ -190,7 +190,7 @@ const slowestReadBytesPerSecond = 20 << 20
 // hash. A file whose bytes are already measured, as a second copy's are, is not measured again,
 // and FFmpeg's failure is kept and not retried.
 func (service *Service) HandleLoudness(ctx context.Context, job jobs.Job) error {
-	file, err := service.file(ctx, job.Subject)
+	file, err := service.file(ctx, job.FileID)
 	if errors.Is(err, ErrNoFile) {
 		return jobs.Permanent(err)
 	}
@@ -204,7 +204,7 @@ func (service *Service) HandleLoudness(ctx context.Context, job jobs.Job) error 
 	if len(levels) > 0 {
 		return nil
 	}
-	probe, err := decodeProbe(file.Probe)
+	probe, err := decodeProbe(file.ProbeJson)
 	if err != nil {
 		return jobs.Permanent(err)
 	}
@@ -270,15 +270,15 @@ func (service *Service) keepLoudness(
 	if answer.Failure != "" {
 		for _, track := range tracks {
 			rows = append(rows, sqlcgen.UpsertLoudnessParams{
-				PayloadHash: payloadHash, StreamIndex: int64(track.StreamIndex), Sound: soundStereo,
+				PayloadHash: payloadHash, StreamIndex: int64(track.StreamIndex), MeasuredMix: mixStereo,
 				Failure: &answer.Failure, MeasuredAt: now,
 			})
 		}
 	}
 	for _, track := range answer.Tracks {
-		rows = append(rows, loudnessRow(payloadHash, track.StreamIndex, soundStereo, track.Stereo, now))
+		rows = append(rows, loudnessRow(payloadHash, track.StreamIndex, mixStereo, track.Stereo, now))
 		if track.Multichannel != nil {
-			rows = append(rows, loudnessRow(payloadHash, track.StreamIndex, soundSource, *track.Multichannel, now))
+			rows = append(rows, loudnessRow(payloadHash, track.StreamIndex, mixMultichannel, *track.Multichannel, now))
 		}
 	}
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -299,7 +299,7 @@ func loudnessRow(
 	payloadHash []byte, streamIndex int, sound string, measured nodeproto.Measurement, now int64,
 ) sqlcgen.UpsertLoudnessParams {
 	return sqlcgen.UpsertLoudnessParams{
-		PayloadHash: payloadHash, StreamIndex: int64(streamIndex), Sound: sound,
+		PayloadHash: payloadHash, StreamIndex: int64(streamIndex), MeasuredMix: sound,
 		IntegratedLufs: &measured.IntegratedLUFS, RangeLu: &measured.RangeLU, TruePeakDbtp: measured.TruePeakDBTP,
 		MeasuredAt: now,
 	}

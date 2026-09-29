@@ -10,7 +10,7 @@ import (
 )
 
 const getFetchedSubtitle = `-- name: GetFetchedSubtitle :one
-SELECT s.id, s.video_file, s.body, f.node_id
+SELECT s.id, s.video_file, s.body_gzip, f.node_id
 FROM fetched_subtitle s
 JOIN file f ON f.id = s.video_file AND f.removed_at IS NULL
 WHERE s.id = ?1
@@ -19,7 +19,7 @@ WHERE s.id = ?1
 type GetFetchedSubtitleRow struct {
 	ID        int64
 	VideoFile int64
-	Body      []byte
+	BodyGzip  []byte
 	NodeID    int64
 }
 
@@ -30,7 +30,7 @@ func (q *Queries) GetFetchedSubtitle(ctx context.Context, id int64) (GetFetchedS
 	err := row.Scan(
 		&i.ID,
 		&i.VideoFile,
-		&i.Body,
+		&i.BodyGzip,
 		&i.NodeID,
 	)
 	return i, err
@@ -38,7 +38,7 @@ func (q *Queries) GetFetchedSubtitle(ctx context.Context, id int64) (GetFetchedS
 
 const insertFetchedSubtitle = `-- name: InsertFetchedSubtitle :one
 
-INSERT INTO fetched_subtitle (video_file, provider, provider_ref, lang, format, body, fetched_by, fetched_at,
+INSERT INTO fetched_subtitle (video_file, provider, provider_file_id, lang, format, body_gzip, fetched_by, fetched_at,
   release_name)
 VALUES (?1, ?2, ?3, ?4, ?5,
   ?6, ?7, ?8, ?9)
@@ -46,15 +46,15 @@ RETURNING id
 `
 
 type InsertFetchedSubtitleParams struct {
-	VideoFile   int64
-	Provider    string
-	ProviderRef string
-	Lang        string
-	Format      string
-	Body        []byte
-	FetchedBy   int64
-	FetchedAt   int64
-	ReleaseName *string
+	VideoFile      int64
+	Provider       string
+	ProviderFileID string
+	Lang           string
+	Format         string
+	BodyGzip       []byte
+	FetchedBy      int64
+	FetchedAt      int64
+	ReleaseName    *string
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -64,10 +64,10 @@ func (q *Queries) InsertFetchedSubtitle(ctx context.Context, arg InsertFetchedSu
 	row := q.db.QueryRowContext(ctx, insertFetchedSubtitle,
 		arg.VideoFile,
 		arg.Provider,
-		arg.ProviderRef,
+		arg.ProviderFileID,
 		arg.Lang,
 		arg.Format,
-		arg.Body,
+		arg.BodyGzip,
 		arg.FetchedBy,
 		arg.FetchedAt,
 		arg.ReleaseName,
@@ -78,7 +78,7 @@ func (q *Queries) InsertFetchedSubtitle(ctx context.Context, arg InsertFetchedSu
 }
 
 const listFetchedSubtitlesOfVideo = `-- name: ListFetchedSubtitlesOfVideo :many
-SELECT id, lang, release_name, body
+SELECT id, lang, release_name, body_gzip
 FROM fetched_subtitle
 WHERE video_file = ?1
 ORDER BY id
@@ -88,7 +88,7 @@ type ListFetchedSubtitlesOfVideoRow struct {
 	ID          int64
 	Lang        string
 	ReleaseName *string
-	Body        []byte
+	BodyGzip    []byte
 }
 
 // A video's fetched subtitles, oldest first, with their bodies, which name where their text is kept.
@@ -105,7 +105,7 @@ func (q *Queries) ListFetchedSubtitlesOfVideo(ctx context.Context, videoFile int
 			&i.ID,
 			&i.Lang,
 			&i.ReleaseName,
-			&i.Body,
+			&i.BodyGzip,
 		); err != nil {
 			return nil, err
 		}

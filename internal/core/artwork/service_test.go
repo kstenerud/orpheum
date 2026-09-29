@@ -148,7 +148,7 @@ func (bench *bench) job(refs ...owedRef) jobs.Job {
 	if err != nil {
 		panic(err)
 	}
-	return jobs.Job{ID: 1, Kind: jobs.KindArtwork, Subject: bench.itemID, Args: string(args)}
+	return jobs.Job{ID: 1, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, Args: string(args)}
 }
 
 func (bench *bench) handle(t *testing.T, refs ...owedRef) {
@@ -266,7 +266,7 @@ type queued []jobs.New
 
 func (queue *queued) Enqueue(_ context.Context, job jobs.New) (bool, error) {
 	for _, open := range *queue {
-		if open.Kind == job.Kind && open.Subject == job.Subject {
+		if open.Kind == job.Kind && open.Target == job.Target {
 			return false, nil
 		}
 	}
@@ -290,10 +290,10 @@ func TestService_OweQueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 		{Kind: identify.ArtPoster, Ref: "/poster.jpg"}, {Kind: identify.ArtBackdrop, Ref: "/back.jpg"},
 	}}
 	bench.service.Owe(t.Context(), []identify.OwedArtwork{owed, owed})
-	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindArtwork || (*queue)[0].Subject != bench.itemID {
+	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindArtwork || (*queue)[0].ItemID != bench.itemID {
 		t.Fatalf("queued %+v; want one artwork job for the item", *queue)
 	}
-	job := jobs.Job{ID: 9, Kind: jobs.KindArtwork, Subject: bench.itemID, Args: (*queue)[0].Args}
+	job := jobs.Job{ID: 9, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, Args: (*queue)[0].Args}
 	if err := bench.service.Handle(t.Context(), job); err != nil {
 		t.Fatal(err)
 	}
@@ -308,10 +308,11 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	bench := newBench(t, fetched{"/poster.jpg": []byte("tmdb poster")})
 	var fileID int64
 	storetest.ExecRaw(t, bench.database.Path(),
-		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
+		"INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) "+
 			"VALUES (9, 'L', 'movies', 'nfo_then_tmdb', 'manual', 0, 1)",
 		"INSERT INTO node (id, name, enrolled_at) VALUES (3, 'local', 1)",
-		"INSERT INTO file (id, library_id, node_id, path, path_key, size_bytes, mtime_ms, filing, filing_reason, "+
+		"INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, mtime_ms, filing, "+
+			"filing_reason, "+
 			"first_seen_at, "+
 			"last_seen_at) VALUES (40, 9, 3, '/m/Film/poster.jpg', CAST('/m/Film/poster.jpg' AS BLOB), 5, 7, "+
 			"'attached', 'image', 1, 1)")
@@ -332,7 +333,10 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = bench.service.Handle(t.Context(), jobs.Job{ID: 5, Subject: bench.itemID, Args: string(args)}); err != nil {
+	if err = bench.service.Handle(t.Context(), jobs.Job{
+		ID: 5, Target: jobs.Target{ItemID: bench.itemID},
+		Args: string(args),
+	}); err != nil {
 		t.Fatal(err)
 	}
 	sent := bench.node.sent[len(bench.node.sent)-1]

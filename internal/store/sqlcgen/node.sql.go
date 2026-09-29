@@ -11,7 +11,7 @@ import (
 
 const getLiveNodeByName = `-- name: GetLiveNodeByName :one
 
-SELECT id, name, enrolled_at, report_seq
+SELECT id, name, enrolled_at, last_ingested_report_seq
 FROM node
 WHERE name = ? AND removed_at IS NULL
 ORDER BY id
@@ -19,10 +19,10 @@ LIMIT 1
 `
 
 type GetLiveNodeByNameRow struct {
-	ID         int64
-	Name       string
-	EnrolledAt int64
-	ReportSeq  int64
+	ID                    int64
+	Name                  string
+	EnrolledAt            int64
+	LastIngestedReportSeq int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -34,22 +34,22 @@ func (q *Queries) GetLiveNodeByName(ctx context.Context, name string) (GetLiveNo
 		&i.ID,
 		&i.Name,
 		&i.EnrolledAt,
-		&i.ReportSeq,
+		&i.LastIngestedReportSeq,
 	)
 	return i, err
 }
 
 const getNodeStatus = `-- name: GetNodeStatus :one
-SELECT id, name, status, status_at
+SELECT id, name, last_status_json, last_status_at
 FROM node
 WHERE id = ?
 `
 
 type GetNodeStatusRow struct {
-	ID       int64
-	Name     string
-	Status   *string
-	StatusAt *int64
+	ID             int64
+	Name           string
+	LastStatusJson *string
+	LastStatusAt   *int64
 }
 
 func (q *Queries) GetNodeStatus(ctx context.Context, id int64) (GetNodeStatusRow, error) {
@@ -58,8 +58,8 @@ func (q *Queries) GetNodeStatus(ctx context.Context, id int64) (GetNodeStatusRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Status,
-		&i.StatusAt,
+		&i.LastStatusJson,
+		&i.LastStatusAt,
 	)
 	return i, err
 }
@@ -120,30 +120,30 @@ func (q *Queries) ListLiveNodes(ctx context.Context) ([]ListLiveNodesRow, error)
 }
 
 const updateNodeReportSeq = `-- name: UpdateNodeReportSeq :exec
-UPDATE node SET report_seq = ?1 WHERE id = ?2
+UPDATE node SET last_ingested_report_seq = ?1 WHERE id = ?2
 `
 
 type UpdateNodeReportSeqParams struct {
-	ReportSeq int64
-	ID        int64
+	LastIngestedReportSeq int64
+	ID                    int64
 }
 
 func (q *Queries) UpdateNodeReportSeq(ctx context.Context, arg UpdateNodeReportSeqParams) error {
-	_, err := q.db.ExecContext(ctx, updateNodeReportSeq, arg.ReportSeq, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateNodeReportSeq, arg.LastIngestedReportSeq, arg.ID)
 	return err
 }
 
 const updateNodeStatus = `-- name: UpdateNodeStatus :exec
-UPDATE node SET status = ?1, status_at = ?2 WHERE id = ?3
+UPDATE node SET last_status_json = ?1, last_status_at = ?2 WHERE id = ?3
 `
 
 type UpdateNodeStatusParams struct {
-	Status   *string
-	StatusAt *int64
-	ID       int64
+	LastStatusJson *string
+	LastStatusAt   *int64
+	ID             int64
 }
 
 func (q *Queries) UpdateNodeStatus(ctx context.Context, arg UpdateNodeStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateNodeStatus, arg.Status, arg.StatusAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateNodeStatus, arg.LastStatusJson, arg.LastStatusAt, arg.ID)
 	return err
 }

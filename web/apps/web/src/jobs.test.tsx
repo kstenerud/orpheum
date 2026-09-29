@@ -13,7 +13,7 @@ import { withServices } from "./test-services.tsx";
 const preparing: Job = {
   id: 5,
   kind: "prepare",
-  subject: 3,
+  renditionId: 3,
   state: "running",
   progress: 0.4,
   reason: "someone is waiting to watch it",
@@ -24,7 +24,7 @@ const preparing: Job = {
 const lookedUp: Job = {
   id: 4,
   kind: "fetch",
-  subject: 9,
+  itemId: 9,
   state: "failed",
   reason: "a new title",
   lastError: "TMDB did not answer",

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
 
 // load reads the library, its roots, its files, and the titles and series it already has.
@@ -36,11 +37,11 @@ func (work *run) load(ctx context.Context, libraryID int64) error {
 // as sidecars, so changing the library's source finds them.
 func (work *run) loadNFOs(ctx context.Context) error {
 	for _, file := range work.files {
-		isNFO := file.FilingReason != nil && *file.FilingReason == string(nodeproto.SidecarNFO)
+		isNFO := ptr.ValueOrZero(file.SidecarKind) == string(nodeproto.SidecarNFO)
 		if file.Filing != filingAttached || !isNFO {
 			continue
 		}
-		body, bodyErr := work.queries.GetSidecarBody(ctx, file.ID)
+		body, bodyErr := work.queries.GetNFOBody(ctx, file.ID)
 		if bodyErr != nil {
 			return fmt.Errorf("read the NFO %s: %w", file.Path, bodyErr)
 		}
@@ -51,8 +52,8 @@ func (work *run) loadNFOs(ctx context.Context) error {
 		switch {
 		case nfo.Kind == "tvshow":
 			work.showNFOs[path.Dir(file.Path)] = nfo
-		case file.AttachedTo != nil:
-			work.nfoByVideo[*file.AttachedTo] = nfo
+		case file.AttachedToFile != nil:
+			work.nfoByVideo[*file.AttachedToFile] = nfo
 		}
 		stem := strings.TrimSuffix(path.Base(file.Path), path.Ext(file.Path))
 		folder := path.Dir(file.Path)
@@ -86,7 +87,7 @@ func (work *run) loadTitles(ctx context.Context, libraryID int64) error {
 		}
 		for _, episode := range episodes {
 			work.titleIDByKey[episodeKey(show.ID, int(deref(episode.GroupNumber)),
-				int(deref(episode.Number)))] = episode.TitleID
+				int(deref(episode.NumberInGroup)))] = episode.TitleID
 		}
 	}
 	return nil

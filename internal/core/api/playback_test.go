@@ -63,10 +63,11 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		`{"streamIndex":3,"kind":"subtitle","codec":"hdmv_pgs_subtitle"}]}`
 	storetest.ExecRaw(t, harness.database,
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at)
+		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
 		"INSERT INTO library_root (library_id, node_id, path) VALUES (1, 1, '/media')",
-		`INSERT INTO file (id, library_id, node_id, path, path_key, size_bytes, payload_hash, filing, probe,
+		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, payload_hash, filing,
+		 probe_json,
 		 first_seen_at,
 		 last_seen_at) VALUES
 		 (1, 1, 1, '/media/Film (2001).mp4', CAST('/media/Film (2001).mp4' AS BLOB), 10, X'0a0b', 'listed', '`+

@@ -81,7 +81,7 @@ func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome,
 	if err != nil {
 		return "", fmt.Errorf("read title %d: %w", titleID, err)
 	}
-	if title.Source != nil || title.Identification != identUnidentified || title.MetadataSource == sourceNFO {
+	if title.FollowedSource != nil || title.Identification != identUnidentified || title.MetadataSource == sourceNFO {
 		return OutcomeNothingToDo, nil // matched, answered, ambiguous or confirmed since it was queued
 	}
 	provider, known := matcher.providers[providerOf(title.MetadataSource)]
@@ -252,8 +252,9 @@ func (matcher *Matcher) record(
 			return fmt.Errorf("forget title %d's earlier %s match: %w", title.ID, provider, err)
 		}
 	}
-	if isRematch := ptr.ValueOrZero(title.Source) == provider && ptr.ValueOrZero(title.SourceID) != id &&
-		title.SourceID != nil; isRematch {
+	if isRematch := ptr.ValueOrZero(title.FollowedSource) == provider &&
+		ptr.ValueOrZero(title.FollowedSourceID) != id &&
+		title.FollowedSourceID != nil; isRematch {
 		if err := retireArtworkOf(ctx, queries, title.ID, provider, found.artwork, now); err != nil {
 			return err
 		}
@@ -263,13 +264,13 @@ func (matcher *Matcher) record(
 		return err
 	}
 	err = queries.UpsertProviderResponse(ctx, sqlcgen.UpsertProviderResponseParams{
-		ItemID: titleID, Provider: provider, Part: "", FetchedAt: now, Body: stored,
+		ItemID: titleID, Provider: provider, Part: "", FetchedAt: now, BodyGzip: stored,
 	})
 	if err != nil {
 		return fmt.Errorf("store the response: %w", err)
 	}
 	err = queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
-		Source: &provider, SourceID: &id, Identification: found.ident, ID: titleID,
+		FollowedSource: &provider, FollowedSourceID: &id, Identification: found.ident, ID: titleID,
 	})
 	if err != nil {
 		return fmt.Errorf("record the match: %w", err)
@@ -362,7 +363,7 @@ func (matcher *Matcher) ambiguous(
 func (matcher *Matcher) noMatch(ctx context.Context, title sqlcgen.GetTitleForMatchRow) error {
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		err := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
-			Source: new(sourceNone), Identification: identUnidentified, ID: title.ID,
+			FollowedSource: new(sourceNone), Identification: identUnidentified, ID: title.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("record title %d's empty search: %w", title.ID, err)
@@ -385,7 +386,7 @@ func (matcher *Matcher) keep(ctx context.Context, provider Provider, itemID int6
 			err := queries.InsertMatchCandidate(ctx, cachegen.InsertMatchCandidateParams{
 				ItemID: itemID, Rank: int64(rank), Provider: provider.Name(), ProviderID: candidate.ID,
 				Name: optional(candidate.Name), Year: optionalInt(int64(candidate.Year)),
-				PosterRef: optional(candidate.PosterRef),
+				PosterPath: optional(candidate.PosterRef),
 			})
 			if err != nil {
 				return fmt.Errorf("keep a candidate for item %d: %w", itemID, err)
@@ -432,21 +433,21 @@ func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	var outcome Outcome
 	var err error
 	if args.Refresh {
-		outcome, err = matcher.refresh(ctx, job.Subject, args.RetryImages)
+		outcome, err = matcher.refresh(ctx, job.ItemID, args.RetryImages)
 	} else {
-		outcome, err = matcher.Match(ctx, job.Subject)
+		outcome, err = matcher.Match(ctx, job.ItemID)
 	}
 	if limited, isLimited := errors.AsType[*RateLimitedError](err); isLimited {
 		return &jobs.RetryAtError{At: matcher.clock.Now().Add(limited.After), Err: err}
 	}
 	switch {
 	case errors.Is(err, ErrNoKey), errors.Is(err, ErrKeyRefused):
-		return fmt.Errorf("match title %d: %w", job.Subject, jobs.Blocked(err))
+		return fmt.Errorf("match title %d: %w", job.ItemID, jobs.Blocked(err))
 	case errors.Is(err, ErrNoMatch):
-		return fmt.Errorf("match title %d: %w", job.Subject, jobs.Permanent(err))
+		return fmt.Errorf("match title %d: %w", job.ItemID, jobs.Permanent(err))
 	case err != nil:
 		return err
 	}
-	matcher.logger.InfoContext(ctx, "matched a title", "titleId", job.Subject, "outcome", string(outcome))
+	matcher.logger.InfoContext(ctx, "matched a title", "titleId", job.ItemID, "outcome", string(outcome))
 	return nil
 }

@@ -33,10 +33,11 @@ func (work *run) matchEvidence(ctx context.Context, titleID int64, spec *titleSp
 	if err != nil {
 		return fmt.Errorf("read title %d's match: %w", titleID, err)
 	}
-	chosen := match.Identification == identConfirmed && match.Source != nil && *match.Source != sourceNFO &&
-		*match.Source != sourceNone
+	chosen := match.Identification == identConfirmed && match.FollowedSource != nil &&
+		*match.FollowedSource != sourceNFO &&
+		*match.FollowedSource != sourceNone
 	if chosen {
-		return work.fromResponse(ctx, titleID, *match.Source, spec)
+		return work.fromResponse(ctx, titleID, *match.FollowedSource, spec)
 	}
 	if spec.source != "" {
 		return nil
@@ -44,11 +45,11 @@ func (work *run) matchEvidence(ctx context.Context, titleID int64, spec *titleSp
 	switch {
 	case match.Identification == identAmbiguous:
 		spec.ident, spec.reason = identAmbiguous, ""
-	case match.Source == nil:
-	case *match.Source == sourceNone:
+	case match.FollowedSource == nil:
+	case *match.FollowedSource == sourceNone:
 		spec.source, spec.reason = sourceNone, noMatchReason(match.MetadataSource)
 	default:
-		return work.fromResponse(ctx, titleID, *match.Source, spec)
+		return work.fromResponse(ctx, titleID, *match.FollowedSource, spec)
 	}
 	return nil
 }

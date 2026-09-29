@@ -47,8 +47,8 @@ func (service *Service) FinishedPrepares(ctx context.Context, nodeID int64, limi
 		}
 		finished = append(finished, FinishedPrepare{
 			FileID: row.SourceFile, Path: path, Profile: row.Profile, State: row.State,
-			VideoEncoder: ptr.ValueOrZero(row.VideoEncoder), Speed: ptr.ValueOrZero(row.Speed),
-			SizeBytes: ptr.ValueOrZero(row.SizeBytes), Error: ptr.ValueOrZero(row.Error),
+			VideoEncoder: ptr.ValueOrZero(row.VideoEncoder), Speed: ptr.ValueOrZero(row.RealtimeFactor),
+			SizeBytes: ptr.ValueOrZero(row.SizeBytes), Error: ptr.ValueOrZero(row.Failure),
 			FinishedAt: time.UnixMilli(ptr.ValueOrZero(row.FinishedAt)).UTC(),
 		})
 	}

@@ -10,7 +10,7 @@ import (
 )
 
 const getGrantState = `-- name: GetGrantState :one
-SELECT kind, revoked_at, expires_at, last_seen_at, issued_at FROM "grant" WHERE hash = ?1
+SELECT kind, revoked_at, expires_at, last_seen_at, issued_at FROM "grant" WHERE secret_sha256 = ?1
 `
 
 type GetGrantStateRow struct {
@@ -22,8 +22,8 @@ type GetGrantStateRow struct {
 }
 
 // A grant whatever its state: why a session no longer works, when one does not.
-func (q *Queries) GetGrantState(ctx context.Context, hash []byte) (GetGrantStateRow, error) {
-	row := q.db.QueryRowContext(ctx, getGrantState, hash)
+func (q *Queries) GetGrantState(ctx context.Context, secretSha256 []byte) (GetGrantStateRow, error) {
+	row := q.db.QueryRowContext(ctx, getGrantState, secretSha256)
 	var i GetGrantStateRow
 	err := row.Scan(
 		&i.Kind,
@@ -36,81 +36,81 @@ func (q *Queries) GetGrantState(ctx context.Context, hash []byte) (GetGrantState
 }
 
 const getLiveGrant = `-- name: GetLiveGrant :one
-SELECT hash, kind, subject, scope, issued_at, expires_at, last_seen_at, device_id, label
+SELECT secret_sha256, kind, user_id, scope, issued_at, expires_at, last_seen_at, device_id, device_name
 FROM "grant"
-WHERE hash = ?1
+WHERE secret_sha256 = ?1
   AND revoked_at IS NULL
   AND (expires_at IS NULL OR expires_at > ?2)
 `
 
 type GetLiveGrantParams struct {
-	Hash []byte
-	Now  *int64
+	SecretSha256 []byte
+	Now          *int64
 }
 
 type GetLiveGrantRow struct {
-	Hash       []byte
-	Kind       string
-	Subject    *int64
-	Scope      string
-	IssuedAt   int64
-	ExpiresAt  *int64
-	LastSeenAt *int64
-	DeviceID   *int64
-	Label      *string
+	SecretSha256 []byte
+	Kind         string
+	UserID       *int64
+	Scope        string
+	IssuedAt     int64
+	ExpiresAt    *int64
+	LastSeenAt   *int64
+	DeviceID     *int64
+	DeviceName   *string
 }
 
 func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (GetLiveGrantRow, error) {
-	row := q.db.QueryRowContext(ctx, getLiveGrant, arg.Hash, arg.Now)
+	row := q.db.QueryRowContext(ctx, getLiveGrant, arg.SecretSha256, arg.Now)
 	var i GetLiveGrantRow
 	err := row.Scan(
-		&i.Hash,
+		&i.SecretSha256,
 		&i.Kind,
-		&i.Subject,
+		&i.UserID,
 		&i.Scope,
 		&i.IssuedAt,
 		&i.ExpiresAt,
 		&i.LastSeenAt,
 		&i.DeviceID,
-		&i.Label,
+		&i.DeviceName,
 	)
 	return i, err
 }
 
 const getLiveGrantOf = `-- name: GetLiveGrantOf :one
-SELECT hash, label, device_id, expires_at FROM "grant"
-WHERE subject = ?1 AND kind = ?2 AND scope = ?3 AND revoked_at IS NULL
+SELECT secret_sha256, device_name, device_id, expires_at FROM "grant"
+WHERE user_id = ?1 AND kind = ?2 AND scope = ?3 AND revoked_at IS NULL
   AND (expires_at IS NULL OR expires_at > ?4)
 ORDER BY issued_at DESC
 LIMIT 1
 `
 
 type GetLiveGrantOfParams struct {
-	Subject *int64
-	Kind    string
-	Scope   string
-	Now     *int64
+	UserID *int64
+	Kind   string
+	Scope  string
+	Now    *int64
 }
 
 type GetLiveGrantOfRow struct {
-	Hash      []byte
-	Label     *string
-	DeviceID  *int64
-	ExpiresAt *int64
+	SecretSha256 []byte
+	DeviceName   *string
+	DeviceID     *int64
+	ExpiresAt    *int64
 }
 
 // A person's live grant of one kind and scope: the device code still waiting (D221).
 func (q *Queries) GetLiveGrantOf(ctx context.Context, arg GetLiveGrantOfParams) (GetLiveGrantOfRow, error) {
 	row := q.db.QueryRowContext(ctx, getLiveGrantOf,
-		arg.Subject,
+		arg.UserID,
 		arg.Kind,
 		arg.Scope,
 		arg.Now,
 	)
 	var i GetLiveGrantOfRow
 	err := row.Scan(
-		&i.Hash,
-		&i.Label,
+		&i.SecretSha256,
+		&i.DeviceName,
 		&i.DeviceID,
 		&i.ExpiresAt,
 	)
@@ -119,33 +119,33 @@ func (q *Queries) GetLiveGrantOf(ctx context.Context, arg GetLiveGrantOfParams) 
 
 const insertGrant = `-- name: InsertGrant :exec
 
-INSERT INTO "grant" (hash, kind, subject, scope, issued_at, expires_at, last_seen_at, label, device_id)
+INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_seen_at, device_name, device_id)
 VALUES (?1, ?2, ?3, ?4, ?5,
         ?6, ?5, ?7, ?8)
 `
 
 type InsertGrantParams struct {
-	Hash      []byte
-	Kind      string
-	Subject   *int64
-	Scope     string
-	IssuedAt  int64
-	ExpiresAt *int64
-	Label     *string
-	DeviceID  *int64
+	SecretSha256 []byte
+	Kind         string
+	UserID       *int64
+	Scope        string
+	IssuedAt     int64
+	ExpiresAt    *int64
+	DeviceName   *string
+	DeviceID     *int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Credentials: one grant table, opaque and revocable, stored as SHA-256 hashes (D154).
 func (q *Queries) InsertGrant(ctx context.Context, arg InsertGrantParams) error {
 	_, err := q.db.ExecContext(ctx, insertGrant,
-		arg.Hash,
+		arg.SecretSha256,
 		arg.Kind,
-		arg.Subject,
+		arg.UserID,
 		arg.Scope,
 		arg.IssuedAt,
 		arg.ExpiresAt,
-		arg.Label,
+		arg.DeviceName,
 		arg.DeviceID,
 	)
 	return err
@@ -153,27 +153,27 @@ func (q *Queries) InsertGrant(ctx context.Context, arg InsertGrantParams) error 
 
 const markGrantRevoked = `-- name: MarkGrantRevoked :exec
 UPDATE "grant" SET revoked_at = ?1
-WHERE hash = ?2 AND revoked_at IS NULL
+WHERE secret_sha256 = ?2 AND revoked_at IS NULL
 `
 
 type MarkGrantRevokedParams struct {
-	RevokedAt *int64
-	Hash      []byte
+	RevokedAt    *int64
+	SecretSha256 []byte
 }
 
 func (q *Queries) MarkGrantRevoked(ctx context.Context, arg MarkGrantRevokedParams) error {
-	_, err := q.db.ExecContext(ctx, markGrantRevoked, arg.RevokedAt, arg.Hash)
+	_, err := q.db.ExecContext(ctx, markGrantRevoked, arg.RevokedAt, arg.SecretSha256)
 	return err
 }
 
 const revokeLiveGrantsOf = `-- name: RevokeLiveGrantsOf :exec
 UPDATE "grant" SET revoked_at = ?1
-WHERE subject = ?2 AND kind = ?3 AND scope = ?4 AND revoked_at IS NULL
+WHERE user_id = ?2 AND kind = ?3 AND scope = ?4 AND revoked_at IS NULL
 `
 
 type RevokeLiveGrantsOfParams struct {
 	RevokedAt *int64
-	Subject   *int64
+	UserID    *int64
 	Kind      string
 	Scope     string
 }
@@ -183,7 +183,7 @@ type RevokeLiveGrantsOfParams struct {
 func (q *Queries) RevokeLiveGrantsOf(ctx context.Context, arg RevokeLiveGrantsOfParams) error {
 	_, err := q.db.ExecContext(ctx, revokeLiveGrantsOf,
 		arg.RevokedAt,
-		arg.Subject,
+		arg.UserID,
 		arg.Kind,
 		arg.Scope,
 	)
@@ -192,15 +192,15 @@ func (q *Queries) RevokeLiveGrantsOf(ctx context.Context, arg RevokeLiveGrantsOf
 
 const updateGrantLastSeen = `-- name: UpdateGrantLastSeen :exec
 UPDATE "grant" SET last_seen_at = ?1
-WHERE hash = ?2
+WHERE secret_sha256 = ?2
 `
 
 type UpdateGrantLastSeenParams struct {
-	LastSeenAt *int64
-	Hash       []byte
+	LastSeenAt   *int64
+	SecretSha256 []byte
 }
 
 func (q *Queries) UpdateGrantLastSeen(ctx context.Context, arg UpdateGrantLastSeenParams) error {
-	_, err := q.db.ExecContext(ctx, updateGrantLastSeen, arg.LastSeenAt, arg.Hash)
+	_, err := q.db.ExecContext(ctx, updateGrantLastSeen, arg.LastSeenAt, arg.SecretSha256)
 	return err
 }

@@ -211,10 +211,11 @@ func followSortLocale(ctx context.Context, pass *identify.Pass, config *settings
 func queueMatches(ctx context.Context, queue *jobs.Queue, report identify.Report, logger *slog.Logger) {
 	queued := 0
 	for _, itemID := range report.AwaitingMatch {
-		ever, err := queue.EverQueued(ctx, jobs.KindFetch, itemID)
+		ever, err := queue.EverQueued(ctx, jobs.KindFetch, jobs.Target{ItemID: itemID})
 		if err == nil && !ever {
 			_, err = queue.Enqueue(ctx, jobs.New{
-				Kind: jobs.KindFetch, Subject: itemID, Reason: "the first match for a newly identified title or series",
+				Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID},
+				Reason: "the first match for a newly identified title or series",
 			})
 			queued++
 		}
@@ -225,7 +226,7 @@ func queueMatches(ctx context.Context, queue *jobs.Queue, report identify.Report
 	}
 	for _, seriesID := range report.AwaitingListings {
 		added, err := queue.Enqueue(ctx, jobs.New{
-			Kind: jobs.KindFetch, Subject: seriesID, Reason: "a season listing a new episode needs",
+			Kind: jobs.KindFetch, Target: jobs.Target{ItemID: seriesID}, Reason: "a season listing a new episode needs",
 		})
 		if err != nil {
 			logger.ErrorContext(ctx, "could not queue a season listing", "seriesId", seriesID, "err", err)

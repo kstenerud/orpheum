@@ -20,7 +20,10 @@ import (
 func (lib *world) refresh(itemID int64) {
 	lib.t.Helper()
 	job := RefreshJob(itemID, "test", time.Time{}, false, 0)
-	err := lib.matcher.Handle(lib.t.Context(), jobs.Job{ID: 1, Kind: job.Kind, Subject: itemID, Args: job.Args})
+	err := lib.matcher.Handle(lib.t.Context(), jobs.Job{
+		ID: 1, Kind: job.Kind, Target: jobs.Target{ItemID: itemID},
+		Args: job.Args,
+	})
 	if err != nil {
 		lib.t.Fatalf("refresh %d: %v", itemID, err)
 	}
@@ -81,7 +84,8 @@ func TestRefresh_AnItemGoneFromItsProviderKeepsOurCopy(t *testing.T) {
 	lib.clock.Advance(time.Hour)
 	lib.refresh(titleID)
 	file := lib.files()["Metropolis (1995).mkv"]
-	if name(file) != "Metropolis" || file.Source == nil || *file.Source != "tmdb" || file.Filing != filingListed {
+	if name(file) != "Metropolis" || file.FollowedSource == nil || *file.FollowedSource != "tmdb" ||
+		file.Filing != filingListed {
 		t.Errorf("after TMDB dropped it: %+v named %q; want it kept as it was (D213 §4)", file, name(file))
 	}
 	if lib.fetchedAt(titleID, "") != lib.clock.Now().UnixMilli() {
@@ -115,7 +119,7 @@ type queued []jobs.New
 
 func (queue *queued) Enqueue(_ context.Context, job jobs.New) (bool, error) {
 	for _, open := range *queue {
-		if open.Kind == job.Kind && open.Subject == job.Subject {
+		if open.Kind == job.Kind && open.Target == job.Target {
 			return false, nil
 		}
 	}
@@ -139,7 +143,7 @@ func TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod(t *te
 		t.Fatalf("a minute before it is due: queued %d (%v)", count, err)
 	}
 	lib.clock.Set(fetched.Add(due))
-	if count, err := refresher.Sweep(t.Context()); err != nil || count != 1 || (*queue)[0].Subject != titleID ||
+	if count, err := refresher.Sweep(t.Context()); err != nil || count != 1 || (*queue)[0].ItemID != titleID ||
 		(*queue)[0].Priority >= 0 {
 		t.Fatalf("once due: queued %d %+v (%v); want Metropolis, behind everything else", count, *queue, err)
 	}

@@ -91,7 +91,7 @@ func checkOrbitorama(t *testing.T, lib *world, when string) {
 	t.Helper()
 	files := lib.files()
 	clone, missing := files[orbitoramaFiles[0]], files[orbitoramaFiles[1]]
-	fromTMDB := clone.Source != nil && *clone.Source == sourceTMDB
+	fromTMDB := clone.FollowedSource != nil && *clone.FollowedSource == sourceTMDB
 	if name(clone) != "A Comet of My Own" || clone.Identification != identIdentified || clone.Filing != filingListed ||
 		!fromTMDB || clone.Year == nil || *clone.Year != 2000 {
 		t.Errorf("%s: S02E10 = %+v named %q", when, clone, name(clone))
@@ -103,7 +103,7 @@ func checkOrbitorama(t *testing.T, lib *world, when string) {
 	series := lib.onlySeries()
 	got := []string{
 		ptr.ValueOrZero(series.Name), strconv.FormatInt(deref(series.Year), 10), ptr.ValueOrZero(series.Identification),
-		ptr.ValueOrZero(series.Source), ptr.ValueOrZero(series.SourceID),
+		ptr.ValueOrZero(series.FollowedSource), ptr.ValueOrZero(series.FollowedSourceID),
 	}
 	if want := []string{"Orbitorama", "1999", identIdentified, sourceTMDB, "7615"}; !slices.Equal(got, want) {
 		t.Errorf("%s: series name, year, ident, source and id = %v, want %v", when, got, want)

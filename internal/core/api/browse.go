@@ -223,7 +223,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	body.Identification = detail.Identification
 	body.Overview = ptr.ValueOrZero(detail.Overview)
 	body.Tagline = ptr.ValueOrZero(detail.Tagline)
-	body.Source = ptr.ValueOrZero(detail.Source)
+	body.Source = ptr.ValueOrZero(detail.FollowedSource)
 	body.Year = ptr.ValueOrZero(detail.Year)
 	body.RuntimeMs = ptr.ValueOrZero(detail.RuntimeMs)
 	body.LibraryID = ptr.ValueOrZero(detail.LibraryID)
@@ -239,7 +239,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 				fileBody.Streams = append(fileBody.Streams, StreamBody{
 					ID: stream.ID, Kind: stream.Kind, Codec: stream.Codec, Language: stream.Lang,
 					Title:    stream.TitleRaw,
-					Channels: stream.Channels,
+					Channels: stream.ChannelCount,
 				})
 			}
 			versionBody.Files = append(versionBody.Files, fileBody)
@@ -249,7 +249,7 @@ func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetai
 	body.Extras = make([]ExtraBody, 0, len(detail.Extras))
 	for _, extra := range detail.Extras {
 		body.Extras = append(body.Extras, ExtraBody{
-			ID: extra.ExtraTitle, Kind: extra.Type, Name: ptr.ValueOrZero(extra.Name),
+			ID: extra.ExtraTitle, Kind: extra.ExtraType, Name: ptr.ValueOrZero(extra.Name),
 		})
 	}
 	body.Art = artBody(detail.Art)
@@ -264,7 +264,7 @@ func episodePlaceBody(place *sqlcgen.GetEpisodePlaceRow) *EpisodePlaceBody {
 	}
 	return &EpisodePlaceBody{
 		SeriesID: place.CollectionID, SeriesName: ptr.ValueOrZero(place.SeriesName),
-		Season: ptr.ValueOrZero(place.GroupNumber), Number: ptr.ValueOrZero(place.Number),
+		Season: ptr.ValueOrZero(place.GroupNumber), Number: ptr.ValueOrZero(place.NumberInGroup),
 	}
 }
 
@@ -286,9 +286,10 @@ func (server *Server) getCollection(ctx context.Context, input *ItemInput) (*Col
 	body.Episodes = make([]EpisodeBody, 0, len(series.Episodes))
 	for _, episode := range series.Episodes {
 		body.Episodes = append(body.Episodes, EpisodeBody{
-			ID: episode.TitleID, Season: ptr.ValueOrZero(episode.GroupNumber), Number: ptr.ValueOrZero(episode.Number),
-			Name: ptr.ValueOrZero(episode.Name),
-			Year: ptr.ValueOrZero(episode.Year), RuntimeMs: ptr.ValueOrZero(episode.RuntimeMs),
+			ID: episode.TitleID, Season: ptr.ValueOrZero(episode.GroupNumber),
+			Number: ptr.ValueOrZero(episode.NumberInGroup),
+			Name:   ptr.ValueOrZero(episode.Name),
+			Year:   ptr.ValueOrZero(episode.Year), RuntimeMs: ptr.ValueOrZero(episode.RuntimeMs),
 			Identification: episode.Identification,
 			HasLiveFile:    episode.Available, StillHash: series.Stills[episode.TitleID],
 		})

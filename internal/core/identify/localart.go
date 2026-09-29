@@ -84,7 +84,7 @@ func (work *run) mapLocalArtwork() {
 	}
 	chosen := map[int64]map[string]localChoice{}
 	for _, file := range work.files {
-		if file.Filing != filingAttached || ptr.ValueOrZero(file.FilingReason) != string(nodeproto.SidecarImage) {
+		if file.Filing != filingAttached || ptr.ValueOrZero(file.SidecarKind) != string(nodeproto.SidecarImage) {
 			continue
 		}
 		itemID, choice, found := work.localImage(file.Path, videos)

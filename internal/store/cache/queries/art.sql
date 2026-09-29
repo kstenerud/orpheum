@@ -3,13 +3,13 @@
 -- class, D212 section 6. Written hourly in a batch, never on the request path.
 
 -- name: MarkArtServed :exec
-INSERT INTO art_served (hash, last_served_epoch_day)
-VALUES (sqlc.arg(hash), sqlc.arg(last_served_epoch_day))
-ON CONFLICT (hash) DO UPDATE
+INSERT INTO art_served (content_hash_hex, last_served_epoch_day)
+VALUES (sqlc.arg(content_hash_hex), sqlc.arg(last_served_epoch_day))
+ON CONFLICT (content_hash_hex) DO UPDATE
 SET last_served_epoch_day = MAX(art_served.last_served_epoch_day, excluded.last_served_epoch_day);
 
 -- name: ListArtServed :many
-SELECT hash, last_served_epoch_day FROM art_served;
+SELECT content_hash_hex, last_served_epoch_day FROM art_served;
 
 -- name: ForgetArtServed :exec
-DELETE FROM art_served WHERE hash = sqlc.arg(hash);
+DELETE FROM art_served WHERE content_hash_hex = sqlc.arg(content_hash_hex);

@@ -236,3 +236,48 @@ func TestMigrate_Step0022RewritesTheStoredJSONWithTheNodesNewNames(t *testing.T)
 		}
 	}
 }
+
+func TestMigrate_Step0023RenamesColumnsKeepingTheirDataAndMovesASidecarsKind(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:22], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
+		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
+			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 1, 1)",
+		`INSERT INTO file (id, library_id, node_id, path, path_raw, path_key, filing, filing_reason, identity,
+		 sidecar_body, first_seen_at, last_seen_at) VALUES
+		 (1, 1, 1, '/m/a.mkv', NULL, X'2F6D2F612E6D6B76', 'listed', NULL, 'unconfirmed', NULL, 1, 1),
+		 (2, 1, 1, '/m/a.nfo', NULL, X'2F6D2F612E6E666F', 'attached', 'nfo', 'confirmed', X'3C6D6F7669652F3E', 1, 1)`,
+		`INSERT INTO loudness (payload_hash, stream_index, sound, integrated_lufs, measured_at)
+		 VALUES (X'01', 1, 'source', -20, 1), (X'01', 1, 'stereo', -27, 1)`)
+	if err = database.migrate(t.Context(), steps[:23], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	for _, check := range []struct {
+		query   string
+		columns int
+		want    string
+	}{
+		{
+			"SELECT id, ifnull(filing_reason, '-'), ifnull(sidecar_kind, '-'), is_identity_confirmed, " +
+				"hex(reported_path_bytes), hex(nfo_body) FROM file ORDER BY id", 6,
+			"[[1 - - 0 2F6D2F612E6D6B76 ] [2 an NFO beside its video nfo 1 2F6D2F612E6E666F 3C6D6F7669652F3E]]",
+		},
+		{
+			"SELECT measured_mix, integrated_lufs FROM loudness ORDER BY measured_mix", 2,
+			"[[multichannel -20] [stereo -27]]",
+		},
+		{"SELECT is_writable FROM library", 1, "[[1]]"},
+	} {
+		if got := fmt.Sprint(queryRows(t, database, check.query, check.columns)); got != check.want {
+			t.Errorf("after step 0023, %s =\n%s\nwant\n%s (D227)", check.query, got, check.want)
+		}
+	}
+}

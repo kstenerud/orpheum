@@ -179,7 +179,7 @@ func TestPass_TheDevLibrarysFilms(t *testing.T) {
 func checkMetropolis(t *testing.T, heat sqlcgen.ListFileTitlesRow) {
 	t.Helper()
 	if name(heat) != "Metropolis" || heat.Year == nil || *heat.Year != 1995 || heat.Identification != identIdentified ||
-		heat.Filing != filingListed || heat.Source == nil || *heat.Source != sourceNFO {
+		heat.Filing != filingListed || heat.FollowedSource == nil || *heat.FollowedSource != sourceNFO {
 		t.Errorf("Metropolis = %+v, want identified from its NFO and listed", heat)
 	}
 }
@@ -228,7 +228,7 @@ func TestPass_ASeriesFromItsFoldersAndItsTvshowNFO(t *testing.T) {
 		t.Fatalf("series %+v, %v, want Test Show", series, err)
 	}
 	episodes, err := lib.database.Read().ListEpisodesOfSeries(t.Context(), series[0].ID)
-	if err != nil || len(episodes) != 2 || *episodes[0].Number != 1 || *episodes[1].Number != 2 {
+	if err != nil || len(episodes) != 2 || *episodes[0].NumberInGroup != 1 || *episodes[1].NumberInGroup != 2 {
 		t.Errorf("aired order %+v, %v, want episodes 1 and 2", episodes, err)
 	}
 }

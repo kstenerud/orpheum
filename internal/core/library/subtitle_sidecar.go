@@ -101,13 +101,13 @@ func (work *batch) keepSidecarTrack(
 	if !found {
 		err = work.queries.InsertSidecarStream(ctx, sqlcgen.InsertSidecarStreamParams{
 			BytesFile: sidecar.ID, VideoFile: video.ID, Codec: codec, LangRaw: langRaw, Lang: lang,
-			Disposition: track.disposition,
+			DispositionFlags: track.disposition,
 		})
 	} else if existing.VideoFile != video.ID || !samePointee(existing.Codec, codec) ||
 		!samePointee(existing.LangRaw, langRaw) || !samePointee(existing.Lang, lang) ||
-		existing.Disposition != track.disposition {
+		existing.DispositionFlags != track.disposition {
 		err = work.queries.UpdateSidecarStream(ctx, sqlcgen.UpdateSidecarStreamParams{
-			VideoFile: video.ID, Codec: codec, LangRaw: langRaw, Lang: lang, Disposition: track.disposition,
+			VideoFile: video.ID, Codec: codec, LangRaw: langRaw, Lang: lang, DispositionFlags: track.disposition,
 			ID: existing.ID,
 		})
 	}

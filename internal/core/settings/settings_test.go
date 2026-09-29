@@ -280,8 +280,9 @@ func TestUnused_ListsRowsNothingReadsAndDeletesOnlyThem(t *testing.T) {
 	service, owner := seeded(t)
 	ctx := t.Context()
 	storetest.ExecRaw(t, service.database.Path(),
-		"INSERT INTO setting (scope, key, value, set_at) VALUES ('server', 'signin_falure_limit', '3', 1)",
-		fmt.Sprintf("INSERT INTO setting (scope, user_id, key, value, set_at) VALUES ('user', %d, 'old_key', '1', 1)",
+		"INSERT INTO setting (scope, key, value_json, set_at) VALUES ('server', 'signin_falure_limit', '3', 1)",
+		fmt.Sprintf("INSERT INTO setting (scope, user_id, key, value_json, set_at) "+
+			"VALUES ('user', %d, 'old_key', '1', 1)",
 			owner))
 	report, err := service.Seed(ctx)
 	if err != nil || len(report.Unused) != 2 {
@@ -363,8 +364,8 @@ func TestSeed_MovesOnlyUnmodifiedSettingsToAChangedStartingValue(t *testing.T) {
 	// As a database from an older release looks when this release changed both starting values:
 	// one row still has the old starting value, unmodified; the other was set by a person.
 	storetest.ExecRaw(t, service.database.Path(),
-		"UPDATE setting SET value = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
-		"UPDATE setting SET value = '6', is_modified = 1 WHERE key = 'secret_hint_chars'")
+		"UPDATE setting SET value_json = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
+		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secret_hint_chars'")
 	report, err := service.Seed(ctx)
 	if err != nil {
 		t.Fatal(err)

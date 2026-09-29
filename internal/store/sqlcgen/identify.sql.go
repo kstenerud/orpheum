@@ -212,17 +212,17 @@ func (q *Queries) InsertOrdering(ctx context.Context, arg InsertOrderingParams) 
 }
 
 const insertOverrideIfAbsent = `-- name: InsertOverrideIfAbsent :exec
-INSERT INTO field_override (item_id, field, lang, value, origin, set_at)
+INSERT INTO field_override (item_id, field, lang, override_value, origin, set_at)
 VALUES (?1, ?2, '', ?3, ?4, ?5)
 ON CONFLICT (item_id, field, lang) DO NOTHING
 `
 
 type InsertOverrideIfAbsentParams struct {
-	ItemID int64
-	Field  string
-	Value  string
-	Origin string
-	SetAt  int64
+	ItemID        int64
+	Field         string
+	OverrideValue string
+	Origin        string
+	SetAt         int64
 }
 
 // A locked NFO field is an override (D182); one a person already set here stays.
@@ -230,7 +230,7 @@ func (q *Queries) InsertOverrideIfAbsent(ctx context.Context, arg InsertOverride
 	_, err := q.db.ExecContext(ctx, insertOverrideIfAbsent,
 		arg.ItemID,
 		arg.Field,
-		arg.Value,
+		arg.OverrideValue,
 		arg.Origin,
 		arg.SetAt,
 	)
@@ -238,15 +238,15 @@ func (q *Queries) InsertOverrideIfAbsent(ctx context.Context, arg InsertOverride
 }
 
 const insertSortKey = `-- name: InsertSortKey :exec
-INSERT INTO sort_key (item_id, locale, listing, key)
+INSERT INTO sort_key (item_id, locale, listing, collation_key)
 VALUES (?1, ?2, ?3, ?4)
 `
 
 type InsertSortKeyParams struct {
-	ItemID  int64
-	Locale  string
-	Listing string
-	Key     []byte
+	ItemID       int64
+	Locale       string
+	Listing      string
+	CollationKey []byte
 }
 
 func (q *Queries) InsertSortKey(ctx context.Context, arg InsertSortKeyParams) error {
@@ -254,25 +254,25 @@ func (q *Queries) InsertSortKey(ctx context.Context, arg InsertSortKeyParams) er
 		arg.ItemID,
 		arg.Locale,
 		arg.Listing,
-		arg.Key,
+		arg.CollationKey,
 	)
 	return err
 }
 
 const insertTitle = `-- name: InsertTitle :exec
-INSERT INTO title (id, kind, year, runtime_ms, source, source_id, identification)
+INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id, identification)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
   ?7)
 `
 
 type InsertTitleParams struct {
-	ID             int64
-	Kind           string
-	Year           *int64
-	RuntimeMs      *int64
-	Source         *string
-	SourceID       *string
-	Identification string
+	ID               int64
+	Kind             string
+	Year             *int64
+	RuntimeMs        *int64
+	FollowedSource   *string
+	FollowedSourceID *string
+	Identification   string
 }
 
 func (q *Queries) InsertTitle(ctx context.Context, arg InsertTitleParams) error {
@@ -281,8 +281,8 @@ func (q *Queries) InsertTitle(ctx context.Context, arg InsertTitleParams) error 
 		arg.Kind,
 		arg.Year,
 		arg.RuntimeMs,
-		arg.Source,
-		arg.SourceID,
+		arg.FollowedSource,
+		arg.FollowedSourceID,
 		arg.Identification,
 	)
 	return err
@@ -306,17 +306,17 @@ func (q *Queries) InsertVersion(ctx context.Context, arg InsertVersionParams) (i
 }
 
 const listEpisodesOfSeries = `-- name: ListEpisodesOfSeries :many
-SELECT position.title_id, position.group_number, position.number
+SELECT position.title_id, position.group_number, position.number_in_group
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 WHERE ordering.collection_id = ? AND ordering.name = 'aired'
-ORDER BY position.sort
+ORDER BY position.sort_order
 `
 
 type ListEpisodesOfSeriesRow struct {
-	TitleID     int64
-	GroupNumber *int64
-	Number      *int64
+	TitleID       int64
+	GroupNumber   *int64
+	NumberInGroup *int64
 }
 
 func (q *Queries) ListEpisodesOfSeries(ctx context.Context, collectionID int64) ([]ListEpisodesOfSeriesRow, error) {
@@ -328,7 +328,7 @@ func (q *Queries) ListEpisodesOfSeries(ctx context.Context, collectionID int64) 
 	items := []ListEpisodesOfSeriesRow{}
 	for rows.Next() {
 		var i ListEpisodesOfSeriesRow
-		if err := rows.Scan(&i.TitleID, &i.GroupNumber, &i.Number); err != nil {
+		if err := rows.Scan(&i.TitleID, &i.GroupNumber, &i.NumberInGroup); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -344,7 +344,7 @@ func (q *Queries) ListEpisodesOfSeries(ctx context.Context, collectionID int64) 
 
 const listFileTitles = `-- name: ListFileTitles :many
 SELECT file.id, file.path, file.filing, file.filing_reason, title.id AS title_id, title.kind, title.identification,
-  title.year, title.source, item_text.name
+  title.year, title.followed_source, item_text.name
 FROM file
 JOIN version ON version.id = file.version_id
 JOIN title ON title.id = version.title_id
@@ -362,7 +362,7 @@ type ListFileTitlesRow struct {
 	Kind           string
 	Identification string
 	Year           *int64
-	Source         *string
+	FollowedSource *string
 	Name           *string
 }
 
@@ -384,7 +384,7 @@ func (q *Queries) ListFileTitles(ctx context.Context, libraryID int64) ([]ListFi
 			&i.Kind,
 			&i.Identification,
 			&i.Year,
-			&i.Source,
+			&i.FollowedSource,
 			&i.Name,
 		); err != nil {
 			return nil, err
@@ -401,26 +401,27 @@ func (q *Queries) ListFileTitles(ctx context.Context, libraryID int64) ([]ListFi
 }
 
 const listIdentifyFiles = `-- name: ListIdentifyFiles :many
-SELECT id, node_id, path, filing, filing_reason, payload_hash, version_id, attached_to, probe, identified_path,
-  size_bytes, mtime_ms
+SELECT id, node_id, path, filing, filing_reason, sidecar_kind, payload_hash, version_id, attached_to_file, probe_json,
+  identified_from_path, size_bytes, mtime_ms
 FROM file
 WHERE library_id = ? AND removed_at IS NULL
 ORDER BY path
 `
 
 type ListIdentifyFilesRow struct {
-	ID             int64
-	NodeID         int64
-	Path           string
-	Filing         string
-	FilingReason   *string
-	PayloadHash    []byte
-	VersionID      *int64
-	AttachedTo     *int64
-	Probe          *string
-	IdentifiedPath *string
-	SizeBytes      *int64
-	MtimeMs        *int64
+	ID                 int64
+	NodeID             int64
+	Path               string
+	Filing             string
+	FilingReason       *string
+	SidecarKind        *string
+	PayloadHash        []byte
+	VersionID          *int64
+	AttachedToFile     *int64
+	ProbeJson          *string
+	IdentifiedFromPath *string
+	SizeBytes          *int64
+	MtimeMs            *int64
 }
 
 func (q *Queries) ListIdentifyFiles(ctx context.Context, libraryID int64) ([]ListIdentifyFilesRow, error) {
@@ -438,11 +439,12 @@ func (q *Queries) ListIdentifyFiles(ctx context.Context, libraryID int64) ([]Lis
 			&i.Path,
 			&i.Filing,
 			&i.FilingReason,
+			&i.SidecarKind,
 			&i.PayloadHash,
 			&i.VersionID,
-			&i.AttachedTo,
-			&i.Probe,
-			&i.IdentifiedPath,
+			&i.AttachedToFile,
+			&i.ProbeJson,
+			&i.IdentifiedFromPath,
 			&i.SizeBytes,
 			&i.MtimeMs,
 		); err != nil {
@@ -621,12 +623,12 @@ func (q *Queries) ListLibraryTitles(ctx context.Context, libraryID *int64) ([]Li
 }
 
 const listOverrides = `-- name: ListOverrides :many
-SELECT field, value FROM field_override WHERE item_id = ? AND lang = '' ORDER BY field
+SELECT field, override_value FROM field_override WHERE item_id = ? AND lang = '' ORDER BY field
 `
 
 type ListOverridesRow struct {
-	Field string
-	Value string
+	Field         string
+	OverrideValue string
 }
 
 func (q *Queries) ListOverrides(ctx context.Context, itemID int64) ([]ListOverridesRow, error) {
@@ -638,7 +640,7 @@ func (q *Queries) ListOverrides(ctx context.Context, itemID int64) ([]ListOverri
 	items := []ListOverridesRow{}
 	for rows.Next() {
 		var i ListOverridesRow
-		if err := rows.Scan(&i.Field, &i.Value); err != nil {
+		if err := rows.Scan(&i.Field, &i.OverrideValue); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -745,7 +747,7 @@ func (q *Queries) SetFileFiling(ctx context.Context, arg SetFileFilingParams) er
 }
 
 const setFileVersion = `-- name: SetFileVersion :exec
-UPDATE file SET version_id = ?1, identified_path = path WHERE id = ?2
+UPDATE file SET version_id = ?1, identified_from_path = path WHERE id = ?2
 `
 
 type SetFileVersionParams struct {
@@ -760,19 +762,19 @@ func (q *Queries) SetFileVersion(ctx context.Context, arg SetFileVersionParams) 
 
 const updateTitleResolved = `-- name: UpdateTitleResolved :exec
 UPDATE title SET
-  year = ?1, runtime_ms = ?2, source = ?3,
-  source_id = ?4,
+  year = ?1, runtime_ms = ?2, followed_source = ?3,
+  followed_source_id = ?4,
   identification = CASE WHEN identification = 'confirmed' THEN identification ELSE ?5 END
 WHERE id = ?6
 `
 
 type UpdateTitleResolvedParams struct {
-	Year           *int64
-	RuntimeMs      *int64
-	Source         *string
-	SourceID       *string
-	Identification string
-	ID             int64
+	Year             *int64
+	RuntimeMs        *int64
+	FollowedSource   *string
+	FollowedSourceID *string
+	Identification   string
+	ID               int64
 }
 
 // A confirmed match is a person's: the pass never lowers it (D172).
@@ -780,8 +782,8 @@ func (q *Queries) UpdateTitleResolved(ctx context.Context, arg UpdateTitleResolv
 	_, err := q.db.ExecContext(ctx, updateTitleResolved,
 		arg.Year,
 		arg.RuntimeMs,
-		arg.Source,
-		arg.SourceID,
+		arg.FollowedSource,
+		arg.FollowedSourceID,
 		arg.Identification,
 		arg.ID,
 	)
@@ -837,18 +839,18 @@ func (q *Queries) UpsertOriginalText(ctx context.Context, arg UpsertOriginalText
 }
 
 const upsertPosition = `-- name: UpsertPosition :exec
-INSERT INTO position (ordering_id, title_id, group_number, number, sort)
+INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order)
 VALUES (?1, ?2, ?3, ?4, ?5)
-ON CONFLICT (ordering_id, title_id) DO UPDATE SET group_number = excluded.group_number, number = excluded.number,
-  sort = excluded.sort
+ON CONFLICT (ordering_id, title_id) DO UPDATE SET group_number = excluded.group_number, number_in_group = excluded.number_in_group,
+  sort_order = excluded.sort_order
 `
 
 type UpsertPositionParams struct {
-	OrderingID  int64
-	TitleID     int64
-	GroupNumber *int64
-	Number      *int64
-	Sort        float64
+	OrderingID    int64
+	TitleID       int64
+	GroupNumber   *int64
+	NumberInGroup *int64
+	SortOrder     float64
 }
 
 func (q *Queries) UpsertPosition(ctx context.Context, arg UpsertPositionParams) error {
@@ -856,27 +858,27 @@ func (q *Queries) UpsertPosition(ctx context.Context, arg UpsertPositionParams) 
 		arg.OrderingID,
 		arg.TitleID,
 		arg.GroupNumber,
-		arg.Number,
-		arg.Sort,
+		arg.NumberInGroup,
+		arg.SortOrder,
 	)
 	return err
 }
 
 const upsertScannerExtraRelation = `-- name: UpsertScannerExtraRelation :exec
-INSERT INTO extra_relation (owner_title, extra_title, type, asserted_by)
+INSERT INTO extra_relation (owner_title, extra_title, extra_type, asserted_by)
 VALUES (?1, ?2, ?3, 'scanner')
-ON CONFLICT (owner_title, extra_title) DO UPDATE SET type = excluded.type
+ON CONFLICT (owner_title, extra_title) DO UPDATE SET extra_type = excluded.extra_type
 WHERE extra_relation.asserted_by = 'scanner'
 `
 
 type UpsertScannerExtraRelationParams struct {
 	OwnerTitle int64
 	ExtraTitle int64
-	Type       string
+	ExtraType  string
 }
 
 // The scanner may assert an extra of a Title; a relation a person asserted stays theirs (D162).
 func (q *Queries) UpsertScannerExtraRelation(ctx context.Context, arg UpsertScannerExtraRelationParams) error {
-	_, err := q.db.ExecContext(ctx, upsertScannerExtraRelation, arg.OwnerTitle, arg.ExtraTitle, arg.Type)
+	_, err := q.db.ExecContext(ctx, upsertScannerExtraRelation, arg.OwnerTitle, arg.ExtraTitle, arg.ExtraType)
 	return err
 }

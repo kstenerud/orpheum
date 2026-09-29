@@ -333,7 +333,7 @@ export const en = {
   jobs: {
     heading: "Jobs",
     none: "No work has been done yet.",
-    what: "{{kind}} #{{subject}}",
+    what: "{{kind}} #{{target}}",
     kind: {
       fetch: "Looking up",
       artwork: "Artwork",
@@ -350,12 +350,12 @@ export const en = {
       failed: "Failed",
       cancelled: "Cancelled",
     },
-    progress: "How far {{kind}} #{{subject}} is",
+    progress: "How far {{kind}} #{{target}} is",
     why: "Why: {{reason}}",
     made: "Queued {{at}}",
     lastError: "Last error: {{error}}",
     cancel: "Cancel",
-    cancelLabel: "Cancel {{kind}} #{{subject}}",
+    cancelLabel: "Cancel {{kind}} #{{target}}",
     alreadyEnded: "That job has already ended.",
   },
   sound: {

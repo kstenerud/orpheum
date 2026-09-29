@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
@@ -50,11 +51,59 @@ const (
 	stateFailed = "failed"
 )
 
+// Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a
+// rendition for prepare, a stream for extract_subtitle, a fetched subtitle for
+// convert_fetched_subtitle, a file for measure_loudness. One is set; the others are zero.
+type Target struct {
+	ItemID            int64
+	RenditionID       int64
+	StreamID          int64
+	FetchedSubtitleID int64
+	FileID            int64
+}
+
+// ErrOneTarget is a job that names no target, or more than one.
+var ErrOneTarget = errors.New("a job works on one target")
+
+// targetColumns are a target as cache.db's job table holds it: one column per kind, NULL when
+// unset.
+type targetColumns struct {
+	item, rendition, stream, fetchedSubtitle, file *int64
+}
+
+// columns are the target's columns, or ErrOneTarget when it names no target or several.
+func (target Target) columns() (targetColumns, error) {
+	set := 0
+	column := func(id int64) *int64 {
+		if id == 0 {
+			return nil
+		}
+		set++
+		return &id
+	}
+	columns := targetColumns{
+		item: column(target.ItemID), rendition: column(target.RenditionID), stream: column(target.StreamID),
+		fetchedSubtitle: column(target.FetchedSubtitleID), file: column(target.FileID),
+	}
+	if set != 1 {
+		return targetColumns{}, fmt.Errorf("%w: %+v", ErrOneTarget, target)
+	}
+	return columns, nil
+}
+
+// targetOf is a job row's target.
+func targetOf(item, rendition, stream, fetchedSubtitle, file *int64) Target {
+	return Target{
+		ItemID: ptr.ValueOrZero(item), RenditionID: ptr.ValueOrZero(rendition), StreamID: ptr.ValueOrZero(stream),
+		FetchedSubtitleID: ptr.ValueOrZero(fetchedSubtitle), FileID: ptr.ValueOrZero(file),
+	}
+}
+
 // Job is one queued piece of work, as a runner receives it.
 type Job struct {
-	ID       int64
-	Kind     Kind
-	Subject  int64
+	ID   int64
+	Kind Kind
+	Target
 	Args     string
 	Attempts int64
 }
@@ -64,8 +113,8 @@ const PriorityPlayNow int64 = 1000
 
 // New is a job to queue.
 type New struct {
-	Kind     Kind
-	Subject  int64
+	Kind Kind
+	Target
 	Args     string // JSON; "{}" when empty
 	Priority int64
 	Reason   string // why it exists, shown to the user
@@ -100,13 +149,19 @@ func NewQueue(cache *store.Cache, clockSource clock.Clock, config Settings, logg
 	}
 }
 
-// Enqueue adds a job unless one of its kind is already queued or running for its subject, and
+// Enqueue adds a job unless one of its kind is already queued or running for its target, and
 // reports whether it added one.
 func (queue *Queue) Enqueue(ctx context.Context, job New) (bool, error) {
+	columns, err := job.columns()
+	if err != nil {
+		return false, err
+	}
 	added := false
-	err := queue.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		subject := job.Subject
-		open := cachegen.FindOpenJobParams{Kind: string(job.Kind), Subject: &subject}
+	err = queue.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		open := cachegen.FindOpenJobParams{
+			Kind: string(job.Kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
+			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
+		}
 		_, findErr := store.One(queries.FindOpenJob(ctx, open))
 		if findErr == nil {
 			return nil
@@ -123,7 +178,8 @@ func (queue *Queue) Enqueue(ctx context.Context, job New) (bool, error) {
 			runnableAt = queue.clock.Now()
 		}
 		_, insertErr := queries.InsertJob(ctx, cachegen.InsertJobParams{
-			Kind: string(job.Kind), Subject: &subject, Args: args, Priority: job.Priority,
+			Kind: string(job.Kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
+			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file, ArgsJson: args, Priority: job.Priority,
 			RunnableAt: runnableAt.UnixMilli(), Reason: &reason, CreatedAt: queue.clock.Now().UnixMilli(),
 		})
 		if insertErr != nil {
@@ -141,11 +197,18 @@ func (queue *Queue) Enqueue(ctx context.Context, job New) (bool, error) {
 	return added, nil
 }
 
-// EverQueued reports whether a job of this kind was ever queued for the subject.
-func (queue *Queue) EverQueued(ctx context.Context, kind Kind, subject int64) (bool, error) {
-	found, err := queue.cache.Read().HasJob(ctx, cachegen.HasJobParams{Kind: string(kind), Subject: &subject})
+// EverQueued reports whether a job of this kind was ever queued for the target.
+func (queue *Queue) EverQueued(ctx context.Context, kind Kind, target Target) (bool, error) {
+	columns, err := target.columns()
 	if err != nil {
-		return false, fmt.Errorf("look for a %s job for %d: %w", kind, subject, err)
+		return false, err
+	}
+	found, err := queue.cache.Read().HasJob(ctx, cachegen.HasJobParams{
+		Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
+		FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
+	})
+	if err != nil {
+		return false, fmt.Errorf("look for a %s job for %+v: %w", kind, target, err)
 	}
 	return found, nil
 }

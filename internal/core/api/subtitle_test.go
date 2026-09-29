@@ -22,7 +22,7 @@ const subtitleStreamID = 5
 func (harness testHarness) shelveSubtitles(t *testing.T) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.database,
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang, disposition) VALUES
+		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang, disposition_flags) VALUES
 		 (5, 2, 2, 2, 'subtitle', 'ass', 'en', 1), (6, 2, 2, 3, 'subtitle', 'hdmv_pgs_subtitle', NULL, 0),
 		 (8, 1, 1, 2, 'subtitle', 'mov_text', 'en', 0)`)
 }
@@ -35,8 +35,9 @@ const sidecarStreamID = 7
 func (harness testHarness) shelveSidecar(t *testing.T) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.database,
-		`INSERT INTO file (id, library_id, node_id, path, path_key, size_bytes, payload_hash, filing, filing_reason,
-		 attached_to, first_seen_at, last_seen_at) VALUES
+		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, payload_hash, filing,
+		 filing_reason,
+		 attached_to_file, first_seen_at, last_seen_at) VALUES
 		 (10, 1, 1, '/media/Film (2002).es.srt', CAST('/media/Film (2002).es.srt' AS BLOB), 5, X'1e1f', 'attached',
 		 'subtitle', 2, 1, 1)`,
 		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang_raw, lang) VALUES
@@ -51,7 +52,7 @@ func (harness testHarness) extract(
 	t.Helper()
 	playback := harness.server.dependencies.Load().Playback
 	finished := make(chan error, 1)
-	job := jobs.Job{ID: jobID, Kind: jobs.KindExtractSubtitle, Subject: subtitleStreamID}
+	job := jobs.Job{ID: jobID, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: subtitleStreamID}}
 	go func() { finished <- playback.HandleSubtitle(t.Context(), job) }()
 	command := <-harness.nodes.commanded
 	answer.JobID = jobID
@@ -64,7 +65,7 @@ func (harness testHarness) extractedText(t *testing.T, payloadHash []byte, strea
 	t.Helper()
 	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		err := queries.WantSubtitleText(t.Context(), cachegen.WantSubtitleTextParams{
-			PayloadHash: payloadHash, StreamIndex: streamIndex, CreatedAt: 1,
+			BytesPayloadHash: payloadHash, StreamIndex: streamIndex, CreatedAt: 1,
 		})
 		if err != nil {
 			return fmt.Errorf("want the text: %w", err)
@@ -72,7 +73,7 @@ func (harness testHarness) extractedText(t *testing.T, payloadHash []byte, strea
 		finished := int64(2)
 		err = queries.SetSubtitleTextComplete(t.Context(), cachegen.SetSubtitleTextCompleteParams{
 			Ass: []byte(text), Vtt: []byte(text), FinishedAt: &finished,
-			PayloadHash: payloadHash, StreamIndex: streamIndex,
+			BytesPayloadHash: payloadHash, StreamIndex: streamIndex,
 		})
 		if err != nil {
 			return fmt.Errorf("complete the text: %w", err)
@@ -93,7 +94,7 @@ func (harness testHarness) subtitleJobs(t *testing.T) int {
 	}
 	count := 0
 	for _, job := range all {
-		if job.Kind == string(jobs.KindExtractSubtitle) && job.Subject != nil && *job.Subject == subtitleStreamID {
+		if job.Kind == string(jobs.KindExtractSubtitle) && job.StreamID != nil && *job.StreamID == subtitleStreamID {
 			count++
 		}
 	}
@@ -242,7 +243,7 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 	}
 	playback := harness.server.dependencies.Load().Playback
 	finished := make(chan error, 1)
-	job := jobs.Job{ID: 92, Kind: jobs.KindExtractSubtitle, Subject: sidecarStreamID}
+	job := jobs.Job{ID: 92, Kind: jobs.KindExtractSubtitle, Target: jobs.Target{StreamID: sidecarStreamID}}
 	go func() { finished <- playback.HandleSubtitle(t.Context(), job) }()
 	command := <-harness.nodes.commanded
 	sent := command.ExtractSubtitle

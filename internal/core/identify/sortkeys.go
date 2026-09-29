@@ -41,7 +41,7 @@ func (pass *Pass) RefreshSortKeys(ctx context.Context) (int, error) {
 				return fmt.Errorf("clear item %d's sort key: %w", item.ItemID, clearErr)
 			}
 			insertErr := queries.InsertSortKey(ctx, sqlcgen.InsertSortKeyParams{
-				ItemID: item.ItemID, Locale: locale, Listing: item.Listing, Key: sorter.Key(item.Name),
+				ItemID: item.ItemID, Locale: locale, Listing: item.Listing, CollationKey: sorter.Key(item.Name),
 			})
 			if insertErr != nil {
 				return fmt.Errorf("sort item %d: %w", item.ItemID, insertErr)
