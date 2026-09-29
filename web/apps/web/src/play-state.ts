@@ -1,19 +1,39 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { PlayReporter, reportEveryMs, seekTo, type PlayReport } from "@orpheum/player";
+import {
+  PlayReporter,
+  ReportRefused,
+  reportEveryMs,
+  seekTo,
+  type PlayReport,
+} from "@orpheum/player";
 import type { Api } from "@orpheum/sdk";
-import { useEffect, type RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
 
-import { throwIfRefused } from "./problem.ts";
+import { ApiProblem, throwIfRefused } from "./problem.ts";
 
-/** Sends one play report for the playback the media token names. */
+/** The refusals that pass: a report refused for one of these goes again with the next. */
+const passingRefusals: ReadonlySet<string> = new Set(["internal", "migrating", "rate_limited"]);
+
+/**
+ * Sends one play report for the playback the media token names. A refusal that sending again
+ * cannot change (the playback is gone, the session is not allowed it) rejects with ReportRefused,
+ * so the reporter stops; a failure that may pass (no answer, a server busy or updating) rejects as
+ * it came, so the report goes again with the next.
+ */
 export async function sendReport(api: Api, mediaToken: string, report: PlayReport): Promise<void> {
-  throwIfRefused(
-    await api.POST("/playback/{token}/report", {
-      params: { path: { token: mediaToken } },
-      body: { ...report, events: [...report.events], spans: [...report.spans] },
-    }),
-  );
+  const answer = await api.POST("/playback/{token}/report", {
+    params: { path: { token: mediaToken } },
+    body: { ...report, events: [...report.events], spans: [...report.spans] },
+  });
+  try {
+    throwIfRefused(answer);
+  } catch (cause) {
+    if (cause instanceof ApiProblem && !passingRefusals.has(cause.code)) {
+      throw new ReportRefused(cause);
+    }
+    throw cause;
+  }
 }
 
 /** The video's position, in milliseconds. */
@@ -112,23 +132,32 @@ function reportVideoEvents(
 /**
  * Keeps a playing video's play state on the server (play-state.md): it starts where the person
  * left the file, without asking (D188), and reports each change of state, and where it is every
- * ten seconds while playing and when the page is hidden, until the playback ends.
+ * ten seconds while playing and when the page is hidden, until the playback ends. It returns why
+ * the server refused the reports for good, once it has, so the person is told that where they are
+ * is no longer kept; undefined until then.
  */
 export function usePlayState(
   api: Api,
   videoRef: RefObject<HTMLVideoElement | null>,
   playback: { readonly mediaToken: string; readonly resumePositionMs: number },
-): void {
+): unknown {
   const { mediaToken, resumePositionMs } = playback;
+  const [refusal, setRefusal] = useState<unknown>(undefined);
   useEffect(() => {
     const video = videoRef.current;
     if (video === null) {
       return undefined;
     }
-    const reporter = new PlayReporter(
-      (report) => sendReport(api, mediaToken, report),
-      seqCounter(mediaToken),
-    );
+    const reporter = new PlayReporter(async (report) => {
+      try {
+        await sendReport(api, mediaToken, report);
+      } catch (cause) {
+        if (cause instanceof ReportRefused) {
+          setRefusal(cause.cause);
+        }
+        throw cause;
+      }
+    }, seqCounter(mediaToken));
     const videoEvents = reportVideoEvents(video, reporter, resumePositionMs);
     const ticker = setInterval(() => {
       if (!video.paused && hasMedia(video)) {
@@ -149,4 +178,5 @@ export function usePlayState(
       reporter.recordAbandoned(videoEvents.lastPositionMs());
     };
   }, [api, videoRef, mediaToken, resumePositionMs]);
+  return refusal;
 }

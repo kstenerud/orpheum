@@ -194,6 +194,7 @@ export const en = {
         "This device sets its own volume, so only a copy prepared after measuring is levelled here.",
     },
     startOver: "Start over",
+    positionNotKept: "Where you are is no longer being kept for next time. {{reason}}",
     subtitles: {
       label: "Subtitles",
       off: "Off",
