@@ -99,8 +99,12 @@ func (service *Service) missing(ctx context.Context, fetcher Fetcher, image want
 		return nil // rechecked once already: given up
 	}
 	at := service.parts.Clock.Now().Add(fetcher.RecheckAfter())
-	_, err = service.parts.Queue.Enqueue(ctx, identify.RefreshJob(image.itemID,
-		"an image it names is missing; its record is looked at again once", at, true, 0))
+	job, err := identify.RefreshJob(image.itemID,
+		"an image it names is missing; its record is looked at again once", at, true, 0)
+	if err != nil {
+		return err
+	}
+	_, err = service.parts.Queue.Enqueue(ctx, job)
 	if err != nil {
 		return fmt.Errorf("queue item %d's recheck: %w", image.itemID, err)
 	}
