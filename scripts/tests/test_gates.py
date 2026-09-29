@@ -20,6 +20,7 @@ import check_revert_red as rr  # noqa: E402
 import check_source as cs  # noqa: E402
 import check_stamp as stamp  # noqa: E402
 import check_test_weakening as tw  # noqa: E402
+import gate_paths  # noqa: E402
 import lint_commits as lc  # noqa: E402
 import lint_speculative_api as lsa  # noqa: E402
 
@@ -86,6 +87,41 @@ class SourceHeaders(unittest.TestCase):
         })
         problems, _ = cs.check(root, cs.tracked_files(root))
         self.assertEqual([p.path for p in problems], ["bad.go"])
+
+
+class Migrations(unittest.TestCase):
+    BASELINE = "internal/store/migrations/0024_baseline.sql"
+    STEP = "internal/store/migrations/0025_step.sql"
+
+    def repo(self) -> Path:
+        root = git_repo({
+            self.BASELINE: f"{gate_paths.BASELINE_DIRECTIVE} {'ab' * 32}\nCREATE TABLE t (id INTEGER);\n",
+            self.STEP: "ALTER TABLE t ADD COLUMN x TEXT;\n",
+        })
+        self.commit(root)
+        return root
+
+    @staticmethod
+    def commit(root: Path) -> None:
+        subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x"],
+                       cwd=root, check=True)
+
+    def test_until_migrations_are_live_the_baseline_may_be_edited_and_the_step_may_not(self):
+        root = self.repo()
+        self.assertFalse(gate_paths.migrations_are_live(root))
+        self.assertFalse(gate_paths.is_committed_migration(self.BASELINE, root))
+        self.assertTrue(gate_paths.is_committed_migration(self.STEP, root))
+        self.assertFalse(gate_paths.is_committed_migration("internal/store/migrations/0026_new.sql", root))
+
+    def test_once_live_every_committed_step_is_frozen(self):
+        root = self.repo()
+        (root / gate_paths.MIGRATIONS_LIVE_MARKER).write_text("")
+        self.assertTrue(gate_paths.migrations_are_live(root))
+        self.assertFalse(gate_paths.migrations_are_live(root, "HEAD"))  # not committed yet
+        self.assertTrue(gate_paths.is_committed_migration(self.BASELINE, root))
+        self.commit(root)
+        self.assertTrue(gate_paths.migrations_are_live(root, "HEAD"))
 
 
 class Deps(unittest.TestCase):
@@ -174,6 +210,14 @@ class TestWeakening(unittest.TestCase):
             weakened = tw.golden_weakening(status, golden)
             self.assertIsNotNone(weakened, status)
             self.assertEqual(weakened.path, golden)
+
+    def test_a_schema_golden_follows_the_fold_until_migrations_are_live(self):
+        schema = "internal/store/testdata/golden/schema-v0025.sql"
+        other = "internal/core/api/testdata/golden/openapi.json"
+        for status in ("M", "D"):
+            self.assertIsNone(tw.golden_weakening(status, schema, are_migrations_live=False), status)
+            self.assertIsNotNone(tw.golden_weakening(status, schema, are_migrations_live=True), status)
+            self.assertIsNotNone(tw.golden_weakening(status, other, are_migrations_live=False), status)
 
     def test_a_row_of_an_inline_table_counts_as_a_check(self):
         # One assertion per case, then the same cases as a table: 3 checks become 1 call and 3 rows.

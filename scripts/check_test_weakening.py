@@ -24,6 +24,8 @@ see a test that got weaker in the same branch. This gate lists the weakening its
 * any change to, or deletion of, a file under a `testdata/` golden or baseline directory
   (D110: owner-edited only). Adding a new golden weakens nothing and is not listed; as a gate
   path it still needs `Gate-Changed:`.
+  Until migrations are live (D228), library.db's schema goldens are rewritten by each fold of
+  the last step into the baseline, and are not listed either; they too need `Gate-Changed:`.
 
 Each item fails the gate unless some commit in the range carries a
 `Test-Weakened: <why>` trailer. The trailer is a claim on the record that review can weigh,
@@ -37,6 +39,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 GO_TEST_FUNC = re.compile(r"^func (Test\w+|Fuzz\w+|Benchmark\w+)\(", re.M)
 TS_TEST_CASE = re.compile(r"""\b(?:it|test)\(\s*(["'`])(.+?)\1""")
@@ -188,24 +191,33 @@ def compare(path: str, before: str, after: str) -> list[Weakening]:
     return found
 
 
-def golden_weakening(status: str, path: str) -> Weakening | None:
+def golden_weakening(status: str, path: str, are_migrations_live: bool = True) -> Weakening | None:
     """A golden or baseline that was changed, deleted or renamed may now ask less. A new one
     adds a check and weakens nothing; it is still a gate path, so the owner's `Gate-Changed:`
-    trailer is still required for it."""
+    trailer is still required for it. Until migrations are live (D228), library.db's schema
+    goldens follow each fold of the last step into the baseline, and the test that compares
+    them with a fresh schema still runs, so rewriting or removing one weakens nothing either."""
+    import gate_paths
+
     if status == "A":
+        return None
+    if not are_migrations_live and path.startswith(gate_paths.SCHEMA_GOLDENS_DIR):
         return None
     return Weakening(path, "a golden or baseline changed (D110: owner-edited only)")
 
 
 def weakenings(base: str, head: str) -> list[Weakening]:
+    import gate_paths
+
     found: list[Weakening] = []
+    are_live = gate_paths.migrations_are_live(Path.cwd(), head)
     for line in git("diff", "--name-status", f"{base}...{head}").splitlines():
         parts = line.split("\t")
         if len(parts) < 2:
             continue
         status, path = parts[0][:1], parts[1]
         if GOLDEN.search(path):
-            weakened = golden_weakening(status, path)
+            weakened = golden_weakening(status, path, are_live)
             if weakened is not None:
                 found.append(weakened)
             continue
