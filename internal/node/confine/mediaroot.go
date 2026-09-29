@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 )
@@ -77,10 +78,11 @@ func (media *MediaRoot) Lstat(relativePath string) (fs.FileInfo, error) {
 	return info, nil
 }
 
-// Open opens the regular file at rel for reading. Symlinks that stay inside the root are
-// followed; one that leaves it is refused by os.Root.
+// Open opens the file at rel for reading. Symlinks that stay inside the root are followed; one
+// that leaves it is refused by os.Root. It never waits: a pipe opens without waiting for a writer,
+// so a caller that checks for a regular file can refuse one.
 func (media *MediaRoot) Open(relativePath string) (*os.File, error) {
-	file, err := media.root.Open(relativePath)
+	file, err := media.root.OpenFile(relativePath, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, fmt.Errorf("open %s: %w", relativePath, err)
 	}
