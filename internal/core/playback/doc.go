@@ -58,6 +58,9 @@
 //   - A copy is made with hls_segment_length_s's segment length, and one made with another length is
 //     made again when next played. Enforced by
 //     TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain.
+//   - A copy records the language each audio track was tagged with, and one whose tracks the file's
+//     probe now tags otherwise, as a relabel that keeps the payload hash does (D179), is made again
+//     when next played. Enforced by TestPrepare_ACopyMadeBeforeAnAudioTrackWasRelabelledIsMadeAgain.
 //   - A prepare job names its source by root, path and payload hash with every audio track, and
 //     the rendition is complete only when the node says so; FFmpeg's failure is not retried.
 //     Enforced by TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete and

@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 16
+-- cache schema version 17
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +63,7 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   video_encoder TEXT,                    -- what made the video once complete: h264_qsv, h264_nvenc, x264, or copy (D225)
   realtime_factor REAL,                  -- seconds of the source per second of running, as FFmpeg last said (D225)
   carried_gains_db_json TEXT NOT NULL DEFAULT '[]',  -- JSON: the gain each audio track's sound carries, by its place (D226)
+  audio_languages_json TEXT NOT NULL DEFAULT '[]',  -- JSON: the language each audio track is tagged with, by its place; another remakes it
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
   UNIQUE (source_file, profile)

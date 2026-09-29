@@ -817,7 +817,8 @@ reference scale, and removes a failure mode.
 > rendition's sound carries (D226); version 14 renamed columns to say what they hold and gave a
 > job a column per kind of target (D227); version 15 named a rendition's gains `audio_gains_db_json`;
 > version 16 gave each value one name in every layer (D227 §6)
-> (D227 §5).
+> (D227 §5); version 17 the languages a rendition's audio tracks are tagged with, so a relabelled
+> track, which keeps the payload hash (D179), has its rendition made again.
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -875,6 +876,7 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   video_encoder TEXT,                    -- what made the video once complete: h264_qsv, h264_nvenc, x264, or copy (D225)
   realtime_factor REAL,                  -- seconds of the source per second of running, as FFmpeg last said (D225)
   carried_gains_db_json TEXT NOT NULL DEFAULT '[]',  -- JSON: the gain each audio track's sound carries, by its place (D226)
+  audio_languages_json TEXT NOT NULL DEFAULT '[]',  -- JSON: the language each audio track is tagged with, by its place; another remakes it
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
   UNIQUE (source_file, profile)

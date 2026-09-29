@@ -163,26 +163,7 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 	harness.shelveFilms(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	harness.play(t, user, chrome(2))
-	playback := harness.server.dependencies.Load().Playback
-	run := func(job int64) nodeproto.Prepare {
-		finished := make(chan error, 1)
-		go func() {
-			finished <- playback.HandlePrepare(t.Context(), jobs.Job{
-				ID: job, Kind: jobs.KindPrepare,
-				Target: jobs.Target{RenditionID: 1},
-			})
-		}()
-		command := <-harness.nodes.commanded
-		playback.TakePrepareReport(t.Context(), 1, nodeproto.PrepareReport{
-			JobID: job, State: nodeproto.PrepareDone,
-			SizeBytes: 9,
-		})
-		if err := <-finished; err != nil {
-			t.Fatal(err)
-		}
-		return *command.Prepare
-	}
-	first := run(81)
+	first := harness.prepareRenditionOne(t, 81)
 	if first.SegmentLengthSeconds != 2 {
 		t.Errorf("the first copy asked for %d-second segments, want hls_segment_length_s's 2",
 			first.SegmentLengthSeconds)
@@ -195,7 +176,7 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 	if changed := harness.play(t, user, chrome(2)); !changed.IsPreparing {
 		t.Errorf("played after hls_segment_length_s changed: %+v, want the copy made again", changed)
 	}
-	again := run(82)
+	again := harness.prepareRenditionOne(t, 82)
 	if again.SegmentLengthSeconds != 6 {
 		t.Errorf("the copy made again asked for %d-second segments, want 6", again.SegmentLengthSeconds)
 	}
@@ -203,4 +184,53 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 	if again.RenditionDir == first.RenditionDir || !strings.HasPrefix(again.RenditionDir, "2/remux/") {
 		t.Errorf("made again in %q after %q, want a new run under 2/remux", again.RenditionDir, first.RenditionDir)
 	}
+}
+
+// A relabelled audio track keeps the file's payload hash (D179), but the master playlist names
+// each track's language, so a copy made before the relabel is made again with the new one.
+func TestPrepare_ACopyMadeBeforeAnAudioTrackWasRelabelledIsMadeAgain(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 2)
+	harness.play(t, user, chrome(2))
+	if first := harness.prepareRenditionOne(t, 83); len(first.Audio) != 1 || first.Audio[0].Language != "und" {
+		t.Fatalf("the first copy's audio = %+v, want its one track untagged", first.Audio)
+	}
+	if same := harness.play(t, user, chrome(2)); same.IsPreparing {
+		t.Errorf("played again unchanged: %+v, want the copy as it is", same)
+	}
+	// A rescan after mkvpropedit tagged the track German: the same payload, a new probe.
+	storetest.ExecRaw(t, harness.databasePath,
+		`UPDATE file SET probe_json = json_set(probe_json, '$.streams[1].language', 'de') WHERE id = 2`)
+	if relabelled := harness.play(t, user, chrome(2)); !relabelled.IsPreparing {
+		t.Errorf("played after the track was relabelled: %+v, want the copy made again", relabelled)
+	}
+	if again := harness.prepareRenditionOne(t, 84); len(again.Audio) != 1 || again.Audio[0].Language != "de" {
+		t.Errorf("the copy made again tagged its audio %+v, want German", again.Audio)
+	}
+	if same := harness.play(t, user, chrome(2)); same.IsPreparing {
+		t.Errorf("played again after the new copy: %+v, want it as it is", same)
+	}
+}
+
+// prepareRenditionOne runs a prepare job for rendition 1 as job, has the fake node say it is done,
+// and returns the command the node was sent.
+func (harness testHarness) prepareRenditionOne(t *testing.T, job int64) nodeproto.Prepare {
+	t.Helper()
+	playback := harness.server.dependencies.Load().Playback
+	finished := make(chan error, 1)
+	go func() {
+		finished <- playback.HandlePrepare(t.Context(), jobs.Job{
+			ID: job, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1},
+		})
+	}()
+	command := <-harness.nodes.commanded
+	done := nodeproto.PrepareReport{JobID: job, State: nodeproto.PrepareDone, SizeBytes: 9}
+	playback.TakePrepareReport(t.Context(), 1, done)
+	if err := <-finished; err != nil {
+		t.Fatal(err)
+	}
+	return *command.Prepare
 }
