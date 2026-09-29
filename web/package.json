@@ -13,8 +13,9 @@
   "scripts": {
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run deps:check && npm run test",
     "typecheck": "tsc -b",
-    "lint": "eslint --max-warnings 0 .",
-    "format:check": "prettier --check .",
+    "lint": "eslint --max-warnings 0 --cache --cache-strategy content --cache-location node_modules/.cache/eslint/ .",
+    "lint:full": "eslint --max-warnings 0 .",
+    "format:check": "prettier --check --cache .",
     "format": "prettier --write .",
     "deps:check": "depcruise --config .dependency-cruiser.cjs packages apps",
     "test": "vitest run",

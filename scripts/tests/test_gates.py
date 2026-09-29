@@ -18,6 +18,7 @@ import check_deps as cdeps  # noqa: E402
 import check_generated as cg  # noqa: E402
 import check_revert_red as rr  # noqa: E402
 import check_source as cs  # noqa: E402
+import check_stamp as stamp  # noqa: E402
 import check_test_weakening as tw  # noqa: E402
 import lint_commits as lc  # noqa: E402
 import lint_speculative_api as lsa  # noqa: E402
@@ -352,6 +353,43 @@ class SpeculativeApi(unittest.TestCase):
         self.assertEqual(len(lsa.speculative(flagged_linux_only, compiled_linux_only)), 1)
         flagged_one = {"linux/amd64": lsa.parse_findings(out), "darwin/arm64": set()}
         self.assertEqual(lsa.speculative(flagged_one, compiled), [])  # darwin has a caller
+
+
+class CheckStamp(unittest.TestCase):
+    def test_a_commit_of_the_tree_the_gate_passed_on_is_fresh_and_nothing_else(self):
+        root = git_repo({"a.go": "package a\n"})
+        cwd = Path.cwd()
+        try:
+            os.chdir(root)
+            env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+                   "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+            subprocess.run(["git", "add", "-A"], check=True, env=env)
+            subprocess.run(["git", "commit", "-qm", "base"], check=True, env=env)
+            (root / "a.go").write_text("package a\n\nvar x = 1\n")
+            with mock_argv(["check_stamp.py", "fresh"]):
+                self.assertEqual(stamp.main(), 1, "no gate has passed yet")
+            with mock_argv(["check_stamp.py", "write"]):
+                self.assertEqual(stamp.main(), 0)
+            with mock_argv(["check_stamp.py", "fresh"]):
+                self.assertEqual(stamp.main(), 1, "the index is not the tree the gate passed on")
+            subprocess.run(["git", "add", "-A"], check=True, env=env)
+            with mock_argv(["check_stamp.py", "fresh"]):
+                self.assertEqual(stamp.main(), 0, "committing exactly the checked tree")
+            (root / "b.go").write_text("package a\n")
+            with mock_argv(["check_stamp.py", "fresh"]):
+                self.assertEqual(stamp.main(), 1, "a file appeared since the gate passed")
+        finally:
+            os.chdir(cwd)
+
+
+@contextlib.contextmanager
+def mock_argv(argv: list[str]):
+    saved = sys.argv
+    sys.argv = argv
+    try:
+        yield
+    finally:
+        sys.argv = saved
 
 
 if __name__ == "__main__":

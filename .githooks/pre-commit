@@ -3,4 +3,10 @@
 # Runs the gate before a commit is recorded, so a human commit meets the same bar as an agent's.
 # Installed by `make setup` (git config core.hooksPath .githooks).
 set -euo pipefail
+# The Stop hook runs the gate at the end of every turn; a commit of exactly the tree it passed on
+# is not checked twice (scripts/check_stamp.py). Anything else runs the gate.
+if python3 scripts/check_stamp.py fresh; then
+  echo "make check: already passed on this exact tree"
+  exit 0
+fi
 exec make check
