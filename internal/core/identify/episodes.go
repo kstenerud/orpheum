@@ -108,14 +108,15 @@ func (filer *libraryFiler) currentSeries(ctx context.Context, file sqlcgen.ListI
 	if err != nil || !hasCurrentTitle {
 		return 0, err
 	}
-	seriesID, err := store.OrNotFound(filer.queries.GetSeriesOfTitle(ctx, titleID))
+	// Found through its place rather than its name.
+	place, err := store.OrNotFound(filer.queries.GetEpisodePlace(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return 0, nil
 	}
 	if err != nil {
 		return 0, fmt.Errorf("read title %d's series: %w", titleID, err)
 	}
-	return seriesID, nil
+	return place.CollectionID, nil
 }
 
 // fromListing gives an episode its values from its series' stored season listing, or says why

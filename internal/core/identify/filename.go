@@ -6,7 +6,6 @@ import (
 	"path"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"unicode"
 
@@ -113,16 +112,16 @@ type episodeMarker struct {
 func findEpisode(stem string) (episodeMarker, bool) {
 	if match := episodePattern.FindStringSubmatchIndex(stem); match != nil {
 		marker := episodeMarker{
-			season: parseIntOrZero(stem[match[2]:match[3]]), episode: parseIntOrZero(stem[match[4]:match[5]]),
+			season: parseNonNegativeInt(stem[match[2]:match[3]]), episode: parseNonNegativeInt(stem[match[4]:match[5]]),
 			startIndex: match[0],
 		}
 		if match[6] >= 0 {
-			marker.lastEpisode = parseIntOrZero(stem[match[6]:match[7]])
+			marker.lastEpisode = parseNonNegativeInt(stem[match[6]:match[7]])
 		}
 		return marker, true
 	}
 	if match := seasonXEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
-		season, episode := parseIntOrZero(stem[match[2]:match[3]]), parseIntOrZero(stem[match[4]:match[5]])
+		season, episode := parseNonNegativeInt(stem[match[2]:match[3]]), parseNonNegativeInt(stem[match[4]:match[5]])
 		return episodeMarker{season: season, episode: episode, startIndex: match[0]}, true
 	}
 	return episodeMarker{}, false
@@ -154,7 +153,7 @@ func cleanTitle(stem string) (name string, year int) {
 		last := matches[len(matches)-1]
 		// A number that is the whole name is the name: "1917".
 		if last[0] > 0 {
-			year = parseIntOrZero(text[last[2]:last[3]])
+			year = parseNonNegativeInt(text[last[2]:last[3]])
 			text = text[:last[0]]
 		}
 	}
@@ -185,12 +184,4 @@ func cutExtraSuffix(stem string) (rest, suffix string) {
 		}
 	}
 	return stem, ""
-}
-
-func parseIntOrZero(digits string) int {
-	value, err := strconv.Atoi(digits)
-	if err != nil {
-		return 0
-	}
-	return value
 }
