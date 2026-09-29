@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -58,8 +59,10 @@ func newPrepares(parts Parts) *prepares {
 }
 
 // want makes sure a rendition of file in profile is complete or on its way, at the highest
-// priority, and returns its row. One whose source changed, that failed, or that was made with
-// another segment length than hls_segment_length_s now asks for, is prepared again.
+// priority, and returns its row. One whose source changed, that failed, that was made with
+// another segment length than hls_segment_length_s now asks for, or whose audio tracks were tagged
+// with other languages than the file's probe now gives them, is prepared again: a relabelled track
+// keeps the payload hash (D179), and the master playlist names each track's language.
 func (all *prepares) want(
 	ctx context.Context, file sqlcgen.GetPlayableFileRow, profile nodeproto.PrepareProfile,
 ) (cachegen.PreparedRendition, error) {
@@ -72,6 +75,11 @@ func (all *prepares) want(
 	if runErr != nil {
 		return row, runErr
 	}
+	probe, probeErr := decodeProbe(file.ProbeJson)
+	if probeErr != nil {
+		return row, probeErr
+	}
+	languages := audioLanguagesOf(preparedAudio(probe))
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		key := cachegen.GetRenditionOfFileAndProfileParams{SourceFile: file.ID, Profile: string(profile)}
 		existing, err := store.OrNotFound(queries.GetRenditionOfFileAndProfile(ctx, key))
@@ -83,7 +91,8 @@ func (all *prepares) want(
 			})
 		case err != nil:
 		case !bytes.Equal(existing.SourcePayloadHash, file.PayloadHash) || existing.State == renditionFailed ||
-			existing.SegmentLengthSeconds != segmentLengthS:
+			existing.SegmentLengthSeconds != segmentLengthS ||
+			existing.State == renditionComplete && existing.AudioLanguagesJson != languages:
 			err = queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
 				SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthSeconds: segmentLengthS,
 				RunID: runID,
@@ -159,7 +168,8 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 	if err := all.recordRunning(ctx, job.RenditionID, 0); err != nil {
 		return err
 	}
-	if err := all.recordCarriedGains(ctx, job.RenditionID, order.carriedGainsJSON); err != nil {
+	languages := audioLanguagesOf(command.Audio)
+	if err := all.recordAudio(ctx, job.RenditionID, order.carriedGainsJSON, languages); err != nil {
 		return err
 	}
 	command.JobID = job.ID
@@ -216,16 +226,17 @@ func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) er
 	return jobs.MarkPermanent(errors.Join(jobs.ErrCancelled, finishErr))
 }
 
-// recordCarriedGains records the gains a making puts in the rendition's audio tracks (D226 §4).
-func (all *prepares) recordCarriedGains(ctx context.Context, renditionID int64, gains string) error {
+// recordAudio records what a making puts in the rendition's audio tracks: the gains in their
+// sound (D226 §4) and the languages they are tagged with.
+func (all *prepares) recordAudio(ctx context.Context, renditionID int64, gains, languages string) error {
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		return queries.SetRenditionGains(ctx, cachegen.SetRenditionGainsParams{
-			CarriedGainsDbJson: gains,
-			ID:                 renditionID,
+		return queries.SetRenditionAudio(ctx, cachegen.SetRenditionAudioParams{
+			CarriedGainsDbJson: gains, AudioLanguagesJson: languages,
+			ID: renditionID,
 		})
 	})
 	if err != nil {
-		return fmt.Errorf("record rendition %d's gains: %w", renditionID, err)
+		return fmt.Errorf("record rendition %d's audio: %w", renditionID, err)
 	}
 	return nil
 }
@@ -292,14 +303,36 @@ func prepareCommand(
 	if picture, found := decide.MainVideo(probe); found {
 		command.VideoStreamIndex, command.VideoCodec = picture.StreamIndex, picture.Codec
 	}
+	command.Audio = preparedAudio(probe)
+	return command
+}
+
+// preparedAudio are a source's audio tracks as a prepare carries them: each in its place, tagged
+// with its language, "und" when the probe gave none.
+func preparedAudio(probe nodeproto.Probe) []nodeproto.PrepareAudio {
+	var tracks []nodeproto.PrepareAudio
 	for index, stream := range audioStreams(probe) {
 		language := stream.Language
 		if language == "" {
 			language = "und"
 		}
-		command.Audio = append(command.Audio, nodeproto.PrepareAudio{
+		tracks = append(tracks, nodeproto.PrepareAudio{
 			AudioTrackIndex: index, Language: language, ChannelCount: stream.Audio.ChannelCount,
 		})
 	}
-	return command
+	return tracks
+}
+
+// audioLanguagesOf are the languages a prepare tags its audio tracks with, by their place, as a
+// rendition records them.
+func audioLanguagesOf(tracks []nodeproto.PrepareAudio) string {
+	languages := make([]string, 0, len(tracks))
+	for _, track := range tracks {
+		languages = append(languages, track.Language)
+	}
+	encoded, err := json.Marshal(languages)
+	if err != nil {
+		return "[]"
+	}
+	return string(encoded)
 }

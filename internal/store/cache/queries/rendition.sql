@@ -3,11 +3,11 @@
 -- prepare, and how far it is.
 
 -- name: GetRenditionOfFileAndProfile :one
-SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, created_at, finished_at
+SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, audio_languages_json, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?;
 
 -- name: GetRenditionByID :one
-SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, created_at, finished_at
+SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, audio_languages_json, created_at, finished_at
 FROM prepared_rendition WHERE id = ?;
 
 -- name: InsertRendition :one
@@ -19,12 +19,16 @@ RETURNING id;
 -- A rendition prepared again from the start: its source changed, or it failed or was lost.
 UPDATE prepared_rendition
 SET source_payload_hash = ?, node_id = ?, segment_length_seconds = ?, run_id = ?, state = 'queued', prepared_through_ms = 0, size_bytes = NULL, failure = NULL,
-    finished_at = NULL, video_encoder = NULL, realtime_factor = NULL, carried_gains_db_json = '[]'
+    finished_at = NULL, video_encoder = NULL, realtime_factor = NULL, carried_gains_db_json = '[]',
+    audio_languages_json = '[]'
 WHERE id = ?;
 
--- name: SetRenditionGains :exec
--- The gain a making puts in each audio track's sound, as its job starts (D226 section 4).
-UPDATE prepared_rendition SET carried_gains_db_json = sqlc.arg(carried_gains_db_json) WHERE id = sqlc.arg(id);
+-- name: SetRenditionAudio :exec
+-- What a making puts in each audio track, as its job starts: the gain in its sound (D226 section 4)
+-- and the language it is tagged with.
+UPDATE prepared_rendition
+SET carried_gains_db_json = sqlc.arg(carried_gains_db_json), audio_languages_json = sqlc.arg(audio_languages_json)
+WHERE id = sqlc.arg(id);
 
 -- name: SetRenditionRunning :exec
 UPDATE prepared_rendition SET state = 'running', prepared_through_ms = ? WHERE id = ?;

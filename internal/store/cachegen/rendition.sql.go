@@ -10,7 +10,7 @@ import (
 )
 
 const getRenditionByID = `-- name: GetRenditionByID :one
-SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, created_at, finished_at
+SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, audio_languages_json, created_at, finished_at
 FROM prepared_rendition WHERE id = ?
 `
 
@@ -32,6 +32,7 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 		&i.VideoEncoder,
 		&i.RealtimeFactor,
 		&i.CarriedGainsDbJson,
+		&i.AudioLanguagesJson,
 		&i.CreatedAt,
 		&i.FinishedAt,
 	)
@@ -40,7 +41,7 @@ func (q *Queries) GetRenditionByID(ctx context.Context, id int64) (PreparedRendi
 
 const getRenditionOfFileAndProfile = `-- name: GetRenditionOfFileAndProfile :one
 
-SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, created_at, finished_at
+SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, audio_languages_json, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?
 `
 
@@ -70,6 +71,7 @@ func (q *Queries) GetRenditionOfFileAndProfile(ctx context.Context, arg GetRendi
 		&i.VideoEncoder,
 		&i.RealtimeFactor,
 		&i.CarriedGainsDbJson,
+		&i.AudioLanguagesJson,
 		&i.CreatedAt,
 		&i.FinishedAt,
 	)
@@ -169,7 +171,8 @@ func (q *Queries) ListFinishedRenditions(ctx context.Context, arg ListFinishedRe
 const restartRendition = `-- name: RestartRendition :exec
 UPDATE prepared_rendition
 SET source_payload_hash = ?, node_id = ?, segment_length_seconds = ?, run_id = ?, state = 'queued', prepared_through_ms = 0, size_bytes = NULL, failure = NULL,
-    finished_at = NULL, video_encoder = NULL, realtime_factor = NULL, carried_gains_db_json = '[]'
+    finished_at = NULL, video_encoder = NULL, realtime_factor = NULL, carried_gains_db_json = '[]',
+    audio_languages_json = '[]'
 WHERE id = ?
 `
 
@@ -190,6 +193,25 @@ func (q *Queries) RestartRendition(ctx context.Context, arg RestartRenditionPara
 		arg.RunID,
 		arg.ID,
 	)
+	return err
+}
+
+const setRenditionAudio = `-- name: SetRenditionAudio :exec
+UPDATE prepared_rendition
+SET carried_gains_db_json = ?1, audio_languages_json = ?2
+WHERE id = ?3
+`
+
+type SetRenditionAudioParams struct {
+	CarriedGainsDbJson string
+	AudioLanguagesJson string
+	ID                 int64
+}
+
+// What a making puts in each audio track, as its job starts: the gain in its sound (D226 section 4)
+// and the language it is tagged with.
+func (q *Queries) SetRenditionAudio(ctx context.Context, arg SetRenditionAudioParams) error {
+	_, err := q.db.ExecContext(ctx, setRenditionAudio, arg.CarriedGainsDbJson, arg.AudioLanguagesJson, arg.ID)
 	return err
 }
 
@@ -230,21 +252,6 @@ type SetRenditionFailedParams struct {
 
 func (q *Queries) SetRenditionFailed(ctx context.Context, arg SetRenditionFailedParams) error {
 	_, err := q.db.ExecContext(ctx, setRenditionFailed, arg.Failure, arg.FinishedAt, arg.ID)
-	return err
-}
-
-const setRenditionGains = `-- name: SetRenditionGains :exec
-UPDATE prepared_rendition SET carried_gains_db_json = ?1 WHERE id = ?2
-`
-
-type SetRenditionGainsParams struct {
-	CarriedGainsDbJson string
-	ID                 int64
-}
-
-// The gain a making puts in each audio track's sound, as its job starts (D226 section 4).
-func (q *Queries) SetRenditionGains(ctx context.Context, arg SetRenditionGainsParams) error {
-	_, err := q.db.ExecContext(ctx, setRenditionGains, arg.CarriedGainsDbJson, arg.ID)
 	return err
 }
 

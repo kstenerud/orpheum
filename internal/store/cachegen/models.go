@@ -56,6 +56,7 @@ type PreparedRendition struct {
 	VideoEncoder         *string
 	RealtimeFactor       *float64
 	CarriedGainsDbJson   string
+	AudioLanguagesJson   string
 	CreatedAt            int64
 	FinishedAt           *int64
 }
