@@ -162,7 +162,12 @@ test-integration: ## The integration tier: tests that run the pinned FFmpeg and 
 		go test -tags integration -count=1 ./...
 
 .PHONY: test-browser
-test-browser: web-deps ## The browser tier: Chrome and Firefox against a server of its own, with the built client (D217 §4)
+test-browser: web-deps browser-tier ## The browser tier: Chrome and Firefox against a server of its own, with the built client (D217 §4)
+
+# The browser tier without installing the web packages: revert-red runs it in a worktree whose
+# packages are links to the working tree's, which an install would replace.
+.PHONY: browser-tier
+browser-tier:
 	@npm --prefix web run --silent build
 	@$(WEBCLIENT_CLEAR)
 	@cp -r web/apps/web/dist/. $(WEBCLIENT_DIST)/

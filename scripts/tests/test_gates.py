@@ -262,6 +262,14 @@ class RevertRed(unittest.TestCase):
         self.assertEqual([a.command for a in typed], [["npm", "--prefix", "web", "run", "typecheck"]])
         self.assertTrue(typed[0].compile_only)
 
+    def test_web_source_is_tried_last_in_the_browser_tier_which_alone_renders_its_styles(self):
+        tier = rr.browser_tier("web/apps/web/src/sound.tsx")
+        self.assertEqual(len(tier), 1)
+        self.assertEqual(tier[0].command[:3], ["make", "--no-print-directory", "browser-tier"])
+        self.assertTrue(tier[0].command[3].startswith("FFMPEG_DIR="))
+        self.assertFalse(tier[0].compile_only)
+        self.assertEqual(rr.browser_tier("internal/core/api/x.go"), [])
+
     def test_verified_by_needs_a_ticked_queue_item(self):
         root = Path(tempfile.mkdtemp())
         queue = root / rr.VQ_FILE

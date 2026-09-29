@@ -57,6 +57,7 @@ work one interrupted run away from being lost.
 from __future__ import annotations
 
 import argparse
+import functools
 import ast
 import os
 import re
@@ -393,6 +394,27 @@ def other_builds(path: str) -> list[Attempt]:
     return attempts
 
 
+def browser_tier(path: str) -> list[Attempt]:
+    """For web source, the browser tier, tried last: a change only a browser shows — a stylesheet
+    a component imports, a layout — is invisible to vitest, which renders no CSS, and to the type
+    check. It runs `make browser-tier`, which is `make test-browser` without its install step: the
+    worktree's packages are links to the working tree's, which an install would replace. FFmpeg is
+    the working tree's, which the worktree does not have."""
+    if not TS_SOURCE.search(path):
+        return []
+    command = ["make", "--no-print-directory", "browser-tier", f"FFMPEG_DIR={_installed_ffmpeg()}"]
+    return [Attempt(command, ", found by the browser tier")]
+
+
+@functools.cache
+def _installed_ffmpeg() -> str:
+    """The FFmpeg directory the working tree's `make ffmpeg` installed."""
+    root = _git("rev-parse", "--show-toplevel").stdout.strip()
+    done = subprocess.run([sys.executable, "scripts/fetch_ffmpeg.py"], cwd=root, capture_output=True,
+                          text=True, check=False)
+    return done.stdout.strip()
+
+
 def is_not_linux(path: str) -> bool:
     """Whether a Go file's build line leaves Linux out, as the working tree has it: a file only
     another system compiles, whose revert only that system's build can notice."""
@@ -488,6 +510,7 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
         if wide is not None and wide != scope:
             attempts.append(Attempt(wide, ", found by the whole suite"))
         attempts.extend(other_builds(change.path))
+        attempts.extend(browser_tier(change.path))
         for attempt in attempts:
             env = {**os.environ, **attempt.env} if attempt.env else None
             done = subprocess.run(
