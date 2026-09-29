@@ -219,6 +219,12 @@ func (fakeArtworker) Derive(ctx context.Context, command nodeproto.Artwork) node
 
 func startAgent(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
 	t.Helper()
+	return startAgentWithShelf(t, socket, nil)
+}
+
+// startAgentWithShelf is startAgent with a prepared shelf, which may be nil.
+func startAgentWithShelf(t *testing.T, socket string, shelf PreparedShelf) (*confine.MediaRoot, chan time.Time) {
+	t.Helper()
 	root, err := confine.OpenMediaRoot(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -227,7 +233,7 @@ func startAgent(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	workers := Workers{
 		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: fakePreparer{}, Subtitler: fakeSubtitler{},
-		LoudnessMeasurer: fakeMeasurer{},
+		LoudnessMeasurer: fakeMeasurer{}, PreparedShelf: shelf,
 	}
 	node := New(socket, nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{root}, workers,
 		now, slog.New(slog.DiscardHandler))
