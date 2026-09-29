@@ -17,7 +17,7 @@ type DeviceBody struct {
 	ID           int64  `json:"id"`
 	Name         string `json:"name"`
 	Platform     string `json:"platform"`
-	AudioOutput  string `doc:"Absent until the device is asked, the first time it plays (D222)" enum:"tv_speakers,receiver,headphones" json:"audioOutput,omitempty"` //nolint:lll // one struct tag
+	AudioOutput  string `doc:"Absent until the device is asked, the first time it plays (D222)" enum:"built_in_speakers,receiver,headphones" json:"audioOutput,omitempty"` //nolint:lll // one struct tag
 	AddedAt      int64  `doc:"Unix milliseconds" json:"addedAt"`
 	LastUsedAt   int64  `doc:"Unix milliseconds" json:"lastUsedAt"`
 	IsSignedIn   bool   `json:"isSignedIn"`
@@ -43,7 +43,7 @@ type ChangeDeviceInput struct {
 	DeviceID int64 `minimum:"1" path:"id"`
 	Body     struct {
 		Name        *string `json:"name,omitempty" maxLength:"100" minLength:"1" required:"false"`
-		AudioOutput *string `doc:"How the device makes sound; TV speakers and headphones are stereo (D222)" enum:"tv_speakers,receiver,headphones" json:"audioOutput,omitempty" required:"false"` //nolint:lll // one struct tag
+		AudioOutput *string `doc:"How the device makes sound; built-in speakers and headphones are stereo (D222)" enum:"built_in_speakers,receiver,headphones" json:"audioOutput,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 }
 

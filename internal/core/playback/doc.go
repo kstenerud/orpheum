@@ -26,7 +26,7 @@
 //     what its track is, so a rescan's new stream ids find it again, and a file whose tracks lost
 //     it has no choice rather than a gone one (D223 §8). Enforced by
 //     TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks.
-//   - A decision reads how the asking device makes sound: TV speakers and headphones are stereo,
+//   - A decision reads how the asking device makes sound: built-in speakers and headphones are stereo,
 //     a receiver or a device not yet asked is not, and the answer says which so the player can
 //     ask (D222). Enforced by TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct.
 //   - A cancelled prepare or subtitle extraction tells its node to stop, and a cancelled

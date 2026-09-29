@@ -12,7 +12,7 @@ import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 
 /** The three ways a device makes sound, as the question offers them (D184, D222). */
-export const audioOutputs: readonly AudioOutput[] = ["tv_speakers", "receiver", "headphones"];
+export const audioOutputs: readonly AudioOutput[] = ["built_in_speakers", "receiver", "headphones"];
 
 /** A choice of the person's own, which holds in every file they play: its name in PUT /me/prefs. */
 type OwnChoice = "isDialogueBoost" | "isLevelling";

@@ -123,11 +123,11 @@ func TestSetAudioOutput_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt(t *testing.T) {
 	if err = fixture.service.SetAudioOutput(ctx, other, devices[0].ID, "receiver"); !errors.Is(err, ErrNoDevice) {
 		t.Errorf("setting someone else's device: %v, want ErrNoDevice", err)
 	}
-	if err = fixture.service.SetAudioOutput(ctx, id, devices[0].ID, "tv_speakers"); err != nil {
+	if err = fixture.service.SetAudioOutput(ctx, id, devices[0].ID, "built_in_speakers"); err != nil {
 		t.Fatal(err)
 	}
 	device, err := fixture.service.DeviceOf(ctx, id, devices[0].ID)
-	if err != nil || device.AudioOutput != "tv_speakers" {
-		t.Errorf("the device after = %+v, %v; want tv_speakers kept", device, err)
+	if err != nil || device.AudioOutput != "built_in_speakers" {
+		t.Errorf("the device after = %+v, %v; want built_in_speakers kept", device, err)
 	}
 }

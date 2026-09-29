@@ -24,7 +24,7 @@
 //   - Direct play is judged on the picture and on the track a player starts with (the default,
 //     else the first), never on cover art or a second track. Enforced by
 //     TestDecide_JudgesTheTrackAPlayerStartsWith.
-//   - On stereo output (TV speakers, headphones), a main sound of more than two channels is always
+//   - On stereo output (built-in speakers, headphones), a main sound of more than two channels is always
 //     prepared, for dialogue_boost, whether the boost is on or off, so it switches mid-film
 //     without a new job; a stereo sound is not (D222). Enforced by
 //     TestDecide_TheBoostPreparesOnlyASourceWithACentre.

@@ -16673,7 +16673,10 @@ both hold. The owner: *"I'm fine with always copying"*, and *"headphones count a
 
 1. **A device's sound is one of three answers**: TV speakers, soundbar or receiver, headphones.
    It is asked the first time the device plays and kept on the device, and the person can change
-   it in the player and in their devices.
+   it in the player and in their devices. *(2026-09-29, the owner: "TV speakers" is renamed
+   **built-in speakers**, `built_in_speakers` on the wire and in library.db (migration 0020), as
+   it is not a name that describes the purpose well: it covers a laptop's and a phone's speakers
+   as much as a television's.)*
 2. **TV speakers and headphones are stereo output**: we fold a sound with more than two channels
    down ourselves, so the dialogue boost can act. On such a device a file whose main sound has
    more than two channels is always prepared (reason `dialogue_boost`), whether the boost is on or

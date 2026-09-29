@@ -15,7 +15,7 @@ INSERT INTO user (id, name, role_id, password_hash, outsider, created_at)
   VALUES (1, 'owner', 1, CAST('$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA' AS BLOB), 0, 1790000000000),
          (2, 'partner', 2, NULL, 1, 1790000000000);
 INSERT INTO device (id, user_id, name, platform, audio_output, first_seen_at, last_seen_at)
-  VALUES (1, 2, 'Living room TV', 'webos', 'tv_speakers', 1790000000000, 1790000100000);
+  VALUES (1, 2, 'Living room TV', 'webos', 'built_in_speakers', 1790000000000, 1790000100000);
 
 INSERT INTO item (id, kind, library_id, created_at) VALUES
   (1, 'title', 1, 1790000000000),
