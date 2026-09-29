@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -143,11 +144,24 @@ func (runner *Runner) finish(ctx context.Context, job Job, handlerErr error) err
 			"attemptCount", job.AttemptNumber, "err", handlerErr)
 		return runner.writeFinish(ctx, finishParams(job, stateFailed, handlerErr, now))
 	}
-	wait := firstRetryDelay << (job.AttemptNumber - 1)
+	wait := doubledDelay(firstRetryDelay, job.AttemptNumber-1)
 	if runner.retrySchedule != nil {
 		wait = runner.retrySchedule[job.AttemptNumber-1]
 	}
 	return runner.deferUntil(ctx, job, now.Add(wait), handlerErr, job.AttemptNumber)
+}
+
+// doubledDelay is first doubled doublings times. It stops at the longest time.Duration instead
+// of overflowing: the settings allow 100 attempts, and a wrapped shift would retry at once.
+func doubledDelay(first time.Duration, doublings int64) time.Duration {
+	wait := first
+	for range doublings {
+		if wait > math.MaxInt64/2 {
+			return math.MaxInt64
+		}
+		wait *= 2
+	}
+	return wait
 }
 
 func (runner *Runner) retryPolicy(ctx context.Context) (attemptLimit int64, firstRetryDelay time.Duration, err error) {

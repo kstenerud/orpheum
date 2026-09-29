@@ -19,9 +19,10 @@ import (
 )
 
 type fixture struct {
-	queue *Queue
-	cache *store.Cache
-	clock *clocktest.Fake
+	queue  *Queue
+	cache  *store.Cache
+	clock  *clocktest.Fake
+	config *settings.Service
 }
 
 func newFixture(t *testing.T) fixture {
@@ -32,7 +33,7 @@ func newFixture(t *testing.T) fixture {
 	cache := storetest.OpenCache(t)
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	logger := slog.New(slog.NewTextHandler(t.Output(), nil))
-	return fixture{queue: NewQueue(cache, fakeClock, config, logger), cache: cache, clock: fakeClock}
+	return fixture{queue: NewQueue(cache, fakeClock, config, logger), cache: cache, clock: fakeClock, config: config}
 }
 
 func (fixed fixture) enqueue(t *testing.T, itemID, priority int64) {
@@ -362,4 +363,29 @@ func TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce(t *testing.T) {
 		}
 	}
 	close(release)
+}
+
+func TestRunDue_TheBackoffNeverShrinksHoweverManyAttemptsTheLimitAllows(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	settingstest.Set(t, jobs.config, settings.JobAttemptLimit, "100")
+	settingstest.Set(t, jobs.config, settings.JobFirstRetryDelayS, "86400")
+	jobs.enqueue(t, 1, 0)
+	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
+		return errors.New("the provider answered 500")
+	})
+	var lastWait time.Duration
+	for attempt := 1; attempt <= 30; attempt++ {
+		if err := runner.RunDue(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		job := jobs.job(t, 1)
+		wait := time.UnixMilli(job.RunnableAt).Sub(jobs.clock.Now())
+		if job.State != "queued" || wait < lastWait {
+			t.Fatalf("after attempt %d: state %s, waits %v after waiting %v; want queued, waiting no less",
+				attempt, job.State, wait, lastWait)
+		}
+		lastWait = wait
+		jobs.clock.Set(time.UnixMilli(job.RunnableAt))
+	}
 }
