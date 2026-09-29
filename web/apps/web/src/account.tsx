@@ -4,7 +4,12 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { changePassword, listMyDevices } from "./accounts.ts";
-import { ShownDeviceCode, useDeviceCode, type DeviceCodeState } from "./device-code.tsx";
+import {
+  NewDeviceCodeForm,
+  ShownDeviceCode,
+  useDeviceCode,
+  type DeviceCodeState,
+} from "./device-code.tsx";
 import { FormRow } from "./form-row.tsx";
 import { problemText } from "./problem.ts";
 import { PasswordField } from "./credentials-form.tsx";
@@ -41,31 +46,16 @@ export function Account(): JSX.Element {
 /** Makes a code that signs a new device in as this person (D218 §3). */
 function AddDevice(props: { readonly deviceCode: DeviceCodeState }): JSX.Element {
   const { t } = useTranslation();
-  const [name, setName] = useState("");
-  const submit = (): void => {
-    props.deviceCode.makeCode({ deviceName: name }, name);
-  };
   return (
-    <FormRow onSubmit={submit}>
+    <NewDeviceCodeForm
+      onMakeCode={(name) => {
+        props.deviceCode.makeCode({ deviceName: name }, name);
+      }}
+      problem={props.deviceCode.problem}
+    >
       <h2>{t("account.addDevice")}</h2>
       <p>{t("account.addDeviceExplain")}</p>
-      <label>
-        {t("account.deviceName")}{" "}
-        <input
-          required
-          maxLength={100}
-          placeholder={t("account.deviceNameExample")}
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-          }}
-        />
-      </label>
-      <button type="submit">{t("account.makeCode")}</button>
-      {props.deviceCode.problem === undefined ? null : (
-        <p role="alert">{props.deviceCode.problem}</p>
-      )}
-    </FormRow>
+    </NewDeviceCodeForm>
   );
 }
 

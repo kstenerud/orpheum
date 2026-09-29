@@ -2,7 +2,9 @@
 
 import "./credentials-form.css";
 
-import type { JSX, ReactNode, SyntheticEvent } from "react";
+import type { JSX, ReactNode } from "react";
+
+import { submitWith } from "./form-row.tsx";
 
 /**
  * The page every way in is: signing in, registering, a device code. One form, headed, alone in
@@ -13,13 +15,9 @@ export function CredentialsForm(props: {
   readonly onSubmit: () => void;
   readonly children: ReactNode;
 }): JSX.Element {
-  const submit = (event: SyntheticEvent): void => {
-    event.preventDefault();
-    props.onSubmit();
-  };
   return (
     <main className="credentials-form">
-      <form className="credentials-form__form" onSubmit={submit}>
+      <form className="credentials-form__form" onSubmit={submitWith(props.onSubmit)}>
         <h1>{props.heading}</h1>
         {props.children}
       </form>

@@ -21,6 +21,13 @@ export type Route =
   | { readonly screen: "register" }
   | { readonly screen: "not-found" };
 
+/** Where an item of a kind leads: a series' page, else a title's (a film, an episode, an extra). */
+export function itemRoute(kind: string, id: number): Route {
+  return kind === "series"
+    ? { screen: "series-page", collectionId: id }
+    : { screen: "title", itemId: id };
+}
+
 /** One address shape: a pattern over the path, and the route its match names. */
 interface Shape {
   readonly pattern: RegExp;

@@ -5,6 +5,7 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { filingName } from "./files.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -87,7 +88,7 @@ export function LibraryCard(props: {
           {filingCounts
             .map(([filing, count]) =>
               t("libraries.filing", {
-                filing: t(`filing.${filing}`, { defaultValue: filing }),
+                filing: filingName(t, filing),
                 count,
               }),
             )

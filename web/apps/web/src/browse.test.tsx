@@ -6,7 +6,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { ApiProblem } from "./problem.ts";
-import { BrowseView, entryRoute, type Entry } from "./browse.tsx";
+import { BrowseView, type Entry } from "./browse.tsx";
+import { itemRoute } from "./router.ts";
 import type { Page } from "./use-pages.ts";
 import type { Resource } from "./use-resource.ts";
 import { withServices } from "./test-services.tsx";
@@ -71,6 +72,6 @@ describe("browse", () => {
         cause: new ApiProblem({ code: "migrating", message: "the server is migrating" }),
       }),
     ).toContain("The server is updating. Try again in a minute.");
-    expect(entryRoute("series", 4)).toEqual({ screen: "series-page", collectionId: 4 });
+    expect(itemRoute("series", 4)).toEqual({ screen: "series-page", collectionId: 4 });
   });
 });

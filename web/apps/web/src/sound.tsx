@@ -4,6 +4,7 @@ import "./sound.css";
 
 import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { setMyDeviceAudioOutput, type AudioOutput } from "./accounts.ts";
@@ -13,6 +14,11 @@ import { useServices } from "./services.tsx";
 
 /** The three ways a device makes sound, as the question offers them (D184, D222). */
 export const audioOutputs: readonly AudioOutput[] = ["built_in_speakers", "receiver", "headphones"];
+
+/** A way a device makes sound, in the person's words. */
+export function audioOutputName(t: TFunction, output: AudioOutput): string {
+  return t(`sound.${camelKey(output)}`);
+}
 
 /**
  * A choice of the person's own, which holds in every file they play: its name in PUT /me/preferences,
@@ -60,7 +66,7 @@ export function SoundQuestion(props: {
             choose(output);
           }}
         >
-          <strong>{t(`sound.${camelKey(output)}`)}</strong>
+          <strong>{audioOutputName(t, output)}</strong>
           <span>{t(`sound.${camelKey(output)}Hint`)}</span>
         </button>
       ))}
@@ -78,7 +84,7 @@ export function SoundLine(props: {
   const [isChanging, setIsChanging] = useState(false);
   return (
     <div className="sound__line">
-      {t("sound.current", { output: t(`sound.${camelKey(props.current)}`) })}{" "}
+      {t("sound.current", { output: audioOutputName(t, props.current) })}{" "}
       <button
         type="button"
         aria-expanded={isChanging}

@@ -2,6 +2,7 @@
 
 import type { components, paths } from "@orpheum/sdk";
 import { useCallback, useState, type JSX } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import { dataOrThrow } from "./problem.ts";
@@ -29,6 +30,11 @@ const filingChoices: readonly FilingChoice[] = [
   "attached",
   "listed",
 ];
+
+/** A filing's name in the person's words; one this client does not know is shown as it is. */
+export function filingName(t: TFunction, filing: string): string {
+  return t(`filing.${filing}`, { defaultValue: filing });
+}
 
 /** Files with the same filing and reason, together: the complaint is never one file (D163). */
 export interface ReasonGroup {
@@ -59,7 +65,7 @@ export function ReasonGroups(props: { readonly files: readonly SeenFile[] }): JS
         <details key={`${group.filing}/${group.filingReason}`}>
           <summary>
             {t("files.group", {
-              filing: t(`filing.${group.filing}`, { defaultValue: group.filing }),
+              filing: filingName(t, group.filing),
               reason: group.filingReason === "" ? t("files.noReason") : group.filingReason,
               count: group.files.length,
             })}
@@ -104,7 +110,7 @@ export function Files(props: { readonly libraryId: number }): JSX.Element {
         >
           {filingChoices.map((choice) => (
             <option key={choice} value={choice}>
-              {choice === "" ? t("files.all") : t(`filing.${choice}`)}
+              {choice === "" ? t("files.all") : filingName(t, choice)}
             </option>
           ))}
         </select>
@@ -123,7 +129,6 @@ function FilePages(props: {
   readonly libraryId: number;
   readonly filingFilter: FilingChoice;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { api } = useServices();
   const { libraryId, filingFilter } = props;
   const loadPage = useCallback(
@@ -147,11 +152,7 @@ function FilePages(props: {
         <>
           <ReasonGroups files={page.items} />
           {page.nextCursor === "" ? null : (
-            <EndOfList onVisible={pages.loadMore}>
-              <button type="button" onClick={pages.loadMore} disabled={pages.isLoadingMore}>
-                {t("common.showMore")}
-              </button>
-            </EndOfList>
+            <EndOfList onMore={pages.loadMore} isLoadingMore={pages.isLoadingMore} />
           )}
         </>
       )}

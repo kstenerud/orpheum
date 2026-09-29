@@ -14,6 +14,7 @@ import {
 } from "./credentials-form.tsx";
 import { problemText, signedOutText } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { useRequest } from "./use-request.ts";
 
 /** Why the last session ended, when the server ended it; nothing otherwise. */
 export function SessionEndedNotice(props: {
@@ -80,8 +81,17 @@ export function SignIn(): JSX.Element {
   const { api, session } = useServices();
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [problem, setProblem] = useState<string | undefined>(undefined);
+  const {
+    isBusy: isSending,
+    problem,
+    runRequest,
+  } = useRequest((cause) =>
+    problemText(t, cause, {
+      authRequired: t("signIn.wrongNameOrPassword"),
+      rateLimited: t("signIn.tooManyAttempts"),
+      setupRequired: t("signIn.noAdminYet"),
+    }),
+  );
   const [isUsingCode, setIsUsingCode] = useState(false);
   if (isUsingCode) {
     return (
@@ -93,23 +103,10 @@ export function SignIn(): JSX.Element {
     );
   }
   const submit = (): void => {
-    setIsSending(true);
-    setProblem(undefined);
-    signIn(api, { name, password, device: thisDevice(session) }).then(
-      ({ token, user }) => {
-        setIsSending(false);
+    runRequest(
+      signIn(api, { name, password, device: thisDevice(session) }).then(({ token, user }) => {
         session.signIn(token, user.device?.id);
-      },
-      (cause: unknown) => {
-        setIsSending(false);
-        setProblem(
-          problemText(t, cause, {
-            authRequired: t("signIn.wrongNameOrPassword"),
-            rateLimited: t("signIn.tooManyAttempts"),
-            setupRequired: t("signIn.noAdminYet"),
-          }),
-        );
-      },
+      }),
     );
   };
   return (

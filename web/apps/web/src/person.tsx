@@ -13,9 +13,10 @@ import {
   type Device,
   type Person,
 } from "./accounts.ts";
+import { NewDeviceCodeForm } from "./device-code.tsx";
 import { FormRow } from "./form-row.tsx";
 import { tenthsText } from "./number-text.ts";
-import { IssuedInvitationView, type IssuedInvitation } from "./people.tsx";
+import { IssuedInvitationView, registrationText, type IssuedInvitation } from "./people.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -106,7 +107,7 @@ function PersonHead(props: {
     <>
       <h1>{account.name}</h1>
       <p>
-        {t(account.hasPassword ? "people.registered" : "people.notRegistered")} ·{" "}
+        {registrationText(t, account)} ·{" "}
         {t("person.watched", { hours, titles: watchStats.titlesWatchedCount, last: lastWatched })}
       </p>
       <OneField
@@ -123,12 +124,8 @@ function PersonHead(props: {
       >
         {t("people.newLink")}
       </button>
-      <OneField
-        label={t("account.deviceName")}
-        initialValue=""
-        placeholder={t("account.deviceNameExample")}
-        submitLabel={t("account.makeCode")}
-        onSubmit={(deviceName) => {
+      <NewDeviceCodeForm
+        onMakeCode={(deviceName) => {
           props.actions.issueCode(account.name, { deviceName });
         }}
       />
@@ -140,7 +137,6 @@ function PersonHead(props: {
 function OneField(props: {
   readonly label: string;
   readonly initialValue: string;
-  readonly placeholder?: string;
   readonly submitLabel: string;
   readonly onSubmit: (value: string) => void;
 }): JSX.Element {
@@ -155,7 +151,6 @@ function OneField(props: {
         <input
           required
           maxLength={100}
-          placeholder={props.placeholder}
           value={value}
           onChange={(event) => {
             setValue(event.target.value);

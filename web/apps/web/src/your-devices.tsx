@@ -13,11 +13,11 @@ import {
   type AudioOutput,
   type Device,
 } from "./accounts.ts";
-import { camelKey } from "./catalogue-key.ts";
 import { dateTimeText } from "./date-time-text.ts";
+import { submitWith } from "./form-row.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { audioOutputs } from "./sound.tsx";
+import { audioOutputName, audioOutputs } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
 import type { Resource } from "./use-resource.ts";
 
@@ -154,7 +154,7 @@ function DeviceSound(props: {
   const { device, onSoundChange } = props;
   if (onSoundChange === undefined) {
     return device.audioOutput === undefined ? null : (
-      <span>{t("sound.current", { output: t(`sound.${camelKey(device.audioOutput)}`) })}</span>
+      <span>{t("sound.current", { output: audioOutputName(t, device.audioOutput) })}</span>
     );
   }
   return (
@@ -176,7 +176,7 @@ function DeviceSound(props: {
         ) : null}
         {audioOutputs.map((output) => (
           <option key={output} value={output}>
-            {t(`sound.${camelKey(output)}`)}
+            {audioOutputName(t, output)}
           </option>
         ))}
       </select>
@@ -209,11 +209,10 @@ function DeviceName(props: {
   return (
     <form
       className="your-devices__name"
-      onSubmit={(event) => {
-        event.preventDefault();
+      onSubmit={submitWith(() => {
         props.onRename(props.device, draft);
         setDraft(undefined);
-      }}
+      })}
     >
       <input
         required

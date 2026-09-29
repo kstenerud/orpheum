@@ -5,8 +5,8 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
-import { entryRoute } from "./browse.tsx";
 import { Link } from "./link.tsx";
+import { itemRoute } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
@@ -95,10 +95,9 @@ function WaitingRow(props: {
         },
       );
   };
-  const kind = item.kind === "series" ? "series" : "movie";
   return (
     <div>
-      <Link to={entryRoute(kind, item.id)}>{item.name}</Link>{" "}
+      <Link to={itemRoute(item.kind, item.id)}>{item.name}</Link>{" "}
       {item.year === undefined ? null : <span>{item.year}</span>}{" "}
       {props.waitingFilter === "ambiguous" ? (
         <button

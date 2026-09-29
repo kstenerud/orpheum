@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { components } from "@orpheum/sdk";
-import { useState, type JSX, type SyntheticEvent } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { submitWith } from "./form-row.tsx";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -245,12 +246,8 @@ export function CreateLibraryForm(props: {
   const setAnswer: SetAnswer = (key, value) => {
     props.onDraftChange({ ...draft, [key]: value });
   };
-  const submit = (event: SyntheticEvent): void => {
-    event.preventDefault();
-    props.onSubmit();
-  };
   return (
-    <form onSubmit={submit} aria-labelledby="create-library-heading">
+    <form onSubmit={submitWith(props.onSubmit)} aria-labelledby="create-library-heading">
       <h2 id="create-library-heading">{t("libraries.createHeading")}</h2>
       <WhatItHolds draft={draft} setAnswer={setAnswer} />
       <ThreeQuestions draft={draft} setAnswer={setAnswer} />

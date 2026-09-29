@@ -1,25 +1,19 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { components } from "@orpheum/sdk";
-import { useState, type JSX, type SyntheticEvent } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { dataOrThrow } from "./problem.ts";
+import { submitWith } from "./form-row.tsx";
 import { Link } from "./link.tsx";
-import type { Route } from "./router.ts";
+import { itemRoute } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** One search result, as the server sends it. */
 export type SearchHit = components["schemas"]["HitBody"];
-
-/** Where a result leads: a series' page, else a title's. */
-export function hitRoute(hit: SearchHit): Route {
-  return hit.kind === "series"
-    ? { screen: "series-page", collectionId: hit.id }
-    : { screen: "title", itemId: hit.id };
-}
 
 const kindKeys = {
   movie: "search.kindMovie",
@@ -41,7 +35,7 @@ export function SearchResults(props: {
     <ul>
       {props.hits.map((hit) => (
         <li key={`${hit.kind}/${String(hit.id)}`}>
-          <Link to={hitRoute(hit)}>{hit.name}</Link>{" "}
+          <Link to={itemRoute(hit.kind, hit.id)}>{hit.name}</Link>{" "}
           {hit.year === undefined ? null : <span>{hit.year}</span>}{" "}
           <span>{t(kindKeys[hit.kind])}</span>
         </li>
@@ -55,10 +49,9 @@ export function Search(props: { readonly query: string }): JSX.Element {
   const { t } = useTranslation();
   const { navigation } = useServices();
   const [typedQuery, setTypedQuery] = useState(props.query);
-  const submit = (event: SyntheticEvent): void => {
-    event.preventDefault();
+  const submit = submitWith(() => {
     navigation.go({ screen: "search", query: typedQuery.trim() });
-  };
+  });
   return (
     <section aria-labelledby="search-heading">
       <h1 id="search-heading">{t("search.heading")}</h1>

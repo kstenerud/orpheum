@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { components } from "@orpheum/sdk";
-import { useState, type JSX, type SyntheticEvent } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { submitWith } from "./form-row.tsx";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -62,11 +63,10 @@ function SecretRow(props: {
   const { t } = useTranslation();
   const { secret } = props;
   const [value, setValue] = useState("");
-  const save = (event: SyntheticEvent): void => {
-    event.preventDefault();
+  const save = submitWith(() => {
     props.onSave(value);
     setValue("");
-  };
+  });
   return (
     <form onSubmit={save} aria-labelledby={`secret-${secret.name}`}>
       <h3 id={`secret-${secret.name}`}>{secret.name}</h3>
@@ -134,10 +134,9 @@ function SettingRow(props: {
   const { t } = useTranslation();
   const { setting } = props;
   const [text, setText] = useState(() => settingText(setting.value));
-  const save = (event: SyntheticEvent): void => {
-    event.preventDefault();
+  const save = submitWith(() => {
     props.onSave(parseSettingText(setting.kind, text));
-  };
+  });
   return (
     <form onSubmit={save} aria-labelledby={`setting-${setting.key}`}>
       <h3 id={`setting-${setting.key}`}>
