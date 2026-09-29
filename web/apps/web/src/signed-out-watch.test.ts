@@ -40,6 +40,13 @@ describe("a session the server ended", () => {
     expect(await reasonSignedOutWith([401, "not our error shape"])).toBe("no_session");
   });
 
+  it("believes a reason only in the server's error shape, read as the SDK reads every refusal", async () => {
+    // No code or message: not the server's refusal, whatever it carries.
+    expect(
+      await reasonSignedOutWith([401, { error: { detail: { reason: "session_ended" } } }]),
+    ).toBe("no_session");
+  });
+
   it("signs out with the reason and goes home, and the device stays remembered", async () => {
     const services = servedBy(
       {
