@@ -63,6 +63,9 @@
 //   - Open and the runner take their choices (the reader pool minimum, the free-space database
 //     multiple) from the caller and refuse zero, never a value from here (D201). Enforced by
 //     TestOpen_RefusesOptionsNobodyChose.
+//   - A migration the free space cannot hold, the snapshot plus a rebuild's worst case, is refused
+//     before anything is written (D228 §4).
+//     TestMigrate_RefusesWhenTheFreeSpaceCannotHoldItAndChangesNothing.
 //   - Every query for a title's live files takes the live files of its live versions, so they
 //     agree once a version can be removed. Enforced by
 //     TestTitleFiles_EveryQueryLeavesOutARemovedVersion.
