@@ -3,6 +3,7 @@
 package namedfile_test
 
 import (
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // openRoot is a media root over directory.
@@ -106,5 +108,36 @@ func TestOpen_RefusesAFileThatIsNoLongerTheOneNamed(t *testing.T) {
 	}
 	if _, _, err := namedfile.Open(root, "gone.mkv", named); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("a missing file: %v, want os.ErrNotExist", err)
+	}
+}
+
+func TestOpenNamed_FindsTheRootByItsPathAndRefusesABadName(t *testing.T) {
+	t.Parallel()
+	directory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(directory, "film.mkv"), []byte("a film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := openRoot(t, directory)
+	roots := map[string]*confine.MediaRoot{root.Path(): root}
+	payloadHash := hex.EncodeToString(payloadHashOf(t, "a film"))
+	named := nodeproto.BytesFile{RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: payloadHash}
+	file, _, err := namedfile.OpenNamed(roots, named)
+	if err != nil {
+		t.Fatalf("the file named: %v", err)
+	}
+	_ = file.Close() //nolint:errcheck // read-only
+	elsewhere := named
+	elsewhere.RootPath = "/elsewhere"
+	if _, _, err = namedfile.OpenNamed(roots, elsewhere); !errors.Is(err, namedfile.ErrNoRoot) {
+		t.Errorf("under a root the node was not given: %v, want ErrNoRoot", err)
+	}
+	for _, bad := range []nodeproto.BytesFile{
+		{RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: "not hex"},
+		{RootPath: root.Path(), Path: []byte("film.mkv")},
+		{RootPath: root.Path(), PayloadHash: payloadHash},
+	} {
+		if _, _, err = namedfile.NewHashes().OpenNamed(roots, bad); !errors.Is(err, namedfile.ErrBadName) {
+			t.Errorf("%+v: %v, want ErrBadName", bad, err)
+		}
 	}
 }

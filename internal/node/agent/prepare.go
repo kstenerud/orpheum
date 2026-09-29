@@ -5,7 +5,6 @@ package agent
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -179,15 +178,7 @@ func (agent *Agent) verifiedSourcePath(source nodeproto.BytesFile) (string, erro
 // openNamed opens the regular file named, under one of the node's roots, once its payload hash is
 // the one named (D100). The caller closes it.
 func (agent *Agent) openNamed(named nodeproto.BytesFile) (*os.File, error) {
-	root, known := agent.roots[named.RootPath]
-	if !known {
-		return nil, errors.New("the file is under none of this node's roots")
-	}
-	payloadHash, err := hex.DecodeString(named.PayloadHash)
-	if err != nil {
-		return nil, fmt.Errorf("a payload hash that is not hex: %w", err)
-	}
-	file, _, err := namedfile.Open(root, string(named.Path), payloadHash)
+	file, _, err := namedfile.OpenNamed(agent.roots, named)
 	if err != nil {
 		return nil, fmt.Errorf("open the file named: %w", err)
 	}
