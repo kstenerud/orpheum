@@ -3,7 +3,7 @@
 import "./play.css";
 
 import { playHls, seekTo, type HlsPlayback } from "@orpheum/player";
-import { whenReady, type Api, type components, type Menu } from "@orpheum/sdk";
+import { whenReady, type Api, type components, type PlayableFormats } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject, type SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -28,7 +28,7 @@ export type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
 export async function requestPlayback(
   api: Api,
   fileId: number,
-  playableFormats: Menu,
+  playableFormats: PlayableFormats,
 ): Promise<PlaybackDecision> {
   return dataOrThrow(
     await api.POST("/playback", {
@@ -87,7 +87,7 @@ function UnderTheVideo(
       <Subtitles
         fileId={props.fileId}
         tracks={props.decision.subtitles ?? []}
-        prefs={props.decision.preferences}
+        preferences={props.decision.preferences}
         videoRef={props.videoRef}
       />
       <FindSubtitles fileId={props.fileId} onFetched={props.onDecideAgain} />

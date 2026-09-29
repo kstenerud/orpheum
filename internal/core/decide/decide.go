@@ -51,23 +51,23 @@ const (
 	PreferPrepare PreferredDelivery = "prepare"
 )
 
-// Link is where the client is: on the house's network, or outside it.
-type Link string
+// Network is where the client is: on the house's network, or outside it.
+type Network string
 
-// The links.
+// The networks.
 const (
-	Local  Link = "local"
-	Remote Link = "remote"
+	Local  Network = "local"
+	Remote Network = "remote"
 )
 
 // Input is everything the decision reads. It holds declared capabilities and the file's own
 // facts, never who is asking (D2, D103).
 type Input struct {
 	Probe             nodeproto.Probe
-	Menu              Menu
-	Link              Link
+	PlayableFormats   PlayableFormats
+	Network           Network
 	PreferredDelivery PreferredDelivery
-	// RemoteCeilingKbps is the bit rate above which a file is re-encoded for a remote link.
+	// RemoteCeilingKbps is the bit rate above which a file is re-encoded for a client on a remote network.
 	RemoteCeilingKbps int64
 	// IsStereoOutput is whether the device plays two channels that the server folds down for it: TV
 	// speakers or headphones. A sound of more than two channels is then always prepared, so the
@@ -91,7 +91,7 @@ func Decide(input Input) Decision {
 		return Decision{Delivery: Direct}
 	}
 	reasons, videoFits := axisReasons(input)
-	isOverRemoteCeiling := input.Link == Remote && input.RemoteCeilingKbps > 0 &&
+	isOverRemoteCeiling := input.Network == Remote && input.RemoteCeilingKbps > 0 &&
 		input.Probe.Format.BitRateBps > input.RemoteCeilingKbps*1000
 	if isOverRemoteCeiling {
 		reasons = append(reasons, ReasonBandwidth)
@@ -113,24 +113,24 @@ func Decide(input Input) Decision {
 	return Decision{Delivery: HLS, Profile: profile, Reasons: reasons}
 }
 
-// axisReasons asks the menu's three axes of the original: its container, its picture and the
+// axisReasons asks the playable formats' three axes of the original: its container, its picture and the
 // track a player starts with. It also says whether the picture can be copied as it is.
 func axisReasons(input Input) (reasons []Reason, videoFits bool) {
 	container, found := ContainerOf(input.Probe.Format)
-	if !found || !slices.Contains(input.Menu.Containers, container) {
+	if !found || !slices.Contains(input.PlayableFormats.Containers, container) {
 		reasons = append(reasons, ReasonContainer)
 	}
 	videoFits = true
 	if video, present := MainVideo(input.Probe); present {
 		name, placed := videoEntry(video)
-		videoFits = placed && slices.Contains(input.Menu.VideoCodecs, name)
+		videoFits = placed && slices.Contains(input.PlayableFormats.VideoCodecs, name)
 	}
 	if !videoFits {
 		reasons = append(reasons, ReasonVideoCodec)
 	}
 	if audio, present := MainAudio(input.Probe); present {
 		name, placed := audioEntry(audio)
-		if !placed || !slices.Contains(input.Menu.AudioCodecs, name) {
+		if !placed || !slices.Contains(input.PlayableFormats.AudioCodecs, name) {
 			reasons = append(reasons, ReasonAudioCodec)
 		}
 	}

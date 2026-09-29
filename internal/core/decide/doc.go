@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package decide is the playback decision: given a file's streams, the device's prioritised menu
-// per axis and whether the link is local or remote, it answers direct play, or a prepared
-// rendition and its profile, with the transcode reasons. Whether that rendition already exists is
-// the caller's. It is a pure function of declared capabilities.
+// Package decide is the playback decision: given a file's streams, the device's playable formats
+// (its prioritised list per axis of the menu) and whether its network is local or remote, it
+// answers direct play, or a prepared rendition and its profile, with the transcode reasons.
+// Whether that rendition already exists is the caller's. It is a pure function of declared
+// capabilities.
 //
 // # Invariants
 //
@@ -19,8 +20,9 @@
 //   - A stream the table cannot place is prepared, never guessed playable; each row of the
 //     table has a case. Enforced by TestDecide_SortsEachVideoStreamIntoOneMenuEntry and
 //     TestDecide_SortsEachAudioStreamIntoOneMenuEntry.
-//   - A menu without both baselines, or naming something the menu does not have, is refused
-//     (D21). Enforced by TestMenu_RefusesAMenuWithoutTheBaselinesOrWithAnUnknownName.
+//   - Playable formats without both baselines, or naming something the menu does not have, are
+//     refused (D21). Enforced by
+//     TestPlayableFormats_RefusesAListWithoutTheBaselinesOrWithAnUnknownName.
 //   - Direct play is judged on the picture and on the track a player starts with (the default,
 //     else the first), never on cover art or a second track. Enforced by
 //     TestDecide_JudgesTheTrackAPlayerStartsWith.
@@ -45,6 +47,7 @@
 //
 // # Where to change
 //
-//   - menu.go: the menu's names. classify.go: the table from a file's streams to those names.
-//     decide.go: the decision, its reasons and its profile.
+//   - menu.go: the menu's names, and PlayableFormats, a client's list of them. classify.go: the
+//     table from a file's streams to those names. decide.go: the decision, its reasons and its
+//     profile.
 package decide

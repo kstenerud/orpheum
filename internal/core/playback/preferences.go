@@ -13,10 +13,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// FilePrefs are a person's choices for one file (cut-a §5): kept per file, and lasting, so the
+// FilePreferences are a person's choices for one file (cut-a §5): kept per file, and lasting, so the
 // next playback starts with them. A sync offset is in milliseconds of one file; a subtitle choice is
 // per file so one broken file can be chosen around (D219).
-type FilePrefs struct {
+type FilePreferences struct {
 	// SubtitleOffsetMs shows the subtitles this many milliseconds later, or earlier when negative.
 	SubtitleOffsetMs int64
 	// SubtitleChoice is the file's subtitle choice, or nil when it has none.
@@ -24,9 +24,9 @@ type FilePrefs struct {
 	// IsDialogueBoostOn is whether the person plays with the dialogue boost: theirs, for every file,
 	// off until they turn it on (D83, D222).
 	IsDialogueBoostOn bool
-	// IsLevelling is whether the person plays with loudness levelled: theirs, for every file, on
+	// IsLevellingOn is whether the person plays with loudness levelled: theirs, for every file, on
 	// until they turn it off (D226 §5).
-	IsLevelling bool
+	IsLevellingOn bool
 }
 
 // SubtitleChoice is a subtitle choice for one file: a track in it, or off (D219).
@@ -67,7 +67,7 @@ func trackLike(description TrackDescription) SubtitleTrack {
 	}
 }
 
-// The preference table's names for what FilePrefs holds.
+// The preference table's names for what FilePreferences holds.
 const (
 	scopeFile            = "file"
 	scopeUser            = "user"
@@ -83,23 +83,23 @@ const (
 // ErrNoTrack is a subtitle choice naming a track the file does not have.
 var ErrNoTrack = errors.New("no such subtitle track in this file")
 
-// FilePrefs are the person's choices for the file, at their starting values where they made
+// FilePreferences are the person's choices for the file, at their starting values where they made
 // none.
-func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (FilePrefs, error) {
-	return service.filePrefs(ctx, service.database.Read(), userID, fileID)
+func (service *Service) FilePreferences(ctx context.Context, userID, fileID int64) (FilePreferences, error) {
+	return service.filePreferences(ctx, service.database.Read(), userID, fileID)
 }
 
-// filePrefs are FilePrefs as queries read them, the reader pool or a write transaction's own.
-func (service *Service) filePrefs(
+// filePreferences are FilePreferences as queries read them, the reader pool or a write transaction's own.
+func (service *Service) filePreferences(
 	ctx context.Context, queries *sqlcgen.Queries, userID, fileID int64,
-) (FilePrefs, error) {
+) (FilePreferences, error) {
 	stored, err := queries.ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
 		UserID: userID, Scope: scopeFile, ScopeID: fileID,
 	})
 	if err != nil {
-		return FilePrefs{}, fmt.Errorf("read the preferences for file %d: %w", fileID, err)
+		return FilePreferences{}, fmt.Errorf("read the preferences for file %d: %w", fileID, err)
 	}
-	var prefs FilePrefs
+	var prefs FilePreferences
 	for _, preference := range stored {
 		switch preference.Axis {
 		case axisSubtitleOffsetMs:
@@ -109,25 +109,25 @@ func (service *Service) filePrefs(
 			err = json.Unmarshal([]byte(preference.ValueJson), prefs.SubtitleChoice)
 		}
 		if err != nil {
-			return FilePrefs{}, fmt.Errorf("read the %s of file %d: %w", preference.Axis, fileID, err)
+			return FilePreferences{}, fmt.Errorf("read the %s of file %d: %w", preference.Axis, fileID, err)
 		}
 	}
 	personal, err := queries.ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
 		UserID: userID, Scope: scopeUser, ScopeID: 0,
 	})
 	if err != nil {
-		return FilePrefs{}, fmt.Errorf("read user %d's preferences: %w", userID, err)
+		return FilePreferences{}, fmt.Errorf("read user %d's preferences: %w", userID, err)
 	}
 	if prefs.SubtitleChoice, err = service.currentChoice(ctx, queries, fileID, prefs.SubtitleChoice); err != nil {
-		return FilePrefs{}, err
+		return FilePreferences{}, err
 	}
-	prefs.IsLevelling = true
+	prefs.IsLevellingOn = true
 	for _, preference := range personal {
 		switch preference.Axis {
 		case axisDialogueBoost:
 			prefs.IsDialogueBoostOn = preference.ValueJson == valueTrue
 		case axisLevelling:
-			prefs.IsLevelling = preference.ValueJson != valueFalse
+			prefs.IsLevellingOn = preference.ValueJson != valueFalse
 		}
 	}
 	return prefs, nil
@@ -271,7 +271,7 @@ func (service *Service) filesOfWork(ctx context.Context, queries *sqlcgen.Querie
 func (service *Service) carryChoice(
 	ctx context.Context, queries *sqlcgen.Queries, userID, fileID int64, chosen *SubtitleTrack,
 ) error {
-	current, err := service.filePrefs(ctx, queries, userID, fileID)
+	current, err := service.filePreferences(ctx, queries, userID, fileID)
 	if err != nil {
 		return err
 	}

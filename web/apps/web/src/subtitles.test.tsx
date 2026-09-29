@@ -68,7 +68,7 @@ describe("subtitles", () => {
         <Subtitles
           fileId={2}
           tracks={[track({}), track({ streamId: 7, language: "fr" })]}
-          prefs={{
+          preferences={{
             subtitleOffsetMs: -1500,
             isDialogueBoostOn: false,
             isLevellingOn: true,
@@ -90,7 +90,7 @@ describe("subtitles", () => {
         <Subtitles
           fileId={2}
           tracks={[]}
-          prefs={{ subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true }}
+          preferences={{ subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true }}
           videoRef={createRef()}
         />,
       ),

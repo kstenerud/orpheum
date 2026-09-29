@@ -63,7 +63,7 @@ type StartPlaybackOutput struct {
 		// URLs answer 425 until it is (D217 §6).
 		Subtitles []SubtitleTrackBody `json:"subtitles"`
 		// Preferences are the person's choices for this file, which the player starts with.
-		Preferences FilePrefsBody `json:"preferences"`
+		Preferences FilePreferencesBody `json:"preferences"`
 		// ResumePositionMs is where the player starts, without asking (D188): where the person
 		// left the file, or 0.
 		ResumePositionMs int64 `json:"resumePositionMs"`
@@ -153,8 +153,10 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		return nil, err
 	}
 	request := playback.Request{
-		FileID: input.Body.FileID, DeviceID: principal.DeviceID, Menu: menuOf(input.Body.PlayableFormats),
-		Link: decide.Link(input.Body.Network), Prefer: decide.PreferredDelivery(input.Body.PreferredDelivery),
+		FileID: input.Body.FileID, DeviceID: principal.DeviceID,
+		PlayableFormats:   playableFormatsOf(input.Body.PlayableFormats),
+		Network:           decide.Network(input.Body.Network),
+		PreferredDelivery: decide.PreferredDelivery(input.Body.PreferredDelivery),
 	}
 	started, err := dependencies.Playback.Start(ctx, principal.UserID, principal.SessionKey, request)
 	if err != nil {
@@ -179,7 +181,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		})
 	}
 	output.Body.Subtitles = subtitleTracks(started)
-	output.Body.Preferences = filePrefsBody(started.Prefs)
+	output.Body.Preferences = filePreferencesBody(started.Preferences)
 	output.Body.ResumePositionMs = started.ResumePositionMs
 	output.Body.MediaToken = started.Token
 	output.Body.AudioOutput = AudioOutputKind(started.AudioOutput)
@@ -270,7 +272,7 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 	spent, isSpent := errors.AsType[*opensubtitles.QuotaSpentError](err)
 	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
 	switch {
-	case errors.Is(err, decide.ErrBadMenu), errors.Is(err, playback.ErrBadReport):
+	case errors.Is(err, decide.ErrBadPlayableFormats), errors.Is(err, playback.ErrBadReport):
 		return newError(http.StatusBadRequest, CodeInvalidRequest, err.Error())
 	case errors.Is(err, playback.ErrNoFile):
 		return newError(http.StatusNotFound, CodeNotFound, "no such file to play")
@@ -361,8 +363,8 @@ func (server *Server) relay(
 	}}, nil
 }
 
-func menuOf(body PlayableFormatsBody) decide.Menu {
-	return decide.Menu{
+func playableFormatsOf(body PlayableFormatsBody) decide.PlayableFormats {
+	return decide.PlayableFormats{
 		VideoCodecs:     convertNames[decide.Video](body.VideoCodecs),
 		AudioCodecs:     convertNames[decide.Audio](body.AudioCodecs),
 		SubtitleFormats: convertNames[decide.Subtitle](body.SubtitleFormats),

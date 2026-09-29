@@ -11,8 +11,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// browser is a menu like a desktop Chrome's: H.264 and HEVC, the common audio, MP4 as it is.
-var browser = decide.Menu{
+// browser is the playable formats of a desktop Chrome's: H.264 and HEVC, the common audio, MP4 as it is.
+var browser = decide.PlayableFormats{
 	VideoCodecs:     []decide.Video{decide.HEVCSDR, decide.H264SDR},
 	AudioCodecs:     []decide.Audio{decide.AACStereo, decide.Opus, decide.FLAC},
 	SubtitleFormats: []decide.Subtitle{decide.ASS, decide.WebVTT},
@@ -36,20 +36,21 @@ func probeOf(container string, streams ...nodeproto.ProbeStream) nodeproto.Probe
 	return nodeproto.Probe{Format: nodeproto.ProbeFormat{FormatNames: []string{container}}, Streams: streams}
 }
 
-// everyEntryMenu lists every menu entry, so a test can ask what a stream was placed as.
-var everyEntryMenu = decide.Menu{
+// everyEntry lists every menu entry, so a test can ask what a stream was placed as.
+var everyEntry = decide.PlayableFormats{
 	VideoCodecs: []decide.Video{decide.H264SDR, decide.HEVCSDR, decide.HEVCHDR10, decide.AV1SDR, decide.AV1HDR10},
 	AudioCodecs: []decide.Audio{decide.AACStereo, decide.AACMulti, decide.AC3, decide.EAC3, decide.Opus, decide.FLAC},
 	Containers:  []decide.Container{decide.MP4, decide.Matroska, decide.MPEGTS},
 }
 
-// placedAs is the one video entry a menu of that entry alone plays directly, or "".
+// placedAs is the one video entry that, listed alone, plays directly, or "".
 func placedAs(t *testing.T, stream nodeproto.ProbeStream) decide.Video {
 	t.Helper()
-	for _, name := range everyEntryMenu.VideoCodecs {
-		menu := everyEntryMenu
-		menu.VideoCodecs = []decide.Video{name}
-		if decide.Decide(decide.Input{Probe: probeOf("mp4", stream), Menu: menu}).Delivery == decide.Direct {
+	for _, name := range everyEntry.VideoCodecs {
+		formats := everyEntry
+		formats.VideoCodecs = []decide.Video{name}
+		input := decide.Input{Probe: probeOf("mp4", stream), PlayableFormats: formats}
+		if decide.Decide(input).Delivery == decide.Direct {
 			return name
 		}
 	}
@@ -109,13 +110,13 @@ func TestDecide_SortsEachAudioStreamIntoOneMenuEntry(t *testing.T) {
 		"MP3":                 {audioStream("mp3", "", 2), ""},
 	} {
 		got := decide.Audio("")
-		for _, entry := range everyEntryMenu.AudioCodecs {
-			menu := everyEntryMenu
-			menu.AudioCodecs = []decide.Audio{decide.AACStereo, entry}
+		for _, entry := range everyEntry.AudioCodecs {
+			formats := everyEntry
+			formats.AudioCodecs = []decide.Audio{decide.AACStereo, entry}
 			if entry != decide.AACStereo {
-				menu.AudioCodecs = []decide.Audio{entry}
+				formats.AudioCodecs = []decide.Audio{entry}
 			}
-			input := decide.Input{Probe: probeOf("mp4", picture, row.stream), Menu: menu}
+			input := decide.Input{Probe: probeOf("mp4", picture, row.stream), PlayableFormats: formats}
 			if decide.Decide(input).Delivery == decide.Direct {
 				got = entry
 				break
@@ -132,7 +133,7 @@ func TestDecide_TheAcceptanceFileIsRemuxedForTheContainerAndTheAudio(t *testing.
 	// cut-a §8's M3 file: an MKV with H.264, TrueHD and ASS.
 	mkv := probeOf("matroska", videoStream("h264", "High", "yuv420p", "bt709"), audioStream("truehd", "", 8, "default"),
 		nodeproto.ProbeStream{Kind: "subtitle", Codec: "ass"})
-	got := decide.Decide(decide.Input{Probe: mkv, Menu: browser, Link: decide.Local})
+	got := decide.Decide(decide.Input{Probe: mkv, PlayableFormats: browser, Network: decide.Local})
 	want := decide.Decision{
 		Delivery: decide.HLS, Profile: decide.Remux,
 		Reasons: []decide.Reason{decide.ReasonContainer, decide.ReasonAudioCodec},
@@ -145,7 +146,7 @@ func TestDecide_TheAcceptanceFileIsRemuxedForTheContainerAndTheAudio(t *testing.
 func TestDecide_PlaysDirectlyWhatFitsEveryAxis(t *testing.T) {
 	t.Parallel()
 	mp4 := probeOf("mp4", videoStream("h264", "High", "yuv420p", ""), audioStream("aac", "LC", 2))
-	got := decide.Decide(decide.Input{Probe: mp4, Menu: browser, Link: decide.Local})
+	got := decide.Decide(decide.Input{Probe: mp4, PlayableFormats: browser, Network: decide.Local})
 	if got.Delivery != decide.Direct || len(got.Reasons) != 0 {
 		t.Errorf("Decide = %+v, want direct with no reason", got)
 	}
@@ -154,7 +155,7 @@ func TestDecide_PlaysDirectlyWhatFitsEveryAxis(t *testing.T) {
 func TestDecide_ReEncodesWhatTheClientCannotDecode(t *testing.T) {
 	t.Parallel()
 	mpeg2 := probeOf("mp4", videoStream("mpeg2video", "Main", "yuv420p", ""), audioStream("aac", "LC", 2))
-	got := decide.Decide(decide.Input{Probe: mpeg2, Menu: browser})
+	got := decide.Decide(decide.Input{Probe: mpeg2, PlayableFormats: browser})
 	if got.Profile != decide.H264At8M || !slices.Equal(got.Reasons, []decide.Reason{decide.ReasonVideoCodec}) {
 		t.Errorf("Decide = %+v, want h264-8m for video_codec", got)
 	}
@@ -164,16 +165,16 @@ func TestDecide_JudgesTheTrackAPlayerStartsWith(t *testing.T) {
 	t.Parallel()
 	picture := videoStream("h264", "High", "yuv420p", "")
 	defaultAAC := probeOf("mp4", picture, audioStream("dts", "", 6), audioStream("aac", "LC", 2, "default"))
-	if got := decide.Decide(decide.Input{Probe: defaultAAC, Menu: browser}); got.Delivery != decide.Direct {
+	if got := decide.Decide(decide.Input{Probe: defaultAAC, PlayableFormats: browser}); got.Delivery != decide.Direct {
 		t.Errorf("a default AAC track after a DTS one: %+v, want direct", got)
 	}
 	firstDTS := probeOf("mp4", picture, audioStream("dts", "", 6), audioStream("aac", "LC", 2))
-	if got := decide.Decide(decide.Input{Probe: firstDTS, Menu: browser}); got.Delivery != decide.HLS {
+	if got := decide.Decide(decide.Input{Probe: firstDTS, PlayableFormats: browser}); got.Delivery != decide.HLS {
 		t.Errorf("no default and DTS first: %+v, want prepared", got)
 	}
 	coverArt := nodeproto.ProbeStream{Kind: "video", Codec: "mjpeg", Disposition: []string{"attached_pic"}}
 	withCover := probeOf("mp4", coverArt, picture, audioStream("aac", "LC", 2))
-	if got := decide.Decide(decide.Input{Probe: withCover, Menu: browser}); got.Delivery != decide.Direct {
+	if got := decide.Decide(decide.Input{Probe: withCover, PlayableFormats: browser}); got.Delivery != decide.Direct {
 		t.Errorf("cover art before the picture: %+v, want direct, judged on the picture", got)
 	}
 }
@@ -182,11 +183,15 @@ func TestDecide_AFastFileIsReEncodedForARemoteLinkOnly(t *testing.T) {
 	t.Parallel()
 	fast := probeOf("mp4", videoStream("h264", "High", "yuv420p", ""), audioStream("aac", "LC", 2))
 	fast.Format.BitRateBps = 40_000_000
-	remote := decide.Decide(decide.Input{Probe: fast, Menu: browser, Link: decide.Remote, RemoteCeilingKbps: 10_000})
+	remote := decide.Decide(decide.Input{
+		Probe: fast, PlayableFormats: browser, Network: decide.Remote, RemoteCeilingKbps: 10_000,
+	})
 	if remote.Profile != decide.H264At8M || !slices.Equal(remote.Reasons, []decide.Reason{decide.ReasonBandwidth}) {
 		t.Errorf("remote: %+v, want h264-8m for bandwidth", remote)
 	}
-	local := decide.Decide(decide.Input{Probe: fast, Menu: browser, Link: decide.Local, RemoteCeilingKbps: 10_000})
+	local := decide.Decide(decide.Input{
+		Probe: fast, PlayableFormats: browser, Network: decide.Local, RemoteCeilingKbps: 10_000,
+	})
 	if local.Delivery != decide.Direct {
 		t.Errorf("local: %+v, want direct", local)
 	}
@@ -196,14 +201,14 @@ func TestDecide_TheBoostPreparesOnlyASourceWithACentre(t *testing.T) {
 	t.Parallel()
 	picture := videoStream("h264", "High", "yuv420p", "")
 	surround := probeOf("mp4", picture, audioStream("aac", "LC", 6))
-	menu := browser
-	menu.AudioCodecs = append(menu.AudioCodecs, decide.AACMulti)
-	got := decide.Decide(decide.Input{Probe: surround, Menu: menu, IsStereoOutput: true})
+	formats := browser
+	formats.AudioCodecs = append(formats.AudioCodecs, decide.AACMulti)
+	got := decide.Decide(decide.Input{Probe: surround, PlayableFormats: formats, IsStereoOutput: true})
 	if got.Profile != decide.Remux || !slices.Equal(got.Reasons, []decide.Reason{decide.ReasonDialogueBoost}) {
 		t.Errorf("5.1 on stereo output: %+v, want remux for dialogue_boost", got)
 	}
 	stereo := probeOf("mp4", picture, audioStream("aac", "LC", 2))
-	got = decide.Decide(decide.Input{Probe: stereo, Menu: browser, IsStereoOutput: true})
+	got = decide.Decide(decide.Input{Probe: stereo, PlayableFormats: browser, IsStereoOutput: true})
 	if got.Delivery != decide.Direct {
 		t.Errorf("stereo on stereo output: %+v, want direct: there is no centre to raise", got)
 	}
@@ -212,23 +217,23 @@ func TestDecide_TheBoostPreparesOnlyASourceWithACentre(t *testing.T) {
 func TestDecide_APersonsChoiceWins(t *testing.T) {
 	t.Parallel()
 	mkv := probeOf("matroska", videoStream("h264", "High", "yuv420p", ""), audioStream("truehd", "", 8))
-	forced := decide.Decide(decide.Input{Probe: mkv, Menu: browser, PreferredDelivery: decide.PreferDirect})
+	forced := decide.Decide(decide.Input{Probe: mkv, PlayableFormats: browser, PreferredDelivery: decide.PreferDirect})
 	if got := forced; got.Delivery != decide.Direct {
 		t.Errorf("prefer direct: %+v, want direct", got)
 	}
 	mp4 := probeOf("mp4", videoStream("h264", "High", "yuv420p", ""), audioStream("aac", "LC", 2))
-	got := decide.Decide(decide.Input{Probe: mp4, Menu: browser, PreferredDelivery: decide.PreferPrepare})
+	got := decide.Decide(decide.Input{Probe: mp4, PlayableFormats: browser, PreferredDelivery: decide.PreferPrepare})
 	if got.Delivery != decide.HLS || !slices.Equal(got.Reasons, []decide.Reason{decide.ReasonUserChoice}) {
 		t.Errorf("prefer prepare: %+v, want hls for user_choice", got)
 	}
 }
 
-func TestMenu_RefusesAMenuWithoutTheBaselinesOrWithAnUnknownName(t *testing.T) {
+func TestPlayableFormats_RefusesAListWithoutTheBaselinesOrWithAnUnknownName(t *testing.T) {
 	t.Parallel()
 	if err := browser.Validate(); err != nil {
-		t.Errorf("a browser's menu: %v", err)
+		t.Errorf("a browser's playable formats: %v", err)
 	}
-	for name, menu := range map[string]decide.Menu{
+	for name, formats := range map[string]decide.PlayableFormats{
 		"no h264-sdr":   {VideoCodecs: []decide.Video{decide.HEVCSDR}, AudioCodecs: []decide.Audio{decide.AACStereo}},
 		"no aac-stereo": {VideoCodecs: []decide.Video{decide.H264SDR}, AudioCodecs: []decide.Audio{decide.Opus}},
 		"an unknown codec": {
@@ -239,8 +244,8 @@ func TestMenu_RefusesAMenuWithoutTheBaselinesOrWithAnUnknownName(t *testing.T) {
 			Containers: []decide.Container{"avi"},
 		},
 	} {
-		if err := menu.Validate(); !errors.Is(err, decide.ErrBadMenu) {
-			t.Errorf("%s: %v, want ErrBadMenu", name, err)
+		if err := formats.Validate(); !errors.Is(err, decide.ErrBadPlayableFormats) {
+			t.Errorf("%s: %v, want ErrBadPlayableFormats", name, err)
 		}
 	}
 }

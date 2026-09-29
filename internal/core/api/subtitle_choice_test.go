@@ -54,12 +54,12 @@ func (harness testHarness) choiceIn(t *testing.T, sessionToken string, fileID in
 	t.Helper()
 	answer := harness.do(t, http.MethodPost, "/playback", sessionToken, chrome(fileID))
 	var decided struct {
-		Prefs FilePrefsBody `json:"preferences"`
+		Preferences FilePreferencesBody `json:"preferences"`
 	}
 	if err := json.Unmarshal([]byte(answer.body), &decided); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("POST /playback of file %d = %d %s", fileID, answer.status, answer.body)
 	}
-	choice := decided.Prefs.SubtitleChoice
+	choice := decided.Preferences.SubtitleChoice
 	switch {
 	case choice == nil:
 		return "none"

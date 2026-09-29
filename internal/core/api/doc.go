@@ -81,7 +81,7 @@
 //
 //   - One file per endpoint group of cut-a §5: session.go (setup and auth), settings.go,
 //     config.go, secrets.go, health.go, identification.go, libraries.go, browse.go, art.go,
-//     doctor.go, system.go, playback.go, subtitle.go, subtitle_fetch.go, prefs.go, report.go,
+//     doctor.go, system.go, playback.go, subtitle.go, subtitle_fetch.go, preferences.go, report.go,
 //     home.go, accounts.go, devices.go and jobs.go.
 //   - server.go holds the readiness gate and the authentication helpers: requireSignedIn and
 //     requireAdmin; requireMetadataEditor is in identification.go, and requireSignedInForMedia,

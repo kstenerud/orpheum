@@ -1345,7 +1345,7 @@ export interface components {
             sizeBytes?: number;
             streams: components["schemas"]["StreamBody"][] | null;
         };
-        FilePrefsBody: {
+        FilePreferencesBody: {
             isDialogueBoostOn: boolean;
             isLevellingOn: boolean;
             subtitleChoice?: components["schemas"]["SubtitleChoiceBody"];
@@ -1715,12 +1715,12 @@ export interface components {
             token: string;
             user: components["schemas"]["UserBody"];
         };
-        SetFilePrefsInputBody: {
+        SetFilePreferencesInputBody: {
             subtitleChoice?: components["schemas"]["SubtitleChoiceBody"];
             /** Format: int64 */
             subtitleOffsetMs?: number;
         };
-        SetMyPrefsInputBody: {
+        SetMyPreferencesInputBody: {
             isDialogueBoostOn?: boolean;
             isLevellingOn?: boolean;
         };
@@ -1797,7 +1797,7 @@ export interface components {
             levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;
             notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "user_choice")[] | null;
-            preferences: components["schemas"]["FilePrefsBody"];
+            preferences: components["schemas"]["FilePreferencesBody"];
             /** @enum {string} */
             profile?: "remux" | "h264-8m";
             /** Format: int64 */
@@ -2545,7 +2545,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SetFilePrefsInputBody"];
+                "application/json": components["schemas"]["SetFilePreferencesInputBody"];
             };
         };
         responses: {
@@ -3492,7 +3492,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SetMyPrefsInputBody"];
+                "application/json": components["schemas"]["SetMyPreferencesInputBody"];
             };
         };
         responses: {

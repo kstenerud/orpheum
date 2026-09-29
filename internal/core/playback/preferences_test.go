@@ -31,7 +31,7 @@ func TestCarryChoice_SeesAnOwnChoiceKeptEarlierInItsTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prefs, err := service.FilePrefs(t.Context(), userID, fileID)
+	prefs, err := service.FilePreferences(t.Context(), userID, fileID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,10 +67,11 @@ func TestKeepSubtitleOffset_RefusesAFileItsTransactionRemoved(t *testing.T) {
 		t.Errorf("keeping an offset for a file removed in the same transaction: %v, want ErrNoFile", err)
 	}
 	// That transaction rolled back, so the file is live again, and an offset for it is kept.
-	if err := service.SetSubtitleOffset(t.Context(), userID, fileID, offsetMs); err != nil {
+	if err = service.SetSubtitleOffset(t.Context(), userID, fileID, offsetMs); err != nil {
 		t.Fatal(err)
 	}
-	if prefs, err := service.FilePrefs(t.Context(), userID, fileID); err != nil || prefs.SubtitleOffsetMs != offsetMs {
-		t.Errorf("the live file's offset = %+v, %v; want %d", prefs, err, offsetMs)
+	preferences, err := service.FilePreferences(t.Context(), userID, fileID)
+	if err != nil || preferences.SubtitleOffsetMs != offsetMs {
+		t.Errorf("the live file's offset = %+v, %v; want %d", preferences, err, offsetMs)
 	}
 }

@@ -88,7 +88,7 @@ export async function keepOffset(
 }
 
 /** A person's choices for one file, as the server sends them. */
-export type FilePrefs = components["schemas"]["FilePrefsBody"];
+export type FilePreferences = components["schemas"]["FilePreferencesBody"];
 
 /**
  * Keeps a subtitle choice as the file's own: a track, or off when key is undefined. The server
@@ -118,10 +118,11 @@ export async function keepSubtitleChoice(
 
 /** The track a playback starts with: the file's choice when it names one of its tracks, else none. */
 export function startingTrackKey(
-  prefs: FilePrefs,
+  preferences: FilePreferences,
   tracks: readonly SubtitleTrack[],
 ): TrackKey | undefined {
-  const chosen = prefs.subtitleChoice === undefined ? undefined : trackKey(prefs.subtitleChoice);
+  const chosen =
+    preferences.subtitleChoice === undefined ? undefined : trackKey(preferences.subtitleChoice);
   return tracks.some((track) => trackKey(track) === chosen) ? chosen : undefined;
 }
 
@@ -132,17 +133,17 @@ export function startingTrackKey(
 export function Subtitles(props: {
   readonly fileId: number;
   readonly tracks: readonly SubtitleTrack[];
-  readonly prefs: FilePrefs;
+  readonly preferences: FilePreferences;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
   const [chosenTrackKey, setChosenTrackKey] = useState(() =>
-    startingTrackKey(props.prefs, props.tracks),
+    startingTrackKey(props.preferences, props.tracks),
   );
-  const [offsetMs, setOffsetMs] = useState(props.prefs.subtitleOffsetMs);
+  const [offsetMs, setOffsetMs] = useState(props.preferences.subtitleOffsetMs);
   // The offset a newly chosen track starts with, read when its text arrives rather than in render.
-  const offsetRef = useRef(props.prefs.subtitleOffsetMs);
+  const offsetRef = useRef(props.preferences.subtitleOffsetMs);
   const [failure, setFailure] = useState<string | undefined>(undefined);
   const track = props.tracks.find((candidate) => trackKey(candidate) === chosenTrackKey);
   const layerRef = useSubtitleLayer(track?.assUrl, props.videoRef, {
