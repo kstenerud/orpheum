@@ -42,9 +42,11 @@ const countLiveFilesOfTitle = `-- name: CountLiveFilesOfTitle :one
 SELECT count(*)
 FROM file
 JOIN version ON version.id = file.version_id
-WHERE version.title_id = ? AND file.removed_at IS NULL
+WHERE version.title_id = ? AND version.removed_at IS NULL AND file.removed_at IS NULL
 `
 
+// A title's live files: live files of its live versions, as ListTitleFiles and
+// ListLiveFilesOfTitle list them.
 func (q *Queries) CountLiveFilesOfTitle(ctx context.Context, titleID int64) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countLiveFilesOfTitle, titleID)
 	var count int64

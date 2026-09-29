@@ -36,10 +36,12 @@ UPDATE title SET followed_source = sqlc.arg(followed_source), followed_source_id
 WHERE id = sqlc.arg(id);
 
 -- name: ListLiveFilesOfTitle :many
+-- A title's live files: live files of its live versions, as ListTitleFiles and
+-- CountLiveFilesOfTitle count them.
 SELECT file.id, file.path
 FROM file
 JOIN version ON version.id = file.version_id
-WHERE version.title_id = sqlc.arg(title_id) AND file.removed_at IS NULL
+WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL AND file.removed_at IS NULL
 ORDER BY file.path;
 
 -- name: MoveVersionsBetweenTitles :exec
