@@ -25,7 +25,7 @@ type fakeNodes struct {
 	// confinement is what the connected node said about its FFmpeg's confinement.
 	confinement []nodeproto.Confinement
 	// build is what its hello said it was built from.
-	build build.Info
+	build build.Provenance
 	// hardware is what its hello said about hardware encoding.
 	hardware nodeproto.Hardware
 	// prepared is what its last status said its prepared directory holds, when it said.
@@ -52,7 +52,7 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 		NodeID: 1, LastHeard: time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC),
 		Hello: nodeproto.Hello{
 			Name: "local", Build: nodes.build, FFmpegVersion: "ffmpeg version 7.1",
-			Host: host.Info{
+			Host: host.System{
 				Platform: "linux/amd64", Description: "Debian GNU/Linux 13 (trixie)",
 				Kernel: "6.12.0",
 			},

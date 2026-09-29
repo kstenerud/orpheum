@@ -2,7 +2,7 @@
 -- Prepared renditions (schema.md, cache.db; D217 section 5): what each node was asked to
 -- prepare, and how far it is.
 
--- name: GetRendition :one
+-- name: GetRenditionOfFileAndProfile :one
 SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, created_at, finished_at
 FROM prepared_rendition WHERE source_file = ? AND profile = ?;
 

@@ -33,9 +33,10 @@ func (work *batch) observed(ctx context.Context, scan *scanState, observed *node
 	if err != nil {
 		return err
 	}
-	existing, err := store.One(work.queries.GetLiveFileByKey(ctx, sqlcgen.GetLiveFileByKeyParams{
-		NodeID: work.nodeID, ReportedPathBytes: seen.key,
-	}))
+	existing, err := store.OrNotFound(work.queries.GetLiveFileByReportedPathBytes(ctx,
+		sqlcgen.GetLiveFileByReportedPathBytesParams{
+			NodeID: work.nodeID, ReportedPathBytes: seen.key,
+		}))
 	switch {
 	case err == nil && bytes.Equal(existing.PayloadHash, seen.hash):
 		return work.update(ctx, scan, existing.ID, seen)
@@ -49,7 +50,7 @@ func (work *batch) observed(ctx context.Context, scan *scanState, observed *node
 	case !errors.Is(err, store.ErrNotFound):
 		return err
 	default:
-		elsewhere, listErr := work.queries.ListLiveFilesByHash(ctx, sqlcgen.ListLiveFilesByHashParams{
+		elsewhere, listErr := work.queries.ListLiveFilesByPayloadHash(ctx, sqlcgen.ListLiveFilesByPayloadHashParams{
 			NodeID: work.nodeID, PayloadHash: seen.hash,
 		})
 		if listErr != nil {
@@ -57,7 +58,7 @@ func (work *batch) observed(ctx context.Context, scan *scanState, observed *node
 		}
 		// Only a file under this scan's root can be judged absent by it. One in another root was
 		// simply not looked at, so a match there is a duplicate, never a move.
-		unseen := slices.IndexFunc(elsewhere, func(row sqlcgen.ListLiveFilesByHashRow) bool {
+		unseen := slices.IndexFunc(elsewhere, func(row sqlcgen.ListLiveFilesByPayloadHashRow) bool {
 			return row.LastSeenAt < scan.startedAt && under(row.Path, scan.root)
 		})
 		if unseen >= 0 && len(elsewhere) == 1 {
@@ -75,9 +76,10 @@ func (work *batch) observed(ctx context.Context, scan *scanState, observed *node
 // history, wherever the payload now is — a film deleted by mistake and copied back, a disk that
 // returned after its files were removed — or else adds a new file (D208 §4, D41).
 func (work *batch) reviveOrInsert(ctx context.Context, scan *scanState, seen observation) error {
-	tombstone, err := store.One(work.queries.GetLatestTombstoneByHash(ctx, sqlcgen.GetLatestTombstoneByHashParams{
-		LibraryID: scan.libraryID, PayloadHash: seen.hash,
-	}))
+	tombstone, err := store.OrNotFound(work.queries.GetLatestTombstoneByPayloadHash(ctx,
+		sqlcgen.GetLatestTombstoneByPayloadHashParams{
+			LibraryID: scan.libraryID, PayloadHash: seen.hash,
+		}))
 	if errors.Is(err, store.ErrNotFound) {
 		return work.insert(ctx, scan, seen)
 	}
@@ -169,11 +171,12 @@ func (work *batch) filed(
 	ctx context.Context, scan *scanState, reported nodeproto.Path, filing, reason string, detail *string,
 ) error {
 	located := nodePath(scan.root, reported)
-	existing, err := store.One(work.queries.GetLiveFileByKey(ctx, sqlcgen.GetLiveFileByKeyParams{
-		NodeID: work.nodeID, ReportedPathBytes: located.key,
-	}))
+	existing, err := store.OrNotFound(work.queries.GetLiveFileByReportedPathBytes(ctx,
+		sqlcgen.GetLiveFileByReportedPathBytesParams{
+			NodeID: work.nodeID, ReportedPathBytes: located.key,
+		}))
 	if err == nil {
-		err = work.queries.UpdateFileFiling(ctx, sqlcgen.UpdateFileFilingParams{
+		err = work.queries.UpdateFileFilingAndLastSeen(ctx, sqlcgen.UpdateFileFilingAndLastSeenParams{
 			Filing: filing, FilingReason: &reason, ErrorDetailJson: detail, SeenAt: work.now, ID: existing.ID,
 		})
 		if err != nil {
@@ -197,7 +200,7 @@ func (work *batch) filed(
 // errored records what the node could not read, and marks the region no removal may touch:
 // an entry is unknown, not absent; a subtree hides everything below it; a root or a stopped
 // scan hides everything (D40).
-func (work *batch) errored(ctx context.Context, scan *scanState, failure *nodeproto.Error) error {
+func (work *batch) errored(ctx context.Context, scan *scanState, failure *nodeproto.ScanError) error {
 	switch failure.Scope {
 	case nodeproto.ScopeRoot, nodeproto.ScopeRun:
 		scan.unreadAll = true

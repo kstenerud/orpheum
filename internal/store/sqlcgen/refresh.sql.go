@@ -91,12 +91,12 @@ func (q *Queries) ListResponsesFetchedBefore(ctx context.Context, arg ListRespon
 	return items, nil
 }
 
-const touchProviderResponse = `-- name: TouchProviderResponse :exec
+const markProviderResponseAsked = `-- name: MarkProviderResponseAsked :exec
 UPDATE provider_response SET fetched_at = ?1
 WHERE item_id = ?2 AND provider = ?3 AND part = ?4
 `
 
-type TouchProviderResponseParams struct {
+type MarkProviderResponseAskedParams struct {
 	FetchedAt int64
 	ItemID    int64
 	Provider  string
@@ -105,8 +105,8 @@ type TouchProviderResponseParams struct {
 
 // A refresh that found the item gone upstream keeps our copy and notes that it asked, so it is
 // not asked again before its next period, D213 section 4.
-func (q *Queries) TouchProviderResponse(ctx context.Context, arg TouchProviderResponseParams) error {
-	_, err := q.db.ExecContext(ctx, touchProviderResponse,
+func (q *Queries) MarkProviderResponseAsked(ctx context.Context, arg MarkProviderResponseAskedParams) error {
+	_, err := q.db.ExecContext(ctx, markProviderResponseAsked,
 		arg.FetchedAt,
 		arg.ItemID,
 		arg.Provider,

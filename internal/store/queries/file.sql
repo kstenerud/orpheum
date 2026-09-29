@@ -9,14 +9,14 @@ WHERE library_root.node_id = ? AND library_root.root_path = ? AND library.remove
 ORDER BY library_root.library_id
 LIMIT 1;
 
--- name: GetLiveFileByKey :one
+-- name: GetLiveFileByReportedPathBytes :one
 -- A live file by the bytes its node reported (D211): two names that are one NFC text are two
 -- files.
 SELECT id, payload_hash, last_seen_at
 FROM file
 WHERE node_id = sqlc.arg(node_id) AND reported_path_bytes = sqlc.arg(reported_path_bytes) AND removed_at IS NULL;
 
--- name: ListLiveFilesByHash :many
+-- name: ListLiveFilesByPayloadHash :many
 SELECT id, path, last_seen_at
 FROM file
 WHERE node_id = ? AND payload_hash = ? AND removed_at IS NULL
@@ -55,7 +55,7 @@ UPDATE file SET
   last_seen_at = sqlc.arg(seen_at)
 WHERE id = sqlc.arg(id);
 
--- name: UpdateFileFiling :exec
+-- name: UpdateFileFilingAndLastSeen :exec
 -- A path the node skipped or could not read: its filing says why, and it was seen.
 UPDATE file SET
   filing = sqlc.arg(filing),
@@ -64,13 +64,13 @@ UPDATE file SET
   last_seen_at = sqlc.arg(seen_at)
 WHERE id = sqlc.arg(id);
 
--- name: ListLiveFilesOfLibrary :many
+-- name: ListLiveFilesOfLibraryOnNode :many
 SELECT id, path, last_seen_at
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY id;
 
--- name: GetLatestTombstoneByHash :one
+-- name: GetLatestTombstoneByPayloadHash :one
 -- The file a returning payload revives (D208): the latest removed in the library.
 SELECT id
 FROM file
@@ -118,7 +118,7 @@ FROM file
 WHERE node_id = ? AND removed_at IS NULL
 ORDER BY path;
 
--- name: ListStreamsOfFile :many
+-- name: ListStreamsOfBytesFile :many
 SELECT id, stream_index, kind, codec, container_language, language, container_title, disposition_flags, channel_count
 FROM stream
 WHERE bytes_file = ?

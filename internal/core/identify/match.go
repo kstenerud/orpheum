@@ -61,7 +61,7 @@ const (
 // Match matches a film or a series. Provider errors return as they came, for the queue to wait
 // or retry.
 func (matcher *Matcher) Match(ctx context.Context, itemID int64) (Outcome, error) {
-	kind, err := store.One(matcher.database.Read().GetItemKind(ctx, itemID))
+	kind, err := store.OrNotFound(matcher.database.Read().GetItemKind(ctx, itemID))
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		return OutcomeNothingToDo, nil // gone since it was queued
@@ -74,7 +74,7 @@ func (matcher *Matcher) Match(ctx context.Context, itemID int64) (Outcome, error
 }
 
 func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome, error) {
-	title, err := store.One(matcher.database.Read().GetTitleForMatch(ctx, titleID))
+	title, err := store.OrNotFound(matcher.database.Read().GetTitleForMatch(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return OutcomeNothingToDo, nil // gone since it was queued
 	}
@@ -247,8 +247,8 @@ func (matcher *Matcher) record(
 	provider, id := found.provider, found.id
 	now := matcher.clock.Now().UnixMilli()
 	if found.ident == identConfirmed {
-		forget := sqlcgen.DeleteItemProviderIDsOfParams{ItemID: title.ID, Provider: provider}
-		err := queries.DeleteItemProviderIDsOf(ctx, forget)
+		forget := sqlcgen.DeleteItemProviderIDsAtProviderParams{ItemID: title.ID, Provider: provider}
+		err := queries.DeleteItemProviderIDsAtProvider(ctx, forget)
 		if err != nil {
 			return fmt.Errorf("forget title %d's earlier %s match: %w", title.ID, provider, err)
 		}

@@ -37,9 +37,9 @@ func (fakeMeasurer) Measure(
 	return measured, nil
 }
 
-func receiveLoudness(t *testing.T, core *fakeCore) nodeproto.Loudness {
+func receiveLoudness(t *testing.T, core *fakeCore) nodeproto.LoudnessResult {
 	t.Helper()
-	ctx, stop := context.WithTimeout(t.Context(), patience)
+	ctx, stop := context.WithTimeout(t.Context(), answerTimeout)
 	defer stop()
 	select {
 	case answer := <-core.loudness:
@@ -47,13 +47,13 @@ func receiveLoudness(t *testing.T, core *fakeCore) nodeproto.Loudness {
 	case <-ctx.Done():
 		t.Fatal("no loudness reached the core")
 	}
-	return nodeproto.Loudness{}
+	return nodeproto.LoudnessResult{}
 }
 
 func TestAgent_MeasuresOnlyTheVideoTheCoreNamed(t *testing.T) {
 	t.Parallel()
-	video, _, core := extracting(t)
-	measure := func(job int64, named nodeproto.BytesFile, streamIndex int) nodeproto.Loudness {
+	video, _, core := startExtractionAgent(t)
+	measure := func(job int64, named nodeproto.BytesFile, streamIndex int) nodeproto.LoudnessResult {
 		command := nodeproto.MeasureLoudness{
 			JobID: job, Video: named, Tracks: []nodeproto.LoudnessTrack{{StreamIndex: streamIndex, ChannelCount: 6}},
 		}

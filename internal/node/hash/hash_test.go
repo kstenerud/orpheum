@@ -10,7 +10,7 @@ import (
 
 func identityOf(t *testing.T, file []byte) Identity {
 	t.Helper()
-	identity, err := Payload(bytes.NewReader(file), int64(len(file)))
+	identity, err := PayloadIdentity(bytes.NewReader(file), int64(len(file)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestPayload_TagEditsKeepTheIdentity(t *testing.T) {
 			file := edited.build()
 			if got := identityOf(t, file); got != original {
 				t.Errorf("identity changed: %x/%d → %x/%d",
-					original.Hash, original.PayloadLength, got.Hash, got.PayloadLength)
+					original.Hash, original.PayloadBytes, got.Hash, got.PayloadBytes)
 			}
 			// The positive sibling: the edit did change the file, and its head and size with it.
 			if bytes.Equal(file, film().build()) {
@@ -89,13 +89,13 @@ func TestPayload_WithoutCuesTheWalkFindsTheSameSpan(t *testing.T) {
 	uncued.cues = false
 	if got := identityOf(t, uncued.build()); got != withCues {
 		t.Errorf("without cues %x/%d, with cues %x/%d",
-			got.Hash, got.PayloadLength, withCues.Hash, withCues.PayloadLength)
+			got.Hash, got.PayloadBytes, withCues.Hash, withCues.PayloadBytes)
 	}
 	// A cue pointing at the first cluster makes the walk from there find the same last cluster.
 	firstOnly := film()
 	firstOnly.blocks = firstOnly.blocks[:1]
 	firstOnly.uncuedAtEnd = 0
-	if identityOf(t, firstOnly.build()).PayloadLength >= withCues.PayloadLength {
+	if identityOf(t, firstOnly.build()).PayloadBytes >= withCues.PayloadBytes {
 		t.Error("a one-cluster file has as long a payload as a five-cluster one")
 	}
 }
@@ -116,9 +116,9 @@ func TestPayload_AFileItCannotFollowIsHashedWhole(t *testing.T) {
 	}
 	for name, file := range cases {
 		identity := identityOf(t, file)
-		if identity.Anchor != AnchorWholeFile || identity.PayloadLength != int64(len(file)) {
+		if identity.Anchor != AnchorWholeFile || identity.PayloadBytes != int64(len(file)) {
 			t.Errorf("%s: anchored on %s with length %d, want the whole %d-byte file",
-				name, identity.Anchor, identity.PayloadLength, len(file))
+				name, identity.Anchor, identity.PayloadBytes, len(file))
 		}
 	}
 	if identityOf(t, complete).Hash == identityOf(t, complete[:len(complete)/2]).Hash {
@@ -143,9 +143,9 @@ func TestPayload_MP4IsAnchoredOnMdat(t *testing.T) {
 	t.Parallel()
 	media := bytes.Join(payloadBlocks(3_000_000, 3_000_000), nil)
 	original := identityOf(t, mp4([]byte("tags: old title"), media, false))
-	if original.Anchor != AnchorMP4 || original.PayloadLength != int64(len(media)) {
+	if original.Anchor != AnchorMP4 || original.PayloadBytes != int64(len(media)) {
 		t.Fatalf("anchored on %s with length %d, want mdat's %d bytes",
-			original.Anchor, original.PayloadLength, len(media))
+			original.Anchor, original.PayloadBytes, len(media))
 	}
 	retagged := identityOf(t, mp4(bytes.Repeat([]byte("a much longer title "), 500), media, true))
 	if retagged != original {
@@ -176,12 +176,12 @@ func FuzzPayload(f *testing.F) {
 	f.Add(mp4([]byte("moov"), []byte("mdat"), false))
 	f.Add([]byte{0x1A, 0x45, 0xDF, 0xA3, 0x80, 0x18, 0x53, 0x80, 0x67, 0xFF})
 	f.Fuzz(func(t *testing.T, file []byte) {
-		identity, err := Payload(bytes.NewReader(file), int64(len(file)))
+		identity, err := PayloadIdentity(bytes.NewReader(file), int64(len(file)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if identity.PayloadLength < 0 || identity.PayloadLength > int64(len(file)) {
-			t.Errorf("a payload of %d bytes in a %d-byte file", identity.PayloadLength, len(file))
+		if identity.PayloadBytes < 0 || identity.PayloadBytes > int64(len(file)) {
+			t.Errorf("a payload of %d bytes in a %d-byte file", identity.PayloadBytes, len(file))
 		}
 	})
 }

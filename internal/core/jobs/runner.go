@@ -89,7 +89,7 @@ func (runner *Runner) claim(ctx context.Context, now time.Time) (Job, bool, erro
 	var job Job
 	found := false
 	err := runner.queue.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		row, nextErr := store.One(queries.NextQueuedJob(ctx, cachegen.NextQueuedJobParams{
+		row, nextErr := store.OrNotFound(queries.NextQueuedJob(ctx, cachegen.NextQueuedJobParams{
 			Kind: string(runner.kind), Now: now.UnixMilli(),
 		}))
 		if errors.Is(nextErr, store.ErrNotFound) {

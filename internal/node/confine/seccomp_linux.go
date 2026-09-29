@@ -41,26 +41,26 @@ const (
 
 // seccompState is seccomp's state on this machine: whether the kernel filters system calls.
 func seccompState() State {
-	state := State{Mechanism: Seccomp}
+	state := State{Mechanism: MechanismSeccomp}
 	if !isFilterWritten {
-		state.Cause = CauseArchitectureUnwritten
+		state.CauseCode = CauseArchitectureUnwritten
 		state.Reason = "the seccomp denylist is not written for this machine's architecture"
 		state.Remedy = "run the node on amd64 or arm64, where it is written (D205)"
 		return state
 	}
 	if _, err := unix.PrctlRetInt(unix.PR_GET_SECCOMP, 0, 0, 0, 0); err != nil {
 		if errors.Is(err, unix.EINVAL) {
-			state.Cause = CauseKernelWithout
+			state.CauseCode = CauseKernelWithout
 			state.Reason = "the kernel was built without seccomp"
 			state.Remedy = "run a kernel built with CONFIG_SECCOMP_FILTER"
 			return state
 		}
-		state.Cause = CauseUnexplained
+		state.CauseCode = CauseUnexplained
 		state.Reason = fmt.Sprintf("seccomp answered %v", err)
 		state.Remedy = "report it; the node cannot say what would fix it"
 		return state
 	}
-	state.InForce = true
+	state.IsInForce = true
 	return state
 }
 
@@ -82,7 +82,7 @@ func denylist() []unix.SockFilter {
 		{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_KILL_PROCESS},
 		load(offsetNumber),
 	}
-	program = append(program, foreignCalls()...)
+	program = append(program, refuseForeignCalls()...)
 	for _, number := range deniedSyscalls() {
 		program = append(program, equal(number), deny)
 	}

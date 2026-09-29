@@ -95,7 +95,7 @@ func identityOfFile(t *testing.T, path string) Identity {
 	if err != nil {
 		t.Fatal(err)
 	}
-	identity, err := Payload(file, info.Size())
+	identity, err := PayloadIdentity(file, info.Size())
 	if err != nil {
 		t.Fatal(err)
 	}

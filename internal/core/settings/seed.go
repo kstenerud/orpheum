@@ -30,7 +30,7 @@ func (service *Service) Seed(ctx context.Context) (SeedReport, error) {
 	report := SeedReport{Written: []Key{}, Updated: []Key{}, Unused: []UnusedSetting{}}
 	now := service.clock.Now().UnixMilli()
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		rows, err := queries.ListSettingKeys(ctx)
+		rows, err := queries.ListAllSettings(ctx)
 		if err != nil {
 			return fmt.Errorf("list setting keys: %w", err)
 		}

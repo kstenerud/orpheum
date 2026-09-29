@@ -22,12 +22,13 @@ func TestLandlockState_SaysWhyItIsMissingAndWhatWouldPutItThere(t *testing.T) {
 		{unix.EIO, CauseUnexplained, "report it"},
 	} {
 		got := landlockStateOf(want.errno)
-		if got.InForce || got.Cause != want.cause || !strings.Contains(got.Remedy, want.remedy) || got.Reason == "" {
+		if got.IsInForce || got.CauseCode != want.cause || !strings.Contains(got.Remedy, want.remedy) ||
+			got.Reason == "" {
 			t.Errorf("Landlock answering %v: %+v, want %s with a remedy naming %q (D112)",
 				want.errno, got, want.cause, want.remedy)
 		}
 	}
-	if got := landlockStateOf(nil); !got.InForce || got.Cause != "" {
+	if got := landlockStateOf(nil); !got.IsInForce || got.CauseCode != "" {
 		t.Errorf("Landlock answering an ABI: %+v, want in force", got)
 	}
 }
@@ -43,7 +44,7 @@ func TestGrantsFor_OnlyARunThatUsesTheGPUIsGrantedItsDevices(t *testing.T) {
 		return false
 	}
 	plain := Spec{Tool: "/opt/ffmpeg/ffmpeg"}
-	gpu := Spec{Tool: "/opt/ffmpeg/ffmpeg", Access: Access{Devices: true}}
+	gpu := Spec{Tool: "/opt/ffmpeg/ffmpeg", Access: Access{UsesGPU: true}}
 	if has(plain, "/dev/dri") || has(plain, "/sys/devices") {
 		t.Error("a run that does not use the GPU is granted its devices")
 	}

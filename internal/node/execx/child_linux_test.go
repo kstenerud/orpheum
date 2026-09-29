@@ -43,7 +43,7 @@ func holdingChild(ctx context.Context, t *testing.T) (*Child, testutil.FakeFFmpe
 	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{HoldFIFO: fifo, Stderr: "node: listening\n"})
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{HoldFIFOPath: fifo, Stderr: "node: listening\n"})
 	arguments := []string{"node", "--config", "/etc/o.toml"}
 	child, err := StartSelf(ctx, filepath.Join(fake.Directory, "ffmpeg"), arguments, &syncBuffer{})
 	if err != nil {
@@ -88,7 +88,7 @@ func TestStartSelf_StartsAChildWithAnEmptyEnvironmentAndKillsItWhole(t *testing.
 	if err := child.Kill(); err != nil {
 		t.Errorf("killing a child that is gone: %v, want nothing to do", err)
 	}
-	assertGone(t, fake.Grandchild(t))
+	assertGone(t, fake.GrandchildPID(t))
 }
 
 func TestStartSelf_EndingTheContextKillsTheChild(t *testing.T) {
@@ -97,12 +97,12 @@ func TestStartSelf_EndingTheContextKillsTheChild(t *testing.T) {
 	child, fake := holdingChild(ctx, t)
 	cancel()
 	<-child.Done()
-	assertGone(t, fake.Grandchild(t))
+	assertGone(t, fake.GrandchildPID(t))
 }
 
 func TestStartSelf_TheChildsOutputReachesTheCaller(t *testing.T) {
 	t.Parallel()
-	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "out\n", Stderr: "err\n", Status: 3})
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "out\n", Stderr: "err\n", ExitStatus: 3})
 	output := &syncBuffer{}
 	child, err := StartSelf(t.Context(), filepath.Join(fake.Directory, "ffmpeg"), nil, output)
 	if err != nil {

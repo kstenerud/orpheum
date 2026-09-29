@@ -11,8 +11,8 @@ import (
 
 // The mechanisms, as the node's report names them (cut-a §7).
 const (
-	Landlock = "landlock"
-	Seccomp  = "seccomp"
+	MechanismLandlock = "landlock"
+	MechanismSeccomp  = "seccomp"
 )
 
 // ShimArgument is the first argument that makes orpheum the shim: it confines itself with a Spec
@@ -26,7 +26,7 @@ const ShimArgument = "__confined-exec"
 type Access struct {
 	Read    []string `json:"read,omitempty"`
 	Write   []string `json:"write,omitempty"`
-	Devices bool     `json:"devices,omitempty"`
+	UsesGPU bool     `json:"devices,omitempty"`
 }
 
 // Spec is one confined run: the tool, its arguments, and its access.
@@ -39,11 +39,11 @@ type Spec struct {
 // State is one mechanism on this machine: in force, or not, why, and what would put it there.
 type State struct {
 	Mechanism string
-	InForce   bool
-	// Cause names why it is not in force, from a closed set a client puts in its viewer's words.
-	Cause  string
-	Reason string
-	Remedy string
+	IsInForce bool
+	// CauseCode names why it is not in force, from a closed set a client puts in its viewer's words.
+	CauseCode string
+	Reason    string
+	Remedy    string
 }
 
 // The causes a mechanism is not in force (D112).
@@ -60,7 +60,7 @@ const (
 // IsConfined is whether every mechanism is in force.
 func IsConfined(states []State) bool {
 	for _, state := range states {
-		if !state.InForce {
+		if !state.IsInForce {
 			return false
 		}
 	}

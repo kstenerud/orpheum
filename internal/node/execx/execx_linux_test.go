@@ -22,12 +22,12 @@ func TestRun_CancellingKillsTheWholeProcessGroup(t *testing.T) {
 	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{HoldFIFO: fifo})
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{HoldFIFOPath: fifo})
 	runner := newRunner(t, fake)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	// Cancel only once the fake has started a grandchild that holds stdout open.
-	runner.started = func() {
+	runner.onStarted = func() {
 		ready, err := os.Open(fifo)
 		if err != nil {
 			t.Error(err)
@@ -50,7 +50,7 @@ func TestRun_CancellingKillsTheWholeProcessGroup(t *testing.T) {
 	}
 	// Run returns once the grandchild's stdout closes, which is when it dies; if only the tool
 	// were killed, Run would return after waitDelay with the grandchild still asleep.
-	pid := fake.Grandchild(t)
+	pid := fake.GrandchildPID(t)
 	assertGone(t, pid)
 }
 

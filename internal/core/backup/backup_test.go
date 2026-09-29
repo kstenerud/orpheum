@@ -133,7 +133,7 @@ func TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse(t *t
 	target := emptyDataDirectory(t)
 	restore(t, target, written.DatabasePath, nil)
 	restored := openAt(t, target)
-	if _, err = store.One(restored.Read().GetLiveUserByName(t.Context(), "owner")); err != nil {
+	if _, err = store.OrNotFound(restored.Read().GetLiveUserByName(t.Context(), "owner")); err != nil {
 		t.Errorf("the restored database lost the owner: %v", err)
 	}
 	restoredSettings := settings.NewService(restored, clocktest.NewFake(testTime),
@@ -221,7 +221,7 @@ func TestRestore_KeepsTheDatabaseItReplaces(t *testing.T) {
 			t.Error(closeErr)
 		}
 	}()
-	if _, err = store.One(kept.Read().GetLiveUserByName(t.Context(), "someone-else")); err != nil {
+	if _, err = store.OrNotFound(kept.Read().GetLiveUserByName(t.Context(), "someone-else")); err != nil {
 		t.Errorf("the kept copy lost the replaced database's user: %v", err)
 	}
 }

@@ -16,7 +16,7 @@ import (
 // need (D209). Either way the pass then re-derives its library, which is how its episodes take
 // their values.
 func (matcher *Matcher) matchSeries(ctx context.Context, seriesID int64) (Outcome, error) {
-	series, err := store.One(matcher.database.Read().GetSeriesForMatch(ctx, seriesID))
+	series, err := store.OrNotFound(matcher.database.Read().GetSeriesForMatch(ctx, seriesID))
 	if errors.Is(err, store.ErrNotFound) {
 		return OutcomeNothingToDo, nil // not a series, or gone
 	}
@@ -108,8 +108,8 @@ type seriesFound struct {
 func recordSeries(ctx context.Context, queries *sqlcgen.Queries, found seriesFound, stored []byte, now int64) error {
 	provider, seriesID, metadata, ident := found.provider, found.seriesID, found.metadata, found.ident
 	if ident == identConfirmed {
-		forget := sqlcgen.DeleteItemProviderIDsOfParams{ItemID: seriesID, Provider: provider}
-		if err := queries.DeleteItemProviderIDsOf(ctx, forget); err != nil {
+		forget := sqlcgen.DeleteItemProviderIDsAtProviderParams{ItemID: seriesID, Provider: provider}
+		if err := queries.DeleteItemProviderIDsAtProvider(ctx, forget); err != nil {
 			return fmt.Errorf("forget the earlier %s match: %w", provider, err)
 		}
 	}

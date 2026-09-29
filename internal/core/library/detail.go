@@ -33,13 +33,13 @@ type FileDetail struct {
 	ID      int64
 	Path    string
 	Size    *int64
-	Streams []sqlcgen.ListFileStreamsRow
+	Streams []sqlcgen.ListStreamsOfVideoFileRow
 }
 
 // Title is a title's detail.
 func (browser *Browser) Title(ctx context.Context, titleID int64) (TitleDetail, error) {
 	queries := browser.database.Read()
-	title, err := store.One(queries.GetTitleDetail(ctx, titleID))
+	title, err := store.OrNotFound(queries.GetTitleDetail(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return TitleDetail{}, fmt.Errorf("title %d: %w", titleID, ErrNoItem)
 	}
@@ -64,7 +64,7 @@ func (browser *Browser) Title(ctx context.Context, titleID int64) (TitleDetail, 
 
 // episodePlace is an episode's series and place in the aired order, or nil for a title in none.
 func (browser *Browser) episodePlace(ctx context.Context, titleID int64) (*sqlcgen.GetEpisodePlaceRow, error) {
-	place, err := store.One(browser.database.Read().GetEpisodePlace(ctx, titleID))
+	place, err := store.OrNotFound(browser.database.Read().GetEpisodePlace(ctx, titleID))
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		return nil, nil //nolint:nilnil // no place is an answer, not an error
@@ -85,7 +85,7 @@ func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version,
 		if len(versions) == 0 || versions[len(versions)-1].ID != file.VersionID {
 			versions = append(versions, Version{ID: file.VersionID, EditionID: file.EditionID})
 		}
-		streams, err := queries.ListFileStreams(ctx, file.FileID)
+		streams, err := queries.ListStreamsOfVideoFile(ctx, file.FileID)
 		if err != nil {
 			return nil, fmt.Errorf("list file %d's streams: %w", file.FileID, err)
 		}
@@ -109,7 +109,7 @@ type SeriesDetail struct {
 // Series is a series' detail.
 func (browser *Browser) Series(ctx context.Context, seriesID int64) (SeriesDetail, error) {
 	queries := browser.database.Read()
-	series, err := store.One(queries.GetSeriesDetail(ctx, seriesID))
+	series, err := store.OrNotFound(queries.GetSeriesDetail(ctx, seriesID))
 	if errors.Is(err, store.ErrNotFound) {
 		return SeriesDetail{}, fmt.Errorf("series %d: %w", seriesID, ErrNoItem)
 	}

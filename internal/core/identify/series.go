@@ -81,7 +81,7 @@ func (work *run) listing(ctx context.Context, seriesID int64, provider Provider,
 func storedListing(
 	ctx context.Context, queries *sqlcgen.Queries, provider Provider, seriesID int64, season int,
 ) ([]Episode, error) {
-	stored, err := store.One(queries.GetProviderResponse(ctx, sqlcgen.GetProviderResponseParams{
+	stored, err := store.OrNotFound(queries.GetProviderResponse(ctx, sqlcgen.GetProviderResponseParams{
 		ItemID: seriesID, Provider: provider.Name(), Part: seasonPart(season),
 	}))
 	if errors.Is(err, store.ErrNotFound) {
@@ -110,7 +110,7 @@ func storedListing(
 // seasonsToFetch are the seasons of a series whose listing is missing, or was fetched before an
 // episode of it arrived that it does not list: a new episode is a first fetch (D170, D209 §3).
 func seasonsToFetch(ctx context.Context, queries *sqlcgen.Queries, provider Provider, seriesID int64) ([]int, error) {
-	episodes, err := queries.ListSeriesEpisodes(ctx, seriesID)
+	episodes, err := queries.ListLiveSeriesEpisodeSources(ctx, seriesID)
 	if err != nil {
 		return nil, fmt.Errorf("list series %d's episodes: %w", seriesID, err)
 	}

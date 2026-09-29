@@ -26,8 +26,8 @@ func (database *Database) BackupInto(ctx context.Context, path string) error {
 	return nil
 }
 
-// BackupFile describes a backup or snapshot read without modifying it.
-type BackupFile struct {
+// BackupDescription describes a backup or snapshot read without modifying it.
+type BackupDescription struct {
 	ApplicationID int64
 	State         SchemaState
 }
@@ -35,7 +35,7 @@ type BackupFile struct {
 // InspectBackup reads a backup's application_id and schema versions. It checks the file exists
 // first: the driver creates a missing file, so a typo in the path would otherwise "restore" an
 // empty database over the live one (backup-restore.md, from Navidrome).
-func InspectBackup(ctx context.Context, path string) (inspected BackupFile, err error) {
+func InspectBackup(ctx context.Context, path string) (inspected BackupDescription, err error) {
 	if strings.Contains(path, "?") {
 		return inspected, fmt.Errorf("backup %q: a path may not contain '?'", path)
 	}

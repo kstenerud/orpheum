@@ -160,7 +160,7 @@ const maxLoudnessAnswerBytes = 1 << 20
 
 // loudnessAnswer takes a node's answer to a measure_loudness command to the job waiting for it.
 func (service *Service) loudnessAnswer(writer http.ResponseWriter, request *http.Request) {
-	var deliver func(context.Context, int64, nodeproto.Loudness)
+	var deliver func(context.Context, int64, nodeproto.LoudnessResult)
 	if service.loudness != nil {
 		deliver = service.loudness.Measured
 	}
@@ -262,7 +262,7 @@ func (reader *reportReader) flush(ctx context.Context) error {
 	status := reader.status
 	reader.status = nil
 	return reader.service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		err := queries.UpdateNodeReportSeq(ctx, sqlcgen.UpdateNodeReportSeqParams{
+		err := queries.UpdateNodeLastIngestedReportSeq(ctx, sqlcgen.UpdateNodeLastIngestedReportSeqParams{
 			LastIngestedReportSeq: last,
 			ID:                    reader.nodeID,
 		})

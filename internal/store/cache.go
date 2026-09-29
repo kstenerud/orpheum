@@ -21,13 +21,14 @@ const CacheApplicationID = 0x56504D43
 //go:embed cache/schema.sql
 var cacheSchema string
 
-var cacheVersionLine = regexp.MustCompile(`(?m)^-- cache schema version (\d+)$`)
+var cacheVersionLinePattern = regexp.MustCompile(`(?m)^-- cache schema version (\d+)$`)
 
 // ErrCacheOutdated is returned by OpenCache for a cache.db built from another schema version.
 // The cache is versioned by discard (migrations.md): the caller deletes the file and opens again.
 var ErrCacheOutdated = errors.New("cache.db was built by another schema version; discard it")
 
-// Cache is cache.db: the job queue and kept match candidates, never backed up (schema.md).
+// Cache is cache.db: the job queue, kept match candidates, artwork's last-served days, prepared
+// renditions and subtitle text, never backed up (schema.md).
 type Cache struct {
 	database *Database
 }
@@ -39,7 +40,7 @@ func (cache *Cache) SizeBytes(ctx context.Context) (uint64, error) {
 
 // CacheVersion is the version the embedded cache schema declares.
 func CacheVersion() (int64, error) {
-	match := cacheVersionLine.FindStringSubmatch(cacheSchema)
+	match := cacheVersionLinePattern.FindStringSubmatch(cacheSchema)
 	if match == nil {
 		return 0, errors.New("the cache schema declares no version")
 	}
@@ -61,16 +62,17 @@ func OpenCache(ctx context.Context, path string, options OpenOptions) (*Cache, e
 	if err != nil {
 		return nil, err
 	}
-	isEmpty, _, err := database.identity(ctx)
+	isEmpty, _, err := database.emptinessAndApplicationID(ctx)
 	if err == nil && isEmpty {
 		err = database.transact(ctx, func(transaction *sql.Tx) error { return buildCache(ctx, transaction, version) })
 	}
-	var found int64
+	var foundVersion int64
 	if err == nil {
-		err = database.readers.QueryRowContext(ctx, "PRAGMA user_version").Scan(&found)
+		err = database.readers.QueryRowContext(ctx, "PRAGMA user_version").Scan(&foundVersion)
 	}
-	if err == nil && found != version {
-		err = fmt.Errorf("%s: %w (it has version %d; this build's is %d)", path, ErrCacheOutdated, found, version)
+	if err == nil && foundVersion != version {
+		err = fmt.Errorf("%s: %w (it has version %d; this build's is %d)", path, ErrCacheOutdated, foundVersion,
+			version)
 	}
 	if err != nil {
 		return nil, errors.Join(err, database.Close())

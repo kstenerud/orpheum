@@ -39,6 +39,25 @@ func (q *Queries) GetSubtitleText(ctx context.Context, arg GetSubtitleTextParams
 	return i, err
 }
 
+const requestSubtitleText = `-- name: RequestSubtitleText :exec
+INSERT INTO subtitle_text (bytes_payload_hash, stream_index, created_at) VALUES (?, ?, ?)
+ON CONFLICT (bytes_payload_hash, stream_index) DO UPDATE
+SET state = 'queued', failure = NULL, finished_at = NULL, created_at = excluded.created_at
+WHERE subtitle_text.state = 'failed'
+`
+
+type RequestSubtitleTextParams struct {
+	BytesPayloadHash []byte
+	StreamIndex      int64
+	CreatedAt        int64
+}
+
+// A track wanted: new, or asked for again after it failed.
+func (q *Queries) RequestSubtitleText(ctx context.Context, arg RequestSubtitleTextParams) error {
+	_, err := q.db.ExecContext(ctx, requestSubtitleText, arg.BytesPayloadHash, arg.StreamIndex, arg.CreatedAt)
+	return err
+}
+
 const setSubtitleTextComplete = `-- name: SetSubtitleTextComplete :exec
 UPDATE subtitle_text SET state = 'complete', ass = ?, vtt = ?, failure = NULL, finished_at = ?
 WHERE bytes_payload_hash = ? AND stream_index = ?
@@ -82,24 +101,5 @@ func (q *Queries) SetSubtitleTextFailed(ctx context.Context, arg SetSubtitleText
 		arg.BytesPayloadHash,
 		arg.StreamIndex,
 	)
-	return err
-}
-
-const wantSubtitleText = `-- name: WantSubtitleText :exec
-INSERT INTO subtitle_text (bytes_payload_hash, stream_index, created_at) VALUES (?, ?, ?)
-ON CONFLICT (bytes_payload_hash, stream_index) DO UPDATE
-SET state = 'queued', failure = NULL, finished_at = NULL, created_at = excluded.created_at
-WHERE subtitle_text.state = 'failed'
-`
-
-type WantSubtitleTextParams struct {
-	BytesPayloadHash []byte
-	StreamIndex      int64
-	CreatedAt        int64
-}
-
-// A track wanted: new, or asked for again after it failed.
-func (q *Queries) WantSubtitleText(ctx context.Context, arg WantSubtitleTextParams) error {
-	_, err := q.db.ExecContext(ctx, wantSubtitleText, arg.BytesPayloadHash, arg.StreamIndex, arg.CreatedAt)
 	return err
 }

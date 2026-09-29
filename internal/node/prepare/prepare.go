@@ -27,18 +27,18 @@ type Runner interface {
 	) error
 }
 
-// renditionDir is the only shape a rendition's directory may have: "<file_id>/<profile>/<run_id>".
-var renditionDir = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)/[0-9a-f]{16}$`)
+// renditionDirPattern is the only shape a rendition's directory may have: "<file_id>/<profile>/<run_id>".
+var renditionDirPattern = regexp.MustCompile(`^[1-9]\d{0,18}/(remux|h264-8m)/[0-9a-f]{16}$`)
 
-// ErrBadDir is a rendition directory that is not "<file_id>/<profile>/<run_id>".
-var ErrBadDir = errors.New("a rendition's directory must be <file_id>/<profile>/<run_id>")
+// ErrBadRenditionDir is a rendition directory that is not "<file_id>/<profile>/<run_id>".
+var ErrBadRenditionDir = errors.New("a rendition's directory must be <file_id>/<profile>/<run_id>")
 
 // Keeper keeps the prepared directory within its budget: prepared.Shelf (D217 §5).
 type Keeper interface {
-	// Room makes room for a prepare, or says why there is none.
-	Room() error
-	// Writing marks a rendition being written, which eviction leaves alone, until done is called.
-	Writing(renditionDir string) (done func())
+	// MakeRoom makes room for a prepare, or says why there is none.
+	MakeRoom() error
+	// MarkWriting marks a rendition being written, which eviction leaves alone, until finishWriting is called.
+	MarkWriting(renditionDir string) (finishWriting func())
 }
 
 // Preparer makes renditions under the node's prepared directory.
@@ -66,48 +66,48 @@ type Made struct {
 	SizeBytes int64
 	// VideoEncoder is the encoder the video was made with, or "copy" for a remux.
 	VideoEncoder string
-	// Speed is how many seconds of the source FFmpeg prepared per second it ran, as it last said;
+	// RealtimeFactor is how many seconds of the source FFmpeg prepared per second it ran, as it last said;
 	// zero when it never said.
-	Speed float64
+	RealtimeFactor float64
 }
 
-// Prepare runs one prepare to its end: FFmpeg reads input, an absolute path, and writes the
+// Prepare runs one prepare to its end: FFmpeg reads sourcePath, an absolute path, and writes the
 // rendition into its directory, reporting how much of the source is done as it goes. It returns
 // what it made.
 func (preparer *Preparer) Prepare(
-	ctx context.Context, sourcePath string, command nodeproto.Prepare, progress func(preparedMs int64),
+	ctx context.Context, sourcePath string, command nodeproto.Prepare, onProgress func(preparedMs int64),
 ) (Made, error) {
-	if !renditionDir.MatchString(command.RenditionDir) {
-		return Made{}, fmt.Errorf("%w, not %q", ErrBadDir, command.RenditionDir)
+	if !renditionDirPattern.MatchString(command.RenditionDir) {
+		return Made{}, fmt.Errorf("%w, not %q", ErrBadRenditionDir, command.RenditionDir)
 	}
 	// A prepare the disk has no room for is refused rather than fill it (D217 §5).
-	if err := preparer.keeper.Room(); err != nil {
+	if err := preparer.keeper.MakeRoom(); err != nil {
 		return Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}
-	written := preparer.keeper.Writing(command.RenditionDir)
-	defer written()
+	finishWriting := preparer.keeper.MarkWriting(command.RenditionDir)
+	defer finishWriting()
 	renditionPath := filepath.Join(preparer.directory, filepath.FromSlash(command.RenditionDir))
 	if err := os.MkdirAll(renditionPath, 0o750); err != nil {
 		return Made{}, fmt.Errorf("make the rendition's directory: %w", err)
 	}
 	reader, writer := io.Pipe()
-	done := make(chan struct{})
-	var speed float64
+	progressDrained := make(chan struct{})
+	var realtimeFactor float64
 	go func() {
-		defer close(done)
-		speed = readProgress(reader, progress)
+		defer close(progressDrained)
+		realtimeFactor = readProgress(reader, onProgress)
 	}()
 	// It reads the source and writes the rendition, and an encode on the GPU opens it (cut-a §7).
 	isOnGPU := command.Profile == nodeproto.ProfileH264At8M && preparer.encoder.UsesGPU()
-	access := confine.Access{Read: []string{sourcePath}, Write: []string{renditionPath}, Devices: isOnGPU}
+	access := confine.Access{Read: []string{sourcePath}, Write: []string{renditionPath}, UsesGPU: isOnGPU}
 	arguments := Arguments(sourcePath, renditionPath, command, preparer.encoder)
 	err := preparer.runner.RunStreaming(ctx, execx.FFmpeg, access, arguments, writer)
 	_ = writer.Close() //nolint:errcheck // a pipe's writer closes without error
-	<-done
+	<-progressDrained
 	if err != nil {
 		return Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}
-	bytes, err := size(renditionPath)
+	sizeBytes, err := directoryBytes(renditionPath)
 	if err != nil {
 		return Made{}, err
 	}
@@ -115,12 +115,12 @@ func (preparer *Preparer) Prepare(
 	if command.Profile == nodeproto.ProfileH264At8M {
 		videoEncoder = string(preparer.encoder)
 	}
-	return Made{SizeBytes: bytes, VideoEncoder: videoEncoder, Speed: speed}, nil
+	return Made{SizeBytes: sizeBytes, VideoEncoder: videoEncoder, RealtimeFactor: realtimeFactor}, nil
 }
 
 // readProgress reads FFmpeg's -progress lines and reports out_time_us, in milliseconds, each time
 // it moves. It returns the last speed FFmpeg gave ("speed=6.2x"), or zero when it gave none.
-func readProgress(reader io.Reader, progress func(preparedMs int64)) (speed float64) {
+func readProgress(reader io.Reader, onProgress func(preparedMs int64)) (realtimeFactor float64) {
 	lines := bufio.NewScanner(reader)
 	for lines.Scan() {
 		key, value, _ := strings.Cut(lines.Text(), "=")
@@ -128,22 +128,22 @@ func readProgress(reader io.Reader, progress func(preparedMs int64)) (speed floa
 		case "out_time_us":
 			microseconds, err := strconv.ParseInt(value, 10, 64)
 			if err == nil && microseconds >= 0 {
-				progress(microseconds / 1000)
+				onProgress(microseconds / 1000)
 			}
 		case "speed":
 			// "N/A" until FFmpeg has timed something; a speed it cannot say leaves the last one.
 			if said, err := strconv.ParseFloat(strings.TrimSuffix(strings.TrimSpace(value), "x"), 64); err == nil {
-				speed = said
+				realtimeFactor = said
 			}
 		}
 	}
 	// A reader that ends early leaves FFmpeg's pipe unread; drain it so the run is never blocked.
 	_, _ = io.Copy(io.Discard, reader) //nolint:errcheck // draining
-	return speed
+	return realtimeFactor
 }
 
-// size is the bytes of every file under directory.
-func size(directory string) (int64, error) {
+// directoryBytes is the bytes of every file under directory.
+func directoryBytes(directory string) (int64, error) {
 	var total int64
 	err := filepath.WalkDir(directory, func(_ string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() {

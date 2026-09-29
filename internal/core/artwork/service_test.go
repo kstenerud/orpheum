@@ -117,7 +117,7 @@ type bench struct {
 
 func newBench(t *testing.T, images fetched) *bench {
 	t.Helper()
-	database := storetest.Open(t)
+	database := storetest.OpenMigrated(t)
 	var itemID int64
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error

@@ -57,7 +57,7 @@ func checkArguments(t *testing.T, arguments []string) {
 	}
 	for _, want := range []string{
 		"ebur128@multichannel_1=peak=true", prepare.StandardMix + ",ebur128@stereo_1=peak=true",
-		"[0:2]" + prepare.StereoMix + ",ebur128@stereo_2=peak=true",
+		"[0:2]" + prepare.StereoAsIsMix + ",ebur128@stereo_2=peak=true",
 	} {
 		if !strings.Contains(graph, want) {
 			t.Errorf("the graph %q lacks %q: each sound through its own named filter, the stereo mix prepare's own "+

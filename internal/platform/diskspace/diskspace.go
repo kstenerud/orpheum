@@ -10,8 +10,8 @@ import (
 // Space is a filesystem's size and what is free on it, in bytes, as a user who is not root sees
 // them.
 type Space struct {
-	TotalBytes int64
-	FreeBytes  int64
+	TotalBytes     int64
+	AvailableBytes int64
 }
 
 // UsedPercent is how full the filesystem is, as a whole percent.
@@ -19,7 +19,7 @@ func (space Space) UsedPercent() int {
 	if space.TotalBytes <= 0 {
 		return 0
 	}
-	return int((space.TotalBytes - space.FreeBytes) * 100 / space.TotalBytes)
+	return int((space.TotalBytes - space.AvailableBytes) * 100 / space.TotalBytes)
 }
 
 // Measure is the size and free space of the filesystem that holds path.
@@ -33,7 +33,7 @@ func Measure(path string) (Space, error) {
 		return Space{}, fmt.Errorf("statfs %s: negative block size %d", path, blockSize)
 	}
 	return Space{
-		TotalBytes: int64(filesystem.Blocks) * blockSize, //nolint:gosec // a disk's blocks fit
-		FreeBytes:  int64(filesystem.Bavail) * blockSize, //nolint:gosec // as above
+		TotalBytes:     int64(filesystem.Blocks) * blockSize, //nolint:gosec // a disk's blocks fit
+		AvailableBytes: int64(filesystem.Bavail) * blockSize, //nolint:gosec // as above
 	}, nil
 }

@@ -6,7 +6,7 @@
 SELECT bytes_payload_hash, stream_index, state, ass, vtt, failure, created_at, finished_at
 FROM subtitle_text WHERE bytes_payload_hash = ? AND stream_index = ?;
 
--- name: WantSubtitleText :exec
+-- name: RequestSubtitleText :exec
 -- A track wanted: new, or asked for again after it failed.
 INSERT INTO subtitle_text (bytes_payload_hash, stream_index, created_at) VALUES (?, ?, ?)
 ON CONFLICT (bytes_payload_hash, stream_index) DO UPDATE

@@ -137,7 +137,7 @@ func (service *Service) insertUser(ctx context.Context, queries *sqlcgen.Queries
 	if name == "" || (user.Password == "") != user.AwaitsRegistration {
 		return 0, errors.New("a user needs a name, and a password unless they await registration")
 	}
-	if _, err := store.One(queries.GetLiveUserByName(ctx, name)); err == nil {
+	if _, err := store.OrNotFound(queries.GetLiveUserByName(ctx, name)); err == nil {
 		return 0, fmt.Errorf("%q: %w", name, ErrNameTaken)
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return 0, fmt.Errorf("look up user %q: %w", name, err)
@@ -203,7 +203,7 @@ func (service *Service) SignIn(
 	if err != nil {
 		return "", err
 	}
-	user, err := store.One(service.database.Read().GetLiveUserByName(ctx, strings.TrimSpace(name)))
+	user, err := store.OrNotFound(service.database.Read().GetLiveUserByName(ctx, strings.TrimSpace(name)))
 	if errors.Is(err, store.ErrNotFound) {
 		// An unknown name costs what a known one does, so timing does not tell them apart.
 		_, hashErr := HashPassword(password, parameters, service.random)
@@ -263,12 +263,12 @@ func resumeOrMakeDevice(
 	ctx context.Context, queries *sqlcgen.Queries, userID int64, device NewDevice, now int64,
 ) (int64, error) {
 	if device.ResumeID != 0 {
-		known, err := store.One(queries.GetLiveDeviceOf(ctx, sqlcgen.GetLiveDeviceOfParams{
+		known, err := store.OrNotFound(queries.GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
 			ID: device.ResumeID, UserID: &userID,
 		}))
 		if err == nil {
-			touch := sqlcgen.TouchDeviceParams{Platform: device.Platform, SignedInAt: now, ID: known.ID}
-			if touchErr := queries.TouchDevice(ctx, touch); touchErr != nil {
+			touch := sqlcgen.RecordDeviceSignInParams{Platform: device.Platform, SignedInAt: now, ID: known.ID}
+			if touchErr := queries.RecordDeviceSignIn(ctx, touch); touchErr != nil {
 				return 0, fmt.Errorf("resume device %d: %w", known.ID, touchErr)
 			}
 			return known.ID, nil
@@ -317,7 +317,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	}
 	now := service.clock.Now()
 	hash := tokenHash(token)
-	grant, err := store.One(service.database.Read().GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
+	grant, err := store.OrNotFound(service.database.Read().GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
 		SecretSha256: hash, Now: new(now.UnixMilli()),
 	}))
 	if errors.Is(err, store.ErrNotFound) {
@@ -341,7 +341,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if now.Sub(time.UnixMilli(lastUse)) > idleExpiry {
 		return Principal{}, ErrSessionExpired
 	}
-	user, err := store.One(service.database.Read().GetLiveUserByID(ctx, *grant.UserID))
+	user, err := store.OrNotFound(service.database.Read().GetLiveUserByID(ctx, *grant.UserID))
 	if errors.Is(err, store.ErrNotFound) {
 		return Principal{}, ErrNotAuthenticated
 	}
@@ -367,7 +367,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 
 // whyNotLive says why a token finds no live session: ended, expired, or never one of ours.
 func (service *Service) whyNotLive(ctx context.Context, hash []byte) error {
-	state, err := store.One(service.database.Read().GetGrantState(ctx, hash))
+	state, err := store.OrNotFound(service.database.Read().GetGrantState(ctx, hash))
 	switch {
 	case errors.Is(err, store.ErrNotFound) || (err == nil && state.Kind != grantKindSession):
 		return ErrNotAuthenticated

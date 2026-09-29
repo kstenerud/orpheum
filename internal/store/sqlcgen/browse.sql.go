@@ -117,54 +117,6 @@ func (q *Queries) GetTitleDetail(ctx context.Context, id int64) (GetTitleDetailR
 	return i, err
 }
 
-const listFileStreams = `-- name: ListFileStreams :many
-SELECT id, kind, codec, language, container_title, channel_count, disposition_flags
-FROM stream
-WHERE video_file = ?1
-ORDER BY kind, stream_index
-`
-
-type ListFileStreamsRow struct {
-	ID               int64
-	Kind             string
-	Codec            *string
-	Language         *string
-	ContainerTitle   *string
-	ChannelCount     *int64
-	DispositionFlags int64
-}
-
-func (q *Queries) ListFileStreams(ctx context.Context, videoFile int64) ([]ListFileStreamsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listFileStreams, videoFile)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListFileStreamsRow{}
-	for rows.Next() {
-		var i ListFileStreamsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Kind,
-			&i.Codec,
-			&i.Language,
-			&i.ContainerTitle,
-			&i.ChannelCount,
-			&i.DispositionFlags,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listFilmsByAdded = `-- name: ListFilmsByAdded :many
 SELECT item.id AS item_id, item_text.name, title.year, title.identification_state, item.library_id, item.added_at
 FROM title
@@ -483,6 +435,54 @@ func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, collectionID int
 			&i.RuntimeMs,
 			&i.IdentificationState,
 			&i.Available,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStreamsOfVideoFile = `-- name: ListStreamsOfVideoFile :many
+SELECT id, kind, codec, language, container_title, channel_count, disposition_flags
+FROM stream
+WHERE video_file = ?1
+ORDER BY kind, stream_index
+`
+
+type ListStreamsOfVideoFileRow struct {
+	ID               int64
+	Kind             string
+	Codec            *string
+	Language         *string
+	ContainerTitle   *string
+	ChannelCount     *int64
+	DispositionFlags int64
+}
+
+func (q *Queries) ListStreamsOfVideoFile(ctx context.Context, videoFile int64) ([]ListStreamsOfVideoFileRow, error) {
+	rows, err := q.db.QueryContext(ctx, listStreamsOfVideoFile, videoFile)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStreamsOfVideoFileRow{}
+	for rows.Next() {
+		var i ListStreamsOfVideoFileRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Codec,
+			&i.Language,
+			&i.ContainerTitle,
+			&i.ChannelCount,
+			&i.DispositionFlags,
 		); err != nil {
 			return nil, err
 		}

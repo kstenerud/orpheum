@@ -44,12 +44,12 @@ func TestEscapeHelper(_ *testing.T) {
 		err := confine.Shim(words[1])
 		_, _ = fmt.Printf("the shim could not run the tool: %v\n", err) //nolint:forbidigo // the helper's answer
 	case attempt:
-		_, _ = fmt.Println(try(words[1], words[2:])) //nolint:forbidigo // the helper's answer
+		_, _ = fmt.Println(attemptEscape(words[1], words[2:])) //nolint:forbidigo // the helper's answer
 	}
 }
 
-// try is one attempt, answered "allowed" or "refused: why".
-func try(what string, arguments []string) string {
+// attemptEscape is one attempt, answered "allowed" or "refused: why".
+func attemptEscape(what string, arguments []string) string {
 	var err error
 	switch what {
 	case "read":
@@ -69,8 +69,8 @@ func try(what string, arguments []string) string {
 	return "allowed"
 }
 
-// run runs this binary with arguments and returns what it printed.
-func run(t *testing.T, arguments []string) string {
+// runSelfForAnswer runs this binary with arguments and returns what it printed.
+func runSelfForAnswer(t *testing.T, arguments []string) string {
 	t.Helper()
 	output, err := testutil.RunSelf(t, arguments...)
 	if err != nil {
@@ -90,8 +90,8 @@ func lastLine(output string) string {
 	return output
 }
 
-// confined runs one attempt as a confined tool given access.
-func confined(t *testing.T, access confine.Access, what string, arguments ...string) string {
+// attemptConfined runs one attempt as a confined tool given access.
+func attemptConfined(t *testing.T, access confine.Access, what string, arguments ...string) string {
 	t.Helper()
 	self, err := os.Executable()
 	if err != nil {
@@ -103,21 +103,21 @@ func confined(t *testing.T, access confine.Access, what string, arguments ...str
 	if err != nil {
 		t.Fatal(err)
 	}
-	return run(t, helperArguments(actAsShim, spec))
+	return runSelfForAnswer(t, helperArguments(actAsShim, spec))
 }
 
-// unconfined runs one attempt as a plain process.
-func unconfined(t *testing.T, what string, arguments ...string) string {
+// attemptUnconfined runs one attempt as a plain process.
+func attemptUnconfined(t *testing.T, what string, arguments ...string) string {
 	t.Helper()
-	return run(t, helperArguments(append([]string{attempt, what}, arguments...)...))
+	return runSelfForAnswer(t, helperArguments(append([]string{attempt, what}, arguments...)...))
 }
 
 // requireMechanisms fails the test where a mechanism is absent, unless the job lists it (D190 §2).
 func requireMechanisms(t *testing.T) {
 	t.Helper()
-	for _, state := range confine.Probe() {
+	for _, state := range confine.MechanismStates() {
 		var absent error
-		if !state.InForce {
+		if !state.IsInForce {
 			absent = errors.New(state.Reason + "; " + state.Remedy)
 		}
 		testutil.Require(t, state.Mechanism, absent)
@@ -146,18 +146,18 @@ func TestEscape_AConfinedToolReadsAndWritesOnlyWhatItWasGivenAndOpensNoNetwork(t
 		// Refused by our seccomp filter alone: Landlock limits TCP's connect and bind, not the socket.
 		{"inet-socket", nil},
 	} {
-		if got := unconfined(t, check.what, check.arguments...); got != "allowed" {
+		if got := attemptUnconfined(t, check.what, check.arguments...); got != "allowed" {
 			t.Fatalf("unconfined, %s %v: %s; want allowed, so the refusal below is ours (D190 §3)",
 				check.what, check.arguments, got)
 		}
-		if got := confined(t, access, check.what, check.arguments...); !strings.HasPrefix(got, "refused") {
+		if got := attemptConfined(t, access, check.what, check.arguments...); !strings.HasPrefix(got, "refused") {
 			t.Errorf("confined, %s %v: %s; want refused", check.what, check.arguments, got)
 		}
 	}
-	if got := confined(t, access, "read", source); got != "allowed" {
+	if got := attemptConfined(t, access, "read", source); got != "allowed" {
 		t.Errorf("confined, reading the source it was given: %s; want allowed", got)
 	}
-	if got := confined(t, access, "write", filepath.Join(output, "segment.m4s")); got != "allowed" {
+	if got := attemptConfined(t, access, "write", filepath.Join(output, "segment.m4s")); got != "allowed" {
 		t.Errorf("confined, writing in its output directory: %s; want allowed", got)
 	}
 }

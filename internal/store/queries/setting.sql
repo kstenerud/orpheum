@@ -39,7 +39,7 @@ INSERT INTO setting (scope, user_id, key, value_json, set_by_user_id, set_at)
 VALUES ('server', NULL, sqlc.arg(key), sqlc.arg(value_json), NULL, sqlc.arg(set_at))
 ON CONFLICT (scope, ifnull(user_id, 0), key) DO NOTHING;
 
--- name: ListSettingKeys :many
+-- name: ListAllSettings :many
 SELECT scope, user_id, key, value_json
 FROM setting
 ORDER BY scope, user_id, key;

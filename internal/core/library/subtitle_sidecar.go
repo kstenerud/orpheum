@@ -82,7 +82,7 @@ func videoOf(owner *int64, videos []sqlcgen.ListLiveFilesForAttachingRow) *sqlcg
 func (work *batch) keepSidecarTrack(
 	ctx context.Context, sidecar sqlcgen.ListLiveFilesForAttachingRow, video *sqlcgen.ListLiveFilesForAttachingRow,
 ) error {
-	existing, err := store.One(work.queries.GetSidecarStream(ctx, sidecar.ID))
+	existing, err := store.OrNotFound(work.queries.GetSidecarStream(ctx, sidecar.ID))
 	found := err == nil
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return fmt.Errorf("read the track of %s: %w", sidecar.Path, err)

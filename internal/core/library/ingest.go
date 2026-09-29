@@ -177,7 +177,7 @@ func (work *batch) scan() *scanState {
 // begin starts a scan of a root. A root no library covers is noted once and its records are
 // not stored: a file row belongs to a library (schema.md).
 func (work *batch) begin(ctx context.Context, begin *nodeproto.ScanBegin) error {
-	libraryID, err := store.One(work.queries.GetLibraryForRoot(ctx, sqlcgen.GetLibraryForRootParams{
+	libraryID, err := store.OrNotFound(work.queries.GetLibraryForRoot(ctx, sqlcgen.GetLibraryForRootParams{
 		NodeID: work.nodeID, RootPath: begin.RootPath,
 	}))
 	if errors.Is(err, store.ErrNotFound) {
@@ -238,7 +238,7 @@ func DecodeErrorDetail(text string) (ErrorDetail, error) {
 }
 
 // errorDetail is the error record's platform account, as the file row keeps it (D163).
-func errorDetail(failure *nodeproto.Error) (*string, error) {
+func errorDetail(failure *nodeproto.ScanError) (*string, error) {
 	encoded, err := json.Marshal(ErrorDetail{failure.PlatformError, failure.OccurrenceCount})
 	if err != nil {
 		return nil, fmt.Errorf("encode the error's detail: %w", err)

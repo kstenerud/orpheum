@@ -13,9 +13,9 @@ type SearchRoute string
 
 // The routes, as textindex names them.
 const (
-	SearchShort   SearchRoute = "short"
-	SearchWords   SearchRoute = "words"
-	SearchTrigram SearchRoute = "trigram"
+	SearchRouteShort   SearchRoute = "short"
+	SearchRouteWords   SearchRoute = "words"
+	SearchRouteTrigram SearchRoute = "trigram"
 )
 
 // SearchHit is one item a search found.
@@ -38,7 +38,7 @@ LEFT JOIN collection ON collection.id = item.id`
 	// The live-item check keeps only what browse would list: a title with a live file, or a series with
 	// an episode that has one. A film whose files are all gone is kept, with its history, but not
 	// shown, in search as in browse (browse.sql).
-	searchLive = `item.removed_at IS NULL AND (
+	searchLiveCondition = `item.removed_at IS NULL AND (
   (title.id IS NOT NULL AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL))
@@ -53,7 +53,7 @@ LEFT JOIN collection ON collection.id = item.id`
 FROM item_fts
 JOIN item_text ON item_text.rowid = item_fts.rowid
 ` + searchJoins + `
-WHERE item_fts MATCH ? AND ` + searchLive + `
+WHERE item_fts MATCH ? AND ` + searchLiveCondition + `
 ORDER BY bm25(item_fts), item_text.item_id
 LIMIT ?`
 
@@ -61,29 +61,29 @@ LIMIT ?`
 FROM item_fts_tri
 JOIN item_text ON item_text.rowid = item_fts_tri.rowid
 ` + searchJoins + `
-WHERE item_fts_tri MATCH ? AND ` + searchLive + `
+WHERE item_fts_tri MATCH ? AND ` + searchLiveCondition + `
 ORDER BY item_text.name, item_text.item_id
 LIMIT ?`
 
 	searchShortSQL = `SELECT ` + searchColumns + `
 FROM item_text
 ` + searchJoins + `
-WHERE instr(item_text.search_alternates, ?) > 0 AND ` + searchLive + `
+WHERE instr(item_text.search_alternates, ?) > 0 AND ` + searchLiveCondition + `
 ORDER BY item_text.name, item_text.item_id
 LIMIT ?`
 )
 
 // Search asks one index for the items matching a folded, routed query (D48), at most limit.
-func (database *Database) Search(ctx context.Context, route SearchRoute, match string, limit int64) (
+func (database *Database) Search(ctx context.Context, route SearchRoute, foldedQuery string, limit int64) (
 	hits []SearchHit, err error,
 ) {
 	statement := map[SearchRoute]string{
-		SearchShort: searchShortSQL, SearchWords: searchWordsSQL, SearchTrigram: searchTrigramSQL,
+		SearchRouteShort: searchShortSQL, SearchRouteWords: searchWordsSQL, SearchRouteTrigram: searchTrigramSQL,
 	}[route]
 	if statement == "" {
 		return nil, fmt.Errorf("search: no route %q", route)
 	}
-	rows, err := database.readers.QueryContext(ctx, statement, match, limit)
+	rows, err := database.readers.QueryContext(ctx, statement, foldedQuery, limit)
 	if err != nil {
 		return nil, fmt.Errorf("search %s: %w", route, err)
 	}

@@ -17,8 +17,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// source makes an image with the pinned FFmpeg: a test pattern of the size, in the codec.
-func source(t *testing.T, runner *execx.Runner, size, codec, format string) []byte {
+// generateSourceImage makes an image with the pinned FFmpeg: a test pattern of the size, in the codec.
+func generateSourceImage(t *testing.T, runner *execx.Runner, size, codec, format string) []byte {
 	t.Helper()
 	image, err := runner.Run(t.Context(), execx.FFmpeg, confine.Access{}, []string{
 		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=" + size + ":duration=1", "-frames:v", "1",
@@ -88,7 +88,7 @@ func dimensionsOf(t *testing.T, deriver *Deriver, encoded []byte) (width, height
 func TestDerive_AJPEGPosterBecomesOurOwnWebPAtEverySizeItIsLargeEnoughFor(t *testing.T) {
 	t.Parallel()
 	deriver, runner := newDeriver(t)
-	poster := withComment(t, source(t, runner, "900x1350", "mjpeg", "mjpeg"), "SECRET-COMMENT")
+	poster := withComment(t, generateSourceImage(t, runner, "900x1350", "mjpeg", "mjpeg"), "SECRET-COMMENT")
 	result := deriver.Derive(t.Context(), nodeproto.Artwork{
 		JobID: 7, SourceImage: poster, Shape: nodeproto.ShapePortrait, MaxSourcePixels: 40_000_000, WebPQuality: 82,
 		SizeNames: []nodeproto.ArtSizeName{"portrait-s", "portrait-m", "portrait-l"},
@@ -119,7 +119,7 @@ func TestDerive_ALandscapeSourceIsCroppedToTheExactShape(t *testing.T) {
 	t.Parallel()
 	deriver, runner := newDeriver(t)
 	// 2:1, wider than 16:9: its sides are cut, never its shape.
-	backdrop := source(t, runner, "2000x1000", "png", "image2pipe")
+	backdrop := generateSourceImage(t, runner, "2000x1000", "png", "image2pipe")
 	result := deriver.Derive(t.Context(), nodeproto.Artwork{
 		SourceImage: backdrop, Shape: nodeproto.ShapeLandscape, MaxSourcePixels: 40_000_000, WebPQuality: 82,
 		SizeNames: []nodeproto.ArtSizeName{"landscape-m"},
@@ -141,7 +141,7 @@ func TestDerive_RefusesWhatIsNotAnImageOrTooLarge(t *testing.T) {
 		t.Errorf("an HTML file: refused %q, %d images; want refused, none", notImage.Refusal, len(notImage.Images))
 	}
 	bomb := deriver.Derive(t.Context(), nodeproto.Artwork{
-		SourceImage: source(t, runner, "2000x3000", "png", "image2pipe"), Shape: nodeproto.ShapePortrait,
+		SourceImage: generateSourceImage(t, runner, "2000x3000", "png", "image2pipe"), Shape: nodeproto.ShapePortrait,
 		MaxSourcePixels: 1_000_000, WebPQuality: 82, SizeNames: []nodeproto.ArtSizeName{"portrait-s"},
 	})
 	if bomb.Refusal == "" || len(bomb.Images) != 0 {

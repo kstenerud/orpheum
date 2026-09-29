@@ -57,7 +57,7 @@ type SubtitleSink interface {
 // LoudnessSink receives a node's answer to a measure_loudness command: the measurements, or why
 // none (D226).
 type LoudnessSink interface {
-	Measured(ctx context.Context, nodeID int64, answer nodeproto.Loudness)
+	Measured(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult)
 }
 
 // Service is the core's side of the node channel (cut-a §4, D207): it enrols nodes, queues their
@@ -193,7 +193,7 @@ func enrol(
 ) (sqlcgen.GetLiveNodeByNameRow, error) {
 	var node sqlcgen.GetLiveNodeByNameRow
 	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		found, err := store.One(queries.GetLiveNodeByName(ctx, name))
+		found, err := store.OrNotFound(queries.GetLiveNodeByName(ctx, name))
 		if err == nil {
 			node = found
 			return nil

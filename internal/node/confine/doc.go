@@ -2,7 +2,7 @@
 
 // Package confine confines each FFmpeg run (cut-a §7). orpheum re-executes itself as the shim
 // (Shim), which sets no_new_privs, restricts itself with Landlock to the run's Access where the
-// kernel has it, installs a seccomp denylist, and then becomes the tool. Probe says, without
+// kernel has it, installs a seccomp denylist, and then becomes the tool. MechanismStates says, without
 // confining anything, which mechanisms this machine can put in force, translating a Landlock errno
 // into a cause and a remedy (D112). On macOS and Windows the shim is a no-op that reports
 // unconfined. It also owns MediaRoot, the read-only wrapper over os.Root through which the node
@@ -13,7 +13,7 @@
 //   - Only this package opens a media root, and MediaRoot exposes no method that writes, renames
 //     or removes. Enforced by the forbidigo rules tagged [media-root] and [delete].
 //   - MediaRoot reads through os.Root, so nothing it opens is outside the root; following a
-//     link into another root is the scanner's decision, made with Resolve and Contains (D206).
+//     link into another root is the scanner's decision, made with Resolve and RelativeIfInside (D206).
 //   - Imports nothing from internal/core. Enforced by the depguard rule node-boundary and
 //     TestArch_NodeNeverImportsCore.
 //   - A confined run reads and writes only what its Access names, beside its tool and the
@@ -39,5 +39,5 @@
 //
 //   - mediaroot.go: MediaRoot. spec.go: a run's Access and the shim's entry. landlock_linux.go:
 //     the ruleset and what it grants; seccomp_linux.go: the denylist; arch_linux_*.go: each
-//     architecture's filter details; shim_linux.go and shim_other.go: Probe and the shim.
+//     architecture's filter details; shim_linux.go and shim_other.go: MechanismStates and the shim.
 package confine

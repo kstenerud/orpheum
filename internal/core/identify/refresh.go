@@ -57,7 +57,7 @@ func refreshPeriods() map[string]settings.Key {
 // One the provider no longer has keeps our copy. An item not matched yet is matched.
 func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages bool) (Outcome, error) {
 	queries := matcher.database.Read()
-	kind, err := store.One(queries.GetItemKind(ctx, itemID))
+	kind, err := store.OrNotFound(queries.GetItemKind(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
 		return OutcomeNothingToDo, nil
 	}
@@ -67,7 +67,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages b
 	if kind == itemCollection {
 		return matcher.refreshSeries(ctx, itemID, retryImages)
 	}
-	title, err := store.One(queries.GetTitleForMatch(ctx, itemID))
+	title, err := store.OrNotFound(queries.GetTitleForMatch(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
 		return OutcomeNothingToDo, nil
 	}
@@ -75,7 +75,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages b
 		return "", fmt.Errorf("read title %d: %w", itemID, err)
 	}
 	if title.Kind == kindEpisode {
-		seriesID, seriesErr := store.One(queries.GetSeriesOfTitle(ctx, itemID))
+		seriesID, seriesErr := store.OrNotFound(queries.GetSeriesOfTitle(ctx, itemID))
 		if seriesErr != nil {
 			return OutcomeNothingToDo, nil //nolint:nilerr // an episode with no series has nothing to refresh
 		}
@@ -103,7 +103,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages b
 // refreshSeries fetches a matched series' record and each season listing it keeps.
 func (matcher *Matcher) refreshSeries(ctx context.Context, seriesID int64, retryImages bool) (Outcome, error) {
 	queries := matcher.database.Read()
-	series, err := store.One(queries.GetSeriesForMatch(ctx, seriesID))
+	series, err := store.OrNotFound(queries.GetSeriesForMatch(ctx, seriesID))
 	if errors.Is(err, store.ErrNotFound) {
 		return OutcomeNothingToDo, nil
 	}
@@ -210,7 +210,7 @@ func (matcher *Matcher) kept(ctx context.Context, libraryID *int64, gone keptPar
 
 func (matcher *Matcher) touch(ctx context.Context, gone keptPart) error {
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.TouchProviderResponse(ctx, sqlcgen.TouchProviderResponseParams{
+		return queries.MarkProviderResponseAsked(ctx, sqlcgen.MarkProviderResponseAskedParams{
 			FetchedAt: matcher.clock.Now().UnixMilli(), ItemID: gone.itemID, Provider: gone.provider, Part: gone.part,
 		})
 	})
@@ -240,7 +240,7 @@ func (matcher *Matcher) retryImages(ctx context.Context, itemIDs ...int64) error
 }
 
 func (matcher *Matcher) retrySeriesImages(ctx context.Context, seriesID int64) error {
-	episodes, err := matcher.database.Read().ListSeriesEpisodes(ctx, seriesID)
+	episodes, err := matcher.database.Read().ListLiveSeriesEpisodeSources(ctx, seriesID)
 	if err != nil {
 		return fmt.Errorf("list series %d's episodes: %w", seriesID, err)
 	}
@@ -281,7 +281,7 @@ func NewRefresher(
 // Request queues a person's refresh of a title or series, with its missing images asked for
 // again, and reports whether one was queued rather than already waiting.
 func (refresher *Refresher) Request(ctx context.Context, itemID int64) (bool, error) {
-	if _, err := store.One(refresher.database.Read().GetItemKind(ctx, itemID)); err != nil {
+	if _, err := store.OrNotFound(refresher.database.Read().GetItemKind(ctx, itemID)); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return false, fmt.Errorf("item %d: %w", itemID, ErrNoItem)
 		}

@@ -281,7 +281,7 @@ func classOf(name, base string, live bool) class {
 		return classRemoved
 	case size.Name == nodeproto.PortraitM || size.Name == size.Shape.Sizes()[0].Name:
 		return classKept // the poster wall's size, and the smallest of each shape
-	case size.OnRequest:
+	case size.IsMadeOnRequest:
 		return classOnDemand
 	case name == base:
 		return classBase

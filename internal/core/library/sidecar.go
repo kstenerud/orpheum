@@ -47,9 +47,10 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 		}
 		hash, payloadBytes = decoded, &sidecar.Identity.PayloadBytes
 	}
-	existing, err := store.One(work.queries.GetLiveFileByKey(ctx, sqlcgen.GetLiveFileByKeyParams{
-		NodeID: work.nodeID, ReportedPathBytes: located.key,
-	}))
+	existing, err := store.OrNotFound(work.queries.GetLiveFileByReportedPathBytes(ctx,
+		sqlcgen.GetLiveFileByReportedPathBytesParams{
+			NodeID: work.nodeID, ReportedPathBytes: located.key,
+		}))
 	if err == nil {
 		err = work.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
 			LibraryID: scan.libraryID, SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt,

@@ -9,7 +9,7 @@ import (
 	"context"
 )
 
-const getLastFileID = `-- name: GetLastFileID :one
+const getMaxFileID = `-- name: GetMaxFileID :one
 
 SELECT CAST(COALESCE(MAX(id), 0) AS INTEGER) AS last_id FROM file
 `
@@ -17,8 +17,8 @@ SELECT CAST(COALESCE(MAX(id), 0) AS INTEGER) AS last_id FROM file
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Each audio track's loudness, as the node measured it (D226 sections 1 and 2).
 // The highest file id, where a sweep for files to measure stops.
-func (q *Queries) GetLastFileID(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getLastFileID)
+func (q *Queries) GetMaxFileID(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getMaxFileID)
 	var last_id int64
 	err := row.Scan(&last_id)
 	return last_id, err
@@ -35,15 +35,15 @@ ORDER BY f.id
 `
 
 type ListFilesToMeasureParams struct {
-	After   int64
-	Through int64
+	AfterID   int64
+	ThroughID int64
 }
 
-// The live videos with sound whose bytes have no loudness yet, among the ids after after and up to
-// through: a sweep reads the files a range of ids at a time, by the primary key, so no one query
+// The live videos with sound whose bytes have no loudness yet, among the ids after after_id and up to
+// through_id: a sweep reads the files a range of ids at a time, by the primary key, so no one query
 // reads them all.
 func (q *Queries) ListFilesToMeasure(ctx context.Context, arg ListFilesToMeasureParams) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, listFilesToMeasure, arg.After, arg.Through)
+	rows, err := q.db.QueryContext(ctx, listFilesToMeasure, arg.AfterID, arg.ThroughID)
 	if err != nil {
 		return nil, err
 	}

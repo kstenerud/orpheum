@@ -133,9 +133,9 @@ func (database *Database) transact(ctx context.Context, change func(transaction 
 	return nil
 }
 
-// One turns a generated query's "no rows" into ErrNotFound, so callers outside the store can
+// OrNotFound turns a generated query's "no rows" into ErrNotFound, so callers outside the store can
 // test for absence without importing database/sql.
-func One[Row any](row Row, err error) (Row, error) {
+func OrNotFound[Row any](row Row, err error) (Row, error) {
 	if errors.Is(err, sql.ErrNoRows) {
 		return row, ErrNotFound
 	}
@@ -143,17 +143,17 @@ func One[Row any](row Row, err error) (Row, error) {
 }
 
 // verify reads back every pragma on both pools and checks the application_id.
-func (database *Database) verify(ctx context.Context, want int64) error {
+func (database *Database) verify(ctx context.Context, wantApplicationID int64) error {
 	for _, pool := range []*sql.DB{database.writer, database.readers} {
 		if err := verifyPragmas(ctx, pool); err != nil {
 			return fmt.Errorf("database %q: %w", database.path, err)
 		}
 	}
-	isEmpty, applicationID, err := database.identity(ctx)
+	isEmpty, applicationID, err := database.emptinessAndApplicationID(ctx)
 	if err != nil {
 		return err
 	}
-	if applicationID != want && !isEmpty {
+	if applicationID != wantApplicationID && !isEmpty {
 		return fmt.Errorf("database %q: %w (found %d)", database.path, ErrNotOurs, applicationID)
 	}
 	return nil
@@ -193,14 +193,17 @@ func verifyPragmas(ctx context.Context, pool *sql.DB) error {
 	return nil
 }
 
-// identity reports whether the file has no schema at all, and its application_id.
-func (database *Database) identity(ctx context.Context) (isEmpty bool, applicationID int64, err error) {
-	var objects int64
-	if err := database.readers.QueryRowContext(ctx, "SELECT count(*) FROM sqlite_schema").Scan(&objects); err != nil {
+// emptinessAndApplicationID reports whether the file has no schema at all, and its application_id.
+func (database *Database) emptinessAndApplicationID(
+	ctx context.Context,
+) (isEmpty bool, applicationID int64, err error) {
+	var schemaObjectCount int64
+	const countObjects = "SELECT count(*) FROM sqlite_schema"
+	if err := database.readers.QueryRowContext(ctx, countObjects).Scan(&schemaObjectCount); err != nil {
 		return false, 0, fmt.Errorf("database %q: count schema objects: %w", database.path, err)
 	}
 	if err := database.readers.QueryRowContext(ctx, "PRAGMA application_id").Scan(&applicationID); err != nil {
 		return false, 0, fmt.Errorf("database %q: read application_id: %w", database.path, err)
 	}
-	return objects == 0, applicationID, nil
+	return schemaObjectCount == 0, applicationID, nil
 }

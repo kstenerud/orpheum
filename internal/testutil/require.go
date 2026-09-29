@@ -9,31 +9,32 @@ import (
 	"testing"
 )
 
-// UncontrolledVariable names the comma-separated list of capabilities a job may run without.
+// UncontrolledCapabilitiesVariable names the comma-separated list of capabilities a job may run
+// without.
 // It is set per CI step or lab job, never in a developer's shell profile (testing.md §3).
-const UncontrolledVariable = "ORPHEUM_TEST_UNCONTROLLED"
+const UncontrolledCapabilitiesVariable = "ORPHEUM_TEST_UNCONTROLLED"
 
-// Require declares that the test needs capability. The error absent is nil when the capability
+// Require declares that the test needs capability. The error whyAbsent is nil when the capability
 // is present, and otherwise says why it is not; Require then fails the test, or skips it when
 // the job lists capability in ORPHEUM_TEST_UNCONTROLLED.
-func Require(tb testing.TB, capability string, absent error) {
+func Require(tb testing.TB, capability string, whyAbsent error) {
 	tb.Helper()
-	require(tb, os.Getenv(UncontrolledVariable), capability, absent)
+	require(tb, os.Getenv(UncontrolledCapabilitiesVariable), capability, whyAbsent)
 }
 
-func require(tb testing.TB, uncontrolled, capability string, absent error) {
+func require(tb testing.TB, uncontrolled, capability string, whyAbsent error) {
 	tb.Helper()
-	if absent == nil {
+	if whyAbsent == nil {
 		return
 	}
 	listed := uncontrolledList(uncontrolled)
 	if slices.Contains(listed, capability) {
 		tb.Skipf("%s is absent, and this job lists it in %s=%s: %v",
-			capability, UncontrolledVariable, uncontrolled, absent)
+			capability, UncontrolledCapabilitiesVariable, uncontrolled, whyAbsent)
 		return
 	}
 	tb.Fatalf("%s is absent: %v. A missing capability fails (D190 §2); only a CI step or lab job "+
-		"that cannot provide it lists it in %s", capability, absent, UncontrolledVariable)
+		"that cannot provide it lists it in %s", capability, whyAbsent, UncontrolledCapabilitiesVariable)
 }
 
 func uncontrolledList(value string) []string {

@@ -20,7 +20,7 @@ func testOpenOptions() OpenOptions {
 
 // testMigrateOptions are the runner options these tests use, snapshotting into directory.
 func testMigrateOptions(directory string) MigrateOptions {
-	return MigrateOptions{SnapshotDirectory: directory, SpaceFactor: 3}
+	return MigrateOptions{SnapshotDirectory: directory, FreeSpaceDatabaseMultiple: 3}
 }
 
 // openTemporary opens a new database in the test's temporary directory.
@@ -82,7 +82,7 @@ func TestOpen_RefusesAFileThatIsNotOurs(t *testing.T) {
 
 	// Positive siblings: an empty file and one of ours both open.
 	empty := openTemporary(t)
-	err = empty.Migrate(t.Context(), MigrateOptions{SpaceFactor: 3})
+	err = empty.Migrate(t.Context(), MigrateOptions{FreeSpaceDatabaseMultiple: 3})
 	if err != nil {
 		t.Fatalf("Migrate a new file: %v", err)
 	}
@@ -196,13 +196,13 @@ func TestWrite_RollsBackWhenTheChangeFails(t *testing.T) {
 func TestOne_TurnsNoRowsIntoErrNotFound(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
-	_, err := One(database.Read().GetLiveUserByName(t.Context(), "nobody"))
+	_, err := OrNotFound(database.Read().GetLiveUserByName(t.Context(), "nobody"))
 	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("One(missing user) error = %v, want ErrNotFound", err)
+		t.Errorf("OrNotFound(missing user) error = %v, want ErrNotFound", err)
 	}
-	role, err := One(database.Read().GetRoleByName(t.Context(), "admin"))
+	role, err := OrNotFound(database.Read().GetRoleByName(t.Context(), "admin"))
 	if err != nil || role.Name != "admin" {
-		t.Errorf("One(admin role) = %v, %v; want the built-in admin role", role, err)
+		t.Errorf("OrNotFound(admin role) = %v, %v; want the built-in admin role", role, err)
 	}
 }
 
@@ -214,10 +214,10 @@ func TestOpen_RefusesOptionsNobodyChose(t *testing.T) {
 	}
 	database := openMigrated(t)
 	if err = database.requireSpaceToMigrate(t.Context(), t.TempDir(), 0); err == nil ||
-		!strings.Contains(err.Error(), "space factor is 0") {
-		t.Errorf("a space factor of 0 = %v, want a refusal", err)
+		!strings.Contains(err.Error(), "database multiple is 0") {
+		t.Errorf("a free-space database multiple of 0 = %v, want a refusal", err)
 	}
 	if err = database.requireSpaceToMigrate(t.Context(), t.TempDir(), 3); err != nil {
-		t.Errorf("a space factor of 3 with room to spare = %v, want nil", err)
+		t.Errorf("a free-space database multiple of 3 with room to spare = %v, want nil", err)
 	}
 }

@@ -71,8 +71,8 @@ func TestArguments_EachMixOfAMeasuredTrackCarriesItsLevellingGain(t *testing.T) 
 	}
 	arguments := prepare.Arguments("/media/film.mkv", "/prep/7/remux/0123456789abcdef", command, prepare.EncoderX264)
 	for slot, want := range []string{
-		prepare.StandardMix + ",volume=12.7dB", ",volume=12.7dB", prepare.StereoMix + ",volume=-3.4dB",
-		prepare.StereoMix,
+		prepare.StandardMix + ",volume=12.7dB", ",volume=12.7dB", prepare.StereoAsIsMix + ",volume=-3.4dB",
+		prepare.StereoAsIsMix,
 	} {
 		got := after(arguments, "-filter:a:"+strconv.Itoa(slot))
 		if !strings.HasSuffix(got, want) || (slot == 3 && strings.Contains(got, "volume")) {

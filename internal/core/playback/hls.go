@@ -74,9 +74,10 @@ func (service *Service) HLS(
 	if !found || playback.profile == "" {
 		return HLSSource{}, ErrNoToken
 	}
-	rendition, err := store.One(service.prepares.cache.Read().GetRendition(ctx, cachegen.GetRenditionParams{
-		SourceFile: playback.fileID, Profile: string(playback.profile),
-	}))
+	rendition, err := store.OrNotFound(service.prepares.cache.Read().GetRenditionOfFileAndProfile(ctx,
+		cachegen.GetRenditionOfFileAndProfileParams{
+			SourceFile: playback.fileID, Profile: string(playback.profile),
+		}))
 	if errors.Is(err, store.ErrNotFound) {
 		return HLSSource{}, ErrNoToken
 	}
@@ -122,7 +123,7 @@ func hlsType(name string) string {
 // HandlePrepare runs one prepare job (jobs.KindPrepare): the node that holds the source makes the
 // rendition, and this waits for it.
 func (service *Service) HandlePrepare(ctx context.Context, job jobs.Job) error {
-	rendition, err := store.One(service.prepares.cache.Read().GetRenditionByID(ctx, job.RenditionID))
+	rendition, err := store.OrNotFound(service.prepares.cache.Read().GetRenditionByID(ctx, job.RenditionID))
 	if errors.Is(err, store.ErrNotFound) {
 		return jobs.Permanent(fmt.Errorf("no rendition %d", job.RenditionID))
 	}

@@ -19,19 +19,20 @@ func NewClient(timeout time.Duration, version string) (*http.Client, error) {
 	}
 	transport := base.Clone()
 	transport.Proxy = nil
-	return &http.Client{Transport: identified{Transport: transport, agent: "Orpheum/" + version}, Timeout: timeout}, nil
+	identified := userAgentTransport{Transport: transport, userAgent: "Orpheum/" + version}
+	return &http.Client{Transport: identified, Timeout: timeout}, nil
 }
 
-// identified sends every request with our User-Agent: a provider's terms ask an application
+// userAgentTransport sends every request with our User-Agent: a provider's terms ask an application
 // not to conceal who it is (TMDB's §1.C).
-type identified struct {
+type userAgentTransport struct {
 	*http.Transport
-	agent string
+	userAgent string
 }
 
 // RoundTrip sends a copy of the request that carries the User-Agent.
-func (transport identified) RoundTrip(request *http.Request) (*http.Response, error) {
+func (transport userAgentTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	named := request.Clone(request.Context())
-	named.Header.Set("User-Agent", transport.agent)
+	named.Header.Set("User-Agent", transport.userAgent)
 	return transport.Transport.RoundTrip(named)
 }

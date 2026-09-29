@@ -43,15 +43,16 @@ func TestFromBuildInfo_IsTheTagOrDevAndTheCommitAndWhetherTheTreeWasModified(t *
 
 func TestIsSame_TrustsTheBinarysHashElseAnUnmodifiedCommit(t *testing.T) {
 	t.Parallel()
-	release := Info{Version: "v1.2.0", Commit: "abc"}
-	if !release.IsSame(release) || release.IsSame(Info{Version: "v1.1.0", Commit: "def"}) {
+	release := Provenance{Version: "v1.2.0", Commit: "abc"}
+	if !release.IsSame(release) || release.IsSame(Provenance{Version: "v1.1.0", Commit: "def"}) {
 		t.Error("an unmodified build is not told apart from another by its version and commit")
 	}
-	modified := Info{Version: dev, Commit: "abc", IsModified: true}
+	modified := Provenance{Version: devVersion, Commit: "abc", IsModified: true}
 	if modified.IsSame(modified) {
 		t.Error("two modified builds of one commit are called the same, though they may differ")
 	}
-	if !modified.Hashed("h1").IsSame(modified.Hashed("h1")) || release.Hashed("h1").IsSame(release.Hashed("h2")) {
+	if !modified.WithBinarySHA256("h1").IsSame(modified.WithBinarySHA256("h1")) ||
+		release.WithBinarySHA256("h1").IsSame(release.WithBinarySHA256("h2")) {
 		t.Error("the binaries' hashes do not decide when both are known")
 	}
 }

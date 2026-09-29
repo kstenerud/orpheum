@@ -17,16 +17,17 @@ import (
 func GPUs() []nodeproto.GPU { return gpusUnder("/dev", "/sys/class/drm") }
 
 // gpusUnder is GPUs with the device and DRM class directories named, so a test can build them.
-func gpusUnder(devices, drm string) []nodeproto.GPU {
+func gpusUnder(devDirectory, drmClassDirectory string) []nodeproto.GPU {
 	var found []nodeproto.GPU
-	renderNodes, _ := filepath.Glob(filepath.Join(devices, "dri", "renderD*")) //nolint:errcheck // a fixed pattern
+	renderNodes, _ := filepath.Glob(filepath.Join(devDirectory, "dri", "renderD*")) //nolint:errcheck // a fixed pattern
 	for _, device := range renderNodes {
-		driver := driverOf(filepath.Join(drm, filepath.Base(device), "device", "driver"))
-		found = append(found, nodeproto.GPU{DevicePath: device, Driver: driver, NoAccessReason: noAccess(device)})
+		driver := driverOf(filepath.Join(drmClassDirectory, filepath.Base(device), "device", "driver"))
+		found = append(found, nodeproto.GPU{DevicePath: device, Driver: driver, NoAccessReason: noAccessReason(device)})
 	}
-	nvidia, _ := filepath.Glob(filepath.Join(devices, "nvidia[0-9]*")) //nolint:errcheck // a fixed pattern
-	for _, device := range nvidia {
-		found = append(found, nodeproto.GPU{DevicePath: device, Driver: "nvidia", NoAccessReason: noAccess(device)})
+	nvidiaDevices, _ := filepath.Glob(filepath.Join(devDirectory, "nvidia[0-9]*")) //nolint:errcheck // a fixed pattern
+	for _, device := range nvidiaDevices {
+		found = append(found,
+			nodeproto.GPU{DevicePath: device, Driver: "nvidia", NoAccessReason: noAccessReason(device)})
 	}
 	slices.SortFunc(found, func(one, other nodeproto.GPU) int {
 		if one.DevicePath < other.DevicePath {
@@ -49,9 +50,9 @@ func driverOf(link string) string {
 	return filepath.Base(target)
 }
 
-// noAccess is why the node's user may not open device for reading and writing, or empty when it
+// noAccessReason is why the node's user may not open device for reading and writing, or empty when it
 // may: most often that the user is not in the group that owns it (render, video).
-func noAccess(device string) string {
+func noAccessReason(device string) string {
 	if err := unix.Access(device, unix.R_OK|unix.W_OK); err != nil {
 		return err.Error()
 	}

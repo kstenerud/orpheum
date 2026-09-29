@@ -25,13 +25,13 @@ const maxProbeBytes = 64 << 10
 // Deriver re-encodes images with the bundled FFmpeg, one run at a time, each bounded by the
 // timeout (D212 §1).
 type Deriver struct {
-	runner  *execx.Runner
-	timeout time.Duration
+	runner        *execx.Runner
+	perRunTimeout time.Duration
 }
 
 // NewDeriver returns the deriver.
 func NewDeriver(runner *execx.Runner, timeout time.Duration) *Deriver {
-	return &Deriver{runner: runner, timeout: timeout}
+	return &Deriver{runner: runner, perRunTimeout: timeout}
 }
 
 // Derive answers an artwork command: every size it asked for that the source is large enough
@@ -63,7 +63,7 @@ func (deriver *Deriver) Derive(ctx context.Context, command nodeproto.Artwork) n
 
 // dimensions are the first video stream's, read from the header on the pipe.
 func (deriver *Deriver) dimensions(ctx context.Context, source []byte) (width, height int, err error) {
-	ctx, cancel := context.WithTimeout(ctx, deriver.timeout)
+	ctx, cancel := context.WithTimeout(ctx, deriver.perRunTimeout)
 	defer cancel()
 	output, runErr := deriver.runner.RunInput(ctx, execx.FFprobe, confine.Access{}, []string{
 		"-v", "error", "-protocol_whitelist", "pipe", "-select_streams", "v:0",
@@ -89,7 +89,7 @@ func (deriver *Deriver) dimensions(ctx context.Context, source []byte) (width, h
 
 // encode makes one size: the first frame only, every metadata block dropped, our WebP out.
 func (deriver *Deriver) encode(ctx context.Context, source []byte, filter string, quality int) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, deriver.timeout)
+	ctx, cancel := context.WithTimeout(ctx, deriver.perRunTimeout)
 	defer cancel()
 	encoded, err := deriver.runner.RunInput(ctx, execx.FFmpeg, confine.Access{}, []string{
 		"-v", "error", "-protocol_whitelist", "pipe", "-i", "pipe:0",
@@ -102,8 +102,8 @@ func (deriver *Deriver) encode(ctx context.Context, source []byte, filter string
 	return encoded, nil
 }
 
-// planned is one size to make, and the filter that makes it.
-type planned struct {
+// plannedSize is one size to make, and the filter that makes it.
+type plannedSize struct {
 	name   nodeproto.ArtSizeName
 	filter string
 }
@@ -111,25 +111,25 @@ type planned struct {
 // plan chooses what to make of a source: the sizes asked for, of the command's shape, that the
 // source is large enough for — never an upscale — and always the shape's smallest, so every
 // image has one size, cut without scaling up when the source is smaller than it.
-func plan(shape nodeproto.Shape, names []nodeproto.ArtSizeName, width, height int) []planned {
-	var sizes []planned
-	smallest := true
+func plan(shape nodeproto.Shape, names []nodeproto.ArtSizeName, width, height int) []plannedSize {
+	var sizes []plannedSize
+	isNextSmallest := true
 	for _, size := range shape.Sizes() {
-		first := smallest
-		smallest = false
+		isShapeSmallest := isNextSmallest
+		isNextSmallest = false
 		if !slices.Contains(names, size.Name) {
 			continue
 		}
-		fits := width >= size.Width && height >= size.Height
+		isLargeEnough := width >= size.Width && height >= size.Height
 		switch {
 		case shape == nodeproto.ShapeLogo:
-			if fits || first {
-				sizes = append(sizes, planned{name: size.Name, filter: fitWithin(size)})
+			if isLargeEnough || isShapeSmallest {
+				sizes = append(sizes, plannedSize{name: size.Name, filter: fitWithin(size)})
 			}
-		case fits:
-			sizes = append(sizes, planned{name: size.Name, filter: coverCrop(size)})
-		case first:
-			sizes = append(sizes, planned{name: size.Name, filter: cropToShape(size)})
+		case isLargeEnough:
+			sizes = append(sizes, plannedSize{name: size.Name, filter: coverCrop(size)})
+		case isShapeSmallest:
+			sizes = append(sizes, plannedSize{name: size.Name, filter: cropToShape(size)})
 		}
 	}
 	return sizes

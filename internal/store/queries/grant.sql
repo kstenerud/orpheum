@@ -21,13 +21,13 @@ WHERE secret_sha256 = sqlc.arg(secret_sha256);
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
 WHERE secret_sha256 = sqlc.arg(secret_sha256) AND revoked_at IS NULL;
 
--- name: RevokeLiveGrantsOf :exec
+-- name: RevokeLiveGrantsOfUser :exec
 -- A person's live grants of one kind and scope: an older registration link, when a new one is
 -- made (D218).
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
 WHERE user_id = sqlc.arg(user_id) AND kind = sqlc.arg(kind) AND scope = sqlc.arg(scope) AND revoked_at IS NULL;
 
--- name: GetLiveGrantOf :one
+-- name: GetLatestLiveGrantOfUser :one
 -- A person's live grant of one kind and scope: the device code still waiting (D221).
 SELECT secret_sha256, device_name, device_id, expires_at FROM "grant"
 WHERE user_id = sqlc.arg(user_id) AND kind = sqlc.arg(kind) AND scope = sqlc.arg(scope) AND revoked_at IS NULL

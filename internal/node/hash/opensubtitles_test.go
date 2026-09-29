@@ -18,7 +18,7 @@ func TestOpenSubtitles_IsTheSizePlusTheWordsOfBothEndsAsSixteenHexDigits(t *test
 	binary.LittleEndian.PutUint64(file[8:], 0x0102030405060708)
 	binary.LittleEndian.PutUint64(file[size-16:], 0xfffffffffffffff0) // wraps
 	binary.LittleEndian.PutUint64(file[100_000:], 0xdead)
-	got, err := hash.OpenSubtitles(bytes.NewReader(file), size)
+	got, err := hash.OpenSubtitlesHash(bytes.NewReader(file), size)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestOpenSubtitles_IsTheSizePlusTheWordsOfBothEndsAsSixteenHexDigits(t *test
 	if want := "0102030405091438"; got != want {
 		t.Errorf("OpenSubtitles = %q, want %q: the size plus both ends' words, wrapping (D224 §3)", got, want)
 	}
-	if small, err := hash.OpenSubtitles(bytes.NewReader(file[:131_072]), 131_072); err != nil || small != "" {
+	if small, err := hash.OpenSubtitlesHash(bytes.NewReader(file[:131_072]), 131_072); err != nil || small != "" {
 		t.Errorf("a file of 128 KiB = %q, %v; want none, as OpenSubtitles hashes only larger files", small, err)
 	}
 }

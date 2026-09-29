@@ -18,11 +18,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// recorded is ffprobe 8.1.2's output for a synthetic two-second Matroska file made by the
+// recordedFFprobeOutput is ffprobe 8.1.2's output for a synthetic two-second Matroska file made by the
 // pinned FFmpeg (never the owner's library, D203): H.264 video, German AAC titled
 // "Deutsch (Stereo)", a forced English ASS track titled "Signs & Songs", an attached font and
 // two chapters.
-func recorded(t *testing.T) []byte {
+func recordedFFprobeOutput(t *testing.T) []byte {
 	t.Helper()
 	output, err := os.ReadFile("testdata/matroska-h264-aac-ass.json")
 	if err != nil {
@@ -33,7 +33,7 @@ func recorded(t *testing.T) []byte {
 
 func TestParse_ARecordedMatroskaFile(t *testing.T) {
 	t.Parallel()
-	record, err := Parse(recorded(t))
+	record, err := Parse(recordedFFprobeOutput(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +211,7 @@ func TestParse_NonsenseNumbersAreZero(t *testing.T) {
 
 func TestProbe_RunsFFprobeOnTheFileProtocolOnly(t *testing.T) {
 	t.Parallel()
-	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: string(recorded(t))})
+	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: string(recordedFFprobeOutput(t))})
 	runner, err := execx.NewRunner(fake.Directory)
 	if err != nil {
 		t.Fatal(err)
@@ -243,8 +243,8 @@ func TestProbe_RunsFFprobeOnTheFileProtocolOnly(t *testing.T) {
 func TestProbe_AFailedProbeSaysWhy(t *testing.T) {
 	t.Parallel()
 	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{
-		Stderr: "file:/media/broken.mkv: Invalid data found when processing input\n",
-		Status: 1,
+		Stderr:     "file:/media/broken.mkv: Invalid data found when processing input\n",
+		ExitStatus: 1,
 	})
 	runner, err := execx.NewRunner(fake.Directory)
 	if err != nil {
@@ -252,7 +252,7 @@ func TestProbe_AFailedProbeSaysWhy(t *testing.T) {
 	}
 	_, err = NewProber(runner, time.Minute).Probe(t.Context(), "/media/broken.mkv")
 	failure, isRunError := errors.AsType[*execx.RunError](err)
-	if !isRunError || failure.Status != 1 || !strings.Contains(err.Error(), "Invalid data found") {
+	if !isRunError || failure.ExitStatus != 1 || !strings.Contains(err.Error(), "Invalid data found") {
 		t.Errorf("error = %v, want ffprobe's status and its reason", err)
 	}
 }

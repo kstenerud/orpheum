@@ -83,7 +83,7 @@ func (service *Service) SubtitleCandidates(ctx context.Context, fileID int64, la
 func (service *Service) subtitleQuery(
 	ctx context.Context, fileID int64, language string,
 ) (query opensubtitles.Query, hasIDs bool, err error) {
-	found, err := store.One(service.database.Read().GetFileForSubtitleSearch(ctx, fileID))
+	found, err := store.OrNotFound(service.database.Read().GetFileForSubtitleSearch(ctx, fileID))
 	if err != nil {
 		return opensubtitles.Query{}, false, fmt.Errorf("read file %d: %w", fileID, err)
 	}
@@ -92,7 +92,7 @@ func (service *Service) subtitleQuery(
 	}
 	switch {
 	case found.TitleID != nil && ptr.ValueOrZero(found.TitleKind) == "episode":
-		place, placeErr := store.One(service.database.Read().GetEpisodePlace(ctx, *found.TitleID))
+		place, placeErr := store.OrNotFound(service.database.Read().GetEpisodePlace(ctx, *found.TitleID))
 		if placeErr != nil && !errors.Is(placeErr, store.ErrNotFound) {
 			return opensubtitles.Query{}, false, fmt.Errorf("read the place of title %d: %w", *found.TitleID, placeErr)
 		}
@@ -230,7 +230,7 @@ func fetchedKey(body []byte) cachegen.GetSubtitleTextParams {
 // HandleFetchedSubtitle runs one conversion job (jobs.KindConvertFetchedSubtitle): the node that
 // holds the video converts the fetched text, since hostile input is parsed on a node (D224 §5).
 func (service *Service) HandleFetchedSubtitle(ctx context.Context, job jobs.Job) error {
-	fetched, err := store.One(service.database.Read().GetFetchedSubtitle(ctx, job.FetchedSubtitleID))
+	fetched, err := store.OrNotFound(service.database.Read().GetFetchedSubtitle(ctx, job.FetchedSubtitleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return jobs.Permanent(fmt.Errorf("no fetched subtitle %d, or its video is gone", job.FetchedSubtitleID))
 	}

@@ -32,7 +32,7 @@ type fixture struct {
 
 func newFixture(t *testing.T) fixture {
 	t.Helper()
-	database := storetest.Open(t)
+	database := storetest.OpenMigrated(t)
 	now := clocktest.NewFake(time.Date(2026, time.September, 24, 12, 0, 0, 0, time.UTC))
 	seeded := settingstest.Seeded(t, database)
 	return fixture{

@@ -79,7 +79,8 @@ func (world *shelf) film(text, path string) int64 {
 		if err != nil {
 			return err
 		}
-		return queries.SetFileVersion(world.t.Context(), sqlcgen.SetFileVersionParams{VersionID: &version, ID: fileID})
+		return queries.SetFileVersionAndIdentifiedPath(world.t.Context(),
+			sqlcgen.SetFileVersionAndIdentifiedPathParams{VersionID: &version, ID: fileID})
 	})
 	if err != nil {
 		world.t.Fatal(err)

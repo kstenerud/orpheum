@@ -35,7 +35,7 @@ func Create(ctx context.Context, database *store.Database, clockSource clock.Clo
 	library.Name = textindex.Line(library.Name) // a person's text is shown to others (D211 §2)
 	var id int64
 	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		_, err := store.One(queries.GetLiveLibraryByName(ctx, library.Name))
+		_, err := store.OrNotFound(queries.GetLiveLibraryByName(ctx, library.Name))
 		if err == nil {
 			return fmt.Errorf("%w: %q", ErrExists, library.Name)
 		}

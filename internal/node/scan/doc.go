@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Package scan walks a media root, read-only, and reports what it observes as JSONL records:
-// scan_begin, observed, gone, skip, error and scan_complete. It reports; the core decides. Roots
-// are configured on the node and never remotely.
+// scan_begin, observed, sidecar, mount, skip, error and scan_complete. It reports; the core
+// decides. Roots are configured on the node and never remotely.
 //
 // # Invariants
 //

@@ -16,8 +16,8 @@ import (
 // renditionFile puts one file of film 2's remux, in its current run, on the fake node.
 func (harness testHarness) renditionFile(t *testing.T, name, contents string) {
 	t.Helper()
-	rendition, err := harness.cache.Read().GetRendition(t.Context(),
-		cachegen.GetRenditionParams{SourceFile: 2, Profile: "remux"})
+	rendition, err := harness.cache.Read().GetRenditionOfFileAndProfile(t.Context(),
+		cachegen.GetRenditionOfFileAndProfileParams{SourceFile: 2, Profile: "remux"})
 	if err != nil {
 		t.Fatal(err)
 	}

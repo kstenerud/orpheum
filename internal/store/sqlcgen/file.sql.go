@@ -76,7 +76,7 @@ func (q *Queries) GetFilePath(ctx context.Context, id int64) (string, error) {
 	return path, err
 }
 
-const getLatestTombstoneByHash = `-- name: GetLatestTombstoneByHash :one
+const getLatestTombstoneByPayloadHash = `-- name: GetLatestTombstoneByPayloadHash :one
 SELECT id
 FROM file
 WHERE library_id = ? AND payload_hash = ? AND removed_at IS NOT NULL
@@ -84,14 +84,14 @@ ORDER BY removed_at DESC, id DESC
 LIMIT 1
 `
 
-type GetLatestTombstoneByHashParams struct {
+type GetLatestTombstoneByPayloadHashParams struct {
 	LibraryID   int64
 	PayloadHash []byte
 }
 
 // The file a returning payload revives (D208): the latest removed in the library.
-func (q *Queries) GetLatestTombstoneByHash(ctx context.Context, arg GetLatestTombstoneByHashParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getLatestTombstoneByHash, arg.LibraryID, arg.PayloadHash)
+func (q *Queries) GetLatestTombstoneByPayloadHash(ctx context.Context, arg GetLatestTombstoneByPayloadHashParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getLatestTombstoneByPayloadHash, arg.LibraryID, arg.PayloadHash)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -121,18 +121,18 @@ func (q *Queries) GetLibraryForRoot(ctx context.Context, arg GetLibraryForRootPa
 	return library_id, err
 }
 
-const getLiveFileByKey = `-- name: GetLiveFileByKey :one
+const getLiveFileByReportedPathBytes = `-- name: GetLiveFileByReportedPathBytes :one
 SELECT id, payload_hash, last_seen_at
 FROM file
 WHERE node_id = ?1 AND reported_path_bytes = ?2 AND removed_at IS NULL
 `
 
-type GetLiveFileByKeyParams struct {
+type GetLiveFileByReportedPathBytesParams struct {
 	NodeID            int64
 	ReportedPathBytes []byte
 }
 
-type GetLiveFileByKeyRow struct {
+type GetLiveFileByReportedPathBytesRow struct {
 	ID          int64
 	PayloadHash []byte
 	LastSeenAt  int64
@@ -140,9 +140,9 @@ type GetLiveFileByKeyRow struct {
 
 // A live file by the bytes its node reported (D211): two names that are one NFC text are two
 // files.
-func (q *Queries) GetLiveFileByKey(ctx context.Context, arg GetLiveFileByKeyParams) (GetLiveFileByKeyRow, error) {
-	row := q.db.QueryRowContext(ctx, getLiveFileByKey, arg.NodeID, arg.ReportedPathBytes)
-	var i GetLiveFileByKeyRow
+func (q *Queries) GetLiveFileByReportedPathBytes(ctx context.Context, arg GetLiveFileByReportedPathBytesParams) (GetLiveFileByReportedPathBytesRow, error) {
+	row := q.db.QueryRowContext(ctx, getLiveFileByReportedPathBytes, arg.NodeID, arg.ReportedPathBytes)
+	var i GetLiveFileByReportedPathBytesRow
 	err := row.Scan(&i.ID, &i.PayloadHash, &i.LastSeenAt)
 	return i, err
 }
@@ -421,47 +421,6 @@ func (q *Queries) ListLibraryRootsOnNode(ctx context.Context, arg ListLibraryRoo
 	return items, nil
 }
 
-const listLiveFilesByHash = `-- name: ListLiveFilesByHash :many
-SELECT id, path, last_seen_at
-FROM file
-WHERE node_id = ? AND payload_hash = ? AND removed_at IS NULL
-ORDER BY id
-`
-
-type ListLiveFilesByHashParams struct {
-	NodeID      int64
-	PayloadHash []byte
-}
-
-type ListLiveFilesByHashRow struct {
-	ID         int64
-	Path       string
-	LastSeenAt int64
-}
-
-func (q *Queries) ListLiveFilesByHash(ctx context.Context, arg ListLiveFilesByHashParams) ([]ListLiveFilesByHashRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLiveFilesByHash, arg.NodeID, arg.PayloadHash)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListLiveFilesByHashRow{}
-	for rows.Next() {
-		var i ListLiveFilesByHashRow
-		if err := rows.Scan(&i.ID, &i.Path, &i.LastSeenAt); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listLiveFilesByNode = `-- name: ListLiveFilesByNode :many
 SELECT id, library_id, path, reported_path_bytes, size_bytes, payload_hash, payload_bytes, filing, filing_reason,
   error_detail_json, first_seen_at, last_seen_at
@@ -508,6 +467,47 @@ func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]List
 			&i.FirstSeenAt,
 			&i.LastSeenAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLiveFilesByPayloadHash = `-- name: ListLiveFilesByPayloadHash :many
+SELECT id, path, last_seen_at
+FROM file
+WHERE node_id = ? AND payload_hash = ? AND removed_at IS NULL
+ORDER BY id
+`
+
+type ListLiveFilesByPayloadHashParams struct {
+	NodeID      int64
+	PayloadHash []byte
+}
+
+type ListLiveFilesByPayloadHashRow struct {
+	ID         int64
+	Path       string
+	LastSeenAt int64
+}
+
+func (q *Queries) ListLiveFilesByPayloadHash(ctx context.Context, arg ListLiveFilesByPayloadHashParams) ([]ListLiveFilesByPayloadHashRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveFilesByPayloadHash, arg.NodeID, arg.PayloadHash)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLiveFilesByPayloadHashRow{}
+	for rows.Next() {
+		var i ListLiveFilesByPayloadHashRow
+		if err := rows.Scan(&i.ID, &i.Path, &i.LastSeenAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -572,33 +572,33 @@ func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFil
 	return items, nil
 }
 
-const listLiveFilesOfLibrary = `-- name: ListLiveFilesOfLibrary :many
+const listLiveFilesOfLibraryOnNode = `-- name: ListLiveFilesOfLibraryOnNode :many
 SELECT id, path, last_seen_at
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY id
 `
 
-type ListLiveFilesOfLibraryParams struct {
+type ListLiveFilesOfLibraryOnNodeParams struct {
 	NodeID    int64
 	LibraryID int64
 }
 
-type ListLiveFilesOfLibraryRow struct {
+type ListLiveFilesOfLibraryOnNodeRow struct {
 	ID         int64
 	Path       string
 	LastSeenAt int64
 }
 
-func (q *Queries) ListLiveFilesOfLibrary(ctx context.Context, arg ListLiveFilesOfLibraryParams) ([]ListLiveFilesOfLibraryRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLiveFilesOfLibrary, arg.NodeID, arg.LibraryID)
+func (q *Queries) ListLiveFilesOfLibraryOnNode(ctx context.Context, arg ListLiveFilesOfLibraryOnNodeParams) ([]ListLiveFilesOfLibraryOnNodeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveFilesOfLibraryOnNode, arg.NodeID, arg.LibraryID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListLiveFilesOfLibraryRow{}
+	items := []ListLiveFilesOfLibraryOnNodeRow{}
 	for rows.Next() {
-		var i ListLiveFilesOfLibraryRow
+		var i ListLiveFilesOfLibraryOnNodeRow
 		if err := rows.Scan(&i.ID, &i.Path, &i.LastSeenAt); err != nil {
 			return nil, err
 		}
@@ -613,14 +613,14 @@ func (q *Queries) ListLiveFilesOfLibrary(ctx context.Context, arg ListLiveFilesO
 	return items, nil
 }
 
-const listStreamsOfFile = `-- name: ListStreamsOfFile :many
+const listStreamsOfBytesFile = `-- name: ListStreamsOfBytesFile :many
 SELECT id, stream_index, kind, codec, container_language, language, container_title, disposition_flags, channel_count
 FROM stream
 WHERE bytes_file = ?
 ORDER BY stream_index
 `
 
-type ListStreamsOfFileRow struct {
+type ListStreamsOfBytesFileRow struct {
 	ID                int64
 	StreamIndex       *int64
 	Kind              string
@@ -632,15 +632,15 @@ type ListStreamsOfFileRow struct {
 	ChannelCount      *int64
 }
 
-func (q *Queries) ListStreamsOfFile(ctx context.Context, bytesFile int64) ([]ListStreamsOfFileRow, error) {
-	rows, err := q.db.QueryContext(ctx, listStreamsOfFile, bytesFile)
+func (q *Queries) ListStreamsOfBytesFile(ctx context.Context, bytesFile int64) ([]ListStreamsOfBytesFileRow, error) {
+	rows, err := q.db.QueryContext(ctx, listStreamsOfBytesFile, bytesFile)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListStreamsOfFileRow{}
+	items := []ListStreamsOfBytesFileRow{}
 	for rows.Next() {
-		var i ListStreamsOfFileRow
+		var i ListStreamsOfBytesFileRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.StreamIndex,
@@ -753,7 +753,7 @@ func (q *Queries) TombstoneFile(ctx context.Context, arg TombstoneFileParams) er
 	return err
 }
 
-const updateFileFiling = `-- name: UpdateFileFiling :exec
+const updateFileFilingAndLastSeen = `-- name: UpdateFileFilingAndLastSeen :exec
 UPDATE file SET
   filing = ?1,
   filing_reason = ?2,
@@ -762,7 +762,7 @@ UPDATE file SET
 WHERE id = ?5
 `
 
-type UpdateFileFilingParams struct {
+type UpdateFileFilingAndLastSeenParams struct {
 	Filing          string
 	FilingReason    *string
 	ErrorDetailJson *string
@@ -771,8 +771,8 @@ type UpdateFileFilingParams struct {
 }
 
 // A path the node skipped or could not read: its filing says why, and it was seen.
-func (q *Queries) UpdateFileFiling(ctx context.Context, arg UpdateFileFilingParams) error {
-	_, err := q.db.ExecContext(ctx, updateFileFiling,
+func (q *Queries) UpdateFileFilingAndLastSeen(ctx context.Context, arg UpdateFileFilingAndLastSeenParams) error {
+	_, err := q.db.ExecContext(ctx, updateFileFilingAndLastSeen,
 		arg.Filing,
 		arg.FilingReason,
 		arg.ErrorDetailJson,

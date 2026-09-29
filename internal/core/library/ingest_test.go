@@ -35,7 +35,7 @@ type harness struct {
 // newHarness is a database with a node and one library covering root, and the ingest.
 func newHarness(t *testing.T) *harness {
 	t.Helper()
-	database := storetest.Open(t)
+	database := storetest.OpenMigrated(t)
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	var nodeID int64
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
@@ -94,7 +94,7 @@ func skipped(path string, rule nodeproto.SkipRule) nodeproto.Record {
 }
 
 func failed(path string, scope nodeproto.ErrorScope) nodeproto.Record {
-	return nodeproto.Record{Type: nodeproto.RecordError, Error: &nodeproto.Error{
+	return nodeproto.Record{Type: nodeproto.RecordError, Error: &nodeproto.ScanError{
 		Path: nodeproto.Path{Text: path}, Scope: scope, Code: nodeproto.CodePermissionDenied, OccurrenceCount: 1,
 		PlatformError: nodeproto.PlatformError{
 			Text: "permission denied", OwnerUID: 0, GroupGID: 0,
@@ -180,7 +180,7 @@ func TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason(t *testing.T) 
 // default and forced, and no data stream.
 func (world *harness) checkStreams(fileID int64) {
 	world.t.Helper()
-	streams, err := world.database.Read().ListStreamsOfFile(world.t.Context(), fileID)
+	streams, err := world.database.Read().ListStreamsOfBytesFile(world.t.Context(), fileID)
 	if err != nil {
 		world.t.Fatal(err)
 	}
@@ -451,7 +451,7 @@ func TestIngest_WhatANodeReportsIsCleanWhereItEnters(t *testing.T) {
 		t.Errorf("path %q, raw %q; want the override marked in the text and kept in the bytes",
 			file.Path, file.ReportedPathBytes)
 	}
-	streams, err := world.database.Read().ListStreamsOfFile(t.Context(), file.ID)
+	streams, err := world.database.Read().ListStreamsOfBytesFile(t.Context(), file.ID)
 	if err != nil || len(streams) < 2 || streams[1].ContainerTitle == nil ||
 		*streams[1].ContainerTitle != "Commentary" {
 		t.Errorf("streams %+v, %v; want the track title clean", streams, err)

@@ -13,10 +13,10 @@ func TestMeasure_SaysTheSizeAndFreeSpaceOfTheFilesystemAtAPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if space.TotalBytes <= 0 || space.FreeBytes < 0 || space.FreeBytes > space.TotalBytes {
+	if space.TotalBytes <= 0 || space.AvailableBytes < 0 || space.AvailableBytes > space.TotalBytes {
 		t.Errorf("the temporary directory's filesystem is %+v; want a size and free space within it", space)
 	}
-	if percent := (Space{TotalBytes: 200, FreeBytes: 50}).UsedPercent(); percent != 75 {
+	if percent := (Space{TotalBytes: 200, AvailableBytes: 50}).UsedPercent(); percent != 75 {
 		t.Errorf("200 bytes with 50 free is %d%% used, want 75", percent)
 	}
 	if _, err := Measure(filepath.Join(t.TempDir(), "gone")); err == nil {

@@ -221,7 +221,7 @@ func (service *Service) localFile(ctx context.Context, ref string) (int64, *node
 	if !parsed {
 		return 0, nil, fmt.Errorf("%q: %w", ref, ErrNoImage)
 	}
-	file, err := store.One(service.parts.Database.Read().GetFileForArtwork(ctx, fileID))
+	file, err := store.OrNotFound(service.parts.Database.Read().GetFileForArtwork(ctx, fileID))
 	if errors.Is(err, store.ErrNotFound) {
 		return 0, nil, fmt.Errorf("file %d is gone: %w", fileID, ErrNoImage)
 	}
@@ -378,7 +378,7 @@ func (service *Service) refused(ctx context.Context, image wanted, why string) e
 // kind, never a person's choice.
 func (service *Service) record(ctx context.Context, image wanted, hash []byte) error {
 	err := service.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		_, err := store.One(queries.GetItemKind(ctx, image.itemID))
+		_, err := store.OrNotFound(queries.GetItemKind(ctx, image.itemID))
 		if errors.Is(err, store.ErrNotFound) {
 			return nil // removed since it was queued
 		}
@@ -392,7 +392,7 @@ func (service *Service) record(ctx context.Context, image wanted, hash []byte) e
 		if err != nil || hash == nil {
 			return err
 		}
-		return queries.MarkArtworkRemoved(ctx, sqlcgen.MarkArtworkRemovedParams{
+		return queries.RetireReplacedArtwork(ctx, sqlcgen.RetireReplacedArtworkParams{
 			RemovedAt: new(service.parts.Clock.Now().UnixMilli()), ItemID: image.itemID, Kind: image.ref.Kind,
 			Source: image.source, KeepID: id,
 		})
@@ -421,7 +421,7 @@ func shapeOf(kind string) (nodeproto.Shape, bool) {
 func fetchedSizes(shape nodeproto.Shape) []nodeproto.ArtSizeName {
 	var names []nodeproto.ArtSizeName
 	for _, size := range shape.Sizes() {
-		if !size.OnRequest {
+		if !size.IsMadeOnRequest {
 			names = append(names, size.Name)
 		}
 	}

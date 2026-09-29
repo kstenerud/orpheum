@@ -2,7 +2,7 @@
 
 // Package store is the database: the one Open() for library.db and cache.db with its pragmas read
 // back at startup, the single writer connection and the reader pool, our migration runner, the
-// sqlc-generated queries in sqlcgen, and the one hand-written filter builder for search. It knows
+// sqlc-generated queries in sqlcgen, and search's three hand-written static statements. It knows
 // tables, not features.
 //
 // # Invariants
@@ -51,9 +51,17 @@
 //   - Every data-transforming step has a test on its rows: step 0002 in
 //     TestMigrate_Step0002MarksTheSettingsAPersonSetAsModified, step 0007 in
 //     TestMigrate_Step0007KeepsEveryStoredResponseAsItsItemsOwn, step 0011 in
-//     TestMigrate_Step0011KeysEveryFileByItsReportedBytes.
-//   - Open and the runner take their choices (the reader pool minimum, the free-space factor) from
-//     the caller and refuse zero, never a value from here (D201). Enforced by
+//     TestMigrate_Step0011KeysEveryFileByItsReportedBytes, step 0012 in
+//     TestMigrate_Step0012RenamesColumnsKeepingTheirDataAndTheStoredKeys, step 0016 in
+//     TestMigrate_Step0016RemovesTheDefaultSubtitlesAndBoostSettings, step 0020 in
+//     TestMigrate_Step0020RenamesTVSpeakersToBuiltInSpeakersKeepingTheDevicesAndTheirIDs, step 0021
+//     in TestMigrate_Step0021KeepsWhatAPersonSetUnderTheRenamedKeys, step 0022 in
+//     TestMigrate_Step0022RewritesTheStoredJSONWithTheNodesNewNames, step 0023 in
+//     TestMigrate_Step0023RenamesColumnsKeepingTheirDataAndMovesASidecarsKind, step 0024 in
+//     TestMigrate_Step0024AlignsTheNamesAndRewritesAStoredSubtitleChoice, step 0025 in
+//     TestMigrate_Step0025GivesEachValueOneNameAndRewritesWhatWasStoredUnderTheOld.
+//   - Open and the runner take their choices (the reader pool minimum, the free-space database
+//     multiple) from the caller and refuse zero, never a value from here (D201). Enforced by
 //     TestOpen_RefusesOptionsNobodyChose.
 //
 // # Read before changing
@@ -76,9 +84,10 @@
 //   - cache.go: OpenCache, and cache.db's Read and Write.
 //   - search.go: search's three statements, hand-written because sqlc cannot parse FTS5's MATCH;
 //     static SQL with parameters only.
-//   - open.go: Open, the pragmas and their read-back, Read, Write and One.
+//   - open.go: Open, the pragmas and their read-back, Read, Write and OrNotFound.
 //   - steps.go and migrate.go: the embedded steps and the runner (D181); step_record.go: the
 //     applied steps' checksums.
 //   - backup.go: VACUUM INTO, and reading a backup without changing it.
-//   - space_*.go: free space for the pre-migration preflight, per platform.
+//   - migrate.go's requireSpaceToMigrate: the pre-migration free-space preflight, which measures
+//     through internal/platform/diskspace.
 package store

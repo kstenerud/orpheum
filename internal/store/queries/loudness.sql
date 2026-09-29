@@ -1,17 +1,17 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- Each audio track's loudness, as the node measured it (D226 sections 1 and 2).
 
--- name: GetLastFileID :one
+-- name: GetMaxFileID :one
 -- The highest file id, where a sweep for files to measure stops.
 SELECT CAST(COALESCE(MAX(id), 0) AS INTEGER) AS last_id FROM file;
 
 -- name: ListFilesToMeasure :many
--- The live videos with sound whose bytes have no loudness yet, among the ids after after and up to
--- through: a sweep reads the files a range of ids at a time, by the primary key, so no one query
+-- The live videos with sound whose bytes have no loudness yet, among the ids after after_id and up to
+-- through_id: a sweep reads the files a range of ids at a time, by the primary key, so no one query
 -- reads them all.
 SELECT f.id
 FROM file f
-WHERE f.id > sqlc.arg(after) AND f.id <= sqlc.arg(through) AND f.removed_at IS NULL
+WHERE f.id > sqlc.arg(after_id) AND f.id <= sqlc.arg(through_id) AND f.removed_at IS NULL
   AND f.filing IN ('listed', 'extra', 'unidentified') AND f.payload_hash IS NOT NULL AND f.probe_json IS NOT NULL
   AND (SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'audio' LIMIT 1) IS NOT NULL
   AND (SELECT 1 FROM loudness l WHERE l.payload_hash = f.payload_hash LIMIT 1) IS NULL

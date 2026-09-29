@@ -29,19 +29,19 @@ func hardwareEncoders() []Encoder { return []Encoder{EncoderQuickSync, EncoderNV
 // UsesGPU is whether an encode with it opens the GPU, which its confinement must grant.
 func (encoder Encoder) UsesGPU() bool { return encoder != EncoderX264 }
 
-// arguments are the encoder's video arguments: 8-bit H.264 at about 8 Mb/s, the high profile,
+// encodeArguments are the encoder's video arguments: 8-bit H.264 at about 8 Mb/s, the high profile,
 // and a keyframe every two seconds, however it is made (cut-a §6).
-func (encoder Encoder) arguments() []string {
-	codec, preset, pixels, extra := "libx264", "veryfast", "yuv420p", []string(nil)
+func (encoder Encoder) encodeArguments() []string {
+	codec, preset, pixelFormat, extra := "libx264", "veryfast", "yuv420p", []string(nil)
 	switch encoder {
 	case EncoderQuickSync:
-		codec, pixels = "h264_qsv", "nv12"
+		codec, pixelFormat = "h264_qsv", "nv12"
 	case EncoderNVENC:
 		codec, preset, extra = "h264_nvenc", "p4", []string{"-forced-idr", "1"}
 	case EncoderX264:
 	}
 	return append([]string{
-		"-c:v", codec, "-preset", preset, "-profile:v", "high", "-pix_fmt", pixels,
+		"-c:v", codec, "-preset", preset, "-profile:v", "high", "-pix_fmt", pixelFormat,
 		"-b:v", "8M", "-maxrate", "10M", "-bufsize", "16M", "-force_key_frames", "expr:gte(t,n_forced*2)",
 	}, extra...)
 }
@@ -95,9 +95,9 @@ func tryEncoder(ctx context.Context, runner Runner, encoder Encoder) error {
 	defer cancel()
 	arguments := append([]string{
 		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=25:duration=1",
-	}, encoder.arguments()...)
+	}, encoder.encodeArguments()...)
 	arguments = append(arguments, "-f", "null", "-")
-	err := runner.RunStreaming(ctx, execx.FFmpeg, confine.Access{Devices: true}, arguments, io.Discard)
+	err := runner.RunStreaming(ctx, execx.FFmpeg, confine.Access{UsesGPU: true}, arguments, io.Discard)
 	if err != nil {
 		return fmt.Errorf("try %s: %w", encoder, err)
 	}

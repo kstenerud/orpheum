@@ -27,23 +27,23 @@ import (
 
 // fakeCore answers the node channel the way the core does, and hands the test what it hears.
 type fakeCore struct {
-	mutex       sync.Mutex
-	hellos      []nodeproto.Hello
-	commands    chan nodeproto.Command
-	records     chan nodeproto.Record
-	artwork     chan nodeproto.ArtworkResult
-	prepared    chan nodeproto.PrepareReport
-	subtitles   chan nodeproto.SubtitleText
-	loudness    chan nodeproto.Loudness
-	dropReports int // the first reports it ends at once, as a core that went away would
+	mutex          sync.Mutex
+	hellos         []nodeproto.Hello
+	commands       chan nodeproto.Command
+	records        chan nodeproto.Record
+	artwork        chan nodeproto.ArtworkResult
+	prepareReports chan nodeproto.PrepareReport
+	subtitles      chan nodeproto.SubtitleText
+	loudness       chan nodeproto.LoudnessResult
+	reportsToDrop  int // the first reports it ends at once, as a core that went away would
 }
 
 func startFakeCore(t *testing.T) (*fakeCore, string) {
 	t.Helper()
 	core := &fakeCore{
 		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
-		artwork: make(chan nodeproto.ArtworkResult, 4), prepared: make(chan nodeproto.PrepareReport, 16),
-		subtitles: make(chan nodeproto.SubtitleText, 4), loudness: make(chan nodeproto.Loudness, 4),
+		artwork: make(chan nodeproto.ArtworkResult, 4), prepareReports: make(chan nodeproto.PrepareReport, 16),
+		subtitles: make(chan nodeproto.SubtitleText, 4), loudness: make(chan nodeproto.LoudnessResult, 4),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, func(writer http.ResponseWriter, request *http.Request) {
@@ -76,8 +76,8 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 			t.Errorf("a report named node %q, want the 7 the hello answered", request.Header.Get(nodeHeader))
 		}
 		core.mutex.Lock()
-		drop := core.dropReports > 0
-		core.dropReports--
+		drop := core.reportsToDrop > 0
+		core.reportsToDrop--
 		core.mutex.Unlock()
 		if drop {
 			writer.WriteHeader(http.StatusServiceUnavailable)
@@ -93,10 +93,10 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 			core.records <- record
 		}
 	})
-	mux.HandleFunc("POST "+nodeproto.PathArtwork, posted(t, core.artwork))
-	mux.HandleFunc("POST "+nodeproto.PathPrepare, posted(t, core.prepared))
-	mux.HandleFunc("POST "+nodeproto.PathSubtitle, posted(t, core.subtitles))
-	mux.HandleFunc("POST "+nodeproto.PathLoudness, posted(t, core.loudness))
+	mux.HandleFunc("POST "+nodeproto.PathArtwork, forwardPosted(t, core.artwork))
+	mux.HandleFunc("POST "+nodeproto.PathPrepare, forwardPosted(t, core.prepareReports))
+	mux.HandleFunc("POST "+nodeproto.PathSubtitle, forwardPosted(t, core.subtitles))
+	mux.HandleFunc("POST "+nodeproto.PathLoudness, forwardPosted(t, core.loudness))
 	socket := filepath.Join(t.TempDir(), "c.sock")
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", socket)
 	if err != nil {
@@ -108,8 +108,8 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 	return core, socket
 }
 
-// posted hands the test each answer of type T the node posts.
-func posted[T any](t *testing.T, into chan<- T) http.HandlerFunc {
+// forwardPosted hands the test each answer of type T the node posts.
+func forwardPosted[T any](t *testing.T, into chan<- T) http.HandlerFunc {
 	t.Helper()
 	return func(writer http.ResponseWriter, request *http.Request) {
 		var answer T
@@ -144,10 +144,10 @@ func (fakeScanner) Scan(_ context.Context, root *confine.MediaRoot, emit scan.Em
 	return nil
 }
 
-// fakeArtwork answers every artwork command with one size, the source's bytes reversed.
-type fakeArtwork struct{}
+// fakeArtworker answers every artwork command with one size, the source's bytes reversed.
+type fakeArtworker struct{}
 
-func (fakeArtwork) Derive(_ context.Context, command nodeproto.Artwork) nodeproto.ArtworkResult {
+func (fakeArtworker) Derive(_ context.Context, command nodeproto.Artwork) nodeproto.ArtworkResult {
 	reversed := slices.Clone(command.SourceImage)
 	slices.Reverse(reversed)
 	return nodeproto.ArtworkResult{
@@ -155,7 +155,7 @@ func (fakeArtwork) Derive(_ context.Context, command nodeproto.Artwork) nodeprot
 	}
 }
 
-func running(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
+func startAgent(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
 	t.Helper()
 	root, err := confine.OpenMediaRoot(t.TempDir())
 	if err != nil {
@@ -164,8 +164,8 @@ func running(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
 	t.Cleanup(func() { _ = root.Close() }) //nolint:errcheck // test teardown
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	workers := Workers{
-		Scanner: fakeScanner{}, Artwork: fakeArtwork{}, Preparer: fakePreparer{}, Subtitles: fakeSubtitles{},
-		Loudness: fakeMeasurer{},
+		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: fakePreparer{}, Subtitler: fakeSubtitler{},
+		LoudnessMeasurer: fakeMeasurer{},
 	}
 	node := New(socket, nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{root}, workers,
 		now, slog.New(slog.DiscardHandler))
@@ -182,7 +182,7 @@ func running(t *testing.T, socket string) (*confine.MediaRoot, chan time.Time) {
 	return root, tick
 }
 
-func receive(t *testing.T, core *fakeCore) nodeproto.Record {
+func receiveRecord(t *testing.T, core *fakeCore) nodeproto.Record {
 	t.Helper()
 	select {
 	case record := <-core.records:
@@ -196,13 +196,13 @@ func receive(t *testing.T, core *fakeCore) nodeproto.Record {
 func TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	root, tick := running(t, socket)
+	root, tick := startAgent(t, socket)
 
 	core.commands <- nodeproto.Command{
 		CommandSeq: 1, Type: nodeproto.CommandScan,
 		Scan: &nodeproto.Scan{RootPath: root.Path()},
 	}
-	begin, complete := receive(t, core), receive(t, core)
+	begin, complete := receiveRecord(t, core), receiveRecord(t, core)
 	if begin.Type != nodeproto.RecordScanBegin || begin.ReportSeq != 41 ||
 		complete.Type != nodeproto.RecordScanComplete ||
 		complete.ReportSeq != 42 {
@@ -212,7 +212,7 @@ func TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder(t *testing.T
 	// A status record reaches the core while the report is still open: each record is sent as
 	// it is written, not when the request ends.
 	tick <- time.Time{}
-	if status := receive(t, core); status.Type != nodeproto.RecordStatus || status.ReportSeq != 43 ||
+	if status := receiveRecord(t, core); status.Type != nodeproto.RecordStatus || status.ReportSeq != 43 ||
 		status.Status.Activity != "idle" {
 		t.Errorf("heard %+v, want status #43, idle", status)
 	}
@@ -227,13 +227,13 @@ func TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder(t *testing.T
 func TestAgent_RefusesToScanARootItWasNotGiven(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	_, tick := running(t, socket)
+	_, tick := startAgent(t, socket)
 	core.commands <- nodeproto.Command{
 		CommandSeq: 1, Type: nodeproto.CommandScan,
 		Scan: &nodeproto.Scan{RootPath: "/etc"},
 	}
 	tick <- time.Time{}
-	if record := receive(t, core); record.Type != nodeproto.RecordStatus {
+	if record := receiveRecord(t, core); record.Type != nodeproto.RecordStatus {
 		t.Errorf("heard %s before the status; a scan of /etc ran (D107)", record.Type)
 	}
 }
@@ -241,8 +241,8 @@ func TestAgent_RefusesToScanARootItWasNotGiven(t *testing.T) {
 func TestAgent_SaysHelloAgainAfterLosingTheCore(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	core.dropReports = 1
-	_, tick := running(t, socket)
+	core.reportsToDrop = 1
+	_, tick := startAgent(t, socket)
 	// Tick until the core hears something: the first session fails at once, a tick starts the
 	// next, and a later one becomes a status record in it.
 	ticking, stop := context.WithCancel(t.Context())
@@ -256,7 +256,7 @@ func TestAgent_SaysHelloAgainAfterLosingTheCore(t *testing.T) {
 			}
 		}
 	}()
-	if record := receive(t, core); record.Type != nodeproto.RecordStatus {
+	if record := receiveRecord(t, core); record.Type != nodeproto.RecordStatus {
 		t.Errorf("heard %s, want a status in the second session", record.Type)
 	}
 	if count := core.helloCount(); count != 2 {
@@ -267,7 +267,7 @@ func TestAgent_SaysHelloAgainAfterLosingTheCore(t *testing.T) {
 func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	running(t, socket)
+	startAgent(t, socket)
 	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandArtwork, EncodeArtwork: &nodeproto.Artwork{
 		JobID: 12, SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
 		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
@@ -285,7 +285,7 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	root, _ := running(t, socket)
+	root, _ := startAgent(t, socket)
 	if err := os.WriteFile(filepath.Join(root.Path(), "poster.jpg"), []byte("xyz"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -324,16 +324,16 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 	}
 }
 
-// keptUsage is a keeper whose last eviction left usage.
-type keptUsage struct{ usage prepared.Usage }
+// fakePreparedShelf is a prepared shelf whose last eviction left usage.
+type fakePreparedShelf struct{ usage prepared.Usage }
 
-func (kept keptUsage) Evict() (prepared.Usage, error)    { return kept.usage, nil }
-func (kept keptUsage) LastUsage() (prepared.Usage, bool) { return kept.usage, true }
+func (kept fakePreparedShelf) Evict() (prepared.Usage, error)    { return kept.usage, nil }
+func (kept fakePreparedShelf) LastUsage() (prepared.Usage, bool) { return kept.usage, true }
 
 func TestStatus_CarriesWhatThePreparedDirectoryHolds(t *testing.T) {
 	t.Parallel()
-	usage := prepared.Usage{Bytes: 10, BudgetBytes: 100, DiskPercent: 50, MaxDiskPercent: 95}
-	node := New("/nowhere", nodeproto.Hello{Name: "local"}, nil, Workers{Keeper: keptUsage{usage}},
+	usage := prepared.Usage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}
+	node := New("/nowhere", nodeproto.Hello{Name: "local"}, nil, Workers{PreparedShelf: fakePreparedShelf{usage}},
 		clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
 	got := node.status().Status.PreparedUsage
 	want := nodeproto.PreparedUsage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}

@@ -47,31 +47,32 @@ type Artworker interface {
 
 // Workers are what the agent runs commands with.
 type Workers struct {
-	Scanner Scanner
-	Artwork Artworker
+	Scanner   Scanner
+	Artworker Artworker
 	// Preparer is nil on a node that does not prepare.
 	Preparer Preparer
-	// Subtitles is nil on a node that does not extract subtitles.
-	Subtitles Subtitler
-	// Loudness is nil on a node that does not measure loudness.
-	Loudness Measurer
-	// Keeper keeps the prepared directory within its budget; nil on a node that does not prepare.
-	Keeper Keeper
+	// Subtitler is nil on a node that does not extract subtitles.
+	Subtitler Subtitler
+	// LoudnessMeasurer is nil on a node that does not measure loudness.
+	LoudnessMeasurer Measurer
+	// PreparedShelf keeps the prepared directory within its budget; nil on a node that does not
+	// prepare.
+	PreparedShelf PreparedShelf
 	// PreparedDirectory is where renditions are written, whose disk the status reports; empty on
 	// a node that does not prepare.
 	PreparedDirectory string
 }
 
-// Keeper keeps the prepared directory within its budget: prepared.Shelf (D217 §5).
-type Keeper interface {
+// PreparedShelf keeps the prepared directory within its budget: prepared.Shelf (D217 §5).
+type PreparedShelf interface {
 	Evict() (prepared.Usage, error)
 	LastUsage() (prepared.Usage, bool)
 }
 
 // Agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
-// commands and runs them one at a time, prepares beside them, and streams its report — scan records and a status
-// record every tick — as one JSONL request. When anything breaks it waits for the next tick and
-// says hello again.
+// commands and runs them one at a time, prepares, extractions and measurements beside them, and
+// streams its report — scan records and a status record every tick — as one JSONL request. When
+// anything breaks it waits for the next tick and says hello again.
 type Agent struct {
 	client  *http.Client
 	hello   nodeproto.Hello
@@ -80,11 +81,11 @@ type Agent struct {
 	clock   clock.Clock
 	logger  *slog.Logger
 
-	slots   slots
-	working working
+	slots slots
+	jobs  jobTracker
 
-	mutex sync.Mutex
-	doing string
+	mutex    sync.Mutex
+	activity string
 }
 
 // New returns an agent that talks to the core at socketPath. The hello is sent as given, with
@@ -107,7 +108,7 @@ func New(
 	}
 	return &Agent{
 		client: &http.Client{Transport: transport}, hello: hello, roots: byPath, workers: workers,
-		clock: clockSource, logger: logger, doing: "idle", slots: newSlots(),
+		clock: clockSource, logger: logger, activity: "idle", slots: newSlots(),
 	}
 }
 
@@ -138,29 +139,29 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 		reply.LastIngestedReportSeq)
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
-	report := newReport(reply.LastIngestedReportSeq)
-	work := make(chan nodeproto.Command, 16)
-	var running sync.WaitGroup
-	running.Go(func() { cancel(agent.stream(ctx, reply.NodeID, report)) })
-	running.Go(func() { cancel(agent.poll(ctx, reply.NodeID, work)) })
-	running.Go(func() { cancel(agent.work(ctx, reply.NodeID, work, report)) })
-	running.Go(func() {
+	stream := newRecordStream(reply.LastIngestedReportSeq)
+	commandQueue := make(chan nodeproto.Command, 16)
+	var sessionTasks sync.WaitGroup
+	sessionTasks.Go(func() { cancel(agent.streamReport(ctx, reply.NodeID, stream)) })
+	sessionTasks.Go(func() { cancel(agent.pollCommands(ctx, reply.NodeID, commandQueue)) })
+	sessionTasks.Go(func() { cancel(agent.runCommandsInOrder(ctx, reply.NodeID, commandQueue, stream)) })
+	sessionTasks.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-tick:
-				if err := report.emit(ctx, agent.status()); err != nil {
+				if err := stream.emit(ctx, agent.status()); err != nil {
 					cancel(err)
 					return
 				}
-				for _, job := range agent.working.waitingJobs() {
-					agent.sayWaiting(ctx, reply.NodeID, job)
+				for _, jobID := range agent.jobs.waitingJobIDs() {
+					agent.sayWaiting(ctx, reply.NodeID, jobID)
 				}
 			}
 		}
 	})
-	running.Wait()
+	sessionTasks.Wait()
 	return context.Cause(ctx)
 }
 
@@ -174,57 +175,62 @@ func (agent *Agent) sayHello(ctx context.Context) (nodeproto.HelloReply, error) 
 	return reply, err
 }
 
-// poll long-polls for commands and queues them for the worker.
-func (agent *Agent) poll(ctx context.Context, nodeID int64, work chan<- nodeproto.Command) error {
-	var after int64
+// pollCommands long-polls for commands and queues them for the worker.
+func (agent *Agent) pollCommands(ctx context.Context, nodeID int64, commandQueue chan<- nodeproto.Command) error {
+	var lastTakenCommandSeq int64
 	for {
 		var answer nodeproto.Commands
-		path := nodeproto.PathCommands + "?" + nodeproto.QueryAfterCommandSeq + "=" + strconv.FormatInt(after, 10)
+		path := nodeproto.PathCommands + "?" + nodeproto.QueryAfterCommandSeq + "=" +
+			strconv.FormatInt(lastTakenCommandSeq, 10)
 		if err := agent.exchange(ctx, http.MethodGet, path, nodeID, http.NoBody, &answer); err != nil {
 			return err
 		}
 		for _, command := range answer.Commands {
 			// A cancel is carried out as it arrives, not queued behind the work it stops.
 			if command.Type == nodeproto.CommandCancel && command.Cancel != nil {
-				if !agent.working.cancel(command.Cancel.JobID) {
+				if !agent.jobs.cancel(command.Cancel.JobID) {
 					agent.logger.InfoContext(ctx, "a job was cancelled before it started", "jobId",
 						command.Cancel.JobID)
 				}
-				after = command.CommandSeq
+				lastTakenCommandSeq = command.CommandSeq
 				continue
 			}
 			select {
-			case work <- command:
+			case commandQueue <- command:
 			case <-ctx.Done():
 				return fmt.Errorf("stopped while queueing command %d: %w", command.CommandSeq, ctx.Err())
 			}
-			after = command.CommandSeq
+			lastTakenCommandSeq = command.CommandSeq
 		}
 	}
 }
 
-// work runs commands one at a time.
-func (agent *Agent) work(ctx context.Context, nodeID int64, work <-chan nodeproto.Command, report *report) error {
+// runCommandsInOrder runs commands one at a time.
+func (agent *Agent) runCommandsInOrder(
+	ctx context.Context, nodeID int64, commandQueue <-chan nodeproto.Command, stream *recordStream,
+) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("worker stopped: %w", ctx.Err())
-		case command := <-work:
-			if err := agent.run(ctx, nodeID, command, report); err != nil {
+		case command := <-commandQueue:
+			if err := agent.runCommand(ctx, nodeID, command, stream); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-// run carries out one command. A scan of a root the node was not configured with is refused,
-// whatever the core asks (D107).
-func (agent *Agent) run(ctx context.Context, nodeID int64, command nodeproto.Command, report *report) error {
+// runCommand carries out one command. A scan of a root the node was not configured with is
+// refused, whatever the core asks (D107).
+func (agent *Agent) runCommand(
+	ctx context.Context, nodeID int64, command nodeproto.Command, stream *recordStream,
+) error {
 	if command.Type == nodeproto.CommandArtwork && command.EncodeArtwork != nil {
-		return agent.artwork(ctx, nodeID, *command.EncodeArtwork)
+		return agent.deriveAndPostArtwork(ctx, nodeID, *command.EncodeArtwork)
 	}
 	if command.Type == nodeproto.CommandPrepare && command.Prepare != nil {
-		agent.prepare(ctx, nodeID, *command.Prepare)
+		agent.startPrepare(ctx, nodeID, *command.Prepare)
 		return nil
 	}
 	if command.Type == nodeproto.CommandExtractSubtitle && command.ExtractSubtitle != nil {
@@ -242,15 +248,15 @@ func (agent *Agent) run(ctx context.Context, nodeID int64, command nodeproto.Com
 				command.Scan.RootPath)
 			return nil
 		}
-		agent.setDoing("scanning " + root.Path())
-		defer agent.setDoing("idle")
+		agent.setActivity("scanning " + root.Path())
+		defer agent.setActivity("idle")
 		emit := func(record nodeproto.Record) error {
 			// Once a scan says it is complete, the node is idle: a status record sent after the
 			// completion must not still say it is scanning.
 			if record.Type == nodeproto.RecordScanComplete {
-				agent.setDoing("idle")
+				agent.setActivity("idle")
 			}
-			return report.emit(ctx, record)
+			return stream.emit(ctx, record)
 		}
 		err := agent.workers.Scanner.Scan(ctx, root, emit)
 		if err != nil && ctx.Err() == nil {
@@ -258,15 +264,15 @@ func (agent *Agent) run(ctx context.Context, nodeID int64, command nodeproto.Com
 		}
 		return nil
 	}
-	agent.logger.WarnContext(ctx, "ignored a command this node does not know", "type", command.Type)
+	agent.logger.WarnContext(ctx, "ignored a command this node does not know", "commandType", command.Type)
 	return nil
 }
 
-// artwork re-encodes an image and posts the answer — the sizes, or why there are none — to the
-// core, whose artwork store takes images from nowhere else (D212 §8).
-func (agent *Agent) artwork(ctx context.Context, nodeID int64, command nodeproto.Artwork) error {
-	agent.setDoing("re-encoding artwork")
-	defer agent.setDoing("idle")
+// deriveAndPostArtwork re-encodes an image and posts the answer — the sizes, or why there are
+// none — to the core, whose artwork store takes images from nowhere else (D212 §8).
+func (agent *Agent) deriveAndPostArtwork(ctx context.Context, nodeID int64, command nodeproto.Artwork) error {
+	agent.setActivity("re-encoding artwork")
+	defer agent.setActivity("idle")
 	var result nodeproto.ArtworkResult
 	sourceHash := ""
 	if command.AbsolutePath != nil {
@@ -279,7 +285,7 @@ func (agent *Agent) artwork(ctx context.Context, nodeID int64, command nodeproto
 		}
 	}
 	if result.Refusal == "" {
-		result = agent.workers.Artwork.Derive(ctx, command)
+		result = agent.workers.Artworker.Derive(ctx, command)
 		result.SourceSha256 = sourceHash
 	}
 	if result.Refusal != "" {
@@ -305,48 +311,48 @@ func (agent *Agent) readImage(named nodeproto.Path) ([]byte, error) {
 		absolute = string(named.Bytes)
 	}
 	for rootPath, root := range agent.roots {
-		rel, under := strings.CutPrefix(absolute, rootPath+"/")
+		relativePath, under := strings.CutPrefix(absolute, rootPath+"/")
 		if !under {
 			continue
 		}
-		return readBounded(root, rel, maxImageBytes)
+		return readBounded(root, relativePath, maxImageBytes)
 	}
 	return nil, errors.New("the image is under none of this node's roots")
 }
 
 // readBounded reads one file under a root, refusing one past maxBytes.
-func readBounded(root *confine.MediaRoot, rel string, maxBytes int) ([]byte, error) {
-	file, err := root.Open(rel)
+func readBounded(root *confine.MediaRoot, relativePath string, maxBytes int) ([]byte, error) {
+	file, err := root.Open(relativePath)
 	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", rel, err)
+		return nil, fmt.Errorf("open %s: %w", relativePath, err)
 	}
 	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
 	contents, err := io.ReadAll(io.LimitReader(file, int64(maxBytes)+1))
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", rel, err)
+		return nil, fmt.Errorf("read %s: %w", relativePath, err)
 	}
 	if len(contents) > maxBytes {
-		return nil, fmt.Errorf("%s is larger than %d bytes", rel, maxBytes)
+		return nil, fmt.Errorf("%s is larger than %d bytes", relativePath, maxBytes)
 	}
 	return contents, nil
 }
 
-func (agent *Agent) setDoing(doing string) {
+func (agent *Agent) setActivity(activity string) {
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
-	agent.doing = doing
+	agent.activity = activity
 }
 
 func (agent *Agent) status() nodeproto.Record {
 	disks := agent.disks()
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
-	status := &nodeproto.Status{SentAt: agent.clock.Now().UnixMilli(), Activity: agent.doing, Disks: disks}
-	if agent.workers.Keeper != nil {
-		if usage, known := agent.workers.Keeper.LastUsage(); known {
+	status := &nodeproto.Status{SentAt: agent.clock.Now().UnixMilli(), Activity: agent.activity, Disks: disks}
+	if agent.workers.PreparedShelf != nil {
+		if usage, known := agent.workers.PreparedShelf.LastUsage(); known {
 			status.PreparedUsage = &nodeproto.PreparedUsage{
-				UsedBytes: usage.Bytes, BudgetBytes: usage.BudgetBytes, DiskUsedPercent: usage.DiskPercent,
-				DiskUsedLimitPercent: usage.MaxDiskPercent,
+				UsedBytes: usage.UsedBytes, BudgetBytes: usage.BudgetBytes, DiskUsedPercent: usage.DiskUsedPercent,
+				DiskUsedLimitPercent: usage.DiskUsedLimitPercent,
 			}
 		}
 	}
@@ -366,7 +372,7 @@ func (agent *Agent) disks() []nodeproto.Disk {
 		if space, err := diskspace.Measure(path); err != nil {
 			disk.Failure = err.Error()
 		} else {
-			disk.TotalBytes, disk.AvailableBytes = space.TotalBytes, space.FreeBytes
+			disk.TotalBytes, disk.AvailableBytes = space.TotalBytes, space.AvailableBytes
 		}
 		disks = append(disks, disk)
 	}
@@ -397,9 +403,9 @@ func (agent *Agent) exchange(ctx context.Context, method, path string, nodeID in
 	return nil
 }
 
-// stream sends the report as one request whose body is written as records arrive. The client
+// streamReport sends the report as one request whose body is written as records arrive. The client
 // sends each write as its own chunk, so the core reads a record as soon as it is written.
-func (agent *Agent) stream(ctx context.Context, nodeID int64, report *report) error {
+func (agent *Agent) streamReport(ctx context.Context, nodeID int64, stream *recordStream) error {
 	reader, writer := io.Pipe()
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, coreURL+nodeproto.PathReport, reader)
 	if err != nil {
@@ -407,14 +413,14 @@ func (agent *Agent) stream(ctx context.Context, nodeID int64, report *report) er
 	}
 	request.Header.Set(nodeHeader, strconv.FormatInt(nodeID, 10))
 	request.Header.Set("Content-Type", "application/jsonl")
-	answered := make(chan error, 1)
+	reportRequestEnded := make(chan error, 1)
 	go func() {
 		response, err := agent.client.Do(request)
 		if err == nil {
 			err = fmt.Errorf("the core ended the report: %s", response.Status)
 			_ = response.Body.Close() //nolint:errcheck // nothing to read
 		}
-		answered <- err
+		reportRequestEnded <- err
 		_ = reader.CloseWithError(err)
 	}()
 	encoder := json.NewEncoder(writer)
@@ -422,10 +428,10 @@ func (agent *Agent) stream(ctx context.Context, nodeID int64, report *report) er
 		select {
 		case <-ctx.Done():
 			_ = writer.Close() //nolint:errcheck // always nil
-			return errors.Join(fmt.Errorf("report stopped: %w", ctx.Err()), <-answered)
-		case record := <-report.records:
+			return errors.Join(fmt.Errorf("report stopped: %w", ctx.Err()), <-reportRequestEnded)
+		case record := <-stream.records:
 			if err := encoder.Encode(record); err != nil {
-				return fmt.Errorf("write record %d: %w", record.ReportSeq, errors.Join(err, <-answered))
+				return fmt.Errorf("write record %d: %w", record.ReportSeq, errors.Join(err, <-reportRequestEnded))
 			}
 		}
 	}

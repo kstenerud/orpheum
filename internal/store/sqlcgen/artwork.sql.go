@@ -284,32 +284,6 @@ func (q *Queries) ListShownArtwork(ctx context.Context, arg ListShownArtworkPara
 	return items, nil
 }
 
-const markArtworkRemoved = `-- name: MarkArtworkRemoved :exec
-UPDATE artwork SET removed_at = ?1
-WHERE item_id = ?2 AND kind = ?3 AND source = ?4
-  AND is_chosen = 0 AND removed_at IS NULL AND id != ?5
-`
-
-type MarkArtworkRemovedParams struct {
-	RemovedAt *int64
-	ItemID    int64
-	Kind      string
-	Source    string
-	KeepID    int64
-}
-
-// A provider's image replaced by a newer one; a person's choice is never replaced this way.
-func (q *Queries) MarkArtworkRemoved(ctx context.Context, arg MarkArtworkRemovedParams) error {
-	_, err := q.db.ExecContext(ctx, markArtworkRemoved,
-		arg.RemovedAt,
-		arg.ItemID,
-		arg.Kind,
-		arg.Source,
-		arg.KeepID,
-	)
-	return err
-}
-
 const retireArtworkNotFound = `-- name: RetireArtworkNotFound :exec
 UPDATE artwork SET removed_at = ?1
 WHERE item_id = ?2 AND source = ?3 AND is_chosen = 0 AND removed_at IS NULL
@@ -332,6 +306,32 @@ func (q *Queries) RetireArtworkNotFound(ctx context.Context, arg RetireArtworkNo
 		arg.ItemID,
 		arg.Source,
 		arg.FoundRefs,
+	)
+	return err
+}
+
+const retireReplacedArtwork = `-- name: RetireReplacedArtwork :exec
+UPDATE artwork SET removed_at = ?1
+WHERE item_id = ?2 AND kind = ?3 AND source = ?4
+  AND is_chosen = 0 AND removed_at IS NULL AND id != ?5
+`
+
+type RetireReplacedArtworkParams struct {
+	RemovedAt *int64
+	ItemID    int64
+	Kind      string
+	Source    string
+	KeepID    int64
+}
+
+// A provider's image replaced by a newer one; a person's choice is never replaced this way.
+func (q *Queries) RetireReplacedArtwork(ctx context.Context, arg RetireReplacedArtworkParams) error {
+	_, err := q.db.ExecContext(ctx, retireReplacedArtwork,
+		arg.RemovedAt,
+		arg.ItemID,
+		arg.Kind,
+		arg.Source,
+		arg.KeepID,
 	)
 	return err
 }

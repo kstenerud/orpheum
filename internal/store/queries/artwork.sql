@@ -13,7 +13,7 @@ INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256)
 VALUES (sqlc.arg(item_id), sqlc.arg(kind), sqlc.arg(source), sqlc.arg(source_ref), sqlc.arg(source_sha256))
 RETURNING id;
 
--- name: MarkArtworkRemoved :exec
+-- name: RetireReplacedArtwork :exec
 -- A provider's image replaced by a newer one; a person's choice is never replaced this way.
 UPDATE artwork SET removed_at = sqlc.arg(removed_at)
 WHERE item_id = sqlc.arg(item_id) AND kind = sqlc.arg(kind) AND source = sqlc.arg(source)

@@ -14,8 +14,8 @@ import (
 // hashes of different schemes are unrelated: the core never compares them.
 const Scheme = "payload-v1"
 
-// window is how much of each end of the payload the hash reads (D116: 1 MB head and tail).
-const window = 1 << 20
+// windowBytes is how much of each end of the payload the hash reads (D116: 1 MB head and tail).
+const windowBytes = 1 << 20
 
 // Anchor is what the hash was anchored on.
 type Anchor string
@@ -31,13 +31,13 @@ const (
 // Identity is a file's identity: a sampling hash of its media payload and the payload's length
 // (D179). A tag edit leaves it unchanged; a remux, which re-lays the payload, changes it.
 type Identity struct {
-	Hash          [sha256.Size]byte
-	PayloadLength int64
-	Anchor        Anchor
+	Hash         [sha256.Size]byte
+	PayloadBytes int64
+	Anchor       Anchor
 }
 
-// payload is the byte range the hash is anchored on.
-type payload struct {
+// payloadSpan is the byte range the hash is anchored on.
+type payloadSpan struct {
 	start, end int64
 	anchor     Anchor
 }
@@ -45,16 +45,16 @@ type payload struct {
 // errNotThisContainer means a parser does not recognise the file; the next one is tried.
 var errNotThisContainer = errors.New("not this container")
 
-// Payload returns the identity of a file of size bytes, read through file. It reads a few
+// PayloadIdentity returns the identity of a file of sizeBytes bytes, read through file. It reads a few
 // small headers, two windows of at most a megabyte, and nothing else.
-func Payload(file io.ReaderAt, size int64) (Identity, error) {
-	found, err := locate(file, size)
+func PayloadIdentity(file io.ReaderAt, sizeBytes int64) (Identity, error) {
+	found, err := locate(file, sizeBytes)
 	if err != nil {
 		return Identity{}, err
 	}
 	length := found.end - found.start
-	headLength := min(window, length)
-	tailLength := min(window, length-headLength)
+	headLength := min(windowBytes, length)
+	tailLength := min(windowBytes, length-headLength)
 
 	digest := sha256.New()
 	prefix := fmt.Appendf(nil, "orpheum %s %s\n", Scheme, found.anchor)
@@ -67,7 +67,7 @@ func Payload(file io.ReaderAt, size int64) (Identity, error) {
 			return Identity{}, fmt.Errorf("read the payload at %d: %w", span[0], err)
 		}
 	}
-	identity := Identity{PayloadLength: length, Anchor: found.anchor}
+	identity := Identity{PayloadBytes: length, Anchor: found.anchor}
 	digest.Sum(identity.Hash[:0])
 	return identity, nil
 }
@@ -76,17 +76,17 @@ func Payload(file io.ReaderAt, size int64) (Identity, error) {
 // that claims to be Matroska or MP4 but cannot be followed — truncated, or with a cluster of
 // unknown size — is hashed whole rather than refused, so a file still being written still has
 // an identity; it gets its payload identity once it is complete, which is a new file (D173).
-func locate(file io.ReaderAt, size int64) (payload, error) {
-	for _, parse := range []func(io.ReaderAt, int64) (payload, error){matroskaPayload, mp4Payload} {
-		found, err := parse(file, size)
+func locate(file io.ReaderAt, sizeBytes int64) (payloadSpan, error) {
+	for _, parse := range []func(io.ReaderAt, int64) (payloadSpan, error){matroskaPayload, mp4Payload} {
+		found, err := parse(file, sizeBytes)
 		if err == nil {
 			return found, nil
 		}
 		if readErr, isReadError := errors.AsType[*readError](err); isReadError {
-			return payload{}, readErr
+			return payloadSpan{}, readErr
 		}
 	}
-	return payload{start: 0, end: size, anchor: AnchorWholeFile}, nil
+	return payloadSpan{start: 0, end: sizeBytes, anchor: AnchorWholeFile}, nil
 }
 
 // readError is a failure to read the file, as opposed to a file the parser does not follow;
@@ -99,10 +99,10 @@ func (failure *readError) Unwrap() error { return failure.err }
 
 // readAt reads exactly len(buffer) bytes at offset. Reading past the end of the file is a
 // structural problem (errNotThisContainer), not a read error.
-func readAt(file io.ReaderAt, size, offset int64, buffer []byte) error {
-	if offset < 0 || offset+int64(len(buffer)) > size {
+func readAt(file io.ReaderAt, sizeBytes, offset int64, buffer []byte) error {
+	if offset < 0 || offset+int64(len(buffer)) > sizeBytes {
 		return fmt.Errorf("%w: %d bytes at %d run past the end of a %d-byte file",
-			errNotThisContainer, len(buffer), offset, size)
+			errNotThisContainer, len(buffer), offset, sizeBytes)
 	}
 	if _, err := file.ReadAt(buffer, offset); err != nil {
 		return &readError{err: err}

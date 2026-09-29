@@ -41,7 +41,7 @@ func (service *Service) FinishedPrepares(ctx context.Context, nodeID int64, limi
 	}
 	finished := make([]FinishedPrepare, 0, len(rows))
 	for _, row := range rows {
-		path, err := store.One(service.database.Read().GetFilePath(ctx, row.SourceFile))
+		path, err := store.OrNotFound(service.database.Read().GetFilePath(ctx, row.SourceFile))
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
 			return nil, fmt.Errorf("name file %d: %w", row.SourceFile, err)
 		}

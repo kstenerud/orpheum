@@ -152,14 +152,14 @@ const sweepSpan = 1000
 // QueueMeasurements queues a measurement for every live video with sound whose bytes have no
 // loudness yet (D226 §2), behind everything a person is waiting on, and returns how many it queued.
 func (service *Service) QueueMeasurements(ctx context.Context) (int, error) {
-	last, err := service.database.Read().GetLastFileID(ctx)
+	last, err := service.database.Read().GetMaxFileID(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("read the last file id: %w", err)
 	}
 	queued := 0
 	for after := int64(0); after < last; after += sweepSpan {
 		ids, listErr := service.database.Read().ListFilesToMeasure(ctx, sqlcgen.ListFilesToMeasureParams{
-			After: after, Through: after + sweepSpan,
+			AfterID: after, ThroughID: after + sweepSpan,
 		})
 		if listErr != nil {
 			return queued, fmt.Errorf("list files to measure: %w", listErr)
@@ -263,7 +263,7 @@ func (service *Service) measure(
 // FFmpeg could not measure the file, its words, for each track as stereo, so the sweep does not
 // ask again.
 func (service *Service) keepLoudness(
-	ctx context.Context, payloadHash []byte, tracks []nodeproto.LoudnessTrack, answer nodeproto.Loudness,
+	ctx context.Context, payloadHash []byte, tracks []nodeproto.LoudnessTrack, answer nodeproto.LoudnessResult,
 ) error {
 	now := service.clock.Now().UnixMilli()
 	var rows []sqlcgen.UpsertLoudnessParams
@@ -306,6 +306,6 @@ func loudnessRow(
 }
 
 // Measured takes a node's answer to a measure_loudness command to the job waiting for it.
-func (service *Service) Measured(ctx context.Context, nodeID int64, answer nodeproto.Loudness) {
+func (service *Service) Measured(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult) {
 	service.loudness.deliver(ctx, nodeID, answer.JobID, answer)
 }

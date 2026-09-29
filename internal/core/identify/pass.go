@@ -359,7 +359,8 @@ func (work *run) newVersion(ctx context.Context, file sqlcgen.ListIdentifyFilesR
 	if err != nil {
 		return fmt.Errorf("add a version for %s: %w", file.Path, err)
 	}
-	err = work.queries.SetFileVersion(ctx, sqlcgen.SetFileVersionParams{VersionID: &version, ID: file.ID})
+	err = work.queries.SetFileVersionAndIdentifiedPath(ctx,
+		sqlcgen.SetFileVersionAndIdentifiedPathParams{VersionID: &version, ID: file.ID})
 	if err != nil {
 		return fmt.Errorf("put %s in its version: %w", file.Path, err)
 	}
@@ -384,7 +385,8 @@ func (work *run) keepOrMove(ctx context.Context, file sqlcgen.ListIdentifyFilesR
 	}
 	if moved(file) {
 		// Record the path this identification came from.
-		err = work.queries.SetFileVersion(ctx, sqlcgen.SetFileVersionParams{VersionID: file.VersionID, ID: file.ID})
+		err = work.queries.SetFileVersionAndIdentifiedPath(ctx,
+			sqlcgen.SetFileVersionAndIdentifiedPathParams{VersionID: file.VersionID, ID: file.ID})
 		if err != nil {
 			return 0, fmt.Errorf("record %s's identification: %w", file.Path, err)
 		}

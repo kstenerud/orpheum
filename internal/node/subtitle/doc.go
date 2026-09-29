@@ -2,8 +2,9 @@
 
 // Package subtitle turns a text subtitle into ASS, which JASSUB draws in the browser, and WebVTT,
 // which the cast receiver shows (cut-a §6, D217 §6): a track inside a video, which means reading
-// the whole file because its packets are spread through it, or a file beside the media. One
-// extraction makes both, and the video is read once: the WebVTT is converted from the ASS.
+// the whole file because its packets are spread through it, a file beside the media, or a
+// fetched subtitle's text (D224 §5). One extraction makes both, and the video is read once: the
+// WebVTT is converted from the ASS.
 //
 // # Invariants
 //

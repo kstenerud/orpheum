@@ -21,12 +21,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// film is a root with one file in it, and the file's identity.
+// film is a root with one file in it, and the file's payload hash.
 type film struct {
-	root     *confine.MediaRoot
-	path     string
-	contents []byte
-	identity string
+	root        *confine.MediaRoot
+	path        string
+	contents    []byte
+	payloadHash string
 }
 
 func newFilm(t *testing.T, name string) film {
@@ -50,23 +50,23 @@ func newFilm(t *testing.T, name string) film {
 		t.Fatal(err)
 	}
 	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
-	identity, err := hash.Payload(file, int64(len(contents)))
+	identity, err := hash.PayloadIdentity(file, int64(len(contents)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return film{root: root, path: name, contents: contents, identity: hex.EncodeToString(identity.Hash[:])}
+	return film{root: root, path: name, contents: contents, payloadHash: hex.EncodeToString(identity.Hash[:])}
 }
 
-func (movie film) target(path, identity string) string {
-	return nodeproto.BytesFile{RootPath: movie.root.Path(), Path: []byte(path), PayloadHash: identity}.Target()
+func (movie film) target(path, payloadHash string) string {
+	return nodeproto.BytesFile{RootPath: movie.root.Path(), Path: []byte(path), PayloadHash: payloadHash}.Target()
 }
 
-// get GETs the film's own path, naming identity as its hash.
+// get GETs the film's own path, naming payloadHash as its hash.
 func (movie film) get(
-	t *testing.T, handler http.Handler, identity string, header http.Header,
+	t *testing.T, handler http.Handler, payloadHash string, header http.Header,
 ) *httptest.ResponseRecorder {
 	t.Helper()
-	return request(t, handler, http.MethodGet, movie.target(movie.path, identity), header)
+	return request(t, handler, http.MethodGet, movie.target(movie.path, payloadHash), header)
 }
 
 func request(t *testing.T, handler http.Handler, method, target string, header http.Header) *httptest.ResponseRecorder {
@@ -82,18 +82,18 @@ func TestFile_ServesTheBytesOfTheFileItsHashNames(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "Films/Film (1999)/Film (1999).mkv")
 	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
-	whole := movie.get(t, handler, movie.identity, nil)
+	whole := movie.get(t, handler, movie.payloadHash, nil)
 	if whole.Code != http.StatusOK || whole.Body.String() != string(movie.contents) {
 		t.Fatalf("GET = %d with %d bytes, want 200 with the file's %d",
 			whole.Code, whole.Body.Len(), len(movie.contents))
 	}
-	if got := whole.Header().Get("ETag"); got != `"`+movie.identity+`"` {
+	if got := whole.Header().Get("ETag"); got != `"`+movie.payloadHash+`"` {
 		t.Errorf("ETag %q, want the payload hash", got)
 	}
 	if got := whole.Header().Get("Accept-Ranges"); got != "bytes" {
 		t.Errorf("Accept-Ranges %q, want bytes", got)
 	}
-	head := request(t, handler, http.MethodHead, movie.target(movie.path, strings.ToUpper(movie.identity)), nil)
+	head := request(t, handler, http.MethodHead, movie.target(movie.path, strings.ToUpper(movie.payloadHash)), nil)
 	if head.Code != http.StatusOK || head.Body.Len() != 0 {
 		t.Errorf("HEAD with the hash in capitals = %d with %d bytes, want 200 and no body", head.Code, head.Body.Len())
 	}
@@ -103,11 +103,11 @@ func TestFile_HonoursRangeAndIfRange(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
 	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
-	ranged := movie.get(t, handler, movie.identity, http.Header{"Range": {"bytes=10-19"}})
+	ranged := movie.get(t, handler, movie.payloadHash, http.Header{"Range": {"bytes=10-19"}})
 	if ranged.Code != http.StatusPartialContent || ranged.Body.String() != string(movie.contents[10:20]) {
 		t.Errorf("Range bytes=10-19 = %d %q, want 206 %q", ranged.Code, ranged.Body.String(), movie.contents[10:20])
 	}
-	stale := request(t, handler, http.MethodGet, movie.target(movie.path, movie.identity),
+	stale := request(t, handler, http.MethodGet, movie.target(movie.path, movie.payloadHash),
 		http.Header{"Range": {"bytes=10-19"}, "If-Range": {`"another"`}})
 	if stale.Code != http.StatusOK || stale.Body.Len() != len(movie.contents) {
 		t.Errorf("If-Range with another ETag = %d with %d bytes, want the whole file", stale.Code, stale.Body.Len())
@@ -118,14 +118,14 @@ func TestFile_RefusesAFileThatIsNoLongerTheOneAskedFor(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
 	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
-	if got := movie.get(t, handler, movie.identity, nil); got.Code != http.StatusOK {
+	if got := movie.get(t, handler, movie.payloadHash, nil); got.Code != http.StatusOK {
 		t.Fatalf("the first GET = %d, want 200", got.Code)
 	}
-	other := strings.Repeat("0", len(movie.identity))
+	other := strings.Repeat("0", len(movie.payloadHash))
 	if got := movie.get(t, handler, other, nil); got.Code != http.StatusConflict {
 		t.Errorf("GET naming another hash = %d, want 409", got.Code)
 	}
-	// Replaced in place after its identity was remembered: the new size makes it hashed again.
+	// Replaced in place after its payload hash was remembered: the new size makes it hashed again.
 	full := filepath.Join(movie.root.Path(), movie.path)
 	if err := os.WriteFile(full, []byte("a different film"), 0o600); err != nil {
 		t.Fatal(err)
@@ -134,7 +134,7 @@ func TestFile_RefusesAFileThatIsNoLongerTheOneAskedFor(t *testing.T) {
 	if err := os.Chtimes(full, later, later); err != nil {
 		t.Fatal(err)
 	}
-	if got := movie.get(t, handler, movie.identity, nil); got.Code != http.StatusConflict {
+	if got := movie.get(t, handler, movie.payloadHash, nil); got.Code != http.StatusConflict {
 		t.Errorf("GET after the file was replaced = %d, want 409", got.Code)
 	}
 }
@@ -148,11 +148,11 @@ func TestFile_NamesNothingOutsideARoot(t *testing.T) {
 	}
 	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
 	cases := map[string]string{
-		"a path out of the root": movie.target("../secret.mkv", movie.identity),
-		"an absolute path":       movie.target(outside, movie.identity),
-		"a directory":            movie.target("films", movie.identity),
+		"a path out of the root": movie.target("../secret.mkv", movie.payloadHash),
+		"an absolute path":       movie.target(outside, movie.payloadHash),
+		"a directory":            movie.target("films", movie.payloadHash),
 		"a root it does not have": nodeproto.BytesFile{
-			RootPath: filepath.Dir(movie.root.Path()), Path: []byte("secret.mkv"), PayloadHash: movie.identity,
+			RootPath: filepath.Dir(movie.root.Path()), Path: []byte("secret.mkv"), PayloadHash: movie.payloadHash,
 		}.Target(),
 	}
 	for name, target := range cases {
@@ -163,7 +163,7 @@ func TestFile_NamesNothingOutsideARoot(t *testing.T) {
 	for name, target := range map[string]string{
 		"no hash": nodeproto.PathBytesFile + "?" + url.Values{"root": {movie.root.Path()}, "path": {"eA"}}.Encode(),
 		"a path not base64": nodeproto.PathBytesFile + "?" + url.Values{
-			"root": {movie.root.Path()}, "path": {"%%"}, "payloadHash": {movie.identity},
+			"root": {movie.root.Path()}, "path": {"%%"}, "payloadHash": {movie.payloadHash},
 		}.Encode(),
 	} {
 		got := request(t, handler, http.MethodGet, target, nil)
@@ -179,7 +179,7 @@ func TestFile_OnlyReads(t *testing.T) {
 	movie := newFilm(t, "film.mkv")
 	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
 	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
-		got := request(t, handler, method, movie.target(movie.path, movie.identity), nil)
+		got := request(t, handler, method, movie.target(movie.path, movie.payloadHash), nil)
 		if got.Code != http.StatusMethodNotAllowed {
 			t.Errorf("%s = %d, want 405", method, got.Code)
 		}
@@ -191,13 +191,14 @@ func TestFile_ServesANameThatIsNotUTF8(t *testing.T) {
 	name := "caf\xe9.mkv" // Latin-1, as an old disk wrote it (D49)
 	movie := newFilm(t, name)
 	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
-	if got := request(t, handler, http.MethodGet, movie.target(name, movie.identity), nil); got.Code != http.StatusOK {
+	got := request(t, handler, http.MethodGet, movie.target(name, movie.payloadHash), nil)
+	if got.Code != http.StatusOK {
 		t.Errorf("GET a Latin-1 name = %d, want 200", got.Code)
 	}
 }
 
-// rendition is a prepared directory with one rendition's master playlist, a segment and an init.
-func rendition(t *testing.T) *confine.MediaRoot {
+// preparedRoot is a prepared directory with one rendition's master playlist, a segment and an init.
+func preparedRoot(t *testing.T) *confine.MediaRoot {
 	t.Helper()
 	directory := t.TempDir()
 	for name, contents := range map[string]string{
@@ -224,7 +225,7 @@ func rendition(t *testing.T) *confine.MediaRoot {
 
 func TestRenditionFile_ServesARenditionsFilesAndNothingElse(t *testing.T) {
 	t.Parallel()
-	handler := byteserver.New(nil, rendition(t)).Handler()
+	handler := byteserver.New(nil, preparedRoot(t)).Handler()
 	for name, want := range map[string]string{
 		"7/remux/0123456789abcdef/master.m3u8":               "application/vnd.apple.mpegurl",
 		"7/remux/0123456789abcdef/audio0-boost/seg00001.m4s": "video/iso.segment",
@@ -260,7 +261,7 @@ func TestRenditionFile_ServesARenditionsFilesAndNothingElse(t *testing.T) {
 func TestRenditionFile_SaysWhichRenditionItServed(t *testing.T) {
 	t.Parallel()
 	var served []string
-	handler := byteserver.New(nil, rendition(t)).OnRenditionServed(func(renditionDir string) {
+	handler := byteserver.New(nil, preparedRoot(t)).OnRenditionServed(func(renditionDir string) {
 		served = append(served, renditionDir)
 	}).Handler()
 	const run = nodeproto.PathBytesPrepared + "7/remux/0123456789abcdef/"

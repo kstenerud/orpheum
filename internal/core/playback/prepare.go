@@ -72,8 +72,8 @@ func (all *prepares) want(
 		return row, runErr
 	}
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		key := cachegen.GetRenditionParams{SourceFile: file.ID, Profile: string(profile)}
-		found, err := store.One(queries.GetRendition(ctx, key))
+		key := cachegen.GetRenditionOfFileAndProfileParams{SourceFile: file.ID, Profile: string(profile)}
+		found, err := store.OrNotFound(queries.GetRenditionOfFileAndProfile(ctx, key))
 		switch {
 		case errors.Is(err, store.ErrNotFound):
 			_, err = queries.InsertRendition(ctx, cachegen.InsertRenditionParams{
@@ -92,7 +92,7 @@ func (all *prepares) want(
 		if err != nil {
 			return fmt.Errorf("record the rendition: %w", err)
 		}
-		row, err = queries.GetRendition(ctx, key)
+		row, err = queries.GetRenditionOfFileAndProfile(ctx, key)
 		return err
 	})
 	if err != nil {
@@ -116,8 +116,8 @@ func (all *prepares) redo(
 		return err
 	}
 	err = all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		key := cachegen.GetRenditionParams{SourceFile: file.ID, Profile: string(profile)}
-		found, readErr := queries.GetRendition(ctx, key)
+		key := cachegen.GetRenditionOfFileAndProfileParams{SourceFile: file.ID, Profile: string(profile)}
+		found, readErr := queries.GetRenditionOfFileAndProfile(ctx, key)
 		if readErr != nil {
 			return readErr
 		}

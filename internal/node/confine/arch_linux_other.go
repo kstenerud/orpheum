@@ -13,5 +13,5 @@ const isFilterWritten = false
 // auditArch is unused here.
 const auditArch = 0
 
-// foreignCalls is unused here.
-func foreignCalls() []unix.SockFilter { return nil }
+// refuseForeignCalls is unused here.
+func refuseForeignCalls() []unix.SockFilter { return nil }

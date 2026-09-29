@@ -316,8 +316,8 @@ func (config *Config) openOptions() store.OpenOptions {
 // migrateOptions are the runner's choices from the file.
 func (config *Config) migrateOptions(snapshotDirectory string, beforeStep func(step, total int)) store.MigrateOptions {
 	return store.MigrateOptions{
-		SnapshotDirectory: snapshotDirectory, BeforeStep: beforeStep,
-		SpaceFactor: config.Database.MigrateFreeSpaceDBMultiple,
+		SnapshotDirectory: snapshotDirectory, OnBeforeStep: beforeStep,
+		FreeSpaceDatabaseMultiple: config.Database.MigrateFreeSpaceDBMultiple,
 	}
 }
 

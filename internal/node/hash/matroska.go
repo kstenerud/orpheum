@@ -45,59 +45,61 @@ func (e element) end() int64 { return e.dataStart + e.dataSize }
 // starting at the last cue's cluster, found through the SeekHead, and stepping to the end of
 // the segment. Without Cues it steps over every cluster header instead: more reads, the same
 // answer.
-func matroskaPayload(file io.ReaderAt, size int64) (payload, error) {
-	header, err := readElement(file, size, 0)
+func matroskaPayload(file io.ReaderAt, sizeBytes int64) (payloadSpan, error) {
+	header, err := readElement(file, sizeBytes, 0)
 	if err != nil || header.id != idEBML {
-		return payload{}, fmt.Errorf("%w: no EBML header", errNotThisContainer)
+		return payloadSpan{}, fmt.Errorf("%w: no EBML header", errNotThisContainer)
 	}
-	segment, err := readElement(file, size, header.end())
+	segment, err := readElement(file, sizeBytes, header.end())
 	if err != nil || segment.id != idSegment {
-		return payload{}, fmt.Errorf("%w: no Segment after the EBML header", errNotThisContainer)
+		return payloadSpan{}, fmt.Errorf("%w: no Segment after the EBML header", errNotThisContainer)
 	}
-	segmentEnd := size
+	segmentEnd := sizeBytes
 	if segment.dataSize != unknownSize {
-		segmentEnd = min(segment.end(), size)
+		segmentEnd = min(segment.end(), sizeBytes)
 	}
 
-	firstCluster, cuesAt, err := walkToFirstCluster(file, size, segment.dataStart, segmentEnd)
+	firstCluster, cuesPosition, err := walkToFirstCluster(file, sizeBytes, segment.dataStart, segmentEnd)
 	if err != nil {
-		return payload{}, err
+		return payloadSpan{}, err
 	}
 	from := firstCluster
-	if cuesAt >= 0 {
+	if cuesPosition >= 0 {
 		// A cue that points anywhere but at a cluster is ignored: the walk from the first
 		// cluster gives the same answer.
-		if lastCued, found := lastCuedCluster(file, size, segment.dataStart, cuesAt); found {
+		if lastCued, found := lastCuedCluster(file, sizeBytes, segment.dataStart, cuesPosition); found {
 			from = max(lastCued, firstCluster)
 		}
 	}
-	lastEnd, err := walkToLastClusterEnd(file, size, from, segmentEnd)
+	lastEnd, err := walkToLastClusterEnd(file, sizeBytes, from, segmentEnd)
 	if err != nil {
-		return payload{}, err
+		return payloadSpan{}, err
 	}
-	return payload{start: firstCluster, end: lastEnd, anchor: AnchorMatroska}, nil
+	return payloadSpan{start: firstCluster, end: lastEnd, anchor: AnchorMatroska}, nil
 }
 
 // walkToFirstCluster steps over top-level elements from the segment's data to the first
 // Cluster, and notes where the SeekHead says the Cues are (-1 when it does not say).
-func walkToFirstCluster(file io.ReaderAt, size, segmentData, segmentEnd int64) (firstCluster, cuesAt int64, err error) {
-	cuesAt = -1
-	position := segmentData
+func walkToFirstCluster(
+	file io.ReaderAt, sizeBytes, segmentDataStart, segmentEnd int64,
+) (firstCluster, cuesPosition int64, err error) {
+	cuesPosition = -1
+	position := segmentDataStart
 	for range maxElementHops {
 		if position >= segmentEnd {
 			return 0, 0, fmt.Errorf("%w: the segment has no cluster", errNotThisContainer)
 		}
-		found, readErr := readElement(file, size, position)
+		found, readErr := readElement(file, sizeBytes, position)
 		if readErr != nil {
 			return 0, 0, readErr
 		}
 		switch {
 		case found.id == idCluster:
-			return found.start, cuesAt, nil
+			return found.start, cuesPosition, nil
 		case found.dataSize == unknownSize:
 			return 0, 0, fmt.Errorf("%w: a header element of unknown size", errNotThisContainer)
-		case found.id == idSeekHead && cuesAt < 0:
-			cuesAt = seekPositionOfCues(file, size, found, segmentData)
+		case found.id == idSeekHead && cuesPosition < 0:
+			cuesPosition = seekPositionOfCues(file, sizeBytes, found, segmentDataStart)
 		}
 		position = found.end()
 	}
@@ -106,7 +108,7 @@ func walkToFirstCluster(file io.ReaderAt, size, segmentData, segmentEnd int64) (
 
 // walkToLastClusterEnd steps over top-level elements from a cluster to the segment's end and
 // returns where the last Cluster ends.
-func walkToLastClusterEnd(file io.ReaderAt, size, from, segmentEnd int64) (int64, error) {
+func walkToLastClusterEnd(file io.ReaderAt, sizeBytes, from, segmentEnd int64) (int64, error) {
 	lastEnd := int64(-1)
 	position := from
 	for range maxElementHops {
@@ -116,11 +118,11 @@ func walkToLastClusterEnd(file io.ReaderAt, size, from, segmentEnd int64) (int64
 			}
 			return lastEnd, nil
 		}
-		found, err := readElement(file, size, position)
+		found, err := readElement(file, sizeBytes, position)
 		if err != nil {
 			return 0, err
 		}
-		if found.dataSize == unknownSize || found.end() > size {
+		if found.dataSize == unknownSize || found.end() > sizeBytes {
 			return 0, fmt.Errorf("%w: an element at %d of unknown size or past the end of the file",
 				errNotThisContainer, found.start)
 		}
@@ -133,8 +135,8 @@ func walkToLastClusterEnd(file io.ReaderAt, size, from, segmentEnd int64) (int64
 }
 
 // seekPositionOfCues reads a SeekHead and returns the Cues' absolute position, or -1.
-func seekPositionOfCues(file io.ReaderAt, size int64, seekHead element, segmentData int64) int64 {
-	children, err := readChildren(file, size, seekHead, maxSeekHeadBytes)
+func seekPositionOfCues(file io.ReaderAt, sizeBytes int64, seekHead element, segmentDataStart int64) int64 {
+	children, err := readChildren(file, sizeBytes, seekHead, maxSeekHeadBytes)
 	if err != nil {
 		return -1
 	}
@@ -152,8 +154,9 @@ func seekPositionOfCues(file io.ReaderAt, size int64, seekHead element, segmentD
 				position, hasPosition = field.integer(), true
 			}
 		}
-		if hasTarget && hasPosition && target == idCues && position < uint64(size) { //nolint:gosec // size >= 0
-			return segmentData + int64(position)
+		isCues := hasTarget && hasPosition && target == idCues
+		if isCues && position < uint64(sizeBytes) { //nolint:gosec // sizeBytes >= 0
+			return segmentDataStart + int64(position)
 		}
 	}
 	return -1
@@ -161,21 +164,21 @@ func seekPositionOfCues(file io.ReaderAt, size int64, seekHead element, segmentD
 
 // lastCuedCluster reads the Cues and returns the absolute position of the latest cluster any
 // cue points at, when that position holds a Cluster.
-func lastCuedCluster(file io.ReaderAt, size, segmentData, cuesAt int64) (int64, bool) {
-	cues, err := readElement(file, size, cuesAt)
+func lastCuedCluster(file io.ReaderAt, sizeBytes, segmentDataStart, cuesPosition int64) (int64, bool) {
+	cues, err := readElement(file, sizeBytes, cuesPosition)
 	if err != nil || cues.id != idCues || cues.dataSize == unknownSize {
 		return 0, false
 	}
-	points, err := readChildren(file, size, cues, maxCuesBytes)
+	points, err := readChildren(file, sizeBytes, cues, maxCuesBytes)
 	if err != nil {
 		return 0, false
 	}
 	latest := latestClusterPosition(points)
-	if latest >= uint64(size) { //nolint:gosec // size >= 0
+	if latest >= uint64(sizeBytes) { //nolint:gosec // sizeBytes >= 0
 		return 0, false
 	}
-	at := segmentData + int64(latest) //nolint:gosec // bounded by size above
-	cluster, err := readElement(file, size, at)
+	at := segmentDataStart + int64(latest) //nolint:gosec // bounded by sizeBytes above
+	cluster, err := readElement(file, sizeBytes, at)
 	if err != nil || cluster.id != idCluster {
 		return 0, false
 	}
@@ -183,7 +186,7 @@ func lastCuedCluster(file io.ReaderAt, size, segmentData, cuesAt int64) (int64, 
 }
 
 // latestClusterPosition is the largest CueClusterPosition among the cue points.
-func latestClusterPosition(points []node) uint64 {
+func latestClusterPosition(points []ebmlNode) uint64 {
 	var latest uint64
 	for _, point := range points {
 		if point.id != idCuePoint {
@@ -204,13 +207,13 @@ func latestClusterPosition(points []node) uint64 {
 }
 
 // readElement reads the element header at position.
-func readElement(file io.ReaderAt, size, position int64) (element, error) {
+func readElement(file io.ReaderAt, sizeBytes, position int64) (element, error) {
 	var buffer [12]byte // an ID of at most 4 bytes and a size of at most 8
-	available := min(int64(len(buffer)), size-position)
+	available := min(int64(len(buffer)), sizeBytes-position)
 	if available < 2 {
 		return element{}, fmt.Errorf("%w: no element header at %d", errNotThisContainer, position)
 	}
-	if err := readAt(file, size, position, buffer[:available]); err != nil {
+	if err := readAt(file, sizeBytes, position, buffer[:available]); err != nil {
 		return element{}, err
 	}
 	id, idLength, ok := vint(buffer[:available], true)
@@ -223,10 +226,10 @@ func readElement(file io.ReaderAt, size, position int64) (element, error) {
 	}
 	found := element{start: position, dataStart: position + int64(idLength+sizeLength), id: id, dataSize: unknownSize}
 	if dataSize != allOnes(sizeLength) {
-		if dataSize > uint64(size) { //nolint:gosec // size >= 0
+		if dataSize > uint64(sizeBytes) { //nolint:gosec // sizeBytes >= 0
 			return element{}, fmt.Errorf("%w: an element at %d larger than the file", errNotThisContainer, position)
 		}
-		found.dataSize = int64(dataSize) //nolint:gosec // bounded by size above
+		found.dataSize = int64(dataSize) //nolint:gosec // bounded by sizeBytes above
 	}
 	return found, nil
 }
@@ -259,15 +262,15 @@ func allOnes(length int) uint64 {
 	return 1<<(7*length) - 1
 }
 
-// node is an element read with its data, and its children when it is a master element.
-type node struct {
+// ebmlNode is an element read with its data, and its children when it is a master element.
+type ebmlNode struct {
 	id       uint64
 	data     []byte
-	children []node
+	children []ebmlNode
 }
 
 // integer is the node's data as a big-endian unsigned integer.
-func (n node) integer() uint64 {
+func (n ebmlNode) integer() uint64 {
 	var value uint64
 	for _, next := range n.data {
 		value = value<<8 | uint64(next)
@@ -277,12 +280,13 @@ func (n node) integer() uint64 {
 
 // readChildren reads a master element of at most limit bytes and parses three levels of it,
 // enough for SeekHead → Seek → fields and Cues → CuePoint → CueTrackPositions → fields.
-func readChildren(file io.ReaderAt, size int64, parent element, limit int64) ([]node, error) {
-	if parent.dataSize == unknownSize || parent.dataSize > limit {
-		return nil, fmt.Errorf("%w: an element of %d bytes, more than %d", errNotThisContainer, parent.dataSize, limit)
+func readChildren(file io.ReaderAt, sizeBytes int64, parent element, maxBytes int64) ([]ebmlNode, error) {
+	if parent.dataSize == unknownSize || parent.dataSize > maxBytes {
+		return nil, fmt.Errorf("%w: an element of %d bytes, more than %d", errNotThisContainer, parent.dataSize,
+			maxBytes)
 	}
 	data := make([]byte, parent.dataSize)
-	if err := readAt(file, size, parent.dataStart, data); err != nil {
+	if err := readAt(file, sizeBytes, parent.dataStart, data); err != nil {
 		return nil, err
 	}
 	return parseNodes(data, 3), nil
@@ -290,8 +294,8 @@ func readChildren(file io.ReaderAt, size int64, parent element, limit int64) ([]
 
 // parseNodes parses data as a run of elements, descending depth levels. It stops quietly at
 // the first thing that is not an element: what it returns is what it could follow.
-func parseNodes(data []byte, depth int) []node {
-	var nodes []node
+func parseNodes(data []byte, depth int) []ebmlNode {
+	var nodes []ebmlNode
 	for len(data) > 0 {
 		id, idLength, ok := vint(data, true)
 		if !ok || idLength > 4 {
@@ -303,7 +307,7 @@ func parseNodes(data []byte, depth int) []node {
 			return nodes
 		}
 		body := data[headerLength : headerLength+int(dataSize)] //nolint:gosec // bounded above
-		parsed := node{id: id, data: body}
+		parsed := ebmlNode{id: id, data: body}
 		if depth > 1 {
 			parsed.children = parseNodes(body, depth-1)
 		}
