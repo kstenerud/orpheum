@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PlayReporter, ReportRefused, type PlayReport } from "./report.ts";
+import { settled } from "./test-timing.ts";
 
 /** A counter of report numbers, as one playback's reporters share. */
 function counter(): () => number {
@@ -55,10 +56,6 @@ function fakeReporter(nextReportSeq: () => number = counter()): {
     },
     attempts: () => attempts,
   };
-}
-
-async function settled(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe("reporting play state", () => {
