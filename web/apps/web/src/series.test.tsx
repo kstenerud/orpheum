@@ -28,9 +28,9 @@ describe("SeriesView", () => {
       kind: "series",
       name: "Glass Tide",
       libraryId: 1,
-      art: { posterHash: "p" },
+      art: { posterSha256: "p" },
       episodes: [
-        { ...episode(31, { seasonNumber: 1, episodeNumber: 1 }), stillHash: "s31" },
+        { ...episode(31, { seasonNumber: 1, episodeNumber: 1 }), stillSha256: "s31" },
         episode(32, { seasonNumber: 1, episodeNumber: 2 }, false),
         episode(40, { seasonNumber: 0, episodeNumber: 1 }),
         episode(33, { seasonNumber: 2, episodeNumber: 1 }),

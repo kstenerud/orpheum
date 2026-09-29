@@ -67,8 +67,8 @@ func (fake *fakeSubtitler) Allowance(context.Context) (opensubtitles.Allowance, 
 func (harness testHarness) identifyFilm(t *testing.T) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.database,
-		"INSERT INTO item (id, kind, library_id, created_at) VALUES (30, 'title', 1, 1)",
-		"INSERT INTO title (id, kind, year, identification) VALUES (30, 'movie', 2002, 'identified')",
+		"INSERT INTO item (id, kind, library_id, added_at) VALUES (30, 'title', 1, 1)",
+		"INSERT INTO title (id, kind, year, identification_state) VALUES (30, 'movie', 2002, 'identified')",
 		"INSERT INTO version (id, title_id, created_at) VALUES (3, 30, 1)",
 		"UPDATE file SET version_id = 3, opensubtitles_hash = '8e245d9679d31e12' WHERE id = 2",
 		`INSERT INTO item_provider_id (item_id, provider, provider_id)
@@ -84,7 +84,7 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 	answer := harness.do(t, http.MethodGet, "/files/2/subtitle-candidates?language=de", user, nil)
 	offered := offeredCandidates(t, answer)
 	first := offered.Candidates
-	if len(first) != 2 || !first[0].IsHashMatch || first[0].ProviderFileID != 7 ||
+	if len(first) != 2 || !first[0].IsOpensubtitlesHashMatch || first[0].ProviderFileID != 7 ||
 		offered.Allowance.RemainingDownloads != 20 ||
 		!offered.DidAskByIDs || !offered.DidAskByFileHash {
 		t.Errorf("offered %+v; want both candidates, the hash match first, the downloads left, and that it "+
@@ -113,7 +113,7 @@ type offered struct {
 	Candidates       []SubtitleCandidateBody `json:"candidates"`
 	Allowance        AllowanceBody           `json:"allowance"`
 	DidAskByIDs      bool                    `json:"didAskByIds"`
-	DidAskByFileHash bool                    `json:"didAskByFileHash"`
+	DidAskByFileHash bool                    `json:"didAskByOpensubtitlesHash"`
 }
 
 // offeredCandidates reads a 200 answer of GET subtitle-candidates.
@@ -153,7 +153,7 @@ func TestSubtitleCandidates_SayWhyInTheProvidersTerms(t *testing.T) {
 	for failure, want := range map[error]string{
 		opensubtitles.ErrNoLogin:                         `"reason":"no_login"`,
 		opensubtitles.ErrLoginRefused:                    `"reason":"login_refused"`,
-		&opensubtitles.QuotaSpentError{ResetAt: resetAt}: `"downloadsResetAt":"2026-09-29T06:00:00Z"`,
+		&opensubtitles.QuotaSpentError{ResetAt: resetAt}: `"downloadsResetAt":"1790661600000"`,
 	} {
 		harness.subtitler.mutex.Lock()
 		harness.subtitler.failure = failure
@@ -161,7 +161,7 @@ func TestSubtitleCandidates_SayWhyInTheProvidersTerms(t *testing.T) {
 		answer := harness.do(t, http.MethodPost, "/files/2/subtitles", user,
 			map[string]any{"providerFileId": 7, "language": "de"})
 		if answer.status < 400 || !strings.Contains(answer.body, want) ||
-			!strings.Contains(answer.body, `"hop":"provider"`) {
+			!strings.Contains(answer.body, `"failedHop":"provider"`) {
 			t.Errorf("when OpenSubtitles says %v: %d %s, want %s (D224 §4)", failure, answer.status, answer.body, want)
 		}
 	}

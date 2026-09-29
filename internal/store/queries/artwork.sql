@@ -3,14 +3,14 @@
 -- its sizes are stored under in cache/art/. A person's choice is is_chosen = 1 and stays.
 
 -- name: ListLiveArtwork :many
-SELECT id, kind, source, source_ref, content_hash, is_chosen
+SELECT id, kind, source, source_ref, source_sha256, is_chosen
 FROM artwork
 WHERE item_id = sqlc.arg(item_id) AND removed_at IS NULL
 ORDER BY kind, is_chosen DESC, id DESC;
 
 -- name: InsertArtwork :one
-INSERT INTO artwork (item_id, kind, source, source_ref, content_hash)
-VALUES (sqlc.arg(item_id), sqlc.arg(kind), sqlc.arg(source), sqlc.arg(source_ref), sqlc.arg(content_hash))
+INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256)
+VALUES (sqlc.arg(item_id), sqlc.arg(kind), sqlc.arg(source), sqlc.arg(source_ref), sqlc.arg(source_sha256))
 RETURNING id;
 
 -- name: MarkArtworkRemoved :exec
@@ -23,7 +23,7 @@ WHERE item_id = sqlc.arg(item_id) AND kind = sqlc.arg(kind) AND source = sqlc.ar
 -- Where a stored image came from, to fetch it again for a size made on request, D212 section 3.
 SELECT item_id, kind, source, source_ref
 FROM artwork
-WHERE content_hash = sqlc.arg(content_hash) AND removed_at IS NULL AND source_ref IS NOT NULL
+WHERE source_sha256 = sqlc.arg(source_sha256) AND removed_at IS NULL AND source_ref IS NOT NULL
 ORDER BY id DESC
 LIMIT 1;
 
@@ -31,12 +31,12 @@ LIMIT 1;
 -- The images a page of items shows, of one kind; the ids are a JSON array. Per item, a person's
 -- choice first; then the source the item's library prefers, an image beside the media unless the
 -- library takes TMDB only, D215; then the newest stored. The caller keeps each item's first row.
-SELECT artwork.item_id, artwork.content_hash
+SELECT artwork.item_id, artwork.source_sha256
 FROM artwork
 JOIN item ON item.id = artwork.item_id
 LEFT JOIN library ON library.id = item.library_id
 WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids) AS TEXT)))
-  AND artwork.kind = sqlc.arg(kind) AND artwork.removed_at IS NULL AND artwork.content_hash IS NOT NULL
+  AND artwork.kind = sqlc.arg(kind) AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NOT NULL
 ORDER BY artwork.item_id, artwork.is_chosen DESC,
   (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC;
 
@@ -46,24 +46,24 @@ ORDER BY artwork.item_id, artwork.is_chosen DESC,
 SELECT COUNT(*) AS misses
 FROM artwork
 WHERE item_id = sqlc.arg(item_id) AND kind = sqlc.arg(kind) AND source = sqlc.arg(source)
-  AND source_ref = sqlc.arg(source_ref) AND content_hash IS NULL AND removed_at IS NOT NULL;
+  AND source_ref = sqlc.arg(source_ref) AND source_sha256 IS NULL AND removed_at IS NOT NULL;
 
 -- name: RetryItemArtwork :exec
 -- A refresh that looks again: the item's images that were missing or refused are asked for once
 -- more at its next pass, D213 sections 1 and 2.
 UPDATE artwork SET removed_at = sqlc.arg(removed_at)
-WHERE item_id = sqlc.arg(item_id) AND content_hash IS NULL AND is_chosen = 0 AND removed_at IS NULL;
+WHERE item_id = sqlc.arg(item_id) AND source_sha256 IS NULL AND is_chosen = 0 AND removed_at IS NULL;
 
 -- name: ListArtworkHashes :many
 -- Every stored image, whether a live item shows it, and when it last stopped being shown: what
 -- the artwork ceiling reads to find removed items' images, D212 section 6.
-SELECT artwork.content_hash,
+SELECT artwork.source_sha256,
   CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS live,
   CAST(MAX(COALESCE(artwork.removed_at, item.removed_at, 0)) AS INTEGER) AS gone_at
 FROM artwork
 JOIN item ON item.id = artwork.item_id
-WHERE artwork.content_hash IS NOT NULL
-GROUP BY artwork.content_hash;
+WHERE artwork.source_sha256 IS NOT NULL
+GROUP BY artwork.source_sha256;
 
 -- name: GetFileForArtwork :one
 -- An image beside the media: the node that holds it, and its path, for the node to read.

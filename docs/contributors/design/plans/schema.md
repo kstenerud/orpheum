@@ -14,8 +14,8 @@
   blocks below are loaded verbatim by the benchmark in
   `/yoloai/cache/bench/schema/` (SQLite 3.53.4 via modernc), so they are valid as written.
 - **Renamed 2026-09-26** by migration 0012, after a naming audit (agent-failures A8): the SQL
-  below uses the current names. Units are in names (`size_bytes`, `mtime_ms`), times end in
-  `_at`, booleans are predicates, and abbreviations are spelled out (`identification`,
+  below uses the current names. Units are in names (`size_bytes`, `runtime_ms`), times end in
+  `_at`, booleans are predicates, and abbreviations are spelled out (`identification_state`, `language`,
   `group_number`, `search_alternates`, `started_at` for play spans).
 - **Depends on:** [library-model.md](library-model.md) (the *why*), [migrations.md](migrations.md)
   (how this changes), [backup-restore.md](backup-restore.md).
@@ -117,8 +117,8 @@ CREATE TABLE library (                                     -- class A
 CREATE TABLE library_root (                                -- class O: as the node reports it (D107)
   library_id INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
   node_id    INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
-  path       TEXT NOT NULL,
-  PRIMARY KEY (library_id, node_id, path)
+  root_path       TEXT NOT NULL,
+  PRIMARY KEY (library_id, node_id, root_path)
 );
 ```
 
@@ -190,7 +190,7 @@ CREATE TABLE file (                                        -- class I (identity 
   path          TEXT NOT NULL,           -- NFC form
   reported_path_bytes      BLOB,                    -- migration 0011: the reported bytes, always; the live-file key (D211)
   size_bytes          INTEGER,
-  mtime_ms         INTEGER,
+  modified_at         INTEGER,
   payload_hash  BLOB,                    -- D179: anchored on the media payload
   payload_bytes   INTEGER,
   opensubtitles_hash TEXT,               -- migration 0017: the provider's moviehash, 16 hex digits (D224 §3)
@@ -236,9 +236,9 @@ CREATE TABLE stream (                                      -- class O; not "trac
   stream_index INTEGER,                  -- NULL for a whole-file sidecar
   kind        TEXT NOT NULL CHECK (kind IN ('video','audio','subtitle','attachment')),
   codec       TEXT,
-  lang_raw    TEXT,                      -- as the container carried it
-  lang        TEXT,                      -- BCP 47, normalised (D24)
-  title_raw   TEXT,
+  container_language    TEXT,                      -- as the container carried it
+  language        TEXT,                      -- BCP 47, normalised (D24)
+  container_title   TEXT,
   disposition_flags INTEGER NOT NULL DEFAULT 0,  -- FFmpeg's flags, as found
   channel_count INTEGER,
   UNIQUE (bytes_file, stream_index)
@@ -250,10 +250,10 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
   video_file  INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
   provider_file_id TEXT NOT NULL,
-  lang        TEXT NOT NULL,
+  language        TEXT NOT NULL,
   format      TEXT NOT NULL,
   body_gzip        BLOB NOT NULL,             -- gzip; a few kB; in the database so the backup carries it
-  fetched_by  INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
+  fetched_by_user_id  INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   fetched_at  INTEGER NOT NULL,
   release_name TEXT                      -- migration 0017: the provider's name for it (D224)
 );
@@ -299,7 +299,7 @@ CREATE TABLE item (                                        -- class I
   library_id  INTEGER REFERENCES library(id) ON DELETE RESTRICT,
   origin_server      TEXT,                      -- NULL = this server; else who gave it (D174)
   merged_into INTEGER REFERENCES item(id) ON DELETE RESTRICT,  -- D173
-  created_at  INTEGER NOT NULL,
+  added_at  INTEGER NOT NULL,
   removed_at  INTEGER
 );
 CREATE INDEX item_library ON item(library_id, kind) WHERE removed_at IS NULL;
@@ -326,15 +326,15 @@ CREATE TABLE title (                                       -- mixed: see the col
   media_kind     TEXT NOT NULL DEFAULT 'video' CHECK (media_kind IN ('video','audio')),
   year           INTEGER,                                    -- O: resolved
   runtime_ms     INTEGER,                                    -- O: resolved
-  original_lang  TEXT,                                       -- O: resolved
+  original_language  TEXT,                                       -- O: resolved
   -- D170/D183: the one source this title follows, and its id there. F, or A once a person
   -- chose it: a match is a fetch, and a migration never redoes one.
   followed_source         TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),       -- F/A
   followed_source_id      TEXT,                                                      -- F/A
-  identification          TEXT NOT NULL CHECK (identification IN
+  identification_state          TEXT NOT NULL CHECK (identification_state IN
                    ('identified','ambiguous','unidentified','confirmed'))    -- F/A (D172)
 );
-CREATE INDEX title_ambiguous ON title(id) WHERE identification = 'ambiguous';
+CREATE INDEX title_ambiguous ON title(id) WHERE identification_state = 'ambiguous';
 
 CREATE TABLE edition (                                     -- class A when a person made it
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -375,21 +375,21 @@ its source File ([D180](../../decisions/working-notes.md)).
 ```sql
 CREATE TABLE item_text (                                   -- class O/F, resolved (D45)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
-  lang        TEXT NOT NULL,
+  language        TEXT NOT NULL,
   is_original INTEGER NOT NULL DEFAULT 0 CHECK (is_original IN (0,1)),
   name        TEXT NOT NULL,
   overview    TEXT,
   tagline     TEXT,
   search_alternates  TEXT,                      -- migration 0010: the name, folded for search (D48)
-  PRIMARY KEY (item_id, lang)
+  PRIMARY KEY (item_id, language)
 );
 CREATE UNIQUE INDEX item_text_original ON item_text(item_id) WHERE is_original = 1;
 
 CREATE TABLE edition_text (                                -- class A or O
   edition_id  INTEGER NOT NULL REFERENCES edition(id) ON DELETE RESTRICT,
-  lang        TEXT NOT NULL,
+  language        TEXT NOT NULL,
   name        TEXT NOT NULL,
-  PRIMARY KEY (edition_id, lang)
+  PRIMARY KEY (edition_id, language)
 );
 
 CREATE TABLE sort_key (                                    -- class C (D47)
@@ -417,18 +417,26 @@ hand-written in `internal/store/search.go`, because sqlc cannot parse FTS5's `MA
 
 ```sql
 CREATE TRIGGER item_text_ai AFTER INSERT ON item_text BEGIN
-  INSERT INTO item_fts(rowid, name, overview) VALUES (new.rowid, new.name, new.overview);
-  INSERT INTO item_fts_tri(rowid, name) VALUES (new.rowid, new.name);
+  INSERT INTO item_fts(rowid, name, search_alternates, overview)
+    VALUES (new.rowid, new.name, new.search_alternates, new.overview);
+  INSERT INTO item_fts_tri(rowid, name, search_alternates)
+    VALUES (new.rowid, new.name, new.search_alternates);
 END;
 CREATE TRIGGER item_text_ad AFTER DELETE ON item_text BEGIN
-  INSERT INTO item_fts(item_fts, rowid, name, overview) VALUES ('delete', old.rowid, old.name, old.overview);
-  INSERT INTO item_fts_tri(item_fts_tri, rowid, name) VALUES ('delete', old.rowid, old.name);
+  INSERT INTO item_fts(item_fts, rowid, name, search_alternates, overview)
+    VALUES ('delete', old.rowid, old.name, old.search_alternates, old.overview);
+  INSERT INTO item_fts_tri(item_fts_tri, rowid, name, search_alternates)
+    VALUES ('delete', old.rowid, old.name, old.search_alternates);
 END;
 CREATE TRIGGER item_text_au AFTER UPDATE ON item_text BEGIN
-  INSERT INTO item_fts(item_fts, rowid, name, overview) VALUES ('delete', old.rowid, old.name, old.overview);
-  INSERT INTO item_fts_tri(item_fts_tri, rowid, name) VALUES ('delete', old.rowid, old.name);
-  INSERT INTO item_fts(rowid, name, overview) VALUES (new.rowid, new.name, new.overview);
-  INSERT INTO item_fts_tri(rowid, name) VALUES (new.rowid, new.name);
+  INSERT INTO item_fts(item_fts, rowid, name, search_alternates, overview)
+    VALUES ('delete', old.rowid, old.name, old.search_alternates, old.overview);
+  INSERT INTO item_fts_tri(item_fts_tri, rowid, name, search_alternates)
+    VALUES ('delete', old.rowid, old.name, old.search_alternates);
+  INSERT INTO item_fts(rowid, name, search_alternates, overview)
+    VALUES (new.rowid, new.name, new.search_alternates, new.overview);
+  INSERT INTO item_fts_tri(rowid, name, search_alternates)
+    VALUES (new.rowid, new.name, new.search_alternates);
 END;
 ```
 
@@ -445,22 +453,22 @@ with the listing first ([D186](../../decisions/working-notes.md)).
 CREATE TABLE field_override (                              -- class A (D183)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   field       TEXT NOT NULL,             -- a field-registry name
-  lang        TEXT NOT NULL DEFAULT '',  -- '' for language-invariant fields
+  language        TEXT NOT NULL DEFAULT '',  -- '' for language-invariant fields
   override_value       TEXT NOT NULL,             -- a frozen copy
   origin      TEXT NOT NULL,             -- 'typed', 'nfo', 'tmdb', 'tvdb' — display only
   set_by_user_id      INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
-  PRIMARY KEY (item_id, field, lang)
+  PRIMARY KEY (item_id, field, language)
 );
 
 CREATE TABLE artwork (                                     -- class O/F; A when chosen
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
-  kind        TEXT NOT NULL CHECK (kind IN ('poster','backdrop','logo','banner','thumb','disc')),
-  lang        TEXT,
+  kind        TEXT NOT NULL CHECK (kind IN ('poster','backdrop','logo','banner','still','disc')),
+  language        TEXT,
   source      TEXT NOT NULL,             -- 'tmdb', 'local' (beside the media, D215), 'embedded', 'user'
   source_ref  TEXT,
-  content_hash BLOB,                     -- the derived sizes live in cache/ under this
+  source_sha256 BLOB,                     -- the derived sizes live in cache/ under this
   is_chosen   INTEGER NOT NULL DEFAULT 0 CHECK (is_chosen IN (0,1)),  -- a person picked it
   removed_at  INTEGER
 );
@@ -496,7 +504,7 @@ CREATE TABLE collection (                                  -- class A or O
   year        INTEGER,                                                       -- O: resolved
   followed_source      TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),         -- F/A: its own values
   followed_source_id   TEXT,                                                          -- F/A: its match
-  identification       TEXT CHECK (identification IN ('identified','ambiguous','unidentified','confirmed'))  -- F/A
+  identification_state       TEXT CHECK (identification_state IN ('identified','ambiguous','unidentified','confirmed'))  -- F/A
 );
 CREATE TABLE collection_member (                           -- D159, D160
   collection_id     INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
@@ -528,10 +536,10 @@ CREATE INDEX position_title ON position(title_id);
 CREATE TABLE group_text (                                  -- a season's name, a disc's subtitle
   collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
   group_number         INTEGER NOT NULL,
-  lang        TEXT NOT NULL,
+  language        TEXT NOT NULL,
   name        TEXT,
   overview    TEXT,
-  PRIMARY KEY (collection_id, group_number, lang)
+  PRIMARY KEY (collection_id, group_number, language)
 );
 ```
 
@@ -580,8 +588,8 @@ CREATE TABLE device (                                      -- class A
   platform      TEXT NOT NULL,
   audio_output  TEXT CHECK (audio_output IN ('built_in_speakers','receiver','headphones')),  -- migration 0020
                                          -- NULL until asked on first playback (D184)
-  first_seen_at    INTEGER NOT NULL,
-  last_seen_at     INTEGER NOT NULL,
+  added_at    INTEGER NOT NULL,
+  last_signed_in_at     INTEGER NOT NULL,
   removed_at    INTEGER
 );
 CREATE INDEX device_owner ON device(user_id) WHERE removed_at IS NULL;  -- a person's devices (0015)
@@ -621,6 +629,7 @@ CREATE TABLE setting (                                     -- class A
   value_json       TEXT NOT NULL,             -- JSON
   set_by_user_id      INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- NULL: the setup wizard
   set_at      INTEGER NOT NULL,
+  is_modified INTEGER NOT NULL DEFAULT 0 CHECK (is_modified IN (0, 1)),  -- a person set it (D201)
   CHECK ((scope = 'server') = (user_id IS NULL))
 );
 CREATE UNIQUE INDEX setting_key ON setting(scope, ifnull(user_id, 0), key);
@@ -644,7 +653,7 @@ CREATE TABLE secret (                                      -- class A, sealed (D
   key_id      INTEGER NOT NULL,          -- which secret.key sealed it (rotation)
   nonce       BLOB NOT NULL,             -- 24 bytes, XChaCha20-Poly1305
   ciphertext      BLOB NOT NULL,             -- ciphertext; the associated data is (scope, user_id, name)
-  hint        TEXT,                      -- last secret_hint_chars characters of an API key; NULL for a password
+  last_chars  TEXT,                      -- an API key's last characters, secret_last_chars_shown of them; NULL for a password
   set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
   CHECK ((scope = 'server') = (user_id IS NULL))
@@ -680,7 +689,7 @@ CREATE TABLE play_event (                                  -- class A (D165)
   kind        TEXT NOT NULL CHECK (kind IN ('started','paused','seeked','completed','abandoned')),
   position_ms INTEGER NOT NULL,
   happened_at   INTEGER NOT NULL,
-  client_mono_ms INTEGER
+  happened_mono_ms INTEGER
 );
 CREATE INDEX play_event_user_file ON play_event(user_id, file_id, happened_at);
 
@@ -730,9 +739,9 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   scope       TEXT NOT NULL CHECK (scope IN ('user','library','series','device','file')),
   scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'
-  axis        TEXT NOT NULL,               -- 'audio_lang', 'subtitle_set', 'subtitle_offset_ms',
-                                           -- 'embedded_fonts', 'caption_size', 'dialogue_boost'…
-  value_json  TEXT NOT NULL,               -- tri-valued where the axis says so: 'off' ≠ unset
+  axis        TEXT NOT NULL,               -- 'subtitle_offset_ms', 'subtitle_choice' (a file's);
+                                           -- 'dialogue_boost', 'levelling' (a person's own)
+  value_json  TEXT NOT NULL,               -- JSON; a switch is true or false, and unset ≠ false
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, scope, scope_id, axis)
 ) WITHOUT ROWID;
@@ -801,7 +810,8 @@ reference scale, and removes a failure mode.
 > version 11 what made a rendition's video and how fast (D225); version 12 the
 > `convert_fetched_subtitle` job (D224); version 13 the `measure_loudness` job and the gains a
 > rendition's sound carries (D226); version 14 renamed columns to say what they hold and gave a
-> job a column per kind of target (D227); version 15 named a rendition's gains `audio_gains_db_json`
+> job a column per kind of target (D227); version 15 named a rendition's gains `audio_gains_db_json`;
+> version 16 gave each value one name in every layer (D227 §6)
 > (D227 §5).
 
 ```sql
@@ -816,16 +826,16 @@ CREATE TABLE job (                                         -- the one work queue
   stream_id           INTEGER,
   fetched_subtitle_id INTEGER,
   file_id             INTEGER,
-  args_json   TEXT NOT NULL DEFAULT '{}',  -- provider, profile, reason
+  args_json   TEXT NOT NULL DEFAULT '{}',  -- a kind's own: a fetch's isRefresh, an artwork job's images
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
   state       TEXT NOT NULL DEFAULT 'queued'
                 CHECK (state IN ('queued','running','done','failed','cancelled')),
   node_id     INTEGER,                   -- where it runs, for node work
   runnable_at INTEGER NOT NULL,          -- not before this: rate limits and retry back-off (D170)
-  attempts    INTEGER NOT NULL DEFAULT 0,
+  attempt_count    INTEGER NOT NULL DEFAULT 0,
   progress_fraction REAL,                -- 0..1 when known
   reason      TEXT,                      -- why it exists, shown to the user
-  last_error  TEXT,                      -- FFmpeg's exit and stderr tail, the provider's reply
+  last_failure  TEXT,                      -- FFmpeg's exit and stderr tail, the provider's reply
   created_at  INTEGER NOT NULL,
   finished_at INTEGER,
   CHECK ((item_id IS NOT NULL) + (rendition_id IS NOT NULL) + (stream_id IS NOT NULL) +
@@ -837,11 +847,11 @@ CREATE TABLE match_candidate (                             -- D172: kept so choo
   rank        INTEGER NOT NULL,
   provider    TEXT NOT NULL,
   provider_id TEXT NOT NULL,
-  name        TEXT, year INTEGER, runtime_ms INTEGER, poster_path TEXT,
+  name        TEXT, year INTEGER, runtime_ms INTEGER, provider_poster_path TEXT,
   PRIMARY KEY (item_id, rank)
 );
 CREATE TABLE art_served (                                  -- D212 section 6: recency, to the day
-  content_hash_hex TEXT PRIMARY KEY,     -- an image's directory under cache/art/
+  source_sha256_hex TEXT PRIMARY KEY,     -- an image's directory under cache/art/
   last_served_epoch_day INTEGER NOT NULL  -- days since the Unix epoch it was last served
 ) WITHOUT ROWID;
 CREATE TABLE prepared_rendition (                          -- D175, D180, D217 section 5
@@ -852,14 +862,14 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   node_id      INTEGER NOT NULL,         -- the node that holds it, beside its source
   state        TEXT NOT NULL DEFAULT 'queued'
                  CHECK (state IN ('queued','running','complete','failed')),
-  segment_length_s INTEGER NOT NULL,     -- seconds per segment; another setting remakes it
+  segment_length_seconds INTEGER NOT NULL,     -- seconds per segment; another setting remakes it
   run_id       TEXT NOT NULL,            -- names this making's directory on the node; new each time
   prepared_through_ms INTEGER NOT NULL DEFAULT 0,  -- how far into the source it is prepared
   size_bytes   INTEGER,                  -- its size once complete
   failure      TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
   video_encoder TEXT,                    -- what made the video once complete: h264_qsv, h264_nvenc, x264, or copy (D225)
   realtime_factor REAL,                  -- seconds of the source per second of running, as FFmpeg last said (D225)
-  audio_gains_db_json TEXT NOT NULL DEFAULT '[]',  -- JSON: the gain each audio track's sound carries, by its place (D226)
+  carried_gains_db_json TEXT NOT NULL DEFAULT '[]',  -- JSON: the gain each audio track's sound carries, by its place (D226)
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
   UNIQUE (source_file, profile)

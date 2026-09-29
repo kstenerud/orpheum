@@ -22,7 +22,7 @@ only in the program.
 
 - **The registry** (`internal/core/settings/registry.go`) declares every key: its type, bounds,
   starting value, whether the settings page shows it (`Exposed`), and what it means. A key whose
-  answer must be asked, not assumed, starts as JSON `null` — a question (`check_for_updates`, D184).
+  answer must be asked, not assumed, starts as JSON `null` — a question (`should_check_for_updates`, D184).
 - **Every start sweeps the settings before anything reads one**, in one transaction:
   - a key with no row gets its starting value;
   - a row **nobody set** follows its starting value, so a release that changes one — to fix a bad

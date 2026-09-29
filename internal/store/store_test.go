@@ -161,7 +161,7 @@ func TestWrite_RollsBackWhenTheChangeFails(t *testing.T) {
 	failure := errors.New("the change failed")
 	err := database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		upsertErr := queries.UpsertServerSetting(ctx, sqlcgen.UpsertServerSettingParams{
-			Key: "check_for_updates", ValueJson: "false", SetAt: 1,
+			Key: "should_check_for_updates", ValueJson: "false", SetAt: 1,
 		})
 		return errors.Join(upsertErr, failure)
 	})
@@ -178,7 +178,7 @@ func TestWrite_RollsBackWhenTheChangeFails(t *testing.T) {
 
 	err = database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertServerSetting(ctx, sqlcgen.UpsertServerSettingParams{
-			Key: "check_for_updates", ValueJson: "false", SetAt: 1,
+			Key: "should_check_for_updates", ValueJson: "false", SetAt: 1,
 		})
 	})
 	if err != nil {
@@ -188,8 +188,8 @@ func TestWrite_RollsBackWhenTheChangeFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(settings) != 1 || settings[0].Key != "check_for_updates" {
-		t.Errorf("after a committed change, settings = %v, want check_for_updates", settings)
+	if len(settings) != 1 || settings[0].Key != "should_check_for_updates" {
+		t.Errorf("after a committed change, settings = %v, want should_check_for_updates", settings)
 	}
 }
 

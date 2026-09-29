@@ -81,7 +81,7 @@ func newWorld(t *testing.T, kind, source string) *world {
 func video(path string) nodeproto.Record {
 	sum := sha256.Sum256([]byte(path))
 	return nodeproto.Record{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
-		Path: nodeproto.Path{Text: path}, SizeBytes: 1, MtimeMs: 1,
+		Path: nodeproto.Path{Text: path}, SizeBytes: 1, ModifiedAt: 1,
 		Identity: nodeproto.Identity{
 			Scheme: "payload-v1", Anchor: "whole-file",
 			PayloadHash: hex.EncodeToString(sum[:]),
@@ -99,7 +99,7 @@ func videoMoved(from, to string) nodeproto.Record {
 
 func nfo(path, body string) nodeproto.Record {
 	return nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: &nodeproto.Sidecar{
-		Path: nodeproto.Path{Text: path}, Kind: nodeproto.SidecarNFO, SizeBytes: int64(len(body)), MtimeMs: 1,
+		Path: nodeproto.Path{Text: path}, Kind: nodeproto.SidecarNFO, SizeBytes: int64(len(body)), ModifiedAt: 1,
 		NFOBody: []byte(body),
 	}}
 }
@@ -108,9 +108,12 @@ func nfo(path, body string) nodeproto.Record {
 func (lib *world) scan(records ...nodeproto.Record) Report {
 	lib.t.Helper()
 	lib.clock.Advance(time.Minute)
-	all := append([]nodeproto.Record{{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: root}}},
+	all := append([]nodeproto.Record{{
+		Type:      nodeproto.RecordScanBegin,
+		ScanBegin: &nodeproto.ScanBegin{RootPath: root},
+	}},
 		records...)
-	complete := nodeproto.ScanComplete{Root: root}
+	complete := nodeproto.ScanComplete{RootPath: root}
 	all = append(all, nodeproto.Record{Type: nodeproto.RecordScanComplete, ScanComplete: &complete})
 	for index := range all {
 		lib.seq++
@@ -178,7 +181,7 @@ func TestPass_TheDevLibrarysFilms(t *testing.T) {
 
 func checkMetropolis(t *testing.T, heat sqlcgen.ListFileTitlesRow) {
 	t.Helper()
-	if name(heat) != "Metropolis" || heat.Year == nil || *heat.Year != 1995 || heat.Identification != identIdentified ||
+	if name(heat) != "Metropolis" || heat.Year == nil || *heat.Year != 1995 || heat.IdentificationState != identIdentified ||
 		heat.Filing != filingListed || heat.FollowedSource == nil || *heat.FollowedSource != sourceNFO {
 		t.Errorf("Metropolis = %+v, want identified from its NFO and listed", heat)
 	}
@@ -308,9 +311,9 @@ func TestPass_ATitleFollowsItsFilesToAnotherLibrary(t *testing.T) {
 	// ...and arrives in Kids.
 	lib.clock.Advance(time.Minute)
 	records := []nodeproto.Record{
-		{ReportSeq: 900, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: kids}},
+		{ReportSeq: 900, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: kids}},
 		video("The Kid (2014)/The Kid (2014).mkv"), nfo("The Kid (2014)/The Kid (2014).nfo", body),
-		{ReportSeq: 903, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{Root: kids}},
+		{ReportSeq: 903, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: kids}},
 	}
 	records[1].ReportSeq, records[2].ReportSeq = 901, 902
 	if ingestErr := lib.ingester.Records(t.Context(), lib.nodeID, records); ingestErr != nil {

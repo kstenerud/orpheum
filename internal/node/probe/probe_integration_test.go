@@ -40,14 +40,14 @@ func TestProbe_AFileThePinnedFFmpegMade(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Contains(record.Format.Names, "matroska") || len(record.Streams) != 2 {
+	if !slices.Contains(record.Format.FormatNames, "matroska") || len(record.Streams) != 2 {
 		t.Fatalf("record = %+v, want a Matroska file with two streams", record)
 	}
 	video, audio := record.Streams[0], record.Streams[1]
 	if video.Codec != "h264" || video.Video.Width != 160 || video.Video.Height != 120 {
 		t.Errorf("video = %+v", video)
 	}
-	if audio.Codec != "aac" || audio.ContainerLanguage != "ger" || audio.Title != "Deutsch" ||
+	if audio.Codec != "aac" || audio.ContainerLanguage != "ger" || audio.ContainerTitle != "Deutsch" ||
 		audio.Audio.ChannelCount != 2 {
 		t.Errorf("audio = %+v", audio)
 	}

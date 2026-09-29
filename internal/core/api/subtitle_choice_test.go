@@ -15,11 +15,11 @@ import (
 // Spanish subtitles, episode 2 (file 5) English and French, episode 3 (file 6) French only.
 func (harness testHarness) shelveEpisodes(t *testing.T) {
 	t.Helper()
-	const probe = `'{"format":{"names":["matroska"]},"streams":[{"streamIndex":0,"kind":"video","codec":"h264",` +
+	const probe = `'{"format":{"formatNames":["matroska"]},"streams":[{"streamIndex":0,"kind":"video","codec":"h264",` +
 		`"codecProfile":"High","video":{"pixelFormat":"yuv420p"}}]}'`
 	storetest.ExecRaw(t, harness.database,
-		"INSERT INTO item (id, kind, library_id, created_at) VALUES (22, 'title', 1, 3), (23, 'title', 1, 3)",
-		`INSERT INTO title (id, kind, identification)
+		"INSERT INTO item (id, kind, library_id, added_at) VALUES (22, 'title', 1, 3), (23, 'title', 1, 3)",
+		`INSERT INTO title (id, kind, identification_state)
 		 VALUES (22, 'episode', 'identified'), (23, 'episode', 'identified')`,
 		"INSERT INTO version (id, title_id, created_at) VALUES (5, 22, 3), (6, 23, 3)",
 		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, filing, version_id,
@@ -29,9 +29,9 @@ func (harness testHarness) shelveEpisodes(t *testing.T) {
 		 (6, 1, 1, '/m/BB/S01E03.mkv', CAST('/m/BB/S01E03.mkv' AS BLOB), 10, 'listed', 6, 1, 1)`,
 		"UPDATE file SET payload_hash = X'0102', probe_json = "+probe+" WHERE id IN (2, 5, 6)",
 		"UPDATE file SET reported_path_bytes = CAST(path AS BLOB) WHERE id = 2",
-		"INSERT INTO library_root (library_id, node_id, path) VALUES (1, 1, '/m')",
+		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')",
 		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 22, 10002), (20, 23, 10003)",
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang) VALUES
+		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language) VALUES
 		 (50, 2, 2, 2, 'subtitle', 'subrip', 'en'), (51, 2, 2, 3, 'subtitle', 'subrip', 'es'),
 		 (52, 5, 5, 2, 'subtitle', 'ass', 'en'), (53, 5, 5, 3, 'subtitle', 'ass', 'fr'),
 		 (54, 6, 6, 2, 'subtitle', 'subrip', 'fr')`)
@@ -44,8 +44,8 @@ func (harness testHarness) choose(t *testing.T, session string, fileID, streamID
 	if streamID != 0 {
 		choice = map[string]any{"streamId": streamID}
 	}
-	return harness.do(t, http.MethodPut, fmt.Sprintf("/files/%d/prefs", fileID), session,
-		map[string]any{"subtitle": choice})
+	return harness.do(t, http.MethodPut, fmt.Sprintf("/files/%d/preferences", fileID), session,
+		map[string]any{"subtitleChoice": choice})
 }
 
 // choiceIn is the subtitle choice a playback of a file starts with: "none", "off", or the track
@@ -54,12 +54,12 @@ func (harness testHarness) choiceIn(t *testing.T, session string, fileID int64) 
 	t.Helper()
 	answer := harness.do(t, http.MethodPost, "/playback", session, chrome(fileID))
 	var decided struct {
-		Prefs FilePrefsBody `json:"prefs"`
+		Prefs FilePrefsBody `json:"preferences"`
 	}
 	if err := json.Unmarshal([]byte(answer.body), &decided); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("POST /playback of file %d = %d %s", fileID, answer.status, answer.body)
 	}
-	choice := decided.Prefs.Subtitle
+	choice := decided.Prefs.SubtitleChoice
 	switch {
 	case choice == nil:
 		return "none"
@@ -135,7 +135,7 @@ func TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks(t *testing
 	// A rescan writes the file's streams again under new ids; the French track is still there.
 	storetest.ExecRaw(t, harness.database,
 		"DELETE FROM stream WHERE bytes_file = 5",
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang) VALUES
+		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language) VALUES
 		 (62, 5, 5, 2, 'subtitle', 'ass', 'en'), (63, 5, 5, 3, 'subtitle', 'ass', 'fr')`)
 	if got := harness.choiceIn(t, session, 5); got != "63 carried=false" {
 		t.Errorf("after the rescan: %s, want the French track under its new id", got)
@@ -143,7 +143,7 @@ func TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks(t *testing
 	// Episode 3 had French carried to it; its French track goes, and English comes.
 	storetest.ExecRaw(t, harness.database,
 		"DELETE FROM stream WHERE bytes_file = 6",
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang)
+		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language)
 		 VALUES (64, 6, 6, 2, 'subtitle', 'subrip', 'en')`)
 	if got := harness.choiceIn(t, session, 6); got != "none" {
 		t.Errorf("episode 3 without French: %s, want no choice rather than a track that is gone", got)

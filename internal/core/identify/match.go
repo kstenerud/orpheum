@@ -81,7 +81,8 @@ func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome,
 	if err != nil {
 		return "", fmt.Errorf("read title %d: %w", titleID, err)
 	}
-	if title.FollowedSource != nil || title.Identification != identUnidentified || title.MetadataSource == sourceNFO {
+	if title.FollowedSource != nil || title.IdentificationState != identUnidentified ||
+		title.MetadataSource == sourceNFO {
 		return OutcomeNothingToDo, nil // matched, answered, ambiguous or confirmed since it was queued
 	}
 	provider, known := matcher.providers[providerOf(title.MetadataSource)]
@@ -270,7 +271,7 @@ func (matcher *Matcher) record(
 		return fmt.Errorf("store the response: %w", err)
 	}
 	err = queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
-		FollowedSource: &provider, FollowedSourceID: &id, Identification: found.ident, ID: titleID,
+		FollowedSource: &provider, FollowedSourceID: &id, IdentificationState: found.ident, ID: titleID,
 	})
 	if err != nil {
 		return fmt.Errorf("record the match: %w", err)
@@ -346,7 +347,10 @@ func (matcher *Matcher) ambiguous(
 		return err
 	}
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		markErr := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{Identification: identAmbiguous, ID: title.ID})
+		markErr := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
+			IdentificationState: identAmbiguous,
+			ID:                  title.ID,
+		})
 		if markErr != nil {
 			return fmt.Errorf("mark title %d ambiguous: %w", title.ID, markErr)
 		}
@@ -363,7 +367,7 @@ func (matcher *Matcher) ambiguous(
 func (matcher *Matcher) noMatch(ctx context.Context, title sqlcgen.GetTitleForMatchRow) error {
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		err := queries.SetTitleMatch(ctx, sqlcgen.SetTitleMatchParams{
-			FollowedSource: new(sourceNone), Identification: identUnidentified, ID: title.ID,
+			FollowedSource: new(sourceNone), IdentificationState: identUnidentified, ID: title.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("record title %d's empty search: %w", title.ID, err)
@@ -386,7 +390,7 @@ func (matcher *Matcher) keep(ctx context.Context, provider Provider, itemID int6
 			err := queries.InsertMatchCandidate(ctx, cachegen.InsertMatchCandidateParams{
 				ItemID: itemID, Rank: int64(rank), Provider: provider.Name(), ProviderID: candidate.ID,
 				Name: optional(candidate.Name), Year: optionalInt(int64(candidate.Year)),
-				PosterPath: optional(candidate.PosterRef),
+				ProviderPosterPath: optional(candidate.PosterRef),
 			})
 			if err != nil {
 				return fmt.Errorf("keep a candidate for item %d: %w", itemID, err)
@@ -433,7 +437,7 @@ func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	var outcome Outcome
 	var err error
 	if args.IsRefresh {
-		outcome, err = matcher.refresh(ctx, job.ItemID, args.RetryImages)
+		outcome, err = matcher.refresh(ctx, job.ItemID, args.ShouldRetryImages)
 	} else {
 		outcome, err = matcher.Match(ctx, job.ItemID)
 	}
@@ -448,6 +452,6 @@ func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	case err != nil:
 		return err
 	}
-	matcher.logger.InfoContext(ctx, "matched a title", "titleId", job.ItemID, "outcome", string(outcome))
+	matcher.logger.InfoContext(ctx, "matched an item", "itemId", job.ItemID, "outcome", string(outcome))
 	return nil
 }

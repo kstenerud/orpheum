@@ -129,7 +129,7 @@ func (secrets *Store) Set(ctx context.Context, name Name, value Value, setBy *in
 	sealed := cipher.Seal(nil, nonce, []byte(value.Reveal()), associatedData(name))
 	var hint *string
 	if definition.HasHint {
-		length, lengthErr := secrets.settings.Int(ctx, settings.SecretHintChars)
+		length, lengthErr := secrets.settings.Int(ctx, settings.SecretLastCharsShown)
 		if lengthErr != nil {
 			return lengthErr
 		}
@@ -142,7 +142,7 @@ func (secrets *Store) Set(ctx context.Context, name Name, value Value, setBy *in
 			KeyID:       secrets.key.ID(),
 			Nonce:       nonce,
 			Ciphertext:  sealed,
-			Hint:        hint,
+			LastChars:   hint,
 			SetByUserID: setBy,
 			SetAt:       secrets.clock.Now().UnixMilli(),
 		})
@@ -208,8 +208,8 @@ func (secrets *Store) Statuses(ctx context.Context) ([]Status, error) {
 			status.IsSet = true
 			status.SetBy, status.SetAt = row.SetByUserID, row.SetAt
 			status.NeedsReentry = row.KeyID != secrets.key.ID()
-			if row.Hint != nil {
-				status.Hint = *row.Hint
+			if row.LastChars != nil {
+				status.Hint = *row.LastChars
 			}
 		}
 		statuses = append(statuses, status)

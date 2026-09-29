@@ -5,7 +5,7 @@
 SELECT library_root.library_id
 FROM library_root
 JOIN library ON library.id = library_root.library_id
-WHERE library_root.node_id = ? AND library_root.path = ? AND library.removed_at IS NULL
+WHERE library_root.node_id = ? AND library_root.root_path = ? AND library.removed_at IS NULL
 ORDER BY library_root.library_id
 LIMIT 1;
 
@@ -24,11 +24,11 @@ ORDER BY id;
 
 -- name: InsertFile :one
 INSERT INTO file (
-  library_id, node_id, path, reported_path_bytes, size_bytes, mtime_ms, payload_hash, payload_bytes,
+  library_id, node_id, path, reported_path_bytes, size_bytes, modified_at, payload_hash, payload_bytes,
   filing, filing_reason, error_detail_json, probe_json, first_seen_at, last_seen_at, opensubtitles_hash
 ) VALUES (
   sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(reported_path_bytes), sqlc.arg(size_bytes),
-  sqlc.arg(mtime_ms), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), sqlc.arg(filing),
+  sqlc.arg(modified_at), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), sqlc.arg(filing),
   sqlc.arg(filing_reason), sqlc.arg(error_detail_json), sqlc.arg(probe_json), sqlc.arg(seen_at), sqlc.arg(seen_at),
   sqlc.narg(opensubtitles_hash)
 )
@@ -42,7 +42,7 @@ UPDATE file SET
   path = sqlc.arg(path),
   reported_path_bytes = sqlc.arg(reported_path_bytes),
   size_bytes = sqlc.arg(size_bytes),
-  mtime_ms = sqlc.arg(mtime_ms),
+  modified_at = sqlc.arg(modified_at),
   payload_hash = sqlc.arg(payload_hash),
   payload_bytes = sqlc.arg(payload_bytes),
   is_identity_confirmed = 1,
@@ -95,14 +95,14 @@ DELETE FROM stream WHERE bytes_file = ?;
 -- name: UpsertStream :exec
 -- A video's own track, by its stream index. A row keeps its id for as long as its file has the
 -- index, so an extraction job or a playback's subtitle address that names it holds across scans.
-INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang, title_raw, disposition_flags, channel_count)
+INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, container_language, language, container_title, disposition_flags, channel_count)
 VALUES (
   sqlc.arg(file_id), sqlc.arg(file_id), sqlc.arg(stream_index), sqlc.arg(kind), sqlc.arg(codec),
-  sqlc.arg(lang_raw), sqlc.arg(lang), sqlc.arg(title_raw), sqlc.arg(disposition_flags), sqlc.arg(channel_count)
+  sqlc.arg(container_language), sqlc.arg(language), sqlc.arg(container_title), sqlc.arg(disposition_flags), sqlc.arg(channel_count)
 )
 ON CONFLICT (bytes_file, stream_index) DO UPDATE SET
-  video_file = excluded.video_file, kind = excluded.kind, codec = excluded.codec, lang_raw = excluded.lang_raw,
-  lang = excluded.lang, title_raw = excluded.title_raw, disposition_flags = excluded.disposition_flags,
+  video_file = excluded.video_file, kind = excluded.kind, codec = excluded.codec, container_language = excluded.container_language,
+  language = excluded.language, container_title = excluded.container_title, disposition_flags = excluded.disposition_flags,
   channel_count = excluded.channel_count;
 
 -- name: DeleteFileStreamsNotIn :exec
@@ -119,7 +119,7 @@ WHERE node_id = ? AND removed_at IS NULL
 ORDER BY path;
 
 -- name: ListStreamsOfFile :many
-SELECT id, stream_index, kind, codec, lang_raw, lang, title_raw, disposition_flags, channel_count
+SELECT id, stream_index, kind, codec, container_language, language, container_title, disposition_flags, channel_count
 FROM stream
 WHERE bytes_file = ?
 ORDER BY stream_index;
@@ -128,11 +128,11 @@ ORDER BY stream_index;
 -- A subtitle carries its payload hash, the file hashed whole; an NFO or an image has none. Only
 -- an NFO's bytes are kept, in nfo_body.
 INSERT INTO file (
-  library_id, node_id, path, reported_path_bytes, size_bytes, mtime_ms, payload_hash, payload_bytes, filing,
+  library_id, node_id, path, reported_path_bytes, size_bytes, modified_at, payload_hash, payload_bytes, filing,
   filing_reason, sidecar_kind, nfo_body, first_seen_at, last_seen_at
 ) VALUES (
   sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(reported_path_bytes), sqlc.arg(size_bytes),
-  sqlc.arg(mtime_ms), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), 'attached', sqlc.arg(filing_reason),
+  sqlc.arg(modified_at), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), 'attached', sqlc.arg(filing_reason),
   sqlc.arg(sidecar_kind), sqlc.arg(nfo_body), sqlc.arg(seen_at), sqlc.arg(seen_at)
 )
 RETURNING id;
@@ -140,7 +140,7 @@ RETURNING id;
 -- name: UpdateSidecarFile :exec
 UPDATE file SET
   library_id = sqlc.arg(library_id), size_bytes = sqlc.arg(size_bytes),
-  mtime_ms = sqlc.arg(mtime_ms), payload_hash = sqlc.arg(payload_hash), payload_bytes = sqlc.arg(payload_bytes),
+  modified_at = sqlc.arg(modified_at), payload_hash = sqlc.arg(payload_hash), payload_bytes = sqlc.arg(payload_bytes),
   filing = 'attached', sidecar_kind = sqlc.arg(sidecar_kind), filing_reason = sqlc.arg(filing_reason),
   error_detail_json = NULL,
   nfo_body = sqlc.arg(nfo_body),
@@ -169,15 +169,15 @@ WHERE id = ? AND removed_at IS NULL AND filing IN ('listed', 'extra', 'unidentif
 -- name: ListLibraryRootsOnNode :many
 -- The roots a library has on a node, longest first, so the root a path is under is the first
 -- that is a prefix of it.
-SELECT path
+SELECT root_path
 FROM library_root
 WHERE library_id = ? AND node_id = ?
-ORDER BY length(path) DESC, path;
+ORDER BY length(root_path) DESC, root_path;
 
 -- name: ListSubtitleTracksOfVideo :many
 -- A video's subtitle tracks, its own and those of the live sidecar files attached to it, with the
 -- payload hash of the file each track's bytes are in: what a playback offers.
-SELECT s.id, s.stream_index, s.codec, s.lang, s.title_raw, s.disposition_flags, f.payload_hash AS bytes_payload_hash
+SELECT s.id, s.stream_index, s.codec, s.language, s.container_title, s.disposition_flags, f.payload_hash AS bytes_payload_hash
 FROM stream s
 JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
 WHERE s.video_file = sqlc.arg(video_file) AND s.kind = 'subtitle'
@@ -192,18 +192,18 @@ WHERE s.id = sqlc.arg(id) AND s.kind = 'subtitle';
 
 -- name: GetSidecarStream :one
 -- A sidecar's one stream: a whole-file track has no stream index (schema.md, stream).
-SELECT id, video_file, codec, lang_raw, lang, disposition_flags
+SELECT id, video_file, codec, container_language, language, disposition_flags
 FROM stream
 WHERE bytes_file = sqlc.arg(bytes_file) AND stream_index IS NULL;
 
 -- name: InsertSidecarStream :exec
-INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang, disposition_flags)
-VALUES (sqlc.arg(bytes_file), sqlc.arg(video_file), NULL, 'subtitle', sqlc.arg(codec), sqlc.arg(lang_raw),
-  sqlc.arg(lang), sqlc.arg(disposition_flags));
+INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, container_language, language, disposition_flags)
+VALUES (sqlc.arg(bytes_file), sqlc.arg(video_file), NULL, 'subtitle', sqlc.arg(codec), sqlc.arg(container_language),
+  sqlc.arg(language), sqlc.arg(disposition_flags));
 
 -- name: UpdateSidecarStream :exec
-UPDATE stream SET video_file = sqlc.arg(video_file), codec = sqlc.arg(codec), lang_raw = sqlc.arg(lang_raw),
-  lang = sqlc.arg(lang), disposition_flags = sqlc.arg(disposition_flags)
+UPDATE stream SET video_file = sqlc.arg(video_file), codec = sqlc.arg(codec), container_language = sqlc.arg(container_language),
+  language = sqlc.arg(language), disposition_flags = sqlc.arg(disposition_flags)
 WHERE id = sqlc.arg(id);
 
 -- name: GetFilePath :one

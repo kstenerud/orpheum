@@ -13,7 +13,7 @@ const countEarlierMisses = `-- name: CountEarlierMisses :one
 SELECT COUNT(*) AS misses
 FROM artwork
 WHERE item_id = ?1 AND kind = ?2 AND source = ?3
-  AND source_ref = ?4 AND content_hash IS NULL AND removed_at IS NOT NULL
+  AND source_ref = ?4 AND source_sha256 IS NULL AND removed_at IS NOT NULL
 `
 
 type CountEarlierMissesParams struct {
@@ -40,7 +40,7 @@ func (q *Queries) CountEarlierMisses(ctx context.Context, arg CountEarlierMisses
 const getArtworkSource = `-- name: GetArtworkSource :one
 SELECT item_id, kind, source, source_ref
 FROM artwork
-WHERE content_hash = ?1 AND removed_at IS NULL AND source_ref IS NOT NULL
+WHERE source_sha256 = ?1 AND removed_at IS NULL AND source_ref IS NOT NULL
 ORDER BY id DESC
 LIMIT 1
 `
@@ -53,8 +53,8 @@ type GetArtworkSourceRow struct {
 }
 
 // Where a stored image came from, to fetch it again for a size made on request, D212 section 3.
-func (q *Queries) GetArtworkSource(ctx context.Context, contentHash []byte) (GetArtworkSourceRow, error) {
-	row := q.db.QueryRowContext(ctx, getArtworkSource, contentHash)
+func (q *Queries) GetArtworkSource(ctx context.Context, sourceSha256 []byte) (GetArtworkSourceRow, error) {
+	row := q.db.QueryRowContext(ctx, getArtworkSource, sourceSha256)
 	var i GetArtworkSourceRow
 	err := row.Scan(
 		&i.ItemID,
@@ -86,17 +86,17 @@ func (q *Queries) GetFileForArtwork(ctx context.Context, id int64) (GetFileForAr
 }
 
 const insertArtwork = `-- name: InsertArtwork :one
-INSERT INTO artwork (item_id, kind, source, source_ref, content_hash)
+INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256)
 VALUES (?1, ?2, ?3, ?4, ?5)
 RETURNING id
 `
 
 type InsertArtworkParams struct {
-	ItemID      int64
-	Kind        string
-	Source      string
-	SourceRef   *string
-	ContentHash []byte
+	ItemID       int64
+	Kind         string
+	Source       string
+	SourceRef    *string
+	SourceSha256 []byte
 }
 
 func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (int64, error) {
@@ -105,7 +105,7 @@ func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (i
 		arg.Kind,
 		arg.Source,
 		arg.SourceRef,
-		arg.ContentHash,
+		arg.SourceSha256,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -113,19 +113,19 @@ func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (i
 }
 
 const listArtworkHashes = `-- name: ListArtworkHashes :many
-SELECT artwork.content_hash,
+SELECT artwork.source_sha256,
   CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS live,
   CAST(MAX(COALESCE(artwork.removed_at, item.removed_at, 0)) AS INTEGER) AS gone_at
 FROM artwork
 JOIN item ON item.id = artwork.item_id
-WHERE artwork.content_hash IS NOT NULL
-GROUP BY artwork.content_hash
+WHERE artwork.source_sha256 IS NOT NULL
+GROUP BY artwork.source_sha256
 `
 
 type ListArtworkHashesRow struct {
-	ContentHash []byte
-	Live        int64
-	GoneAt      int64
+	SourceSha256 []byte
+	Live         int64
+	GoneAt       int64
 }
 
 // Every stored image, whether a live item shows it, and when it last stopped being shown: what
@@ -139,7 +139,7 @@ func (q *Queries) ListArtworkHashes(ctx context.Context) ([]ListArtworkHashesRow
 	items := []ListArtworkHashesRow{}
 	for rows.Next() {
 		var i ListArtworkHashesRow
-		if err := rows.Scan(&i.ContentHash, &i.Live, &i.GoneAt); err != nil {
+		if err := rows.Scan(&i.SourceSha256, &i.Live, &i.GoneAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -189,19 +189,19 @@ func (q *Queries) ListItemsWithLiveLocalArtwork(ctx context.Context, libraryID *
 
 const listLiveArtwork = `-- name: ListLiveArtwork :many
 
-SELECT id, kind, source, source_ref, content_hash, is_chosen
+SELECT id, kind, source, source_ref, source_sha256, is_chosen
 FROM artwork
 WHERE item_id = ?1 AND removed_at IS NULL
 ORDER BY kind, is_chosen DESC, id DESC
 `
 
 type ListLiveArtworkRow struct {
-	ID          int64
-	Kind        string
-	Source      string
-	SourceRef   *string
-	ContentHash []byte
-	IsChosen    int64
+	ID           int64
+	Kind         string
+	Source       string
+	SourceRef    *string
+	SourceSha256 []byte
+	IsChosen     int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -221,7 +221,7 @@ func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLive
 			&i.Kind,
 			&i.Source,
 			&i.SourceRef,
-			&i.ContentHash,
+			&i.SourceSha256,
 			&i.IsChosen,
 		); err != nil {
 			return nil, err
@@ -238,12 +238,12 @@ func (q *Queries) ListLiveArtwork(ctx context.Context, itemID int64) ([]ListLive
 }
 
 const listShownArtwork = `-- name: ListShownArtwork :many
-SELECT artwork.item_id, artwork.content_hash
+SELECT artwork.item_id, artwork.source_sha256
 FROM artwork
 JOIN item ON item.id = artwork.item_id
 LEFT JOIN library ON library.id = item.library_id
 WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
-  AND artwork.kind = ?2 AND artwork.removed_at IS NULL AND artwork.content_hash IS NOT NULL
+  AND artwork.kind = ?2 AND artwork.removed_at IS NULL AND artwork.source_sha256 IS NOT NULL
 ORDER BY artwork.item_id, artwork.is_chosen DESC,
   (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC
 `
@@ -254,8 +254,8 @@ type ListShownArtworkParams struct {
 }
 
 type ListShownArtworkRow struct {
-	ItemID      int64
-	ContentHash []byte
+	ItemID       int64
+	SourceSha256 []byte
 }
 
 // The images a page of items shows, of one kind; the ids are a JSON array. Per item, a person's
@@ -270,7 +270,7 @@ func (q *Queries) ListShownArtwork(ctx context.Context, arg ListShownArtworkPara
 	items := []ListShownArtworkRow{}
 	for rows.Next() {
 		var i ListShownArtworkRow
-		if err := rows.Scan(&i.ItemID, &i.ContentHash); err != nil {
+		if err := rows.Scan(&i.ItemID, &i.SourceSha256); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -338,7 +338,7 @@ func (q *Queries) RetireArtworkNotFound(ctx context.Context, arg RetireArtworkNo
 
 const retryItemArtwork = `-- name: RetryItemArtwork :exec
 UPDATE artwork SET removed_at = ?1
-WHERE item_id = ?2 AND content_hash IS NULL AND is_chosen = 0 AND removed_at IS NULL
+WHERE item_id = ?2 AND source_sha256 IS NULL AND is_chosen = 0 AND removed_at IS NULL
 `
 
 type RetryItemArtworkParams struct {

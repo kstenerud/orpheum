@@ -53,19 +53,19 @@ func (fake *fakeNodeBytes) Do(
 // it is, and an MKV with TrueHD it does not.
 func (harness testHarness) shelveFilms(t *testing.T) {
 	t.Helper()
-	mp4 := `{"format":{"names":["mov","mp4","m4a"]},"streams":[` +
+	mp4 := `{"format":{"formatNames":["mov","mp4","m4a"]},"streams":[` +
 		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 		`{"kind":"audio","codec":"aac","codecProfile":"LC","audio":{"channelCount":2}}]}`
-	mkv := `{"format":{"names":["matroska","webm"]},"streams":[` +
+	mkv := `{"format":{"formatNames":["matroska","webm"]},"streams":[` +
 		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 		`{"streamIndex":1,"kind":"audio","codec":"truehd","audio":{"channelCount":8}},` +
-		`{"streamIndex":2,"kind":"subtitle","codec":"ass","languageTag":"en","disposition":["default"]},` +
+		`{"streamIndex":2,"kind":"subtitle","codec":"ass","language":"en","disposition":["default"]},` +
 		`{"streamIndex":3,"kind":"subtitle","codec":"hdmv_pgs_subtitle"}]}`
 	storetest.ExecRaw(t, harness.database,
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
-		"INSERT INTO library_root (library_id, node_id, path) VALUES (1, 1, '/media')",
+		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/media')",
 		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, payload_hash, filing,
 		 probe_json,
 		 first_seen_at,
@@ -77,7 +77,7 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		 (3, 1, 1, '/media/notes.txt', CAST('/media/notes.txt' AS BLOB), 5, X'0e0f', 'skipped', NULL, 1, 1)`)
 	harness.bytes.mutex.Lock()
 	defer harness.bytes.mutex.Unlock()
-	film := nodeproto.BytesFile{Root: "/media", Path: []byte("Film (2001).mp4"), PayloadHash: "0a0b"}
+	film := nodeproto.BytesFile{RootPath: "/media", Path: []byte("Film (2001).mp4"), PayloadHash: "0a0b"}
 	harness.bytes.files[film.Target()] = "the film's bytes"
 }
 
@@ -96,17 +96,17 @@ type decision struct {
 	Reasons     []string `json:"notDirectReasons"`
 	IsPreparing bool     `json:"isPreparing"`
 	Audio       []struct {
-		SourceTrack     int           `json:"sourceAudioIndex"`
+		SourceTrack     int           `json:"audioTrackIndex"`
 		Language        string        `json:"language"`
 		IsDialogueBoost bool          `json:"isDialogueBoosted"`
 		Levelling       LevellingBody `json:"levelling"`
 		CarriedGainDB   float64       `json:"carriedGainDb"`
-	} `json:"audio"`
+	} `json:"audioRenditions"`
 	Subtitles []subtitleTrack `json:"subtitles"`
 	Prefs     struct {
 		SubtitleOffsetMs int  `json:"subtitleOffsetMs"`
 		IsLevelling      bool `json:"isLevellingOn"`
-	} `json:"prefs"`
+	} `json:"preferences"`
 	ResumePositionMs int64         `json:"resumePositionMs"`
 	MediaToken       string        `json:"mediaToken"`
 	Levelling        LevellingBody `json:"levelling"`
@@ -241,7 +241,7 @@ func TestPlayback_SaysWhichLegFailed(t *testing.T) {
 	harness.bytes.mutex.Unlock()
 	silent := harness.fetch(t, decided.URL, user, false, "")
 	if silent.status != http.StatusServiceUnavailable ||
-		!strings.Contains(silent.body, `"code":"node_silent"`) || !strings.Contains(silent.body, `"hop":"node"`) {
+		!strings.Contains(silent.body, `"code":"node_silent"`) || !strings.Contains(silent.body, `"failedHop":"node"`) {
 		t.Errorf("a silent node: %d %s, want 503 node_silent at hop node", silent.status, silent.body)
 	}
 	harness.bytes.mutex.Lock()

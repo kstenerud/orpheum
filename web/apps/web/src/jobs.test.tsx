@@ -38,7 +38,7 @@ const preparing: Job = {
   state: "running",
   progressFraction: 0.4,
   reason: "someone is waiting to watch it",
-  attempts: 1,
+  attemptCount: 1,
   createdAt: 1,
 };
 
@@ -48,8 +48,8 @@ const lookedUp: Job = {
   itemId: 9,
   state: "failed",
   reason: "a new title",
-  lastError: "TMDB did not answer",
-  attempts: 3,
+  lastFailure: "TMDB did not answer",
+  attemptCount: 3,
   createdAt: 1,
   finishedAt: 2,
 };

@@ -451,7 +451,7 @@ export const en = {
     all: "Everything",
     group: "{{filing}} · {{reason}} ({{count}})",
     noReason: "no reason given",
-    detail: "Details: {{detail}}",
+    detail: "Details: {{text}} (owner {{owner}}, group {{group}}, mode {{mode}})",
   },
   filing: {
     listed: "Listed",
@@ -479,7 +479,7 @@ export const en = {
     heading: "Settings",
     secretsHeading: "Keys and passwords",
     secretsIntro: "What is stored here is never shown again, only whether it is set.",
-    secretSet: "Set, ending in {{hint}}",
+    secretSet: "Set, ending in {{lastChars}}",
     secretSetNoHint: "Set",
     secretUnset: "Not set",
     secretReentry: "Must be entered again: this server no longer has the key it was sealed with.",

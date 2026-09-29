@@ -68,8 +68,8 @@ func TestIngest_ASubtitleFileIsATrackOfItsVideoUntilItsVideoIsGone(t *testing.T)
 	if err != nil {
 		t.Fatalf("the subtitle file has no track: %v", err)
 	}
-	if first.VideoFile != video.ID || first.Codec == nil || *first.Codec != "subrip" || first.Lang == nil ||
-		*first.Lang != "en" || first.DispositionFlags != DispositionBit("forced") {
+	if first.VideoFile != video.ID || first.Codec == nil || *first.Codec != "subrip" || first.Language == nil ||
+		*first.Language != "en" || first.DispositionFlags != DispositionBit("forced") {
 		t.Errorf("the track = %+v, want an English forced subrip track of the video", first)
 	}
 	world.scan(records, true)

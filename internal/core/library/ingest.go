@@ -178,19 +178,19 @@ func (work *batch) scan() *scanState {
 // not stored: a file row belongs to a library (schema.md).
 func (work *batch) begin(ctx context.Context, begin *nodeproto.ScanBegin) error {
 	libraryID, err := store.One(work.queries.GetLibraryForRoot(ctx, sqlcgen.GetLibraryForRootParams{
-		NodeID: work.nodeID, Path: begin.Root,
+		NodeID: work.nodeID, RootPath: begin.RootPath,
 	}))
 	if errors.Is(err, store.ErrNotFound) {
 		work.ingester.logger.WarnContext(ctx, "a node scanned a root no library covers; what it saw is not stored",
-			"nodeId", work.nodeID, "root", begin.Root)
-		work.ingester.scans[work.nodeID] = &scanState{root: begin.Root}
+			"nodeId", work.nodeID, "root", begin.RootPath)
+		work.ingester.scans[work.nodeID] = &scanState{root: begin.RootPath}
 		return nil
 	}
 	if err != nil {
 		return err
 	}
 	work.ingester.scans[work.nodeID] = &scanState{
-		root: begin.Root, libraryID: libraryID, startedAt: work.now,
+		root: begin.RootPath, libraryID: libraryID, startedAt: work.now,
 		facts:  rootFacts{Device: begin.FilesystemDevice, MountPoint: begin.IsMountPoint},
 		mounts: map[string]uint64{},
 	}
@@ -221,12 +221,25 @@ func nodePath(root string, reported nodeproto.Path) filePath {
 	return filePath{text: normal, key: []byte(absolute)}
 }
 
+// ErrorDetail is an errored file's platform account, as its row keeps it in error_detail_json
+// (D163): the platform's words, the owner, group and mode, and how often the node met it.
+type ErrorDetail struct {
+	nodeproto.PlatformError
+	OccurrenceCount int `json:"occurrenceCount"`
+}
+
+// DecodeErrorDetail reads a file row's error_detail_json.
+func DecodeErrorDetail(text string) (ErrorDetail, error) {
+	var detail ErrorDetail
+	if err := json.Unmarshal([]byte(text), &detail); err != nil {
+		return ErrorDetail{}, fmt.Errorf("decode a file's error detail: %w", err)
+	}
+	return detail, nil
+}
+
 // errorDetail is the error record's platform account, as the file row keeps it (D163).
 func errorDetail(failure *nodeproto.Error) (*string, error) {
-	encoded, err := json.Marshal(struct {
-		nodeproto.PlatformError
-		OccurrenceCount int `json:"occurrenceCount"`
-	}{failure.Platform, failure.OccurrenceCount})
+	encoded, err := json.Marshal(ErrorDetail{failure.PlatformError, failure.OccurrenceCount})
 	if err != nil {
 		return nil, fmt.Errorf("encode the error's detail: %w", err)
 	}

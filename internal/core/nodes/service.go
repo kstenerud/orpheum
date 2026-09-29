@@ -143,7 +143,7 @@ func (service *Service) Handler() http.Handler {
 }
 
 // hello enrols a node it has not seen, by name (D207), and queues a scan of every root it names
-// when scan_on_node_hello says so.
+// when should_scan_on_node_hello says so.
 func (service *Service) hello(writer http.ResponseWriter, request *http.Request) {
 	ctx := request.Context()
 	var hello nodeproto.Hello
@@ -160,21 +160,24 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 		service.fail(ctx, writer, "enrol the node", err)
 		return
 	}
-	scanOnHello, err := service.settings.Bool(ctx, settings.ScanOnNodeHello)
+	scanOnHello, err := service.settings.Bool(ctx, settings.ShouldScanOnNodeHello)
 	if err != nil {
-		service.fail(ctx, writer, "read scan_on_node_hello", err)
+		service.fail(ctx, writer, "read should_scan_on_node_hello", err)
 		return
 	}
 	service.connect(node.ID, hello)
-	service.logger.InfoContext(ctx, "a node said hello", "node", hello.Name, "nodeId", node.ID,
-		"build", hello.Build.String(), "ffmpeg", hello.FFmpegVersion, "rootPaths", hello.RootPaths,
+	service.logger.InfoContext(ctx, "a node said hello", "nodeName", hello.Name, "nodeId", node.ID,
+		"build", hello.Build.String(), "ffmpegVersion", hello.FFmpegVersion, "rootPaths", hello.RootPaths,
 		"confinement", hello.Confinement)
 	if scanOnHello {
 		for _, root := range hello.RootPaths {
-			service.Enqueue(node.ID, nodeproto.Command{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{Root: root}})
+			service.Enqueue(node.ID, nodeproto.Command{
+				Type: nodeproto.CommandScan,
+				Scan: &nodeproto.Scan{RootPath: root},
+			})
 		}
 	}
-	writeJSON(writer, nodeproto.HelloReply{NodeID: node.ID, LastReportSeq: node.LastIngestedReportSeq})
+	writeJSON(writer, nodeproto.HelloReply{NodeID: node.ID, LastIngestedReportSeq: node.LastIngestedReportSeq})
 }
 
 // Enrol returns the id of the live node called name, creating its row if there is none (D207):

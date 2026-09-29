@@ -91,7 +91,7 @@ export function fetchProblem(
         resetAt === undefined
           ? ""
           : new Intl.DateTimeFormat(viewerLanguage, { timeStyle: "short" }).format(
-              new Date(resetAt),
+              new Date(Number(resetAt)),
             );
       return t("play.findSubtitles.quotaSpent", { when });
     }
@@ -247,7 +247,7 @@ function CandidateList(props: {
         {candidates.map((candidate) => (
           <li key={candidate.providerFileId}>
             <span className="find-subtitles__release">{candidate.releaseName}</span>{" "}
-            {candidate.isHashMatch ? (
+            {candidate.isOpensubtitlesHashMatch ? (
               <strong>{t("play.findSubtitles.madeForThisFile")}</strong>
             ) : null}{" "}
             {candidate.isHearingImpaired ? t("play.subtitles.hearingImpaired") : null}{" "}

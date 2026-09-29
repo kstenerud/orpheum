@@ -43,7 +43,7 @@ export function PosterGrid(props: {
       {props.entries.map((entry) => (
         <li key={entry.id}>
           <Link to={entryRoute(props.kind, entry.id)} className="poster-grid__card">
-            <Poster hash={entry.posterHash} />
+            <Poster hash={entry.posterSha256} />
             <span className="poster-grid__name">{entry.name}</span>
             {entry.year === undefined ? null : (
               <span className="poster-grid__year">{t("browse.year", { year: entry.year })}</span>

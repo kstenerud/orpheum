@@ -15,7 +15,7 @@ import (
 const (
 	artPoster   = "poster"
 	artBackdrop = "backdrop"
-	artStill    = "thumb"
+	artStill    = "still"
 )
 
 // Art is the images an item shows, by the hash /art/ names them with; "" when it has none.
@@ -44,7 +44,7 @@ func (browser *Browser) shown(ctx context.Context, kind string, itemIDs []int64)
 	}
 	for _, row := range rows {
 		if _, alreadyHas := hashes[row.ItemID]; !alreadyHas {
-			hashes[row.ItemID] = hex.EncodeToString(row.ContentHash)
+			hashes[row.ItemID] = hex.EncodeToString(row.SourceSha256)
 		}
 	}
 	return hashes, nil

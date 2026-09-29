@@ -21,7 +21,7 @@ function direct(audioOutput?: Decision["audioOutput"]): Decision {
     notDirectReasons: [],
     isPreparing: false,
     subtitles: [],
-    prefs: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
+    preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
     resumePositionMs: 0,
     mediaToken: "t",
     levelling: { isMeasured: false, gainDb: 0 },
@@ -144,7 +144,7 @@ describe("how a device makes sound (D222)", () => {
 describe("the dialogue boost's switch", () => {
   it("starts as the person left it, and switching it changes the mix and is kept for every file", async () => {
     const heard: Heard[] = [];
-    const services = servedBy({ "PUT /me/prefs": [204, undefined] }, heard);
+    const services = servedBy({ "PUT /me/preferences": [204, undefined] }, heard);
     const switched: boolean[] = [];
     mounted = await mount(
       withServices(
@@ -162,6 +162,6 @@ describe("the dialogue boost's switch", () => {
     await click(box);
     expect(box?.checked).toBe(false);
     expect(switched).toEqual([false]);
-    expect(heard).toEqual([{ asked: "PUT /me/prefs", body: { isDialogueBoostOn: false } }]);
+    expect(heard).toEqual([{ asked: "PUT /me/preferences", body: { isDialogueBoostOn: false } }]);
   });
 });

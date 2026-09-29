@@ -31,7 +31,7 @@ export function RootLine(props: {
   const { root } = props;
   return (
     <li>
-      <code>{t("libraries.root", { node: root.nodeName, path: root.path })}</code>{" "}
+      <code>{t("libraries.root", { node: root.nodeName, path: root.rootPath })}</code>{" "}
       {root.lastScanOutcome === "" ? null : <span>{t(outcomeKeys[root.lastScanOutcome])}</span>}
       {root.withheldReason === undefined ? null : <p>{root.withheldReason}</p>}
       {root.lastScanOutcome === "withheld" ? (
@@ -75,7 +75,7 @@ export function LibraryCard(props: {
       <ul>
         {(library.roots ?? []).map((root) => (
           <RootLine
-            key={`${root.nodeName}:${root.path}`}
+            key={`${root.nodeName}:${root.rootPath}`}
             root={root}
             onApprove={props.onApprove}
             onGone={props.onGone}
@@ -140,7 +140,7 @@ function useLibraryActions(reload: () => void): {
       api
         .POST(path, {
           params: { path: { id } },
-          body: { nodeName: root.nodeName, path: root.path },
+          body: { nodeName: root.nodeName, path: root.rootPath },
         })
         .then(throwIfRefused)
         .then(reload, (cause: unknown) => {

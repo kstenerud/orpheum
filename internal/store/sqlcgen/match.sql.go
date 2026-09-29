@@ -27,7 +27,7 @@ func (q *Queries) DeleteItemProviderIDsOf(ctx context.Context, arg DeleteItemPro
 
 const deleteOverride = `-- name: DeleteOverride :execrows
 DELETE FROM field_override
-WHERE item_id = ?1 AND field = ?2 AND lang = ''
+WHERE item_id = ?1 AND field = ?2 AND language = ''
 `
 
 type DeleteOverrideParams struct {
@@ -67,7 +67,7 @@ func (q *Queries) GetProviderResponse(ctx context.Context, arg GetProviderRespon
 
 const getTitleForMatch = `-- name: GetTitleForMatch :one
 
-SELECT title.id, title.kind, title.year, title.identification, title.followed_source, title.followed_source_id, item.library_id,
+SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.library_id,
   library.metadata_source, item_text.name
 FROM title
 JOIN item ON item.id = title.id
@@ -77,15 +77,15 @@ WHERE title.id = ?1 AND item.removed_at IS NULL
 `
 
 type GetTitleForMatchRow struct {
-	ID               int64
-	Kind             string
-	Year             *int64
-	Identification   string
-	FollowedSource   *string
-	FollowedSourceID *string
-	LibraryID        *int64
-	MetadataSource   string
-	Name             *string
+	ID                  int64
+	Kind                string
+	Year                *int64
+	IdentificationState string
+	FollowedSource      *string
+	FollowedSourceID    *string
+	LibraryID           *int64
+	MetadataSource      string
+	Name                *string
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -98,7 +98,7 @@ func (q *Queries) GetTitleForMatch(ctx context.Context, id int64) (GetTitleForMa
 		&i.ID,
 		&i.Kind,
 		&i.Year,
-		&i.Identification,
+		&i.IdentificationState,
 		&i.FollowedSource,
 		&i.FollowedSourceID,
 		&i.LibraryID,
@@ -184,7 +184,7 @@ SELECT title.id
 FROM title
 JOIN item ON item.id = title.id
 WHERE item.library_id = ?1 AND item.removed_at IS NULL AND title.kind = 'movie'
-  AND title.followed_source IS NULL AND title.identification = 'unidentified'
+  AND title.followed_source IS NULL AND title.identification_state = 'unidentified'
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
@@ -217,29 +217,29 @@ func (q *Queries) ListTitlesAwaitingMatch(ctx context.Context, libraryID *int64)
 }
 
 const listTitlesByIdent = `-- name: ListTitlesByIdent :many
-SELECT title.id, title.kind, title.year, title.identification, title.followed_source, title.followed_source_id, item.library_id,
+SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.library_id,
   item_text.name
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
-WHERE title.identification = ?1 AND item.removed_at IS NULL
+WHERE title.identification_state = ?1 AND item.removed_at IS NULL
 ORDER BY item_text.name, title.id
 `
 
 type ListTitlesByIdentRow struct {
-	ID               int64
-	Kind             string
-	Year             *int64
-	Identification   string
-	FollowedSource   *string
-	FollowedSourceID *string
-	LibraryID        *int64
-	Name             *string
+	ID                  int64
+	Kind                string
+	Year                *int64
+	IdentificationState string
+	FollowedSource      *string
+	FollowedSourceID    *string
+	LibraryID           *int64
+	Name                *string
 }
 
 // The titles in one state of identification, for the chooser's list (cut-a section 5).
-func (q *Queries) ListTitlesByIdent(ctx context.Context, identification string) ([]ListTitlesByIdentRow, error) {
-	rows, err := q.db.QueryContext(ctx, listTitlesByIdent, identification)
+func (q *Queries) ListTitlesByIdent(ctx context.Context, identificationState string) ([]ListTitlesByIdentRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesByIdent, identificationState)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func (q *Queries) ListTitlesByIdent(ctx context.Context, identification string) 
 			&i.ID,
 			&i.Kind,
 			&i.Year,
-			&i.Identification,
+			&i.IdentificationState,
 			&i.FollowedSource,
 			&i.FollowedSourceID,
 			&i.LibraryID,
@@ -305,15 +305,15 @@ func (q *Queries) MoveVersionsBetweenTitles(ctx context.Context, arg MoveVersion
 
 const setTitleMatch = `-- name: SetTitleMatch :exec
 UPDATE title SET followed_source = ?1, followed_source_id = ?2,
-  identification = CASE WHEN identification = 'confirmed' THEN identification ELSE ?3 END
+  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?3 END
 WHERE id = ?4
 `
 
 type SetTitleMatchParams struct {
-	FollowedSource   *string
-	FollowedSourceID *string
-	Identification   string
-	ID               int64
+	FollowedSource      *string
+	FollowedSourceID    *string
+	IdentificationState string
+	ID                  int64
 }
 
 // The outcome of a match: the source and its id, or ambiguous, or 'none' when the provider has
@@ -322,16 +322,16 @@ func (q *Queries) SetTitleMatch(ctx context.Context, arg SetTitleMatchParams) er
 	_, err := q.db.ExecContext(ctx, setTitleMatch,
 		arg.FollowedSource,
 		arg.FollowedSourceID,
-		arg.Identification,
+		arg.IdentificationState,
 		arg.ID,
 	)
 	return err
 }
 
 const upsertOverride = `-- name: UpsertOverride :exec
-INSERT INTO field_override (item_id, field, lang, override_value, origin, set_by_user_id, set_at)
+INSERT INTO field_override (item_id, field, language, override_value, origin, set_by_user_id, set_at)
 VALUES (?1, ?2, '', ?3, 'typed', ?4, ?5)
-ON CONFLICT (item_id, field, lang) DO UPDATE SET
+ON CONFLICT (item_id, field, language) DO UPDATE SET
   override_value = excluded.override_value, origin = excluded.origin, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at
 `
 

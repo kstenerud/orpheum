@@ -75,7 +75,7 @@ func (service *Service) Load(ctx context.Context) error {
 		held.add(file.Hash, file.Name, file.Size)
 	}
 	for _, row := range rows {
-		held.lastServedDayByHash[row.ContentHashHex] = row.LastServedEpochDay
+		held.lastServedDayByHash[row.SourceSha256Hex] = row.LastServedEpochDay
 	}
 	return nil
 }
@@ -131,7 +131,7 @@ func (service *Service) Flush(ctx context.Context) error {
 	}
 	err := service.parts.Cache.Write(ctx, func(queries *cachegen.Queries) error {
 		for hash, served := range unsaved {
-			marked := cachegen.MarkArtServedParams{ContentHashHex: hash, LastServedEpochDay: served}
+			marked := cachegen.MarkArtServedParams{SourceSha256Hex: hash, LastServedEpochDay: served}
 			if err := queries.MarkArtServed(ctx, marked); err != nil {
 				return err
 			}
@@ -197,7 +197,7 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 	shown := map[string]bool{}
 	goneAt := map[string]int64{}
 	for _, row := range rows {
-		key := hex.EncodeToString(row.ContentHash)
+		key := hex.EncodeToString(row.SourceSha256)
 		shown[key], goneAt[key] = row.Live == 1, row.GoneAt
 	}
 	sorted := service.classify(shown, goneAt)

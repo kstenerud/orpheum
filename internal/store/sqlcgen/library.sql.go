@@ -138,7 +138,7 @@ func (q *Queries) InsertLibrary(ctx context.Context, arg InsertLibraryParams) (i
 }
 
 const insertLibraryRoot = `-- name: InsertLibraryRoot :exec
-INSERT INTO library_root (library_id, node_id, path)
+INSERT INTO library_root (library_id, node_id, root_path)
 VALUES (?1, ?2, ?3)
 `
 
@@ -273,17 +273,17 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]ListLibrariesRow, error)
 }
 
 const listLibraryRootStates = `-- name: ListLibraryRootStates :many
-SELECT library_root.path, library_root.node_id, node.name AS node_name, root_state.last_scan_outcome,
+SELECT library_root.root_path, library_root.node_id, node.name AS node_name, root_state.last_scan_outcome,
   root_state.last_scan_at, root_state.withheld_reason
 FROM library_root
 JOIN node ON node.id = library_root.node_id
-LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.path
+LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
 WHERE library_root.library_id = ?1
-ORDER BY library_root.path
+ORDER BY library_root.root_path
 `
 
 type ListLibraryRootStatesRow struct {
-	Path            string
+	RootPath        string
 	NodeID          int64
 	NodeName        string
 	LastScanOutcome *string
@@ -303,7 +303,7 @@ func (q *Queries) ListLibraryRootStates(ctx context.Context, libraryID int64) ([
 	for rows.Next() {
 		var i ListLibraryRootStatesRow
 		if err := rows.Scan(
-			&i.Path,
+			&i.RootPath,
 			&i.NodeID,
 			&i.NodeName,
 			&i.LastScanOutcome,

@@ -23,7 +23,7 @@ describe("settings", () => {
               name: "tmdb_api_key",
               description: "TMDB's API key",
               isSet: true,
-              hint: "a1b2",
+              lastChars: "a1b2",
               needsReentry: false,
             },
             {
@@ -64,7 +64,7 @@ describe("settings", () => {
               setAt: 1,
             },
             {
-              key: "scan_on_node_hello",
+              key: "should_scan_on_node_hello",
               kind: "bool",
               description: "scan on hello",
               value: true,

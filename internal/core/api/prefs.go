@@ -15,8 +15,8 @@ import (
 // FilePrefsBody are a person's choices for one file (cut-a §5).
 type FilePrefsBody struct {
 	SubtitleOffsetMs int64 `doc:"Shows the subtitles this much later, or earlier when negative" json:"subtitleOffsetMs"`
-	// Subtitle is the file's subtitle choice, absent when it has none (D219).
-	Subtitle *SubtitleChoiceBody `json:"subtitle,omitempty"`
+	// SubtitleChoice is the file's subtitle choice, absent when it has none (D219).
+	SubtitleChoice *SubtitleChoiceBody `json:"subtitleChoice,omitempty"`
 	// IsDialogueBoostOn is whether the person plays with the dialogue boost, in every file (D83).
 	IsDialogueBoostOn bool `json:"isDialogueBoostOn"`
 	// IsLevellingOn is whether the person plays with loudness levelled, in every file (D226 §5).
@@ -39,20 +39,20 @@ type SetFilePrefsInput struct {
 	FileID int64 `minimum:"1" path:"id"`
 	Body   struct {
 		SubtitleOffsetMs *int64 `json:"subtitleOffsetMs,omitempty" maximum:"600000" minimum:"-600000" required:"false"`
-		// Subtitle, when given, is the file's own choice, carried to the work's other files that
+		// SubtitleChoice, when given, is the file's own choice, carried to the work's other files that
 		// have none of their own (D219).
-		Subtitle *SubtitleChoiceBody `json:"subtitle,omitempty" required:"false"`
+		SubtitleChoice *SubtitleChoiceBody `json:"subtitleChoice,omitempty" required:"false"`
 	}
 }
 
 func (server *Server) registerFilePrefs() {
 	huma.Register(server.api, huma.Operation{
-		OperationID: "setFilePrefs", Method: http.MethodPut, Path: "/files/{id}/prefs",
+		OperationID: "setFilePreferences", Method: http.MethodPut, Path: "/files/{id}/preferences",
 		Summary: "Keep a person's choices for one file: its subtitle offset, its subtitle track",
 		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.setFilePrefs)
 	huma.Register(server.api, huma.Operation{
-		OperationID: "setMyPrefs", Method: http.MethodPut, Path: "/me/prefs",
+		OperationID: "setMyPreferences", Method: http.MethodPut, Path: "/me/preferences",
 		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling",
 		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.setMyPrefs)
@@ -64,7 +64,7 @@ func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
 		IsLevellingOn: prefs.IsLevelling,
 	}
 	if choice := prefs.Subtitle; choice != nil {
-		body.Subtitle = &SubtitleChoiceBody{
+		body.SubtitleChoice = &SubtitleChoiceBody{
 			StreamID: choice.StreamID, FetchedSubtitleID: choice.FetchedSubtitleID, IsOff: choice.IsOff,
 			IsCarriedFromWork: choice.IsCarriedFromWork,
 		}
@@ -109,7 +109,7 @@ func (server *Server) setFilePrefs(ctx context.Context, input *SetFilePrefsInput
 	if offset := input.Body.SubtitleOffsetMs; offset != nil {
 		err = dependencies.Playback.SetSubtitleOffset(ctx, principal.UserID, input.FileID, *offset)
 	}
-	if choice := input.Body.Subtitle; err == nil && choice != nil {
+	if choice := input.Body.SubtitleChoice; err == nil && choice != nil {
 		named := 0
 		for _, isNamed := range []bool{choice.IsOff, choice.StreamID != 0, choice.FetchedSubtitleID != 0} {
 			if isNamed {

@@ -73,9 +73,10 @@ const (
 	axisSubtitleOffsetMs = "subtitle_offset_ms"
 	axisSubtitleChoice   = "subtitle_choice"
 	axisDialogueBoost    = "dialogue_boost"
-	axisLevelling        = "loudness_levelling"
-	valueOn              = "on"
-	valueOff             = "off"
+	axisLevelling        = "levelling"
+	// A switch's value is JSON, as value_json keeps it.
+	valueTrue  = "true"
+	valueFalse = "false"
 )
 
 // ErrNoTrack is a subtitle choice naming a track the file does not have.
@@ -116,9 +117,9 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 	for _, preference := range personal {
 		switch preference.Axis {
 		case axisDialogueBoost:
-			prefs.IsDialogueBoost = preference.ValueJson == valueOn
+			prefs.IsDialogueBoost = preference.ValueJson == valueTrue
 		case axisLevelling:
-			prefs.IsLevelling = preference.ValueJson != valueOff
+			prefs.IsLevelling = preference.ValueJson != valueFalse
 		}
 	}
 	return prefs, nil
@@ -136,9 +137,9 @@ func (service *Service) SetLevelling(ctx context.Context, userID int64, isOn boo
 
 // setOwn keeps one of the person's own choices that is on or off, for every file.
 func (service *Service) setOwn(ctx context.Context, userID int64, axis string, isOn bool) error {
-	value := valueOff
+	value := valueFalse
 	if isOn {
-		value = valueOn
+		value = valueTrue
 	}
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.SetPreference(ctx, sqlcgen.SetPreferenceParams{

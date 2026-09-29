@@ -36,7 +36,7 @@ func TestPass_ReportsTheImagesAMatchNamesUntilTheyAreHeld(t *testing.T) {
 	}
 	// The poster is stored; the backdrop was refused by the node, and is held with no hash.
 	for _, row := range []sqlcgen.InsertArtworkParams{
-		{ItemID: titleID, Kind: ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"), ContentHash: []byte{1}},
+		{ItemID: titleID, Kind: ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"), SourceSha256: []byte{1}},
 		{ItemID: titleID, Kind: ArtBackdrop, Source: "tmdb", SourceRef: new("/heat-back.jpg")},
 	} {
 		if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
@@ -68,9 +68,9 @@ func TestChoose_ARematchRetiresTheEarlierWorksImagesTheNewOneLacks(t *testing.T)
 	titleID := lib.files()[rel].TitleID
 	// Metropolis's poster and backdrop are stored, and a person chose a backdrop of their own.
 	for _, row := range []sqlcgen.InsertArtworkParams{
-		{ItemID: titleID, Kind: ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"), ContentHash: []byte{1}},
-		{ItemID: titleID, Kind: ArtBackdrop, Source: "tmdb", SourceRef: new("/heat-back.jpg"), ContentHash: []byte{2}},
-		{ItemID: titleID, Kind: ArtBackdrop, Source: "user", ContentHash: []byte{3}},
+		{ItemID: titleID, Kind: ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"), SourceSha256: []byte{1}},
+		{ItemID: titleID, Kind: ArtBackdrop, Source: "tmdb", SourceRef: new("/heat-back.jpg"), SourceSha256: []byte{2}},
+		{ItemID: titleID, Kind: ArtBackdrop, Source: "user", SourceSha256: []byte{3}},
 	} {
 		if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 			_, err := queries.InsertArtwork(t.Context(), row)

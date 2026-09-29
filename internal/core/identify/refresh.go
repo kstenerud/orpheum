@@ -23,8 +23,8 @@ import (
 // it (D213).
 type refreshArgs struct {
 	IsRefresh bool `json:"isRefresh"`
-	// RetryImages asks again for the item's images that were missing or refused.
-	RetryImages bool `json:"retryImages,omitempty"`
+	// ShouldRetryImages asks again for the item's images that were missing or refused.
+	ShouldRetryImages bool `json:"shouldRetryImages,omitempty"`
 }
 
 // RefreshJob is the fetch job that refreshes an item from the source it follows, from at (now
@@ -90,7 +90,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages b
 			return "", retryErr
 		}
 	}
-	err = matcher.accept(ctx, provider, title, *title.FollowedSourceID, title.Identification)
+	err = matcher.accept(ctx, provider, title, *title.FollowedSourceID, title.IdentificationState)
 	if errors.Is(err, ErrNoMatch) {
 		return OutcomeKept, matcher.kept(ctx, title.LibraryID, keptPart{itemID, provider.Name(), ""})
 	}
@@ -178,7 +178,7 @@ func (matcher *Matcher) storePart(
 	}
 	found := seriesFound{
 		provider: provider.Name(), seriesID: series.ID, metadata: metadata,
-		ident: ptr.ValueOrZero(series.Identification),
+		ident: ptr.ValueOrZero(series.IdentificationState),
 	}
 	now := matcher.clock.Now().UnixMilli()
 	return matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error { //nolint:wrapcheck // recordSeries wraps

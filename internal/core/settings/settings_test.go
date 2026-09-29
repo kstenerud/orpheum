@@ -139,10 +139,11 @@ func TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage(t *testing.
 			t.Errorf("the settings page lists %s, which it does not show", entry.Definition.Key)
 		}
 	}
-	if entry := entryFor(t, page, CheckForUpdates); string(entry.Value) != "null" || entry.Definition.Question == "" {
+	if entry := entryFor(t, page,
+		ShouldCheckForUpdates); string(entry.Value) != "null" || entry.Definition.Question == "" {
 		t.Errorf("an unanswered question: %+v, want null and the question", entry)
 	}
-	answers := values("check_for_updates", "false", "sort_locale", ` "sv" `)
+	answers := values("should_check_for_updates", "false", "sort_locale", ` "sv" `)
 	err = service.Set(ctx, nil, answers, &owner, true)
 	if err != nil {
 		t.Fatal(err)
@@ -164,13 +165,13 @@ func TestReaders_RefuseAnUnansweredQuestionAndTheWrongKind(t *testing.T) {
 	t.Parallel()
 	service, _ := seeded(t)
 	ctx := t.Context()
-	if _, err := service.Bool(ctx, CheckForUpdates); !errors.Is(err, ErrUnanswered) {
+	if _, err := service.Bool(ctx, ShouldCheckForUpdates); !errors.Is(err, ErrUnanswered) {
 		t.Errorf("reading an unanswered question: %v, want ErrUnanswered", err)
 	}
-	if _, err := service.Int(ctx, ServeDebugPProf); !errors.Is(err, ErrWrongKind) {
+	if _, err := service.Int(ctx, ShouldServeDebugPProf); !errors.Is(err, ErrWrongKind) {
 		t.Errorf("reading a bool as an integer: %v, want ErrWrongKind", err)
 	}
-	if on, err := service.Bool(ctx, ScanOnNodeHello); err != nil || !on {
+	if on, err := service.Bool(ctx, ShouldScanOnNodeHello); err != nil || !on {
 		t.Errorf("reading a seeded bool: %v, %v; want its starting value", on, err)
 	}
 	if hours, err := service.Int(ctx, SessionIdleExpiryH); err != nil || hours != 2160 {
@@ -190,17 +191,17 @@ func TestSet_RefusesAndChangesNothing(t *testing.T) {
 		want        error
 	}{
 		{"an unknown key", nil, values("transcode_quality", "1"), false, ErrUnknownSetting},
-		{"a server key as a user's", &owner, values("check_for_updates", "true"), false, ErrWrongScope},
-		{"a string for a bool", nil, values("check_for_updates", `"yes"`), false, ErrWrongKind},
-		{"null, which only reset writes", nil, values("check_for_updates", "null"), false, ErrWrongKind},
-		{"not JSON", nil, values("check_for_updates", `yes`), false, ErrWrongKind},
+		{"a server key as a user's", &owner, values("should_check_for_updates", "true"), false, ErrWrongScope},
+		{"a string for a bool", nil, values("should_check_for_updates", `"yes"`), false, ErrWrongKind},
+		{"null, which only reset writes", nil, values("should_check_for_updates", "null"), false, ErrWrongKind},
+		{"not JSON", nil, values("should_check_for_updates", `yes`), false, ErrWrongKind},
 		{"below the minimum", nil, values("signin_failure_limit", "0"), false, ErrWrongKind},
-		{"above the maximum", nil, values("secret_hint_chars", "9"), false, ErrWrongKind},
+		{"above the maximum", nil, values("secret_last_chars_shown", "9"), false, ErrWrongKind},
 		{"a fraction", nil, values("signin_failure_limit", "2.5"), false, ErrWrongKind},
 		{"a hidden key on the settings page", nil, values("signin_failure_limit", "3"), true, ErrNotExposed},
 		{
 			"one bad among good", nil,
-			values("scan_on_node_hello", "true", "check_for_updates", "1"), false, ErrWrongKind,
+			values("should_scan_on_node_hello", "true", "should_check_for_updates", "1"), false, ErrWrongKind,
 		},
 	}
 	for _, tc := range cases {
@@ -223,11 +224,11 @@ func TestReset_WritesTheStartingValueBack(t *testing.T) {
 	t.Parallel()
 	service, owner := seeded(t)
 	ctx := t.Context()
-	changes := values("signin_failure_limit", "9", "check_for_updates", "true")
+	changes := values("signin_failure_limit", "9", "should_check_for_updates", "true")
 	if err := service.Set(ctx, nil, changes, &owner, false); err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []Key{SignInFailureLimit, CheckForUpdates} {
+	for _, key := range []Key{SignInFailureLimit, ShouldCheckForUpdates} {
 		if err := service.Reset(ctx, key, &owner); err != nil {
 			t.Fatal(err)
 		}
@@ -236,7 +237,7 @@ func TestReset_WritesTheStartingValueBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []Key{SignInFailureLimit, CheckForUpdates} {
+	for _, key := range []Key{SignInFailureLimit, ShouldCheckForUpdates} {
 		if entry := entryFor(t, entries, key); entry.IsModified {
 			t.Errorf("after a reset, %s = %s, want its starting value", key, entry.Value)
 		}
@@ -365,7 +366,7 @@ func TestSeed_MovesOnlyUnmodifiedSettingsToAChangedStartingValue(t *testing.T) {
 	// one row still has the old starting value, unmodified; the other was set by a person.
 	storetest.ExecRaw(t, service.database.Path(),
 		"UPDATE setting SET value_json = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
-		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secret_hint_chars'")
+		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secret_last_chars_shown'")
 	report, err := service.Seed(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -376,7 +377,7 @@ func TestSeed_MovesOnlyUnmodifiedSettingsToAChangedStartingValue(t *testing.T) {
 	if limit, err := service.Int(ctx, SignInFailureLimit); err != nil || limit != 5 {
 		t.Errorf("the unmodified setting = %d, %v; want the new starting value 5", limit, err)
 	}
-	if hint, err := service.Int(ctx, SecretHintChars); err != nil || hint != 6 {
+	if hint, err := service.Int(ctx, SecretLastCharsShown); err != nil || hint != 6 {
 		t.Errorf("the setting a person set = %d, %v; want it left at 6", hint, err)
 	}
 	if again, err := service.Seed(ctx); err != nil || len(again.Updated) != 0 {
@@ -401,7 +402,7 @@ func TestOnChange_ReactsToASetAndAResetOfItsKeyOnly(t *testing.T) {
 		}
 	}
 	set(SortLocale, `"sv"`)
-	set(ScanOnNodeHello, "false")
+	set(ShouldScanOnNodeHello, "false")
 	if err := service.Reset(t.Context(), SortLocale, nil); err != nil {
 		t.Fatal(err)
 	}

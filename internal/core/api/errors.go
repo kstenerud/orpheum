@@ -43,10 +43,10 @@ type ErrorBody struct {
 
 // ErrorDetail is the inside of an error.
 type ErrorDetail struct {
-	Code    Code              `json:"code"`
-	Message string            `json:"message"`
-	Detail  map[string]string `json:"detail,omitempty"`
-	Hop     Hop               `json:"hop,omitempty"`
+	Code      Code              `json:"code"`
+	Message   string            `json:"message"`
+	Detail    map[string]string `json:"detail,omitempty"`
+	FailedHop Hop               `json:"failedHop,omitempty"`
 }
 
 // Error is an API error with its HTTP status. Handlers return it; huma writes its body.

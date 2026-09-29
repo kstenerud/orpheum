@@ -39,11 +39,11 @@ func (world *harness) rootState() (outcome, reason string) {
 func TestScenario_S7_S8_AnUnpluggedDiskRemovesNothingAndItsReturnRestoresEverything(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	mounted := nodeproto.ScanBegin{Root: root, FilesystemDevice: 7, IsMountPoint: true}
+	mounted := nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 7, IsMountPoint: true}
 	world.scanOn(mounted, films(3), true)
 	before := world.live()
 
-	unplugged := nodeproto.ScanBegin{Root: root, FilesystemDevice: 1, IsMountPoint: false}
+	unplugged := nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 1, IsMountPoint: false}
 	world.scanOn(unplugged, nil, true)
 	if got := len(world.live()); got != 3 {
 		t.Fatalf("%d live files after a clean scan of the empty mount point, want all 3", got)

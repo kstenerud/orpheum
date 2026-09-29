@@ -35,7 +35,7 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
   return (
     <article className="series">
       <div className="series__head">
-        <Poster hash={series.art.posterHash} />
+        <Poster hash={series.art.posterSha256} />
         <div>
           <h1>{series.name}</h1>
           {series.year === undefined ? null : <p className="series__year">{series.year}</p>}
@@ -54,12 +54,12 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
                 className={episode.hasLiveFile ? undefined : "series__episode--absent"}
               >
                 <Link to={{ screen: "title", id: episode.id }} className="series__episode">
-                  {episode.stillHash === undefined ? (
+                  {episode.stillSha256 === undefined ? (
                     <span className="series__still" aria-hidden="true" />
                   ) : (
                     <img
                       className="series__still"
-                      src={artUrl(episode.stillHash, "landscape-s")}
+                      src={artUrl(episode.stillSha256, "landscape-s")}
                       alt={""}
                       loading="lazy"
                     />

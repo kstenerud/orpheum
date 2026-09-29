@@ -52,7 +52,7 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 	}))
 	if err == nil {
 		err = work.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
-			LibraryID: scan.libraryID, SizeBytes: &sidecar.SizeBytes, MtimeMs: &sidecar.MtimeMs,
+			LibraryID: scan.libraryID, SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt,
 			PayloadHash: hash, PayloadBytes: payloadBytes, SidecarKind: &kind,
 			FilingReason: &reason,
 			NfoBody:      sidecar.NFOBody, SeenAt: work.now, ID: existing.ID,
@@ -67,7 +67,7 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 	}
 	_, err = work.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
 		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, ReportedPathBytes: located.key,
-		SizeBytes: &sidecar.SizeBytes, MtimeMs: &sidecar.MtimeMs, PayloadHash: hash, PayloadBytes: payloadBytes,
+		SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt, PayloadHash: hash, PayloadBytes: payloadBytes,
 		SidecarKind: &kind, FilingReason: &reason,
 		NfoBody: sidecar.NFOBody, SeenAt: work.now,
 	})

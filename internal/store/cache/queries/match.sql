@@ -6,12 +6,12 @@ DELETE FROM match_candidate
 WHERE item_id = sqlc.arg(item_id);
 
 -- name: InsertMatchCandidate :exec
-INSERT INTO match_candidate (item_id, rank, provider, provider_id, name, year, runtime_ms, poster_path)
+INSERT INTO match_candidate (item_id, rank, provider, provider_id, name, year, runtime_ms, provider_poster_path)
 VALUES (sqlc.arg(item_id), sqlc.arg(rank), sqlc.arg(provider), sqlc.arg(provider_id), sqlc.arg(name),
-        sqlc.arg(year), sqlc.arg(runtime_ms), sqlc.arg(poster_path));
+        sqlc.arg(year), sqlc.arg(runtime_ms), sqlc.arg(provider_poster_path));
 
 -- name: ListMatchCandidates :many
-SELECT item_id, rank, provider, provider_id, name, year, runtime_ms, poster_path
+SELECT item_id, rank, provider, provider_id, name, year, runtime_ms, provider_poster_path
 FROM match_candidate
 WHERE item_id = sqlc.arg(item_id)
 ORDER BY rank;

@@ -16902,5 +16902,19 @@ ones.
    `_json`; and the artwork and fetch jobs' stored arguments, which no table listed, say what they
    hold. The names are in the same research file's addendum; migration 0024 carries the
    columns and a stored subtitle choice's keys, and cache.db is discarded for its version.
+6. **A second sweep, by data flow (2026-09-29)** (the owner: *"Do all of it. This is a housekeeping
+   run so I don't mind churn. I want to start the next milestone with a very clean codebase."*).
+   A sweep that traced each value from the node through the core to the database and the API
+   found more values under two names, unclear names, and four values in the wrong form: a
+   switch stored as `on`/`off` in a column that holds JSON, the quota error's reset time as a date
+   while its field of the same name is milliseconds, a retry delay as a Go duration, and a file's
+   error detail sent as JSON inside a string. Each value now has one name and one form; a
+   language is `language` in every table; the artwork kind `thumb` is the `still` the API names;
+   a column or JSON field spells out any unit but milliseconds (standards/sql.md); and the
+   settings named as commands read as predicates. The names are in the research file's second
+   addendum; migration 0025 carries library.db, cache.db goes to version 16. Two names stay two,
+   on purpose: a series' `seasonNumber` and `episodeNumber` in the API are the group and the
+   number in the group that `position` keeps for any ordering, not only a series'; and the
+   error body's `detail` keeps its common name.
 
 **Status:** Decided; built before M3's closing audit.

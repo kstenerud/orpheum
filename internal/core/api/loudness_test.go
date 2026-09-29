@@ -120,7 +120,7 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 			jobs.Job{ID: 92, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}})
 	}()
 	command := <-harness.nodes.commanded
-	if command.Prepare == nil || len(command.Prepare.Audio) != 1 || command.Prepare.Audio[0].GainDB != 5.0 {
+	if command.Prepare == nil || len(command.Prepare.Audio) != 1 || command.Prepare.Audio[0].CarriedGainDB != 5.0 {
 		t.Fatalf("the prepare sent %+v, want the track's gain in its mixes (D226 §4)", command.Prepare)
 	}
 	service := harness.server.dependencies.Load().Playback
@@ -165,9 +165,9 @@ func TestLoudness_LevellingIsOnUntilThePersonTurnsItOff(t *testing.T) {
 	if first := harness.play(t, user, chrome(1)); !first.Prefs.IsLevelling {
 		t.Errorf("a person who never chose: levelling %t, want on (D226 §5)", first.Prefs.IsLevelling)
 	}
-	answer := harness.do(t, http.MethodPut, "/me/prefs", user, map[string]any{"isLevellingOn": false})
+	answer := harness.do(t, http.MethodPut, "/me/preferences", user, map[string]any{"isLevellingOn": false})
 	if answer.status != http.StatusNoContent {
-		t.Fatalf("PUT /me/prefs = %d %s", answer.status, answer.body)
+		t.Fatalf("PUT /me/preferences = %d %s", answer.status, answer.body)
 	}
 	if off := harness.play(t, user, chrome(2)); off.Prefs.IsLevelling {
 		t.Error("after turning it off: levelling on, want off in every file")

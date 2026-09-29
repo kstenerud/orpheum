@@ -34,7 +34,7 @@ func scannedRoots(commands []nodeproto.Command) []string {
 	var roots []string
 	for _, command := range commands {
 		if command.Type == nodeproto.CommandScan {
-			roots = append(roots, command.Scan.Root)
+			roots = append(roots, command.Scan.RootPath)
 		}
 	}
 	return roots

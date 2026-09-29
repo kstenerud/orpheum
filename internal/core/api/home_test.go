@@ -55,8 +55,8 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 		`INSERT INTO file (id, library_id, node_id, path, size_bytes, filing, version_id, first_seen_at, last_seen_at)
 		 VALUES (3, 1, 1, '/m/Metropolis (1995) - 720p.mkv', 500, 'listed', 3, 1, 1),
 		        (4, 1, 1, '/m/Metropolis (1995)-trailer.mkv', 5, 'extra', 4, 1, 1)`,
-		"INSERT INTO item (id, kind, library_id, created_at) VALUES (30, 'title', 1, 3)",
-		"INSERT INTO title (id, kind, identification) VALUES (30, 'extra', 'identified')",
+		"INSERT INTO item (id, kind, library_id, added_at) VALUES (30, 'title', 1, 3)",
+		"INSERT INTO title (id, kind, identification_state) VALUES (30, 'extra', 'identified')",
 		"INSERT INTO version (id, title_id, created_at) VALUES (4, 30, 3)")
 	harness.watched(t, 3, 300_000, 100) // Metropolis's 720p copy, earlier
 	harness.watched(t, 2, 60_000, 150)  // the pilot, of unknown length
@@ -68,7 +68,7 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 		t.Errorf("Continue Watching = %v, want %v", got, want)
 	}
 	rows := harness.continueWatching(t, user)
-	if rows[0].PositionMs != 500_000 || rows[0].DurationMs != 1_000_000 || rows[0].PosterHash == "" ||
+	if rows[0].PositionMs != 500_000 || rows[0].DurationMs != 1_000_000 || rows[0].PosterSha256 == "" ||
 		rows[1].Episode == nil || rows[1].Episode.SeriesName != "Brass Arena" {
 		t.Errorf("rows = %+v, want Metropolis halfway with its poster, and the pilot with its series", rows)
 	}

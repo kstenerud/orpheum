@@ -15,16 +15,16 @@ import (
 // InProgressBody is one row of Continue Watching: a work, and the file of it the person was most
 // recently partway through.
 type InProgressBody struct {
-	ID         int64             `json:"id"`
-	Name       string            `json:"name"`
-	Year       int64             `json:"year,omitempty"`
-	LibraryID  int64             `json:"libraryId"`
-	PosterHash string            `json:"posterHash,omitempty"`
-	FileID     int64             `json:"fileId"`
-	PositionMs int64             `json:"positionMs"`
-	DurationMs int64             `doc:"0 when the file's length is unknown" json:"durationMs"`
-	FileName   string            `doc:"Which file it resumes, when two are partway" json:"fileName,omitempty"`
-	Episode    *EpisodePlaceBody `json:"episode,omitempty"`
+	ID           int64             `json:"id"`
+	Name         string            `json:"name"`
+	Year         int64             `json:"year,omitempty"`
+	LibraryID    int64             `json:"libraryId"`
+	PosterSha256 string            `json:"posterSha256,omitempty"`
+	FileID       int64             `json:"fileId"`
+	PositionMs   int64             `json:"positionMs"`
+	DurationMs   int64             `doc:"0 when the file's length is unknown" json:"durationMs"`
+	FileName     string            `doc:"Which file it resumes, when two are partway" json:"fileName,omitempty"`
+	Episode      *EpisodePlaceBody `json:"episode,omitempty"`
 }
 
 // HomeOutput is the home screen (D188): Continue Watching first. Next Up comes after M3.
@@ -70,7 +70,7 @@ func (server *Server) home(ctx context.Context, input *struct{ AuthorizationHead
 	output.Body.ContinueWatching = make([]InProgressBody, 0, len(rows))
 	for _, row := range rows {
 		output.Body.ContinueWatching = append(output.Body.ContinueWatching, InProgressBody{
-			ID: row.ID, Name: row.Name, Year: row.Year, LibraryID: row.LibraryID, PosterHash: row.Poster,
+			ID: row.ID, Name: row.Name, Year: row.Year, LibraryID: row.LibraryID, PosterSha256: row.Poster,
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: row.FileName,
 			Episode: episodePlaceBody(row.Episode),
 		})

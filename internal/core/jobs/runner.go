@@ -102,7 +102,7 @@ func (runner *Runner) claim(ctx context.Context, now time.Time) (Job, bool, erro
 			return fmt.Errorf("start job %d: %w", row.ID, startErr)
 		}
 		job = Job{
-			ID: row.ID, Kind: runner.kind, Args: row.ArgsJson, Attempts: row.Attempts + 1,
+			ID: row.ID, Kind: runner.kind, Args: row.ArgsJson, Attempts: row.AttemptCount + 1,
 			Target: targetOf(row.ItemID, row.RenditionID, row.StreamID, row.FetchedSubtitleID, row.FileID),
 		}
 		found = true
@@ -166,7 +166,7 @@ func (runner *Runner) deferUntil(ctx context.Context, job Job, until time.Time, 
 	message := why.Error()
 	return runner.queue.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		err := queries.DeferJob(ctx, cachegen.DeferJobParams{
-			RunnableAt: until.UnixMilli(), LastError: &message, Attempts: attempts, ID: job.ID,
+			RunnableAt: until.UnixMilli(), LastFailure: &message, AttemptCount: attempts, ID: job.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("defer job %d: %w", job.ID, err)
@@ -190,7 +190,7 @@ func finishParams(job Job, state string, why error, now time.Time) cachegen.Fini
 		params.ProgressFraction = new(1.0)
 	}
 	if why != nil {
-		params.LastError = new(why.Error())
+		params.LastFailure = new(why.Error())
 	}
 	return params
 }

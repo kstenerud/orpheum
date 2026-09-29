@@ -63,7 +63,8 @@ func (agent *Agent) answerInBackground(ctx context.Context, nodeID int64, comman
 			return
 		}
 		if refused != "" {
-			agent.logger.WarnContext(ctx, "refused a job", "work", command.what, "jobId", command.job, "why", refused)
+			agent.logger.WarnContext(ctx, "refused a job", "work", command.what, "jobId", command.job, "refusal",
+				refused)
 		}
 		encoded, err := json.Marshal(answer)
 		if err != nil {
@@ -124,7 +125,7 @@ func (agent *Agent) extractTrack(
 // convertSidecar converts a subtitle file beside the media, read through the root it is under and
 // checked to be the one the core named (D100).
 func (agent *Agent) convertSidecar(ctx context.Context, sidecar nodeproto.BytesFile) (subtitle.Text, error) {
-	root, known := agent.roots[sidecar.Root]
+	root, known := agent.roots[sidecar.RootPath]
 	if !known {
 		return subtitle.Text{}, errors.New("the sidecar is under none of this node's roots")
 	}

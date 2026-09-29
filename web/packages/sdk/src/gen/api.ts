@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/bytes/art/{hash}/{variant}": {
+    "/bytes/art/{sourceSha256}/{variant}": {
         parameters: {
             query?: never;
             header?: never;
@@ -39,7 +39,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/bytes/media/hls/{token}/{rendition}/{file}": {
+    "/bytes/media/hls/{token}/{renditionName}/{fileName}": {
         parameters: {
             query?: never;
             header?: never;
@@ -73,7 +73,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/bytes/media/sub/{token}/{file}": {
+    "/bytes/media/sub/{token}/{fileName}": {
         parameters: {
             query?: never;
             header?: never;
@@ -227,7 +227,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/files/{id}/prefs": {
+    "/files/{id}/preferences": {
         parameters: {
             query?: never;
             header?: never;
@@ -236,7 +236,7 @@ export interface paths {
         };
         get?: never;
         /** Keep a person's choices for one file: its subtitle offset, its subtitle track */
-        put: operations["setFilePrefs"];
+        put: operations["setFilePreferences"];
         post?: never;
         delete?: never;
         options?: never;
@@ -642,7 +642,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/me/prefs": {
+    "/me/preferences": {
         parameters: {
             query?: never;
             header?: never;
@@ -651,7 +651,7 @@ export interface paths {
         };
         get?: never;
         /** Keep a person's own choices, which hold in every file they play: the boost, levelling */
-        put: operations["setMyPrefs"];
+        put: operations["setMyPreferences"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1013,12 +1013,14 @@ export interface components {
             remainingDownloads: number;
         };
         ArtBody: {
-            backdropHash?: string;
-            posterHash?: string;
+            backdropSha256?: string;
+            posterSha256?: string;
             /** @description An episode's frame */
-            stillHash?: string;
+            stillSha256?: string;
         };
         AudioRenditionBody: {
+            /** Format: int64 */
+            audioTrackIndex: number;
             /**
              * Format: double
              * @description dB already in the sound, put in when it was prepared
@@ -1027,8 +1029,6 @@ export interface components {
             isDialogueBoosted: boolean;
             language: string;
             levelling: components["schemas"]["LevellingBody"];
-            /** Format: int64 */
-            sourceAudioIndex: number;
         };
         BuildBody: {
             binarySha256?: string;
@@ -1231,7 +1231,7 @@ export interface components {
             libraryId: number;
             name: string;
             /** @description Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp */
-            posterHash?: string;
+            posterSha256?: string;
             /** Format: int64 */
             year?: number;
         };
@@ -1249,7 +1249,7 @@ export interface components {
             /** Format: int64 */
             seasonNumber: number;
             /** @description Its still's hash: GET /bytes/art/{hash}/landscape-s.webp */
-            stillHash?: string;
+            stillSha256?: string;
             /** Format: int64 */
             year?: number;
         };
@@ -1270,21 +1270,36 @@ export interface components {
             detail?: {
                 [key: string]: string;
             };
-            hop?: string;
+            failedHop?: string;
             message: string;
+        };
+        ErrorDetailBody: {
+            /** Format: int64 */
+            groupGid: number;
+            /** @description The file's mode, as ls shows it: -rw------- */
+            modeText: string;
+            /**
+             * Format: int64
+             * @description How often the node met it
+             */
+            occurrenceCount: number;
+            /** Format: int64 */
+            ownerUid: number;
+            /** @description The platform's words */
+            text: string;
         };
         EventBody: {
             /** Format: int64 */
-            atMonoMs: number;
+            happenedMonoMs: number;
             /** @enum {string} */
             kind: "started" | "paused" | "seeked" | "completed" | "abandoned";
             /** Format: int64 */
             positionMs: number;
         };
         ExtraBody: {
+            extraType: string;
             /** Format: int64 */
             id: number;
-            kind: string;
             name: string;
         };
         FetchSubtitleInputBody: {
@@ -1307,8 +1322,7 @@ export interface components {
             remainingDownloads: number;
         };
         FileBody: {
-            /** @description Owner, group, mode; the platform's words */
-            errorDetail?: string;
+            errorDetail?: components["schemas"]["ErrorDetailBody"];
             filing: string;
             filingReason?: string;
             /** Format: int64 */
@@ -1334,7 +1348,7 @@ export interface components {
         FilePrefsBody: {
             isDialogueBoostOn: boolean;
             isLevellingOn: boolean;
-            subtitle?: components["schemas"]["SubtitleChoiceBody"];
+            subtitleChoice?: components["schemas"]["SubtitleChoiceBody"];
             /**
              * Format: int64
              * @description Shows the subtitles this much later, or earlier when negative
@@ -1355,8 +1369,6 @@ export interface components {
         };
         FinishedPrepareBody: {
             failure?: string;
-            /** Format: int64 */
-            fileId: number;
             /**
              * Format: int64
              * @description Unix milliseconds
@@ -1373,6 +1385,8 @@ export interface components {
             realtimeFactor?: number;
             /** Format: int64 */
             sizeBytes?: number;
+            /** Format: int64 */
+            sourceFileId: number;
             /** @enum {string} */
             state: "complete" | "failed";
             /** @description h264_qsv, h264_nvenc, x264, or copy for a remux */
@@ -1434,7 +1448,7 @@ export interface components {
             name: string;
             /** Format: int64 */
             positionMs: number;
-            posterHash?: string;
+            posterSha256?: string;
             /** Format: int64 */
             year?: number;
         };
@@ -1489,7 +1503,7 @@ export interface components {
         };
         JobBody: {
             /** Format: int64 */
-            attempts: number;
+            attemptCount: number;
             /**
              * Format: int64
              * @description Unix milliseconds
@@ -1510,7 +1524,7 @@ export interface components {
             itemId?: number;
             /** @enum {string} */
             kind: "fetch" | "artwork" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "measure_loudness" | "scan" | "backup";
-            lastError?: string;
+            lastFailure?: string;
             /** Format: double */
             progressFraction?: number;
             /** @description Why it exists */
@@ -1616,7 +1630,7 @@ export interface components {
         };
         PutSettingsInputBody: {
             /** @description Setting keys and their new JSON values */
-            values: {
+            valuesByKey: {
                 [key: string]: unknown;
             };
         };
@@ -1658,7 +1672,7 @@ export interface components {
             /** @enum {string} */
             lastScanOutcome: "complete" | "unreadable" | "withheld" | "";
             nodeName: string;
-            path: string;
+            rootPath: string;
             /** @description Why the last scan's removals wait for an admin */
             withheldReason?: string;
         };
@@ -1671,9 +1685,9 @@ export interface components {
         };
         SecretBody: {
             description: string;
-            /** @description An API key's last characters, secret_hint_chars of them */
-            hint?: string;
             isSet: boolean;
+            /** @description An API key's last characters, secret_last_chars_shown of them */
+            lastChars?: string;
             name: string;
             /** @description Sealed under a key this server no longer has */
             needsReentry: boolean;
@@ -1702,7 +1716,7 @@ export interface components {
             user: components["schemas"]["UserBody"];
         };
         SetFilePrefsInputBody: {
-            subtitle?: components["schemas"]["SubtitleChoiceBody"];
+            subtitleChoice?: components["schemas"]["SubtitleChoiceBody"];
             /** Format: int64 */
             subtitleOffsetMs?: number;
         };
@@ -1774,16 +1788,16 @@ export interface components {
             preferredDelivery?: "direct" | "prepare";
         };
         StartPlaybackOutputBody: {
-            audio?: components["schemas"]["AudioRenditionBody"][] | null;
             /** @enum {string} */
             audioOutput?: "built_in_speakers" | "receiver" | "headphones";
+            audioRenditions?: components["schemas"]["AudioRenditionBody"][] | null;
             /** @enum {string} */
             delivery: "direct" | "hls";
             isPreparing: boolean;
             levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;
             notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "user_choice")[] | null;
-            prefs: components["schemas"]["FilePrefsBody"];
+            preferences: components["schemas"]["FilePrefsBody"];
             /** @enum {string} */
             profile?: "remux" | "h264-8m";
             /** Format: int64 */
@@ -1796,6 +1810,7 @@ export interface components {
             /** Format: int64 */
             channelCount?: number;
             codec?: string;
+            containerTitle?: string;
             /**
              * Format: int64
              * @description Stable while the file is unchanged
@@ -1804,14 +1819,13 @@ export interface components {
             kind: string;
             /** @description BCP 47 */
             language?: string;
-            title?: string;
         };
         SubtitleCandidateBody: {
             /** Format: int64 */
             downloadCount: number;
-            isHashMatch: boolean;
             isHearingImpaired: boolean;
             isMachineTranslated: boolean;
+            isOpensubtitlesHashMatch: boolean;
             language: string;
             /**
              * Format: int64
@@ -1829,10 +1843,10 @@ export interface components {
         SubtitleCandidatesOutputBody: {
             allowance: components["schemas"]["AllowanceBody"];
             candidates: components["schemas"]["SubtitleCandidateBody"][] | null;
-            /** @description Asked by the file's hash: those made for these bytes */
-            didAskByFileHash: boolean;
             /** @description Asked by the work's ids: subtitles made for any copy of it */
             didAskByIds: boolean;
+            /** @description Asked by the file's hash: those made for these bytes */
+            didAskByOpensubtitlesHash: boolean;
         };
         SubtitleChoiceBody: {
             /**
@@ -1908,7 +1922,7 @@ export interface components {
             key: string;
             /** @description The release that stopped reading it; empty for a typo */
             retiredIn?: string;
-            retiredWhy?: string;
+            retiredReason?: string;
             /** @enum {string} */
             scope: "server" | "user";
             /** Format: int64 */
@@ -1916,7 +1930,7 @@ export interface components {
             value: unknown;
         };
         UnusedOutputBody: {
-            unused: components["schemas"]["UnusedBody"][] | null;
+            unusedSettings: components["schemas"]["UnusedBody"][] | null;
         };
         UserBody: {
             device?: components["schemas"]["CurrentDeviceBody"];
@@ -1976,7 +1990,7 @@ export interface operations {
             };
             path: {
                 /** @description The image's hash, from a title's artwork */
-                hash: string;
+                sourceSha256: string;
                 /** @description A size and a format: portrait-m.webp, landscape-l.jpeg */
                 variant: string;
             };
@@ -2095,9 +2109,9 @@ export interface operations {
             };
             path: {
                 /** @description stream.m3u8, init.mp4 or a segment */
-                file: string;
+                fileName: string;
                 /** @description video, audio0, audio0-boost, ... */
-                rendition: string;
+                renditionName: string;
                 /** @description The playback's media token */
                 token: string;
             };
@@ -2175,7 +2189,7 @@ export interface operations {
             };
             path: {
                 /** @description <streamId>.ass or <streamId>.vtt, or f<fetchedSubtitleId>.ass or .vtt */
-                file: string;
+                fileName: string;
                 /** @description The playback's media token */
                 token: string;
             };
@@ -2517,7 +2531,7 @@ export interface operations {
             };
         };
     };
-    setFilePrefs: {
+    setFilePreferences: {
         parameters: {
             query?: never;
             header?: {
@@ -3466,7 +3480,7 @@ export interface operations {
             };
         };
     };
-    setMyPrefs: {
+    setMyPreferences: {
         parameters: {
             query?: never;
             header?: {
@@ -3711,7 +3725,7 @@ export interface operations {
         parameters: {
             query: {
                 limit: number;
-                q: string;
+                query: string;
             };
             header?: {
                 /** @description Bearer <session token> */

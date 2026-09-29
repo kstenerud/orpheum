@@ -135,10 +135,10 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 		return err
 	}
 	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID, "lastReportSeq",
-		reply.LastReportSeq)
+		reply.LastIngestedReportSeq)
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
-	report := newReport(reply.LastReportSeq)
+	report := newReport(reply.LastIngestedReportSeq)
 	work := make(chan nodeproto.Command, 16)
 	var running sync.WaitGroup
 	running.Go(func() { cancel(agent.stream(ctx, reply.NodeID, report)) })
@@ -220,8 +220,8 @@ func (agent *Agent) work(ctx context.Context, nodeID int64, work <-chan nodeprot
 // run carries out one command. A scan of a root the node was not configured with is refused,
 // whatever the core asks (D107).
 func (agent *Agent) run(ctx context.Context, nodeID int64, command nodeproto.Command, report *report) error {
-	if command.Type == nodeproto.CommandArtwork && command.Artwork != nil {
-		return agent.artwork(ctx, nodeID, *command.Artwork)
+	if command.Type == nodeproto.CommandArtwork && command.EncodeArtwork != nil {
+		return agent.artwork(ctx, nodeID, *command.EncodeArtwork)
 	}
 	if command.Type == nodeproto.CommandPrepare && command.Prepare != nil {
 		agent.prepare(ctx, nodeID, *command.Prepare)
@@ -236,9 +236,10 @@ func (agent *Agent) run(ctx context.Context, nodeID int64, command nodeproto.Com
 		return nil
 	}
 	if command.Type == nodeproto.CommandScan {
-		root, known := agent.roots[command.Scan.Root]
+		root, known := agent.roots[command.Scan.RootPath]
 		if !known {
-			agent.logger.WarnContext(ctx, "refused to scan a root this node was not given", "root", command.Scan.Root)
+			agent.logger.WarnContext(ctx, "refused to scan a root this node was not given", "root",
+				command.Scan.RootPath)
 			return nil
 		}
 		agent.setDoing("scanning " + root.Path())
@@ -282,7 +283,7 @@ func (agent *Agent) artwork(ctx context.Context, nodeID int64, command nodeproto
 		result.SourceSha256 = sourceHash
 	}
 	if result.Refusal != "" {
-		agent.logger.WarnContext(ctx, "refused an image", "jobId", command.JobID, "why", result.Refusal)
+		agent.logger.WarnContext(ctx, "refused an image", "jobId", command.JobID, "refusal", result.Refusal)
 	}
 	encoded, err := json.Marshal(result)
 	if err != nil {

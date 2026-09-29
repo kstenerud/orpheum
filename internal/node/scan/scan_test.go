@@ -35,7 +35,7 @@ func (fake *fakeProber) Probe(_ context.Context, absolutePath string) (nodeproto
 	if err := fake.failing[filepath.Base(absolutePath)]; err != nil {
 		return nodeproto.Probe{}, err
 	}
-	return nodeproto.Probe{Format: nodeproto.ProbeFormat{Names: []string{"matroska"}}}, nil
+	return nodeproto.Probe{Format: nodeproto.ProbeFormat{FormatNames: []string{"matroska"}}}, nil
 }
 
 // tree writes files (path → contents) under a new directory and returns its path.
@@ -165,7 +165,7 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 	observed := records[3].Observed
 	if observed.SizeBytes != int64(len("alien")) || observed.Identity.Scheme == "" ||
 		observed.Identity.PayloadHash == "" ||
-		len(observed.Probe.Format.Names) == 0 {
+		len(observed.Probe.Format.FormatNames) == 0 {
 		t.Errorf("observed = %+v", observed)
 	}
 }
@@ -232,7 +232,7 @@ func TestScan_RefusesAnNFOPastTheBound(t *testing.T) {
 	if got := summary(records); !slices.Equal(got, want) {
 		t.Errorf("report %q, want %q", got, want)
 	}
-	if detail := records[1].Error.Platform.Text; !strings.Contains(detail, "larger than the node sends") {
+	if detail := records[1].Error.PlatformError.Text; !strings.Contains(detail, "larger than the node sends") {
 		t.Errorf("the error says %q, want the bound named", detail)
 	}
 }
@@ -315,9 +315,9 @@ func TestScan_CollapsesRepeatedErrorsAndSaysWhoCouldNotRead(t *testing.T) {
 		t.Errorf("report:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 	locked := records[2].Error
-	if locked.OccurrenceCount != 3 || locked.Platform.ModeText != "----------" ||
-		locked.Platform.OwnerUID != os.Getuid() ||
-		locked.Platform.Text == "" {
+	if locked.OccurrenceCount != 3 || locked.PlatformError.ModeText != "----------" ||
+		locked.PlatformError.OwnerUID != os.Getuid() ||
+		locked.PlatformError.Text == "" {
 		t.Errorf("the collapsed error = %+v, want a count of 3 with owner and mode", locked)
 	}
 	if complete := records[len(records)-1].ScanComplete; complete.ErrorCount != 4 || complete.ObservedCount != 1 {
@@ -442,7 +442,7 @@ func TestScan_ReportsEachVideosOpenSubtitlesHash(t *testing.T) {
 	hashes := map[string]string{}
 	for _, record := range scanAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options), media) {
 		if record.Type == nodeproto.RecordObserved {
-			hashes[record.Observed.Path.Text] = record.Observed.OpenSubtitlesHash
+			hashes[record.Observed.Path.Text] = record.Observed.OpensubtitlesHash
 		}
 	}
 	want, err := hash.OpenSubtitles(strings.NewReader(body), int64(len(body)))

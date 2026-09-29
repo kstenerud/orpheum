@@ -34,9 +34,9 @@ type AudioRendition struct {
 func audioRenditions(command nodeproto.Prepare) []AudioRendition {
 	var renditions []AudioRendition
 	for _, track := range command.Audio {
-		renditions = append(renditions, AudioRendition{Track: track.AudioTrackIndex, Language: track.LanguageTag})
+		renditions = append(renditions, AudioRendition{Track: track.AudioTrackIndex, Language: track.Language})
 		if track.ChannelCount > 2 {
-			boosted := AudioRendition{Track: track.AudioTrackIndex, Language: track.LanguageTag, Boost: true}
+			boosted := AudioRendition{Track: track.AudioTrackIndex, Language: track.Language, Boost: true}
 			renditions = append(renditions, boosted)
 		}
 	}
@@ -164,7 +164,7 @@ func (service *Service) commandFor(ctx context.Context, rendition cachegen.Prepa
 		return making{}, err
 	}
 	command := prepareCommand(source, file.ID, nodeproto.PrepareProfile(rendition.Profile), rendition.RunID, probe)
-	command.SegmentLengthSeconds = int(rendition.SegmentLengthS)
+	command.SegmentLengthSeconds = int(rendition.SegmentLengthSeconds)
 	levels, err := service.levellings(ctx, file.PayloadHash)
 	if err != nil {
 		return making{}, err

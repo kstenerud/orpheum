@@ -46,7 +46,7 @@ const connected: SystemNode = {
   disks: [{ path: "/media", totalBytes: 4_000_000_000_000, availableBytes: 1_500_000_000_000 }],
   recentPrepares: [
     {
-      fileId: 42,
+      sourceFileId: 42,
       path: "Films/Metropolis (1995)/Metropolis.mkv",
       profile: "h264-8m",
       state: "complete",

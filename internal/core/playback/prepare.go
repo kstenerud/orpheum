@@ -78,14 +78,15 @@ func (all *prepares) want(
 		case errors.Is(err, store.ErrNotFound):
 			_, err = queries.InsertRendition(ctx, cachegen.InsertRenditionParams{
 				SourceFile: file.ID, SourcePayloadHash: file.PayloadHash, Profile: string(profile), NodeID: file.NodeID,
-				SegmentLengthS: segmentLength, RunID: runID, CreatedAt: all.clock.Now().UnixMilli(),
+				SegmentLengthSeconds: segmentLength, RunID: runID, CreatedAt: all.clock.Now().UnixMilli(),
 			})
 		case err != nil:
 		case !bytes.Equal(found.SourcePayloadHash, file.PayloadHash) || found.State == renditionFailed ||
-			found.SegmentLengthS != segmentLength:
+			found.SegmentLengthSeconds != segmentLength:
 			err = queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-				SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthS: segmentLength, RunID: runID,
-				ID: found.ID,
+				SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthSeconds: segmentLength,
+				RunID: runID,
+				ID:    found.ID,
 			})
 		}
 		if err != nil {
@@ -121,7 +122,7 @@ func (all *prepares) redo(
 			return readErr
 		}
 		return queries.RestartRendition(ctx, cachegen.RestartRenditionParams{
-			SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthS: found.SegmentLengthS,
+			SourcePayloadHash: file.PayloadHash, NodeID: file.NodeID, SegmentLengthSeconds: found.SegmentLengthSeconds,
 			RunID: runID,
 			ID:    found.ID,
 		})
@@ -216,7 +217,10 @@ func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) er
 // carrying records the gains a making puts in the rendition's audio tracks (D226 §4).
 func (all *prepares) carrying(ctx context.Context, rendition int64, gains string) error {
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		return queries.SetRenditionGains(ctx, cachegen.SetRenditionGainsParams{AudioGainsDbJson: gains, ID: rendition})
+		return queries.SetRenditionGains(ctx, cachegen.SetRenditionGainsParams{
+			CarriedGainsDbJson: gains,
+			ID:                 rendition,
+		})
 	})
 	if err != nil {
 		return fmt.Errorf("record rendition %d's gains: %w", rendition, err)
@@ -284,12 +288,12 @@ func prepareCommand(
 		command.VideoStreamIndex, command.VideoCodec = picture.StreamIndex, picture.Codec
 	}
 	for index, stream := range audioStreams(probe) {
-		language := stream.LanguageTag
+		language := stream.Language
 		if language == "" {
 			language = "und"
 		}
 		command.Audio = append(command.Audio, nodeproto.PrepareAudio{
-			AudioTrackIndex: index, LanguageTag: language, ChannelCount: stream.Audio.ChannelCount,
+			AudioTrackIndex: index, Language: language, ChannelCount: stream.Audio.ChannelCount,
 		})
 	}
 	return command

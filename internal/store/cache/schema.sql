@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 15
+-- cache schema version 16
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,10 +22,10 @@ CREATE TABLE job (                                         -- the one work queue
                 CHECK (state IN ('queued','running','done','failed','cancelled')),
   node_id     INTEGER,                   -- where it runs, for node work
   runnable_at INTEGER NOT NULL,          -- not before this: rate limits and retry back-off (D170)
-  attempts    INTEGER NOT NULL DEFAULT 0,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
   progress_fraction REAL,                -- 0..1 when known
   reason      TEXT,                      -- why it exists, shown to the user
-  last_error  TEXT,                      -- FFmpeg's exit and stderr tail, the provider's reply
+  last_failure TEXT,                     -- FFmpeg's exit and stderr tail, the provider's reply
   created_at  INTEGER NOT NULL,
   finished_at INTEGER,
   CHECK ((item_id IS NOT NULL) + (rendition_id IS NOT NULL) + (stream_id IS NOT NULL) +
@@ -38,12 +38,12 @@ CREATE TABLE match_candidate (                             -- D172: kept so choo
   rank        INTEGER NOT NULL,
   provider    TEXT NOT NULL,
   provider_id TEXT NOT NULL,
-  name        TEXT, year INTEGER, runtime_ms INTEGER, poster_path TEXT,
+  name        TEXT, year INTEGER, runtime_ms INTEGER, provider_poster_path TEXT,
   PRIMARY KEY (item_id, rank)
 );
 
 CREATE TABLE art_served (                                  -- D212 section 6: recency, to the day
-  content_hash_hex TEXT PRIMARY KEY,     -- an image's directory under cache/art/
+  source_sha256_hex TEXT PRIMARY KEY,    -- an image's directory under cache/art/
   last_served_epoch_day INTEGER NOT NULL  -- days since the Unix epoch it was last served
 ) WITHOUT ROWID;
 
@@ -55,14 +55,14 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   node_id      INTEGER NOT NULL,         -- the node that holds it, beside its source
   state        TEXT NOT NULL DEFAULT 'queued'
                  CHECK (state IN ('queued','running','complete','failed')),
-  segment_length_s INTEGER NOT NULL,     -- seconds per segment; another setting remakes it
+  segment_length_seconds INTEGER NOT NULL,    -- seconds per segment; another setting remakes it
   run_id       TEXT NOT NULL,            -- names this making's directory on the node; new each time
   prepared_through_ms INTEGER NOT NULL DEFAULT 0,  -- how far into the source it is prepared
   size_bytes   INTEGER,                  -- its size once complete
   failure      TEXT,                     -- why it failed: FFmpeg's exit and stderr tail
   video_encoder TEXT,                    -- what made the video once complete: h264_qsv, h264_nvenc, x264, or copy (D225)
   realtime_factor REAL,                  -- seconds of the source per second of running, as FFmpeg last said (D225)
-  audio_gains_db_json TEXT NOT NULL DEFAULT '[]',  -- JSON: the gain each audio track's sound carries, by its place (D226)
+  carried_gains_db_json TEXT NOT NULL DEFAULT '[]',  -- JSON: the gain each audio track's sound carries, by its place (D226)
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
   UNIQUE (source_file, profile)

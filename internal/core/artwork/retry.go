@@ -87,7 +87,7 @@ func (service *Service) breakerOf(source string) *breaker {
 // image asked for again; the second time it is given up (D213 §1). An older image stays shown.
 func (service *Service) missing(ctx context.Context, fetcher Fetcher, image wanted, why error) error {
 	misses, err := service.parts.Database.Read().CountEarlierMisses(ctx, sqlcgen.CountEarlierMissesParams{
-		ItemID: image.itemID, Kind: image.ref.Kind, Source: image.source, SourceRef: &image.ref.Ref,
+		ItemID: image.itemID, Kind: image.ref.Kind, Source: image.source, SourceRef: &image.ref.SourceRef,
 	})
 	if err != nil {
 		return fmt.Errorf("count item %d's earlier misses: %w", image.itemID, err)

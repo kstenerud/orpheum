@@ -7,7 +7,7 @@ export type PlayEventKind = "started" | "paused" | "seeked" | "completed" | "aba
 export interface PlayEvent {
   readonly kind: PlayEventKind;
   readonly positionMs: number;
-  readonly atMonoMs: number;
+  readonly happenedMonoMs: number;
 }
 
 /** A run of watching that a change closed. */
@@ -124,7 +124,11 @@ export class PlayReporter {
   }
 
   private change(kind: PlayEventKind, positionMs: number, monoMs: number): void {
-    this.events.push({ kind, positionMs: Math.max(0, Math.round(positionMs)), atMonoMs: monoMs });
+    this.events.push({
+      kind,
+      positionMs: Math.max(0, Math.round(positionMs)),
+      happenedMonoMs: monoMs,
+    });
     this.flush(positionMs);
   }
 

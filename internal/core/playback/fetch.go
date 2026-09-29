@@ -172,8 +172,8 @@ func (service *Service) FetchSubtitle(
 		var insertErr error
 		id, insertErr = queries.InsertFetchedSubtitle(ctx, sqlcgen.InsertFetchedSubtitleParams{
 			VideoFile: fileID, Provider: providerOpenSubtitles,
-			ProviderFileID: strconv.FormatInt(request.ProviderFileID, 10), Lang: request.Language, Format: "srt",
-			BodyGzip: body, FetchedBy: userID, FetchedAt: service.clock.Now().UnixMilli(),
+			ProviderFileID: strconv.FormatInt(request.ProviderFileID, 10), Language: request.Language, Format: "srt",
+			BodyGzip: body, FetchedByUserID: userID, FetchedAt: service.clock.Now().UnixMilli(),
 			ReleaseName: &downloaded.FileName,
 		})
 		return insertErr

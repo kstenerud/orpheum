@@ -50,10 +50,10 @@ func (node *fakeNode) IsConnected(nodeID int64) bool { return nodeID == 3 && nod
 
 func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	node.mutex.Lock()
-	node.sent = append(node.sent, *command.Artwork)
+	node.sent = append(node.sent, *command.EncodeArtwork)
 	node.mutex.Unlock()
 	if node.answer != nil {
-		go node.service.Answered(node.ctx, 3, node.answer(*command.Artwork))
+		go node.service.Answered(node.ctx, 3, node.answer(*command.EncodeArtwork))
 	}
 }
 
@@ -121,7 +121,7 @@ func newBench(t *testing.T, images fetched) *bench {
 	var itemID int64
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
-		itemID, err = queries.InsertItem(t.Context(), sqlcgen.InsertItemParams{Kind: "title", CreatedAt: 1})
+		itemID, err = queries.InsertItem(t.Context(), sqlcgen.InsertItemParams{Kind: "title", AddedAt: 1})
 		return err
 	})
 	if err != nil {
@@ -144,7 +144,7 @@ func newBench(t *testing.T, images fetched) *bench {
 }
 
 func (bench *bench) job(refs ...owedRef) jobs.Job {
-	args, err := json.Marshal(owed{FollowedSource: "tmdb", Refs: refs})
+	args, err := json.Marshal(owed{ArtworkSource: "tmdb", Refs: refs})
 	if err != nil {
 		panic(err)
 	}
@@ -182,7 +182,7 @@ func TestService_StoresOnlyTheNodesAnswer(t *testing.T) {
 			},
 		}
 	}
-	bench.handle(t, owedRef{Kind: identify.ArtPoster, Ref: "/poster.jpg"})
+	bench.handle(t, owedRef{Kind: identify.ArtPoster, SourceRef: "/poster.jpg"})
 	sent := bench.node.sent
 	if len(sent) != 1 || !bytes.Equal(sent[0].SourceImage, source) || sent[0].Shape != nodeproto.ShapePortrait ||
 		!slices.Equal(sent[0].SizeNames, []nodeproto.ArtSizeName{nodeproto.PortraitS, nodeproto.PortraitM}) ||
@@ -192,7 +192,7 @@ func TestService_StoresOnlyTheNodesAnswer(t *testing.T) {
 	checkStored(t, bench.art, source)
 	rows := bench.rows(t)
 	if len(rows) != 1 || rows[0].Kind != "poster" || rows[0].Source != "tmdb" || *rows[0].SourceRef != "/poster.jpg" ||
-		len(rows[0].ContentHash) != 32 {
+		len(rows[0].SourceSha256) != 32 {
 		t.Errorf("rows %+v; want the poster with its hash", rows)
 	}
 }
@@ -232,7 +232,7 @@ func TestService_RecordsARefusalAndKeepsTheOlderImage(t *testing.T) {
 		return nodeproto.ArtworkResult{JobID: command.JobID, Refusal: "not an image"}
 	}
 	for _, ref := range []string{"/old.jpg", "/new.jpg", "/gone.jpg"} {
-		bench.handle(t, owedRef{Kind: identify.ArtPoster, Ref: ref})
+		bench.handle(t, owedRef{Kind: identify.ArtPoster, SourceRef: ref})
 	}
 	rows := bench.rows(t)
 	if len(rows) != 3 {
@@ -241,11 +241,11 @@ func TestService_RecordsARefusalAndKeepsTheOlderImage(t *testing.T) {
 	shown, err := bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
 		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: "poster",
 	})
-	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].ContentHash, Received([]byte("old")).hash32()) {
+	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].SourceSha256, Received([]byte("old")).hash32()) {
 		t.Errorf("shown %+v (%v); want the old poster", shown, err)
 	}
 	sent := len(bench.node.sent)
-	bench.handle(t, owedRef{Kind: identify.ArtPoster, Ref: "/new.jpg"})
+	bench.handle(t, owedRef{Kind: identify.ArtPoster, SourceRef: "/new.jpg"})
 	if len(bench.node.sent) != sent {
 		t.Error("a refused image was sent to the node again")
 	}
@@ -255,7 +255,7 @@ func TestService_WaitsForANode(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fetched{"/poster.jpg": []byte("x")})
 	bench.node.connected = false
-	err := bench.service.Handle(t.Context(), bench.job(owedRef{Kind: identify.ArtPoster, Ref: "/poster.jpg"}))
+	err := bench.service.Handle(t.Context(), bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/poster.jpg"}))
 	if retry, isRetry := errors.AsType[*jobs.RetryAtError](err); !isRetry || retry.At.IsZero() {
 		t.Errorf("with no node: %v, want a wait that costs no attempt", err)
 	}
@@ -311,7 +311,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 		"INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) "+
 			"VALUES (9, 'L', 'movies', 'nfo_then_tmdb', 'manual', 0, 1)",
 		"INSERT INTO node (id, name, enrolled_at) VALUES (3, 'local', 1)",
-		"INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, mtime_ms, filing, "+
+		"INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, modified_at, filing, "+
 			"filing_reason, "+
 			"first_seen_at, "+
 			"last_seen_at) VALUES (40, 9, 3, '/m/Film/poster.jpg', CAST('/m/Film/poster.jpg' AS BLOB), 5, 7, "+
@@ -328,8 +328,8 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 		return result
 	}
 	local := identify.LocalRef(fileID, 5, 7)
-	refs := []owedRef{{Kind: identify.ArtPoster, Ref: local}}
-	args, err := json.Marshal(owed{FollowedSource: identify.SourceLocal, Refs: refs})
+	refs := []owedRef{{Kind: identify.ArtPoster, SourceRef: local}}
+	args, err := json.Marshal(owed{ArtworkSource: identify.SourceLocal, Refs: refs})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -344,11 +344,11 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 		t.Fatalf("the node was sent %+v; want the file's path for it to read, and no bytes", sent)
 	}
 	// TMDB's poster arrives later, and is still not what the film shows.
-	bench.handle(t, owedRef{Kind: identify.ArtPoster, Ref: "/poster.jpg"})
+	bench.handle(t, owedRef{Kind: identify.ArtPoster, SourceRef: "/poster.jpg"})
 	shown, err := bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
 		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: identify.ArtPoster,
 	})
-	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].ContentHash, localSum[:]) {
+	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].SourceSha256, localSum[:]) {
 		t.Errorf("shown %+v (%v); want the image beside the media, stored under the hash the node read", shown, err)
 	}
 	// In a TMDB-only library, TMDB's poster replaces it once fetched (D215 §1).
@@ -358,7 +358,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	shown, err = bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
 		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: identify.ArtPoster,
 	})
-	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].ContentHash, Received([]byte("tmdb poster")).hash32()) {
+	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].SourceSha256, Received([]byte("tmdb poster")).hash32()) {
 		t.Errorf("in a TMDB-only library shown %+v (%v); want TMDB's poster", shown, err)
 	}
 }

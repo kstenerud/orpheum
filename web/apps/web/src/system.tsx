@@ -325,10 +325,12 @@ function RecentPrepares(props: { readonly prepares: readonly FinishedPrepare[] }
           <tbody>
             {props.prepares.map((prepare) => (
               <tr
-                key={`${String(prepare.fileId)}-${prepare.profile}-${String(prepare.finishedAt)}`}
+                key={`${String(prepare.sourceFileId)}-${prepare.profile}-${String(prepare.finishedAt)}`}
               >
                 <td>
-                  <code>{prepare.path === "" ? `#${String(prepare.fileId)}` : prepare.path}</code>
+                  <code>
+                    {prepare.path === "" ? `#${String(prepare.sourceFileId)}` : prepare.path}
+                  </code>
                 </td>
                 <td>
                   {prepare.state === "failed"

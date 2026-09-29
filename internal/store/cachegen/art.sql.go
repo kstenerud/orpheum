@@ -10,16 +10,16 @@ import (
 )
 
 const forgetArtServed = `-- name: ForgetArtServed :exec
-DELETE FROM art_served WHERE content_hash_hex = ?1
+DELETE FROM art_served WHERE source_sha256_hex = ?1
 `
 
-func (q *Queries) ForgetArtServed(ctx context.Context, contentHashHex string) error {
-	_, err := q.db.ExecContext(ctx, forgetArtServed, contentHashHex)
+func (q *Queries) ForgetArtServed(ctx context.Context, sourceSha256Hex string) error {
+	_, err := q.db.ExecContext(ctx, forgetArtServed, sourceSha256Hex)
 	return err
 }
 
 const listArtServed = `-- name: ListArtServed :many
-SELECT content_hash_hex, last_served_epoch_day FROM art_served
+SELECT source_sha256_hex, last_served_epoch_day FROM art_served
 `
 
 func (q *Queries) ListArtServed(ctx context.Context) ([]ArtServed, error) {
@@ -31,7 +31,7 @@ func (q *Queries) ListArtServed(ctx context.Context) ([]ArtServed, error) {
 	items := []ArtServed{}
 	for rows.Next() {
 		var i ArtServed
-		if err := rows.Scan(&i.ContentHashHex, &i.LastServedEpochDay); err != nil {
+		if err := rows.Scan(&i.SourceSha256Hex, &i.LastServedEpochDay); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -47,14 +47,14 @@ func (q *Queries) ListArtServed(ctx context.Context) ([]ArtServed, error) {
 
 const markArtServed = `-- name: MarkArtServed :exec
 
-INSERT INTO art_served (content_hash_hex, last_served_epoch_day)
+INSERT INTO art_served (source_sha256_hex, last_served_epoch_day)
 VALUES (?1, ?2)
-ON CONFLICT (content_hash_hex) DO UPDATE
+ON CONFLICT (source_sha256_hex) DO UPDATE
 SET last_served_epoch_day = MAX(art_served.last_served_epoch_day, excluded.last_served_epoch_day)
 `
 
 type MarkArtServedParams struct {
-	ContentHashHex     string
+	SourceSha256Hex    string
 	LastServedEpochDay int64
 }
 
@@ -62,6 +62,6 @@ type MarkArtServedParams struct {
 // When each image was last served, to the day: what the artwork ceiling evicts first within a
 // class, D212 section 6. Written hourly in a batch, never on the request path.
 func (q *Queries) MarkArtServed(ctx context.Context, arg MarkArtServedParams) error {
-	_, err := q.db.ExecContext(ctx, markArtServed, arg.ContentHashHex, arg.LastServedEpochDay)
+	_, err := q.db.ExecContext(ctx, markArtServed, arg.SourceSha256Hex, arg.LastServedEpochDay)
 	return err
 }

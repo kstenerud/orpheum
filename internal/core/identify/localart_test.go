@@ -14,7 +14,7 @@ import (
 
 func image(path string) nodeproto.Record {
 	return nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: &nodeproto.Sidecar{
-		Path: nodeproto.Path{Text: path}, Kind: nodeproto.SidecarImage, SizeBytes: 100, MtimeMs: 7,
+		Path: nodeproto.Path{Text: path}, Kind: nodeproto.SidecarImage, SizeBytes: 100, ModifiedAt: 7,
 	}}
 }
 
@@ -132,8 +132,8 @@ func TestPass_AnImageNoLongerBesideTheMediaIsRetired(t *testing.T) {
 	}
 	// The poster was stored, as the artwork job would have, and a person chose a backdrop.
 	for _, row := range []sqlcgen.InsertArtworkParams{
-		{ItemID: titleID, Kind: ArtPoster, Source: SourceLocal, SourceRef: &posterRef, ContentHash: []byte{1}},
-		{ItemID: titleID, Kind: ArtBackdrop, Source: SourceLocal, SourceRef: new("gone:1:1"), ContentHash: []byte{2}},
+		{ItemID: titleID, Kind: ArtPoster, Source: SourceLocal, SourceRef: &posterRef, SourceSha256: []byte{1}},
+		{ItemID: titleID, Kind: ArtBackdrop, Source: SourceLocal, SourceRef: new("gone:1:1"), SourceSha256: []byte{2}},
 	} {
 		if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 			_, err := queries.InsertArtwork(t.Context(), row)

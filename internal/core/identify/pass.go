@@ -253,8 +253,9 @@ func isVideo(file sqlcgen.ListIdentifyFilesRow) bool {
 func (work *run) relative(file sqlcgen.ListIdentifyFilesRow) (string, bool) {
 	best := ""
 	for _, root := range work.roots {
-		if root.NodeID == file.NodeID && strings.HasPrefix(file.Path, root.Path+"/") && len(root.Path) > len(best) {
-			best = root.Path
+		if root.NodeID == file.NodeID && strings.HasPrefix(file.Path,
+			root.RootPath+"/") && len(root.RootPath) > len(best) {
+			best = root.RootPath
 		}
 	}
 	if best == "" {
@@ -372,7 +373,7 @@ func (work *run) keepOrMove(ctx context.Context, file sqlcgen.ListIdentifyFilesR
 	if err != nil {
 		return 0, fmt.Errorf("read %s's version: %w", file.Path, err)
 	}
-	if current.Identification == identConfirmed || !moved(file) {
+	if current.IdentificationState == identConfirmed || !moved(file) {
 		titleID = current.TitleID
 	} else if current.TitleID != titleID {
 		move := sqlcgen.MoveVersionToTitleParams{TitleID: titleID, ID: *file.VersionID}

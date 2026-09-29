@@ -82,7 +82,7 @@ func TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentr
 	var preparedMs int64
 	command := nodeproto.Prepare{
 		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", RenditionDir: "7/remux/0123456789abcdef",
-		Audio: []nodeproto.PrepareAudio{{AudioTrackIndex: 0, LanguageTag: "en", ChannelCount: 6}},
+		Audio: []nodeproto.PrepareAudio{{AudioTrackIndex: 0, Language: "en", ChannelCount: 6}},
 	}
 	made, err := preparer.Prepare(t.Context(), film, command, func(ms int64) { preparedMs = ms })
 	if err != nil {

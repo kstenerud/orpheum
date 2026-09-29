@@ -100,8 +100,8 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 		for _, row := range rows {
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-				Ident: ptr.ValueOrZero(row.Identification), LibraryID: ptr.ValueOrZero(row.LibraryID),
-				AddedAt: row.CreatedAt,
+				Ident: ptr.ValueOrZero(row.IdentificationState), LibraryID: ptr.ValueOrZero(row.LibraryID),
+				AddedAt: row.AddedAt,
 			})
 			keys = append(keys, row.CollationKey)
 		}
@@ -113,7 +113,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 		for _, row := range rows {
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-				Ident: row.Identification, LibraryID: ptr.ValueOrZero(row.LibraryID), AddedAt: row.CreatedAt,
+				Ident: row.IdentificationState, LibraryID: ptr.ValueOrZero(row.LibraryID), AddedAt: row.AddedAt,
 			})
 			keys = append(keys, row.CollationKey)
 		}
@@ -144,8 +144,8 @@ func (browser *Browser) listAdded(ctx context.Context, query ListQuery) (Page, e
 		for _, row := range rows {
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-				Ident: ptr.ValueOrZero(row.Identification), LibraryID: ptr.ValueOrZero(row.LibraryID),
-				AddedAt: row.CreatedAt,
+				Ident: ptr.ValueOrZero(row.IdentificationState), LibraryID: ptr.ValueOrZero(row.LibraryID),
+				AddedAt: row.AddedAt,
 			})
 		}
 	} else {
@@ -156,7 +156,7 @@ func (browser *Browser) listAdded(ctx context.Context, query ListQuery) (Page, e
 		for _, row := range rows {
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
-				Ident: row.Identification, LibraryID: ptr.ValueOrZero(row.LibraryID), AddedAt: row.CreatedAt,
+				Ident: row.IdentificationState, LibraryID: ptr.ValueOrZero(row.LibraryID), AddedAt: row.AddedAt,
 			})
 		}
 	}

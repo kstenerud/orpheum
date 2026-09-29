@@ -64,7 +64,7 @@ func extracting(t *testing.T) (video, sidecar nodeproto.BytesFile, core *fakeCor
 			t.Fatal(err)
 		}
 		named[name] = nodeproto.BytesFile{
-			Root: root.Path(), Path: []byte(name), PayloadHash: hex.EncodeToString(identity.Hash[:]),
+			RootPath: root.Path(), Path: []byte(name), PayloadHash: hex.EncodeToString(identity.Hash[:]),
 		}
 	}
 	return named["film.mkv"], named["film.en.srt"], core
@@ -87,7 +87,7 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 		return receiveSubtitle(t, core)
 	}
 	track := send(1, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: 2})
-	if track.JobID != 1 || track.Refusal != "" || string(track.ASS) != video.Root+"/film.mkv" ||
+	if track.JobID != 1 || track.Refusal != "" || string(track.ASS) != video.RootPath+"/film.mkv" ||
 		string(track.VTT) != "2" {
 		t.Errorf("a track of the named video: %+v", track)
 	}
@@ -98,7 +98,7 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 	changedVideo, changedSidecar, outside, escaping := video, sidecar, sidecar, sidecar
 	changedVideo.PayloadHash = strings.Repeat("0", 64)
 	changedSidecar.PayloadHash = strings.Repeat("0", 64)
-	outside.Root = t.TempDir()
+	outside.RootPath = t.TempDir()
 	escaping.Path = []byte("../film.en.srt")
 	for index, refusal := range []struct {
 		what    string

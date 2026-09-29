@@ -21,7 +21,7 @@ describe("play state", () => {
       sentMonoMs: 5000,
       positionMs: 1200,
       positionReadMonoMs: 5000,
-      events: [{ kind: "paused" as const, positionMs: 1200, atMonoMs: 5000 }],
+      events: [{ kind: "paused" as const, positionMs: 1200, happenedMonoMs: 5000 }],
       spans: [],
     };
     await sendReport(api, "abc", report);

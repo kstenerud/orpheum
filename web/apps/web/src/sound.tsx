@@ -15,14 +15,14 @@ import { useServices } from "./services.tsx";
 export const audioOutputs: readonly AudioOutput[] = ["built_in_speakers", "receiver", "headphones"];
 
 /**
- * A choice of the person's own, which holds in every file they play: its name in PUT /me/prefs,
+ * A choice of the person's own, which holds in every file they play: its name in PUT /me/preferences,
  * taken from the API's own body so a renamed field fails to compile rather than being refused.
  */
 type OwnChoice = keyof components["schemas"]["SetMyPrefsInputBody"];
 
 /** Keeps one of the person's own choices: the dialogue boost (D83, D222), levelling (D226). */
 async function keepOwnChoice(api: Api, choice: OwnChoice, isOn: boolean): Promise<void> {
-  throwIfRefused(await api.PUT("/me/prefs", { body: { [choice]: isOn } }));
+  throwIfRefused(await api.PUT("/me/preferences", { body: { [choice]: isOn } }));
 }
 
 /**

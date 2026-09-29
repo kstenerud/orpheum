@@ -50,8 +50,8 @@ func (work *batch) streams(ctx context.Context, fileID int64, probe nodeproto.Pr
 		kept = append(kept, index)
 		err := work.queries.UpsertStream(ctx, sqlcgen.UpsertStreamParams{
 			FileID: fileID, StreamIndex: &index, Kind: stream.Kind, Codec: optional(stream.Codec),
-			LangRaw: optional(stream.ContainerLanguage), Lang: optional(stream.LanguageTag),
-			TitleRaw:         optional(stream.Title),
+			ContainerLanguage: optional(stream.ContainerLanguage), Language: optional(stream.Language),
+			ContainerTitle:   optional(stream.ContainerTitle),
 			DispositionFlags: disposition, ChannelCount: optionalInt(int64(stream.Audio.ChannelCount)),
 		})
 		if err != nil {

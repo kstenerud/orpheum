@@ -7,7 +7,6 @@ import { createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { addedGainDb, LevelSwitch, levelNote, soundLevel, type SoundLevel } from "./levelling.tsx";
-import type { Decision } from "./play.tsx";
 import { click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -32,19 +31,27 @@ describe("levelling a film's loudness (D226)", () => {
   });
 
   it("levels a prepared copy by its first mix, and the original by its main track", () => {
-    const direct = {
+    const direct: Parameters<typeof soundLevel>[0] = {
       delivery: "direct",
       levelling: { isMeasured: true, gainDb: -4.2 },
-    } as unknown as Decision;
+    };
     expect(soundLevel(direct)).toEqual({
       levelling: { isMeasured: true, gainDb: -4.2 },
       carriedGainDb: 0,
     });
-    const hls = {
+    const hls: Parameters<typeof soundLevel>[0] = {
       delivery: "hls",
       levelling: { isMeasured: true, gainDb: 1 },
-      audio: [{ levelling: { isMeasured: true, gainDb: 5 }, carriedGainDb: 5 }],
-    } as unknown as Decision;
+      audioRenditions: [
+        {
+          audioTrackIndex: 0,
+          language: "en",
+          isDialogueBoosted: false,
+          levelling: { isMeasured: true, gainDb: 5 },
+          carriedGainDb: 5,
+        },
+      ],
+    };
     expect(soundLevel(hls)).toEqual({
       levelling: { isMeasured: true, gainDb: 5 },
       carriedGainDb: 5,
@@ -67,7 +74,7 @@ describe("levelling a film's loudness (D226)", () => {
 
   it("starts as the person left it, says the gain, and switching it off is kept for every file", async () => {
     const heard: Heard[] = [];
-    const services = servedBy({ "PUT /me/prefs": [204, undefined] }, heard);
+    const services = servedBy({ "PUT /me/preferences": [204, undefined] }, heard);
     mounted = await mount(
       withServices(<LevelSwitch level={alien} isOn videoRef={createRef()} />, services),
     );
@@ -77,6 +84,6 @@ describe("levelling a film's loudness (D226)", () => {
     await click(box);
     expect(box?.checked).toBe(false);
     expect(mounted.container.textContent).toContain("Playing as it was mixed.");
-    expect(heard).toEqual([{ asked: "PUT /me/prefs", body: { isLevellingOn: false } }]);
+    expect(heard).toEqual([{ asked: "PUT /me/preferences", body: { isLevellingOn: false } }]);
   });
 });

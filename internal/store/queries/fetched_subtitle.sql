@@ -3,15 +3,15 @@
 -- because each cost one of the account's daily downloads.
 
 -- name: InsertFetchedSubtitle :one
-INSERT INTO fetched_subtitle (video_file, provider, provider_file_id, lang, format, body_gzip, fetched_by, fetched_at,
+INSERT INTO fetched_subtitle (video_file, provider, provider_file_id, language, format, body_gzip, fetched_by_user_id, fetched_at,
   release_name)
-VALUES (sqlc.arg(video_file), sqlc.arg(provider), sqlc.arg(provider_file_id), sqlc.arg(lang), sqlc.arg(format),
-  sqlc.arg(body_gzip), sqlc.arg(fetched_by), sqlc.arg(fetched_at), sqlc.arg(release_name))
+VALUES (sqlc.arg(video_file), sqlc.arg(provider), sqlc.arg(provider_file_id), sqlc.arg(language), sqlc.arg(format),
+  sqlc.arg(body_gzip), sqlc.arg(fetched_by_user_id), sqlc.arg(fetched_at), sqlc.arg(release_name))
 RETURNING id;
 
 -- name: ListFetchedSubtitlesOfVideo :many
 -- A video's fetched subtitles, oldest first, with their bodies, which name where their text is kept.
-SELECT id, lang, release_name, body_gzip
+SELECT id, language, release_name, body_gzip
 FROM fetched_subtitle
 WHERE video_file = sqlc.arg(video_file)
 ORDER BY id;

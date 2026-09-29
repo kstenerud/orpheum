@@ -27,7 +27,7 @@ func (bench *bench) show(t *testing.T, kind, hash string, removedAt int64) {
 		removed = fmt.Sprint(removedAt)
 	}
 	storetest.ExecRaw(t, bench.database.Path(), fmt.Sprintf(
-		"INSERT INTO artwork (item_id, kind, source, source_ref, content_hash, removed_at) "+
+		"INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256, removed_at) "+
 			"VALUES (%d, '%s', 'tmdb', '/%s.jpg', X'%s', %s)",
 		bench.itemID, kind, hash[:4], hash, removed))
 }
@@ -174,7 +174,7 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 		}
 		return nodeproto.ArtworkResult{JobID: command.JobID, Images: images}
 	}
-	bench.handle(t, owedRef{Kind: identify.ArtBackdrop, Ref: "/back.jpg"})
+	bench.handle(t, owedRef{Kind: identify.ArtBackdrop, SourceRef: "/back.jpg"})
 	hash := Received(source).hash()
 	if err := bench.service.evict(candidate{hash: hash, name: "landscape-m.webp"}); err != nil {
 		t.Fatal(err)

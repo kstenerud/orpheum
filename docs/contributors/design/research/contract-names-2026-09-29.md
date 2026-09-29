@@ -173,7 +173,51 @@ names no table listed. The owner: *"yes, align them all"* (D227 §5).
 | `file.error_detail`, `preference.value` | library.db | JSON | `error_detail_json`, `value_json` |
 | `prepared_rendition.audio_gains_db` | cache.db | a JSON array of gains | `audio_gains_db_json` |
 | `titles_watched` | a query's column | a count | `titles_watched_count` |
-| `source`, `hash`, `sizes` | artwork job's arguments | the source the item follows; the stored image's hash; size names | `followedSource`, `imageHash`, `sizeNames` |
+| `source`, `hash`, `sizes` | artwork job's arguments | the artwork's source (not the one the item follows: it can be `local`); the source image's SHA-256; size names | `artworkSource`, `sourceSha256`, `sizeNames` (corrected by §6: §5 first said `followedSource` and `imageHash`) |
 | `refresh` | fetch job's arguments | whether it refreshes rather than matches | `isRefresh` |
 | config `prepared_disk_limit_percent` | node config | the disk's used share past which prepares stop, as the protocol says | `prepared_disk_used_limit_percent` |
 | seed `outsider`, `writable` | dev seed | booleans, as the columns say | `is_outsider`, `is_writable` |
+
+## Second addendum: one value, one name, one form (D227 §6)
+
+A sweep that traced each value through the layers, rather than checking the tables, found more.
+
+| Was | Where | Holds | Now |
+| --- | --- | --- | --- |
+| `sourceAudioIndex` | API audio rendition | the track's place among the file's audio tracks, as the node says | `audioTrackIndex` |
+| `gainDb` | prepare command's audio | the gain mixed into a rendition's sound; the API's levelling `gainDb` is another value | `carriedGainDb` |
+| `audio_gains_db_json` | cache prepared_rendition | the same gains | `carried_gains_db_json` |
+| `languageTag`; `lang` | probe and prepare; every table | a BCP 47 language | `language` |
+| `lang_raw`, `title_raw`; `title` | stream; probe, API stream | the language and title as the container carried them | `container_language`, `container_title`; `containerTitle` |
+| `names` | probe format | the container's format names | `formatNames` |
+| `original_lang` | title | the original language | `original_language` |
+| `identification` | title, collection | the identification state, as the API says | `identification_state` |
+| `client_mono_ms`; `atMonoMs` | play_event; API report | when the event happened, on the device's monotonic clock | `happened_mono_ms`; `happenedMonoMs` |
+| `device.first_seen_at`, `.last_seen_at` | device | when it was added, as the API says; when it last signed in (the API's last use is its sessions') | `added_at`, `last_signed_in_at` |
+| `item.created_at` | item | when it was added, as the API and `sort=added` say | `added_at` |
+| `kind` | API extra | the extra's type, as the column says | `extraType` |
+| `thumb` | artwork kind | an episode's still, as the API says | `still` |
+| `content_hash`; `content_hash_hex`; `hash`; `posterHash`… | artwork; art_served; art path; API | the source image's SHA-256 | `source_sha256`; `source_sha256_hex`; `{sourceSha256}`; `posterSha256`, `backdropSha256`, `stillSha256` |
+| `poster_path` | cache match_candidate | the provider's poster path, as the API says | `provider_poster_path` |
+| `refs[].ref` | artwork job's arguments | the image's reference at its source, as the column says | `sourceRef` |
+| `subtitle` | API file preferences | the subtitle choice, as the axis says | `subtitleChoice` |
+| `loudness_levelling`; `on`/`off` | preference axis and values | levelling, as the API says; a switch, as JSON | `levelling`; `true`/`false` |
+| `lastReportSeq` | node hello reply | the last report the core ingested, as the column says | `lastIngestedReportSeq` |
+| `root`; `library_root.path`; `path`; `roots`; seed `root` | node protocol; library.db; API root; node config; dev seed | a root's path | `rootPath`; `root_path`; `rootPath`; `root_paths`; `root_path` |
+| `segment_length_s` | cache prepared_rendition | seconds per segment, as the node says | `segment_length_seconds` |
+| `downloadsResetAt` (a date), `retryAfter` (a Go duration) | API error details | when downloads start again; how long to wait | Unix milliseconds; `retryAfterMs` |
+| `artwork` | command payload | the `encode_artwork` command | `encodeArtwork` |
+| `errorDetail` (JSON in a string) | API file | why the node could not read it | an object: `text`, `ownerUid`, `groupGid`, `modeText`, `occurrenceCount` |
+| `platform` | node error record | the platform's account of the error | `platformError` |
+| `mtime_ms`; `mtimeMs` | file; node records | when the file was modified | `modified_at`; `modifiedAt` |
+| `fileId` | API finished prepare | the rendition's source file | `sourceFileId` |
+| `last_error`, `attempts`; `lastError`, `attempts` | cache job; API job | the last failure's text; a count | `last_failure`, `attempt_count`; `lastFailure`, `attemptCount` |
+| `openSubtitlesHash`; `didAskByFileHash`, `isHashMatch` | node; API | the OpenSubtitles moviehash, as the column says | `opensubtitlesHash`; `didAskByOpensubtitlesHash`, `isOpensubtitlesHashMatch` |
+| `hint`; `secret_hint_chars` | secret, API; setting | an API key's last characters; how many | `last_chars`, `lastChars`; `secret_last_chars_shown` |
+| `fetched_by` | fetched_subtitle | a user id | `fetched_by_user_id` |
+| `retryImages` | fetch job's arguments | a boolean | `shouldRetryImages` |
+| `prefs`, `/prefs`; `?q=`; `{file}`, `{rendition}` | API | preferences; the search's query; a file's and a rendition's names | `preferences`, `/preferences`; `?query=`; `{fileName}`, `{renditionName}` |
+| `audio`, `unused`, `retiredWhy`, `values`, `hop` | API | audio renditions; unused settings; why retired; values by key; the failing leg | `audioRenditions`, `unusedSettings`, `retiredReason`, `valuesByKey`, `failedHop` |
+| `check_for_updates`, `serve_debug_pprof`, `serve_debug_metrics`, `scan_on_node_hello` | settings | booleans named as commands | `should_check_for_updates`, `should_serve_debug_pprof`, `should_serve_debug_metrics`, `should_scan_on_node_hello` |
+| `prepared_grace_h` | node config | hours a rendition is kept after its last play | `prepared_kept_after_play_h` |
+| log keys `titleId`, `ffmpeg`, `node`, `mount`, `why`, `ref` | logs | an item's id; the FFmpeg version; the node's name; a mount path; a refusal, failure or reason; a source reference | `itemId`, `ffmpegVersion`, `nodeName`, `mountPath`, `refusal`/`failure`/`reason`, `sourceRef` |

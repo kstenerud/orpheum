@@ -14,7 +14,7 @@ const PathBytesFile = "/bytes/v1/file"
 // it; Path, the file's path relative to that root, as bytes, so a name that is not UTF-8 travels
 // intact (D49); and PayloadHash, the payload hash in hex the core knows the file by (D179, D100).
 type BytesFile struct {
-	Root        string `json:"root"`
+	RootPath    string `json:"rootPath"`
 	Path        []byte `json:"path"`
 	PayloadHash string `json:"payloadHash"`
 }
@@ -22,7 +22,7 @@ type BytesFile struct {
 // Target is the file's path and query on the byte socket; Path travels as unpadded base64url.
 func (file BytesFile) Target() string {
 	query := url.Values{
-		"root": {file.Root}, "path": {base64.RawURLEncoding.EncodeToString(file.Path)},
+		"root": {file.RootPath}, "path": {base64.RawURLEncoding.EncodeToString(file.Path)},
 		"payloadHash": {file.PayloadHash},
 	}
 	return PathBytesFile + "?" + query.Encode()

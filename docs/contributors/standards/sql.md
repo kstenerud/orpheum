@@ -27,7 +27,7 @@ Names match [schema.md](../design/plans/schema.md), and sqlc turns them into Go 
 | Reference | `<table>_id`, or a role name when two point at one table | `library_id`, `source_file` |
 | Time | integer milliseconds since the epoch, server clock, named `…_at` | `created_at`, `removed_at` |
 | Client time | a client's monotonic clock, named `…_mono_ms` (D165) | `started_mono_ms` |
-| Other quantities | the unit in the name | `runtime_ms`, `check_every_hours`, `size_bytes` |
+| Other quantities | the unit in the name: `_ms` for milliseconds, any other unit spelled out (D227 §6); a setting key keeps its short suffix (`_s`, `_h`, `_d`) | `runtime_ms`, `check_every_hours`, `segment_length_seconds`, `size_bytes` |
 | Boolean | `INTEGER NOT NULL CHECK (x IN (0,1))`, named as a predicate in new columns | `is_original` |
 | Closed vocabulary | `TEXT` with a `CHECK (… IN (…))`, mirrored by a Go type with constants | `job.state` |
 | Index | `<table>_<purpose>` | `job_next`, `item_text_original` |

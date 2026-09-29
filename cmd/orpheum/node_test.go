@@ -52,7 +52,7 @@ func TestRun_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 	for _, want := range []string{
 		`"msg":"started the node"`,
 		`"msg":"a node said hello"`,
-		`"ffmpeg":"{\"format\"`,
+		`"ffmpegVersion":"{\"format\"`,
 		`"msg":"a node finished a scan"`,
 		`"observedCount":1,"sidecarCount":0,"skippedCount":1,"errorCount":0`,
 		`"msg":"identified a library"`,
@@ -160,7 +160,7 @@ func filmAnswered(t *testing.T, metadataSource string, reply testutil.FakeReply)
 	// One reply serves every run the node makes: `ffprobe -version`, whose first line becomes
 	// the hello's FFmpeg version, and the probe of the film, which parses.
 	fake := testutil.InstallFakeFFmpeg(t, reply)
-	config.Node.Roots = []string{media}
+	config.Node.RootPaths = []string{media}
 	config.Node.FFmpegDir = fake.Directory
 	config.Node.VideoExtensions = []string{"mkv"}
 	nodeID := createLibrary(t, config, media, metadataSource)
@@ -285,7 +285,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 		t.Fatal(err)
 	}
 	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stdout: "ffprobe version test"})
-	config.Node.Roots, config.Node.FFmpegDir = []string{media}, fake.Directory
+	config.Node.RootPaths, config.Node.FFmpegDir = []string{media}, fake.Directory
 	const listening = "serving the byte socket"
 	captured := newCapturedLog(listening)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -313,7 +313,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 		t.Fatal(err)
 	}
 	named := nodeproto.BytesFile{
-		Root: media, Path: []byte("film.mkv"),
+		RootPath: media, Path: []byte("film.mkv"),
 		PayloadHash: hex.EncodeToString(identity.Hash[:]),
 	}
 	target := "http://node" + named.Target()

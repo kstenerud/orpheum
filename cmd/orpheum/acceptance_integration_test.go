@@ -147,7 +147,7 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 		t.Fatal(err)
 	}
 	config, _ := testConfig(t)
-	config.Node.Roots = []string{root}
+	config.Node.RootPaths = []string{root}
 	config.Node.FFmpegDir = testutil.FFmpegDirectory(t)
 	config.Node.VideoExtensions = []string{"mkv"}
 	config.Node.SubtitleExtensions = []string{"srt"}

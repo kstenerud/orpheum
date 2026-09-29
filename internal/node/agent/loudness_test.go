@@ -64,7 +64,7 @@ func TestAgent_MeasuresOnlyTheVideoTheCoreNamed(t *testing.T) {
 		return receiveLoudness(t, core)
 	}
 	measured := measure(1, video, 1)
-	wantPath := video.Root + "/film.mkv"
+	wantPath := video.RootPath + "/film.mkv"
 	if measured.JobID != 1 || measured.Refusal != "" || len(measured.Tracks) != 1 ||
 		measured.Tracks[0].Stereo.IntegratedLUFS != -1 || measured.Tracks[0].Stereo.RangeLU != float64(len(wantPath)) {
 		t.Errorf("measuring the named video: %+v, want stream 1 of %s", measured, wantPath)

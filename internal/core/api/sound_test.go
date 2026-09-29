@@ -17,7 +17,7 @@ import (
 // browser listing aac-multi plays as it is.
 func (harness testHarness) shelveSurroundFilm(t *testing.T) {
 	t.Helper()
-	probe := `{"format":{"names":["mov","mp4","m4a"]},"streams":[` +
+	probe := `{"format":{"formatNames":["mov","mp4","m4a"]},"streams":[` +
 		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 		`{"streamIndex":1,"kind":"audio","codec":"aac","codecProfile":"LC","audio":{"channelCount":6}}]}`
 	storetest.ExecRaw(t, harness.database,
@@ -129,7 +129,7 @@ func TestFilePrefs_TheDialogueBoostIsThePersonsInEveryFile(t *testing.T) {
 		var answered struct {
 			Prefs struct {
 				IsDialogueBoost bool `json:"isDialogueBoostOn"`
-			} `json:"prefs"`
+			} `json:"preferences"`
 		}
 		if err := json.Unmarshal([]byte(answer.body), &answered); err != nil {
 			t.Fatalf("POST /playback = %d %s", answer.status, answer.body)
@@ -140,14 +140,15 @@ func TestFilePrefs_TheDialogueBoostIsThePersonsInEveryFile(t *testing.T) {
 		t.Error("before any choice: the boost is on, want off (D222)")
 	}
 	turnOn := map[string]bool{"isDialogueBoostOn": true}
-	if status := harness.do(t, http.MethodPut, "/me/prefs", user, turnOn).status; status != http.StatusNoContent {
+	if status := harness.do(t, http.MethodPut, "/me/preferences", user, turnOn).status; status != http.StatusNoContent {
 		t.Fatalf("PUT the boost: %d", status)
 	}
 	if !boostOf(2) || !boostOf(1) {
 		t.Error("after turning it on in one file: want it on in that file and the next (D83)")
 	}
 	turnOff := map[string]bool{"isDialogueBoostOn": false}
-	if status := harness.do(t, http.MethodPut, "/me/prefs", user, turnOff).status; status != http.StatusNoContent {
+	if status := harness.do(t, http.MethodPut, "/me/preferences", user,
+		turnOff).status; status != http.StatusNoContent {
 		t.Fatalf("PUT the boost off: %d", status)
 	}
 	if boostOf(2) {

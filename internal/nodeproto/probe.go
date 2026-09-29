@@ -14,12 +14,12 @@ type Probe struct {
 
 // ProbeFormat is the container.
 type ProbeFormat struct {
-	// Names are the demuxer's names for the container, most specific last, as ffprobe lists
+	// FormatNames are the demuxer's names for the container, most specific last, as ffprobe lists
 	// them ("matroska", "webm"). The extension is a hint; this is what the file is.
-	Names      []string `json:"names"`
-	DurationMs int64    `json:"durationMs"`
-	BitRateBps int64    `json:"bitRateBps"`
-	Title      string   `json:"title"`
+	FormatNames    []string `json:"formatNames"`
+	DurationMs     int64    `json:"durationMs"`
+	BitRateBps     int64    `json:"bitRateBps"`
+	ContainerTitle string   `json:"containerTitle"`
 }
 
 // ProbeStream is one track, as the container describes it (scanner.md, Track facts).
@@ -31,11 +31,11 @@ type ProbeStream struct {
 	CodecProfile string `json:"codecProfile"`
 	// ContainerLanguage is the tag exactly as the container carried it ("ger", "deu", "en").
 	ContainerLanguage string `json:"containerLanguage"`
-	// LanguageTag is Language in BCP 47 form ("de" for both "ger" and "deu"), or empty when the
+	// Language is Language in BCP 47 form ("de" for both "ger" and "deu"), or empty when the
 	// container carried none, "und", or a code no standard knows (scanner.md, D206).
-	LanguageTag string `json:"languageTag"`
-	// Title is the track title, verbatim: often the only signal of a track's kind.
-	Title string `json:"title"`
+	Language string `json:"language"`
+	// ContainerTitle is the track title, verbatim: often the only signal of a track's kind.
+	ContainerTitle string `json:"containerTitle"`
 	// Disposition lists the flags ffprobe reported as set, sorted: "default", "forced",
 	// "hearing_impaired", "comment", "descriptions", "dub", "original", ...
 	Disposition []string `json:"disposition"`
@@ -74,7 +74,7 @@ type ProbeAttachment struct {
 
 // ProbeChapter is one chapter mark.
 type ProbeChapter struct {
-	StartMs int64  `json:"startMs"`
-	EndMs   int64  `json:"endMs"`
-	Title   string `json:"title"`
+	StartMs        int64  `json:"startMs"`
+	EndMs          int64  `json:"endMs"`
+	ContainerTitle string `json:"containerTitle"`
 }

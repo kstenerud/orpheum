@@ -107,13 +107,13 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 	if created.status != http.StatusCreated || !strings.Contains(created.body, `"id":`) {
 		t.Fatalf("POST /libraries = %d %s", created.status, created.body)
 	}
-	if len(harness.nodes.queued) != 1 || harness.nodes.queued[0].Scan.Root != "/media/shows" {
+	if len(harness.nodes.queued) != 1 || harness.nodes.queued[0].Scan.RootPath != "/media/shows" {
 		t.Errorf("queued %+v, want a scan of the new root", harness.nodes.queued)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")),
 		http.StatusConflict, CodeConflict)
 	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
-	if !strings.Contains(listed.body, `"roots":[{"nodeName":"local","path":"/media/shows","lastScanOutcome":""}]`) {
+	if !strings.Contains(listed.body, `"roots":[{"nodeName":"local","rootPath":"/media/shows","lastScanOutcome":""}]`) {
 		t.Errorf("an admin's GET /libraries = %s", listed.body)
 	}
 	scanned := harness.do(t, http.MethodPost, "/libraries/1/scan", admin, nil)
@@ -189,7 +189,7 @@ func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing
 	storetest.ExecRaw(t, harness.database,
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
-		`INSERT INTO library_root (library_id, node_id, path) VALUES (1, 1, '/m')`,
+		`INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')`,
 		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at,
 		 withheld_reason)
 		 VALUES (1, '/m', 'withheld', 5, 4, 'the scan would remove 21 of the root''s 40 files')`,

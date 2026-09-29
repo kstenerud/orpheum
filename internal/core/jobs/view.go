@@ -46,8 +46,8 @@ func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
 			ID: row.ID, Kind: Kind(row.Kind), State: row.State,
 			Target:   targetOf(row.ItemID, row.RenditionID, row.StreamID, row.FetchedSubtitleID, row.FileID),
 			Progress: row.ProgressFraction, Reason: ptr.ValueOrZero(row.Reason),
-			LastError: ptr.ValueOrZero(row.LastError),
-			Attempts:  row.Attempts, CreatedAt: time.UnixMilli(row.CreatedAt),
+			LastError: ptr.ValueOrZero(row.LastFailure),
+			Attempts:  row.AttemptCount, CreatedAt: time.UnixMilli(row.CreatedAt),
 		}
 		if row.FinishedAt != nil {
 			view.FinishedAt = new(time.UnixMilli(*row.FinishedAt))

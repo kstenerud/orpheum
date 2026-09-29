@@ -2,20 +2,20 @@
 -- The identification pass (identification.md): it reads stored observations and writes titles.
 
 -- name: ListLibraryRoots :many
-SELECT node_id, path FROM library_root WHERE library_id = ? ORDER BY path;
+SELECT node_id, root_path FROM library_root WHERE library_id = ? ORDER BY root_path;
 
 -- name: GetLibraryForIdentify :one
 SELECT id, kind, metadata_source FROM library WHERE id = ? AND removed_at IS NULL;
 
 -- name: ListIdentifyFiles :many
 SELECT id, node_id, path, filing, filing_reason, sidecar_kind, payload_hash, version_id, attached_to_file, probe_json,
-  identified_from_path, size_bytes, mtime_ms
+  identified_from_path, size_bytes, modified_at
 FROM file
 WHERE library_id = ? AND removed_at IS NULL
 ORDER BY path;
 
 -- name: ListLibraryTitles :many
-SELECT title.id, title.kind, title.year, title.identification, item.library_id, item_text.name
+SELECT title.id, title.kind, title.year, title.identification_state, item.library_id, item_text.name
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
@@ -23,7 +23,7 @@ WHERE item.library_id = ? AND item.removed_at IS NULL
 ORDER BY title.id;
 
 -- name: ListTitlesByProviderID :many
-SELECT title.id, item.library_id, title.identification, title.kind
+SELECT title.id, item.library_id, title.identification_state, title.kind
 FROM item_provider_id
 JOIN title ON title.id = item_provider_id.item_id
 JOIN item ON item.id = title.id
@@ -37,37 +37,37 @@ JOIN version ON version.id = file.version_id
 WHERE version.title_id = ? AND file.removed_at IS NULL;
 
 -- name: GetVersionTitle :one
-SELECT version.title_id, title.identification
+SELECT version.title_id, title.identification_state
 FROM version
 JOIN title ON title.id = version.title_id
 WHERE version.id = ?;
 
 -- name: InsertItem :one
-INSERT INTO item (kind, library_id, created_at) VALUES (sqlc.arg(kind), sqlc.arg(library_id), sqlc.arg(created_at))
+INSERT INTO item (kind, library_id, added_at) VALUES (sqlc.arg(kind), sqlc.arg(library_id), sqlc.arg(added_at))
 RETURNING id;
 
 -- name: MoveItemToLibrary :exec
 UPDATE item SET library_id = sqlc.arg(library_id) WHERE id = sqlc.arg(id);
 
 -- name: InsertTitle :exec
-INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id, identification)
+INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id, identification_state)
 VALUES (sqlc.arg(id), sqlc.arg(kind), sqlc.arg(year), sqlc.arg(runtime_ms), sqlc.arg(followed_source), sqlc.arg(followed_source_id),
-  sqlc.arg(identification));
+  sqlc.arg(identification_state));
 
 -- name: UpdateTitleResolved :exec
 -- A confirmed match is a person's: the pass never lowers it (D172).
 UPDATE title SET
   year = sqlc.arg(year), runtime_ms = sqlc.arg(runtime_ms), followed_source = sqlc.arg(followed_source),
   followed_source_id = sqlc.arg(followed_source_id),
-  identification = CASE WHEN identification = 'confirmed' THEN identification ELSE sqlc.arg(identification) END
+  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id);
 
 -- name: UpsertOriginalText :exec
 -- search_alternates is the name as the one normaliser folds it (D48), which both search indexes take.
-INSERT INTO item_text (item_id, lang, is_original, name, overview, tagline, search_alternates)
-VALUES (sqlc.arg(item_id), sqlc.arg(lang), 1, sqlc.arg(name), sqlc.arg(overview), sqlc.arg(tagline),
+INSERT INTO item_text (item_id, language, is_original, name, overview, tagline, search_alternates)
+VALUES (sqlc.arg(item_id), sqlc.arg(language), 1, sqlc.arg(name), sqlc.arg(overview), sqlc.arg(tagline),
   sqlc.arg(search_alternates))
-ON CONFLICT (item_id, lang) DO UPDATE SET
+ON CONFLICT (item_id, language) DO UPDATE SET
   is_original = 1, name = excluded.name, overview = excluded.overview, tagline = excluded.tagline,
   search_alternates = excluded.search_alternates;
 
@@ -100,13 +100,13 @@ UPDATE file SET version_id = sqlc.arg(version_id), identified_from_path = path W
 UPDATE file SET filing = sqlc.arg(filing), filing_reason = sqlc.arg(filing_reason) WHERE id = sqlc.arg(id);
 
 -- name: ListOverrides :many
-SELECT field, override_value FROM field_override WHERE item_id = ? AND lang = '' ORDER BY field;
+SELECT field, override_value FROM field_override WHERE item_id = ? AND language = '' ORDER BY field;
 
 -- name: InsertOverrideIfAbsent :exec
 -- A locked NFO field is an override (D182); one a person already set here stays.
-INSERT INTO field_override (item_id, field, lang, override_value, origin, set_at)
+INSERT INTO field_override (item_id, field, language, override_value, origin, set_at)
 VALUES (sqlc.arg(item_id), sqlc.arg(field), '', sqlc.arg(override_value), sqlc.arg(origin), sqlc.arg(set_at))
-ON CONFLICT (item_id, field, lang) DO NOTHING;
+ON CONFLICT (item_id, field, language) DO NOTHING;
 
 -- name: ListLibrarySeries :many
 SELECT collection.id, item_text.name
@@ -153,14 +153,14 @@ ON CONFLICT (owner_title, extra_title) DO UPDATE SET extra_type = excluded.extra
 WHERE extra_relation.asserted_by = 'scanner';
 
 -- name: GetTitleIdent :one
-SELECT identification FROM title WHERE id = ?;
+SELECT identification_state FROM title WHERE id = ?;
 
 -- name: ConfirmTitleMatch :exec
 -- A person confirmed the match: permanent, and never moved by a later pass (D172).
-UPDATE title SET identification = 'confirmed' WHERE id = ?;
+UPDATE title SET identification_state = 'confirmed' WHERE id = ?;
 
 -- name: ListFileTitles :many
-SELECT file.id, file.path, file.filing, file.filing_reason, title.id AS title_id, title.kind, title.identification,
+SELECT file.id, file.path, file.filing, file.filing_reason, title.id AS title_id, title.kind, title.identification_state,
   title.year, title.followed_source, item_text.name
 FROM file
 JOIN version ON version.id = file.version_id

@@ -101,7 +101,10 @@ func (admin *Admin) Create(ctx context.Context, request Request) (int64, error) 
 		return 0, err
 	}
 	for _, root := range library.Roots {
-		admin.nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{Root: root}})
+		admin.nodes.Enqueue(nodeID, nodeproto.Command{
+			Type: nodeproto.CommandScan,
+			Scan: &nodeproto.Scan{RootPath: root},
+		})
 	}
 	return id, nil
 }
@@ -140,7 +143,7 @@ func (admin *Admin) List(ctx context.Context) ([]Summary, error) {
 }
 
 // Scan asks each root's node to scan it, and reports how many roots were asked. A root whose
-// node is not connected is skipped: it scans when the node says hello, where scan_on_node_hello
+// node is not connected is skipped: it scans when the node says hello, where should_scan_on_node_hello
 // says so.
 func (admin *Admin) Scan(ctx context.Context, libraryID int64) (int, error) {
 	roots, err := admin.libraryRoots(ctx, libraryID)
@@ -260,7 +263,7 @@ func (admin *Admin) root(
 		return sqlcgen.ListLibraryRootStatesRow{}, err
 	}
 	for _, root := range roots {
-		if root.NodeName == node && root.Path == path {
+		if root.NodeName == node && root.RootPath == path {
 			return root, nil
 		}
 	}
@@ -287,6 +290,9 @@ func (admin *Admin) rescan(root sqlcgen.ListLibraryRootStatesRow) bool {
 	if !connected || nodeID != root.NodeID {
 		return false
 	}
-	admin.nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{Root: root.Path}})
+	admin.nodes.Enqueue(nodeID, nodeproto.Command{
+		Type: nodeproto.CommandScan,
+		Scan: &nodeproto.Scan{RootPath: root.RootPath},
+	})
 	return true
 }

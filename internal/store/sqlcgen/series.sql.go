@@ -44,7 +44,7 @@ func (q *Queries) GetProviderResponseFetchedAt(ctx context.Context, arg GetProvi
 }
 
 const getSeriesForMatch = `-- name: GetSeriesForMatch :one
-SELECT collection.id, collection.year, collection.followed_source, collection.followed_source_id, collection.identification,
+SELECT collection.id, collection.year, collection.followed_source, collection.followed_source_id, collection.identification_state,
   item.library_id, library.metadata_source, item_text.name
 FROM collection
 JOIN item ON item.id = collection.id
@@ -54,14 +54,14 @@ WHERE collection.id = ?1 AND collection.kind = 'series' AND item.removed_at IS N
 `
 
 type GetSeriesForMatchRow struct {
-	ID               int64
-	Year             *int64
-	FollowedSource   *string
-	FollowedSourceID *string
-	Identification   *string
-	LibraryID        *int64
-	MetadataSource   string
-	Name             *string
+	ID                  int64
+	Year                *int64
+	FollowedSource      *string
+	FollowedSourceID    *string
+	IdentificationState *string
+	LibraryID           *int64
+	MetadataSource      string
+	Name                *string
 }
 
 func (q *Queries) GetSeriesForMatch(ctx context.Context, id int64) (GetSeriesForMatchRow, error) {
@@ -72,7 +72,7 @@ func (q *Queries) GetSeriesForMatch(ctx context.Context, id int64) (GetSeriesFor
 		&i.Year,
 		&i.FollowedSource,
 		&i.FollowedSourceID,
-		&i.Identification,
+		&i.IdentificationState,
 		&i.LibraryID,
 		&i.MetadataSource,
 		&i.Name,
@@ -101,7 +101,7 @@ FROM collection
 JOIN item ON item.id = collection.id
 JOIN library ON library.id = item.library_id
 WHERE item.library_id = ?1 AND item.removed_at IS NULL AND collection.kind = 'series'
-  AND library.metadata_source != 'nfo' AND collection.identification = 'unidentified'
+  AND library.metadata_source != 'nfo' AND collection.identification_state = 'unidentified'
   AND collection.followed_source IS NOT 'none'
   AND EXISTS (
     SELECT 1 FROM ordering
@@ -138,28 +138,28 @@ func (q *Queries) ListSeriesAwaitingMatch(ctx context.Context, libraryID *int64)
 }
 
 const listSeriesByIdent = `-- name: ListSeriesByIdent :many
-SELECT collection.id, collection.year, collection.identification, collection.followed_source, collection.followed_source_id,
+SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
   item.library_id, item_text.name
 FROM collection
 JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
-WHERE collection.kind = 'series' AND collection.identification = ?1 AND item.removed_at IS NULL
+WHERE collection.kind = 'series' AND collection.identification_state = ?1 AND item.removed_at IS NULL
 ORDER BY item_text.name, collection.id
 `
 
 type ListSeriesByIdentRow struct {
-	ID               int64
-	Year             *int64
-	Identification   *string
-	FollowedSource   *string
-	FollowedSourceID *string
-	LibraryID        *int64
-	Name             *string
+	ID                  int64
+	Year                *int64
+	IdentificationState *string
+	FollowedSource      *string
+	FollowedSourceID    *string
+	LibraryID           *int64
+	Name                *string
 }
 
 // The series in one state of identification, for the chooser's list.
-func (q *Queries) ListSeriesByIdent(ctx context.Context, identification *string) ([]ListSeriesByIdentRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSeriesByIdent, identification)
+func (q *Queries) ListSeriesByIdent(ctx context.Context, identificationState *string) ([]ListSeriesByIdentRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeriesByIdent, identificationState)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func (q *Queries) ListSeriesByIdent(ctx context.Context, identification *string)
 		if err := rows.Scan(
 			&i.ID,
 			&i.Year,
-			&i.Identification,
+			&i.IdentificationState,
 			&i.FollowedSource,
 			&i.FollowedSourceID,
 			&i.LibraryID,
@@ -190,7 +190,7 @@ func (q *Queries) ListSeriesByIdent(ctx context.Context, identification *string)
 }
 
 const listSeriesEpisodes = `-- name: ListSeriesEpisodes :many
-SELECT position.title_id, position.group_number, position.number_in_group, title.followed_source, item.created_at
+SELECT position.title_id, position.group_number, position.number_in_group, title.followed_source, item.added_at
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 JOIN title ON title.id = position.title_id
@@ -204,7 +204,7 @@ type ListSeriesEpisodesRow struct {
 	GroupNumber    *int64
 	NumberInGroup  *int64
 	FollowedSource *string
-	CreatedAt      int64
+	AddedAt        int64
 }
 
 // A series' episodes in its aired order, with where each takes its values from and when it
@@ -224,7 +224,7 @@ func (q *Queries) ListSeriesEpisodes(ctx context.Context, collectionID int64) ([
 			&i.GroupNumber,
 			&i.NumberInGroup,
 			&i.FollowedSource,
-			&i.CreatedAt,
+			&i.AddedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -252,33 +252,33 @@ func (q *Queries) MarkSeriesUnmatched(ctx context.Context, id int64) error {
 
 const setSeriesMatch = `-- name: SetSeriesMatch :exec
 UPDATE collection SET followed_source_id = ?1,
-  identification = CASE WHEN identification = 'confirmed' THEN identification ELSE ?2 END
+  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?2 END
 WHERE id = ?3 AND kind = 'series'
 `
 
 type SetSeriesMatchParams struct {
-	FollowedSourceID *string
-	Identification   *string
-	ID               int64
+	FollowedSourceID    *string
+	IdentificationState *string
+	ID                  int64
 }
 
 // The outcome of a series' match. A confirmed match is a person's and stays (D172).
 func (q *Queries) SetSeriesMatch(ctx context.Context, arg SetSeriesMatchParams) error {
-	_, err := q.db.ExecContext(ctx, setSeriesMatch, arg.FollowedSourceID, arg.Identification, arg.ID)
+	_, err := q.db.ExecContext(ctx, setSeriesMatch, arg.FollowedSourceID, arg.IdentificationState, arg.ID)
 	return err
 }
 
 const updateSeriesResolved = `-- name: UpdateSeriesResolved :exec
 UPDATE collection SET year = ?1, followed_source = ?2,
-  identification = CASE WHEN identification IN ('identified', 'ambiguous', 'confirmed') THEN identification ELSE ?3 END
+  identification_state = CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE ?3 END
 WHERE id = ?4 AND kind = 'series'
 `
 
 type UpdateSeriesResolvedParams struct {
-	Year           *int64
-	FollowedSource *string
-	Identification *string
-	ID             int64
+	Year                *int64
+	FollowedSource      *string
+	IdentificationState *string
+	ID                  int64
 }
 
 // A pass's resolution of a series' own fields; its match is the matcher's and a person's.
@@ -286,7 +286,7 @@ func (q *Queries) UpdateSeriesResolved(ctx context.Context, arg UpdateSeriesReso
 	_, err := q.db.ExecContext(ctx, updateSeriesResolved,
 		arg.Year,
 		arg.FollowedSource,
-		arg.Identification,
+		arg.IdentificationState,
 		arg.ID,
 	)
 	return err

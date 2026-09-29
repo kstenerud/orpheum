@@ -318,18 +318,19 @@ func TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing(t *test
 	wantError(t, harness.do(t, http.MethodGet, "/settings", user, nil), http.StatusForbidden, CodeForbidden)
 
 	wantError(t, harness.do(t, http.MethodPut, "/settings", admin,
-		map[string]any{"values": map[string]any{"check_for_updates": "yes"}}),
+		map[string]any{"valuesByKey": map[string]any{"should_check_for_updates": "yes"}}),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
 	wantError(t, harness.do(t, http.MethodPut, "/settings", admin,
-		map[string]any{"values": map[string]any{"signin_failure_limit": 3}}),
+		map[string]any{"valuesByKey": map[string]any{"signin_failure_limit": 3}}),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
 	page := harness.do(t, http.MethodGet, "/settings", admin, nil)
-	if strings.Contains(page.body, "signin_failure_limit") || !strings.Contains(page.body, "check_for_updates") {
+	if strings.Contains(page.body, "signin_failure_limit") || !strings.Contains(page.body, "should_check_for_updates") {
 		t.Errorf("GET /settings shows a setting it should not, or misses one it should: %s", page.body)
 	}
 	changed := harness.do(t, http.MethodPut, "/settings", admin,
-		map[string]any{"values": map[string]any{"check_for_updates": false}})
-	const wantChanged = `"key":"check_for_updates","kind":"bool","value":false,"startingValue":null,"isModified":true`
+		map[string]any{"valuesByKey": map[string]any{"should_check_for_updates": false}})
+	const wantChanged = `"key":"should_check_for_updates","kind":"bool","value":false,"startingValue":null,` +
+		`"isModified":true`
 	if changed.status != http.StatusOK || !strings.Contains(changed.body, wantChanged) {
 		t.Errorf("PUT /settings = %d %s", changed.status, changed.body)
 	}
@@ -351,7 +352,7 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 		t.Fatalf("PUT /secrets/tmdb_api_key = %d %s", set.status, set.body)
 	}
 	listed := harness.do(t, http.MethodGet, "/secrets", admin, nil)
-	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"isSet":true,"hint":"WXYZ"`) {
+	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"isSet":true,"lastChars":"WXYZ"`) {
 		t.Errorf("GET /secrets = %d %s, want it set with its hint", listed.status, listed.body)
 	}
 	if !strings.Contains(listed.body, `"setByUserId":1`) {
@@ -411,13 +412,13 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 		t.Errorf("GET /config = %d %s", listed.status, listed.body)
 	}
 	changed := harness.do(t, http.MethodPut, "/config", admin,
-		map[string]any{"values": map[string]any{"signin_failure_limit": 7}})
+		map[string]any{"valuesByKey": map[string]any{"signin_failure_limit": 7}})
 	if !strings.Contains(changed.body, `"key":"signin_failure_limit","kind":"integer","value":7,"startingValue":5,`+
 		`"isModified":true`) {
 		t.Errorf("PUT /config = %d %s", changed.status, changed.body)
 	}
 	wantError(t, harness.do(t, http.MethodPut, "/config", admin,
-		map[string]any{"values": map[string]any{"signin_failure_limit": 0}}),
+		map[string]any{"valuesByKey": map[string]any{"signin_failure_limit": 0}}),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
 	reset := harness.do(t, http.MethodPost, "/config/signin_failure_limit/reset", admin, nil)
 	if reset.status != http.StatusOK || !strings.Contains(reset.body,
@@ -427,9 +428,9 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/config/no_such_setting/reset", admin, nil),
 		http.StatusNotFound, CodeNotFound)
 
-	storetest.ExecRaw(t, harness.database, "DELETE FROM setting WHERE key = 'secret_hint_chars'")
+	storetest.ExecRaw(t, harness.database, "DELETE FROM setting WHERE key = 'secret_last_chars_shown'")
 	healed := harness.do(t, http.MethodGet, "/config", admin, nil)
-	const hint = `"key":"secret_hint_chars","kind":"integer","value":4`
+	const hint = `"key":"secret_last_chars_shown","kind":"integer","value":4`
 	if healed.status != http.StatusOK || !strings.Contains(healed.body, hint) {
 		t.Errorf("GET /config with a removed row = %d %s, want it healed with its starting value", healed.status,
 			healed.body)
@@ -444,7 +445,7 @@ func TestConfig_ListsAndDeletesOnlyUnusedRows(t *testing.T) {
 		"INSERT INTO setting (scope, key, value_json, set_at) VALUES ('server', 'signin_falure_limit', '3', 1)")
 	unused := harness.do(t, http.MethodGet, "/config/unused", admin, nil)
 	if unused.status != http.StatusOK ||
-		!strings.Contains(unused.body, `"unused":[{"key":"signin_falure_limit","scope":"server","value":3}]`) {
+		!strings.Contains(unused.body, `"unusedSettings":[{"key":"signin_falure_limit","scope":"server","value":3}]`) {
 		t.Errorf("GET /config/unused = %d %s", unused.status, unused.body)
 	}
 	wantError(t, harness.do(t, http.MethodDelete, "/config/unused/signin_failure_limit", admin, nil),
@@ -454,7 +455,7 @@ func TestConfig_ListsAndDeletesOnlyUnusedRows(t *testing.T) {
 		t.Errorf("DELETE /config/unused/signin_falure_limit = %d %s", deleted.status, deleted.body)
 	}
 	after := harness.do(t, http.MethodGet, "/config/unused", admin, nil)
-	if !strings.Contains(after.body, `"unused":[]`) {
+	if !strings.Contains(after.body, `"unusedSettings":[]`) {
 		t.Errorf("after the delete, GET /config/unused = %s", after.body)
 	}
 }
@@ -463,7 +464,8 @@ func TestConfig_FiltersToWhatDiffersFromTheStartingValue(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	harness.do(t, http.MethodPut, "/config", admin, map[string]any{"values": map[string]any{"signin_failure_limit": 7}})
+	harness.do(t, http.MethodPut, "/config", admin,
+		map[string]any{"valuesByKey": map[string]any{"signin_failure_limit": 7}})
 	all := harness.do(t, http.MethodGet, "/config", admin, nil)
 	changed := harness.do(t, http.MethodGet, "/config?onlyModified=true", admin, nil)
 	var listed struct {
@@ -479,8 +481,8 @@ func TestConfig_FiltersToWhatDiffersFromTheStartingValue(t *testing.T) {
 		}
 		found = found || setting.Key == "signin_failure_limit"
 	}
-	if !found || strings.Contains(changed.body, `"key":"check_for_updates"`) ||
-		!strings.Contains(all.body, `"key":"check_for_updates"`) {
+	if !found || strings.Contains(changed.body, `"key":"should_check_for_updates"`) ||
+		!strings.Contains(all.body, `"key":"should_check_for_updates"`) {
 		t.Errorf("the filter kept an unchanged setting or dropped the changed one:\n%s", changed.body)
 	}
 }

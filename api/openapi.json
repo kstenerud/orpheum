@@ -78,13 +78,13 @@
       "ArtBody": {
         "additionalProperties": false,
         "properties": {
-          "backdropHash": {
+          "backdropSha256": {
             "type": "string"
           },
-          "posterHash": {
+          "posterSha256": {
             "type": "string"
           },
-          "stillHash": {
+          "stillSha256": {
             "description": "An episode's frame",
             "type": "string"
           }
@@ -94,6 +94,10 @@
       "AudioRenditionBody": {
         "additionalProperties": false,
         "properties": {
+          "audioTrackIndex": {
+            "format": "int64",
+            "type": "integer"
+          },
           "carriedGainDb": {
             "description": "dB already in the sound, put in when it was prepared",
             "format": "double",
@@ -107,14 +111,10 @@
           },
           "levelling": {
             "$ref": "#/components/schemas/LevellingBody"
-          },
-          "sourceAudioIndex": {
-            "format": "int64",
-            "type": "integer"
           }
         },
         "required": [
-          "sourceAudioIndex",
+          "audioTrackIndex",
           "language",
           "isDialogueBoosted",
           "levelling",
@@ -744,7 +744,7 @@
           "name": {
             "type": "string"
           },
-          "posterHash": {
+          "posterSha256": {
             "description": "Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp",
             "type": "string"
           },
@@ -791,7 +791,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "stillHash": {
+          "stillSha256": {
             "description": "Its still's hash: GET /bytes/art/{hash}/landscape-s.webp",
             "type": "string"
           },
@@ -861,7 +861,7 @@
             },
             "type": "object"
           },
-          "hop": {
+          "failedHop": {
             "type": "string"
           },
           "message": {
@@ -874,10 +874,44 @@
         ],
         "type": "object"
       },
+      "ErrorDetailBody": {
+        "additionalProperties": false,
+        "properties": {
+          "groupGid": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "modeText": {
+            "description": "The file's mode, as ls shows it: -rw-------",
+            "type": "string"
+          },
+          "occurrenceCount": {
+            "description": "How often the node met it",
+            "format": "int64",
+            "type": "integer"
+          },
+          "ownerUid": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "text": {
+            "description": "The platform's words",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "ownerUid",
+          "groupGid",
+          "modeText",
+          "occurrenceCount"
+        ],
+        "type": "object"
+      },
       "EventBody": {
         "additionalProperties": false,
         "properties": {
-          "atMonoMs": {
+          "happenedMonoMs": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -901,19 +935,19 @@
         "required": [
           "kind",
           "positionMs",
-          "atMonoMs"
+          "happenedMonoMs"
         ],
         "type": "object"
       },
       "ExtraBody": {
         "additionalProperties": false,
         "properties": {
+          "extraType": {
+            "type": "string"
+          },
           "id": {
             "format": "int64",
             "type": "integer"
-          },
-          "kind": {
-            "type": "string"
           },
           "name": {
             "type": "string"
@@ -921,7 +955,7 @@
         },
         "required": [
           "id",
-          "kind",
+          "extraType",
           "name"
         ],
         "type": "object"
@@ -974,8 +1008,7 @@
         "additionalProperties": false,
         "properties": {
           "errorDetail": {
-            "description": "Owner, group, mode; the platform's words",
-            "type": "string"
+            "$ref": "#/components/schemas/ErrorDetailBody"
           },
           "filing": {
             "type": "string"
@@ -1056,7 +1089,7 @@
           "isLevellingOn": {
             "type": "boolean"
           },
-          "subtitle": {
+          "subtitleChoice": {
             "$ref": "#/components/schemas/SubtitleChoiceBody"
           },
           "subtitleOffsetMs": {
@@ -1128,10 +1161,6 @@
           "failure": {
             "type": "string"
           },
-          "fileId": {
-            "format": "int64",
-            "type": "integer"
-          },
           "finishedAt": {
             "description": "Unix milliseconds",
             "format": "int64",
@@ -1157,6 +1186,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "sourceFileId": {
+            "format": "int64",
+            "type": "integer"
+          },
           "state": {
             "enum": [
               "complete",
@@ -1170,7 +1203,7 @@
           }
         },
         "required": [
-          "fileId",
+          "sourceFileId",
           "path",
           "profile",
           "state",
@@ -1375,7 +1408,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "posterHash": {
+          "posterSha256": {
             "type": "string"
           },
           "year": {
@@ -1565,7 +1598,7 @@
       "JobBody": {
         "additionalProperties": false,
         "properties": {
-          "attempts": {
+          "attemptCount": {
             "format": "int64",
             "type": "integer"
           },
@@ -1608,7 +1641,7 @@
             ],
             "type": "string"
           },
-          "lastError": {
+          "lastFailure": {
             "type": "string"
           },
           "progressFraction": {
@@ -1643,7 +1676,7 @@
           "kind",
           "state",
           "reason",
-          "attempts",
+          "attemptCount",
           "createdAt"
         ],
         "type": "object"
@@ -2019,14 +2052,14 @@
       "PutSettingsInputBody": {
         "additionalProperties": false,
         "properties": {
-          "values": {
+          "valuesByKey": {
             "additionalProperties": {},
             "description": "Setting keys and their new JSON values",
             "type": "object"
           }
         },
         "required": [
-          "values"
+          "valuesByKey"
         ],
         "type": "object"
       },
@@ -2181,7 +2214,7 @@
           "nodeName": {
             "type": "string"
           },
-          "path": {
+          "rootPath": {
             "type": "string"
           },
           "withheldReason": {
@@ -2191,7 +2224,7 @@
         },
         "required": [
           "nodeName",
-          "path",
+          "rootPath",
           "lastScanOutcome"
         ],
         "type": "object"
@@ -2233,12 +2266,12 @@
           "description": {
             "type": "string"
           },
-          "hint": {
-            "description": "An API key's last characters, secret_hint_chars of them",
-            "type": "string"
-          },
           "isSet": {
             "type": "boolean"
+          },
+          "lastChars": {
+            "description": "An API key's last characters, secret_last_chars_shown of them",
+            "type": "string"
           },
           "name": {
             "type": "string"
@@ -2347,7 +2380,7 @@
       "SetFilePrefsInputBody": {
         "additionalProperties": false,
         "properties": {
-          "subtitle": {
+          "subtitleChoice": {
             "$ref": "#/components/schemas/SubtitleChoiceBody"
           },
           "subtitleOffsetMs": {
@@ -2571,15 +2604,6 @@
       "StartPlaybackOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "audio": {
-            "items": {
-              "$ref": "#/components/schemas/AudioRenditionBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
           "audioOutput": {
             "enum": [
               "built_in_speakers",
@@ -2587,6 +2611,15 @@
               "headphones"
             ],
             "type": "string"
+          },
+          "audioRenditions": {
+            "items": {
+              "$ref": "#/components/schemas/AudioRenditionBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "delivery": {
             "enum": [
@@ -2621,7 +2654,7 @@
               "null"
             ]
           },
-          "prefs": {
+          "preferences": {
             "$ref": "#/components/schemas/FilePrefsBody"
           },
           "profile": {
@@ -2655,7 +2688,7 @@
           "notDirectReasons",
           "isPreparing",
           "subtitles",
-          "prefs",
+          "preferences",
           "resumePositionMs",
           "mediaToken",
           "levelling"
@@ -2672,6 +2705,9 @@
           "codec": {
             "type": "string"
           },
+          "containerTitle": {
+            "type": "string"
+          },
           "id": {
             "description": "Stable while the file is unchanged",
             "format": "int64",
@@ -2682,9 +2718,6 @@
           },
           "language": {
             "description": "BCP 47",
-            "type": "string"
-          },
-          "title": {
             "type": "string"
           }
         },
@@ -2701,13 +2734,13 @@
             "format": "int64",
             "type": "integer"
           },
-          "isHashMatch": {
-            "type": "boolean"
-          },
           "isHearingImpaired": {
             "type": "boolean"
           },
           "isMachineTranslated": {
+            "type": "boolean"
+          },
+          "isOpensubtitlesHashMatch": {
             "type": "boolean"
           },
           "language": {
@@ -2732,7 +2765,7 @@
           "providerFileId",
           "releaseName",
           "language",
-          "isHashMatch",
+          "isOpensubtitlesHashMatch",
           "isHearingImpaired",
           "isMachineTranslated",
           "downloadCount"
@@ -2754,12 +2787,12 @@
               "null"
             ]
           },
-          "didAskByFileHash": {
-            "description": "Asked by the file's hash: those made for these bytes",
-            "type": "boolean"
-          },
           "didAskByIds": {
             "description": "Asked by the work's ids: subtitles made for any copy of it",
+            "type": "boolean"
+          },
+          "didAskByOpensubtitlesHash": {
+            "description": "Asked by the file's hash: those made for these bytes",
             "type": "boolean"
           }
         },
@@ -2767,7 +2800,7 @@
           "candidates",
           "allowance",
           "didAskByIds",
-          "didAskByFileHash"
+          "didAskByOpensubtitlesHash"
         ],
         "type": "object"
       },
@@ -2991,7 +3024,7 @@
             "description": "The release that stopped reading it; empty for a typo",
             "type": "string"
           },
-          "retiredWhy": {
+          "retiredReason": {
             "type": "string"
           },
           "scope": {
@@ -3017,7 +3050,7 @@
       "UnusedOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "unused": {
+          "unusedSettings": {
             "items": {
               "$ref": "#/components/schemas/UnusedBody"
             },
@@ -3028,7 +3061,7 @@
           }
         },
         "required": [
-          "unused"
+          "unusedSettings"
         ],
         "type": "object"
       },
@@ -3148,7 +3181,7 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/bytes/art/{hash}/{variant}": {
+    "/bytes/art/{sourceSha256}/{variant}": {
       "get": {
         "operationId": "getArt",
         "parameters": [
@@ -3173,7 +3206,7 @@
           {
             "description": "The image's hash, from a title's artwork",
             "in": "path",
-            "name": "hash",
+            "name": "sourceSha256",
             "required": true,
             "schema": {
               "description": "The image's hash, from a title's artwork",
@@ -3405,7 +3438,7 @@
         ]
       }
     },
-    "/bytes/media/hls/{token}/{rendition}/{file}": {
+    "/bytes/media/hls/{token}/{renditionName}/{fileName}": {
       "get": {
         "operationId": "getRenditionFile",
         "parameters": [
@@ -3440,7 +3473,7 @@
           {
             "description": "video, audio0, audio0-boost, ...",
             "in": "path",
-            "name": "rendition",
+            "name": "renditionName",
             "required": true,
             "schema": {
               "description": "video, audio0, audio0-boost, ...",
@@ -3450,7 +3483,7 @@
           {
             "description": "stream.m3u8, init.mp4 or a segment",
             "in": "path",
-            "name": "file",
+            "name": "fileName",
             "required": true,
             "schema": {
               "description": "stream.m3u8, init.mp4 or a segment",
@@ -3484,7 +3517,7 @@
         ]
       }
     },
-    "/bytes/media/sub/{token}/{file}": {
+    "/bytes/media/sub/{token}/{fileName}": {
       "get": {
         "operationId": "getSubtitle",
         "parameters": [
@@ -3519,7 +3552,7 @@
           {
             "description": "\u003cstreamId\u003e.ass or \u003cstreamId\u003e.vtt, or f\u003cfetchedSubtitleId\u003e.ass or .vtt",
             "in": "path",
-            "name": "file",
+            "name": "fileName",
             "required": true,
             "schema": {
               "description": "\u003cstreamId\u003e.ass or \u003cstreamId\u003e.vtt, or f\u003cfetchedSubtitleId\u003e.ass or .vtt",
@@ -4028,9 +4061,9 @@
         ]
       }
     },
-    "/files/{id}/prefs": {
+    "/files/{id}/preferences": {
       "put": {
-        "operationId": "setFilePrefs",
+        "operationId": "setFilePreferences",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -5426,9 +5459,9 @@
         ]
       }
     },
-    "/me/prefs": {
+    "/me/preferences": {
       "put": {
-        "operationId": "setMyPrefs",
+        "operationId": "setMyPreferences",
         "parameters": [
           {
             "description": "Bearer \u003csession token\u003e",
@@ -5776,7 +5809,7 @@
           {
             "explode": false,
             "in": "query",
-            "name": "q",
+            "name": "query",
             "required": true,
             "schema": {
               "type": "string"

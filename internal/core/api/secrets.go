@@ -17,7 +17,7 @@ type SecretBody struct {
 	Name         string `json:"name"`
 	Description  string `json:"description"`
 	IsSet        bool   `json:"isSet"`
-	Hint         string `doc:"An API key's last characters, secret_hint_chars of them" json:"hint,omitempty"`
+	LastChars    string `doc:"An API key's last characters, secret_last_chars_shown of them" json:"lastChars,omitempty"`
 	SetByUserID  *int64 `json:"setByUserId,omitempty"`
 	SetAt        int64  `json:"setAt,omitempty"`
 	NeedsReentry bool   `doc:"Sealed under a key this server no longer has" json:"needsReentry"`
@@ -92,7 +92,7 @@ func (server *Server) listSecrets(ctx context.Context, store *secrets.Store) (*S
 	for _, status := range statuses {
 		definition, _ := secrets.Lookup(status.Name)
 		output.Body.Secrets = append(output.Body.Secrets, SecretBody{
-			Name: string(status.Name), Description: definition.Describe, IsSet: status.IsSet, Hint: status.Hint,
+			Name: string(status.Name), Description: definition.Describe, IsSet: status.IsSet, LastChars: status.Hint,
 			SetByUserID: status.SetBy, SetAt: status.SetAt, NeedsReentry: status.NeedsReentry,
 		})
 	}

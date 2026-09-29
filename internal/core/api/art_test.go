@@ -107,13 +107,13 @@ func TestArt_TheDocumentNamesThePathsVariant(t *testing.T) {
 		t.Fatalf("GET /openapi.json = %d: %v", served.status, err)
 	}
 	var named []string
-	for _, parameter := range document.Paths["/bytes/art/{hash}/{variant}"].Get.Parameters {
+	for _, parameter := range document.Paths["/bytes/art/{sourceSha256}/{variant}"].Get.Parameters {
 		if parameter.In == "path" {
 			named = append(named, parameter.Name)
 		}
 	}
-	if !slices.Equal(named, []string{"hash", "variant"}) {
-		t.Errorf("the art path's parameters are %v, want [hash variant]", named)
+	if !slices.Equal(named, []string{"sourceSha256", "variant"}) {
+		t.Errorf("the art path's parameters are %v, want [sourceSha256 variant]", named)
 	}
 }
 

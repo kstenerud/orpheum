@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -29,8 +30,8 @@ type SubtitleCandidatesOutput struct {
 		Allowance  AllowanceBody           `json:"allowance"`
 		// DidAskByIDs and DidAskByFileHash say what the search asked by, so a client can say
 		// why it found nothing: a file not identified yet is searched by its hash alone.
-		DidAskByIDs      bool `doc:"Asked by the work's ids: subtitles made for any copy of it" json:"didAskByIds"`
-		DidAskByFileHash bool `doc:"Asked by the file's hash: those made for these bytes" json:"didAskByFileHash"`
+		DidAskByIDs               bool `doc:"Asked by the work's ids: subtitles made for any copy of it" json:"didAskByIds"`         //nolint:lll // one struct tag
+		DidAskByOpensubtitlesHash bool `doc:"Asked by the file's hash: those made for these bytes" json:"didAskByOpensubtitlesHash"` //nolint:lll // one struct tag
 	}
 }
 
@@ -40,12 +41,12 @@ type SubtitleCandidateBody struct {
 	ProviderFileID int64  `doc:"What POST /files/{id}/subtitles takes" json:"providerFileId"`
 	ReleaseName    string `doc:"The uploader's name for what it was made for" json:"releaseName"`
 	Language       string `json:"language"`
-	// IsHashMatch is a subtitle uploaded for these exact bytes (D224 §3).
-	IsHashMatch         bool  `json:"isHashMatch"`
-	IsHearingImpaired   bool  `json:"isHearingImpaired"`
-	IsMachineTranslated bool  `json:"isMachineTranslated"`
-	DownloadCount       int   `json:"downloadCount"`
-	UploadedAt          int64 `doc:"Unix milliseconds; absent when unknown" json:"uploadedAt,omitempty"`
+	// IsOpensubtitlesHashMatch is a subtitle uploaded for these exact bytes (D224 §3).
+	IsOpensubtitlesHashMatch bool  `json:"isOpensubtitlesHashMatch"`
+	IsHearingImpaired        bool  `json:"isHearingImpaired"`
+	IsMachineTranslated      bool  `json:"isMachineTranslated"`
+	DownloadCount            int   `json:"downloadCount"`
+	UploadedAt               int64 `doc:"Unix milliseconds; absent when unknown" json:"uploadedAt,omitempty"`
 }
 
 // AllowanceBody is the account's downloads, as OpenSubtitles says (D224 §4).
@@ -103,12 +104,12 @@ func (server *Server) subtitleCandidates(
 	for _, candidate := range offer.Candidates {
 		output.Body.Candidates = append(output.Body.Candidates, SubtitleCandidateBody{
 			ProviderFileID: candidate.FileID, ReleaseName: candidate.Release, Language: candidate.Language,
-			IsHashMatch: candidate.IsHashMatch, IsHearingImpaired: candidate.IsHearingImpaired,
+			IsOpensubtitlesHashMatch: candidate.IsHashMatch, IsHearingImpaired: candidate.IsHearingImpaired,
 			IsMachineTranslated: candidate.IsMachineTranslated, DownloadCount: candidate.Downloads,
 			UploadedAt: unixMillisOrZero(candidate.UploadedAt),
 		})
 	}
-	output.Body.DidAskByIDs, output.Body.DidAskByFileHash = offer.DidAskByIDs, offer.DidAskByFileHash
+	output.Body.DidAskByIDs, output.Body.DidAskByOpensubtitlesHash = offer.DidAskByIDs, offer.DidAskByFileHash
 	output.Body.Allowance = AllowanceBody{
 		RemainingDownloads: offer.Allowance.Remaining, AllowedDownloads: offer.Allowance.Allowed,
 		IsVIP: offer.Allowance.IsVIP,
@@ -146,7 +147,7 @@ func (server *Server) fetchError(ctx context.Context, doing string, err error) e
 	withReason := func(status int, code Code, reason, message string) error {
 		failure := newError(status, code, message)
 		failure.ErrorBody.Error.Detail = map[string]string{"reason": reason}
-		failure.ErrorBody.Error.Hop = HopProvider
+		failure.ErrorBody.Error.FailedHop = HopProvider
 		return failure
 	}
 	spent, isSpent := errors.AsType[*opensubtitles.QuotaSpentError](err)
@@ -169,13 +170,17 @@ func (server *Server) fetchError(ctx context.Context, doing string, err error) e
 	case isSpent:
 		failure := newError(http.StatusTooManyRequests, CodeQuotaExhausted,
 			"the OpenSubtitles account's downloads for today are spent")
-		failure.ErrorBody.Error.Detail = map[string]string{"downloadsResetAt": spent.ResetAt.UTC().Format(time.RFC3339)}
-		failure.ErrorBody.Error.Hop = HopProvider
+		failure.ErrorBody.Error.Detail = map[string]string{
+			"downloadsResetAt": strconv.FormatInt(spent.ResetAt.UnixMilli(), 10),
+		}
+		failure.ErrorBody.Error.FailedHop = HopProvider
 		return failure
 	case isLimited:
 		failure := newError(http.StatusServiceUnavailable, CodeRateLimited, "OpenSubtitles asks us to wait")
-		failure.ErrorBody.Error.Detail = map[string]string{"retryAfter": limited.After.String()}
-		failure.ErrorBody.Error.Hop = HopProvider
+		failure.ErrorBody.Error.Detail = map[string]string{
+			"retryAfterMs": strconv.FormatInt(limited.After.Milliseconds(), 10),
+		}
+		failure.ErrorBody.Error.FailedHop = HopProvider
 		return failure
 	}
 	return server.internal(ctx, doing, err)

@@ -53,10 +53,10 @@ const (
 // Sidecar is a file beside the media that is not media: an NFO, a subtitle or an image. The core
 // files it as attached to its video (schema.md, attached).
 type Sidecar struct {
-	Path      Path        `json:"path"`
-	Kind      SidecarKind `json:"kind"`
-	SizeBytes int64       `json:"sizeBytes"`
-	MtimeMs   int64       `json:"mtimeMs"`
+	Path       Path        `json:"path"`
+	Kind       SidecarKind `json:"kind"`
+	SizeBytes  int64       `json:"sizeBytes"`
+	ModifiedAt int64       `json:"modifiedAt"`
 	// NFOBody is the file's bytes, for an NFO only, and bounded: a larger NFO is an error record.
 	NFOBody []byte `json:"nfoBody,omitempty"`
 	// Identity is a subtitle's payload hash (D179): a text file is hashed whole, so a changed
@@ -109,9 +109,9 @@ type PreparedUsage struct {
 // ScanBegin opens a scan of one media root. It carries the node's effective uid and gid, so a
 // permission error below it can be read against who was asking (D163 §8).
 type ScanBegin struct {
-	Root string `json:"root"`
-	UID  int    `json:"uid"`
-	GID  int    `json:"gid"`
+	RootPath string `json:"rootPath"`
+	UID      int    `json:"uid"`
+	GID      int    `json:"gid"`
 	// FilesystemDevice, IsMountPoint and IsReadOnly are the root's filesystem facts as the scan
 	// starts (D42). The core compares the first two with the last complete scan's: an unplugged
 	// disk leaves the empty directory under its mount point, whose listing succeeds (D41, D208).
@@ -132,16 +132,16 @@ type Path struct {
 
 // Observed is a file the node enumerated, probed and hashed.
 type Observed struct {
-	Path      Path  `json:"path"`
-	SizeBytes int64 `json:"sizeBytes"`
-	MtimeMs   int64 `json:"mtimeMs"`
+	Path       Path  `json:"path"`
+	SizeBytes  int64 `json:"sizeBytes"`
+	ModifiedAt int64 `json:"modifiedAt"`
 	// Identity is the payload hash (D179): its scheme, what it was anchored on, the SHA-256 in
 	// hex and the payload's length.
 	Identity Identity `json:"identity"`
 	Probe    Probe    `json:"probe"`
-	// OpenSubtitlesHash is OpenSubtitles' moviehash of the file, 16 hex digits, which finds
+	// OpensubtitlesHash is OpenSubtitles' moviehash of the file, 16 hex digits, which finds
 	// subtitles made for these exact bytes (D224 §3); empty for a file too small to have one.
-	OpenSubtitlesHash string `json:"openSubtitlesHash,omitempty"`
+	OpensubtitlesHash string `json:"opensubtitlesHash,omitempty"`
 }
 
 // Identity is a file's payload identity (D179).
@@ -212,7 +212,7 @@ type Error struct {
 	Scope           ErrorScope    `json:"scope"`
 	Code            ErrorCode     `json:"code"`
 	OccurrenceCount int           `json:"occurrenceCount"`
-	Platform        PlatformError `json:"platform"`
+	PlatformError   PlatformError `json:"platformError"`
 }
 
 // PlatformError is the platform's truth for a person diagnosing it: the error text and, where the
@@ -227,7 +227,7 @@ type PlatformError struct {
 // ScanComplete closes a scan: the moment the core may apply removals in the regions no error
 // left unknown (D39, D40). A scan with errors is complete, and says how many.
 type ScanComplete struct {
-	Root          string `json:"root"`
+	RootPath      string `json:"rootPath"`
 	ObservedCount int    `json:"observedCount"`
 	SidecarCount  int    `json:"sidecarCount"`
 	SkippedCount  int    `json:"skippedCount"`

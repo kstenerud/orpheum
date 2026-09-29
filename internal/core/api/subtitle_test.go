@@ -22,7 +22,7 @@ const subtitleStreamID = 5
 func (harness testHarness) shelveSubtitles(t *testing.T) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.database,
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang, disposition_flags) VALUES
+		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language, disposition_flags) VALUES
 		 (5, 2, 2, 2, 'subtitle', 'ass', 'en', 1), (6, 2, 2, 3, 'subtitle', 'hdmv_pgs_subtitle', NULL, 0),
 		 (8, 1, 1, 2, 'subtitle', 'mov_text', 'en', 0)`)
 }
@@ -40,7 +40,7 @@ func (harness testHarness) shelveSidecar(t *testing.T) {
 		 attached_to_file, first_seen_at, last_seen_at) VALUES
 		 (10, 1, 1, '/media/Film (2002).es.srt', CAST('/media/Film (2002).es.srt' AS BLOB), 5, X'1e1f', 'attached',
 		 'subtitle', 2, 1, 1)`,
-		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, lang_raw, lang) VALUES
+		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, container_language, language) VALUES
 		 (7, 10, 2, NULL, 'subtitle', 'subrip', 'es', 'es')`)
 }
 
@@ -167,7 +167,7 @@ func checkExtractCommand(t *testing.T, command nodeproto.Command, jobID int64) {
 	t.Helper()
 	sent := command.ExtractSubtitle
 	if command.Type != nodeproto.CommandExtractSubtitle || sent == nil || sent.JobID != jobID || sent.Sidecar != nil ||
-		sent.Video == nil || sent.Video.Root != "/media" || string(sent.Video.Path) != "Film (2002).mkv" ||
+		sent.Video == nil || sent.Video.RootPath != "/media" || string(sent.Video.Path) != "Film (2002).mkv" ||
 		sent.Video.PayloadHash != "0c0d" || sent.StreamIndex != 2 {
 		t.Fatalf("the node was sent %+v, want stream 2 of the MKV by root, path and hash", command)
 	}
@@ -247,7 +247,7 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 	go func() { finished <- playback.HandleSubtitle(t.Context(), job) }()
 	command := <-harness.nodes.commanded
 	sent := command.ExtractSubtitle
-	if sent == nil || sent.Video != nil || sent.Sidecar == nil || sent.Sidecar.Root != "/media" ||
+	if sent == nil || sent.Video != nil || sent.Sidecar == nil || sent.Sidecar.RootPath != "/media" ||
 		string(sent.Sidecar.Path) != "Film (2002).es.srt" || sent.Sidecar.PayloadHash != "1e1f" {
 		t.Fatalf("the node was sent %+v, want the subtitle file whole, by root, path and hash", command)
 	}

@@ -54,7 +54,10 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		core.mutex.Lock()
 		core.hellos = append(core.hellos, hello)
 		core.mutex.Unlock()
-		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{NodeID: 7, LastReportSeq: 40}); err != nil {
+		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{
+			NodeID:                7,
+			LastIngestedReportSeq: 40,
+		}); err != nil {
 			t.Error(err)
 		}
 	})
@@ -131,8 +134,8 @@ type fakeScanner struct{}
 
 func (fakeScanner) Scan(_ context.Context, root *confine.MediaRoot, emit scan.Emit) error {
 	for _, record := range []nodeproto.Record{
-		{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: root.Path()}},
-		{Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{Root: root.Path()}},
+		{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{RootPath: root.Path()}},
+		{Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: root.Path()}},
 	} {
 		if err := emit(record); err != nil {
 			return err
@@ -197,7 +200,7 @@ func TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder(t *testing.T
 
 	core.commands <- nodeproto.Command{
 		CommandSeq: 1, Type: nodeproto.CommandScan,
-		Scan: &nodeproto.Scan{Root: root.Path()},
+		Scan: &nodeproto.Scan{RootPath: root.Path()},
 	}
 	begin, complete := receive(t, core), receive(t, core)
 	if begin.Type != nodeproto.RecordScanBegin || begin.ReportSeq != 41 ||
@@ -225,7 +228,10 @@ func TestAgent_RefusesToScanARootItWasNotGiven(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	_, tick := running(t, socket)
-	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{Root: "/etc"}}
+	core.commands <- nodeproto.Command{
+		CommandSeq: 1, Type: nodeproto.CommandScan,
+		Scan: &nodeproto.Scan{RootPath: "/etc"},
+	}
 	tick <- time.Time{}
 	if record := receive(t, core); record.Type != nodeproto.RecordStatus {
 		t.Errorf("heard %s before the status; a scan of /etc ran (D107)", record.Type)
@@ -262,7 +268,7 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	running(t, socket)
-	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
+	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandArtwork, EncodeArtwork: &nodeproto.Artwork{
 		JobID: 12, SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
 		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 	}}
@@ -289,10 +295,13 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 	}
 	answer := func(job int64, named string) nodeproto.ArtworkResult {
 		t.Helper()
-		core.commands <- nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
-			JobID: job, AbsolutePath: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
-			SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
-		}}
+		core.commands <- nodeproto.Command{
+			CommandSeq: job, Type: nodeproto.CommandArtwork,
+			EncodeArtwork: &nodeproto.Artwork{
+				JobID: job, AbsolutePath: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
+				SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+			},
+		}
 		select {
 		case result := <-core.artwork:
 			return result

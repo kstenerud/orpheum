@@ -64,9 +64,9 @@ func (harness testHarness) ambiguousTitle(t *testing.T) {
 	storetest.ExecRaw(t, harness.database,
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'movies', 'tmdb', 'manual', 0, 1)`,
-		`INSERT INTO item (id, kind, library_id, created_at) VALUES (10, 'title', 1, 1)`,
-		`INSERT INTO title (id, kind, year, identification) VALUES (10, 'movie', 2003, 'ambiguous')`,
-		`INSERT INTO item_text (item_id, lang, is_original, name) VALUES (10, 'und', 1, 'The General')`)
+		`INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', 1, 1)`,
+		`INSERT INTO title (id, kind, year, identification_state) VALUES (10, 'movie', 2003, 'ambiguous')`,
+		`INSERT INTO item_text (item_id, language, is_original, name) VALUES (10, 'und', 1, 'The General')`)
 	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		for rank, year := range []int64{1972, 2002} {
 			err := queries.InsertMatchCandidate(t.Context(), cachegen.InsertMatchCandidateParams{

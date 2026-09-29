@@ -38,7 +38,7 @@ func (q *Queries) GetFetchedSubtitle(ctx context.Context, id int64) (GetFetchedS
 
 const insertFetchedSubtitle = `-- name: InsertFetchedSubtitle :one
 
-INSERT INTO fetched_subtitle (video_file, provider, provider_file_id, lang, format, body_gzip, fetched_by, fetched_at,
+INSERT INTO fetched_subtitle (video_file, provider, provider_file_id, language, format, body_gzip, fetched_by_user_id, fetched_at,
   release_name)
 VALUES (?1, ?2, ?3, ?4, ?5,
   ?6, ?7, ?8, ?9)
@@ -46,15 +46,15 @@ RETURNING id
 `
 
 type InsertFetchedSubtitleParams struct {
-	VideoFile      int64
-	Provider       string
-	ProviderFileID string
-	Lang           string
-	Format         string
-	BodyGzip       []byte
-	FetchedBy      int64
-	FetchedAt      int64
-	ReleaseName    *string
+	VideoFile       int64
+	Provider        string
+	ProviderFileID  string
+	Language        string
+	Format          string
+	BodyGzip        []byte
+	FetchedByUserID int64
+	FetchedAt       int64
+	ReleaseName     *string
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -65,10 +65,10 @@ func (q *Queries) InsertFetchedSubtitle(ctx context.Context, arg InsertFetchedSu
 		arg.VideoFile,
 		arg.Provider,
 		arg.ProviderFileID,
-		arg.Lang,
+		arg.Language,
 		arg.Format,
 		arg.BodyGzip,
-		arg.FetchedBy,
+		arg.FetchedByUserID,
 		arg.FetchedAt,
 		arg.ReleaseName,
 	)
@@ -78,7 +78,7 @@ func (q *Queries) InsertFetchedSubtitle(ctx context.Context, arg InsertFetchedSu
 }
 
 const listFetchedSubtitlesOfVideo = `-- name: ListFetchedSubtitlesOfVideo :many
-SELECT id, lang, release_name, body_gzip
+SELECT id, language, release_name, body_gzip
 FROM fetched_subtitle
 WHERE video_file = ?1
 ORDER BY id
@@ -86,7 +86,7 @@ ORDER BY id
 
 type ListFetchedSubtitlesOfVideoRow struct {
 	ID          int64
-	Lang        string
+	Language    string
 	ReleaseName *string
 	BodyGzip    []byte
 }
@@ -103,7 +103,7 @@ func (q *Queries) ListFetchedSubtitlesOfVideo(ctx context.Context, videoFile int
 		var i ListFetchedSubtitlesOfVideoRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Lang,
+			&i.Language,
 			&i.ReleaseName,
 			&i.BodyGzip,
 		); err != nil {

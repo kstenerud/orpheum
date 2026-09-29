@@ -180,7 +180,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		}
 		started.Preparing = rendition.State != renditionComplete
 		started.Audio = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, playback.profile, "", probe))
-		levelAudio(started.Audio, levels, probe, rendition.AudioGainsDbJson)
+		levelAudio(started.Audio, levels, probe, rendition.CarriedGainsDbJson)
 		if main, found := decide.MainAudio(probe); found {
 			started.Levelling = levels[soundKey{int64(main.StreamIndex), mixStereo}]
 		}
@@ -277,7 +277,10 @@ func (service *Service) source(ctx context.Context, file located) (nodeproto.Byt
 	}
 	for _, root := range roots {
 		if relative, under := bytes.CutPrefix(file.pathKey, []byte(root+"/")); under {
-			return nodeproto.BytesFile{Root: root, Path: relative, PayloadHash: hex.EncodeToString(file.payloadHash)},
+			return nodeproto.BytesFile{
+					RootPath: root, Path: relative,
+					PayloadHash: hex.EncodeToString(file.payloadHash),
+				},
 				nil
 		}
 	}

@@ -73,7 +73,7 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := nodeproto.BytesFile{
-		Root: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
 	}
 	send := func(job int64, source nodeproto.BytesFile) {
 		core.commands <- nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
@@ -96,7 +96,7 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 		t.Errorf("a prepare of a changed file ended %+v, want refused", refused)
 	}
 	elsewhere := source
-	elsewhere.Root = t.TempDir()
+	elsewhere.RootPath = t.TempDir()
 	send(3, elsewhere)
 	if refused := finalReport(t, core); refused.State != nodeproto.PrepareFailed ||
 		!strings.Contains(refused.Failure, "none of this node's roots") {
@@ -116,7 +116,7 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 		t.Fatal(err)
 	}
 	source := nodeproto.BytesFile{
-		Root: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
 	}
 	commandFor := func(job int64, dir string) nodeproto.Command {
 		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
@@ -153,7 +153,7 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := nodeproto.BytesFile{
-		Root: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
 	}
 	encode := func(job int64, dir string) nodeproto.Command {
 		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{

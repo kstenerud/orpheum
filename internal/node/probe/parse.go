@@ -81,17 +81,17 @@ func (raw rawOutput) record() (nodeproto.Probe, error) {
 	}
 	record := nodeproto.Probe{
 		Format: nodeproto.ProbeFormat{
-			Names:      make([]string, 0, len(names)),
-			DurationMs: milliseconds(raw.Format.Duration),
-			BitRateBps: integer(raw.Format.BitRate),
-			Title:      tag(raw.Format.Tags, "title"),
+			FormatNames:    make([]string, 0, len(names)),
+			DurationMs:     milliseconds(raw.Format.Duration),
+			BitRateBps:     integer(raw.Format.BitRate),
+			ContainerTitle: tag(raw.Format.Tags, "title"),
 		},
 		Streams:  make([]nodeproto.ProbeStream, 0, len(raw.Streams)),
 		Chapters: make([]nodeproto.ProbeChapter, 0, len(raw.Chapters)),
 	}
 	for _, name := range names {
 		if name = bounded(name); name != "" {
-			record.Format.Names = append(record.Format.Names, name)
+			record.Format.FormatNames = append(record.Format.FormatNames, name)
 		}
 	}
 	for _, stream := range raw.Streams {
@@ -99,9 +99,9 @@ func (raw rawOutput) record() (nodeproto.Probe, error) {
 	}
 	for _, chapter := range raw.Chapters {
 		record.Chapters = append(record.Chapters, nodeproto.ProbeChapter{
-			StartMs: milliseconds(chapter.StartTime),
-			EndMs:   milliseconds(chapter.EndTime),
-			Title:   tag(chapter.Tags, "title"),
+			StartMs:        milliseconds(chapter.StartTime),
+			EndMs:          milliseconds(chapter.EndTime),
+			ContainerTitle: tag(chapter.Tags, "title"),
 		})
 	}
 	return record, nil
@@ -114,8 +114,8 @@ func (stream rawStream) record() nodeproto.ProbeStream {
 		Codec:             bounded(stream.CodecName),
 		CodecProfile:      bounded(stream.Profile),
 		ContainerLanguage: tag(stream.Tags, "language"),
-		LanguageTag:       langtag.BCP47(tag(stream.Tags, "language")),
-		Title:             tag(stream.Tags, "title"),
+		Language:          langtag.BCP47(tag(stream.Tags, "language")),
+		ContainerTitle:    tag(stream.Tags, "title"),
 		Disposition:       setFlags(stream.Disposition),
 		DurationMs:        streamDuration(stream),
 		BitRateBps:        integer(stream.BitRate),
