@@ -38,7 +38,11 @@ func fakeTMDB(t *testing.T, answers map[string]string) (*httptest.Server, *[]*ht
 			http.NotFound(writer, request)
 			return
 		}
-		writer.Header().Set("Content-Type", "application/json")
+		contentType := "application/json"
+		if strings.HasSuffix(request.URL.Path, ".jpg") {
+			contentType = "image/jpeg"
+		}
+		writer.Header().Set("Content-Type", contentType)
 		_, _ = writer.Write([]byte(body)) //nolint:errcheck // a test server
 	}))
 	t.Cleanup(server.Close)
