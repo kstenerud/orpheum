@@ -12,8 +12,12 @@ import { useEffect, useState, type RefObject } from "react";
 
 import { ApiProblem, throwIfRefused } from "./problem.ts";
 
-/** The refusals that pass: a report refused for one of these goes again with the next. */
-const passingRefusals: ReadonlySet<string> = new Set(["internal", "migrating", "rate_limited"]);
+/** The codes of refusals that pass: a report refused with one of these goes again with the next. */
+const transientRefusalCodes: ReadonlySet<string> = new Set([
+  "internal",
+  "migrating",
+  "rate_limited",
+]);
 
 /**
  * Sends one play report for the playback the media token names. A refusal that sending again
@@ -29,7 +33,7 @@ export async function sendReport(api: Api, mediaToken: string, report: PlayRepor
   try {
     throwIfRefused(answer);
   } catch (cause) {
-    if (cause instanceof ApiProblem && !passingRefusals.has(cause.code)) {
+    if (cause instanceof ApiProblem && !transientRefusalCodes.has(cause.code)) {
       throw new ReportRefused(cause);
     }
     throw cause;
@@ -53,7 +57,7 @@ function hasMedia(video: HTMLVideoElement): boolean {
 const lastSeqByToken = new Map<string, number>();
 
 /** Numbers one playback's reports on from its last, however many reporters it has had. */
-function seqCounter(mediaToken: string): () => number {
+function reportSeqCounter(mediaToken: string): () => number {
   return () => {
     const next = (lastSeqByToken.get(mediaToken) ?? 0) + 1;
     lastSeqByToken.set(mediaToken, next);
@@ -157,7 +161,7 @@ export function usePlayState(
         }
         throw cause;
       }
-    }, seqCounter(mediaToken));
+    }, reportSeqCounter(mediaToken));
     const videoEvents = reportVideoEvents(video, reporter, resumePositionMs);
     const ticker = setInterval(() => {
       if (!video.paused && hasMedia(video)) {

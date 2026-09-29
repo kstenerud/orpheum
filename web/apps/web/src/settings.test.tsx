@@ -11,7 +11,7 @@ import { withServices } from "./test-services.tsx";
 const ignore = (): void => undefined;
 
 describe("settings", () => {
-  it("shows whether a secret is set and its hint, never its value, and when it must be entered again", () => {
+  it("shows whether a secret is set and its last characters, never its value, and when it must be entered again", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <SecretsView

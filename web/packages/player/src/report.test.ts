@@ -11,7 +11,7 @@ function counter(): () => number {
 }
 
 /** A reporter whose clock the test sets and whose reports it keeps; sending fails when told to. */
-function fakeReporter(nextSeq: () => number = counter()): {
+function fakeReporter(nextReportSeq: () => number = counter()): {
   reporter: PlayReporter;
   sent: PlayReport[];
   setNow: (ms: number) => void;
@@ -38,7 +38,7 @@ function fakeReporter(nextSeq: () => number = counter()): {
       sent.push(report);
       return Promise.resolve();
     },
-    nextSeq,
+    nextReportSeq,
     () => now,
   );
   return {

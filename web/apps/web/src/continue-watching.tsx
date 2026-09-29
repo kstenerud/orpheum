@@ -94,7 +94,7 @@ export function ContinueWatchingView(props: {
           return (
             <li key={row.id} className="continue-watching__row">
               <Link to={{ screen: "play", fileId: row.fileId }} className="continue-watching__play">
-                <Poster hash={row.posterSha256} />
+                <Poster sourceSha256={row.posterSha256} />
                 <span className="continue-watching__name">{nameOf(row)}</span>
                 {row.fileName === undefined ? null : (
                   <span className="continue-watching__file">{row.fileName}</span>

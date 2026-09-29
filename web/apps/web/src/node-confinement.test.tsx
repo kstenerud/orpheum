@@ -5,10 +5,10 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { NodeConfinementView, type NodeSandbox } from "./node-confinement.tsx";
+import { NodeConfinementView, type NodeConfinement } from "./node-confinement.tsx";
 import { withServices } from "./test-services.tsx";
 
-function markupOf(node: NodeSandbox): string {
+function markupOf(node: NodeConfinement): string {
   return renderToStaticMarkup(withServices(<NodeConfinementView node={node} />));
 }
 

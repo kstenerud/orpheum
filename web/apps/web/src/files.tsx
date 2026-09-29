@@ -33,17 +33,17 @@ const filingChoices: readonly FilingChoice[] = [
 /** Files with the same filing and reason, together: the complaint is never one file (D163). */
 export interface ReasonGroup {
   readonly filing: string;
-  readonly reason: string;
+  readonly filingReason: string;
   readonly files: readonly SeenFile[];
 }
 
 /** Groups files by filing and reason, the largest group first. */
 export function groupByReason(files: readonly SeenFile[]): ReasonGroup[] {
-  const groups = new Map<string, { filing: string; reason: string; files: SeenFile[] }>();
+  const groups = new Map<string, { filing: string; filingReason: string; files: SeenFile[] }>();
   for (const file of files) {
-    const reason = file.filingReason ?? "";
-    const key = `${file.filing}\u0000${reason}`;
-    const group = groups.get(key) ?? { filing: file.filing, reason, files: [] };
+    const filingReason = file.filingReason ?? "";
+    const key = `${file.filing}\u0000${filingReason}`;
+    const group = groups.get(key) ?? { filing: file.filing, filingReason, files: [] };
     group.files.push(file);
     groups.set(key, group);
   }
@@ -56,11 +56,11 @@ export function ReasonGroups(props: { readonly files: readonly SeenFile[] }): JS
   return (
     <>
       {groupByReason(props.files).map((group) => (
-        <details key={`${group.filing}/${group.reason}`}>
+        <details key={`${group.filing}/${group.filingReason}`}>
           <summary>
             {t("files.group", {
               filing: t(`filing.${group.filing}`, { defaultValue: group.filing }),
-              reason: group.reason === "" ? t("files.noReason") : group.reason,
+              reason: group.filingReason === "" ? t("files.noReason") : group.filingReason,
               count: group.files.length,
             })}
           </summary>
@@ -142,7 +142,7 @@ function FilePages(props: {
   const pages = usePages(loadPage);
   return (
     <Loaded
-      resource={pages.pagesSoFar}
+      resource={pages.loadedSoFar}
       render={(page) => (
         <>
           <ReasonGroups files={page.items} />

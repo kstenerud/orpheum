@@ -89,14 +89,15 @@ export function LevelSwitch(props: {
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const [isOn, setIsOn] = useState(props.isInitiallyOn);
+  // The note says what the player does: it applies no gain where the volume cannot be set.
   const [canApplyGain] = useState(pageCanSetVolume);
   const addedDb = addedGainDb(props.level, isOn);
   useEffect(() => {
     const video = props.videoRef.current;
-    if (video !== null && canApplyGain) {
+    if (video !== null) {
       gainAfterVolume(video).setDb(addedDb);
     }
-  }, [addedDb, canApplyGain, props.videoRef]);
+  }, [addedDb, props.videoRef]);
   const note = levelNote(props.level, isOn, canApplyGain);
   const dbText = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(note.db);
   return (

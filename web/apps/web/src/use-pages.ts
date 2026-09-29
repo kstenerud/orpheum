@@ -10,9 +10,12 @@ export interface Page<T> {
   readonly nextCursor: string;
 }
 
-/** A list read a page at a time: the pages so far, whether more is loading, and a way to ask. */
+/**
+ * A list read a page at a time: what is loaded so far, merged into one page, whether more is
+ * loading, and a way to ask.
+ */
 export interface Pages<T> {
-  readonly pagesSoFar: Resource<Page<T>>;
+  readonly loadedSoFar: Resource<Page<T>>;
   readonly isLoadingMore: boolean;
   readonly loadMore: () => void;
 }
@@ -27,19 +30,19 @@ export function appendPage<T>(loadedSoFar: Page<T>, page: Page<T>): Page<T> {
  * what load reads, so it starts again from the first page.
  */
 export function usePages<T>(load: (cursor: string) => Promise<Page<T>>): Pages<T> {
-  const [pagesSoFar, setPagesSoFar] = useState<Resource<Page<T>>>({ state: "loading" });
+  const [loadedSoFar, setLoadedSoFar] = useState<Resource<Page<T>>>({ state: "loading" });
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   useEffect(() => {
     let isCurrent = true;
     load("").then(
       (first) => {
         if (isCurrent) {
-          setPagesSoFar({ state: "loaded", value: first });
+          setLoadedSoFar({ state: "loaded", value: first });
         }
       },
       (cause: unknown) => {
         if (isCurrent) {
-          setPagesSoFar({ state: "failed", cause });
+          setLoadedSoFar({ state: "failed", cause });
         }
       },
     );
@@ -48,21 +51,21 @@ export function usePages<T>(load: (cursor: string) => Promise<Page<T>>): Pages<T
     };
   }, [load]);
   const loadMore = (): void => {
-    if (pagesSoFar.state !== "loaded" || pagesSoFar.value.nextCursor === "" || isLoadingMore) {
+    if (loadedSoFar.state !== "loaded" || loadedSoFar.value.nextCursor === "" || isLoadingMore) {
       return;
     }
-    const loadedSoFar = pagesSoFar.value;
+    const loaded = loadedSoFar.value;
     setIsLoadingMore(true);
-    load(loadedSoFar.nextCursor).then(
+    load(loaded.nextCursor).then(
       (page) => {
         setIsLoadingMore(false);
-        setPagesSoFar({ state: "loaded", value: appendPage(loadedSoFar, page) });
+        setLoadedSoFar({ state: "loaded", value: appendPage(loaded, page) });
       },
       (cause: unknown) => {
         setIsLoadingMore(false);
-        setPagesSoFar({ state: "failed", cause });
+        setLoadedSoFar({ state: "failed", cause });
       },
     );
   };
-  return { pagesSoFar, isLoadingMore, loadMore };
+  return { loadedSoFar, isLoadingMore, loadMore };
 }

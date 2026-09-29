@@ -33,7 +33,7 @@ describe("what the scanner saw", () => {
       file(3, "errored", { reason: "permission_denied" }),
       file(4, "listed"),
     ]);
-    expect(groups.map((group) => [group.filing, group.reason, group.files.length])).toEqual([
+    expect(groups.map((group) => [group.filing, group.filingReason, group.files.length])).toEqual([
       ["errored", "permission_denied", 2],
       ["skipped", "extension", 1],
       ["listed", "", 1],

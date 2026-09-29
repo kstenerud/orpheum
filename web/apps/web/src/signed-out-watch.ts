@@ -3,6 +3,7 @@
 import { problemFromAnswer, type Api } from "@orpheum/sdk";
 
 import type { Navigation } from "./navigation.ts";
+import { sessionEndReason } from "./problem.ts";
 import type { Session } from "./session.ts";
 
 /** A watcher of every request and answer the API makes. */
@@ -22,7 +23,7 @@ export function watchForSignOut(session: Session, navigation: Navigation): Middl
       }
       const problem = await problemFromAnswer(response.clone());
       navigation.go({ screen: "films" });
-      session.signOutBecause(problem.detail["reason"] ?? "no_session");
+      session.signOutBecause(sessionEndReason(problem));
       return undefined;
     },
   };

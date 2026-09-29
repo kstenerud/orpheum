@@ -71,6 +71,6 @@ describe("browse", () => {
         cause: new ApiProblem({ code: "migrating", message: "the server is migrating" }),
       }),
     ).toContain("The server is updating. Try again in a minute.");
-    expect(entryRoute("series", 4)).toEqual({ screen: "series-page", id: 4 });
+    expect(entryRoute("series", 4)).toEqual({ screen: "series-page", collectionId: 4 });
   });
 });

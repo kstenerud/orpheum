@@ -9,8 +9,8 @@ describe("parseRoute and routeHref", () => {
     const routes: Route[] = [
       { screen: "films" },
       { screen: "series" },
-      { screen: "title", id: 12 },
-      { screen: "series-page", id: 7 },
+      { screen: "title", itemId: 12 },
+      { screen: "series-page", collectionId: 7 },
       { screen: "play", fileId: 9 },
       { screen: "search", query: "glass runner & co" },
       { screen: "search", query: "" },
