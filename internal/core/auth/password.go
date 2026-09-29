@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/argon2"
+
+	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
 
 // Argon2Parameters are argon2id's costs. The hash carries them as a PHC string, so they can change
@@ -31,8 +33,8 @@ const phcPrefix = "$argon2id$v=19$"
 // HashPassword hashes password with argon2id under parameters and a fresh salt, as a PHC string:
 // $argon2id$v=19$m=65536,t=3,p=4$<salt>$<hash>.
 func HashPassword(password string, parameters Argon2Parameters, random io.Reader) (string, error) {
-	salt := make([]byte, parameters.SaltBytes)
-	if _, err := io.ReadFull(random, salt); err != nil {
+	salt, err := randbytes.Read(random, parameters.SaltBytes)
+	if err != nil {
 		return "", fmt.Errorf("make a salt: %w", err)
 	}
 	key := argon2.IDKey([]byte(password), salt, parameters.Iterations, parameters.MemoryKiB,

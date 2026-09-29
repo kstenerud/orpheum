@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -108,9 +109,9 @@ func (service *Service) CompleteSetup(
 
 // newSetupCode is a new setup code: 60 random bits in safe32.
 func newSetupCode(random io.Reader) (string, error) {
-	var raw [8]byte
-	if _, err := io.ReadFull(random, raw[:]); err != nil {
+	raw, err := randbytes.Read(random, 8)
+	if err != nil {
 		return "", fmt.Errorf("make a setup code: %w", err)
 	}
-	return safe32Code(binary.BigEndian.Uint64(raw[:]), setupCodeChars), nil
+	return safe32Code(binary.BigEndian.Uint64(raw), setupCodeChars), nil
 }

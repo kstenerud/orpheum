@@ -4,7 +4,6 @@ package auth
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -164,14 +164,14 @@ func (service *Service) IssueDeviceCode(
 		}
 		deviceID, deviceName = &known.ID, known.Name
 	}
-	var raw [codeBytes]byte
-	if _, err := io.ReadFull(service.random, raw[:]); err != nil {
+	raw, err := randbytes.Read(service.random, codeBytes)
+	if err != nil {
 		return Invitation{}, fmt.Errorf("make a device code: %w", err)
 	}
-	code := encodeCode(raw)
+	code := encodeCode([codeBytes]byte(raw))
 	now := service.clock.Now()
 	expires := now.Add(deviceCodeLife)
-	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		revokeErr := queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
 			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindInvite, Scope: grantScopeAddDevice,
 		})
@@ -325,11 +325,11 @@ func (service *Service) spendGuessable(
 // randomSecret is 256 random bits, base64url: a registration link's secret, as a session's is
 // (D154).
 func randomSecret(random io.Reader) (string, error) {
-	raw := make([]byte, tokenBytes)
-	if _, err := io.ReadFull(random, raw); err != nil {
+	secret, err := randbytes.Base64URLSecret(random, tokenBytes)
+	if err != nil {
 		return "", fmt.Errorf("make a secret: %w", err)
 	}
-	return base64.RawURLEncoding.EncodeToString(raw), nil
+	return secret, nil
 }
 
 // RenameUser renames a person. A name is what they are shown as and sign in with; nothing is

@@ -3,13 +3,13 @@
 package playback
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
 
 // tokenBytes is a media token's length before encoding: long enough that one cannot be guessed,
@@ -42,11 +42,10 @@ func newTokens() *tokens {
 
 // issue makes a token for one playback, forgetting those idle for longer than idle first.
 func (all *tokens) issue(random io.Reader, playback tokenPlayback, now time.Time, idle time.Duration) (string, error) {
-	raw := make([]byte, tokenBytes)
-	if _, err := io.ReadFull(random, raw); err != nil {
+	token, err := randbytes.Base64URLSecret(random, tokenBytes)
+	if err != nil {
 		return "", fmt.Errorf("make a media token: %w", err)
 	}
-	token := base64.RawURLEncoding.EncodeToString(raw)
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
 	for key, known := range all.playbackByToken {
