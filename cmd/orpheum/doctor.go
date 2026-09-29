@@ -205,6 +205,12 @@ func checkSchema(ctx context.Context, database *store.Database) finding {
 	switch {
 	case state.Version == binaryVersion:
 		return finding{verdictOK, fmt.Sprintf("library.db opens, pragmas as set, at schema %d", state.Version), ""}
+	case store.RefuseBeforeBaseline(state) != nil:
+		return finding{
+			verdictFailure, fmt.Sprintf("library.db is at schema %d, below the baseline this release "+
+				"starts from; no release migrates it (D228)", state.Version),
+			"move it aside and start with an empty one; in development, `make dev-reset`",
+		}
 	case state.Version < binaryVersion:
 		return finding{verdictWarning, fmt.Sprintf("library.db is at schema %d; this release migrates it to %d",
 			state.Version, binaryVersion), "start the server, or run `orpheum migrate`"}

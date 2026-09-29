@@ -5,10 +5,12 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -104,6 +106,21 @@ func TestDoctor_SaysWhatIsMissingAndHowToFixIt(t *testing.T) {
 	damaged := runCommand(t, "doctor", "--config", path)
 	if damaged.status != exitFailure || !strings.Contains(damaged.stdout, "FAIL  secret.key is damaged") {
 		t.Errorf("doctor with a damaged key = %+v, want a failure naming it", damaged)
+	}
+}
+
+func TestDoctor_FailsADatabaseBelowTheBaselineRatherThanPromisingAMigration(t *testing.T) {
+	t.Parallel()
+	config, path := startServerOnce(t)
+	steps, err := store.Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
+		"PRAGMA user_version = "+strconv.Itoa(steps[0].Version-1))
+	doctor := runCommand(t, "doctor", "--config", path)
+	if doctor.status != exitFailure || !strings.Contains(doctor.stdout, "below the baseline") {
+		t.Errorf("doctor on a database the release would refuse = %+v, want a failure saying why", doctor)
 	}
 }
 
