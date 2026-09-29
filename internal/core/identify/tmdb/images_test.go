@@ -77,3 +77,20 @@ func TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre(t *tes
 		t.Errorf("a 500: %v, want the image server unavailable, naming the status", err)
 	}
 }
+
+func TestImageFetcher_AnAnswerThatIsNotAnImageIsTheHostFailing(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = writer.Write([]byte("<html>Sign in to the hotel's Wi-Fi</html>")) //nolint:errcheck // a test server
+	}))
+	t.Cleanup(server.Close)
+	httpClient, err := outbound.NewClient(5*time.Second, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	image, err := NewImageFetcher(httpClient, server.URL).Fetch(t.Context(), "/portal.jpg")
+	if !errors.Is(err, outbound.ErrUnavailable) || errors.Is(err, artwork.ErrNoImage) || image.Len() != 0 {
+		t.Errorf("a 200 that is a web page: %v, want the host failing, not the image missing (D213 §5)", err)
+	}
+}

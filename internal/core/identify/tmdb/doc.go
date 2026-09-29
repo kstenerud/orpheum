@@ -21,8 +21,11 @@
 //     a 5xx or a failed connection is outbound.ErrUnavailable, and no key is ErrNoKey. Enforced by
 //     TestGet_TurnsTMDBsRefusalsIntoTheErrorsTheMatcherActsOn
 //     and TestGet_A429WithoutRetryAfterIsARateLimitStill.
-//     Its image server's are the same, with 404 as artwork.ErrNoImage. Enforced by
-//     TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre.
+//     Its image server's are the same, with 404 as artwork.ErrNoImage, and a 200 that is not an
+//     image, such as a captive portal's page, is the host failing (outbound.ErrUnavailable),
+//     not the image missing. Enforced by
+//     TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre and
+//     TestImageFetcher_AnAnswerThatIsNotAnImageIsTheHostFailing.
 //   - Tests call a fake TMDB on loopback, never the network (standards/testing.md). Enforced by
 //     review; every test here builds its server with httptest.
 //

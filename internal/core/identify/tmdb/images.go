@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"regexp"
 	"strings"
@@ -70,6 +71,13 @@ func (images *ImageFetcher) Fetch(ctx context.Context, ref string) (artwork.Unsa
 	}
 	if refused := statusError("tmdb image "+ref, answer, artwork.ErrNoImage); refused != nil {
 		return artwork.Unsanitised{}, refused
+	}
+	// A 200 that is not an image, such as a captive portal's page, is the host failing, not the
+	// image: it is not passed on to be refused for good (D213 §5).
+	contentType := answer.Header.Get("Content-Type")
+	if mediaType, _, err := mime.ParseMediaType(contentType); err != nil || !strings.HasPrefix(mediaType, "image/") {
+		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: %w: answered %q, not an image",
+			ref, outbound.ErrUnavailable, contentType)
 	}
 	return artwork.Received(answer.Body), nil
 }
