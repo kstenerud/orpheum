@@ -36,4 +36,5 @@
 //     with "text file busy".
 //     EBUR128Summary is the loudness log the fake writes where a test needs FFmpeg to have
 //     measured something.
+//   - self.go: RunSelf, which runs the test binary again as a process of its own.
 package testutil

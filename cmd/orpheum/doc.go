@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Command orpheum is the Orpheum media server: one binary whose subcommand chooses the role
-// (run, core, node) or the operation (migrate, backup, restore, doctor, setup-code, openapi, and
-// dev in dev builds). The
-// systemd unit runs `orpheum run`, which starts the core, and the core supervises the node as a
-// child process.
+// (run, core, node) or the operation (migrate, backup, restore, doctor, setup-code, openapi,
+// version, and dev in dev builds). The systemd unit runs `orpheum run`, which starts the core,
+// and the core supervises the node as a child process.
 //
 // This is the composition root. It is the only package that reads argv, the environment or the
 // process's standard streams, and the only one that exits; it builds the logger, the clock and

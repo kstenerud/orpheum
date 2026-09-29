@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package nodeproto is the wire between core and node: the versioned JSON messages of cut-a §4
-// (hello, the JSONL report records, the commands) as plain types. It holds no logic, so both sides
-// can import it without importing each other.
+// Package nodeproto is the wire between core and node: the JSON messages of cut-a §4 (hello, the
+// JSONL report records, the commands, and the answers to the jobs they carry), the byte socket's
+// routes and the probe record, as plain types. The version is the path's (/node/v1, /bytes/v1);
+// no message carries one. It holds no logic, so both sides can import it without importing each
+// other.
 //
 // # Invariants
 //
@@ -26,5 +28,6 @@
 //
 //   - One file per feature, each holding both directions: hello.go, report.go (the JSONL records),
 //     commands.go (the long-poll), and artwork.go, prepare.go, subtitle.go and loudness.go, each
-//     a command and its answer. bytes.go names a file on the node's byte socket.
+//     a command and its answer. bytes.go names a file on the node's byte socket. probe.go: the
+//     probe record a scan reports and the core keeps.
 package nodeproto
