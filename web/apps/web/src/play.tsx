@@ -19,28 +19,30 @@ import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** The server's decision on how a file plays here (cut-a §6). */
-export type Decision = components["schemas"]["StartPlaybackOutputBody"];
+export type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
 
 /**
  * Asks the server how a file plays in this browser. The link is local until M4 gives the
  * server an outside address.
  */
-export async function requestPlayback(api: Api, fileId: number, menu: Menu): Promise<Decision> {
-  const data = dataOrThrow(
+export async function requestPlayback(
+  api: Api,
+  fileId: number,
+  playableFormats: Menu,
+): Promise<PlaybackDecision> {
+  return dataOrThrow(
     await api.POST("/playback", {
-      body: { fileId, playableFormats: menu, network: "local" },
+      body: { fileId, playableFormats, network: "local" },
     }),
   );
-  return data;
 }
 
 /** A decision, shown: the original playing, or a prepared copy and why. The reason is always on screen (D188). */
 export function PlayView(props: {
   readonly fileId: number;
-  readonly decision: Decision;
-  /** How the device makes sound changed: the decision is asked for again (D222). */
-  /** Asks the server again how the file plays: after the sound changed, or a subtitle was fetched. */
-  readonly decideAgain: () => void;
+  readonly decision: PlaybackDecision;
+  /** Asks the server again how the file plays: after the sound changed (D222) or a subtitle was fetched. */
+  readonly onDecideAgain: () => void;
 }): JSX.Element {
   if (props.decision.delivery === "direct") {
     return <DirectVideo {...props} />;
@@ -48,7 +50,10 @@ export function PlayView(props: {
   return <PreparedVideo {...props} />;
 }
 
-/** What each way of playing is given: the file, the decision, and what follows a sound change. */
+/**
+ * What each way of playing is given: the file, the decision, and what follows a sound change or a
+ * fetched subtitle.
+ */
 type PlayProps = Parameters<typeof PlayView>[0];
 
 /**
@@ -82,9 +87,9 @@ function UnderTheVideo(
         prefs={props.decision.preferences}
         videoRef={props.videoRef}
       />
-      <FindSubtitles fileId={props.fileId} fetched={props.decideAgain} />
+      <FindSubtitles fileId={props.fileId} onFetched={props.onDecideAgain} />
       {props.decision.audioOutput === undefined ? null : (
-        <SoundLine current={props.decision.audioOutput} changed={props.decideAgain} />
+        <SoundLine current={props.decision.audioOutput} onChanged={props.onDecideAgain} />
       )}
       <LevelSwitch
         level={startingSoundLevel(props.decision)}
@@ -96,7 +101,9 @@ function UnderTheVideo(
 }
 
 /** Where a track's standard and boosted mixes are among a rendition's audio, for its first track. */
-export function boostPair(decision: Decision): { standard: number; boosted: number } | undefined {
+export function boostMixIndices(
+  decision: PlaybackDecision,
+): { standard: number; boosted: number } | undefined {
   const audio = decision.audioRenditions ?? [];
   const first = audio[0];
   if (first === undefined) {
@@ -118,10 +125,10 @@ export function boostPair(decision: Decision): { standard: number; boosted: numb
 function PreparedVideo(props: PlayProps): JSX.Element {
   const { t } = useTranslation();
   const { decision } = props;
-  const pair = boostPair(decision);
-  const { videoRef, playbackRef, isWaiting, failure } = usePrepared(
+  const boostMixes = boostMixIndices(decision);
+  const { videoRef, playbackRef, isWaiting, failure } = usePreparedPlayback(
     decision,
-    decision.preferences.isDialogueBoostOn ? pair?.boosted : undefined,
+    decision.preferences.isDialogueBoostOn ? boostMixes?.boosted : undefined,
   );
   const reasons = (decision.notDirectReasons ?? [])
     .map((reason) => t(`play.reason.${camelKey(reason)}`))
@@ -138,11 +145,11 @@ function PreparedVideo(props: PlayProps): JSX.Element {
       {failure === undefined ? null : (
         <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
       )}
-      {pair === undefined ? null : (
+      {boostMixes === undefined ? null : (
         <BoostSwitch
-          isOn={decision.preferences.isDialogueBoostOn}
+          isInitiallyOn={decision.preferences.isDialogueBoostOn}
           onSwitched={(isOn) => {
-            playbackRef.current?.setAudioRendition(isOn ? pair.boosted : pair.standard);
+            playbackRef.current?.setAudioRendition(isOn ? boostMixes.boosted : boostMixes.standard);
           }}
         />
       )}
@@ -154,8 +161,8 @@ function PreparedVideo(props: PlayProps): JSX.Element {
  * A prepared copy's playback: it waits while the copy's first part is made, then plays it,
  * starting with the audio rendition startAudioIndex when one is given.
  */
-function usePrepared(
-  decision: Decision,
+function usePreparedPlayback(
+  decision: PlaybackDecision,
   startAudioIndex: number | undefined,
 ): {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -173,10 +180,10 @@ function usePrepared(
     if (element === null) {
       return undefined;
     }
-    const abort = new AbortController();
-    whenReady(decision.url, { signal: abort.signal }).then(
+    const aborter = new AbortController();
+    whenReady(decision.url, { signal: aborter.signal }).then(
       () => {
-        if (!abort.signal.aborted) {
+        if (!aborter.signal.aborted) {
           setIsWaiting(false);
           playbackRef.current = playHls(element, decision.url, {
             onFailed: setFailure,
@@ -185,13 +192,13 @@ function usePrepared(
         }
       },
       (cause: unknown) => {
-        if (!abort.signal.aborted) {
+        if (!aborter.signal.aborted) {
           setFailure(problemText(t, cause));
         }
       },
     );
     return () => {
-      abort.abort();
+      aborter.abort();
       playbackRef.current?.destroy();
       playbackRef.current = undefined;
     };
@@ -204,7 +211,7 @@ function DirectVideo(props: PlayProps): JSX.Element {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failure, setFailure] = useState<string | undefined>(undefined);
-  const failed = (event: SyntheticEvent<HTMLVideoElement>): void => {
+  const showMediaError = (event: SyntheticEvent<HTMLVideoElement>): void => {
     setFailure(mediaFailure(event.currentTarget.error));
   };
   return (
@@ -218,7 +225,7 @@ function DirectVideo(props: PlayProps): JSX.Element {
           controls
           autoPlay
           playsInline
-          onError={failed}
+          onError={showMediaError}
         />
       </div>
       <UnderTheVideo {...props} videoRef={videoRef} />
@@ -239,15 +246,14 @@ export function mediaFailure(error: Pick<MediaError, "code" | "message"> | null)
   return error.message === "" ? `MediaError ${String(error.code)}` : error.message;
 }
 
-/** The player's screen for one file. */
 /**
  * The player's screen for one file. A device not yet asked how it makes sound is asked first,
  * and the decision asked for again with the answer (D222).
  */
 export function Play(props: { readonly fileId: number }): JSX.Element {
-  const { api, menu, session } = useServices();
-  const [decision, reload] = useResource(`play/${String(props.fileId)}`, () =>
-    requestPlayback(api, props.fileId, menu()),
+  const { api, playableFormats, session } = useServices();
+  const [decision, decideAgain] = useResource(`play/${String(props.fileId)}`, () =>
+    requestPlayback(api, props.fileId, playableFormats()),
   );
   return (
     <Loaded
@@ -255,10 +261,10 @@ export function Play(props: { readonly fileId: number }): JSX.Element {
       render={(value) =>
         value.audioOutput === undefined && session.deviceId() !== undefined ? (
           <div className="play">
-            <SoundQuestion answered={reload} />
+            <SoundQuestion onAnswered={decideAgain} />
           </div>
         ) : (
-          <PlayView fileId={props.fileId} decision={value} decideAgain={reload} />
+          <PlayView fileId={props.fileId} decision={value} onDecideAgain={decideAgain} />
         )
       }
     />

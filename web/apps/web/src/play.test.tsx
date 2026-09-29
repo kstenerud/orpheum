@@ -6,7 +6,7 @@ import { createApi } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { boostPair, mediaFailure, PlayView, requestPlayback } from "./play.tsx";
+import { boostMixIndices, mediaFailure, PlayView, requestPlayback } from "./play.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 
 /** A sound not measured yet: played as it is (D226). */
@@ -14,7 +14,7 @@ const unlevelled = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb:
 
 describe("playing a file", () => {
   it("asks the server with this browser's menu, over the local link", async () => {
-    const menu = testServices().menu();
+    const playableFormats = testServices().playableFormats();
     let sent: unknown;
     const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
     // Answered here, before any request leaves: tests never touch the network.
@@ -30,8 +30,8 @@ describe("playing a file", () => {
         );
       },
     });
-    const decision = await requestPlayback(api, 7, menu);
-    expect(sent).toEqual({ fileId: 7, playableFormats: menu, network: "local" });
+    const decision = await requestPlayback(api, 7, playableFormats);
+    expect(sent).toEqual({ fileId: 7, playableFormats, network: "local" });
     expect(decision.delivery).toBe("direct");
   });
 
@@ -51,7 +51,7 @@ describe("playing a file", () => {
             mediaToken: "t",
             levelling: unlevelled.levelling,
           }}
-          decideAgain={() => undefined}
+          onDecideAgain={() => undefined}
         />,
       ),
     );
@@ -84,7 +84,7 @@ describe("playing a file", () => {
               { audioTrackIndex: 0, language: "en", isDialogueBoosted: true, ...unlevelled },
             ],
           }}
-          decideAgain={() => undefined}
+          onDecideAgain={() => undefined}
         />,
       ),
     );
@@ -112,9 +112,9 @@ describe("playing a file", () => {
         { audioTrackIndex: 1, language: "de", isDialogueBoosted: false, ...unlevelled },
       ],
     };
-    expect(boostPair(decision)).toEqual({ standard: 0, boosted: 1 });
+    expect(boostMixIndices(decision)).toEqual({ standard: 0, boosted: 1 });
     expect(
-      boostPair({
+      boostMixIndices({
         ...decision,
         audioRenditions: [
           { audioTrackIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },

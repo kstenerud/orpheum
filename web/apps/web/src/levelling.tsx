@@ -5,7 +5,7 @@ import type { components } from "@orpheum/sdk";
 import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { OwnSwitch } from "./sound.tsx";
+import { OwnChoiceSwitch } from "./sound.tsx";
 
 /** What brings a sound to the level, as the server measured it (D226). */
 type Levelling = components["schemas"]["LevellingBody"];
@@ -99,10 +99,10 @@ export function LevelSwitch(props: {
   const dbText = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(note.db);
   return (
     <>
-      <OwnSwitch
+      <OwnChoiceSwitch
         choice="isLevellingOn"
         label={t("play.level.switch")}
-        isOn={isOn}
+        isInitiallyOn={isOn}
         onSwitched={setIsOn}
       />
       <p className="levelling__note">{t(`play.level.${note.key}`, { db: dbText })}</p>

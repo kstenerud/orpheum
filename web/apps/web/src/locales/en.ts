@@ -125,7 +125,7 @@ export const en = {
     registered: "Has a password",
     notRegistered: "Has not used their link yet",
     newLink: "New link",
-    made: {
+    issued: {
       link: "{{name}}'s link: send it to them",
       code: "A code for {{name}}'s device",
     },
@@ -166,8 +166,8 @@ export const en = {
     extras: "Extras",
     unidentified: "Not identified yet",
     streamVideo: "Video: {{codec}}",
-    streamAudio: "Audio: {{codec}} {{lang}} {{channels}}",
-    streamSubtitle: "Subtitles: {{codec}} {{lang}}",
+    streamAudio: "Audio: {{codec}} {{language}} {{channels}}",
+    streamSubtitle: "Subtitles: {{codec}} {{language}}",
     channels: "{{count}} channels",
     episodeLabel: "{{number}}. {{name}}",
     unavailable: "not on disk",

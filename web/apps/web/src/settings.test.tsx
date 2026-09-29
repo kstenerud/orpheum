@@ -5,7 +5,7 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { parsed, SecretsView, SettingsView, shown } from "./settings.tsx";
+import { parseSettingText, SecretsView, SettingsView, settingText } from "./settings.tsx";
 import { withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
@@ -82,8 +82,8 @@ describe("settings", () => {
     expect(markup).toContain("Changed; the starting value is 180");
     expect(markup).toContain("Reset to the starting value");
     expect(markup).toContain('type="checkbox" checked=""');
-    expect(parsed("integer", "30")).toBe(30);
-    expect(parsed("bool", "false")).toBe(false);
-    expect(shown(null)).toBe("");
+    expect(parseSettingText("integer", "30")).toBe(30);
+    expect(parseSettingText("bool", "false")).toBe(false);
+    expect(settingText(null)).toBe("");
   });
 });

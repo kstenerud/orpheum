@@ -18,21 +18,21 @@ export interface Navigation {
 
 /** Navigation over a place: a pushed route and the back button both tell every listener. */
 export function createNavigation(place: Place): Navigation {
-  const read = (): Route => parseRoute(place.location.pathname, place.location.search);
-  let current = read();
+  const readRoute = (): Route => parseRoute(place.location.pathname, place.location.search);
+  let current = readRoute();
   const listeners = new Set<() => void>();
-  const changed = (): void => {
-    current = read();
+  const rereadRoute = (): void => {
+    current = readRoute();
     for (const listener of listeners) {
       listener();
     }
   };
-  place.addEventListener("popstate", changed);
+  place.addEventListener("popstate", rereadRoute);
   return {
     route: () => current,
     go: (route) => {
       place.history.pushState(null, "", routeHref(route));
-      changed();
+      rereadRoute();
     },
     subscribe: (listener) => {
       listeners.add(listener);

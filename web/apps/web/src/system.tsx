@@ -24,7 +24,7 @@ type Build = components["schemas"]["BuildBody"];
 type Host = components["schemas"]["HostBody"];
 
 /** A size in bytes, in the unit that keeps it short: "12.3 GB". */
-export function byteSize(bytes: number): string {
+export function byteSizeText(bytes: number): string {
   const units = ["byte", "kilobyte", "megabyte", "gigabyte", "terabyte"] as const;
   let value = bytes;
   let index = 0;
@@ -40,7 +40,8 @@ export function byteSize(bytes: number): string {
   }).format(value);
 }
 
-function when(milliseconds: number): string {
+/** A moment, in the viewer's words: date and time. */
+function formatDateTime(milliseconds: number): string {
   return new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(
     new Date(milliseconds),
   );
@@ -72,7 +73,7 @@ export function SystemView(props: { readonly report: SystemReport }): JSX.Elemen
           <dd>{server.goVersion}</dd>
           <HostFacts host={server.host} />
           <dt>{t("system.startedAt")}</dt>
-          <dd>{when(server.startedAt)}</dd>
+          <dd>{formatDateTime(server.startedAt)}</dd>
           {(server.databases ?? []).map((database) => (
             <DatabaseSize key={database.name} name={database.name} bytes={database.sizeBytes} />
           ))}
@@ -106,7 +107,7 @@ function NodeSoftware(props: { readonly node: SystemNode }): JSX.Element {
         {node.lastHeardAt === undefined ? null : (
           <>
             <dt>{t("system.lastHeard")}</dt>
-            <dd>{when(node.lastHeardAt)}</dd>
+            <dd>{formatDateTime(node.lastHeardAt)}</dd>
           </>
         )}
       </dl>
@@ -129,7 +130,7 @@ function BuildFacts(props: { readonly build: Build }): JSX.Element {
             {t("system.commit", { commit: build.commit.slice(0, 12) })}
             {build.committedAt === undefined
               ? null
-              : ` ${t("system.committedAt", { when: when(build.committedAt) })}`}
+              : ` ${t("system.committedAt", { when: formatDateTime(build.committedAt) })}`}
           </>
         )}
         {build.isModified ? ` ${t("system.uncommittedChanges")}` : null}
@@ -176,7 +177,7 @@ function DatabaseSize(props: { readonly name: string; readonly bytes: number }):
       <dt>
         <code>{props.name}</code>
       </dt>
-      <dd>{byteSize(props.bytes)}</dd>
+      <dd>{byteSizeText(props.bytes)}</dd>
     </>
   );
 }
@@ -193,8 +194,8 @@ function Disks(props: { readonly disks: readonly Disk[] }): JSX.Element | null {
           <code>{disk.path}</code>{" "}
           {disk.failure === undefined
             ? t("system.disk", {
-                free: byteSize(disk.availableBytes),
-                total: byteSize(disk.totalBytes),
+                free: byteSizeText(disk.availableBytes),
+                total: byteSizeText(disk.totalBytes),
               })
             : t("system.diskUnmeasured", { why: disk.failure })}
         </li>
@@ -210,7 +211,7 @@ function Findings(props: { readonly findings: readonly Finding[] }): JSX.Element
       <h2 id="system-findings">{t("system.findings")}</h2>
       <ul className="system__findings">
         {props.findings.map((finding) => (
-          <li key={finding.check} className={`system__finding--${finding.verdict}`}>
+          <li key={finding.check} className={`system__finding system__finding--${finding.verdict}`}>
             <strong>{t(`system.verdict.${finding.verdict}`)}</strong> {finding.check}:{" "}
             {finding.detail}
             {finding.action === undefined ? null : (
@@ -238,8 +239,8 @@ function NodeFacts(props: { readonly node: SystemNode }): JSX.Element {
           {node.preparedUsage === undefined ? null : (
             <p>
               {t("system.preparedUsage", {
-                used: byteSize(node.preparedUsage.usedBytes),
-                budget: byteSize(node.preparedUsage.budgetBytes),
+                used: byteSizeText(node.preparedUsage.usedBytes),
+                budget: byteSizeText(node.preparedUsage.budgetBytes),
                 percent: node.preparedUsage.diskUsedPercent,
                 limit: node.preparedUsage.diskUsedLimitPercent,
               })}
@@ -346,7 +347,7 @@ function RecentPrepares(props: { readonly prepares: readonly FinishedPrepare[] }
                         }),
                       })}
                 </td>
-                <td>{when(prepare.finishedAt)}</td>
+                <td>{formatDateTime(prepare.finishedAt)}</td>
               </tr>
             ))}
           </tbody>

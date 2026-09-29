@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { Device } from "./accounts.ts";
-import type { Decision } from "./play.tsx";
+import type { PlaybackDecision } from "./play.tsx";
 import { Play } from "./play.tsx";
 import { BoostSwitch } from "./sound.tsx";
 import { choose, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
@@ -14,7 +14,7 @@ import { withServices } from "./test-services.tsx";
 import { YourDevices } from "./your-devices.tsx";
 
 /** A decision to play the original, with how the device makes sound when it has been asked. */
-function direct(audioOutput?: Decision["audioOutput"]): Decision {
+function direct(audioOutput?: PlaybackDecision["audioOutput"]): PlaybackDecision {
   return {
     delivery: "direct",
     url: "/api/v1/bytes/media/direct/abc",
@@ -45,7 +45,7 @@ function answerButton(text: string): HTMLButtonElement | undefined {
 
 /** What was asked of the server, in order, without the bodies. */
 function asked(heard: readonly Heard[]): string[] {
-  return heard.map((each) => each.asked);
+  return heard.map((each) => each.methodAndPath);
 }
 
 describe("how a device makes sound (D222)", () => {
@@ -124,10 +124,10 @@ describe("how a device makes sound (D222)", () => {
       withServices(
         <YourDevices
           devices={{ state: "loaded", value: [television] }}
-          reload={() => {
+          onChanged={() => {
             reloads += 1;
           }}
-          onCodeFor={() => undefined}
+          onMakeCode={() => undefined}
         />,
         services,
       ),
@@ -136,7 +136,9 @@ describe("how a device makes sound (D222)", () => {
     expect(select?.value).toBe("");
     expect(select?.textContent).toContain("Not asked yet");
     await choose(select, "receiver");
-    expect(heard).toEqual([{ asked: "PUT /me/devices/7", body: { audioOutput: "receiver" } }]);
+    expect(heard).toEqual([
+      { methodAndPath: "PUT /me/devices/7", body: { audioOutput: "receiver" } },
+    ]);
     expect(reloads).toBe(1);
   });
 });
@@ -149,7 +151,7 @@ describe("the dialogue boost's switch", () => {
     mounted = await mount(
       withServices(
         <BoostSwitch
-          isOn
+          isInitiallyOn
           onSwitched={(isOn) => {
             switched.push(isOn);
           }}
@@ -162,6 +164,8 @@ describe("the dialogue boost's switch", () => {
     await click(box);
     expect(box?.checked).toBe(false);
     expect(switched).toEqual([false]);
-    expect(heard).toEqual([{ asked: "PUT /me/preferences", body: { isDialogueBoostOn: false } }]);
+    expect(heard).toEqual([
+      { methodAndPath: "PUT /me/preferences", body: { isDialogueBoostOn: false } },
+    ]);
   });
 });

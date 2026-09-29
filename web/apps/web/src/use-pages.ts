@@ -2,24 +2,24 @@
 
 import { useEffect, useState } from "react";
 
-import { failure, type Resource } from "./use-resource.ts";
+import { failedResource, type Resource } from "./use-resource.ts";
 
 /** One page of a list from the server, and the cursor of the next; "" on the last. */
 export interface Page<T> {
   readonly items: readonly T[];
-  readonly next: string;
+  readonly nextCursor: string;
 }
 
 /** A list read a page at a time: the pages so far, whether more is loading, and a way to ask. */
 export interface Pages<T> {
-  readonly list: Resource<Page<T>>;
+  readonly pagesSoFar: Resource<Page<T>>;
   readonly isLoadingMore: boolean;
-  readonly more: () => void;
+  readonly loadMore: () => void;
 }
 
 /** The pages so far with the next one added. */
-export function appended<T>(sofar: Page<T>, page: Page<T>): Page<T> {
-  return { items: [...sofar.items, ...page.items], next: page.next };
+export function appendPage<T>(loadedSoFar: Page<T>, page: Page<T>): Page<T> {
+  return { items: [...loadedSoFar.items, ...page.items], nextCursor: page.nextCursor };
 }
 
 /**
@@ -27,19 +27,19 @@ export function appended<T>(sofar: Page<T>, page: Page<T>): Page<T> {
  * what load reads, so it starts again from the first page.
  */
 export function usePages<T>(load: (cursor: string) => Promise<Page<T>>): Pages<T> {
-  const [list, setList] = useState<Resource<Page<T>>>({ state: "loading" });
+  const [pagesSoFar, setPagesSoFar] = useState<Resource<Page<T>>>({ state: "loading" });
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   useEffect(() => {
     let isCurrent = true;
     load("").then(
       (first) => {
         if (isCurrent) {
-          setList({ state: "loaded", value: first });
+          setPagesSoFar({ state: "loaded", value: first });
         }
       },
       (cause: unknown) => {
         if (isCurrent) {
-          setList(failure(cause));
+          setPagesSoFar(failedResource(cause));
         }
       },
     );
@@ -47,22 +47,22 @@ export function usePages<T>(load: (cursor: string) => Promise<Page<T>>): Pages<T
       isCurrent = false;
     };
   }, [load]);
-  const more = (): void => {
-    if (list.state !== "loaded" || list.value.next === "" || isLoadingMore) {
+  const loadMore = (): void => {
+    if (pagesSoFar.state !== "loaded" || pagesSoFar.value.nextCursor === "" || isLoadingMore) {
       return;
     }
-    const sofar = list.value;
+    const loadedSoFar = pagesSoFar.value;
     setIsLoadingMore(true);
-    load(sofar.next).then(
+    load(loadedSoFar.nextCursor).then(
       (page) => {
         setIsLoadingMore(false);
-        setList({ state: "loaded", value: appended(sofar, page) });
+        setPagesSoFar({ state: "loaded", value: appendPage(loadedSoFar, page) });
       },
       (cause: unknown) => {
         setIsLoadingMore(false);
-        setList(failure(cause));
+        setPagesSoFar(failedResource(cause));
       },
     );
   };
-  return { list, isLoadingMore, more };
+  return { pagesSoFar, isLoadingMore, loadMore };
 }

@@ -34,7 +34,7 @@ export function testServices(
     }),
     session,
     navigation,
-    menu: () => ({
+    playableFormats: () => ({
       videoCodecs: ["hevc-sdr", "h264-sdr"],
       audioCodecs: ["aac-stereo", "aac-multi", "opus", "flac"],
       subtitleFormats: ["ass", "webvtt"],

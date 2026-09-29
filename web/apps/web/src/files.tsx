@@ -135,20 +135,20 @@ function FilePages(props: {
         ...(cursor === "" ? {} : { cursor }),
       } satisfies FilesQuery;
       const filesPage = dataOrThrow(await api.GET("/files", { params: { query } }));
-      return { items: filesPage.files ?? [], next: filesPage.nextCursor ?? "" };
+      return { items: filesPage.files ?? [], nextCursor: filesPage.nextCursor ?? "" };
     },
     [api, libraryId, filingFilter],
   );
   const pages = usePages(loadPage);
   return (
     <Loaded
-      resource={pages.list}
+      resource={pages.pagesSoFar}
       render={(page) => (
         <>
           <ReasonGroups files={page.items} />
-          {page.next === "" ? null : (
-            <EndOfList onVisible={pages.more}>
-              <button type="button" onClick={pages.more} disabled={pages.isLoadingMore}>
+          {page.nextCursor === "" ? null : (
+            <EndOfList onVisible={pages.loadMore}>
+              <button type="button" onClick={pages.loadMore} disabled={pages.isLoadingMore}>
                 {t("common.showMore")}
               </button>
             </EndOfList>

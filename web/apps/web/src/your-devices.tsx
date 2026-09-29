@@ -25,17 +25,17 @@ import type { Resource } from "./use-resource.ts";
  */
 export function YourDevices(props: {
   readonly devices: Resource<Device[]>;
-  readonly reload: () => void;
-  readonly onCodeFor: (device: Device) => void;
+  readonly onChanged: () => void;
+  readonly onMakeCode: (device: Device) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api, session } = useServices();
   const [problem, setProblem] = useState<string | undefined>(undefined);
-  const then = (change: Promise<void>, afterwards?: () => void): void => {
-    change.then(
+  const applyChange = (request: Promise<void>, afterwards?: () => void): void => {
+    request.then(
       () => {
         setProblem(undefined);
-        props.reload();
+        props.onChanged();
         afterwards?.();
       },
       (cause: unknown) => {
@@ -52,26 +52,26 @@ export function YourDevices(props: {
           <DeviceList
             devices={list}
             onRename={(device, name) => {
-              then(renameMyDevice(api, device.id, name));
+              applyChange(renameMyDevice(api, device.id, name));
             }}
-            onSound={(device, output) => {
-              then(setMyDeviceAudioOutput(api, device.id, output));
+            onSoundChange={(device, output) => {
+              applyChange(setMyDeviceAudioOutput(api, device.id, output));
             }}
             onRemove={(device) => {
               // Removing this device signs it out here too.
-              then(
+              applyChange(
                 removeMyDevice(api, device.id),
                 device.isThisDevice ? session.signOut : undefined,
               );
             }}
-            onCodeFor={props.onCodeFor}
+            onMakeCode={props.onMakeCode}
           />
         )}
       />
       <button
         type="button"
         onClick={() => {
-          then(signOutElsewhere(api));
+          applyChange(signOutElsewhere(api));
         }}
       >
         {t("devices.signOutElsewhere")}
@@ -95,12 +95,15 @@ export function DeviceList(props: {
   /** Absent where the names are not the viewer's to change: an admin's view of someone's. */
   readonly onRename?: ((device: Device, name: string) => void) | undefined;
   /** Absent where how the devices make sound is not the viewer's to change. */
-  readonly onSound?: ((device: Device, output: AudioOutput) => void) | undefined;
+  readonly onSoundChange?: ((device: Device, output: AudioOutput) => void) | undefined;
   readonly onRemove: (device: Device) => void;
-  readonly onCodeFor: (device: Device) => void;
+  readonly onMakeCode: (device: Device) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
-  const when = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" });
+  const dateTimeFormat = new Intl.DateTimeFormat(i18n.language, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
   return (
     <ul className="your-devices__list">
       {props.devices.map((device) => (
@@ -111,18 +114,18 @@ export function DeviceList(props: {
             <DeviceName device={device} onRename={props.onRename} />
           )}
           <span>{t(`devices.${deviceState(device)}`)}</span>
-          <DeviceSound device={device} onSound={props.onSound} />
+          <DeviceSound device={device} onSoundChange={props.onSoundChange} />
           <span>
             {t("devices.addedAndUsed", {
-              added: when.format(new Date(device.addedAt)),
-              used: when.format(new Date(device.lastUsedAt)),
+              added: dateTimeFormat.format(new Date(device.addedAt)),
+              used: dateTimeFormat.format(new Date(device.lastUsedAt)),
             })}
           </span>
           {device.isSignedIn ? null : (
             <button
               type="button"
               onClick={() => {
-                props.onCodeFor(device);
+                props.onMakeCode(device);
               }}
             >
               {t("devices.codeToSignBackIn")}
@@ -146,11 +149,11 @@ export function DeviceList(props: {
 /** How a device makes sound: chosen here when it is the viewer's to change, else only said. */
 function DeviceSound(props: {
   readonly device: Device;
-  readonly onSound: ((device: Device, output: AudioOutput) => void) | undefined;
+  readonly onSoundChange: ((device: Device, output: AudioOutput) => void) | undefined;
 }): JSX.Element | null {
   const { t } = useTranslation();
-  const { device, onSound } = props;
-  if (onSound === undefined) {
+  const { device, onSoundChange } = props;
+  if (onSoundChange === undefined) {
     return device.audioOutput === undefined ? null : (
       <span>{t("sound.current", { output: t(`sound.${camelKey(device.audioOutput)}`) })}</span>
     );
@@ -163,7 +166,7 @@ function DeviceSound(props: {
         onChange={(event) => {
           const chosen = audioOutputs.find((output) => output === event.target.value);
           if (chosen !== undefined) {
-            onSound(device, chosen);
+            onSoundChange(device, chosen);
           }
         }}
       >

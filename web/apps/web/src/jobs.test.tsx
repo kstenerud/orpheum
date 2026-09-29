@@ -89,7 +89,7 @@ describe("the job view", () => {
     const cancels = mounted.container.querySelectorAll("button");
     expect(cancels).toHaveLength(1); // the failed job has ended: nothing to cancel
     await click(cancels[0]);
-    expect(heard.map((each) => each.asked)).toEqual([
+    expect(heard.map((each) => each.methodAndPath)).toEqual([
       "GET /jobs",
       "POST /jobs/5/cancel",
       "GET /jobs",

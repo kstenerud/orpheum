@@ -12,7 +12,7 @@ export interface Services {
   readonly api: Api;
   readonly session: Session;
   readonly navigation: Navigation;
-  readonly menu: () => Menu;
+  readonly playableFormats: () => Menu;
 }
 
 /** Holds the services for the tree below it; main.tsx provides the real ones, tests their own. */

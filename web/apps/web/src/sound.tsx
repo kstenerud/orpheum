@@ -28,11 +28,11 @@ async function keepOwnChoice(api: Api, choice: OwnChoice, isOn: boolean): Promis
 /**
  * The question of how this device makes sound, with what each answer does: asked before its first
  * playback, and again whenever the person changes it. The answer is kept on the device, and
- * answered() follows.
+ * onAnswered() follows.
  */
 export function SoundQuestion(props: {
   readonly current?: AudioOutput | undefined;
-  readonly answered: () => void;
+  readonly onAnswered: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api, session } = useServices();
@@ -42,7 +42,7 @@ export function SoundQuestion(props: {
     if (deviceId === undefined) {
       return;
     }
-    setMyDeviceAudioOutput(api, deviceId, output).then(props.answered, (cause: unknown) => {
+    setMyDeviceAudioOutput(api, deviceId, output).then(props.onAnswered, (cause: unknown) => {
       setProblem(problemText(t, cause));
     });
   };
@@ -72,7 +72,7 @@ export function SoundQuestion(props: {
 /** How this device makes sound, under the video, and changing it, which asks for the decision again. */
 export function SoundLine(props: {
   readonly current: AudioOutput;
-  readonly changed: () => void;
+  readonly onChanged: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const [isChanging, setIsChanging] = useState(false);
@@ -88,7 +88,7 @@ export function SoundLine(props: {
       >
         {t("sound.change")}
       </button>
-      {isChanging ? <SoundQuestion current={props.current} answered={props.changed} /> : null}
+      {isChanging ? <SoundQuestion current={props.current} onAnswered={props.onChanged} /> : null}
     </div>
   );
 }
@@ -98,26 +98,26 @@ export function SoundLine(props: {
  * once and is kept for every file.
  */
 export function BoostSwitch(props: {
-  readonly isOn: boolean;
+  readonly isInitiallyOn: boolean;
   readonly onSwitched: (isOn: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  return <OwnSwitch choice="isDialogueBoostOn" label={t("play.boost")} {...props} />;
+  return <OwnChoiceSwitch choice="isDialogueBoostOn" label={t("play.boost")} {...props} />;
 }
 
 /**
  * A switch for one of the person's own choices, starting as they left it: switching it acts at
  * once, through onSwitched, and is kept for every file.
  */
-export function OwnSwitch(props: {
+export function OwnChoiceSwitch(props: {
   readonly choice: OwnChoice;
   readonly label: string;
-  readonly isOn: boolean;
+  readonly isInitiallyOn: boolean;
   readonly onSwitched: (isOn: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [isOn, setIsOn] = useState(props.isOn);
+  const [isOn, setIsOn] = useState(props.isInitiallyOn);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   return (
     <>

@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   keepOffset,
   keepSubtitleChoice,
-  startingTrack,
+  startingTrackKey,
   formatOffsetSeconds,
   Subtitles,
   trackLabel,
@@ -119,7 +119,7 @@ describe("subtitles", () => {
   it("starts with the file's choice only when it names one of the file's tracks", () => {
     const tracks = [track({}), track({ streamId: 7, language: "fr" })];
     expect(
-      startingTrack(
+      startingTrackKey(
         {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
@@ -130,7 +130,7 @@ describe("subtitles", () => {
       ),
     ).toBe("s7");
     expect(
-      startingTrack(
+      startingTrackKey(
         {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
@@ -141,7 +141,7 @@ describe("subtitles", () => {
       ),
     ).toBe("f3");
     expect(
-      startingTrack(
+      startingTrackKey(
         {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
@@ -152,7 +152,7 @@ describe("subtitles", () => {
       ),
     ).toBeUndefined();
     expect(
-      startingTrack(
+      startingTrackKey(
         {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
@@ -163,7 +163,10 @@ describe("subtitles", () => {
       ),
     ).toBeUndefined();
     expect(
-      startingTrack({ subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true }, tracks),
+      startingTrackKey(
+        { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
+        tracks,
+      ),
     ).toBeUndefined();
   });
 

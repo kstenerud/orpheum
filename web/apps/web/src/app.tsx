@@ -90,7 +90,7 @@ function viewerScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "title") {
     return <Title key={route.id} id={route.id} />;
   }
-  if (route.screen === "collection") {
+  if (route.screen === "series-page") {
     return <Series key={route.id} id={route.id} />;
   }
   if (route.screen === "play") {

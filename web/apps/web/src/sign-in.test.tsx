@@ -5,13 +5,13 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { SignInForm, signInProblem } from "./sign-in.tsx";
+import { SignInForm, problemForStatus } from "./sign-in.tsx";
 
 const ignore = (): void => undefined;
 
 describe("sign-in", () => {
   it("names each failure so a person knows what to do", () => {
-    expect([401, 429, 409, 500].map(signInProblem)).toEqual([
+    expect([401, 429, 409, 500].map(problemForStatus)).toEqual([
       "wrongNameOrPassword",
       "tooManyAttempts",
       "noAdminYet",
@@ -23,8 +23,8 @@ describe("sign-in", () => {
         password=""
         isSending={false}
         problem="noAdminYet"
-        onName={ignore}
-        onPassword={ignore}
+        onNameChange={ignore}
+        onPasswordChange={ignore}
         onSubmit={ignore}
         onUseCode={ignore}
       />,
@@ -41,8 +41,8 @@ describe("sign-in", () => {
         password=""
         isSending={false}
         problem={undefined}
-        onName={ignore}
-        onPassword={ignore}
+        onNameChange={ignore}
+        onPasswordChange={ignore}
         onSubmit={ignore}
         onUseCode={ignore}
       />,

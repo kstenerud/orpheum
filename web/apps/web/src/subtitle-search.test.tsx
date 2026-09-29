@@ -7,7 +7,7 @@ import { afterEach, expect, it } from "vitest";
 
 import { startingLanguage, FindSubtitles } from "./subtitle-search.tsx";
 import {
-  button,
+  buttonWithText,
   click,
   mount,
   servedBy,
@@ -73,15 +73,15 @@ it("lists what OpenSubtitles has, unverified and made-for-this-file first, and f
     withServices(
       <FindSubtitles
         fileId={2}
-        fetched={() => {
+        onFetched={() => {
           fetched++;
         }}
       />,
       services,
     ),
   );
-  await click(button(mounted.container, "Find subtitles…"));
-  await click(button(mounted.container, "Search OpenSubtitles"));
+  await click(buttonWithText(mounted.container, "Find subtitles…"));
+  await click(buttonWithText(mounted.container, "Search OpenSubtitles"));
   const text = mounted.container.textContent;
   expect(text).toContain("19 of 20 downloads left today.");
   expect(text).toContain("Downloaded subtitles aren't checked against the sound");
@@ -90,7 +90,7 @@ it("lists what OpenSubtitles has, unverified and made-for-this-file first, and f
   expect(text).toContain("made for this very file");
   await click(mounted.container.querySelectorAll("li button")[0]);
   expect(heard.at(-1)).toEqual({
-    asked: "POST /files/2/subtitles",
+    methodAndPath: "POST /files/2/subtitles",
     body: { providerFileId: 7, language: "en" },
   });
   expect(fetched).toBe(1);
@@ -109,10 +109,10 @@ it("says an empty search of a file not identified yet asked only for subtitles m
     ],
   });
   mounted = await mount(
-    withServices(<FindSubtitles fileId={2} fetched={() => undefined} />, services),
+    withServices(<FindSubtitles fileId={2} onFetched={() => undefined} />, services),
   );
-  await click(button(mounted.container, "Find subtitles…"));
-  await click(button(mounted.container, "Search OpenSubtitles"));
+  await click(buttonWithText(mounted.container, "Find subtitles…"));
+  await click(buttonWithText(mounted.container, "Search OpenSubtitles"));
   const text = mounted.container.textContent;
   expect(text).toContain("OpenSubtitles has no English subtitles made for this exact file.");
   expect(text).toContain(
@@ -135,10 +135,10 @@ it("says when today's downloads are spent, and when they come back", async () =>
     ],
   });
   mounted = await mount(
-    withServices(<FindSubtitles fileId={2} fetched={() => undefined} />, services),
+    withServices(<FindSubtitles fileId={2} onFetched={() => undefined} />, services),
   );
-  await click(button(mounted.container, "Find subtitles…"));
-  await click(button(mounted.container, "Search OpenSubtitles"));
+  await click(buttonWithText(mounted.container, "Find subtitles…"));
+  await click(buttonWithText(mounted.container, "Search OpenSubtitles"));
   expect(mounted.container.querySelector('[role="alert"]')?.textContent).toMatch(
     /Today's downloads are spent; they start again at \d/u,
   );
@@ -159,9 +159,9 @@ it("tells a person when no OpenSubtitles account is set up", async () => {
     ],
   });
   mounted = await mount(
-    withServices(<FindSubtitles fileId={2} fetched={() => undefined} />, services),
+    withServices(<FindSubtitles fileId={2} onFetched={() => undefined} />, services),
   );
-  await click(button(mounted.container, "Find subtitles…"));
-  await click(button(mounted.container, "Search OpenSubtitles"));
+  await click(buttonWithText(mounted.container, "Find subtitles…"));
+  await click(buttonWithText(mounted.container, "Search OpenSubtitles"));
   expect(mounted.container.textContent).toContain("No OpenSubtitles account is set up.");
 });

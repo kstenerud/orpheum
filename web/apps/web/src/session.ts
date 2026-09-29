@@ -11,16 +11,16 @@ export interface Session {
   readonly signIn: (token: string, deviceId?: number) => void;
   readonly signOut: () => void;
   /** Signs out because the server said the session no longer works, and why. */
-  readonly endBecause: (reason: string) => void;
+  readonly signOutBecause: (reason: string) => void;
   /** Why the last session ended, when the server ended it; cleared by the next sign-in. */
-  readonly endedBecause: () => string | undefined;
+  readonly lastEndReason: () => string | undefined;
   /** The device this browser was last signed in as, which a sign-in asks to resume (D221). */
   readonly deviceId: () => number | undefined;
   readonly subscribe: (listener: () => void) => () => void;
 }
 
-const storageKey = "orpheum.session";
-const deviceKey = "orpheum.device";
+const tokenStorageKey = "orpheum.session";
+const deviceIdStorageKey = "orpheum.device";
 
 /** The storage a session keeps its token in: the browser's local storage, or none. */
 export interface TokenStorage {
@@ -33,26 +33,26 @@ export interface TokenStorage {
 export function createSession(storage: TokenStorage | undefined): Session {
   let token: string | undefined;
   try {
-    token = storage?.getItem(storageKey) ?? undefined;
+    token = storage?.getItem(tokenStorageKey) ?? undefined;
   } catch {
     token = undefined;
   }
   let endedReason: string | undefined;
-  let device: number | undefined;
+  let storedDeviceId: number | undefined;
   try {
-    const kept = Number(storage?.getItem(deviceKey) ?? "");
-    device = Number.isSafeInteger(kept) && kept > 0 ? kept : undefined;
+    const kept = Number(storage?.getItem(deviceIdStorageKey) ?? "");
+    storedDeviceId = Number.isSafeInteger(kept) && kept > 0 ? kept : undefined;
   } catch {
-    device = undefined;
+    storedDeviceId = undefined;
   }
   const listeners = new Set<() => void>();
-  const change = (next: string | undefined): void => {
+  const setToken = (next: string | undefined): void => {
     token = next;
     try {
       if (next === undefined) {
-        storage?.removeItem(storageKey);
+        storage?.removeItem(tokenStorageKey);
       } else {
-        storage?.setItem(storageKey, next);
+        storage?.setItem(tokenStorageKey, next);
       }
     } catch {
       // Kept in memory only: a private window refuses storage.
@@ -66,24 +66,24 @@ export function createSession(storage: TokenStorage | undefined): Session {
     signIn: (next, deviceId) => {
       endedReason = undefined;
       if (deviceId !== undefined) {
-        device = deviceId;
+        storedDeviceId = deviceId;
         try {
-          storage?.setItem(deviceKey, String(deviceId));
+          storage?.setItem(deviceIdStorageKey, String(deviceId));
         } catch {
           // Kept in memory only.
         }
       }
-      change(next);
+      setToken(next);
     },
     signOut: () => {
-      change(undefined);
+      setToken(undefined);
     },
-    endBecause: (reason) => {
+    signOutBecause: (reason) => {
       endedReason = reason;
-      change(undefined);
+      setToken(undefined);
     },
-    endedBecause: () => endedReason,
-    deviceId: () => device,
+    lastEndReason: () => endedReason,
+    deviceId: () => storedDeviceId,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);

@@ -13,7 +13,7 @@ import {
   type Device,
   type Person,
 } from "./accounts.ts";
-import { MadeView, type Made } from "./people.tsx";
+import { IssuedInvitationView, type IssuedInvitation } from "./people.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -34,33 +34,36 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
   const [devices, reloadDevices] = useResource(`person-devices/${String(props.userId)}`, () =>
     listPersonDevices(api, props.userId),
   );
-  const [made, setMade] = useState<Made | undefined>(undefined);
+  const [issued, setIssued] = useState<IssuedInvitation | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
-  const failed = (cause: unknown): void => {
+  const showProblem = (cause: unknown): void => {
     setProblem(problemText(t, cause, { conflict: t("people.nameTaken") }));
   };
-  const act = {
+  const actions = {
     rename: (name: string): void => {
-      renamePerson(api, props.userId, name).then(reloadPerson, failed);
+      renamePerson(api, props.userId, name).then(reloadPerson, showProblem);
     },
-    link: (name: string): void => {
+    issueLink: (name: string): void => {
       issueRegistrationLink(api, props.userId).then((invitation) => {
-        setMade({ what: "link", name, invitation });
-      }, failed);
+        setIssued({ kind: "link", name, invitation });
+      }, showProblem);
     },
-    code: (name: string, device: { deviceName: string } | { deviceId: number }): void => {
+    issueCode: (name: string, device: { deviceName: string } | { deviceId: number }): void => {
       issueDeviceCode(api, device, props.userId).then((invitation) => {
-        setMade({ what: "code", name, invitation });
-      }, failed);
+        setIssued({ kind: "code", name, invitation });
+      }, showProblem);
     },
     remove: (device: Device): void => {
-      removePersonDevice(api, props.userId, device.id).then(reloadDevices, failed);
+      removePersonDevice(api, props.userId, device.id).then(reloadDevices, showProblem);
     },
   };
   return (
     <section className="person">
-      <Loaded resource={person} render={(value) => <PersonHead person={value} act={act} />} />
-      {made === undefined ? null : <MadeView made={made} />}
+      <Loaded
+        resource={person}
+        render={(value) => <PersonHead person={value} actions={actions} />}
+      />
+      {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <h2>{t("person.devices")}</h2>
       <Loaded
@@ -68,9 +71,9 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
         render={(list) => (
           <DeviceList
             devices={list}
-            onRemove={act.remove}
-            onCodeFor={(device) => {
-              act.code(device.name, { deviceId: device.id });
+            onRemove={actions.remove}
+            onMakeCode={(device) => {
+              actions.issueCode(device.name, { deviceId: device.id });
             }}
           />
         )}
@@ -82,51 +85,51 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
 /** A person's name, which can be changed, what they have watched, and what the admin can make. */
 function PersonHead(props: {
   readonly person: Person;
-  readonly act: {
+  readonly actions: {
     readonly rename: (name: string) => void;
-    readonly link: (name: string) => void;
-    readonly code: (name: string, device: { deviceName: string }) => void;
+    readonly issueLink: (name: string) => void;
+    readonly issueCode: (name: string, device: { deviceName: string }) => void;
   };
 }): JSX.Element {
   const { t, i18n } = useTranslation();
-  const { account, watchStats: watched } = props.person;
-  const hours = (watched.watchedMs / 3_600_000).toLocaleString(i18n.language, {
+  const { account, watchStats } = props.person;
+  const hours = (watchStats.watchedMs / 3_600_000).toLocaleString(i18n.language, {
     maximumFractionDigits: 1,
   });
   const lastWatched =
-    watched.lastWatchedAt === undefined
+    watchStats.lastWatchedAt === undefined
       ? t("person.neverWatched")
       : new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" }).format(
-          new Date(watched.lastWatchedAt),
+          new Date(watchStats.lastWatchedAt),
         );
   return (
     <>
       <h1>{account.name}</h1>
       <p>
         {t(account.hasPassword ? "people.registered" : "people.notRegistered")} ·{" "}
-        {t("person.watched", { hours, titles: watched.titlesWatchedCount, last: lastWatched })}
+        {t("person.watched", { hours, titles: watchStats.titlesWatchedCount, last: lastWatched })}
       </p>
       <OneField
         label={t("people.name")}
-        start={account.name}
-        submit={t("person.rename")}
-        onSubmit={props.act.rename}
+        initialValue={account.name}
+        submitLabel={t("person.rename")}
+        onSubmit={props.actions.rename}
       />
       <button
         type="button"
         onClick={() => {
-          props.act.link(account.name);
+          props.actions.issueLink(account.name);
         }}
       >
         {t("people.newLink")}
       </button>
       <OneField
         label={t("account.deviceName")}
-        start=""
+        initialValue=""
         placeholder={t("account.deviceNameExample")}
-        submit={t("account.makeCode")}
+        submitLabel={t("account.makeCode")}
         onSubmit={(deviceName) => {
-          props.act.code(account.name, { deviceName });
+          props.actions.issueCode(account.name, { deviceName });
         }}
       />
     </>
@@ -136,12 +139,12 @@ function PersonHead(props: {
 /** A form of one text field and its button. */
 function OneField(props: {
   readonly label: string;
-  readonly start: string;
+  readonly initialValue: string;
   readonly placeholder?: string;
-  readonly submit: string;
+  readonly submitLabel: string;
   readonly onSubmit: (value: string) => void;
 }): JSX.Element {
-  const [value, setValue] = useState(props.start);
+  const [value, setValue] = useState(props.initialValue);
   const submit = (event: SyntheticEvent): void => {
     event.preventDefault();
     props.onSubmit(value);
@@ -160,7 +163,7 @@ function OneField(props: {
           }}
         />
       </label>
-      <button type="submit">{props.submit}</button>
+      <button type="submit">{props.submitLabel}</button>
     </form>
   );
 }

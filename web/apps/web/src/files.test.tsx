@@ -71,7 +71,7 @@ describe("the files screen", () => {
     const services = servedBy({ "GET /files": [200, { files: [file(1, "listed")] }] }, heard);
     const mounted = await mount(withServices(<Files libraryId={3} />, services));
     const asked = new URLSearchParams(heard[0]?.query);
-    expect(heard[0]?.asked).toBe("GET /files");
+    expect(heard[0]?.methodAndPath).toBe("GET /files");
     expect(asked.get("libraryId")).toBe("3");
     expect(mounted.container.textContent).toContain("/media/1.mkv");
     mounted.unmount();

@@ -9,7 +9,7 @@ import type { Session } from "./session.ts";
 type Middleware = Parameters<Api["use"]>[0];
 
 /** A named field of an object, when value is one. */
-function field(value: unknown, name: string): unknown {
+function fieldOf(value: unknown, name: string): unknown {
   if (typeof value !== "object" || value === null || !(name in value)) {
     return undefined;
   }
@@ -19,7 +19,7 @@ function field(value: unknown, name: string): unknown {
 
 /** The reason an auth_required answer gives, or no_session when it gives none. */
 export function signedOutReason(body: unknown): string {
-  const reason = field(field(field(body, "error"), "detail"), "reason");
+  const reason = fieldOf(fieldOf(fieldOf(body, "error"), "detail"), "reason");
   return typeof reason === "string" ? reason : "no_session";
 }
 
@@ -31,8 +31,8 @@ export function signedOutReason(body: unknown): string {
 export function watchForSignOut(session: Session, navigation: Navigation): Middleware {
   return {
     async onResponse({ request, response }) {
-      const hasSession = request.headers.has("Authorization") && session.token() !== undefined;
-      if (response.status !== 401 || !hasSession) {
+      const didCarrySession = request.headers.has("Authorization") && session.token() !== undefined;
+      if (response.status !== 401 || !didCarrySession) {
         return undefined;
       }
       let reason = "no_session";
@@ -42,7 +42,7 @@ export function watchForSignOut(session: Session, navigation: Navigation): Middl
         // Not our error shape: the reason stays unknown.
       }
       navigation.go({ screen: "films" });
-      session.endBecause(reason);
+      session.signOutBecause(reason);
       return undefined;
     },
   };
