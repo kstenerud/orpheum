@@ -64,7 +64,7 @@ func startExtractionAgent(t *testing.T) (video, sidecar nodeproto.BytesFile, cor
 			t.Fatal(err)
 		}
 		named[name] = nodeproto.BytesFile{
-			RootPath: root.Path(), Path: []byte(name), PayloadHash: hex.EncodeToString(identity.Hash[:]),
+			RootPath: root.Path(), Path: []byte(name), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
 		}
 	}
 	return named["film.mkv"], named["film.en.srt"], core

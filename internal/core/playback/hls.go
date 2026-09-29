@@ -33,7 +33,7 @@ type AudioRendition struct {
 // audioRenditions lists a prepare's audio renditions in the order the master playlist has them.
 func audioRenditions(command nodeproto.Prepare) []AudioRendition {
 	var renditions []AudioRendition
-	for _, track := range command.Audio {
+	for _, track := range command.AudioTracks {
 		standard := AudioRendition{AudioTrackIndex: track.AudioTrackIndex, Language: track.Language}
 		renditions = append(renditions, standard)
 		if track.ChannelCount > 2 {

@@ -113,7 +113,7 @@ func Registry() []Definition {
 		integerSetting(Argon2Iterations, "3", 1, math.MaxUint32, "argon2id passes per password hash (D194 §2)"),
 		integerSetting(Argon2Parallelism, "4", 1, math.MaxUint8, "argon2id lanes per password hash (D194 §2)"),
 		integerSetting(SecretLastCharsShown, "4", 0, 8,
-			"trailing characters of an API key shown as its hint; a password never has one (D194 §3)"),
+			"trailing characters of an API key shown, to tell which key is set; a password shows none (D194 §3)"),
 		integerSetting(BackupAgeWarningH, "168", 1, 365*24, "hours after which doctor says the newest backup is old"),
 		{
 			Key: ShouldServeDebugPProf, Scope: ScopeServer, Kind: KindBool, StartJSON: json.RawMessage("false"),

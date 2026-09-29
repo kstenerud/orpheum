@@ -92,7 +92,7 @@ func (batch *ingestBatch) keepSidecarTrack(
 		if !hasTrack {
 			return nil
 		}
-		if dropErr := batch.queries.DeleteFileStreams(ctx, sidecar.ID); dropErr != nil {
+		if dropErr := batch.queries.DeleteStreamsOfBytesFile(ctx, sidecar.ID); dropErr != nil {
 			return fmt.Errorf("drop the track of %s: %w", sidecar.Path, dropErr)
 		}
 		return nil

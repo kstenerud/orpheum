@@ -133,9 +133,9 @@ func levelAudio(
 // as its rendition records them (D226 §4). A track not measured yet carries none.
 func levelPrepare(command *nodeproto.Prepare, levels map[soundKey]Levelling, probe nodeproto.Probe) string {
 	indexes := audioStreamIndexes(probe)
-	gains := make([]float64, len(command.Audio))
-	for index := range command.Audio {
-		track := &command.Audio[index]
+	gains := make([]float64, len(command.AudioTracks))
+	for index := range command.AudioTracks {
+		track := &command.AudioTracks[index]
 		if track.AudioTrackIndex < len(indexes) {
 			track.CarriedGainDB = levels[soundKey{int64(indexes[track.AudioTrackIndex]), mixStereo}].GainDB
 			gains[index] = track.CarriedGainDB

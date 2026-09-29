@@ -19,9 +19,9 @@ type Provenance struct {
 	IsModified bool `json:"isModified"`
 	// CommittedAt is the commit's time, in Unix milliseconds; zero when unrecorded.
 	CommittedAt int64 `json:"committedAt,omitempty"`
-	// BinarySHA256 is the running binary's hash, which tells two builds apart when nothing else
-	// can; empty when it could not be read. The caller fills it in (WithBinarySHA256).
-	BinarySHA256 string `json:"binarySha256,omitempty"`
+	// BinarySha256 is the running binary's hash, which tells two builds apart when nothing else
+	// can; empty when it could not be read. The caller fills it in (WithBinarySha256).
+	BinarySha256 string `json:"binarySha256,omitempty"`
 }
 
 // devVersion is the version of a build whose commit carries no release tag.
@@ -62,9 +62,9 @@ func FromBuildInfo(recorded *debug.BuildInfo) Provenance {
 	return info
 }
 
-// WithBinarySHA256 is the provenance with the binary's hash.
-func (info Provenance) WithBinarySHA256(binarySHA256 string) Provenance {
-	info.BinarySHA256 = binarySHA256
+// WithBinarySha256 is the provenance with the binary's hash.
+func (info Provenance) WithBinarySha256(binarySha256 string) Provenance {
+	info.BinarySha256 = binarySha256
 	return info
 }
 
@@ -85,8 +85,8 @@ func (info Provenance) String() string {
 // else the same version and commit, both unmodified. Two modified trees from one commit may
 // differ, so they are not called the same.
 func (info Provenance) IsSame(other Provenance) bool {
-	if info.BinarySHA256 != "" && other.BinarySHA256 != "" {
-		return info.BinarySHA256 == other.BinarySHA256
+	if info.BinarySha256 != "" && other.BinarySha256 != "" {
+		return info.BinarySha256 == other.BinarySha256
 	}
 	return info.Commit != "" && info.Commit == other.Commit && info.Version == other.Version &&
 		!info.IsModified && !other.IsModified

@@ -27,22 +27,22 @@ const (
 // in it is the device's monotonic clock, in milliseconds, which the server anchors to its own
 // when the report arrives.
 type Report struct {
-	// Seq numbers the playback's reports from 1; one sent again is taken once.
-	Seq int64
+	// ReportSeq numbers the playback's reports from 1; one sent again is taken once.
+	ReportSeq int64
 	// SentMonoMs is the device's monotonic clock when it sent the report.
 	SentMonoMs int64
-	// PositionMs is where the playback is in the file, sampled at PositionMonoMs.
-	PositionMs     int64
-	PositionMonoMs int64
-	Events         []Event
-	Spans          []Span
+	// PositionMs is where the playback is in the file, sampled at PositionReadMonoMs.
+	PositionMs         int64
+	PositionReadMonoMs int64
+	Events             []Event
+	Spans              []Span
 }
 
 // Event is one change of play state, at a position in the file.
 type Event struct {
-	Kind       EventKind
-	PositionMs int64
-	MonoMs     int64
+	Kind           EventKind
+	PositionMs     int64
+	HappenedMonoMs int64
 }
 
 // Span is a run of watching that a change closed: from one position to another, between two
@@ -83,7 +83,7 @@ func (service *Service) Report(
 		return err
 	}
 	now := service.clock.Now()
-	playback, isNew, found := service.tokens.takeReport(token, userID, sessionKey, report.Seq, now, idle)
+	playback, isNew, found := service.tokens.takeReport(token, userID, sessionKey, report.ReportSeq, now, idle)
 	if !found {
 		return ErrNoToken
 	}
@@ -91,7 +91,7 @@ func (service *Service) Report(
 		return nil
 	}
 	if err := service.keepReport(ctx, playback, userID, deviceID, now.UnixMilli(), report); err != nil {
-		service.tokens.returnReport(token, report.Seq, playback.lastReportSeq)
+		service.tokens.returnReport(token, report.ReportSeq, playback.lastReportSeq)
 		return err
 	}
 	return nil
@@ -101,7 +101,7 @@ func (service *Service) Report(
 func (service *Service) keepReport(
 	ctx context.Context, playback tokenPlayback, userID, deviceID, nowMs int64, report Report,
 ) error {
-	watchedAt, err := serverTimeMs(nowMs, report.SentMonoMs, report.PositionMonoMs)
+	watchedAt, err := serverTimeMs(nowMs, report.SentMonoMs, report.PositionReadMonoMs)
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (service *Service) keepReport(
 			}
 		}
 		return queries.MovePlayPosition(ctx, sqlcgen.MovePlayPositionParams{
-			UserID: userID, FileID: playback.fileID, PositionMs: report.PositionMs, ReportSeq: report.Seq,
+			UserID: userID, FileID: playback.fileID, PositionMs: report.PositionMs, ReportSeq: report.ReportSeq,
 			DeviceID: log.deviceID, UpdatedAt: nowMs, PositionReadAt: watchedAt,
 		})
 	})
@@ -138,11 +138,11 @@ type playLog struct {
 }
 
 func (log playLog) appendEvent(ctx context.Context, queries *sqlcgen.Queries, event Event) error {
-	happenedAt, err := serverTimeMs(log.nowMs, log.sentMonoMs, event.MonoMs)
+	happenedAt, err := serverTimeMs(log.nowMs, log.sentMonoMs, event.HappenedMonoMs)
 	if err != nil {
 		return err
 	}
-	mono := event.MonoMs
+	mono := event.HappenedMonoMs
 	err = queries.InsertPlayEvent(ctx, sqlcgen.InsertPlayEventParams{
 		UserID: log.userID, FileID: log.fileID, DeviceID: log.deviceID, Kind: string(event.Kind),
 		PositionMs: event.PositionMs, HappenedAt: happenedAt, HappenedMonoMs: &mono,

@@ -9,29 +9,29 @@ import (
 	"context"
 )
 
-const deleteFileStreams = `-- name: DeleteFileStreams :exec
+const deleteStreamsOfBytesFile = `-- name: DeleteStreamsOfBytesFile :exec
 DELETE FROM stream WHERE bytes_file = ?
 `
 
-func (q *Queries) DeleteFileStreams(ctx context.Context, bytesFile int64) error {
-	_, err := q.db.ExecContext(ctx, deleteFileStreams, bytesFile)
+func (q *Queries) DeleteStreamsOfBytesFile(ctx context.Context, bytesFile int64) error {
+	_, err := q.db.ExecContext(ctx, deleteStreamsOfBytesFile, bytesFile)
 	return err
 }
 
-const deleteFileStreamsNotIn = `-- name: DeleteFileStreamsNotIn :exec
+const deleteStreamsOfBytesFileNotIn = `-- name: DeleteStreamsOfBytesFileNotIn :exec
 DELETE FROM stream
 WHERE bytes_file = ?1 AND stream_index IS NOT NULL
   AND stream_index NOT IN (SELECT value FROM json_each(CAST(?2 AS TEXT)))
 `
 
-type DeleteFileStreamsNotInParams struct {
+type DeleteStreamsOfBytesFileNotInParams struct {
 	FileID      int64
 	KeptIndexes string
 }
 
 // A video's own tracks whose stream index its probe no longer has.
-func (q *Queries) DeleteFileStreamsNotIn(ctx context.Context, arg DeleteFileStreamsNotInParams) error {
-	_, err := q.db.ExecContext(ctx, deleteFileStreamsNotIn, arg.FileID, arg.KeptIndexes)
+func (q *Queries) DeleteStreamsOfBytesFileNotIn(ctx context.Context, arg DeleteStreamsOfBytesFileNotInParams) error {
+	_, err := q.db.ExecContext(ctx, deleteStreamsOfBytesFileNotIn, arg.FileID, arg.KeptIndexes)
 	return err
 }
 

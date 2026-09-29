@@ -54,25 +54,25 @@ func TestArt_ServesAStoredSizeAndRedirectsFromOneNotMade(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	token := harness.createAdminAndSignIn(t)
-	hash := strings.Repeat("ab", 32)
-	if err := harness.directories.WriteArt(hash, "portrait-s.webp", []byte("RIFF....WEBP")); err != nil {
+	sourceSha256Hex := strings.Repeat("ab", 32)
+	if err := harness.directories.WriteArt(sourceSha256Hex, "portrait-s.webp", []byte("RIFF....WEBP")); err != nil {
 		t.Fatal(err)
 	}
-	answer, body := harness.getWithoutRedirect(t, "/bytes/art/"+hash+"/portrait-s.webp", token)
+	answer, body := harness.getWithoutRedirect(t, "/bytes/art/"+sourceSha256Hex+"/portrait-s.webp", token)
 	if answer.StatusCode != http.StatusOK || body != "RIFF....WEBP" ||
 		answer.Header.Get("Content-Type") != "image/webp" ||
 		!strings.Contains(answer.Header.Get("Cache-Control"), "immutable") {
 		t.Errorf("a stored size: %d %v %q", answer.StatusCode, answer.Header, body)
 	}
-	moved, _ := harness.getWithoutRedirect(t, "/bytes/art/"+hash+"/portrait-m.webp", token)
+	moved, _ := harness.getWithoutRedirect(t, "/bytes/art/"+sourceSha256Hex+"/portrait-m.webp", token)
 	if moved.StatusCode != http.StatusTemporaryRedirect ||
-		moved.Header.Get("Location") != Prefix+"/bytes/art/"+hash+"/portrait-s.webp" ||
+		moved.Header.Get("Location") != Prefix+"/bytes/art/"+sourceSha256Hex+"/portrait-s.webp" ||
 		moved.Header.Get("Cache-Control") != "no-store" {
 		t.Errorf("a size not made: %d %v", moved.StatusCode, moved.Header)
 	}
 	for _, path := range []string{
-		"/bytes/art/" + hash + "/portrait-s.png", "/bytes/art/" + hash + "/poster",
-		"/bytes/art/" + hash + "/landscape-s.webp",
+		"/bytes/art/" + sourceSha256Hex + "/portrait-s.png", "/bytes/art/" + sourceSha256Hex + "/poster",
+		"/bytes/art/" + sourceSha256Hex + "/landscape-s.webp",
 		"/bytes/art/" + strings.Repeat("cd", 32) + "/portrait-s.webp",
 	} {
 		if missing, _ := harness.getWithoutRedirect(t, path, token); missing.StatusCode != http.StatusNotFound {
@@ -83,8 +83,8 @@ func TestArt_ServesAStoredSizeAndRedirectsFromOneNotMade(t *testing.T) {
 	if strange.StatusCode/100 != 4 {
 		t.Errorf("a hash that is a path: %d", strange.StatusCode)
 	}
-	if anonymous, _ := harness.getWithoutRedirect(t, "/bytes/art/"+hash+"/portrait-s.webp", ""); anonymous.StatusCode !=
-		http.StatusUnauthorized {
+	anonymous, _ := harness.getWithoutRedirect(t, "/bytes/art/"+sourceSha256Hex+"/portrait-s.webp", "")
+	if anonymous.StatusCode != http.StatusUnauthorized {
 		t.Errorf("without signing in: %d, want 401", anonymous.StatusCode)
 	}
 }

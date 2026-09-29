@@ -326,10 +326,11 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	startAgent(t, socket)
-	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandArtwork, EncodeArtwork: &nodeproto.Artwork{
+	artwork := &nodeproto.Artwork{
 		JobID: 12, SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
 		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
-	}}
+	}
+	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork}
 	select {
 	case result := <-core.artwork:
 		if result.JobID != 12 || len(result.Images) != 1 || string(result.Images[0].WebP) != "cba" {
@@ -354,7 +355,7 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 	answer := func(job int64, named string) nodeproto.ArtworkResult {
 		t.Helper()
 		core.commands <- nodeproto.Command{
-			CommandSeq: job, Type: nodeproto.CommandArtwork,
+			CommandSeq: job, Type: nodeproto.CommandEncodeArtwork,
 			EncodeArtwork: &nodeproto.Artwork{
 				JobID: job, AbsolutePath: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
 				SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},

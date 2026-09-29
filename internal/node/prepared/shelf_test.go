@@ -57,10 +57,10 @@ func remainingRunDirs(t *testing.T, shelf *Shelf) []string {
 	return dirs
 }
 
-func TestEvict_RemovesTheLeastRecentlyUsedPastTheGraceFirstAndNeverOneBeingWritten(t *testing.T) {
+func TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeingWritten(t *testing.T) {
 	t.Parallel()
 	disk := 50
-	budget := Budget{MaxBytes: 250, Grace: 72 * time.Hour, DiskUsedLimitPercent: 95}
+	budget := Budget{MaxBytes: 250, KeptAfterLastPlay: 72 * time.Hour, DiskUsedLimitPercent: 95}
 	shelf := shelfWith(t, budget, &disk, map[string]struct {
 		bytes int
 		ago   time.Duration
@@ -90,7 +90,7 @@ func TestEvict_RemovesTheLeastRecentlyUsedPastTheGraceFirstAndNeverOneBeingWritt
 func TestEvict_ADiskPastItsLimitEvictsWhateverTheBudgetSays(t *testing.T) {
 	t.Parallel()
 	disk := 97
-	budget := Budget{MaxBytes: 1 << 30, Grace: 72 * time.Hour, DiskUsedLimitPercent: 95}
+	budget := Budget{MaxBytes: 1 << 30, KeptAfterLastPlay: 72 * time.Hour, DiskUsedLimitPercent: 95}
 	shelf := shelfWith(t, budget, &disk, map[string]struct {
 		bytes int
 		ago   time.Duration
@@ -115,7 +115,7 @@ func TestEvict_ADiskPastItsLimitEvictsWhateverTheBudgetSays(t *testing.T) {
 func TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict(t *testing.T) {
 	t.Parallel()
 	disk := 99
-	shelf := shelfWith(t, Budget{MaxBytes: 1 << 30, Grace: time.Hour, DiskUsedLimitPercent: 95}, &disk, nil)
+	shelf := shelfWith(t, Budget{MaxBytes: 1 << 30, KeptAfterLastPlay: time.Hour, DiskUsedLimitPercent: 95}, &disk, nil)
 	if err := shelf.MakeRoom(); !errors.Is(err, ErrNoRoom) {
 		t.Errorf("MakeRoom with the disk 99%% full and nothing to evict: %v, want ErrNoRoom", err)
 	}
@@ -128,7 +128,8 @@ func TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict(t *testing.
 func TestMarkServed_MakesARenditionTheMostRecentlyUsed(t *testing.T) {
 	t.Parallel()
 	disk := 50
-	shelf := shelfWith(t, Budget{MaxBytes: 100, Grace: time.Hour, DiskUsedLimitPercent: 95}, &disk, map[string]struct {
+	budget := Budget{MaxBytes: 100, KeptAfterLastPlay: time.Hour, DiskUsedLimitPercent: 95}
+	shelf := shelfWith(t, budget, &disk, map[string]struct {
 		bytes int
 		ago   time.Duration
 	}{

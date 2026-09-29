@@ -165,8 +165,8 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	output := &StartPlaybackOutput{}
 	output.Body.Delivery = string(started.Decision.Delivery)
 	output.Body.Profile = string(started.Decision.Profile)
-	output.Body.NotDirectReasons = make([]string, 0, len(started.Decision.Reasons))
-	for _, reason := range started.Decision.Reasons {
+	output.Body.NotDirectReasons = make([]string, 0, len(started.Decision.NotDirectReasons))
+	for _, reason := range started.Decision.NotDirectReasons {
 		output.Body.NotDirectReasons = append(output.Body.NotDirectReasons, string(reason))
 	}
 	output.Body.URL = Prefix + "/bytes/media/direct/" + started.Token
@@ -300,7 +300,7 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 		failure := newError(http.StatusTooManyRequests, CodeQuotaExhausted,
 			"the OpenSubtitles account's downloads for today are spent")
 		failure.ErrorBody.Error.Detail = map[string]string{
-			"downloadsResetAt": strconv.FormatInt(spent.ResetAt.UnixMilli(), 10),
+			"downloadsResetAt": strconv.FormatInt(spent.DownloadsResetAt.UnixMilli(), 10),
 		}
 		failure.ErrorBody.Error.FailedHop = HopProvider
 		return failure

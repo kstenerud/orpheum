@@ -66,11 +66,11 @@ type Query struct {
 
 // Candidate is one search result, kept for the chooser (D172).
 type Candidate struct {
-	ID           string
-	Name         string
-	OriginalName string
-	Year         int
-	PosterRef    string
+	ID                 string
+	Name               string
+	OriginalName       string
+	Year               int
+	ProviderPosterPath string
 }
 
 // Metadata is what a provider says about a work.

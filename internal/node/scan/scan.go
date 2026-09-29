@@ -335,7 +335,7 @@ func (walk *walk) payloadIdentity(place location, size int64) (nodeproto.Identit
 	return nodeproto.Identity{
 		Scheme:       hash.Scheme,
 		Anchor:       string(identity.Anchor),
-		PayloadHash:  hex.EncodeToString(identity.Hash[:]),
+		PayloadHash:  hex.EncodeToString(identity.PayloadHash[:]),
 		PayloadBytes: identity.PayloadBytes,
 	}, nil
 }

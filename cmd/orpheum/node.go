@@ -217,7 +217,7 @@ func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.
 	}
 	shelf := prepared.New(root.Path(), prepared.Budget{
 		MaxBytes:             config.Node.PreparedBudgetGiB << 30,
-		Grace:                time.Duration(config.Node.PreparedKeptAfterPlayH) * time.Hour,
+		KeptAfterLastPlay:    time.Duration(config.Node.PreparedKeptAfterPlayH) * time.Hour,
 		DiskUsedLimitPercent: int(config.Node.PreparedDiskUsedLimitPercent),
 	}, clock.System{})
 	preparer, err := prepare.New(runner, root.Path(), shelf, encoder)
@@ -262,7 +262,7 @@ func openRoots(ctx context.Context, paths []string, logger *slog.Logger) []*conf
 	for _, path := range paths {
 		root, err := confine.OpenMediaRoot(path)
 		if err != nil {
-			logger.ErrorContext(ctx, "a media root cannot be opened; the node serves the others", "root", path,
+			logger.ErrorContext(ctx, "a media root cannot be opened; the node serves the others", "rootPath", path,
 				"err", err)
 			continue
 		}
@@ -289,7 +289,7 @@ func describeNode(
 		return nodeproto.Hello{}, fmt.Errorf("run the pinned ffprobe: %w", err)
 	}
 	firstLine, _, _ := strings.Cut(string(output), "\n")
-	ffmpegHash, err := fileSHA256(filepath.Join(config.Node.FFmpegDir, string(execx.FFmpeg)))
+	ffmpegHash, err := fileSha256(filepath.Join(config.Node.FFmpegDir, string(execx.FFmpeg)))
 	if err != nil {
 		return nodeproto.Hello{}, err
 	}
@@ -334,7 +334,7 @@ func capabilityNames(encoders []prepare.Encoder) []string {
 	return names
 }
 
-func fileSHA256(path string) (string, error) {
+func fileSha256(path string) (string, error) {
 	file, err := os.Open(path) //nolint:gosec // the configured FFmpeg
 	if err != nil {
 		return "", fmt.Errorf("hash %s: %w", path, err)

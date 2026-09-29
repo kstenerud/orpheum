@@ -36,7 +36,7 @@ func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, com
 	batch.endedLibraryIDs = append(batch.endedLibraryIDs, scan.libraryID)
 	if complete.IsStoppedByErrors || scan.isEverythingUnread {
 		batch.ingester.logger.WarnContext(ctx, "a scan could not read its whole root; nothing was removed",
-			"nodeId", batch.nodeID, "root", scan.root, "errorCount", complete.ErrorCount)
+			"nodeId", batch.nodeID, "rootPath", scan.root, "errorCount", complete.ErrorCount)
 		return batch.recordNotComplete(ctx, scan, outcomeUnreadable, "")
 	}
 	missing, err := batch.missingMounts(ctx, scan)
@@ -53,7 +53,7 @@ func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, com
 	}
 	if reason != "" {
 		batch.ingester.logger.WarnContext(ctx, "a scan's removals wait for the admin", "nodeId", batch.nodeID,
-			"root", scan.root, "wouldRemove", len(unseenFileIDs), "rootFileCount", liveFileCount, "reason", reason)
+			"rootPath", scan.root, "wouldRemove", len(unseenFileIDs), "rootFileCount", liveFileCount, "reason", reason)
 		return batch.recordNotComplete(ctx, scan, outcomeWithheld, reason)
 	}
 	for _, gone := range unseenFileIDs {
@@ -74,7 +74,8 @@ func (batch *ingestBatch) completeScan(ctx context.Context, scan *scanState, com
 	if err != nil {
 		return fmt.Errorf("record the scan of %s as complete: %w", scan.root, err)
 	}
-	device, mountPoint := int64(scan.facts.Device), boolInt(scan.facts.IsMountPoint) //nolint:gosec // a device id fits
+	device := int64(scan.facts.FilesystemDevice) //nolint:gosec // a device id fits
+	mountPoint := boolInt(scan.facts.IsMountPoint)
 	err = batch.queries.RecordRootComplete(ctx, sqlcgen.RecordRootCompleteParams{
 		NodeID: batch.nodeID, RootPath: scan.root, FilesystemDevice: &device, IsMountPoint: &mountPoint,
 		LastScanAt: batch.nowMs,
@@ -166,7 +167,7 @@ func (batch *ingestBatch) unseenUnder(ctx context.Context, scan *scanState) ([]i
 func changedFactsReason(prior sqlcgen.GetRootStateRow, scan *scanState) string {
 	switch {
 	//nolint:gosec // a device id fits
-	case prior.FilesystemDevice != nil && *prior.FilesystemDevice != int64(scan.facts.Device):
+	case prior.FilesystemDevice != nil && *prior.FilesystemDevice != int64(scan.facts.FilesystemDevice):
 		return "the root is on another device than at its last complete scan: an unmounted disk?"
 	case prior.IsMountPoint != nil && *prior.IsMountPoint != boolInt(scan.facts.IsMountPoint):
 		return "the root was a mount point and is not now, or the other way round"

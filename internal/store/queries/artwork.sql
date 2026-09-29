@@ -54,11 +54,11 @@ WHERE item_id = sqlc.arg(item_id) AND kind = sqlc.arg(kind) AND source = sqlc.ar
 UPDATE artwork SET removed_at = sqlc.arg(removed_at)
 WHERE item_id = sqlc.arg(item_id) AND source_sha256 IS NULL AND is_chosen = 0 AND removed_at IS NULL;
 
--- name: ListArtworkHashes :many
+-- name: ListArtworkSourceSha256s :many
 -- Every stored image, whether a live item shows it, and when it last stopped being shown: what
 -- the artwork ceiling reads to find removed items' images, D212 section 6.
 SELECT artwork.source_sha256,
-  CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS live,
+  CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS is_live,
   CAST(MAX(COALESCE(artwork.removed_at, item.removed_at, 0)) AS INTEGER) AS gone_at
 FROM artwork
 JOIN item ON item.id = artwork.item_id
@@ -71,9 +71,9 @@ SELECT node_id, path, reported_path_bytes
 FROM file
 WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
--- name: ListItemsWithLiveLocalArtwork :many
+-- name: ListItemsWithLiveUnchosenLocalArtwork :many
 -- A library's items that show an image found beside the media, D215: each pass checks they are
--- still there.
+-- still there. An image a person chose is left out: a choice stays even when its file goes.
 SELECT DISTINCT artwork.item_id
 FROM item
 JOIN artwork ON artwork.item_id = item.id

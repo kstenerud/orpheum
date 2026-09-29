@@ -22,7 +22,7 @@ import (
 type fakePreparer struct{}
 
 func (fakePreparer) Prepare(
-	ctx context.Context, input string, command nodeproto.Prepare, progress func(preparedMs int64),
+	ctx context.Context, input string, command nodeproto.Prepare, progress func(preparedThroughMs int64),
 ) (prepare.Made, error) {
 	progress(500)
 	if strings.HasSuffix(command.RenditionDir, "/slow") {
@@ -73,11 +73,11 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := nodeproto.BytesFile{
-		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
 	}
 	send := func(job int64, source nodeproto.BytesFile) {
 		core.commands <- nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-			JobID: job, Source: source, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
+			JobID: job, Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
 		}}
 	}
 	send(1, source)
@@ -126,11 +126,11 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 		t.Fatal(err)
 	}
 	source := nodeproto.BytesFile{
-		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
 	}
 	commandFor := func(job int64, dir string) nodeproto.Command {
 		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-			JobID: job, Source: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir,
+			JobID: job, Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir,
 		}}
 	}
 	// Two slow prepares fill both remux slots, so a third runs only once a cancel frees one.
@@ -163,11 +163,11 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := nodeproto.BytesFile{
-		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
 	}
 	encode := func(job int64, dir string) nodeproto.Command {
 		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-			JobID: job, Source: source, Profile: nodeproto.ProfileH264At8M, RenditionDir: dir,
+			JobID: job, Video: source, Profile: nodeproto.ProfileH264At8M, RenditionDir: dir,
 		}}
 	}
 	// One encode slot: the first encode runs, the second waits for it.

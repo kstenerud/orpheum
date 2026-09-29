@@ -212,7 +212,7 @@ func readLine(reader *bufio.Reader, maxBytes int) ([]byte, error) {
 type reportReader struct {
 	service        *Service
 	nodeID         int64
-	lastSeq        int64
+	lastReportSeq  int64
 	batch          []nodeproto.Record
 	batchStartedAt time.Time
 	status         *nodeproto.Status
@@ -228,10 +228,11 @@ func (reader *reportReader) takeLine(ctx context.Context, line []byte) error {
 	if err := json.Unmarshal(line, &record); err != nil {
 		return fmt.Errorf("a report line is not a record: %w", err)
 	}
-	if reader.lastSeq != 0 && record.ReportSeq <= reader.lastSeq {
-		return fmt.Errorf("record %d came after %d; a report's sequence only rises", record.ReportSeq, reader.lastSeq)
+	if reader.lastReportSeq != 0 && record.ReportSeq <= reader.lastReportSeq {
+		return fmt.Errorf("record %d came after %d; a report's sequence only rises", record.ReportSeq,
+			reader.lastReportSeq)
 	}
-	reader.lastSeq = record.ReportSeq
+	reader.lastReportSeq = record.ReportSeq
 	reader.service.noteHeard(reader.nodeID)
 	if record.Type == nodeproto.RecordStatus && record.Status != nil {
 		reader.status = record.Status

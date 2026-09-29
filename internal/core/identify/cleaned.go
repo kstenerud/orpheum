@@ -35,7 +35,7 @@ func (provider cleaningProvider) Search(ctx context.Context, query Query) ([]Can
 		candidates[index] = Candidate{
 			ID: textindex.Line(candidate.ID), Name: textindex.Line(candidate.Name),
 			OriginalName: textindex.Line(candidate.OriginalName), Year: candidate.Year,
-			PosterRef: textindex.Line(candidate.PosterRef),
+			ProviderPosterPath: textindex.Line(candidate.ProviderPosterPath),
 		}
 	}
 	return candidates, err //nolint:wrapcheck // the provider's own error, passed through as it is

@@ -63,7 +63,7 @@ func (batch *ingestBatch) syncStreams(ctx context.Context, fileID int64, probe n
 	if err != nil {
 		return fmt.Errorf("encode the stream indexes of file %d: %w", fileID, err)
 	}
-	err = batch.queries.DeleteFileStreamsNotIn(ctx, sqlcgen.DeleteFileStreamsNotInParams{
+	err = batch.queries.DeleteStreamsOfBytesFileNotIn(ctx, sqlcgen.DeleteStreamsOfBytesFileNotInParams{
 		FileID: fileID, KeptIndexes: string(encoded),
 	})
 	if err != nil {

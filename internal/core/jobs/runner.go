@@ -140,7 +140,7 @@ func (runner *Runner) finish(ctx context.Context, job Job, handlerErr error) err
 	}
 	if job.AttemptNumber >= attemptLimit {
 		runner.queue.logger.WarnContext(ctx, "a job failed", "kind", job.Kind, "target", job.Target,
-			"attempts", job.AttemptNumber, "err", handlerErr)
+			"attemptCount", job.AttemptNumber, "err", handlerErr)
 		return runner.writeFinish(ctx, finishParams(job, stateFailed, handlerErr, now))
 	}
 	wait := firstRetryDelay << (job.AttemptNumber - 1)

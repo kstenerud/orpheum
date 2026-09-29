@@ -135,7 +135,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	if err != nil {
 		return err
 	}
-	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID, "lastReportSeq",
+	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID, "lastIngestedReportSeq",
 		reply.LastIngestedReportSeq)
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
@@ -226,7 +226,7 @@ func (agent *Agent) runCommandsInOrder(
 func (agent *Agent) runCommand(
 	ctx context.Context, nodeID int64, command nodeproto.Command, stream *recordStream,
 ) error {
-	if command.Type == nodeproto.CommandArtwork && command.EncodeArtwork != nil {
+	if command.Type == nodeproto.CommandEncodeArtwork && command.EncodeArtwork != nil {
 		return agent.deriveAndPostArtwork(ctx, nodeID, *command.EncodeArtwork)
 	}
 	if command.Type == nodeproto.CommandPrepare && command.Prepare != nil {
@@ -244,7 +244,7 @@ func (agent *Agent) runCommand(
 	if command.Type == nodeproto.CommandScan {
 		root, known := agent.roots[command.Scan.RootPath]
 		if !known {
-			agent.logger.WarnContext(ctx, "refused to scan a root this node was not given", "root",
+			agent.logger.WarnContext(ctx, "refused to scan a root this node was not given", "rootPath",
 				command.Scan.RootPath)
 			return nil
 		}
@@ -260,7 +260,7 @@ func (agent *Agent) runCommand(
 		}
 		err := agent.workers.Scanner.Scan(ctx, root, emit)
 		if err != nil && ctx.Err() == nil {
-			agent.logger.WarnContext(ctx, "a scan ended early", "root", root.Path(), "err", err)
+			agent.logger.WarnContext(ctx, "a scan ended early", "rootPath", root.Path(), "err", err)
 		}
 		return nil
 	}

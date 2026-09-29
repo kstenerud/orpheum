@@ -3,7 +3,7 @@
 package nodeproto
 
 // CommandType names one kind of command (cut-a §4). The set is closed; cancel comes with the
-// work it commands. CommandArtwork is in artwork.go, CommandPrepare in prepare.go,
+// work it commands. CommandEncodeArtwork is in artwork.go, CommandPrepare in prepare.go,
 // CommandExtractSubtitle in subtitle.go, CommandMeasureLoudness in loudness.go.
 type CommandType string
 
@@ -21,7 +21,7 @@ type Command struct {
 	CommandSeq int64       `json:"commandSeq"`
 	Type       CommandType `json:"type"`
 	Scan       *Scan       `json:"scan,omitempty"`
-	// EncodeArtwork is set for CommandArtwork.
+	// EncodeArtwork is set for CommandEncodeArtwork.
 	EncodeArtwork *Artwork `json:"encodeArtwork,omitempty"`
 	// Prepare is set for CommandPrepare.
 	Prepare *Prepare `json:"prepare,omitempty"`

@@ -28,7 +28,7 @@ type View struct {
 	// ProgressFraction is how far it is, 0 to 1, or nil when not known.
 	ProgressFraction *float64
 	Reason           string
-	LastError        string
+	LastFailure      string
 	AttemptCount     int64
 	CreatedAt        time.Time
 	FinishedAt       *time.Time
@@ -46,7 +46,7 @@ func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
 			ID: row.ID, Kind: Kind(row.Kind), State: row.State,
 			Target:           targetOf(row.ItemID, row.RenditionID, row.StreamID, row.FetchedSubtitleID, row.FileID),
 			ProgressFraction: row.ProgressFraction, Reason: ptr.ValueOrZero(row.Reason),
-			LastError:    ptr.ValueOrZero(row.LastFailure),
+			LastFailure:  ptr.ValueOrZero(row.LastFailure),
 			AttemptCount: row.AttemptCount, CreatedAt: time.UnixMilli(row.CreatedAt),
 		}
 		if row.FinishedAt != nil {

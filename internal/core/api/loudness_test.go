@@ -121,7 +121,8 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 			jobs.Job{ID: 92, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}})
 	}()
 	command := <-harness.nodes.commanded
-	if command.Prepare == nil || len(command.Prepare.Audio) != 1 || command.Prepare.Audio[0].CarriedGainDB != 5.0 {
+	if command.Prepare == nil || len(command.Prepare.AudioTracks) != 1 ||
+		command.Prepare.AudioTracks[0].CarriedGainDB != 5.0 {
 		t.Fatalf("the prepare sent %+v, want the track's gain in its mixes (D226 §4)", command.Prepare)
 	}
 	service := harness.server.dependencies.Load().Playback

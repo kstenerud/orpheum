@@ -71,7 +71,8 @@ func (server *Server) listSecrets(ctx context.Context, secretStore *secrets.Stor
 	for _, status := range statuses {
 		definition, _ := secrets.Lookup(status.Name)
 		output.Body.Secrets = append(output.Body.Secrets, SecretBody{
-			Name: string(status.Name), Description: definition.Description, IsSet: status.IsSet, LastChars: status.Hint,
+			Name: string(status.Name), Description: definition.Description, IsSet: status.IsSet,
+			LastChars:   status.LastChars,
 			SetByUserID: status.SetByUserID, SetAt: status.SetAt, NeedsReentry: status.NeedsReentry,
 		})
 	}

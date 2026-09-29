@@ -234,7 +234,7 @@ func serverStatus(t *testing.T, secrets *Store, name Name) Status {
 	return findStatus(t, statuses, name)
 }
 
-func TestStore_ShowsAHintOnlyForAnAPIKey(t *testing.T) {
+func TestStore_ShowsLastCharsOnlyForAnAPIKey(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
@@ -249,8 +249,8 @@ func TestStore_ShowsAHintOnlyForAnAPIKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hint := findStatus(t, statuses, TMDBAPIKey).Hint; hint != "WXYZ" {
-		t.Errorf("API key hint = %q, want its last four characters", hint)
+	if lastChars := findStatus(t, statuses, TMDBAPIKey).LastChars; lastChars != "WXYZ" {
+		t.Errorf("API key last characters = %q, want its last four", lastChars)
 	}
 	settingstest.Set(t, fixture.settings, settings.SecretLastCharsShown, "2")
 	if err = fixture.secrets.Set(ctx, TMDBAPIKey, NewValue(apiKey), nil); err != nil {
@@ -260,11 +260,11 @@ func TestStore_ShowsAHintOnlyForAnAPIKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if hint := findStatus(t, statuses, TMDBAPIKey).Hint; hint != "YZ" {
-		t.Errorf("with secret_last_chars_shown 2, the hint = %q, want the last two characters", hint)
+	if lastChars := findStatus(t, statuses, TMDBAPIKey).LastChars; lastChars != "YZ" {
+		t.Errorf("with secret_last_chars_shown 2, the last characters = %q, want the last two", lastChars)
 	}
-	if hint := findStatus(t, statuses, OpenSubtitlesPassword).Hint; hint != "" {
-		t.Errorf("password hint = %q, want none", hint)
+	if lastChars := findStatus(t, statuses, OpenSubtitlesPassword).LastChars; lastChars != "" {
+		t.Errorf("password last characters = %q, want none", lastChars)
 	}
 	if status := findStatus(t, statuses, OpenSubtitlesUsername); status.IsSet {
 		t.Errorf("an unset secret reports %+v", status)

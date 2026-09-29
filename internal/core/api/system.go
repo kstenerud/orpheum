@@ -74,8 +74,8 @@ type BuildBody struct {
 	Commit      string `doc:"Empty when the build recorded none" json:"commit,omitempty"`
 	IsModified  bool   `doc:"Built from a tree with uncommitted changes" json:"isModified"`
 	CommittedAt int64  `doc:"Unix milliseconds; absent when unrecorded" json:"committedAt,omitempty"`
-	// BinarySHA256 is the binary's hash, which tells two builds of one modified tree apart.
-	BinarySHA256 string `json:"binarySha256,omitempty"`
+	// BinarySha256 is the binary's hash, which tells two builds of one modified tree apart.
+	BinarySha256 string `json:"binarySha256,omitempty"`
 }
 
 // HostBody is a machine's operating system, as lsb_release -a shows it, and its kernel.
@@ -91,7 +91,7 @@ type HostBody struct {
 func buildBody(info build.Provenance) BuildBody {
 	return BuildBody{
 		Name: info.String(), Version: info.Version, Commit: info.Commit, IsModified: info.IsModified,
-		CommittedAt: info.CommittedAt, BinarySHA256: info.BinarySHA256,
+		CommittedAt: info.CommittedAt, BinarySha256: info.BinarySha256,
 	}
 }
 
@@ -335,7 +335,7 @@ func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID in
 	bodies := make([]FinishedPrepareBody, 0, len(finished))
 	for _, prepare := range finished {
 		bodies = append(bodies, FinishedPrepareBody{
-			SourceFileID: prepare.FileID, Path: prepare.Path, Profile: prepare.Profile, State: prepare.State,
+			SourceFileID: prepare.SourceFileID, Path: prepare.Path, Profile: prepare.Profile, State: prepare.State,
 			VideoEncoder: prepare.VideoEncoder, RealtimeFactor: prepare.RealtimeFactor, SizeBytes: prepare.SizeBytes,
 			Failure: prepare.Failure, FinishedAt: prepare.FinishedAt.UnixMilli(),
 		})

@@ -397,7 +397,7 @@ func (matcher *Matcher) keepCandidates(
 			err := queries.InsertMatchCandidate(ctx, cachegen.InsertMatchCandidateParams{
 				ItemID: itemID, Rank: int64(rank), Provider: provider.Name(), ProviderID: candidate.ID,
 				Name: ptr.NilIfZero(candidate.Name), Year: ptr.NilIfZero(int64(candidate.Year)),
-				ProviderPosterPath: ptr.NilIfZero(candidate.PosterRef),
+				ProviderPosterPath: ptr.NilIfZero(candidate.ProviderPosterPath),
 			})
 			if err != nil {
 				return fmt.Errorf("keep a candidate for item %d: %w", itemID, err)

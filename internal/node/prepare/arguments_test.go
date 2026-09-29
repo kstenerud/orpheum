@@ -24,7 +24,7 @@ func TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre(t *testing.
 	t.Parallel()
 	command := nodeproto.Prepare{
 		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", RenditionDir: "7/remux/0123456789abcdef",
-		Audio: []nodeproto.PrepareAudio{
+		AudioTracks: []nodeproto.PrepareAudio{
 			{AudioTrackIndex: 0, Language: "en", ChannelCount: 6},
 			{AudioTrackIndex: 1, Language: "de", ChannelCount: 2},
 			{AudioTrackIndex: 2, Language: "bad tag,x", ChannelCount: 8},
@@ -63,7 +63,7 @@ func TestArguments_EachMixOfAMeasuredTrackCarriesItsLevellingGain(t *testing.T) 
 	t.Parallel()
 	command := nodeproto.Prepare{
 		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", RenditionDir: "7/remux/0123456789abcdef",
-		Audio: []nodeproto.PrepareAudio{
+		AudioTracks: []nodeproto.PrepareAudio{
 			{AudioTrackIndex: 0, Language: "en", ChannelCount: 6, CarriedGainDB: 12.7},
 			{AudioTrackIndex: 1, Language: "de", ChannelCount: 2, CarriedGainDB: -3.4},
 			{AudioTrackIndex: 2, Language: "fr", ChannelCount: 2},

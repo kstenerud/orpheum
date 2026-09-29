@@ -19,7 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// Role is one of Cut A's two built-in roles (cut-a §1, D125); the rows are in migration 0001.
+// Role is one of Cut A's two built-in roles (cut-a §1, D125); the rows are in the baseline migration.
 type Role string
 
 // The roles.
@@ -194,9 +194,9 @@ func countUsers(ctx context.Context, queries *sqlcgen.Queries) (int64, error) {
 type NewDevice struct {
 	Name     string
 	Platform string
-	// ResumeDeviceID is the device the client remembers being signed in as: a sign-in resumes it when it
+	// PreviousDeviceID is the device the client remembers being signed in as: a sign-in resumes it when it
 	// is the same person's and has not been removed, rather than making a new one (D221 §1).
-	ResumeDeviceID int64
+	PreviousDeviceID int64
 }
 
 // SignIn checks a name and password and issues a session on the device the client remembers,
@@ -277,8 +277,8 @@ func accountLimitKey(name string) string {
 func resumeOrMakeDevice(
 	ctx context.Context, queries *sqlcgen.Queries, userID int64, device NewDevice, now int64,
 ) (int64, error) {
-	if device.ResumeDeviceID != 0 {
-		known, err := liveDevice(ctx, queries, userID, device.ResumeDeviceID)
+	if device.PreviousDeviceID != 0 {
+		known, err := liveDevice(ctx, queries, userID, device.PreviousDeviceID)
 		if err == nil {
 			touch := sqlcgen.RecordDeviceSignInParams{Platform: device.Platform, SignedInAt: now, ID: known.ID}
 			if touchErr := queries.RecordDeviceSignIn(ctx, touch); touchErr != nil {

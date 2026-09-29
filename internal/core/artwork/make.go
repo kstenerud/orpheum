@@ -50,7 +50,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, want wan
 		return service.cutFrom(ctx, nodeID, command, args, true)
 	}
 	download, err := service.fetch(ctx, fetcher, want.source, want.ref.SourceRef)
-	if errors.Is(err, ErrNoImage) || (err == nil && download.hash() != args.SourceSha256) {
+	if errors.Is(err, ErrNoImage) || (err == nil && download.sourceSha256Hex() != args.SourceSha256) {
 		service.parts.Logger.WarnContext(ctx, "an image's source is gone or changed; its sizes are not made",
 			"sourceSha256", args.SourceSha256, "source", want.source, "sourceRef", want.ref.SourceRef)
 		return service.noteCannotMake(ctx, args.SourceSha256, args.SizeNames)
@@ -101,10 +101,10 @@ func (service *Service) cutFrom(
 
 // baseNameFor is the held WebP an image's sizes can be cut from: its largest, when it is at least
 // as large as every size asked for.
-func (service *Service) baseNameFor(hash string, sizes []nodeproto.ArtSizeName) (string, bool) {
+func (service *Service) baseNameFor(sourceSha256Hex string, sizes []nodeproto.ArtSizeName) (string, bool) {
 	held := service.holdings
 	held.mutex.Lock()
-	base := baseNameOf(held.sizeBytesByNameByHash[hash])
+	base := baseNameOf(held.sizeBytesByNameBySourceSha256[sourceSha256Hex])
 	held.mutex.Unlock()
 	baseSize, known := nodeproto.ArtSizeName(strings.TrimSuffix(base, webpSuffix)).Size()
 	if !known {
@@ -120,9 +120,11 @@ func (service *Service) baseNameFor(hash string, sizes []nodeproto.ArtSizeName) 
 }
 
 // noteCannotMake notes sizes an image cannot be made at, as empty .none files beside its sizes.
-func (service *Service) noteCannotMake(ctx context.Context, hash string, sizes []nodeproto.ArtSizeName) error {
+func (service *Service) noteCannotMake(
+	ctx context.Context, sourceSha256Hex string, sizes []nodeproto.ArtSizeName,
+) error {
 	for _, size := range sizes {
-		if err := service.writeArt(ctx, hash, string(size)+cannotMakeSuffix, nil); err != nil {
+		if err := service.writeArt(ctx, sourceSha256Hex, string(size)+cannotMakeSuffix, nil); err != nil {
 			return err
 		}
 	}
@@ -146,26 +148,26 @@ func sizesTooLarge(shape nodeproto.Shape, made []nodeproto.ArtImage) []nodeproto
 
 // queueMake queues sizes of a stored image to be made, for the item that shows it, if one does
 // and the sizes are of its shape.
-func (service *Service) queueMake(ctx context.Context, hash string, wantShape nodeproto.Shape,
+func (service *Service) queueMake(ctx context.Context, sourceSha256Hex string, wantShape nodeproto.Shape,
 	sizes []nodeproto.ArtSizeName,
 ) error {
-	hashBytes, err := hex.DecodeString(hash)
+	sourceSha256, err := hex.DecodeString(sourceSha256Hex)
 	if err != nil {
 		return ErrNoArt
 	}
-	origin, err := store.OrNotFound(service.parts.Database.Read().GetArtworkSource(ctx, hashBytes))
+	origin, err := store.OrNotFound(service.parts.Database.Read().GetArtworkSource(ctx, sourceSha256))
 	if errors.Is(err, store.ErrNotFound) {
 		return nil // an image no item shows any more
 	}
 	if err != nil {
-		return fmt.Errorf("find where art %s came from: %w", hash, err)
+		return fmt.Errorf("find where art %s came from: %w", sourceSha256Hex, err)
 	}
 	if shape, known := shapeOf(origin.Kind); !known || shape != wantShape {
 		return nil
 	}
 	args, err := json.Marshal(artworkJobArgs{
 		ArtworkSource: origin.Source, Refs: []owedRef{{Kind: origin.Kind, SourceRef: *origin.SourceRef}},
-		SourceSha256: hash,
+		SourceSha256: sourceSha256Hex,
 		SizeNames:    sizes,
 	})
 	if err != nil {
@@ -177,7 +179,7 @@ func (service *Service) queueMake(ctx context.Context, hash string, wantShape no
 		Reason:   fmt.Sprintf("sizes someone asked for: %v", sizes),
 	})
 	if err != nil {
-		return fmt.Errorf("queue %v of art %s: %w", sizes, hash, err)
+		return fmt.Errorf("queue %v of art %s: %w", sizes, sourceSha256Hex, err)
 	}
 	return nil
 }

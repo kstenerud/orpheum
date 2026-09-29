@@ -4,7 +4,7 @@
 // alone deletes in its prepared directory, and this is where it does. A rendition's run
 // directory's modification time is its last use: the byte socket sets it each time it serves one
 // of its files, so it survives a restart. Eviction removes the least recently used first: those
-// past a grace after their last use before any within it, never one being written, until the
+// past their kept time after their last play before any within it, never one being written, until the
 // directory is within its budget and its filesystem within its fullness limit. A prepare that
 // would find the disk past that limit with nothing left to evict is refused rather than fill it.
 //
@@ -14,16 +14,16 @@
 //     written) deletes on the node. Enforced by the forbidigo rules tagged [delete].
 //   - It deletes only whole run directories under its own directory, three levels down
 //     (<file_id>/<profile>/<run_id>), and the empty folders they leave. Enforced by
-//     TestEvict_RemovesTheLeastRecentlyUsedPastTheGraceFirstAndNeverOneBeingWritten.
-//   - A rendition within its grace is evicted only when the budget or the disk still needs it,
-//     after every rendition past its grace; one being written, never.
-//     TestEvict_RemovesTheLeastRecentlyUsedPastTheGraceFirstAndNeverOneBeingWritten.
+//     TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeingWritten.
+//   - A rendition within its kept time is evicted only when the budget or the disk still needs it,
+//     after every rendition past its kept time; one being written, never.
+//     TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeingWritten.
 //   - A prepare the disk has no room for is refused, with why.
 //     TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict.
 //
 // # Read before changing
 //
-//   - D217 §5: a node owns its prepared renditions, their budget, grace and disk limit.
+//   - D217 §5: a node owns its prepared renditions, their budget, kept time and disk limit.
 //   - principles §2: the user's files are not ours to touch; these are ours.
 //
 // # Where to change

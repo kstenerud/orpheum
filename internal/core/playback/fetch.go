@@ -48,8 +48,8 @@ type SubtitleOffer struct {
 	// DidAskByIDs is a search that asked by the work's ids, which finds subtitles made for any copy of it;
 	// false for a file not identified yet.
 	DidAskByIDs bool
-	// DidAskByFileHash is a search that asked by the file's moviehash, which finds those made for its bytes.
-	DidAskByFileHash bool
+	// DidAskByOpensubtitlesHash is a search that asked by the file's moviehash, which finds those made for its bytes.
+	DidAskByOpensubtitlesHash bool
 }
 
 // SubtitleCandidates lists the subtitles OpenSubtitles has in language for a file a person may
@@ -75,7 +75,8 @@ func (service *Service) SubtitleCandidates(ctx context.Context, fileID int64, la
 		return SubtitleOffer{}, err
 	}
 	return SubtitleOffer{
-		Candidates: candidates, Allowance: allowance, DidAskByIDs: hasIDs, DidAskByFileHash: query.MovieHash != "",
+		Candidates: candidates, Allowance: allowance, DidAskByIDs: hasIDs,
+		DidAskByOpensubtitlesHash: query.MovieHash != "",
 	}, nil
 }
 
@@ -144,7 +145,7 @@ type FetchRequest struct {
 type Fetched struct {
 	Track              TrackRef
 	RemainingDownloads int
-	ResetAt            time.Time
+	DownloadsResetAt   time.Time
 }
 
 // FetchSubtitle downloads the subtitle a person chose, which spends one of the account's downloads;
@@ -185,7 +186,9 @@ func (service *Service) FetchSubtitle(
 	if chooseErr := service.ChooseSubtitle(ctx, userID, fileID, SubtitleChoice{TrackRef: track}); chooseErr != nil {
 		return Fetched{}, chooseErr
 	}
-	return Fetched{Track: track, RemainingDownloads: downloaded.RemainingDownloads, ResetAt: downloaded.ResetAt}, nil
+	return Fetched{
+		Track: track, RemainingDownloads: downloaded.RemainingDownloads, DownloadsResetAt: downloaded.DownloadsResetAt,
+	}, nil
 }
 
 // gzipped is a fetched subtitle's body as library.db keeps it.

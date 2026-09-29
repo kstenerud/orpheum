@@ -34,7 +34,7 @@ func payloadHashOf(t *testing.T, contents string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return identity.Hash[:]
+	return identity.PayloadHash[:]
 }
 
 func TestOpen_RefusesWhatIsNotARegularFile(t *testing.T) {

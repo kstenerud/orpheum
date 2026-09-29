@@ -67,8 +67,8 @@ type ItemSummary struct {
 	Name                string
 	Year                int64
 	IdentificationState string
-	Source              string
-	SourceID            string
+	FollowedSource      string
+	FollowedSourceID    string
 }
 
 // Items lists the titles and series in one state of identification, by name.
@@ -87,16 +87,16 @@ func (chooser *Chooser) Items(ctx context.Context, identification string) ([]Ite
 		items = append(items, ItemSummary{
 			ID: row.ID, LibraryID: ptr.ValueOrZero(row.LibraryID), Kind: row.Kind, Name: ptr.ValueOrZero(row.Name),
 			Year: ptr.ValueOrZero(row.Year), IdentificationState: row.IdentificationState,
-			Source:   ptr.ValueOrZero(row.FollowedSource),
-			SourceID: ptr.ValueOrZero(row.FollowedSourceID),
+			FollowedSource:   ptr.ValueOrZero(row.FollowedSource),
+			FollowedSourceID: ptr.ValueOrZero(row.FollowedSourceID),
 		})
 	}
 	for _, row := range series {
 		items = append(items, ItemSummary{
 			ID: row.ID, LibraryID: ptr.ValueOrZero(row.LibraryID), Kind: KindSeries, Name: ptr.ValueOrZero(row.Name),
 			Year: ptr.ValueOrZero(row.Year), IdentificationState: ptr.ValueOrZero(row.IdentificationState),
-			Source:   ptr.ValueOrZero(row.FollowedSource),
-			SourceID: ptr.ValueOrZero(row.FollowedSourceID),
+			FollowedSource:   ptr.ValueOrZero(row.FollowedSource),
+			FollowedSourceID: ptr.ValueOrZero(row.FollowedSourceID),
 		})
 	}
 	slices.SortStableFunc(items, func(a, b ItemSummary) int {
@@ -168,7 +168,7 @@ func (chooser *Chooser) Candidates(ctx context.Context, itemID int64) ([]Candida
 		provider = row.Provider
 		candidates = append(candidates, Candidate{
 			ID: row.ProviderID, Name: ptr.ValueOrZero(row.Name), Year: int(ptr.ValueOrZero(row.Year)),
-			PosterRef: ptr.ValueOrZero(row.ProviderPosterPath),
+			ProviderPosterPath: ptr.ValueOrZero(row.ProviderPosterPath),
 		})
 	}
 	if len(candidates) > 0 || item.identification() != identificationAmbiguous {

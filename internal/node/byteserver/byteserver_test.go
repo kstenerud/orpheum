@@ -54,7 +54,7 @@ func newFilm(t *testing.T, name string) film {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return film{root: root, path: name, contents: contents, payloadHash: hex.EncodeToString(identity.Hash[:])}
+	return film{root: root, path: name, contents: contents, payloadHash: hex.EncodeToString(identity.PayloadHash[:])}
 }
 
 func (movie film) target(path, payloadHash string) string {

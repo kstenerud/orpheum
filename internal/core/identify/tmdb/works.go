@@ -48,9 +48,9 @@ type workSummary struct {
 func (found workSummary) candidate() identify.Candidate {
 	return identify.Candidate{
 		ID: strconv.FormatInt(found.ID, 10), Name: firstNonEmpty(found.Title, found.Name),
-		OriginalName: firstNonEmpty(found.OriginalTitle, found.OriginalName),
-		Year:         identify.YearOfDate(firstNonEmpty(found.ReleaseDate, found.FirstAirDate)),
-		PosterRef:    found.PosterPath,
+		OriginalName:       firstNonEmpty(found.OriginalTitle, found.OriginalName),
+		Year:               identify.YearOfDate(firstNonEmpty(found.ReleaseDate, found.FirstAirDate)),
+		ProviderPosterPath: found.PosterPath,
 	}
 }
 

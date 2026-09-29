@@ -30,13 +30,13 @@ const (
 // holdings is what the art directory holds, kept in memory from one listing at start and every
 // write and removal since, and when each image was last served, to the day.
 type holdings struct {
-	mutex                  sync.Mutex
-	sizeBytesByNameByHash  map[string]map[string]int64 // hash, then file name, to size
-	totalBytes             int64
-	lastServedDayByHash    map[string]int64 // hash to day
-	unsavedServedDayByHash map[string]int64 // served since the last flush
-	pressure               Pressure
-	sweepWake              chan struct{}
+	mutex                          sync.Mutex
+	sizeBytesByNameBySourceSha256  map[string]map[string]int64 // source SHA-256 in hex, then file name, to size
+	totalBytes                     int64
+	lastServedDayBySourceSha256    map[string]int64 // source SHA-256 in hex to day
+	unsavedServedDayBySourceSha256 map[string]int64 // served since the last flush
+	pressure                       Pressure
+	sweepWake                      chan struct{}
 }
 
 // Pressure is the artwork cache against its ceiling, as the last sweep found it.
@@ -52,9 +52,9 @@ type Pressure struct {
 
 func newHoldings() *holdings {
 	return &holdings{
-		sizeBytesByNameByHash: map[string]map[string]int64{}, lastServedDayByHash: map[string]int64{},
-		unsavedServedDayByHash: map[string]int64{},
-		sweepWake:              make(chan struct{}, 1),
+		sizeBytesByNameBySourceSha256: map[string]map[string]int64{}, lastServedDayBySourceSha256: map[string]int64{},
+		unsavedServedDayBySourceSha256: map[string]int64{},
+		sweepWake:                      make(chan struct{}, 1),
 	}
 }
 
@@ -73,30 +73,30 @@ func (service *Service) LoadHoldings(ctx context.Context) error {
 	held.mutex.Lock()
 	defer held.mutex.Unlock()
 	for _, file := range files {
-		held.add(file.Hash, file.Name, file.SizeBytes)
+		held.add(file.SourceSha256Hex, file.Name, file.SizeBytes)
 	}
 	for _, row := range rows {
-		held.lastServedDayByHash[row.SourceSha256Hex] = row.LastServedEpochDay
+		held.lastServedDayBySourceSha256[row.SourceSha256Hex] = row.LastServedEpochDay
 	}
 	return nil
 }
 
-func (held *holdings) add(hash, name string, size int64) {
-	if held.sizeBytesByNameByHash[hash] == nil {
-		held.sizeBytesByNameByHash[hash] = map[string]int64{}
+func (held *holdings) add(sourceSha256Hex, name string, size int64) {
+	if held.sizeBytesByNameBySourceSha256[sourceSha256Hex] == nil {
+		held.sizeBytesByNameBySourceSha256[sourceSha256Hex] = map[string]int64{}
 	}
-	held.totalBytes += size - held.sizeBytesByNameByHash[hash][name]
-	held.sizeBytesByNameByHash[hash][name] = size
+	held.totalBytes += size - held.sizeBytesByNameBySourceSha256[sourceSha256Hex][name]
+	held.sizeBytesByNameBySourceSha256[sourceSha256Hex][name] = size
 }
 
 // writeArt stores one file and counts it; past the ceiling it wakes the sweep.
-func (service *Service) writeArt(ctx context.Context, hash, name string, contents []byte) error {
-	if err := service.parts.ArtFiles.WriteArt(hash, name, contents); err != nil {
-		return fmt.Errorf("store art %s %s: %w", hash, name, err)
+func (service *Service) writeArt(ctx context.Context, sourceSha256Hex, name string, contents []byte) error {
+	if err := service.parts.ArtFiles.WriteArt(sourceSha256Hex, name, contents); err != nil {
+		return fmt.Errorf("store art %s %s: %w", sourceSha256Hex, name, err)
 	}
 	held := service.holdings
 	held.mutex.Lock()
-	held.add(hash, name, int64(len(contents)))
+	held.add(sourceSha256Hex, name, int64(len(contents)))
 	total := held.totalBytes
 	held.mutex.Unlock()
 	ceiling, err := service.ceilingBytes(ctx)
@@ -110,13 +110,14 @@ func (service *Service) writeArt(ctx context.Context, hash, name string, content
 }
 
 // noteServed records that an image was served today, in memory; Flush writes it.
-func (service *Service) noteServed(hash string) {
+func (service *Service) noteServed(sourceSha256Hex string) {
 	todayEpochDay := service.parts.Clock.Now().Unix() / int64(day/time.Second)
 	held := service.holdings
 	held.mutex.Lock()
 	defer held.mutex.Unlock()
-	if held.lastServedDayByHash[hash] < todayEpochDay {
-		held.lastServedDayByHash[hash], held.unsavedServedDayByHash[hash] = todayEpochDay, todayEpochDay
+	if held.lastServedDayBySourceSha256[sourceSha256Hex] < todayEpochDay {
+		held.lastServedDayBySourceSha256[sourceSha256Hex] = todayEpochDay
+		held.unsavedServedDayBySourceSha256[sourceSha256Hex] = todayEpochDay
 	}
 }
 
@@ -124,15 +125,15 @@ func (service *Service) noteServed(hash string) {
 func (service *Service) Flush(ctx context.Context) error {
 	held := service.holdings
 	held.mutex.Lock()
-	unsaved := held.unsavedServedDayByHash
-	held.unsavedServedDayByHash = map[string]int64{}
+	unsaved := held.unsavedServedDayBySourceSha256
+	held.unsavedServedDayBySourceSha256 = map[string]int64{}
 	held.mutex.Unlock()
 	if len(unsaved) == 0 {
 		return nil
 	}
 	err := service.parts.Cache.Write(ctx, func(queries *cachegen.Queries) error {
-		for hash, servedDay := range unsaved {
-			marked := cachegen.MarkArtServedParams{SourceSha256Hex: hash, LastServedEpochDay: servedDay}
+		for sourceSha256Hex, servedDay := range unsaved {
+			marked := cachegen.MarkArtServedParams{SourceSha256Hex: sourceSha256Hex, LastServedEpochDay: servedDay}
 			if err := queries.MarkArtServed(ctx, marked); err != nil {
 				return err
 			}
@@ -171,11 +172,11 @@ const (
 
 // candidate is one file a sweep may evict.
 type candidate struct {
-	hash, name    string
-	sizeBytes     int64
-	class         class
-	lastServedDay int64
-	goneAt        int64
+	sourceSha256Hex, name string
+	sizeBytes             int64
+	class                 class
+	lastServedDay         int64
+	goneAt                int64
 }
 
 // Sweep evicts what the ceiling says to: removed items' images once their grace has passed,
@@ -191,17 +192,17 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 	if err != nil {
 		return Pressure{}, fmt.Errorf("read removed_item_artwork_kept_d: %w", err)
 	}
-	rows, err := service.parts.Database.Read().ListArtworkHashes(ctx)
+	rows, err := service.parts.Database.Read().ListArtworkSourceSha256s(ctx)
 	if err != nil {
 		return Pressure{}, fmt.Errorf("list the stored images: %w", err)
 	}
-	isLiveByHash := map[string]bool{}
-	goneAtByHash := map[string]int64{}
+	isLiveBySourceSha256 := map[string]bool{}
+	goneAtBySourceSha256 := map[string]int64{}
 	for _, row := range rows {
 		key := hex.EncodeToString(row.SourceSha256)
-		isLiveByHash[key], goneAtByHash[key] = row.Live == 1, row.GoneAt
+		isLiveBySourceSha256[key], goneAtBySourceSha256[key] = row.IsLive == 1, row.GoneAt
 	}
-	sorted := service.classify(isLiveByHash, goneAtByHash)
+	sorted := service.classify(isLiveBySourceSha256, goneAtBySourceSha256)
 	candidates, required, total := sorted.candidates, sorted.requiredBytes, sorted.totalBytes
 	graceEndsAt := service.parts.Clock.Now().Add(-time.Duration(graceDays) * day).UnixMilli()
 	isOverCeiling, lowWaterBytes := total > ceiling, int64(float64(ceiling)*lowWaterFraction)
@@ -234,20 +235,23 @@ type classified struct {
 }
 
 // classify sorts every held file into its class.
-func (service *Service) classify(isLiveByHash map[string]bool, goneAtByHash map[string]int64) classified {
+func (service *Service) classify(
+	isLiveBySourceSha256 map[string]bool, goneAtBySourceSha256 map[string]int64,
+) classified {
 	held := service.holdings
 	held.mutex.Lock()
 	defer held.mutex.Unlock()
 	var candidates []candidate
 	var required int64
-	for hash, files := range held.sizeBytesByNameByHash {
+	for sourceSha256Hex, files := range held.sizeBytesByNameBySourceSha256 {
 		base := baseNameOf(files)
 		for name, size := range files {
 			file := candidate{
-				hash: hash, name: name, sizeBytes: size, lastServedDay: held.lastServedDayByHash[hash],
-				goneAt: goneAtByHash[hash],
+				sourceSha256Hex: sourceSha256Hex, name: name, sizeBytes: size,
+				lastServedDay: held.lastServedDayBySourceSha256[sourceSha256Hex],
+				goneAt:        goneAtBySourceSha256[sourceSha256Hex],
 			}
-			file.class = classOf(name, base, isLiveByHash[hash])
+			file.class = classOf(name, base, isLiveBySourceSha256[sourceSha256Hex])
 			if file.class == classKept {
 				required += size
 				continue
@@ -262,7 +266,7 @@ func (service *Service) classify(isLiveByHash map[string]bool, goneAtByHash map[
 		if first.lastServedDay != second.lastServedDay {
 			return int(first.lastServedDay - second.lastServedDay)
 		}
-		return strings.Compare(first.hash+first.name, second.hash+second.name)
+		return strings.Compare(first.sourceSha256Hex+first.name, second.sourceSha256Hex+second.name)
 	})
 	return classified{candidates: candidates, requiredBytes: required, totalBytes: held.totalBytes}
 }
@@ -305,16 +309,16 @@ func baseNameOf(files map[string]int64) string {
 
 // evict removes one file and forgets it.
 func (service *Service) evict(file candidate) error {
-	if err := service.parts.ArtFiles.RemoveArt(file.hash, file.name); err != nil {
-		return fmt.Errorf("evict art %s %s: %w", file.hash, file.name, err)
+	if err := service.parts.ArtFiles.RemoveArt(file.sourceSha256Hex, file.name); err != nil {
+		return fmt.Errorf("evict art %s %s: %w", file.sourceSha256Hex, file.name, err)
 	}
 	held := service.holdings
 	held.mutex.Lock()
 	defer held.mutex.Unlock()
-	held.totalBytes -= held.sizeBytesByNameByHash[file.hash][file.name]
-	delete(held.sizeBytesByNameByHash[file.hash], file.name)
-	if len(held.sizeBytesByNameByHash[file.hash]) == 0 {
-		delete(held.sizeBytesByNameByHash, file.hash)
+	held.totalBytes -= held.sizeBytesByNameBySourceSha256[file.sourceSha256Hex][file.name]
+	delete(held.sizeBytesByNameBySourceSha256[file.sourceSha256Hex], file.name)
+	if len(held.sizeBytesByNameBySourceSha256[file.sourceSha256Hex]) == 0 {
+		delete(held.sizeBytesByNameBySourceSha256, file.sourceSha256Hex)
 	}
 	return nil
 }

@@ -40,12 +40,12 @@ type Candidate struct {
 	// ReleaseName is the uploader's name for what it was made for.
 	ReleaseName string
 	Language    string
-	// IsHashMatch is whether it was uploaded for these exact bytes.
-	IsHashMatch         bool
-	IsHearingImpaired   bool
-	IsMachineTranslated bool
-	DownloadCount       int
-	UploadedAt          time.Time
+	// IsOpensubtitlesHashMatch is whether it was uploaded for these exact bytes.
+	IsOpensubtitlesHashMatch bool
+	IsHearingImpaired        bool
+	IsMachineTranslated      bool
+	DownloadCount            int
+	UploadedAt               time.Time
 }
 
 // Search lists the subtitles OpenSubtitles has for a query, those made for the file first.
@@ -81,7 +81,7 @@ func (client *Client) Search(ctx context.Context, query Query) ([]Candidate, err
 		uploaded, _ := time.Parse(time.RFC3339, attributes.UploadDate) //nolint:errcheck // zero when unsaid
 		candidates = append(candidates, Candidate{
 			ProviderFileID: attributes.Files[0].FileID, ReleaseName: attributes.Release, Language: attributes.Language,
-			IsHashMatch: attributes.MovieHashMatch, IsHearingImpaired: attributes.HearingImpaired,
+			IsOpensubtitlesHashMatch: attributes.MovieHashMatch, IsHearingImpaired: attributes.HearingImpaired,
 			IsMachineTranslated: attributes.MachineTranslated || attributes.AITranslated,
 			DownloadCount:       attributes.DownloadCount, UploadedAt: uploaded,
 		})
@@ -116,10 +116,10 @@ type Downloaded struct {
 	// advertising, which is shown as delivered (D224 §8).
 	Body     []byte
 	FileName string
-	// RemainingDownloads is how many downloads the account has left, and ResetAt when that count starts
-	// again, as OpenSubtitles says (D224 §4).
+	// RemainingDownloads is how many downloads the account has left, and DownloadsResetAt when
+	// that count starts again, as OpenSubtitles says (D224 §4).
 	RemainingDownloads int
-	ResetAt            time.Time
+	DownloadsResetAt   time.Time
 }
 
 // Download fetches one file, which spends one of the account's downloads.
@@ -137,7 +137,7 @@ func (client *Client) Download(ctx context.Context, providerFileID int64) (Downl
 		return Downloaded{}, err
 	}
 	return Downloaded{
-		Body: text, FileName: answer.FileName, RemainingDownloads: answer.Remaining, ResetAt: answer.resetAt(),
+		Body: text, FileName: answer.FileName, RemainingDownloads: answer.Remaining, DownloadsResetAt: answer.resetAt(),
 	}, nil
 }
 

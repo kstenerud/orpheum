@@ -26,7 +26,7 @@ const ShimArgument = "__confined-exec"
 type Access struct {
 	Read    []string `json:"read,omitempty"`
 	Write   []string `json:"write,omitempty"`
-	UsesGPU bool     `json:"devices,omitempty"`
+	UsesGPU bool     `json:"usesGpu,omitempty"`
 }
 
 // Spec is one confined run: the tool, its arguments, and its access.

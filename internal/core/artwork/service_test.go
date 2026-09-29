@@ -74,35 +74,36 @@ func (images fakeFetcher) Fetch(_ context.Context, ref string) (Unsanitised, err
 // memoryStore is the art directory in memory.
 type memoryStore map[string][]byte
 
-func (art memoryStore) WriteArt(hash, name string, contents []byte) error {
-	art[hash+"/"+name] = contents
+func (art memoryStore) WriteArt(sourceSha256Hex, name string, contents []byte) error {
+	art[sourceSha256Hex+"/"+name] = contents
 	return nil
 }
 
-func (art memoryStore) ReadArt(hash, name string) ([]byte, error) {
-	contents, found := art[hash+"/"+name]
+func (art memoryStore) ReadArt(sourceSha256Hex, name string) ([]byte, error) {
+	contents, found := art[sourceSha256Hex+"/"+name]
 	if !found {
 		return nil, datadir.ErrNotFound
 	}
 	return contents, nil
 }
 
-func (art memoryStore) RemoveArt(hash, name string) error {
-	delete(art, hash+"/"+name)
+func (art memoryStore) RemoveArt(sourceSha256Hex, name string) error {
+	delete(art, sourceSha256Hex+"/"+name)
 	return nil
 }
 
 func (art memoryStore) ListArt() ([]datadir.ArtFile, error) {
 	var files []datadir.ArtFile
 	for key, contents := range art {
-		hash, name, _ := strings.Cut(key, "/")
-		files = append(files, datadir.ArtFile{Hash: hash, Name: name, SizeBytes: int64(len(contents))})
+		sourceSha256Hex, name, _ := strings.Cut(key, "/")
+		files = append(files,
+			datadir.ArtFile{SourceSha256Hex: sourceSha256Hex, Name: name, SizeBytes: int64(len(contents))})
 	}
 	return files, nil
 }
 
-func (art memoryStore) HasArt(hash, name string) (bool, error) {
-	_, found := art[hash+"/"+name]
+func (art memoryStore) HasArt(sourceSha256Hex, name string) (bool, error) {
+	_, found := art[sourceSha256Hex+"/"+name]
 	return found, nil
 }
 
@@ -202,8 +203,8 @@ func TestService_StoresOnlyTheNodesAnswer(t *testing.T) {
 // checkStored checks the store holds only portrait-s, our WebP, under the source's hash.
 func checkStored(t *testing.T, art memoryStore, source []byte) {
 	t.Helper()
-	hash := Received(source).hash()
-	if len(art) != 1 || !bytes.Equal(art[hash+"/portrait-s.webp"], ourWebP) {
+	sourceSha256Hex := Received(source).sourceSha256Hex()
+	if len(art) != 1 || !bytes.Equal(art[sourceSha256Hex+"/portrait-s.webp"], ourWebP) {
 		t.Errorf("stored %v; want only portrait-s, our WebP, under the source's hash", storedNames(art))
 	}
 	for _, stored := range art {
@@ -243,7 +244,7 @@ func TestService_RecordsARefusalAndKeepsTheOlderImage(t *testing.T) {
 	shown, err := bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
 		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: "poster",
 	})
-	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].SourceSha256, Received([]byte("old")).hashBytes()) {
+	if err != nil || len(shown) == 0 || !bytes.Equal(shown[0].SourceSha256, Received([]byte("old")).sourceSha256()) {
 		t.Errorf("shown %+v (%v); want the old poster", shown, err)
 	}
 	sent := len(bench.node.sent)
@@ -350,7 +351,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: identify.ArtPoster,
 	})
 	if err != nil || len(shown) == 0 ||
-		!bytes.Equal(shown[0].SourceSha256, Received([]byte("tmdb poster")).hashBytes()) {
+		!bytes.Equal(shown[0].SourceSha256, Received([]byte("tmdb poster")).sourceSha256()) {
 		t.Errorf("in a TMDB-only library shown %+v (%v); want TMDB's poster", shown, err)
 	}
 }

@@ -411,7 +411,7 @@ func fullyScannedTables(t *testing.T, database *Database, query listQuery) []str
 // query that no longer scans fails until it is taken off (sql.md section 11).
 func fullScansAllowed() map[string]string {
 	return map[string]string{
-		"ListArtworkHashes": "the artwork cache's sweep reads every stored image, once a day (D212 section 6)",
+		"ListArtworkSourceSha256s": "the artwork cache's sweep reads every stored image, once a day (D212 section 6)",
 		"ListSeriesByAdded": "newest first reads the series, which are few (200 at the reference scale), " +
 			"and sorts them: walking item_added would pass every film and episode",
 		"ListTitlesByIdentification": "the admin's needs-a-match list: 1.3 ms at the reference scale",

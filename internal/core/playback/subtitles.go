@@ -283,7 +283,7 @@ func (service *Service) HandleExtractSubtitle(ctx context.Context, job jobs.Job)
 	}
 	bytesFile, err := service.bytesFileOf(ctx, located{
 		subject: fmt.Sprintf("stream %d", job.StreamID), libraryID: stream.LibraryID, nodeID: stream.NodeID,
-		pathKey: stream.ReportedPathBytes, payloadHash: stream.PayloadHash,
+		reportedPathBytes: stream.ReportedPathBytes, payloadHash: stream.PayloadHash,
 	})
 	if err != nil {
 		return jobs.MarkPermanent(err)

@@ -25,7 +25,7 @@ type SubtitleCandidatesOutput struct {
 	Body struct {
 		Candidates []SubtitleCandidateBody `json:"candidates"`
 		Allowance  AllowanceBody           `json:"allowance"`
-		// DidAskByIDs and DidAskByFileHash say what the search asked by, so a client can say
+		// DidAskByIDs and DidAskByOpensubtitlesHash say what the search asked by, so a client can say
 		// why it found nothing: a file not identified yet is searched by its hash alone.
 		DidAskByIDs               bool `doc:"Asked by the work's ids: subtitles made for any copy of it" json:"didAskByIds"`         //nolint:lll // one struct tag
 		DidAskByOpensubtitlesHash bool `doc:"Asked by the file's hash: those made for these bytes" json:"didAskByOpensubtitlesHash"` //nolint:lll // one struct tag
@@ -101,12 +101,13 @@ func (server *Server) getSubtitleCandidates(
 	for _, candidate := range offer.Candidates {
 		output.Body.Candidates = append(output.Body.Candidates, SubtitleCandidateBody{
 			ProviderFileID: candidate.ProviderFileID, ReleaseName: candidate.ReleaseName, Language: candidate.Language,
-			IsOpensubtitlesHashMatch: candidate.IsHashMatch, IsHearingImpaired: candidate.IsHearingImpaired,
-			IsMachineTranslated: candidate.IsMachineTranslated, DownloadCount: candidate.DownloadCount,
+			IsOpensubtitlesHashMatch: candidate.IsOpensubtitlesHashMatch,
+			IsHearingImpaired:        candidate.IsHearingImpaired,
+			IsMachineTranslated:      candidate.IsMachineTranslated, DownloadCount: candidate.DownloadCount,
 			UploadedAt: unixMillisOrZero(candidate.UploadedAt),
 		})
 	}
-	output.Body.DidAskByIDs, output.Body.DidAskByOpensubtitlesHash = offer.DidAskByIDs, offer.DidAskByFileHash
+	output.Body.DidAskByIDs, output.Body.DidAskByOpensubtitlesHash = offer.DidAskByIDs, offer.DidAskByOpensubtitlesHash
 	output.Body.Allowance = AllowanceBody{
 		RemainingDownloads: offer.Allowance.RemainingDownloads, AllowedDownloads: offer.Allowance.AllowedDownloads,
 		IsVIP: offer.Allowance.IsVIP,
@@ -128,7 +129,7 @@ func (server *Server) postFileSubtitle(ctx context.Context, input *FetchSubtitle
 	output := &FetchSubtitleOutput{}
 	output.Body.FetchedSubtitleID = fetched.Track.FetchedSubtitleID
 	output.Body.RemainingDownloads = fetched.RemainingDownloads
-	output.Body.DownloadsResetAt = unixMillisOrZero(fetched.ResetAt)
+	output.Body.DownloadsResetAt = unixMillisOrZero(fetched.DownloadsResetAt)
 	return output, nil
 }
 

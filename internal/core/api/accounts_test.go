@@ -31,11 +31,11 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	admin := harness.createAdminAndSignIn(t)
 	created := harness.do(t, http.MethodPost, "/users", admin, map[string]string{"name": "partner", "role": "user"})
 	var made struct {
-		Account      AccountBody    `json:"account"`
-		Registration InvitationBody `json:"registrationInvitation"`
+		Account                AccountBody    `json:"account"`
+		RegistrationInvitation InvitationBody `json:"registrationInvitation"`
 	}
 	if err := json.Unmarshal([]byte(created.body), &made); err != nil || created.status != http.StatusCreated ||
-		made.Registration.Secret == "" {
+		made.RegistrationInvitation.Secret == "" {
 		t.Fatalf("POST /users = %d %s", created.status, created.body)
 	}
 	listed := harness.do(t, http.MethodGet, "/users", admin, nil)
@@ -44,14 +44,14 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	}
 
 	registered := harness.do(t, http.MethodPost, "/registration", "", map[string]any{
-		"secret": made.Registration.Secret, "password": "partner-password", "device": testDevice,
+		"secret": made.RegistrationInvitation.Secret, "password": "partner-password", "device": testDevice,
 	})
 	partner, name := readSignIn(t, registered)
 	if name != "partner" {
 		t.Errorf("registering signed in as %q, want partner", name)
 	}
 	again := harness.do(t, http.MethodPost, "/registration", "", map[string]any{
-		"secret": made.Registration.Secret, "password": "x", "device": testDevice,
+		"secret": made.RegistrationInvitation.Secret, "password": "x", "device": testDevice,
 	})
 	wantError(t, again, http.StatusUnauthorized, CodeAuthRequired)
 	wantError(t, harness.do(t, http.MethodPost, "/users", partner, map[string]string{"name": "x", "role": "user"}),

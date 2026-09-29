@@ -95,7 +95,7 @@ func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) 
 			ID: view.ID, Kind: JobKind(view.Kind), ItemID: view.ItemID, RenditionID: view.RenditionID,
 			StreamID: view.StreamID, FetchedSubtitleID: view.FetchedSubtitleID, FileID: view.FileID,
 			State: view.State, ProgressFraction: view.ProgressFraction,
-			Reason: view.Reason, LastFailure: view.LastError, AttemptCount: view.AttemptCount,
+			Reason: view.Reason, LastFailure: view.LastFailure, AttemptCount: view.AttemptCount,
 			CreatedAt: view.CreatedAt.UnixMilli(),
 		}
 		if view.FinishedAt != nil {

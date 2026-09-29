@@ -119,10 +119,10 @@ func (sink reportSink) IngestRecords(ctx context.Context, nodeID int64, records 
 		counts[record.Type]++
 		switch record.Type {
 		case nodeproto.RecordScanBegin:
-			sink.logger.InfoContext(ctx, "a node began a scan", "nodeId", nodeID, "root", record.ScanBegin.RootPath)
+			sink.logger.InfoContext(ctx, "a node began a scan", "nodeId", nodeID, "rootPath", record.ScanBegin.RootPath)
 		case nodeproto.RecordScanComplete:
 			scanComplete := record.ScanComplete
-			sink.logger.InfoContext(ctx, "a node finished a scan", "nodeId", nodeID, "root", scanComplete.RootPath,
+			sink.logger.InfoContext(ctx, "a node finished a scan", "nodeId", nodeID, "rootPath", scanComplete.RootPath,
 				"observedCount", scanComplete.ObservedCount, "sidecarCount", scanComplete.SidecarCount,
 				"skippedCount", scanComplete.SkippedCount, "errorCount", scanComplete.ErrorCount,
 				"isStoppedByErrors", scanComplete.IsStoppedByErrors)

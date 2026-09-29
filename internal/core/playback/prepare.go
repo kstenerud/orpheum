@@ -168,7 +168,7 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 	if err := all.recordRunning(ctx, job.RenditionID, 0); err != nil {
 		return err
 	}
-	languages := audioLanguagesOf(command.Audio)
+	languages := audioLanguagesOf(command.AudioTracks)
 	if err := all.recordAudio(ctx, job.RenditionID, order.carriedGainsJSON, languages); err != nil {
 		return err
 	}
@@ -208,14 +208,14 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 
 // recordProgress records how far a running prepare is, on its rendition and, when the source's length
 // is known, on its job for the job view.
-func (all *prepares) recordProgress(ctx context.Context, job jobs.Job, preparedMs, durationMs int64) error {
-	if err := all.recordRunning(ctx, job.RenditionID, preparedMs); err != nil {
+func (all *prepares) recordProgress(ctx context.Context, job jobs.Job, preparedThroughMs, durationMs int64) error {
+	if err := all.recordRunning(ctx, job.RenditionID, preparedThroughMs); err != nil {
 		return err
 	}
 	if durationMs <= 0 {
 		return nil
 	}
-	return all.queue.SetProgress(ctx, job.ID, min(float64(preparedMs)/float64(durationMs), 1))
+	return all.queue.SetProgress(ctx, job.ID, min(float64(preparedThroughMs)/float64(durationMs), 1))
 }
 
 // abandon ends a cancelled prepare: the node stops its FFmpeg, and the rendition is not made, so
@@ -228,10 +228,10 @@ func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) er
 
 // recordAudio records what a making puts in the rendition's audio tracks: the gains in their
 // sound (D226 §4) and the languages they are tagged with.
-func (all *prepares) recordAudio(ctx context.Context, renditionID int64, gains, languages string) error {
+func (all *prepares) recordAudio(ctx context.Context, renditionID int64, gainsJSON, languagesJSON string) error {
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		return queries.SetRenditionAudio(ctx, cachegen.SetRenditionAudioParams{
-			CarriedGainsDbJson: gains, AudioLanguagesJson: languages,
+			CarriedGainsDbJson: gainsJSON, AudioLanguagesJson: languagesJSON,
 			ID: renditionID,
 		})
 	})
@@ -241,9 +241,9 @@ func (all *prepares) recordAudio(ctx context.Context, renditionID int64, gains, 
 	return nil
 }
 
-func (all *prepares) recordRunning(ctx context.Context, renditionID, preparedMs int64) error {
+func (all *prepares) recordRunning(ctx context.Context, renditionID, preparedThroughMs int64) error {
 	err := all.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		progress := cachegen.SetRenditionRunningParams{PreparedThroughMs: preparedMs, ID: renditionID}
+		progress := cachegen.SetRenditionRunningParams{PreparedThroughMs: preparedThroughMs, ID: renditionID}
 		return queries.SetRenditionRunning(ctx, progress)
 	})
 	if err != nil {
@@ -297,13 +297,13 @@ func prepareCommand(
 	source nodeproto.BytesFile, fileID int64, profile nodeproto.PrepareProfile, runID string, probe nodeproto.Probe,
 ) nodeproto.Prepare {
 	command := nodeproto.Prepare{
-		Source: source, Profile: profile,
+		Video: source, Profile: profile,
 		RenditionDir: strconv.FormatInt(fileID, 10) + "/" + string(profile) + "/" + runID,
 	}
 	if picture, found := decide.MainVideo(probe); found {
 		command.VideoStreamIndex, command.VideoCodec = picture.StreamIndex, picture.Codec
 	}
-	command.Audio = preparedAudio(probe)
+	command.AudioTracks = preparedAudio(probe)
 	return command
 }
 

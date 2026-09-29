@@ -77,8 +77,8 @@ func (name ArtSizeName) Size() (ArtSize, bool) {
 	return ArtSize{}, false
 }
 
-// CommandArtwork asks the node to re-encode an image (D212 §1).
-const CommandArtwork CommandType = "encode_artwork"
+// CommandEncodeArtwork asks the node to re-encode an image (D212 §1).
+const CommandEncodeArtwork CommandType = "encode_artwork"
 
 // Artwork is a source image the node sanitises and cuts into sizes. The source is anyone's
 // bytes — a provider's download, a file beside the media — and is decoded only here, under
