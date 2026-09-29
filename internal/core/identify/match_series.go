@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -78,9 +79,9 @@ func (matcher *Matcher) acceptSeries(
 	if err != nil {
 		return fmt.Errorf("read %s series %s: %w", provider.Name(), id, err)
 	}
-	bodyGzip, err := compress(body)
+	bodyGzip, err := bounded.Gzip(body)
 	if err != nil {
-		return err
+		return fmt.Errorf("keep the provider's answer: %w", err)
 	}
 	now := matcher.clock.Now().UnixMilli()
 	found := seriesMatchFound{
@@ -176,9 +177,9 @@ func (matcher *Matcher) fetchSeasonListings(
 func (matcher *Matcher) storeSeason(
 	ctx context.Context, provider Provider, seriesID int64, season int, body []byte,
 ) error {
-	bodyGzip, err := compress(body)
+	bodyGzip, err := bounded.Gzip(body)
 	if err != nil {
-		return err
+		return fmt.Errorf("keep the provider's answer: %w", err)
 	}
 	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertProviderResponse(ctx, sqlcgen.UpsertProviderResponseParams{

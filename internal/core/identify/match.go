@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -201,9 +202,9 @@ func (matcher *Matcher) accept(
 	if err != nil {
 		return fmt.Errorf("read %s %s: %w", provider.Name(), id, err)
 	}
-	bodyGzip, err := compress(body)
+	bodyGzip, err := bounded.Gzip(body)
 	if err != nil {
-		return err
+		return fmt.Errorf("keep the provider's answer: %w", err)
 	}
 	// Read before the write: a setting read may write its starting value, and there is one writer.
 	sorter, err := matcher.pass.sorter(ctx)

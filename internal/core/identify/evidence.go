@@ -3,14 +3,12 @@
 package identify
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"maps"
 
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -54,6 +52,10 @@ func (filer *libraryFiler) matchEvidence(ctx context.Context, titleID int64, spe
 	return nil
 }
 
+// maxStoredResponseBytes bounds a stored provider answer as it is read back: the provider clients
+// read no more than 8 MiB of an answer, so nothing kept is larger.
+const maxStoredResponseBytes = 8 << 20
+
 // fromResponse takes a title's stored provider response as its source.
 func (filer *libraryFiler) fromResponse(
 	ctx context.Context, titleID int64, providerName string, spec *titleSpec,
@@ -68,7 +70,7 @@ func (filer *libraryFiler) fromResponse(
 	if err != nil {
 		return fmt.Errorf("read title %d's %s response: %w", titleID, providerName, err)
 	}
-	body, err := decompress(bodyGzip)
+	body, err := bounded.Gunzip(bodyGzip, maxStoredResponseBytes)
 	if err != nil {
 		return fmt.Errorf("title %d's %s response: %w", titleID, providerName, err)
 	}
@@ -104,28 +106,4 @@ func noMatchReason(metadataSource string) string {
 		return "no NFO file, and TMDB found no single match"
 	}
 	return "TMDB found no single match"
-}
-
-func compress(body []byte) ([]byte, error) {
-	var buffer bytes.Buffer
-	writer := gzip.NewWriter(&buffer)
-	if _, err := writer.Write(body); err != nil {
-		return nil, fmt.Errorf("compress: %w", err)
-	}
-	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("compress: %w", err)
-	}
-	return buffer.Bytes(), nil
-}
-
-func decompress(bodyGzip []byte) ([]byte, error) {
-	reader, err := gzip.NewReader(bytes.NewReader(bodyGzip))
-	if err != nil {
-		return nil, fmt.Errorf("decompress: %w", err)
-	}
-	body, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, fmt.Errorf("decompress: %w", err)
-	}
-	return body, nil
 }
