@@ -11,7 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
-func TestImages_FetchesOnlyTMDBsImagePathsFromItsImageServer(t *testing.T) {
+func TestImageFetcher_FetchesOnlyTMDBsImagePathsFromItsImageServer(t *testing.T) {
 	t.Parallel()
 	server, seen := fakeTMDB(t, map[string]string{"/qJ2tW6WMUDux911r6m7haRef0WH.jpg": "not really a JPEG"})
 	httpClient, err := outbound.NewClient(5*time.Second, "test")

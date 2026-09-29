@@ -4,7 +4,7 @@ package agent
 
 import "testing"
 
-func TestWorking_AJobCancelledBeforeItStartsStartsCancelledAndARunningOneStops(t *testing.T) {
+func TestJobTracker_AJobCancelledBeforeItStartsStartsCancelledAndARunningOneStops(t *testing.T) {
 	t.Parallel()
 	var all jobTracker
 	if all.cancel(5) {

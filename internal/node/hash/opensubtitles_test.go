@@ -10,7 +10,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/hash"
 )
 
-func TestOpenSubtitles_IsTheSizePlusTheWordsOfBothEndsAsSixteenHexDigits(t *testing.T) {
+func TestOpenSubtitlesHash_IsTheSizePlusTheWordsOfBothEndsAsSixteenHexDigits(t *testing.T) {
 	t.Parallel()
 	const size = 200_000
 	file := make([]byte, size)

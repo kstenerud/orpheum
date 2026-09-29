@@ -25,7 +25,7 @@
 //     TestSweep_UnderTheCeilingOnlyARemovedItemsImagesGoAndOnlyAfterTheirGrace,
 //     TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling.
 //   - When an image was served is kept to the day, in memory, and written in a batch, never on
-//     the request path. TestFlush_WritesWhenImagesWereServedAndLoadReadsItBack.
+//     the request path. TestFlush_WritesWhenImagesWereServedAndLoadHoldingsReadsItBack.
 //   - An evicted size is cut again by the node from the image's base, our own WebP, without
 //     fetching; only a size larger than the base, or an image with nothing held, is fetched
 //     again. TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching.

@@ -193,7 +193,7 @@ func TestWrite_RollsBackWhenTheChangeFails(t *testing.T) {
 	}
 }
 
-func TestOne_TurnsNoRowsIntoErrNotFound(t *testing.T) {
+func TestOrNotFound_TurnsNoRowsIntoErrNotFound(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
 	_, err := OrNotFound(database.Read().GetLiveUserByName(t.Context(), "nobody"))

@@ -28,7 +28,7 @@ func TestUseUTC_TimesAreUTCWhateverTZSays(t *testing.T) { //nolint:paralleltest 
 	}
 }
 
-func TestRun_PlannedSubcommandsAreNotImplementedYet(t *testing.T) {
+func TestDispatch_PlannedSubcommandsAreNotImplementedYet(t *testing.T) {
 	t.Parallel()
 	unbuilt := 0
 	for _, planned := range plannedSubcommands() {
@@ -53,7 +53,7 @@ func TestRun_PlannedSubcommandsAreNotImplementedYet(t *testing.T) {
 	}
 }
 
-func TestRun_BuiltSubcommandsNeedTheirConfig(t *testing.T) {
+func TestDispatch_BuiltSubcommandsNeedTheirConfig(t *testing.T) {
 	t.Parallel()
 	for _, planned := range plannedSubcommands() {
 		if planned.implementation == nil || planned.name == "openapi" || planned.name == "dev" {
@@ -71,7 +71,7 @@ func TestRun_BuiltSubcommandsNeedTheirConfig(t *testing.T) {
 	}
 }
 
-func TestRun_Version(t *testing.T) {
+func TestDispatch_Version(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
 	status := dispatch(t.Context(), []string{"version"}, noEnvironment, &stdout, &stderr)
@@ -83,7 +83,7 @@ func TestRun_Version(t *testing.T) {
 	}
 }
 
-func TestRun_UsageErrors(t *testing.T) {
+func TestDispatch_UsageErrors(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name      string
@@ -109,7 +109,7 @@ func TestRun_UsageErrors(t *testing.T) {
 	}
 }
 
-func TestRun_DevSubcommandExistsOnlyInDevBuilds(t *testing.T) {
+func TestDispatch_DevSubcommandExistsOnlyInDevBuilds(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
 	dispatch(t.Context(), []string{"dev"}, noEnvironment, &stdout, &stderr)

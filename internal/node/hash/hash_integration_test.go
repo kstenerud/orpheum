@@ -17,11 +17,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// TestPayload_D179TableWithTheRealTools is D179's measurement as a test (cut-a §8, M2): a file
+// TestPayloadIdentity_D179TableWithTheRealTools is D179's measurement as a test (cut-a §8, M2): a file
 // authored by mkvmerge keeps its identity through every in-place mkvpropedit edit, and gets a
 // new one from an ffmpeg -c copy remux. The source is made by the pinned FFmpeg, never taken
 // from a library (D203).
-func TestPayload_D179TableWithTheRealTools(t *testing.T) {
+func TestPayloadIdentity_D179TableWithTheRealTools(t *testing.T) {
 	t.Parallel()
 	tools := testutil.RequireMKVToolNix(t)
 	runner, err := execx.NewRunner(testutil.FFmpegDirectory(t))

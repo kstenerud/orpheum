@@ -138,7 +138,7 @@ func TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling(t *testing.T) {
 	}
 }
 
-func TestFlush_WritesWhenImagesWereServedAndLoadReadsItBack(t *testing.T) {
+func TestFlush_WritesWhenImagesWereServedAndLoadHoldingsReadsItBack(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
 	hash := hashOf("a")

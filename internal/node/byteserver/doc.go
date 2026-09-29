@@ -16,13 +16,13 @@
 //     tagged [media-root].
 //   - A file's bytes are served only while its payload hash is the one the request names; a file
 //     replaced at its path is refused, even after its identity was remembered. Enforced by
-//     TestFile_RefusesAFileThatIsNoLongerTheOneAskedFor.
+//     TestServeFile_RefusesAFileThatIsNoLongerTheOneAskedFor.
 //   - Nothing outside a root is served: not a path that climbs out, an absolute path, a
-//     directory or a root the node does not have. Enforced by TestFile_NamesNothingOutsideARoot.
+//     directory or a root the node does not have. Enforced by TestServeFile_NamesNothingOutsideARoot.
 //   - A rendition's file is served only by a name of a rendition's shape, from the prepared
-//     directory, read-only. Enforced by TestRenditionFile_ServesARenditionsFilesAndNothingElse.
-//   - GET and HEAD only; Range and If-Range are honoured. Enforced by TestFile_OnlyReads and
-//     TestFile_HonoursRangeAndIfRange.
+//     directory, read-only. Enforced by TestServeRenditionFile_ServesARenditionsFilesAndNothingElse.
+//   - GET and HEAD only; Range and If-Range are honoured. Enforced by TestServeFile_OnlyReads and
+//     TestServeFile_HonoursRangeAndIfRange.
 //
 // # Read before changing
 //

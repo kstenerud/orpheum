@@ -11,8 +11,8 @@
 //     Enforced by the depguard rule core-boundary and TestArch_CoreNeverExecs.
 //   - A node is enrolled once per name (D207). TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRoot.
 //   - A report's records reach the ingest in order, batched, and as soon as the stream goes
-//     quiet; a record out of sequence is refused. TestReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot,
-//     TestReport_ARecordReachesTheIngestWhileTheReportIsStillOpen, TestReport_RefusesARecordOutOfSequence.
+//     quiet; a record out of sequence is refused. TestServeReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot,
+//     TestServeReport_ARecordReachesTheIngestWhileTheReportIsStillOpen, TestServeReport_RefusesARecordOutOfSequence.
 //   - A node silent for node_silent_after_s is reported; silent for node_restart_after_silent_s it is
 //     restarted; one that exits is started again after node_restart_after_exit_s, so it cannot spin.
 //     TestSupervisor_RestartsANodeThatStaysSilent, TestSupervisor_StartsAnExitedNodeAgainAfterTheDelay.

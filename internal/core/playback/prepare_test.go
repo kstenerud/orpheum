@@ -27,7 +27,7 @@ func (queue *progressQueue) SetProgress(_ context.Context, id int64, fraction fl
 	return nil
 }
 
-func TestProgressed_PutsTheShareOfTheSourceMadeOnTheJob(t *testing.T) {
+func TestRecordProgress_PutsTheShareOfTheSourceMadeOnTheJob(t *testing.T) {
 	t.Parallel()
 	queue := &progressQueue{progress: map[int64]float64{}}
 	all := &prepares{cache: storetest.OpenCache(t), queue: queue}

@@ -274,7 +274,7 @@ describe in a phrase, and give it that phrase as its name.
   reads are closed: outbound HTTP goes through `internal/platform/outbound` (no proxy from
   `HTTP_PROXY`), `time.Local` is UTC, SQLite keeps temporary data in memory, and `os.TempDir`
   and `filepath.Abs` are not used outside `cmd/orpheum`. **Enforced by:**
-  `TestEnvironment_IsEmptyInARelease`, `TestUseUTC_TimesAreUTCWhateverTZSays`,
+  `TestEnvironmentLookup_IsEmptyInARelease`, `TestUseUTC_TimesAreUTCWhateverTZSays`,
   `TestNewClient_TakesNoProxyFromTheEnvironment`, `TestVerifyPragmas_RefusesAConnectionWithoutThem`;
   `TestArch_ReleaseBinaryReadsNoEnvironment`; forbidigo `[outbound]` and `[ambient]`. A bare
   `&http.Client{}` falls back to the default transport, which no lint sees: **review-only**.
@@ -439,7 +439,7 @@ agent-failures A5). [D213](../decisions/working-notes.md) is the pattern.
   `TestNewClient_TakesNoProxyFromTheEnvironment`.
 - **A request built from someone else's text is checked before it is sent**: a provider's image
   path is its expected shape, so it cannot name another path, query or host. **Enforced by:** the
-  fetcher's own tests (`TestImages_FetchesOnlyTMDBsImagePathsFromItsImageServer`); otherwise
+  fetcher's own tests (`TestImageFetcher_FetchesOnlyTMDBsImagePathsFromItsImageServer`); otherwise
   **review-only**.
 - **Nothing refetches on a timer the provider has not asked for, and nothing fetches in bulk
   that one request could answer**; a periodic refresh is a per-provider setting, spread out
