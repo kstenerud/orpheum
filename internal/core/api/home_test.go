@@ -24,15 +24,15 @@ func (harness testHarness) continueWatching(t *testing.T, sessionToken string) [
 	return home.ContinueWatching
 }
 
-// setWatchedPosition sets user 1's position in a file, as a report about the moment watchedAt
+// setPositionReadAt sets user 1's position in a file, as a report that read it at positionReadAt
 // would.
-func (harness testHarness) setWatchedPosition(t *testing.T, fileID, positionMs, watchedAt int64) {
+func (harness testHarness) setPositionReadAt(t *testing.T, fileID, positionMs, positionReadAt int64) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.databasePath, fmt.Sprintf(
 		`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at, position_read_at)
 		 VALUES (1, %d, %d, 1, %d, %d)
 		 ON CONFLICT (user_id, file_id) DO UPDATE SET position_ms = excluded.position_ms,
-		   position_read_at = excluded.position_read_at`, fileID, positionMs, watchedAt, watchedAt))
+		   position_read_at = excluded.position_read_at`, fileID, positionMs, positionReadAt, positionReadAt))
 }
 
 // rowsOf names Continue Watching's rows: each work's id and the file it resumes.
@@ -59,10 +59,10 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 		"INSERT INTO item (id, kind, library_id, added_at) VALUES (30, 'title', 1, 3)",
 		"INSERT INTO title (id, kind, identification_state) VALUES (30, 'extra', 'identified')",
 		"INSERT INTO version (id, title_id, created_at) VALUES (4, 30, 3)")
-	harness.setWatchedPosition(t, 3, 300_000, 100) // Metropolis's 720p copy, earlier
-	harness.setWatchedPosition(t, 2, 60_000, 150)  // the pilot, of unknown length
-	harness.setWatchedPosition(t, 1, 500_000, 200) // Metropolis, halfway, latest
-	harness.setWatchedPosition(t, 4, 30_000, 250)  // the trailer: an extra is never in progress (D162)
+	harness.setPositionReadAt(t, 3, 300_000, 100) // Metropolis's 720p copy, earlier
+	harness.setPositionReadAt(t, 2, 60_000, 150)  // the pilot, of unknown length
+	harness.setPositionReadAt(t, 1, 500_000, 200) // Metropolis, halfway, latest
+	harness.setPositionReadAt(t, 4, 30_000, 250)  // the trailer: an extra is never in progress (D162)
 
 	want := []string{"10:1:Metropolis (1995).mkv", "21:2:"} // Metropolis names its file: two are partway
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != fmt.Sprint(want) {
@@ -74,12 +74,12 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 		t.Errorf("rows = %+v, want Metropolis halfway with its poster, and the pilot with its series", rows)
 	}
 
-	harness.setWatchedPosition(t, 1, 950_000, 300) // Metropolis finished: 95%
-	want = []string{"10:3:", "21:2:"}              // its other copy is still partway, and now the only one
+	harness.setPositionReadAt(t, 1, 950_000, 300) // Metropolis finished: 95%
+	want = []string{"10:3:", "21:2:"}             // its other copy is still partway, and now the only one
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("after finishing one copy, Continue Watching = %v, want %v", got, want)
 	}
-	harness.setWatchedPosition(t, 1, 20_000, 310) // 2%: barely started
+	harness.setPositionReadAt(t, 1, 20_000, 310) // 2%: barely started
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("after barely starting it again, Continue Watching = %v, want %v", got, want)
 	}
@@ -90,8 +90,8 @@ func TestContinueWatching_AHiddenWorkLeavesUntilItHasActivityAndUndoBringsItBack
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
-	harness.setWatchedPosition(t, 1, 500_000, 100)
-	harness.setWatchedPosition(t, 2, 60_000, 50)
+	harness.setPositionReadAt(t, 1, 500_000, 100)
+	harness.setPositionReadAt(t, 2, 60_000, 50)
 	hide := func(method string, id int) {
 		t.Helper()
 		if answer := harness.do(t, method, fmt.Sprintf("/items/%d/hide", id), user, nil); answer.status !=
@@ -109,7 +109,7 @@ func TestContinueWatching_AHiddenWorkLeavesUntilItHasActivityAndUndoBringsItBack
 		t.Errorf("after undoing the hide: %v, want Metropolis back", got)
 	}
 	hide(http.MethodPost, 10)
-	harness.setWatchedPosition(t, 1, 510_000, harness.clock.Now().UnixMilli()+1) // watched again after the hide
+	harness.setPositionReadAt(t, 1, 510_000, harness.clock.Now().UnixMilli()+1) // watched again after the hide
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != "[10:1: 21:2:]" {
 		t.Errorf("after watching it again: %v, want Metropolis back by itself (D188)", got)
 	}

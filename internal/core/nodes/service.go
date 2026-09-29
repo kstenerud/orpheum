@@ -110,11 +110,11 @@ type connectedNode struct {
 	hello nodeproto.Hello
 	// status is its last status, nil before the first: what its prepared directory holds (D217
 	// §5) and its disks (D225).
-	status    *nodeproto.Status
-	commands  []nodeproto.Command
-	nextSeq   int64
-	wake      chan struct{}
-	lastHeard time.Time
+	status         *nodeproto.Status
+	commands       []nodeproto.Command
+	nextCommandSeq int64
+	wake           chan struct{}
+	lastHeard      time.Time
 }
 
 // NewService returns the service. The pollHold argument is how long a command long-poll waits
@@ -219,7 +219,7 @@ func (service *Service) connect(nodeID int64, hello nodeproto.Hello) {
 	defer service.mutex.Unlock()
 	existing, found := service.connectedNodes[nodeID]
 	if !found {
-		existing = &connectedNode{name: hello.Name, nextSeq: 1, wake: make(chan struct{})}
+		existing = &connectedNode{name: hello.Name, nextCommandSeq: 1, wake: make(chan struct{})}
 		service.connectedNodes[nodeID] = existing
 	}
 	existing.lastHeard = service.clock.Now()
@@ -282,8 +282,8 @@ func (service *Service) Enqueue(nodeID int64, command nodeproto.Command) {
 	if !found {
 		return
 	}
-	command.CommandSeq = node.nextSeq
-	node.nextSeq++
+	command.CommandSeq = node.nextCommandSeq
+	node.nextCommandSeq++
 	node.commands = append(node.commands, command)
 	close(node.wake)
 	node.wake = make(chan struct{})

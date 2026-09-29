@@ -51,7 +51,7 @@ func TestPayloadIdentity_TagEditsKeepTheIdentity(t *testing.T) {
 			file := edited.build()
 			if got := identityOf(t, file); got != original {
 				t.Errorf("identity changed: %x/%d → %x/%d",
-					original.Hash, original.PayloadBytes, got.Hash, got.PayloadBytes)
+					original.PayloadHash, original.PayloadBytes, got.PayloadHash, got.PayloadBytes)
 			}
 			// The positive sibling: the edit did change the file, and its head and size with it.
 			if bytes.Equal(file, film().build()) {
@@ -76,7 +76,7 @@ func TestPayloadIdentity_ARemuxOrAChangedPayloadIsANewIdentity(t *testing.T) {
 
 	changes := map[string]matroska{"remuxed": remuxed, "first cluster": changedFirst, "last cluster": changedLast}
 	for name, changed := range changes {
-		if got := identityOf(t, changed.build()); got.Hash == original.Hash {
+		if got := identityOf(t, changed.build()); got.PayloadHash == original.PayloadHash {
 			t.Errorf("%s: the identity did not change", name)
 		}
 	}
@@ -89,7 +89,7 @@ func TestPayloadIdentity_WithoutCuesTheWalkFindsTheSameSpan(t *testing.T) {
 	uncued.cues = false
 	if got := identityOf(t, uncued.build()); got != withCues {
 		t.Errorf("without cues %x/%d, with cues %x/%d",
-			got.Hash, got.PayloadBytes, withCues.Hash, withCues.PayloadBytes)
+			got.PayloadHash, got.PayloadBytes, withCues.PayloadHash, withCues.PayloadBytes)
 	}
 	// A cue pointing at the first cluster makes the walk from there find the same last cluster.
 	firstOnly := film()
@@ -121,7 +121,7 @@ func TestPayloadIdentity_AFileItCannotFollowIsHashedWhole(t *testing.T) {
 				name, identity.Anchor, identity.PayloadBytes, len(file))
 		}
 	}
-	if identityOf(t, complete).Hash == identityOf(t, complete[:len(complete)/2]).Hash {
+	if identityOf(t, complete).PayloadHash == identityOf(t, complete[:len(complete)/2]).PayloadHash {
 		t.Error("a truncated file has the complete file's identity")
 	}
 }
@@ -153,7 +153,7 @@ func TestPayloadIdentity_MP4IsAnchoredOnMdat(t *testing.T) {
 	}
 	changed := bytes.Clone(media)
 	changed[5] ^= 0xFF
-	if identityOf(t, mp4([]byte("tags: old title"), changed, false)).Hash == original.Hash {
+	if identityOf(t, mp4([]byte("tags: old title"), changed, false)).PayloadHash == original.PayloadHash {
 		t.Error("changing the head of mdat left the identity unchanged")
 	}
 }
@@ -166,7 +166,7 @@ func TestPayloadIdentity_ASmallPayloadIsReadWhole(t *testing.T) {
 	middle := small
 	middle.blocks = [][]byte{small.blocks[0], bytes.Clone(small.blocks[1]), small.blocks[2]}
 	middle.blocks[1][250_000] ^= 0xFF
-	if identityOf(t, middle.build()).Hash == original.Hash {
+	if identityOf(t, middle.build()).PayloadHash == original.PayloadHash {
 		t.Error("a change in the middle of a 1.5 MB payload left the identity unchanged")
 	}
 }

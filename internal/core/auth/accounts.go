@@ -225,9 +225,9 @@ func (service *Service) SignInWithCode(
 	if err != nil {
 		return "", err
 	}
-	device := NewDevice{Name: ptr.ValueOrZero(grant.DeviceName), Platform: platform, ResumeDeviceID: resumeDeviceID}
+	device := NewDevice{Name: ptr.ValueOrZero(grant.DeviceName), Platform: platform, PreviousDeviceID: resumeDeviceID}
 	if grant.DeviceID != nil {
-		device.ResumeDeviceID = *grant.DeviceID
+		device.PreviousDeviceID = *grant.DeviceID
 	}
 	return service.issueSession(ctx, *grant.UserID, device)
 }

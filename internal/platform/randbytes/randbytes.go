@@ -8,19 +8,19 @@ import (
 	"io"
 )
 
-// Read is count bytes from random, all of them or an error.
-func Read(random io.Reader, count int) ([]byte, error) {
-	raw := make([]byte, count)
+// Read is byteCount bytes from random, all of them or an error.
+func Read(random io.Reader, byteCount int) ([]byte, error) {
+	raw := make([]byte, byteCount)
 	if _, err := io.ReadFull(random, raw); err != nil {
-		return nil, fmt.Errorf("read %d random bytes: %w", count, err)
+		return nil, fmt.Errorf("read %d random bytes: %w", byteCount, err)
 	}
 	return raw, nil
 }
 
-// Base64URLSecret is count bytes from random in unpadded base64url: a bearer secret, such as a
+// Base64URLSecret is byteCount bytes from random in unpadded base64url: a bearer secret, such as a
 // session's or a media token.
-func Base64URLSecret(random io.Reader, count int) (string, error) {
-	raw, err := Read(random, count)
+func Base64URLSecret(random io.Reader, byteCount int) (string, error) {
+	raw, err := Read(random, byteCount)
 	if err != nil {
 		return "", err
 	}

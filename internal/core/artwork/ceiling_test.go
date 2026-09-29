@@ -17,11 +17,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// hashOf is a made-up image hash.
-func hashOf(letter string) string { return strings.Repeat(letter, 64) }
+// sourceSha256HexOf is a made-up image's source SHA-256, in hex.
+func sourceSha256HexOf(letter string) string { return strings.Repeat(letter, 64) }
 
 // show records that the bench's item shows an image, removed at removedAt (ms) when not zero.
-func (bench *bench) show(t *testing.T, kind, hash string, removedAt int64) {
+func (bench *bench) show(t *testing.T, kind, sourceSha256Hex string, removedAt int64) {
 	t.Helper()
 	removed := "NULL"
 	if removedAt != 0 {
@@ -30,22 +30,22 @@ func (bench *bench) show(t *testing.T, kind, hash string, removedAt int64) {
 	storetest.ExecRaw(t, bench.database.Path(), fmt.Sprintf(
 		"INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256, removed_at) "+
 			"VALUES (%d, '%s', 'tmdb', '/%s.jpg', X'%s', %s)",
-		bench.itemID, kind, hash[:4], hash, removed))
+		bench.itemID, kind, sourceSha256Hex[:4], sourceSha256Hex, removed))
 }
 
 // hold makes the bench hold files of the sizes given, in fractions of a GiB.
-func (bench *bench) hold(hash string, sizesGiB map[string]float64) {
+func (bench *bench) hold(sourceSha256Hex string, sizesGiB map[string]float64) {
 	for name, size := range sizesGiB {
-		bench.service.holdings.add(hash, name, gibToBytes(size))
-		bench.art[hash+"/"+name] = nil
+		bench.service.holdings.add(sourceSha256Hex, name, gibToBytes(size))
+		bench.art[sourceSha256Hex+"/"+name] = nil
 	}
 }
 
 // gibToBytes is a fraction of a GiB in bytes, as hold counts it.
 func gibToBytes(fraction float64) int64 { return int64(fraction * float64(gib)) }
 
-func (bench *bench) isHeld(hash, name string) bool {
-	_, found := bench.service.holdings.sizeBytesByNameByHash[hash][name]
+func (bench *bench) isHeld(sourceSha256Hex, name string) bool {
+	_, found := bench.service.holdings.sizeBytesByNameBySourceSha256[sourceSha256Hex][name]
 	return found
 }
 
@@ -54,7 +54,8 @@ func TestSweep_EvictsInTheOrderOfD212DownToLowWaterAndNeverAWallSize(t *testing.
 	bench := newBench(t, fakeFetcher{})
 	settingstest.Set(t, bench.settings, settings.ArtworkCacheCeilingGiB, "1")
 	clock := bench.clock
-	poster, backdrop, removed, orphan := hashOf("a"), hashOf("b"), hashOf("c"), hashOf("d")
+	poster, backdrop := sourceSha256HexOf("a"), sourceSha256HexOf("b")
+	removed, orphan := sourceSha256HexOf("c"), sourceSha256HexOf("d")
 	bench.show(t, identify.ArtPoster, poster, 0)
 	bench.show(t, identify.ArtBackdrop, backdrop, 0)
 	bench.show(t, identify.ArtPoster, removed, clock.Now().Add(-24*time.Hour).UnixMilli()) // within its grace
@@ -101,10 +102,10 @@ func TestSweep_UnderTheCeilingOnlyARemovedItemsImagesGoAndOnlyAfterTheirGrace(t 
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
 	clock := bench.clock
-	removed := hashOf("c")
+	removed := sourceSha256HexOf("c")
 	bench.show(t, identify.ArtPoster, removed, clock.Now().UnixMilli())
 	bench.hold(removed, map[string]float64{"portrait-m.webp": 0.001})
-	bench.hold(hashOf("a"), map[string]float64{"portrait-l.webp": 0.001})
+	bench.hold(sourceSha256HexOf("a"), map[string]float64{"portrait-l.webp": 0.001})
 	if _, err := bench.service.Sweep(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +125,7 @@ func TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
 	settingstest.Set(t, bench.settings, settings.ArtworkCacheCeilingGiB, "2")
-	wall := hashOf("a")
+	wall := sourceSha256HexOf("a")
 	bench.show(t, identify.ArtPoster, wall, 0)
 	bench.hold(wall, map[string]float64{"portrait-m.webp": 2.5})
 	pressure, err := bench.service.Sweep(t.Context())
@@ -142,9 +143,9 @@ func TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling(t *testing.T) {
 func TestFlush_WritesWhenImagesWereServedAndLoadHoldingsReadsItBack(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
-	hash := hashOf("a")
-	bench.art[hash+"/portrait-s.webp"] = ourWebP
-	if _, err := bench.service.Serve(t.Context(), hash, nodeproto.PortraitS, FormatWebP); err != nil {
+	sourceSha256Hex := sourceSha256HexOf("a")
+	bench.art[sourceSha256Hex+"/portrait-s.webp"] = ourWebP
+	if _, err := bench.service.Serve(t.Context(), sourceSha256Hex, nodeproto.PortraitS, FormatWebP); err != nil {
 		t.Fatal(err)
 	}
 	if err := bench.service.Flush(t.Context()); err != nil {
@@ -155,9 +156,9 @@ func TestFlush_WritesWhenImagesWereServedAndLoadHoldingsReadsItBack(t *testing.T
 		t.Fatal(err)
 	}
 	today := bench.service.parts.Clock.Now().Unix() / 86400
-	if fresh.holdings.lastServedDayByHash[hash] != today || fresh.holdings.totalBytes != int64(len(ourWebP)) {
-		t.Errorf("after Load: served day %d (want %d), total %d", fresh.holdings.lastServedDayByHash[hash], today,
-			fresh.holdings.totalBytes)
+	servedDay := fresh.holdings.lastServedDayBySourceSha256[sourceSha256Hex]
+	if servedDay != today || fresh.holdings.totalBytes != int64(len(ourWebP)) {
+		t.Errorf("after Load: served day %d (want %d), total %d", servedDay, today, fresh.holdings.totalBytes)
 	}
 }
 
@@ -176,11 +177,11 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 		return nodeproto.ArtworkResult{JobID: command.JobID, Images: images}
 	}
 	bench.handle(t, owedRef{Kind: identify.ArtBackdrop, SourceRef: "/back.jpg"})
-	hash := Received(source).hash()
-	if err := bench.service.evict(candidate{hash: hash, name: "landscape-m.webp"}); err != nil {
+	sourceSha256Hex := Received(source).sourceSha256Hex()
+	if err := bench.service.evict(candidate{sourceSha256Hex: sourceSha256Hex, name: "landscape-m.webp"}); err != nil {
 		t.Fatal(err)
 	}
-	served, err := bench.service.Serve(t.Context(), hash, nodeproto.LandscapeM, FormatWebP)
+	served, err := bench.service.Serve(t.Context(), sourceSha256Hex, nodeproto.LandscapeM, FormatWebP)
 	if err != nil || served.RedirectName != "landscape-s.webp" || len(*queue) != 1 {
 		t.Fatalf("an evicted size: %+v, %v, queued %+v", served, err, *queue)
 	}
@@ -197,7 +198,7 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 		t.Errorf("TMDB asked %d times; the node was sent %d; want the base cut by the node, nothing fetched",
 			provider.callCount, len(bench.node.sent)-sent)
 	}
-	if !bench.isHeld(hash, "landscape-m.webp") {
+	if !bench.isHeld(sourceSha256Hex, "landscape-m.webp") {
 		t.Error("landscape-m was not made again")
 	}
 }

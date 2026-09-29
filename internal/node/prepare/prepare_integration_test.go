@@ -79,12 +79,12 @@ func TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentr
 	if err != nil {
 		t.Fatal(err)
 	}
-	var preparedMs int64
+	var preparedThroughMs int64
 	command := nodeproto.Prepare{
 		Profile: nodeproto.ProfileRemux, VideoCodec: "h264", RenditionDir: "7/remux/0123456789abcdef",
-		Audio: []nodeproto.PrepareAudio{{AudioTrackIndex: 0, Language: "en", ChannelCount: 6}},
+		AudioTracks: []nodeproto.PrepareAudio{{AudioTrackIndex: 0, Language: "en", ChannelCount: 6}},
 	}
-	made, err := preparer.Prepare(t.Context(), film, command, func(ms int64) { preparedMs = ms })
+	made, err := preparer.Prepare(t.Context(), film, command, func(ms int64) { preparedThroughMs = ms })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,9 +101,9 @@ func TestPrepare_ARemuxIsHLSWithAStandardAndABoostedMixAndTheBoostRaisesTheCentr
 			t.Errorf("master.m3u8 lacks %s:\n%s", want, master)
 		}
 	}
-	if made.SizeBytes <= 0 || preparedMs < 7000 {
+	if made.SizeBytes <= 0 || preparedThroughMs < 7000 {
 		t.Errorf("size %d and progress %d ms; want the rendition's bytes and progress to near 8 s",
-			made.SizeBytes, preparedMs)
+			made.SizeBytes, preparedThroughMs)
 	}
 	if made.RealtimeFactor <= 0 || made.VideoEncoder != "copy" {
 		t.Errorf("the remux made %+v; want its video copied, at the speed the pinned FFmpeg said (D225 §3)", made)

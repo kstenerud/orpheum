@@ -32,23 +32,25 @@ func TestRecordProgress_PutsTheShareOfTheSourceMadeOnTheJob(t *testing.T) {
 	queue := &progressQueue{progress: map[int64]float64{}}
 	all := &prepares{cache: storetest.OpenCache(t), queue: queue}
 	for _, step := range []struct {
-		job                    int64
-		preparedMs, durationMs int64
-		want                   float64
-		isKnown                bool
+		job                           int64
+		preparedThroughMs, durationMs int64
+		want                          float64
+		isKnown                       bool
 	}{
-		{job: 1, preparedMs: 25_000, durationMs: 100_000, want: 0.25, isKnown: true},
-		{job: 2, preparedMs: 120_000, durationMs: 100_000, want: 1, isKnown: true}, // never past the end
-		{job: 3, preparedMs: 1_000, durationMs: 0},                                 // a length the probe did not say
+		{job: 1, preparedThroughMs: 25_000, durationMs: 100_000, want: 0.25, isKnown: true},
+		// Never past the end.
+		{job: 2, preparedThroughMs: 120_000, durationMs: 100_000, want: 1, isKnown: true},
+		// A length the probe did not say.
+		{job: 3, preparedThroughMs: 1_000, durationMs: 0},
 	} {
 		job := jobs.Job{ID: step.job, Target: jobs.Target{RenditionID: 9}}
-		if err := all.recordProgress(t.Context(), job, step.preparedMs, step.durationMs); err != nil {
+		if err := all.recordProgress(t.Context(), job, step.preparedThroughMs, step.durationMs); err != nil {
 			t.Fatal(err)
 		}
 		got, isKnown := queue.progress[step.job]
 		if isKnown != step.isKnown || got != step.want {
 			t.Errorf("job %d at %d of %d ms: %v (%v), want %v (%v)",
-				step.job, step.preparedMs, step.durationMs, got, isKnown, step.want, step.isKnown)
+				step.job, step.preparedThroughMs, step.durationMs, got, isKnown, step.want, step.isKnown)
 		}
 	}
 }

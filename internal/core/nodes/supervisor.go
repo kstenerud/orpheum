@@ -88,7 +88,7 @@ type supervision struct {
 func (supervisor *Supervisor) judge(ctx context.Context, state *supervision) error {
 	now := supervisor.clock.Now()
 	if state.child != nil && hasExited(state.child) {
-		supervisor.logger.WarnContext(ctx, "the node exited; it will be started again", "node", supervisor.name,
+		supervisor.logger.WarnContext(ctx, "the node exited; it will be started again", "nodeName", supervisor.name,
 			"err", state.child.Err())
 		state.child, state.exitedAt = nil, now
 	}
@@ -106,12 +106,13 @@ func (supervisor *Supervisor) judge(ctx context.Context, state *supervision) err
 	switch {
 	case silence >= limits.restartAfterSilence:
 		supervisor.logger.WarnContext(ctx, "the node has been silent too long; restarting it",
-			"node", supervisor.name, "silentFor", silence.String())
+			"nodeName", supervisor.name, "silentFor", silence.String())
 		if err := state.child.Kill(); err != nil {
 			return fmt.Errorf("kill the silent node: %w", err)
 		}
 	case silence >= limits.silentAfter && !state.hasWarnedSilent:
-		supervisor.logger.WarnContext(ctx, "the node is silent", "node", supervisor.name, "silentFor", silence.String())
+		supervisor.logger.WarnContext(ctx, "the node is silent", "nodeName", supervisor.name,
+			"silentFor", silence.String())
 		state.hasWarnedSilent = true
 	}
 	return nil
@@ -125,7 +126,7 @@ func (supervisor *Supervisor) startChild(ctx context.Context, state *supervision
 		return
 	}
 	state.child, state.startedAt, state.hasWarnedSilent = child, now, false
-	supervisor.logger.InfoContext(ctx, "started the node", "node", supervisor.name)
+	supervisor.logger.InfoContext(ctx, "started the node", "nodeName", supervisor.name)
 }
 
 // lastHeard is when the node last spoke, or when it was started if it has not spoken since.

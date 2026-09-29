@@ -79,9 +79,9 @@ type Input struct {
 type Decision struct {
 	Delivery Delivery
 	Profile  Profile // empty for Direct
-	// Reasons lists every axis that stopped direct play: container, video, audio, bandwidth,
+	// NotDirectReasons lists every axis that stopped direct play: container, video, audio, bandwidth,
 	// boost, then a person's choice.
-	Reasons []Reason
+	NotDirectReasons []Reason
 }
 
 // Decide resolves cut-a §6's first question, whether the original plays as it is, and when it
@@ -110,7 +110,7 @@ func Decide(input Input) Decision {
 	if !videoFits || isOverRemoteCeiling {
 		profile = H264At8M
 	}
-	return Decision{Delivery: HLS, Profile: profile, Reasons: reasons}
+	return Decision{Delivery: HLS, Profile: profile, NotDirectReasons: reasons}
 }
 
 // axisReasons asks the playable formats' three axes of the original: its container, its picture and the

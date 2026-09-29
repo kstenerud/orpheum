@@ -21,7 +21,7 @@ import (
 // Preparer makes a rendition; prepare.Preparer is the real one.
 type Preparer interface {
 	Prepare(
-		ctx context.Context, sourcePath string, command nodeproto.Prepare, onProgress func(preparedMs int64),
+		ctx context.Context, sourcePath string, command nodeproto.Prepare, onProgress func(preparedThroughMs int64),
 	) (prepare.Made, error)
 }
 
@@ -128,16 +128,16 @@ func (agent *Agent) runPrepare(
 	if agent.workers.Preparer == nil {
 		return failed(errors.New("this node does not prepare"))
 	}
-	sourcePath, err := agent.verifiedSourcePath(command.Source)
+	sourcePath, err := agent.verifiedSourcePath(command.Video)
 	if err != nil {
 		return failed(err)
 	}
 	var lastProgressSentAt time.Time
-	onProgress := func(preparedMs int64) {
+	onProgress := func(preparedThroughMs int64) {
 		if now := agent.clock.Now(); now.Sub(lastProgressSentAt) >= progressEvery {
 			lastProgressSentAt = now
 			running := nodeproto.PrepareReport{
-				JobID: command.JobID, State: nodeproto.PrepareRunning, PreparedThroughMs: preparedMs,
+				JobID: command.JobID, State: nodeproto.PrepareRunning, PreparedThroughMs: preparedThroughMs,
 			}
 			if sendErr := agent.sendPrepareReport(ctx, nodeID, running); sendErr != nil && ctx.Err() == nil {
 				agent.logger.DebugContext(ctx, "could not send a prepare's progress",

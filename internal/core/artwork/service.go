@@ -49,10 +49,10 @@ type Nodes interface {
 
 // ArtFiles keeps the images' sizes: datadir.Directories.
 type ArtFiles interface {
-	WriteArt(hash, name string, contents []byte) error
-	ReadArt(hash, name string) ([]byte, error)
-	HasArt(hash, name string) (bool, error)
-	RemoveArt(hash, name string) error
+	WriteArt(sourceSha256Hex, name string, contents []byte) error
+	ReadArt(sourceSha256Hex, name string) ([]byte, error)
+	HasArt(sourceSha256Hex, name string) (bool, error)
+	RemoveArt(sourceSha256Hex, name string) error
 	ListArt() ([]datadir.ArtFile, error)
 }
 
@@ -102,7 +102,7 @@ func NewService(parts Parts) *Service {
 type artworkJobArgs struct {
 	ArtworkSource string    `json:"artworkSource"`
 	Refs          []owedRef `json:"refs"`
-	// SourceSha256 and Sizes make sizes of a stored image that are made only on request, from its
+	// SourceSha256 and SizeNames make sizes of a stored image that are made only on request, from its
 	// source fetched again (D212 §2, §3).
 	SourceSha256 string                  `json:"sourceSha256,omitempty"`
 	SizeNames    []nodeproto.ArtSizeName `json:"sizeNames,omitempty"`
@@ -189,7 +189,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 	}
 	command := nodeproto.Artwork{Shape: shape, SizeNames: fetchedSizes(shape)}
 	var nodeID int64
-	hash := ""
+	sourceSha256Hex := ""
 	if want.source == identify.SourceLocal {
 		nodeID, command.AbsolutePath, err = service.localFile(ctx, want.ref.SourceRef)
 		if errors.Is(err, ErrNoImage) {
@@ -202,7 +202,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 			return service.recordMissing(ctx, fetcher, want, err)
 		}
 		if err == nil {
-			command.SourceImage, hash = download.bytes, download.hash()
+			command.SourceImage, sourceSha256Hex = download.bytes, download.sourceSha256Hex()
 			nodeID, err = service.anyNode()
 		}
 	}
@@ -213,7 +213,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 	if err != nil {
 		return err
 	}
-	return service.keep(ctx, want, cmp.Or(hash, result.SourceSha256), result)
+	return service.keep(ctx, want, cmp.Or(sourceSha256Hex, result.SourceSha256), result)
 }
 
 // localFile is the node that holds an image beside the media and its path there. A file gone
@@ -278,7 +278,8 @@ func (service *Service) reEncode(
 	requestID, answers := service.registerWait()
 	defer service.forget(requestID)
 	command.JobID, command.MaxSourcePixels, command.WebPQuality = requestID, maxSourcePixels, int(quality)
-	service.parts.Nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandArtwork, EncodeArtwork: &command})
+	service.parts.Nodes.Enqueue(nodeID,
+		nodeproto.Command{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &command})
 	timer := time.NewTimer(service.parts.AnswerWait)
 	defer timer.Stop()
 	select {
@@ -324,25 +325,27 @@ func (service *Service) TakeArtworkAnswer(ctx context.Context, nodeID int64, res
 
 // keep stores what the node made, then records it as the item's image of its kind; a refusal is
 // recorded with no hash.
-func (service *Service) keep(ctx context.Context, want wantedImage, hash string, result nodeproto.ArtworkResult) error {
+func (service *Service) keep(
+	ctx context.Context, want wantedImage, sourceSha256Hex string, result nodeproto.ArtworkResult,
+) error {
 	shape, _ := shapeOf(want.ref.Kind) // checked before fetching
 	images, why := storableImages(result, shape)
-	hashBytes, err := hex.DecodeString(hash)
-	if why == "" && (err != nil || len(hashBytes) != sha256.Size) {
+	sourceSha256, err := hex.DecodeString(sourceSha256Hex)
+	if why == "" && (err != nil || len(sourceSha256) != sha256.Size) {
 		why = "the node named no source hash"
 	}
 	if why != "" {
 		return service.recordRefusal(ctx, want, why)
 	}
 	for _, made := range images {
-		if err := service.writeArt(ctx, hash, string(made.SizeName)+webpSuffix, made.WebP); err != nil {
+		if err := service.writeArt(ctx, sourceSha256Hex, string(made.SizeName)+webpSuffix, made.WebP); err != nil {
 			return err
 		}
 	}
-	if err := service.noteCannotMake(ctx, hash, sizesTooLarge(shape, result.Images)); err != nil {
+	if err := service.noteCannotMake(ctx, sourceSha256Hex, sizesTooLarge(shape, result.Images)); err != nil {
 		return err
 	}
-	return service.record(ctx, want, hashBytes)
+	return service.record(ctx, want, sourceSha256)
 }
 
 // storableImages is what of the node's answer may be stored: sizes asked for, in WebP. It says why
@@ -379,7 +382,7 @@ func (service *Service) recordRefusal(ctx context.Context, want wantedImage, why
 
 // record writes the item's artwork row; a stored image replaces the source's earlier one of its
 // kind, never a person's choice.
-func (service *Service) record(ctx context.Context, want wantedImage, hash []byte) error {
+func (service *Service) record(ctx context.Context, want wantedImage, sourceSha256 []byte) error {
 	err := service.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		_, err := store.OrNotFound(queries.GetItemKind(ctx, want.itemID))
 		if errors.Is(err, store.ErrNotFound) {
@@ -390,9 +393,9 @@ func (service *Service) record(ctx context.Context, want wantedImage, hash []byt
 		}
 		id, err := queries.InsertArtwork(ctx, sqlcgen.InsertArtworkParams{
 			ItemID: want.itemID, Kind: want.ref.Kind, Source: want.source, SourceRef: &want.ref.SourceRef,
-			SourceSha256: hash,
+			SourceSha256: sourceSha256,
 		})
-		if err != nil || hash == nil {
+		if err != nil || sourceSha256 == nil {
 			return err
 		}
 		return queries.RetireReplacedArtwork(ctx, sqlcgen.RetireReplacedArtworkParams{

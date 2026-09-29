@@ -24,10 +24,10 @@ func TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore(t *testing.T) {
 		},
 	})
 	var decision struct {
-		Kind string `json:"delivery"`
-		URL  string `json:"url"`
+		Delivery string `json:"delivery"`
+		URL      string `json:"url"`
 	}
-	if err := json.Unmarshal([]byte(decided.body), &decision); err != nil || decision.Kind != "direct" {
+	if err := json.Unmarshal([]byte(decided.body), &decision); err != nil || decision.Delivery != "direct" {
 		t.Fatalf("POST /playback = %d %s, want direct", decided.status, decided.body)
 	}
 	root := strings.TrimSuffix(server.baseURL, "/api/v1")

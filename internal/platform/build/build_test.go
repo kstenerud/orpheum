@@ -51,8 +51,8 @@ func TestIsSame_TrustsTheBinarysHashElseAnUnmodifiedCommit(t *testing.T) {
 	if modified.IsSame(modified) {
 		t.Error("two modified builds of one commit are called the same, though they may differ")
 	}
-	if !modified.WithBinarySHA256("h1").IsSame(modified.WithBinarySHA256("h1")) ||
-		release.WithBinarySHA256("h1").IsSame(release.WithBinarySHA256("h2")) {
+	if !modified.WithBinarySha256("h1").IsSame(modified.WithBinarySha256("h1")) ||
+		release.WithBinarySha256("h1").IsSame(release.WithBinarySha256("h2")) {
 		t.Error("the binaries' hashes do not decide when both are known")
 	}
 }

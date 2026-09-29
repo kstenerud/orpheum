@@ -59,7 +59,7 @@ type Entry struct {
 	IdentificationState string
 	LibraryID           int64
 	AddedAt             int64
-	PosterHash          string // its poster's hash; "" when it has none
+	PosterSha256        string // its poster's hash; "" when it has none
 }
 
 // Page is one page of a list, and the cursor of the next; "" on the last.

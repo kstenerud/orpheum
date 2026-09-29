@@ -379,8 +379,8 @@ func TestSeed_MovesOnlyUnmodifiedSettingsToAChangedStartingValue(t *testing.T) {
 	if limit, err := service.Int(ctx, SignInFailureLimit); err != nil || limit != 5 {
 		t.Errorf("the unmodified setting = %d, %v; want the new starting value 5", limit, err)
 	}
-	if hint, err := service.Int(ctx, SecretLastCharsShown); err != nil || hint != 6 {
-		t.Errorf("the setting a person set = %d, %v; want it left at 6", hint, err)
+	if lastCharsShown, err := service.Int(ctx, SecretLastCharsShown); err != nil || lastCharsShown != 6 {
+		t.Errorf("the setting a person set = %d, %v; want it left at 6", lastCharsShown, err)
 	}
 	if again, err := service.Seed(ctx); err != nil || len(again.Updated) != 0 {
 		t.Errorf("seeding again updated %v, %v; want nothing", again.Updated, err)

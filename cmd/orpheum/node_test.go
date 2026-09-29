@@ -308,7 +308,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 	}
 	named := nodeproto.BytesFile{
 		RootPath: media, Path: []byte("film.mkv"),
-		PayloadHash: hex.EncodeToString(identity.Hash[:]),
+		PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
 	}
 	target := "http://node" + named.Target()
 	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, http.NoBody)

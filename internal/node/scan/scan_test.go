@@ -218,7 +218,7 @@ func checkSidecarIdentity(t *testing.T, sidecar *nodeproto.Sidecar) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sidecar.Identity == nil || sidecar.Identity.PayloadHash != hex.EncodeToString(want.Hash[:]) {
+	if sidecar.Identity == nil || sidecar.Identity.PayloadHash != hex.EncodeToString(want.PayloadHash[:]) {
 		t.Errorf("subtitle %s carries identity %+v, want its bytes' payload hash", sidecar.Path.Text, sidecar.Identity)
 	}
 }

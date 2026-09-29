@@ -18,19 +18,21 @@ const (
 	artStill    = "still"
 )
 
-// Art is the images an item shows, by the hash /art/ names them with; "" when it has none.
+// Art is the images an item shows, by the source SHA-256 /art/ names them with; "" when it has none.
 type Art struct {
-	PosterHash   string
-	BackdropHash string
-	StillHash    string
+	PosterSha256   string
+	BackdropSha256 string
+	StillSha256    string
 }
 
-// shownArtHashes is the image of a kind each item shows, by hash: a person's choice, else the newest
-// stored.
-func (browser *Browser) shownArtHashes(ctx context.Context, kind string, itemIDs []int64) (map[int64]string, error) {
-	hashes := map[int64]string{}
+// shownArtSourceSha256s is the image of a kind each item shows, by its source SHA-256 in hex: a
+// person's choice, else the newest stored.
+func (browser *Browser) shownArtSourceSha256s(
+	ctx context.Context, kind string, itemIDs []int64,
+) (map[int64]string, error) {
+	sourceSha256ByItemID := map[int64]string{}
 	if len(itemIDs) == 0 {
-		return hashes, nil
+		return sourceSha256ByItemID, nil
 	}
 	itemIDsJSON, err := json.Marshal(itemIDs)
 	if err != nil {
@@ -43,11 +45,11 @@ func (browser *Browser) shownArtHashes(ctx context.Context, kind string, itemIDs
 		return nil, fmt.Errorf("read the %s of %d items: %w", kind, len(itemIDs), err)
 	}
 	for _, row := range rows {
-		if _, alreadyHas := hashes[row.ItemID]; !alreadyHas {
-			hashes[row.ItemID] = hex.EncodeToString(row.SourceSha256)
+		if _, alreadyHas := sourceSha256ByItemID[row.ItemID]; !alreadyHas {
+			sourceSha256ByItemID[row.ItemID] = hex.EncodeToString(row.SourceSha256)
 		}
 	}
-	return hashes, nil
+	return sourceSha256ByItemID, nil
 }
 
 // itemArt is one item's images.
@@ -56,12 +58,12 @@ func (browser *Browser) itemArt(ctx context.Context, itemID int64) (Art, error) 
 	for _, kind := range []struct {
 		name string
 		into *string
-	}{{artPoster, &art.PosterHash}, {artBackdrop, &art.BackdropHash}, {artStill, &art.StillHash}} {
-		hashes, err := browser.shownArtHashes(ctx, kind.name, []int64{itemID})
+	}{{artPoster, &art.PosterSha256}, {artBackdrop, &art.BackdropSha256}, {artStill, &art.StillSha256}} {
+		sourceSha256ByItemID, err := browser.shownArtSourceSha256s(ctx, kind.name, []int64{itemID})
 		if err != nil {
 			return Art{}, err
 		}
-		*kind.into = hashes[itemID]
+		*kind.into = sourceSha256ByItemID[itemID]
 	}
 	return art, nil
 }
@@ -72,12 +74,12 @@ func (browser *Browser) withPosters(ctx context.Context, page Page) (Page, error
 	for _, entry := range page.Entries {
 		ids = append(ids, entry.ID)
 	}
-	posters, err := browser.shownArtHashes(ctx, artPoster, ids)
+	posters, err := browser.shownArtSourceSha256s(ctx, artPoster, ids)
 	if err != nil {
 		return Page{}, err
 	}
 	for index := range page.Entries {
-		page.Entries[index].PosterHash = posters[page.Entries[index].ID]
+		page.Entries[index].PosterSha256 = posters[page.Entries[index].ID]
 	}
 	return page, nil
 }

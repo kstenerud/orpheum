@@ -32,11 +32,11 @@ func thisBuild() build.Provenance {
 	if err != nil {
 		return built
 	}
-	hash, err := fileSHA256(self)
+	hash, err := fileSha256(self)
 	if err != nil {
 		return built
 	}
-	return built.WithBinarySHA256(hash)
+	return built.WithBinarySha256(hash)
 }
 
 // Exit statuses. A usage error and a planned-but-unbuilt subcommand both exit 2, so a script

@@ -50,7 +50,7 @@ func NodeWithLibrary(t *testing.T, database *store.Database, library Library) (n
 // Reports numbers what one node reports, as the node does: every record carries the next
 // ReportSeq. The zero value is a node that has reported nothing.
 type Reports struct {
-	lastSeq int64
+	lastReportSeq int64
 }
 
 // Scan is one scan as the node sends it: begin, the records, and complete unless the scan was
@@ -64,8 +64,8 @@ func (reports *Reports) Scan(
 		all = append(all, nodeproto.Record{Type: nodeproto.RecordScanComplete, ScanComplete: complete})
 	}
 	for index := range all {
-		reports.lastSeq++
-		all[index].ReportSeq = reports.lastSeq
+		reports.lastReportSeq++
+		all[index].ReportSeq = reports.lastReportSeq
 	}
 	return all
 }

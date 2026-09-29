@@ -112,9 +112,9 @@ func (q *Queries) InsertArtwork(ctx context.Context, arg InsertArtworkParams) (i
 	return id, err
 }
 
-const listArtworkHashes = `-- name: ListArtworkHashes :many
+const listArtworkSourceSha256s = `-- name: ListArtworkSourceSha256s :many
 SELECT artwork.source_sha256,
-  CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS live,
+  CAST(MAX(CASE WHEN artwork.removed_at IS NULL AND item.removed_at IS NULL THEN 1 ELSE 0 END) AS INTEGER) AS is_live,
   CAST(MAX(COALESCE(artwork.removed_at, item.removed_at, 0)) AS INTEGER) AS gone_at
 FROM artwork
 JOIN item ON item.id = artwork.item_id
@@ -122,24 +122,24 @@ WHERE artwork.source_sha256 IS NOT NULL
 GROUP BY artwork.source_sha256
 `
 
-type ListArtworkHashesRow struct {
+type ListArtworkSourceSha256sRow struct {
 	SourceSha256 []byte
-	Live         int64
+	IsLive       int64
 	GoneAt       int64
 }
 
 // Every stored image, whether a live item shows it, and when it last stopped being shown: what
 // the artwork ceiling reads to find removed items' images, D212 section 6.
-func (q *Queries) ListArtworkHashes(ctx context.Context) ([]ListArtworkHashesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listArtworkHashes)
+func (q *Queries) ListArtworkSourceSha256s(ctx context.Context) ([]ListArtworkSourceSha256sRow, error) {
+	rows, err := q.db.QueryContext(ctx, listArtworkSourceSha256s)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListArtworkHashesRow{}
+	items := []ListArtworkSourceSha256sRow{}
 	for rows.Next() {
-		var i ListArtworkHashesRow
-		if err := rows.Scan(&i.SourceSha256, &i.Live, &i.GoneAt); err != nil {
+		var i ListArtworkSourceSha256sRow
+		if err := rows.Scan(&i.SourceSha256, &i.IsLive, &i.GoneAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -153,7 +153,7 @@ func (q *Queries) ListArtworkHashes(ctx context.Context) ([]ListArtworkHashesRow
 	return items, nil
 }
 
-const listItemsWithLiveLocalArtwork = `-- name: ListItemsWithLiveLocalArtwork :many
+const listItemsWithLiveUnchosenLocalArtwork = `-- name: ListItemsWithLiveUnchosenLocalArtwork :many
 SELECT DISTINCT artwork.item_id
 FROM item
 JOIN artwork ON artwork.item_id = item.id
@@ -163,9 +163,9 @@ ORDER BY artwork.item_id
 `
 
 // A library's items that show an image found beside the media, D215: each pass checks they are
-// still there.
-func (q *Queries) ListItemsWithLiveLocalArtwork(ctx context.Context, libraryID *int64) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, listItemsWithLiveLocalArtwork, libraryID)
+// still there. An image a person chose is left out: a choice stays even when its file goes.
+func (q *Queries) ListItemsWithLiveUnchosenLocalArtwork(ctx context.Context, libraryID *int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listItemsWithLiveUnchosenLocalArtwork, libraryID)
 	if err != nil {
 		return nil, err
 	}

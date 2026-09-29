@@ -75,7 +75,7 @@ type Made struct {
 // rendition into its directory, reporting how much of the source is done as it goes. It returns
 // what it made.
 func (preparer *Preparer) Prepare(
-	ctx context.Context, sourcePath string, command nodeproto.Prepare, onProgress func(preparedMs int64),
+	ctx context.Context, sourcePath string, command nodeproto.Prepare, onProgress func(preparedThroughMs int64),
 ) (Made, error) {
 	if !renditionDirPattern.MatchString(command.RenditionDir) {
 		return Made{}, fmt.Errorf("%w, not %q", ErrBadRenditionDir, command.RenditionDir)
@@ -120,7 +120,7 @@ func (preparer *Preparer) Prepare(
 
 // readProgress reads FFmpeg's -progress lines and reports out_time_us, in milliseconds, each time
 // it moves. It returns the last speed FFmpeg gave ("speed=6.2x"), or zero when it gave none.
-func readProgress(reader io.Reader, onProgress func(preparedMs int64)) (realtimeFactor float64) {
+func readProgress(reader io.Reader, onProgress func(preparedThroughMs int64)) (realtimeFactor float64) {
 	lines := bufio.NewScanner(reader)
 	for lines.Scan() {
 		key, value, _ := strings.Cut(lines.Text(), "=")

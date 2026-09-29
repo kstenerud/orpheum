@@ -31,7 +31,7 @@ const (
 // Identity is a file's identity: a sampling hash of its media payload and the payload's length
 // (D179). A tag edit leaves it unchanged; a remux, which re-lays the payload, changes it.
 type Identity struct {
-	Hash         [sha256.Size]byte
+	PayloadHash  [sha256.Size]byte
 	PayloadBytes int64
 	Anchor       Anchor
 }
@@ -68,7 +68,7 @@ func PayloadIdentity(file io.ReaderAt, sizeBytes int64) (Identity, error) {
 		}
 	}
 	identity := Identity{PayloadBytes: length, Anchor: found.anchor}
-	digest.Sum(identity.Hash[:0])
+	digest.Sum(identity.PayloadHash[:0])
 	return identity, nil
 }
 

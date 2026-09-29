@@ -19,8 +19,9 @@ import (
 type Budget struct {
 	// MaxBytes is the most the renditions may take together.
 	MaxBytes int64
-	// Grace is how long after its last use a rendition is kept before one past it.
-	Grace time.Duration
+	// KeptAfterLastPlay is how long after its last play a rendition is kept before any past it is
+	// evicted.
+	KeptAfterLastPlay time.Duration
 	// DiskUsedLimitPercent is how full the directory's filesystem may be, whatever MaxBytes says: a
 	// fixed budget cannot know what else shares the disk.
 	DiskUsedLimitPercent int
@@ -112,7 +113,7 @@ type run struct {
 }
 
 // Evict removes renditions, least recently used first, until the directory is within its budget
-// and its disk within its limit: every one past its grace before any within it, and never one
+// and its disk within its limit: every one past its kept time before any within it, and never one
 // being written. It returns what is left.
 func (shelf *Shelf) Evict() (Usage, error) {
 	runs, err := shelf.listRuns()
@@ -128,11 +129,11 @@ func (shelf *Shelf) Evict() (Usage, error) {
 		return Usage{}, err
 	}
 	now := shelf.clock.Now()
-	isPastGrace := func(each run) bool { return now.Sub(each.lastUse) >= shelf.budget.Grace }
-	// Oldest first, and every one past its grace before any within it.
+	isPastKeptTime := func(each run) bool { return now.Sub(each.lastUse) >= shelf.budget.KeptAfterLastPlay }
+	// Oldest first, and every one past its kept time before any within it.
 	slices.SortStableFunc(runs, func(one, other run) int {
-		if isPastGrace(one) != isPastGrace(other) {
-			if isPastGrace(one) {
+		if isPastKeptTime(one) != isPastKeptTime(other) {
+			if isPastKeptTime(one) {
 				return -1
 			}
 			return 1

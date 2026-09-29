@@ -73,8 +73,9 @@ ORDER BY item_text.name, item_text.item_id
 LIMIT ?`
 )
 
-// Search asks one index for the items matching a folded, routed query (D48), at most limit.
-func (database *Database) Search(ctx context.Context, route SearchRoute, foldedQuery string, limit int64) (
+// Search asks one index for the items matching indexQuery (D48), at most limit: a folded
+// substring, an FTS5 query or a trigram phrase, as route needs.
+func (database *Database) Search(ctx context.Context, route SearchRoute, indexQuery string, limit int64) (
 	hits []SearchHit, err error,
 ) {
 	statement := map[SearchRoute]string{
@@ -85,7 +86,7 @@ func (database *Database) Search(ctx context.Context, route SearchRoute, foldedQ
 	if statement == "" {
 		return nil, fmt.Errorf("search: no route %q", route)
 	}
-	rows, err := database.readers.QueryContext(ctx, statement, foldedQuery, limit)
+	rows, err := database.readers.QueryContext(ctx, statement, indexQuery, limit)
 	if err != nil {
 		return nil, fmt.Errorf("search %s: %w", route, err)
 	}

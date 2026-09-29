@@ -36,28 +36,28 @@ const (
 	TURNSecret            Name = "turn_secret"
 )
 
-// Definition says what a secret is and whether it shows a hint. A hint is the last
-// secret_last_chars_shown characters of an API key; a password or username has none (D194 §3).
+// Definition says what a secret is and whether it shows its last characters: the last
+// secret_last_chars_shown characters of an API key; a password or username shows none (D194 §3).
 type Definition struct {
-	Name        Name
-	HasHint     bool
-	Description string
+	Name           Name
+	ShowsLastChars bool
+	Description    string
 }
 
 // Registry lists every secret, in the order a settings page shows them.
 func Registry() []Definition {
 	return []Definition{
-		{Name: TMDBAPIKey, HasHint: true, Description: "the TMDB API key metadata is fetched with"},
+		{Name: TMDBAPIKey, ShowsLastChars: true, Description: "the TMDB API key metadata is fetched with"},
 		{
-			Name: DNSProviderToken, HasHint: true,
+			Name: DNSProviderToken, ShowsLastChars: true,
 			Description: "the DNS provider token for the certificate",
 		},
-		{Name: TURNSecret, HasHint: false, Description: "the TURN shared secret voice relays use"},
+		{Name: TURNSecret, ShowsLastChars: false, Description: "the TURN shared secret voice relays use"},
 		{
-			Name: OpenSubtitlesUsername, HasHint: false,
+			Name: OpenSubtitlesUsername, ShowsLastChars: false,
 			Description: "the OpenSubtitles username every person's subtitle downloads use (D224)",
 		},
-		{Name: OpenSubtitlesPassword, HasHint: false, Description: "the password of that OpenSubtitles account"},
+		{Name: OpenSubtitlesPassword, ShowsLastChars: false, Description: "the password of that OpenSubtitles account"},
 	}
 }
 
@@ -85,13 +85,13 @@ var (
 type Status struct {
 	Name         Name
 	IsSet        bool
-	Hint         string
+	LastChars    string
 	SetByUserID  *int64
 	SetAt        int64
 	NeedsReentry bool
 }
 
-// Settings is where the store reads secret_last_chars_shown, the hint's length (D200).
+// Settings is where the store reads secret_last_chars_shown, how many last characters are shown (D200).
 type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
 }
@@ -129,13 +129,13 @@ func (secrets *Store) Set(ctx context.Context, name Name, value Value, setByUser
 		return fmt.Errorf("set %s: %w", name, err)
 	}
 	sealed := cipher.Seal(nil, nonce, []byte(value.Reveal()), associatedData(name))
-	var hint *string
-	if definition.HasHint {
+	var lastChars *string
+	if definition.ShowsLastChars {
 		lastCharsShown, readErr := secrets.settings.Int(ctx, settings.SecretLastCharsShown)
 		if readErr != nil {
 			return readErr
 		}
-		hint = hintOf(value.Reveal(), lastCharsShown)
+		lastChars = lastCharsOf(value.Reveal(), lastCharsShown)
 	}
 	return secrets.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.UpsertSealedSecret(ctx, sqlcgen.UpsertSealedSecretParams{
@@ -144,7 +144,7 @@ func (secrets *Store) Set(ctx context.Context, name Name, value Value, setByUser
 			KeyID:       secrets.key.ID(),
 			Nonce:       nonce,
 			Ciphertext:  sealed,
-			LastChars:   hint,
+			LastChars:   lastChars,
 			SetByUserID: setByUserID,
 			SetAt:       secrets.clock.Now().UnixMilli(),
 		})
@@ -210,7 +210,7 @@ func (secrets *Store) Statuses(ctx context.Context) ([]Status, error) {
 			status.IsSet = true
 			status.SetByUserID, status.SetAt = row.SetByUserID, row.SetAt
 			status.NeedsReentry = row.KeyID != secrets.key.ID()
-			status.Hint = ptr.ValueOrZero(row.LastChars)
+			status.LastChars = ptr.ValueOrZero(row.LastChars)
 		}
 		statuses = append(statuses, status)
 	}
@@ -251,13 +251,13 @@ func associatedData(name Name) []byte {
 	return []byte(serverScope + "\x000\x00" + string(name))
 }
 
-// hintOf is the last lastCharsShown characters of an API key, or nothing when the key is too
+// lastCharsOf is the last lastCharsShown characters of an API key, or nothing when the key is too
 // short for them to leave most of it hidden, or lastCharsShown is zero.
-func hintOf(text string, lastCharsShown int64) *string {
+func lastCharsOf(text string, lastCharsShown int64) *string {
 	if lastCharsShown <= 0 || int64(utf8.RuneCountInString(text)) < 3*lastCharsShown {
 		return nil
 	}
 	runes := []rune(text)
-	hint := string(runes[int64(len(runes))-lastCharsShown:])
-	return &hint
+	lastChars := string(runes[int64(len(runes))-lastCharsShown:])
+	return &lastChars
 }

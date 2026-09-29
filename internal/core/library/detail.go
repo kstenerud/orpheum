@@ -101,9 +101,9 @@ func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version,
 // SeriesDetail is a series with its episodes in aired order.
 type SeriesDetail struct {
 	sqlcgen.GetSeriesDetailRow
-	Episodes             []sqlcgen.ListSeriesEpisodeDetailsRow
-	Art                  Art
-	StillHashByEpisodeID map[int64]string // each episode's still, by its id
+	Episodes               []sqlcgen.ListSeriesEpisodeDetailsRow
+	Art                    Art
+	StillSha256ByEpisodeID map[int64]string // each episode's still, by its id
 }
 
 // Series is a series' detail.
@@ -128,7 +128,7 @@ func (browser *Browser) Series(ctx context.Context, seriesID int64) (SeriesDetai
 	for _, episode := range episodes {
 		ids = append(ids, episode.TitleID)
 	}
-	if detail.StillHashByEpisodeID, err = browser.shownArtHashes(ctx, artStill, ids); err != nil {
+	if detail.StillSha256ByEpisodeID, err = browser.shownArtSourceSha256s(ctx, artStill, ids); err != nil {
 		return SeriesDetail{}, err
 	}
 	return detail, nil

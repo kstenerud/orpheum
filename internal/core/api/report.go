@@ -60,12 +60,12 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 		return nil, err
 	}
 	report := playback.Report{
-		Seq: input.Body.ReportSeq, SentMonoMs: input.Body.SentMonoMs, PositionMs: input.Body.PositionMs,
-		PositionMonoMs: input.Body.PositionReadMonoMs,
+		ReportSeq: input.Body.ReportSeq, SentMonoMs: input.Body.SentMonoMs, PositionMs: input.Body.PositionMs,
+		PositionReadMonoMs: input.Body.PositionReadMonoMs,
 	}
 	for _, event := range input.Body.Events {
 		report.Events = append(report.Events, playback.Event{
-			Kind: playback.EventKind(event.Kind), PositionMs: event.PositionMs, MonoMs: event.HappenedMonoMs,
+			Kind: playback.EventKind(event.Kind), PositionMs: event.PositionMs, HappenedMonoMs: event.HappenedMonoMs,
 		})
 	}
 	for _, span := range input.Body.Spans {

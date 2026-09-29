@@ -67,7 +67,7 @@ func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare, enco
 	arguments = append(arguments, videoArguments(command, encoder)...)
 	streams := []string{"v:0,agroup:audio,name:video"}
 	audioOutputIndex := 0
-	for _, track := range command.Audio {
+	for _, track := range command.AudioTracks {
 		for _, rendition := range mixes(track) {
 			arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(track.AudioTrackIndex),
 				"-filter:a:"+strconv.Itoa(audioOutputIndex), rendition.filter)

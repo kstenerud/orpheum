@@ -153,7 +153,8 @@ func TestSearch_LogsInOnceAndAsksByTheWorksIDsAndTheFilesHash(t *testing.T) {
 		asked.Get("moviehash") != "8e245d9679d31e12" || asked.Get("languages") != "en" {
 		t.Errorf("searched with %v; want the ids without tt, the hash and language lower-case (D224 §3)", asked)
 	}
-	if len(found) != 2 || found[0].ProviderFileID != 7 || !found[0].IsHashMatch || found[0].DownloadCount != 120 ||
+	if len(found) != 2 || found[0].ProviderFileID != 7 || !found[0].IsOpensubtitlesHashMatch ||
+		found[0].DownloadCount != 120 ||
 		found[0].UploadedAt.IsZero() || found[1].ProviderFileID != 8 || !found[1].IsHearingImpaired {
 		t.Errorf("found %+v; want the two with a file, the hash match first", found)
 	}
@@ -220,7 +221,7 @@ func TestDownload_FetchesTheFileAndSaysWhatIsLeftAndASpentQuotaWhenItResets(t *t
 	}
 	reset := time.Date(2026, 9, 29, 6, 0, 0, 0, time.UTC)
 	if !strings.Contains(string(downloaded.Body), "Hello") || downloaded.RemainingDownloads != 1 ||
-		!downloaded.ResetAt.Equal(reset) || downloaded.FileName != "Film.2020.srt" {
+		!downloaded.DownloadsResetAt.Equal(reset) || downloaded.FileName != "Film.2020.srt" {
 		t.Errorf("downloaded %+v; want the subtitle, one left, and the provider's reset time (D224 §4)", downloaded)
 	}
 	if _, err = client.Download(t.Context(), 7); err != nil {
@@ -228,7 +229,7 @@ func TestDownload_FetchesTheFileAndSaysWhatIsLeftAndASpentQuotaWhenItResets(t *t
 	}
 	_, err = client.Download(t.Context(), 7)
 	spent, isSpent := errors.AsType[*QuotaSpentError](err)
-	if !isSpent || !spent.ResetAt.Equal(reset) {
+	if !isSpent || !spent.DownloadsResetAt.Equal(reset) {
 		t.Errorf("a download past the quota: %v, want the quota spent until %s", err, reset)
 	}
 }

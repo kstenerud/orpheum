@@ -146,7 +146,8 @@ func (server *Server) getItemsByIdentification(ctx context.Context, input *Items
 	for _, item := range items {
 		output.Body.Items = append(output.Body.Items, ItemBody{
 			ID: item.ID, LibraryID: item.LibraryID, Kind: item.Kind, Name: item.Name, Year: item.Year,
-			IdentificationState: item.IdentificationState, FollowedSource: item.Source, FollowedSourceID: item.SourceID,
+			IdentificationState: item.IdentificationState,
+			FollowedSource:      item.FollowedSource, FollowedSourceID: item.FollowedSourceID,
 		})
 	}
 	return output, nil
@@ -167,7 +168,7 @@ func (server *Server) getItemCandidates(ctx context.Context, input *ItemInput) (
 	for _, candidate := range candidates {
 		output.Body.Candidates = append(output.Body.Candidates, CandidateBody{
 			ProviderID: candidate.ID, Name: candidate.Name, OriginalName: candidate.OriginalName,
-			Year: candidate.Year, ProviderPosterPath: candidate.PosterRef,
+			Year: candidate.Year, ProviderPosterPath: candidate.ProviderPosterPath,
 		})
 	}
 	return output, nil

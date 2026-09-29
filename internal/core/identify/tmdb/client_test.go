@@ -66,7 +66,7 @@ func TestSearch_AsksForTheNameAndYearAndReadsTheResults(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := identify.Candidate{
-		ID: "4801", Name: "The Gold Rush", OriginalName: "The Gold Rush", Year: 1999, PosterRef: "/m.jpg",
+		ID: "4801", Name: "The Gold Rush", OriginalName: "The Gold Rush", Year: 1999, ProviderPosterPath: "/m.jpg",
 	}
 	if len(candidates) != 2 || candidates[0] != want || candidates[1].Year != 0 {
 		t.Errorf("candidates = %+v", candidates)

@@ -67,7 +67,7 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 	output.Body.ContinueWatching = make([]InProgressBody, 0, len(rows))
 	for _, row := range rows {
 		output.Body.ContinueWatching = append(output.Body.ContinueWatching, InProgressBody{
-			ID: row.ID, Name: row.Name, Year: row.Year, LibraryID: row.LibraryID, PosterSha256: row.PosterHash,
+			ID: row.ID, Name: row.Name, Year: row.Year, LibraryID: row.LibraryID, PosterSha256: row.PosterSha256,
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: row.FileName,
 			Episode: episodePlaceBody(row.Episode),
 		})

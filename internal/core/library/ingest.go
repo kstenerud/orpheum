@@ -68,8 +68,8 @@ type scanState struct {
 
 // rootFacts are the root's filesystem facts as its scan began (D42, D208).
 type rootFacts struct {
-	Device       uint64
-	IsMountPoint bool
+	FilesystemDevice uint64
+	IsMountPoint     bool
 }
 
 // pendingMove is a new path whose payload hash matches a file this scan has not seen yet. It
@@ -182,7 +182,7 @@ func (batch *ingestBatch) beginScan(ctx context.Context, begin *nodeproto.ScanBe
 	}))
 	if errors.Is(err, store.ErrNotFound) {
 		batch.ingester.logger.WarnContext(ctx, "a node scanned a root no library covers; what it saw is not stored",
-			"nodeId", batch.nodeID, "root", begin.RootPath)
+			"nodeId", batch.nodeID, "rootPath", begin.RootPath)
 		batch.ingester.scanByNodeID[batch.nodeID] = &scanState{root: begin.RootPath}
 		return nil
 	}
@@ -191,7 +191,7 @@ func (batch *ingestBatch) beginScan(ctx context.Context, begin *nodeproto.ScanBe
 	}
 	batch.ingester.scanByNodeID[batch.nodeID] = &scanState{
 		root: begin.RootPath, libraryID: libraryID, startedAt: batch.nowMs,
-		facts:  rootFacts{Device: begin.FilesystemDevice, IsMountPoint: begin.IsMountPoint},
+		facts:  rootFacts{FilesystemDevice: begin.FilesystemDevice, IsMountPoint: begin.IsMountPoint},
 		mounts: map[string]uint64{},
 	}
 	return nil

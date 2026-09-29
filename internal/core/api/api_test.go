@@ -344,7 +344,7 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 	}
 	listed := harness.do(t, http.MethodGet, "/secrets", admin, nil)
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"isSet":true,"lastChars":"WXYZ"`) {
-		t.Errorf("GET /secrets = %d %s, want it set with its hint", listed.status, listed.body)
+		t.Errorf("GET /secrets = %d %s, want it set with its last characters", listed.status, listed.body)
 	}
 	if !strings.Contains(listed.body, `"setByUserId":1`) {
 		t.Errorf("GET /secrets = %s, want it to name the admin who set it as setByUserId (D227)", listed.body)
@@ -421,8 +421,8 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 
 	storetest.ExecRaw(t, harness.databasePath, "DELETE FROM setting WHERE key = 'secret_last_chars_shown'")
 	healed := harness.do(t, http.MethodGet, "/config", admin, nil)
-	const hint = `"key":"secret_last_chars_shown","kind":"integer","value":4`
-	if healed.status != http.StatusOK || !strings.Contains(healed.body, hint) {
+	const healedRow = `"key":"secret_last_chars_shown","kind":"integer","value":4`
+	if healed.status != http.StatusOK || !strings.Contains(healed.body, healedRow) {
 		t.Errorf("GET /config with a removed row = %d %s, want it healed with its starting value", healed.status,
 			healed.body)
 	}

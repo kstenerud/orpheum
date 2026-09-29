@@ -89,7 +89,7 @@ INSERT INTO root_scan (node_id, root_path, completed_at)
 VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(completed_at))
 ON CONFLICT (node_id, root_path) DO UPDATE SET completed_at = excluded.completed_at;
 
--- name: DeleteFileStreams :exec
+-- name: DeleteStreamsOfBytesFile :exec
 DELETE FROM stream WHERE bytes_file = ?;
 
 -- name: UpsertStream :exec
@@ -105,7 +105,7 @@ ON CONFLICT (bytes_file, stream_index) DO UPDATE SET
   language = excluded.language, container_title = excluded.container_title, disposition_flags = excluded.disposition_flags,
   channel_count = excluded.channel_count;
 
--- name: DeleteFileStreamsNotIn :exec
+-- name: DeleteStreamsOfBytesFileNotIn :exec
 -- A video's own tracks whose stream index its probe no longer has.
 DELETE FROM stream
 WHERE bytes_file = sqlc.arg(file_id) AND stream_index IS NOT NULL

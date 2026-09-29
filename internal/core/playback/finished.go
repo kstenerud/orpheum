@@ -16,7 +16,7 @@ import (
 // FinishedPrepare is one prepare a node finished: its file, its profile, how it ended, and what
 // made its video and how fast (D225 §3).
 type FinishedPrepare struct {
-	FileID int64
+	SourceFileID int64
 	// Path is the file's path, empty when the library no longer knows the file.
 	Path    string
 	Profile string
@@ -46,7 +46,7 @@ func (service *Service) FinishedPrepares(ctx context.Context, nodeID int64, limi
 			return nil, fmt.Errorf("name file %d: %w", row.SourceFile, err)
 		}
 		finished = append(finished, FinishedPrepare{
-			FileID: row.SourceFile, Path: path, Profile: row.Profile, State: row.State,
+			SourceFileID: row.SourceFile, Path: path, Profile: row.Profile, State: row.State,
 			VideoEncoder: ptr.ValueOrZero(row.VideoEncoder), RealtimeFactor: ptr.ValueOrZero(row.RealtimeFactor),
 			SizeBytes: ptr.ValueOrZero(row.SizeBytes), Failure: ptr.ValueOrZero(row.Failure),
 			FinishedAt: time.UnixMilli(ptr.ValueOrZero(row.FinishedAt)).UTC(),

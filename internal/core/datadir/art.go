@@ -14,22 +14,22 @@ import (
 )
 
 // artDirectoryName holds the artwork under the cache directory (D212): one directory per image,
-// named by the hash of its source, holding one file per size and format, and an empty .none file
+// named by the SHA-256 of its source, holding one file per size and format, and an empty .none file
 // for a size its source is too small to make.
 const artDirectoryName = "art"
 
-// ErrBadArtName is an artwork hash or file name that is not one the artwork store makes.
+// ErrBadArtName is an artwork source SHA-256 or file name that is not one the artwork store makes.
 var ErrBadArtName = errors.New("not an artwork name")
 
 var (
-	artHashPattern     = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	artFileNamePattern = regexp.MustCompile(`^[a-z]+-[a-z]+\.(webp|jpeg|none)$`)
+	artSourceSha256HexPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	artFileNamePattern        = regexp.MustCompile(`^[a-z]+-[a-z]+\.(webp|jpeg|none)$`)
 )
 
 // WriteArt stores one size of one image, atomically, mode 0600. Its names are ours, not
 // anyone's text: a SHA-256 in hex, and a size name with its format.
-func (directories *Directories) WriteArt(hash, name string, contents []byte) (err error) {
-	imageDirectory, err := directories.openImageDirectory(hash, true)
+func (directories *Directories) WriteArt(sourceSha256Hex, name string, contents []byte) (err error) {
+	imageDirectory, err := directories.openImageDirectory(sourceSha256Hex, true)
 	if err != nil {
 		return err
 	}
@@ -41,13 +41,13 @@ func (directories *Directories) WriteArt(hash, name string, contents []byte) (er
 }
 
 // ReadArt reads one size of one image; ErrNotFound when it is not there.
-func (directories *Directories) ReadArt(hash, name string) (contents []byte, err error) {
+func (directories *Directories) ReadArt(sourceSha256Hex, name string) (contents []byte, err error) {
 	if !artFileNamePattern.MatchString(name) {
 		return nil, fmt.Errorf("%q: %w", name, ErrBadArtName)
 	}
-	imageDirectory, err := directories.openImageDirectory(hash, false)
+	imageDirectory, err := directories.openImageDirectory(sourceSha256Hex, false)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("art %s: %w", hash, ErrNotFound)
+		return nil, fmt.Errorf("art %s: %w", sourceSha256Hex, ErrNotFound)
 	}
 	if err != nil {
 		return nil, err
@@ -55,20 +55,20 @@ func (directories *Directories) ReadArt(hash, name string) (contents []byte, err
 	defer func() { err = errors.Join(err, errs.WrapIf("close the artwork directory", imageDirectory.Close())) }()
 	contents, err = imageDirectory.ReadFile(name)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("art %s/%s: %w", hash, name, ErrNotFound)
+		return nil, fmt.Errorf("art %s/%s: %w", sourceSha256Hex, name, ErrNotFound)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read art %s/%s: %w", hash, name, err)
+		return nil, fmt.Errorf("read art %s/%s: %w", sourceSha256Hex, name, err)
 	}
 	return contents, nil
 }
 
 // HasArt reports whether one size of one image is stored, without reading it.
-func (directories *Directories) HasArt(hash, name string) (found bool, err error) {
+func (directories *Directories) HasArt(sourceSha256Hex, name string) (found bool, err error) {
 	if !artFileNamePattern.MatchString(name) {
 		return false, fmt.Errorf("%q: %w", name, ErrBadArtName)
 	}
-	imageDirectory, err := directories.openImageDirectory(hash, false)
+	imageDirectory, err := directories.openImageDirectory(sourceSha256Hex, false)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
 	}
@@ -81,17 +81,17 @@ func (directories *Directories) HasArt(hash, name string) (found bool, err error
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("look for art %s/%s: %w", hash, name, err)
+		return false, fmt.Errorf("look for art %s/%s: %w", sourceSha256Hex, name, err)
 	}
 	return true, nil
 }
 
 // RemoveArt removes one size of one image; one already gone is not an error.
-func (directories *Directories) RemoveArt(hash, name string) (err error) {
+func (directories *Directories) RemoveArt(sourceSha256Hex, name string) (err error) {
 	if !artFileNamePattern.MatchString(name) {
 		return fmt.Errorf("%q: %w", name, ErrBadArtName)
 	}
-	imageDirectory, err := directories.openImageDirectory(hash, false)
+	imageDirectory, err := directories.openImageDirectory(sourceSha256Hex, false)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
@@ -99,14 +99,14 @@ func (directories *Directories) RemoveArt(hash, name string) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, errs.WrapIf("close the artwork directory", imageDirectory.Close())) }()
-	return ignoreMissing(errs.WrapIf("remove art "+hash+"/"+name, imageDirectory.Remove(name)))
+	return ignoreMissing(errs.WrapIf("remove art "+sourceSha256Hex+"/"+name, imageDirectory.Remove(name)))
 }
 
 // ArtFile is one stored file of one image, and its size.
 type ArtFile struct {
-	Hash      string
-	Name      string
-	SizeBytes int64
+	SourceSha256Hex string
+	Name            string
+	SizeBytes       int64
 }
 
 // ListArt lists every stored image file with its size: read once when the server starts, so
@@ -126,7 +126,7 @@ func (directories *Directories) ListArt() (files []ArtFile, err error) {
 		return nil, fmt.Errorf("list the artwork: %w", err)
 	}
 	for _, image := range images {
-		if !image.IsDir() || !artHashPattern.MatchString(image.Name()) {
+		if !image.IsDir() || !artSourceSha256HexPattern.MatchString(image.Name()) {
 			continue
 		}
 		sizes, err := fs.ReadDir(cache.FS(), artDirectoryName+"/"+image.Name())
@@ -138,7 +138,7 @@ func (directories *Directories) ListArt() (files []ArtFile, err error) {
 			if infoErr != nil || !info.Mode().IsRegular() || !artFileNamePattern.MatchString(sizeFile.Name()) {
 				continue
 			}
-			files = append(files, ArtFile{Hash: image.Name(), Name: sizeFile.Name(), SizeBytes: info.Size()})
+			files = append(files, ArtFile{SourceSha256Hex: image.Name(), Name: sizeFile.Name(), SizeBytes: info.Size()})
 		}
 	}
 	return files, nil
@@ -146,16 +146,16 @@ func (directories *Directories) ListArt() (files []ArtFile, err error) {
 
 // openImageDirectory opens one image's directory under the cache's art directory, creating both when
 // asked, through os.Root, so no name can reach outside it.
-func (directories *Directories) openImageDirectory(hash string, shouldCreate bool) (*os.Root, error) {
-	if !artHashPattern.MatchString(hash) {
-		return nil, fmt.Errorf("%q: %w", hash, ErrBadArtName)
+func (directories *Directories) openImageDirectory(sourceSha256Hex string, shouldCreate bool) (*os.Root, error) {
+	if !artSourceSha256HexPattern.MatchString(sourceSha256Hex) {
+		return nil, fmt.Errorf("%q: %w", sourceSha256Hex, ErrBadArtName)
 	}
 	cache, err := os.OpenRoot(directories.cacheDirectory)
 	if err != nil {
 		return nil, fmt.Errorf("open the cache directory: %w", err)
 	}
 	defer func() { _ = cache.Close() }() //nolint:errcheck // the image's own root is what is used
-	relative := filepath.Join(artDirectoryName, hash)
+	relative := filepath.Join(artDirectoryName, sourceSha256Hex)
 	if shouldCreate {
 		if err = cache.MkdirAll(relative, directoryMode); err != nil {
 			return nil, fmt.Errorf("create %s: %w", relative, err)

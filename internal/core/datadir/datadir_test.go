@@ -206,36 +206,36 @@ func TestDiscardCacheDatabase_RemovesTheFileAndItsJournalsOnly(t *testing.T) {
 func TestArt_StoresReadsAndRemovesOnlyItsOwnNames(t *testing.T) {
 	t.Parallel()
 	directories := prepareTemporaryDirectories(t)
-	hash := strings.Repeat("ab", 32)
-	if err := directories.WriteArt(hash, "portrait-m.webp", []byte("RIFF")); err != nil {
+	sourceSha256Hex := strings.Repeat("ab", 32)
+	if err := directories.WriteArt(sourceSha256Hex, "portrait-m.webp", []byte("RIFF")); err != nil {
 		t.Fatal(err)
 	}
-	info, err := os.Stat(filepath.Join(directories.cacheDirectory, "art", hash, "portrait-m.webp"))
+	info, err := os.Stat(filepath.Join(directories.cacheDirectory, "art", sourceSha256Hex, "portrait-m.webp"))
 	if err != nil || info.Mode().Perm() != fileMode {
 		t.Fatalf("stored file: %v, %v; want mode 0600", info, err)
 	}
-	if got, err := directories.ReadArt(hash, "portrait-m.webp"); err != nil || string(got) != "RIFF" {
+	if got, err := directories.ReadArt(sourceSha256Hex, "portrait-m.webp"); err != nil || string(got) != "RIFF" {
 		t.Errorf("ReadArt = %q, %v", got, err)
 	}
-	if _, err := directories.ReadArt(hash, "portrait-s.webp"); !errors.Is(err, ErrNotFound) {
+	if _, err := directories.ReadArt(sourceSha256Hex, "portrait-s.webp"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("a size never written: %v, want ErrNotFound", err)
 	}
 
 	for _, name := range []string{"../../state/library.db", "portrait-m.webp/../x", ".hidden", "poster.png"} {
-		if err := directories.WriteArt(hash, name, nil); !errors.Is(err, ErrBadArtName) {
+		if err := directories.WriteArt(sourceSha256Hex, name, nil); !errors.Is(err, ErrBadArtName) {
 			t.Errorf("WriteArt(%q) = %v, want ErrBadArtName", name, err)
 		}
 	}
-	if err := directories.WriteArt("../"+hash[3:], "portrait-m.webp", nil); !errors.Is(err, ErrBadArtName) {
+	if err := directories.WriteArt("../"+sourceSha256Hex[3:], "portrait-m.webp", nil); !errors.Is(err, ErrBadArtName) {
 		t.Errorf("a hash that is a path: %v, want ErrBadArtName", err)
 	}
-	if err := directories.RemoveArt(hash, "portrait-m.webp"); err != nil {
+	if err := directories.RemoveArt(sourceSha256Hex, "portrait-m.webp"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := directories.ReadArt(hash, "portrait-m.webp"); !errors.Is(err, ErrNotFound) {
+	if _, err := directories.ReadArt(sourceSha256Hex, "portrait-m.webp"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("after RemoveArt: %v", err)
 	}
-	if err := directories.RemoveArt(hash, "portrait-m.webp"); err != nil {
+	if err := directories.RemoveArt(sourceSha256Hex, "portrait-m.webp"); err != nil {
 		t.Errorf("removing again: %v", err)
 	}
 }
@@ -243,23 +243,23 @@ func TestArt_StoresReadsAndRemovesOnlyItsOwnNames(t *testing.T) {
 func TestHasArt_SaysWhetherASizeIsStoredWithoutReadingIt(t *testing.T) {
 	t.Parallel()
 	directories := prepareTemporaryDirectories(t)
-	hash := strings.Repeat("ab", 32)
-	if err := directories.WriteArt(hash, "portrait-m.webp", []byte("RIFF")); err != nil {
+	sourceSha256Hex := strings.Repeat("ab", 32)
+	if err := directories.WriteArt(sourceSha256Hex, "portrait-m.webp", []byte("RIFF")); err != nil {
 		t.Fatal(err)
 	}
 	for _, check := range []struct {
-		hash, name string
-		want       bool
+		sourceSha256Hex, name string
+		want                  bool
 	}{
-		{hash, "portrait-m.webp", true},
-		{hash, "portrait-l.none", false},
+		{sourceSha256Hex, "portrait-m.webp", true},
+		{sourceSha256Hex, "portrait-l.none", false},
 		{strings.Repeat("cd", 32), "portrait-m.webp", false},
 	} {
-		if found, err := directories.HasArt(check.hash, check.name); found != check.want || err != nil {
-			t.Errorf("HasArt(%s, %s) = %v, %v; want %v", check.hash[:4], check.name, found, err, check.want)
+		if found, err := directories.HasArt(check.sourceSha256Hex, check.name); found != check.want || err != nil {
+			t.Errorf("HasArt(%s, %s) = %v, %v; want %v", check.sourceSha256Hex[:4], check.name, found, err, check.want)
 		}
 	}
-	if _, err := directories.HasArt(hash, "../x"); !errors.Is(err, ErrBadArtName) {
+	if _, err := directories.HasArt(sourceSha256Hex, "../x"); !errors.Is(err, ErrBadArtName) {
 		t.Errorf("HasArt of a path: %v, want ErrBadArtName", err)
 	}
 }
@@ -273,7 +273,7 @@ func TestListArt_ListsEveryStoredFileWithItsSizeAndNothingElse(t *testing.T) {
 	first, second := strings.Repeat("ab", 32), strings.Repeat("cd", 32)
 	stored := []ArtFile{{first, "portrait-s.webp", 3}, {first, "portrait-m.jpeg", 5}, {second, "landscape-l.none", 0}}
 	for _, file := range stored {
-		if err := directories.WriteArt(file.Hash, file.Name, make([]byte, file.SizeBytes)); err != nil {
+		if err := directories.WriteArt(file.SourceSha256Hex, file.Name, make([]byte, file.SizeBytes)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -285,7 +285,9 @@ func TestListArt_ListsEveryStoredFileWithItsSizeAndNothingElse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	slices.SortFunc(files, func(a, b ArtFile) int { return strings.Compare(a.Hash+a.Name, b.Hash+b.Name) })
+	slices.SortFunc(files, func(a, b ArtFile) int {
+		return strings.Compare(a.SourceSha256Hex+a.Name, b.SourceSha256Hex+b.Name)
+	})
 	want := []ArtFile{{first, "portrait-m.jpeg", 5}, {first, "portrait-s.webp", 3}, {second, "landscape-l.none", 0}}
 	if !slices.Equal(files, want) {
 		t.Errorf("ListArt = %+v, want %+v (the stray file skipped)", files, want)

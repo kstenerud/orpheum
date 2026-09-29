@@ -136,9 +136,10 @@ func TestDecide_TheAcceptanceFileIsRemuxedForTheContainerAndTheAudio(t *testing.
 	got := decide.Decide(decide.Input{Probe: mkv, PlayableFormats: browser, Network: decide.Local})
 	want := decide.Decision{
 		Delivery: decide.HLS, Profile: decide.Remux,
-		Reasons: []decide.Reason{decide.ReasonContainer, decide.ReasonAudioCodec},
+		NotDirectReasons: []decide.Reason{decide.ReasonContainer, decide.ReasonAudioCodec},
 	}
-	if got.Delivery != want.Delivery || got.Profile != want.Profile || !slices.Equal(got.Reasons, want.Reasons) {
+	if got.Delivery != want.Delivery || got.Profile != want.Profile ||
+		!slices.Equal(got.NotDirectReasons, want.NotDirectReasons) {
 		t.Errorf("Decide = %+v, want %+v", got, want)
 	}
 }
@@ -147,7 +148,7 @@ func TestDecide_PlaysDirectlyWhatFitsEveryAxis(t *testing.T) {
 	t.Parallel()
 	mp4 := probeOf("mp4", videoStream("h264", "High", "yuv420p", ""), audioStream("aac", "LC", 2))
 	got := decide.Decide(decide.Input{Probe: mp4, PlayableFormats: browser, Network: decide.Local})
-	if got.Delivery != decide.Direct || len(got.Reasons) != 0 {
+	if got.Delivery != decide.Direct || len(got.NotDirectReasons) != 0 {
 		t.Errorf("Decide = %+v, want direct with no reason", got)
 	}
 }
@@ -156,7 +157,7 @@ func TestDecide_ReEncodesWhatTheClientCannotDecode(t *testing.T) {
 	t.Parallel()
 	mpeg2 := probeOf("mp4", videoStream("mpeg2video", "Main", "yuv420p", ""), audioStream("aac", "LC", 2))
 	got := decide.Decide(decide.Input{Probe: mpeg2, PlayableFormats: browser})
-	if got.Profile != decide.H264At8M || !slices.Equal(got.Reasons, []decide.Reason{decide.ReasonVideoCodec}) {
+	if got.Profile != decide.H264At8M || !slices.Equal(got.NotDirectReasons, []decide.Reason{decide.ReasonVideoCodec}) {
 		t.Errorf("Decide = %+v, want h264-8m for video_codec", got)
 	}
 }
@@ -186,7 +187,8 @@ func TestDecide_AFastFileIsReEncodedForARemoteLinkOnly(t *testing.T) {
 	remote := decide.Decide(decide.Input{
 		Probe: fast, PlayableFormats: browser, Network: decide.Remote, RemoteCeilingKbps: 10_000,
 	})
-	if remote.Profile != decide.H264At8M || !slices.Equal(remote.Reasons, []decide.Reason{decide.ReasonBandwidth}) {
+	if remote.Profile != decide.H264At8M ||
+		!slices.Equal(remote.NotDirectReasons, []decide.Reason{decide.ReasonBandwidth}) {
 		t.Errorf("remote: %+v, want h264-8m for bandwidth", remote)
 	}
 	local := decide.Decide(decide.Input{
@@ -204,7 +206,7 @@ func TestDecide_TheBoostPreparesOnlyASourceWithACentre(t *testing.T) {
 	formats := browser
 	formats.AudioCodecs = append(formats.AudioCodecs, decide.AACMulti)
 	got := decide.Decide(decide.Input{Probe: surround, PlayableFormats: formats, IsStereoOutput: true})
-	if got.Profile != decide.Remux || !slices.Equal(got.Reasons, []decide.Reason{decide.ReasonDialogueBoost}) {
+	if got.Profile != decide.Remux || !slices.Equal(got.NotDirectReasons, []decide.Reason{decide.ReasonDialogueBoost}) {
 		t.Errorf("5.1 on stereo output: %+v, want remux for dialogue_boost", got)
 	}
 	stereo := probeOf("mp4", picture, audioStream("aac", "LC", 2))
@@ -223,7 +225,7 @@ func TestDecide_APersonsChoiceWins(t *testing.T) {
 	}
 	mp4 := probeOf("mp4", videoStream("h264", "High", "yuv420p", ""), audioStream("aac", "LC", 2))
 	got := decide.Decide(decide.Input{Probe: mp4, PlayableFormats: browser, PreferredDelivery: decide.PreferPrepare})
-	if got.Delivery != decide.HLS || !slices.Equal(got.Reasons, []decide.Reason{decide.ReasonUserChoice}) {
+	if got.Delivery != decide.HLS || !slices.Equal(got.NotDirectReasons, []decide.Reason{decide.ReasonUserChoice}) {
 		t.Errorf("prefer prepare: %+v, want hls for user_choice", got)
 	}
 }

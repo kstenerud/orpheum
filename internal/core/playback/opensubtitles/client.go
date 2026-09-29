@@ -58,12 +58,12 @@ var (
 
 // QuotaSpentError is an account whose downloads for the day are spent.
 type QuotaSpentError struct {
-	// ResetAt is when OpenSubtitles says the count starts again; zero when it did not say.
-	ResetAt time.Time
+	// DownloadsResetAt is when OpenSubtitles says the count starts again; zero when it did not say.
+	DownloadsResetAt time.Time
 }
 
 func (spent *QuotaSpentError) Error() string {
-	return "the OpenSubtitles account's downloads are spent until " + spent.ResetAt.Format(time.RFC3339)
+	return "the OpenSubtitles account's downloads are spent until " + spent.DownloadsResetAt.Format(time.RFC3339)
 }
 
 // LoginSecrets opens the login; secrets.Store is one.
@@ -247,7 +247,7 @@ func statusError(response *http.Response, answer []byte) error {
 	case http.StatusNotAcceptable:
 		var spent downloadAnswer
 		_ = json.Unmarshal(answer, &spent) //nolint:errcheck // a quota without a time is still spent
-		return &QuotaSpentError{ResetAt: spent.resetAt()}
+		return &QuotaSpentError{DownloadsResetAt: spent.resetAt()}
 	case http.StatusTooManyRequests:
 		return outbound.RateLimited(providerName, response.Header)
 	}

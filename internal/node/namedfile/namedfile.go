@@ -106,7 +106,7 @@ func (hashes *Hashes) payloadHashOf(file *os.File, version fileVersion) ([]byte,
 	if err != nil {
 		return nil, err
 	}
-	computed := identity.Hash[:]
+	computed := identity.PayloadHash[:]
 	if hashes != nil {
 		hashes.mutex.Lock()
 		defer hashes.mutex.Unlock()

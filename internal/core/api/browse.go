@@ -34,7 +34,7 @@ type ArtBody struct {
 }
 
 func artBody(art library.Art) ArtBody {
-	return ArtBody{PosterSha256: art.PosterHash, BackdropSha256: art.BackdropHash, StillSha256: art.StillHash}
+	return ArtBody{PosterSha256: art.PosterSha256, BackdropSha256: art.BackdropSha256, StillSha256: art.StillSha256}
 }
 
 // TitlesInput asks for one page of films or series.
@@ -201,7 +201,7 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 		output.Body.Titles = append(output.Body.Titles, EntryBody{
 			ID: entry.ID, Name: entry.Name, Year: entry.Year, IdentificationState: entry.IdentificationState,
 			LibraryID: entry.LibraryID,
-			AddedAt:   entry.AddedAt, PosterSha256: entry.PosterHash,
+			AddedAt:   entry.AddedAt, PosterSha256: entry.PosterSha256,
 		})
 	}
 	output.Body.NextCursor = page.NextCursor
@@ -291,7 +291,7 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 			Name:          ptr.ValueOrZero(episode.Name),
 			Year:          ptr.ValueOrZero(episode.Year), RuntimeMs: ptr.ValueOrZero(episode.RuntimeMs),
 			IdentificationState: episode.IdentificationState,
-			HasLiveFile:         episode.Available, StillSha256: series.StillHashByEpisodeID[episode.TitleID],
+			HasLiveFile:         episode.Available, StillSha256: series.StillSha256ByEpisodeID[episode.TitleID],
 		})
 	}
 	body.Art = artBody(series.Art)

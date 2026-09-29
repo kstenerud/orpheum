@@ -84,8 +84,8 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	sent := command.Prepare
 	if command.Type != nodeproto.CommandPrepare || sent == nil || sent.JobID != 77 ||
 		!strings.HasPrefix(sent.RenditionDir, "2/remux/") ||
-		sent.Source.RootPath != "/media" || string(sent.Source.Path) != "Film (2002).mkv" ||
-		sent.Source.PayloadHash != "0c0d" || len(sent.Audio) != 1 || sent.Audio[0].ChannelCount != 8 {
+		sent.Video.RootPath != "/media" || string(sent.Video.Path) != "Film (2002).mkv" ||
+		sent.Video.PayloadHash != "0c0d" || len(sent.AudioTracks) != 1 || sent.AudioTracks[0].ChannelCount != 8 {
 		t.Fatalf("the node was sent %+v, want the MKV by root, path and hash, with its 8-channel track", command)
 	}
 	running := nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareRunning, PreparedThroughMs: 4000}
@@ -195,8 +195,9 @@ func TestPrepare_ACopyMadeBeforeAnAudioTrackWasRelabelledIsMadeAgain(t *testing.
 	harness.shelveFilms(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	harness.play(t, user, chrome(2))
-	if first := harness.prepareRenditionOne(t, 83); len(first.Audio) != 1 || first.Audio[0].Language != "und" {
-		t.Fatalf("the first copy's audio = %+v, want its one track untagged", first.Audio)
+	first := harness.prepareRenditionOne(t, 83)
+	if len(first.AudioTracks) != 1 || first.AudioTracks[0].Language != "und" {
+		t.Fatalf("the first copy's audio = %+v, want its one track untagged", first.AudioTracks)
 	}
 	if same := harness.play(t, user, chrome(2)); same.IsPreparing {
 		t.Errorf("played again unchanged: %+v, want the copy as it is", same)
@@ -207,27 +208,28 @@ func TestPrepare_ACopyMadeBeforeAnAudioTrackWasRelabelledIsMadeAgain(t *testing.
 	if relabelled := harness.play(t, user, chrome(2)); !relabelled.IsPreparing {
 		t.Errorf("played after the track was relabelled: %+v, want the copy made again", relabelled)
 	}
-	if again := harness.prepareRenditionOne(t, 84); len(again.Audio) != 1 || again.Audio[0].Language != "de" {
-		t.Errorf("the copy made again tagged its audio %+v, want German", again.Audio)
+	again := harness.prepareRenditionOne(t, 84)
+	if len(again.AudioTracks) != 1 || again.AudioTracks[0].Language != "de" {
+		t.Errorf("the copy made again tagged its audio %+v, want German", again.AudioTracks)
 	}
 	if same := harness.play(t, user, chrome(2)); same.IsPreparing {
 		t.Errorf("played again after the new copy: %+v, want it as it is", same)
 	}
 }
 
-// prepareRenditionOne runs a prepare job for rendition 1 as job, has the fake node say it is done,
+// prepareRenditionOne runs a prepare job for rendition 1 as jobID, has the fake node say it is done,
 // and returns the command the node was sent.
-func (harness testHarness) prepareRenditionOne(t *testing.T, job int64) nodeproto.Prepare {
+func (harness testHarness) prepareRenditionOne(t *testing.T, jobID int64) nodeproto.Prepare {
 	t.Helper()
 	playback := harness.server.dependencies.Load().Playback
 	finished := make(chan error, 1)
 	go func() {
 		finished <- playback.HandlePrepare(t.Context(), jobs.Job{
-			ID: job, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1},
+			ID: jobID, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1},
 		})
 	}()
 	command := <-harness.nodes.commanded
-	done := nodeproto.PrepareReport{JobID: job, State: nodeproto.PrepareDone, SizeBytes: 9}
+	done := nodeproto.PrepareReport{JobID: jobID, State: nodeproto.PrepareDone, SizeBytes: 9}
 	playback.TakePrepareReport(t.Context(), 1, done)
 	if err := <-finished; err != nil {
 		t.Fatal(err)

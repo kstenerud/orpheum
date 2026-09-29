@@ -24,7 +24,7 @@ func TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons
 	if err = fixture.service.SignOut(ctx, first); err != nil {
 		t.Fatal(err)
 	}
-	resumed := NewDevice{Name: "Firefox on Linux", Platform: "web", ResumeDeviceID: before.DeviceID}
+	resumed := NewDevice{Name: "Firefox on Linux", Platform: "web", PreviousDeviceID: before.DeviceID}
 	again, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", resumed)
 	if err != nil {
 		t.Fatal(err)

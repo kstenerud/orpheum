@@ -110,7 +110,7 @@ func (filer *libraryFiler) mapLocalArtwork() {
 // their item: a deleted poster.jpg, or a video renamed away from its image. Without it, a removed
 // image kept showing, ranked first (D215 §1).
 func (filer *libraryFiler) retireLocalArtwork(ctx context.Context) error {
-	items, err := filer.queries.ListItemsWithLiveLocalArtwork(ctx, &filer.library.ID)
+	items, err := filer.queries.ListItemsWithLiveUnchosenLocalArtwork(ctx, &filer.library.ID)
 	if err != nil {
 		return fmt.Errorf("list the library's local artwork: %w", err)
 	}

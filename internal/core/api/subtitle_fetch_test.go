@@ -44,7 +44,10 @@ func (fake *fakeSubtitler) Search(_ context.Context, query opensubtitles.Query) 
 		return nil, fake.failure
 	}
 	return []opensubtitles.Candidate{
-		{ProviderFileID: 7, ReleaseName: "Film.2002.1080p", Language: "de", IsHashMatch: true, DownloadCount: 120},
+		{
+			ProviderFileID: 7, ReleaseName: "Film.2002.1080p", Language: "de", IsOpensubtitlesHashMatch: true,
+			DownloadCount: 120,
+		},
 		{ProviderFileID: 8, ReleaseName: "Film.2002.720p", Language: "de", IsHearingImpaired: true},
 	}, nil
 }
@@ -56,7 +59,8 @@ func (fake *fakeSubtitler) Download(context.Context, int64) (opensubtitles.Downl
 		return opensubtitles.Downloaded{}, fake.failure
 	}
 	return opensubtitles.Downloaded{
-		Body: []byte(fetchedText), FileName: "Film.2002.1080p.de.srt", RemainingDownloads: 19, ResetAt: resetAt,
+		Body: []byte(fetchedText), FileName: "Film.2002.1080p.de.srt", RemainingDownloads: 19,
+		DownloadsResetAt: resetAt,
 	}, nil
 }
 
@@ -87,7 +91,7 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 	first := offered.Candidates
 	if len(first) != 2 || !first[0].IsOpensubtitlesHashMatch || first[0].ProviderFileID != 7 ||
 		offered.Allowance.RemainingDownloads != 20 ||
-		!offered.DidAskByIDs || !offered.DidAskByFileHash {
+		!offered.DidAskByIDs || !offered.DidAskByOpensubtitlesHash {
 		t.Errorf("offered %+v; want both candidates, the hash match first, the downloads left, and that it "+
 			"asked by the ids and the hash (D224)", offered)
 	}
@@ -103,18 +107,18 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 	storetest.ExecRaw(t, harness.databasePath, "UPDATE file SET opensubtitles_hash = '43c6c64ddb8e4766' WHERE id = 1")
 	hashOnly := offeredCandidates(t, harness.do(t, http.MethodGet, "/files/1/subtitle-candidates?language=de", user,
 		nil))
-	if hashOnly.DidAskByIDs || !hashOnly.DidAskByFileHash {
+	if hashOnly.DidAskByIDs || !hashOnly.DidAskByOpensubtitlesHash {
 		t.Errorf("for an unidentified file: searched by ids %t, by hash %t; want the hash alone",
-			hashOnly.DidAskByIDs, hashOnly.DidAskByFileHash)
+			hashOnly.DidAskByIDs, hashOnly.DidAskByOpensubtitlesHash)
 	}
 }
 
 // candidatesAnswer is what GET subtitle-candidates answers.
 type candidatesAnswer struct {
-	Candidates       []SubtitleCandidateBody `json:"candidates"`
-	Allowance        AllowanceBody           `json:"allowance"`
-	DidAskByIDs      bool                    `json:"didAskByIds"`
-	DidAskByFileHash bool                    `json:"didAskByOpensubtitlesHash"`
+	Candidates                []SubtitleCandidateBody `json:"candidates"`
+	Allowance                 AllowanceBody           `json:"allowance"`
+	DidAskByIDs               bool                    `json:"didAskByIds"`
+	DidAskByOpensubtitlesHash bool                    `json:"didAskByOpensubtitlesHash"`
 }
 
 // offeredCandidates reads a 200 answer of GET subtitle-candidates.
@@ -152,9 +156,9 @@ func TestSubtitleCandidates_SayWhyInTheProvidersTerms(t *testing.T) {
 	harness.shelveFilms(t)
 	harness.identifyFilm(t)
 	for failure, want := range map[error]string{
-		opensubtitles.ErrNoLogin:                         `"reason":"no_login"`,
-		opensubtitles.ErrLoginRefused:                    `"reason":"login_refused"`,
-		&opensubtitles.QuotaSpentError{ResetAt: resetAt}: `"downloadsResetAt":"1790661600000"`,
+		opensubtitles.ErrNoLogin:                                  `"reason":"no_login"`,
+		opensubtitles.ErrLoginRefused:                             `"reason":"login_refused"`,
+		&opensubtitles.QuotaSpentError{DownloadsResetAt: resetAt}: `"downloadsResetAt":"1790661600000"`,
 		&outbound.RateLimitedError{Provider: "OpenSubtitles", RetryAfter: 2 * time.Second}: `"message":` +
 			`"OpenSubtitles asks us to wait","detail":{"retryAfterMs":"2000"}`,
 	} {
@@ -198,12 +202,13 @@ func fetchGerman(t *testing.T, harness testHarness, user string) int64 {
 	answer := harness.do(t, http.MethodPost, "/files/2/subtitles", user,
 		map[string]any{"providerFileId": 7, "language": "de"})
 	var fetched struct {
-		FetchedSubtitleID int64 `json:"fetchedSubtitleId"`
-		Remaining         int   `json:"remainingDownloads"`
-		ResetAt           int64 `json:"downloadsResetAt"`
+		FetchedSubtitleID  int64 `json:"fetchedSubtitleId"`
+		RemainingDownloads int   `json:"remainingDownloads"`
+		DownloadsResetAt   int64 `json:"downloadsResetAt"`
 	}
 	if err := json.Unmarshal([]byte(answer.body), &fetched); err != nil || answer.status != http.StatusOK ||
-		fetched.FetchedSubtitleID == 0 || fetched.Remaining != 19 || fetched.ResetAt != resetAt.UnixMilli() {
+		fetched.FetchedSubtitleID == 0 || fetched.RemainingDownloads != 19 ||
+		fetched.DownloadsResetAt != resetAt.UnixMilli() {
 		t.Fatalf("POST /files/2/subtitles = %d %s; want the new track and what is left", answer.status, answer.body)
 	}
 	return fetched.FetchedSubtitleID

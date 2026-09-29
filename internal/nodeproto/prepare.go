@@ -29,11 +29,11 @@ const (
 	ProfileH264At8M PrepareProfile = "h264-8m"
 )
 
-// Prepare is one prepare job: the source named by identity (D100), the profile, the audio
+// Prepare is one prepare job: the video named by identity (D100), the profile, the audio
 // tracks to carry, and where under the node's prepared directory the rendition goes.
 type Prepare struct {
 	JobID   int64          `json:"jobId"`
-	Source  BytesFile      `json:"source"`
+	Video   BytesFile      `json:"video"`
 	Profile PrepareProfile `json:"profile"`
 	// RenditionDir is "<file_id>/<profile>/<run_id>", this making's directory under the node's prepared
 	// directory and its byte path: a new run for each making, so no request reaches a copy an
@@ -47,9 +47,9 @@ type Prepare struct {
 	VideoCodec string `json:"videoCodec"`
 	// SegmentLengthSeconds is each HLS segment's target length (D217 §3).
 	SegmentLengthSeconds int `json:"segmentLengthSeconds"`
-	// Audio lists the source's audio tracks, in order: every one is carried, so switching
+	// AudioTracks lists the source's audio tracks, in order: every one is carried, so switching
 	// language needs no new job (D217 §3).
-	Audio []PrepareAudio `json:"audio"`
+	AudioTracks []PrepareAudio `json:"audioTracks"`
 }
 
 // PrepareAudio is one source audio track. A track with more than two channels has a centre and

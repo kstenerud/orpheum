@@ -259,17 +259,17 @@ func (service *Service) DirectSource(
 // located is where a file's bytes are: its library, its node, the path its node reported, and
 // its payload hash. Its subject names what was located, "file 12" or "stream 40", for an error.
 type located struct {
-	subject     string
-	libraryID   int64
-	nodeID      int64
-	pathKey     []byte
-	payloadHash []byte
+	subject           string
+	libraryID         int64
+	nodeID            int64
+	reportedPathBytes []byte
+	payloadHash       []byte
 }
 
 func locatedOf(file sqlcgen.GetPlayableFileRow) located {
 	return located{
 		subject: fmt.Sprintf("file %d", file.ID), libraryID: file.LibraryID, nodeID: file.NodeID,
-		pathKey: file.ReportedPathBytes, payloadHash: file.PayloadHash,
+		reportedPathBytes: file.ReportedPathBytes, payloadHash: file.PayloadHash,
 	}
 }
 
@@ -283,7 +283,7 @@ func (service *Service) bytesFileOf(ctx context.Context, file located) (nodeprot
 		return nodeproto.BytesFile{}, fmt.Errorf("read the library's roots: %w", err)
 	}
 	for _, root := range roots {
-		if relative, under := bytes.CutPrefix(file.pathKey, []byte(root+"/")); under {
+		if relative, under := bytes.CutPrefix(file.reportedPathBytes, []byte(root+"/")); under {
 			return nodeproto.BytesFile{
 					RootPath: root, Path: relative,
 					PayloadHash: hex.EncodeToString(file.payloadHash),

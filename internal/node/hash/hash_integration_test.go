@@ -70,12 +70,12 @@ func TestPayloadIdentity_D179TableWithTheRealTools(t *testing.T) {
 		copyTestFile(t, inTest("film.mkv"), edited)
 		tools.Run(t, "mkvpropedit", append([]string{"-q", edited}, arguments...)...)
 		if got := identityOfFile(t, edited); got != original {
-			t.Errorf("%s: the identity changed (%x → %x)", name, original.Hash[:8], got.Hash[:8])
+			t.Errorf("%s: the identity changed (%x → %x)", name, original.PayloadHash[:8], got.PayloadHash[:8])
 		}
 	}
 
 	ffmpeg("-i", "file:"+inTest("film.mkv"), "-c", "copy", "-map", "0", "file:"+inTest("remuxed.mkv"))
-	if got := identityOfFile(t, inTest("remuxed.mkv")); got.Hash == original.Hash {
+	if got := identityOfFile(t, inTest("remuxed.mkv")); got.PayloadHash == original.PayloadHash {
 		t.Error("an ffmpeg -c copy remux kept the identity; D179 says a remux is a new file")
 	}
 }
