@@ -5,7 +5,6 @@ package prepared
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -184,7 +183,7 @@ func (shelf *Shelf) listRuns() ([]run, error) {
 		if statErr != nil || !info.IsDir() {
 			continue // a run gone meanwhile, or a stray file, is not a rendition
 		}
-		sizeBytes, err := treeBytes(path)
+		sizeBytes, err := diskspace.TreeBytes(path)
 		if err != nil {
 			return nil, err
 		}
@@ -216,28 +215,6 @@ func (shelf *Shelf) removeEmptyFolders(folder string) {
 			return
 		}
 	}
-}
-
-// treeBytes is the size of every regular file under root.
-func treeBytes(root string) (int64, error) {
-	var total int64
-	err := filepath.WalkDir(root, func(_ string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.Type().IsRegular() {
-			info, infoErr := entry.Info()
-			if infoErr != nil {
-				return infoErr
-			}
-			total += info.Size()
-		}
-		return nil
-	})
-	if err != nil {
-		return 0, fmt.Errorf("measure %s: %w", root, err)
-	}
-	return total, nil
 }
 
 // filesystemUsedPercent is how full, as a whole percent, the filesystem holding path is.

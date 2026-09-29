@@ -4,6 +4,8 @@ package diskspace
 
 import (
 	"fmt"
+	"io/fs"
+	"path/filepath"
 	"syscall"
 )
 
@@ -36,4 +38,27 @@ func Measure(path string) (Space, error) {
 		TotalBytes:     int64(filesystem.Blocks) * blockSize, //nolint:gosec // a disk's blocks fit
 		AvailableBytes: int64(filesystem.Bavail) * blockSize, //nolint:gosec // as above
 	}, nil
+}
+
+// TreeBytes is the size of every regular file under root: what the files written there take. A
+// symbolic link, device or pipe is not counted, so a link to a large file elsewhere adds nothing.
+func TreeBytes(root string) (int64, error) {
+	var total int64
+	err := filepath.WalkDir(root, func(_ string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.Type().IsRegular() {
+			info, infoErr := entry.Info()
+			if infoErr != nil {
+				return infoErr
+			}
+			total += info.Size()
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("measure %s: %w", root, err)
+	}
+	return total, nil
 }
