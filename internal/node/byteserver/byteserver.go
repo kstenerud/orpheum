@@ -6,23 +6,15 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
-	"io/fs"
 	"net/http"
-	"os"
 	"path"
 	"regexp"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
-	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
-
-// maxRememberedPayloadHashes bounds the payload hashes remembered between requests. A player's
-// range requests come for one file at a time; the bound only stops a long-running node growing.
-const maxRememberedPayloadHashes = 1024
 
 // Server answers the node's byte socket.
 type Server struct {
@@ -33,17 +25,8 @@ type Server struct {
 	// renditionServedHook is told each rendition served, by its run directory, as its last use
 	// (D217 §5).
 	renditionServedHook func(renditionDir string)
-
-	mutex             sync.Mutex
-	payloadHashByFile map[fileState]string // guarded by mutex
-}
-
-// fileState is what a file looked like when its payload hash was computed: a file whose size or time
-// changed is hashed again before its bytes are served.
-type fileState struct {
-	root, path string
-	sizeBytes  int64
-	modifiedAt time.Time
+	// payloadHashes remembers each file's payload hash, so a player's range requests hash it once.
+	payloadHashes *namedfile.Hashes
 }
 
 // New returns a server over the node's roots and its prepared directory, which may be nil.
@@ -52,7 +35,7 @@ func New(roots []*confine.MediaRoot, prepared *confine.MediaRoot) *Server {
 	for _, root := range roots {
 		byPath[root.Path()] = root
 	}
-	return &Server{roots: byPath, prepared: prepared, payloadHashByFile: make(map[fileState]string)}
+	return &Server{roots: byPath, prepared: prepared, payloadHashes: namedfile.NewHashes()}
 }
 
 // OnRenditionServed has the server tell served each time it serves one of a rendition's files,
@@ -86,53 +69,27 @@ func (server *Server) serveFile(writer http.ResponseWriter, request *http.Reques
 		http.Error(writer, "want root, path (base64url) and payloadHash (hex)", http.StatusBadRequest)
 		return
 	}
-	file, err := root.Open(string(rawPath))
-	if err != nil {
+	file, info, err := server.payloadHashes.Open(root, string(rawPath), wantPayloadHash)
+	switch {
+	case errors.Is(err, namedfile.ErrChanged):
+		// D100: the core named a file by its payload hash, and this is no longer that file.
+		http.Error(writer, "the file at this path is not the one asked for", http.StatusConflict)
+		return
+	case errors.Is(err, namedfile.ErrUnhashable):
+		http.Error(writer, "the file cannot be read", http.StatusInternalServerError)
+		return
+	case errors.Is(err, namedfile.ErrNotRegular):
+		http.Error(writer, "not a regular file", http.StatusNotFound)
+		return
+	case err != nil:
 		http.Error(writer, "no such file under the root", http.StatusNotFound)
 		return
 	}
 	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() {
-		http.Error(writer, "not a regular file", http.StatusNotFound)
-		return
-	}
-	state := fileState{root.Path(), string(rawPath), info.Size(), info.ModTime()}
-	payloadHash, err := server.payloadHashHex(file, info, state)
-	if err != nil {
-		http.Error(writer, "the file cannot be read", http.StatusInternalServerError)
-		return
-	}
-	if payloadHash != hex.EncodeToString(wantPayloadHash) {
-		// D100: the core named a file by its payload hash, and this is no longer that file.
-		http.Error(writer, "the file at this path is not the one asked for", http.StatusConflict)
-		return
-	}
+	payloadHash := hex.EncodeToString(wantPayloadHash)
 	writer.Header().Set("Content-Type", "application/octet-stream")
 	writer.Header().Set("ETag", `"`+payloadHash+`"`)
 	http.ServeContent(writer, request, "", info.ModTime(), file)
-}
-
-// payloadHashHex is the file's payload hash in hex, remembered while its size and time stay the same.
-func (server *Server) payloadHashHex(file *os.File, info fs.FileInfo, key fileState) (string, error) {
-	server.mutex.Lock()
-	known, found := server.payloadHashByFile[key]
-	server.mutex.Unlock()
-	if found {
-		return known, nil
-	}
-	computed, err := hash.PayloadIdentity(file, info.Size())
-	if err != nil {
-		return "", errors.Join(errors.New("hash the file"), err)
-	}
-	payloadHash := hex.EncodeToString(computed.Hash[:])
-	server.mutex.Lock()
-	defer server.mutex.Unlock()
-	if len(server.payloadHashByFile) >= maxRememberedPayloadHashes {
-		clear(server.payloadHashByFile)
-	}
-	server.payloadHashByFile[key] = payloadHash
-	return payloadHash, nil
 }
 
 // renditionNamePattern is the only shape a rendition's file may be named by: "<file_id>/<profile>/<run_id>/" and

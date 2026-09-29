@@ -15,7 +15,8 @@
 //   - Opens media only through the read-only confine.MediaRoot. Enforced by the forbidigo rule
 //     tagged [media-root].
 //   - A file's bytes are served only while its payload hash is the one the request names; a file
-//     replaced at its path is refused, even after its identity was remembered. Enforced by
+//     replaced at its path is refused, even after its identity was remembered. It is opened and
+//     checked by internal/node/namedfile, as every command's file is. Enforced by
 //     TestServeFile_RefusesAFileThatIsNoLongerTheOneAskedFor.
 //   - Nothing outside a root is served: not a path that climbs out, an absolute path, a
 //     directory or a root the node does not have. Enforced by TestServeFile_NamesNothingOutsideARoot.
