@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -179,9 +180,9 @@ func (matcher *Matcher) storePart(
 	if err != nil {
 		return fmt.Errorf("read series %d's record: %w", series.ID, err)
 	}
-	bodyGzip, err := compress(body)
+	bodyGzip, err := bounded.Gzip(body)
 	if err != nil {
-		return err
+		return fmt.Errorf("keep the provider's answer: %w", err)
 	}
 	found := seriesMatchFound{
 		provider: provider.Name(), seriesID: series.ID, metadata: metadata,

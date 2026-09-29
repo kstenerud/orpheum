@@ -45,3 +45,18 @@ func TestReadAll_RefusesPastTheBoundRatherThanCutIt(t *testing.T) {
 }
 
 var errBroken = errors.New("broken")
+
+func TestGunzip_GivesBackWhatGzipCompressedAndRefusesPastTheBound(t *testing.T) {
+	t.Parallel()
+	compressed, err := bounded.Gzip([]byte(strings.Repeat("x", 1000)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := bounded.Gunzip(compressed, 1000)
+	if err != nil || string(body) != strings.Repeat("x", 1000) {
+		t.Errorf("at the bound: %d bytes, %v; want the 1000 compressed", len(body), err)
+	}
+	if body, err = bounded.Gunzip(compressed, 999); !errors.Is(err, bounded.ErrTooLarge) || body != nil {
+		t.Errorf("past the bound: %d bytes, %v; want nothing and ErrTooLarge", len(body), err)
+	}
+}

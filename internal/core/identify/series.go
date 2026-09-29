@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -95,7 +96,7 @@ func storedListing(
 	if err != nil {
 		return nil, fmt.Errorf("read series %d's season %d: %w", seriesID, season, err)
 	}
-	body, err := decompress(bodyGzip)
+	body, err := bounded.Gunzip(bodyGzip, maxStoredResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("series %d's season %d: %w", seriesID, season, err)
 	}
@@ -269,7 +270,7 @@ func (filer *libraryFiler) seriesValues(
 	if err != nil {
 		return seriesSourceValues{}, fmt.Errorf("read series %d's %s response: %w", seriesID, provider.Name(), err)
 	}
-	body, err := decompress(bodyGzip)
+	body, err := bounded.Gunzip(bodyGzip, maxStoredResponseBytes)
 	if err != nil {
 		return seriesSourceValues{}, fmt.Errorf("series %d's %s response: %w", seriesID, provider.Name(), err)
 	}
