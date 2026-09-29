@@ -39,6 +39,8 @@ export const en = {
         "This device was signed out: it was removed from your devices, or signed out from another device. Sign in again, or use a code from Your account on another device.",
       sessionExpired: "You were signed out after a long time away. Sign in again.",
       noSession: "You are not signed in. Sign in to continue.",
+      signOutUnheard:
+        "You are signed out on this device, but the server could not be told, so its session may still work until it expires. To end it now, remove this device from Your account on another device.",
     },
     forbidden: "Only an administrator can do that.",
     notFound: "That is no longer here: it may have been removed. Go back and try again.",

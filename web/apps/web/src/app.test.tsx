@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
 import "./i18n.ts";
@@ -6,7 +7,36 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { App } from "./app.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  refusal,
+  servedBy,
+  unreachable,
+  type Answers,
+} from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
+
+/** What the sign-in page says after signing out, when the server answers DELETE /session so. */
+async function noticeAfterSigningOut(answer: Answers[string]): Promise<string | undefined> {
+  const services = servedBy(
+    {
+      "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
+      "GET /home": [200, { continueWatching: [] }],
+      "GET /titles": [200, { titles: [], nextCursor: "" }],
+      "DELETE /session": answer,
+    },
+    [],
+    "token",
+  );
+  const mounted = await mount(withServices(<App />, services));
+  await click(buttonWithText(mounted.container, "Sign out"));
+  const isSignedOut = services.session.token() === undefined;
+  const notice = mounted.container.querySelector("output")?.textContent ?? undefined;
+  mounted.unmount();
+  return isSignedOut ? notice : "still signed in";
+}
 
 describe("App", () => {
   it("asks to sign in until there is a session", () => {
@@ -48,5 +78,13 @@ describe("App", () => {
   it("says when an address names nothing", () => {
     const markup = renderToStaticMarkup(withServices(<App />, testServices("token", "/nowhere")));
     expect(markup).toContain("There is nothing at this address.");
+  });
+
+  it("signs out here whatever the server says, and says when the server could not be told", async () => {
+    expect(await noticeAfterSigningOut([204, undefined])).toBeUndefined();
+    expect(await noticeAfterSigningOut(unreachable)).toContain("the server could not be told");
+    expect(await noticeAfterSigningOut(refusal(503, "migrating"))).toContain(
+      "the server could not be told",
+    );
   });
 });
