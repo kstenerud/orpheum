@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"github.com/kstenerud/orpheum/internal/platform/errs"
 )
 
 // lockFileName is the state directory's lock, held by a running server for its whole life.
@@ -33,7 +35,7 @@ func (directories *Directories) LockState() (*Lock, error) {
 		return nil, err
 	}
 	file, err := root.OpenFile(lockFileName, os.O_RDWR|os.O_CREATE, fileMode)
-	err = errors.Join(wrapIf("open "+path, err), wrapIf("close the state directory", root.Close()))
+	err = errors.Join(errs.WrapIf("open "+path, err), errs.WrapIf("close the state directory", root.Close()))
 	if err != nil {
 		if file != nil {
 			err = errors.Join(err, file.Close())

@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -101,11 +102,9 @@ func acceptanceRun(
 	filings := map[string]storedFiling{}
 	for _, file := range files {
 		raw := string(file.ReportedPathBytes)
-		reason := ""
-		if file.FilingReason != nil {
-			reason = *file.FilingReason
+		filings[strings.TrimPrefix(raw, root+"/")] = storedFiling{
+			filing: file.Filing, reason: ptr.ValueOrZero(file.FilingReason),
 		}
-		filings[strings.TrimPrefix(raw, root+"/")] = storedFiling{filing: file.Filing, reason: reason}
 	}
 	return filings
 }

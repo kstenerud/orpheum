@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -162,7 +163,7 @@ func (filer *libraryFiler) resolveAndFile(ctx context.Context) error {
 			filer.report.ListedCount++
 		}
 		err := filer.queries.SetFileFiling(ctx, sqlcgen.SetFileFilingParams{
-			Filing: filing, FilingReason: nilIfEmpty(reason), ID: file.ID,
+			Filing: filing, FilingReason: ptr.NilIfZero(reason), ID: file.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("file %s: %w", file.Path, err)
@@ -240,7 +241,8 @@ func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titl
 		}
 	}
 	err = filer.queries.UpdateTitleResolved(ctx, sqlcgen.UpdateTitleResolvedParams{
-		Year: nilIfZero(year), RuntimeMs: nilIfZero(runtimeMs), FollowedSource: source, FollowedSourceID: sourceID,
+		Year: ptr.NilIfZero(year), RuntimeMs: ptr.NilIfZero(runtimeMs),
+		FollowedSource: source, FollowedSourceID: sourceID,
 		IdentificationState: spec.identification, ID: titleID,
 	})
 	if err != nil {
@@ -273,18 +275,4 @@ func (filer *libraryFiler) recordIDs(ctx context.Context, titleID int64, ids map
 		}
 	}
 	return nil
-}
-
-func nilIfEmpty(text string) *string {
-	if text == "" {
-		return nil
-	}
-	return &text
-}
-
-func nilIfZero(value int64) *int64 {
-	if value == 0 {
-		return nil
-	}
-	return &value
 }

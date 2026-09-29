@@ -395,8 +395,8 @@ func (matcher *Matcher) keepCandidates(
 		for rank, candidate := range candidates {
 			err := queries.InsertMatchCandidate(ctx, cachegen.InsertMatchCandidateParams{
 				ItemID: itemID, Rank: int64(rank), Provider: provider.Name(), ProviderID: candidate.ID,
-				Name: nilIfEmpty(candidate.Name), Year: nilIfZero(int64(candidate.Year)),
-				ProviderPosterPath: nilIfEmpty(candidate.PosterRef),
+				Name: ptr.NilIfZero(candidate.Name), Year: ptr.NilIfZero(int64(candidate.Year)),
+				ProviderPosterPath: ptr.NilIfZero(candidate.PosterRef),
 			})
 			if err != nil {
 				return fmt.Errorf("keep a candidate for item %d: %w", itemID, err)
@@ -423,7 +423,7 @@ func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identi
 		reason = ""
 	}
 	for _, file := range files {
-		params := sqlcgen.SetFileFilingParams{Filing: filing, FilingReason: nilIfEmpty(reason), ID: file.ID}
+		params := sqlcgen.SetFileFilingParams{Filing: filing, FilingReason: ptr.NilIfZero(reason), ID: file.ID}
 		err := queries.SetFileFiling(ctx, params)
 		if err != nil {
 			return fmt.Errorf("file %s: %w", file.Path, err)

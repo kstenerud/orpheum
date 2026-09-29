@@ -70,11 +70,7 @@ type Subtitle struct {
 // textKey is where a track's text is kept: the payload hash of the file its bytes are in, and its
 // stream index there. A subtitle file's one track is its stream 0, as FFmpeg numbers it.
 func textKey(payloadHash []byte, streamIndex *int64) cachegen.GetSubtitleTextParams {
-	key := cachegen.GetSubtitleTextParams{BytesPayloadHash: payloadHash}
-	if streamIndex != nil {
-		key.StreamIndex = *streamIndex
-	}
-	return key
+	return cachegen.GetSubtitleTextParams{BytesPayloadHash: payloadHash, StreamIndex: ptr.ValueOrZero(streamIndex)}
 }
 
 // wantSubtitles lists a video's text subtitle tracks, its own and its subtitle files', and has
@@ -235,11 +231,7 @@ func (service *Service) Subtitle(
 		}
 		return Subtitle{Readiness: Complete, Text: text}, nil
 	case subtitleFailed:
-		reason := ""
-		if row.Failure != nil {
-			reason = *row.Failure
-		}
-		return Subtitle{Readiness: Failed, Failure: reason}, nil
+		return Subtitle{Readiness: Failed, Failure: ptr.ValueOrZero(row.Failure)}, nil
 	}
 	return Subtitle{Readiness: Preparing}, nil
 }

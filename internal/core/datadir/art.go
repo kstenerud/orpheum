@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/kstenerud/orpheum/internal/platform/errs"
 )
 
 // artDirectoryName holds the artwork under the cache directory (D212): one directory per image,
@@ -31,7 +33,7 @@ func (directories *Directories) WriteArt(hash, name string, contents []byte) (er
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, wrapIf("close the artwork directory", imageDirectory.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close the artwork directory", imageDirectory.Close())) }()
 	if !artFileNamePattern.MatchString(name) {
 		return fmt.Errorf("%q: %w", name, ErrBadArtName)
 	}
@@ -50,7 +52,7 @@ func (directories *Directories) ReadArt(hash, name string) (contents []byte, err
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Join(err, wrapIf("close the artwork directory", imageDirectory.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close the artwork directory", imageDirectory.Close())) }()
 	contents, err = imageDirectory.ReadFile(name)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("art %s/%s: %w", hash, name, ErrNotFound)
@@ -73,7 +75,7 @@ func (directories *Directories) HasArt(hash, name string) (found bool, err error
 	if err != nil {
 		return false, err
 	}
-	defer func() { err = errors.Join(err, wrapIf("close the artwork directory", imageDirectory.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close the artwork directory", imageDirectory.Close())) }()
 	_, err = imageDirectory.Stat(name)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
@@ -96,8 +98,8 @@ func (directories *Directories) RemoveArt(hash, name string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, wrapIf("close the artwork directory", imageDirectory.Close())) }()
-	return ignoreMissing(wrapIf("remove art "+hash+"/"+name, imageDirectory.Remove(name)))
+	defer func() { err = errors.Join(err, errs.WrapIf("close the artwork directory", imageDirectory.Close())) }()
+	return ignoreMissing(errs.WrapIf("remove art "+hash+"/"+name, imageDirectory.Remove(name)))
 }
 
 // ArtFile is one stored file of one image, and its size.

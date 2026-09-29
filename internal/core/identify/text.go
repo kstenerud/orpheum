@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/kstenerud/orpheum/internal/core/textindex"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -24,8 +25,8 @@ type itemText struct {
 // (principles §22).
 func (filer *libraryFiler) writeText(ctx context.Context, itemID int64, text itemText) error {
 	err := filer.queries.UpsertOriginalText(ctx, sqlcgen.UpsertOriginalTextParams{
-		ItemID: itemID, Language: langUnknown, Name: text.name, Overview: nilIfEmpty(text.overview),
-		Tagline: nilIfEmpty(text.tagline), SearchAlternates: nilIfEmpty(textindex.Fold(text.name)),
+		ItemID: itemID, Language: langUnknown, Name: text.name, Overview: ptr.NilIfZero(text.overview),
+		Tagline: ptr.NilIfZero(text.tagline), SearchAlternates: ptr.NilIfZero(textindex.Fold(text.name)),
 	})
 	if err != nil {
 		return fmt.Errorf("name item %d: %w", itemID, err)

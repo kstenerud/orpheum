@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/kstenerud/orpheum/internal/platform/errs"
 )
 
 // BackupInto writes a consistent copy of the database to path with VACUUM INTO: one file, no
@@ -50,7 +52,7 @@ func InspectBackup(ctx context.Context, path string) (inspected BackupDescriptio
 	if err != nil {
 		return inspected, fmt.Errorf("open backup %q: %w", path, err)
 	}
-	defer func() { err = errors.Join(err, wrapIf("close backup", pool.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close backup", pool.Close())) }()
 	err = pool.QueryRowContext(ctx, "PRAGMA application_id").Scan(&inspected.ApplicationID)
 	if err != nil {
 		return inspected, fmt.Errorf("backup %q: read application_id: %w", path, err)
@@ -78,7 +80,7 @@ func CopyBackup(ctx context.Context, source, target string) (err error) {
 	if err != nil {
 		return fmt.Errorf("open backup %q: %w", source, err)
 	}
-	defer func() { err = errors.Join(err, wrapIf("close backup", pool.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close backup", pool.Close())) }()
 	if _, err = pool.ExecContext(ctx, "VACUUM INTO ?", target); err != nil {
 		return fmt.Errorf("copy backup %q into %q: %w", source, target, err)
 	}

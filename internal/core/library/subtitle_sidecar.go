@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/platform/langtag"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -97,8 +98,8 @@ func (batch *ingestBatch) keepSidecarTrack(
 		return nil
 	}
 	track := sidecarTrackOf(sidecar.Path, video.Path)
-	codec := nilIfEmpty(track.codec)
-	containerLanguage, languageTag := nilIfEmpty(track.containerLanguage), nilIfEmpty(track.languageTag)
+	codec := ptr.NilIfZero(track.codec)
+	containerLanguage, languageTag := ptr.NilIfZero(track.containerLanguage), ptr.NilIfZero(track.languageTag)
 	if !hasTrack {
 		err = batch.queries.InsertSidecarStream(ctx, sqlcgen.InsertSidecarStreamParams{
 			BytesFile: sidecar.ID, VideoFile: video.ID, Codec: codec, ContainerLanguage: containerLanguage,
