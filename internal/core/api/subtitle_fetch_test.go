@@ -223,6 +223,28 @@ func TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt(t *testin
 	}
 }
 
+// A fetched subtitle's language is kept in the one form the library stores, BCP 47 (D206), however
+// the request spelled it.
+func TestFetchSubtitle_KeepsItsLanguageAsBCP47(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.identifyFilm(t)
+	answer := harness.do(t, http.MethodPost, "/files/2/subtitles", user,
+		map[string]any{"providerFileId": 7, "language": "ger"})
+	var fetched struct {
+		FetchedSubtitleID int64 `json:"fetchedSubtitleId"`
+	}
+	if err := json.Unmarshal([]byte(answer.body), &fetched); err != nil || answer.status != http.StatusOK {
+		t.Fatalf("POST /files/2/subtitles = %d %s", answer.status, answer.body)
+	}
+	kept, err := harness.database.Read().ListFetchedSubtitlesOfVideo(t.Context(), 2)
+	if err != nil || len(kept) != 1 || kept[0].ID != fetched.FetchedSubtitleID || kept[0].Language != "de" {
+		t.Errorf("the fetched subtitles are %+v, %v; want the one fetched, its language ger kept as de", kept, err)
+	}
+}
+
 // fetchGerman fetches the fake's first candidate for film 2 and returns the new track.
 func fetchGerman(t *testing.T, harness testHarness, user string) int64 {
 	t.Helper()

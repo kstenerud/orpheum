@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
+	"github.com/kstenerud/orpheum/internal/platform/langtag"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -183,7 +184,8 @@ func (service *Service) FetchSubtitle(
 		var insertErr error
 		id, insertErr = queries.InsertFetchedSubtitle(ctx, sqlcgen.InsertFetchedSubtitleParams{
 			VideoFile: fileID, Provider: providerOpenSubtitles,
-			ProviderFileID: strconv.FormatInt(request.ProviderFileID, 10), Language: request.Language, Format: "srt",
+			ProviderFileID: strconv.FormatInt(request.ProviderFileID, 10), Language: langtag.BCP47(request.Language),
+			Format:   "srt",
 			BodyGzip: body, FetchedByUserID: userID, FetchedAt: service.clock.Now().UnixMilli(),
 			ReleaseName: &downloaded.FileName,
 		})
