@@ -11,9 +11,9 @@ import (
 	"unicode"
 )
 
-// Parsed is what a path says about the work in it: a hint, never an authority
+// ParsedPath is what a path says about the work in it: a hint, never an authority
 // (identification.md). The probe wins on matters of fact, and a person's answer wins over both.
-type Parsed struct {
+type ParsedPath struct {
 	// Kind is "movie" or "episode"; empty when the path says neither.
 	Kind string
 	// Name is the title as the path writes it, cleaned of release tags and separators.
@@ -40,8 +40,8 @@ var (
 	providerIDPattern = regexp.MustCompile(`[\[{](tmdb|tmdbid|imdb|imdbid|tvdb|tvdbid)[-=]([0-9A-Za-z]+)[\]}]`)
 	episodePattern    = regexp.MustCompile(
 		`(?i)(?:^|[^\p{L}\p{N}])s([0-9]{1,3})[ ._-]?e([0-9]{1,4})(?:[ ._-]?-?e([0-9]{1,4}))?`)
-	crossPattern     = regexp.MustCompile(`(?:^|[^\p{L}\p{N}])([0-9]{1,2})x([0-9]{2,3})(?:[^\p{L}\p{N}]|$)`)
-	seasonDirPattern = regexp.MustCompile(
+	seasonXEpisodePattern = regexp.MustCompile(`(?:^|[^\p{L}\p{N}])([0-9]{1,2})x([0-9]{2,3})(?:[^\p{L}\p{N}]|$)`)
+	seasonFolderPattern   = regexp.MustCompile(
 		`(?i)^(?:season|series|staffel|saison|temporada)[\p{Z} ._-]*([0-9]{1,3})$|^s([0-9]{1,3})$`)
 	yearPattern = regexp.MustCompile(`(?:^|[\p{Z} ._(\[-])((?:19|20)[0-9]{2})(?:[\p{Z} ._)\]-]|$)`)
 )
@@ -71,8 +71,8 @@ func extraSuffixes() []string {
 // ParsePath reads a path relative to its library root. Episode markers in the file name win;
 // then the name and year come from the file's stem, or from its folder when the stem says
 // nothing a title would.
-func ParsePath(relative string) Parsed {
-	parsed := Parsed{ProviderIDs: map[string]string{}}
+func ParsePath(relative string) ParsedPath {
+	parsed := ParsedPath{ProviderIDs: map[string]string{}}
 	for _, match := range providerIDPattern.FindAllStringSubmatch(relative, -1) {
 		provider := strings.TrimSuffix(strings.ToLower(match[1]), "id")
 		parsed.ProviderIDs[provider] = match[2]
@@ -83,16 +83,16 @@ func ParsePath(relative string) Parsed {
 
 	if marker, found := findEpisode(stem); found {
 		parsed.Kind = kindEpisode
-		parsed.Season, parsed.Episode, parsed.EpisodeEnd = marker.season, marker.episode, marker.end
+		parsed.Season, parsed.Episode, parsed.EpisodeEnd = marker.season, marker.episode, marker.lastEpisode
 		// The folders name a series more reliably than the words before "S02E05", which may be
 		// the episode's own name or "Folge" ("episode"); the file name is the fallback.
 		parsed.Name, parsed.Year = seriesFromFolders(folder)
 		if parsed.Name == "" {
-			parsed.Name, parsed.Year = cleanTitle(stem[:marker.at])
+			parsed.Name, parsed.Year = cleanTitle(stem[:marker.startIndex])
 		}
 		return parsed
 	}
-	parsed.Kind = kindMovie
+	parsed.Kind = KindMovie
 	parsed.Name, parsed.Year = cleanTitle(stem)
 	if parsed.Year == 0 || parsed.Name == "" {
 		// "Metropolis (1995)/movie.mkv", "Metropolis (1995)/metropolis-1080p.mkv": the folder names the work.
@@ -105,22 +105,23 @@ func ParsePath(relative string) Parsed {
 
 // episodeMarker is an S01E02, S01E02-E03 or 1x02 found in a stem, and where it starts.
 type episodeMarker struct {
-	season, episode, end, at int
+	season, episode, lastEpisode, startIndex int
 }
 
 func findEpisode(stem string) (episodeMarker, bool) {
 	if match := episodePattern.FindStringSubmatchIndex(stem); match != nil {
 		marker := episodeMarker{
-			season: atoi(stem[match[2]:match[3]]), episode: atoi(stem[match[4]:match[5]]), at: match[0],
+			season: parseIntOrZero(stem[match[2]:match[3]]), episode: parseIntOrZero(stem[match[4]:match[5]]),
+			startIndex: match[0],
 		}
 		if match[6] >= 0 {
-			marker.end = atoi(stem[match[6]:match[7]])
+			marker.lastEpisode = parseIntOrZero(stem[match[6]:match[7]])
 		}
 		return marker, true
 	}
-	if match := crossPattern.FindStringSubmatchIndex(stem); match != nil {
-		season, episode := atoi(stem[match[2]:match[3]]), atoi(stem[match[4]:match[5]])
-		return episodeMarker{season: season, episode: episode, at: match[0]}, true
+	if match := seasonXEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
+		season, episode := parseIntOrZero(stem[match[2]:match[3]]), parseIntOrZero(stem[match[4]:match[5]])
+		return episodeMarker{season: season, episode: episode, startIndex: match[0]}, true
 	}
 	return episodeMarker{}, false
 }
@@ -129,7 +130,7 @@ func findEpisode(stem string) (episodeMarker, bool) {
 // is Show.
 func seriesFromFolders(folder string) (name string, year int) {
 	for _, part := range slices.Backward(strings.Split(strings.Trim(folder, "/"), "/")) {
-		if part == "" || seasonDirPattern.MatchString(strings.TrimSpace(part)) {
+		if part == "" || seasonFolderPattern.MatchString(strings.TrimSpace(part)) {
 			continue
 		}
 		return cleanTitle(part)
@@ -151,7 +152,7 @@ func cleanTitle(stem string) (name string, year int) {
 		last := matches[len(matches)-1]
 		// A number that is the whole name is the name: "1917".
 		if last[0] > 0 {
-			year = atoi(text[last[2]:last[3]])
+			year = parseIntOrZero(text[last[2]:last[3]])
 			text = text[:last[0]]
 		}
 	}
@@ -184,7 +185,7 @@ func cutExtraSuffix(stem string) (rest, suffix string) {
 	return stem, ""
 }
 
-func atoi(digits string) int {
+func parseIntOrZero(digits string) int {
 	value, err := strconv.Atoi(digits)
 	if err != nil {
 		return 0

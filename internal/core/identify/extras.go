@@ -11,23 +11,23 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// extraKind is a file found inside a film's own folder in an extras subfolder: containment makes
-// it an extra, and the folder types it (D162).
-type extraKind struct {
+// foundExtra is a file found to be a film's extra by containment (D162): in an extras subfolder
+// of the film's own folder, which types it, or named for the film with an extra's suffix.
+type foundExtra struct {
 	ownerFolder string // relative to the root
-	kind        string
+	extraType   string
 	evidence    string // what made it one, for its filing's reason (D163)
 }
 
 // pendingExtra is an extra waiting for its film to be filed.
 type pendingExtra struct {
-	file  sqlcgen.ListIdentifyFilesRow
-	rel   string
-	extra extraKind
+	file         sqlcgen.ListIdentifyFilesRow
+	relativePath string
+	extra        foundExtra
 }
 
-// extraFolderKind maps D162's closed vocabulary of extras folders to extra types.
-func extraFolderKind(name string) (string, bool) {
+// extraTypeOfFolder maps D162's closed vocabulary of extras folders to extra types.
+func extraTypeOfFolder(name string) (string, bool) {
 	switch strings.ToLower(name) {
 	case "trailers":
 		return extraTrailer, true
@@ -55,8 +55,8 @@ func extraFolderKind(name string) (string, bool) {
 	return "", false
 }
 
-// suffixKind maps an extra's file-name suffix to its type.
-func suffixKind(suffix string) string {
+// extraTypeOfSuffix maps an extra's file-name suffix to its type.
+func extraTypeOfSuffix(suffix string) string {
 	switch suffix {
 	case extraTrailer, "teaser", extraClip, extraFeaturette, extraInterview, extraShort, extraScene:
 		return suffix
@@ -68,76 +68,76 @@ func suffixKind(suffix string) string {
 	return extraUnknown
 }
 
-// extraOf reports whether a path is an extra by containment, never at a library root (D162):
+// detectExtra reports whether a path is an extra by containment, never at a library root (D162):
 // in a vocabulary folder inside a title's own folder, or named for the title whose folder it is
 // in, with a vocabulary suffix ("Film (1999)/Film (1999)-trailer.mkv"). Either is settled once
 // the folder's film is known; with none there it is a film itself.
-func extraOf(rel string) (extraKind, bool) {
-	folders := strings.Split(path.Dir(rel), "/")
-	if path.Dir(rel) == "." {
-		return extraKind{}, false
+func detectExtra(relativePath string) (foundExtra, bool) {
+	folders := strings.Split(path.Dir(relativePath), "/")
+	if path.Dir(relativePath) == "." {
+		return foundExtra{}, false
 	}
-	if bySuffix, isExtra := extraBySuffix(rel); isExtra {
+	if bySuffix, isExtra := extraBySuffix(relativePath); isExtra {
 		return bySuffix, true
 	}
 	if len(folders) < 2 {
-		return extraKind{}, false
+		return foundExtra{}, false
 	}
-	kind, isExtra := extraFolderKind(folders[len(folders)-1])
+	kind, isExtra := extraTypeOfFolder(folders[len(folders)-1])
 	if !isExtra {
-		return extraKind{}, false
+		return foundExtra{}, false
 	}
-	parsed := ParsePath(rel)
+	parsed := ParsePath(relativePath)
 	if parsed.ExtraSuffix != "" {
-		kind = suffixKind(parsed.ExtraSuffix) // inside an extras folder, a suffix picks the type
+		kind = extraTypeOfSuffix(parsed.ExtraSuffix) // inside an extras folder, a suffix picks the type
 	}
-	return extraKind{
-		ownerFolder: strings.Join(folders[:len(folders)-1], "/"), kind: kind,
+	return foundExtra{
+		ownerFolder: strings.Join(folders[:len(folders)-1], "/"), extraType: kind,
 		evidence: "its " + folders[len(folders)-1] + " folder",
 	}, true
 }
 
 // extraBySuffix is D162's second evidence: a file whose stem is its folder's title plus a
 // vocabulary suffix. The suffix alone never makes an extra; the folder's name must be the rest.
-func extraBySuffix(rel string) (extraKind, bool) {
-	folder := path.Dir(rel)
-	stem := strings.TrimSuffix(path.Base(rel), path.Ext(rel))
+func extraBySuffix(relativePath string) (foundExtra, bool) {
+	folder := path.Dir(relativePath)
+	stem := strings.TrimSuffix(path.Base(relativePath), path.Ext(relativePath))
 	rest, suffix := cutExtraSuffix(stem)
 	if suffix == "" || foldName(rest) != foldName(path.Base(folder)) {
-		return extraKind{}, false
+		return foundExtra{}, false
 	}
-	return extraKind{ownerFolder: folder, kind: suffixKind(suffix), evidence: "its name"}, true
+	return foundExtra{ownerFolder: folder, extraType: extraTypeOfSuffix(suffix), evidence: "its name"}, true
 }
 
-// extra files an extra under the film in its owner folder. With no film there, containment does
+// fileExtra files an extra under the film in its owner folder. With no film there, containment does
 // not hold, and it is filed as a film itself: an extra shown as a film is clutter, a film taken
 // for an extra vanishes (D162).
-func (work *run) extra(ctx context.Context, pending pendingExtra) error {
-	root := strings.TrimSuffix(pending.file.Path, pending.rel)
-	ownerTitle, found := work.titleIDByFolder[path.Clean(root+pending.extra.ownerFolder)]
+func (filer *libraryFiler) fileExtra(ctx context.Context, pending pendingExtra) error {
+	root := strings.TrimSuffix(pending.file.Path, pending.relativePath)
+	ownerTitleID, found := filer.titleIDByFolder[path.Clean(root+pending.extra.ownerFolder)]
 	if !found {
-		return work.work(ctx, pending.file, pending.rel)
+		return filer.fileFilmOrEpisode(ctx, pending.file, pending.relativePath)
 	}
-	parsed := ParsePath(pending.rel)
+	parsed := ParsePath(pending.relativePath)
 	spec := titleSpec{
-		kind: kindExtra, name: parsed.Name, runtimeMs: probeRuntime(pending.file.ProbeJson), ids: map[string]string{},
-		key:    fmt.Sprintf("extra|%d|%s", ownerTitle, strings.ToLower(pending.rel)),
-		source: sourceNone, ident: identIdentified,
+		kind: kindExtra, name: parsed.Name, runtimeMs: probeRuntimeMs(pending.file.ProbeJson), ids: map[string]string{},
+		key:    fmt.Sprintf("extra|%d|%s", ownerTitleID, strings.ToLower(pending.relativePath)),
+		source: sourceNone, identification: identificationIdentified,
 	}
-	titleID, kept, err := work.currentTitle(ctx, pending.file)
-	if err == nil && !kept {
-		titleID, err = work.titleFor(ctx, spec)
+	titleID, hasCurrentTitle, err := filer.currentTitle(ctx, pending.file)
+	if err == nil && !hasCurrentTitle {
+		titleID, err = filer.findOrAddTitle(ctx, spec)
 	}
 	if err != nil {
 		return err
 	}
-	err = work.queries.UpsertScannerExtraRelation(ctx, sqlcgen.UpsertScannerExtraRelationParams{
-		OwnerTitle: ownerTitle, ExtraTitle: titleID, ExtraType: pending.extra.kind,
+	err = filer.queries.UpsertScannerExtraRelation(ctx, sqlcgen.UpsertScannerExtraRelationParams{
+		OwnerTitle: ownerTitleID, ExtraTitle: titleID, ExtraType: pending.extra.extraType,
 	})
 	if err != nil {
 		return fmt.Errorf("relate the extra %s: %w", pending.file.Path, err)
 	}
-	work.extraOf[pending.file.ID] = fmt.Sprintf("%s of %s, by %s",
-		strings.ReplaceAll(pending.extra.kind, "_", " "), pending.extra.ownerFolder, pending.extra.evidence)
-	return work.place(ctx, pending.file, titleID, spec)
+	filer.extraReasonByFile[pending.file.ID] = fmt.Sprintf("%s of %s, by %s",
+		strings.ReplaceAll(pending.extra.extraType, "_", " "), pending.extra.ownerFolder, pending.extra.evidence)
+	return filer.place(ctx, pending.file, titleID, spec)
 }

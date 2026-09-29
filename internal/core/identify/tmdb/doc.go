@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package tmdb is TMDB behind identify's provider interface: search, find by IMDb id, fetch a
-// film's details with its credits, and parse a stored response. It is the one place the TMDB key
-// is revealed, to TMDB (D194 §5).
+// Package tmdb is TMDB behind identify's provider interface: search, find by an IMDb id or a
+// series' TVDB id, fetch a film's details with its credits or a series' record and its season
+// listings, and parse a stored response; and TMDB's image downloader, an artwork.Fetcher. It is the
+// one place the TMDB key is revealed, to TMDB (D194 §5).
 //
 // # Invariants
 //
@@ -29,6 +30,7 @@
 //
 // # Where to change
 //
-//   - client.go: the endpoints, authorisation (a v3 key as api_key, a v4 token as a bearer
-//     token) and the reading of each response. Series and episodes are not built yet.
+//   - client.go: authorisation (a v3 key as api_key, a v4 token as a bearer token) and TMDB's
+//     refusals. works.go: the endpoints for films, series and seasons, and the reading of each
+//     response. images.go: the image downloader.
 package tmdb

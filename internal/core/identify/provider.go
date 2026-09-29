@@ -13,12 +13,12 @@ import (
 // list (identification.md, How a provider is called in Cut A). A response is fetched once and
 // stored; Parse re-derives a title from the stored bytes without a call (D170, D182).
 type Provider interface {
-	Works
-	Seasons
+	WorkSource
+	SeasonSource
 }
 
-// Works is what a provider says about films and series: search, find, fetch and read.
-type Works interface {
+// WorkSource is what a provider says about films and series: search, find, fetch and read.
+type WorkSource interface {
 	// Name is the provider's name as title.followed_source and item_provider_id store it: "tmdb".
 	Name() string
 	// Search lists the works a name and year may be, best first.
@@ -31,8 +31,8 @@ type Works interface {
 	Parse(kind string, body []byte) (Metadata, error)
 }
 
-// Seasons is how a provider lists a series' episodes, a season at a time (D209).
-type Seasons interface {
+// SeasonSource is how a provider lists a series' episodes, a season at a time (D209).
+type SeasonSource interface {
 	// FetchSeason returns a series' listing of one season's episodes, as stored (D209).
 	FetchSeason(ctx context.Context, seriesID string, season int) ([]byte, error)
 	// ParseSeason reads a stored season listing.
@@ -55,8 +55,8 @@ type Episode struct {
 	Overview  string
 	Year      int
 	RuntimeMs int64
-	// Still is the provider's reference to the episode's still image, or "".
-	Still string
+	// StillRef is the provider's reference to the episode's still image, or "".
+	StillRef string
 }
 
 // Query is what a search asks for.
@@ -118,9 +118,9 @@ var (
 
 // RateLimitedError is a provider asking to be called again after a time (429 and Retry-After, D170).
 type RateLimitedError struct {
-	After time.Duration
+	RetryAfter time.Duration
 }
 
 func (limited *RateLimitedError) Error() string {
-	return fmt.Sprintf("rate limited: retry after %s", limited.After)
+	return fmt.Sprintf("rate limited: retry after %s", limited.RetryAfter)
 }

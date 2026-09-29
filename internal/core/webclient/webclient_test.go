@@ -11,7 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/webclient"
 )
 
-func built() fstest.MapFS {
+func builtClientFS() fstest.MapFS {
 	return fstest.MapFS{
 		"index.html":         {Data: []byte("<!doctype html><title>Orpheum</title>")},
 		"assets/app-1a2b.js": {Data: []byte("console.log(1)")},
@@ -28,11 +28,11 @@ func get(t *testing.T, handler http.Handler, target string) *httptest.ResponseRe
 
 func TestHandler_ServesFilesAndFallsBackToIndex(t *testing.T) {
 	t.Parallel()
-	handler := webclient.Handler(built(), "/api/v1")
+	handler := webclient.Handler(builtClientFS(), "/api/v1")
 	for target, want := range map[string]string{
 		"/":                   "<!doctype html><title>Orpheum</title>",
 		"/films":              "<!doctype html><title>Orpheum</title>",
-		"/title/42":           "<!doctype html><title>Orpheum</title>",
+		"/titles/42":          "<!doctype html><title>Orpheum</title>",
 		"/favicon.svg":        "<svg/>",
 		"/assets/app-1a2b.js": "console.log(1)",
 	} {
@@ -51,7 +51,7 @@ func TestHandler_ServesFilesAndFallsBackToIndex(t *testing.T) {
 
 func TestHandler_NeverAnswersAnAPIPathWithTheClient(t *testing.T) {
 	t.Parallel()
-	handler := webclient.Handler(built(), "/api/v1")
+	handler := webclient.Handler(builtClientFS(), "/api/v1")
 	for _, target := range []string{"/api/v1", "/api/v1/nothing", "/api/v1/bytes/art/x/y.webp", "/debug/pprof/", "/x/../api/v1/z"} {
 		if response := get(t, handler, target); response.Code != http.StatusNotFound {
 			t.Errorf("%s: %d, want 404", target, response.Code)
@@ -64,7 +64,7 @@ func TestHandler_NeverAnswersAnAPIPathWithTheClient(t *testing.T) {
 
 func TestHandler_HashedAssetsAreImmutableAndIndexIsRevalidated(t *testing.T) {
 	t.Parallel()
-	handler := webclient.Handler(built(), "/api/v1")
+	handler := webclient.Handler(builtClientFS(), "/api/v1")
 	for target, want := range map[string]string{
 		"/assets/app-1a2b.js": "public, max-age=31536000, immutable",
 		"/":                   "no-cache",
@@ -80,7 +80,7 @@ func TestHandler_HashedAssetsAreImmutableAndIndexIsRevalidated(t *testing.T) {
 func TestHandler_OnlyReads(t *testing.T) {
 	t.Parallel()
 	recorder := httptest.NewRecorder()
-	webclient.Handler(built(), "/api/v1").ServeHTTP(recorder,
+	webclient.Handler(builtClientFS(), "/api/v1").ServeHTTP(recorder,
 		httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/films", nil))
 	if recorder.Code != http.StatusMethodNotAllowed {
 		t.Errorf("POST /films: %d, want 405", recorder.Code)

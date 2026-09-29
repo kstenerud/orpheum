@@ -35,8 +35,8 @@ https://www.themoviedb.org/movie/9019`
 	if want := map[string]string{"imdb": "tt0234567", "tmdb": "9019"}; !maps.Equal(nfo.ProviderIDs, want) {
 		t.Errorf("provider ids %v, want %v", nfo.ProviderIDs, want)
 	}
-	if want := []string{"name", "overview"}; !slices.Equal(nfo.Locked, want) {
-		t.Errorf("locked %v, want %v: the fields we model, from lockedfields", nfo.Locked, want)
+	if want := []string{"name", "overview"}; !slices.Equal(nfo.LockedFields, want) {
+		t.Errorf("locked %v, want %v: the fields we model, from lockedfields", nfo.LockedFields, want)
 	}
 }
 
@@ -46,8 +46,8 @@ func TestParseNFO_LockdataLocksEveryFieldItSets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"name", "year"}; !slices.Equal(nfo.Locked, want) {
-		t.Errorf("locked %v, want %v", nfo.Locked, want)
+	if want := []string{"name", "year"}; !slices.Equal(nfo.LockedFields, want) {
+		t.Errorf("locked %v, want %v", nfo.LockedFields, want)
 	}
 }
 
@@ -68,7 +68,7 @@ func TestParseNFO_EpisodesShowsAndTheDevLibrarysOwn(t *testing.T) {
 	dev, err := ParseNFO([]byte("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<movie>\n  <title>Remux Film</title>\n" +
 		"  <year>2021</year>\n  <plot>A synthetic film generated for Orpheum's development library.</plot>\n" +
 		"</movie>\n"))
-	if err != nil || dev.Title != "Remux Film" || dev.Year != 2021 || len(dev.Locked) != 0 {
+	if err != nil || dev.Title != "Remux Film" || dev.Year != 2021 || len(dev.LockedFields) != 0 {
 		t.Errorf("the dev library's NFO = %+v, %v", dev, err)
 	}
 }

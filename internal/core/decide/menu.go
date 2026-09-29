@@ -61,37 +61,38 @@ func containers() []Container { return []Container{MP4, Matroska, MPEGTS} }
 // Menu is what a client can play, one list per axis, most preferred first, with no weights
 // (D217 §1).
 type Menu struct {
-	Video      []Video
-	Audio      []Audio
-	Subtitle   []Subtitle
-	Containers []Container
+	VideoCodecs     []Video
+	AudioCodecs     []Audio
+	SubtitleFormats []Subtitle
+	Containers      []Container
 }
 
-// ErrMenu is a menu that names something the menu does not have, or lacks a baseline.
-var ErrMenu = errors.New("the menu")
+// ErrBadMenu is a menu that names something the menu does not have, or lacks a baseline.
+var ErrBadMenu = errors.New("the menu")
 
 // Validate refuses a menu without both baselines (D21: every client lists them, so negotiation
 // cannot fail) or with a name the menu does not have.
 func (menu Menu) Validate() error {
-	if !slices.Contains(menu.Video, H264SDR) || !slices.Contains(menu.Audio, AACStereo) {
-		return fmt.Errorf("%w must list %s and %s, the baselines every client plays (D21)", ErrMenu, H264SDR, AACStereo)
+	if !slices.Contains(menu.VideoCodecs, H264SDR) || !slices.Contains(menu.AudioCodecs, AACStereo) {
+		return fmt.Errorf("%w must list %s and %s, the baselines every client plays (D21)",
+			ErrBadMenu, H264SDR, AACStereo)
 	}
-	if err := known("video", menu.Video, videos()); err != nil {
+	if err := checkAllOnMenu("video", menu.VideoCodecs, videos()); err != nil {
 		return err
 	}
-	if err := known("audio", menu.Audio, audios()); err != nil {
+	if err := checkAllOnMenu("audio", menu.AudioCodecs, audios()); err != nil {
 		return err
 	}
-	if err := known("subtitle", menu.Subtitle, subtitles()); err != nil {
+	if err := checkAllOnMenu("subtitle", menu.SubtitleFormats, subtitles()); err != nil {
 		return err
 	}
-	return known("container", menu.Containers, containers())
+	return checkAllOnMenu("container", menu.Containers, containers())
 }
 
-func known[T comparable](axis string, listed, menu []T) error {
+func checkAllOnMenu[T comparable](axis string, listed, defined []T) error {
 	for _, name := range listed {
-		if !slices.Contains(menu, name) {
-			return fmt.Errorf("%w has no %s entry %v", ErrMenu, axis, name)
+		if !slices.Contains(defined, name) {
+			return fmt.Errorf("%w has no %s entry %v", ErrBadMenu, axis, name)
 		}
 	}
 	return nil

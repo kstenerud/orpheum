@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package together is Watch Together: the session, its link and members, one WebSocket per device
-// carrying the messages of cut-a §5.1, the group state machine (Idle, Waiting, Paused, Playing),
-// and voice signalling. The session never depends on an account; a signed-in member's viewing is
-// also recorded. Sessions live in memory and end with the process.
+// Package together will be Watch Together, built in M4 (cut-a §8); for now it holds only this
+// doc. It is to hold the session, its link and members, one WebSocket per device carrying the
+// messages of cut-a §5.1, the group state machine (Idle, Waiting, Paused, Playing), and voice
+// signalling. The session never depends on an account; a signed-in member's viewing is also
+// recorded. Sessions live in memory and end with the process.
 //
 // # Invariants
 //

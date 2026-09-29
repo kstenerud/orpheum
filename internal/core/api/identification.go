@@ -146,7 +146,7 @@ func (server *Server) getItems(ctx context.Context, input *ItemsInput) (*ItemsOu
 	for _, item := range items {
 		output.Body.Items = append(output.Body.Items, ItemBody{
 			ID: item.ID, LibraryID: item.LibraryID, Kind: item.Kind, Name: item.Name, Year: item.Year,
-			IdentificationState: item.Ident, FollowedSource: item.Source, FollowedSourceID: item.SourceID,
+			IdentificationState: item.IdentificationState, FollowedSource: item.Source, FollowedSourceID: item.SourceID,
 		})
 	}
 	return output, nil
@@ -246,7 +246,7 @@ func (server *Server) identifyError(ctx context.Context, doing string, err error
 	case isLimited:
 		failure := newError(http.StatusServiceUnavailable, CodeRateLimited, "the provider asks us to wait")
 		failure.ErrorBody.Error.Detail = map[string]string{
-			"retryAfterMs": strconv.FormatInt(limited.After.Milliseconds(), 10),
+			"retryAfterMs": strconv.FormatInt(limited.RetryAfter.Milliseconds(), 10),
 		}
 		return failure
 	case errors.Is(err, identify.ErrNoKey), errors.Is(err, identify.ErrKeyRefused):

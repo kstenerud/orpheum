@@ -102,7 +102,7 @@ type Request struct {
 	DeviceID int64
 	Menu     decide.Menu
 	Link     decide.Link
-	Prefer   decide.Prefer
+	Prefer   decide.PreferredDelivery
 }
 
 // Started is a playback: its media token and the decision.
@@ -149,8 +149,9 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		return Started{}, err
 	}
 	decision := decide.Decide(decide.Input{
-		Probe: probe, Menu: request.Menu, Link: request.Link, Prefer: request.Prefer, RemoteCeilingKbps: ceiling,
-		StereoOutput: isStereoOutput(output),
+		Probe: probe, Menu: request.Menu, Link: request.Link, PreferredDelivery: request.Prefer,
+		RemoteCeilingKbps: ceiling,
+		IsStereoOutput:    isStereoOutput(output),
 	})
 	idle, err := service.idle(ctx)
 	if err != nil {
@@ -172,7 +173,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	}
 	started.Levelling = directLevelling(levels, probe)
 	playback := playing{userID: userID, sessionKey: sessionKey, fileID: file.ID}
-	if decision.Kind == decide.HLS {
+	if decision.Delivery == decide.HLS {
 		playback.profile = nodeproto.PrepareProfile(decision.Profile)
 		rendition, wantErr := service.prepares.want(ctx, file, playback.profile)
 		if wantErr != nil {

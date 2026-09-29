@@ -10,11 +10,11 @@ import (
 func TestBuiltIn_IsTheClientOnlyWhenItHasAnIndex(t *testing.T) {
 	t.Parallel()
 	placeholder := fstest.MapFS{"dist/.keep": {}}
-	if _, found := builtIn(placeholder); found {
+	if _, found := builtClient(placeholder); found {
 		t.Error("a dist holding only the placeholder counts as a built client")
 	}
 	built := fstest.MapFS{"dist/.keep": {}, "dist/index.html": {Data: []byte("<!doctype html>")}}
-	files, found := builtIn(built)
+	files, found := builtClient(built)
 	if !found {
 		t.Fatal("a dist with index.html does not count as a built client")
 	}

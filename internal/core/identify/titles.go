@@ -17,20 +17,20 @@ import (
 
 // titleSpec is one file's evidence about its title: the local data, or its NFO as the source.
 type titleSpec struct {
-	kind      string // movie, episode, extra
-	key       string // set for episodes and extras, whose name does not identify them
-	name      string
-	year      int
-	runtimeMs int64
-	overview  string
-	tagline   string
-	ids       map[string]string
-	locked    []string
-	artwork   []ArtRef // the images its source names
-	source    string   // "nfo", "none", a provider's name, or "" while a provider match is pending
-	sourceID  string   // the title's id at its source, when its ids do not say (an episode's)
-	ident     string   // identified or unidentified
-	reason    string   // why a file is unidentified
+	kind           string // movie, episode, extra
+	key            string // set for episodes and extras, whose name does not identify them
+	name           string
+	year           int
+	runtimeMs      int64
+	overview       string
+	tagline        string
+	ids            map[string]string
+	lockedFields   []string
+	artwork        []ArtRef // the images its source names
+	source         string   // "nfo", "none", a provider's name, or "" while a provider match is pending
+	sourceID       string   // the title's id at its source, when its ids do not say (an episode's)
+	identification string   // identified or unidentified
+	reason         string   // why a file is unidentified
 }
 
 // fromNFO takes an NFO as the title's source: its values over the path's, and its locked fields
@@ -48,28 +48,28 @@ func (spec *titleSpec) fromNFO(nfo NFO) {
 	spec.overview, spec.tagline = nfo.Plot, nfo.Tagline
 	merged := maps.Clone(spec.ids)
 	maps.Copy(merged, nfo.ProviderIDs)
-	spec.ids, spec.locked = merged, nfo.Locked
-	spec.source, spec.ident = sourceNFO, identIdentified
+	spec.ids, spec.lockedFields = merged, nfo.LockedFields
+	spec.source, spec.identification = sourceNFO, identificationIdentified
 }
 
 func movieKey(name string, year int) string {
-	return kindMovie + "|" + strings.ToLower(name) + "|" + strconv.Itoa(year)
+	return KindMovie + "|" + strings.ToLower(name) + "|" + strconv.Itoa(year)
 }
 
 func episodeKey(seriesID int64, season, episode int) string {
 	return fmt.Sprintf("episode|%d|%d|%d", seriesID, season, episode)
 }
 
-// titleFor finds the title a spec names, or makes it. A provider id finds a film first: in this
+// findOrAddTitle finds the title a spec names, or makes it. A provider id finds a film first: in this
 // library, or in another where it has no live files left, when the title follows its files here
 // (D208 §2). Otherwise its key does: an episode's series and place, a film's name and year.
-func (work *run) titleFor(ctx context.Context, spec titleSpec) (int64, error) {
+func (filer *libraryFiler) findOrAddTitle(ctx context.Context, spec titleSpec) (int64, error) {
 	for _, provider := range []string{sourceTMDB, sourceIMDb, sourceTVDB} {
 		id := spec.ids[provider]
 		if id == "" || spec.kind == kindEpisode {
 			continue // an episode is its series' (D209)
 		}
-		found, err := work.titleByProviderID(ctx, spec.kind, provider, id)
+		found, err := filer.claimTitleByProviderID(ctx, spec.kind, provider, id)
 		if err != nil || found != 0 {
 			return found, err
 		}
@@ -78,31 +78,33 @@ func (work *run) titleFor(ctx context.Context, spec titleSpec) (int64, error) {
 	if key == "" {
 		key = movieKey(spec.name, spec.year)
 	}
-	if id, found := work.titleIDByKey[key]; found {
+	if id, found := filer.titleIDByKey[key]; found {
 		return id, nil
 	}
-	libraryID := work.library.ID
-	id, err := work.queries.InsertItem(ctx, sqlcgen.InsertItemParams{
-		Kind: "title", LibraryID: &libraryID, AddedAt: work.now,
+	libraryID := filer.library.ID
+	id, err := filer.queries.InsertItem(ctx, sqlcgen.InsertItemParams{
+		Kind: "title", LibraryID: &libraryID, AddedAt: filer.nowMs,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("add a title for %q: %w", spec.name, err)
 	}
-	err = work.queries.InsertTitle(ctx, sqlcgen.InsertTitleParams{
+	err = filer.queries.InsertTitle(ctx, sqlcgen.InsertTitleParams{
 		ID: id, Kind: spec.kind,
-		IdentificationState: identUnidentified,
+		IdentificationState: identificationUnidentified,
 	})
 	if err != nil {
 		return 0, fmt.Errorf("add title %q: %w", spec.name, err)
 	}
-	work.titleIDByKey[key] = id
+	filer.titleIDByKey[key] = id
 	return id, nil
 }
 
-// titleByProviderID finds a title of a kind by a provider's id: a provider numbers its films and
+// claimTitleByProviderID finds a title of a kind by a provider's id: a provider numbers its films and
 // its episodes separately, so an id alone may name both.
-func (work *run) titleByProviderID(ctx context.Context, kind, provider, providerID string) (int64, error) {
-	rows, err := work.queries.ListTitlesByProviderID(ctx, sqlcgen.ListTitlesByProviderIDParams{
+func (filer *libraryFiler) claimTitleByProviderID(
+	ctx context.Context, kind, provider, providerID string) (int64, error,
+) {
+	rows, err := filer.queries.ListTitlesByProviderID(ctx, sqlcgen.ListTitlesByProviderIDParams{
 		Provider: provider, ProviderID: providerID,
 	})
 	if err != nil {
@@ -110,20 +112,20 @@ func (work *run) titleByProviderID(ctx context.Context, kind, provider, provider
 	}
 	rows = slices.DeleteFunc(rows, func(row sqlcgen.ListTitlesByProviderIDRow) bool { return row.Kind != kind })
 	for _, row := range rows {
-		if row.LibraryID != nil && *row.LibraryID == work.library.ID {
+		if row.LibraryID != nil && *row.LibraryID == filer.library.ID {
 			return row.ID, nil
 		}
 	}
 	for _, row := range rows {
-		live, countErr := work.queries.CountLiveFilesOfTitle(ctx, row.ID)
+		liveFileCount, countErr := filer.queries.CountLiveFilesOfTitle(ctx, row.ID)
 		if countErr != nil {
 			return 0, fmt.Errorf("count the files of title %d: %w", row.ID, countErr)
 		}
-		if live > 0 {
+		if liveFileCount > 0 {
 			continue // its files are still there: that library keeps its title
 		}
-		libraryID := work.library.ID
-		err = work.queries.MoveItemToLibrary(ctx, sqlcgen.MoveItemToLibraryParams{LibraryID: &libraryID, ID: row.ID})
+		libraryID := filer.library.ID
+		err = filer.queries.MoveItemToLibrary(ctx, sqlcgen.MoveItemToLibraryParams{LibraryID: &libraryID, ID: row.ID})
 		if err != nil {
 			return 0, fmt.Errorf("move title %d to library %d: %w", row.ID, libraryID, err)
 		}
@@ -134,33 +136,33 @@ func (work *run) titleByProviderID(ctx context.Context, kind, provider, provider
 
 // resolveAndFile writes each title's resolved values — override, else the best evidence of any
 // of its files, NFO before local data (D183) — and files each video by its title.
-func (work *run) resolveAndFile(ctx context.Context) error {
-	idents, reasons := map[int64]string{}, map[int64]string{}
-	for titleID, specs := range work.evidence {
-		result, err := work.resolveWithMatch(ctx, titleID, best(specs))
+func (filer *libraryFiler) resolveAndFile(ctx context.Context) error {
+	identificationByTitle, reasonByTitle := map[int64]string{}, map[int64]string{}
+	for titleID, specs := range filer.evidence {
+		resolution, err := filer.resolveWithMatch(ctx, titleID, bestEvidence(specs))
 		if err != nil {
 			return err
 		}
-		idents[titleID], reasons[titleID] = result.ident, result.reason
+		identificationByTitle[titleID], reasonByTitle[titleID] = resolution.identification, resolution.reason
 	}
-	for _, file := range work.files {
-		titleID, placed := work.titleIDByFile[file.ID]
+	for _, file := range filer.files {
+		titleID, placed := filer.titleIDByFile[file.ID]
 		if !placed {
 			continue
 		}
 		filing, reason := filingListed, ""
-		if why, isExtra := work.extraOf[file.ID]; isExtra {
+		if why, isExtra := filer.extraReasonByFile[file.ID]; isExtra {
 			// An extra is filed as one, with its owner, its type and the evidence (D163).
 			filing, reason = filingExtra, why
-			work.report.Extras++
-		} else if ident := idents[titleID]; ident == identUnidentified {
-			filing, reason = filingUnidentified, reasons[titleID]
-			work.report.Unidentified++
+			filer.report.ExtraCount++
+		} else if identification := identificationByTitle[titleID]; identification == identificationUnidentified {
+			filing, reason = filingUnidentified, reasonByTitle[titleID]
+			filer.report.UnidentifiedCount++
 		} else {
-			work.report.Listed++
+			filer.report.ListedCount++
 		}
-		err := work.queries.SetFileFiling(ctx, sqlcgen.SetFileFilingParams{
-			Filing: filing, FilingReason: optional(reason), ID: file.ID,
+		err := filer.queries.SetFileFiling(ctx, sqlcgen.SetFileFilingParams{
+			Filing: filing, FilingReason: nilIfEmpty(reason), ID: file.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("file %s: %w", file.Path, err)
@@ -169,8 +171,8 @@ func (work *run) resolveAndFile(ctx context.Context) error {
 	return nil
 }
 
-// best is the strongest evidence: an NFO's over the path's.
-func best(specs []titleSpec) titleSpec {
+// bestEvidence is the strongest evidence: an NFO's over the path's.
+func bestEvidence(specs []titleSpec) titleSpec {
 	for _, spec := range specs {
 		if spec.source == sourceNFO {
 			return spec
@@ -181,46 +183,48 @@ func best(specs []titleSpec) titleSpec {
 
 // resolveWithMatch resolves a title from its best evidence, or from what its stored match says
 // when no NFO speaks for it or a person chose the match.
-func (work *run) resolveWithMatch(ctx context.Context, titleID int64, spec titleSpec) (resolved, error) {
-	if err := work.matchEvidence(ctx, titleID, &spec); err != nil {
-		return resolved{}, err
+func (filer *libraryFiler) resolveWithMatch(
+	ctx context.Context, titleID int64, spec titleSpec) (titleResolution, error,
+) {
+	if err := filer.matchEvidence(ctx, titleID, &spec); err != nil {
+		return titleResolution{}, err
 	}
-	return work.resolve(ctx, titleID, spec)
+	return filer.resolve(ctx, titleID, spec)
 }
 
-// resolved is a title's identification after resolving, and why when it is unidentified.
-type resolved struct {
-	ident  string
-	reason string
+// titleResolution is a title's identification after resolving, and why when it is unidentified.
+type titleResolution struct {
+	identification string
+	reason         string
 }
 
 // resolve writes a title's provider ids, its NFO's locked fields as overrides, and its resolved
-// values, and returns its ident and, when it is unidentified, why.
-func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (resolved, error) {
-	if err := work.recordIDs(ctx, titleID, spec.ids); err != nil {
-		return resolved{}, err
+// values, and returns its identification and, when it is unidentified, why.
+func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titleSpec) (titleResolution, error) {
+	if err := filer.recordIDs(ctx, titleID, spec.ids); err != nil {
+		return titleResolution{}, err
 	}
 	values := map[string]string{
 		fieldName: spec.name, fieldOverview: spec.overview, fieldTagline: spec.tagline,
 		fieldYear: strconv.Itoa(spec.year), fieldRuntimeMs: strconv.FormatInt(spec.runtimeMs, 10),
 	}
-	for _, field := range spec.locked {
-		err := work.queries.InsertOverrideIfAbsent(ctx, sqlcgen.InsertOverrideIfAbsentParams{
-			ItemID: titleID, Field: field, OverrideValue: values[field], Origin: "nfo", SetAt: work.now,
+	for _, field := range spec.lockedFields {
+		err := filer.queries.InsertOverrideIfAbsent(ctx, sqlcgen.InsertOverrideIfAbsentParams{
+			ItemID: titleID, Field: field, OverrideValue: values[field], Origin: "nfo", SetAt: filer.nowMs,
 		})
 		if err != nil {
-			return resolved{}, fmt.Errorf("record the locked %s: %w", field, err)
+			return titleResolution{}, fmt.Errorf("record the locked %s: %w", field, err)
 		}
 	}
-	overrides, err := work.queries.ListOverrides(ctx, titleID)
+	overrides, err := filer.queries.ListOverrides(ctx, titleID)
 	if err != nil {
-		return resolved{}, fmt.Errorf("read the overrides of title %d: %w", titleID, err)
+		return titleResolution{}, fmt.Errorf("read the overrides of title %d: %w", titleID, err)
 	}
 	for _, override := range overrides {
 		values[override.Field] = override.OverrideValue
 	}
-	year, _ := strconv.ParseInt(values[fieldYear], 10, 64)         //nolint:errcheck // zero when unset
-	runtime, _ := strconv.ParseInt(values[fieldRuntimeMs], 10, 64) //nolint:errcheck // zero when unset
+	year, _ := strconv.ParseInt(values[fieldYear], 10, 64)           //nolint:errcheck // zero when unset
+	runtimeMs, _ := strconv.ParseInt(values[fieldRuntimeMs], 10, 64) //nolint:errcheck // zero when unset
 	var source, sourceID *string
 	if spec.source != "" {
 		source = &spec.source
@@ -235,33 +239,33 @@ func (work *run) resolve(ctx context.Context, titleID int64, spec titleSpec) (re
 			sourceID = &id
 		}
 	}
-	err = work.queries.UpdateTitleResolved(ctx, sqlcgen.UpdateTitleResolvedParams{
-		Year: optionalInt(year), RuntimeMs: optionalInt(runtime), FollowedSource: source, FollowedSourceID: sourceID,
-		IdentificationState: spec.ident, ID: titleID,
+	err = filer.queries.UpdateTitleResolved(ctx, sqlcgen.UpdateTitleResolvedParams{
+		Year: nilIfZero(year), RuntimeMs: nilIfZero(runtimeMs), FollowedSource: source, FollowedSourceID: sourceID,
+		IdentificationState: spec.identification, ID: titleID,
 	})
 	if err != nil {
-		return resolved{}, fmt.Errorf("resolve title %d: %w", titleID, err)
+		return titleResolution{}, fmt.Errorf("resolve title %d: %w", titleID, err)
 	}
-	err = work.writeText(ctx, titleID, itemText{
-		listing: spec.kind, name: values[fieldName], overview: values[fieldOverview], tagline: values[fieldTagline],
+	err = filer.writeText(ctx, titleID, itemText{
+		sortListing: spec.kind, name: values[fieldName], overview: values[fieldOverview], tagline: values[fieldTagline],
 	})
 	if err != nil {
-		return resolved{}, fmt.Errorf("name title %d: %w", titleID, err)
+		return titleResolution{}, fmt.Errorf("name title %d: %w", titleID, err)
 	}
-	if owedErr := work.oweArtwork(ctx, titleID, spec.source, spec.artwork); owedErr != nil {
-		return resolved{}, owedErr
+	if owedErr := filer.oweArtwork(ctx, titleID, spec.source, spec.artwork); owedErr != nil {
+		return titleResolution{}, owedErr
 	}
-	current, err := store.OrNotFound(work.queries.GetTitleIdentification(ctx, titleID))
+	identification, err := store.OrNotFound(filer.queries.GetTitleIdentification(ctx, titleID))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		return resolved{}, fmt.Errorf("read title %d's identification: %w", titleID, err)
+		return titleResolution{}, fmt.Errorf("read title %d's identification: %w", titleID, err)
 	}
-	return resolved{ident: current, reason: spec.reason}, nil
+	return titleResolution{identification: identification, reason: spec.reason}, nil
 }
 
 // recordIDs keeps the provider ids a title's evidence names.
-func (work *run) recordIDs(ctx context.Context, titleID int64, ids map[string]string) error {
+func (filer *libraryFiler) recordIDs(ctx context.Context, titleID int64, ids map[string]string) error {
 	for provider, id := range ids {
-		err := work.queries.InsertItemProviderID(ctx, sqlcgen.InsertItemProviderIDParams{
+		err := filer.queries.InsertItemProviderID(ctx, sqlcgen.InsertItemProviderIDParams{
 			ItemID: titleID, Provider: provider, ProviderID: id,
 		})
 		if err != nil {
@@ -271,14 +275,14 @@ func (work *run) recordIDs(ctx context.Context, titleID int64, ids map[string]st
 	return nil
 }
 
-func optional(text string) *string {
+func nilIfEmpty(text string) *string {
 	if text == "" {
 		return nil
 	}
 	return &text
 }
 
-func optionalInt(value int64) *int64 {
+func nilIfZero(value int64) *int64 {
 	if value == 0 {
 		return nil
 	}

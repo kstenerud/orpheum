@@ -27,24 +27,26 @@ type refreshArgs struct {
 	ShouldRetryImages bool `json:"shouldRetryImages,omitempty"`
 }
 
-// RefreshJob is the fetch job that refreshes an item from the source it follows, from at (now
-// when zero); with retryImages it also asks again for the images it is missing (D213 §1, §2).
-func RefreshJob(itemID int64, reason string, at time.Time, retryImages bool, priority int64) jobs.Request {
-	args := fmt.Sprintf(`{"isRefresh":true,"retryImages":%t}`, retryImages) // refreshArgs, as JSON
+// RefreshJob is the fetch job that refreshes an item from the source it follows, from runnableAt
+// (now when zero); with shouldRetryImages it also asks again for the images it is missing (D213 §1, §2).
+func RefreshJob(
+	itemID int64, reason string, runnableAt time.Time, shouldRetryImages bool, priority int64,
+) jobs.Request {
+	args := fmt.Sprintf(`{"isRefresh":true,"retryImages":%t}`, shouldRetryImages) // refreshArgs, as JSON
 	return jobs.Request{
-		Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID}, ArgsJSON: args, Reason: reason, RunnableAt: at,
-		Priority: priority,
+		Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID}, ArgsJSON: args, Reason: reason,
+		RunnableAt: runnableAt, Priority: priority,
 	}
 }
 
 // OutcomeKept is a refresh that found the item gone from its provider: our copy is kept (D213 §4).
 const OutcomeKept Outcome = "kept: gone from its provider"
 
-// refreshPriority puts a person's refresh ahead of the queue's own work; the rolling refresh
+// personRefreshPriority puts a person's refresh ahead of the queue's own work; the rolling refresh
 // comes after it.
 const (
-	refreshPriority = 20
-	rollingPriority = -10
+	personRefreshPriority = 20
+	rollingPriority       = -10
 )
 
 // refreshPeriods are the settings that say, per provider, how old its data may get (D213 §3).
@@ -55,7 +57,7 @@ func refreshPeriods() map[string]settings.Key {
 // refresh fetches an item's record again from the source it follows and re-derives it: a film,
 // or a series with every season listing it keeps. An episode is refreshed through its series.
 // One the provider no longer has keeps our copy. An item not matched yet is matched.
-func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages bool) (Outcome, error) {
+func (matcher *Matcher) refresh(ctx context.Context, itemID int64, shouldRetryImages bool) (Outcome, error) {
 	queries := matcher.database.Read()
 	kind, err := store.OrNotFound(queries.GetItemKind(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
@@ -64,8 +66,8 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages b
 	if err != nil {
 		return "", fmt.Errorf("read item %d: %w", itemID, err)
 	}
-	if kind == itemCollection {
-		return matcher.refreshSeries(ctx, itemID, retryImages)
+	if kind == itemKindCollection {
+		return matcher.refreshSeries(ctx, itemID, shouldRetryImages)
 	}
 	title, err := store.OrNotFound(queries.GetTitleForMatch(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
@@ -79,20 +81,20 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages b
 		if seriesErr != nil {
 			return OutcomeNothingToDo, nil //nolint:nilerr // an episode with no series has nothing to refresh
 		}
-		return matcher.refreshSeries(ctx, seriesID, retryImages)
+		return matcher.refreshSeries(ctx, seriesID, shouldRetryImages)
 	}
-	provider, matched := matcher.providers[ptr.ValueOrZero(title.FollowedSource)]
-	if !matched || title.FollowedSourceID == nil {
+	provider, known := matcher.providers[ptr.ValueOrZero(title.FollowedSource)]
+	if !known || title.FollowedSourceID == nil {
 		return matcher.Match(ctx, itemID)
 	}
-	if retryImages {
+	if shouldRetryImages {
 		if retryErr := matcher.retryImages(ctx, itemID); retryErr != nil {
 			return "", retryErr
 		}
 	}
 	err = matcher.accept(ctx, provider, title, *title.FollowedSourceID, title.IdentificationState)
 	if errors.Is(err, ErrNoMatch) {
-		return OutcomeKept, matcher.kept(ctx, title.LibraryID, keptPart{itemID, provider.Name(), ""})
+		return OutcomeKept, matcher.keepGoneCopy(ctx, title.LibraryID, goneResponsePart{itemID, provider.Name(), ""})
 	}
 	if err != nil {
 		return "", err
@@ -101,7 +103,7 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, retryImages b
 }
 
 // refreshSeries fetches a matched series' record and each season listing it keeps.
-func (matcher *Matcher) refreshSeries(ctx context.Context, seriesID int64, retryImages bool) (Outcome, error) {
+func (matcher *Matcher) refreshSeries(ctx context.Context, seriesID int64, shouldRetryImages bool) (Outcome, error) {
 	queries := matcher.database.Read()
 	series, err := store.OrNotFound(queries.GetSeriesForMatch(ctx, seriesID))
 	if errors.Is(err, store.ErrNotFound) {
@@ -111,10 +113,10 @@ func (matcher *Matcher) refreshSeries(ctx context.Context, seriesID int64, retry
 		return "", fmt.Errorf("read series %d: %w", seriesID, err)
 	}
 	provider, known := matcher.providers[providerOf(series.MetadataSource)]
-	if !known || !seriesMatched(series) {
+	if !known || !isSeriesMatched(series) {
 		return matcher.matchSeries(ctx, seriesID)
 	}
-	if retryImages {
+	if shouldRetryImages {
 		if retryErr := matcher.retrySeriesImages(ctx, seriesID); retryErr != nil {
 			return "", retryErr
 		}
@@ -130,7 +132,7 @@ func (matcher *Matcher) refreshSeries(ctx context.Context, seriesID int64, retry
 		body, fetchErr := matcher.fetchPart(ctx, provider, ptr.ValueOrZero(series.FollowedSourceID), part)
 		if errors.Is(fetchErr, ErrNoMatch) {
 			outcome = OutcomeKept
-			if err := matcher.touch(ctx, keptPart{seriesID, provider.Name(), part}); err != nil {
+			if err := matcher.noteRefreshAttempt(ctx, goneResponsePart{seriesID, provider.Name(), part}); err != nil {
 				return "", err
 			}
 			continue
@@ -142,7 +144,7 @@ func (matcher *Matcher) refreshSeries(ctx context.Context, seriesID int64, retry
 			return "", err
 		}
 	}
-	return outcome, matcher.seriesOutcome(ctx, series, nil)
+	return outcome, matcher.recordSeriesAndRederive(ctx, series, nil)
 }
 
 // fetchPart fetches one stored part of a series again: its own record, or a season's listing.
@@ -172,43 +174,45 @@ func (matcher *Matcher) storePart(
 	if err != nil {
 		return fmt.Errorf("read series %d's record: %w", series.ID, err)
 	}
-	stored, err := compress(body)
+	bodyGzip, err := compress(body)
 	if err != nil {
 		return err
 	}
-	found := seriesFound{
+	found := seriesMatchFound{
 		provider: provider.Name(), seriesID: series.ID, metadata: metadata,
-		ident: ptr.ValueOrZero(series.IdentificationState),
+		identification: ptr.ValueOrZero(series.IdentificationState),
 	}
 	now := matcher.clock.Now().UnixMilli()
 	return matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error { //nolint:wrapcheck // recordSeries wraps
-		return recordSeries(ctx, queries, found, stored, now)
+		return recordSeries(ctx, queries, found, bodyGzip, now)
 	})
 }
 
-// keptPart names one stored part a refresh found gone from its provider.
-type keptPart struct {
+// goneResponsePart names one stored part a refresh found gone from its provider.
+type goneResponsePart struct {
 	itemID   int64
 	provider string
 	part     string
 }
 
-// kept keeps a title's copy of a record its provider no longer has, notes the attempt, and
+// keepGoneCopy keeps a title's copy of a record its provider no longer has, notes the attempt, and
 // re-derives its library, so images asked for again are owed.
-func (matcher *Matcher) kept(ctx context.Context, libraryID *int64, gone keptPart) error {
+func (matcher *Matcher) keepGoneCopy(ctx context.Context, libraryID *int64, gone goneResponsePart) error {
 	matcher.logger.InfoContext(ctx, "a refresh found an item gone from its provider; our copy is kept",
 		"itemId", gone.itemID, "provider", gone.provider)
-	if err := matcher.touch(ctx, gone); err != nil {
+	if err := matcher.noteRefreshAttempt(ctx, gone); err != nil {
 		return err
 	}
 	if libraryID == nil {
 		return nil
 	}
-	_, err := matcher.pass.Library(ctx, *libraryID)
+	_, err := matcher.pass.IdentifyLibrary(ctx, *libraryID)
 	return err
 }
 
-func (matcher *Matcher) touch(ctx context.Context, gone keptPart) error {
+// noteRefreshAttempt stamps a stored part's FetchedAt with now: the provider was asked, and the
+// rolling refresh waits a full period before asking again.
+func (matcher *Matcher) noteRefreshAttempt(ctx context.Context, gone goneResponsePart) error {
 	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.MarkProviderResponseAsked(ctx, sqlcgen.MarkProviderResponseAskedParams{
 			FetchedAt: matcher.clock.Now().UnixMilli(), ItemID: gone.itemID, Provider: gone.provider, Part: gone.part,
@@ -273,9 +277,10 @@ type RefreshSettings interface {
 
 // NewRefresher returns the refresher.
 func NewRefresher(
-	database *store.Database, queue Queue, config RefreshSettings, clockSource clock.Clock, logger *slog.Logger,
+	database *store.Database, queue Queue, refreshSettings RefreshSettings, clockSource clock.Clock,
+	logger *slog.Logger,
 ) *Refresher {
-	return &Refresher{database: database, queue: queue, settings: config, clock: clockSource, logger: logger}
+	return &Refresher{database: database, queue: queue, settings: refreshSettings, clock: clockSource, logger: logger}
 }
 
 // Request queues a person's refresh of a title or series, with its missing images asked for
@@ -288,7 +293,7 @@ func (refresher *Refresher) Request(ctx context.Context, itemID int64) (bool, er
 		return false, fmt.Errorf("read item %d: %w", itemID, err)
 	}
 	queued, err := refresher.queue.Enqueue(ctx,
-		RefreshJob(itemID, "a person asked for it to be refreshed", time.Time{}, true, refreshPriority))
+		RefreshJob(itemID, "a person asked for it to be refreshed", time.Time{}, true, personRefreshPriority))
 	if err != nil {
 		return false, fmt.Errorf("queue item %d's refresh: %w", itemID, err)
 	}

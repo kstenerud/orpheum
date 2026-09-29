@@ -8,13 +8,13 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// Kind is how a file plays: its own bytes, or a prepared HLS rendition.
-type Kind string
+// Delivery is how a file plays: its own bytes, or a prepared HLS rendition.
+type Delivery string
 
-// The kinds.
+// The deliveries.
 const (
-	Direct Kind = "direct"
-	HLS    Kind = "hls"
+	Direct Delivery = "direct"
+	HLS    Delivery = "hls"
 )
 
 // Profile is a prepared rendition's recipe (cut-a §6).
@@ -40,14 +40,15 @@ const (
 	ReasonUserChoice    Reason = "user_choice"
 )
 
-// Prefer is a person's override of the decision (web-client.md: playback is never a black box).
-type Prefer string
+// PreferredDelivery is a person's override of the decision (web-client.md: playback is never a
+// black box).
+type PreferredDelivery string
 
 // The overrides: none, the original whatever it holds, or a prepared rendition.
 const (
-	PreferAuto    Prefer = ""
-	PreferDirect  Prefer = "direct"
-	PreferPrepare Prefer = "prepare"
+	PreferAuto    PreferredDelivery = ""
+	PreferDirect  PreferredDelivery = "direct"
+	PreferPrepare PreferredDelivery = "prepare"
 )
 
 // Link is where the client is: on the house's network, or outside it.
@@ -62,22 +63,22 @@ const (
 // Input is everything the decision reads. It holds declared capabilities and the file's own
 // facts, never who is asking (D2, D103).
 type Input struct {
-	Probe  nodeproto.Probe
-	Menu   Menu
-	Link   Link
-	Prefer Prefer
+	Probe             nodeproto.Probe
+	Menu              Menu
+	Link              Link
+	PreferredDelivery PreferredDelivery
 	// RemoteCeilingKbps is the bit rate above which a file is re-encoded for a remote link.
 	RemoteCeilingKbps int64
-	// StereoOutput is whether the device plays two channels that the server folds down for it: TV
+	// IsStereoOutput is whether the device plays two channels that the server folds down for it: TV
 	// speakers or headphones. A sound of more than two channels is then always prepared, so the
 	// dialogue boost can act and be switched mid-film (D222).
-	StereoOutput bool
+	IsStereoOutput bool
 }
 
 // Decision is the answer: how the file plays and why, and the recipe when it is prepared.
 type Decision struct {
-	Kind    Kind
-	Profile Profile // empty for Direct
+	Delivery Delivery
+	Profile  Profile // empty for Direct
 	// Reasons lists every axis that stopped direct play: container, video, audio, bandwidth,
 	// boost, then a person's choice.
 	Reasons []Reason
@@ -86,30 +87,30 @@ type Decision struct {
 // Decide resolves cut-a §6's first question, whether the original plays as it is, and when it
 // does not, which profile prepares it. Whether a rendition already exists is the caller's.
 func Decide(input Input) Decision {
-	if input.Prefer == PreferDirect {
-		return Decision{Kind: Direct}
+	if input.PreferredDelivery == PreferDirect {
+		return Decision{Delivery: Direct}
 	}
 	reasons, videoFits := axisReasons(input)
-	tooFast := input.Link == Remote && input.RemoteCeilingKbps > 0 &&
+	isOverRemoteCeiling := input.Link == Remote && input.RemoteCeilingKbps > 0 &&
 		input.Probe.Format.BitRateBps > input.RemoteCeilingKbps*1000
-	if tooFast {
+	if isOverRemoteCeiling {
 		reasons = append(reasons, ReasonBandwidth)
 	}
 	// The boost changes nothing on a source with no centre channel to raise.
-	if audio, hasAudio := MainAudio(input.Probe); input.StereoOutput && hasAudio && audio.Audio.ChannelCount > 2 {
+	if audio, hasAudio := MainAudio(input.Probe); input.IsStereoOutput && hasAudio && audio.Audio.ChannelCount > 2 {
 		reasons = append(reasons, ReasonDialogueBoost)
 	}
-	if input.Prefer == PreferPrepare {
+	if input.PreferredDelivery == PreferPrepare {
 		reasons = append(reasons, ReasonUserChoice)
 	}
 	if len(reasons) == 0 {
-		return Decision{Kind: Direct}
+		return Decision{Delivery: Direct}
 	}
 	profile := Remux
-	if !videoFits || tooFast {
+	if !videoFits || isOverRemoteCeiling {
 		profile = H264At8M
 	}
-	return Decision{Kind: HLS, Profile: profile, Reasons: reasons}
+	return Decision{Delivery: HLS, Profile: profile, Reasons: reasons}
 }
 
 // axisReasons asks the menu's three axes of the original: its container, its picture and the
@@ -121,15 +122,15 @@ func axisReasons(input Input) (reasons []Reason, videoFits bool) {
 	}
 	videoFits = true
 	if video, present := MainVideo(input.Probe); present {
-		name, placed := videoName(video)
-		videoFits = placed && slices.Contains(input.Menu.Video, name)
+		name, placed := videoEntry(video)
+		videoFits = placed && slices.Contains(input.Menu.VideoCodecs, name)
 	}
 	if !videoFits {
 		reasons = append(reasons, ReasonVideoCodec)
 	}
 	if audio, present := MainAudio(input.Probe); present {
-		name, placed := audioName(audio)
-		if !placed || !slices.Contains(input.Menu.Audio, name) {
+		name, placed := audioEntry(audio)
+		if !placed || !slices.Contains(input.Menu.AudioCodecs, name) {
 			reasons = append(reasons, ReasonAudioCodec)
 		}
 	}

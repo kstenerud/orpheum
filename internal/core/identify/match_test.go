@@ -19,17 +19,17 @@ import (
 // fakeProvider is TMDB behind the provider interface (standards/testing.md, Network): films by
 // id, search results by name and year, and IMDb ids. Its stored body is the Metadata as JSON.
 type fakeProvider struct {
-	films    map[string]Metadata
-	searches map[string][]Candidate
-	imdb     map[string]string
-	seasons  map[string][]Episode // by "series/season"
-	fail     error
-	calls    []string
+	films        map[string]Metadata
+	searches     map[string][]Candidate
+	tmdbIDByIMDb map[string]string
+	seasons      map[string][]Episode // by "series/season"
+	fail         error
+	calls        []string
 }
 
 func newFakeProvider() *fakeProvider {
 	return &fakeProvider{
-		films: map[string]Metadata{}, searches: map[string][]Candidate{}, imdb: map[string]string{},
+		films: map[string]Metadata{}, searches: map[string][]Candidate{}, tmdbIDByIMDb: map[string]string{},
 		seasons: map[string][]Episode{},
 	}
 }
@@ -67,7 +67,7 @@ func (fake *fakeProvider) Search(_ context.Context, query Query) ([]Candidate, e
 
 func (fake *fakeProvider) Find(_ context.Context, _, source, id string) (string, error) {
 	fake.calls = append(fake.calls, "find "+source+" "+id)
-	if found, ok := fake.imdb[id]; ok {
+	if found, ok := fake.tmdbIDByIMDb[id]; ok {
 		return found, nil
 	}
 	return "", ErrNoMatch
@@ -101,10 +101,10 @@ var (
 	heat = Metadata{ID: "9019", Name: "Metropolis", OriginalName: "Metropolis", Year: 1995, RuntimeMs: 170 * 60_000}
 )
 
-// match runs the matcher on the title of the file at rel.
-func (lib *world) match(rel string) Outcome {
+// matchFileTitle runs the matcher on the title of the file at rel.
+func (lib *testLibrary) matchFileTitle(rel string) Outcome {
 	lib.t.Helper()
-	file, found := lib.files()[rel]
+	file, found := lib.titlesByPath()[rel]
 	if !found {
 		lib.t.Fatalf("no file %s", rel)
 	}
@@ -117,30 +117,30 @@ func (lib *world) match(rel string) Outcome {
 
 func TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStoredResponse(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movies", "tmdb")
 	lib.provider.searches[searchKey("Variety", 1994)] = []Candidate{
 		lib.provider.add(leon), {ID: "7", Name: "Léon Morin, Priest", Year: 1961},
 	}
 	const rel = "Variety (1994)/Variety (1994).mkv"
-	report := lib.scan(video(rel))
-	if len(report.AwaitingMatch) != 1 || lib.files()[rel].Filing != filingUnidentified {
-		t.Fatalf("before matching: %+v, file %+v; want it awaiting its match", report, lib.files()[rel])
+	report := lib.scan(videoRecord(rel))
+	if len(report.AwaitingMatch) != 1 || lib.titlesByPath()[rel].Filing != filingUnidentified {
+		t.Fatalf("before matching: %+v, file %+v; want it awaiting its match", report, lib.titlesByPath()[rel])
 	}
-	if outcome := lib.match(rel); outcome != OutcomeMatched {
+	if outcome := lib.matchFileTitle(rel); outcome != OutcomeMatched {
 		t.Fatalf("outcome %s, want matched (its original name and year are the file's)", outcome)
 	}
 	checkLeon := func(when string) {
 		t.Helper()
-		file := lib.files()[rel]
-		if name(file) != leon.Name || file.IdentificationState != identIdentified || file.FollowedSource == nil ||
-			*file.FollowedSource != "tmdb" ||
+		file := lib.titlesByPath()[rel]
+		if titleName(file) != leon.Name || file.IdentificationState != identificationIdentified ||
+			file.FollowedSource == nil || *file.FollowedSource != "tmdb" ||
 			file.Filing != filingListed || file.Year == nil || *file.Year != 1994 {
-			t.Errorf("%s: %+v (%s), want TMDB's film, listed", when, file, name(file))
+			t.Errorf("%s: %+v (%s), want TMDB's film, listed", when, file, titleName(file))
 		}
 	}
 	checkLeon("after the match")
 	calls := len(lib.provider.calls)
-	report = lib.scan(video(rel))
+	report = lib.scan(videoRecord(rel))
 	checkLeon("after another pass")
 	if len(lib.provider.calls) != calls || len(report.AwaitingMatch) != 0 {
 		t.Errorf("another pass called the provider (%v) or queued the film again (%v)", lib.provider.calls[calls:],
@@ -150,21 +150,21 @@ func TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStore
 
 func TestMatch_AnAmbiguousSearchIsNeverGuessed(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movies", "tmdb")
 	// Two remakes a year apart, neither in the year the file names; and a file with no year.
 	lib.provider.searches[searchKey("The General", 2003)] = []Candidate{
 		{ID: "1", Name: "The General", Year: 1972}, {ID: "2", Name: "The General", Year: 2002},
 	}
 	lib.provider.searches[searchKey("Metropolis", 0)] = []Candidate{lib.provider.add(heat)}
-	lib.scan(video("The General (2003).mkv"), video("Metropolis.mkv"))
+	lib.scan(videoRecord("The General (2003).mkv"), videoRecord("Metropolis.mkv"))
 	for _, rel := range []string{"The General (2003).mkv", "Metropolis.mkv"} {
-		if outcome := lib.match(rel); outcome != OutcomeAmbiguous {
+		if outcome := lib.matchFileTitle(rel); outcome != OutcomeAmbiguous {
 			t.Errorf("%s: outcome %s, want ambiguous", rel, outcome)
 		}
 	}
-	lib.scan(video("The General (2003).mkv"), video("Metropolis.mkv"))
-	solaris := lib.files()["The General (2003).mkv"]
-	if solaris.IdentificationState != identAmbiguous || solaris.Filing != filingListed ||
+	lib.scan(videoRecord("The General (2003).mkv"), videoRecord("Metropolis.mkv"))
+	solaris := lib.titlesByPath()["The General (2003).mkv"]
+	if solaris.IdentificationState != identificationAmbiguous || solaris.Filing != filingListed ||
 		solaris.FollowedSource != nil {
 		t.Errorf("after another pass: %+v; want ambiguous, listed on local data", solaris)
 	}
@@ -186,32 +186,32 @@ func TestMatch_AnAmbiguousSearchIsNeverGuessed(t *testing.T) {
 
 func TestMatch_AProviderIDInHandSkipsTheSearch(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movies", "tmdb")
 	lib.provider.add(heat)
 	lib.provider.add(leon)
-	lib.provider.imdb["tt0345678"] = leon.ID
-	lib.scan(video("Metropolis {tmdb-9019}.mkv"), video("Variety [imdbid-tt0345678].mkv"))
-	lib.match("Metropolis {tmdb-9019}.mkv")
-	lib.match("Variety [imdbid-tt0345678].mkv")
+	lib.provider.tmdbIDByIMDb["tt0345678"] = leon.ID
+	lib.scan(videoRecord("Metropolis {tmdb-9019}.mkv"), videoRecord("Variety [imdbid-tt0345678].mkv"))
+	lib.matchFileTitle("Metropolis {tmdb-9019}.mkv")
+	lib.matchFileTitle("Variety [imdbid-tt0345678].mkv")
 	want := []string{"fetch 949", "find imdb tt0345678", "fetch 101"}
 	if !slices.Equal(lib.provider.calls, want) {
 		t.Errorf("calls %v, want %v: no search", lib.provider.calls, want)
 	}
-	if file := lib.files()["Variety [imdbid-tt0345678].mkv"]; name(file) != leon.Name {
-		t.Errorf("the IMDb-tagged file is %q", name(file))
+	if file := lib.titlesByPath()["Variety [imdbid-tt0345678].mkv"]; titleName(file) != leon.Name {
+		t.Errorf("the IMDb-tagged file is %q", titleName(file))
 	}
 }
 
 func TestMatch_NothingFoundIsRecordedAndNotSearchedAgain(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "nfo_then_tmdb")
+	lib := newTestLibrary(t, "movies", "nfo_then_tmdb")
 	const rel = "home video (2011).mkv"
-	lib.scan(video(rel))
-	if outcome := lib.match(rel); outcome != OutcomeNoMatch {
+	lib.scan(videoRecord(rel))
+	if outcome := lib.matchFileTitle(rel); outcome != OutcomeNoMatch {
 		t.Fatalf("outcome %s, want no match", outcome)
 	}
-	report := lib.scan(video(rel))
-	file := lib.files()[rel]
+	report := lib.scan(videoRecord(rel))
+	file := lib.titlesByPath()[rel]
 	why := noMatchReason("nfo_then_tmdb")
 	if file.Filing != filingUnidentified || file.FilingReason == nil || *file.FilingReason != why {
 		t.Errorf("file %+v, want unidentified, saying why", file)
@@ -219,37 +219,37 @@ func TestMatch_NothingFoundIsRecordedAndNotSearchedAgain(t *testing.T) {
 	if len(report.AwaitingMatch) != 0 {
 		t.Errorf("the pass queued it again: %v", report.AwaitingMatch)
 	}
-	if outcome := lib.match(rel); outcome != OutcomeNothingToDo || len(lib.provider.calls) != 1 {
+	if outcome := lib.matchFileTitle(rel); outcome != OutcomeNothingToDo || len(lib.provider.calls) != 1 {
 		t.Errorf("matching again: %s after calls %v; want nothing done, one search", outcome, lib.provider.calls)
 	}
 }
 
 func TestMatch_ASecondTitleForTheSameWorkJoinsTheFirst(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movies", "tmdb")
 	lib.provider.searches[searchKey("Metropolis", 1995)] = []Candidate{lib.provider.add(heat)}
-	lib.scan(video("Metropolis {tmdb-9019}.mkv"), video("other/Metropolis (1995).mkv"))
-	lib.match("Metropolis {tmdb-9019}.mkv")
-	lib.match("other/Metropolis (1995).mkv")
-	files := lib.files()
+	lib.scan(videoRecord("Metropolis {tmdb-9019}.mkv"), videoRecord("other/Metropolis (1995).mkv"))
+	lib.matchFileTitle("Metropolis {tmdb-9019}.mkv")
+	lib.matchFileTitle("other/Metropolis (1995).mkv")
+	files := lib.titlesByPath()
 	first, second := files["Metropolis {tmdb-9019}.mkv"], files["other/Metropolis (1995).mkv"]
 	if first.TitleID != second.TitleID {
 		t.Errorf("titles %d and %d; one work found twice should be one title with two versions",
 			first.TitleID, second.TitleID)
 	}
-	lib.scan(video("Metropolis {tmdb-9019}.mkv"), video("other/Metropolis (1995).mkv"))
-	if files := lib.files(); files["other/Metropolis (1995).mkv"].TitleID != first.TitleID {
+	lib.scan(videoRecord("Metropolis {tmdb-9019}.mkv"), videoRecord("other/Metropolis (1995).mkv"))
+	if files := lib.titlesByPath(); files["other/Metropolis (1995).mkv"].TitleID != first.TitleID {
 		t.Error("another pass split the joined title")
 	}
 }
 
 func TestMatch_AnOverrideSurvivesTheMatchAndReDerivation(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movies", "tmdb")
 	lib.provider.searches[searchKey("Metropolis", 1995)] = []Candidate{lib.provider.add(heat)}
 	const rel = "Metropolis (1995).mkv"
-	lib.scan(video(rel))
-	titleID := lib.files()[rel].TitleID
+	lib.scan(videoRecord(rel))
+	titleID := lib.titlesByPath()[rel].TitleID
 	err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		return queries.InsertOverrideIfAbsent(t.Context(), sqlcgen.InsertOverrideIfAbsentParams{
 			ItemID: titleID, Field: fieldName, OverrideValue: "Metropolis (director's copy)", Origin: "user", SetAt: 1,
@@ -258,35 +258,35 @@ func TestMatch_AnOverrideSurvivesTheMatchAndReDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lib.match(rel)
-	lib.scan(video(rel))
-	file := lib.files()[rel]
-	if name(file) != "Metropolis (director's copy)" || file.FollowedSource == nil || *file.FollowedSource != "tmdb" {
-		t.Errorf("file %+v named %q; want TMDB's film under the person's name", file, name(file))
+	lib.matchFileTitle(rel)
+	lib.scan(videoRecord(rel))
+	file := lib.titlesByPath()[rel]
+	if titleName(file) != "Metropolis (director's copy)" || file.FollowedSource == nil || *file.FollowedSource != "tmdb" {
+		t.Errorf("file %+v named %q; want TMDB's film under the person's name", file, titleName(file))
 	}
 }
 
 func TestMatch_AProvidersRefusalReturnsForTheQueueToActOn(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "tmdb")
-	lib.scan(video("Metropolis (1995).mkv"))
-	lib.provider.fail = &RateLimitedError{After: 3}
-	_, err := lib.matcher.Match(t.Context(), lib.files()["Metropolis (1995).mkv"].TitleID)
-	if limited, isLimited := errors.AsType[*RateLimitedError](err); !isLimited || limited.After != 3 {
+	lib := newTestLibrary(t, "movies", "tmdb")
+	lib.scan(videoRecord("Metropolis (1995).mkv"))
+	lib.provider.fail = &RateLimitedError{RetryAfter: 3}
+	_, err := lib.matcher.Match(t.Context(), lib.titlesByPath()["Metropolis (1995).mkv"].TitleID)
+	if limited, isLimited := errors.AsType[*RateLimitedError](err); !isLimited || limited.RetryAfter != 3 {
 		t.Errorf("Match = %v, want the provider's RateLimitedError", err)
 	}
-	file := lib.files()["Metropolis (1995).mkv"]
-	if file.IdentificationState != identUnidentified || file.FollowedSource != nil {
+	file := lib.titlesByPath()["Metropolis (1995).mkv"]
+	if file.IdentificationState != identificationUnidentified || file.FollowedSource != nil {
 		t.Errorf("a refused call changed the title: %+v", file)
 	}
 }
 
 func TestHandle_TellsTheQueueHowToWait(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "tmdb")
-	lib.scan(video("Metropolis (1995).mkv"))
-	job := jobs.Job{Kind: jobs.KindFetch, Target: jobs.Target{ItemID: lib.files()["Metropolis (1995).mkv"].TitleID}}
-	lib.provider.fail = &RateLimitedError{After: time.Minute}
+	lib := newTestLibrary(t, "movies", "tmdb")
+	lib.scan(videoRecord("Metropolis (1995).mkv"))
+	job := jobs.Job{Kind: jobs.KindFetch, Target: jobs.Target{ItemID: lib.titlesByPath()["Metropolis (1995).mkv"].TitleID}}
+	lib.provider.fail = &RateLimitedError{RetryAfter: time.Minute}
 	err := lib.matcher.Handle(t.Context(), job)
 	retry, isRetry := errors.AsType[*jobs.RetryAtError](err)
 	if !isRetry || !retry.At.Equal(lib.clock.Now().Add(time.Minute)) {
@@ -304,15 +304,15 @@ func TestHandle_TellsTheQueueHowToWait(t *testing.T) {
 
 func TestPass_ATMDBOnlyLibraryIgnoresNFOFiles(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movies", "tmdb")
 	const body = "<movie><title>Not What The Path Says</title><year>1995</year><tmdbid>9019</tmdbid>" +
 		"<lockdata>true</lockdata></movie>"
-	report := lib.scan(video("Metropolis (1995).mkv"), nfo("Metropolis (1995).nfo", body))
-	file := lib.files()["Metropolis (1995).mkv"]
-	if name(file) != "Metropolis" || file.FollowedSource != nil || file.Filing != filingUnidentified ||
+	report := lib.scan(videoRecord("Metropolis (1995).mkv"), nfoRecord("Metropolis (1995).nfo", body))
+	file := lib.titlesByPath()["Metropolis (1995).mkv"]
+	if titleName(file) != "Metropolis" || file.FollowedSource != nil || file.Filing != filingUnidentified ||
 		len(report.AwaitingMatch) != 1 {
 		t.Errorf("file %+v named %q, awaiting %v; want the path's name, awaiting TMDB (D183: ignore NFO files)",
-			file, name(file), report.AwaitingMatch)
+			file, titleName(file), report.AwaitingMatch)
 	}
 	ids, err := lib.database.Read().ListItemProviderIDs(t.Context(), file.TitleID)
 	if err != nil || len(ids) != 0 {
@@ -327,12 +327,12 @@ func TestPass_ATMDBOnlyLibraryIgnoresNFOFiles(t *testing.T) {
 // Principles §22, D211: what a provider answers is clean where it enters, whoever wrote it.
 func TestMatch_AProvidersTextIsCleanWhereItEnters(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movies", "tmdb")
 	hostile := Metadata{ID: "9019", Name: "Metropolis\u202Evkm.exe", Year: 1995, Overview: "One.\u200B\n\n\n\nTwo."}
 	lib.provider.add(hostile)
-	lib.scan(video("Metropolis {tmdb-9019}.mkv"))
-	lib.match("Metropolis {tmdb-9019}.mkv")
-	if got := name(lib.files()["Metropolis {tmdb-9019}.mkv"]); got != "Heatvkm.exe" {
+	lib.scan(videoRecord("Metropolis {tmdb-9019}.mkv"))
+	lib.matchFileTitle("Metropolis {tmdb-9019}.mkv")
+	if got := titleName(lib.titlesByPath()["Metropolis {tmdb-9019}.mkv"]); got != "Heatvkm.exe" {
 		t.Errorf("stored name %q; want the override gone", got)
 	}
 }
@@ -340,9 +340,9 @@ func TestMatch_AProvidersTextIsCleanWhereItEnters(t *testing.T) {
 // Principles §22: a person's override is clean where it enters.
 func TestChooser_AnOverrideIsCleanWhereItEnters(t *testing.T) {
 	t.Parallel()
-	lib := newWorld(t, "movies", "nfo")
-	lib.scan(video("Metropolis (1995).mkv"))
-	titleID := lib.files()["Metropolis (1995).mkv"].TitleID
+	lib := newTestLibrary(t, "movies", "nfo")
+	lib.scan(videoRecord("Metropolis (1995).mkv"))
+	titleID := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
 	person := storetest.InsertUser(t, lib.database, "alice", "admin")
 	if err := lib.chooser.SetOverride(t.Context(), titleID, fieldName, "Mine\u2067\u0000", person); err != nil {
 		t.Fatal(err)

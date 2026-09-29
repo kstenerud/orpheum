@@ -15,58 +15,60 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// identAmbiguous is a title whose search found candidates and no single match (D172).
-const identAmbiguous = "ambiguous"
+// identificationAmbiguous is a title whose search found candidates and no single match (D172).
+const identificationAmbiguous = "ambiguous"
 
 // matchEvidence gives a spec what its title's match says: the stored response a person chose,
 // over any NFO; and, for a spec with no NFO behind it, the stored response it was matched to, its
 // ambiguity, or that its provider found nothing. A pass reads these and never calls the provider
 // (D170, D172, D182).
-func (work *run) matchEvidence(ctx context.Context, titleID int64, spec *titleSpec) error {
+func (filer *libraryFiler) matchEvidence(ctx context.Context, titleID int64, spec *titleSpec) error {
 	if spec.kind == kindEpisode {
 		return nil // an episode's evidence is its series' listing, read where it is filed (D209)
 	}
-	match, err := store.OrNotFound(work.queries.GetTitleForMatch(ctx, titleID))
+	matchRow, err := store.OrNotFound(filer.queries.GetTitleForMatch(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("read title %d's match: %w", titleID, err)
 	}
-	chosen := match.IdentificationState == identConfirmed && match.FollowedSource != nil &&
-		*match.FollowedSource != sourceNFO &&
-		*match.FollowedSource != sourceNone
-	if chosen {
-		return work.fromResponse(ctx, titleID, *match.FollowedSource, spec)
+	isChosen := matchRow.IdentificationState == identificationConfirmed && matchRow.FollowedSource != nil &&
+		*matchRow.FollowedSource != sourceNFO &&
+		*matchRow.FollowedSource != sourceNone
+	if isChosen {
+		return filer.fromResponse(ctx, titleID, *matchRow.FollowedSource, spec)
 	}
 	if spec.source != "" {
 		return nil
 	}
 	switch {
-	case match.IdentificationState == identAmbiguous:
-		spec.ident, spec.reason = identAmbiguous, ""
-	case match.FollowedSource == nil:
-	case *match.FollowedSource == sourceNone:
-		spec.source, spec.reason = sourceNone, noMatchReason(match.MetadataSource)
+	case matchRow.IdentificationState == identificationAmbiguous:
+		spec.identification, spec.reason = identificationAmbiguous, ""
+	case matchRow.FollowedSource == nil:
+	case *matchRow.FollowedSource == sourceNone:
+		spec.source, spec.reason = sourceNone, noMatchReason(matchRow.MetadataSource)
 	default:
-		return work.fromResponse(ctx, titleID, *match.FollowedSource, spec)
+		return filer.fromResponse(ctx, titleID, *matchRow.FollowedSource, spec)
 	}
 	return nil
 }
 
 // fromResponse takes a title's stored provider response as its source.
-func (work *run) fromResponse(ctx context.Context, titleID int64, providerName string, spec *titleSpec) error {
-	provider, known := work.providers[providerName]
+func (filer *libraryFiler) fromResponse(
+	ctx context.Context, titleID int64, providerName string, spec *titleSpec,
+) error {
+	provider, known := filer.providers[providerName]
 	if !known {
 		return fmt.Errorf("title %d follows %s, which this server has no client for", titleID, providerName)
 	}
-	stored, err := work.queries.GetProviderResponse(ctx, sqlcgen.GetProviderResponseParams{
+	bodyGzip, err := filer.queries.GetProviderResponse(ctx, sqlcgen.GetProviderResponseParams{
 		ItemID: titleID, Provider: providerName, Part: "",
 	})
 	if err != nil {
 		return fmt.Errorf("read title %d's %s response: %w", titleID, providerName, err)
 	}
-	body, err := decompress(stored)
+	body, err := decompress(bodyGzip)
 	if err != nil {
 		return fmt.Errorf("title %d's %s response: %w", titleID, providerName, err)
 	}
@@ -92,7 +94,7 @@ func (spec *titleSpec) fromMetadata(provider string, metadata Metadata) {
 	maps.Copy(merged, metadata.IDs)
 	merged[provider] = metadata.ID
 	spec.ids = merged
-	spec.source, spec.ident, spec.reason = provider, identIdentified, ""
+	spec.source, spec.identification, spec.reason = provider, identificationIdentified, ""
 	spec.artwork = metadata.Artwork
 }
 
@@ -116,8 +118,8 @@ func compress(body []byte) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func decompress(stored []byte) ([]byte, error) {
-	reader, err := gzip.NewReader(bytes.NewReader(stored))
+func decompress(bodyGzip []byte) ([]byte, error) {
+	reader, err := gzip.NewReader(bytes.NewReader(bodyGzip))
 	if err != nil {
 		return nil, fmt.Errorf("decompress: %w", err)
 	}

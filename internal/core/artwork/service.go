@@ -217,7 +217,7 @@ func (service *Service) one(ctx context.Context, fetcher Fetcher, image wanted) 
 // localFile is the node that holds an image beside the media and its path there. A file gone
 // since it was owed is ErrNoImage; its node not connected, a wait that costs no attempt.
 func (service *Service) localFile(ctx context.Context, ref string) (int64, *nodeproto.Path, error) {
-	fileID, parsed := identify.LocalFile(ref)
+	fileID, parsed := identify.LocalRefFileID(ref)
 	if !parsed {
 		return 0, nil, fmt.Errorf("%q: %w", ref, ErrNoImage)
 	}

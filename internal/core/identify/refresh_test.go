@@ -17,7 +17,7 @@ import (
 )
 
 // refresh runs a refresh job for an item, as the queue would.
-func (lib *world) refresh(itemID int64) {
+func (lib *testLibrary) refresh(itemID int64) {
 	lib.t.Helper()
 	job := RefreshJob(itemID, "test", time.Time{}, false, 0)
 	err := lib.matcher.Handle(lib.t.Context(), jobs.Job{
@@ -30,7 +30,7 @@ func (lib *world) refresh(itemID int64) {
 }
 
 // fetchedAt is when an item's stored part was last fetched.
-func (lib *world) fetchedAt(itemID int64, part string) int64 {
+func (lib *testLibrary) fetchedAt(itemID int64, part string) int64 {
 	lib.t.Helper()
 	at, err := lib.database.Read().GetProviderResponseFetchedAt(lib.t.Context(),
 		sqlcgen.GetProviderResponseFetchedAtParams{ItemID: itemID, Provider: "tmdb", Part: part})
@@ -41,15 +41,15 @@ func (lib *world) fetchedAt(itemID int64, part string) int64 {
 }
 
 // matchedMetropolis is a TMDB library holding Metropolis, matched.
-func matchedMetropolis(t *testing.T) (*world, int64) {
+func matchedMetropolis(t *testing.T) (*testLibrary, int64) {
 	t.Helper()
-	lib := newWorld(t, "movies", "tmdb")
+	lib := newTestLibrary(t, "movies", "tmdb")
 	lib.provider.searches[searchKey("Metropolis", 1995)] = []Candidate{lib.provider.add(heat)}
-	lib.scan(video("Metropolis (1995).mkv"))
-	if outcome := lib.match("Metropolis (1995).mkv"); outcome != OutcomeMatched {
+	lib.scan(videoRecord("Metropolis (1995).mkv"))
+	if outcome := lib.matchFileTitle("Metropolis (1995).mkv"); outcome != OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
-	return lib, lib.files()["Metropolis (1995).mkv"].TitleID
+	return lib, lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
 }
 
 func TestRefresh_TakesTheProvidersNewValuesAndKeepsAPersonsOverride(t *testing.T) {
@@ -83,10 +83,10 @@ func TestRefresh_AnItemGoneFromItsProviderKeepsOurCopy(t *testing.T) {
 	delete(lib.provider.films, heat.ID)
 	lib.clock.Advance(time.Hour)
 	lib.refresh(titleID)
-	file := lib.files()["Metropolis (1995).mkv"]
-	if name(file) != "Metropolis" || file.FollowedSource == nil || *file.FollowedSource != "tmdb" ||
+	file := lib.titlesByPath()["Metropolis (1995).mkv"]
+	if titleName(file) != "Metropolis" || file.FollowedSource == nil || *file.FollowedSource != "tmdb" ||
 		file.Filing != filingListed {
-		t.Errorf("after TMDB dropped it: %+v named %q; want it kept as it was (D213 §4)", file, name(file))
+		t.Errorf("after TMDB dropped it: %+v named %q; want it kept as it was (D213 §4)", file, titleName(file))
 	}
 	if lib.fetchedAt(titleID, "") != lib.clock.Now().UnixMilli() {
 		t.Error("the attempt was not noted; the next sweep would ask again at once")
@@ -105,19 +105,19 @@ func TestRefresh_ASeriesFetchesItsRecordAndEachSeasonItKeeps(t *testing.T) {
 	calls := len(lib.provider.calls)
 	lib.clock.Advance(time.Hour)
 	// An episode's refresh is its series'.
-	lib.refresh(lib.files()[orbitoramaFiles[0]].TitleID)
+	lib.refresh(lib.titlesByPath()[orbitoramaFiles[0]].TitleID)
 	if got, want := lib.provider.calls[calls:], []string{"fetch 615", "season 615/2"}; !slices.Equal(got, want) {
 		t.Errorf("calls %v, want %v", got, want)
 	}
-	if clone := lib.files()[orbitoramaFiles[0]]; name(clone) != "A Comet of My Own (renamed)" {
-		t.Errorf("S02E10 is %q after the refresh", name(clone))
+	if clone := lib.titlesByPath()[orbitoramaFiles[0]]; titleName(clone) != "A Comet of My Own (renamed)" {
+		t.Errorf("S02E10 is %q after the refresh", titleName(clone))
 	}
 }
 
-// queued is the job queue as a list.
-type queued []jobs.Request
+// fakeQueue is the job queue as a list.
+type fakeQueue []jobs.Request
 
-func (queue *queued) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
+func (queue *fakeQueue) Enqueue(_ context.Context, job jobs.Request) (bool, error) {
 	for _, open := range *queue {
 		if open.Kind == job.Kind && open.Target == job.Target {
 			return false, nil
@@ -130,7 +130,7 @@ func (queue *queued) Enqueue(_ context.Context, job jobs.Request) (bool, error) 
 func TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod(t *testing.T) {
 	t.Parallel()
 	lib, titleID := matchedMetropolis(t)
-	queue := &queued{}
+	queue := &fakeQueue{}
 	refresher := NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.matcher.logger)
 	period := 180 * 24 * time.Hour
 	due := dueAfter(period, titleID)

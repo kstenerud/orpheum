@@ -27,8 +27,8 @@ func (key fixedKey) Open(context.Context, secrets.Name) (secrets.Value, error) {
 	return secrets.NewValue(string(key)), nil
 }
 
-// fake is a TMDB that answers from a table of paths, and records each request.
-func fake(t *testing.T, answers map[string]string) (*httptest.Server, *[]*http.Request) {
+// fakeTMDB is a TMDB that answers from a table of paths, and records each request.
+func fakeTMDB(t *testing.T, answers map[string]string) (*httptest.Server, *[]*http.Request) {
 	t.Helper()
 	var seen []*http.Request
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -56,7 +56,7 @@ func newClient(t *testing.T, base string, key fixedKey) *Client {
 
 func TestSearch_AsksForTheNameAndYearAndReadsTheResults(t *testing.T) {
 	t.Parallel()
-	server, seen := fake(t, map[string]string{"/search/movie": `{"page":1,"results":[
+	server, seen := fakeTMDB(t, map[string]string{"/search/movie": `{"page":1,"results":[
 		{"id":4801,"title":"The Gold Rush","original_title":"The Gold Rush","release_date":"1999-03-31",
 		 "poster_path":"/m.jpg"},
 		{"id":1,"title":"Gold Rush Reloaded","original_title":"x","release_date":""}]}`})
@@ -79,7 +79,7 @@ func TestSearch_AsksForTheNameAndYearAndReadsTheResults(t *testing.T) {
 
 func TestGet_SendsAReadAccessTokenAsABearerToken(t *testing.T) {
 	t.Parallel()
-	server, seen := fake(t, map[string]string{"/search/movie": `{"results":[]}`})
+	server, seen := fakeTMDB(t, map[string]string{"/search/movie": `{"results":[]}`})
 	token := fixedKey("eyJhbGciOiJIUzI1NiJ9.e30.x")
 	_, err := newClient(t, server.URL, token).Search(t.Context(), identify.Query{Kind: "movie", Name: "Metropolis"})
 	if err != nil {
@@ -96,7 +96,7 @@ func TestGet_SendsAReadAccessTokenAsABearerToken(t *testing.T) {
 
 func TestFetchAndParse_AFilmsDetails(t *testing.T) {
 	t.Parallel()
-	server, seen := fake(t, map[string]string{"/movie/9019": `{"id":9019,"title":"Metropolis","original_title":"Metropolis",
+	server, seen := fakeTMDB(t, map[string]string{"/movie/9019": `{"id":9019,"title":"Metropolis","original_title":"Metropolis",
 		"original_language":"en","overview":"Obsessive...","tagline":"A Los Angeles crime saga",
 		"release_date":"1995-12-15",
 		"runtime":170,"imdb_id":"tt0234567","poster_path":"/metropolis.jpg","backdrop_path":"/heat-wide.jpg",
@@ -125,7 +125,7 @@ func TestFetchAndParse_AFilmsDetails(t *testing.T) {
 
 func TestFind_TurnsAnIMDbIDIntoTMDBs(t *testing.T) {
 	t.Parallel()
-	server, seen := fake(t, map[string]string{
+	server, seen := fakeTMDB(t, map[string]string{
 		"/find/tt0234567": `{"movie_results":[{"id":9019}]}`,
 		"/find/tt0000000": `{"movie_results":[]}`,
 	})
@@ -161,7 +161,7 @@ func TestGet_TurnsTMDBsRefusalsIntoTheErrorsTheMatcherActsOn(t *testing.T) {
 	client := newClient(t, server.URL, "k")
 	_, err := client.Fetch(t.Context(), "movie", "1")
 	var limited *identify.RateLimitedError
-	if !errors.As(err, &limited) || limited.After != 7*time.Second {
+	if !errors.As(err, &limited) || limited.RetryAfter != 7*time.Second {
 		t.Errorf("429 = %v, want RateLimitedError after 7s", err)
 	}
 	if _, err := client.Fetch(t.Context(), "movie", "2"); !errors.Is(err, identify.ErrKeyRefused) {
@@ -191,7 +191,7 @@ func TestGet_AFailedConnectionDoesNotPrintTheKey(t *testing.T) {
 // orbitoramaAtTMDB is a fake TMDB that knows one series and one season of it.
 func orbitoramaAtTMDB(t *testing.T) (*Client, *[]*http.Request) {
 	t.Helper()
-	server, seen := fake(t, map[string]string{
+	server, seen := fakeTMDB(t, map[string]string{
 		"/search/tv": `{"results":[{"id":7615,"name":"Orbitorama","original_name":"Orbitorama",
 			"first_air_date":"1999-03-28","poster_path":"/f.jpg"}]}`,
 		"/find/73871": `{"movie_results":[],"tv_results":[{"id":7615}]}`,
@@ -242,7 +242,7 @@ func TestSeries_FetchParseAndItsSeasons(t *testing.T) {
 	episodes, err := client.ParseSeason(listing)
 	want := identify.Episode{
 		ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own", Overview: "The Professor names his successor.",
-		Year: 2000, RuntimeMs: 22 * 60_000, Still: "/clone.jpg",
+		Year: 2000, RuntimeMs: 22 * 60_000, StillRef: "/clone.jpg",
 	}
 	if err != nil || len(episodes) != 1 || episodes[0] != want {
 		t.Errorf("ParseSeason = %+v, %v", episodes, err)
@@ -253,7 +253,7 @@ func TestGet_RefusesAnAnswerLargerThanItsBoundRatherThanReadingItCutShort(t *tes
 	t.Parallel()
 	// Cut at the bound, this answer still parses: only refusing it shows it was too large.
 	padded := `{"results":[]}` + strings.Repeat(" ", maxResponseBytes)
-	server, _ := fake(t, map[string]string{"/search/movie": padded})
+	server, _ := fakeTMDB(t, map[string]string{"/search/movie": padded})
 	_, err := newClient(t, server.URL, "key").Search(t.Context(), identify.Query{Kind: "movie", Name: "Metropolis"})
 	if err == nil || !strings.Contains(err.Error(), "larger than") {
 		t.Errorf("an answer past the bound: %v, want it refused", err)

@@ -5,7 +5,6 @@ package identify
 // The closed sets the schema's checks name (schema.md): a title's kind, its source and its
 // identification, a file's filing, the overridable fields, and the extra types (D162).
 const (
-	kindMovie   = KindMovie
 	kindEpisode = "episode"
 	kindExtra   = "extra"
 
@@ -15,9 +14,9 @@ const (
 	sourceTVDB = "tvdb"
 	sourceNone = "none"
 
-	identIdentified   = "identified"
-	identUnidentified = "unidentified"
-	identConfirmed    = "confirmed"
+	identificationIdentified   = "identified"
+	identificationUnidentified = "unidentified"
+	identificationConfirmed    = "confirmed"
 
 	filingListed       = "listed"
 	filingUnidentified = "unidentified"
@@ -38,7 +37,7 @@ const (
 	extraClip       = "clip"
 	extraUnknown    = "unknown"
 
-	itemCollection = "collection"
+	itemKindCollection = "collection"
 	// The language of an original text not known yet (item_text.lang).
 	langUnknown = "und"
 )

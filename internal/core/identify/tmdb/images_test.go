@@ -13,12 +13,12 @@ import (
 
 func TestImages_FetchesOnlyTMDBsImagePathsFromItsImageServer(t *testing.T) {
 	t.Parallel()
-	server, seen := fake(t, map[string]string{"/qJ2tW6WMUDux911r6m7haRef0WH.jpg": "not really a JPEG"})
+	server, seen := fakeTMDB(t, map[string]string{"/qJ2tW6WMUDux911r6m7haRef0WH.jpg": "not really a JPEG"})
 	httpClient, err := outbound.NewClient(5*time.Second, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	images := NewImages(httpClient, server.URL)
+	images := NewImageFetcher(httpClient, server.URL)
 	image, err := images.Fetch(t.Context(), "/qJ2tW6WMUDux911r6m7haRef0WH.jpg")
 	if err != nil || image.Len() != len("not really a JPEG") {
 		t.Fatalf("Fetch = %d bytes, %v", image.Len(), err)
