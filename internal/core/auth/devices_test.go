@@ -5,6 +5,7 @@ package auth
 import (
 	"errors"
 	"testing"
+	"time"
 )
 
 // phoneAndTelevision signs a person in on a phone and adds a television by code, and returns the
@@ -129,5 +130,34 @@ func TestSetAudioOutput_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt(t *testing.T) {
 	device, err := fixture.service.DeviceOf(ctx, id, devices[0].ID)
 	if err != nil || device.AudioOutput != "built_in_speakers" {
 		t.Errorf("the device after = %+v, %v; want built_in_speakers kept", device, err)
+	}
+}
+
+func TestDevices_ADeviceWasLastUsedWhenItsLatestSessionWasIssuedOrUsed(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id := fixture.createUser(t, "partner", "pw", RoleUser)
+	first, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.clock.Advance(2 * time.Minute)
+	principal, err := fixture.service.Authenticate(ctx, first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.clock.Advance(30 * 24 * time.Hour)
+	resumed := NewDevice{Name: laptop.Name, Platform: laptop.Platform, PreviousDeviceID: principal.DeviceID}
+	if _, err = fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", resumed); err != nil {
+		t.Fatal(err)
+	}
+	devices, err := fixture.service.Devices(ctx, id)
+	if err != nil || len(devices) != 1 {
+		t.Fatalf("devices = %+v, %v; want the laptop", devices, err)
+	}
+	if want := fixture.clock.Now(); !devices[0].LastUsedAt.Equal(want) {
+		t.Errorf("last used %v, want %v: the fresh sign-in, not the old session's last use",
+			devices[0].LastUsedAt, want)
 	}
 }
