@@ -163,11 +163,13 @@ func TestFile_NamesNothingOutsideARoot(t *testing.T) {
 	for name, target := range map[string]string{
 		"no hash": nodeproto.PathBytesFile + "?" + url.Values{"root": {movie.root.Path()}, "path": {"eA"}}.Encode(),
 		"a path not base64": nodeproto.PathBytesFile + "?" + url.Values{
-			"root": {movie.root.Path()}, "path": {"%%"}, "hash": {movie.identity},
+			"root": {movie.root.Path()}, "path": {"%%"}, "payloadHash": {movie.identity},
 		}.Encode(),
 	} {
-		if got := request(t, handler, http.MethodGet, target, nil); got.Code != http.StatusBadRequest {
-			t.Errorf("%s: %d, want 400", name, got.Code)
+		got := request(t, handler, http.MethodGet, target, nil)
+		if got.Code != http.StatusBadRequest || !strings.Contains(got.Body.String(), "payloadHash") {
+			t.Errorf("%s: %d %q, want 400 naming the parameters, payloadHash among them", name, got.Code,
+				got.Body.String())
 		}
 	}
 }

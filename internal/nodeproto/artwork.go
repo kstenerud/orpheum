@@ -87,7 +87,7 @@ type Artwork struct {
 	// JobID names the core's job the answer belongs to.
 	JobID       int64  `json:"jobId"`
 	SourceImage []byte `json:"sourceImage,omitempty"`
-	// AbsolutePath, in place of Source, names an image beside the media for the node to read
+	// AbsolutePath, in place of SourceImage, names an image beside the media for the node to read
 	// itself, under one of its roots, so its bytes never reach the core (D215). Unlike every other
 	// Path on the wire it is absolute: the node finds the root it is under.
 	AbsolutePath *Path `json:"absolutePath,omitempty"`

@@ -2,7 +2,7 @@
 
 // Package jobs is the one work queue: fetches, prepares, scans and backups are rows in cache.db's
 // job table. One scheduler picks the highest-priority queued job whose runnable_at has passed and
-// whose runner has a free slot. Node jobs become commands; their progress arrives as job records.
+// whose runner has a free slot. Node jobs become commands; each answers on its own path to the node service.
 // After a crash, running jobs return to queued and restart from zero.
 //
 // # Invariants
@@ -17,13 +17,13 @@
 //   - Every switch over a job kind or state names every value. Enforced by exhaustive.
 //   - Time comes from a clock.Clock, so scheduling is testable. Enforced by the forbidigo rule
 //     tagged [clock].
-//   - A subject has at most one open job of a kind. TestEnqueue_QueuesASubjectOnceWhileItIsOpen.
+//   - A target has at most one open job of a kind. TestEnqueue_QueuesASubjectOnceWhileItIsOpen.
 //   - The highest priority runs first. TestRunDue_RunsTheHighestPriorityFirst.
 //   - Several runners of one kind run its jobs at once, each job once.
 //     TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce.
 //   - A queued job wakes a runner of its own kind at once; no other kind's runner takes its
 //     wake-up, so it never waits for the next tick. TestRun_AQueuedJobWakesARunnerOfItsOwnKindAtOnce.
-//   - A failure retries with doubling back-off up to the retry limit, then fails.
+//   - A failure retries with doubling back-off up to job_attempt_limit, then fails.
 //     TestRunDue_RetriesAFailureWithDoublingBackoffThenFails.
 //   - A provider's Retry-After, or a missing key, holds the kind without costing attempts (D170).
 //     TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind,

@@ -206,7 +206,7 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
 - **Times are `INTEGER` milliseconds** from `clock.Clock` (`Now().UnixMilli()`), never SQLite's
   `CURRENT_TIMESTAMP` or `datetime('now')`, which a test cannot control. **Enforced by:**
   review; the `[clock]` rule stops the Go side reaching for `time.Now`.
-- **JSON stored in a `TEXT` column** (`node.status`, `job.args`) is a Go struct with explicit
+- **JSON stored in a `TEXT` column** (`node.last_status_json`, `job.args_json`) is a Go struct with explicit
   camelCase tags, as on the wire. **Enforced by:** tagliatelle and musttag on that struct.
 - **Nullable means optional**, and `NOT NULL` is the default for a new column unless absence is
   a real state. **Review-only.**
