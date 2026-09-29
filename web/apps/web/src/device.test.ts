@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { deviceFrom } from "./device.ts";
+import { deviceFrom, thisDevice } from "./device.ts";
 
 describe("naming this device", () => {
   it("names the browser and the system, the more specific first", () => {
@@ -30,5 +30,10 @@ describe("naming this device", () => {
 
   it("says it is a web client", () => {
     expect(deviceFrom("").platform).toBe("web");
+  });
+
+  it("names the device it was before as previousDeviceId, which the server resumes (D221)", () => {
+    expect(thisDevice({ deviceId: () => 7 }).previousDeviceId).toBe(7);
+    expect(thisDevice({ deviceId: () => undefined })).not.toHaveProperty("previousDeviceId");
   });
 });
