@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-// Package backup writes and restores backups of library.db with VACUUM INTO, the pre-migration
-// snapshots, and orpheum restore (a command-line operation with the server stopped, never an
-// endpoint). A database backup never contains secret.key; restoring without the key marks sealed
-// secrets as needing re-entry and loses nothing else.
+// Package backup writes and restores backups of library.db with VACUUM INTO: orpheum backup, and
+// orpheum restore (a command-line operation with the server stopped, never an endpoint), which
+// first keeps a pre-restore copy of the database it replaces. The pre-migration snapshots are the
+// store's migration runner's, not this package's. A database backup never contains secret.key;
+// restoring without the key marks sealed secrets as needing re-entry and loses nothing else.
 //
 // # Invariants
 //
@@ -16,6 +17,8 @@
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
 //   - A restore refuses a file without the application_id and one whose compatible_version is
 //     newer. Enforced by TestMakePlan_RefusesAForeignOrNewerBackup.
+//   - A restore refuses a backup below the baseline schema, which the server would refuse at
+//     start (D228). Enforced by TestMakePlan_RefusesABackupOlderThanTheBaseline.
 //   - A restore says what it will overwrite, keeps it, and runs only with the server stopped.
 //     Enforced by TestRestore_KeepsTheDatabaseItReplaces and TestRestore_RefusesWhileTheServerRuns.
 //   - A backup holds ciphertext only; restoring without the key marks secrets as needing
@@ -29,6 +32,7 @@
 //   - D77: back up with VACUUM INTO and test the restore.
 //   - D181: the migration policy and its snapshots.
 //   - D185: the database is backed up whole.
+//   - D228: a schema below the baseline cannot be migrated.
 //   - D194 §4: backups and the key.
 //   - docs/contributors/design/plans/backup-restore.md.
 //

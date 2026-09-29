@@ -145,8 +145,9 @@ func pendingSteps(steps []Step, state SchemaState) []Step {
 }
 
 // UsableBy reports whether a binary that understands schemas up to binaryVersion may use a file
-// in this state: an older or equal file always (it is migrated), a newer one only if the release
-// that upgraded it declared it still compatible (migrations.md, A newer database).
+// in this state, as far as newer schemas go: an older or equal file always, a newer one only if
+// the release that upgraded it declared it still compatible (migrations.md, A newer database). An
+// older file is migrated unless it is below the baseline, which RefuseBeforeBaseline judges (D228).
 func (state SchemaState) UsableBy(binaryVersion int) bool {
 	return state.Version <= binaryVersion || state.CompatibleVersion <= binaryVersion
 }

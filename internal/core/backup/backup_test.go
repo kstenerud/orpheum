@@ -285,3 +285,25 @@ func TestMakePlan_RefusesAForeignOrNewerBackup(t *testing.T) {
 		t.Errorf("a backup from a newer, incompatible release: %v, want ErrNewerBackup", err)
 	}
 }
+
+func TestMakePlan_RefusesABackupOlderThanTheBaseline(t *testing.T) {
+	t.Parallel()
+	target := emptyDataDirectory(t)
+	original := newServer(t)
+	written, err := Write(t.Context(), original.database, original.directories, testTime, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	steps, err := store.Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !steps[0].IsBaseline {
+		t.Fatal("the first step is not a baseline; this test needs one (D228)")
+	}
+	storetest.ExecRaw(t, written.DatabasePath, "PRAGMA user_version = "+strconv.Itoa(steps[0].Version-1))
+	_, err = MakePlan(t.Context(), target, written.DatabasePath, nil, testTime)
+	if !errors.Is(err, store.ErrBeforeBaseline) {
+		t.Errorf("a backup below the baseline, which the server would refuse at start: %v, want ErrBeforeBaseline", err)
+	}
+}
