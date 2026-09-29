@@ -11,9 +11,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/tmdb"
-	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
-	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 // newArtwork builds the artwork service (D212): it queues the images each pass and match leaves
@@ -23,14 +21,7 @@ func newArtwork(
 	ctx context.Context, opened openedServices, directories *datadir.Directories,
 	imageBaseURL string, logger *slog.Logger,
 ) (*artwork.Service, error) {
-	providerTimeoutSeconds, err := opened.settings.Int(ctx, settings.ProviderTimeoutS)
-	if err != nil {
-		return nil, err
-	}
-	httpClient, err := outbound.NewClient(time.Duration(providerTimeoutSeconds)*time.Second, version)
-	if err != nil {
-		return nil, err
-	}
+	httpClient := opened.jobServices.outboundClient
 	service := artwork.NewService(artwork.Parts{
 		Database: opened.database, Queue: opened.jobServices.queue, Nodes: opened.nodes, ArtFiles: directories,
 		Cache:    opened.cache,

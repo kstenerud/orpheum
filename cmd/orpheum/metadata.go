@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
@@ -36,6 +37,9 @@ type jobServices struct {
 	playback *playback.Service
 	// subtitler fetches subtitles on request (D224).
 	subtitler *opensubtitles.Client
+	// outboundClient is the one client every call to another host goes through: TMDB's API and
+	// image server, and OpenSubtitles, sharing one transport and its connections.
+	outboundClient *http.Client
 	// measureDue is signalled after each identification pass, which follows every scan: new files
 	// may want measuring (D226 §2).
 	measureDue chan struct{}
@@ -82,9 +86,9 @@ func newJobServices(
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return jobServices{
 		pass: pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
-		measureDue: measureDue,
-		chooser:    identify.NewChooser(matcher, pass),
-		refresher:  identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
+		outboundClient: httpClient, measureDue: measureDue,
+		chooser:   identify.NewChooser(matcher, pass),
+		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
 	}, nil
 }
 
