@@ -13,7 +13,6 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
-	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
@@ -65,23 +64,14 @@ func (client *Client) get(ctx context.Context, path string, parameters url.Value
 	}
 	authorise(request, parameters, key)
 	request.Header.Set("Accept", "application/json")
-	response, err := client.http.Do(request)
+	answer, err := outbound.Exchange(client.http, request, maxResponseBytes)
 	if err != nil {
-		// url.Error repeats the URL, which may carry the key: keep only the cause.
-		if urlErr, isURL := errors.AsType[*url.Error](err); isURL {
-			err = urlErr.Err
-		}
 		return nil, fmt.Errorf("tmdb %s: %w", path, err)
 	}
-	defer func() { _ = response.Body.Close() }() //nolint:errcheck // a read-only body
-	body, err := bounded.ReadAll(response.Body, maxResponseBytes)
-	if err != nil {
-		return nil, fmt.Errorf("tmdb %s: the response: %w", path, err)
-	}
-	if response.StatusCode == http.StatusUnauthorized {
+	if answer.StatusCode == http.StatusUnauthorized {
 		return nil, fmt.Errorf("tmdb %s: %w", path, identify.ErrKeyRefused)
 	}
-	return body, statusError("tmdb "+path, response, body, identify.ErrNoMatch)
+	return answer.Body, statusError("tmdb "+path, answer, identify.ErrNoMatch)
 }
 
 // authorise presents the key: a v4 read-access token as a bearer token, a v3 key as api_key.
@@ -103,20 +93,14 @@ func cloneWith(parameters url.Values, name, value string) url.Values {
 }
 
 // statusError turns a reply of TMDB's API or its image host that is not 200 into the errors its
-// callers act on: 404 is notFound, the caller's word for "TMDB has no such thing"; 429 is a rate
-// limit; anything else names the status and, when there is one, the start of the body. The
-// subject names what was asked, "tmdb /movie/1".
-func statusError(subject string, response *http.Response, body []byte, notFound error) error {
-	switch response.StatusCode {
-	case http.StatusOK:
-		return nil
-	case http.StatusNotFound:
+// callers act on: 404 is notFound, the caller's word for "TMDB has no such thing"; the rest are
+// every provider's (outbound.StatusError). The subject names what was asked, "tmdb /movie/1".
+func statusError(subject string, answer outbound.Answer, notFound error) error {
+	if answer.StatusCode == http.StatusNotFound {
 		return fmt.Errorf("%s: %w", subject, notFound)
-	case http.StatusTooManyRequests:
-		return fmt.Errorf("%s: %w", subject, outbound.RateLimited(providerName, response.Header))
 	}
-	if len(body) == 0 {
-		return fmt.Errorf("%s: status %d", subject, response.StatusCode)
+	if err := outbound.StatusError(providerName, answer); err != nil {
+		return fmt.Errorf("%s: %w", subject, err)
 	}
-	return fmt.Errorf("%s: status %d: %s", subject, response.StatusCode, body[:min(len(body), 200)])
+	return nil
 }

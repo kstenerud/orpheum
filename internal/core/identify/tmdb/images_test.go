@@ -72,8 +72,8 @@ func TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre(t *tes
 			t.Errorf("a 429 for %s: %v, want TMDB's RateLimitedError after %s", ref, err, want)
 		}
 	}
-	if _, err := images.Fetch(t.Context(), "/broken.jpg"); err == nil || !strings.Contains(err.Error(), "500") ||
-		errors.Is(err, artwork.ErrNoImage) {
-		t.Errorf("a 500: %v, want an error naming the status", err)
+	if _, err := images.Fetch(t.Context(), "/broken.jpg"); !errors.Is(err, outbound.ErrUnavailable) ||
+		!strings.Contains(err.Error(), "500") || errors.Is(err, artwork.ErrNoImage) {
+		t.Errorf("a 500: %v, want the image server unavailable, naming the status", err)
 	}
 }

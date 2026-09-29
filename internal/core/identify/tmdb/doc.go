@@ -11,13 +11,15 @@
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.
 //   - Calls go through a client from internal/platform/outbound, which takes no proxy from the
-//     environment (D204). Enforced by the forbidigo rule tagged [outbound].
+//     environment (D204), and are sent and read by its Exchange. Enforced by the forbidigo rule
+//     tagged [outbound].
 //   - The key is revealed only here, and never appears in an error: a failed connection's error
 //     drops the URL that carries it. Enforced by the forbidigo rule tagged [reveal] and
 //     TestGet_AFailedConnectionDoesNotPrintTheKey.
 //   - TMDB's refusals become the errors the matcher acts on: 429 is outbound.RateLimitedError,
 //     waiting a second when Retry-After names no time, 401 is ErrKeyRefused, 404 is ErrNoMatch,
-//     and no key is ErrNoKey. Enforced by TestGet_TurnsTMDBsRefusalsIntoTheErrorsTheMatcherActsOn
+//     a 5xx or a failed connection is outbound.ErrUnavailable, and no key is ErrNoKey. Enforced by
+//     TestGet_TurnsTMDBsRefusalsIntoTheErrorsTheMatcherActsOn
 //     and TestGet_A429WithoutRetryAfterIsARateLimitStill.
 //     Its image server's are the same, with 404 as artwork.ErrNoImage. Enforced by
 //     TestImageFetcher_TurnsTheImageServersRefusalsIntoTheErrorsTheAPIsAre.

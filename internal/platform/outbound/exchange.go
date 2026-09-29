@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package outbound
+
+import (
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
+)
+
+// ErrUnavailable is a provider that could not be reached or answered that it failed: a refused
+// connection, a timeout, a 5xx. It says nothing of what was asked, so asking later may succeed.
+var ErrUnavailable = errors.New("unavailable")
+
+// Answer is a provider's answer, its body read whole.
+type Answer struct {
+	StatusCode int
+	Header     http.Header
+	Body       []byte
+}
+
+// bodyExcerptBytes is how much of an answer's body an error quotes.
+const bodyExcerptBytes = 200
+
+// Exchange sends request through client and reads its answer's body, at most maxBytes of it: a
+// longer one is bounded.ErrTooLarge, never read cut short. Every provider's request goes through
+// it. A request that reached no answer, or lost it partway, is ErrUnavailable; its error keeps
+// only the cause, since url.Error repeats the URL and a URL may carry a key. A request whose own
+// context ended is that context's error, not the provider's.
+func Exchange(client *http.Client, request *http.Request, maxBytes int64) (Answer, error) {
+	// Each caller builds the address from its provider's base, or checks the host it was given.
+	response, err := client.Do(request) //nolint:gosec // G704: see above
+	if err != nil {
+		return Answer{}, unanswered(request, err)
+	}
+	defer func() { _ = response.Body.Close() }() //nolint:errcheck // a read-only body
+	body, err := bounded.ReadAll(response.Body, maxBytes)
+	if errors.Is(err, bounded.ErrTooLarge) {
+		return Answer{}, fmt.Errorf("the answer: %w", err)
+	}
+	if err != nil {
+		return Answer{}, unanswered(request, err)
+	}
+	return Answer{StatusCode: response.StatusCode, Header: response.Header, Body: body}, nil
+}
+
+// unanswered is a request that got no whole answer, without the URL url.Error repeats.
+func unanswered(request *http.Request, err error) error {
+	if urlErr, isURL := errors.AsType[*url.Error](err); isURL {
+		err = urlErr.Err
+	}
+	if request.Context().Err() != nil {
+		return err
+	}
+	return fmt.Errorf("%w: %w", ErrUnavailable, err)
+}
+
+// StatusError is what an answer that is not 200 means once its provider has read the statuses it
+// gives a meaning of its own: 429 is a RateLimitedError, a 5xx is ErrUnavailable, and anything else
+// is its status; an error quotes the start of the body when there is one. The provider is named
+// as a person knows it: "TMDB", "OpenSubtitles".
+func StatusError(provider string, answer Answer) error {
+	switch answer.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusTooManyRequests:
+		return RateLimited(provider, answer.Header)
+	}
+	said := fmt.Sprintf("status %d", answer.StatusCode)
+	if len(answer.Body) > 0 {
+		said += ": " + string(answer.Body[:min(len(answer.Body), bodyExcerptBytes)])
+	}
+	if answer.StatusCode >= http.StatusInternalServerError {
+		return fmt.Errorf("%w: %s", ErrUnavailable, said)
+	}
+	return errors.New(said)
+}

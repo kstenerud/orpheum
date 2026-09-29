@@ -46,14 +46,16 @@ type fakeProvider struct {
 	remaining     int
 	// limitedFor, when set, is a search's answer: 429, with it as the Retry-After unless "none".
 	limitedFor string
-	server     *httptest.Server
+	// searchStatus and linkStatus, when set, are what a search and the download link answer.
+	searchStatus, linkStatus int
+	server                   *httptest.Server
 }
 
 func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Request) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	if request.URL.Path == "/files/subtitle.srt" { // the download link: a file, no key asked
-		reply(writer, "1\n00:00:01,000 --> 00:00:02,000\nHello\n")
+		fake.serveLink(writer)
 		return
 	}
 	if request.Header.Get("Api-Key") != apiKey || !strings.HasPrefix(request.Header.Get("User-Agent"), "Orpheum/") {
@@ -80,6 +82,10 @@ func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Reques
 	}
 	switch request.URL.Path {
 	case "/api/v1/subtitles":
+		if fake.searchStatus != 0 {
+			http.Error(writer, "the database is down", fake.searchStatus)
+			return
+		}
 		if fake.limitedFor != "" {
 			if fake.limitedFor != "none" {
 				writer.Header().Set("Retry-After", fake.limitedFor)
@@ -110,6 +116,16 @@ func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Reques
 	default:
 		http.NotFound(writer, request)
 	}
+}
+
+// serveLink answers the download link: the subtitle, or linkStatus when it is set.
+func (fake *fakeProvider) serveLink(writer http.ResponseWriter) {
+	if fake.linkStatus != 0 {
+		writer.Header().Set("Retry-After", "3")
+		writer.WriteHeader(fake.linkStatus)
+		return
+	}
+	reply(writer, "1\n00:00:01,000 --> 00:00:02,000\nHello\n")
 }
 
 // reply writes a fake's answer; a test that stops reading it has already failed.
@@ -247,5 +263,36 @@ func TestSearch_ARateLimitIsTheOneEveryProviderReturns(t *testing.T) {
 			t.Errorf("a 429 with Retry-After %s: %v, want OpenSubtitles' RateLimitedError after %s",
 				limitedFor, err, want)
 		}
+	}
+}
+
+func TestRequests_AProviderThatFailsOrCannotBeReachedIsUnavailableWhereverItFails(t *testing.T) {
+	t.Parallel()
+	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
+	fake.mutex.Lock()
+	fake.searchStatus = http.StatusServiceUnavailable
+	fake.mutex.Unlock()
+	_, err := client.Search(t.Context(), Query{TMDBID: "4801", Language: "en"})
+	if !errors.Is(err, outbound.ErrUnavailable) {
+		t.Errorf("a search answered 503: %v, want OpenSubtitles unavailable", err)
+	}
+	fake.mutex.Lock()
+	fake.linkStatus = http.StatusBadGateway
+	fake.mutex.Unlock()
+	if _, err = client.Download(t.Context(), 7); !errors.Is(err, outbound.ErrUnavailable) {
+		t.Errorf("a download link answered 502: %v, want OpenSubtitles unavailable", err)
+	}
+	fake.mutex.Lock()
+	fake.linkStatus = http.StatusTooManyRequests
+	fake.mutex.Unlock()
+	_, err = client.Download(t.Context(), 7)
+	if limited, isLimited := errors.AsType[*outbound.RateLimitedError](err); !isLimited ||
+		limited.RetryAfter != 3*time.Second || limited.Provider != "OpenSubtitles" {
+		t.Errorf("a download link answered 429: %v, want OpenSubtitles' RateLimitedError after 3s", err)
+	}
+	fake.server.Close()
+	if _, err := client.Allowance(t.Context()); !errors.Is(err, outbound.ErrUnavailable) ||
+		strings.Contains(err.Error(), "infos/user") {
+		t.Errorf("OpenSubtitles gone: %v, want it unavailable, without the URL", err)
 	}
 }

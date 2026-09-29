@@ -167,8 +167,9 @@ func TestGet_TurnsTMDBsRefusalsIntoTheErrorsTheMatcherActsOn(t *testing.T) {
 	if _, err := client.Fetch(t.Context(), "movie", "2"); !errors.Is(err, identify.ErrKeyRefused) {
 		t.Errorf("401 = %v, want ErrKeyRefused", err)
 	}
-	if _, err := client.Fetch(t.Context(), "movie", "3"); err == nil || !strings.Contains(err.Error(), "500") {
-		t.Errorf("500 = %v, want an error naming the status", err)
+	if _, err := client.Fetch(t.Context(), "movie", "3"); !errors.Is(err, outbound.ErrUnavailable) ||
+		!strings.Contains(err.Error(), "500") {
+		t.Errorf("500 = %v, want ErrUnavailable naming the status", err)
 	}
 	if _, err := client.Fetch(t.Context(), "movie", "4"); !errors.Is(err, identify.ErrNoMatch) {
 		t.Errorf("404 = %v, want ErrNoMatch", err)
@@ -183,8 +184,8 @@ func TestGet_AFailedConnectionDoesNotPrintTheKey(t *testing.T) {
 	server := httptest.NewServer(http.NotFoundHandler())
 	server.Close()
 	_, err := newClient(t, server.URL, "the-secret-key").Search(t.Context(), identify.Query{Kind: "movie", Name: "x"})
-	if err == nil || strings.Contains(err.Error(), "the-secret-key") {
-		t.Errorf("error %v; want a failure that does not show the key", err)
+	if !errors.Is(err, outbound.ErrUnavailable) || strings.Contains(err.Error(), "the-secret-key") {
+		t.Errorf("error %v; want TMDB unavailable, without showing the key", err)
 	}
 }
 

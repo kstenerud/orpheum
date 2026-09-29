@@ -14,8 +14,14 @@
 //   - A provider's 429 is one RateLimitedError whichever provider answered it, with the wait its
 //     Retry-After names or a second when it names none.
 //     TestRateLimited_WaitsWhatRetryAfterSaysOrASecondWhenItSaysNothing.
-//   - This package imports nothing from the module. Enforced by the depguard rule
-//     platform-is-a-leaf.
+//   - Every provider's request is sent and read by Exchange, and its statuses read last by
+//     StatusError: a refused connection, a timeout or a 5xx is ErrUnavailable, whichever provider,
+//     and an error never repeats the URL, which may carry a key; an answer past its bound is
+//     refused, never read cut short. TestExchange_AnUnansweredRequestIsUnavailableAndDoesNotRepeatItsURL,
+//     TestExchange_ReadsTheWholeAnswerOrRefusesOneLargerThanItsBound,
+//     TestStatusError_NamesA429AsARateLimitAndA5xxAsUnavailable.
+//   - This package imports nothing from the module but internal/platform/bounded. Enforced by the
+//     depguard rule platform-is-a-leaf.
 //
 // # Read before changing
 //
@@ -24,7 +30,8 @@
 //
 // # Where to change
 //
-//   - client.go: transport settings every outbound request shares. retryafter.go: reading a
-//     provider's Retry-After, which every provider client shares. ratelimited.go: the one error
-//     a provider's 429 becomes.
+//   - client.go: transport settings every outbound request shares. exchange.go: sending a
+//     provider's request, reading its answer and the statuses every provider shares.
+//     retryafter.go: reading a provider's Retry-After, which every provider client shares.
+//     ratelimited.go: the one error a provider's 429 becomes.
 package outbound

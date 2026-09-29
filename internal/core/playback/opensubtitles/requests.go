@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/platform/bounded"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 // Query is what finds subtitles for one video: the work's ids, or its series' with its place,
@@ -167,19 +167,14 @@ func (client *Client) fetch(ctx context.Context, link string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opensubtitles: %w", err)
 	}
-	response, err := client.http.Do(request)
+	answer, err := outbound.Exchange(client.http, request, MaxSubtitleBytes)
+	if err == nil {
+		err = outbound.StatusError(providerName, answer)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("opensubtitles: fetch the subtitle: %w", err)
 	}
-	defer func() { _ = response.Body.Close() }() //nolint:errcheck // a read-only body
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("opensubtitles: fetch the subtitle: status %d", response.StatusCode)
-	}
-	text, err := bounded.ReadAll(response.Body, MaxSubtitleBytes)
-	if err != nil {
-		return nil, fmt.Errorf("opensubtitles: fetch the subtitle: %w", err)
-	}
-	return text, nil
+	return answer.Body, nil
 }
 
 // Allowance is the account's downloads: how many are left of how many a day.

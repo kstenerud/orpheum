@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/secrets"
-	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -219,39 +218,34 @@ func (client *Client) call(ctx context.Context, method, address, token string, b
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
-	response, err := client.http.Do(request)
+	answer, err := outbound.Exchange(client.http, request, maxResponseBytes)
 	if err != nil {
 		return fmt.Errorf("opensubtitles: %w", err)
 	}
-	defer func() { _ = response.Body.Close() }() //nolint:errcheck // a read-only body
-	answer, err := bounded.ReadAll(response.Body, maxResponseBytes)
-	if err != nil {
-		return fmt.Errorf("opensubtitles: the answer: %w", err)
-	}
-	if err := statusError(response, answer); err != nil {
+	if err := statusError(answer); err != nil {
 		return err
 	}
-	if err := json.Unmarshal(answer, into); err != nil {
+	if err := json.Unmarshal(answer.Body, into); err != nil {
 		return fmt.Errorf("opensubtitles: read the answer: %w", err)
 	}
 	return nil
 }
 
-// statusError turns an answer that is not 200 into the errors a caller acts on.
-func statusError(response *http.Response, answer []byte) error {
-	switch response.StatusCode {
-	case http.StatusOK:
-		return nil
+// statusError turns an answer that is not 200 into the errors a caller acts on: OpenSubtitles'
+// own, and then every provider's (outbound.StatusError).
+func statusError(answer outbound.Answer) error {
+	switch answer.StatusCode {
 	case http.StatusUnauthorized:
 		return errUnauthorized
 	case http.StatusNotAcceptable:
 		var spent downloadAnswer
-		_ = json.Unmarshal(answer, &spent) //nolint:errcheck // a quota without a time is still spent
+		_ = json.Unmarshal(answer.Body, &spent) //nolint:errcheck // a quota without a time is still spent
 		return &QuotaSpentError{DownloadsResetAt: spent.resetAt()}
-	case http.StatusTooManyRequests:
-		return outbound.RateLimited(providerName, response.Header)
 	}
-	return fmt.Errorf("opensubtitles: status %d: %s", response.StatusCode, answer[:min(len(answer), 200)])
+	if err := outbound.StatusError(providerName, answer); err != nil {
+		return fmt.Errorf("opensubtitles: %w", err)
+	}
+	return nil
 }
 
 // numericID is an IMDb or TMDB id as OpenSubtitles takes it: without "tt" or leading zeros; ""
