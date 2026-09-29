@@ -31,6 +31,9 @@
 //     (integration tier). The gain is provisional until the listening test sets it (cut-a §6).
 //   - A rendition is written only under "<file_id>/<profile>/<run_id>" in the prepared directory.
 //     Enforced by the renditionDir pattern, checked before anything is made.
+//   - A rendition's reported size is its regular files, measured by diskspace.TreeBytes as the
+//     prepared budget measures it (D217 §5). Enforced by
+//     TestPreparer_ARenditionsSizeIsItsRegularFilesAsThePreparedBudgetCountsThem.
 //
 // # Read before changing
 //

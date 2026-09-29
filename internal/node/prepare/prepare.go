@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 )
 
 // Runner runs FFmpeg to its end, streaming its stdout: execx.Runner.
@@ -107,7 +107,7 @@ func (preparer *Preparer) Prepare(
 	if err != nil {
 		return Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}
-	sizeBytes, err := directoryBytes(renditionPath)
+	sizeBytes, err := diskspace.TreeBytes(renditionPath)
 	if err != nil {
 		return Made{}, err
 	}
@@ -140,24 +140,4 @@ func readProgress(reader io.Reader, onProgress func(preparedMs int64)) (realtime
 	// A reader that ends early leaves FFmpeg's pipe unread; drain it so the run is never blocked.
 	_, _ = io.Copy(io.Discard, reader) //nolint:errcheck // draining
 	return realtimeFactor
-}
-
-// directoryBytes is the bytes of every file under directory.
-func directoryBytes(directory string) (int64, error) {
-	var total int64
-	err := filepath.WalkDir(directory, func(_ string, entry fs.DirEntry, err error) error {
-		if err != nil || entry.IsDir() {
-			return err
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		total += info.Size()
-		return nil
-	})
-	if err != nil {
-		return 0, fmt.Errorf("measure the rendition: %w", err)
-	}
-	return total, nil
 }
