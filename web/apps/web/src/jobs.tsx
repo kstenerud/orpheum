@@ -5,6 +5,7 @@ import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
+import { dateTimeText } from "./date-time-text.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -99,10 +100,6 @@ export function JobList(props: {
   if (props.jobs.length === 0) {
     return <p>{t("jobs.none")}</p>;
   }
-  const dateTimeFormat = new Intl.DateTimeFormat(i18n.language, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
   return (
     <ul className="jobs">
       {props.jobs.map((job) => {
@@ -119,9 +116,7 @@ export function JobList(props: {
               />
             )}
             <span>{t("jobs.reason", { reason: job.reason })}</span>
-            <span>
-              {t("jobs.queuedAt", { at: dateTimeFormat.format(new Date(job.createdAt)) })}
-            </span>
+            <span>{t("jobs.queuedAt", { at: dateTimeText(job.createdAt, i18n.language) })}</span>
             {job.lastFailure === undefined ? null : (
               <span className="jobs__error">{t("jobs.lastError", { error: job.lastFailure })}</span>
             )}
