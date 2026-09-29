@@ -22,6 +22,15 @@ import check_test_weakening as tw  # noqa: E402
 import lint_commits as lc  # noqa: E402
 import lint_speculative_api as lsa  # noqa: E402
 
+# A git hook runs these tests with GIT_DIR and GIT_INDEX_FILE set, and from a linked worktree they
+# are absolute paths into the shared repository: every git command below, and the gates' own,
+# would then act on that repository instead of the throwaway one a test made, and `git init` would
+# re-initialise it. The tests make their own repositories, so git must find them by their
+# directory: the variables that point it elsewhere are cleared for this process and its children.
+for _variable in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_PREFIX",
+                  "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES"):
+    os.environ.pop(_variable, None)
+
 
 def git_repo(files: dict[str, str]) -> Path:
     """A throwaway git repository holding `files`, so the gates' `git ls-files` works."""
