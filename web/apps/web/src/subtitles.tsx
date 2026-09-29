@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { languageName } from "./language-name.ts";
+import { signedTenthsText } from "./number-text.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 
@@ -59,10 +60,9 @@ export function trackLabel(
   return parts.join(" · ");
 }
 
-/** An offset as the viewer reads it: signed seconds, to the tenth. */
-export function formatOffsetSeconds(offsetMs: number): string {
-  const seconds = (offsetMs / 1000).toFixed(1);
-  return offsetMs > 0 ? `+${seconds}` : seconds;
+/** An offset as the viewer reads it: signed seconds, to the tenth, in their language. */
+export function formatOffsetSeconds(offsetMs: number, viewerLanguage: string): string {
+  return signedTenthsText(offsetMs / 1000, viewerLanguage);
 }
 
 /** Keeps a file's subtitle offset for the person, so the next playback starts with it. */
@@ -216,7 +216,7 @@ function OffsetControl(props: {
   readonly offsetMs: number;
   readonly onMove: (stepMs: number) => void;
 }): JSX.Element {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return (
     <span className="subtitles__offset">
       <button
@@ -228,7 +228,9 @@ function OffsetControl(props: {
         {t("play.subtitles.earlier")}
       </button>
       <output>
-        {t("play.subtitles.offset", { seconds: formatOffsetSeconds(props.offsetMs) })}
+        {t("play.subtitles.offset", {
+          seconds: formatOffsetSeconds(props.offsetMs, i18n.language),
+        })}
       </output>
       <button
         type="button"
