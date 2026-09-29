@@ -5,7 +5,7 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { blankLibrary, CreateLibraryForm, toggled } from "./create-library.tsx";
+import { blankLibrary, CreateLibraryForm, withRootChosen } from "./create-library.tsx";
 import { LibraryCard } from "./libraries.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -18,8 +18,8 @@ describe("libraries", () => {
         <LibraryCard
           note="Asked 1 roots to scan."
           onScan={ignore}
-          onApprove={ignore}
-          onGone={ignore}
+          onApproveRemovals={ignore}
+          onMarkGone={ignore}
           library={{
             id: 3,
             name: "Films",
@@ -64,7 +64,7 @@ describe("libraries", () => {
             { name: "attic", isConnected: false, rootPaths: [] },
           ]}
           problem=""
-          onDraft={ignore}
+          onDraftChange={ignore}
           onSubmit={ignore}
         />,
       ),
@@ -81,8 +81,8 @@ describe("libraries", () => {
     expect(markup).toContain("attic (not connected)");
     expect(markup).toMatch(/checked=""[^>]*\/><code>\/media\/films<\/code>/u);
     expect(markup).toContain("<code>/media/shows</code>");
-    expect(toggled(["/a"], "/b", true)).toEqual(["/a", "/b"]);
-    expect(toggled(["/a", "/b"], "/a", false)).toEqual(["/b"]);
+    expect(withRootChosen(["/a"], "/b", true)).toEqual(["/a", "/b"]);
+    expect(withRootChosen(["/a", "/b"], "/a", false)).toEqual(["/b"]);
   });
 
   it("says to start a node when none is connected, rather than offer nothing to choose", () => {
@@ -92,7 +92,7 @@ describe("libraries", () => {
           draft={blankLibrary()}
           nodes={[{ name: "local", isConnected: false, rootPaths: [] }]}
           problem=""
-          onDraft={ignore}
+          onDraftChange={ignore}
           onSubmit={ignore}
         />,
       ),

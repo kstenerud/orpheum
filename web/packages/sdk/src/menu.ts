@@ -5,9 +5,9 @@ import type { components } from "./gen/api.ts";
 /** What a client can play, one list per axis, most preferred first (D21, D217 §1). */
 export type Menu = components["schemas"]["PlayableFormatsBody"];
 
-type Video = NonNullable<Menu["videoCodecs"]>[number];
-type Audio = NonNullable<Menu["audioCodecs"]>[number];
-type Container = NonNullable<Menu["containers"]>[number];
+type VideoCodecName = NonNullable<Menu["videoCodecs"]>[number];
+type AudioCodecName = NonNullable<Menu["audioCodecs"]>[number];
+type ContainerName = NonNullable<Menu["containers"]>[number];
 
 /** How a page asks what it can decode: a media element's canPlayType, and MSE's isTypeSupported. */
 export interface MediaProbe {
@@ -17,19 +17,19 @@ export interface MediaProbe {
 
 // One representative codec string per menu entry: the entry is a named bundle (D21), so asking
 // about its most common member is asking about the entry.
-const videoCodecs: readonly (readonly [Video, string])[] = [
+const videoCodecProbes: readonly (readonly [VideoCodecName, string])[] = [
   ["hevc-hdr10", 'video/mp4; codecs="hvc1.2.4.L153.B0"'],
   ["av1-hdr10", 'video/mp4; codecs="av01.0.08M.10"'],
   ["hevc-sdr", 'video/mp4; codecs="hvc1.1.6.L120.90"'],
   ["av1-sdr", 'video/mp4; codecs="av01.0.08M.08"'],
 ];
-const audioCodecs: readonly (readonly [Audio, string])[] = [
+const audioCodecProbes: readonly (readonly [AudioCodecName, string])[] = [
   ["eac3", 'audio/mp4; codecs="ec-3"'],
   ["ac3", 'audio/mp4; codecs="ac-3"'],
   ["opus", 'audio/mp4; codecs="opus"'],
   ["flac", 'audio/mp4; codecs="flac"'],
 ];
-const containerTypes: readonly (readonly [Container, readonly string[]])[] = [
+const containerProbes: readonly (readonly [ContainerName, readonly string[]])[] = [
   ["mp4", ["video/mp4"]],
   ["mkv", ["video/x-matroska", "video/matroska"]],
   ["mpegts", ["video/mp2t"]],
@@ -42,20 +42,20 @@ const containerTypes: readonly (readonly [Container, readonly string[]])[] = [
  * and downmixed by every browser, so aac-multi follows aac-stereo.
  */
 export function menuFrom(probe: MediaProbe): Menu {
-  const supported = (type: string): boolean =>
+  const isPlayable = (type: string): boolean =>
     probe.isTypeSupported(type) || probe.canPlayType(type) !== "";
   return {
     videoCodecs: [
-      ...videoCodecs.filter(([, type]) => supported(type)).map(([name]) => name),
+      ...videoCodecProbes.filter(([, type]) => isPlayable(type)).map(([name]) => name),
       "h264-sdr",
     ],
     audioCodecs: [
       "aac-stereo",
       "aac-multi",
-      ...audioCodecs.filter(([, type]) => supported(type)).map(([name]) => name),
+      ...audioCodecProbes.filter(([, type]) => isPlayable(type)).map(([name]) => name),
     ],
     subtitleFormats: ["ass", "webvtt"],
-    containers: containerTypes
+    containers: containerProbes
       .filter(([, types]) => types.some((type) => probe.canPlayType(type) !== ""))
       .map(([name]) => name),
   };
@@ -65,9 +65,9 @@ export function menuFrom(probe: MediaProbe): Menu {
 export function browserMenu(): Menu {
   const element = document.createElement("video");
   // Safari on iOS has ManagedMediaSource instead; canPlayType answers for it there.
-  const hasSource = "MediaSource" in globalThis;
+  const hasMediaSource = "MediaSource" in globalThis;
   return menuFrom({
     canPlayType: (type) => element.canPlayType(type),
-    isTypeSupported: (type) => hasSource && MediaSource.isTypeSupported(type),
+    isTypeSupported: (type) => hasMediaSource && MediaSource.isTypeSupported(type),
   });
 }

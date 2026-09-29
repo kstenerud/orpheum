@@ -2,16 +2,19 @@
 
 import { ApiProblem, problemFromAnswer } from "./problem.ts";
 
-/** What waiting for a rendition needs: how to fetch and how to wait, so a test can supply both. */
+/**
+ * What waiting for a file the server is still making needs: how to fetch and how to wait, so a
+ * test can supply both.
+ */
 export interface WaitOptions {
   readonly fetch?: (url: string, init: RequestInit) => Promise<Response>;
   readonly sleep?: (milliseconds: number) => Promise<void>;
   readonly signal?: AbortSignal;
   /** How many times to ask before giving up; each wait is the server's Retry-After. */
-  readonly attempts?: number;
+  readonly maxAttempts?: number;
 }
 
-const tooEarly = 425;
+const statusTooEarly = 425;
 
 /**
  * Waits until a prepared rendition's playlist exists: the server answers 425 with a Retry-After
@@ -34,13 +37,13 @@ export async function textWhenReady(url: string, options: WaitOptions = {}): Pro
 
 /** The first answer that is not "too early", when it is a success. */
 async function readyAnswer(url: string, options: WaitOptions): Promise<Response> {
-  const { get, sleep, attempts } = withDefaults(options);
-  for (let attempt = 0; attempt < attempts; attempt++) {
+  const { get, sleep, maxAttempts } = withDefaults(options);
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const answer = await get(url, requestInit(options.signal));
     if (answer.ok) {
       return answer;
     }
-    if (answer.status !== tooEarly) {
+    if (answer.status !== statusTooEarly) {
       throw await problemFromAnswer(answer);
     }
     await sleep(retryAfterSeconds(answer) * 1000);
@@ -54,14 +57,14 @@ async function readyAnswer(url: string, options: WaitOptions): Promise<Response>
 function withDefaults(options: WaitOptions): {
   get: (url: string, init: RequestInit) => Promise<Response>;
   sleep: (milliseconds: number) => Promise<void>;
-  attempts: number;
+  maxAttempts: number;
 } {
   return {
     get: options.fetch ?? ((address, init) => fetch(address, init)),
     sleep:
       options.sleep ??
       ((milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds))),
-    attempts: options.attempts ?? 600,
+    maxAttempts: options.maxAttempts ?? 600,
   };
 }
 

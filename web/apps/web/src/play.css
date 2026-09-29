@@ -22,14 +22,9 @@
   color: var(--color-muted);
 }
 
-.play__level-note {
+/* LevelSwitch's note (levelling.tsx), shown only under the player. */
+.levelling__note {
   color: var(--color-muted);
-}
-
-.play__switch {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
 }
 
 .play__subtitles {

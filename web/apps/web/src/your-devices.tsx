@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import {
   removeMyDevice,
   renameMyDevice,
-  setMyDeviceSound,
+  setMyDeviceAudioOutput,
   signOutElsewhere,
   type AudioOutput,
   type Device,
@@ -44,7 +44,7 @@ export function YourDevices(props: {
     );
   };
   return (
-    <div className="account__devices">
+    <div className="your-devices">
       <h2>{t("devices.heading")}</h2>
       <Loaded
         resource={props.devices}
@@ -55,7 +55,7 @@ export function YourDevices(props: {
               then(renameMyDevice(api, device.id, name));
             }}
             onSound={(device, output) => {
-              then(setMyDeviceSound(api, device.id, output));
+              then(setMyDeviceAudioOutput(api, device.id, output));
             }}
             onRemove={(device) => {
               // Removing this device signs it out here too.
@@ -102,11 +102,11 @@ export function DeviceList(props: {
   const { t, i18n } = useTranslation();
   const when = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" });
   return (
-    <ul className="account__device-list">
+    <ul className="your-devices__list">
       {props.devices.map((device) => (
-        <li key={device.id} className="account__device">
+        <li key={device.id} className="your-devices__device">
           {props.onRename === undefined ? (
-            <span className="account__device-name">{device.name}</span>
+            <span className="your-devices__name">{device.name}</span>
           ) : (
             <DeviceName device={device} onRename={props.onRename} />
           )}
@@ -191,7 +191,7 @@ function DeviceName(props: {
   const [draft, setDraft] = useState<string | undefined>(undefined);
   if (draft === undefined) {
     return (
-      <span className="account__device-name">
+      <span className="your-devices__name">
         {props.device.name}{" "}
         <button
           type="button"
@@ -206,7 +206,7 @@ function DeviceName(props: {
   }
   return (
     <form
-      className="account__device-name"
+      className="your-devices__name"
       onSubmit={(event) => {
         event.preventDefault();
         props.onRename(props.device, draft);

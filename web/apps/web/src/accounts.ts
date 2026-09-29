@@ -9,10 +9,10 @@ import type { NewDevice } from "./device.ts";
 export type Account = components["schemas"]["AccountBody"];
 
 /** A registration link's secret or a device code, and when it stops working. */
-export type Invitation = components["schemas"]["InvitationBody"];
+export type IssuedSecret = components["schemas"]["InvitationBody"];
 
-/** A new session: its token, and the device it is on. */
-interface Session {
+/** What signing in answers: the new session's token, and the device it is on. */
+interface SignInResult {
   readonly token: string;
   readonly user: { readonly device?: { readonly id: number; readonly name: string } };
 }
@@ -41,12 +41,12 @@ export async function createAccount(
   api: Api,
   name: string,
   role: "admin" | "user",
-): Promise<{ account: Account; registrationInvitation: Invitation }> {
+): Promise<{ account: Account; registrationInvitation: IssuedSecret }> {
   return dataOrThrow(await api.POST("/users", { body: { name, role } }));
 }
 
 /** A new registration link for a person, withdrawing the old. */
-export async function issueRegistrationLink(api: Api, userId: number): Promise<Invitation> {
+export async function issueRegistrationLink(api: Api, userId: number): Promise<IssuedSecret> {
   return dataOrThrow(
     await api.POST("/users/{id}/registration-link", { params: { path: { id: userId } } }),
   );
@@ -56,7 +56,7 @@ export async function issueRegistrationLink(api: Api, userId: number): Promise<I
 export async function register(
   api: Api,
   registration: { readonly secret: string; readonly password: string; readonly device: NewDevice },
-): Promise<Session> {
+): Promise<SignInResult> {
   return dataOrThrow(await api.POST("/registration", { body: { ...registration } }));
 }
 
@@ -68,7 +68,7 @@ export async function issueDeviceCode(
   api: Api,
   target: CodeTarget,
   userId?: number,
-): Promise<Invitation> {
+): Promise<IssuedSecret> {
   const body = userId === undefined ? { ...target } : { ...target, userId };
   return dataOrThrow(await api.POST("/device-codes", { body }));
 }
@@ -83,7 +83,7 @@ export async function signInWithCode(
   api: Api,
   code: string,
   previousDeviceId: number | undefined,
-): Promise<Session> {
+): Promise<SignInResult> {
   const body = (
     previousDeviceId === undefined
       ? { code, platform: "web" }
@@ -123,7 +123,7 @@ export async function renameMyDevice(api: Api, deviceId: number, name: string): 
 export type AudioOutput = NonNullable<Device["audioOutput"]>;
 
 /** Keeps how one of one's devices makes sound (D222). */
-export async function setMyDeviceSound(
+export async function setMyDeviceAudioOutput(
   api: Api,
   deviceId: number,
   audioOutput: AudioOutput,
@@ -152,13 +152,13 @@ const shownCodeKey = "orpheum.deviceCode";
 /** Keeps a device code this tab showed, with its device's name. */
 export function keepShownCode(
   storage: Storage,
-  code: Invitation & { readonly deviceName: string },
+  code: IssuedSecret & { readonly deviceName: string },
 ): void {
   storage.setItem(shownCodeKey, JSON.stringify(code));
 }
 
 /** A device code as this tab keeps it: with the name of the device it is for. */
-export type ShownCode = Invitation & { readonly deviceName: string };
+export type ShownCode = IssuedSecret & { readonly deviceName: string };
 
 /** What was kept, when it is a code this tab wrote. */
 function asShownCode(kept: unknown): ShownCode | undefined {
@@ -186,7 +186,7 @@ export function forgetShownCode(storage: Storage): void {
 }
 
 /** The device code this tab last showed, while it still works; one that has expired is forgotten. */
-export function shownCode(storage: Storage, nowMs: number): ShownCode | undefined {
+export function readShownCode(storage: Storage, nowMs: number): ShownCode | undefined {
   const kept = storage.getItem(shownCodeKey);
   let code: ShownCode | undefined;
   try {

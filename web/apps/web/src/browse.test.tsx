@@ -13,15 +13,22 @@ import { withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
 
-function render(pages: Resource<Page<Entry>>): string {
+function renderBrowseView(loadedEntries: Resource<Page<Entry>>): string {
   return renderToStaticMarkup(
-    withServices(<BrowseView kind="movie" pages={pages} isLoadingMore={false} onMore={ignore} />),
+    withServices(
+      <BrowseView
+        kind="movie"
+        loadedEntries={loadedEntries}
+        isLoadingMore={false}
+        onLoadMore={ignore}
+      />,
+    ),
   );
 }
 
 describe("browse", () => {
   it("shows each entry's poster, name and year, leading to its page", () => {
-    const markup = render({
+    const markup = renderBrowseView({
       state: "loaded",
       value: {
         next: "cursor",
@@ -55,11 +62,11 @@ describe("browse", () => {
   });
 
   it("says what an empty list means, and a failure's cause", () => {
-    const empty = render({ state: "loaded", value: { next: "", items: [] } });
+    const empty = renderBrowseView({ state: "loaded", value: { next: "", items: [] } });
     expect(empty).toContain("Once a library is scanned");
     expect(empty).not.toContain("Show more");
     expect(
-      render({
+      renderBrowseView({
         state: "failed",
         cause: new ApiProblem({ code: "migrating", message: "the server is migrating" }),
       }),

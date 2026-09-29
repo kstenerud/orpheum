@@ -29,7 +29,7 @@ export function testServices(
   return {
     api: createApi({
       origin: "http://orpheum.test",
-      token: session.token,
+      getToken: session.token,
       ...(send === undefined ? {} : { fetch: send }),
     }),
     session,

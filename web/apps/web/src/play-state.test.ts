@@ -8,7 +8,7 @@ import { sendReport } from "./play-state.ts";
 describe("play state", () => {
   it("reports on the playback its media token names", async () => {
     let sent: { url: string; method: string; body: unknown } | undefined;
-    const api = createApi({ origin: "http://orpheum.test", token: () => "token" });
+    const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
     // Answered here, before any request leaves: tests never touch the network.
     api.use({
       async onRequest({ request }) {

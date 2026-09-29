@@ -16,7 +16,7 @@ import {
   removeMyDevice,
   renameMyDevice,
   secretFromHash,
-  shownCode,
+  readShownCode,
   signInWithCode,
   signOutElsewhere,
 } from "./accounts.ts";
@@ -49,12 +49,12 @@ function memoryStorage(): Storage {
 }
 
 /** An API whose requests the test keeps, each answered with answer. */
-function recording(answer: unknown): {
+function recordingApi(answer: unknown): {
   api: ReturnType<typeof createApi>;
   sent: { method: string; path: string; body: unknown }[];
 } {
   const sent: { method: string; path: string; body: unknown }[] = [];
-  const api = createApi({ origin: "http://orpheum.test", token: () => "token" });
+  const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
   // Answered here, before any request leaves: tests never touch the network.
   api.use({
     async onRequest({ request }) {
@@ -87,7 +87,7 @@ describe("accounts", () => {
   });
 
   it("sends each call where the server takes it, with only what it needs", async () => {
-    const { api, sent } = recording({ token: "t", secret: "s", expiresAt: 1, accounts: [] });
+    const { api, sent } = recordingApi({ token: "t", secret: "s", expiresAt: 1, accounts: [] });
     await createAccount(api, "partner", "user");
     await register(api, { secret: "s", password: "p", device: { name: "Phone", platform: "web" } });
     await issueDeviceCode(api, { deviceName: "Living room TV" });
@@ -112,7 +112,7 @@ describe("accounts", () => {
         body: { code: "abcd-efgh", platform: "web", previousDeviceId: 7 },
       },
     ]);
-    const changing = recording(undefined);
+    const changing = recordingApi(undefined);
     await changePassword(changing.api, "old", "new");
     expect(changing.sent).toEqual([
       {
@@ -149,15 +149,15 @@ describe("accounts", () => {
   it("shows a device code again after a reload, until it expires", () => {
     const storage = memoryStorage();
     keepShownCode(storage, { secret: "abcd-efgh", expiresAt: 1000, deviceName: "TV" });
-    expect(shownCode(storage, 999)).toEqual({
+    expect(readShownCode(storage, 999)).toEqual({
       secret: "abcd-efgh",
       expiresAt: 1000,
       deviceName: "TV",
     });
-    expect(shownCode(storage, 1000)).toBeUndefined();
+    expect(readShownCode(storage, 1000)).toBeUndefined();
     expect(storage.length).toBe(0);
     storage.setItem("orpheum.deviceCode", "not json");
-    expect(shownCode(storage, 0)).toBeUndefined();
+    expect(readShownCode(storage, 0)).toBeUndefined();
   });
 
   it("lists devices with which is this one, and renames, removes and signs out elsewhere", async () => {
@@ -183,7 +183,7 @@ describe("accounts", () => {
     expect(markup).toContain("Signed out");
     expect(markup).toContain("Make a code to sign it back in");
     expect(markup).toContain('aria-label="Remove Living room TV; it is signed out"');
-    const { api, sent } = recording(undefined);
+    const { api, sent } = recordingApi(undefined);
     await renameMyDevice(api, 5, "Lounge TV");
     await removeMyDevice(api, 5);
     await signOutElsewhere(api);

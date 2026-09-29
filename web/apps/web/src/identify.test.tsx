@@ -15,7 +15,7 @@ describe("identify", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <WaitingList
-          waiting="ambiguous"
+          waitingFilter="ambiguous"
           onChanged={ignore}
           items={[
             {
@@ -35,7 +35,7 @@ describe("identify", () => {
     expect(markup).toContain("Look again");
     expect(
       renderToStaticMarkup(
-        withServices(<WaitingList waiting="unidentified" onChanged={ignore} items={[]} />),
+        withServices(<WaitingList waitingFilter="unidentified" onChanged={ignore} items={[]} />),
       ),
     ).toContain("Nothing is waiting.");
   });

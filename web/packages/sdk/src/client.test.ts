@@ -8,7 +8,7 @@ describe("the API client", () => {
   it("sends the session token in the Authorization header, and none when signed out", async () => {
     let token: string | undefined = "secret-token";
     const seen: (string | null)[] = [];
-    const api = createApi({ origin: "http://orpheum.test", token: () => token });
+    const api = createApi({ origin: "http://orpheum.test", getToken: () => token });
     const answer = (request: Request): Promise<Response> => {
       seen.push(request.headers.get("Authorization"));
       expect(request.url).toBe("http://orpheum.test/api/v1/me");
@@ -29,7 +29,7 @@ describe("the API client", () => {
 
   it("refuses, when it is compiled, a body key the API does not name (A12)", () => {
     const api = createApi({
-      token: () => undefined,
+      getToken: () => undefined,
       fetch: () => Promise.resolve(new Response(null, { status: 204 })),
     });
     const sendsARenamedField = (): unknown =>

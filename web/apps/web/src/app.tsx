@@ -43,14 +43,14 @@ function SignedIn(): JSX.Element {
   const { api, session } = useServices();
   const route = useRoute();
   const [me] = useResource("me", async () => {
-    const { data, response } = await api.GET("/me");
+    const { data: meBody, response } = await api.GET("/me");
     if (response.status === 401) {
       session.signOut();
     }
-    if (data === undefined) {
+    if (meBody === undefined) {
       throw new Error(response.statusText);
     }
-    return data;
+    return meBody;
   });
   const signOut = (): void => {
     void api.DELETE("/session").finally(() => {
@@ -65,7 +65,7 @@ function SignedIn(): JSX.Element {
           ? { name: me.value.name, deviceName: me.value.device?.name }
           : undefined
       }
-      current={route.screen}
+      currentScreen={route.screen}
       onSignOut={signOut}
     >
       <Screen route={route} />
@@ -76,11 +76,14 @@ function SignedIn(): JSX.Element {
 /** The screen a route names. */
 export function Screen(props: { readonly route: Route }): JSX.Element {
   const { t } = useTranslation();
-  return catalogueScreen(props.route) ?? adminScreen(props.route) ?? <p>{t("shell.notFound")}</p>;
+  return viewerScreen(props.route) ?? adminScreen(props.route) ?? <p>{t("shell.notFound")}</p>;
 }
 
-/** The screens for watching: lists, a title, a series, search and About. */
-function catalogueScreen(route: Route): JSX.Element | undefined {
+/**
+ * The screens anyone signed in may see: lists, a title, a series, playing, search, their account
+ * and About.
+ */
+function viewerScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "films" || route.screen === "series") {
     return <Browse key={route.screen} kind={route.screen === "films" ? "movie" : "series"} />;
   }

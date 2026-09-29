@@ -26,13 +26,13 @@ export async function cancelJob(api: Api, jobId: number): Promise<void> {
 /** How often the view asks again, so a running job's progress moves on the screen. */
 const refreshEveryMs = 3000;
 
-/** Whether a job can still be cancelled: it has not ended. */
 /** The id of what a job works on: the one field its kind sets (D227). */
 export function targetId(job: Job): number | undefined {
   return job.itemId ?? job.renditionId ?? job.streamId ?? job.fetchedSubtitleId ?? job.fileId;
 }
 
-export function isOpen(job: Job): boolean {
+/** Whether a job can still be cancelled: it has not ended. */
+export function isCancellable(job: Job): boolean {
   return job.state === "queued" || job.state === "running";
 }
 
@@ -44,8 +44,8 @@ export function isOpen(job: Job): boolean {
 export function Jobs(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [listed, setListed] = useState<Resource<Job[]>>({ state: "loading" });
-  const [asked, setAsked] = useState(0);
+  const [jobs, setJobs] = useState<Resource<Job[]>>({ state: "loading" });
+  const [cancelCount, setCancelCount] = useState(0);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   useEffect(() => {
     let isCurrent = true;
@@ -53,28 +53,28 @@ export function Jobs(): JSX.Element {
       listJobs(api).then(
         (value) => {
           if (isCurrent) {
-            setListed({ state: "loaded", value });
+            setJobs({ state: "loaded", value });
           }
         },
         (cause: unknown) => {
           if (isCurrent) {
-            setListed(failure(cause));
+            setJobs(failure(cause));
           }
         },
       );
     };
     load();
-    const ticker = setInterval(load, refreshEveryMs);
+    const refreshTimer = setInterval(load, refreshEveryMs);
     return () => {
       isCurrent = false;
-      clearInterval(ticker);
+      clearInterval(refreshTimer);
     };
-  }, [api, asked]);
+  }, [api, cancelCount]);
   const cancel = (job: Job): void => {
     cancelJob(api, job.id).then(
       () => {
         setProblem(undefined);
-        setAsked((count) => count + 1);
+        setCancelCount((count) => count + 1);
       },
       (cause: unknown) => {
         setProblem(problemText(t, cause, { conflict: t("jobs.alreadyEnded") }));
@@ -85,7 +85,7 @@ export function Jobs(): JSX.Element {
     <section aria-labelledby="jobs-heading">
       <h1 id="jobs-heading">{t("jobs.heading")}</h1>
       {problem === undefined ? null : <p role="alert">{problem}</p>}
-      <Loaded resource={listed} render={(jobs) => <JobList jobs={jobs} onCancel={cancel} />} />
+      <Loaded resource={jobs} render={(value) => <JobList jobs={value} onCancel={cancel} />} />
     </section>
   );
 }
@@ -99,31 +99,36 @@ export function JobList(props: {
   if (props.jobs.length === 0) {
     return <p>{t("jobs.none")}</p>;
   }
-  const when = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" });
+  const dateTimeFormat = new Intl.DateTimeFormat(i18n.language, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
   return (
     <ul className="jobs">
       {props.jobs.map((job) => {
-        const kind = t(`jobs.kind.${camelKey(job.kind)}`);
+        const kindText = t(`jobs.kind.${camelKey(job.kind)}`);
         return (
           <li key={job.id} className="jobs__job">
-            <strong>{t("jobs.what", { kind, target: targetId(job) })}</strong>{" "}
+            <strong>{t("jobs.subject", { kind: kindText, target: targetId(job) })}</strong>{" "}
             <span>{t(`jobs.state.${job.state}`)}</span>{" "}
             {job.progressFraction === undefined ? null : (
               <progress
                 value={job.progressFraction}
                 max={1}
-                aria-label={t("jobs.progress", { kind, target: targetId(job) })}
+                aria-label={t("jobs.progress", { kind: kindText, target: targetId(job) })}
               />
             )}
-            <span>{t("jobs.why", { reason: job.reason })}</span>
-            <span>{t("jobs.made", { at: when.format(new Date(job.createdAt)) })}</span>
+            <span>{t("jobs.reason", { reason: job.reason })}</span>
+            <span>
+              {t("jobs.queuedAt", { at: dateTimeFormat.format(new Date(job.createdAt)) })}
+            </span>
             {job.lastFailure === undefined ? null : (
               <span className="jobs__error">{t("jobs.lastError", { error: job.lastFailure })}</span>
             )}
-            {isOpen(job) ? (
+            {isCancellable(job) ? (
               <button
                 type="button"
-                aria-label={t("jobs.cancelLabel", { kind, target: targetId(job) })}
+                aria-label={t("jobs.cancelLabel", { kind: kindText, target: targetId(job) })}
                 onClick={() => {
                   props.onCancel(job);
                 }}

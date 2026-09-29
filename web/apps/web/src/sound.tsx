@@ -6,7 +6,7 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { setMyDeviceSound, type AudioOutput } from "./accounts.ts";
+import { setMyDeviceAudioOutput, type AudioOutput } from "./accounts.ts";
 import { camelKey } from "./catalogue-key.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -42,7 +42,7 @@ export function SoundQuestion(props: {
     if (deviceId === undefined) {
       return;
     }
-    setMyDeviceSound(api, deviceId, output).then(props.answered, (cause: unknown) => {
+    setMyDeviceAudioOutput(api, deviceId, output).then(props.answered, (cause: unknown) => {
       setProblem(problemText(t, cause));
     });
   };
@@ -99,7 +99,7 @@ export function SoundLine(props: {
  */
 export function BoostSwitch(props: {
   readonly isOn: boolean;
-  readonly switched: (isOn: boolean) => void;
+  readonly onSwitched: (isOn: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   return <OwnSwitch choice="isDialogueBoostOn" label={t("play.boost")} {...props} />;
@@ -107,13 +107,13 @@ export function BoostSwitch(props: {
 
 /**
  * A switch for one of the person's own choices, starting as they left it: switching it acts at
- * once, through switched, and is kept for every file.
+ * once, through onSwitched, and is kept for every file.
  */
 export function OwnSwitch(props: {
   readonly choice: OwnChoice;
   readonly label: string;
   readonly isOn: boolean;
-  readonly switched: (isOn: boolean) => void;
+  readonly onSwitched: (isOn: boolean) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
@@ -121,14 +121,14 @@ export function OwnSwitch(props: {
   const [problem, setProblem] = useState<string | undefined>(undefined);
   return (
     <>
-      <label className="play__switch">
+      <label className="sound__switch">
         <input
           type="checkbox"
           checked={isOn}
           onChange={(event) => {
             const isNowOn = event.currentTarget.checked;
             setIsOn(isNowOn);
-            props.switched(isNowOn);
+            props.onSwitched(isNowOn);
             keepOwnChoice(api, props.choice, isNowOn).then(
               () => {
                 setProblem(undefined);

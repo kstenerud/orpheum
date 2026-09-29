@@ -26,25 +26,29 @@ export function blankLibrary(): NewLibrary {
 }
 
 /** A node, and the roots it configured when it is connected. */
-export type NodeRoots = components["schemas"]["NodeBody"];
+export type LibraryNode = components["schemas"]["NodeBody"];
 
 /** The roots chosen, with one ticked or unticked. */
-export function toggled(roots: readonly string[], root: string, isChosen: boolean): string[] {
+export function withRootChosen(
+  roots: readonly string[],
+  root: string,
+  isChosen: boolean,
+): string[] {
   return isChosen ? [...new Set([...roots, root])] : roots.filter((chosen) => chosen !== root);
 }
 
 /** Where the library's folders are: a connected node, and which of its configured roots. */
 function WhereItIs(props: {
   readonly draft: NewLibrary;
-  readonly nodes: readonly NodeRoots[];
-  readonly set: SetAnswer;
+  readonly nodes: readonly LibraryNode[];
+  readonly setAnswer: SetAnswer;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { draft, nodes, set } = props;
+  const { draft, nodes, setAnswer } = props;
   if (!nodes.some((node) => node.isConnected)) {
     return <p>{t("libraries.noNodes")}</p>;
   }
-  const chosen = nodes.find((node) => node.name === draft.nodeName);
+  const chosenNode = nodes.find((node) => node.name === draft.nodeName);
   const roots = draft.rootPaths ?? [];
   return (
     <>
@@ -53,8 +57,8 @@ function WhereItIs(props: {
         <select
           value={draft.nodeName}
           onChange={(event) => {
-            props.set("nodeName", event.target.value);
-            props.set("rootPaths", []);
+            props.setAnswer("nodeName", event.target.value);
+            props.setAnswer("rootPaths", []);
           }}
         >
           {nodes.map((node) => (
@@ -66,13 +70,13 @@ function WhereItIs(props: {
       </label>
       <fieldset>
         <legend>{t("libraries.roots")}</legend>
-        {(chosen?.rootPaths ?? []).map((root) => (
+        {(chosenNode?.rootPaths ?? []).map((root) => (
           <label key={root}>
             <input
               type="checkbox"
               checked={roots.includes(root)}
               onChange={(event) => {
-                set("rootPaths", toggled(roots, root, event.target.checked));
+                setAnswer("rootPaths", withRootChosen(roots, root, event.target.checked));
               }}
             />
             <code>{root}</code>
@@ -116,9 +120,12 @@ function Question<T extends string>(props: {
 type SetAnswer = <K extends keyof NewLibrary>(key: K, value: NewLibrary[K]) => void;
 
 /** The library's name and what it holds. */
-function WhatItHolds(props: { readonly draft: NewLibrary; readonly set: SetAnswer }): JSX.Element {
+function WhatItHolds(props: {
+  readonly draft: NewLibrary;
+  readonly setAnswer: SetAnswer;
+}): JSX.Element {
   const { t } = useTranslation();
-  const { draft, set } = props;
+  const { draft, setAnswer } = props;
   return (
     <>
       <label>
@@ -127,7 +134,7 @@ function WhatItHolds(props: { readonly draft: NewLibrary; readonly set: SetAnswe
           required
           value={draft.name}
           onChange={(event) => {
-            set("name", event.target.value);
+            setAnswer("name", event.target.value);
           }}
         />
       </label>
@@ -136,7 +143,7 @@ function WhatItHolds(props: { readonly draft: NewLibrary; readonly set: SetAnswe
         name="kind"
         value={draft.kind}
         onChange={(value) => {
-          set("kind", value);
+          setAnswer("kind", value);
         }}
         choices={[
           ["movies", t("libraries.kindMovies")],
@@ -151,18 +158,18 @@ function WhatItHolds(props: { readonly draft: NewLibrary; readonly set: SetAnswe
 /** The three questions, each answer saying what it means (D184). */
 function ThreeQuestions(props: {
   readonly draft: NewLibrary;
-  readonly set: SetAnswer;
+  readonly setAnswer: SetAnswer;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { draft, set } = props;
+  const { draft, setAnswer } = props;
   return (
     <>
       <Question
-        legend={t("libraries.source")}
+        legend={t("libraries.metadataSource")}
         name="source"
         value={draft.metadataSource}
         onChange={(value) => {
-          set("metadataSource", value);
+          setAnswer("metadataSource", value);
         }}
         choices={[
           ["nfo_then_tmdb", t("libraries.sourceNfoThenTmdb")],
@@ -171,11 +178,11 @@ function ThreeQuestions(props: {
         ]}
       />
       <Question
-        legend={t("libraries.changes")}
+        legend={t("libraries.changeDetection")}
         name="changes"
         value={draft.changeDetection}
         onChange={(value) => {
-          set("changeDetection", value);
+          setAnswer("changeDetection", value);
         }}
         choices={[
           ["watch", t("libraries.changesWatch")],
@@ -192,18 +199,21 @@ function ThreeQuestions(props: {
             required
             value={draft.checkEveryHours ?? 24}
             onChange={(event) => {
-              set("checkEveryHours", Number(event.target.value));
+              setAnswer("checkEveryHours", Number(event.target.value));
             }}
           />
         </label>
       ) : null}
-      <Writing draft={draft} set={set} />
+      <WritableChoice draft={draft} setAnswer={setAnswer} />
     </>
   );
 }
 
 /** Whether the server may write beside the media: read-only unless granted. */
-function Writing(props: { readonly draft: NewLibrary; readonly set: SetAnswer }): JSX.Element {
+function WritableChoice(props: {
+  readonly draft: NewLibrary;
+  readonly setAnswer: SetAnswer;
+}): JSX.Element {
   const { t } = useTranslation();
   return (
     <>
@@ -212,7 +222,7 @@ function Writing(props: { readonly draft: NewLibrary; readonly set: SetAnswer })
           type="checkbox"
           checked={props.draft.isWritable}
           onChange={(event) => {
-            props.set("isWritable", event.target.checked);
+            props.setAnswer("isWritable", event.target.checked);
           }}
         />
         {t("libraries.writable")}
@@ -225,15 +235,15 @@ function Writing(props: { readonly draft: NewLibrary; readonly set: SetAnswer })
 /** Creating a library asks three things, each stating its effect (D184): sources, changes, writing. */
 export function CreateLibraryForm(props: {
   readonly draft: NewLibrary;
-  readonly nodes: readonly NodeRoots[];
+  readonly nodes: readonly LibraryNode[];
   readonly problem: string;
-  readonly onDraft: (draft: NewLibrary) => void;
+  readonly onDraftChange: (draft: NewLibrary) => void;
   readonly onSubmit: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { draft } = props;
-  const set: SetAnswer = (key, value) => {
-    props.onDraft({ ...draft, [key]: value });
+  const setAnswer: SetAnswer = (key, value) => {
+    props.onDraftChange({ ...draft, [key]: value });
   };
   const submit = (event: SyntheticEvent): void => {
     event.preventDefault();
@@ -242,9 +252,9 @@ export function CreateLibraryForm(props: {
   return (
     <form onSubmit={submit} aria-labelledby="create-library-heading">
       <h2 id="create-library-heading">{t("libraries.createHeading")}</h2>
-      <WhatItHolds draft={draft} set={set} />
-      <ThreeQuestions draft={draft} set={set} />
-      <WhereItIs draft={draft} nodes={props.nodes} set={set} />
+      <WhatItHolds draft={draft} setAnswer={setAnswer} />
+      <ThreeQuestions draft={draft} setAnswer={setAnswer} />
+      <WhereItIs draft={draft} nodes={props.nodes} setAnswer={setAnswer} />
       {props.problem === "" ? null : <p role="alert">{props.problem}</p>}
       <button type="submit">{t("libraries.create")}</button>
     </form>
@@ -258,8 +268,8 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
   const [draft, setDraft] = useState(blankLibrary);
   const [problem, setProblem] = useState("");
   const [nodes] = useResource("nodes", async () => {
-    const data = dataOrThrow(await api.GET("/nodes"));
-    return data.nodes ?? [];
+    const nodesBody = dataOrThrow(await api.GET("/nodes"));
+    return nodesBody.nodes ?? [];
   });
   const submit = (): void => {
     setProblem("");
@@ -284,7 +294,7 @@ export function CreateLibrary(props: { readonly onCreated: () => void }): JSX.El
           draft={draft}
           nodes={value}
           problem={problem}
-          onDraft={setDraft}
+          onDraftChange={setDraft}
           onSubmit={submit}
         />
       )}

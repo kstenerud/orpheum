@@ -5,7 +5,7 @@
  * Serving without it is refused rather than guessed (D204): a guessed address proxies to
  * whatever else is listening there. A production build proxies nothing and needs no address.
  */
-export function devServer(
+export function devServerOrigin(
   value: string | undefined,
   command: "build" | "serve",
 ): string | undefined {

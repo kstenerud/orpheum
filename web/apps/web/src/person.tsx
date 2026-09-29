@@ -103,7 +103,7 @@ function PersonHead(props: {
     <>
       <h1>{account.name}</h1>
       <p>
-        {t(account.hasPassword ? "people.registered" : "people.waiting")} ·{" "}
+        {t(account.hasPassword ? "people.registered" : "people.notRegistered")} ·{" "}
         {t("person.watched", { hours, titles: watched.titlesWatchedCount, last: lastWatched })}
       </p>
       <OneField
@@ -147,7 +147,7 @@ function OneField(props: {
     props.onSubmit(value);
   };
   return (
-    <form className="account__part" onSubmit={submit}>
+    <form className="app-shell__form-part" onSubmit={submit}>
       <label>
         {props.label}{" "}
         <input

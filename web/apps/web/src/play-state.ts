@@ -71,11 +71,11 @@ function reportVideoEvents(
       }
     },
     playing: whileItHoldsMedia(() => {
-      reporter.started(positionMs(video));
+      reporter.recordStarted(positionMs(video));
     }),
     pause: whileItHoldsMedia(() => {
       if (!video.ended) {
-        reporter.paused(positionMs(video));
+        reporter.recordPaused(positionMs(video));
       }
     }),
     seeking: whileItHoldsMedia(() => {
@@ -83,14 +83,14 @@ function reportVideoEvents(
       if (isResuming) {
         isResuming = false;
       } else {
-        reporter.seeked(lastMs, positionMs(video));
+        reporter.recordSeeked(lastMs, positionMs(video));
       }
     }),
     timeupdate: whileItHoldsMedia(() => {
       lastMs = positionMs(video);
     }),
     ended: whileItHoldsMedia(() => {
-      reporter.completed(positionMs(video));
+      reporter.recordCompleted(positionMs(video));
     }),
   };
   for (const [event, listener] of Object.entries(listeners)) {
@@ -146,7 +146,7 @@ export function usePlayState(
       document.removeEventListener("visibilitychange", hidden);
       watching.stop();
       // The video may be emptied already: where it last was is where the person left it.
-      reporter.abandoned(watching.lastPositionMs());
+      reporter.recordAbandoned(watching.lastPositionMs());
     };
   }, [api, videoRef, mediaToken, resumePositionMs]);
 }

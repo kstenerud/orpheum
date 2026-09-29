@@ -24,8 +24,8 @@ const outcomeKeys = {
 /** One root: where it is, how its last scan went, and the admin's two answers when it waits (D208). */
 export function RootLine(props: {
   readonly root: Root;
-  readonly onApprove: (root: Root) => void;
-  readonly onGone: (root: Root) => void;
+  readonly onApproveRemovals: (root: Root) => void;
+  readonly onMarkGone: (root: Root) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { root } = props;
@@ -39,18 +39,18 @@ export function RootLine(props: {
           <button
             type="button"
             onClick={() => {
-              props.onApprove(root);
+              props.onApproveRemovals(root);
             }}
           >
-            {t("libraries.approve")}
+            {t("libraries.approveRemovals")}
           </button>{" "}
           <button
             type="button"
             onClick={() => {
-              props.onGone(root);
+              props.onMarkGone(root);
             }}
           >
-            {t("libraries.gone")}
+            {t("libraries.diskGone")}
           </button>
         </>
       ) : null}
@@ -63,12 +63,12 @@ export function LibraryCard(props: {
   readonly library: Library;
   readonly note: string;
   readonly onScan: () => void;
-  readonly onApprove: (root: Root) => void;
-  readonly onGone: (root: Root) => void;
+  readonly onApproveRemovals: (root: Root) => void;
+  readonly onMarkGone: (root: Root) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { library } = props;
-  const filings = Object.entries(library.fileCountsByFiling ?? {});
+  const filingCounts = Object.entries(library.fileCountsByFiling ?? {});
   return (
     <article aria-labelledby={`library-${String(library.id)}`}>
       <h2 id={`library-${String(library.id)}`}>{library.name}</h2>
@@ -77,14 +77,14 @@ export function LibraryCard(props: {
           <RootLine
             key={`${root.nodeName}:${root.rootPath}`}
             root={root}
-            onApprove={props.onApprove}
-            onGone={props.onGone}
+            onApproveRemovals={props.onApproveRemovals}
+            onMarkGone={props.onMarkGone}
           />
         ))}
       </ul>
-      {filings.length === 0 ? null : (
+      {filingCounts.length === 0 ? null : (
         <p>
-          {filings
+          {filingCounts
             .map(([filing, count]) =>
               t("libraries.filing", {
                 filing: t(`filing.${filing}`, { defaultValue: filing }),
@@ -107,44 +107,46 @@ export function LibraryCard(props: {
 
 /** What an admin does with libraries, and what each last said. */
 function useLibraryActions(reload: () => void): {
-  readonly notes: ReadonlyMap<number, string>;
-  readonly scan: (id: number) => void;
-  readonly answer: (
-    id: number,
+  readonly notesByLibraryId: ReadonlyMap<number, string>;
+  readonly scan: (libraryId: number) => void;
+  readonly answerWithheldRoot: (
+    libraryId: number,
     root: Root,
-    path: "/libraries/{id}/removals" | "/libraries/{id}/mounts/gone",
+    endpoint: "/libraries/{id}/removals" | "/libraries/{id}/mounts/gone",
   ) => void;
 } {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [notes, setNotes] = useState<ReadonlyMap<number, string>>(() => new Map());
-  const noted = (id: number, note: string): void => {
-    setNotes((previous) => new Map(previous).set(id, note));
+  const [notesByLibraryId, setNotesByLibraryId] = useState<ReadonlyMap<number, string>>(
+    () => new Map(),
+  );
+  const setNote = (libraryId: number, note: string): void => {
+    setNotesByLibraryId((previous) => new Map(previous).set(libraryId, note));
   };
   return {
-    notes,
-    scan: (id) => {
+    notesByLibraryId,
+    scan: (libraryId) => {
       api
-        .POST("/libraries/{id}/scan", { params: { path: { id } } })
+        .POST("/libraries/{id}/scan", { params: { path: { id: libraryId } } })
         .then(dataOrThrow)
         .then(
-          (data) => {
-            noted(id, t("libraries.scanning", { count: data.askedRootCount }));
+          (scanAnswer) => {
+            setNote(libraryId, t("libraries.scanning", { count: scanAnswer.askedRootCount }));
           },
           (cause: unknown) => {
-            noted(id, problemText(t, cause));
+            setNote(libraryId, problemText(t, cause));
           },
         );
     },
-    answer: (id, root, path) => {
+    answerWithheldRoot: (libraryId, root, endpoint) => {
       api
-        .POST(path, {
-          params: { path: { id } },
+        .POST(endpoint, {
+          params: { path: { id: libraryId } },
           body: { nodeName: root.nodeName, path: root.rootPath },
         })
         .then(throwIfRefused)
         .then(reload, (cause: unknown) => {
-          noted(id, problemText(t, cause));
+          setNote(libraryId, problemText(t, cause));
         });
     },
   };
@@ -155,23 +157,23 @@ export function Libraries(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [libraries, reload] = useResource("libraries", async () => {
-    const data = dataOrThrow(await api.GET("/libraries"));
-    return data.libraries ?? [];
+    const librariesBody = dataOrThrow(await api.GET("/libraries"));
+    return librariesBody.libraries ?? [];
   });
   const actions = useLibraryActions(reload);
-  const card = (library: Library): JSX.Element => (
+  const renderCard = (library: Library): JSX.Element => (
     <LibraryCard
       key={library.id}
       library={library}
-      note={actions.notes.get(library.id) ?? ""}
+      note={actions.notesByLibraryId.get(library.id) ?? ""}
       onScan={() => {
         actions.scan(library.id);
       }}
-      onApprove={(root) => {
-        actions.answer(library.id, root, "/libraries/{id}/removals");
+      onApproveRemovals={(root) => {
+        actions.answerWithheldRoot(library.id, root, "/libraries/{id}/removals");
       }}
-      onGone={(root) => {
-        actions.answer(library.id, root, "/libraries/{id}/mounts/gone");
+      onMarkGone={(root) => {
+        actions.answerWithheldRoot(library.id, root, "/libraries/{id}/mounts/gone");
       }}
     />
   );
@@ -181,7 +183,7 @@ export function Libraries(): JSX.Element {
       <Loaded
         resource={libraries}
         render={(value) =>
-          value.length === 0 ? <p>{t("libraries.none")}</p> : <>{value.map(card)}</>
+          value.length === 0 ? <p>{t("libraries.none")}</p> : <>{value.map(renderCard)}</>
         }
       />
       <CreateLibrary onCreated={reload} />

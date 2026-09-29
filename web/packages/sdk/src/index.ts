@@ -4,8 +4,10 @@
  * The public entry point of the Orpheum SDK: the only module other packages and apps import
  * from this package (`exports` in package.json forbids deeper paths).
  *
- * The SDK is React-free. It holds the generated API types and client, and will hold
- * probe-and-pick and the Watch Together client (plans/cut-a.md §3, §5).
+ * The SDK is React-free. It holds the generated API types and client, the menu probe (what
+ * this browser can play), the wait for a file the server is still making (whenReady,
+ * textWhenReady) and the reading of refusals, and will hold the Watch Together client
+ * (plans/cut-a.md §3, §5).
  */
 
 export { apiPrefix, artUrl, createApi } from "./client.ts";

@@ -17,7 +17,7 @@ export type WaitingItem = components["schemas"]["ItemBody"];
 export type Candidate = components["schemas"]["CandidateBody"];
 
 /** Which items to show: those with several matches, or those with none. */
-export type Waiting = "ambiguous" | "unidentified";
+export type WaitingFilter = "ambiguous" | "unidentified";
 
 /** The possible matches for one item, each a button that chooses it. */
 export function CandidateList(props: {
@@ -53,7 +53,7 @@ export function CandidateList(props: {
 /** The items waiting, each with a way to choose its match or have it looked up again. */
 export function WaitingList(props: {
   readonly items: readonly WaitingItem[];
-  readonly waiting: Waiting;
+  readonly waitingFilter: WaitingFilter;
   readonly onChanged: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -64,7 +64,7 @@ export function WaitingList(props: {
     <ul>
       {props.items.map((item) => (
         <li key={item.id}>
-          <WaitingRow item={item} waiting={props.waiting} onChanged={props.onChanged} />
+          <WaitingRow item={item} waitingFilter={props.waitingFilter} onChanged={props.onChanged} />
         </li>
       ))}
     </ul>
@@ -74,7 +74,7 @@ export function WaitingList(props: {
 /** One waiting item: its name and year, and what can be done about it. */
 function WaitingRow(props: {
   readonly item: WaitingItem;
-  readonly waiting: Waiting;
+  readonly waitingFilter: WaitingFilter;
   readonly onChanged: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -100,7 +100,7 @@ function WaitingRow(props: {
     <div>
       <Link to={entryRoute(kind, item.id)}>{item.name}</Link>{" "}
       {item.year === undefined ? null : <span>{item.year}</span>}{" "}
-      {props.waiting === "ambiguous" ? (
+      {props.waitingFilter === "ambiguous" ? (
         <button
           type="button"
           aria-expanded={isChoosing}
@@ -115,28 +115,31 @@ function WaitingRow(props: {
         {t("identify.refresh")}
       </button>
       {note === "" ? null : <output>{note}</output>}
-      {isChoosing ? <Candidates id={item.id} onChosen={props.onChanged} /> : null}
+      {isChoosing ? <CandidateChooser itemId={item.id} onChosen={props.onChanged} /> : null}
     </div>
   );
 }
 
 /** An ambiguous item's possible matches, and choosing one, which is permanent (D172). */
-function Candidates(props: { readonly id: number; readonly onChosen: () => void }): JSX.Element {
+function CandidateChooser(props: {
+  readonly itemId: number;
+  readonly onChosen: () => void;
+}): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [problem, setProblem] = useState("");
-  const [found] = useResource(`candidates/${String(props.id)}`, async () => {
-    const data = dataOrThrow(
+  const [candidates] = useResource(`candidates/${String(props.itemId)}`, async () => {
+    const candidatesBody = dataOrThrow(
       await api.GET("/items/{id}/candidates", {
-        params: { path: { id: props.id } },
+        params: { path: { id: props.itemId } },
       }),
     );
-    return data;
+    return candidatesBody;
   });
   const pick = (provider: string, candidate: Candidate): void => {
     api
       .POST("/items/{id}/match", {
-        params: { path: { id: props.id } },
+        params: { path: { id: props.itemId } },
         body: { provider, providerId: candidate.providerId },
       })
       .then(throwIfRefused)
@@ -147,7 +150,7 @@ function Candidates(props: { readonly id: number; readonly onChosen: () => void 
   return (
     <section aria-label={t("identify.candidates")}>
       <Loaded
-        resource={found}
+        resource={candidates}
         render={(value) => (
           <CandidateList
             candidates={value.candidates ?? []}
@@ -166,27 +169,27 @@ function Candidates(props: { readonly id: number; readonly onChosen: () => void 
 export function Identify(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [waiting, setWaiting] = useState<Waiting>("ambiguous");
-  const [items, reload] = useResource(`items/${waiting}`, async () => {
-    const data = dataOrThrow(
+  const [waitingFilter, setWaitingFilter] = useState<WaitingFilter>("ambiguous");
+  const [items, reload] = useResource(`items/${waitingFilter}`, async () => {
+    const itemsBody = dataOrThrow(
       await api.GET("/items", {
-        params: { query: { identificationState: waiting } },
+        params: { query: { identificationState: waitingFilter } },
       }),
     );
-    return data.items ?? [];
+    return itemsBody.items ?? [];
   });
   return (
     <section aria-labelledby="identify-heading">
       <h1 id="identify-heading">{t("identify.heading")}</h1>
       <fieldset>
-        <legend>{t("files.show")}</legend>
+        <legend>{t("common.show")}</legend>
         {(["ambiguous", "unidentified"] as const).map((choice) => (
           <button
             key={choice}
             type="button"
-            aria-pressed={waiting === choice}
+            aria-pressed={waitingFilter === choice}
             onClick={() => {
-              setWaiting(choice);
+              setWaitingFilter(choice);
             }}
           >
             {t(`identify.${choice}`)}
@@ -195,7 +198,9 @@ export function Identify(): JSX.Element {
       </fieldset>
       <Loaded
         resource={items}
-        render={(value) => <WaitingList items={value} waiting={waiting} onChanged={reload} />}
+        render={(value) => (
+          <WaitingList items={value} waitingFilter={waitingFilter} onChanged={reload} />
+        )}
       />
     </section>
   );
