@@ -1,23 +1,104 @@
+// @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it } from "vitest";
+import "./i18n.ts";
 
+import { ReportRefused } from "@orpheum/player";
+import { act, createElement } from "react";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { PlayView } from "./play.tsx";
 import { sendReport } from "./play-state.ts";
-import { servedBy, type Heard } from "./test-dom.tsx";
+import { ApiProblem } from "./problem.ts";
+import {
+  mount,
+  refusal,
+  servedBy,
+  unreachable,
+  type Answers,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
+import { withServices } from "./test-services.tsx";
+
+/** One report, as the player sends it. */
+const report = {
+  reportSeq: 1,
+  sentMonoMs: 5000,
+  positionMs: 1200,
+  positionReadMonoMs: 5000,
+  events: [{ kind: "paused" as const, positionMs: 1200, happenedMonoMs: 5000 }],
+  spans: [],
+};
+
+/** How sending a report fails when the server answers it so, or "sent". */
+async function sendingFailsWith(answer: Answers[string]): Promise<unknown> {
+  const { api } = servedBy({ "POST /playback/abc/report": answer });
+  return await sendReport(api, "abc", report).then(
+    () => "sent",
+    (cause: unknown) => cause,
+  );
+}
+
+let mounted: Mounted | undefined;
+
+afterEach(() => {
+  mounted?.unmount();
+  mounted = undefined;
+});
 
 describe("play state", () => {
   it("reports on the playback its media token names", async () => {
     const heard: Heard[] = [];
     const { api } = servedBy({ "POST /playback/abc/report": [204, undefined] }, heard);
-    const report = {
-      reportSeq: 1,
-      sentMonoMs: 5000,
-      positionMs: 1200,
-      positionReadMonoMs: 5000,
-      events: [{ kind: "paused" as const, positionMs: 1200, happenedMonoMs: 5000 }],
-      spans: [],
-    };
     await sendReport(api, "abc", report);
     expect(heard).toEqual([{ methodAndPath: "POST /playback/abc/report", body: report }]);
+  });
+
+  it("gives up on a playback the server refuses for good, and not on a passing failure", async () => {
+    const gone = await sendingFailsWith(refusal(404, "not_found"));
+    expect(gone instanceof ReportRefused && gone.cause instanceof ApiProblem).toBe(true);
+    const busy = await sendingFailsWith(refusal(503, "migrating"));
+    expect(busy instanceof ApiProblem && !(busy instanceof ReportRefused)).toBe(true);
+    expect(await sendingFailsWith(unreachable)).toBeInstanceOf(TypeError);
+  });
+
+  it("tells the person when where they are is no longer kept", async () => {
+    const heard: Heard[] = [];
+    const playView = createElement(PlayView, {
+      fileId: 2,
+      decision: {
+        delivery: "direct",
+        url: "/api/v1/bytes/media/direct/abc",
+        notDirectReasons: [],
+        isPreparing: false,
+        subtitles: [],
+        preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
+        resumePositionMs: 0,
+        mediaToken: "gone",
+        levelling: { isMeasured: false, gainDb: 0 },
+      },
+      onDecideAgain: () => undefined,
+    });
+    mounted = await mount(
+      withServices(
+        playView,
+        servedBy({ "POST /playback/gone/report": refusal(404, "not_found") }, heard),
+      ),
+    );
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    Object.defineProperty(video, "readyState", { value: 4 });
+    await act(async () => {
+      video.dispatchEvent(new Event("playing"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(heard.map((request) => request.methodAndPath)).toEqual(["POST /playback/gone/report"]);
+    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Where you are is no longer being kept for next time. That is no longer here",
+    );
   });
 });

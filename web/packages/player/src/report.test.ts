@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { PlayReporter, type PlayReport } from "./report.ts";
+import { PlayReporter, ReportRefused, type PlayReport } from "./report.ts";
 
 /** A counter of report numbers, as one playback's reporters share. */
 function counter(): () => number {
@@ -16,12 +16,21 @@ function fakeReporter(nextSeq: () => number = counter()): {
   sent: PlayReport[];
   setNow: (ms: number) => void;
   failNext: () => void;
+  refuseNext: () => void;
+  attempts: () => number;
 } {
   let now = 0;
   let shouldFail = false;
+  let shouldRefuse = false;
+  let attempts = 0;
   const sent: PlayReport[] = [];
   const reporter = new PlayReporter(
     (report) => {
+      attempts += 1;
+      if (shouldRefuse) {
+        shouldRefuse = false;
+        return Promise.reject(new ReportRefused(new Error("no such playback")));
+      }
       if (shouldFail) {
         shouldFail = false;
         return Promise.reject(new Error("offline"));
@@ -41,6 +50,10 @@ function fakeReporter(nextSeq: () => number = counter()): {
     failNext: () => {
       shouldFail = true;
     },
+    refuseNext: () => {
+      shouldRefuse = true;
+    },
+    attempts: () => attempts,
   };
 }
 
@@ -99,6 +112,18 @@ describe("reporting play state", () => {
     expect(sent.map((report) => report.reportSeq)).toEqual([1, 3]);
     expect(sent[1]?.events.map((event) => event.kind)).toEqual(["paused"]);
     expect(sent[1]?.spans).toHaveLength(1);
+  });
+
+  it("sends nothing more once a report is refused for good", async () => {
+    const { reporter, sent, refuseNext, attempts } = fakeReporter();
+    refuseNext();
+    reporter.recordStarted(0);
+    await settled();
+    reporter.recordPaused(5000);
+    reporter.flush(5000);
+    await settled();
+    expect(attempts()).toBe(1);
+    expect(sent).toEqual([]);
   });
 
   it("says nothing when left before it played", async () => {

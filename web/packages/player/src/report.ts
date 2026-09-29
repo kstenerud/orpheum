@@ -32,10 +32,26 @@ export interface PlayReport {
 export const reportEveryMs = 10_000;
 
 /**
+ * What send rejects with when a report failed for good: the server refused it for a reason that
+ * sending it again cannot change (the playback it names is gone). The reporter then stops; the
+ * cause is what the server said.
+ */
+export class ReportRefused extends Error {
+  override readonly cause: unknown;
+
+  constructor(cause: unknown) {
+    super("the server refused the play report for good");
+    this.name = "ReportRefused";
+    this.cause = cause;
+  }
+}
+
+/**
  * Keeps one playback's play state and reports it: the changes, the spans of watching they close,
  * and where it is. Times are the device's monotonic clock, which the server anchors on arrival, so
  * a report that arrives late never rewinds the position (D217 §7). A report that fails to send is
- * sent again, with its changes, in the next one.
+ * sent again, with its changes, in the next one, unless send rejected with ReportRefused: then
+ * nothing more is sent, since nothing would be taken.
  */
 export class PlayReporter {
   private hasStarted = false;
@@ -43,6 +59,7 @@ export class PlayReporter {
   private spans: PlaySpan[] = [];
   private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
+  private isRefused = false;
 
   /**
    * nextSeq numbers the reports. Every reporter of one playback must share it: the server takes a
@@ -95,7 +112,7 @@ export class PlayReporter {
 
   /** Reports where the playback is, with any changes not yet sent. */
   flush(positionMs: number): void {
-    if (this.isSending) {
+    if (this.isSending || this.isRefused) {
       return;
     }
     const now = this.readMonotonicMs();
@@ -114,8 +131,12 @@ export class PlayReporter {
       () => {
         this.isSending = false;
       },
-      () => {
+      (cause: unknown) => {
         this.isSending = false;
+        if (cause instanceof ReportRefused) {
+          this.isRefused = true;
+          return;
+        }
         // Kept for the next report, which is numbered afresh: the server took none of this one.
         this.events = [...report.events, ...this.events];
         this.spans = [...report.spans, ...this.spans];

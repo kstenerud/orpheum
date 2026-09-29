@@ -66,9 +66,12 @@ function UnderTheVideo(
 ): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  usePlayState(api, props.videoRef, props.decision);
+  const reportRefusal = usePlayState(api, props.videoRef, props.decision);
   return (
     <>
+      {reportRefusal === undefined ? null : (
+        <p role="alert">{t("play.positionNotKept", { reason: problemText(t, reportRefusal) })}</p>
+      )}
       <button
         type="button"
         className="play__start-over"
