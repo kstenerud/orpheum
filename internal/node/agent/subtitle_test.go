@@ -5,6 +5,7 @@ package agent
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,17 +20,24 @@ import (
 // fakeSubtitler answers with text that names what it was given.
 type fakeSubtitler struct{}
 
-// Track slowTrack runs until it is stopped.
+// Track slowStreamIndex runs until it is stopped, and track unconvertibleStreamIndex fails as FFmpeg would.
 func (fakeSubtitler) ExtractTrack(ctx context.Context, videoPath string, streamIndex int) (subtitle.Text, error) {
 	if streamIndex == slowStreamIndex {
 		<-ctx.Done()
 		return subtitle.Text{}, ctx.Err()
 	}
+	if streamIndex == unconvertibleStreamIndex {
+		return subtitle.Text{}, errors.New("ffmpeg exited 1: Subtitle codec 94213 is not supported")
+	}
 	return subtitle.Text{ASS: []byte(videoPath), VTT: []byte(strconv.Itoa(streamIndex))}, nil
 }
 
-// slowStreamIndex is the stream index whose extraction runs until it is stopped.
-const slowStreamIndex = 99
+// slowStreamIndex is the stream index whose extraction runs until it is stopped, and
+// unconvertibleStreamIndex the one FFmpeg cannot convert.
+const (
+	slowStreamIndex          = 99
+	unconvertibleStreamIndex = 98
+)
 
 func (fakeSubtitler) ConvertText(_ context.Context, source []byte) (subtitle.Text, error) {
 	return subtitle.Text{ASS: source, VTT: source}, nil
@@ -125,9 +133,13 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 		{"a track and a sidecar at once", nodeproto.ExtractSubtitle{Video: &video, Sidecar: &sidecar}, "only one"},
 	} {
 		answer := send(int64(index+3), refusal.command)
-		if answer.Refusal == "" || !strings.Contains(answer.Refusal, refusal.why) {
+		if answer.Refusal == "" || !strings.Contains(answer.Refusal, refusal.why) || answer.Failure != "" {
 			t.Errorf("%s: %+v, want refused: %s", refusal.what, answer, refusal.why)
 		}
+	}
+	failed := send(9, nodeproto.ExtractSubtitle{Video: &video, StreamIndex: unconvertibleStreamIndex})
+	if !strings.Contains(failed.Failure, "not supported") || failed.Refusal != "" {
+		t.Errorf("a track FFmpeg cannot convert: %+v, want a failure in FFmpeg's words, not a refusal", failed)
 	}
 }
 

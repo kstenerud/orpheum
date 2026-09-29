@@ -214,7 +214,7 @@ func TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed(t *testi
 	harness.shelveSubtitles(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	decided := harness.play(t, user, chrome(2))
-	if _, err := harness.extract(t, 91, nodeproto.SubtitleText{Refusal: "ffmpeg: bad"}); err == nil ||
+	if _, err := harness.extract(t, 91, nodeproto.SubtitleText{Failure: "ffmpeg: bad"}); err == nil ||
 		!strings.Contains(err.Error(), "ffmpeg: bad") {
 		t.Errorf("the job ended %v, want FFmpeg's failure", err)
 	}
@@ -226,6 +226,25 @@ func TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed(t *testi
 	again := harness.play(t, user, chrome(2))
 	if early := harness.getBytePath(t, again.Subtitles[0].ASSURL, user, true, ""); early.status != http.StatusTooEarly {
 		t.Errorf("played again after a failure: %d, want 425 while it is tried again", early.status)
+	}
+}
+
+func TestSubtitles_ARefusedExtractionIsNotKeptAndTheTrackKeepsWaiting(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveSubtitles(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 2)
+	decided := harness.play(t, user, chrome(2))
+	refusal := "the file is not the one named: it changed since the scan"
+	if _, err := harness.extract(t, 92, nodeproto.SubtitleText{Refusal: refusal}); err == nil ||
+		!strings.Contains(err.Error(), refusal) {
+		t.Errorf("the job ended %v, want the node's refusal, to be tried again", err)
+	}
+	waiting := harness.getBytePath(t, decided.Subtitles[0].ASSURL, user, true, "")
+	if waiting.status != http.StatusTooEarly {
+		t.Errorf("a refused track: %d %s, want 425 while it is tried again, not failed", waiting.status, waiting.body)
 	}
 }
 

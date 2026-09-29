@@ -40,6 +40,11 @@
 //     TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt.
 //   - A finished prepare's report says what made its video and how fast (D225 §3).
 //     TestAgent_PreparesOnlyTheFileTheCoreNamed.
+//   - A prepare, subtitle or measurement the node did not try (no worker for it, a file outside
+//     its roots or changed since the scan, a disk with no room) is answered as a refusal, apart
+//     from FFmpeg failing on the bytes, so the core can try a refusal again.
+//     TestAgent_APrepareTheDiskHasNoRoomForIsRefusedAndOneFFmpegFailsOnFails,
+//     TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
 //   - The status carries the disk of each root and of the prepared directory, or why one could
 //     not be measured (D225). TestStatus_CarriesTheDisksOfTheRootsAndThePreparedDirectory.
 //

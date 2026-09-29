@@ -28,7 +28,7 @@ func (agent *Agent) extractSubtitle(ctx context.Context, nodeID int64, command n
 		jobID: command.JobID, slot: agent.slots.extract, answerPath: nodeproto.PathSubtitle, jobKind: "a subtitle",
 		makeAnswer: func(jobCtx context.Context) (any, string) {
 			answer := agent.runExtraction(jobCtx, command)
-			return answer, answer.Refusal
+			return answer, answer.Refusal + answer.Failure
 		},
 	})
 }
@@ -81,8 +81,14 @@ func (agent *Agent) answerInBackground(ctx context.Context, nodeID int64, job ba
 	}()
 }
 
-// runExtraction makes one subtitle's text, or says why it could not: a video's track, a sidecar
-// or a fetched subtitle's text, whichever the command names, and only one.
+// notTriedError is an extraction the node did not try: it says nothing of the source's bytes.
+type notTriedError struct{ error }
+
+func (refusal notTriedError) Unwrap() error { return refusal.error }
+
+// runExtraction makes one subtitle's text, or says why it could not: that the converter could
+// not, which is the source's, or that the node did not try. The text is a video's track, a
+// sidecar or a fetched subtitle's text, whichever the command names, and only one.
 func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.ExtractSubtitle) nodeproto.SubtitleText {
 	sourceCount := 0
 	for _, isSet := range []bool{command.Video != nil, command.Sidecar != nil, command.FetchedSubRip != nil} {
@@ -94,9 +100,9 @@ func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.Extract
 	var err error
 	switch {
 	case agent.workers.Subtitler == nil:
-		err = errors.New("this node does not extract subtitles")
+		err = notTriedError{errors.New("this node does not extract subtitles")}
 	case sourceCount != 1:
-		err = errors.New("a subtitle names a video's track, a sidecar or a fetched text, and only one")
+		err = notTriedError{errors.New("a subtitle names a video's track, a sidecar or a fetched text, and only one")}
 	case command.FetchedSubRip != nil:
 		text, err = agent.convertFetched(ctx, command.FetchedSubRip)
 	case command.Video != nil:
@@ -104,8 +110,11 @@ func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.Extract
 	default:
 		text, err = agent.convertSidecar(ctx, *command.Sidecar)
 	}
-	if err != nil {
+	if errors.As(err, new(notTriedError)) {
 		return nodeproto.SubtitleText{JobID: command.JobID, Refusal: err.Error()}
+	}
+	if err != nil {
+		return nodeproto.SubtitleText{JobID: command.JobID, Failure: err.Error()}
 	}
 	return nodeproto.SubtitleText{JobID: command.JobID, ASS: text.ASS, VTT: text.VTT}
 }
@@ -116,7 +125,7 @@ func (agent *Agent) extractTrack(
 ) (subtitle.Text, error) {
 	videoPath, err := agent.verifiedSourcePath(video)
 	if err != nil {
-		return subtitle.Text{}, err
+		return subtitle.Text{}, notTriedError{err}
 	}
 	return agent.workers.Subtitler.ExtractTrack(ctx, videoPath, streamIndex)
 }
@@ -126,7 +135,7 @@ func (agent *Agent) extractTrack(
 func (agent *Agent) convertSidecar(ctx context.Context, sidecar nodeproto.BytesFile) (subtitle.Text, error) {
 	file, err := agent.openNamed(sidecar)
 	if err != nil {
-		return subtitle.Text{}, err
+		return subtitle.Text{}, notTriedError{err}
 	}
 	source, err := bounded.ReadAll(file, subtitle.MaxTextBytes)
 	_ = file.Close() //nolint:errcheck // read-only

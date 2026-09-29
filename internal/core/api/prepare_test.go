@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -121,6 +122,35 @@ func TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried(t *testing.T) {
 	playlist := harness.getBytePath(t, decided.URL, user, true, "")
 	if playlist.status != http.StatusBadGateway || !strings.Contains(playlist.body, `"code":"prepare_failed"`) {
 		t.Errorf("a failed rendition's playlist: %d %s, want prepare_failed", playlist.status, playlist.body)
+	}
+}
+
+func TestPrepare_ARefusedPrepareIsTriedAgainAndThePlaybackKeepsWaiting(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 1)
+	decided := harness.play(t, user, chrome(2))
+	playback := harness.server.dependencies.Load().Playback
+	finished := make(chan error, 1)
+	job := jobs.Job{ID: 79, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
+	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
+	<-harness.nodes.commanded
+	refused := nodeproto.PrepareReport{JobID: 79, State: nodeproto.PrepareRefused, Refusal: "the disk has no room"}
+	playback.TakePrepareReport(t.Context(), 1, refused)
+	select {
+	case err := <-finished:
+		if err == nil || !strings.Contains(err.Error(), "the disk has no room") {
+			t.Errorf("the job ended %v, want the node's refusal, to be tried again", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the job did not end at the node's refusal")
+	}
+	playlist := harness.getBytePath(t, decided.URL, user, true, "")
+	if playlist.status != http.StatusTooEarly {
+		t.Errorf("a refused rendition's playlist: %d %s, want 425 while it is tried again, not failed",
+			playlist.status, playlist.body)
 	}
 }
 

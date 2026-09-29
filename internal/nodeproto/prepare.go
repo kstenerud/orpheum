@@ -75,7 +75,10 @@ const (
 	PrepareWaiting PrepareState = "waiting"
 	PrepareRunning PrepareState = "running"
 	PrepareDone    PrepareState = "done"
-	PrepareFailed  PrepareState = "failed"
+	// PrepareFailed is FFmpeg failing on the source: Failure says how.
+	PrepareFailed PrepareState = "failed"
+	// PrepareRefused is a prepare the node did not try: Refusal says why.
+	PrepareRefused PrepareState = "refused"
 )
 
 // PrepareReport is the node's word on a prepare: how far it is, or how it ended.
@@ -86,8 +89,13 @@ type PrepareReport struct {
 	PreparedThroughMs int64 `json:"preparedThroughMs"`
 	// SizeBytes is the rendition's size once done.
 	SizeBytes int64 `json:"sizeBytes,omitempty"`
-	// Failure is FFmpeg's exit and the tail of its stderr, or why the node refused.
+	// Failure is FFmpeg's exit and the tail of its stderr: a fact about the source's bytes, which
+	// preparing again would not change.
 	Failure string `json:"failure,omitempty"`
+	// Refusal says why the node did not try: a node that does not prepare, a file outside its roots
+	// or whose payload hash changed since the scan, a disk with no room. It says nothing of the
+	// bytes, so the prepare may be asked for again.
+	Refusal string `json:"refusal,omitempty"`
 	// VideoEncoder is what made the video once done: h264_qsv, h264_nvenc, x264, or copy for a
 	// remux (D225 §3).
 	VideoEncoder string `json:"videoEncoder,omitempty"`

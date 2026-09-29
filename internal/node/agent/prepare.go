@@ -15,6 +15,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
+	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -68,9 +69,14 @@ func (agent *Agent) startPrepare(ctx context.Context, nodeID int64, command node
 			agent.logger.InfoContext(ctx, "a prepare was cancelled", "jobId", command.JobID)
 			return
 		}
-		if outcome.State == nodeproto.PrepareFailed {
+		switch outcome.State {
+		case nodeproto.PrepareFailed:
 			agent.logger.WarnContext(ctx, "a prepare failed",
 				"jobId", command.JobID, "renditionDir", command.RenditionDir, "failure", outcome.Failure)
+		case nodeproto.PrepareRefused:
+			agent.logger.WarnContext(ctx, "a prepare was refused",
+				"jobId", command.JobID, "renditionDir", command.RenditionDir, "refusal", outcome.Refusal)
+		case nodeproto.PrepareWaiting, nodeproto.PrepareRunning, nodeproto.PrepareDone:
 		}
 		if err := agent.sendPrepareReport(ctx, nodeID, outcome); err != nil && ctx.Err() == nil {
 			agent.logger.WarnContext(ctx, "could not tell the core a prepare ended", "jobId", command.JobID, "err", err)
@@ -118,19 +124,20 @@ func (agent *Agent) sayWaiting(ctx context.Context, nodeID, jobID int64) {
 	}
 }
 
-// runPrepare runs one prepare to its end and says how it ended.
+// runPrepare runs one prepare to its end and says how it ended: done, FFmpeg failing on the
+// source, or refused without trying, which says nothing of the source's bytes.
 func (agent *Agent) runPrepare(
 	ctx context.Context, nodeID int64, command nodeproto.Prepare,
 ) nodeproto.PrepareReport {
-	failed := func(err error) nodeproto.PrepareReport {
-		return nodeproto.PrepareReport{JobID: command.JobID, State: nodeproto.PrepareFailed, Failure: err.Error()}
+	refused := func(err error) nodeproto.PrepareReport {
+		return nodeproto.PrepareReport{JobID: command.JobID, State: nodeproto.PrepareRefused, Refusal: err.Error()}
 	}
 	if agent.workers.Preparer == nil {
-		return failed(errors.New("this node does not prepare"))
+		return refused(errors.New("this node does not prepare"))
 	}
 	sourcePath, err := agent.verifiedSourcePath(command.Video)
 	if err != nil {
-		return failed(err)
+		return refused(err)
 	}
 	var lastProgressSentAt time.Time
 	onProgress := func(preparedThroughMs int64) {
@@ -146,8 +153,11 @@ func (agent *Agent) runPrepare(
 		}
 	}
 	made, err := agent.workers.Preparer.Prepare(ctx, sourcePath, command, onProgress)
+	if errors.Is(err, prepared.ErrNoRoom) {
+		return refused(err)
+	}
 	if err != nil {
-		return failed(err)
+		return nodeproto.PrepareReport{JobID: command.JobID, State: nodeproto.PrepareFailed, Failure: err.Error()}
 	}
 	return nodeproto.PrepareReport{
 		JobID: command.JobID, State: nodeproto.PrepareDone, SizeBytes: made.SizeBytes, VideoEncoder: made.VideoEncoder,
