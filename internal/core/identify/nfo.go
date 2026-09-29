@@ -109,11 +109,17 @@ func yearOf(document nfoDocument) int {
 		return year
 	}
 	for _, date := range []string{document.Premiered, document.Aired} {
-		if year := parseNonNegativeInt(strings.SplitN(strings.TrimSpace(date), "-", 2)[0]); year > 0 {
+		if year := YearOfDate(date); year > 0 {
 			return year
 		}
 	}
 	return 0
+}
+
+// YearOfDate is the year of an ISO 8601 date ("1995-12-15"), or 0 for one without a year: the
+// one reading of a date, whether an NFO file or a provider gave it.
+func YearOfDate(date string) int {
+	return parseNonNegativeInt(strings.SplitN(strings.TrimSpace(date), "-", 2)[0])
 }
 
 // runtimeMsOf reads Kodi's runtime, in minutes.

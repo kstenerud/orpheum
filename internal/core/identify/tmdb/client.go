@@ -10,7 +10,6 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
@@ -118,12 +117,4 @@ func statusError(path string, response *http.Response, body []byte) error {
 	}
 	excerpt := string(body[:min(len(body), 200)])
 	return fmt.Errorf("tmdb %s: status %d: %s", path, response.StatusCode, excerpt)
-}
-
-func yearOf(date string) int {
-	year, err := strconv.Atoi(strings.SplitN(date, "-", 2)[0])
-	if err != nil || year < 1 {
-		return 0
-	}
-	return year
 }

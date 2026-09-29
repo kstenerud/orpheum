@@ -49,7 +49,8 @@ func (found workSummary) candidate() identify.Candidate {
 	return identify.Candidate{
 		ID: strconv.FormatInt(found.ID, 10), Name: firstNonEmpty(found.Title, found.Name),
 		OriginalName: firstNonEmpty(found.OriginalTitle, found.OriginalName),
-		Year:         yearOf(firstNonEmpty(found.ReleaseDate, found.FirstAirDate)), PosterRef: found.PosterPath,
+		Year:         identify.YearOfDate(firstNonEmpty(found.ReleaseDate, found.FirstAirDate)),
+		PosterRef:    found.PosterPath,
 	}
 }
 
@@ -203,7 +204,7 @@ func (*Client) ParseSeason(body []byte) ([]identify.Episode, error) {
 	for _, episode := range listing.Episodes {
 		episodes = append(episodes, identify.Episode{
 			ID: strconv.FormatInt(episode.ID, 10), Season: episode.SeasonNumber, Number: episode.EpisodeNumber,
-			Name: episode.Name, Overview: episode.Overview, Year: yearOf(episode.AirDate),
+			Name: episode.Name, Overview: episode.Overview, Year: identify.YearOfDate(episode.AirDate),
 			RuntimeMs: episode.RuntimeMinutes * int64(time.Minute/time.Millisecond), StillRef: episode.StillPath,
 		})
 	}
