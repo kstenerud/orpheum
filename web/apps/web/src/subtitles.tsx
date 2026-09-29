@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./subtitles.css";
+
 import { drawSubtitles, type SubtitleLayer } from "@orpheum/player";
 import { textWhenReady, type Api, type components } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";

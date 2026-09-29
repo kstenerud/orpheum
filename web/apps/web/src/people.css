@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.people__list {
+  display: grid;
+  gap: var(--space-page);
+  padding: 0;
+  list-style: none;
+}

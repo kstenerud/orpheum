@@ -1,0 +1,7 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.qr-code {
+  display: block;
+  width: min(16rem, 70vw);
+  height: auto;
+}

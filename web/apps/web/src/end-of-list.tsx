@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./end-of-list.css";
+
 import { useEffect, useRef, type JSX, type ReactNode } from "react";
 
 /**

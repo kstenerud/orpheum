@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./levelling.css";
+
 import { canSetVolume, gainAfterVolume } from "@orpheum/player";
 import type { components } from "@orpheum/sdk";
 import { useEffect, useState, type JSX, type RefObject } from "react";

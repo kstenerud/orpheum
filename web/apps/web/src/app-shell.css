@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
 /*
- * The app shell's styles, and the shared styles of the pieces several screens show (a share, a
- * form's part, the people list, the device list, a device code, a QR code), which load with the
- * shell. Class names are prefixed with the component's file name so a theme can target them by a
- * stable name (docs/contributors/standards/typescript.md, "Styling").
+ * The app shell's styles. Class names are prefixed with the component's file name so a theme can
+ * target them by a stable name (docs/contributors/standards/typescript.md, "Styling").
  */
 
 .app-shell {
@@ -66,55 +64,6 @@
   display: flex;
 }
 
-.share__code {
-  display: block;
-  font-size: 2.5rem;
-  letter-spacing: 0.15em;
-  font-family: var(--font-mono, monospace);
-}
-
-.share__link {
-  display: block;
-  overflow-wrap: anywhere;
-  font-family: var(--font-mono, monospace);
-  user-select: all;
-}
-
-.app-shell__form-part,
-.people__add {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  align-items: center;
-}
-
-.people__list {
-  display: grid;
-  gap: var(--space-page);
-  padding: 0;
-  list-style: none;
-}
-
-.your-devices__list {
-  display: grid;
-  gap: 0.5rem;
-  padding: 0;
-  list-style: none;
-}
-
-.your-devices__device {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1rem;
-  align-items: center;
-}
-
 .app-shell__who {
   color: var(--color-muted);
-}
-
-.qr-code {
-  display: block;
-  width: min(16rem, 70vw);
-  height: auto;
 }

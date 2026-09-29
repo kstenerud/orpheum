@@ -29,53 +29,6 @@
   text-decoration: none;
 }
 
-.poster {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 2 / 3;
-  object-fit: cover;
-  background: var(--color-surface);
-  color: var(--color-muted);
-}
-
 .poster-grid__year {
   color: var(--color-muted);
-}
-
-.end-of-list {
-  padding: var(--space-page) 0;
-}
-
-.continue-watching__rows {
-  display: flex;
-  gap: var(--space-page);
-  overflow-x: auto;
-  padding: 0;
-  list-style: none;
-}
-
-.continue-watching__row {
-  display: grid;
-  gap: 0.25rem;
-  width: 10rem;
-  flex: none;
-}
-
-.continue-watching__play {
-  display: grid;
-  gap: 0.25rem;
-  color: inherit;
-  text-decoration: none;
-}
-
-.continue-watching__file {
-  color: var(--color-muted);
-  font-size: 0.85em;
-  overflow-wrap: anywhere;
-}
-
-.continue-watching progress {
-  width: 100%;
 }

@@ -21,29 +21,3 @@
 .play__reason {
   color: var(--color-muted);
 }
-
-/* LevelSwitch's note (levelling.tsx), shown only under the player. */
-.levelling__note {
-  color: var(--color-muted);
-}
-
-/* The subtitle menu and offset (subtitles.tsx), shown only under the player. */
-.subtitles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  align-items: center;
-}
-
-/* A subtitle's name can be a whole release name; the menu shrinks to the screen and cuts it. */
-.subtitles label,
-.subtitles select {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.subtitles__offset {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}

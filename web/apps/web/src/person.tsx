@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useState, type JSX, type SyntheticEvent } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -13,6 +13,7 @@ import {
   type Device,
   type Person,
 } from "./accounts.ts";
+import { FormRow } from "./form-row.tsx";
 import { IssuedInvitationView, type IssuedInvitation } from "./people.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -145,12 +146,11 @@ function OneField(props: {
   readonly onSubmit: (value: string) => void;
 }): JSX.Element {
   const [value, setValue] = useState(props.initialValue);
-  const submit = (event: SyntheticEvent): void => {
-    event.preventDefault();
+  const submit = (): void => {
     props.onSubmit(value);
   };
   return (
-    <form className="app-shell__form-part" onSubmit={submit}>
+    <FormRow onSubmit={submit}>
       <label>
         {props.label}{" "}
         <input
@@ -164,6 +164,6 @@ function OneField(props: {
         />
       </label>
       <button type="submit">{props.submitLabel}</button>
-    </form>
+    </FormRow>
   );
 }
