@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { StringStorage } from "./browser-storage.ts";
+
 /**
  * The session: its token, kept in this browser so a reload stays signed in, and told to every
  * listener when it changes. Storage can be refused (a private window); the session then lasts
@@ -22,15 +24,8 @@ export interface Session {
 const tokenStorageKey = "orpheum.session";
 const deviceIdStorageKey = "orpheum.device";
 
-/** The storage a session keeps its token in: the browser's local storage, or none. */
-export interface TokenStorage {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
-
 /** Creates a session over storage, which may throw on every call. */
-export function createSession(storage: TokenStorage | undefined): Session {
+export function createSession(storage: StringStorage | undefined): Session {
   let token: string | undefined;
   try {
     token = storage?.getItem(tokenStorageKey) ?? undefined;

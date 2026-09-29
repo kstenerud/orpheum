@@ -7,6 +7,7 @@ import type { components } from "@orpheum/sdk";
 import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
+import { tenthsText } from "./number-text.ts";
 import { OwnChoiceSwitch } from "./sound.tsx";
 
 /** What brings a sound to the level, as the server measured it (D226). */
@@ -99,7 +100,7 @@ export function LevelSwitch(props: {
     }
   }, [addedDb, props.videoRef]);
   const note = levelNote(props.level, isOn, canApplyGain);
-  const dbText = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(note.db);
+  const dbText = tenthsText(note.db, i18n.language);
   return (
     <>
       <OwnChoiceSwitch

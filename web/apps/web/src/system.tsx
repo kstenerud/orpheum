@@ -8,6 +8,7 @@ import { camelKey } from "./catalogue-key.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { NodeConfinementView } from "./node-confinement.tsx";
+import { tenthsText } from "./number-text.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
@@ -336,9 +337,7 @@ function RecentPrepares(props: { readonly prepares: readonly FinishedPrepare[] }
                   {prepare.realtimeFactor === undefined
                     ? ""
                     : t("system.realtimeFactorTimes", {
-                        realtimeFactor: prepare.realtimeFactor.toLocaleString(i18n.language, {
-                          maximumFractionDigits: 1,
-                        }),
+                        realtimeFactor: tenthsText(prepare.realtimeFactor, i18n.language),
                       })}
                 </td>
                 <td>{dateTimeText(prepare.finishedAt, i18n.language)}</td>
