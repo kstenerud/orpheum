@@ -154,8 +154,8 @@ func TestChangePassword_NeedsTheCurrentOneAndKeepsOtherSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = fixture.service.ChangePassword(ctx, id, "wrong", "new")
-	if !errors.Is(err, ErrBadCredentials) {
-		t.Errorf("with the wrong current password: %v, want refused", err)
+	if !errors.Is(err, ErrWrongPassword) || errors.Is(err, ErrBadCredentials) {
+		t.Errorf("with the wrong current password: %v, want ErrWrongPassword, not a failed sign-in", err)
 	}
 	err = fixture.service.ChangePassword(ctx, id, "old", "new")
 	if err != nil {

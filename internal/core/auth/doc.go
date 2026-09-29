@@ -50,7 +50,8 @@
 //     person (cut-a §5.2). Enforced by TestAuthenticate_SaysASessionWasEndedRatherThanUnknown.
 //   - Names are unique without regard to the case of their ASCII letters, and nothing is keyed by
 //     them. Enforced by TestRenameUser_KeepsNamesUnique.
-//   - Changing a password needs the current one and signs no one out (D218 §6). Enforced by
+//   - Changing a password needs the current one and signs no one out (D218 §6); a wrong current
+//     one is ErrWrongPassword, not a failed sign-in's ErrBadCredentials. Enforced by
 //     TestChangePassword_NeedsTheCurrentOneAndKeepsOtherSessions.
 //   - A person's devices are listed, and only they, or an admin, change one, by its name or how
 //     it makes sound (D222); a removed device's sessions end, and signing out elsewhere ends

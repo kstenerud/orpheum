@@ -4,7 +4,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -111,7 +110,7 @@ func (server *Server) devicesOf(ctx context.Context, dependencies *Dependencies,
 ) {
 	devices, err := dependencies.Auth.Devices(ctx, userID)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list devices", err)
+		return nil, server.authError(ctx, "list devices", err)
 	}
 	output := &DevicesOutput{}
 	output.Body.Devices = make([]DeviceBody, 0, len(devices))
@@ -190,11 +189,8 @@ func (server *Server) removePersonDevice(ctx context.Context, input *PersonDevic
 
 // deviceAnswer is what a change to a device answers: nothing, or why not.
 func (server *Server) deviceAnswer(ctx context.Context, action string, err error) (*struct{}, error) {
-	switch {
-	case errors.Is(err, auth.ErrNoDevice):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such device")
-	case err != nil:
-		return nil, server.logInternalError(ctx, action, err)
+	if err != nil {
+		return nil, server.authError(ctx, action, err)
 	}
 	return &struct{}{}, nil
 }
@@ -225,7 +221,7 @@ func (server *Server) getWaitingCode(
 	}
 	waiting, err := dependencies.Auth.WaitingCodeOf(ctx, principal.UserID)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "read the waiting code", err)
+		return nil, server.authError(ctx, "read the waiting code", err)
 	}
 	output := &WaitingCodeOutput{}
 	if waiting != nil {

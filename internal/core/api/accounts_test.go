@@ -76,8 +76,9 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 		t.Errorf("an admin's code for someone else: %d %s", forPartner.status, forPartner.body)
 	}
 
-	wantError(t, harness.do(t, http.MethodPut, "/me/password", partner,
-		map[string]string{"currentPassword": "wrong", "newPassword": "new"}), http.StatusForbidden, CodeForbidden)
+	wantErrorSaying(t, harness.do(t, http.MethodPut, "/me/password", partner,
+		map[string]string{"currentPassword": "wrong", "newPassword": "new"}), http.StatusForbidden, CodeForbidden,
+		"the current password is wrong")
 	if changed := harness.do(t, http.MethodPut, "/me/password", partner,
 		map[string]string{"currentPassword": "partner-password", "newPassword": "new"}); changed.status !=
 		http.StatusNoContent {
@@ -223,4 +224,23 @@ func TestDeviceCodes_OneWaitsAndIsForANewOrAListedDevice(t *testing.T) {
 	if got := waiting(); !strings.Contains(got, `"isWaiting":false`) {
 		t.Errorf("after the code was used: %s", got)
 	}
+}
+
+func TestDeviceCodes_TooManyWrongCodesAreTooManyFailedSignIns(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.createAdminAndSignIn(t)
+	var refused response
+	for range 100 {
+		refused = harness.do(t, http.MethodPost, "/session/code", "",
+			map[string]string{"code": "WRONGCODE", "platform": "web"})
+		if refused.status != http.StatusUnauthorized {
+			break
+		}
+	}
+	wantErrorSaying(t, refused, http.StatusTooManyRequests, CodeRateLimited,
+		"too many failed sign-ins; wait and try again")
+	wantErrorSaying(t, harness.do(t, http.MethodPost, "/session", "",
+		map[string]any{"name": "owner", "password": "owner-password", "device": testDevice}),
+		http.StatusTooManyRequests, CodeRateLimited, "too many failed sign-ins; wait and try again")
 }

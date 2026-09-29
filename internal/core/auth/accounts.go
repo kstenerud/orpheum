@@ -269,7 +269,7 @@ func (service *Service) ChangePassword(ctx context.Context, userID int64, curren
 	}
 	isMatch, _, verifyErr := VerifyPassword(currentPassword, string(user.PasswordHash))
 	if verifyErr != nil || !isMatch {
-		return ErrBadCredentials
+		return errors.Join(ErrWrongPassword, verifyErr)
 	}
 	hash, err := service.hashWithCurrentCosts(ctx, newPassword)
 	if err != nil {
