@@ -1230,7 +1230,7 @@ export interface components {
             /** Format: int64 */
             libraryId: number;
             name: string;
-            /** @description Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp */
+            /** @description Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp */
             posterSha256?: string;
             /** Format: int64 */
             year?: number;
@@ -1248,7 +1248,7 @@ export interface components {
             runtimeMs?: number;
             /** Format: int64 */
             seasonNumber: number;
-            /** @description Its still's hash: GET /bytes/art/{hash}/landscape-s.webp */
+            /** @description Its still's hash: GET /bytes/art/{sourceSha256}/landscape-s.webp */
             stillSha256?: string;
             /** Format: int64 */
             year?: number;
@@ -1880,6 +1880,7 @@ export interface components {
              * @description A track inside the file, or a subtitle file beside it
              */
             streamId?: number;
+            /** @description The container's track title, or a fetched subtitle's release name */
             title: string;
             /** @description The track as WebVTT */
             vttUrl: string;
