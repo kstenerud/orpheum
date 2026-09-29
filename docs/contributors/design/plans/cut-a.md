@@ -107,8 +107,8 @@ loop to work:**
   [`dev/orpheum.dev.toml`](../../../../dev/orpheum.dev.toml); nothing defaults in code
   ([D200](../../decisions/working-notes.md), [D202](../../decisions/working-notes.md)). Paths arrive absolute (the loop renders them).
   - `[server]`: `listen`, `data_dir`, `cache_dir`, `read_header_timeout_s`, `shutdown_grace_s`
-  - `[database]`: `readers_minimum`, `migrate_space_factor` (D201)
-  - `[node]`: `roots`, `ffmpeg_dir`, and `confinement`. `confinement` is `"require"` or
+  - `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
+  - `[node]`: `roots`, `ffmpeg_dir`, and `confinement_policy`, which is `"require"` or
     `"report"`; a production install writes `"require"`. `prepared_dir`, `prepared_budget_gib`
     (200), `prepared_grace_h` (72) and `prepared_disk_limit_percent` (95) keep the prepared
     renditions within D217 §5's budget.

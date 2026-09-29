@@ -21,7 +21,7 @@
 //     TestUseUTC_TimesAreUTCWhateverTZSays.
 //   - run starts the node as its own child, through execx, and the core supervises it through an
 //     interface (D207); node runs the node's loop on its own. The node refuses to run while
-//     node.confinement is "require", because confinement is built in M3.
+//     node.confinement_policy is "require", because confinement is built in M3.
 //   - Only this package prints. Enforced by the forbidigo rule tagged [print].
 //   - A planned subcommand that is not built yet exits 2 and says so; it never exits 0.
 //     Enforced by TestRun_PlannedSubcommandsAreNotImplementedYet in main_test.go.

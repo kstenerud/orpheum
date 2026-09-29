@@ -164,8 +164,9 @@ CREATE TABLE root_mount (                                  -- class O; migration
 **A root's removals can be withheld, and a disk can go missing without its files going**
 ([D208](../../decisions/working-notes.md)). `root_state` is how the last scan of each root
 ended: complete; unreadable, so nothing was removed; or withheld, because it would have
-removed more than `removal_withhold_percent` of the root, until an admin approves
-(`removals_approved`, the one authored column here, cleared by the scan it lets remove).
+removed more than `scan_withhold_removals_over_percent` of the root and more than
+`scan_withhold_removals_over_files` files, until an admin approves (`removals_approved`, the one
+authored column here, cleared by the scan it lets remove).
 `root_mount` is each mount boundary a complete scan crossed: a boundary that comes back as an
 empty directory on the root's own device is a disk that is not there, and its files wait
 rather than go, until it returns or an admin says it is gone.

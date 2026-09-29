@@ -108,7 +108,7 @@ func (fetching metadata) runners() jobRunners {
 }
 
 // run works the fetch and artwork jobs, and looks for data due a refresh when it starts and every
-// refresh_check_every_h (D213 §3), until the returned stop is called.
+// metadata_refresh_check_every_h (D213 §3), until the returned stop is called.
 func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop func()) {
 	running, cancel := context.WithCancel(ctx)
 	var done sync.WaitGroup
@@ -133,7 +133,7 @@ func (fetching metadata) run(ctx context.Context, logger *slog.Logger) (stop fun
 	return func() { cancel(); done.Wait() }
 }
 
-// sweep queues the rolling refresh: now, then every refresh_check_every_h, read afresh each time
+// sweep queues the rolling refresh: now, then every metadata_refresh_check_every_h, read afresh each time
 // so a change takes effect at the next look.
 func (fetching metadata) sweep(ctx context.Context, logger *slog.Logger) {
 	for {
@@ -144,7 +144,7 @@ func (fetching metadata) sweep(ctx context.Context, logger *slog.Logger) {
 		if queued > 0 {
 			logger.InfoContext(ctx, "queued refreshes of data that is due", "items", queued)
 		}
-		hours, err := fetching.settings.Int(ctx, settings.RefreshCheckEveryH)
+		hours, err := fetching.settings.Int(ctx, settings.MetadataRefreshCheckEveryH)
 		if err != nil {
 			hours = 24
 		}

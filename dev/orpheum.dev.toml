@@ -22,14 +22,14 @@ shutdown_grace_s = 10
 socket_dir = "{root}/.dev/run"   # /run/orpheum in production, made by systemd
 
 [database]
-readers_minimum = 4
-migrate_space_factor = 3
+read_connections_minimum = 4
+migrate_free_space_db_multiple = 3
 
 [node]
 name = "local"
 roots = ["{root}/.dev/media/movies", "{root}/.dev/media/shows"]   # one per library in dev/seed.toml
 ffmpeg_dir = "{ffmpeg_dir}"
-confinement = "report"   # "require" refuses to start unconfined; "report" runs and says so
+confinement_policy = "report"   # "require" refuses to start unconfined; "report" runs and says so
 video_extensions = ["mkv", "mp4", "m4v", "avi", "mov", "wmv", "ts", "m2ts", "mts", "webm", "mpg", "mpeg", "vob", "flv", "ogv", "3gp"]
 subtitle_extensions = ["srt", "ass", "ssa", "vtt"]
 max_errors_per_root = 1000

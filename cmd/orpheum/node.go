@@ -43,7 +43,7 @@ const coreSocket = "core.sock"
 const nodeSocket = "node.sock"
 
 // errConfinementRequired refuses to run FFmpeg without every confinement mechanism in force.
-var errConfinementRequired = errors.New("node.confinement is \"require\", and not every mechanism is in " +
+var errConfinementRequired = errors.New("node.confinement_policy is \"require\", and not every mechanism is in " +
 	"force; fix what is missing, or set it to \"report\" to run with what there is and say so (D112)")
 
 // commandNode runs a media node: the child `run` starts, or a node on its own.
@@ -102,7 +102,7 @@ func checkConfinement(
 				"why", state.Reason, "remedy", state.Remedy)
 		}
 	}
-	if config.Node.Confinement == "require" {
+	if config.Node.ConfinementPolicy == "require" {
 		return nil, errConfinementRequired
 	}
 	return confinement, nil

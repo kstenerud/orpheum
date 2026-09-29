@@ -21,9 +21,10 @@ import (
 )
 
 // Config is the file read before the database opens: only what must exist by then, or must not
-// be changeable by someone holding only an admin account (D182 §3, D200). Every key is required
-// and none has a default in code; everything else is a setting in the database. Its keys are
-// exactly those of dev/orpheum.dev.toml (cut-a §2a) and configKeys.
+// be changeable by someone holding only an admin account (D182 §3, D200); everything else is a
+// setting in the database. Its keys are exactly those of dev/orpheum.dev.toml (cut-a §2a) and
+// configKeys, which gives each its starting value: a key the file lacks runs on it and says so
+// (D202).
 type Config struct {
 	Server   ServerConfig   `toml:"server"`
 	Database DatabaseConfig `toml:"database"`
@@ -46,8 +47,8 @@ type ServerConfig struct {
 
 // DatabaseConfig is what the store needs before the database opens.
 type DatabaseConfig struct {
-	ReadersMinimum     int `toml:"readers_minimum"`
-	MigrateSpaceFactor int `toml:"migrate_space_factor"`
+	ReadConnectionsMinimum     int `toml:"read_connections_minimum"`
+	MigrateFreeSpaceDBMultiple int `toml:"migrate_free_space_db_multiple"`
 }
 
 // NodeConfig is the media node's.
@@ -55,7 +56,7 @@ type NodeConfig struct {
 	Name               string   `toml:"name"`
 	Roots              []string `toml:"roots"`
 	FFmpegDir          string   `toml:"ffmpeg_dir"`
-	Confinement        string   `toml:"confinement"`
+	ConfinementPolicy  string   `toml:"confinement_policy"`
 	VideoExtensions    []string `toml:"video_extensions"`
 	SubtitleExtensions []string `toml:"subtitle_extensions"`
 	MaxErrorsPerRoot   int      `toml:"max_errors_per_root"`
@@ -109,18 +110,18 @@ func configKeys() []configKey {
 			"where the core's and the node's sockets live; systemd's RuntimeDirectory makes /run/orpheum",
 		},
 		{
-			tableDatabase, "readers_minimum", "4",
+			tableDatabase, "read_connections_minimum", "4",
 			"the smallest pool of read connections; a machine with more CPUs gets one per CPU",
 		},
 		{
-			tableDatabase, "migrate_space_factor", "3",
+			tableDatabase, "migrate_free_space_db_multiple", "3",
 			"free space needed before migrating, in multiples of the database: the snapshot plus a rebuild",
 		},
 		{tableNode, "name", `"local"`, "the name the core knows this node by (D207)"},
 		{tableNode, "roots", "", "the media directories this node serves; set on the node, never remotely (D107)"},
 		{tableNode, "ffmpeg_dir", "", "where the pinned FFmpeg is on this machine"},
 		{
-			tableNode, "confinement", `"require"`,
+			tableNode, "confinement_policy", `"require"`,
 			`"require" refuses to run FFmpeg unconfined; "report" runs and says so`,
 		},
 		{
@@ -274,15 +275,15 @@ func (config *Config) check() error {
 		problems = append(problems, fmt.Errorf("server.listen %q: want host:port", config.Server.Listen))
 	}
 	for key, value := range map[string]int64{
-		"server.read_header_timeout_s":  config.Server.ReadHeaderTimeoutS,
-		"server.shutdown_grace_s":       config.Server.ShutdownGraceS,
-		"database.readers_minimum":      int64(config.Database.ReadersMinimum),
-		"database.migrate_space_factor": int64(config.Database.MigrateSpaceFactor),
-		"node.max_errors_per_root":      int64(config.Node.MaxErrorsPerRoot),
-		"node.probe_timeout_s":          config.Node.ProbeTimeoutS,
-		"node.status_interval_s":        config.Node.StatusIntervalS,
-		"node.prepared_budget_gib":      config.Node.PreparedBudgetGiB,
-		"node.prepared_grace_h":         config.Node.PreparedGraceH,
+		"server.read_header_timeout_s":            config.Server.ReadHeaderTimeoutS,
+		"server.shutdown_grace_s":                 config.Server.ShutdownGraceS,
+		"database.read_connections_minimum":       int64(config.Database.ReadConnectionsMinimum),
+		"database.migrate_free_space_db_multiple": int64(config.Database.MigrateFreeSpaceDBMultiple),
+		"node.max_errors_per_root":                int64(config.Node.MaxErrorsPerRoot),
+		"node.probe_timeout_s":                    config.Node.ProbeTimeoutS,
+		"node.status_interval_s":                  config.Node.StatusIntervalS,
+		"node.prepared_budget_gib":                config.Node.PreparedBudgetGiB,
+		"node.prepared_grace_h":                   config.Node.PreparedGraceH,
 	} {
 		if value < 1 {
 			problems = append(problems, fmt.Errorf("%s is %d; it must be at least 1", key, value))
@@ -294,9 +295,9 @@ func (config *Config) check() error {
 	if config.Node.Name == "" {
 		problems = append(problems, errors.New("node.name is empty; the core knows a node by its name"))
 	}
-	if config.Node.Confinement != "require" && config.Node.Confinement != "report" {
-		problems = append(problems, fmt.Errorf("node.confinement %q: want \"require\" or \"report\"",
-			config.Node.Confinement))
+	if config.Node.ConfinementPolicy != "require" && config.Node.ConfinementPolicy != "report" {
+		problems = append(problems, fmt.Errorf("node.confinement_policy %q: want \"require\" or \"report\"",
+			config.Node.ConfinementPolicy))
 	}
 	if _, err := parseLevel(config.Log.Level); err != nil {
 		problems = append(problems, err)
@@ -309,13 +310,14 @@ func (config *Config) check() error {
 
 // openOptions are the store's choices from the file.
 func (config *Config) openOptions() store.OpenOptions {
-	return store.OpenOptions{MinimumReaders: config.Database.ReadersMinimum}
+	return store.OpenOptions{MinimumReaders: config.Database.ReadConnectionsMinimum}
 }
 
 // migrateOptions are the runner's choices from the file.
 func (config *Config) migrateOptions(snapshotDirectory string, beforeStep func(step, total int)) store.MigrateOptions {
 	return store.MigrateOptions{
-		SnapshotDirectory: snapshotDirectory, BeforeStep: beforeStep, SpaceFactor: config.Database.MigrateSpaceFactor,
+		SnapshotDirectory: snapshotDirectory, BeforeStep: beforeStep,
+		SpaceFactor: config.Database.MigrateFreeSpaceDBMultiple,
 	}
 }
 

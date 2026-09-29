@@ -40,7 +40,7 @@ func Idents() []string {
 
 // Fields are the fields a person can override on a title (D183); a series has fewer.
 func Fields() []string {
-	return []string{fieldName, fieldOverview, fieldTagline, fieldYear, fieldRuntime}
+	return []string{fieldName, fieldOverview, fieldTagline, fieldYear, fieldRuntimeMs}
 }
 
 func seriesFields() []string { return []string{fieldName, fieldOverview, fieldYear} }
@@ -301,7 +301,7 @@ func checkOverride(item target, field, value string) error {
 		return fmt.Errorf("%q: %w", field, ErrUnknownField)
 	}
 	switch field {
-	case fieldYear, fieldRuntime:
+	case fieldYear, fieldRuntimeMs:
 		if number, err := strconv.ParseInt(value, 10, 64); err != nil || number <= 0 {
 			return fmt.Errorf("%s %q: %w; it takes a whole number above zero", field, value, ErrBadValue)
 		}

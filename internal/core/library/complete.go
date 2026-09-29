@@ -174,8 +174,8 @@ func changedFacts(prior sqlcgen.GetRootStateRow, scan *scanState) string {
 
 // withholdReason says why a scan's removals should wait for the admin, or "" when they should
 // not: the root's device or mount changed since its last complete scan, or it would lose all of
-// its files, or more than removal_withhold_percent of them and more than
-// removal_withhold_min_files (D208 §3) — unless the admin approved this root's removals.
+// its files, or more than scan_withhold_removals_over_percent of them and more than
+// scan_withhold_removals_over_files (D208 §3) — unless the admin approved this root's removals.
 func (work *batch) withholdReason(ctx context.Context, scan *scanState, removing, total int) (string, error) {
 	prior, err := store.One(work.queries.GetRootState(ctx, sqlcgen.GetRootStateParams{
 		NodeID: work.nodeID, Path: scan.root,
@@ -196,13 +196,13 @@ func (work *batch) withholdReason(ctx context.Context, scan *scanState, removing
 	if removing == total {
 		return fmt.Sprintf("the scan saw none of the root's %d files", total), nil
 	}
-	percent, err := work.ingester.settings.Int(ctx, settings.RemovalWithholdPercent)
+	percent, err := work.ingester.settings.Int(ctx, settings.ScanWithholdRemovalsOverPercent)
 	if err != nil {
-		return "", fmt.Errorf("read removal_withhold_percent: %w", err)
+		return "", fmt.Errorf("read scan_withhold_removals_over_percent: %w", err)
 	}
-	minimum, err := work.ingester.settings.Int(ctx, settings.RemovalWithholdMinFiles)
+	minimum, err := work.ingester.settings.Int(ctx, settings.ScanWithholdRemovalsOverFiles)
 	if err != nil {
-		return "", fmt.Errorf("read removal_withhold_min_files: %w", err)
+		return "", fmt.Errorf("read scan_withhold_removals_over_files: %w", err)
 	}
 	if int64(removing)*100 > percent*int64(total) && int64(removing) > minimum {
 		return fmt.Sprintf("the scan would remove %d of the root's %d files", removing, total), nil

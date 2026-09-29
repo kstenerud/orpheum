@@ -1979,7 +1979,7 @@
         "additionalProperties": false,
         "properties": {
           "value": {
-            "description": "The value; year and runtime (milliseconds) are whole numbers",
+            "description": "The value; year and runtime_ms are whole numbers",
             "type": "string"
           }
         },
@@ -4604,7 +4604,7 @@
                 "overview",
                 "tagline",
                 "year",
-                "runtime"
+                "runtime_ms"
               ],
               "type": "string"
             }
@@ -4661,7 +4661,7 @@
                 "overview",
                 "tagline",
                 "year",
-                "runtime"
+                "runtime_ms"
               ],
               "type": "string"
             }

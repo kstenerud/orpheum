@@ -161,3 +161,38 @@ func TestMigrate_Step0020RenamesTVSpeakersToBuiltInSpeakersKeepingTheDevicesAndT
 		t.Errorf("the next device's id is %v, want 9, after the 8 an earlier device had", next)
 	}
 }
+
+func TestMigrate_Step0021KeepsWhatAPersonSetUnderTheRenamedKeys(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:20], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)",
+		"INSERT INTO item (id, kind, created_at) VALUES (1, 'title', 1)",
+		`INSERT INTO setting (scope, key, value, set_at) VALUES ('server', 'removal_withhold_percent', '40', 1),
+		 ('server', 'node_restart_delay_s', '9', 1), ('server', 'scan_on_node_hello', 'true', 1)`,
+		`INSERT INTO preference (user_id, scope, scope_id, axis, value, set_at)
+		 VALUES (1, 'file', 2, 'subtitle_track', '{"isOff":true}', 1)`,
+		`INSERT INTO field_override (item_id, field, value, origin, set_at)
+		 VALUES (1, 'runtime', '6000000', 'typed', 1)`)
+	if err = database.migrate(t.Context(), steps[:21], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	checks := map[string]string{
+		"SELECT key, value FROM setting ORDER BY key": "[[node_restart_after_exit_s 9] [scan_on_node_hello true] " +
+			"[scan_withhold_removals_over_percent 40]]",
+		"SELECT axis, value FROM preference":      `[[subtitle_choice {"isOff":true}]]`,
+		"SELECT field, value FROM field_override": "[[runtime_ms 6000000]]",
+	}
+	for query, want := range checks {
+		if got := fmt.Sprint(queryRows(t, database, query, 2)); got != want {
+			t.Errorf("after step 0021, %s = %s, want %s (D227)", query, got, want)
+		}
+	}
+}

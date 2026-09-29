@@ -77,16 +77,16 @@ type MatchInput struct {
 type OverrideInput struct {
 	AuthorizationHeader
 	ID    int64  `path:"id"`
-	Field string `enum:"name,overview,tagline,year,runtime" path:"field"`
+	Field string `enum:"name,overview,tagline,year,runtime_ms" path:"field"`
 }
 
 // PutOverrideInput sets a field to a person's value.
 type PutOverrideInput struct {
 	AuthorizationHeader
 	ID    int64  `path:"id"`
-	Field string `enum:"name,overview,tagline,year,runtime" path:"field"`
+	Field string `enum:"name,overview,tagline,year,runtime_ms" path:"field"`
 	Body  struct {
-		Value string `doc:"The value; year and runtime (milliseconds) are whole numbers" json:"value"`
+		Value string `doc:"The value; year and runtime_ms are whole numbers" json:"value"`
 	}
 }
 
