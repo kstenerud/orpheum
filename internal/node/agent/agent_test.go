@@ -3,11 +3,11 @@
 package agent
 
 import (
-	"bufio"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net"
 	"net/http"
@@ -35,7 +35,26 @@ type fakeCore struct {
 	prepareReports chan nodeproto.PrepareReport
 	subtitles      chan nodeproto.SubtitleText
 	loudness       chan nodeproto.LoudnessResult
-	reportsToDrop  int // the first reports it ends at once, as a core that went away would
+	reportsToDrop  int           // the first reports it ends at once, as a core that went away would
+	stopped        chan struct{} // closed at teardown: a handler stops handing on what it heard
+}
+
+// isMalformed says the node posted something that is not the JSON it should be; a body cut short
+// is the node going away, which the tests cause.
+func isMalformed(err error) bool {
+	var syntaxError *json.SyntaxError
+	var typeError *json.UnmarshalTypeError
+	return errors.As(err, &syntaxError) || errors.As(err, &typeError)
+}
+
+// handOn gives the test what a handler heard, unless the test has ended and nobody will read it.
+func handOn[T any](core *fakeCore, into chan<- T, value T) bool {
+	select {
+	case into <- value:
+		return true
+	case <-core.stopped:
+		return false
+	}
 }
 
 func startFakeCore(t *testing.T) (*fakeCore, string) {
@@ -44,11 +63,12 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		commands: make(chan nodeproto.Command, 4), records: make(chan nodeproto.Record, 64),
 		artwork: make(chan nodeproto.ArtworkResult, 4), prepareReports: make(chan nodeproto.PrepareReport, 16),
 		subtitles: make(chan nodeproto.SubtitleText, 4), loudness: make(chan nodeproto.LoudnessResult, 4),
+		stopped: make(chan struct{}),
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+nodeproto.PathHello, func(writer http.ResponseWriter, request *http.Request) {
 		var hello nodeproto.Hello
-		if err := json.NewDecoder(request.Body).Decode(&hello); err != nil {
+		if err := json.NewDecoder(request.Body).Decode(&hello); isMalformed(err) {
 			t.Error(err)
 		}
 		core.mutex.Lock()
@@ -69,9 +89,22 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 				t.Error(err)
 			}
 		case <-request.Context().Done():
+		case <-core.stopped:
 		}
 	})
-	mux.HandleFunc("POST "+nodeproto.PathReport, func(writer http.ResponseWriter, request *http.Request) {
+	mux.HandleFunc("POST "+nodeproto.PathReport, core.receiveReport(t))
+	mux.HandleFunc("POST "+nodeproto.PathArtwork, forwardPosted(t, core, core.artwork))
+	mux.HandleFunc("POST "+nodeproto.PathPrepare, forwardPosted(t, core, core.prepareReports))
+	mux.HandleFunc("POST "+nodeproto.PathSubtitle, forwardPosted(t, core, core.subtitles))
+	mux.HandleFunc("POST "+nodeproto.PathLoudness, forwardPosted(t, core, core.loudness))
+	socket := core.serve(t, mux)
+	return core, socket
+}
+
+// receiveReport hands the test each record of a report, dropping the first reportsToDrop.
+func (core *fakeCore) receiveReport(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(writer http.ResponseWriter, request *http.Request) {
 		if request.Header.Get(nodeHeader) != "7" {
 			t.Errorf("a report named node %q, want the 7 the hello answered", request.Header.Get(nodeHeader))
 		}
@@ -83,43 +116,68 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 			writer.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
-		lines := bufio.NewScanner(request.Body)
-		for lines.Scan() {
+		decoder := json.NewDecoder(request.Body)
+		for {
 			var record nodeproto.Record
-			if err := json.Unmarshal(lines.Bytes(), &record); err != nil {
+			err := decoder.Decode(&record)
+			if isMalformed(err) {
 				t.Error(err)
+			}
+			if err != nil || !handOn(core, core.records, record) {
 				return
 			}
-			core.records <- record
 		}
-	})
-	mux.HandleFunc("POST "+nodeproto.PathArtwork, forwardPosted(t, core.artwork))
-	mux.HandleFunc("POST "+nodeproto.PathPrepare, forwardPosted(t, core.prepareReports))
-	mux.HandleFunc("POST "+nodeproto.PathSubtitle, forwardPosted(t, core.subtitles))
-	mux.HandleFunc("POST "+nodeproto.PathLoudness, forwardPosted(t, core.loudness))
+	}
+}
+
+// serve answers on a socket until the test ends. Teardown closes every connection and then
+// waits for the handlers to return, so none reports to a test that has ended (which panics).
+func (core *fakeCore) serve(t *testing.T, handler http.Handler) string {
+	t.Helper()
 	socket := filepath.Join(t.TempDir(), "c.sock")
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", socket)
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Minute}
+	var handling sync.WaitGroup
+	counted := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		core.mutex.Lock()
+		select {
+		case <-core.stopped:
+			core.mutex.Unlock()
+			return
+		default:
+			handling.Add(1)
+		}
+		core.mutex.Unlock()
+		defer handling.Done()
+		handler.ServeHTTP(writer, request)
+	})
+	server := &http.Server{Handler: counted, ReadHeaderTimeout: time.Minute}
 	go func() { _ = server.Serve(listener) }() //nolint:errcheck // ends when the test closes it
-	t.Cleanup(func() { _ = server.Close() })   //nolint:errcheck // test teardown
-	return core, socket
+	t.Cleanup(func() {
+		core.mutex.Lock()
+		close(core.stopped)
+		core.mutex.Unlock()
+		_ = server.Close() //nolint:errcheck // test teardown
+		handling.Wait()
+	})
+	return socket
 }
 
 // forwardPosted hands the test each answer of type T the node posts.
-func forwardPosted[T any](t *testing.T, into chan<- T) http.HandlerFunc {
+func forwardPosted[T any](t *testing.T, core *fakeCore, into chan<- T) http.HandlerFunc {
 	t.Helper()
 	return func(writer http.ResponseWriter, request *http.Request) {
 		var answer T
-		if err := json.NewDecoder(request.Body).Decode(&answer); err != nil {
+		err := json.NewDecoder(request.Body).Decode(&answer)
+		if isMalformed(err) {
 			t.Error(err)
 		}
-		into <- answer
-		if _, err := writer.Write([]byte("{}")); err != nil {
-			t.Error(err)
+		if err != nil || !handOn(core, into, answer) {
+			return
 		}
+		_, _ = writer.Write([]byte("{}")) //nolint:errcheck // a node that went away has no use for it
 	}
 }
 
