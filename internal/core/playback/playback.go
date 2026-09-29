@@ -194,7 +194,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 // isStereoOutput is whether a device's sound is two channels the server folds down for it: TV
 // speakers or headphones, not a soundbar or receiver, nor a device not yet asked (D222).
 func isStereoOutput(audioOutput string) bool {
-	return audioOutput == "tv_speakers" || audioOutput == "headphones"
+	return audioOutput == "built_in_speakers" || audioOutput == "headphones"
 }
 
 // audioOutput is how a person's device makes sound, or empty when it is not yet asked or there is

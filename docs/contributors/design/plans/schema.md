@@ -575,7 +575,7 @@ CREATE TABLE device (                                      -- class A
   user_id       INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   name          TEXT NOT NULL,
   platform      TEXT NOT NULL,
-  audio_output  TEXT CHECK (audio_output IN ('tv_speakers','receiver','headphones')),
+  audio_output  TEXT CHECK (audio_output IN ('built_in_speakers','receiver','headphones')),  -- migration 0020
                                          -- NULL until asked on first playback (D184)
   first_seen_at    INTEGER NOT NULL,
   last_seen_at     INTEGER NOT NULL,

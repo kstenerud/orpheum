@@ -21,7 +21,7 @@ type Device struct {
 	ID       int64
 	Name     string
 	Platform string
-	// AudioOutput is how it makes sound (D222): tv_speakers, receiver or headphones, or empty
+	// AudioOutput is how it makes sound (D222): built_in_speakers, receiver or headphones, or empty
 	// until it is asked, the first time it plays.
 	AudioOutput string
 	AddedAt     time.Time

@@ -207,9 +207,9 @@
         "additionalProperties": false,
         "properties": {
           "audioOutput": {
-            "description": "How the device makes sound; TV speakers and headphones are stereo (D222)",
+            "description": "How the device makes sound; built-in speakers and headphones are stereo (D222)",
             "enum": [
-              "tv_speakers",
+              "built_in_speakers",
               "receiver",
               "headphones"
             ],
@@ -580,7 +580,7 @@
           "audioOutput": {
             "description": "Absent until the device is asked, the first time it plays (D222)",
             "enum": [
-              "tv_speakers",
+              "built_in_speakers",
               "receiver",
               "headphones"
             ],
@@ -2568,7 +2568,7 @@
           },
           "audioOutput": {
             "enum": [
-              "tv_speakers",
+              "built_in_speakers",
               "receiver",
               "headphones"
             ],

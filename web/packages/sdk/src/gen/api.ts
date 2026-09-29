@@ -1059,10 +1059,10 @@ export interface components {
         };
         ChangeDeviceInputBody: {
             /**
-             * @description How the device makes sound; TV speakers and headphones are stereo (D222)
+             * @description How the device makes sound; built-in speakers and headphones are stereo (D222)
              * @enum {string}
              */
-            audioOutput?: "tv_speakers" | "receiver" | "headphones";
+            audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             name?: string;
         };
         ChangePasswordInputBody: {
@@ -1170,7 +1170,7 @@ export interface components {
              * @description Absent until the device is asked, the first time it plays (D222)
              * @enum {string}
              */
-            audioOutput?: "tv_speakers" | "receiver" | "headphones";
+            audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             /** Format: int64 */
             id: number;
             isSignedIn: boolean;
@@ -1771,7 +1771,7 @@ export interface components {
         StartPlaybackOutputBody: {
             audio?: components["schemas"]["AudioRenditionBody"][] | null;
             /** @enum {string} */
-            audioOutput?: "tv_speakers" | "receiver" | "headphones";
+            audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             isPreparing: boolean;
             /** @enum {string} */
             kind: "direct" | "hls";

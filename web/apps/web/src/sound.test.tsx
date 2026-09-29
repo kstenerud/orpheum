@@ -55,7 +55,7 @@ describe("how a device makes sound (D222)", () => {
       {
         "POST /playback": [
           [200, direct()],
-          [200, direct("tv_speakers")],
+          [200, direct("built_in_speakers")],
         ],
         "PUT /me/devices/5": [204, undefined],
       },
@@ -72,7 +72,7 @@ describe("how a device makes sound (D222)", () => {
     );
     await click(answerButton("Built-in speakers"));
     expect(asked(heard)).toEqual(["POST /playback", "PUT /me/devices/5", "POST /playback"]);
-    expect(heard[1]?.body).toEqual({ audioOutput: "tv_speakers" });
+    expect(heard[1]?.body).toEqual({ audioOutput: "built_in_speakers" });
     expect(mounted.container.querySelector("video")).not.toBeNull();
     expect(mounted.container.textContent).toContain("Sound: Built-in speakers");
   });
@@ -90,7 +90,7 @@ describe("how a device makes sound (D222)", () => {
     const services = servedBy(
       {
         "POST /playback": [
-          [200, direct("tv_speakers")],
+          [200, direct("built_in_speakers")],
           [200, direct("headphones")],
         ],
         "PUT /me/devices/5": [204, undefined],

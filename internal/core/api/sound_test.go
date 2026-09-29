@@ -89,7 +89,7 @@ func TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct(t
 	if first := harness.playWithSound(t, user, surroundMenu()); first.Kind != "direct" || first.AudioOutput != "" {
 		t.Errorf("before the device is asked: %s %q, want direct and no answer", first.Kind, first.AudioOutput)
 	}
-	for _, output := range []string{"tv_speakers", "headphones"} {
+	for _, output := range []string{"built_in_speakers", "headphones"} {
 		if status := answer(output); status != http.StatusNoContent {
 			t.Fatalf("PUT audioOutput %s: %d", output, status)
 		}

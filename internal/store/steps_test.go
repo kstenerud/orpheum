@@ -130,3 +130,34 @@ func TestMigrate_Step0012RenamesColumnsKeepingTheirDataAndTheStoredKeys(t *testi
 		t.Errorf("the word index finds %v for the folded name, want the one row", found)
 	}
 }
+
+func TestMigrate_Step0020RenamesTVSpeakersToBuiltInSpeakersKeepingTheDevicesAndTheirIDs(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:19], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)",
+		`INSERT INTO device (id, user_id, name, platform, audio_output, first_seen_at, last_seen_at, removed_at)
+		 VALUES (3, 1, 'Laptop', 'web', 'tv_speakers', 1, 2, NULL), (5, 1, 'Phone', 'web', 'headphones', 1, 2, NULL),
+		        (8, 1, 'Old', 'web', NULL, 1, 2, 3)`,
+		"DELETE FROM device WHERE id = 8")
+	if err = database.migrate(t.Context(), steps[:20], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	rows := queryRows(t, database, "SELECT id, audio_output FROM device ORDER BY id", 2)
+	if fmt.Sprint(rows) != "[[3 built_in_speakers] [5 headphones]]" {
+		t.Errorf("after step 0020 the devices are %v; want the laptop's speakers built-in, the rest kept", rows)
+	}
+	// The id sequence is kept: a device made next never takes an id an earlier one had.
+	execRaw(t, database,
+		"INSERT INTO device (user_id, name, platform, first_seen_at, last_seen_at) VALUES (1, 'New', 'web', 4, 4)")
+	if next := queryRows(t, database, "SELECT max(id) FROM device", 1); fmt.Sprint(next) != "[[9]]" {
+		t.Errorf("the next device's id is %v, want 9, after the 8 an earlier device had", next)
+	}
+}
