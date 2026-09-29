@@ -78,26 +78,26 @@ func (name ArtSizeName) Size() (ArtSize, bool) {
 }
 
 // CommandArtwork asks the node to re-encode an image (D212 §1).
-const CommandArtwork CommandType = "artwork"
+const CommandArtwork CommandType = "encode_artwork"
 
 // Artwork is a source image the node sanitises and cuts into sizes. The source is anyone's
 // bytes — a provider's download, a file beside the media — and is decoded only here, under
 // FFmpeg's confinement.
 type Artwork struct {
-	// Job names the core's job the answer belongs to.
-	Job    int64  `json:"job"`
-	Source []byte `json:"source,omitempty"`
+	// JobID names the core's job the answer belongs to.
+	JobID       int64  `json:"jobId"`
+	SourceImage []byte `json:"sourceImage,omitempty"`
 	// AbsolutePath, in place of Source, names an image beside the media for the node to read
 	// itself, under one of its roots, so its bytes never reach the core (D215). Unlike every other
 	// Path on the wire it is absolute: the node finds the root it is under.
 	AbsolutePath *Path `json:"absolutePath,omitempty"`
 	Shape        Shape `json:"shape"`
-	// Sizes are the names to make; one larger than the source is not made.
-	Sizes []ArtSizeName `json:"sizes"`
-	// MaxPixels refuses a source larger than this before it is decoded: a decompression bomb.
-	MaxPixels int64 `json:"maxPixels"`
-	// Quality is libwebp's, 0 to 100.
-	Quality int `json:"quality"`
+	// SizeNames are the names to make; one larger than the source is not made.
+	SizeNames []ArtSizeName `json:"sizeNames"`
+	// MaxSourcePixels refuses a source larger than this before it is decoded: a decompression bomb.
+	MaxSourcePixels int64 `json:"maxSourcePixels"`
+	// WebPQuality is libwebp's, 0 to 100.
+	WebPQuality int `json:"webpQuality"`
 }
 
 // PathArtwork is where the node posts an artwork command's answer.
@@ -105,20 +105,20 @@ const PathArtwork = "/node/v1/artwork"
 
 // ArtImage is one size the node made: our own encoder's WebP.
 type ArtImage struct {
-	Size  ArtSizeName `json:"size"`
-	Bytes []byte      `json:"bytes"`
+	SizeName ArtSizeName `json:"sizeName"`
+	WebP     []byte      `json:"webp"`
 }
 
 // ArtworkResult is the node's answer: every size it made, as our own encoder wrote it, or why it
 // made none.
 type ArtworkResult struct {
-	Job    int64      `json:"job"`
-	Width  int        `json:"width"`
-	Height int        `json:"height"`
-	Images []ArtImage `json:"images"`
-	// SourceHash is the SHA-256, in hex, of the file a Path command named, as the node read it:
+	JobID        int64      `json:"jobId"`
+	SourceWidth  int        `json:"sourceWidth"`
+	SourceHeight int        `json:"sourceHeight"`
+	Images       []ArtImage `json:"images"`
+	// SourceHash is the SHA-256, in hex, of the file an AbsolutePath command named, as the node read it:
 	// what the core stores the sizes under.
 	SourceHash string `json:"sourceHash,omitempty"`
-	// Refused says why no size was made: over the pixel limit, not an image, a failed encode.
-	Refused string `json:"refused,omitempty"`
+	// Refusal says why no size was made: over the pixel limit, not an image, a failed encode.
+	Refusal string `json:"refusal,omitempty"`
 }

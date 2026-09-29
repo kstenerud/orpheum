@@ -70,8 +70,8 @@ func (server *Server) findings(ctx context.Context, dependencies *Dependencies) 
 		findings = append(findings, buildFinding(node.Name, facts.Hello.Build, dependencies.System.Build),
 			confinementFinding(node.Name, confinementBodies(facts.Hello.Confinement)),
 			hardwareFinding(node.Name, facts.Hello.Hardware))
-		if facts.Status != nil && facts.Status.Prepared != nil {
-			findings = append(findings, preparedFinding(node.Name, *facts.Status.Prepared))
+		if facts.Status != nil && facts.Status.PreparedUsage != nil {
+			findings = append(findings, preparedFinding(node.Name, *facts.Status.PreparedUsage))
 		}
 	}
 	return findings, nil
@@ -84,9 +84,9 @@ func preparedFinding(node string, usage nodeproto.PreparedUsage) FindingBody {
 	finding := FindingBody{
 		Check: "prepared copies on node " + node, Verdict: verdictOK,
 		Detail: fmt.Sprintf("%.1f GiB of a %d GiB budget; the disk is %d%% full, its limit %d%%",
-			float64(usage.Bytes)/gib, usage.BudgetBytes/gib, usage.DiskPercent, usage.DiskLimitPercent),
+			float64(usage.UsedBytes)/gib, usage.BudgetBytes/gib, usage.DiskUsedPercent, usage.DiskUsedLimitPercent),
 	}
-	if usage.DiskPercent > usage.DiskLimitPercent || usage.Bytes > usage.BudgetBytes {
+	if usage.DiskUsedPercent > usage.DiskUsedLimitPercent || usage.UsedBytes > usage.BudgetBytes {
 		finding.Verdict = verdictWarn
 		finding.Action = "free space on the disk that holds the prepared directory, or raise " +
 			"node.prepared_budget_gib; new copies are refused while nothing can be evicted"

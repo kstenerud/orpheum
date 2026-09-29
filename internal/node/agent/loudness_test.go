@@ -55,25 +55,25 @@ func TestAgent_MeasuresOnlyTheVideoTheCoreNamed(t *testing.T) {
 	video, _, core := extracting(t)
 	measure := func(job int64, named nodeproto.BytesFile, streamIndex int) nodeproto.Loudness {
 		command := nodeproto.MeasureLoudness{
-			Job: job, Video: named, Audio: []nodeproto.LoudnessTrack{{StreamIndex: streamIndex, Channels: 6}},
+			JobID: job, Video: named, Tracks: []nodeproto.LoudnessTrack{{StreamIndex: streamIndex, ChannelCount: 6}},
 		}
 		core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command}
 		return receiveLoudness(t, core)
 	}
 	measured := measure(1, video, 1)
 	wantPath := video.Root + "/film.mkv"
-	if measured.Job != 1 || measured.Refused != "" || len(measured.Tracks) != 1 ||
+	if measured.JobID != 1 || measured.Refusal != "" || len(measured.Tracks) != 1 ||
 		measured.Tracks[0].Stereo.IntegratedLUFS != -1 || measured.Tracks[0].Stereo.RangeLU != float64(len(wantPath)) {
 		t.Errorf("measuring the named video: %+v, want stream 1 of %s", measured, wantPath)
 	}
 	changed := video
-	changed.Hash = strings.Repeat("0", 64)
+	changed.PayloadHash = strings.Repeat("0", 64)
 	refused := measure(2, changed, 1)
-	if refused.Refused == "" || !strings.Contains(refused.Refused, "not the one named") || refused.Failed != "" {
+	if refused.Refusal == "" || !strings.Contains(refused.Refusal, "not the one named") || refused.Failure != "" {
 		t.Errorf("measuring a changed video: %+v, want it refused, not failed (D100)", refused)
 	}
 	failed := measure(3, video, unmeasurable)
-	if failed.Failed == "" || !strings.Contains(failed.Failed, "Invalid data") || failed.Refused != "" {
+	if failed.Failure == "" || !strings.Contains(failed.Failure, "Invalid data") || failed.Refusal != "" {
 		t.Errorf("a video FFmpeg cannot measure: %+v, want FFmpeg's failure, which is the file's", failed)
 	}
 }

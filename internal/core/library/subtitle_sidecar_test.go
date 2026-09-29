@@ -40,7 +40,7 @@ func TestSidecarTrackOf_ReadsTheLanguageAndFlagsAfterTheVideosName(t *testing.T)
 func subtitleSidecar(path, content string) nodeproto.Record {
 	record := sidecar(path, nodeproto.SidecarSubtitle, content)
 	record.Sidecar.Identity = &nodeproto.Identity{
-		Scheme: "payload-v1", Anchor: "whole-file", Hash: hashOf(content), PayloadLength: int64(len(content)),
+		Scheme: "payload-v1", Anchor: "whole-file", PayloadHash: hashOf(content), PayloadBytes: int64(len(content)),
 	}
 	return record
 }

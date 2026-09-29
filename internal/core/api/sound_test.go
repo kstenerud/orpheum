@@ -18,8 +18,8 @@ import (
 func (harness testHarness) shelveSurroundFilm(t *testing.T) {
 	t.Helper()
 	probe := `{"format":{"names":["mov","mp4","m4a"]},"streams":[` +
-		`{"kind":"video","codec":"h264","profile":"High","video":{"pixelFormat":"yuv420p"}},` +
-		`{"index":1,"kind":"audio","codec":"aac","profile":"LC","audio":{"channels":6}}]}`
+		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
+		`{"streamIndex":1,"kind":"audio","codec":"aac","codecProfile":"LC","audio":{"channelCount":6}}]}`
 	storetest.ExecRaw(t, harness.database,
 		`INSERT INTO file (id, library_id, node_id, path, path_key, size_bytes, payload_hash, filing, probe,
 		 first_seen_at, last_seen_at) VALUES

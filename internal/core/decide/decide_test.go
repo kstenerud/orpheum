@@ -20,15 +20,15 @@ var browser = decide.Menu{
 }
 
 func video(codec, profile, pixels, transfer string) nodeproto.ProbeStream {
-	return nodeproto.ProbeStream{Kind: "video", Codec: codec, Profile: profile, Video: nodeproto.ProbeVideo{
+	return nodeproto.ProbeStream{Kind: "video", Codec: codec, CodecProfile: profile, Video: nodeproto.ProbeVideo{
 		PixelFormat: pixels, ColorTransfer: transfer,
 	}}
 }
 
 func audio(codec, profile string, channels int, disposition ...string) nodeproto.ProbeStream {
 	return nodeproto.ProbeStream{
-		Kind: "audio", Codec: codec, Profile: profile, Disposition: disposition,
-		Audio: nodeproto.ProbeAudio{Channels: channels},
+		Kind: "audio", Codec: codec, CodecProfile: profile, Disposition: disposition,
+		Audio: nodeproto.ProbeAudio{ChannelCount: channels},
 	}
 }
 

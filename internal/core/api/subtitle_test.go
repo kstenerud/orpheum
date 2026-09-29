@@ -54,7 +54,7 @@ func (harness testHarness) extract(
 	job := jobs.Job{ID: jobID, Kind: jobs.KindExtractSubtitle, Subject: subtitleStreamID}
 	go func() { finished <- playback.HandleSubtitle(t.Context(), job) }()
 	command := <-harness.nodes.commanded
-	answer.Job = jobID
+	answer.JobID = jobID
 	playback.Extracted(t.Context(), 1, answer)
 	return command, <-finished
 }
@@ -165,9 +165,9 @@ func TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntil
 func checkExtractCommand(t *testing.T, command nodeproto.Command, jobID int64) {
 	t.Helper()
 	sent := command.ExtractSubtitle
-	if command.Type != nodeproto.CommandExtractSubtitle || sent == nil || sent.Job != jobID || sent.Sidecar != nil ||
+	if command.Type != nodeproto.CommandExtractSubtitle || sent == nil || sent.JobID != jobID || sent.Sidecar != nil ||
 		sent.Video == nil || sent.Video.Root != "/media" || string(sent.Video.Path) != "Film (2002).mkv" ||
-		sent.Video.Hash != "0c0d" || sent.StreamIndex != 2 {
+		sent.Video.PayloadHash != "0c0d" || sent.StreamIndex != 2 {
 		t.Fatalf("the node was sent %+v, want stream 2 of the MKV by root, path and hash", command)
 	}
 }
@@ -212,7 +212,7 @@ func TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed(t *testi
 	harness.shelveSubtitles(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	decided := harness.play(t, user, chrome(2))
-	if _, err := harness.extract(t, 91, nodeproto.SubtitleText{Refused: "ffmpeg: bad"}); err == nil ||
+	if _, err := harness.extract(t, 91, nodeproto.SubtitleText{Refusal: "ffmpeg: bad"}); err == nil ||
 		!strings.Contains(err.Error(), "ffmpeg: bad") {
 		t.Errorf("the job ended %v, want FFmpeg's failure", err)
 	}
@@ -247,10 +247,10 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 	command := <-harness.nodes.commanded
 	sent := command.ExtractSubtitle
 	if sent == nil || sent.Video != nil || sent.Sidecar == nil || sent.Sidecar.Root != "/media" ||
-		string(sent.Sidecar.Path) != "Film (2002).es.srt" || sent.Sidecar.Hash != "1e1f" {
+		string(sent.Sidecar.Path) != "Film (2002).es.srt" || sent.Sidecar.PayloadHash != "1e1f" {
 		t.Fatalf("the node was sent %+v, want the subtitle file whole, by root, path and hash", command)
 	}
-	extracted := nodeproto.SubtitleText{Job: 92, ASS: []byte("[Script Info] es"), VTT: []byte("WEBVTT es")}
+	extracted := nodeproto.SubtitleText{JobID: 92, ASS: []byte("[Script Info] es"), VTT: []byte("WEBVTT es")}
 	playback.Extracted(t.Context(), 1, extracted)
 	if err := <-finished; err != nil {
 		t.Fatalf("the job ended %v, want done", err)

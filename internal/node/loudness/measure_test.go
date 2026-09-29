@@ -32,14 +32,14 @@ func TestMeasure_ReadsOnlyTheFileAndMeasuresEachSoundByName(t *testing.T) {
 		t.Fatal(err)
 	}
 	measured, err := NewMeasurer(runner).Measure(t.Context(), "/media/Film (2020)/film.mkv",
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, Channels: 6}, {StreamIndex: 2, Channels: 2}})
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}, {StreamIndex: 2, ChannelCount: 2}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkArguments(t, fake.OnlyCall(t).Arguments)
-	if len(measured) != 2 || measured[0].Source == nil || measured[0].Source.IntegratedLUFS != -24.5 ||
-		*measured[0].Source.TruePeakDBTP != -1.3 || measured[0].Stereo.IntegratedLUFS != -31.9 ||
-		measured[0].Stereo.RangeLU != 17.0 || measured[1].Source != nil ||
+	if len(measured) != 2 || measured[0].Multichannel == nil || measured[0].Multichannel.IntegratedLUFS != -24.5 ||
+		*measured[0].Multichannel.TruePeakDBTP != -1.3 || measured[0].Stereo.IntegratedLUFS != -31.9 ||
+		measured[0].Stereo.RangeLU != 17.0 || measured[1].Multichannel != nil ||
 		measured[1].Stereo.IntegratedLUFS != -70 || measured[1].Stereo.TruePeakDBTP != nil {
 		t.Errorf("measured %+v; want the 5.1 track as it is and as stereo, and the silent one with no peak", measured)
 	}
@@ -74,7 +74,7 @@ func TestMeasure_ATrackFFmpegSaidNothingOfIsAFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = NewMeasurer(runner).Measure(t.Context(), "/media/film.mkv",
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, Channels: 2}, {StreamIndex: 3, Channels: 2}})
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}, {StreamIndex: 3, ChannelCount: 2}})
 	if err == nil || !strings.Contains(err.Error(), "stream 3") {
 		t.Errorf("with no summary for stream 3: %v, want a failure naming it", err)
 	}

@@ -50,7 +50,7 @@ func mixes(track nodeproto.PrepareAudio) []mix {
 	if track.GainDB != 0 {
 		levelled = ",volume=" + strconv.FormatFloat(track.GainDB, 'f', 1, 64) + "dB"
 	}
-	if track.Channels > 2 {
+	if track.ChannelCount > 2 {
 		return []mix{{name, StandardMix + levelled}, {name + "-boost", boostedMix + levelled}}
 	}
 	return []mix{{name, StereoMix + levelled}}
@@ -71,7 +71,7 @@ func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare, enco
 		for _, rendition := range mixes(track) {
 			arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(track.AudioTrackIndex),
 				"-filter:a:"+strconv.Itoa(slot), rendition.filter)
-			entry := "a:" + strconv.Itoa(slot) + ",agroup:audio,language:" + language(track.Language) +
+			entry := "a:" + strconv.Itoa(slot) + ",agroup:audio,language:" + language(track.LanguageTag) +
 				",name:" + rendition.name
 			if slot == 0 {
 				entry += ",default:yes"

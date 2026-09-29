@@ -182,7 +182,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		started.Audio = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, playback.profile, "", probe))
 		levelAudio(started.Audio, levels, probe, rendition.AudioGainsDb)
 		if main, found := decide.MainAudio(probe); found {
-			started.Levelling = levels[soundKey{int64(main.Index), soundStereo}]
+			started.Levelling = levels[soundKey{int64(main.StreamIndex), soundStereo}]
 		}
 	}
 	started.Token, err = service.tokens.issue(service.random, playback, service.clock.Now(), idle)
@@ -277,7 +277,8 @@ func (service *Service) source(ctx context.Context, file located) (nodeproto.Byt
 	}
 	for _, root := range roots {
 		if relative, under := bytes.CutPrefix(file.pathKey, []byte(root+"/")); under {
-			return nodeproto.BytesFile{Root: root, Path: relative, Hash: hex.EncodeToString(file.payloadHash)}, nil
+			return nodeproto.BytesFile{Root: root, Path: relative, PayloadHash: hex.EncodeToString(file.payloadHash)},
+				nil
 		}
 	}
 	return nodeproto.BytesFile{}, fmt.Errorf("%w: file %d is under none of its library's roots", ErrNoFile, file.id)

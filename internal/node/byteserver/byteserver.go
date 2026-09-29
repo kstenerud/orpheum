@@ -76,7 +76,7 @@ func (server *Server) file(writer http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
 	root, found := server.roots[query.Get("root")]
 	rawPath, pathErr := base64.RawURLEncoding.DecodeString(query.Get("path"))
-	want, hashErr := hex.DecodeString(query.Get("hash"))
+	want, hashErr := hex.DecodeString(query.Get("payloadHash"))
 	switch {
 	case !found:
 		http.Error(writer, "the root is not one of this node's", http.StatusNotFound)

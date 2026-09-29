@@ -225,10 +225,10 @@ func convertFetched(t *testing.T, harness testHarness, fetchedID int64) {
 	job := jobs.Job{ID: 95, Kind: jobs.KindConvertFetchedSubtitle, Subject: fetchedID}
 	go func() { finished <- playback.HandleFetchedSubtitle(t.Context(), job) }()
 	command := <-harness.nodes.commanded
-	if sent := command.ExtractSubtitle; sent == nil || string(sent.Fetched) != fetchedText || sent.Video != nil {
+	if sent := command.ExtractSubtitle; sent == nil || string(sent.FetchedSubRip) != fetchedText || sent.Video != nil {
 		t.Fatalf("the node was sent %+v, want the fetched text to convert (D224 §5)", command)
 	}
-	playback.Extracted(t.Context(), 1, nodeproto.SubtitleText{Job: 95, VTT: []byte("WEBVTT\n\nHallo")})
+	playback.Extracted(t.Context(), 1, nodeproto.SubtitleText{JobID: 95, VTT: []byte("WEBVTT\n\nHallo")})
 	if err := <-finished; err != nil {
 		t.Fatalf("the conversion ended %v, want done", err)
 	}

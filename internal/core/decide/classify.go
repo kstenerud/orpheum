@@ -44,7 +44,7 @@ func videoName(stream nodeproto.ProbeStream) (Video, bool) {
 	sdr := picture.ColorTransfer != pqTransfer && picture.ColorTransfer != hlgTransfer
 	switch stream.Codec {
 	case "h264":
-		decodable := slices.Contains(h264Profiles(), stream.Profile) &&
+		decodable := slices.Contains(h264Profiles(), stream.CodecProfile) &&
 			slices.Contains(eightBit420(), picture.PixelFormat)
 		if decodable && sdr {
 			return H264SDR, true
@@ -60,7 +60,7 @@ func videoName(stream nodeproto.ProbeStream) (Video, bool) {
 // hdrOrSDR places an HEVC or AV1 stream: SDR at 8 or 10 bits, or HDR10 at 10 bits.
 func hdrOrSDR(stream nodeproto.ProbeStream, sdr, hdr10 Video, profiles []string) (Video, bool) {
 	picture := stream.Video
-	if !slices.Contains(profiles, stream.Profile) || !slices.Contains(tenBit420(), picture.PixelFormat) {
+	if !slices.Contains(profiles, stream.CodecProfile) || !slices.Contains(tenBit420(), picture.PixelFormat) {
 		return "", false
 	}
 	switch picture.ColorTransfer {
@@ -80,10 +80,10 @@ func hdrOrSDR(stream nodeproto.ProbeStream, sdr, hdr10 Video, profiles []string)
 func audioName(stream nodeproto.ProbeStream) (Audio, bool) {
 	switch stream.Codec {
 	case "aac":
-		if !slices.Contains(aacProfiles(), stream.Profile) {
+		if !slices.Contains(aacProfiles(), stream.CodecProfile) {
 			return "", false
 		}
-		if stream.Audio.Channels > 2 {
+		if stream.Audio.ChannelCount > 2 {
 			return AACMulti, true
 		}
 		return AACStereo, true

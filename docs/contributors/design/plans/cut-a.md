@@ -183,24 +183,25 @@ with the file channel deleted.
 | Request | Body |
 | --- | --- |
 | `POST /node/v1/hello` | node id, version, FFmpeg version and hash, capabilities (`remux`, `aac`, `h264_qsv`, `h264_nvenc`, `x264`), confinement report per mechanism with errno and remedy ([D112](../../decisions/working-notes.md)) |
-| `POST /node/v1/report` | a JSONL stream, one record per line, each with a node sequence number. Record types: `scan_begin{root}`, `observed{path, size, mtime, payload_hash, payload_len, probe}`, `gone{path}`, `skip{path, rule}`, `error{path, scope, code, detail}`, `scan_complete{root}`, `job{job_id, state, progress, error}`, `status{…}` |
-| `GET /node/v1/commands?after=<seq>` | long-poll; returns the next commands |
+| `POST /node/v1/report` | a JSONL stream, one record per line, each with a node sequence number. Record types: `scan_begin{root, filesystemDevice, isMountPoint, isReadOnly}`, `observed{path, sizeBytes, mtimeMs, identity{payloadHash, payloadBytes}, probe}`, `sidecar{…}`, `mount{path, filesystemDevice}`, `skip{path, rule}`, `error{path, scope, code, occurrenceCount, platform}`, `scan_complete{root, observedCount, sidecarCount, skippedCount, errorCount, isStoppedByErrors}`, `status{sentAt, activity, preparedUsage, disks}`. A job's progress and end are posted to its own path, not reported (D227 renamed these fields) |
+| `GET /node/v1/commands?afterSeq=<seq>` | long-poll; returns the next commands |
 
 **Commands** (core → node, delivered by the long-poll):
-- `scan{root, priority_paths[]}`
-- `prepare{job_id, path, payload_hash, profile, out_dir}`
-- `extract_subtitle{job_id, video{root, path, payload_hash}, stream_index}` or `{job_id, sidecar{root, path, payload_hash}}`:
-  one job makes both ASS and WebVTT ([D217](../../decisions/working-notes.md) §6)
-- `measure_loudness{job_id, video{root, path, payload_hash}, audio[]}`: each audio track's
+- `scan{root}`
+- `prepare{jobId, source{root, path, payloadHash}, profile, renditionDir, audio[]}`
+- `extract_subtitle{jobId, video{root, path, payloadHash}, streamIndex}`, `{jobId, sidecar{…}}` or
+  `{jobId, fetchedSubRip}`: one job makes both ASS and WebVTT ([D217](../../decisions/working-notes.md) §6)
+- `measure_loudness{jobId, video{root, path, payloadHash}, tracks[]}`: each audio track's
   integrated loudness, loudness range and true peak, and its standard stereo mix's when it has more
   than two channels, from one read of the file ([D226](../../decisions/working-notes.md) §1)
-- `cancel{job_id}`
+- `encode_artwork{jobId, …}`: an image made into the sizes a person sees (D212)
+- `cancel{jobId}`
 
 **A command names its target by path *and* payload hash**, and the node refuses it if they no
 longer match ([D100](../../decisions/working-notes.md)).
 
 **Core reads from the node** (`/run/orpheum/node.sock`, `GET` only):
-- `GET /bytes/v1/file?root=…&path=…&hash=…`, honouring `Range`: `path` is base64url of the bytes relative to `root` (plan-deviations P25);
+- `GET /bytes/v1/file?root=…&path=…&payloadHash=…`, honouring `Range`: `path` is base64url of the bytes relative to `root` (plan-deviations P25);
 - `GET /bytes/v1/prepared/<file_id>/<profile>/<run_id>/<name>` (D217 §5).
 
 **Liveness:** `status` records carry the node's clock and what it is doing. The core marks the

@@ -74,9 +74,9 @@ func TestHandle_APrepareTheNodeHoldsWaitingForASlotOutlivesTheSilenceLimit(t *te
 	// The node holds the prepare behind another for three silence limits, saying so each time.
 	for range 6 {
 		time.Sleep(silence / 2)
-		all.reported(t.Context(), 1, nodeproto.PrepareReport{Job: 7, State: nodeproto.PrepareWaiting})
+		all.reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareWaiting})
 	}
-	all.reported(t.Context(), 1, nodeproto.PrepareReport{Job: 7, State: nodeproto.PrepareDone, SizeBytes: 10})
+	all.reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 7, State: nodeproto.PrepareDone, SizeBytes: 10})
 	if err := <-ended; err != nil {
 		t.Errorf("a prepare waiting for a slot, said so: %v, want it to wait and end done", err)
 	}
@@ -98,7 +98,10 @@ func TestFinish_RecordsWhatMadeTheVideoAndHowFast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	done := nodeproto.PrepareReport{State: nodeproto.PrepareDone, SizeBytes: 10, VideoEncoder: "h264_qsv", Speed: 6.5}
+	done := nodeproto.PrepareReport{
+		State: nodeproto.PrepareDone, SizeBytes: 10, VideoEncoder: "h264_qsv",
+		RealtimeFactor: 6.5,
+	}
 	if err = all.finish(t.Context(), rendition, &done, ""); err != nil {
 		t.Fatal(err)
 	}

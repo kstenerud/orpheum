@@ -158,7 +158,7 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 	if err := all.carrying(ctx, job.Subject, made.gains); err != nil {
 		return err
 	}
-	command.Job = job.ID
+	command.JobID = job.ID
 	all.nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandPrepare, Prepare: &command})
 	timer := time.NewTimer(all.maxSilence)
 	defer timer.Stop()
@@ -177,8 +177,8 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, made making) erro
 				return all.finish(ctx, job.Subject, &report, "")
 			case nodeproto.PrepareFailed:
 				// FFmpeg failing on a file fails again on it: this is not retried.
-				failure := errors.New(report.Error)
-				return jobs.Permanent(errors.Join(failure, all.finish(ctx, job.Subject, nil, report.Error)))
+				failure := errors.New(report.Failure)
+				return jobs.Permanent(errors.Join(failure, all.finish(ctx, job.Subject, nil, report.Failure)))
 			}
 		case <-timer.C:
 			return fmt.Errorf("node %d said nothing about prepare %s for %s",
@@ -247,8 +247,8 @@ func (all *prepares) finish(ctx context.Context, rendition int64, done *nodeprot
 				videoEncoder = &done.VideoEncoder
 			}
 			var speed *float64
-			if done.Speed > 0 {
-				speed = &done.Speed
+			if done.RealtimeFactor > 0 {
+				speed = &done.RealtimeFactor
 			}
 			return queries.SetRenditionComplete(ctx, cachegen.SetRenditionCompleteParams{
 				SizeBytes: &done.SizeBytes, FinishedAt: &now, VideoEncoder: videoEncoder, Speed: speed, ID: rendition,
@@ -266,7 +266,7 @@ func (all *prepares) finish(ctx context.Context, rendition int64, done *nodeprot
 
 // reported hands a node's report to the job waiting for it.
 func (all *prepares) reported(ctx context.Context, nodeID int64, report nodeproto.PrepareReport) {
-	all.waiting.deliver(ctx, nodeID, report.Job, report)
+	all.waiting.deliver(ctx, nodeID, report.JobID, report)
 }
 
 // prepareCommand is the node's command for a rendition of file: its source by identity, its
@@ -279,7 +279,7 @@ func prepareCommand(
 		RenditionDir: strconv.FormatInt(fileID, 10) + "/" + string(profile) + "/" + runID,
 	}
 	if picture, found := decide.MainVideo(probe); found {
-		command.VideoStreamIndex, command.VideoCodec = picture.Index, picture.Codec
+		command.VideoStreamIndex, command.VideoCodec = picture.StreamIndex, picture.Codec
 	}
 	for index, stream := range audioStreams(probe) {
 		language := stream.LanguageTag
@@ -287,7 +287,7 @@ func prepareCommand(
 			language = "und"
 		}
 		command.Audio = append(command.Audio, nodeproto.PrepareAudio{
-			AudioTrackIndex: index, Language: language, Channels: stream.Audio.Channels,
+			AudioTrackIndex: index, LanguageTag: language, ChannelCount: stream.Audio.ChannelCount,
 		})
 	}
 	return command

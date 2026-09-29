@@ -157,7 +157,7 @@ func (work *batch) record(ctx context.Context, record nodeproto.Record) error {
 	case nodeproto.RecordMount:
 		if scan := work.scan(); scan != nil {
 			mountPath := nodePath(scan.root, record.Mount.Path).text
-			scan.mounts[mountPath] = record.Mount.Device
+			scan.mounts[mountPath] = record.Mount.FilesystemDevice
 		}
 	case nodeproto.RecordStatus:
 	}
@@ -191,7 +191,7 @@ func (work *batch) begin(ctx context.Context, begin *nodeproto.ScanBegin) error 
 	}
 	work.ingester.scans[work.nodeID] = &scanState{
 		root: begin.Root, libraryID: libraryID, startedAt: work.now,
-		facts:  rootFacts{Device: begin.Device, MountPoint: begin.MountPoint},
+		facts:  rootFacts{Device: begin.FilesystemDevice, MountPoint: begin.IsMountPoint},
 		mounts: map[string]uint64{},
 	}
 	return nil
@@ -229,9 +229,9 @@ func nodePath(root string, reported nodeproto.Path) filePath {
 // errorDetail is the error record's platform account, as the file row keeps it (D163).
 func errorDetail(failure *nodeproto.Error) (*string, error) {
 	encoded, err := json.Marshal(struct {
-		nodeproto.ErrorRaw
-		RepeatCount int `json:"repeatCount"`
-	}{failure.Raw, failure.RepeatCount})
+		nodeproto.PlatformError
+		OccurrenceCount int `json:"occurrenceCount"`
+	}{failure.Platform, failure.OccurrenceCount})
 	if err != nil {
 		return nil, fmt.Errorf("encode the error's detail: %w", err)
 	}
@@ -241,9 +241,9 @@ func errorDetail(failure *nodeproto.Error) (*string, error) {
 
 // payloadHash decodes the node's hex hash for the BLOB column.
 func payloadHash(identity nodeproto.Identity) ([]byte, error) {
-	decoded, err := hex.DecodeString(identity.Hash)
+	decoded, err := hex.DecodeString(identity.PayloadHash)
 	if err != nil || len(decoded) == 0 {
-		return nil, fmt.Errorf("a payload hash that is not hex: %q", identity.Hash)
+		return nil, fmt.Errorf("a payload hash that is not hex: %q", identity.PayloadHash)
 	}
 	return decoded, nil
 }

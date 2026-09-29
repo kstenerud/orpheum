@@ -79,8 +79,8 @@ func checkRecordedVideo(t *testing.T, record nodeproto.Probe) {
 func checkRecordedAudio(t *testing.T, record nodeproto.Probe) {
 	t.Helper()
 	audio := record.Streams[1]
-	if audio.Codec != "aac" || audio.Language != "ger" || audio.Title != "Deutsch (Stereo)" ||
-		audio.Audio.Channels != 2 || audio.Audio.SampleRateHz != 44100 ||
+	if audio.Codec != "aac" || audio.ContainerLanguage != "ger" || audio.Title != "Deutsch (Stereo)" ||
+		audio.Audio.ChannelCount != 2 || audio.Audio.SampleRateHz != 44100 ||
 		!slices.Contains(audio.Disposition, "default") {
 		t.Errorf("audio = %+v", audio)
 	}
@@ -89,7 +89,7 @@ func checkRecordedAudio(t *testing.T, record nodeproto.Probe) {
 func checkRecordedSubtitle(t *testing.T, record nodeproto.Probe) {
 	t.Helper()
 	subtitle := record.Streams[2]
-	if subtitle.Codec != "ass" || subtitle.Language != "eng" || subtitle.Title != "Signs & Songs" ||
+	if subtitle.Codec != "ass" || subtitle.ContainerLanguage != "eng" || subtitle.Title != "Signs & Songs" ||
 		!slices.Contains(subtitle.Disposition, "forced") {
 		t.Errorf("subtitle = %+v", subtitle)
 	}
@@ -131,9 +131,9 @@ func TestParse_IsTheSameRecordEveryTime(t *testing.T) {
 			t.Fatalf("two parses differ: %+v and %+v", first, again)
 		}
 	}
-	if first.Format.Title != "b" || first.Streams[0].Language != "deu" {
+	if first.Format.Title != "b" || first.Streams[0].ContainerLanguage != "deu" {
 		t.Errorf("title %q, language %q: want the first key in sorted order",
-			first.Format.Title, first.Streams[0].Language)
+			first.Format.Title, first.Streams[0].ContainerLanguage)
 	}
 	if !slices.Equal(first.Streams[0].Disposition, []string{"comment", "default", "dub", "forced", "original"}) {
 		t.Errorf("disposition = %q, want the set flags, sorted", first.Streams[0].Disposition)
@@ -186,9 +186,9 @@ func TestParse_ALanguageTagIsNormalisedBesideTheRawOne(t *testing.T) {
 			t.Fatal(err)
 		}
 		stream := record.Streams[0]
-		if stream.Language != raw || stream.LanguageTag != want {
+		if stream.ContainerLanguage != raw || stream.LanguageTag != want {
 			t.Errorf("%q: language %q, tag %q; want the raw tag kept and %q beside it",
-				raw, stream.Language, stream.LanguageTag, want)
+				raw, stream.ContainerLanguage, stream.LanguageTag, want)
 		}
 	}
 }

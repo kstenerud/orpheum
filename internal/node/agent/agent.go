@@ -134,10 +134,10 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	if err != nil {
 		return err
 	}
-	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID, "reportSeq", reply.ReportSeq)
+	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID, "reportSeq", reply.LastReportSeq)
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
-	report := newReport(reply.ReportSeq)
+	report := newReport(reply.LastReportSeq)
 	work := make(chan nodeproto.Command, 16)
 	var running sync.WaitGroup
 	running.Go(func() { cancel(agent.stream(ctx, reply.NodeID, report)) })
@@ -178,15 +178,15 @@ func (agent *Agent) poll(ctx context.Context, nodeID int64, work chan<- nodeprot
 	var after int64
 	for {
 		var answer nodeproto.Commands
-		path := nodeproto.PathCommands + "?after=" + strconv.FormatInt(after, 10)
+		path := nodeproto.PathCommands + "?" + nodeproto.QueryAfterSeq + "=" + strconv.FormatInt(after, 10)
 		if err := agent.exchange(ctx, http.MethodGet, path, nodeID, http.NoBody, &answer); err != nil {
 			return err
 		}
 		for _, command := range answer.Commands {
 			// A cancel is carried out as it arrives, not queued behind the work it stops.
 			if command.Type == nodeproto.CommandCancel && command.Cancel != nil {
-				if !agent.working.cancel(command.Cancel.Job) {
-					agent.logger.InfoContext(ctx, "a job was cancelled before it started", "job", command.Cancel.Job)
+				if !agent.working.cancel(command.Cancel.JobID) {
+					agent.logger.InfoContext(ctx, "a job was cancelled before it started", "job", command.Cancel.JobID)
 				}
 				after = command.Seq
 				continue
@@ -270,21 +270,21 @@ func (agent *Agent) artwork(ctx context.Context, nodeID int64, command nodeproto
 		source, err := agent.readImage(*command.AbsolutePath)
 		if err == nil {
 			sum := sha256.Sum256(source)
-			command.Source, command.AbsolutePath, sourceHash = source, nil, hex.EncodeToString(sum[:])
+			command.SourceImage, command.AbsolutePath, sourceHash = source, nil, hex.EncodeToString(sum[:])
 		} else {
-			result = nodeproto.ArtworkResult{Job: command.Job, Refused: err.Error()}
+			result = nodeproto.ArtworkResult{JobID: command.JobID, Refusal: err.Error()}
 		}
 	}
-	if result.Refused == "" {
+	if result.Refusal == "" {
 		result = agent.workers.Artwork.Derive(ctx, command)
 		result.SourceHash = sourceHash
 	}
-	if result.Refused != "" {
-		agent.logger.WarnContext(ctx, "refused an image", "job", command.Job, "why", result.Refused)
+	if result.Refusal != "" {
+		agent.logger.WarnContext(ctx, "refused an image", "job", command.JobID, "why", result.Refusal)
 	}
 	encoded, err := json.Marshal(result)
 	if err != nil {
-		return fmt.Errorf("encode artwork %d: %w", command.Job, err)
+		return fmt.Errorf("encode artwork %d: %w", command.JobID, err)
 	}
 	var accepted struct{}
 	body := bytes.NewReader(encoded)
@@ -338,12 +338,12 @@ func (agent *Agent) status() nodeproto.Record {
 	disks := agent.disks()
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
-	status := &nodeproto.Status{ClockMs: agent.clock.Now().UnixMilli(), Doing: agent.doing, Disks: disks}
+	status := &nodeproto.Status{SentAt: agent.clock.Now().UnixMilli(), Activity: agent.doing, Disks: disks}
 	if agent.workers.Keeper != nil {
 		if usage, known := agent.workers.Keeper.LastUsage(); known {
-			status.Prepared = &nodeproto.PreparedUsage{
-				Bytes: usage.Bytes, BudgetBytes: usage.BudgetBytes, DiskPercent: usage.DiskPercent,
-				DiskLimitPercent: usage.MaxDiskPercent,
+			status.PreparedUsage = &nodeproto.PreparedUsage{
+				UsedBytes: usage.Bytes, BudgetBytes: usage.BudgetBytes, DiskUsedPercent: usage.DiskPercent,
+				DiskUsedLimitPercent: usage.MaxDiskPercent,
 			}
 		}
 	}
@@ -363,7 +363,7 @@ func (agent *Agent) disks() []nodeproto.Disk {
 		if space, err := diskspace.Measure(path); err != nil {
 			disk.Failure = err.Error()
 		} else {
-			disk.TotalBytes, disk.FreeBytes = space.TotalBytes, space.FreeBytes
+			disk.TotalBytes, disk.AvailableBytes = space.TotalBytes, space.FreeBytes
 		}
 		disks = append(disks, disk)
 	}

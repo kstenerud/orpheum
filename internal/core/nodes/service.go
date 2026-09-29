@@ -174,7 +174,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 			service.Enqueue(node.ID, nodeproto.Command{Type: nodeproto.CommandScan, Scan: &nodeproto.Scan{Root: root}})
 		}
 	}
-	writeJSON(writer, nodeproto.HelloReply{NodeID: node.ID, ReportSeq: node.ReportSeq})
+	writeJSON(writer, nodeproto.HelloReply{NodeID: node.ID, LastReportSeq: node.ReportSeq})
 }
 
 // Enrol returns the id of the live node called name, creating its row if there is none (D207):

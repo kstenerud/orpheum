@@ -20,9 +20,9 @@ func (bench *bench) stored(t *testing.T, source []byte, sizes ...nodeproto.ArtSi
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
 		var images []nodeproto.ArtImage
 		for _, size := range sizes {
-			images = append(images, nodeproto.ArtImage{Size: size, Bytes: ourWebP})
+			images = append(images, nodeproto.ArtImage{SizeName: size, WebP: ourWebP})
 		}
-		return nodeproto.ArtworkResult{Job: command.Job, Images: images}
+		return nodeproto.ArtworkResult{JobID: command.JobID, Images: images}
 	}
 	bench.handle(t, owedRef{Kind: identify.ArtPoster, Ref: "/poster.jpg"})
 	return Received(source).hash()
@@ -117,10 +117,10 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 
 	// The node finds the source too small for portrait-l: noted, and never queued again.
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
-		if !slices.Equal(command.Sizes, []nodeproto.ArtSizeName{nodeproto.PortraitL}) {
-			t.Errorf("asked for %v, want portrait-l only", command.Sizes)
+		if !slices.Equal(command.SizeNames, []nodeproto.ArtSizeName{nodeproto.PortraitL}) {
+			t.Errorf("asked for %v, want portrait-l only", command.SizeNames)
 		}
-		return nodeproto.ArtworkResult{Job: command.Job}
+		return nodeproto.ArtworkResult{JobID: command.JobID}
 	}
 	if err := bench.service.Handle(t.Context(), job); err != nil {
 		t.Fatal(err)
@@ -137,8 +137,8 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 	// Made: portrait-l is stored under the same hash.
 	delete(bench.art, hash+"/portrait-l.none")
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
-		return nodeproto.ArtworkResult{Job: command.Job, Images: []nodeproto.ArtImage{
-			{Size: nodeproto.PortraitL, Bytes: ourWebP},
+		return nodeproto.ArtworkResult{JobID: command.JobID, Images: []nodeproto.ArtImage{
+			{SizeName: nodeproto.PortraitL, WebP: ourWebP},
 		}}
 	}
 	if err := bench.service.Handle(t.Context(), job); err != nil {

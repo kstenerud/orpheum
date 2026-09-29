@@ -14,6 +14,10 @@ const (
 	PathCommands = "/node/v1/commands"
 )
 
+// QueryAfterSeq is the commands long-poll's parameter: the sequence number of the last command
+// the node took, so the core answers with the ones after it.
+const QueryAfterSeq = "afterSeq"
+
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
 	// Name is the node's configured name; the core enrols a node it has not seen by it (D207).
@@ -44,19 +48,19 @@ type Hardware struct {
 	GPUs []GPU `json:"gpus"`
 	// Trials are the hardware encoders tried at startup, confined as a prepare is, in order.
 	Trials []EncoderTrial `json:"trials"`
-	// Encoder is the encoder its encodes use: h264_qsv, h264_nvenc or x264.
-	Encoder string `json:"encoder"`
+	// ChosenEncoder is the encoder its encodes use: h264_qsv, h264_nvenc or x264.
+	ChosenEncoder string `json:"chosenEncoder"`
 }
 
 // GPU is one GPU device node the node found.
 type GPU struct {
-	// Device is its path: /dev/dri/renderD128, /dev/nvidia0.
-	Device string `json:"device"`
+	// DevicePath is its path: /dev/dri/renderD128, /dev/nvidia0.
+	DevicePath string `json:"devicePath"`
 	// Driver is the kernel driver behind it (i915, xe, amdgpu, nvidia), empty when unknown.
 	Driver string `json:"driver,omitempty"`
-	// NoAccess is why the node's user may not open it for reading and writing, in the system's
+	// NoAccessReason is why the node's user may not open it for reading and writing, in the system's
 	// words; empty when it may.
-	NoAccess string `json:"noAccess,omitempty"`
+	NoAccessReason string `json:"noAccessReason,omitempty"`
 }
 
 // EncoderTrial is one hardware encoder's trial: it encoded a second of test picture, or Failure
@@ -69,9 +73,9 @@ type EncoderTrial struct {
 // Confinement is one mechanism's state on the node: in force, or not and why (cut-a §7).
 type Confinement struct {
 	Mechanism string `json:"mechanism"`
-	InForce   bool   `json:"inForce"`
-	// Cause names why it is not in force, from confine's closed set, for a client's own words.
-	Cause string `json:"cause,omitempty"`
+	IsInForce bool   `json:"isInForce"`
+	// CauseCode names why it is not in force, from confine's closed set, for a client's own words.
+	CauseCode string `json:"causeCode,omitempty"`
 	// Reason says why a mechanism is not in force, and Remedy what would put it there.
 	Reason string `json:"reason"`
 	Remedy string `json:"remedy"`
@@ -80,6 +84,6 @@ type Confinement struct {
 // HelloReply is the core's answer: the node's id, and the last report sequence number the core
 // ingested, from which the node continues numbering.
 type HelloReply struct {
-	NodeID    int64 `json:"nodeId"`
-	ReportSeq int64 `json:"reportSeq"`
+	NodeID        int64 `json:"nodeId"`
+	LastReportSeq int64 `json:"lastReportSeq"`
 }

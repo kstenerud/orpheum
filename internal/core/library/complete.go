@@ -34,9 +34,9 @@ func (work *batch) complete(ctx context.Context, scan *scanState, complete *node
 		return err
 	}
 	work.ended = append(work.ended, scan.libraryID)
-	if complete.Stopped || scan.unreadAll {
+	if complete.IsStoppedByErrors || scan.unreadAll {
 		work.ingester.logger.WarnContext(ctx, "a scan could not read its whole root; nothing was removed",
-			"nodeId", work.nodeID, "root", scan.root, "errors", complete.Errors)
+			"nodeId", work.nodeID, "root", scan.root, "errors", complete.ErrorCount)
 		return work.recordNotComplete(ctx, scan, outcomeUnreadable, "")
 	}
 	missing, err := work.missingMounts(ctx, scan)

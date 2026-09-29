@@ -196,3 +196,43 @@ func TestMigrate_Step0021KeepsWhatAPersonSetUnderTheRenamedKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestMigrate_Step0022RewritesTheStoredJSONWithTheNodesNewNames(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:21], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		`INSERT INTO node (id, name, enrolled_at, status) VALUES (1, 'local', 1,
+		 '{"clockMs":5,"doing":"idle","prepared":{"bytes":7,"diskPercent":40,"diskLimitPercent":95},`+
+			`"disks":[{"path":"/m","totalBytes":9,"freeBytes":3}]}')`,
+		"INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at) "+
+			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)",
+		`INSERT INTO file (id, library_id, node_id, path, path_key, filing, probe, error_detail, first_seen_at,
+		 last_seen_at) VALUES (1, 1, 1, '/m/a.mkv', X'2F', 'errored',
+		 '{"streams":[{"index":1,"kind":"audio","language":"ger","languageTag":"de","profile":"LC",`+
+			`"audio":{"channels":6,"channelLayout":"5.1"}}]}',
+		 '{"text":"denied","ownerUid":1,"groupGid":2,"mode":"-rw-------","repeatCount":3}', 1, 1)`)
+	if err = database.migrate(t.Context(), steps[:22], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	checks := map[string]string{
+		"SELECT probe FROM file": `[[{"streams":[{"streamIndex":1,"kind":"audio","containerLanguage":"ger",` +
+			`"languageTag":"de","codecProfile":"LC","audio":{"channelCount":6,"channelLayout":"5.1"}}]}]]`,
+		"SELECT error_detail FROM file": `[[{"text":"denied","ownerUid":1,"groupGid":2,"modeText":"-rw-------",` +
+			`"occurrenceCount":3}]]`,
+		"SELECT status FROM node": `[[{"sentAt":5,"activity":"idle","preparedUsage":{"usedBytes":7,` +
+			`"diskUsedPercent":40,"diskUsedLimitPercent":95},` +
+			`"disks":[{"path":"/m","totalBytes":9,"availableBytes":3}]}]]`,
+	}
+	for query, want := range checks {
+		if got := fmt.Sprint(queryRows(t, database, query, 1)); got != want {
+			t.Errorf("after step 0022, %s =\n%s\nwant\n%s (D227)", query, got, want)
+		}
+	}
+}

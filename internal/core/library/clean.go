@@ -25,8 +25,8 @@ func cleanRecord(record nodeproto.Record) nodeproto.Record {
 	if record.Error != nil {
 		failure := *record.Error
 		failure.Code = nodeproto.ErrorCode(textindex.Line(string(failure.Code)))
-		failure.Raw.Text = textindex.Prose(failure.Raw.Text)
-		failure.Raw.Mode = textindex.Line(failure.Raw.Mode)
+		failure.Platform.Text = textindex.Prose(failure.Platform.Text)
+		failure.Platform.ModeText = textindex.Line(failure.Platform.ModeText)
 		record.Error = &failure
 	}
 	return record
@@ -39,8 +39,9 @@ func cleanProbe(probe nodeproto.Probe) nodeproto.Probe {
 	streams := make([]nodeproto.ProbeStream, len(probe.Streams))
 	for index, stream := range probe.Streams {
 		stream.Kind, stream.Codec = textindex.Line(stream.Kind), textindex.Line(stream.Codec)
-		stream.Profile, stream.Title = textindex.Line(stream.Profile), textindex.Line(stream.Title)
-		stream.Language, stream.LanguageTag = textindex.Line(stream.Language), textindex.Line(stream.LanguageTag)
+		stream.CodecProfile, stream.Title = textindex.Line(stream.CodecProfile), textindex.Line(stream.Title)
+		stream.ContainerLanguage, stream.LanguageTag = textindex.Line(stream.ContainerLanguage),
+			textindex.Line(stream.LanguageTag)
 		stream.Disposition = cleanAll(stream.Disposition)
 		stream.Video.PixelFormat = textindex.Line(stream.Video.PixelFormat)
 		stream.Video.FrameRate = textindex.Line(stream.Video.FrameRate)

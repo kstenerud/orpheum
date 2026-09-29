@@ -40,10 +40,13 @@ func TestGPUs_ReportsEachDeviceItsDriverAndWhyItCannotBeOpened(t *testing.T) {
 	if len(found) != 2 {
 		t.Fatalf("found %+v; want the render node and nvidia0", found)
 	}
-	if want := (nodeproto.GPU{Device: filepath.Join(devices, "dri", "renderD128"), Driver: "i915"}); found[0] != want {
+	if want := (nodeproto.GPU{
+		DevicePath: filepath.Join(devices, "dri", "renderD128"),
+		Driver:     "i915",
+	}); found[0] != want {
 		t.Errorf("the render node is %+v, want %+v", found[0], want)
 	}
-	if nvidia := found[1]; nvidia.Driver != "nvidia" || (os.Geteuid() != 0 && nvidia.NoAccess == "") {
+	if nvidia := found[1]; nvidia.Driver != "nvidia" || (os.Geteuid() != 0 && nvidia.NoAccessReason == "") {
 		t.Errorf("nvidia0 is %+v; want the nvidia driver, and why the node cannot open it", nvidia)
 	}
 }

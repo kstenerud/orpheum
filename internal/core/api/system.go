@@ -288,15 +288,15 @@ func describeNode(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Inf
 	if facts.Status == nil {
 		return
 	}
-	if usage := facts.Status.Prepared; usage != nil {
+	if usage := facts.Status.PreparedUsage; usage != nil {
 		body.Prepared = &PreparedBody{
-			Bytes: usage.Bytes, BudgetBytes: usage.BudgetBytes, DiskPercent: usage.DiskPercent,
-			DiskLimitPercent: usage.DiskLimitPercent,
+			Bytes: usage.UsedBytes, BudgetBytes: usage.BudgetBytes, DiskPercent: usage.DiskUsedPercent,
+			DiskLimitPercent: usage.DiskUsedLimitPercent,
 		}
 	}
 	for _, disk := range facts.Status.Disks {
 		body.Disks = append(body.Disks, DiskBody{
-			Path: disk.Path, TotalBytes: disk.TotalBytes, FreeBytes: disk.FreeBytes, Failure: disk.Failure,
+			Path: disk.Path, TotalBytes: disk.TotalBytes, FreeBytes: disk.AvailableBytes, Failure: disk.Failure,
 		})
 	}
 }
@@ -306,7 +306,7 @@ func confinementBodies(reported []nodeproto.Confinement) []ConfinementBody {
 	bodies := make([]ConfinementBody, 0, len(reported))
 	for _, state := range reported {
 		bodies = append(bodies, ConfinementBody{
-			Mechanism: state.Mechanism, IsInForce: state.InForce, Cause: state.Cause, Reason: state.Reason,
+			Mechanism: state.Mechanism, IsInForce: state.IsInForce, Cause: state.CauseCode, Reason: state.Reason,
 			Remedy: state.Remedy,
 		})
 	}
@@ -314,9 +314,9 @@ func confinementBodies(reported []nodeproto.Confinement) []ConfinementBody {
 }
 
 func hardwareBody(hardware nodeproto.Hardware) *HardwareBody {
-	body := &HardwareBody{GPUs: []GPUBody{}, Trials: []EncoderTrialBody{}, Encoder: hardware.Encoder}
+	body := &HardwareBody{GPUs: []GPUBody{}, Trials: []EncoderTrialBody{}, Encoder: hardware.ChosenEncoder}
 	for _, gpu := range hardware.GPUs {
-		body.GPUs = append(body.GPUs, GPUBody{Device: gpu.Device, Driver: gpu.Driver, NoAccess: gpu.NoAccess})
+		body.GPUs = append(body.GPUs, GPUBody{Device: gpu.DevicePath, Driver: gpu.Driver, NoAccess: gpu.NoAccessReason})
 	}
 	for _, trial := range hardware.Trials {
 		body.Trials = append(body.Trials, EncoderTrialBody{Encoder: trial.Encoder, Failure: trial.Failure})
@@ -362,8 +362,8 @@ func buildFinding(node string, nodeBuild, serverBuild build.Info) FindingBody {
 func hardwareFinding(node string, hardware nodeproto.Hardware) FindingBody {
 	finding := FindingBody{Check: "hardware encoding on node " + node, Verdict: verdictOK}
 	switch {
-	case hardware.Encoder != "" && hardware.Encoder != "x264":
-		finding.Detail = "encodes use " + hardware.Encoder
+	case hardware.ChosenEncoder != "" && hardware.ChosenEncoder != "x264":
+		finding.Detail = "encodes use " + hardware.ChosenEncoder
 	case len(hardware.GPUs) == 0:
 		finding.Detail = "no GPU found; encodes use x264, on the processor"
 	default:
@@ -376,9 +376,9 @@ func hardwareFinding(node string, hardware nodeproto.Hardware) FindingBody {
 			strings.Join(why, "; ")
 		finding.Action = "see the node's hardware on the System page"
 		for _, gpu := range hardware.GPUs {
-			if gpu.NoAccess != "" {
+			if gpu.NoAccessReason != "" {
 				finding.Action = fmt.Sprintf("let the node's user open %s: add it to the group that owns it "+
-					"(usually render or video), then restart the node", gpu.Device)
+					"(usually render or video), then restart the node", gpu.DevicePath)
 				break
 			}
 		}

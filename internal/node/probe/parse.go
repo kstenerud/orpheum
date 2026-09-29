@@ -109,16 +109,16 @@ func (raw rawOutput) record() (nodeproto.Probe, error) {
 
 func (stream rawStream) record() nodeproto.ProbeStream {
 	record := nodeproto.ProbeStream{
-		Index:       stream.Index,
-		Kind:        bounded(stream.CodecType),
-		Codec:       bounded(stream.CodecName),
-		Profile:     bounded(stream.Profile),
-		Language:    tag(stream.Tags, "language"),
-		LanguageTag: langtag.BCP47(tag(stream.Tags, "language")),
-		Title:       tag(stream.Tags, "title"),
-		Disposition: setFlags(stream.Disposition),
-		DurationMs:  streamDuration(stream),
-		BitRateBps:  integer(stream.BitRate),
+		StreamIndex:       stream.Index,
+		Kind:              bounded(stream.CodecType),
+		Codec:             bounded(stream.CodecName),
+		CodecProfile:      bounded(stream.Profile),
+		ContainerLanguage: tag(stream.Tags, "language"),
+		LanguageTag:       langtag.BCP47(tag(stream.Tags, "language")),
+		Title:             tag(stream.Tags, "title"),
+		Disposition:       setFlags(stream.Disposition),
+		DurationMs:        streamDuration(stream),
+		BitRateBps:        integer(stream.BitRate),
 	}
 	switch stream.CodecType {
 	case "video":
@@ -132,7 +132,7 @@ func (stream rawStream) record() nodeproto.ProbeStream {
 		}
 	case "audio":
 		record.Audio = nodeproto.ProbeAudio{
-			Channels:      stream.Channels,
+			ChannelCount:  stream.Channels,
 			ChannelLayout: bounded(stream.ChannelLayout),
 			SampleRateHz:  int(integer(stream.SampleRate)),
 		}

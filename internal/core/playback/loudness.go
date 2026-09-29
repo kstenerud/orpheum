@@ -82,10 +82,10 @@ func directLevelling(levels map[soundKey]Levelling, probe nodeproto.Probe) Level
 		return Levelling{}
 	}
 	sound := soundStereo
-	if main.Audio.Channels > 2 {
+	if main.Audio.ChannelCount > 2 {
 		sound = soundSource
 	}
-	return levels[soundKey{int64(main.Index), sound}]
+	return levels[soundKey{int64(main.StreamIndex), sound}]
 }
 
 // audioStreams are a file's audio tracks, in order: a track's place among them is how a prepare
@@ -104,7 +104,7 @@ func audioStreams(probe nodeproto.Probe) []nodeproto.ProbeStream {
 func audioStreamIndexes(probe nodeproto.Probe) []int {
 	var indexes []int
 	for _, stream := range audioStreams(probe) {
-		indexes = append(indexes, stream.Index)
+		indexes = append(indexes, stream.StreamIndex)
 	}
 	return indexes
 }
@@ -208,13 +208,13 @@ func (service *Service) HandleLoudness(ctx context.Context, job jobs.Job) error 
 	if err != nil {
 		return jobs.Permanent(err)
 	}
-	command := nodeproto.MeasureLoudness{Job: job.ID}
+	command := nodeproto.MeasureLoudness{JobID: job.ID}
 	for _, stream := range audioStreams(probe) {
-		command.Audio = append(command.Audio, nodeproto.LoudnessTrack{
-			StreamIndex: stream.Index, Channels: stream.Audio.Channels,
+		command.Tracks = append(command.Tracks, nodeproto.LoudnessTrack{
+			StreamIndex: stream.StreamIndex, ChannelCount: stream.Audio.ChannelCount,
 		})
 	}
-	if len(command.Audio) == 0 {
+	if len(command.Tracks) == 0 {
 		return nil
 	}
 	if command.Video, err = service.source(ctx, locatedOf(file)); err != nil {
@@ -239,13 +239,13 @@ func (service *Service) measure(
 	defer timer.Stop()
 	select {
 	case answer := <-answers:
-		if answer.Refused != "" {
+		if answer.Refusal != "" {
 			// Nothing is kept: the next sweep asks again, of the file as it is then.
-			return jobs.Permanent(errors.New(answer.Refused))
+			return jobs.Permanent(errors.New(answer.Refusal))
 		}
-		keepErr := service.keepLoudness(ctx, file.PayloadHash, command.Audio, answer)
-		if answer.Failed != "" {
-			return jobs.Permanent(errors.Join(errors.New(answer.Failed), keepErr))
+		keepErr := service.keepLoudness(ctx, file.PayloadHash, command.Tracks, answer)
+		if answer.Failure != "" {
+			return jobs.Permanent(errors.Join(errors.New(answer.Failure), keepErr))
 		}
 		return keepErr
 	case <-timer.C:
@@ -267,18 +267,18 @@ func (service *Service) keepLoudness(
 ) error {
 	now := service.clock.Now().UnixMilli()
 	var rows []sqlcgen.UpsertLoudnessParams
-	if answer.Failed != "" {
+	if answer.Failure != "" {
 		for _, track := range tracks {
 			rows = append(rows, sqlcgen.UpsertLoudnessParams{
 				PayloadHash: payloadHash, StreamIndex: int64(track.StreamIndex), Sound: soundStereo,
-				Failure: &answer.Failed, MeasuredAt: now,
+				Failure: &answer.Failure, MeasuredAt: now,
 			})
 		}
 	}
 	for _, track := range answer.Tracks {
 		rows = append(rows, loudnessRow(payloadHash, track.StreamIndex, soundStereo, track.Stereo, now))
-		if track.Source != nil {
-			rows = append(rows, loudnessRow(payloadHash, track.StreamIndex, soundSource, *track.Source, now))
+		if track.Multichannel != nil {
+			rows = append(rows, loudnessRow(payloadHash, track.StreamIndex, soundSource, *track.Multichannel, now))
 		}
 	}
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -307,5 +307,5 @@ func loudnessRow(
 
 // Measured takes a node's answer to a measure_loudness command to the job waiting for it.
 func (service *Service) Measured(ctx context.Context, nodeID int64, answer nodeproto.Loudness) {
-	service.loudness.deliver(ctx, nodeID, answer.Job, answer)
+	service.loudness.deliver(ctx, nodeID, answer.JobID, answer)
 }

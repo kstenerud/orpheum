@@ -62,8 +62,8 @@ func TestDerive_FFmpegReadsTheSourceOnlyFromThePipe(t *testing.T) {
 	}
 	deriver := NewDeriver(runner, time.Minute)
 	deriver.Derive(t.Context(), nodeproto.Artwork{
-		Source: []byte("the source"), Shape: nodeproto.ShapePortrait, MaxPixels: 1 << 30, Quality: 82,
-		Sizes: []nodeproto.ArtSizeName{"portrait-s"},
+		SourceImage: []byte("the source"), Shape: nodeproto.ShapePortrait, MaxSourcePixels: 1 << 30, WebPQuality: 82,
+		SizeNames: []nodeproto.ArtSizeName{"portrait-s"},
 	})
 	calls := fake.Calls(t)
 	if len(calls) != 2 {

@@ -294,7 +294,7 @@ func describeNode(
 	report := make([]nodeproto.Confinement, 0, len(found.confinement))
 	for _, state := range found.confinement {
 		report = append(report, nodeproto.Confinement{
-			Mechanism: state.Mechanism, InForce: state.InForce, Cause: state.Cause, Reason: state.Reason,
+			Mechanism: state.Mechanism, IsInForce: state.InForce, CauseCode: state.Cause, Reason: state.Reason,
 			Remedy: state.Remedy,
 		})
 	}
@@ -319,7 +319,7 @@ func hardwareReport(found nodeCapabilities) nodeproto.Hardware {
 	for _, trial := range found.encoding.Trials {
 		trials = append(trials, nodeproto.EncoderTrial{Encoder: string(trial.Encoder), Failure: trial.Failure})
 	}
-	return nodeproto.Hardware{GPUs: found.gpus, Trials: trials, Encoder: string(found.encoding.Chosen)}
+	return nodeproto.Hardware{GPUs: found.gpus, Trials: trials, ChosenEncoder: string(found.encoding.Chosen)}
 }
 
 // capabilities are the hello's (cut-a §4): remux and AAC, which every node can do, and the

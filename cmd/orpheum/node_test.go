@@ -312,7 +312,10 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	named := nodeproto.BytesFile{Root: media, Path: []byte("film.mkv"), Hash: hex.EncodeToString(identity.Hash[:])}
+	named := nodeproto.BytesFile{
+		Root: media, Path: []byte("film.mkv"),
+		PayloadHash: hex.EncodeToString(identity.Hash[:]),
+	}
 	target := "http://node" + named.Target()
 	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, http.NoBody)
 	if err != nil {
@@ -372,14 +375,15 @@ func TestHardwareReport_IsTheDevicesEachTrialAndTheEncoderChosen(t *testing.T) {
 		encoding: prepare.Choice{Chosen: prepare.EncoderNVENC, Trials: []prepare.Trial{
 			{Encoder: prepare.EncoderQuickSync, Failure: "no render node"}, {Encoder: prepare.EncoderNVENC},
 		}},
-		gpus: []nodeproto.GPU{{Device: "/dev/nvidia0", Driver: "nvidia"}},
+		gpus: []nodeproto.GPU{{DevicePath: "/dev/nvidia0", Driver: "nvidia"}},
 	}
 	got := hardwareReport(found)
 	want := nodeproto.Hardware{
-		GPUs: found.gpus, Encoder: "h264_nvenc",
+		GPUs: found.gpus, ChosenEncoder: "h264_nvenc",
 		Trials: []nodeproto.EncoderTrial{{Encoder: "h264_qsv", Failure: "no render node"}, {Encoder: "h264_nvenc"}},
 	}
-	if got.Encoder != want.Encoder || !slices.Equal(got.Trials, want.Trials) || !slices.Equal(got.GPUs, want.GPUs) {
+	if got.ChosenEncoder != want.ChosenEncoder || !slices.Equal(got.Trials, want.Trials) || !slices.Equal(got.GPUs,
+		want.GPUs) {
 		t.Errorf("the hello's hardware = %+v, want %+v (D225 §3)", got, want)
 	}
 }

@@ -46,8 +46,8 @@ func withComment(t *testing.T, jpeg []byte, comment string) []byte {
 // imageOf is the size's bytes in a result, or nil.
 func imageOf(result nodeproto.ArtworkResult, size nodeproto.ArtSizeName) []byte {
 	for _, image := range result.Images {
-		if image.Size == size {
-			return image.Bytes
+		if image.SizeName == size {
+			return image.WebP
 		}
 	}
 	return nil
@@ -90,11 +90,12 @@ func TestDerive_AJPEGPosterBecomesOurOwnWebPAtEverySizeItIsLargeEnoughFor(t *tes
 	deriver, runner := newDeriver(t)
 	poster := withComment(t, source(t, runner, "900x1350", "mjpeg", "mjpeg"), "SECRET-COMMENT")
 	result := deriver.Derive(t.Context(), nodeproto.Artwork{
-		Job: 7, Source: poster, Shape: nodeproto.ShapePortrait, MaxPixels: 40_000_000, Quality: 82,
-		Sizes: []nodeproto.ArtSizeName{"portrait-s", "portrait-m", "portrait-l"},
+		JobID: 7, SourceImage: poster, Shape: nodeproto.ShapePortrait, MaxSourcePixels: 40_000_000, WebPQuality: 82,
+		SizeNames: []nodeproto.ArtSizeName{"portrait-s", "portrait-m", "portrait-l"},
 	})
-	if result.Refused != "" || result.Job != 7 || result.Width != 900 || result.Height != 1350 {
-		t.Fatalf("result: refused %q, job %d, %d×%d", result.Refused, result.Job, result.Width, result.Height)
+	if result.Refusal != "" || result.JobID != 7 || result.SourceWidth != 900 || result.SourceHeight != 1350 {
+		t.Fatalf("result: refused %q, job %d, %d×%d", result.Refusal, result.JobID, result.SourceWidth,
+			result.SourceHeight)
 	}
 	for _, want := range []struct {
 		name          nodeproto.ArtSizeName
@@ -120,12 +121,12 @@ func TestDerive_ALandscapeSourceIsCroppedToTheExactShape(t *testing.T) {
 	// 2:1, wider than 16:9: its sides are cut, never its shape.
 	backdrop := source(t, runner, "2000x1000", "png", "image2pipe")
 	result := deriver.Derive(t.Context(), nodeproto.Artwork{
-		Source: backdrop, Shape: nodeproto.ShapeLandscape, MaxPixels: 40_000_000, Quality: 82,
-		Sizes: []nodeproto.ArtSizeName{"landscape-m"},
+		SourceImage: backdrop, Shape: nodeproto.ShapeLandscape, MaxSourcePixels: 40_000_000, WebPQuality: 82,
+		SizeNames: []nodeproto.ArtSizeName{"landscape-m"},
 	})
 	width, height, _ := dimensionsOf(t, deriver, imageOf(result, nodeproto.LandscapeM))
-	if result.Refused != "" || width != 960 || height != 540 {
-		t.Errorf("landscape-m: %d×%d (refused %q), want 960×540", width, height, result.Refused)
+	if result.Refusal != "" || width != 960 || height != 540 {
+		t.Errorf("landscape-m: %d×%d (refused %q), want 960×540", width, height, result.Refusal)
 	}
 }
 
@@ -133,17 +134,17 @@ func TestDerive_RefusesWhatIsNotAnImageOrTooLarge(t *testing.T) {
 	t.Parallel()
 	deriver, runner := newDeriver(t)
 	notImage := deriver.Derive(t.Context(), nodeproto.Artwork{
-		Source: []byte("<html><script>alert(1)</script></html>"), Shape: nodeproto.ShapePortrait,
-		MaxPixels: 40_000_000, Quality: 82, Sizes: []nodeproto.ArtSizeName{"portrait-s"},
+		SourceImage: []byte("<html><script>alert(1)</script></html>"), Shape: nodeproto.ShapePortrait,
+		MaxSourcePixels: 40_000_000, WebPQuality: 82, SizeNames: []nodeproto.ArtSizeName{"portrait-s"},
 	})
-	if notImage.Refused == "" || len(notImage.Images) != 0 {
-		t.Errorf("an HTML file: refused %q, %d images; want refused, none", notImage.Refused, len(notImage.Images))
+	if notImage.Refusal == "" || len(notImage.Images) != 0 {
+		t.Errorf("an HTML file: refused %q, %d images; want refused, none", notImage.Refusal, len(notImage.Images))
 	}
 	bomb := deriver.Derive(t.Context(), nodeproto.Artwork{
-		Source: source(t, runner, "2000x3000", "png", "image2pipe"), Shape: nodeproto.ShapePortrait,
-		MaxPixels: 1_000_000, Quality: 82, Sizes: []nodeproto.ArtSizeName{"portrait-s"},
+		SourceImage: source(t, runner, "2000x3000", "png", "image2pipe"), Shape: nodeproto.ShapePortrait,
+		MaxSourcePixels: 1_000_000, WebPQuality: 82, SizeNames: []nodeproto.ArtSizeName{"portrait-s"},
 	})
-	if bomb.Refused == "" || len(bomb.Images) != 0 {
-		t.Errorf("6 megapixels against a 1 megapixel limit: refused %q, %d images", bomb.Refused, len(bomb.Images))
+	if bomb.Refusal == "" || len(bomb.Images) != 0 {
+		t.Errorf("6 megapixels against a 1 megapixel limit: refused %q, %d images", bomb.Refusal, len(bomb.Images))
 	}
 }

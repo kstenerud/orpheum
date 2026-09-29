@@ -15,8 +15,8 @@ import (
 // Spanish subtitles, episode 2 (file 5) English and French, episode 3 (file 6) French only.
 func (harness testHarness) shelveEpisodes(t *testing.T) {
 	t.Helper()
-	const probe = `'{"format":{"names":["matroska"]},"streams":[{"index":0,"kind":"video","codec":"h264",` +
-		`"profile":"High","video":{"pixelFormat":"yuv420p"}}]}'`
+	const probe = `'{"format":{"names":["matroska"]},"streams":[{"streamIndex":0,"kind":"video","codec":"h264",` +
+		`"codecProfile":"High","video":{"pixelFormat":"yuv420p"}}]}'`
 	storetest.ExecRaw(t, harness.database,
 		"INSERT INTO item (id, kind, library_id, created_at) VALUES (22, 'title', 1, 3), (23, 'title', 1, 3)",
 		`INSERT INTO title (id, kind, identification)

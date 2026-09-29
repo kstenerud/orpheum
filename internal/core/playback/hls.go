@@ -34,9 +34,9 @@ type AudioRendition struct {
 func audioRenditions(command nodeproto.Prepare) []AudioRendition {
 	var renditions []AudioRendition
 	for _, track := range command.Audio {
-		renditions = append(renditions, AudioRendition{Track: track.AudioTrackIndex, Language: track.Language})
-		if track.Channels > 2 {
-			boosted := AudioRendition{Track: track.AudioTrackIndex, Language: track.Language, Boost: true}
+		renditions = append(renditions, AudioRendition{Track: track.AudioTrackIndex, Language: track.LanguageTag})
+		if track.ChannelCount > 2 {
+			boosted := AudioRendition{Track: track.AudioTrackIndex, Language: track.LanguageTag, Boost: true}
 			renditions = append(renditions, boosted)
 		}
 	}
