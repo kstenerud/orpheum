@@ -5,7 +5,6 @@ package playback
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -314,15 +313,12 @@ func (service *Service) tokenIdleExpiry(ctx context.Context) (time.Duration, err
 	return time.Duration(hours) * time.Hour, nil
 }
 
+// decodeProbe is a file's stored probe; a file never probed is ErrNoFile.
 func decodeProbe(stored *string) (nodeproto.Probe, error) {
-	var probe nodeproto.Probe
 	if stored == nil {
-		return probe, ErrNoFile
+		return nodeproto.Probe{}, ErrNoFile
 	}
-	if err := json.Unmarshal([]byte(*stored), &probe); err != nil {
-		return probe, fmt.Errorf("read the stored probe: %w", err)
-	}
-	return probe, nil
+	return library.DecodeProbe(*stored)
 }
 
 // contentType is what a browser is told a file is, by its container.
