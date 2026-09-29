@@ -1,0 +1,12 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.poster {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  background: var(--color-surface);
+  color: var(--color-muted);
+}

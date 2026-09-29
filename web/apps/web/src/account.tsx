@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useState, type JSX, type SyntheticEvent } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { changePassword, listMyDevices } from "./accounts.ts";
 import { ShownDeviceCode, useDeviceCode, type DeviceCodeState } from "./device-code.tsx";
+import { FormRow } from "./form-row.tsx";
 import { problemText } from "./problem.ts";
 import { PasswordField } from "./credentials-form.tsx";
 import { useServices } from "./services.tsx";
@@ -41,12 +42,11 @@ export function Account(): JSX.Element {
 function AddDevice(props: { readonly deviceCode: DeviceCodeState }): JSX.Element {
   const { t } = useTranslation();
   const [name, setName] = useState("");
-  const submit = (event: SyntheticEvent): void => {
-    event.preventDefault();
+  const submit = (): void => {
     props.deviceCode.makeCode({ deviceName: name }, name);
   };
   return (
-    <form className="app-shell__form-part" onSubmit={submit}>
+    <FormRow onSubmit={submit}>
       <h2>{t("account.addDevice")}</h2>
       <p>{t("account.addDeviceExplain")}</p>
       <label>
@@ -65,7 +65,7 @@ function AddDevice(props: { readonly deviceCode: DeviceCodeState }): JSX.Element
       {props.deviceCode.problem === undefined ? null : (
         <p role="alert">{props.deviceCode.problem}</p>
       )}
-    </form>
+    </FormRow>
   );
 }
 
@@ -76,8 +76,7 @@ function ChangePassword(): JSX.Element {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [outcome, setOutcome] = useState<string | undefined>(undefined);
-  const submit = (event: SyntheticEvent): void => {
-    event.preventDefault();
+  const submit = (): void => {
     changePassword(api, currentPassword, newPassword).then(
       () => {
         setCurrentPassword("");
@@ -90,7 +89,7 @@ function ChangePassword(): JSX.Element {
     );
   };
   return (
-    <form className="app-shell__form-part" onSubmit={submit}>
+    <FormRow onSubmit={submit}>
       <h2>{t("account.changePassword")}</h2>
       <PasswordField
         label={t("account.currentPassword")}
@@ -105,6 +104,6 @@ function ChangePassword(): JSX.Element {
       />
       <button type="submit">{t("account.changePassword")}</button>
       {outcome === undefined ? null : <output>{outcome}</output>}
-    </form>
+    </FormRow>
   );
 }

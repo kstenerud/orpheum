@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.your-devices__list {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.your-devices__device {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  align-items: center;
+}

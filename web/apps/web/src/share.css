@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.share__code {
+  display: block;
+  font-size: 2.5rem;
+  letter-spacing: 0.15em;
+  font-family: var(--font-mono, monospace);
+}
+
+.share__link {
+  display: block;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono, monospace);
+  user-select: all;
+}

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./qr-code.css";
+
 import qrcode from "qrcode-generator";
 import type { JSX } from "react";
 

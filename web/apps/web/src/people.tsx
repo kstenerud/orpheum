@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useState, type JSX, type SyntheticEvent } from "react";
+import "./people.css";
+
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -10,6 +12,7 @@ import {
   type Account,
   type IssuedSecret,
 } from "./accounts.ts";
+import { FormRow } from "./form-row.tsx";
 import { problemText } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { QrCode } from "./qr-code.tsx";
@@ -81,15 +84,14 @@ function AddPerson(props: {
   const { api } = useServices();
   const [name, setName] = useState("");
   const [role, setRole] = useState<"admin" | "user">("user");
-  const submit = (event: SyntheticEvent): void => {
-    event.preventDefault();
+  const submit = (): void => {
     createAccount(api, name, role).then(({ registrationInvitation: registration }) => {
       props.onAdded(name, registration);
       setName("");
     }, props.onFailed);
   };
   return (
-    <form className="people__add" onSubmit={submit}>
+    <FormRow onSubmit={submit}>
       <h2>{t("people.add")}</h2>
       <label>
         {t("people.name")}{" "}
@@ -115,7 +117,7 @@ function AddPerson(props: {
         </select>
       </label>
       <button type="submit">{t("people.create")}</button>
-    </form>
+    </FormRow>
   );
 }
 
