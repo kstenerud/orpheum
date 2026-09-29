@@ -415,6 +415,13 @@ competing protocol surface on top of it. That is a constraint, and a healthy one
 
 ## D16 — GPLv3, no nonfree components, and provider keys belong to the user
 
+> **Amended 2026-09-28 by [D224](#d224--a-fetched-subtitle-uses-the-servers-opensubtitles-login-finds-the-file-by-its-identity-and-its-provider-hash-shows-the-providers-own-count-and-is-converted-by-the-node) §2 and §7.**
+> OpenSubtitles issues its API key per registered application and forbids letting users insert
+> their own, so Orpheum's key is the application's and is in the source; what a server supplies
+> is a login, the admin's, which every person on that server fetches with (D224 §1). "Provider
+> API keys are always supplied by the user" below no longer holds for OpenSubtitles; it still
+> describes the other providers.
+
 **Decided.** Licence the project **GPLv3**. Build and pin our own FFmpeg with `--enable-gpl`;
 **never** `--enable-nonfree`, and never a patch that reclassifies a nonfree component. Use the
 native AAC encoder plus Opus and `libmp3lame` rather than `libfdk-aac`. Prefer **AV1/Opus**
@@ -16031,6 +16038,7 @@ a target, but its status is recorded and our own code must not be what blocks it
 | Go toolchain, our code, the pure-Go SQLite driver | **builds and vets** (`GOOS=linux GOARCH=riscv64`) | — |
 | The pinned FFmpeg (jellyfin-ffmpeg 8.1.2-5) | **no build**: portable builds are linux64, linuxarm64, mac and Windows only | a riscv64 release from jellyfin-ffmpeg, or pinning a source or distribution build by hash. This is the blocker: the node cannot work without FFmpeg |
 | MKVToolNix (tests only) | **no build** | as for arm64 above |
+| Playwright's browsers (tests only, the browser tier `make test-browser`; added in M3 by D217 §4) | **no build**: Playwright downloads Chromium and Firefox for linux x86_64 and arm64 only | a riscv64 build from Playwright, or running the tier against browsers pinned from elsewhere |
 | Hardware encoders | none expected | the node reports what it has |
 | Landlock and seccomp (M3) | supported by the Linux kernel on riscv64 | the denylist by syscall name covers it |
 | CI | no riscv64 runner | emulation (QEMU) or a lab board, when there is a reason |
@@ -16548,9 +16556,9 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
 
 **Status:** Decided; built in M3. §5's budget and eviction, which the M3 audit found unbuilt
 (audit-2026-09-27 §3), are built in `internal/node/prepared`: a rendition played within the grace
-stands for "someone is partway through it", since only the core knows who is. The Playwright
-timing test of §4 is still to build. §6 is amended by D223 §5: a subtitle file beside the media is
-converted at first play.
+stands for "someone is partway through it", since only the core knows who is. §4's Playwright
+timing test is built (`web/e2e/play-timing.spec.ts`, Chromium and Firefox). §6 is amended by D223 §5:
+a subtitle file beside the media is converted at first play.
 
 ## D218 — Accounts: the admin creates a person, who sets a password from a one-time link; a signed-in person adds a TV by a short safe32 code
 
@@ -16735,7 +16743,10 @@ both hold. The owner: *"I'm fine with always copying"*, and *"headphones count a
 10. **The person's dialogue boost has its own endpoint, `PUT /me/prefs`**, not the file's (D222 §3).
 11. **M4's nine open questions** (the audit's §8) are asked one at a time before M4's first line.
 
-**Status:** Decided.
+**Status:** Decided; built in M3 except three parts. §6 (scans and backups as jobs) is M4's, and
+§11's questions come before M4. §8 is built for a file that has a stored choice, which is found
+again when a rescan rewrites its tracks; it is **not built** for a file with no stored choice whose
+rescan adds a track matching the work's choice, which still gets no choice.
 
 ## D224 — A fetched subtitle uses the server's OpenSubtitles login, finds the file by its identity and its provider hash, shows the provider's own count, and is converted by the node
 
@@ -16787,7 +16798,8 @@ and a download a capability on the role.
    `/me/secrets` and its tests are gone rather than kept for a use nothing plans; a feature that
    needs one brings it back. Amends D194 §1.
 
-**Status:** Decided.
+**Status:** Decided; built in M3. §3's hash-matching candidate is listed first only in the order
+OpenSubtitles returns; the core does not sort by it.
 
 ## D225 — One admin page, System, shows every fact about the server and each node, and M3's shows whether hardware encoding works
 
@@ -16833,7 +16845,9 @@ never fun."*
      description, release and codename are read from `/etc/os-release`, the file lsb_release
      reads, with the kernel; the node runs no program but FFmpeg's (cut-a §7).
 
-**Status:** Decided.
+**Status:** Decided; built in M3 except §4, which is later by its own words. Of §3, whether
+confinement grants each GPU is not reported as a fact of its own: it shows only as a failed
+encoder trial, since the trial runs confined.
 
 ## D226 — Loudness is levelled in Cut A: the node measures each sound and its stereo mix, the core sets a gain towards -23 LUFS that no peak exceeds, and the player applies it after its volume
 
@@ -16880,7 +16894,7 @@ measurement" from Out and [D178](#d178--the-first-release-is-for-two-people-the-
 6. **The player says what it did:** the gain applied to this film, or that its loudness is not
    measured yet, beside the switch. A film not yet measured plays as it is.
 
-**Status:** Decided; built in M3.
+**Status:** Decided; built in M3 except §4's cast receiver, which is built with the receiver in M5.
 
 ## D227 — Every name in a contract that a reader must look up is renamed now, minor ones too; a job names its target by kind, and a sidecar's kind has its own column
 
