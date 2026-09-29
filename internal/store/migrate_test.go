@@ -94,33 +94,54 @@ func rewriteGolden(t *testing.T, path, contents string) {
 	}
 }
 
+// TestMigrate_FreshSchemaEqualsTheGolden compares a new database with the golden of its version:
+// at the baseline, built by it alone, and at the current version. Until migrations are live the
+// two are the baseline and the one step after it (D228), and their goldens' difference is what
+// that step does.
 func TestMigrate_FreshSchemaEqualsTheGolden(t *testing.T) {
 	t.Parallel()
-	version, err := SchemaVersion()
+	steps, err := Steps()
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := dumpSchema(t, openMigrated(t))
-	golden := filepath.Join("testdata", "golden", fmt.Sprintf("schema-v%04d.sql", version))
-	if *updateGolden {
-		rewriteGolden(t, golden, got)
+	built := [][]Step{steps}
+	if steps[0].IsBaseline && len(steps) > 1 {
+		built = append(built, steps[:1])
 	}
-	want, err := os.ReadFile(golden)
-	if err != nil {
-		t.Fatalf("every schema version has a golden, and %s cannot be read: %v", golden, err)
-	}
-	if got != string(want) {
-		t.Errorf("a fresh schema differs from %s; a schema change is a new migration step with a new golden.\n"+
-			"got:\n%s", golden, got)
+	for _, through := range built {
+		database := openTemporary(t)
+		if err := database.migrate(t.Context(), through, testMigrateOptions(t.TempDir())); err != nil {
+			t.Fatal(err)
+		}
+		got := dumpSchema(t, database)
+		golden := filepath.Join("testdata", "golden", fmt.Sprintf("schema-v%04d.sql", lastVersion(through)))
+		if *updateGolden {
+			rewriteGolden(t, golden, got)
+		}
+		want, err := os.ReadFile(golden)
+		if err != nil {
+			t.Fatalf("the baseline and the current version each have a golden, and %s cannot be read: %v", golden, err)
+		}
+		if got != string(want) {
+			t.Errorf("a fresh schema differs from %s; a schema change is a step, and the goldens are rewritten "+
+				"with -update (D228).\ngot:\n%s", golden, got)
+		}
 	}
 }
 
 // syntheticSteps builds a step list from SQL texts, numbered from 1.
 func syntheticSteps(t *testing.T, texts ...string) []Step {
 	t.Helper()
+	return stepsFrom(t, 1, texts...)
+}
+
+// stepsFrom builds a step list from SQL texts, numbered from first: a baseline's version, when the
+// first text is one.
+func stepsFrom(t *testing.T, first int, texts ...string) []Step {
+	t.Helper()
 	files := fstest.MapFS{}
 	for index, text := range texts {
-		files[fmt.Sprintf("steps/%04d_step.sql", index+1)] = &fstest.MapFile{Data: []byte(text)}
+		files[fmt.Sprintf("steps/%04d_step.sql", first+index)] = &fstest.MapFile{Data: []byte(text)}
 	}
 	steps, err := readSteps(files, "steps")
 	if err != nil {
@@ -130,8 +151,10 @@ func syntheticSteps(t *testing.T, texts ...string) []Step {
 }
 
 const (
+	// A first schema, firstStep: the bookkeeping tables every schema has, and a table with rows.
 	firstStep = raisesCompatibleDirective + "\n" +
 		"CREATE TABLE schema_meta (id INTEGER PRIMARY KEY CHECK (id = 1), compatible_version INTEGER NOT NULL);\n" +
+		"CREATE TABLE schema_step (version INTEGER PRIMARY KEY, sha256 TEXT NOT NULL);\n" +
 		"CREATE TABLE thing (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL);\n" +
 		"INSERT INTO thing (name) VALUES ('first'), ('second');"
 	secondStep = "CREATE TABLE part (id INTEGER PRIMARY KEY AUTOINCREMENT, " +
@@ -327,9 +350,15 @@ func assertVersion(t *testing.T, database *Database, want int) {
 
 func TestReadSteps_RefusesAGapOrAMisnamedStep(t *testing.T) {
 	t.Parallel()
+	baseline := &fstest.MapFile{Data: []byte(baselineDirective + " " + strings.Repeat("ab", 32) + "\n")}
 	cases := map[string]fstest.MapFS{
-		"a gap":           {"steps/0001_a.sql": {}, "steps/0003_c.sql": {}},
-		"a misnamed step": {"steps/0001_a.sql": {}, "steps/2_b.sql": {}},
+		"a gap":                  {"steps/0001_a.sql": {}, "steps/0003_c.sql": {}},
+		"a misnamed step":        {"steps/0001_a.sql": {}, "steps/2_b.sql": {}},
+		"a first step after one": {"steps/0002_b.sql": {}, "steps/0003_c.sql": {}},
+		"a baseline not first":   {"steps/0001_a.sql": {}, "steps/0002_b.sql": baseline},
+		"a baseline with no checksum": {
+			"steps/0004_baseline.sql": {Data: []byte(baselineDirective + "\n")}, "steps/0005_e.sql": {},
+		},
 	}
 	for name, files := range cases {
 		if _, err := readSteps(files, "steps"); err == nil {
@@ -339,6 +368,11 @@ func TestReadSteps_RefusesAGapOrAMisnamedStep(t *testing.T) {
 	steps, err := readSteps(fstest.MapFS{"steps/0001_a.sql": {}, "steps/0002_b.sql": {}}, "steps")
 	if err != nil || len(steps) != 2 {
 		t.Errorf("two good steps: %d steps, %v", len(steps), err)
+	}
+	steps, err = readSteps(fstest.MapFS{"steps/0004_baseline.sql": baseline, "steps/0005_e.sql": {}}, "steps")
+	if err != nil || len(steps) != 2 || !steps[0].IsBaseline || steps[0].FoldedChecksum != strings.Repeat("ab", 32) ||
+		steps[1].Version != 5 {
+		t.Errorf("a baseline at 4 and step 5: %+v, %v", steps, err)
 	}
 }
 
@@ -379,50 +413,5 @@ func TestSteps_MatchTheCommittedChecksums(t *testing.T) {
 	}
 	for name := range want {
 		t.Errorf("migrations/SHA256SUMS lists %s, which is gone: a merged step is never deleted or renamed", name)
-	}
-}
-
-func TestMigrate_Step0002MarksTheSettingsAPersonSetAsModified(t *testing.T) {
-	t.Parallel()
-	steps, err := Steps()
-	if err != nil {
-		t.Fatal(err)
-	}
-	database := openTemporary(t)
-	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	execRaw(t, database,
-		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)",
-		"INSERT INTO setting (scope, key, value, set_by, set_at) VALUES ('server', 'by_a_person', '1', 1, 1)",
-		"INSERT INTO setting (scope, key, value, set_by, set_at) VALUES ('server', 'by_the_seed', '1', NULL, 1)")
-	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	rows := queryRows(t, database, "SELECT key, is_modified FROM setting ORDER BY key", 2)
-	if fmt.Sprint(rows) != "[[by_a_person 1] [by_the_seed 0]]" {
-		t.Errorf("after step 0002, the settings are %v; want the one a person set marked modified", rows)
-	}
-}
-
-func TestMigrate_Step0016RemovesTheDefaultSubtitlesAndBoostSettings(t *testing.T) {
-	t.Parallel()
-	steps, err := Steps()
-	if err != nil {
-		t.Fatal(err)
-	}
-	database := openTemporary(t)
-	if err = database.migrate(t.Context(), steps[:15], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	execRaw(t, database,
-		`INSERT INTO setting (scope, key, value, set_at) VALUES ('server', 'subtitles_on_by_default', 'true', 1),
-		 ('server', 'dialogue_boost_on_by_default', 'false', 1), ('server', 'scan_on_node_hello', 'true', 1)`)
-	if err = database.migrate(t.Context(), steps[:16], testMigrateOptions(t.TempDir())); err != nil {
-		t.Fatal(err)
-	}
-	rows := queryRows(t, database, "SELECT key FROM setting ORDER BY key", 1)
-	if fmt.Sprint(rows) != "[[scan_on_node_hello]]" {
-		t.Errorf("after step 0016, the settings are %v; want only the one still registered (D223 §3)", rows)
 	}
 }

@@ -102,7 +102,11 @@ func (database *Database) migrate(ctx context.Context, steps []Step, options Mig
 	if err != nil {
 		return err
 	}
-	err = refuseNewer(state, len(steps), options.SnapshotDirectory)
+	err = refuseBeforeBaseline(steps, state)
+	if err != nil {
+		return err
+	}
+	err = refuseNewer(state, lastVersion(steps), options.SnapshotDirectory)
 	if err != nil {
 		return err
 	}
@@ -111,7 +115,7 @@ func (database *Database) migrate(ctx context.Context, steps []Step, options Mig
 	}
 	pending := pendingSteps(steps, state)
 	if len(pending) == 0 {
-		return database.recordAppliedSteps(ctx, steps, state.Version)
+		return nil
 	}
 	snapshot, err := database.snapshotBeforeMigrating(ctx, state.Version, options)
 	if err != nil {
@@ -126,14 +130,18 @@ func (database *Database) migrate(ctx context.Context, steps []Step, options Mig
 			return &StepError{Step: step, SnapshotPath: snapshot, Err: err}
 		}
 	}
-	return database.recordAppliedSteps(ctx, steps, len(steps))
+	return nil
 }
 
+// pendingSteps are the steps after the database's version: every one, the baseline first, for a
+// new file.
 func pendingSteps(steps []Step, state SchemaState) []Step {
-	if state.Version >= len(steps) {
-		return nil
+	for index, step := range steps {
+		if step.Version > state.Version {
+			return steps[index:]
+		}
 	}
-	return steps[state.Version:]
+	return nil
 }
 
 // UsableBy reports whether a binary that understands schemas up to binaryVersion may use a file
@@ -282,11 +290,14 @@ func applyStep(ctx context.Context, connection *sql.Conn, step Step) error {
 	if err != nil {
 		return err
 	}
-	return recordVersion(ctx, connection, step)
+	return recordStep(ctx, connection, step)
 }
 
-func recordVersion(ctx context.Context, connection *sql.Conn, step Step) error {
-	if step.Version == 1 {
+// recordStep records, in the step's transaction, what the runner owns: application_id on the
+// step that builds a new file, compatible_version if the step raises it, the step's checksum, and
+// user_version.
+func recordStep(ctx context.Context, connection *sql.Conn, step Step) error {
+	if step.Version == 1 || step.IsBaseline {
 		if _, err := connection.ExecContext(ctx, fmt.Sprintf("PRAGMA application_id = %d", ApplicationID)); err != nil {
 			return fmt.Errorf("set application_id: %w", err)
 		}
@@ -297,6 +308,10 @@ func recordVersion(ctx context.Context, connection *sql.Conn, step Step) error {
 		if _, err := connection.ExecContext(ctx, raise, step.Version); err != nil {
 			return fmt.Errorf("raise compatible_version to %d: %w", step.Version, err)
 		}
+	}
+	const record = "INSERT INTO schema_step (version, sha256) VALUES (?, ?)"
+	if _, err := connection.ExecContext(ctx, record, step.Version, step.Checksum); err != nil {
+		return fmt.Errorf("record %s's checksum: %w", step.Name, err)
 	}
 	if _, err := connection.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", step.Version)); err != nil {
 		return fmt.Errorf("set user_version to %d: %w", step.Version, err)

@@ -24,9 +24,13 @@
   later features are listed at the end, not sketched
   ([D180](../../decisions/working-notes.md)).
 
-> **IMPLEMENTED — see `internal/store/migrations/0001_initial.sql`** (M1): every table above
-> the `cache.db` section, verbatim, plus the two built-in roles. `cache.db` arrives in M2
-> ([D198](../../decisions/working-notes.md)).
+> **IMPLEMENTED — see `internal/store/migrations/`** (M1): every table above the `cache.db`
+> section, plus the two built-in roles. `cache.db` arrives in M2
+> ([D198](../../decisions/working-notes.md)). Until migrations are live ([D228](../../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)) the steps are a
+> baseline, `0024_baseline.sql`, and the one step after it, `0025_one_name_per_value.sql`; the
+> notes below that name a migration (*migration 0011*, *0023: was …*) record the step that
+> added or renamed a column. Steps 0001 to 0024 are folded into the baseline and survive only in
+> the repository's history.
 
 ## Why this document exists
 
@@ -81,11 +85,12 @@ CREATE TABLE schema_meta (
 );
 -- PRAGMA user_version is the schema version, set in each step's transaction (D181).
 
-CREATE TABLE schema_step (                                 -- migration 0009 (plan-deviations P17)
+CREATE TABLE schema_step (                                 -- plan-deviations P17; in the baseline
   version INTEGER PRIMARY KEY,
   sha256  TEXT NOT NULL                  -- of the step file as it was applied
 );
--- The runner refuses a database where an applied step's text has since changed.
+-- The runner records each step's checksum in its transaction, and refuses a database where an
+-- applied step's text has since changed (a baseline also accepts the checksum of the step it folded, D228).
 ```
 
 ## Libraries and nodes

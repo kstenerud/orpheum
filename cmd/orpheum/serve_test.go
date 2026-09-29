@@ -317,11 +317,18 @@ func TestServe_HealthSaysMigratingBeforeTheMigrationStarts(t *testing.T) {
 	if len(seen) == 0 {
 		t.Fatal("no step ran; the test saw nothing")
 	}
+	steps, err := store.Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for index, observed := range seen {
-		step := index + 1
+		step, before := index+1, 0 // a new file is at schema 0; then at each step's version (a baseline's is its own)
+		if index > 0 {
+			before = steps[index-1].Version
+		}
 		if !strings.HasPrefix(observed, "200 ") || !strings.Contains(observed, `"status":"migrating"`) ||
 			!strings.Contains(observed, fmt.Sprintf(`"detail":"step %d of`, step)) ||
-			!strings.HasSuffix(observed, fmt.Sprintf("at schema %d", step-1)) {
+			!strings.HasSuffix(observed, fmt.Sprintf("at schema %d", before)) {
 			t.Errorf("before step %d, /health = %s; want 200, migrating, that step, and the schema not yet at it",
 				step, observed)
 		}

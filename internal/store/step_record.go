@@ -8,19 +8,37 @@ import (
 	"fmt"
 )
 
-// schemaStepTableVersion is the step that creates schema_step; before it, nothing is recorded.
-const schemaStepTableVersion = 9
-
 // ErrStepChanged is a database where a step was applied as another text than this binary
 // carries: its schema is not the step's. A committed step never changes, so it is a step edited
 // after it was applied and before it was committed (plan-deviations P17).
 var ErrStepChanged = errors.New("a migration step was applied as another text than this binary carries")
 
-// checkAppliedSteps refuses a database where an applied step's recorded checksum differs from
-// the step this binary carries.
-func (database *Database) checkAppliedSteps(ctx context.Context, steps []Step, appliedVersion int) error {
-	if appliedVersion < schemaStepTableVersion {
+// ErrBeforeBaseline is a database at a version below this binary's baseline: the steps that
+// would bring it there were folded into the baseline, which builds only a new file (D228).
+var ErrBeforeBaseline = errors.New("this database is older than the baseline schema this binary starts from")
+
+// refuseBeforeBaseline refuses a file between empty and the baseline's version.
+func refuseBeforeBaseline(steps []Step, state SchemaState) error {
+	if len(steps) == 0 || !steps[0].IsBaseline || state.Version == 0 || state.Version >= steps[0].Version {
 		return nil
+	}
+	baseline := steps[0]
+	return fmt.Errorf("%w: it is at schema %d, and %s builds schema %d only in a new file, having folded the "+
+		"steps between (D228). Move this file aside and start again with an empty one; a development database "+
+		"is reset with `make dev-reset`, and the next `make dev` builds and seeds a new one",
+		ErrBeforeBaseline, state.Version, baseline.Name, baseline.Version)
+}
+
+// checkAppliedSteps refuses a database where an applied step's recorded checksum differs from
+// the step this binary carries. At a baseline's version, the checksum of the step it folded is
+// as good as its own: a file that reached that version through the step is as current.
+func (database *Database) checkAppliedSteps(ctx context.Context, steps []Step, appliedVersion int) error {
+	if appliedVersion == 0 || len(steps) == 0 {
+		return nil // a new file has no schema_step yet
+	}
+	carried := map[int]Step{}
+	for _, step := range steps {
+		carried[step.Version] = step
 	}
 	rows, err := database.readers.QueryContext(ctx, "SELECT version, sha256 FROM schema_step ORDER BY version")
 	if err != nil {
@@ -33,34 +51,17 @@ func (database *Database) checkAppliedSteps(ctx context.Context, steps []Step, a
 		if err := rows.Scan(&version, &checksum); err != nil {
 			return fmt.Errorf("read an applied step's checksum: %w", err)
 		}
-		if version < 1 || version > len(steps) || version > appliedVersion {
-			continue // a newer binary's step, which refuseNewer has judged
+		step, isCarried := carried[version]
+		if !isCarried || version > appliedVersion {
+			continue // a step a baseline folded, or a newer binary's, which refuseNewer has judged
 		}
-		if step := steps[version-1]; step.Checksum != checksum {
+		if checksum != step.Checksum && (!step.IsBaseline || checksum != step.FoldedChecksum) {
 			return fmt.Errorf("%w: %s (the database has %.12s…, this binary %.12s…); a development "+
 				"database is reset with `make dev-reset`", ErrStepChanged, step.Name, checksum, step.Checksum)
 		}
 	}
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("read the applied steps' checksums: %w", err)
-	}
-	return nil
-}
-
-// recordAppliedSteps records the checksum of every applied step that has none: each new one,
-// and, when schema_step is first created, the steps before it, with the text this binary carries.
-func (database *Database) recordAppliedSteps(ctx context.Context, steps []Step, appliedVersion int) error {
-	if appliedVersion < schemaStepTableVersion {
-		return nil
-	}
-	// A database a newer release migrated has steps this binary does not carry; it records its own.
-	for _, step := range steps[:min(appliedVersion, len(steps))] {
-		_, err := database.writer.ExecContext(ctx,
-			"INSERT INTO schema_step (version, sha256) VALUES (?, ?) ON CONFLICT (version) DO NOTHING",
-			step.Version, step.Checksum)
-		if err != nil {
-			return fmt.Errorf("record %s's checksum: %w", step.Name, err)
-		}
 	}
 	return nil
 }

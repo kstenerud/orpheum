@@ -33,7 +33,8 @@ const (
 )
 
 // referenceScaleFiller writes the reference-scale rows through prepared statements in one transaction, at
-// schema version 1, so every later step migrates real volumes.
+// the baseline's schema (D228), so every later step migrates real volumes. A fold that moves the
+// baseline up moves the filler's names with it.
 type referenceScaleFiller struct {
 	tb      testing.TB
 	ctx     context.Context //nolint:containedctx // the test's, for the statements it runs
@@ -86,7 +87,8 @@ func (filler *referenceScaleFiller) insertItem(kind string, libraryID int64, lis
 		"VALUES (?, 'und', 1, ?, ?, ?)",
 		id, name, filler.words(60), filler.words(8))
 	if listing != "" {
-		filler.exec("INSERT INTO sort_key (item_id, locale, listing, key) VALUES (?, 'en', ?, ?)", id, listing,
+		filler.exec("INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (?, 'en', ?, ?)",
+			id, listing,
 			append([]byte(name), 0, 1, 2, 3))
 	}
 	return id
@@ -104,16 +106,18 @@ func (filler *referenceScaleFiller) insertVideo(titleID, libraryID int64, path s
 		`"streams":[{"codec_name":"hevc","width":3840,"height":2160},{"codec_name":"truehd","channels":8},`+
 		`{"codec_name":"eac3","channels":6},{"codec_name":"subrip"}],"chapters":%q}`,
 		5400+filler.random.IntN(3600), 20_000_000+filler.random.IntN(40_000_000), filler.words(40), filler.words(70))
-	filler.exec(`INSERT INTO file (id, library_id, node_id, path, size, mtime, payload_hash, payload_len, filing,
-		probe, version_id, first_seen, last_seen) VALUES (?, ?, 1, ?, ?, ?, ?, ?, 'listed', ?, ?, ?, ?)`,
-		filler.fileID, libraryID, path, 20_000_000_000, filler.now, filler.bytes(32), 19_000_000_000, probe,
-		versionID, filler.now, filler.now)
+	filler.exec(`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, mtime_ms,
+		payload_hash, payload_bytes, filing, probe_json, version_id, first_seen_at, last_seen_at)
+		VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, 'listed', ?, ?, ?, ?)`,
+		filler.fileID, libraryID, path, []byte(path), 20_000_000_000, filler.now, filler.bytes(32), 19_000_000_000,
+		probe, versionID, filler.now, filler.now)
 	for index, stream := range []struct{ kind, codec, lang string }{
 		{"video", "hevc", ""}, {"audio", "truehd", "en"}, {"audio", "eac3", "de"}, {"subtitle", "subrip", "en"},
 	} {
 		filler.streams++
-		filler.exec(`INSERT INTO stream (file_id, media_file, stream_index, kind, codec, lang_raw, lang, channels)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, filler.fileID, filler.fileID, index, stream.kind, stream.codec,
+		filler.exec(`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang,
+			channel_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			filler.fileID, filler.fileID, index, stream.kind, stream.codec,
 			stream.lang, stream.lang, 8)
 	}
 }
@@ -121,8 +125,8 @@ func (filler *referenceScaleFiller) insertVideo(titleID, libraryID int64, path s
 // insertFilm inserts one film: its title, one or two versions, artwork, ids and stored response.
 func (filler *referenceScaleFiller) insertFilm(index int) {
 	id := filler.insertItem("title", 1, "movie")
-	filler.exec(`INSERT INTO title (id, kind, year, runtime_ms, source, source_id, ident)
-		VALUES (?, 'movie', ?, ?, 'tmdb', ?, 'identified')`,
+	filler.exec(`INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id,
+		identification) VALUES (?, 'movie', ?, ?, 'tmdb', ?, 'identified')`,
 		id, 1950+filler.random.IntN(76), 6_000_000, fmt.Sprint(index))
 	for version := range 1 + boolInt(index%10 == 0) {
 		path := fmt.Sprintf("/media/films/Film %d (%d)/Film %d - %d.mkv", index, index, index, version)
@@ -140,7 +144,7 @@ func (filler *referenceScaleFiller) insertProviderData(itemID int64, kind string
 	filler.exec("INSERT INTO item_provider_id (item_id, provider, provider_id) VALUES (?, 'tmdb', ?), (?, 'imdb', ?)",
 		itemID, fmt.Sprint(index), itemID, fmt.Sprintf("tt%07d", index))
 	if kind == "movie" {
-		filler.exec("INSERT INTO provider_response (title_id, provider, fetched_at, body) VALUES (?, 'tmdb', ?, ?)",
+		filler.exec("INSERT INTO provider_response (item_id, provider, fetched_at, body_gzip) VALUES (?, 'tmdb', ?, ?)",
 			itemID, filler.now, filler.bytes(2_000))
 	}
 }
@@ -159,13 +163,14 @@ func (filler *referenceScaleFiller) insertSeries(index int) {
 	for episode := range refEpisodesPerShow {
 		season, number := 1+episode/10, 1+episode%10
 		episodeID := filler.insertItem("title", 2, "")
-		filler.exec(`INSERT INTO title (id, kind, year, runtime_ms, source, source_id, ident)
-			VALUES (?, 'episode', ?, ?, 'tmdb', ?, 'identified')`, episodeID, 2000+index%26, 2_700_000,
+		filler.exec(`INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id,
+			identification) VALUES (?, 'episode', ?, ?, 'tmdb', ?, 'identified')`, episodeID, 2000+index%26, 2_700_000,
 			fmt.Sprintf("%d-%d", index, episode))
 		filler.insertVideo(episodeID, 2, fmt.Sprintf("/media/shows/Show %d/Season %02d/Show %d - S%02dE%02d.mkv", index,
 			season, index, season, number))
 		sort := float64(season*10000 + number)
-		filler.exec("INSERT INTO position (ordering_id, title_id, grp, number, sort) VALUES (?, ?, ?, ?, ?)",
+		filler.exec("INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
+			"VALUES (?, ?, ?, ?, ?)",
 			orderingID, episodeID, season, number, sort)
 		filler.exec("INSERT INTO collection_member (collection_id, member_title, position) VALUES (?, ?, ?)", id,
 			episodeID, sort)
@@ -182,7 +187,7 @@ func boolInt(value bool) int {
 	return 0
 }
 
-// fillReferenceScale fills a database at schema version 1 with the reference-scale library.
+// fillReferenceScale fills a database at the baseline's schema with the reference-scale library.
 func fillReferenceScale(t *testing.T, database *Database) {
 	t.Helper()
 	transaction, err := database.writer.BeginTx(t.Context(), nil)
@@ -195,7 +200,7 @@ func fillReferenceScale(t *testing.T, database *Database) {
 		now: time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC).UnixMilli(),
 	}
 	filler.exec("INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)")
-	filler.exec(`INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at)
+	filler.exec(`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		VALUES (1, 'Films', 'movies', 'nfo_then_tmdb', 'watch', 0, 1), (2, 'Series', 'shows', 'tmdb', 'watch', 0, 1)`)
 	filler.exec("INSERT INTO library_root (library_id, node_id, path) " +
 		"VALUES (1, 1, '/media/films'), (2, 1, '/media/shows')")
@@ -209,18 +214,19 @@ func fillReferenceScale(t *testing.T, database *Database) {
 	for span := range refPlaySpans {
 		fileID := 1 + filler.random.Int64N(filler.fileID)
 		start := filler.now - int64(span)*3_600_000
-		filler.exec(`INSERT INTO play_span (user_id, file_id, pos_from_ms, pos_to_ms, t_from, t_to)
+		filler.exec(`INSERT INTO play_span (user_id, file_id, from_position_ms, to_position_ms, started_at, ended_at)
 			VALUES (?, ?, 0, 1800000, ?, ?)`, 1+span%2, fileID, start, start+1_800_000)
-		filler.exec(`INSERT INTO play_position (user_id, file_id, position_ms, seq, updated_at)
+		filler.exec(`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at)
 			VALUES (?, ?, 1800000, ?, ?)
-			ON CONFLICT (user_id, file_id) DO UPDATE SET seq = excluded.seq`, 1+span%2, fileID, span, start)
+			ON CONFLICT (user_id, file_id) DO UPDATE SET report_seq = excluded.report_seq`,
+			1+span%2, fileID, span, start)
 	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// TestReferenceScale fills a database at schema version 1 with the reference-scale library
+// TestReferenceScale fills a database at the baseline's schema with the reference-scale library
 // (about 46 MB), then migrates it and reads its listing queries' plans. It is in the integration
 // tier: the fill takes seconds.
 func TestReferenceScale(t *testing.T) {
@@ -240,20 +246,28 @@ func TestReferenceScale(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("reference scale at schema 1: %.1f MB, filled in %v", float64(info.Size())/(1<<20), wall.Now().Sub(filled))
+	t.Logf("reference scale at schema %d: %.1f MB, filled in %v", steps[0].Version, float64(info.Size())/(1<<20),
+		wall.Now().Sub(filled))
 	if info.Size() < 30<<20 {
 		t.Fatalf("the reference-scale database is %d bytes; it should be about 46 MB", info.Size())
 	}
-	// In order: the plans and pages are read on the migrated database.
+	// In order: every step after the baseline, then a rebuild of the files, the table most others
+	// reference, as a step's worst case; the plans and pages are read on the result.
 	checkStepBudgets(t, database, steps)
+	checkStepBudgets(t, database, append(steps, rebuildStep(t, database, "file", lastVersion(steps)+1)))
 	checkQueryPlans(t, database)
 	checkPageBudgets(t, database)
 }
 
-// checkStepBudgets migrates from schema 1, timing each step (migrations.md: under 10 s each at
-// the reference scale).
+// checkStepBudgets migrates through the pending steps, timing each (migrations.md: under 10 s
+// each at the reference scale).
 func checkStepBudgets(t *testing.T, database *Database, steps []Step) {
 	t.Helper()
+	state, err := database.State(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending := pendingSteps(steps, state)
 	wall := clock.System{}
 	var took []time.Duration
 	var started time.Time
@@ -267,15 +281,54 @@ func checkStepBudgets(t *testing.T, database *Database, steps []Step) {
 	if err := database.migrate(t.Context(), steps, options); err != nil {
 		t.Fatal(err)
 	}
-	took = append(took, wall.Now().Sub(started))
+	if !started.IsZero() {
+		took = append(took, wall.Now().Sub(started))
+	}
 	for index, duration := range took {
-		step := steps[index+1]
+		step := pending[index]
 		t.Logf("step %04d %s: %v", step.Version, step.Name, duration)
 		if duration > stepBudget {
 			t.Errorf("step %04d %s took %v at the reference scale; the budget is %v (migrations.md)", step.Version,
 				step.Name, duration, stepBudget)
 		}
 	}
+}
+
+// rebuildStep is a step that rebuilds table in the documented pattern (migrations.md): the views
+// dropped, a copy made with its rows and id sequence, the old table dropped and the copy renamed,
+// and its indexes, triggers and the views made again. It moves the rows and changes no schema, so
+// the plans read after it are the schema's.
+func rebuildStep(t *testing.T, database *Database, table string, version int) Step {
+	t.Helper()
+	schemaSQL := func(query string) []string {
+		var texts []string
+		for _, row := range queryRows(t, database, query, 1) {
+			texts = append(texts, row[0])
+		}
+		return texts
+	}
+	copyName := table + "_rebuilt"
+	created := schemaSQL("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = '" + table + "'")
+	if len(created) != 1 || !strings.HasPrefix(created[0], "CREATE TABLE "+table+" ") {
+		t.Fatalf("the rebuild wants CREATE TABLE %s, and found %q", table, created)
+	}
+	columns := schemaSQL("SELECT name FROM pragma_table_info('" + table + "')")
+	var text strings.Builder
+	for _, view := range schemaSQL("SELECT name FROM sqlite_schema WHERE type = 'view' ORDER BY name") {
+		fmt.Fprintf(&text, "DROP VIEW %s;\n", view)
+	}
+	fmt.Fprintf(&text, "CREATE TABLE %s %s;\n", copyName, strings.TrimPrefix(created[0], "CREATE TABLE "+table+" "))
+	fmt.Fprintf(&text, "INSERT INTO %s (%s) SELECT %[2]s FROM %s;\n", copyName, strings.Join(columns, ", "), table)
+	fmt.Fprintf(&text, "UPDATE sqlite_sequence SET seq = (SELECT seq FROM sqlite_sequence WHERE name = '%s') "+
+		"WHERE name = '%s';\n", table, copyName)
+	fmt.Fprintf(&text, "DROP TABLE %s;\nALTER TABLE %s RENAME TO %[1]s;\n", table, copyName)
+	remade := schemaSQL("SELECT sql FROM sqlite_schema WHERE type IN ('index', 'trigger') AND tbl_name = '" + table +
+		"' AND sql IS NOT NULL ORDER BY type, name")
+	remade = append(remade, schemaSQL("SELECT sql FROM sqlite_schema WHERE type = 'view' ORDER BY name")...)
+	for _, statement := range remade {
+		fmt.Fprintf(&text, "%s;\n", statement)
+	}
+	return Step{Version: version, Name: fmt.Sprintf("%04d_rebuild_%s.sql", version, table), SQL: text.String()}
 }
 
 // listQuery is one of the store's listing queries, as its file writes it.
