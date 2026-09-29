@@ -81,3 +81,18 @@ func TestParseNFO_RefusesWhatIsNotOne(t *testing.T) {
 		}
 	}
 }
+
+func TestYearOfDate_ReadsTheYearOfAnISODateOrZero(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		date string
+		want int
+	}{
+		{"1995-12-15", 1995}, {" 2024-01-02\n", 2024}, {"1999", 1999}, {"", 0}, {"unknown", 0}, {"-5-01-01", 0},
+	}
+	for _, test := range cases {
+		if got := YearOfDate(test.date); got != test.want {
+			t.Errorf("YearOfDate(%q) = %d, want %d", test.date, got, test.want)
+		}
+	}
+}
