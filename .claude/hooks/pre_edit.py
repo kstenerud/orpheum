@@ -23,7 +23,9 @@ def main() -> None:
     elif is_committed_migration(rel, hooklib.ROOT):
         hooklib.deny(
             f"{rel} is a committed migration, and migrations are append-only (D181). "
-            "Add the next numbered migration instead."
+            "Add the next numbered migration instead. Until migrations are live (D228), a schema "
+            "change folds this last step into the baseline, which may be edited, and adds the "
+            "change as the one step after it."
         )
     elif is_gate(rel) and not hooklib.owner_allows("ORPHEUM_ALLOW_GATE_EDIT"):
         hooklib.deny(
