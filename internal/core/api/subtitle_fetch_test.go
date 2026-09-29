@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -43,12 +44,13 @@ func (fake *fakeSubtitler) Search(_ context.Context, query opensubtitles.Query) 
 	if fake.failure != nil {
 		return nil, fake.failure
 	}
+	// The hash match comes second, so only the core's order can put it first (D224 §3).
 	return []opensubtitles.Candidate{
+		{ProviderFileID: 8, ReleaseName: "Film.2002.720p", Language: "de", IsHearingImpaired: true},
 		{
 			ProviderFileID: 7, ReleaseName: "Film.2002.1080p", Language: "de", IsOpensubtitlesHashMatch: true,
 			DownloadCount: 120,
 		},
-		{ProviderFileID: 8, ReleaseName: "Film.2002.720p", Language: "de", IsHearingImpaired: true},
 	}, nil
 }
 
@@ -129,6 +131,30 @@ func offeredCandidates(t *testing.T, answer response) candidatesAnswer {
 		t.Fatalf("GET subtitle-candidates = %d %s", answer.status, answer.body)
 	}
 	return body
+}
+
+// Fetching a subtitle is for everyone who may watch, not only an admin (D224 §1).
+func TestSubtitleCandidates_APersonWhoIsNotAnAdminListsAndFetchesThem(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.createAdminAndSignIn(t)
+	_, err := harness.authService.CreateUser(t.Context(), auth.NewUser{
+		Name: "guest", Password: "guest-password", Role: auth.RoleUser,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	guest := harness.signIn(t, "guest", "guest-password")
+	harness.shelveFilms(t)
+	harness.identifyFilm(t)
+	if offered := offeredCandidates(t, harness.do(t, http.MethodGet, "/files/2/subtitle-candidates?language=de",
+		guest, nil)); len(offered.Candidates) != 2 {
+		t.Errorf("a person who is not an admin was offered %+v, want both candidates", offered)
+	}
+	fetchedID := fetchGerman(t, harness, guest)
+	if choice := harness.choiceIn(t, guest, 2); choice != fmt.Sprintf("fetched %d carried=false", fetchedID) {
+		t.Errorf("the guest's choice is %s, want the subtitle the guest fetched", choice)
+	}
 }
 
 func TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace(t *testing.T) {
