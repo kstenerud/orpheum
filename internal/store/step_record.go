@@ -17,16 +17,35 @@ var ErrStepChanged = errors.New("a migration step was applied as another text th
 // would bring it there were folded into the baseline, which builds only a new file (D228).
 var ErrBeforeBaseline = errors.New("this database is older than the baseline schema this binary starts from")
 
-// refuseBeforeBaseline refuses a file between empty and the baseline's version.
+// RefuseBeforeBaseline refuses a file this binary's steps cannot bring forward: one between empty
+// and the baseline's version (D228). A restore asks it of a backup before replacing anything.
+func RefuseBeforeBaseline(state SchemaState) error {
+	steps, err := Steps()
+	if err != nil {
+		return err
+	}
+	return beforeBaseline(steps, state)
+}
+
+// refuseBeforeBaseline refuses to migrate a file between empty and the baseline's version, and
+// says how to start again.
 func refuseBeforeBaseline(steps []Step, state SchemaState) error {
+	err := beforeBaseline(steps, state)
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%w. Move this file aside and start again with an empty one; a development database is "+
+		"reset with `make dev-reset`, and the next `make dev` builds and seeds a new one", err)
+}
+
+// beforeBaseline describes a file between empty and the baseline's version, or returns nil.
+func beforeBaseline(steps []Step, state SchemaState) error {
 	if len(steps) == 0 || !steps[0].IsBaseline || state.Version == 0 || state.Version >= steps[0].Version {
 		return nil
 	}
 	baseline := steps[0]
 	return fmt.Errorf("%w: it is at schema %d, and %s builds schema %d only in a new file, having folded the "+
-		"steps between (D228). Move this file aside and start again with an empty one; a development database "+
-		"is reset with `make dev-reset`, and the next `make dev` builds and seeds a new one",
-		ErrBeforeBaseline, state.Version, baseline.Name, baseline.Version)
+		"steps between (D228)", ErrBeforeBaseline, state.Version, baseline.Name, baseline.Version)
 }
 
 // checkAppliedSteps refuses a database where an applied step's recorded checksum differs from

@@ -105,6 +105,9 @@ func MakePlan(
 		return Plan{}, fmt.Errorf("%s is at schema %d and needs schema %d or newer; this release understands %d: %w",
 			sourcePath, inspected.State.Version, inspected.State.CompatibleVersion, binaryVersion, ErrNewerBackup)
 	}
+	if err = store.RefuseBeforeBaseline(inspected.State); err != nil {
+		return Plan{}, fmt.Errorf("%s cannot be restored by this release: %w", sourcePath, err)
+	}
 	if keyFileContents != nil {
 		if _, err = secrets.ParseKeyFile(keyFileContents); err != nil {
 			return Plan{}, err
@@ -128,7 +131,8 @@ func MakePlan(
 
 // Restore carries out a plan, with the server stopped: it takes the state directory's lock, keeps
 // the database it replaces, writes a fresh copy of the backup, moves it into place and installs
-// the key if one was given. An older backup is migrated by the ordinary runner on the next start.
+// the key if one was given. An older backup is migrated by the ordinary runner on the next start;
+// one below the baseline, which the runner cannot migrate, MakePlan has already refused (D228).
 func Restore(
 	ctx context.Context, directories *datadir.Directories, plan Plan, keyFileContents []byte, options store.OpenOptions,
 ) (err error) {
