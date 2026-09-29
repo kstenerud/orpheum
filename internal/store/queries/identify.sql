@@ -31,10 +31,12 @@ WHERE item_provider_id.provider = ? AND item_provider_id.provider_id = ? AND ite
 ORDER BY title.id;
 
 -- name: CountLiveFilesOfTitle :one
+-- A title's live files: live files of its live versions, as ListTitleFiles and
+-- ListLiveFilesOfTitle list them.
 SELECT count(*)
 FROM file
 JOIN version ON version.id = file.version_id
-WHERE version.title_id = ? AND file.removed_at IS NULL;
+WHERE version.title_id = ? AND version.removed_at IS NULL AND file.removed_at IS NULL;
 
 -- name: GetVersionTitle :one
 SELECT version.title_id, title.identification_state

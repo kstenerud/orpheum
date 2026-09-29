@@ -147,7 +147,7 @@ const listLiveFilesOfTitle = `-- name: ListLiveFilesOfTitle :many
 SELECT file.id, file.path
 FROM file
 JOIN version ON version.id = file.version_id
-WHERE version.title_id = ?1 AND file.removed_at IS NULL
+WHERE version.title_id = ?1 AND version.removed_at IS NULL AND file.removed_at IS NULL
 ORDER BY file.path
 `
 
@@ -156,6 +156,8 @@ type ListLiveFilesOfTitleRow struct {
 	Path string
 }
 
+// A title's live files: live files of its live versions, as ListTitleFiles and
+// CountLiveFilesOfTitle count them.
 func (q *Queries) ListLiveFilesOfTitle(ctx context.Context, titleID int64) ([]ListLiveFilesOfTitleRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveFilesOfTitle, titleID)
 	if err != nil {
