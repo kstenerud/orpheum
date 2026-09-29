@@ -38,6 +38,6 @@ const (
 	extraUnknown    = "unknown"
 
 	itemKindCollection = "collection"
-	// The language of an original text not known yet (item_text.lang).
+	// The language of an original text not known yet (item_text.language).
 	langUnknown = "und"
 )
