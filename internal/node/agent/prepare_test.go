@@ -151,6 +151,46 @@ func TestAgent_APrepareTheDiskHasNoRoomForIsRefusedAndOneFFmpegFailsOnFails(t *t
 	}
 }
 
+// evictingShelf tells evictions of each eviction.
+type evictingShelf struct{ evictions chan struct{} }
+
+func (shelf evictingShelf) Evict() (prepared.Usage, error) {
+	shelf.evictions <- struct{}{}
+	return prepared.Usage{}, nil
+}
+
+func (evictingShelf) LastUsage() (prepared.Usage, bool) { return prepared.Usage{}, false }
+
+// A prepare adds to the prepared directory, so once it ends the directory is brought back within its
+// budget then, not only when the next prepare makes room (D217 §5).
+func TestAgent_AFinishedPrepareKeepsThePreparedDirectoryWithinItsBudget(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	shelf := evictingShelf{evictions: make(chan struct{}, 4)}
+	root, _ := startAgentWithShelf(t, socket, shelf)
+	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	identity, err := hash.PayloadIdentity(strings.NewReader("a film"), 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
+		JobID: 1, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
+		Video: nodeproto.BytesFile{
+			RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
+		},
+	}}
+	if done := finalPrepareReport(t, core); done.State != nodeproto.PrepareDone {
+		t.Fatalf("the prepare ended %+v, want done", done)
+	}
+	select {
+	case <-shelf.evictions:
+	case <-time.After(answerTimeout):
+		t.Error("the prepared directory was not kept within its budget after the prepare")
+	}
+}
+
 func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
