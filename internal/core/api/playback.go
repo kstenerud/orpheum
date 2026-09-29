@@ -267,12 +267,6 @@ func (server *Server) relayHLSFile(
 // always leaves with one code and one message. A subtitle provider's refusal says why in
 // detail.reason, in OpenSubtitles' terms, with the provider as the failing leg (D224).
 func (server *Server) playbackError(ctx context.Context, action string, err error) error {
-	fromProvider := func(status int, code Code, reason, message string) error {
-		failure := newError(status, code, message)
-		failure.ErrorBody.Error.Detail = map[string]string{"reason": reason}
-		failure.ErrorBody.Error.FailedHop = HopProvider
-		return failure
-	}
 	spent, isSpent := errors.AsType[*opensubtitles.QuotaSpentError](err)
 	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
 	switch {
@@ -292,13 +286,13 @@ func (server *Server) playbackError(ctx context.Context, action string, err erro
 		return newError(http.StatusConflict, CodeConflict,
 			"this file is not identified yet, and has not been scanned since it could be hashed for OpenSubtitles")
 	case errors.Is(err, playback.ErrNoSubtitler):
-		return fromProvider(http.StatusServiceUnavailable, CodeProviderError, "not_configured",
+		return providerRefusal("not_configured",
 			"this server fetches no subtitles")
 	case errors.Is(err, opensubtitles.ErrNoLogin):
-		return fromProvider(http.StatusServiceUnavailable, CodeProviderError, "no_login",
+		return providerRefusal("no_login",
 			"no OpenSubtitles login is set; an admin can set it in Settings")
 	case errors.Is(err, opensubtitles.ErrLoginRefused):
-		return fromProvider(http.StatusServiceUnavailable, CodeProviderError, "login_refused",
+		return providerRefusal("login_refused",
 			"OpenSubtitles refused the login; an admin can change it in Settings")
 	case isSpent:
 		failure := newError(http.StatusTooManyRequests, CodeQuotaExhausted,

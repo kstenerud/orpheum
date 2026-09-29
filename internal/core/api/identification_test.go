@@ -216,3 +216,24 @@ func TestIdentification_AProvidersRateLimitSaysWhichAndHowLongAsSubtitlesDo(t *t
 			answer.body)
 	}
 }
+
+// A provider key that is missing or refused leaves the way a subtitle login does: why in
+// detail.reason, and the provider as the failing leg (cut-a §5.2).
+func TestIdentification_AMissingOrRefusedKeySaysWhyWithTheProviderAsTheFailingLeg(t *testing.T) {
+	t.Parallel()
+	for failure, reason := range map[error]string{identify.ErrNoKey: "no_key", identify.ErrKeyRefused: "key_refused"} {
+		harness := newHarness(t)
+		admin := harness.createAdminAndSignIn(t)
+		harness.ambiguousTitle(t)
+		harness.tmdbProvider.mutex.Lock()
+		harness.tmdbProvider.fail = failure
+		harness.tmdbProvider.mutex.Unlock()
+		answer := harness.do(t, http.MethodPost, "/items/10/match", admin,
+			map[string]string{"provider": "tmdb", "providerId": "2"})
+		wantError(t, answer, http.StatusServiceUnavailable, CodeProviderError)
+		if !strings.Contains(answer.body, `"reason":"`+reason+`"`) ||
+			!strings.Contains(answer.body, `"failedHop":"provider"`) {
+			t.Errorf("%v: %s, want reason %s and the provider as the failing leg", failure, answer.body, reason)
+		}
+	}
+}
