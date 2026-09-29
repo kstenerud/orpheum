@@ -361,9 +361,9 @@ export const en = {
   sound: {
     question: "How does this device play sound?",
     why: "So that dialogue can be made clearer where it helps. You can change this later, under the video or in Your account.",
-    tvSpeakers: "TV speakers",
+    tvSpeakers: "Built-in speakers",
     tvSpeakersHint:
-      "The television's own speakers, or a laptop's or a phone's: surround sound is mixed down to two channels here, and the dialogue boost can raise the voices.",
+      "The device's own speakers, a television's, a laptop's or a phone's: surround sound is mixed down to two channels here, and the dialogue boost can raise the voices.",
     receiver: "Soundbar or receiver",
     receiverHint:
       "Surround sound goes to it as it is when this browser can play the original file; a copy prepared for another reason is stereo, and the dialogue boost works on it.",
