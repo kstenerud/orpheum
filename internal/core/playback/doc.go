@@ -28,7 +28,9 @@
 //     TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks. Choosing reads the file,
 //     its tracks, the work's files and their choices in the transaction that keeps the choice, so
 //     it never decides on what that transaction does not see. Enforced by
-//     TestCarryChoice_SeesAnOwnChoiceKeptEarlierInItsTransaction.
+//     TestCarryChoice_SeesAnOwnChoiceKeptEarlierInItsTransaction. A subtitle offset is kept only
+//     for a file the transaction that keeps it finds playable. Enforced by
+//     TestKeepSubtitleOffset_RefusesAFileItsTransactionRemoved.
 //   - A decision reads how the asking device makes sound: built-in speakers and headphones are stereo,
 //     a receiver or a device not yet asked is not, and the answer says which so the player can
 //     ask (D222). Enforced by TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct.
