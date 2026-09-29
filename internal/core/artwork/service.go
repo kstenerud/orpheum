@@ -19,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -80,11 +81,10 @@ type Parts struct {
 type Service struct {
 	parts Parts
 
-	mutex            sync.Mutex
-	lastRequestID    int64
-	answersByRequest map[int64]chan nodeproto.ArtworkResult
-	breakers         map[string]*breaker // by source
-	holdings         *holdings
+	answers  *nodes.AnswerRouter[nodeproto.ArtworkResult]
+	mutex    sync.Mutex
+	breakers map[string]*breaker // by source
+	holdings *holdings
 }
 
 // NewService returns the service.
@@ -93,8 +93,8 @@ func NewService(parts Parts) *Service {
 		parts.AnswerWait = defaultWait
 	}
 	return &Service{
-		parts: parts, answersByRequest: map[int64]chan nodeproto.ArtworkResult{}, breakers: map[string]*breaker{},
-		holdings: newHoldings(),
+		parts: parts, answers: nodes.NewAnswerRouter[nodeproto.ArtworkResult](parts.Logger, "an artwork answer"),
+		breakers: map[string]*breaker{}, holdings: newHoldings(),
 	}
 }
 
@@ -157,7 +157,7 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 			args.ArtworkSource)))
 	}
 	for _, ref := range args.Refs {
-		want := wantedImage{itemID: job.ItemID, source: args.ArtworkSource, ref: ref}
+		want := wantedImage{jobID: job.ID, itemID: job.ItemID, source: args.ArtworkSource, ref: ref}
 		var err error
 		if len(args.SizeNames) > 0 {
 			err = service.makeSizes(ctx, fetcher, want, args)
@@ -171,8 +171,9 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 	return nil
 }
 
-// wantedImage is one image an item's source names.
+// wantedImage is one image an item's source names, and the job that fetches it.
 type wantedImage struct {
+	jobID  int64
 	itemID int64
 	source string
 	ref    owedRef
@@ -187,7 +188,7 @@ func (service *Service) fetchImage(ctx context.Context, fetcher Fetcher, want wa
 	if err != nil || held {
 		return err
 	}
-	command := nodeproto.Artwork{Shape: shape, SizeNames: fetchedSizes(shape)}
+	command := nodeproto.Artwork{JobID: want.jobID, Shape: shape, SizeNames: fetchedSizes(shape)}
 	var nodeID int64
 	sourceSha256Hex := ""
 	if want.source == identify.SourceLocal {
@@ -263,7 +264,8 @@ func (service *Service) isHeld(ctx context.Context, want wantedImage) (bool, err
 	}), nil
 }
 
-// reEncode sends a source to the node and waits for its answer.
+// reEncode sends a source to the node and waits for its answer, by the job id the command
+// carries. A job cancelled while it waits tells the node to stop.
 func (service *Service) reEncode(
 	ctx context.Context, nodeID int64, command nodeproto.Artwork,
 ) (nodeproto.ArtworkResult, error) {
@@ -275,9 +277,9 @@ func (service *Service) reEncode(
 	if err != nil {
 		return nodeproto.ArtworkResult{}, fmt.Errorf("read artwork_webp_quality: %w", err)
 	}
-	requestID, answers := service.registerWait()
-	defer service.forget(requestID)
-	command.JobID, command.MaxSourcePixels, command.WebPQuality = requestID, maxSourcePixels, int(quality)
+	answers := service.answers.Await(command.JobID)
+	defer service.answers.Forget(command.JobID)
+	command.MaxSourcePixels, command.WebPQuality = maxSourcePixels, int(quality)
 	service.parts.Nodes.Enqueue(nodeID,
 		nodeproto.Command{Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: &command})
 	timer := time.NewTimer(service.parts.AnswerWait)
@@ -289,38 +291,18 @@ func (service *Service) reEncode(
 		return nodeproto.ArtworkResult{}, fmt.Errorf("node %d did not answer within %s", nodeID,
 			service.parts.AnswerWait)
 	case <-ctx.Done():
+		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
+			service.parts.Nodes.Enqueue(nodeID, nodes.CancelCommand(command.JobID))
+			return nodeproto.ArtworkResult{}, jobs.MarkPermanent(jobs.ErrCancelled)
+		}
 		return nodeproto.ArtworkResult{}, fmt.Errorf("wait for node %d: %w", nodeID, ctx.Err())
 	}
-}
-
-func (service *Service) registerWait() (int64, <-chan nodeproto.ArtworkResult) {
-	service.mutex.Lock()
-	defer service.mutex.Unlock()
-	service.lastRequestID++
-	answer := make(chan nodeproto.ArtworkResult, 1)
-	service.answersByRequest[service.lastRequestID] = answer
-	return service.lastRequestID, answer
-}
-
-func (service *Service) forget(requestID int64) {
-	service.mutex.Lock()
-	defer service.mutex.Unlock()
-	delete(service.answersByRequest, requestID)
 }
 
 // TakeArtworkAnswer takes a node's answer to the job waiting for it. One nothing waits for — it came after
 // the wait ended — is dropped; its job was retried.
 func (service *Service) TakeArtworkAnswer(ctx context.Context, nodeID int64, result nodeproto.ArtworkResult) {
-	service.mutex.Lock()
-	answer, found := service.answersByRequest[result.JobID]
-	delete(service.answersByRequest, result.JobID)
-	service.mutex.Unlock()
-	if !found {
-		service.parts.Logger.InfoContext(ctx, "an artwork answer came after its wait ended", "nodeId", nodeID,
-			"requestId", result.JobID)
-		return
-	}
-	answer <- result
+	service.answers.Deliver(ctx, nodeID, result.JobID, result)
 }
 
 // keep stores what the node made, then records it as the item's image of its kind; a refusal is

@@ -202,10 +202,14 @@ func (fakeScanner) Scan(_ context.Context, root *confine.MediaRoot, emit scan.Em
 	return nil
 }
 
-// fakeArtworker answers every artwork command with one size, the source's bytes reversed.
+// fakeArtworker answers every artwork command with one size, the source's bytes reversed, and a
+// cancelled one with a refusal.
 type fakeArtworker struct{}
 
-func (fakeArtworker) Derive(_ context.Context, command nodeproto.Artwork) nodeproto.ArtworkResult {
+func (fakeArtworker) Derive(ctx context.Context, command nodeproto.Artwork) nodeproto.ArtworkResult {
+	if ctx.Err() != nil {
+		return nodeproto.ArtworkResult{JobID: command.JobID, Refusal: "cancelled"}
+	}
 	reversed := slices.Clone(command.SourceImage)
 	slices.Reverse(reversed)
 	return nodeproto.ArtworkResult{
@@ -335,6 +339,27 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 	case result := <-core.artwork:
 		if result.JobID != 12 || len(result.Images) != 1 || string(result.Images[0].WebP) != "cba" {
 			t.Errorf("the core heard %+v", result)
+		}
+	case <-t.Context().Done():
+		t.Fatal("no artwork answer reached the core")
+	}
+}
+
+func TestAgent_AnArtworkJobTheCoreCancelledIsStopped(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	startAgent(t, socket)
+	cancel := &nodeproto.Cancel{JobID: 12}
+	core.commands <- nodeproto.Command{CommandSeq: 1, Type: nodeproto.CommandCancel, Cancel: cancel}
+	artwork := &nodeproto.Artwork{
+		JobID: 12, SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
+		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+	}
+	core.commands <- nodeproto.Command{CommandSeq: 2, Type: nodeproto.CommandEncodeArtwork, EncodeArtwork: artwork}
+	select {
+	case result := <-core.artwork:
+		if result.JobID != 12 || result.Refusal != "cancelled" || len(result.Images) != 0 {
+			t.Errorf("the core heard %+v, want job 12 stopped before it re-encoded anything", result)
 		}
 	case <-t.Context().Done():
 		t.Fatal("no artwork answer reached the core")

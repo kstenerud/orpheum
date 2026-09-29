@@ -272,6 +272,8 @@ func (agent *Agent) runCommand(
 func (agent *Agent) deriveAndPostArtwork(ctx context.Context, nodeID int64, command nodeproto.Artwork) error {
 	agent.setActivity("re-encoding artwork")
 	defer agent.setActivity("idle")
+	jobCtx, finishJob := agent.jobs.startJob(ctx, command.JobID)
+	defer finishJob()
 	var result nodeproto.ArtworkResult
 	sourceHash := ""
 	if command.AbsolutePath != nil {
@@ -284,7 +286,7 @@ func (agent *Agent) deriveAndPostArtwork(ctx context.Context, nodeID int64, comm
 		}
 	}
 	if result.Refusal == "" {
-		result = agent.workers.Artworker.Derive(ctx, command)
+		result = agent.workers.Artworker.Derive(jobCtx, command)
 		result.SourceSha256 = sourceHash
 	}
 	if result.Refusal != "" {

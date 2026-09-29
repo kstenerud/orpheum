@@ -124,6 +124,9 @@ func TestHandle_MakesAnOnRequestSizeAndNotesOneThatCannotBeMade(t *testing.T) {
 		if !slices.Equal(command.SizeNames, []nodeproto.ArtSizeName{nodeproto.PortraitL}) {
 			t.Errorf("asked for %v, want portrait-l only", command.SizeNames)
 		}
+		if command.JobID != job.ID {
+			t.Errorf("the command names job %d, want the job that makes it, %d", command.JobID, job.ID)
+		}
 		return nodeproto.ArtworkResult{JobID: command.JobID}
 	}
 	if err := bench.service.Handle(t.Context(), job); err != nil {

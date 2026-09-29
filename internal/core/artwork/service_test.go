@@ -41,8 +41,10 @@ type fakeNode struct {
 	isConnected bool
 	answer      func(nodeproto.Artwork) nodeproto.ArtworkResult
 
-	mutex sync.Mutex
-	sent  []nodeproto.Artwork
+	mutex     sync.Mutex
+	sent      []nodeproto.Artwork
+	cancelled []int64       // the jobs a cancel was sent for
+	enqueued  chan struct{} // told of each artwork command, when set
 }
 
 func (node *fakeNode) LastHeardNodeID() (int64, bool) { return 3, node.isConnected }
@@ -51,8 +53,16 @@ func (node *fakeNode) IsConnected(nodeID int64) bool { return nodeID == 3 && nod
 
 func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	node.mutex.Lock()
+	if command.Type == nodeproto.CommandCancel {
+		node.cancelled = append(node.cancelled, command.Cancel.JobID)
+		node.mutex.Unlock()
+		return
+	}
 	node.sent = append(node.sent, *command.EncodeArtwork)
 	node.mutex.Unlock()
+	if node.enqueued != nil {
+		node.enqueued <- struct{}{}
+	}
 	if node.answer != nil {
 		go node.service.TakeArtworkAnswer(node.ctx, 3, node.answer(*command.EncodeArtwork))
 	}
@@ -261,6 +271,31 @@ func TestService_WaitsForANode(t *testing.T) {
 	err := bench.service.Handle(t.Context(), bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/poster.jpg"}))
 	if retry, isRetry := errors.AsType[*jobs.RetryAtError](err); !isRetry || retry.At.IsZero() {
 		t.Errorf("with no node: %v, want a wait that costs no attempt", err)
+	}
+}
+
+// A job waits for the node's answer by its own id, and cancelled while it waits, it tells the node
+// to stop that job.
+func TestService_ACancelledJobTellsTheNodeToStopItByItsID(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("x")})
+	bench.node.enqueued = make(chan struct{}, 1)
+	job := bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/poster.jpg"})
+	job.ID = 41
+	ctx, cancel := context.WithCancelCause(t.Context())
+	ended := make(chan error, 1)
+	go func() { ended <- bench.service.Handle(ctx, job) }()
+	<-bench.node.enqueued
+	cancel(jobs.ErrCancelled)
+	err := <-ended
+	bench.node.mutex.Lock()
+	defer bench.node.mutex.Unlock()
+	if !errors.Is(err, jobs.ErrCancelled) {
+		t.Errorf("the cancelled job ended with %v, want it cancelled for good", err)
+	}
+	if len(bench.node.sent) != 1 || bench.node.sent[0].JobID != 41 || !slices.Equal(bench.node.cancelled, []int64{41}) {
+		t.Errorf("the node was sent %+v and cancels for %v; want job 41's command, then its cancel",
+			bench.node.sent, bench.node.cancelled)
 	}
 }
 
