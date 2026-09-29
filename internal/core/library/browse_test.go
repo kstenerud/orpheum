@@ -207,3 +207,38 @@ func TestSearch_DoesNotFindAFilmWhoseFilesAreAllGone(t *testing.T) {
 		t.Errorf("Search(heat) with its file gone = %+v, %v; want nothing, as browse lists nothing", hits, err)
 	}
 }
+
+func TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile(t *testing.T) {
+	t.Parallel()
+	world := newShelf(t)
+	world.scan([]nodeproto.Record{
+		observedRecord("metropolis.mkv", "heat"), observedRecord("trailer.mkv", "trailer"),
+		observedRecord("interview.mkv", "interview"),
+	}, true)
+	heat := world.fileAsFilm("Metropolis", "metropolis.mkv")
+	trailer := world.fileAsFilm("Metropolis trailer", "trailer.mkv")
+	interview := world.fileAsFilm("Metropolis interview", "interview.mkv")
+	err := world.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		for _, extra := range []int64{trailer, interview} {
+			relation := sqlcgen.UpsertScannerExtraRelationParams{
+				OwnerTitle: heat, ExtraTitle: extra, ExtraType: "trailer",
+			}
+			if err := queries.UpsertScannerExtraRelation(t.Context(), relation); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A complete scan without the interview removes its file; its title is kept, unlisted.
+	world.scan([]nodeproto.Record{observedRecord("metropolis.mkv", "heat"), observedRecord("trailer.mkv", "trailer")}, true)
+	detail, err := world.browser.Title(t.Context(), heat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(detail.Extras) != 1 || detail.Extras[0].ExtraTitle != trailer {
+		t.Errorf("extras = %+v; want only the trailer, whose file is live", detail.Extras)
+	}
+}
