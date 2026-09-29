@@ -17,6 +17,8 @@
 //   - An image the node refuses, or the source no longer has, is recorded with no hash, so it is
 //     not fetched again and an older image stays shown. TestService_RecordsARefusalAndKeepsTheOlderImage.
 //   - A job with no node connected waits without spending an attempt. TestService_WaitsForANode.
+//   - A job waits for the node's answer by its own id, and one cancelled while it waits tells the
+//     node to stop it. TestService_ACancelledJobTellsTheNodeToStopItByItsID.
 //   - The cache is held to its ceiling in D212 §6's order — a removed item's images (after their
 //     grace, or sooner under pressure), sizes made on request and JPEG, other sizes, bases — least
 //     recently served first, down to 90% of it; a live item's poster-wall size and the smallest

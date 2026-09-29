@@ -26,7 +26,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, want wan
 	if !known {
 		return nil
 	}
-	command := nodeproto.Artwork{Shape: shape, SizeNames: args.SizeNames}
+	command := nodeproto.Artwork{JobID: want.jobID, Shape: shape, SizeNames: args.SizeNames}
 	if base, found := service.baseNameFor(args.SourceSha256, args.SizeNames); found {
 		stored, err := service.parts.ArtFiles.ReadArt(args.SourceSha256, base)
 		if err == nil {

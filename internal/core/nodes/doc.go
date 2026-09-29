@@ -20,6 +20,10 @@
 //     node that has not said hello is refused (D212 §8).
 //     TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly. A prepare report goes to the
 //     playback service the same way, through the same handler.
+//   - A job that asked a node for work waits for the answer by its own job id, through
+//     AnswerRouter, and a job cancelled while it waits sends the node CancelCommand; playback
+//     and artwork both wait this way. TestDeliver_AnAnswerForNoWaitingJobIsLoggedByItsJobID,
+//     TestService_ACancelledJobTellsTheNodeToStopItByItsID.
 //   - What a node's last hello said about its FFmpeg's confinement is kept while the core runs,
 //     for doctor and the admin to say out loud (D112).
 //     TestHello_KeepsWhatTheNodeSaidAboutItsConfinement.
@@ -38,5 +42,6 @@
 //
 //   - service.go: hello and enrolment, and each connected node's roots as its hello named them;
 //     channel.go: commands, the report and artwork answers; supervisor.go: the child; bytes.go:
-//     reading a file's bytes from a node's byte socket (cut-a §4).
+//     reading a file's bytes from a node's byte socket (cut-a §4); answers.go: jobs waiting for a
+//     node's answer, and the cancel they send it.
 package nodes
