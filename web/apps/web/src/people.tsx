@@ -83,7 +83,7 @@ function AddPerson(props: {
   const [role, setRole] = useState<"admin" | "user">("user");
   const submit = (event: SyntheticEvent): void => {
     event.preventDefault();
-    createAccount(api, name, role).then(({ registration }) => {
+    createAccount(api, name, role).then(({ registrationInvitation: registration }) => {
       props.onMade(name, registration);
       setName("");
     }, props.onFailed);

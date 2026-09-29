@@ -18,13 +18,13 @@ func TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore(t *testing.T) {
 	t.Parallel()
 	server, token, filmID := playableFilm(t, filmOnNode(t, "nfo"))
 	decided := call(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
-		"fileId": filmID, "link": "local", "menu": map[string]any{
-			"video": []string{"h264-sdr"}, "audio": []string{"aac-stereo"}, "subtitle": []string{},
+		"fileId": filmID, "network": "local", "playableFormats": map[string]any{
+			"videoCodecs": []string{"h264-sdr"}, "audioCodecs": []string{"aac-stereo"}, "subtitleFormats": []string{},
 			"containers": []string{"mkv"},
 		},
 	})
 	var decision struct {
-		Kind string `json:"kind"`
+		Kind string `json:"delivery"`
 		URL  string `json:"url"`
 	}
 	if err := json.Unmarshal([]byte(decided.body), &decision); err != nil || decision.Kind != "direct" {
@@ -83,9 +83,10 @@ func TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore(t *testin
 		`{"index":0,"codec_type":"subtitle","codec_name":"ass","tags":{"language":"eng"}}]}`
 	server, token, filmID := playableFilm(t, filmProbedAs(t, "nfo", reply))
 	decided := call(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
-		"fileId": filmID, "link": "local", "menu": map[string]any{
-			"video": []string{"h264-sdr"}, "audio": []string{"aac-stereo"}, "subtitle": []string{"ass"},
-			"containers": []string{"mkv"},
+		"fileId": filmID, "network": "local", "playableFormats": map[string]any{
+			"videoCodecs": []string{"h264-sdr"}, "audioCodecs": []string{"aac-stereo"},
+			"subtitleFormats": []string{"ass"},
+			"containers":      []string{"mkv"},
 		},
 	})
 	var decision struct {
@@ -142,9 +143,10 @@ func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
 	deadline := time.After(30 * time.Second)
 	for {
 		decided := call(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
-			"fileId": filmID, "link": "local", "menu": map[string]any{
-				"video": []string{"h264-sdr"}, "audio": []string{"aac-stereo"}, "subtitle": []string{},
-				"containers": []string{"mkv"},
+			"fileId": filmID, "network": "local", "playableFormats": map[string]any{
+				"videoCodecs": []string{"h264-sdr"}, "audioCodecs": []string{"aac-stereo"},
+				"subtitleFormats": []string{},
+				"containers":      []string{"mkv"},
 			},
 		})
 		var decision struct {

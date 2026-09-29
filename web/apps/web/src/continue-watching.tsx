@@ -55,7 +55,7 @@ export function rowName(
   if (row.episode === undefined) {
     return row.name;
   }
-  const { seriesName, season, number } = row.episode;
+  const { seriesName, seasonNumber: season, episodeNumber: number } = row.episode;
   return episodeName({ series: seriesName, season, number, episode: row.name });
 }
 

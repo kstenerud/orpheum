@@ -28,7 +28,7 @@ export type Decision = components["schemas"]["StartPlaybackOutputBody"];
 export async function requestPlayback(api: Api, fileId: number, menu: Menu): Promise<Decision> {
   const data = dataOrThrow(
     await api.POST("/playback", {
-      body: { fileId, menu, link: "local" },
+      body: { fileId, playableFormats: menu, network: "local" },
     }),
   );
   return data;
@@ -42,7 +42,7 @@ export function PlayView(props: {
   /** Asks the server again how the file plays: after the sound changed, or a subtitle was fetched. */
   readonly decideAgain: () => void;
 }): JSX.Element {
-  if (props.decision.kind === "direct") {
+  if (props.decision.delivery === "direct") {
     return <DirectVideo {...props} />;
   }
   return <PreparedVideo {...props} />;
@@ -88,7 +88,7 @@ function UnderTheVideo(
       )}
       <LevelSwitch
         level={soundLevel(props.decision)}
-        isOn={props.decision.prefs.isLevelling}
+        isOn={props.decision.prefs.isLevellingOn}
         videoRef={props.videoRef}
       />
     </>
@@ -103,10 +103,10 @@ export function boostPair(decision: Decision): { standard: number; boosted: numb
     return undefined;
   }
   const standard = audio.findIndex(
-    (mix) => mix.sourceTrack === first.sourceTrack && !mix.isDialogueBoost,
+    (mix) => mix.sourceAudioIndex === first.sourceAudioIndex && !mix.isDialogueBoosted,
   );
   const boosted = audio.findIndex(
-    (mix) => mix.sourceTrack === first.sourceTrack && mix.isDialogueBoost,
+    (mix) => mix.sourceAudioIndex === first.sourceAudioIndex && mix.isDialogueBoosted,
   );
   return standard < 0 || boosted < 0 ? undefined : { standard, boosted };
 }
@@ -121,9 +121,9 @@ function PreparedVideo(props: PlayProps): JSX.Element {
   const pair = boostPair(decision);
   const { videoRef, playbackRef, isWaiting, failure } = usePrepared(
     decision,
-    decision.prefs.isDialogueBoost ? pair?.boosted : undefined,
+    decision.prefs.isDialogueBoostOn ? pair?.boosted : undefined,
   );
-  const reasons = (decision.reasons ?? [])
+  const reasons = (decision.notDirectReasons ?? [])
     .map((reason) => t(`play.reason.${camelKey(reason)}`))
     .join(", ");
   return (
@@ -140,7 +140,7 @@ function PreparedVideo(props: PlayProps): JSX.Element {
       )}
       {pair === undefined ? null : (
         <BoostSwitch
-          isOn={decision.prefs.isDialogueBoost}
+          isOn={decision.prefs.isDialogueBoostOn}
           switched={(isOn) => {
             playbackRef.current?.setAudioRendition(isOn ? pair.boosted : pair.standard);
           }}

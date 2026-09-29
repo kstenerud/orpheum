@@ -54,9 +54,9 @@ func (harness testHarness) thisDeviceID(t *testing.T, token string) int64 {
 // surroundMenu is Chrome's menu for file 4, with aac-multi, so its 5.1 sound plays as it is.
 func surroundMenu() map[string]any {
 	body := chrome(4)
-	body["menu"] = map[string]any{
-		"video": []string{"hevc-sdr", "h264-sdr"}, "audio": []string{"aac-stereo", "aac-multi"},
-		"subtitle": []string{"ass", "webvtt"}, "containers": []string{"mp4"},
+	body["playableFormats"] = map[string]any{
+		"videoCodecs": []string{"hevc-sdr", "h264-sdr"}, "audioCodecs": []string{"aac-stereo", "aac-multi"},
+		"subtitleFormats": []string{"ass", "webvtt"}, "containers": []string{"mp4"},
 	}
 	return body
 }
@@ -128,7 +128,7 @@ func TestFilePrefs_TheDialogueBoostIsThePersonsInEveryFile(t *testing.T) {
 		answer := harness.do(t, http.MethodPost, "/playback", user, chrome(fileID))
 		var answered struct {
 			Prefs struct {
-				IsDialogueBoost bool `json:"isDialogueBoost"`
+				IsDialogueBoost bool `json:"isDialogueBoostOn"`
 			} `json:"prefs"`
 		}
 		if err := json.Unmarshal([]byte(answer.body), &answered); err != nil {
@@ -139,14 +139,14 @@ func TestFilePrefs_TheDialogueBoostIsThePersonsInEveryFile(t *testing.T) {
 	if boostOf(2) {
 		t.Error("before any choice: the boost is on, want off (D222)")
 	}
-	turnOn := map[string]bool{"isDialogueBoost": true}
+	turnOn := map[string]bool{"isDialogueBoostOn": true}
 	if status := harness.do(t, http.MethodPut, "/me/prefs", user, turnOn).status; status != http.StatusNoContent {
 		t.Fatalf("PUT the boost: %d", status)
 	}
 	if !boostOf(2) || !boostOf(1) {
 		t.Error("after turning it on in one file: want it on in that file and the next (D83)")
 	}
-	turnOff := map[string]bool{"isDialogueBoost": false}
+	turnOff := map[string]bool{"isDialogueBoostOn": false}
 	if status := harness.do(t, http.MethodPut, "/me/prefs", user, turnOff).status; status != http.StatusNoContent {
 		t.Fatalf("PUT the boost off: %d", status)
 	}

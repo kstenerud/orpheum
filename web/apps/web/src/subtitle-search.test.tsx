@@ -27,27 +27,27 @@ afterEach(() => {
 const offer: Answer = [
   200,
   {
-    allowance: { remaining: 19, allowed: 20, isVip: false },
+    allowance: { remainingDownloads: 19, allowedDownloads: 20, isVip: false },
     didAskByIds: true,
     didAskByFileHash: true,
     candidates: [
       {
         providerFileId: 7,
-        release: "Film.2002.1080p",
+        releaseName: "Film.2002.1080p",
         language: "de",
         isHashMatch: true,
         isHearingImpaired: false,
         isMachineTranslated: false,
-        downloads: 120,
+        downloadCount: 120,
       },
       {
         providerFileId: 8,
-        release: "Film.2002.720p",
+        releaseName: "Film.2002.720p",
         language: "de",
         isHashMatch: false,
         isHearingImpaired: true,
         isMachineTranslated: false,
-        downloads: 3,
+        downloadCount: 3,
       },
     ],
   },
@@ -65,7 +65,7 @@ it("lists what OpenSubtitles has, unverified and made-for-this-file first, and f
   const services = servedBy(
     {
       "GET /files/2/subtitle-candidates": offer,
-      "POST /files/2/subtitles": [200, { fetchedId: 3, remaining: 18 }],
+      "POST /files/2/subtitles": [200, { fetchedId: 3, remainingDownloads: 18 }],
     },
     heard,
   );
@@ -101,7 +101,7 @@ it("says an empty search of a file not identified yet asked only for subtitles m
     "GET /files/2/subtitle-candidates": [
       200,
       {
-        allowance: { remaining: 19, allowed: 20, isVip: false },
+        allowance: { remainingDownloads: 19, allowedDownloads: 20, isVip: false },
         didAskByIds: false,
         didAskByFileHash: true,
         candidates: [],

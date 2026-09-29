@@ -33,7 +33,7 @@ describe("levelling a film's loudness (D226)", () => {
 
   it("levels a prepared copy by its first mix, and the original by its main track", () => {
     const direct = {
-      kind: "direct",
+      delivery: "direct",
       levelling: { isMeasured: true, gainDb: -4.2 },
     } as unknown as Decision;
     expect(soundLevel(direct)).toEqual({
@@ -41,7 +41,7 @@ describe("levelling a film's loudness (D226)", () => {
       carriedGainDb: 0,
     });
     const hls = {
-      kind: "hls",
+      delivery: "hls",
       levelling: { isMeasured: true, gainDb: 1 },
       audio: [{ levelling: { isMeasured: true, gainDb: 5 }, carriedGainDb: 5 }],
     } as unknown as Decision;

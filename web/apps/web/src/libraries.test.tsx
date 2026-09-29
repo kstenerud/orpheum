@@ -28,12 +28,12 @@ describe("libraries", () => {
             changeDetection: "manual",
             isWritable: false,
             createdAt: 1,
-            filings: { listed: 40, errored: 2 },
+            fileCountsByFiling: { listed: 40, errored: 2 },
             roots: [
               {
-                node: "local",
+                nodeName: "local",
                 path: "/media/films",
-                outcome: "withheld",
+                lastScanOutcome: "withheld",
                 withheldReason: "a third of the files went",
               },
             ],
@@ -54,14 +54,14 @@ describe("libraries", () => {
     const markup = renderToStaticMarkup(
       withServices(
         <CreateLibraryForm
-          draft={{ ...blankLibrary(), roots: ["/media/films"] }}
+          draft={{ ...blankLibrary(), rootPaths: ["/media/films"] }}
           nodes={[
             {
               name: "local",
               isConnected: true,
-              roots: ["/media/films", "/media/shows"],
+              rootPaths: ["/media/films", "/media/shows"],
             },
-            { name: "attic", isConnected: false, roots: [] },
+            { name: "attic", isConnected: false, rootPaths: [] },
           ]}
           problem=""
           onDraft={ignore}
@@ -90,7 +90,7 @@ describe("libraries", () => {
       withServices(
         <CreateLibraryForm
           draft={blankLibrary()}
-          nodes={[{ name: "local", isConnected: false, roots: [] }]}
+          nodes={[{ name: "local", isConnected: false, rootPaths: [] }]}
           problem=""
           onDraft={ignore}
           onSubmit={ignore}

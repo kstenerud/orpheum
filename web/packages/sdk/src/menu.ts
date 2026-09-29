@@ -5,8 +5,8 @@ import type { components } from "./gen/api.ts";
 /** What a client can play, one list per axis, most preferred first (D21, D217 §1). */
 export type Menu = components["schemas"]["MenuBody"];
 
-type Video = NonNullable<Menu["video"]>[number];
-type Audio = NonNullable<Menu["audio"]>[number];
+type Video = NonNullable<Menu["videoCodecs"]>[number];
+type Audio = NonNullable<Menu["audioCodecs"]>[number];
 type Container = NonNullable<Menu["containers"]>[number];
 
 /** How a page asks what it can decode: a media element's canPlayType, and MSE's isTypeSupported. */
@@ -45,13 +45,16 @@ export function menuFrom(probe: MediaProbe): Menu {
   const supported = (type: string): boolean =>
     probe.isTypeSupported(type) || probe.canPlayType(type) !== "";
   return {
-    video: [...videoCodecs.filter(([, type]) => supported(type)).map(([name]) => name), "h264-sdr"],
-    audio: [
+    videoCodecs: [
+      ...videoCodecs.filter(([, type]) => supported(type)).map(([name]) => name),
+      "h264-sdr",
+    ],
+    audioCodecs: [
       "aac-stereo",
       "aac-multi",
       ...audioCodecs.filter(([, type]) => supported(type)).map(([name]) => name),
     ],
-    subtitle: ["ass", "webvtt"],
+    subtitleFormats: ["ass", "webvtt"],
     containers: containerTypes
       .filter(([, types]) => types.some((type) => probe.canPlayType(type) !== ""))
       .map(([name]) => name),

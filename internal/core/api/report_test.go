@@ -25,8 +25,9 @@ func (harness testHarness) report(t *testing.T, session string, decided decision
 func at(seq, positionMs, sampledBefore int64) map[string]any {
 	const sentMonoMs = 1_000_000
 	return map[string]any{
-		"seq": seq, "sentMonoMs": sentMonoMs, "positionMs": positionMs, "positionMonoMs": sentMonoMs - sampledBefore,
-		"events": []any{}, "spans": []any{},
+		"reportSeq": seq, "sentMonoMs": sentMonoMs, "positionMs": positionMs,
+		"positionReadMonoMs": sentMonoMs - sampledBefore,
+		"events":             []any{}, "spans": []any{},
 	}
 }
 
@@ -68,8 +69,8 @@ func TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching(t *test
 	decided := harness.play(t, user, chrome(1))
 	body := at(1, 90_000, 0)
 	body["events"] = []any{
-		map[string]any{"kind": "started", "positionMs": 0, "monoMs": 910_000},
-		map[string]any{"kind": "paused", "positionMs": 90_000, "monoMs": 1_000_000},
+		map[string]any{"kind": "started", "positionMs": 0, "atMonoMs": 910_000},
+		map[string]any{"kind": "paused", "positionMs": 90_000, "atMonoMs": 1_000_000},
 	}
 	body["spans"] = []any{map[string]any{
 		"fromPositionMs": 0, "toPositionMs": 90_000, "startedMonoMs": 910_000, "endedMonoMs": 1_000_000,
@@ -96,7 +97,7 @@ func TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching(t *test
 		t.Errorf("events = %+v, want started then paused, at the server's time of each", events)
 	}
 	later := at(2, 95_000, 0)
-	later["events"] = []any{map[string]any{"kind": "seeked", "positionMs": 0, "monoMs": 1_000_001}}
+	later["events"] = []any{map[string]any{"kind": "seeked", "positionMs": 0, "atMonoMs": 1_000_001}}
 	if bad := harness.report(t, user, decided, later); bad.status != http.StatusBadRequest {
 		t.Errorf("a change after the report was sent: %d, want refused", bad.status)
 	}

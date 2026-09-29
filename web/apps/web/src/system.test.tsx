@@ -30,20 +30,20 @@ const connected: SystemNode = {
     platform: "linux/amd64",
   },
   ffmpegVersion: "ffmpeg version 7.1",
-  ffmpegHash: "0123456789abcdef",
+  ffmpegSha256: "0123456789abcdef",
   uid: 1000,
   gid: 1000,
   lastHeardAt: 1_790_000_000_000,
   confinement: [{ mechanism: "seccomp", isInForce: false, cause: "kernel_without" }],
   hardware: {
-    gpus: [{ device: "/dev/dri/renderD128", driver: "i915" }],
+    gpus: [{ devicePath: "/dev/dri/renderD128", driver: "i915" }],
     trials: [
       { encoder: "h264_qsv" },
       { encoder: "h264_nvenc", failure: "Cannot load libcuda.so.1" },
     ],
-    encoder: "h264_qsv",
+    chosenEncoder: "h264_qsv",
   },
-  disks: [{ path: "/media", totalBytes: 4_000_000_000_000, freeBytes: 1_500_000_000_000 }],
+  disks: [{ path: "/media", totalBytes: 4_000_000_000_000, availableBytes: 1_500_000_000_000 }],
   recentPrepares: [
     {
       fileId: 42,
@@ -51,7 +51,7 @@ const connected: SystemNode = {
       profile: "h264-8m",
       state: "complete",
       videoEncoder: "h264_qsv",
-      speed: 6.5,
+      realtimeFactor: 6.5,
       finishedAt: 1_790_000_000_000,
     },
   ],
@@ -65,7 +65,7 @@ function report(node: SystemNode): SystemReport {
       goVersion: "go1.26.1",
       startedAt: 1_790_000_000_000,
       disks: [
-        { path: "/var/lib/orpheum", totalBytes: 500_000_000_000, freeBytes: 250_000_000_000 },
+        { path: "/var/lib/orpheum", totalBytes: 500_000_000_000, availableBytes: 250_000_000_000 },
       ],
       databases: [
         { name: "library.db", sizeBytes: 40_000_000 },
@@ -108,9 +108,11 @@ it("the System page warns when a machine has a GPU but encodes on the processor"
   const text = await shown({
     ...connected,
     hardware: {
-      gpus: [{ device: "/dev/dri/renderD128", driver: "i915", noAccess: "permission denied" }],
+      gpus: [
+        { devicePath: "/dev/dri/renderD128", driver: "i915", noAccessReason: "permission denied" },
+      ],
       trials: [{ encoder: "h264_qsv", failure: "Failed to initialise VAAPI" }],
-      encoder: "x264",
+      chosenEncoder: "x264",
     },
   });
   expect(text).toContain("This machine has a GPU, but no hardware encoder works on it");

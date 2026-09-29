@@ -29,7 +29,14 @@ const library = {
   isWritable: false,
   createdAt: 1,
   filings: {},
-  roots: [{ node: "local", path: "/media/films", outcome: "withheld", withheldReason: "gone" }],
+  roots: [
+    {
+      nodeName: "local",
+      path: "/media/films",
+      lastScanOutcome: "withheld",
+      withheldReason: "gone",
+    },
+  ],
 };
 
 const waitingItem = {

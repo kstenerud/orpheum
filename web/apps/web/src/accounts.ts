@@ -41,7 +41,7 @@ export async function createAccount(
   api: Api,
   name: string,
   role: "admin" | "user",
-): Promise<{ account: Account; registration: Invitation }> {
+): Promise<{ account: Account; registrationInvitation: Invitation }> {
   return dataOrThrow(await api.POST("/users", { body: { name, role } }));
 }
 

@@ -15,7 +15,7 @@ const preparing: Job = {
   kind: "prepare",
   renditionId: 3,
   state: "running",
-  progress: 0.4,
+  progressFraction: 0.4,
   reason: "someone is waiting to watch it",
   attempts: 1,
   createdAt: 1,

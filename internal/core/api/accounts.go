@@ -53,8 +53,8 @@ type CreateAccountInput struct {
 // CreateAccountOutput is the new person and their registration link.
 type CreateAccountOutput struct {
 	Body struct {
-		Account      AccountBody    `json:"account"`
-		Registration InvitationBody `json:"registration"`
+		Account                AccountBody    `json:"account"`
+		RegistrationInvitation InvitationBody `json:"registrationInvitation"`
 	}
 }
 
@@ -94,9 +94,9 @@ type DeviceCodeInput struct {
 // CodeSignInInput signs a device in with a device code (D218 §4).
 type CodeSignInInput struct {
 	Body struct {
-		Code     string `doc:"As typed: case, dashes and spaces do not matter" json:"code"     minLength:"1"`
-		Platform string `json:"platform" maxLength:"40" minLength:"1"`
-		ResumeID int64  `doc:"The device this client was signed in as before (D221)" json:"resumeId,omitempty" required:"false"` //nolint:lll // one struct tag
+		Code             string `doc:"As typed: case, dashes and spaces do not matter" json:"code"     minLength:"1"`
+		Platform         string `json:"platform" maxLength:"40" minLength:"1"`
+		PreviousDeviceID int64  `doc:"The device this client was signed in as before (D221)" json:"previousDeviceId,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
@@ -184,7 +184,7 @@ func (server *Server) createAccount(ctx context.Context, input *CreateAccountInp
 	}
 	output := &CreateAccountOutput{}
 	output.Body.Account = AccountBody{ID: id, Name: input.Body.Name, Role: string(role)}
-	output.Body.Registration = invitationBody(link)
+	output.Body.RegistrationInvitation = invitationBody(link)
 	return output, nil
 }
 
@@ -252,7 +252,7 @@ func (server *Server) signInWithCode(ctx context.Context, input *CodeSignInInput
 		return nil, err
 	}
 	token, err := dependencies.Auth.SignInWithCode(
-		ctx, input.Body.Code, input.Body.Platform, input.clientAddress, input.Body.ResumeID)
+		ctx, input.Body.Code, input.Body.Platform, input.clientAddress, input.Body.PreviousDeviceID)
 	if err != nil {
 		return nil, server.invitationRefusal(ctx, "sign in with a code", err)
 	}
@@ -297,16 +297,16 @@ type RenamePersonInput struct {
 // PersonOutput is one person's page, for the admin: who they are, and what they have watched.
 type PersonOutput struct {
 	Body struct {
-		Account AccountBody    `json:"account"`
-		Watched WatchStatsBody `json:"watched"`
+		Account    AccountBody    `json:"account"`
+		WatchStats WatchStatsBody `json:"watchStats"`
 	}
 }
 
 // WatchStatsBody is what a person has watched.
 type WatchStatsBody struct {
-	WatchedMs     int64 `json:"watchedMs"`
-	TitlesWatched int64 `json:"titlesWatched"`
-	LastWatchedAt int64 `doc:"Unix milliseconds; absent when nothing was watched" json:"lastWatchedAt,omitempty"`
+	WatchedMs          int64 `json:"watchedMs"`
+	TitlesWatchedCount int64 `json:"titlesWatchedCount"`
+	LastWatchedAt      int64 `doc:"Unix milliseconds; absent when nothing was watched" json:"lastWatchedAt,omitempty"`
 }
 
 func (server *Server) registerPerson() {
@@ -344,9 +344,9 @@ func (server *Server) person(ctx context.Context, input *PersonDevicesInput) (*P
 	if err != nil {
 		return nil, server.internal(ctx, "read a person's watching", err)
 	}
-	output.Body.Watched = WatchStatsBody{WatchedMs: stats.WatchedMs, TitlesWatched: stats.TitlesWatched}
+	output.Body.WatchStats = WatchStatsBody{WatchedMs: stats.WatchedMs, TitlesWatchedCount: stats.TitlesWatched}
 	if !stats.LastWatchedAt.IsZero() {
-		output.Body.Watched.LastWatchedAt = stats.LastWatchedAt.UnixMilli()
+		output.Body.WatchStats.LastWatchedAt = stats.LastWatchedAt.UnixMilli()
 	}
 	return output, nil
 }

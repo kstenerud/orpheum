@@ -17,11 +17,11 @@ describe("play state", () => {
       },
     });
     const report = {
-      seq: 1,
+      reportSeq: 1,
       sentMonoMs: 5000,
       positionMs: 1200,
-      positionMonoMs: 5000,
-      events: [{ kind: "paused" as const, positionMs: 1200, monoMs: 5000 }],
+      positionReadMonoMs: 5000,
+      events: [{ kind: "paused" as const, positionMs: 1200, atMonoMs: 5000 }],
       spans: [],
     };
     await sendReport(api, "abc", report);

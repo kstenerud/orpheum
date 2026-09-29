@@ -108,9 +108,9 @@ export function JobList(props: {
           <li key={job.id} className="jobs__job">
             <strong>{t("jobs.what", { kind, target: targetId(job) })}</strong>{" "}
             <span>{t(`jobs.state.${job.state}`)}</span>{" "}
-            {job.progress === undefined ? null : (
+            {job.progressFraction === undefined ? null : (
               <progress
-                value={job.progress}
+                value={job.progressFraction}
                 max={1}
                 aria-label={t("jobs.progress", { kind, target: targetId(job) })}
               />

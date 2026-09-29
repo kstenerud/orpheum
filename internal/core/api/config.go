@@ -29,14 +29,14 @@ type ConfigFileKey struct {
 // ConfigListInput asks for every server setting, or only those a person changed.
 type ConfigListInput struct {
 	AuthorizationHeader
-	Modified bool `doc:"Only the settings a person set, even to their starting value" query:"modified"`
+	OnlyModified bool `doc:"Only the settings a person set, even to their starting value" query:"onlyModified"`
 }
 
 // ConfigOutput is every server setting beside its starting value, and the config file's keys.
 type ConfigOutput struct {
 	Body struct {
-		Settings []SettingBody   `json:"settings"`
-		File     []ConfigFileKey `json:"file"`
+		Settings       []SettingBody   `json:"settings"`
+		ConfigFileKeys []ConfigFileKey `json:"configFileKeys"`
 	}
 }
 
@@ -71,8 +71,8 @@ type UnusedOutput struct {
 // DeleteUnusedInput names one unused row; user names a user's row, absent a server one.
 type DeleteUnusedInput struct {
 	AuthorizationHeader
-	Key  string `path:"key"`
-	User int64  `doc:"The user whose row it is; 0 or absent for a server row" query:"user"`
+	Key    string `path:"key"`
+	UserID int64  `doc:"The user whose row it is; 0 or absent for a server row" query:"userId"`
 }
 
 // registerConfig is the raw view of every server setting, as Firefox's about:config is (D200).
@@ -81,7 +81,7 @@ func (server *Server) registerConfig() {
 	huma.Register(server.api, huma.Operation{
 		OperationID: "getConfig", Method: http.MethodGet, Path: "/config",
 		Summary: "Every server setting beside its starting value, and the config file's keys (read-only); " +
-			"?modified=true lists only the settings a person set (admin)",
+			"?onlyModified=true lists only the settings a person set (admin)",
 		Tags: tags,
 	}, server.getConfig)
 	huma.Register(server.api, huma.Operation{
@@ -119,11 +119,11 @@ func (server *Server) getConfig(ctx context.Context, input *ConfigListInput) (*C
 	output := &ConfigOutput{}
 	output.Body.Settings = []SettingBody{}
 	for _, setting := range listed.Body.Settings {
-		if !input.Modified || setting.IsModified {
+		if !input.OnlyModified || setting.IsModified {
 			output.Body.Settings = append(output.Body.Settings, setting)
 		}
 	}
-	output.Body.File = append([]ConfigFileKey{}, dependencies.ConfigFile...)
+	output.Body.ConfigFileKeys = append([]ConfigFileKey{}, dependencies.ConfigFile...)
 	return output, nil
 }
 
@@ -188,8 +188,8 @@ func (server *Server) deleteUnused(ctx context.Context, input *DeleteUnusedInput
 		return nil, err
 	}
 	var owner *int64
-	if input.User != 0 {
-		owner = &input.User
+	if input.UserID != 0 {
+		owner = &input.UserID
 	}
 	err = dependencies.Settings.DeleteUnused(ctx, input.Key, owner)
 	if errors.Is(err, settings.ErrInUse) {

@@ -99,7 +99,7 @@ function NodeSoftware(props: { readonly node: SystemNode }): JSX.Element {
         {node.host === undefined ? null : <HostFacts host={node.host} />}
         <dt>{t("system.ffmpeg")}</dt>
         <dd>
-          {node.ffmpegVersion} <code>{(node.ffmpegHash ?? "").slice(0, 12)}</code>
+          {node.ffmpegVersion} <code>{(node.ffmpegSha256 ?? "").slice(0, 12)}</code>
         </dd>
         <dt>{t("system.user")}</dt>
         <dd>{t("system.uidGid", { uid: node.uid, gid: node.gid })}</dd>
@@ -193,7 +193,7 @@ function Disks(props: { readonly disks: readonly Disk[] }): JSX.Element | null {
           <code>{disk.path}</code>{" "}
           {disk.failure === undefined
             ? t("system.disk", {
-                free: byteSize(disk.freeBytes),
+                free: byteSize(disk.availableBytes),
                 total: byteSize(disk.totalBytes),
               })
             : t("system.diskUnmeasured", { why: disk.failure })}
@@ -238,10 +238,10 @@ function NodeFacts(props: { readonly node: SystemNode }): JSX.Element {
           {node.prepared === undefined ? null : (
             <p>
               {t("system.prepared", {
-                used: byteSize(node.prepared.bytes),
+                used: byteSize(node.prepared.usedBytes),
                 budget: byteSize(node.prepared.budgetBytes),
-                percent: node.prepared.diskPercent,
-                limit: node.prepared.diskLimitPercent,
+                percent: node.prepared.diskUsedPercent,
+                limit: node.prepared.diskUsedLimitPercent,
               })}
             </p>
           )}
@@ -260,11 +260,11 @@ function HardwareEncoding(props: { readonly hardware: Hardware }): JSX.Element {
   const { t } = useTranslation();
   const { hardware } = props;
   const gpus = hardware.gpus ?? [];
-  const isOnGPU = hardware.encoder !== "x264";
+  const isOnGPU = hardware.chosenEncoder !== "x264";
   let verdict = t("system.gpuUnused");
   if (isOnGPU) {
     verdict = t("system.encodesWith", {
-      encoder: t(`system.encoder.${camelKey(hardware.encoder)}`),
+      encoder: t(`system.encoder.${camelKey(hardware.chosenEncoder)}`),
     });
   } else if (gpus.length === 0) {
     verdict = t("system.noGPU");
@@ -279,12 +279,12 @@ function HardwareEncoding(props: { readonly hardware: Hardware }): JSX.Element {
       ) : (
         <ul>
           {gpus.map((gpu) => (
-            <li key={gpu.device}>
-              <code>{gpu.device}</code>{" "}
+            <li key={gpu.devicePath}>
+              <code>{gpu.devicePath}</code>{" "}
               {gpu.driver === undefined ? null : t("system.driver", { driver: gpu.driver })}{" "}
-              {gpu.noAccess === undefined
+              {gpu.noAccessReason === undefined
                 ? t("system.canOpen")
-                : t("system.cannotOpen", { why: gpu.noAccess })}
+                : t("system.cannotOpen", { why: gpu.noAccessReason })}
             </li>
           ))}
         </ul>
@@ -332,14 +332,14 @@ function RecentPrepares(props: { readonly prepares: readonly FinishedPrepare[] }
                 </td>
                 <td>
                   {prepare.state === "failed"
-                    ? t("system.prepareFailed", { why: prepare.error ?? "" })
+                    ? t("system.prepareFailed", { why: prepare.failure ?? "" })
                     : t(`system.encoder.${camelKey(prepare.videoEncoder ?? "unknown")}`)}
                 </td>
                 <td>
-                  {prepare.speed === undefined
+                  {prepare.realtimeFactor === undefined
                     ? ""
                     : t("system.speedTimes", {
-                        speed: prepare.speed.toLocaleString(i18n.language, {
+                        speed: prepare.realtimeFactor.toLocaleString(i18n.language, {
                           maximumFractionDigits: 1,
                         }),
                       })}

@@ -66,8 +66,8 @@ describe("subtitles", () => {
           tracks={[track({}), track({ streamId: 7, language: "fr" })]}
           prefs={{
             subtitleOffsetMs: -1500,
-            isDialogueBoost: false,
-            isLevelling: true,
+            isDialogueBoostOn: false,
+            isLevellingOn: true,
             subtitle: { streamId: 7 },
           }}
           videoRef={createRef()}
@@ -86,7 +86,7 @@ describe("subtitles", () => {
         <Subtitles
           fileId={2}
           tracks={[]}
-          prefs={{ subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true }}
+          prefs={{ subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true }}
           videoRef={createRef()}
         />,
       ),
@@ -118,8 +118,8 @@ describe("subtitles", () => {
       startingTrack(
         {
           subtitleOffsetMs: 0,
-          isDialogueBoost: false,
-          isLevelling: true,
+          isDialogueBoostOn: false,
+          isLevellingOn: true,
           subtitle: { streamId: 7 },
         },
         tracks,
@@ -129,8 +129,8 @@ describe("subtitles", () => {
       startingTrack(
         {
           subtitleOffsetMs: 0,
-          isDialogueBoost: false,
-          isLevelling: true,
+          isDialogueBoostOn: false,
+          isLevellingOn: true,
           subtitle: { fetchedId: 3 },
         },
         [...tracks, track({ streamId: 0, fetchedId: 3 })],
@@ -140,8 +140,8 @@ describe("subtitles", () => {
       startingTrack(
         {
           subtitleOffsetMs: 0,
-          isDialogueBoost: false,
-          isLevelling: true,
+          isDialogueBoostOn: false,
+          isLevellingOn: true,
           subtitle: { isOff: true },
         },
         tracks,
@@ -151,15 +151,15 @@ describe("subtitles", () => {
       startingTrack(
         {
           subtitleOffsetMs: 0,
-          isDialogueBoost: false,
-          isLevelling: true,
+          isDialogueBoostOn: false,
+          isLevellingOn: true,
           subtitle: { streamId: 99 },
         },
         tracks,
       ),
     ).toBeUndefined();
     expect(
-      startingTrack({ subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true }, tracks),
+      startingTrack({ subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true }, tracks),
     ).toBeUndefined();
   });
 

@@ -31,10 +31,10 @@ export function RootLine(props: {
   const { root } = props;
   return (
     <li>
-      <code>{t("libraries.root", { node: root.node, path: root.path })}</code>{" "}
-      {root.outcome === "" ? null : <span>{t(outcomeKeys[root.outcome])}</span>}
+      <code>{t("libraries.root", { node: root.nodeName, path: root.path })}</code>{" "}
+      {root.lastScanOutcome === "" ? null : <span>{t(outcomeKeys[root.lastScanOutcome])}</span>}
       {root.withheldReason === undefined ? null : <p>{root.withheldReason}</p>}
-      {root.outcome === "withheld" ? (
+      {root.lastScanOutcome === "withheld" ? (
         <>
           <button
             type="button"
@@ -68,14 +68,14 @@ export function LibraryCard(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { library } = props;
-  const filings = Object.entries(library.filings ?? {});
+  const filings = Object.entries(library.fileCountsByFiling ?? {});
   return (
     <article aria-labelledby={`library-${String(library.id)}`}>
       <h2 id={`library-${String(library.id)}`}>{library.name}</h2>
       <ul>
         {(library.roots ?? []).map((root) => (
           <RootLine
-            key={`${root.node}:${root.path}`}
+            key={`${root.nodeName}:${root.path}`}
             root={root}
             onApprove={props.onApprove}
             onGone={props.onGone}
@@ -129,7 +129,7 @@ function useLibraryActions(reload: () => void): {
         .then(dataOrThrow)
         .then(
           (data) => {
-            noted(id, t("libraries.scanning", { count: data.rootsAsked }));
+            noted(id, t("libraries.scanning", { count: data.askedRootCount }));
           },
           (cause: unknown) => {
             noted(id, problemText(t, cause));
@@ -138,7 +138,10 @@ function useLibraryActions(reload: () => void): {
     },
     answer: (id, root, path) => {
       api
-        .POST(path, { params: { path: { id } }, body: { node: root.node, path: root.path } })
+        .POST(path, {
+          params: { path: { id } },
+          body: { nodeName: root.nodeName, path: root.path },
+        })
         .then(throwIfRefused)
         .then(reload, (cause: unknown) => {
           noted(id, problemText(t, cause));

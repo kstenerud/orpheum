@@ -21,7 +21,7 @@ type Episode = components["schemas"]["EpisodeBody"];
 export function bySeason(episodes: readonly Episode[]): [number, Episode[]][] {
   const seasons = new Map<number, Episode[]>();
   for (const episode of episodes) {
-    seasons.set(episode.season, [...(seasons.get(episode.season) ?? []), episode]);
+    seasons.set(episode.seasonNumber, [...(seasons.get(episode.seasonNumber) ?? []), episode]);
   }
   // Specials are season 0; they sort after every numbered season.
   const order = (season: number): number => (season === 0 ? Number.MAX_SAFE_INTEGER : season);
@@ -65,7 +65,7 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
                     />
                   )}
                   <span>
-                    {t("title.episodeLabel", { number: episode.number, name: episode.name })}
+                    {t("title.episodeLabel", { number: episode.episodeNumber, name: episode.name })}
                   </span>
                   {episode.hasLiveFile ? null : (
                     <span className="series__absent">{t("title.unavailable")}</span>

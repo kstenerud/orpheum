@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/bytes/art/{hash}/{file}": {
+    "/bytes/art/{hash}/{variant}": {
         parameters: {
             query?: never;
             header?: never;
@@ -114,7 +114,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Every server setting beside its starting value, and the config file's keys (read-only); ?modified=true lists only the settings a person set (admin) */
+        /** Every server setting beside its starting value, and the config file's keys (read-only); ?onlyModified=true lists only the settings a person set (admin) */
         get: operations["getConfig"];
         /** Change any server settings, all or none (admin) */
         put: operations["putConfig"];
@@ -1007,10 +1007,10 @@ export interface components {
         };
         AllowanceBody: {
             /** Format: int64 */
-            allowed: number;
+            allowedDownloads: number;
             isVip: boolean;
             /** Format: int64 */
-            remaining: number;
+            remainingDownloads: number;
         };
         ArtBody: {
             backdropHash?: string;
@@ -1024,11 +1024,11 @@ export interface components {
              * @description dB already in the sound, put in when it was prepared
              */
             carriedGainDb: number;
-            isDialogueBoost: boolean;
+            isDialogueBoosted: boolean;
             language: string;
             levelling: components["schemas"]["LevellingBody"];
             /** Format: int64 */
-            sourceTrack: number;
+            sourceAudioIndex: number;
         };
         BuildBody: {
             binarySha256?: string;
@@ -1047,9 +1047,9 @@ export interface components {
         CandidateBody: {
             name: string;
             originalName?: string;
-            /** @description The provider's path for the poster */
-            posterRef?: string;
             providerId: string;
+            /** @description The provider's path for the poster */
+            providerPosterPath?: string;
             /** Format: int64 */
             year?: number;
         };
@@ -1077,14 +1077,14 @@ export interface components {
              * Format: int64
              * @description The device this client was signed in as before (D221)
              */
-            resumeId?: number;
+            previousDeviceId?: number;
         };
         CollectionOutputBody: {
             art: components["schemas"]["ArtBody"];
             episodes: components["schemas"]["EpisodeBody"][] | null;
             /** Format: int64 */
             id: number;
-            identification?: string;
+            identificationState?: string;
             /** @enum {string} */
             kind: "series";
             /** Format: int64 */
@@ -1104,7 +1104,7 @@ export interface components {
             value: unknown;
         };
         ConfigOutputBody: {
-            file: components["schemas"]["ConfigFileKey"][] | null;
+            configFileKeys: components["schemas"]["ConfigFileKey"][] | null;
             settings: components["schemas"]["SettingBody"][] | null;
         };
         ConfinementBody: {
@@ -1123,7 +1123,7 @@ export interface components {
         };
         CreateAccountOutputBody: {
             account: components["schemas"]["AccountBody"];
-            registration: components["schemas"]["InvitationBody"];
+            registrationInvitation: components["schemas"]["InvitationBody"];
         };
         CreatedOutputBody: {
             /** Format: int64 */
@@ -1136,7 +1136,7 @@ export interface components {
              * Format: int64
              * @description Hours between checks; interval only
              */
-            checkEveryH?: number;
+            checkEveryHours?: number;
             /** @description May the server write beside the media */
             isWritable: boolean;
             /** @enum {string} */
@@ -1145,9 +1145,9 @@ export interface components {
             metadataSource: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
             /** @description The node's configured name */
-            node: string;
+            nodeName: string;
             /** @description Roots the node configured */
-            roots: string[] | null;
+            rootPaths: string[] | null;
         };
         CurrentDeviceBody: {
             /** Format: int64 */
@@ -1202,13 +1202,13 @@ export interface components {
             devices: components["schemas"]["DeviceBody"][] | null;
         };
         DiskBody: {
-            /** @description Why it could not be measured; the sizes are zero then */
-            failure?: string;
             /**
              * Format: int64
              * @description What a user who is not root may still write
              */
-            freeBytes: number;
+            availableBytes: number;
+            /** @description Why it could not be measured; the sizes are zero then */
+            failure?: string;
             path: string;
             /** Format: int64 */
             totalBytes: number;
@@ -1226,7 +1226,7 @@ export interface components {
             addedAt: number;
             /** Format: int64 */
             id: number;
-            identification: string;
+            identificationState: string;
             /** Format: int64 */
             libraryId: number;
             name: string;
@@ -1236,18 +1236,18 @@ export interface components {
             year?: number;
         };
         EpisodeBody: {
+            /** Format: int64 */
+            episodeNumber: number;
             /** @description Whether it has a live file */
             hasLiveFile: boolean;
             /** Format: int64 */
             id: number;
-            identification: string;
+            identificationState: string;
             name: string;
-            /** Format: int64 */
-            number: number;
             /** Format: int64 */
             runtimeMs?: number;
             /** Format: int64 */
-            season: number;
+            seasonNumber: number;
             /** @description Its still's hash: GET /bytes/art/{hash}/landscape-s.webp */
             stillHash?: string;
             /** Format: int64 */
@@ -1255,9 +1255,9 @@ export interface components {
         };
         EpisodePlaceBody: {
             /** Format: int64 */
-            number: number;
+            episodeNumber: number;
             /** Format: int64 */
-            season: number;
+            seasonNumber: number;
             /** Format: int64 */
             seriesId: number;
             seriesName: string;
@@ -1274,10 +1274,10 @@ export interface components {
             message: string;
         };
         EventBody: {
+            /** Format: int64 */
+            atMonoMs: number;
             /** @enum {string} */
             kind: "started" | "paused" | "seeked" | "completed" | "abandoned";
-            /** Format: int64 */
-            monoMs: number;
             /** Format: int64 */
             positionMs: number;
         };
@@ -1295,16 +1295,16 @@ export interface components {
         FetchSubtitleOutputBody: {
             /**
              * Format: int64
+             * @description When the count starts again, Unix milliseconds
+             */
+            downloadsResetAt?: number;
+            /**
+             * Format: int64
              * @description The new track; a playback started again offers it
              */
             fetchedId: number;
             /** Format: int64 */
-            remaining: number;
-            /**
-             * Format: int64
-             * @description When the count starts again, Unix milliseconds
-             */
-            resetAt?: number;
+            remainingDownloads: number;
         };
         FileBody: {
             /** @description Owner, group, mode; the platform's words */
@@ -1332,8 +1332,8 @@ export interface components {
             streams: components["schemas"]["StreamBody"][] | null;
         };
         FilePrefsBody: {
-            isDialogueBoost: boolean;
-            isLevelling: boolean;
+            isDialogueBoostOn: boolean;
+            isLevellingOn: boolean;
             subtitle?: components["schemas"]["SubtitleChoiceBody"];
             /**
              * Format: int64
@@ -1354,7 +1354,7 @@ export interface components {
             verdict: "ok" | "warn" | "fail";
         };
         FinishedPrepareBody: {
-            error?: string;
+            failure?: string;
             /** Format: int64 */
             fileId: number;
             /**
@@ -1366,26 +1366,26 @@ export interface components {
             path: string;
             /** @enum {string} */
             profile: "remux" | "h264-8m";
-            /** Format: int64 */
-            sizeBytes?: number;
             /**
              * Format: double
              * @description Seconds of the source prepared per second of running
              */
-            speed?: number;
+            realtimeFactor?: number;
+            /** Format: int64 */
+            sizeBytes?: number;
             /** @enum {string} */
             state: "complete" | "failed";
             /** @description h264_qsv, h264_nvenc, x264, or copy for a remux */
             videoEncoder?: string;
         };
         GPUBody: {
-            device: string;
+            devicePath: string;
             driver?: string;
-            noAccess?: string;
+            noAccessReason?: string;
         };
         HardwareBody: {
             /** @enum {string} */
-            encoder: "h264_qsv" | "h264_nvenc" | "x264";
+            chosenEncoder: "h264_qsv" | "h264_nvenc" | "x264";
             gpus: components["schemas"]["GPUBody"][] | null;
             trials: components["schemas"]["EncoderTrialBody"][] | null;
         };
@@ -1447,19 +1447,19 @@ export interface components {
             secret: string;
         };
         ItemBody: {
+            /** @description Where its own values come from: nfo, tmdb, or none */
+            followedSource?: string;
+            /** @description Its id at its provider */
+            followedSourceId?: string;
             /** Format: int64 */
             id: number;
             /** @enum {string} */
-            identification: "identified" | "ambiguous" | "unidentified" | "confirmed";
+            identificationState: "identified" | "ambiguous" | "unidentified" | "confirmed";
             /** @enum {string} */
             kind: "movie" | "episode" | "extra" | "series";
             /** Format: int64 */
             libraryId: number;
             name: string;
-            /** @description Where its own values come from: nfo, tmdb, or none */
-            source?: string;
-            /** @description Its id at its provider */
-            sourceId?: string;
             /** Format: int64 */
             year?: number;
         };
@@ -1467,9 +1467,10 @@ export interface components {
             art: components["schemas"]["ArtBody"];
             episode?: components["schemas"]["EpisodePlaceBody"];
             extras: components["schemas"]["ExtraBody"][] | null;
+            followedSource?: string;
             /** Format: int64 */
             id: number;
-            identification: string;
+            identificationState: string;
             /** @enum {string} */
             kind: "movie" | "episode" | "extra";
             /** Format: int64 */
@@ -1478,7 +1479,6 @@ export interface components {
             overview?: string;
             /** Format: int64 */
             runtimeMs?: number;
-            source?: string;
             tagline?: string;
             versions: components["schemas"]["VersionBody"][] | null;
             /** Format: int64 */
@@ -1512,7 +1512,7 @@ export interface components {
             kind: "fetch" | "artwork" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "measure_loudness" | "scan" | "backup";
             lastError?: string;
             /** Format: double */
-            progress?: number;
+            progressFraction?: number;
             /** @description Why it exists */
             reason: string;
             /** Format: int64 */
@@ -1541,11 +1541,11 @@ export interface components {
             /** @enum {string} */
             changeDetection: "watch" | "interval" | "manual";
             /** Format: int64 */
-            checkEveryH?: number;
+            checkEveryHours?: number;
             /** Format: int64 */
             createdAt: number;
             /** @description Live files by filing (D163) */
-            filings?: {
+            fileCountsByFiling?: {
                 [key: string]: number;
             };
             /** Format: int64 */
@@ -1565,12 +1565,12 @@ export interface components {
         };
         MenuBody: {
             /** @description Must list aac-stereo */
-            audio: ("aac-stereo" | "aac-multi" | "ac3" | "eac3" | "opus" | "flac")[] | null;
+            audioCodecs: ("aac-stereo" | "aac-multi" | "ac3" | "eac3" | "opus" | "flac")[] | null;
             /** @description Containers played as they are */
             containers: ("mp4" | "mkv" | "mpegts")[] | null;
-            subtitle: ("ass" | "webvtt")[] | null;
+            subtitleFormats: ("ass" | "webvtt")[] | null;
             /** @description Must list h264-sdr */
-            video: ("h264-sdr" | "hevc-sdr" | "hevc-hdr10" | "av1-sdr" | "av1-hdr10")[] | null;
+            videoCodecs: ("h264-sdr" | "hevc-sdr" | "hevc-hdr10" | "av1-sdr" | "av1-hdr10")[] | null;
         };
         NewDeviceBody: {
             /** @description What the person will know it by: "Chrome on Android", "Living room TV" */
@@ -1581,31 +1581,31 @@ export interface components {
              * Format: int64
              * @description The device this client was signed in as before, resumed when it is the same person's (D221)
              */
-            resumeId?: number;
+            previousDeviceId?: number;
         };
         NodeBody: {
             /** @description Whether it has said hello since the server started */
             isConnected: boolean;
             name: string;
             /** @description Its configured roots; empty while it is not connected */
-            roots: string[] | null;
+            rootPaths: string[] | null;
         };
         NodesOutputBody: {
             nodes: components["schemas"]["NodeBody"][] | null;
         };
         PersonOutputBody: {
             account: components["schemas"]["AccountBody"];
-            watched: components["schemas"]["WatchStatsBody"];
+            watchStats: components["schemas"]["WatchStatsBody"];
         };
         PreparedBody: {
             /** Format: int64 */
             budgetBytes: number;
             /** Format: int64 */
-            bytes: number;
+            diskUsedLimitPercent: number;
             /** Format: int64 */
-            diskLimitPercent: number;
+            diskUsedPercent: number;
             /** Format: int64 */
-            diskPercent: number;
+            usedBytes: number;
         };
         PutOverrideInputBody: {
             /** @description The value; year and runtime_ms are whole numbers */
@@ -1635,13 +1635,13 @@ export interface components {
         ReportInputBody: {
             events: components["schemas"]["EventBody"][] | null;
             /** Format: int64 */
-            positionMonoMs: number;
-            /** Format: int64 */
             positionMs: number;
             /** Format: int64 */
-            sentMonoMs: number;
+            positionReadMonoMs: number;
             /** Format: int64 */
-            seq: number;
+            reportSeq: number;
+            /** Format: int64 */
+            sentMonoMs: number;
             spans: components["schemas"]["SpanBody"][] | null;
         };
         RescanOutputBody: {
@@ -1649,22 +1649,22 @@ export interface components {
         };
         RootActionInputBody: {
             /** @description The node's configured name */
-            node: string;
+            nodeName: string;
             path: string;
         };
         RootBody: {
-            node: string;
-            /** @enum {string} */
-            outcome: "complete" | "unreadable" | "withheld" | "";
             /** Format: int64 */
-            outcomeAt?: number;
+            lastScanAt?: number;
+            /** @enum {string} */
+            lastScanOutcome: "complete" | "unreadable" | "withheld" | "";
+            nodeName: string;
             path: string;
             /** @description Why the last scan's removals wait for an admin */
             withheldReason?: string;
         };
         ScanOutputBody: {
             /** Format: int64 */
-            rootsAsked: number;
+            askedRootCount: number;
         };
         SearchOutputBody: {
             results: components["schemas"]["HitBody"][] | null;
@@ -1680,7 +1680,7 @@ export interface components {
             /** Format: int64 */
             setAt?: number;
             /** Format: int64 */
-            setBy?: number;
+            setByUserId?: number;
         };
         SecretsOutputBody: {
             secrets: components["schemas"]["SecretBody"][] | null;
@@ -1707,8 +1707,8 @@ export interface components {
             subtitleOffsetMs?: number;
         };
         SetMyPrefsInputBody: {
-            isDialogueBoost?: boolean;
-            isLevelling?: boolean;
+            isDialogueBoostOn?: boolean;
+            isLevellingOn?: boolean;
         };
         SettingBody: {
             description: string;
@@ -1726,7 +1726,7 @@ export interface components {
             /** Format: int64 */
             setAt: number;
             /** Format: int64 */
-            setBy?: number;
+            setByUserId?: number;
             /** @description The value a new server starts with; null when it has none */
             startingValue: unknown;
             /** @description A bool, a whole number or a string, by its kind; null when unset */
@@ -1765,27 +1765,27 @@ export interface components {
              * @description Where the client is
              * @enum {string}
              */
-            link: "local" | "remote";
-            menu: components["schemas"]["MenuBody"];
+            network: "local" | "remote";
+            playableFormats: components["schemas"]["MenuBody"];
             /**
              * @description A person's override
              * @enum {string}
              */
-            prefer?: "direct" | "prepare";
+            preferredDelivery?: "direct" | "prepare";
         };
         StartPlaybackOutputBody: {
             audio?: components["schemas"]["AudioRenditionBody"][] | null;
             /** @enum {string} */
             audioOutput?: "built_in_speakers" | "receiver" | "headphones";
-            isPreparing: boolean;
             /** @enum {string} */
-            kind: "direct" | "hls";
+            delivery: "direct" | "hls";
+            isPreparing: boolean;
             levelling: components["schemas"]["LevellingBody"];
             mediaToken: string;
+            notDirectReasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "user_choice")[] | null;
             prefs: components["schemas"]["FilePrefsBody"];
             /** @enum {string} */
             profile?: "remux" | "h264-8m";
-            reasons: ("container" | "video_codec" | "audio_codec" | "bandwidth" | "dialogue_boost" | "user_choice")[] | null;
             /** Format: int64 */
             resumePositionMs: number;
             subtitles: components["schemas"]["SubtitleTrackBody"][] | null;
@@ -1808,7 +1808,7 @@ export interface components {
         };
         SubtitleCandidateBody: {
             /** Format: int64 */
-            downloads: number;
+            downloadCount: number;
             isHashMatch: boolean;
             isHearingImpaired: boolean;
             isMachineTranslated: boolean;
@@ -1819,7 +1819,7 @@ export interface components {
              */
             providerFileId: number;
             /** @description The uploader's name for what it was made for */
-            release: string;
+            releaseName: string;
             /**
              * Format: int64
              * @description Unix milliseconds; absent when unknown
@@ -1840,7 +1840,7 @@ export interface components {
              * @description The chosen track, a subtitle fetched for the file
              */
             fetchedId?: number;
-            readonly isCarried?: boolean;
+            readonly isCarriedFromWork?: boolean;
             isOff?: boolean;
             /**
              * Format: int64
@@ -1874,7 +1874,7 @@ export interface components {
             build?: components["schemas"]["BuildBody"];
             confinement: components["schemas"]["ConfinementBody"][] | null;
             disks: components["schemas"]["DiskBody"][] | null;
-            ffmpegHash?: string;
+            ffmpegSha256?: string;
             ffmpegVersion?: string;
             /** Format: int64 */
             gid: number;
@@ -1954,7 +1954,7 @@ export interface components {
              */
             lastWatchedAt?: number;
             /** Format: int64 */
-            titlesWatched: number;
+            titlesWatchedCount: number;
             /** Format: int64 */
             watchedMs: number;
         };
@@ -1975,10 +1975,10 @@ export interface operations {
                 Authorization?: string;
             };
             path: {
-                /** @description A size and a format: portrait-m.webp, landscape-l.jpeg */
-                file: string;
                 /** @description The image's hash, from a title's artwork */
                 hash: string;
+                /** @description A size and a format: portrait-m.webp, landscape-l.jpeg */
+                variant: string;
             };
             cookie?: {
                 /** @description The media cookie sign-in sets, for an <img> */
@@ -2243,7 +2243,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description Only the settings a person set, even to their starting value */
-                modified?: boolean;
+                onlyModified?: boolean;
             };
             header?: {
                 /** @description Bearer <session token> */
@@ -2380,7 +2380,7 @@ export interface operations {
         parameters: {
             query?: {
                 /** @description The user whose row it is; 0 or absent for a server row */
-                user?: number;
+                userId?: number;
             };
             header?: {
                 /** @description Bearer <session token> */
@@ -2485,7 +2485,7 @@ export interface operations {
                 /** @description From the previous page's nextCursor */
                 cursor?: string;
                 filing?: "listed" | "extra" | "attached" | "skipped" | "errored" | "unidentified" | "";
-                library?: number;
+                libraryId?: number;
                 limit: number;
             };
             header?: {
@@ -2557,7 +2557,7 @@ export interface operations {
         parameters: {
             query: {
                 /** @description BCP 47: en, pt-BR */
-                lang: string;
+                language: string;
             };
             header?: {
                 /** @description Bearer <session token> */
@@ -2692,7 +2692,7 @@ export interface operations {
     getItemsByIdentification: {
         parameters: {
             query: {
-                identification: "identified" | "ambiguous" | "unidentified" | "confirmed";
+                identificationState: "identified" | "ambiguous" | "unidentified" | "confirmed";
             };
             header?: {
                 /** @description Bearer <session token> */

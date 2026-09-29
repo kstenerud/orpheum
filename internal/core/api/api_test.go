@@ -400,7 +400,7 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 	listed := harness.do(t, http.MethodGet, "/config", admin, nil)
 	const limit = `"key":"signin_failure_limit","kind":"integer","value":5,"startingValue":5,"isModified":false,` +
 		`"minimum":1,"maximum":1000`
-	const file = `"file":[{"key":"server.shutdown_grace_s","value":10,"startingValue":10,"isFromFile":false`
+	const file = `"configFileKeys":[{"key":"server.shutdown_grace_s","value":10,"startingValue":10,"isFromFile":false`
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, limit) || !strings.Contains(listed.body, file) {
 		t.Errorf("GET /config = %d %s", listed.status, listed.body)
 	}
@@ -459,12 +459,12 @@ func TestConfig_FiltersToWhatDiffersFromTheStartingValue(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.do(t, http.MethodPut, "/config", admin, map[string]any{"values": map[string]any{"signin_failure_limit": 7}})
 	all := harness.do(t, http.MethodGet, "/config", admin, nil)
-	changed := harness.do(t, http.MethodGet, "/config?modified=true", admin, nil)
+	changed := harness.do(t, http.MethodGet, "/config?onlyModified=true", admin, nil)
 	var listed struct {
 		Settings []SettingBody `json:"settings"`
 	}
 	if err := json.Unmarshal([]byte(changed.body), &listed); err != nil || changed.status != http.StatusOK {
-		t.Fatalf("GET /config?modified=true = %d %s", changed.status, changed.body)
+		t.Fatalf("GET /config?onlyModified=true = %d %s", changed.status, changed.body)
 	}
 	found := false
 	for _, setting := range listed.Settings {

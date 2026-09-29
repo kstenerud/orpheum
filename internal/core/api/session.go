@@ -64,13 +64,13 @@ type ClientFacts struct {
 // NewDeviceBody is how a client names itself: the device becomes one of the person's, listed
 // and revocable.
 type NewDeviceBody struct {
-	Name     string `doc:"What the person will know it by: \"Chrome on Android\", \"Living room TV\"" json:"name"     maxLength:"100" minLength:"1"`               //nolint:lll // one struct tag
-	Platform string `doc:"The kind of client: \"web\", \"cast\""                                    json:"platform" maxLength:"40"  minLength:"1"`                 //nolint:lll // one struct tag
-	ResumeID int64  `doc:"The device this client was signed in as before, resumed when it is the same person's (D221)" json:"resumeId,omitempty" required:"false"` //nolint:lll // one struct tag
+	Name             string `doc:"What the person will know it by: \"Chrome on Android\", \"Living room TV\"" json:"name"     maxLength:"100" minLength:"1"`                       //nolint:lll // one struct tag
+	Platform         string `doc:"The kind of client: \"web\", \"cast\""                                    json:"platform" maxLength:"40"  minLength:"1"`                         //nolint:lll // one struct tag
+	PreviousDeviceID int64  `doc:"The device this client was signed in as before, resumed when it is the same person's (D221)" json:"previousDeviceId,omitempty" required:"false"` //nolint:lll // one struct tag
 }
 
 func newDevice(body NewDeviceBody) auth.NewDevice {
-	return auth.NewDevice{Name: body.Name, Platform: body.Platform, ResumeID: body.ResumeID}
+	return auth.NewDevice{Name: body.Name, Platform: body.Platform, ResumeID: body.PreviousDeviceID}
 }
 
 // Resolve records the client's address and whether it came over TLS.

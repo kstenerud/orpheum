@@ -20,8 +20,8 @@ export function blankLibrary(): NewLibrary {
     metadataSource: "nfo_then_tmdb",
     changeDetection: "manual",
     isWritable: false,
-    node: "local",
-    roots: [],
+    nodeName: "local",
+    rootPaths: [],
   };
 }
 
@@ -44,17 +44,17 @@ function WhereItIs(props: {
   if (!nodes.some((node) => node.isConnected)) {
     return <p>{t("libraries.noNodes")}</p>;
   }
-  const chosen = nodes.find((node) => node.name === draft.node);
-  const roots = draft.roots ?? [];
+  const chosen = nodes.find((node) => node.name === draft.nodeName);
+  const roots = draft.rootPaths ?? [];
   return (
     <>
       <label>
         {t("libraries.node")}
         <select
-          value={draft.node}
+          value={draft.nodeName}
           onChange={(event) => {
-            props.set("node", event.target.value);
-            props.set("roots", []);
+            props.set("nodeName", event.target.value);
+            props.set("rootPaths", []);
           }}
         >
           {nodes.map((node) => (
@@ -66,13 +66,13 @@ function WhereItIs(props: {
       </label>
       <fieldset>
         <legend>{t("libraries.roots")}</legend>
-        {(chosen?.roots ?? []).map((root) => (
+        {(chosen?.rootPaths ?? []).map((root) => (
           <label key={root}>
             <input
               type="checkbox"
               checked={roots.includes(root)}
               onChange={(event) => {
-                set("roots", toggled(roots, root, event.target.checked));
+                set("rootPaths", toggled(roots, root, event.target.checked));
               }}
             />
             <code>{root}</code>
@@ -190,9 +190,9 @@ function ThreeQuestions(props: {
             type="number"
             min={1}
             required
-            value={draft.checkEveryH ?? 24}
+            value={draft.checkEveryHours ?? 24}
             onChange={(event) => {
-              set("checkEveryH", Number(event.target.value));
+              set("checkEveryHours", Number(event.target.value));
             }}
           />
         </label>

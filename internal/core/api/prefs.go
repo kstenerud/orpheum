@@ -17,10 +17,10 @@ type FilePrefsBody struct {
 	SubtitleOffsetMs int64 `doc:"Shows the subtitles this much later, or earlier when negative" json:"subtitleOffsetMs"`
 	// Subtitle is the file's subtitle choice, absent when it has none (D219).
 	Subtitle *SubtitleChoiceBody `json:"subtitle,omitempty"`
-	// IsDialogueBoost is whether the person plays with the dialogue boost, in every file (D83).
-	IsDialogueBoost bool `json:"isDialogueBoost"`
-	// IsLevelling is whether the person plays with loudness levelled, in every file (D226 §5).
-	IsLevelling bool `json:"isLevelling"`
+	// IsDialogueBoostOn is whether the person plays with the dialogue boost, in every file (D83).
+	IsDialogueBoostOn bool `json:"isDialogueBoostOn"`
+	// IsLevellingOn is whether the person plays with loudness levelled, in every file (D226 §5).
+	IsLevellingOn bool `json:"isLevellingOn"`
 }
 
 // SubtitleChoiceBody is a subtitle choice for one file: a track in it, or off (D219).
@@ -29,8 +29,8 @@ type SubtitleChoiceBody struct {
 	// FetchedID is the chosen track when it is a subtitle fetched for the file (D224).
 	FetchedID int64 `doc:"The chosen track, a subtitle fetched for the file" json:"fetchedId,omitempty"`
 	IsOff     bool  `json:"isOff,omitempty"`
-	// IsCarried is a choice made in another file of the work and carried here.
-	IsCarried bool `json:"isCarried,omitempty" readOnly:"true"`
+	// IsCarriedFromWork is a choice made in another file of the work and carried here.
+	IsCarriedFromWork bool `json:"isCarriedFromWork,omitempty" readOnly:"true"`
 }
 
 // SetFilePrefsInput changes a person's choices for one file: what it names, and nothing else.
@@ -60,12 +60,13 @@ func (server *Server) registerFilePrefs() {
 
 func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
 	body := FilePrefsBody{
-		SubtitleOffsetMs: prefs.SubtitleOffsetMs, IsDialogueBoost: prefs.IsDialogueBoost,
-		IsLevelling: prefs.IsLevelling,
+		SubtitleOffsetMs: prefs.SubtitleOffsetMs, IsDialogueBoostOn: prefs.IsDialogueBoost,
+		IsLevellingOn: prefs.IsLevelling,
 	}
 	if choice := prefs.Subtitle; choice != nil {
 		body.Subtitle = &SubtitleChoiceBody{
-			StreamID: choice.StreamID, FetchedID: choice.FetchedID, IsOff: choice.IsOff, IsCarried: choice.IsCarried,
+			StreamID: choice.StreamID, FetchedID: choice.FetchedID, IsOff: choice.IsOff,
+			IsCarriedFromWork: choice.IsCarried,
 		}
 	}
 	return body
@@ -75,10 +76,10 @@ func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
 type SetMyPrefsInput struct {
 	AuthorizationHeader
 	Body struct {
-		// IsDialogueBoost, when given, is whether the person plays with the dialogue boost (D222 §3).
-		IsDialogueBoost *bool `json:"isDialogueBoost,omitempty" required:"false"`
-		// IsLevelling, when given, is whether the person plays with loudness levelled (D226 §5).
-		IsLevelling *bool `json:"isLevelling,omitempty" required:"false"`
+		// IsDialogueBoostOn, when given, is whether the person plays with the dialogue boost (D222 §3).
+		IsDialogueBoostOn *bool `json:"isDialogueBoostOn,omitempty" required:"false"`
+		// IsLevellingOn, when given, is whether the person plays with loudness levelled (D226 §5).
+		IsLevellingOn *bool `json:"isLevellingOn,omitempty" required:"false"`
 	}
 }
 
@@ -87,12 +88,12 @@ func (server *Server) setMyPrefs(ctx context.Context, input *SetMyPrefsInput) (*
 	if err != nil {
 		return nil, err
 	}
-	if isOn := input.Body.IsDialogueBoost; isOn != nil {
+	if isOn := input.Body.IsDialogueBoostOn; isOn != nil {
 		if err := dependencies.Playback.SetDialogueBoost(ctx, principal.UserID, *isOn); err != nil {
 			return nil, server.internal(ctx, "keep a person's dialogue boost", err)
 		}
 	}
-	if isOn := input.Body.IsLevelling; isOn != nil {
+	if isOn := input.Body.IsLevellingOn; isOn != nil {
 		if err := dependencies.Playback.SetLevelling(ctx, principal.UserID, *isOn); err != nil {
 			return nil, server.internal(ctx, "keep whether a person's loudness is levelled", err)
 		}

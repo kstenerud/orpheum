@@ -93,7 +93,8 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 		t.Errorf("an admin's detail = %s; want the path", adminDetail.body)
 	}
 	episode := harness.do(t, http.MethodGet, "/items/21", user, nil)
-	if !strings.Contains(episode.body, `"episode":{"seriesId":20,"seriesName":"Brass Arena","season":1,"number":1}`) {
+	if !strings.Contains(episode.body,
+		`"episode":{"seriesId":20,"seriesName":"Brass Arena","seasonNumber":1,"episodeNumber":1}`) {
 		t.Errorf("an episode's detail = %s", episode.body)
 	}
 	wantError(t, harness.do(t, http.MethodGet, "/items/99", user, nil), http.StatusNotFound, CodeNotFound)

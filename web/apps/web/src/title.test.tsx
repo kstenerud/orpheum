@@ -17,7 +17,7 @@ const heat: TitleDetail = {
   runtimeMs: 170 * 60_000,
   tagline: "A Los Angeles crime saga",
   overview: "A crime saga.",
-  identification: "identified",
+  identificationState: "identified",
   libraryId: 1,
   art: { posterHash: "p1", backdropHash: "b1" },
   versions: [
@@ -63,7 +63,7 @@ describe("TitleView", () => {
       kind: "episode",
       name: "Pilot",
       art: { stillHash: "s1" },
-      episode: { seriesId: 20, seriesName: "Brass Arena", season: 1, number: 1 },
+      episode: { seriesId: 20, seriesName: "Brass Arena", seasonNumber: 1, episodeNumber: 1 },
       versions: [],
       extras: null,
     };

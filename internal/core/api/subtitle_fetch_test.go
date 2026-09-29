@@ -81,10 +81,11 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.identifyFilm(t)
-	answer := harness.do(t, http.MethodGet, "/files/2/subtitle-candidates?lang=de", user, nil)
+	answer := harness.do(t, http.MethodGet, "/files/2/subtitle-candidates?language=de", user, nil)
 	offered := offeredCandidates(t, answer)
 	first := offered.Candidates
-	if len(first) != 2 || !first[0].IsHashMatch || first[0].ProviderFileID != 7 || offered.Allowance.Remaining != 20 ||
+	if len(first) != 2 || !first[0].IsHashMatch || first[0].ProviderFileID != 7 ||
+		offered.Allowance.RemainingDownloads != 20 ||
 		!offered.DidAskByIDs || !offered.DidAskByFileHash {
 		t.Errorf("offered %+v; want both candidates, the hash match first, the downloads left, and that it "+
 			"asked by the ids and the hash (D224)", offered)
@@ -94,12 +95,13 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 		asked.Language != "de" {
 		t.Errorf("asked OpenSubtitles %+v; want the film's ids, the file's hash and the language (D224 §3)", asked)
 	}
-	nothing := harness.do(t, http.MethodGet, "/files/1/subtitle-candidates?lang=de", user, nil)
+	nothing := harness.do(t, http.MethodGet, "/files/1/subtitle-candidates?language=de", user, nil)
 	wantError(t, nothing, http.StatusConflict, CodeConflict)
 
 	// A file not identified yet is asked for by its hash alone, and the answer says so.
 	storetest.ExecRaw(t, harness.database, "UPDATE file SET opensubtitles_hash = '43c6c64ddb8e4766' WHERE id = 1")
-	hashOnly := offeredCandidates(t, harness.do(t, http.MethodGet, "/files/1/subtitle-candidates?lang=de", user, nil))
+	hashOnly := offeredCandidates(t, harness.do(t, http.MethodGet, "/files/1/subtitle-candidates?language=de", user,
+		nil))
 	if hashOnly.DidAskByIDs || !hashOnly.DidAskByFileHash {
 		t.Errorf("for an unidentified file: searched by ids %t, by hash %t; want the hash alone",
 			hashOnly.DidAskByIDs, hashOnly.DidAskByFileHash)
@@ -132,7 +134,7 @@ func TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace(t *testing.T) 
 	harness.shelveEpisodes(t)
 	storetest.ExecRaw(t, harness.database,
 		"INSERT INTO item_provider_id (item_id, provider, provider_id) VALUES (20, 'tmdb', '1396')")
-	if answer := harness.do(t, http.MethodGet, "/files/2/subtitle-candidates?lang=en", user, nil); answer.status !=
+	if answer := harness.do(t, http.MethodGet, "/files/2/subtitle-candidates?language=en", user, nil); answer.status !=
 		http.StatusOK {
 		t.Fatalf("GET subtitle-candidates = %d %s", answer.status, answer.body)
 	}
@@ -194,8 +196,8 @@ func fetchGerman(t *testing.T, harness testHarness, user string) int64 {
 		map[string]any{"providerFileId": 7, "language": "de"})
 	var fetched struct {
 		FetchedID int64 `json:"fetchedId"`
-		Remaining int   `json:"remaining"`
-		ResetAt   int64 `json:"resetAt"`
+		Remaining int   `json:"remainingDownloads"`
+		ResetAt   int64 `json:"downloadsResetAt"`
 	}
 	if err := json.Unmarshal([]byte(answer.body), &fetched); err != nil || answer.status != http.StatusOK ||
 		fetched.FetchedID == 0 || fetched.Remaining != 19 || fetched.ResetAt != resetAt.UnixMilli() {

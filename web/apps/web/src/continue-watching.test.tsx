@@ -65,7 +65,7 @@ describe("Continue Watching", () => {
       rowName(
         {
           name: "Pilot",
-          episode: { seriesId: 20, seriesName: "Brass Arena", season: 1, number: 1 },
+          episode: { seriesId: 20, seriesName: "Brass Arena", seasonNumber: 1, episodeNumber: 1 },
         },
         episodeName,
       ),

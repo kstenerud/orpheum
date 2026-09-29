@@ -56,21 +56,21 @@
       "AllowanceBody": {
         "additionalProperties": false,
         "properties": {
-          "allowed": {
+          "allowedDownloads": {
             "format": "int64",
             "type": "integer"
           },
           "isVip": {
             "type": "boolean"
           },
-          "remaining": {
+          "remainingDownloads": {
             "format": "int64",
             "type": "integer"
           }
         },
         "required": [
-          "remaining",
-          "allowed",
+          "remainingDownloads",
+          "allowedDownloads",
           "isVip"
         ],
         "type": "object"
@@ -99,7 +99,7 @@
             "format": "double",
             "type": "number"
           },
-          "isDialogueBoost": {
+          "isDialogueBoosted": {
             "type": "boolean"
           },
           "language": {
@@ -108,15 +108,15 @@
           "levelling": {
             "$ref": "#/components/schemas/LevellingBody"
           },
-          "sourceTrack": {
+          "sourceAudioIndex": {
             "format": "int64",
             "type": "integer"
           }
         },
         "required": [
-          "sourceTrack",
+          "sourceAudioIndex",
           "language",
-          "isDialogueBoost",
+          "isDialogueBoosted",
           "levelling",
           "carriedGainDb"
         ],
@@ -164,11 +164,11 @@
           "originalName": {
             "type": "string"
           },
-          "posterRef": {
-            "description": "The provider's path for the poster",
+          "providerId": {
             "type": "string"
           },
-          "providerId": {
+          "providerPosterPath": {
+            "description": "The provider's path for the poster",
             "type": "string"
           },
           "year": {
@@ -254,7 +254,7 @@
             "minLength": 1,
             "type": "string"
           },
-          "resumeId": {
+          "previousDeviceId": {
             "description": "The device this client was signed in as before (D221)",
             "format": "int64",
             "type": "integer"
@@ -285,7 +285,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "identification": {
+          "identificationState": {
             "type": "string"
           },
           "kind": {
@@ -349,7 +349,7 @@
       "ConfigOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "file": {
+          "configFileKeys": {
             "items": {
               "$ref": "#/components/schemas/ConfigFileKey"
             },
@@ -370,7 +370,7 @@
         },
         "required": [
           "settings",
-          "file"
+          "configFileKeys"
         ],
         "type": "object"
       },
@@ -439,13 +439,13 @@
           "account": {
             "$ref": "#/components/schemas/AccountBody"
           },
-          "registration": {
+          "registrationInvitation": {
             "$ref": "#/components/schemas/InvitationBody"
           }
         },
         "required": [
           "account",
-          "registration"
+          "registrationInvitation"
         ],
         "type": "object"
       },
@@ -460,7 +460,7 @@
             ],
             "type": "string"
           },
-          "checkEveryH": {
+          "checkEveryHours": {
             "description": "Hours between checks; interval only",
             "format": "int64",
             "minimum": 1,
@@ -490,12 +490,12 @@
             "minLength": 1,
             "type": "string"
           },
-          "node": {
+          "nodeName": {
             "description": "The node's configured name",
             "minLength": 1,
             "type": "string"
           },
-          "roots": {
+          "rootPaths": {
             "description": "Roots the node configured",
             "items": {
               "type": "string"
@@ -513,8 +513,8 @@
           "metadataSource",
           "changeDetection",
           "isWritable",
-          "node",
-          "roots"
+          "nodeName",
+          "rootPaths"
         ],
         "type": "object"
       },
@@ -662,14 +662,14 @@
       "DiskBody": {
         "additionalProperties": false,
         "properties": {
-          "failure": {
-            "description": "Why it could not be measured; the sizes are zero then",
-            "type": "string"
-          },
-          "freeBytes": {
+          "availableBytes": {
             "description": "What a user who is not root may still write",
             "format": "int64",
             "type": "integer"
+          },
+          "failure": {
+            "description": "Why it could not be measured; the sizes are zero then",
+            "type": "string"
           },
           "path": {
             "type": "string"
@@ -682,7 +682,7 @@
         "required": [
           "path",
           "totalBytes",
-          "freeBytes"
+          "availableBytes"
         ],
         "type": "object"
       },
@@ -734,7 +734,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "identification": {
+          "identificationState": {
             "type": "string"
           },
           "libraryId": {
@@ -756,7 +756,7 @@
         "required": [
           "id",
           "name",
-          "identification",
+          "identificationState",
           "libraryId",
           "addedAt"
         ],
@@ -765,6 +765,10 @@
       "EpisodeBody": {
         "additionalProperties": false,
         "properties": {
+          "episodeNumber": {
+            "format": "int64",
+            "type": "integer"
+          },
           "hasLiveFile": {
             "description": "Whether it has a live file",
             "type": "boolean"
@@ -773,21 +777,17 @@
             "format": "int64",
             "type": "integer"
           },
-          "identification": {
+          "identificationState": {
             "type": "string"
           },
           "name": {
             "type": "string"
           },
-          "number": {
-            "format": "int64",
-            "type": "integer"
-          },
           "runtimeMs": {
             "format": "int64",
             "type": "integer"
           },
-          "season": {
+          "seasonNumber": {
             "format": "int64",
             "type": "integer"
           },
@@ -802,10 +802,10 @@
         },
         "required": [
           "id",
-          "season",
-          "number",
+          "seasonNumber",
+          "episodeNumber",
           "name",
-          "identification",
+          "identificationState",
           "hasLiveFile"
         ],
         "type": "object"
@@ -813,11 +813,11 @@
       "EpisodePlaceBody": {
         "additionalProperties": false,
         "properties": {
-          "number": {
+          "episodeNumber": {
             "format": "int64",
             "type": "integer"
           },
-          "season": {
+          "seasonNumber": {
             "format": "int64",
             "type": "integer"
           },
@@ -832,8 +832,8 @@
         "required": [
           "seriesId",
           "seriesName",
-          "season",
-          "number"
+          "seasonNumber",
+          "episodeNumber"
         ],
         "type": "object"
       },
@@ -877,6 +877,11 @@
       "EventBody": {
         "additionalProperties": false,
         "properties": {
+          "atMonoMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "kind": {
             "enum": [
               "started",
@@ -887,11 +892,6 @@
             ],
             "type": "string"
           },
-          "monoMs": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
           "positionMs": {
             "format": "int64",
             "minimum": 0,
@@ -901,7 +901,7 @@
         "required": [
           "kind",
           "positionMs",
-          "monoMs"
+          "atMonoMs"
         ],
         "type": "object"
       },
@@ -949,24 +949,24 @@
       "FetchSubtitleOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "downloadsResetAt": {
+            "description": "When the count starts again, Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
           "fetchedId": {
             "description": "The new track; a playback started again offers it",
             "format": "int64",
             "type": "integer"
           },
-          "remaining": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "resetAt": {
-            "description": "When the count starts again, Unix milliseconds",
+          "remainingDownloads": {
             "format": "int64",
             "type": "integer"
           }
         },
         "required": [
           "fetchedId",
-          "remaining"
+          "remainingDownloads"
         ],
         "type": "object"
       },
@@ -1050,10 +1050,10 @@
       "FilePrefsBody": {
         "additionalProperties": false,
         "properties": {
-          "isDialogueBoost": {
+          "isDialogueBoostOn": {
             "type": "boolean"
           },
-          "isLevelling": {
+          "isLevellingOn": {
             "type": "boolean"
           },
           "subtitle": {
@@ -1067,8 +1067,8 @@
         },
         "required": [
           "subtitleOffsetMs",
-          "isDialogueBoost",
-          "isLevelling"
+          "isDialogueBoostOn",
+          "isLevellingOn"
         ],
         "type": "object"
       },
@@ -1125,7 +1125,7 @@
       "FinishedPrepareBody": {
         "additionalProperties": false,
         "properties": {
-          "error": {
+          "failure": {
             "type": "string"
           },
           "fileId": {
@@ -1148,14 +1148,14 @@
             ],
             "type": "string"
           },
-          "sizeBytes": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "speed": {
+          "realtimeFactor": {
             "description": "Seconds of the source prepared per second of running",
             "format": "double",
             "type": "number"
+          },
+          "sizeBytes": {
+            "format": "int64",
+            "type": "integer"
           },
           "state": {
             "enum": [
@@ -1181,25 +1181,25 @@
       "GPUBody": {
         "additionalProperties": false,
         "properties": {
-          "device": {
+          "devicePath": {
             "type": "string"
           },
           "driver": {
             "type": "string"
           },
-          "noAccess": {
+          "noAccessReason": {
             "type": "string"
           }
         },
         "required": [
-          "device"
+          "devicePath"
         ],
         "type": "object"
       },
       "HardwareBody": {
         "additionalProperties": false,
         "properties": {
-          "encoder": {
+          "chosenEncoder": {
             "enum": [
               "h264_qsv",
               "h264_nvenc",
@@ -1229,7 +1229,7 @@
         "required": [
           "gpus",
           "trials",
-          "encoder"
+          "chosenEncoder"
         ],
         "type": "object"
       },
@@ -1414,11 +1414,19 @@
       "ItemBody": {
         "additionalProperties": false,
         "properties": {
+          "followedSource": {
+            "description": "Where its own values come from: nfo, tmdb, or none",
+            "type": "string"
+          },
+          "followedSourceId": {
+            "description": "Its id at its provider",
+            "type": "string"
+          },
           "id": {
             "format": "int64",
             "type": "integer"
           },
-          "identification": {
+          "identificationState": {
             "enum": [
               "identified",
               "ambiguous",
@@ -1443,14 +1451,6 @@
           "name": {
             "type": "string"
           },
-          "source": {
-            "description": "Where its own values come from: nfo, tmdb, or none",
-            "type": "string"
-          },
-          "sourceId": {
-            "description": "Its id at its provider",
-            "type": "string"
-          },
           "year": {
             "format": "int64",
             "type": "integer"
@@ -1461,7 +1461,7 @@
           "libraryId",
           "kind",
           "name",
-          "identification"
+          "identificationState"
         ],
         "type": "object"
       },
@@ -1483,11 +1483,14 @@
               "null"
             ]
           },
+          "followedSource": {
+            "type": "string"
+          },
           "id": {
             "format": "int64",
             "type": "integer"
           },
-          "identification": {
+          "identificationState": {
             "type": "string"
           },
           "kind": {
@@ -1512,9 +1515,6 @@
             "format": "int64",
             "type": "integer"
           },
-          "source": {
-            "type": "string"
-          },
           "tagline": {
             "type": "string"
           },
@@ -1536,7 +1536,7 @@
           "id",
           "kind",
           "name",
-          "identification",
+          "identificationState",
           "libraryId",
           "versions",
           "extras",
@@ -1611,7 +1611,7 @@
           "lastError": {
             "type": "string"
           },
-          "progress": {
+          "progressFraction": {
             "format": "double",
             "type": "number"
           },
@@ -1714,7 +1714,7 @@
             ],
             "type": "string"
           },
-          "checkEveryH": {
+          "checkEveryHours": {
             "format": "int64",
             "type": "integer"
           },
@@ -1722,7 +1722,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "filings": {
+          "fileCountsByFiling": {
             "additionalProperties": {
               "format": "int64",
               "type": "integer"
@@ -1800,7 +1800,7 @@
       "MenuBody": {
         "additionalProperties": false,
         "properties": {
-          "audio": {
+          "audioCodecs": {
             "description": "Must list aac-stereo",
             "items": {
               "enum": [
@@ -1833,7 +1833,7 @@
               "null"
             ]
           },
-          "subtitle": {
+          "subtitleFormats": {
             "items": {
               "enum": [
                 "ass",
@@ -1846,7 +1846,7 @@
               "null"
             ]
           },
-          "video": {
+          "videoCodecs": {
             "description": "Must list h264-sdr",
             "items": {
               "enum": [
@@ -1865,9 +1865,9 @@
           }
         },
         "required": [
-          "video",
-          "audio",
-          "subtitle",
+          "videoCodecs",
+          "audioCodecs",
+          "subtitleFormats",
           "containers"
         ],
         "type": "object"
@@ -1887,7 +1887,7 @@
             "minLength": 1,
             "type": "string"
           },
-          "resumeId": {
+          "previousDeviceId": {
             "description": "The device this client was signed in as before, resumed when it is the same person's (D221)",
             "format": "int64",
             "type": "integer"
@@ -1909,7 +1909,7 @@
           "name": {
             "type": "string"
           },
-          "roots": {
+          "rootPaths": {
             "description": "Its configured roots; empty while it is not connected",
             "items": {
               "type": "string"
@@ -1923,7 +1923,7 @@
         "required": [
           "name",
           "isConnected",
-          "roots"
+          "rootPaths"
         ],
         "type": "object"
       },
@@ -1951,13 +1951,13 @@
           "account": {
             "$ref": "#/components/schemas/AccountBody"
           },
-          "watched": {
+          "watchStats": {
             "$ref": "#/components/schemas/WatchStatsBody"
           }
         },
         "required": [
           "account",
-          "watched"
+          "watchStats"
         ],
         "type": "object"
       },
@@ -1968,24 +1968,24 @@
             "format": "int64",
             "type": "integer"
           },
-          "bytes": {
+          "diskUsedLimitPercent": {
             "format": "int64",
             "type": "integer"
           },
-          "diskLimitPercent": {
+          "diskUsedPercent": {
             "format": "int64",
             "type": "integer"
           },
-          "diskPercent": {
+          "usedBytes": {
             "format": "int64",
             "type": "integer"
           }
         },
         "required": [
-          "bytes",
+          "usedBytes",
           "budgetBytes",
-          "diskPercent",
-          "diskLimitPercent"
+          "diskUsedPercent",
+          "diskUsedLimitPercent"
         ],
         "type": "object"
       },
@@ -2091,24 +2091,24 @@
               "null"
             ]
           },
-          "positionMonoMs": {
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
           "positionMs": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "sentMonoMs": {
+          "positionReadMonoMs": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
-          "seq": {
+          "reportSeq": {
             "format": "int64",
             "minimum": 1,
+            "type": "integer"
+          },
+          "sentMonoMs": {
+            "format": "int64",
+            "minimum": 0,
             "type": "integer"
           },
           "spans": {
@@ -2122,10 +2122,10 @@
           }
         },
         "required": [
-          "seq",
+          "reportSeq",
           "sentMonoMs",
           "positionMs",
-          "positionMonoMs",
+          "positionReadMonoMs",
           "events",
           "spans"
         ],
@@ -2146,7 +2146,7 @@
       "RootActionInputBody": {
         "additionalProperties": false,
         "properties": {
-          "node": {
+          "nodeName": {
             "description": "The node's configured name",
             "minLength": 1,
             "type": "string"
@@ -2157,7 +2157,7 @@
           }
         },
         "required": [
-          "node",
+          "nodeName",
           "path"
         ],
         "type": "object"
@@ -2165,10 +2165,11 @@
       "RootBody": {
         "additionalProperties": false,
         "properties": {
-          "node": {
-            "type": "string"
+          "lastScanAt": {
+            "format": "int64",
+            "type": "integer"
           },
-          "outcome": {
+          "lastScanOutcome": {
             "enum": [
               "complete",
               "unreadable",
@@ -2177,9 +2178,8 @@
             ],
             "type": "string"
           },
-          "outcomeAt": {
-            "format": "int64",
-            "type": "integer"
+          "nodeName": {
+            "type": "string"
           },
           "path": {
             "type": "string"
@@ -2190,22 +2190,22 @@
           }
         },
         "required": [
-          "node",
+          "nodeName",
           "path",
-          "outcome"
+          "lastScanOutcome"
         ],
         "type": "object"
       },
       "ScanOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "rootsAsked": {
+          "askedRootCount": {
             "format": "int64",
             "type": "integer"
           }
         },
         "required": [
-          "rootsAsked"
+          "askedRootCount"
         ],
         "type": "object"
       },
@@ -2251,7 +2251,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "setBy": {
+          "setByUserId": {
             "format": "int64",
             "type": "integer"
           }
@@ -2362,10 +2362,10 @@
       "SetMyPrefsInputBody": {
         "additionalProperties": false,
         "properties": {
-          "isDialogueBoost": {
+          "isDialogueBoostOn": {
             "type": "boolean"
           },
-          "isLevelling": {
+          "isLevellingOn": {
             "type": "boolean"
           }
         },
@@ -2410,7 +2410,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "setBy": {
+          "setByUserId": {
             "format": "int64",
             "type": "integer"
           },
@@ -2541,7 +2541,7 @@
             "minimum": 1,
             "type": "integer"
           },
-          "link": {
+          "network": {
             "description": "Where the client is",
             "enum": [
               "local",
@@ -2549,10 +2549,10 @@
             ],
             "type": "string"
           },
-          "menu": {
+          "playableFormats": {
             "$ref": "#/components/schemas/MenuBody"
           },
-          "prefer": {
+          "preferredDelivery": {
             "description": "A person's override",
             "enum": [
               "direct",
@@ -2563,8 +2563,8 @@
         },
         "required": [
           "fileId",
-          "menu",
-          "link"
+          "playableFormats",
+          "network"
         ],
         "type": "object"
       },
@@ -2588,15 +2588,15 @@
             ],
             "type": "string"
           },
-          "isPreparing": {
-            "type": "boolean"
-          },
-          "kind": {
+          "delivery": {
             "enum": [
               "direct",
               "hls"
             ],
             "type": "string"
+          },
+          "isPreparing": {
+            "type": "boolean"
           },
           "levelling": {
             "$ref": "#/components/schemas/LevellingBody"
@@ -2604,17 +2604,7 @@
           "mediaToken": {
             "type": "string"
           },
-          "prefs": {
-            "$ref": "#/components/schemas/FilePrefsBody"
-          },
-          "profile": {
-            "enum": [
-              "remux",
-              "h264-8m"
-            ],
-            "type": "string"
-          },
-          "reasons": {
+          "notDirectReasons": {
             "items": {
               "enum": [
                 "container",
@@ -2630,6 +2620,16 @@
               "array",
               "null"
             ]
+          },
+          "prefs": {
+            "$ref": "#/components/schemas/FilePrefsBody"
+          },
+          "profile": {
+            "enum": [
+              "remux",
+              "h264-8m"
+            ],
+            "type": "string"
           },
           "resumePositionMs": {
             "format": "int64",
@@ -2650,9 +2650,9 @@
           }
         },
         "required": [
-          "kind",
+          "delivery",
           "url",
-          "reasons",
+          "notDirectReasons",
           "isPreparing",
           "subtitles",
           "prefs",
@@ -2697,7 +2697,7 @@
       "SubtitleCandidateBody": {
         "additionalProperties": false,
         "properties": {
-          "downloads": {
+          "downloadCount": {
             "format": "int64",
             "type": "integer"
           },
@@ -2718,7 +2718,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "release": {
+          "releaseName": {
             "description": "The uploader's name for what it was made for",
             "type": "string"
           },
@@ -2730,12 +2730,12 @@
         },
         "required": [
           "providerFileId",
-          "release",
+          "releaseName",
           "language",
           "isHashMatch",
           "isHearingImpaired",
           "isMachineTranslated",
-          "downloads"
+          "downloadCount"
         ],
         "type": "object"
       },
@@ -2779,7 +2779,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "isCarried": {
+          "isCarriedFromWork": {
             "readOnly": true,
             "type": "boolean"
           },
@@ -2867,7 +2867,7 @@
               "null"
             ]
           },
-          "ffmpegHash": {
+          "ffmpegSha256": {
             "type": "string"
           },
           "ffmpegVersion": {
@@ -3124,7 +3124,7 @@
             "format": "int64",
             "type": "integer"
           },
-          "titlesWatched": {
+          "titlesWatchedCount": {
             "format": "int64",
             "type": "integer"
           },
@@ -3135,7 +3135,7 @@
         },
         "required": [
           "watchedMs",
-          "titlesWatched"
+          "titlesWatchedCount"
         ],
         "type": "object"
       }
@@ -3148,7 +3148,7 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/bytes/art/{hash}/{file}": {
+    "/bytes/art/{hash}/{variant}": {
       "get": {
         "operationId": "getArt",
         "parameters": [
@@ -3184,7 +3184,7 @@
           {
             "description": "A size and a format: portrait-m.webp, landscape-l.jpeg",
             "in": "path",
-            "name": "file",
+            "name": "variant",
             "required": true,
             "schema": {
               "description": "A size and a format: portrait-m.webp, landscape-l.jpeg",
@@ -3613,7 +3613,7 @@
             "description": "Only the settings a person set, even to their starting value",
             "explode": false,
             "in": "query",
-            "name": "modified",
+            "name": "onlyModified",
             "schema": {
               "description": "Only the settings a person set, even to their starting value",
               "type": "boolean"
@@ -3642,7 +3642,7 @@
             "description": "Error"
           }
         },
-        "summary": "Every server setting beside its starting value, and the config file's keys (read-only); ?modified=true lists only the settings a person set (admin)",
+        "summary": "Every server setting beside its starting value, and the config file's keys (read-only); ?onlyModified=true lists only the settings a person set (admin)",
         "tags": [
           "Settings"
         ]
@@ -3765,7 +3765,7 @@
             "description": "The user whose row it is; 0 or absent for a server row",
             "explode": false,
             "in": "query",
-            "name": "user",
+            "name": "userId",
             "schema": {
               "description": "The user whose row it is; 0 or absent for a server row",
               "format": "int64",
@@ -3971,7 +3971,7 @@
           {
             "explode": false,
             "in": "query",
-            "name": "library",
+            "name": "libraryId",
             "schema": {
               "format": "int64",
               "type": "integer"
@@ -4110,7 +4110,7 @@
             "description": "BCP 47: en, pt-BR",
             "explode": false,
             "in": "query",
-            "name": "lang",
+            "name": "language",
             "required": true,
             "schema": {
               "description": "BCP 47: en, pt-BR",
@@ -4301,7 +4301,7 @@
           {
             "explode": false,
             "in": "query",
-            "name": "identification",
+            "name": "identificationState",
             "required": true,
             "schema": {
               "enum": [

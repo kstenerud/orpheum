@@ -60,8 +60,8 @@ describe("reporting play state", () => {
     setNow(41_000);
     play.paused(100_000);
     await settled();
-    expect(sent.map((report) => report.seq)).toEqual([1, 2, 3]);
-    expect(sent[0]?.events).toEqual([{ kind: "started", positionMs: 0, monoMs: 1000 }]);
+    expect(sent.map((report) => report.reportSeq)).toEqual([1, 2, 3]);
+    expect(sent[0]?.events).toEqual([{ kind: "started", positionMs: 0, atMonoMs: 1000 }]);
     expect(sent[1]?.spans).toEqual([
       { fromPositionMs: 0, toPositionMs: 30_000, startedMonoMs: 1000, endedMonoMs: 31_000 },
     ]);
@@ -71,7 +71,7 @@ describe("reporting play state", () => {
     expect(sent[2]).toMatchObject({
       positionMs: 100_000,
       sentMonoMs: 41_000,
-      positionMonoMs: 41_000,
+      positionReadMonoMs: 41_000,
     });
   });
 
@@ -96,7 +96,7 @@ describe("reporting play state", () => {
     await settled();
     play.flush(10_000);
     await settled();
-    expect(sent.map((report) => report.seq)).toEqual([1, 3]);
+    expect(sent.map((report) => report.reportSeq)).toEqual([1, 3]);
     expect(sent[1]?.events.map((event) => event.kind)).toEqual(["paused"]);
     expect(sent[1]?.spans).toHaveLength(1);
   });
@@ -116,6 +116,6 @@ describe("reporting play state", () => {
     const second = reporter(shared);
     second.play.started(0);
     await settled();
-    expect([...first.sent, ...second.sent].map((report) => report.seq)).toEqual([1, 2]);
+    expect([...first.sent, ...second.sent].map((report) => report.reportSeq)).toEqual([1, 2]);
   });
 });

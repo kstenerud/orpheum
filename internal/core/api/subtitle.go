@@ -30,9 +30,9 @@ type SubtitleTrackBody struct {
 
 // AudioRenditionBody is one audio rendition: a source track's standard mix, or its boosted one.
 type AudioRenditionBody struct {
-	SourceTrack     int    `json:"sourceTrack"`
-	Language        string `json:"language"`
-	IsDialogueBoost bool   `json:"isDialogueBoost"`
+	SourceAudioIndex  int    `json:"sourceAudioIndex"`
+	Language          string `json:"language"`
+	IsDialogueBoosted bool   `json:"isDialogueBoosted"`
 	// Levelling brings the track's stereo sound to the level (D226).
 	Levelling LevellingBody `json:"levelling"`
 	// CarriedGainDB is already in the rendition's sound: the player applies the levelling less

@@ -104,10 +104,10 @@ func hostBody(info host.Info) HostBody {
 
 // DiskBody is one filesystem, named by a directory on it.
 type DiskBody struct {
-	Path       string `json:"path"`
-	TotalBytes int64  `json:"totalBytes"`
-	FreeBytes  int64  `doc:"What a user who is not root may still write" json:"freeBytes"`
-	Failure    string `doc:"Why it could not be measured; the sizes are zero then" json:"failure,omitempty"`
+	Path           string `json:"path"`
+	TotalBytes     int64  `json:"totalBytes"`
+	AvailableBytes int64  `doc:"What a user who is not root may still write" json:"availableBytes"`
+	Failure        string `doc:"Why it could not be measured; the sizes are zero then" json:"failure,omitempty"`
 }
 
 // DatabaseBody is one of the server's database files and its size.
@@ -128,7 +128,7 @@ type SystemNodeBody struct {
 	IsServersBuild bool       `json:"isServersBuild"`
 	Host           *HostBody  `json:"host,omitempty"`
 	FFmpegVersion  string     `json:"ffmpegVersion,omitempty"`
-	FFmpegHash     string     `json:"ffmpegHash,omitempty"`
+	FFmpegSha256   string     `json:"ffmpegSha256,omitempty"`
 	UID            int        `doc:"The user the node runs as" json:"uid"`
 	GID            int        `json:"gid"`
 	// Confinement is how its FFmpeg runs are confined, per mechanism (D112).
@@ -159,16 +159,16 @@ type HardwareBody struct {
 	GPUs []GPUBody `json:"gpus"`
 	// Trials are each hardware encoder's trial at startup, confined as a prepare is.
 	Trials []EncoderTrialBody `json:"trials"`
-	// Encoder is what its encodes use.
-	Encoder string `enum:"h264_qsv,h264_nvenc,x264" json:"encoder"`
+	// ChosenEncoder is what its encodes use.
+	ChosenEncoder string `enum:"h264_qsv,h264_nvenc,x264" json:"chosenEncoder"`
 }
 
 // GPUBody is one GPU device a node found.
 type GPUBody struct {
-	Device string `json:"device"`
-	Driver string `json:"driver,omitempty"`
-	// NoAccess is why the node's user may not open it, in the system's words; absent when it may.
-	NoAccess string `json:"noAccess,omitempty"`
+	DevicePath string `json:"devicePath"`
+	Driver     string `json:"driver,omitempty"`
+	// NoAccessReason is why the node's user may not open it, in the system's words; absent when it may.
+	NoAccessReason string `json:"noAccessReason,omitempty"`
 }
 
 // EncoderTrialBody is one hardware encoder's trial: it worked, or why not, in FFmpeg's words.
@@ -179,10 +179,10 @@ type EncoderTrialBody struct {
 
 // PreparedBody is a node's prepared directory against its budget and its disk's limit.
 type PreparedBody struct {
-	Bytes            int64 `json:"bytes"`
-	BudgetBytes      int64 `json:"budgetBytes"`
-	DiskPercent      int   `json:"diskPercent"`
-	DiskLimitPercent int   `json:"diskLimitPercent"`
+	UsedBytes            int64 `json:"usedBytes"`
+	BudgetBytes          int64 `json:"budgetBytes"`
+	DiskUsedPercent      int   `json:"diskUsedPercent"`
+	DiskUsedLimitPercent int   `json:"diskUsedLimitPercent"`
 }
 
 // FinishedPrepareBody is one finished prepare: its file, how it ended, what made its video and how
@@ -191,13 +191,13 @@ type FinishedPrepareBody struct {
 	FileID int64  `json:"fileId"`
 	Path   string `doc:"Empty when the library no longer has the file" json:"path"`
 	// Profile is what was made; State how it ended.
-	Profile      string  `enum:"remux,h264-8m" json:"profile"`
-	State        string  `enum:"complete,failed" json:"state"`
-	VideoEncoder string  `doc:"h264_qsv, h264_nvenc, x264, or copy for a remux" json:"videoEncoder,omitempty"`
-	Speed        float64 `doc:"Seconds of the source prepared per second of running" json:"speed,omitempty"`
-	SizeBytes    int64   `json:"sizeBytes,omitempty"`
-	Error        string  `json:"error,omitempty"`
-	FinishedAt   int64   `doc:"Unix milliseconds" json:"finishedAt"`
+	Profile        string  `enum:"remux,h264-8m" json:"profile"`
+	State          string  `enum:"complete,failed" json:"state"`
+	VideoEncoder   string  `doc:"h264_qsv, h264_nvenc, x264, or copy for a remux" json:"videoEncoder,omitempty"`
+	RealtimeFactor float64 `doc:"Seconds of the source prepared per second of running" json:"realtimeFactor,omitempty"`
+	SizeBytes      int64   `json:"sizeBytes,omitempty"`
+	Failure        string  `json:"failure,omitempty"`
+	FinishedAt     int64   `doc:"Unix milliseconds" json:"finishedAt"`
 }
 
 func (server *Server) registerSystem() {
@@ -271,7 +271,7 @@ func measured(path string) DiskBody {
 	if err != nil {
 		return DiskBody{Path: path, Failure: err.Error()}
 	}
-	return DiskBody{Path: path, TotalBytes: space.TotalBytes, FreeBytes: space.FreeBytes}
+	return DiskBody{Path: path, TotalBytes: space.TotalBytes, AvailableBytes: space.FreeBytes}
 }
 
 // describeNode fills in what a connected node last said about itself.
@@ -281,7 +281,7 @@ func describeNode(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Inf
 	nodeBuild, nodeHost := buildBody(hello.Build), hostBody(hello.Host)
 	body.IsConnected, body.LastHeardAt = true, &heard
 	body.Build, body.IsServersBuild, body.Host = &nodeBuild, hello.Build.IsSame(serverBuild), &nodeHost
-	body.FFmpegVersion, body.FFmpegHash = hello.FFmpegVersion, hello.FFmpegHash
+	body.FFmpegVersion, body.FFmpegSha256 = hello.FFmpegVersion, hello.FFmpegHash
 	body.UID, body.GID = hello.UID, hello.GID
 	body.Confinement = confinementBodies(hello.Confinement)
 	body.Hardware = hardwareBody(hello.Hardware)
@@ -290,13 +290,13 @@ func describeNode(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Inf
 	}
 	if usage := facts.Status.PreparedUsage; usage != nil {
 		body.Prepared = &PreparedBody{
-			Bytes: usage.UsedBytes, BudgetBytes: usage.BudgetBytes, DiskPercent: usage.DiskUsedPercent,
-			DiskLimitPercent: usage.DiskUsedLimitPercent,
+			UsedBytes: usage.UsedBytes, BudgetBytes: usage.BudgetBytes, DiskUsedPercent: usage.DiskUsedPercent,
+			DiskUsedLimitPercent: usage.DiskUsedLimitPercent,
 		}
 	}
 	for _, disk := range facts.Status.Disks {
 		body.Disks = append(body.Disks, DiskBody{
-			Path: disk.Path, TotalBytes: disk.TotalBytes, FreeBytes: disk.AvailableBytes, Failure: disk.Failure,
+			Path: disk.Path, TotalBytes: disk.TotalBytes, AvailableBytes: disk.AvailableBytes, Failure: disk.Failure,
 		})
 	}
 }
@@ -314,9 +314,12 @@ func confinementBodies(reported []nodeproto.Confinement) []ConfinementBody {
 }
 
 func hardwareBody(hardware nodeproto.Hardware) *HardwareBody {
-	body := &HardwareBody{GPUs: []GPUBody{}, Trials: []EncoderTrialBody{}, Encoder: hardware.ChosenEncoder}
+	body := &HardwareBody{GPUs: []GPUBody{}, Trials: []EncoderTrialBody{}, ChosenEncoder: hardware.ChosenEncoder}
 	for _, gpu := range hardware.GPUs {
-		body.GPUs = append(body.GPUs, GPUBody{Device: gpu.DevicePath, Driver: gpu.Driver, NoAccess: gpu.NoAccessReason})
+		body.GPUs = append(body.GPUs, GPUBody{
+			DevicePath: gpu.DevicePath, Driver: gpu.Driver,
+			NoAccessReason: gpu.NoAccessReason,
+		})
 	}
 	for _, trial := range hardware.Trials {
 		body.Trials = append(body.Trials, EncoderTrialBody{Encoder: trial.Encoder, Failure: trial.Failure})
@@ -333,8 +336,8 @@ func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID in
 	for _, prepare := range finished {
 		bodies = append(bodies, FinishedPrepareBody{
 			FileID: prepare.FileID, Path: prepare.Path, Profile: prepare.Profile, State: prepare.State,
-			VideoEncoder: prepare.VideoEncoder, Speed: prepare.Speed, SizeBytes: prepare.SizeBytes,
-			Error: prepare.Error, FinishedAt: prepare.FinishedAt.UnixMilli(),
+			VideoEncoder: prepare.VideoEncoder, RealtimeFactor: prepare.Speed, SizeBytes: prepare.SizeBytes,
+			Failure: prepare.Error, FinishedAt: prepare.FinishedAt.UnixMilli(),
 		})
 	}
 	return bodies, nil

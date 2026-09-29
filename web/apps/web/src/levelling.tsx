@@ -23,7 +23,7 @@ export interface SoundLevel {
  */
 export function soundLevel(decision: components["schemas"]["StartPlaybackOutputBody"]): SoundLevel {
   const first = decision.audio?.[0];
-  if (decision.kind === "hls" && first !== undefined) {
+  if (decision.delivery === "hls" && first !== undefined) {
     return { levelling: first.levelling, carriedGainDb: first.carriedGainDb };
   }
   return { levelling: decision.levelling, carriedGainDb: 0 };
