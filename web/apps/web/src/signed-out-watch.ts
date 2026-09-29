@@ -1,27 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api } from "@orpheum/sdk";
+import { problemFromAnswer, type Api } from "@orpheum/sdk";
 
 import type { Navigation } from "./navigation.ts";
 import type { Session } from "./session.ts";
 
 /** A watcher of every request and answer the API makes. */
 type Middleware = Parameters<Api["use"]>[0];
-
-/** A named field of an object, when value is one. */
-function fieldOf(value: unknown, name: string): unknown {
-  if (typeof value !== "object" || value === null || !(name in value)) {
-    return undefined;
-  }
-  const found: unknown = Object.getOwnPropertyDescriptor(value, name)?.value;
-  return found;
-}
-
-/** The reason an auth_required answer gives, or no_session when it gives none. */
-export function signedOutReason(body: unknown): string {
-  const reason = fieldOf(fieldOf(fieldOf(body, "error"), "detail"), "reason");
-  return typeof reason === "string" ? reason : "no_session";
-}
 
 /**
  * Watches every answer for a session the server no longer knows: a 401 to a request that carried
@@ -35,14 +20,9 @@ export function watchForSignOut(session: Session, navigation: Navigation): Middl
       if (response.status !== 401 || !didCarrySession) {
         return undefined;
       }
-      let reason = "no_session";
-      try {
-        reason = signedOutReason(await response.clone().json());
-      } catch {
-        // Not our error shape: the reason stays unknown.
-      }
+      const problem = await problemFromAnswer(response.clone());
       navigation.go({ screen: "films" });
-      session.signOutBecause(reason);
+      session.signOutBecause(problem.detail["reason"] ?? "no_session");
       return undefined;
     },
   };

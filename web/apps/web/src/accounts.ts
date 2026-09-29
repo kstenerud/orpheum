@@ -52,6 +52,14 @@ export async function issueRegistrationLink(api: Api, userId: number): Promise<I
   );
 }
 
+/** Signs this device in with a name and password. */
+export async function signIn(
+  api: Api,
+  credentials: { readonly name: string; readonly password: string; readonly device: NewDevice },
+): Promise<SignInResult> {
+  return dataOrThrow(await api.POST("/session", { body: { ...credentials } }));
+}
+
 /** Uses a registration link: sets the password and signs this device in. */
 export async function register(
   api: Api,

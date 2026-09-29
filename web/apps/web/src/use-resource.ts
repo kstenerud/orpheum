@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { ApiProblem, isErrorDetail } from "@orpheum/sdk";
-
 /**
  * Something loaded from the server: still loading, loaded, or failed with why. A failure keeps
  * its cause, which a screen tells the person in their words (problemText).
@@ -12,20 +10,6 @@ export type Resource<T> =
   | { readonly state: "loading" }
   | { readonly state: "loaded"; readonly value: T }
   | { readonly state: "failed"; readonly cause: unknown };
-
-/** A failed load, with its cause: an error the server sent as it was thrown becomes an ApiProblem. */
-export function failedResource(cause: unknown): Resource<never> {
-  if (
-    typeof cause === "object" &&
-    cause !== null &&
-    !(cause instanceof Error) &&
-    "error" in cause &&
-    isErrorDetail(cause.error)
-  ) {
-    return { state: "failed", cause: new ApiProblem(cause.error) };
-  }
-  return { state: "failed", cause };
-}
 
 /**
  * Loads a value when the component mounts and whenever key changes, and reloads when the returned
@@ -45,7 +29,7 @@ export function useResource<T>(key: string, load: () => Promise<T>): [Resource<T
       },
       (cause: unknown) => {
         if (isCurrent) {
-          setResource(failedResource(cause));
+          setResource({ state: "failed", cause });
         }
       },
     );

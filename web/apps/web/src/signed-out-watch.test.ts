@@ -4,19 +4,43 @@ import { describe, expect, it } from "vitest";
 
 import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
-import { signedOutReason, watchForSignOut } from "./signed-out-watch.ts";
-import { servedBy } from "./test-dom.tsx";
+import { watchForSignOut } from "./signed-out-watch.ts";
+import { servedBy, type Answer } from "./test-dom.tsx";
+
+/** A navigation that keeps where it was told to go. */
+function recordingNavigation(went: Route[]): Navigation {
+  return {
+    route: () => ({ screen: "play", fileId: 2 }),
+    go: (route) => {
+      went.push(route);
+    },
+    subscribe: () => () => undefined,
+  };
+}
+
+/** The reason a session signed in with a token is signed out with, when GET /me answers answer. */
+async function reasonSignedOutWith(answer: Answer): Promise<string | undefined> {
+  const services = servedBy({ "GET /me": answer }, [], "token");
+  services.api.use(watchForSignOut(services.session, recordingNavigation([])));
+  await services.api.GET("/me");
+  return services.session.lastEndReason();
+}
 
 describe("a session the server ended", () => {
-  it("reads the reason from an auth_required answer, and none from anything else", () => {
+  it("reads the reason from an auth_required answer, and none from anything else", async () => {
     expect(
-      signedOutReason({ error: { code: "auth_required", detail: { reason: "session_ended" } } }),
+      await reasonSignedOutWith([
+        401,
+        { error: { code: "auth_required", message: "x", detail: { reason: "session_ended" } } },
+      ]),
     ).toBe("session_ended");
-    expect(signedOutReason({ error: { code: "auth_required" } })).toBe("no_session");
-    expect(signedOutReason("not json")).toBe("no_session");
+    expect(
+      await reasonSignedOutWith([401, { error: { code: "auth_required", message: "x" } }]),
+    ).toBe("no_session");
+    expect(await reasonSignedOutWith([401, "not our error shape"])).toBe("no_session");
   });
 
-  it("signs out with the reason and goes home", async () => {
+  it("signs out with the reason and goes home, and the device stays remembered", async () => {
     const services = servedBy(
       {
         "GET /me": [
@@ -28,15 +52,8 @@ describe("a session the server ended", () => {
       "token",
     );
     const went: Route[] = [];
-    const navigation: Navigation = {
-      route: () => ({ screen: "play", fileId: 2 }),
-      go: (route) => {
-        went.push(route);
-      },
-      subscribe: () => () => undefined,
-    };
     services.session.signIn("token", 42);
-    services.api.use(watchForSignOut(services.session, navigation));
+    services.api.use(watchForSignOut(services.session, recordingNavigation(went)));
     await services.api.GET("/me");
     expect(services.session.token()).toBeUndefined();
     expect(services.session.lastEndReason()).toBe("session_ended");
