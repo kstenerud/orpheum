@@ -245,9 +245,12 @@ func (server *Server) identifyError(ctx context.Context, action string, err erro
 		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, "the provider has no such work")
 	case isLimited:
 		return providerRateLimited(limited)
-	case errors.Is(err, identify.ErrNoKey), errors.Is(err, identify.ErrKeyRefused):
-		return newError(http.StatusServiceUnavailable, CodeProviderError,
-			"the provider's key is not set or was refused; an admin can set it under secrets")
+	case errors.Is(err, identify.ErrNoKey):
+		return providerRefusal("no_key",
+			"the metadata provider has no key set; an admin can set it in Settings")
+	case errors.Is(err, identify.ErrKeyRefused):
+		return providerRefusal("key_refused",
+			"the metadata provider refused its key; an admin can change it in Settings")
 	}
 	return server.logInternalError(ctx, action, err)
 }

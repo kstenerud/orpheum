@@ -157,3 +157,13 @@ func codeForStatus(status int) Code {
 	}
 	return CodeInvalidRequest
 }
+
+// providerRefusal is a provider's refusal as the API says it: provider_error, why in
+// detail.reason in the provider's terms, and the provider as the failing leg (cut-a §5.2),
+// whichever provider.
+func providerRefusal(reason, message string) error {
+	failure := newError(http.StatusServiceUnavailable, CodeProviderError, message)
+	failure.ErrorBody.Error.Detail = map[string]string{"reason": reason}
+	failure.ErrorBody.Error.FailedHop = HopProvider
+	return failure
+}
