@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package identify
+package identify_test
 
 import (
 	"slices"
@@ -9,12 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-var orbitorama = Metadata{
+var orbitorama = identify.Metadata{
 	ID: "7615", Name: "Orbitorama", Year: 1999, Overview: "A delivery boy, a thousand years on.",
 	IDs: map[string]string{"tvdb": "78871"},
 }
@@ -23,8 +25,8 @@ var orbitorama = Metadata{
 func orbitoramaLibrary(t *testing.T) *testLibrary {
 	t.Helper()
 	lib := newTestLibrary(t, "shows", "tmdb")
-	lib.provider.searches[searchKey("Orbitorama", 0)] = []Candidate{lib.provider.add(orbitorama)}
-	lib.provider.seasons["615/2"] = []Episode{{
+	lib.provider.Searches[identifytest.SearchKey("Orbitorama", 0)] = []identify.Candidate{lib.provider.Add(orbitorama)}
+	lib.provider.Seasons["615/2"] = []identify.Episode{{
 		ID: "1101", Season: 2, Number: 10, Name: "A Comet of My Own", Overview: "The Professor names his successor.",
 		Year: 2000, RuntimeMs: 22 * 60_000,
 	}}
@@ -33,7 +35,7 @@ func orbitoramaLibrary(t *testing.T) *testLibrary {
 
 var orbitoramaFiles = []string{"Orbitorama/Season 02/Orbitorama - S02E10.mkv", "Orbitorama/Season 02/Orbitorama - S02E11.mkv"}
 
-func (lib *testLibrary) scanAll(rels ...string) Report {
+func (lib *testLibrary) scanAll(rels ...string) identify.Report {
 	lib.t.Helper()
 	records := make([]nodeproto.Record, 0, len(rels))
 	for _, rel := range rels {
@@ -69,19 +71,19 @@ func TestSeries_AMatchedSeriesNamesItsEpisodesFromOneSeasonListing(t *testing.T)
 		t.Errorf("before the match: %+v", file)
 	}
 	outcome, err := lib.matcher.Match(t.Context(), series.ID)
-	if err != nil || outcome != OutcomeMatched {
+	if err != nil || outcome != identify.OutcomeMatched {
 		t.Fatalf("Match(series) = %s, %v", outcome, err)
 	}
-	if want := []string{"search Orbitorama|0", "fetch 615", "season 615/2"}; !slices.Equal(lib.provider.calls, want) {
-		t.Errorf("calls %v, want %v: one listing for the season, not one call an episode", lib.provider.calls, want)
+	if want := []string{"search Orbitorama|0", "fetch 615", "season 615/2"}; !slices.Equal(lib.provider.Calls, want) {
+		t.Errorf("calls %v, want %v: one listing for the season, not one call an episode", lib.provider.Calls, want)
 	}
 	checkOrbitorama(t, lib, "after the match")
-	calls := len(lib.provider.calls)
+	calls := len(lib.provider.Calls)
 	report = lib.scanAll(orbitoramaFiles...)
 	checkOrbitorama(t, lib, "after another pass")
-	if len(lib.provider.calls) != calls || len(report.AwaitingListings) != 0 || len(report.AwaitingMatch) != 0 {
+	if len(lib.provider.Calls) != calls || len(report.AwaitingListings) != 0 || len(report.AwaitingMatch) != 0 {
 		t.Errorf("another pass called %v, or queued %v and %v; an old unlisted episode is no reason to fetch",
-			lib.provider.calls[calls:], report.AwaitingMatch, report.AwaitingListings)
+			lib.provider.Calls[calls:], report.AwaitingMatch, report.AwaitingListings)
 	}
 }
 
@@ -91,13 +93,13 @@ func checkOrbitorama(t *testing.T, lib *testLibrary, when string) {
 	t.Helper()
 	files := lib.titlesByPath()
 	clone, missing := files[orbitoramaFiles[0]], files[orbitoramaFiles[1]]
-	fromTMDB := clone.FollowedSource != nil && *clone.FollowedSource == sourceTMDB
-	if titleName(clone) != "A Comet of My Own" || clone.IdentificationState != identificationIdentified ||
-		clone.Filing != filingListed ||
+	fromTMDB := clone.FollowedSource != nil && *clone.FollowedSource == identify.SourceTMDB
+	if titleName(clone) != "A Comet of My Own" || clone.IdentificationState != identify.IdentificationIdentified ||
+		clone.Filing != identify.FilingListed ||
 		!fromTMDB || clone.Year == nil || *clone.Year != 2000 {
 		t.Errorf("%s: S02E10 = %+v named %q", when, clone, titleName(clone))
 	}
-	if missing.Filing != filingUnidentified || missing.FilingReason == nil ||
+	if missing.Filing != identify.FilingUnidentified || missing.FilingReason == nil ||
 		*missing.FilingReason != "tmdb lists no season 2, episode 11" {
 		t.Errorf("%s: S02E11 = %+v, want unidentified, saying TMDB does not list it", when, missing)
 	}
@@ -107,7 +109,8 @@ func checkOrbitorama(t *testing.T, lib *testLibrary, when string) {
 		ptr.ValueOrZero(series.IdentificationState),
 		ptr.ValueOrZero(series.FollowedSource), ptr.ValueOrZero(series.FollowedSourceID),
 	}
-	if want := []string{"Orbitorama", "1999", identificationIdentified, sourceTMDB, "7615"}; !slices.Equal(got, want) {
+	want := []string{"Orbitorama", "1999", identify.IdentificationIdentified, identify.SourceTMDB, "7615"}
+	if !slices.Equal(got, want) {
 		t.Errorf("%s: series name, year, ident, source and id = %v, want %v", when, got, want)
 	}
 }
@@ -121,8 +124,8 @@ func TestSeries_ANewEpisodeFetchesItsSeasonAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	lib.clock.Advance(7 * 24 * time.Hour)
-	lib.provider.seasons["615/2"] = append(lib.provider.seasons["615/2"],
-		Episode{ID: "1103", Season: 2, Number: 12, Name: "Raging Bender", Year: 2000})
+	lib.provider.Seasons["615/2"] = append(lib.provider.Seasons["615/2"],
+		identify.Episode{ID: "1103", Season: 2, Number: 12, Name: "Raging Bender", Year: 2000})
 	const newest = "Orbitorama/Season 02/Orbitorama - S02E12.mkv"
 	report := lib.scanAll(append(slices.Clone(orbitoramaFiles), newest)...)
 	if !slices.Equal(report.AwaitingListings, []int64{series.ID}) {
@@ -130,7 +133,7 @@ func TestSeries_ANewEpisodeFetchesItsSeasonAgain(t *testing.T) {
 			report.AwaitingListings)
 	}
 	outcome, err := lib.matcher.Match(t.Context(), series.ID)
-	if err != nil || outcome != OutcomeListingsFetched {
+	if err != nil || outcome != identify.OutcomeListingsFetched {
 		t.Fatalf("Match = %s, %v", outcome, err)
 	}
 	if got := titleName(lib.titlesByPath()[newest]); got != "Raging Bender" {
@@ -141,21 +144,23 @@ func TestSeries_ANewEpisodeFetchesItsSeasonAgain(t *testing.T) {
 func TestSeries_AnAmbiguousSeriesIsChosenByAPerson(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "shows", "tmdb")
-	uk := lib.provider.add(Metadata{ID: "2996", Name: "The Ledger Room", Year: 2001})
-	american := lib.provider.add(Metadata{ID: "2316", Name: "The Ledger Room", Year: 2005})
-	lib.provider.searches[searchKey("The Ledger Room", 0)] = []Candidate{american, uk}
-	lib.provider.seasons["2316/2"] = []Episode{{ID: "9", Season: 2, Number: 1, Name: "The Dundies", Year: 2005}}
+	uk := lib.provider.Add(identify.Metadata{ID: "2996", Name: "The Ledger Room", Year: 2001})
+	american := lib.provider.Add(identify.Metadata{ID: "2316", Name: "The Ledger Room", Year: 2005})
+	lib.provider.Searches[identifytest.SearchKey("The Ledger Room", 0)] = []identify.Candidate{american, uk}
+	lib.provider.Seasons["2316/2"] = []identify.Episode{
+		{ID: "9", Season: 2, Number: 1, Name: "The Dundies", Year: 2005},
+	}
 	const rel = "The Ledger Room/Season 2/The Ledger Room - S02E01.mkv"
 	lib.scanAll(rel)
 	series := lib.onlySeries()
-	if outcome, err := lib.matcher.Match(t.Context(), series.ID); err != nil || outcome != OutcomeAmbiguous {
+	if outcome, err := lib.matcher.Match(t.Context(), series.ID); err != nil || outcome != identify.OutcomeAmbiguous {
 		t.Fatalf("Match = %s, %v; two shows of that name and no year to tell them apart", outcome, err)
 	}
 	if file := lib.titlesByPath()[rel]; file.FilingReason == nil || !strings.Contains(*file.FilingReason, "choose") {
 		t.Errorf("an episode of an ambiguous series: %+v", file)
 	}
-	listed, err := lib.chooser.Items(t.Context(), identificationAmbiguous)
-	if err != nil || len(listed) != 1 || listed[0].Kind != KindSeries {
+	listed, err := lib.chooser.Items(t.Context(), identify.IdentificationAmbiguous)
+	if err != nil || len(listed) != 1 || listed[0].Kind != identify.KindSeries {
 		t.Errorf("Items(ambiguous) = %+v, %v; want the series", listed, err)
 	}
 	if err := lib.chooser.Choose(t.Context(), series.ID, "tmdb", american.ID); err != nil {
@@ -165,7 +170,7 @@ func TestSeries_AnAmbiguousSeriesIsChosenByAPerson(t *testing.T) {
 	if got := titleName(lib.titlesByPath()[rel]); got != "The Dundies" {
 		t.Errorf("after choosing the American series: %q", got)
 	}
-	if ident := ptr.ValueOrZero(lib.onlySeries().IdentificationState); ident != identificationConfirmed {
+	if ident := ptr.ValueOrZero(lib.onlySeries().IdentificationState); ident != identify.IdentificationConfirmed {
 		t.Errorf("the chosen series is %s, want confirmed", ident)
 	}
 	episode := lib.titlesByPath()[rel].TitleID
@@ -177,38 +182,39 @@ func TestSeries_AnAmbiguousSeriesIsChosenByAPerson(t *testing.T) {
 func TestSeries_AYearOrAnIDSettlesTheSearch(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "shows", "nfo_then_tmdb")
-	uk := lib.provider.add(Metadata{ID: "2996", Name: "The Ledger Room", Year: 2001})
-	american := lib.provider.add(Metadata{ID: "2316", Name: "The Ledger Room", Year: 2005})
-	lib.provider.add(orbitorama)
-	lib.provider.searches[searchKey("The Ledger Room", 2005)] = []Candidate{american, uk}
+	uk := lib.provider.Add(identify.Metadata{ID: "2996", Name: "The Ledger Room", Year: 2001})
+	american := lib.provider.Add(identify.Metadata{ID: "2316", Name: "The Ledger Room", Year: 2005})
+	lib.provider.Add(orbitorama)
+	lib.provider.Searches[identifytest.SearchKey("The Ledger Room", 2005)] = []identify.Candidate{american, uk}
 	lib.scan(videoRecord("The Ledger Room (2005)/Season 1/S01E01.mkv"),
 		videoRecord("Orbitorama/Season 1/S01E01.mkv"),
 		nfoRecord("Orbitorama/tvshow.nfo", "<tvshow><title>Orbitorama</title><tvdbid>78871</tvdbid></tvshow>"))
-	lib.provider.tmdbIDByIMDb["78871"] = "615" // the fake's Find serves every source from one table
+	lib.provider.TMDBIDsByOtherID["78871"] = "615" // the fake's Find serves every source from one table
 	series, err := lib.database.Read().ListLibrarySeries(t.Context(), &lib.libraryID)
 	if err != nil || len(series) != 2 {
 		t.Fatalf("series %+v, %v", series, err)
 	}
 	for _, show := range series {
-		if outcome, err := lib.matcher.Match(t.Context(), show.ID); err != nil || outcome != OutcomeMatched {
+		if outcome, err := lib.matcher.Match(t.Context(), show.ID); err != nil || outcome != identify.OutcomeMatched {
 			t.Errorf("Match(%s) = %s, %v", ptr.ValueOrZero(show.Name), outcome, err)
 		}
 	}
-	if slices.Contains(lib.provider.calls, "search Orbitorama|0") {
-		t.Errorf("calls %v: a TVDB id in hand skips the search", lib.provider.calls)
+	if slices.Contains(lib.provider.Calls, "search Orbitorama|0") {
+		t.Errorf("calls %v: a TVDB id in hand skips the search", lib.provider.Calls)
 	}
 }
 
 func TestSeries_AnEpisodeAddedAfterTheSeriesWasRenamedJoinsIt(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "shows", "tmdb")
-	sunny := lib.provider.add(Metadata{ID: "2710", Name: "It's Always Sunny in Philadelphia", Year: 2005})
-	lib.provider.seasons["2710/1"] = []Episode{}
+	sunny := lib.provider.Add(identify.Metadata{ID: "2710", Name: "It's Always Sunny in Philadelphia", Year: 2005})
+	lib.provider.Seasons["2710/1"] = []identify.Episode{}
 	first := "Always Sunny {tmdb-2710}/Season 1/S01E02.mkv"
 	lib.scanAll(first)
-	if outcome, err := lib.matcher.Match(t.Context(), lib.onlySeries().ID); err != nil || outcome != OutcomeMatched ||
+	outcome, err := lib.matcher.Match(t.Context(), lib.onlySeries().ID)
+	if err != nil || outcome != identify.OutcomeMatched ||
 		sunny.ID == "" {
-		t.Fatalf("Match = %s, %v; calls %v", outcome, err, lib.provider.calls)
+		t.Fatalf("Match = %s, %v; calls %v", outcome, err, lib.provider.Calls)
 	}
 	lib.scanAll("Always Sunny {tmdb-2710}/Season 1/S01E01.mkv", first)
 	if series := lib.onlySeries(); ptr.ValueOrZero(series.Name) != sunny.Name {

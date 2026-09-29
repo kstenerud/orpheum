@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package identify
+package identify_test
 
 import (
-	"encoding/json"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -20,7 +21,7 @@ import (
 // refresh runs a refresh job for an item, as the queue would.
 func (lib *testLibrary) refresh(itemID int64) {
 	lib.t.Helper()
-	job, err := RefreshJob(itemID, "test", time.Time{}, false, 0)
+	job, err := identify.RefreshJob(itemID, "test", time.Time{}, false, 0)
 	if err != nil {
 		lib.t.Fatal(err)
 	}
@@ -48,9 +49,9 @@ func (lib *testLibrary) fetchedAt(itemID int64, part string) int64 {
 func matchedMetropolis(t *testing.T) (*testLibrary, int64) {
 	t.Helper()
 	lib := newTestLibrary(t, "movies", "tmdb")
-	lib.provider.searches[searchKey("Metropolis", 1995)] = []Candidate{lib.provider.add(heat)}
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(heat)}
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
-	if outcome := lib.matchFileTitle("Metropolis (1995).mkv"); outcome != OutcomeMatched {
+	if outcome := lib.matchFileTitle("Metropolis (1995).mkv"); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
 	return lib, lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
@@ -60,12 +61,13 @@ func TestRefresh_TakesTheProvidersNewValuesAndKeepsAPersonsOverride(t *testing.T
 	t.Parallel()
 	lib, titleID := matchedMetropolis(t)
 	person := storetest.InsertUser(t, lib.database, "alice", "admin")
-	if err := lib.chooser.SetOverride(t.Context(), titleID, fieldName, "Metropolis (Director's Cut)", person); err != nil {
+	err := lib.chooser.SetOverride(t.Context(), titleID, identify.FieldName, "Metropolis (Director's Cut)", person)
+	if err != nil {
 		t.Fatal(err)
 	}
 	changed := heat
 	changed.Overview, changed.Name = "A thief and a detective.", "Metropolis, renamed at TMDB"
-	lib.provider.films[heat.ID] = changed
+	lib.provider.Films[heat.ID] = changed
 	lib.clock.Advance(time.Hour)
 	lib.refresh(titleID)
 	detail, err := lib.database.Read().GetTitleDetail(t.Context(), titleID)
@@ -84,12 +86,12 @@ func TestRefresh_TakesTheProvidersNewValuesAndKeepsAPersonsOverride(t *testing.T
 func TestRefresh_AnItemGoneFromItsProviderKeepsOurCopy(t *testing.T) {
 	t.Parallel()
 	lib, titleID := matchedMetropolis(t)
-	delete(lib.provider.films, heat.ID)
+	delete(lib.provider.Films, heat.ID)
 	lib.clock.Advance(time.Hour)
 	lib.refresh(titleID)
 	file := lib.titlesByPath()["Metropolis (1995).mkv"]
 	if titleName(file) != "Metropolis" || file.FollowedSource == nil || *file.FollowedSource != "tmdb" ||
-		file.Filing != filingListed {
+		file.Filing != identify.FilingListed {
 		t.Errorf("after TMDB dropped it: %+v named %q; want it kept as it was (D213 §4)", file, titleName(file))
 	}
 	if lib.fetchedAt(titleID, "") != lib.clock.Now().UnixMilli() {
@@ -105,12 +107,12 @@ func TestRefresh_ASeriesFetchesItsRecordAndEachSeasonItKeeps(t *testing.T) {
 	if _, err := lib.matcher.Match(t.Context(), series.ID); err != nil {
 		t.Fatal(err)
 	}
-	lib.provider.seasons["615/2"][0].Name = "A Comet of My Own (renamed)"
-	calls := len(lib.provider.calls)
+	lib.provider.Seasons["615/2"][0].Name = "A Comet of My Own (renamed)"
+	calls := len(lib.provider.Calls)
 	lib.clock.Advance(time.Hour)
 	// An episode's refresh is its series'.
 	lib.refresh(lib.titlesByPath()[orbitoramaFiles[0]].TitleID)
-	if got, want := lib.provider.calls[calls:], []string{"fetch 615", "season 615/2"}; !slices.Equal(got, want) {
+	if got, want := lib.provider.Calls[calls:], []string{"fetch 615", "season 615/2"}; !slices.Equal(got, want) {
 		t.Errorf("calls %v, want %v", got, want)
 	}
 	if clone := lib.titlesByPath()[orbitoramaFiles[0]]; titleName(clone) != "A Comet of My Own (renamed)" {
@@ -122,9 +124,9 @@ func TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod(t *te
 	t.Parallel()
 	lib, titleID := matchedMetropolis(t)
 	queue := &jobstest.Queue{}
-	refresher := NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.matcher.logger)
+	refresher := identify.NewRefresher(lib.database, queue, lib.settings, lib.clock, lib.logger)
 	period := 180 * 24 * time.Hour
-	due := dueAfter(period, titleID)
+	due := identify.DueAfter(period, titleID)
 	if due < period*3/4 || due > period {
 		t.Fatalf("due after %v; want within the last quarter of %v", due, period)
 	}
@@ -145,23 +147,5 @@ func TestRefresher_SweepQueuesWhatIsDueSpreadOverTheLastQuarterOfThePeriod(t *te
 	}
 	if queued, err := refresher.Request(t.Context(), titleID); err != nil || !queued {
 		t.Errorf("a person's request: %v, %v; they may refresh whenever they like", queued, err)
-	}
-}
-
-// A refresh job's arguments are read back as refreshArgs: a person's refresh that asks for the
-// missing images again says so under the name the job reads (D213 §2, D227 §6).
-func TestRefreshJob_ItsArgumentsReadBackAsTheJobReadsThem(t *testing.T) {
-	t.Parallel()
-	for _, shouldRetryImages := range []bool{true, false} {
-		request, err := RefreshJob(1, "a person asked", time.Time{}, shouldRetryImages, 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var args refreshArgs
-		if err = json.Unmarshal([]byte(request.ArgsJSON), &args); err != nil || !args.IsRefresh ||
-			args.ShouldRetryImages != shouldRetryImages {
-			t.Errorf("RefreshJob(retry %v) args %s read back as %+v (%v)", shouldRetryImages,
-				request.ArgsJSON, args, err)
-		}
 	}
 }

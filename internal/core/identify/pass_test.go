@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package identify
+package identify_test
 
 import (
 	"crypto/sha256"
@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -30,11 +32,13 @@ const libraryRoot = "/media/library"
 type testLibrary struct {
 	t         *testing.T
 	database  *store.Database
+	cache     *store.Cache
+	logger    *slog.Logger
 	ingester  *library.Ingester
-	pass      *Pass
-	provider  *fakeProvider
-	matcher   *Matcher
-	chooser   *Chooser
+	pass      *identify.Pass
+	provider  *identifytest.Provider
+	matcher   *identify.Matcher
+	chooser   *identify.Chooser
 	settings  *settings.Service
 	clock     *clocktest.Fake
 	nodeID    int64
@@ -47,18 +51,19 @@ func newTestLibrary(t *testing.T, kind, source string) *testLibrary {
 	database := storetest.OpenMigrated(t)
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
 	logger := slog.New(slog.DiscardHandler)
-	provider := newFakeProvider()
-	providers := Providers{"tmdb": provider}
+	provider := identifytest.NewProvider()
+	providers := identify.Providers{"tmdb": provider}
 	config := settingstest.Seeded(t, database)
 	created := &testLibrary{
-		t: t, database: database, clock: now, provider: provider, settings: config,
+		t: t, database: database, cache: storetest.OpenCache(t), logger: logger, clock: now, provider: provider,
+		settings: config,
 		ingester: library.NewIngester(database, now, config, logger),
-		pass:     NewPass(database, now, logger, providers, config),
+		pass:     identify.NewPass(database, now, logger, providers, config),
 	}
-	created.matcher = NewMatcher(database, storetest.OpenCache(t), created.pass, now, logger)
+	created.matcher = identify.NewMatcher(database, created.cache, created.pass, now, logger)
 	created.nodeID, created.libraryID = librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Library", Kind: kind, MetadataSource: source, Root: libraryRoot})
-	created.chooser = NewChooser(created.matcher, created.pass)
+	created.chooser = identify.NewChooser(created.matcher, created.pass)
 	return created
 }
 
@@ -89,7 +94,7 @@ func nfoRecord(path, body string) nodeproto.Record {
 }
 
 // scan ingests a complete scan of the root, then runs the pass.
-func (lib *testLibrary) scan(records ...nodeproto.Record) Report {
+func (lib *testLibrary) scan(records ...nodeproto.Record) identify.Report {
 	lib.t.Helper()
 	lib.clock.Advance(time.Minute)
 	all := lib.reports.Scan(nodeproto.ScanBegin{RootPath: libraryRoot}, records, true)
@@ -156,8 +161,8 @@ func TestPass_TheDevLibrarysFilms(t *testing.T) {
 func checkMetropolis(t *testing.T, heat sqlcgen.ListFileTitlesRow) {
 	t.Helper()
 	if titleName(heat) != "Metropolis" || heat.Year == nil || *heat.Year != 1995 ||
-		heat.IdentificationState != identificationIdentified || heat.Filing != filingListed ||
-		heat.FollowedSource == nil || *heat.FollowedSource != sourceNFO {
+		heat.IdentificationState != identify.IdentificationIdentified || heat.Filing != identify.FilingListed ||
+		heat.FollowedSource == nil || *heat.FollowedSource != identify.SourceNFO {
 		t.Errorf("Metropolis = %+v, want identified from its NFO and listed", heat)
 	}
 }
@@ -166,14 +171,14 @@ func checkVersionsAndTrailer(t *testing.T, files map[string]sqlcgen.ListFileTitl
 	t.Helper()
 	high := files["Two Versions Film (2019)/Two Versions Film (2019) - 1080p.mkv"]
 	low := files["Two Versions Film (2019)/Two Versions Film (2019) - 720p.mkv"]
-	if high.TitleID != low.TitleID || titleName(high) != "Two Versions Film" || high.Filing != filingListed {
+	if high.TitleID != low.TitleID || titleName(high) != "Two Versions Film" || high.Filing != identify.FilingListed {
 		t.Errorf("the two versions are %+v and %+v, want one listed title (D155)", high, low)
 	}
 	trailer := files["Two Versions Film (2019)/trailers/Two Versions Film trailer.mp4"]
-	if trailer.Kind != kindExtra || trailer.TitleID == high.TitleID {
+	if trailer.Kind != identify.KindExtra || trailer.TitleID == high.TitleID {
 		t.Errorf("the trailer is %+v, want an extra of its own (D162)", trailer)
 	}
-	if trailer.Filing != filingExtra || trailer.FilingReason == nil ||
+	if trailer.Filing != identify.FilingExtra || trailer.FilingReason == nil ||
 		*trailer.FilingReason != "trailer of Two Versions Film (2019), by its trailers folder" {
 		t.Errorf("the trailer is filed %s (%v), want an extra with its owner, type and evidence (D163)",
 			trailer.Filing, ptr.ValueOrZero(trailer.FilingReason))
@@ -182,7 +187,7 @@ func checkVersionsAndTrailer(t *testing.T, files map[string]sqlcgen.ListFileTitl
 
 func checkUnidentified(t *testing.T, rip sqlcgen.ListFileTitlesRow) {
 	t.Helper()
-	if rip.Filing != filingUnidentified || rip.FilingReason == nil || *rip.FilingReason != "no NFO file" {
+	if rip.Filing != identify.FilingUnidentified || rip.FilingReason == nil || *rip.FilingReason != "no NFO file" {
 		t.Errorf("the rip = %+v, want unidentified: no NFO in an NFO-only library", rip)
 	}
 }

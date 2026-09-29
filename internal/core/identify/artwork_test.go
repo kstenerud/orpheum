@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package identify
+package identify_test
 
 import (
 	"context"
 	"slices"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -14,15 +16,19 @@ func TestPass_ReportsTheImagesAMatchNamesUntilTheyAreHeld(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
 	film := heat
-	film.Artwork = []ArtRef{{Kind: ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: ArtBackdrop, Ref: "/heat-back.jpg"}}
-	lib.provider.searches[searchKey("Metropolis", 1995)] = []Candidate{lib.provider.add(film)}
+	film.Artwork = []identify.ArtRef{
+		{Kind: identify.ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: identify.ArtBackdrop, Ref: "/heat-back.jpg"},
+	}
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(film)}
 	const rel = "Metropolis (1995).mkv"
 	if report := lib.scan(videoRecord(rel)); len(report.OwedArtwork) != 0 {
 		t.Fatalf("before its match: owed %+v; want nothing, it has no source yet", report.OwedArtwork)
 	}
-	var followed []OwedArtwork
-	lib.pass.AfterPass(func(_ context.Context, report Report) { followed = append(followed, report.OwedArtwork...) })
-	if outcome := lib.matchFileTitle(rel); outcome != OutcomeMatched {
+	var followed []identify.OwedArtwork
+	lib.pass.AfterPass(func(_ context.Context, report identify.Report) {
+		followed = append(followed, report.OwedArtwork...)
+	})
+	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
 	titleID := lib.titlesByPath()[rel].TitleID
@@ -36,8 +42,11 @@ func TestPass_ReportsTheImagesAMatchNamesUntilTheyAreHeld(t *testing.T) {
 	}
 	// The poster is stored; the backdrop was refused by the node, and is held with no hash.
 	for _, row := range []sqlcgen.InsertArtworkParams{
-		{ItemID: titleID, Kind: ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"), SourceSha256: []byte{1}},
-		{ItemID: titleID, Kind: ArtBackdrop, Source: "tmdb", SourceRef: new("/heat-back.jpg")},
+		{
+			ItemID: titleID, Kind: identify.ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"),
+			SourceSha256: []byte{1},
+		},
+		{ItemID: titleID, Kind: identify.ArtBackdrop, Source: "tmdb", SourceRef: new("/heat-back.jpg")},
 	} {
 		if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 			_, err := queries.InsertArtwork(t.Context(), row)
@@ -55,22 +64,30 @@ func TestChoose_ARematchRetiresTheEarlierWorksImagesTheNewOneLacks(t *testing.T)
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
 	film := heat
-	film.Artwork = []ArtRef{{Kind: ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: ArtBackdrop, Ref: "/heat-back.jpg"}}
-	lib.provider.searches[searchKey("Metropolis", 1995)] = []Candidate{lib.provider.add(film)}
+	film.Artwork = []identify.ArtRef{
+		{Kind: identify.ArtPoster, Ref: "/heat-poster.jpg"}, {Kind: identify.ArtBackdrop, Ref: "/heat-back.jpg"},
+	}
+	lib.provider.Searches[identifytest.SearchKey("Metropolis", 1995)] = []identify.Candidate{lib.provider.Add(film)}
 	other := leon
-	other.Artwork = []ArtRef{{Kind: ArtPoster, Ref: "/leon-poster.jpg"}}
-	lib.provider.add(other)
+	other.Artwork = []identify.ArtRef{{Kind: identify.ArtPoster, Ref: "/leon-poster.jpg"}}
+	lib.provider.Add(other)
 	const rel = "Metropolis (1995).mkv"
 	lib.scan(videoRecord(rel))
-	if outcome := lib.matchFileTitle(rel); outcome != OutcomeMatched {
+	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeMatched {
 		t.Fatalf("outcome %s", outcome)
 	}
 	titleID := lib.titlesByPath()[rel].TitleID
 	// Metropolis's poster and backdrop are stored, and a person chose a backdrop of their own.
 	for _, row := range []sqlcgen.InsertArtworkParams{
-		{ItemID: titleID, Kind: ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"), SourceSha256: []byte{1}},
-		{ItemID: titleID, Kind: ArtBackdrop, Source: "tmdb", SourceRef: new("/heat-back.jpg"), SourceSha256: []byte{2}},
-		{ItemID: titleID, Kind: ArtBackdrop, Source: "user", SourceSha256: []byte{3}},
+		{
+			ItemID: titleID, Kind: identify.ArtPoster, Source: "tmdb", SourceRef: new("/heat-poster.jpg"),
+			SourceSha256: []byte{1},
+		},
+		{
+			ItemID: titleID, Kind: identify.ArtBackdrop, Source: "tmdb", SourceRef: new("/heat-back.jpg"),
+			SourceSha256: []byte{2},
+		},
+		{ItemID: titleID, Kind: identify.ArtBackdrop, Source: "user", SourceSha256: []byte{3}},
 	} {
 		if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 			_, err := queries.InsertArtwork(t.Context(), row)

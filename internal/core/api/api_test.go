@@ -19,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth/authtest"
 	"github.com/kstenerud/orpheum/internal/core/datadir"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
@@ -39,7 +40,7 @@ const canary = "CANARY-api-4e1f-0123456789WXYZ"
 
 type testHarness struct {
 	server       *Server
-	tmdbProvider *fakeProvider
+	tmdbProvider *identifytest.Provider
 	cache        *store.Cache
 	nodes        *fakeNodes
 	httpServer   *httptest.Server
@@ -73,7 +74,8 @@ func newHarness(t *testing.T) testHarness {
 	logs := &bytes.Buffer{}
 	server := NewServer(slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	codes := &authtest.SetupCodes{}
-	provider, cache, nodes := newFakeProvider(), storetest.OpenCache(t), &fakeNodes{}
+	provider, cache, nodes := identifytest.NewProvider(), storetest.OpenCache(t), &fakeNodes{}
+	provider.Add(identify.Metadata{ID: "2", Name: "The General", Year: 2002, Overview: "Soderbergh's."})
 	subtitler := &fakeSubtitler{}
 	nodeBytes := &fakeNodeBytes{files: map[string]string{}}
 	providers := identify.Providers{"tmdb": provider}
