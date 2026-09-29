@@ -46,7 +46,7 @@ type Text struct {
 // path the caller has checked.
 func (extractor *Extractor) ExtractTrack(ctx context.Context, videoPath string, streamIndex int) (Text, error) {
 	ass, err := extractor.runner.Run(ctx, execx.FFmpeg, confine.Access{Read: []string{videoPath}},
-		arguments("file", "file:"+videoPath, "0:"+strconv.Itoa(streamIndex), codecASS), MaxTextBytes)
+		arguments(execx.FileInput(videoPath), "0:"+strconv.Itoa(streamIndex), codecASS), MaxTextBytes)
 	if err != nil {
 		return Text{}, fmt.Errorf("extract stream %d as ASS: %w", streamIndex, err)
 	}
@@ -57,7 +57,7 @@ func (extractor *Extractor) ExtractTrack(ctx context.Context, videoPath string, 
 // text format FFmpeg recognises.
 func (extractor *Extractor) ConvertText(ctx context.Context, source []byte) (Text, error) {
 	ass, err := extractor.runner.RunInput(ctx, execx.FFmpeg, confine.Access{},
-		arguments("pipe", "pipe:0", "0:s:0", codecASS), source, MaxTextBytes)
+		arguments(execx.PipeInput(), "0:s:0", codecASS), source, MaxTextBytes)
 	if err != nil {
 		return Text{}, fmt.Errorf("convert the file to ASS: %w", err)
 	}
@@ -67,7 +67,7 @@ func (extractor *Extractor) ConvertText(ctx context.Context, source []byte) (Tex
 // withVTT converts the ASS to WebVTT, so the video is read only once.
 func (extractor *Extractor) withVTT(ctx context.Context, ass []byte) (Text, error) {
 	vtt, err := extractor.runner.RunInput(ctx, execx.FFmpeg, confine.Access{},
-		arguments("pipe", "pipe:0", "0:s:0", codecWebVTT, "-f", codecASS), ass, MaxTextBytes)
+		arguments(execx.PipeInput(), "0:s:0", codecWebVTT, "-f", codecASS), ass, MaxTextBytes)
 	if err != nil {
 		return Text{}, fmt.Errorf("convert the ASS to WebVTT: %w", err)
 	}
@@ -80,10 +80,10 @@ const (
 	codecWebVTT = "webvtt"
 )
 
-// arguments read input with only protocol allowed, and write the stream mapping names, as codec,
-// to stdout. When inputFormat is given, it names the input's format rather than letting FFmpeg
-// guess.
-func arguments(protocol, input, mapping, codec string, inputFormatArguments ...string) []string {
-	read := append([]string{"-v", "error", "-protocol_whitelist", protocol}, inputFormatArguments...)
-	return append(read, "-i", input, "-map", mapping, "-c:s", codec, "-f", codec, "pipe:1")
+// arguments read input, execx.FileInput or execx.PipeInput, and write the stream mapping names, as
+// codec, to stdout. When inputFormatArguments are given, they name the input's format rather than
+// letting FFmpeg guess.
+func arguments(input []string, mapping, codec string, inputFormatArguments ...string) []string {
+	read := append(append([]string{"-v", "error"}, inputFormatArguments...), input...)
+	return append(read, "-map", mapping, "-c:s", codec, "-f", codec, "pipe:1")
 }

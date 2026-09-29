@@ -20,6 +20,8 @@
 //     to this package.
 //   - A tool gets the hardening flags first and none of the node's environment (D204).
 //     TestRun_PassesHardenedArgumentsAndAnEmptyEnvironment.
+//   - A run names its input one way: FileInput, a file with only the file protocol allowed, or
+//     PipeInput, stdin with only the pipe protocol. TestExtract_FFmpegReadsOnlyTheFileOrThePipeItIsGiven.
 //   - A failure says why: its status and the last stderrTailBytes of stderr.
 //     TestRun_AFailureCarriesTheStatusAndTheTailOfStderr.
 //   - Cancelling a run kills everything it started, so no FFmpeg outlives its job.
@@ -39,7 +41,7 @@
 //
 // # Where to change
 //
-//   - execx.go: starting a run, through the shim or not; the argument hardening; the stderr tail
-//     on failure. child.go: StartSelf, orpheum's own binary as a long-lived child. The shim itself
-//     is internal/node/confine's.
+//   - execx.go: starting a run, through the shim or not; the argument hardening and a run's
+//     input; the stderr tail on failure. child.go: StartSelf, orpheum's own binary as a long-lived
+//     child. The shim itself is internal/node/confine's.
 package execx

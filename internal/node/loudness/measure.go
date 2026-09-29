@@ -104,10 +104,8 @@ func arguments(videoPath string, tracks []nodeproto.LoudnessTrack) []string {
 		maps = append(maps, "-map", "["+stereo+"]")
 	}
 	// The summaries are logged at info, FFmpeg's own level; -nostats keeps progress out of the log.
-	read := []string{
-		"-nostats", "-protocol_whitelist", "file", "-i", "file:" + videoPath,
-		"-filter_complex", strings.Join(graph, ";"),
-	}
+	read := append(append([]string{"-nostats"}, execx.FileInput(videoPath)...),
+		"-filter_complex", strings.Join(graph, ";"))
 	return append(append(read, maps...), "-f", "null", "-")
 }
 

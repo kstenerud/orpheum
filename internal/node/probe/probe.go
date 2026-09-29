@@ -29,17 +29,13 @@ func NewProber(runner *execx.Runner, timeout time.Duration) *Prober {
 	return &Prober{runner: runner, timeout: timeout}
 }
 
-// arguments are ffprobe's, for the file at an absolute path. The input is named with the file:
-// protocol and only that protocol is allowed, so a name such as "http:x" or "concat:a|b" is
-// never read as anything but a file.
+// arguments are ffprobe's, for the file at an absolute path, read as execx.FileInput reads it.
 func arguments(absolutePath string) []string {
-	return []string{
+	return append([]string{
 		"-v", "error",
 		"-print_format", "json",
 		"-show_format", "-show_streams", "-show_chapters",
-		"-protocol_whitelist", "file",
-		"-i", "file:" + absolutePath,
-	}
+	}, execx.FileInput(absolutePath)...)
 }
 
 // Probe returns what is inside the file at absolutePath.
