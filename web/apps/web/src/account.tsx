@@ -26,8 +26,8 @@ export function Account(): JSX.Element {
       {deviceCode.code === undefined ? null : <ShownDeviceCode code={deviceCode.code} />}
       <YourDevices
         devices={devices}
-        reload={reload}
-        onCodeFor={(device) => {
+        onChanged={reload}
+        onMakeCode={(device) => {
           deviceCode.makeCode({ deviceId: device.id }, device.name);
         }}
       />

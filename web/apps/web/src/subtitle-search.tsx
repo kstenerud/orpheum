@@ -55,11 +55,11 @@ export function startingLanguage(viewerLanguage: string): string {
 export async function listCandidates(
   api: Api,
   fileId: number,
-  lang: string,
+  language: string,
 ): Promise<SubtitleOffer> {
   return dataOrThrow(
     await api.GET("/files/{id}/subtitle-candidates", {
-      params: { path: { id: fileId }, query: { language: lang } },
+      params: { path: { id: fileId }, query: { language } },
     }),
   );
 }
@@ -79,7 +79,7 @@ export async function fetchCandidate(
 }
 
 /** Why a search or fetch failed, in words a person can act on (D224 §4). */
-export function fetchProblem(
+export function subtitleProblemText(
   t: ReturnType<typeof useTranslation>["t"],
   cause: unknown,
   viewerLanguage: string,
@@ -87,13 +87,13 @@ export function fetchProblem(
   if (cause instanceof ApiProblem) {
     if (cause.code === "quota_exhausted") {
       const resetAt = cause.detail["downloadsResetAt"];
-      const when =
+      const resetTime =
         resetAt === undefined
           ? ""
           : new Intl.DateTimeFormat(viewerLanguage, { timeStyle: "short" }).format(
               new Date(Number(resetAt)),
             );
-      return t("play.findSubtitles.quotaSpent", { when });
+      return t("play.findSubtitles.quotaSpent", { when: resetTime });
     }
     const reason = cause.detail["reason"];
     if (cause.code === "provider_error" && reason !== undefined) {
@@ -112,25 +112,25 @@ export function fetchProblem(
 function useRequest(): {
   isBusy: boolean;
   problem: string | undefined;
-  run: (work: Promise<void>) => void;
+  runRequest: (request: Promise<void>) => void;
 } {
   const { t, i18n } = useTranslation();
   const [isBusy, setIsBusy] = useState(false);
   const [problem, setProblem] = useState<string | undefined>(undefined);
-  const run = (work: Promise<void>): void => {
+  const runRequest = (request: Promise<void>): void => {
     setIsBusy(true);
     setProblem(undefined);
-    work.then(
+    request.then(
       () => {
         setIsBusy(false);
       },
       (cause: unknown) => {
         setIsBusy(false);
-        setProblem(fetchProblem(t, cause, i18n.language));
+        setProblem(subtitleProblemText(t, cause, i18n.language));
       },
     );
   };
-  return { isBusy, problem, run };
+  return { isBusy, problem, runRequest };
 }
 
 /**
@@ -140,14 +140,14 @@ function useRequest(): {
  */
 export function FindSubtitles(props: {
   readonly fileId: number;
-  readonly fetched: () => void;
+  readonly onFetched: () => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const { api } = useServices();
   const [isOpen, setIsOpen] = useState(false);
   const [language, setLanguage] = useState(() => startingLanguage(i18n.language));
   const [offer, setOffer] = useState<SubtitleOffer | undefined>(undefined);
-  const { isBusy, problem, run } = useRequest();
+  const { isBusy, problem, runRequest } = useRequest();
   if (!isOpen) {
     return (
       <button
@@ -161,23 +161,23 @@ export function FindSubtitles(props: {
     );
   }
   const search = (): void => {
-    run(listCandidates(api, props.fileId, language).then(setOffer));
+    runRequest(listCandidates(api, props.fileId, language).then(setOffer));
   };
   const choose = (candidate: SubtitleCandidate): void => {
     const chosen = { providerFileId: candidate.providerFileId, language };
-    run(
+    runRequest(
       fetchCandidate(api, props.fileId, chosen).then(() => {
         setIsOpen(false);
-        props.fetched();
+        props.onFetched();
       }),
     );
   };
   return (
-    <section className="find-subtitles" aria-labelledby="find-subtitles-heading">
-      <h2 id="find-subtitles-heading">{t("play.findSubtitles.heading")}</h2>
+    <section className="subtitle-search" aria-labelledby="subtitle-search-heading">
+      <h2 id="subtitle-search-heading">{t("play.findSubtitles.heading")}</h2>
       <LanguagePicker
         language={language}
-        picked={(picked) => {
+        onPicked={(picked) => {
           setLanguage(picked);
           setOffer(undefined);
         }}
@@ -187,7 +187,7 @@ export function FindSubtitles(props: {
       </button>
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       {offer === undefined ? null : (
-        <CandidateList offer={offer} language={language} isBusy={isBusy} choose={choose} />
+        <CandidateList offer={offer} language={language} isBusy={isBusy} onChoose={choose} />
       )}
     </section>
   );
@@ -196,7 +196,7 @@ export function FindSubtitles(props: {
 /** The language a search asks for, named in the viewer's language. */
 function LanguagePicker(props: {
   readonly language: string;
-  readonly picked: (language: string) => void;
+  readonly onPicked: (language: string) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   return (
@@ -205,7 +205,7 @@ function LanguagePicker(props: {
       <select
         value={props.language}
         onChange={(event) => {
-          props.picked(event.currentTarget.value);
+          props.onPicked(event.currentTarget.value);
         }}
       >
         {searchLanguages.map((tag) => (
@@ -226,13 +226,15 @@ function CandidateList(props: {
   readonly offer: SubtitleOffer;
   readonly language: string;
   readonly isBusy: boolean;
-  readonly choose: (candidate: SubtitleCandidate) => void;
+  readonly onChoose: (candidate: SubtitleCandidate) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const candidates = props.offer.candidates ?? [];
   const { allowance, didAskByIds } = props.offer;
-  const language = languageName(props.language, i18n.language);
-  const none = didAskByIds ? "play.findSubtitles.none" : "play.findSubtitles.noneForThisFile";
+  const languageLabel = languageName(props.language, i18n.language);
+  const noCandidatesKey = didAskByIds
+    ? "play.findSubtitles.none"
+    : "play.findSubtitles.noneForThisFile";
   return (
     <>
       <p>
@@ -241,12 +243,12 @@ function CandidateList(props: {
           allowed: allowance.allowedDownloads,
         })}
       </p>
-      {candidates.length === 0 ? <p>{t(none, { language })}</p> : null}
+      {candidates.length === 0 ? <p>{t(noCandidatesKey, { language: languageLabel })}</p> : null}
       {didAskByIds ? null : <p>{t("play.findSubtitles.fileHashOnly")}</p>}
-      <ul className="find-subtitles__candidates">
+      <ul className="subtitle-search__candidates">
         {candidates.map((candidate) => (
           <li key={candidate.providerFileId}>
-            <span className="find-subtitles__release">{candidate.releaseName}</span>{" "}
+            <span className="subtitle-search__release">{candidate.releaseName}</span>{" "}
             {candidate.isOpensubtitlesHashMatch ? (
               <strong>{t("play.findSubtitles.madeForThisFile")}</strong>
             ) : null}{" "}
@@ -257,7 +259,7 @@ function CandidateList(props: {
               type="button"
               disabled={props.isBusy || allowance.remainingDownloads <= 0}
               onClick={() => {
-                props.choose(candidate);
+                props.onChoose(candidate);
               }}
             >
               {t("play.findSubtitles.fetch")}

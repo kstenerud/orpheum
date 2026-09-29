@@ -115,7 +115,7 @@ export async function keepSubtitleChoice(
 }
 
 /** The track a playback starts with: the file's choice when it names one of its tracks, else none. */
-export function startingTrack(
+export function startingTrackKey(
   prefs: FilePrefs,
   tracks: readonly SubtitleTrack[],
 ): TrackKey | undefined {
@@ -135,42 +135,44 @@ export function Subtitles(props: {
 }): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [chosen, setChosen] = useState(() => startingTrack(props.prefs, props.tracks));
+  const [chosenTrackKey, setChosenTrackKey] = useState(() =>
+    startingTrackKey(props.prefs, props.tracks),
+  );
   const [offsetMs, setOffsetMs] = useState(props.prefs.subtitleOffsetMs);
   // The offset a newly chosen track starts with, read when its text arrives rather than in render.
   const offsetRef = useRef(props.prefs.subtitleOffsetMs);
   const [failure, setFailure] = useState<string | undefined>(undefined);
-  const track = props.tracks.find((candidate) => trackKey(candidate) === chosen);
+  const track = props.tracks.find((candidate) => trackKey(candidate) === chosenTrackKey);
   const layerRef = useSubtitleLayer(track?.assUrl, props.videoRef, {
     offsetRef,
-    failed: setFailure,
+    onFailed: setFailure,
   });
   if (props.tracks.length === 0) {
     return null;
   }
-  const move = (stepMs: number): void => {
-    const moved = offsetMs + stepMs;
-    setOffsetMs(moved);
-    offsetRef.current = moved;
-    layerRef.current?.setOffsetMs(moved);
-    keepOffset(api, props.fileId, moved).catch((cause: unknown) => {
+  const shiftOffset = (stepMs: number): void => {
+    const newOffsetMs = offsetMs + stepMs;
+    setOffsetMs(newOffsetMs);
+    offsetRef.current = newOffsetMs;
+    layerRef.current?.setOffsetMs(newOffsetMs);
+    keepOffset(api, props.fileId, newOffsetMs).catch((cause: unknown) => {
       setFailure(problemText(t, cause));
     });
   };
   return (
-    <div className="play__subtitles">
+    <div className="subtitles">
       <TrackMenu
         tracks={props.tracks}
-        chosen={chosen}
-        choose={(key) => {
+        chosen={chosenTrackKey}
+        onChoose={(key) => {
           setFailure(undefined);
-          setChosen(key);
+          setChosenTrackKey(key);
           keepSubtitleChoice(api, props.fileId, key).catch((cause: unknown) => {
             setFailure(problemText(t, cause));
           });
         }}
       />
-      <OffsetControl offsetMs={offsetMs} move={move} />
+      <OffsetControl offsetMs={offsetMs} onMove={shiftOffset} />
       {failure === undefined ? null : (
         <p role="alert">{t("play.subtitles.failed", { reason: failure })}</p>
       )}
@@ -182,7 +184,7 @@ export function Subtitles(props: {
 function TrackMenu(props: {
   readonly tracks: readonly SubtitleTrack[];
   readonly chosen: TrackKey | undefined;
-  readonly choose: (key: TrackKey | undefined) => void;
+  readonly onChoose: (key: TrackKey | undefined) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const words = {
@@ -197,10 +199,10 @@ function TrackMenu(props: {
       <select
         value={props.chosen ?? ""}
         onChange={(event) => {
-          const chosen = props.tracks.find(
+          const chosenTrack = props.tracks.find(
             (track) => trackKey(track) === event.currentTarget.value,
           );
-          props.choose(chosen === undefined ? undefined : trackKey(chosen));
+          props.onChoose(chosenTrack === undefined ? undefined : trackKey(chosenTrack));
         }}
       >
         <option value="">{t("play.subtitles.off")}</option>
@@ -217,15 +219,15 @@ function TrackMenu(props: {
 /** Moves the subtitles earlier or later by a tenth of a second, and shows where they are. */
 function OffsetControl(props: {
   readonly offsetMs: number;
-  readonly move: (stepMs: number) => void;
+  readonly onMove: (stepMs: number) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <span className="play__offset">
+    <span className="subtitles__offset">
       <button
         type="button"
         onClick={() => {
-          props.move(-offsetStepMs);
+          props.onMove(-offsetStepMs);
         }}
       >
         {t("play.subtitles.earlier")}
@@ -236,7 +238,7 @@ function OffsetControl(props: {
       <button
         type="button"
         onClick={() => {
-          props.move(offsetStepMs);
+          props.onMove(offsetStepMs);
         }}
       >
         {t("play.subtitles.later")}
@@ -253,34 +255,34 @@ function OffsetControl(props: {
 function useSubtitleLayer(
   assUrl: string | undefined,
   videoRef: RefObject<HTMLVideoElement | null>,
-  options: { offsetRef: RefObject<number>; failed: (why: string) => void },
+  options: { offsetRef: RefObject<number>; onFailed: (why: string) => void },
 ): RefObject<SubtitleLayer | undefined> {
   const { t } = useTranslation();
   const layerRef = useRef<SubtitleLayer | undefined>(undefined);
-  const { offsetRef, failed } = options;
+  const { offsetRef, onFailed } = options;
   useEffect(() => {
     const video = videoRef.current;
     if (assUrl === undefined || video === null) {
       return undefined;
     }
-    const abort = new AbortController();
-    textWhenReady(assUrl, { signal: abort.signal }).then(
+    const aborter = new AbortController();
+    textWhenReady(assUrl, { signal: aborter.signal }).then(
       (ass) => {
-        if (!abort.signal.aborted) {
+        if (!aborter.signal.aborted) {
           layerRef.current = drawSubtitles(video, ass, offsetRef.current);
         }
       },
       (cause: unknown) => {
-        if (!abort.signal.aborted) {
-          failed(problemText(t, cause));
+        if (!aborter.signal.aborted) {
+          onFailed(problemText(t, cause));
         }
       },
     );
     return () => {
-      abort.abort();
+      aborter.abort();
       layerRef.current?.destroy();
       layerRef.current = undefined;
     };
-  }, [assUrl, videoRef, offsetRef, failed, t]);
+  }, [assUrl, videoRef, offsetRef, onFailed, t]);
   return layerRef;
 }

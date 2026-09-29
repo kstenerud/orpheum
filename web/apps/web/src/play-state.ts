@@ -42,7 +42,7 @@ function seqCounter(mediaToken: string): () => number {
 }
 
 /** What reportVideoEvents hands back: where the video last was while it held media, and how to stop. */
-interface Watching {
+interface VideoEventReporting {
   readonly lastPositionMs: () => number;
   readonly stop: () => void;
 }
@@ -56,9 +56,9 @@ function reportVideoEvents(
   video: HTMLVideoElement,
   reporter: PlayReporter,
   resumePositionMs: number,
-): Watching {
+): VideoEventReporting {
   let isResuming = resumePositionMs > 0;
-  let lastMs = resumePositionMs;
+  let lastHeldPositionMs = resumePositionMs;
   const whileItHoldsMedia = (listener: () => void) => (): void => {
     if (hasMedia(video)) {
       listener();
@@ -83,11 +83,11 @@ function reportVideoEvents(
       if (isResuming) {
         isResuming = false;
       } else {
-        reporter.recordSeeked(lastMs, positionMs(video));
+        reporter.recordSeeked(lastHeldPositionMs, positionMs(video));
       }
     }),
     timeupdate: whileItHoldsMedia(() => {
-      lastMs = positionMs(video);
+      lastHeldPositionMs = positionMs(video);
     }),
     ended: whileItHoldsMedia(() => {
       reporter.recordCompleted(positionMs(video));
@@ -100,7 +100,7 @@ function reportVideoEvents(
     seekTo(video, resumePositionMs);
   }
   return {
-    lastPositionMs: () => lastMs,
+    lastPositionMs: () => lastHeldPositionMs,
     stop: () => {
       for (const [event, listener] of Object.entries(listeners)) {
         video.removeEventListener(event, listener);
@@ -129,24 +129,24 @@ export function usePlayState(
       (report) => sendReport(api, mediaToken, report),
       seqCounter(mediaToken),
     );
-    const watching = reportVideoEvents(video, reporter, resumePositionMs);
+    const videoEvents = reportVideoEvents(video, reporter, resumePositionMs);
     const ticker = setInterval(() => {
       if (!video.paused && hasMedia(video)) {
         reporter.flush(positionMs(video));
       }
     }, reportEveryMs);
-    const hidden = (): void => {
+    const flushWhenHidden = (): void => {
       if (document.visibilityState === "hidden") {
-        reporter.flush(watching.lastPositionMs());
+        reporter.flush(videoEvents.lastPositionMs());
       }
     };
-    document.addEventListener("visibilitychange", hidden);
+    document.addEventListener("visibilitychange", flushWhenHidden);
     return () => {
       clearInterval(ticker);
-      document.removeEventListener("visibilitychange", hidden);
-      watching.stop();
+      document.removeEventListener("visibilitychange", flushWhenHidden);
+      videoEvents.stop();
       // The video may be emptied already: where it last was is where the person left it.
-      reporter.recordAbandoned(watching.lastPositionMs());
+      reporter.recordAbandoned(videoEvents.lastPositionMs());
     };
   }, [api, videoRef, mediaToken, resumePositionMs]);
 }

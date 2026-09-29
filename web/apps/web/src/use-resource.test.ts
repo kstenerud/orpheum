@@ -4,16 +4,16 @@ import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
 import { ApiProblem, problemText } from "./problem.ts";
-import { failure } from "./use-resource.ts";
+import { failedResource } from "./use-resource.ts";
 
-describe("failure", () => {
+describe("failedResource", () => {
   it("keeps the cause, and an error the server sent becomes an ApiProblem", () => {
-    const fromServer = failure({
+    const fromServer = failedResource({
       error: { code: "not_found", message: "no such title or series" },
     });
     expect(fromServer.state === "failed" && fromServer.cause instanceof ApiProblem).toBe(true);
     const network = new TypeError("Failed to fetch");
-    expect(failure(network)).toEqual({ state: "failed", cause: network });
+    expect(failedResource(network)).toEqual({ state: "failed", cause: network });
   });
 
   it("tells the person what went wrong in their words, with what to do", () => {

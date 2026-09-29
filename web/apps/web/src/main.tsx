@@ -29,7 +29,7 @@ const session = createSession(storage);
 const navigation = createNavigation(window);
 const api = createApi({ getToken: session.token });
 api.use(watchForSignOut(session, navigation));
-const services = { api, session, navigation, menu: browserMenu };
+const services = { api, session, navigation, playableFormats: browserMenu };
 
 createRoot(rootElement).render(
   <StrictMode>

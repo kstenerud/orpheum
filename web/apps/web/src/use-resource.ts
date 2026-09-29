@@ -14,7 +14,7 @@ export type Resource<T> =
   | { readonly state: "failed"; readonly cause: unknown };
 
 /** A failed load, with its cause: an error the server sent as it was thrown becomes an ApiProblem. */
-export function failure(cause: unknown): Resource<never> {
+export function failedResource(cause: unknown): Resource<never> {
   if (
     typeof cause === "object" &&
     cause !== null &&
@@ -28,8 +28,8 @@ export function failure(cause: unknown): Resource<never> {
 }
 
 /**
- * Loads a value when the component mounts and whenever key changes, and reloads on retry. An
- * answer that arrives after the key changed is dropped.
+ * Loads a value when the component mounts and whenever key changes, and reloads when the returned
+ * function is called. An answer that arrives after the key changed is dropped.
  */
 export function useResource<T>(key: string, load: () => Promise<T>): [Resource<T>, () => void] {
   const [resource, setResource] = useState<Resource<T>>({ state: "loading" });
@@ -45,7 +45,7 @@ export function useResource<T>(key: string, load: () => Promise<T>): [Resource<T
       },
       (cause: unknown) => {
         if (isCurrent) {
-          setResource(failure(cause));
+          setResource(failedResource(cause));
         }
       },
     );

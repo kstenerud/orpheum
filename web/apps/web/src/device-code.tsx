@@ -98,7 +98,7 @@ export function ShownDeviceCode(props: { readonly code: ShownCode }): JSX.Elemen
     <div className="device-code">
       <h2>{t("account.codeFor", { device: props.code.deviceName })}</h2>
       <p>{t("account.useCode", { origin: window.location.origin })}</p>
-      <Share what="code" text={props.code.secret} invitation={props.code} />
+      <Share kind="code" text={props.code.secret} invitation={props.code} />
     </div>
   );
 }

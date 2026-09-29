@@ -66,10 +66,10 @@ describe("a session the server ended", () => {
     api.use(watchForSignOut(session, navigation));
     await api.GET("/me");
     expect(session.token()).toBeUndefined();
-    expect(session.endedBecause()).toBe("session_ended");
+    expect(session.lastEndReason()).toBe("session_ended");
     expect(went).toEqual([{ screen: "films" }]);
     expect(createSession(storage).deviceId()).toBe(42);
     session.signIn("next");
-    expect(session.endedBecause()).toBeUndefined();
+    expect(session.lastEndReason()).toBeUndefined();
   });
 });

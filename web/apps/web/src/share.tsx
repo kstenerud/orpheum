@@ -17,16 +17,16 @@ export function expiresText(expiresAtMs: number, locale: string): string {
  * selectable to copy, with when it stops working.
  */
 export function Share(props: {
-  readonly what: "link" | "code";
+  readonly kind: "link" | "code";
   readonly text: string;
   readonly invitation: IssuedSecret;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   return (
     <div className="share">
-      <output className={`share__${props.what}`}>{props.text}</output>
+      <output className={`share__${props.kind}`}>{props.text}</output>
       <p>
-        {t(`share.${props.what}`, {
+        {t(`share.${props.kind}`, {
           expires: expiresText(props.invitation.expiresAt, i18n.language),
         })}
       </p>

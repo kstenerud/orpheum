@@ -15,7 +15,7 @@ import { useServices } from "./services.tsx";
 export type SignInProblem = "wrongNameOrPassword" | "tooManyAttempts" | "noAdminYet" | "failed";
 
 /** The problem a failed sign-in's status names. */
-export function signInProblem(status: number): SignInProblem {
+export function problemForStatus(status: number): SignInProblem {
   switch (status) {
     case 401:
       return "wrongNameOrPassword";
@@ -29,7 +29,9 @@ export function signInProblem(status: number): SignInProblem {
 }
 
 /** Why the last session ended, when the server ended it; nothing otherwise. */
-export function EndedNotice(props: { readonly reason: string | undefined }): JSX.Element | null {
+export function SessionEndedNotice(props: {
+  readonly reason: string | undefined;
+}): JSX.Element | null {
   const { t } = useTranslation();
   if (props.reason === undefined) {
     return null;
@@ -50,9 +52,9 @@ export function SignInForm(props: {
   readonly isSending: boolean;
   readonly problem: SignInProblem | undefined;
   /** Why the last session ended, when the server ended it: said first, so the person knows. */
-  readonly endedBecause?: string | undefined;
-  readonly onName: (name: string) => void;
-  readonly onPassword: (password: string) => void;
+  readonly lastEndReason?: string | undefined;
+  readonly onNameChange: (name: string) => void;
+  readonly onPasswordChange: (password: string) => void;
   readonly onSubmit: () => void;
   readonly onUseCode: () => void;
 }): JSX.Element {
@@ -65,7 +67,7 @@ export function SignInForm(props: {
     <main className="sign-in">
       <form className="sign-in__form" onSubmit={submit}>
         <h1>{t("signIn.heading")}</h1>
-        <EndedNotice reason={props.endedBecause} />
+        <SessionEndedNotice reason={props.lastEndReason} />
         <label className="sign-in__field">
           {t("signIn.name")}
           <input
@@ -74,14 +76,14 @@ export function SignInForm(props: {
             required
             value={props.name}
             onChange={(event) => {
-              props.onName(event.target.value);
+              props.onNameChange(event.target.value);
             }}
           />
         </label>
         <PasswordField
           label={t("signIn.password")}
           value={props.password}
-          onChange={props.onPassword}
+          onChange={props.onPasswordChange}
           autoComplete="current-password"
         />
         {props.problem === undefined ? null : (
@@ -123,13 +125,13 @@ export function SignIn(): JSX.Element {
     setIsSending(true);
     setProblem(undefined);
     api.POST("/session", { body: { name, password, device: thisDevice(session) } }).then(
-      ({ data, response }) => {
+      ({ data: signInBody, response }) => {
         setIsSending(false);
-        if (data === undefined) {
-          setProblem(signInProblem(response.status));
+        if (signInBody === undefined) {
+          setProblem(problemForStatus(response.status));
           return;
         }
-        session.signIn(data.token, data.user.device?.id);
+        session.signIn(signInBody.token, signInBody.user.device?.id);
       },
       () => {
         setIsSending(false);
@@ -143,10 +145,10 @@ export function SignIn(): JSX.Element {
       password={password}
       isSending={isSending}
       problem={problem}
-      onName={setName}
-      onPassword={setPassword}
+      onNameChange={setName}
+      onPasswordChange={setPassword}
       onSubmit={submit}
-      endedBecause={session.endedBecause()}
+      lastEndReason={session.lastEndReason()}
       onUseCode={() => {
         setIsUsingCode(true);
       }}

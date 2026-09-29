@@ -27,7 +27,8 @@
   color: var(--color-muted);
 }
 
-.play__subtitles {
+/* The subtitle menu and offset (subtitles.tsx), shown only under the player. */
+.subtitles {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1rem;
@@ -35,13 +36,13 @@
 }
 
 /* A subtitle's name can be a whole release name; the menu shrinks to the screen and cuts it. */
-.play__subtitles label,
-.play__subtitles select {
+.subtitles label,
+.subtitles select {
   min-width: 0;
   max-width: 100%;
 }
 
-.play__offset {
+.subtitles__offset {
   display: flex;
   gap: 0.5rem;
   align-items: center;

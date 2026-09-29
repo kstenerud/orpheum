@@ -31,7 +31,7 @@ describe("browse", () => {
     const markup = renderBrowseView({
       state: "loaded",
       value: {
-        next: "cursor",
+        nextCursor: "cursor",
         items: [
           {
             id: 10,
@@ -62,7 +62,7 @@ describe("browse", () => {
   });
 
   it("says what an empty list means, and a failure's cause", () => {
-    const empty = renderBrowseView({ state: "loaded", value: { next: "", items: [] } });
+    const empty = renderBrowseView({ state: "loaded", value: { nextCursor: "", items: [] } });
     expect(empty).toContain("Once a library is scanned");
     expect(empty).not.toContain("Show more");
     expect(
@@ -71,6 +71,6 @@ describe("browse", () => {
         cause: new ApiProblem({ code: "migrating", message: "the server is migrating" }),
       }),
     ).toContain("The server is updating. Try again in a minute.");
-    expect(entryRoute("series", 4)).toEqual({ screen: "collection", id: 4 });
+    expect(entryRoute("series", 4)).toEqual({ screen: "series-page", id: 4 });
   });
 });

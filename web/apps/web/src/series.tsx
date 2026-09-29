@@ -24,8 +24,11 @@ export function bySeason(episodes: readonly Episode[]): [number, Episode[]][] {
     seasons.set(episode.seasonNumber, [...(seasons.get(episode.seasonNumber) ?? []), episode]);
   }
   // Specials are season 0; they sort after every numbered season.
-  const order = (season: number): number => (season === 0 ? Number.MAX_SAFE_INTEGER : season);
-  return [...seasons.entries()].sort(([first], [second]) => order(first) - order(second));
+  const seasonSortKey = (season: number): number =>
+    season === 0 ? Number.MAX_SAFE_INTEGER : season;
+  return [...seasons.entries()].sort(
+    ([first], [second]) => seasonSortKey(first) - seasonSortKey(second),
+  );
 }
 
 /** A series' page: its art and what it is about, then its seasons, each episode with its still. */
@@ -51,7 +54,7 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
             {episodes.map((episode) => (
               <li
                 key={episode.id}
-                className={episode.hasLiveFile ? undefined : "series__episode--absent"}
+                className={episode.hasLiveFile ? undefined : "series__item--absent"}
               >
                 <Link to={{ screen: "title", id: episode.id }} className="series__episode">
                   {episode.stillSha256 === undefined ? (
@@ -84,12 +87,11 @@ export function SeriesView(props: { readonly series: SeriesDetail }): JSX.Elemen
 export function Series(props: { readonly id: number }): JSX.Element {
   const { api } = useServices();
   const [series] = useResource(`series/${String(props.id)}`, async () => {
-    const data = dataOrThrow(
+    return dataOrThrow(
       await api.GET("/collections/{id}", {
         params: { path: { id: props.id } },
       }),
     );
-    return data;
   });
   return <Loaded resource={series} render={(value) => <SeriesView series={value} />} />;
 }

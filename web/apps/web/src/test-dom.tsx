@@ -23,7 +23,7 @@ export const unreachable = "unreachable";
  * string ("?a=1&b=2") when it had one, so a test can check the names a screen asks by.
  */
 export interface Heard {
-  readonly asked: string;
+  readonly methodAndPath: string;
   readonly body: unknown;
   readonly query?: string;
 }
@@ -38,21 +38,21 @@ export function servedBy(answers: Answers, heard: Heard[] = []): Services {
   return testServices(undefined, "/films", async (request) => {
     const url = new URL(request.url);
     const path = url.pathname.replace(/^\/api\/v1/u, "");
-    const asked = `${request.method} ${path}`;
+    const methodAndPath = `${request.method} ${path}`;
     const text = await request.text();
     heard.push({
-      asked,
+      methodAndPath,
       body: text === "" ? undefined : JSON.parse(text),
       ...(url.search === "" ? {} : { query: url.search }),
     });
-    const given = answers[asked];
+    const given = answers[methodAndPath];
     if (given === unreachable) {
       throw new TypeError("Failed to fetch");
     }
-    const answer = inTurn(given, counts.get(asked) ?? 0);
-    counts.set(asked, (counts.get(asked) ?? 0) + 1);
+    const answer = inTurn(given, counts.get(methodAndPath) ?? 0);
+    counts.set(methodAndPath, (counts.get(methodAndPath) ?? 0) + 1);
     if (answer === undefined) {
-      throw new Error(`the test has no answer for ${asked}`);
+      throw new Error(`the test has no answer for ${methodAndPath}`);
     }
     const [status, body] = answer;
     if (status === 204) {
@@ -96,7 +96,7 @@ export async function mount(tree: ReactNode): Promise<Mounted> {
   const root = createRoot(container);
   await act(async () => {
     root.render(tree);
-    await answered();
+    await settleAnswers();
   });
   return {
     container,
@@ -116,7 +116,7 @@ export async function click(element: Element | null | undefined): Promise<void> 
   }
   await act(async () => {
     element.click();
-    await answered();
+    await settleAnswers();
   });
 }
 
@@ -130,7 +130,7 @@ export async function submit(form: Element | null | undefined): Promise<void> {
   }
   await act(async () => {
     form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    await answered();
+    await settleAnswers();
   });
 }
 
@@ -143,17 +143,20 @@ export async function choose(select: Element | null | undefined, value: string):
     // eslint-disable-next-line no-param-reassign -- choosing is setting the select's value
     select.value = value;
     select.dispatchEvent(new Event("change", { bubbles: true }));
-    await answered();
+    await settleAnswers();
   });
 }
 
 /** The button whose text is text, in container. */
-export function button(container: HTMLElement, text: string): HTMLButtonElement | undefined {
+export function buttonWithText(
+  container: HTMLElement,
+  text: string,
+): HTMLButtonElement | undefined {
   return [...container.querySelectorAll("button")].find((each) => each.textContent === text);
 }
 
 /** Lets pending answers and the renders they cause finish. */
-async function answered(): Promise<void> {
+async function settleAnswers(): Promise<void> {
   for (let turn = 0; turn < 5; turn += 1) {
     await new Promise((resolve) => setTimeout(resolve, 0));
   }

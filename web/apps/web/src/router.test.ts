@@ -10,7 +10,7 @@ describe("parseRoute and routeHref", () => {
       { screen: "films" },
       { screen: "series" },
       { screen: "title", id: 12 },
-      { screen: "collection", id: 7 },
+      { screen: "series-page", id: 7 },
       { screen: "play", fileId: 9 },
       { screen: "search", query: "glass runner & co" },
       { screen: "search", query: "" },

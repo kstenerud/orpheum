@@ -21,7 +21,7 @@ import {
   signOutElsewhere,
 } from "./accounts.ts";
 import { PeopleList } from "./people.tsx";
-import { QrCode, qrImage, qrPath } from "./qr-code.tsx";
+import { QrCode, qrDataUrl, qrPath } from "./qr-code.tsx";
 import { parseRoute } from "./router.ts";
 import { Share } from "./share.tsx";
 import { withServices } from "./test-services.tsx";
@@ -139,7 +139,7 @@ describe("accounts", () => {
     expect(list).toContain("Has not used their link yet");
     const code = renderToStaticMarkup(
       withServices(
-        <Share what="code" text="abcd-efgh" invitation={{ secret: "abcd-efgh", expiresAt: 0 }} />,
+        <Share kind="code" text="abcd-efgh" invitation={{ secret: "abcd-efgh", expiresAt: 0 }} />,
       ),
     );
     expect(code).toContain('<output class="share__code">abcd-efgh</output>');
@@ -176,7 +176,7 @@ describe("accounts", () => {
     const nothing = (): void => undefined;
     const markup = renderToStaticMarkup(
       withServices(
-        <DeviceList devices={[tv]} onRename={nothing} onRemove={nothing} onCodeFor={nothing} />,
+        <DeviceList devices={[tv]} onRename={nothing} onRemove={nothing} onMakeCode={nothing} />,
       ),
     );
     expect(markup).toContain("Living room TV");
@@ -196,10 +196,10 @@ describe("accounts", () => {
 
   it("draws a registration link as a QR code, an image with its own alt text", () => {
     const url = "https://orpheum.example/register#secret";
-    const { path, modules } = qrPath(url);
-    expect(modules).toBeGreaterThanOrEqual(21);
+    const { path, moduleCount } = qrPath(url);
+    expect(moduleCount).toBeGreaterThanOrEqual(21);
     expect(path).toMatch(/^M\d/u);
-    expect(qrImage(url)).toMatch(/^data:image\/svg\+xml,/u);
+    expect(qrDataUrl(url)).toMatch(/^data:image\/svg\+xml,/u);
     const markup = renderToStaticMarkup(<QrCode text={url} label="partner's link" />);
     expect(markup).toContain('alt="partner&#x27;s link"');
   });

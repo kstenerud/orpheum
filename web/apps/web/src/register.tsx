@@ -22,17 +22,17 @@ export function Register(): JSX.Element {
   const { api, session, navigation } = useServices();
   const [secret] = useState(() => secretFromHash(window.location.hash));
   const [password, setPassword] = useState("");
-  const [again, setAgain] = useState("");
+  const [passwordAgain, setPasswordAgain] = useState("");
   const [problem, setProblem] = useState<RegisterProblem | undefined>(
     secret === undefined ? "noLink" : undefined,
   );
-  const [message, setMessage] = useState("");
+  const [refusalText, setRefusalText] = useState("");
   const submit = (event: SyntheticEvent): void => {
     event.preventDefault();
     if (secret === undefined) {
       return;
     }
-    if (password !== again) {
+    if (password !== passwordAgain) {
       setProblem("mismatch");
       return;
     }
@@ -44,7 +44,7 @@ export function Register(): JSX.Element {
         navigation.go({ screen: "films" });
       },
       (cause: unknown) => {
-        setMessage(problemText(t, cause, { authRequired: t("register.badLink") }));
+        setRefusalText(problemText(t, cause, { authRequired: t("register.badLink") }));
         setProblem("refused");
       },
     );
@@ -55,10 +55,14 @@ export function Register(): JSX.Element {
         <h1>{t("register.heading")}</h1>
         <p>{t("register.explain")}</p>
         <PasswordField label={t("register.password")} value={password} onChange={setPassword} />
-        <PasswordField label={t("register.again")} value={again} onChange={setAgain} />
+        <PasswordField
+          label={t("register.again")}
+          value={passwordAgain}
+          onChange={setPasswordAgain}
+        />
         {problem === undefined ? null : (
           <p className="sign-in__problem" role="alert">
-            {t(`register.${problem}`, { message })}
+            {t(`register.${problem}`, { message: refusalText })}
           </p>
         )}
         <button type="submit" disabled={secret === undefined}>
@@ -69,7 +73,7 @@ export function Register(): JSX.Element {
   );
 }
 
-/** A new password, typed. */
+/** A password field: a new password by default, or the current one when autoComplete says so. */
 export function PasswordField(props: {
   readonly label: string;
   readonly value: string;

@@ -22,7 +22,7 @@ export function StreamLine(props: { readonly stream: Stream }): JSX.Element | nu
   const { t } = useTranslation();
   const { stream } = props;
   const codec = stream.codec ?? "";
-  const lang = stream.language ?? "";
+  const language = stream.language ?? "";
   switch (stream.kind) {
     case "video":
       return <li>{t("title.streamVideo", { codec })}</li>;
@@ -31,10 +31,10 @@ export function StreamLine(props: { readonly stream: Stream }): JSX.Element | nu
         stream.channelCount === undefined
           ? ""
           : t("title.channels", { count: stream.channelCount });
-      return <li>{t("title.streamAudio", { codec, lang, channels })}</li>;
+      return <li>{t("title.streamAudio", { codec, language, channels })}</li>;
     }
     case "subtitle":
-      return <li>{t("title.streamSubtitle", { codec, lang })}</li>;
+      return <li>{t("title.streamSubtitle", { codec, language })}</li>;
     default:
       return null;
   }
@@ -77,17 +77,17 @@ function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
 function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
   const { t } = useTranslation();
   const { title } = props;
-  const place = title.episode;
+  const episodePlace = title.episode;
   return (
     <div>
       <h1>{title.name}</h1>
-      {place === undefined ? null : (
+      {episodePlace === undefined ? null : (
         <p>
-          <Link to={{ screen: "collection", id: place.seriesId }}>
+          <Link to={{ screen: "series-page", id: episodePlace.seriesId }}>
             {t("title.place", {
-              series: place.seriesName,
-              season: place.seasonNumber,
-              number: place.episodeNumber,
+              series: episodePlace.seriesName,
+              season: episodePlace.seasonNumber,
+              number: episodePlace.episodeNumber,
             })}
           </Link>
         </p>
@@ -187,9 +187,8 @@ export function Loaded<T>(props: {
 /** A title's page, loaded by its id. */
 export function Title(props: { readonly id: number }): JSX.Element {
   const { api } = useServices();
-  const [title] = useResource(`title/${String(props.id)}`, async () => {
-    const data = dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } }));
-    return data;
-  });
+  const [title] = useResource(`title/${String(props.id)}`, async () =>
+    dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } })),
+  );
   return <Loaded resource={title} render={(value) => <TitleView title={value} />} />;
 }

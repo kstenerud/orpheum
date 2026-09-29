@@ -12,12 +12,12 @@ import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** One search result, as the server sends it. */
-export type Hit = components["schemas"]["HitBody"];
+export type SearchHit = components["schemas"]["HitBody"];
 
 /** Where a result leads: a series' page, else a title's. */
-export function hitRoute(hit: Hit): Route {
+export function hitRoute(hit: SearchHit): Route {
   return hit.kind === "series"
-    ? { screen: "collection", id: hit.id }
+    ? { screen: "series-page", id: hit.id }
     : { screen: "title", id: hit.id };
 }
 
@@ -31,7 +31,7 @@ const kindKeys = {
 /** Search results, best first, with no cap to page through. */
 export function SearchResults(props: {
   readonly query: string;
-  readonly hits: readonly Hit[];
+  readonly hits: readonly SearchHit[];
 }): JSX.Element {
   const { t } = useTranslation();
   if (props.hits.length === 0) {
@@ -54,10 +54,10 @@ export function SearchResults(props: {
 export function Search(props: { readonly query: string }): JSX.Element {
   const { t } = useTranslation();
   const { navigation } = useServices();
-  const [typed, setTyped] = useState(props.query);
+  const [typedQuery, setTypedQuery] = useState(props.query);
   const submit = (event: SyntheticEvent): void => {
     event.preventDefault();
-    navigation.go({ screen: "search", query: typed.trim() });
+    navigation.go({ screen: "search", query: typedQuery.trim() });
   };
   return (
     <section aria-labelledby="search-heading">
@@ -67,29 +67,29 @@ export function Search(props: { readonly query: string }): JSX.Element {
           {t("search.label")}
           <input
             type="search"
-            value={typed}
+            value={typedQuery}
             onChange={(event) => {
-              setTyped(event.target.value);
+              setTypedQuery(event.target.value);
             }}
           />
         </label>
         <button type="submit">{t("search.submit")}</button>
       </form>
-      {props.query === "" ? null : <SearchFor key={props.query} query={props.query} />}
+      {props.query === "" ? null : <QueryResults key={props.query} query={props.query} />}
     </section>
   );
 }
 
 /** The results for one query. */
-function SearchFor(props: { readonly query: string }): JSX.Element {
+function QueryResults(props: { readonly query: string }): JSX.Element {
   const { api } = useServices();
   const [hits] = useResource(`search/${props.query}`, async () => {
-    const data = dataOrThrow(
+    const searchBody = dataOrThrow(
       await api.GET("/search", {
         params: { query: { query: props.query, limit: 100 } },
       }),
     );
-    return data.results ?? [];
+    return searchBody.results ?? [];
   });
   return (
     <Loaded

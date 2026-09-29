@@ -29,7 +29,7 @@ const entriesPerPage = 60;
 
 /** Where an entry leads: a film's page, or a series'. */
 export function entryRoute(kind: BrowseKind, id: number): Route {
-  return kind === "movie" ? { screen: "title", id } : { screen: "collection", id };
+  return kind === "movie" ? { screen: "title", id } : { screen: "series-page", id };
 }
 
 /** A grid of films or series, each a poster with its name and year under it. */
@@ -105,7 +105,7 @@ function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSo
     async (cursor: string): Promise<Page<Entry>> => {
       const query = { kind, sort, limit: entriesPerPage, ...(cursor === "" ? {} : { cursor }) };
       const titlesPage = dataOrThrow(await api.GET("/titles", { params: { query } }));
-      return { items: titlesPage.titles ?? [], next: titlesPage.nextCursor ?? "" };
+      return { items: titlesPage.titles ?? [], nextCursor: titlesPage.nextCursor ?? "" };
     },
     [api, kind, sort],
   );
@@ -113,9 +113,9 @@ function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSo
   return (
     <BrowseView
       kind={kind}
-      loadedEntries={pages.list}
+      loadedEntries={pages.pagesSoFar}
       isLoadingMore={pages.isLoadingMore}
-      onLoadMore={pages.more}
+      onLoadMore={pages.loadMore}
     />
   );
 }
@@ -141,7 +141,7 @@ export function BrowseView(props: {
   return (
     <>
       <PosterGrid kind={props.kind} entries={loadedEntries.value.items} />
-      {loadedEntries.value.next === "" ? null : (
+      {loadedEntries.value.nextCursor === "" ? null : (
         <EndOfList onVisible={props.onLoadMore}>
           <button type="button" onClick={props.onLoadMore} disabled={props.isLoadingMore}>
             {t("common.showMore")}

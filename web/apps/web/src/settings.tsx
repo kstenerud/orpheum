@@ -15,12 +15,12 @@ export type Secret = components["schemas"]["SecretBody"];
 export type Setting = components["schemas"]["SettingBody"];
 
 /** A request's answer, as the SDK gives it: a refusal carries the server's error. */
-interface Answer {
+interface RefusableAnswer {
   readonly error?: { readonly error: ErrorDetail };
 }
 
 /** A setting's value as a person reads it. */
-export function shown(value: unknown): string {
+export function settingText(value: unknown): string {
   if (typeof value === "string") {
     return value;
   }
@@ -31,7 +31,7 @@ export function shown(value: unknown): string {
 }
 
 /** The value a field's text means for a setting of this kind. */
-export function parsed(kind: Setting["kind"], text: string): string | number | boolean {
+export function parseSettingText(kind: Setting["kind"], text: string): string | number | boolean {
   if (kind === "bool") {
     return text === "true";
   }
@@ -135,10 +135,10 @@ function SettingRow(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { setting } = props;
-  const [text, setText] = useState(() => shown(setting.value));
+  const [text, setText] = useState(() => settingText(setting.value));
   const save = (event: SyntheticEvent): void => {
     event.preventDefault();
-    props.onSave(parsed(setting.kind, text));
+    props.onSave(parseSettingText(setting.kind, text));
   };
   return (
     <form onSubmit={save} aria-labelledby={`setting-${setting.key}`}>
@@ -171,7 +171,7 @@ function SettingRow(props: {
       <button type="submit">{t("settings.save")}</button>{" "}
       {setting.isModified ? (
         <>
-          <span>{t("settings.changed", { start: shown(setting.startingValue) })}</span>{" "}
+          <span>{t("settings.changed", { start: settingText(setting.startingValue) })}</span>{" "}
           <button type="button" onClick={props.onReset}>
             {t("settings.reset")}
           </button>
@@ -193,7 +193,7 @@ export function SettingsView(props: {
       <h2 id="server-settings-heading">{t("settings.settingsHeading")}</h2>
       {props.settings.map((setting) => (
         <SettingRow
-          key={`${setting.key}/${shown(setting.value)}`}
+          key={`${setting.key}/${settingText(setting.value)}`}
           setting={setting}
           onSave={(value) => {
             props.onSave(setting.key, value);
@@ -225,30 +225,34 @@ function Secrets(): JSX.Element {
   const { api } = useServices();
   const [notes, setNotes] = useState<ReadonlyMap<string, string>>(() => new Map());
   const [secrets, reload] = useResource("secrets", async () => {
-    const data = dataOrThrow(await api.GET("/secrets"));
-    return data.secrets ?? [];
+    const secretsBody = dataOrThrow(await api.GET("/secrets"));
+    return secretsBody.secrets ?? [];
   });
   /** Shows how a change to a secret went, then loads the secrets again. */
-  const noteOutcome = (name: string, successNote: string, change: Promise<Answer>): void => {
-    const note = (text: string): void => {
+  const noteOutcome = (
+    name: string,
+    successNote: string,
+    request: Promise<RefusableAnswer>,
+  ): void => {
+    const showNote = (text: string): void => {
       setNotes((previous) => new Map(previous).set(name, text));
       reload();
     };
-    change.then(throwIfRefused).then(
+    request.then(throwIfRefused).then(
       () => {
-        note(successNote);
+        showNote(successNote);
       },
       (cause: unknown) => {
-        note(problemText(t, cause));
+        showNote(problemText(t, cause));
       },
     );
   };
   return (
     <Loaded
       resource={secrets}
-      render={(value) => (
+      render={(loadedSecrets) => (
         <SecretsView
-          secrets={value}
+          secrets={loadedSecrets}
           notes={notes}
           onSave={(name, value) => {
             noteOutcome(
@@ -275,13 +279,13 @@ function ServerSettings(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [problem, setProblem] = useState("");
-  const [config, reload] = useResource("config", async () => {
-    const data = dataOrThrow(await api.GET("/config"));
-    return data.settings ?? [];
+  const [settings, reload] = useResource("config", async () => {
+    const configBody = dataOrThrow(await api.GET("/config"));
+    return configBody.settings ?? [];
   });
   /** Shows a change's refusal, if any, then loads the settings again. */
-  const noteOutcome = (change: Promise<Answer>): void => {
-    change.then(throwIfRefused).then(
+  const showRefusalAndReload = (request: Promise<RefusableAnswer>): void => {
+    request.then(throwIfRefused).then(
       () => {
         setProblem("");
         reload();
@@ -296,15 +300,17 @@ function ServerSettings(): JSX.Element {
     <>
       {problem === "" ? null : <p role="alert">{problem}</p>}
       <Loaded
-        resource={config}
-        render={(value) => (
+        resource={settings}
+        render={(loadedSettings) => (
           <SettingsView
-            settings={value}
-            onSave={(key, setting) => {
-              noteOutcome(api.PUT("/config", { body: { valuesByKey: { [key]: setting } } }));
+            settings={loadedSettings}
+            onSave={(key, newValue) => {
+              showRefusalAndReload(
+                api.PUT("/config", { body: { valuesByKey: { [key]: newValue } } }),
+              );
             }}
             onReset={(key) => {
-              noteOutcome(api.POST("/config/{key}/reset", { params: { path: { key } } }));
+              showRefusalAndReload(api.POST("/config/{key}/reset", { params: { path: { key } } }));
             }}
           />
         )}

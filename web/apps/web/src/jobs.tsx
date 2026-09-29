@@ -8,7 +8,7 @@ import { camelKey } from "./catalogue-key.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
-import { failure, type Resource } from "./use-resource.ts";
+import { failedResource, type Resource } from "./use-resource.ts";
 
 /** One job, as the job view shows it (cut-a §5.3). */
 export type Job = components["schemas"]["JobBody"];
@@ -58,7 +58,7 @@ export function Jobs(): JSX.Element {
         },
         (cause: unknown) => {
           if (isCurrent) {
-            setJobs(failure(cause));
+            setJobs(failedResource(cause));
           }
         },
       );

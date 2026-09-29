@@ -10,7 +10,7 @@ import { Identify } from "./identify.tsx";
 import { Libraries } from "./libraries.tsx";
 import { Settings } from "./settings.tsx";
 import {
-  button,
+  buttonWithText,
   click,
   mount,
   refusal,
@@ -105,9 +105,9 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "POST /libraries/3/removals": refusal(409, "conflict"),
     });
     mounted = await mount(withServices(<Libraries />, services));
-    await click(button(mounted.container, "Scan now"));
+    await click(buttonWithText(mounted.container, "Scan now"));
     expectSays(notFound);
-    await click(button(mounted.container, "Remove what the last scan did not find"));
+    await click(buttonWithText(mounted.container, "Remove what the last scan did not find"));
     expectSays(conflict);
   });
 
@@ -122,10 +122,10 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "POST /items/7/match": refusal(409, "conflict"),
     });
     mounted = await mount(withServices(<Identify />, services));
-    await click(button(mounted.container, "Look again"));
+    await click(buttonWithText(mounted.container, "Look again"));
     expectSays(notFound);
-    await click(button(mounted.container, "Choose its match"));
-    await click(button(mounted.container, "This one"));
+    await click(buttonWithText(mounted.container, "Choose its match"));
+    await click(buttonWithText(mounted.container, "This one"));
     expectSays(conflict);
   });
 
@@ -139,7 +139,7 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
     mounted = await mount(withServices(<Settings />, services));
     await submit(mounted.container.querySelector('form[aria-labelledby="secret-tmdb_api_key"]'));
     expectSays(conflict);
-    await click(button(mounted.container, "Reset to the starting value"));
+    await click(buttonWithText(mounted.container, "Reset to the starting value"));
     expectSays(notFound);
   });
 });
@@ -154,7 +154,7 @@ describe("a request that never reaches the server says so, rather than nothing",
       "POST /libraries/3/scan": unreachable,
     });
     mounted = await mount(withServices(<Libraries />, services));
-    await click(button(mounted.container, "Scan now"));
+    await click(buttonWithText(mounted.container, "Scan now"));
     expectSays(cannotReach);
   });
 
@@ -175,7 +175,7 @@ describe("a request that never reaches the server says so, rather than nothing",
       "POST /items/7/refresh": unreachable,
     });
     mounted = await mount(withServices(<Identify />, services));
-    await click(button(mounted.container, "Look again"));
+    await click(buttonWithText(mounted.container, "Look again"));
     expectSays(cannotReach);
   });
 
@@ -186,7 +186,7 @@ describe("a request that never reaches the server says so, rather than nothing",
       "POST /config/should_scan_on_node_hello/reset": unreachable,
     });
     mounted = await mount(withServices(<Settings />, services));
-    await click(button(mounted.container, "Reset to the starting value"));
+    await click(buttonWithText(mounted.container, "Reset to the starting value"));
     expectSays(cannotReach);
   });
 });

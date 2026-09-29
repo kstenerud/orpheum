@@ -18,10 +18,10 @@ import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
 import { useResource } from "./use-resource.ts";
 
-/** What the admin last made, to pass on: a person's link or a device's code. */
-export type Made =
-  | { readonly what: "link"; readonly name: string; readonly invitation: IssuedSecret }
-  | { readonly what: "code"; readonly name: string; readonly invitation: IssuedSecret };
+/** What the admin last issued, to pass on: a person's link or a device's code. */
+export type IssuedInvitation =
+  | { readonly kind: "link"; readonly name: string; readonly invitation: IssuedSecret }
+  | { readonly kind: "code"; readonly name: string; readonly invitation: IssuedSecret };
 
 /**
  * The household, for the admin (D218): everyone, whether they have registered, a way to add a
@@ -31,50 +31,50 @@ export function People(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [accounts, reload] = useResource("accounts", () => listAccounts(api));
-  const [made, setMade] = useState<Made | undefined>(undefined);
+  const [issued, setIssued] = useState<IssuedInvitation | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
-  const failed = (cause: unknown): void => {
+  const showProblem = (cause: unknown): void => {
     setProblem(problemText(t, cause, { conflict: t("people.nameTaken") }));
   };
   return (
     <section className="people" aria-labelledby="people-heading">
       <h1 id="people-heading">{t("people.heading")}</h1>
       <AddPerson
-        onMade={(name, invitation) => {
-          setMade({ what: "link", name, invitation });
+        onAdded={(name, invitation) => {
+          setIssued({ kind: "link", name, invitation });
           reload();
         }}
-        onFailed={failed}
+        onFailed={showProblem}
       />
-      {made === undefined ? null : <MadeView made={made} />}
+      {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <Loaded resource={accounts} render={(list) => <PeopleList accounts={list} />} />
     </section>
   );
 }
 
-/** What was just made, to pass on: a link also as a QR code a phone's camera opens (D218 §1). */
-export function MadeView(props: { readonly made: Made }): JSX.Element {
+/** What was just issued, to pass on: a link also as a QR code a phone's camera opens (D218 §1). */
+export function IssuedInvitationView(props: { readonly issued: IssuedInvitation }): JSX.Element {
   const { t } = useTranslation();
-  const { made } = props;
+  const { issued } = props;
   const text =
-    made.what === "link"
-      ? registrationUrl(window.location.origin, made.invitation.secret)
-      : made.invitation.secret;
+    issued.kind === "link"
+      ? registrationUrl(window.location.origin, issued.invitation.secret)
+      : issued.invitation.secret;
   return (
-    <div className="people__made">
-      <h2>{t(`people.made.${made.what}`, { name: made.name })}</h2>
-      {made.what === "link" ? (
-        <QrCode text={text} label={t("people.qrLabel", { name: made.name })} />
+    <div className="people__issued">
+      <h2>{t(`people.issued.${issued.kind}`, { name: issued.name })}</h2>
+      {issued.kind === "link" ? (
+        <QrCode text={text} label={t("people.qrLabel", { name: issued.name })} />
       ) : null}
-      <Share what={made.what} text={text} invitation={made.invitation} />
+      <Share kind={issued.kind} text={text} invitation={issued.invitation} />
     </div>
   );
 }
 
 /** Adds a person: their name and role, and their registration link to pass on. */
 function AddPerson(props: {
-  readonly onMade: (name: string, invitation: IssuedSecret) => void;
+  readonly onAdded: (name: string, invitation: IssuedSecret) => void;
   readonly onFailed: (cause: unknown) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -84,7 +84,7 @@ function AddPerson(props: {
   const submit = (event: SyntheticEvent): void => {
     event.preventDefault();
     createAccount(api, name, role).then(({ registrationInvitation: registration }) => {
-      props.onMade(name, registration);
+      props.onAdded(name, registration);
       setName("");
     }, props.onFailed);
   };
