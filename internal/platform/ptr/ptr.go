@@ -10,3 +10,13 @@ func ValueOrZero[T any](value *T) T {
 	}
 	return *value
 }
+
+// NilIfZero points to value, or is nil when value is its type's zero value: the opposite of
+// ValueOrZero, for writing an optional value such as a nullable column.
+func NilIfZero[T comparable](value T) *T {
+	var zero T
+	if value == zero {
+		return nil
+	}
+	return &value
+}

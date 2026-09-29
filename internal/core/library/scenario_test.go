@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
 
 // These tests are scenarios from plans/scenarios.md, named by their ids.
@@ -27,10 +28,7 @@ func (world *harness) rootState() (outcome, reason string) {
 	if err != nil {
 		world.t.Fatal(err)
 	}
-	if row.WithheldReason != nil {
-		reason = *row.WithheldReason
-	}
-	return row.LastScanOutcome, reason
+	return row.LastScanOutcome, ptr.ValueOrZero(row.WithheldReason)
 }
 
 // S7 and S8: the disk under a mount point is unplugged, leaving the empty directory beneath it,

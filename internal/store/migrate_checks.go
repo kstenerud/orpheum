@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"github.com/kstenerud/orpheum/internal/platform/errs"
 )
 
 // checkStep makes the checks a SQL file cannot make of itself: no dangling foreign key, no
@@ -36,7 +38,7 @@ func checkForeignKeys(ctx context.Context, connection *sql.Conn) (err error) {
 	if err != nil {
 		return fmt.Errorf("foreign_key_check: %w", err)
 	}
-	defer func() { err = errors.Join(err, wrapIf("close foreign_key_check", rows.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close foreign_key_check", rows.Close())) }()
 	if rows.Next() {
 		var table, parent string
 		var rowID sql.NullInt64
@@ -48,7 +50,10 @@ func checkForeignKeys(ctx context.Context, connection *sql.Conn) (err error) {
 		return fmt.Errorf("foreign_key_check: a row of %s (rowid %d) references a missing row of %s",
 			table, rowID.Int64, parent)
 	}
-	return wrapIf("foreign_key_check", rows.Err())
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("foreign_key_check: %w", err)
+	}
+	return nil
 }
 
 // readSequences returns sqlite_sequence as a map; it is empty before any AUTOINCREMENT table.
@@ -67,7 +72,7 @@ func readSequences(ctx context.Context, connection *sql.Conn) (sequences map[str
 	if err != nil {
 		return nil, fmt.Errorf("read sqlite_sequence: %w", err)
 	}
-	defer func() { err = errors.Join(err, wrapIf("close sqlite_sequence", rows.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close sqlite_sequence", rows.Close())) }()
 	for rows.Next() {
 		var table string
 		var sequence int64
@@ -77,7 +82,10 @@ func readSequences(ctx context.Context, connection *sql.Conn) (sequences map[str
 		}
 		sequences[table] = sequence
 	}
-	return sequences, wrapIf("read sqlite_sequence", rows.Err())
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read sqlite_sequence: %w", err)
+	}
+	return sequences, nil
 }
 
 // checkViewsCompile asks for each view's columns, which makes SQLite compile its definition; a
@@ -105,7 +113,7 @@ func viewNames(ctx context.Context, connection *sql.Conn) (views []string, err e
 	if err != nil {
 		return nil, fmt.Errorf("list views: %w", err)
 	}
-	defer func() { err = errors.Join(err, wrapIf("close the view list", rows.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close the view list", rows.Close())) }()
 	for rows.Next() {
 		var view string
 		err = rows.Scan(&view)
@@ -114,5 +122,8 @@ func viewNames(ctx context.Context, connection *sql.Conn) (views []string, err e
 		}
 		views = append(views, view)
 	}
-	return views, wrapIf("list views", rows.Err())
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list views: %w", err)
+	}
+	return views, nil
 }

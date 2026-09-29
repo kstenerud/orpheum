@@ -13,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -208,9 +209,7 @@ func (secrets *Store) Statuses(ctx context.Context) ([]Status, error) {
 			status.IsSet = true
 			status.SetByUserID, status.SetAt = row.SetByUserID, row.SetAt
 			status.NeedsReentry = row.KeyID != secrets.key.ID()
-			if row.LastChars != nil {
-				status.Hint = *row.LastChars
-			}
+			status.Hint = ptr.ValueOrZero(row.LastChars)
 		}
 		statuses = append(statuses, status)
 	}

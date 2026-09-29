@@ -208,7 +208,8 @@ func (filer *libraryFiler) resolveSeries(ctx context.Context, seriesID int64, sp
 	}
 	year, _ := strconv.ParseInt(values[fieldYear], 10, 64) //nolint:errcheck // zero when unset
 	err = filer.queries.UpdateSeriesResolved(ctx, sqlcgen.UpdateSeriesResolvedParams{
-		Year: nilIfZero(year), FollowedSource: nilIfEmpty(source), IdentificationState: &identification, ID: seriesID,
+		Year: ptr.NilIfZero(year), FollowedSource: ptr.NilIfZero(source), IdentificationState: &identification,
+		ID: seriesID,
 	})
 	if err != nil {
 		return fmt.Errorf("resolve series %d: %w", seriesID, err)

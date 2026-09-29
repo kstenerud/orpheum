@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
+	"github.com/kstenerud/orpheum/internal/platform/errs"
 )
 
 // SchemaState is what a database file says about its schema: the version it is at, and the
@@ -242,7 +243,7 @@ func (database *Database) runStep(ctx context.Context, step Step) (err error) {
 	if err != nil {
 		return fmt.Errorf("pin a connection: %w", err)
 	}
-	defer func() { err = errors.Join(err, wrapIf("release the connection", connection.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("release the connection", connection.Close())) }()
 	err = setForeignKeys(ctx, connection, false)
 	if err != nil {
 		return err
@@ -258,11 +259,11 @@ func (database *Database) runStep(ctx context.Context, step Step) (err error) {
 	err = applyStep(ctx, connection, step)
 	if err == nil {
 		_, err = connection.ExecContext(ctx, "COMMIT")
-		err = wrapIf("commit", err)
+		err = errs.WrapIf("commit", err)
 	}
 	if err != nil {
 		_, rollbackErr := connection.ExecContext(context.WithoutCancel(ctx), "ROLLBACK")
-		return errors.Join(err, wrapIf("roll back", rollbackErr))
+		return errors.Join(err, errs.WrapIf("roll back", rollbackErr))
 	}
 	return nil
 }
@@ -336,12 +337,4 @@ func readState(ctx context.Context, pool *sql.DB) (SchemaState, error) {
 		return state, fmt.Errorf("read compatible_version: %w", err)
 	}
 	return state, nil
-}
-
-// wrapIf wraps err with what was being done, or returns nil.
-func wrapIf(doing string, err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("%s: %w", doing, err)
 }

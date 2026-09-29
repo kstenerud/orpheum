@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/errs"
 )
 
 // The names of the files and directories this package owns under the state and cache
@@ -71,7 +73,7 @@ func (directories *Directories) DiscardCacheDatabase() (err error) {
 	if err != nil {
 		return fmt.Errorf("open the cache directory: %w", err)
 	}
-	defer func() { err = errors.Join(err, wrapIf("close the cache directory", root.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close the cache directory", root.Close())) }()
 	for _, name := range []string{cacheDatabaseName + "-wal", cacheDatabaseName + "-shm", cacheDatabaseName} {
 		if removeErr := root.Remove(name); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
 			return fmt.Errorf("remove %s: %w", filepath.Join(directories.cacheDirectory, name), removeErr)
@@ -106,7 +108,7 @@ func (directories *Directories) ReadStateFile(name string) (contents []byte, err
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Join(err, wrapIf("close the state directory", root.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close the state directory", root.Close())) }()
 	contents, err = root.ReadFile(name)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("%s: %w", filepath.Join(directories.stateDirectory, name), ErrNotFound)
@@ -127,7 +129,7 @@ func (directories *Directories) WriteStateFile(name string, contents []byte) (er
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, wrapIf("close the state directory", root.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close the state directory", root.Close())) }()
 	return writeAtomically(root, name, contents)
 }
 
@@ -140,7 +142,7 @@ func (directories *Directories) RemoveStateFile(name string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, wrapIf("close the state directory", root.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close the state directory", root.Close())) }()
 	err = root.Remove(name)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove %s: %w", filepath.Join(directories.stateDirectory, name), err)
@@ -158,7 +160,7 @@ func (directories *Directories) WriteBackupFile(name string, contents []byte) (e
 	if err != nil {
 		return fmt.Errorf("open the backup directory: %w", err)
 	}
-	defer func() { err = errors.Join(err, wrapIf("close the backup directory", root.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close the backup directory", root.Close())) }()
 	return writeAtomically(root, name, contents)
 }
 
@@ -201,7 +203,7 @@ func (directories *Directories) ReplaceLibraryDatabase(restoredName string) (err
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, wrapIf("close the state directory", root.Close())) }()
+	defer func() { err = errors.Join(err, errs.WrapIf("close the state directory", root.Close())) }()
 	for _, walFile := range []string{libraryDatabaseName + "-wal", libraryDatabaseName + "-shm"} {
 		if err = ignoreMissing(root.Remove(walFile)); err != nil {
 			return fmt.Errorf("remove %s: %w", walFile, err)
@@ -272,7 +274,9 @@ func syncRoot(root *os.Root) error {
 	if err != nil {
 		return fmt.Errorf("open %s to sync it: %w", root.Name(), err)
 	}
-	return errors.Join(wrapIf("sync "+root.Name(), handle.Sync()), wrapIf("close "+root.Name(), handle.Close()))
+	return errors.Join(
+		errs.WrapIf("sync "+root.Name(), handle.Sync()), errs.WrapIf("close "+root.Name(), handle.Close()),
+	)
 }
 
 func ignoreMissing(err error) error {
@@ -280,11 +284,4 @@ func ignoreMissing(err error) error {
 		return nil
 	}
 	return err
-}
-
-func wrapIf(doing string, err error) error {
-	if err == nil {
-		return nil
-	}
-	return fmt.Errorf("%s: %w", doing, err)
 }

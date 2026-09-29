@@ -9,6 +9,7 @@ import (
 	"slices"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -49,10 +50,10 @@ func (batch *ingestBatch) syncStreams(ctx context.Context, fileID int64, probe n
 		index := int64(stream.StreamIndex)
 		keptStreamIndexes = append(keptStreamIndexes, index)
 		err := batch.queries.UpsertStream(ctx, sqlcgen.UpsertStreamParams{
-			FileID: fileID, StreamIndex: &index, Kind: stream.Kind, Codec: nilIfEmpty(stream.Codec),
-			ContainerLanguage: nilIfEmpty(stream.ContainerLanguage), Language: nilIfEmpty(stream.Language),
-			ContainerTitle:   nilIfEmpty(stream.ContainerTitle),
-			DispositionFlags: disposition, ChannelCount: nilIfZero(int64(stream.Audio.ChannelCount)),
+			FileID: fileID, StreamIndex: &index, Kind: stream.Kind, Codec: ptr.NilIfZero(stream.Codec),
+			ContainerLanguage: ptr.NilIfZero(stream.ContainerLanguage), Language: ptr.NilIfZero(stream.Language),
+			ContainerTitle:   ptr.NilIfZero(stream.ContainerTitle),
+			DispositionFlags: disposition, ChannelCount: ptr.NilIfZero(int64(stream.Audio.ChannelCount)),
 		})
 		if err != nil {
 			return fmt.Errorf("keep stream %d of file %d: %w", stream.StreamIndex, fileID, err)
@@ -69,18 +70,4 @@ func (batch *ingestBatch) syncStreams(ctx context.Context, fileID int64, probe n
 		return fmt.Errorf("drop the streams file %d no longer has: %w", fileID, err)
 	}
 	return nil
-}
-
-func nilIfEmpty(text string) *string {
-	if text == "" {
-		return nil
-	}
-	return &text
-}
-
-func nilIfZero(value int64) *int64 {
-	if value == 0 {
-		return nil
-	}
-	return &value
 }
