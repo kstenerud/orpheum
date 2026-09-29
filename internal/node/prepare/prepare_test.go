@@ -23,6 +23,8 @@ type fakeFFmpeg struct {
 	fail error
 	// granted, when set, records what each run was granted.
 	granted *[]confine.Access
+	// linkTo, when set, is a file the rendition is also given a symbolic link to.
+	linkTo string
 }
 
 func (fake fakeFFmpeg) RunStreaming(
@@ -37,6 +39,11 @@ func (fake fakeFFmpeg) RunStreaming(
 	}
 	if err := os.WriteFile(filepath.Join(output, "video", "seg00000.m4s"), []byte("12345"), 0o600); err != nil {
 		return err
+	}
+	if fake.linkTo != "" {
+		if err := os.Symlink(fake.linkTo, filepath.Join(output, "video", "link.m4s")); err != nil {
+			return err
+		}
 	}
 	const progress = "frame=10\nspeed=N/A\nout_time_us=1500000\nspeed=4.25x\nprogress=continue\n"
 	if _, err := io.WriteString(stdout, progress); err != nil {
@@ -96,6 +103,27 @@ func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *
 	segment := filepath.Join(directory, "7", "remux", "0123456789abcdef", "video", "seg00000.m4s")
 	if _, err := os.Stat(segment); err != nil {
 		t.Errorf("the rendition is not under 7/remux: %v", err)
+	}
+}
+
+func TestPreparer_ARenditionsSizeIsItsRegularFilesAsThePreparedBudgetCountsThem(t *testing.T) {
+	t.Parallel()
+	large := filepath.Join(t.TempDir(), "large.mkv")
+	if err := os.WriteFile(large, make([]byte, 4096), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	preparer, err := prepare.New(fakeFFmpeg{linkTo: large}, t.TempDir(), roomyKeeper{}, prepare.EncoderX264)
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, RenditionDir: "7/remux/0123456789abcdef"}
+	made, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(int64) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if made.SizeBytes != 5 {
+		t.Errorf("size %d; want 5, the one segment, and nothing for a link, as the prepared budget counts (D217 §5)",
+			made.SizeBytes)
 	}
 }
 
