@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package identify
+package identify_test
 
 import (
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 )
 
@@ -22,13 +23,14 @@ func TestPass_AFileNamedForItsFoldersTitleWithASuffixIsAnExtra(t *testing.T) {
 	files := lib.titlesByPath()
 	film := files["Quiet Harbour (1999)/Quiet Harbour (1999).mkv"]
 	featurette := files["Quiet Harbour (1999)/Quiet Harbour (1999)-featurette.mkv"]
-	if featurette.Kind != kindExtra || featurette.TitleID == film.TitleID || featurette.Filing != filingExtra ||
+	if featurette.Kind != identify.KindExtra || featurette.TitleID == film.TitleID ||
+		featurette.Filing != identify.FilingExtra ||
 		ptr.ValueOrZero(featurette.FilingReason) != "featurette of Quiet Harbour (1999), by its name" {
 		t.Errorf("the featurette is %+v (%s); want an extra of the film, by its name", featurette,
 			ptr.ValueOrZero(featurette.FilingReason))
 	}
 	for _, rel := range []string{"Quiet Harbour (1999)/Something Else-trailer.mkv", "Loose Ends-trailer.mkv"} {
-		if file := files[rel]; file.Kind == kindExtra || file.Filing == filingExtra {
+		if file := files[rel]; file.Kind == identify.KindExtra || file.Filing == identify.FilingExtra {
 			t.Errorf("%s is %+v; a suffix alone, or at the root, makes no extra", rel, file)
 		}
 	}

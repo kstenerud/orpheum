@@ -3,11 +3,8 @@
 package api
 
 import (
-	"context"
-	"encoding/json"
 	"net/http"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -17,57 +14,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
-
-// fakeProvider is TMDB behind the provider interface: it fetches the films it has, by id, or
-// fails as fail says.
-type fakeProvider struct {
-	films map[string]identify.Metadata
-	mutex sync.Mutex
-	fail  error // guarded by mutex
-}
-
-func newFakeProvider() *fakeProvider {
-	return &fakeProvider{films: map[string]identify.Metadata{
-		"2": {ID: "2", Name: "The General", Year: 2002, Overview: "Soderbergh's."},
-	}}
-}
-
-func (*fakeProvider) Name() string { return "tmdb" }
-
-func (*fakeProvider) Search(context.Context, identify.Query) ([]identify.Candidate, error) {
-	return []identify.Candidate{}, nil
-}
-
-func (*fakeProvider) Find(context.Context, string, string, string) (string, error) {
-	return "", identify.ErrNoMatch
-}
-
-func (fake *fakeProvider) Fetch(_ context.Context, _, id string) ([]byte, error) {
-	fake.mutex.Lock()
-	defer fake.mutex.Unlock()
-	if fake.fail != nil {
-		return nil, fake.fail
-	}
-	film, found := fake.films[id]
-	if !found {
-		return nil, identify.ErrNoMatch
-	}
-	return json.Marshal(film) //nolint:wrapcheck,musttag // a test fake stores Metadata as Go names it
-}
-
-func (*fakeProvider) FetchSeason(context.Context, string, int) ([]byte, error) {
-	return nil, identify.ErrNoMatch
-}
-
-func (*fakeProvider) ParseSeason([]byte) ([]identify.Episode, error) {
-	return []identify.Episode{}, nil
-}
-
-func (*fakeProvider) Parse(_ string, body []byte) (identify.Metadata, error) {
-	var film identify.Metadata
-	err := json.Unmarshal(body, &film) //nolint:musttag // as the fake stored it
-	return film, err                   //nolint:wrapcheck // a test fake
-}
 
 // ambiguousTitle adds title 10, a film whose search found two Solarises.
 func (harness testHarness) ambiguousTitle(t *testing.T) {
@@ -204,9 +150,7 @@ func TestIdentification_AProvidersRateLimitSaysWhichAndHowLongAsSubtitlesDo(t *t
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.ambiguousTitle(t)
-	harness.tmdbProvider.mutex.Lock()
-	harness.tmdbProvider.fail = &outbound.RateLimitedError{Provider: "TMDB", RetryAfter: 3 * time.Second}
-	harness.tmdbProvider.mutex.Unlock()
+	harness.tmdbProvider.SetFailure(&outbound.RateLimitedError{Provider: "TMDB", RetryAfter: 3 * time.Second})
 	answer := harness.do(t, http.MethodPost, "/items/10/match", admin,
 		map[string]string{"provider": "tmdb", "providerId": "2"})
 	wantErrorSaying(t, answer, http.StatusServiceUnavailable, CodeRateLimited, "TMDB asks us to wait")
@@ -225,9 +169,7 @@ func TestIdentification_AMissingOrRefusedKeySaysWhyWithTheProviderAsTheFailingLe
 		harness := newHarness(t)
 		admin := harness.createAdminAndSignIn(t)
 		harness.ambiguousTitle(t)
-		harness.tmdbProvider.mutex.Lock()
-		harness.tmdbProvider.fail = failure
-		harness.tmdbProvider.mutex.Unlock()
+		harness.tmdbProvider.SetFailure(failure)
 		answer := harness.do(t, http.MethodPost, "/items/10/match", admin,
 			map[string]string{"provider": "tmdb", "providerId": "2"})
 		wantError(t, answer, http.StatusServiceUnavailable, CodeProviderError)
