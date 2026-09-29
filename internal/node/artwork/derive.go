@@ -91,11 +91,11 @@ func (deriver *Deriver) dimensions(ctx context.Context, source []byte) (width, h
 func (deriver *Deriver) encode(ctx context.Context, source []byte, filter string, quality int) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, deriver.perRunTimeout)
 	defer cancel()
-	encoded, err := deriver.runner.RunInput(ctx, execx.FFmpeg, confine.Access{}, []string{
-		"-v", "error", "-protocol_whitelist", "pipe", "-i", "pipe:0",
-		"-frames:v", "1", "-map_metadata", "-1", "-vf", filter,
-		"-c:v", "libwebp", "-lossless", "0", "-quality", strconv.Itoa(quality), "-f", "webp", "pipe:1",
-	}, source, maxEncodedBytes)
+	encoded, err := deriver.runner.RunInput(ctx, execx.FFmpeg, confine.Access{},
+		append(append([]string{"-v", "error"}, execx.PipeInput()...),
+			"-frames:v", "1", "-map_metadata", "-1", "-vf", filter,
+			"-c:v", "libwebp", "-lossless", "0", "-quality", strconv.Itoa(quality), "-f", "webp", "pipe:1"),
+		source, maxEncodedBytes)
 	if err != nil {
 		return nil, fmt.Errorf("encode: %w", err)
 	}

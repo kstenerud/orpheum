@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -59,11 +60,8 @@ func mixes(track nodeproto.PrepareAudio) []mix {
 // Arguments is FFmpeg's command line for one prepare, after execx's hardening flags: the source's
 // absolute path, the rendition's absolute directory, and, for an encode, the encoder it uses.
 func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare, encoder Encoder) []string {
-	arguments := []string{
-		"-v", "error", "-nostats", "-progress", "pipe:1",
-		"-protocol_whitelist", "file", "-i", "file:" + sourcePath,
-		"-map", "0:" + strconv.Itoa(command.VideoStreamIndex),
-	}
+	arguments := append([]string{"-v", "error", "-nostats", "-progress", "pipe:1"}, execx.FileInput(sourcePath)...)
+	arguments = append(arguments, "-map", "0:"+strconv.Itoa(command.VideoStreamIndex))
 	arguments = append(arguments, videoArguments(command, encoder)...)
 	streams := []string{"v:0,agroup:audio,name:video"}
 	audioOutputIndex := 0

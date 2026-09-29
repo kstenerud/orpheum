@@ -44,6 +44,19 @@ func hardeningFlags(tool Tool) ([]string, bool) {
 	return nil, false
 }
 
+// FileInput is the input of a run that reads a file at an absolute path: named with the file:
+// protocol, and only that protocol allowed, so a name such as "http:x" or "concat:a|b" is never
+// read as anything but a file (cut-a §7).
+func FileInput(absolutePath string) []string {
+	return []string{"-protocol_whitelist", "file", "-i", "file:" + absolutePath}
+}
+
+// PipeInput is the input of a run that reads what it is given on stdin, with only the pipe
+// protocol allowed.
+func PipeInput() []string {
+	return []string{"-protocol_whitelist", "pipe", "-i", "pipe:0"}
+}
+
 // ErrOutputTooLarge is returned when a run writes more to stdout than its caller allowed.
 var ErrOutputTooLarge = errors.New("the tool wrote more to stdout than allowed")
 
