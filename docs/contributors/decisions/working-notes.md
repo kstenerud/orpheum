@@ -14099,6 +14099,10 @@ migration policy.)*
 
 ## D181 — The migration policy: two integers, our own small runner, a snapshot that outlives success, refuse what we cannot read, and re-derive rather than transform
 
+> **Suspended in part by [D228](#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)** until migrations are live: the
+> steps are a baseline and one step after it, and a schema change folds the last step into the
+> baseline rather than keeping every step forever.
+
 **Decided** (2026-09-23), for the project owner's requirement in
 [D180](#d180--a-prepared-renditions-play-state-is-its-sources-additive-schema-comes-with-its-feature-mistakes-are-assumed-so-migration-needs-a-policy) §3. Research: [migrations.md](../design/research/migrations.md) — Chromium,
 Firefox, Android Room and Apple Core Data from source; Jellyfin, Plex, Home Assistant, Navidrome,
@@ -15820,6 +15824,9 @@ to reason about."*
 
 > **Amended by [D202](#d202--missing-values-heal-themselves-and-say-so-unused-settings-are-listed-and-deleted-only-by-a-person-doctor-not-a-seed-command-is-where-to-find-what-needs-fixing):** there is no seed command; missing values heal themselves,
 > and doctor lists what needs fixing. §3 is struck.
+>
+> **Suspended in part by [D228](#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)** until migrations are live: the
+> goldens are the baseline's and the current version's, and a fold rewrites them.
 
 **Decided** (2026-09-24), by the project owner, refining [D200](#d200--every-opinionated-value-is-a-setting-row-seeded-with-its-starting-value-nothing-has-a-default-in-code-the-config-file-holds-only-what-must-exist-before-the-database-opens-and-all-of-it-is-required)
 the same day.
@@ -16918,3 +16925,54 @@ ones.
    error body's `detail` keeps its common name.
 
 **Status:** Decided; built before M3's closing audit.
+
+---
+
+## D228 — Until migrations are live, library.db's schema is a baseline and one step, and a schema change folds the last step into the baseline
+
+**Decided** (2026-09-29), by the project owner. **Suspends, until migrations are live,
+[D181](#d181--the-migration-policy-two-integers-our-own-small-runner-a-snapshot-that-outlives-success-refuse-what-we-cannot-read-and-re-derive-rather-than-transform) §2's *"every step kept, forever"*
+and [D201](#d201--a-setting-a-person-set-stays-theirs-and-every-other-one-follows-its-starting-value-the-last-pre-database-values-are-config-keys-seeding-fills-both-places-and-reports-what-nothing-reads-new-goldens-have-standing-approval) §4's golden for every step**; the rest of D181 (the two integers, the runner and its checks, the
+snapshot, the newer-database refusal) stands.
+
+1. **Why.** Twenty-five steps had grown for no database but the owner's development one, each
+   test database replayed them, and each had a test of its own. The owner: *"None of the
+   migrations up until now actually matter. There are no actual systems out there to migrate. I
+   only allowed the migration machinery so that the machinery itself would be tested and ready
+   when we later have migrations we actually care about."* and *"yes to ... squashing the
+   migrations. I'll give the word when we're finally at a point where migrations actually
+   matter, and then we can go back to testing all migrations."*
+2. **One step behind.** Revising a first design of one baseline at version 1, the same day:
+   *"We should probably keep 1 version back so that it can migrate the dev db as we go. What I
+   mean is: Squash everything up until the previous migration point, and keep only 1 migration
+   to go from the previous one to the current one. That's the only migration we're actually
+   going to do in a dev environment anyway."* Steps 0001 to 0024 are one baseline,
+   `0024_baseline.sql`, which builds a new database at version 24 with the schema and the rows
+   they built (the two built-in roles); 0025 stays as the one real step. Version numbers do not
+   change: a database at 25 is current, and one at 24 migrates through 0025.
+3. **The rolling rule.** A schema change folds the current last step into the baseline, which
+   moves up to that step's version, and adds the change as the only step after it. A
+   development database is only ever one step behind, and that step really runs on it. The
+   baseline builds only a new file. It names the checksum of the last step it folded
+   (`-- orpheum:baseline folds <sha256>`), so a database that reached the baseline's version
+   through that step is as current as one the baseline built; any other text recorded at that
+   version is refused as a changed step. A database below the baseline's version is refused,
+   saying to start again (`make dev-reset`, then `make dev`); none exists.
+4. **The machinery stays tested**, on synthetic steps: order, a data-transforming step, a
+   rebuild keeping its id sequence, raising `compatible_version`, checksums, snapshots, free
+   space, rollback, interruption, a newer database, and the baseline's rules. A test of a folded
+   step's own rows goes with the step; the real step keeps its own. The reference-scale test
+   fills the baseline's schema and times the real step and a rebuild of `file`.
+5. **Goldens and gates.** There is a golden for the baseline's version and one for the current
+   version, and their difference is what the step does. Until migrations are live, a fold
+   rewrites or removes them without being listed as test weakening (they still need
+   `Gate-Changed:`, with standing approval from this decision), and the pre-edit hook lets the
+   baseline be edited; the step after it stays refused, because a development database has
+   applied it.
+6. **Going live.** The owner says when, and it is done by committing
+   `internal/store/migrations/LIVE`. From then on the baseline is frozen like every step, steps
+   append as D181 says, the pre-edit hook refuses every committed step, a changed golden needs
+   the owner again (D201 §4), and `TestSteps_AreABaselineAndOneStepUntilMigrationsAreLive` no
+   longer holds the steps to two.
+
+**Status:** Decided; built 2026-09-29.
