@@ -16,6 +16,8 @@
 //     link into another root is the scanner's decision, made with Resolve and RelativeIfInside (D206).
 //   - ReadFile refuses a file past its bound rather than cut it short.
 //     TestMediaRoot_ReadFileRefusesAFilePastItsBound.
+//   - Open never waits: a pipe opens without waiting for a writer, so a caller can see it is no
+//     regular file and refuse it. TestMediaRoot_OpenNeverWaitsForAPipesWriter.
 //   - Imports nothing from internal/core. Enforced by the depguard rule node-boundary and
 //     TestArch_NodeNeverImportsCore.
 //   - A confined run reads and writes only what its Access names, beside its tool and the
