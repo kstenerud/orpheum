@@ -62,7 +62,7 @@ func (*fakeProvider) Parse(_ string, body []byte) (identify.Metadata, error) {
 func (harness testHarness) ambiguousTitle(t *testing.T) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.database,
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at)
+		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'movies', 'tmdb', 'manual', 0, 1)`,
 		`INSERT INTO item (id, kind, library_id, created_at) VALUES (10, 'title', 1, 1)`,
 		`INSERT INTO title (id, kind, year, identification) VALUES (10, 'movie', 2003, 'ambiguous')`,

@@ -33,10 +33,17 @@ func (JobKind) Schema(huma.Registry) *huma.Schema {
 
 // JobBody is one job as the job view shows it (cut-a §5.3).
 type JobBody struct {
-	ID      int64   `json:"id"`
-	Kind    JobKind `json:"kind"`
-	Subject int64   `doc:"What it works on, by kind: an item, a rendition, a library, a stream" json:"subject"`
-	State   string  `enum:"queued,running,done,failed,cancelled" json:"state"`
+	ID   int64   `json:"id"`
+	Kind JobKind `json:"kind"`
+	// What it works on, one field by kind (D227 §2): an item for fetch and artwork, a rendition
+	// for prepare, a stream for extract_subtitle, a fetched subtitle for convert_fetched_subtitle,
+	// a file for measure_loudness.
+	ItemID            int64  `json:"itemId,omitempty"`
+	RenditionID       int64  `json:"renditionId,omitempty"`
+	StreamID          int64  `json:"streamId,omitempty"`
+	FetchedSubtitleID int64  `json:"fetchedSubtitleId,omitempty"`
+	FileID            int64  `json:"fileId,omitempty"`
+	State             string `enum:"queued,running,done,failed,cancelled" json:"state"`
 	// Progress is how far it is, 0 to 1, absent when not known.
 	Progress   *float64 `json:"progress,omitempty"`
 	Reason     string   `doc:"Why it exists" json:"reason"`
@@ -85,7 +92,9 @@ func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) 
 	output.Body.Jobs = make([]JobBody, 0, len(views))
 	for _, view := range views {
 		body := JobBody{
-			ID: view.ID, Kind: JobKind(view.Kind), Subject: view.Subject, State: view.State, Progress: view.Progress,
+			ID: view.ID, Kind: JobKind(view.Kind), ItemID: view.ItemID, RenditionID: view.RenditionID,
+			StreamID: view.StreamID, FetchedSubtitleID: view.FetchedSubtitleID, FileID: view.FileID,
+			State: view.State, Progress: view.Progress,
 			Reason: view.Reason, LastError: view.LastError, Attempts: view.Attempts,
 			CreatedAt: view.CreatedAt.UnixMilli(),
 		}

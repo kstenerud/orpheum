@@ -285,7 +285,7 @@ func (work *run) work(ctx context.Context, file sqlcgen.ListIdentifyFilesRow, re
 func (work *run) movieSpec(file sqlcgen.ListIdentifyFilesRow, parsed Parsed) titleSpec {
 	spec := titleSpec{
 		kind: kindMovie, name: parsed.Name, year: parsed.Year, ids: parsed.ProviderIDs,
-		runtimeMs: probeRuntime(file.Probe),
+		runtimeMs: probeRuntime(file.ProbeJson),
 	}
 	if nfo, found := work.nfoFor(file); found && nfo.Kind == kindMovie {
 		spec.fromNFO(nfo)
@@ -394,7 +394,7 @@ func (work *run) keepOrMove(ctx context.Context, file sqlcgen.ListIdentifyFilesR
 // moved reports whether a file's path differs from the one its identification came from: a
 // rename or a move, which is identified again unless a person confirmed the match (D208 §1).
 func moved(file sqlcgen.ListIdentifyFilesRow) bool {
-	return file.IdentifiedPath == nil || *file.IdentifiedPath != file.Path
+	return file.IdentifiedFromPath == nil || *file.IdentifiedFromPath != file.Path
 }
 
 // currentTitle is the title a file already belongs to, if it has one and has not moved.

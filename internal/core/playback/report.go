@@ -124,8 +124,8 @@ func (service *Service) keep(
 			}
 		}
 		return queries.MovePlayPosition(ctx, sqlcgen.MovePlayPositionParams{
-			UserID: userID, FileID: playback.fileID, PositionMs: report.PositionMs, Seq: report.Seq,
-			DeviceID: log.device, UpdatedAt: nowMs, WatchedAt: watchedAt,
+			UserID: userID, FileID: playback.fileID, PositionMs: report.PositionMs, ReportSeq: report.Seq,
+			DeviceID: log.device, UpdatedAt: nowMs, PositionReadAt: watchedAt,
 		})
 	})
 }
@@ -145,7 +145,7 @@ func (log playLog) event(ctx context.Context, queries *sqlcgen.Queries, event Ev
 	mono := event.MonoMs
 	err = queries.InsertPlayEvent(ctx, sqlcgen.InsertPlayEventParams{
 		UserID: log.userID, FileID: log.fileID, DeviceID: log.device, Kind: string(event.Kind),
-		PositionMs: event.PositionMs, ServerAt: happenedAt, ClientMonoMs: &mono,
+		PositionMs: event.PositionMs, HappenedAt: happenedAt, ClientMonoMs: &mono,
 	})
 	if err != nil {
 		return fmt.Errorf("log a %s event: %w", event.Kind, err)
@@ -171,7 +171,7 @@ func (log playLog) span(ctx context.Context, queries *sqlcgen.Queries, span Span
 	}
 	err = queries.InsertPlaySpan(ctx, sqlcgen.InsertPlaySpanParams{
 		UserID: log.userID, FileID: log.fileID, DeviceID: log.device, FromPositionMs: span.FromPositionMs,
-		ToPositionMs: span.ToPositionMs, StartedAt: started, EndedAt: ended, Unattended: unattended,
+		ToPositionMs: span.ToPositionMs, StartedAt: started, EndedAt: ended, IsUnattended: unattended,
 	})
 	if err != nil {
 		return fmt.Errorf("log a span: %w", err)

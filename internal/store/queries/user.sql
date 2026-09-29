@@ -3,7 +3,7 @@
 -- so these read the table and name the tombstone condition themselves.
 
 -- name: GetRoleByName :one
-SELECT id, name, builtin, capabilities
+SELECT id, name, is_builtin, capabilities
 FROM role
 WHERE name = ?;
 
@@ -11,20 +11,20 @@ WHERE name = ?;
 SELECT count(*) FROM user WHERE removed_at IS NULL;
 
 -- name: InsertUser :one
-INSERT INTO user (name, role_id, password_hash, outsider, created_at)
-VALUES (sqlc.arg(name), sqlc.arg(role_id), sqlc.arg(password_hash), sqlc.arg(outsider), sqlc.arg(created_at))
+INSERT INTO user (name, role_id, password_hash, is_outsider, created_at)
+VALUES (sqlc.arg(name), sqlc.arg(role_id), sqlc.arg(password_hash), sqlc.arg(is_outsider), sqlc.arg(created_at))
 RETURNING id;
 
 -- name: GetLiveUserByName :one
 -- A name finds its person whatever the case of its ASCII letters (SQLite's NOCASE), and names are
 -- unique in the same way, so no two people differ only by a capital (the owner, 2026-09-27).
-SELECT user.id, user.name, user.password_hash, user.outsider, role.name AS role_name, role.capabilities
+SELECT user.id, user.name, user.password_hash, user.is_outsider, role.name AS role_name, role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.name = ? COLLATE NOCASE AND user.removed_at IS NULL;
 
 -- name: GetLiveUserByID :one
-SELECT user.id, user.name, user.password_hash, user.outsider, role.name AS role_name, role.capabilities
+SELECT user.id, user.name, user.password_hash, user.is_outsider, role.name AS role_name, role.capabilities
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.id = ? AND user.removed_at IS NULL;
@@ -35,7 +35,7 @@ WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: ListLiveUsers :many
 -- Everyone, for the admin's list of people: whether each has set a password yet.
-SELECT user.id, user.name, role.name AS role_name, user.outsider, user.password_hash IS NOT NULL AS has_password,
+SELECT user.id, user.name, role.name AS role_name, user.is_outsider, user.password_hash IS NOT NULL AS has_password,
   user.created_at
 FROM user
 JOIN role ON role.id = user.role_id

@@ -183,7 +183,7 @@ func (q *Queries) RevokeSessionsOfDevice(ctx context.Context, arg RevokeSessions
 
 const revokeSessionsOfUserExceptDevice = `-- name: RevokeSessionsOfUserExceptDevice :exec
 UPDATE "grant" SET revoked_at = ?1
-WHERE subject = ?2 AND kind = 'session' AND revoked_at IS NULL
+WHERE user_id = ?2 AND kind = 'session' AND revoked_at IS NULL
   AND device_id IS NOT ?3
 `
 

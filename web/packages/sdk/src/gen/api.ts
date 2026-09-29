@@ -1495,6 +1495,10 @@ export interface components {
              * @description Unix milliseconds
              */
             createdAt: number;
+            /** Format: int64 */
+            fetchedSubtitleId?: number;
+            /** Format: int64 */
+            fileId?: number;
             /**
              * Format: int64
              * @description Unix milliseconds
@@ -1502,6 +1506,8 @@ export interface components {
             finishedAt?: number;
             /** Format: int64 */
             id: number;
+            /** Format: int64 */
+            itemId?: number;
             /** @enum {string} */
             kind: "fetch" | "artwork" | "prepare" | "extract_subtitle" | "convert_fetched_subtitle" | "measure_loudness" | "scan" | "backup";
             lastError?: string;
@@ -1509,13 +1515,12 @@ export interface components {
             progress?: number;
             /** @description Why it exists */
             reason: string;
+            /** Format: int64 */
+            renditionId?: number;
             /** @enum {string} */
             state: "queued" | "running" | "done" | "failed" | "cancelled";
-            /**
-             * Format: int64
-             * @description What it works on, by kind: an item, a rendition, a library, a stream
-             */
-            subject: number;
+            /** Format: int64 */
+            streamId?: number;
         };
         JobsOutputBody: {
             jobs: components["schemas"]["JobBody"][] | null;

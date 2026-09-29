@@ -142,7 +142,7 @@ func TestPass_AnImageNoLongerBesideTheMediaIsRetired(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	storetest.ExecRaw(t, lib.database.Path(), "UPDATE artwork SET chosen = 1 WHERE kind = 'backdrop'")
+	storetest.ExecRaw(t, lib.database.Path(), "UPDATE artwork SET is_chosen = 1 WHERE kind = 'backdrop'")
 	lib.scan(video(rel), image("Metropolis (1995)/poster.jpg"))
 	if live := liveKinds(t, lib, titleID); !slices.Equal(live, []string{ArtBackdrop, ArtPoster}) {
 		t.Errorf("with the poster still beside the film: %v live, want both", live)

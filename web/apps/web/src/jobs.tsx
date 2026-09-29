@@ -27,6 +27,11 @@ export async function cancelJob(api: Api, jobId: number): Promise<void> {
 const refreshEveryMs = 3000;
 
 /** Whether a job can still be cancelled: it has not ended. */
+/** The id of what a job works on: the one field its kind sets (D227). */
+export function targetId(job: Job): number | undefined {
+  return job.itemId ?? job.renditionId ?? job.streamId ?? job.fetchedSubtitleId ?? job.fileId;
+}
+
 export function isOpen(job: Job): boolean {
   return job.state === "queued" || job.state === "running";
 }
@@ -101,13 +106,13 @@ export function JobList(props: {
         const kind = t(`jobs.kind.${camelKey(job.kind)}`);
         return (
           <li key={job.id} className="jobs__job">
-            <strong>{t("jobs.what", { kind, subject: job.subject })}</strong>{" "}
+            <strong>{t("jobs.what", { kind, target: targetId(job) })}</strong>{" "}
             <span>{t(`jobs.state.${job.state}`)}</span>{" "}
             {job.progress === undefined ? null : (
               <progress
                 value={job.progress}
                 max={1}
-                aria-label={t("jobs.progress", { kind, subject: job.subject })}
+                aria-label={t("jobs.progress", { kind, target: targetId(job) })}
               />
             )}
             <span>{t("jobs.why", { reason: job.reason })}</span>
@@ -118,7 +123,7 @@ export function JobList(props: {
             {isOpen(job) ? (
               <button
                 type="button"
-                aria-label={t("jobs.cancelLabel", { kind, subject: job.subject })}
+                aria-label={t("jobs.cancelLabel", { kind, target: targetId(job) })}
                 onClick={() => {
                   props.onCancel(job);
                 }}

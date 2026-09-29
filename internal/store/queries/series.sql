@@ -6,7 +6,7 @@
 SELECT kind FROM item WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: GetSeriesForMatch :one
-SELECT collection.id, collection.year, collection.source, collection.source_id, collection.identification,
+SELECT collection.id, collection.year, collection.followed_source, collection.followed_source_id, collection.identification,
   item.library_id, library.metadata_source, item_text.name
 FROM collection
 JOIN item ON item.id = collection.id
@@ -16,18 +16,18 @@ WHERE collection.id = sqlc.arg(id) AND collection.kind = 'series' AND item.remov
 
 -- name: SetSeriesMatch :exec
 -- The outcome of a series' match. A confirmed match is a person's and stays (D172).
-UPDATE collection SET source_id = sqlc.arg(source_id),
+UPDATE collection SET followed_source_id = sqlc.arg(followed_source_id),
   identification = CASE WHEN identification = 'confirmed' THEN identification ELSE sqlc.arg(identification) END
 WHERE id = sqlc.arg(id) AND kind = 'series';
 
 -- name: MarkSeriesUnmatched :exec
 -- The provider found nothing for a series whose own fields have no source yet.
-UPDATE collection SET source = 'none'
-WHERE id = sqlc.arg(id) AND kind = 'series' AND source IS NULL;
+UPDATE collection SET followed_source = 'none'
+WHERE id = sqlc.arg(id) AND kind = 'series' AND followed_source IS NULL;
 
 -- name: UpdateSeriesResolved :exec
 -- A pass's resolution of a series' own fields; its match is the matcher's and a person's.
-UPDATE collection SET year = sqlc.arg(year), source = sqlc.arg(source),
+UPDATE collection SET year = sqlc.arg(year), followed_source = sqlc.arg(followed_source),
   identification = CASE WHEN identification IN ('identified', 'ambiguous', 'confirmed') THEN identification ELSE sqlc.arg(identification) END
 WHERE id = sqlc.arg(id) AND kind = 'series';
 
@@ -35,13 +35,13 @@ WHERE id = sqlc.arg(id) AND kind = 'series';
 -- A series' episodes in its aired order, with where each takes its values from and when it
 -- first appeared: a new episode missing from a season listing fetched before it arrived is
 -- what fetches that listing again (D209 section 3).
-SELECT position.title_id, position.group_number, position.number, title.source, item.created_at
+SELECT position.title_id, position.group_number, position.number_in_group, title.followed_source, item.created_at
 FROM position
 JOIN ordering ON ordering.id = position.ordering_id
 JOIN title ON title.id = position.title_id
 JOIN item ON item.id = title.id
 WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = 'aired' AND item.removed_at IS NULL
-ORDER BY position.sort;
+ORDER BY position.sort_order;
 
 -- name: GetProviderResponseFetchedAt :one
 SELECT fetched_at
@@ -57,7 +57,7 @@ WHERE position.title_id = sqlc.arg(title_id) AND ordering.name = 'aired';
 
 -- name: ListSeriesByIdent :many
 -- The series in one state of identification, for the chooser's list.
-SELECT collection.id, collection.year, collection.identification, collection.source, collection.source_id,
+SELECT collection.id, collection.year, collection.identification, collection.followed_source, collection.followed_source_id,
   item.library_id, item_text.name
 FROM collection
 JOIN item ON item.id = collection.id
@@ -73,12 +73,12 @@ JOIN item ON item.id = collection.id
 JOIN library ON library.id = item.library_id
 WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND collection.kind = 'series'
   AND library.metadata_source != 'nfo' AND collection.identification = 'unidentified'
-  AND collection.source IS NOT 'none'
+  AND collection.followed_source IS NOT 'none'
   AND EXISTS (
     SELECT 1 FROM ordering
     JOIN position ON position.ordering_id = ordering.id
     JOIN title ON title.id = position.title_id
     WHERE ordering.collection_id = collection.id AND ordering.name = 'aired'
-      AND (title.source IS NULL OR title.source != 'nfo')
+      AND (title.followed_source IS NULL OR title.followed_source != 'nfo')
   )
 ORDER BY collection.id;

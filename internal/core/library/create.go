@@ -48,7 +48,7 @@ func Create(ctx context.Context, database *store.Database, clockSource clock.Clo
 		}
 		id, err = queries.InsertLibrary(ctx, sqlcgen.InsertLibraryParams{
 			Name: library.Name, Kind: library.Kind, MetadataSource: library.MetadataSource,
-			ChangeDetection: library.ChangeDetection, CheckEveryH: library.CheckEveryH, Writable: writable,
+			ChangeDetection: library.ChangeDetection, CheckEveryH: library.CheckEveryH, IsWritable: writable,
 			CreatedAt: clockSource.Now().UnixMilli(),
 		})
 		if err != nil {

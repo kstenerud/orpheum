@@ -93,7 +93,7 @@ func NewService(database *store.Database, clockSource clock.Clock, logger *slog.
 func (service *Service) heal(ctx context.Context, definition Definition) error {
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.InsertServerSettingIfMissing(ctx, sqlcgen.InsertServerSettingIfMissingParams{
-			Key: string(definition.Key), Value: compact(definition.Start), SetAt: service.clock.Now().UnixMilli(),
+			Key: string(definition.Key), ValueJson: compact(definition.Start), SetAt: service.clock.Now().UnixMilli(),
 		})
 	})
 	if err != nil {
@@ -147,7 +147,7 @@ func (service *Service) stored(ctx context.Context, owner *int64) (Scope, map[st
 		}
 		for _, row := range rows {
 			stored[row.Key] = storedSetting{
-				Value: row.Value, SetBy: row.SetBy, SetAt: row.SetAt, IsModified: row.IsModified == 1,
+				Value: row.ValueJson, SetBy: row.SetByUserID, SetAt: row.SetAt, IsModified: row.IsModified == 1,
 			}
 		}
 		return ScopeServer, stored, nil
@@ -158,7 +158,7 @@ func (service *Service) stored(ctx context.Context, owner *int64) (Scope, map[st
 	}
 	for _, row := range rows {
 		stored[row.Key] = storedSetting{
-			Value: row.Value, SetBy: row.SetBy, SetAt: row.SetAt, IsModified: row.IsModified == 1,
+			Value: row.ValueJson, SetBy: row.SetByUserID, SetAt: row.SetAt, IsModified: row.IsModified == 1,
 		}
 	}
 	return ScopeUser, stored, nil
@@ -199,14 +199,14 @@ func (service *Service) read(ctx context.Context, key Key, kind Kind, target any
 		if healErr := service.heal(ctx, definition); healErr != nil {
 			return healErr
 		}
-		row.Value = compact(definition.Start)
+		row.ValueJson = compact(definition.Start)
 	} else if err != nil {
 		return fmt.Errorf("read %s: %w", key, err)
 	}
-	if row.Value == "null" {
+	if row.ValueJson == "null" {
 		return fmt.Errorf("%s: %w", key, ErrUnanswered)
 	}
-	if err = json.Unmarshal([]byte(row.Value), target); err != nil {
+	if err = json.Unmarshal([]byte(row.ValueJson), target); err != nil {
 		return fmt.Errorf("read %s: %w", key, err)
 	}
 	return nil
@@ -289,11 +289,12 @@ func upsert(ctx context.Context, queries *sqlcgen.Queries, change change) error 
 	}
 	if change.owner == nil {
 		return queries.UpsertServerSetting(ctx, sqlcgen.UpsertServerSettingParams{
-			Key: change.key, Value: change.value, SetBy: change.setBy, SetAt: change.setAt, IsModified: modified,
+			Key: change.key, ValueJson: change.value, SetByUserID: change.setBy, SetAt: change.setAt,
+			IsModified: modified,
 		})
 	}
 	return queries.UpsertUserSetting(ctx, sqlcgen.UpsertUserSettingParams{
-		UserID: change.owner, Key: change.key, Value: change.value, SetBy: change.setBy, SetAt: change.setAt,
+		UserID: change.owner, Key: change.key, ValueJson: change.value, SetByUserID: change.setBy, SetAt: change.setAt,
 		IsModified: modified,
 	})
 }

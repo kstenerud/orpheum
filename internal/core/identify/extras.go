@@ -120,7 +120,7 @@ func (work *run) extra(ctx context.Context, pending pendingExtra) error {
 	}
 	parsed := ParsePath(pending.rel)
 	spec := titleSpec{
-		kind: kindExtra, name: parsed.Name, runtimeMs: probeRuntime(pending.file.Probe), ids: map[string]string{},
+		kind: kindExtra, name: parsed.Name, runtimeMs: probeRuntime(pending.file.ProbeJson), ids: map[string]string{},
 		key:    fmt.Sprintf("extra|%d|%s", ownerTitle, strings.ToLower(pending.rel)),
 		source: sourceNone, ident: identIdentified,
 	}
@@ -132,7 +132,7 @@ func (work *run) extra(ctx context.Context, pending pendingExtra) error {
 		return err
 	}
 	err = work.queries.UpsertScannerExtraRelation(ctx, sqlcgen.UpsertScannerExtraRelationParams{
-		OwnerTitle: ownerTitle, ExtraTitle: titleID, Type: pending.extra.kind,
+		OwnerTitle: ownerTitle, ExtraTitle: titleID, ExtraType: pending.extra.kind,
 	})
 	if err != nil {
 		return fmt.Errorf("relate the extra %s: %w", pending.file.Path, err)

@@ -103,7 +103,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 				Ident: ptr.ValueOrZero(row.Identification), LibraryID: ptr.ValueOrZero(row.LibraryID),
 				AddedAt: row.CreatedAt,
 			})
-			keys = append(keys, row.Key)
+			keys = append(keys, row.CollationKey)
 		}
 	} else {
 		rows, listErr := queries.ListFilmsByName(ctx, sqlcgen.ListFilmsByNameParams{
@@ -115,7 +115,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 				Ident: row.Identification, LibraryID: ptr.ValueOrZero(row.LibraryID), AddedAt: row.CreatedAt,
 			})
-			keys = append(keys, row.Key)
+			keys = append(keys, row.CollationKey)
 		}
 	}
 	if err != nil {

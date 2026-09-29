@@ -28,10 +28,10 @@ func (harness testHarness) continueWatching(t *testing.T, session string) []InPr
 func (harness testHarness) watched(t *testing.T, fileID, positionMs, watchedAt int64) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.database, fmt.Sprintf(
-		`INSERT INTO play_position (user_id, file_id, position_ms, seq, updated_at, watched_at)
+		`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at, position_read_at)
 		 VALUES (1, %d, %d, 1, %d, %d)
 		 ON CONFLICT (user_id, file_id) DO UPDATE SET position_ms = excluded.position_ms,
-		   watched_at = excluded.watched_at`, fileID, positionMs, watchedAt, watchedAt))
+		   position_read_at = excluded.position_read_at`, fileID, positionMs, watchedAt, watchedAt))
 }
 
 // rowsOf names Continue Watching's rows: each work's id and the file it resumes.
@@ -50,7 +50,7 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 	harness.shelve(t)
 	// Metropolis has a second copy, and an extra; Metropolis's first copy is 1000 s long.
 	storetest.ExecRaw(t, harness.database,
-		`UPDATE file SET probe = '{"format":{"durationMs":1000000}}' WHERE id = 1`,
+		`UPDATE file SET probe_json = '{"format":{"durationMs":1000000}}' WHERE id = 1`,
 		"INSERT INTO version (id, title_id, created_at) VALUES (3, 10, 3)",
 		`INSERT INTO file (id, library_id, node_id, path, size_bytes, filing, version_id, first_seen_at, last_seen_at)
 		 VALUES (3, 1, 1, '/m/Metropolis (1995) - 720p.mkv', 500, 'listed', 3, 1, 1),

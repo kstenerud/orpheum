@@ -124,12 +124,12 @@ func (q *Queries) GetLibraryForRoot(ctx context.Context, arg GetLibraryForRootPa
 const getLiveFileByKey = `-- name: GetLiveFileByKey :one
 SELECT id, payload_hash, last_seen_at
 FROM file
-WHERE node_id = ?1 AND path_key = ?2 AND removed_at IS NULL
+WHERE node_id = ?1 AND reported_path_bytes = ?2 AND removed_at IS NULL
 `
 
 type GetLiveFileByKeyParams struct {
-	NodeID  int64
-	PathKey []byte
+	NodeID            int64
+	ReportedPathBytes []byte
 }
 
 type GetLiveFileByKeyRow struct {
@@ -141,26 +141,37 @@ type GetLiveFileByKeyRow struct {
 // A live file by the bytes its node reported (D211): two names that are one NFC text are two
 // files.
 func (q *Queries) GetLiveFileByKey(ctx context.Context, arg GetLiveFileByKeyParams) (GetLiveFileByKeyRow, error) {
-	row := q.db.QueryRowContext(ctx, getLiveFileByKey, arg.NodeID, arg.PathKey)
+	row := q.db.QueryRowContext(ctx, getLiveFileByKey, arg.NodeID, arg.ReportedPathBytes)
 	var i GetLiveFileByKeyRow
 	err := row.Scan(&i.ID, &i.PayloadHash, &i.LastSeenAt)
 	return i, err
 }
 
+const getNFOBody = `-- name: GetNFOBody :one
+SELECT nfo_body FROM file WHERE id = ?
+`
+
+func (q *Queries) GetNFOBody(ctx context.Context, id int64) ([]byte, error) {
+	row := q.db.QueryRowContext(ctx, getNFOBody, id)
+	var nfo_body []byte
+	err := row.Scan(&nfo_body)
+	return nfo_body, err
+}
+
 const getPlayableFile = `-- name: GetPlayableFile :one
-SELECT id, node_id, library_id, path_key, payload_hash, probe, size_bytes
+SELECT id, node_id, library_id, reported_path_bytes, payload_hash, probe_json, size_bytes
 FROM file
 WHERE id = ? AND removed_at IS NULL AND filing IN ('listed', 'extra', 'unidentified')
 `
 
 type GetPlayableFileRow struct {
-	ID          int64
-	NodeID      int64
-	LibraryID   int64
-	PathKey     []byte
-	PayloadHash []byte
-	Probe       *string
-	SizeBytes   *int64
+	ID                int64
+	NodeID            int64
+	LibraryID         int64
+	ReportedPathBytes []byte
+	PayloadHash       []byte
+	ProbeJson         *string
+	SizeBytes         *int64
 }
 
 // A live file a person may play: a video the scan filed, whatever it was identified as. What a
@@ -172,38 +183,27 @@ func (q *Queries) GetPlayableFile(ctx context.Context, id int64) (GetPlayableFil
 		&i.ID,
 		&i.NodeID,
 		&i.LibraryID,
-		&i.PathKey,
+		&i.ReportedPathBytes,
 		&i.PayloadHash,
-		&i.Probe,
+		&i.ProbeJson,
 		&i.SizeBytes,
 	)
 	return i, err
 }
 
-const getSidecarBody = `-- name: GetSidecarBody :one
-SELECT sidecar_body FROM file WHERE id = ?
-`
-
-func (q *Queries) GetSidecarBody(ctx context.Context, id int64) ([]byte, error) {
-	row := q.db.QueryRowContext(ctx, getSidecarBody, id)
-	var sidecar_body []byte
-	err := row.Scan(&sidecar_body)
-	return sidecar_body, err
-}
-
 const getSidecarStream = `-- name: GetSidecarStream :one
-SELECT id, video_file, codec, lang_raw, lang, disposition
+SELECT id, video_file, codec, lang_raw, lang, disposition_flags
 FROM stream
 WHERE bytes_file = ?1 AND stream_index IS NULL
 `
 
 type GetSidecarStreamRow struct {
-	ID          int64
-	VideoFile   int64
-	Codec       *string
-	LangRaw     *string
-	Lang        *string
-	Disposition int64
+	ID               int64
+	VideoFile        int64
+	Codec            *string
+	LangRaw          *string
+	Lang             *string
+	DispositionFlags int64
 }
 
 // A sidecar's one stream: a whole-file track has no stream index (schema.md, stream).
@@ -216,27 +216,27 @@ func (q *Queries) GetSidecarStream(ctx context.Context, bytesFile int64) (GetSid
 		&i.Codec,
 		&i.LangRaw,
 		&i.Lang,
-		&i.Disposition,
+		&i.DispositionFlags,
 	)
 	return i, err
 }
 
 const getSubtitleStream = `-- name: GetSubtitleStream :one
-SELECT s.id, s.video_file, s.stream_index, s.codec, f.library_id, f.node_id, f.path_key, f.payload_hash
+SELECT s.id, s.video_file, s.stream_index, s.codec, f.library_id, f.node_id, f.reported_path_bytes, f.payload_hash
 FROM stream s
 JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
 WHERE s.id = ?1 AND s.kind = 'subtitle'
 `
 
 type GetSubtitleStreamRow struct {
-	ID          int64
-	VideoFile   int64
-	StreamIndex *int64
-	Codec       *string
-	LibraryID   int64
-	NodeID      int64
-	PathKey     []byte
-	PayloadHash []byte
+	ID                int64
+	VideoFile         int64
+	StreamIndex       *int64
+	Codec             *string
+	LibraryID         int64
+	NodeID            int64
+	ReportedPathBytes []byte
+	PayloadHash       []byte
 }
 
 // A subtitle track, and the live file its bytes are in, for the job that extracts it.
@@ -250,7 +250,7 @@ func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleS
 		&i.Codec,
 		&i.LibraryID,
 		&i.NodeID,
-		&i.PathKey,
+		&i.ReportedPathBytes,
 		&i.PayloadHash,
 	)
 	return i, err
@@ -258,13 +258,13 @@ func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleS
 
 const insertFile = `-- name: InsertFile :one
 INSERT INTO file (
-  library_id, node_id, path, path_raw, path_key, size_bytes, mtime_ms, payload_hash, payload_bytes,
-  filing, filing_reason, error_detail, probe, first_seen_at, last_seen_at, opensubtitles_hash
+  library_id, node_id, path, reported_path_bytes, size_bytes, mtime_ms, payload_hash, payload_bytes,
+  filing, filing_reason, error_detail, probe_json, first_seen_at, last_seen_at, opensubtitles_hash
 ) VALUES (
-  ?1, ?2, ?3, ?4, ?5, ?6,
-  ?7, ?8, ?9, ?10,
-  ?11, ?12, ?13, ?14, ?14,
-  ?15
+  ?1, ?2, ?3, ?4, ?5,
+  ?6, ?7, ?8, ?9,
+  ?10, ?11, ?12, ?13, ?13,
+  ?14
 )
 RETURNING id
 `
@@ -273,8 +273,7 @@ type InsertFileParams struct {
 	LibraryID         int64
 	NodeID            int64
 	Path              string
-	PathRaw           []byte
-	PathKey           []byte
+	ReportedPathBytes []byte
 	SizeBytes         *int64
 	MtimeMs           *int64
 	PayloadHash       []byte
@@ -282,7 +281,7 @@ type InsertFileParams struct {
 	Filing            string
 	FilingReason      *string
 	ErrorDetail       *string
-	Probe             *string
+	ProbeJson         *string
 	SeenAt            int64
 	OpensubtitlesHash *string
 }
@@ -292,8 +291,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 		arg.LibraryID,
 		arg.NodeID,
 		arg.Path,
-		arg.PathRaw,
-		arg.PathKey,
+		arg.ReportedPathBytes,
 		arg.SizeBytes,
 		arg.MtimeMs,
 		arg.PayloadHash,
@@ -301,7 +299,7 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 		arg.Filing,
 		arg.FilingReason,
 		arg.ErrorDetail,
-		arg.Probe,
+		arg.ProbeJson,
 		arg.SeenAt,
 		arg.OpensubtitlesHash,
 	)
@@ -312,45 +310,46 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 
 const insertSidecarFile = `-- name: InsertSidecarFile :one
 INSERT INTO file (
-  library_id, node_id, path, path_raw, path_key, size_bytes, mtime_ms, payload_hash, payload_bytes, filing,
-  filing_reason, sidecar_body, first_seen_at, last_seen_at
+  library_id, node_id, path, reported_path_bytes, size_bytes, mtime_ms, payload_hash, payload_bytes, filing,
+  filing_reason, sidecar_kind, nfo_body, first_seen_at, last_seen_at
 ) VALUES (
-  ?1, ?2, ?3, ?4, ?5, ?6,
-  ?7, ?8, ?9, 'attached', ?10, ?11,
-  ?12, ?12
+  ?1, ?2, ?3, ?4, ?5,
+  ?6, ?7, ?8, 'attached', ?9,
+  ?10, ?11, ?12, ?12
 )
 RETURNING id
 `
 
 type InsertSidecarFileParams struct {
-	LibraryID    int64
-	NodeID       int64
-	Path         string
-	PathRaw      []byte
-	PathKey      []byte
-	SizeBytes    *int64
-	MtimeMs      *int64
-	PayloadHash  []byte
-	PayloadBytes *int64
-	Kind         *string
-	Body         []byte
-	SeenAt       int64
+	LibraryID         int64
+	NodeID            int64
+	Path              string
+	ReportedPathBytes []byte
+	SizeBytes         *int64
+	MtimeMs           *int64
+	PayloadHash       []byte
+	PayloadBytes      *int64
+	FilingReason      *string
+	SidecarKind       *string
+	NfoBody           []byte
+	SeenAt            int64
 }
 
-// A subtitle carries its payload hash, the file hashed whole; an NFO or an image has none.
+// A subtitle carries its payload hash, the file hashed whole; an NFO or an image has none. Only
+// an NFO's bytes are kept, in nfo_body.
 func (q *Queries) InsertSidecarFile(ctx context.Context, arg InsertSidecarFileParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, insertSidecarFile,
 		arg.LibraryID,
 		arg.NodeID,
 		arg.Path,
-		arg.PathRaw,
-		arg.PathKey,
+		arg.ReportedPathBytes,
 		arg.SizeBytes,
 		arg.MtimeMs,
 		arg.PayloadHash,
 		arg.PayloadBytes,
-		arg.Kind,
-		arg.Body,
+		arg.FilingReason,
+		arg.SidecarKind,
+		arg.NfoBody,
 		arg.SeenAt,
 	)
 	var id int64
@@ -359,18 +358,18 @@ func (q *Queries) InsertSidecarFile(ctx context.Context, arg InsertSidecarFilePa
 }
 
 const insertSidecarStream = `-- name: InsertSidecarStream :exec
-INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang, disposition)
+INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang, disposition_flags)
 VALUES (?1, ?2, NULL, 'subtitle', ?3, ?4,
   ?5, ?6)
 `
 
 type InsertSidecarStreamParams struct {
-	BytesFile   int64
-	VideoFile   int64
-	Codec       *string
-	LangRaw     *string
-	Lang        *string
-	Disposition int64
+	BytesFile        int64
+	VideoFile        int64
+	Codec            *string
+	LangRaw          *string
+	Lang             *string
+	DispositionFlags int64
 }
 
 func (q *Queries) InsertSidecarStream(ctx context.Context, arg InsertSidecarStreamParams) error {
@@ -380,7 +379,7 @@ func (q *Queries) InsertSidecarStream(ctx context.Context, arg InsertSidecarStre
 		arg.Codec,
 		arg.LangRaw,
 		arg.Lang,
-		arg.Disposition,
+		arg.DispositionFlags,
 	)
 	return err
 }
@@ -464,7 +463,7 @@ func (q *Queries) ListLiveFilesByHash(ctx context.Context, arg ListLiveFilesByHa
 }
 
 const listLiveFilesByNode = `-- name: ListLiveFilesByNode :many
-SELECT id, library_id, path, path_raw, size_bytes, payload_hash, payload_bytes, filing, filing_reason,
+SELECT id, library_id, path, reported_path_bytes, size_bytes, payload_hash, payload_bytes, filing, filing_reason,
   error_detail, first_seen_at, last_seen_at
 FROM file
 WHERE node_id = ? AND removed_at IS NULL
@@ -472,18 +471,18 @@ ORDER BY path
 `
 
 type ListLiveFilesByNodeRow struct {
-	ID           int64
-	LibraryID    int64
-	Path         string
-	PathRaw      []byte
-	SizeBytes    *int64
-	PayloadHash  []byte
-	PayloadBytes *int64
-	Filing       string
-	FilingReason *string
-	ErrorDetail  *string
-	FirstSeenAt  int64
-	LastSeenAt   int64
+	ID                int64
+	LibraryID         int64
+	Path              string
+	ReportedPathBytes []byte
+	SizeBytes         *int64
+	PayloadHash       []byte
+	PayloadBytes      *int64
+	Filing            string
+	FilingReason      *string
+	ErrorDetail       *string
+	FirstSeenAt       int64
+	LastSeenAt        int64
 }
 
 func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]ListLiveFilesByNodeRow, error) {
@@ -499,7 +498,7 @@ func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]List
 			&i.ID,
 			&i.LibraryID,
 			&i.Path,
-			&i.PathRaw,
+			&i.ReportedPathBytes,
 			&i.SizeBytes,
 			&i.PayloadHash,
 			&i.PayloadBytes,
@@ -523,7 +522,7 @@ func (q *Queries) ListLiveFilesByNode(ctx context.Context, nodeID int64) ([]List
 }
 
 const listLiveFilesForAttaching = `-- name: ListLiveFilesForAttaching :many
-SELECT id, path, filing, filing_reason, payload_hash, attached_to
+SELECT id, path, filing, sidecar_kind, payload_hash, attached_to_file
 FROM file
 WHERE node_id = ? AND library_id = ? AND removed_at IS NULL
 ORDER BY path
@@ -535,12 +534,12 @@ type ListLiveFilesForAttachingParams struct {
 }
 
 type ListLiveFilesForAttachingRow struct {
-	ID           int64
-	Path         string
-	Filing       string
-	FilingReason *string
-	PayloadHash  []byte
-	AttachedTo   *int64
+	ID             int64
+	Path           string
+	Filing         string
+	SidecarKind    *string
+	PayloadHash    []byte
+	AttachedToFile *int64
 }
 
 func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFilesForAttachingParams) ([]ListLiveFilesForAttachingRow, error) {
@@ -556,9 +555,9 @@ func (q *Queries) ListLiveFilesForAttaching(ctx context.Context, arg ListLiveFil
 			&i.ID,
 			&i.Path,
 			&i.Filing,
-			&i.FilingReason,
+			&i.SidecarKind,
 			&i.PayloadHash,
-			&i.AttachedTo,
+			&i.AttachedToFile,
 		); err != nil {
 			return nil, err
 		}
@@ -615,22 +614,22 @@ func (q *Queries) ListLiveFilesOfLibrary(ctx context.Context, arg ListLiveFilesO
 }
 
 const listStreamsOfFile = `-- name: ListStreamsOfFile :many
-SELECT id, stream_index, kind, codec, lang_raw, lang, title_raw, disposition, channels
+SELECT id, stream_index, kind, codec, lang_raw, lang, title_raw, disposition_flags, channel_count
 FROM stream
 WHERE bytes_file = ?
 ORDER BY stream_index
 `
 
 type ListStreamsOfFileRow struct {
-	ID          int64
-	StreamIndex *int64
-	Kind        string
-	Codec       *string
-	LangRaw     *string
-	Lang        *string
-	TitleRaw    *string
-	Disposition int64
-	Channels    *int64
+	ID               int64
+	StreamIndex      *int64
+	Kind             string
+	Codec            *string
+	LangRaw          *string
+	Lang             *string
+	TitleRaw         *string
+	DispositionFlags int64
+	ChannelCount     *int64
 }
 
 func (q *Queries) ListStreamsOfFile(ctx context.Context, bytesFile int64) ([]ListStreamsOfFileRow, error) {
@@ -650,8 +649,8 @@ func (q *Queries) ListStreamsOfFile(ctx context.Context, bytesFile int64) ([]Lis
 			&i.LangRaw,
 			&i.Lang,
 			&i.TitleRaw,
-			&i.Disposition,
-			&i.Channels,
+			&i.DispositionFlags,
+			&i.ChannelCount,
 		); err != nil {
 			return nil, err
 		}
@@ -667,7 +666,7 @@ func (q *Queries) ListStreamsOfFile(ctx context.Context, bytesFile int64) ([]Lis
 }
 
 const listSubtitleTracksOfVideo = `-- name: ListSubtitleTracksOfVideo :many
-SELECT s.id, s.stream_index, s.codec, s.lang, s.title_raw, s.disposition, f.payload_hash AS bytes_payload_hash
+SELECT s.id, s.stream_index, s.codec, s.lang, s.title_raw, s.disposition_flags, f.payload_hash AS bytes_payload_hash
 FROM stream s
 JOIN file f ON f.id = s.bytes_file AND f.removed_at IS NULL
 WHERE s.video_file = ?1 AND s.kind = 'subtitle'
@@ -680,7 +679,7 @@ type ListSubtitleTracksOfVideoRow struct {
 	Codec            *string
 	Lang             *string
 	TitleRaw         *string
-	Disposition      int64
+	DispositionFlags int64
 	BytesPayloadHash []byte
 }
 
@@ -701,7 +700,7 @@ func (q *Queries) ListSubtitleTracksOfVideo(ctx context.Context, videoFile int64
 			&i.Codec,
 			&i.Lang,
 			&i.TitleRaw,
-			&i.Disposition,
+			&i.DispositionFlags,
 			&i.BytesPayloadHash,
 		); err != nil {
 			return nil, err
@@ -727,16 +726,16 @@ func (q *Queries) ReviveFile(ctx context.Context, id int64) error {
 }
 
 const setFileAttachedTo = `-- name: SetFileAttachedTo :exec
-UPDATE file SET attached_to = ?1 WHERE id = ?2
+UPDATE file SET attached_to_file = ?1 WHERE id = ?2
 `
 
 type SetFileAttachedToParams struct {
-	AttachedTo *int64
-	ID         int64
+	AttachedToFile *int64
+	ID             int64
 }
 
 func (q *Queries) SetFileAttachedTo(ctx context.Context, arg SetFileAttachedToParams) error {
-	_, err := q.db.ExecContext(ctx, setFileAttachedTo, arg.AttachedTo, arg.ID)
+	_, err := q.db.ExecContext(ctx, setFileAttachedTo, arg.AttachedToFile, arg.ID)
 	return err
 }
 
@@ -787,34 +786,32 @@ const updateObservedFile = `-- name: UpdateObservedFile :exec
 UPDATE file SET
   library_id = ?1,
   path = ?2,
-  path_raw = ?3,
-  path_key = ?4,
-  size_bytes = ?5,
-  mtime_ms = ?6,
-  payload_hash = ?7,
-  payload_bytes = ?8,
-  identity = 'confirmed',
+  reported_path_bytes = ?3,
+  size_bytes = ?4,
+  mtime_ms = ?5,
+  payload_hash = ?6,
+  payload_bytes = ?7,
+  is_identity_confirmed = 1,
   filing = CASE WHEN filing IN ('skipped', 'errored') THEN 'unidentified' ELSE filing END,
-  filing_reason = CASE WHEN filing IN ('skipped', 'errored') THEN ?9
+  filing_reason = CASE WHEN filing IN ('skipped', 'errored') THEN ?8
                   ELSE filing_reason END,
   error_detail = NULL,
-  probe = ?10,
-  opensubtitles_hash = ?11,
-  last_seen_at = ?12
-WHERE id = ?13
+  probe_json = ?9,
+  opensubtitles_hash = ?10,
+  last_seen_at = ?11
+WHERE id = ?12
 `
 
 type UpdateObservedFileParams struct {
 	LibraryID          int64
 	Path               string
-	PathRaw            []byte
-	PathKey            []byte
+	ReportedPathBytes  []byte
 	SizeBytes          *int64
 	MtimeMs            *int64
 	PayloadHash        []byte
 	PayloadBytes       *int64
 	UnidentifiedReason *string
-	Probe              *string
+	ProbeJson          *string
 	OpensubtitlesHash  *string
 	SeenAt             int64
 	ID                 int64
@@ -826,14 +823,13 @@ func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFile
 	_, err := q.db.ExecContext(ctx, updateObservedFile,
 		arg.LibraryID,
 		arg.Path,
-		arg.PathRaw,
-		arg.PathKey,
+		arg.ReportedPathBytes,
 		arg.SizeBytes,
 		arg.MtimeMs,
 		arg.PayloadHash,
 		arg.PayloadBytes,
 		arg.UnidentifiedReason,
-		arg.Probe,
+		arg.ProbeJson,
 		arg.OpensubtitlesHash,
 		arg.SeenAt,
 		arg.ID,
@@ -843,22 +839,24 @@ func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFile
 
 const updateSidecarFile = `-- name: UpdateSidecarFile :exec
 UPDATE file SET
-  library_id = ?1, path_raw = ?2, size_bytes = ?3,
-  mtime_ms = ?4, payload_hash = ?5, payload_bytes = ?6,
-  filing = 'attached', filing_reason = ?7, error_detail = NULL, sidecar_body = ?8,
+  library_id = ?1, size_bytes = ?2,
+  mtime_ms = ?3, payload_hash = ?4, payload_bytes = ?5,
+  filing = 'attached', sidecar_kind = ?6, filing_reason = ?7,
+  error_detail = NULL,
+  nfo_body = ?8,
   last_seen_at = ?9
 WHERE id = ?10
 `
 
 type UpdateSidecarFileParams struct {
 	LibraryID    int64
-	PathRaw      []byte
 	SizeBytes    *int64
 	MtimeMs      *int64
 	PayloadHash  []byte
 	PayloadBytes *int64
-	Kind         *string
-	Body         []byte
+	SidecarKind  *string
+	FilingReason *string
+	NfoBody      []byte
 	SeenAt       int64
 	ID           int64
 }
@@ -866,13 +864,13 @@ type UpdateSidecarFileParams struct {
 func (q *Queries) UpdateSidecarFile(ctx context.Context, arg UpdateSidecarFileParams) error {
 	_, err := q.db.ExecContext(ctx, updateSidecarFile,
 		arg.LibraryID,
-		arg.PathRaw,
 		arg.SizeBytes,
 		arg.MtimeMs,
 		arg.PayloadHash,
 		arg.PayloadBytes,
-		arg.Kind,
-		arg.Body,
+		arg.SidecarKind,
+		arg.FilingReason,
+		arg.NfoBody,
 		arg.SeenAt,
 		arg.ID,
 	)
@@ -881,17 +879,17 @@ func (q *Queries) UpdateSidecarFile(ctx context.Context, arg UpdateSidecarFilePa
 
 const updateSidecarStream = `-- name: UpdateSidecarStream :exec
 UPDATE stream SET video_file = ?1, codec = ?2, lang_raw = ?3,
-  lang = ?4, disposition = ?5
+  lang = ?4, disposition_flags = ?5
 WHERE id = ?6
 `
 
 type UpdateSidecarStreamParams struct {
-	VideoFile   int64
-	Codec       *string
-	LangRaw     *string
-	Lang        *string
-	Disposition int64
-	ID          int64
+	VideoFile        int64
+	Codec            *string
+	LangRaw          *string
+	Lang             *string
+	DispositionFlags int64
+	ID               int64
 }
 
 func (q *Queries) UpdateSidecarStream(ctx context.Context, arg UpdateSidecarStreamParams) error {
@@ -900,51 +898,51 @@ func (q *Queries) UpdateSidecarStream(ctx context.Context, arg UpdateSidecarStre
 		arg.Codec,
 		arg.LangRaw,
 		arg.Lang,
-		arg.Disposition,
+		arg.DispositionFlags,
 		arg.ID,
 	)
 	return err
 }
 
 const upsertRootScan = `-- name: UpsertRootScan :exec
-INSERT INTO root_scan (node_id, path, completed_at)
+INSERT INTO root_scan (node_id, root_path, completed_at)
 VALUES (?1, ?2, ?3)
-ON CONFLICT (node_id, path) DO UPDATE SET completed_at = excluded.completed_at
+ON CONFLICT (node_id, root_path) DO UPDATE SET completed_at = excluded.completed_at
 `
 
 type UpsertRootScanParams struct {
 	NodeID      int64
-	Path        string
+	RootPath    string
 	CompletedAt int64
 }
 
 func (q *Queries) UpsertRootScan(ctx context.Context, arg UpsertRootScanParams) error {
-	_, err := q.db.ExecContext(ctx, upsertRootScan, arg.NodeID, arg.Path, arg.CompletedAt)
+	_, err := q.db.ExecContext(ctx, upsertRootScan, arg.NodeID, arg.RootPath, arg.CompletedAt)
 	return err
 }
 
 const upsertStream = `-- name: UpsertStream :exec
-INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang, title_raw, disposition, channels)
+INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang, title_raw, disposition_flags, channel_count)
 VALUES (
   ?1, ?1, ?2, ?3, ?4,
   ?5, ?6, ?7, ?8, ?9
 )
 ON CONFLICT (bytes_file, stream_index) DO UPDATE SET
   video_file = excluded.video_file, kind = excluded.kind, codec = excluded.codec, lang_raw = excluded.lang_raw,
-  lang = excluded.lang, title_raw = excluded.title_raw, disposition = excluded.disposition,
-  channels = excluded.channels
+  lang = excluded.lang, title_raw = excluded.title_raw, disposition_flags = excluded.disposition_flags,
+  channel_count = excluded.channel_count
 `
 
 type UpsertStreamParams struct {
-	FileID      int64
-	StreamIndex *int64
-	Kind        string
-	Codec       *string
-	LangRaw     *string
-	Lang        *string
-	TitleRaw    *string
-	Disposition int64
-	Channels    *int64
+	FileID           int64
+	StreamIndex      *int64
+	Kind             string
+	Codec            *string
+	LangRaw          *string
+	Lang             *string
+	TitleRaw         *string
+	DispositionFlags int64
+	ChannelCount     *int64
 }
 
 // A video's own track, by its stream index. A row keeps its id for as long as its file has the
@@ -958,8 +956,8 @@ func (q *Queries) UpsertStream(ctx context.Context, arg UpsertStreamParams) erro
 		arg.LangRaw,
 		arg.Lang,
 		arg.TitleRaw,
-		arg.Disposition,
-		arg.Channels,
+		arg.DispositionFlags,
+		arg.ChannelCount,
 	)
 	return err
 }

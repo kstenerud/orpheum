@@ -340,7 +340,7 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 		t.Fatal(err)
 	}
 	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
-		"UPDATE setting SET value = 'true', is_modified = 1 WHERE scope = 'server' AND key = 'serve_debug_pprof'")
+		"UPDATE setting SET value_json = 'true', is_modified = 1 WHERE scope = 'server' AND key = 'serve_debug_pprof'")
 	restarted := startServing(t, config, newCapturedLog("ready"), "ready")
 	pprofURL = strings.TrimSuffix(restarted.baseURL, api.Prefix) + "/debug/pprof/"
 	if on := call(t, http.MethodGet, pprofURL, "", nil); on.status != http.StatusOK {
@@ -358,8 +358,8 @@ func TestServe_SweepsUnmodifiedSettingsToTheirStartingValuesBeforeItIsReady(t *t
 	// As a database looks after an upgrade that changed two starting values: one row nobody
 	// touched still holds the old value; the other was set by a person.
 	storetest.ExecRaw(t, filepath.Join(config.Server.DataDir, "library.db"),
-		"UPDATE setting SET value = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
-		"UPDATE setting SET value = '6', is_modified = 1 WHERE key = 'secret_hint_chars'")
+		"UPDATE setting SET value_json = '7', is_modified = 0 WHERE key = 'signin_failure_limit'",
+		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'secret_hint_chars'")
 	captured := newCapturedLog("ready")
 	server := startServing(t, config, captured, "ready")
 	logged := captured.String()

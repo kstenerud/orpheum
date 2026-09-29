@@ -168,7 +168,7 @@ func (service *Service) queueMake(ctx context.Context, hash string, want nodepro
 		return fmt.Errorf("encode the job: %w", err)
 	}
 	_, err = service.parts.Queue.Enqueue(ctx, jobs.New{
-		Kind: jobs.KindArtwork, Subject: origin.ItemID, Args: string(args), Priority: makePriority,
+		Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: origin.ItemID}, Args: string(args), Priority: makePriority,
 		Reason: fmt.Sprintf("sizes someone asked for: %v", sizes),
 	})
 	if err != nil {

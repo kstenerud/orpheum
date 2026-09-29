@@ -70,7 +70,7 @@ type Subtitle struct {
 // textKey is where a track's text is kept: the payload hash of the file its bytes are in, and its
 // stream index there. A subtitle file's one track is its stream 0, as FFmpeg numbers it.
 func textKey(payloadHash []byte, streamIndex *int64) cachegen.GetSubtitleTextParams {
-	key := cachegen.GetSubtitleTextParams{PayloadHash: payloadHash}
+	key := cachegen.GetSubtitleTextParams{BytesPayloadHash: payloadHash}
 	if streamIndex != nil {
 		key.StreamIndex = *streamIndex
 	}
@@ -89,7 +89,7 @@ func (service *Service) wantSubtitles(ctx context.Context, videoID int64) ([]Sub
 	now := service.clock.Now().UnixMilli()
 	for _, row := range rows {
 		want := wanted{key: textKey(row.BytesPayloadHash, row.StreamIndex), kind: jobs.KindExtractSubtitle}
-		want.subject = row.ID
+		want.target = jobs.Target{StreamID: row.ID}
 		if wantErr := service.wantText(ctx, want, now); wantErr != nil {
 			return nil, wantErr
 		}
@@ -99,7 +99,10 @@ func (service *Service) wantSubtitles(ctx context.Context, videoID int64) ([]Sub
 		return nil, fmt.Errorf("read the fetched subtitles of file %d: %w", videoID, err)
 	}
 	for _, row := range fetched {
-		want := wanted{key: fetchedKey(row.Body), kind: jobs.KindConvertFetchedSubtitle, subject: row.ID}
+		want := wanted{
+			key: fetchedKey(row.BodyGzip), kind: jobs.KindConvertFetchedSubtitle,
+			target: jobs.Target{FetchedSubtitleID: row.ID},
+		}
 		if wantErr := service.wantText(ctx, want, now); wantErr != nil {
 			return nil, wantErr
 		}
@@ -155,9 +158,9 @@ func tracksOf(rows []sqlcgen.ListSubtitleTracksOfVideoRow) []SubtitleTrack {
 		tracks = append(tracks, SubtitleTrack{
 			TrackRef: TrackRef{StreamID: row.ID}, Language: ptr.ValueOrZero(row.Lang),
 			Title:           ptr.ValueOrZero(row.TitleRaw),
-			Default:         row.Disposition&library.DispositionBit("default") != 0,
-			Forced:          row.Disposition&library.DispositionBit("forced") != 0,
-			HearingImpaired: row.Disposition&library.DispositionBit("hearing_impaired") != 0,
+			Default:         row.DispositionFlags&library.DispositionBit("default") != 0,
+			Forced:          row.DispositionFlags&library.DispositionBit("forced") != 0,
+			HearingImpaired: row.DispositionFlags&library.DispositionBit("hearing_impaired") != 0,
 		})
 	}
 	return tracks
@@ -165,9 +168,10 @@ func tracksOf(rows []sqlcgen.ListSubtitleTracksOfVideoRow) []SubtitleTrack {
 
 // wanted is a track whose text is wanted: where it is kept, and the job that makes it.
 type wanted struct {
-	key     cachegen.GetSubtitleTextParams
-	kind    jobs.Kind
-	subject int64
+	key  cachegen.GetSubtitleTextParams
+	kind jobs.Kind
+	// target is what the job works on: the stream, or the fetched subtitle.
+	target jobs.Target
 }
 
 // wantText has one track's text made unless it already is.
@@ -176,7 +180,7 @@ func (service *Service) wantText(ctx context.Context, want wanted, now int64) er
 	var state string
 	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		wantErr := queries.WantSubtitleText(ctx, cachegen.WantSubtitleTextParams{
-			PayloadHash: key.PayloadHash, StreamIndex: key.StreamIndex, CreatedAt: now,
+			BytesPayloadHash: key.BytesPayloadHash, StreamIndex: key.StreamIndex, CreatedAt: now,
 		})
 		if wantErr != nil {
 			return wantErr
@@ -186,13 +190,13 @@ func (service *Service) wantText(ctx context.Context, want wanted, now int64) er
 		return readErr
 	})
 	if err != nil {
-		return fmt.Errorf("want %s %d: %w", want.kind, want.subject, err)
+		return fmt.Errorf("want %s %+v: %w", want.kind, want.target, err)
 	}
 	if state == subtitleComplete {
 		return nil
 	}
 	_, err = service.queue.Enqueue(ctx, jobs.New{
-		Kind: want.kind, Subject: want.subject, Priority: jobs.PriorityPlayNow,
+		Kind: want.kind, Target: want.target, Priority: jobs.PriorityPlayNow,
 		Reason: "someone is watching it, and its subtitles are offered",
 	})
 	return err
@@ -231,8 +235,8 @@ func (service *Service) Subtitle(
 		return Subtitle{Readiness: Complete, Text: text}, nil
 	case subtitleFailed:
 		reason := ""
-		if row.Error != nil {
-			reason = *row.Error
+		if row.Failure != nil {
+			reason = *row.Failure
 		}
 		return Subtitle{Readiness: Failed, Error: reason}, nil
 	}
@@ -251,7 +255,7 @@ func (service *Service) trackKey(
 		if err != nil {
 			return cachegen.GetSubtitleTextParams{}, fmt.Errorf("read fetched subtitle %d: %w", track.FetchedID, err)
 		}
-		return fetchedKey(fetched.Body), nil
+		return fetchedKey(fetched.BodyGzip), nil
 	}
 	stream, err := store.One(service.database.Read().GetSubtitleStream(ctx, track.StreamID))
 	if errors.Is(err, store.ErrNotFound) || (err == nil && stream.VideoFile != video) {
@@ -270,18 +274,18 @@ var ErrNoSubtitle = errors.New("no such subtitle")
 // track's file extracts it, a track from its video or a subtitle file whole, and this waits for its
 // answer and keeps the text by that file's payload hash. FFmpeg's failure is not retried.
 func (service *Service) HandleSubtitle(ctx context.Context, job jobs.Job) error {
-	stream, err := store.One(service.database.Read().GetSubtitleStream(ctx, job.Subject))
+	stream, err := store.One(service.database.Read().GetSubtitleStream(ctx, job.StreamID))
 	if errors.Is(err, store.ErrNotFound) {
-		return jobs.Permanent(fmt.Errorf("no subtitle stream %d: its file was scanned again or is gone", job.Subject))
+		return jobs.Permanent(fmt.Errorf("no subtitle stream %d: its file was scanned again or is gone", job.StreamID))
 	}
 	if err != nil {
-		return fmt.Errorf("read stream %d: %w", job.Subject, err)
+		return fmt.Errorf("read stream %d: %w", job.StreamID, err)
 	}
 	if stream.PayloadHash == nil {
-		return jobs.Permanent(fmt.Errorf("stream %d is in a file with no payload hash", job.Subject))
+		return jobs.Permanent(fmt.Errorf("stream %d is in a file with no payload hash", job.StreamID))
 	}
 	named, err := service.source(ctx, located{
-		id: job.Subject, libraryID: stream.LibraryID, nodeID: stream.NodeID, pathKey: stream.PathKey,
+		id: job.StreamID, libraryID: stream.LibraryID, nodeID: stream.NodeID, pathKey: stream.ReportedPathBytes,
 		payloadHash: stream.PayloadHash,
 	})
 	if err != nil {
@@ -339,11 +343,12 @@ func (service *Service) finishSubtitle(
 	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		if answer.Refusal != "" {
 			return queries.SetSubtitleTextFailed(ctx, cachegen.SetSubtitleTextFailedParams{
-				Error: &answer.Refusal, FinishedAt: &now, PayloadHash: key.PayloadHash, StreamIndex: key.StreamIndex,
+				Failure: &answer.Refusal, FinishedAt: &now, BytesPayloadHash: key.BytesPayloadHash,
+				StreamIndex: key.StreamIndex,
 			})
 		}
 		return queries.SetSubtitleTextComplete(ctx, cachegen.SetSubtitleTextCompleteParams{
-			Ass: answer.ASS, Vtt: answer.VTT, FinishedAt: &now, PayloadHash: key.PayloadHash,
+			Ass: answer.ASS, Vtt: answer.VTT, FinishedAt: &now, BytesPayloadHash: key.BytesPayloadHash,
 			StreamIndex: key.StreamIndex,
 		})
 	})

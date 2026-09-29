@@ -21,10 +21,10 @@ var ErrNotOpen = errors.New("no such job queued or running")
 
 // View is one job as the job view shows it (cut-a §5.3).
 type View struct {
-	ID      int64
-	Kind    Kind
-	Subject int64
-	State   string
+	ID   int64
+	Kind Kind
+	Target
+	State string
 	// Progress is how far it is, 0 to 1, or nil when not known.
 	Progress   *float64
 	Reason     string
@@ -43,9 +43,11 @@ func (queue *Queue) List(ctx context.Context, limit int64) ([]View, error) {
 	views := make([]View, 0, len(rows))
 	for _, row := range rows {
 		view := View{
-			ID: row.ID, Kind: Kind(row.Kind), Subject: ptr.ValueOrZero(row.Subject), State: row.State,
-			Progress: row.Progress, Reason: ptr.ValueOrZero(row.Reason), LastError: ptr.ValueOrZero(row.LastError),
-			Attempts: row.Attempts, CreatedAt: time.UnixMilli(row.CreatedAt),
+			ID: row.ID, Kind: Kind(row.Kind), State: row.State,
+			Target:   targetOf(row.ItemID, row.RenditionID, row.StreamID, row.FetchedSubtitleID, row.FileID),
+			Progress: row.ProgressFraction, Reason: ptr.ValueOrZero(row.Reason),
+			LastError: ptr.ValueOrZero(row.LastError),
+			Attempts:  row.Attempts, CreatedAt: time.UnixMilli(row.CreatedAt),
 		}
 		if row.FinishedAt != nil {
 			view.FinishedAt = new(time.UnixMilli(*row.FinishedAt))
@@ -85,7 +87,7 @@ func (queue *Queue) Cancel(ctx context.Context, id int64) error {
 // SetProgress records how far a running job is, from 0 to 1.
 func (queue *Queue) SetProgress(ctx context.Context, id int64, fraction float64) error {
 	err := queue.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		return queries.SetJobProgress(ctx, cachegen.SetJobProgressParams{Progress: &fraction, ID: id})
+		return queries.SetJobProgress(ctx, cachegen.SetJobProgressParams{ProgressFraction: &fraction, ID: id})
 	})
 	if err != nil {
 		return fmt.Errorf("record job %d's progress: %w", id, err)

@@ -239,7 +239,7 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 		body := LibraryBody{
 			ID: summary.ID, Name: summary.Name, Kind: summary.Kind, MetadataSource: summary.MetadataSource,
 			ChangeDetection: summary.ChangeDetection, CheckEveryH: summary.CheckEveryH,
-			IsWritable: summary.Writable == 1,
+			IsWritable: summary.IsWritable == 1,
 			CreatedAt:  summary.CreatedAt,
 		}
 		if principal.IsAdmin() {

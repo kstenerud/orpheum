@@ -136,7 +136,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if err != nil {
 		return Started{}, err
 	}
-	probe, err := decodeProbe(file.Probe)
+	probe, err := decodeProbe(file.ProbeJson)
 	if err != nil {
 		return Started{}, err
 	}
@@ -182,7 +182,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		started.Audio = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, playback.profile, "", probe))
 		levelAudio(started.Audio, levels, probe, rendition.AudioGainsDb)
 		if main, found := decide.MainAudio(probe); found {
-			started.Levelling = levels[soundKey{int64(main.StreamIndex), soundStereo}]
+			started.Levelling = levels[soundKey{int64(main.StreamIndex), mixStereo}]
 		}
 	}
 	started.Token, err = service.tokens.issue(service.random, playback, service.clock.Now(), idle)
@@ -242,7 +242,7 @@ func (service *Service) Direct(ctx context.Context, token string, userID int64, 
 	if err != nil {
 		return Source{}, err
 	}
-	probe, err := decodeProbe(file.Probe)
+	probe, err := decodeProbe(file.ProbeJson)
 	if err != nil {
 		return Source{}, err
 	}
@@ -261,7 +261,7 @@ type located struct {
 
 func locatedOf(file sqlcgen.GetPlayableFileRow) located {
 	return located{
-		id: file.ID, libraryID: file.LibraryID, nodeID: file.NodeID, pathKey: file.PathKey,
+		id: file.ID, libraryID: file.LibraryID, nodeID: file.NodeID, pathKey: file.ReportedPathBytes,
 		payloadHash: file.PayloadHash,
 	}
 }
@@ -292,7 +292,7 @@ func (service *Service) file(ctx context.Context, fileID int64) (sqlcgen.GetPlay
 	if err != nil {
 		return file, fmt.Errorf("read file %d: %w", fileID, err)
 	}
-	if file.Probe == nil || file.PayloadHash == nil {
+	if file.ProbeJson == nil || file.PayloadHash == nil {
 		return file, fmt.Errorf("%w: file %d was never probed and hashed", ErrNoFile, fileID)
 	}
 	return file, nil

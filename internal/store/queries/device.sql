@@ -39,7 +39,7 @@ WHERE device_id = sqlc.arg(device_id) AND kind = 'session' AND revoked_at IS NUL
 -- name: RevokeSessionsOfUserExceptDevice :exec
 -- Signing out everywhere else: every session of the person's but those of the device asking.
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
-WHERE subject = sqlc.arg(user_id) AND kind = 'session' AND revoked_at IS NULL
+WHERE user_id = sqlc.arg(user_id) AND kind = 'session' AND revoked_at IS NULL
   AND device_id IS NOT sqlc.arg(keep_device_id);
 
 -- name: GetLiveDeviceOf :one

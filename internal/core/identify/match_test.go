@@ -132,8 +132,8 @@ func TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStore
 	checkLeon := func(when string) {
 		t.Helper()
 		file := lib.files()[rel]
-		if name(file) != leon.Name || file.Identification != identIdentified || file.Source == nil ||
-			*file.Source != "tmdb" ||
+		if name(file) != leon.Name || file.Identification != identIdentified || file.FollowedSource == nil ||
+			*file.FollowedSource != "tmdb" ||
 			file.Filing != filingListed || file.Year == nil || *file.Year != 1994 {
 			t.Errorf("%s: %+v (%s), want TMDB's film, listed", when, file, name(file))
 		}
@@ -164,7 +164,7 @@ func TestMatch_AnAmbiguousSearchIsNeverGuessed(t *testing.T) {
 	}
 	lib.scan(video("The General (2003).mkv"), video("Metropolis.mkv"))
 	solaris := lib.files()["The General (2003).mkv"]
-	if solaris.Identification != identAmbiguous || solaris.Filing != filingListed || solaris.Source != nil {
+	if solaris.Identification != identAmbiguous || solaris.Filing != filingListed || solaris.FollowedSource != nil {
 		t.Errorf("after another pass: %+v; want ambiguous, listed on local data", solaris)
 	}
 	kept, err := lib.matcher.cache.Read().ListMatchCandidates(t.Context(), solaris.TitleID)
@@ -251,7 +251,7 @@ func TestMatch_AnOverrideSurvivesTheMatchAndReDerivation(t *testing.T) {
 	titleID := lib.files()[rel].TitleID
 	err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		return queries.InsertOverrideIfAbsent(t.Context(), sqlcgen.InsertOverrideIfAbsentParams{
-			ItemID: titleID, Field: fieldName, Value: "Metropolis (director's copy)", Origin: "user", SetAt: 1,
+			ItemID: titleID, Field: fieldName, OverrideValue: "Metropolis (director's copy)", Origin: "user", SetAt: 1,
 		})
 	})
 	if err != nil {
@@ -260,7 +260,7 @@ func TestMatch_AnOverrideSurvivesTheMatchAndReDerivation(t *testing.T) {
 	lib.match(rel)
 	lib.scan(video(rel))
 	file := lib.files()[rel]
-	if name(file) != "Metropolis (director's copy)" || file.Source == nil || *file.Source != "tmdb" {
+	if name(file) != "Metropolis (director's copy)" || file.FollowedSource == nil || *file.FollowedSource != "tmdb" {
 		t.Errorf("file %+v named %q; want TMDB's film under the person's name", file, name(file))
 	}
 }
@@ -274,7 +274,7 @@ func TestMatch_AProvidersRefusalReturnsForTheQueueToActOn(t *testing.T) {
 	if limited, isLimited := errors.AsType[*RateLimitedError](err); !isLimited || limited.After != 3 {
 		t.Errorf("Match = %v, want the provider's RateLimitedError", err)
 	}
-	if file := lib.files()["Metropolis (1995).mkv"]; file.Identification != identUnidentified || file.Source != nil {
+	if file := lib.files()["Metropolis (1995).mkv"]; file.Identification != identUnidentified || file.FollowedSource != nil {
 		t.Errorf("a refused call changed the title: %+v", file)
 	}
 }
@@ -283,7 +283,7 @@ func TestHandle_TellsTheQueueHowToWait(t *testing.T) {
 	t.Parallel()
 	lib := newWorld(t, "movies", "tmdb")
 	lib.scan(video("Metropolis (1995).mkv"))
-	job := jobs.Job{Kind: jobs.KindFetch, Subject: lib.files()["Metropolis (1995).mkv"].TitleID}
+	job := jobs.Job{Kind: jobs.KindFetch, Target: jobs.Target{ItemID: lib.files()["Metropolis (1995).mkv"].TitleID}}
 	lib.provider.fail = &RateLimitedError{After: time.Minute}
 	err := lib.matcher.Handle(t.Context(), job)
 	retry, isRetry := errors.AsType[*jobs.RetryAtError](err)
@@ -307,7 +307,7 @@ func TestPass_ATMDBOnlyLibraryIgnoresNFOFiles(t *testing.T) {
 		"<lockdata>true</lockdata></movie>"
 	report := lib.scan(video("Metropolis (1995).mkv"), nfo("Metropolis (1995).nfo", body))
 	file := lib.files()["Metropolis (1995).mkv"]
-	if name(file) != "Metropolis" || file.Source != nil || file.Filing != filingUnidentified ||
+	if name(file) != "Metropolis" || file.FollowedSource != nil || file.Filing != filingUnidentified ||
 		len(report.AwaitingMatch) != 1 {
 		t.Errorf("file %+v named %q, awaiting %v; want the path's name, awaiting TMDB (D183: ignore NFO files)",
 			file, name(file), report.AwaitingMatch)
@@ -346,7 +346,7 @@ func TestChooser_AnOverrideIsCleanWhereItEnters(t *testing.T) {
 		t.Fatal(err)
 	}
 	overrides, err := lib.database.Read().ListOverrides(t.Context(), titleID)
-	if err != nil || len(overrides) != 1 || overrides[0].Value != "Mine" {
+	if err != nil || len(overrides) != 1 || overrides[0].OverrideValue != "Mine" {
 		t.Errorf("stored override %+v, %v; want it clean", overrides, err)
 	}
 }

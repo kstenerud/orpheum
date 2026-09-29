@@ -19,7 +19,7 @@ import (
 func (harness testHarness) withSound(t *testing.T) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.database,
-		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, channels)
+		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, channel_count)
 		 VALUES (1, 1, 0, 'audio', 'aac', 2), (2, 2, 1, 'audio', 'truehd', 8)`)
 }
 
@@ -32,7 +32,7 @@ func (harness testHarness) measureWith(
 	service := harness.server.dependencies.Load().Playback
 	finished := make(chan error, 1)
 	go func() {
-		job := jobs.Job{ID: jobID, Kind: jobs.KindMeasureLoudness, Subject: fileID}
+		job := jobs.Job{ID: jobID, Kind: jobs.KindMeasureLoudness, Target: jobs.Target{FileID: fileID}}
 		finished <- service.HandleLoudness(t.Context(), job)
 	}()
 	command := <-harness.nodes.commanded
@@ -117,7 +117,7 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 	prepared := make(chan error, 1)
 	go func() {
 		prepared <- harness.server.dependencies.Load().Playback.HandlePrepare(t.Context(),
-			jobs.Job{ID: 92, Kind: jobs.KindPrepare, Subject: 1})
+			jobs.Job{ID: 92, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}})
 	}()
 	command := <-harness.nodes.commanded
 	if command.Prepare == nil || len(command.Prepare.Audio) != 1 || command.Prepare.Audio[0].GainDB != 5.0 {
@@ -196,7 +196,7 @@ func TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits(t *testing.T) {
 		integrated := check.integrated
 		err := harness.library.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 			return queries.UpsertLoudness(t.Context(), sqlcgen.UpsertLoudnessParams{
-				PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 0, Sound: "stereo", IntegratedLufs: &integrated,
+				PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 0, MeasuredMix: "stereo", IntegratedLufs: &integrated,
 				TruePeakDbtp: check.peak, MeasuredAt: 1,
 			})
 		})

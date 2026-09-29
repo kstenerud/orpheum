@@ -57,7 +57,7 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64) ([]I
 	latestWatchedAt := map[int64]int64{} // a title's most recent watching, in any file
 	for _, row := range rows {
 		if _, seen := latestWatchedAt[row.TitleID]; !seen {
-			latestWatchedAt[row.TitleID] = row.WatchedAt
+			latestWatchedAt[row.TitleID] = row.PositionReadAt
 		}
 		if row.HiddenAt != nil && *row.HiddenAt >= latestWatchedAt[row.TitleID] {
 			continue

@@ -46,7 +46,7 @@ func (q *Queries) DeleteOverride(ctx context.Context, arg DeleteOverrideParams) 
 }
 
 const getProviderResponse = `-- name: GetProviderResponse :one
-SELECT body
+SELECT body_gzip
 FROM provider_response
 WHERE item_id = ?1 AND provider = ?2 AND part = ?3
 `
@@ -60,14 +60,14 @@ type GetProviderResponseParams struct {
 // An item's stored response: part ” is the item itself, 'season/N' a series' season listing.
 func (q *Queries) GetProviderResponse(ctx context.Context, arg GetProviderResponseParams) ([]byte, error) {
 	row := q.db.QueryRowContext(ctx, getProviderResponse, arg.ItemID, arg.Provider, arg.Part)
-	var body []byte
-	err := row.Scan(&body)
-	return body, err
+	var body_gzip []byte
+	err := row.Scan(&body_gzip)
+	return body_gzip, err
 }
 
 const getTitleForMatch = `-- name: GetTitleForMatch :one
 
-SELECT title.id, title.kind, title.year, title.identification, title.source, title.source_id, item.library_id,
+SELECT title.id, title.kind, title.year, title.identification, title.followed_source, title.followed_source_id, item.library_id,
   library.metadata_source, item_text.name
 FROM title
 JOIN item ON item.id = title.id
@@ -77,15 +77,15 @@ WHERE title.id = ?1 AND item.removed_at IS NULL
 `
 
 type GetTitleForMatchRow struct {
-	ID             int64
-	Kind           string
-	Year           *int64
-	Identification string
-	Source         *string
-	SourceID       *string
-	LibraryID      *int64
-	MetadataSource string
-	Name           *string
+	ID               int64
+	Kind             string
+	Year             *int64
+	Identification   string
+	FollowedSource   *string
+	FollowedSourceID *string
+	LibraryID        *int64
+	MetadataSource   string
+	Name             *string
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -99,8 +99,8 @@ func (q *Queries) GetTitleForMatch(ctx context.Context, id int64) (GetTitleForMa
 		&i.Kind,
 		&i.Year,
 		&i.Identification,
-		&i.Source,
-		&i.SourceID,
+		&i.FollowedSource,
+		&i.FollowedSourceID,
 		&i.LibraryID,
 		&i.MetadataSource,
 		&i.Name,
@@ -184,7 +184,7 @@ SELECT title.id
 FROM title
 JOIN item ON item.id = title.id
 WHERE item.library_id = ?1 AND item.removed_at IS NULL AND title.kind = 'movie'
-  AND title.source IS NULL AND title.identification = 'unidentified'
+  AND title.followed_source IS NULL AND title.identification = 'unidentified'
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
@@ -217,7 +217,7 @@ func (q *Queries) ListTitlesAwaitingMatch(ctx context.Context, libraryID *int64)
 }
 
 const listTitlesByIdent = `-- name: ListTitlesByIdent :many
-SELECT title.id, title.kind, title.year, title.identification, title.source, title.source_id, item.library_id,
+SELECT title.id, title.kind, title.year, title.identification, title.followed_source, title.followed_source_id, item.library_id,
   item_text.name
 FROM title
 JOIN item ON item.id = title.id
@@ -227,14 +227,14 @@ ORDER BY item_text.name, title.id
 `
 
 type ListTitlesByIdentRow struct {
-	ID             int64
-	Kind           string
-	Year           *int64
-	Identification string
-	Source         *string
-	SourceID       *string
-	LibraryID      *int64
-	Name           *string
+	ID               int64
+	Kind             string
+	Year             *int64
+	Identification   string
+	FollowedSource   *string
+	FollowedSourceID *string
+	LibraryID        *int64
+	Name             *string
 }
 
 // The titles in one state of identification, for the chooser's list (cut-a section 5).
@@ -252,8 +252,8 @@ func (q *Queries) ListTitlesByIdent(ctx context.Context, identification string) 
 			&i.Kind,
 			&i.Year,
 			&i.Identification,
-			&i.Source,
-			&i.SourceID,
+			&i.FollowedSource,
+			&i.FollowedSourceID,
 			&i.LibraryID,
 			&i.Name,
 		); err != nil {
@@ -304,24 +304,24 @@ func (q *Queries) MoveVersionsBetweenTitles(ctx context.Context, arg MoveVersion
 }
 
 const setTitleMatch = `-- name: SetTitleMatch :exec
-UPDATE title SET source = ?1, source_id = ?2,
+UPDATE title SET followed_source = ?1, followed_source_id = ?2,
   identification = CASE WHEN identification = 'confirmed' THEN identification ELSE ?3 END
 WHERE id = ?4
 `
 
 type SetTitleMatchParams struct {
-	Source         *string
-	SourceID       *string
-	Identification string
-	ID             int64
+	FollowedSource   *string
+	FollowedSourceID *string
+	Identification   string
+	ID               int64
 }
 
 // The outcome of a match: the source and its id, or ambiguous, or 'none' when the provider has
 // nothing. A confirmed match is a person's and stays (D172).
 func (q *Queries) SetTitleMatch(ctx context.Context, arg SetTitleMatchParams) error {
 	_, err := q.db.ExecContext(ctx, setTitleMatch,
-		arg.Source,
-		arg.SourceID,
+		arg.FollowedSource,
+		arg.FollowedSourceID,
 		arg.Identification,
 		arg.ID,
 	)
@@ -329,18 +329,18 @@ func (q *Queries) SetTitleMatch(ctx context.Context, arg SetTitleMatchParams) er
 }
 
 const upsertOverride = `-- name: UpsertOverride :exec
-INSERT INTO field_override (item_id, field, lang, value, origin, set_by, set_at)
+INSERT INTO field_override (item_id, field, lang, override_value, origin, set_by_user_id, set_at)
 VALUES (?1, ?2, '', ?3, 'typed', ?4, ?5)
 ON CONFLICT (item_id, field, lang) DO UPDATE SET
-  value = excluded.value, origin = excluded.origin, set_by = excluded.set_by, set_at = excluded.set_at
+  override_value = excluded.override_value, origin = excluded.origin, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at
 `
 
 type UpsertOverrideParams struct {
-	ItemID int64
-	Field  string
-	Value  string
-	SetBy  *int64
-	SetAt  int64
+	ItemID        int64
+	Field         string
+	OverrideValue string
+	SetByUserID   *int64
+	SetAt         int64
 }
 
 // A person's value for a field: the lock, kept over every source (D183).
@@ -348,17 +348,17 @@ func (q *Queries) UpsertOverride(ctx context.Context, arg UpsertOverrideParams) 
 	_, err := q.db.ExecContext(ctx, upsertOverride,
 		arg.ItemID,
 		arg.Field,
-		arg.Value,
-		arg.SetBy,
+		arg.OverrideValue,
+		arg.SetByUserID,
 		arg.SetAt,
 	)
 	return err
 }
 
 const upsertProviderResponse = `-- name: UpsertProviderResponse :exec
-INSERT INTO provider_response (item_id, provider, part, fetched_at, body)
+INSERT INTO provider_response (item_id, provider, part, fetched_at, body_gzip)
 VALUES (?1, ?2, ?3, ?4, ?5)
-ON CONFLICT (item_id, provider, part) DO UPDATE SET fetched_at = excluded.fetched_at, body = excluded.body
+ON CONFLICT (item_id, provider, part) DO UPDATE SET fetched_at = excluded.fetched_at, body_gzip = excluded.body_gzip
 `
 
 type UpsertProviderResponseParams struct {
@@ -366,7 +366,7 @@ type UpsertProviderResponseParams struct {
 	Provider  string
 	Part      string
 	FetchedAt int64
-	Body      []byte
+	BodyGzip  []byte
 }
 
 func (q *Queries) UpsertProviderResponse(ctx context.Context, arg UpsertProviderResponseParams) error {
@@ -375,7 +375,7 @@ func (q *Queries) UpsertProviderResponse(ctx context.Context, arg UpsertProvider
 		arg.Provider,
 		arg.Part,
 		arg.FetchedAt,
-		arg.Body,
+		arg.BodyGzip,
 	)
 	return err
 }

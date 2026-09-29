@@ -102,7 +102,8 @@ func (runner *Runner) claim(ctx context.Context, now time.Time) (Job, bool, erro
 			return fmt.Errorf("start job %d: %w", row.ID, startErr)
 		}
 		job = Job{
-			ID: row.ID, Kind: runner.kind, Subject: deref(row.Subject), Args: row.Args, Attempts: row.Attempts + 1,
+			ID: row.ID, Kind: runner.kind, Args: row.ArgsJson, Attempts: row.Attempts + 1,
+			Target: targetOf(row.ItemID, row.RenditionID, row.StreamID, row.FetchedSubtitleID, row.FileID),
 		}
 		found = true
 		return nil
@@ -138,7 +139,7 @@ func (runner *Runner) finish(ctx context.Context, job Job, outcome error) error 
 		limit = int64(len(runner.schedule)) + 1
 	}
 	if job.Attempts >= limit {
-		runner.queue.logger.WarnContext(ctx, "a job failed", "kind", job.Kind, "subject", job.Subject,
+		runner.queue.logger.WarnContext(ctx, "a job failed", "kind", job.Kind, "target", job.Target,
 			"attempts", job.Attempts, "err", outcome)
 		return runner.write(ctx, finishParams(job, stateFailed, outcome, now))
 	}
@@ -186,17 +187,10 @@ func (runner *Runner) write(ctx context.Context, params cachegen.FinishJobParams
 func finishParams(job Job, state string, why error, now time.Time) cachegen.FinishJobParams {
 	params := cachegen.FinishJobParams{State: state, FinishedAt: new(now.UnixMilli()), ID: job.ID}
 	if state == stateDone {
-		params.Progress = new(1.0)
+		params.ProgressFraction = new(1.0)
 	}
 	if why != nil {
 		params.LastError = new(why.Error())
 	}
 	return params
-}
-
-func deref(value *int64) int64 {
-	if value == nil {
-		return 0
-	}
-	return *value
 }

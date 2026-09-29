@@ -23,7 +23,7 @@ func summary(name, integrated, loudRange, peak string) string {
 
 func TestMeasure_ReadsOnlyTheFileAndMeasuresEachSoundByName(t *testing.T) {
 	t.Parallel()
-	logged := "[aac @ 0x1] a warning while decoding\n" + summary("source_1", "-24.5", "18.2", "-1.3") +
+	logged := "[aac @ 0x1] a warning while decoding\n" + summary("multichannel_1", "-24.5", "18.2", "-1.3") +
 		summary("stereo_1", "-31.9", "17.0", "-6.4") + summary("stereo_2", "-70.0", "0.0", "-inf") +
 		"[out#0/null @ 0x2] video:0KiB audio:1KiB\n"
 	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stderr: logged})
@@ -56,7 +56,7 @@ func checkArguments(t *testing.T, arguments []string) {
 		t.Errorf("ran ffmpeg %q; want the file read with only the file protocol, into the null muxer", arguments)
 	}
 	for _, want := range []string{
-		"ebur128@source_1=peak=true", prepare.StandardMix + ",ebur128@stereo_1=peak=true",
+		"ebur128@multichannel_1=peak=true", prepare.StandardMix + ",ebur128@stereo_1=peak=true",
 		"[0:2]" + prepare.StereoMix + ",ebur128@stereo_2=peak=true",
 	} {
 		if !strings.Contains(graph, want) {

@@ -125,7 +125,7 @@ func (service *Service) Owe(ctx context.Context, items []identify.OwedArtwork) {
 		if err == nil {
 			var added bool
 			added, err = service.parts.Queue.Enqueue(ctx, jobs.New{
-				Kind: jobs.KindArtwork, Subject: item.ItemID, Args: string(args),
+				Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: item.ItemID}, Args: string(args),
 				Reason: "the images " + item.Source + " names for it",
 			})
 			if added {
@@ -154,7 +154,7 @@ func (service *Service) Handle(ctx context.Context, job jobs.Job) error {
 		return fmt.Errorf("artwork job %d: %w", job.ID, jobs.Permanent(fmt.Errorf("no fetcher for %q", args.Source)))
 	}
 	for _, ref := range args.Refs {
-		image := wanted{itemID: job.Subject, source: args.Source, ref: ref}
+		image := wanted{itemID: job.ItemID, source: args.Source, ref: ref}
 		var err error
 		if len(args.Sizes) > 0 {
 			err = service.makeSizes(ctx, fetcher, image, args)
@@ -233,7 +233,7 @@ func (service *Service) localFile(ctx context.Context, ref string) (int64, *node
 			Err: fmt.Errorf("node %d, which holds it, is not connected", file.NodeID),
 		}
 	}
-	return file.NodeID, &nodeproto.Path{Text: file.Path, Raw: file.PathKey}, nil
+	return file.NodeID, &nodeproto.Path{Text: file.Path, Raw: file.ReportedPathBytes}, nil
 }
 
 // anyNode is a connected node to re-encode a download; none is a wait that costs no attempt.

@@ -97,7 +97,8 @@ func (service *Service) subtitleQuery(
 			return opensubtitles.Query{}, false, fmt.Errorf("read the place of title %d: %w", *found.TitleID, placeErr)
 		}
 		if placeErr == nil {
-			query.Season, query.Episode = int(ptr.ValueOrZero(place.GroupNumber)), int(ptr.ValueOrZero(place.Number))
+			query.Season, query.Episode = int(ptr.ValueOrZero(place.GroupNumber)),
+				int(ptr.ValueOrZero(place.NumberInGroup))
 			query.SeriesIMDbID, query.SeriesTMDBID, err = service.providerIDs(ctx, place.CollectionID)
 			hasIDs = query.SeriesIMDbID != "" || query.SeriesTMDBID != ""
 		}
@@ -171,8 +172,8 @@ func (service *Service) FetchSubtitle(
 		var insertErr error
 		id, insertErr = queries.InsertFetchedSubtitle(ctx, sqlcgen.InsertFetchedSubtitleParams{
 			VideoFile: fileID, Provider: providerOpenSubtitles,
-			ProviderRef: strconv.FormatInt(request.ProviderFileID, 10), Lang: request.Language, Format: "srt",
-			Body: body, FetchedBy: userID, FetchedAt: service.clock.Now().UnixMilli(),
+			ProviderFileID: strconv.FormatInt(request.ProviderFileID, 10), Lang: request.Language, Format: "srt",
+			BodyGzip: body, FetchedBy: userID, FetchedAt: service.clock.Now().UnixMilli(),
 			ReleaseName: &downloaded.FileName,
 		})
 		return insertErr
@@ -223,23 +224,23 @@ const maxFetchedBytes = 8 << 20
 // keeps it, as a subtitle file's is by its payload hash.
 func fetchedKey(body []byte) cachegen.GetSubtitleTextParams {
 	sum := sha256.Sum256(body)
-	return cachegen.GetSubtitleTextParams{PayloadHash: sum[:]}
+	return cachegen.GetSubtitleTextParams{BytesPayloadHash: sum[:]}
 }
 
 // HandleFetchedSubtitle runs one conversion job (jobs.KindConvertFetchedSubtitle): the node that
 // holds the video converts the fetched text, since hostile input is parsed on a node (D224 §5).
 func (service *Service) HandleFetchedSubtitle(ctx context.Context, job jobs.Job) error {
-	fetched, err := store.One(service.database.Read().GetFetchedSubtitle(ctx, job.Subject))
+	fetched, err := store.One(service.database.Read().GetFetchedSubtitle(ctx, job.FetchedSubtitleID))
 	if errors.Is(err, store.ErrNotFound) {
-		return jobs.Permanent(fmt.Errorf("no fetched subtitle %d, or its video is gone", job.Subject))
+		return jobs.Permanent(fmt.Errorf("no fetched subtitle %d, or its video is gone", job.FetchedSubtitleID))
 	}
 	if err != nil {
-		return fmt.Errorf("read fetched subtitle %d: %w", job.Subject, err)
+		return fmt.Errorf("read fetched subtitle %d: %w", job.FetchedSubtitleID, err)
 	}
-	text, err := gunzipped(fetched.Body)
+	text, err := gunzipped(fetched.BodyGzip)
 	if err != nil {
 		return jobs.Permanent(err)
 	}
 	return service.convert(ctx, job, fetched.NodeID, &nodeproto.ExtractSubtitle{JobID: job.ID, FetchedSubRip: text},
-		fetchedKey(fetched.Body))
+		fetchedKey(fetched.BodyGzip))
 }

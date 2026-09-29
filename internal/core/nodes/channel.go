@@ -261,7 +261,10 @@ func (reader *reportReader) flush(ctx context.Context) error {
 	status := reader.status
 	reader.status = nil
 	return reader.service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		err := queries.UpdateNodeReportSeq(ctx, sqlcgen.UpdateNodeReportSeqParams{ReportSeq: last, ID: reader.nodeID})
+		err := queries.UpdateNodeReportSeq(ctx, sqlcgen.UpdateNodeReportSeqParams{
+			LastIngestedReportSeq: last,
+			ID:                    reader.nodeID,
+		})
 		if err != nil || status == nil {
 			return err
 		}
@@ -272,7 +275,7 @@ func (reader *reportReader) flush(ctx context.Context) error {
 		text := string(encoded)
 		at := reader.service.clock.Now().UnixMilli()
 		return queries.UpdateNodeStatus(ctx, sqlcgen.UpdateNodeStatusParams{
-			Status: &text, StatusAt: &at, ID: reader.nodeID,
+			LastStatusJson: &text, LastStatusAt: &at, ID: reader.nodeID,
 		})
 	})
 }

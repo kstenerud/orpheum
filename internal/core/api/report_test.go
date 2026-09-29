@@ -91,7 +91,7 @@ func TestPlayState_ChangesAndSpansAreLoggedAtTheServersTimeOfTheWatching(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(events) != 2 || events[0].Kind != "started" || events[0].ServerAt != now-90_000 ||
+	if len(events) != 2 || events[0].Kind != "started" || events[0].HappenedAt != now-90_000 ||
 		events[1].Kind != "paused" {
 		t.Errorf("events = %+v, want started then paused, at the server's time of each", events)
 	}
@@ -108,7 +108,7 @@ func TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength(t *tes
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	storetest.ExecRaw(t, harness.database,
-		`UPDATE file SET probe = json_set(probe, '$.format.durationMs', 1000000) WHERE id = 1`)
+		`UPDATE file SET probe_json = json_set(probe_json, '$.format.durationMs', 1000000) WHERE id = 1`)
 	decided := harness.play(t, user, chrome(1))
 	for seq, check := range []struct{ positionMs, want int64 }{
 		{30_000, 0},        // 3%: before resume_min_percent, it plays from the start

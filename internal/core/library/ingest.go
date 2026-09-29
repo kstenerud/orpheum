@@ -198,11 +198,10 @@ func (work *batch) begin(ctx context.Context, begin *nodeproto.ScanBegin) error 
 }
 
 // filePath is a reported path as the file table keeps it: absolute on the node, in NFC for
-// display, search and D49's cross-node equality, with the bytes beside it when they differ, and
-// the reported bytes, always, as the key the file is known by (D211).
+// display, search and D49's cross-node equality, and the reported bytes, always, as the key the
+// file is known by (D211).
 type filePath struct {
 	text string
-	raw  []byte // nil when the text is the bytes
 	key  []byte
 }
 
@@ -217,13 +216,9 @@ func nodePath(root string, reported nodeproto.Path) filePath {
 		absolute = path.Join(root, raw)
 	}
 	// NFC for D49's equality, then the path cleaner, so what is related and shown is safe
-	// (principles §22); the bytes stay beside it, as bytes, to open the file.
+	// (principles §22); the bytes are kept too, as bytes, to open the file.
 	normal := textindex.Path(norm.NFC.String(strings.ToValidUTF8(absolute, "\uFFFD")))
-	result := filePath{text: normal, key: []byte(absolute)}
-	if normal != absolute {
-		result.raw = []byte(absolute)
-	}
-	return result
+	return filePath{text: normal, key: []byte(absolute)}
 }
 
 // errorDetail is the error record's platform account, as the file row keeps it (D163).

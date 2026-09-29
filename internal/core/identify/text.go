@@ -36,7 +36,7 @@ func (work *run) writeText(ctx context.Context, itemID int64, text itemText) err
 		return fmt.Errorf("clear item %d's sort key: %w", itemID, err)
 	}
 	err = work.queries.InsertSortKey(ctx, sqlcgen.InsertSortKeyParams{
-		ItemID: itemID, Locale: locale, Listing: text.listing, Key: work.sorter.Key(text.name),
+		ItemID: itemID, Locale: locale, Listing: text.listing, CollationKey: work.sorter.Key(text.name),
 	})
 	if err != nil {
 		return fmt.Errorf("sort item %d: %w", itemID, err)

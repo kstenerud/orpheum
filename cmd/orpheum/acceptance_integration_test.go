@@ -99,10 +99,7 @@ func acceptanceRun(
 	}
 	filings := map[string]filed{}
 	for _, file := range files {
-		raw := file.Path
-		if file.PathRaw != nil {
-			raw = string(file.PathRaw)
-		}
+		raw := string(file.ReportedPathBytes)
 		reason := ""
 		if file.FilingReason != nil {
 			reason = *file.FilingReason

@@ -78,7 +78,7 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	}
 	playback := harness.server.dependencies.Load().Playback
 	finished := make(chan error, 1)
-	job := jobs.Job{ID: 77, Kind: jobs.KindPrepare, Subject: 1}
+	job := jobs.Job{ID: 77, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
 	command := <-harness.nodes.commanded
 	sent := command.Prepare
@@ -109,7 +109,7 @@ func TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried(t *testing.T) {
 	decided := harness.play(t, user, chrome(2))
 	playback := harness.server.dependencies.Load().Playback
 	finished := make(chan error, 1)
-	job := jobs.Job{ID: 78, Kind: jobs.KindPrepare, Subject: 1}
+	job := jobs.Job{ID: 78, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
 	<-harness.nodes.commanded
 	failed := nodeproto.PrepareReport{JobID: 78, State: nodeproto.PrepareFailed, Failure: "ffmpeg: bad"}
@@ -133,7 +133,10 @@ func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
 	playback := harness.server.dependencies.Load().Playback
 	first := make(chan error, 1)
 	go func() {
-		first <- playback.HandlePrepare(t.Context(), jobs.Job{ID: 80, Kind: jobs.KindPrepare, Subject: 1})
+		first <- playback.HandlePrepare(t.Context(), jobs.Job{
+			ID: 80, Kind: jobs.KindPrepare,
+			Target: jobs.Target{RenditionID: 1},
+		})
 	}()
 	<-harness.nodes.commanded
 	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 80, State: nodeproto.PrepareDone, SizeBytes: 9})
@@ -162,7 +165,10 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 	run := func(job int64) nodeproto.Prepare {
 		finished := make(chan error, 1)
 		go func() {
-			finished <- playback.HandlePrepare(t.Context(), jobs.Job{ID: job, Kind: jobs.KindPrepare, Subject: 1})
+			finished <- playback.HandlePrepare(t.Context(), jobs.Job{
+				ID: job, Kind: jobs.KindPrepare,
+				Target: jobs.Target{RenditionID: 1},
+			})
 		}()
 		command := <-harness.nodes.commanded
 		playback.Reported(t.Context(), 1, nodeproto.PrepareReport{
@@ -183,7 +189,7 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 		t.Errorf("played again with the same setting: %+v, want the copy as it is", same)
 	}
 	storetest.ExecRaw(t, harness.database,
-		"UPDATE setting SET value = '6', is_modified = 1 WHERE scope = 'server' AND key = 'hls_segment_length_s'")
+		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE scope = 'server' AND key = 'hls_segment_length_s'")
 	if changed := harness.play(t, user, chrome(2)); !changed.IsPreparing {
 		t.Errorf("played after hls_segment_length_s changed: %+v, want the copy made again", changed)
 	}
