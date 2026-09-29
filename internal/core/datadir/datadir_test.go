@@ -25,8 +25,9 @@ func prepareTemporaryDirectories(t *testing.T) *Directories {
 func TestPrepare_CreatesPrivateDirectories(t *testing.T) {
 	t.Parallel()
 	directories := prepareTemporaryDirectories(t)
-	all := []string{directories.stateDirectory, directories.cacheDirectory, directories.BackupDirectory()}
-	for _, directory := range all {
+	for _, directory := range []string{
+		directories.stateDirectory, directories.cacheDirectory, directories.BackupDirectory(),
+	} {
 		info, err := os.Stat(directory)
 		if err != nil {
 			t.Fatal(err)
