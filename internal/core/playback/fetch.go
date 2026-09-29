@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -72,6 +73,17 @@ func (service *Service) SubtitleCandidates(ctx context.Context, fileID int64, la
 	if err != nil {
 		return SubtitleOffer{}, err
 	}
+	// One uploaded for these exact bytes is listed first (D224 §3), whatever order the provider
+	// answered in; the rest keep its order.
+	slices.SortStableFunc(candidates, func(one, other opensubtitles.Candidate) int {
+		switch {
+		case one.IsOpensubtitlesHashMatch == other.IsOpensubtitlesHashMatch:
+			return 0
+		case one.IsOpensubtitlesHashMatch:
+			return -1
+		}
+		return 1
+	})
 	return SubtitleOffer{
 		Candidates: candidates, Allowance: allowance, DidAskByIDs: hasIDs,
 		DidAskByOpensubtitlesHash: query.MovieHash != "",

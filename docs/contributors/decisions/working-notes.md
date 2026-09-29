@@ -16798,8 +16798,8 @@ and a download a capability on the role.
    `/me/secrets` and its tests are gone rather than kept for a use nothing plans; a feature that
    needs one brings it back. Amends D194 §1.
 
-**Status:** Decided; built in M3. §3's hash-matching candidate is listed first only in the order
-OpenSubtitles returns; the core does not sort by it.
+**Status:** Decided; built in M3. The core lists §3's hash-matching candidate first, whatever
+order OpenSubtitles returns.
 
 ## D225 — One admin page, System, shows every fact about the server and each node, and M3's shows whether hardware encoding works
 

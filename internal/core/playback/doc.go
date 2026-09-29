@@ -82,10 +82,12 @@
 //   - A rendition the node finished records what made its video and how fast, as the node said
 //     (D225 §3). TestFinish_RecordsWhatMadeTheVideoAndHowFast.
 //   - A subtitle fetched on request is found by the work's ids or the series' and place, and the
-//     file's moviehash; is kept gzipped in library.db; becomes the person's choice; and is offered
-//     as a track of the file, which the video's node converts (D224).
+//     file's moviehash, with a candidate whose hash matches listed first; is fetched by anyone
+//     signed in; is kept gzipped in library.db; becomes the person's choice; and is offered as a
+//     track of the file, which the video's node converts (D224).
 //     TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloadsLeft,
 //     TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace,
+//     TestSubtitleCandidates_APersonWhoIsNotAnAdminListsAndFetchesThem,
 //     TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt (internal/core/api).
 //   - Each live video with sound is measured once per payload hash, by a job behind anything a
 //     person waits on; one FFmpeg cannot measure is not asked again, and one its node would not
