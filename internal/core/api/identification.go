@@ -252,6 +252,8 @@ func (server *Server) identifyError(ctx context.Context, action string, err erro
 	case errors.Is(err, identify.ErrKeyRefused):
 		return providerRefusal("key_refused",
 			"the metadata provider refused its key; an admin can change it in Settings")
+	case errors.Is(err, outbound.ErrUnavailable):
+		return providerRefusal("unavailable", "the metadata provider is not answering; try again later")
 	}
 	return server.logInternalError(ctx, action, err)
 }

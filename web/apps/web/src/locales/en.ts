@@ -231,6 +231,7 @@ export const en = {
         loginRefused:
           "OpenSubtitles refused the account's login. An admin can change it in Settings.",
         notConfigured: "This server does not download subtitles.",
+        unavailable: "OpenSubtitles is not answering right now. Try again later.",
         unknown: "OpenSubtitles could not be reached.",
       },
     },
