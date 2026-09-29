@@ -7,10 +7,8 @@ import { describe, expect, it } from "vitest";
 
 import { boostMixIndices, mediaFailure, PlayView, requestPlayback } from "./play.tsx";
 import { servedBy, type Heard } from "./test-dom.tsx";
+import { directDecision, unlevelled } from "./test-fixtures.ts";
 import { testServices, withServices } from "./test-services.tsx";
-
-/** A sound not measured yet: played as it is (D226). */
-const unlevelled = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
 
 describe("playing a file", () => {
   it("asks the server with this browser's playable formats, on the local network", async () => {
@@ -30,21 +28,7 @@ describe("playing a file", () => {
   it("plays the original in a video element and says so", () => {
     const markup = renderToStaticMarkup(
       withServices(
-        <PlayView
-          fileId={2}
-          decision={{
-            delivery: "direct",
-            url: "/api/v1/bytes/media/direct/abc",
-            notDirectReasons: [],
-            isPreparing: false,
-            subtitles: [],
-            preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
-            resumePositionMs: 0,
-            mediaToken: "t",
-            levelling: unlevelled.levelling,
-          }}
-          onDecideAgain={() => undefined}
-        />,
+        <PlayView fileId={2} decision={directDecision()} onDecideAgain={() => undefined} />,
       ),
     );
     expect(markup).toContain('src="/api/v1/bytes/media/direct/abc"');
@@ -60,22 +44,17 @@ describe("playing a file", () => {
       withServices(
         <PlayView
           fileId={2}
-          decision={{
+          decision={directDecision({
             delivery: "hls",
             profile: "remux",
             url: "/api/v1/bytes/media/hls/abc/master.m3u8",
             notDirectReasons: ["container", "audio_codec"],
             isPreparing: true,
-            subtitles: [],
-            preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
-            resumePositionMs: 0,
-            mediaToken: "t",
-            levelling: unlevelled.levelling,
             audioRenditions: [
               { audioTrackIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
               { audioTrackIndex: 0, language: "en", isDialogueBoosted: true, ...unlevelled },
             ],
-          }}
+          })}
           onDecideAgain={() => undefined}
         />,
       ),
@@ -88,22 +67,15 @@ describe("playing a file", () => {
   });
 
   it("finds the standard and boosted mixes of the first track", () => {
-    const decision = {
-      delivery: "hls" as const,
+    const decision = directDecision({
+      delivery: "hls",
       url: "/u",
-      notDirectReasons: [],
-      isPreparing: false,
-      subtitles: [],
-      preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
-      resumePositionMs: 0,
-      mediaToken: "t",
-      levelling: unlevelled.levelling,
       audioRenditions: [
         { audioTrackIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
         { audioTrackIndex: 0, language: "en", isDialogueBoosted: true, ...unlevelled },
         { audioTrackIndex: 1, language: "de", isDialogueBoosted: false, ...unlevelled },
       ],
-    };
+    });
     expect(boostMixIndices(decision)).toEqual({ standard: 0, boosted: 1 });
     expect(
       boostMixIndices({

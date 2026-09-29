@@ -24,6 +24,7 @@ import { QrCode, qrDataUrl, qrPath } from "./qr-code.tsx";
 import { parseRoute } from "./router.ts";
 import { Share } from "./share.tsx";
 import { servedBy, type Heard } from "./test-dom.tsx";
+import { television } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { DeviceList, deviceState } from "./your-devices.tsx";
 
@@ -142,15 +143,7 @@ describe("accounts", () => {
   });
 
   it("lists devices with which is this one, and renames, removes and signs out elsewhere", async () => {
-    const tv = {
-      id: 5,
-      name: "Living room TV",
-      platform: "web",
-      addedAt: 0,
-      lastUsedAt: 0,
-      isSignedIn: false,
-      isThisDevice: false,
-    };
+    const tv = television({ id: 5, isSignedIn: false });
     expect(deviceState(tv)).toBe("signedOut");
     expect(deviceState({ ...tv, isSignedIn: true })).toBe("signedIn");
     expect(deviceState({ ...tv, isThisDevice: true })).toBe("thisDevice");

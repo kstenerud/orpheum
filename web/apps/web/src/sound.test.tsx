@@ -5,28 +5,17 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { Device } from "./accounts.ts";
 import type { PlaybackDecision } from "./play.tsx";
 import { Play } from "./play.tsx";
 import { BoostSwitch } from "./sound.tsx";
 import { choose, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { directDecision, television } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { YourDevices } from "./your-devices.tsx";
 
 /** A decision to play the original, with how the device makes sound when it has been asked. */
 function direct(audioOutput?: PlaybackDecision["audioOutput"]): PlaybackDecision {
-  return {
-    delivery: "direct",
-    url: "/api/v1/bytes/media/direct/abc",
-    notDirectReasons: [],
-    isPreparing: false,
-    subtitles: [],
-    preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
-    resumePositionMs: 0,
-    mediaToken: "t",
-    levelling: { isMeasured: false, gainDb: 0 },
-    ...(audioOutput === undefined ? {} : { audioOutput }),
-  };
+  return directDecision(audioOutput === undefined ? {} : { audioOutput });
 }
 
 let mounted: Mounted | undefined;
@@ -110,20 +99,12 @@ describe("how a device makes sound (D222)", () => {
   it("is chosen for each of one's devices in Your devices", async () => {
     const heard: Heard[] = [];
     const services = servedBy({ "PUT /me/devices/7": [204, undefined] }, heard);
-    const television: Device = {
-      id: 7,
-      name: "Living room TV",
-      platform: "web",
-      addedAt: 1,
-      lastUsedAt: 1,
-      isSignedIn: true,
-      isThisDevice: false,
-    };
+    const livingRoom = television();
     let reloads = 0;
     mounted = await mount(
       withServices(
         <YourDevices
-          devices={{ state: "loaded", value: [television] }}
+          devices={{ state: "loaded", value: [livingRoom] }}
           onChanged={() => {
             reloads += 1;
           }}

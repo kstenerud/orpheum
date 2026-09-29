@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import { canSetVolume, gainAfterVolume, type GainAudio } from "./gain.ts";
+import { settled } from "./test-timing.ts";
 
 /** A gain node, as the fake makes it. */
 interface FakeGainNode {
@@ -53,11 +54,6 @@ function fakeAudio(permission: { isGranted: boolean }): {
     return faked as unknown as GainAudio;
   };
   return { createAudioContext, contextsMade: () => contextsMade, routed, gainNodes };
-}
-
-/** Lets the promises a gain is waiting on settle. */
-async function settled(): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe("a gain after the element's volume (D226 §4)", () => {

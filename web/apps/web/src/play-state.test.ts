@@ -8,6 +8,7 @@ import { act, createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { PlayView } from "./play.tsx";
+import { directDecision } from "./test-fixtures.ts";
 import { sendReport } from "./play-state.ts";
 import { ApiProblem } from "./problem.ts";
 import {
@@ -67,17 +68,7 @@ describe("play state", () => {
     const heard: Heard[] = [];
     const playView = createElement(PlayView, {
       fileId: 2,
-      decision: {
-        delivery: "direct",
-        url: "/api/v1/bytes/media/direct/abc",
-        notDirectReasons: [],
-        isPreparing: false,
-        subtitles: [],
-        preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
-        resumePositionMs: 0,
-        mediaToken: "gone",
-        levelling: { isMeasured: false, gainDb: 0 },
-      },
+      decision: directDecision({ mediaToken: "gone" }),
       onDecideAgain: () => undefined,
     });
     mounted = await mount(
