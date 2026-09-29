@@ -7,6 +7,7 @@ import { textWhenReady, type Api, type components } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
+import { languageName } from "./language-name.ts";
 import { problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 
@@ -15,15 +16,6 @@ export type SubtitleTrack = components["schemas"]["SubtitleTrackBody"];
 
 /** How far one press of the offset buttons moves the subtitles, in milliseconds. */
 export const offsetStepMs = 100;
-
-/** A language's name in the viewer's language, or the tag itself when the browser has none. */
-export function languageName(tag: string, viewerLanguage: string): string {
-  try {
-    return new Intl.DisplayNames([viewerLanguage], { type: "language" }).of(tag) ?? tag;
-  } catch {
-    return tag;
-  }
-}
 
 /** Names a track across both kinds: a stream of the file's ("s12"), or one fetched for it ("f3"). */
 export type TrackKey = string;

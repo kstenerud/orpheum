@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { camelKey } from "./catalogue-key.ts";
 import { ApiProblem, dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { languageName } from "./subtitles.tsx";
+import { languageName } from "./language-name.ts";
 
 /** A subtitle OpenSubtitles can give, unverified, as the server lists it (D224). */
 export type SubtitleCandidate = components["schemas"]["SubtitleCandidateBody"];

@@ -14,6 +14,7 @@ import {
   type Person,
 } from "./accounts.ts";
 import { FormRow } from "./form-row.tsx";
+import { tenthsText } from "./number-text.ts";
 import { IssuedInvitationView, type IssuedInvitation } from "./people.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -94,9 +95,7 @@ function PersonHead(props: {
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const { account, watchStats } = props.person;
-  const hours = (watchStats.watchedMs / 3_600_000).toLocaleString(i18n.language, {
-    maximumFractionDigits: 1,
-  });
+  const hours = tenthsText(watchStats.watchedMs / 3_600_000, i18n.language);
   const lastWatched =
     watchStats.lastWatchedAt === undefined
       ? t("person.neverWatched")

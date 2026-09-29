@@ -2,9 +2,10 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createSession, type TokenStorage } from "./session.ts";
+import type { StringStorage } from "./browser-storage.ts";
+import { createSession } from "./session.ts";
 
-function memoryStorage(): TokenStorage & { readonly items: Map<string, string> } {
+function memoryStorage(): StringStorage & { readonly items: Map<string, string> } {
   const items = new Map<string, string>();
   return {
     items,
@@ -34,7 +35,7 @@ describe("createSession", () => {
   });
 
   it("lasts as long as the page when storage refuses", () => {
-    const refusing: TokenStorage = {
+    const refusing: StringStorage = {
       getItem: () => {
         throw new Error("denied");
       },

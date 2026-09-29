@@ -2,6 +2,7 @@
 
 import type { Api, components } from "@orpheum/sdk";
 
+import type { StringStorage } from "./browser-storage.ts";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import type { NewDevice } from "./device.ts";
 
@@ -159,7 +160,7 @@ const shownCodeKey = "orpheum.deviceCode";
 
 /** Keeps a device code this tab showed, with its device's name. */
 export function keepShownCode(
-  storage: Storage,
+  storage: StringStorage,
   code: IssuedSecret & { readonly deviceName: string },
 ): void {
   storage.setItem(shownCodeKey, JSON.stringify(code));
@@ -189,12 +190,12 @@ function asShownCode(kept: unknown): ShownCode | undefined {
 }
 
 /** Forgets the device code this tab showed: it was used, or replaced. */
-export function forgetShownCode(storage: Storage): void {
+export function forgetShownCode(storage: StringStorage): void {
   storage.removeItem(shownCodeKey);
 }
 
 /** The device code this tab last showed, while it still works; one that has expired is forgotten. */
-export function readShownCode(storage: Storage, nowMs: number): ShownCode | undefined {
+export function readShownCode(storage: StringStorage, nowMs: number): ShownCode | undefined {
   const kept = storage.getItem(shownCodeKey);
   let code: ShownCode | undefined;
   try {
