@@ -68,11 +68,11 @@ type JobInput struct {
 
 func (server *Server) registerJobs() {
 	tags := []string{tagJobs}
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listJobs", Method: http.MethodGet, Path: "/jobs",
 		Summary: "The job view: the newest jobs, what each works on, how far it is and why (admin)", Tags: tags,
 	}, server.listJobs)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "cancelJob", Method: http.MethodPost, Path: "/jobs/{id}/cancel",
 		Summary: "Cancel a queued or running job; a node's work is stopped (admin)", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
@@ -80,13 +80,13 @@ func (server *Server) registerJobs() {
 }
 
 func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) (*JobsOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	views, err := dependencies.Jobs.List(ctx, jobViewLimit)
 	if err != nil {
-		return nil, server.internal(ctx, "list jobs", err)
+		return nil, server.logInternalError(ctx, "list jobs", err)
 	}
 	output := &JobsOutput{}
 	output.Body.Jobs = make([]JobBody, 0, len(views))
@@ -107,7 +107,7 @@ func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) 
 }
 
 func (server *Server) cancelJob(ctx context.Context, input *JobInput) (*struct{}, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (server *Server) cancelJob(ctx context.Context, input *JobInput) (*struct{}
 	case errors.Is(err, jobs.ErrNotOpen):
 		return nil, newError(http.StatusConflict, CodeConflict, "no such job queued or running")
 	case err != nil:
-		return nil, server.internal(ctx, "cancel a job", err)
+		return nil, server.logInternalError(ctx, "cancel a job", err)
 	}
 	return &struct{}{}, nil
 }

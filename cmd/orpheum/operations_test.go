@@ -13,9 +13,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// startedOnce runs the server until it is ready and stops it, leaving a state directory with a
+// startServerOnce runs the server until it is ready and stops it, leaving a state directory with a
 // migrated database, a secret.key and a setup code, as a first start does.
-func startedOnce(t *testing.T) (Config, string) {
+func startServerOnce(t *testing.T) (Config, string) {
 	t.Helper()
 	config, path := testConfig(t)
 	server := startServing(t, config, newCapturedLog("ready"), "ready")
@@ -36,7 +36,7 @@ func TestSetupCode_PrintsTheCodeUntilSetupIsDone(t *testing.T) {
 	if code.status != exitSuccess || len(strings.TrimSpace(code.stdout)) != len("AAAA-BBBB-CCCC") {
 		t.Fatalf("setup-code = %+v", code)
 	}
-	created := call(t, http.MethodPost, server.baseURL+"/setup", "",
+	created := requestAPI(t, http.MethodPost, server.baseURL+"/setup", "",
 		map[string]string{"setupCode": strings.TrimSpace(code.stdout), "name": "owner", "password": "pw"})
 	if created.status != http.StatusCreated {
 		t.Fatalf("setup: %d %s", created.status, created.body)
@@ -49,7 +49,7 @@ func TestSetupCode_PrintsTheCodeUntilSetupIsDone(t *testing.T) {
 
 func TestBackupAndRestore_FromTheCommandLine(t *testing.T) {
 	t.Parallel()
-	_, sourcePath := startedOnce(t)
+	_, sourcePath := startServerOnce(t)
 	written := runCommand(t, "backup", "--config", sourcePath, "--include-key")
 	if written.status != exitSuccess || !strings.Contains(written.stdout, "secret.key") {
 		t.Fatalf("backup --include-key = %+v", written)
@@ -102,7 +102,7 @@ func TestDoctor_SaysWhatIsMissingAndHowToFixIt(t *testing.T) {
 			t.Errorf("doctor on a fresh directory does not say %q:\n%s", want, fresh.stdout)
 		}
 	}
-	config, path := startedOnce(t)
+	config, path := startServerOnce(t)
 	if err := os.WriteFile(filepath.Join(config.Server.DataDir, "secret.key"), []byte("damaged"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestOpenAPI_PrintsTheDocument(t *testing.T) {
 
 func TestDoctor_ListsWhatShouldBeFixedAndChangesNothingAPersonChose(t *testing.T) {
 	t.Parallel()
-	config, path := startedOnce(t)
+	config, path := startServerOnce(t)
 	database := filepath.Join(config.Server.DataDir, "library.db")
 	storetest.ExecRaw(t, database,
 		"INSERT INTO setting (scope, key, value_json, set_at) VALUES ('server', 'backup_age_warn_h', '24', 1)")
@@ -170,7 +170,8 @@ func TestConfinementFindings_SayEachMechanismAndWhatWouldPutAMissingOneInForce(t
 		{Mechanism: confine.MechanismLandlock, Reason: "not enabled at boot", Remedy: "add landlock to lsm="},
 		{Mechanism: confine.MechanismSeccomp, IsInForce: true},
 	})
-	if len(got) != 2 || got[0].verdict != verdictWarning || !strings.Contains(got[0].what, "not enabled at boot") ||
+	if len(got) != 2 || got[0].verdict != verdictWarning ||
+		!strings.Contains(got[0].description, "not enabled at boot") ||
 		got[0].remedy != "add landlock to lsm=" || got[1].verdict != verdictOK {
 		t.Errorf("findings = %+v; want Landlock warned with its remedy, seccomp ok (D112)", got)
 	}

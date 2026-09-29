@@ -59,26 +59,26 @@ func (codes *memorySetupCodes) Remove() error {
 }
 
 type testHarness struct {
-	server   *Server
-	provider *fakeProvider
-	cache    *store.Cache
-	nodes    *fakeNodes
-	http     *httptest.Server
-	logs     *bytes.Buffer
-	service  *auth.Service
-	codes    *memorySetupCodes
-	database string
-	library  *store.Database
-	art      *datadir.Directories
-	clock    *clocktest.Fake
-	bytes    *fakeNodeBytes
-	queue    *jobs.Queue
+	server       *Server
+	tmdbProvider *fakeProvider
+	cache        *store.Cache
+	nodes        *fakeNodes
+	httpServer   *httptest.Server
+	logs         *bytes.Buffer
+	authService  *auth.Service
+	setupCodes   *memorySetupCodes
+	databasePath string
+	database     *store.Database
+	directories  *datadir.Directories
+	clock        *clocktest.Fake
+	nodeBytes    *fakeNodeBytes
+	queue        *jobs.Queue
 	// subtitler is OpenSubtitles, faked (D224).
 	subtitler *fakeSubtitler
 }
 
-// serverBuild is the build the harness's server says it is.
-var serverBuild = build.Provenance{Version: "v0.3.0", Commit: "0f6c5cc1a2b3c4d5e6f708192a3b4c5d6e7f8091"}
+// harnessServerBuild is the build the harness's server says it is.
+var harnessServerBuild = build.Provenance{Version: "v0.3.0", Commit: "0f6c5cc1a2b3c4d5e6f708192a3b4c5d6e7f8091"}
 
 // newHarness serves an API whose dependencies are ready, over a real migrated database.
 func newHarness(t *testing.T) testHarness {
@@ -101,7 +101,7 @@ func newHarness(t *testing.T) testHarness {
 	pass := identify.NewPass(database, now, slog.New(slog.DiscardHandler), providers, seeded)
 	matcher := identify.NewMatcher(database, cache, pass, now, slog.New(slog.DiscardHandler))
 	stateDirectory, cacheDirectory := t.TempDir(), t.TempDir()
-	art, err := datadir.Prepare(stateDirectory, cacheDirectory)
+	directories, err := datadir.Prepare(stateDirectory, cacheDirectory)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,12 +110,12 @@ func newHarness(t *testing.T) testHarness {
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded,
 		Secrets: secrets.NewStore(database, key, now, rand.Reader, seeded), SetupCodes: codes,
-		Identify: identify.NewChooser(matcher, pass), Libraries: library.NewAdmin(database, now, nodes),
-		Refresh: identify.NewRefresher(database, queue, seeded, now, slog.New(slog.DiscardHandler)),
-		Browse:  library.NewBrowser(database, seeded),
+		Chooser: identify.NewChooser(matcher, pass), Libraries: library.NewAdmin(database, now, nodes),
+		Refresher: identify.NewRefresher(database, queue, seeded, now, slog.New(slog.DiscardHandler)),
+		Browser:   library.NewBrowser(database, seeded),
 		Artwork: artwork.NewService(artwork.Parts{
 			Database: database, Queue: queue,
-			ArtFiles: art, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
+			ArtFiles: directories, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
 		}),
 		Playback: playback.NewService(playback.Parts{
 			Database: database, Cache: cache, Queue: queue,
@@ -126,10 +126,11 @@ func newHarness(t *testing.T) testHarness {
 		Jobs:        queue,
 		NodeReports: nodes,
 		System: System{
-			Build: serverBuild, StartedAt: now.Now(), StateDirectory: stateDirectory, CacheDirectory: cacheDirectory,
-			Library: database, Cache: cache,
+			Build: harnessServerBuild, StartedAt: now.Now(),
+			DataDirectory: stateDirectory, CacheDirectory: cacheDirectory,
+			LibraryDatabase: database, CacheDatabase: cache,
 		},
-		ConfigFile: []ConfigFileKey{{
+		ConfigFileKeys: []ConfigFileKey{{
 			Key: "server.shutdown_grace_s", Value: json.RawMessage("10"), StartingValue: json.RawMessage("10"),
 			IsFromFile: false, Description: "seconds in-flight requests get to finish",
 		}},
@@ -137,9 +138,11 @@ func newHarness(t *testing.T) testHarness {
 	served := httptest.NewServer(server.Handler())
 	t.Cleanup(served.Close)
 	return testHarness{
-		server: server, http: served, logs: logs, service: service, codes: codes, database: database.Path(),
-		library:  database,
-		provider: provider, cache: cache, nodes: nodes, art: art, clock: now, bytes: nodeBytes, queue: queue,
+		server: server, httpServer: served, logs: logs, authService: service, setupCodes: codes,
+		databasePath: database.Path(),
+		database:     database,
+		tmdbProvider: provider, cache: cache, nodes: nodes, directories: directories, clock: now,
+		nodeBytes: nodeBytes, queue: queue,
 		subtitler: subtitler,
 	}
 }
@@ -159,7 +162,7 @@ func (harness testHarness) do(t *testing.T, method, path, token string, body any
 		}
 		reader = bytes.NewReader(encoded)
 	}
-	request, err := http.NewRequestWithContext(t.Context(), method, harness.http.URL+Prefix+path, reader)
+	request, err := http.NewRequestWithContext(t.Context(), method, harness.httpServer.URL+Prefix+path, reader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +172,7 @@ func (harness testHarness) do(t *testing.T, method, path, token string, body any
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
-	answer, err := harness.http.Client().Do(request)
+	answer, err := harness.httpServer.Client().Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +213,7 @@ var testDevice = map[string]string{"name": "Firefox on Linux", "platform": "web"
 // createAdminAndSignIn completes setup as owner and returns a session token.
 func (harness testHarness) createAdminAndSignIn(t *testing.T) string {
 	t.Helper()
-	code, err := harness.service.EnsureSetupCode(t.Context(), harness.codes)
+	code, err := harness.authService.EnsureSetupCode(t.Context(), harness.setupCodes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +244,7 @@ func TestHealth_AnswersBeforeTheDatabaseIsReady(t *testing.T) {
 	server := NewServer(slog.New(slog.DiscardHandler))
 	served := httptest.NewServer(server.Handler())
 	t.Cleanup(served.Close)
-	harness := testHarness{server: server, http: served}
+	harness := testHarness{server: server, httpServer: served}
 
 	for _, tc := range []struct {
 		status     Status
@@ -266,7 +269,7 @@ func TestSetup_TheCodeCreatesTheFirstAdminAndThenSetupIsClosed(t *testing.T) {
 	harness := newHarness(t)
 	wantError(t, harness.do(t, http.MethodPost, "/session", "",
 		map[string]any{"name": "owner", "password": "x", "device": testDevice}), http.StatusConflict, CodeSetupRequired)
-	code, err := harness.service.EnsureSetupCode(t.Context(), harness.codes)
+	code, err := harness.authService.EnsureSetupCode(t.Context(), harness.setupCodes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,7 +313,7 @@ func TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing(t *test
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	if _, err := harness.service.CreateUser(t.Context(),
+	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}
@@ -390,7 +393,7 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	if _, err := harness.service.CreateUser(t.Context(),
+	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}
@@ -428,7 +431,7 @@ func TestConfig_ShowsEverySettingAndTheFileAndResets(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/config/no_such_setting/reset", admin, nil),
 		http.StatusNotFound, CodeNotFound)
 
-	storetest.ExecRaw(t, harness.database, "DELETE FROM setting WHERE key = 'secret_last_chars_shown'")
+	storetest.ExecRaw(t, harness.databasePath, "DELETE FROM setting WHERE key = 'secret_last_chars_shown'")
 	healed := harness.do(t, http.MethodGet, "/config", admin, nil)
 	const hint = `"key":"secret_last_chars_shown","kind":"integer","value":4`
 	if healed.status != http.StatusOK || !strings.Contains(healed.body, hint) {
@@ -441,7 +444,7 @@ func TestConfig_ListsAndDeletesOnlyUnusedRows(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO setting (scope, key, value_json, set_at) VALUES ('server', 'signin_falure_limit', '3', 1)")
 	unused := harness.do(t, http.MethodGet, "/config/unused", admin, nil)
 	if unused.status != http.StatusOK ||

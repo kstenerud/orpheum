@@ -54,8 +54,8 @@ func (replay replayingScanner) Scan(_ context.Context, _ *confine.MediaRoot, emi
 	return nil
 }
 
-// filed is one file's filing as library.db holds it.
-type filed struct {
+// storedFiling is one file's filing as library.db holds it.
+type storedFiling struct {
 	filing string
 	reason string
 }
@@ -64,9 +64,9 @@ type filed struct {
 // has identified the library, and returns every live file's filing by its path under root.
 func acceptanceRun(
 	t *testing.T, config Config, root string, start func(captured capturedLog) nodes.Starter,
-) map[string]filed {
+) map[string]storedFiling {
 	t.Helper()
-	nodeID := createMixedLibrary(t, config, root)
+	nodeID := enrolNodeWithMixedLibrary(t, config, root)
 	captured := newCapturedLog("identified a library")
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
@@ -76,7 +76,8 @@ func acceptanceRun(
 	done := make(chan error, 1)
 	go func() {
 		outside := wiring{
-			startNode: start(captured), tmdbBaseURL: noTMDB, tmdbImagesBaseURL: noTMDB, openSubtitlesBaseURL: noTMDB,
+			startNode: start(captured), tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL,
+			openSubtitlesBaseURL: unreachableURL,
 		}
 		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()
@@ -97,20 +98,21 @@ func acceptanceRun(
 	if err != nil {
 		t.Fatal(err)
 	}
-	filings := map[string]filed{}
+	filings := map[string]storedFiling{}
 	for _, file := range files {
 		raw := string(file.ReportedPathBytes)
 		reason := ""
 		if file.FilingReason != nil {
 			reason = *file.FilingReason
 		}
-		filings[strings.TrimPrefix(raw, root+"/")] = filed{filing: file.Filing, reason: reason}
+		filings[strings.TrimPrefix(raw, root+"/")] = storedFiling{filing: file.Filing, reason: reason}
 	}
 	return filings
 }
 
-// createMixedLibrary makes the database with one mixed library, reading NFO files, over root.
-func createMixedLibrary(t *testing.T, config Config, root string) int64 {
+// enrolNodeWithMixedLibrary makes the database with one mixed library, reading NFO files, over root
+// on the config's node, which it enrols, and returns the node's id.
+func enrolNodeWithMixedLibrary(t *testing.T, config Config, root string) int64 {
 	t.Helper()
 	database := openDatabase(t, config)
 	if err := database.Migrate(t.Context(), config.migrateOptions(t.TempDir(), nil)); err != nil {
@@ -154,7 +156,7 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 
 	recorder := &recordingScanner{}
 	first := acceptanceRun(t, config, root, func(captured capturedLog) nodes.Starter {
-		return inProcess(func(ctx context.Context) error {
+		return inProcessStarter(func(ctx context.Context) error {
 			return runNodeWith(ctx, config, captured.logger, nodeSeams{
 				wrapScanner: func(inner agent.Scanner) agent.Scanner {
 					recorder.inner = inner
@@ -178,9 +180,9 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 	replayConfig, _ := testConfig(t)
 	replayConfig.Node = config.Node
 	second := acceptanceRun(t, replayConfig, root, func(captured capturedLog) nodes.Starter {
-		return inProcess(func(ctx context.Context) error {
+		return inProcessStarter(func(ctx context.Context) error {
 			hello := nodeproto.Hello{Name: replayConfig.Node.Name, Build: thisBuild(), Capabilities: []string{}}
-			node := agent.New(filepath.Join(replayConfig.Server.SocketDir, coreSocket), hello,
+			node := agent.New(filepath.Join(replayConfig.Server.SocketDir, coreSocketName), hello,
 				[]*confine.MediaRoot{media}, agent.Workers{Scanner: replayingScanner{records: recorder.records}},
 				clock.System{}, captured.logger)
 			ticker := time.NewTicker(time.Second)
@@ -191,8 +193,8 @@ func TestM2_EveryFileHasAFilingAndAReasonAndTheCoreNeverOpensAMediaPath(t *testi
 	checkSameFilings(t, first, second)
 }
 
-// inProcess starts a node's loop in this process.
-func inProcess(run func(ctx context.Context) error) nodes.Starter {
+// inProcessStarter is a node starter that runs a node's loop in this process.
+func inProcessStarter(run func(ctx context.Context) error) nodes.Starter {
 	return func(ctx context.Context) (nodes.Process, error) {
 		ctx, cancel := context.WithCancel(ctx)
 		node := &inProcessNode{done: make(chan struct{}), cancel: cancel}
@@ -206,7 +208,7 @@ func inProcess(run func(ctx context.Context) error) nodes.Starter {
 
 // checkFilings checks every file of the tree has a filing, every file not listed a reason, the
 // unreadable file an error, and every trailer and featurette of a film is an extra.
-func checkFilings(t *testing.T, tree testutil.FixtureTree, first map[string]filed) {
+func checkFilings(t *testing.T, tree testutil.FixtureTree, first map[string]storedFiling) {
 	t.Helper()
 	var missing []string
 	for _, file := range tree.Files {
@@ -236,7 +238,7 @@ func checkFilings(t *testing.T, tree testutil.FixtureTree, first map[string]file
 }
 
 // checkSameFilings checks the replay filed every file as the real scan did.
-func checkSameFilings(t *testing.T, first, second map[string]filed) {
+func checkSameFilings(t *testing.T, first, second map[string]storedFiling) {
 	t.Helper()
 	var differ []string
 	for path, want := range first {

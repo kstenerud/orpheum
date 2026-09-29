@@ -58,7 +58,7 @@ type SubtitleInput struct {
 }
 
 func (server *Server) registerSubtitles() {
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSubtitle", Method: http.MethodGet, Path: "/bytes/media/sub/{token}/{fileName}",
 		Summary: "One of a playback's subtitle tracks, as ASS or WebVTT (D217 §6)", Tags: []string{tagPlayback},
 		Responses: map[string]*huma.Response{
@@ -67,7 +67,7 @@ func (server *Server) registerSubtitles() {
 			}},
 			"425": {Description: "Not extracted yet; ask again after Retry-After"},
 		},
-	}, server.subtitle)
+	}, server.getSubtitle)
 }
 
 // The subtitles' media types.
@@ -76,9 +76,9 @@ const (
 	vttContentType = "text/vtt; charset=utf-8"
 )
 
-// subtitleFileName is the only shape a subtitle may be asked for by: its stream, or f and its
+// subtitleFilePattern is the only shape a subtitle may be asked for by: its stream, or f and its
 // fetched id, and its form.
-var subtitleFileName = regexp.MustCompile(`^(f?)(\d{1,18})\.(ass|vtt)$`)
+var subtitleFilePattern = regexp.MustCompile(`^(f?)(\d{1,18})\.(ass|vtt)$`)
 
 // subtitleTracks lists a playback's text tracks, each with its URL in both forms.
 func subtitleTracks(started playback.Started) []SubtitleTrackBody {
@@ -99,10 +99,10 @@ func subtitleTracks(started playback.Started) []SubtitleTrackBody {
 	return tracks
 }
 
-// subtitle serves one of a playback's subtitle tracks from the core's own copy. While it is being
-// extracted it is 425 with a Retry-After, as a rendition's file is.
-func (server *Server) subtitle(ctx context.Context, input *SubtitleInput) (*huma.StreamResponse, error) {
-	match := subtitleFileName.FindStringSubmatch(input.FileName)
+// getSubtitle serves one of a playback's subtitle tracks from the core's own copy. While it is
+// being extracted it is 425 with a Retry-After, as a rendition's file is.
+func (server *Server) getSubtitle(ctx context.Context, input *SubtitleInput) (*huma.StreamResponse, error) {
+	match := subtitleFilePattern.FindStringSubmatch(input.FileName)
 	if match == nil {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
 	}
@@ -118,12 +118,12 @@ func (server *Server) subtitle(ctx context.Context, input *SubtitleInput) (*huma
 	if match[3] == string(playback.FormatWebVTT) {
 		format, contentType = playback.FormatWebVTT, vttContentType
 	}
-	authorization := input.authorization()
-	dependencies, principal, err := server.signedIn(ctx, authorization)
+	authorization := input.asAuthorizationHeader()
+	dependencies, principal, err := server.requireSignedIn(ctx, authorization)
 	if err != nil {
 		return nil, err
 	}
-	text, err := dependencies.Playback.Subtitle(
+	subtitleText, err := dependencies.Playback.Subtitle(
 		ctx, input.Token, track, format, principal.UserID, sessionKey(authorization))
 	switch {
 	case errors.Is(err, playback.ErrNoToken), errors.Is(err, playback.ErrNoFile):
@@ -131,22 +131,22 @@ func (server *Server) subtitle(ctx context.Context, input *SubtitleInput) (*huma
 	case errors.Is(err, playback.ErrNoSubtitle):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such subtitle")
 	case err != nil:
-		return nil, server.internal(ctx, "find a subtitle", err)
+		return nil, server.logInternalError(ctx, "find a subtitle", err)
 	}
-	switch text.Readiness {
+	switch subtitleText.Readiness {
 	case playback.Preparing:
 		return nil, tooEarly()
 	case playback.Failed:
 		return nil, newError(http.StatusBadGateway, CodePrepareFailed,
-			"this subtitle could not be extracted: "+text.Failure)
+			"this subtitle could not be extracted: "+subtitleText.Failure)
 	case playback.Complete:
 	}
 	return &huma.StreamResponse{Body: func(stream huma.Context) {
 		stream.SetHeader("Content-Type", contentType)
-		stream.SetHeader("Content-Length", strconv.Itoa(len(text.Text)))
+		stream.SetHeader("Content-Length", strconv.Itoa(len(subtitleText.Text)))
 		stream.SetHeader("Cache-Control", "private, max-age=86400")
 		stream.SetStatus(http.StatusOK)
 		// A player that stops reading ends the copy; there is nothing to report to it.
-		_, _ = stream.BodyWriter().Write(text.Text) //nolint:errcheck // see above
+		_, _ = stream.BodyWriter().Write(subtitleText.Text) //nolint:errcheck // see above
 	}}, nil
 }

@@ -101,45 +101,45 @@ type RefreshOutput struct {
 
 func (server *Server) registerIdentification() {
 	tags := []string{tagIdentification}
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getItemsByIdentification", Method: http.MethodGet, Path: "/items",
 		Summary: "The titles and series in one state of identification", Tags: tags,
-	}, server.getItems)
-	huma.Register(server.api, huma.Operation{
+	}, server.getItemsByIdentification)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getItemCandidates", Method: http.MethodGet, Path: "/items/{id}/candidates",
 		Summary: "An ambiguous film's or series' search results, to choose from (edit_metadata)", Tags: tags,
-	}, server.getCandidates)
-	huma.Register(server.api, huma.Operation{
+	}, server.getItemCandidates)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "postItemMatch", Method: http.MethodPost, Path: "/items/{id}/match",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Choose a film's or series' match; permanent (edit_metadata)",
-	}, server.postMatch)
-	huma.Register(server.api, huma.Operation{
+	}, server.postItemMatch)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "putOverride", Method: http.MethodPut, Path: "/items/{id}/overrides/{field}",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Set a field to a person's value, kept over every source (edit_metadata)",
 	}, server.putOverride)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "deleteOverride", Method: http.MethodDelete, Path: "/items/{id}/overrides/{field}",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Remove a field's override, so it follows its source again (edit_metadata)",
 	}, server.deleteOverride)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "postItemRefresh", Method: http.MethodPost, Path: "/items/{id}/refresh",
 		DefaultStatus: http.StatusAccepted, Tags: tags,
 		Summary: "Fetch a film's or series' data and its missing images again, whenever a person likes " +
 			"(edit_metadata; D213)",
-	}, server.postRefresh)
+	}, server.postItemRefresh)
 }
 
-func (server *Server) getItems(ctx context.Context, input *ItemsInput) (*ItemsOutput, error) {
-	dependencies, _, err := server.signedIn(ctx, input.Authorization)
+func (server *Server) getItemsByIdentification(ctx context.Context, input *ItemsInput) (*ItemsOutput, error) {
+	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	items, err := dependencies.Identify.Items(ctx, input.IdentificationState)
+	items, err := dependencies.Chooser.Items(ctx, input.IdentificationState)
 	if err != nil {
-		return nil, server.internal(ctx, "list items", err)
+		return nil, server.logInternalError(ctx, "list items", err)
 	}
 	output := &ItemsOutput{}
 	output.Body.Items = make([]ItemBody, 0, len(items))
@@ -152,12 +152,12 @@ func (server *Server) getItems(ctx context.Context, input *ItemsInput) (*ItemsOu
 	return output, nil
 }
 
-func (server *Server) getCandidates(ctx context.Context, input *ItemInput) (*CandidatesOutput, error) {
-	dependencies, _, err := server.metadataEditor(ctx, input.Authorization)
+func (server *Server) getItemCandidates(ctx context.Context, input *ItemInput) (*CandidatesOutput, error) {
+	dependencies, _, err := server.requireMetadataEditor(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	candidates, provider, err := dependencies.Identify.Candidates(ctx, input.ID)
+	candidates, provider, err := dependencies.Chooser.Candidates(ctx, input.ID)
 	if err != nil {
 		return nil, server.identifyError(ctx, "list candidates", err)
 	}
@@ -173,52 +173,52 @@ func (server *Server) getCandidates(ctx context.Context, input *ItemInput) (*Can
 	return output, nil
 }
 
-func (server *Server) postMatch(ctx context.Context, input *MatchInput) (*struct{}, error) {
-	dependencies, _, err := server.metadataEditor(ctx, input.Authorization)
+func (server *Server) postItemMatch(ctx context.Context, input *MatchInput) (*struct{}, error) {
+	dependencies, _, err := server.requireMetadataEditor(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	err = dependencies.Identify.Choose(ctx, input.ID, input.Body.Provider, input.Body.ProviderID)
+	err = dependencies.Chooser.Choose(ctx, input.ID, input.Body.Provider, input.Body.ProviderID)
 	return &struct{}{}, server.identifyError(ctx, "choose a match", err)
 }
 
-func (server *Server) postRefresh(ctx context.Context, input *ItemInput) (*RefreshOutput, error) {
-	dependencies, _, err := server.metadataEditor(ctx, input.Authorization)
+func (server *Server) postItemRefresh(ctx context.Context, input *ItemInput) (*RefreshOutput, error) {
+	dependencies, _, err := server.requireMetadataEditor(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	queued, err := dependencies.Refresh.Request(ctx, input.ID)
+	isQueued, err := dependencies.Refresher.Request(ctx, input.ID)
 	if err != nil {
 		return nil, server.identifyError(ctx, "queue a refresh", err)
 	}
 	output := &RefreshOutput{Status: http.StatusAccepted}
-	output.Body.IsQueued = queued
+	output.Body.IsQueued = isQueued
 	return output, nil
 }
 
 func (server *Server) putOverride(ctx context.Context, input *PutOverrideInput) (*struct{}, error) {
-	dependencies, principal, err := server.metadataEditor(ctx, input.Authorization)
+	dependencies, principal, err := server.requireMetadataEditor(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	err = dependencies.Identify.SetOverride(ctx, input.ID, input.Field, input.Body.Value, principal.UserID)
+	err = dependencies.Chooser.SetOverride(ctx, input.ID, input.Field, input.Body.Value, principal.UserID)
 	return &struct{}{}, server.identifyError(ctx, "set an override", err)
 }
 
 func (server *Server) deleteOverride(ctx context.Context, input *OverrideInput) (*struct{}, error) {
-	dependencies, _, err := server.metadataEditor(ctx, input.Authorization)
+	dependencies, _, err := server.requireMetadataEditor(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	err = dependencies.Identify.ClearOverride(ctx, input.ID, input.Field)
+	err = dependencies.Chooser.ClearOverride(ctx, input.ID, input.Field)
 	return &struct{}{}, server.identifyError(ctx, "remove an override", err)
 }
 
-// metadataEditor is signedIn for a role that may edit metadata.
-func (server *Server) metadataEditor(ctx context.Context, authorization string) (
+// requireMetadataEditor is requireSignedIn for a role that may edit metadata.
+func (server *Server) requireMetadataEditor(ctx context.Context, authorization string) (
 	*Dependencies, auth.Principal, error,
 ) {
-	dependencies, principal, err := server.signedIn(ctx, authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, authorization)
 	if err != nil {
 		return nil, principal, err
 	}
@@ -229,8 +229,8 @@ func (server *Server) metadataEditor(ctx context.Context, authorization string) 
 }
 
 // identifyError maps identification's refusals and a provider's to API errors.
-func (server *Server) identifyError(ctx context.Context, doing string, err error) error {
-	limited, isLimited := errors.AsType[*identify.RateLimitedError](err)
+func (server *Server) identifyError(ctx context.Context, action string, err error) error {
+	rateLimitErr, isLimited := errors.AsType[*identify.RateLimitedError](err)
 	switch {
 	case err == nil:
 		return nil
@@ -246,12 +246,12 @@ func (server *Server) identifyError(ctx context.Context, doing string, err error
 	case isLimited:
 		failure := newError(http.StatusServiceUnavailable, CodeRateLimited, "the provider asks us to wait")
 		failure.ErrorBody.Error.Detail = map[string]string{
-			"retryAfterMs": strconv.FormatInt(limited.RetryAfter.Milliseconds(), 10),
+			"retryAfterMs": strconv.FormatInt(rateLimitErr.RetryAfter.Milliseconds(), 10),
 		}
 		return failure
 	case errors.Is(err, identify.ErrNoKey), errors.Is(err, identify.ErrKeyRefused):
 		return newError(http.StatusServiceUnavailable, CodeProviderError,
 			"the provider's key is not set or was refused; an admin can set it under secrets")
 	}
-	return server.internal(ctx, doing, err)
+	return server.logInternalError(ctx, action, err)
 }

@@ -112,33 +112,33 @@ type ChangePasswordInput struct {
 
 func (server *Server) registerAccounts() {
 	tags := []string{tagAccounts}
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listAccounts", Method: http.MethodGet, Path: "/users",
 		Summary: "Everyone, for the admin", Tags: tags,
 	}, server.listAccounts)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "createAccount", Method: http.MethodPost, Path: "/users", DefaultStatus: http.StatusCreated,
 		Summary: "Make a person, and a one-time link for them to set a password (D218)", Tags: tags,
 	}, server.createAccount)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "issueRegistrationLink", Method: http.MethodPost, Path: "/users/{id}/registration-link",
 		Summary: "A new registration link for a person, withdrawing the old; their password works until they use it",
 		Tags:    tags,
 	}, server.issueRegistrationLink)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "register", Method: http.MethodPost, Path: "/registration",
 		Summary: "Use a registration link: set a password and sign this device in", Tags: tags,
 	}, server.register)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "issueDeviceCode", Method: http.MethodPost, Path: "/device-codes",
 		Summary: "A code that signs a device in, for ten minutes, once (D218)", Tags: tags,
 	}, server.issueDeviceCode)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "signInWithCode", Method: http.MethodPost, Path: "/session/code",
 		DefaultStatus: http.StatusCreated,
 		Summary:       "Sign a device in with a device code", Tags: tags,
 	}, server.signInWithCode)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "changePassword", Method: http.MethodPut, Path: "/me/password",
 		DefaultStatus: http.StatusNoContent,
 		Summary:       "Change one's own password; other sessions stay signed in", Tags: tags,
@@ -153,13 +153,13 @@ func accountBody(account auth.Account) AccountBody {
 }
 
 func (server *Server) listAccounts(ctx context.Context, input *struct{ AuthorizationHeader }) (*AccountsOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	accounts, err := dependencies.Auth.Accounts(ctx)
 	if err != nil {
-		return nil, server.internal(ctx, "list accounts", err)
+		return nil, server.logInternalError(ctx, "list accounts", err)
 	}
 	output := &AccountsOutput{}
 	output.Body.Accounts = make([]AccountBody, 0, len(accounts))
@@ -170,7 +170,7 @@ func (server *Server) listAccounts(ctx context.Context, input *struct{ Authoriza
 }
 
 func (server *Server) createAccount(ctx context.Context, input *CreateAccountInput) (*CreateAccountOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (server *Server) createAccount(ctx context.Context, input *CreateAccountInp
 	case errors.Is(err, auth.ErrNameTaken):
 		return nil, newError(http.StatusConflict, CodeConflict, "someone already has that name")
 	case err != nil:
-		return nil, server.internal(ctx, "create an account", err)
+		return nil, server.logInternalError(ctx, "create an account", err)
 	}
 	output := &CreateAccountOutput{}
 	output.Body.Account = AccountBody{ID: id, Name: input.Body.Name, Role: string(role)}
@@ -191,7 +191,7 @@ func (server *Server) createAccount(ctx context.Context, input *CreateAccountInp
 func (server *Server) issueRegistrationLink(
 	ctx context.Context, input *RegistrationLinkInput,
 ) (*InvitationOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -200,13 +200,13 @@ func (server *Server) issueRegistrationLink(
 	case errors.Is(err, auth.ErrNoUser):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such person")
 	case err != nil:
-		return nil, server.internal(ctx, "make a registration link", err)
+		return nil, server.logInternalError(ctx, "make a registration link", err)
 	}
 	return &InvitationOutput{Body: invitationBody(link)}, nil
 }
 
 func (server *Server) register(ctx context.Context, input *RegisterInput) (*SessionOutput, error) {
-	dependencies, err := server.ready()
+	dependencies, err := server.readyDependencies()
 	if err != nil {
 		return nil, err
 	}
@@ -214,11 +214,11 @@ func (server *Server) register(ctx context.Context, input *RegisterInput) (*Sess
 	if err != nil {
 		return nil, server.invitationRefusal(ctx, "register", err)
 	}
-	return server.sessionAnswer(ctx, dependencies, token, input.overTLS)
+	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
 }
 
 func (server *Server) issueDeviceCode(ctx context.Context, input *DeviceCodeInput) (*InvitationOutput, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -234,20 +234,20 @@ func (server *Server) issueDeviceCode(ctx context.Context, input *DeviceCodeInpu
 		return nil, newError(http.StatusBadRequest, CodeInvalidRequest,
 			"a code is for a new device, named, or a listed one")
 	}
-	code, err := dependencies.Auth.IssueDeviceCode(ctx, userID, input.Body.DeviceName, input.Body.DeviceID)
+	deviceCode, err := dependencies.Auth.IssueDeviceCode(ctx, userID, input.Body.DeviceName, input.Body.DeviceID)
 	switch {
 	case errors.Is(err, auth.ErrNoUser):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such person")
 	case errors.Is(err, auth.ErrNoDevice):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such device")
 	case err != nil:
-		return nil, server.internal(ctx, "make a device code", err)
+		return nil, server.logInternalError(ctx, "make a device code", err)
 	}
-	return &InvitationOutput{Body: invitationBody(code)}, nil
+	return &InvitationOutput{Body: invitationBody(deviceCode)}, nil
 }
 
 func (server *Server) signInWithCode(ctx context.Context, input *CodeSignInInput) (*SessionOutput, error) {
-	dependencies, err := server.ready()
+	dependencies, err := server.readyDependencies()
 	if err != nil {
 		return nil, err
 	}
@@ -256,22 +256,22 @@ func (server *Server) signInWithCode(ctx context.Context, input *CodeSignInInput
 	if err != nil {
 		return nil, server.invitationRefusal(ctx, "sign in with a code", err)
 	}
-	return server.sessionAnswer(ctx, dependencies, token, input.overTLS)
+	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
 }
 
 // invitationRefusal is what a registration link or device code that does not work answers.
-func (server *Server) invitationRefusal(ctx context.Context, doing string, err error) error {
+func (server *Server) invitationRefusal(ctx context.Context, action string, err error) error {
 	switch {
 	case errors.Is(err, auth.ErrRateLimited):
 		return newError(http.StatusTooManyRequests, CodeRateLimited, "too many failed attempts; wait and try again")
 	case errors.Is(err, auth.ErrBadInvitation):
 		return newError(http.StatusUnauthorized, CodeAuthRequired, err.Error())
 	}
-	return server.internal(ctx, doing, err)
+	return server.logInternalError(ctx, action, err)
 }
 
 func (server *Server) changePassword(ctx context.Context, input *ChangePasswordInput) (*struct{}, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +280,7 @@ func (server *Server) changePassword(ctx context.Context, input *ChangePasswordI
 	case errors.Is(err, auth.ErrBadCredentials):
 		return nil, newError(http.StatusForbidden, CodeForbidden, "the current password is wrong")
 	case err != nil:
-		return nil, server.internal(ctx, "change a password", err)
+		return nil, server.logInternalError(ctx, "change a password", err)
 	}
 	return &struct{}{}, nil
 }
@@ -311,25 +311,25 @@ type WatchStatsBody struct {
 
 func (server *Server) registerPerson() {
 	tags := []string{tagAccounts}
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getPerson", Method: http.MethodGet, Path: "/users/{id}",
 		Summary: "A person's page, for the admin: who they are and what they have watched", Tags: tags,
-	}, server.person)
-	huma.Register(server.api, huma.Operation{
+	}, server.getPerson)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "renamePerson", Method: http.MethodPut, Path: "/users/{id}",
 		Summary: "Rename a person; names are for display and sign-in, and stay unique", Tags: tags,
 		DefaultStatus: http.StatusNoContent,
 	}, server.renamePerson)
 }
 
-func (server *Server) person(ctx context.Context, input *PersonDevicesInput) (*PersonOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+func (server *Server) getPerson(ctx context.Context, input *PersonInput) (*PersonOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	accounts, err := dependencies.Auth.Accounts(ctx)
 	if err != nil {
-		return nil, server.internal(ctx, "list accounts", err)
+		return nil, server.logInternalError(ctx, "list accounts", err)
 	}
 	output := &PersonOutput{}
 	for _, account := range accounts {
@@ -342,7 +342,7 @@ func (server *Server) person(ctx context.Context, input *PersonDevicesInput) (*P
 	}
 	stats, err := dependencies.Playback.WatchStatsOf(ctx, input.UserID)
 	if err != nil {
-		return nil, server.internal(ctx, "read a person's watching", err)
+		return nil, server.logInternalError(ctx, "read a person's watching", err)
 	}
 	output.Body.WatchStats = WatchStatsBody{WatchedMs: stats.WatchedMs, TitlesWatchedCount: stats.TitlesWatched}
 	if !stats.LastWatchedAt.IsZero() {
@@ -352,7 +352,7 @@ func (server *Server) person(ctx context.Context, input *PersonDevicesInput) (*P
 }
 
 func (server *Server) renamePerson(ctx context.Context, input *RenamePersonInput) (*struct{}, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +363,7 @@ func (server *Server) renamePerson(ctx context.Context, input *RenamePersonInput
 	case errors.Is(err, auth.ErrNameTaken):
 		return nil, newError(http.StatusConflict, CodeConflict, "someone already has that name")
 	case err != nil:
-		return nil, server.internal(ctx, "rename a person", err)
+		return nil, server.logInternalError(ctx, "rename a person", err)
 	}
 	return &struct{}{}, nil
 }

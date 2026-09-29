@@ -25,8 +25,8 @@ func (harness testHarness) listedJobs(t *testing.T, token string) []JobBody {
 	return listed.Body.Jobs
 }
 
-// prepareJob is the newest prepare job in the view.
-func prepareJob(t *testing.T, listed []JobBody) JobBody {
+// newestPrepareJob is the newest prepare job in the view.
+func newestPrepareJob(t *testing.T, listed []JobBody) JobBody {
 	t.Helper()
 	return newestOf(t, listed, jobs.KindPrepare)
 }
@@ -50,7 +50,7 @@ func TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPrepare
 	harness.shelveFilms(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
 	harness.play(t, admin, chrome(2))
-	queued := prepareJob(t, harness.listedJobs(t, admin))
+	queued := newestPrepareJob(t, harness.listedJobs(t, admin))
 	if queued.State != "queued" || queued.Reason == "" {
 		t.Errorf("the prepare in the view = %+v, want queued with its reason", queued)
 	}
@@ -61,7 +61,7 @@ func TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPrepare
 	if command := <-harness.nodes.commanded; command.Type != nodeproto.CommandPrepare {
 		t.Fatalf("the node was sent %+v, want the prepare", command)
 	}
-	if running := prepareJob(t, harness.listedJobs(t, admin)); running.State != "running" {
+	if running := newestPrepareJob(t, harness.listedJobs(t, admin)); running.State != "running" {
 		t.Errorf("the prepare once the node has it = %+v, want running", running)
 	}
 	cancel := "/jobs/" + strconv.FormatInt(queued.ID, 10) + "/cancel"
@@ -75,13 +75,13 @@ func TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPrepare
 	if err := <-ran; err != nil {
 		t.Fatal(err)
 	}
-	if cancelled := prepareJob(t, harness.listedJobs(t, admin)); cancelled.State != "cancelled" {
+	if cancelled := newestPrepareJob(t, harness.listedJobs(t, admin)); cancelled.State != "cancelled" {
 		t.Errorf("the prepare after the cancel = %+v, want cancelled", cancelled)
 	}
 	if again := harness.play(t, admin, chrome(2)); !again.IsPreparing {
 		t.Errorf("the next play: %+v, want the copy prepared again, not waited on", again)
 	}
-	if next := prepareJob(t, harness.listedJobs(t, admin)); next.ID == queued.ID || next.State != "queued" {
+	if next := newestPrepareJob(t, harness.listedJobs(t, admin)); next.ID == queued.ID || next.State != "queued" {
 		t.Errorf("the newest prepare = %+v, want a new one queued", next)
 	}
 	if status := harness.do(t, http.MethodPost, cancel, admin, nil).status; status != http.StatusConflict {
@@ -93,7 +93,7 @@ func TestJobs_OnlyAnAdminSeesOrCancelsThem(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	harness.createAdminAndSignIn(t)
-	_, err := harness.service.CreateUser(t.Context(), auth.NewUser{
+	_, err := harness.authService.CreateUser(t.Context(), auth.NewUser{
 		Name: "guest", Password: "guest-password", Role: auth.RoleUser,
 	})
 	if err != nil {

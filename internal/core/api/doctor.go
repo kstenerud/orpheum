@@ -36,38 +36,39 @@ type DoctorOutput struct {
 }
 
 func (server *Server) registerDoctor() {
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getDoctor", Method: http.MethodGet, Path: "/doctor", Tags: []string{tagRunningIt},
 		Summary: "What the running server finds wrong with itself, and what to do (admin)",
-	}, server.doctor)
+	}, server.getDoctor)
 }
 
-func (server *Server) doctor(ctx context.Context, input *AuthorizationHeader) (*DoctorOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+func (server *Server) getDoctor(ctx context.Context, input *AuthorizationHeader) (*DoctorOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	output := &DoctorOutput{}
-	output.Body.Findings, err = server.findings(ctx, dependencies)
+	output.Body.Findings, err = server.collectFindings(ctx, dependencies)
 	if err != nil {
 		return nil, err
 	}
 	return output, nil
 }
 
-// findings are what the running server finds wrong with itself, for /doctor and the System page.
-func (server *Server) findings(ctx context.Context, dependencies *Dependencies) ([]FindingBody, error) {
+// collectFindings lists what the running server finds wrong with itself, for /doctor and the
+// System page.
+func (server *Server) collectFindings(ctx context.Context, dependencies *Dependencies) ([]FindingBody, error) {
 	findings := []FindingBody{artworkFinding(dependencies)}
 	listed, err := dependencies.Libraries.NodeRoots(ctx)
 	if err != nil {
-		return nil, server.internal(ctx, "list nodes", err)
+		return nil, server.logInternalError(ctx, "list nodes", err)
 	}
 	for _, node := range listed {
 		facts, found := dependencies.NodeReports.Facts(node.Name)
 		if !found {
 			continue
 		}
-		findings = append(findings, buildFinding(node.Name, facts.Hello.Build, dependencies.System.Build),
+		findings = append(findings, nodeBuildFinding(node.Name, facts.Hello.Build, dependencies.System.Build),
 			confinementFinding(node.Name, confinementBodies(facts.Hello.Confinement)),
 			hardwareFinding(node.Name, facts.Hello.Hardware))
 		if facts.Status != nil && facts.Status.PreparedUsage != nil {
@@ -79,10 +80,10 @@ func (server *Server) findings(ctx context.Context, dependencies *Dependencies) 
 
 // preparedFinding is what a node's prepared directory holds against its budget and its disk's
 // limit (D217 §5): a warning when either is past, which eviction could not bring back.
-func preparedFinding(node string, usage nodeproto.PreparedUsage) FindingBody {
+func preparedFinding(nodeName string, usage nodeproto.PreparedUsage) FindingBody {
 	const gib = 1 << 30
 	finding := FindingBody{
-		Check: "prepared copies on node " + node, Verdict: verdictOK,
+		Check: "prepared copies on node " + nodeName, Verdict: verdictOK,
 		Detail: fmt.Sprintf("%.1f GiB of a %d GiB budget; the disk is %d%% full, its limit %d%%",
 			float64(usage.UsedBytes)/gib, usage.BudgetBytes/gib, usage.DiskUsedPercent, usage.DiskUsedLimitPercent),
 	}
@@ -97,9 +98,9 @@ func preparedFinding(node string, usage nodeproto.PreparedUsage) FindingBody {
 // confinementFinding is a node's FFmpeg confinement: a warning for each mechanism not in force,
 // with what would put it there, because a user whose safety depends on it deserves to know
 // (D112).
-func confinementFinding(node string, confinement []ConfinementBody) FindingBody {
+func confinementFinding(nodeName string, confinement []ConfinementBody) FindingBody {
 	finding := FindingBody{
-		Check: "FFmpeg confinement on node " + node, Verdict: verdictOK,
+		Check: "FFmpeg confinement on node " + nodeName, Verdict: verdictOK,
 		Detail: "every FFmpeg run is confined by Landlock and seccomp",
 	}
 	var missing, remedies []string

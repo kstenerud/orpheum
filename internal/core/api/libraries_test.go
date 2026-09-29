@@ -17,7 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// fakeNodes is the node channel: node 1, "local", connected once connect is called, with the
+// fakeNodes is the node channel: node 1, "local", connected once connectNode is called, with the
 // roots it named.
 type fakeNodes struct {
 	roots  []string
@@ -76,7 +76,7 @@ func (nodes *fakeNodes) Enqueue(_ int64, command nodeproto.Command) {
 // connectNode enrols node 1 and has it name its roots.
 func (harness testHarness) connectNode(t *testing.T, roots ...string) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.database, "INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)")
+	storetest.ExecRaw(t, harness.databasePath, "INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)")
 	harness.nodes.roots = roots
 }
 
@@ -132,7 +132,7 @@ func TestLibraries_AUserSeesTheLibrariesButNotTheirMachinery(t *testing.T) {
 		http.StatusCreated {
 		t.Fatalf("POST /libraries = %d %s", created.status, created.body)
 	}
-	if _, err := harness.service.CreateUser(t.Context(),
+	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.connectNode(t, "/m")
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
 		`INSERT INTO file (library_id, node_id, path, filing, filing_reason, first_seen_at, last_seen_at) VALUES
@@ -186,7 +186,7 @@ func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.connectNode(t, "/m")
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
 		`INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/m')`,
@@ -215,7 +215,7 @@ func TestNodes_AnAdminSeesEachNodeAndTheRootsItConfigured(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	storetest.ExecRaw(t, harness.database, "INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)")
+	storetest.ExecRaw(t, harness.databasePath, "INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)")
 	harness.connectNode(t, "/media/films", "/media/shows")
 	listed := harness.do(t, http.MethodGet, "/nodes", admin, nil)
 	want := `{"nodes":[{"name":"attic","isConnected":false,"rootPaths":[]},` +
@@ -223,7 +223,7 @@ func TestNodes_AnAdminSeesEachNodeAndTheRootsItConfigured(t *testing.T) {
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, want) {
 		t.Errorf("GET /nodes = %d %s", listed.status, listed.body)
 	}
-	if _, err := harness.service.CreateUser(t.Context(),
+	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}

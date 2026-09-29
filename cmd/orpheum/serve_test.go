@@ -26,9 +26,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// noTMDB is where tests that fake no TMDB send it: a closed port on loopback, so a call that
-// escapes fails on this machine and never reaches the network (standards/testing.md).
-const noTMDB = "http://127.0.0.1:9"
+// unreachableURL is where tests that fake no provider (TMDB, OpenSubtitles) send it: a closed port
+// on loopback, so a call that escapes fails on this machine and never reaches the network
+// (standards/testing.md).
+const unreachableURL = "http://127.0.0.1:9"
 
 func TestMain(m *testing.M) {
 	// The node under test starts FFmpeg through this binary, as the real one does through orpheum.
@@ -138,14 +139,14 @@ format = "json"
 	return config, path
 }
 
-// running is a server started by serve on a loopback listener.
-type running struct {
+// runningServer is a server started by serve on a loopback listener.
+type runningServer struct {
 	baseURL string
 	stop    func() error
 }
 
 // startServing runs serve until the test stops it, and waits until it logs awaited.
-func startServing(t *testing.T, config Config, captured capturedLog, awaited string) running {
+func startServing(t *testing.T, config Config, captured capturedLog, awaited string) runningServer {
 	t.Helper()
 	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
@@ -154,7 +155,9 @@ func startServing(t *testing.T, config Config, captured capturedLog, awaited str
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() {
-		outside := wiring{tmdbBaseURL: noTMDB, tmdbImagesBaseURL: noTMDB, openSubtitlesBaseURL: noTMDB}
+		outside := wiring{
+			tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL, openSubtitlesBaseURL: unreachableURL,
+		}
 		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()
 	select {
@@ -177,15 +180,15 @@ func startServing(t *testing.T, config Config, captured capturedLog, awaited str
 			t.Logf("serve returned: %v", err)
 		}
 	})
-	return running{baseURL: "http://" + listener.Addr().String() + api.Prefix, stop: stop}
+	return runningServer{baseURL: "http://" + listener.Addr().String() + api.Prefix, stop: stop}
 }
 
-type reply struct {
+type apiReply struct {
 	status int
 	body   string
 }
 
-func call(t *testing.T, method, url, token string, body any) reply {
+func requestAPI(t *testing.T, method, url, token string, body any) apiReply {
 	t.Helper()
 	var reader io.Reader
 	if body != nil {
@@ -222,7 +225,7 @@ func call(t *testing.T, method, url, token string, body any) reply {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return reply{status: answer.StatusCode, body: string(text)}
+	return apiReply{status: answer.StatusCode, body: string(text)}
 }
 
 func TestServe_HealthSaysMigratingBeforeTheMigrationStarts(t *testing.T) {
@@ -246,7 +249,7 @@ func TestServe_HealthSaysMigratingBeforeTheMigrationStarts(t *testing.T) {
 		FreeSpaceDatabaseMultiple: 3,
 		OnBeforeStep: func(step, total int) {
 			report(step, total)
-			health := call(t, http.MethodGet, served.URL+api.Prefix+"/health", "", nil)
+			health := requestAPI(t, http.MethodGet, served.URL+api.Prefix+"/health", "", nil)
 			state, stateErr := database.State(t.Context())
 			if stateErr != nil {
 				t.Error(stateErr)
@@ -277,7 +280,7 @@ func TestServe_ComesUpReadyAndStopsCleanly(t *testing.T) {
 	config, _ := testConfig(t)
 	captured := newCapturedLog("ready")
 	server := startServing(t, config, captured, "ready")
-	health := call(t, http.MethodGet, server.baseURL+"/health", "", nil)
+	health := requestAPI(t, http.MethodGet, server.baseURL+"/health", "", nil)
 	if health.status != http.StatusOK || !strings.Contains(health.body, `"status":"ready"`) {
 		t.Errorf("/health once ready = %d %s", health.status, health.body)
 	}
@@ -295,11 +298,11 @@ func TestServe_AnswersTheClientsAddressesAtTheRoot(t *testing.T) {
 	server := startServing(t, config, newCapturedLog("ready"), "ready")
 	root := strings.TrimSuffix(server.baseURL, api.Prefix)
 	// A test binary has no web client built in, so the root says so rather than 404ing silently.
-	films := call(t, http.MethodGet, root+"/films", "", nil)
+	films := requestAPI(t, http.MethodGet, root+"/films", "", nil)
 	if films.status != http.StatusNotFound || !strings.Contains(films.body, "built without the web client") {
 		t.Errorf("/films = %d %q, want the web client's handler", films.status, films.body)
 	}
-	if health := call(t, http.MethodGet, server.baseURL+"/health", "", nil); health.status != http.StatusOK {
+	if health := requestAPI(t, http.MethodGet, server.baseURL+"/health", "", nil); health.status != http.StatusOK {
 		t.Errorf("/health beside the web client = %d, want 200", health.status)
 	}
 	if err := server.stop(); err != nil {
@@ -319,7 +322,7 @@ func TestServe_ReportsAFailedStartInsteadOfExiting(t *testing.T) {
 	}
 	const failed = "the server could not start; it stays up to report why at /api/v1/health"
 	server := startServing(t, config, newCapturedLog(failed), failed)
-	health := call(t, http.MethodGet, server.baseURL+"/health", "", nil)
+	health := requestAPI(t, http.MethodGet, server.baseURL+"/health", "", nil)
 	if health.status != http.StatusServiceUnavailable || !strings.Contains(health.body, `"status":"degraded"`) {
 		t.Errorf("/health after a failed start = %d %s, want 503 degraded with the reason", health.status, health.body)
 	}
@@ -333,7 +336,7 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 	config, _ := testConfig(t)
 	server := startServing(t, config, newCapturedLog("ready"), "ready")
 	pprofURL := strings.TrimSuffix(server.baseURL, api.Prefix) + "/debug/pprof/"
-	if off := call(t, http.MethodGet, pprofURL, "", nil); off.status != http.StatusNotFound {
+	if off := requestAPI(t, http.MethodGet, pprofURL, "", nil); off.status != http.StatusNotFound {
 		t.Errorf("with should_serve_debug_pprof at its starting value, /debug/pprof/ = %d, want 404", off.status)
 	}
 	if err := server.stop(); err != nil {
@@ -344,7 +347,7 @@ func TestServe_ServesPProfOnlyWhenTheSettingSaysSo(t *testing.T) {
 			"WHERE scope = 'server' AND key = 'should_serve_debug_pprof'")
 	restarted := startServing(t, config, newCapturedLog("ready"), "ready")
 	pprofURL = strings.TrimSuffix(restarted.baseURL, api.Prefix) + "/debug/pprof/"
-	if on := call(t, http.MethodGet, pprofURL, "", nil); on.status != http.StatusOK {
+	if on := requestAPI(t, http.MethodGet, pprofURL, "", nil); on.status != http.StatusOK {
 		t.Errorf("with should_serve_debug_pprof on and a loopback listener, /debug/pprof/ = %d, want 200", on.status)
 	}
 }
@@ -416,12 +419,12 @@ func TestServe_TheSystemPageShowsTheServersVersionDirectoriesAndDatabases(t *tes
 	config, path := testConfig(t)
 	server := startServing(t, config, newCapturedLog("ready"), "ready")
 	code := runCommand(t, "setup-code", "--config", path)
-	created := call(t, http.MethodPost, server.baseURL+"/setup", "",
+	created := requestAPI(t, http.MethodPost, server.baseURL+"/setup", "",
 		map[string]string{"setupCode": strings.TrimSpace(code.stdout), "name": "owner", "password": "pw"})
 	if created.status != http.StatusCreated {
 		t.Fatalf("setup: %d %s", created.status, created.body)
 	}
-	session := call(t, http.MethodPost, server.baseURL+"/session", "",
+	session := requestAPI(t, http.MethodPost, server.baseURL+"/session", "",
 		map[string]any{"name": "owner", "password": "pw", "device": signInDevice})
 	var signedIn struct {
 		Token string `json:"token"`
@@ -429,7 +432,7 @@ func TestServe_TheSystemPageShowsTheServersVersionDirectoriesAndDatabases(t *tes
 	if err := json.Unmarshal([]byte(session.body), &signedIn); err != nil || signedIn.Token == "" {
 		t.Fatalf("sign in: %d %s", session.status, session.body)
 	}
-	system := call(t, http.MethodGet, server.baseURL+"/system", signedIn.Token, nil)
+	system := requestAPI(t, http.MethodGet, server.baseURL+"/system", signedIn.Token, nil)
 	var page struct {
 		Server api.ServerBody `json:"server"`
 	}

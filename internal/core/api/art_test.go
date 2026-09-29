@@ -15,23 +15,24 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// fetched is a response, read and closed.
-type fetched struct {
+// closedResponse is a response, read and closed.
+type closedResponse struct {
 	StatusCode int
 	Header     http.Header
 }
 
-// get asks for a path without following a redirect.
-func (harness testHarness) get(t *testing.T, path, token string) (fetched, string) {
+// getWithoutRedirect asks for a path without following a redirect.
+func (harness testHarness) getWithoutRedirect(t *testing.T, path, token string) (closedResponse, string) {
 	t.Helper()
-	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, harness.http.URL+Prefix+path, http.NoBody)
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
+		harness.httpServer.URL+Prefix+path, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
-	client := harness.http.Client()
+	client := harness.httpServer.Client()
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	answer, err := client.Do(request)
 	if err != nil {
@@ -46,7 +47,7 @@ func (harness testHarness) get(t *testing.T, path, token string) (fetched, strin
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fetched{StatusCode: answer.StatusCode, Header: answer.Header}, string(body)
+	return closedResponse{StatusCode: answer.StatusCode, Header: answer.Header}, string(body)
 }
 
 func TestArt_ServesAStoredSizeAndRedirectsFromOneNotMade(t *testing.T) {
@@ -54,16 +55,16 @@ func TestArt_ServesAStoredSizeAndRedirectsFromOneNotMade(t *testing.T) {
 	harness := newHarness(t)
 	token := harness.createAdminAndSignIn(t)
 	hash := strings.Repeat("ab", 32)
-	if err := harness.art.WriteArt(hash, "portrait-s.webp", []byte("RIFF....WEBP")); err != nil {
+	if err := harness.directories.WriteArt(hash, "portrait-s.webp", []byte("RIFF....WEBP")); err != nil {
 		t.Fatal(err)
 	}
-	answer, body := harness.get(t, "/bytes/art/"+hash+"/portrait-s.webp", token)
+	answer, body := harness.getWithoutRedirect(t, "/bytes/art/"+hash+"/portrait-s.webp", token)
 	if answer.StatusCode != http.StatusOK || body != "RIFF....WEBP" ||
 		answer.Header.Get("Content-Type") != "image/webp" ||
 		!strings.Contains(answer.Header.Get("Cache-Control"), "immutable") {
 		t.Errorf("a stored size: %d %v %q", answer.StatusCode, answer.Header, body)
 	}
-	moved, _ := harness.get(t, "/bytes/art/"+hash+"/portrait-m.webp", token)
+	moved, _ := harness.getWithoutRedirect(t, "/bytes/art/"+hash+"/portrait-m.webp", token)
 	if moved.StatusCode != http.StatusTemporaryRedirect ||
 		moved.Header.Get("Location") != Prefix+"/bytes/art/"+hash+"/portrait-s.webp" ||
 		moved.Header.Get("Cache-Control") != "no-store" {
@@ -74,14 +75,15 @@ func TestArt_ServesAStoredSizeAndRedirectsFromOneNotMade(t *testing.T) {
 		"/bytes/art/" + hash + "/landscape-s.webp",
 		"/bytes/art/" + strings.Repeat("cd", 32) + "/portrait-s.webp",
 	} {
-		if missing, _ := harness.get(t, path, token); missing.StatusCode != http.StatusNotFound {
+		if missing, _ := harness.getWithoutRedirect(t, path, token); missing.StatusCode != http.StatusNotFound {
 			t.Errorf("%s: %d, want 404", path, missing.StatusCode)
 		}
 	}
-	if strange, _ := harness.get(t, "/bytes/art/..%2Fstate/portrait-s.webp", token); strange.StatusCode/100 != 4 {
+	strange, _ := harness.getWithoutRedirect(t, "/bytes/art/..%2Fstate/portrait-s.webp", token)
+	if strange.StatusCode/100 != 4 {
 		t.Errorf("a hash that is a path: %d", strange.StatusCode)
 	}
-	if anonymous, _ := harness.get(t, "/bytes/art/"+hash+"/portrait-s.webp", ""); anonymous.StatusCode !=
+	if anonymous, _ := harness.getWithoutRedirect(t, "/bytes/art/"+hash+"/portrait-s.webp", ""); anonymous.StatusCode !=
 		http.StatusUnauthorized {
 		t.Errorf("without signing in: %d, want 401", anonymous.StatusCode)
 	}
@@ -126,7 +128,7 @@ func TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling(t *testing.T) {
 		!strings.Contains(found.body, `{"check":"artwork cache","verdict":"ok","detail":"0.0 GiB of a 0 GiB `) {
 		t.Errorf("doctor = %d %s", found.status, found.body)
 	}
-	if _, err := harness.service.CreateUser(t.Context(),
+	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}

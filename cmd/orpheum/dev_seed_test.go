@@ -33,13 +33,13 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 		value, isSet := environment[name]
 		return value, isSet
 	}
-	seed := func() (int, string) {
+	runSeed := func() (int, string) {
 		var stdout, stderr bytes.Buffer
-		status := run(t.Context(), []string{"dev", "seed", "--config", configPath, "--seed", seedPath}, lookupEnv,
+		status := dispatch(t.Context(), []string{"dev", "seed", "--config", configPath, "--seed", seedPath}, lookupEnv,
 			&stdout, &stderr)
 		return status, stdout.String() + stderr.String()
 	}
-	status, output := seed()
+	status, output := runSeed()
 	if status != exitSuccess {
 		t.Fatalf("dev seed = %d:\n%s", status, output)
 	}
@@ -54,11 +54,11 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 
 	server := startServing(t, config, newCapturedLog("ready"), "ready")
 	token := signInAs(t, server.baseURL, "owner", "owner")
-	settings := call(t, http.MethodGet, server.baseURL+"/settings", token, nil)
+	settings := requestAPI(t, http.MethodGet, server.baseURL+"/settings", token, nil)
 	if !strings.Contains(settings.body, `"key":"should_check_for_updates","kind":"bool","value":false`) {
 		t.Errorf("the seeded setting is not in force: %s", settings.body)
 	}
-	raw := call(t, http.MethodGet, server.baseURL+"/config", token, nil)
+	raw := requestAPI(t, http.MethodGet, server.baseURL+"/config", token, nil)
 	const pprofOn = `"key":"should_serve_debug_pprof","kind":"bool","value":true,"startingValue":false,` +
 		`"isModified":true`
 	if !strings.Contains(raw.body, pprofOn) ||
@@ -66,14 +66,14 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 		t.Errorf("the seed did not turn should_serve_debug_pprof on through /config, "+
 			"or the settings page shows it:\n%s", raw.body)
 	}
-	serverSecrets := call(t, http.MethodGet, server.baseURL+"/secrets", token, nil)
+	serverSecrets := requestAPI(t, http.MethodGet, server.baseURL+"/secrets", token, nil)
 	const tmdbSet = `"name":"tmdb_api_key","description":"the TMDB API key metadata is fetched with","isSet":true`
 	const loginSet = `"description":"the password of that OpenSubtitles account","isSet":true`
 	if !strings.Contains(serverSecrets.body, tmdbSet) || !strings.Contains(serverSecrets.body, loginSet) {
 		t.Errorf("the seeded secrets are not set:\n%s", serverSecrets.body)
 	}
 	partner := signInAs(t, server.baseURL, "partner", "partner")
-	me := call(t, http.MethodGet, server.baseURL+"/me", partner, nil)
+	me := requestAPI(t, http.MethodGet, server.baseURL+"/me", partner, nil)
 	if !strings.Contains(me.body, `"isOutsider":true`) {
 		t.Errorf("partner is not an outsider: %s", me.body)
 	}
@@ -81,13 +81,13 @@ func TestDevSeed_CreatesTheSeedsUsersSettingsAndSecretsAndCanRunAgain(t *testing
 		t.Fatal(err)
 	}
 
-	checkSeedsAgain(t, seed)
+	checkSeedsAgain(t, runSeed)
 }
 
 // checkSeedsAgain runs the seed a second time: what exists is left as it is.
-func checkSeedsAgain(t *testing.T, seed func() (int, string)) {
+func checkSeedsAgain(t *testing.T, runSeed func() (int, string)) {
 	t.Helper()
-	status, output := seed()
+	status, output := runSeed()
 	if status != exitSuccess || !strings.Contains(output, "user owner exists") ||
 		!strings.Contains(output, `library "Dev films" exists; left as it is`) {
 		t.Errorf("seeding again = %d, want it to leave existing users and libraries alone:\n%s", status, output)
@@ -96,7 +96,7 @@ func checkSeedsAgain(t *testing.T, seed func() (int, string)) {
 
 func signInAs(t *testing.T, baseURL, name, password string) string {
 	t.Helper()
-	answer := call(t, http.MethodPost, baseURL+"/session", "", map[string]any{
+	answer := requestAPI(t, http.MethodPost, baseURL+"/session", "", map[string]any{
 		"name": name, "password": password, "device": signInDevice,
 	})
 	const marker = `"token":"`

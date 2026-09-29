@@ -20,7 +20,8 @@ import (
 // owing, fetches them from TMDB's image server, and takes the node's answers, which are the
 // artwork store's one way in.
 func newArtwork(
-	ctx context.Context, opened started, directories *datadir.Directories, imageBase string, logger *slog.Logger,
+	ctx context.Context, opened openedServices, directories *datadir.Directories,
+	imageBaseURL string, logger *slog.Logger,
 ) (*artwork.Service, error) {
 	providerTimeoutSeconds, err := opened.settings.Int(ctx, settings.ProviderTimeoutS)
 	if err != nil {
@@ -31,26 +32,26 @@ func newArtwork(
 		return nil, err
 	}
 	service := artwork.NewService(artwork.Parts{
-		Database: opened.database, Queue: opened.metadata.queue, Nodes: opened.nodes, ArtFiles: directories,
+		Database: opened.database, Queue: opened.jobServices.queue, Nodes: opened.nodes, ArtFiles: directories,
 		Cache:    opened.cache,
 		Settings: opened.settings,
-		Fetchers: map[string]artwork.Fetcher{"tmdb": tmdb.NewImageFetcher(httpClient, imageBase)},
+		Fetchers: map[string]artwork.Fetcher{"tmdb": tmdb.NewImageFetcher(httpClient, imageBaseURL)},
 		Clock:    clock.System{}, Logger: logger,
 	})
 	if err := service.LoadHoldings(ctx); err != nil {
 		return nil, err
 	}
 	opened.nodes.SetArtworkSink(service)
-	opened.metadata.pass.AfterPass(func(ctx context.Context, report identify.Report) {
+	opened.jobServices.pass.AfterPass(func(ctx context.Context, report identify.Report) {
 		service.QueueOwed(ctx, report.OwedArtwork)
 	})
 	return service, nil
 }
 
-// keepArtwork holds the artwork cache to its ceiling until ctx ends (D212 §6): a sweep when the
-// server starts, daily, and whenever a write takes it past the ceiling; and when each image was
-// served is written hourly and when it stops.
-func keepArtwork(ctx context.Context, service *artwork.Service, logger *slog.Logger) {
+// maintainArtworkCache holds the artwork cache to its ceiling until ctx ends (D212 §6): a sweep
+// when the server starts, daily, and whenever a write takes it past the ceiling; and when each
+// image was served is written hourly and when it stops.
+func maintainArtworkCache(ctx context.Context, service *artwork.Service, logger *slog.Logger) {
 	sweep := func() {
 		if _, err := service.Sweep(ctx); err != nil && ctx.Err() == nil {
 			logger.ErrorContext(ctx, "the artwork cache sweep failed", "err", err)

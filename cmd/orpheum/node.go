@@ -35,12 +35,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/host"
 )
 
-// coreSocket is the core's socket's name in server.socket_dir (cut-a §2).
-const coreSocket = "core.sock"
+// coreSocketName is the core's socket's name in server.socket_dir (cut-a §2).
+const coreSocketName = "core.sock"
 
-// nodeSocket is the node's byte socket's name in server.socket_dir, from which the core reads
+// nodeSocketName is the node's byte socket's name in server.socket_dir, from which the core reads
 // media bytes (cut-a §4, D193 §1).
-const nodeSocket = "node.sock"
+const nodeSocketName = "node.sock"
 
 // errConfinementRequired refuses to run FFmpeg without every confinement mechanism in force.
 var errConfinementRequired = errors.New("node.confinement_policy is \"require\", and not every mechanism is in " +
@@ -48,7 +48,7 @@ var errConfinementRequired = errors.New("node.confinement_policy is \"require\",
 
 // commandNode runs a media node: the child `run` starts, or a node on its own.
 func commandNode(ctx context.Context, call invocation) int {
-	config, configReport, err := call.configFlags("node", nil)
+	config, configReport, err := call.loadConfigFromFlags("node", nil)
 	if err != nil {
 		return call.fail(err)
 	}
@@ -123,20 +123,20 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		}
 	}()
 	// Every FFmpeg run re-executes this binary as the shim that confines it (cut-a §7).
-	self, err := os.Executable()
+	shimPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("find orpheum's own path for the shim: %w", err)
 	}
 	if seams.isUnconfined {
-		self = ""
+		shimPath = ""
 	}
-	runner, err := execx.NewConfinedRunner(config.Node.FFmpegDir, self)
+	runner, err := execx.NewConfinedRunner(config.Node.FFmpegDir, shimPath)
 	if err != nil {
 		return err
 	}
-	encoding := chooseEncoder(ctx, runner, logger)
+	encoderChoice := chooseEncoder(ctx, runner, logger)
 	hello, err := describeNode(ctx, config, runner, nodeCapabilities{
-		confinement: confinement, encoding: encoding, gpus: hardware.GPUs(),
+		confinement: confinement, encoderChoice: encoderChoice, gpus: hardware.GPUs(),
 	})
 	if err != nil {
 		return err
@@ -151,13 +151,13 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	})
 	// A node that cannot use its prepared directory still scans and serves files as they are; it
 	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
-	var preparing agent.Preparer
-	var keeping agent.PreparedShelf
-	directory, err := openPrepared(config, runner, encoding.Chosen)
+	var preparer agent.Preparer
+	var preparedShelf agent.PreparedShelf
+	directory, err := openPreparedDirectory(config, runner, encoderChoice.Chosen)
 	if err != nil {
 		logger.ErrorContext(ctx, "this node cannot prepare; it serves files as they are", "err", err)
 	} else {
-		preparing, keeping = directory.preparer, directory.shelf
+		preparer, preparedShelf = directory.preparer, directory.shelf
 		defer func() { _ = directory.root.Close() }() //nolint:errcheck // read-only
 		if _, evictErr := directory.shelf.Evict(); evictErr != nil {
 			logger.WarnContext(ctx, "could not bring the prepared directory within its budget", "err", evictErr)
@@ -173,28 +173,28 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	// An image's probe and each of its encodes are one FFmpeg run over one untrusted input each,
 	// bounded as a file's probe is.
 	deriver := artwork.NewDeriver(runner, time.Duration(config.Node.ProbeTimeoutS)*time.Second)
-	var scanning agent.Scanner = scanner
+	var activeScanner agent.Scanner = scanner
 	if seams.wrapScanner != nil {
-		scanning = seams.wrapScanner(scanner)
+		activeScanner = seams.wrapScanner(scanner)
 	}
 	workers := agent.Workers{
-		Scanner: scanning, Artworker: deriver, Preparer: preparing, Subtitler: subtitle.NewExtractor(runner),
-		LoudnessMeasurer: loudness.NewMeasurer(runner), PreparedShelf: keeping,
+		Scanner: activeScanner, Artworker: deriver, Preparer: preparer, Subtitler: subtitle.NewExtractor(runner),
+		LoudnessMeasurer: loudness.NewMeasurer(runner), PreparedShelf: preparedShelf,
 	}
 	if directory.root != nil {
 		workers.PreparedDirectory = directory.root.Path()
 	}
-	node := agent.New(filepath.Join(config.Server.SocketDir, coreSocket), hello, roots, workers, clock.System{}, logger)
-	return node.Run(ctx, ticker.C)
+	coreSocketPath := filepath.Join(config.Server.SocketDir, coreSocketName)
+	return agent.New(coreSocketPath, hello, roots, workers, clock.System{}, logger).Run(ctx, ticker.C)
 }
 
 // chooseEncoder chooses, once, the encoder the node's encodes use: the first hardware one that
 // works here, confined, else x264 (cut-a §6).
 func chooseEncoder(ctx context.Context, runner *execx.Runner, logger *slog.Logger) prepare.Choice {
-	encoding := prepare.ChooseEncoder(ctx, runner)
-	logger.InfoContext(ctx, "this node chose its encoder", "chosenEncoder", encoding.Chosen, "usable",
-		encoding.Usable())
-	return encoding
+	encoderChoice := prepare.ChooseEncoder(ctx, runner)
+	logger.InfoContext(ctx, "this node chose its encoder", "chosenEncoder", encoderChoice.Chosen, "usable",
+		encoderChoice.Usable())
+	return encoderChoice
 }
 
 // preparedDirectory is the node's prepared directory: opened for the byte socket to read, the
@@ -206,8 +206,8 @@ type preparedDirectory struct {
 	shelf    *prepared.Shelf
 }
 
-// openPrepared makes the node's prepared directory if it is missing, and opens it.
-func openPrepared(config Config, runner *execx.Runner, encoder prepare.Encoder) (preparedDirectory, error) {
+// openPreparedDirectory makes the node's prepared directory if it is missing, and opens it.
+func openPreparedDirectory(config Config, runner *execx.Runner, encoder prepare.Encoder) (preparedDirectory, error) {
 	if err := os.MkdirAll(config.Node.PreparedDir, 0o750); err != nil {
 		return preparedDirectory{}, fmt.Errorf("make the prepared directory: %w", err)
 	}
@@ -231,7 +231,7 @@ func openPrepared(config Config, runner *execx.Runner, encoder prepare.Encoder) 
 func serveBytes(
 	ctx context.Context, config Config, roots []*confine.MediaRoot, directory preparedDirectory, logger *slog.Logger,
 ) (func(), error) {
-	listener, err := datadir.ListenUnix(config.Server.SocketDir, nodeSocket)
+	listener, err := datadir.ListenUnix(config.Server.SocketDir, nodeSocketName)
 	if err != nil {
 		return nil, err
 	}
@@ -240,17 +240,17 @@ func serveBytes(
 		server.OnRenditionServed(directory.shelf.MarkServed)
 	}
 	handler := server.Handler()
-	listening := &http.Server{Handler: handler, ReadHeaderTimeout: config.readHeaderTimeout()}
+	httpServer := &http.Server{Handler: handler, ReadHeaderTimeout: config.readHeaderTimeout()}
 	logger.InfoContext(ctx, "serving the byte socket", "socket", listener.Addr().String())
 	var serving sync.WaitGroup
 	serving.Go(func() {
-		if serveErr := listening.Serve(listener); !errors.Is(serveErr, http.ErrServerClosed) {
+		if serveErr := httpServer.Serve(listener); !errors.Is(serveErr, http.ErrServerClosed) {
 			logger.ErrorContext(ctx, "the byte socket stopped", "err", serveErr)
 		}
 	})
 	return func() {
 		// A player's reads end with the node; the core answers them with node_silent.
-		_ = listening.Close() //nolint:errcheck // the listener is ours and closing it cannot fail usefully
+		_ = httpServer.Close() //nolint:errcheck // the listener is ours and closing it cannot fail usefully
 		serving.Wait()
 	}, nil
 }
@@ -274,15 +274,15 @@ func openRoots(ctx context.Context, paths []string, logger *slog.Logger) []*conf
 // nodeCapabilities are what the node found it has: its confinement, per mechanism, the encoder
 // trials that chose its encoder, and the GPU devices it sees (D225 §3).
 type nodeCapabilities struct {
-	confinement []confine.State
-	encoding    prepare.Choice
-	gpus        []nodeproto.GPU
+	confinement   []confine.State
+	encoderChoice prepare.Choice
+	gpus          []nodeproto.GPU
 }
 
 // describeNode is the hello: who the node is, which FFmpeg it runs, what it can do and what
 // confinement it has.
 func describeNode(
-	ctx context.Context, config Config, runner *execx.Runner, found nodeCapabilities,
+	ctx context.Context, config Config, runner *execx.Runner, detected nodeCapabilities,
 ) (nodeproto.Hello, error) {
 	output, err := runner.Run(ctx, execx.FFprobe, confine.Access{}, []string{"-version"}, 1<<20)
 	if err != nil {
@@ -293,9 +293,9 @@ func describeNode(
 	if err != nil {
 		return nodeproto.Hello{}, err
 	}
-	report := make([]nodeproto.Confinement, 0, len(found.confinement))
-	for _, state := range found.confinement {
-		report = append(report, nodeproto.Confinement{
+	confinementReport := make([]nodeproto.Confinement, 0, len(detected.confinement))
+	for _, state := range detected.confinement {
+		confinementReport = append(confinementReport, nodeproto.Confinement{
 			Mechanism: state.Mechanism, IsInForce: state.IsInForce, CauseCode: state.CauseCode, Reason: state.Reason,
 			Remedy: state.Remedy,
 		})
@@ -306,27 +306,27 @@ func describeNode(
 		Host:          host.Describe(),
 		FFmpegVersion: firstLine,
 		FFmpegSha256:  ffmpegHash,
-		Capabilities:  capabilities(found.encoding.Usable()),
-		Confinement:   report,
+		Capabilities:  capabilityNames(detected.encoderChoice.Usable()),
+		Confinement:   confinementReport,
 		UID:           os.Geteuid(),
 		GID:           os.Getegid(),
-		Hardware:      hardwareReport(found),
+		Hardware:      hardwareReport(detected),
 	}, nil
 }
 
 // hardwareReport is the hello's account of hardware encoding: the devices, each trial and the
 // encoder chosen (D225 §3).
-func hardwareReport(found nodeCapabilities) nodeproto.Hardware {
-	trials := make([]nodeproto.EncoderTrial, 0, len(found.encoding.Trials))
-	for _, trial := range found.encoding.Trials {
+func hardwareReport(detected nodeCapabilities) nodeproto.Hardware {
+	trials := make([]nodeproto.EncoderTrial, 0, len(detected.encoderChoice.Trials))
+	for _, trial := range detected.encoderChoice.Trials {
 		trials = append(trials, nodeproto.EncoderTrial{Encoder: string(trial.Encoder), Failure: trial.Failure})
 	}
-	return nodeproto.Hardware{GPUs: found.gpus, Trials: trials, ChosenEncoder: string(found.encoding.Chosen)}
+	return nodeproto.Hardware{GPUs: detected.gpus, Trials: trials, ChosenEncoder: string(detected.encoderChoice.Chosen)}
 }
 
-// capabilities are the hello's (cut-a §4): remux and AAC, which every node can do, and the
+// capabilityNames are the hello's (cut-a §4): remux and AAC, which every node can do, and the
 // encoders it found it can use.
-func capabilities(encoders []prepare.Encoder) []string {
+func capabilityNames(encoders []prepare.Encoder) []string {
 	names := []string{"remux", "aac"}
 	for _, encoder := range encoders {
 		names = append(names, string(encoder))

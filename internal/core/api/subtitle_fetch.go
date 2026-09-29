@@ -76,28 +76,28 @@ type FetchSubtitleOutput struct {
 }
 
 func (server *Server) registerSubtitleFetch() {
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSubtitleCandidates", Method: http.MethodGet, Path: "/files/{id}/subtitle-candidates",
 		Summary: "The subtitles OpenSubtitles can give for a file, each unverified, and the downloads left (D224)",
 		Tags:    []string{tagPlayback},
-	}, server.subtitleCandidates)
-	huma.Register(server.api, huma.Operation{
+	}, server.getSubtitleCandidates)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "postFileSubtitle", Method: http.MethodPost, Path: "/files/{id}/subtitles",
 		Summary: "Fetch a subtitle for a file; spends one of the account's daily downloads (D224)",
 		Tags:    []string{tagPlayback},
-	}, server.fetchSubtitle)
+	}, server.postFileSubtitle)
 }
 
-func (server *Server) subtitleCandidates(
+func (server *Server) getSubtitleCandidates(
 	ctx context.Context, input *SubtitleCandidatesInput,
 ) (*SubtitleCandidatesOutput, error) {
-	dependencies, _, err := server.signedIn(ctx, input.Authorization)
+	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	offer, err := dependencies.Playback.SubtitleCandidates(ctx, input.FileID, input.Language)
 	if err != nil {
-		return nil, server.fetchError(ctx, "list subtitle candidates", err)
+		return nil, server.subtitleProviderError(ctx, "list subtitle candidates", err)
 	}
 	output := &SubtitleCandidatesOutput{}
 	output.Body.Candidates = make([]SubtitleCandidateBody, 0, len(offer.Candidates))
@@ -117,8 +117,8 @@ func (server *Server) subtitleCandidates(
 	return output, nil
 }
 
-func (server *Server) fetchSubtitle(ctx context.Context, input *FetchSubtitleInput) (*FetchSubtitleOutput, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+func (server *Server) postFileSubtitle(ctx context.Context, input *FetchSubtitleInput) (*FetchSubtitleOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (server *Server) fetchSubtitle(ctx context.Context, input *FetchSubtitleInp
 		ProviderFileID: input.Body.ProviderFileID, Language: input.Body.Language,
 	})
 	if err != nil {
-		return nil, server.fetchError(ctx, "fetch a subtitle", err)
+		return nil, server.subtitleProviderError(ctx, "fetch a subtitle", err)
 	}
 	output := &FetchSubtitleOutput{}
 	output.Body.FetchedSubtitleID = fetched.Track.FetchedSubtitleID
@@ -142,17 +142,17 @@ func unixMillisOrZero(at time.Time) int64 {
 	return at.UnixMilli()
 }
 
-// fetchError says why a subtitle could not be listed or fetched, in terms a client can put in
-// its viewer's words: detail.reason names the case (D224).
-func (server *Server) fetchError(ctx context.Context, doing string, err error) error {
+// subtitleProviderError says why a subtitle could not be listed or fetched, in terms a client can
+// put in its viewer's words: detail.reason names the case (D224).
+func (server *Server) subtitleProviderError(ctx context.Context, action string, err error) error {
 	withReason := func(status int, code Code, reason, message string) error {
 		failure := newError(status, code, message)
 		failure.ErrorBody.Error.Detail = map[string]string{"reason": reason}
 		failure.ErrorBody.Error.FailedHop = HopProvider
 		return failure
 	}
-	spent, isSpent := errors.AsType[*opensubtitles.QuotaSpentError](err)
-	limited, isLimited := errors.AsType[*opensubtitles.RateLimitedError](err)
+	quotaErr, isSpent := errors.AsType[*opensubtitles.QuotaSpentError](err)
+	rateLimitErr, isLimited := errors.AsType[*opensubtitles.RateLimitedError](err)
 	switch {
 	case errors.Is(err, playback.ErrNoFile):
 		return newError(http.StatusNotFound, CodeNotFound, "no such file to play")
@@ -172,17 +172,17 @@ func (server *Server) fetchError(ctx context.Context, doing string, err error) e
 		failure := newError(http.StatusTooManyRequests, CodeQuotaExhausted,
 			"the OpenSubtitles account's downloads for today are spent")
 		failure.ErrorBody.Error.Detail = map[string]string{
-			"downloadsResetAt": strconv.FormatInt(spent.ResetAt.UnixMilli(), 10),
+			"downloadsResetAt": strconv.FormatInt(quotaErr.ResetAt.UnixMilli(), 10),
 		}
 		failure.ErrorBody.Error.FailedHop = HopProvider
 		return failure
 	case isLimited:
 		failure := newError(http.StatusServiceUnavailable, CodeRateLimited, "OpenSubtitles asks us to wait")
 		failure.ErrorBody.Error.Detail = map[string]string{
-			"retryAfterMs": strconv.FormatInt(limited.RetryAfter.Milliseconds(), 10),
+			"retryAfterMs": strconv.FormatInt(rateLimitErr.RetryAfter.Milliseconds(), 10),
 		}
 		failure.ErrorBody.Error.FailedHop = HopProvider
 		return failure
 	}
-	return server.internal(ctx, doing, err)
+	return server.logInternalError(ctx, action, err)
 }

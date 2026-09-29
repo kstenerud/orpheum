@@ -12,9 +12,9 @@ import (
 )
 
 // continueWatching is the owner's Continue Watching, by the API.
-func (harness testHarness) continueWatching(t *testing.T, session string) []InProgressBody {
+func (harness testHarness) continueWatching(t *testing.T, sessionToken string) []InProgressBody {
 	t.Helper()
-	answer := harness.do(t, http.MethodGet, "/home", session, nil)
+	answer := harness.do(t, http.MethodGet, "/home", sessionToken, nil)
 	var home struct {
 		ContinueWatching []InProgressBody `json:"continueWatching"`
 	}
@@ -24,10 +24,11 @@ func (harness testHarness) continueWatching(t *testing.T, session string) []InPr
 	return home.ContinueWatching
 }
 
-// watched sets user 1's position in a file, as a report about the moment watchedAt would.
-func (harness testHarness) watched(t *testing.T, fileID, positionMs, watchedAt int64) {
+// setWatchedPosition sets user 1's position in a file, as a report about the moment watchedAt
+// would.
+func (harness testHarness) setWatchedPosition(t *testing.T, fileID, positionMs, watchedAt int64) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.database, fmt.Sprintf(
+	storetest.ExecRaw(t, harness.databasePath, fmt.Sprintf(
 		`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at, position_read_at)
 		 VALUES (1, %d, %d, 1, %d, %d)
 		 ON CONFLICT (user_id, file_id) DO UPDATE SET position_ms = excluded.position_ms,
@@ -49,7 +50,7 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 	user := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	// Metropolis has a second copy, and an extra; Metropolis's first copy is 1000 s long.
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		`UPDATE file SET probe_json = '{"format":{"durationMs":1000000}}' WHERE id = 1`,
 		"INSERT INTO version (id, title_id, created_at) VALUES (3, 10, 3)",
 		`INSERT INTO file (id, library_id, node_id, path, size_bytes, filing, version_id, first_seen_at, last_seen_at)
@@ -58,10 +59,10 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 		"INSERT INTO item (id, kind, library_id, added_at) VALUES (30, 'title', 1, 3)",
 		"INSERT INTO title (id, kind, identification_state) VALUES (30, 'extra', 'identified')",
 		"INSERT INTO version (id, title_id, created_at) VALUES (4, 30, 3)")
-	harness.watched(t, 3, 300_000, 100) // Metropolis's 720p copy, earlier
-	harness.watched(t, 2, 60_000, 150)  // the pilot, of unknown length
-	harness.watched(t, 1, 500_000, 200) // Metropolis, halfway, latest
-	harness.watched(t, 4, 30_000, 250)  // the trailer: an extra is never in progress (D162)
+	harness.setWatchedPosition(t, 3, 300_000, 100) // Metropolis's 720p copy, earlier
+	harness.setWatchedPosition(t, 2, 60_000, 150)  // the pilot, of unknown length
+	harness.setWatchedPosition(t, 1, 500_000, 200) // Metropolis, halfway, latest
+	harness.setWatchedPosition(t, 4, 30_000, 250)  // the trailer: an extra is never in progress (D162)
 
 	want := []string{"10:1:Metropolis (1995).mkv", "21:2:"} // Metropolis names its file: two are partway
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != fmt.Sprint(want) {
@@ -73,12 +74,12 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 		t.Errorf("rows = %+v, want Metropolis halfway with its poster, and the pilot with its series", rows)
 	}
 
-	harness.watched(t, 1, 950_000, 300) // Metropolis finished: 95%
-	want = []string{"10:3:", "21:2:"}   // its other copy is still partway, and now the only one
+	harness.setWatchedPosition(t, 1, 950_000, 300) // Metropolis finished: 95%
+	want = []string{"10:3:", "21:2:"}              // its other copy is still partway, and now the only one
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("after finishing one copy, Continue Watching = %v, want %v", got, want)
 	}
-	harness.watched(t, 1, 20_000, 310) // 2%: barely started
+	harness.setWatchedPosition(t, 1, 20_000, 310) // 2%: barely started
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("after barely starting it again, Continue Watching = %v, want %v", got, want)
 	}
@@ -89,8 +90,8 @@ func TestContinueWatching_AHiddenWorkLeavesUntilItHasActivityAndUndoBringsItBack
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
-	harness.watched(t, 1, 500_000, 100)
-	harness.watched(t, 2, 60_000, 50)
+	harness.setWatchedPosition(t, 1, 500_000, 100)
+	harness.setWatchedPosition(t, 2, 60_000, 50)
 	hide := func(method string, id int) {
 		t.Helper()
 		if answer := harness.do(t, method, fmt.Sprintf("/items/%d/hide", id), user, nil); answer.status !=
@@ -108,7 +109,7 @@ func TestContinueWatching_AHiddenWorkLeavesUntilItHasActivityAndUndoBringsItBack
 		t.Errorf("after undoing the hide: %v, want Metropolis back", got)
 	}
 	hide(http.MethodPost, 10)
-	harness.watched(t, 1, 510_000, harness.clock.Now().UnixMilli()+1) // watched again after the hide
+	harness.setWatchedPosition(t, 1, 510_000, harness.clock.Now().UnixMilli()+1) // watched again after the hide
 	if got := rowsOf(harness.continueWatching(t, user)); fmt.Sprint(got) != "[10:1: 21:2:]" {
 		t.Errorf("after watching it again: %v, want Metropolis back by itself (D188)", got)
 	}

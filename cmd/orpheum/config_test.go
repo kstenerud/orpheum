@@ -33,31 +33,31 @@ func TestLoadConfig_ReadsTheDevFileAndReportsUnknownKeys(t *testing.T) {
 		config.Log.Format != "text" {
 		t.Errorf("the dev config read as %+v", config)
 	}
-	if len(report.Unknown) != 1 || report.Unknown[0] != "server.extra.surprise" || len(report.FromStart) != 0 {
+	if len(report.Unknown) != 1 || report.Unknown[0] != "server.extra.surprise" || len(report.OnStartingValue) != 0 {
 		t.Errorf("report = %+v, want the one unknown key reported, not fatal", report)
 	}
 }
 
 func TestLoadConfig_RunsAMissingKeyOnItsStartingValueOrRefusesOneWithNone(t *testing.T) {
 	t.Parallel()
-	complete, report, err := loadConfig(writeConfig(t, valid))
-	if err != nil || len(report.FromStart) != 0 {
+	complete, report, err := loadConfig(writeConfig(t, validConfigText))
+	if err != nil || len(report.OnStartingValue) != 0 {
 		t.Fatalf("a complete config: %+v, %v", report, err)
 	}
 	for _, key := range configKeys() {
-		path := writeConfig(t, withoutKey(valid, key))
+		path := writeConfig(t, withoutKey(validConfigText, key))
 		loaded, report, err := loadConfig(path)
-		if key.start == "" {
+		if key.startingValue == "" {
 			want := key.path() + " is required and has no starting value"
 			if err == nil || !strings.Contains(err.Error(), want) {
 				t.Errorf("without %s: error = %v, want %q", key.path(), err, want)
 			}
 			continue
 		}
-		if err != nil || len(report.FromStart) != 1 || report.FromStart[0].path() != key.path() {
+		if err != nil || len(report.OnStartingValue) != 1 || report.OnStartingValue[0].path() != key.path() {
 			t.Errorf("without %s: %+v, %v; want it loaded on its starting value and reported", key.path(), report, err)
 		}
-		if got := string(readFile(t, path)); strings.Contains(got, fromStartMarker) {
+		if got := string(readFile(t, path)); strings.Contains(got, startingValueMarker) {
 			t.Errorf("loading without %s rewrote the file", key.path())
 		}
 		if key.path() == "log.level" && loaded.Log.Level != "info" {
@@ -88,16 +88,19 @@ func withoutKey(text string, key configKey) string {
 func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct{ text, names string }{
-		"relative state": {strings.Replace(valid, `data_dir = "/a"`, `data_dir = "state"`, 1), "server.data_dir"},
+		"relative state": {
+			strings.Replace(validConfigText, `data_dir = "/a"`, `data_dir = "state"`, 1),
+			"server.data_dir",
+		},
 		"bad listen": {
-			strings.Replace(valid, `listen = "127.0.0.1:8432"`, `listen = "nowhere"`, 1), "server.listen",
+			strings.Replace(validConfigText, `listen = "127.0.0.1:8432"`, `listen = "nowhere"`, 1), "server.listen",
 		},
 		"bad confinement": {
-			strings.Replace(valid, `confinement_policy = "require"`, `confinement_policy = "maybe"`, 1),
+			strings.Replace(validConfigText, `confinement_policy = "require"`, `confinement_policy = "maybe"`, 1),
 			"node.confinement_policy",
 		},
-		"bad log level":    {strings.Replace(valid, `level = "info"`, `level = "loud"`, 1), "log.level"},
-		"bad log format":   {strings.Replace(valid, `format = "json"`, `format = "xml"`, 1), "log format"},
+		"bad log level":    {strings.Replace(validConfigText, `level = "info"`, `level = "loud"`, 1), "log.level"},
+		"bad log format":   {strings.Replace(validConfigText, `format = "json"`, `format = "xml"`, 1), "log format"},
 		"not TOML at all":  {"server = [", "config"},
 		"a wrong key type": {"[server]\nlisten = 8432\n", "listen"},
 	}
@@ -108,7 +111,7 @@ func TestLoadConfig_RefusesNamingTheKey(t *testing.T) {
 	}
 }
 
-const valid = `[server]
+const validConfigText = `[server]
 listen = "127.0.0.1:8432"
 data_dir = "/a"
 cache_dir = "/b"

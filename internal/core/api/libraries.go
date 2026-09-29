@@ -81,7 +81,8 @@ type LibraryInput struct {
 // ScanOutput says how many roots were asked to scan.
 type ScanOutput struct {
 	Body struct {
-		// Roots is how many roots' nodes were asked; a root whose node is away scans on its return.
+		// AskedRootCount is how many roots' nodes were asked; a root whose node is away scans on
+		// its return.
 		AskedRootCount int `json:"askedRootCount"`
 	}
 }
@@ -99,7 +100,7 @@ type RootActionInput struct {
 // RescanOutput says whether the root was asked to scan now.
 type RescanOutput struct {
 	Body struct {
-		// Scanning is false when the root's node is away; the approval waits for its next scan.
+		// IsScanning is false when the root's node is away; the approval waits for its next scan.
 		IsScanning bool `json:"isScanning"`
 	}
 }
@@ -145,40 +146,40 @@ type FilesOutput struct {
 
 func (server *Server) registerLibraries() {
 	tags := []string{tagLibraries}
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "postLibrary", Method: http.MethodPost, Path: "/libraries", DefaultStatus: http.StatusCreated,
 		Summary: "Create a library over a node's roots, and scan it (admin)", Tags: tags,
-	}, server.createLibrary)
-	huma.Register(server.api, huma.Operation{
+	}, server.postLibrary)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getNodes", Method: http.MethodGet, Path: "/nodes",
 		Summary: "The nodes, and the roots each connected one configured, for a new library (admin)", Tags: tags,
 	}, server.getNodes)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getLibraries", Method: http.MethodGet, Path: "/libraries",
 		Summary: "The libraries; an admin also sees their roots and files by filing", Tags: tags,
 	}, server.getLibraries)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "postLibraryScan", Method: http.MethodPost, Path: "/libraries/{id}/scan",
 		DefaultStatus: http.StatusAccepted, Summary: "Ask a library's nodes to scan it (admin)", Tags: tags,
-	}, server.scanLibrary)
-	huma.Register(server.api, huma.Operation{
+	}, server.postLibraryScan)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "postLibraryRemovals", Method: http.MethodPost, Path: "/libraries/{id}/removals",
 		DefaultStatus: http.StatusAccepted, Tags: tags,
 		Summary: "Approve a root's withheld removals; its next scan removes what it does not see (admin; D208)",
-	}, server.approveRemovals)
-	huma.Register(server.api, huma.Operation{
+	}, server.postLibraryRemovals)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "postLibraryMountGone", Method: http.MethodPost, Path: "/libraries/{id}/mounts/gone",
 		DefaultStatus: http.StatusAccepted, Tags: tags,
 		Summary: "Say a disk missing from a mount point in a root is gone; its files are removed (admin; D208)",
-	}, server.forgetMount)
-	huma.Register(server.api, huma.Operation{
+	}, server.postLibraryMountGone)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getFiles", Method: http.MethodGet, Path: "/files",
 		Summary: "What the scanner saw: every file with its filing and reason (admin; D163)", Tags: tags,
 	}, server.getFiles)
 }
 
-func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInput) (*CreatedOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+func (server *Server) postLibrary(ctx context.Context, input *CreateLibraryInput) (*CreatedOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -218,13 +219,13 @@ type NodesOutput struct {
 }
 
 func (server *Server) getNodes(ctx context.Context, input *AuthorizationHeader) (*NodesOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	nodes, err := dependencies.Libraries.NodeRoots(ctx)
 	if err != nil {
-		return nil, server.internal(ctx, "list nodes", err)
+		return nil, server.logInternalError(ctx, "list nodes", err)
 	}
 	output := &NodesOutput{}
 	output.Body.Nodes = make([]NodeBody, 0, len(nodes))
@@ -237,13 +238,13 @@ func (server *Server) getNodes(ctx context.Context, input *AuthorizationHeader) 
 }
 
 func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHeader) (*LibrariesOutput, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	summaries, err := dependencies.Libraries.List(ctx)
 	if err != nil {
-		return nil, server.internal(ctx, "list libraries", err)
+		return nil, server.logInternalError(ctx, "list libraries", err)
 	}
 	output := &LibrariesOutput{}
 	output.Body.Libraries = make([]LibraryBody, 0, len(summaries))
@@ -270,8 +271,8 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 	return output, nil
 }
 
-func (server *Server) scanLibrary(ctx context.Context, input *LibraryInput) (*ScanOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+func (server *Server) postLibraryScan(ctx context.Context, input *LibraryInput) (*ScanOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -284,36 +285,36 @@ func (server *Server) scanLibrary(ctx context.Context, input *LibraryInput) (*Sc
 	return output, nil
 }
 
-func (server *Server) approveRemovals(ctx context.Context, input *RootActionInput) (*RescanOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+func (server *Server) postLibraryRemovals(ctx context.Context, input *RootActionInput) (*RescanOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	scanning, err := dependencies.Libraries.ApproveRemovals(ctx, input.ID, input.Body.NodeName, input.Body.Path)
+	isScanning, err := dependencies.Libraries.ApproveRemovals(ctx, input.ID, input.Body.NodeName, input.Body.Path)
 	if err != nil {
 		return nil, server.libraryError(ctx, "approve removals", err)
 	}
 	output := &RescanOutput{}
-	output.Body.IsScanning = scanning
+	output.Body.IsScanning = isScanning
 	return output, nil
 }
 
-func (server *Server) forgetMount(ctx context.Context, input *RootActionInput) (*RescanOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+func (server *Server) postLibraryMountGone(ctx context.Context, input *RootActionInput) (*RescanOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	scanning, err := dependencies.Libraries.ForgetMount(ctx, input.ID, input.Body.NodeName, input.Body.Path)
+	isScanning, err := dependencies.Libraries.ForgetMount(ctx, input.ID, input.Body.NodeName, input.Body.Path)
 	if err != nil {
 		return nil, server.libraryError(ctx, "forget a mount", err)
 	}
 	output := &RescanOutput{}
-	output.Body.IsScanning = scanning
+	output.Body.IsScanning = isScanning
 	return output, nil
 }
 
 func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +333,7 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 	}
 	rows, err := dependencies.Libraries.Files(ctx, query)
 	if err != nil {
-		return nil, server.internal(ctx, "list files", err)
+		return nil, server.logInternalError(ctx, "list files", err)
 	}
 	output := &FilesOutput{}
 	output.Body.Files = make([]FileBody, 0, len(rows))
@@ -345,7 +346,7 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 		if row.ErrorDetailJson != nil {
 			detail, err := library.DecodeErrorDetail(*row.ErrorDetailJson)
 			if err != nil {
-				return nil, server.internal(ctx, "list files", err)
+				return nil, server.logInternalError(ctx, "list files", err)
 			}
 			file.ErrorDetail = &ErrorDetailBody{
 				Text: detail.Text, OwnerUID: detail.OwnerUID, GroupGID: detail.GroupGID, ModeText: detail.ModeText,
@@ -361,7 +362,7 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 }
 
 // libraryError maps the library package's refusals to API errors.
-func (server *Server) libraryError(ctx context.Context, doing string, err error) error {
+func (server *Server) libraryError(ctx context.Context, action string, err error) error {
 	switch {
 	case errors.Is(err, library.ErrNoLibrary):
 		return newError(http.StatusNotFound, CodeNotFound, "no such library")
@@ -375,5 +376,5 @@ func (server *Server) libraryError(ctx context.Context, doing string, err error)
 	case errors.Is(err, library.ErrNothingWithheld), errors.Is(err, library.ErrMountNotMissing):
 		return newError(http.StatusConflict, CodeConflict, err.Error())
 	}
-	return server.internal(ctx, doing, err)
+	return server.logInternalError(ctx, action, err)
 }

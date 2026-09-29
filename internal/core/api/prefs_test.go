@@ -13,7 +13,7 @@ func TestFilePrefs_ASubtitleOffsetIsKeptPerPersonAndFileAndTheNextPlaybackStarts
 	t.Parallel()
 	harness := newHarness(t)
 	owner := harness.createAdminAndSignIn(t)
-	_, err := harness.service.CreateUser(t.Context(), auth.NewUser{
+	_, err := harness.authService.CreateUser(t.Context(), auth.NewUser{
 		Name: "guest", Password: "guest-password", Role: auth.RoleUser,
 	})
 	if err != nil {

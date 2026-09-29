@@ -17,11 +17,11 @@ import (
 )
 
 // finishPrepare records a prepare node 1 finished of file, made with encoder at speed.
-func finishPrepare(t *testing.T, harness testHarness, file int64, encoder string, speed float64) {
+func finishPrepare(t *testing.T, harness testHarness, fileID int64, encoder string, realtimeFactor float64) {
 	t.Helper()
 	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		id, err := queries.InsertRendition(t.Context(), cachegen.InsertRenditionParams{
-			SourceFile: file, SourcePayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthSeconds: 6,
+			SourceFile: fileID, SourcePayloadHash: []byte{1}, Profile: "h264-8m", NodeID: 1, SegmentLengthSeconds: 6,
 			RunID: "0123456789abcdef", CreatedAt: 1,
 		})
 		if err != nil {
@@ -29,7 +29,7 @@ func finishPrepare(t *testing.T, harness testHarness, file int64, encoder string
 		}
 		size, finished := int64(2048), int64(1_790_000_000_000)
 		return queries.SetRenditionComplete(t.Context(), cachegen.SetRenditionCompleteParams{
-			SizeBytes: &size, FinishedAt: &finished, VideoEncoder: &encoder, RealtimeFactor: &speed, ID: id,
+			SizeBytes: &size, FinishedAt: &finished, VideoEncoder: &encoder, RealtimeFactor: &realtimeFactor, ID: id,
 		})
 	})
 	if err != nil {
@@ -41,7 +41,7 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	storetest.ExecRaw(t, harness.database, "INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)")
+	storetest.ExecRaw(t, harness.databasePath, "INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)")
 	harness.connectNode(t, "/media/films")
 	harness.nodes.confinement = []nodeproto.Confinement{{Mechanism: "landlock", IsInForce: true}}
 	harness.nodes.hardware = nodeproto.Hardware{
@@ -51,7 +51,7 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 		},
 		ChosenEncoder: "h264_qsv",
 	}
-	harness.nodes.build = serverBuild
+	harness.nodes.build = harnessServerBuild
 	harness.nodes.disks = []nodeproto.Disk{{Path: "/media/films", TotalBytes: 4000, AvailableBytes: 1000}}
 	harness.nodes.prepared = &nodeproto.PreparedUsage{
 		UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 75, DiskUsedLimitPercent: 95,
@@ -79,7 +79,7 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 		!strings.Contains(got.body, `"check":"hardware encoding on node local","verdict":"ok"`) {
 		t.Errorf("the findings are %+v; want doctor's, with the node's hardware encoding", system.Findings)
 	}
-	if _, err := harness.service.CreateUser(t.Context(),
+	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}
@@ -161,15 +161,15 @@ func TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor(t *testin
 func TestBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer(t *testing.T) {
 	t.Parallel()
 	server := build.Provenance{Version: "dev", Commit: "abc", IsModified: true, BinarySHA256: "h1"}
-	if same := buildFinding("local", server, server); same.Verdict != verdictOK {
+	if same := nodeBuildFinding("local", server, server); same.Verdict != verdictOK {
 		t.Errorf("a node on the server's own binary: %+v, want ok", same)
 	}
-	older := buildFinding("local", build.Provenance{Version: "v0.2.0", Commit: "def"}, server)
+	older := nodeBuildFinding("local", build.Provenance{Version: "v0.2.0", Commit: "def"}, server)
 	if older.Verdict != verdictWarn || !strings.Contains(older.Detail, "v0.2.0") ||
 		!strings.Contains(older.Detail, "dev-abc-modified") || older.Action == "" {
 		t.Errorf("a node on an older release: %+v, want a warning naming both builds (D225)", older)
 	}
-	rebuilt := buildFinding("local",
+	rebuilt := nodeBuildFinding("local",
 		build.Provenance{Version: "dev", Commit: "abc", IsModified: true, BinarySHA256: "h2"}, server)
 	if rebuilt.Verdict != verdictWarn || !strings.Contains(rebuilt.Detail, "uncommitted changes") {
 		t.Errorf("a node built from the same commit with other changes: %+v, want a warning saying so", rebuilt)

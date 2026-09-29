@@ -16,9 +16,9 @@ import (
 // decision, then its bytes read by the core from the in-process node's byte socket and relayed.
 func TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore(t *testing.T) {
 	t.Parallel()
-	server, token, filmID := playableFilm(t, filmOnNode(t, "nfo"))
-	decided := call(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
-		"fileId": filmID, "network": "local", "playableFormats": map[string]any{
+	server, token, filmFileID := playableFilm(t, filmOnNode(t, "nfo"))
+	decided := requestAPI(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
+		"fileId": filmFileID, "network": "local", "playableFormats": map[string]any{
 			"videoCodecs": []string{"h264-sdr"}, "audioCodecs": []string{"aac-stereo"}, "subtitleFormats": []string{},
 			"containers": []string{"mkv"},
 		},
@@ -31,7 +31,7 @@ func TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore(t *testing.T) {
 		t.Fatalf("POST /playback = %d %s, want direct", decided.status, decided.body)
 	}
 	root := strings.TrimSuffix(server.baseURL, "/api/v1")
-	film := call(t, http.MethodGet, root+decision.URL, token, nil)
+	film := requestAPI(t, http.MethodGet, root+decision.URL, token, nil)
 	if film.status != http.StatusOK || film.body != "film" {
 		t.Errorf("the film's bytes = %d %q, want 200 \"film\" from the node", film.status, film.body)
 	}
@@ -42,18 +42,18 @@ var signInDevice = map[string]string{"name": "Firefox on Linux", "platform": "we
 
 // playableFilm serves the shelved film's core with its node, signs in as the owner, and returns
 // the server, the session token and the film's file id.
-func playableFilm(t *testing.T, shelved shelf) (server running, token string, filmID int64) {
+func playableFilm(t *testing.T, shelved filmFixture) (server runningServer, token string, filmFileID int64) {
 	t.Helper()
 	config, configPath, nodeID := shelved.config, shelved.configPath, shelved.nodeID
 	const identified = "identified a library"
 	server = serveWithNode(t, config, newCapturedLog("ready", identified), identified)
 	setupCode := runCommand(t, "setup-code", "--config", configPath)
-	created := call(t, http.MethodPost, server.baseURL+"/setup", "",
+	created := requestAPI(t, http.MethodPost, server.baseURL+"/setup", "",
 		map[string]string{"setupCode": strings.TrimSpace(setupCode.stdout), "name": "owner", "password": "pw"})
 	if created.status != http.StatusCreated {
 		t.Fatalf("setup: %d %s", created.status, created.body)
 	}
-	session := call(t, http.MethodPost, server.baseURL+"/session", "",
+	session := requestAPI(t, http.MethodPost, server.baseURL+"/session", "",
 		map[string]any{"name": "owner", "password": "pw", "device": signInDevice})
 	var signedIn struct {
 		Token string `json:"token"`
@@ -67,10 +67,10 @@ func playableFilm(t *testing.T, shelved shelf) (server running, token string, fi
 	}
 	for _, file := range files {
 		if strings.HasSuffix(file.Path, ".mkv") {
-			filmID = file.ID
+			filmFileID = file.ID
 		}
 	}
-	return server, signedIn.Token, filmID
+	return server, signedIn.Token, filmFileID
 }
 
 // TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore plays a film with an ASS
@@ -81,9 +81,9 @@ func TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore(t *testin
 	t.Parallel()
 	const reply = `{"format":{"format_name":"matroska","duration":"1.000"},"streams":[` +
 		`{"index":0,"codec_type":"subtitle","codec_name":"ass","tags":{"language":"eng"}}]}`
-	server, token, filmID := playableFilm(t, filmProbedAs(t, "nfo", reply))
-	decided := call(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
-		"fileId": filmID, "network": "local", "playableFormats": map[string]any{
+	server, token, filmFileID := playableFilm(t, filmProbedAs(t, "nfo", reply))
+	decided := requestAPI(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
+		"fileId": filmFileID, "network": "local", "playableFormats": map[string]any{
 			"videoCodecs": []string{"h264-sdr"}, "audioCodecs": []string{"aac-stereo"},
 			"subtitleFormats": []string{"ass"},
 			"containers":      []string{"mkv"},
@@ -99,7 +99,7 @@ func TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore(t *testin
 	}
 	root := strings.TrimSuffix(server.baseURL, "/api/v1")
 	for {
-		text := call(t, http.MethodGet, root+decision.Subtitles[0].ASSURL, token, nil)
+		text := requestAPI(t, http.MethodGet, root+decision.Subtitles[0].ASSURL, token, nil)
 		if text.status == http.StatusTooEarly {
 			select {
 			case <-t.Context().Done():
@@ -112,12 +112,12 @@ func TestPlayback_AFilmsSubtitleIsExtractedOnItsNodeAndServedByTheCore(t *testin
 			t.Errorf("the subtitle = %d %q, want 200 and what FFmpeg wrote", text.status, text.body)
 		}
 		// The job view reads the queue the runners run (cut-a §5.3).
-		listed := call(t, http.MethodGet, server.baseURL+"/jobs", token, nil)
+		listed := requestAPI(t, http.MethodGet, server.baseURL+"/jobs", token, nil)
 		if listed.status != http.StatusOK || !strings.Contains(listed.body, `"kind":"extract_subtitle"`) {
 			t.Errorf("GET /jobs = %d %s, want the extraction listed", listed.status, listed.body)
 		}
 		// Doctor reads what the node's hello said about its confinement (D112).
-		found := call(t, http.MethodGet, server.baseURL+"/doctor", token, nil)
+		found := requestAPI(t, http.MethodGet, server.baseURL+"/doctor", token, nil)
 		if found.status != http.StatusOK || !strings.Contains(found.body, `"check":"FFmpeg confinement on node`) {
 			t.Errorf("GET /doctor = %d %s, want the node's confinement", found.status, found.body)
 		}
@@ -139,11 +139,11 @@ func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
 		"    Threshold: -46.0 LUFS\n\n  Loudness range:\n    LRA:        22.8 LU\n\n  True peak:\n" +
 		"    Peak:      -16.2 dBFS\n"
 	shelved := filmAnswered(t, "nfo", testutil.FakeReply{Stdout: probe, Stderr: measured})
-	server, token, filmID := playableFilm(t, shelved)
+	server, token, filmFileID := playableFilm(t, shelved)
 	deadline := time.After(30 * time.Second)
 	for {
-		decided := call(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
-			"fileId": filmID, "network": "local", "playableFormats": map[string]any{
+		decided := requestAPI(t, http.MethodPost, server.baseURL+"/playback", token, map[string]any{
+			"fileId": filmFileID, "network": "local", "playableFormats": map[string]any{
 				"videoCodecs": []string{"h264-sdr"}, "audioCodecs": []string{"aac-stereo"},
 				"subtitleFormats": []string{},
 				"containers":      []string{"mkv"},

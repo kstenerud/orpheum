@@ -23,7 +23,7 @@ type HealthOutput struct {
 const tagRunningIt = "Running it"
 
 func (server *Server) registerHealth() {
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getHealth",
 		Method:      http.MethodGet,
 		Path:        "/health",

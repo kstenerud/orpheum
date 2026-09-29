@@ -51,32 +51,41 @@ const (
 // command runs one subcommand and returns its exit status.
 type command func(ctx context.Context, call invocation) int
 
-// subcommand is one planned role or operation of the binary (cut-a §3). A nil run is planned
-// and not built yet.
+// subcommand is one planned role or operation of the binary (cut-a §3). A nil implementation is
+// planned and not built yet.
 type subcommand struct {
-	name    string
-	summary string
-	run     command
+	name           string
+	summary        string
+	implementation command
 }
 
 // plannedSubcommands lists every subcommand cut-a §3 names, in the order the usage shows them.
 func plannedSubcommands() []subcommand {
 	planned := []subcommand{
-		{name: "run", summary: "start the core, which supervises the node as a child process", run: commandRun},
+		{
+			name: "run", summary: "start the core, which supervises the node as a child process",
+			implementation: commandRun,
+		},
 		{name: "core", summary: "run the core alone"},
-		{name: "node", summary: "run a media node: the child `run` starts, or a node alone", run: commandNode},
-		{name: "migrate", summary: "migrate the database without starting the server", run: commandMigrate},
-		{name: "backup", summary: "write a backup of the database", run: commandBackup},
-		{name: "restore", summary: "restore a backup, with the server stopped", run: commandRestore},
-		{name: "doctor", summary: "report what is wrong and how to fix it", run: commandDoctor},
-		{name: "setup-code", summary: "print the one-time code that creates the first admin", run: commandSetupCode},
-		{name: "openapi", summary: "print the API's OpenAPI document", run: commandOpenAPI},
+		{
+			name: "node", summary: "run a media node: the child `run` starts, or a node alone",
+			implementation: commandNode,
+		},
+		{name: "migrate", summary: "migrate the database without starting the server", implementation: commandMigrate},
+		{name: "backup", summary: "write a backup of the database", implementation: commandBackup},
+		{name: "restore", summary: "restore a backup, with the server stopped", implementation: commandRestore},
+		{name: "doctor", summary: "report what is wrong and how to fix it", implementation: commandDoctor},
+		{
+			name: "setup-code", summary: "print the one-time code that creates the first admin",
+			implementation: commandSetupCode,
+		},
+		{name: "openapi", summary: "print the API's OpenAPI document", implementation: commandOpenAPI},
 	}
 	if isDevBuild {
 		planned = append(planned, subcommand{
-			name:    "dev",
-			summary: "development only: seed the dev database from dev/seed.toml (make dev)",
-			run:     devCommand(),
+			name:           "dev",
+			summary:        "development only: seed the dev database from dev/seed.toml (make dev)",
+			implementation: devCommand(),
 		})
 	}
 	return planned
@@ -89,7 +98,7 @@ func main() {
 	useUTC()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	api.UseErrorShape()
-	status := run(ctx, os.Args[1:], environment(), os.Stdout, os.Stderr)
+	status := dispatch(ctx, os.Args[1:], environmentLookup(), os.Stdout, os.Stderr)
 	stop()
 	os.Exit(status)
 }
@@ -110,9 +119,9 @@ func useUTC() {
 	time.Local = time.UTC
 }
 
-// run executes one invocation and returns its exit status. It takes the environment and its
+// dispatch executes one invocation and returns its exit status. It takes the environment and its
 // streams as parameters so the test can observe them.
-func run(
+func dispatch(
 	ctx context.Context, arguments []string, lookupEnv func(string) (string, bool), stdout, stderr io.Writer,
 ) int {
 	if len(arguments) == 0 {
@@ -129,18 +138,18 @@ func run(
 		if planned.name != name {
 			continue
 		}
-		if planned.run == nil {
+		if planned.implementation == nil {
 			return write(stderr, fmt.Sprintf("orpheum %s: not implemented yet\n", name), exitUsageError)
 		}
 		call := invocation{arguments: arguments[1:], lookupEnv: lookupEnv, stdout: stdout, stderr: stderr}
-		return planned.run(ctx, call)
+		return planned.implementation(ctx, call)
 	}
 	return write(stderr, fmt.Sprintf("orpheum: unknown subcommand %q\n\n", name)+usage(), exitUsageError)
 }
 
 // commandRun starts the server with the config file.
 func commandRun(ctx context.Context, call invocation) int {
-	config, configReport, err := call.configFlags("run", nil)
+	config, configReport, err := call.loadConfigFromFlags("run", nil)
 	if err != nil {
 		return call.fail(err)
 	}

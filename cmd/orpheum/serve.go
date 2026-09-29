@@ -31,8 +31,9 @@ import (
 // serve runs the core on listener until ctx ends. The API answers /health before the database is
 // even open, and says "migrating" while it migrates. A migration that fails leaves the server up
 // and degraded, naming the step, the error and the snapshot, rather than exiting into a restart
-// loop (migrations.md, When a step fails). Once the database is ready it runs the fetch queue,
-// serves the node channel, and supervises the node child when the wiring can start one.
+// loop (migrations.md, When a step fails). Once the database is ready it runs the background jobs
+// (fetch, artwork, prepare, subtitle and loudness) and their loops, serves the node channel, and
+// supervises the node child when the wiring can start one.
 func serve(
 	ctx context.Context, config Config, configReport ConfigReport, listener net.Listener, outside wiring,
 	logger *slog.Logger,
@@ -55,7 +56,7 @@ func serve(
 	}()
 	logger.InfoContext(ctx, "listening", "address", listener.Addr().String())
 
-	opened, err := start(ctx, config, configReport, server, outside, logger)
+	opened, err := openAndWire(ctx, config, configReport, server, outside, logger)
 	if err != nil {
 		server.SetStatus(api.StatusDegraded, "the server could not start", err.Error())
 		logger.ErrorContext(ctx, "the server could not start; it stays up to report why at /api/v1/health",
@@ -64,8 +65,8 @@ func serve(
 		return err
 	}
 	defer func() { err = errors.Join(err, opened.release()) }()
-	stopFetching := opened.metadata.run(ctx, logger)
-	defer stopFetching()
+	stopBackgroundJobs := opened.jobServices.startBackgroundLoops(ctx, logger)
+	defer stopBackgroundJobs()
 	stopNodes, err := runNodeChannel(ctx, config, opened, outside.startNode, logger)
 	if err != nil {
 		server.SetStatus(api.StatusDegraded, "the node channel could not start", err.Error())
@@ -91,18 +92,18 @@ type wiring struct {
 	openSubtitlesBaseURL string
 }
 
-// started is what start opened and serve must close.
-type started struct {
-	lock     *datadir.Lock
-	database *store.Database
-	cache    *store.Cache
-	settings *settings.Service
-	secrets  *secrets.Store
-	metadata metadata
-	nodes    *nodes.Service
+// openedServices is what openAndWire opened and serve must close.
+type openedServices struct {
+	lock        *datadir.Lock
+	database    *store.Database
+	cache       *store.Cache
+	settings    *settings.Service
+	secrets     *secrets.Store
+	jobServices jobServices
+	nodes       *nodes.Service
 }
 
-func (opened started) release() error {
+func (opened openedServices) release() error {
 	return errors.Join(opened.cache.Close(), opened.database.Close(), opened.lock.Release())
 }
 
@@ -110,12 +111,12 @@ func (opened started) release() error {
 // job is given up and retried: the node reports every two seconds while FFmpeg runs.
 const prepareMaxSilence = 5 * time.Minute
 
-// start opens the state directory and the database, migrates, and hands the API its
+// openAndWire opens the state directory and the database, migrates, and hands the API its
 // dependencies.
-func start(
+func openAndWire(
 	ctx context.Context, config Config, configReport ConfigReport, server *api.Server, outside wiring,
 	logger *slog.Logger,
-) (opened started, err error) {
+) (opened openedServices, err error) {
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
 		return opened, err
@@ -140,42 +141,43 @@ func start(
 	}
 	dependencies, err := buildDependencies(ctx, directories, database, logger)
 	if err == nil {
-		dependencies.ConfigFile, err = configFileKeys(config, configReport)
+		dependencies.ConfigFileKeys, err = configFileKeys(config, configReport)
 	}
 	if err == nil {
 		err = mountDebug(ctx, server.Mux(), config, dependencies.Settings, logger)
 	}
 	if err == nil {
 		opened.settings, opened.secrets = dependencies.Settings, dependencies.Secrets
-		opened.metadata, err = newMetadata(ctx, opened, outside, logger)
+		opened.jobServices, err = newJobServices(ctx, opened, outside, logger)
 	}
 	if err == nil {
 		opened.nodes = newNodeService(opened, logger)
-		opened.metadata.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImagesBaseURL, logger)
+		opened.jobServices.artwork, err = newArtwork(ctx, opened, directories, outside.tmdbImagesBaseURL, logger)
 	}
 	if err != nil {
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
 	}
-	dependencies.Identify = opened.metadata.chooser
-	dependencies.Refresh = opened.metadata.refresher
+	dependencies.Chooser = opened.jobServices.chooser
+	dependencies.Refresher = opened.jobServices.refresher
 	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes)
-	dependencies.Browse = library.NewBrowser(database, opened.settings)
-	dependencies.Artwork = opened.metadata.artwork
+	dependencies.Browser = library.NewBrowser(database, opened.settings)
+	dependencies.Artwork = opened.jobServices.artwork
 	dependencies.Playback = playback.NewService(playback.Parts{
-		Database: database, Cache: opened.cache, Queue: opened.metadata.queue, Nodes: opened.nodes,
+		Database: database, Cache: opened.cache, Queue: opened.jobServices.queue, Nodes: opened.nodes,
 		Settings: opened.settings, Clock: clock.System{}, Random: rand.Reader, Logger: logger,
-		MaxSilence: prepareMaxSilence, Subtitler: opened.metadata.subtitler,
+		MaxSilence: prepareMaxSilence, Subtitler: opened.jobServices.subtitler,
 	})
-	opened.metadata.playback = dependencies.Playback
+	opened.jobServices.playback = dependencies.Playback
 	opened.nodes.SetPrepareSink(dependencies.Playback)
 	opened.nodes.SetSubtitleSink(dependencies.Playback)
 	opened.nodes.SetLoudnessSink(dependencies.Playback)
-	dependencies.NodeBytes = nodes.NewByteSocketClient(opened.nodes, filepath.Join(config.Server.SocketDir, nodeSocket))
-	dependencies.Jobs = opened.metadata.queue
+	dependencies.NodeBytes = nodes.NewByteSocketClient(
+		opened.nodes, filepath.Join(config.Server.SocketDir, nodeSocketName))
+	dependencies.Jobs = opened.jobServices.queue
 	dependencies.NodeReports = opened.nodes
 	dependencies.System = api.System{
-		Build: thisBuild(), StartedAt: clock.System{}.Now(), StateDirectory: config.Server.DataDir,
-		CacheDirectory: config.Server.CacheDir, Library: database, Cache: opened.cache,
+		Build: thisBuild(), StartedAt: clock.System{}.Now(), DataDirectory: config.Server.DataDir,
+		CacheDirectory: config.Server.CacheDir, LibraryDatabase: database, CacheDatabase: opened.cache,
 	}
 	server.Ready(dependencies)
 	return opened, nil
@@ -184,13 +186,14 @@ func start(
 // openAndMigrate opens library.db and migrates it, reporting each step before it starts.
 func openAndMigrate(
 	ctx context.Context, config Config, directories *datadir.Directories,
-	report func(api.Status, string, ...string), logger *slog.Logger,
+	setStatus func(api.Status, string, ...string), logger *slog.Logger,
 ) (*store.Database, error) {
 	database, err := store.Open(ctx, directories.LibraryDatabasePath(), config.openOptions())
 	if err != nil {
 		return nil, err
 	}
-	err = database.Migrate(ctx, config.migrateOptions(directories.BackupDirectory(), reportMigration(report, logger)))
+	err = database.Migrate(ctx,
+		config.migrateOptions(directories.BackupDirectory(), reportMigration(setStatus, logger)))
 	if err != nil {
 		return nil, errors.Join(err, database.Close())
 	}
@@ -215,11 +218,11 @@ func openCache(
 
 // reportMigration returns the runner's BeforeStep: /health says "migrating: step 3 of 7" before
 // each step starts (migrations.md, While migrating: never look dead).
-func reportMigration(report func(api.Status, string, ...string), logger *slog.Logger) func(step, total int) {
+func reportMigration(setStatus func(api.Status, string, ...string), logger *slog.Logger) func(step, total int) {
 	return func(step, total int) {
 		detail := fmt.Sprintf("step %d of %d", step, total)
-		report(api.StatusMigrating, detail)
-		logger.Info("migrating", "step", step, "of", total)
+		setStatus(api.StatusMigrating, detail)
+		logger.Info("migrating", "step", step, "stepCount", total)
 	}
 }
 
@@ -230,22 +233,22 @@ func buildDependencies(
 ) (api.Dependencies, error) {
 	systemClock := clock.System{}
 	settingsService := settings.NewService(database, systemClock, logger)
-	report, err := settingsService.Seed(ctx)
+	seedReport, err := settingsService.Seed(ctx)
 	if err != nil {
 		return api.Dependencies{}, err
 	}
-	if len(report.Inserted) > 0 {
-		logger.InfoContext(ctx, "wrote the starting value of settings that had none", "keys", report.Inserted)
+	if len(seedReport.Inserted) > 0 {
+		logger.InfoContext(ctx, "wrote the starting value of settings that had none", "keys", seedReport.Inserted)
 	}
-	if len(report.Updated) > 0 {
+	if len(seedReport.Updated) > 0 {
 		logger.InfoContext(ctx, "this release changed the starting value of settings nobody had set; they follow it",
-			"keys", report.Updated)
+			"keys", seedReport.Updated)
 	}
-	for _, unused := range report.Unused {
+	for _, unused := range seedReport.Unused {
 		logger.WarnContext(ctx, "a setting row this release does not read; left alone, and doctor lists it",
 			"key", unused.String())
 	}
-	key, err := loadOrCreateKey(directories, logger)
+	secretKey, err := loadOrCreateSecretKey(directories, logger)
 	if err != nil {
 		return api.Dependencies{}, err
 	}
@@ -261,13 +264,13 @@ func buildDependencies(
 	}
 	return api.Dependencies{
 		Auth: authService, Settings: settingsService,
-		Secrets: secrets.NewStore(database, key, systemClock, rand.Reader, settingsService), SetupCodes: codes,
+		Secrets: secrets.NewStore(database, secretKey, systemClock, rand.Reader, settingsService), SetupCodes: codes,
 	}, nil
 }
 
-// loadOrCreateKey reads secret.key, or writes a new one on first start. A key replaced or lost
-// leaves every sealed secret "needs re-entering" and nothing else lost (D194 §4).
-func loadOrCreateKey(directories *datadir.Directories, logger *slog.Logger) (secrets.Key, error) {
+// loadOrCreateSecretKey reads secret.key, or writes a new one on first start. A key replaced or
+// lost leaves every sealed secret "needs re-entering" and nothing else lost (D194 §4).
+func loadOrCreateSecretKey(directories *datadir.Directories, logger *slog.Logger) (secrets.Key, error) {
 	contents, err := directories.ReadStateFile(secrets.KeyFileName)
 	if err == nil {
 		return secrets.ParseKeyFile(contents)
@@ -314,16 +317,16 @@ func (codes stateSetupCodes) Remove() error {
 func mountDebug(
 	ctx context.Context, mux *http.ServeMux, config Config, settingsService *settings.Service, logger *slog.Logger,
 ) error {
-	pprofOn, err := settingsService.Bool(ctx, settings.ShouldServeDebugPProf)
+	shouldServePprof, err := settingsService.Bool(ctx, settings.ShouldServeDebugPProf)
 	if err != nil {
 		return err
 	}
-	metricsOn, err := settingsService.Bool(ctx, settings.ShouldServeDebugMetrics)
+	shouldServeMetrics, err := settingsService.Bool(ctx, settings.ShouldServeDebugMetrics)
 	if err != nil {
 		return err
 	}
-	loopback := isLoopback(config.Server.Listen)
-	if pprofOn && loopback {
+	isLoopbackListen := isLoopback(config.Server.Listen)
+	if shouldServePprof && isLoopbackListen {
 		mux.HandleFunc("/debug/pprof/", pprof.Index)
 		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
@@ -331,11 +334,11 @@ func mountDebug(
 		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 		logger.InfoContext(ctx, "pprof is on", "path", "/debug/pprof/")
 	}
-	if (pprofOn || metricsOn) && !loopback {
+	if (shouldServePprof || shouldServeMetrics) && !isLoopbackListen {
 		logger.WarnContext(ctx, "debug endpoints are served only on a loopback listen address; they are off",
 			"listen", config.Server.Listen)
 	}
-	if metricsOn && loopback {
+	if shouldServeMetrics && isLoopbackListen {
 		logger.WarnContext(ctx,
 			"should_serve_debug_metrics is set, but /metrics is not built yet; nothing is served there")
 	}

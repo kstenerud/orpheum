@@ -30,30 +30,30 @@ const (
 
 // finding is one line of doctor's report: what was checked, and for anything wrong, what to do.
 type finding struct {
-	verdict verdict
-	what    string
-	remedy  string
+	verdict     verdict
+	description string
+	remedy      string
 }
 
 // commandDoctor reports what is wrong and how to fix it. It names secrets, never their values
 // (D194 §5), and exits 1 if anything failed.
 func commandDoctor(ctx context.Context, call invocation) int {
-	config, configReport, err := call.configFlags("doctor", nil)
+	config, configReport, err := call.loadConfigFromFlags("doctor", nil)
 	if err != nil {
 		return call.fail(err)
 	}
 	logger := slog.New(slog.NewTextHandler(call.stderr, nil))
 	findings := append(configFindings(configReport), diagnose(ctx, config, logger, clock.System{}.Now())...)
 	status := exitSuccess
-	for _, found := range findings {
-		line := fmt.Sprintf("%-4s  %s", found.verdict, found.what)
-		if found.remedy != "" {
-			line += " — " + found.remedy
+	for _, doctorFinding := range findings {
+		line := fmt.Sprintf("%-4s  %s", doctorFinding.verdict, doctorFinding.description)
+		if doctorFinding.remedy != "" {
+			line += " — " + doctorFinding.remedy
 		}
 		if write(call.stdout, line+"\n", exitSuccess) != exitSuccess {
 			return exitWriteFailure
 		}
-		if found.verdict == verdictFailure {
+		if doctorFinding.verdict == verdictFailure {
 			status = exitFailure
 		}
 	}
@@ -63,11 +63,11 @@ func commandDoctor(ctx context.Context, call invocation) int {
 // configFindings lists what the config file lacks and what it has that nothing reads (D202).
 func configFindings(report ConfigReport) []finding {
 	findings := []finding{}
-	for _, key := range report.FromStart {
+	for _, key := range report.OnStartingValue {
 		findings = append(findings, finding{
 			verdictWarning,
 			fmt.Sprintf("config: %s is not in the file; the server runs on its starting value, %s",
-				key.path(), key.start),
+				key.path(), key.startingValue),
 			"add it to the file to make the value a choice rather than a starting value",
 		})
 	}
@@ -83,18 +83,19 @@ func configFindings(report ConfigReport) []finding {
 	return findings
 }
 
-// diagnose runs every check that needs only the state directory.
+// diagnose runs every check that needs only the state directory, and probes what this machine can
+// confine FFmpeg with.
 func diagnose(ctx context.Context, config Config, logger *slog.Logger, now time.Time) []finding {
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
 		return []finding{{verdictFailure, "state directory " + config.Server.DataDir, err.Error()}}
 	}
 	findings := []finding{checkWritable(directories, config.Server.DataDir)}
-	key, keyFinding := checkKey(directories)
+	key, keyFinding := checkSecretKey(directories)
 	findings = append(findings, keyFinding)
-	databaseFindings, backupAgeWarning := checkDatabase(ctx, directories, key, config.openOptions(), logger)
+	databaseFindings, oldBackupAge := checkDatabase(ctx, directories, key, config.openOptions(), logger)
 	findings = append(findings, databaseFindings...)
-	findings = append(findings, checkBackups(directories, now, backupAgeWarning))
+	findings = append(findings, checkBackups(directories, now, oldBackupAge))
 	return append(findings, confinementFindings(confine.MechanismStates())...)
 }
 
@@ -115,15 +116,16 @@ func confinementFindings(states []confine.State) []finding {
 }
 
 func checkWritable(directories *datadir.Directories, path string) finding {
-	const probe = "doctor-probe"
-	err := errors.Join(directories.WriteStateFile(probe, []byte("probe")), directories.RemoveStateFile(probe))
+	const probeFileName = "doctor-probe"
+	err := errors.Join(
+		directories.WriteStateFile(probeFileName, []byte("probe")), directories.RemoveStateFile(probeFileName))
 	if err != nil {
 		return finding{verdictFailure, "state directory " + path + " is not writable", err.Error()}
 	}
 	return finding{verdictOK, "state directory " + path + " is writable", ""}
 }
 
-func checkKey(directories *datadir.Directories) (*secrets.Key, finding) {
+func checkSecretKey(directories *datadir.Directories) (*secrets.Key, finding) {
 	contents, err := directories.ReadStateFile(secrets.KeyFileName)
 	if errors.Is(err, datadir.ErrNotFound) {
 		return nil, finding{
@@ -195,22 +197,25 @@ func checkSchema(ctx context.Context, database *store.Database) finding {
 	if err != nil {
 		return finding{verdictFailure, "the schema version cannot be read", err.Error()}
 	}
-	binary, err := store.SchemaVersion()
+	binaryVersion, err := store.SchemaVersion()
 	if err != nil {
 		return finding{verdictFailure, "this binary's schema version", err.Error()}
 	}
 	switch {
-	case state.Version == binary:
+	case state.Version == binaryVersion:
 		return finding{verdictOK, fmt.Sprintf("library.db opens, pragmas as set, at schema %d", state.Version), ""}
-	case state.Version < binary:
+	case state.Version < binaryVersion:
 		return finding{verdictWarning, fmt.Sprintf("library.db is at schema %d; this release migrates it to %d",
-			state.Version, binary), "start the server, or run `orpheum migrate`"}
-	case state.UsableBy(binary):
+			state.Version, binaryVersion), "start the server, or run `orpheum migrate`"}
+	case state.UsableBy(binaryVersion):
 		return finding{verdictOK, fmt.Sprintf("library.db is at schema %d, from a newer release that left it "+
-			"usable by this one (%d)", state.Version, binary), ""}
+			"usable by this one (%d)", state.Version, binaryVersion), ""}
 	}
-	return finding{verdictFailure, fmt.Sprintf("library.db is at schema %d and needs a newer release than this "+
-		"one (%d)", state.Version, binary), "restore the pre-migrate snapshot in the backup directory, or upgrade"}
+	return finding{
+		verdictFailure, fmt.Sprintf("library.db is at schema %d and needs a newer release than this "+
+			"one (%d)", state.Version, binaryVersion),
+		"restore the pre-migrate snapshot in the backup directory, or upgrade",
+	}
 }
 
 func checkSecrets(
@@ -233,7 +238,7 @@ func checkSecrets(
 	}
 }
 
-func checkBackups(directories *datadir.Directories, now time.Time, ageWarning *time.Duration) finding {
+func checkBackups(directories *datadir.Directories, now time.Time, oldBackupAge *time.Duration) finding {
 	files, err := directories.ListBackups()
 	if err != nil {
 		return finding{verdictFailure, "the backup directory cannot be read", err.Error()}
@@ -241,11 +246,11 @@ func checkBackups(directories *datadir.Directories, now time.Time, ageWarning *t
 	for _, file := range files {
 		if strings.HasPrefix(file.Name, "backup-") && strings.HasSuffix(file.Name, ".sqlite") {
 			age := now.Sub(file.ModifiedAt).Round(time.Hour)
-			if ageWarning == nil {
+			if oldBackupAge == nil {
 				return finding{verdictOK, fmt.Sprintf("the newest backup, %s, is %s old; not judged without the "+
 					"backup_age_warning_h setting", file.Name, age), ""}
 			}
-			if age > *ageWarning {
+			if age > *oldBackupAge {
 				return finding{
 					verdictWarning, fmt.Sprintf("the newest backup, %s, is %s old", file.Name, age),
 					"run `orpheum backup`",

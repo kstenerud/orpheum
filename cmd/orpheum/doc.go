@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 // Command orpheum is the Orpheum media server: one binary whose subcommand chooses the role
-// (run, core, node) or the operation (migrate, backup, restore, doctor, setup-code). The
+// (run, core, node) or the operation (migrate, backup, restore, doctor, setup-code, openapi, and
+// dev in dev builds). The
 // systemd unit runs `orpheum run`, which starts the core, and the core supervises the node as a
 // child process.
 //
@@ -21,7 +22,8 @@
 //     TestUseUTC_TimesAreUTCWhateverTZSays.
 //   - run starts the node as its own child, through execx, and the core supervises it through an
 //     interface (D207); node runs the node's loop on its own. The node refuses to run while
-//     node.confinement_policy is "require", because confinement is built in M3.
+//     node.confinement_policy is "require" and a confinement mechanism is not in force (D112).
+//     Enforced by TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired.
 //   - Only this package prints. Enforced by the forbidigo rule tagged [print].
 //   - A planned subcommand that is not built yet exits 2 and says so; it never exits 0.
 //     Enforced by TestRun_PlannedSubcommandsAreNotImplementedYet in main_test.go.
@@ -54,6 +56,9 @@
 //   - config.go: the config file (cut-a §2a), every key required, each with a starting value or
 //     none (D200, D201). configfill.go: running a missing key on its starting value (D202). serve.go:
 //     orpheum run, which seeds the settings at start. operations.go: migrate, backup, restore,
-//     setup-code and openapi. doctor.go: doctor, the one list of what to fix. dev_seed.go: orpheum dev seed,
-//     in dev builds only.
+//     setup-code and openapi. doctor.go: doctor, the one list of what to fix. dev_seed.go: orpheum
+//     dev seed, in dev builds only.
+//   - metadata.go: the background jobs and loops run starts. artwork.go: the artwork service and
+//     its cache's upkeep. nodes.go: the core's side of the node channel and the node's
+//     supervisor. node.go: orpheum node, the media node itself.
 package main
