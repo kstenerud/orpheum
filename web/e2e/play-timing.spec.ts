@@ -24,11 +24,11 @@ async function signIn(page: Page): Promise<void> {
 }
 
 /**
- * Opens a film's page from Films, waiting for the scan to have found it. A film played before is
- * also under Continue Watching, so its first link is taken.
+ * Opens a film's page from Films, waiting for the scan to have found it: its card in the grid,
+ * not its row under Continue Watching, which a film played before also has and which plays it.
  */
 async function openFilm(page: Page, name: string): Promise<void> {
-  const card = page.getByRole("link", { name: new RegExp(name) }).first();
+  const card = page.locator("a.poster-grid__card").filter({ hasText: new RegExp(name) });
   await expect(async () => {
     await page.goto(`${address()}/films`);
     await expect(card).toBeVisible({ timeout: 1000 });
@@ -59,7 +59,7 @@ test("an MKV with H.264, TrueHD and ASS plays within 8 s of pressing play, with 
   // it here, so the timed press is an ordinary one.
   await openFilm(page, warmUpFilm);
   await page.getByRole("link", { name: "Play" }).click();
-  await page.getByRole("button", { name: /TV speakers/ }).click();
+  await page.getByRole("button", { name: /Built-in speakers/ }).click();
   await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
   await expect(page.locator(".play__reason")).toHaveText("Playing the original file, as it is.");
 
@@ -105,7 +105,7 @@ test("on a phone's screen, the play page is no wider than the screen, whatever i
   await openFilm(page, timingFilm(browserName));
   await page.getByRole("link", { name: "Play" }).click();
   // Each answer to the sound question puts what it does below its name, not run into it.
-  const answer = page.getByRole("button", { name: /TV speakers/ });
+  const answer = page.getByRole("button", { name: /Built-in speakers/ });
   const name = await answer.locator("strong").boundingBox();
   const hint = await answer.locator("span").boundingBox();
   expect(hint?.y ?? 0).toBeGreaterThanOrEqual((name?.y ?? 0) + (name?.height ?? 0));

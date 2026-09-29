@@ -70,11 +70,11 @@ describe("how a device makes sound (D222)", () => {
     expect(answerButton("Soundbar or receiver")?.textContent).toContain(
       "a copy prepared for another reason is stereo, and the dialogue boost works on it",
     );
-    await click(answerButton("TV speakers"));
+    await click(answerButton("Built-in speakers"));
     expect(asked(heard)).toEqual(["POST /playback", "PUT /me/devices/5", "POST /playback"]);
     expect(heard[1]?.body).toEqual({ audioOutput: "tv_speakers" });
     expect(mounted.container.querySelector("video")).not.toBeNull();
-    expect(mounted.container.textContent).toContain("Sound: TV speakers");
+    expect(mounted.container.textContent).toContain("Sound: Built-in speakers");
   });
 
   it("is not asked of a session with no device to keep it on", async () => {
@@ -100,7 +100,7 @@ describe("how a device makes sound (D222)", () => {
     services.session.signIn("token", 5);
     mounted = await mount(withServices(<Play fileId={2} />, services));
     await click(answerButton("Change"));
-    expect(answerButton("TV speakers")?.getAttribute("aria-pressed")).toBe("true");
+    expect(answerButton("Built-in speakers")?.getAttribute("aria-pressed")).toBe("true");
     await click(answerButton("Headphones"));
     expect(heard[1]?.body).toEqual({ audioOutput: "headphones" });
     expect(asked(heard).filter((each) => each === "POST /playback")).toHaveLength(2);
