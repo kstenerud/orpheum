@@ -10,13 +10,9 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
-	"strings"
 	"sync"
 
-	"golang.org/x/text/unicode/norm"
-
 	"github.com/kstenerud/orpheum/internal/core/settings"
-	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
@@ -62,7 +58,7 @@ type scanState struct {
 	startedAt          int64
 	pendingMoves       []pendingMove
 	mounts             map[string]uint64 // mount boundaries this scan crossed, by path, with their device
-	unreadPaths        []string          // paths under which nothing may be removed
+	unreadPaths        []string          // paths, as the node reported them, under which nothing may be removed
 	isEverythingUnread bool              // the root itself could not be read, or the scan stopped
 }
 
@@ -217,8 +213,7 @@ func resolveReportedPath(root string, reported nodeproto.Path) reportedPath {
 	}
 	// NFC for D49's equality, then the path cleaner, so what is related and shown is safe
 	// (principles §22); the bytes are kept too, as bytes, to open the file.
-	normal := textindex.Path(norm.NFC.String(strings.ToValidUTF8(absolute, "\uFFFD")))
-	return reportedPath{text: normal, reportedBytes: []byte(absolute)}
+	return reportedPath{text: PathText([]byte(absolute)), reportedBytes: []byte(absolute)}
 }
 
 // ErrorDetail is an errored file's platform account, as its row keeps it in error_detail_json
