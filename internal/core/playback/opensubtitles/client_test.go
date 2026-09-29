@@ -48,7 +48,12 @@ type fakeProvider struct {
 	limitedFor string
 	// searchStatus and linkStatus, when set, are what a search and the download link answer.
 	searchStatus, linkStatus int
-	server                   *httptest.Server
+	// isDroppedTokenA500 answers a token it does not know as OpenSubtitles answers an expired one:
+	// 500 "invalid", not 401.
+	isDroppedTokenA500 bool
+	// loginHost and linkAddress, when set, are the host a login names and the download link.
+	loginHost, linkAddress string
+	server                 *httptest.Server
 }
 
 func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Request) {
@@ -63,21 +68,15 @@ func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 	if request.URL.Path == "/api/v1/login" {
-		var body map[string]string
-		_ = json.NewDecoder(request.Body).Decode(&body) //nolint:errcheck // a test's fake
-		if body["password"] != "right" {
-			http.Error(writer, `{"message":"Error, invalid username/password"}`, http.StatusUnauthorized)
-			return
-		}
-		fake.loginCount++
-		token := fmt.Sprintf("token-%d", fake.loginCount)
-		fake.isTokenIssued[token] = true
-		host := strings.TrimPrefix(fake.server.URL, "http://")
-		reply(writer, fmt.Sprintf(`{"token":%q,"base_url":%q,"status":200}`, token, host))
+		fake.serveLogin(writer, request)
 		return
 	}
 	if !fake.isTokenIssued[strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")] {
-		http.Error(writer, `{"message":"invalid token"}`, http.StatusUnauthorized)
+		status := http.StatusUnauthorized
+		if fake.isDroppedTokenA500 {
+			status = http.StatusInternalServerError
+		}
+		http.Error(writer, `{"message":"invalid token"}`, status)
 		return
 	}
 	switch request.URL.Path {
@@ -101,14 +100,7 @@ func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Reques
 			  "files":[{"file_id":8}]}},
 			{"attributes":{"language":"en","release":"nothing to download","files":[]}}]}`)
 	case "/api/v1/download":
-		if fake.remaining == 0 {
-			writer.WriteHeader(http.StatusNotAcceptable)
-			reply(writer, `{"remaining":-1,"reset_time_utc":"2026-09-29T06:00:00.000Z"}`)
-			return
-		}
-		fake.remaining--
-		reply(writer, fmt.Sprintf(`{"link":%q,"file_name":"Film.2020.srt","remaining":%d,`+
-			`"reset_time_utc":"2026-09-29T06:00:00.000Z"}`, fake.server.URL+"/files/subtitle.srt", fake.remaining))
+		fake.serveDownload(writer)
 	case "/api/v1/infos/user":
 		reply(writer, fmt.Sprintf(
 			`{"data":{"allowed_downloads":20,"remaining_downloads":%d,"vip":false}}`,
@@ -116,6 +108,40 @@ func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Reques
 	default:
 		http.NotFound(writer, request)
 	}
+}
+
+// serveLogin answers a login: a new token and the host to send its requests to, for the right password.
+func (fake *fakeProvider) serveLogin(writer http.ResponseWriter, request *http.Request) {
+	var body map[string]string
+	_ = json.NewDecoder(request.Body).Decode(&body) //nolint:errcheck // a test's fake
+	if body["password"] != "right" {
+		http.Error(writer, `{"message":"Error, invalid username/password"}`, http.StatusUnauthorized)
+		return
+	}
+	fake.loginCount++
+	token := fmt.Sprintf("token-%d", fake.loginCount)
+	fake.isTokenIssued[token] = true
+	host := strings.TrimPrefix(fake.server.URL, "http://")
+	if fake.loginHost != "" {
+		host = fake.loginHost
+	}
+	reply(writer, fmt.Sprintf(`{"token":%q,"base_url":%q,"status":200}`, token, host))
+}
+
+// serveDownload answers a download: the link and what is left, or a spent quota.
+func (fake *fakeProvider) serveDownload(writer http.ResponseWriter) {
+	if fake.remaining == 0 {
+		writer.WriteHeader(http.StatusNotAcceptable)
+		reply(writer, `{"remaining":-1,"reset_time_utc":"2026-09-29T06:00:00.000Z"}`)
+		return
+	}
+	fake.remaining--
+	link := fake.server.URL + "/files/subtitle.srt"
+	if fake.linkAddress != "" {
+		link = fake.linkAddress
+	}
+	reply(writer, fmt.Sprintf(`{"link":%q,"file_name":"Film.2020.srt","remaining":%d,`+
+		`"reset_time_utc":"2026-09-29T06:00:00.000Z"}`, link, fake.remaining))
 }
 
 // serveLink answers the download link: the subtitle, or linkStatus when it is set.
@@ -294,5 +320,89 @@ func TestRequests_AProviderThatFailsOrCannotBeReachedIsUnavailableWhereverItFail
 	if _, err := client.Allowance(t.Context()); !errors.Is(err, outbound.ErrUnavailable) ||
 		strings.Contains(err.Error(), "infos/user") {
 		t.Errorf("OpenSubtitles gone: %v, want it unavailable, without the URL", err)
+	}
+}
+
+func TestCurrentSession_ATokenAnsweredInvalidWithA500IsMadeAgainOnce(t *testing.T) {
+	t.Parallel()
+	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
+	if _, err := client.Allowance(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	fake.mutex.Lock()
+	fake.isDroppedTokenA500 = true
+	fake.isTokenIssued = map[string]bool{} // OpenSubtitles drops the token
+	fake.mutex.Unlock()
+	if _, err := client.Allowance(t.Context()); err != nil || fake.loginCount != 2 {
+		t.Errorf("after the token was answered invalid: %v, %d logins; want one new login", err, fake.loginCount)
+	}
+	fake.mutex.Lock()
+	fake.searchStatus = http.StatusInternalServerError
+	fake.mutex.Unlock()
+	_, err := client.Search(t.Context(), Query{TMDBID: "4801", Language: "en"})
+	if !errors.Is(err, outbound.ErrUnavailable) || fake.loginCount != 2 {
+		t.Errorf("a 500 that is not about the token: %v, %d logins; want unavailable, no new login",
+			err, fake.loginCount)
+	}
+}
+
+// elsewhere is another host on loopback, which counts what it is asked.
+func elsewhere(t *testing.T) (address string, askedCount func() int) {
+	t.Helper()
+	var mutex sync.Mutex
+	count := 0
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		mutex.Lock()
+		defer mutex.Unlock()
+		count++
+		reply(writer, `{"token":"stolen","data":{}}`)
+	}))
+	t.Cleanup(server.Close)
+	return server.URL, func() int {
+		mutex.Lock()
+		defer mutex.Unlock()
+		return count
+	}
+}
+
+func TestCurrentSession_ALoginNamingAnotherHostThanOpenSubtitlesKeepsTheBase(t *testing.T) {
+	t.Parallel()
+	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
+	other, askedCount := elsewhere(t)
+	fake.mutex.Lock()
+	fake.loginHost = strings.TrimPrefix(other, "http://")
+	fake.mutex.Unlock()
+	allowance, err := client.Allowance(t.Context())
+	if err != nil || allowance.AllowedDownloads != 20 || askedCount() != 0 {
+		t.Errorf("a login naming %s: %+v, %v, %d requests there; want the base asked and the key and token "+
+			"sent nowhere else", other, allowance, err, askedCount())
+	}
+}
+
+func TestDownload_ALinkToAnotherHostThanOpenSubtitlesIsNotFetched(t *testing.T) {
+	t.Parallel()
+	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
+	other, askedCount := elsewhere(t)
+	fake.mutex.Lock()
+	fake.linkAddress = other + "/files/subtitle.srt"
+	fake.mutex.Unlock()
+	if _, err := client.Download(t.Context(), 7); err == nil || askedCount() != 0 {
+		t.Errorf("a link to %s: %v, %d requests there; want it refused unasked", other, err, askedCount())
+	}
+}
+
+func TestIsOwnHost_IsOpenSubtitlesDomainOrTheBasesHost(t *testing.T) {
+	t.Parallel()
+	_, client, _ := newProvider(t, fakeKeys{"owner", "right"})
+	for host, want := range map[string]bool{
+		"api.opensubtitles.com": true, "vip-api.opensubtitles.com": true, "opensubtitles.com": true,
+		"www.OpenSubtitles.com": true, client.base.Host: true,
+		"": false, "evil.example": false, "opensubtitles.com.evil.example": false, "evilopensubtitles.com": false,
+		"api.opensubtitles.com:8443": false, "user@api.opensubtitles.com": false,
+		"evil.example#.opensubtitles.com": false,
+	} {
+		if got := client.isOwnHost(host); got != want {
+			t.Errorf("isOwnHost(%q) = %v, want %v", host, got, want)
+		}
 	}
 }

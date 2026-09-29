@@ -9,9 +9,16 @@
 //   - Imports nothing from internal/node, never os/exec. Enforced by the depguard rule
 //     core-boundary and TestArch_CoreNeverImportsNode.
 //   - Every request carries Orpheum's key, which ships with the program, and no user's (D224 §2,
-//     §7); the login is used for its day by every request, and made again when OpenSubtitles no
-//     longer accepts it. TestSearch_LogsInOnceAndAsksByTheWorksIDsAndTheFilesHash,
-//     TestCurrentSession_IsUsedForItsDayAndMadeAgainWhenOpenSubtitlesNoLongerAcceptsIt.
+//     §7); the login is used for its day by every request, and made again once when OpenSubtitles no
+//     longer accepts it, whether it answers 401 or, as for an expired token, 500 "invalid".
+//     TestSearch_LogsInOnceAndAsksByTheWorksIDsAndTheFilesHash,
+//     TestCurrentSession_IsUsedForItsDayAndMadeAgainWhenOpenSubtitlesNoLongerAcceptsIt,
+//     TestCurrentSession_ATokenAnsweredInvalidWithA500IsMadeAgainOnce.
+//   - The key, the token and a download are sent only to OpenSubtitles' own hosts: a login's
+//     base_url and a download link are taken only on opensubtitles.com or a name under it, or the
+//     base's host (go.md §21). TestCurrentSession_ALoginNamingAnotherHostThanOpenSubtitlesKeepsTheBase,
+//     TestDownload_ALinkToAnotherHostThanOpenSubtitlesIsNotFetched,
+//     TestIsOwnHost_IsOpenSubtitlesDomainOrTheBasesHost.
 //   - A refused login is not tried again until the admin changes it: logins are rationed
 //     (opensubtitles-api.md §3). TestCurrentSession_ARefusedLoginIsNotTriedAgainUntilItChanges.
 //   - A search asks by a film's ids or an episode's series and place, and the file's moviehash,

@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -134,12 +135,33 @@ func (client *Client) currentSession(ctx context.Context) (session, error) {
 	if answer.Token == "" {
 		return session{}, errors.New("opensubtitles: a login answered with no token")
 	}
+	// The key and the token go wherever the login says, so it is checked before anything is sent
+	// there (go.md §21): OpenSubtitles' own host, or the base's; anything else keeps the base.
 	sessionBaseURL := client.base.String()
-	if host := strings.TrimSpace(answer.BaseURL); host != "" && !strings.ContainsAny(host, "/?#@") {
+	if host := strings.TrimSpace(answer.BaseURL); client.isOwnHost(host) {
 		sessionBaseURL = client.base.Scheme + "://" + host + client.base.Path
 	}
 	client.session = session{token: answer.Token, baseURL: sessionBaseURL, usedUntil: client.clock.Now().Add(tokenLife)}
 	return client.session, nil
+}
+
+// ownDomain is OpenSubtitles' domain: its API, its VIP API and its download links are under it.
+const ownDomain = "opensubtitles.com"
+
+// hostNamePattern is a host name alone: no port, no user, nothing else.
+var hostNamePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$`)
+
+// isOwnHost says whether host, as a login or a download link names it, is OpenSubtitles' own:
+// opensubtitles.com or a name under it, or the host of the base the client was given.
+func (client *Client) isOwnHost(host string) bool {
+	host = strings.ToLower(host)
+	if host == "" {
+		return false
+	}
+	if host == strings.ToLower(client.base.Host) {
+		return true
+	}
+	return hostNamePattern.MatchString(host) && (host == ownDomain || strings.HasSuffix(host, "."+ownDomain))
 }
 
 // loginAnswer is what a login answers: the token, and the host the account's requests go to.
@@ -190,7 +212,8 @@ func (client *Client) callAuthorised(
 			address += "?" + query.Encode()
 		}
 		err = client.call(ctx, method, address, current.token, body, into)
-		if !errors.Is(err, errUnauthorized) || attempt > 0 {
+		isStale := errors.Is(err, errUnauthorized) || errors.Is(err, errTokenInvalid)
+		if !isStale || attempt > 0 {
 			return err
 		}
 		client.forget(current)
@@ -199,6 +222,11 @@ func (client *Client) callAuthorised(
 
 // errUnauthorized is a 401: a login refused, or a token no longer accepted.
 var errUnauthorized = errors.New("opensubtitles: unauthorized")
+
+// errTokenInvalid is a 500 whose answer says "invalid" to a request with a token: how
+// OpenSubtitles answers a token that expired or that it dropped, which a new login cures
+// (opensubtitles-api.md §3). Once a new login has not cured it, OpenSubtitles is failing.
+var errTokenInvalid = fmt.Errorf("opensubtitles: the token was answered invalid: %w", outbound.ErrUnavailable)
 
 // call makes one request and decodes a 200's JSON answer into into.
 func (client *Client) call(ctx context.Context, method, address, token string, body []byte, into any) error {
@@ -221,6 +249,10 @@ func (client *Client) call(ctx context.Context, method, address, token string, b
 	answer, err := outbound.Exchange(client.http, request, maxResponseBytes)
 	if err != nil {
 		return fmt.Errorf("opensubtitles: %w", err)
+	}
+	if token != "" && answer.StatusCode == http.StatusInternalServerError &&
+		bytes.Contains(bytes.ToLower(answer.Body), []byte("invalid")) {
+		return errTokenInvalid
 	}
 	if err := statusError(answer); err != nil {
 		return err

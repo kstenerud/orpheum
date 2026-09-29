@@ -157,11 +157,15 @@ func (answer downloadAnswer) resetAt() time.Time {
 	return at
 }
 
-// fetch reads the file a download's link names: an https address of OpenSubtitles' own.
+// fetch reads the file a download's link names: an https address of OpenSubtitles' own, checked
+// before it is asked (go.md §21).
 func (client *Client) fetch(ctx context.Context, link string) ([]byte, error) {
 	parsed, err := url.Parse(link)
 	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != client.base.Scheme) || parsed.Host == "" {
 		return nil, fmt.Errorf("opensubtitles: a download link that is not a web address: %q", link)
+	}
+	if parsed.User != nil || !client.isOwnHost(parsed.Host) {
+		return nil, fmt.Errorf("opensubtitles: a download link to another host than OpenSubtitles': %q", parsed.Host)
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), http.NoBody)
 	if err != nil {
