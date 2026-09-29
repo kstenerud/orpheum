@@ -78,7 +78,7 @@ func textKey(payloadHash []byte, streamIndex *int64) cachegen.GetSubtitleTextPar
 // whole file, so it is done when the file is first played (D217 §6). A track that failed is tried
 // again. Bitmap tracks are not offered (cut-a §1).
 func (service *Service) wantSubtitles(ctx context.Context, videoID int64) ([]SubtitleTrack, error) {
-	rows, err := service.textTrackRows(ctx, videoID)
+	rows, err := service.textTrackRows(ctx, service.database.Read(), videoID)
 	if err != nil {
 		return nil, err
 	}
@@ -108,12 +108,14 @@ func (service *Service) wantSubtitles(ctx context.Context, videoID int64) ([]Sub
 
 // textTracksOf lists a video's text subtitle tracks: its own, its subtitle files' and those
 // fetched for it.
-func (service *Service) textTracksOf(ctx context.Context, videoID int64) ([]SubtitleTrack, error) {
-	rows, err := service.textTrackRows(ctx, videoID)
+func (service *Service) textTracksOf(
+	ctx context.Context, queries *sqlcgen.Queries, videoID int64,
+) ([]SubtitleTrack, error) {
+	rows, err := service.textTrackRows(ctx, queries, videoID)
 	if err != nil {
 		return nil, err
 	}
-	fetched, err := service.database.Read().ListFetchedSubtitlesOfVideo(ctx, videoID)
+	fetched, err := queries.ListFetchedSubtitlesOfVideo(ctx, videoID)
 	if err != nil {
 		return nil, fmt.Errorf("read the fetched subtitles of file %d: %w", videoID, err)
 	}
@@ -134,9 +136,9 @@ func fetchedTracksOf(rows []sqlcgen.ListFetchedSubtitlesOfVideoRow) []SubtitleTr
 
 // textTrackRows are a video's subtitle tracks that are text in a file with a payload hash.
 func (service *Service) textTrackRows(
-	ctx context.Context, videoID int64,
+	ctx context.Context, queries *sqlcgen.Queries, videoID int64,
 ) ([]sqlcgen.ListSubtitleTracksOfVideoRow, error) {
-	rows, err := service.database.Read().ListSubtitleTracksOfVideo(ctx, videoID)
+	rows, err := queries.ListSubtitleTracksOfVideo(ctx, videoID)
 	if err != nil {
 		return nil, fmt.Errorf("read the subtitle tracks of file %d: %w", videoID, err)
 	}

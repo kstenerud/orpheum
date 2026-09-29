@@ -133,7 +133,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 	if err := request.Menu.Validate(); err != nil {
 		return Started{}, err
 	}
-	file, err := service.playableFile(ctx, request.FileID)
+	file, err := service.playableFile(ctx, service.database.Read(), request.FileID)
 	if err != nil {
 		return Started{}, err
 	}
@@ -240,7 +240,7 @@ func (service *Service) DirectSource(
 	if !found || playback.profile != "" {
 		return Source{}, ErrNoToken
 	}
-	file, err := service.playableFile(ctx, playback.fileID)
+	file, err := service.playableFile(ctx, service.database.Read(), playback.fileID)
 	if err != nil {
 		return Source{}, err
 	}
@@ -293,8 +293,10 @@ func (service *Service) bytesFileOf(ctx context.Context, file located) (nodeprot
 	return nodeproto.BytesFile{}, fmt.Errorf("%w: %s is under none of its library's roots", ErrNoFile, file.subject)
 }
 
-func (service *Service) playableFile(ctx context.Context, fileID int64) (sqlcgen.GetPlayableFileRow, error) {
-	file, err := store.OrNotFound(service.database.Read().GetPlayableFile(ctx, fileID))
+func (service *Service) playableFile(
+	ctx context.Context, queries *sqlcgen.Queries, fileID int64,
+) (sqlcgen.GetPlayableFileRow, error) {
+	file, err := store.OrNotFound(queries.GetPlayableFile(ctx, fileID))
 	if errors.Is(err, store.ErrNotFound) {
 		return file, ErrNoFile
 	}
