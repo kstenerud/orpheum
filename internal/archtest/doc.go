@@ -21,6 +21,8 @@
 //   - TestArch_TestutilIsImportedOnlyByTests: no package that ships imports internal/testutil.
 //   - TestArch_ReleaseBinaryReadsNoEnvironment: the release build of cmd/orpheum reads no
 //     environment variable (D204).
+//   - TestArch_APIHandlersAreNamedForTheirOperations: each handler internal/core/api registers is
+//     the method its OperationID names.
 //   - TestArch_NoHandBuiltJSON: no code that ships spells out a JSON object's keys in a string; a
 //     document is encoded from a struct, so a renamed field is renamed everywhere it is written
 //     (agent failures A13).
@@ -50,6 +52,7 @@
 //   - rules_test.go: the checkers and their TestArch_ tests.
 //   - environment_test.go: the release binary's environment rule.
 //   - json_test.go: the hand-built JSON rule.
+//   - handlers_test.go: the API's handler-name rule.
 //   - rules_selftest_test.go: each checker against a violating synthetic graph.
 //   - Add a claim as a pure checker, a TestArch_ test, a self-test that makes it fail, and a
 //     citation in the owning package's doc.go.
