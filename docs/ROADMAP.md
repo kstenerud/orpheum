@@ -47,9 +47,12 @@ and a new decision is made only when code or a measurement forces one.
   and relays.
 - **Finding and resuming:** browse and search, play state and Continue Watching, artwork.
 - **Subtitles:** embedded and sidecar with libass, a sync offset control, **acquisition on
-  request**, on by default as a preference.
+  request** with the server's OpenSubtitles login ([D224](contributors/decisions/working-notes.md)). Subtitles start off; a person's
+  choice is kept per file and carried to the work's other files ([D223](contributors/decisions/working-notes.md) §3,
+  [D219](contributors/decisions/working-notes.md)).
 - **Quiet dialogue:** [D83](contributors/decisions/working-notes.md)'s dialogue boost in the downmix, with the device declaring
-  stereo speakers. Not the loudness measurement pass.
+  stereo speakers, and loudness levelling: the node measures each sound in a job, and the player
+  applies a gain towards -23 LUFS ([D226](contributors/decisions/working-notes.md)).
 - **Together:** local accounts, invite from outside, Watch Together for two with voice (browser
   WebRTC through a TURN server embedded in our binary), reachability (a port-forward, then IPv6,
   then a standard tunnel to a VPS, under one public HTTPS name from DNS-01), prepared versions
@@ -68,7 +71,7 @@ private repository, the owner and their partner testing. The public packaging ch
 release feed and the published cast receiver are beta-stage work.
 
 **Out for now:** roles and parental controls, collections-as-sequences, offline, segment
-detection, loudness measurement, trickplay, subtitle verification, NFO write, TV pairing and
+detection, trickplay, subtitle verification, NFO write, TV pairing and
 the native TV client, ceilings and adaptation, the Jellyfin adapter, OIDC/LDAP, rules authoring
 and the predicate compiler, play statistics, live bandwidth transcoding and live
 segment-addressed remux, our own relay role, the WASM plugin tier (D193).
@@ -110,10 +113,11 @@ rewritten.
 ## Phase 1 — A server that is correct before it is featureful
 
 *Read through Cut A. Of what this phase lists, the speech map and verification, trickplay,
-OIDC/LDAP, the rules engine and its predicate compiler, roles, certifications, typed segments,
-loudness columns and device pairing come **after** the cut ([D178](contributors/decisions/working-notes.md) §4,
+OIDC/LDAP, the rules engine and its predicate compiler, roles, certifications, typed segments
+and device pairing come **after** the cut ([D178](contributors/decisions/working-notes.md) §4,
 [D193](contributors/decisions/working-notes.md)); their additive tables arrive with their
-features ([D180](contributors/decisions/working-notes.md)).*
+features ([D180](contributors/decisions/working-notes.md)). Loudness columns are in the cut
+([D226](contributors/decisions/working-notes.md)).*
 
 `library-model.md` → `scanner.md` → `identification.md` → `stream-service.md`
 ~~*(direct play only)*~~ *(direct play and prepare, D193)*, with `internationalisation.md`
@@ -180,8 +184,9 @@ schema, and `library-model.md` is here:
   Jellyfin closed in 10.10.
 - **Loudness columns per audio track**
   ([audio-presentation.md](contributors/design/plans/audio-presentation.md),
-  [D83](contributors/decisions/working-notes.md)) — measured by the node at scan, because we do
-  the downmix and therefore own the quiet dialogue.
+  [D83](contributors/decisions/working-notes.md)) — measured by the node, because we do
+  the downmix and therefore own the quiet dialogue. In Cut A, by a job per file rather than at
+  scan, and kept by the payload's hash ([D226](contributors/decisions/working-notes.md) §2).
 - **Certifications as `(system, code)`, plus a content-descriptor vector**
   ([parental-controls.md](contributors/design/plans/parental-controls.md),
   [D84](contributors/decisions/working-notes.md),
