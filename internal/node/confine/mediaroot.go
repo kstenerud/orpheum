@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 )
 
 // MediaRoot is a media root opened read-only. It lists, stats, reads links and opens files for
@@ -83,6 +85,25 @@ func (media *MediaRoot) Open(relativePath string) (*os.File, error) {
 		return nil, fmt.Errorf("open %s: %w", relativePath, err)
 	}
 	return file, nil
+}
+
+// ReadFile reads the file at rel whole, as Open opens it, refusing one past maxBytes
+// (bounded.ErrTooLarge): the one way the node takes in a small file beside the media, an NFO, an
+// image or a subtitle file.
+func (media *MediaRoot) ReadFile(relativePath string, maxBytes int64) ([]byte, error) {
+	file, err := media.Open(relativePath)
+	if err != nil {
+		return nil, err
+	}
+	contents, readErr := bounded.ReadAll(file, maxBytes)
+	closeErr := file.Close()
+	if readErr != nil {
+		return nil, fmt.Errorf("read %s: %w", relativePath, readErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("close %s: %w", relativePath, closeErr)
+	}
+	return contents, nil
 }
 
 // Resolve returns the absolute path the entry at rel names once every symlink is followed,

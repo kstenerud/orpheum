@@ -315,26 +315,9 @@ func (agent *Agent) readImage(named nodeproto.Path) ([]byte, error) {
 		if !under {
 			continue
 		}
-		return readBounded(root, relativePath, maxImageBytes)
+		return root.ReadFile(relativePath, maxImageBytes)
 	}
 	return nil, errors.New("the image is under none of this node's roots")
-}
-
-// readBounded reads one file under a root, refusing one past maxBytes.
-func readBounded(root *confine.MediaRoot, relativePath string, maxBytes int) ([]byte, error) {
-	file, err := root.Open(relativePath)
-	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", relativePath, err)
-	}
-	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
-	contents, err := io.ReadAll(io.LimitReader(file, int64(maxBytes)+1))
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", relativePath, err)
-	}
-	if len(contents) > maxBytes {
-		return nil, fmt.Errorf("%s is larger than %d bytes", relativePath, maxBytes)
-	}
-	return contents, nil
 }
 
 func (agent *Agent) setActivity(activity string) {

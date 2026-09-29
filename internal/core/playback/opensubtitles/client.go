@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -35,8 +36,9 @@ const apiKey = "MzU7F707YIW4oNYUI50kHT8yR6zRtFgH"
 // maxResponseBytes bounds an answer: a page of search results is tens of kilobytes.
 const maxResponseBytes = 4 << 20
 
-// maxSubtitleBytes bounds a downloaded subtitle: a film's is at most a few hundred kilobytes.
-const maxSubtitleBytes = 8 << 20
+// MaxSubtitleBytes bounds a fetched subtitle's text, as downloaded and once unpacked: a film's is
+// at most a few hundred kilobytes.
+const MaxSubtitleBytes = 8 << 20
 
 // tokenLife is how long a login is used: OpenSubtitles' tokens last 24 hours, and one is not
 // used into its last hour (opensubtitles-api.md §3).
@@ -228,12 +230,9 @@ func (client *Client) call(ctx context.Context, method, address, token string, b
 		return fmt.Errorf("opensubtitles: %w", err)
 	}
 	defer func() { _ = response.Body.Close() }() //nolint:errcheck // a read-only body
-	answer, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
+	answer, err := bounded.ReadAll(response.Body, maxResponseBytes)
 	if err != nil {
-		return fmt.Errorf("opensubtitles: read the answer: %w", err)
-	}
-	if len(answer) > maxResponseBytes {
-		return fmt.Errorf("opensubtitles: an answer larger than %d bytes", maxResponseBytes)
+		return fmt.Errorf("opensubtitles: the answer: %w", err)
 	}
 	if err := statusError(response, answer); err != nil {
 		return err

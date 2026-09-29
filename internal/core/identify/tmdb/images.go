@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
@@ -84,13 +84,12 @@ func (images *ImageFetcher) Fetch(ctx context.Context, ref string) (artwork.Unsa
 	default:
 		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: status %d", ref, response.StatusCode)
 	}
-	body, err := io.ReadAll(io.LimitReader(response.Body, maxImageBytes+1))
-	if err != nil {
-		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: read it: %w", ref, err)
+	body, err := bounded.ReadAll(response.Body, maxImageBytes)
+	if errors.Is(err, bounded.ErrTooLarge) {
+		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: %w: %w", ref, err, artwork.ErrNoImage)
 	}
-	if len(body) > maxImageBytes {
-		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: larger than %d bytes: %w", ref, maxImageBytes,
-			artwork.ErrNoImage)
+	if err != nil {
+		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: %w", ref, err)
 	}
 	return artwork.Received(body), nil
 }

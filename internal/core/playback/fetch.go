@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -201,24 +201,18 @@ func gzipped(text []byte) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-// gunzipped is a fetched subtitle's text, bounded as the node bounds a subtitle's.
+// gunzipped is a fetched subtitle's text, bounded as its download is.
 func gunzipped(body []byte) ([]byte, error) {
 	reader, err := gzip.NewReader(bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("read the fetched subtitle: %w", err)
 	}
-	text, err := io.ReadAll(io.LimitReader(reader, maxFetchedBytes+1))
+	text, err := bounded.ReadAll(reader, opensubtitles.MaxSubtitleBytes)
 	if err != nil {
 		return nil, fmt.Errorf("read the fetched subtitle: %w", err)
 	}
-	if len(text) > maxFetchedBytes {
-		return nil, fmt.Errorf("a fetched subtitle larger than %d bytes", maxFetchedBytes)
-	}
 	return text, nil
 }
-
-// maxFetchedBytes bounds a fetched subtitle's text: a film's is a few hundred kilobytes.
-const maxFetchedBytes = 8 << 20
 
 // fetchedKey is where a fetched subtitle's text is kept: by the hash of its body as library.db
 // keeps it, as a subtitle file's is by its payload hash.

@@ -6,12 +6,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 )
 
 // Query is what finds subtitles for one video: the work's ids, or its series' with its place,
@@ -174,12 +175,9 @@ func (client *Client) fetch(ctx context.Context, link string) ([]byte, error) {
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("opensubtitles: fetch the subtitle: status %d", response.StatusCode)
 	}
-	text, err := io.ReadAll(io.LimitReader(response.Body, maxSubtitleBytes+1))
+	text, err := bounded.ReadAll(response.Body, MaxSubtitleBytes)
 	if err != nil {
 		return nil, fmt.Errorf("opensubtitles: fetch the subtitle: %w", err)
-	}
-	if len(text) > maxSubtitleBytes {
-		return nil, fmt.Errorf("opensubtitles: a subtitle larger than %d bytes", maxSubtitleBytes)
 	}
 	return text, nil
 }
