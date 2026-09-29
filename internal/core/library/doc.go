@@ -66,6 +66,7 @@
 //     TestSidecarTrackOf_ReadsTheLanguageAndFlagsAfterTheVideosName.
 //
 //   - A payload that returns revives its tombstone, with its history (D208 §4).
+//     TestScenario_S10_AFilmPutBackRevivesItsTombstone.
 //
 //   - Once a scan's end is committed its library is handed on, to identification.
 //     TestIngest_AfterAScanEndsItsLibraryIsHandedOn.
@@ -84,7 +85,6 @@
 //
 //   - A library covers only roots its node configured, as the node's hello named them (D107);
 //     creating one scans it. TestAdmin_CreatesALibraryOverTheNodesRootsAndScansIt.
-//     TestScenario_S10_AFilmPutBackRevivesItsTombstone.
 //
 //   - Continue Watching shows each film or episode once, ordered by its latest watching, at its
 //     most recent position partway through by the resume thresholds, naming the file when more

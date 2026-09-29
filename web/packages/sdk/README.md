@@ -1,7 +1,9 @@
 # @orpheum/sdk
 
 The client side of the API, usable from a plain web page: generated API types and client,
-probe-and-pick, the Watch Together client. MPL-2.0. It holds the API client so far.
+probe-and-pick, the Watch Together client. MPL-2.0. So far it holds the API client, the
+playable-formats probe (what this browser can play), the wait for a file the server is still
+making, and the reading of refusals; the Watch Together client is still to come.
 
 ## Invariants
 
@@ -27,4 +29,8 @@ probe-and-pick, the Watch Together client. MPL-2.0. It holds the API client so f
 ## Where to change
 
 - The public surface: `src/index.ts`.
-- The API types and client: regenerate; never edit `src/gen/`.
+- The API types and client: regenerate; never edit `src/gen/`. The client's setup:
+  `src/client.ts`.
+- What this browser can play: `src/playable-formats.ts`.
+- Waiting for a file the server is still making (`whenReady`, `textWhenReady`): `src/ready.ts`.
+- Reading a refusal (`ApiProblem`, `dataOrThrow`, `throwIfRefused`): `src/problem.ts`.

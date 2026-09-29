@@ -29,4 +29,6 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 
 ## Where to change
 
-- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`.
+- The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`. HLS playback:
+  `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
+  over the video: `src/subtitles.ts`.

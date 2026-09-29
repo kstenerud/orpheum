@@ -54,7 +54,7 @@
 //
 //   - D212: the whole design; D99 as D212 §5 narrows it.
 //   - principles §22: clean at the boundary.
-//   - docs/contributors/design/artwork.md.
+//   - docs/contributors/design/plans/artwork.md.
 //
 // # Where to change
 //

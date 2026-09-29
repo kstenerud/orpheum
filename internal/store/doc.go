@@ -92,8 +92,10 @@
 //   - search.go: search's three statements, hand-written because sqlc cannot parse FTS5's MATCH;
 //     static SQL with parameters only.
 //   - open.go: Open, the pragmas and their read-back, Read, Write and OrNotFound.
-//   - steps.go and migrate.go: the embedded steps and the runner (D181); step_record.go: the
-//     applied steps' checksums.
+//   - steps.go and migrate.go: the embedded steps and the runner (D181); migrate_checks.go: the
+//     checks a step cannot make of itself (dangling foreign keys, reissued ids, views that no
+//     longer compile); step_record.go: the applied steps' checksums, and the refusal of a file
+//     below the baseline (D228).
 //   - backup.go: VACUUM INTO, and reading a backup without changing it.
 //   - migrate.go's requireSpaceToMigrate: the pre-migration free-space preflight, which measures
 //     through internal/platform/diskspace.
