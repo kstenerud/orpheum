@@ -102,11 +102,12 @@ queries that read whole tables reached `main` because only CI ran it.
 - **A required tool that is missing fails the target.** A check never prints "skipping" and
   exits 0: *"a gate that can silently not run is not a gate"* (yoloAI's hadolint target had
   claimed a CI install step that never existed).
-- **Tagged tests are compiled** (`go vet -tags integration,lab ./...`) even though they are not
-  run, so a deleted helper cannot hide in a file the default build skips.
-- **Generated code is regenerated into place and diffed**: `check-generated` runs
-  `make generate` and fails on `git diff --exit-code` over the generated paths, so sqlc output,
-  the OpenAPI document and the TypeScript client cannot drift from their sources.
+- **Tagged tests are compiled** (`go vet -tags integration ./...` and `go vet -tags dev ./...`)
+  even though `make check` does not run them, so a deleted helper cannot hide in a file the default build skips.
+- **Generated code is regenerated into place and compared**: `check-generated` records every
+  generated file, runs `make generate`, and fails if any changed, appeared or disappeared, so
+  sqlc output, the OpenAPI document and the TypeScript client cannot drift from their sources,
+  whether or not the correct output is staged yet.
 
 **Enforced by:** `make check` itself and `check-tools`; the budget is **review-only**.
 
@@ -118,9 +119,11 @@ queries that read whole tables reached `main` because only CI ran it.
   command that fixes it. `make tools` installs the pinned versions. Changing a pin is an owner
   action, because a linter upgrade changes what the gate means.
 - **Node tools** come from the web workspace's lockfile.
-- **System tools** — shellcheck, and FFmpeg when the integration tier lands — are checked the
-  same way, and CI installs the pinned version by checksum. FFmpeg's version is pinned because
-  [D111](../decisions/working-notes.md)'s `assumptions/` tests depend on it.
+- **System tools** are checked the same way: shellcheck by `check-tools`. The integration tier's
+  FFmpeg and MKVToolNix are pinned and fetched by `make ffmpeg` and `make mkvtoolnix`, each
+  download verified by its hash, locally and in CI; FFmpeg's version is pinned because what the
+  tests observe of it depends on it. ([D111](../decisions/working-notes.md)'s `assumptions/`
+  directory, which would test the pinned version's behaviour, does not exist yet.)
 - **File lists are derived**, from `git ls-files --cached --others --exclude-standard` or Go's
   package patterns, never typed out. yoloAI's hand-written type-check list missed five scripts
   that then shipped for months with no check while its standard claimed they were covered.

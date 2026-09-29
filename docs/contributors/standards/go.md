@@ -90,8 +90,10 @@ trip to the declaration (yoloAI's "name for the reader's distance").
 
 ## 4. Packages and `doc.go`
 
-- **The layout is [cut-a.md](../design/plans/cut-a.md) §3**, and each directory boundary is a
-  trust or licence boundary the linters can see. A new package fits that tree.
+- **The layout is [cut-a.md](../design/plans/cut-a.md) §3**, grown since by packages each
+  milestone added ([plan-deviations.md](../plan-deviations.md) P36 lists them), and each
+  directory boundary is a trust or licence boundary the linters can see. A new package fits that
+  tree.
 - **A package is named for what it does**, one lowercase word, the same as its directory. No
   `util`, `common`, `helpers`, `misc`, `shared`, `types`. **Enforced by:**
   `TestArch_NoGenericPackageNames`, revive `var-naming`.
@@ -121,14 +123,15 @@ transitive closure, which depguard cannot see):
 
 | Rule | What it forbids | Transitive check |
 | --- | --- | --- |
-| `core-boundary` | `internal/core/**` importing `os/exec`, `internal/node/...`, image or media-parsing packages (D26, D33, D99, D126) | `TestArch_CoreNeverImportsNode`, `TestArch_CoreNeverExecs` |
+| `core-boundary` | `internal/core/**` importing `os/exec`, `internal/node/...`, image-processing or media-parsing packages (D26, D33, D99, D126) | `TestArch_CoreNeverImportsNode`, `TestArch_CoreNeverExecs` |
+| `core-no-image` | `internal/core/**` but `internal/core/artwork` importing `image` or `golang.org/x/image` (D99, D212) | — |
 | `node-boundary` | `internal/node/**` importing `internal/core/...` or `internal/store` (D33, D31) | `TestArch_NodeNeverImportsCore` |
 | `nodeproto-is-types` | `internal/nodeproto` importing anything internal but `internal/platform` | `TestArch_NodeprotoHasNoLogic` |
 | `store-is-below-core` | `internal/store` importing core or node | — |
 | `platform-is-a-leaf` | `internal/platform/**` importing anything above it | — |
 | `decide-sees-capabilities` | `internal/core/decide` importing `net/http` or `api` (D2, D103) | — |
 | `sql-only-in-store` | `database/sql` or a SQLite driver outside `internal/store` (D6, D31) | `TestArch_OnlyStoreImportsDatabaseSQL` |
-| `exec-only-in-execx` | `os/exec` outside `internal/node/execx` and archtest's tests | `TestArch_OnlyExecxImportsOsExec` |
+| `exec-only-in-execx` | `os/exec` outside `internal/node/execx`, archtest's tests and `internal/testutil` (which only tests may import) | `TestArch_OnlyExecxImportsOsExec` |
 | `one-way-to-do-it` | the alternatives below (principles §4) | — |
 
 **One way to do each thing.** depguard refuses the alternatives, and each message names the
@@ -136,7 +139,7 @@ replacement:
 
 | Instead of | Use |
 | --- | --- |
-| gorm, ent, bun, sqlx; squirrel, goqu | sqlc, and the one search filter builder in `internal/store` ([sql.md](sql.md)) |
+| gorm, ent, bun, sqlx; squirrel, goqu | sqlc, and search's hand-written static statements in `internal/store` ([sql.md](sql.md) §4) |
 | log, logrus, zap, zerolog | `log/slog` via `internal/platform/slogx` |
 | testify, gomock, mockery | `testing` with plain comparisons; a hand-written fake |
 | viper, envconfig | flags and environment read once in `cmd/orpheum`; runtime settings in the database |
@@ -325,8 +328,8 @@ describe in a phrase, and give it that phrase as its name.
   when deletion arrives) and `datadir`'s own directories (principles §2, D144, D145). **Enforced
   by:** `[delete]` (`os.Remove`, `RemoveAll`, `Rename`, `Truncate`, the same methods on
   `os.Root` and `os.File`, and their `syscall`/`unix` forms); a test hashes every fixture before
-  and after a full scan *(M2)*. Prepared-rendition eviction will need its package added to the
-  exception, by the owner.
+  and after a full scan *(M2)*. `internal/node/prepared`, which evicts the node's own prepared
+  renditions (D217 §5), is on the exception list too.
 - **A file we write is written atomically, by one helper** (temporary file, sync, rename, in
   `datadir`), and the one it replaces is kept where principles §2 says so. Each file has one
   owning package. A socket file is removed before it is created, and only by its owner.
@@ -350,8 +353,8 @@ D194 is the design. In Go:
   canary test that drives the API, logs, `doctor`, backups and the database file
   (`TestCanary_ASecretAppearsNowhereButAsCiphertext`), and bug reports once they exist.
 - **`Value.Reveal()` is called only by the provider client that sends the secret to its owner's
-  service** (TMDB under `identify`, TURN credential derivation in `turn`; the OpenSubtitles and
-  DNS-01 clients join the list when they land). Pass the `Value`, never the string. **Enforced
+  service** (TMDB under `identify`, OpenSubtitles under `playback/opensubtitles`, TURN
+  credential derivation in `turn`; the DNS-01 client joins the list when it lands). Pass the `Value`, never the string. **Enforced
   by:** `[reveal]`, whose path exceptions are the list.
 - **Only `internal/core/secrets` queries the `secret` table.** **Enforced by:** `[sealed-secret]`.
 - **A password is never stored or compared as text**; it is an argon2id hash (D194 §2).
@@ -368,22 +371,23 @@ D194 is the design. In Go:
   `sqlc.yaml` (`emit_json_tags: false`) plus musttag, which refuses to marshal an untagged
   struct.
 - **Errors leave in cut-a §5.2's one shape**, with `code` from its closed enumeration.
-  **Enforced by:** exhaustive over the code type; the shape by the generated OpenAPI document
-  and `oasdiff` *(with the API)*.
+  **Enforced by:** exhaustive over the code type; the shape by the generated OpenAPI document,
+  which `make check-generated` keeps current.
 - **JSON errors are checked**, including `Marshal`'s. **Enforced by:** errchkjson.
 - **A list in a response is never `nil`**, because `nil` marshals as `null` and the client's
   type says array. Construct `[]T{}` for an empty result; sqlc emits empty slices
   (`emit_empty_slices`). **Enforced by:** the handler tests; otherwise **review-only**.
-- **Node messages are versioned** and readers are tolerant of unknown fields (D85, migrations.md).
-  **Review-only.**
+- **Node messages are versioned by their path** (`/node/v1`, `/bytes/v1`), and readers are
+  tolerant of unknown fields (D85, migrations.md). **Review-only.**
 
 ## 18. Generated code
 
 - **Generated code is committed, starts with `// Code generated … DO NOT EDIT.`, and is never
-  edited by hand**: sqlc into `internal/store/sqlcgen`; later the OpenAPI document and the
-  TypeScript types. To change it, change its source and run `make generate`. **Enforced by:**
-  `make check-generated` (regenerates and diffs); the pre-edit hook; golangci-lint excludes it
-  (`generated: strict` and the `sqlcgen` path).
+  edited by hand**: sqlc into `internal/store/sqlcgen` and `internal/store/cachegen`, the OpenAPI
+  document (`api/openapi.json`) and the SDK's TypeScript types (`web/packages/sdk/src/gen`). To
+  change it, change its source and run `make generate`. **Enforced by:** `make check-generated`
+  (regenerates and compares); the pre-edit hook; golangci-lint excludes it
+  (`generated: strict` and the `sqlcgen` and `cachegen` paths).
 
 ## 19. Testing
 

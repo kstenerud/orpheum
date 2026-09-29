@@ -177,11 +177,13 @@ environment, never a `.env` file (`envDir: false`), and refuses to serve without
 
 ## Errors
 
-- **At a boundary, failure is a value.** SDK functions return a discriminated union
-  (`{ isOk: true, value } | { isOk: false, error }`) whose error type mirrors the API's error
-  model ([cut-a.md](../design/plans/cut-a.md) §5.2); callers `switch` on the error's `code`,
-  and `switch-exhaustiveness-check` makes a new code break them. Inside a module, throwing is
-  fine. — types + lint.
+- **A refusal keeps its code.** The SDK turns a refused request into an `ApiProblem` (an
+  `Error` carrying the API's `code` and `detail`, [cut-a.md](../design/plans/cut-a.md) §5.2)
+  and throws it, through `dataOrThrow` and `throwIfRefused` (`packages/sdk/src/problem.ts`). A
+  screen catches it and shows the person words chosen by its `code` (`problemText`), never the
+  server's `message`. `code` is typed as a string (the OpenAPI document declares no
+  enumeration), so a new code falls to the general words rather than breaking a `switch`. —
+  `no-restricted-syntax` (the server's message is never shown); the rest review-only.
 - **Parse, don't assert.** Data from outside (a WebSocket message, `localStorage`, a URL
   parameter) is `unknown` until a parser returns a typed value. — `consistent-type-assertions`.
 - **No swallowed rejection.** `no-floating-promises`, `no-misused-promises`. An empty `catch`
@@ -203,7 +205,7 @@ environment, never a `.env` file (`envDir: false`), and refuses to serve without
 | Listeners, timers and observers added in an effect are removed in its cleanup | `@eslint-react/web-api-no-leaked-*` |
 | `{count && <Badge />}` does not render a stray `0` | `@eslint-react/no-leaked-conditional-rendering` |
 | **Effects are for synchronising with something outside React** (the player, a socket). Derived values are computed in render; event responses go in the handler | `set-state-in-effect` catches the commonest case; the rest is review-only |
-| **State lives in the lowest component that needs it.** Server state is TanStack Query's; UI state is `useState`/`useReducer`; context only for values nearly every screen reads (the signed-in person, the theme). No global store | `no-restricted-imports` bans Redux, Zustand, MobX, Jotai, Recoil; placement is review-only |
+| **State lives in the lowest component that needs it.** Server state is loaded through the app's `useResource` (`apps/web/src/use-resource.ts`); UI state is `useState`/`useReducer`; context only for values nearly every screen reads (the signed-in person, the theme). No global store | `no-restricted-imports` bans Redux, Zustand, MobX, Jotai, Recoil; placement is review-only |
 | Props are a named `…Props` type; no spreading unknown props onto DOM elements | review-only |
 
 ## Accessibility
@@ -255,11 +257,11 @@ runtime, no CSS Modules, no utility framework.**
 with `returnEmptyString: false`, English bundled and other catalogues served by the core. No
 string is built by concatenating fragments; use interpolation.
 
-Until react-i18next lands, **no user-visible text is written inline in JSX**: `JSXText`
-containing letters, and literal `aria-label`, `aria-description`, `title`, `alt` or
-`placeholder` values, fail `no-restricted-syntax`. The product name is a constant
-(`apps/web/src/product-name.ts`) because it is never translated. When react-i18next lands, the
-same rule stays and the message points at `t()`.
+**No user-visible text is written inline in JSX**: `JSXText` containing letters, and literal
+`aria-label`, `aria-description`, `title`, `alt` or `placeholder` values, fail
+`no-restricted-syntax`, whose message sends the author to the translation layer
+(`apps/web/src/i18n.ts`, English in `apps/web/src/locales/`). The product name is a constant
+(`apps/web/src/product-name.ts`) because it is never translated.
 
 Sort order and date/number formatting come from the server or `Intl`, never `localeCompare` or
 hand-built strings ([D47](../decisions/working-notes.md)). — review-only.
@@ -275,7 +277,7 @@ The rules for what a test is for, the fakes-over-mocks policy and the uncontroll
 | **No `.only`, `.skip`, `.skipIf`, `.runIf`, `.todo` or `.fixme`** on `describe`/`it`/`test`. A skip comes only from the one prerequisite helper of [testing.md](testing.md) §3 (its TypeScript twin is written with the first test that needs one, and is the one file exempted) | `no-restricted-properties` in test files; `allowOnly: false` in `vitest.config.ts`; `scripts/check_test_weakening.py` on a branch |
 | **Fakes over mocks** ([testing.md](testing.md) §5): code takes its dependency (the SDK's transport, a clock) as a parameter and the test passes a hand-written fake; no `vi.mock`/`vi.doMock` of our own modules | `no-restricted-syntax` in test files (relative and `@orpheum/` specifiers); `sinon` banned by `no-restricted-imports` |
 | **No snapshot of a large tree.** An inline snapshot of a few lines is allowed; `toMatchSnapshot` of a rendered screen is not — it passes whatever it is shown after `-u` | review-only |
-| Components are tested through what a person perceives: role and accessible name (Testing Library's `getByRole`), never class names or test IDs when a role exists | review-only; Testing Library is sanctioned for M1 |
+| Components are tested through what a person perceives: role and accessible name, never class names or test IDs when a role exists | review-only. Tests render with React DOM (`renderToStaticMarkup`, or into `happy-dom`); Testing Library is sanctioned but not installed |
 | Test files may use `as` on test doubles and `!`; nothing else relaxes | ESLint test-file override |
 
 ## Dependencies
@@ -293,18 +295,20 @@ to instead of the usual alternatives:
 | UI | `react`, `react-dom` | in use | — |
 | Build, dev server | `vite`, `@vitejs/plugin-react` | in use | — |
 | Tests | `vitest` | in use | jest, mocha, chai, sinon |
-| API client | `openapi-typescript` + `openapi-fetch`, inside the SDK | when M1 needs it | axios, ky, got, superagent, node-fetch, cross-fetch |
-| Server state in React | `@tanstack/react-query` | when needed | swr, redux, zustand, mobx, jotai, recoil |
-| Translation | `react-i18next`, `i18next` | when the first real screen lands | react-intl, lingui |
-| HLS playback | `hls.js`, in the player | M2 | video.js, shaka-player, plyr |
-| ASS/SSA subtitles | `jassub`, in the player | M2 | libass-wasm |
-| Component tests | `@testing-library/react` | M1 | enzyme |
-| Browser tests | `@playwright/test` | M1 | — |
+| API client | `openapi-typescript` + `openapi-fetch`, inside the SDK | in use | axios, ky, got, superagent, node-fetch, cross-fetch |
+| Server state in React | `@tanstack/react-query` | not installed; the app's `useResource` does the job | swr, redux, zustand, mobx, jotai, recoil |
+| Translation | `react-i18next`, `i18next` | in use | react-intl, lingui |
+| HLS playback | `hls.js`, in the player | in use | video.js, shaka-player, plyr |
+| ASS/SSA subtitles | `jassub`, in the player | in use | libass-wasm |
+| Component tests | `@testing-library/react` | not installed; tests render with React DOM and `happy-dom` | enzyme |
+| Browser tests | `@playwright/test` | in use | — |
 | Dates, ids, collections | the standard library (`Intl`, `crypto.randomUUID`, `structuredClone`) | — | moment, dayjs, date-fns, luxon, uuid, lodash, ramda |
 | Class names | a template literal | — | classnames, clsx |
 | Styling | plain CSS + custom properties | in use | styled-components, Emotion, Tailwind |
 
-Routing is not yet chosen; it is proposed with the first second screen.
+Routing is the app's own: `apps/web/src/router.ts` maps an address to a route, and
+`apps/web/src/navigation.ts` reads and moves the browser's location. No routing library is
+installed.
 
 ## Licence and headers
 
