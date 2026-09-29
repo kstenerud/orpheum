@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useEffect, useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -16,6 +16,7 @@ import { storageIfAllowed } from "./browser-storage.ts";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
+import { useResource } from "./use-resource.ts";
 
 /** How often a page showing a code asks whether it has been used. */
 const codeCheckEveryMs = 3000;
@@ -35,7 +36,8 @@ export interface DeviceCodeState {
 /**
  * The person's device code (D218 §3, D221): made for a new device or a listed one, kept across a
  * reload in this tab's storage, and taken off the screen once the server says it is no longer
- * waiting, used, replaced or expired, when onUsed is told so the device list can show it.
+ * waiting, used, replaced or expired, when onUsed is told so the device list can show it. While it
+ * waits, a failure to ask about it is shown, and the asking goes on.
  */
 export function useDeviceCode(onUsed: () => void): DeviceCodeState {
   const { t } = useTranslation();
@@ -44,33 +46,30 @@ export function useDeviceCode(onUsed: () => void): DeviceCodeState {
     const storage = tabStorage();
     return storage === undefined ? undefined : readShownCode(storage, Date.now());
   });
-  const [problem, setProblem] = useState<string | undefined>(undefined);
+  const [issueProblem, setIssueProblem] = useState<string | undefined>(undefined);
   const secret = code?.secret;
-  useEffect(() => {
-    if (secret === undefined) {
-      return undefined;
-    }
-    const pollTimer = setInterval(() => {
-      isCodeWaiting(api).then(
-        (isWaiting) => {
-          if (!isWaiting) {
-            const storage = tabStorage();
-            if (storage !== undefined) {
-              forgetShownCode(storage);
-            }
-            setCode(undefined);
-            onUsed();
-          }
-        },
-        () => undefined, // asked again at the next tick
-      );
-    }, codeCheckEveryMs);
-    return () => {
-      clearInterval(pollTimer);
-    };
-  }, [api, secret, onUsed]);
+  const [codeCheck] = useResource(
+    `device-code/${secret ?? ""}`,
+    async () => {
+      if (secret === undefined) {
+        return false;
+      }
+      const isWaiting = await isCodeWaiting(api);
+      if (!isWaiting) {
+        const storage = tabStorage();
+        if (storage !== undefined) {
+          forgetShownCode(storage);
+        }
+        setCode(undefined);
+        onUsed();
+      }
+      return isWaiting;
+    },
+    secret === undefined ? undefined : codeCheckEveryMs,
+  );
+  const checkProblem = codeCheck.state === "failed" ? problemText(t, codeCheck.cause) : undefined;
   const makeCode = (target: CodeTarget, deviceName: string): void => {
-    setProblem(undefined);
+    setIssueProblem(undefined);
     issueDeviceCode(api, target).then(
       (issued) => {
         const shown = { ...issued, deviceName };
@@ -81,11 +80,11 @@ export function useDeviceCode(onUsed: () => void): DeviceCodeState {
         }
       },
       (cause: unknown) => {
-        setProblem(problemText(t, cause));
+        setIssueProblem(problemText(t, cause));
       },
     );
   };
-  return { code, problem, makeCode };
+  return { code, problem: issueProblem ?? checkProblem, makeCode };
 }
 
 /** A device code on screen: the code, for which device, and how to use it. */
