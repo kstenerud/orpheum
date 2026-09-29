@@ -72,9 +72,9 @@ func (harness testHarness) choiceIn(t *testing.T, sessionToken string, fileID in
 	return fmt.Sprintf("%d carried=%v", choice.StreamID, choice.IsCarriedFromWork)
 }
 
-// A choice is stored on the axis subtitle_choice, the name migration 0021 gave the rows written
-// before it (D227), so a choice made before the rename is still the one a playback starts with.
-func TestSubtitleChoice_AChoiceStoredBeforeTheRenameIsStillFound(t *testing.T) {
+// A choice is read from the axis subtitle_choice (D227): a row written straight to the store,
+// not through the API, is the one a playback starts with.
+func TestSubtitleChoice_IsReadFromTheSubtitleChoiceAxis(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
