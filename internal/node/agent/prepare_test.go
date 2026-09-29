@@ -102,6 +102,16 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 		!strings.Contains(refused.Failure, "none of this node's roots") {
 		t.Errorf("a prepare under another root ended %+v, want refused", refused)
 	}
+	if err := os.Mkdir(filepath.Join(root.Path(), "Extras"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	directory := source
+	directory.Path = []byte("Extras")
+	send(4, directory)
+	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareFailed ||
+		!strings.Contains(refused.Failure, "not a regular file") {
+		t.Errorf("a prepare of a directory ended %+v, want refused as no regular file", refused)
+	}
 }
 
 func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t *testing.T) {

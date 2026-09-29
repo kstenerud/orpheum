@@ -95,11 +95,15 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 	if converted.Refusal != "" || string(converted.ASS) != "the sidecar" {
 		t.Errorf("a sidecar: %+v", converted)
 	}
-	changedVideo, changedSidecar, outside, escaping := video, sidecar, sidecar, sidecar
+	changedVideo, changedSidecar, outside, escaping, directory := video, sidecar, sidecar, sidecar, sidecar
 	changedVideo.PayloadHash = strings.Repeat("0", 64)
 	changedSidecar.PayloadHash = strings.Repeat("0", 64)
 	outside.RootPath = t.TempDir()
 	escaping.Path = []byte("../film.en.srt")
+	if err := os.Mkdir(filepath.Join(sidecar.RootPath, "Subs"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	directory.Path = []byte("Subs")
 	for index, refusal := range []struct {
 		what    string
 		command nodeproto.ExtractSubtitle
@@ -117,6 +121,7 @@ func TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot
 			"none of this node's roots",
 		},
 		{"a sidecar path leaving its root", nodeproto.ExtractSubtitle{Sidecar: &escaping}, ""},
+		{"a sidecar that is a directory", nodeproto.ExtractSubtitle{Sidecar: &directory}, "not a regular file"},
 		{"a track and a sidecar at once", nodeproto.ExtractSubtitle{Video: &video, Sidecar: &sidecar}, "only one"},
 	} {
 		answer := send(int64(index+3), refusal.command)
