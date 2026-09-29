@@ -86,6 +86,11 @@
 //   - server.go holds the readiness gate and the authentication helpers: requireSignedIn and
 //     requireAdmin; requireMetadataEditor is in identification.go, and requireSignedInForMedia,
 //     for the byte paths, in media_cookie.go.
+//   - One refusal leaves with one code and one message: a package's errors are mapped by that
+//     package's one mapper, which every handler calling it answers through: authError
+//     (server.go), playbackError (playback.go), libraryError (libraries.go), identifyError
+//     (identification.go), settingsError (settings.go) and secretError (secrets.go); a
+//     provider's rate limit by providerRateLimited (errors.go). A new refusal is a case there.
 //   - api/openapi.json is generated with `orpheum openapi`; regenerate it after any change here.
 //   - The error enumeration lives here and is the only source the SDK's is generated from.
 package api

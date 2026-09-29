@@ -61,7 +61,7 @@ func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationH
 	}
 	rows, err := dependencies.Browser.ContinueWatching(ctx, principal.UserID)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list Continue Watching", err)
+		return nil, server.libraryError(ctx, "list Continue Watching", err)
 	}
 	output := &HomeOutput{}
 	output.Body.ContinueWatching = make([]InProgressBody, 0, len(rows))

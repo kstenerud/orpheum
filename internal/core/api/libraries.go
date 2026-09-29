@@ -225,7 +225,7 @@ func (server *Server) getNodes(ctx context.Context, input *AuthorizationHeader) 
 	}
 	nodes, err := dependencies.Libraries.NodeRoots(ctx)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list nodes", err)
+		return nil, server.libraryError(ctx, "list nodes", err)
 	}
 	output := &NodesOutput{}
 	output.Body.Nodes = make([]NodeBody, 0, len(nodes))
@@ -244,7 +244,7 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 	}
 	summaries, err := dependencies.Libraries.List(ctx)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list libraries", err)
+		return nil, server.libraryError(ctx, "list libraries", err)
 	}
 	output := &LibrariesOutput{}
 	output.Body.Libraries = make([]LibraryBody, 0, len(summaries))
@@ -321,8 +321,7 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 	query := library.FilesQuery{Limit: input.Limit}
 	if input.Cursor != "" {
 		if query.AfterID, err = strconv.ParseInt(input.Cursor, 10, 64); err != nil || query.AfterID < 0 {
-			return nil, newError(http.StatusUnprocessableEntity, CodeInvalidRequest,
-				"the cursor is not one this server gave")
+			return nil, server.libraryError(ctx, "list files", library.ErrBadCursor)
 		}
 	}
 	if input.LibraryID != 0 {
@@ -333,7 +332,7 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 	}
 	rows, err := dependencies.Libraries.Files(ctx, query)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list files", err)
+		return nil, server.libraryError(ctx, "list files", err)
 	}
 	output := &FilesOutput{}
 	output.Body.Files = make([]FileBody, 0, len(rows))
@@ -346,7 +345,7 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 		if row.ErrorDetailJson != nil {
 			detail, err := library.DecodeErrorDetail(*row.ErrorDetailJson)
 			if err != nil {
-				return nil, server.logInternalError(ctx, "list files", err)
+				return nil, server.libraryError(ctx, "list files", err)
 			}
 			file.ErrorDetail = &ErrorDetailBody{
 				Text: detail.Text, OwnerUID: detail.OwnerUID, GroupGID: detail.GroupGID, ModeText: detail.ModeText,
@@ -361,9 +360,15 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 	return output, nil
 }
 
-// libraryError maps the library package's refusals to API errors.
+// libraryError maps the library package's refusals, an admin's and a browsing person's, to API
+// errors. Every handler that calls library answers through it, so a refusal always leaves with
+// one code and one message.
 func (server *Server) libraryError(ctx context.Context, action string, err error) error {
 	switch {
+	case errors.Is(err, library.ErrNoItem):
+		return newError(http.StatusNotFound, CodeNotFound, "no such title or series")
+	case errors.Is(err, library.ErrBadCursor):
+		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, "the cursor is not one this server gave")
 	case errors.Is(err, library.ErrNoLibrary):
 		return newError(http.StatusNotFound, CodeNotFound, "no such library")
 	case errors.Is(err, library.ErrNameTaken):

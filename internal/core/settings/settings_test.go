@@ -243,8 +243,8 @@ func TestReset_WritesTheStartingValueBack(t *testing.T) {
 			t.Errorf("after a reset, %s = %s, want its starting value", key, entry.Value)
 		}
 	}
-	if err = service.Reset(ctx, "no_such_setting", &owner); !errors.Is(err, ErrUnknownSetting) {
-		t.Errorf("resetting an unknown key: %v, want ErrUnknownSetting", err)
+	if err = service.Reset(ctx, "no_such_setting", &owner); !errors.Is(err, ErrNoServerSetting) {
+		t.Errorf("resetting an unknown key: %v, want ErrNoServerSetting", err)
 	}
 }
 

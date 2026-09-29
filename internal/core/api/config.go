@@ -141,11 +141,8 @@ func (server *Server) resetConfig(ctx context.Context, input *SettingKeyInput) (
 		return nil, err
 	}
 	err = dependencies.Settings.Reset(ctx, settings.Key(input.Key), &principal.UserID)
-	if errors.Is(err, settings.ErrUnknownSetting) || errors.Is(err, settings.ErrWrongScope) {
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such server setting")
-	}
 	if err != nil {
-		return nil, server.logInternalError(ctx, "reset a setting", err)
+		return nil, server.settingsError(ctx, "reset a setting", err)
 	}
 	listed, err := server.listSettings(ctx, dependencies.Settings, nil, false)
 	if err != nil {
@@ -166,7 +163,7 @@ func (server *Server) getUnusedConfig(ctx context.Context, input *AuthorizationH
 	}
 	unused, err := dependencies.Settings.Unused(ctx)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list unused settings", err)
+		return nil, server.settingsError(ctx, "list unused settings", err)
 	}
 	output := &UnusedOutput{}
 	output.Body.UnusedSettings = []UnusedBody{}
@@ -192,12 +189,8 @@ func (server *Server) deleteUnusedConfig(ctx context.Context, input *DeleteUnuse
 		ownerUserID = &input.UserID
 	}
 	err = dependencies.Settings.DeleteUnused(ctx, input.Key, ownerUserID)
-	if errors.Is(err, settings.ErrInUse) {
-		return nil, newError(http.StatusConflict, CodeConflict,
-			"this release reads that setting; set it to default instead of deleting it")
-	}
 	if err != nil {
-		return nil, server.logInternalError(ctx, "delete an unused setting", err)
+		return nil, server.settingsError(ctx, "delete an unused setting", err)
 	}
 	return &struct{}{}, nil
 }

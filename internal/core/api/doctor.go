@@ -61,7 +61,7 @@ func (server *Server) collectFindings(ctx context.Context, dependencies *Depende
 	findings := []FindingBody{artworkFinding(dependencies)}
 	listed, err := dependencies.Libraries.NodeRoots(ctx)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list nodes", err)
+		return nil, server.libraryError(ctx, "list nodes", err)
 	}
 	for _, node := range listed {
 		facts, found := dependencies.NodeReports.Facts(node.Name)

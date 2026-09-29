@@ -27,6 +27,10 @@ var (
 	// ErrNotExposed is returned when the settings page is asked to change a setting it does not
 	// show; /config changes every setting.
 	ErrNotExposed = errors.New("the setting is not on the settings page; change it through /config")
+	// ErrNoServerSetting is returned when a server setting is named that is not one: a key the
+	// registry does not declare, or a user's setting. Reset names the setting it resets; Set's
+	// ErrUnknownSetting and ErrWrongScope are a value it was given that cannot be set.
+	ErrNoServerSetting = errors.New("no such server setting")
 	// ErrUnanswered is returned when a question nobody has answered is read as a value.
 	ErrUnanswered = errors.New("the setting is a question nobody has answered yet")
 )
@@ -261,11 +265,8 @@ func (service *Service) Set(
 // its starting value again when a release changes it: "set to default".
 func (service *Service) Reset(ctx context.Context, key Key, setByUserID *int64) error {
 	definition, known := Lookup(key)
-	if !known {
-		return fmt.Errorf("%q: %w", key, ErrUnknownSetting)
-	}
-	if definition.Scope != ScopeServer {
-		return fmt.Errorf("%s: %w", key, ErrWrongScope)
+	if !known || definition.Scope != ScopeServer {
+		return fmt.Errorf("%q: %w", key, ErrNoServerSetting)
 	}
 	setAt := service.clock.Now().UnixMilli()
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
