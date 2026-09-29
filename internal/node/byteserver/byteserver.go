@@ -4,7 +4,6 @@ package byteserver
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 	"errors"
 	"net/http"
 	"path"
@@ -58,19 +57,21 @@ func (server *Server) Handler() http.Handler {
 // payload hash is the one the core asked for.
 func (server *Server) serveFile(writer http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
-	root, found := server.roots[query.Get("rootPath")]
 	rawPath, pathErr := base64.RawURLEncoding.DecodeString(query.Get("path"))
-	wantPayloadHash, hashErr := hex.DecodeString(query.Get("payloadHash"))
+	if pathErr != nil {
+		rawPath = nil // named with no path
+	}
+	wantPayloadHash := query.Get("payloadHash")
+	file, info, err := server.payloadHashes.OpenNamed(server.roots, nodeproto.BytesFile{
+		RootPath: query.Get("rootPath"), Path: rawPath, PayloadHash: wantPayloadHash,
+	})
 	switch {
-	case !found:
+	case errors.Is(err, namedfile.ErrNoRoot):
 		http.Error(writer, "the root is not one of this node's", http.StatusNotFound)
 		return
-	case pathErr != nil || len(rawPath) == 0 || hashErr != nil || len(wantPayloadHash) == 0:
+	case errors.Is(err, namedfile.ErrBadName):
 		http.Error(writer, "want rootPath, path (base64url) and payloadHash (hex)", http.StatusBadRequest)
 		return
-	}
-	file, info, err := server.payloadHashes.Open(root, string(rawPath), wantPayloadHash)
-	switch {
 	case errors.Is(err, namedfile.ErrChanged):
 		// D100: the core named a file by its payload hash, and this is no longer that file.
 		http.Error(writer, "the file at this path is not the one asked for", http.StatusConflict)
@@ -85,8 +86,8 @@ func (server *Server) serveFile(writer http.ResponseWriter, request *http.Reques
 		http.Error(writer, "no such file under the root", http.StatusNotFound)
 		return
 	}
-	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
-	payloadHash := hex.EncodeToString(wantPayloadHash)
+	defer func() { _ = file.Close() }()             //nolint:errcheck // read-only
+	payloadHash := strings.ToLower(wantPayloadHash) // as hex writes it
 	writer.Header().Set("Content-Type", "application/octet-stream")
 	writer.Header().Set("ETag", `"`+payloadHash+`"`)
 	http.ServeContent(writer, request, "", info.ModTime(), file)
