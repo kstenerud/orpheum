@@ -63,7 +63,7 @@ type NodeConfig struct {
 	ProbeTimeoutS      int64    `toml:"probe_timeout_s"`
 	StatusIntervalS    int64    `toml:"status_interval_s"`
 	PreparedDir        string   `toml:"prepared_dir"`
-	// PreparedBudgetGiB, PreparedGraceH and PreparedDiskLimitPercent keep the prepared
+	// PreparedBudgetGiB, PreparedKeptAfterPlayH and PreparedDiskUsedLimitPercent keep the prepared
 	// directory in bounds (D217 §5).
 	PreparedBudgetGiB            int64 `toml:"prepared_budget_gib"`
 	PreparedKeptAfterPlayH       int64 `toml:"prepared_kept_after_play_h"`

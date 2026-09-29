@@ -31,7 +31,7 @@ type ProbeStream struct {
 	CodecProfile string `json:"codecProfile"`
 	// ContainerLanguage is the tag exactly as the container carried it ("ger", "deu", "en").
 	ContainerLanguage string `json:"containerLanguage"`
-	// Language is Language in BCP 47 form ("de" for both "ger" and "deu"), or empty when the
+	// Language is ContainerLanguage in BCP 47 form ("de" for both "ger" and "deu"), or empty when the
 	// container carried none, "und", or a code no standard knows (scanner.md, D206).
 	Language string `json:"language"`
 	// ContainerTitle is the track title, verbatim: often the only signal of a track's kind.

@@ -53,7 +53,10 @@ const (
 
 // Target is what a job works on, by its kind (D227 §2): an item for fetch and artwork, a
 // rendition for prepare, a stream for extract_subtitle, a fetched subtitle for
-// convert_fetched_subtitle, a file for measure_loudness. One is set; the others are zero.
+// convert_fetched_subtitle, a file for measure_loudness. A job is queued with exactly one set
+// and the others zero; columns refuses any other target with ErrNotOneTarget. The job table
+// allows at most one, but scan and backup have no target yet, so no job of those kinds can be
+// queued until M4 says what they work on.
 type Target struct {
 	ItemID            int64
 	RenditionID       int64
