@@ -109,7 +109,7 @@ describe("accounts", () => {
       {
         method: "POST",
         path: "/api/v1/session/code",
-        body: { code: "abcd-efgh", platform: "web", resumeId: 7 },
+        body: { code: "abcd-efgh", platform: "web", previousDeviceId: 7 },
       },
     ]);
     const changing = recording(undefined);

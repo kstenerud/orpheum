@@ -93,7 +93,7 @@ export function LevelSwitch(props: {
   return (
     <>
       <OwnSwitch
-        choice="isLevelling"
+        choice="isLevellingOn"
         label={t("play.level.switch")}
         isOn={isOn}
         switched={setIsOn}

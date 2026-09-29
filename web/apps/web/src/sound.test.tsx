@@ -162,6 +162,6 @@ describe("the dialogue boost's switch", () => {
     await click(box);
     expect(box?.checked).toBe(false);
     expect(switched).toEqual([false]);
-    expect(heard).toEqual([{ asked: "PUT /me/prefs", body: { isDialogueBoost: false } }]);
+    expect(heard).toEqual([{ asked: "PUT /me/prefs", body: { isDialogueBoostOn: false } }]);
   });
 });

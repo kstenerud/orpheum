@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { components } from "@orpheum/sdk";
+import type { components, paths } from "@orpheum/sdk";
 import { useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -12,6 +12,9 @@ import { usePages, type Page } from "./use-pages.ts";
 
 /** One file the scanner saw, as the server sends it. */
 export type SeenFile = components["schemas"]["FileBody"];
+
+/** GET /files's query, the API's own, so a renamed parameter fails to compile (D227). */
+type FilesQuery = NonNullable<paths["/files"]["get"]["parameters"]["query"]>;
 
 /** The filings to show: one, or every one (""). */
 export type FilingChoice =
@@ -119,11 +122,11 @@ function FilePages(props: {
   const load = useCallback(
     async (cursor: string): Promise<Page<SeenFile>> => {
       const query = {
-        library: libraryId,
+        libraryId,
         filing,
         limit: 500,
         ...(cursor === "" ? {} : { cursor }),
-      };
+      } satisfies FilesQuery;
       const data = dataOrThrow(await api.GET("/files", { params: { query } }));
       return { items: data.files ?? [], next: data.nextCursor ?? "" };
     },

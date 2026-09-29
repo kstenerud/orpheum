@@ -77,6 +77,6 @@ describe("levelling a film's loudness (D226)", () => {
     await click(box);
     expect(box?.checked).toBe(false);
     expect(mounted.container.textContent).toContain("Playing as it was mixed.");
-    expect(heard).toEqual([{ asked: "PUT /me/prefs", body: { isLevelling: false } }]);
+    expect(heard).toEqual([{ asked: "PUT /me/prefs", body: { isLevellingOn: false } }]);
   });
 });

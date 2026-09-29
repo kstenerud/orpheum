@@ -5,10 +5,31 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { camelKey } from "./catalogue-key.ts";
+import { i18n } from "./i18n.ts";
 import { Jobs, type Job } from "./jobs.tsx";
 import { parseRoute, routeHref } from "./router.ts";
 import { click, mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
+
+/**
+ * Every kind of job the API names. The type makes it complete: a kind the server adds, or a
+ * renamed one, fails to compile here until the screen can say it.
+ */
+const everyKind = [
+  "fetch",
+  "artwork",
+  "prepare",
+  "extract_subtitle",
+  "convert_fetched_subtitle",
+  "measure_loudness",
+  "scan",
+  "backup",
+] as const satisfies readonly Job["kind"][];
+
+/** True only when everyKind names every kind: a kind left out makes this fail to compile. */
+const isEveryKind: Exclude<Job["kind"], (typeof everyKind)[number]> extends never ? true : never =
+  true;
 
 const preparing: Job = {
   id: 5,
@@ -85,5 +106,15 @@ describe("the job view", () => {
     mounted = await mount(withServices(<Jobs />, services));
     await click(mounted.container.querySelector("button"));
     expect(mounted.container.textContent).toContain("That job has already ended.");
+  });
+});
+
+describe("each kind of job", () => {
+  it("has words on the jobs screen", () => {
+    expect(isEveryKind).toBe(true);
+    for (const kind of everyKind) {
+      const key = `jobs.kind.${camelKey(kind)}`;
+      expect(i18n.exists(key), key).toBe(true);
+    }
   });
 });

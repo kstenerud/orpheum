@@ -18,10 +18,14 @@ export type Answers = Readonly<Record<string, Answer | readonly Answer[] | typeo
 /** An answer that never comes: the request fails as fetch fails when the server cannot be reached. */
 export const unreachable = "unreachable";
 
-/** A request the stand-in server heard: "METHOD /path", and its body when it had one. */
+/**
+ * A request the stand-in server heard: "METHOD /path", its body when it had one, and its query
+ * string ("?a=1&b=2") when it had one, so a test can check the names a screen asks by.
+ */
 export interface Heard {
   readonly asked: string;
   readonly body: unknown;
+  readonly query?: string;
 }
 
 /**
@@ -32,10 +36,15 @@ export interface Heard {
 export function servedBy(answers: Answers, heard: Heard[] = []): Services {
   const counts = new Map<string, number>();
   return testServices(undefined, "/films", async (request) => {
-    const path = new URL(request.url).pathname.replace(/^\/api\/v1/u, "");
+    const url = new URL(request.url);
+    const path = url.pathname.replace(/^\/api\/v1/u, "");
     const asked = `${request.method} ${path}`;
     const text = await request.text();
-    heard.push({ asked, body: text === "" ? undefined : JSON.parse(text) });
+    heard.push({
+      asked,
+      body: text === "" ? undefined : JSON.parse(text),
+      ...(url.search === "" ? {} : { query: url.search }),
+    });
     const given = answers[asked];
     if (given === unreachable) {
       throw new TypeError("Failed to fetch");
