@@ -4,8 +4,11 @@ package storetest
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/store"
@@ -22,12 +25,53 @@ func MigrateOptions(directory string) store.MigrateOptions {
 	return store.MigrateOptions{SnapshotDirectory: directory, FreeSpaceDatabaseMultiple: 3}
 }
 
+// migratedTemplate is library.db migrated to the current schema once per test process, as bytes:
+// every test starts from a copy, because replaying every migration step is most of what a test
+// that opens a database costs. The first test to ask builds it, in its own temporary directory.
+//
+//nolint:gochecknoglobals // one migration per test process is the point: a test cannot share it otherwise
+var migratedTemplate struct {
+	once     sync.Once
+	contents []byte
+	err      error
+}
+
+// migratedContents is the template's bytes, built by the first caller.
+func migratedContents(tb testing.TB) ([]byte, error) {
+	tb.Helper()
+	migratedTemplate.once.Do(func() {
+		directory := tb.TempDir()
+		path := filepath.Join(directory, "template.db")
+		database, err := store.Open(tb.Context(), path, OpenOptions())
+		if err != nil {
+			migratedTemplate.err = fmt.Errorf("open the template: %w", err)
+			return
+		}
+		migrated := database.Migrate(tb.Context(), MigrateOptions(directory))
+		if closed := database.Close(); migrated != nil || closed != nil {
+			migratedTemplate.err = errors.Join(migrated, closed)
+			return
+		}
+		migratedTemplate.contents, migratedTemplate.err = os.ReadFile(path) //nolint:gosec // a path this test made
+	})
+	return migratedTemplate.contents, migratedTemplate.err
+}
+
 // OpenMigrated returns a new database in a temporary directory, migrated to the current schema and
-// closed when the test ends.
+// closed when the test ends. It starts from a copy of one database migrated once per process, and
+// is migrated again, which finds nothing to do and so checks the copy is current.
 func OpenMigrated(tb testing.TB) *store.Database {
 	tb.Helper()
+	contents, err := migratedContents(tb)
+	if err != nil {
+		tb.Fatalf("make the migrated template: %v", err)
+	}
 	directory := tb.TempDir()
-	database, err := store.Open(tb.Context(), filepath.Join(directory, "library.db"), OpenOptions())
+	path := filepath.Join(directory, "library.db")
+	if err = os.WriteFile(path, contents, 0o600); err != nil {
+		tb.Fatalf("copy the migrated template: %v", err)
+	}
+	database, err := store.Open(tb.Context(), path, OpenOptions())
 	if err != nil {
 		tb.Fatalf("open a test database: %v", err)
 	}
