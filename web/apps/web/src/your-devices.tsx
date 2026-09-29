@@ -12,6 +12,7 @@ import {
   type Device,
 } from "./accounts.ts";
 import { camelKey } from "./catalogue-key.ts";
+import { dateTimeText } from "./date-time-text.ts";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { audioOutputs } from "./sound.tsx";
@@ -100,10 +101,6 @@ export function DeviceList(props: {
   readonly onMakeCode: (device: Device) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
-  const dateTimeFormat = new Intl.DateTimeFormat(i18n.language, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
   return (
     <ul className="your-devices__list">
       {props.devices.map((device) => (
@@ -117,8 +114,8 @@ export function DeviceList(props: {
           <DeviceSound device={device} onSoundChange={props.onSoundChange} />
           <span>
             {t("devices.addedAndUsed", {
-              added: dateTimeFormat.format(new Date(device.addedAt)),
-              used: dateTimeFormat.format(new Date(device.lastUsedAt)),
+              added: dateTimeText(device.addedAt, i18n.language),
+              used: dateTimeText(device.lastUsedAt, i18n.language),
             })}
           </span>
           {device.isSignedIn ? null : (

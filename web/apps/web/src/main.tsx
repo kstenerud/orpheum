@@ -8,9 +8,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./app.tsx";
+import { storageIfAllowed } from "./browser-storage.ts";
 import { createNavigation } from "./navigation.ts";
 import { ServicesContext } from "./services.tsx";
-import { createSession, type TokenStorage } from "./session.ts";
+import { createSession } from "./session.ts";
 import { watchForSignOut } from "./signed-out-watch.ts";
 
 const rootElement = document.getElementById("root");
@@ -18,14 +19,7 @@ if (rootElement === null) {
   throw new Error("index.html has no #root element; the app cannot mount");
 }
 
-// A private window may refuse storage outright; the session then lasts as long as the page.
-let storage: TokenStorage | undefined;
-try {
-  storage = window.localStorage;
-} catch {
-  storage = undefined;
-}
-const session = createSession(storage);
+const session = createSession(storageIfAllowed(() => window.localStorage));
 const navigation = createNavigation(window);
 const api = createApi({ getToken: session.token });
 api.use(watchForSignOut(session, navigation));

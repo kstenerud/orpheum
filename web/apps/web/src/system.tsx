@@ -5,6 +5,7 @@ import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { camelKey } from "./catalogue-key.ts";
+import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { NodeConfinementView } from "./node-confinement.tsx";
 import { dataOrThrow } from "./problem.ts";
@@ -40,13 +41,6 @@ export function byteSizeText(bytes: number): string {
   }).format(value);
 }
 
-/** A moment, in the viewer's words: date and time. */
-function formatDateTime(milliseconds: number): string {
-  return new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(
-    new Date(milliseconds),
-  );
-}
-
 /** The System page, loaded from the server. */
 export function System(): JSX.Element {
   const { api } = useServices();
@@ -73,7 +67,7 @@ export function SystemView(props: { readonly report: SystemReport }): JSX.Elemen
           <dd>{server.goVersion}</dd>
           <HostFacts host={server.host} />
           <dt>{t("system.startedAt")}</dt>
-          <dd>{formatDateTime(server.startedAt)}</dd>
+          <dd>{dateTimeText(server.startedAt, i18n.language)}</dd>
           {(server.databases ?? []).map((database) => (
             <DatabaseSize key={database.name} name={database.name} bytes={database.sizeBytes} />
           ))}
@@ -107,7 +101,7 @@ function NodeSoftware(props: { readonly node: SystemNode }): JSX.Element {
         {node.lastHeardAt === undefined ? null : (
           <>
             <dt>{t("system.lastHeard")}</dt>
-            <dd>{formatDateTime(node.lastHeardAt)}</dd>
+            <dd>{dateTimeText(node.lastHeardAt, i18n.language)}</dd>
           </>
         )}
       </dl>
@@ -130,7 +124,7 @@ function BuildFacts(props: { readonly build: Build }): JSX.Element {
             {t("system.commit", { commit: build.commit.slice(0, 12) })}
             {build.committedAt === undefined
               ? null
-              : ` ${t("system.committedAt", { when: formatDateTime(build.committedAt) })}`}
+              : ` ${t("system.committedAt", { when: dateTimeText(build.committedAt, i18n.language) })}`}
           </>
         )}
         {build.isModified ? ` ${t("system.uncommittedChanges")}` : null}
@@ -347,7 +341,7 @@ function RecentPrepares(props: { readonly prepares: readonly FinishedPrepare[] }
                         }),
                       })}
                 </td>
-                <td>{formatDateTime(prepare.finishedAt)}</td>
+                <td>{dateTimeText(prepare.finishedAt, i18n.language)}</td>
               </tr>
             ))}
           </tbody>

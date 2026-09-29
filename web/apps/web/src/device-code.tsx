@@ -12,6 +12,7 @@ import {
   type CodeTarget,
   type ShownCode,
 } from "./accounts.ts";
+import { storageIfAllowed } from "./browser-storage.ts";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
@@ -21,11 +22,7 @@ const codeCheckEveryMs = 3000;
 
 /** This tab's own storage, or undefined where the browser refuses it. */
 function tabStorage(): Storage | undefined {
-  try {
-    return window.sessionStorage;
-  } catch {
-    return undefined;
-  }
+  return storageIfAllowed(() => window.sessionStorage);
 }
 
 /** The device code on screen, and how to make one: what useDeviceCode returns. */
