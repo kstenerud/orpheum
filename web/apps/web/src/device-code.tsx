@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useState, type JSX } from "react";
+import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -13,6 +13,7 @@ import {
   type ShownCode,
 } from "./accounts.ts";
 import { storageIfAllowed, storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
+import { FormRow } from "./form-row.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
@@ -89,5 +90,42 @@ export function ShownDeviceCode(props: { readonly code: ShownCode }): JSX.Elemen
       <p>{t("account.useCode", { origin: window.location.origin })}</p>
       <Share kind="code" text={props.code.secret} invitation={props.code} />
     </div>
+  );
+}
+
+/**
+ * A new device's name and the button that makes its code (D218 §3): on the person's own account
+ * and on their page for the admin, one form. Anything the form says first, such as a heading, is
+ * its children; what went wrong comes after the button.
+ */
+export function NewDeviceCodeForm(props: {
+  readonly onMakeCode: (deviceName: string) => void;
+  readonly problem?: string | undefined;
+  readonly children?: ReactNode;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const [name, setName] = useState("");
+  return (
+    <FormRow
+      onSubmit={() => {
+        props.onMakeCode(name);
+      }}
+    >
+      {props.children}
+      <label>
+        {t("account.deviceName")}{" "}
+        <input
+          required
+          maxLength={100}
+          placeholder={t("account.deviceNameExample")}
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value);
+          }}
+        />
+      </label>
+      <button type="submit">{t("account.makeCode")}</button>
+      {props.problem === undefined ? null : <p role="alert">{props.problem}</p>}
+    </FormRow>
   );
 }

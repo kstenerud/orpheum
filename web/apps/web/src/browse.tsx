@@ -6,13 +6,14 @@ import type { components } from "@orpheum/sdk";
 import { useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { dataOrThrow, problemText } from "./problem.ts";
+import { dataOrThrow } from "./problem.ts";
 import { ContinueWatching } from "./continue-watching.tsx";
 import { Link } from "./link.tsx";
 import { Poster } from "./poster.tsx";
-import type { Route } from "./router.ts";
+import { itemRoute } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
+import { Loaded } from "./title.tsx";
 import { usePages, type Page } from "./use-pages.ts";
 import type { Resource } from "./use-resource.ts";
 
@@ -27,13 +28,6 @@ export type BrowseSort = "name" | "added";
 
 const entriesPerPage = 60;
 
-/** Where an entry leads: a film's page, or a series'. */
-export function entryRoute(kind: BrowseKind, id: number): Route {
-  return kind === "movie"
-    ? { screen: "title", itemId: id }
-    : { screen: "series-page", collectionId: id };
-}
-
 /** A grid of films or series, each a poster with its name and year under it. */
 export function PosterGrid(props: {
   readonly kind: BrowseKind;
@@ -44,7 +38,7 @@ export function PosterGrid(props: {
     <ul className="poster-grid">
       {props.entries.map((entry) => (
         <li key={entry.id}>
-          <Link to={entryRoute(props.kind, entry.id)} className="poster-grid__card">
+          <Link to={itemRoute(props.kind, entry.id)} className="poster-grid__card">
             <Poster sourceSha256={entry.posterSha256} />
             <span className="poster-grid__name">{entry.name}</span>
             {entry.year === undefined ? null : (
@@ -130,26 +124,21 @@ export function BrowseView(props: {
   readonly onLoadMore: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { loadedEntries } = props;
-  if (loadedEntries.state === "loading") {
-    return <p>{t("common.loading")}</p>;
-  }
-  if (loadedEntries.state === "failed") {
-    return <p role="alert">{problemText(t, loadedEntries.cause)}</p>;
-  }
-  if (loadedEntries.value.items.length === 0) {
-    return <p>{t("browse.empty")}</p>;
-  }
   return (
-    <>
-      <PosterGrid kind={props.kind} entries={loadedEntries.value.items} />
-      {loadedEntries.value.nextCursor === "" ? null : (
-        <EndOfList onVisible={props.onLoadMore}>
-          <button type="button" onClick={props.onLoadMore} disabled={props.isLoadingMore}>
-            {t("common.showMore")}
-          </button>
-        </EndOfList>
-      )}
-    </>
+    <Loaded
+      resource={props.loadedEntries}
+      render={(page) =>
+        page.items.length === 0 ? (
+          <p>{t("browse.empty")}</p>
+        ) : (
+          <>
+            <PosterGrid kind={props.kind} entries={page.items} />
+            {page.nextCursor === "" ? null : (
+              <EndOfList onMore={props.onLoadMore} isLoadingMore={props.isLoadingMore} />
+            )}
+          </>
+        )
+      }
+    />
   );
 }

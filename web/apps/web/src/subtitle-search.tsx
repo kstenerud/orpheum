@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { camelKey } from "./catalogue-key.ts";
 import { ApiProblem, dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { useRequest } from "./use-request.ts";
 import { languageName } from "./language-name.ts";
 
 /** A subtitle OpenSubtitles can give, unverified, as the server lists it (D224). */
@@ -108,31 +109,6 @@ export function subtitleProblemText(
   return problemText(t, cause);
 }
 
-/** One request at a time: whether it is running, and why it failed when it did (D224 §4). */
-function useRequest(): {
-  isBusy: boolean;
-  problem: string | undefined;
-  runRequest: (request: Promise<void>) => void;
-} {
-  const { t, i18n } = useTranslation();
-  const [isBusy, setIsBusy] = useState(false);
-  const [problem, setProblem] = useState<string | undefined>(undefined);
-  const runRequest = (request: Promise<void>): void => {
-    setIsBusy(true);
-    setProblem(undefined);
-    request.then(
-      () => {
-        setIsBusy(false);
-      },
-      (cause: unknown) => {
-        setIsBusy(false);
-        setProblem(subtitleProblemText(t, cause, i18n.language));
-      },
-    );
-  };
-  return { isBusy, problem, runRequest };
-}
-
 /**
  * Finds a subtitle a file lacks (D224): the person picks a language, sees what OpenSubtitles has,
  * those made for this very file first, each labelled unverified, with the downloads left today,
@@ -147,7 +123,10 @@ export function FindSubtitles(props: {
   const [isOpen, setIsOpen] = useState(false);
   const [language, setLanguage] = useState(() => startingLanguage(i18n.language));
   const [offer, setOffer] = useState<SubtitleOffer | undefined>(undefined);
-  const { isBusy, problem, runRequest } = useRequest();
+  // One request at a time, and why it failed when it did (D224 §4).
+  const { isBusy, problem, runRequest } = useRequest((cause) =>
+    subtitleProblemText(t, cause, i18n.language),
+  );
   if (!isOpen) {
     return (
       <button

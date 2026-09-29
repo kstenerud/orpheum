@@ -2,18 +2,20 @@
 
 import "./end-of-list.css";
 
-import { useEffect, useRef, type JSX, type ReactNode } from "react";
+import { useEffect, useRef, type JSX } from "react";
+import { useTranslation } from "react-i18next";
 
 /**
  * The end of a list that has more: it asks for more as it comes into view, and holds a button
  * that asks too, for a keyboard, a screen reader, or a browser without IntersectionObserver.
  */
 export function EndOfList(props: {
-  readonly onVisible: () => void;
-  readonly children: ReactNode;
+  readonly onMore: () => void;
+  readonly isLoadingMore: boolean;
 }): JSX.Element {
+  const { t } = useTranslation();
   const endRef = useRef<HTMLDivElement>(null);
-  const { onVisible } = props;
+  const { onMore: onVisible } = props;
   useEffect(() => {
     const target = endRef.current;
     if (target === null || typeof IntersectionObserver === "undefined") {
@@ -31,7 +33,9 @@ export function EndOfList(props: {
   }, [onVisible]);
   return (
     <div ref={endRef} className="end-of-list">
-      {props.children}
+      <button type="button" onClick={props.onMore} disabled={props.isLoadingMore}>
+        {t("common.showMore")}
+      </button>
     </div>
   );
 }

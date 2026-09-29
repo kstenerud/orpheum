@@ -5,7 +5,8 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { hitRoute, Search, SearchResults } from "./search.tsx";
+import { itemRoute } from "./router.ts";
+import { Search, SearchResults } from "./search.tsx";
 import { withServices } from "./test-services.tsx";
 
 describe("search", () => {
@@ -25,7 +26,7 @@ describe("search", () => {
     expect(markup).toContain('href="/titles/21"');
     expect(markup).toContain("Series");
     expect(markup).toContain("Episode");
-    expect(hitRoute({ id: 5, kind: "movie", name: "Metropolis" })).toEqual({
+    expect(itemRoute("movie", 5)).toEqual({
       screen: "title",
       itemId: 5,
     });

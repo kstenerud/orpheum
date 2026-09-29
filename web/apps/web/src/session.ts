@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { StringStorage } from "./browser-storage.ts";
+import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
 
 /**
  * The session: its token, kept in this browser so a reload stays signed in, and told to every
@@ -25,32 +25,20 @@ const tokenStorageKey = "orpheum.session";
 const deviceIdStorageKey = "orpheum.device";
 
 /** Creates a session over storage, which may throw on every call. */
-export function createSession(storage: StringStorage | undefined): Session {
-  let token: string | undefined;
-  try {
-    token = storage?.getItem(tokenStorageKey) ?? undefined;
-  } catch {
-    token = undefined;
-  }
+export function createSession(refusableStorage: StringStorage | undefined): Session {
+  const storage = storageThatNeverThrows(refusableStorage);
+  let token = storage.getItem(tokenStorageKey) ?? undefined;
   let endedReason: string | undefined;
-  let storedDeviceId: number | undefined;
-  try {
-    const kept = Number(storage?.getItem(deviceIdStorageKey) ?? "");
-    storedDeviceId = Number.isSafeInteger(kept) && kept > 0 ? kept : undefined;
-  } catch {
-    storedDeviceId = undefined;
-  }
+  const keptDeviceId = Number(storage.getItem(deviceIdStorageKey) ?? "");
+  let storedDeviceId =
+    Number.isSafeInteger(keptDeviceId) && keptDeviceId > 0 ? keptDeviceId : undefined;
   const listeners = new Set<() => void>();
   const setToken = (next: string | undefined): void => {
     token = next;
-    try {
-      if (next === undefined) {
-        storage?.removeItem(tokenStorageKey);
-      } else {
-        storage?.setItem(tokenStorageKey, next);
-      }
-    } catch {
-      // Kept in memory only: a private window refuses storage.
+    if (next === undefined) {
+      storage.removeItem(tokenStorageKey);
+    } else {
+      storage.setItem(tokenStorageKey, next);
     }
     for (const listener of listeners) {
       listener();
@@ -62,11 +50,7 @@ export function createSession(storage: StringStorage | undefined): Session {
       endedReason = undefined;
       if (deviceId !== undefined) {
         storedDeviceId = deviceId;
-        try {
-          storage?.setItem(deviceIdStorageKey, String(deviceId));
-        } catch {
-          // Kept in memory only.
-        }
+        storage.setItem(deviceIdStorageKey, String(deviceId));
       }
       setToken(next);
     },

@@ -3,6 +3,7 @@
 import "./people.css";
 
 import { useState, type JSX } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -121,6 +122,11 @@ function AddPerson(props: {
   );
 }
 
+/** Whether a person has set their password yet, in words. */
+export function registrationText(t: TFunction, account: { readonly hasPassword: boolean }): string {
+  return t(account.hasPassword ? "people.registered" : "people.notRegistered");
+}
+
 /** Everyone, each leading to their page (the owner, 2026-09-27). */
 export function PeopleList(props: { readonly accounts: readonly Account[] }): JSX.Element {
   const { t } = useTranslation();
@@ -131,9 +137,7 @@ export function PeopleList(props: { readonly accounts: readonly Account[] }): JS
           <Link to={{ screen: "person", userId: account.id }} className="people__name">
             {account.name}
           </Link>{" "}
-          <span className="people__status">
-            {t(account.hasPassword ? "people.registered" : "people.notRegistered")}
-          </span>
+          <span className="people__status">{registrationText(t, account)}</span>
         </li>
       ))}
     </ul>
