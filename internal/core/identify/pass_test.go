@@ -334,7 +334,7 @@ func TestPass_NamesAreSortedAndFoundInEveryScript(t *testing.T) {
 	}
 }
 
-func TestRefreshSortKeys_ALocaleChangeTakesEffectWithoutAScan(t *testing.T) {
+func TestRefreshSortAndSearchKeys_ALocaleChangeTakesEffectWithoutAScan(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "nfo")
 	lib.scan(videoRecord("Destiny (1998).mkv"), videoRecord("Ödet (2010).mkv"), videoRecord("Apa (2000).mkv"))
