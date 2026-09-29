@@ -19,12 +19,6 @@ import (
 
 const tagPlayback = "Playback"
 
-// HopNode names the node as the leg that failed.
-const HopNode Hop = "node"
-
-// HopProvider is the failing leg when a provider, such as OpenSubtitles, is (cut-a §5).
-const HopProvider Hop = "provider"
-
 // NodeBytes reads from a node's byte socket.
 type NodeBytes interface {
 	Do(ctx context.Context, nodeID int64, method, target string, header http.Header) (*http.Response, error)

@@ -12,6 +12,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -102,7 +103,9 @@ func TestService_AFailingHostIsPausedAfterFiveFailuresAndProbedAfterEachStep(t *
 func TestService_ARateLimitWaitsWithoutCostingAnAttempt(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
-	bench.service.parts.Fetchers["tmdb"] = &failingFetcher{err: &identify.RateLimitedError{RetryAfter: time.Minute}}
+	bench.service.parts.Fetchers["tmdb"] = &failingFetcher{
+		err: &outbound.RateLimitedError{Provider: "TMDB", RetryAfter: time.Minute},
+	}
 	err := bench.service.Handle(t.Context(), bench.job(owedRef{Kind: identify.ArtPoster, SourceRef: "/p.jpg"}))
 	if wait, isWait := errors.AsType[*jobs.RetryAtError](err); !isWait ||
 		!wait.At.Equal(bench.service.parts.Clock.Now().Add(time.Minute)) {

@@ -34,3 +34,18 @@ func TestRetryAfter_ReadsSecondsOrADateAgainstTheReplysOwnClockAndCapsAtAnHour(t
 		}
 	}
 }
+
+func TestRateLimited_WaitsWhatRetryAfterSaysOrASecondWhenItSaysNothing(t *testing.T) {
+	t.Parallel()
+	named := http.Header{}
+	named.Set("Retry-After", "7")
+	if limited := RateLimited("TMDB", named); limited.RetryAfter != 7*time.Second || limited.Provider != "TMDB" {
+		t.Errorf("RateLimited with Retry-After 7 = %+v, want TMDB after 7s", limited)
+	}
+	if limited := RateLimited("OpenSubtitles", http.Header{}); limited.RetryAfter != time.Second {
+		t.Errorf("RateLimited without Retry-After = %+v, want a second", limited)
+	}
+	if text := RateLimited("TMDB", named).Error(); text != "TMDB asks us to wait 7s" {
+		t.Errorf("Error() = %q, want the provider and the wait", text)
+	}
+}

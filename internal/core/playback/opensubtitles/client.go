@@ -33,6 +33,9 @@ const BaseURL = "https://api.opensubtitles.com/api/v1"
 //nolint:gosec // G101: an application's published key, not a credential (D224 §7)
 const apiKey = "MzU7F707YIW4oNYUI50kHT8yR6zRtFgH"
 
+// providerName is OpenSubtitles as a person knows it, in a rate limit's error.
+const providerName = "OpenSubtitles"
+
 // maxResponseBytes bounds an answer: a page of search results is tens of kilobytes.
 const maxResponseBytes = 4 << 20
 
@@ -61,15 +64,6 @@ type QuotaSpentError struct {
 
 func (spent *QuotaSpentError) Error() string {
 	return "the OpenSubtitles account's downloads are spent until " + spent.ResetAt.Format(time.RFC3339)
-}
-
-// RateLimitedError is a request OpenSubtitles asked to be made again later.
-type RateLimitedError struct {
-	RetryAfter time.Duration
-}
-
-func (limited *RateLimitedError) Error() string {
-	return "OpenSubtitles asks to wait " + limited.RetryAfter.String()
 }
 
 // LoginSecrets opens the login; secrets.Store is one.
@@ -255,11 +249,7 @@ func statusError(response *http.Response, answer []byte) error {
 		_ = json.Unmarshal(answer, &spent) //nolint:errcheck // a quota without a time is still spent
 		return &QuotaSpentError{ResetAt: spent.resetAt()}
 	case http.StatusTooManyRequests:
-		after, found := outbound.RetryAfter(response.Header)
-		if !found {
-			after = time.Second
-		}
-		return &RateLimitedError{RetryAfter: after}
+		return outbound.RateLimited(providerName, response.Header)
 	}
 	return fmt.Errorf("opensubtitles: status %d: %s", response.StatusCode, answer[:min(len(answer), 200)])
 }

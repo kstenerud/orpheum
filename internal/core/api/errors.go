@@ -8,6 +8,8 @@ import (
 	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 // Code is the one error enumeration the server and the SDK share (cut-a §5.2).
@@ -35,6 +37,14 @@ const (
 
 // Hop names the leg of a request that failed, for reachability errors (cut-a §5.2).
 type Hop string
+
+// The legs a request can fail on that the server names.
+const (
+	// HopNode names the node as the leg that failed.
+	HopNode Hop = "node"
+	// HopProvider is the failing leg when a provider, TMDB or OpenSubtitles, is (cut-a §5.2).
+	HopProvider Hop = "provider"
+)
 
 // ErrorBody is the one shape every error leaves in: {"error": {...}}.
 type ErrorBody struct {
@@ -75,6 +85,17 @@ func (failure *Error) GetStatus() int {
 // newError builds an Error.
 func newError(status int, code Code, message string) *Error {
 	return &Error{status: status, ErrorBody: ErrorBody{Error: ErrorDetail{Code: code, Message: message}}}
+}
+
+// providerRateLimited is a provider asking us to wait, as every endpoint that calls one answers
+// it: rate_limited, the wait in detail.retryAfterMs, and the provider as the failing leg.
+func providerRateLimited(limited *outbound.RateLimitedError) *Error {
+	failure := newError(http.StatusServiceUnavailable, CodeRateLimited, limited.Provider+" asks us to wait")
+	failure.ErrorBody.Error.Detail = map[string]string{
+		"retryAfterMs": strconv.FormatInt(limited.RetryAfter.Milliseconds(), 10),
+	}
+	failure.ErrorBody.Error.FailedHop = HopProvider
+	return failure
 }
 
 // UseErrorShape makes huma's own errors — a malformed body, an unknown route's method, a panic

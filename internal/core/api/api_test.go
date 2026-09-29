@@ -207,6 +207,16 @@ func wantError(t *testing.T, got response, status int, code Code) {
 	}
 }
 
+// wantErrorSaying is wantError, and the message the error says.
+func wantErrorSaying(t *testing.T, got response, status int, code Code, message string) {
+	t.Helper()
+	wantError(t, got, status, code)
+	var body ErrorBody
+	if err := json.Unmarshal([]byte(got.body), &body); err != nil || body.Error.Message != message {
+		t.Errorf("message = %q, want %q; body %s", body.Error.Message, message, got.body)
+	}
+}
+
 // testDevice is the device the tests sign in on.
 var testDevice = map[string]string{"name": "Firefox on Linux", "platform": "web"}
 

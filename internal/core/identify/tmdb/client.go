@@ -20,6 +20,9 @@ import (
 // BaseURL is TMDB's API, version 3.
 const BaseURL = "https://api.themoviedb.org/3"
 
+// providerName is TMDB as a person knows it, in a rate limit's error.
+const providerName = "TMDB"
+
 // maxResponseBytes bounds a response body: a film's details with its credits are tens of
 // kilobytes, so anything near this is not TMDB.
 const maxResponseBytes = 8 << 20
@@ -75,7 +78,10 @@ func (client *Client) get(ctx context.Context, path string, parameters url.Value
 	if err != nil {
 		return nil, fmt.Errorf("tmdb %s: the response: %w", path, err)
 	}
-	return body, statusError(path, response, body)
+	if response.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("tmdb %s: %w", path, identify.ErrKeyRefused)
+	}
+	return body, statusError("tmdb "+path, response, body, identify.ErrNoMatch)
 }
 
 // authorise presents the key: a v4 read-access token as a bearer token, a v3 key as api_key.
@@ -96,20 +102,21 @@ func cloneWith(parameters url.Values, name, value string) url.Values {
 	return clone
 }
 
-// statusError turns a reply that is not 200 into the provider errors the matcher acts on.
-func statusError(path string, response *http.Response, body []byte) error {
+// statusError turns a reply of TMDB's API or its image host that is not 200 into the errors its
+// callers act on: 404 is notFound, the caller's word for "TMDB has no such thing"; 429 is a rate
+// limit; anything else names the status and, when there is one, the start of the body. The
+// subject names what was asked, "tmdb /movie/1".
+func statusError(subject string, response *http.Response, body []byte, notFound error) error {
 	switch response.StatusCode {
 	case http.StatusOK:
 		return nil
 	case http.StatusNotFound:
-		return fmt.Errorf("tmdb %s: %w", path, identify.ErrNoMatch)
-	case http.StatusUnauthorized:
-		return fmt.Errorf("tmdb %s: %w", path, identify.ErrKeyRefused)
+		return fmt.Errorf("%s: %w", subject, notFound)
 	case http.StatusTooManyRequests:
-		if after, found := outbound.RetryAfter(response.Header); found {
-			return fmt.Errorf("tmdb %s: %w", path, &identify.RateLimitedError{RetryAfter: after})
-		}
+		return fmt.Errorf("%s: %w", subject, outbound.RateLimited(providerName, response.Header))
 	}
-	excerpt := string(body[:min(len(body), 200)])
-	return fmt.Errorf("tmdb %s: status %d: %s", path, response.StatusCode, excerpt)
+	if len(body) == 0 {
+		return fmt.Errorf("%s: status %d", subject, response.StatusCode)
+	}
+	return fmt.Errorf("%s: status %d: %s", subject, response.StatusCode, body[:min(len(body), 200)])
 }

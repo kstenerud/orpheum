@@ -13,9 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/artwork"
-	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
-	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 // ImageBaseURL is TMDB's image server, at each image's original size: the node cuts our sizes
@@ -71,18 +69,8 @@ func (images *ImageFetcher) Fetch(ctx context.Context, ref string) (artwork.Unsa
 		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: %w", ref, err)
 	}
 	defer func() { _ = response.Body.Close() }() //nolint:errcheck // a read-only body
-	switch response.StatusCode {
-	case http.StatusOK:
-	case http.StatusNotFound:
-		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: %w", ref, artwork.ErrNoImage)
-	case http.StatusTooManyRequests:
-		if after, found := outbound.RetryAfter(response.Header); found {
-			return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: %w", ref,
-				&identify.RateLimitedError{RetryAfter: after})
-		}
-		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: status 429", ref)
-	default:
-		return artwork.Unsanitised{}, fmt.Errorf("tmdb image %s: status %d", ref, response.StatusCode)
+	if refused := statusError("tmdb image "+ref, response, nil, artwork.ErrNoImage); refused != nil {
+		return artwork.Unsanitised{}, refused
 	}
 	body, err := bounded.ReadAll(response.Body, maxImageBytes)
 	if errors.Is(err, bounded.ErrTooLarge) {
