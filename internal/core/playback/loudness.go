@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -232,8 +233,8 @@ func (service *Service) measure(
 	ctx context.Context, job jobs.Job, file sqlcgen.GetPlayableFileRow, command nodeproto.MeasureLoudness,
 	patience time.Duration,
 ) error {
-	answers := service.loudnessAnswers.await(job.ID)
-	defer service.loudnessAnswers.forget(job.ID)
+	answers := service.loudnessAnswers.Await(job.ID)
+	defer service.loudnessAnswers.Forget(job.ID)
 	service.nodes.Enqueue(file.NodeID, nodeproto.Command{
 		Type: nodeproto.CommandMeasureLoudness, MeasureLoudness: &command,
 	})
@@ -254,7 +255,7 @@ func (service *Service) measure(
 		return fmt.Errorf("node %d said nothing about measuring file %d for %s", file.NodeID, file.ID, patience)
 	case <-ctx.Done():
 		if errors.Is(context.Cause(ctx), jobs.ErrCancelled) {
-			service.nodes.Enqueue(file.NodeID, cancelCommand(job.ID))
+			service.nodes.Enqueue(file.NodeID, nodes.CancelCommand(job.ID))
 			return jobs.MarkPermanent(jobs.ErrCancelled)
 		}
 		return fmt.Errorf("wait for measurement job %d: %w", job.ID, ctx.Err())
@@ -309,5 +310,5 @@ func loudnessRow(
 
 // TakeLoudness takes a node's answer to a measure_loudness command to the job waiting for it.
 func (service *Service) TakeLoudness(ctx context.Context, nodeID int64, answer nodeproto.LoudnessResult) {
-	service.loudnessAnswers.deliver(ctx, nodeID, answer.JobID, answer)
+	service.loudnessAnswers.Deliver(ctx, nodeID, answer.JobID, answer)
 }

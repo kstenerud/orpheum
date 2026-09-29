@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package playback
+package nodes_test
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -16,8 +17,9 @@ import (
 func TestDeliver_AnAnswerForNoWaitingJobIsLoggedByItsJobID(t *testing.T) {
 	t.Parallel()
 	var logged bytes.Buffer
-	answers := newAnswerRouter[nodeproto.PrepareReport](slog.New(slog.NewJSONHandler(&logged, nil)), "a prepare report")
-	answers.deliver(t.Context(), 1, 42, nodeproto.PrepareReport{})
+	answers := nodes.NewAnswerRouter[nodeproto.PrepareReport](slog.New(slog.NewJSONHandler(&logged, nil)),
+		"a prepare report")
+	answers.Deliver(t.Context(), 1, 42, nodeproto.PrepareReport{})
 	if !strings.Contains(logged.String(), `"jobId":42`) || !strings.Contains(logged.String(), `"nodeId":1`) {
 		t.Errorf("the log = %s, want the job named as jobId and the node as nodeId", logged.String())
 	}

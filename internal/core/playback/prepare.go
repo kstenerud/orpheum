@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -46,7 +47,7 @@ type prepares struct {
 	logger     *slog.Logger
 	maxSilence time.Duration
 
-	reportAnswers *answerRouter[nodeproto.PrepareReport]
+	reportAnswers *nodes.AnswerRouter[nodeproto.PrepareReport]
 }
 
 func newPrepares(parts Parts) *prepares {
@@ -54,7 +55,7 @@ func newPrepares(parts Parts) *prepares {
 		database: parts.Database, cache: parts.Cache, queue: parts.Queue, nodes: parts.Nodes, settings: parts.Settings,
 		random: parts.Random,
 		clock:  parts.Clock, logger: parts.Logger, maxSilence: parts.MaxSilence,
-		reportAnswers: newAnswerRouter[nodeproto.PrepareReport](parts.Logger, "a prepare report"),
+		reportAnswers: nodes.NewAnswerRouter[nodeproto.PrepareReport](parts.Logger, "a prepare report"),
 	}
 }
 
@@ -163,8 +164,8 @@ func (all *prepares) newRunID() (string, error) {
 // until the node says the rendition is done or failed, or says nothing for too long.
 func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrder) error {
 	command, nodeID := order.command, order.nodeID
-	answers := all.reportAnswers.await(job.ID)
-	defer all.reportAnswers.forget(job.ID)
+	answers := all.reportAnswers.Await(job.ID)
+	defer all.reportAnswers.Forget(job.ID)
 	if err := all.recordRunning(ctx, job.RenditionID, 0); err != nil {
 		return err
 	}
@@ -225,7 +226,7 @@ func (all *prepares) recordProgress(ctx context.Context, job jobs.Job, preparedT
 // abandon ends a cancelled prepare: the node stops its FFmpeg, and the rendition is not made, so
 // a later play prepares it again rather than waiting on one no one is making.
 func (all *prepares) abandon(ctx context.Context, job jobs.Job, nodeID int64) error {
-	all.nodes.Enqueue(nodeID, cancelCommand(job.ID))
+	all.nodes.Enqueue(nodeID, nodes.CancelCommand(job.ID))
 	finishErr := all.finish(context.WithoutCancel(ctx), job.RenditionID, nil, jobs.ErrCancelled.Error())
 	return jobs.MarkPermanent(errors.Join(jobs.ErrCancelled, finishErr))
 }
@@ -292,7 +293,7 @@ func (all *prepares) finish(
 
 // reported hands a node's report to the job waiting for it.
 func (all *prepares) reported(ctx context.Context, nodeID int64, report nodeproto.PrepareReport) {
-	all.reportAnswers.deliver(ctx, nodeID, report.JobID, report)
+	all.reportAnswers.Deliver(ctx, nodeID, report.JobID, report)
 }
 
 // prepareCommand is the node's command for a rendition of file: its source by identity, its
