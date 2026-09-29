@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by library.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 17
+-- cache schema version 18
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,7 +16,9 @@ CREATE TABLE job (                                         -- the one work queue
   stream_id           INTEGER,
   fetched_subtitle_id INTEGER,
   file_id             INTEGER,
-  args_json   TEXT NOT NULL DEFAULT '{}',  -- provider, profile, reason
+  -- A kind's own arguments: a fetch's isRefresh and shouldRetryImages; an artwork job's
+  -- artworkSource, refs, sourceSha256 and sizeNames. The other kinds store '{}'.
+  args_json   TEXT NOT NULL DEFAULT '{}',
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
   state       TEXT NOT NULL DEFAULT 'queued'
                 CHECK (state IN ('queued','running','done','failed','cancelled')),
