@@ -163,17 +163,25 @@ func (service *Service) setPersonalSwitch(ctx context.Context, userID int64, axi
 
 // SetSubtitleOffset keeps the person's subtitle offset for a file they may play.
 func (service *Service) SetSubtitleOffset(ctx context.Context, userID, fileID, offsetMs int64) error {
-	if _, err := service.playableFile(ctx, service.database.Read(), fileID); err != nil {
-		return err
-	}
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		offset := strconv.FormatInt(offsetMs, 10)
-		return service.setFilePreference(ctx, queries, userID, fileID, axisSubtitleOffsetMs, offset)
+		return service.keepSubtitleOffset(ctx, queries, userID, fileID, offsetMs)
 	})
 	if err != nil {
 		return fmt.Errorf("keep the subtitle offset for file %d: %w", fileID, err)
 	}
 	return nil
+}
+
+// keepSubtitleOffset keeps a subtitle offset for a file that queries, the transaction that keeps
+// it, finds playable: a file a rescan removed meanwhile gets none.
+func (service *Service) keepSubtitleOffset(
+	ctx context.Context, queries *sqlcgen.Queries, userID, fileID, offsetMs int64,
+) error {
+	if _, err := service.playableFile(ctx, queries, fileID); err != nil {
+		return err
+	}
+	offset := strconv.FormatInt(offsetMs, 10)
+	return service.setFilePreference(ctx, queries, userID, fileID, axisSubtitleOffsetMs, offset)
 }
 
 func (service *Service) setFilePreference(
