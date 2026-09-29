@@ -12,7 +12,7 @@ import {
   type CodeTarget,
   type ShownCode,
 } from "./accounts.ts";
-import { storageIfAllowed } from "./browser-storage.ts";
+import { storageIfAllowed, storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
@@ -21,9 +21,9 @@ import { useResource } from "./use-resource.ts";
 /** How often a page showing a code asks whether it has been used. */
 const codeCheckEveryMs = 3000;
 
-/** This tab's own storage, or undefined where the browser refuses it. */
-function tabStorage(): Storage | undefined {
-  return storageIfAllowed(() => window.sessionStorage);
+/** This tab's own storage, which keeps nothing where the browser refuses it. */
+function tabStorage(): StringStorage {
+  return storageThatNeverThrows(storageIfAllowed(() => window.sessionStorage));
 }
 
 /** The device code on screen, and how to make one: what useDeviceCode returns. */
@@ -42,10 +42,9 @@ export interface DeviceCodeState {
 export function useDeviceCode(onUsed: () => void): DeviceCodeState {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [code, setCode] = useState<ShownCode | undefined>(() => {
-    const storage = tabStorage();
-    return storage === undefined ? undefined : readShownCode(storage, Date.now());
-  });
+  const [code, setCode] = useState<ShownCode | undefined>(() =>
+    readShownCode(tabStorage(), Date.now()),
+  );
   const [issueProblem, setIssueProblem] = useState<string | undefined>(undefined);
   const secret = code?.secret;
   const [codeCheck] = useResource(
@@ -56,10 +55,7 @@ export function useDeviceCode(onUsed: () => void): DeviceCodeState {
       }
       const isWaiting = await isCodeWaiting(api);
       if (!isWaiting) {
-        const storage = tabStorage();
-        if (storage !== undefined) {
-          forgetShownCode(storage);
-        }
+        forgetShownCode(tabStorage());
         setCode(undefined);
         onUsed();
       }
@@ -74,10 +70,7 @@ export function useDeviceCode(onUsed: () => void): DeviceCodeState {
       (issued) => {
         const shown = { ...issued, deviceName };
         setCode(shown);
-        const storage = tabStorage();
-        if (storage !== undefined) {
-          keepShownCode(storage, shown);
-        }
+        keepShownCode(tabStorage(), shown);
       },
       (cause: unknown) => {
         setIssueProblem(problemText(t, cause));

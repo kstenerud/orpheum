@@ -3,7 +3,7 @@
 
 import "./i18n.ts";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Account } from "./account.tsx";
 import {
@@ -22,6 +22,7 @@ let mounted: Mounted | undefined;
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
+  vi.restoreAllMocks();
   window.sessionStorage.clear();
 });
 
@@ -65,5 +66,16 @@ describe("a device code on the account page", () => {
     );
     expect(mounted.container.textContent).not.toContain("abcd-efgh");
     expect(heard.filter((request) => request.methodAndPath === "GET /me/devices")).toHaveLength(2);
+  });
+
+  it("is shown when the tab refuses to keep it", async () => {
+    // Vitest fails the run on the rejection a refused write would leave unhandled.
+    const refusedWrite = vi.spyOn(window.sessionStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("the quota is spent", "QuotaExceededError");
+    });
+    mounted = await accountWithCodeMade({ "GET /me/device-code": [200, { isWaiting: true }] });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mounted.container.textContent).toContain("abcd-efgh");
+    expect(refusedWrite).toHaveBeenCalled();
   });
 });
