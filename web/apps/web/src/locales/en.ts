@@ -308,9 +308,10 @@ export const en = {
     gpuDevices: "What it sees",
     seesNothing: "No GPU device.",
     driver: "(driver {{driver}})",
-    canOpen: "— the server may open it.",
-    cannotOpen: "— the server may not open it: {{why}}",
-    trials: "What worked when the server started (each tried in the sandbox a real encode runs in)",
+    canOpen: "— Orpheum on this machine may open it.",
+    cannotOpen: "— Orpheum on this machine may not open it: {{why}}",
+    trials:
+      "What worked when Orpheum started on this machine (each tried in the sandbox a real encode runs in)",
     trialWorked: "works",
     trialFailed: "did not work: {{why}}",
     encoder: {
