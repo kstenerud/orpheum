@@ -216,6 +216,15 @@ type ErrorDetail struct {
 	OccurrenceCount int `json:"occurrenceCount"`
 }
 
+// DecodeProbe reads a file row's probe_json: the probe its node reported, as the ingest keeps it.
+func DecodeProbe(text string) (nodeproto.Probe, error) {
+	var probe nodeproto.Probe
+	if err := json.Unmarshal([]byte(text), &probe); err != nil {
+		return nodeproto.Probe{}, fmt.Errorf("decode a file's probe: %w", err)
+	}
+	return probe, nil
+}
+
 // DecodeErrorDetail reads a file row's error_detail_json.
 func DecodeErrorDetail(text string) (ErrorDetail, error) {
 	var detail ErrorDetail

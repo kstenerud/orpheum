@@ -4,7 +4,6 @@ package identify
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -15,7 +14,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
-	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -426,8 +424,8 @@ func probeRuntimeMs(probe *string) int64 {
 	if probe == nil {
 		return 0
 	}
-	var parsed nodeproto.Probe
-	if err := json.Unmarshal([]byte(*probe), &parsed); err != nil {
+	parsed, err := library.DecodeProbe(*probe)
+	if err != nil {
 		return 0
 	}
 	return parsed.Format.DurationMs
