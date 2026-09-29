@@ -138,14 +138,8 @@ func (server *Server) setup(ctx context.Context, input *SetupInput) (*UserOutput
 	}
 	admin := auth.NewUser{Name: input.Body.Name, Password: input.Body.Password}
 	id, err := dependencies.Auth.CompleteSetup(ctx, dependencies.SetupCodes, input.Body.SetupCode, admin)
-	switch {
-	case errors.Is(err, auth.ErrSetupComplete):
-		return nil, newError(http.StatusConflict, CodeConflict, "setup is already complete; sign in instead")
-	case errors.Is(err, auth.ErrWrongSetupCode):
-		return nil, newError(http.StatusForbidden, CodeForbidden,
-			"the setup code is wrong; it is in the server's log, or run `orpheum setup-code`")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "complete setup", err)
+	if err != nil {
+		return nil, server.authError(ctx, "complete setup", err)
 	}
 	server.logger.InfoContext(ctx, "first admin created", "userId", id)
 	return &UserOutput{Body: UserBody{ID: id, Name: admin.Name, Role: string(auth.RoleAdmin), IsAdmin: true}}, nil
@@ -158,7 +152,7 @@ func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionO
 	}
 	count, err := dependencies.Auth.CountUsers(ctx)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "count users", err)
+		return nil, server.authError(ctx, "count users", err)
 	}
 	if count == 0 {
 		return nil, newError(http.StatusConflict, CodeSetupRequired,
@@ -166,14 +160,8 @@ func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionO
 	}
 	token, err := dependencies.Auth.SignIn(
 		ctx, input.Body.Name, input.Body.Password, input.clientAddress, newDevice(input.Body.Device))
-	switch {
-	case errors.Is(err, auth.ErrRateLimited):
-		return nil, newError(http.StatusTooManyRequests, CodeRateLimited,
-			"too many failed sign-ins; wait and try again")
-	case errors.Is(err, auth.ErrBadCredentials):
-		return nil, newError(http.StatusUnauthorized, CodeAuthRequired, "the name or password is wrong")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "sign in", err)
+	if err != nil {
+		return nil, server.authError(ctx, "sign in", err)
 	}
 	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
 }
@@ -202,7 +190,7 @@ func (server *Server) signOut(ctx context.Context, input *SignOutInput) (*SignOu
 		return nil, err
 	}
 	if err = dependencies.Auth.SignOut(ctx, bearerToken(input.Authorization)); err != nil {
-		return nil, server.logInternalError(ctx, "sign out", err)
+		return nil, server.authError(ctx, "sign out", err)
 	}
 	cleared := mediaCookie("", input.isOverTLS) //nolint:gosec // as mediaCookie (P20)
 	cleared.MaxAge = -1

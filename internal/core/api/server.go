@@ -192,11 +192,8 @@ func (server *Server) requireSignedIn(
 		return nil, auth.Principal{}, err
 	}
 	principal, err := dependencies.Auth.Authenticate(ctx, bearerToken(authorization))
-	if errors.Is(err, auth.ErrNotAuthenticated) {
-		return nil, auth.Principal{}, notSignedInError(err)
-	}
 	if err != nil {
-		return nil, auth.Principal{}, server.logInternalError(ctx, "authenticate", err)
+		return nil, auth.Principal{}, server.authError(ctx, "authenticate", err)
 	}
 	return dependencies, principal, nil
 }
@@ -223,6 +220,35 @@ func notSignedInError(err error) *Error {
 	}
 	failure.ErrorBody.Error.Detail = map[string]string{"reason": reason}
 	return failure
+}
+
+// authError maps the auth package's refusals to API errors. Every handler that calls auth answers
+// through it, so a refusal always leaves with one code and one message.
+func (server *Server) authError(ctx context.Context, action string, err error) error {
+	switch {
+	case errors.Is(err, auth.ErrNotAuthenticated):
+		return notSignedInError(err)
+	case errors.Is(err, auth.ErrBadCredentials):
+		return newError(http.StatusUnauthorized, CodeAuthRequired, "the name or password is wrong")
+	case errors.Is(err, auth.ErrBadInvitation):
+		return newError(http.StatusUnauthorized, CodeAuthRequired, auth.ErrBadInvitation.Error())
+	case errors.Is(err, auth.ErrRateLimited):
+		return newError(http.StatusTooManyRequests, CodeRateLimited, "too many failed sign-ins; wait and try again")
+	case errors.Is(err, auth.ErrWrongPassword):
+		return newError(http.StatusForbidden, CodeForbidden, "the current password is wrong")
+	case errors.Is(err, auth.ErrWrongSetupCode):
+		return newError(http.StatusForbidden, CodeForbidden,
+			"the setup code is wrong; it is in the server's log, or run `orpheum setup-code`")
+	case errors.Is(err, auth.ErrSetupComplete):
+		return newError(http.StatusConflict, CodeConflict, "setup is already complete; sign in instead")
+	case errors.Is(err, auth.ErrNameTaken):
+		return newError(http.StatusConflict, CodeConflict, "someone already has that name")
+	case errors.Is(err, auth.ErrNoUser):
+		return newError(http.StatusNotFound, CodeNotFound, "no such person")
+	case errors.Is(err, auth.ErrNoDevice):
+		return newError(http.StatusNotFound, CodeNotFound, "no such device")
+	}
+	return server.logInternalError(ctx, action, err)
 }
 
 // requireAdmin is requireSignedIn for an administrator.

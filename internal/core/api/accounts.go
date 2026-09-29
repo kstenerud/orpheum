@@ -4,7 +4,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -159,7 +158,7 @@ func (server *Server) listAccounts(ctx context.Context, input *struct{ Authoriza
 	}
 	accounts, err := dependencies.Auth.Accounts(ctx)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list accounts", err)
+		return nil, server.authError(ctx, "list accounts", err)
 	}
 	output := &AccountsOutput{}
 	output.Body.Accounts = make([]AccountBody, 0, len(accounts))
@@ -176,11 +175,8 @@ func (server *Server) createAccount(ctx context.Context, input *CreateAccountInp
 	}
 	role := auth.Role(input.Body.Role)
 	id, link, err := dependencies.Auth.CreateAccount(ctx, input.Body.Name, role)
-	switch {
-	case errors.Is(err, auth.ErrNameTaken):
-		return nil, newError(http.StatusConflict, CodeConflict, "someone already has that name")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "create an account", err)
+	if err != nil {
+		return nil, server.authError(ctx, "create an account", err)
 	}
 	output := &CreateAccountOutput{}
 	output.Body.Account = AccountBody{ID: id, Name: input.Body.Name, Role: string(role)}
@@ -196,11 +192,8 @@ func (server *Server) issueRegistrationLink(
 		return nil, err
 	}
 	link, err := dependencies.Auth.IssueRegistrationLink(ctx, input.UserID)
-	switch {
-	case errors.Is(err, auth.ErrNoUser):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such person")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "make a registration link", err)
+	if err != nil {
+		return nil, server.authError(ctx, "make a registration link", err)
 	}
 	return &InvitationOutput{Body: invitationBody(link)}, nil
 }
@@ -212,7 +205,7 @@ func (server *Server) register(ctx context.Context, input *RegisterInput) (*Sess
 	}
 	token, err := dependencies.Auth.Register(ctx, input.Body.Secret, input.Body.Password, newDevice(input.Body.Device))
 	if err != nil {
-		return nil, server.invitationRefusal(ctx, "register", err)
+		return nil, server.authError(ctx, "register", err)
 	}
 	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
 }
@@ -235,13 +228,8 @@ func (server *Server) issueDeviceCode(ctx context.Context, input *DeviceCodeInpu
 			"a code is for a new device, named, or a listed one")
 	}
 	deviceCode, err := dependencies.Auth.IssueDeviceCode(ctx, userID, input.Body.DeviceName, input.Body.DeviceID)
-	switch {
-	case errors.Is(err, auth.ErrNoUser):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such person")
-	case errors.Is(err, auth.ErrNoDevice):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such device")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "make a device code", err)
+	if err != nil {
+		return nil, server.authError(ctx, "make a device code", err)
 	}
 	return &InvitationOutput{Body: invitationBody(deviceCode)}, nil
 }
@@ -254,20 +242,9 @@ func (server *Server) signInWithCode(ctx context.Context, input *CodeSignInInput
 	token, err := dependencies.Auth.SignInWithCode(
 		ctx, input.Body.Code, input.Body.Platform, input.clientAddress, input.Body.PreviousDeviceID)
 	if err != nil {
-		return nil, server.invitationRefusal(ctx, "sign in with a code", err)
+		return nil, server.authError(ctx, "sign in with a code", err)
 	}
 	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
-}
-
-// invitationRefusal is what a registration link or device code that does not work answers.
-func (server *Server) invitationRefusal(ctx context.Context, action string, err error) error {
-	switch {
-	case errors.Is(err, auth.ErrRateLimited):
-		return newError(http.StatusTooManyRequests, CodeRateLimited, "too many failed attempts; wait and try again")
-	case errors.Is(err, auth.ErrBadInvitation):
-		return newError(http.StatusUnauthorized, CodeAuthRequired, err.Error())
-	}
-	return server.logInternalError(ctx, action, err)
 }
 
 func (server *Server) changePassword(ctx context.Context, input *ChangePasswordInput) (*struct{}, error) {
@@ -276,11 +253,8 @@ func (server *Server) changePassword(ctx context.Context, input *ChangePasswordI
 		return nil, err
 	}
 	err = dependencies.Auth.ChangePassword(ctx, principal.UserID, input.Body.CurrentPassword, input.Body.NewPassword)
-	switch {
-	case errors.Is(err, auth.ErrBadCredentials):
-		return nil, newError(http.StatusForbidden, CodeForbidden, "the current password is wrong")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "change a password", err)
+	if err != nil {
+		return nil, server.authError(ctx, "change a password", err)
 	}
 	return &struct{}{}, nil
 }
@@ -329,7 +303,7 @@ func (server *Server) getPerson(ctx context.Context, input *PersonInput) (*Perso
 	}
 	accounts, err := dependencies.Auth.Accounts(ctx)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list accounts", err)
+		return nil, server.authError(ctx, "list accounts", err)
 	}
 	output := &PersonOutput{}
 	for _, account := range accounts {
@@ -338,7 +312,7 @@ func (server *Server) getPerson(ctx context.Context, input *PersonInput) (*Perso
 		}
 	}
 	if output.Body.Account.ID == 0 {
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such person")
+		return nil, server.authError(ctx, "read a person", auth.ErrNoUser)
 	}
 	stats, err := dependencies.Playback.WatchStatsOf(ctx, input.UserID)
 	if err != nil {
@@ -357,13 +331,8 @@ func (server *Server) renamePerson(ctx context.Context, input *RenamePersonInput
 		return nil, err
 	}
 	err = dependencies.Auth.RenameUser(ctx, input.UserID, input.Body.Name)
-	switch {
-	case errors.Is(err, auth.ErrNoUser):
-		return nil, newError(http.StatusNotFound, CodeNotFound, "no such person")
-	case errors.Is(err, auth.ErrNameTaken):
-		return nil, newError(http.StatusConflict, CodeConflict, "someone already has that name")
-	case err != nil:
-		return nil, server.logInternalError(ctx, "rename a person", err)
+	if err != nil {
+		return nil, server.authError(ctx, "rename a person", err)
 	}
 	return &struct{}{}, nil
 }

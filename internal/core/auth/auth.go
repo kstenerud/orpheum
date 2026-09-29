@@ -53,9 +53,14 @@ const (
 )
 
 var (
-	// ErrBadCredentials is returned for an unknown user or a wrong password, without saying which.
+	// ErrBadCredentials is a sign-in whose name is unknown or whose password is wrong, without
+	// saying which.
 	ErrBadCredentials = errors.New("the name or password is wrong")
-	// ErrRateLimited is returned while an account or address has failed too often recently.
+	// ErrWrongPassword is a signed-in person's current password, given to change it, that is
+	// wrong: they are who they are, and are refused the change, not the sign-in.
+	ErrWrongPassword = errors.New("the current password is wrong")
+	// ErrRateLimited is returned while an account or address has failed to sign in too often
+	// recently, with a password or a device code.
 	ErrRateLimited = errors.New("too many failed sign-ins; wait and try again")
 	// ErrNotAuthenticated is returned for a missing, unknown, revoked or expired session.
 	ErrNotAuthenticated = errors.New("not signed in")
