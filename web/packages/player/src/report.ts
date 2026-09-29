@@ -7,7 +7,7 @@ export type PlayEventKind = "started" | "paused" | "seeked" | "completed" | "aba
 export interface PlayEvent {
   readonly kind: PlayEventKind;
   readonly positionMs: number;
-  readonly monoMs: number;
+  readonly atMonoMs: number;
 }
 
 /** A run of watching that a change closed. */
@@ -20,10 +20,10 @@ export interface PlaySpan {
 
 /** What the player tells the server (cut-a §5): the body of POST /playback/{token}/report. */
 export interface PlayReport {
-  readonly seq: number;
+  readonly reportSeq: number;
   readonly sentMonoMs: number;
   readonly positionMs: number;
-  readonly positionMonoMs: number;
+  readonly positionReadMonoMs: number;
   readonly events: readonly PlayEvent[];
   readonly spans: readonly PlaySpan[];
 }
@@ -100,10 +100,10 @@ export class PlayReporter {
     }
     const now = this.monotonicMs();
     const report: PlayReport = {
-      seq: this.nextSeq(),
+      reportSeq: this.nextSeq(),
       sentMonoMs: now,
       positionMs: Math.max(0, Math.round(positionMs)),
-      positionMonoMs: now,
+      positionReadMonoMs: now,
       events: this.events,
       spans: this.spans,
     };
@@ -124,7 +124,7 @@ export class PlayReporter {
   }
 
   private change(kind: PlayEventKind, positionMs: number, monoMs: number): void {
-    this.events.push({ kind, positionMs: Math.max(0, Math.round(positionMs)), monoMs });
+    this.events.push({ kind, positionMs: Math.max(0, Math.round(positionMs)), atMonoMs: monoMs });
     this.flush(positionMs);
   }
 

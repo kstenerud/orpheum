@@ -59,7 +59,7 @@ export async function listCandidates(
 ): Promise<SubtitleOffer> {
   return dataOrThrow(
     await api.GET("/files/{id}/subtitle-candidates", {
-      params: { path: { id: fileId }, query: { lang } },
+      params: { path: { id: fileId }, query: { language: lang } },
     }),
   );
 }
@@ -237,8 +237,8 @@ function CandidateList(props: {
     <>
       <p>
         {t("play.findSubtitles.allowance", {
-          remaining: allowance.remaining,
-          allowed: allowance.allowed,
+          remaining: allowance.remainingDownloads,
+          allowed: allowance.allowedDownloads,
         })}
       </p>
       {candidates.length === 0 ? <p>{t(none, { language })}</p> : null}
@@ -246,16 +246,16 @@ function CandidateList(props: {
       <ul className="find-subtitles__candidates">
         {candidates.map((candidate) => (
           <li key={candidate.providerFileId}>
-            <span className="find-subtitles__release">{candidate.release}</span>{" "}
+            <span className="find-subtitles__release">{candidate.releaseName}</span>{" "}
             {candidate.isHashMatch ? (
               <strong>{t("play.findSubtitles.madeForThisFile")}</strong>
             ) : null}{" "}
             {candidate.isHearingImpaired ? t("play.subtitles.hearingImpaired") : null}{" "}
             {candidate.isMachineTranslated ? t("play.findSubtitles.machineTranslated") : null}{" "}
-            {t("play.findSubtitles.downloads", { count: candidate.downloads })}{" "}
+            {t("play.findSubtitles.downloads", { count: candidate.downloadCount })}{" "}
             <button
               type="button"
-              disabled={props.isBusy || allowance.remaining <= 0}
+              disabled={props.isBusy || allowance.remainingDownloads <= 0}
               onClick={() => {
                 props.choose(candidate);
               }}

@@ -64,12 +64,12 @@ func (harness testHarness) choiceIn(t *testing.T, session string, fileID int64) 
 	case choice == nil:
 		return "none"
 	case choice.IsOff:
-		return fmt.Sprintf("off carried=%v", choice.IsCarried)
+		return fmt.Sprintf("off carried=%v", choice.IsCarriedFromWork)
 	}
 	if choice.FetchedID != 0 {
-		return fmt.Sprintf("fetched %d carried=%v", choice.FetchedID, choice.IsCarried)
+		return fmt.Sprintf("fetched %d carried=%v", choice.FetchedID, choice.IsCarriedFromWork)
 	}
-	return fmt.Sprintf("%d carried=%v", choice.StreamID, choice.IsCarried)
+	return fmt.Sprintf("%d carried=%v", choice.StreamID, choice.IsCarriedFromWork)
 }
 
 func TestSubtitleChoice_IsKeptPerFileAndCarriedToTheSeriesFilesWithNoneOfTheirOwn(t *testing.T) {

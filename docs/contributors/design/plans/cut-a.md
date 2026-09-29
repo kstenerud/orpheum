@@ -220,13 +220,13 @@ single-playback token that the core maps to a grant.
 | Group | Endpoints |
 | --- | --- |
 | Setup and auth | `POST /setup` (one-time setup code from the log → first admin); `POST /session` (with the device, D217 §8), `DELETE /session`; `GET /me`; accounts ([D218](../../decisions/working-notes.md)): `GET /users`, `POST /users` (admin: name and role → the person and a registration link), `POST /users/{id}/registration-link` (admin: a new one, for a forgotten password), `POST /registration` (the link's secret, from after `#`, in the body, and a password → a session), `POST /device-codes` (a code for a device, one's own, or anyone's for an admin), `POST /session/code` (a device signs in with it), `PUT /me/password`; a person's devices, listed and revocable (D218 §4): `GET /me/devices`, `PUT /me/devices/{id}` (rename), `DELETE /me/devices/{id}`, `POST /me/devices/sign-out-elsewhere`, and for the admin `GET /users/{id}/devices`, `DELETE /users/{id}/devices/{deviceId}`; `GET /me/device-code` (whether one's code still waits, D221), `GET /users/{id}` and `PUT /users/{id}` (a person's page and their name, for the admin). An `auth_required` answer's `detail.reason` says why: `session_ended`, `session_expired` or `no_session`. The M4 invite for someone outside the household is D174's and comes with M4 |
-| Settings | `GET/PUT /settings` (server scope, admin; what the settings page shows); `GET/PUT /config` (`?modified=true`; with the config file's keys, read-only), `POST /config/{key}/reset`, `GET /config/unused`, `DELETE /config/unused/{key}` (every server setting beside its starting value, admin; D200, D202); `GET/PUT /me/settings`; `GET /secrets`, `PUT /secrets/{name}`, `DELETE /secrets/{name}` (admin; every secret is the server's, D224 §9; write-only: `GET` shows `set`, `hint` and `needs_reentry`, never a value — [D194](../../decisions/working-notes.md)); `PUT /devices/{id}` (name, `audio_output`, asked on first playback — D184) |
+| Settings | `GET/PUT /settings` (server scope, admin; what the settings page shows); `GET/PUT /config` (`?onlyModified=true`; with the config file's keys, read-only), `POST /config/{key}/reset`, `GET /config/unused`, `DELETE /config/unused/{key}` (every server setting beside its starting value, admin; D200, D202); `GET/PUT /me/settings`; `GET /secrets`, `PUT /secrets/{name}`, `DELETE /secrets/{name}` (admin; every secret is the server's, D224 §9; write-only: `GET` shows `set`, `hint` and `needs_reentry`, never a value — [D194](../../decisions/working-notes.md)); `PUT /devices/{id}` (name, `audio_output`, asked on first playback — D184) |
 | Libraries | `POST /libraries` (the three questions, D184); `GET /libraries`; `GET /nodes` (each node and the roots it configured, for a new library; P24); `POST /libraries/{id}/scan`; `GET /files?filing=&library=&cursor=&limit=` (what the scanner saw, D163); `POST /libraries/{id}/removals` (approve a root's withheld removals) and `POST /libraries/{id}/mounts/gone` (a disk missing from a mount point is gone for good) — the admin's two answers D208 asks for (plan-deviations P18) |
-| Identification | `GET /items?identification=ambiguous` (titles and series; the parameter was `ident` until the naming audit of 2026-09-26); `GET /items/{id}/candidates`; `POST /items/{id}/match`; `PUT /items/{id}/overrides/{field}`; `DELETE /items/{id}/overrides/{field}`; `POST /items/{id}/refresh` (a person's refresh, whenever they like — [D213](../../decisions/working-notes.md), plan-deviations P21) — under `/items` since a series is what is identified for shows ([D209](../../decisions/working-notes.md), plan-deviations P16) |
+| Identification | `GET /items?identificationState=ambiguous` (titles and series; the parameter was `ident`, then `identification`, until D227); `GET /items/{id}/candidates`; `POST /items/{id}/match`; `PUT /items/{id}/overrides/{field}`; `DELETE /items/{id}/overrides/{field}`; `POST /items/{id}/refresh` (a person's refresh, whenever they like — [D213](../../decisions/working-notes.md), plan-deviations P21) — under `/items` since a series is what is identified for shows ([D209](../../decisions/working-notes.md), plan-deviations P16) |
 | Browse | `GET /home` (Continue Watching, Next Up, recently added); `GET /titles?kind=&sort=&cursor=`; `GET /collections/{id}` (a series); `GET /items/{id}` (detail with editions, versions, files, streams, extras); `GET /search?q=`; `GET /bytes/art/{hash}/{size}.{format}` |
 | Play state | `POST /playback/{id}/report` (state changes and spans with the device's sequence, D81/D165); `POST /items/{id}/hide`, `DELETE /items/{id}/hide` (undo); `PUT /files/{id}/prefs` (sync offset, track choices); `PUT /me/prefs` (the person's own: the dialogue boost, D222 §3, D223 §10; loudness levelling, D226 §5) |
 | Playback | `POST /playback` → the decision (§6); `GET /bytes/media/direct/{token}` (range, relayed); `GET /bytes/media/hls/{token}/{name}` (playlists, init, segments, relayed); `GET /bytes/media/sub/{token}/{stream}.{ass,vtt}` — every byte path under `/bytes/`, the media cookie's one scope ([D216](../../decisions/working-notes.md)); `POST /files/{id}/prepare` ("Get this ready") |
-| Subtitles | `GET /files/{id}/subtitle-candidates?lang=` (unverified in Cut A); `POST /files/{id}/subtitles` (fetch one; spends one of the user's daily downloads) |
+| Subtitles | `GET /files/{id}/subtitle-candidates?language=` (unverified in Cut A); `POST /files/{id}/subtitles` (fetch one; spends one of the user's daily downloads) |
 | Watch Together | `POST /together` (host: item, abilities → session and link); `POST /together/join` (link → membership credential); `GET /together/ws` (WebSocket, §5.1); `GET /together/{id}/ice` (short-lived TURN credentials); `POST /together/{id}/rotate`, `POST /together/{id}/eject/{member}` (host) |
 | Running it | `GET /now-playing`, `POST /now-playing/{id}/stop` (with a message); `GET /jobs`, `POST /jobs/{id}/cancel`; `GET /backups`, `POST /backups`; `GET /doctor`; `GET /system` (the System page: the server's facts and each node's, with doctor's findings, [D225](../../decisions/working-notes.md)); `GET /health` (unauthenticated: `starting`, `migrating`, `ready`, or `degraded` with reasons) |
 
@@ -314,17 +314,18 @@ fetches, prepares, scans and backups.
 [D193](../../decisions/working-notes.md) §2 is the decision; this is the mechanism.
 
 **The decision (`POST /playback`).** The request carries the file, the device id, the client's
-prioritised menu per axis ([D21](../../decisions/working-notes.md)) with the containers it plays
-as they are ([D217](../../decisions/working-notes.md) §1), whether the link is local or remote,
-and a person's `prefer` (`direct` or `prepare`) when they override it. The answer names every
-reason that stopped direct play, as `reasons`, not only the first. The core resolves it in this
+prioritised `playableFormats` per axis ([D21](../../decisions/working-notes.md)) with the
+containers it plays as they are ([D217](../../decisions/working-notes.md) §1), whether its
+`network` is local or remote, and a person's `preferredDelivery` (`direct` or `prepare`) when
+they override it. The answer names every reason that stopped direct play, as
+`notDirectReasons`, not only the first (the names are D227's). The core resolves it in this
 order:
 1. **The original is acceptable on every axis** (container, video, audio, and the device is not
    on stereo output with a sound of more than two channels, whether the boost is on or off —
-   [D222](../../decisions/working-notes.md)): `{kind: "direct", url}`.
-2. **A complete or running prepared rendition matches:** `{kind: "hls", url, reasons}`.
-3. **Otherwise:** queue `prepare` at the highest priority and return `{kind: "hls", url, reasons,
-   preparing: true}`. The playlist URL answers `425` until the first segment exists; the SDK
+   [D222](../../decisions/working-notes.md)): `{delivery: "direct", url}`.
+2. **A complete or running prepared rendition matches:** `{delivery: "hls", url, notDirectReasons}`.
+3. **Otherwise:** queue `prepare` at the highest priority and return `{delivery: "hls", url,
+   notDirectReasons, isPreparing: true}`. The playlist URL answers `425` until the first segment exists; the SDK
    waits and shows *"Preparing — ready in a few seconds"*.
 
 The response also lists the subtitle tracks, each with an `.ass` and a `.vtt` URL, and the

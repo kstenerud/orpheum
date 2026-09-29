@@ -21,15 +21,18 @@ describe("playing a file", () => {
     api.use({
       async onRequest({ request }) {
         sent = await request.json();
-        return new Response(JSON.stringify({ kind: "direct", url: "/u", reasons: [] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({ delivery: "direct", url: "/u", notDirectReasons: [] }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       },
     });
     const decision = await requestPlayback(api, 7, menu);
-    expect(sent).toEqual({ fileId: 7, menu, link: "local" });
-    expect(decision.kind).toBe("direct");
+    expect(sent).toEqual({ fileId: 7, playableFormats: menu, network: "local" });
+    expect(decision.delivery).toBe("direct");
   });
 
   it("plays the original in a video element and says so", () => {
@@ -38,12 +41,12 @@ describe("playing a file", () => {
         <PlayView
           fileId={2}
           decision={{
-            kind: "direct",
+            delivery: "direct",
             url: "/api/v1/bytes/media/direct/abc",
-            reasons: [],
+            notDirectReasons: [],
             isPreparing: false,
             subtitles: [],
-            prefs: { subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true },
+            prefs: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
             resumePositionMs: 0,
             mediaToken: "t",
             levelling: unlevelled.levelling,
@@ -66,19 +69,19 @@ describe("playing a file", () => {
         <PlayView
           fileId={2}
           decision={{
-            kind: "hls",
+            delivery: "hls",
             profile: "remux",
             url: "/api/v1/bytes/media/hls/abc/master.m3u8",
-            reasons: ["container", "audio_codec"],
+            notDirectReasons: ["container", "audio_codec"],
             isPreparing: true,
             subtitles: [],
-            prefs: { subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true },
+            prefs: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
             resumePositionMs: 0,
             mediaToken: "t",
             levelling: unlevelled.levelling,
             audio: [
-              { sourceTrack: 0, language: "en", isDialogueBoost: false, ...unlevelled },
-              { sourceTrack: 0, language: "en", isDialogueBoost: true, ...unlevelled },
+              { sourceAudioIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
+              { sourceAudioIndex: 0, language: "en", isDialogueBoosted: true, ...unlevelled },
             ],
           }}
           decideAgain={() => undefined}
@@ -94,26 +97,26 @@ describe("playing a file", () => {
 
   it("finds the standard and boosted mixes of the first track", () => {
     const decision = {
-      kind: "hls" as const,
+      delivery: "hls" as const,
       url: "/u",
-      reasons: [],
+      notDirectReasons: [],
       isPreparing: false,
       subtitles: [],
-      prefs: { subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true },
+      prefs: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
       resumePositionMs: 0,
       mediaToken: "t",
       levelling: unlevelled.levelling,
       audio: [
-        { sourceTrack: 0, language: "en", isDialogueBoost: false, ...unlevelled },
-        { sourceTrack: 0, language: "en", isDialogueBoost: true, ...unlevelled },
-        { sourceTrack: 1, language: "de", isDialogueBoost: false, ...unlevelled },
+        { sourceAudioIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled },
+        { sourceAudioIndex: 0, language: "en", isDialogueBoosted: true, ...unlevelled },
+        { sourceAudioIndex: 1, language: "de", isDialogueBoosted: false, ...unlevelled },
       ],
     };
     expect(boostPair(decision)).toEqual({ standard: 0, boosted: 1 });
     expect(
       boostPair({
         ...decision,
-        audio: [{ sourceTrack: 0, language: "en", isDialogueBoost: false, ...unlevelled }],
+        audio: [{ sourceAudioIndex: 0, language: "en", isDialogueBoosted: false, ...unlevelled }],
       }),
     ).toBe(undefined);
   });

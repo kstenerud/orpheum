@@ -32,7 +32,7 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	created := harness.do(t, http.MethodPost, "/users", admin, map[string]string{"name": "partner", "role": "user"})
 	var made struct {
 		Account      AccountBody    `json:"account"`
-		Registration InvitationBody `json:"registration"`
+		Registration InvitationBody `json:"registrationInvitation"`
 	}
 	if err := json.Unmarshal([]byte(created.body), &made); err != nil || created.status != http.StatusCreated ||
 		made.Registration.Secret == "" {

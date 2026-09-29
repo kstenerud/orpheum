@@ -16,12 +16,12 @@ import { YourDevices } from "./your-devices.tsx";
 /** A decision to play the original, with how the device makes sound when it has been asked. */
 function direct(audioOutput?: Decision["audioOutput"]): Decision {
   return {
-    kind: "direct",
+    delivery: "direct",
     url: "/api/v1/bytes/media/direct/abc",
-    reasons: [],
+    notDirectReasons: [],
     isPreparing: false,
     subtitles: [],
-    prefs: { subtitleOffsetMs: 0, isDialogueBoost: false, isLevelling: true },
+    prefs: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
     resumePositionMs: 0,
     mediaToken: "t",
     levelling: { isMeasured: false, gainDb: 0 },

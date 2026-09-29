@@ -26,7 +26,7 @@ type SettingBody struct {
 	Question      string          `json:"question,omitempty"`
 	Description   string          `json:"description"`
 	IsExposed     bool            `doc:"Shown on the settings page; every setting is in /config" json:"isExposed"`
-	SetBy         *int64          `json:"setBy,omitempty"`
+	SetByUserID   *int64          `json:"setByUserId,omitempty"`
 	SetAt         int64           `json:"setAt"`
 }
 
@@ -111,7 +111,7 @@ func settingBody(entry settings.Entry) SettingBody {
 	body := SettingBody{
 		Key: string(definition.Key), Kind: string(definition.Kind), Value: entry.Value, StartingValue: definition.Start,
 		IsModified: entry.IsModified, Question: definition.Question, Description: definition.Describe,
-		IsExposed: definition.Exposed, SetBy: entry.SetBy, SetAt: entry.SetAt,
+		IsExposed: definition.Exposed, SetByUserID: entry.SetBy, SetAt: entry.SetAt,
 	}
 	if definition.Kind == settings.KindInteger {
 		body.Minimum, body.Maximum = &definition.Minimum, &definition.Maximum

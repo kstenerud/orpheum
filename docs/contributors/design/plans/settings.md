@@ -59,7 +59,7 @@ only in the program.
 | What | Where |
 | --- | --- |
 | Settings the settings page shows | `GET/PUT /settings` |
-| Every setting beside its starting value, and whether a person set it | `GET/PUT /config`, `?modified=true` for only those a person set |
+| Every setting beside its starting value, and whether a person set it | `GET/PUT /config`, `?onlyModified=true` for only those a person set |
 | The config file's keys as the server runs with them, and which came from starting values | `GET /config`, read-only `file` section |
 | Unused setting rows | `GET /config/unused`, `DELETE /config/unused/{key}` |
 | Everything that should be fixed: config keys on starting values, config keys nothing reads, unused rows | `orpheum doctor`, and the start-up log |

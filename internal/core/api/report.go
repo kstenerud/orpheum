@@ -21,12 +21,12 @@ type ReportInput struct {
 	AuthorizationHeader
 	Token string `doc:"The playback's media token" path:"token"`
 	Body  struct {
-		Seq            int64       `json:"seq"            minimum:"1"`
-		SentMonoMs     int64       `json:"sentMonoMs"     minimum:"0"`
-		PositionMs     int64       `json:"positionMs"     minimum:"0"`
-		PositionMonoMs int64       `json:"positionMonoMs" minimum:"0"`
-		Events         []EventBody `json:"events"`
-		Spans          []SpanBody  `json:"spans"`
+		ReportSeq          int64       `json:"reportSeq"            minimum:"1"`
+		SentMonoMs         int64       `json:"sentMonoMs"     minimum:"0"`
+		PositionMs         int64       `json:"positionMs"     minimum:"0"`
+		PositionReadMonoMs int64       `json:"positionReadMonoMs" minimum:"0"`
+		Events             []EventBody `json:"events"`
+		Spans              []SpanBody  `json:"spans"`
 	}
 }
 
@@ -34,7 +34,7 @@ type ReportInput struct {
 type EventBody struct {
 	Kind       string `enum:"started,paused,seeked,completed,abandoned" json:"kind"`
 	PositionMs int64  `json:"positionMs" minimum:"0"`
-	MonoMs     int64  `json:"monoMs"     minimum:"0"`
+	AtMonoMs   int64  `json:"atMonoMs"     minimum:"0"`
 }
 
 // SpanBody is a run of watching, from one position to another between two moments.
@@ -61,12 +61,12 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 		return nil, err
 	}
 	report := playback.Report{
-		Seq: input.Body.Seq, SentMonoMs: input.Body.SentMonoMs, PositionMs: input.Body.PositionMs,
-		PositionMonoMs: input.Body.PositionMonoMs,
+		Seq: input.Body.ReportSeq, SentMonoMs: input.Body.SentMonoMs, PositionMs: input.Body.PositionMs,
+		PositionMonoMs: input.Body.PositionReadMonoMs,
 	}
 	for _, event := range input.Body.Events {
 		report.Events = append(report.Events, playback.Event{
-			Kind: playback.EventKind(event.Kind), PositionMs: event.PositionMs, MonoMs: event.MonoMs,
+			Kind: playback.EventKind(event.Kind), PositionMs: event.PositionMs, MonoMs: event.AtMonoMs,
 		})
 	}
 	for _, span := range input.Body.Spans {

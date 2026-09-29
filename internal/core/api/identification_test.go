@@ -90,10 +90,10 @@ func TestIdentification_APersonChoosesAnAmbiguousTitlesMatch(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	harness.ambiguousTitle(t)
 
-	listed := harness.do(t, http.MethodGet, "/items?identification=ambiguous", admin, nil)
+	listed := harness.do(t, http.MethodGet, "/items?identificationState=ambiguous", admin, nil)
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, `"id":10`) ||
-		!strings.Contains(listed.body, `"identification":"ambiguous"`) {
-		t.Fatalf("GET /items?identification=ambiguous = %d %s", listed.status, listed.body)
+		!strings.Contains(listed.body, `"identificationState":"ambiguous"`) {
+		t.Fatalf("GET /items?identificationState=ambiguous = %d %s", listed.status, listed.body)
 	}
 	candidates := harness.do(t, http.MethodGet, "/items/10/candidates", admin, nil)
 	const second = `{"providerId":"2","name":"The General","year":2002}`
@@ -106,8 +106,8 @@ func TestIdentification_APersonChoosesAnAmbiguousTitlesMatch(t *testing.T) {
 	if chosen.status != http.StatusNoContent {
 		t.Fatalf("POST /items/10/match = %d %s", chosen.status, chosen.body)
 	}
-	confirmed := harness.do(t, http.MethodGet, "/items?identification=confirmed", admin, nil)
-	if !strings.Contains(confirmed.body, `"id":10`) || !strings.Contains(confirmed.body, `"sourceId":"2"`) ||
+	confirmed := harness.do(t, http.MethodGet, "/items?identificationState=confirmed", admin, nil)
+	if !strings.Contains(confirmed.body, `"id":10`) || !strings.Contains(confirmed.body, `"followedSourceId":"2"`) ||
 		!strings.Contains(confirmed.body, `"year":2002`) {
 		t.Errorf("after choosing: %s", confirmed.body)
 	}
@@ -115,7 +115,7 @@ func TestIdentification_APersonChoosesAnAmbiguousTitlesMatch(t *testing.T) {
 		map[string]string{"provider": "tmdb", "providerId": "404"}), http.StatusUnprocessableEntity, CodeInvalidRequest)
 	wantError(t, harness.do(t, http.MethodPost, "/items/99/match", admin,
 		map[string]string{"provider": "tmdb", "providerId": "2"}), http.StatusNotFound, CodeNotFound)
-	wantError(t, harness.do(t, http.MethodGet, "/items?identification=maybe", admin, nil),
+	wantError(t, harness.do(t, http.MethodGet, "/items?identificationState=maybe", admin, nil),
 		http.StatusUnprocessableEntity, CodeInvalidRequest)
 }
 
@@ -148,7 +148,7 @@ func TestIdentification_OnlyARoleThatEditsMetadataMayChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	user := harness.signIn(t, "partner", "partner-password")
-	if listed := harness.do(t, http.MethodGet, "/items?identification=ambiguous", user,
+	if listed := harness.do(t, http.MethodGet, "/items?identificationState=ambiguous", user,
 		nil); listed.status != http.StatusOK {
 		t.Errorf("a user listing ambiguous titles = %d %s; the question mark is everyone's to see", listed.status,
 			listed.body)
@@ -166,7 +166,8 @@ func TestIdentification_OnlyARoleThatEditsMetadataMayChange(t *testing.T) {
 		wantError(t, harness.do(t, request.method, request.path, user, request.body), http.StatusForbidden,
 			CodeForbidden)
 	}
-	wantError(t, harness.do(t, http.MethodGet, "/items?identification=ambiguous", "", nil), http.StatusUnauthorized,
+	wantError(t, harness.do(t, http.MethodGet, "/items?identificationState=ambiguous", "", nil),
+		http.StatusUnauthorized,
 		CodeAuthRequired)
 }
 

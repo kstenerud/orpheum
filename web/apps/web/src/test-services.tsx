@@ -35,9 +35,9 @@ export function testServices(
     session,
     navigation,
     menu: () => ({
-      video: ["hevc-sdr", "h264-sdr"],
-      audio: ["aac-stereo", "aac-multi", "opus", "flac"],
-      subtitle: ["ass", "webvtt"],
+      videoCodecs: ["hevc-sdr", "h264-sdr"],
+      audioCodecs: ["aac-stereo", "aac-multi", "opus", "flac"],
+      subtitleFormats: ["ass", "webvtt"],
       containers: ["mp4"],
     }),
   };

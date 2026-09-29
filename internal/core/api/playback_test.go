@@ -83,29 +83,29 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 
 // chrome is the menu a desktop Chrome sends.
 func chrome(fileID int64) map[string]any {
-	return map[string]any{"fileId": fileID, "link": "local", "menu": map[string]any{
-		"video": []string{"hevc-sdr", "h264-sdr"}, "audio": []string{"aac-stereo", "opus", "flac"},
-		"subtitle": []string{"ass", "webvtt"}, "containers": []string{"mp4"},
+	return map[string]any{"fileId": fileID, "network": "local", "playableFormats": map[string]any{
+		"videoCodecs": []string{"hevc-sdr", "h264-sdr"}, "audioCodecs": []string{"aac-stereo", "opus", "flac"},
+		"subtitleFormats": []string{"ass", "webvtt"}, "containers": []string{"mp4"},
 	}}
 }
 
 type decision struct {
-	Kind        string   `json:"kind"`
+	Kind        string   `json:"delivery"`
 	URL         string   `json:"url"`
 	Profile     string   `json:"profile"`
-	Reasons     []string `json:"reasons"`
+	Reasons     []string `json:"notDirectReasons"`
 	IsPreparing bool     `json:"isPreparing"`
 	Audio       []struct {
-		SourceTrack     int           `json:"sourceTrack"`
+		SourceTrack     int           `json:"sourceAudioIndex"`
 		Language        string        `json:"language"`
-		IsDialogueBoost bool          `json:"isDialogueBoost"`
+		IsDialogueBoost bool          `json:"isDialogueBoosted"`
 		Levelling       LevellingBody `json:"levelling"`
 		CarriedGainDB   float64       `json:"carriedGainDb"`
 	} `json:"audio"`
 	Subtitles []subtitleTrack `json:"subtitles"`
 	Prefs     struct {
 		SubtitleOffsetMs int  `json:"subtitleOffsetMs"`
-		IsLevelling      bool `json:"isLevelling"`
+		IsLevelling      bool `json:"isLevellingOn"`
 	} `json:"prefs"`
 	ResumePositionMs int64         `json:"resumePositionMs"`
 	MediaToken       string        `json:"mediaToken"`
@@ -259,9 +259,9 @@ func TestPlayback_RefusesWhatCannotBePlayed(t *testing.T) {
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	noBaseline := chrome(1)
-	noBaseline["menu"] = map[string]any{
-		"video": []string{"hevc-sdr"}, "audio": []string{"aac-stereo"},
-		"subtitle": []string{}, "containers": []string{},
+	noBaseline["playableFormats"] = map[string]any{
+		"videoCodecs": []string{"hevc-sdr"}, "audioCodecs": []string{"aac-stereo"},
+		"subtitleFormats": []string{}, "containers": []string{},
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/playback", user, noBaseline), http.StatusBadRequest,
 		CodeInvalidRequest)

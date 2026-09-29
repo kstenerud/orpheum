@@ -21,8 +21,8 @@ const artCacheControl = "private, max-age=31536000, immutable"
 // ArtInput asks for one size of one image.
 type ArtInput struct {
 	MediaCredentials
-	Hash string `doc:"The image's hash, from a title's artwork" path:"hash" pattern:"^[0-9a-f]{64}$"`
-	File string `doc:"A size and a format: portrait-m.webp, landscape-l.jpeg" path:"file"`
+	Hash    string `doc:"The image's hash, from a title's artwork" path:"hash" pattern:"^[0-9a-f]{64}$"`
+	Variant string `doc:"A size and a format: portrait-m.webp, landscape-l.jpeg" path:"variant"`
 }
 
 // ArtOutput is the image, or a temporary redirect to the nearest size while the one asked for
@@ -37,7 +37,7 @@ type ArtOutput struct {
 
 func (server *Server) registerArt() {
 	huma.Register(server.api, huma.Operation{
-		OperationID: "getArt", Method: http.MethodGet, Path: "/bytes/art/{hash}/{file}",
+		OperationID: "getArt", Method: http.MethodGet, Path: "/bytes/art/{hash}/{variant}",
 		Summary: "One size of one image, in WebP or JPEG (D212)", Tags: []string{tagBrowse},
 		Responses: map[string]*huma.Response{
 			"200": {Description: "The image", Content: map[string]*huma.MediaType{
@@ -53,7 +53,7 @@ func (server *Server) getArt(ctx context.Context, input *ArtInput) (*ArtOutput, 
 	if err != nil {
 		return nil, err
 	}
-	name, format, found := strings.Cut(input.File, ".")
+	name, format, found := strings.Cut(input.Variant, ".")
 	if !found {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such image")
 	}

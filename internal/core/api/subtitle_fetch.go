@@ -18,7 +18,7 @@ import (
 type SubtitleCandidatesInput struct {
 	AuthorizationHeader
 	FileID   int64  `minimum:"1" path:"id"`
-	Language string `doc:"BCP 47: en, pt-BR" maxLength:"35" minLength:"2" pattern:"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$" query:"lang" required:"true"` //nolint:lll // one struct tag
+	Language string `doc:"BCP 47: en, pt-BR" maxLength:"35" minLength:"2" pattern:"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$" query:"language" required:"true"` //nolint:lll // one struct tag
 }
 
 // SubtitleCandidatesOutput is what a person sees before choosing: every candidate unverified,
@@ -38,21 +38,21 @@ type SubtitleCandidatesOutput struct {
 // in Cut A (D178 §4), and a client says so.
 type SubtitleCandidateBody struct {
 	ProviderFileID int64  `doc:"What POST /files/{id}/subtitles takes" json:"providerFileId"`
-	Release        string `doc:"The uploader's name for what it was made for" json:"release"`
+	ReleaseName    string `doc:"The uploader's name for what it was made for" json:"releaseName"`
 	Language       string `json:"language"`
 	// IsHashMatch is a subtitle uploaded for these exact bytes (D224 §3).
 	IsHashMatch         bool  `json:"isHashMatch"`
 	IsHearingImpaired   bool  `json:"isHearingImpaired"`
 	IsMachineTranslated bool  `json:"isMachineTranslated"`
-	Downloads           int   `json:"downloads"`
+	DownloadCount       int   `json:"downloadCount"`
 	UploadedAt          int64 `doc:"Unix milliseconds; absent when unknown" json:"uploadedAt,omitempty"`
 }
 
 // AllowanceBody is the account's downloads, as OpenSubtitles says (D224 §4).
 type AllowanceBody struct {
-	Remaining int  `json:"remaining"`
-	Allowed   int  `json:"allowed"`
-	IsVIP     bool `json:"isVip"`
+	RemainingDownloads int  `json:"remainingDownloads"`
+	AllowedDownloads   int  `json:"allowedDownloads"`
+	IsVIP              bool `json:"isVip"`
 }
 
 // FetchSubtitleInput fetches the candidate a person chose.
@@ -68,9 +68,9 @@ type FetchSubtitleInput struct {
 // FetchSubtitleOutput is the fetched subtitle, now the file's subtitle choice, and what is left.
 type FetchSubtitleOutput struct {
 	Body struct {
-		FetchedID int64 `doc:"The new track; a playback started again offers it" json:"fetchedId"`
-		Remaining int   `json:"remaining"`
-		ResetAt   int64 `doc:"When the count starts again, Unix milliseconds" json:"resetAt,omitempty"`
+		FetchedID          int64 `doc:"The new track; a playback started again offers it" json:"fetchedId"`
+		RemainingDownloads int   `json:"remainingDownloads"`
+		DownloadsResetAt   int64 `doc:"When the count starts again, Unix milliseconds" json:"downloadsResetAt,omitempty"` //nolint:lll // one struct tag
 	}
 }
 
@@ -102,15 +102,16 @@ func (server *Server) subtitleCandidates(
 	output.Body.Candidates = make([]SubtitleCandidateBody, 0, len(offer.Candidates))
 	for _, candidate := range offer.Candidates {
 		output.Body.Candidates = append(output.Body.Candidates, SubtitleCandidateBody{
-			ProviderFileID: candidate.FileID, Release: candidate.Release, Language: candidate.Language,
+			ProviderFileID: candidate.FileID, ReleaseName: candidate.Release, Language: candidate.Language,
 			IsHashMatch: candidate.IsHashMatch, IsHearingImpaired: candidate.IsHearingImpaired,
-			IsMachineTranslated: candidate.IsMachineTranslated, Downloads: candidate.Downloads,
+			IsMachineTranslated: candidate.IsMachineTranslated, DownloadCount: candidate.Downloads,
 			UploadedAt: unixMillisOrZero(candidate.UploadedAt),
 		})
 	}
 	output.Body.DidAskByIDs, output.Body.DidAskByFileHash = offer.DidAskByIDs, offer.DidAskByFileHash
 	output.Body.Allowance = AllowanceBody{
-		Remaining: offer.Allowance.Remaining, Allowed: offer.Allowance.Allowed, IsVIP: offer.Allowance.IsVIP,
+		RemainingDownloads: offer.Allowance.Remaining, AllowedDownloads: offer.Allowance.Allowed,
+		IsVIP: offer.Allowance.IsVIP,
 	}
 	return output, nil
 }
@@ -127,8 +128,8 @@ func (server *Server) fetchSubtitle(ctx context.Context, input *FetchSubtitleInp
 		return nil, server.fetchError(ctx, "fetch a subtitle", err)
 	}
 	output := &FetchSubtitleOutput{}
-	output.Body.FetchedID, output.Body.Remaining = fetched.Track.FetchedID, fetched.Remaining
-	output.Body.ResetAt = unixMillisOrZero(fetched.ResetAt)
+	output.Body.FetchedID, output.Body.RemainingDownloads = fetched.Track.FetchedID, fetched.Remaining
+	output.Body.DownloadsResetAt = unixMillisOrZero(fetched.ResetAt)
 	return output, nil
 }
 

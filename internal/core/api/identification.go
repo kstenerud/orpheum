@@ -17,20 +17,20 @@ const tagIdentification = "Identification"
 
 // ItemBody is one title or series in a list.
 type ItemBody struct {
-	ID             int64  `json:"id"`
-	LibraryID      int64  `json:"libraryId"`
-	Kind           string `enum:"movie,episode,extra,series" json:"kind"`
-	Name           string `json:"name"`
-	Year           int64  `json:"year,omitempty"`
-	Identification string `enum:"identified,ambiguous,unidentified,confirmed" json:"identification"`
-	Source         string `doc:"Where its own values come from: nfo, tmdb, or none" json:"source,omitempty"`
-	SourceID       string `doc:"Its id at its provider" json:"sourceId,omitempty"`
+	ID                  int64  `json:"id"`
+	LibraryID           int64  `json:"libraryId"`
+	Kind                string `enum:"movie,episode,extra,series" json:"kind"`
+	Name                string `json:"name"`
+	Year                int64  `json:"year,omitempty"`
+	IdentificationState string `enum:"identified,ambiguous,unidentified,confirmed" json:"identificationState"`
+	FollowedSource      string `doc:"Where its own values come from: nfo, tmdb, or none" json:"followedSource,omitempty"` //nolint:lll // one struct tag
+	FollowedSourceID    string `doc:"Its id at its provider" json:"followedSourceId,omitempty"`
 }
 
 // ItemsInput asks for the titles and series in one state of identification.
 type ItemsInput struct {
 	AuthorizationHeader
-	Identification string `enum:"identified,ambiguous,unidentified,confirmed" query:"identification" required:"true"`
+	IdentificationState string `enum:"identified,ambiguous,unidentified,confirmed" query:"identificationState" required:"true"` //nolint:lll // one struct tag
 }
 
 // ItemsOutput lists titles and series.
@@ -48,11 +48,11 @@ type ItemInput struct {
 
 // CandidateBody is one search result a person may choose (D172).
 type CandidateBody struct {
-	ProviderID   string `json:"providerId"`
-	Name         string `json:"name"`
-	OriginalName string `json:"originalName,omitempty"`
-	Year         int    `json:"year,omitempty"`
-	PosterRef    string `doc:"The provider's path for the poster" json:"posterRef,omitempty"`
+	ProviderID         string `json:"providerId"`
+	Name               string `json:"name"`
+	OriginalName       string `json:"originalName,omitempty"`
+	Year               int    `json:"year,omitempty"`
+	ProviderPosterPath string `doc:"The provider's path for the poster" json:"providerPosterPath,omitempty"`
 }
 
 // CandidatesOutput is a film's or series' candidates, best first.
@@ -136,7 +136,7 @@ func (server *Server) getItems(ctx context.Context, input *ItemsInput) (*ItemsOu
 	if err != nil {
 		return nil, err
 	}
-	items, err := dependencies.Identify.Items(ctx, input.Identification)
+	items, err := dependencies.Identify.Items(ctx, input.IdentificationState)
 	if err != nil {
 		return nil, server.internal(ctx, "list items", err)
 	}
@@ -145,7 +145,7 @@ func (server *Server) getItems(ctx context.Context, input *ItemsInput) (*ItemsOu
 	for _, item := range items {
 		output.Body.Items = append(output.Body.Items, ItemBody{
 			ID: item.ID, LibraryID: item.LibraryID, Kind: item.Kind, Name: item.Name, Year: item.Year,
-			Identification: item.Ident, Source: item.Source, SourceID: item.SourceID,
+			IdentificationState: item.Ident, FollowedSource: item.Source, FollowedSourceID: item.SourceID,
 		})
 	}
 	return output, nil
@@ -166,7 +166,7 @@ func (server *Server) getCandidates(ctx context.Context, input *ItemInput) (*Can
 	for _, candidate := range candidates {
 		output.Body.Candidates = append(output.Body.Candidates, CandidateBody{
 			ProviderID: candidate.ID, Name: candidate.Name, OriginalName: candidate.OriginalName,
-			Year: candidate.Year, PosterRef: candidate.PosterRef,
+			Year: candidate.Year, ProviderPosterPath: candidate.PosterRef,
 		})
 	}
 	return output, nil

@@ -44,13 +44,13 @@ type JobBody struct {
 	FetchedSubtitleID int64  `json:"fetchedSubtitleId,omitempty"`
 	FileID            int64  `json:"fileId,omitempty"`
 	State             string `enum:"queued,running,done,failed,cancelled" json:"state"`
-	// Progress is how far it is, 0 to 1, absent when not known.
-	Progress   *float64 `json:"progress,omitempty"`
-	Reason     string   `doc:"Why it exists" json:"reason"`
-	LastError  string   `json:"lastError,omitempty"`
-	Attempts   int64    `json:"attempts"`
-	CreatedAt  int64    `doc:"Unix milliseconds" json:"createdAt"`
-	FinishedAt *int64   `doc:"Unix milliseconds" json:"finishedAt,omitempty"`
+	// ProgressFraction is how far it is, 0 to 1, absent when not known.
+	ProgressFraction *float64 `json:"progressFraction,omitempty"`
+	Reason           string   `doc:"Why it exists" json:"reason"`
+	LastError        string   `json:"lastError,omitempty"`
+	Attempts         int64    `json:"attempts"`
+	CreatedAt        int64    `doc:"Unix milliseconds" json:"createdAt"`
+	FinishedAt       *int64   `doc:"Unix milliseconds" json:"finishedAt,omitempty"`
 }
 
 // JobsOutput is the job view: the newest jobs first.
@@ -94,7 +94,7 @@ func (server *Server) listJobs(ctx context.Context, input *AuthorizationHeader) 
 		body := JobBody{
 			ID: view.ID, Kind: JobKind(view.Kind), ItemID: view.ItemID, RenditionID: view.RenditionID,
 			StreamID: view.StreamID, FetchedSubtitleID: view.FetchedSubtitleID, FileID: view.FileID,
-			State: view.State, Progress: view.Progress,
+			State: view.State, ProgressFraction: view.Progress,
 			Reason: view.Reason, LastError: view.LastError, Attempts: view.Attempts,
 			CreatedAt: view.CreatedAt.UnixMilli(),
 		}

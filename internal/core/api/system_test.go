@@ -103,12 +103,12 @@ func checkLocalFacts(t *testing.T, local SystemNodeBody) {
 	checkBuildAndHost(t, local)
 	if !local.IsConnected || local.FFmpegVersion != "ffmpeg version 7.1" ||
 		len(local.Confinement) != 1 || !local.Confinement[0].IsInForce || local.Prepared == nil ||
-		len(local.Disks) != 1 || local.Disks[0].FreeBytes != 1000 {
+		len(local.Disks) != 1 || local.Disks[0].AvailableBytes != 1000 {
 		t.Errorf("local's facts are %+v; want what it said about itself (D225)", local)
 	}
 	checkHardware(t, local.Hardware)
 	if len(local.RecentPrepares) != 1 || local.RecentPrepares[0].FileID != 42 ||
-		local.RecentPrepares[0].VideoEncoder != "h264_qsv" || local.RecentPrepares[0].Speed != 6.5 {
+		local.RecentPrepares[0].VideoEncoder != "h264_qsv" || local.RecentPrepares[0].RealtimeFactor != 6.5 {
 		t.Errorf("local's recent prepares are %+v; want the one it finished, with Quick Sync at 6.5x (D225 §3)",
 			local.RecentPrepares)
 	}
@@ -127,7 +127,7 @@ func checkBuildAndHost(t *testing.T, local SystemNodeBody) {
 // checkHardware checks the connected node's hardware encoding, as the System page shows it.
 func checkHardware(t *testing.T, hardware *HardwareBody) {
 	t.Helper()
-	if hardware == nil || hardware.Encoder != "h264_qsv" || len(hardware.GPUs) != 1 ||
+	if hardware == nil || hardware.ChosenEncoder != "h264_qsv" || len(hardware.GPUs) != 1 ||
 		hardware.GPUs[0].Driver != "i915" || len(hardware.Trials) != 2 ||
 		hardware.Trials[1].Failure != "Cannot load libcuda.so.1" {
 		t.Errorf("local's hardware is %+v; want its GPU, each trial and the encoder chosen (D225 §3)", hardware)

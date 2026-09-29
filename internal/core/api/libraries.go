@@ -18,27 +18,27 @@ const tagLibraries = "Libraries"
 
 // RootBody is one of a library's roots, and whether its files are available (D208).
 type RootBody struct {
-	Node string `json:"node"`
-	Path string `json:"path"`
-	// Outcome is the last scan's: complete, unreadable or withheld; empty before the first.
-	Outcome        string `enum:"complete,unreadable,withheld," json:"outcome"`
-	OutcomeAt      int64  `json:"outcomeAt,omitempty"`
-	WithheldReason string `doc:"Why the last scan's removals wait for an admin" json:"withheldReason,omitempty"`
+	NodeName string `json:"nodeName"`
+	Path     string `json:"path"`
+	// LastScanOutcome is the last scan's: complete, unreadable or withheld; empty before the first.
+	LastScanOutcome string `enum:"complete,unreadable,withheld," json:"lastScanOutcome"`
+	LastScanAt      int64  `json:"lastScanAt,omitempty"`
+	WithheldReason  string `doc:"Why the last scan's removals wait for an admin" json:"withheldReason,omitempty"`
 }
 
 // LibraryBody is a library: its three answers (D184), and for an admin its roots and its files
 // counted by filing.
 type LibraryBody struct {
-	ID              int64            `json:"id"`
-	Name            string           `json:"name"`
-	Kind            string           `enum:"movies,shows,mixed" json:"kind"`
-	MetadataSource  string           `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource"`
-	ChangeDetection string           `enum:"watch,interval,manual" json:"changeDetection"`
-	CheckEveryH     *int64           `json:"checkEveryH,omitempty"`
-	IsWritable      bool             `json:"isWritable"`
-	CreatedAt       int64            `json:"createdAt"`
-	Roots           []RootBody       `json:"roots,omitempty"`
-	Filings         map[string]int64 `doc:"Live files by filing (D163)" json:"filings,omitempty"`
+	ID                 int64            `json:"id"`
+	Name               string           `json:"name"`
+	Kind               string           `enum:"movies,shows,mixed" json:"kind"`
+	MetadataSource     string           `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource"`
+	ChangeDetection    string           `enum:"watch,interval,manual" json:"changeDetection"`
+	CheckEveryHours    *int64           `json:"checkEveryHours,omitempty"`
+	IsWritable         bool             `json:"isWritable"`
+	CreatedAt          int64            `json:"createdAt"`
+	Roots              []RootBody       `json:"roots,omitempty"`
+	FileCountsByFiling map[string]int64 `doc:"Live files by filing (D163)" json:"fileCountsByFiling,omitempty"`
 }
 
 // LibrariesOutput lists libraries.
@@ -58,10 +58,10 @@ type CreateLibraryInput struct {
 		// MetadataSource: NFO files where present, TMDB for the rest; TMDB only; NFO files only.
 		MetadataSource  string   `enum:"nfo_then_tmdb,tmdb,nfo" json:"metadataSource"`
 		ChangeDetection string   `enum:"watch,interval,manual" json:"changeDetection"`
-		CheckEveryH     *int64   `doc:"Hours between checks; interval only" json:"checkEveryH,omitempty" minimum:"1"`
+		CheckEveryHours *int64   `doc:"Hours between checks; interval only" json:"checkEveryHours,omitempty" minimum:"1"` //nolint:lll // one struct tag
 		IsWritable      bool     `doc:"May the server write beside the media" json:"isWritable"`
-		Node            string   `doc:"The node's configured name" json:"node" minLength:"1"`
-		Roots           []string `doc:"Roots the node configured" json:"roots" minItems:"1"`
+		NodeName        string   `doc:"The node's configured name" json:"nodeName" minLength:"1"`
+		RootPaths       []string `doc:"Roots the node configured" json:"rootPaths" minItems:"1"`
 	}
 }
 
@@ -82,7 +82,7 @@ type LibraryInput struct {
 type ScanOutput struct {
 	Body struct {
 		// Roots is how many roots' nodes were asked; a root whose node is away scans on its return.
-		RootsAsked int `json:"rootsAsked"`
+		AskedRootCount int `json:"askedRootCount"`
 	}
 }
 
@@ -91,8 +91,8 @@ type RootActionInput struct {
 	AuthorizationHeader
 	ID   int64 `path:"id"`
 	Body struct {
-		Node string `doc:"The node's configured name" json:"node" minLength:"1"`
-		Path string `json:"path" minLength:"1"`
+		NodeName string `doc:"The node's configured name" json:"nodeName" minLength:"1"`
+		Path     string `json:"path" minLength:"1"`
 	}
 }
 
@@ -107,10 +107,10 @@ type RescanOutput struct {
 // FilesInput pages through what the scanner saw.
 type FilesInput struct {
 	AuthorizationHeader
-	Filing  string `enum:"listed,extra,attached,skipped,errored,unidentified," query:"filing"`
-	Library int64  `query:"library"`
-	Cursor  string `doc:"From the previous page's nextCursor" query:"cursor"`
-	Limit   int64  `maximum:"1000" minimum:"1" query:"limit" required:"true"`
+	Filing    string `enum:"listed,extra,attached,skipped,errored,unidentified," query:"filing"`
+	LibraryID int64  `query:"libraryId"`
+	Cursor    string `doc:"From the previous page's nextCursor" query:"cursor"`
+	Limit     int64  `maximum:"1000" minimum:"1" query:"limit" required:"true"`
 }
 
 // FileBody is one file as the scanner saw it (D163).
@@ -174,13 +174,13 @@ func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInp
 		return nil, err
 	}
 	body := input.Body
-	if (body.ChangeDetection == "interval") != (body.CheckEveryH != nil) {
+	if (body.ChangeDetection == "interval") != (body.CheckEveryHours != nil) {
 		return nil, newError(http.StatusUnprocessableEntity, CodeInvalidRequest,
 			"checkEveryH is given with changeDetection interval, and only then")
 	}
-	id, err := dependencies.Libraries.Create(ctx, library.Request{Node: body.Node, NewLibrary: library.NewLibrary{
+	id, err := dependencies.Libraries.Create(ctx, library.Request{Node: body.NodeName, NewLibrary: library.NewLibrary{
 		Name: body.Name, Kind: body.Kind, MetadataSource: body.MetadataSource, ChangeDetection: body.ChangeDetection,
-		CheckEveryH: body.CheckEveryH, Writable: body.IsWritable, Roots: body.Roots,
+		CheckEveryH: body.CheckEveryHours, Writable: body.IsWritable, Roots: body.RootPaths,
 	}})
 	if err != nil {
 		return nil, server.libraryError(ctx, "create a library", err)
@@ -195,7 +195,7 @@ func (server *Server) createLibrary(ctx context.Context, input *CreateLibraryInp
 type NodeBody struct {
 	Name        string   `json:"name"`
 	IsConnected bool     `doc:"Whether it has said hello since the server started" json:"isConnected"`
-	Roots       []string `doc:"Its configured roots; empty while it is not connected" json:"roots"`
+	RootPaths   []string `doc:"Its configured roots; empty while it is not connected" json:"rootPaths"`
 }
 
 // NodesOutput is every enrolled node.
@@ -218,7 +218,7 @@ func (server *Server) getNodes(ctx context.Context, input *AuthorizationHeader) 
 	output.Body.Nodes = make([]NodeBody, 0, len(nodes))
 	for _, node := range nodes {
 		output.Body.Nodes = append(output.Body.Nodes, NodeBody{
-			Name: node.Name, IsConnected: node.Connected, Roots: node.Roots,
+			Name: node.Name, IsConnected: node.Connected, RootPaths: node.Roots,
 		})
 	}
 	return output, nil
@@ -238,16 +238,16 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 	for _, summary := range summaries {
 		body := LibraryBody{
 			ID: summary.ID, Name: summary.Name, Kind: summary.Kind, MetadataSource: summary.MetadataSource,
-			ChangeDetection: summary.ChangeDetection, CheckEveryH: summary.CheckEveryH,
+			ChangeDetection: summary.ChangeDetection, CheckEveryHours: summary.CheckEveryH,
 			IsWritable: summary.IsWritable == 1,
 			CreatedAt:  summary.CreatedAt,
 		}
 		if principal.IsAdmin() {
-			body.Filings = summary.Filings
+			body.FileCountsByFiling = summary.Filings
 			for _, root := range summary.Roots {
 				body.Roots = append(body.Roots, RootBody{
-					Node: root.NodeName, Path: root.Path, Outcome: ptr.ValueOrZero(root.Outcome),
-					OutcomeAt:      ptr.ValueOrZero(root.OutcomeAt),
+					NodeName: root.NodeName, Path: root.Path, LastScanOutcome: ptr.ValueOrZero(root.Outcome),
+					LastScanAt:     ptr.ValueOrZero(root.OutcomeAt),
 					WithheldReason: ptr.ValueOrZero(root.WithheldReason),
 				})
 			}
@@ -267,7 +267,7 @@ func (server *Server) scanLibrary(ctx context.Context, input *LibraryInput) (*Sc
 		return nil, server.libraryError(ctx, "scan a library", err)
 	}
 	output := &ScanOutput{}
-	output.Body.RootsAsked = asked
+	output.Body.AskedRootCount = asked
 	return output, nil
 }
 
@@ -276,7 +276,7 @@ func (server *Server) approveRemovals(ctx context.Context, input *RootActionInpu
 	if err != nil {
 		return nil, err
 	}
-	scanning, err := dependencies.Libraries.ApproveRemovals(ctx, input.ID, input.Body.Node, input.Body.Path)
+	scanning, err := dependencies.Libraries.ApproveRemovals(ctx, input.ID, input.Body.NodeName, input.Body.Path)
 	if err != nil {
 		return nil, server.libraryError(ctx, "approve removals", err)
 	}
@@ -290,7 +290,7 @@ func (server *Server) forgetMount(ctx context.Context, input *RootActionInput) (
 	if err != nil {
 		return nil, err
 	}
-	scanning, err := dependencies.Libraries.ForgetMount(ctx, input.ID, input.Body.Node, input.Body.Path)
+	scanning, err := dependencies.Libraries.ForgetMount(ctx, input.ID, input.Body.NodeName, input.Body.Path)
 	if err != nil {
 		return nil, server.libraryError(ctx, "forget a mount", err)
 	}
@@ -311,8 +311,8 @@ func (server *Server) getFiles(ctx context.Context, input *FilesInput) (*FilesOu
 				"the cursor is not one this server gave")
 		}
 	}
-	if input.Library != 0 {
-		query.LibraryID = &input.Library
+	if input.LibraryID != 0 {
+		query.LibraryID = &input.LibraryID
 	}
 	if input.Filing != "" {
 		query.Filing = &input.Filing

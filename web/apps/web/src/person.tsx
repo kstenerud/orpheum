@@ -89,7 +89,7 @@ function PersonHead(props: {
   };
 }): JSX.Element {
   const { t, i18n } = useTranslation();
-  const { account, watched } = props.person;
+  const { account, watchStats: watched } = props.person;
   const hours = (watched.watchedMs / 3_600_000).toLocaleString(i18n.language, {
     maximumFractionDigits: 1,
   });
@@ -104,7 +104,7 @@ function PersonHead(props: {
       <h1>{account.name}</h1>
       <p>
         {t(account.hasPassword ? "people.registered" : "people.waiting")} ·{" "}
-        {t("person.watched", { hours, titles: watched.titlesWatched, last: lastWatched })}
+        {t("person.watched", { hours, titles: watched.titlesWatchedCount, last: lastWatched })}
       </p>
       <OneField
         label={t("people.name")}

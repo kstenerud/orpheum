@@ -8,12 +8,16 @@ import { describe, expect, it } from "vitest";
 import { bySeason, SeriesView, type SeriesDetail } from "./series.tsx";
 import { withServices } from "./test-services.tsx";
 
-const episode = (id: number, place: { season: number; number: number }, isAvailable = true) => ({
+const episode = (
+  id: number,
+  place: { seasonNumber: number; episodeNumber: number },
+  isAvailable = true,
+) => ({
   id,
-  season: place.season,
-  number: place.number,
-  name: `Episode ${String(place.number)}`,
-  identification: "identified",
+  seasonNumber: place.seasonNumber,
+  episodeNumber: place.episodeNumber,
+  name: `Episode ${String(place.episodeNumber)}`,
+  identificationState: "identified",
   hasLiveFile: isAvailable,
 });
 
@@ -26,10 +30,10 @@ describe("SeriesView", () => {
       libraryId: 1,
       art: { posterHash: "p" },
       episodes: [
-        { ...episode(31, { season: 1, number: 1 }), stillHash: "s31" },
-        episode(32, { season: 1, number: 2 }, false),
-        episode(40, { season: 0, number: 1 }),
-        episode(33, { season: 2, number: 1 }),
+        { ...episode(31, { seasonNumber: 1, episodeNumber: 1 }), stillHash: "s31" },
+        episode(32, { seasonNumber: 1, episodeNumber: 2 }, false),
+        episode(40, { seasonNumber: 0, episodeNumber: 1 }),
+        episode(33, { seasonNumber: 2, episodeNumber: 1 }),
       ],
     };
     const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));

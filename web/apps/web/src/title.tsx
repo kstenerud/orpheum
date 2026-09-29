@@ -84,8 +84,8 @@ function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
           <Link to={{ screen: "collection", id: place.seriesId }}>
             {t("title.place", {
               series: place.seriesName,
-              season: place.season,
-              number: place.number,
+              season: place.seasonNumber,
+              number: place.episodeNumber,
             })}
           </Link>
         </p>
@@ -95,7 +95,9 @@ function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
         {title.runtimeMs === undefined ? null : (
           <span>{t("title.runtime", { minutes: Math.round(title.runtimeMs / 60_000) })}</span>
         )}
-        {title.identification === "unidentified" ? <span>{t("title.unidentified")}</span> : null}
+        {title.identificationState === "unidentified" ? (
+          <span>{t("title.unidentified")}</span>
+        ) : null}
       </p>
       {title.tagline === undefined ? null : <p className="title__tagline">{title.tagline}</p>}
       {title.overview === undefined ? null : <p>{title.overview}</p>}

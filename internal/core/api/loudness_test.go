@@ -165,7 +165,7 @@ func TestLoudness_LevellingIsOnUntilThePersonTurnsItOff(t *testing.T) {
 	if first := harness.play(t, user, chrome(1)); !first.Prefs.IsLevelling {
 		t.Errorf("a person who never chose: levelling %t, want on (D226 §5)", first.Prefs.IsLevelling)
 	}
-	answer := harness.do(t, http.MethodPut, "/me/prefs", user, map[string]any{"isLevelling": false})
+	answer := harness.do(t, http.MethodPut, "/me/prefs", user, map[string]any{"isLevellingOn": false})
 	if answer.status != http.StatusNoContent {
 		t.Fatalf("PUT /me/prefs = %d %s", answer.status, answer.body)
 	}

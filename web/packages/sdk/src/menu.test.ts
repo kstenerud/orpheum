@@ -7,8 +7,8 @@ import { menuFrom } from "./menu.ts";
 describe("the menu a browser can play", () => {
   it("always lists the baselines, even when the browser answers nothing", () => {
     const menu = menuFrom({ canPlayType: () => "", isTypeSupported: () => false });
-    expect(menu.video).toEqual(["h264-sdr"]);
-    expect(menu.audio).toEqual(["aac-stereo", "aac-multi"]);
+    expect(menu.videoCodecs).toEqual(["h264-sdr"]);
+    expect(menu.audioCodecs).toEqual(["aac-stereo", "aac-multi"]);
     expect(menu.containers).toEqual([]);
   });
 
@@ -18,8 +18,8 @@ describe("the menu a browser can play", () => {
       canPlayType: (type) => (type === "video/mp4" || type === "video/x-matroska" ? "maybe" : ""),
       isTypeSupported: (type) => decodes.has(type),
     });
-    expect(menu.video).toEqual(["hevc-sdr", "h264-sdr"]);
-    expect(menu.audio).toEqual(["aac-stereo", "aac-multi", "opus"]);
+    expect(menu.videoCodecs).toEqual(["hevc-sdr", "h264-sdr"]);
+    expect(menu.audioCodecs).toEqual(["aac-stereo", "aac-multi", "opus"]);
     expect(menu.containers).toEqual(["mp4", "mkv"]);
   });
 
@@ -29,7 +29,7 @@ describe("the menu a browser can play", () => {
         ["video/mp4", "video/mp2t", 'audio/mp4; codecs="ec-3"'].includes(type) ? "probably" : "",
       isTypeSupported: () => false,
     });
-    expect(menu.audio).toContain("eac3");
+    expect(menu.audioCodecs).toContain("eac3");
     expect(menu.containers).toEqual(["mp4", "mpegts"]);
   });
 });

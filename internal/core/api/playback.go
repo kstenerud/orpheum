@@ -34,31 +34,31 @@ type NodeBytes interface {
 
 // MenuBody is what a client can play, one list per axis, most preferred first (D21, D217 §1).
 type MenuBody struct {
-	Video      []string `doc:"Must list h264-sdr" enum:"h264-sdr,hevc-sdr,hevc-hdr10,av1-sdr,av1-hdr10" json:"video"`
-	Audio      []string `doc:"Must list aac-stereo" enum:"aac-stereo,aac-multi,ac3,eac3,opus,flac" json:"audio"`
-	Subtitle   []string `enum:"ass,webvtt" json:"subtitle"`
-	Containers []string `doc:"Containers played as they are" enum:"mp4,mkv,mpegts" json:"containers"`
+	VideoCodecs     []string `doc:"Must list h264-sdr" enum:"h264-sdr,hevc-sdr,hevc-hdr10,av1-sdr,av1-hdr10" json:"videoCodecs"` //nolint:lll // one struct tag
+	AudioCodecs     []string `doc:"Must list aac-stereo" enum:"aac-stereo,aac-multi,ac3,eac3,opus,flac" json:"audioCodecs"`      //nolint:lll // one struct tag
+	SubtitleFormats []string `enum:"ass,webvtt" json:"subtitleFormats"`
+	Containers      []string `doc:"Containers played as they are" enum:"mp4,mkv,mpegts" json:"containers"`
 }
 
 // StartPlaybackInput asks to play a file.
 type StartPlaybackInput struct {
 	AuthorizationHeader
 	Body struct {
-		FileID int64    `json:"fileId" minimum:"1"`
-		Menu   MenuBody `json:"menu"`
-		Link   string   `doc:"Where the client is" enum:"local,remote" json:"link"`
-		Prefer string   `doc:"A person's override" enum:"direct,prepare" json:"prefer,omitempty" required:"false"`
+		FileID            int64    `json:"fileId" minimum:"1"`
+		PlayableFormats   MenuBody `json:"playableFormats"`
+		Network           string   `doc:"Where the client is" enum:"local,remote" json:"network"`
+		PreferredDelivery string   `doc:"A person's override" enum:"direct,prepare" json:"preferredDelivery,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
 // StartPlaybackOutput is the decision (cut-a §6).
 type StartPlaybackOutput struct {
 	Body struct {
-		Kind    string `enum:"direct,hls" json:"kind"`
-		URL     string `doc:"Where the bytes are: the file, or a rendition's master playlist" json:"url"`
-		Profile string `enum:"remux,h264-8m" json:"profile,omitempty"`
-		// Reasons say why it is not played directly, to show on screen (D188).
-		Reasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,user_choice" json:"reasons"`
+		Delivery string `enum:"direct,hls" json:"delivery"`
+		URL      string `doc:"Where the bytes are: the file, or a rendition's master playlist" json:"url"`
+		Profile  string `enum:"remux,h264-8m" json:"profile,omitempty"`
+		// NotDirectReasons say why it is not played directly, to show on screen (D188).
+		NotDirectReasons []string `enum:"container,video_codec,audio_codec,bandwidth,dialogue_boost,user_choice" json:"notDirectReasons"` //nolint:lll // one struct tag
 		// Preparing is whether the rendition is still being made; its playlist answers 425 until
 		// the first segment exists.
 		IsPreparing bool `json:"isPreparing"`
@@ -159,8 +159,8 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		return nil, err
 	}
 	request := playback.Request{
-		FileID: input.Body.FileID, DeviceID: principal.DeviceID, Menu: menuOf(input.Body.Menu),
-		Link: decide.Link(input.Body.Link), Prefer: decide.Prefer(input.Body.Prefer),
+		FileID: input.Body.FileID, DeviceID: principal.DeviceID, Menu: menuOf(input.Body.PlayableFormats),
+		Link: decide.Link(input.Body.Network), Prefer: decide.Prefer(input.Body.PreferredDelivery),
 	}
 	started, err := dependencies.Playback.Start(ctx, principal.UserID, sessionKey(input.Authorization), request)
 	switch {
@@ -172,11 +172,11 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		return nil, server.internal(ctx, "start a playback", err)
 	}
 	output := &StartPlaybackOutput{}
-	output.Body.Kind = string(started.Decision.Kind)
+	output.Body.Delivery = string(started.Decision.Kind)
 	output.Body.Profile = string(started.Decision.Profile)
-	output.Body.Reasons = make([]string, 0, len(started.Decision.Reasons))
+	output.Body.NotDirectReasons = make([]string, 0, len(started.Decision.Reasons))
 	for _, reason := range started.Decision.Reasons {
-		output.Body.Reasons = append(output.Body.Reasons, string(reason))
+		output.Body.NotDirectReasons = append(output.Body.NotDirectReasons, string(reason))
 	}
 	output.Body.URL = Prefix + "/bytes/media/direct/" + started.Token
 	if started.Decision.Kind == decide.HLS {
@@ -185,7 +185,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	output.Body.IsPreparing = started.Preparing
 	for _, audio := range started.Audio {
 		output.Body.Audio = append(output.Body.Audio, AudioRenditionBody{
-			SourceTrack: audio.Track, Language: audio.Language, IsDialogueBoost: audio.Boost,
+			SourceAudioIndex: audio.Track, Language: audio.Language, IsDialogueBoosted: audio.Boost,
 			Levelling: levellingBody(audio.Levelling), CarriedGainDB: audio.CarriedGainDB,
 		})
 	}
@@ -330,8 +330,8 @@ func (server *Server) relay(
 
 func menuOf(body MenuBody) decide.Menu {
 	return decide.Menu{
-		Video: names[decide.Video](body.Video), Audio: names[decide.Audio](body.Audio),
-		Subtitle: names[decide.Subtitle](body.Subtitle), Containers: names[decide.Container](body.Containers),
+		Video: names[decide.Video](body.VideoCodecs), Audio: names[decide.Audio](body.AudioCodecs),
+		Subtitle: names[decide.Subtitle](body.SubtitleFormats), Containers: names[decide.Container](body.Containers),
 	}
 }
 

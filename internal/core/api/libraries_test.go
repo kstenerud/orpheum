@@ -80,7 +80,7 @@ func (harness testHarness) connectNode(t *testing.T, roots ...string) {
 func newShows(root string) map[string]any {
 	return map[string]any{
 		"name": "Shows", "kind": "shows", "metadataSource": "tmdb", "changeDetection": "manual",
-		"isWritable": false, "node": "local", "roots": []string{root},
+		"isWritable": false, "nodeName": "local", "rootPaths": []string{root},
 	}
 }
 
@@ -107,11 +107,11 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodPost, "/libraries", admin, newShows("/media/shows")),
 		http.StatusConflict, CodeConflict)
 	listed := harness.do(t, http.MethodGet, "/libraries", admin, nil)
-	if !strings.Contains(listed.body, `"roots":[{"node":"local","path":"/media/shows","outcome":""}]`) {
+	if !strings.Contains(listed.body, `"roots":[{"nodeName":"local","path":"/media/shows","lastScanOutcome":""}]`) {
 		t.Errorf("an admin's GET /libraries = %s", listed.body)
 	}
 	scanned := harness.do(t, http.MethodPost, "/libraries/1/scan", admin, nil)
-	if scanned.status != http.StatusAccepted || !strings.Contains(scanned.body, `"rootsAsked":1`) {
+	if scanned.status != http.StatusAccepted || !strings.Contains(scanned.body, `"askedRootCount":1`) {
 		t.Errorf("POST /libraries/1/scan = %d %s", scanned.status, scanned.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/libraries/9/scan", admin, nil), http.StatusNotFound, CodeNotFound)
@@ -165,7 +165,7 @@ func TestFiles_PagesWhatTheScannerSaw(t *testing.T) {
 	if !strings.Contains(rest.body, `"path":"/m/c.mkv"`) || strings.Contains(rest.body, "nextCursor") {
 		t.Errorf("last page = %s", rest.body)
 	}
-	skipped := harness.do(t, http.MethodGet, "/files?limit=10&filing=skipped&library=1", admin, nil)
+	skipped := harness.do(t, http.MethodGet, "/files?limit=10&filing=skipped&libraryId=1", admin, nil)
 	if !strings.Contains(skipped.body, `"filingReason":"extension"`) || strings.Contains(skipped.body, "a.mkv") {
 		t.Errorf("filing=skipped = %s", skipped.body)
 	}
@@ -189,19 +189,19 @@ func TestLibraries_AnAdminApprovesWithheldRemovalsAndForgetsAGoneDisk(t *testing
 		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
 		 VALUES (1, '/m', '/m/disk1', 21, 0)`)
 	approved := harness.do(t, http.MethodPost, "/libraries/1/removals", admin,
-		map[string]string{"node": "local", "path": "/m"})
+		map[string]string{"nodeName": "local", "path": "/m"})
 	if approved.status != http.StatusAccepted || !strings.Contains(approved.body, `"isScanning":true`) {
 		t.Errorf("POST removals = %d %s", approved.status, approved.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/removals", admin,
-		map[string]string{"node": "local", "path": "/other"}), http.StatusUnprocessableEntity, CodeInvalidRequest)
+		map[string]string{"nodeName": "local", "path": "/other"}), http.StatusUnprocessableEntity, CodeInvalidRequest)
 	gone := harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
-		map[string]string{"node": "local", "path": "/m/disk1"})
+		map[string]string{"nodeName": "local", "path": "/m/disk1"})
 	if gone.status != http.StatusAccepted {
 		t.Errorf("POST mounts/gone = %d %s", gone.status, gone.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/libraries/1/mounts/gone", admin,
-		map[string]string{"node": "local", "path": "/m/disk1"}), http.StatusConflict, CodeConflict)
+		map[string]string{"nodeName": "local", "path": "/m/disk1"}), http.StatusConflict, CodeConflict)
 }
 
 func TestNodes_AnAdminSeesEachNodeAndTheRootsItConfigured(t *testing.T) {
@@ -211,8 +211,8 @@ func TestNodes_AnAdminSeesEachNodeAndTheRootsItConfigured(t *testing.T) {
 	storetest.ExecRaw(t, harness.database, "INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)")
 	harness.connectNode(t, "/media/films", "/media/shows")
 	listed := harness.do(t, http.MethodGet, "/nodes", admin, nil)
-	want := `{"nodes":[{"name":"attic","isConnected":false,"roots":[]},` +
-		`{"name":"local","isConnected":true,"roots":["/media/films","/media/shows"]}]}`
+	want := `{"nodes":[{"name":"attic","isConnected":false,"rootPaths":[]},` +
+		`{"name":"local","isConnected":true,"rootPaths":["/media/films","/media/shows"]}]}`
 	if listed.status != http.StatusOK || !strings.Contains(listed.body, want) {
 		t.Errorf("GET /nodes = %d %s", listed.status, listed.body)
 	}

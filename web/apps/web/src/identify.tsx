@@ -170,7 +170,7 @@ export function Identify(): JSX.Element {
   const [items, reload] = useResource(`items/${waiting}`, async () => {
     const data = dataOrThrow(
       await api.GET("/items", {
-        params: { query: { identification: waiting } },
+        params: { query: { identificationState: waiting } },
       }),
     );
     return data.items ?? [];
