@@ -3,7 +3,7 @@
 /* Each answer: its name, then what it does, on lines of their own. */
 .sound__answer {
   display: grid;
-  gap: 0.25rem;
+  gap: calc(var(--space-page) / 4);
   width: 100%;
   text-align: start;
 }
@@ -11,6 +11,6 @@
 /* A switch for one of the person's own choices: the box beside its label. */
 .sound__switch {
   display: flex;
-  gap: 0.5rem;
+  gap: calc(var(--space-page) / 2);
   align-items: center;
 }
