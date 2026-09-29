@@ -36,7 +36,7 @@ type ArtOutput struct {
 }
 
 func (server *Server) registerArt() {
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getArt", Method: http.MethodGet, Path: "/bytes/art/{sourceSha256}/{variant}",
 		Summary: "One size of one image, in WebP or JPEG (D212)", Tags: []string{tagBrowse},
 		Responses: map[string]*huma.Response{
@@ -49,28 +49,28 @@ func (server *Server) registerArt() {
 }
 
 func (server *Server) getArt(ctx context.Context, input *ArtInput) (*ArtOutput, error) {
-	dependencies, err := server.signedInForMedia(ctx, input.MediaCredentials)
+	dependencies, err := server.requireSignedInForMedia(ctx, input.MediaCredentials)
 	if err != nil {
 		return nil, err
 	}
-	name, format, found := strings.Cut(input.Variant, ".")
+	sizeName, format, found := strings.Cut(input.Variant, ".")
 	if !found {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such image")
 	}
-	served, err := dependencies.Artwork.Serve(ctx, input.SourceSha256, nodeproto.ArtSizeName(name), format)
+	image, err := dependencies.Artwork.Serve(ctx, input.SourceSha256, nodeproto.ArtSizeName(sizeName), format)
 	if errors.Is(err, artwork.ErrNoArt) {
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such image")
 	}
 	if err != nil {
-		return nil, server.internal(ctx, "serve an image", err)
+		return nil, server.logInternalError(ctx, "serve an image", err)
 	}
-	if served.RedirectName != "" {
+	if image.RedirectName != "" {
 		return &ArtOutput{
 			Status: http.StatusTemporaryRedirect, CacheControl: "no-store",
-			Location: Prefix + "/bytes/art/" + input.SourceSha256 + "/" + served.RedirectName,
+			Location: Prefix + "/bytes/art/" + input.SourceSha256 + "/" + image.RedirectName,
 		}, nil
 	}
 	return &ArtOutput{
-		Status: http.StatusOK, ContentType: "image/" + format, CacheControl: artCacheControl, Body: served.Bytes,
+		Status: http.StatusOK, ContentType: "image/" + format, CacheControl: artCacheControl, Body: image.Bytes,
 	}, nil
 }

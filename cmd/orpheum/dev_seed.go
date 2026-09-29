@@ -73,13 +73,13 @@ func commandDev(ctx context.Context, call invocation) int {
 	}
 	call.arguments = call.arguments[1:]
 	var seedPath string
-	config, configReport, err := call.configFlags("dev seed", func(flags *flag.FlagSet) {
+	config, configReport, err := call.loadConfigFromFlags("dev seed", func(flags *flag.FlagSet) {
 		flags.StringVar(&seedPath, "seed", "", "the seed file, dev/seed.toml rendered (required)")
 	})
 	if err != nil {
 		return call.fail(err)
 	}
-	call.noteConfig(configReport)
+	call.printConfigNotes(configReport)
 	var seed seedFile
 	metadata, err := toml.DecodeFile(seedPath, &seed)
 	if err != nil {
@@ -124,7 +124,7 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if _, err = settingsService.Seed(ctx); err != nil { // the server logs what the seed found at start
 		return err
 	}
-	key, err := loadOrCreateKey(directories, logger)
+	key, err := loadOrCreateSecretKey(directories, logger)
 	if err != nil {
 		return err
 	}
@@ -136,8 +136,8 @@ func applySeed(ctx context.Context, call invocation, config Config, seed seedFil
 	if err != nil {
 		return err
 	}
-	sealed := secrets.NewStore(database, key, clock.System{}, rand.Reader, settingsService)
-	err = seedSecrets(ctx, call.lookupEnv, sealed, report)
+	secretStore := secrets.NewStore(database, key, clock.System{}, rand.Reader, settingsService)
+	err = seedSecrets(ctx, call.lookupEnv, secretStore, report)
 	if err != nil {
 		return err
 	}
@@ -157,23 +157,23 @@ func seedLibraries(
 	if err != nil {
 		return err
 	}
-	for _, seeded := range libraries {
-		root := seeded.RootPath
+	for _, wantedLibrary := range libraries {
+		root := wantedLibrary.RootPath
 		if resolved, resolveErr := filepath.EvalSymlinks(root); resolveErr == nil {
 			root = resolved
 		}
 		_, err = library.Create(ctx, database, clock.System{}, library.NewLibrary{
-			Name: seeded.Name, Kind: seeded.Kind, MetadataSource: seeded.MetadataSource,
-			ChangeDetection: seeded.ChangeDetection, IsWritable: seeded.IsWritable, NodeID: nodeID,
+			Name: wantedLibrary.Name, Kind: wantedLibrary.Kind, MetadataSource: wantedLibrary.MetadataSource,
+			ChangeDetection: wantedLibrary.ChangeDetection, IsWritable: wantedLibrary.IsWritable, NodeID: nodeID,
 			Roots: []string{root},
 		})
 		switch {
 		case errors.Is(err, library.ErrNameTaken):
-			fmt.Fprintf(report, "seed: library %q exists; left as it is\n", seeded.Name)
+			fmt.Fprintf(report, "seed: library %q exists; left as it is\n", wantedLibrary.Name)
 		case err != nil:
-			return fmt.Errorf("seed library %q: %w", seeded.Name, err)
+			return fmt.Errorf("seed library %q: %w", wantedLibrary.Name, err)
 		default:
-			fmt.Fprintf(report, "seed: library %q covers %s on node %q\n", seeded.Name, root, nodeName)
+			fmt.Fprintf(report, "seed: library %q covers %s on node %q\n", wantedLibrary.Name, root, nodeName)
 		}
 	}
 	return nil

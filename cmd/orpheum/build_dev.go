@@ -15,8 +15,8 @@ func devCommand() command {
 	return commandDev
 }
 
-// environment is the process environment, which only a dev build reads: `dev seed` seals the
-// ORPHEUM_DEV_* secrets from it (D204).
-func environment() func(string) (string, bool) {
+// environmentLookup looks names up in the process environment, which only a dev build reads:
+// `dev seed` seals the ORPHEUM_DEV_* secrets from it (D204).
+func environmentLookup() func(string) (string, bool) {
 	return os.LookupEnv
 }

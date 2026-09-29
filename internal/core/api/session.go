@@ -58,7 +58,7 @@ type SignInInput struct {
 // per-address failure limit (D194 §2), and whether it came over TLS, for the media cookie.
 type ClientFacts struct {
 	clientAddress string
-	overTLS       bool
+	isOverTLS     bool
 }
 
 // NewDeviceBody is how a client names itself: the device becomes one of the person's, listed
@@ -79,7 +79,7 @@ func (facts *ClientFacts) Resolve(ctx huma.Context) []error {
 	if err != nil {
 		host = ctx.RemoteAddr()
 	}
-	facts.clientAddress, facts.overTLS = host, ctx.TLS() != nil
+	facts.clientAddress, facts.isOverTLS = host, ctx.TLS() != nil
 	return nil
 }
 
@@ -97,12 +97,12 @@ type SessionOutput struct {
 // SignOutInput signs a session out.
 type SignOutInput struct {
 	AuthorizationHeader
-	overTLS bool
+	isOverTLS bool
 }
 
 // Resolve records whether the request came over TLS, for clearing the media cookie.
 func (input *SignOutInput) Resolve(ctx huma.Context) []error {
-	input.overTLS = ctx.TLS() != nil
+	input.isOverTLS = ctx.TLS() != nil
 	return nil
 }
 
@@ -113,26 +113,26 @@ type SignOutOutput struct {
 
 func (server *Server) registerSetupAndAuth() {
 	tags := []string{"Setup and auth"}
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setup", Method: http.MethodPost, Path: "/setup", DefaultStatus: http.StatusCreated,
 		Summary: "Create the first admin with the one-time setup code from the log", Tags: tags,
 	}, server.setup)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "signIn", Method: http.MethodPost, Path: "/session", DefaultStatus: http.StatusCreated,
 		Summary: "Sign in; returns a session token for the Authorization header", Tags: tags,
 	}, server.signIn)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "signOut", Method: http.MethodDelete, Path: "/session", DefaultStatus: http.StatusNoContent,
 		Summary: "Sign out, revoking this session", Tags: tags,
 	}, server.signOut)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getMe", Method: http.MethodGet, Path: "/me",
 		Summary: "Who this session belongs to", Tags: tags,
-	}, server.me)
+	}, server.getMe)
 }
 
 func (server *Server) setup(ctx context.Context, input *SetupInput) (*UserOutput, error) {
-	dependencies, err := server.ready()
+	dependencies, err := server.readyDependencies()
 	if err != nil {
 		return nil, err
 	}
@@ -145,20 +145,20 @@ func (server *Server) setup(ctx context.Context, input *SetupInput) (*UserOutput
 		return nil, newError(http.StatusForbidden, CodeForbidden,
 			"the setup code is wrong; it is in the server's log, or run `orpheum setup-code`")
 	case err != nil:
-		return nil, server.internal(ctx, "complete setup", err)
+		return nil, server.logInternalError(ctx, "complete setup", err)
 	}
 	server.logger.InfoContext(ctx, "first admin created", "userId", id)
 	return &UserOutput{Body: UserBody{ID: id, Name: admin.Name, Role: string(auth.RoleAdmin), IsAdmin: true}}, nil
 }
 
 func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionOutput, error) {
-	dependencies, err := server.ready()
+	dependencies, err := server.readyDependencies()
 	if err != nil {
 		return nil, err
 	}
 	count, err := dependencies.Auth.CountUsers(ctx)
 	if err != nil {
-		return nil, server.internal(ctx, "count users", err)
+		return nil, server.logInternalError(ctx, "count users", err)
 	}
 	if count == 0 {
 		return nil, newError(http.StatusConflict, CodeSetupRequired,
@@ -173,38 +173,38 @@ func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionO
 	case errors.Is(err, auth.ErrBadCredentials):
 		return nil, newError(http.StatusUnauthorized, CodeAuthRequired, "the name or password is wrong")
 	case err != nil:
-		return nil, server.internal(ctx, "sign in", err)
+		return nil, server.logInternalError(ctx, "sign in", err)
 	}
-	return server.sessionAnswer(ctx, dependencies, token, input.overTLS)
+	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
 }
 
-// sessionAnswer answers a sign-in, a registration or a device code with the new session: its
+// newSessionOutput answers a sign-in, a registration or a device code with the new session: its
 // token, who it is, and the media cookie.
-func (server *Server) sessionAnswer(
-	ctx context.Context, dependencies *Dependencies, token string, overTLS bool,
+func (server *Server) newSessionOutput(
+	ctx context.Context, dependencies *Dependencies, token string, isOverTLS bool,
 ) (*SessionOutput, error) {
 	principal, err := dependencies.Auth.Authenticate(ctx, token)
 	if err != nil {
-		return nil, server.internal(ctx, "read the new session", err)
+		return nil, server.logInternalError(ctx, "read the new session", err)
 	}
 	body, err := server.userBody(ctx, dependencies, principal)
 	if err != nil {
 		return nil, err
 	}
-	output := &SessionOutput{SetCookie: mediaCookie(token, overTLS)}
+	output := &SessionOutput{SetCookie: mediaCookie(token, isOverTLS)}
 	output.Body.Token, output.Body.User = token, body
 	return output, nil
 }
 
 func (server *Server) signOut(ctx context.Context, input *SignOutInput) (*SignOutOutput, error) {
-	dependencies, _, err := server.signedIn(ctx, input.Authorization)
+	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	if err = dependencies.Auth.SignOut(ctx, bearerToken(input.Authorization)); err != nil {
-		return nil, server.internal(ctx, "sign out", err)
+		return nil, server.logInternalError(ctx, "sign out", err)
 	}
-	cleared := mediaCookie("", input.overTLS) //nolint:gosec // as mediaCookie (P20)
+	cleared := mediaCookie("", input.isOverTLS) //nolint:gosec // as mediaCookie (P20)
 	cleared.MaxAge = -1
 	return &SignOutOutput{SetCookie: cleared}, nil
 }
@@ -212,12 +212,12 @@ func (server *Server) signOut(ctx context.Context, input *SignOutInput) (*SignOu
 // MeInput asks who a session belongs to.
 type MeInput struct {
 	AuthorizationHeader
-	overTLS bool
+	isOverTLS bool
 }
 
 // Resolve records whether the request came over TLS, for the media cookie.
 func (input *MeInput) Resolve(ctx huma.Context) []error {
-	input.overTLS = ctx.TLS() != nil
+	input.isOverTLS = ctx.TLS() != nil
 	return nil
 }
 
@@ -227,11 +227,11 @@ type MeOutput struct {
 	Body      UserBody
 }
 
-// me answers who a session belongs to, and sets the media cookie to that session again: a
+// getMe answers who a session belongs to, and sets the media cookie to that session again: a
 // client asks at start, so a browser whose cookie is missing, from an older path, or from
 // another session gets the right one before it fetches an image or a video (D154, D216).
-func (server *Server) me(ctx context.Context, input *MeInput) (*MeOutput, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+func (server *Server) getMe(ctx context.Context, input *MeInput) (*MeOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +239,7 @@ func (server *Server) me(ctx context.Context, input *MeInput) (*MeOutput, error)
 	if err != nil {
 		return nil, err
 	}
-	return &MeOutput{SetCookie: mediaCookie(bearerToken(input.Authorization), input.overTLS), Body: body}, nil
+	return &MeOutput{SetCookie: mediaCookie(bearerToken(input.Authorization), input.isOverTLS), Body: body}, nil
 }
 
 // userBody is who a session belongs to, and the device it is on.
@@ -253,7 +253,7 @@ func (server *Server) userBody(
 	if principal.DeviceID != 0 {
 		device, err := dependencies.Auth.DeviceOf(ctx, principal.UserID, principal.DeviceID)
 		if err != nil && !errors.Is(err, auth.ErrNoDevice) {
-			return UserBody{}, server.internal(ctx, "read the session's device", err)
+			return UserBody{}, server.logInternalError(ctx, "read the session's device", err)
 		}
 		if err == nil {
 			body.Device = &CurrentDeviceBody{ID: device.ID, Name: device.Name}

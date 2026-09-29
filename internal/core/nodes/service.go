@@ -352,9 +352,9 @@ func (service *Service) knownNodeIDOf(writer http.ResponseWriter, request *http.
 	return id, true
 }
 
-func (service *Service) fail(ctx context.Context, writer http.ResponseWriter, doing string, err error) {
-	service.logger.ErrorContext(ctx, "the node channel failed", "doing", doing, "err", err)
-	http.Error(writer, doing+" failed", http.StatusInternalServerError)
+func (service *Service) fail(ctx context.Context, writer http.ResponseWriter, action string, err error) {
+	service.logger.ErrorContext(ctx, "the node channel failed", "action", action, "err", err)
+	http.Error(writer, action+" failed", http.StatusInternalServerError)
 }
 
 func writeJSON(writer http.ResponseWriter, value any) {

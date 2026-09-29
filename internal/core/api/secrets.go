@@ -47,33 +47,33 @@ type PutSecretInput struct {
 
 func (server *Server) registerSecrets() {
 	tags := []string{tagSettings}
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSecrets", Method: http.MethodGet, Path: "/secrets",
 		Summary: "Which secrets are set; never their values (admin)", Tags: tags,
 	}, func(ctx context.Context, input *AuthorizationHeader) (*SecretsOutput, error) {
-		dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+		dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 		if err != nil {
 			return nil, err
 		}
 		return server.listSecrets(ctx, dependencies.Secrets)
 	})
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "putSecret", Method: http.MethodPut, Path: "/secrets/{name}",
 		DefaultStatus: http.StatusNoContent, Summary: "Set a secret; write-only (admin)", Tags: tags,
 	}, func(ctx context.Context, input *PutSecretInput) (*struct{}, error) {
 		value := secrets.NewValue(input.Body.Value)
-		dependencies, principal, err := server.signedInAdmin(ctx, input.Authorization)
+		dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 		if err != nil {
 			return nil, err
 		}
 		err = dependencies.Secrets.Set(ctx, secrets.Name(input.Name), value, &principal.UserID)
 		return &struct{}{}, server.secretError(ctx, "set a secret", err)
 	})
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "deleteSecret", Method: http.MethodDelete, Path: "/secrets/{name}",
 		DefaultStatus: http.StatusNoContent, Summary: "Clear a secret (admin)", Tags: tags,
 	}, func(ctx context.Context, input *SecretNameInput) (*struct{}, error) {
-		dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+		dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 		if err != nil {
 			return nil, err
 		}
@@ -82,10 +82,10 @@ func (server *Server) registerSecrets() {
 	})
 }
 
-func (server *Server) listSecrets(ctx context.Context, store *secrets.Store) (*SecretsOutput, error) {
-	statuses, err := store.Statuses(ctx)
+func (server *Server) listSecrets(ctx context.Context, secretStore *secrets.Store) (*SecretsOutput, error) {
+	statuses, err := secretStore.Statuses(ctx)
 	if err != nil {
-		return nil, server.internal(ctx, "list secrets", err)
+		return nil, server.logInternalError(ctx, "list secrets", err)
 	}
 	output := &SecretsOutput{}
 	output.Body.Secrets = []SecretBody{}
@@ -100,12 +100,12 @@ func (server *Server) listSecrets(ctx context.Context, store *secrets.Store) (*S
 }
 
 // secretError maps the secrets package's refusals to API errors.
-func (server *Server) secretError(ctx context.Context, doing string, err error) error {
+func (server *Server) secretError(ctx context.Context, action string, err error) error {
 	switch {
 	case err == nil:
 		return nil
 	case errors.Is(err, secrets.ErrUnknownSecret):
 		return newError(http.StatusNotFound, CodeNotFound, "no such secret")
 	}
-	return server.internal(ctx, doing, err)
+	return server.logInternalError(ctx, action, err)
 }

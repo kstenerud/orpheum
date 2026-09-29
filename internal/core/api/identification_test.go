@@ -61,7 +61,7 @@ func (*fakeProvider) Parse(_ string, body []byte) (identify.Metadata, error) {
 // ambiguousTitle adds title 10, a film whose search found two Solarises.
 func (harness testHarness) ambiguousTitle(t *testing.T) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'movies', 'tmdb', 'manual', 0, 1)`,
 		`INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', 1, 1)`,
@@ -143,7 +143,7 @@ func TestIdentification_OnlyARoleThatEditsMetadataMayChange(t *testing.T) {
 	harness := newHarness(t)
 	harness.createAdminAndSignIn(t)
 	harness.ambiguousTitle(t)
-	if _, err := harness.service.CreateUser(t.Context(),
+	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}

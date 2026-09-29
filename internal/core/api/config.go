@@ -40,8 +40,8 @@ type ConfigOutput struct {
 	}
 }
 
-// ConfigKeyInput names one setting.
-type ConfigKeyInput struct {
+// SettingKeyInput names one setting.
+type SettingKeyInput struct {
 	AuthorizationHeader
 	Key string `path:"key"`
 }
@@ -68,7 +68,7 @@ type UnusedOutput struct {
 	}
 }
 
-// DeleteUnusedInput names one unused row; user names a user's row, absent a server one.
+// DeleteUnusedInput names one unused row; UserID names a user's row, and 0 or absent a server one.
 type DeleteUnusedInput struct {
 	AuthorizationHeader
 	Key    string `path:"key"`
@@ -78,37 +78,37 @@ type DeleteUnusedInput struct {
 // registerConfig is the raw view of every server setting, as Firefox's about:config is (D200).
 func (server *Server) registerConfig() {
 	tags := []string{tagSettings}
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getConfig", Method: http.MethodGet, Path: "/config",
 		Summary: "Every server setting beside its starting value, and the config file's keys (read-only); " +
 			"?onlyModified=true lists only the settings a person set (admin)",
 		Tags: tags,
 	}, server.getConfig)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "putConfig", Method: http.MethodPut, Path: "/config",
 		Summary: "Change any server settings, all or none (admin)", Tags: tags,
 	}, server.putConfig)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "resetConfig", Method: http.MethodPost, Path: "/config/{key}/reset",
 		Summary: "Set a server setting to default: its starting value, no longer marked modified, so it " +
 			"follows its starting value when a release changes it (admin)",
 		Tags: tags,
 	}, server.resetConfig)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getUnusedConfig", Method: http.MethodGet, Path: "/config/unused",
 		Summary: "Setting rows this release does not read: retired keys, or typos (admin)", Tags: tags,
-	}, server.getUnused)
-	huma.Register(server.api, huma.Operation{
+	}, server.getUnusedConfig)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "deleteUnusedConfig", Method: http.MethodDelete, Path: "/config/unused/{key}",
 		DefaultStatus: http.StatusNoContent,
 		Summary: "Delete a setting row this release does not read; a setting in use is set to default " +
 			"instead (admin)",
 		Tags: tags,
-	}, server.deleteUnused)
+	}, server.deleteUnusedConfig)
 }
 
 func (server *Server) getConfig(ctx context.Context, input *ConfigListInput) (*ConfigOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -123,20 +123,20 @@ func (server *Server) getConfig(ctx context.Context, input *ConfigListInput) (*C
 			output.Body.Settings = append(output.Body.Settings, setting)
 		}
 	}
-	output.Body.ConfigFileKeys = append([]ConfigFileKey{}, dependencies.ConfigFile...)
+	output.Body.ConfigFileKeys = append([]ConfigFileKey{}, dependencies.ConfigFileKeys...)
 	return output, nil
 }
 
 func (server *Server) putConfig(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
-	dependencies, principal, err := server.signedInAdmin(ctx, input.Authorization)
+	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	return server.putSettings(ctx, dependencies.Settings, nil, input.Body.ValuesByKey, principal.UserID, false)
 }
 
-func (server *Server) resetConfig(ctx context.Context, input *ConfigKeyInput) (*SettingOutput, error) {
-	dependencies, principal, err := server.signedInAdmin(ctx, input.Authorization)
+func (server *Server) resetConfig(ctx context.Context, input *SettingKeyInput) (*SettingOutput, error) {
+	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (server *Server) resetConfig(ctx context.Context, input *ConfigKeyInput) (*
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such server setting")
 	}
 	if err != nil {
-		return nil, server.internal(ctx, "reset a setting", err)
+		return nil, server.logInternalError(ctx, "reset a setting", err)
 	}
 	listed, err := server.listSettings(ctx, dependencies.Settings, nil, false)
 	if err != nil {
@@ -156,17 +156,17 @@ func (server *Server) resetConfig(ctx context.Context, input *ConfigKeyInput) (*
 			return &SettingOutput{Body: setting}, nil
 		}
 	}
-	return nil, server.internal(ctx, "reset a setting", errors.New("the reset setting is not listed"))
+	return nil, server.logInternalError(ctx, "reset a setting", errors.New("the reset setting is not listed"))
 }
 
-func (server *Server) getUnused(ctx context.Context, input *AuthorizationHeader) (*UnusedOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+func (server *Server) getUnusedConfig(ctx context.Context, input *AuthorizationHeader) (*UnusedOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	unused, err := dependencies.Settings.Unused(ctx)
 	if err != nil {
-		return nil, server.internal(ctx, "list unused settings", err)
+		return nil, server.logInternalError(ctx, "list unused settings", err)
 	}
 	output := &UnusedOutput{}
 	output.Body.UnusedSettings = []UnusedBody{}
@@ -182,22 +182,22 @@ func (server *Server) getUnused(ctx context.Context, input *AuthorizationHeader)
 	return output, nil
 }
 
-func (server *Server) deleteUnused(ctx context.Context, input *DeleteUnusedInput) (*struct{}, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+func (server *Server) deleteUnusedConfig(ctx context.Context, input *DeleteUnusedInput) (*struct{}, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	var owner *int64
+	var ownerUserID *int64
 	if input.UserID != 0 {
-		owner = &input.UserID
+		ownerUserID = &input.UserID
 	}
-	err = dependencies.Settings.DeleteUnused(ctx, input.Key, owner)
+	err = dependencies.Settings.DeleteUnused(ctx, input.Key, ownerUserID)
 	if errors.Is(err, settings.ErrInUse) {
 		return nil, newError(http.StatusConflict, CodeConflict,
 			"this release reads that setting; set it to default instead of deleting it")
 	}
 	if err != nil {
-		return nil, server.internal(ctx, "delete an unused setting", err)
+		return nil, server.logInternalError(ctx, "delete an unused setting", err)
 	}
 	return &struct{}{}, nil
 }

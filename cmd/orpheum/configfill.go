@@ -10,9 +10,9 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// fromStartMarker ends every line added in memory for a key the file lacks. Nothing writes it to
-// the file: a file a person wrote is never rewritten unasked (migrations.md, Files).
-const fromStartMarker = "  # starting value; not in the file"
+// startingValueMarker ends every line added in memory for a key the file lacks. Nothing writes it
+// to the file: a file a person wrote is never rewritten unasked (migrations.md, Files).
+const startingValueMarker = "  # starting value; not in the file"
 
 // withStartingValues adds each key, with its starting value, into its table in the file's text:
 // after the table's last line, or in a new table at the end. The result is parsed in memory, never
@@ -23,7 +23,7 @@ func withStartingValues(text string, keys []configKey) (string, error) {
 		var added []string
 		for _, key := range keys {
 			if key.table == table {
-				added = append(added, key.name+" = "+key.start+fromStartMarker)
+				added = append(added, key.name+" = "+key.startingValue+startingValueMarker)
 			}
 		}
 		lines = insertIntoTable(lines, table, added)

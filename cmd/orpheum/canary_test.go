@@ -36,12 +36,12 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	server := startServing(t, config, captured, "ready")
 	setupCode := runCommand(t, "setup-code", "--config", configPath)
 	const adminName = "CONTROL-admin-name"
-	created := call(t, http.MethodPost, server.baseURL+"/setup", "",
+	created := requestAPI(t, http.MethodPost, server.baseURL+"/setup", "",
 		map[string]string{"setupCode": strings.TrimSpace(setupCode.stdout), "name": adminName, "password": "pw"})
 	if created.status != http.StatusCreated {
 		t.Fatalf("setup: %d %s", created.status, created.body)
 	}
-	session := call(t, http.MethodPost, server.baseURL+"/session", "",
+	session := requestAPI(t, http.MethodPost, server.baseURL+"/session", "",
 		map[string]any{"name": adminName, "password": "pw", "device": signInDevice})
 	var signedIn struct {
 		Token string `json:"token"`
@@ -51,24 +51,24 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	}
 
 	var responses strings.Builder
-	record := func(answer reply) { responses.WriteString(answer.body + "\n") }
+	record := func(answer apiReply) { responses.WriteString(answer.body + "\n") }
 	for _, definition := range secrets.Registry() {
 		path := "/secrets/"
 		value := canaryPrefix + "-" + string(definition.Name) + "-0123456789"
-		answer := call(t, http.MethodPut, server.baseURL+path+string(definition.Name), signedIn.Token,
+		answer := requestAPI(t, http.MethodPut, server.baseURL+path+string(definition.Name), signedIn.Token,
 			map[string]string{"value": value})
 		if answer.status != http.StatusNoContent {
 			t.Fatalf("PUT %s%s: %d %s", path, definition.Name, answer.status, answer.body)
 		}
 		record(answer)
-		record(call(t, http.MethodPut, server.baseURL+path+string(definition.Name), signedIn.Token,
+		record(requestAPI(t, http.MethodPut, server.baseURL+path+string(definition.Name), signedIn.Token,
 			map[string]any{"value": []string{value}}))
 	}
 	paths := []string{
 		"/health", "/me", "/settings", "/me/settings", "/config", "/secrets", "/openapi.json",
 	}
 	for _, path := range paths {
-		record(call(t, http.MethodGet, server.baseURL+path, signedIn.Token, nil))
+		record(requestAPI(t, http.MethodGet, server.baseURL+path, signedIn.Token, nil))
 	}
 	if err := server.stop(); err != nil {
 		t.Fatal(err)
@@ -110,7 +110,7 @@ type commandOutput struct {
 func runCommand(t *testing.T, arguments ...string) commandOutput {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
-	status := run(t.Context(), arguments, noEnvironment, &stdout, &stderr)
+	status := dispatch(t.Context(), arguments, noEnvironment, &stdout, &stderr)
 	return commandOutput{status: status, stdout: stdout.String(), stderr: stderr.String()}
 }
 

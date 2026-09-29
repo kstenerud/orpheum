@@ -10,8 +10,8 @@ import (
 	"testing"
 )
 
-// session reads a sign-in's answer: the token, and whose it is.
-func session(t *testing.T, answer response) (token, name string) {
+// readSignIn reads a sign-in's answer: the token, and whose it is.
+func readSignIn(t *testing.T, answer response) (token, name string) {
 	t.Helper()
 	var signedIn struct {
 		Token string `json:"token"`
@@ -46,7 +46,7 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	registered := harness.do(t, http.MethodPost, "/registration", "", map[string]any{
 		"secret": made.Registration.Secret, "password": "partner-password", "device": testDevice,
 	})
-	partner, name := session(t, registered)
+	partner, name := readSignIn(t, registered)
 	if name != "partner" {
 		t.Errorf("registering signed in as %q, want partner", name)
 	}
@@ -65,7 +65,7 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	television := harness.do(t, http.MethodPost, "/session/code", "", map[string]string{
 		"code": strings.ToUpper(issued.Secret), "platform": "web",
 	})
-	if _, name := session(t, television); name != "partner" {
+	if _, name := readSignIn(t, television); name != "partner" {
 		t.Errorf("the television signed in as %q, want partner", name)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/device-codes", partner,
@@ -217,7 +217,7 @@ func TestDeviceCodes_OneWaitsAndIsForANewOrAListedDevice(t *testing.T) {
 	}
 	used := harness.do(t, http.MethodPost, "/session/code", "",
 		map[string]string{"code": code.Secret, "platform": "web"})
-	if _, name := session(t, used); name != "owner" {
+	if _, name := readSignIn(t, used); name != "owner" {
 		t.Errorf("the code signed in %q", name)
 	}
 	if got := waiting(); !strings.Contains(got, `"isWaiting":false`) {

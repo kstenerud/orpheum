@@ -46,16 +46,16 @@ type SetFilePrefsInput struct {
 }
 
 func (server *Server) registerFilePrefs() {
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setFilePreferences", Method: http.MethodPut, Path: "/files/{id}/preferences",
 		Summary: "Keep a person's choices for one file: its subtitle offset, its subtitle track",
 		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
-	}, server.setFilePrefs)
-	huma.Register(server.api, huma.Operation{
+	}, server.setFilePreferences)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setMyPreferences", Method: http.MethodPut, Path: "/me/preferences",
 		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling",
 		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
-	}, server.setMyPrefs)
+	}, server.setMyPreferences)
 }
 
 func filePrefsBody(prefs playback.FilePrefs) FilePrefsBody {
@@ -83,26 +83,26 @@ type SetMyPrefsInput struct {
 	}
 }
 
-func (server *Server) setMyPrefs(ctx context.Context, input *SetMyPrefsInput) (*struct{}, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPrefsInput) (*struct{}, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	if isOn := input.Body.IsDialogueBoostOn; isOn != nil {
 		if err := dependencies.Playback.SetDialogueBoost(ctx, principal.UserID, *isOn); err != nil {
-			return nil, server.internal(ctx, "keep a person's dialogue boost", err)
+			return nil, server.logInternalError(ctx, "keep a person's dialogue boost", err)
 		}
 	}
 	if isOn := input.Body.IsLevellingOn; isOn != nil {
 		if err := dependencies.Playback.SetLevelling(ctx, principal.UserID, *isOn); err != nil {
-			return nil, server.internal(ctx, "keep whether a person's loudness is levelled", err)
+			return nil, server.logInternalError(ctx, "keep whether a person's loudness is levelled", err)
 		}
 	}
 	return &struct{}{}, nil
 }
 
-func (server *Server) setFilePrefs(ctx context.Context, input *SetFilePrefsInput) (*struct{}, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+func (server *Server) setFilePreferences(ctx context.Context, input *SetFilePrefsInput) (*struct{}, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (server *Server) setFilePrefs(ctx context.Context, input *SetFilePrefsInput
 	case errors.Is(err, playback.ErrNoTrack):
 		return nil, newError(http.StatusBadRequest, CodeInvalidRequest, "this file has no such subtitle track")
 	case err != nil:
-		return nil, server.internal(ctx, "keep a file's preferences", err)
+		return nil, server.logInternalError(ctx, "keep a file's preferences", err)
 	}
 	return &struct{}{}, nil
 }

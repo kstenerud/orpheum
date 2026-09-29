@@ -47,41 +47,41 @@ type PutSettingsInput struct {
 
 func (server *Server) registerSettings() {
 	tags := []string{tagSettings}
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSettings", Method: http.MethodGet, Path: "/settings",
 		Summary: "The server settings the settings page shows (admin)", Tags: tags,
 	}, func(ctx context.Context, input *AuthorizationHeader) (*SettingsOutput, error) {
-		dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+		dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 		if err != nil {
 			return nil, err
 		}
 		return server.listSettings(ctx, dependencies.Settings, nil, true)
 	})
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "putSettings", Method: http.MethodPut, Path: "/settings",
 		Summary: "Change server settings the settings page shows, all or none (admin)", Tags: tags,
 	}, func(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
-		dependencies, principal, err := server.signedInAdmin(ctx, input.Authorization)
+		dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 		if err != nil {
 			return nil, err
 		}
 		return server.putSettings(ctx, dependencies.Settings, nil, input.Body.ValuesByKey, principal.UserID, true)
 	})
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getMySettings", Method: http.MethodGet, Path: "/me/settings",
 		Summary: "This user's own settings", Tags: tags,
 	}, func(ctx context.Context, input *AuthorizationHeader) (*SettingsOutput, error) {
-		dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+		dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 		if err != nil {
 			return nil, err
 		}
 		return server.listSettings(ctx, dependencies.Settings, &principal.UserID, true)
 	})
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "putMySettings", Method: http.MethodPut, Path: "/me/settings",
 		Summary: "Change this user's own settings, all or none", Tags: tags,
 	}, func(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
-		dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+		dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 		if err != nil {
 			return nil, err
 		}
@@ -91,12 +91,12 @@ func (server *Server) registerSettings() {
 	server.registerConfig()
 }
 
-func (server *Server) listSettings(ctx context.Context, service *settings.Service, owner *int64, exposedOnly bool) (
-	*SettingsOutput, error,
-) {
-	entries, err := service.List(ctx, owner, exposedOnly)
+func (server *Server) listSettings(
+	ctx context.Context, service *settings.Service, ownerUserID *int64, isExposedOnly bool,
+) (*SettingsOutput, error) {
+	entries, err := service.List(ctx, ownerUserID, isExposedOnly)
 	if err != nil {
-		return nil, server.internal(ctx, "list settings", err)
+		return nil, server.logInternalError(ctx, "list settings", err)
 	}
 	output := &SettingsOutput{}
 	output.Body.Settings = []SettingBody{}
@@ -121,16 +121,17 @@ func settingBody(entry settings.Entry) SettingBody {
 }
 
 func (server *Server) putSettings(
-	ctx context.Context, service *settings.Service, owner *int64, values map[string]json.RawMessage, setBy int64,
-	exposedOnly bool,
+	ctx context.Context, service *settings.Service, ownerUserID *int64, values map[string]json.RawMessage,
+	setByUserID int64,
+	isExposedOnly bool,
 ) (*SettingsOutput, error) {
-	err := service.Set(ctx, owner, values, &setBy, exposedOnly)
+	err := service.Set(ctx, ownerUserID, values, &setByUserID, isExposedOnly)
 	switch {
 	case errors.Is(err, settings.ErrUnknownSetting), errors.Is(err, settings.ErrWrongScope),
 		errors.Is(err, settings.ErrInvalidValue), errors.Is(err, settings.ErrNotExposed):
 		return nil, newError(http.StatusUnprocessableEntity, CodeInvalidRequest, err.Error())
 	case err != nil:
-		return nil, server.internal(ctx, "set settings", err)
+		return nil, server.logInternalError(ctx, "set settings", err)
 	}
-	return server.listSettings(ctx, service, owner, exposedOnly)
+	return server.listSettings(ctx, service, ownerUserID, isExposedOnly)
 }

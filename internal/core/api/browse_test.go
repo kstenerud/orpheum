@@ -23,7 +23,7 @@ func (harness testHarness) shelve(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := func(name string) string { return "X'" + hex.EncodeToString(sorter.Key(name)) + "'" }
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
@@ -65,7 +65,7 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
-	if _, err := harness.service.CreateUser(t.Context(),
+	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}

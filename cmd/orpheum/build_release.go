@@ -12,8 +12,8 @@ func devCommand() command {
 	return nil
 }
 
-// environment is empty in a release build: the shipped binary is configured by its config file,
-// its flags and its database, and by nothing it happens to inherit (D204).
-func environment() func(string) (string, bool) {
+// environmentLookup finds nothing in a release build: the shipped binary is configured by its
+// config file, its flags and its database, and by nothing it happens to inherit (D204).
+func environmentLookup() func(string) (string, bool) {
 	return func(string) (string, bool) { return "", false }
 }

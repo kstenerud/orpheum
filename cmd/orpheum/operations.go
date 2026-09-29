@@ -34,13 +34,14 @@ func (call invocation) fail(err error) int {
 	return write(call.stderr, "orpheum: "+err.Error()+"\n", exitFailure)
 }
 
-// configFlags parses a subcommand's flags, which always include --config.
-func (call invocation) configFlags(name string, extra func(*flag.FlagSet)) (Config, ConfigReport, error) {
+// loadConfigFromFlags parses a subcommand's flags, which always include --config, and loads and
+// checks the config file it names. When addFlags is set, it adds the subcommand's own flags.
+func (call invocation) loadConfigFromFlags(name string, addFlags func(*flag.FlagSet)) (Config, ConfigReport, error) {
 	flags := flag.NewFlagSet("orpheum "+name, flag.ContinueOnError)
 	flags.SetOutput(call.stderr)
 	configPath := flags.String("config", "", "the config file (required)")
-	if extra != nil {
-		extra(flags)
+	if addFlags != nil {
+		addFlags(flags)
 	}
 	if err := flags.Parse(call.arguments); err != nil {
 		return Config{}, ConfigReport{}, err
@@ -51,8 +52,8 @@ func (call invocation) configFlags(name string, extra func(*flag.FlagSet)) (Conf
 	return loadConfig(*configPath)
 }
 
-// noteConfig writes the config file's report to stderr, for commands with no log.
-func (call invocation) noteConfig(report ConfigReport) {
+// printConfigNotes writes the config file's report to stderr, for commands with no log.
+func (call invocation) printConfigNotes(report ConfigReport) {
 	notes := report.Notes()
 	if len(notes) > 0 {
 		write(call.stderr, strings.Join(notes, "\n")+"\n", exitSuccess)
@@ -72,8 +73,8 @@ func (call invocation) logger(config Config) (*slog.Logger, error) {
 	return slogx.New(call.stderr, format, level)
 }
 
-// openExisting opens an existing library.db, refusing to create one where there is none.
-func openExisting(ctx context.Context, config Config) (*datadir.Directories, *store.Database, error) {
+// openExistingDatabase opens an existing library.db, refusing to create one where there is none.
+func openExistingDatabase(ctx context.Context, config Config) (*datadir.Directories, *store.Database, error) {
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
 		return nil, nil, err
@@ -92,11 +93,11 @@ func openExisting(ctx context.Context, config Config) (*datadir.Directories, *st
 
 // commandMigrate migrates the database without starting the server (D181).
 func commandMigrate(ctx context.Context, call invocation) int {
-	config, configReport, err := call.configFlags("migrate", nil)
+	config, configReport, err := call.loadConfigFromFlags("migrate", nil)
 	if err != nil {
 		return call.fail(err)
 	}
-	call.noteConfig(configReport)
+	call.printConfigNotes(configReport)
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
 		return call.fail(err)
@@ -119,20 +120,20 @@ func commandMigrate(ctx context.Context, call invocation) int {
 
 // commandBackup writes a backup with VACUUM INTO; --include-key writes secret.key beside it.
 func commandBackup(ctx context.Context, call invocation) int {
-	var includeKey bool
-	config, configReport, err := call.configFlags("backup", func(flags *flag.FlagSet) {
-		flags.BoolVar(&includeKey, "include-key", false,
+	var shouldIncludeKey bool
+	config, configReport, err := call.loadConfigFromFlags("backup", func(flags *flag.FlagSet) {
+		flags.BoolVar(&shouldIncludeKey, "include-key", false,
 			"also write secret.key beside the backup, for moving to a new machine")
 	})
 	if err != nil {
 		return call.fail(err)
 	}
-	call.noteConfig(configReport)
-	directories, database, err := openExisting(ctx, config)
+	call.printConfigNotes(configReport)
+	directories, database, err := openExistingDatabase(ctx, config)
 	if err != nil {
 		return call.fail(err)
 	}
-	written, err := backup.Write(ctx, database, directories, clock.System{}.Now(), includeKey)
+	written, err := backup.Write(ctx, database, directories, clock.System{}.Now(), shouldIncludeKey)
 	if err = errors.Join(err, database.Close()); err != nil {
 		return call.fail(err)
 	}
@@ -147,24 +148,24 @@ func commandBackup(ctx context.Context, call invocation) int {
 // commandRestore restores a backup, with the server stopped. Without --yes it only says what it
 // would do (backup-restore.md: restore says what it will overwrite before doing it).
 func commandRestore(ctx context.Context, call invocation) int {
-	var source, keyPath string
-	var confirmed bool
-	config, configReport, err := call.configFlags("restore", func(flags *flag.FlagSet) {
-		flags.StringVar(&source, "from", "", "the backup file to restore (required)")
+	var backupPath, keyPath string
+	var isConfirmed bool
+	config, configReport, err := call.loadConfigFromFlags("restore", func(flags *flag.FlagSet) {
+		flags.StringVar(&backupPath, "from", "", "the backup file to restore (required)")
 		flags.StringVar(&keyPath, "key", "", "a secret.key to install with it, from `backup --include-key`")
-		flags.BoolVar(&confirmed, "yes", false, "restore; without it, only say what would happen")
+		flags.BoolVar(&isConfirmed, "yes", false, "restore; without it, only say what would happen")
 	})
 	if err != nil {
 		return call.fail(err)
 	}
-	call.noteConfig(configReport)
-	if source == "" {
+	call.printConfigNotes(configReport)
+	if backupPath == "" {
 		return call.fail(errors.New("--from is required"))
 	}
-	var key []byte
+	var keyFileContents []byte
 	if keyPath != "" {
 		// The operator names the key file on the command line; reading it is the point.
-		if key, err = os.ReadFile(keyPath); err != nil { //nolint:gosec // G304: see above
+		if keyFileContents, err = os.ReadFile(keyPath); err != nil { //nolint:gosec // G304: see above
 			return call.fail(fmt.Errorf("read the key: %w", err))
 		}
 	}
@@ -172,18 +173,18 @@ func commandRestore(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(err)
 	}
-	plan, err := backup.MakePlan(ctx, directories, source, key, clock.System{}.Now())
+	plan, err := backup.MakePlan(ctx, directories, backupPath, keyFileContents, clock.System{}.Now())
 	if err != nil {
 		return call.fail(err)
 	}
-	if !confirmed {
+	if !isConfirmed {
 		return write(call.stdout, plan.Describe()+"Nothing was changed. Run again with --yes to restore.\n",
 			exitUsageError)
 	}
 	if write(call.stdout, plan.Describe(), exitSuccess) != exitSuccess {
 		return exitWriteFailure
 	}
-	if err = backup.Restore(ctx, directories, plan, key, config.openOptions()); err != nil {
+	if err = backup.Restore(ctx, directories, plan, keyFileContents, config.openOptions()); err != nil {
 		return call.fail(err)
 	}
 	return write(call.stdout, "Restored. Start the server; it migrates an older backup on the way up.\n", exitSuccess)
@@ -191,11 +192,11 @@ func commandRestore(ctx context.Context, call invocation) int {
 
 // commandSetupCode prints the one-time setup code, for a server whose log has scrolled away.
 func commandSetupCode(ctx context.Context, call invocation) int {
-	config, configReport, err := call.configFlags("setup-code", nil)
+	config, configReport, err := call.loadConfigFromFlags("setup-code", nil)
 	if err != nil {
 		return call.fail(err)
 	}
-	call.noteConfig(configReport)
+	call.printConfigNotes(configReport)
 	directories, err := datadir.Prepare(config.Server.DataDir, config.Server.CacheDir)
 	if err != nil {
 		return call.fail(err)
@@ -204,7 +205,7 @@ func commandSetupCode(ctx context.Context, call invocation) int {
 	if err == nil {
 		return write(call.stdout, code+"\n", exitSuccess)
 	}
-	_, database, openErr := openExisting(ctx, config)
+	_, database, openErr := openExistingDatabase(ctx, config)
 	if openErr != nil {
 		return call.fail(openErr)
 	}

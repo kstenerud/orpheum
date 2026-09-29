@@ -66,7 +66,7 @@ func (fake *fakeSubtitler) Allowance(context.Context) (opensubtitles.Allowance, 
 // identifyFilm makes film 2 a version of a film TMDB and IMDb name, with its OpenSubtitles hash.
 func (harness testHarness) identifyFilm(t *testing.T) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO item (id, kind, library_id, added_at) VALUES (30, 'title', 1, 1)",
 		"INSERT INTO title (id, kind, year, identification_state) VALUES (30, 'movie', 2002, 'identified')",
 		"INSERT INTO version (id, title_id, created_at) VALUES (3, 30, 1)",
@@ -99,7 +99,7 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 	wantError(t, nothing, http.StatusConflict, CodeConflict)
 
 	// A file not identified yet is asked for by its hash alone, and the answer says so.
-	storetest.ExecRaw(t, harness.database, "UPDATE file SET opensubtitles_hash = '43c6c64ddb8e4766' WHERE id = 1")
+	storetest.ExecRaw(t, harness.databasePath, "UPDATE file SET opensubtitles_hash = '43c6c64ddb8e4766' WHERE id = 1")
 	hashOnly := offeredCandidates(t, harness.do(t, http.MethodGet, "/files/1/subtitle-candidates?language=de", user,
 		nil))
 	if hashOnly.DidAskByIDs || !hashOnly.DidAskByFileHash {
@@ -108,8 +108,8 @@ func TestSubtitleCandidates_AreFoundByTheWorksIDsAndTheFilesHashWithTheDownloads
 	}
 }
 
-// offered is what GET subtitle-candidates answers.
-type offered struct {
+// candidatesAnswer is what GET subtitle-candidates answers.
+type candidatesAnswer struct {
 	Candidates       []SubtitleCandidateBody `json:"candidates"`
 	Allowance        AllowanceBody           `json:"allowance"`
 	DidAskByIDs      bool                    `json:"didAskByIds"`
@@ -117,9 +117,9 @@ type offered struct {
 }
 
 // offeredCandidates reads a 200 answer of GET subtitle-candidates.
-func offeredCandidates(t *testing.T, answer response) offered {
+func offeredCandidates(t *testing.T, answer response) candidatesAnswer {
 	t.Helper()
-	var body offered
+	var body candidatesAnswer
 	if err := json.Unmarshal([]byte(answer.body), &body); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("GET subtitle-candidates = %d %s", answer.status, answer.body)
 	}
@@ -132,7 +132,7 @@ func TestSubtitleCandidates_ForAnEpisodeAskByTheSeriesAndItsPlace(t *testing.T) 
 	user := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	harness.shelveEpisodes(t)
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO item_provider_id (item_id, provider, provider_id) VALUES (20, 'tmdb', '1396')")
 	if answer := harness.do(t, http.MethodGet, "/files/2/subtitle-candidates?language=en", user, nil); answer.status !=
 		http.StatusOK {
@@ -183,7 +183,7 @@ func TestFetchSubtitle_KeepsItChoosesItAndItPlaysOnceTheNodeConvertsIt(t *testin
 		t.Errorf("the file's choice is %s, want the fetched track (D224 §4)", choice)
 	}
 	convertFetched(t, harness, fetchedID)
-	if served := harness.fetch(t, track.VTTURL, user, true, ""); served.status != http.StatusOK ||
+	if served := harness.getBytePath(t, track.VTTURL, user, true, ""); served.status != http.StatusOK ||
 		!strings.Contains(served.body, "Hallo") {
 		t.Errorf("the fetched track: %d %q, want its converted text", served.status, served.body)
 	}
@@ -239,7 +239,7 @@ func convertFetched(t *testing.T, harness testHarness, fetchedID int64) {
 // checkKeptGzipped fails unless the fetched subtitle is kept in library.db, gzipped (D224 §6).
 func checkKeptGzipped(t *testing.T, harness testHarness, fetchedID int64) {
 	t.Helper()
-	kept, err := harness.library.Read().GetFetchedSubtitle(t.Context(), fetchedID)
+	kept, err := harness.database.Read().GetFetchedSubtitle(t.Context(), fetchedID)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -75,9 +75,12 @@
 // # Where to change
 //
 //   - One file per endpoint group of cut-a §5: session.go (setup and auth), settings.go,
-//     secrets.go, health.go, identification.go, libraries.go, browse.go, doctor.go, system.go;
-//     later groups add theirs. server.go holds the readiness gate and the authentication
-//     helpers. M1 builds setup, sessions, settings and secrets (D198).
+//     config.go, secrets.go, health.go, identification.go, libraries.go, browse.go, art.go,
+//     doctor.go, system.go, playback.go, subtitle.go, subtitle_fetch.go, prefs.go, report.go,
+//     home.go, accounts.go, devices.go and jobs.go. A handler method is named for its OperationID.
+//   - server.go holds the readiness gate and the authentication helpers: requireSignedIn and
+//     requireAdmin; requireMetadataEditor is in identification.go, and requireSignedInForMedia,
+//     for the byte paths, in media_cookie.go.
 //   - api/openapi.json is generated with `orpheum openapi`; regenerate it after any change here.
 //   - The error enumeration lives here and is the only source the SDK's is generated from.
 package api

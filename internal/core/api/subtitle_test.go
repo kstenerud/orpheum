@@ -21,7 +21,7 @@ const subtitleStreamID = 5
 // default, and its PGS; and film 1's own track, which no playback of film 2 may reach.
 func (harness testHarness) shelveSubtitles(t *testing.T) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language, disposition_flags) VALUES
 		 (5, 2, 2, 2, 'subtitle', 'ass', 'en', 1), (6, 2, 2, 3, 'subtitle', 'hdmv_pgs_subtitle', NULL, 0),
 		 (8, 1, 1, 2, 'subtitle', 'mov_text', 'en', 0)`)
@@ -34,7 +34,7 @@ const sidecarStreamID = 7
 // with its payload hash, and its one track.
 func (harness testHarness) shelveSidecar(t *testing.T) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, payload_hash, filing,
 		 filing_reason,
 		 attached_to_file, first_seen_at, last_seen_at) VALUES
@@ -60,8 +60,9 @@ func (harness testHarness) extract(
 	return command, <-finished
 }
 
-// extractedText keeps text as extracted for the track at streamIndex of the file with payloadHash.
-func (harness testHarness) extractedText(t *testing.T, payloadHash []byte, streamIndex int64, text string) {
+// storeExtractedText keeps text as extracted for the track at streamIndex of the file with
+// payloadHash.
+func (harness testHarness) storeExtractedText(t *testing.T, payloadHash []byte, streamIndex int64, text string) {
 	t.Helper()
 	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		err := queries.RequestSubtitleText(t.Context(), cachegen.RequestSubtitleTextParams{
@@ -85,8 +86,8 @@ func (harness testHarness) extractedText(t *testing.T, payloadHash []byte, strea
 	}
 }
 
-// subtitleJobs counts the extraction jobs ever queued for film 2's ASS track.
-func (harness testHarness) subtitleJobs(t *testing.T) int {
+// subtitleJobCount counts the extraction jobs ever queued for film 2's ASS track.
+func (harness testHarness) subtitleJobCount(t *testing.T) int {
 	t.Helper()
 	all, err := harness.cache.Read().ListJobs(t.Context(), 100)
 	if err != nil {
@@ -144,19 +145,19 @@ func TestSubtitles_ATextTrackIsOfferedAndQueuedWhenFirstPlayedAndIsTooEarlyUntil
 	harness.shelveFilms(t)
 	harness.shelveSubtitles(t)
 	track := offeredASSTrack(t, harness.play(t, user, chrome(2)))
-	if queued := harness.subtitleJobs(t); queued != 1 {
+	if queued := harness.subtitleJobCount(t); queued != 1 {
 		t.Errorf("playing the file queued %d extractions of its text track, want 1", queued)
 	}
-	early := harness.fetch(t, track.ASSURL, user, true, "")
+	early := harness.getBytePath(t, track.ASSURL, user, true, "")
 	if early.status != http.StatusTooEarly || early.header.Get("Retry-After") != "1" ||
 		!strings.Contains(early.body, `"code":"preparing"`) {
 		t.Errorf("before it is extracted: %d %v %s, want 425 preparing", early.status, early.header, early.body)
 	}
 	base := strings.TrimSuffix(track.ASSURL, "5.ass")
 	// 8 is another film's track, extracted: a playback reaches only its own file's.
-	harness.extractedText(t, []byte{0x0a, 0x0b}, 2, "film 1's text")
+	harness.storeExtractedText(t, []byte{0x0a, 0x0b}, 2, "film 1's text")
 	for _, name := range []string{"5.srt", "6.ass", "8.ass", "99.ass", "notes"} {
-		if odd := harness.fetch(t, base+name, user, true, ""); odd.status != http.StatusNotFound {
+		if odd := harness.getBytePath(t, base+name, user, true, ""); odd.status != http.StatusNotFound {
 			t.Errorf("%s: %d, want 404", name, odd.status)
 		}
 	}
@@ -191,7 +192,7 @@ func TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain(t 
 		track.ASSURL: {"text/x-ssa; charset=utf-8", "[Script Info]"},
 		track.VTTURL: {"text/vtt; charset=utf-8", "WEBVTT"},
 	} {
-		served := harness.fetch(t, url, user, true, "")
+		served := harness.getBytePath(t, url, user, true, "")
 		if served.status != http.StatusOK || served.body != want.body ||
 			served.header.Get("Content-Type") != want.contentType {
 			t.Errorf("%s: %d %v %q, want %q as %s",
@@ -200,7 +201,7 @@ func TestSubtitles_AnExtractedTrackIsServedAsASSAndWebVTTAndNotExtractedAgain(t 
 	}
 	harness.finishJobs(t)
 	harness.play(t, user, chrome(2))
-	if queued := harness.subtitleJobs(t); queued != 1 {
+	if queued := harness.subtitleJobCount(t); queued != 1 {
 		t.Errorf("playing again queued %d extractions in all, want none after the first", queued)
 	}
 }
@@ -217,13 +218,13 @@ func TestSubtitles_AFailedExtractionSaysSoAndIsTriedAgainWhenNextPlayed(t *testi
 		!strings.Contains(err.Error(), "ffmpeg: bad") {
 		t.Errorf("the job ended %v, want FFmpeg's failure", err)
 	}
-	failed := harness.fetch(t, decided.Subtitles[0].ASSURL, user, true, "")
+	failed := harness.getBytePath(t, decided.Subtitles[0].ASSURL, user, true, "")
 	if failed.status != http.StatusBadGateway || !strings.Contains(failed.body, `"code":"prepare_failed"`) ||
 		!strings.Contains(failed.body, "ffmpeg: bad") {
 		t.Errorf("a failed track: %d %s, want prepare_failed with why", failed.status, failed.body)
 	}
 	again := harness.play(t, user, chrome(2))
-	if early := harness.fetch(t, again.Subtitles[0].ASSURL, user, true, ""); early.status != http.StatusTooEarly {
+	if early := harness.getBytePath(t, again.Subtitles[0].ASSURL, user, true, ""); early.status != http.StatusTooEarly {
 		t.Errorf("played again after a failure: %d, want 425 while it is tried again", early.status)
 	}
 }
@@ -256,7 +257,7 @@ func TestSubtitles_ASubtitleFileBesideTheVideoIsOfferedAndConvertedWhole(t *test
 	if err := <-finished; err != nil {
 		t.Fatalf("the job ended %v, want done", err)
 	}
-	if served := harness.fetch(t, decided.Subtitles[1].ASSURL, user, true, ""); served.status != http.StatusOK ||
+	if served := harness.getBytePath(t, decided.Subtitles[1].ASSURL, user, true, ""); served.status != http.StatusOK ||
 		served.body != "[Script Info] es" {
 		t.Errorf("the subtitle file's track: %d %q", served.status, served.body)
 	}

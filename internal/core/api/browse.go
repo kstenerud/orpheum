@@ -167,30 +167,30 @@ type SearchOutput struct {
 
 func (server *Server) registerBrowse() {
 	tags := []string{tagBrowse}
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getTitles", Method: http.MethodGet, Path: "/titles",
 		Summary: "Films or series, by name in the library's locale or newest first", Tags: tags,
 	}, server.getTitles)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getTitle", Method: http.MethodGet, Path: "/items/{id}",
 		Summary: "A title's detail: versions, files, streams, extras and, for an episode, its place", Tags: tags,
-	}, server.getItem)
-	huma.Register(server.api, huma.Operation{
+	}, server.getTitle)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSeries", Method: http.MethodGet, Path: "/collections/{id}",
 		Summary: "A series with its episodes in aired order", Tags: tags,
-	}, server.getCollection)
-	huma.Register(server.api, huma.Operation{
+	}, server.getSeries)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "search", Method: http.MethodGet, Path: "/search",
 		Summary: "Titles and series by name, in any script (D48)", Tags: tags,
 	}, server.search)
 }
 
 func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*TitlesOutput, error) {
-	dependencies, _, err := server.signedIn(ctx, input.Authorization)
+	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	page, err := dependencies.Browse.List(ctx, library.ListQuery{
+	page, err := dependencies.Browser.List(ctx, library.ListQuery{
 		Kind: input.Kind, Sort: input.Sort, Cursor: input.Cursor, Limit: input.Limit,
 	})
 	if err != nil {
@@ -209,12 +209,12 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 	return output, nil
 }
 
-func (server *Server) getItem(ctx context.Context, input *ItemInput) (*ItemDetailOutput, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDetailOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	detail, err := dependencies.Browse.Title(ctx, input.ID)
+	detail, err := dependencies.Browser.Title(ctx, input.ID)
 	if err != nil {
 		return nil, server.browseError(ctx, "read a title", err)
 	}
@@ -269,12 +269,12 @@ func episodePlaceBody(place *sqlcgen.GetEpisodePlaceRow) *EpisodePlaceBody {
 	}
 }
 
-func (server *Server) getCollection(ctx context.Context, input *ItemInput) (*CollectionOutput, error) {
-	dependencies, _, err := server.signedIn(ctx, input.Authorization)
+func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*CollectionOutput, error) {
+	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	series, err := dependencies.Browse.Series(ctx, input.ID)
+	series, err := dependencies.Browser.Series(ctx, input.ID)
 	if err != nil {
 		return nil, server.browseError(ctx, "read a series", err)
 	}
@@ -300,13 +300,13 @@ func (server *Server) getCollection(ctx context.Context, input *ItemInput) (*Col
 }
 
 func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOutput, error) {
-	dependencies, _, err := server.signedIn(ctx, input.Authorization)
+	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	hits, err := dependencies.Browse.Search(ctx, input.Query, input.Limit)
+	hits, err := dependencies.Browser.Search(ctx, input.Query, input.Limit)
 	if err != nil {
-		return nil, server.internal(ctx, "search", err)
+		return nil, server.logInternalError(ctx, "search", err)
 	}
 	output := &SearchOutput{}
 	output.Body.Results = make([]HitBody, 0, len(hits))
@@ -323,12 +323,12 @@ func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOu
 }
 
 // browseError maps browse's refusals to API errors.
-func (server *Server) browseError(ctx context.Context, doing string, err error) error {
+func (server *Server) browseError(ctx context.Context, action string, err error) error {
 	switch {
 	case errors.Is(err, library.ErrNoItem):
 		return newError(http.StatusNotFound, CodeNotFound, "no such title or series")
 	case errors.Is(err, library.ErrBadCursor):
 		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, "the cursor is not one this server gave")
 	}
-	return server.internal(ctx, doing, err)
+	return server.logInternalError(ctx, action, err)
 }

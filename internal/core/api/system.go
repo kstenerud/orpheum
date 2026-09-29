@@ -19,8 +19,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/host"
 )
 
-// recentPrepares is how many of a node's finished prepares the System page lists.
-const recentPrepares = 10
+// recentPrepareCount is how many of a node's finished prepares the System page lists.
+const recentPrepareCount = 10
 
 // NodeReports is what each connected node said about itself: nodes.Service.
 type NodeReports interface {
@@ -37,12 +37,12 @@ type System struct {
 	// Build is what the server's binary was built from.
 	Build     build.Provenance
 	StartedAt time.Time
-	// StateDirectory and CacheDirectory are the server's own, whose disks the page shows.
-	StateDirectory string
+	// DataDirectory and CacheDirectory are the server's own, whose disks the page shows.
+	DataDirectory  string
 	CacheDirectory string
-	// Library and Cache are library.db and cache.db, measured when the page asks.
-	Library Sized
-	Cache   Sized
+	// LibraryDatabase and CacheDatabase are library.db and cache.db, measured when the page asks.
+	LibraryDatabase Sized
+	CacheDatabase   Sized
 }
 
 // SystemOutput is the System page: the server's facts, what doctor finds, and each node's facts
@@ -201,29 +201,29 @@ type FinishedPrepareBody struct {
 }
 
 func (server *Server) registerSystem() {
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSystem", Method: http.MethodGet, Path: "/system", Tags: []string{tagRunningIt},
 		Summary: "Every fact about the server and each node, with doctor's findings: the System page (admin; D225)",
-	}, server.system)
+	}, server.getSystem)
 }
 
-func (server *Server) system(ctx context.Context, input *AuthorizationHeader) (*SystemOutput, error) {
-	dependencies, _, err := server.signedInAdmin(ctx, input.Authorization)
+func (server *Server) getSystem(ctx context.Context, input *AuthorizationHeader) (*SystemOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	output := &SystemOutput{}
 	output.Body.Server, err = serverFacts(ctx, dependencies.System)
 	if err != nil {
-		return nil, server.internal(ctx, "measure the databases", err)
+		return nil, server.logInternalError(ctx, "measure the databases", err)
 	}
-	output.Body.Findings, err = server.findings(ctx, dependencies)
+	output.Body.Findings, err = server.collectFindings(ctx, dependencies)
 	if err != nil {
 		return nil, err
 	}
 	listed, err := dependencies.Libraries.NodeRoots(ctx)
 	if err != nil {
-		return nil, server.internal(ctx, "list nodes", err)
+		return nil, server.logInternalError(ctx, "list nodes", err)
 	}
 	output.Body.Nodes = make([]SystemNodeBody, 0, len(listed))
 	for _, node := range listed {
@@ -234,9 +234,9 @@ func (server *Server) system(ctx context.Context, input *AuthorizationHeader) (*
 		if facts, found := dependencies.NodeReports.Facts(node.Name); found {
 			body.RecentPrepares, err = finishedPrepares(ctx, dependencies, facts.NodeID)
 			if err != nil {
-				return nil, server.internal(ctx, "list a node's prepares", err)
+				return nil, server.logInternalError(ctx, "list a node's prepares", err)
 			}
-			describeNode(&body, facts, dependencies.System.Build)
+			fillNodeFacts(&body, facts, dependencies.System.Build)
 		}
 		output.Body.Nodes = append(output.Body.Nodes, body)
 	}
@@ -248,13 +248,13 @@ func serverFacts(ctx context.Context, system System) (ServerBody, error) {
 	facts := ServerBody{
 		Build: buildBody(system.Build), Host: hostBody(host.Describe()), GoVersion: runtime.Version(),
 		StartedAt: system.StartedAt.UnixMilli(),
-		Disks:     []DiskBody{measured(system.StateDirectory), measured(system.CacheDirectory)},
+		Disks:     []DiskBody{measureDisk(system.DataDirectory), measureDisk(system.CacheDirectory)},
 	}
 	for _, database := range []struct {
-		name  string
-		sized Sized
-	}{{"library.db", system.Library}, {"cache.db", system.Cache}} {
-		size, err := database.sized.SizeBytes(ctx)
+		name     string
+		measurer Sized
+	}{{"library.db", system.LibraryDatabase}, {"cache.db", system.CacheDatabase}} {
+		size, err := database.measurer.SizeBytes(ctx)
 		if err != nil {
 			return ServerBody{}, fmt.Errorf("measure %s: %w", database.name, err)
 		}
@@ -265,8 +265,8 @@ func serverFacts(ctx context.Context, system System) (ServerBody, error) {
 	return facts, nil
 }
 
-// measured is the disk that holds path, or why it could not be measured.
-func measured(path string) DiskBody {
+// measureDisk measures the disk that holds path, or says why it could not be measured.
+func measureDisk(path string) DiskBody {
 	space, err := diskspace.Measure(path)
 	if err != nil {
 		return DiskBody{Path: path, Failure: err.Error()}
@@ -274,8 +274,8 @@ func measured(path string) DiskBody {
 	return DiskBody{Path: path, TotalBytes: space.TotalBytes, AvailableBytes: space.AvailableBytes}
 }
 
-// describeNode fills in what a connected node last said about itself.
-func describeNode(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Provenance) {
+// fillNodeFacts fills in what a connected node last said about itself.
+func fillNodeFacts(body *SystemNodeBody, facts nodes.Facts, serverBuild build.Provenance) {
 	hello := facts.Hello
 	heard := facts.LastHeard.UnixMilli()
 	nodeBuild, nodeHost := buildBody(hello.Build), hostBody(hello.Host)
@@ -328,7 +328,7 @@ func hardwareBody(hardware nodeproto.Hardware) *HardwareBody {
 }
 
 func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID int64) ([]FinishedPrepareBody, error) {
-	finished, err := dependencies.Playback.FinishedPrepares(ctx, nodeID, recentPrepares)
+	finished, err := dependencies.Playback.FinishedPrepares(ctx, nodeID, recentPrepareCount)
 	if err != nil {
 		return nil, fmt.Errorf("list node %d's prepares: %w", nodeID, err)
 	}
@@ -343,11 +343,12 @@ func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID in
 	return bodies, nil
 }
 
-// buildFinding is whether a node runs the server's own build: a node on another release, or a
+// nodeBuildFinding is whether a node runs the server's own build: a node on another release, or a
 // build of other changes, may not speak the same protocol or behave the same (D225).
-func buildFinding(node string, nodeBuild, serverBuild build.Provenance) FindingBody {
+func nodeBuildFinding(nodeName string, nodeBuild, serverBuild build.Provenance) FindingBody {
 	finding := FindingBody{
-		Check: "build on node " + node, Verdict: verdictOK, Detail: "the server's own build, " + serverBuild.String(),
+		Check: "build on node " + nodeName, Verdict: verdictOK,
+		Detail: "the server's own build, " + serverBuild.String(),
 	}
 	if !nodeBuild.IsSame(serverBuild) {
 		finding.Verdict = verdictWarn
@@ -362,8 +363,8 @@ func buildFinding(node string, nodeBuild, serverBuild build.Provenance) FindingB
 
 // hardwareFinding is whether a node's encodes use its GPU: a warning when it has one and no
 // hardware encoder works, with what to do about it (D225 §3).
-func hardwareFinding(node string, hardware nodeproto.Hardware) FindingBody {
-	finding := FindingBody{Check: "hardware encoding on node " + node, Verdict: verdictOK}
+func hardwareFinding(nodeName string, hardware nodeproto.Hardware) FindingBody {
+	finding := FindingBody{Check: "hardware encoding on node " + nodeName, Verdict: verdictOK}
 	switch {
 	case hardware.ChosenEncoder != "" && hardware.ChosenEncoder != "x264":
 		finding.Detail = "encodes use " + hardware.ChosenEncoder

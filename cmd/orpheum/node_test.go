@@ -120,8 +120,8 @@ func TestRun_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
 	}
 }
 
-// shelf is a config whose node has one root and a library over it.
-type shelf struct {
+// filmFixture is a config whose node has one root and a library over it.
+type filmFixture struct {
 	config     Config
 	configPath string
 	media      string
@@ -130,21 +130,21 @@ type shelf struct {
 
 // filmOnNode makes a config whose node has one root, holding a film and a text file, and a
 // library over it; the fake FFmpeg probes the film as Matroska with no streams.
-func filmOnNode(t *testing.T, metadataSource string) shelf {
+func filmOnNode(t *testing.T, metadataSource string) filmFixture {
 	t.Helper()
 	return filmProbedAs(t, metadataSource, `{"format":{"format_name":"matroska","duration":"1.000"},"streams":[]}`)
 }
 
 // filmProbedAs is filmOnNode with the fake FFmpeg answering every run with reply: the probe of
 // the film, and whatever else the node runs.
-func filmProbedAs(t *testing.T, metadataSource, reply string) shelf {
+func filmProbedAs(t *testing.T, metadataSource, reply string) filmFixture {
 	t.Helper()
 	return filmAnswered(t, metadataSource, testutil.FakeReply{Stdout: reply})
 }
 
 // filmAnswered is filmProbedAs with the whole of the fake FFmpeg's reply: what it writes to
 // stderr too, where FFmpeg's filters log what they measured.
-func filmAnswered(t *testing.T, metadataSource string, reply testutil.FakeReply) shelf {
+func filmAnswered(t *testing.T, metadataSource string, reply testutil.FakeReply) filmFixture {
 	t.Helper()
 	config, configPath := testConfig(t)
 	media := t.TempDir()
@@ -163,13 +163,13 @@ func filmAnswered(t *testing.T, metadataSource string, reply testutil.FakeReply)
 	config.Node.RootPaths = []string{media}
 	config.Node.FFmpegDir = fake.Directory
 	config.Node.VideoExtensions = []string{"mkv"}
-	nodeID := createLibrary(t, config, media, metadataSource)
-	return shelf{config: config, configPath: configPath, media: media, nodeID: nodeID}
+	nodeID := enrolNodeWithLibrary(t, config, media, metadataSource)
+	return filmFixture{config: config, configPath: configPath, media: media, nodeID: nodeID}
 }
 
 // serveWithNode serves the core with the node running in-process, until the log says awaited;
 // the returned stop ends both, and so does the test's end.
-func serveWithNode(t *testing.T, config Config, captured capturedLog, awaited string) running {
+func serveWithNode(t *testing.T, config Config, captured capturedLog, awaited string) runningServer {
 	t.Helper()
 	var start nodes.Starter = func(ctx context.Context) (nodes.Process, error) {
 		ctx, cancel := context.WithCancel(ctx)
@@ -188,7 +188,8 @@ func serveWithNode(t *testing.T, config Config, captured capturedLog, awaited st
 	done := make(chan error, 1)
 	go func() {
 		outside := wiring{
-			startNode: start, tmdbBaseURL: noTMDB, tmdbImagesBaseURL: noTMDB, openSubtitlesBaseURL: noTMDB,
+			startNode: start, tmdbBaseURL: unreachableURL, tmdbImagesBaseURL: unreachableURL,
+			openSubtitlesBaseURL: unreachableURL,
 		}
 		done <- serve(ctx, config, ConfigReport{}, listener, outside, captured.logger)
 	}()
@@ -208,12 +209,12 @@ func serveWithNode(t *testing.T, config Config, captured capturedLog, awaited st
 		return <-done
 	}
 	t.Cleanup(func() { _ = stop() }) //nolint:errcheck // a stop the test already checked returns nil
-	return running{baseURL: "http://" + listener.Addr().String() + api.Prefix, stop: stop}
+	return runningServer{baseURL: "http://" + listener.Addr().String() + api.Prefix, stop: stop}
 }
 
-// createLibrary makes the database serve will open, with a library covering root on the
+// enrolNodeWithLibrary makes the database serve will open, with a library covering root on the
 // config's node, and returns the node's id.
-func createLibrary(t *testing.T, config Config, root, metadataSource string) int64 {
+func enrolNodeWithLibrary(t *testing.T, config Config, root, metadataSource string) int64 {
 	t.Helper()
 	database := openDatabase(t, config)
 	if err := database.Migrate(t.Context(), config.migrateOptions(t.TempDir(), nil)); err != nil {
@@ -302,7 +303,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 	case early := <-done:
 		t.Fatalf("runNode returned before serving the byte socket: %v\n%s", early, captured)
 	}
-	socket := filepath.Join(config.Server.SocketDir, nodeSocket)
+	socket := filepath.Join(config.Server.SocketDir, nodeSocketName)
 	client := &http.Client{Transport: &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, "unix", socket)
@@ -363,7 +364,7 @@ func TestRunNode_StillServesFilesWhenItCannotPrepare(t *testing.T) {
 
 func TestCapabilities_AreRemuxAACAndTheEncodersTheNodeFound(t *testing.T) {
 	t.Parallel()
-	got := capabilities([]prepare.Encoder{prepare.EncoderQuickSync, prepare.EncoderX264})
+	got := capabilityNames([]prepare.Encoder{prepare.EncoderQuickSync, prepare.EncoderX264})
 	if want := []string{"remux", "aac", "h264_qsv", "x264"}; !slices.Equal(got, want) {
 		t.Errorf("capabilities = %v, want %v (cut-a §4)", got, want)
 	}
@@ -372,7 +373,7 @@ func TestCapabilities_AreRemuxAACAndTheEncodersTheNodeFound(t *testing.T) {
 func TestHardwareReport_IsTheDevicesEachTrialAndTheEncoderChosen(t *testing.T) {
 	t.Parallel()
 	found := nodeCapabilities{
-		encoding: prepare.Choice{Chosen: prepare.EncoderNVENC, Trials: []prepare.Trial{
+		encoderChoice: prepare.Choice{Chosen: prepare.EncoderNVENC, Trials: []prepare.Trial{
 			{Encoder: prepare.EncoderQuickSync, Failure: "no render node"}, {Encoder: prepare.EncoderNVENC},
 		}},
 		gpus: []nodeproto.GPU{{DevicePath: "/dev/nvidia0", Driver: "nvidia"}},

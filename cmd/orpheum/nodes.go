@@ -41,14 +41,14 @@ func selfStarter(config Config, output io.Writer) nodes.Starter {
 	}
 }
 
-// runNodeChannel serves the node channel on the core's socket and, when start is set,
+// runNodeChannel serves the node channel on the core's socket and, when startNode is set,
 // supervises the node child. The returned stop ends both: the child first, so its requests end,
 // then the socket's server.
 func runNodeChannel(
-	ctx context.Context, config Config, opened started, start nodes.Starter, logger *slog.Logger,
+	ctx context.Context, config Config, opened openedServices, startNode nodes.Starter, logger *slog.Logger,
 ) (stop func() error, err error) {
 	service := opened.nodes
-	listener, err := datadir.ListenUnix(config.Server.SocketDir, coreSocket)
+	listener, err := datadir.ListenUnix(config.Server.SocketDir, coreSocketName)
 	if err != nil {
 		return nil, err
 	}
@@ -59,22 +59,22 @@ func runNodeChannel(
 			logger.ErrorContext(ctx, "the node channel stopped", "err", serveErr)
 		}
 	})
-	supervising, stopSupervising := context.WithCancel(ctx)
-	if start != nil {
+	supervisorContext, stopSupervising := context.WithCancel(ctx)
+	if startNode != nil {
 		ticker := time.NewTicker(time.Second)
-		supervisor := nodes.NewSupervisor(start, service, config.Node.Name, clock.System{}, opened.settings, logger)
+		supervisor := nodes.NewSupervisor(startNode, service, config.Node.Name, clock.System{}, opened.settings, logger)
 		running.Go(func() {
 			defer ticker.Stop()
-			if runErr := supervisor.Run(supervising, ticker.C); runErr != nil {
+			if runErr := supervisor.Run(supervisorContext, ticker.C); runErr != nil {
 				logger.ErrorContext(ctx, "the node supervisor stopped", "err", runErr)
 			}
 		})
 	}
 	return func() error {
 		stopSupervising()
-		shutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.shutdownGrace())
+		shutdownContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), config.shutdownGrace())
 		defer cancel()
-		err := server.Shutdown(shutdown)
+		err := server.Shutdown(shutdownContext)
 		if errors.Is(err, context.DeadlineExceeded) {
 			err = server.Close() // a report stream that did not end in time
 		}
@@ -86,9 +86,9 @@ func runNodeChannel(
 // newNodeService builds the core's side of the node channel: the ingest, which hands each scanned
 // library to identification. It serves nothing until
 // runNodeChannel listens.
-func newNodeService(opened started, logger *slog.Logger) *nodes.Service {
+func newNodeService(opened openedServices, logger *slog.Logger) *nodes.Service {
 	ingester := library.NewIngester(opened.database, clock.System{}, opened.settings, logger)
-	pass := opened.metadata.pass
+	pass := opened.jobServices.pass
 	ingester.SetOnScanEnded(func(ctx context.Context, libraryID int64) {
 		report, err := pass.IdentifyLibrary(ctx, libraryID)
 		if err != nil {
@@ -121,11 +121,11 @@ func (sink reportSink) IngestRecords(ctx context.Context, nodeID int64, records 
 		case nodeproto.RecordScanBegin:
 			sink.logger.InfoContext(ctx, "a node began a scan", "nodeId", nodeID, "root", record.ScanBegin.RootPath)
 		case nodeproto.RecordScanComplete:
-			done := record.ScanComplete
-			sink.logger.InfoContext(ctx, "a node finished a scan", "nodeId", nodeID, "root", done.RootPath,
-				"observedCount", done.ObservedCount, "sidecarCount", done.SidecarCount,
-				"skippedCount", done.SkippedCount, "errorCount", done.ErrorCount,
-				"isStoppedByErrors", done.IsStoppedByErrors)
+			scanComplete := record.ScanComplete
+			sink.logger.InfoContext(ctx, "a node finished a scan", "nodeId", nodeID, "root", scanComplete.RootPath,
+				"observedCount", scanComplete.ObservedCount, "sidecarCount", scanComplete.SidecarCount,
+				"skippedCount", scanComplete.SkippedCount, "errorCount", scanComplete.ErrorCount,
+				"isStoppedByErrors", scanComplete.IsStoppedByErrors)
 		case nodeproto.RecordError:
 			failure := record.Error
 			sink.logger.WarnContext(ctx, "a node could not read something", "nodeId", nodeID,
@@ -135,7 +135,7 @@ func (sink reportSink) IngestRecords(ctx context.Context, nodeID int64, records 
 			nodeproto.RecordSidecar:
 		}
 	}
-	sink.logger.DebugContext(ctx, "a node reported", "nodeId", nodeID, "records", len(records),
-		"observed", counts[nodeproto.RecordObserved], "skipped", counts[nodeproto.RecordSkip])
+	sink.logger.DebugContext(ctx, "a node reported", "nodeId", nodeID, "recordCount", len(records),
+		"observedCount", counts[nodeproto.RecordObserved], "skippedCount", counts[nodeproto.RecordSkip])
 	return nil
 }

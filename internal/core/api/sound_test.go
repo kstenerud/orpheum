@@ -20,7 +20,7 @@ func (harness testHarness) shelveSurroundFilm(t *testing.T) {
 	probe := `{"format":{"formatNames":["mov","mp4","m4a"]},"streams":[` +
 		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 		`{"streamIndex":1,"kind":"audio","codec":"aac","codecProfile":"LC","audio":{"channelCount":6}}]}`
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, payload_hash, filing,
 		 probe_json,
 		 first_seen_at, last_seen_at) VALUES
@@ -88,27 +88,30 @@ func TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct(t
 	answer := func(output string) int {
 		return harness.do(t, http.MethodPut, device, user, map[string]string{"audioOutput": output}).status
 	}
-	if first := harness.playWithSound(t, user, surroundMenu()); first.Kind != "direct" || first.AudioOutput != "" {
-		t.Errorf("before the device is asked: %s %q, want direct and no answer", first.Kind, first.AudioOutput)
+	if first := harness.playWithSound(t, user, surroundMenu()); first.Delivery != "direct" || first.AudioOutput != "" {
+		t.Errorf("before the device is asked: %s %q, want direct and no answer", first.Delivery, first.AudioOutput)
 	}
 	for _, output := range []string{"built_in_speakers", "headphones"} {
 		if status := answer(output); status != http.StatusNoContent {
 			t.Fatalf("PUT audioOutput %s: %d", output, status)
 		}
 		got := harness.playWithSound(t, user, surroundMenu())
-		if got.Kind != "hls" || !slices.Equal(got.Reasons, []string{"dialogue_boost"}) || got.AudioOutput != output {
-			t.Errorf("on %s: %s %v %q, want prepared for dialogue_boost (D222)", output, got.Kind, got.Reasons,
+		if got.Delivery != "hls" || !slices.Equal(got.NotDirectReasons, []string{"dialogue_boost"}) ||
+			got.AudioOutput != output {
+			t.Errorf("on %s: %s %v %q, want prepared for dialogue_boost (D222)",
+				output, got.Delivery, got.NotDirectReasons,
 				got.AudioOutput)
 		}
-		if stereo := harness.playWithSound(t, user, chrome(1)); stereo.Kind != "direct" {
-			t.Errorf("a stereo film on %s: %s, want direct: nothing to fold down", output, stereo.Kind)
+		if stereo := harness.playWithSound(t, user, chrome(1)); stereo.Delivery != "direct" {
+			t.Errorf("a stereo film on %s: %s, want direct: nothing to fold down", output, stereo.Delivery)
 		}
 	}
 	if status := answer("receiver"); status != http.StatusNoContent {
 		t.Fatalf("PUT audioOutput receiver: %d", status)
 	}
-	if got := harness.playWithSound(t, user, surroundMenu()); got.Kind != "direct" || got.AudioOutput != "receiver" {
-		t.Errorf("on a receiver: %s %q, want direct: it takes the sound as it is", got.Kind, got.AudioOutput)
+	got := harness.playWithSound(t, user, surroundMenu())
+	if got.Delivery != "direct" || got.AudioOutput != "receiver" {
+		t.Errorf("on a receiver: %s %q, want direct: it takes the sound as it is", got.Delivery, got.AudioOutput)
 	}
 	if status := answer("radio"); status < 400 || status >= 500 {
 		t.Errorf("an answer not among the three: %d, want refused", status)

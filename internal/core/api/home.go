@@ -41,30 +41,30 @@ type HideInput struct {
 }
 
 func (server *Server) registerHome() {
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getHome", Method: http.MethodGet, Path: "/home",
 		Summary: "The home screen: what the person stopped in the middle of", Tags: []string{"Browse"},
-	}, server.home)
-	huma.Register(server.api, huma.Operation{
+	}, server.getHome)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "hideProgress", Method: http.MethodPost, Path: "/items/{id}/hide",
 		Summary:       "Hide a work from Continue Watching until it next has activity; not a completion (D188)",
 		Tags:          []string{tagPlayback},
 		DefaultStatus: http.StatusNoContent,
 	}, server.hideProgress)
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "unhideProgress", Method: http.MethodDelete, Path: "/items/{id}/hide",
 		Summary: "Undo hiding a work", Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.unhideProgress)
 }
 
-func (server *Server) home(ctx context.Context, input *struct{ AuthorizationHeader }) (*HomeOutput, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+func (server *Server) getHome(ctx context.Context, input *struct{ AuthorizationHeader }) (*HomeOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := dependencies.Browse.ContinueWatching(ctx, principal.UserID)
+	rows, err := dependencies.Browser.ContinueWatching(ctx, principal.UserID)
 	if err != nil {
-		return nil, server.internal(ctx, "list Continue Watching", err)
+		return nil, server.logInternalError(ctx, "list Continue Watching", err)
 	}
 	output := &HomeOutput{}
 	output.Body.ContinueWatching = make([]InProgressBody, 0, len(rows))
@@ -79,7 +79,7 @@ func (server *Server) home(ctx context.Context, input *struct{ AuthorizationHead
 }
 
 func (server *Server) hideProgress(ctx context.Context, input *HideInput) (*struct{}, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -88,18 +88,18 @@ func (server *Server) hideProgress(ctx context.Context, input *HideInput) (*stru
 	case errors.Is(err, playback.ErrNoItem):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such item")
 	case err != nil:
-		return nil, server.internal(ctx, "hide an item", err)
+		return nil, server.logInternalError(ctx, "hide an item", err)
 	}
 	return &struct{}{}, nil
 }
 
 func (server *Server) unhideProgress(ctx context.Context, input *HideInput) (*struct{}, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
 	if err := dependencies.Playback.Unhide(ctx, principal.UserID, input.ItemID); err != nil {
-		return nil, server.internal(ctx, "unhide an item", err)
+		return nil, server.logInternalError(ctx, "unhide an item", err)
 	}
 	return &struct{}{}, nil
 }

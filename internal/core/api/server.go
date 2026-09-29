@@ -49,14 +49,14 @@ type Dependencies struct {
 	Settings   *settings.Service
 	Secrets    *secrets.Store
 	SetupCodes auth.SetupCodes
-	// Identify is what a person does about identification: the chooser and overrides.
-	Identify *identify.Chooser
-	// Refresh queues a person's refresh of a title or series (D213).
-	Refresh *identify.Refresher
+	// Chooser is what a person does about identification: choosing a match, and overrides.
+	Chooser *identify.Chooser
+	// Refresher queues a person's refresh of a title or series (D213).
+	Refresher *identify.Refresher
 	// Libraries is what an admin does with libraries: create, list, scan, and the scanner view.
 	Libraries *library.Admin
-	// Browse is what a person browses and searches.
-	Browse *library.Browser
+	// Browser is what a person browses and searches.
+	Browser *library.Browser
 	// Artwork serves the images titles show.
 	Artwork *artwork.Service
 	// Playback decides how a file plays and says where its bytes are.
@@ -69,8 +69,8 @@ type Dependencies struct {
 	NodeReports NodeReports
 	// System is what the System page shows of the server itself (D225).
 	System System
-	// ConfigFile is the config file's keys as the server runs with them, for /config to show.
-	ConfigFile []ConfigFileKey
+	// ConfigFileKeys is the config file's keys as the server runs with them, for /config to show.
+	ConfigFileKeys []ConfigFileKey
 }
 
 // health is the state /health reports. It is safe for concurrent use.
@@ -84,7 +84,7 @@ type health struct {
 // Server is the API. It answers /health from the moment it exists, and everything else once Ready
 // has handed it its dependencies; until then those answer "migrating".
 type Server struct {
-	api          huma.API
+	humaAPI      huma.API
 	mux          *http.ServeMux
 	logger       *slog.Logger
 	health       health
@@ -100,9 +100,9 @@ func NewServer(logger *slog.Logger) *Server {
 		"an object whose error holds a code, a message, a detail and, for a reachability error, the failedHop."
 	mux := http.NewServeMux()
 	server := &Server{
-		api:    humago.NewWithPrefix(mux, Prefix, config),
-		mux:    mux,
-		logger: logger.With("component", "api"),
+		humaAPI: humago.NewWithPrefix(mux, Prefix, config),
+		mux:     mux,
+		logger:  logger.With("component", "api"),
 	}
 	server.health.status = StatusStarting
 	server.registerHealth()
@@ -139,7 +139,7 @@ func (server *Server) Mux() *http.ServeMux {
 
 // OpenAPI is the generated document (D85).
 func (server *Server) OpenAPI() *huma.OpenAPI {
-	return server.api.OpenAPI()
+	return server.humaAPI.OpenAPI()
 }
 
 // SetStatus sets what /health reports.
@@ -161,8 +161,8 @@ func (server *Server) Ready(dependencies Dependencies) {
 	server.SetStatus(StatusReady, "")
 }
 
-// ready returns the dependencies, or the "migrating" error while there are none.
-func (server *Server) ready() (*Dependencies, error) {
+// readyDependencies returns the dependencies, or the "migrating" error while there are none.
+func (server *Server) readyDependencies() (*Dependencies, error) {
 	dependencies := server.dependencies.Load()
 	if dependencies == nil {
 		status, detail, _ := server.currentHealth()
@@ -182,18 +182,21 @@ func bearerToken(header string) string {
 	return strings.TrimSpace(token)
 }
 
-// signedIn authenticates a request's Authorization header.
-func (server *Server) signedIn(ctx context.Context, authorization string) (*Dependencies, auth.Principal, error) {
-	dependencies, err := server.ready()
+// requireSignedIn authenticates a request's Authorization header and returns the dependencies
+// and who signed in, or the error to answer with.
+func (server *Server) requireSignedIn(
+	ctx context.Context, authorization string,
+) (*Dependencies, auth.Principal, error) {
+	dependencies, err := server.readyDependencies()
 	if err != nil {
 		return nil, auth.Principal{}, err
 	}
 	principal, err := dependencies.Auth.Authenticate(ctx, bearerToken(authorization))
 	if errors.Is(err, auth.ErrNotAuthenticated) {
-		return nil, auth.Principal{}, notSignedIn(err)
+		return nil, auth.Principal{}, notSignedInError(err)
 	}
 	if err != nil {
-		return nil, auth.Principal{}, server.internal(ctx, "authenticate", err)
+		return nil, auth.Principal{}, server.logInternalError(ctx, "authenticate", err)
 	}
 	return dependencies, principal, nil
 }
@@ -206,8 +209,8 @@ const (
 	ReasonNoSession      = "no_session"
 )
 
-// notSignedIn is auth_required with why.
-func notSignedIn(err error) *Error {
+// notSignedInError is auth_required with why.
+func notSignedInError(err error) *Error {
 	failure := newError(http.StatusUnauthorized, CodeAuthRequired, "sign in first")
 	reason := ReasonNoSession
 	switch {
@@ -222,11 +225,11 @@ func notSignedIn(err error) *Error {
 	return failure
 }
 
-// signedInAdmin is signedIn for an administrator.
-func (server *Server) signedInAdmin(ctx context.Context, authorization string) (
+// requireAdmin is requireSignedIn for an administrator.
+func (server *Server) requireAdmin(ctx context.Context, authorization string) (
 	*Dependencies, auth.Principal, error,
 ) {
-	dependencies, principal, err := server.signedIn(ctx, authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, authorization)
 	if err != nil {
 		return nil, principal, err
 	}
@@ -236,10 +239,10 @@ func (server *Server) signedInAdmin(ctx context.Context, authorization string) (
 	return dependencies, principal, nil
 }
 
-// internal logs an unexpected error and returns the generic internal error, so nothing about it
-// reaches the client.
-func (server *Server) internal(ctx context.Context, doing string, err error) error {
-	server.logger.ErrorContext(ctx, "request failed", "doing", doing, "err", err)
+// logInternalError logs an unexpected error and returns the generic internal error, so nothing
+// about it reaches the client.
+func (server *Server) logInternalError(ctx context.Context, action string, err error) error {
+	server.logger.ErrorContext(ctx, "request failed", "action", action, "err", err)
 	return newError(http.StatusInternalServerError, CodeInternal, "internal error")
 }
 

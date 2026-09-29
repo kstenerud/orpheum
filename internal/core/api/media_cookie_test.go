@@ -10,10 +10,12 @@ import (
 	"testing"
 )
 
-// raw sends a request with the given headers and cookie and returns the response, closed.
-func (harness testHarness) raw(t *testing.T, method, path, body string, header http.Header) (fetched, string) {
+// doWithHeaders sends a request with the given headers and cookie and returns the response, closed.
+func (harness testHarness) doWithHeaders(
+	t *testing.T, method, path, body string, header http.Header,
+) (closedResponse, string) {
 	t.Helper()
-	request, err := http.NewRequestWithContext(t.Context(), method, harness.http.URL+Prefix+path,
+	request, err := http.NewRequestWithContext(t.Context(), method, harness.httpServer.URL+Prefix+path,
 		bytes.NewReader([]byte(body)))
 	if err != nil {
 		t.Fatal(err)
@@ -22,7 +24,7 @@ func (harness testHarness) raw(t *testing.T, method, path, body string, header h
 	if body != "" {
 		request.Header.Set("Content-Type", "application/json")
 	}
-	answer, err := harness.http.Client().Do(request)
+	answer, err := harness.httpServer.Client().Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +37,7 @@ func (harness testHarness) raw(t *testing.T, method, path, body string, header h
 	if _, err := read.ReadFrom(answer.Body); err != nil {
 		t.Fatal(err)
 	}
-	return fetched{StatusCode: answer.StatusCode, Header: answer.Header}, read.String()
+	return closedResponse{StatusCode: answer.StatusCode, Header: answer.Header}, read.String()
 }
 
 func TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt(t *testing.T) {
@@ -43,34 +45,35 @@ func TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt(t *tes
 	harness := newHarness(t)
 	harness.createAdminAndSignIn(t)
 	hash := strings.Repeat("ab", 32)
-	if err := harness.art.WriteArt(hash, "portrait-s.webp", []byte("RIFF....WEBP")); err != nil {
+	if err := harness.directories.WriteArt(hash, "portrait-s.webp", []byte("RIFF....WEBP")); err != nil {
 		t.Fatal(err)
 	}
 	const credentials = `{"name":"owner","password":"owner-password",` +
 		`"device":{"name":"Firefox on Linux","platform":"web"}}`
-	signedIn, _ := harness.raw(t, http.MethodPost, "/session", credentials, nil)
+	signedIn, _ := harness.doWithHeaders(t, http.MethodPost, "/session", credentials, nil)
 	cookies := (&http.Response{Header: signedIn.Header}).Cookies()
-	if len(cookies) != 1 || cookies[0].Name != MediaCookie || !cookies[0].HttpOnly ||
+	if len(cookies) != 1 || cookies[0].Name != MediaCookieName || !cookies[0].HttpOnly ||
 		cookies[0].SameSite != http.SameSiteStrictMode || cookies[0].Path != Prefix+"/bytes/" || cookies[0].Secure {
 		t.Fatalf("sign-in set %+v; want one HttpOnly, SameSite=Strict media cookie scoped to /bytes/, not Secure "+
 			"over plain HTTP", cookies)
 	}
-	withCookie := http.Header{"Cookie": {MediaCookie + "=" + cookies[0].Value}}
-	image, body := harness.raw(t, http.MethodGet, "/bytes/art/"+hash+"/portrait-s.webp", "", withCookie)
+	withCookie := http.Header{"Cookie": {MediaCookieName + "=" + cookies[0].Value}}
+	image, body := harness.doWithHeaders(t, http.MethodGet, "/bytes/art/"+hash+"/portrait-s.webp", "", withCookie)
 	if image.StatusCode != http.StatusOK || body != "RIFF....WEBP" {
 		t.Errorf("an image by the cookie alone: %d %q", image.StatusCode, body)
 	}
 	// The API takes the header and never the cookie: a forged request changes nothing (D154).
-	if me, _ := harness.raw(t, http.MethodGet, "/me", "", withCookie); me.StatusCode != http.StatusUnauthorized {
+	me, _ := harness.doWithHeaders(t, http.MethodGet, "/me", "", withCookie)
+	if me.StatusCode != http.StatusUnauthorized {
 		t.Errorf("/me by the cookie alone: %d, want 401", me.StatusCode)
 	}
 	signOut := http.Header{"Authorization": {"Bearer " + cookies[0].Value}}
-	signedOut, _ := harness.raw(t, http.MethodDelete, "/session", "", signOut)
+	signedOut, _ := harness.doWithHeaders(t, http.MethodDelete, "/session", "", signOut)
 	cleared := (&http.Response{Header: signedOut.Header}).Cookies()
 	if signedOut.StatusCode != http.StatusNoContent || len(cleared) != 1 || cleared[0].MaxAge >= 0 {
 		t.Errorf("sign-out: %d, cookies %+v; want the media cookie cleared", signedOut.StatusCode, cleared)
 	}
-	after, _ := harness.raw(t, http.MethodGet, "/bytes/art/"+hash+"/portrait-s.webp", "", withCookie)
+	after, _ := harness.doWithHeaders(t, http.MethodGet, "/bytes/art/"+hash+"/portrait-s.webp", "", withCookie)
 	if after.StatusCode != http.StatusUnauthorized {
 		t.Errorf("the cookie after sign-out: %d, want 401", image.StatusCode)
 	}
@@ -82,13 +85,14 @@ func TestMediaCookie_AskingWhoIAmSetsItAgainForThisSession(t *testing.T) {
 	token := harness.createAdminAndSignIn(t)
 	// A browser whose cookie is missing or stale, from an older path or another sign-in, asks
 	// who it is at start and is given this session's cookie before it fetches any bytes.
-	me, _ := harness.raw(t, http.MethodGet, "/me", "", http.Header{"Authorization": {"Bearer " + token}})
+	me, _ := harness.doWithHeaders(t, http.MethodGet, "/me", "", http.Header{"Authorization": {"Bearer " + token}})
 	cookies := (&http.Response{Header: me.Header}).Cookies()
-	if me.StatusCode != http.StatusOK || len(cookies) != 1 || cookies[0].Name != MediaCookie ||
+	if me.StatusCode != http.StatusOK || len(cookies) != 1 || cookies[0].Name != MediaCookieName ||
 		cookies[0].Value != token || cookies[0].Path != Prefix+"/bytes/" || !cookies[0].HttpOnly {
 		t.Errorf("GET /me = %d with cookies %+v; want this session's media cookie on /bytes/", me.StatusCode, cookies)
 	}
-	if refused, _ := harness.raw(t, http.MethodGet, "/me", "", nil); len(refused.Header.Values("Set-Cookie")) != 0 {
+	refused, _ := harness.doWithHeaders(t, http.MethodGet, "/me", "", nil)
+	if len(refused.Header.Values("Set-Cookie")) != 0 {
 		t.Errorf("GET /me with no session set a cookie: %v", refused.Header.Values("Set-Cookie"))
 	}
 }

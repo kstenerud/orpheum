@@ -14,11 +14,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// withSound gives the shelved films the audio streams a scan records: the MP4's stereo track and
-// the MKV's eight-channel one.
-func (harness testHarness) withSound(t *testing.T) {
+// shelveAudioStreams gives the shelved films the audio streams a scan records: the MP4's stereo
+// track and the MKV's eight-channel one.
+func (harness testHarness) shelveAudioStreams(t *testing.T) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, channel_count)
 		 VALUES (1, 1, 0, 'audio', 'aac', 2), (2, 2, 1, 'audio', 'truehd', 8)`)
 }
@@ -41,10 +41,10 @@ func (harness testHarness) measureWith(
 	return command.MeasureLoudness, <-finished
 }
 
-// toMeasure is what a sweep would find to measure now.
-func (harness testHarness) toMeasure(t *testing.T) []int64 {
+// filesToMeasure is what a sweep would find to measure now.
+func (harness testHarness) filesToMeasure(t *testing.T) []int64 {
 	t.Helper()
-	ids, err := harness.library.Read().ListFilesToMeasure(t.Context(),
+	ids, err := harness.database.Read().ListFilesToMeasure(t.Context(),
 		sqlcgen.ListFilesToMeasureParams{AfterID: 0, ThroughID: 1000})
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +57,7 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	harness.withSound(t)
+	harness.shelveAudioStreams(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	service := harness.server.dependencies.Load().Playback
 	if queued, err := service.QueueMeasurements(t.Context()); err != nil || queued != 2 {
@@ -81,12 +81,13 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 		t.Errorf("the node was asked to measure %+v, want the MP4 by root, path and hash, with its stereo track",
 			command)
 	}
-	if ids := harness.toMeasure(t); !slices.Equal(ids, []int64{2}) {
+	if ids := harness.filesToMeasure(t); !slices.Equal(ids, []int64{2}) {
 		t.Errorf("after measuring film 1, a sweep finds %v, want only film 2", ids)
 	}
 	direct := harness.play(t, user, chrome(1))
-	if direct.Kind != "direct" || direct.Levelling != (LevellingBody{IsMeasured: true, GainDB: 12.7}) {
-		t.Errorf("played directly: %s, %+v; want raised 12.7 dB to -23 LUFS (D226 §3)", direct.Kind, direct.Levelling)
+	if direct.Delivery != "direct" || direct.Levelling != (LevellingBody{IsMeasured: true, GainDB: 12.7}) {
+		t.Errorf("played directly: %s, %+v; want raised 12.7 dB to -23 LUFS (D226 §3)",
+			direct.Delivery, direct.Levelling)
 	}
 }
 
@@ -95,7 +96,7 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	harness.withSound(t)
+	harness.shelveAudioStreams(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	// The 7.1 track is louder as it is than as its renormalised stereo mix; the mix's gain is
 	// capped by its peak.
@@ -109,7 +110,7 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 	}
 	decided := harness.play(t, user, chrome(2))
 	want := LevellingBody{IsMeasured: true, GainDB: 5.0}
-	if decided.Kind != "hls" || len(decided.Audio) != 2 || decided.Audio[0].Levelling != want ||
+	if decided.Delivery != "hls" || len(decided.Audio) != 2 || decided.Audio[0].Levelling != want ||
 		decided.Audio[1].Levelling != want || decided.Audio[0].CarriedGainDB != 0 || decided.Levelling != want {
 		t.Fatalf("prepared: %+v; want both mixes at the stereo mix's gain, capped by its peak, and none carried yet",
 			decided)
@@ -140,21 +141,21 @@ func TestLoudness_AFileFFmpegCannotMeasureIsNotAskedAgainButOneTheNodeDidNotTryI
 	harness := newHarness(t)
 	harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	harness.withSound(t)
+	harness.shelveAudioStreams(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	_, err := harness.measureWith(t, 93, 2,
 		nodeproto.LoudnessResult{Refusal: "the file at this path is not the one named"})
 	if err == nil || !strings.Contains(err.Error(), "not the one named") {
 		t.Errorf("a measurement the node would not try ended %v, want its reason", err)
 	}
-	if ids := harness.toMeasure(t); !slices.Equal(ids, []int64{1, 2}) {
+	if ids := harness.filesToMeasure(t); !slices.Equal(ids, []int64{1, 2}) {
 		t.Errorf("after the node would not try film 2, a sweep finds %v, want it asked again", ids)
 	}
 	_, err = harness.measureWith(t, 94, 2, nodeproto.LoudnessResult{Failure: "ffmpeg: Invalid data found"})
 	if err == nil || !strings.Contains(err.Error(), "Invalid data found") {
 		t.Errorf("a failed measurement ended %v, want FFmpeg's words", err)
 	}
-	if ids := harness.toMeasure(t); !slices.Equal(ids, []int64{1}) {
+	if ids := harness.filesToMeasure(t); !slices.Equal(ids, []int64{1}) {
 		t.Errorf("after FFmpeg could not measure film 2, a sweep finds %v, want only film 1", ids)
 	}
 }
@@ -164,14 +165,14 @@ func TestLoudness_LevellingIsOnUntilThePersonTurnsItOff(t *testing.T) {
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	if first := harness.play(t, user, chrome(1)); !first.Prefs.IsLevelling {
-		t.Errorf("a person who never chose: levelling %t, want on (D226 §5)", first.Prefs.IsLevelling)
+	if first := harness.play(t, user, chrome(1)); !first.Prefs.IsLevellingOn {
+		t.Errorf("a person who never chose: levelling %t, want on (D226 §5)", first.Prefs.IsLevellingOn)
 	}
 	answer := harness.do(t, http.MethodPut, "/me/preferences", user, map[string]any{"isLevellingOn": false})
 	if answer.status != http.StatusNoContent {
 		t.Fatalf("PUT /me/preferences = %d %s", answer.status, answer.body)
 	}
-	if off := harness.play(t, user, chrome(2)); off.Prefs.IsLevelling {
+	if off := harness.play(t, user, chrome(2)); off.Prefs.IsLevellingOn {
 		t.Error("after turning it off: levelling on, want off in every file")
 	}
 }
@@ -194,9 +195,9 @@ func TestLoudness_TheGainGoesTowardsTheLevelWithinItsLimits(t *testing.T) {
 		{"a near-silent one", -60.0, new(-50.0), LevellingBody{IsMeasured: true, GainDB: 20.0}},
 		{"silence", -70.0, nil, LevellingBody{IsMeasured: true, GainDB: 0}},
 	} {
-		storetest.ExecRaw(t, harness.database, "DELETE FROM loudness")
+		storetest.ExecRaw(t, harness.databasePath, "DELETE FROM loudness")
 		integrated := check.integrated
-		err := harness.library.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		err := harness.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 			return queries.UpsertLoudness(t.Context(), sqlcgen.UpsertLoudnessParams{
 				PayloadHash: []byte{0x0a, 0x0b}, StreamIndex: 0, MeasuredMix: "stereo", IntegratedLufs: &integrated,
 				TruePeakDbtp: check.peak, MeasuredAt: 1,

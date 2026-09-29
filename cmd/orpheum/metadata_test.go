@@ -53,14 +53,14 @@ func TestFollowSortLocale_KeysEveryNameAtStartAndOnEveryChange(t *testing.T) {
 
 func TestRunners_PreparesRunAsManyAtOnceAsANodeHasSlots(t *testing.T) {
 	t.Parallel()
-	for _, runner := range (metadata{}).runners() {
+	for _, runner := range (jobServices{}).runners() {
 		want := 1
 		if runner.kind == jobs.KindPrepare {
 			// A second person's copy is not held behind the first's.
 			want = nodeproto.EncodeSlotCount + nodeproto.RemuxSlotCount
 		}
-		if runner.atOnce != want {
-			t.Errorf("%s jobs run %d at once, want %d (cut-a §5.3)", runner.kind, runner.atOnce, want)
+		if runner.concurrency != want {
+			t.Errorf("%s jobs run %d at once, want %d (cut-a §5.3)", runner.kind, runner.concurrency, want)
 		}
 	}
 }

@@ -20,10 +20,10 @@ import (
 
 // fakeNodeBytes answers for the node's byte socket from files held by target.
 type fakeNodeBytes struct {
-	mutex  sync.Mutex
-	files  map[string]string // guarded by mutex
-	silent bool              // guarded by mutex
-	status int               // guarded by mutex: answer this instead, when set
+	mutex    sync.Mutex
+	files    map[string]string // guarded by mutex
+	isSilent bool              // guarded by mutex
+	status   int               // guarded by mutex: answer this instead, when set
 }
 
 func (fake *fakeNodeBytes) Do(
@@ -31,7 +31,7 @@ func (fake *fakeNodeBytes) Do(
 ) (*http.Response, error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
-	if fake.silent {
+	if fake.isSilent {
 		return nil, nodes.ErrNodeSilent
 	}
 	recorder := httptest.NewRecorder()
@@ -61,7 +61,7 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		`{"streamIndex":1,"kind":"audio","codec":"truehd","audio":{"channelCount":8}},` +
 		`{"streamIndex":2,"kind":"subtitle","codec":"ass","language":"en","disposition":["default"]},` +
 		`{"streamIndex":3,"kind":"subtitle","codec":"hdmv_pgs_subtitle"}]}`
-	storetest.ExecRaw(t, harness.database,
+	storetest.ExecRaw(t, harness.databasePath,
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
@@ -75,13 +75,13 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		 (2, 1, 1, '/media/Film (2002).mkv', CAST('/media/Film (2002).mkv' AS BLOB), 10, X'0c0d', 'listed', '`+
 			mkv+`', 1, 1),
 		 (3, 1, 1, '/media/notes.txt', CAST('/media/notes.txt' AS BLOB), 5, X'0e0f', 'skipped', NULL, 1, 1)`)
-	harness.bytes.mutex.Lock()
-	defer harness.bytes.mutex.Unlock()
+	harness.nodeBytes.mutex.Lock()
+	defer harness.nodeBytes.mutex.Unlock()
 	film := nodeproto.BytesFile{RootPath: "/media", Path: []byte("Film (2001).mp4"), PayloadHash: "0a0b"}
-	harness.bytes.files[film.Target()] = "the film's bytes"
+	harness.nodeBytes.files[film.Target()] = "the film's bytes"
 }
 
-// chrome is the menu a desktop Chrome sends.
+// chrome is a start-playback body for fileID with the playable formats a desktop Chrome sends.
 func chrome(fileID int64) map[string]any {
 	return map[string]any{"fileId": fileID, "network": "local", "playableFormats": map[string]any{
 		"videoCodecs": []string{"hevc-sdr", "h264-sdr"}, "audioCodecs": []string{"aac-stereo", "opus", "flac"},
@@ -90,22 +90,22 @@ func chrome(fileID int64) map[string]any {
 }
 
 type decision struct {
-	Kind        string   `json:"delivery"`
-	URL         string   `json:"url"`
-	Profile     string   `json:"profile"`
-	Reasons     []string `json:"notDirectReasons"`
-	IsPreparing bool     `json:"isPreparing"`
-	Audio       []struct {
-		SourceTrack     int           `json:"audioTrackIndex"`
-		Language        string        `json:"language"`
-		IsDialogueBoost bool          `json:"isDialogueBoosted"`
-		Levelling       LevellingBody `json:"levelling"`
-		CarriedGainDB   float64       `json:"carriedGainDb"`
+	Delivery         string   `json:"delivery"`
+	URL              string   `json:"url"`
+	Profile          string   `json:"profile"`
+	NotDirectReasons []string `json:"notDirectReasons"`
+	IsPreparing      bool     `json:"isPreparing"`
+	Audio            []struct {
+		AudioTrackIndex   int           `json:"audioTrackIndex"`
+		Language          string        `json:"language"`
+		IsDialogueBoosted bool          `json:"isDialogueBoosted"`
+		Levelling         LevellingBody `json:"levelling"`
+		CarriedGainDB     float64       `json:"carriedGainDb"`
 	} `json:"audioRenditions"`
 	Subtitles []subtitleTrack `json:"subtitles"`
 	Prefs     struct {
 		SubtitleOffsetMs int  `json:"subtitleOffsetMs"`
-		IsLevelling      bool `json:"isLevellingOn"`
+		IsLevellingOn    bool `json:"isLevellingOn"`
 	} `json:"preferences"`
 	ResumePositionMs int64         `json:"resumePositionMs"`
 	MediaToken       string        `json:"mediaToken"`
@@ -138,10 +138,10 @@ type byteAnswer struct {
 	body   string
 }
 
-// fetch GETs a byte path, by the header or the media cookie, with a Range when one is given.
-func (harness testHarness) fetch(t *testing.T, url, token string, byCookie bool, byteRange string) byteAnswer {
+// getBytePath GETs a byte path, by the header or the media cookie, with a Range when one is given.
+func (harness testHarness) getBytePath(t *testing.T, url, token string, byCookie bool, byteRange string) byteAnswer {
 	t.Helper()
-	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, harness.http.URL+url, http.NoBody)
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, harness.httpServer.URL+url, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func (harness testHarness) fetch(t *testing.T, url, token string, byCookie bool,
 	if byteRange != "" {
 		request.Header.Set("Range", byteRange)
 	}
-	answer, err := harness.http.Client().Do(request)
+	answer, err := harness.httpServer.Client().Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,18 +172,18 @@ func TestPlayback_AFileThatFitsPlaysDirectlyThroughTheCore(t *testing.T) {
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	decided := harness.play(t, user, chrome(1))
-	if decided.Kind != "direct" || len(decided.Reasons) != 0 ||
+	if decided.Delivery != "direct" || len(decided.NotDirectReasons) != 0 ||
 		!strings.HasPrefix(decided.URL, Prefix+"/bytes/media/direct/") {
 		t.Fatalf("the decision = %+v, want direct with a byte path", decided)
 	}
-	whole := harness.fetch(t, decided.URL, user, true, "")
+	whole := harness.getBytePath(t, decided.URL, user, true, "")
 	if whole.status != http.StatusOK || whole.body != "the film's bytes" {
 		t.Errorf("GET by the media cookie = %d %q, want the film", whole.status, whole.body)
 	}
 	if got := whole.header.Get("Content-Type"); got != "video/mp4" {
 		t.Errorf("Content-Type %q, want video/mp4", got)
 	}
-	ranged := harness.fetch(t, decided.URL, user, false, "bytes=4-7")
+	ranged := harness.getBytePath(t, decided.URL, user, false, "bytes=4-7")
 	if ranged.status != http.StatusPartialContent || ranged.body != "film" ||
 		ranged.header.Get("Content-Range") != "bytes 4-7/16" {
 		t.Errorf("a range = %d %q %q, want 206 \"film\"",
@@ -197,8 +197,8 @@ func TestPlayback_TheAcceptanceFileIsPreparedForItsContainerAndItsAudio(t *testi
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	decided := harness.play(t, user, chrome(2))
-	if decided.Kind != "hls" || decided.Profile != "remux" ||
-		strings.Join(decided.Reasons, ",") != "container,audio_codec" {
+	if decided.Delivery != "hls" || decided.Profile != "remux" ||
+		strings.Join(decided.NotDirectReasons, ",") != "container,audio_codec" {
 		t.Errorf("the decision = %+v, want hls, remux, for container and audio_codec", decided)
 	}
 }
@@ -209,23 +209,23 @@ func TestPlayback_AMediaAddressPlaysOnlyForItsSessionAndOnlyWhileInUse(t *testin
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	decided := harness.play(t, user, chrome(1))
-	if answer := harness.fetch(t, decided.URL, "", false, ""); answer.status != http.StatusUnauthorized {
+	if answer := harness.getBytePath(t, decided.URL, "", false, ""); answer.status != http.StatusUnauthorized {
 		t.Errorf("with no credential: %d, want 401: the address alone plays for no one", answer.status)
 	}
 	other := harness.signIn(t, "owner", "owner-password")
-	if answer := harness.fetch(t, decided.URL, other, false, ""); answer.status != http.StatusNotFound {
+	if answer := harness.getBytePath(t, decided.URL, other, false, ""); answer.status != http.StatusNotFound {
 		t.Errorf("under another session: %d, want 404", answer.status)
 	}
 	harness.clock.Advance(3 * time.Hour)
-	if answer := harness.fetch(t, decided.URL, user, false, ""); answer.status != http.StatusOK {
+	if answer := harness.getBytePath(t, decided.URL, user, false, ""); answer.status != http.StatusOK {
 		t.Errorf("used within its idle time: %d, want 200", answer.status)
 	}
 	harness.clock.Advance(3 * time.Hour)
-	if answer := harness.fetch(t, decided.URL, user, false, ""); answer.status != http.StatusOK {
+	if answer := harness.getBytePath(t, decided.URL, user, false, ""); answer.status != http.StatusOK {
 		t.Errorf("used again within its idle time of the last use: %d, want 200", answer.status)
 	}
 	harness.clock.Advance(5 * time.Hour)
-	if answer := harness.fetch(t, decided.URL, user, false, ""); answer.status != http.StatusNotFound {
+	if answer := harness.getBytePath(t, decided.URL, user, false, ""); answer.status != http.StatusNotFound {
 		t.Errorf("idle past media_token_idle_expiry_h: %d, want 404", answer.status)
 	}
 }
@@ -236,18 +236,18 @@ func TestPlayback_SaysWhichLegFailed(t *testing.T) {
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	decided := harness.play(t, user, chrome(1))
-	harness.bytes.mutex.Lock()
-	harness.bytes.silent = true
-	harness.bytes.mutex.Unlock()
-	silent := harness.fetch(t, decided.URL, user, false, "")
+	harness.nodeBytes.mutex.Lock()
+	harness.nodeBytes.isSilent = true
+	harness.nodeBytes.mutex.Unlock()
+	silent := harness.getBytePath(t, decided.URL, user, false, "")
 	if silent.status != http.StatusServiceUnavailable ||
 		!strings.Contains(silent.body, `"code":"node_silent"`) || !strings.Contains(silent.body, `"failedHop":"node"`) {
 		t.Errorf("a silent node: %d %s, want 503 node_silent at hop node", silent.status, silent.body)
 	}
-	harness.bytes.mutex.Lock()
-	harness.bytes.silent, harness.bytes.status = false, http.StatusConflict
-	harness.bytes.mutex.Unlock()
-	changed := harness.fetch(t, decided.URL, user, false, "")
+	harness.nodeBytes.mutex.Lock()
+	harness.nodeBytes.isSilent, harness.nodeBytes.status = false, http.StatusConflict
+	harness.nodeBytes.mutex.Unlock()
+	changed := harness.getBytePath(t, decided.URL, user, false, "")
 	if changed.status != http.StatusNotFound || !strings.Contains(changed.body, `"code":"file_unavailable"`) {
 		t.Errorf("a file the node no longer has as it was: %d %s, want file_unavailable", changed.status, changed.body)
 	}

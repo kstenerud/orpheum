@@ -47,7 +47,7 @@ type SpanBody struct {
 }
 
 func (server *Server) registerReport() {
-	huma.Register(server.api, huma.Operation{
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "reportPlayback", Method: http.MethodPost, Path: "/playback/{token}/report",
 		Summary:       "Report where a playback is and what changed; the position never moves back (D217 §7)",
 		Tags:          []string{tagPlayback},
@@ -56,7 +56,7 @@ func (server *Server) registerReport() {
 }
 
 func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*struct{}, error) {
-	dependencies, principal, err := server.signedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	case errors.Is(err, playback.ErrBadReport):
 		return nil, newError(http.StatusBadRequest, CodeInvalidRequest, err.Error())
 	case err != nil:
-		return nil, server.internal(ctx, "keep a play report", err)
+		return nil, server.logInternalError(ctx, "keep a play report", err)
 	}
 	return &struct{}{}, nil
 }

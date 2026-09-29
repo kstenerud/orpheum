@@ -87,10 +87,10 @@ const (
 // configKey is one key of the file. A key with a starting value runs on it when the file lacks it
 // (D202); one without is specific to the machine, and the server refuses to start without it.
 type configKey struct {
-	table    string
-	name     string
-	start    string // the starting value as TOML; "" when there is none
-	describe string
+	table         string
+	name          string
+	startingValue string // the starting value as TOML; "" when there is none
+	description   string
 }
 
 func (key configKey) path() string {
@@ -171,8 +171,8 @@ const videoExtensions = `["mkv", "mp4", "m4v", "avi", "mov", "wmv", "ts", "m2ts"
 // ConfigReport is what loading the file found besides its values: the keys it lacks, which run on
 // their starting values, and the keys nothing reads. The doctor lists both; run logs them (D202).
 type ConfigReport struct {
-	FromStart []configKey
-	Unknown   []string
+	OnStartingValue []configKey
+	Unknown         []string
 }
 
 // loadConfig reads and checks the config file. A missing key that has a starting value runs on it,
@@ -190,21 +190,22 @@ func loadConfig(path string) (Config, ConfigReport, error) {
 		return Config{}, report, fmt.Errorf("config %s: %w", path, err)
 	}
 	report.Unknown = unknownKeys(metadata)
-	var byHand []error
+	var missingRequired []error
 	for _, key := range missingKeys(metadata) {
-		if key.start == "" {
-			byHand = append(byHand, fmt.Errorf("%s is required and has no starting value: it is %s; add it to "+
-				"the file", key.path(), key.describe))
+		if key.startingValue == "" {
+			missingRequired = append(missingRequired,
+				fmt.Errorf("%s is required and has no starting value: it is %s; add it to "+
+					"the file", key.path(), key.description))
 			continue
 		}
-		report.FromStart = append(report.FromStart, key)
+		report.OnStartingValue = append(report.OnStartingValue, key)
 	}
-	if len(byHand) > 0 {
-		return Config{}, report, fmt.Errorf("config %s: %w", path, errors.Join(byHand...))
+	if len(missingRequired) > 0 {
+		return Config{}, report, fmt.Errorf("config %s: %w", path, errors.Join(missingRequired...))
 	}
 	full := string(text)
-	if len(report.FromStart) > 0 {
-		if full, err = withStartingValues(full, report.FromStart); err != nil {
+	if len(report.OnStartingValue) > 0 {
+		if full, err = withStartingValues(full, report.OnStartingValue); err != nil {
 			return Config{}, report, fmt.Errorf("config %s: %w", path, err)
 		}
 	}
@@ -224,9 +225,9 @@ func loadConfig(path string) (Config, ConfigReport, error) {
 // Notes renders the report as lines, one per key.
 func (report ConfigReport) Notes() []string {
 	var notes []string
-	for _, key := range report.FromStart {
+	for _, key := range report.OnStartingValue {
 		notes = append(notes, fmt.Sprintf("config: %s is not in the file; using its starting value, %s (%s)",
-			key.path(), key.start, key.describe))
+			key.path(), key.startingValue, key.description))
 	}
 	for _, key := range report.Unknown {
 		notes = append(notes, fmt.Sprintf("config: %s is in the file, but nothing reads it: a typo, or a key a "+
@@ -360,9 +361,9 @@ func configFileKeys(config Config, report ConfigReport) ([]api.ConfigFileKey, er
 	if _, err = toml.Decode(string(encoded), &tables); err != nil {
 		return nil, fmt.Errorf("render the config: %w", err)
 	}
-	fromStart := map[string]bool{}
-	for _, key := range report.FromStart {
-		fromStart[key.path()] = true
+	isOnStartingValue := map[string]bool{}
+	for _, key := range report.OnStartingValue {
+		isOnStartingValue[key.path()] = true
 	}
 	keys := []api.ConfigFileKey{}
 	for _, key := range configKeys() {
@@ -370,13 +371,13 @@ func configFileKeys(config Config, report ConfigReport) ([]api.ConfigFileKey, er
 		if err != nil {
 			return nil, fmt.Errorf("render %s: %w", key.path(), err)
 		}
-		start := json.RawMessage("null")
-		if key.start != "" {
-			start = json.RawMessage(key.start)
+		startingValue := json.RawMessage("null")
+		if key.startingValue != "" {
+			startingValue = json.RawMessage(key.startingValue)
 		}
 		keys = append(keys, api.ConfigFileKey{
-			Key: key.path(), Value: value, StartingValue: start, IsFromFile: !fromStart[key.path()],
-			Description: key.describe,
+			Key: key.path(), Value: value, StartingValue: startingValue, IsFromFile: !isOnStartingValue[key.path()],
+			Description: key.description,
 		})
 	}
 	return keys, nil
