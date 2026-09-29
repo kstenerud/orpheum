@@ -212,8 +212,8 @@ var requiredDocHeadings = []string{"Invariants", "Read before changing", "Where 
 
 // checkDocFile returns what is wrong with a package's doc.go: missing, no package comment, or
 // a required heading absent or out of order.
-func checkDocFile(importPath, source string, found bool) []violation {
-	if !found {
+func checkDocFile(importPath, source string, hasDocFile bool) []violation {
+	if !hasDocFile {
 		return []violation{{where: importPath, detail: "has no doc.go"}}
 	}
 	parsed, err := parser.ParseFile(token.NewFileSet(), "doc.go", source, parser.ParseComments|parser.PackageClauseOnly)
@@ -346,8 +346,8 @@ func TestArch_OnlyStoreImportsDatabaseSQL(t *testing.T) {
 }
 
 // TestArch_OnlyExecxImportsOsExec checks that, of the code that ships, only execx starts a
-// process. The test-only package internal/testutil may too, to run the MKVToolNix the tests edit
-// files with; that it never ships is TestArch_TestutilIsImportedOnlyByTests.
+// process. The test-only package internal/testutil may too, to run the tools the tests need
+// (MKVToolNix, FFmpeg, this binary); that it never ships is TestArch_TestutilIsImportedOnlyByTests.
 func TestArch_OnlyExecxImportsOsExec(t *testing.T) {
 	t.Parallel()
 	packages := loadModulePackages(t)

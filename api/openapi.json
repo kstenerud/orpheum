@@ -3175,7 +3175,7 @@
     }
   },
   "info": {
-    "description": "The Orpheum media server's client API (cut-a §5). Errors have one shape: {\"error\": {\"code\", \"message\", \"detail\", \"hop\"}}.",
+    "description": "The Orpheum media server's client API (cut-a §5). Errors have one shape: an object whose error holds a code, a message, a detail and, for a reachability error, the failedHop.",
     "title": "Orpheum",
     "version": "1"
   },

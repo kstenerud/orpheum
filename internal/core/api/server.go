@@ -97,7 +97,7 @@ func NewServer(logger *slog.Logger) *Server {
 	config.DocsPath = "" // the docs page loads scripts from a CDN; the document itself is served
 	config.CreateHooks = nil
 	config.Info.Description = "The Orpheum media server's client API (cut-a §5). Errors have one shape: " +
-		"{\"error\": {\"code\", \"message\", \"detail\", \"hop\"}}."
+		"an object whose error holds a code, a message, a detail and, for a reachability error, the failedHop."
 	mux := http.NewServeMux()
 	server := &Server{
 		api:    humago.NewWithPrefix(mux, Prefix, config),
