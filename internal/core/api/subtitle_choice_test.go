@@ -72,6 +72,21 @@ func (harness testHarness) choiceIn(t *testing.T, session string, fileID int64) 
 	return fmt.Sprintf("%d carried=%v", choice.StreamID, choice.IsCarriedFromWork)
 }
 
+// A choice is stored on the axis subtitle_choice, the name migration 0021 gave the rows written
+// before it (D227), so a choice made before the rename is still the one a playback starts with.
+func TestSubtitleChoice_AChoiceStoredBeforeTheRenameIsStillFound(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	harness.shelveEpisodes(t)
+	storetest.ExecRaw(t, harness.database, `INSERT INTO preference (user_id, scope, scope_id, axis, value, set_at)
+		VALUES (1, 'file', 2, 'subtitle_choice', '{"isOff":true}', 1)`)
+	if got := harness.choiceIn(t, user, 2); got != "off carried=false" {
+		t.Errorf("a choice stored as subtitle_choice: file 2 starts with %q, want it off", got)
+	}
+}
+
 func TestSubtitleChoice_IsKeptPerFileAndCarriedToTheSeriesFilesWithNoneOfTheirOwn(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

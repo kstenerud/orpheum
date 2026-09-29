@@ -150,6 +150,31 @@ func TestSession_ARemovedDeviceIsToldItWasSignedOutAndMeNamesTheDevice(t *testin
 	}
 }
 
+// A client that signs in again naming the device it was before, as previousDeviceId, is that
+// device again (D221 §1), not a new one.
+func TestSession_ASignInNamingThePreviousDeviceResumesIt(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	first := harness.createAdminAndSignIn(t)
+	before := harness.thisDeviceID(t, first)
+	if out := harness.do(t, http.MethodDelete, "/session", first, nil); out.status != http.StatusNoContent {
+		t.Fatalf("DELETE /session = %d %s", out.status, out.body)
+	}
+	signedIn := harness.do(t, http.MethodPost, "/session", "", map[string]any{
+		"name": "owner", "password": "owner-password",
+		"device": map[string]any{"name": "Firefox on Linux", "platform": "web", "previousDeviceId": before},
+	})
+	var session struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal([]byte(signedIn.body), &session); err != nil || session.Token == "" {
+		t.Fatalf("sign in again: %d %s", signedIn.status, signedIn.body)
+	}
+	if after := harness.thisDeviceID(t, session.Token); after != before {
+		t.Errorf("signing in again naming device %d as previousDeviceId is device %d, want %d", before, after, before)
+	}
+}
+
 func TestPeople_AnAdminRenamesAPersonAndSeesTheirPage(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
