@@ -97,7 +97,7 @@ CREATE TABLE node (                                        -- class I + O (the l
   enrolled_at INTEGER NOT NULL,
   removed_at  INTEGER,
   last_ingested_report_seq  INTEGER NOT NULL DEFAULT 0,  -- last journal sequence the core ingested (D59)
-  last_status_json      TEXT,                        -- the node's last last_status_json record, JSON
+  last_status_json      TEXT,                        -- the node's last status record, JSON
   last_status_at   INTEGER                      -- when it arrived; liveness is judged from this
 );
 
@@ -275,13 +275,13 @@ file, at a few dozen bytes, and serves the bytes again if they come back.
 CREATE TABLE loudness (                                    -- class O: what the node measured
   payload_hash    BLOB NOT NULL,
   stream_index    INTEGER NOT NULL,
-  measured_mix           TEXT NOT NULL CHECK (measured_mix IN ('source','stereo')),  -- as it is, or as stereo
+  measured_mix           TEXT NOT NULL CHECK (measured_mix IN ('multichannel','stereo')),  -- as it is, or as stereo
   integrated_lufs REAL,                  -- -70 for silence; NULL when it failed
   range_lu        REAL,
   true_peak_dbtp  REAL,                  -- NULL for silence, which has no peak, or a failure
   failure         TEXT,                  -- FFmpeg's words when it could not be measured
   measured_at     INTEGER NOT NULL,
-  PRIMARY KEY (payload_hash, stream_index, sound)
+  PRIMARY KEY (payload_hash, stream_index, measured_mix)
 ) WITHOUT ROWID;
 ```
 
@@ -327,7 +327,7 @@ CREATE TABLE title (                                       -- mixed: see the col
   year           INTEGER,                                    -- O: resolved
   runtime_ms     INTEGER,                                    -- O: resolved
   original_lang  TEXT,                                       -- O: resolved
-  -- D170/D183: the one followed_source this title follows, and its id there. F, or A once a person
+  -- D170/D183: the one source this title follows, and its id there. F, or A once a person
   -- chose it: a match is a fetch, and a migration never redoes one.
   followed_source         TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),       -- F/A
   followed_source_id      TEXT,                                                      -- F/A
@@ -396,7 +396,7 @@ CREATE TABLE sort_key (                                    -- class C (D47)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE CASCADE,
   locale      TEXT NOT NULL,
   listing     TEXT NOT NULL,             -- the list it sorts in: 'movie', 'series', 'album'…
-  collation_key         BLOB NOT NULL,             -- CLDR sort-collation_key bytes, BINARY order
+  collation_key         BLOB NOT NULL,             -- CLDR sort-key bytes, BINARY order
   PRIMARY KEY (locale, listing, collation_key, item_id)
 ) WITHOUT ROWID;
 
@@ -801,7 +801,8 @@ reference scale, and removes a failure mode.
 > version 11 what made a rendition's video and how fast (D225); version 12 the
 > `convert_fetched_subtitle` job (D224); version 13 the `measure_loudness` job and the gains a
 > rendition's sound carries (D226); version 14 renamed columns to say what they hold and gave a
-> job a column per kind of target (D227).
+> job a column per kind of target (D227); version 15 named a rendition's gains `audio_gains_db_json`
+> (D227 §5).
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)

@@ -12,10 +12,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/playback"
 )
 
-// ReportInput is a player's report on one playback (cut-a §5, D165). Seq numbers the playback's
+// ReportInput is a player's report on one playback (cut-a §5, D165). ReportSeq numbers the playback's
 // reports from 1, and one sent again is taken once. Every time is the device's monotonic clock in
 // milliseconds, which the server anchors to its own on arrival: SentMonoMs when the report was
-// sent, PositionMonoMs when PositionMs was read. Events are the changes of play state since the
+// sent, PositionReadMonoMs when PositionMs was read. Events are the changes of play state since the
 // last report, and Spans the runs of watching they closed.
 type ReportInput struct {
 	AuthorizationHeader

@@ -2174,7 +2174,7 @@ export interface operations {
                 Authorization?: string;
             };
             path: {
-                /** @description <streamId>.ass or <streamId>.vtt, or f<fetchedId>.ass or .vtt */
+                /** @description <streamId>.ass or <streamId>.vtt, or f<fetchedSubtitleId>.ass or .vtt */
                 file: string;
                 /** @description The playback's media token */
                 token: string;

@@ -15,7 +15,7 @@ const (
 	CommandCancel CommandType = "cancel"
 )
 
-// Command is one instruction from the core, delivered by the long-poll. Seq increases by one per
+// Command is one instruction from the core, delivered by the long-poll. CommandSeq increases by one per
 // command for a node; the node asks for commands after the last one it took.
 type Command struct {
 	CommandSeq int64       `json:"commandSeq"`

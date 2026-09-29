@@ -45,13 +45,13 @@ func (all *waiting[Answer]) deliver(ctx context.Context, nodeID, job int64, answ
 	all.mutex.Unlock()
 	if !found {
 		all.logger.InfoContext(ctx, "a node's answer came for no waiting job",
-			"answer", all.answerName, "nodeId", nodeID, "job", job)
+			"answer", all.answerName, "nodeId", nodeID, "jobId", job)
 		return
 	}
 	select {
 	case answers <- answer:
 	default:
 		all.logger.DebugContext(ctx, "a node's answer was dropped: its job is behind",
-			"answer", all.answerName, "job", job)
+			"answer", all.answerName, "jobId", job)
 	}
 }

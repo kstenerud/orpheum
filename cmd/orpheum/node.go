@@ -192,7 +192,8 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 // works here, confined, else x264 (cut-a §6).
 func chooseEncoder(ctx context.Context, runner *execx.Runner, logger *slog.Logger) prepare.Choice {
 	encoding := prepare.ChooseEncoder(ctx, runner)
-	logger.InfoContext(ctx, "this node chose its encoder", "encoder", encoding.Chosen, "usable", encoding.Usable())
+	logger.InfoContext(ctx, "this node chose its encoder", "chosenEncoder", encoding.Chosen, "usable",
+		encoding.Usable())
 	return encoding
 }
 

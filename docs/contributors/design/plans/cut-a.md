@@ -182,7 +182,7 @@ with the file channel deleted.
 
 | Request | Body |
 | --- | --- |
-| `POST /node/v1/hello` | node id, version, FFmpeg version and hash, capabilities (`remux`, `aac`, `h264_qsv`, `h264_nvenc`, `x264`), confinement report per mechanism with errno and remedy ([D112](../../decisions/working-notes.md)) |
+| `POST /node/v1/hello` | its `name`, version, `ffmpegVersion` and `ffmpegSha256`, its `rootPaths`, capabilities (`remux`, `aac`, `h264_qsv`, `h264_nvenc`, `x264`), confinement report per mechanism with errno and remedy ([D112](../../decisions/working-notes.md)) |
 | `POST /node/v1/report` | a JSONL stream, one record per line, each with its `reportSeq`. Record types: `scan_begin{root, filesystemDevice, isMountPoint, isReadOnly}`, `observed{path, sizeBytes, mtimeMs, identity{payloadHash, payloadBytes}, probe}`, `sidecar{path, kind, sizeBytes, mtimeMs, nfoBody}`, `mount{path, filesystemDevice}`, `skip{path, rule}`, `error{path, scope, code, occurrenceCount, platform}`, `scan_complete{root, observedCount, sidecarCount, skippedCount, errorCount, isStoppedByErrors}`, `status{sentAt, activity, preparedUsage, disks}`. A job's progress and end are posted to its own path, not reported (D227 renamed these fields) |
 | `GET /node/v1/commands?afterCommandSeq=<commandSeq>` | long-poll; returns the next commands |
 
@@ -337,7 +337,7 @@ audio renditions.
 | Profile | Chosen when | Video | Audio renditions |
 | --- | --- | --- | --- |
 | `remux` | the video codec is in the client's list | `-c:v copy` | `aac-stereo` (standard downmix) and `aac-stereo-boost` (centre raised) |
-| `h264-8m` | the video codec is not in the list, or the link is remote and the source is above ~10 Mbps | `h264_qsv`, else `h264_nvenc`, else `libx264`; ~8 Mbps, 2 s GOP | the same two |
+| `h264-8m` | the video codec is not in the list, or the `network` is remote and the source is above ~10 Mbps | `h264_qsv`, else `h264_nvenc`, else `libx264`; ~8 Mbps, 2 s GOP | the same two |
 
 **One FFmpeg run per job** (a sketch; M3 verifies the exact arguments):
 
