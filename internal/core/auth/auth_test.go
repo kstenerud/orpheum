@@ -135,6 +135,38 @@ func TestSignIn_IssuesASessionUntilSignedOut(t *testing.T) {
 	}
 }
 
+func TestAuthenticate_NamesTheSessionWithoutItsCredential(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	fixture.createUser(t, "owner", "right", RoleAdmin)
+	first, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyOf := func(token string) string {
+		principal, err := fixture.service.Authenticate(ctx, token)
+		if err != nil {
+			t.Fatalf("Authenticate: %v", err)
+		}
+		return principal.SessionKey
+	}
+	firstKey := keyOf(first)
+	if firstKey == "" || firstKey != keyOf(first) {
+		t.Errorf("one session's keys are %q and %q, want one non-empty key", firstKey, keyOf(first))
+	}
+	if firstKey == keyOf(second) {
+		t.Errorf("two sessions share the key %q, want one each", firstKey)
+	}
+	if strings.Contains(firstKey, first) {
+		t.Errorf("session key %q holds the token", firstKey)
+	}
+}
+
 func TestSignIn_SaysNothingAboutWhichPartWasWrong(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)

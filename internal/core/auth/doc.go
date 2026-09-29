@@ -24,6 +24,9 @@
 //   - A session is stored only as its token's SHA-256 and ends when revoked, and belongs to the
 //     device it was signed in on: the one the client remembers, or a new one the client names
 //     (D217 §8, D221). Enforced by TestSignIn_IssuesASessionUntilSignedOut.
+//   - A principal names its session by that digest's hex (SessionKey), so no other package hashes
+//     a credential to tell sessions apart. Enforced by
+//     TestAuthenticate_NamesTheSessionWithoutItsCredential.
 //   - Only the setup code creates the first admin, and only once. It is twelve safe32 characters,
 //     written and read as a device code is (D223 §2). Enforced by
 //     TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce and

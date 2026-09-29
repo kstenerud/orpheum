@@ -76,7 +76,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 		})
 	}
 	err = dependencies.Playback.Report(
-		ctx, input.Token, principal.UserID, sessionKey(input.Authorization), principal.DeviceID, report)
+		ctx, input.Token, principal.UserID, principal.SessionKey, principal.DeviceID, report)
 	switch {
 	case errors.Is(err, playback.ErrNoToken):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")

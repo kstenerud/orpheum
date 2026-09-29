@@ -113,28 +113,36 @@ func (service *Service) onOwnDevice(
 	ctx context.Context, userID, deviceID int64, change func(*sqlcgen.Queries) error,
 ) error {
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		ownerUserID, err := store.OrNotFound(queries.GetLiveDeviceOwner(ctx, deviceID))
-		if errors.Is(err, store.ErrNotFound) || (err == nil && (ownerUserID == nil || *ownerUserID != userID)) {
-			return ErrNoDevice
-		}
-		if err != nil {
-			return fmt.Errorf("read device %d: %w", deviceID, err)
+		if _, err := liveDevice(ctx, queries, userID, deviceID); err != nil {
+			return err
 		}
 		return change(queries)
 	})
 }
 
-// DeviceOf is one of a person's devices: the one a session is on, for showing who is signed in
-// where.
-func (service *Service) DeviceOf(ctx context.Context, userID, deviceID int64) (Device, error) {
-	known, err := store.OrNotFound(service.database.Read().GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
+// liveDevice is one of a person's devices that has not been removed, or ErrNoDevice: a device
+// that is someone else's is, to them, no device at all.
+func liveDevice(
+	ctx context.Context, queries *sqlcgen.Queries, userID, deviceID int64,
+) (sqlcgen.GetLiveDeviceOfUserRow, error) {
+	known, err := store.OrNotFound(queries.GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
 		ID: deviceID, UserID: &userID,
 	}))
 	if errors.Is(err, store.ErrNotFound) {
-		return Device{}, ErrNoDevice
+		return known, ErrNoDevice
 	}
 	if err != nil {
-		return Device{}, fmt.Errorf("read device %d: %w", deviceID, err)
+		return known, fmt.Errorf("look up device %d: %w", deviceID, err)
+	}
+	return known, nil
+}
+
+// DeviceOf is one of a person's devices: the one a session is on, for showing who is signed in
+// where.
+func (service *Service) DeviceOf(ctx context.Context, userID, deviceID int64) (Device, error) {
+	known, err := liveDevice(ctx, service.database.Read(), userID, deviceID)
+	if err != nil {
+		return Device{}, err
 	}
 	return Device{
 		ID: known.ID, Name: known.Name, Platform: known.Platform, AudioOutput: ptr.ValueOrZero(known.AudioOutput),

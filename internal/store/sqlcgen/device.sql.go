@@ -39,17 +39,6 @@ func (q *Queries) GetLiveDeviceOfUser(ctx context.Context, arg GetLiveDeviceOfUs
 	return i, err
 }
 
-const getLiveDeviceOwner = `-- name: GetLiveDeviceOwner :one
-SELECT user_id FROM device WHERE id = ?1 AND removed_at IS NULL
-`
-
-func (q *Queries) GetLiveDeviceOwner(ctx context.Context, id int64) (*int64, error) {
-	row := q.db.QueryRowContext(ctx, getLiveDeviceOwner, id)
-	var user_id *int64
-	err := row.Scan(&user_id)
-	return user_id, err
-}
-
 const insertDevice = `-- name: InsertDevice :one
 
 INSERT INTO device (user_id, name, platform, added_at, last_signed_in_at)

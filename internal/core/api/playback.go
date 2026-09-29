@@ -4,8 +4,6 @@ package api
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"io"
 	"net/http"
@@ -161,7 +159,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		FileID: input.Body.FileID, DeviceID: principal.DeviceID, Menu: menuOf(input.Body.PlayableFormats),
 		Link: decide.Link(input.Body.Network), Prefer: decide.PreferredDelivery(input.Body.PreferredDelivery),
 	}
-	started, err := dependencies.Playback.Start(ctx, principal.UserID, sessionKey(input.Authorization), request)
+	started, err := dependencies.Playback.Start(ctx, principal.UserID, principal.SessionKey, request)
 	switch {
 	case errors.Is(err, decide.ErrBadMenu):
 		return nil, newError(http.StatusBadRequest, CodeInvalidRequest, err.Error())
@@ -206,7 +204,7 @@ func (server *Server) relayDirect(
 	if err != nil {
 		return nil, err
 	}
-	source, err := dependencies.Playback.DirectSource(ctx, input.Token, principal.UserID, sessionKey(authorization))
+	source, err := dependencies.Playback.DirectSource(ctx, input.Token, principal.UserID, principal.SessionKey)
 	switch {
 	case errors.Is(err, playback.ErrNoToken), errors.Is(err, playback.ErrNoFile):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
@@ -241,7 +239,7 @@ func (server *Server) relayHLSFile(
 		return nil, err
 	}
 	source, err := dependencies.Playback.HLSSourceOf(
-		ctx, token, renditionPath, principal.UserID, sessionKey(authorization))
+		ctx, token, renditionPath, principal.UserID, principal.SessionKey)
 	switch {
 	case errors.Is(err, playback.ErrNoToken):
 		return nil, newError(http.StatusNotFound, CodeNotFound, "no such playback; start it again")
@@ -346,13 +344,6 @@ func convertNames[T ~string](listed []string) []T {
 		converted = append(converted, T(name))
 	}
 	return converted
-}
-
-// sessionKey names the session a request came under without keeping its credential: a media
-// token is bound to it, so signing out ends the playbacks it started (D217 §2).
-func sessionKey(authorization string) string {
-	sum := sha256.Sum256([]byte(bearerToken(authorization)))
-	return hex.EncodeToString(sum[:])
 }
 
 // getDirect answers GET /bytes/media/direct/{token}: a file's own bytes, relayed from its node.
