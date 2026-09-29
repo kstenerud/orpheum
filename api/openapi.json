@@ -745,7 +745,7 @@
             "type": "string"
           },
           "posterSha256": {
-            "description": "Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp",
+            "description": "Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp",
             "type": "string"
           },
           "year": {
@@ -792,7 +792,7 @@
             "type": "integer"
           },
           "stillSha256": {
-            "description": "Its still's hash: GET /bytes/art/{hash}/landscape-s.webp",
+            "description": "Its still's hash: GET /bytes/art/{sourceSha256}/landscape-s.webp",
             "type": "string"
           },
           "year": {
@@ -2858,6 +2858,7 @@
             "type": "integer"
           },
           "title": {
+            "description": "The container's track title, or a fetched subtitle's release name",
             "type": "string"
           },
           "vttUrl": {

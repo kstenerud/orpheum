@@ -23,10 +23,10 @@ type EntryBody struct {
 	IdentificationState string `json:"identificationState"`
 	LibraryID           int64  `json:"libraryId"`
 	AddedAt             int64  `json:"addedAt"`
-	PosterSha256        string `doc:"Its poster's hash: GET /bytes/art/{hash}/portrait-m.webp" json:"posterSha256,omitempty"` //nolint:lll // one struct tag
+	PosterSha256        string `doc:"Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp" json:"posterSha256,omitempty"` //nolint:lll // one struct tag
 }
 
-// ArtBody is the images an item shows, by the hash GET /bytes/art/{hash}/{size}.{format} takes.
+// ArtBody is the images an item shows, by the source SHA-256 GET /bytes/art/{sourceSha256}/{variant} takes.
 type ArtBody struct {
 	PosterSha256   string `json:"posterSha256,omitempty"`
 	BackdropSha256 string `json:"backdropSha256,omitempty"`
@@ -124,7 +124,7 @@ type EpisodeBody struct {
 	RuntimeMs           int64  `json:"runtimeMs,omitempty"`
 	IdentificationState string `json:"identificationState"`
 	HasLiveFile         bool   `doc:"Whether it has a live file" json:"hasLiveFile"`
-	StillSha256         string `doc:"Its still's hash: GET /bytes/art/{hash}/landscape-s.webp" json:"stillSha256,omitempty"` //nolint:lll // one struct tag
+	StillSha256         string `doc:"Its still's hash: GET /bytes/art/{sourceSha256}/landscape-s.webp" json:"stillSha256,omitempty"` //nolint:lll // one struct tag
 }
 
 // CollectionOutput is a series with its episodes in aired order.
