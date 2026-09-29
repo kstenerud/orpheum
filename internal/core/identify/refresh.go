@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -84,11 +82,11 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, shouldRetryIm
 		return "", fmt.Errorf("read title %d: %w", itemID, err)
 	}
 	if title.Kind == library.TitleKindEpisode {
-		seriesID, seriesErr := store.OrNotFound(queries.GetSeriesOfTitle(ctx, itemID))
-		if seriesErr != nil {
+		place, placeErr := store.OrNotFound(queries.GetEpisodePlace(ctx, itemID))
+		if placeErr != nil {
 			return OutcomeNothingToDo, nil //nolint:nilerr // an episode with no series has nothing to refresh
 		}
-		return matcher.refreshSeries(ctx, seriesID, shouldRetryImages)
+		return matcher.refreshSeries(ctx, place.CollectionID, shouldRetryImages)
 	}
 	provider, known := matcher.providers[ptr.ValueOrZero(title.FollowedSource)]
 	if !known || title.FollowedSourceID == nil {
@@ -159,9 +157,9 @@ func (matcher *Matcher) fetchPart(ctx context.Context, provider Provider, source
 	if part == "" {
 		return provider.Fetch(ctx, KindSeries, sourceID) //nolint:wrapcheck // wrapped by the caller
 	}
-	season, err := strconv.Atoi(strings.TrimPrefix(part, "season/"))
+	season, err := seasonOfPart(part)
 	if err != nil {
-		return nil, fmt.Errorf("stored part %q: %w", part, err)
+		return nil, err
 	}
 	return provider.FetchSeason(ctx, sourceID, season) //nolint:wrapcheck // wrapped by the caller
 }
@@ -171,9 +169,9 @@ func (matcher *Matcher) storePart(
 	ctx context.Context, provider Provider, series sqlcgen.GetSeriesForMatchRow, part string, body []byte,
 ) error {
 	if part != "" {
-		season, err := strconv.Atoi(strings.TrimPrefix(part, "season/"))
+		season, err := seasonOfPart(part)
 		if err != nil {
-			return fmt.Errorf("stored part %q: %w", part, err)
+			return err
 		}
 		return matcher.storeSeason(ctx, provider, series.ID, season, body)
 	}

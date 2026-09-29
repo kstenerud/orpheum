@@ -80,21 +80,6 @@ func (q *Queries) GetSeriesForMatch(ctx context.Context, id int64) (GetSeriesFor
 	return i, err
 }
 
-const getSeriesOfTitle = `-- name: GetSeriesOfTitle :one
-SELECT ordering.collection_id
-FROM position
-JOIN ordering ON ordering.id = position.ordering_id
-WHERE position.title_id = ?1 AND ordering.name = 'aired'
-`
-
-// The series an episode belongs to, found through its place rather than its name.
-func (q *Queries) GetSeriesOfTitle(ctx context.Context, titleID int64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getSeriesOfTitle, titleID)
-	var collection_id int64
-	err := row.Scan(&collection_id)
-	return collection_id, err
-}
-
 const listLiveSeriesEpisodeSources = `-- name: ListLiveSeriesEpisodeSources :many
 SELECT position.title_id, position.group_number, position.number_in_group, title.followed_source, item.added_at
 FROM position

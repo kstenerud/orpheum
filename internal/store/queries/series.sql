@@ -48,13 +48,6 @@ SELECT fetched_at
 FROM provider_response
 WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part = sqlc.arg(part);
 
--- name: GetSeriesOfTitle :one
--- The series an episode belongs to, found through its place rather than its name.
-SELECT ordering.collection_id
-FROM position
-JOIN ordering ON ordering.id = position.ordering_id
-WHERE position.title_id = sqlc.arg(title_id) AND ordering.name = 'aired';
-
 -- name: ListSeriesByIdentification :many
 -- The series in one state of identification, for the chooser's list.
 SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,

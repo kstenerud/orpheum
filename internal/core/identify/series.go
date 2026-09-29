@@ -9,6 +9,7 @@ import (
 	"maps"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -50,6 +51,15 @@ func isSeriesMatched(row sqlcgen.GetSeriesForMatchRow) bool {
 
 // seasonPart is where a season's listing is stored in provider_response.
 func seasonPart(season int) string { return "season/" + strconv.Itoa(season) }
+
+// seasonOfPart is the season a stored part names: seasonPart read back.
+func seasonOfPart(part string) (int, error) {
+	season, err := strconv.Atoi(strings.TrimPrefix(part, "season/"))
+	if err != nil {
+		return 0, fmt.Errorf("stored part %q: %w", part, err)
+	}
+	return season, nil
+}
 
 // cachedSeriesMatch is a series' match state, read once per pass.
 func (filer *libraryFiler) cachedSeriesMatch(
