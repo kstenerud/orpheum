@@ -5,15 +5,14 @@ package agent
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
-	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 )
 
 // Subtitler makes a subtitle's ASS and WebVTT; subtitle.Extractor is the real one.
@@ -125,20 +124,14 @@ func (agent *Agent) extractTrack(
 // convertSidecar converts a subtitle file beside the media, read through the root it is under and
 // checked to be the one the core named (D100).
 func (agent *Agent) convertSidecar(ctx context.Context, sidecar nodeproto.BytesFile) (subtitle.Text, error) {
-	root, known := agent.roots[sidecar.RootPath]
-	if !known {
-		return subtitle.Text{}, errors.New("the sidecar is under none of this node's roots")
+	file, err := agent.openNamed(sidecar)
+	if err != nil {
+		return subtitle.Text{}, err
 	}
-	source, err := root.ReadFile(string(sidecar.Path), subtitle.MaxTextBytes)
+	source, err := bounded.ReadAll(file, subtitle.MaxTextBytes)
+	_ = file.Close() //nolint:errcheck // read-only
 	if err != nil {
 		return subtitle.Text{}, fmt.Errorf("read the sidecar: %w", err)
-	}
-	identity, err := hash.PayloadIdentity(bytes.NewReader(source), int64(len(source)))
-	if err != nil {
-		return subtitle.Text{}, fmt.Errorf("hash the sidecar: %w", err)
-	}
-	if hex.EncodeToString(identity.Hash[:]) != sidecar.PayloadHash {
-		return subtitle.Text{}, errors.New("the file at this path is not the one named; it changed since the scan")
 	}
 	return agent.workers.Subtitler.ConvertText(ctx, source)
 }

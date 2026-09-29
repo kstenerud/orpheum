@@ -22,11 +22,12 @@
 //     TestAgent_SaysHelloAgainAfterLosingTheCore.
 //   - An artwork command's answer — the sizes the deriver made, or why none — is posted to the
 //     core's artwork path (D212 §8). TestAgent_ReEncodesArtworkAndPostsTheAnswer.
-//   - A prepare runs only on the file the core named, under one of the node's roots, whose payload
-//     hash is still the one named (D100); its progress and its end are posted to the core. One
+//   - A prepare runs only on the file the core named, a regular file under one of the node's roots
+//     whose payload hash is still the one named (D100), opened and checked by
+//     internal/node/namedfile; its progress and its end are posted to the core. One
 //     encode and two remuxes run at once (cut-a §5.3). TestAgent_PreparesOnlyTheFileTheCoreNamed.
-//   - A subtitle is extracted only from the video or sidecar the core named, under one of the
-//     node's roots, whose payload hash is still the one named (D100, D217 §6). One extraction runs
+//   - A subtitle is extracted only from the video or sidecar the core named, a regular file under
+//     one of the node's roots whose payload hash is still the one named (D100, D217 §6). One extraction runs
 //     at once. TestAgent_ExtractsATrackOnlyFromTheVideoTheCoreNamedAndASidecarUnderItsRoot.
 //     A fetched subtitle's text, which the command carries, is converted as a sidecar is (D224 §5).
 //     TestAgent_ConvertsAFetchedSubtitlesTextAndRefusesItBesideAFile.

@@ -10,9 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -157,28 +158,30 @@ func (agent *Agent) runPrepare(
 // verifiedSourcePath is the absolute path of the file source names, once it is under one of the
 // node's roots and its payload hash is the one named.
 func (agent *Agent) verifiedSourcePath(source nodeproto.BytesFile) (string, error) {
-	root, known := agent.roots[source.RootPath]
+	file, err := agent.openNamed(source)
+	if err != nil {
+		return "", err
+	}
+	_ = file.Close() //nolint:errcheck // read-only
+	return agent.roots[source.RootPath].Path() + "/" + string(source.Path), nil
+}
+
+// openNamed opens the regular file named, under one of the node's roots, once its payload hash is
+// the one named (D100). The caller closes it.
+func (agent *Agent) openNamed(named nodeproto.BytesFile) (*os.File, error) {
+	root, known := agent.roots[named.RootPath]
 	if !known {
-		return "", errors.New("the source is under none of this node's roots")
+		return nil, errors.New("the file is under none of this node's roots")
 	}
-	relative := string(source.Path)
-	file, err := root.Open(relative)
+	payloadHash, err := hex.DecodeString(named.PayloadHash)
 	if err != nil {
-		return "", fmt.Errorf("open the source: %w", err)
+		return nil, fmt.Errorf("a payload hash that is not hex: %w", err)
 	}
-	defer func() { _ = file.Close() }() //nolint:errcheck // read-only
-	info, err := file.Stat()
+	file, _, err := namedfile.Open(root, string(named.Path), payloadHash)
 	if err != nil {
-		return "", fmt.Errorf("stat the source: %w", err)
+		return nil, fmt.Errorf("open the file named: %w", err)
 	}
-	identity, err := hash.PayloadIdentity(file, info.Size())
-	if err != nil {
-		return "", fmt.Errorf("hash the source: %w", err)
-	}
-	if hex.EncodeToString(identity.Hash[:]) != source.PayloadHash {
-		return "", errors.New("the file at this path is not the one named; it changed since the scan")
-	}
-	return root.Path() + "/" + relative, nil
+	return file, nil
 }
 
 func (agent *Agent) sendPrepareReport(ctx context.Context, nodeID int64, report nodeproto.PrepareReport) error {
