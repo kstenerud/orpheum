@@ -86,7 +86,14 @@ var ErrNoTrack = errors.New("no such subtitle track in this file")
 // FilePrefs are the person's choices for the file, at their starting values where they made
 // none.
 func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (FilePrefs, error) {
-	stored, err := service.database.Read().ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
+	return service.filePrefs(ctx, service.database.Read(), userID, fileID)
+}
+
+// filePrefs are FilePrefs as queries read them, the reader pool or a write transaction's own.
+func (service *Service) filePrefs(
+	ctx context.Context, queries *sqlcgen.Queries, userID, fileID int64,
+) (FilePrefs, error) {
+	stored, err := queries.ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
 		UserID: userID, Scope: scopeFile, ScopeID: fileID,
 	})
 	if err != nil {
@@ -105,13 +112,13 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 			return FilePrefs{}, fmt.Errorf("read the %s of file %d: %w", preference.Axis, fileID, err)
 		}
 	}
-	personal, err := service.database.Read().ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
+	personal, err := queries.ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
 		UserID: userID, Scope: scopeUser, ScopeID: 0,
 	})
 	if err != nil {
 		return FilePrefs{}, fmt.Errorf("read user %d's preferences: %w", userID, err)
 	}
-	if prefs.SubtitleChoice, err = service.currentChoice(ctx, fileID, prefs.SubtitleChoice); err != nil {
+	if prefs.SubtitleChoice, err = service.currentChoice(ctx, queries, fileID, prefs.SubtitleChoice); err != nil {
 		return FilePrefs{}, err
 	}
 	prefs.IsLevelling = true
@@ -156,7 +163,7 @@ func (service *Service) setPersonalSwitch(ctx context.Context, userID int64, axi
 
 // SetSubtitleOffset keeps the person's subtitle offset for a file they may play.
 func (service *Service) SetSubtitleOffset(ctx context.Context, userID, fileID, offsetMs int64) error {
-	if _, err := service.playableFile(ctx, fileID); err != nil {
+	if _, err := service.playableFile(ctx, service.database.Read(), fileID); err != nil {
 		return err
 	}
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -183,10 +190,10 @@ func (service *Service) setFilePreference(
 // same language and kind, preferring the same title, or off; one with no such track is left
 // without a choice, since a fallback is not a choice (D24).
 func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64, choice SubtitleChoice) error {
-	if _, err := service.playableFile(ctx, fileID); err != nil {
+	if _, err := service.playableFile(ctx, service.database.Read(), fileID); err != nil {
 		return err
 	}
-	tracks, err := service.textTracksOf(ctx, fileID)
+	tracks, err := service.textTracksOf(ctx, service.database.Read(), fileID)
 	if err != nil {
 		return err
 	}
@@ -197,7 +204,7 @@ func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64
 			return ErrNoTrack
 		}
 	}
-	siblings, err := service.filesOfWork(ctx, fileID)
+	siblings, err := service.filesOfWork(ctx, service.database.Read(), fileID)
 	if err != nil {
 		return err
 	}
@@ -223,15 +230,15 @@ func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64
 
 // filesOfWork are the live files of the work a file belongs to (D219), or none when the file is
 // not yet a version of a title.
-func (service *Service) filesOfWork(ctx context.Context, fileID int64) ([]int64, error) {
-	titleID, err := store.OrNotFound(service.database.Read().GetTitleOfFile(ctx, fileID))
+func (service *Service) filesOfWork(ctx context.Context, queries *sqlcgen.Queries, fileID int64) ([]int64, error) {
+	titleID, err := store.OrNotFound(queries.GetTitleOfFile(ctx, fileID))
 	if errors.Is(err, store.ErrNotFound) {
 		return []int64{}, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read the title of file %d: %w", fileID, err)
 	}
-	files, err := service.database.Read().ListFilesOfWork(ctx, titleID)
+	files, err := queries.ListFilesOfWork(ctx, titleID)
 	if err != nil {
 		return nil, fmt.Errorf("list the files of title %d: %w", titleID, err)
 	}
@@ -243,7 +250,7 @@ func (service *Service) filesOfWork(ctx context.Context, fileID int64) ([]int64,
 func (service *Service) carryChoice(
 	ctx context.Context, queries *sqlcgen.Queries, userID, fileID int64, chosen *SubtitleTrack,
 ) error {
-	current, err := service.FilePrefs(ctx, userID, fileID)
+	current, err := service.filePrefs(ctx, service.database.Read(), userID, fileID)
 	if err != nil {
 		return err
 	}
@@ -252,7 +259,7 @@ func (service *Service) carryChoice(
 	}
 	carried := &SubtitleChoice{IsOff: true, IsCarriedFromWork: true}
 	if chosen != nil {
-		tracks, err := service.textTracksOf(ctx, fileID)
+		tracks, err := service.textTracksOf(ctx, service.database.Read(), fileID)
 		if err != nil {
 			return err
 		}
@@ -271,12 +278,12 @@ func (service *Service) carryChoice(
 // what it is when a rescan gave it a new id, the matching track carried to a file whose tracks
 // changed, or no choice when none matches (D223 §8).
 func (service *Service) currentChoice(
-	ctx context.Context, fileID int64, stored *SubtitleChoice,
+	ctx context.Context, queries *sqlcgen.Queries, fileID int64, stored *SubtitleChoice,
 ) (*SubtitleChoice, error) {
 	if stored == nil || stored.IsOff {
 		return stored, nil
 	}
-	tracks, err := service.textTracksOf(ctx, fileID)
+	tracks, err := service.textTracksOf(ctx, queries, fileID)
 	if err != nil {
 		return nil, err
 	}

@@ -59,7 +59,7 @@ func (service *Service) SubtitleCandidates(ctx context.Context, fileID int64, la
 	if service.subtitler == nil {
 		return SubtitleOffer{}, ErrNoSubtitler
 	}
-	if _, err := service.playableFile(ctx, fileID); err != nil {
+	if _, err := service.playableFile(ctx, service.database.Read(), fileID); err != nil {
 		return SubtitleOffer{}, err
 	}
 	query, hasIDs, err := service.subtitleQuery(ctx, fileID, language)
@@ -156,7 +156,7 @@ func (service *Service) FetchSubtitle(
 	if service.subtitler == nil {
 		return Fetched{}, ErrNoSubtitler
 	}
-	if _, err := service.playableFile(ctx, fileID); err != nil {
+	if _, err := service.playableFile(ctx, service.database.Read(), fileID); err != nil {
 		return Fetched{}, err
 	}
 	downloaded, err := service.subtitler.Download(ctx, request.ProviderFileID)

@@ -192,7 +192,7 @@ const slowestReadBytesPerSecond = 20 << 20
 // hash. A file whose bytes are already measured, as a second copy's are, is not measured again,
 // and FFmpeg's failure is kept and not retried.
 func (service *Service) HandleMeasureLoudness(ctx context.Context, job jobs.Job) error {
-	file, err := service.playableFile(ctx, job.FileID)
+	file, err := service.playableFile(ctx, service.database.Read(), job.FileID)
 	if errors.Is(err, ErrNoFile) {
 		return jobs.MarkPermanent(err)
 	}

@@ -103,7 +103,7 @@ func (service *Service) HLSSourceOf(
 // PrepareAgain prepares a complete rendition again when its node no longer has it: evicted, or its
 // directory lost (D217 §5). The player is told it is too early, and waits as for a new one.
 func (service *Service) PrepareAgain(ctx context.Context, source HLSSource) error {
-	file, err := service.playableFile(ctx, source.fileID)
+	file, err := service.playableFile(ctx, service.database.Read(), source.fileID)
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ type prepareOrder struct {
 func (service *Service) prepareOrderFor(
 	ctx context.Context, rendition cachegen.PreparedRendition,
 ) (prepareOrder, error) {
-	file, err := service.playableFile(ctx, rendition.SourceFile)
+	file, err := service.playableFile(ctx, service.database.Read(), rendition.SourceFile)
 	if err != nil {
 		return prepareOrder{}, err
 	}
