@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -61,11 +62,9 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		`{"streamIndex":1,"kind":"audio","codec":"truehd","audio":{"channelCount":8}},` +
 		`{"streamIndex":2,"kind":"subtitle","codec":"ass","language":"en","disposition":["default"]},` +
 		`{"streamIndex":3,"kind":"subtitle","codec":"hdmv_pgs_subtitle"}]}`
+	librarytest.NodeWithLibrary(t, harness.database,
+		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo", Root: "/media"})
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
-		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/media')",
 		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, payload_hash, filing,
 		 probe_json,
 		 first_seen_at,

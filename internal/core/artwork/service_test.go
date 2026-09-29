@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/jobs/jobstest"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -47,9 +48,12 @@ type fakeNode struct {
 	enqueued  chan struct{} // told of each artwork command, when set
 }
 
-func (node *fakeNode) LastHeardNodeID() (int64, bool) { return 3, node.isConnected }
+// fakeNodeID is the fake's one node: the first a test's database enrols.
+const fakeNodeID = 1
 
-func (node *fakeNode) IsConnected(nodeID int64) bool { return nodeID == 3 && node.isConnected }
+func (node *fakeNode) LastHeardNodeID() (int64, bool) { return fakeNodeID, node.isConnected }
+
+func (node *fakeNode) IsConnected(nodeID int64) bool { return nodeID == fakeNodeID && node.isConnected }
 
 func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 	node.mutex.Lock()
@@ -64,7 +68,7 @@ func (node *fakeNode) Enqueue(_ int64, command nodeproto.Command) {
 		node.enqueued <- struct{}{}
 	}
 	if node.answer != nil {
-		go node.service.TakeArtworkAnswer(node.ctx, 3, node.answer(*command.EncodeArtwork))
+		go node.service.TakeArtworkAnswer(node.ctx, fakeNodeID, node.answer(*command.EncodeArtwork))
 	}
 }
 
@@ -334,15 +338,13 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{"/poster.jpg": []byte("tmdb poster")})
 	var fileID int64
-	storetest.ExecRaw(t, bench.database.Path(),
-		"INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) "+
-			"VALUES (9, 'L', 'movies', 'nfo_then_tmdb', 'manual', 0, 1)",
-		"INSERT INTO node (id, name, enrolled_at) VALUES (3, 'local', 1)",
+	nodeID, libraryID := librarytest.NodeWithLibrary(t, bench.database,
+		librarytest.Library{Name: "L", Kind: "movies", MetadataSource: "nfo_then_tmdb", Root: "/m"})
+	storetest.ExecRaw(t, bench.database.Path(), fmt.Sprintf(
 		"INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, modified_at, filing, "+
-			"filing_reason, "+
-			"first_seen_at, "+
-			"last_seen_at) VALUES (40, 9, 3, '/m/Film/poster.jpg', CAST('/m/Film/poster.jpg' AS BLOB), 5, 7, "+
-			"'attached', 'image', 1, 1)")
+			"filing_reason, first_seen_at, last_seen_at) "+
+			"VALUES (40, %d, %d, '/m/Film/poster.jpg', CAST('/m/Film/poster.jpg' AS BLOB), 5, 7, "+
+			"'attached', 'image', 1, 1)", libraryID, nodeID))
 	fileID = 40
 	localSum := sha256.Sum256([]byte("the file beside the film"))
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
@@ -380,8 +382,8 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	}
 	// In a TMDB-only library, TMDB's poster replaces it once fetched (D215 §1).
 	storetest.ExecRaw(t, bench.database.Path(),
-		"UPDATE library SET metadata_source = 'tmdb' WHERE id = 9",
-		fmt.Sprintf("UPDATE item SET library_id = 9 WHERE id = %d", bench.itemID))
+		fmt.Sprintf("UPDATE library SET metadata_source = 'tmdb' WHERE id = %d", libraryID),
+		fmt.Sprintf("UPDATE item SET library_id = %d WHERE id = %d", libraryID, bench.itemID))
 	shown, err = bench.database.Read().ListShownArtwork(t.Context(), sqlcgen.ListShownArtworkParams{
 		ItemIds: "[" + strconv.FormatInt(bench.itemID, 10) + "]", Kind: identify.ArtPoster,
 	})

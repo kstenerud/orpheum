@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -23,10 +24,9 @@ func (harness testHarness) shelve(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := func(name string) string { return "X'" + hex.EncodeToString(sorter.Key(name)) + "'" }
+	librarytest.NodeWithLibrary(t, harness.database,
+		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo"})
 	storetest.ExecRaw(t, harness.databasePath,
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
 		`INSERT INTO item (id, kind, library_id, added_at)
 		 VALUES (10, 'title', 1, 1), (20, 'collection', 1, 2), (21, 'title', 1, 2)`,
 		`INSERT INTO title (id, kind, year, identification_state)

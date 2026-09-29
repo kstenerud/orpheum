@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -19,9 +20,9 @@ import (
 // ambiguousTitle adds title 10, a film whose search found two Solarises.
 func (harness testHarness) ambiguousTitle(t *testing.T) {
 	t.Helper()
+	librarytest.LibraryOn(t, harness.database, 0,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb"})
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movies', 'tmdb', 'manual', 0, 1)`,
 		`INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', 1, 1)`,
 		`INSERT INTO title (id, kind, year, identification_state) VALUES (10, 'movie', 2003, 'ambiguous')`,
 		`INSERT INTO item_text (item_id, language, is_original, name) VALUES (10, 'und', 1, 'The General')`)

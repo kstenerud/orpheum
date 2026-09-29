@@ -4,9 +4,11 @@ package playback
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -47,13 +49,13 @@ func TestKeepSubtitleOffset_RefusesAFileItsTransactionRemoved(t *testing.T) {
 	database := storetest.OpenMigrated(t)
 	service := &Service{database: database, clock: clocktest.NewFake(time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC))}
 	userID := storetest.InsertUser(t, database, "alice", "admin")
-	storetest.ExecRaw(t, database.Path(),
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
+	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
+		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo", Root: "/media"})
+	storetest.ExecRaw(t, database.Path(), fmt.Sprintf(
 		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, payload_hash, filing,
 		 probe_json, first_seen_at, last_seen_at)
-		 VALUES (2, 1, 1, '/media/Film.mkv', CAST('/media/Film.mkv' AS BLOB), 10, X'0c0d', 'listed', '{}', 1, 1)`)
+		 VALUES (2, %d, %d, '/media/Film.mkv', CAST('/media/Film.mkv' AS BLOB), 10, X'0c0d', 'listed', '{}', 1, 1)`,
+		libraryID, nodeID))
 	const fileID, offsetMs = 2, 500
 	removedAt := int64(2)
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {

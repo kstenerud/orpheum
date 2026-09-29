@@ -3,7 +3,6 @@
 package librarytest
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -11,8 +10,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// Library is the library NodeWithLibrary makes: what it is called, what it holds, where its
-// metadata comes from, and its one root on the node.
+// Library is a library a test makes: what it is called, what it holds, where its metadata comes
+// from, and its one root on its node, or none when Root is empty.
 type Library struct {
 	Name           string
 	Kind           string
@@ -20,31 +19,51 @@ type Library struct {
 	Root           string
 }
 
-// NodeWithLibrary enrols a node named "local" and makes library over one root on it, with
-// manual change detection, and returns the node's and the library's ids.
-func NodeWithLibrary(t *testing.T, database *store.Database, library Library) (nodeID, libraryID int64) {
+// Node enrols a node by name and returns its id.
+func Node(t *testing.T, database *store.Database, name string) int64 {
 	t.Helper()
+	var nodeID int64
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
 		var err error
-		nodeID, err = queries.InsertNode(t.Context(), sqlcgen.InsertNodeParams{Name: "local", EnrolledAt: 1})
-		if err != nil {
-			return fmt.Errorf("node: %w", err)
-		}
+		nodeID, err = queries.InsertNode(t.Context(), sqlcgen.InsertNodeParams{Name: name, EnrolledAt: 1})
+		return err
+	})
+	if err != nil {
+		t.Fatalf("node %s: %v", name, err)
+	}
+	return nodeID
+}
+
+// LibraryOn makes library, with manual change detection, over its root on the node, and returns
+// its id.
+func LibraryOn(t *testing.T, database *store.Database, nodeID int64, library Library) int64 {
+	t.Helper()
+	var libraryID int64
+	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		var err error
 		libraryID, err = queries.InsertLibrary(t.Context(), sqlcgen.InsertLibraryParams{
 			Name: library.Name, Kind: library.Kind, MetadataSource: library.MetadataSource,
 			ChangeDetection: "manual", CreatedAt: 1,
 		})
-		if err != nil {
-			return fmt.Errorf("library: %w", err)
+		if err != nil || library.Root == "" {
+			return err
 		}
 		return queries.InsertLibraryRoot(t.Context(), sqlcgen.InsertLibraryRootParams{
 			LibraryID: libraryID, NodeID: nodeID, Path: library.Root,
 		})
 	})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("library %s: %v", library.Name, err)
 	}
-	return nodeID, libraryID
+	return libraryID
+}
+
+// NodeWithLibrary enrols a node named "local" and makes library over one root on it, and returns
+// the node's and the library's ids.
+func NodeWithLibrary(t *testing.T, database *store.Database, library Library) (nodeID, libraryID int64) {
+	t.Helper()
+	nodeID = Node(t, database, "local")
+	return nodeID, LibraryOn(t, database, nodeID, library)
 }
 
 // Reports numbers what one node reports, as the node does: every record carries the next

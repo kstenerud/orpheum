@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
-	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // finishPrepare records a prepare node 1 finished of file, made with encoder at speed.
@@ -41,8 +41,8 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	storetest.ExecRaw(t, harness.databasePath, "INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)")
 	harness.connectNode(t, "/media/films")
+	librarytest.Node(t, harness.database, "attic")
 	harness.nodes.confinement = []nodeproto.Confinement{{Mechanism: "landlock", IsInForce: true}}
 	harness.nodes.hardware = nodeproto.Hardware{
 		GPUs: []nodeproto.GPU{{DevicePath: "/dev/dri/renderD128", Driver: "i915"}},
