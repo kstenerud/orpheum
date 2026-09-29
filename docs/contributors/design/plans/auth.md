@@ -177,7 +177,7 @@ decision settles their **credentials**, and the two together close
 [threat-model.md](threat-model.md)'s oldest question.
 
 ```
-grant(hash, kind, subject, scope, issued_at, expires_at, last_seen, revoked_at, label, device_id)
+grant(secret_sha256, kind, user_id, scope, issued_at, expires_at, last_seen_at, revoked_at, device_name, device_id)
 ```
 
 **Opaque 256-bit random, stored as a SHA-256 hash, never as the secret.** Not a JWT — measured,

@@ -250,7 +250,7 @@ rewriting thousands of files periodically is churn in someone's media tree, whic
 - **Every refetch is requested by the user** — per title or per library — refetches the
   selected source, and never touches a manual field. There is no TTL-driven refresh.
 - Stored: the value as a column; the **selected source and provider ID** per title; **the
-  overrides**, as `(title, field, value, origin, set_at)`. The last two are what [D141](../../decisions/working-notes.md) writes to NFO. The provider's raw
+  overrides**, as `(item_id, field, override_value, origin, set_at)`. The last two are what [D141](../../decisions/working-notes.md) writes to NFO. The provider's raw
   response is kept as a cache (principles §14), so a parser change or switching back to an
   already-fetched source costs no call.
 

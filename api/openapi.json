@@ -3517,12 +3517,12 @@
             }
           },
           {
-            "description": "\u003cstreamId\u003e.ass or \u003cstreamId\u003e.vtt, or f\u003cfetchedId\u003e.ass or .vtt",
+            "description": "\u003cstreamId\u003e.ass or \u003cstreamId\u003e.vtt, or f\u003cfetchedSubtitleId\u003e.ass or .vtt",
             "in": "path",
             "name": "file",
             "required": true,
             "schema": {
-              "description": "\u003cstreamId\u003e.ass or \u003cstreamId\u003e.vtt, or f\u003cfetchedId\u003e.ass or .vtt",
+              "description": "\u003cstreamId\u003e.ass or \u003cstreamId\u003e.vtt, or f\u003cfetchedSubtitleId\u003e.ass or .vtt",
               "type": "string"
             }
           }

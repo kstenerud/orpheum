@@ -19,8 +19,8 @@ const (
 	RecordSidecar      RecordType = "sidecar"
 )
 
-// Record is one line of a JSONL report. Type says which one field is set; Seq is the node's
-// sequence number, increasing by one per record across the node's life.
+// Record is one line of a JSONL report. Type says which one field is set; ReportSeq is the
+// node's sequence number, increasing by one per record across the node's life.
 type Record struct {
 	ReportSeq    int64         `json:"reportSeq"`
 	Type         RecordType    `json:"type"`
@@ -123,7 +123,7 @@ type ScanBegin struct {
 
 // Path is a path as the filesystem gave it (D49): relative to its media root everywhere but
 // Artwork.AbsolutePath, which says in its name that it is not. Text holds it exactly when it is
-// valid UTF-8; otherwise Text is a readable approximation and Raw holds the bytes. The core
+// valid UTF-8; otherwise Text is a readable approximation and Bytes holds the bytes. The core
 // normalises Text to NFC for identity and display, and opens by the bytes.
 type Path struct {
 	Text  string `json:"text"`

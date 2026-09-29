@@ -134,7 +134,8 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	if err != nil {
 		return err
 	}
-	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID, "reportSeq", reply.LastReportSeq)
+	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID, "lastReportSeq",
+		reply.LastReportSeq)
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
 	report := newReport(reply.LastReportSeq)
@@ -186,7 +187,8 @@ func (agent *Agent) poll(ctx context.Context, nodeID int64, work chan<- nodeprot
 			// A cancel is carried out as it arrives, not queued behind the work it stops.
 			if command.Type == nodeproto.CommandCancel && command.Cancel != nil {
 				if !agent.working.cancel(command.Cancel.JobID) {
-					agent.logger.InfoContext(ctx, "a job was cancelled before it started", "job", command.Cancel.JobID)
+					agent.logger.InfoContext(ctx, "a job was cancelled before it started", "jobId",
+						command.Cancel.JobID)
 				}
 				after = command.CommandSeq
 				continue
@@ -280,7 +282,7 @@ func (agent *Agent) artwork(ctx context.Context, nodeID int64, command nodeproto
 		result.SourceSha256 = sourceHash
 	}
 	if result.Refusal != "" {
-		agent.logger.WarnContext(ctx, "refused an image", "job", command.JobID, "why", result.Refusal)
+		agent.logger.WarnContext(ctx, "refused an image", "jobId", command.JobID, "why", result.Refusal)
 	}
 	encoded, err := json.Marshal(result)
 	if err != nil {

@@ -54,7 +54,7 @@ func levellingBody(levelling playback.Levelling) LevellingBody {
 type SubtitleInput struct {
 	MediaCredentials
 	Token string `doc:"The playback's media token" path:"token"`
-	File  string `doc:"<streamId>.ass or <streamId>.vtt, or f<fetchedId>.ass or .vtt" path:"file"`
+	File  string `doc:"<streamId>.ass or <streamId>.vtt, or f<fetchedSubtitleId>.ass or .vtt" path:"file"`
 }
 
 func (server *Server) registerSubtitles() {

@@ -167,7 +167,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	}
 	service.connect(node.ID, hello)
 	service.logger.InfoContext(ctx, "a node said hello", "node", hello.Name, "nodeId", node.ID,
-		"build", hello.Build.String(), "ffmpeg", hello.FFmpegVersion, "roots", hello.RootPaths,
+		"build", hello.Build.String(), "ffmpeg", hello.FFmpegVersion, "rootPaths", hello.RootPaths,
 		"confinement", hello.Confinement)
 	if scanOnHello {
 		for _, root := range hello.RootPaths {

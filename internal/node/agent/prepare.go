@@ -64,15 +64,15 @@ func (agent *Agent) prepare(ctx context.Context, nodeID int64, command nodeproto
 		defer func() { <-agent.slots.of(command.Profile) }()
 		report := agent.runPrepare(jobCtx, nodeID, command)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
-			agent.logger.InfoContext(ctx, "a prepare was cancelled", "job", command.JobID)
+			agent.logger.InfoContext(ctx, "a prepare was cancelled", "jobId", command.JobID)
 			return
 		}
 		if report.State == nodeproto.PrepareFailed {
 			agent.logger.WarnContext(ctx, "a prepare failed",
-				"job", command.JobID, "renditionDir", command.RenditionDir, "why", report.Failure)
+				"jobId", command.JobID, "renditionDir", command.RenditionDir, "why", report.Failure)
 		}
 		if err := agent.sendPrepare(ctx, nodeID, report); err != nil && ctx.Err() == nil {
-			agent.logger.WarnContext(ctx, "could not tell the core a prepare ended", "job", command.JobID, "err", err)
+			agent.logger.WarnContext(ctx, "could not tell the core a prepare ended", "jobId", command.JobID, "err", err)
 		}
 		agent.evict(ctx)
 	}()
@@ -113,7 +113,7 @@ func (agent *Agent) takeSlot(ctx context.Context, nodeID int64, command nodeprot
 func (agent *Agent) sayWaiting(ctx context.Context, nodeID, job int64) {
 	waiting := nodeproto.PrepareReport{JobID: job, State: nodeproto.PrepareWaiting}
 	if err := agent.sendPrepare(ctx, nodeID, waiting); err != nil && ctx.Err() == nil {
-		agent.logger.WarnContext(ctx, "could not tell the core a prepare is waiting", "job", job, "err", err)
+		agent.logger.WarnContext(ctx, "could not tell the core a prepare is waiting", "jobId", job, "err", err)
 	}
 }
 
@@ -140,7 +140,7 @@ func (agent *Agent) runPrepare(
 			}
 			if sendErr := agent.sendPrepare(ctx, nodeID, running); sendErr != nil && ctx.Err() == nil {
 				agent.logger.DebugContext(ctx, "could not send a prepare's progress",
-					"job", command.JobID, "err", sendErr)
+					"jobId", command.JobID, "err", sendErr)
 			}
 		}
 	}

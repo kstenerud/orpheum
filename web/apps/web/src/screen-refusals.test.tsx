@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import type { components } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Identify } from "./identify.tsx";
@@ -20,7 +21,7 @@ import {
 } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
-const library = {
+const library: components["schemas"]["LibraryBody"] = {
   id: 3,
   name: "Films",
   kind: "movies",
@@ -28,7 +29,7 @@ const library = {
   changeDetection: "manual",
   isWritable: false,
   createdAt: 1,
-  filings: {},
+  fileCountsByFiling: {},
   roots: [
     {
       nodeName: "local",
@@ -39,15 +40,20 @@ const library = {
   ],
 };
 
-const waitingItem = {
+const waitingItem: components["schemas"]["ItemBody"] = {
   id: 7,
   kind: "movie",
   name: "Variety",
-  identification: "ambiguous",
+  identificationState: "ambiguous",
   libraryId: 1,
 };
 
-const secret = { name: "tmdb_api_key", description: "TMDB", isSet: true, needsReentry: false };
+const secret: components["schemas"]["SecretBody"] = {
+  name: "tmdb_api_key",
+  description: "TMDB",
+  isSet: true,
+  needsReentry: false,
+};
 
 const setting = {
   key: "scan_on_node_hello",

@@ -65,7 +65,7 @@ it("lists what OpenSubtitles has, unverified and made-for-this-file first, and f
   const services = servedBy(
     {
       "GET /files/2/subtitle-candidates": offer,
-      "POST /files/2/subtitles": [200, { fetchedId: 3, remainingDownloads: 18 }],
+      "POST /files/2/subtitles": [200, { fetchedSubtitleId: 3, remainingDownloads: 18 }],
     },
     heard,
   );

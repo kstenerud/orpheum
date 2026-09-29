@@ -59,15 +59,16 @@ func (agent *Agent) answerInBackground(ctx context.Context, nodeID int64, comman
 		defer func() { <-command.slot }()
 		answer, refused := command.work(jobCtx)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
-			agent.logger.InfoContext(ctx, "a job was cancelled", "work", command.what, "job", command.job)
+			agent.logger.InfoContext(ctx, "a job was cancelled", "work", command.what, "jobId", command.job)
 			return
 		}
 		if refused != "" {
-			agent.logger.WarnContext(ctx, "refused a job", "work", command.what, "job", command.job, "why", refused)
+			agent.logger.WarnContext(ctx, "refused a job", "work", command.what, "jobId", command.job, "why", refused)
 		}
 		encoded, err := json.Marshal(answer)
 		if err != nil {
-			agent.logger.ErrorContext(ctx, "could not encode a job's answer", "work", command.what, "job", command.job,
+			agent.logger.ErrorContext(ctx, "could not encode a job's answer", "work", command.what, "jobId",
+				command.job,
 				"err", err)
 			return
 		}
@@ -75,7 +76,7 @@ func (agent *Agent) answerInBackground(ctx context.Context, nodeID int64, comman
 		err = agent.exchange(ctx, http.MethodPost, command.path, nodeID, bytes.NewReader(encoded), &accepted)
 		if err != nil && ctx.Err() == nil {
 			agent.logger.WarnContext(ctx, "could not send a job's answer to the core", "work", command.what,
-				"job", command.job, "err", err)
+				"jobId", command.job, "err", err)
 		}
 	}()
 }

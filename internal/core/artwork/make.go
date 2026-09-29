@@ -52,7 +52,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wa
 	source, err := service.fetch(ctx, fetcher, image.source, image.ref.Ref)
 	if errors.Is(err, ErrNoImage) || (err == nil && source.hash() != args.ImageHash) {
 		service.parts.Logger.WarnContext(ctx, "an image's source is gone or changed; its sizes are not made",
-			"hash", args.ImageHash, "source", image.source, "ref", image.ref.Ref)
+			"imageHash", args.ImageHash, "source", image.source, "ref", image.ref.Ref)
 		return service.cannotMake(ctx, args.ImageHash, args.SizeNames)
 	}
 	if err != nil {
@@ -77,7 +77,7 @@ func (service *Service) cutFrom(
 	}
 	if command.AbsolutePath != nil && result.Refusal == "" && result.SourceSha256 != args.ImageHash {
 		service.parts.Logger.WarnContext(ctx, "an image beside the media changed; its sizes are not made",
-			"hash", args.ImageHash)
+			"imageHash", args.ImageHash)
 		return service.cannotMake(ctx, args.ImageHash, args.SizeNames)
 	}
 	var unmade []nodeproto.ArtSizeName

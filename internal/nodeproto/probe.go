@@ -3,7 +3,7 @@
 package nodeproto
 
 // Probe is what the node observed inside one media file: the parsed, bounded record the core
-// stores verbatim as file.probe (schema.md) and re-derives from. It is built by the node from
+// stores verbatim as file.probe_json (schema.md) and re-derives from. It is built by the node from
 // ffprobe's output, never passed through; hostile bytes stop at the node (D126). Every string
 // is valid UTF-8 and bounded in length, and the lists are bounded in count.
 type Probe struct {
