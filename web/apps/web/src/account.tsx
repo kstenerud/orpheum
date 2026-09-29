@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { changePassword, listMyDevices } from "./accounts.ts";
 import { ShownDeviceCode, useDeviceCode, type DeviceCodeState } from "./device-code.tsx";
 import { problemText } from "./problem.ts";
-import { PasswordField } from "./register.tsx";
+import { PasswordField } from "./credentials-form.tsx";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
 import { YourDevices } from "./your-devices.tsx";

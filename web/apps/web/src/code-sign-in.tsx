@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import "./sign-in.css";
+import "./code-sign-in.css";
 
-import { useState, type JSX, type SyntheticEvent } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { signInWithCode } from "./accounts.ts";
+import { CredentialsField, CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 
@@ -18,8 +19,7 @@ export function CodeSignIn(props: { readonly onBack: () => void }): JSX.Element 
   const { api, session, navigation } = useServices();
   const [code, setCode] = useState("");
   const [problem, setProblem] = useState<string | undefined>(undefined);
-  const submit = (event: SyntheticEvent): void => {
-    event.preventDefault();
+  const submit = (): void => {
     setProblem(undefined);
     signInWithCode(api, code, session.deviceId()).then(
       ({ token, user }) => {
@@ -33,35 +33,27 @@ export function CodeSignIn(props: { readonly onBack: () => void }): JSX.Element 
     );
   };
   return (
-    <main className="sign-in">
-      <form className="sign-in__form" onSubmit={submit}>
-        <h1>{t("codeSignIn.heading")}</h1>
-        <p>{t("codeSignIn.explain")}</p>
-        <label className="sign-in__field">
-          {t("codeSignIn.code")}
-          <input
-            className="sign-in__code"
-            autoComplete="one-time-code"
-            autoCapitalize="none"
-            spellCheck={false}
-            required
-            maxLength={12}
-            value={code}
-            onChange={(event) => {
-              setCode(event.target.value);
-            }}
-          />
-        </label>
-        {problem === undefined ? null : (
-          <p className="sign-in__problem" role="alert">
-            {problem}
-          </p>
-        )}
-        <button type="submit">{t("codeSignIn.submit")}</button>
-        <button type="button" onClick={props.onBack}>
-          {t("codeSignIn.back")}
-        </button>
-      </form>
-    </main>
+    <CredentialsForm heading={t("codeSignIn.heading")} onSubmit={submit}>
+      <p>{t("codeSignIn.explain")}</p>
+      <CredentialsField label={t("codeSignIn.code")}>
+        <input
+          className="code-sign-in__code"
+          autoComplete="one-time-code"
+          autoCapitalize="none"
+          spellCheck={false}
+          required
+          maxLength={12}
+          value={code}
+          onChange={(event) => {
+            setCode(event.target.value);
+          }}
+        />
+      </CredentialsField>
+      {problem === undefined ? null : <CredentialsProblem isAlert>{problem}</CredentialsProblem>}
+      <button type="submit">{t("codeSignIn.submit")}</button>
+      <button type="button" onClick={props.onBack}>
+        {t("codeSignIn.back")}
+      </button>
+    </CredentialsForm>
   );
 }

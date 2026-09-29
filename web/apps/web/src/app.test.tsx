@@ -11,7 +11,7 @@ import { testServices, withServices } from "./test-services.tsx";
 describe("App", () => {
   it("asks to sign in until there is a session", () => {
     const markup = renderToStaticMarkup(withServices(<App />, testServices()));
-    expect(markup).toContain('<main class="sign-in">');
+    expect(markup).toContain('<main class="credentials-form">');
     expect(markup).not.toContain("app-shell");
   });
 
