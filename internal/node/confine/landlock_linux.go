@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -51,11 +52,16 @@ func systemReads() []string {
 }
 
 // gpuDevices are the device nodes a hardware encode opens: Intel's and AMD's render nodes, and
-// NVIDIA's. Each is granted when it exists.
-func gpuDevices() []string {
-	return []string{
-		"/dev/dri", "/dev/nvidiactl", "/dev/nvidia0", "/dev/nvidia1", "/dev/nvidia-uvm", "/dev/nvidia-modeset",
+// NVIDIA's, every GPU that detection finds (NVIDIADevices). Each is granted when it exists.
+func gpuDevices() []string { return gpuDevicesUnder("/dev") }
+
+// gpuDevicesUnder is gpuDevices with the device directory named, so a test can build it.
+func gpuDevicesUnder(devDirectory string) []string {
+	devices := []string{
+		filepath.Join(devDirectory, "dri"), filepath.Join(devDirectory, "nvidiactl"),
+		filepath.Join(devDirectory, "nvidia-uvm"), filepath.Join(devDirectory, "nvidia-modeset"),
 	}
+	return append(devices, NVIDIADevices(devDirectory)...)
 }
 
 // gpuDescriptions are what a GPU's drivers read to find their device: never a user's files.
@@ -143,7 +149,8 @@ type grant struct {
 }
 
 // grantsFor are the rules a spec's run gets: the tool, the system's libraries, a few device nodes,
-// and what the spec reads and writes. No device's ioctl is granted.
+// and what the spec reads and writes. Only a run that uses the GPU is granted a device's ioctl,
+// and only on the GPU's device nodes.
 func grantsFor(spec Spec) []grant {
 	grants := []grant{{path: spec.Tool, rights: runTool, isRequired: true}}
 	for _, path := range systemReads() {

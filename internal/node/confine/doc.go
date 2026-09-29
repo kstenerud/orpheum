@@ -29,6 +29,10 @@
 //     machine without a mechanism unless the job lists it in ORPHEUM_TEST_UNCONTROLLED.
 //   - A mechanism the machine offers but the shim could not put in force stops the run
 //     (ErrNotConfined), so no run has less than the node reported.
+//   - Only a run that uses the GPU is granted its devices, and it is granted every NVIDIA GPU that
+//     internal/node/hardware reports, from one list, NVIDIADevices.
+//     TestGrantsFor_OnlyARunThatUsesTheGPUIsGrantedItsDevices,
+//     TestGPUDevices_AreGrantedEveryNVIDIAGPUDetectionFinds.
 //
 // # Read before changing
 //
@@ -44,5 +48,6 @@
 //   - mediaroot.go: MediaRoot. facts.go: a root's Facts (its device, whether it is a mount point
 //     and read-only). spec.go: a run's Access and the shim's entry. landlock_linux.go:
 //     the ruleset and what it grants; seccomp_linux.go: the denylist; arch_linux_*.go: each
-//     architecture's filter details; shim_linux.go and shim_other.go: MechanismStates and the shim.
+//     architecture's filter details; shim_linux.go and shim_other.go: MechanismStates and the shim;
+//     gpu.go: the NVIDIA GPUs' device nodes.
 package confine

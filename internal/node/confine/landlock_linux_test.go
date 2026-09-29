@@ -3,6 +3,9 @@
 package confine
 
 import (
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -30,6 +33,31 @@ func TestLandlockState_SaysWhyItIsMissingAndWhatWouldPutItThere(t *testing.T) {
 	}
 	if got := landlockStateOf(nil); !got.IsInForce || got.CauseCode != "" {
 		t.Errorf("Landlock answering an ABI: %+v, want in force", got)
+	}
+}
+
+// A hardware encode is granted every NVIDIA GPU that detection reports, not only the first two.
+func TestGPUDevices_AreGrantedEveryNVIDIAGPUDetectionFinds(t *testing.T) {
+	t.Parallel()
+	devices := t.TempDir()
+	for _, name := range []string{"nvidia0", "nvidia1", "nvidia2", "nvidia10", "nvidiactl", "nvidia-uvm"} {
+		if err := os.WriteFile(filepath.Join(devices, name), nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	detected := NVIDIADevices(devices)
+	want := []string{
+		filepath.Join(devices, "nvidia0"), filepath.Join(devices, "nvidia1"), filepath.Join(devices, "nvidia10"),
+		filepath.Join(devices, "nvidia2"),
+	}
+	if !slices.Equal(detected, want) {
+		t.Errorf("detected %v, want each nvidiaN and no control device", detected)
+	}
+	granted := gpuDevicesUnder(devices)
+	for _, device := range detected {
+		if !slices.Contains(granted, device) {
+			t.Errorf("%s is detected but not granted; granted %v", device, granted)
+		}
 	}
 }
 
