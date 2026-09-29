@@ -2,11 +2,11 @@
 
 import "./i18n.ts";
 
-import { createApi } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { boostMixIndices, mediaFailure, PlayView, requestPlayback } from "./play.tsx";
+import { servedBy, type Heard } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 
 /** A sound not measured yet: played as it is (D226). */
@@ -15,23 +15,15 @@ const unlevelled = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb:
 describe("playing a file", () => {
   it("asks the server with this browser's menu, over the local link", async () => {
     const playableFormats = testServices().playableFormats();
-    let sent: unknown;
-    const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
-    // Answered here, before any request leaves: tests never touch the network.
-    api.use({
-      async onRequest({ request }) {
-        sent = await request.json();
-        return new Response(
-          JSON.stringify({ delivery: "direct", url: "/u", notDirectReasons: [] }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      },
-    });
+    const heard: Heard[] = [];
+    const { api } = servedBy(
+      { "POST /playback": [200, { delivery: "direct", url: "/u", notDirectReasons: [] }] },
+      heard,
+    );
     const decision = await requestPlayback(api, 7, playableFormats);
-    expect(sent).toEqual({ fileId: 7, playableFormats, network: "local" });
+    expect(heard).toEqual([
+      { methodAndPath: "POST /playback", body: { fileId: 7, playableFormats, network: "local" } },
+    ]);
     expect(decision.delivery).toBe("direct");
   });
 

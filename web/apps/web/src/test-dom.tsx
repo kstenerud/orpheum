@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { apiPrefix } from "@orpheum/sdk";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -30,14 +31,18 @@ export interface Heard {
 
 /**
  * Services whose API is answered by a stand-in server: each request from answers, and one it has
- * no answer for fails the test, so a screen cannot quietly ask for something the test did not
- * expect. Every request is added to heard. Tests never touch the network.
+ * no answer for, or one outside the API's prefix, fails the test, so a screen cannot quietly ask
+ * for something the test did not expect. Every request is added to heard. The session is signed
+ * in with token when one is given. Tests never touch the network.
  */
-export function servedBy(answers: Answers, heard: Heard[] = []): Services {
+export function servedBy(answers: Answers, heard: Heard[] = [], token?: string): Services {
   const counts = new Map<string, number>();
-  return testServices(undefined, "/films", async (request) => {
+  return testServices(token, "/films", async (request) => {
     const url = new URL(request.url);
-    const path = url.pathname.replace(/^\/api\/v1/u, "");
+    if (!url.pathname.startsWith(apiPrefix)) {
+      throw new Error(`the test's server answers only under ${apiPrefix}: ${url.pathname}`);
+    }
+    const path = url.pathname.slice(apiPrefix.length);
     const methodAndPath = `${request.method} ${path}`;
     const text = await request.text();
     heard.push({
