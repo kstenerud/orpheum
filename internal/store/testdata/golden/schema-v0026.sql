@@ -434,9 +434,9 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   scope       TEXT NOT NULL CHECK (scope IN ('user','library','series','device','file')),
   scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'
-  axis        TEXT NOT NULL,               -- 'audio_lang', 'subtitle_set', 'subtitle_offset_ms',
-                                           -- 'embedded_fonts', 'caption_size', 'dialogue_boost'…
-  value_json  TEXT NOT NULL,               -- tri-valued where the axis says so: 'off' ≠ unset
+  axis        TEXT NOT NULL,               -- 'subtitle_offset_ms', 'subtitle_choice' (a file's);
+                                           -- 'dialogue_boost', 'levelling' (a person's own)
+  value_json  TEXT NOT NULL,               -- JSON; a switch is true or false, and unset ≠ false
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, scope, scope_id, axis)
 ) WITHOUT ROWID;

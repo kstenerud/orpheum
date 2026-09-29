@@ -265,8 +265,8 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
 CREATE INDEX fetched_subtitle_video ON fetched_subtitle(video_file);  -- migration 0018
 ```
 
-A fetched subtitle is **stored in the database, not the media tree**: it cost one of the user's
-20 daily downloads, the library may be read-only ([principles §2](../../principles/README.md)),
+A fetched subtitle is **stored in the database, not the media tree**: it cost one of the server's
+OpenSubtitles account's daily downloads (20 on a free account, as OpenSubtitles counts them; D224 §4), the library may be read-only ([principles §2](../../principles/README.md)),
 and in the database the ordinary backup carries it with no second file class.
 
 **Each audio track's loudness** is measured once by the node (migration 0019,
@@ -817,9 +817,10 @@ reference scale, and removes a failure mode.
 > `convert_fetched_subtitle` job (D224); version 13 the `measure_loudness` job and the gains a
 > rendition's sound carries (D226); version 14 renamed columns to say what they hold and gave a
 > job a column per kind of target (D227); version 15 named a rendition's gains `audio_gains_db_json`;
-> version 16 gave each value one name in every layer (D227 §6)
-> (D227 §5); version 17 the languages a rendition's audio tracks are tagged with, so a relabelled
-> track, which keeps the payload hash (D179), has its rendition made again.
+> version 16 gave each value one name in every layer (D227 §6); version 17 the languages a
+> rendition's audio tracks are tagged with, so a relabelled track, which keeps the payload hash
+> (D179), has its rendition made again; version 18 corrected the comment naming what a job's
+> `args_json` holds.
 
 ```sql
 CREATE TABLE job (                                         -- the one work queue (D193)
@@ -833,7 +834,9 @@ CREATE TABLE job (                                         -- the one work queue
   stream_id           INTEGER,
   fetched_subtitle_id INTEGER,
   file_id             INTEGER,
-  args_json   TEXT NOT NULL DEFAULT '{}',  -- a kind's own: a fetch's isRefresh, an artwork job's images
+  -- A kind's own arguments: a fetch's isRefresh and shouldRetryImages; an artwork job's
+  -- artworkSource, refs, sourceSha256 and sizeNames. The other kinds store '{}'.
+  args_json   TEXT NOT NULL DEFAULT '{}',
   priority    INTEGER NOT NULL DEFAULT 0,  -- higher runs first; "play this now" is highest
   state       TEXT NOT NULL DEFAULT 'queued'
                 CHECK (state IN ('queued','running','done','failed','cancelled')),
