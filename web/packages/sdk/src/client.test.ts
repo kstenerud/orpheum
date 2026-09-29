@@ -26,4 +26,18 @@ describe("the API client", () => {
     expect(artUrl("ab12", "portrait-m")).toBe("/api/v1/bytes/art/ab12/portrait-m.webp");
     expect(artUrl("ab12", "landscape-l", "jpeg")).toBe("/api/v1/bytes/art/ab12/landscape-l.jpeg");
   });
+
+  it("refuses, when it is compiled, a body key the API does not name (A12)", () => {
+    const api = createApi({
+      token: () => undefined,
+      fetch: () => Promise.resolve(new Response(null, { status: 204 })),
+    });
+    const sendsARenamedField = (): unknown =>
+      api.PUT("/files/{id}/preferences", {
+        params: { path: { id: 1 } },
+        // @ts-expect-error -- the body names subtitleChoice; subtitle was renamed (D227 §6)
+        body: { subtitle: { isOff: true } },
+      });
+    expect(sendsARenamedField).toBeTypeOf("function");
+  });
 });
