@@ -188,44 +188,56 @@ func (service *Service) setFilePreference(
 // ChooseSubtitle keeps a person's subtitle choice in a file as the file's own, and carries it to
 // the work's other files that have no choice of their own (D219): each takes its track of the
 // same language and kind, preferring the same title, or off; one with no such track is left
-// without a choice, since a fallback is not a choice (D24).
+// without a choice, since a fallback is not a choice (D24). What it reads, the file, its tracks,
+// the work's files and their choices, it reads in the transaction that keeps the choice, so a
+// rescan or another choice committed meanwhile cannot leave it deciding on what is gone.
 func (service *Service) ChooseSubtitle(ctx context.Context, userID, fileID int64, choice SubtitleChoice) error {
-	if _, err := service.playableFile(ctx, service.database.Read(), fileID); err != nil {
-		return err
-	}
-	tracks, err := service.textTracksOf(ctx, service.database.Read(), fileID)
-	if err != nil {
-		return err
-	}
-	var chosen *SubtitleTrack
-	if !choice.IsOff {
-		chosen = trackByID(tracks, choice.TrackRef)
-		if chosen == nil {
-			return ErrNoTrack
-		}
-	}
-	siblings, err := service.filesOfWork(ctx, service.database.Read(), fileID)
-	if err != nil {
-		return err
-	}
-	own := SubtitleChoice{TrackRef: choice.TrackRef, IsOff: choice.IsOff}
-	if chosen != nil {
-		own.TrackDescription = describe(*chosen)
-	}
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		if err := service.keepChoice(ctx, queries, userID, fileID, &own); err != nil {
+		if _, err := service.playableFile(ctx, queries, fileID); err != nil {
+			return err
+		}
+		own, chosen, err := service.ownChoice(ctx, queries, fileID, choice)
+		if err != nil {
+			return err
+		}
+		if keepErr := service.keepChoice(ctx, queries, userID, fileID, &own); keepErr != nil {
+			return keepErr
+		}
+		siblings, err := service.filesOfWork(ctx, queries, fileID)
+		if err != nil {
 			return err
 		}
 		for _, sibling := range siblings {
 			if sibling == fileID {
 				continue
 			}
-			if err := service.carryChoice(ctx, queries, userID, sibling, chosen); err != nil {
-				return err
+			if carryErr := service.carryChoice(ctx, queries, userID, sibling, chosen); carryErr != nil {
+				return carryErr
 			}
 		}
 		return nil
 	})
+}
+
+// ownChoice is a choice made in a file as the file keeps it, with what its track is, and the
+// chosen track, nil for off; ErrNoTrack when the file has no such track.
+func (service *Service) ownChoice(
+	ctx context.Context, queries *sqlcgen.Queries, fileID int64, choice SubtitleChoice,
+) (SubtitleChoice, *SubtitleTrack, error) {
+	own := SubtitleChoice{TrackRef: choice.TrackRef, IsOff: choice.IsOff}
+	if choice.IsOff {
+		return own, nil, nil
+	}
+	tracks, err := service.textTracksOf(ctx, queries, fileID)
+	if err != nil {
+		return own, nil, err
+	}
+	chosen := trackByID(tracks, choice.TrackRef)
+	if chosen == nil {
+		return own, nil, ErrNoTrack
+	}
+	own.TrackDescription = describe(*chosen)
+	return own, chosen, nil
 }
 
 // filesOfWork are the live files of the work a file belongs to (D219), or none when the file is
@@ -246,11 +258,12 @@ func (service *Service) filesOfWork(ctx context.Context, queries *sqlcgen.Querie
 }
 
 // carryChoice gives a file the choice carried from another, unless it has one of its own: the track
-// that matches chosen, off when chosen is nil, or no choice when it has no match.
+// that matches chosen, off when chosen is nil, or no choice when it has no match. It reads the
+// file's choice and tracks through queries, the transaction that keeps the carried choice.
 func (service *Service) carryChoice(
 	ctx context.Context, queries *sqlcgen.Queries, userID, fileID int64, chosen *SubtitleTrack,
 ) error {
-	current, err := service.filePrefs(ctx, service.database.Read(), userID, fileID)
+	current, err := service.filePrefs(ctx, queries, userID, fileID)
 	if err != nil {
 		return err
 	}
@@ -259,7 +272,7 @@ func (service *Service) carryChoice(
 	}
 	carried := &SubtitleChoice{IsOff: true, IsCarriedFromWork: true}
 	if chosen != nil {
-		tracks, err := service.textTracksOf(ctx, service.database.Read(), fileID)
+		tracks, err := service.textTracksOf(ctx, queries, fileID)
 		if err != nil {
 			return err
 		}
