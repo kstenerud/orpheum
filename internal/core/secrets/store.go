@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -119,8 +120,8 @@ func (secrets *Store) Set(ctx context.Context, name Name, value Value, setByUser
 	if value.IsZero() {
 		return fmt.Errorf("set %s: an empty secret; clear it instead", name)
 	}
-	nonce := make([]byte, chacha20poly1305.NonceSizeX)
-	if _, err = io.ReadFull(secrets.random, nonce); err != nil {
+	nonce, err := randbytes.Read(secrets.random, chacha20poly1305.NonceSizeX)
+	if err != nil {
 		return fmt.Errorf("set %s: make a nonce: %w", name, err)
 	}
 	cipher, err := chacha20poly1305.NewX(secrets.key.material[:])

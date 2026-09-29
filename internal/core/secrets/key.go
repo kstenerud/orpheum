@@ -12,6 +12,8 @@ import (
 	"io"
 
 	"golang.org/x/crypto/chacha20poly1305"
+
+	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
 
 // KeyFileName is the key's file in the state directory (D198), mode 0600, never in the database.
@@ -30,12 +32,12 @@ type Key struct {
 
 // GenerateKey makes a new 256-bit key from random.
 func GenerateKey(random io.Reader) (Key, error) {
-	var key Key
-	if _, err := io.ReadFull(random, key.material[:]); err != nil {
+	raw, err := randbytes.Read(random, chacha20poly1305.KeySize)
+	if err != nil {
 		return Key{}, fmt.Errorf("generate a secret key: %w", err)
 	}
-	key.id = keyID(key.material)
-	return key, nil
+	material := [chacha20poly1305.KeySize]byte(raw)
+	return Key{id: keyID(material), material: material}, nil
 }
 
 // ID identifies the key without revealing it.

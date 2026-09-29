@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -142,8 +143,8 @@ const runIDBytes = 8
 // newRunID names one making of a rendition: its own directory on the node, so no request can
 // reach a copy that an earlier making left and a later one is overwriting.
 func (all *prepares) newRunID() (string, error) {
-	raw := make([]byte, runIDBytes)
-	if _, err := io.ReadFull(all.random, raw); err != nil {
+	raw, err := randbytes.Read(all.random, runIDBytes)
+	if err != nil {
 		return "", fmt.Errorf("name a rendition's run: %w", err)
 	}
 	return hex.EncodeToString(raw), nil
