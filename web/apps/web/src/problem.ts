@@ -26,9 +26,7 @@ export function problemText(
       return override;
     }
     if (code === "authRequired") {
-      return t(`problem.signedOut.${camelKey(cause.detail["reason"] ?? "no_session")}`, {
-        defaultValue: t("problem.signedOut.noSession"),
-      });
+      return signedOutText(t, cause.detail["reason"]);
     }
     return t(`problem.${code}`, { defaultValue: t("problem.unknown", { message: cause.message }) });
   }
@@ -36,4 +34,14 @@ export function problemText(
     return t("problem.unreachable"); // fetch's own failure: no answer at all
   }
   return t("problem.unknown", { message: cause instanceof Error ? cause.message : String(cause) });
+}
+
+/**
+ * Why a session ended, in the person's words, by the reason the server gave ("session_ended");
+ * no reason, or one this client does not know, says only that they are not signed in.
+ */
+export function signedOutText(t: TFunction, reason: string | undefined): string {
+  return t(`problem.signedOut.${camelKey(reason ?? "no_session")}`, {
+    defaultValue: t("problem.signedOut.noSession"),
+  });
 }

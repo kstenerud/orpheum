@@ -1,19 +1,41 @@
+// @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
-import { ApiProblem, problemText } from "./problem.ts";
-import { failedResource } from "./use-resource.ts";
+import { ApiProblem, dataOrThrow, problemText } from "./problem.ts";
+import { mount, refusal, servedBy } from "./test-dom.tsx";
+import { useResource, type Resource } from "./use-resource.ts";
 
-describe("failedResource", () => {
-  it("keeps the cause, and an error the server sent becomes an ApiProblem", () => {
-    const fromServer = failedResource({
-      error: { code: "not_found", message: "no such title or series" },
-    });
+/** Where load leaves useResource, once it has settled. */
+async function settledAfter(load: () => Promise<unknown>): Promise<Resource<unknown>> {
+  const seen: Resource<unknown>[] = [];
+  function Probe(): null {
+    const [resource] = useResource("probe", load);
+    seen.push(resource);
+    return null;
+  }
+  const mounted = await mount(createElement(Probe));
+  mounted.unmount();
+  const last = seen.at(-1);
+  if (last === undefined) {
+    throw new Error("the probe never rendered");
+  }
+  return last;
+}
+
+describe("useResource", () => {
+  it("keeps the cause, and an error the server sent becomes an ApiProblem", async () => {
+    const services = servedBy({ "GET /me": refusal(404, "not_found") });
+    const fromServer = await settledAfter(async () => dataOrThrow(await services.api.GET("/me")));
     expect(fromServer.state === "failed" && fromServer.cause instanceof ApiProblem).toBe(true);
     const network = new TypeError("Failed to fetch");
-    expect(failedResource(network)).toEqual({ state: "failed", cause: network });
+    expect(await settledAfter(() => Promise.reject(network))).toEqual({
+      state: "failed",
+      cause: network,
+    });
   });
 
   it("tells the person what went wrong in their words, with what to do", () => {

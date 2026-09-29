@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { failedResource, type Resource } from "./use-resource.ts";
+import type { Resource } from "./use-resource.ts";
 
 /** One page of a list from the server, and the cursor of the next; "" on the last. */
 export interface Page<T> {
@@ -39,7 +39,7 @@ export function usePages<T>(load: (cursor: string) => Promise<Page<T>>): Pages<T
       },
       (cause: unknown) => {
         if (isCurrent) {
-          setPagesSoFar(failedResource(cause));
+          setPagesSoFar({ state: "failed", cause });
         }
       },
     );
@@ -60,7 +60,7 @@ export function usePages<T>(load: (cursor: string) => Promise<Page<T>>): Pages<T
       },
       (cause: unknown) => {
         setIsLoadingMore(false);
-        setPagesSoFar(failedResource(cause));
+        setPagesSoFar({ state: "failed", cause });
       },
     );
   };

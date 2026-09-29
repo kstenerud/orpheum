@@ -12,6 +12,7 @@ import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
 import { Libraries } from "./libraries.tsx";
 import { People } from "./people.tsx";
+import { dataOrThrow } from "./problem.ts";
 import { PersonPage } from "./person.tsx";
 import { Play } from "./play.tsx";
 import { Register } from "./register.tsx";
@@ -38,20 +39,14 @@ export function App(): JSX.Element {
   return token === undefined ? <SignIn /> : <SignedIn />;
 }
 
-/** The signed-in client. A session the server no longer knows signs out here too. */
+/**
+ * The signed-in client. A session the server no longer knows is signed out by the watch every
+ * request passes (signed-out-watch.ts), with the server's reason.
+ */
 function SignedIn(): JSX.Element {
   const { api, session } = useServices();
   const route = useRoute();
-  const [me] = useResource("me", async () => {
-    const { data: meBody, response } = await api.GET("/me");
-    if (response.status === 401) {
-      session.signOut();
-    }
-    if (meBody === undefined) {
-      throw new Error(response.statusText);
-    }
-    return meBody;
-  });
+  const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
   const signOut = (): void => {
     void api.DELETE("/session").finally(() => {
       session.signOut();

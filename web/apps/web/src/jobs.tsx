@@ -9,7 +9,7 @@ import { dateTimeText } from "./date-time-text.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
-import { failedResource, type Resource } from "./use-resource.ts";
+import type { Resource } from "./use-resource.ts";
 
 /** One job, as the job view shows it (cut-a §5.3). */
 export type Job = components["schemas"]["JobBody"];
@@ -59,7 +59,7 @@ export function Jobs(): JSX.Element {
         },
         (cause: unknown) => {
           if (isCurrent) {
-            setJobs(failedResource(cause));
+            setJobs({ state: "failed", cause });
           }
         },
       );

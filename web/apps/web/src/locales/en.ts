@@ -496,7 +496,6 @@ export const en = {
     loading: "Loading…",
     show: "Show",
     showMore: "Show more",
-    failed: "Something went wrong: {{message}}",
     noPoster: "No poster",
   },
 } as const;
