@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -310,14 +309,19 @@ func (agent *Agent) readImage(named nodeproto.Path) ([]byte, error) {
 	if named.Bytes != nil {
 		absolute = string(named.Bytes)
 	}
-	for rootPath, root := range agent.roots {
-		relativePath, under := strings.CutPrefix(absolute, rootPath+"/")
-		if !under {
-			continue
+	var holder *confine.MediaRoot
+	holderRelativePath := ""
+	for _, root := range agent.roots {
+		relativePath, inside := root.RelativeIfInside(absolute)
+		// The deepest root holds it when roots nest, whatever order the map gives them in.
+		if inside && relativePath != "." && (holder == nil || len(relativePath) < len(holderRelativePath)) {
+			holder, holderRelativePath = root, relativePath
 		}
-		return root.ReadFile(relativePath, maxImageBytes)
 	}
-	return nil, errors.New("the image is under none of this node's roots")
+	if holder == nil {
+		return nil, errors.New("the image is under none of this node's roots")
+	}
+	return holder.ReadFile(holderRelativePath, maxImageBytes)
 }
 
 func (agent *Agent) setActivity(activity string) {

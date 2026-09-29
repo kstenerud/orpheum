@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -151,11 +150,11 @@ func (batch *ingestBatch) unseenUnder(ctx context.Context, scan *scanState) ([]i
 	var unseenFileIDs []int64
 	liveFileCount := 0
 	for _, file := range files {
-		if !isUnder(file.Path, scan.root) {
+		if _, under := RelativeToRoot(file.ReportedPathBytes, scan.root); !under {
 			continue
 		}
 		liveFileCount++
-		if file.LastSeenAt < scan.startedAt && !scan.isUnread(file.Path) {
+		if file.LastSeenAt < scan.startedAt && !scan.isUnread(file.ReportedPathBytes) {
 			unseenFileIDs = append(unseenFileIDs, file.ID)
 		}
 	}
@@ -260,19 +259,15 @@ func (batch *ingestBatch) concludeMoves(ctx context.Context, scan *scanState) er
 	return nil
 }
 
-// isUnread reports whether filePath lies in a region the scan could not read.
-func (scan *scanState) isUnread(filePath string) bool {
+// isUnread reports whether a file, by the bytes its node reported, lies in a region the scan
+// could not read.
+func (scan *scanState) isUnread(reportedPath []byte) bool {
 	for _, unread := range scan.unreadPaths {
-		if isUnder(filePath, unread) {
+		if isAtOrUnder(reportedPath, unread) {
 			return true
 		}
 	}
 	return false
-}
-
-// isUnder reports whether filePath is directory or below it.
-func isUnder(filePath, directory string) bool {
-	return filePath == directory || strings.HasPrefix(filePath, strings.TrimSuffix(directory, "/")+"/")
 }
 
 func boolInt(value bool) int64 {

@@ -366,7 +366,7 @@ func (q *Queries) ListFileTitles(ctx context.Context, libraryID int64) ([]ListFi
 }
 
 const listIdentifyFiles = `-- name: ListIdentifyFiles :many
-SELECT id, node_id, path, filing, filing_reason, sidecar_kind, payload_hash, version_id, attached_to_file, probe_json,
+SELECT id, node_id, path, reported_path_bytes, filing, filing_reason, sidecar_kind, payload_hash, version_id, attached_to_file, probe_json,
   identified_from_path, size_bytes, modified_at
 FROM file
 WHERE library_id = ? AND removed_at IS NULL
@@ -377,6 +377,7 @@ type ListIdentifyFilesRow struct {
 	ID                 int64
 	NodeID             int64
 	Path               string
+	ReportedPathBytes  []byte
 	Filing             string
 	FilingReason       *string
 	SidecarKind        *string
@@ -402,6 +403,7 @@ func (q *Queries) ListIdentifyFiles(ctx context.Context, libraryID int64) ([]Lis
 			&i.ID,
 			&i.NodeID,
 			&i.Path,
+			&i.ReportedPathBytes,
 			&i.Filing,
 			&i.FilingReason,
 			&i.SidecarKind,

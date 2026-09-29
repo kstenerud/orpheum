@@ -43,10 +43,17 @@ type testLibrary struct {
 	clock     *clocktest.Fake
 	nodeID    int64
 	libraryID int64
+	rootPath  string // the library's one root, as its node names it
 	reports   librarytest.Reports
 }
 
 func newTestLibrary(t *testing.T, kind, source string) *testLibrary {
+	t.Helper()
+	return newTestLibraryAt(t, kind, source, libraryRoot)
+}
+
+// newTestLibraryAt is newTestLibrary with the library's root at rootPath.
+func newTestLibraryAt(t *testing.T, kind, source, rootPath string) *testLibrary {
 	t.Helper()
 	database := storetest.OpenMigrated(t)
 	now := clocktest.NewFake(time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC))
@@ -56,13 +63,13 @@ func newTestLibrary(t *testing.T, kind, source string) *testLibrary {
 	config := settingstest.Seeded(t, database)
 	created := &testLibrary{
 		t: t, database: database, cache: storetest.OpenCache(t), logger: logger, clock: now, provider: provider,
-		settings: config,
+		settings: config, rootPath: rootPath,
 		ingester: library.NewIngester(database, now, config, logger),
 		pass:     identify.NewPass(database, now, logger, providers, config),
 	}
 	created.matcher = identify.NewMatcher(database, created.cache, created.pass, now, logger)
 	created.nodeID, created.libraryID = librarytest.NodeWithLibrary(t, database,
-		librarytest.Library{Name: "Library", Kind: kind, MetadataSource: source, Root: libraryRoot})
+		librarytest.Library{Name: "Library", Kind: kind, MetadataSource: source, Root: rootPath})
 	created.chooser = identify.NewChooser(created.matcher, created.pass)
 	return created
 }
@@ -97,7 +104,7 @@ func nfoRecord(path, body string) nodeproto.Record {
 func (lib *testLibrary) scan(records ...nodeproto.Record) identify.Report {
 	lib.t.Helper()
 	lib.clock.Advance(time.Minute)
-	all := lib.reports.Scan(nodeproto.ScanBegin{RootPath: libraryRoot}, records, true)
+	all := lib.reports.Scan(nodeproto.ScanBegin{RootPath: lib.rootPath}, records, true)
 	if err := lib.ingester.IngestRecords(lib.t.Context(), lib.nodeID, all); err != nil {
 		lib.t.Fatal(err)
 	}
@@ -117,7 +124,7 @@ func (lib *testLibrary) titlesByPath() map[string]sqlcgen.ListFileTitlesRow {
 	}
 	byPath := map[string]sqlcgen.ListFileTitlesRow{}
 	for _, row := range rows {
-		byPath[strings.TrimPrefix(row.Path, libraryRoot+"/")] = row
+		byPath[strings.TrimPrefix(row.Path, strings.TrimSuffix(library.PathText([]byte(lib.rootPath)), "/")+"/")] = row
 	}
 	return byPath
 }
@@ -409,5 +416,20 @@ func TestPass_ANameIsStoredClean(t *testing.T) {
 	lib.scan(videoRecord("Metropolis (1995).mkv"), nfoRecord("Metropolis (1995).nfo", hostile))
 	if got := titleName(lib.titlesByPath()["Metropolis (1995).mkv"]); got != "Heatvkm.exe" {
 		t.Errorf("stored name %q; want the override and the zero-width space gone", got)
+	}
+}
+
+func TestPass_FilesUnderARootNotInNFCOrOfSlashAreFiled(t *testing.T) {
+	t.Parallel()
+	for _, rootPath := range []string{"/media/Filme\u0301s", "/"} {
+		lib := newTestLibraryAt(t, "movies", "nfo", rootPath)
+		lib.scan(
+			nfoRecord("Metropolis (1995)/Metropolis (1995).nfo", "<movie><title>Metropolis</title><year>1995</year></movie>"),
+			videoRecord("Metropolis (1995)/Metropolis (1995).mkv"),
+		)
+		heat := lib.titlesByPath()["Metropolis (1995)/Metropolis (1995).mkv"]
+		if titleName(heat) != "Metropolis" || heat.Filing != identify.FilingListed {
+			t.Errorf("root %s: Metropolis is %+v, want it filed from its NFO and listed", rootPath, heat)
+		}
 	}
 }
