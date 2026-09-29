@@ -5,20 +5,25 @@ package agent
 import (
 	"context"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
+	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // fakePreparer reports half the source done, then a size that names the input it was given, made
-// with Quick Sync at 6.5 times real time; a
-// rendition directory ending in /slow runs until it is stopped.
+// with Quick Sync at 6.5 times real time; a rendition directory ending in /slow runs until it is
+// stopped, one ending in /full finds the disk with no room, and one ending in /broken fails as
+// FFmpeg would.
 type fakePreparer struct{}
 
 func (fakePreparer) Prepare(
@@ -28,6 +33,12 @@ func (fakePreparer) Prepare(
 	if strings.HasSuffix(command.RenditionDir, "/slow") {
 		<-ctx.Done()
 		return prepare.Made{}, ctx.Err()
+	}
+	if strings.HasSuffix(command.RenditionDir, "/full") {
+		return prepare.Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, prepared.ErrNoRoom)
+	}
+	if strings.HasSuffix(command.RenditionDir, "/broken") {
+		return prepare.Made{}, errors.New("ffmpeg exited 1: Invalid data found when processing input")
 	}
 	return prepare.Made{SizeBytes: int64(len(input)), VideoEncoder: "h264_qsv", RealtimeFactor: 6.5}, nil
 }
@@ -50,7 +61,7 @@ func nextPrepareReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
 	return nodeproto.PrepareReport{}
 }
 
-// finalPrepareReport is the core's last word from a prepare: done or failed, past any waiting or running.
+// finalPrepareReport is the core's last word from a prepare: done, failed or refused, past any waiting or running.
 func finalPrepareReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
 	t.Helper()
 	for {
@@ -61,10 +72,9 @@ func finalPrepareReport(t *testing.T, core *fakeCore) nodeproto.PrepareReport {
 	}
 }
 
-func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
-	t.Parallel()
-	core, socket := startFakeCore(t)
-	root, _ := startAgent(t, socket)
+// preparableFilm writes film.mkv under root and returns it named by root, path and payload hash.
+func preparableFilm(t *testing.T, root *confine.MediaRoot) nodeproto.BytesFile {
+	t.Helper()
 	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -72,14 +82,24 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := nodeproto.BytesFile{
+	return nodeproto.BytesFile{
 		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.PayloadHash[:]),
 	}
-	send := func(job int64, source nodeproto.BytesFile) {
-		core.commands <- nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-			JobID: job, Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
-		}}
-	}
+}
+
+// sendPrepare commands a remux of source into renditionDir as job.
+func (core *fakeCore) sendPrepare(job int64, source nodeproto.BytesFile, renditionDir string) {
+	core.commands <- nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
+		JobID: job, Video: source, Profile: nodeproto.ProfileRemux, RenditionDir: renditionDir,
+	}}
+}
+
+func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := startAgent(t, socket)
+	source := preparableFilm(t, root)
+	send := func(job int64, source nodeproto.BytesFile) { core.sendPrepare(job, source, "3/remux/0123456789abcdef") }
 	send(1, source)
 	done := finalPrepareReport(t, core)
 	wantInput := root.Path() + "/film.mkv"
@@ -91,15 +111,15 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 	changed := source
 	changed.PayloadHash = strings.Repeat("0", 64)
 	send(2, changed)
-	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareFailed ||
-		!strings.Contains(refused.Failure, "not the one named") {
+	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareRefused ||
+		!strings.Contains(refused.Refusal, "not the one named") || refused.Failure != "" {
 		t.Errorf("a prepare of a changed file ended %+v, want refused", refused)
 	}
 	elsewhere := source
 	elsewhere.RootPath = t.TempDir()
 	send(3, elsewhere)
-	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareFailed ||
-		!strings.Contains(refused.Failure, "none of this node's roots") {
+	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareRefused ||
+		!strings.Contains(refused.Refusal, "none of this node's roots") {
 		t.Errorf("a prepare under another root ended %+v, want refused", refused)
 	}
 	if err := os.Mkdir(filepath.Join(root.Path(), "Extras"), 0o700); err != nil {
@@ -108,9 +128,26 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 	directory := source
 	directory.Path = []byte("Extras")
 	send(4, directory)
-	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareFailed ||
-		!strings.Contains(refused.Failure, "not a regular file") {
+	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareRefused ||
+		!strings.Contains(refused.Refusal, "not a regular file") {
 		t.Errorf("a prepare of a directory ended %+v, want refused as no regular file", refused)
+	}
+}
+
+func TestAgent_APrepareTheDiskHasNoRoomForIsRefusedAndOneFFmpegFailsOnFails(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, _ := startAgent(t, socket)
+	source := preparableFilm(t, root)
+	core.sendPrepare(1, source, "3/remux/full")
+	if refused := finalPrepareReport(t, core); refused.State != nodeproto.PrepareRefused ||
+		!strings.Contains(refused.Refusal, "past its limit") || refused.Failure != "" {
+		t.Errorf("a prepare the disk has no room for ended %+v, want refused, not failed", refused)
+	}
+	core.sendPrepare(2, source, "3/remux/broken")
+	if failed := finalPrepareReport(t, core); failed.State != nodeproto.PrepareFailed ||
+		!strings.Contains(failed.Failure, "Invalid data") || failed.Refusal != "" {
+		t.Errorf("a prepare FFmpeg failed on ended %+v, want failed with FFmpeg's words", failed)
 	}
 }
 

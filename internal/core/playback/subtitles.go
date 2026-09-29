@@ -296,7 +296,8 @@ func (service *Service) HandleExtractSubtitle(ctx context.Context, job jobs.Job)
 }
 
 // makeSubtitleText has a node make one subtitle's text, waits for its answer and keeps the text where key
-// says. FFmpeg's failure is not retried.
+// says. FFmpeg's failure is kept and not retried; a node's refusal, which says nothing of the
+// source's bytes, is not kept, and the job is tried again.
 func (service *Service) makeSubtitleText(
 	ctx context.Context, job jobs.Job, nodeID int64, command *nodeproto.ExtractSubtitle,
 	key cachegen.GetSubtitleTextParams,
@@ -311,7 +312,10 @@ func (service *Service) makeSubtitleText(
 	select {
 	case answer := <-answers:
 		if answer.Refusal != "" {
-			failure := errors.New(answer.Refusal)
+			return fmt.Errorf("node %d refused %s job %d: %s", nodeID, job.Kind, job.ID, answer.Refusal)
+		}
+		if answer.Failure != "" {
+			failure := errors.New(answer.Failure)
 			return jobs.MarkPermanent(errors.Join(failure, service.finishSubtitle(ctx, key, answer)))
 		}
 		return service.finishSubtitle(ctx, key, answer)
@@ -338,9 +342,9 @@ func (service *Service) finishSubtitle(
 ) error {
 	now := service.clock.Now().UnixMilli()
 	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		if answer.Refusal != "" {
+		if answer.Failure != "" {
 			return queries.SetSubtitleTextFailed(ctx, cachegen.SetSubtitleTextFailedParams{
-				Failure: &answer.Refusal, FinishedAt: &now, BytesPayloadHash: key.BytesPayloadHash,
+				Failure: &answer.Failure, FinishedAt: &now, BytesPayloadHash: key.BytesPayloadHash,
 				StreamIndex: key.StreamIndex,
 			})
 		}

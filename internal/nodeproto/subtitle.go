@@ -33,6 +33,10 @@ type SubtitleText struct {
 	JobID int64  `json:"jobId"`
 	ASS   []byte `json:"ass,omitempty"`
 	VTT   []byte `json:"vtt,omitempty"`
-	// Refusal says why nothing was made: a source that changed, a track FFmpeg cannot convert.
+	// Failure is the converter's word that it could not make the text: a fact about the source's
+	// bytes, such as a track FFmpeg cannot convert, which asking again would not change.
+	Failure string `json:"failure,omitempty"`
+	// Refusal says why the node did not try: a node that does not convert subtitles, a source
+	// outside its roots or changed since the scan. It says nothing of the bytes.
 	Refusal string `json:"refusal,omitempty"`
 }

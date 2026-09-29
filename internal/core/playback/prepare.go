@@ -193,6 +193,10 @@ func (all *prepares) handle(ctx context.Context, job jobs.Job, order prepareOrde
 				// FFmpeg failing on a file fails again on it: this is not retried.
 				failure := errors.New(report.Failure)
 				return jobs.MarkPermanent(errors.Join(failure, all.finish(ctx, job.RenditionID, nil, report.Failure)))
+			case nodeproto.PrepareRefused:
+				// A refusal says nothing of the source's bytes (a full disk, a file changed since the
+				// scan): the job is tried again, as when the node says nothing.
+				return fmt.Errorf("node %d refused prepare %s: %s", nodeID, command.RenditionDir, report.Refusal)
 			}
 		case <-timer.C:
 			return fmt.Errorf("node %d said nothing about prepare %s for %s",
