@@ -81,9 +81,9 @@ func (filler *referenceScaleFiller) insertItem(kind string, libraryID int64, lis
 	filler.nextID++
 	id := filler.nextID
 	name := filler.words(1 + filler.random.IntN(4))
-	filler.exec("INSERT INTO item (id, kind, library_id, created_at) VALUES (?, ?, ?, ?)", id, kind, libraryID,
+	filler.exec("INSERT INTO item (id, kind, library_id, added_at) VALUES (?, ?, ?, ?)", id, kind, libraryID,
 		filler.now-filler.random.Int64N(365*24*3600*1000))
-	filler.exec("INSERT INTO item_text (item_id, lang, is_original, name, overview, tagline) "+
+	filler.exec("INSERT INTO item_text (item_id, language, is_original, name, overview, tagline) "+
 		"VALUES (?, 'und', 1, ?, ?, ?)",
 		id, name, filler.words(60), filler.words(8))
 	if listing != "" {
@@ -106,19 +106,19 @@ func (filler *referenceScaleFiller) insertVideo(titleID, libraryID int64, path s
 		`"streams":[{"codec_name":"hevc","width":3840,"height":2160},{"codec_name":"truehd","channels":8},`+
 		`{"codec_name":"eac3","channels":6},{"codec_name":"subrip"}],"chapters":%q}`,
 		5400+filler.random.IntN(3600), 20_000_000+filler.random.IntN(40_000_000), filler.words(40), filler.words(70))
-	filler.exec(`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, mtime_ms,
+	filler.exec(`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, modified_at,
 		payload_hash, payload_bytes, filing, probe_json, version_id, first_seen_at, last_seen_at)
 		VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, 'listed', ?, ?, ?, ?)`,
 		filler.fileID, libraryID, path, []byte(path), 20_000_000_000, filler.now, filler.bytes(32), 19_000_000_000,
 		probe, versionID, filler.now, filler.now)
-	for index, stream := range []struct{ kind, codec, lang string }{
+	for index, stream := range []struct{ kind, codec, language string }{
 		{"video", "hevc", ""}, {"audio", "truehd", "en"}, {"audio", "eac3", "de"}, {"subtitle", "subrip", "en"},
 	} {
 		filler.streams++
-		filler.exec(`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, lang_raw, lang,
-			channel_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		filler.exec(`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, container_language,
+			language, channel_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			filler.fileID, filler.fileID, index, stream.kind, stream.codec,
-			stream.lang, stream.lang, 8)
+			stream.language, stream.language, 8)
 	}
 }
 
@@ -126,7 +126,7 @@ func (filler *referenceScaleFiller) insertVideo(titleID, libraryID int64, path s
 func (filler *referenceScaleFiller) insertFilm(index int) {
 	id := filler.insertItem("title", 1, "movie")
 	filler.exec(`INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id,
-		identification) VALUES (?, 'movie', ?, ?, 'tmdb', ?, 'identified')`,
+		identification_state) VALUES (?, 'movie', ?, ?, 'tmdb', ?, 'identified')`,
 		id, 1950+filler.random.IntN(76), 6_000_000, fmt.Sprint(index))
 	for version := range 1 + boolInt(index%10 == 0) {
 		path := fmt.Sprintf("/media/films/Film %d (%d)/Film %d - %d.mkv", index, index, index, version)
@@ -138,7 +138,8 @@ func (filler *referenceScaleFiller) insertFilm(index int) {
 // insertProviderData inserts an item's artwork, provider ids and stored provider response.
 func (filler *referenceScaleFiller) insertProviderData(itemID int64, kind string, index int) {
 	for _, art := range []string{"poster", "backdrop"} {
-		filler.exec("INSERT INTO artwork (item_id, kind, source, source_ref, content_hash) VALUES (?, ?, 'tmdb', ?, ?)",
+		filler.exec("INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256) "+
+			"VALUES (?, ?, 'tmdb', ?, ?)",
 			itemID, art, fmt.Sprintf("/%s%d.jpg", art, index), filler.bytes(32))
 	}
 	filler.exec("INSERT INTO item_provider_id (item_id, provider, provider_id) VALUES (?, 'tmdb', ?), (?, 'imdb', ?)",
@@ -164,8 +165,8 @@ func (filler *referenceScaleFiller) insertSeries(index int) {
 		season, number := 1+episode/10, 1+episode%10
 		episodeID := filler.insertItem("title", 2, "")
 		filler.exec(`INSERT INTO title (id, kind, year, runtime_ms, followed_source, followed_source_id,
-			identification) VALUES (?, 'episode', ?, ?, 'tmdb', ?, 'identified')`, episodeID, 2000+index%26, 2_700_000,
-			fmt.Sprintf("%d-%d", index, episode))
+			identification_state) VALUES (?, 'episode', ?, ?, 'tmdb', ?, 'identified')`,
+			episodeID, 2000+index%26, 2_700_000, fmt.Sprintf("%d-%d", index, episode))
 		filler.insertVideo(episodeID, 2, fmt.Sprintf("/media/shows/Show %d/Season %02d/Show %d - S%02dE%02d.mkv", index,
 			season, index, season, number))
 		sort := float64(season*10000 + number)
@@ -174,8 +175,8 @@ func (filler *referenceScaleFiller) insertSeries(index int) {
 			orderingID, episodeID, season, number, sort)
 		filler.exec("INSERT INTO collection_member (collection_id, member_title, position) VALUES (?, ?, ?)", id,
 			episodeID, sort)
-		filler.exec("INSERT INTO artwork (item_id, kind, source, source_ref, content_hash) "+
-			"VALUES (?, 'thumb', 'tmdb', ?, ?)",
+		filler.exec("INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256) "+
+			"VALUES (?, 'still', 'tmdb', ?, ?)",
 			episodeID, fmt.Sprintf("/still%d-%d.jpg", index, episode), filler.bytes(32))
 	}
 }
@@ -202,7 +203,7 @@ func fillReferenceScale(t *testing.T, database *Database) {
 	filler.exec("INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)")
 	filler.exec(`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		VALUES (1, 'Films', 'movies', 'nfo_then_tmdb', 'watch', 0, 1), (2, 'Series', 'shows', 'tmdb', 'watch', 0, 1)`)
-	filler.exec("INSERT INTO library_root (library_id, node_id, path) " +
+	filler.exec("INSERT INTO library_root (library_id, node_id, root_path) " +
 		"VALUES (1, 1, '/media/films'), (2, 1, '/media/shows')")
 	filler.exec("INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1), (2, 'partner', 2, 1)")
 	for index := range refFilms {
@@ -411,9 +412,8 @@ func fullyScannedTables(t *testing.T, database *Database, query listQuery) []str
 func fullScansAllowed() map[string]string {
 	return map[string]string{
 		"ListArtworkHashes": "the artwork cache's sweep reads every stored image, once a day (D212 section 6)",
-		"ListFilmsByAdded": "newest first sorts every live film: 12.5 ms at the reference scale against 50; " +
-			"an index on item(created_at) when it is not",
-		"ListSeriesByAdded":          "newest first over the series, which are few: 200 at the reference scale",
+		"ListSeriesByAdded": "newest first reads the series, which are few (200 at the reference scale), " +
+			"and sorts them: walking item_added would pass every film and episode",
 		"ListTitlesByIdentification": "the admin's needs-a-match list: 1.3 ms at the reference scale",
 		"ListSeriesByIdentification": "the same list's series, which are few",
 		"ListLibraries":              "a household has a handful of libraries",

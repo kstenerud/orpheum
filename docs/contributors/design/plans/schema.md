@@ -27,9 +27,9 @@
 > **IMPLEMENTED — see `internal/store/migrations/`** (M1): every table above the `cache.db`
 > section, plus the two built-in roles. `cache.db` arrives in M2
 > ([D198](../../decisions/working-notes.md)). Until migrations are live ([D228](../../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)) the steps are a
-> baseline, `0024_baseline.sql`, and the one step after it, `0025_one_name_per_value.sql`; the
+> baseline, `0025_baseline.sql`, and the one step after it, `0026_newest_first_index.sql`; the
 > notes below that name a migration (*migration 0011*, *0023: was …*) record the step that
-> added or renamed a column. Steps 0001 to 0024 are folded into the baseline and survive only in
+> added or renamed a column. Steps 0001 to 0025 are folded into the baseline and survive only in
 > the repository's history.
 
 ## Why this document exists
@@ -308,6 +308,7 @@ CREATE TABLE item (                                        -- class I
   removed_at  INTEGER
 );
 CREATE INDEX item_library ON item(library_id, kind) WHERE removed_at IS NULL;
+CREATE INDEX item_added ON item(added_at) WHERE removed_at IS NULL;  -- migration 0026: newest first
 CREATE VIEW live_item AS SELECT * FROM item WHERE removed_at IS NULL;
 
 CREATE TABLE item_provider_id (                            -- class I; several per provider (ISRCs)

@@ -1,10 +1,10 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 -- orpheum:raises-compatible-version
--- orpheum:baseline folds 77cf628449ebe088684b2184688a3d45fb0839f4ab1ca7b6cd19b78ac7265f52
--- The baseline (D228): library.db's schema at version 24 in one step, which builds a new
--- database and runs on no other. It folds steps 0001 to 0024 (D185's first schema and the steps
+-- orpheum:baseline folds a79ed26e02e67bb8093e45ea0abc5ebdc0a1003e192d258232ca885b18c7e191
+-- The baseline (D228): library.db's schema at version 25 in one step, which builds a new
+-- database and runs on no other. It folds steps 0001 to 0025 (D185's first schema and the steps
 -- D200 to D227 added), and builds the schema and the seeded rows they built; the checksum above
--- is 0024_aligned_names.sql's, which a database migrated through that step recorded. Until the
+-- is 0025_one_name_per_value.sql's, which a database migrated through that step recorded. Until the
 -- owner declares migrations live, a schema change folds the last step into this file, which moves
 -- up to its version, and adds the change as the one step after it. The tables are documented in
 -- docs/contributors/design/plans/schema.md.
@@ -50,8 +50,8 @@ CREATE TABLE library (                                     -- class A
 CREATE TABLE library_root (                                -- class O: as the node reports it (D107)
   library_id INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
   node_id    INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
-  path       TEXT NOT NULL,
-  PRIMARY KEY (library_id, node_id, path)
+  root_path  TEXT NOT NULL,
+  PRIMARY KEY (library_id, node_id, root_path)
 );
 
 CREATE TABLE root_scan (                                   -- class O
@@ -102,7 +102,7 @@ CREATE TABLE file (                                        -- class I (identity 
   node_id       INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   path          TEXT NOT NULL,           -- NFC form, for display and search
   size_bytes    INTEGER,
-  mtime_ms      INTEGER,
+  modified_at   INTEGER,
   payload_hash  BLOB,                    -- D179: anchored on the media payload
   payload_bytes INTEGER,
   filing        TEXT NOT NULL CHECK (filing IN
@@ -141,9 +141,9 @@ CREATE TABLE stream (                                      -- class O; not "trac
   stream_index INTEGER,                  -- NULL for a whole-file sidecar
   kind        TEXT NOT NULL CHECK (kind IN ('video','audio','subtitle','attachment')),
   codec       TEXT,
-  lang_raw    TEXT,                      -- as the container carried it
-  lang        TEXT,                      -- BCP 47, normalised (D24)
-  title_raw   TEXT,
+  container_language TEXT,               -- as the container carried it
+  language    TEXT,                      -- BCP 47, normalised (D24)
+  container_title TEXT,
   disposition_flags INTEGER NOT NULL DEFAULT 0,  -- FFmpeg's flags, as found
   channel_count INTEGER,
   UNIQUE (bytes_file, stream_index)
@@ -155,10 +155,10 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
   video_file  INTEGER NOT NULL REFERENCES file(id) ON DELETE RESTRICT,
   provider    TEXT NOT NULL,
   provider_file_id TEXT NOT NULL,
-  lang        TEXT NOT NULL,
+  language    TEXT NOT NULL,
   format      TEXT NOT NULL,
   body_gzip   BLOB NOT NULL,             -- a few kB; in the database so the backup carries it
-  fetched_by  INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
+  fetched_by_user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   fetched_at  INTEGER NOT NULL,
   release_name TEXT                      -- the provider's file name for it (D224)
 );
@@ -170,7 +170,7 @@ CREATE TABLE item (                                        -- class I
   library_id  INTEGER REFERENCES library(id) ON DELETE RESTRICT,
   origin_server TEXT,                    -- NULL = this server; else who gave it (D174)
   merged_into INTEGER REFERENCES item(id) ON DELETE RESTRICT,  -- D173
-  created_at  INTEGER NOT NULL,
+  added_at    INTEGER NOT NULL,
   removed_at  INTEGER
 );
 CREATE INDEX item_library ON item(library_id, kind) WHERE removed_at IS NULL;
@@ -190,15 +190,15 @@ CREATE TABLE title (                                       -- mixed: see the col
   media_kind     TEXT NOT NULL DEFAULT 'video' CHECK (media_kind IN ('video','audio')),
   year           INTEGER,                                    -- O: resolved
   runtime_ms     INTEGER,                                    -- O: resolved
-  original_lang  TEXT,                                       -- O: resolved
+  original_language TEXT,                                    -- O: resolved
   -- D170/D183: the one source this title follows, and its id there. F, or A once a person
   -- chose it: a match is a fetch, and a migration never redoes one.
   followed_source    TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),  -- F/A
   followed_source_id TEXT,                                                          -- F/A
-  identification TEXT NOT NULL CHECK (identification IN
+  identification_state TEXT NOT NULL CHECK (identification_state IN
                    ('identified','ambiguous','unidentified','confirmed'))    -- F/A (D172)
 );
-CREATE INDEX title_ambiguous ON title(id) WHERE identification = 'ambiguous';
+CREATE INDEX title_ambiguous ON title(id) WHERE identification_state = 'ambiguous';
 
 CREATE TABLE edition (                                     -- class A when a person made it
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -231,7 +231,7 @@ CREATE TABLE extra_relation (                              -- class O, or A when
 
 CREATE TABLE item_text (                                   -- class O/F, resolved (D45)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
-  lang        TEXT NOT NULL,
+  language    TEXT NOT NULL,
   is_original INTEGER NOT NULL DEFAULT 0 CHECK (is_original IN (0,1)),
   name        TEXT NOT NULL,
   overview    TEXT,
@@ -240,7 +240,7 @@ CREATE TABLE item_text (                                   -- class O/F, resolve
   -- letters no Unicode option decomposes, such as Ø and ß, spelled out), so "Bjork" finds
   -- "Bjørk" (D48).
   search_alternates TEXT,
-  PRIMARY KEY (item_id, lang)
+  PRIMARY KEY (item_id, language)
 );
 CREATE UNIQUE INDEX item_text_original ON item_text(item_id) WHERE is_original = 1;
 
@@ -277,9 +277,9 @@ END;
 
 CREATE TABLE edition_text (                                -- class A or O
   edition_id  INTEGER NOT NULL REFERENCES edition(id) ON DELETE RESTRICT,
-  lang        TEXT NOT NULL,
+  language    TEXT NOT NULL,
   name        TEXT NOT NULL,
-  PRIMARY KEY (edition_id, lang)
+  PRIMARY KEY (edition_id, language)
 );
 
 CREATE TABLE sort_key (                                    -- class C (D47)
@@ -293,12 +293,12 @@ CREATE TABLE sort_key (                                    -- class C (D47)
 CREATE TABLE field_override (                              -- class A (D183)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   field       TEXT NOT NULL,             -- a field-registry name
-  lang        TEXT NOT NULL DEFAULT '',  -- '' for language-invariant fields
+  language    TEXT NOT NULL DEFAULT '',  -- '' for language-invariant fields
   override_value TEXT NOT NULL,          -- a frozen copy
   origin      TEXT NOT NULL,             -- 'typed', 'nfo', 'tmdb', 'tvdb' — display only
   set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
-  PRIMARY KEY (item_id, field, lang)
+  PRIMARY KEY (item_id, field, language)
 );
 
 CREATE TABLE tag (                                         -- class A (D164)
@@ -323,7 +323,7 @@ CREATE TABLE collection (                                  -- class A or O
   year        INTEGER,                                                        -- O: resolved
   followed_source    TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),  -- F/A
   followed_source_id TEXT,                                                    -- F/A
-  identification TEXT CHECK (identification IN
+  identification_state TEXT CHECK (identification_state IN
     ('identified','ambiguous','unidentified','confirmed'))                    -- F/A (D172)
 );
 
@@ -359,10 +359,10 @@ CREATE INDEX position_order ON position(ordering_id, sort_order);
 CREATE TABLE group_text (                                  -- a season's name, a disc's subtitle
   collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
   group_number  INTEGER NOT NULL,
-  lang          TEXT NOT NULL,
+  language      TEXT NOT NULL,
   name          TEXT,
   overview      TEXT,
-  PRIMARY KEY (collection_id, group_number, lang)
+  PRIMARY KEY (collection_id, group_number, language)
 );
 
 -- A stored provider response belongs to any item, not only a title (D186, D209). A series'
@@ -380,11 +380,11 @@ CREATE TABLE provider_response (                           -- class F: the store
 CREATE TABLE artwork (                                     -- class O/F; A when chosen
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
-  kind        TEXT NOT NULL CHECK (kind IN ('poster','backdrop','logo','banner','thumb','disc')),
-  lang        TEXT,
-  source      TEXT NOT NULL,             -- 'nfo', 'tmdb', 'embedded', 'user'
+  kind        TEXT NOT NULL CHECK (kind IN ('poster','backdrop','logo','banner','still','disc')),
+  language    TEXT,
+  source      TEXT NOT NULL,             -- 'nfo', 'tmdb', 'local'
   source_ref  TEXT,
-  content_hash BLOB,                     -- the derived sizes live in cache/ under this
+  source_sha256 BLOB,                    -- the SHA-256 of the source image; its sizes live in cache/ under it
   is_chosen   INTEGER NOT NULL DEFAULT 0 CHECK (is_chosen IN (0,1)),  -- a person picked it
   removed_at  INTEGER
 );
@@ -443,8 +443,8 @@ CREATE TABLE device (                                      -- class A
   platform      TEXT NOT NULL,
   audio_output  TEXT CHECK (audio_output IN ('built_in_speakers','receiver','headphones')),
                                          -- NULL until asked on first playback (D184)
-  first_seen_at INTEGER NOT NULL,
-  last_seen_at  INTEGER NOT NULL,
+  added_at      INTEGER NOT NULL,
+  last_signed_in_at INTEGER NOT NULL,
   removed_at    INTEGER
 );
 CREATE INDEX device_owner ON device(user_id) WHERE removed_at IS NULL;
@@ -487,7 +487,7 @@ CREATE TABLE secret (                                      -- class A, sealed (D
   key_id      INTEGER NOT NULL,          -- which secret.key sealed it (rotation)
   nonce       BLOB NOT NULL,             -- 24 bytes, XChaCha20-Poly1305
   ciphertext  BLOB NOT NULL,             -- ciphertext; the associated data is (scope, user_id, name)
-  hint        TEXT,                      -- last four characters of an API key; NULL for a password
+  last_chars  TEXT,                      -- last four characters of an API key; NULL for a password
   set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
   CHECK ((scope = 'server') = (user_id IS NULL))
@@ -516,7 +516,7 @@ CREATE TABLE play_event (                                  -- class A (D165)
   kind        TEXT NOT NULL CHECK (kind IN ('started','paused','seeked','completed','abandoned')),
   position_ms INTEGER NOT NULL,
   happened_at INTEGER NOT NULL,
-  client_mono_ms INTEGER
+  happened_mono_ms INTEGER
 );
 CREATE INDEX play_event_user_file ON play_event(user_id, file_id, happened_at);
 
