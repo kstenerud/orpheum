@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -447,7 +448,7 @@ func (matcher *Matcher) Handle(ctx context.Context, job jobs.Job) error {
 	} else {
 		outcome, err = matcher.Match(ctx, job.ItemID)
 	}
-	if limited, isLimited := errors.AsType[*RateLimitedError](err); isLimited {
+	if limited, isLimited := errors.AsType[*outbound.RateLimitedError](err); isLimited {
 		return &jobs.RetryAtError{At: matcher.clock.Now().Add(limited.RetryAfter), Err: err}
 	}
 	switch {

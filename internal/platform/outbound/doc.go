@@ -11,6 +11,9 @@
 //     Orpheum in every request's User-Agent (D213 §6). TestNewClient_TakesNoProxyFromTheEnvironment.
 //   - No other package uses http.DefaultClient, http.DefaultTransport, http.Get and its
 //     siblings, or http.ProxyFromEnvironment. Enforced by the forbidigo rule tagged [outbound].
+//   - A provider's 429 is one RateLimitedError whichever provider answered it, with the wait its
+//     Retry-After names or a second when it names none.
+//     TestRateLimited_WaitsWhatRetryAfterSaysOrASecondWhenItSaysNothing.
 //   - This package imports nothing from the module. Enforced by the depguard rule
 //     platform-is-a-leaf.
 //
@@ -22,5 +25,6 @@
 // # Where to change
 //
 //   - client.go: transport settings every outbound request shares. retryafter.go: reading a
-//     provider's Retry-After, which every provider client shares.
+//     provider's Retry-After, which every provider client shares. ratelimited.go: the one error
+//     a provider's 429 becomes.
 package outbound

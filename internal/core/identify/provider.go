@@ -5,8 +5,6 @@ package identify
 import (
 	"context"
 	"errors"
-	"fmt"
-	"time"
 )
 
 // Provider is a metadata source behind the interface that is the future plugin host-function
@@ -115,12 +113,3 @@ var (
 	// ErrKeyRefused is a key the provider refused.
 	ErrKeyRefused = errors.New("the provider refused its key")
 )
-
-// RateLimitedError is a provider asking to be called again after a time (429 and Retry-After, D170).
-type RateLimitedError struct {
-	RetryAfter time.Duration
-}
-
-func (limited *RateLimitedError) Error() string {
-	return fmt.Sprintf("rate limited: retry after %s", limited.RetryAfter)
-}

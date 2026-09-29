@@ -7,17 +7,23 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// fakeProvider is TMDB behind the provider interface: it fetches the films it has, by id.
+// fakeProvider is TMDB behind the provider interface: it fetches the films it has, by id, or
+// fails as fail says.
 type fakeProvider struct {
 	films map[string]identify.Metadata
+	mutex sync.Mutex
+	fail  error // guarded by mutex
 }
 
 func newFakeProvider() *fakeProvider {
@@ -37,6 +43,11 @@ func (*fakeProvider) Find(context.Context, string, string, string) (string, erro
 }
 
 func (fake *fakeProvider) Fetch(_ context.Context, _, id string) ([]byte, error) {
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	if fake.fail != nil {
+		return nil, fake.fail
+	}
 	film, found := fake.films[id]
 	if !found {
 		return nil, identify.ErrNoMatch
@@ -186,4 +197,22 @@ func TestIdentification_APersonMayRefreshATitleWheneverTheyLike(t *testing.T) {
 			again.body)
 	}
 	wantError(t, harness.do(t, http.MethodPost, "/items/99/refresh", admin, nil), http.StatusNotFound, CodeNotFound)
+}
+
+func TestIdentification_AProvidersRateLimitSaysWhichAndHowLongAsSubtitlesDo(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.ambiguousTitle(t)
+	harness.tmdbProvider.mutex.Lock()
+	harness.tmdbProvider.fail = &outbound.RateLimitedError{Provider: "TMDB", RetryAfter: 3 * time.Second}
+	harness.tmdbProvider.mutex.Unlock()
+	answer := harness.do(t, http.MethodPost, "/items/10/match", admin,
+		map[string]string{"provider": "tmdb", "providerId": "2"})
+	wantErrorSaying(t, answer, http.StatusServiceUnavailable, CodeRateLimited, "TMDB asks us to wait")
+	if !strings.Contains(answer.body, `"retryAfterMs":"3000"`) ||
+		!strings.Contains(answer.body, `"failedHop":"provider"`) {
+		t.Errorf("a rate limited choice: %s, want the wait and the provider as the failing leg (cut-a §5.2)",
+			answer.body)
+	}
 }

@@ -40,6 +40,9 @@
 //   - Why a subtitle could not be listed or fetched is said in OpenSubtitles' terms: no login, a
 //     refused login, or a spent quota with its reset time (D224).
 //     TestSubtitleCandidates_SayWhyInTheProvidersTerms.
+//   - A provider's rate limit leaves the same way whichever provider it is and whatever asked it:
+//     rate_limited, naming the provider, with detail.retryAfterMs and failedHop provider (cut-a
+//     §5.2). TestIdentification_AProvidersRateLimitSaysWhichAndHowLongAsSubtitlesDo.
 //   - A person with edit_metadata may refresh a title or series whenever they like (D213 §2).
 //     TestIdentification_APersonMayRefreshATitleWheneverTheyLike.
 //   - /health answers before the database is ready, and the rest answers "migrating" until then.

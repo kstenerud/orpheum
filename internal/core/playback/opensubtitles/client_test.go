@@ -44,7 +44,9 @@ type fakeProvider struct {
 	isTokenIssued map[string]bool
 	searched      []url.Values
 	remaining     int
-	server        *httptest.Server
+	// limitedFor, when set, is a search's answer: 429, with it as the Retry-After unless "none".
+	limitedFor string
+	server     *httptest.Server
 }
 
 func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Request) {
@@ -78,6 +80,13 @@ func (fake *fakeProvider) serve(writer http.ResponseWriter, request *http.Reques
 	}
 	switch request.URL.Path {
 	case "/api/v1/subtitles":
+		if fake.limitedFor != "" {
+			if fake.limitedFor != "none" {
+				writer.Header().Set("Retry-After", fake.limitedFor)
+			}
+			writer.WriteHeader(http.StatusTooManyRequests)
+			return
+		}
 		fake.searched = append(fake.searched, request.URL.Query())
 		reply(writer, `{"data":[
 			{"attributes":{"language":"en","release":"Film.2020.1080p","moviehash_match":true,
@@ -221,5 +230,21 @@ func TestDownload_FetchesTheFileAndSaysWhatIsLeftAndASpentQuotaWhenItResets(t *t
 	spent, isSpent := errors.AsType[*QuotaSpentError](err)
 	if !isSpent || !spent.ResetAt.Equal(reset) {
 		t.Errorf("a download past the quota: %v, want the quota spent until %s", err, reset)
+	}
+}
+
+func TestSearch_ARateLimitIsTheOneEveryProviderReturns(t *testing.T) {
+	t.Parallel()
+	fake, client, _ := newProvider(t, fakeKeys{"owner", "right"})
+	for limitedFor, want := range map[string]time.Duration{"5": 5 * time.Second, "none": time.Second} {
+		fake.mutex.Lock()
+		fake.limitedFor = limitedFor
+		fake.mutex.Unlock()
+		_, err := client.Search(t.Context(), Query{TMDBID: "4801", Language: "en"})
+		if limited, isLimited := errors.AsType[*outbound.RateLimitedError](err); !isLimited ||
+			limited.RetryAfter != want || limited.Provider != "OpenSubtitles" {
+			t.Errorf("a 429 with Retry-After %s: %v, want OpenSubtitles' RateLimitedError after %s",
+				limitedFor, err, want)
+		}
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -154,6 +155,8 @@ func TestSubtitleCandidates_SayWhyInTheProvidersTerms(t *testing.T) {
 		opensubtitles.ErrNoLogin:                         `"reason":"no_login"`,
 		opensubtitles.ErrLoginRefused:                    `"reason":"login_refused"`,
 		&opensubtitles.QuotaSpentError{ResetAt: resetAt}: `"downloadsResetAt":"1790661600000"`,
+		&outbound.RateLimitedError{Provider: "OpenSubtitles", RetryAfter: 2 * time.Second}: `"message":` +
+			`"OpenSubtitles asks us to wait","detail":{"retryAfterMs":"2000"}`,
 	} {
 		harness.subtitler.mutex.Lock()
 		harness.subtitler.failure = failure

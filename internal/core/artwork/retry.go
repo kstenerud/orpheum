@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -51,7 +52,7 @@ func (service *Service) fetch(ctx context.Context, fetcher Fetcher, source, ref 
 		}
 	}
 	image, err := fetcher.Fetch(ctx, ref)
-	if limited, isLimited := errors.AsType[*identify.RateLimitedError](err); isLimited {
+	if limited, isLimited := errors.AsType[*outbound.RateLimitedError](err); isLimited {
 		return Unsanitised{}, &jobs.RetryAtError{At: now.Add(limited.RetryAfter), Err: err}
 	}
 	gate.mutex.Lock()

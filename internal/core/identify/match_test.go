@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -270,9 +271,9 @@ func TestMatch_AProvidersRefusalReturnsForTheQueueToActOn(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
-	lib.provider.fail = &RateLimitedError{RetryAfter: 3}
+	lib.provider.fail = &outbound.RateLimitedError{Provider: "TMDB", RetryAfter: 3}
 	_, err := lib.matcher.Match(t.Context(), lib.titlesByPath()["Metropolis (1995).mkv"].TitleID)
-	if limited, isLimited := errors.AsType[*RateLimitedError](err); !isLimited || limited.RetryAfter != 3 {
+	if limited, isLimited := errors.AsType[*outbound.RateLimitedError](err); !isLimited || limited.RetryAfter != 3 {
 		t.Errorf("Match = %v, want the provider's RateLimitedError", err)
 	}
 	file := lib.titlesByPath()["Metropolis (1995).mkv"]
@@ -286,7 +287,7 @@ func TestHandle_TellsTheQueueHowToWait(t *testing.T) {
 	lib := newTestLibrary(t, "movies", "tmdb")
 	lib.scan(videoRecord("Metropolis (1995).mkv"))
 	job := jobs.Job{Kind: jobs.KindFetch, Target: jobs.Target{ItemID: lib.titlesByPath()["Metropolis (1995).mkv"].TitleID}}
-	lib.provider.fail = &RateLimitedError{RetryAfter: time.Minute}
+	lib.provider.fail = &outbound.RateLimitedError{Provider: "TMDB", RetryAfter: time.Minute}
 	err := lib.matcher.Handle(t.Context(), job)
 	retry, isRetry := errors.AsType[*jobs.RetryAtError](err)
 	if !isRetry || !retry.At.Equal(lib.clock.Now().Add(time.Minute)) {

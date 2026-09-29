@@ -6,12 +6,12 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 const tagIdentification = "Identification"
@@ -139,7 +139,7 @@ func (server *Server) getItemsByIdentification(ctx context.Context, input *Items
 	}
 	items, err := dependencies.Chooser.Items(ctx, input.IdentificationState)
 	if err != nil {
-		return nil, server.logInternalError(ctx, "list items", err)
+		return nil, server.identifyError(ctx, "list items", err)
 	}
 	output := &ItemsOutput{}
 	output.Body.Items = make([]ItemBody, 0, len(items))
@@ -230,7 +230,7 @@ func (server *Server) requireMetadataEditor(ctx context.Context, authorization s
 
 // identifyError maps identification's refusals and a provider's to API errors.
 func (server *Server) identifyError(ctx context.Context, action string, err error) error {
-	rateLimitErr, isLimited := errors.AsType[*identify.RateLimitedError](err)
+	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
 	switch {
 	case err == nil:
 		return nil
@@ -244,11 +244,7 @@ func (server *Server) identifyError(ctx context.Context, action string, err erro
 	case errors.Is(err, identify.ErrNoMatch):
 		return newError(http.StatusUnprocessableEntity, CodeInvalidRequest, "the provider has no such work")
 	case isLimited:
-		failure := newError(http.StatusServiceUnavailable, CodeRateLimited, "the provider asks us to wait")
-		failure.ErrorBody.Error.Detail = map[string]string{
-			"retryAfterMs": strconv.FormatInt(rateLimitErr.RetryAfter.Milliseconds(), 10),
-		}
-		return failure
+		return providerRateLimited(limited)
 	case errors.Is(err, identify.ErrNoKey), errors.Is(err, identify.ErrKeyRefused):
 		return newError(http.StatusServiceUnavailable, CodeProviderError,
 			"the provider's key is not set or was refused; an admin can set it under secrets")

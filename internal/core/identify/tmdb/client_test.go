@@ -160,7 +160,7 @@ func TestGet_TurnsTMDBsRefusalsIntoTheErrorsTheMatcherActsOn(t *testing.T) {
 	t.Cleanup(server.Close)
 	client := newClient(t, server.URL, "k")
 	_, err := client.Fetch(t.Context(), "movie", "1")
-	var limited *identify.RateLimitedError
+	var limited *outbound.RateLimitedError
 	if !errors.As(err, &limited) || limited.RetryAfter != 7*time.Second {
 		t.Errorf("429 = %v, want RateLimitedError after 7s", err)
 	}
@@ -257,5 +257,18 @@ func TestGet_RefusesAnAnswerLargerThanItsBoundRatherThanReadingItCutShort(t *tes
 	_, err := newClient(t, server.URL, "key").Search(t.Context(), identify.Query{Kind: "movie", Name: "Metropolis"})
 	if err == nil || !strings.Contains(err.Error(), "larger than") {
 		t.Errorf("an answer past the bound: %v, want it refused", err)
+	}
+}
+
+func TestGet_A429WithoutRetryAfterIsARateLimitStill(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusTooManyRequests)
+	}))
+	t.Cleanup(server.Close)
+	_, err := newClient(t, server.URL, "k").Fetch(t.Context(), "movie", "1")
+	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
+	if !isLimited || limited.RetryAfter != time.Second || limited.Provider != "TMDB" {
+		t.Errorf("429 without Retry-After = %v, want TMDB's RateLimitedError after a second", err)
 	}
 }

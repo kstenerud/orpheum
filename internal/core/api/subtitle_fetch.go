@@ -13,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/playback/opensubtitles"
+	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
 // SubtitleCandidatesInput asks for the subtitles that can be fetched for a file in a language.
@@ -152,7 +153,7 @@ func (server *Server) subtitleProviderError(ctx context.Context, action string, 
 		return failure
 	}
 	quotaErr, isSpent := errors.AsType[*opensubtitles.QuotaSpentError](err)
-	rateLimitErr, isLimited := errors.AsType[*opensubtitles.RateLimitedError](err)
+	limited, isLimited := errors.AsType[*outbound.RateLimitedError](err)
 	switch {
 	case errors.Is(err, playback.ErrNoFile):
 		return newError(http.StatusNotFound, CodeNotFound, "no such file to play")
@@ -177,12 +178,7 @@ func (server *Server) subtitleProviderError(ctx context.Context, action string, 
 		failure.ErrorBody.Error.FailedHop = HopProvider
 		return failure
 	case isLimited:
-		failure := newError(http.StatusServiceUnavailable, CodeRateLimited, "OpenSubtitles asks us to wait")
-		failure.ErrorBody.Error.Detail = map[string]string{
-			"retryAfterMs": strconv.FormatInt(rateLimitErr.RetryAfter.Milliseconds(), 10),
-		}
-		failure.ErrorBody.Error.FailedHop = HopProvider
-		return failure
+		return providerRateLimited(limited)
 	}
 	return server.logInternalError(ctx, action, err)
 }
