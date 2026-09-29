@@ -24,7 +24,7 @@ func film() matroska {
 }
 
 // D179 §3's table: every in-place edit mkvpropedit made kept the payload identity.
-func TestPayload_TagEditsKeepTheIdentity(t *testing.T) {
+func TestPayloadIdentity_TagEditsKeepTheIdentity(t *testing.T) {
 	t.Parallel()
 	original := identityOf(t, film().build())
 	if original.Anchor != AnchorMatroska {
@@ -61,7 +61,7 @@ func TestPayload_TagEditsKeepTheIdentity(t *testing.T) {
 	}
 }
 
-func TestPayload_ARemuxOrAChangedPayloadIsANewIdentity(t *testing.T) {
+func TestPayloadIdentity_ARemuxOrAChangedPayloadIsANewIdentity(t *testing.T) {
 	t.Parallel()
 	original := identityOf(t, film().build())
 	remuxed := film()
@@ -82,7 +82,7 @@ func TestPayload_ARemuxOrAChangedPayloadIsANewIdentity(t *testing.T) {
 	}
 }
 
-func TestPayload_WithoutCuesTheWalkFindsTheSameSpan(t *testing.T) {
+func TestPayloadIdentity_WithoutCuesTheWalkFindsTheSameSpan(t *testing.T) {
 	t.Parallel()
 	withCues := identityOf(t, film().build())
 	uncued := film()
@@ -100,7 +100,7 @@ func TestPayload_WithoutCuesTheWalkFindsTheSameSpan(t *testing.T) {
 	}
 }
 
-func TestPayload_AFileItCannotFollowIsHashedWhole(t *testing.T) {
+func TestPayloadIdentity_AFileItCannotFollowIsHashedWhole(t *testing.T) {
 	t.Parallel()
 	complete := film().build()
 	cases := map[string][]byte{
@@ -139,7 +139,7 @@ func mp4(moov, mdat []byte, moovLast bool) []byte {
 	return append(append(file, boxOf("moov", moov)...), boxOf("mdat", mdat)...)
 }
 
-func TestPayload_MP4IsAnchoredOnMdat(t *testing.T) {
+func TestPayloadIdentity_MP4IsAnchoredOnMdat(t *testing.T) {
 	t.Parallel()
 	media := bytes.Join(payloadBlocks(3_000_000, 3_000_000), nil)
 	original := identityOf(t, mp4([]byte("tags: old title"), media, false))
@@ -158,7 +158,7 @@ func TestPayload_MP4IsAnchoredOnMdat(t *testing.T) {
 	}
 }
 
-func TestPayload_ASmallPayloadIsReadWhole(t *testing.T) {
+func TestPayloadIdentity_ASmallPayloadIsReadWhole(t *testing.T) {
 	t.Parallel()
 	small := matroska{title: "Tiny", blocks: payloadBlocks(1_500_000, 500_000), cues: true}
 	original := identityOf(t, small.build())

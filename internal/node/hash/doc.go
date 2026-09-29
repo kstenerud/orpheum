@@ -20,16 +20,16 @@
 //     TestArch_OnlyExecxImportsOsExec.
 //   - Removes, renames and truncates nothing. Enforced by the forbidigo rule tagged [delete].
 //   - A tag edit keeps the identity: a same-length or relocated title, appended tags or
-//     attachments. TestPayload_TagEditsKeepTheIdentity; for MP4, TestPayload_MP4IsAnchoredOnMdat.
+//     attachments. TestPayloadIdentity_TagEditsKeepTheIdentity; for MP4, TestPayloadIdentity_MP4IsAnchoredOnMdat.
 //   - A remux, or a changed first or last megabyte of payload, is a new identity.
-//     TestPayload_ARemuxOrAChangedPayloadIsANewIdentity.
+//     TestPayloadIdentity_ARemuxOrAChangedPayloadIsANewIdentity.
 //   - Finding the last cluster through the Cues gives the same answer as walking every cluster.
-//     TestPayload_WithoutCuesTheWalkFindsTheSameSpan.
+//     TestPayloadIdentity_WithoutCuesTheWalkFindsTheSameSpan.
 //   - Any file has an identity: a truncated or unfollowable container is hashed whole, never
-//     refused, and no input panics. TestPayload_AFileItCannotFollowIsHashedWhole, FuzzPayload.
+//     refused, and no input panics. TestPayloadIdentity_AFileItCannotFollowIsHashedWhole, FuzzPayload.
 //   - OpenSubtitles' moviehash is the file's size plus the words of its first and last 64 KiB,
 //     written from the provider's description (D224 §3).
-//     TestOpenSubtitles_IsTheSizePlusTheWordsOfBothEndsAsSixteenHexDigits.
+//     TestOpenSubtitlesHash_IsTheSizePlusTheWordsOfBothEndsAsSixteenHexDigits.
 //
 // # Read before changing
 //

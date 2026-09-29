@@ -53,7 +53,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
 - **Expected:** the same file; the new track name shows; nothing else changes.
 - **Design:** a tag edit keeps the payload hash (D179); the probe is re-read and the streams
   re-derived.
-- **Status:** **holds** (`TestPayload_D179TableWithTheRealTools`; the ingest re-derives streams
+- **Status:** **holds** (`TestPayloadIdentity_D179TableWithTheRealTools`; the ingest re-derives streams
   on every observation).
 
 ### S3 — Replacing a film with a better copy at the same path

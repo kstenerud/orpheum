@@ -158,7 +158,7 @@ func TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor(t *testin
 	}
 }
 
-func TestBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer(t *testing.T) {
+func TestNodeBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer(t *testing.T) {
 	t.Parallel()
 	server := build.Provenance{Version: "dev", Commit: "abc", IsModified: true, BinarySHA256: "h1"}
 	if same := nodeBuildFinding("local", server, server); same.Verdict != verdictOK {

@@ -8,7 +8,7 @@
 //
 //   - The distribution, description, release and codename are os-release's NAME, PRETTY_NAME,
 //     VERSION_ID and VERSION_CODENAME, quoted or not.
-//     TestParse_ReadsWhatLSBReleaseShowsFromOSRelease.
+//     TestParseOSRelease_ReadsWhatLSBReleaseShowsFromOSRelease.
 //   - This package imports nothing from the module. Enforced by the depguard rule
 //     platform-is-a-leaf.
 //

@@ -44,7 +44,7 @@ func (node *inProcessNode) Kill() error {
 	return nil
 }
 
-func TestRun_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
+func TestRunNode_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 	t.Parallel()
 	scanned := scanOnce(t, "nfo", "a node finished a scan")
 	config, captured, nodeID, media := scanned.config, scanned.log, scanned.nodeID, scanned.media
@@ -99,7 +99,7 @@ func scanOnce(t *testing.T, metadataSource, awaited string) scanResult {
 	return scanResult{config: config, log: captured, nodeID: nodeID, media: media}
 }
 
-func TestRun_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
+func TestRunNode_AFilmInATMDBLibraryIsQueuedForItsMatch(t *testing.T) {
 	t.Parallel()
 	scanned := scanOnce(t, "tmdb", "queued fetches")
 	config := scanned.config
@@ -362,7 +362,7 @@ func TestRunNode_StillServesFilesWhenItCannotPrepare(t *testing.T) {
 	}
 }
 
-func TestCapabilities_AreRemuxAACAndTheEncodersTheNodeFound(t *testing.T) {
+func TestCapabilityNames_AreRemuxAACAndTheEncodersTheNodeFound(t *testing.T) {
 	t.Parallel()
 	got := capabilityNames([]prepare.Encoder{prepare.EncoderQuickSync, prepare.EncoderX264})
 	if want := []string{"remux", "aac", "h264_qsv", "x264"}; !slices.Equal(got, want) {

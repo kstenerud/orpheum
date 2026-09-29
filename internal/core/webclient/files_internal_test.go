@@ -7,7 +7,7 @@ import (
 	"testing/fstest"
 )
 
-func TestBuiltIn_IsTheClientOnlyWhenItHasAnIndex(t *testing.T) {
+func TestBuiltClient_IsTheClientOnlyWhenItHasAnIndex(t *testing.T) {
 	t.Parallel()
 	placeholder := fstest.MapFS{"dist/.keep": {}}
 	if _, found := builtClient(placeholder); found {

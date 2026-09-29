@@ -17,7 +17,7 @@
 //   - Every switch over a job kind or state names every value. Enforced by exhaustive.
 //   - Time comes from a clock.Clock, so scheduling is testable. Enforced by the forbidigo rule
 //     tagged [clock].
-//   - A target has at most one open job of a kind. TestEnqueue_QueuesASubjectOnceWhileItIsOpen.
+//   - A target has at most one open job of a kind. TestEnqueue_QueuesATargetOnceWhileItIsOpen.
 //   - The highest priority runs first. TestRunDue_RunsTheHighestPriorityFirst.
 //   - Several runners of one kind run its jobs at once, each job once.
 //     TestRun_SeveralRunnersOfOneKindRunItsJobsAtOnceEachOnce.
@@ -34,7 +34,7 @@
 //     TestCancel_AQueuedJobNeverRunsAndARunningOnesHandlerIsToldAndItStaysCancelled.
 //   - A kind may retry on its own schedule instead (D213 §5), and a job may wait until a time
 //     before it first runs. TestRunDue_AKindWithItsOwnScheduleRetriesOnItThenFails,
-//     TestEnqueue_AJobWaitsUntilItsNotBefore.
+//     TestEnqueue_AJobWaitsUntilItsRunnableAt.
 //
 // # Read before changing
 //

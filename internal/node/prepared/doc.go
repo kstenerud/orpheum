@@ -19,7 +19,7 @@
 //     after every rendition past its grace; one being written, never.
 //     TestEvict_RemovesTheLeastRecentlyUsedPastTheGraceFirstAndNeverOneBeingWritten.
 //   - A prepare the disk has no room for is refused, with why.
-//     TestRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict.
+//     TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict.
 //
 // # Read before changing
 //

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestCheckFilesystemType_RefusesNetworkFilesystems(t *testing.T) {
+func TestRefuseNetworkFilesystemType_RefusesNetworkFilesystems(t *testing.T) {
 	t.Parallel()
 	const nfsMagic, ext4Magic = 0x6969, 0xEF53
 	err := refuseNetworkFilesystemType("/srv/state", nfsMagic)

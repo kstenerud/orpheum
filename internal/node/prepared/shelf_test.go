@@ -112,7 +112,7 @@ func TestEvict_ADiskPastItsLimitEvictsWhateverTheBudgetSays(t *testing.T) {
 	}
 }
 
-func TestRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict(t *testing.T) {
+func TestMakeRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict(t *testing.T) {
 	t.Parallel()
 	disk := 99
 	shelf := shelfWith(t, Budget{MaxBytes: 1 << 30, Grace: time.Hour, DiskUsedLimitPercent: 95}, &disk, nil)
@@ -125,7 +125,7 @@ func TestRoom_RefusesWhenTheDiskIsPastItsLimitWithNothingToEvict(t *testing.T) {
 	}
 }
 
-func TestServed_MakesARenditionTheMostRecentlyUsed(t *testing.T) {
+func TestMarkServed_MakesARenditionTheMostRecentlyUsed(t *testing.T) {
 	t.Parallel()
 	disk := 50
 	shelf := shelfWith(t, Budget{MaxBytes: 100, Grace: time.Hour, DiskUsedLimitPercent: 95}, &disk, map[string]struct {

@@ -58,7 +58,7 @@ func (fixed fixture) job(t *testing.T, itemID int64) cachegen.Job {
 	return cachegen.Job{}
 }
 
-func TestEnqueue_QueuesASubjectOnceWhileItIsOpen(t *testing.T) {
+func TestEnqueue_QueuesATargetOnceWhileItIsOpen(t *testing.T) {
 	t.Parallel()
 	jobs := newFixture(t)
 	for range 2 {
@@ -270,7 +270,7 @@ func TestRunDue_AKindWithItsOwnScheduleRetriesOnItThenFails(t *testing.T) {
 	}
 }
 
-func TestEnqueue_AJobWaitsUntilItsNotBefore(t *testing.T) {
+func TestEnqueue_AJobWaitsUntilItsRunnableAt(t *testing.T) {
 	t.Parallel()
 	jobs := newFixture(t)
 	later := jobs.clock.Now().Add(12 * time.Hour)

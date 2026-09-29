@@ -226,7 +226,7 @@ func TestCommands_ALongPollWithNothingToSayAnswersEmpty(t *testing.T) {
 	}
 }
 
-func TestChannel_ANodeMustSayHelloFirst(t *testing.T) {
+func TestConnectedNode_ANodeMustSayHelloFirst(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	if _, status := harness.poll(t, 99, 0); status != http.StatusConflict {
@@ -250,7 +250,7 @@ func jsonl(t *testing.T, records []nodeproto.Record) io.Reader {
 	return &body
 }
 
-func TestReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testing.T) {
+func TestServeReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
@@ -299,7 +299,7 @@ func TestReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testing.T) 
 	}
 }
 
-func TestReport_RefusesARecordOutOfSequence(t *testing.T) {
+func TestServeReport_RefusesARecordOutOfSequence(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
@@ -313,7 +313,7 @@ func TestReport_RefusesARecordOutOfSequence(t *testing.T) {
 	}
 }
 
-func TestReport_ARecordReachesTheIngestWhileTheReportIsStillOpen(t *testing.T) {
+func TestServeReport_ARecordReachesTheIngestWhileTheReportIsStillOpen(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
@@ -341,7 +341,7 @@ func TestReport_ARecordReachesTheIngestWhileTheReportIsStillOpen(t *testing.T) {
 	}
 }
 
-func TestRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
+func TestConnectedNodeRoots_AreWhatTheNodesLastHelloNamed(t *testing.T) {
 	t.Parallel()
 	harness := newFixture(t, time.Second)
 	if _, _, connected := harness.service.ConnectedNodeRoots("local"); connected {

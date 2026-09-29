@@ -14,7 +14,7 @@
 //     immutable; index.html is revalidated on every load, so a new release is picked up at once.
 //     Enforced by TestHandler_HashedAssetsAreImmutableAndIndexIsRevalidated.
 //   - The client counts as built only when dist/ has an index.html; the placeholder alone does
-//     not. Enforced by TestBuiltIn_IsTheClientOnlyWhenItHasAnIndex.
+//     not. Enforced by TestBuiltClient_IsTheClientOnlyWhenItHasAnIndex.
 //   - Every answer carries `X-Content-Type-Options: nosniff`. Enforced by
 //     TestHandler_ServesFilesAndFallsBackToIndex.
 //

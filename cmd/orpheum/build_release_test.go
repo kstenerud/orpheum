@@ -6,7 +6,7 @@ package main
 
 import "testing"
 
-func TestEnvironment_IsEmptyInARelease(t *testing.T) {
+func TestEnvironmentLookup_IsEmptyInARelease(t *testing.T) {
 	// PATH is set for every process that can run this test; a release build must still not see it.
 	for _, name := range []string{"PATH", "HOME", "ORPHEUM_DEV_TMDB_KEY"} {
 		if value, found := environmentLookup()(name); found || value != "" {

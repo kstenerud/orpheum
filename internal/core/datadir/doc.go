@@ -22,7 +22,7 @@
 //   - A running server holds the state lock, so restore cannot replace its database. Enforced by
 //     TestLockState_RefusesASecondHolder.
 //   - A state directory on a network filesystem is refused (D31). Enforced by
-//     TestCheckFilesystemType_RefusesNetworkFilesystems.
+//     TestRefuseNetworkFilesystemType_RefusesNetworkFilesystems.
 //
 // # Read before changing
 //

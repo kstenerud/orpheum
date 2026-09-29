@@ -129,7 +129,7 @@ loop to work:**
   - `ORPHEUM_DEV_TMDB_KEY` and `ORPHEUM_DEV_OPENSUBTITLES_USERNAME`/`_PASSWORD`, sealed
     (D194) when set; the OpenSubtitles key is the application's, in the source (D224).
 
-  A release binary has no `dev` subcommand; `TestRun_DevSubcommandExistsOnlyInDevBuilds`
+  A release binary has no `dev` subcommand; `TestDispatch_DevSubcommandExistsOnlyInDevBuilds`
   guards that.
 - **The dev library** (`make dev-media`, [`scripts/dev_media.py`](../../../../scripts/dev_media.py))
   is the M2–M5 manual test bed. It holds one synthetic file per Cut A path: direct play, remux,

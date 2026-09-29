@@ -11,9 +11,9 @@
 //   - Every request carries Orpheum's key, which ships with the program, and no user's (D224 §2,
 //     §7); the login is used for its day by every request, and made again when OpenSubtitles no
 //     longer accepts it. TestSearch_LogsInOnceAndAsksByTheWorksIDsAndTheFilesHash,
-//     TestLogin_IsUsedForItsDayAndMadeAgainWhenOpenSubtitlesNoLongerAcceptsIt.
+//     TestCurrentSession_IsUsedForItsDayAndMadeAgainWhenOpenSubtitlesNoLongerAcceptsIt.
 //   - A refused login is not tried again until the admin changes it: logins are rationed
-//     (opensubtitles-api.md §3). TestLogin_ARefusedLoginIsNotTriedAgainUntilItChanges.
+//     (opensubtitles-api.md §3). TestCurrentSession_ARefusedLoginIsNotTriedAgainUntilItChanges.
 //   - A search asks by a film's ids or an episode's series and place, and the file's moviehash,
 //     as OpenSubtitles asks for them (D224 §3). TestSearch_AsksForAnEpisodeByItsSeriesAndPlace.
 //   - A download says what is left and when the count resets, as OpenSubtitles says; a spent

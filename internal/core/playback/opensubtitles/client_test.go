@@ -164,7 +164,7 @@ func TestSearch_AsksForAnEpisodeByItsSeriesAndPlace(t *testing.T) {
 	}
 }
 
-func TestLogin_IsUsedForItsDayAndMadeAgainWhenOpenSubtitlesNoLongerAcceptsIt(t *testing.T) {
+func TestCurrentSession_IsUsedForItsDayAndMadeAgainWhenOpenSubtitlesNoLongerAcceptsIt(t *testing.T) {
 	t.Parallel()
 	fake, client, now := newProvider(t, fakeKeys{"owner", "right"})
 	if _, err := client.Allowance(t.Context()); err != nil {
@@ -184,7 +184,7 @@ func TestLogin_IsUsedForItsDayAndMadeAgainWhenOpenSubtitlesNoLongerAcceptsIt(t *
 	}
 }
 
-func TestLogin_ARefusedLoginIsNotTriedAgainUntilItChanges(t *testing.T) {
+func TestCurrentSession_ARefusedLoginIsNotTriedAgainUntilItChanges(t *testing.T) {
 	t.Parallel()
 	_, client, _ := newProvider(t, fakeKeys{"owner", "wrong"})
 	for range 2 {

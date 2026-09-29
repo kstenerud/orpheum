@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestParse_ReadsWhatLSBReleaseShowsFromOSRelease(t *testing.T) {
+func TestParseOSRelease_ReadsWhatLSBReleaseShowsFromOSRelease(t *testing.T) {
 	t.Parallel()
 	got := ParseOSRelease(`PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
 NAME='Debian GNU/Linux'

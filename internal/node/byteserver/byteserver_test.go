@@ -78,7 +78,7 @@ func request(t *testing.T, handler http.Handler, method, target string, header h
 	return recorder
 }
 
-func TestFile_ServesTheBytesOfTheFileItsHashNames(t *testing.T) {
+func TestServeFile_ServesTheBytesOfTheFileItsHashNames(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "Films/Film (1999)/Film (1999).mkv")
 	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
@@ -99,7 +99,7 @@ func TestFile_ServesTheBytesOfTheFileItsHashNames(t *testing.T) {
 	}
 }
 
-func TestFile_HonoursRangeAndIfRange(t *testing.T) {
+func TestServeFile_HonoursRangeAndIfRange(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
 	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
@@ -114,7 +114,7 @@ func TestFile_HonoursRangeAndIfRange(t *testing.T) {
 	}
 }
 
-func TestFile_RefusesAFileThatIsNoLongerTheOneAskedFor(t *testing.T) {
+func TestServeFile_RefusesAFileThatIsNoLongerTheOneAskedFor(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
 	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
@@ -139,7 +139,7 @@ func TestFile_RefusesAFileThatIsNoLongerTheOneAskedFor(t *testing.T) {
 	}
 }
 
-func TestFile_NamesNothingOutsideARoot(t *testing.T) {
+func TestServeFile_NamesNothingOutsideARoot(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "films/film.mkv")
 	outside := filepath.Join(filepath.Dir(movie.root.Path()), "secret.mkv")
@@ -174,7 +174,7 @@ func TestFile_NamesNothingOutsideARoot(t *testing.T) {
 	}
 }
 
-func TestFile_OnlyReads(t *testing.T) {
+func TestServeFile_OnlyReads(t *testing.T) {
 	t.Parallel()
 	movie := newFilm(t, "film.mkv")
 	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).Handler()
@@ -186,7 +186,7 @@ func TestFile_OnlyReads(t *testing.T) {
 	}
 }
 
-func TestFile_ServesANameThatIsNotUTF8(t *testing.T) {
+func TestServeFile_ServesANameThatIsNotUTF8(t *testing.T) {
 	t.Parallel()
 	name := "caf\xe9.mkv" // Latin-1, as an old disk wrote it (D49)
 	movie := newFilm(t, name)
@@ -223,7 +223,7 @@ func preparedRoot(t *testing.T) *confine.MediaRoot {
 	return prepared
 }
 
-func TestRenditionFile_ServesARenditionsFilesAndNothingElse(t *testing.T) {
+func TestServeRenditionFile_ServesARenditionsFilesAndNothingElse(t *testing.T) {
 	t.Parallel()
 	handler := byteserver.New(nil, preparedRoot(t)).Handler()
 	for name, want := range map[string]string{
@@ -258,7 +258,7 @@ func TestRenditionFile_ServesARenditionsFilesAndNothingElse(t *testing.T) {
 	}
 }
 
-func TestRenditionFile_SaysWhichRenditionItServed(t *testing.T) {
+func TestServeRenditionFile_SaysWhichRenditionItServed(t *testing.T) {
 	t.Parallel()
 	var served []string
 	handler := byteserver.New(nil, preparedRoot(t)).OnRenditionServed(func(renditionDir string) {
