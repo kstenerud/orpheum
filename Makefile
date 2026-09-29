@@ -39,9 +39,18 @@ help: ## List the targets
 # The gate
 # ---------------------------------------------------------------------------------------------
 
+# The gate's checks run in parallel after two that must come first: the tools are there, and the
+# generated code is current (check-generated rewrites generated files the builds then read).
+CHECK_JOBS ?= $(shell nproc 2>/dev/null || echo 4)
+
 .PHONY: check
-check: check-tools check-docs check-scripts check-source check-deps check-claims check-go check-generated check-web ## The gate: everything that runs on every change
+check: check-tools check-generated ## The gate: everything that runs on every change, in parallel where independent
+	@$(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target check-parallel
+	@$(PYTHON) scripts/check_stamp.py write
 	@echo "make check: all gates passed"
+
+.PHONY: check-parallel
+check-parallel: check-docs check-scripts check-source check-deps check-claims check-go check-web
 
 .PHONY: check-tools
 check-tools: ## Fail if a pinned tool is missing or at the wrong version
@@ -132,7 +141,13 @@ web-deps: ## Install web dependencies from the lockfile when they are missing or
 # ---------------------------------------------------------------------------------------------
 
 .PHONY: check-pr
-check-pr: test-integration test-browser check-revert-red check-test-weakening lint-commits ## Branch gates against BASE (default origin/main), after the integration and browser tiers
+check-pr: ## Branch gates against BASE (default origin/main), with the integration and browser tiers, in parallel
+	@$(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target \
+	  test-integration test-browser check-revert-red check-test-weakening lint-commits web-lint-full
+
+.PHONY: web-lint-full
+web-lint-full: web-deps ## eslint without its cache: make check's cached lint cannot see a type another file changed
+	@npm --prefix web run --silent lint:full
 
 .PHONY: check-revert-red
 check-revert-red: ## Every behaviour change can turn a test red when reverted (D190)

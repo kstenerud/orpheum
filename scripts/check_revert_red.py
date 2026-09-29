@@ -57,14 +57,16 @@ work one interrupted run away from being lost.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import functools
 import ast
 import os
 import re
-import shutil
+import queue
 import subprocess
 import sys
-import tempfile
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -513,10 +515,12 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
         attempts.extend(browser_tier(change.path))
         for attempt in attempts:
             env = {**os.environ, **attempt.env} if attempt.env else None
-            done = subprocess.run(
-                attempt.command, cwd=tree, capture_output=True, text=True, timeout=timeout,
-                check=False, env=env,
-            )
+            # One browser tier at a time: each starts a server and three browsers.
+            with BROWSER_TIER_LOCK if "browser-tier" in attempt.command else contextlib.nullcontext():
+                done = subprocess.run(
+                    attempt.command, cwd=tree, capture_output=True, text=True, timeout=timeout,
+                    check=False, env=env,
+                )
             if done.returncode == 0:
                 continue
             if done.returncode == RUNNER_MISSING:
@@ -570,11 +574,40 @@ def report(outcomes: list[Outcome]) -> str:
     return "\n".join(lines)
 
 
+BROWSER_TIER_LOCK = threading.Lock()
+
+
+def probe_trees(head: str, count: int) -> list[str]:
+    """`count` worktrees to probe in, at fixed paths inside the repository's git directory, made
+    once and kept: a Go build or test cached in one is found again next run, which a fresh path
+    would miss. Each is set back to `head` and cleaned of untracked files, keeping the ignored
+    ones (the linked node_modules)."""
+    common = Path(_git("rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip())
+    source = Path(_git("rev-parse", "--show-toplevel").stdout.strip())
+    trees = []
+    for index in range(count):
+        tree = common / "revert-red" / f"wt-{index}"
+        if (tree / ".git").exists():
+            reset = _git("checkout", "--detach", "--force", head, cwd=str(tree))
+            cleaned = _git("clean", "-fdq", cwd=str(tree))
+            if reset.returncode != 0 or cleaned.returncode != 0:
+                raise RuntimeError(f"could not reset {tree}: {reset.stderr}{cleaned.stderr}")
+        else:
+            _git("worktree", "prune")
+            added = _git("worktree", "add", "--detach", str(tree), head)
+            if added.returncode != 0:
+                raise RuntimeError(f"could not make {tree}: {added.stderr}")
+            link_installed_packages(source, tree)
+        trees.append(str(tree))
+    return trees
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--base", required=True, help="ref the branch forked from")
     ap.add_argument("--head", default="HEAD")
     ap.add_argument("--timeout", type=int, default=900, help="seconds per test run")
+    ap.add_argument("--jobs", type=int, default=0, help="files probed at once (default: half the CPUs)")
     args = ap.parse_args()
 
     for name, ref in (("--base", args.base), ("--head", args.head)):
@@ -609,19 +642,25 @@ def main() -> int:
         print(f"No behavioral source changes in {args.base}..{args.head} ({exempt} exempt by type).")
         return 0
 
-    tmp = tempfile.mkdtemp(prefix="revert-red-")
-    tree = str(Path(tmp) / "wt")
-    added = _git("worktree", "add", "--detach", tree, args.head)
-    if added.returncode != 0:
-        print(f"Could not create a worktree to test in:\n{added.stderr}")
-        shutil.rmtree(tmp, ignore_errors=True)
-        return 1
+    jobs = args.jobs or max(1, (os.cpu_count() or 2) // 2)
     try:
-        link_installed_packages(Path(_git("rev-parse", "--show-toplevel").stdout.strip()), Path(tree))
-        outcomes = [probe(tree, args.base, args.head, c, args.timeout) for c in owed]
-    finally:
-        _git("worktree", "remove", "--force", tree)
-        shutil.rmtree(tmp, ignore_errors=True)
+        trees = probe_trees(args.head, min(jobs, len(owed)))
+    except RuntimeError as problem:
+        print(f"Could not prepare the worktrees to test in:\n{problem}")
+        return 1
+    free: queue.Queue[str] = queue.Queue()
+    for tree in trees:
+        free.put(tree)
+
+    def probe_in_a_free_tree(change: Change) -> Outcome:
+        tree = free.get()
+        try:
+            return probe(tree, args.base, args.head, change, args.timeout)
+        finally:
+            free.put(tree)
+
+    with ThreadPoolExecutor(max_workers=len(trees)) as pool:
+        outcomes = list(pool.map(probe_in_a_free_tree, owed))
 
     print(f"Reverted {len(owed)} behavioral source change(s); {exempt} exempt by commit type.")
     print(report(outcomes))

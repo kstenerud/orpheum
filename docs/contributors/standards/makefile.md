@@ -77,8 +77,12 @@ runs it.
 
 ## 4. The `make check` contract
 
-`make check` is the fast gate. The Stop hook, the pre-commit hook and CI all run it. **Read its
-prerequisite line in the Makefile; do not copy it into a document**, where it would go stale the
+`make check` is the fast gate. The Stop hook, the pre-commit hook and CI all run it; the
+pre-commit hook skips a commit of exactly the tree the gate last passed on
+(`scripts/check_stamp.py`), since the Stop hook has just run it. Its checks run in parallel after
+two that must come first, the tools and the generated code, and a target added to it must not
+write files another check reads. **Read its prerequisite lines in the Makefile; do not copy them
+into a document**, where it would go stale the
 next time a check is added. yoloAI's copy was stale three times out of four
 ([principles §8](../principles/README.md#8--factual-accuracy-in-documentation)).
 
