@@ -18,5 +18,5 @@
 //
 // # Where to change
 //
-//   - langtag.go: the normalisation.
+//   - langtag.go: the normalisation, and Undetermined, the tag written where one must be.
 package langtag
