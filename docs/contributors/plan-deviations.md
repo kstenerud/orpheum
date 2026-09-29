@@ -40,6 +40,49 @@ counted:
 
 ## Log
 
+### P36 — The code outgrew cut-a's layout, lists and counts, and the frozen text still shows the old ones (M3, 2026-09-29) · plan-gap
+
+- **Planned:** cut-a.md, frozen by D193 §8, fixes the repository layout (§3), the config file's
+  keys (§2a), the node protocol's messages (§4), the client API's endpoints and error model
+  (§5) and the job slots (§5.3). Names D227 renamed are corrected in place; these are not names,
+  so the text stays as frozen and this entry lists where the code differs, for M3's closing
+  audit.
+- **What happened:** a sweep of stale documentation at the end of M3 found:
+  - **§3 layout.** Core packages `artwork`, `nodes`, `textindex` and `webclient`; node packages
+    `agent`, `artwork`, `hardware`, `loudness`, `namedfile`, `prepared` and `subtitle`;
+    `internal/archtest`, `internal/testutil`, and `store/cache`, `cachegen` and `storetest` are
+    not in it. `internal/platform/` has eleven packages, not "clock, slogx". The subcommands
+    also include `openapi`, `version` and, in dev builds, `dev`. `go.mod` has no `tool`
+    directives: sqlc and golangci-lint are pinned in the Makefile. `testdata/`, `assumptions/`
+    and `tools/gates/` do not exist (the gates are `scripts/`).
+  - **§2a config keys.** "Exactly the keys in `dev/orpheum.dev.toml`" is true of the file, but the
+    list beside it leaves out `server.socket_dir`, `node.name`, `video_extensions`,
+    `subtitle_extensions`, `max_errors_per_root`, `probe_timeout_s` and `status_interval_s`.
+  - **§4 node protocol.** No message carries a version; the version is the path's (`/node/v1`,
+    `/bytes/v1`). The Node → core table lists hello, report and commands; each job also answers
+    on its own path (`/node/v1/artwork`, `/prepare`, `/subtitle`, `/loudness`). The hello also
+    carries `build`, `host`, `uid`, `gid` and `hardware{gpus, trials, chosenEncoder}`; `prepare`
+    also carries `videoStreamIndex`, `videoCodec` and `segmentLengthSeconds`.
+  - **§5 API.** A play report is `POST /playback/{token}/report`, by the media token, not the
+    file's id. `POST /files/{id}/prepare` ("Get this ready") is not built; it is M5's. The job
+    view also shows `attemptCount`. The OpenAPI document is not diffed with `oasdiff`; nothing
+    runs it. **§5.2:** the error codes are one list in the server (`internal/core/api/errors.go`),
+    but the OpenAPI document types `code` and `failedHop` as plain strings, so the SDK has no
+    generated copy of it; and of the five hops only `node` and `provider` exist, the rest waiting
+    for M4's reachability.
+  - **§5.3 slots.** The node runs one encode and two remuxes at once, and one subtitle extraction
+    in a slot of its own, not "two remux or extract jobs".
+  - **Search** (D193 §4, standards/sql.md §4) is three static hand-written statements, one per
+    route (D48), not a filter builder: M2 needed no filter, so nothing is assembled at run time.
+- **Why the plan missed it:** the plan was written before the packages, keys and paths existed,
+  and each milestone added what its features needed without the frozen text following; only the
+  names had a decision (D227) that reached back into it.
+- **Cost:** none in code; the owner decides at the M3 audit whether cut-a is amended, left as the
+  record of intent, or these become decisions.
+- **Process lesson:** a frozen plan's enumerations (layouts, key lists, endpoint lists, counts)
+  go stale fastest; either generate them from the code or mark them as illustrative when freezing,
+  so that only intent is frozen.
+
 ### P35 — Revert-red could not see a change only a browser shows (M3, 2026-09-29) · gate-design
 
 - **Planned:** revert-red (D190) reverts each changed file and runs the narrowest suite that
