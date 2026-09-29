@@ -182,16 +182,24 @@ WHERE item_text.is_original = 1 AND item.removed_at IS NULL
     SELECT 1 FROM sort_key WHERE sort_key.item_id = item_text.item_id AND sort_key.locale = sqlc.arg(locale)
   );
 
--- name: ListItemsToSort :many
--- Every live named title and series, with the list it sorts in.
-SELECT item_text.item_id, item_text.name, coalesce(title.kind, collection.kind) AS listing
+-- name: ListNamesWithSortAndSearchKeys :many
+-- Every live named item: its name, its stored search fold, its kind as a title or a collection,
+-- and its stored sort keys in a locale, one row per key and one with none when it has none. What
+-- a refresh compares with what this build derives from the name (D47, D48).
+SELECT item_text.item_id, item_text.name, item_text.search_alternates, title.kind AS title_kind,
+  collection.kind AS collection_kind, sort_key.listing AS keyed_listing, sort_key.collation_key
 FROM item_text
 JOIN item ON item.id = item_text.item_id
 LEFT JOIN title ON title.id = item_text.item_id
 LEFT JOIN collection ON collection.id = item_text.item_id
+LEFT JOIN sort_key ON sort_key.item_id = item_text.item_id AND sort_key.locale = sqlc.arg(locale)
 WHERE item_text.is_original = 1 AND item.removed_at IS NULL
-  AND (title.id IS NOT NULL OR collection.kind = 'series')
 ORDER BY item_text.item_id;
+
+-- name: SetSearchAlternates :exec
+-- An item's name folded again, when the one normaliser now folds it otherwise (D48).
+UPDATE item_text SET search_alternates = sqlc.arg(search_alternates)
+WHERE item_id = sqlc.arg(item_id) AND is_original = 1;
 
 -- name: DeleteSortKeysOfOtherLocales :exec
 -- Keys for a locale no longer in use (sort_key is a cache, class C).
