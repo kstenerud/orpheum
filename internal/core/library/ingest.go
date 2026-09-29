@@ -104,7 +104,7 @@ func (ingester *Ingester) Records(ctx context.Context, nodeID int64, records []n
 		batch := &batch{ingester: ingester, queries: queries, nodeID: nodeID, now: now}
 		for _, record := range records {
 			if err := batch.record(ctx, cleanRecord(record)); err != nil {
-				return fmt.Errorf("record %d (%s): %w", record.Seq, record.Type, err)
+				return fmt.Errorf("record %d (%s): %w", record.ReportSeq, record.Type, err)
 			}
 		}
 		ended = batch.ended
@@ -208,8 +208,8 @@ type filePath struct {
 // nodePath turns a reported path into a filePath under the scan's root.
 func nodePath(root string, reported nodeproto.Path) filePath {
 	raw := reported.Text
-	if reported.Raw != nil {
-		raw = string(reported.Raw)
+	if reported.Bytes != nil {
+		raw = string(reported.Bytes)
 	}
 	absolute := root
 	if reported.Text != "." {

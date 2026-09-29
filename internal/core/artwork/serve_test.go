@@ -72,8 +72,9 @@ func TestServe_ASizeNotMadeRedirectsToTheNearestAndOnlyAnOnRequestSizeIsQueued(t
 		t.Fatalf("queued %+v; want one job to make portrait-l", *queue)
 	}
 	var args owed
-	if err := json.Unmarshal([]byte((*queue)[0].Args), &args); err != nil || args.Hash != hash ||
-		!slices.Equal(args.Sizes, []nodeproto.ArtSizeName{nodeproto.PortraitL}) || args.Refs[0].Ref != "/poster.jpg" {
+	if err := json.Unmarshal([]byte((*queue)[0].Args), &args); err != nil || args.ImageHash != hash ||
+		!slices.Equal(args.SizeNames,
+			[]nodeproto.ArtSizeName{nodeproto.PortraitL}) || args.Refs[0].Ref != "/poster.jpg" {
 		t.Errorf("the job's args %+v (%v)", args, err)
 	}
 

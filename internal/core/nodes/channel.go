@@ -34,9 +34,10 @@ func (service *Service) commands(writer http.ResponseWriter, request *http.Reque
 	if !ok {
 		return
 	}
-	after, err := strconv.ParseInt(request.URL.Query().Get(nodeproto.QueryAfterSeq), 10, 64)
+	after, err := strconv.ParseInt(request.URL.Query().Get(nodeproto.QueryAfterCommandSeq), 10, 64)
 	if err != nil {
-		http.Error(writer, "commands?"+nodeproto.QueryAfterSeq+"=<the last command's seq, or 0>", http.StatusBadRequest)
+		http.Error(writer, "commands?"+nodeproto.QueryAfterCommandSeq+"=<the last command's seq, or 0>",
+			http.StatusBadRequest)
 		return
 	}
 	service.heard(nodeID)
@@ -67,7 +68,7 @@ func (service *Service) pending(nodeID, after int64) ([]nodeproto.Command, <-cha
 	queue := service.channels[nodeID]
 	kept := queue.commands[:0]
 	for _, command := range queue.commands {
-		if command.Seq > after {
+		if command.CommandSeq > after {
 			kept = append(kept, command)
 		}
 	}
@@ -227,10 +228,10 @@ func (reader *reportReader) line(ctx context.Context, line []byte) error {
 	if err := json.Unmarshal(line, &record); err != nil {
 		return fmt.Errorf("a report line is not a record: %w", err)
 	}
-	if reader.lastSeq != 0 && record.Seq <= reader.lastSeq {
-		return fmt.Errorf("record %d came after %d; a report's sequence only rises", record.Seq, reader.lastSeq)
+	if reader.lastSeq != 0 && record.ReportSeq <= reader.lastSeq {
+		return fmt.Errorf("record %d came after %d; a report's sequence only rises", record.ReportSeq, reader.lastSeq)
 	}
-	reader.lastSeq = record.Seq
+	reader.lastSeq = record.ReportSeq
 	reader.service.heard(reader.nodeID)
 	if record.Type == nodeproto.RecordStatus && record.Status != nil {
 		reader.status = record.Status
@@ -256,7 +257,7 @@ func (reader *reportReader) flush(ctx context.Context) error {
 	if err := reader.service.sink.Records(ctx, reader.nodeID, reader.batch); err != nil {
 		return fmt.Errorf("ingest: %w", err)
 	}
-	last := reader.batch[len(reader.batch)-1].Seq
+	last := reader.batch[len(reader.batch)-1].ReportSeq
 	reader.batch = reader.batch[:0]
 	status := reader.status
 	reader.status = nil

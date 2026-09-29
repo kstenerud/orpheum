@@ -22,7 +22,7 @@ import (
 // refreshArgs are a fetch job's arguments when it refreshes a matched item rather than matching
 // it (D213).
 type refreshArgs struct {
-	Refresh bool `json:"refresh"`
+	IsRefresh bool `json:"isRefresh"`
 	// RetryImages asks again for the item's images that were missing or refused.
 	RetryImages bool `json:"retryImages,omitempty"`
 }
@@ -30,7 +30,7 @@ type refreshArgs struct {
 // RefreshJob is the fetch job that refreshes an item from the source it follows, from at (now
 // when zero); with retryImages it also asks again for the images it is missing (D213 §1, §2).
 func RefreshJob(itemID int64, reason string, at time.Time, retryImages bool, priority int64) jobs.New {
-	args := fmt.Sprintf(`{"refresh":true,"retryImages":%t}`, retryImages) // refreshArgs, as JSON
+	args := fmt.Sprintf(`{"isRefresh":true,"retryImages":%t}`, retryImages) // refreshArgs, as JSON
 	return jobs.New{
 		Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID}, Args: args, Reason: reason, RunnableAt: at,
 		Priority: priority,

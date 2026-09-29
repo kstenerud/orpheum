@@ -118,7 +118,7 @@ func (world *harness) scanOn(facts nodeproto.ScanBegin, records []nodeproto.Reco
 	}
 	for index := range all {
 		world.seq++
-		all[index].Seq = world.seq
+		all[index].ReportSeq = world.seq
 	}
 	if err := world.ingester.Records(world.t.Context(), world.nodeID, all); err != nil {
 		world.t.Fatal(err)
@@ -167,7 +167,7 @@ func TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason(t *testing.T) 
 		t.Errorf("the notes = %+v, want skipped, rule extension (D163)", notes)
 	}
 	if broken.Filing != filingErrored || *broken.FilingReason != "permission_denied" ||
-		broken.ErrorDetail == nil || !strings.Contains(*broken.ErrorDetail, `"modeText":"-rw-------"`) {
+		broken.ErrorDetailJson == nil || !strings.Contains(*broken.ErrorDetailJson, `"modeText":"-rw-------"`) {
 		t.Errorf("the broken file = %+v, want errored with the owner, group and mode (D163)", broken)
 	}
 	world.checkStreams(alien.ID)
@@ -262,9 +262,12 @@ func TestIngest_ARootNoLibraryCoversIsNotStored(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	records := []nodeproto.Record{
-		{Seq: 1, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: "/media/elsewhere"}},
+		{ReportSeq: 1, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: "/media/elsewhere"}},
 		observed("x.mkv", "x"),
-		{Seq: 3, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{Root: "/media/elsewhere"}},
+		{
+			ReportSeq: 3, Type: nodeproto.RecordScanComplete,
+			ScanComplete: &nodeproto.ScanComplete{Root: "/media/elsewhere"},
+		},
 	}
 	if err := world.ingester.Records(t.Context(), world.nodeID, records); err != nil {
 		t.Fatal(err)
@@ -310,9 +313,9 @@ func TestIngest_AFileInAnotherRootIsNeverTakenForAMove(t *testing.T) {
 	// only because it is in another root, so it is not absent: this is a duplicate, not a move.
 	world.clock.Advance(time.Minute)
 	records := []nodeproto.Record{
-		{Seq: 100, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: shows}},
+		{ReportSeq: 100, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: shows}},
 		observed("Episode.mkv", "same bytes"),
-		{Seq: 102, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{Root: shows}},
+		{ReportSeq: 102, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{Root: shows}},
 	}
 	if err := world.ingester.Records(t.Context(), world.nodeID, records); err != nil {
 		t.Fatal(err)
@@ -333,7 +336,7 @@ func rootStateParams(nodeID int64) sqlcgen.GetRootStateParams {
 func sidecar(path string, kind nodeproto.SidecarKind, body string) nodeproto.Record {
 	record := &nodeproto.Sidecar{Path: nodeproto.Path{Text: path}, Kind: kind, SizeBytes: int64(len(body)), MtimeMs: 1}
 	if kind == nodeproto.SidecarNFO {
-		record.Body = []byte(body)
+		record.NFOBody = []byte(body)
 	}
 	return nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: record}
 }
@@ -413,7 +416,7 @@ func TestIngest_TwoNamesThatAreOneTextAreTwoFiles(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
 	invalid1, invalid2 := observed("a�.mkv", "first"), observed("a�.mkv", "second")
-	invalid1.Observed.Path.Raw, invalid2.Observed.Path.Raw = []byte("a\xff.mkv"), []byte("a\xfe.mkv")
+	invalid1.Observed.Path.Bytes, invalid2.Observed.Path.Bytes = []byte("a\xff.mkv"), []byte("a\xfe.mkv")
 	// "é" as one code point and as e plus a combining accent: one NFC text, two files on ext4.
 	composed, decomposed := observed("café.mkv", "third"), observed("café.mkv", "fourth")
 	for range 2 {

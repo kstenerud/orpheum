@@ -76,7 +76,7 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 		Root: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
 	}
 	send := func(job int64, source nodeproto.BytesFile) {
-		core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
+		core.commands <- nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
 			JobID: job, Source: source, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
 		}}
 	}
@@ -119,7 +119,7 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 		Root: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
 	}
 	commandFor := func(job int64, dir string) nodeproto.Command {
-		return nodeproto.Command{Seq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
+		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
 			JobID: job, Source: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir,
 		}}
 	}
@@ -131,7 +131,10 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 			t.Fatalf("a slow prepare's first report = %+v, want running", started)
 		}
 	}
-	core.commands <- nodeproto.Command{Seq: 3, Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{JobID: 1}}
+	core.commands <- nodeproto.Command{
+		CommandSeq: 3, Type: nodeproto.CommandCancel,
+		Cancel: &nodeproto.Cancel{JobID: 1},
+	}
 	core.commands <- commandFor(4, "5/remux/0123456789abcdef")
 	if next := finalReport(t, core); next.JobID != 4 || next.State != nodeproto.PrepareDone {
 		t.Errorf("the next final report = %+v, want job 4 done and nothing for the cancelled job 1", next)
@@ -153,7 +156,7 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 		Root: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
 	}
 	encode := func(job int64, dir string) nodeproto.Command {
-		return nodeproto.Command{Seq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
+		return nodeproto.Command{CommandSeq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
 			JobID: job, Source: source, Profile: nodeproto.ProfileH264At8M, RenditionDir: dir,
 		}}
 	}
@@ -170,7 +173,10 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 	if again := nextReport(t, core); again.JobID != 2 || again.State != nodeproto.PrepareWaiting {
 		t.Errorf("at the next tick = %+v, want waiting again, so the core keeps waiting", again)
 	}
-	core.commands <- nodeproto.Command{Seq: 3, Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{JobID: 1}}
+	core.commands <- nodeproto.Command{
+		CommandSeq: 3, Type: nodeproto.CommandCancel,
+		Cancel: &nodeproto.Cancel{JobID: 1},
+	}
 	if done := finalReport(t, core); done.JobID != 2 || done.State != nodeproto.PrepareDone {
 		t.Errorf("once the slot is free = %+v, want the second encode done", done)
 	}

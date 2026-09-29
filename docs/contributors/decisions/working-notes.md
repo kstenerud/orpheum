@@ -16895,5 +16895,12 @@ ones.
 4. **`file.path_raw` is dropped**: since D211 the reported bytes are always kept, in what is now
    `reported_path_bytes`, so it was a second copy. **`user_rating.rating` keeps its name**: its
    scale was never decided, and a name would decide it.
+5. **Addendum (2026-09-29): one thing has one name in every layer** (the owner, shown what a
+   second audit found: *"yes, align them all"*). Where the renames above left the same value
+   under two names, in the API and the node protocol, in a column and its API field, or in
+   stored JSON and the API, each takes the name that says more; a column holding JSON ends in
+   `_json`; and the artwork and fetch jobs' stored arguments, which no table listed, say what they
+   hold. The names are in the same research file's addendum; migration 0024 carries the
+   columns and a stored subtitle choice's keys, and cache.db is discarded for its version.
 
 **Status:** Decided; built before M3's closing audit.

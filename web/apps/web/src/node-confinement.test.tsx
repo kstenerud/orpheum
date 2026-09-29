@@ -27,7 +27,7 @@ describe("each machine's sandbox, said out loud (D112)", () => {
         {
           mechanism: "landlock",
           isInForce: false,
-          cause: "disabled_at_boot",
+          causeCode: "disabled_at_boot",
           reason: "a note for developers",
         },
         { mechanism: "seccomp", isInForce: true },

@@ -68,7 +68,7 @@ type FetchSubtitleInput struct {
 // FetchSubtitleOutput is the fetched subtitle, now the file's subtitle choice, and what is left.
 type FetchSubtitleOutput struct {
 	Body struct {
-		FetchedID          int64 `doc:"The new track; a playback started again offers it" json:"fetchedId"`
+		FetchedSubtitleID  int64 `doc:"The new track; a playback started again offers it" json:"fetchedSubtitleId"`
 		RemainingDownloads int   `json:"remainingDownloads"`
 		DownloadsResetAt   int64 `doc:"When the count starts again, Unix milliseconds" json:"downloadsResetAt,omitempty"` //nolint:lll // one struct tag
 	}
@@ -128,7 +128,7 @@ func (server *Server) fetchSubtitle(ctx context.Context, input *FetchSubtitleInp
 		return nil, server.fetchError(ctx, "fetch a subtitle", err)
 	}
 	output := &FetchSubtitleOutput{}
-	output.Body.FetchedID, output.Body.RemainingDownloads = fetched.Track.FetchedID, fetched.Remaining
+	output.Body.FetchedSubtitleID, output.Body.RemainingDownloads = fetched.Track.FetchedSubtitleID, fetched.Remaining
 	output.Body.DownloadsResetAt = unixMillisOrZero(fetched.ResetAt)
 	return output, nil
 }
@@ -169,7 +169,7 @@ func (server *Server) fetchError(ctx context.Context, doing string, err error) e
 	case isSpent:
 		failure := newError(http.StatusTooManyRequests, CodeQuotaExhausted,
 			"the OpenSubtitles account's downloads for today are spent")
-		failure.ErrorBody.Error.Detail = map[string]string{"resetAt": spent.ResetAt.UTC().Format(time.RFC3339)}
+		failure.ErrorBody.Error.Detail = map[string]string{"downloadsResetAt": spent.ResetAt.UTC().Format(time.RFC3339)}
 		failure.ErrorBody.Error.Hop = HopProvider
 		return failure
 	case isLimited:

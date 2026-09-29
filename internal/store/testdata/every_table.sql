@@ -4,12 +4,12 @@
 
 INSERT INTO node (id, name, enrolled_at, last_ingested_report_seq, last_status_json, last_status_at)
   VALUES (1, 'nas', 1790000000000, 42, '{"activity":"idle"}', 1790000001000);
-INSERT INTO library (id, name, kind, metadata_source, change_detection, check_every_h, is_writable, created_at)
+INSERT INTO library (id, name, kind, metadata_source, change_detection, check_every_hours, is_writable, created_at)
   VALUES (1, 'Films', 'movies', 'nfo_then_tmdb', 'interval', 6, 0, 1790000000000);
 INSERT INTO library_root (library_id, node_id, path) VALUES (1, 1, '/media/films');
 INSERT INTO root_scan (node_id, root_path, completed_at) VALUES (1, '/media/films', 1790000002000);
 INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present) VALUES (1, '/media/films', '/media/films/disk2', 2050, 1);
-INSERT INTO root_state (node_id, root_path, filesystem_device, is_mount_point, outcome, outcome_at) VALUES (1, '/media/films', 2049, 1, 'complete', 1790000002000);
+INSERT INTO root_state (node_id, root_path, filesystem_device, is_mount_point, last_scan_outcome, last_scan_at) VALUES (1, '/media/films', 2049, 1, 'complete', 1790000002000);
 
 INSERT INTO user (id, name, role_id, password_hash, is_outsider, created_at)
   VALUES (1, 'owner', 1, CAST('$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA' AS BLOB), 0, 1790000000000),
@@ -93,7 +93,7 @@ INSERT INTO favourite (user_id, item_id, added_at) VALUES (2, 1, 1790000000000);
 INSERT INTO user_rating (user_id, item_id, rating, rated_at) VALUES (2, 1, 8, 1790000000000);
 INSERT INTO watchlist (user_id, item_id, added_at) VALUES (1, 1, 1790000000000);
 INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (1, 1, 1790000000000);
-INSERT INTO preference (user_id, scope, scope_id, axis, value, set_at)
+INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
   VALUES (2, 'file', 1, 'subtitle_offset_ms', '-250', 1790000000000);
 INSERT INTO provider_response (item_id, provider, part, fetched_at, body_gzip)
   VALUES (1, 'tmdb', '', 1790000000000, X'1F8B0800');

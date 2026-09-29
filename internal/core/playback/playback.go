@@ -180,7 +180,7 @@ func (service *Service) Start(ctx context.Context, userID int64, sessionKey stri
 		}
 		started.Preparing = rendition.State != renditionComplete
 		started.Audio = audioRenditions(prepareCommand(nodeproto.BytesFile{}, file.ID, playback.profile, "", probe))
-		levelAudio(started.Audio, levels, probe, rendition.AudioGainsDb)
+		levelAudio(started.Audio, levels, probe, rendition.AudioGainsDbJson)
 		if main, found := decide.MainAudio(probe); found {
 			started.Levelling = levels[soundKey{int64(main.StreamIndex), mixStereo}]
 		}

@@ -353,7 +353,7 @@ func (walk *walk) sidecar(place location, info fs.FileInfo, kind nodeproto.Sidec
 		if err != nil {
 			return walk.fail(place.reported, nodeproto.ScopeEntry, err, info)
 		}
-		record.Body = body
+		record.NFOBody = body
 	case nodeproto.SidecarSubtitle:
 		identity, err := walk.identity(place, info.Size())
 		if err != nil {
@@ -409,7 +409,7 @@ func reportedPath(reported string) nodeproto.Path {
 	if utf8.ValidString(reported) {
 		return nodeproto.Path{Text: reported}
 	}
-	return nodeproto.Path{Text: strings.ToValidUTF8(reported, "�"), Raw: []byte(reported)}
+	return nodeproto.Path{Text: strings.ToValidUTF8(reported, "�"), Bytes: []byte(reported)}
 }
 
 // isImage is an image extension a poster or backdrop beside the media is saved with (D215).

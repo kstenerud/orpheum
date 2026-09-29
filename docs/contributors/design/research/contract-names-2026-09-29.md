@@ -145,3 +145,35 @@ decision; the rule is standards/go.md §3.
 | config `migrate_space_factor` | the free space a migration needs, as a multiple of the database | `migrate_free_space_db_multiple` |
 | config `readers_minimum` | the fewest read connections | `read_connections_minimum` |
 | config `confinement` | a policy: require or report | `confinement_policy` |
+
+## Addendum: one thing, one name, in every layer
+
+A second audit found values the tables above left under two names in two layers, and unclear
+names no table listed. The owner: *"yes, align them all"* (D227 §5).
+
+| Was | Where | Holds | Now |
+| --- | --- | --- | --- |
+| `roots` | node hello | the node's configured root paths, as the API's nodes already say | `rootPaths` |
+| `ffmpegHash` | node hello | the FFmpeg binary's SHA-256, as the API says | `ffmpegSha256` |
+| `seq` | node report record | the record's place in the node's report stream | `reportSeq` |
+| `seq`, `?afterSeq=` | node command, commands long-poll | a command's sequence number | `commandSeq`, `?afterCommandSeq=` |
+| `preparedMs` | prepare progress | how far the rendition is prepared, as the cache column says | `preparedThroughMs` |
+| `body` | sidecar record | an NFO's bytes, as the column says | `nfoBody` |
+| `raw` | a reported path | the path's exact bytes, when they are not UTF-8 | `bytes` |
+| `sourceHash` | artwork result | the source image's SHA-256, hex | `sourceSha256` |
+| `cause` | API, a node's confinement | why a mechanism is not in force, as the protocol says | `causeCode` |
+| `prepared` | API, a node | its prepared copies against their budget, as the protocol says | `preparedUsage` |
+| `channels` | API, a stream | the channel count, as the column says | `channelCount` |
+| `fetchedId` | API subtitle choice, track, fetch answer; stored choice | the fetched subtitle's id, as the job target says | `fetchedSubtitleId` |
+| `isCarried` | stored subtitle choice | carried from another file of the work, as the API says | `isCarriedFromWork` |
+| `resetAt` | API, the quota error's detail | when downloads are allowed again, as the success body says | `downloadsResetAt` |
+| `MenuBody` | API schema | the formats a device plays, as its field says | `PlayableFormatsBody` |
+| `root_state.outcome`, `.outcome_at` | library.db | the last scan's outcome and when, as the API says | `last_scan_outcome`, `last_scan_at` |
+| `library.check_every_h` | library.db | hours between scans, as the API says | `check_every_hours` |
+| `file.error_detail`, `preference.value` | library.db | JSON | `error_detail_json`, `value_json` |
+| `prepared_rendition.audio_gains_db` | cache.db | a JSON array of gains | `audio_gains_db_json` |
+| `titles_watched` | a query's column | a count | `titles_watched_count` |
+| `source`, `hash`, `sizes` | artwork job's arguments | the source the item follows; the stored image's hash; size names | `followedSource`, `imageHash`, `sizeNames` |
+| `refresh` | fetch job's arguments | whether it refreshes rather than matches | `isRefresh` |
+| config `prepared_disk_limit_percent` | node config | the disk's used share past which prepares stop, as the protocol says | `prepared_disk_used_limit_percent` |
+| seed `outsider`, `writable` | dev seed | booleans, as the columns say | `is_outsider`, `is_writable` |

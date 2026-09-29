@@ -183,7 +183,7 @@ func (admin *Admin) ApproveRemovals(ctx context.Context, libraryID int64, node, 
 	if err != nil {
 		return false, err
 	}
-	if root.Outcome == nil || *root.Outcome != outcomeWithheld {
+	if root.LastScanOutcome == nil || *root.LastScanOutcome != outcomeWithheld {
 		return false, fmt.Errorf("%s on %s: %w", path, node, ErrNothingWithheld)
 	}
 	err = admin.database.Write(ctx, func(queries *sqlcgen.Queries) error {

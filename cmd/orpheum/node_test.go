@@ -54,7 +54,7 @@ func TestRun_TheNodeScansItsRootAndTheCoreHearsEveryRecord(t *testing.T) {
 		`"msg":"a node said hello"`,
 		`"ffmpeg":"{\"format\"`,
 		`"msg":"a node finished a scan"`,
-		`"observed":1,"sidecars":0,"skipped":1,"errors":0`,
+		`"observedCount":1,"sidecarCount":0,"skippedCount":1,"errorCount":0`,
 		`"msg":"identified a library"`,
 	} {
 		if !strings.Contains(log, want) {

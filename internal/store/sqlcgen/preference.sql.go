@@ -89,7 +89,7 @@ func (q *Queries) ListFilesOfWork(ctx context.Context, titleID int64) ([]int64, 
 }
 
 const listPreferencesAt = `-- name: ListPreferencesAt :many
-SELECT axis, value
+SELECT axis, value_json
 FROM preference
 WHERE user_id = ? AND scope = ? AND scope_id = ?
 ORDER BY axis
@@ -102,8 +102,8 @@ type ListPreferencesAtParams struct {
 }
 
 type ListPreferencesAtRow struct {
-	Axis  string
-	Value string
+	Axis      string
+	ValueJson string
 }
 
 // A person's preferences at one scope: a file's sync offset, say.
@@ -116,7 +116,7 @@ func (q *Queries) ListPreferencesAt(ctx context.Context, arg ListPreferencesAtPa
 	items := []ListPreferencesAtRow{}
 	for rows.Next() {
 		var i ListPreferencesAtRow
-		if err := rows.Scan(&i.Axis, &i.Value); err != nil {
+		if err := rows.Scan(&i.Axis, &i.ValueJson); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -132,18 +132,18 @@ func (q *Queries) ListPreferencesAt(ctx context.Context, arg ListPreferencesAtPa
 
 const setPreference = `-- name: SetPreference :exec
 
-INSERT INTO preference (user_id, scope, scope_id, axis, value, set_at)
+INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-ON CONFLICT (user_id, scope, scope_id, axis) DO UPDATE SET value = excluded.value, set_at = excluded.set_at
+ON CONFLICT (user_id, scope, scope_id, axis) DO UPDATE SET value_json = excluded.value_json, set_at = excluded.set_at
 `
 
 type SetPreferenceParams struct {
-	UserID  int64
-	Scope   string
-	ScopeID int64
-	Axis    string
-	Value   string
-	SetAt   int64
+	UserID    int64
+	Scope     string
+	ScopeID   int64
+	Axis      string
+	ValueJson string
+	SetAt     int64
 }
 
 // SPDX-License-Identifier: GPL-3.0-or-later
@@ -155,7 +155,7 @@ func (q *Queries) SetPreference(ctx context.Context, arg SetPreferenceParams) er
 		arg.Scope,
 		arg.ScopeID,
 		arg.Axis,
-		arg.Value,
+		arg.ValueJson,
 		arg.SetAt,
 	)
 	return err

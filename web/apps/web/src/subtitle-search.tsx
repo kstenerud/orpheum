@@ -86,7 +86,7 @@ export function fetchProblem(
 ): string {
   if (cause instanceof ApiProblem) {
     if (cause.code === "quota_exhausted") {
-      const resetAt = cause.detail["resetAt"];
+      const resetAt = cause.detail["downloadsResetAt"];
       const when =
         resetAt === undefined
           ? ""

@@ -100,7 +100,7 @@ func videoMoved(from, to string) nodeproto.Record {
 func nfo(path, body string) nodeproto.Record {
 	return nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: &nodeproto.Sidecar{
 		Path: nodeproto.Path{Text: path}, Kind: nodeproto.SidecarNFO, SizeBytes: int64(len(body)), MtimeMs: 1,
-		Body: []byte(body),
+		NFOBody: []byte(body),
 	}}
 }
 
@@ -114,7 +114,7 @@ func (lib *world) scan(records ...nodeproto.Record) Report {
 	all = append(all, nodeproto.Record{Type: nodeproto.RecordScanComplete, ScanComplete: &complete})
 	for index := range all {
 		lib.seq++
-		all[index].Seq = lib.seq
+		all[index].ReportSeq = lib.seq
 	}
 	if err := lib.ingester.Records(lib.t.Context(), lib.nodeID, all); err != nil {
 		lib.t.Fatal(err)
@@ -308,11 +308,11 @@ func TestPass_ATitleFollowsItsFilesToAnotherLibrary(t *testing.T) {
 	// ...and arrives in Kids.
 	lib.clock.Advance(time.Minute)
 	records := []nodeproto.Record{
-		{Seq: 900, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: kids}},
+		{ReportSeq: 900, Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{Root: kids}},
 		video("The Kid (2014)/The Kid (2014).mkv"), nfo("The Kid (2014)/The Kid (2014).nfo", body),
-		{Seq: 903, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{Root: kids}},
+		{ReportSeq: 903, Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{Root: kids}},
 	}
-	records[1].Seq, records[2].Seq = 901, 902
+	records[1].ReportSeq, records[2].ReportSeq = 901, 902
 	if ingestErr := lib.ingester.Records(t.Context(), lib.nodeID, records); ingestErr != nil {
 		t.Fatal(ingestErr)
 	}

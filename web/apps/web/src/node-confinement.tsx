@@ -26,7 +26,7 @@ export function NodeConfinementView(props: { readonly node: NodeSandbox }): JSX.
       <p>{t("nodes.unconfined", { node: node.name })}</p>
       {missing.map((mechanism) => (
         <p key={mechanism.mechanism}>
-          {t(`nodes.cause.${camelKey(mechanism.cause ?? "unexplained")}`, {
+          {t(`nodes.cause.${camelKey(mechanism.causeCode ?? "unexplained")}`, {
             mechanism: t(`nodes.mechanism.${mechanism.mechanism}`),
           })}
         </p>

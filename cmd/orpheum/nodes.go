@@ -123,15 +123,14 @@ func (sink reportSink) Records(ctx context.Context, nodeID int64, records []node
 		case nodeproto.RecordScanComplete:
 			done := record.ScanComplete
 			sink.logger.InfoContext(ctx, "a node finished a scan", "nodeId", nodeID, "root", done.Root,
-				"observed", done.ObservedCount, "sidecars", done.SidecarCount, "skipped", done.SkippedCount, "errors",
-				done.ErrorCount,
-				"stopped", done.IsStoppedByErrors)
+				"observedCount", done.ObservedCount, "sidecarCount", done.SidecarCount,
+				"skippedCount", done.SkippedCount, "errorCount", done.ErrorCount,
+				"isStoppedByErrors", done.IsStoppedByErrors)
 		case nodeproto.RecordError:
 			failure := record.Error
 			sink.logger.WarnContext(ctx, "a node could not read something", "nodeId", nodeID,
-				"path", failure.Path.Text, "scope", failure.Scope, "code", failure.Code, "count",
-				failure.OccurrenceCount,
-				"detail", failure.Platform.Text)
+				"path", failure.Path.Text, "scope", failure.Scope, "code", failure.Code,
+				"occurrenceCount", failure.OccurrenceCount, "platformText", failure.Platform.Text)
 		case nodeproto.RecordObserved, nodeproto.RecordSkip, nodeproto.RecordStatus, nodeproto.RecordMount,
 			nodeproto.RecordSidecar:
 		}

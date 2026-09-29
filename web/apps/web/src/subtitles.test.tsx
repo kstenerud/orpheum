@@ -48,7 +48,11 @@ describe("subtitles", () => {
     ).toBe("English · Signs · forced · SDH");
     expect(trackLabel(track({ language: "" }), "en", words)).toBe("Unknown language");
     expect(
-      trackLabel(track({ streamId: 0, fetchedId: 3, title: "Film.2002.1080p" }), "en", words),
+      trackLabel(
+        track({ streamId: 0, fetchedSubtitleId: 3, title: "Film.2002.1080p" }),
+        "en",
+        words,
+      ),
     ).toBe("English · Film.2002.1080p · downloaded, unverified");
   });
 
@@ -131,9 +135,9 @@ describe("subtitles", () => {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
           isLevellingOn: true,
-          subtitle: { fetchedId: 3 },
+          subtitle: { fetchedSubtitleId: 3 },
         },
-        [...tracks, track({ streamId: 0, fetchedId: 3 })],
+        [...tracks, track({ streamId: 0, fetchedSubtitleId: 3 })],
       ),
     ).toBe("f3");
     expect(
@@ -178,7 +182,7 @@ describe("subtitles", () => {
     await keepSubtitleChoice(api, 2, undefined);
     expect(sent).toEqual([
       { subtitle: { streamId: 5 } },
-      { subtitle: { fetchedId: 3 } },
+      { subtitle: { fetchedSubtitleId: 3 } },
       { subtitle: { isOff: true } },
     ]);
   });

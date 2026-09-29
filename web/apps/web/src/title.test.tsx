@@ -29,7 +29,7 @@ const heat: TitleDetail = {
           path: "/m/Metropolis (1995).mkv",
           streams: [
             { id: 1, kind: "video", codec: "h264" },
-            { id: 2, kind: "audio", codec: "truehd", language: "en", channels: 8 },
+            { id: 2, kind: "audio", codec: "truehd", language: "en", channelCount: 8 },
             { id: 3, kind: "attachment", codec: "ttf" },
           ],
         },

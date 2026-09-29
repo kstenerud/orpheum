@@ -34,7 +34,7 @@ const connected: SystemNode = {
   uid: 1000,
   gid: 1000,
   lastHeardAt: 1_790_000_000_000,
-  confinement: [{ mechanism: "seccomp", isInForce: false, cause: "kernel_without" }],
+  confinement: [{ mechanism: "seccomp", isInForce: false, causeCode: "kernel_without" }],
   hardware: {
     gpus: [{ devicePath: "/dev/dri/renderD128", driver: "i915" }],
     trials: [

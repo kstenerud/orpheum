@@ -49,7 +49,7 @@ UPDATE user SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
 -- What a person has watched, for their page: time in spans, the titles they watched in, and when
 -- they last watched.
 SELECT CAST(coalesce(sum(play_span.ended_at - play_span.started_at), 0) AS INTEGER) AS watched_ms,
-  count(DISTINCT version.title_id) AS titles_watched,
+  count(DISTINCT version.title_id) AS titles_watched_count,
   CAST(coalesce(max(play_span.ended_at), 0) AS INTEGER) AS last_watched_at
 FROM play_span
 LEFT JOIN file ON file.id = play_span.file_id

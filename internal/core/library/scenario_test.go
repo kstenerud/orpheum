@@ -30,7 +30,7 @@ func (world *harness) rootState() (outcome, reason string) {
 	if row.WithheldReason != nil {
 		reason = *row.WithheldReason
 	}
-	return row.Outcome, reason
+	return row.LastScanOutcome, reason
 }
 
 // S7 and S8: the disk under a mount point is unplugged, leaving the empty directory beneath it,

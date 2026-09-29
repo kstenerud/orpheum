@@ -281,3 +281,50 @@ func TestMigrate_Step0023RenamesColumnsKeepingTheirDataAndMovesASidecarsKind(t *
 		}
 	}
 }
+
+func TestMigrate_Step0024AlignsTheNamesAndRewritesAStoredSubtitleChoice(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:23], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		"INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)",
+		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
+		"INSERT INTO library (id, name, kind, metadata_source, change_detection, check_every_h, is_writable, "+
+			"created_at) VALUES (1, 'Films', 'movies', 'nfo', 'interval', 6, 0, 1)",
+		`INSERT INTO root_state (node_id, root_path, outcome, outcome_at) VALUES (1, '/m', 'complete', 7)`,
+		`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, filing, error_detail,
+		 first_seen_at, last_seen_at) VALUES (1, 1, 1, '/m/a.mkv', X'2F', 'errored', '{"text":"denied"}', 1, 1)`,
+		`INSERT INTO preference (user_id, scope, scope_id, axis, value, set_at) VALUES
+		 (1, 'file', 1, 'subtitle_choice', '{"streamId":4,"isCarried":true}', 1),
+		 (1, 'file', 2, 'subtitle_choice', '{"fetchedId":3}', 1),
+		 (1, 'file', 3, 'subtitle_choice', '{"isOff":true,"isCarried":false}', 1),
+		 (1, 'file', 1, 'subtitle_offset_ms', '-250', 1)`)
+	if err = database.migrate(t.Context(), steps[:24], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	for _, check := range []struct {
+		query   string
+		columns int
+		want    string
+	}{
+		{"SELECT check_every_hours FROM library", 1, "[[6]]"},
+		{"SELECT last_scan_outcome, last_scan_at FROM root_state", 2, "[[complete 7]]"},
+		{"SELECT error_detail_json FROM file", 1, `[[{"text":"denied"}]]`},
+		{
+			"SELECT scope_id, axis, value_json FROM preference ORDER BY scope_id, axis", 3,
+			`[[1 subtitle_choice {"streamId":4,"isCarriedFromWork":true}] [1 subtitle_offset_ms -250] ` +
+				`[2 subtitle_choice {"fetchedSubtitleId":3}] ` +
+				`[3 subtitle_choice {"isOff":true,"isCarriedFromWork":false}]]`,
+		},
+	} {
+		if got := fmt.Sprint(queryRows(t, database, check.query, check.columns)); got != check.want {
+			t.Errorf("after step 0024, %s =\n%s\nwant\n%s (D227)", check.query, got, check.want)
+		}
+	}
+}

@@ -102,7 +102,7 @@ func checkLocalFacts(t *testing.T, local SystemNodeBody) {
 	t.Helper()
 	checkBuildAndHost(t, local)
 	if !local.IsConnected || local.FFmpegVersion != "ffmpeg version 7.1" ||
-		len(local.Confinement) != 1 || !local.Confinement[0].IsInForce || local.Prepared == nil ||
+		len(local.Confinement) != 1 || !local.Confinement[0].IsInForce || local.PreparedUsage == nil ||
 		len(local.Disks) != 1 || local.Disks[0].AvailableBytes != 1000 {
 		t.Errorf("local's facts are %+v; want what it said about itself (D225)", local)
 	}

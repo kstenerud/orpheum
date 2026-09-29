@@ -34,9 +34,9 @@ type SubtitleChoice struct {
 	// TrackRef is the chosen track, its stream or a subtitle fetched for it; neither when IsOff.
 	TrackRef
 	IsOff bool `json:"isOff,omitempty"`
-	// IsCarried is a choice made in another file of the work and carried here, which a later
+	// IsCarriedFromWork is a choice made in another file of the work and carried here, which a later
 	// choice elsewhere carries over; a choice made in this file is its own and is kept.
-	IsCarried bool `json:"isCarried,omitempty"`
+	IsCarriedFromWork bool `json:"isCarriedFromWork,omitempty"`
 	// Track is what the chosen track is. A rescan writes a file's streams again under new ids, so
 	// a choice is found again by what its track is, not only by its id (D223 §8).
 	Track *TrackDescription `json:"track,omitempty"`
@@ -94,10 +94,10 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 	for _, preference := range stored {
 		switch preference.Axis {
 		case axisSubtitleOffsetMs:
-			prefs.SubtitleOffsetMs, err = strconv.ParseInt(preference.Value, 10, 64)
+			prefs.SubtitleOffsetMs, err = strconv.ParseInt(preference.ValueJson, 10, 64)
 		case axisSubtitleChoice:
 			prefs.Subtitle = &SubtitleChoice{}
-			err = json.Unmarshal([]byte(preference.Value), prefs.Subtitle)
+			err = json.Unmarshal([]byte(preference.ValueJson), prefs.Subtitle)
 		}
 		if err != nil {
 			return FilePrefs{}, fmt.Errorf("read the %s of file %d: %w", preference.Axis, fileID, err)
@@ -116,9 +116,9 @@ func (service *Service) FilePrefs(ctx context.Context, userID, fileID int64) (Fi
 	for _, preference := range personal {
 		switch preference.Axis {
 		case axisDialogueBoost:
-			prefs.IsDialogueBoost = preference.Value == valueOn
+			prefs.IsDialogueBoost = preference.ValueJson == valueOn
 		case axisLevelling:
-			prefs.IsLevelling = preference.Value != valueOff
+			prefs.IsLevelling = preference.ValueJson != valueOff
 		}
 	}
 	return prefs, nil
@@ -142,7 +142,7 @@ func (service *Service) setOwn(ctx context.Context, userID int64, axis string, i
 	}
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.SetPreference(ctx, sqlcgen.SetPreferenceParams{
-			UserID: userID, Scope: scopeUser, ScopeID: 0, Axis: axis, Value: value,
+			UserID: userID, Scope: scopeUser, ScopeID: 0, Axis: axis, ValueJson: value,
 			SetAt: service.clock.Now().UnixMilli(),
 		})
 	})
@@ -171,7 +171,7 @@ func (service *Service) setPreference(
 	ctx context.Context, queries *sqlcgen.Queries, userID, fileID int64, axis, value string,
 ) error {
 	return queries.SetPreference(ctx, sqlcgen.SetPreferenceParams{
-		UserID: userID, Scope: scopeFile, ScopeID: fileID, Axis: axis, Value: value,
+		UserID: userID, Scope: scopeFile, ScopeID: fileID, Axis: axis, ValueJson: value,
 		SetAt: service.clock.Now().UnixMilli(),
 	})
 }
@@ -245,10 +245,10 @@ func (service *Service) carryChoice(
 	if err != nil {
 		return err
 	}
-	if current.Subtitle != nil && !current.Subtitle.IsCarried {
+	if current.Subtitle != nil && !current.Subtitle.IsCarriedFromWork {
 		return nil // the file's own choice stands
 	}
-	carried := &SubtitleChoice{IsOff: true, IsCarried: true}
+	carried := &SubtitleChoice{IsOff: true, IsCarriedFromWork: true}
 	if chosen != nil {
 		tracks, err := service.textTracksOf(ctx, fileID)
 		if err != nil {
@@ -257,7 +257,7 @@ func (service *Service) carryChoice(
 		match := matchingTrack(tracks, *chosen)
 		carried = nil
 		if match != nil {
-			carried = &SubtitleChoice{TrackRef: match.TrackRef, IsCarried: true, Track: describe(*match)}
+			carried = &SubtitleChoice{TrackRef: match.TrackRef, IsCarriedFromWork: true, Track: describe(*match)}
 		}
 	}
 	return service.keepChoice(ctx, queries, userID, fileID, carried)

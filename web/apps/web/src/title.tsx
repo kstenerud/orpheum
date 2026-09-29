@@ -28,7 +28,9 @@ export function StreamLine(props: { readonly stream: Stream }): JSX.Element | nu
       return <li>{t("title.streamVideo", { codec })}</li>;
     case "audio": {
       const channels =
-        stream.channels === undefined ? "" : t("title.channels", { count: stream.channels });
+        stream.channelCount === undefined
+          ? ""
+          : t("title.channels", { count: stream.channelCount });
       return <li>{t("title.streamAudio", { codec, lang, channels })}</li>;
     }
     case "subtitle":

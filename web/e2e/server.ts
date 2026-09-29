@@ -167,7 +167,7 @@ kind = "movies"
 root = "${library}"
 metadata_source = "nfo"
 change_detection = "watch"
-writable = false
+is_writable = false
 
 [settings]
 check_for_updates = false
