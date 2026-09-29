@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"path"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 )
 
 // Prober looks inside one file; probe.Prober is the real one.
@@ -375,19 +375,12 @@ func (walk *walk) readNFO(place location, size int64) ([]byte, error) {
 	if size > maxNFOBytes {
 		return nil, fmt.Errorf("%w: %d bytes, at most %d", errNFOTooLarge, size, maxNFOBytes)
 	}
-	file, err := place.mediaRoot.Open(place.relativePath)
-	if err != nil {
-		return nil, fmt.Errorf("open the NFO: %w", err)
-	}
-	body, readErr := io.ReadAll(io.LimitReader(file, maxNFOBytes+1))
-	closeErr := file.Close()
-	switch {
-	case readErr != nil:
-		return nil, fmt.Errorf("read the NFO: %w", readErr)
-	case closeErr != nil:
-		return nil, fmt.Errorf("close the NFO: %w", closeErr)
-	case len(body) > maxNFOBytes:
+	body, err := place.mediaRoot.ReadFile(place.relativePath, maxNFOBytes)
+	if errors.Is(err, bounded.ErrTooLarge) {
 		return nil, fmt.Errorf("%w: it grew past %d bytes while read", errNFOTooLarge, maxNFOBytes)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read the NFO: %w", err)
 	}
 	return body, nil
 }

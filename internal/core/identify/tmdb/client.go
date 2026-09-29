@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"net/http"
 	"net/url"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/platform/bounded"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
 
@@ -71,14 +71,9 @@ func (client *Client) get(ctx context.Context, path string, parameters url.Value
 		return nil, fmt.Errorf("tmdb %s: %w", path, err)
 	}
 	defer func() { _ = response.Body.Close() }() //nolint:errcheck // a read-only body
-	body, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
+	body, err := bounded.ReadAll(response.Body, maxResponseBytes)
 	if err != nil {
-		return nil, fmt.Errorf("tmdb %s: read the response: %w", path, err)
-	}
-	// An answer past the bound is refused, never read cut short: a truncated answer can still
-	// parse, as something other than what TMDB sent.
-	if len(body) > maxResponseBytes {
-		return nil, fmt.Errorf("tmdb %s: the response is larger than %d bytes", path, maxResponseBytes)
+		return nil, fmt.Errorf("tmdb %s: the response: %w", path, err)
 	}
 	return body, statusError(path, response, body)
 }

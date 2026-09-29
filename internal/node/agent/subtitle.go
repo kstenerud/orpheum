@@ -129,7 +129,7 @@ func (agent *Agent) convertSidecar(ctx context.Context, sidecar nodeproto.BytesF
 	if !known {
 		return subtitle.Text{}, errors.New("the sidecar is under none of this node's roots")
 	}
-	source, err := readBounded(root, string(sidecar.Path), subtitle.MaxTextBytes)
+	source, err := root.ReadFile(string(sidecar.Path), subtitle.MaxTextBytes)
 	if err != nil {
 		return subtitle.Text{}, fmt.Errorf("read the sidecar: %w", err)
 	}

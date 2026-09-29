@@ -14,6 +14,8 @@
 //     or removes. Enforced by the forbidigo rules tagged [media-root] and [delete].
 //   - MediaRoot reads through os.Root, so nothing it opens is outside the root; following a
 //     link into another root is the scanner's decision, made with Resolve and RelativeIfInside (D206).
+//   - ReadFile refuses a file past its bound rather than cut it short.
+//     TestMediaRoot_ReadFileRefusesAFilePastItsBound.
 //   - Imports nothing from internal/core. Enforced by the depguard rule node-boundary and
 //     TestArch_NodeNeverImportsCore.
 //   - A confined run reads and writes only what its Access names, beside its tool and the
