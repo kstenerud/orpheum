@@ -16,6 +16,19 @@ import (
 // ErrNoDevice is a device that is not there, or not the person's.
 var ErrNoDevice = errors.New("no such device")
 
+// The ways a device makes sound, as a person answers (D222): its own speakers, a soundbar or
+// receiver, or headphones.
+const (
+	AudioOutputBuiltInSpeakers = "built_in_speakers"
+	AudioOutputReceiver        = "receiver"
+	AudioOutputHeadphones      = "headphones"
+)
+
+// AudioOutputs are every way a device makes sound: the one list, which the API documents.
+func AudioOutputs() []string {
+	return []string{AudioOutputBuiltInSpeakers, AudioOutputReceiver, AudioOutputHeadphones}
+}
+
 // Device is one of a person's devices, as their list shows it (D218 §4).
 type Device struct {
 	ID       int64

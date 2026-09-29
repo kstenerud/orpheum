@@ -1167,7 +1167,7 @@ export interface components {
              */
             addedAt: number;
             /**
-             * @description Absent until the device is asked, the first time it plays (D222)
+             * @description Absent until the device is asked, when it first plays (D222)
              * @enum {string}
              */
             audioOutput?: "built_in_speakers" | "receiver" | "headphones";
