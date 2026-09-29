@@ -2,7 +2,6 @@
 
 import "./i18n.ts";
 
-import { createApi } from "@orpheum/sdk";
 import { createRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -16,6 +15,7 @@ import {
   trackLabel,
   type SubtitleTrack,
 } from "./subtitles.tsx";
+import { servedBy, type Heard } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 function track(overrides: Partial<SubtitleTrack>): SubtitleTrack {
@@ -99,21 +99,12 @@ describe("subtitles", () => {
   });
 
   it("keeps the offset for the file", async () => {
-    let sent: { url: string; method: string; body: unknown } | undefined;
-    const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
-    // Answered here, before any request leaves: tests never touch the network.
-    api.use({
-      async onRequest({ request }) {
-        sent = { url: request.url, method: request.method, body: await request.json() };
-        return new Response(null, { status: 204 });
-      },
-    });
+    const heard: Heard[] = [];
+    const { api } = servedBy({ "PUT /files/2/preferences": [204, undefined] }, heard);
     await keepOffset(api, 2, 250);
-    expect(sent).toEqual({
-      url: "http://orpheum.test/api/v1/files/2/preferences",
-      method: "PUT",
-      body: { subtitleOffsetMs: 250 },
-    });
+    expect(heard).toEqual([
+      { methodAndPath: "PUT /files/2/preferences", body: { subtitleOffsetMs: 250 } },
+    ]);
   });
 
   it("starts with the file's choice only when it names one of the file's tracks", () => {
@@ -171,19 +162,12 @@ describe("subtitles", () => {
   });
 
   it("keeps a choice of a track, or of off", async () => {
-    const sent: unknown[] = [];
-    const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
-    // Answered here, before any request leaves: tests never touch the network.
-    api.use({
-      async onRequest({ request }) {
-        sent.push(await request.json());
-        return new Response(null, { status: 204 });
-      },
-    });
+    const heard: Heard[] = [];
+    const { api } = servedBy({ "PUT /files/2/preferences": [204, undefined] }, heard);
     await keepSubtitleChoice(api, 2, "s5");
     await keepSubtitleChoice(api, 2, "f3");
     await keepSubtitleChoice(api, 2, undefined);
-    expect(sent).toEqual([
+    expect(heard.map((request) => request.body)).toEqual([
       { subtitleChoice: { streamId: 5 } },
       { subtitleChoice: { fetchedSubtitleId: 3 } },
       { subtitleChoice: { isOff: true } },

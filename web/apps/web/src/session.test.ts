@@ -49,4 +49,16 @@ describe("createSession", () => {
     session.signIn("token-2");
     expect(session.token()).toBe("token-2");
   });
+
+  it("remembers the device across a sign-out the server caused, and forgets why at the next sign-in", () => {
+    const storage = memoryStorage();
+    const session = createSession(storage);
+    session.signIn("token", 42);
+    session.signOutBecause("session_ended");
+    expect(session.token()).toBeUndefined();
+    expect(session.lastEndReason()).toBe("session_ended");
+    expect(createSession(storage).deviceId()).toBe(42);
+    session.signIn("next");
+    expect(session.lastEndReason()).toBeUndefined();
+  });
 });

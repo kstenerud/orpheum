@@ -2,7 +2,6 @@
 
 import "./i18n.ts";
 
-import { createApi } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -24,6 +23,7 @@ import { PeopleList } from "./people.tsx";
 import { QrCode, qrDataUrl, qrPath } from "./qr-code.tsx";
 import { parseRoute } from "./router.ts";
 import { Share } from "./share.tsx";
+import { servedBy, type Heard } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { DeviceList, deviceState } from "./your-devices.tsx";
 
@@ -48,33 +48,6 @@ function memoryStorage(): Storage {
   };
 }
 
-/** An API whose requests the test keeps, each answered with answer. */
-function recordingApi(answer: unknown): {
-  api: ReturnType<typeof createApi>;
-  sent: { method: string; path: string; body: unknown }[];
-} {
-  const sent: { method: string; path: string; body: unknown }[] = [];
-  const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
-  // Answered here, before any request leaves: tests never touch the network.
-  api.use({
-    async onRequest({ request }) {
-      const text = await request.text();
-      sent.push({
-        method: request.method,
-        path: new URL(request.url).pathname,
-        body: text === "" ? undefined : JSON.parse(text),
-      });
-      return answer === undefined
-        ? new Response(null, { status: 204 })
-        : new Response(JSON.stringify(answer), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
-    },
-  });
-  return { api, sent };
-}
-
 describe("accounts", () => {
   it("puts a registration link's secret after #, and reads it back from there", () => {
     const url = registrationUrl("https://orpheum.example", "abc_DEF-123");
@@ -87,39 +60,47 @@ describe("accounts", () => {
   });
 
   it("sends each call where the server takes it, with only what it needs", async () => {
-    const { api, sent } = recordingApi({ token: "t", secret: "s", expiresAt: 1, accounts: [] });
+    const sent: Heard[] = [];
+    const secret = [200, { secret: "s", expiresAt: 1 }] as const;
+    const session = [200, { token: "t", user: {} }] as const;
+    const { api } = servedBy(
+      {
+        "POST /users": [
+          200,
+          { account: {}, registrationInvitation: { secret: "s", expiresAt: 1 } },
+        ],
+        "POST /registration": session,
+        "POST /device-codes": secret,
+        "POST /session/code": session,
+      },
+      sent,
+    );
     await createAccount(api, "partner", "user");
     await register(api, { secret: "s", password: "p", device: { name: "Phone", platform: "web" } });
     await issueDeviceCode(api, { deviceName: "Living room TV" });
     await issueDeviceCode(api, { deviceName: "Bedroom TV" }, 7);
     await signInWithCode(api, "abcd-efgh", 7);
     expect(sent).toEqual([
-      { method: "POST", path: "/api/v1/users", body: { name: "partner", role: "user" } },
+      { methodAndPath: "POST /users", body: { name: "partner", role: "user" } },
       {
-        method: "POST",
-        path: "/api/v1/registration",
+        methodAndPath: "POST /registration",
         body: { secret: "s", password: "p", device: { name: "Phone", platform: "web" } },
       },
-      { method: "POST", path: "/api/v1/device-codes", body: { deviceName: "Living room TV" } },
+      { methodAndPath: "POST /device-codes", body: { deviceName: "Living room TV" } },
+      { methodAndPath: "POST /device-codes", body: { deviceName: "Bedroom TV", userId: 7 } },
       {
-        method: "POST",
-        path: "/api/v1/device-codes",
-        body: { deviceName: "Bedroom TV", userId: 7 },
-      },
-      {
-        method: "POST",
-        path: "/api/v1/session/code",
+        methodAndPath: "POST /session/code",
         body: { code: "abcd-efgh", platform: "web", previousDeviceId: 7 },
       },
     ]);
-    const changing = recordingApi(undefined);
-    await changePassword(changing.api, "old", "new");
-    expect(changing.sent).toEqual([
-      {
-        method: "PUT",
-        path: "/api/v1/me/password",
-        body: { currentPassword: "old", newPassword: "new" },
-      },
+    const changing: Heard[] = [];
+    await changePassword(
+      servedBy({ "PUT /me/password": [204, undefined] }, changing).api,
+      "old",
+      "new",
+    );
+    expect(changing).toEqual([
+      { methodAndPath: "PUT /me/password", body: { currentPassword: "old", newPassword: "new" } },
     ]);
   });
 
@@ -183,14 +164,22 @@ describe("accounts", () => {
     expect(markup).toContain("Signed out");
     expect(markup).toContain("Make a code to sign it back in");
     expect(markup).toContain('aria-label="Remove Living room TV; it is signed out"');
-    const { api, sent } = recordingApi(undefined);
+    const sent: Heard[] = [];
+    const { api } = servedBy(
+      {
+        "PUT /me/devices/5": [204, undefined],
+        "DELETE /me/devices/5": [204, undefined],
+        "POST /me/devices/sign-out-elsewhere": [204, undefined],
+      },
+      sent,
+    );
     await renameMyDevice(api, 5, "Lounge TV");
     await removeMyDevice(api, 5);
     await signOutElsewhere(api);
     expect(sent).toEqual([
-      { method: "PUT", path: "/api/v1/me/devices/5", body: { name: "Lounge TV" } },
-      { method: "DELETE", path: "/api/v1/me/devices/5", body: undefined },
-      { method: "POST", path: "/api/v1/me/devices/sign-out-elsewhere", body: undefined },
+      { methodAndPath: "PUT /me/devices/5", body: { name: "Lounge TV" } },
+      { methodAndPath: "DELETE /me/devices/5", body: undefined },
+      { methodAndPath: "POST /me/devices/sign-out-elsewhere", body: undefined },
     ]);
   });
 

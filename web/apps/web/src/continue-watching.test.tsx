@@ -2,7 +2,6 @@
 
 import "./i18n.ts";
 
-import { createApi } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -14,6 +13,7 @@ import {
   type EpisodeNaming,
   type ContinueWatchingRow,
 } from "./continue-watching.tsx";
+import { servedBy, type Heard } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 const nothing = (): void => undefined;
@@ -83,20 +83,16 @@ describe("Continue Watching", () => {
   });
 
   it("hides with POST and undoes with DELETE", async () => {
-    const sent: string[] = [];
-    const api = createApi({ origin: "http://orpheum.test", getToken: () => "token" });
-    // Answered here, before any request leaves: tests never touch the network.
-    api.use({
-      onRequest({ request }) {
-        sent.push(`${request.method} ${request.url}`);
-        return new Response(null, { status: 204 });
-      },
-    });
+    const heard: Heard[] = [];
+    const { api } = servedBy(
+      { "POST /items/10/hide": [204, undefined], "DELETE /items/10/hide": [204, undefined] },
+      heard,
+    );
     await setItemHidden(api, 10, true);
     await setItemHidden(api, 10, false);
-    expect(sent).toEqual([
-      "POST http://orpheum.test/api/v1/items/10/hide",
-      "DELETE http://orpheum.test/api/v1/items/10/hide",
+    expect(heard.map((request) => request.methodAndPath)).toEqual([
+      "POST /items/10/hide",
+      "DELETE /items/10/hide",
     ]);
   });
 });
