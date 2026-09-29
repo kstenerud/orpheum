@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import "./sign-in.css";
-
-import { useState, type JSX, type SyntheticEvent } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { register, secretFromHash } from "./accounts.ts";
+import { CredentialsForm, CredentialsProblem, PasswordField } from "./credentials-form.tsx";
 import { problemText } from "./problem.ts";
 import { thisDevice } from "./device.ts";
 import { useServices } from "./services.tsx";
@@ -27,8 +26,7 @@ export function Register(): JSX.Element {
     secret === undefined ? "noLink" : undefined,
   );
   const [refusalText, setRefusalText] = useState("");
-  const submit = (event: SyntheticEvent): void => {
-    event.preventDefault();
+  const submit = (): void => {
     if (secret === undefined) {
       return;
     }
@@ -50,48 +48,22 @@ export function Register(): JSX.Element {
     );
   };
   return (
-    <main className="sign-in">
-      <form className="sign-in__form" onSubmit={submit}>
-        <h1>{t("register.heading")}</h1>
-        <p>{t("register.explain")}</p>
-        <PasswordField label={t("register.password")} value={password} onChange={setPassword} />
-        <PasswordField
-          label={t("register.again")}
-          value={passwordAgain}
-          onChange={setPasswordAgain}
-        />
-        {problem === undefined ? null : (
-          <p className="sign-in__problem" role="alert">
-            {t(`register.${problem}`, { message: refusalText })}
-          </p>
-        )}
-        <button type="submit" disabled={secret === undefined}>
-          {t("register.submit")}
-        </button>
-      </form>
-    </main>
-  );
-}
-
-/** A password field: a new password by default, or the current one when autoComplete says so. */
-export function PasswordField(props: {
-  readonly label: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly autoComplete?: "new-password" | "current-password";
-}): JSX.Element {
-  return (
-    <label className="sign-in__field">
-      {props.label}
-      <input
-        type="password"
-        autoComplete={props.autoComplete ?? "new-password"}
-        required
-        value={props.value}
-        onChange={(event) => {
-          props.onChange(event.target.value);
-        }}
+    <CredentialsForm heading={t("register.heading")} onSubmit={submit}>
+      <p>{t("register.explain")}</p>
+      <PasswordField label={t("register.password")} value={password} onChange={setPassword} />
+      <PasswordField
+        label={t("register.again")}
+        value={passwordAgain}
+        onChange={setPasswordAgain}
       />
-    </label>
+      {problem === undefined ? null : (
+        <CredentialsProblem isAlert>
+          {t(`register.${problem}`, { message: refusalText })}
+        </CredentialsProblem>
+      )}
+      <button type="submit" disabled={secret === undefined}>
+        {t("register.submit")}
+      </button>
+    </CredentialsForm>
   );
 }
