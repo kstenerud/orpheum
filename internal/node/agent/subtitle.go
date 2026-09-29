@@ -26,10 +26,10 @@ type Subtitler interface {
 // embedded track means reading the whole video, and posts the answer to the core.
 func (agent *Agent) extractSubtitle(ctx context.Context, nodeID int64, command nodeproto.ExtractSubtitle) {
 	agent.answerInBackground(ctx, nodeID, background{
-		job: command.Job, slot: agent.slots.extract, path: nodeproto.PathSubtitle, what: "a subtitle",
+		job: command.JobID, slot: agent.slots.extract, path: nodeproto.PathSubtitle, what: "a subtitle",
 		work: func(jobCtx context.Context) (any, string) {
 			answer := agent.runExtraction(jobCtx, command)
-			return answer, answer.Refused
+			return answer, answer.Refusal
 		},
 	})
 }
@@ -84,7 +84,7 @@ func (agent *Agent) answerInBackground(ctx context.Context, nodeID int64, comman
 // or a fetched subtitle's text, whichever the command names, and only one.
 func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.ExtractSubtitle) nodeproto.SubtitleText {
 	named := 0
-	for _, isSet := range []bool{command.Video != nil, command.Sidecar != nil, command.Fetched != nil} {
+	for _, isSet := range []bool{command.Video != nil, command.Sidecar != nil, command.FetchedSubRip != nil} {
 		if isSet {
 			named++
 		}
@@ -96,17 +96,17 @@ func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.Extract
 		err = errors.New("this node does not extract subtitles")
 	case named != 1:
 		err = errors.New("a subtitle names a video's track, a sidecar or a fetched text, and only one")
-	case command.Fetched != nil:
-		text, err = agent.convertFetched(ctx, command.Fetched)
+	case command.FetchedSubRip != nil:
+		text, err = agent.convertFetched(ctx, command.FetchedSubRip)
 	case command.Video != nil:
 		text, err = agent.extractTrack(ctx, *command.Video, command.StreamIndex)
 	default:
 		text, err = agent.convertSidecar(ctx, *command.Sidecar)
 	}
 	if err != nil {
-		return nodeproto.SubtitleText{Job: command.Job, Refused: err.Error()}
+		return nodeproto.SubtitleText{JobID: command.JobID, Refusal: err.Error()}
 	}
-	return nodeproto.SubtitleText{Job: command.Job, ASS: text.ASS, VTT: text.VTT}
+	return nodeproto.SubtitleText{JobID: command.JobID, ASS: text.ASS, VTT: text.VTT}
 }
 
 // extractTrack extracts a track of a video checked to be the one the core named (D100).
@@ -135,7 +135,7 @@ func (agent *Agent) convertSidecar(ctx context.Context, sidecar nodeproto.BytesF
 	if err != nil {
 		return subtitle.Text{}, fmt.Errorf("hash the sidecar: %w", err)
 	}
-	if hex.EncodeToString(identity.Hash[:]) != sidecar.Hash {
+	if hex.EncodeToString(identity.Hash[:]) != sidecar.PayloadHash {
 		return subtitle.Text{}, errors.New("the file at this path is not the one named; it changed since the scan")
 	}
 	return agent.workers.Subtitles.ConvertFile(ctx, source)

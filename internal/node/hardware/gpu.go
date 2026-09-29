@@ -22,17 +22,17 @@ func gpusUnder(devices, drm string) []nodeproto.GPU {
 	renderNodes, _ := filepath.Glob(filepath.Join(devices, "dri", "renderD*")) //nolint:errcheck // a fixed pattern
 	for _, device := range renderNodes {
 		driver := driverOf(filepath.Join(drm, filepath.Base(device), "device", "driver"))
-		found = append(found, nodeproto.GPU{Device: device, Driver: driver, NoAccess: noAccess(device)})
+		found = append(found, nodeproto.GPU{DevicePath: device, Driver: driver, NoAccessReason: noAccess(device)})
 	}
 	nvidia, _ := filepath.Glob(filepath.Join(devices, "nvidia[0-9]*")) //nolint:errcheck // a fixed pattern
 	for _, device := range nvidia {
-		found = append(found, nodeproto.GPU{Device: device, Driver: "nvidia", NoAccess: noAccess(device)})
+		found = append(found, nodeproto.GPU{DevicePath: device, Driver: "nvidia", NoAccessReason: noAccess(device)})
 	}
 	slices.SortFunc(found, func(one, other nodeproto.GPU) int {
-		if one.Device < other.Device {
+		if one.DevicePath < other.DevicePath {
 			return -1
 		}
-		if one.Device > other.Device {
+		if one.DevicePath > other.DevicePath {
 			return 1
 		}
 		return 0

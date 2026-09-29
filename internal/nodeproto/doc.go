@@ -24,5 +24,7 @@
 //
 // # Where to change
 //
-//   - One file per direction: node to core (hello, report records) and core to node (commands).
+//   - One file per feature, each holding both directions: hello.go, report.go (the JSONL records),
+//     commands.go (the long-poll), and artwork.go, prepare.go, subtitle.go and loudness.go, each
+//     a command and its answer. bytes.go names a file on the node's byte socket.
 package nodeproto

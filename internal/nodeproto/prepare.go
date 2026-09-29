@@ -32,7 +32,7 @@ const (
 // Prepare is one prepare job: the source named by identity (D100), the profile, the audio
 // tracks to carry, and where under the node's prepared directory the rendition goes.
 type Prepare struct {
-	Job     int64          `json:"job"`
+	JobID   int64          `json:"jobId"`
 	Source  BytesFile      `json:"source"`
 	Profile PrepareProfile `json:"profile"`
 	// RenditionDir is "<file_id>/<profile>/<run_id>", this making's directory under the node's prepared
@@ -57,8 +57,8 @@ type Prepare struct {
 type PrepareAudio struct {
 	// AudioTrackIndex is the track's place among the source's audio tracks, as FFmpeg's 0:a:<index>.
 	AudioTrackIndex int    `json:"audioTrackIndex"`
-	Language        string `json:"language,omitempty"`
-	Channels        int    `json:"channels"`
+	LanguageTag     string `json:"languageTag,omitempty"`
+	ChannelCount    int    `json:"channelCount"`
 	// GainDB is put in each of the track's mixes, so a player that cannot apply a gain itself, as
 	// Safari's own HLS cannot, plays it levelled (D226 §4); 0 for a track not measured yet.
 	GainDB float64 `json:"gainDb,omitempty"`
@@ -80,18 +80,18 @@ const (
 
 // PrepareReport is the node's word on a prepare: how far it is, or how it ended.
 type PrepareReport struct {
-	Job   int64        `json:"job"`
+	JobID int64        `json:"jobId"`
 	State PrepareState `json:"state"`
 	// PreparedMs is how much of the source is prepared, in milliseconds of its time.
 	PreparedMs int64 `json:"preparedMs"`
 	// SizeBytes is the rendition's size once done.
 	SizeBytes int64 `json:"sizeBytes,omitempty"`
-	// Error is FFmpeg's exit and the tail of its stderr, or why the node refused.
-	Error string `json:"error,omitempty"`
+	// Failure is FFmpeg's exit and the tail of its stderr, or why the node refused.
+	Failure string `json:"failure,omitempty"`
 	// VideoEncoder is what made the video once done: h264_qsv, h264_nvenc, x264, or copy for a
 	// remux (D225 §3).
 	VideoEncoder string `json:"videoEncoder,omitempty"`
-	// Speed is seconds of the source prepared per second of running, as FFmpeg last said, once
+	// RealtimeFactor is seconds of the source prepared per second of running, as FFmpeg last said, once
 	// done; zero when it never said.
-	Speed float64 `json:"speed,omitempty"`
+	RealtimeFactor float64 `json:"realtimeFactor,omitempty"`
 }

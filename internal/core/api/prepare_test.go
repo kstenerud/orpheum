@@ -82,15 +82,15 @@ func TestPrepare_AJobCommandsTheNodeAndRecordsTheRenditionComplete(t *testing.T)
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
 	command := <-harness.nodes.commanded
 	sent := command.Prepare
-	if command.Type != nodeproto.CommandPrepare || sent == nil || sent.Job != 77 ||
+	if command.Type != nodeproto.CommandPrepare || sent == nil || sent.JobID != 77 ||
 		!strings.HasPrefix(sent.RenditionDir, "2/remux/") ||
 		sent.Source.Root != "/media" || string(sent.Source.Path) != "Film (2002).mkv" ||
-		sent.Source.Hash != "0c0d" || len(sent.Audio) != 1 || sent.Audio[0].Channels != 8 {
+		sent.Source.PayloadHash != "0c0d" || len(sent.Audio) != 1 || sent.Audio[0].ChannelCount != 8 {
 		t.Fatalf("the node was sent %+v, want the MKV by root, path and hash, with its 8-channel track", command)
 	}
-	running := nodeproto.PrepareReport{Job: 77, State: nodeproto.PrepareRunning, PreparedMs: 4000}
+	running := nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareRunning, PreparedMs: 4000}
 	playback.Reported(t.Context(), 1, running)
-	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: 77, State: nodeproto.PrepareDone, SizeBytes: 1234})
+	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 77, State: nodeproto.PrepareDone, SizeBytes: 1234})
 	if err := <-finished; err != nil {
 		t.Fatalf("the job ended %v, want done", err)
 	}
@@ -112,7 +112,7 @@ func TestPrepare_AFailedRenditionFailsThePlaybackAndIsNotRetried(t *testing.T) {
 	job := jobs.Job{ID: 78, Kind: jobs.KindPrepare, Subject: 1}
 	go func() { finished <- playback.HandlePrepare(t.Context(), job) }()
 	<-harness.nodes.commanded
-	failed := nodeproto.PrepareReport{Job: 78, State: nodeproto.PrepareFailed, Error: "ffmpeg: bad"}
+	failed := nodeproto.PrepareReport{JobID: 78, State: nodeproto.PrepareFailed, Failure: "ffmpeg: bad"}
 	playback.Reported(t.Context(), 1, failed)
 	if err := <-finished; err == nil || !strings.Contains(err.Error(), "ffmpeg: bad") {
 		t.Errorf("the job ended %v, want FFmpeg's failure", err)
@@ -136,7 +136,7 @@ func TestPrepare_ARenditionItsNodeNoLongerHasIsPreparedAgain(t *testing.T) {
 		first <- playback.HandlePrepare(t.Context(), jobs.Job{ID: 80, Kind: jobs.KindPrepare, Subject: 1})
 	}()
 	<-harness.nodes.commanded
-	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: 80, State: nodeproto.PrepareDone, SizeBytes: 9})
+	playback.Reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 80, State: nodeproto.PrepareDone, SizeBytes: 9})
 	if err := <-first; err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,10 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 			finished <- playback.HandlePrepare(t.Context(), jobs.Job{ID: job, Kind: jobs.KindPrepare, Subject: 1})
 		}()
 		command := <-harness.nodes.commanded
-		playback.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: job, State: nodeproto.PrepareDone, SizeBytes: 9})
+		playback.Reported(t.Context(), 1, nodeproto.PrepareReport{
+			JobID: job, State: nodeproto.PrepareDone,
+			SizeBytes: 9,
+		})
 		if err := <-finished; err != nil {
 			t.Fatal(err)
 		}

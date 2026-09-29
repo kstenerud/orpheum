@@ -46,15 +46,16 @@ func (work *batch) streams(ctx context.Context, fileID int64, probe nodeproto.Pr
 		for _, flag := range stream.Disposition {
 			disposition |= DispositionBit(flag)
 		}
-		index := int64(stream.Index)
+		index := int64(stream.StreamIndex)
 		kept = append(kept, index)
 		err := work.queries.UpsertStream(ctx, sqlcgen.UpsertStreamParams{
 			FileID: fileID, StreamIndex: &index, Kind: stream.Kind, Codec: optional(stream.Codec),
-			LangRaw: optional(stream.Language), Lang: optional(stream.LanguageTag), TitleRaw: optional(stream.Title),
-			Disposition: disposition, Channels: optionalInt(int64(stream.Audio.Channels)),
+			LangRaw: optional(stream.ContainerLanguage), Lang: optional(stream.LanguageTag),
+			TitleRaw:    optional(stream.Title),
+			Disposition: disposition, Channels: optionalInt(int64(stream.Audio.ChannelCount)),
 		})
 		if err != nil {
-			return fmt.Errorf("keep stream %d of file %d: %w", stream.Index, fileID, err)
+			return fmt.Errorf("keep stream %d of file %d: %w", stream.StreamIndex, fileID, err)
 		}
 	}
 	encoded, err := json.Marshal(kept)

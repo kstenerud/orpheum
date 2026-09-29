@@ -26,7 +26,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wa
 	if !known {
 		return nil
 	}
-	command := nodeproto.Artwork{Shape: shape, Sizes: args.Sizes}
+	command := nodeproto.Artwork{Shape: shape, SizeNames: args.Sizes}
 	if base, found := service.baseFor(args.Hash, args.Sizes); found {
 		stored, err := service.parts.Store.ReadArt(args.Hash, base)
 		if err == nil {
@@ -34,7 +34,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wa
 			if nodeErr != nil {
 				return nodeErr
 			}
-			command.Source = stored
+			command.SourceImage = stored
 			return service.cutFrom(ctx, nodeID, command, args, false)
 		}
 	}
@@ -62,7 +62,7 @@ func (service *Service) makeSizes(ctx context.Context, fetcher Fetcher, image wa
 	if err != nil {
 		return err
 	}
-	command.Source = source.bytes
+	command.SourceImage = source.bytes
 	return service.cutFrom(ctx, nodeID, command, args, true)
 }
 
@@ -75,19 +75,19 @@ func (service *Service) cutFrom(
 	if err != nil {
 		return err
 	}
-	if command.AbsolutePath != nil && result.Refused == "" && result.SourceHash != args.Hash {
+	if command.AbsolutePath != nil && result.Refusal == "" && result.SourceHash != args.Hash {
 		service.parts.Logger.WarnContext(ctx, "an image beside the media changed; its sizes are not made",
 			"hash", args.Hash)
 		return service.cannotMake(ctx, args.Hash, args.Sizes)
 	}
 	var unmade []nodeproto.ArtSizeName
 	for _, size := range args.Sizes {
-		made := slices.IndexFunc(result.Images, func(image nodeproto.ArtImage) bool { return image.Size == size })
-		if made < 0 || !isWebP(result.Images[made].Bytes) {
+		made := slices.IndexFunc(result.Images, func(image nodeproto.ArtImage) bool { return image.SizeName == size })
+		if made < 0 || !isWebP(result.Images[made].WebP) {
 			unmade = append(unmade, size)
 			continue
 		}
-		if err := service.writeArt(ctx, args.Hash, string(size)+webpFormat, result.Images[made].Bytes); err != nil {
+		if err := service.writeArt(ctx, args.Hash, string(size)+webpFormat, result.Images[made].WebP); err != nil {
 			return err
 		}
 	}
@@ -132,7 +132,7 @@ func (service *Service) cannotMake(ctx context.Context, hash string, sizes []nod
 func tooLarge(shape nodeproto.Shape, made []nodeproto.ArtImage) []nodeproto.ArtSizeName {
 	var unmade []nodeproto.ArtSizeName
 	for _, size := range shape.Sizes() {
-		isMade := slices.ContainsFunc(made, func(image nodeproto.ArtImage) bool { return image.Size == size.Name })
+		isMade := slices.ContainsFunc(made, func(image nodeproto.ArtImage) bool { return image.SizeName == size.Name })
 		if len(unmade) > 0 || (!isMade && !size.OnRequest) {
 			if !isMade {
 				unmade = append(unmade, size.Name)

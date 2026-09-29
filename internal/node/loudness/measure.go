@@ -66,12 +66,12 @@ func (measurer *Measurer) Measure(
 			return nil, fmt.Errorf("FFmpeg gave no loudness for stream %d", track.StreamIndex)
 		}
 		result := nodeproto.TrackLoudness{StreamIndex: track.StreamIndex, Stereo: stereo}
-		if track.Channels > 2 {
+		if track.ChannelCount > 2 {
 			source, isFound := summaries[instance(soundSource, track.StreamIndex)]
 			if !isFound {
 				return nil, fmt.Errorf("FFmpeg gave no loudness for stream %d as it is", track.StreamIndex)
 			}
-			result.Source = &source
+			result.Multichannel = &source
 		}
 		measured = append(measured, result)
 	}
@@ -90,7 +90,7 @@ func arguments(videoPath string, tracks []nodeproto.LoudnessTrack) []string {
 	var graph, maps []string
 	for _, track := range tracks {
 		input, stereo := "[0:"+strconv.Itoa(track.StreamIndex)+"]", instance(soundStereo, track.StreamIndex)
-		if track.Channels > 2 {
+		if track.ChannelCount > 2 {
 			source := instance(soundSource, track.StreamIndex)
 			graph = append(graph,
 				input+"asplit=2["+source+"_in]["+stereo+"_in]",

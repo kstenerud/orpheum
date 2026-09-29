@@ -54,13 +54,13 @@ func (fake *fakeNodeBytes) Do(
 func (harness testHarness) shelveFilms(t *testing.T) {
 	t.Helper()
 	mp4 := `{"format":{"names":["mov","mp4","m4a"]},"streams":[` +
-		`{"kind":"video","codec":"h264","profile":"High","video":{"pixelFormat":"yuv420p"}},` +
-		`{"kind":"audio","codec":"aac","profile":"LC","audio":{"channels":2}}]}`
+		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
+		`{"kind":"audio","codec":"aac","codecProfile":"LC","audio":{"channelCount":2}}]}`
 	mkv := `{"format":{"names":["matroska","webm"]},"streams":[` +
-		`{"kind":"video","codec":"h264","profile":"High","video":{"pixelFormat":"yuv420p"}},` +
-		`{"index":1,"kind":"audio","codec":"truehd","audio":{"channels":8}},` +
-		`{"index":2,"kind":"subtitle","codec":"ass","languageTag":"en","disposition":["default"]},` +
-		`{"index":3,"kind":"subtitle","codec":"hdmv_pgs_subtitle"}]}`
+		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
+		`{"streamIndex":1,"kind":"audio","codec":"truehd","audio":{"channelCount":8}},` +
+		`{"streamIndex":2,"kind":"subtitle","codec":"ass","languageTag":"en","disposition":["default"]},` +
+		`{"streamIndex":3,"kind":"subtitle","codec":"hdmv_pgs_subtitle"}]}`
 	storetest.ExecRaw(t, harness.database,
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, writable, created_at)
@@ -76,7 +76,7 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		 (3, 1, 1, '/media/notes.txt', CAST('/media/notes.txt' AS BLOB), 5, X'0e0f', 'skipped', NULL, 1, 1)`)
 	harness.bytes.mutex.Lock()
 	defer harness.bytes.mutex.Unlock()
-	film := nodeproto.BytesFile{Root: "/media", Path: []byte("Film (2001).mp4"), Hash: "0a0b"}
+	film := nodeproto.BytesFile{Root: "/media", Path: []byte("Film (2001).mp4"), PayloadHash: "0a0b"}
 	harness.bytes.files[film.Target()] = "the film's bytes"
 }
 

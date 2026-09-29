@@ -130,7 +130,7 @@ func (harness *fixture) hello(t *testing.T, hello nodeproto.Hello) nodeproto.Hel
 
 func (harness *fixture) poll(t *testing.T, nodeID, after int64) (nodeproto.Commands, int) {
 	t.Helper()
-	url := fmt.Sprintf("%s%s?after=%d", harness.server.URL, nodeproto.PathCommands, after)
+	url := fmt.Sprintf("%s%s?%s=%d", harness.server.URL, nodeproto.PathCommands, nodeproto.QueryAfterSeq, after)
 	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
@@ -257,13 +257,13 @@ func TestReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testing.T) 
 	records := make([]nodeproto.Record, 0, 300)
 	for index := range 299 {
 		records = append(records, nodeproto.Record{
-			Seq: reply.ReportSeq + int64(index) + 1, Type: nodeproto.RecordSkip,
+			Seq: reply.LastReportSeq + int64(index) + 1, Type: nodeproto.RecordSkip,
 			Skip: &nodeproto.Skip{Path: nodeproto.Path{Text: fmt.Sprintf("f%d", index)}, Rule: nodeproto.SkipExtension},
 		})
 	}
 	records = append(records, nodeproto.Record{
 		Seq: 300, Type: nodeproto.RecordStatus,
-		Status: &nodeproto.Status{ClockMs: 1, Doing: "idle"},
+		Status: &nodeproto.Status{SentAt: 1, Activity: "idle"},
 	})
 	response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, records))
 	if response.status != http.StatusNoContent {
@@ -287,11 +287,11 @@ func TestReport_HandsRecordsToTheSinkInOrderAndRecordsHowFarItGot(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if node.Status == nil || !strings.Contains(*node.Status, `"doing":"idle"`) {
+	if node.Status == nil || !strings.Contains(*node.Status, `"activity":"idle"`) {
 		t.Errorf("the node's status is %v, want the last status record", node.Status)
 	}
-	if again := harness.hello(t, nodeproto.Hello{Name: "local"}); again.ReportSeq != 300 {
-		t.Errorf("a reconnecting node is told %d, want 300: it continues numbering from there", again.ReportSeq)
+	if again := harness.hello(t, nodeproto.Hello{Name: "local"}); again.LastReportSeq != 300 {
+		t.Errorf("a reconnecting node is told %d, want 300: it continues numbering from there", again.LastReportSeq)
 	}
 	if heard, ever := harness.service.LastHeard("local"); !ever || !heard.Equal(harness.clock.Now()) {
 		t.Errorf("LastHeard = %v, %v", heard, ever)
@@ -303,8 +303,8 @@ func TestReport_RefusesARecordOutOfSequence(t *testing.T) {
 	harness := newFixture(t, time.Millisecond)
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
 	records := []nodeproto.Record{
-		{Seq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{Doing: "idle"}},
-		{Seq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{Doing: "idle"}},
+		{Seq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{Activity: "idle"}},
+		{Seq: 5, Type: nodeproto.RecordStatus, Status: &nodeproto.Status{Activity: "idle"}},
 	}
 	response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, records))
 	if response.status != http.StatusBadRequest || !strings.Contains(string(response.body), "only rises") {
@@ -374,7 +374,7 @@ func TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly(t *testing.T) {
 	}
 	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
 	result := nodeproto.ArtworkResult{
-		Job: 4, Images: []nodeproto.ArtImage{{Size: nodeproto.PortraitS, Bytes: []byte("RIFF")}},
+		JobID: 4, Images: []nodeproto.ArtImage{{SizeName: nodeproto.PortraitS, WebP: []byte("RIFF")}},
 	}
 	if refused := harness.post(t, nodeproto.PathArtwork, reply.NodeID, answerJSON(result)); refused.status !=
 		http.StatusServiceUnavailable {
@@ -388,7 +388,7 @@ func TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly(t *testing.T) {
 	}
 	taken := harness.post(t, nodeproto.PathArtwork, reply.NodeID, answerJSON(result))
 	if taken.status != http.StatusOK || len(sink.answers) != 1 || sink.from[0] != reply.NodeID ||
-		sink.answers[0].Job != 4 || string(sink.answers[0].Images[0].Bytes) != "RIFF" {
+		sink.answers[0].JobID != 4 || string(sink.answers[0].Images[0].WebP) != "RIFF" {
 		t.Errorf("answered %d %s; sink has %+v", taken.status, taken.body, sink.answers)
 	}
 	if connected, found := harness.service.Connected(); !found || connected != reply.NodeID {
@@ -407,7 +407,7 @@ func TestHello_KeepsWhatTheNodeSaidAboutItsConfinement(t *testing.T) {
 	}
 	said := []nodeproto.Confinement{
 		{Mechanism: "landlock", Reason: "not enabled at boot", Remedy: "add landlock to lsm="},
-		{Mechanism: "seccomp", InForce: true},
+		{Mechanism: "seccomp", IsInForce: true},
 	}
 	harness.hello(t, nodeproto.Hello{Name: "local", Confinement: said})
 	facts, found := harness.service.Facts("local")
@@ -424,17 +424,17 @@ func TestStatus_KeepsWhatTheNodeSaysItsPreparedDirectoryHolds(t *testing.T) {
 	if facts, _ := harness.service.Facts("local"); facts.Status != nil {
 		t.Error("a node that has sent no status has a prepared usage")
 	}
-	usage := nodeproto.PreparedUsage{Bytes: 10, BudgetBytes: 100, DiskPercent: 50, DiskLimitPercent: 95}
+	usage := nodeproto.PreparedUsage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}
 	status := []nodeproto.Record{{
-		Seq: reply.ReportSeq + 1, Type: nodeproto.RecordStatus,
-		Status: &nodeproto.Status{Doing: "idle", Prepared: &usage},
+		Seq: reply.LastReportSeq + 1, Type: nodeproto.RecordStatus,
+		Status: &nodeproto.Status{Activity: "idle", PreparedUsage: &usage},
 	}}
 	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
 		http.StatusNoContent {
 		t.Fatalf("the report answered %d %s", response.status, response.body)
 	}
 	facts, _ := harness.service.Facts("local")
-	if facts.Status == nil || facts.Status.Prepared == nil || *facts.Status.Prepared != usage {
+	if facts.Status == nil || facts.Status.PreparedUsage == nil || *facts.Status.PreparedUsage != usage {
 		t.Errorf("the kept status = %+v; want the prepared usage it said (D217 §5)", facts.Status)
 	}
 }
@@ -446,17 +446,17 @@ func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
 		t.Error("a node that has not said hello has facts")
 	}
 	hardware := nodeproto.Hardware{
-		GPUs:    []nodeproto.GPU{{Device: "/dev/dri/renderD128", Driver: "i915"}},
-		Trials:  []nodeproto.EncoderTrial{{Encoder: "h264_qsv"}, {Encoder: "h264_nvenc", Failure: "no device"}},
-		Encoder: "h264_qsv",
+		GPUs:          []nodeproto.GPU{{DevicePath: "/dev/dri/renderD128", Driver: "i915"}},
+		Trials:        []nodeproto.EncoderTrial{{Encoder: "h264_qsv"}, {Encoder: "h264_nvenc", Failure: "no device"}},
+		ChosenEncoder: "h264_qsv",
 	}
 	reply := harness.hello(t, nodeproto.Hello{
 		Name: "local", Host: host.Info{Platform: "linux/amd64", Codename: "trixie"}, Hardware: hardware,
 	})
-	disk := nodeproto.Disk{Path: "/media", TotalBytes: 1000, FreeBytes: 400}
+	disk := nodeproto.Disk{Path: "/media", TotalBytes: 1000, AvailableBytes: 400}
 	status := []nodeproto.Record{{
-		Seq: reply.ReportSeq + 1, Type: nodeproto.RecordStatus,
-		Status: &nodeproto.Status{Doing: "idle", Disks: []nodeproto.Disk{disk}},
+		Seq: reply.LastReportSeq + 1, Type: nodeproto.RecordStatus,
+		Status: &nodeproto.Status{Activity: "idle", Disks: []nodeproto.Disk{disk}},
 	}}
 	if response := harness.post(t, nodeproto.PathReport, reply.NodeID, jsonl(t, status)); response.status !=
 		http.StatusNoContent {
@@ -465,7 +465,7 @@ func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
 	facts, found := harness.service.Facts("local")
 	kept := facts.Hello.Hardware
 	if !found || facts.NodeID != reply.NodeID || facts.Hello.Host.Codename != "trixie" ||
-		kept.Encoder != "h264_qsv" || len(kept.Trials) != 2 || kept.GPUs[0].Driver != "i915" {
+		kept.ChosenEncoder != "h264_qsv" || len(kept.Trials) != 2 || kept.GPUs[0].Driver != "i915" {
 		t.Errorf("the facts' hello is %+v, %v; want the host and hardware the hello said (D225)",
 			facts.Hello, found)
 	}

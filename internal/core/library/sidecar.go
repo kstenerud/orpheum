@@ -30,14 +30,14 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 		if hashErr != nil {
 			return fmt.Errorf("the sidecar %s: %w", located.text, hashErr)
 		}
-		hash, payloadBytes = decoded, &sidecar.Identity.PayloadLength
+		hash, payloadBytes = decoded, &sidecar.Identity.PayloadBytes
 	}
 	existing, err := store.One(work.queries.GetLiveFileByKey(ctx, sqlcgen.GetLiveFileByKeyParams{
 		NodeID: work.nodeID, PathKey: located.key,
 	}))
 	if err == nil {
 		err = work.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
-			LibraryID: scan.libraryID, PathRaw: located.raw, SizeBytes: &sidecar.Size, MtimeMs: &sidecar.MtimeMs,
+			LibraryID: scan.libraryID, PathRaw: located.raw, SizeBytes: &sidecar.SizeBytes, MtimeMs: &sidecar.MtimeMs,
 			PayloadHash: hash, PayloadBytes: payloadBytes, Kind: &kind,
 			Body: sidecar.Body, SeenAt: work.now, ID: existing.ID,
 		})
@@ -51,7 +51,8 @@ func (work *batch) sidecar(ctx context.Context, scan *scanState, sidecar *nodepr
 	}
 	_, err = work.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
 		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: located.text, PathRaw: located.raw, PathKey: located.key,
-		SizeBytes: &sidecar.Size, MtimeMs: &sidecar.MtimeMs, PayloadHash: hash, PayloadBytes: payloadBytes, Kind: &kind,
+		SizeBytes: &sidecar.SizeBytes, MtimeMs: &sidecar.MtimeMs, PayloadHash: hash, PayloadBytes: payloadBytes,
+		Kind: &kind,
 		Body: sidecar.Body, SeenAt: work.now,
 	})
 	if err != nil {

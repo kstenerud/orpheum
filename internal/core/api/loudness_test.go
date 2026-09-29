@@ -36,7 +36,7 @@ func (harness testHarness) measureWith(
 		finished <- service.HandleLoudness(t.Context(), job)
 	}()
 	command := <-harness.nodes.commanded
-	answer.Job = jobID
+	answer.JobID = jobID
 	service.Measured(t.Context(), 1, answer)
 	return command.MeasureLoudness, <-finished
 }
@@ -76,8 +76,8 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if command == nil || command.Video.Hash != "0a0b" || string(command.Video.Path) != "Film (2001).mp4" ||
-		!slices.Equal(command.Audio, []nodeproto.LoudnessTrack{{StreamIndex: 0, Channels: 2}}) {
+	if command == nil || command.Video.PayloadHash != "0a0b" || string(command.Video.Path) != "Film (2001).mp4" ||
+		!slices.Equal(command.Tracks, []nodeproto.LoudnessTrack{{StreamIndex: 0, ChannelCount: 2}}) {
 		t.Errorf("the node was asked to measure %+v, want the MP4 by root, path and hash, with its stereo track",
 			command)
 	}
@@ -100,9 +100,9 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 	// The 7.1 track is louder as it is than as its renormalised stereo mix; the mix's gain is
 	// capped by its peak.
 	_, err := harness.measureWith(t, 91, 2, nodeproto.Loudness{Tracks: []nodeproto.TrackLoudness{{
-		StreamIndex: 1,
-		Source:      &nodeproto.Measurement{IntegratedLUFS: -20.0, RangeLU: 10, TruePeakDBTP: new(-1.0)},
-		Stereo:      nodeproto.Measurement{IntegratedLUFS: -31.0, RangeLU: 9, TruePeakDBTP: new(-6.0)},
+		StreamIndex:  1,
+		Multichannel: &nodeproto.Measurement{IntegratedLUFS: -20.0, RangeLU: 10, TruePeakDBTP: new(-1.0)},
+		Stereo:       nodeproto.Measurement{IntegratedLUFS: -31.0, RangeLU: 9, TruePeakDBTP: new(-6.0)},
 	}}})
 	if err != nil {
 		t.Fatal(err)
@@ -124,7 +124,7 @@ func TestLoudness_APreparedFilmIsLevelledAsItsStereoMixAndItsCopyCarriesTheGain(
 		t.Fatalf("the prepare sent %+v, want the track's gain in its mixes (D226 §4)", command.Prepare)
 	}
 	service := harness.server.dependencies.Load().Playback
-	service.Reported(t.Context(), 1, nodeproto.PrepareReport{Job: 92, State: nodeproto.PrepareDone, SizeBytes: 1})
+	service.Reported(t.Context(), 1, nodeproto.PrepareReport{JobID: 92, State: nodeproto.PrepareDone, SizeBytes: 1})
 	if err := <-prepared; err != nil {
 		t.Fatal(err)
 	}
@@ -141,14 +141,14 @@ func TestLoudness_AFileFFmpegCannotMeasureIsNotAskedAgainButOneTheNodeDidNotTryI
 	harness.shelveFilms(t)
 	harness.withSound(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
-	_, err := harness.measureWith(t, 93, 2, nodeproto.Loudness{Refused: "the file at this path is not the one named"})
+	_, err := harness.measureWith(t, 93, 2, nodeproto.Loudness{Refusal: "the file at this path is not the one named"})
 	if err == nil || !strings.Contains(err.Error(), "not the one named") {
 		t.Errorf("a measurement the node would not try ended %v, want its reason", err)
 	}
 	if ids := harness.toMeasure(t); !slices.Equal(ids, []int64{1, 2}) {
 		t.Errorf("after the node would not try film 2, a sweep finds %v, want it asked again", ids)
 	}
-	_, err = harness.measureWith(t, 94, 2, nodeproto.Loudness{Failed: "ffmpeg: Invalid data found"})
+	_, err = harness.measureWith(t, 94, 2, nodeproto.Loudness{Failure: "ffmpeg: Invalid data found"})
 	if err == nil || !strings.Contains(err.Error(), "Invalid data found") {
 		t.Errorf("a failed measurement ended %v, want FFmpeg's words", err)
 	}

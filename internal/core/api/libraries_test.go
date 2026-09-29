@@ -57,7 +57,7 @@ func (nodes *fakeNodes) Facts(name string) (corenodes.Facts, bool) {
 		},
 	}
 	if nodes.prepared != nil || nodes.disks != nil {
-		facts.Status = &nodeproto.Status{Doing: "idle", Prepared: nodes.prepared, Disks: nodes.disks}
+		facts.Status = &nodeproto.Status{Activity: "idle", PreparedUsage: nodes.prepared, Disks: nodes.disks}
 	}
 	return facts, true
 }

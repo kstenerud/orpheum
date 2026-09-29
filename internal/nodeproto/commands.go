@@ -4,7 +4,7 @@ package nodeproto
 
 // CommandType names one kind of command (cut-a §4). The set is closed; cancel comes with the
 // work it commands. CommandArtwork is in artwork.go, CommandPrepare in prepare.go,
-// CommandExtractSubtitle in subtitle.go.
+// CommandExtractSubtitle in subtitle.go, CommandMeasureLoudness in loudness.go.
 type CommandType string
 
 // The command types.
@@ -35,7 +35,7 @@ type Command struct {
 
 // Cancel names the job to stop, by the core's job id.
 type Cancel struct {
-	Job int64 `json:"job"`
+	JobID int64 `json:"jobId"`
 }
 
 // Scan asks the node to scan one of its roots.

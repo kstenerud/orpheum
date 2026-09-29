@@ -172,18 +172,21 @@ func TestService_StoresOnlyTheNodesAnswer(t *testing.T) {
 	source := []byte("a provider's JPEG, with whatever else it carries")
 	bench := newBench(t, fetched{"/poster.jpg": source})
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
-		return nodeproto.ArtworkResult{Job: command.Job, Width: 600, Height: 900, Images: []nodeproto.ArtImage{
-			{Size: nodeproto.PortraitS, Bytes: ourWebP},
-			{Size: nodeproto.PortraitM, Bytes: source},    // not WebP: never stored
-			{Size: nodeproto.LandscapeS, Bytes: ourWebP},  // not asked for
-			{Size: "../../state/library", Bytes: ourWebP}, // not a size at all
-		}}
+		return nodeproto.ArtworkResult{
+			JobID: command.JobID, SourceWidth: 600, SourceHeight: 900,
+			Images: []nodeproto.ArtImage{
+				{SizeName: nodeproto.PortraitS, WebP: ourWebP},
+				{SizeName: nodeproto.PortraitM, WebP: source},    // not WebP: never stored
+				{SizeName: nodeproto.LandscapeS, WebP: ourWebP},  // not asked for
+				{SizeName: "../../state/library", WebP: ourWebP}, // not a size at all
+			},
+		}
 	}
 	bench.handle(t, owedRef{Kind: identify.ArtPoster, Ref: "/poster.jpg"})
 	sent := bench.node.sent
-	if len(sent) != 1 || !bytes.Equal(sent[0].Source, source) || sent[0].Shape != nodeproto.ShapePortrait ||
-		!slices.Equal(sent[0].Sizes, []nodeproto.ArtSizeName{nodeproto.PortraitS, nodeproto.PortraitM}) ||
-		sent[0].MaxPixels != 40_000_000 || sent[0].Quality != 82 {
+	if len(sent) != 1 || !bytes.Equal(sent[0].SourceImage, source) || sent[0].Shape != nodeproto.ShapePortrait ||
+		!slices.Equal(sent[0].SizeNames, []nodeproto.ArtSizeName{nodeproto.PortraitS, nodeproto.PortraitM}) ||
+		sent[0].MaxSourcePixels != 40_000_000 || sent[0].WebPQuality != 82 {
 		t.Fatalf("sent %+v; want the source, portrait, the sizes made when fetched, and the settings", sent)
 	}
 	checkStored(t, bench.art, source)
@@ -221,12 +224,12 @@ func TestService_RecordsARefusalAndKeepsTheOlderImage(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fetched{"/old.jpg": []byte("old"), "/new.jpg": []byte("<html>")})
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
-		if string(command.Source) == "old" {
-			return nodeproto.ArtworkResult{Job: command.Job, Images: []nodeproto.ArtImage{
-				{Size: nodeproto.PortraitS, Bytes: ourWebP},
+		if string(command.SourceImage) == "old" {
+			return nodeproto.ArtworkResult{JobID: command.JobID, Images: []nodeproto.ArtImage{
+				{SizeName: nodeproto.PortraitS, WebP: ourWebP},
 			}}
 		}
-		return nodeproto.ArtworkResult{Job: command.Job, Refused: "not an image"}
+		return nodeproto.ArtworkResult{JobID: command.JobID, Refusal: "not an image"}
 	}
 	for _, ref := range []string{"/old.jpg", "/new.jpg", "/gone.jpg"} {
 		bench.handle(t, owedRef{Kind: identify.ArtPoster, Ref: ref})
@@ -277,8 +280,11 @@ func TestService_OweQueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 	queue := &queued{}
 	bench.service.parts.Queue = queue
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
-		size := command.Sizes[0]
-		return nodeproto.ArtworkResult{Job: command.Job, Images: []nodeproto.ArtImage{{Size: size, Bytes: ourWebP}}}
+		size := command.SizeNames[0]
+		return nodeproto.ArtworkResult{JobID: command.JobID, Images: []nodeproto.ArtImage{{
+			SizeName: size,
+			WebP:     ourWebP,
+		}}}
 	}
 	owed := identify.OwedArtwork{ItemID: bench.itemID, Source: "tmdb", Refs: []identify.ArtRef{
 		{Kind: identify.ArtPoster, Ref: "/poster.jpg"}, {Kind: identify.ArtBackdrop, Ref: "/back.jpg"},
@@ -312,8 +318,8 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 	fileID = 40
 	localSum := sha256.Sum256([]byte("the file beside the film"))
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
-		result := nodeproto.ArtworkResult{Job: command.Job, Images: []nodeproto.ArtImage{
-			{Size: nodeproto.PortraitS, Bytes: ourWebP},
+		result := nodeproto.ArtworkResult{JobID: command.JobID, Images: []nodeproto.ArtImage{
+			{SizeName: nodeproto.PortraitS, WebP: ourWebP},
 		}}
 		if command.AbsolutePath != nil {
 			result.SourceHash = hex.EncodeToString(localSum[:])
@@ -330,7 +336,7 @@ func TestService_AnImageBesideTheMediaIsReadByItsNodeAndShownOverTheProviders(t 
 		t.Fatal(err)
 	}
 	sent := bench.node.sent[len(bench.node.sent)-1]
-	if sent.AbsolutePath == nil || string(sent.AbsolutePath.Raw) != "/m/Film/poster.jpg" || sent.Source != nil {
+	if sent.AbsolutePath == nil || string(sent.AbsolutePath.Raw) != "/m/Film/poster.jpg" || sent.SourceImage != nil {
 		t.Fatalf("the node was sent %+v; want the file's path for it to read, and no bytes", sent)
 	}
 	// TMDB's poster arrives later, and is still not what the film shows.

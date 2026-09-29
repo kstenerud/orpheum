@@ -14,7 +14,7 @@ import (
 
 func image(path string) nodeproto.Record {
 	return nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: &nodeproto.Sidecar{
-		Path: nodeproto.Path{Text: path}, Kind: nodeproto.SidecarImage, Size: 100, MtimeMs: 7,
+		Path: nodeproto.Path{Text: path}, Kind: nodeproto.SidecarImage, SizeBytes: 100, MtimeMs: 7,
 	}}
 }
 

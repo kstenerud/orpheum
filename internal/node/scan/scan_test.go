@@ -163,7 +163,8 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 	checkCountsAndFacts(t, records)
 	checkSidecarBodies(t, records)
 	observed := records[3].Observed
-	if observed.Size != int64(len("alien")) || observed.Identity.Scheme == "" || observed.Identity.Hash == "" ||
+	if observed.SizeBytes != int64(len("alien")) || observed.Identity.Scheme == "" ||
+		observed.Identity.PayloadHash == "" ||
 		len(observed.Probe.Format.Names) == 0 {
 		t.Errorf("observed = %+v", observed)
 	}
@@ -172,8 +173,9 @@ func TestScan_ReportsEveryEntryWithAFilingInByteOrder(t *testing.T) {
 func checkCountsAndFacts(t *testing.T, records []nodeproto.Record) {
 	t.Helper()
 	complete := records[len(records)-1].ScanComplete
-	if complete.Observed != 3 || complete.Sidecars != 2 || complete.Skipped != 7 || complete.Errors != 0 ||
-		complete.Stopped {
+	if complete.ObservedCount != 3 || complete.SidecarCount != 2 || complete.SkippedCount != 7 ||
+		complete.ErrorCount != 0 ||
+		complete.IsStoppedByErrors {
 		t.Errorf("scan_complete = %+v", complete)
 	}
 	begin := records[0].ScanBegin
@@ -182,7 +184,7 @@ func checkCountsAndFacts(t *testing.T, records []nodeproto.Record) {
 	}
 	// A test's temporary directory is never a mount point, and it is on some device: the facts
 	// the core compares to catch an unmounted disk (D208).
-	if begin.Device == 0 || begin.MountPoint {
+	if begin.FilesystemDevice == 0 || begin.IsMountPoint {
 		t.Errorf("scan_begin = %+v, want the root's device and that it is not a mount point", begin)
 	}
 }
@@ -216,7 +218,7 @@ func checkSidecarIdentity(t *testing.T, sidecar *nodeproto.Sidecar) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sidecar.Identity == nil || sidecar.Identity.Hash != hex.EncodeToString(want.Hash[:]) {
+	if sidecar.Identity == nil || sidecar.Identity.PayloadHash != hex.EncodeToString(want.Hash[:]) {
 		t.Errorf("subtitle %s carries identity %+v, want its bytes' payload hash", sidecar.Path.Text, sidecar.Identity)
 	}
 }
@@ -230,7 +232,7 @@ func TestScan_RefusesAnNFOPastTheBound(t *testing.T) {
 	if got := summary(records); !slices.Equal(got, want) {
 		t.Errorf("report %q, want %q", got, want)
 	}
-	if detail := records[1].Error.Raw.Text; !strings.Contains(detail, "larger than the node sends") {
+	if detail := records[1].Error.Platform.Text; !strings.Contains(detail, "larger than the node sends") {
 		t.Errorf("the error says %q, want the bound named", detail)
 	}
 }
@@ -313,11 +315,12 @@ func TestScan_CollapsesRepeatedErrorsAndSaysWhoCouldNotRead(t *testing.T) {
 		t.Errorf("report:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
 	locked := records[2].Error
-	if locked.RepeatCount != 3 || locked.Raw.Mode != "----------" || locked.Raw.OwnerUID != os.Getuid() ||
-		locked.Raw.Text == "" {
+	if locked.OccurrenceCount != 3 || locked.Platform.ModeText != "----------" ||
+		locked.Platform.OwnerUID != os.Getuid() ||
+		locked.Platform.Text == "" {
 		t.Errorf("the collapsed error = %+v, want a count of 3 with owner and mode", locked)
 	}
-	if complete := records[len(records)-1].ScanComplete; complete.Errors != 4 || complete.Observed != 1 {
+	if complete := records[len(records)-1].ScanComplete; complete.ErrorCount != 4 || complete.ObservedCount != 1 {
 		t.Errorf("scan_complete = %+v, want 4 errors and 1 observed: a scan that could not read is not clean", complete)
 	}
 }
@@ -349,7 +352,7 @@ func TestScan_StopsARootThatKeepsFailing(t *testing.T) {
 	if got := summary(records); !slices.Equal(got, want) {
 		t.Errorf("report:\n  %s\nwant:\n  %s", strings.Join(got, "\n  "), strings.Join(want, "\n  "))
 	}
-	if complete := records[len(records)-1].ScanComplete; !complete.Stopped || complete.Errors != 3 {
+	if complete := records[len(records)-1].ScanComplete; !complete.IsStoppedByErrors || complete.ErrorCount != 3 {
 		t.Errorf("scan_complete = %+v, want stopped after 3 errors", complete)
 	}
 }
@@ -419,9 +422,9 @@ func TestScan_ReportsAnImageBesideTheMediaWithoutItsBytes(t *testing.T) {
 	for _, record := range records {
 		if sidecar := record.Sidecar; sidecar != nil && sidecar.Kind == nodeproto.SidecarImage {
 			images = append(images, sidecar.Path.Text)
-			if sidecar.Body != nil || sidecar.Size == 0 {
+			if sidecar.Body != nil || sidecar.SizeBytes == 0 {
 				t.Errorf("%s: body %q, size %d; an image's bytes never travel in a record (D215)",
-					sidecar.Path.Text, sidecar.Body, sidecar.Size)
+					sidecar.Path.Text, sidecar.Body, sidecar.SizeBytes)
 			}
 		}
 	}

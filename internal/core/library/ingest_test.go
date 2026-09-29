@@ -71,17 +71,18 @@ func hashOf(content string) string {
 
 func observed(path, content string) nodeproto.Record {
 	return nodeproto.Record{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
-		Path: nodeproto.Path{Text: path}, Size: int64(len(content)), MtimeMs: 1,
+		Path: nodeproto.Path{Text: path}, SizeBytes: int64(len(content)), MtimeMs: 1,
 		Identity: nodeproto.Identity{
-			Scheme: "payload-v1", Anchor: "whole-file", Hash: hashOf(content), PayloadLength: 1,
+			Scheme: "payload-v1", Anchor: "whole-file", PayloadHash: hashOf(content), PayloadBytes: 1,
 		},
 		Probe: nodeproto.Probe{Streams: []nodeproto.ProbeStream{
-			{Index: 0, Kind: "video", Codec: "h264"},
+			{StreamIndex: 0, Kind: "video", Codec: "h264"},
 			{
-				Index: 1, Kind: "audio", Codec: "aac", Language: "ger", LanguageTag: "de", Title: "Deutsch",
-				Disposition: []string{"default", "forced"}, Audio: nodeproto.ProbeAudio{Channels: 6},
+				StreamIndex: 1, Kind: "audio", Codec: "aac", ContainerLanguage: "ger", LanguageTag: "de",
+				Title:       "Deutsch",
+				Disposition: []string{"default", "forced"}, Audio: nodeproto.ProbeAudio{ChannelCount: 6},
 			},
-			{Index: 2, Kind: "data", Codec: "bin_data"},
+			{StreamIndex: 2, Kind: "data", Codec: "bin_data"},
 		}},
 	}}
 }
@@ -94,15 +95,15 @@ func skipped(path string, rule nodeproto.SkipRule) nodeproto.Record {
 
 func failed(path string, scope nodeproto.ErrorScope) nodeproto.Record {
 	return nodeproto.Record{Type: nodeproto.RecordError, Error: &nodeproto.Error{
-		Path: nodeproto.Path{Text: path}, Scope: scope, Code: nodeproto.CodePermissionDenied, RepeatCount: 1,
-		Raw: nodeproto.ErrorRaw{Text: "permission denied", OwnerUID: 0, GroupGID: 0, Mode: "-rw-------"},
+		Path: nodeproto.Path{Text: path}, Scope: scope, Code: nodeproto.CodePermissionDenied, OccurrenceCount: 1,
+		Platform: nodeproto.PlatformError{Text: "permission denied", OwnerUID: 0, GroupGID: 0, ModeText: "-rw-------"},
 	}}
 }
 
 // scan sends one scan of root: begin, the records, and complete unless the scan is cut off.
 func (world *harness) scan(records []nodeproto.Record, completes bool) {
 	world.t.Helper()
-	world.scanOn(nodeproto.ScanBegin{Root: root, Device: 7, MountPoint: true}, records, completes)
+	world.scanOn(nodeproto.ScanBegin{Root: root, FilesystemDevice: 7, IsMountPoint: true}, records, completes)
 }
 
 // scanOn is scan with the root's filesystem facts as the node reports them.
@@ -166,7 +167,7 @@ func TestIngest_EveryEnumeratedPathGetsARowWithItsFilingAndReason(t *testing.T) 
 		t.Errorf("the notes = %+v, want skipped, rule extension (D163)", notes)
 	}
 	if broken.Filing != filingErrored || *broken.FilingReason != "permission_denied" ||
-		broken.ErrorDetail == nil || !strings.Contains(*broken.ErrorDetail, `"mode":"-rw-------"`) {
+		broken.ErrorDetail == nil || !strings.Contains(*broken.ErrorDetail, `"modeText":"-rw-------"`) {
 		t.Errorf("the broken file = %+v, want errored with the owner, group and mode (D163)", broken)
 	}
 	world.checkStreams(alien.ID)
@@ -330,7 +331,7 @@ func rootStateParams(nodeID int64) sqlcgen.GetRootStateParams {
 }
 
 func sidecar(path string, kind nodeproto.SidecarKind, body string) nodeproto.Record {
-	record := &nodeproto.Sidecar{Path: nodeproto.Path{Text: path}, Kind: kind, Size: int64(len(body)), MtimeMs: 1}
+	record := &nodeproto.Sidecar{Path: nodeproto.Path{Text: path}, Kind: kind, SizeBytes: int64(len(body)), MtimeMs: 1}
 	if kind == nodeproto.SidecarNFO {
 		record.Body = []byte(body)
 	}

@@ -47,7 +47,8 @@ func TestProbe_AFileThePinnedFFmpegMade(t *testing.T) {
 	if video.Codec != "h264" || video.Video.Width != 160 || video.Video.Height != 120 {
 		t.Errorf("video = %+v", video)
 	}
-	if audio.Codec != "aac" || audio.Language != "ger" || audio.Title != "Deutsch" || audio.Audio.Channels != 2 {
+	if audio.Codec != "aac" || audio.ContainerLanguage != "ger" || audio.Title != "Deutsch" ||
+		audio.Audio.ChannelCount != 2 {
 		t.Errorf("audio = %+v", audio)
 	}
 	if record.Format.DurationMs < 900 || record.Format.DurationMs > 1200 {

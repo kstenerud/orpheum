@@ -3,7 +3,7 @@
 -- tests: a copy that reproduces this reproduces every table. Synthetic titles only (D187).
 
 INSERT INTO node (id, name, enrolled_at, report_seq, status, status_at)
-  VALUES (1, 'nas', 1790000000000, 42, '{"doing":"idle"}', 1790000001000);
+  VALUES (1, 'nas', 1790000000000, 42, '{"activity":"idle"}', 1790000001000);
 INSERT INTO library (id, name, kind, metadata_source, change_detection, check_every_h, writable, created_at)
   VALUES (1, 'Films', 'movies', 'nfo_then_tmdb', 'interval', 6, 0, 1790000000000);
 INSERT INTO library_root (library_id, node_id, path) VALUES (1, 1, '/media/films');

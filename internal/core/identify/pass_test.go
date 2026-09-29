@@ -81,9 +81,12 @@ func newWorld(t *testing.T, kind, source string) *world {
 func video(path string) nodeproto.Record {
 	sum := sha256.Sum256([]byte(path))
 	return nodeproto.Record{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
-		Path: nodeproto.Path{Text: path}, Size: 1, MtimeMs: 1,
-		Identity: nodeproto.Identity{Scheme: "payload-v1", Anchor: "whole-file", Hash: hex.EncodeToString(sum[:])},
-		Probe:    nodeproto.Probe{Format: nodeproto.ProbeFormat{DurationMs: 5_000}},
+		Path: nodeproto.Path{Text: path}, SizeBytes: 1, MtimeMs: 1,
+		Identity: nodeproto.Identity{
+			Scheme: "payload-v1", Anchor: "whole-file",
+			PayloadHash: hex.EncodeToString(sum[:]),
+		},
+		Probe: nodeproto.Probe{Format: nodeproto.ProbeFormat{DurationMs: 5_000}},
 	}}
 }
 
@@ -96,7 +99,7 @@ func videoMoved(from, to string) nodeproto.Record {
 
 func nfo(path, body string) nodeproto.Record {
 	return nodeproto.Record{Type: nodeproto.RecordSidecar, Sidecar: &nodeproto.Sidecar{
-		Path: nodeproto.Path{Text: path}, Kind: nodeproto.SidecarNFO, Size: int64(len(body)), MtimeMs: 1,
+		Path: nodeproto.Path{Text: path}, Kind: nodeproto.SidecarNFO, SizeBytes: int64(len(body)), MtimeMs: 1,
 		Body: []byte(body),
 	}}
 }

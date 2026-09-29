@@ -58,7 +58,7 @@ func newFilm(t *testing.T, name string) film {
 }
 
 func (movie film) target(path, identity string) string {
-	return nodeproto.BytesFile{Root: movie.root.Path(), Path: []byte(path), Hash: identity}.Target()
+	return nodeproto.BytesFile{Root: movie.root.Path(), Path: []byte(path), PayloadHash: identity}.Target()
 }
 
 // get GETs the film's own path, naming identity as its hash.
@@ -152,7 +152,7 @@ func TestFile_NamesNothingOutsideARoot(t *testing.T) {
 		"an absolute path":       movie.target(outside, movie.identity),
 		"a directory":            movie.target("films", movie.identity),
 		"a root it does not have": nodeproto.BytesFile{
-			Root: filepath.Dir(movie.root.Path()), Path: []byte("secret.mkv"), Hash: movie.identity,
+			Root: filepath.Dir(movie.root.Path()), Path: []byte("secret.mkv"), PayloadHash: movie.identity,
 		}.Target(),
 	}
 	for name, target := range cases {

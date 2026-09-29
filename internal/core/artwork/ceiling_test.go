@@ -169,10 +169,10 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 	bench.service.parts.Queue = queue
 	bench.node.answer = func(command nodeproto.Artwork) nodeproto.ArtworkResult {
 		var images []nodeproto.ArtImage
-		for _, size := range command.Sizes {
-			images = append(images, nodeproto.ArtImage{Size: size, Bytes: ourWebP})
+		for _, size := range command.SizeNames {
+			images = append(images, nodeproto.ArtImage{SizeName: size, WebP: ourWebP})
 		}
-		return nodeproto.ArtworkResult{Job: command.Job, Images: images}
+		return nodeproto.ArtworkResult{JobID: command.JobID, Images: images}
 	}
 	bench.handle(t, owedRef{Kind: identify.ArtBackdrop, Ref: "/back.jpg"})
 	hash := Received(source).hash()
@@ -189,7 +189,7 @@ func TestHandle_AnEvictedSizeIsCutFromTheBaseWithoutFetching(t *testing.T) {
 	if err := bench.service.Handle(t.Context(), job); err != nil {
 		t.Fatal(err)
 	}
-	cutFromBase := len(bench.node.sent) == sent+1 && string(bench.node.sent[sent].Source) == string(ourWebP)
+	cutFromBase := len(bench.node.sent) == sent+1 && string(bench.node.sent[sent].SourceImage) == string(ourWebP)
 	if provider.calls != 0 || !cutFromBase {
 		t.Errorf("TMDB asked %d times; the node was sent %d; want the base cut by the node, nothing fetched",
 			provider.calls, len(bench.node.sent)-sent)

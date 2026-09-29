@@ -43,18 +43,18 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	storetest.ExecRaw(t, harness.database, "INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)")
 	harness.connectNode(t, "/media/films")
-	harness.nodes.confinement = []nodeproto.Confinement{{Mechanism: "landlock", InForce: true}}
+	harness.nodes.confinement = []nodeproto.Confinement{{Mechanism: "landlock", IsInForce: true}}
 	harness.nodes.hardware = nodeproto.Hardware{
-		GPUs: []nodeproto.GPU{{Device: "/dev/dri/renderD128", Driver: "i915"}},
+		GPUs: []nodeproto.GPU{{DevicePath: "/dev/dri/renderD128", Driver: "i915"}},
 		Trials: []nodeproto.EncoderTrial{
 			{Encoder: "h264_qsv"}, {Encoder: "h264_nvenc", Failure: "Cannot load libcuda.so.1"},
 		},
-		Encoder: "h264_qsv",
+		ChosenEncoder: "h264_qsv",
 	}
 	harness.nodes.build = serverBuild
-	harness.nodes.disks = []nodeproto.Disk{{Path: "/media/films", TotalBytes: 4000, FreeBytes: 1000}}
+	harness.nodes.disks = []nodeproto.Disk{{Path: "/media/films", TotalBytes: 4000, AvailableBytes: 1000}}
 	harness.nodes.prepared = &nodeproto.PreparedUsage{
-		Bytes: 10, BudgetBytes: 100, DiskPercent: 75, DiskLimitPercent: 95,
+		UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 75, DiskUsedLimitPercent: 95,
 	}
 	finishPrepare(t, harness, 42, "h264_qsv", 6.5)
 
@@ -137,19 +137,19 @@ func checkHardware(t *testing.T, hardware *HardwareBody) {
 func TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor(t *testing.T) {
 	t.Parallel()
 	quickSync := hardwareFinding("local", nodeproto.Hardware{
-		GPUs: []nodeproto.GPU{{Device: "/dev/dri/renderD128"}}, Encoder: "h264_qsv",
+		GPUs: []nodeproto.GPU{{DevicePath: "/dev/dri/renderD128"}}, ChosenEncoder: "h264_qsv",
 	})
 	if quickSync.Verdict != verdictOK || !strings.Contains(quickSync.Detail, "h264_qsv") {
 		t.Errorf("a node encoding with Quick Sync: %+v, want ok, naming it", quickSync)
 	}
-	noGPU := hardwareFinding("local", nodeproto.Hardware{Encoder: "x264"})
+	noGPU := hardwareFinding("local", nodeproto.Hardware{ChosenEncoder: "x264"})
 	if noGPU.Verdict != verdictOK || !strings.Contains(noGPU.Detail, "no GPU") {
 		t.Errorf("a node with no GPU: %+v, want ok, saying it has none", noGPU)
 	}
 	blocked := hardwareFinding("local", nodeproto.Hardware{
-		GPUs:    []nodeproto.GPU{{Device: "/dev/dri/renderD128", NoAccess: "permission denied"}},
-		Trials:  []nodeproto.EncoderTrial{{Encoder: "h264_qsv", Failure: "Failed to initialise VAAPI"}},
-		Encoder: "x264",
+		GPUs:          []nodeproto.GPU{{DevicePath: "/dev/dri/renderD128", NoAccessReason: "permission denied"}},
+		Trials:        []nodeproto.EncoderTrial{{Encoder: "h264_qsv", Failure: "Failed to initialise VAAPI"}},
+		ChosenEncoder: "x264",
 	})
 	if blocked.Verdict != verdictWarn || !strings.Contains(blocked.Detail, "Failed to initialise VAAPI") ||
 		!strings.Contains(blocked.Action, "/dev/dri/renderD128") {

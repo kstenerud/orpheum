@@ -240,6 +240,6 @@ func (service *Service) HandleFetchedSubtitle(ctx context.Context, job jobs.Job)
 	if err != nil {
 		return jobs.Permanent(err)
 	}
-	return service.convert(ctx, job, fetched.NodeID, &nodeproto.ExtractSubtitle{Job: job.ID, Fetched: text},
+	return service.convert(ctx, job, fetched.NodeID, &nodeproto.ExtractSubtitle{JobID: job.ID, FetchedSubRip: text},
 		fetchedKey(fetched.Body))
 }

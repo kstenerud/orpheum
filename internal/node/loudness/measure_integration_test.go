@@ -44,11 +44,11 @@ func TestMeasure_AToneOfKnownLevelMeasuresAsItIs(t *testing.T) {
 		t.Fatal(err)
 	}
 	measured, err := loudness.NewMeasurer(runner).Measure(t.Context(), film,
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, Channels: 6}, {StreamIndex: 2, Channels: 2}})
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}, {StreamIndex: 2, ChannelCount: 2}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(measured) != 2 || measured[0].Source == nil {
+	if len(measured) != 2 || measured[0].Multichannel == nil {
 		t.Fatalf("measured %+v; want the 5.1 track as it is and as stereo, and the stereo track", measured)
 	}
 	for _, check := range []struct {
@@ -56,7 +56,7 @@ func TestMeasure_AToneOfKnownLevelMeasuresAsItIs(t *testing.T) {
 		measurement nodeproto.Measurement
 		lufs, peak  float64
 	}{
-		{"the 5.1 track as it is", *measured[0].Source, -18.2, -20.0},
+		{"the 5.1 track as it is", *measured[0].Multichannel, -18.2, -20.0},
 		{"the 5.1 track's stereo mix", measured[0].Stereo, -23.0, -23.0},
 		{"the stereo track", measured[1].Stereo, -20.0, -20.0},
 	} {

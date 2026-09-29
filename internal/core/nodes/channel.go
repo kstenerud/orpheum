@@ -34,9 +34,9 @@ func (service *Service) commands(writer http.ResponseWriter, request *http.Reque
 	if !ok {
 		return
 	}
-	after, err := strconv.ParseInt(request.URL.Query().Get("after"), 10, 64)
+	after, err := strconv.ParseInt(request.URL.Query().Get(nodeproto.QueryAfterSeq), 10, 64)
 	if err != nil {
-		http.Error(writer, "commands?after=<the last command's seq, or 0>", http.StatusBadRequest)
+		http.Error(writer, "commands?"+nodeproto.QueryAfterSeq+"=<the last command's seq, or 0>", http.StatusBadRequest)
 		return
 	}
 	service.heard(nodeID)

@@ -24,13 +24,13 @@ type ProbeFormat struct {
 
 // ProbeStream is one track, as the container describes it (scanner.md, Track facts).
 type ProbeStream struct {
-	Index int `json:"index"`
+	StreamIndex int `json:"streamIndex"`
 	// Kind is ffprobe's codec_type: video, audio, subtitle, attachment or data.
-	Kind    string `json:"kind"`
-	Codec   string `json:"codec"`
-	Profile string `json:"profile"`
-	// Language is the tag exactly as the container carried it ("ger", "deu", "en").
-	Language string `json:"language"`
+	Kind         string `json:"kind"`
+	Codec        string `json:"codec"`
+	CodecProfile string `json:"codecProfile"`
+	// ContainerLanguage is the tag exactly as the container carried it ("ger", "deu", "en").
+	ContainerLanguage string `json:"containerLanguage"`
 	// LanguageTag is Language in BCP 47 form ("de" for both "ger" and "deu"), or empty when the
 	// container carried none, "und", or a code no standard knows (scanner.md, D206).
 	LanguageTag string `json:"languageTag"`
@@ -61,7 +61,7 @@ type ProbeVideo struct {
 
 // ProbeAudio holds an audio stream's sound facts; zero for other kinds.
 type ProbeAudio struct {
-	Channels      int    `json:"channels"`
+	ChannelCount  int    `json:"channelCount"`
 	ChannelLayout string `json:"channelLayout"`
 	SampleRateHz  int    `json:"sampleRateHz"`
 }

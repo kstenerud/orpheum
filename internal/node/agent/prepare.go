@@ -55,7 +55,7 @@ func (all slots) of(profile nodeproto.PrepareProfile) chan struct{} {
 // reports its progress and its end to the core. The source is checked to be the file the core
 // named before FFmpeg reads it (D100).
 func (agent *Agent) prepare(ctx context.Context, nodeID int64, command nodeproto.Prepare) {
-	jobCtx, done := agent.working.start(ctx, command.Job)
+	jobCtx, done := agent.working.start(ctx, command.JobID)
 	go func() {
 		defer done()
 		if !agent.takeSlot(jobCtx, nodeID, command) {
@@ -64,15 +64,15 @@ func (agent *Agent) prepare(ctx context.Context, nodeID int64, command nodeproto
 		defer func() { <-agent.slots.of(command.Profile) }()
 		report := agent.runPrepare(jobCtx, nodeID, command)
 		if jobCtx.Err() != nil && ctx.Err() == nil {
-			agent.logger.InfoContext(ctx, "a prepare was cancelled", "job", command.Job)
+			agent.logger.InfoContext(ctx, "a prepare was cancelled", "job", command.JobID)
 			return
 		}
 		if report.State == nodeproto.PrepareFailed {
 			agent.logger.WarnContext(ctx, "a prepare failed",
-				"job", command.Job, "renditionDir", command.RenditionDir, "why", report.Error)
+				"job", command.JobID, "renditionDir", command.RenditionDir, "why", report.Failure)
 		}
 		if err := agent.sendPrepare(ctx, nodeID, report); err != nil && ctx.Err() == nil {
-			agent.logger.WarnContext(ctx, "could not tell the core a prepare ended", "job", command.Job, "err", err)
+			agent.logger.WarnContext(ctx, "could not tell the core a prepare ended", "job", command.JobID, "err", err)
 		}
 		agent.evict(ctx)
 	}()
@@ -98,9 +98,9 @@ func (agent *Agent) takeSlot(ctx context.Context, nodeID int64, command nodeprot
 		return true
 	default:
 	}
-	agent.working.wait(command.Job, true)
-	defer agent.working.wait(command.Job, false)
-	agent.sayWaiting(ctx, nodeID, command.Job)
+	agent.working.wait(command.JobID, true)
+	defer agent.working.wait(command.JobID, false)
+	agent.sayWaiting(ctx, nodeID, command.JobID)
 	select {
 	case slot <- struct{}{}:
 		return true
@@ -111,7 +111,7 @@ func (agent *Agent) takeSlot(ctx context.Context, nodeID int64, command nodeprot
 
 // sayWaiting tells the core a prepare is waiting for a slot.
 func (agent *Agent) sayWaiting(ctx context.Context, nodeID, job int64) {
-	waiting := nodeproto.PrepareReport{Job: job, State: nodeproto.PrepareWaiting}
+	waiting := nodeproto.PrepareReport{JobID: job, State: nodeproto.PrepareWaiting}
 	if err := agent.sendPrepare(ctx, nodeID, waiting); err != nil && ctx.Err() == nil {
 		agent.logger.WarnContext(ctx, "could not tell the core a prepare is waiting", "job", job, "err", err)
 	}
@@ -122,7 +122,7 @@ func (agent *Agent) runPrepare(
 	ctx context.Context, nodeID int64, command nodeproto.Prepare,
 ) nodeproto.PrepareReport {
 	failed := func(err error) nodeproto.PrepareReport {
-		return nodeproto.PrepareReport{Job: command.Job, State: nodeproto.PrepareFailed, Error: err.Error()}
+		return nodeproto.PrepareReport{JobID: command.JobID, State: nodeproto.PrepareFailed, Failure: err.Error()}
 	}
 	if agent.workers.Preparer == nil {
 		return failed(errors.New("this node does not prepare"))
@@ -136,11 +136,11 @@ func (agent *Agent) runPrepare(
 		if now := agent.clock.Now(); now.Sub(last) >= progressEvery {
 			last = now
 			running := nodeproto.PrepareReport{
-				Job: command.Job, State: nodeproto.PrepareRunning, PreparedMs: preparedMs,
+				JobID: command.JobID, State: nodeproto.PrepareRunning, PreparedMs: preparedMs,
 			}
 			if sendErr := agent.sendPrepare(ctx, nodeID, running); sendErr != nil && ctx.Err() == nil {
 				agent.logger.DebugContext(ctx, "could not send a prepare's progress",
-					"job", command.Job, "err", sendErr)
+					"job", command.JobID, "err", sendErr)
 			}
 		}
 	}
@@ -149,8 +149,8 @@ func (agent *Agent) runPrepare(
 		return failed(err)
 	}
 	return nodeproto.PrepareReport{
-		Job: command.Job, State: nodeproto.PrepareDone, SizeBytes: made.SizeBytes, VideoEncoder: made.VideoEncoder,
-		Speed: made.Speed,
+		JobID: command.JobID, State: nodeproto.PrepareDone, SizeBytes: made.SizeBytes, VideoEncoder: made.VideoEncoder,
+		RealtimeFactor: made.Speed,
 	}
 }
 
@@ -175,7 +175,7 @@ func (agent *Agent) verifiedSource(source nodeproto.BytesFile) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("hash the source: %w", err)
 	}
-	if hex.EncodeToString(identity.Hash[:]) != source.Hash {
+	if hex.EncodeToString(identity.Hash[:]) != source.PayloadHash {
 		return "", errors.New("the file at this path is not the one named; it changed since the scan")
 	}
 	return root.Path() + "/" + relative, nil

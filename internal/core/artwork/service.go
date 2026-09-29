@@ -184,7 +184,7 @@ func (service *Service) one(ctx context.Context, fetcher Fetcher, image wanted) 
 	if err != nil || held {
 		return err
 	}
-	command := nodeproto.Artwork{Shape: shape, Sizes: fetchedSizes(shape)}
+	command := nodeproto.Artwork{Shape: shape, SizeNames: fetchedSizes(shape)}
 	var nodeID int64
 	hash := ""
 	if image.source == identify.SourceLocal {
@@ -199,7 +199,7 @@ func (service *Service) one(ctx context.Context, fetcher Fetcher, image wanted) 
 			return service.missing(ctx, fetcher, image, err)
 		}
 		if err == nil {
-			command.Source, hash = source.bytes, source.hash()
+			command.SourceImage, hash = source.bytes, source.hash()
 			nodeID, err = service.anyNode()
 		}
 	}
@@ -274,7 +274,7 @@ func (service *Service) reEncode(
 	}
 	request, answer := service.await()
 	defer service.forget(request)
-	command.Job, command.MaxPixels, command.Quality = request, pixels, int(quality)
+	command.JobID, command.MaxSourcePixels, command.WebPQuality = request, pixels, int(quality)
 	service.parts.Nodes.Enqueue(nodeID, nodeproto.Command{Type: nodeproto.CommandArtwork, Artwork: &command})
 	timer := time.NewTimer(service.parts.Wait)
 	defer timer.Stop()
@@ -307,12 +307,12 @@ func (service *Service) forget(request int64) {
 // the wait ended — is dropped; its job was retried.
 func (service *Service) Answered(ctx context.Context, nodeID int64, result nodeproto.ArtworkResult) {
 	service.mutex.Lock()
-	answer, found := service.waiting[result.Job]
-	delete(service.waiting, result.Job)
+	answer, found := service.waiting[result.JobID]
+	delete(service.waiting, result.JobID)
 	service.mutex.Unlock()
 	if !found {
 		service.parts.Logger.InfoContext(ctx, "an artwork answer came after its wait ended", "nodeId", nodeID,
-			"request", result.Job)
+			"request", result.JobID)
 		return
 	}
 	answer <- result
@@ -331,7 +331,7 @@ func (service *Service) keep(ctx context.Context, image wanted, hash string, res
 		return service.refused(ctx, image, why)
 	}
 	for _, made := range images {
-		if err := service.writeArt(ctx, hash, string(made.Size)+webpFormat, made.Bytes); err != nil {
+		if err := service.writeArt(ctx, hash, string(made.SizeName)+webpFormat, made.WebP); err != nil {
 			return err
 		}
 	}
@@ -344,13 +344,13 @@ func (service *Service) keep(ctx context.Context, image wanted, hash string, res
 // checked is what of the node's answer may be stored: sizes asked for, in WebP. It says why
 // nothing may be.
 func checked(result nodeproto.ArtworkResult, shape nodeproto.Shape) ([]nodeproto.ArtImage, string) {
-	if result.Refused != "" {
-		return nil, "the node refused it: " + result.Refused
+	if result.Refusal != "" {
+		return nil, "the node refused it: " + result.Refusal
 	}
 	asked := fetchedSizes(shape)
 	var kept []nodeproto.ArtImage
 	for _, image := range result.Images {
-		if slices.Contains(asked, image.Size) && isWebP(image.Bytes) {
+		if slices.Contains(asked, image.SizeName) && isWebP(image.WebP) {
 			kept = append(kept, image)
 		}
 	}

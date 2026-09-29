@@ -73,33 +73,33 @@ func TestAgent_PreparesOnlyTheFileTheCoreNamed(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := nodeproto.BytesFile{
-		Root: root.Path(), Path: []byte("film.mkv"), Hash: hex.EncodeToString(identity.Hash[:]),
+		Root: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
 	}
 	send := func(job int64, source nodeproto.BytesFile) {
 		core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-			Job: job, Source: source, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
+			JobID: job, Source: source, Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef",
 		}}
 	}
 	send(1, source)
 	done := finalReport(t, core)
 	wantInput := root.Path() + "/film.mkv"
-	if done.Job != 1 || done.State != nodeproto.PrepareDone || done.SizeBytes != int64(len(wantInput)) ||
-		done.VideoEncoder != "h264_qsv" || done.Speed != 6.5 {
+	if done.JobID != 1 || done.State != nodeproto.PrepareDone || done.SizeBytes != int64(len(wantInput)) ||
+		done.VideoEncoder != "h264_qsv" || done.RealtimeFactor != 6.5 {
 		t.Errorf("a prepare of the source file ended %+v, want done, run on %s, with the encoder and speed "+
 			"the preparer said", done, wantInput)
 	}
 	changed := source
-	changed.Hash = strings.Repeat("0", 64)
+	changed.PayloadHash = strings.Repeat("0", 64)
 	send(2, changed)
 	if refused := finalReport(t, core); refused.State != nodeproto.PrepareFailed ||
-		!strings.Contains(refused.Error, "not the one named") {
+		!strings.Contains(refused.Failure, "not the one named") {
 		t.Errorf("a prepare of a changed file ended %+v, want refused", refused)
 	}
 	elsewhere := source
 	elsewhere.Root = t.TempDir()
 	send(3, elsewhere)
 	if refused := finalReport(t, core); refused.State != nodeproto.PrepareFailed ||
-		!strings.Contains(refused.Error, "none of this node's roots") {
+		!strings.Contains(refused.Failure, "none of this node's roots") {
 		t.Errorf("a prepare under another root ended %+v, want refused", refused)
 	}
 }
@@ -116,11 +116,11 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 		t.Fatal(err)
 	}
 	source := nodeproto.BytesFile{
-		Root: root.Path(), Path: []byte("film.mkv"), Hash: hex.EncodeToString(identity.Hash[:]),
+		Root: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
 	}
 	commandFor := func(job int64, dir string) nodeproto.Command {
 		return nodeproto.Command{Seq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-			Job: job, Source: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir,
+			JobID: job, Source: source, Profile: nodeproto.ProfileRemux, RenditionDir: dir,
 		}}
 	}
 	// Two slow prepares fill both remux slots, so a third runs only once a cancel frees one.
@@ -131,9 +131,9 @@ func TestAgent_ACancelStopsARunningPrepareAtOnceAndNothingMoreIsReportedForIt(t 
 			t.Fatalf("a slow prepare's first report = %+v, want running", started)
 		}
 	}
-	core.commands <- nodeproto.Command{Seq: 3, Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{Job: 1}}
+	core.commands <- nodeproto.Command{Seq: 3, Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{JobID: 1}}
 	core.commands <- commandFor(4, "5/remux/0123456789abcdef")
-	if next := finalReport(t, core); next.Job != 4 || next.State != nodeproto.PrepareDone {
+	if next := finalReport(t, core); next.JobID != 4 || next.State != nodeproto.PrepareDone {
 		t.Errorf("the next final report = %+v, want job 4 done and nothing for the cancelled job 1", next)
 	}
 }
@@ -150,28 +150,28 @@ func TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := nodeproto.BytesFile{
-		Root: root.Path(), Path: []byte("film.mkv"), Hash: hex.EncodeToString(identity.Hash[:]),
+		Root: root.Path(), Path: []byte("film.mkv"), PayloadHash: hex.EncodeToString(identity.Hash[:]),
 	}
 	encode := func(job int64, dir string) nodeproto.Command {
 		return nodeproto.Command{Seq: job, Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-			Job: job, Source: source, Profile: nodeproto.ProfileH264At8M, RenditionDir: dir,
+			JobID: job, Source: source, Profile: nodeproto.ProfileH264At8M, RenditionDir: dir,
 		}}
 	}
 	// One encode slot: the first encode runs, the second waits for it.
 	core.commands <- encode(1, "3/h264-8m/slow")
-	if first := nextReport(t, core); first.Job != 1 || first.State != nodeproto.PrepareRunning {
+	if first := nextReport(t, core); first.JobID != 1 || first.State != nodeproto.PrepareRunning {
 		t.Fatalf("the first encode's report = %+v, want running", first)
 	}
 	core.commands <- encode(2, "4/h264-8m/0123456789abcdef")
-	if waiting := nextReport(t, core); waiting.Job != 2 || waiting.State != nodeproto.PrepareWaiting {
+	if waiting := nextReport(t, core); waiting.JobID != 2 || waiting.State != nodeproto.PrepareWaiting {
 		t.Fatalf("the second encode's report = %+v, want waiting, at once", waiting)
 	}
 	tick <- time.Time{}
-	if again := nextReport(t, core); again.Job != 2 || again.State != nodeproto.PrepareWaiting {
+	if again := nextReport(t, core); again.JobID != 2 || again.State != nodeproto.PrepareWaiting {
 		t.Errorf("at the next tick = %+v, want waiting again, so the core keeps waiting", again)
 	}
-	core.commands <- nodeproto.Command{Seq: 3, Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{Job: 1}}
-	if done := finalReport(t, core); done.Job != 2 || done.State != nodeproto.PrepareDone {
+	core.commands <- nodeproto.Command{Seq: 3, Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{JobID: 1}}
+	if done := finalReport(t, core); done.JobID != 2 || done.State != nodeproto.PrepareDone {
 		t.Errorf("once the slot is free = %+v, want the second encode done", done)
 	}
 }

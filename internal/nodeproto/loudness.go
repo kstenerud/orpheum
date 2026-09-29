@@ -11,40 +11,40 @@ const PathLoudness = "/node/v1/loudness"
 
 // MeasureLoudness is one video whose audio tracks to measure, from one read of the file.
 type MeasureLoudness struct {
-	// Job names the core's job the answer belongs to.
-	Job int64 `json:"job"`
+	// JobID names the core's job the answer belongs to.
+	JobID int64 `json:"jobId"`
 	// Video is the file, named by payload hash and checked before FFmpeg reads it (D100).
 	Video BytesFile `json:"video"`
-	// Audio lists the tracks to measure.
-	Audio []LoudnessTrack `json:"audio"`
+	// Tracks lists the tracks to measure.
+	Tracks []LoudnessTrack `json:"tracks"`
 }
 
 // LoudnessTrack is one audio track to measure.
 type LoudnessTrack struct {
 	// StreamIndex is the track's stream index, as ffprobe numbers every stream.
 	StreamIndex int `json:"streamIndex"`
-	// Channels is the track's channel count: one with more than two is measured as it is and as
+	// ChannelCount is the track's channel count: one with more than two is measured as it is and as
 	// the standard stereo mix a prepare makes of it; one with two or fewer, as stereo alone.
-	Channels int `json:"channels"`
+	ChannelCount int `json:"channelCount"`
 }
 
 // Loudness is the node's answer: each track's measurements, or why there are none.
 type Loudness struct {
-	Job    int64           `json:"job"`
+	JobID  int64           `json:"jobId"`
 	Tracks []TrackLoudness `json:"tracks,omitempty"`
-	// Failed is FFmpeg's word that it could not measure the file: a fact about its bytes, which
+	// Failure is FFmpeg's word that it could not measure the file: a fact about its bytes, which
 	// measuring again would not change.
-	Failed string `json:"failed,omitempty"`
-	// Refused says why the node did not try: a source that changed since the scan, a node that
+	Failure string `json:"failure,omitempty"`
+	// Refusal says why the node did not try: a source that changed since the scan, a node that
 	// does not measure. It says nothing of the bytes.
-	Refused string `json:"refused,omitempty"`
+	Refusal string `json:"refusal,omitempty"`
 }
 
 // TrackLoudness is one track's measurements.
 type TrackLoudness struct {
 	StreamIndex int `json:"streamIndex"`
-	// Source is the track as it is, measured only when it has more than two channels.
-	Source *Measurement `json:"source,omitempty"`
+	// Multichannel is the track as it is, measured only when it has more than two channels.
+	Multichannel *Measurement `json:"multichannel,omitempty"`
 	// Stereo is the track as a stereo device hears it: the standard stereo mix of a track with
 	// more than two channels, else the track itself.
 	Stereo Measurement `json:"stereo"`

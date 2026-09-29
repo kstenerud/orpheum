@@ -54,7 +54,7 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		core.mutex.Lock()
 		core.hellos = append(core.hellos, hello)
 		core.mutex.Unlock()
-		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{NodeID: 7, ReportSeq: 40}); err != nil {
+		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{NodeID: 7, LastReportSeq: 40}); err != nil {
 			t.Error(err)
 		}
 	})
@@ -145,10 +145,10 @@ func (fakeScanner) Scan(_ context.Context, root *confine.MediaRoot, emit scan.Em
 type fakeArtwork struct{}
 
 func (fakeArtwork) Derive(_ context.Context, command nodeproto.Artwork) nodeproto.ArtworkResult {
-	reversed := slices.Clone(command.Source)
+	reversed := slices.Clone(command.SourceImage)
 	slices.Reverse(reversed)
 	return nodeproto.ArtworkResult{
-		Job: command.Job, Images: []nodeproto.ArtImage{{Size: nodeproto.PortraitS, Bytes: reversed}},
+		JobID: command.JobID, Images: []nodeproto.ArtImage{{SizeName: nodeproto.PortraitS, WebP: reversed}},
 	}
 }
 
@@ -206,7 +206,7 @@ func TestAgent_SaysHelloRunsAScanAndStreamsItsReportInNumberedOrder(t *testing.T
 	// it is written, not when the request ends.
 	tick <- time.Time{}
 	if status := receive(t, core); status.Type != nodeproto.RecordStatus || status.Seq != 43 ||
-		status.Status.Doing != "idle" {
+		status.Status.Activity != "idle" {
 		t.Errorf("heard %+v, want status #43, idle", status)
 	}
 	core.mutex.Lock()
@@ -259,12 +259,12 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 	core, socket := startFakeCore(t)
 	running(t, socket)
 	core.commands <- nodeproto.Command{Seq: 1, Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
-		Job: 12, Source: []byte("abc"), Shape: nodeproto.ShapePortrait,
-		Sizes: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+		JobID: 12, SourceImage: []byte("abc"), Shape: nodeproto.ShapePortrait,
+		SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 	}}
 	select {
 	case result := <-core.artwork:
-		if result.Job != 12 || len(result.Images) != 1 || string(result.Images[0].Bytes) != "cba" {
+		if result.JobID != 12 || len(result.Images) != 1 || string(result.Images[0].WebP) != "cba" {
 			t.Errorf("the core heard %+v", result)
 		}
 	case <-t.Context().Done():
@@ -286,8 +286,8 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 	answer := func(job int64, named string) nodeproto.ArtworkResult {
 		t.Helper()
 		core.commands <- nodeproto.Command{Seq: job, Type: nodeproto.CommandArtwork, Artwork: &nodeproto.Artwork{
-			Job: job, AbsolutePath: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
-			Sizes: []nodeproto.ArtSizeName{nodeproto.PortraitS},
+			JobID: job, AbsolutePath: &nodeproto.Path{Text: named}, Shape: nodeproto.ShapePortrait,
+			SizeNames: []nodeproto.ArtSizeName{nodeproto.PortraitS},
 		}}
 		select {
 		case result := <-core.artwork:
@@ -298,14 +298,14 @@ func TestAgent_ReadsAnImageBesideTheMediaOnlyUnderItsRoots(t *testing.T) {
 		}
 	}
 	sum := sha256.Sum256([]byte("xyz"))
-	if beside := answer(1, filepath.Join(root.Path(), "poster.jpg")); beside.Refused != "" ||
-		string(beside.Images[0].Bytes) != "zyx" || beside.SourceHash != hex.EncodeToString(sum[:]) {
+	if beside := answer(1, filepath.Join(root.Path(), "poster.jpg")); beside.Refusal != "" ||
+		string(beside.Images[0].WebP) != "zyx" || beside.SourceHash != hex.EncodeToString(sum[:]) {
 		t.Errorf("an image under the root: %+v; want it read, re-encoded and hashed", beside)
 	}
 	for job, named := range map[int64]string{
 		2: outside, 3: filepath.Join(root.Path(), "..", filepath.Base(filepath.Dir(outside)), "secret.jpg"),
 	} {
-		if refused := answer(job, named); refused.Refused == "" || len(refused.Images) != 0 {
+		if refused := answer(job, named); refused.Refusal == "" || len(refused.Images) != 0 {
 			t.Errorf("%s: %+v; a path outside the node's roots is refused", named, refused)
 		}
 	}
@@ -322,8 +322,8 @@ func TestStatus_CarriesWhatThePreparedDirectoryHolds(t *testing.T) {
 	usage := prepared.Usage{Bytes: 10, BudgetBytes: 100, DiskPercent: 50, MaxDiskPercent: 95}
 	node := New("/nowhere", nodeproto.Hello{Name: "local"}, nil, Workers{Keeper: keptUsage{usage}},
 		clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	got := node.status().Status.Prepared
-	want := nodeproto.PreparedUsage{Bytes: 10, BudgetBytes: 100, DiskPercent: 50, DiskLimitPercent: 95}
+	got := node.status().Status.PreparedUsage
+	want := nodeproto.PreparedUsage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}
 	if got == nil || *got != want {
 		t.Errorf("the status's prepared usage = %+v, want %+v (D217 §5)", got, want)
 	}

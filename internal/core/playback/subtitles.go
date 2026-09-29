@@ -287,9 +287,9 @@ func (service *Service) HandleSubtitle(ctx context.Context, job jobs.Job) error 
 	if err != nil {
 		return jobs.Permanent(err)
 	}
-	command := &nodeproto.ExtractSubtitle{Job: job.ID, Sidecar: &named}
+	command := &nodeproto.ExtractSubtitle{JobID: job.ID, Sidecar: &named}
 	if stream.StreamIndex != nil {
-		command = &nodeproto.ExtractSubtitle{Job: job.ID, Video: &named, StreamIndex: int(*stream.StreamIndex)}
+		command = &nodeproto.ExtractSubtitle{JobID: job.ID, Video: &named, StreamIndex: int(*stream.StreamIndex)}
 	}
 	return service.convert(ctx, job, stream.NodeID, command, textKey(stream.PayloadHash, stream.StreamIndex))
 }
@@ -309,8 +309,8 @@ func (service *Service) convert(
 	defer timer.Stop()
 	select {
 	case answer := <-answers:
-		if answer.Refused != "" {
-			failure := errors.New(answer.Refused)
+		if answer.Refusal != "" {
+			failure := errors.New(answer.Refusal)
 			return jobs.Permanent(errors.Join(failure, service.finishSubtitle(ctx, key, answer)))
 		}
 		return service.finishSubtitle(ctx, key, answer)
@@ -328,7 +328,7 @@ func (service *Service) convert(
 
 // cancelCommand tells a node to stop a job it is working on (cut-a §5.3).
 func cancelCommand(jobID int64) nodeproto.Command {
-	return nodeproto.Command{Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{Job: jobID}}
+	return nodeproto.Command{Type: nodeproto.CommandCancel, Cancel: &nodeproto.Cancel{JobID: jobID}}
 }
 
 // finishSubtitle keeps a node's answer: the text, or why there is none.
@@ -337,9 +337,9 @@ func (service *Service) finishSubtitle(
 ) error {
 	now := service.clock.Now().UnixMilli()
 	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		if answer.Refused != "" {
+		if answer.Refusal != "" {
 			return queries.SetSubtitleTextFailed(ctx, cachegen.SetSubtitleTextFailedParams{
-				Error: &answer.Refused, FinishedAt: &now, PayloadHash: key.PayloadHash, StreamIndex: key.StreamIndex,
+				Error: &answer.Refusal, FinishedAt: &now, PayloadHash: key.PayloadHash, StreamIndex: key.StreamIndex,
 			})
 		}
 		return queries.SetSubtitleTextComplete(ctx, cachegen.SetSubtitleTextCompleteParams{
@@ -355,5 +355,5 @@ func (service *Service) finishSubtitle(
 
 // Extracted takes a node's answer to an extract_subtitle command to the job waiting for it.
 func (service *Service) Extracted(ctx context.Context, nodeID int64, answer nodeproto.SubtitleText) {
-	service.subtitles.deliver(ctx, nodeID, answer.Job, answer)
+	service.subtitles.deliver(ctx, nodeID, answer.JobID, answer)
 }

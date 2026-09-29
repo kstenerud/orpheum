@@ -6,7 +6,8 @@ package nodeproto
 // logic on it.
 type RecordType string
 
-// The record types. Job records come with prepare (M3).
+// The record types. A job's progress and end are not records: each kind of job posts its own
+// answer to its own path (PathPrepare, PathSubtitle, PathLoudness, PathArtwork).
 const (
 	RecordStatus       RecordType = "status"
 	RecordScanBegin    RecordType = "scan_begin"
@@ -49,13 +50,13 @@ const (
 	SidecarImage SidecarKind = "image"
 )
 
-// Sidecar is a file beside the media that is not media: metadata or subtitles. The core files it
-// as attached to its video (schema.md, attached).
+// Sidecar is a file beside the media that is not media: an NFO, a subtitle or an image. The core
+// files it as attached to its video (schema.md, attached).
 type Sidecar struct {
-	Path    Path        `json:"path"`
-	Kind    SidecarKind `json:"kind"`
-	Size    int64       `json:"size"`
-	MtimeMs int64       `json:"mtimeMs"`
+	Path      Path        `json:"path"`
+	Kind      SidecarKind `json:"kind"`
+	SizeBytes int64       `json:"sizeBytes"`
+	MtimeMs   int64       `json:"mtimeMs"`
 	// Body is the file's bytes, for an NFO only, and bounded: a larger NFO is an error record.
 	Body []byte `json:"body,omitempty"`
 	// Identity is a subtitle's payload hash (D179): a text file is hashed whole, so a changed
@@ -67,19 +68,20 @@ type Sidecar struct {
 // boundary the walk crossed (D42). The core compares a scan's boundaries with the last complete
 // scan's, so a disk unplugged from a mount point inside a root removes nothing under it (D208).
 type Mount struct {
-	Path   Path   `json:"path"`
-	Device uint64 `json:"device"`
+	Path             Path   `json:"path"`
+	FilesystemDevice uint64 `json:"filesystemDevice"`
 }
 
 // Status is the node saying it is alive and what it is doing. The core marks a node silent when
 // none arrives for a while (cut-a §4, liveness); silence is only ever read as silence (D34).
 type Status struct {
-	ClockMs int64 `json:"clockMs"`
-	// Doing is what the node is busy with: "idle", or "scanning <root>".
-	Doing string `json:"doing"`
-	// Prepared is what the node's prepared directory holds against its budget, absent when the
+	// SentAt is when the node sent it, by the node's clock, in Unix milliseconds.
+	SentAt int64 `json:"sentAt"`
+	// Activity is what the node is busy with: "idle", or "scanning <root>".
+	Activity string `json:"activity"`
+	// PreparedUsage is what the node's prepared directory holds against its budget, absent when the
 	// node prepares nothing (D217 §5).
-	Prepared *PreparedUsage `json:"prepared,omitempty"`
+	PreparedUsage *PreparedUsage `json:"preparedUsage,omitempty"`
 	// Disks are the filesystems the node's roots and prepared directory are on (D225 §3).
 	Disks []Disk `json:"disks,omitempty"`
 }
@@ -89,7 +91,8 @@ type Disk struct {
 	// Path is the root or prepared directory it holds; several may share one filesystem.
 	Path       string `json:"path"`
 	TotalBytes int64  `json:"totalBytes"`
-	FreeBytes  int64  `json:"freeBytes"`
+	// AvailableBytes are what a user other than root can still write there.
+	AvailableBytes int64 `json:"availableBytes"`
 	// Failure says why the node could not measure it; the sizes are zero then.
 	Failure string `json:"failure,omitempty"`
 }
@@ -97,10 +100,10 @@ type Disk struct {
 // PreparedUsage is what a node's prepared directory holds, against its budget and its disk's
 // limit (D217 §5).
 type PreparedUsage struct {
-	Bytes            int64 `json:"bytes"`
-	BudgetBytes      int64 `json:"budgetBytes"`
-	DiskPercent      int   `json:"diskPercent"`
-	DiskLimitPercent int   `json:"diskLimitPercent"`
+	UsedBytes            int64 `json:"usedBytes"`
+	BudgetBytes          int64 `json:"budgetBytes"`
+	DiskUsedPercent      int   `json:"diskUsedPercent"`
+	DiskUsedLimitPercent int   `json:"diskUsedLimitPercent"`
 }
 
 // ScanBegin opens a scan of one media root. It carries the node's effective uid and gid, so a
@@ -109,12 +112,13 @@ type ScanBegin struct {
 	Root string `json:"root"`
 	UID  int    `json:"uid"`
 	GID  int    `json:"gid"`
-	// Device, MountPoint and ReadOnly are the root's filesystem facts as the scan starts (D42).
-	// The core compares them with the last complete scan's: an unplugged disk leaves the empty
-	// directory under its mount point, whose listing succeeds (D41, D208).
-	Device     uint64 `json:"device"`
-	MountPoint bool   `json:"mountPoint"`
-	ReadOnly   bool   `json:"readOnly"`
+	// FilesystemDevice, IsMountPoint and IsReadOnly are the root's filesystem facts as the scan
+	// starts (D42). The core compares the first two with the last complete scan's: an unplugged
+	// disk leaves the empty directory under its mount point, whose listing succeeds (D41, D208).
+	// IsReadOnly is reported for what the node sees; the core does not act on it yet.
+	FilesystemDevice uint64 `json:"filesystemDevice"`
+	IsMountPoint     bool   `json:"isMountPoint"`
+	IsReadOnly       bool   `json:"isReadOnly"`
 }
 
 // Path is a path as the filesystem gave it (D49): relative to its media root everywhere but
@@ -128,9 +132,9 @@ type Path struct {
 
 // Observed is a file the node enumerated, probed and hashed.
 type Observed struct {
-	Path    Path  `json:"path"`
-	Size    int64 `json:"size"`
-	MtimeMs int64 `json:"mtimeMs"`
+	Path      Path  `json:"path"`
+	SizeBytes int64 `json:"sizeBytes"`
+	MtimeMs   int64 `json:"mtimeMs"`
 	// Identity is the payload hash (D179): its scheme, what it was anchored on, the SHA-256 in
 	// hex and the payload's length.
 	Identity Identity `json:"identity"`
@@ -142,10 +146,10 @@ type Observed struct {
 
 // Identity is a file's payload identity (D179).
 type Identity struct {
-	Scheme        string `json:"scheme"`
-	Anchor        string `json:"anchor"`
-	Hash          string `json:"hash"`
-	PayloadLength int64  `json:"payloadLength"`
+	Scheme       string `json:"scheme"`
+	Anchor       string `json:"anchor"`
+	PayloadHash  string `json:"payloadHash"`
+	PayloadBytes int64  `json:"payloadBytes"`
 }
 
 // SkipRule names the rule that excluded a path (D40, D163). The set is closed.
@@ -202,32 +206,32 @@ const (
 )
 
 // Error is something the node could not read. Repeats of one code and scope in one directory
-// collapse into one record with a Count (D40).
+// collapse into one record, which counts its occurrences (D40).
 type Error struct {
-	Path        Path       `json:"path"`
-	Scope       ErrorScope `json:"scope"`
-	Code        ErrorCode  `json:"code"`
-	RepeatCount int        `json:"repeatCount"`
-	Raw         ErrorRaw   `json:"raw"`
+	Path            Path          `json:"path"`
+	Scope           ErrorScope    `json:"scope"`
+	Code            ErrorCode     `json:"code"`
+	OccurrenceCount int           `json:"occurrenceCount"`
+	Platform        PlatformError `json:"platform"`
 }
 
-// ErrorRaw is the platform's truth for a person diagnosing it: the error text and, where the
+// PlatformError is the platform's truth for a person diagnosing it: the error text and, where the
 // node could stat the path, its owner, group and mode (D163 §8).
-type ErrorRaw struct {
+type PlatformError struct {
 	Text     string `json:"text"`
 	OwnerUID int    `json:"ownerUid"`
 	GroupGID int    `json:"groupGid"`
-	Mode     string `json:"mode"`
+	ModeText string `json:"modeText"`
 }
 
 // ScanComplete closes a scan: the moment the core may apply removals in the regions no error
 // left unknown (D39, D40). A scan with errors is complete, and says how many.
 type ScanComplete struct {
-	Root     string `json:"root"`
-	Observed int    `json:"observed"`
-	Sidecars int    `json:"sidecars"`
-	Skipped  int    `json:"skipped"`
-	Errors   int    `json:"errors"`
-	// Stopped is true when the node stopped enumerating the root after too many errors.
-	Stopped bool `json:"stopped"`
+	Root          string `json:"root"`
+	ObservedCount int    `json:"observedCount"`
+	SidecarCount  int    `json:"sidecarCount"`
+	SkippedCount  int    `json:"skippedCount"`
+	ErrorCount    int    `json:"errorCount"`
+	// IsStoppedByErrors is true when the node stopped enumerating the root after too many errors.
+	IsStoppedByErrors bool `json:"isStoppedByErrors"`
 }

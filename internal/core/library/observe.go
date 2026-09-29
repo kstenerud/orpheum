@@ -136,8 +136,8 @@ func (work *batch) insert(ctx context.Context, scan *scanState, seen observation
 	observed, reason := seen.observed, notIdentifiedYet
 	id, err := work.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
 		LibraryID: scan.libraryID, NodeID: work.nodeID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key,
-		SizeBytes: &observed.Size, MtimeMs: &observed.MtimeMs, PayloadHash: seen.hash,
-		PayloadBytes: &observed.Identity.PayloadLength, Filing: filingUnidentified, FilingReason: &reason,
+		SizeBytes: &observed.SizeBytes, MtimeMs: &observed.MtimeMs, PayloadHash: seen.hash,
+		PayloadBytes: &observed.Identity.PayloadBytes, Filing: filingUnidentified, FilingReason: &reason,
 		Probe: &seen.probe, SeenAt: work.now, OpensubtitlesHash: seen.openSubtitlesHash,
 	})
 	if err != nil {
@@ -151,8 +151,9 @@ func (work *batch) insert(ctx context.Context, scan *scanState, seen observation
 func (work *batch) update(ctx context.Context, scan *scanState, id int64, seen observation) error {
 	observed, reason := seen.observed, notIdentifiedYet
 	err := work.queries.UpdateObservedFile(ctx, sqlcgen.UpdateObservedFileParams{
-		LibraryID: scan.libraryID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key, SizeBytes: &observed.Size,
-		MtimeMs: &observed.MtimeMs, PayloadHash: seen.hash, PayloadBytes: &observed.Identity.PayloadLength,
+		LibraryID: scan.libraryID, Path: seen.path, PathRaw: seen.raw, PathKey: seen.key,
+		SizeBytes: &observed.SizeBytes,
+		MtimeMs:   &observed.MtimeMs, PayloadHash: seen.hash, PayloadBytes: &observed.Identity.PayloadBytes,
 		UnidentifiedReason: &reason, Probe: &seen.probe, OpensubtitlesHash: seen.openSubtitlesHash, SeenAt: work.now,
 		ID: id,
 	})

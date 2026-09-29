@@ -38,25 +38,25 @@ func NewDeriver(runner *execx.Runner, timeout time.Duration) *Deriver {
 // for, each our own encode, or why none was made. The source is anyone's bytes; it reaches
 // FFmpeg on a pipe, never as a name, and only the pipe protocol is allowed.
 func (deriver *Deriver) Derive(ctx context.Context, command nodeproto.Artwork) nodeproto.ArtworkResult {
-	result := nodeproto.ArtworkResult{Job: command.Job, Images: []nodeproto.ArtImage{}}
-	width, height, err := deriver.dimensions(ctx, command.Source)
+	result := nodeproto.ArtworkResult{JobID: command.JobID, Images: []nodeproto.ArtImage{}}
+	width, height, err := deriver.dimensions(ctx, command.SourceImage)
 	switch {
 	case err != nil:
-		result.Refused = "not an image FFmpeg reads: " + err.Error()
+		result.Refusal = "not an image FFmpeg reads: " + err.Error()
 		return result
-	case int64(width)*int64(height) > command.MaxPixels:
-		result.Refused = fmt.Sprintf("%d×%d is over the limit of %d pixels", width, height, command.MaxPixels)
+	case int64(width)*int64(height) > command.MaxSourcePixels:
+		result.Refusal = fmt.Sprintf("%d×%d is over the limit of %d pixels", width, height, command.MaxSourcePixels)
 		return result
 	}
-	result.Width, result.Height = width, height
-	for _, size := range plan(command.Shape, command.Sizes, width, height) {
-		encoded, err := deriver.encode(ctx, command.Source, size.filter, command.Quality)
+	result.SourceWidth, result.SourceHeight = width, height
+	for _, size := range plan(command.Shape, command.SizeNames, width, height) {
+		encoded, err := deriver.encode(ctx, command.SourceImage, size.filter, command.WebPQuality)
 		if err != nil {
 			result.Images = []nodeproto.ArtImage{}
-			result.Refused = fmt.Sprintf("encoding %s: %v", size.name, err)
+			result.Refusal = fmt.Sprintf("encoding %s: %v", size.name, err)
 			return result
 		}
-		result.Images = append(result.Images, nodeproto.ArtImage{Size: size.name, Bytes: encoded})
+		result.Images = append(result.Images, nodeproto.ArtImage{SizeName: size.name, WebP: encoded})
 	}
 	return result
 }

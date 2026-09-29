@@ -112,7 +112,7 @@ func TestDoctor_SaysANodeRunsFFmpegWithoutAMechanismAndWhatWouldPutItThere(t *te
 			Mechanism: "landlock", Reason: "the kernel has Landlock, but it is not enabled at boot",
 			Remedy: "add landlock to the lsm= list",
 		},
-		{Mechanism: "seccomp", InForce: true},
+		{Mechanism: "seccomp", IsInForce: true},
 	}
 	found := harness.do(t, http.MethodGet, "/doctor", admin, nil)
 	want := `{"check":"FFmpeg confinement on node local","verdict":"warn",` +
@@ -121,7 +121,7 @@ func TestDoctor_SaysANodeRunsFFmpegWithoutAMechanismAndWhatWouldPutItThere(t *te
 	if found.status != http.StatusOK || !strings.Contains(found.body, want) {
 		t.Errorf("doctor = %d %s, want the missing mechanism and its remedy (D112)", found.status, found.body)
 	}
-	harness.nodes.confinement[0].InForce = true
+	harness.nodes.confinement[0].IsInForce = true
 	if confined := harness.do(t, http.MethodGet, "/doctor", admin, nil); !strings.Contains(confined.body,
 		`{"check":"FFmpeg confinement on node local","verdict":"ok"`) {
 		t.Errorf("doctor with both in force = %s, want ok", confined.body)
@@ -134,7 +134,7 @@ func TestDoctor_ShowsEachNodesPreparedCopiesAgainstTheirBudgetAndWarnsPastTheDis
 	admin := harness.createAdminAndSignIn(t)
 	harness.connectNode(t, "/media/films")
 	harness.nodes.prepared = &nodeproto.PreparedUsage{
-		Bytes: 3 << 30, BudgetBytes: 200 << 30, DiskPercent: 40, DiskLimitPercent: 95,
+		UsedBytes: 3 << 30, BudgetBytes: 200 << 30, DiskUsedPercent: 40, DiskUsedLimitPercent: 95,
 	}
 	within := harness.do(t, http.MethodGet, "/doctor", admin, nil)
 	want := `{"check":"prepared copies on node local","verdict":"ok","detail":"3.0 GiB of a 200 GiB budget; ` +
@@ -142,7 +142,7 @@ func TestDoctor_ShowsEachNodesPreparedCopiesAgainstTheirBudgetAndWarnsPastTheDis
 	if !strings.Contains(within.body, want) {
 		t.Errorf("doctor = %s, want the node's prepared copies against their budget (D217 §5)", within.body)
 	}
-	harness.nodes.prepared.DiskPercent = 97
+	harness.nodes.prepared.DiskUsedPercent = 97
 	if past := harness.do(t, http.MethodGet, "/doctor", admin, nil); !strings.Contains(past.body,
 		`{"check":"prepared copies on node local","verdict":"warn"`) {
 		t.Errorf("doctor with the disk past its limit = %s, want a warning", past.body)
