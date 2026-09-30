@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import branch_base as bb  # noqa: E402
 import check_revert_red as rr  # noqa: E402
 import check_test_weakening as tw  # noqa: E402
+import revert_red_cosmetic as cosmetic  # noqa: E402
 import revert_red_units as units  # noqa: E402
 from gitrepo import Repo, mock_argv  # noqa: E402
 
@@ -286,6 +287,47 @@ class RevertRedClaims(unittest.TestCase):
             rows = rr.unprobed(base, "HEAD", owed)
         self.assertEqual([(o.path, o.verdict) for o in rows], [("dev/seed.toml", "UNCHECKED")])
         self.assertIn("no probe for this kind of file (.toml)", rows[0].detail)
+
+
+class RevertRedDocTags(unittest.TestCase):
+    """A struct tag's doc text is the API document's prose: rewording it is cosmetic, nothing else is."""
+
+    PATH = "internal/api/nodes.go"
+    BEFORE = ("package api\n\ntype NodeBody struct {\n"
+              "\tName        string `json:\"name\"`\n"
+              "\tIsConnected bool   `doc:\"Whether it said hello\" json:\"isConnected\"`\n"
+              "}\n\nfunc tag() string {\n\treturn `doc:\"a\"`\n}\n")
+
+    def changed(self, old: str, new: str) -> str:
+        assert old in self.BEFORE, old
+        return self.BEFORE.replace(old, new)
+
+    def test_only_the_doc_text_and_comments_changing_is_cosmetic(self):
+        reworded = self.changed('doc:"Whether it said hello" json:"isConnected"`',
+                                'doc:"Whether it is \\"connected\\" now" json:"isConnected"` '
+                                '//nolint:lll // one struct tag')
+        self.assertTrue(cosmetic.same_but_doc_text(self.BEFORE, reworded))
+
+    def test_anything_else_in_the_tag_or_the_code_is_not(self):
+        for old, new in (
+            ('json:"isConnected"', 'json:"connected"'),
+            ('json:"isConnected"`', 'json:"isConnected" pattern:"x"`'),
+            ('`doc:"Whether it said hello" ', '`'),
+            ('`json:"name"`', '`doc:"x" json:"name"`'),
+            ('bool   `doc', 'int    `doc'),
+            ('return `doc:"a"`', 'return `doc:"b"`'),
+        ):
+            with self.subTest(new=new):
+                self.assertFalse(cosmetic.same_but_doc_text(self.BEFORE, self.changed(old, new)))
+
+    def test_revert_red_reports_a_doc_text_change_as_cosmetic_and_a_block_comment_declines(self):
+        for extra, expected in (("", True), ("/* a block comment */\n", False)):
+            repo = Repo({self.PATH: self.BEFORE + extra})
+            base = repo.commit("chore: base")
+            repo.commit("fix(api): say what connected means\n\nIt said hello.",
+                        {self.PATH: self.changed("said hello", "is connected now") + extra})
+            with self.subTest(extra=extra), repo.cwd():
+                self.assertEqual(cosmetic.is_cosmetic(str(repo.root), base, "HEAD", self.PATH), expected)
 
 
 if __name__ == "__main__":
