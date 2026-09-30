@@ -739,10 +739,13 @@ def probe_all(args: argparse.Namespace, owed: list[Change], exempt: int, jobs: i
     if all(o.verdict == "NO_RUNNER" for o in failures):
         return 1
     print(
-        "\nEach file above changed, and reverting it broke nothing. One of three things\n"
+        "\nEach file above changed, and reverting it broke nothing. One of four things\n"
         "is true, and only you can say which:\n\n"
         "  - it needs a test that fails when the change is undone (D190);\n"
         "  - the commit that touched it is mislabelled, and is not `feat`/`fix`/`perf`;\n"
+        "  - its part of a behaviour commit was only a refactor. Say so with a\n"
+        "    `Refactor-Only: <path> — <why>` trailer on a commit that touches it, and\n"
+        "    keep the next refactor in a commit of its own;\n"
         "  - it genuinely cannot go red in this suite — a lab-only symptom, a\n"
         "    device-only symptom. Then add a VQ<n> item to\n"
         "    docs/contributors/verification-queue.md, do it, tick it, and name it in a\n"
