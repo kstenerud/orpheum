@@ -18,8 +18,9 @@ type Art struct {
 	StillSha256    string
 }
 
-// shownArtSourceSha256s is the image of a kind each item shows, by its source SHA-256 in hex: a
-// person's choice, else the newest stored.
+// shownArtSourceSha256s is the image of a kind each item shows, by its source SHA-256 in hex, in
+// ListShownArtwork's order: a person's choice; then an image from the source the item's library
+// prefers, one beside the media unless the library takes TMDB only (D215); then the newest stored.
 func (browser *Browser) shownArtSourceSha256s(
 	ctx context.Context, kind string, itemIDs []int64,
 ) (map[int64]string, error) {
