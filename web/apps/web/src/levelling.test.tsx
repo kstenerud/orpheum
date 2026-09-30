@@ -10,7 +10,7 @@ import {
   addedGainDb,
   LevelSwitch,
   levelNote,
-  startingSoundLevel,
+  soundLevelOf,
   type SoundLevel,
 } from "./levelling.tsx";
 import { click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
@@ -36,31 +36,35 @@ describe("levelling a film's loudness (D226)", () => {
     expect(addedGainDb(unmeasured, true)).toBe(0);
   });
 
-  it("levels a prepared copy by its first mix, and the original by its main track", () => {
-    const direct: Parameters<typeof startingSoundLevel>[0] = {
+  it("levels a prepared copy by the playing track's mix, and the original by its main track", () => {
+    const direct: Parameters<typeof soundLevelOf>[0] = {
       delivery: "direct",
       levelling: { isMeasured: true, gainDb: -4.2 },
     };
-    expect(startingSoundLevel(direct)).toEqual({
+    expect(soundLevelOf(direct, undefined)).toEqual({
       levelling: { isMeasured: true, gainDb: -4.2 },
       carriedGainDb: 0,
     });
-    const hls: Parameters<typeof startingSoundLevel>[0] = {
+    const mix = (audioTrackIndex: number, gainDb: number, isDialogueBoosted = false) => ({
+      audioTrackIndex,
+      language: "en",
+      isDialogueBoosted,
+      levelling: { isMeasured: true, gainDb },
+      carriedGainDb: gainDb,
+    });
+    const hls: Parameters<typeof soundLevelOf>[0] = {
       delivery: "hls",
       levelling: { isMeasured: true, gainDb: 1 },
-      audioRenditions: [
-        {
-          audioTrackIndex: 0,
-          language: "en",
-          isDialogueBoosted: false,
-          levelling: { isMeasured: true, gainDb: 5 },
-          carriedGainDb: 5,
-        },
-      ],
+      audioRenditions: [mix(0, 5), mix(0, 9, true), mix(1, 3)],
     };
-    expect(startingSoundLevel(hls)).toEqual({
+    expect(soundLevelOf(hls, 0)).toEqual({
       levelling: { isMeasured: true, gainDb: 5 },
       carriedGainDb: 5,
+    });
+    // Another track chosen is levelled by its own mix (D230 §5).
+    expect(soundLevelOf(hls, 1)).toEqual({
+      levelling: { isMeasured: true, gainDb: 3 },
+      carriedGainDb: 3,
     });
   });
 

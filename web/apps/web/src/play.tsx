@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, type JSX, type RefObject, type SyntheticEv
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
+import { AudioMenu, mixIndices, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
@@ -21,7 +22,7 @@ import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { Subtitles } from "./subtitles.tsx";
 import { camelKey } from "./catalogue-key.ts";
-import { LevelSwitch, startingSoundLevel } from "./levelling.tsx";
+import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
@@ -44,7 +45,11 @@ export async function requestPlayback(
   );
 }
 
-/** A decision, shown: the original playing, or a prepared copy and why. The reason is always on screen (D188). */
+/**
+ * A decision, shown: the original playing, or a prepared copy and why. The reason is always on
+ * screen (D188). Another audio track chosen in the original asks for the decision again, which
+ * prepares a copy, since a browser plays the original's first (D230 §5).
+ */
 export function PlayView(props: {
   readonly fileId: number;
   readonly decision: PlaybackDecision;
@@ -65,11 +70,17 @@ type PlayProps = Parameters<typeof PlayView>[0];
 
 /**
  * What sits under a playing video: "Start over", the subtitle menu and offset for the decision's
- * tracks, finding subtitles, the device's sound and levelling. It keeps the playback's play state on the server, starting where the person
- * left the file.
+ * tracks, finding subtitles, the audio track, the device's sound and levelling. It keeps the
+ * playback's play state on the server, starting where the person left the file. A chosen audio
+ * track is kept for the person, and onAudioChosen() plays it.
  */
 function UnderTheVideo(
-  props: PlayProps & { readonly videoRef: RefObject<HTMLVideoElement | null> },
+  props: PlayProps & {
+    readonly videoRef: RefObject<HTMLVideoElement | null>;
+    readonly onAudioChosen: (track: AudioTrack) => void;
+    /** The sound playing now, which levelling levels. */
+    readonly level: SoundLevel;
+  },
 ): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
@@ -98,11 +109,12 @@ function UnderTheVideo(
         videoRef={props.videoRef}
       />
       <FindSubtitles fileId={props.fileId} onFetched={props.onDecideAgain} />
+      <AudioMenu fileId={props.fileId} decision={props.decision} onChosen={props.onAudioChosen} />
       {props.decision.audioOutput === undefined ? null : (
         <SoundLine current={props.decision.audioOutput} onChanged={props.onDecideAgain} />
       )}
       <LevelSwitch
-        level={startingSoundLevel(props.decision)}
+        level={props.level}
         isInitiallyOn={props.decision.preferences.isLevellingOn}
         videoRef={props.videoRef}
       />
@@ -110,36 +122,42 @@ function UnderTheVideo(
   );
 }
 
-/** Where a track's standard and boosted mixes are among a rendition's audio, for its first track. */
-export function boostMixIndices(
-  decision: PlaybackDecision,
-): { standard: number; boosted: number } | undefined {
-  const audio = decision.audioRenditions ?? [];
-  const first = audio[0];
-  if (first === undefined) {
-    return undefined;
-  }
-  const standard = audio.findIndex(
-    (mix) => mix.audioTrackIndex === first.audioTrackIndex && !mix.isDialogueBoosted,
-  );
-  const boosted = audio.findIndex(
-    (mix) => mix.audioTrackIndex === first.audioTrackIndex && mix.isDialogueBoosted,
-  );
-  return standard < 0 || boosted < 0 ? undefined : { standard, boosted };
+/**
+ * The audio rendition that plays a track of a prepared copy: its boosted mix when the boost is on
+ * and it has one, else its standard mix; undefined when the copy has no such track.
+ */
+export function audioRenditionIndex(
+  decision: Pick<PlaybackDecision, "audioRenditions">,
+  audioTrackIndex: number,
+  isBoostOn: boolean,
+): number | undefined {
+  const mixes = mixIndices(decision, audioTrackIndex);
+  return isBoostOn && mixes?.boosted !== undefined ? mixes.boosted : mixes?.standard;
 }
 
 /**
- * A prepared copy, playing: it waits while the copy's first part is made, then plays it, with a
- * switch for the dialogue boost where the sound has a centre to raise (D217 §3).
+ * A prepared copy, playing: it waits while the copy's first part is made, then plays it, starting
+ * with the audio track the playback starts with, with a switch for the dialogue boost where that
+ * track has a centre to raise (D217 §3). Another track chosen plays at once (D23).
  */
 function PreparedVideo(props: PlayProps): JSX.Element {
   const { t } = useTranslation();
   const { decision } = props;
-  const boostMixes = boostMixIndices(decision);
-  const { videoRef, playbackRef, isWaiting, failure } = usePreparedPlayback(
-    decision,
-    decision.preferences.isDialogueBoostOn ? boostMixes?.boosted : undefined,
+  const [audioTrackIndex, setAudioTrackIndex] = useState(
+    () => startingAudioTrack(decision)?.audioTrackIndex ?? 0,
   );
+  const [isBoostOn, setIsBoostOn] = useState(decision.preferences.isDialogueBoostOn);
+  const [startIndex] = useState(() =>
+    audioRenditionIndex(decision, audioTrackIndex, decision.preferences.isDialogueBoostOn),
+  );
+  const { videoRef, playbackRef, isWaiting, failure } = usePreparedPlayback(decision, startIndex);
+  const boostMixes = mixIndices(decision, audioTrackIndex);
+  const play = (trackIndex: number, isBoosted: boolean): void => {
+    const index = audioRenditionIndex(decision, trackIndex, isBoosted);
+    if (index !== undefined) {
+      playbackRef.current?.setAudioRendition(index);
+    }
+  };
   const reasons = (decision.notDirectReasons ?? [])
     .map((reason) => t(`play.reason.${camelKey(reason)}`))
     .join(", ");
@@ -149,17 +167,26 @@ function PreparedVideo(props: PlayProps): JSX.Element {
         {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- JASSUB draws the subtitles over the video, not a <track> (cut-a §6) */}
         <video className="play__video" ref={videoRef} controls autoPlay playsInline />
       </div>
-      <UnderTheVideo {...props} videoRef={videoRef} />
+      <UnderTheVideo
+        {...props}
+        videoRef={videoRef}
+        level={soundLevelOf(decision, audioTrackIndex)}
+        onAudioChosen={(track) => {
+          setAudioTrackIndex(track.audioTrackIndex);
+          play(track.audioTrackIndex, isBoostOn);
+        }}
+      />
       <p className="play__reason">{t("play.prepared", { reasons })}</p>
       {isWaiting && failure === undefined ? <p>{t("play.preparing")}</p> : null}
       {failure === undefined ? null : (
         <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
       )}
-      {boostMixes === undefined ? null : (
+      {boostMixes?.boosted === undefined ? null : (
         <BoostSwitch
-          isInitiallyOn={decision.preferences.isDialogueBoostOn}
+          isInitiallyOn={isBoostOn}
           onSwitched={(isOn) => {
-            playbackRef.current?.setAudioRendition(isOn ? boostMixes.boosted : boostMixes.standard);
+            setIsBoostOn(isOn);
+            play(audioTrackIndex, isOn);
           }}
         />
       )}
@@ -240,7 +267,12 @@ function DirectVideo(props: PlayProps): JSX.Element {
           onError={showMediaError}
         />
       </div>
-      <UnderTheVideo {...props} videoRef={videoRef} />
+      <UnderTheVideo
+        {...props}
+        videoRef={videoRef}
+        level={soundLevelOf(props.decision, undefined)}
+        onAudioChosen={props.onDecideAgain}
+      />
       {failure === undefined ? (
         <p className="play__reason">{t("play.direct")}</p>
       ) : (

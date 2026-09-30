@@ -214,6 +214,12 @@ export const en = {
     },
     startOver: "Start over",
     positionNotKept: "Where you are is no longer being kept for next time. {{reason}}",
+    audio: {
+      label: "Sound",
+      unknownLanguage: "Unknown language",
+      commentary: "commentary",
+      described: "described for the blind and partially sighted",
+    },
     subtitles: {
       label: "Subtitles",
       off: "Off",
@@ -262,6 +268,7 @@ export const en = {
       bandwidth: "it is too large for the connection",
       dialogueBoost:
         "this device plays stereo, so its surround sound is mixed here and the dialogue boost can act",
+      audioTrack: "the sound you chose is not the one the file plays first",
       userChoice: "you asked for it to be prepared",
     },
   },

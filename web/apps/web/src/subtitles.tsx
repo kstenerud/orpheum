@@ -85,8 +85,9 @@ export async function keepOffset(
 export type FilePreferences = components["schemas"]["PlaybackPreferencesBody"];
 
 /**
- * Keeps a subtitle choice as the file's own: a track, or off when key is undefined. The server
- * carries it to the work's other files that have no choice of their own (D219).
+ * Keeps a subtitle choice in a file: a track, or off when key is undefined. The file plays with it
+ * again, and its language, or off, is the person's last choice in the file's work, which the work's
+ * unwatched files start with (D230).
  */
 export async function keepSubtitleChoice(
   api: Api,
@@ -110,7 +111,7 @@ export async function keepSubtitleChoice(
   );
 }
 
-/** The track a playback starts with: the file's choice when it names one of its tracks, else none. */
+/** The track a playback starts with: the server's when it names one of the file's tracks, else none. */
 export function startingTrackKey(
   preferences: FilePreferences,
   tracks: readonly SubtitleTrack[],
