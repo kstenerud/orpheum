@@ -95,12 +95,6 @@ RETURNING id;
 -- name: MoveVersionToTitle :exec
 UPDATE version SET title_id = sqlc.arg(title_id) WHERE id = sqlc.arg(id);
 
--- name: SetFileVersionAndIdentifiedPath :exec
-UPDATE file SET version_id = sqlc.arg(version_id), identified_from_path = path WHERE id = sqlc.arg(id);
-
--- name: SetFileFiling :exec
-UPDATE file SET filing = sqlc.arg(filing), filing_reason = sqlc.arg(filing_reason) WHERE id = sqlc.arg(id);
-
 -- name: ListOverrides :many
 SELECT field, override_value FROM field_override WHERE item_id = ? AND language = '' ORDER BY field;
 

@@ -124,7 +124,8 @@
 //     stored match says to it; text.go: how the pass writes a name, and sortkeys.go: keying and
 //     folding every name again when the sort locale, the collation or the fold changes;
 //     localart.go: the images beside the media; artwork.go: the images an item's source names
-//     that are owed; vocabulary.go: the schema's closed sets.
+//     that are owed, and RecordImage, through which the artwork service records what it stored
+//     (this package writes the artwork table, schema.md); vocabulary.go: the schema's closed sets.
 //   - provider.go: the provider interface; cleaned.go: cleaning every provider answer where it
 //     enters. match.go: the matcher and the fetch_metadata job's handler; match_series.go: a series' match
 //     and its season listings. series.go: a series in the pass. refresh.go: a person's refresh and

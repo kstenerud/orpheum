@@ -363,8 +363,8 @@ func (service *Service) recordRefusal(ctx context.Context, want wantedImage, why
 	return service.record(ctx, want, nil)
 }
 
-// record writes the item's artwork row; a stored image replaces the source's earlier one of its
-// kind, never a person's choice.
+// record records the item's image through identify, which writes the artwork table; a stored image
+// replaces the source's earlier one of its kind, never a person's choice.
 func (service *Service) record(ctx context.Context, want wantedImage, sourceSha256 []byte) error {
 	err := service.parts.Database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		_, err := store.OrNotFound(queries.GetItemKind(ctx, want.itemID))
@@ -374,17 +374,11 @@ func (service *Service) record(ctx context.Context, want wantedImage, sourceSha2
 		if err != nil {
 			return fmt.Errorf("read item %d: %w", want.itemID, err)
 		}
-		id, err := queries.InsertArtwork(ctx, sqlcgen.InsertArtworkParams{
-			ItemID: want.itemID, Kind: want.ref.Kind, Source: want.source, SourceRef: &want.ref.SourceRef,
-			SourceSha256: sourceSha256,
-		})
-		if err != nil || sourceSha256 == nil {
-			return err
+		image := identify.ItemImage{
+			ItemID: want.itemID, Source: want.source, SourceSha256: sourceSha256,
+			Ref: identify.ArtRef{Kind: want.ref.Kind, Ref: want.ref.SourceRef},
 		}
-		return queries.RetireReplacedArtwork(ctx, sqlcgen.RetireReplacedArtworkParams{
-			RemovedAt: new(service.parts.Clock.Now().UnixMilli()), ItemID: want.itemID, Kind: want.ref.Kind,
-			Source: want.source, KeepID: id,
-		})
+		return identify.RecordImage(ctx, queries, image, service.parts.Clock.Now().UnixMilli())
 	})
 	if err != nil {
 		return fmt.Errorf("record item %d's %s: %w", want.itemID, want.ref.Kind, err)

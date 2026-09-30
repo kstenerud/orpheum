@@ -403,8 +403,7 @@ func refile(ctx context.Context, queries *sqlcgen.Queries, titleID int64, identi
 		reason = ""
 	}
 	for _, file := range files {
-		params := sqlcgen.SetFileFilingParams{Filing: filing, FilingReason: ptr.NilIfZero(reason), ID: file.ID}
-		err := queries.SetFileFiling(ctx, params)
+		err := library.FileAs(ctx, queries, file.ID, filing, reason)
 		if err != nil {
 			return fmt.Errorf("file %s: %w", file.Path, err)
 		}
