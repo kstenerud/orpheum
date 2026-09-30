@@ -17307,11 +17307,11 @@ pass missed it.
 9. **Compatibility** (O8, from M4). The hello carries a protocol number; a node whose number the
    core cannot serve is parked with that reason, and an unknown command is refused explicitly.
 
-**Status:** Decided 2026-09-30.
+**Status:** Decided 2026-09-30. Since 2026-09-30, §3, §5 and §7 are revised by D234.
 
 ## D234 — The core drives the node: the node keeps a durable journal of its jobs and schedules them, pushes progress and acknowledged results, and the core checks and reconciles
 
-**Proposed** (2026-09-30), from the owner's model of the link, for the owner's review. It revises
+**Decided** (2026-09-30), by the project owner, from their own model of the link. It revises
 D233 §3, §5 and §7 and keeps the rest. The discussion and the comparison with practice are
 [node-link-2026-09-30](../design/research/node-link-2026-09-30.md).
 
@@ -17336,6 +17336,12 @@ D233 §3, §5 and §7 and keeps the rest. The discussion and the comparison with
    what it cannot as one of D233 §6's three failure sources. A job running when the node restarted
    is run again or reported interrupted. A node whose disk is full refuses new work, with its
    reason. Its own hang is the service manager's to restart.
+   **It heals itself by design.** The owner: *"We must assume that eventually something will
+   break, so it should be self-healing by design (but of course still report when invariants like
+   this are violated)."* The core keeps its own model of what each node should hold; a job the node
+   has lost, for whatever reason, shows as a difference at the next check, and the core issues a
+   replacement to reach the state it wants. Each such difference is also reported as a broken
+   invariant (logged, and counted where D233 §8's queue health shows it), never repaired silently.
 5. **Progress is pushed, results are acknowledged.** While a job runs the node sends best-effort
    updates of where it is, throttled, the newest superseding the rest, no acknowledgement. When it
    ends the node sends its outcome: the result inline when small, a reference when large (always
@@ -17359,4 +17365,4 @@ D233 §3, §5 and §7 and keeps the rest. The discussion and the comparison with
     core lease becomes the expectation of updates; D233 §7's claiming by slots becomes the node's
     own scheduling within the core's window. D233 §2, §4, §6, §8 and §9 stand.
 
-**Status:** Proposed 2026-09-30; the owner has not yet decided it.
+**Status:** Decided 2026-09-30; to be built as the jobs rebuild's Phase 4.
