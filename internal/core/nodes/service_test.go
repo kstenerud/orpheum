@@ -423,6 +423,10 @@ func TestArtwork_AnAnswerReachesTheArtworkSinkFromAKnownNodeOnly(t *testing.T) {
 	if connected, found := harness.service.ConnectedNodeID(t.Context()); !found || connected != reply.NodeID {
 		t.Errorf("Connected = %d, %v; want the node", connected, found)
 	}
+	ctx := t.Context()
+	if !harness.service.IsConnected(ctx, reply.NodeID) || harness.service.IsConnected(ctx, reply.NodeID+1) {
+		t.Error("IsConnected does not tell the node that said hello from one that did not")
+	}
 }
 
 func TestHello_KeepsWhatTheNodeSaidAboutItsConfinement(t *testing.T) {
