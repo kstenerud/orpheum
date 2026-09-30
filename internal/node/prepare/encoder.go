@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
@@ -30,8 +31,9 @@ func hardwareEncoders() []Encoder { return []Encoder{EncoderQuickSync, EncoderNV
 func (encoder Encoder) UsesGPU() bool { return encoder != EncoderX264 }
 
 // encodeArguments are the encoder's video arguments: 8-bit H.264 at about 8 Mb/s, the high profile,
-// and a keyframe every two seconds, however it is made (cut-a §6).
-func (encoder Encoder) encodeArguments() []string {
+// and a keyframe every segment length, however it is made (cut-a §6): an HLS segment can be cut
+// only at a keyframe, so keyframes further apart, or out of step, make segments of another length.
+func (encoder Encoder) encodeArguments(segmentLengthSeconds int) []string {
 	codec, preset, pixelFormat, extra := "libx264", "veryfast", "yuv420p", []string(nil)
 	switch encoder {
 	case EncoderQuickSync:
@@ -42,7 +44,8 @@ func (encoder Encoder) encodeArguments() []string {
 	}
 	return append([]string{
 		"-c:v", codec, "-preset", preset, "-profile:v", "high", "-pix_fmt", pixelFormat,
-		"-b:v", "8M", "-maxrate", "10M", "-bufsize", "16M", "-force_key_frames", "expr:gte(t,n_forced*2)",
+		"-b:v", "8M", "-maxrate", "10M", "-bufsize", "16M",
+		"-force_key_frames", "expr:gte(t,n_forced*" + strconv.Itoa(segmentLengthSeconds) + ")",
 	}, extra...)
 }
 
@@ -102,7 +105,7 @@ func tryEncoder(ctx context.Context, runner TrialRunner, encoder Encoder) error 
 	defer cancel()
 	arguments := append([]string{
 		"-v", "error", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=25:duration=1",
-	}, encoder.encodeArguments()...)
+	}, encoder.encodeArguments(defaultSegmentLengthSeconds)...)
 	arguments = append(arguments, "-f", "null", "-")
 	err := runner.RunStreaming(ctx, execx.FFmpeg, confine.Access{UsesGPU: true}, arguments, io.Discard)
 	if err != nil {

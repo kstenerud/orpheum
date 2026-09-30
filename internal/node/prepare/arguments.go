@@ -101,7 +101,7 @@ func videoArguments(command nodeproto.Prepare, encoder Encoder) []string {
 		}
 		return []string{codecFlag, videoCopied}
 	}
-	return encoder.encodeArguments()
+	return encoder.encodeArguments(segmentLengthSeconds(command.SegmentLengthSeconds))
 }
 
 // segmentLengthSeconds is the segment length asked for, or the default when it is out of bounds.
