@@ -14,7 +14,7 @@
 # paths), so `docker build -f deploy/dev.Containerfile .` from the root builds the same image.
 #
 # Every pin is written once. Go's version follows go.mod's `go` line and Node's major follows the
-# Makefile's NODE_MAJOR; scripts/tests/test_dev_launcher.py fails when either drifts. The gate
+# Makefile's NODE_MAJOR; scripts/tests/test_dev_image.py fails when either drifts. The gate
 # tools' versions stay in the Makefile and are installed by its own `make tools` targets. Debian
 # packages are verified by apt's signed archive, not pinned by version.
 

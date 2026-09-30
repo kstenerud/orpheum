@@ -138,3 +138,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   `mediastreamvalidator master.m3u8` in it. Passes when it reports no errors (cut-a §8, M3's
   acceptance: `mediastreamvalidator` passes on a prepared rendition).
   (`internal/node/prepare/arguments.go`)
+- [ ] **VQ16** — On devnas (Debian trixie), as your own user: install Docker Engine from Docker's
+  Debian repository and add yourself to the `docker` group, clone the repository, and run `./dev
+  make check`. Passes when the first run builds the development image (`deploy/dev.Containerfile`)
+  without an error and the gate passes inside it. Then run `ORPHEUM_DEV_PUBLISH=0.0.0.0 ./dev make
+  dev` and open `http://<devnas's LAN address>:5173` from another machine's browser: passes when the
+  dev library appears and a title plays. Also check that nothing but the clone changed on the host:
+  `docker volume ls` shows the `orpheum-dev-*` volumes, and no Go, Node or FFmpeg was installed
+  outside Docker. The launcher and the image were written in a sandbox without a container engine
+  and have never been built or run
+  ([D235](decisions/working-notes.md#d235--development-and-deployment-run-in-containers-one-image-family-one-command-each-built-by-goreleaser)
+  §3). (`./dev`, `deploy/dev.Containerfile`)
