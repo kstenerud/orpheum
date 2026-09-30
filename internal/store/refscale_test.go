@@ -106,7 +106,7 @@ func (filler *referenceScaleFiller) insertVideo(titleID, libraryID int64, path s
 		`"streams":[{"codec_name":"hevc","width":3840,"height":2160},{"codec_name":"truehd","channels":8},`+
 		`{"codec_name":"eac3","channels":6},{"codec_name":"subrip"}],"chapters":%q}`,
 		5400+filler.random.IntN(3600), 20_000_000+filler.random.IntN(40_000_000), filler.words(40), filler.words(70))
-	filler.exec(`INSERT INTO file (id, library_id, node_id, path, reported_path_bytes, size_bytes, modified_at,
+	filler.exec(`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, modified_at,
 		payload_hash, payload_bytes, filing, probe_json, version_id, first_seen_at, last_seen_at)
 		VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, 'listed', ?, ?, ?, ?)`,
 		filler.fileID, libraryID, path, []byte(path), 20_000_000_000, filler.now, filler.bytes(32), 19_000_000_000,
@@ -145,8 +145,8 @@ func (filler *referenceScaleFiller) insertProviderData(itemID int64, kind string
 	filler.exec("INSERT INTO item_provider_id (item_id, provider, provider_id) VALUES (?, 'tmdb', ?), (?, 'imdb', ?)",
 		itemID, fmt.Sprint(index), itemID, fmt.Sprintf("tt%07d", index))
 	if kind == "movie" {
-		filler.exec("INSERT INTO provider_response (item_id, provider, fetched_at, body_gzip) VALUES (?, 'tmdb', ?, ?)",
-			itemID, filler.now, filler.bytes(2_000))
+		filler.exec("INSERT INTO provider_response (item_id, provider, fetched_at, last_asked_at, body_gzip) "+
+			"VALUES (?, 'tmdb', ?, ?, ?)", itemID, filler.now, filler.now, filler.bytes(2_000))
 	}
 }
 
