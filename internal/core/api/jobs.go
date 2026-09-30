@@ -35,9 +35,9 @@ func (JobKind) Schema(huma.Registry) *huma.Schema {
 type JobBody struct {
 	ID   int64   `json:"id"`
 	Kind JobKind `json:"kind"`
-	// What it works on, one field by kind (D227 §2): an item for fetch and artwork, a rendition
-	// for prepare, a stream for extract_subtitle, a fetched subtitle for convert_fetched_subtitle,
-	// a file for measure_loudness.
+	// What it works on, one field by kind (D227 §2): an item for fetch_metadata and
+	// make_artwork_sizes, a rendition for prepare, a stream for extract_subtitle, a fetched subtitle
+	// for convert_fetched_subtitle, a file for measure_loudness.
 	ItemID            int64  `json:"itemId,omitempty"`
 	RenditionID       int64  `json:"renditionId,omitempty"`
 	StreamID          int64  `json:"streamId,omitempty"`

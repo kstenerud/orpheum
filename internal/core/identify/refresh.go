@@ -20,7 +20,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// refreshArgs are a fetch job's arguments when it refreshes a matched item rather than matching
+// refreshArgs are a fetch_metadata job's arguments when it refreshes a matched item rather than matching
 // it (D213).
 type refreshArgs struct {
 	IsRefresh bool `json:"isRefresh"`
@@ -28,7 +28,7 @@ type refreshArgs struct {
 	ShouldRetryImages bool `json:"shouldRetryImages,omitempty"`
 }
 
-// RefreshJob is the fetch job that refreshes an item from the source it follows, from runnableAt
+// RefreshJob is the fetch_metadata job that refreshes an item from the source it follows, from runnableAt
 // (now when zero); with shouldRetryImages it also asks again for the images it is missing (D213 §1, §2).
 func RefreshJob(
 	itemID int64, reason string, runnableAt time.Time, shouldRetryImages bool, priority int64,
@@ -39,7 +39,7 @@ func RefreshJob(
 		return jobs.Request{}, fmt.Errorf("encode item %d's refresh: %w", itemID, err)
 	}
 	return jobs.Request{
-		Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID}, ArgsJSON: string(args), Reason: reason,
+		Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: itemID}, ArgsJSON: string(args), Reason: reason,
 		RunnableAt: runnableAt, Priority: priority,
 	}, nil
 }

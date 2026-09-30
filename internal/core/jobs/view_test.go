@@ -20,7 +20,7 @@ func TestCancel_AQueuedJobNeverRunsAndARunningOnesHandlerIsToldAndItStaysCancell
 	var ran []int64
 	var cause error
 	second := jobs.job(t, 2)
-	runner := jobs.queue.NewRunner(KindFetch, func(ctx context.Context, job Job) error {
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(ctx context.Context, job Job) error {
 		ran = append(ran, job.ItemID)
 		if err := jobs.queue.SetProgress(ctx, job.ID, 0.25); err != nil {
 			t.Error(err)

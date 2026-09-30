@@ -451,7 +451,7 @@ func TestServe_DiscardsACacheFromAnotherVersionAndBuildsItAgain(t *testing.T) {
 	}
 	cachePath := filepath.Join(config.Server.CacheDir, "cache.db")
 	storetest.ExecRaw(t, cachePath, "PRAGMA user_version = 999",
-		"INSERT INTO job (kind, runnable_at, created_at) VALUES ('fetch', 0, 0)")
+		"INSERT INTO job (kind, runnable_at, created_at) VALUES ('fetch_metadata', 0, 0)")
 	captured := newCapturedLog("ready")
 	server := startServing(t, config, captured, "ready", nil)
 	if err := server.stop(); err != nil {

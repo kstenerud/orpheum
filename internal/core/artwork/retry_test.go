@@ -37,7 +37,7 @@ func TestService_AMissingImageIsRecheckedOnceAfterTheCDNForgetsThenGivenUp(t *te
 	bench.service.parts.Queue = queue
 	gone := owedRef{Kind: identify.ArtPoster, SourceRef: "/gone.jpg"}
 	bench.handle(t, gone)
-	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindFetch || (*queue)[0].ItemID != bench.itemID ||
+	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindFetchMetadata || (*queue)[0].ItemID != bench.itemID ||
 		!(*queue)[0].RunnableAt.Equal(bench.service.parts.Clock.Now().Add(12*time.Hour)) {
 		t.Fatalf("queued %+v; want the item's record refreshed once, twelve hours on", *queue)
 	}

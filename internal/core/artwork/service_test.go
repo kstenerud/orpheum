@@ -165,7 +165,9 @@ func (bench *bench) job(refs ...owedRef) jobs.Job {
 	if err != nil {
 		panic(err)
 	}
-	return jobs.Job{ID: 1, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, ArgsJSON: string(args)}
+	return jobs.Job{
+		ID: 1, Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: bench.itemID}, ArgsJSON: string(args),
+	}
 }
 
 func (bench *bench) handle(t *testing.T, refs ...owedRef) {
@@ -319,11 +321,12 @@ func TestService_OweQueuesOneJobPerItemThatFetchesWhatItNames(t *testing.T) {
 		{Kind: identify.ArtPoster, Ref: "/poster.jpg"}, {Kind: identify.ArtBackdrop, Ref: "/back.jpg"},
 	}}
 	bench.service.QueueOwed(t.Context(), []identify.OwedArtwork{owed, owed})
-	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindArtwork || (*queue)[0].ItemID != bench.itemID {
-		t.Fatalf("queued %+v; want one artwork job for the item", *queue)
+	if len(*queue) != 1 || (*queue)[0].Kind != jobs.KindMakeArtworkSizes || (*queue)[0].ItemID != bench.itemID {
+		t.Fatalf("queued %+v; want one make_artwork_sizes job for the item", *queue)
 	}
 	job := jobs.Job{
-		ID: 9, Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: bench.itemID}, ArgsJSON: (*queue)[0].ArgsJSON,
+		ID: 9, Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: bench.itemID},
+		ArgsJSON: (*queue)[0].ArgsJSON,
 	}
 	if err := bench.service.Handle(t.Context(), job); err != nil {
 		t.Fatal(err)

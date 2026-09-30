@@ -174,7 +174,7 @@ func (service *Service) queueMake(ctx context.Context, sourceSha256Hex string, w
 		return fmt.Errorf("encode the job: %w", err)
 	}
 	_, err = service.parts.Queue.Enqueue(ctx, jobs.Request{
-		Kind: jobs.KindArtwork, Target: jobs.Target{ItemID: origin.ItemID}, ArgsJSON: string(args),
+		Kind: jobs.KindMakeArtworkSizes, Target: jobs.Target{ItemID: origin.ItemID}, ArgsJSON: string(args),
 		Priority: makePriority,
 		Reason:   fmt.Sprintf("sizes someone asked for: %v", sizes),
 	})

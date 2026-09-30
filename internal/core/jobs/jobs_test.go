@@ -38,7 +38,7 @@ func newFixture(t *testing.T) fixture {
 
 func (fixed fixture) enqueue(t *testing.T, itemID, priority int64) {
 	t.Helper()
-	job := Request{Kind: KindFetch, Target: Target{ItemID: itemID}, Priority: priority, Reason: "test"}
+	job := Request{Kind: KindFetchMetadata, Target: Target{ItemID: itemID}, Priority: priority, Reason: "test"}
 	if _, err := fixed.queue.Enqueue(t.Context(), job); err != nil {
 		t.Fatal(err)
 	}
@@ -68,20 +68,20 @@ func TestEnqueue_QueuesATargetOnceWhileItIsOpen(t *testing.T) {
 	if listed, err := jobs.cache.Read().ListJobs(t.Context(), 10); err != nil || len(listed) != 1 {
 		t.Fatalf("%d jobs (%v) after queuing one subject twice, want 1", len(listed), err)
 	}
-	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error { return nil })
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error { return nil })
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	if added, err := jobs.queue.Enqueue(t.Context(), Request{
-		Kind:   KindFetch,
+		Kind:   KindFetchMetadata,
 		Target: Target{ItemID: 7},
 	}); err != nil || !added {
 		t.Errorf("a finished job's subject could not be queued again: %v", err)
 	}
-	if ever, err := jobs.queue.EverQueued(t.Context(), KindFetch, Target{ItemID: 7}); err != nil || !ever {
+	if ever, err := jobs.queue.EverQueued(t.Context(), KindFetchMetadata, Target{ItemID: 7}); err != nil || !ever {
 		t.Errorf("EverQueued forgot subject 7: %v", err)
 	}
-	if ever, err := jobs.queue.EverQueued(t.Context(), KindFetch, Target{ItemID: 8}); err != nil || ever {
+	if ever, err := jobs.queue.EverQueued(t.Context(), KindFetchMetadata, Target{ItemID: 8}); err != nil || ever {
 		t.Errorf("EverQueued claims subject 8, never queued: %v", err)
 	}
 }
@@ -93,7 +93,7 @@ func TestRunDue_RunsTheHighestPriorityFirst(t *testing.T) {
 	jobs.enqueue(t, 2, 10)
 	jobs.enqueue(t, 3, 0)
 	var ran []int64
-	runner := jobs.queue.NewRunner(KindFetch, func(_ context.Context, job Job) error {
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(_ context.Context, job Job) error {
 		ran = append(ran, job.ItemID)
 		return nil
 	})
@@ -113,7 +113,7 @@ func TestRunDue_RetriesAFailureWithDoublingBackoffThenFails(t *testing.T) {
 	jobs := newFixture(t)
 	jobs.enqueue(t, 1, 0)
 	runs := 0
-	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error {
 		runs++
 		return errors.New("the provider answered 500")
 	})
@@ -150,7 +150,7 @@ func TestRunDue_ARetryAfterWaitsWithoutCostingAnAttemptAndHoldsTheKind(t *testin
 	jobs.enqueue(t, 2, 0)
 	until := jobs.clock.Now().Add(time.Minute)
 	var ran []int64
-	runner := jobs.queue.NewRunner(KindFetch, func(_ context.Context, job Job) error {
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(_ context.Context, job Job) error {
 		ran = append(ran, job.ItemID)
 		if jobs.clock.Now().Before(until) {
 			return &RetryAtError{At: until, Err: errors.New("429")}
@@ -179,7 +179,7 @@ func TestRunDue_APermanentFailureIsNotRetried(t *testing.T) {
 	t.Parallel()
 	jobs := newFixture(t)
 	jobs.enqueue(t, 1, 0)
-	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error {
 		return MarkPermanent(errors.New("the key was refused"))
 	})
 	if err := runner.RunDue(t.Context()); err != nil {
@@ -216,7 +216,7 @@ func TestRunDue_ABlockedKindWaitsTheBackoffWithoutCostingAttempts(t *testing.T) 
 	jobs.enqueue(t, 2, 0)
 	blocked := true
 	runs := 0
-	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error {
 		runs++
 		if blocked {
 			return MarkBlocked(errors.New("no key"))
@@ -248,7 +248,7 @@ func TestRunDue_AKindWithItsOwnScheduleRetriesOnItThenFails(t *testing.T) {
 	jobs.enqueue(t, 1, 0)
 	runs := 0
 	schedule := []time.Duration{time.Minute, 5 * time.Minute}
-	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error {
 		runs++
 		return errors.New("the image server answered 503")
 	}).WithRetrySchedule(schedule)
@@ -276,13 +276,13 @@ func TestEnqueue_AJobWaitsUntilItsRunnableAt(t *testing.T) {
 	jobs := newFixture(t)
 	later := jobs.clock.Now().Add(12 * time.Hour)
 	if _, err := jobs.queue.Enqueue(t.Context(), Request{
-		Kind: KindFetch, Target: Target{ItemID: 4},
+		Kind: KindFetchMetadata, Target: Target{ItemID: 4},
 		RunnableAt: later,
 	}); err != nil {
 		t.Fatal(err)
 	}
 	ran := 0
-	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error { ran++; return nil })
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error { ran++; return nil })
 	if err := runner.RunDue(t.Context()); err != nil || ran != 0 {
 		t.Fatalf("ran %d before its time (%v)", ran, err)
 	}
@@ -299,7 +299,7 @@ func TestRun_AQueuedJobWakesARunnerOfItsOwnKindAtOnce(t *testing.T) {
 	defer stop()
 	ran := make(chan Kind, 4)
 	never := make(chan time.Time) // no tick: only a wake-up can start a run
-	kinds := []Kind{KindFetch, KindArtwork, KindPrepare, KindExtractSubtitle}
+	kinds := []Kind{KindFetchMetadata, KindMakeArtworkSizes, KindPrepare, KindExtractSubtitle}
 	for _, kind := range kinds {
 		runner := jobs.queue.NewRunner(kind, func(_ context.Context, job Job) error {
 			ran <- job.Kind
@@ -371,7 +371,7 @@ func TestRunDue_TheBackoffNeverShrinksHoweverManyAttemptsTheLimitAllows(t *testi
 	settingstest.Set(t, jobs.config, settings.JobAttemptLimit, "100")
 	settingstest.Set(t, jobs.config, settings.JobFirstRetryDelayS, "86400")
 	jobs.enqueue(t, 1, 0)
-	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error {
 		return errors.New("the provider answered 500")
 	})
 	var lastWait time.Duration
@@ -396,7 +396,7 @@ func TestRunDue_TheBackoffStopsAtADayThenRetriesDailyUntilTheLimit(t *testing.T)
 	const attemptLimit = 20
 	settingstest.Set(t, jobs.config, settings.JobAttemptLimit, "20")
 	jobs.enqueue(t, 1, 0)
-	runner := jobs.queue.NewRunner(KindFetch, func(context.Context, Job) error {
+	runner := jobs.queue.NewRunner(KindFetchMetadata, func(context.Context, Job) error {
 		return errors.New("the provider answered 500")
 	})
 	want := 10 * time.Second

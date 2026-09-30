@@ -23,7 +23,7 @@ import (
 )
 
 // jobServices is what the background jobs need: the identification pass, the job queue, the
-// matcher that runs its fetch jobs, the chooser a person uses, the refresher, the artwork its
+// matcher that runs its fetch_metadata jobs, the chooser a person uses, the refresher, the artwork its
 // matches name, and playback's prepare, subtitle and loudness work.
 type jobServices struct {
 	pass      *identify.Pass
@@ -105,8 +105,8 @@ type jobRunners []struct {
 // slots (cut-a §5.3), so a second person's copy is not held behind the first's.
 func (services jobServices) runners() jobRunners {
 	return jobRunners{
-		{jobs.KindFetch, services.matcher.Handle, nil, 1},
-		{jobs.KindArtwork, services.artwork.Handle, artwork.RetrySchedule(), 1},
+		{jobs.KindFetchMetadata, services.matcher.Handle, nil, 1},
+		{jobs.KindMakeArtworkSizes, services.artwork.Handle, artwork.RetrySchedule(), 1},
 		{jobs.KindPrepare, services.playback.HandlePrepare, nil, nodeproto.EncodeSlotCount + nodeproto.RemuxSlotCount},
 		{jobs.KindExtractSubtitle, services.playback.HandleExtractSubtitle, nil, 1},
 		{jobs.KindConvertFetchedSubtitle, services.playback.HandleConvertFetchedSubtitle, nil, 1},
@@ -223,10 +223,10 @@ func keepSortAndSearchKeysCurrent(
 func queueOwedFetches(ctx context.Context, queue *jobs.Queue, report identify.Report, logger *slog.Logger) {
 	queued := 0
 	for _, itemID := range report.AwaitingMatch {
-		wasEverQueued, err := queue.EverQueued(ctx, jobs.KindFetch, jobs.Target{ItemID: itemID})
+		wasEverQueued, err := queue.EverQueued(ctx, jobs.KindFetchMetadata, jobs.Target{ItemID: itemID})
 		if err == nil && !wasEverQueued {
 			_, err = queue.Enqueue(ctx, jobs.Request{
-				Kind: jobs.KindFetch, Target: jobs.Target{ItemID: itemID},
+				Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: itemID},
 				Reason: "the first match for a newly identified title or series",
 			})
 			queued++
@@ -238,7 +238,8 @@ func queueOwedFetches(ctx context.Context, queue *jobs.Queue, report identify.Re
 	}
 	for _, seriesID := range report.AwaitingListings {
 		wasQueued, err := queue.Enqueue(ctx, jobs.Request{
-			Kind: jobs.KindFetch, Target: jobs.Target{ItemID: seriesID}, Reason: "a season listing a new episode needs",
+			Kind: jobs.KindFetchMetadata, Target: jobs.Target{ItemID: seriesID},
+			Reason: "a season listing a new episode needs",
 		})
 		if err != nil {
 			logger.ErrorContext(ctx, "could not queue a season listing", "seriesId", seriesID, "err", err)

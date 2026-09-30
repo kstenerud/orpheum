@@ -66,7 +66,7 @@ func (harness testHarness) storeExtractedText(t *testing.T, payloadHash []byte, 
 	t.Helper()
 	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		err := queries.RequestSubtitleText(t.Context(), cachegen.RequestSubtitleTextParams{
-			BytesPayloadHash: payloadHash, StreamIndex: streamIndex, CreatedAt: 1,
+			SourceHash: payloadHash, StreamIndex: streamIndex, CreatedAt: 1,
 		})
 		if err != nil {
 			return fmt.Errorf("want the text: %w", err)
@@ -74,7 +74,7 @@ func (harness testHarness) storeExtractedText(t *testing.T, payloadHash []byte, 
 		finished := int64(2)
 		err = queries.SetSubtitleTextComplete(t.Context(), cachegen.SetSubtitleTextCompleteParams{
 			ASS: []byte(text), VTT: []byte(text), FinishedAt: &finished,
-			BytesPayloadHash: payloadHash, StreamIndex: streamIndex,
+			SourceHash: payloadHash, StreamIndex: streamIndex,
 		})
 		if err != nil {
 			return fmt.Errorf("complete the text: %w", err)

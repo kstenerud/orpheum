@@ -71,7 +71,7 @@ type Subtitle struct {
 // textKey is where a track's text is kept: the payload hash of the file its bytes are in, and its
 // stream index there. A subtitle file's one track is its stream 0, as FFmpeg numbers it.
 func textKey(payloadHash []byte, streamIndex *int64) cachegen.GetSubtitleTextParams {
-	return cachegen.GetSubtitleTextParams{BytesPayloadHash: payloadHash, StreamIndex: ptr.ValueOrZero(streamIndex)}
+	return cachegen.GetSubtitleTextParams{SourceHash: payloadHash, StreamIndex: ptr.ValueOrZero(streamIndex)}
 }
 
 // wantSubtitles lists a video's text subtitle tracks, its own and its subtitle files', and has
@@ -180,7 +180,7 @@ func (service *Service) wantText(ctx context.Context, want wantedText, nowMs int
 	var state string
 	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		wantErr := queries.RequestSubtitleText(ctx, cachegen.RequestSubtitleTextParams{
-			BytesPayloadHash: key.BytesPayloadHash, StreamIndex: key.StreamIndex, CreatedAt: nowMs,
+			SourceHash: key.SourceHash, StreamIndex: key.StreamIndex, CreatedAt: nowMs,
 		})
 		if wantErr != nil {
 			return wantErr
@@ -340,17 +340,17 @@ func (service *Service) finishSubtitle(
 	err := service.cache.Write(ctx, func(queries *cachegen.Queries) error {
 		if answer.Failure != "" {
 			return queries.SetSubtitleTextFailed(ctx, cachegen.SetSubtitleTextFailedParams{
-				Failure: &answer.Failure, FinishedAt: &now, BytesPayloadHash: key.BytesPayloadHash,
+				Failure: &answer.Failure, FinishedAt: &now, SourceHash: key.SourceHash,
 				StreamIndex: key.StreamIndex,
 			})
 		}
 		return queries.SetSubtitleTextComplete(ctx, cachegen.SetSubtitleTextCompleteParams{
-			ASS: answer.ASS, VTT: answer.VTT, FinishedAt: &now, BytesPayloadHash: key.BytesPayloadHash,
+			ASS: answer.ASS, VTT: answer.VTT, FinishedAt: &now, SourceHash: key.SourceHash,
 			StreamIndex: key.StreamIndex,
 		})
 	})
 	if err != nil {
-		return fmt.Errorf("keep the text of stream index %d of %x: %w", key.StreamIndex, key.BytesPayloadHash, err)
+		return fmt.Errorf("keep the text of stream index %d of %x: %w", key.StreamIndex, key.SourceHash, err)
 	}
 	return nil
 }

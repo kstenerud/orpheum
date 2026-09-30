@@ -136,7 +136,7 @@ func TestPass_AnImageNoLongerBesideTheMediaIsRetired(t *testing.T) {
 			posterRef = owed.Refs[0].Ref
 		}
 	}
-	// The poster was stored, as the artwork job would have, and a person chose a backdrop.
+	// The poster was stored, as the make_artwork_sizes job would have, and a person chose a backdrop.
 	for _, row := range []sqlcgen.InsertArtworkParams{
 		{
 			ItemID: titleID, Kind: identify.ArtPoster, Source: identify.SourceLocal, SourceRef: &posterRef,
