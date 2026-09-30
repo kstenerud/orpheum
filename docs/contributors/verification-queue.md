@@ -108,7 +108,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   the film plays again with it chosen, named "downloaded, unverified" in the menu, and the count
   is one lower next time. **Earlier**/**Later** move it. Play the film again: it starts with that
   subtitle. Set a wrong password: the search says OpenSubtitles refused the login.
-  (`internal/core/playback/opensubtitles/`, `web/apps/web/src/subtitle-search.tsx`, D224)
+  (`internal/core/providers/opensubtitles/`, `web/apps/web/src/subtitle-search.tsx`, D224)
 - [x] **VQ12** — On the dev loop, on the Mac, in Chrome and then in Safari: play *Wing*
   (director's cut) from the real films (`/play/42`) and then *Back to the Lantern* (`/play/59`),
   once both are measured (the job view lists `measure_loudness` jobs until then). Under the video,
