@@ -22,7 +22,7 @@ export interface Session {
 }
 
 const tokenStorageKey = "orpheum.session";
-const deviceIdStorageKey = "orpheum.device";
+const deviceIdStorageKey = "orpheum.deviceId";
 
 /** Creates a session over storage, which may throw on every call. */
 export function createSession(refusableStorage: StringStorage | undefined): Session {
