@@ -50,7 +50,7 @@ check: check-tools check-generated ## The gate: everything that runs on every ch
 	@echo "make check: all gates passed"
 
 .PHONY: check-parallel
-check-parallel: check-docs check-scripts check-source check-deps check-claims check-go check-web
+check-parallel: check-docs check-scripts check-source check-deps check-claims check-architecture check-go check-web
 
 .PHONY: check-tools
 check-tools: ## Fail if a pinned tool is missing or at the wrong version
@@ -87,6 +87,10 @@ check-deps: ## Every dependency is on the owner's allowlist with a reason
 .PHONY: check-claims
 check-claims: ## TestArch_ citations, decision IDs in code, and ORPHEUM_TEST_ variables resolve
 	@$(PYTHON) scripts/check_claims.py
+
+.PHONY: check-architecture
+check-architecture: ## Every package has a row in the architecture map; schema.md's owners table lists every table
+	@$(PYTHON) scripts/check_architecture_map.py
 
 .PHONY: check-go
 check-go: go-fmt go-lint go-vet go-test go-tidy go-speculative ## All Go checks
