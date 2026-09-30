@@ -41,6 +41,8 @@ type fakeNodes struct {
 	commanded chan nodeproto.Command
 	// isAway is a node that has not connected.
 	isAway atomic.Bool
+	// awayNodeID is another node than 1, enrolled and away while node 1 is connected; 0 for none.
+	awayNodeID int64
 	// takeSubtitleText is where the node's answers to a fetch's conversion go, which it answers at
 	// once: text it cannot read, unreadableText, is refused as FFmpeg would fail on it.
 	takeSubtitleText func(nodeID int64, answer nodeproto.SubtitleText)
@@ -49,7 +51,9 @@ type fakeNodes struct {
 // unreadableText is a fetched subtitle the fake node cannot convert.
 const unreadableText = "not a subtitle"
 
-func (nodes *fakeNodes) IsConnected(context.Context, int64) bool { return !nodes.isAway.Load() }
+func (nodes *fakeNodes) IsConnected(_ context.Context, nodeID int64) bool {
+	return !nodes.isAway.Load() && (nodes.awayNodeID == 0 || nodeID != nodes.awayNodeID)
+}
 
 // NodeConnection is node 1's: connected unless it is away, last heard when its facts say.
 func (nodes *fakeNodes) NodeConnection(_ context.Context, nodeID int64) (corenodes.Connection, time.Time) {
