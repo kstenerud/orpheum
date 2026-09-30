@@ -458,7 +458,9 @@ def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outc
         attempts.extend(other_builds(change.path))
         attempts.extend(browser_tier(change.path))
         for attempt in attempts:
-            env = {**os.environ, **attempt.env} if attempt.env else None
+            # Python caches a module by its size and mtime; a probe that restores a file to the same
+            # size within a second would run the stale cache, so the probes write none.
+            env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", **(attempt.env or {})}
             # One browser tier at a time: each starts a server and three browsers.
             with BROWSER_TIER_LOCK if "browser-tier" in attempt.command else contextlib.nullcontext():
                 done = subprocess.run(
